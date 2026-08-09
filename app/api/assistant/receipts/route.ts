@@ -206,6 +206,10 @@ const VALID_ACTION_TYPES = new Set<ActivityActionType>([
   'agreement_authorized',
   'capability_registered',
   'standing_accrued',
+  // Orient stage (Threshold Journey — Orient + Consequence Fork, 2026-08-09)
+  // — the acknowledgment/legacy-precedent receipt named in
+  // horizenMoneyPennyJourney.ts's Orient stage `receiptTypes`.
+  'orientation_ritual_completed',
 ]);
 
 export async function GET(request: NextRequest): Promise<NextResponse> {

@@ -732,14 +732,18 @@ export async function findAgentReceiptRefs(
   runtimeAgentId: string,
   actionTypes: readonly ActivityActionType[],
   options?: { limit?: number },
-): Promise<{ id: string; actionType: ActivityActionType }[]> {
+): Promise<{ id: string; actionType: ActivityActionType; receiptStatus: ReceiptStatus }[]> {
   if (!runtimeAgentId || actionTypes.length === 0) return [];
   const limit = Math.min(Math.max(options?.limit ?? 100, 1), 200);
 
   const admin = getAdminClient();
   const { data, error } = await admin
     .from('activity_receipts')
-    .select('id, action_type')
+    // `receipt_status` added 2026-08-09 (Horizen Journey Consequence Fork
+    // projection) — an EXISTING column on this table, never a new source of
+    // truth. Lets a caller distinguish "evidence present" from "DVN final"
+    // (services/journey/consequenceForkProjection.ts) without a second read.
+    .select('id, action_type, receipt_status')
     .in('action_type', actionTypes as ActivityActionType[])
     .contains('agents_invoked', [runtimeAgentId])
     .order('created_at', { ascending: false })
@@ -750,9 +754,10 @@ export async function findAgentReceiptRefs(
     throw new Error(`findAgentReceiptRefs failed: ${error.message}`);
   }
   if (!data) return [];
-  return (data as { id: string; action_type: ActivityActionType }[]).map((r) => ({
+  return (data as { id: string; action_type: ActivityActionType; receipt_status: ReceiptStatus | null }[]).map((r) => ({
     id: r.id,
     actionType: r.action_type,
+    receiptStatus: r.receipt_status ?? 'local',
   }));
 }
 

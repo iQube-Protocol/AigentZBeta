@@ -16,12 +16,13 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import {
   createActivityReceipt,
   listActivityReceiptsForPersona,
 } from '@/services/receipts/activityReceiptService';
 import { resolveRegistrableAgent, DEFAULT_REGISTRABLE_AGENT_SLUG } from '@/services/horizen/registrableAgents';
-import { resolveOrientationContext } from '@/services/journey/orientationContext';
+import { resolveOrientationContext, resolveOrientationCompletion } from '@/services/journey/orientationContext';
 
 export const dynamic = 'force-dynamic';
 
@@ -54,19 +55,28 @@ async function getImpl(request: NextRequest) {
 
   const agentSlug = request.nextUrl.searchParams.get('agentSlug');
   const agent = resolveRegistrableAgent(agentSlug) ?? resolveRegistrableAgent(DEFAULT_REGISTRABLE_AGENT_SLUG)!;
+  const supabase = getSupabaseServer();
 
-  const [orientationContext, existing] = await Promise.all([
+  /*
+   * SAME COMPLETION SIGNAL THE JOURNEY STEPPER READS — never a second,
+   * receipt-only observer of "is Orient done" (the exact two-observer defect
+   * this codebase repeatedly guards against). `resolveOrientationCompletion`
+   * recognises BOTH the explicit ritual and the legacy-precedent
+   * compatibility path (services/journey/orientationContext.ts), so an agent
+   * whose admission predates Orient never sees this panel re-prompt for an
+   * acknowledgment their own stepper already renders complete.
+   */
+  const [orientationContext, completion] = await Promise.all([
     resolveOrientationContext(persona.personaId, agent),
-    listActivityReceiptsForPersona(persona.personaId, {
-      actionTypes: ['orientation_ritual_completed'],
-      agentsInvoked: [agent.runtimeAgentId],
-      limit: 1,
-    }),
+    supabase
+      ? resolveOrientationCompletion(supabase, persona.personaId, agent)
+      : Promise.resolve({ complete: false, source: 'none' as const }),
   ]);
 
   return NextResponse.json({
     ok: true,
-    orientationComplete: existing.length > 0,
+    orientationComplete: completion.complete,
+    orientationCompletionSource: completion.source,
     orientationContext,
   });
 }
@@ -106,6 +116,27 @@ async function postImpl(request: NextRequest) {
   }
   const agent = resolveRegistrableAgent(body.agentSlug) ?? resolveRegistrableAgent(DEFAULT_REGISTRABLE_AGENT_SLUG)!;
   const orientationContext = await resolveOrientationContext(persona.personaId, agent);
+
+  /*
+   * A LEGACY-PRECEDENT AGENT NEVER GETS A WRITTEN RITUAL RECEIPT (operator
+   * instruction, 2026-08-09: "Do not counterfeit historical user
+   * acknowledgement"). If this agent's admission already crossed the
+   * stronger downstream boundary before Orient existed, Orient is already
+   * complete via that compatibility path — POSTing here would fabricate an
+   * explicit ceremony that never happened. Report success without writing.
+   */
+  const supabase = getSupabaseServer();
+  if (supabase) {
+    const priorCompletion = await resolveOrientationCompletion(supabase, persona.personaId, agent);
+    if (priorCompletion.complete) {
+      return NextResponse.json({
+        ok: true,
+        orientationComplete: true,
+        orientationCompletionSource: priorCompletion.source,
+        ritualKind: orientationContext.ritualKind,
+      });
+    }
+  }
 
   // Idempotent — scoped by agentsInvoked so acknowledging Orient for one
   // agent never shadows, or is shadowed by, another agent's acknowledgment
@@ -148,6 +179,7 @@ async function postImpl(request: NextRequest) {
   return NextResponse.json({
     ok: true,
     orientationComplete: true,
+    orientationCompletionSource: 'ritual',
     ritualKind: orientationContext.ritualKind,
   });
 }

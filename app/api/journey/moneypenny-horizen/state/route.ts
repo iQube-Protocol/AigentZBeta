@@ -21,8 +21,18 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
-import { findAgentReceiptRefs, type ActivityActionType } from '@/services/receipts/activityReceiptService';
+import {
+  findAgentReceiptRefs,
+  readReceiptAnchorStatus,
+  type ActivityActionType,
+  type ReceiptStatus,
+} from '@/services/receipts/activityReceiptService';
 import type { AuthoritativePlatformState } from '@/services/journey/resolveJourneyState';
+import {
+  classifyConsequenceProng,
+  bestReceiptStatus,
+  consequenceProngCopy,
+} from '@/services/journey/consequenceForkProjection';
 import { HORIZEN_MONEYPENNY_JOURNEY } from '@/services/journey/horizenMoneyPennyJourney';
 import { resolveRequestOrigin } from '@/app/api/agents/_lib/requestOrigin';
 import { resolveRegistrableAgent, DEFAULT_REGISTRABLE_AGENT_SLUG } from '@/services/horizen/registrableAgents';
@@ -38,7 +48,11 @@ import {
   type BlockingReason,
 } from '@/services/journey/stageResolution';
 import { resolveRatificationRefs } from '@/services/journey/ratificationRefs';
-import { resolveOrientationContext, type OrientationContext } from '@/services/journey/orientationContext';
+import {
+  resolveOrientationContext,
+  orientationLegacyPrecedentEstablished,
+  type OrientationContext,
+} from '@/services/journey/orientationContext';
 import {
   getAgreement,
   requireAuthorizedAgreement,
@@ -168,6 +182,10 @@ async function resolveState(req: NextRequest) {
   }
 
   const receiptRefs: Record<string, string[]> = {};
+  // Consequence Fork projection (2026-08-09) — the same agent-scoped receipts,
+  // carrying `receipt_status` so the fork can distinguish "evidence present"
+  // from "DVN final" without a second source of truth.
+  const receiptStatuses: Record<string, ReceiptStatus[]> = {};
   let aigentQubeResolved = false;
   /*
    * THE SETTLED REGISTRATION — RETRIEVED, NEVER RE-DERIVED.
@@ -194,6 +212,12 @@ async function resolveState(req: NextRequest) {
    */
   let ratifyAgreement: ConstitutionalAgreementRow | null = null;
   let ratifyGateRecognized = false;
+  // Consequence Fork projection (2026-08-09) — Ratify's authorization
+  // receipts are tagged `agentsInvoked: ['aigent-z']` (the orchestrator),
+  // never the subject agent, so the agent-scoped receipt scan above cannot
+  // see them. Read by id, off the agreement row's own receipt reference —
+  // the same targeted lookup `readReceiptAnchorStatus` already exists for.
+  let ratifyAnchorStatus: ReceiptStatus | null | undefined = null;
   /*
    * PERSONA ASSIGNMENT ≠ aigentMe DESIGNATION (al, 2026-08-04). Whether the
    * OPERATOR's active persona has structurally assigned this agent as a
@@ -281,6 +305,9 @@ async function resolveState(req: NextRequest) {
       const refs = await findAgentReceiptRefs(agent.runtimeAgentId, JOURNEY_ACTION_TYPES, { limit: 100 });
       for (const ref of refs) {
         (receiptRefs[ref.actionType] ??= []).push(ref.id);
+        // Consequence Fork projection (2026-08-09) — the SAME read, carrying
+        // the status column it always had. Never a second query.
+        (receiptStatuses[ref.actionType] ??= []).push(ref.receiptStatus);
       }
     });
     if (supabase) await guarded('aigentqube', async () => {
@@ -541,6 +568,10 @@ async function resolveState(req: NextRequest) {
       });
       ratifyGateRecognized = gate.ok;
     });
+    if (supabase) await guarded('ratify-anchor-status', async () => {
+      if (!ratifyAgreement?.authorizedReceiptId) return;
+      ratifyAnchorStatus = await readReceiptAnchorStatus(ratifyAgreement.authorizedReceiptId);
+    });
     if (supabase) await guarded('prior-resolution', async () => {
       priorResolution = await readJourneyResolution(supabase, agent.aigentQubeId, HORIZEN_MONEYPENNY_JOURNEY.id);
     });
@@ -657,11 +688,34 @@ async function resolveState(req: NextRequest) {
         controlProofFresh: hasReceipt('agent_control_proven'),
       },
       orient: {
-        // The ONLY thing that flips this true is the operator's explicit
-        // acknowledgment act (app/api/journey/moneypenny-horizen/orient/
-        // acknowledge/route.ts) — never merely having viewed the stage or
-        // having this route resolve a ritual for it.
-        orientationComplete: hasReceipt('orientation_ritual_completed'),
+        /*
+         * TWO WAYS TO SATISFY ORIENT, NEVER CONFLATED (Horizen Journey
+         * correction, 2026-08-09):
+         *
+         *   1. The operator's explicit acknowledgment act (app/api/journey/
+         *      moneypenny-horizen/orient/acknowledge/route.ts).
+         *   2. LEGACY PRECEDENT — this agent already crossed the stronger
+         *      downstream boundary (issued Delegate Passport, active bounded
+         *      delegation, activated aigentMe/Operate) before Orient existed
+         *      as a stage. Nakamoto is exactly this case: her admission
+         *      completed before Orient was inserted into the spine, so no
+         *      `orientation_ritual_completed` receipt can or should exist for
+         *      her — fabricating one would counterfeit an acknowledgment she
+         *      never performed. `orientationLegacyPrecedentEstablished`
+         *      (services/journey/orientationContext.ts) is the ONE place this
+         *      three-fact rule is decided; a NEW agent cannot satisfy it
+         *      because reaching all three facts requires passing Orient for
+         *      real first.
+         *
+         * Never merely having viewed the stage — that satisfies neither path.
+         */
+        orientationComplete:
+          hasReceipt('orientation_ritual_completed') ||
+          orientationLegacyPrecedentEstablished({
+            delegatePassportIssued: passportIssuedForAgent,
+            delegationActive: admission?.delegationActive === true,
+            aigentMeActivated: hasReceipt('aigentme_activated'),
+          }),
       },
       passport: {
         /*
@@ -952,6 +1006,34 @@ async function resolveState(req: NextRequest) {
     nonBlockingIncompleteStages: storeUnavailable ? ['verify'] : [],
   });
 
+  /*
+   * CONSEQUENCE FORK PROJECTION (Horizen Journey correction, 2026-08-09) —
+   * derived EXCLUSIVELY from `resolution` (already-computed authoritative
+   * stage state) and the receipt-status reads above. No new source of truth:
+   * `classifyConsequenceProng` never re-decides completion, it only asks
+   * whether an already-COMPLETE stage's external consequence has reached
+   * DVN finality. Each prong resolves independently — Stand's incompleteness
+   * cannot dim an already-proven Ratify or Ingest.
+   */
+  const stageStatus = (id: string) => resolution.stages.find((s) => s.stageId === id)?.status ?? 'NOT_STARTED';
+  const consequenceFork = {
+    verify: consequenceProngCopy(
+      classifyConsequenceProng({ stageState: stageStatus('verify'), bestAnchorReceiptStatus: ratifyAnchorStatus ?? null }),
+    ),
+    deploy: consequenceProngCopy(
+      classifyConsequenceProng({
+        stageState: stageStatus('deploy'),
+        bestAnchorReceiptStatus: bestReceiptStatus(receiptStatuses['capability_registered'] ?? []),
+      }),
+    ),
+    standing: consequenceProngCopy(
+      classifyConsequenceProng({
+        stageState: stageStatus('standing'),
+        bestAnchorReceiptStatus: bestReceiptStatus(receiptStatuses['standing_accrued'] ?? []),
+      }),
+    ),
+  };
+
   // Persist so refresh, persona change and route change all resolve the same
   // result. The write is itself monotonic — see recordJourneyResolution.
   try {
@@ -1002,5 +1084,9 @@ async function resolveState(req: NextRequest) {
     // Orient's contextually-resolved ritual (services/journey/orientationContext.ts)
     // — null only when no active persona could be resolved on this request.
     orientationContext,
+    // Consequence Fork projection (services/journey/consequenceForkProjection.ts)
+    // — keyed by stage id, each { tier, label, detail }. Derived exclusively
+    // from `resolution` + receipt status; never a second completion source.
+    consequenceFork,
   });
 }

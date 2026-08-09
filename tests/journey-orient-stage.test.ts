@@ -119,12 +119,34 @@ describe('JourneyRunSurface renders the fork as one trident after the spine, nev
     expect(source.slice(stripAt, mapAt + 20)).toMatch(/spineStages\.map/);
   });
 
-  it('the fork renders only when forkStages is non-empty, gated behind the spine strip', () => {
+  it('anchors the fork INSIDE the same horizontal strip as the spine — never a detached block underneath (2026-08-09 trident correction)', () => {
+    const stripAt = source.indexOf('ref={stripRef}');
+    const spineMapAt = source.indexOf('spineStages.map(', stripAt);
+    const forkBlockAt = source.indexOf('forkStages.length > 0', stripAt);
+    expect(spineMapAt).toBeGreaterThan(-1);
+    expect(forkBlockAt).toBeGreaterThan(spineMapAt);
+    // THE ASSERTION THAT FAILS ON THE DEFECT: the historical implementation
+    // closed the strip's own <div> (via a stray `mt-2` sibling block) BEFORE
+    // reaching the fork. The corrected geometry keeps both inside one
+    // container — no `</div>` closes the strip between the spine map and the
+    // fork block.
+    const between = source.slice(spineMapAt, forkBlockAt);
+    expect(between, 'the strip container closes before the fork — the fork is a detached block again').not.toMatch(
+      /<\/div>\s*$/,
+    );
+    expect(source, 'the old detached fork block (mt-2 border-t) has returned').not.toMatch(
+      /mt-2 flex items-stretch gap-2 border-t border-slate-800\/60/,
+    );
+  });
+
+  it('the fork continues the spine\'s own connector line into the junction, never starting a second line', () => {
+    // The tick immediately after the fork's gate is styled exactly like a
+    // spine connector (emerald when the last spine stage is done, slate
+    // otherwise) — the SAME visual language, not a second palette.
     const forkBlockAt = source.indexOf('forkStages.length > 0');
-    expect(forkBlockAt).toBeGreaterThan(-1);
-    // The fork block must appear AFTER the spine strip's closing tag in source order.
-    const stripCloseAt = source.indexOf('</div>', source.indexOf('spineStages.map'));
-    expect(forkBlockAt).toBeGreaterThan(stripCloseAt);
+    const section = source.slice(forkBlockAt, forkBlockAt + 600);
+    expect(section).toMatch(/lastSpineDone/);
+    expect(section).toMatch(/bg-emerald-500\/50.*bg-slate-700|bg-slate-700.*bg-emerald-500\/50/s);
   });
 
   it('walks fork rows in upper, middle, lower order — Ratify, Ingest, Standing', () => {
