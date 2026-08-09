@@ -38,6 +38,29 @@ import { readJsonOrExplain } from '@/utils/readJsonOrExplain';
  * slide 0, fully visible.
  */
 /**
+ * ONE shared connector rule for EVERY inter-stage interval in the strip —
+ * Register→Claim through Operate→fork alike (Horizen Journey spacing
+ * correction, 2026-08-09, reversing an over-correction from earlier the
+ * same day).
+ *
+ * The immediately prior fix made every connector a FIXED `w-4` (16px) to
+ * stop Operate→fork visually diverging from the other five gaps — it
+ * succeeded at making them equal, but equal-and-tiny is not what "uniform
+ * spacing" meant: the whole strip collapsed to its min-content width and
+ * sat bunched in the left portion of the surface, leaving the rest of the
+ * available width empty. The actual ask was uniform DISTRIBUTION across
+ * the full available width, not a uniform fixed pixel gap.
+ *
+ * `flex-1` makes every connector claim an EQUAL share of the strip's
+ * leftover space (stage nodes stay `shrink-0`, so only connectors grow);
+ * `min-w-[40px]` keeps a breathable floor once the strip is narrower than
+ * its content and must scroll instead of crushing gaps toward zero. Used
+ * identically by the ordinary spine connectors AND the Operate→fork
+ * connector — never a per-position special case.
+ */
+const JOURNEY_CONNECTOR_CLASS = 'h-px flex-1 min-w-[40px]';
+
+/**
  * A server-derived signal name, made readable — MECHANICALLY.
  *
  * `principalRegistrationMandateSigned` → "Principal registration mandate
@@ -467,7 +490,7 @@ export function JourneyRunSurface({
         <div
           ref={stripRef}
           onScroll={measureOverflow}
-          className="flex items-center overflow-x-auto scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="flex w-full items-center overflow-x-auto scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           {spineStages.map((stage, i) => {
             const stageState = runtimeState?.stages.find((s) => s.stageId === stage.id)?.state ?? 'NOT_STARTED';
@@ -480,16 +503,9 @@ export function JourneyRunSurface({
                 'COMPLETE';
             return (
               <React.Fragment key={stage.id}>
-                {/* Fixed-width connector — the SAME 16px used by the
-                    Operate→fork junction connector below, so every
-                    inter-stage gap in the strip reads as one uniform
-                    interval (Horizen Journey spacing correction,
-                    2026-08-09). Previously `flex-1 min-w-[16px]`, which
-                    stretched to fill leftover strip width on wide
-                    viewports while the fork's connector stayed a fixed
-                    16px — the two connector kinds diverged visually
-                    whenever the strip was wider than its content. */}
-                {i > 0 && <div className={`h-px w-4 shrink-0 ${prevDone ? 'bg-emerald-500/50' : 'bg-slate-700'}`} />}
+                {/* The shared flexible connector — see JOURNEY_CONNECTOR_CLASS's
+                    own doc for why this is flex-1, not a fixed width. */}
+                {i > 0 && <div className={`${JOURNEY_CONNECTOR_CLASS} ${prevDone ? 'bg-emerald-500/50' : 'bg-slate-700'}`} />}
                 <button
                   data-stage-id={stage.id}
                   onClick={() => selectStage(stage.id)}
@@ -554,23 +570,27 @@ export function JourneyRunSurface({
             const ROW_TOP = ['top-0', 'top-6', 'top-12'];
             const TICK_Y = ['top-3', 'top-1/2 -translate-y-1/2', 'bottom-3'];
             return (
-              <div
-                data-testid="consequence-fork"
-                className="relative h-[72px] w-[170px] shrink-0"
-              >
-                {/* Incoming connector from Operate — reflects Operate's OWN
-                    completion, the same visual language as a spine connector. */}
+              <React.Fragment key="consequence-fork">
+                {/* The SAME shared flexible connector as every ordinary spine
+                    interval — moved OUT of the fork's fixed-size box so
+                    Operate→fork participates in the strip's flex
+                    distribution instead of being trapped inside a
+                    fixed-width unit (Horizen Journey spacing correction,
+                    2026-08-09). The box below now begins right at the
+                    junction. */}
+                <div className={`${JOURNEY_CONNECTOR_CLASS} ${lastSpineDone ? 'bg-emerald-500/50' : 'bg-slate-700'}`} />
                 <div
-                  className={`absolute left-0 top-1/2 h-px w-4 -translate-y-1/2 ${lastSpineDone ? 'bg-emerald-500/50' : 'bg-slate-700'}`}
-                />
-                {/* The vertical trunk — structural, never coloured by any ONE
-                    prong's state (MS-6-style: gate/rank per prong, never
-                    subtract from the group). Spans exactly between the top
-                    and bottom rows' own centers. */}
-                <div className="absolute bottom-3 left-4 top-3 w-px bg-slate-700" />
-                {/* The junction — ONE point, immediately after Operate. */}
-                <div className="absolute left-4 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-slate-600" />
-                {FORK_ROWS.map(({ position }, rowIndex) => {
+                  data-testid="consequence-fork"
+                  className="relative h-[72px] w-[154px] shrink-0"
+                >
+                  {/* The vertical trunk — structural, never coloured by any ONE
+                      prong's state (MS-6-style: gate/rank per prong, never
+                      subtract from the group). Spans exactly between the top
+                      and bottom rows' own centers. */}
+                  <div className="absolute bottom-3 left-0 top-3 w-px bg-slate-700" />
+                  {/* The junction — ONE point, immediately after Operate. */}
+                  <div className="absolute left-0 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-slate-600" />
+                  {FORK_ROWS.map(({ position }, rowIndex) => {
                   const stage = forkStages.find((s) => s.forkPosition === position);
                   if (!stage) return null;
                   const stageState = runtimeState?.stages.find((s) => s.stageId === stage.id)?.state ?? 'NOT_STARTED';
@@ -585,9 +605,9 @@ export function JourneyRunSurface({
                     <React.Fragment key={stage.id}>
                       {/* Short tick from the trunk to this row's own node —
                           independently coloured by THIS prong's state. */}
-                      <div className={`absolute left-4 ${TICK_Y[rowIndex]} h-px w-2 ${tickDone ? 'bg-emerald-500/50' : 'bg-slate-700'}`} />
+                      <div className={`absolute left-0 ${TICK_Y[rowIndex]} h-px w-2 ${tickDone ? 'bg-emerald-500/50' : 'bg-slate-700'}`} />
                       <div
-                        className={`absolute left-6 ${ROW_TOP[rowIndex]} flex h-6 items-center gap-1.5 whitespace-nowrap`}
+                        className={`absolute left-2 ${ROW_TOP[rowIndex]} flex h-6 items-center gap-1.5 whitespace-nowrap`}
                         data-fork-position={position}
                       >
                         <button
@@ -645,7 +665,8 @@ export function JourneyRunSurface({
                     </React.Fragment>
                   );
                 })}
-              </div>
+                </div>
+              </React.Fragment>
             );
           })()}
         </div>

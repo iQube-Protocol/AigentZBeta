@@ -172,10 +172,14 @@ describe('JourneyRunSurface renders the fork as one trident after the spine, nev
   it('the fork is ONE fixed-size relative box with absolutely-positioned trunk, junction and rows', () => {
     const forkBlockAt = source.indexOf('data-testid="consequence-fork"');
     const section = source.slice(Math.max(0, forkBlockAt - 200), forkBlockAt + 1200);
-    expect(section).toMatch(/relative h-\[72px\] w-\[170px\] shrink-0/);
+    // 154px, not 170px: the incoming connector's 16px moved OUT of the box
+    // and into the shared flexible connector (spacing correction, 2026-08-09)
+    // — the box now begins right at the junction instead of leaving a
+    // leading 16px gap inside it.
+    expect(section).toMatch(/relative h-\[72px\] w-\[154px\] shrink-0/);
     // The vertical trunk and the junction dot are both absolutely positioned
     // within that one box — never a second, independently-flowing element.
-    expect(section).toMatch(/absolute bottom-3 left-4 top-3 w-px/);
+    expect(section).toMatch(/absolute bottom-3 left-0 top-3 w-px/);
     expect(section).toMatch(/rounded-full bg-slate-600/); // the junction dot
   });
 
@@ -213,6 +217,66 @@ describe('JourneyRunSurface renders the fork as one trident after the spine, nev
     // tests/journey-orient-legacy-regression.test.ts ("stage labels are
     // normalized to verbs"), which is the single source of truth for it.
     expect(labelsMatch?.length ?? 0).toBeGreaterThanOrEqual(2);
+  });
+
+  /*
+   * ── SPACING CORRECTION: EQUAL FLEXIBLE CONNECTORS, NOT EQUAL FIXED-WIDTH
+   *    ONES (operator, 2026-08-09, reversing a same-day over-correction) ──
+   *
+   * The immediately prior fix made every connector — the five ordinary
+   * spine gaps AND the Operate→fork gap — a fixed `w-4` (16px), which DID
+   * make them equal but collapsed the whole strip to its min-content width:
+   * the journey bunched into the left portion of the surface with large
+   * unused width on the right. The actual requirement was uniform
+   * DISTRIBUTION across the full available width, not a uniform PIXEL gap.
+   * These canaries protect the corrected invariant — equal flex-grow, never
+   * equal fixed width — so this does not regress back to `w-4` under a
+   * future "make the gaps more consistent" request.
+   */
+  it('defines ONE shared flexible connector class — flex-1, not a fixed width — used by every ordinary spine gap', () => {
+    expect(source).toMatch(/const JOURNEY_CONNECTOR_CLASS = 'h-px flex-1 min-w-\[40px\]'/);
+    // The ordinary spine connector renders via the shared constant, not an
+    // inline literal that could drift from the fork's own connector.
+    expect(source).toMatch(/\{i > 0 && <div className=\{`\$\{JOURNEY_CONNECTOR_CLASS\}/);
+  });
+
+  it('never reintroduces a fixed-width (w-4 shrink-0) connector for any spine or fork interval', () => {
+    expect(source, 'a fixed w-4 connector has returned — this is the over-correction that bunched the journey left').not.toMatch(
+      /h-px w-4 shrink-0/,
+    );
+  });
+
+  it('the Operate→fork connector uses the SAME shared class as every ordinary spine gap, never a fixed-width special case', () => {
+    const forkGateAt = source.indexOf('forkStages.length > 0');
+    const forkTestIdAt = source.indexOf('data-testid="consequence-fork"', forkGateAt);
+    const section = source.slice(forkGateAt, forkTestIdAt);
+    expect(section).toMatch(/\$\{JOURNEY_CONNECTOR_CLASS\}/);
+    // And it renders as a normal flex-flow sibling BEFORE the fixed-size
+    // box, not absolutely positioned inside it — participating in the
+    // strip's flex distribution the same way an ordinary connector does.
+    expect(section).not.toMatch(/absolute left-0 top-1\/2 h-px w-4/);
+  });
+
+  it('the strip explicitly claims the full available width (w-full), so flex-1 connectors have real space to distribute', () => {
+    const stripAt = source.indexOf('ref={stripRef}');
+    const classNameAt = source.indexOf('className=', stripAt);
+    const section = source.slice(classNameAt, classNameAt + 200);
+    expect(section).toMatch(/\bw-full\b/);
+  });
+
+  it('stage nodes stay shrink-0 — only connectors absorb/distribute the available width, never the nodes themselves', () => {
+    const spineButtonAt = source.indexOf('data-stage-id={stage.id}');
+    const section = source.slice(Math.max(0, spineButtonAt - 50), spineButtonAt + 300);
+    expect(section).toMatch(/shrink-0/);
+  });
+
+  it('the fork remains inside the same horizontal strip as the spine — the connector move did not detach it again', () => {
+    const stripAt = source.indexOf('ref={stripRef}');
+    const spineMapAt = source.indexOf('spineStages.map(', stripAt);
+    const forkTestIdAt = source.indexOf('data-testid="consequence-fork"', stripAt);
+    const stripCloseAt = source.indexOf('</div>\n      </div>', spineMapAt);
+    expect(forkTestIdAt).toBeGreaterThan(spineMapAt);
+    expect(forkTestIdAt).toBeLessThan(stripCloseAt);
   });
 });
 
