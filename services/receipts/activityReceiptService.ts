@@ -750,6 +750,51 @@ export async function findAgentReceiptRefs(
   }));
 }
 
+/**
+ * Every receipt of ONE action type, across ALL personas — the infra/ops-scoped
+ * counterpart to `listActivityReceiptsForPersona` (which requires a persona
+ * and therefore cannot answer "which registrations are still pending,
+ * regardless of who submitted them"). Same shape of need as
+ * `finalizeReadyActivityReceipts` (services/dvn/activityReceiptDvnPipeline.ts),
+ * which queries `activity_receipts` directly for the same reason: a scheduled
+ * reconciler has no persona to scope to. Lives here, not as a second raw
+ * query, so this stays the one place that reads `activity_receipts` by shape
+ * (inv.engineering.036/037).
+ */
+export interface ReceiptByActionType {
+  id: string;
+  personaId: string;
+  agentsInvoked: string[];
+  actionInput: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+export async function findReceiptsByActionType(
+  actionType: ActivityActionType,
+  options?: { limit?: number },
+): Promise<ReceiptByActionType[]> {
+  const limit = Math.min(Math.max(options?.limit ?? 50, 1), 200);
+  const admin = getAdminClient();
+  const { data, error } = await admin
+    .from('activity_receipts')
+    .select('id, persona_id, agents_invoked, action_input, created_at')
+    .eq('action_type', actionType)
+    .order('created_at', { ascending: true })
+    .limit(limit);
+  if (error) {
+    if (isMissingTable(error)) return [];
+    throw new Error(`findReceiptsByActionType failed: ${error.message}`);
+  }
+  if (!data) return [];
+  return (data as Array<{ id: string; persona_id: string; agents_invoked: string[] | null; action_input: Record<string, unknown> | null; created_at: string }>).map((r) => ({
+    id: r.id,
+    personaId: r.persona_id,
+    agentsInvoked: r.agents_invoked ?? [],
+    actionInput: r.action_input,
+    createdAt: r.created_at,
+  }));
+}
+
 export async function findAgentRegistrationReceipts(
   runtimeAgentId: string,
   options?: { limit?: number },

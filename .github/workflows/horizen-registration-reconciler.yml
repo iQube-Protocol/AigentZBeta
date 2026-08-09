@@ -1,0 +1,65 @@
+name: horizen-registration-reconciler
+
+# ── CLOSES HORIZEN PILOT CLOSURE ITEM 1 ─────────────────────────────────────
+#
+# checkAgentRegistrationStatus() — the Register stage's single-attempt
+# Horizen/on-chain confirmation check — had exactly one caller repo-wide: a
+# browser poll capped at 20 attempts * 8s = 160 seconds
+# (components/journey/RegisterAgentPanel.tsx). Once that poll gave up — page
+# close, operator disconnect, or a deploy mid-poll — a broadcast registration
+# transaction had nothing left checking on it, indistinguishable from the
+# outside between "still pending" and "confirmed while nobody was polling."
+#
+# This workflow gives the EXISTING, unmodified check independent liveness —
+# same pattern as activity-receipts-finalizer.yml (which did the same thing
+# for DVN finalization) and dvn-reconciler.yml. No new confirmation logic, no
+# rebroadcast — the reconciler only ever calls checkAgentRegistrationStatus,
+# never broadcastAgentRegistration.
+#
+# Required secret (already provisioned — same token, same env var, no new
+# secret to add):
+#   CRON_TRIGGER_TOKEN
+#
+# Manual trigger: Actions -> horizen-registration-reconciler -> Run workflow.
+
+on:
+  schedule:
+    # Every 10 minutes — registration confirmation depends on an external
+    # MCP server (Horizen) plus an RPC read per pending agent, so this is
+    # deliberately looser than the 5-minute DVN finalizer cadence to keep
+    # per-run external-call volume bounded.
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  # Never overlap runs against the same pending set.
+  group: horizen-registration-reconciler
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Reconcile pending Horizen agent registrations
+        env:
+          CRON_TRIGGER_TOKEN: ${{ secrets.CRON_TRIGGER_TOKEN }}
+        run: |
+          if [ -z "$CRON_TRIGGER_TOKEN" ]; then
+            echo "::error::CRON_TRIGGER_TOKEN secret not set in repo settings"
+            exit 1
+          fi
+          response=$(curl -sS --max-time 90 -X POST \
+            -H "x-cron-token: $CRON_TRIGGER_TOKEN" \
+            "https://dev-beta.aigentz.me/api/ops/horizen/reconcile-registrations")
+          echo "Reconciler response: $response"
+          # A run that legitimately finds nothing pending is a SUCCESS — only
+          # ok=false is a workflow failure.
+          ok=$(echo "$response" | python3 -c "import sys,json; print(json.load(sys.stdin).get('ok', False))" 2>/dev/null || echo "parse_error")
+          if [ "$ok" = "parse_error" ]; then
+            echo "::error::Reconciler returned an unparseable response (see body above)"
+            exit 1
+          fi
+          if [ "$ok" != "True" ] && [ "$ok" != "true" ]; then
+            echo "::error::Reconciler reported failure"
+            exit 1
+          fi

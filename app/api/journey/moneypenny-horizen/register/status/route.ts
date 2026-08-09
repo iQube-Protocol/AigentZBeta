@@ -21,14 +21,12 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
-import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { resolveRegistrableAgent } from '@/services/horizen/registrableAgents';
 import {
   checkAgentRegistrationStatus,
   resolveAgentOwnerWalletAddress,
 } from '@/services/horizen/registrationClient';
-import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
-import type { ExternalAgentRegistryBinding } from '@/types/registry-canonical';
+import { buildRegistrationStatusDeps } from '@/services/horizen/registrationConfirmationDeps';
 import type { HorizenNetwork } from '@/services/horizen/identity';
 
 export const dynamic = 'force-dynamic';
@@ -62,66 +60,6 @@ interface StatusBody {
   /** Horizen's own agent identifier, recovered with the txHash from the
    *  broadcast receipt. Absent is honest and the client says so. */
   horizenAgentId?: string | null;
-}
-
-/**
- * WHY THIS MUST NEVER FAIL SILENTLY (Aigent Nakamoto's live registration,
- * 2026-08-03). This write and the confirmation receipt below it are two
- * INDEPENDENT Supabase writes from the same confirmation event — nothing
- * makes them atomic. Nakamoto's registration proved it: the receipt was
- * written, this one was not, and every surface reading this projection
- * (PulseTransparencyToggle, the Register ladder, AgentCardSurface, Claim's
- * own gate) reported her unregistered while the receipt-driven master
- * Journey stepper had already advanced past Register. Three silent-return
- * points (`!admin`, `!row`, `bindings.length === 0`) and a discarded
- * `.update()` error meant that divergence produced no signal anywhere.
- *
- * Every branch below is now named. It does not retry and it does not fail
- * the request — `checkAgentRegistrationStatus`'s caller still gets its
- * confirmed result either way, because `services/horizen/
- * agentRegistrationBinding.ts`'s receipt fallback is what actually keeps
- * readers correct when this write is stuck. This function's job is only to
- * stop hiding that it happened.
- */
-async function updateRegistryAssetBinding(
-  aigentQubeId: string,
-  patch: { tokenId: string; registryAlias: string; agentIdentifier: string | null; humanReadableUrl: string | null },
-) {
-  const admin = getSupabaseServer();
-  if (!admin) {
-    console.error(`[HORIZEN BINDING] no Supabase admin client — cannot persist tokenId ${patch.tokenId} onto "${aigentQubeId}"`);
-    return;
-  }
-  const { data: row, error: readError } = await admin.from('registry_assets').select('metadata').eq('asset_id', aigentQubeId).maybeSingle();
-  if (readError) {
-    console.error(`[HORIZEN BINDING] read failed for "${aigentQubeId}": ${readError.message} — tokenId ${patch.tokenId} not persisted`);
-    return;
-  }
-  if (!row) {
-    console.error(`[HORIZEN BINDING] no registry_assets row for "${aigentQubeId}" — tokenId ${patch.tokenId} not persisted`);
-    return;
-  }
-  const metadata = (row.metadata ?? {}) as { external_registry_bindings?: ExternalAgentRegistryBinding[] };
-  const bindings = Array.isArray(metadata.external_registry_bindings) ? [...metadata.external_registry_bindings] : [];
-  if (bindings.length === 0) {
-    console.error(`[HORIZEN BINDING] "${aigentQubeId}" has no external_registry_bindings entry to update — tokenId ${patch.tokenId} not persisted`);
-    return;
-  }
-  bindings[0] = {
-    ...bindings[0],
-    token_id: patch.tokenId,
-    registry_alias: patch.registryAlias,
-    agent_identifier: patch.agentIdentifier,
-    human_readable_url: patch.humanReadableUrl,
-    status: 'registered',
-  };
-  const { error: writeError } = await admin
-    .from('registry_assets')
-    .update({ metadata: { ...metadata, external_registry_bindings: bindings }, updated_at: new Date().toISOString() })
-    .eq('asset_id', aigentQubeId);
-  if (writeError) {
-    console.error(`[HORIZEN BINDING] write failed for "${aigentQubeId}": ${writeError.message} — tokenId ${patch.tokenId} not persisted`);
-  }
 }
 
 /*
@@ -230,67 +168,7 @@ async function postImpl(request: NextRequest) {
       // broadcast rpcUrl; never read from process.env inside the client.
       rpcUrl: process.env.NEXT_PUBLIC_RPC_BASE_SEPOLIA || 'https://sepolia.base.org',
     },
-    {
-      updateRegistryAssetBinding,
-      /*
-       * STRUCTURED, NOT JUST THE TRANSACTION (Al, 2026-08-03: "the receipt
-       * must record the result the observer needs, not merely the
-       * transaction that may have produced it"). `tokenId` here is the SAME
-       * ownerOf-verified value `updateRegistryAssetBinding` was just asked to
-       * persist — never re-derived, never guessed — so a reader of this
-       * receipt alone (services/horizen/agentRegistrationBinding.ts's
-       * fallback) can reach REGISTER_COMPLETE without a second chain lookup,
-       * independently of whether that other write actually landed.
-       */
-      createRegistrationReceipt: async ({ actorPersonaId, agent: a, network, txHash, tokenId, registryAddress, ownerAddress, confirmationSource, blockNumber, logIndex }) => {
-        const receipt = await createActivityReceipt({
-          personaId: actorPersonaId,
-          activeCartridge: 'agentiq',
-          actionType: 'horizen_agent_registered',
-          summary: `${a.displayName} registered in Horizen's ERC-8004 registry (${network}, tx ${txHash}, tokenId ${tokenId})`,
-          agentsInvoked: [a.runtimeAgentId],
-          actionInput: {
-            aigentQubeId: a.aigentQubeId,
-            network,
-            txHash,
-            registration: {
-              protocol: 'erc-8004',
-              network,
-              txHash,
-              tokenId,
-              registryAddress,
-              ownerAddress,
-              blockNumber,
-              logIndex,
-              confirmationSource,
-              confirmedAt: new Date().toISOString(),
-            },
-          },
-        });
-        // Wallet Signing Topology (operator ruling 2026-08-01) — two of the
-        // ceremony's five INDEPENDENT evidence types are only knowable here,
-        // at the same moment confirmation + reread succeed. Written
-        // alongside horizen_agent_registered, never replacing it — that
-        // receipt remains the pre-ceremony completion evidence.
-        await createActivityReceipt({
-          personaId: actorPersonaId,
-          activeCartridge: 'agentiq',
-          actionType: 'horizen_registration_confirmed',
-          summary: `Horizen confirmed ${a.displayName}'s registration on reread (${network}, tx ${txHash})`,
-          agentsInvoked: [a.runtimeAgentId],
-          actionInput: { aigentQubeId: a.aigentQubeId, network, txHash },
-        });
-        await createActivityReceipt({
-          personaId: actorPersonaId,
-          activeCartridge: 'agentiq',
-          actionType: 'agent_registry_binding_recorded',
-          summary: `${a.displayName}'s Horizen registry binding recorded on her AigentQube (${network})`,
-          agentsInvoked: [a.runtimeAgentId],
-          actionInput: { aigentQubeId: a.aigentQubeId, network, txHash },
-        });
-        return receipt?.id ?? null;
-      },
-    },
+    buildRegistrationStatusDeps(),
     ),
     new Promise<typeof timedOut>((resolve) =>
       setTimeout(() => resolve(timedOut), HORIZEN_STATUS_DEADLINE_MS),
