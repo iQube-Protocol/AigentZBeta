@@ -812,7 +812,21 @@ export interface LocalReceiptDvnReconciliationResult {
 }
 
 /** Mirrors registrationReconciliation.ts's MAX_ITEMS_PER_RUN — a backlog larger than this drains over successive scheduled runs. */
-const LOCAL_RECONCILIATION_BATCH_SIZE = 50;
+const LOCAL_RECONCILIATION_PAGE_SIZE = 50;
+
+/**
+ * Most `local` rows are legitimately NEVER anchored — the vast majority of
+ * action types (intent_queued, specialist_consulted, artifact_created, ...)
+ * are not in ANCHORABLE_ACTION_TYPES and correctly stay `local` forever. The
+ * query is oldest-first (so a genuinely stranded anchorable receipt is never
+ * skipped over in favor of a newer one), which means a long-lived run of
+ * old, permanently-non-anchorable rows would otherwise re-fill the same page
+ * on every scheduled invocation and starve any anchorable row behind it.
+ * Paging forward (via `afterCreatedAt`) up to this many pages per invocation
+ * — still one bounded run, still isolated per-row — fixes that without
+ * changing what "anchorable" means or how a submission is made.
+ */
+const LOCAL_RECONCILIATION_MAX_PAGES = 20;
 
 export async function reconcileLocalReceiptsToDvn(): Promise<LocalReceiptDvnReconciliationResult> {
   const result: LocalReceiptDvnReconciliationResult = {
@@ -824,33 +838,40 @@ export async function reconcileLocalReceiptsToDvn(): Promise<LocalReceiptDvnReco
     failed: 0,
   };
 
-  let pending: Awaited<ReturnType<typeof findLocalReceiptsPendingDvnAnchor>>;
-  try {
-    pending = await findLocalReceiptsPendingDvnAnchor({ limit: LOCAL_RECONCILIATION_BATCH_SIZE });
-  } catch (err) {
-    result.error = `could not read local activity_receipts: ${err instanceof Error ? err.message : String(err)}`;
-    return result;
-  }
-  result.pendingChecked = pending.length;
-
-  for (const { record, personaId } of pending) {
-    if (!shouldAnchorActionType(record.actionType)) {
-      result.skippedNonAnchorable += 1;
-      continue;
-    }
+  let cursor: string | undefined;
+  for (let page = 0; page < LOCAL_RECONCILIATION_MAX_PAGES; page++) {
+    let pending: Awaited<ReturnType<typeof findLocalReceiptsPendingDvnAnchor>>;
     try {
-      const outcome = await enqueueReceiptLeg(record, personaId, 'dvn');
-      if (outcome.ok) {
-        if (outcome.attempted) result.submitted += 1;
-        else result.alreadySubmitted += 1; // dvn_receipt_id already present — a no-op, not a fresh submission
-      } else {
-        result.failed += 1;
-      }
+      pending = await findLocalReceiptsPendingDvnAnchor({ limit: LOCAL_RECONCILIATION_PAGE_SIZE, afterCreatedAt: cursor });
     } catch (err) {
-      // ONE receipt's exception must not stop the rest of the batch.
-      result.failed += 1;
-      console.error(`[DVN ESCALATION] Local-receipt DVN reconciliation threw for receipt ${record.id}: ${err instanceof Error ? err.message : String(err)}`);
+      result.error = `could not read local activity_receipts: ${err instanceof Error ? err.message : String(err)}`;
+      return result;
     }
+    if (pending.length === 0) break;
+    result.pendingChecked += pending.length;
+
+    for (const { record, personaId } of pending) {
+      if (!shouldAnchorActionType(record.actionType)) {
+        result.skippedNonAnchorable += 1;
+        continue;
+      }
+      try {
+        const outcome = await enqueueReceiptLeg(record, personaId, 'dvn');
+        if (outcome.ok) {
+          if (outcome.attempted) result.submitted += 1;
+          else result.alreadySubmitted += 1; // dvn_receipt_id already present — a no-op, not a fresh submission
+        } else {
+          result.failed += 1;
+        }
+      } catch (err) {
+        // ONE receipt's exception must not stop the rest of the batch.
+        result.failed += 1;
+        console.error(`[DVN ESCALATION] Local-receipt DVN reconciliation threw for receipt ${record.id}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+
+    cursor = pending[pending.length - 1].record.createdAt;
+    if (pending.length < LOCAL_RECONCILIATION_PAGE_SIZE) break; // exhausted the backlog
   }
 
   result.ok = true;
