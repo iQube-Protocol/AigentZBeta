@@ -3899,3 +3899,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-2d9ede1.md](../build_/COMMITS/COMMIT-2d9ede1.md)
 - Message: Register CR-14: Constitution Before Substrate quantum launchpad (queued, not applied)
+
+## Commit `adbff86` — 2026-08-09T22:43:44Z
+- Type: `feat`
+- Brief: [COMMIT-adbff86.md](../build_/COMMITS/COMMIT-adbff86.md)
+- Message: Add a conflict resolution path to the dev auto-merge workflow

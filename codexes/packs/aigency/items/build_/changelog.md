@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`adbff86`](https://github.com/iQube-Protocol/AigentZBeta/commit/adbff8645b1eff499bb03646881969bd0a2b9a86) [feat] Add a conflict resolution path to the dev auto-merge workflow (Claude, 2026-08-09T22:43:44Z)
 - [`2d9ede1`](https://github.com/iQube-Protocol/AigentZBeta/commit/2d9ede1cad1f3f12acdc1b00fbda414b7d43f510) [push] Register CR-14: Constitution Before Substrate quantum launchpad (queued, not applied) (Claude, 2026-08-04T03:43:05Z)
 - [`ee0a61a`](https://github.com/iQube-Protocol/AigentZBeta/commit/ee0a61a32c1f0eb572d2ac92ca07863493b24f56) [push] Produce Controlling Manuscript v0.3 by consolidating v0.2 against the ratified register (Claude, 2026-08-04T20:32:14Z)
 - [`b154b22`](https://github.com/iQube-Protocol/AigentZBeta/commit/b154b22e2fb12948b00ba50bb9f25e9201aa1061) [fix] Correct v0.3 ruling identifier and companion-corpus status claims (Claude, 2026-08-05T00:48:26Z)

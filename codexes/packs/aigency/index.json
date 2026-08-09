@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-09T22:34:08.735Z",
+  "last_updated": "2026-08-09T22:45:59.051Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "2d9ede1cad1f3f12acdc1b00fbda414b7d43f510",
-  "latest_commit_short": "2d9ede1",
-  "latest_commit_title": "Register CR-14: Constitution Before Substrate quantum launchpad (queued, not applied)",
+  "latest_commit": "adbff8645b1eff499bb03646881969bd0a2b9a86",
+  "latest_commit_short": "adbff86",
+  "latest_commit_title": "Add a conflict resolution path to the dev auto-merge workflow",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "adbff86",
+      "full_sha": "adbff8645b1eff499bb03646881969bd0a2b9a86",
+      "title": "Add a conflict resolution path to the dev auto-merge workflow",
+      "author": "Claude",
+      "timestamp": "2026-08-09T22:43:44Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-adbff86.md"
+    },
     {
       "sha": "2d9ede1",
       "full_sha": "2d9ede1cad1f3f12acdc1b00fbda414b7d43f510",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-07-16T04:38:27Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-dafb68b.md"
-    },
-    {
-      "sha": "a932a8e",
-      "full_sha": "a932a8ee9f45642c3d9f05eb752e7288f63a7d4a",
-      "title": "Charter CFS-034 research progression ladder + standing->rung mapping helper",
-      "author": "Claude",
-      "timestamp": "2026-07-16T04:41:14Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-a932a8e.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
