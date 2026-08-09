@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`e860c62`](https://github.com/iQube-Protocol/AigentZBeta/commit/e860c628dba82c839df9dd33fefc6e05a18688c4) [feat] Fix AigentQube-presence/Factory-ingestion conflation + wire P&L service registered evidence (Claude, 2026-08-09T12:29:35Z)
 - [`e720dcd`](https://github.com/iQube-Protocol/AigentZBeta/commit/e720dcdb71d68ddde1a299150eb1c543f3588c04) [feat] Fix DVN Pending fork pill + P&L three-state UI, add purpose-bound agent wallet binding (Claude, 2026-08-09T11:06:08Z)
 - [`6ad4cf4`](https://github.com/iQube-Protocol/AigentZBeta/commit/6ad4cf41dca44899f26e129bdebc0ac46e02b456) [feat] Correct Horizen PnL onboarding contract + wire production Onboard action (Claude, 2026-08-09T09:55:10Z)
 - [`bd52b76`](https://github.com/iQube-Protocol/AigentZBeta/commit/bd52b76344ea1fca5d91eddd6f0c4a6a89c0b6df) [feat] Add workflow to trigger MoneyPenny AigentQube repair route (Claude, 2026-08-09T09:41:03Z)
