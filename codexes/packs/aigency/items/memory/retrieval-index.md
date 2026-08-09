@@ -3704,3 +3704,13 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-f294431.md](../build_/COMMITS/COMMIT-f294431.md)
 - Message: Surface the dual-leg (DVN + Bitcoin) receipt state through to the UI
+
+## Commit `2126d7d` — 2026-08-09T03:06:02Z
+- Type: `push`
+- Brief: [COMMIT-2126d7d.md](../build_/COMMITS/COMMIT-2126d7d.md)
+- Message: Record the real commit hash on the observer-review resolution record
+
+## Commit `f2ca7aa` — 2026-08-09T03:05:48Z
+- Type: `feat`
+- Brief: [COMMIT-f2ca7aa.md](../build_/COMMITS/COMMIT-f2ca7aa.md)
+- Message: Add Post-Freeze Observer Review Closure for Crystal vP1 (EXP-P1)

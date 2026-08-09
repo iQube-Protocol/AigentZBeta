@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-09T02:09:36.097Z",
+  "last_updated": "2026-08-09T03:12:25.556Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "f294431c5fa3edf9f3660f7334a602a14fe7884f",
-  "latest_commit_short": "f294431",
-  "latest_commit_title": "Surface the dual-leg (DVN + Bitcoin) receipt state through to the UI",
+  "latest_commit": "f2ca7aaf0864a4ba20f5f20315770cca6f1f97f0",
+  "latest_commit_short": "f2ca7aa",
+  "latest_commit_title": "Add Post-Freeze Observer Review Closure for Crystal vP1 (EXP-P1)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "f2ca7aa",
+      "full_sha": "f2ca7aaf0864a4ba20f5f20315770cca6f1f97f0",
+      "title": "Add Post-Freeze Observer Review Closure for Crystal vP1 (EXP-P1)",
+      "author": "Claude",
+      "timestamp": "2026-08-09T03:05:48Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-f2ca7aa.md"
+    },
+    {
+      "sha": "2126d7d",
+      "full_sha": "2126d7de123b6e87ad37ff8294e0fc78daa1d183",
+      "title": "Record the real commit hash on the observer-review resolution record",
+      "author": "Claude",
+      "timestamp": "2026-08-09T03:06:02Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-2126d7d.md"
+    },
     {
       "sha": "f294431",
       "full_sha": "f294431c5fa3edf9f3660f7334a602a14fe7884f",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-07-17T14:43:06Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-b795373.md"
-    },
-    {
-      "sha": "c658f88",
-      "full_sha": "c658f8842684140e3cbe2d539e54ef999fd1b180",
-      "title": "docs: CRP-003a 3b + 2b + P3 run doc + tracker (collections registered)",
-      "author": "Claude",
-      "timestamp": "2026-07-17T14:44:11Z",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-c658f88.md"
-    },
-    {
-      "sha": "f8774e8",
-      "full_sha": "f8774e854bae88f3a57ba9d45fd22a0aca8bfe18",
-      "title": "CRP-003a: Domain 1/2 executors + LLM analysis layer + settlement binding",
-      "author": "Claude",
-      "timestamp": "2026-07-17T14:59:24Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-f8774e8.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

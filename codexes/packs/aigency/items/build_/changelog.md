@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`f2ca7aa`](https://github.com/iQube-Protocol/AigentZBeta/commit/f2ca7aaf0864a4ba20f5f20315770cca6f1f97f0) [feat] Add Post-Freeze Observer Review Closure for Crystal vP1 (EXP-P1) (Claude, 2026-08-09T03:05:48Z)
+- [`2126d7d`](https://github.com/iQube-Protocol/AigentZBeta/commit/2126d7de123b6e87ad37ff8294e0fc78daa1d183) [push] Record the real commit hash on the observer-review resolution record (Claude, 2026-08-09T03:06:02Z)
 - [`f294431`](https://github.com/iQube-Protocol/AigentZBeta/commit/f294431c5fa3edf9f3660f7334a602a14fe7884f) [push] Surface the dual-leg (DVN + Bitcoin) receipt state through to the UI (Claude, 2026-08-08T20:59:02Z)
 - [`82ff28e`](https://github.com/iQube-Protocol/AigentZBeta/commit/82ff28e5585ef4fcb065a996965fae86767d5673) [push] Register Threshold/metaMe MCP server in .mcp.json + docs (Claude, 2026-08-08T22:40:18Z)
 - [`8edc1f8`](https://github.com/iQube-Protocol/AigentZBeta/commit/8edc1f890160b7fe16d47cc8e64a01172a5204b5) [push] Simplify DVN/BTC receipt badges to terse vocabulary + give the activity-receipts finalizer independent liveness (Claude, 2026-08-08T23:08:47Z)
