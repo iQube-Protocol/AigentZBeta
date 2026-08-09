@@ -3794,3 +3794,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-e720dcd.md](../build_/COMMITS/COMMIT-e720dcd.md)
 - Message: Fix DVN Pending fork pill + P&L three-state UI, add purpose-bound agent wallet binding
+
+## Commit `e860c62` — 2026-08-09T12:29:35Z
+- Type: `feat`
+- Brief: [COMMIT-e860c62.md](../build_/COMMITS/COMMIT-e860c62.md)
+- Message: Fix AigentQube-presence/Factory-ingestion conflation + wire P&L service registered evidence

@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-09T11:08:40.770Z",
+  "last_updated": "2026-08-09T12:31:34.589Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "e720dcdb71d68ddde1a299150eb1c543f3588c04",
-  "latest_commit_short": "e720dcd",
-  "latest_commit_title": "Fix DVN Pending fork pill + P&L three-state UI, add purpose-bound agent wallet binding",
+  "latest_commit": "e860c628dba82c839df9dd33fefc6e05a18688c4",
+  "latest_commit_short": "e860c62",
+  "latest_commit_title": "Fix AigentQube-presence/Factory-ingestion conflation + wire P&L service registered evidence",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "e860c62",
+      "full_sha": "e860c628dba82c839df9dd33fefc6e05a18688c4",
+      "title": "Fix AigentQube-presence/Factory-ingestion conflation + wire P&L service registered evidence",
+      "author": "Claude",
+      "timestamp": "2026-08-09T12:29:35Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-e860c62.md"
+    },
     {
       "sha": "e720dcd",
       "full_sha": "e720dcdb71d68ddde1a299150eb1c543f3588c04",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-07-16T20:25:36Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-0ffeb9a.md"
-    },
-    {
-      "sha": "8bc16a9",
-      "full_sha": "8bc16a91825b49cb1bcc3264b70f52d5049378bc",
-      "title": "canonize Standing-as-evidence + the Structural-Constitutional Convergence Principle (CRP-002 §0.6-0.7)",
-      "author": "Claude",
-      "timestamp": "2026-07-16T20:44:12Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-8bc16a9.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
