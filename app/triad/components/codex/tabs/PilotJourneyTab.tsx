@@ -23,6 +23,7 @@ import { JourneyRunSurface, type JourneyRunSurfaceProps } from '@/components/jou
 import { HORIZEN_MONEYPENNY_JOURNEY } from '@/services/journey/horizenMoneyPennyJourney';
 import { AgentCardSurface } from '@/components/journey/AgentCardSurface';
 import { RegisterAgentPanel, PILOT_AGENTS } from '@/components/journey/RegisterAgentPanel';
+import { getSelectedPilotAgentSlug, setSelectedPilotAgentSlug } from '@/services/journey/selectedPilotAgent';
 import { HorizenAgentPageSurface } from '@/components/journey/HorizenAgentPageSurface';
 import { AgreementRatifyPanel } from '@/components/journey/AgreementRatifyPanel';
 import { PulseTransparencyToggle } from '@/components/journey/PulseTransparencyToggle';
@@ -67,11 +68,30 @@ function PilotJourneyTabInner({ personaId, isAdmin }: PilotJourneyTabProps) {
   // (services/horizen/registrableAgents.ts, MoneyPenny is the demo default).
   // The dry-run agent is the one being exercised, so it is the one selected on
   // arrival. Kept in step with PILOT_AGENTS[0] — see the note there.
-  const [selectedAgentSlug, setSelectedAgentSlug] = useState<string>('nakamoto');
+  const [selectedAgentSlug, setSelectedAgentSlugState] = useState<string>('nakamoto');
   // Component-scoped so both resolveSurfaceProps AND the receipts-drawer prop
   // below read the SAME resolved agent — never two separate PILOT_AGENTS.find
   // calls that could observe a mid-render change differently.
   const selectedAgent = PILOT_AGENTS.find((a) => a.slug === selectedAgentSlug) ?? PILOT_AGENTS[0];
+
+  /*
+   * SHARED WITH THE COMPANION CAROUSEL (Horizen Pilot Closure item 5,
+   * 2026-08-09) — services/journey/selectedPilotAgent.ts. Read after mount
+   * only (SSR-safe, CLAUDE.md's State Management rule: window is undefined
+   * server-side), and written on every change so a choice made here is
+   * visible the next time JourneyCompanionCarousel resolves its own agent.
+   */
+  useEffect(() => {
+    const stored = getSelectedPilotAgentSlug();
+    if (stored !== selectedAgentSlug) setSelectedAgentSlugState(stored);
+    // Only on mount — this reads the PRIOR selection once; it must not fight
+    // the operator's own in-session changes below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const setSelectedAgentSlug = useCallback((slug: string) => {
+    setSelectedAgentSlugState(slug);
+    setSelectedPilotAgentSlug(slug);
+  }, []);
 
   /*
    * THE AGENT CARD URL MUST BE ABSOLUTE (operator, 2026-08-03).

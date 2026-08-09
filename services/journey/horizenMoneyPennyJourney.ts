@@ -10,6 +10,15 @@
  *
  * Stage order and completion conditions mirror §7's table exactly. Do not
  * edit this file without re-reading that table — it is the authority.
+ *
+ * AGENT-GENERIC NARRATION (Horizen Pilot Closure item 5, 2026-08-09): every
+ * stage-copy string below that names the subject agent uses the token
+ * `{{agentDisplayName}}` (services/journey/journeyCopyTemplate.ts's
+ * AGENT_DISPLAY_NAME_TOKEN), never the literal "MoneyPenny" — this journey
+ * definition itself is not MoneyPenny-specific data, it is rendered for
+ * whichever agent (MoneyPenny, Nakamoto, or a future registrable agent) the
+ * caller selects. Renderers call `renderJourneyCopy(text, agent)` before
+ * display; never substitute the token by hand at a call site.
  */
 
 import type { JourneyDefinition } from '@/types/journey';
@@ -33,7 +42,7 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
         {
           mode: 'external-url',
           ref: 'horizen-registry-agent-page',
-          note: "Horizen's own live agent/registry page for MoneyPenny's tokenId — URL not yet resolvable (§22).",
+          note: "Horizen's own live agent/registry page for {{agentDisplayName}}'s tokenId — URL not yet resolvable (§22).",
         },
         {
           mode: 'component',
@@ -79,9 +88,9 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
       receiptsScopedToSubjectAgent: true,
       companion: {
         before:
-          'MoneyPenny has a persisted AigentQube and a published Agent Card. Horizen registration is still pending. Registry presence will establish external identity and discoverability, but not constitutional authority.',
+          '{{agentDisplayName}} has a persisted AigentQube and a published Agent Card. Horizen registration is still pending. Registry presence will establish external identity and discoverability, but not constitutional authority.',
         complete:
-          'MoneyPenny is now discoverable in Horizen. Registry presence proves identity and discoverability, but not constitutional authority.',
+          '{{agentDisplayName}} is now discoverable in Horizen. Registry presence proves identity and discoverability, but not constitutional authority.',
       },
       nextStageId: 'claim',
     },
@@ -166,7 +175,7 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
         'agent_delegate_passport_issued',
       ],
       companion: {
-        before: "Your Polity Citizen Passport must resolve before you can sponsor MoneyPenny.",
+        before: "Your Polity Citizen Passport must resolve before you can sponsor {{agentDisplayName}}.",
         complete: 'The wallet proved control. The Passport now establishes the human source from whom authority may originate.',
       },
       nextStageId: 'delegate',
@@ -259,9 +268,9 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
       receiptTypes: ['aigentme_activated', 'experienceqube_focus_disposition_recorded', 'journey_completed'],
       receiptsSurfacedNatively: true,
       companion: {
-        before: 'MoneyPenny is ready to introduce you to aigentMe, your constitutional companion.',
+        before: '{{agentDisplayName}} is ready to introduce you to aigentMe, your constitutional companion.',
         complete:
-          'You have crossed the threshold. Your Polity Citizen Passport establishes your continuing constitutional personhood. aigentMe is now active as your constitutional companion. MoneyPenny has joined your agent set through a Polity Delegate Passport and may act only within the authority and mandates you have granted.',
+          'You have crossed the threshold. Your Polity Citizen Passport establishes your continuing constitutional personhood. aigentMe is now active as your constitutional companion. {{agentDisplayName}} has joined your agent set through a Polity Delegate Passport and may act only within the authority and mandates you have granted.',
       },
     },
     {
@@ -295,7 +304,7 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
        */
       branch: 'capability',
       description:
-        'Ratify the constitutional service agreement — form, accept and authorize the terms that let MoneyPenny operate the Financial Services runtime. Horizen Pulse and P&L transparency enrich, never enlarge, that authority.',
+        'Ratify the constitutional service agreement — form, accept and authorize the terms that let {{agentDisplayName}} operate the Financial Services runtime. Horizen Pulse and P&L transparency enrich, never enlarge, that authority.',
       actor: 'operator',
       subjectRef: 'moneypenny',
       surfaces: [
@@ -314,7 +323,7 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
           ref: 'pulse-transparency-toggle',
           note:
             'SECONDARY — Transparency section. Real Pulse/P&L authorization, but an assurance enrichment ' +
-            'around an already-authorized service — it neither creates nor enlarges MoneyPenny\'s authority, ' +
+            'around an already-authorized service — it neither creates nor enlarges {{agentDisplayName}}\'s authority, ' +
             'and its own owner-source-conflict state (HORIZEN_OWNER_SOURCE_CONFLICT) is never suppressed.',
         },
         {
@@ -363,9 +372,9 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
       ],
       companion: {
         before:
-          'Sign the constitutional service agreement to ratify MoneyPenny\'s eligibility for the Financial Services runtime. Forming and accepting record a tamper-evident commitment; authorizing is an authenticated constitutional act you perform as the operator — neither is a wallet or blockchain signature.',
+          'Sign the constitutional service agreement to ratify {{agentDisplayName}}\'s eligibility for the Financial Services runtime. Forming and accepting record a tamper-evident commitment; authorizing is an authenticated constitutional act you perform as the operator — neither is a wallet or blockchain signature.',
         complete:
-          'The service agreement is authorized — MoneyPenny is ratified for the Financial Services runtime. Horizen Pulse and P&L transparency, below, remain real and worth completing, but they enrich her verifiable operational state; they do not create or enlarge this authority.',
+          'The service agreement is authorized — {{agentDisplayName}} is ratified for the Financial Services runtime. Horizen Pulse and P&L transparency, below, remain real and worth completing, but they enrich its verifiable operational state; they do not create or enlarge this authority.',
       },
     },
 {

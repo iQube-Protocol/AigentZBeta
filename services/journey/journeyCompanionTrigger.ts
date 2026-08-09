@@ -13,6 +13,7 @@
 
 import { buildCodexUrl } from '@/utils/codex-nav';
 import { HORIZEN_MONEYPENNY_JOURNEY } from '@/services/journey/horizenMoneyPennyJourney';
+import type { RegistrableAgentConfig } from '@/services/horizen/registrableAgents';
 
 /** The Venture Lab codex's own id (data/codex-configs.ts VENTURE_LAB_CODEX.id). */
 export const VENTURE_LAB_CODEX_ID = 'alpha-knyt-codex';
@@ -23,17 +24,25 @@ export function isHorizenTrigger(message: string): boolean {
   return message.trim().toLowerCase() === 'horizen';
 }
 
-export const JOURNEY_INTRO_TEXT = [
-  `You're entering the Horizen × metaMe constitutional admission journey for MoneyPenny.`,
-  // Count DERIVED, never written out: the intro said "seven stages" and went
-  // stale the moment Standing became an eighth (2026-08-02). One source of
-  // truth for what the journey contains — the registry itself.
-  `We'll move through ${HORIZEN_MONEYPENNY_JOURNEY.stages.length} stages: ${HORIZEN_MONEYPENNY_JOURNEY.stages.map((s) => s.label).join(' · ')}.`,
-  `I'll explain each stage, open the relevant application or partner surface, and keep the journey ` +
-    `synchronized with the authoritative platform state. You retain all sovereign actions, including ` +
-    `claiming, sponsorship, delegation and mandate approval.`,
-  `We'll begin with Register.`,
-].join('\n\n');
+/**
+ * Horizen Pilot Closure item 5 (2026-08-09): a FUNCTION of the selected
+ * agent, never a module-level constant naming MoneyPenny. The one caller
+ * (JourneyCompanionCarousel.tsx) resolves the actual selected agent
+ * (services/journey/selectedPilotAgent.ts) and passes it here.
+ */
+export function buildJourneyIntroText(agent: RegistrableAgentConfig): string {
+  return [
+    `You're entering the Horizen × metaMe constitutional admission journey for ${agent.displayName}.`,
+    // Count DERIVED, never written out: the intro said "seven stages" and went
+    // stale the moment Standing became an eighth (2026-08-02). One source of
+    // truth for what the journey contains — the registry itself.
+    `We'll move through ${HORIZEN_MONEYPENNY_JOURNEY.stages.length} stages: ${HORIZEN_MONEYPENNY_JOURNEY.stages.map((s) => s.label).join(' · ')}.`,
+    `I'll explain each stage, open the relevant application or partner surface, and keep the journey ` +
+      `synchronized with the authoritative platform state. You retain all sovereign actions, including ` +
+      `claiming, sponsorship, delegation and mandate approval.`,
+    `We'll begin with Register.`,
+  ].join('\n\n');
+}
 
 /**
  * Selects a stage across every renderer listening for it (§11.5's shared,
