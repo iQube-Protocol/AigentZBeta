@@ -3789,3 +3789,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-6ad4cf4.md](../build_/COMMITS/COMMIT-6ad4cf4.md)
 - Message: Correct Horizen PnL onboarding contract + wire production Onboard action
+
+## Commit `e720dcd` — 2026-08-09T11:06:08Z
+- Type: `feat`
+- Brief: [COMMIT-e720dcd.md](../build_/COMMITS/COMMIT-e720dcd.md)
+- Message: Fix DVN Pending fork pill + P&L three-state UI, add purpose-bound agent wallet binding
