@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`6ad4cf4`](https://github.com/iQube-Protocol/AigentZBeta/commit/6ad4cf41dca44899f26e129bdebc0ac46e02b456) [feat] Correct Horizen PnL onboarding contract + wire production Onboard action (Claude, 2026-08-09T09:55:10Z)
 - [`bd52b76`](https://github.com/iQube-Protocol/AigentZBeta/commit/bd52b76344ea1fca5d91eddd6f0c4a6a89c0b6df) [feat] Add workflow to trigger MoneyPenny AigentQube repair route (Claude, 2026-08-09T09:41:03Z)
 - [`52cfb3f`](https://github.com/iQube-Protocol/AigentZBeta/commit/52cfb3f9e07472e62888311b961c80972b207b8e) [feat] Add wall-clock safety budget to DVN reconciler + targeted submit route + MoneyPenny AigentQube repair (Claude, 2026-08-09T09:32:29Z)
 - [`c94c072`](https://github.com/iQube-Protocol/AigentZBeta/commit/c94c0722bef720ea01cb7b64c897d6c7760dca08) [feat] Add migration-drift diagnostic covering dual-leg anchoring + MoneyPenny AigentQube seed (Claude, 2026-08-09T08:59:48Z)

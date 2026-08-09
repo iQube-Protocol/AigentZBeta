@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-09T09:43:01.319Z",
+  "last_updated": "2026-08-09T09:57:07.015Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "bd52b76344ea1fca5d91eddd6f0c4a6a89c0b6df",
-  "latest_commit_short": "bd52b76",
-  "latest_commit_title": "Add workflow to trigger MoneyPenny AigentQube repair route",
+  "latest_commit": "6ad4cf41dca44899f26e129bdebc0ac46e02b456",
+  "latest_commit_short": "6ad4cf4",
+  "latest_commit_title": "Correct Horizen PnL onboarding contract + wire production Onboard action",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "6ad4cf4",
+      "full_sha": "6ad4cf41dca44899f26e129bdebc0ac46e02b456",
+      "title": "Correct Horizen PnL onboarding contract + wire production Onboard action",
+      "author": "Claude",
+      "timestamp": "2026-08-09T09:55:10Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-6ad4cf4.md"
+    },
     {
       "sha": "bd52b76",
       "full_sha": "bd52b76344ea1fca5d91eddd6f0c4a6a89c0b6df",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-07-16T20:59:45Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-6b2e5a2.md"
-    },
-    {
-      "sha": "8392f60",
-      "full_sha": "8392f6015a76e204ec704638fe19c1b0d6b59e2e",
-      "title": "un-hedge structural-invariants-are-reality + add operational-truth register (CRP-002 §0.7-0.8)",
-      "author": "Claude",
-      "timestamp": "2026-07-16T21:17:58Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-8392f60.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

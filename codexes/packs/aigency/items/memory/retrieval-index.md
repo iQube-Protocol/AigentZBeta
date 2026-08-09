@@ -3784,3 +3784,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-bd52b76.md](../build_/COMMITS/COMMIT-bd52b76.md)
 - Message: Add workflow to trigger MoneyPenny AigentQube repair route
+
+## Commit `6ad4cf4` — 2026-08-09T09:55:10Z
+- Type: `feat`
+- Brief: [COMMIT-6ad4cf4.md](../build_/COMMITS/COMMIT-6ad4cf4.md)
+- Message: Correct Horizen PnL onboarding contract + wire production Onboard action
