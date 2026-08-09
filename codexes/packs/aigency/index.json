@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-09T03:12:25.556Z",
+  "last_updated": "2026-08-09T04:26:32.626Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "f2ca7aaf0864a4ba20f5f20315770cca6f1f97f0",
-  "latest_commit_short": "f2ca7aa",
-  "latest_commit_title": "Add Post-Freeze Observer Review Closure for Crystal vP1 (EXP-P1)",
+  "latest_commit": "51917a43e947c2d88de362c98ad57b825d58caf4",
+  "latest_commit_short": "51917a4",
+  "latest_commit_title": "Fix Orient regression, anchor Consequence Fork trident to spine end, verb labels",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "51917a4",
+      "full_sha": "51917a43e947c2d88de362c98ad57b825d58caf4",
+      "title": "Fix Orient regression, anchor Consequence Fork trident to spine end, verb labels",
+      "author": "Claude",
+      "timestamp": "2026-08-09T03:25:19Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-51917a4.md"
+    },
+    {
+      "sha": "b96a7b3",
+      "full_sha": "b96a7b31877fcd1ee0d8b1d4ae3a895789f96464",
+      "title": "Rebuild Consequence Fork trident as one absolutely-positioned box, not stacked rows",
+      "author": "Claude",
+      "timestamp": "2026-08-09T04:22:05Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-b96a7b3.md"
+    },
     {
       "sha": "f2ca7aa",
       "full_sha": "f2ca7aaf0864a4ba20f5f20315770cca6f1f97f0",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-07-17T01:26:25Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-439b116.md"
-    },
-    {
-      "sha": "42f99e3",
-      "full_sha": "42f99e33bb89a8823ae115b01ed0c0df445e3a67",
-      "title": "CRP-003a Increment 3b: tier-gate the three Financial Services experiences",
-      "author": "Claude",
-      "timestamp": "2026-07-17T14:37:11Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-42f99e3.md"
-    },
-    {
-      "sha": "b795373",
-      "full_sha": "b795373846cbe24159bce016ff617717369149a8",
-      "title": "build CRP-003a Increment 2b + P3: grounded executor, live-wired steps, spend cap",
-      "author": "Claude",
-      "timestamp": "2026-07-17T14:43:06Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-b795373.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

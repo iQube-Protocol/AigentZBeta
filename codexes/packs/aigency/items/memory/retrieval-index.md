@@ -3714,3 +3714,13 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-f2ca7aa.md](../build_/COMMITS/COMMIT-f2ca7aa.md)
 - Message: Add Post-Freeze Observer Review Closure for Crystal vP1 (EXP-P1)
+
+## Commit `b96a7b3` — 2026-08-09T04:22:05Z
+- Type: `push`
+- Brief: [COMMIT-b96a7b3.md](../build_/COMMITS/COMMIT-b96a7b3.md)
+- Message: Rebuild Consequence Fork trident as one absolutely-positioned box, not stacked rows
+
+## Commit `51917a4` — 2026-08-09T03:25:19Z
+- Type: `fix`
+- Brief: [COMMIT-51917a4.md](../build_/COMMITS/COMMIT-51917a4.md)
+- Message: Fix Orient regression, anchor Consequence Fork trident to spine end, verb labels

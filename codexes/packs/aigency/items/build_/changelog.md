@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`51917a4`](https://github.com/iQube-Protocol/AigentZBeta/commit/51917a43e947c2d88de362c98ad57b825d58caf4) [fix] Fix Orient regression, anchor Consequence Fork trident to spine end, verb labels (Claude, 2026-08-09T03:25:19Z)
+- [`b96a7b3`](https://github.com/iQube-Protocol/AigentZBeta/commit/b96a7b31877fcd1ee0d8b1d4ae3a895789f96464) [push] Rebuild Consequence Fork trident as one absolutely-positioned box, not stacked rows (Claude, 2026-08-09T04:22:05Z)
 - [`f2ca7aa`](https://github.com/iQube-Protocol/AigentZBeta/commit/f2ca7aaf0864a4ba20f5f20315770cca6f1f97f0) [feat] Add Post-Freeze Observer Review Closure for Crystal vP1 (EXP-P1) (Claude, 2026-08-09T03:05:48Z)
 - [`2126d7d`](https://github.com/iQube-Protocol/AigentZBeta/commit/2126d7de123b6e87ad37ff8294e0fc78daa1d183) [push] Record the real commit hash on the observer-review resolution record (Claude, 2026-08-09T03:06:02Z)
 - [`f294431`](https://github.com/iQube-Protocol/AigentZBeta/commit/f294431c5fa3edf9f3660f7334a602a14fe7884f) [push] Surface the dual-leg (DVN + Bitcoin) receipt state through to the UI (Claude, 2026-08-08T20:59:02Z)
