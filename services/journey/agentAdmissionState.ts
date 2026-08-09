@@ -98,7 +98,20 @@ export interface AgentAdmissionState {
   delegatePassportIssued: boolean | undefined;
   /** An ACTIVE bounded-delegation grant exists for this agent's root DID. */
   delegationActive: boolean | undefined;
-  /** The agent is present in the registry — i.e. ingested into the Factory. */
+  /**
+   * The agent's AigentQube row exists in `registry_assets`.
+   *
+   * NOT the same fact as Factory ingestion (operator correction,
+   * 2026-08-09) — a persisted AigentQube is a Register-stage prerequisite,
+   * not evidence that the agent ever entered Factory participation. Callers
+   * needing "was this agent Factory-ingested" must read the
+   * `capability_registered` receipt instead; see
+   * app/api/journey/moneypenny-horizen/state/route.ts's
+   * `stages.deploy.factoryIngested` comment for the full causal chain this
+   * closes. Kept here only as "does the registry row exist" — genuinely
+   * useful on its own (e.g. Register's own `aigentQubeResolved` gate), never
+   * as a substitute for the ingestion fact.
+   */
   factoryPresent: boolean | undefined;
   /**
    * `agent_root_identity.id` — the row id `persona_agent_assignments` keys

@@ -362,7 +362,21 @@ export type ActivityActionType =
   // orientation ritual (which of the two ritual kinds applies is resolved
   // from state, never from agent name) — never issued merely for viewing
   // the stage. See services/journey/orientationContext.ts.
-  | 'orientation_ritual_completed';
+  | 'orientation_ritual_completed'
+  // Horizen Pilot Closure, part C (2026-08-09) — the THIRD, genuinely new
+  // P&L fact, distinct from both existing types above:
+  //   horizen_pnl_transparency_enabled — the OPERATOR's disclosure/scope
+  //     permission grant. Never implies Horizen registered anything.
+  //   pnl_service_registered (this type) — HORIZEN's own Verifiable-PnL
+  //     onboarding (`POST /v1/register`) has SUCCEEDED for this agent —
+  //     an `agentId` (Horizen's internal PnL UUID) now exists. Says nothing
+  //     about whether any proof evidence exists yet.
+  //   pnl_service_verified — independently REDISCOVERED, correlated proof
+  //     evidence (unchanged; issued only by the read-only
+  //     discoverAndReceiptPnlServiceEvidence, never by the registration
+  //     mutation itself — registering is not self-certifying).
+  // See services/horizen/pnlOnboardingClient.ts.
+  | 'pnl_service_registered';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 
@@ -727,32 +741,104 @@ export interface AgentRegistrationReceiptFacts {
  * agent done?" by resolving the agent's own persona finds nothing. Returns
  * ONLY `{id, actionType}` — enough to answer existence and to reference the
  * receipt, never the persona-scoped body.
+ *
+ * ── Per-action-type coverage, not one global scan (2026-08-09) ─────────────
+ *
+ * This used to be ONE query — `action_type IN (...) AND agents_invoked
+ * CONTAINS agent`, ordered by `created_at DESC`, `LIMIT options.limit` —
+ * applied across the WHOLE filtered set at once. That limit is a ceiling on
+ * TOTAL rows across every requested action type combined, so a caller asking
+ * for 20 action types with a limit of 100 could see a single action type's
+ * one relevant (and possibly `dvn_recorded`) receipt silently pushed out of
+ * the returned set by >100 more RECENT receipts of the OTHER 19 types for the
+ * same agent — a real, observed failure mode: an old `standing_accrued:
+ * dvn_recorded` receipt crowded out by newer unrelated receipts, so the
+ * consequence fork read `bestReceiptStatus([])` (nothing found) instead of
+ * the true strongest status, and a constitutional fact disappeared because
+ * unrelated receipt volume grew, not because anything about that fact
+ * changed.
+ *
+ * Fixed by resolving each action type INDEPENDENTLY, each with its own
+ * bounded slice — so the return set is guaranteed to include every
+ * requested action type's own most-recent rows regardless of how many
+ * receipts of OTHER types exist for this agent. `options.limit` now means
+ * "how many of THIS type's own rows", not "how many rows total".
  */
+export interface AgentReceiptRef {
+  id: string;
+  actionType: ActivityActionType;
+  receiptStatus: ReceiptStatus;
+  /**
+   * Added 2026-08-09 (Horizen Pilot Closure — Standing tier classification +
+   * sequencing hardening) — the receipt's OWN structured evidence, read here
+   * rather than via a second, parallel query. This is what lets a caller
+   * classify a `standing_accrued` receipt as `tier: 'initial'` vs a genuine
+   * contribution accrual (services/journey/registrationStandingSeed.ts's own
+   * `basis`/`tier` fields), or recover a `reconciliation_discrepancy_recorded`
+   * receipt's superseded receipt ids — without inventing a raw query per
+   * caller. Never inferred from timing, amount or summary text; null when
+   * the receipt carries no structured action_input at all.
+   */
+  actionInput: Record<string, unknown> | null;
+  createdAt: string;
+  /**
+   * Added 2026-08-09 (Horizen Pilot Closure — Part B1, DVN liveness). The
+   * DVN message id this receipt was submitted under (`activity_receipts.
+   * dvn_receipt_id`) — what a caller needs to classify the receipt's DVN
+   * message via `get_dvn_message`/`get_message_attestations` without a
+   * second, parallel query. Null for a receipt never submitted (still
+   * `local`) or predating DVN submission.
+   */
+  dvnReceiptId: string | null;
+}
+
 export async function findAgentReceiptRefs(
   runtimeAgentId: string,
   actionTypes: readonly ActivityActionType[],
   options?: { limit?: number },
-): Promise<{ id: string; actionType: ActivityActionType }[]> {
+): Promise<AgentReceiptRef[]> {
   if (!runtimeAgentId || actionTypes.length === 0) return [];
-  const limit = Math.min(Math.max(options?.limit ?? 100, 1), 200);
+  const perTypeLimit = Math.min(Math.max(options?.limit ?? 20, 1), 100);
 
   const admin = getAdminClient();
-  const { data, error } = await admin
-    .from('activity_receipts')
-    .select('id, action_type')
-    .in('action_type', actionTypes as ActivityActionType[])
-    .contains('agents_invoked', [runtimeAgentId])
-    .order('created_at', { ascending: false })
-    .limit(limit);
+  const results = await Promise.all(
+    actionTypes.map(async (actionType) => {
+      const { data, error } = await admin
+        .from('activity_receipts')
+        // `receipt_status` added 2026-08-09 (Horizen Journey Consequence Fork
+        // projection) — an EXISTING column on this table, never a new source
+        // of truth. Lets a caller distinguish "evidence present" from "DVN
+        // final" (services/journey/consequenceForkProjection.ts) without a
+        // second read. `action_input`/`created_at` added the same day for
+        // the Standing tier/sequencing fix described above.
+        .select('id, action_type, receipt_status, action_input, created_at, dvn_receipt_id')
+        .eq('action_type', actionType)
+        .contains('agents_invoked', [runtimeAgentId])
+        .order('created_at', { ascending: false })
+        .limit(perTypeLimit);
 
-  if (error) {
-    if (isMissingTable(error)) return [];
-    throw new Error(`findAgentReceiptRefs failed: ${error.message}`);
-  }
-  if (!data) return [];
-  return (data as { id: string; action_type: ActivityActionType }[]).map((r) => ({
+      if (error) {
+        if (isMissingTable(error)) return [];
+        throw new Error(`findAgentReceiptRefs failed for action_type "${actionType}": ${error.message}`);
+      }
+      return (data ?? []) as {
+        id: string;
+        action_type: ActivityActionType;
+        receipt_status: ReceiptStatus | null;
+        action_input: Record<string, unknown> | null;
+        created_at: string;
+        dvn_receipt_id: string | null;
+      }[];
+    }),
+  );
+
+  return results.flat().map((r) => ({
     id: r.id,
     actionType: r.action_type,
+    receiptStatus: r.receipt_status ?? 'local',
+    actionInput: r.action_input ?? null,
+    createdAt: r.created_at,
+    dvnReceiptId: r.dvn_receipt_id ?? null,
   }));
 }
 
@@ -799,6 +885,80 @@ export async function findReceiptsByActionType(
     actionInput: r.action_input,
     createdAt: r.created_at,
   }));
+}
+
+/**
+ * A full `ActivityReceiptRecord` still `receipt_status: 'local'` with no
+ * `dvn_receipt_id` on file, paired with its OWN `personaId` — the durable-
+ * liveness counterpart to `createActivityReceipt()`'s fire-and-forget
+ * hot-path submission (Horizen Pilot Closure, "close the DVN lifecycle
+ * completely", 2026-08-09).
+ *
+ * `createActivityReceipt()` persists the row and then invokes
+ * `enqueueActivityReceiptAnchor` through an un-awaited background promise —
+ * latency-friendly, but not durable in a request/serverless environment: a
+ * receipt whose request ended before that background work ran is stranded at
+ * `local` forever with nothing left checking on it. This is that check: the
+ * SAME full-row shape `rowToRecord` already produces for every other reader,
+ * so the caller (a scheduled reconciler) can feed each result straight into
+ * the existing `enqueueReceiptLeg(record, personaId, 'dvn')` — never a second
+ * row-to-record mapping, never a parallel query shape. `personaId` is
+ * returned alongside the record rather than folded into it — `rowToRecord`
+ * deliberately never carries `persona_id` (it is T0; see this file's header),
+ * and `enqueueReceiptLeg` already takes it as its own explicit argument.
+ */
+export interface LocalReceiptPendingDvnAnchor {
+  record: ActivityReceiptRecord;
+  personaId: string;
+}
+
+/**
+ * Same {record, personaId} shape as `findLocalReceiptsPendingDvnAnchor`, but
+ * for a caller-supplied, EXACT set of ids — never a status/backlog scan.
+ *
+ * Exists for targeted, bounded recovery of specific known-stranded receipts
+ * (Horizen Pilot Closure, part B3, 2026-08-09) without touching the wider
+ * historical `local` backlog that `reconcileLocalReceiptsToDvn`'s oldest-first
+ * scan may need many bounded runs to reach — the operator's explicit
+ * instruction was to assess duplicate-submission risk per receipt BEFORE any
+ * resubmission, which a blind broad rescan cannot do surgically.
+ */
+export async function findReceiptsByIds(ids: string[]): Promise<LocalReceiptPendingDvnAnchor[]> {
+  if (ids.length === 0) return [];
+  const admin = getAdminClient();
+  const { data, error } = await admin.from('activity_receipts').select('*').in('id', ids);
+  if (error) {
+    if (isMissingTable(error)) return [];
+    throw new Error(`findReceiptsByIds failed: ${error.message}`);
+  }
+  if (!data) return [];
+  return (data as DbRow[]).map((row) => ({ record: rowToRecord(row), personaId: row.persona_id }));
+}
+
+export async function findLocalReceiptsPendingDvnAnchor(options?: {
+  limit?: number;
+  /** Keyset cursor — only rows created strictly after this ISO timestamp. Lets a
+   * caller page forward past a run of non-anchorable rows instead of re-reading
+   * the same oldest page forever (see reconcileLocalReceiptsToDvn). */
+  afterCreatedAt?: string;
+}): Promise<LocalReceiptPendingDvnAnchor[]> {
+  const limit = Math.min(Math.max(options?.limit ?? 50, 1), 200);
+  const admin = getAdminClient();
+  let query = admin
+    .from('activity_receipts')
+    .select('*')
+    .eq('receipt_status', 'local')
+    .is('dvn_receipt_id', null);
+  if (options?.afterCreatedAt) {
+    query = query.gt('created_at', options.afterCreatedAt);
+  }
+  const { data, error } = await query.order('created_at', { ascending: true }).limit(limit);
+  if (error) {
+    if (isMissingTable(error)) return [];
+    throw new Error(`findLocalReceiptsPendingDvnAnchor failed: ${error.message}`);
+  }
+  if (!data) return [];
+  return (data as DbRow[]).map((row) => ({ record: rowToRecord(row), personaId: row.persona_id }));
 }
 
 export async function findAgentRegistrationReceipts(

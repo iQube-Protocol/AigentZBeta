@@ -30,16 +30,30 @@ describe('PulseTransparencyToggle — Pulse and P&L are never one solved item (2
   it('renders Pulse and P&L as two separate cards, not one combined "Pulse monitoring and P&L disclosure authorized" message', () => {
     expect(source).not.toContain('Pulse monitoring and P&amp;L disclosure authorized');
     expect(source).toContain('Pulse monitoring authorized');
-    expect(source).toContain('P&amp;L disclosure —');
+    expect(source).toContain('P&L disclosure —');
   });
 
-  it('the P&L block states plainly that it is not independently confirmed, rather than mirroring Pulse\'s confirmation', () => {
+  it('the P&L block states three independent facts plainly, rather than mirroring Pulse\'s confirmation (three-tier vocabulary correction, 2026-08-09)', () => {
     const match = source.match(/if \(horizen\.pulse\?\.enabled\) \{([\s\S]*?)\n {2}\}\n\n {2}\/\*\n {3}\* PENDING/);
     expect(match, 'the Pulse-enabled branch must exist immediately before the PENDING branch').not.toBeNull();
     const block = match![1];
-    expect(block).toMatch(/not independently confirmed|not yet authorized/);
-    expect(block).toContain('there is no');
-    expect(block).toContain('separate Horizen tool or authoritative reread for P&L disclosure specifically');
+    // Disclosure (operator's own permission grant), Service (Horizen's own
+    // onboarding), and Evidence (independently verified proof) must each
+    // render as their own row — never one row whose text switches depending
+    // on whichever signal happens to be present, and never inferred from
+    // Pulse's own "enabled" state above.
+    expect(block).toContain('P&amp;L transparency — three independent facts');
+    expect(block).toContain('P&L disclosure —');
+    expect(block).toContain('P&L service —');
+    expect(block).toContain('P&L evidence —');
+    // "Unknown" must never sit indefinitely (operator instruction,
+    // 2026-08-09) — absence of confirmed registration renders as the
+    // actionable "Onboarding required", never an indefinite unknown state.
+    expect(block).toMatch(/structured\?\.verifiablePnlRegistered === true/);
+    expect(block).toContain('Onboarding required');
+    expect(block).not.toMatch(/Unknown \(no onboarding/);
+    expect(block).toContain('NOT Horizen approving or registering financial performance');
+    expect(block).toContain('distinct from, and never inferred from, service registration above');
   });
 });
 
@@ -72,7 +86,11 @@ describe('PulseTransparencyToggle — the correlated enrollment trace is reachab
 
 describe('PulseTransparencyToggle — "Run correlated trace" demoted out of the ordinary ceremony (operator directive, 2026-08-08)', () => {
   it('showDiagnostics defaults to false — the diagnostic is opt-in, never shown in the ordinary Ratify/Verify ceremony by default', () => {
-    expect(source).toMatch(/showDiagnostics\s*=\s*false\s*\}:\s*PulseTransparencyToggleProps/);
+    // Destructuring is multi-line and gained a sibling prop
+    // (`pnlServiceVerified`, 2026-08-09 P&L vocabulary correction) — match
+    // across the remaining destructured props up to the closing brace rather
+    // than requiring `showDiagnostics = false` immediately precede it.
+    expect(source).toMatch(/showDiagnostics\s*=\s*false,[\s\S]*?\}:\s*PulseTransparencyToggleProps/);
   });
 
   it('PilotJourneyTab threads its own isAdmin through to PulseTransparencyToggle as showDiagnostics — the existing adminOnly-prop convention, never a new gating mechanism', () => {

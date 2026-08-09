@@ -24,6 +24,16 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+// The route now runs auth (services/ops/opsAuth.ts) before dispatching an
+// action — every test here supplies a matching x-cron-token, so the
+// admin-persona branch is never reached, but importing the real
+// getActivePersona chain would still eagerly construct a Supabase client
+// at module load and throw with no env configured. Mock it out like every
+// other route test that pulls in opsAuth/getActivePersona.
+vi.mock('@/services/identity/getActivePersona', () => ({
+  getActivePersona: async () => null,
+}));
+
 const mockGetActor = vi.fn();
 vi.mock('@/services/ops/icAgent', () => ({
   getActor: (...args: any[]) => mockGetActor(...args),
@@ -42,8 +52,19 @@ function pendingMessage(id: string) {
   return { id, source_chain: 80002, destination_chain: 0, payload, nonce: BigInt(1), sender: 'test', timestamp: BigInt(Date.now()) };
 }
 
+/**
+ * The route now requires auth (Horizen Pilot Closure, Part B2, 2026-08-09 —
+ * this route previously had none at all). These truthfulness tests are
+ * about the Ok/Err classification, not auth, so every fake request carries
+ * a matching x-cron-token header.
+ */
+process.env.CRON_TRIGGER_TOKEN = 'test-cron-token';
+
 function makeRequest(body: Record<string, unknown> = { action: 'process_pending' }) {
-  return { json: async () => body } as unknown as Request;
+  return {
+    json: async () => body,
+    headers: new Headers({ 'x-cron-token': 'test-cron-token' }),
+  } as unknown as Request;
 }
 
 /** A DVN actor whose submit_attestation returns whatever `respond` yields. */

@@ -22,7 +22,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, Lock, Loader2, RefreshCw, ExternalLink, Construction, Maximize2, Minimize2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Check, Lock, Loader2, RefreshCw, ExternalLink, Construction, Maximize2, Minimize2, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 import { personaFetch } from '@/utils/personaSpine';
 import { buildCodexUrl } from '@/utils/codex-nav';
 import { JOURNEY_SURFACES, buildEmbedSurfaceSrc, type JourneySurfaceDescriptor } from '@/services/journey/journeySurfaceRegistry';
@@ -37,6 +37,29 @@ import { readJsonOrExplain } from '@/utils/readJsonOrExplain';
  * this with `key={activeStageId}` so switching stages always starts fresh at
  * slide 0, fully visible.
  */
+/**
+ * ONE shared connector rule for EVERY inter-stage interval in the strip —
+ * Register→Claim through Operate→fork alike (Horizen Journey spacing
+ * correction, 2026-08-09, reversing an over-correction from earlier the
+ * same day).
+ *
+ * The immediately prior fix made every connector a FIXED `w-4` (16px) to
+ * stop Operate→fork visually diverging from the other five gaps — it
+ * succeeded at making them equal, but equal-and-tiny is not what "uniform
+ * spacing" meant: the whole strip collapsed to its min-content width and
+ * sat bunched in the left portion of the surface, leaving the rest of the
+ * available width empty. The actual ask was uniform DISTRIBUTION across
+ * the full available width, not a uniform fixed pixel gap.
+ *
+ * `flex-1` makes every connector claim an EQUAL share of the strip's
+ * leftover space (stage nodes stay `shrink-0`, so only connectors grow);
+ * `min-w-[40px]` keeps a breathable floor once the strip is narrower than
+ * its content and must scroll instead of crushing gaps toward zero. Used
+ * identically by the ordinary spine connectors AND the Operate→fork
+ * connector — never a per-position special case.
+ */
+const JOURNEY_CONNECTOR_CLASS = 'h-px flex-1 min-w-[40px]';
+
 /**
  * A server-derived signal name, made readable — MECHANICALLY.
  *
@@ -112,6 +135,20 @@ export interface JourneyRunSurfaceProps {
      * "not known yet", never as a negative finding.
      */
     runtimeState: JourneyRuntimeState | null;
+    /**
+     * P&L evidence (Final Horizen Projection Reconciliation part 2/3,
+     * 2026-08-09) — the SAME canonical-receipt-backed facts `runtimeState`
+     * carries for other stages, surfaced separately because they're
+     * deliberately excluded from `verify`'s `completionEvidence` (Pulse/P&L
+     * must never gate Ratify) and so never appear in any stage's
+     * `evidencePresent`. Null while the first read is in flight.
+     */
+    pnlEvidence: {
+      serviceRegistered: boolean;
+      serviceRegisteredDvnStatus: string | null;
+      serviceVerified: boolean;
+      serviceVerifiedDvnStatus: string | null;
+    } | null;
   }) => Record<string, unknown>;
   /**
    * The Journey's currently-selected agent (resolveRegistrableAgent slug,
@@ -148,6 +185,30 @@ export function JourneyRunSurface({
   receiptsSubjectAgentRef,
 }: JourneyRunSurfaceProps) {
   const [runtimeState, setRuntimeState] = useState<JourneyRuntimeState | null>(null);
+  /**
+   * Consequence Fork projection (services/journey/consequenceForkProjection.ts)
+   * — keyed by stage id, `{ tier, label, detail }`. Optional: a journey whose
+   * `/state` route does not compute one (e.g. the Validation Programme) simply
+   * never populates it, and the trident renders its plain stage nodes with no
+   * badge — this is a pure additive read, never a second completion source.
+   */
+  const [consequenceFork, setConsequenceFork] = useState<Record<
+    string,
+    { tier: string; label: string; detail: string }
+  > | null>(null);
+  /**
+   * P&L evidence (Final Horizen Projection Reconciliation part 2/3,
+   * 2026-08-09) — `{ serviceRegistered, serviceRegisteredDvnStatus,
+   * serviceVerified, serviceVerifiedDvnStatus }`. Same optional-additive
+   * discipline as `consequenceFork` above: absent for journeys whose
+   * `/state` route doesn't compute it.
+   */
+  const [pnlEvidence, setPnlEvidence] = useState<{
+    serviceRegistered: boolean;
+    serviceRegisteredDvnStatus: string | null;
+    serviceVerified: boolean;
+    serviceVerifiedDvnStatus: string | null;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
@@ -176,6 +237,8 @@ export function JourneyRunSurface({
       if (!res.ok) throw new Error(`Journey state request failed (${res.status})`);
       const json = await readJsonOrExplain(res, 'journey/state');
       setRuntimeState(json.state as JourneyRuntimeState);
+      setConsequenceFork((json.consequenceFork as typeof consequenceFork) ?? null);
+      setPnlEvidence((json.pnlEvidence as typeof pnlEvidence) ?? null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load journey state');
     } finally {
@@ -283,6 +346,37 @@ export function JourneyRunSurface({
   const activeStage = journey.stages.find((s) => s.id === activeStageId) ?? journey.stages[0];
   const activeStageRuntime = runtimeState?.stages.find((s) => s.stageId === activeStageId);
 
+  /**
+   * The evidence checklist is a POPOVER anchored to its own trigger, not a
+   * `<details>` disclosure in normal flow — a `<details>` open state pushes
+   * everything below it down the page, which is exactly what the compact
+   * layout correction (2026-08-09) exists to stop. Closed on stage change so
+   * a stale checklist for the PREVIOUS stage never appears to describe the
+   * new one, and on outside click / Escape like any other transient popover.
+   */
+  const [evidenceOpen, setEvidenceOpen] = useState(false);
+  const evidenceRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    setEvidenceOpen(false);
+  }, [activeStageId]);
+
+  useEffect(() => {
+    if (!evidenceOpen) return;
+    const onPointerDown = (e: MouseEvent) => {
+      if (evidenceRef.current && !evidenceRef.current.contains(e.target as Node)) setEvidenceOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setEvidenceOpen(false);
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [evidenceOpen]);
+
   // Keep the active stage visible in the carousel — including when it was
   // selected from OUTSIDE this strip (the companion's `journey:select-stage`),
   // which is exactly the case a manual-scroll-only strip leaves stranded.
@@ -372,63 +466,98 @@ export function JourneyRunSurface({
         </div>
       )}
 
-      <div className="flex items-center gap-2 overflow-hidden text-xs">
-        <span className="shrink-0 rounded bg-purple-500/20 px-1.5 py-0.5 font-semibold text-purple-200">
-          {activeIdx + 1}
-        </span>
-        <span className="shrink-0 font-medium text-slate-100">{activeStage.label}</span>
-        <span className="shrink-0 text-slate-600">—</span>
-        <RotatingStatusLine
-          key={activeStageId}
-          slides={[
-            { key: 'description', node: <span className="text-slate-400">{activeStage.description}</span> },
-            ...(activeStageRuntime && activeStageRuntime.evidenceMissing.length > 0
-              ? [{ key: 'awaiting', node: <span className="text-slate-400">Awaiting: {activeStageRuntime.evidenceMissing.map(humaniseSignal).join(', ')}</span> }]
-              : []),
-            ...(activeStageRuntime?.refusalReason
-              ? [{ key: 'refused', node: <span className="text-rose-300">Refused: {activeStageRuntime.refusalReason}</span> }]
-              : []),
-          ]}
-        />
-      </div>
-
       {/*
-        EVIDENCE CHECKLIST — the pilot must not need a SQL console to learn why
-        a finished-looking stage is not complete (operator, 2026-08-03: "The
-        application should eventually expose this same receipt checklist
-        directly in the Journey interface so you are not required to use
-        Supabase for normal pilot completion").
-
-        Every value here already travelled to this component in
-        `evidencePresent` / `evidenceMissing` / `receiptRefs` — the surface was
-        summarising it to a comma list and discarding the met/unmet split. This
-        renders the same server-derived facts, and computes nothing of its own:
-        a checklist that could disagree with the stage state would be one more
-        thing to go stale (the same rule registerCeremonyProgress follows).
+        STAGE DESCRIPTION + EVIDENCE AFFORDANCE SHARE ONE ROW (compact layout
+        correction, 2026-08-09) — a `<details>` checklist in normal flow below
+        this row used to push the stage viewport down whenever it was opened.
+        The description column is `flex-1 min-w-0` (it truncates/rotates
+        rather than grows); the evidence trigger is `shrink-0` and opens an
+        ANCHORED popover instead of displacing anything below it.
       */}
-      {activeStageRuntime && (activeStageRuntime.evidencePresent.length > 0 || activeStageRuntime.evidenceMissing.length > 0) && (
-        <details className="mt-1.5">
-          <summary className="cursor-pointer text-[11px] text-slate-500 hover:text-slate-300">
-            Evidence checklist — {activeStageRuntime.evidencePresent.length} of{' '}
-            {activeStageRuntime.evidencePresent.length + activeStageRuntime.evidenceMissing.length} recorded
-            {activeStageRuntime.receiptRefs.length > 0 ? ` · ${activeStageRuntime.receiptRefs.length} receipts` : ''}
-          </summary>
-          <ul className="mt-1.5 space-y-1 rounded-lg border border-slate-800 bg-slate-900/40 p-2.5">
-            {activeStageRuntime.evidencePresent.map((sig) => (
-              <li key={sig} className="flex items-center gap-2 text-[11px] text-emerald-300/80">
-                <Check className="h-3 w-3 shrink-0" />
-                <span>{humaniseSignal(sig)}</span>
-              </li>
-            ))}
-            {activeStageRuntime.evidenceMissing.map((sig) => (
-              <li key={sig} className="flex items-center gap-2 text-[11px] text-slate-400">
-                <span className="h-3 w-3 shrink-0 rounded-full border border-slate-600" />
-                <span>{humaniseSignal(sig)}</span>
-              </li>
-            ))}
-          </ul>
-        </details>
-      )}
+      <div className="flex items-center gap-2 text-xs">
+        <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
+          <span className="shrink-0 rounded bg-purple-500/20 px-1.5 py-0.5 font-semibold text-purple-200">
+            {activeIdx + 1}
+          </span>
+          <span className="shrink-0 font-medium text-slate-100">{activeStage.label}</span>
+          <span className="shrink-0 text-slate-600">—</span>
+          <RotatingStatusLine
+            key={activeStageId}
+            slides={[
+              { key: 'description', node: <span className="text-slate-400">{activeStage.description}</span> },
+              ...(activeStageRuntime && activeStageRuntime.evidenceMissing.length > 0
+                ? [{ key: 'awaiting', node: <span className="text-slate-400">Awaiting: {activeStageRuntime.evidenceMissing.map(humaniseSignal).join(', ')}</span> }]
+                : []),
+              ...(activeStageRuntime?.refusalReason
+                ? [{ key: 'refused', node: <span className="text-rose-300">Refused: {activeStageRuntime.refusalReason}</span> }]
+                : []),
+            ]}
+          />
+        </div>
+
+        {/*
+          EVIDENCE CHECKLIST — the pilot must not need a SQL console to learn
+          why a finished-looking stage is not complete (operator, 2026-08-03:
+          "The application should eventually expose this same receipt
+          checklist directly in the Journey interface so you are not
+          required to use Supabase for normal pilot completion").
+
+          Every value here already travelled to this component in
+          `evidencePresent` / `evidenceMissing` / `receiptRefs` — the surface
+          was summarising it to a comma list and discarding the met/unmet
+          split. This renders the same server-derived facts, and computes
+          nothing of its own: a checklist that could disagree with the stage
+          state would be one more thing to go stale (the same rule
+          registerCeremonyProgress follows).
+        */}
+        {activeStageRuntime && (activeStageRuntime.evidencePresent.length > 0 || activeStageRuntime.evidenceMissing.length > 0) && (
+          <div className="relative shrink-0" ref={evidenceRef}>
+            <button
+              type="button"
+              onClick={() => setEvidenceOpen((v) => !v)}
+              aria-expanded={evidenceOpen}
+              className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-slate-800 bg-slate-900/40 px-2 py-1 text-[11px] text-slate-400 hover:bg-slate-800/60 hover:text-slate-300"
+            >
+              Evidence {activeStageRuntime.evidencePresent.length}/
+              {activeStageRuntime.evidencePresent.length + activeStageRuntime.evidenceMissing.length}
+              {activeStageRuntime.receiptRefs.length > 0 ? ` · ${activeStageRuntime.receiptRefs.length} receipts` : ''}
+              <ChevronDown className={`h-3 w-3 shrink-0 transition-transform ${evidenceOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {evidenceOpen && (
+              <div
+                className="absolute right-0 top-[calc(100%+4px)] z-20 max-w-[min(90vw,32rem)] rounded-lg border border-slate-800 bg-slate-900/95 p-2.5 shadow-lg backdrop-blur-sm"
+              >
+                {/*
+                  HORIZONTAL, not a tall vertical list — evidence reads as a
+                  row of status chips, scrolling sideways rather than
+                  consuming viewport height (compact layout correction,
+                  2026-08-09).
+                */}
+                <div className="flex flex-nowrap items-center gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
+                  {activeStageRuntime.evidencePresent.map((sig) => (
+                    <span
+                      key={sig}
+                      className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-emerald-900/60 bg-emerald-950/20 px-2 py-0.5 text-[11px] text-emerald-300/80"
+                    >
+                      <Check className="h-3 w-3 shrink-0" />
+                      {humaniseSignal(sig)}
+                    </span>
+                  ))}
+                  {activeStageRuntime.evidenceMissing.map((sig) => (
+                    <span
+                      key={sig}
+                      className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-slate-700 px-2 py-0.5 text-[11px] text-slate-400"
+                    >
+                      <span className="h-2.5 w-2.5 shrink-0 rounded-full border border-slate-600" />
+                      {humaniseSignal(sig)}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       <div className="relative border-b border-slate-800 bg-slate-900/40 px-4 py-2.5 rounded-lg">
         {/* Rendered only while there is somewhere to scroll TO. */}
@@ -455,7 +584,7 @@ export function JourneyRunSurface({
         <div
           ref={stripRef}
           onScroll={measureOverflow}
-          className="flex items-center overflow-x-auto scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="flex w-full items-center overflow-x-auto scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           {spineStages.map((stage, i) => {
             const stageState = runtimeState?.stages.find((s) => s.stageId === stage.id)?.state ?? 'NOT_STARTED';
@@ -468,7 +597,9 @@ export function JourneyRunSurface({
                 'COMPLETE';
             return (
               <React.Fragment key={stage.id}>
-                {i > 0 && <div className={`h-px flex-1 min-w-[16px] ${prevDone ? 'bg-emerald-500/50' : 'bg-slate-700'}`} />}
+                {/* The shared flexible connector — see JOURNEY_CONNECTOR_CLASS's
+                    own doc for why this is flex-1, not a fixed width. */}
+                {i > 0 && <div className={`${JOURNEY_CONNECTOR_CLASS} ${prevDone ? 'bg-emerald-500/50' : 'bg-slate-700'}`} />}
                 <button
                   data-stage-id={stage.id}
                   onClick={() => selectStage(stage.id)}
@@ -507,77 +638,139 @@ export function JourneyRunSurface({
               </React.Fragment>
             );
           })}
-        </div>
 
-        {/*
-          CONSEQUENCE FORK — one trident, emerging from ONE junction after the
-          spine ends (never three floating cards, never appearing before the
-          spine). An L-shaped tree connector: one vertical trunk, one
-          horizontal tick per prong. Ratify (upper), Ingest (middle,
-          continuing the main line visually), Standing (lower) — operator
-          spec, 2026-08-09. Each prong is rendered from its OWN stage
-          definition — own state, own evidence, own receipts — `forkPosition`
-          only decides where the node is drawn.
-        */}
-        {forkStages.length > 0 && (
-          <div className="mt-2 flex items-stretch gap-2 border-t border-slate-800/60 pt-2" data-testid="consequence-fork">
-            <div className="flex w-4 shrink-0 flex-col items-center">
-              <div className="h-1.5 w-px bg-slate-700" />
-              <div className="w-px flex-1 bg-slate-700" />
-            </div>
-            <div className="flex flex-1 flex-col gap-1.5 py-0.5">
-              <span className="text-[10px] uppercase tracking-wide text-slate-500">Consequence Fork — independent, after aigentMe</span>
-              {FORK_ROWS.map(({ position }) => {
-                const stage = forkStages.find((s) => s.forkPosition === position);
-                if (!stage) return null;
-                const stageState = runtimeState?.stages.find((s) => s.stageId === stage.id)?.state ?? 'NOT_STARTED';
-                const isDone = stageState === 'COMPLETE';
-                const isCurrent = stage.id === activeStageId;
-                const isBlocked = stageState === 'BLOCKED';
-                return (
-                  <div key={stage.id} className="flex items-center gap-1.5" data-fork-position={position}>
-                    <div className="h-px w-3 shrink-0 bg-slate-700" />
-                    <button
-                      data-stage-id={stage.id}
-                      onClick={() => selectStage(stage.id)}
-                      className="flex shrink-0 items-center gap-1.5 px-1"
-                      title={isBlocked ? 'Blocked — prerequisites not yet met' : stage.description}
-                    >
-                      <span
-                        className={`flex h-5 w-5 items-center justify-center rounded-full border text-[10px] ${
-                          isDone
-                            ? 'border-emerald-500/50 bg-emerald-500/20 text-emerald-300'
-                            : isCurrent
-                              ? 'border-purple-400 bg-purple-500/20 text-purple-200'
-                              : isBlocked
-                                ? 'border-slate-700 text-slate-600'
-                                : 'border-slate-600 text-slate-400'
-                        }`}
+          {/*
+            CONSEQUENCE FORK — a trident anchored to the END of the spine, in
+            the SAME horizontal strip (Horizen Journey trident correction,
+            2026-08-09). This is ONE fixed-size relative child of `stripRef`,
+            immediately after the last spine node (Operate) — never a
+            detached block below, never a second row, no section heading (the
+            geometry itself communicates the fork). The three prongs are
+            ABSOLUTELY positioned inside this one box, not stacked via normal
+            flex-column flow: Ingest sits at the box's vertical center and
+            visually continues the spine's own line through ONE junction;
+            Ratify's row sits at the top, Stand's at the bottom, each linked
+            to the junction by its own vertical-then-horizontal tick. A
+            three-row flex/grid stack would recreate the "second panel"
+            defect this corrects — the fixed box + absolute connectors are
+            what make it read as one object instead.
+          */}
+          {forkStages.length > 0 && (() => {
+            const lastSpineDone =
+              (runtimeState?.stages.find((s) => s.stageId === spineStages[spineStages.length - 1]?.id)?.state ??
+                'NOT_STARTED') === 'COMPLETE';
+            // Row 0 = Ratify (top), row 1 = Ingest (middle, box center), row
+            // 2 = Stand (bottom) — fixed pixel geometry for a 72px-tall box.
+            const ROW_TOP = ['top-0', 'top-6', 'top-12'];
+            const TICK_Y = ['top-3', 'top-1/2 -translate-y-1/2', 'bottom-3'];
+            return (
+              <React.Fragment key="consequence-fork">
+                {/* The SAME shared flexible connector as every ordinary spine
+                    interval — moved OUT of the fork's fixed-size box so
+                    Operate→fork participates in the strip's flex
+                    distribution instead of being trapped inside a
+                    fixed-width unit (Horizen Journey spacing correction,
+                    2026-08-09). The box below now begins right at the
+                    junction. */}
+                <div className={`${JOURNEY_CONNECTOR_CLASS} ${lastSpineDone ? 'bg-emerald-500/50' : 'bg-slate-700'}`} />
+                <div
+                  data-testid="consequence-fork"
+                  className="relative h-[72px] w-[154px] shrink-0"
+                >
+                  {/* The vertical trunk — structural, never coloured by any ONE
+                      prong's state (MS-6-style: gate/rank per prong, never
+                      subtract from the group). Spans exactly between the top
+                      and bottom rows' own centers. */}
+                  <div className="absolute bottom-3 left-0 top-3 w-px bg-slate-700" />
+                  {/* The junction — ONE point, immediately after Operate. */}
+                  <div className="absolute left-0 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-slate-600" />
+                  {FORK_ROWS.map(({ position }, rowIndex) => {
+                  const stage = forkStages.find((s) => s.forkPosition === position);
+                  if (!stage) return null;
+                  const stageState = runtimeState?.stages.find((s) => s.stageId === stage.id)?.state ?? 'NOT_STARTED';
+                  const isDone = stageState === 'COMPLETE';
+                  const isCurrent = stage.id === activeStageId;
+                  const isBlocked = stageState === 'BLOCKED';
+                  const projection = consequenceFork?.[stage.id] ?? null;
+                  // Independent per-prong tick colour — Stand being
+                  // incomplete never dims Ratify's or Ingest's own tick.
+                  const tickDone = projection ? projection.tier !== 'refused-unresolved' : isDone;
+                  return (
+                    <React.Fragment key={stage.id}>
+                      {/* Short tick from the trunk to this row's own node —
+                          independently coloured by THIS prong's state. */}
+                      <div className={`absolute left-0 ${TICK_Y[rowIndex]} h-px w-2 ${tickDone ? 'bg-emerald-500/50' : 'bg-slate-700'}`} />
+                      <div
+                        className={`absolute left-2 ${ROW_TOP[rowIndex]} flex h-6 items-center gap-1.5 whitespace-nowrap`}
+                        data-fork-position={position}
                       >
-                        {isBlocked && !isDone ? (
-                          <Lock className="h-2.5 w-2.5" />
-                        ) : loading && isCurrent ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                        ) : isDone ? (
-                          <Check className="h-3 w-3" />
-                        ) : (
-                          <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                        )}
-                      </span>
-                      <span
-                        className={`whitespace-nowrap text-[11px] ${
-                          isCurrent ? 'font-semibold text-purple-200' : isDone ? 'text-emerald-300/80' : 'text-slate-400'
-                        }`}
-                      >
-                        {stage.label}
-                      </span>
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
+                        <button
+                          data-stage-id={stage.id}
+                          onClick={() => selectStage(stage.id)}
+                          className="flex shrink-0 items-center gap-1.5"
+                          title={projection?.detail ?? (isBlocked ? 'Blocked — prerequisites not yet met' : stage.description)}
+                        >
+                          <span
+                            className={`flex h-5 w-5 items-center justify-center rounded-full border text-[10px] ${
+                              isDone
+                                ? 'border-emerald-500/50 bg-emerald-500/20 text-emerald-300'
+                                : isCurrent
+                                  ? 'border-purple-400 bg-purple-500/20 text-purple-200'
+                                  : isBlocked
+                                    ? 'border-slate-700 text-slate-600'
+                                    : 'border-slate-600 text-slate-400'
+                            }`}
+                          >
+                            {isBlocked && !isDone ? (
+                              <Lock className="h-2.5 w-2.5" />
+                            ) : loading && isCurrent ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : isDone ? (
+                              <Check className="h-3 w-3" />
+                            ) : (
+                              <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                            )}
+                          </span>
+                          <span
+                            className={`whitespace-nowrap text-[11px] ${
+                              isCurrent ? 'font-semibold text-purple-200' : isDone ? 'text-emerald-300/80' : 'text-slate-400'
+                            }`}
+                          >
+                            {stage.label}
+                          </span>
+                          {/*
+                            PENDING NEVER READS AS FAILURE (operator
+                            instruction, 2026-08-09) — a distinct amber
+                            badge, never rose/red, and only rendered once
+                            this prong's own projection is known. Text comes
+                            from `projection.label` (consequenceForkProjection.ts's
+                            `consequenceProngCopy` — "the ONE place this
+                            fork's tier copy is written") rather than a
+                            second hardcoded string here, so the pill can
+                            never drift from that canonical copy again (it
+                            said "Pending" here while the source of truth
+                            already said "DVN Pending").
+                          */}
+                          {projection && projection.tier === 'pending-observer-active' && (
+                            <span className="whitespace-nowrap rounded-full border border-amber-800/60 bg-amber-950/30 px-1.5 py-0.5 text-[9px] font-medium text-amber-300">
+                              {projection.label}
+                            </span>
+                          )}
+                          {projection && projection.tier === 'proven-consequence' && isDone && (
+                            <span className="whitespace-nowrap rounded-full border border-emerald-800/60 bg-emerald-950/30 px-1.5 py-0.5 text-[9px] font-medium text-emerald-300">
+                              {projection.label}
+                            </span>
+                          )}
+                        </button>
+                      </div>
+                    </React.Fragment>
+                  );
+                })}
+                </div>
+              </React.Fragment>
+            );
+          })()}
+        </div>
       </div>
 
       <div className="flex flex-1 flex-col gap-3 overflow-y-auto rounded-lg border border-slate-800 bg-slate-900/40 p-4">
@@ -650,7 +843,7 @@ export function JourneyRunSurface({
                 );
               }
               const extraProps =
-                resolveSurfaceProps?.({ surfaceRef, descriptor, stage: activeStage, runtimeState }) ?? {};
+                resolveSurfaceProps?.({ surfaceRef, descriptor, stage: activeStage, runtimeState, pnlEvidence }) ?? {};
               return (
                 /*
                  * Keyed by the SURFACE, not by array position.

@@ -23,17 +23,34 @@
  * never from agent name).
  *
  * aigentMe still terminates the spine and opens the SAME two independent
- * branches as before, rendered as a three-pronged Consequence Fork:
+ * branches as before, rendered as a three-pronged Consequence Fork anchored
+ * at the END of the spine — a trident, not a detached block underneath
+ * (Horizen Journey trident correction, 2026-08-09):
  *
- *                                    Ratify   (upper)
- *                                       |
- *   Register -> Claim -> Orient -> Passport -> Delegate -> aigentMe -- Ingest  (middle/straight)
- *                                       |
- *                                    Standing (lower, prerequisites: ['deploy'] unchanged)
+ *                                                                     Ratify (upper)
+ *                                                                       |
+ *   Register -> Claim -> Orient -> Passport -> Delegate -> aigentMe --*-- Ingest (middle/straight)
+ *                                                                       |
+ *                                                                     Standing (lower, prerequisites: ['deploy'] unchanged)
  *
  * `forkPosition` on the verify/deploy/standing stages below is a rendering
  * hint ONLY (components/journey/JourneyRunSurface.tsx) — it changes where a
  * stage's node is drawn, never its gating or completion evidence.
+ *
+ * VERB LABELS (Horizen Journey label-normalization correction, 2026-08-09):
+ * product-facing `label` fields now read as verbs — aigentMe -> 'Operate',
+ * deploy -> 'Ingest', standing -> 'Stand' — while every internal id (`aigentme`,
+ * `deploy`, `standing`) and everything keyed on it (prerequisites, receipts,
+ * routes, `forkPosition`) is UNCHANGED. Full explanatory copy inside each
+ * stage's `description`/`companion` may still name aigentMe, Factory
+ * ingestion and Standing by their underlying capability.
+ *
+ * LEGACY ORIENT COMPATIBILITY: an agent whose Passport/delegation/aigentMe
+ * activation was already established before Orient existed satisfies Orient
+ * through a DERIVED legacy-precedent signal
+ * (services/journey/orientationContext.ts's `orientationLegacyPrecedentEstablished`),
+ * never a fabricated `orientation_ritual_completed` receipt. See
+ * app/api/journey/moneypenny-horizen/state/route.ts's `orient` evidence block.
  *
  * AGENT-GENERIC NARRATION (Horizen Pilot Closure item 5, 2026-08-09): every
  * stage-copy string below that names the subject agent uses the token
@@ -298,7 +315,11 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
     },
     {
       id: 'aigentme',
-      label: 'aigentMe',
+      // Product-facing label is 'Operate' (Horizen Journey verb-normalization
+      // correction, 2026-08-09) — the internal id/actor/subjectRef and every
+      // route/receipt/prerequisite keyed on 'aigentme' are UNCHANGED. Full
+      // explanatory copy below may still describe aigentMe by name.
+      label: 'Operate',
       description:
         'aigentMe activates as the operator’s constitutional companion. The operator decides whether the agent’s domain focus shapes their ExperienceQube population.',
       actor: 'aigentme',
@@ -462,7 +483,10 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
       // Consequence Fork — middle/straight prong, visually continuing the
       // main spine (operator spec, 2026-08-09).
       forkPosition: 'middle',
-      label: 'Ingest into Factory',
+      // Product-facing label is 'Ingest' (Horizen Journey verb-normalization
+      // correction, 2026-08-09) — id stays 'deploy'. Full Factory-ingestion
+      // explanatory copy below is unchanged.
+      label: 'Ingest',
       description:
         'Ingestion registers the activated agent as a factory participant and makes it ELIGIBLE to accrue Standing. It never accrues Standing itself.',
       actor: 'moneypenny',
@@ -553,7 +577,10 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
     },
     {
       id: 'standing',
-      label: 'Standing',
+      // Product-facing label is 'Stand' (Horizen Journey verb-normalization
+      // correction, 2026-08-09) — id stays 'standing'. Full Standing
+      // explanatory copy below is unchanged.
+      label: 'Stand',
       // Consequence Fork — lower prong (operator spec, 2026-08-09: "Standing
       // below Ingest"). Rendering only — `prerequisites: ['deploy']` below
       // is an existing gating relationship, unchanged and unrelated to this

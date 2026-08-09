@@ -36,6 +36,7 @@ interface OrientationPanelProps {
 export function OrientationPanel({ agentSlug }: OrientationPanelProps) {
   const [loading, setLoading] = useState(true);
   const [complete, setComplete] = useState(false);
+  const [completionSource, setCompletionSource] = useState<'ritual' | 'legacy-precedent' | 'none'>('none');
   const [context, setContext] = useState<OrientationContext | null>(null);
   const [acknowledging, setAcknowledging] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,6 +51,7 @@ export function OrientationPanel({ agentSlug }: OrientationPanelProps) {
       if (res.ok) {
         const json = await readJsonOrExplain(res, 'orient/acknowledge');
         setComplete(Boolean(json.orientationComplete));
+        setCompletionSource((json.orientationCompletionSource as typeof completionSource) ?? 'none');
         setContext((json.orientationContext as OrientationContext) ?? null);
       }
     } catch {
@@ -106,8 +108,12 @@ export function OrientationPanel({ agentSlug }: OrientationPanelProps) {
           <div>
             <p className="font-medium">Oriented</p>
             <p className="mt-1 opacity-80">
-              {context?.capsule ??
-                'The constitutional act this operator needed before Passport was identified and acknowledged.'}
+              {completionSource === 'legacy-precedent'
+                ? 'This admission already established an issued Passport, active bounded delegation and ' +
+                  'activated Operate before Orient existed as a stage — that stronger downstream standing ' +
+                  'satisfies Orient without repeating an acknowledgment this operator never needed to perform.'
+                : context?.capsule ??
+                  'The constitutional act this operator needed before Passport was identified and acknowledged.'}
             </p>
           </div>
         </div>

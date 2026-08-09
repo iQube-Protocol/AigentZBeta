@@ -8,7 +8,11 @@
  *   Pulse                  ENROLLED
  *   Identity commitment    RECORDED
  *   Endpoint               HEALTHY / no warning
- *   Verifiable P&L         NOT REGISTERED
+ *   P&L service            NOT REGISTERED
+ *
+ * (Relabeled from "Verifiable P&L" to "P&L service" as part of the three-tier
+ * P&L vocabulary correction, 2026-08-09 — see the P&L transparency block's
+ * own describe block below for the disclosure/service/evidence split.)
  *
  * with no "Create fresh authorization" affordance, because there is nothing
  * left to authorize.
@@ -67,9 +71,14 @@ describe('PulseTransparencyToggle — the enrolled branch projects Pulse/Identit
     expect(block).toMatch(/endpointWarning === null \? 'Healthy/);
   });
 
-  it('projects "Verifiable P&L" as the AUTHORITATIVE fact when structured evidence exists — never silently deferring to the inferred Agent Card flag', () => {
-    expect(block).toContain('Verifiable P&amp;L —');
-    expect(block).toMatch(/structured\?\.verifiablePnlRegistered !== undefined/);
+  it('projects "P&L service" as the AUTHORITATIVE fact when structured evidence exists — never silently deferring to the inferred Agent Card flag (relabeled from "Verifiable P&L", three-tier vocabulary correction 2026-08-09)', () => {
+    expect(block).toContain('P&L service —');
+    expect(block).toMatch(/structured\?\.verifiablePnlRegistered === true/);
+  });
+
+  it('renders "Onboarding required" rather than an indefinite "Unknown" once absence of registration is itself a determination (operator instruction, 2026-08-09)', () => {
+    expect(block).toContain('Onboarding required');
+    expect(block).not.toMatch(/Unknown \(no onboarding/);
   });
 
   it('never renders a "Create fresh authorization" affordance in the enrolled branch — there is nothing left to authorize', () => {

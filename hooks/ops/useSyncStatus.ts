@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { personaFetch } from '@/utils/personaSpine';
 
 interface SyncStatusData {
   ok: boolean;
@@ -102,11 +103,18 @@ export function useSyncStatus(refreshMs = 30000) {
    * MANUAL ONLY — invoked from an operator's explicit click (the "Process via
    * LayerZero" button), never from `load()`. Same removed `await load()` as
    * `repair()`; see that note.
+   *
+   * `/api/ops/layerzero/process` now requires auth (Horizen Pilot Closure,
+   * Part B2, 2026-08-09 — it had none before) and resolves the admin-persona
+   * path via `getActivePersona`, which needs the Authorization Bearer a raw
+   * `fetch()` never attaches. `personaFetch` is the canonical client-side
+   * spine transport for exactly this (see CLAUDE.md's "Client-side spine
+   * fetches" rule) — using bare `fetch` here would 401 for every operator.
    */
   async function processLayerZero(action = 'process_pending', messageIds: string[] = []) {
     try {
       setError(null);
-      const r = await fetch('/api/ops/layerzero/process', {
+      const r = await personaFetch('/api/ops/layerzero/process', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action, messageIds })

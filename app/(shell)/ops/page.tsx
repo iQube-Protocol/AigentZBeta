@@ -23,6 +23,7 @@ import { useArbitrumSepolia } from "@/hooks/ops/useArbitrumSepolia";
 import { useBaseSepolia } from "@/hooks/ops/useBaseSepolia";
 import { useBaseMainnet } from "@/hooks/ops/useBaseMainnet";
 import { useSyncStatus } from "@/hooks/ops/useSyncStatus";
+import { personaFetch } from "@/utils/personaSpine";
 import { useDVNStatus } from "@/hooks/ops/useDVNStatus";
 import { useDVNMonitor } from "@/hooks/ops/useDVNMonitor";
 import { useSolanaTestnet } from "@/hooks/ops/useSolanaTestnet";
@@ -1846,7 +1847,11 @@ export default function OpsPage() {
               const validator = (document.getElementById('dvn-validator-test') as HTMLInputElement)?.value;
               const signatureHex = (document.getElementById('dvn-sighex-test') as HTMLInputElement)?.value;
               if (!dvnMon.messageId || !validator || !signatureHex) return;
-              await fetch('/api/ops/dvn/attest', {
+              // /api/ops/dvn/attest now requires auth (Horizen Pilot Closure,
+              // Part B2, 2026-08-09 — it had none before) and resolves the
+              // admin-persona path via getActivePersona, which needs the
+              // Authorization Bearer a raw fetch() never attaches.
+              await personaFetch('/api/ops/dvn/attest', {
                 method: 'POST',
                 headers: { 'content-type': 'application/json' },
                 body: JSON.stringify({ messageId: dvnMon.messageId, validator, signatureHex }),

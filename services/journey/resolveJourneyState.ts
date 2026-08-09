@@ -76,10 +76,32 @@ export function resolveJourneyState(
 
     if (isRefused) {
       state = 'REFUSED';
+    } else if (missing.length === 0 && stage.completionEvidence.length > 0) {
+      /*
+       * ESTABLISHED COMPLETION EVIDENCE PRECEDES PREREQUISITE GATING
+       * (Horizen Journey correction, 2026-08-09).
+       *
+       * "Would this stage be available to begin from scratch today?" and "has
+       * this stage's own ceremony already happened?" are different questions.
+       * Prerequisites answer the first — they govern entry into a stage that
+       * has NOT yet completed. They must never answer the second by erasing a
+       * historically-established completion.
+       *
+       * THE DEFECT THIS CLOSES: inserting Orient between Claim and Passport
+       * (services/journey/horizenMoneyPennyJourney.ts) added a NEW prerequisite
+       * to Passport's chain. Nakamoto's Passport/Delegate/aigentMe/Ratify/
+       * Ingest stages all carry real, pre-existing canonical completion
+       * evidence that predates Orient's introduction. Under the old ordering
+       * (prerequisite check before evidence check), every one of those stages
+       * rendered BLOCKED the moment Orient's own evidence was absent — a
+       * journey-definition evolution visually un-completing constitutional
+       * facts that were never invalidated. See
+       * tests/journey-orient-legacy-regression.test.ts's "REPRODUCES THE
+       * DEFECT" canary for the pinned pre-fix behaviour.
+       */
+      state = 'COMPLETE';
     } else if (!prerequisitesMet) {
       state = 'BLOCKED';
-    } else if (missing.length === 0 && stage.completionEvidence.length > 0) {
-      state = 'COMPLETE';
     } else if (present.length > 0) {
       state = 'IN_PROGRESS';
     } else if (priorStagesAllComplete) {

@@ -3704,3 +3704,128 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-f294431.md](../build_/COMMITS/COMMIT-f294431.md)
 - Message: Surface the dual-leg (DVN + Bitcoin) receipt state through to the UI
+
+## Commit `2126d7d` — 2026-08-09T03:06:02Z
+- Type: `push`
+- Brief: [COMMIT-2126d7d.md](../build_/COMMITS/COMMIT-2126d7d.md)
+- Message: Record the real commit hash on the observer-review resolution record
+
+## Commit `f2ca7aa` — 2026-08-09T03:05:48Z
+- Type: `feat`
+- Brief: [COMMIT-f2ca7aa.md](../build_/COMMITS/COMMIT-f2ca7aa.md)
+- Message: Add Post-Freeze Observer Review Closure for Crystal vP1 (EXP-P1)
+
+## Commit `b96a7b3` — 2026-08-09T04:22:05Z
+- Type: `push`
+- Brief: [COMMIT-b96a7b3.md](../build_/COMMITS/COMMIT-b96a7b3.md)
+- Message: Rebuild Consequence Fork trident as one absolutely-positioned box, not stacked rows
+
+## Commit `51917a4` — 2026-08-09T03:25:19Z
+- Type: `fix`
+- Brief: [COMMIT-51917a4.md](../build_/COMMITS/COMMIT-51917a4.md)
+- Message: Fix Orient regression, anchor Consequence Fork trident to spine end, verb labels
+
+## Commit `b5abe6e` — 2026-08-09T05:41:11Z
+- Type: `push`
+- Brief: [COMMIT-b5abe6e.md](../build_/COMMITS/COMMIT-b5abe6e.md)
+- Message: Split Ratify P&L into three independent tiers, uniform journey spacing
+
+## Commit `126e971` — 2026-08-09T06:24:58Z
+- Type: `push`
+- Brief: [COMMIT-126e971.md](../build_/COMMITS/COMMIT-126e971.md)
+- Message: Revert fixed-width journey connectors to equal flex-grow
+
+## Commit `04572c9` — 2026-08-09T06:24:52Z
+- Type: `push`
+- Brief: [COMMIT-04572c9.md](../build_/COMMITS/COMMIT-04572c9.md)
+- Message: Replace global get_ready_messages() with targeted per-receipt DVN reads
+
+## Commit `52d1e56` — 2026-08-09T06:24:43Z
+- Type: `fix`
+- Brief: [COMMIT-52d1e56.md](../build_/COMMITS/COMMIT-52d1e56.md)
+- Message: Fix tokenId fallback when Horizen reread succeeds without one
+
+## Commit `3694f4b` — 2026-08-09T07:32:48Z
+- Type: `feat`
+- Brief: [COMMIT-3694f4b.md](../build_/COMMITS/COMMIT-3694f4b.md)
+- Message: Add durable local-to-DVN-pending reconciler, closing the receipt lifecycle
+
+## Commit `c082ef3` — 2026-08-09T07:18:13Z
+- Type: `push`
+- Brief: [COMMIT-c082ef3.md](../build_/COMMITS/COMMIT-c082ef3.md)
+- Message: Compact Journey evidence checklist into the stage description row
+
+## Commit `d5c8474` — 2026-08-09T07:48:39Z
+- Type: `feat`
+- Brief: [COMMIT-d5c8474.md](../build_/COMMITS/COMMIT-d5c8474.md)
+- Message: Add Verifiable-PnL onboarding boundary, verified against Horizen's live contract
+
+## Commit `21c278e` — 2026-08-09T08:06:03Z
+- Type: `feat`
+- Brief: [COMMIT-21c278e.md](../build_/COMMITS/COMMIT-21c278e.md)
+- Message: Fix local-to-DVN reconciler starvation on non-anchorable backlog + add receipt-status diagnostic
+
+## Commit `efe5d1a` — 2026-08-09T08:39:43Z
+- Type: `push`
+- Brief: [COMMIT-efe5d1a.md](../build_/COMMITS/COMMIT-efe5d1a.md)
+- Message: Make receipt-status diagnostic column-schema-safe after discovering dvn_status missing in prod
+
+## Commit `c94c072` — 2026-08-09T08:59:48Z
+- Type: `feat`
+- Brief: [COMMIT-c94c072.md](../build_/COMMITS/COMMIT-c94c072.md)
+- Message: Add migration-drift diagnostic covering dual-leg anchoring + MoneyPenny AigentQube seed
+
+## Commit `52cfb3f` — 2026-08-09T09:32:29Z
+- Type: `feat`
+- Brief: [COMMIT-52cfb3f.md](../build_/COMMITS/COMMIT-52cfb3f.md)
+- Message: Add wall-clock safety budget to DVN reconciler + targeted submit route + MoneyPenny AigentQube repair
+
+## Commit `bd52b76` — 2026-08-09T09:41:03Z
+- Type: `feat`
+- Brief: [COMMIT-bd52b76.md](../build_/COMMITS/COMMIT-bd52b76.md)
+- Message: Add workflow to trigger MoneyPenny AigentQube repair route
+
+## Commit `6ad4cf4` — 2026-08-09T09:55:10Z
+- Type: `feat`
+- Brief: [COMMIT-6ad4cf4.md](../build_/COMMITS/COMMIT-6ad4cf4.md)
+- Message: Correct Horizen PnL onboarding contract + wire production Onboard action
+
+## Commit `e720dcd` — 2026-08-09T11:06:08Z
+- Type: `feat`
+- Brief: [COMMIT-e720dcd.md](../build_/COMMITS/COMMIT-e720dcd.md)
+- Message: Fix DVN Pending fork pill + P&L three-state UI, add purpose-bound agent wallet binding
+
+## Commit `e860c62` — 2026-08-09T12:29:35Z
+- Type: `feat`
+- Brief: [COMMIT-e860c62.md](../build_/COMMITS/COMMIT-e860c62.md)
+- Message: Fix AigentQube-presence/Factory-ingestion conflation + wire P&L service registered evidence
+
+## Commit `2ba52ac` — 2026-08-09T17:51:55Z
+- Type: `feat`
+- Brief: [COMMIT-2ba52ac.md](../build_/COMMITS/COMMIT-2ba52ac.md)
+- Message: Add GitHub Actions workflows for the ops routes needing CRON_TRIGGER_TOKEN
+
+## Commit `1ea799b` — 2026-08-09T18:23:29Z
+- Type: `feat`
+- Brief: [COMMIT-1ea799b.md](../build_/COMMITS/COMMIT-1ea799b.md)
+- Message: Add GIN index on activity_receipts.agents_invoked + raise ops route timeouts
+
+## Commit `90629c7` — 2026-08-09T19:34:39Z
+- Type: `push`
+- Brief: [COMMIT-90629c7.md](../build_/COMMITS/COMMIT-90629c7.md)
+- Message: Stop double-counting the Standing seed and make supersession consequential
+
+## Commit `a3aaa7f` — 2026-08-09T19:56:02Z
+- Type: `feat`
+- Brief: [COMMIT-a3aaa7f.md](../build_/COMMITS/COMMIT-a3aaa7f.md)
+- Message: Add read-only DVN message classifier for Part B1 Nakamoto truth-check
+
+## Commit `7379156` — 2026-08-09T19:51:43Z
+- Type: `push`
+- Brief: [COMMIT-7379156.md](../build_/COMMITS/COMMIT-7379156.md)
+- Message: Give DVN attestation processing scheduled liveness, secure its two mutation routes
+
+## Commit `cc779a6` — 2026-08-09T20:35:17Z
+- Type: `push`
+- Brief: [COMMIT-cc779a6.md](../build_/COMMITS/COMMIT-cc779a6.md)
+- Message: Give the DVN attestation processor scheduled liveness (B3 confirmed)
