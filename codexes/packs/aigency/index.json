@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-09T06:27:19.234Z",
+  "last_updated": "2026-08-09T07:35:10.212Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "52d1e56fe85f5ed718103d37efff857f16767769",
-  "latest_commit_short": "52d1e56",
-  "latest_commit_title": "Fix tokenId fallback when Horizen reread succeeds without one",
+  "latest_commit": "c082ef3911fab1ea2384e3525acfb70124c86437",
+  "latest_commit_short": "c082ef3",
+  "latest_commit_title": "Compact Journey evidence checklist into the stage description row",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "c082ef3",
+      "full_sha": "c082ef3911fab1ea2384e3525acfb70124c86437",
+      "title": "Compact Journey evidence checklist into the stage description row",
+      "author": "Claude",
+      "timestamp": "2026-08-09T07:18:13Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-c082ef3.md"
+    },
+    {
+      "sha": "3694f4b",
+      "full_sha": "3694f4b00c5f336c36935ce1ec59ce56c85de4ea",
+      "title": "Add durable local-to-DVN-pending reconciler, closing the receipt lifecycle",
+      "author": "Claude",
+      "timestamp": "2026-08-09T07:32:48Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-3694f4b.md"
+    },
     {
       "sha": "52d1e56",
       "full_sha": "52d1e56fe85f5ed718103d37efff857f16767769",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-07-16T23:04:28Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-8481526.md"
-    },
-    {
-      "sha": "3af1af6",
-      "full_sha": "3af1af6f123cb254630718ea29166c8506465ad3",
-      "title": "reconcile Chrysalis tracker with CFS-035 shipped state + fix stale grounding comment",
-      "author": "Claude",
-      "timestamp": "2026-07-16T23:53:44Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-3af1af6.md"
-    },
-    {
-      "sha": "d233171",
-      "full_sha": "d233171e7a712964e7205d989661d3c4987ceeda",
-      "title": "add Homecoming closeout items (Elythian memory upload, Constitutional Observer delegate) + open CFSP Horizen pilot row",
-      "author": "Claude",
-      "timestamp": "2026-07-16T23:57:19Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-d233171.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

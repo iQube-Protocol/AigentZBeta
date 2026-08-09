@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`c082ef3`](https://github.com/iQube-Protocol/AigentZBeta/commit/c082ef3911fab1ea2384e3525acfb70124c86437) [push] Compact Journey evidence checklist into the stage description row (Claude, 2026-08-09T07:18:13Z)
+- [`3694f4b`](https://github.com/iQube-Protocol/AigentZBeta/commit/3694f4b00c5f336c36935ce1ec59ce56c85de4ea) [feat] Add durable local-to-DVN-pending reconciler, closing the receipt lifecycle (Claude, 2026-08-09T07:32:48Z)
 - [`52d1e56`](https://github.com/iQube-Protocol/AigentZBeta/commit/52d1e56fe85f5ed718103d37efff857f16767769) [fix] Fix tokenId fallback when Horizen reread succeeds without one (Claude, 2026-08-09T06:24:43Z)
 - [`04572c9`](https://github.com/iQube-Protocol/AigentZBeta/commit/04572c9443deb6ad397f3ed907d14a7c465a8cf3) [push] Replace global get_ready_messages() with targeted per-receipt DVN reads (Claude, 2026-08-09T06:24:52Z)
 - [`126e971`](https://github.com/iQube-Protocol/AigentZBeta/commit/126e9719e1ef76fcc01895ba5fc19a7b3cb94591) [push] Revert fixed-width journey connectors to equal flex-grow (Claude, 2026-08-09T06:24:58Z)
