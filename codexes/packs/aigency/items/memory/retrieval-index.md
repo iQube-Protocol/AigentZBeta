@@ -3809,3 +3809,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-1ea799b.md](../build_/COMMITS/COMMIT-1ea799b.md)
 - Message: Add GIN index on activity_receipts.agents_invoked + raise ops route timeouts
+
+## Commit `90629c7` — 2026-08-09T19:34:39Z
+- Type: `push`
+- Brief: [COMMIT-90629c7.md](../build_/COMMITS/COMMIT-90629c7.md)
+- Message: Stop double-counting the Standing seed and make supersession consequential
