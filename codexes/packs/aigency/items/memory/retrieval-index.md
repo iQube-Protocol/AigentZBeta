@@ -3804,3 +3804,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-2ba52ac.md](../build_/COMMITS/COMMIT-2ba52ac.md)
 - Message: Add GitHub Actions workflows for the ops routes needing CRON_TRIGGER_TOKEN
+
+## Commit `1ea799b` — 2026-08-09T18:23:29Z
+- Type: `feat`
+- Brief: [COMMIT-1ea799b.md](../build_/COMMITS/COMMIT-1ea799b.md)
+- Message: Add GIN index on activity_receipts.agents_invoked + raise ops route timeouts

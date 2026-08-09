@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-09T17:54:31.985Z",
+  "last_updated": "2026-08-09T18:25:53.765Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "2ba52ac029613d97006ec7e296642f508768ccff",
-  "latest_commit_short": "2ba52ac",
-  "latest_commit_title": "Add GitHub Actions workflows for the ops routes needing CRON_TRIGGER_TOKEN",
+  "latest_commit": "1ea799b68621043b6a823946197546732373e743",
+  "latest_commit_short": "1ea799b",
+  "latest_commit_title": "Add GIN index on activity_receipts.agents_invoked + raise ops route timeouts",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "1ea799b",
+      "full_sha": "1ea799b68621043b6a823946197546732373e743",
+      "title": "Add GIN index on activity_receipts.agents_invoked + raise ops route timeouts",
+      "author": "Claude",
+      "timestamp": "2026-08-09T18:23:29Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-1ea799b.md"
+    },
     {
       "sha": "2ba52ac",
       "full_sha": "2ba52ac029613d97006ec7e296642f508768ccff",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-07-16T19:54:06Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-242184d.md"
-    },
-    {
-      "sha": "a05fcff",
-      "full_sha": "a05fcffb0481acd09f209a8af670a219dc4e4d84",
-      "title": "fold the Three Computational Compressions into CRP-002 as a front-of-charter amendment",
-      "author": "Claude",
-      "timestamp": "2026-07-16T20:24:42Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-a05fcff.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
