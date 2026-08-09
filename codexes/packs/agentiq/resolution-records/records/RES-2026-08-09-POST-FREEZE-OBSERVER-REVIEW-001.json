@@ -45,7 +45,9 @@
   "status": "candidate",
   "trigger": "milestone-complete",
   "evidence": {
-    "commits": [],
+    "commits": [
+      "f2ca7aaf"
+    ],
     "tests": [
       "tests/post-freeze-observer-review.test.ts",
       "tests/validation-programme-journey.test.ts",
