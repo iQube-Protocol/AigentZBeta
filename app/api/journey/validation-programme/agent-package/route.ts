@@ -364,7 +364,12 @@ async function getImpl(req: NextRequest) {
         if (round.package) {
           observerPackage = round.package;
           observerRoundResolution = resolveObserverRound({ pkg: round.package, decisions: round.decisions });
-          callerObserverStatus = deriveCallerObserverStatus({ pkg: round.package, decisions: round.decisions, callerRef });
+          callerObserverStatus = deriveCallerObserverStatus({
+            pkg: round.package,
+            decisions: round.decisions,
+            callerRef,
+            mayViewOthersProgress: mayViewFullObserverDetail,
+          });
         }
       }
     } catch {
@@ -501,9 +506,13 @@ async function getImpl(req: NextRequest) {
       ...(!protocolGate.ready ? ['Protocol Ratified'] : []),
       ...(executionState === 'designed' ? ['Execution'] : []),
     ],
+    // The parenthetical is DERIVED from `protocolGate.missing`, same as
+    // `gateSequence` above (fixed 2026-08-09, third review pass) — it
+    // previously hardcoded the full artifact-kind list including
+    // 'arm-config', contradicting `completed` above once arm-config froze.
     whatObserverAcceptanceUnlocks:
       'Observer Accepted is the signal that the frozen substrate is sound enough to begin POST-CRYSTAL protocol ' +
-      'preparation (task-set, answer-key, arm-config, judge-config, analysis-config, interpretation-table). It does ' +
+      `preparation (${protocolGate.missing.length > 0 ? protocolGate.missing.join(', ') : 'task-set, answer-key, arm-config, judge-config, analysis-config, interpretation-table'}). It does ` +
       'NOT unlock Protocol Ratified or Execution directly — those still require every PROTOCOL_FREEZE_ARTIFACT_KINDS ' +
       'artifact to independently reach `frozen` (see `lifecycle.protocol`), and Execution requires Protocol Ratified ' +
       'first. See `reviewMandate.disclaimer`.',

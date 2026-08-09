@@ -70,8 +70,8 @@ describe('point 8 — observer independence: no leak of another observer\'s deci
     expect(observerReviewBlock).toMatch(/resolution: observerRoundResolution/);
   });
 
-  it('deriveCallerObserverStatus exposes only caller-scoped fields — never another observer\'s ref, even by elimination (tightened 2026-08-09, second review pass)', () => {
-    const pkg = buildObserverReviewPackage({
+  const buildTwoObserverPackage = () =>
+    buildObserverReviewPackage({
       packageId: 'p1',
       experimentId: 'EXP-TEST',
       artifact: {
@@ -87,6 +87,48 @@ describe('point 8 — observer independence: no leak of another observer\'s deci
       assignedObserverRefs: ['austin-ref', 'avi-ref'],
       createdAt: '2026-08-09T00:00:00.000Z',
     });
+
+  it(
+    "deriveCallerObserverStatus OMITS otherDecisionsOutstanding entirely for an UNDECIDED caller " +
+      '(tightened 2026-08-09, third review pass) — in a 2-observer round even the ref-free boolean lets an ' +
+      "undecided caller invert it into a fact about the one other principal's progress by elimination",
+    () => {
+      const pkg = buildTwoObserverPackage();
+      const austinDecision: ObserverDecision = {
+        packageHash: pkg.packageHash,
+        observerRef: 'austin-ref',
+        decision: 'accepted',
+        rationale: 'looks sound',
+        evidenceRefs: [],
+        submittedByAgentRef: null,
+        decidedAt: '2026-08-09T00:00:00.000Z',
+      };
+      const status = deriveCallerObserverStatus({
+        pkg,
+        decisions: [austinDecision],
+        callerRef: 'avi-ref',
+        mayViewOthersProgress: false,
+      });
+      expect(status).toEqual({
+        callerAssigned: true,
+        callerDecisionStatus: 'not-decided',
+        roundComplete: false,
+        otherAssignedCount: 1,
+      });
+      expect(status).not.toHaveProperty('otherDecisionsOutstanding');
+      // No `assignedObserverRefs`/`outstandingObserverRefs`-shaped field survives here —
+      // only counts and booleans about OTHERS, never a ref that would let a
+      // 2-observer round's "who's outstanding" become "who specifically" by
+      // elimination.
+      expect(Object.keys(status).sort()).toEqual(['callerAssigned', 'callerDecisionStatus', 'otherAssignedCount', 'roundComplete']);
+      const serialized = JSON.stringify(status);
+      expect(serialized).not.toContain('austin-ref');
+      expect(serialized).not.toContain('avi-ref');
+    },
+  );
+
+  it('deriveCallerObserverStatus INCLUDES otherDecisionsOutstanding once the caller has decided (mayViewOthersProgress: true)', () => {
+    const pkg = buildTwoObserverPackage();
     const austinDecision: ObserverDecision = {
       packageHash: pkg.packageHash,
       observerRef: 'austin-ref',
@@ -96,28 +138,20 @@ describe('point 8 — observer independence: no leak of another observer\'s deci
       submittedByAgentRef: null,
       decidedAt: '2026-08-09T00:00:00.000Z',
     };
-    const status = deriveCallerObserverStatus({ pkg, decisions: [austinDecision], callerRef: 'avi-ref' });
+    const aviDecision: ObserverDecision = { ...austinDecision, observerRef: 'avi-ref', decision: 'accepted' };
+    const status = deriveCallerObserverStatus({
+      pkg,
+      decisions: [austinDecision, aviDecision],
+      callerRef: 'avi-ref',
+      mayViewOthersProgress: true,
+    });
     expect(status).toEqual({
       callerAssigned: true,
-      callerDecisionStatus: 'not-decided',
-      roundComplete: false,
+      callerDecisionStatus: 'accepted',
+      roundComplete: true,
       otherAssignedCount: 1,
       otherDecisionsOutstanding: false,
     });
-    // No `assignedObserverRefs`/`outstandingObserverRefs`-shaped field survives here —
-    // only counts and booleans about OTHERS, never a ref that would let a
-    // 2-observer round's "who's outstanding" become "who specifically" by
-    // elimination.
-    expect(Object.keys(status).sort()).toEqual([
-      'callerAssigned',
-      'callerDecisionStatus',
-      'otherAssignedCount',
-      'otherDecisionsOutstanding',
-      'roundComplete',
-    ]);
-    const serialized = JSON.stringify(status);
-    expect(serialized).not.toContain('austin-ref');
-    expect(serialized).not.toContain('avi-ref');
   });
 
   it("blindOtherObserverDecisions hides Austin's decision from Avi before Avi has decided", () => {

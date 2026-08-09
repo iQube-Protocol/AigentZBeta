@@ -558,6 +558,18 @@ export function resolveChangeProposal(
  * may know there are N other assigned principals and whether any of them
  * are still outstanding; they may not read who, specifically.
  *
+ * `otherDecisionsOutstanding` is ITSELF gated (tightened again 2026-08-09,
+ * third review pass): in a round with exactly one other assigned principal,
+ * a caller who has NOT YET decided can invert this single boolean into "has
+ * THE other principal decided?" — a 1-of-1 fact that, combined with
+ * `otherAssignedCount === 1`, still names that principal's progress by
+ * elimination even though no ref is present. The field is therefore OMITTED
+ * ENTIRELY until the caller has decided or the round is no longer open —
+ * exactly the same boundary `mayViewFullObserverDetail`/`mayViewAllDecisions`
+ * already draws for the ref-bearing projection below, reused here rather
+ * than re-derived, so the two can never disagree about when a caller may see
+ * others' progress.
+ *
  * The full ref-bearing projection (`assignedObserverRefs`, the unredacted
  * `ObserverRoundResolution`) is reserved for a steward/admin caller — see
  * `projectResolutionForCaller` below and each route's own `isSteward` gate.
@@ -572,27 +584,35 @@ export interface CallerObserverStatus {
   roundComplete: boolean;
   /** How many OTHER principals this round assigned — never their refs. */
   otherAssignedCount: number;
-  /** True iff at least one OTHER assigned principal has not yet decided. */
-  otherDecisionsOutstanding: boolean;
+  /** True iff at least one OTHER assigned principal has not yet decided.
+   *  ABSENT (not `false`) when the caller has not yet decided and the round
+   *  is still open — see the interface doc comment above. */
+  otherDecisionsOutstanding?: boolean;
 }
 
 export function deriveCallerObserverStatus(input: {
   pkg: ObserverReviewPackage | null;
   decisions: readonly ObserverDecision[];
   callerRef: string;
+  /** The SAME `mayViewFullObserverDetail`/`mayViewAllDecisions` boolean each
+   *  route already computes (steward/admin, or the caller has decided, or
+   *  the round is closed) — governs whether `otherDecisionsOutstanding` is
+   *  present at all, not just whether refs are shown. */
+  mayViewOthersProgress: boolean;
 }): CallerObserverStatus {
   const assignedCount = input.pkg?.assignedObserverRefs.length ?? 0;
   const callerAssigned = input.pkg?.assignedObserverRefs.includes(input.callerRef) ?? false;
   const callerDecision = input.decisions.find((d) => d.observerRef === input.callerRef);
   const otherAssignedCount = Math.max(0, assignedCount - (callerAssigned ? 1 : 0));
-  const otherDecidedCount = input.decisions.filter((d) => d.observerRef !== input.callerRef).length;
-  return {
+  const base: CallerObserverStatus = {
     callerAssigned,
     callerDecisionStatus: callerDecision?.decision ?? 'not-decided',
     roundComplete: assignedCount > 0 && input.decisions.length >= assignedCount,
     otherAssignedCount,
-    otherDecisionsOutstanding: otherDecidedCount < otherAssignedCount,
   };
+  if (!input.mayViewOthersProgress) return base;
+  const otherDecidedCount = input.decisions.filter((d) => d.observerRef !== input.callerRef).length;
+  return { ...base, otherDecisionsOutstanding: otherDecidedCount < otherAssignedCount };
 }
 
 /**

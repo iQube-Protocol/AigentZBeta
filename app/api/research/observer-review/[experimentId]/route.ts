@@ -98,34 +98,29 @@ async function getImpl(req: NextRequest, { experimentId }: { experimentId: strin
     });
   }
 
-  // The AGGREGATE resolution is computed from the FULL, real decision set —
-  // never the blinded projection below. Blinding is a display concern for
-  // this ONE caller; it must never change what the round actually resolves
-  // to (SPEC point 12's "resolve, do not ratify" discipline extended here).
-  const resolution = resolveObserverRound({ pkg: round.package, decisions: round.decisions });
-  const callerObserverStatus = deriveCallerObserverStatus({ pkg: round.package, decisions: round.decisions, callerRef });
-
   /*
    * OBSERVER INDEPENDENCE (fixed 2026-08-09, Validation Programme JSON Agent
-   * Package completeness pass, point 8; TIGHTENED 2026-08-09, second pass):
-   * this endpoint previously returned `round.decisions` — EVERY assigned
-   * observer's rationale and outcome — to any caller with review-read
-   * access, including a peer observer who had not yet decided. That is
-   * exactly the "did the other reviewer already accept?" leak independent
-   * review exists to prevent (the same defect class `review/isolation.ts`
-   * guards against for R1/R2, restated here for N human observers).
+   * Package completeness pass, point 8; TIGHTENED 2026-08-09, second and
+   * third passes): this endpoint previously returned `round.decisions` —
+   * EVERY assigned observer's rationale and outcome — to any caller with
+   * review-read access, including a peer observer who had not yet decided.
+   * That is exactly the "did the other reviewer already accept?" leak
+   * independent review exists to prevent (the same defect class
+   * `review/isolation.ts` guards against for R1/R2, restated here for N
+   * human observers).
    *
-   * The FIRST fix blinded decision CONTENT. It did not blind decision
-   * PROGRESS: `resolution.outstandingObserverRefs` and its free-text
-   * `detail` ("waiting on <ref>…") still named exactly which OTHER
+   * The FIRST fix blinded decision CONTENT. The SECOND blinded decision
+   * PROGRESS naming a ref: `resolution.outstandingObserverRefs` and its
+   * free-text `detail` ("waiting on <ref>…") still named exactly which OTHER
    * principal had not decided, and `round.package.assignedObserverRefs`
-   * still listed every principal's ref — in a 2-observer round this made
-   * "the other one hasn't decided" the same fact as "Avi hasn't decided" by
-   * elimination. `projectResolutionForCaller` and the `assignedObserverRefs`
-   * redaction below close that: a non-privileged caller now gets only the
-   * aggregate `{policy, acceptance}` and no ref list at all — see
-   * `callerObserverStatus` for what they DO get (counts and booleans about
-   * others, never refs).
+   * still listed every principal's ref. The THIRD (this pass) closes the
+   * remaining by-elimination leak: in a 2-observer round, EVEN THE REF-FREE
+   * `callerObserverStatus.otherDecisionsOutstanding` boolean let an
+   * undecided caller invert "has the one other principal decided?" into a
+   * fact about that principal specifically. `mayViewAllDecisions` below now
+   * ALSO gates whether `otherDecisionsOutstanding` is present at all (see
+   * `deriveCallerObserverStatus`'s doc comment) — not just whether refs are
+   * shown.
    *
    * A steward's oversight view is unaffected: stewards assign the round and
    * resolve change proposals, are not themselves a voting peer, and already
@@ -134,6 +129,18 @@ async function getImpl(req: NextRequest, { experimentId }: { experimentId: strin
   const callerHasDecided = round.decisions.some((d) => d.observerRef === callerRef);
   const roundClosed = round.status !== 'open';
   const mayViewAllDecisions = isSteward || callerHasDecided || roundClosed;
+
+  // The AGGREGATE resolution is computed from the FULL, real decision set —
+  // never the blinded projection below. Blinding is a display concern for
+  // this ONE caller; it must never change what the round actually resolves
+  // to (SPEC point 12's "resolve, do not ratify" discipline extended here).
+  const resolution = resolveObserverRound({ pkg: round.package, decisions: round.decisions });
+  const callerObserverStatus = deriveCallerObserverStatus({
+    pkg: round.package,
+    decisions: round.decisions,
+    callerRef,
+    mayViewOthersProgress: mayViewAllDecisions,
+  });
   const decisions = blindOtherObserverDecisions({ decisions: round.decisions, callerRef, mayViewAll: mayViewAllDecisions });
   const projectedResolution = projectResolutionForCaller(resolution, mayViewAllDecisions);
   const projectedPackage = mayViewAllDecisions
