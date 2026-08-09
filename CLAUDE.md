@@ -187,6 +187,45 @@ git fetch origin dev main && git checkout main && \
 
 This rule **applies to every agent** working on this repo (Claude Code, Codex, Lovable, any future agent). It applies regardless of the kind of change (code, doc, config). It applies to every push. There are no exceptions.
 
+### The auto-merge workflow's conflict resolution path — a failure to merge must be VISIBLE, never silent (2026-08-09)
+
+**The commit-message fix above only covers the case where git CAN auto-merge. It does nothing when
+the merge produces real content conflicts — `git merge -m "..."` still exits 1 and leaves the
+merge unresolved.** Before 2026-08-09, that case just failed the job with no further trace. The
+`claude/constitutional-internet-book-rr40ea` session branch sat unmerged against `dev` for two full
+days (2026-08-08 → 2026-08-09) for exactly this reason — `dev` had independently evolved the same
+Horizen Pulse authorization mechanism the branch's own fix touched, every push conflicted, every
+job failed silently, and nothing surfaced it until a brand-new page the branch shipped (`/bridge/
+knyts`) 404'd on the live site. Full incident + fix:
+`codexes/packs/agentiq/updates/2026-08-09_dev-merge-conflict-resolution-path.md`.
+
+**The workflow now distinguishes two cases on a merge failure:**
+
+1. **The ONLY conflicting file is `.amplify-deploy`.** That file is a single-line deploy-trigger
+   timestamp with no semantic content — two branches touching it is never a real conflict. The
+   workflow regenerates it deterministically and continues the merge. This is the ONLY conflict
+   ever auto-resolved in CI; it is mechanical, not a judgment call.
+
+2. **Any OTHER file conflicts.** Picking a side (or splicing both) requires actually reading both
+   versions — a CI job must never guess this. The workflow aborts the merge (`dev` is left
+   untouched — never a partial or wrong-side commit) and files, or updates, a GitHub issue titled
+   `dev merge conflict: <branch>` naming the conflicting files and the exact manual fallback
+   command sequence (the same one in the Deployment section below). The job still exits 1 — the
+   issue is additive to Actions' own red-X signal, not a replacement for it, so a failed merge is a
+   durable, discoverable artifact instead of a line in a log nobody is tailing.
+
+**When YOU are the one resolving a filed conflict** (operator or agent, following the issue's
+command sequence): read BOTH sides of every conflicting file before resolving — never default to
+`--ours`/`--theirs` blindly. If one side represents actively superseding work (e.g. `dev` evolved
+the exact mechanism your branch touched, independently and further), it is usually correct to take
+that side wholesale rather than force a hybrid — say so explicitly in the merge commit message, the
+same way this incident's own resolution named that `dev`'s Horizen Pulse lineage superseded the
+session branch's earlier fix rather than merging the two.
+
+This rule **applies to every agent** working on this repo, for the same reason the commit-message
+rule above does: a silent merge failure is indistinguishable from "everything shipped" until
+someone notices a live page is missing, days later.
+
 ---
 
 ## Dense Materials — Supabase and Auto Drive, NEVER the Repo (PARAMOUNT)
