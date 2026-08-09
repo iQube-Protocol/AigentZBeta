@@ -155,7 +155,17 @@ export async function GET(
     {
       requestSucceeded: true,
       reviewPackageReady,
-      crystalStatus: 'candidate',
+      /*
+       * HONEST, DERIVED FROM THE PERSISTED ARTIFACT (fixed 2026-08-09, Post-
+       * Freeze Observer Review Closure verification). This was hardcoded
+       * `'candidate'` unconditionally — a frozen crystal still reported
+       * `crystalStatus: 'candidate'` in this same payload that also, correctly,
+       * reported `lifecycle.stageId === 'FROZEN'`. Two fields describing one
+       * fact must never disagree; this one now reads the same persisted
+       * artifact `lifecycle` derives from. `'canonical'` has no producer yet,
+       * matching `crystalLifecycleStage`'s own honesty about that rung.
+       */
+      crystalStatus: crystalArtifact?.lifecycle === 'frozen' ? 'frozen' : 'candidate',
       /*
        * ASSESSED vs DOMAIN_UNPOPULATED, hoisted to the top of the payload
        * (operator report, 2026-08-02).
@@ -233,10 +243,34 @@ export async function GET(
        * asked to assess or recommend a freeze before then. `reviewRequestOpen`
        * is the flag any invitation path must consult; it is derived, never set.
        */
-      reviewStage: crystalReviewStageStatus({
-        invariantCount: readiness?.invariantCount ?? 0,
-        readinessOk: Boolean(readiness?.ok),
-      }),
+      /*
+       * FROZEN OVERRIDES THE PRE-FREEZE REVIEW STAGE (fixed 2026-08-09,
+       * Post-Freeze Observer Review Closure verification). `crystalReviewStageStatus`
+       * only ever knows `{invariantCount, readinessOk}` — it has no notion of
+       * `frozen` and, over a still-populated-and-passing domain, would keep
+       * reporting `INDEPENDENT_REVIEW_OPEN` / "the independent pre-freeze
+       * review is open... record your assessment" indefinitely, even though
+       * that review concluded at freeze. A reader — human or agent — meeting
+       * that text after the crystal is already frozen would be told to do
+       * something that already happened. Overridden here, at the wire
+       * boundary only, so the shared pure function and its own tests (which
+       * exercise the pre-freeze case exclusively) are untouched.
+       */
+      reviewStage:
+        crystalArtifact?.lifecycle === 'frozen'
+          ? {
+              state: 'FROZEN',
+              label: 'Frozen — Post-Freeze Observer Review',
+              message:
+                'The crystal is frozen. The independent PRE-freeze review has concluded; see `observerAcceptance` ' +
+                'for the current Post-Freeze Observer Review status, not this field.',
+              independentReviewRequestOpen: false,
+              internalDiagnosticAvailable: true,
+            }
+          : crystalReviewStageStatus({
+              invariantCount: readiness?.invariantCount ?? 0,
+              readinessOk: Boolean(readiness?.ok),
+            }),
       crystalDomainDeclaration: crystalDomainForExperiment(experimentId),
       ...(recommendation.unpopulatedProvenance
         ? { unpopulatedProvenance: recommendation.unpopulatedProvenance }

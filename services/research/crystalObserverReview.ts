@@ -55,6 +55,26 @@ import type { FrozenArtifactKind } from '@/types/research';
 
 export type ObserverRoundPolicy = 'any-assigned' | 'all-assigned';
 
+/**
+ * PINNED per-experiment round policy — declared, not caller-supplied, the
+ * same pattern `crystalDomainForExperiment` (crystalDomains.ts) uses for the
+ * crystal domain boundary. Added 2026-08-09 (Post-Freeze Observer Review
+ * Closure verification): the assign route previously accepted `roundPolicy`
+ * as a free per-call parameter, so a steward could assign EXP-P1's round as
+ * `any-assigned` even though the operator's instruction was explicit —
+ * "Austin and Avi must each accept before the round is accepted" is an
+ * `all-assigned` requirement, not a default a later call could quietly
+ * loosen. `null` for any experiment with no declared pin — the caller's own
+ * choice governs there.
+ */
+export const PINNED_OBSERVER_ROUND_POLICY: Readonly<Record<string, ObserverRoundPolicy>> = Object.freeze({
+  'EXP-P1': 'all-assigned',
+});
+
+export function pinnedObserverRoundPolicy(experimentId: string): ObserverRoundPolicy | null {
+  return PINNED_OBSERVER_ROUND_POLICY[experimentId] ?? null;
+}
+
 export interface ObserverReviewPackage {
   packageId: string;
   experimentId: string;

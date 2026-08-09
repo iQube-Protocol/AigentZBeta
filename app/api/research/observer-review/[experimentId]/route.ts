@@ -32,6 +32,7 @@ import { writeLifecycleReceipt } from '@/services/research/lifecycle';
 import {
   buildObserverReviewPackage,
   resolveObserverRound,
+  pinnedObserverRoundPolicy,
   type ObserverRoundPolicy,
 } from '@/services/research/crystalObserverReview';
 import {
@@ -128,7 +129,27 @@ async function postImpl(req: NextRequest, { experimentId }: { experimentId: stri
     return NextResponse.json({ ok: false, error: "Unknown action — only 'assign' is supported" }, { status: 400 });
   }
   const observerRefs: string[] = Array.isArray(body.observerRefs) ? body.observerRefs.filter((x: unknown) => typeof x === 'string') : [];
-  const roundPolicy: ObserverRoundPolicy = body.roundPolicy === 'any-assigned' ? 'any-assigned' : 'all-assigned';
+  const requestedPolicy: ObserverRoundPolicy = body.roundPolicy === 'any-assigned' ? 'any-assigned' : 'all-assigned';
+
+  /*
+   * A PINNED policy is a declaration, not a default — a caller-supplied
+   * value that DISAGREES with it is refused rather than silently honoured
+   * or silently overridden. Either silent behaviour would hide the mistake:
+   * honouring it would loosen EXP-P1's all-assigned requirement without
+   * anyone noticing; overriding it would let the caller believe their
+   * request took effect when it did not.
+   */
+  const pinned = pinnedObserverRoundPolicy(experimentId);
+  if (pinned && typeof body.roundPolicy === 'string' && body.roundPolicy !== pinned) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: `${experimentId}'s Observer Review round policy is pinned to '${pinned}' and may not be assigned as '${body.roundPolicy}'.`,
+      },
+      { status: 400 },
+    );
+  }
+  const roundPolicy: ObserverRoundPolicy = pinned ?? requestedPolicy;
 
   const artifact = await getArtifact(experimentId, 'crystal-version').catch(() => null);
   if (!artifact) {

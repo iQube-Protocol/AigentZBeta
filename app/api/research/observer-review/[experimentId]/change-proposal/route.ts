@@ -18,6 +18,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+import { personaPublicRef } from '@/services/identity/personaReferences';
 import { resolveExperimentReviewGrant } from '@/services/passport/participationAccess';
 import { upsertArtifact } from '@/services/research/artifacts';
 import { writeLifecycleReceipt } from '@/services/research/lifecycle';
@@ -80,22 +81,62 @@ async function postImpl(req: NextRequest, { experimentId }: { experimentId: stri
   if (!current) return NextResponse.json({ ok: false, error: `No open change proposal '${proposalId}' found on this round` }, { status: 404 });
 
   const resolvedAt = new Date().toISOString();
-  const personaRef = persona.personaId; // T0-scoped local variable only; never serialised — see below.
+  // T2-safe commitment — the ACTUAL accepting/declining persona, never a
+  // generic per-experiment placeholder (fixed 2026-08-09, Post-Freeze
+  // Observer Review Closure verification: this previously read the literal
+  // string `steward:${experimentId}` for every caller, so the record of WHO
+  // resolved a proposal was not attributable to any real principal).
+  const stewardRef = personaPublicRef(persona.personaId);
 
   if (outcome === 'decline') {
     const resolved = resolveChangeProposal(current, {
       outcome: 'decline',
-      resolvedByRef: `steward:${experimentId}`,
+      resolvedByRef: stewardRef,
       resolvedAt,
       reason: reason || 'declined without further reason',
     });
     await resolveStoredChangeProposal(admin, roundId, resolved);
+    await writeLifecycleReceipt({
+      personaId: persona.personaId,
+      summary: `${experimentId} Change Proposal '${proposalId}' declined by ${stewardRef} — ${resolved.resolutionReason}`,
+      invariantSeedIds: [],
+    }).catch(() => null);
     return NextResponse.json({ ok: true, proposal: resolved, supersedingArtifactId: null });
   }
 
-  // accept — provision the superseding candidate at `draft`, then open a
-  // fresh round keyed to it. The frozen artifact this proposal was raised
-  // against is never touched.
+  /*
+   * ACCEPT — TWO DISTINCT GOVERNED ACTS, TWO DISTINCT RECEIPTS (fixed
+   * 2026-08-09, Post-Freeze Observer Review Closure verification: point 4).
+   *
+   *   > "distinguish operator acceptance of the proposal from creation/
+   *   >  constitution of the superseding candidate so no new scientific
+   *   >  object appears as an unreceipted side effect."
+   *
+   * These were previously folded into ONE receipt whose summary mentioned
+   * both — an accurate sentence, but not two separable governed facts. A
+   * reader scanning receipts by ACT (not parsing prose) could not tell
+   * "the operator accepted proposal X" from "artifact Y was constituted"
+   * as two things that happened, only as one thing that was said. Also:
+   * `upsertArtifact` (services/research/artifacts.ts) writes NO receipt of
+   * its own — without a receipt scoped to the artifact-creation act
+   * specifically, that act's only evidence would be prose inside a
+   * different act's summary, which is exactly the "unreceipted side effect"
+   * the point warns against.
+   */
+  const acceptanceReason = reason || 'change proposal accepted';
+
+  // ── Act 1 of 2 — operator acceptance of the proposal itself ──────────────
+  // Receipted BEFORE the candidate is provisioned, so this act's evidence
+  // exists independently of whether provisioning below succeeds.
+  await writeLifecycleReceipt({
+    personaId: persona.personaId,
+    summary: `${experimentId} Change Proposal '${proposalId}' accepted by ${stewardRef} — ${acceptanceReason}`,
+    invariantSeedIds: [],
+  }).catch(() => null);
+
+  // ── Act 2 of 2 — constitution of the superseding candidate ───────────────
+  // Never mutates the frozen artifact this proposal was raised against
+  // (IRL-016 §4); provisions a NEW row at `draft` only.
   const versionSuffix = (round?.changeProposals.filter((p) => p.status === 'accepted').length ?? 0) + 2;
   const supersedingArtifactId = `${artifact.id}.v${versionSuffix}`;
   const provisioned = await upsertArtifact({
@@ -108,13 +149,20 @@ async function postImpl(req: NextRequest, { experimentId }: { experimentId: stri
   if (!provisioned.ok) {
     return NextResponse.json({ ok: false, error: provisioned.error ?? 'could not provision the superseding candidate' }, { status: 500 });
   }
+  await writeLifecycleReceipt({
+    personaId: persona.personaId,
+    summary:
+      `${experimentId} superseding candidate artifact '${supersedingArtifactId}' constituted at draft — ` +
+      `supersedes frozen '${artifact.id}' via accepted Change Proposal '${proposalId}' (${stewardRef})`,
+    invariantSeedIds: [],
+  }).catch(() => null);
 
   const resolved = resolveChangeProposal(current, {
     outcome: 'accept',
     supersedingArtifactId,
-    resolvedByRef: `steward:${experimentId}`,
+    resolvedByRef: stewardRef,
     resolvedAt,
-    reason: reason || 'change proposal accepted',
+    reason: acceptanceReason,
   });
   await resolveStoredChangeProposal(admin, roundId, resolved);
 
@@ -133,15 +181,6 @@ async function postImpl(req: NextRequest, { experimentId }: { experimentId: stri
     supersededBy: null,
   });
   await markObserverRoundSuperseded(admin, roundId, freshRoundId);
-
-  await writeLifecycleReceipt({
-    personaId: personaRef,
-    summary:
-      `${experimentId} Change Proposal '${proposalId}' accepted — superseding candidate '${supersedingArtifactId}' ` +
-      `provisioned at draft; fresh Observer Review round '${freshRoundId}' opened (awaiting its own freeze before a ` +
-      `package can be built)`,
-    invariantSeedIds: [],
-  }).catch(() => null);
 
   return NextResponse.json({ ok: true, proposal: resolved, supersedingArtifactId, freshRoundId });
 }

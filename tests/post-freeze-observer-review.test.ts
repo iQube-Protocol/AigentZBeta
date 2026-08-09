@@ -9,12 +9,14 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import { stripComments } from './_lib/sourceAuthority';
 import {
   buildObserverReviewPackage,
   validateObserverDecision,
   resolveObserverRound,
   createChangeProposal,
   resolveChangeProposal,
+  pinnedObserverRoundPolicy,
   type ObserverDecision,
 } from '@/services/research/crystalObserverReview';
 
@@ -283,5 +285,57 @@ describe('authority boundary — reviewers may propose, they may not act (SPEC p
     const src = readSource('app/api/research/observer-review/[experimentId]/change-proposal/route.ts');
     expect(src).toMatch(/lifecycle:\s*'draft'/);
     expect(src).not.toMatch(/lifecycle:\s*'frozen'/);
+  });
+});
+
+describe('EXP-P1 round policy is PINNED, not merely defaulted (verification, 2026-08-09)', () => {
+  it('pinnedObserverRoundPolicy declares EXP-P1 as all-assigned', () => {
+    expect(pinnedObserverRoundPolicy('EXP-P1')).toBe('all-assigned');
+  });
+
+  it('an unpinned experiment has no declared policy — the caller default still governs there', () => {
+    expect(pinnedObserverRoundPolicy('EXP-P2')).toBeNull();
+  });
+
+  it('the assign route refuses a caller-supplied roundPolicy that disagrees with a pin, rather than silently honouring or overriding it', () => {
+    const src = readSource('app/api/research/observer-review/[experimentId]/route.ts');
+    expect(src).toMatch(/pinnedObserverRoundPolicy/);
+    expect(src).toMatch(/pinned && typeof body\.roundPolicy === 'string' && body\.roundPolicy !== pinned/);
+  });
+});
+
+describe('changes_requested and the frozen-state wire vocabulary (verification, 2026-08-09)', () => {
+  it('the crystal route derives crystalStatus from the persisted artifact rather than a hardcoded literal', () => {
+    const src = readSource('app/api/research/crystal/[experimentId]/route.ts');
+    expect(src).not.toMatch(/crystalStatus:\s*'candidate',/);
+    expect(src).toMatch(/crystalStatus:\s*crystalArtifact\?\.lifecycle === 'frozen'/);
+  });
+
+  it('the crystal route overrides reviewStage once frozen — never the stale pre-freeze INDEPENDENT_REVIEW_OPEN object', () => {
+    const src = readSource('app/api/research/crystal/[experimentId]/route.ts');
+    expect(src).toMatch(/crystalArtifact\?\.lifecycle === 'frozen'\s*\n\s*\?\s*\{\s*\n\s*state: 'FROZEN'/);
+  });
+
+  it("IndependentReviewPanel never renders a bare READY_FOR_FREEZE badge once frozen", () => {
+    const src = readSource('components/composer/IndependentReviewPanel.tsx');
+    expect(src).toMatch(/isFrozen\s*\?\s*`FROZEN \(was: \$\{recommendation\.verdict\}\)`/);
+  });
+
+  it('accepting a change proposal receipts the acceptance and the candidate constitution as two DISTINCT acts', () => {
+    const src = readSource('app/api/research/observer-review/[experimentId]/change-proposal/route.ts');
+    const receiptCalls = src.match(/await writeLifecycleReceipt\(/g) ?? [];
+    // decline (1) + accept's two acts (2) = 3 call sites in the file.
+    expect(receiptCalls.length).toBe(3);
+    expect(src).toMatch(/Change Proposal '\$\{proposalId\}' accepted by \$\{stewardRef\}/);
+    expect(src).toMatch(/superseding candidate artifact '\$\{supersedingArtifactId\}' constituted at draft/);
+  });
+
+  it('a change-proposal resolution is attributed to the real caller, never a generic per-experiment placeholder', () => {
+    // stripComments — the fix's own explanatory comment names the OLD
+    // placeholder pattern in prose; scoping to executable source only is
+    // what this file's other structural checks already do.
+    const src = stripComments(readSource('app/api/research/observer-review/[experimentId]/change-proposal/route.ts'));
+    expect(src).not.toMatch(/steward:\$\{experimentId\}/);
+    expect(src).toMatch(/personaPublicRef\(persona\.personaId\)/);
   });
 });
