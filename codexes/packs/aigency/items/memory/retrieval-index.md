@@ -3744,3 +3744,13 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-52d1e56.md](../build_/COMMITS/COMMIT-52d1e56.md)
 - Message: Fix tokenId fallback when Horizen reread succeeds without one
+
+## Commit `3694f4b` — 2026-08-09T07:32:48Z
+- Type: `feat`
+- Brief: [COMMIT-3694f4b.md](../build_/COMMITS/COMMIT-3694f4b.md)
+- Message: Add durable local-to-DVN-pending reconciler, closing the receipt lifecycle
+
+## Commit `c082ef3` — 2026-08-09T07:18:13Z
+- Type: `push`
+- Brief: [COMMIT-c082ef3.md](../build_/COMMITS/COMMIT-c082ef3.md)
+- Message: Compact Journey evidence checklist into the stage description row
