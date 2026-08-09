@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-08T20:40:11.633Z",
+  "last_updated": "2026-08-08T23:16:08.848Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "cee3d4149757191bcbcceb02ab9bb3ce3703c9f5",
-  "latest_commit_short": "cee3d41",
-  "latest_commit_title": "Add proof_of_state_v2 canonical DID for CAP-1 integration",
+  "latest_commit": "c56c1aa5ab85ded801b4c0f133bb7df42458b505",
+  "latest_commit_short": "c56c1aa",
+  "latest_commit_title": "docs(chrysalis): capture DVN Spine fast-follow backlog",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "c56c1aa",
+      "full_sha": "c56c1aa5ab85ded801b4c0f133bb7df42458b505",
+      "title": "docs(chrysalis): capture DVN Spine fast-follow backlog",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-08T19:14:29-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-c56c1aa.md"
+    },
     {
       "sha": "cee3d41",
       "full_sha": "cee3d4149757191bcbcceb02ab9bb3ce3703c9f5",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-07-08T08:29:40Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-c34a792.md"
-    },
-    {
-      "sha": "c7611f0",
-      "full_sha": "c7611f0f93ec79bcdf061cc10590f9ce2f331115",
-      "title": "Adopt the CCRL Dashboard into the Constitutional Representation System (first reference surface)",
-      "author": "Claude",
-      "timestamp": "2026-07-08T08:05:31Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-c7611f0.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
