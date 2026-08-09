@@ -3814,3 +3814,13 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-90629c7.md](../build_/COMMITS/COMMIT-90629c7.md)
 - Message: Stop double-counting the Standing seed and make supersession consequential
+
+## Commit `a3aaa7f` — 2026-08-09T19:56:02Z
+- Type: `feat`
+- Brief: [COMMIT-a3aaa7f.md](../build_/COMMITS/COMMIT-a3aaa7f.md)
+- Message: Add read-only DVN message classifier for Part B1 Nakamoto truth-check
+
+## Commit `7379156` — 2026-08-09T19:51:43Z
+- Type: `push`
+- Brief: [COMMIT-7379156.md](../build_/COMMITS/COMMIT-7379156.md)
+- Message: Give DVN attestation processing scheduled liveness, secure its two mutation routes
