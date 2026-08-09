@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`c94c072`](https://github.com/iQube-Protocol/AigentZBeta/commit/c94c0722bef720ea01cb7b64c897d6c7760dca08) [feat] Add migration-drift diagnostic covering dual-leg anchoring + MoneyPenny AigentQube seed (Claude, 2026-08-09T08:59:48Z)
 - [`efe5d1a`](https://github.com/iQube-Protocol/AigentZBeta/commit/efe5d1a05332a6661b14f6b393263f0714b92e4e) [push] Make receipt-status diagnostic column-schema-safe after discovering dvn_status missing in prod (Claude, 2026-08-09T08:39:43Z)
 - [`21c278e`](https://github.com/iQube-Protocol/AigentZBeta/commit/21c278e3daa51c115a957f4f0279f403fd542ad4) [feat] Fix local-to-DVN reconciler starvation on non-anchorable backlog + add receipt-status diagnostic (Claude, 2026-08-09T08:06:03Z)
 - [`d5c8474`](https://github.com/iQube-Protocol/AigentZBeta/commit/d5c84747d50ca207fcabd5fe70b651a1a86218dd) [feat] Add Verifiable-PnL onboarding boundary, verified against Horizen's live contract (Claude, 2026-08-09T07:48:39Z)

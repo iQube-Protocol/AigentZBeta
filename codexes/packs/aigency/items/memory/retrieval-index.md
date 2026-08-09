@@ -3769,3 +3769,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-efe5d1a.md](../build_/COMMITS/COMMIT-efe5d1a.md)
 - Message: Make receipt-status diagnostic column-schema-safe after discovering dvn_status missing in prod
+
+## Commit `c94c072` — 2026-08-09T08:59:48Z
+- Type: `feat`
+- Brief: [COMMIT-c94c072.md](../build_/COMMITS/COMMIT-c94c072.md)
+- Message: Add migration-drift diagnostic covering dual-leg anchoring + MoneyPenny AigentQube seed

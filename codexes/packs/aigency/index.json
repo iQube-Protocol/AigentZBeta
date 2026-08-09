@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-09T08:41:54.279Z",
+  "last_updated": "2026-08-09T09:01:51.004Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "efe5d1a05332a6661b14f6b393263f0714b92e4e",
-  "latest_commit_short": "efe5d1a",
-  "latest_commit_title": "Make receipt-status diagnostic column-schema-safe after discovering dvn_status missing in prod",
+  "latest_commit": "c94c0722bef720ea01cb7b64c897d6c7760dca08",
+  "latest_commit_short": "c94c072",
+  "latest_commit_title": "Add migration-drift diagnostic covering dual-leg anchoring + MoneyPenny AigentQube seed",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "c94c072",
+      "full_sha": "c94c0722bef720ea01cb7b64c897d6c7760dca08",
+      "title": "Add migration-drift diagnostic covering dual-leg anchoring + MoneyPenny AigentQube seed",
+      "author": "Claude",
+      "timestamp": "2026-08-09T08:59:48Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-c94c072.md"
+    },
     {
       "sha": "efe5d1a",
       "full_sha": "efe5d1a05332a6661b14f6b393263f0714b92e4e",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-07-16T21:25:31Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-3a2f4db.md"
-    },
-    {
-      "sha": "a6baa9b",
-      "full_sha": "a6baa9bf3c3f76ee0bc5c956479a09442d460322",
-      "title": "CFS-035 Phase 1 finish: grounding consolidation + node invariants + flip-receipt CHECK fix",
-      "author": "Claude",
-      "timestamp": "2026-07-16T22:29:04Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-a6baa9b.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
