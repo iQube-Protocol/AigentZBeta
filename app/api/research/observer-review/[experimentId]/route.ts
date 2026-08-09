@@ -32,6 +32,10 @@ import { writeLifecycleReceipt } from '@/services/research/lifecycle';
 import {
   buildObserverReviewPackage,
   resolveObserverRound,
+  pinnedObserverRoundPolicy,
+  deriveCallerObserverStatus,
+  blindOtherObserverDecisions,
+  projectResolutionForCaller,
   type ObserverRoundPolicy,
 } from '@/services/research/crystalObserverReview';
 import {
@@ -65,6 +69,10 @@ async function getImpl(req: NextRequest, { experimentId }: { experimentId: strin
   if (!mayRead) return NextResponse.json({ ok: false, error: 'Steward or assigned-reviewer access required' }, { status: 403 });
   if (!admin) return NextResponse.json({ ok: false, error: 'Store unavailable' }, { status: 503 });
 
+  const callerRef = personaPublicRef(persona.personaId);
+  const grant = isAdmin ? null : await resolveExperimentReviewGrant(admin, persona.personaId, experimentId);
+  const isSteward = isAdmin || (grant ? STEWARD_ROLES.has(grant.role) : false);
+
   const artifact = await getArtifact(experimentId, 'crystal-version').catch(() => null);
   if (!artifact) {
     return NextResponse.json({
@@ -90,8 +98,62 @@ async function getImpl(req: NextRequest, { experimentId }: { experimentId: strin
     });
   }
 
+  /*
+   * OBSERVER INDEPENDENCE (fixed 2026-08-09, Validation Programme JSON Agent
+   * Package completeness pass, point 8; TIGHTENED 2026-08-09, second and
+   * third passes): this endpoint previously returned `round.decisions` —
+   * EVERY assigned observer's rationale and outcome — to any caller with
+   * review-read access, including a peer observer who had not yet decided.
+   * That is exactly the "did the other reviewer already accept?" leak
+   * independent review exists to prevent (the same defect class
+   * `review/isolation.ts` guards against for R1/R2, restated here for N
+   * human observers).
+   *
+   * The FIRST fix blinded decision CONTENT. The SECOND blinded decision
+   * PROGRESS naming a ref: `resolution.outstandingObserverRefs` and its
+   * free-text `detail` ("waiting on <ref>…") still named exactly which OTHER
+   * principal had not decided, and `round.package.assignedObserverRefs`
+   * still listed every principal's ref. The THIRD (this pass) closes the
+   * remaining by-elimination leak: in a 2-observer round, EVEN THE REF-FREE
+   * `callerObserverStatus.otherDecisionsOutstanding` boolean let an
+   * undecided caller invert "has the one other principal decided?" into a
+   * fact about that principal specifically. `mayViewAllDecisions` below now
+   * ALSO gates whether `otherDecisionsOutstanding` is present at all (see
+   * `deriveCallerObserverStatus`'s doc comment) — not just whether refs are
+   * shown.
+   *
+   * A steward's oversight view is unaffected: stewards assign the round and
+   * resolve change proposals, are not themselves a voting peer, and already
+   * hold this information through that authority.
+   */
+  const callerHasDecided = round.decisions.some((d) => d.observerRef === callerRef);
+  const roundClosed = round.status !== 'open';
+  const mayViewAllDecisions = isSteward || callerHasDecided || roundClosed;
+
+  // The AGGREGATE resolution is computed from the FULL, real decision set —
+  // never the blinded projection below. Blinding is a display concern for
+  // this ONE caller; it must never change what the round actually resolves
+  // to (SPEC point 12's "resolve, do not ratify" discipline extended here).
   const resolution = resolveObserverRound({ pkg: round.package, decisions: round.decisions });
-  return NextResponse.json({ ok: true, round, resolution });
+  const callerObserverStatus = deriveCallerObserverStatus({
+    pkg: round.package,
+    decisions: round.decisions,
+    callerRef,
+    mayViewOthersProgress: mayViewAllDecisions,
+  });
+  const decisions = blindOtherObserverDecisions({ decisions: round.decisions, callerRef, mayViewAll: mayViewAllDecisions });
+  const projectedResolution = projectResolutionForCaller(resolution, mayViewAllDecisions);
+  const projectedPackage = mayViewAllDecisions
+    ? round.package
+    : { ...round.package, assignedObserverRefs: undefined };
+
+  return NextResponse.json({
+    ok: true,
+    round: { ...round, package: projectedPackage, decisions },
+    resolution: projectedResolution,
+    callerObserverStatus,
+    decisionsBlinded: !mayViewAllDecisions,
+  });
 }
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ experimentId: string }> }) {
@@ -128,7 +190,27 @@ async function postImpl(req: NextRequest, { experimentId }: { experimentId: stri
     return NextResponse.json({ ok: false, error: "Unknown action — only 'assign' is supported" }, { status: 400 });
   }
   const observerRefs: string[] = Array.isArray(body.observerRefs) ? body.observerRefs.filter((x: unknown) => typeof x === 'string') : [];
-  const roundPolicy: ObserverRoundPolicy = body.roundPolicy === 'any-assigned' ? 'any-assigned' : 'all-assigned';
+  const requestedPolicy: ObserverRoundPolicy = body.roundPolicy === 'any-assigned' ? 'any-assigned' : 'all-assigned';
+
+  /*
+   * A PINNED policy is a declaration, not a default — a caller-supplied
+   * value that DISAGREES with it is refused rather than silently honoured
+   * or silently overridden. Either silent behaviour would hide the mistake:
+   * honouring it would loosen EXP-P1's all-assigned requirement without
+   * anyone noticing; overriding it would let the caller believe their
+   * request took effect when it did not.
+   */
+  const pinned = pinnedObserverRoundPolicy(experimentId);
+  if (pinned && typeof body.roundPolicy === 'string' && body.roundPolicy !== pinned) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: `${experimentId}'s Observer Review round policy is pinned to '${pinned}' and may not be assigned as '${body.roundPolicy}'.`,
+      },
+      { status: 400 },
+    );
+  }
+  const roundPolicy: ObserverRoundPolicy = pinned ?? requestedPolicy;
 
   const artifact = await getArtifact(experimentId, 'crystal-version').catch(() => null);
   if (!artifact) {

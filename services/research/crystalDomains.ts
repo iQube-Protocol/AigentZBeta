@@ -600,10 +600,13 @@ export function crystalLifecycleStage(input: {
       whoActs: 'An independent reviewer, then the operator — outside this UI, by their own governed act.',
     },
     FROZEN: {
-      meaning: 'The crystal has been frozen by a governed act. Its content is fixed and receipted.',
-      whatIsMissing: 'Publication as canonical.',
+      meaning:
+        'The crystal has been frozen by a governed act. Its content is fixed and receipted. Post-Freeze ' +
+        'Observer Review is the active surface now — the readiness/statistics/recommendation reports above ' +
+        'are historical evidence of what justified the freeze, not a description of what happens next.',
+      whatIsMissing: 'Post-Freeze Observer Review acceptance from every assigned observer, then publication as canonical.',
       remainingWorkKind: 'governance',
-      whoActs: 'The operator, by publishing.',
+      whoActs: 'The assigned observer(s), by deciding; then the operator, by publishing.',
     },
     CANONICAL: {
       meaning: 'The crystal is published and canonical.',

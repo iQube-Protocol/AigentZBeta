@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-09T20:19:47.316Z",
+  "last_updated": "2026-08-09T20:37:20.372Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "737915672d0a5061832ec3710a4efbf48d137e9e",
-  "latest_commit_short": "7379156",
-  "latest_commit_title": "Give DVN attestation processing scheduled liveness, secure its two mutation routes",
+  "latest_commit": "cc779a662d818314c2ff7ea60779a2e71d3d6fbe",
+  "latest_commit_short": "cc779a6",
+  "latest_commit_title": "Give the DVN attestation processor scheduled liveness (B3 confirmed)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "cc779a6",
+      "full_sha": "cc779a662d818314c2ff7ea60779a2e71d3d6fbe",
+      "title": "Give the DVN attestation processor scheduled liveness (B3 confirmed)",
+      "author": "Claude",
+      "timestamp": "2026-08-09T20:35:17Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-cc779a6.md"
+    },
     {
       "sha": "7379156",
       "full_sha": "737915672d0a5061832ec3710a4efbf48d137e9e",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-07-16T18:17:33Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-1cb6490.md"
-    },
-    {
-      "sha": "f0c2691",
-      "full_sha": "f0c2691e6d4bf55226139587aebc08884e03c36e",
-      "title": "add Graph perspective to the Constitutional Observatory (CFS-035 §12)",
-      "author": "Claude",
-      "timestamp": "2026-07-16T18:20:05Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-f0c2691.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

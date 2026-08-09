@@ -1146,24 +1146,39 @@ function CrystalPanel({ reviewerMode = false }: { reviewerMode?: boolean } = {})
       {recommendation && (
         <div className={PANEL}>
           <div className="mb-2 flex items-center justify-between">
-            <h4 className="text-xs font-semibold text-slate-100">Freeze Recommendation</h4>
+            <h4 className="text-xs font-semibold text-slate-100">
+              Freeze Recommendation{isFrozen ? " — historical evidence" : ""}
+            </h4>
             {/* NOT_READY is a verdict about an object that EXISTS. Over an
                 unconstituted crystal it reads as "you did something wrong"
                 when the true statement is "there is nothing here yet". The
                 stage label replaces it; the raw verdict is still shown below
-                for anyone reading the engine's own output. */}
+                for anyone reading the engine's own output.
+
+                ONCE FROZEN, THE BADGE MUST NEVER READ BARE "READY_FOR_FREEZE"
+                (fixed 2026-08-09, Post-Freeze Observer Review Closure
+                verification) — that string names a PRE-freeze governance
+                affordance that no longer exists once the crystal actually is
+                frozen, and a reader meeting it here (this recommendation is
+                recomputed fresh from the still-passing readiness report) would
+                see a live-looking invitation to freeze something already
+                immutable. The FROZEN case takes priority over the verdict. */}
             <span
               className={`rounded px-2 py-0.5 text-[11px] font-semibold border ${
-                recommendation.verdict === "READY_FOR_FREEZE"
-                  ? "text-emerald-300 border-emerald-500/40 bg-emerald-500/10"
-                  : lifecycle?.stageId === "CANDIDATE_NOT_CONSTITUTED"
-                    ? "text-slate-300 border-slate-700 bg-slate-900/40"
-                    : "text-amber-300 border-amber-500/40 bg-amber-500/10"
+                isFrozen
+                  ? "text-sky-300 border-sky-500/40 bg-sky-500/10"
+                  : recommendation.verdict === "READY_FOR_FREEZE"
+                    ? "text-emerald-300 border-emerald-500/40 bg-emerald-500/10"
+                    : lifecycle?.stageId === "CANDIDATE_NOT_CONSTITUTED"
+                      ? "text-slate-300 border-slate-700 bg-slate-900/40"
+                      : "text-amber-300 border-amber-500/40 bg-amber-500/10"
               }`}
             >
-              {lifecycle?.stageId === "CANDIDATE_NOT_CONSTITUTED"
-                ? "NOT YET CONSTITUTED"
-                : recommendation.verdict}
+              {isFrozen
+                ? `FROZEN (was: ${recommendation.verdict})`
+                : lifecycle?.stageId === "CANDIDATE_NOT_CONSTITUTED"
+                  ? "NOT YET CONSTITUTED"
+                  : recommendation.verdict}
             </span>
           </div>
           <div className="space-y-1">

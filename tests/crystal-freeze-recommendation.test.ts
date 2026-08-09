@@ -373,7 +373,15 @@ describe('the crystal is constituted before it is assessed, and assessed before 
 
   it('the reviewer-facing route carries the stage state and the declared boundary', () => {
     const src = stripComments(readSource('app/api/research/crystal/[experimentId]/route.ts'));
-    expect(src).toContain('reviewStage: crystalReviewStageStatus(');
+    // Post-Freeze Observer Review Closure verification (2026-08-09): `reviewStage`
+    // is no longer an unconditional direct call — a FROZEN artifact overrides
+    // it at the wire boundary (crystalReviewStageStatus has no notion of
+    // `frozen` and would otherwise keep reporting the pre-freeze
+    // INDEPENDENT_REVIEW_OPEN state forever). The real function is still
+    // called for the pre-freeze case; this asserts that binding survives,
+    // not that it is unconditional.
+    expect(src).toContain('crystalReviewStageStatus({');
+    expect(src).toMatch(/reviewStage:\s*\n?\s*crystalArtifact\?\.lifecycle === 'frozen'/);
     expect(src).toContain('crystalDomainDeclaration: crystalDomainForExperiment(experimentId)');
   });
 
