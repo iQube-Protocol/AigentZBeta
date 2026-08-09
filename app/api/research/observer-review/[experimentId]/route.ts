@@ -35,6 +35,7 @@ import {
   pinnedObserverRoundPolicy,
   deriveCallerObserverStatus,
   blindOtherObserverDecisions,
+  projectResolutionForCaller,
   type ObserverRoundPolicy,
 } from '@/services/research/crystalObserverReview';
 import {
@@ -106,25 +107,43 @@ async function getImpl(req: NextRequest, { experimentId }: { experimentId: strin
 
   /*
    * OBSERVER INDEPENDENCE (fixed 2026-08-09, Validation Programme JSON Agent
-   * Package completeness pass, point 8): this endpoint previously returned
-   * `round.decisions` — EVERY assigned observer's rationale and outcome — to
-   * any caller with review-read access, including a peer observer who had
-   * not yet decided. That is exactly the "did the other reviewer already
-   * accept?" leak independent review exists to prevent (the same defect
-   * class `review/isolation.ts` guards against for R1/R2, restated here for
-   * N human observers). A steward's oversight view is unaffected: stewards
-   * assign the round and resolve change proposals, and are not themselves a
-   * voting peer.
+   * Package completeness pass, point 8; TIGHTENED 2026-08-09, second pass):
+   * this endpoint previously returned `round.decisions` — EVERY assigned
+   * observer's rationale and outcome — to any caller with review-read
+   * access, including a peer observer who had not yet decided. That is
+   * exactly the "did the other reviewer already accept?" leak independent
+   * review exists to prevent (the same defect class `review/isolation.ts`
+   * guards against for R1/R2, restated here for N human observers).
+   *
+   * The FIRST fix blinded decision CONTENT. It did not blind decision
+   * PROGRESS: `resolution.outstandingObserverRefs` and its free-text
+   * `detail` ("waiting on <ref>…") still named exactly which OTHER
+   * principal had not decided, and `round.package.assignedObserverRefs`
+   * still listed every principal's ref — in a 2-observer round this made
+   * "the other one hasn't decided" the same fact as "Avi hasn't decided" by
+   * elimination. `projectResolutionForCaller` and the `assignedObserverRefs`
+   * redaction below close that: a non-privileged caller now gets only the
+   * aggregate `{policy, acceptance}` and no ref list at all — see
+   * `callerObserverStatus` for what they DO get (counts and booleans about
+   * others, never refs).
+   *
+   * A steward's oversight view is unaffected: stewards assign the round and
+   * resolve change proposals, are not themselves a voting peer, and already
+   * hold this information through that authority.
    */
   const callerHasDecided = round.decisions.some((d) => d.observerRef === callerRef);
   const roundClosed = round.status !== 'open';
   const mayViewAllDecisions = isSteward || callerHasDecided || roundClosed;
   const decisions = blindOtherObserverDecisions({ decisions: round.decisions, callerRef, mayViewAll: mayViewAllDecisions });
+  const projectedResolution = projectResolutionForCaller(resolution, mayViewAllDecisions);
+  const projectedPackage = mayViewAllDecisions
+    ? round.package
+    : { ...round.package, assignedObserverRefs: undefined };
 
   return NextResponse.json({
     ok: true,
-    round: { ...round, decisions },
-    resolution,
+    round: { ...round, package: projectedPackage, decisions },
+    resolution: projectedResolution,
     callerObserverStatus,
     decisionsBlinded: !mayViewAllDecisions,
   });

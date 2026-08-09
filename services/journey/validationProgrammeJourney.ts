@@ -146,7 +146,7 @@ export const VALIDATION_PROGRAMME_JOURNEY: JourneyDefinition = {
       id: 'submit-review',
       label: 'Submit Review',
       description:
-        'Review instructions, the collaboration agreement, and the scoped discussion thread — everything required to complete participation. You sign the participation, review-acknowledgement, and collaboration agreements; the operator performs constitutional governance.',
+        'Review instructions, the Independent Reviewer Agreement, and the scoped discussion thread — everything required to complete participation. You sign the participation, review-acknowledgement, and Independent Reviewer Agreement; the operator performs constitutional governance.',
       actor: 'reviewer',
       subjectRef: 'external-reviewer',
       surfaces: [
@@ -177,7 +177,7 @@ export const VALIDATION_PROGRAMME_JOURNEY: JourneyDefinition = {
       completionEvidence: ['collaborationAgreementAuthorized'],
       receiptTypes: [],
       companion: {
-        before: 'Sign the participation and collaboration agreements to complete your review submission.',
+        before: 'Sign the participation agreement and the Independent Reviewer Agreement to complete your review submission.',
         complete: 'Your review is submitted. The operator will perform any constitutional governance from here.',
       },
       nextStageId: 'experiment-progress',

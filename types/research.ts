@@ -255,7 +255,7 @@ export const EXPERIMENT_REGISTRY: ResearchExperiment[] = [
     programmeFocus: 'Reasoning Compression',
     seriesId: 'VP1',
     hypothesis:
-      'Does invariant representation + runtime beat conventional context engineering at equal token budget under externally specified controls? The externally-countersigned freeze of EXP-010’s four-arm design.',
+      'Does invariant representation + runtime beat conventional context engineering at equal token budget under externally specified controls? EXP-P1 operationalizes the externally reviewed four-arm EXP-010 design against frozen Crystal vP1.',
     protocolRef: 'codexes/packs/irl/foundation/experiments/exp-p1-representation-runtime-gauntlet/README.md',
     governingInvariants: ['inv.reasoning.310', 'inv.reasoning.313', 'inv.reasoning.318'],
   },

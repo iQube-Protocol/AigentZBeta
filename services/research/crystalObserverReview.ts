@@ -546,16 +546,34 @@ export function resolveChangeProposal(
 // authority over the round (assigning it, resolving change proposals) and is
 // not themselves a voting peer.
 
+/**
+ * REVIEWER-SAFE — no field here names another principal or a specific
+ * outstanding ref (fixed 2026-08-09, second review pass). The prior shape
+ * carried `assignedCount`/`outstandingCount` alongside the SEPARATE
+ * `resolution.outstandingObserverRefs` a caller could read in the same
+ * response — a 2-principal round made "the other one hasn't decided" and
+ * "the other one is Avi" the same fact, in effect naming Avi by
+ * elimination. This shape reports only aggregate booleans/counts about
+ * OTHERS, never their refs, and never a per-ref detail string. A reviewer
+ * may know there are N other assigned principals and whether any of them
+ * are still outstanding; they may not read who, specifically.
+ *
+ * The full ref-bearing projection (`assignedObserverRefs`, the unredacted
+ * `ObserverRoundResolution`) is reserved for a steward/admin caller — see
+ * `projectResolutionForCaller` below and each route's own `isSteward` gate.
+ */
 export interface CallerObserverStatus {
-  /** How many principals this round assigned — 0 if no round/package exists. */
-  assignedCount: number;
   /** Is the CALLER one of the assigned observer principals? */
   callerAssigned: boolean;
   /** The caller's OWN decision kind, or 'not-decided'. Never another
    *  observer's — this field is intentionally caller-scoped only. */
   callerDecisionStatus: ObserverDecisionKind | 'not-decided';
-  /** Assigned minus decided, never negative. */
-  outstandingCount: number;
+  /** Every assigned principal has decided. */
+  roundComplete: boolean;
+  /** How many OTHER principals this round assigned — never their refs. */
+  otherAssignedCount: number;
+  /** True iff at least one OTHER assigned principal has not yet decided. */
+  otherDecisionsOutstanding: boolean;
 }
 
 export function deriveCallerObserverStatus(input: {
@@ -566,12 +584,35 @@ export function deriveCallerObserverStatus(input: {
   const assignedCount = input.pkg?.assignedObserverRefs.length ?? 0;
   const callerAssigned = input.pkg?.assignedObserverRefs.includes(input.callerRef) ?? false;
   const callerDecision = input.decisions.find((d) => d.observerRef === input.callerRef);
+  const otherAssignedCount = Math.max(0, assignedCount - (callerAssigned ? 1 : 0));
+  const otherDecidedCount = input.decisions.filter((d) => d.observerRef !== input.callerRef).length;
   return {
-    assignedCount,
     callerAssigned,
     callerDecisionStatus: callerDecision?.decision ?? 'not-decided',
-    outstandingCount: Math.max(0, assignedCount - input.decisions.length),
+    roundComplete: assignedCount > 0 && input.decisions.length >= assignedCount,
+    otherAssignedCount,
+    otherDecisionsOutstanding: otherDecidedCount < otherAssignedCount,
   };
+}
+
+/**
+ * The SAME redaction rule `blindOtherObserverDecisions` applies to decision
+ * CONTENT, applied to the round's AGGREGATE resolution — `resolution.detail`
+ * is free text that names refs ("waiting on Avi-ref…"), and
+ * `outstandingObserverRefs`/per-slot counts are ref-bearing or ref-adjacent.
+ * A non-privileged caller gets only `{policy, acceptance}` — the outcome
+ * category, never who specifically is outstanding or how many decided.
+ * `mayViewAll` is the SAME boolean each route already computes (steward/
+ * admin, or the caller has decided, or the round is closed).
+ */
+export type RedactedObserverRoundResolution = Pick<ObserverRoundResolution, 'policy' | 'acceptance'>;
+
+export function projectResolutionForCaller(
+  resolution: ObserverRoundResolution,
+  mayViewAll: boolean,
+): ObserverRoundResolution | RedactedObserverRoundResolution {
+  if (mayViewAll) return resolution;
+  return { policy: resolution.policy, acceptance: resolution.acceptance };
 }
 
 /**

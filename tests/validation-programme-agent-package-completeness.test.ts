@@ -70,7 +70,7 @@ describe('point 8 — observer independence: no leak of another observer\'s deci
     expect(observerReviewBlock).toMatch(/resolution: observerRoundResolution/);
   });
 
-  it('deriveCallerObserverStatus exposes only caller-scoped fields — assignedCount, callerAssigned, callerDecisionStatus, outstandingCount', () => {
+  it('deriveCallerObserverStatus exposes only caller-scoped fields — never another observer\'s ref, even by elimination (tightened 2026-08-09, second review pass)', () => {
     const pkg = buildObserverReviewPackage({
       packageId: 'p1',
       experimentId: 'EXP-TEST',
@@ -97,8 +97,27 @@ describe('point 8 — observer independence: no leak of another observer\'s deci
       decidedAt: '2026-08-09T00:00:00.000Z',
     };
     const status = deriveCallerObserverStatus({ pkg, decisions: [austinDecision], callerRef: 'avi-ref' });
-    expect(status).toEqual({ assignedCount: 2, callerAssigned: true, callerDecisionStatus: 'not-decided', outstandingCount: 1 });
-    expect(Object.keys(status).sort()).toEqual(['assignedCount', 'callerAssigned', 'callerDecisionStatus', 'outstandingCount']);
+    expect(status).toEqual({
+      callerAssigned: true,
+      callerDecisionStatus: 'not-decided',
+      roundComplete: false,
+      otherAssignedCount: 1,
+      otherDecisionsOutstanding: false,
+    });
+    // No `assignedObserverRefs`/`outstandingObserverRefs`-shaped field survives here —
+    // only counts and booleans about OTHERS, never a ref that would let a
+    // 2-observer round's "who's outstanding" become "who specifically" by
+    // elimination.
+    expect(Object.keys(status).sort()).toEqual([
+      'callerAssigned',
+      'callerDecisionStatus',
+      'otherAssignedCount',
+      'otherDecisionsOutstanding',
+      'roundComplete',
+    ]);
+    const serialized = JSON.stringify(status);
+    expect(serialized).not.toContain('austin-ref');
+    expect(serialized).not.toContain('avi-ref');
   });
 
   it("blindOtherObserverDecisions hides Austin's decision from Avi before Avi has decided", () => {

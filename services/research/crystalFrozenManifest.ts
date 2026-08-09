@@ -1,7 +1,8 @@
 /**
  * Frozen Crystal Manifest — a hash-VERIFIED, per-invariant projection of an
  * already-frozen crystal-version artifact, built for external review
- * (Validation Programme JSON Agent Package, 2026-08-09 completeness pass).
+ * (Validation Programme JSON Agent Package, 2026-08-09 completeness pass;
+ * frozen-vs-current boundary TIGHTENED 2026-08-09, second review pass).
  *
  * ── The problem this closes ─────────────────────────────────────────────────
  *
@@ -32,17 +33,29 @@
  *              "silent live-corpus substitution" this module exists to
  *              prevent — and reports the mismatch honestly instead.
  *
- * Fields the content hash actually covers (id, statement, namespace,
- * semanticType, status, provenance) are served as the manifest's CORE.
- * Fields the hash does NOT cover (standing, reach, validation/contradiction
- * counts, dvnReceiptId, ratifiedSource, intra-crystal edges) are served as
- * clearly-labeled SUPPLEMENTARY context — current values, not proven to be
- * what existed at the exact freeze instant, because nothing commits to them.
+ * ── Three classes of evidence, never mixed in one object ────────────────────
+ *
+ * Each member is `{frozenRecord, currentSupplementary}`, not one flat bag:
+ *   `frozenRecord`         — fields the content hash actually covers (id,
+ *                            statement, namespace, semanticType, status,
+ *                            provenance). Proven frozen when
+ *                            `verifiedAgainstFreeze` is true.
+ *   `currentSupplementary` — fields the hash does NOT cover (standing, reach,
+ *                            validation/contradiction counts, dvnReceiptId,
+ *                            ratifiedSource), stamped with `observedAt` so a
+ *                            reader can never mistake "as of this request"
+ *                            for "as of the freeze instant".
+ * Intra-crystal relationships are `derivedTopology` — a separate ANALYSIS
+ * over the verified frozen member set, not a frozen fact either, carrying its
+ * own `computedAt`/`algorithmVersion` for the same reason.
  *
  * Never exposes `creatorAliasCommitment` or any other identity-adjacent field
  * not already required for scientific review.
  *
- * Server-only, read-only. Writes nothing, freezes nothing.
+ * Server-only, read-only. Writes nothing, freezes nothing. No clock read
+ * inside this module — `observedAt` is a caller-supplied timestamp (same
+ * discipline as `crystalFreezeCeremony.ts`'s "every timestamp is a
+ * parameter"), so this function stays a pure query+report over its inputs.
  */
 
 import { listInvariants } from '@/services/invariants/store';
@@ -56,26 +69,32 @@ import { commit } from '@/services/research/review/deterministic';
 import type { InvariantRecord } from '@/types/invariants';
 import type { FrozenArtifact } from '@/types/research';
 
+/** Bumped whenever the edge-derivation logic changes — lets a reader tell
+ *  two `derivedTopology` snapshots computed by different logic apart. */
+export const INTRA_CRYSTAL_TOPOLOGY_ALGORITHM_VERSION = 'intra-crystal-edges/v1';
+
 export interface FrozenCrystalManifestMember {
-  id: string;
-  statement: string;
-  namespace: string;
-  semanticType: string | null;
-  /** The status the CONTENT COMMITMENT covers — 'statusAtFreeze' is honest
-   *  only when `verifiedAgainstFreeze` is true; otherwise this is the live
-   *  status and the manifest says so at the top level. */
-  statusAtFreeze: string;
-  evidenceProvenance: string | null;
-  provenance: Record<string, unknown> | null;
+  /** Covered by `frozenContentHash` — proven frozen iff `verifiedAgainstFreeze`. */
+  frozenRecord: {
+    id: string;
+    statement: string;
+    namespace: string;
+    semanticType: string | null;
+    /** Honest only when `verifiedAgainstFreeze` is true. */
+    statusAtFreeze: string;
+    evidenceProvenance: string | null;
+    provenance: Record<string, unknown> | null;
+  };
   /**
-   * SUPPLEMENTARY — reported as of this request, NOT covered by
-   * `frozenContentHash`. `runCrystalStatisticsReport`'s hash commits only to
-   * {id, statement, namespace, semanticType, status, provenance}; nothing in
-   * this codebase commits to standing/reach/validation counts at a point in
-   * time, so these cannot be proven to equal their value at the freeze
-   * instant even when the core hash matches.
+   * NOT covered by `frozenContentHash`. `runCrystalStatisticsReport`'s hash
+   * commits only to {id, statement, namespace, semanticType, status,
+   * provenance}; nothing in this codebase commits to standing/reach/
+   * validation counts at a point in time, so these cannot be proven to equal
+   * their value at the freeze instant even when the core hash matches.
+   * `observedAt` is stamped so a reader can never read this as frozen fact.
    */
-  supplementary: {
+  currentSupplementary: {
+    observedAt: string;
     standing: number;
     reach: number;
     timesValidated: number;
@@ -106,9 +125,19 @@ export interface FrozenCrystalManifest {
   /** null when NOT verified — refusing to serve member detail as the frozen
    *  set is the whole point of the verification gate. */
   members: FrozenCrystalManifestMember[] | null;
-  /** Live-recomputed intra-crystal relationships, only when verified — same
-   *  honesty rule as `members`. Not covered by the content hash either. */
-  intraCrystalEdges: Array<{ from: string; to: string }> | null;
+  /**
+   * A SEPARATE derived-analysis class, distinct from both `members` classes
+   * above: relationships are neither a frozen fact nor a per-member current
+   * observation, they are a computation OVER the verified frozen member set.
+   * null when `members` is null (nothing verified to derive from) or the
+   * computation itself failed.
+   */
+  derivedTopology: {
+    derivedFromFrozenMemberSet: true;
+    computedAt: string;
+    algorithmVersion: string;
+    edges: Array<{ from: string; to: string }>;
+  } | null;
   domainBoundary: string;
   /**
    * Known limitations at freeze — sourced from the SAME freeze-recommendation
@@ -132,16 +161,19 @@ export interface FrozenCrystalManifest {
   };
 }
 
-function toManifestMember(inv: InvariantRecord): FrozenCrystalManifestMember {
+function toManifestMember(inv: InvariantRecord, observedAt: string): FrozenCrystalManifestMember {
   return {
-    id: inv.id,
-    statement: inv.statement,
-    namespace: inv.namespace,
-    semanticType: inv.semanticType ?? null,
-    statusAtFreeze: inv.status,
-    evidenceProvenance: readEvidenceProvenance(inv.provenance),
-    provenance: inv.provenance ?? null,
-    supplementary: {
+    frozenRecord: {
+      id: inv.id,
+      statement: inv.statement,
+      namespace: inv.namespace,
+      semanticType: inv.semanticType ?? null,
+      statusAtFreeze: inv.status,
+      evidenceProvenance: readEvidenceProvenance(inv.provenance),
+      provenance: inv.provenance ?? null,
+    },
+    currentSupplementary: {
+      observedAt,
       standing: inv.standing,
       reach: inv.reach,
       timesValidated: inv.timesValidated,
@@ -155,6 +187,9 @@ function toManifestMember(inv: InvariantRecord): FrozenCrystalManifestMember {
 export interface BuildFrozenCrystalManifestInput {
   experimentId: string;
   artifact: Pick<FrozenArtifact, 'id' | 'contentHash' | 'commitmentHash' | 'frozenAt' | 'signedBy' | 'receiptId'>;
+  /** Caller-supplied — this module reads no clock itself. Stamped onto every
+   *  `currentSupplementary` entry and onto `derivedTopology.computedAt`. */
+  observedAt: string;
   fetchLimit?: number;
 }
 
@@ -202,7 +237,7 @@ export async function buildFrozenCrystalManifest(
       recomputedLiveHash: '',
       memberCount: 0,
       members: null,
-      intraCrystalEdges: null,
+      derivedTopology: null,
       knownLimitations: [],
     };
   }
@@ -227,7 +262,7 @@ export async function buildFrozenCrystalManifest(
       recomputedLiveHash: '',
       memberCount: 0,
       members: null,
-      intraCrystalEdges: null,
+      derivedTopology: null,
       knownLimitations: [],
     };
   }
@@ -278,17 +313,22 @@ export async function buildFrozenCrystalManifest(
       recomputedLiveHash,
       memberCount: invariants.length,
       members: null,
-      intraCrystalEdges: null,
+      derivedTopology: null,
       knownLimitations,
     };
   }
 
-  let intraCrystalEdges: Array<{ from: string; to: string }> | null = null;
+  let derivedTopology: FrozenCrystalManifest['derivedTopology'] = null;
   try {
     const { pairs } = await fetchIntraCrystalEdges(invariants);
-    intraCrystalEdges = pairs.map(([from, to]) => ({ from, to }));
+    derivedTopology = {
+      derivedFromFrozenMemberSet: true,
+      computedAt: input.observedAt,
+      algorithmVersion: INTRA_CRYSTAL_TOPOLOGY_ALGORITHM_VERSION,
+      edges: pairs.map(([from, to]) => ({ from, to })),
+    };
   } catch {
-    intraCrystalEdges = null;
+    derivedTopology = null;
   }
 
   return {
@@ -299,8 +339,8 @@ export async function buildFrozenCrystalManifest(
       'members below are verified to be the frozen set, not a live substitute.',
     recomputedLiveHash,
     memberCount: invariants.length,
-    members: invariants.map(toManifestMember),
-    intraCrystalEdges,
+    members: invariants.map((inv) => toManifestMember(inv, input.observedAt)),
+    derivedTopology,
     knownLimitations,
   };
 }

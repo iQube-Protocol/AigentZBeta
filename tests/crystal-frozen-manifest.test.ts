@@ -68,11 +68,14 @@ vi.mock('@/services/invariants/store', () => ({
   listEdgesForInvariants: vi.fn(async () => []),
 }));
 
+const OBSERVED_AT = '2026-08-09T20:00:00.000Z';
+
 describe('buildFrozenCrystalManifest — hash-verified against the persisted freeze', () => {
   it('is UNVERIFIED and withholds members when the artifact carries no contentHash', async () => {
     const { buildFrozenCrystalManifest } = await import('@/services/research/crystalFrozenManifest');
     const manifest = await buildFrozenCrystalManifest({
       experimentId: 'EXP-P1',
+      observedAt: OBSERVED_AT,
       artifact: { id: 'EXP-P1/crystal-vP1', contentHash: null, commitmentHash: null, frozenAt: '2026-01-03T00:00:00.000Z', signedBy: ['operator'], receiptId: null },
     });
     expect(manifest.verifiedAgainstFreeze).toBe(false);
@@ -80,7 +83,7 @@ describe('buildFrozenCrystalManifest — hash-verified against the persisted fre
     expect(manifest.verificationDetail).toMatch(/no contentHash/);
   });
 
-  it('VERIFIES and serves the full member list when the live corpus reproduces the frozen hash exactly', async () => {
+  it('VERIFIES and serves the full member list, split into frozenRecord vs currentSupplementary, when the live corpus reproduces the frozen hash exactly', async () => {
     const { runCrystalStatisticsReport } = await import('@/services/research/crystalStatistics');
     const { buildFrozenCrystalManifest } = await import('@/services/research/crystalFrozenManifest');
     // The frozen artifact's contentHash IS the frozenHash a real operator would
@@ -90,21 +93,43 @@ describe('buildFrozenCrystalManifest — hash-verified against the persisted fre
     const stats = await runCrystalStatisticsReport({ experimentId: 'EXP-P1' });
     const manifest = await buildFrozenCrystalManifest({
       experimentId: 'EXP-P1',
+      observedAt: OBSERVED_AT,
       artifact: { id: 'EXP-P1/crystal-vP1', contentHash: stats.frozenHash, commitmentHash: stats.frozenHash, frozenAt: '2026-01-03T00:00:00.000Z', signedBy: ['operator-ref'], receiptId: 'receipt-freeze' },
     });
     expect(manifest.verifiedAgainstFreeze).toBe(true);
     expect(manifest.recomputedLiveHash).toBe(stats.frozenHash);
     expect(manifest.members).not.toBeNull();
     expect(manifest.members).toHaveLength(2);
-    const byId = new Map(manifest.members!.map((m) => [m.id, m]));
-    expect(byId.get('inv-001')?.statement).toBe(FIXTURE_INVARIANTS[0].statement);
-    expect(byId.get('inv-002')?.supplementary.standing).toBe(0.9);
+    const byId = new Map(manifest.members!.map((m) => [m.frozenRecord.id, m]));
+    expect(byId.get('inv-001')?.frozenRecord.statement).toBe(FIXTURE_INVARIANTS[0].statement);
+    expect(byId.get('inv-002')?.currentSupplementary.standing).toBe(0.9);
+    expect(byId.get('inv-002')?.currentSupplementary.observedAt).toBe(OBSERVED_AT);
+    // The two classes never collapse into one flat object — a frozen fact
+    // and a current observation are structurally distinct fields.
+    expect(Object.keys(byId.get('inv-001')!).sort()).toEqual(['currentSupplementary', 'frozenRecord']);
   });
 
-  it('REFUSES to serve members as the frozen set when the live corpus has DRIFTED from the persisted hash — no silent substitution', async () => {
+  it('derivedTopology is a separate, labeled ANALYSIS over the verified frozen set — not itself a frozen fact', async () => {
+    const { runCrystalStatisticsReport } = await import('@/services/research/crystalStatistics');
+    const { buildFrozenCrystalManifest, INTRA_CRYSTAL_TOPOLOGY_ALGORITHM_VERSION } = await import('@/services/research/crystalFrozenManifest');
+    const stats = await runCrystalStatisticsReport({ experimentId: 'EXP-P1' });
+    const manifest = await buildFrozenCrystalManifest({
+      experimentId: 'EXP-P1',
+      observedAt: OBSERVED_AT,
+      artifact: { id: 'EXP-P1/crystal-vP1', contentHash: stats.frozenHash, commitmentHash: stats.frozenHash, frozenAt: '2026-01-03T00:00:00.000Z', signedBy: ['operator-ref'], receiptId: null },
+    });
+    expect(manifest.derivedTopology).not.toBeNull();
+    expect(manifest.derivedTopology!.derivedFromFrozenMemberSet).toBe(true);
+    expect(manifest.derivedTopology!.computedAt).toBe(OBSERVED_AT);
+    expect(manifest.derivedTopology!.algorithmVersion).toBe(INTRA_CRYSTAL_TOPOLOGY_ALGORITHM_VERSION);
+    expect(Array.isArray(manifest.derivedTopology!.edges)).toBe(true);
+  });
+
+  it('REFUSES to serve members or topology as the frozen set when the live corpus has DRIFTED from the persisted hash — no silent substitution', async () => {
     const { buildFrozenCrystalManifest } = await import('@/services/research/crystalFrozenManifest');
     const manifest = await buildFrozenCrystalManifest({
       experimentId: 'EXP-P1',
+      observedAt: OBSERVED_AT,
       artifact: {
         id: 'EXP-P1/crystal-vP1',
         // A hash that does NOT match what the live (mocked) corpus produces —
@@ -118,7 +143,7 @@ describe('buildFrozenCrystalManifest — hash-verified against the persisted fre
     });
     expect(manifest.verifiedAgainstFreeze).toBe(false);
     expect(manifest.members).toBeNull();
-    expect(manifest.intraCrystalEdges).toBeNull();
+    expect(manifest.derivedTopology).toBeNull();
     expect(manifest.verificationDetail).toMatch(/does NOT reproduce the frozen contentHash/);
     // The live hash IS still reported, so a reader can see the two values
     // and judge the drift themselves rather than trusting a bare boolean.
@@ -132,6 +157,7 @@ describe('buildFrozenCrystalManifest — hash-verified against the persisted fre
     const stats = await runCrystalStatisticsReport({ experimentId: 'EXP-P1' });
     const manifest = await buildFrozenCrystalManifest({
       experimentId: 'EXP-P1',
+      observedAt: OBSERVED_AT,
       artifact: { id: 'EXP-P1/crystal-vP1', contentHash: stats.frozenHash, commitmentHash: stats.frozenHash, frozenAt: '2026-01-03T00:00:00.000Z', signedBy: ['operator-ref'], receiptId: null },
     });
     const serialized = JSON.stringify(manifest.members);
@@ -146,6 +172,7 @@ describe('buildFrozenCrystalManifest — hash-verified against the persisted fre
     const stats = await runCrystalStatisticsReport({ experimentId: 'EXP-P1' });
     const manifest = await buildFrozenCrystalManifest({
       experimentId: 'EXP-P1',
+      observedAt: OBSERVED_AT,
       artifact: { id: 'EXP-P1/crystal-vP1', contentHash: stats.frozenHash, commitmentHash: stats.frozenHash, frozenAt: '2026-01-03T00:00:00.000Z', signedBy: ['operator-ref'], receiptId: null },
     });
     expect(manifest.freezeDisclosure.captured).toBe(false);

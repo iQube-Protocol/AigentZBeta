@@ -44,6 +44,7 @@ import { observerRoundId, getObserverRound } from '@/services/research/observerR
 import {
   resolveObserverRound,
   deriveCallerObserverStatus,
+  projectResolutionForCaller,
   OBSERVER_DECISION_KINDS,
   type ObserverReviewPackage,
 } from '@/services/research/crystalObserverReview';
@@ -287,6 +288,12 @@ const PROHIBITIONS = [
 const STEWARD_ROLES = new Set(['research-steward', 'principal-investigator']);
 
 async function getImpl(req: NextRequest) {
+  // ONE timestamp for this whole response — `generatedAt`, `frozenCrystal`'s
+  // `observedAt`/`computedAt`. No module this route calls reads a clock
+  // itself (same discipline as crystalFreezeCeremony.ts); this is the single
+  // point where "now" is read, so every stamp in one response agrees.
+  const generatedAt = new Date().toISOString();
+
   const persona = await getActivePersona(req);
   if (!persona?.personaId) {
     return NextResponse.json({ ok: false, error: 'Not authenticated' }, { status: 401 });
@@ -338,11 +345,22 @@ async function getImpl(req: NextRequest) {
   let observerPackage: ObserverReviewPackage | null = null;
   let callerObserverStatus: ReturnType<typeof deriveCallerObserverStatus> | null = null;
   let roundStatus: string | null = null;
+  /*
+   * The SAME mayViewAll rule `/api/research/observer-review/[experimentId]`
+   * uses (steward/admin, or the caller has already decided, or the round is
+   * closed) — gates `assignedObserverRefs` and the unredacted `resolution`
+   * below (SPEC point 8, tightened 2026-08-09 second pass). Defaults to
+   * `isSteward` when there is no round to check a caller's own decision
+   * against yet.
+   */
+  let mayViewFullObserverDetail = isSteward;
   if (isFrozen && artifact && admin) {
     try {
       const round = await getObserverRound(admin, observerRoundId(VALIDATION_PROGRAMME_EXPERIMENT_ID, artifact.id));
       if (round) {
         roundStatus = round.status;
+        const callerHasDecided = round.decisions.some((d) => d.observerRef === callerRef);
+        mayViewFullObserverDetail = isSteward || callerHasDecided || round.status !== 'open';
         if (round.package) {
           observerPackage = round.package;
           observerRoundResolution = resolveObserverRound({ pkg: round.package, decisions: round.decisions });
@@ -400,12 +418,48 @@ async function getImpl(req: NextRequest) {
   let frozenCrystal: FrozenCrystalManifest | null = null;
   if (isFrozen && artifact) {
     try {
-      frozenCrystal = await buildFrozenCrystalManifest({ experimentId: VALIDATION_PROGRAMME_EXPERIMENT_ID, artifact });
+      frozenCrystal = await buildFrozenCrystalManifest({ experimentId: VALIDATION_PROGRAMME_EXPERIMENT_ID, artifact, observedAt: generatedAt });
     } catch (e) {
       frozenCrystal = null;
       lifecycle.crystal.note = `frozenCrystal could not be built: ${e instanceof Error ? e.message : String(e)}`;
     }
   }
+
+  /*
+   * ── REVIEWABILITY — makes the mandate/evidence mismatch machine-readable
+   * (fixed 2026-08-09, second review pass). `reviewMandate.dimensions` asks
+   * Austin/Avi to judge 'population/exclusion integrity' — but
+   * `frozenCrystal.freezeDisclosure.captured` is honestly false: that
+   * historical disclosure was never persisted. Rather than hide the
+   * dimension (which would remove a real, legitimate review question) or
+   * force a reviewer into `unable_to_assess` for the WHOLE crystal over ONE
+   * unassessable dimension, this states PRECISELY which dimensions are fully
+   * assessable from the supplied evidence and which are only partially so —
+   * with the constraint named and the permitted conclusion stated, so a
+   * reviewer can accept the manifest while explicitly qualifying that one
+   * dimension, rather than being forced into false confidence or a blanket
+   * refusal.
+   */
+  const partiallyReviewable: Array<{ dimension: string; constraint: string; permittedConclusion: string }> = [];
+  if (!frozenCrystal || !frozenCrystal.freezeDisclosure.captured) {
+    partiallyReviewable.push({
+      dimension: 'population/exclusion integrity',
+      constraint:
+        'Freeze-time cohort/exclusion disclosure was not persisted by the real freeze act — see ' +
+        'frozenCrystal.freezeDisclosure.reason.',
+      permittedConclusion:
+        'Assess manifest integrity (the verified frozen member set) on its own terms; explicitly qualify any ' +
+        'historical population/exclusion conclusion as unassessable from the supplied evidence, rather than either ' +
+        "treating it as fully assessed or answering 'unable_to_assess' for the crystal as a whole over this one " +
+        'dimension.',
+    });
+  }
+  const reviewability = {
+    fullyReviewableDimensions: REVIEW_MANDATE.dimensions.filter(
+      (d) => !partiallyReviewable.some((p) => p.dimension === d),
+    ),
+    partiallyReviewableDimensions: partiallyReviewable,
+  };
 
   // ── §3 EXPERIMENT DESIGN ────────────────────────────────────────────────
   const experimentDesign = await buildExperimentDesign(origin, experiment?.hypothesis ?? null);
@@ -417,10 +471,21 @@ async function getImpl(req: NextRequest) {
   // admin-only readiness endpoint. States what is complete, what remains,
   // and what observer acceptance unlocks (SPEC point 7).
   const reviewerReadiness = {
+    /*
+     * The THIRD rung is DERIVED from `protocolGate.missing` (fixed
+     * 2026-08-09, second review pass) — it previously hardcoded the FULL
+     * artifact-kind list, which literally contradicted `completed` below
+     * whenever an artifact (e.g. arm-config) was already frozen: the same
+     * response would claim it both done and still-pending in the same
+     * breath. Falls back to the full list only pre-freeze, when nothing has
+     * been assessed yet and there is nothing to derive from.
+     */
     gateSequence: [
       'Crystal Frozen',
       'Observer Accepted',
-      'task-set / answer-key / arm-config / judge-config / analysis-config / interpretation-table preparation',
+      protocolGate.present.length > 0 || protocolGate.missing.length > 0
+        ? `remaining protocol artifact preparation/freeze: ${protocolGate.missing.length > 0 ? protocolGate.missing.join(', ') : 'none — all frozen'}`
+        : 'task-set / answer-key / arm-config / judge-config / analysis-config / interpretation-table preparation',
       'Protocol Ratified',
       'Execution',
     ],
@@ -493,6 +558,51 @@ async function getImpl(req: NextRequest) {
   const journeyUrl = `${origin}/triad/embed/codex/irl-os?tab=irl-os-validation-programme`;
 
   /*
+   * ── CURRENT ASSIGNMENT — what to do RIGHT NOW, personalized to this
+   * caller (fixed 2026-08-09, second review pass). The rest of this package
+   * correctly carries BOTH pre-freeze and post-freeze instructions (both are
+   * real, and the crystal-review stage's description below still names the
+   * pre-freeze reports) — a delegated agent should not have to infer which
+   * half currently applies. This block states it directly, and personalizes
+   * `requiredAction` to whether THIS caller has already decided.
+   */
+  let currentAssignment: {
+    state: 'PRE_FREEZE_REVIEW' | 'AWAITING_OBSERVER_ASSIGNMENT' | 'POST_FREEZE_OBSERVER_REVIEW';
+    objective: string;
+    requiredAction: string;
+    optionalAction: string;
+    notRequiredNow: string[];
+  };
+  if (!isFrozen) {
+    currentAssignment = {
+      state: 'PRE_FREEZE_REVIEW',
+      objective: 'Inspect the Crystal Readiness Report, Crystal Statistics, and Freeze Recommendation at crystalReviewEndpoint.',
+      requiredAction: 'None required yet. You may comment, recommend a change, or contest a finding via QubeTalk/Locker.',
+      optionalAction: 'None.',
+      notRequiredNow: ['submitting an Observer Decision', 'protocol ratification', 'experiment execution'],
+    };
+  } else if (!observerPackage) {
+    currentAssignment = {
+      state: 'AWAITING_OBSERVER_ASSIGNMENT',
+      objective: 'The crystal is frozen, but no Observer Review round has been assigned to you yet.',
+      requiredAction: 'None — wait for a research-steward/principal-investigator to assign the round.',
+      optionalAction: 'Inspect `frozenCrystal` and `experimentDesign` in the meantime.',
+      notRequiredNow: ['a pre-freeze readiness recommendation', 'protocol ratification', 'experiment execution'],
+    };
+  } else {
+    const callerDecided = (callerObserverStatus?.callerDecisionStatus ?? 'not-decided') !== 'not-decided';
+    currentAssignment = {
+      state: 'POST_FREEZE_OBSERVER_REVIEW',
+      objective: 'Assess frozen Crystal vP1 against `reviewMandate`, respecting `reviewability`.',
+      requiredAction: callerDecided
+        ? `Already submitted: '${callerObserverStatus?.callerDecisionStatus}'. No further action required unless you wish to revise — resubmission replaces your own decision only, never adds a vote.`
+        : 'Submit one Observer Decision to `observerReview.decisionSubmissionEndpoint`.',
+      optionalAction: 'Upload a structured findings report to the Locker and reference it in your decision\'s evidenceRefs.',
+      notRequiredNow: ['a pre-freeze readiness recommendation', 'protocol ratification', 'experiment execution'],
+    };
+  }
+
+  /*
    * ── §8 / §9 OBSERVER REVIEW — hash-bound package + decision schema, now
    * with the CALLER-SCOPED status the observer-independence fix requires
    * (SPEC point 8). Never embeds another observer's rationale/outcome — it
@@ -503,8 +613,16 @@ async function getImpl(req: NextRequest) {
     ? {
         packageHash: observerPackage.packageHash,
         roundPolicy: observerPackage.roundPolicy,
-        assignedObserverRefs: [...observerPackage.assignedObserverRefs],
-        resolution: observerRoundResolution,
+        // RESERVED FOR STEWARD/ADMIN (fixed 2026-08-09, second review pass):
+        // the ref list and the unredacted resolution (which carries
+        // outstandingObserverRefs and a ref-naming `detail` string) are
+        // exactly what let a 2-observer round's "who's outstanding" become
+        // "who specifically" by elimination. A bare reviewer gets only
+        // `callerObserverStatus` below — counts and booleans about OTHERS,
+        // never their refs.
+        ...(mayViewFullObserverDetail
+          ? { assignedObserverRefs: [...observerPackage.assignedObserverRefs], resolution: observerRoundResolution }
+          : { resolution: observerRoundResolution ? projectResolutionForCaller(observerRoundResolution, false) : null }),
         callerObserverStatus,
         roundStatus,
         decisionSubmissionEndpoint: `${origin}/api/research/observer-review/${VALIDATION_PROGRAMME_EXPERIMENT_ID}/decision`,
@@ -529,7 +647,7 @@ async function getImpl(req: NextRequest) {
    */
   const machineContract = {
     schemaVersion: PACKAGE_SCHEMA_VERSION,
-    generatedAt: new Date().toISOString(),
+    generatedAt,
     authExpectation:
       'Every endpoint below requires the SAME authenticated session that fetched this package (Bearer/session ' +
       'cookie per the platform\'s identity spine) — there is no separate API key.',
@@ -585,15 +703,27 @@ async function getImpl(req: NextRequest) {
       lifecycle,
       frozenCrystal,
       experimentDesign,
-      reviewMandate: REVIEW_MANDATE,
+      reviewMandate: { ...REVIEW_MANDATE, reviewability },
       scientificLimitations: SCIENTIFIC_LIMITATIONS,
       governingResources,
       reviewerReadiness,
       reviewOutputGuidance: REVIEW_OUTPUT_GUIDANCE,
+      currentAssignment,
+      observerReview,
 
       crystalReviewEndpoint: `${origin}/api/research/crystal/${VALIDATION_PROGRAMME_EXPERIMENT_ID}`,
       crystalSubject,
-      reviewQueueEndpoint: `${origin}/api/research/review`,
+      // Not actionable for a reviewer/observer or their delegated agent —
+      // this is the ADMIN-ONLY automated dual-model (R1/R2) review pipeline,
+      // a distinct mechanism from `observerReview` above. Labeled rather
+      // than presented as a plain callable endpoint (fixed 2026-08-09,
+      // second review pass) so a reader doesn't reasonably infer they can
+      // call it.
+      reviewQueue: {
+        endpoint: `${origin}/api/research/review`,
+        accessible: false,
+        note: 'Admin-only automated dual-model (R1/R2) review pipeline. Reviewers and their delegated agents act through `observerReview`, not here.',
+      },
       agreement: agreementStatus
         ? {
             id: agreementStatus.agreementId,
