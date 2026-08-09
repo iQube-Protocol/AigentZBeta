@@ -781,6 +781,15 @@ export interface AgentReceiptRef {
    */
   actionInput: Record<string, unknown> | null;
   createdAt: string;
+  /**
+   * Added 2026-08-09 (Horizen Pilot Closure — Part B1, DVN liveness). The
+   * DVN message id this receipt was submitted under (`activity_receipts.
+   * dvn_receipt_id`) — what a caller needs to classify the receipt's DVN
+   * message via `get_dvn_message`/`get_message_attestations` without a
+   * second, parallel query. Null for a receipt never submitted (still
+   * `local`) or predating DVN submission.
+   */
+  dvnReceiptId: string | null;
 }
 
 export async function findAgentReceiptRefs(
@@ -802,7 +811,7 @@ export async function findAgentReceiptRefs(
         // final" (services/journey/consequenceForkProjection.ts) without a
         // second read. `action_input`/`created_at` added the same day for
         // the Standing tier/sequencing fix described above.
-        .select('id, action_type, receipt_status, action_input, created_at')
+        .select('id, action_type, receipt_status, action_input, created_at, dvn_receipt_id')
         .eq('action_type', actionType)
         .contains('agents_invoked', [runtimeAgentId])
         .order('created_at', { ascending: false })
@@ -818,6 +827,7 @@ export async function findAgentReceiptRefs(
         receipt_status: ReceiptStatus | null;
         action_input: Record<string, unknown> | null;
         created_at: string;
+        dvn_receipt_id: string | null;
       }[];
     }),
   );
@@ -828,6 +838,7 @@ export async function findAgentReceiptRefs(
     receiptStatus: r.receipt_status ?? 'local',
     actionInput: r.action_input ?? null,
     createdAt: r.created_at,
+    dvnReceiptId: r.dvn_receipt_id ?? null,
   }));
 }
 
