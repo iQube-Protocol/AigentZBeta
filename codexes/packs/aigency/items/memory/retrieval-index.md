@@ -3799,3 +3799,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-e860c62.md](../build_/COMMITS/COMMIT-e860c62.md)
 - Message: Fix AigentQube-presence/Factory-ingestion conflation + wire P&L service registered evidence
+
+## Commit `2ba52ac` — 2026-08-09T17:51:55Z
+- Type: `feat`
+- Brief: [COMMIT-2ba52ac.md](../build_/COMMITS/COMMIT-2ba52ac.md)
+- Message: Add GitHub Actions workflows for the ops routes needing CRON_TRIGGER_TOKEN
