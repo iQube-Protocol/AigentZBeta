@@ -564,7 +564,14 @@ async function getImpl(req: NextRequest) {
     }
   }
 
-  const journeyUrl = `${origin}/triad/embed/codex/irl-os?tab=irl-os-validation-programme`;
+  // 'irl-os-cartridge' is the real codex id (data/codex-configs.ts:
+  // IRL_OS_CARTRIDGE) — the embed route's bare-slug suffix-guessing only
+  // ever tries '-codex' or '-cartridge' on an EXPLICIT existing suffix and
+  // otherwise appends '-codex', so a bare 'irl-os' resolves to the
+  // nonexistent 'irl-os-codex' and 404s client-side ("Failed to load
+  // codex"). Fixed 2026-08-09 alongside the same bug in
+  // services/constitutional/guidedOnboarding.ts's passportDeepLinks.
+  const journeyUrl = `${origin}/triad/embed/codex/irl-os-cartridge?tab=irl-os-validation-programme`;
 
   /*
    * ── CURRENT ASSIGNMENT — what to do RIGHT NOW, personalized to this

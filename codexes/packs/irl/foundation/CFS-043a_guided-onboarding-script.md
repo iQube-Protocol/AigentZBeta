@@ -23,12 +23,12 @@ All passport surfaces are now first-class tabs of the **IRL OS cartridge**, so t
 
 | Purpose | Deep link |
 |---|---|
-| **Apply for a Passport** | `/triad/embed/codex/irl-os?tab=irl-os-passport-apply` |
-| **Bounded delegation** | `/triad/embed/codex/irl-os?tab=irl-os-passport-delegation` |
-| Registry (public record) | `/triad/embed/codex/agentiq-os?tab=os-passport-registry` — the Passport Registry tab was removed from both Labs on 2026-07-28 (operator ruling); the public record's open, public-facing home is AgentiQ OS |
-| Locker (encrypted vault) | `/triad/embed/codex/irl-os?tab=irl-os-passport-locker` |
+| **Apply for a Passport** | `/triad/embed/codex/irl-os-cartridge?tab=irl-os-passport-apply` |
+| **Bounded delegation** | `/triad/embed/codex/irl-os-cartridge?tab=irl-os-passport-delegation` |
+| Registry (public record) | `/triad/embed/codex/agentiq-os-cartridge?tab=os-passport-registry` — the Passport Registry tab was removed from both Labs on 2026-07-28 (operator ruling); the public record's open, public-facing home is AgentiQ OS |
+| Locker (encrypted vault) | `/triad/embed/codex/irl-os-cartridge?tab=irl-os-passport-locker` |
 
-Build these with `buildCodexUrl('irl-os', { tab: 'irl-os-passport-apply', personaSessionToken })` (`utils/codex-nav.ts`) so identity + breadcrumb params are attached correctly. The **canonical bureau** (`/triad/embed/codex/polity-passport-bureau?tab=apply`) is the fallback if the human prefers the standalone bureau cartridge — same components, same result.
+Build these with `buildCodexUrl('irl-os-cartridge', { tab: 'irl-os-passport-apply', personaSessionToken })` (`utils/codex-nav.ts`) so identity + breadcrumb params are attached correctly — the bare marketing slug `'irl-os'` alone 404s ("Failed to load codex"): the embed route's suffix-guessing only recognises an EXPLICIT `-codex`/`-cartridge` suffix, and the real id is `irl-os-cartridge` (fixed 2026-08-09). The **canonical bureau** (`/triad/embed/codex/polity-passport-bureau?tab=apply`) is the fallback if the human prefers the standalone bureau cartridge — same components, same result.
 
 **Atomic deep-dive (optional):** the floating copilot's SmartWallet opens directly on the passport/persona/delegation surface with `initialTab="iqube"` (`SmartWalletDrawer`). Offer this when the human wants to inspect their PersonaQube / PassportQube / sponsored-agent delegations in place without navigating tabs. (Note: this in-app prop only — the cross-shell iframe envelope does not carry the `iqube` target, so link to the tab above for cross-shell.)
 
