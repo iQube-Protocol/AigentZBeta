@@ -157,6 +157,23 @@ export async function discoverAndReceiptPnlServiceEvidence(
   // Chain agreement: the PnL service's own erc8004Chain claim, when present,
   // must agree with the network this correlation was read on — a genuine
   // disagreement is a provenance failure, never silently resolved.
+  //
+  // ── THIS IS AN IDENTITY-CHAIN COMPARISON, NOT A PROOF-CHAIN ONE (Horizen
+  //    Pilot Closure, part D, 2026-08-09 — confirmed against the CURRENT
+  //    live runbook, agent-registry.horizenlabs.io/verifiable-pnl/AGENTS.md)
+  //
+  // Horizen's contract deliberately runs TWO chains: "ERC-8004 identity lives
+  // on Base Sepolia (chainId 84532). PnL proofs are signed against Base
+  // mainnet (chainId 8453). Each EIP-712 domain pins its own chain." Both
+  // `erc8004Chain` (this correlation record's own claim) and `args.network`
+  // (what this read was performed against) are IDENTITY-chain selectors —
+  // the same `HorizenNetwork` string type ('base-sepolia' | 'base-mainnet'),
+  // never the numeric EVM chainId, and never the separate P&L proof/trade
+  // chain. Comparing them is like-with-like by construction; it is NOT a
+  // conflict for an agent's ERC-8004 identity to live on Base Sepolia while
+  // Horizen's Verifiable-PnL system reads that agent's trading wallet's
+  // activity from Base mainnet — that split is precisely how the contract is
+  // designed, not a contradiction to "fix" here.
   const erc8004Chain = record.pnl.value.erc8004Chain;
   if (erc8004Chain && erc8004Chain !== args.network) {
     return {

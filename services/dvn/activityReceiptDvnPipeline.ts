@@ -316,6 +316,12 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   // operator's constitutional acknowledgment act belongs in tamper-evident
   // memory, same tier as the other constitutional-transition receipts above.
   'orientation_ritual_completed',
+  // Horizen Pilot Closure, part C (2026-08-09) — Horizen's OWN Verifiable-PnL
+  // onboarding succeeding (POST /v1/register) is a distinct constitutional
+  // fact from both horizen_pnl_transparency_enabled (disclosure permission)
+  // and pnl_service_verified (independently rediscovered proof evidence) —
+  // see services/horizen/pnlOnboardingClient.ts. (Action-type addition only.)
+  'pnl_service_registered',
 ]);
 
 export function shouldAnchorActionType(actionType: string): boolean {

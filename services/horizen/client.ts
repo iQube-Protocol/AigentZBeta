@@ -276,3 +276,52 @@ export async function fetchPnlCorrelation(
   const url = `${HORIZEN_PNL_BASE}/v1/erc8004/${encodeURIComponent(tokenId)}`;
   return readJson(options.fetchImpl ?? defaultFetch, url);
 }
+
+/**
+ * ── VERIFIABLE-PNL ONBOARDING READS (Horizen Pilot Closure, part C,
+ *    2026-08-09) ────────────────────────────────────────────────────────────
+ *
+ * Read live from `${HORIZEN_PNL_BASE}/verifiable-pnl/AGENTS.md`'s current
+ * runbook (fetched 2026-08-09) and cross-checked against its published
+ * `openapi.json` — never inferred or hand-built. Every field name below is
+ * quoted from that response; no field is invented.
+ *
+ * These four remain squarely within this module's READ-ONLY scope — each is
+ * a plain, unauthenticated GET the onboarding flow needs BEFORE any wallet
+ * ever signs anything. The mutations they feed
+ * (`POST /v1/register`, `POST /v1/prove`, `POST /v1/prove/{jobId}/sign`) live
+ * in the dedicated mutating boundary, `services/horizen/pnlOnboardingClient.ts`
+ * — never here.
+ */
+
+/** `GET /v1/terms` — current Terms & Conditions; the returned `statement` MUST be embedded verbatim in the SIWE message or `/v1/register` rejects with `TERMS_NOT_ACCEPTED`. */
+export async function fetchPnlTerms(
+  options: HorizenClientOptions = {},
+): Promise<HorizenRead<{ version: string; contentHash: string; statement: string; content: string }>> {
+  const url = `${HORIZEN_PNL_BASE}/v1/terms`;
+  return readJson(options.fetchImpl ?? defaultFetch, url);
+}
+
+/** `GET /v1/siwe/nonce` — a fresh SIWE nonce plus the server-canonical `domain`/`URI` to embed, so the SIWE message is never hand-guessed. */
+export async function fetchPnlSiweNonce(
+  options: HorizenClientOptions = {},
+): Promise<HorizenRead<{ nonce: string; expectedDomain: string; expectedUri: string }>> {
+  const url = `${HORIZEN_PNL_BASE}/v1/siwe/nonce`;
+  return readJson(options.fetchImpl ?? defaultFetch, url);
+}
+
+/**
+ * `GET /v1/erc8004/{tokenId}/owner` — public, unauthenticated pre-check for
+ * `existing`-mode registration ("confirm ownership up front... to avoid
+ * prompting the user for signatures only to fail at the final step").
+ * `verifiable === false` means the registry isn't configured for this
+ * deployment — not that ownership failed; the caller must fall back to
+ * server-side enforcement at `/v1/register` rather than treat it as a denial.
+ */
+export async function fetchPnlTokenOwner(
+  tokenId: string,
+  options: HorizenClientOptions = {},
+): Promise<HorizenRead<{ tokenId: string; owner: string | null; verifiable: boolean }>> {
+  const url = `${HORIZEN_PNL_BASE}/v1/erc8004/${encodeURIComponent(tokenId)}/owner`;
+  return readJson(options.fetchImpl ?? defaultFetch, url);
+}

@@ -362,7 +362,21 @@ export type ActivityActionType =
   // orientation ritual (which of the two ritual kinds applies is resolved
   // from state, never from agent name) — never issued merely for viewing
   // the stage. See services/journey/orientationContext.ts.
-  | 'orientation_ritual_completed';
+  | 'orientation_ritual_completed'
+  // Horizen Pilot Closure, part C (2026-08-09) — the THIRD, genuinely new
+  // P&L fact, distinct from both existing types above:
+  //   horizen_pnl_transparency_enabled — the OPERATOR's disclosure/scope
+  //     permission grant. Never implies Horizen registered anything.
+  //   pnl_service_registered (this type) — HORIZEN's own Verifiable-PnL
+  //     onboarding (`POST /v1/register`) has SUCCEEDED for this agent —
+  //     an `agentId` (Horizen's internal PnL UUID) now exists. Says nothing
+  //     about whether any proof evidence exists yet.
+  //   pnl_service_verified — independently REDISCOVERED, correlated proof
+  //     evidence (unchanged; issued only by the read-only
+  //     discoverAndReceiptPnlServiceEvidence, never by the registration
+  //     mutation itself — registering is not self-certifying).
+  // See services/horizen/pnlOnboardingClient.ts.
+  | 'pnl_service_registered';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 
