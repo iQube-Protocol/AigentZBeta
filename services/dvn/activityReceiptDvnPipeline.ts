@@ -904,14 +904,99 @@ export function enqueueActivityReceiptAnchor(
 
 /**
  * Finalizer — flips activity_receipts from dvn_pending → dvn_recorded for
- * any rows whose dvn_receipt_id is in the canister's get_ready_messages
- * set. Designed to be invoked from a cron / admin route on a schedule.
+ * pending rows the DVN canister reports as individually ready. Designed to
+ * be invoked from a cron / admin route on a schedule.
+ *
+ * ── READINESS-READ STRATEGY (operator-approved narrow modification,
+ *    2026-08-09, "LIVE CLOSURE — MoneyPenny tokenId + DVN targeted
+ *    finalization") ──────────────────────────────────────────────────────
+ *
+ * Previously called the canister's global `get_ready_messages()` — a
+ * no-argument query enumerating EVERY ready message across the canister's
+ * entire backlog. Live, this returned ~5.8 MB, exceeding the IC's 3 MiB
+ * query-response cap (`IC0504`) and failing the finalizer outright.
+ *
+ * The fix targets only OUR OWN backlog instead of the canister's global
+ * one: a bounded batch of `activity_receipts` rows already known to be
+ * `dvn_pending` with a `dvn_receipt_id` on file, each checked individually
+ * via the canister's existing `get_dvn_message` / `get_message_attestations`
+ * targeted query methods (already declared in cross_chain_service's IDL —
+ * no canister change, no IDL change). This changes ONLY the readiness READ;
+ * everything else is untouched:
+ *   - receipt commitment/hash semantics — untouched, not read or written here
+ *   - DVN submission — untouched, lives in submitDvnAnchor above
+ *   - the local → dvn_pending → dvn_recorded state machine — same states,
+ *     same direction, still `.eq('receipt_status', 'dvn_pending')`-gated
+ *   - Bitcoin/PoS logic — untouched, a fully separate leg (submitPosAnchor)
+ *   - the definition of DVN Minted — still exactly `receipt_status ===
+ *     'dvn_recorded'`; nothing here changes what that means
+ *
+ * READINESS SEMANTICS, PRESERVED EXACTLY: a message is ready when
+ * `attestation_count >= REQUIRED_ATTESTATIONS` (the deployed canister's own
+ * threshold, 2) — the same predicate `get_ready_messages()` applies
+ * server-side, now evaluated per targeted message instead of over a global
+ * enumeration. A message that no longer exists on the canister
+ * (`get_dvn_message` returns None) cannot be ready by the same predicate
+ * `get_ready_messages()` uses (a pruned/unknown message is never in its
+ * result set either) — checked before counting attestations so a stale
+ * `dvn_receipt_id` doesn't fabricate readiness from a coincidental empty
+ * attestation list.
+ *
+ * EXCEPTION ISOLATION: each receipt's targeted read is independently
+ * try/caught. One unavailable or slow message must not block the rest of
+ * the batch from being checked and promoted.
+ *
+ * BOUNDED BATCH: `RECONCILIATION_BATCH_SIZE` limits one run to a fixed
+ * number of pending receipts; a backlog larger than that drains over
+ * successive scheduled runs — the same pattern already used by
+ * `services/horizen/registrationReconciliation.ts`'s `MAX_ITEMS_PER_RUN`.
+ *
+ * NEVER RESUBMITS: this function only reads (`get_dvn_message` /
+ * `get_message_attestations`) and promotes an EXISTING `dvn_pending` row —
+ * it never calls `submit_dvn_message` or otherwise recreates a receipt
+ * merely because it has not finalized yet.
  */
 export interface ActivityReceiptFinalizationResult {
   ok: boolean;
   readyMessageCount: number;
   receiptsFinalized: number;
+  /** How many dvn_pending receipts this run examined (bounded by RECONCILIATION_BATCH_SIZE). */
+  pendingChecked?: number;
+  /** Receipts whose targeted read failed/timed out this run — isolated, retried next run. */
+  unresolvable?: number;
   error?: string;
+}
+
+/**
+ * How many `dvn_pending` receipts one run will check. Mirrors
+ * `services/horizen/registrationReconciliation.ts`'s `MAX_ITEMS_PER_RUN` —
+ * a backlog larger than this drains over successive scheduled runs rather
+ * than risking one run's wall-clock on an unbounded batch.
+ */
+const RECONCILIATION_BATCH_SIZE = 50;
+
+/** The deployed canister's own readiness threshold — see module doc above. */
+const REQUIRED_ATTESTATIONS = 2;
+
+/** Per-targeted-call timeout — these are single-message query reads, far smaller than the global enumeration this replaces. */
+const DVN_TARGETED_CALL_TIMEOUT_MS = 8_000;
+
+interface TargetedDvnActor {
+  get_dvn_message: (id: string) => Promise<Array<{ id: string }> | { id: string } | null>;
+  get_message_attestations: (id: string) => Promise<Array<unknown>>;
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) => setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)),
+  ]);
+}
+
+/** Candid `opt` decodes as `[]` (none) or `[value]` (some) — normalized to a plain nullable. */
+function unwrapOpt<T>(value: Array<T> | T | null | undefined): T | null {
+  if (Array.isArray(value)) return value.length > 0 ? value[0] : null;
+  return value ?? null;
 }
 
 export async function finalizeReadyActivityReceipts(): Promise<ActivityReceiptFinalizationResult> {
@@ -932,31 +1017,79 @@ export async function finalizeReadyActivityReceipts(): Promise<ActivityReceiptFi
     result.error = 'Supabase unavailable';
     return result;
   }
-  let readyMessages: Array<{ id: string }>;
-  try {
-    const dvn = await getActor<{ get_ready_messages: () => Promise<Array<{ id: string }>> }>(canisterId, dvnIdl);
-    readyMessages = await Promise.race([
-      dvn.get_ready_messages(),
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error(`get_ready_messages timed out after ${DVN_CALL_TIMEOUT_MS}ms`)), DVN_CALL_TIMEOUT_MS),
-      ),
-    ]);
-  } catch (err) {
-    const errMsg = err instanceof Error ? err.message : String(err);
-    console.error(`[DVN ESCALATION] Finalizer canister call FAILED: ${errMsg}`);
-    result.error = `Canister call failed: ${errMsg}`;
+
+  // OUR OWN bounded backlog — never the canister's global enumeration.
+  const { data: pending, error: pendingError } = await supabase
+    .from('activity_receipts')
+    .select('id, dvn_receipt_id')
+    .eq('receipt_status', 'dvn_pending')
+    .not('dvn_receipt_id', 'is', null)
+    .limit(RECONCILIATION_BATCH_SIZE);
+  if (pendingError) {
+    result.error = `activity_receipts read failed: ${pendingError.message}`;
     return result;
   }
-  if (!readyMessages || readyMessages.length === 0) {
+  const pendingRows = (pending ?? []) as Array<{ id: string; dvn_receipt_id: string }>;
+  result.pendingChecked = pendingRows.length;
+  if (pendingRows.length === 0) {
     result.ok = true;
     return result;
   }
-  result.readyMessageCount = readyMessages.length;
-  const messageIds = readyMessages.map((m) => m.id).filter(Boolean);
+
+  let dvn: TargetedDvnActor;
+  try {
+    dvn = await getActor<TargetedDvnActor>(canisterId, dvnIdl);
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    console.error(`[DVN ESCALATION] Finalizer canister actor FAILED: ${errMsg}`);
+    result.error = `Canister actor failed: ${errMsg}`;
+    return result;
+  }
+
+  let unresolvable = 0;
+  const readyReceiptIds: string[] = [];
+  await Promise.all(
+    pendingRows.map(async (row) => {
+      try {
+        const message = unwrapOpt(
+          await withTimeout(dvn.get_dvn_message(row.dvn_receipt_id), DVN_TARGETED_CALL_TIMEOUT_MS, `get_dvn_message(${row.dvn_receipt_id})`),
+        );
+        // No message on the canister → cannot be in get_ready_messages()'s
+        // result set either (the same predicate this replaces never
+        // considers a message that doesn't exist). Not an error: retried
+        // next run in case of eventual consistency, never promoted now.
+        if (!message) return;
+
+        const attestations = await withTimeout(
+          dvn.get_message_attestations(row.dvn_receipt_id),
+          DVN_TARGETED_CALL_TIMEOUT_MS,
+          `get_message_attestations(${row.dvn_receipt_id})`,
+        );
+        const attestationCount = Array.isArray(attestations) ? attestations.length : 0;
+        if (attestationCount >= REQUIRED_ATTESTATIONS) {
+          readyReceiptIds.push(row.id);
+        }
+      } catch (err) {
+        // ONE unavailable/slow message must not block the rest of the batch —
+        // isolated here, reported in the count, retried on the next run.
+        unresolvable += 1;
+        const errMsg = err instanceof Error ? err.message : String(err);
+        console.error(`[DVN ESCALATION] Finalizer targeted read failed for receipt ${row.id} (dvnReceiptId=${row.dvn_receipt_id}): ${errMsg}`);
+      }
+    }),
+  );
+  result.unresolvable = unresolvable;
+  result.readyMessageCount = readyReceiptIds.length;
+
+  if (readyReceiptIds.length === 0) {
+    result.ok = true;
+    return result;
+  }
+
   const { data, error } = await supabase
     .from('activity_receipts')
     .update({ receipt_status: 'dvn_recorded' })
-    .in('dvn_receipt_id', messageIds)
+    .in('id', readyReceiptIds)
     .eq('receipt_status', 'dvn_pending')
     .select('id');
   if (error) {
