@@ -809,6 +809,8 @@ export interface LocalReceiptDvnReconciliationResult {
   skippedNonAnchorable: number;
   failed: number;
   error?: string;
+  /** True when the wall-clock safety budget stopped this run before the whole backlog was scanned — call again to continue from where it left off. */
+  truncatedByTimeBudget?: boolean;
 }
 
 /** Mirrors registrationReconciliation.ts's MAX_ITEMS_PER_RUN — a backlog larger than this drains over successive scheduled runs. */
@@ -828,6 +830,20 @@ const LOCAL_RECONCILIATION_PAGE_SIZE = 50;
  */
 const LOCAL_RECONCILIATION_MAX_PAGES = 20;
 
+/**
+ * Wall-clock safety valve (added after the FIRST live run against a
+ * newly-repaired schema returned an empty HTTP response — the underlying
+ * serverless route has its own hard execution limit this function cannot see
+ * or extend, and each `enqueueReceiptLeg` call can itself take up to
+ * `DVN_CALL_TIMEOUT_MS` (15s) if the canister is slow. Checked before EVERY
+ * row, not just every page — a single page can contain up to
+ * `LOCAL_RECONCILIATION_PAGE_SIZE` rows, and stopping only between pages would
+ * not bound a slow page. Stopping cleanly and reporting `truncated: true`
+ * beats letting the platform kill the request and discard the response body,
+ * which is indistinguishable from "nothing happened" to a caller.
+ */
+const RECONCILIATION_TIME_BUDGET_MS = 20_000;
+
 export async function reconcileLocalReceiptsToDvn(): Promise<LocalReceiptDvnReconciliationResult> {
   const result: LocalReceiptDvnReconciliationResult = {
     ok: false,
@@ -837,9 +853,15 @@ export async function reconcileLocalReceiptsToDvn(): Promise<LocalReceiptDvnReco
     skippedNonAnchorable: 0,
     failed: 0,
   };
+  const startedAt = Date.now();
+  let truncated = false;
 
   let cursor: string | undefined;
-  for (let page = 0; page < LOCAL_RECONCILIATION_MAX_PAGES; page++) {
+  pageLoop: for (let page = 0; page < LOCAL_RECONCILIATION_MAX_PAGES; page++) {
+    if (Date.now() - startedAt > RECONCILIATION_TIME_BUDGET_MS) {
+      truncated = true;
+      break;
+    }
     let pending: Awaited<ReturnType<typeof findLocalReceiptsPendingDvnAnchor>>;
     try {
       pending = await findLocalReceiptsPendingDvnAnchor({ limit: LOCAL_RECONCILIATION_PAGE_SIZE, afterCreatedAt: cursor });
@@ -848,9 +870,13 @@ export async function reconcileLocalReceiptsToDvn(): Promise<LocalReceiptDvnReco
       return result;
     }
     if (pending.length === 0) break;
-    result.pendingChecked += pending.length;
 
     for (const { record, personaId } of pending) {
+      if (Date.now() - startedAt > RECONCILIATION_TIME_BUDGET_MS) {
+        truncated = true;
+        break pageLoop;
+      }
+      result.pendingChecked += 1;
       if (!shouldAnchorActionType(record.actionType)) {
         result.skippedNonAnchorable += 1;
         continue;
@@ -875,6 +901,7 @@ export async function reconcileLocalReceiptsToDvn(): Promise<LocalReceiptDvnReco
   }
 
   result.ok = true;
+  if (truncated) result.truncatedByTimeBudget = true;
   return result;
 }
 

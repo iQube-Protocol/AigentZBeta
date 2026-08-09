@@ -845,6 +845,29 @@ export interface LocalReceiptPendingDvnAnchor {
   personaId: string;
 }
 
+/**
+ * Same {record, personaId} shape as `findLocalReceiptsPendingDvnAnchor`, but
+ * for a caller-supplied, EXACT set of ids — never a status/backlog scan.
+ *
+ * Exists for targeted, bounded recovery of specific known-stranded receipts
+ * (Horizen Pilot Closure, part B3, 2026-08-09) without touching the wider
+ * historical `local` backlog that `reconcileLocalReceiptsToDvn`'s oldest-first
+ * scan may need many bounded runs to reach — the operator's explicit
+ * instruction was to assess duplicate-submission risk per receipt BEFORE any
+ * resubmission, which a blind broad rescan cannot do surgically.
+ */
+export async function findReceiptsByIds(ids: string[]): Promise<LocalReceiptPendingDvnAnchor[]> {
+  if (ids.length === 0) return [];
+  const admin = getAdminClient();
+  const { data, error } = await admin.from('activity_receipts').select('*').in('id', ids);
+  if (error) {
+    if (isMissingTable(error)) return [];
+    throw new Error(`findReceiptsByIds failed: ${error.message}`);
+  }
+  if (!data) return [];
+  return (data as DbRow[]).map((row) => ({ record: rowToRecord(row), personaId: row.persona_id }));
+}
+
 export async function findLocalReceiptsPendingDvnAnchor(options?: {
   limit?: number;
   /** Keyset cursor — only rows created strictly after this ISO timestamp. Lets a
