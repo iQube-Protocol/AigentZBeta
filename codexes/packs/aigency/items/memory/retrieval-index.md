@@ -3764,3 +3764,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-21c278e.md](../build_/COMMITS/COMMIT-21c278e.md)
 - Message: Fix local-to-DVN reconciler starvation on non-anchorable backlog + add receipt-status diagnostic
+
+## Commit `efe5d1a` — 2026-08-09T08:39:43Z
+- Type: `push`
+- Brief: [COMMIT-efe5d1a.md](../build_/COMMITS/COMMIT-efe5d1a.md)
+- Message: Make receipt-status diagnostic column-schema-safe after discovering dvn_status missing in prod

@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-09T08:08:18.466Z",
+  "last_updated": "2026-08-09T08:41:54.279Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "21c278e3daa51c115a957f4f0279f403fd542ad4",
-  "latest_commit_short": "21c278e",
-  "latest_commit_title": "Fix local-to-DVN reconciler starvation on non-anchorable backlog + add receipt-status diagnostic",
+  "latest_commit": "efe5d1a05332a6661b14f6b393263f0714b92e4e",
+  "latest_commit_short": "efe5d1a",
+  "latest_commit_title": "Make receipt-status diagnostic column-schema-safe after discovering dvn_status missing in prod",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "efe5d1a",
+      "full_sha": "efe5d1a05332a6661b14f6b393263f0714b92e4e",
+      "title": "Make receipt-status diagnostic column-schema-safe after discovering dvn_status missing in prod",
+      "author": "Claude",
+      "timestamp": "2026-08-09T08:39:43Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-efe5d1a.md"
+    },
     {
       "sha": "21c278e",
       "full_sha": "21c278e3daa51c115a957f4f0279f403fd542ad4",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-07-16T22:29:04Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-a6baa9b.md"
-    },
-    {
-      "sha": "e49714c",
-      "full_sha": "e49714cbba9312876fc024e439c7546065174e28",
-      "title": "CFS-035 Phase 2: Experience face + Invariant Lenses + routing node",
-      "author": "Claude",
-      "timestamp": "2026-07-16T22:59:16Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-e49714c.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
