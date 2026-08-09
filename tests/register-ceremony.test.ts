@@ -1375,17 +1375,37 @@ describe('a lapsed ceremony says so, and can be restarted', () => {
 
   it('a failed registry reread does not discard verified on-chain evidence', () => {
     const client = stripComments(readSource('services/horizen/registrationClient.ts'));
-    const at = client.indexOf('if (!reread.ok)');
-    expect(at).toBeGreaterThan(-1);
+    const at = client.indexOf('const rereadTokenId =');
+    expect(at, 'the reread/chain-fallback tokenId computation is missing').toBeGreaterThan(-1);
     const block = client.slice(at, at + 2600);
-    // The refusal now only fires when the chain did NOT verify.
-    expect(block).toMatch(/if \(!onChain\.verified \|\| !onChain\.agentId\)/);
+    // tokenId falls back to the receipt-decoded, ownerOf-verified
+    // onChain.agentId whenever Horizen's own reread doesn't supply one —
+    // regardless of whether the reread failed outright or merely omitted
+    // the field (MoneyPenny live defect fix, 2026-08-09).
+    expect(block).toMatch(/rereadTokenId \?\? \(onChain\.verified \? onChain\.agentId : null\)/);
+    // The refusal now only fires when there is genuinely no tokenId from
+    // EITHER source AND the reread itself failed outright.
+    expect(block).toMatch(/if \(!tokenId\)/);
+    expect(block).toMatch(/if \(!reread\.ok\)/);
     expect(block).toMatch(/refusalCode: 'REGISTRY_REREAD_FAILED'/);
     // Otherwise the decoded tokenId is used — and the identifier stays absent
-    // rather than being defaulted from it (operator ruling 2026-07-31).
-    expect(block).toMatch(/agentIdentifier: null/);
-    expect(block).toMatch(/humanReadableUrl: null/);
+    // rather than being defaulted from it (operator ruling 2026-07-31) —
+    // only Horizen's own reread can ever supply agentIdentifier.
+    expect(block).toMatch(/agentIdentifier = reread\.ok \? pickStringField/);
     expect(block).toMatch(/reported absent rather/);
+  });
+
+  it('the chain-fallback tokenId fires identically whether the reread failed outright OR succeeded without a tokenId field (2026-08-09 MoneyPenny defect)', () => {
+    const client = stripComments(readSource('services/horizen/registrationClient.ts'));
+    const at = client.indexOf('const usedChainFallback =');
+    expect(at, 'usedChainFallback is not computed — the two divergence cases are not unified').toBeGreaterThan(-1);
+    const block = client.slice(at, at + 900);
+    expect(block).toMatch(/usedChainFallback = !rereadTokenId && !!tokenId/);
+    // Both branches state the SAME fact — the tokenId came from the chain,
+    // not from Horizen's reread — never silently merged into a single
+    // undifferentiated "something went wrong" message.
+    expect(block).toMatch(/registry reread also failed/);
+    expect(block).toMatch(/registry reread succeeded but returned no resolvable/);
   });
 });
 

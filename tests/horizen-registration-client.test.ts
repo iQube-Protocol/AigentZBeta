@@ -6,8 +6,25 @@
  * tests/horizen-authorization-client.test.ts's injection conventions.
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ethers } from 'ethers';
+
+/**
+ * Mocked so the "receipt-decoded tokenId is the fallback regardless of WHY
+ * Horizen's reread didn't supply one" tests below (2026-08-09 MoneyPenny
+ * live defect fix) can drive `onChain.verified` deterministically, without
+ * a real chain read. Defaults to "no receipt decoded" so every
+ * PRE-EXISTING test in this file keeps its original behavior — `onChain`
+ * stays unverified exactly as it did when this decode ran against an
+ * unreachable real JsonRpcProvider and failed after its network-detect
+ * retries. Individual tests override via `mockDecodeAgentId.mockResolvedValueOnce(...)`.
+ */
+const mockDecodeAgentId = vi.fn(async () => ({ ok: false as const, reason: 'no receipt decoded (test default)' }));
+vi.mock('@/services/horizen/agentIdRecovery', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/services/horizen/agentIdRecovery')>();
+  return { ...actual, decodeAgentIdFromReceipt: (...args: unknown[]) => mockDecodeAgentId(...(args as [])) };
+});
+
 import {
   prepareAgentRegistration,
   broadcastAgentRegistration,
@@ -311,6 +328,119 @@ describe('checkAgentRegistrationStatus', () => {
       fetchRegistryAgent: async () => ({ ok: false, ready: true, reason: 'timeout' }),
     });
     expect(result).toMatchObject({ ok: false, refusalCode: 'REGISTRY_REREAD_FAILED' });
+  });
+
+  describe('the receipt-decoded tokenId is the fallback whenever Horizen\'s reread does not supply one (MoneyPenny live defect, 2026-08-09)', () => {
+    const CHAIN_TOKEN_ID = '8798';
+    const CHAIN_REGISTRY = IDENTITY_REGISTRY;
+
+    beforeEach(() => {
+      mockDecodeAgentId.mockReset();
+      mockDecodeAgentId.mockResolvedValue({ ok: false, reason: 'no receipt decoded (test default)' });
+    });
+
+    it('recovers the tokenId from the chain-verified receipt when the reread SUCCEEDS but returns no tokenId field — the exact live MoneyPenny shape ("confirmed via on-chain-receipt", tokenId previously unknown)', async () => {
+      mockDecodeAgentId.mockResolvedValue({
+        ok: true,
+        agentId: CHAIN_TOKEN_ID,
+        registry: CHAIN_REGISTRY,
+        agentURI: null,
+        source: 'Registered',
+        blockNumber: 100,
+        logIndex: 2,
+      });
+      const updateSpy = vi.fn();
+      const receiptSpy = vi.fn(async () => 'receipt-register-chain-1');
+      const result = await checkAgentRegistrationStatus(baseInput, {
+        // Horizen's status text does not itself say confirmed — this is what
+        // produces `confirmationSource: 'on-chain-receipt'`, matching the
+        // live reconciler's reported outcome exactly.
+        mcpClient: fakeMcpClient({ statusText: '{"status":"pending"}' }),
+        // Reread SUCCEEDS (ok: true) but the payload has no tokenId/agentId/id
+        // field at all — the case the original code silently dropped.
+        fetchRegistryAgent: async () => ({ ok: true, ready: true, value: {} }),
+        updateRegistryAssetBinding: updateSpy,
+        createRegistrationReceipt: receiptSpy,
+      });
+      expect(result).toMatchObject({
+        ok: true,
+        value: {
+          confirmed: true,
+          tokenId: CHAIN_TOKEN_ID,
+          registryAlias: `0x${BigInt(CHAIN_TOKEN_ID).toString(16)}`,
+          agentIdentifier: null,
+          humanReadableUrl: null,
+          confirmationSource: 'on-chain-receipt',
+          receiptId: 'receipt-register-chain-1',
+        },
+      });
+      expect(updateSpy).toHaveBeenCalledWith('aigentqube-moneypenny', {
+        tokenId: CHAIN_TOKEN_ID,
+        registryAlias: `0x${BigInt(CHAIN_TOKEN_ID).toString(16)}`,
+        agentIdentifier: null,
+        humanReadableUrl: null,
+      });
+      expect(receiptSpy).toHaveBeenCalledTimes(1);
+      expect(receiptSpy.mock.calls[0][0]).toMatchObject({ tokenId: CHAIN_TOKEN_ID, registryAddress: CHAIN_REGISTRY });
+    });
+
+    it('never fabricates a tokenId from transaction position or any heuristic — stays null when neither the reread nor the chain read resolves one', async () => {
+      // onChain stays unverified (mockDecodeAgentId default), and the reread
+      // succeeds but supplies no tokenId either — nothing to fall back to.
+      const updateSpy = vi.fn();
+      const receiptSpy = vi.fn();
+      const result = await checkAgentRegistrationStatus(baseInput, {
+        mcpClient: fakeMcpClient({ statusText: '{"status":"active"}' }),
+        fetchRegistryAgent: async () => ({ ok: true, ready: true, value: {} }),
+        updateRegistryAssetBinding: updateSpy,
+        createRegistrationReceipt: receiptSpy,
+      });
+      expect(result).toMatchObject({ ok: true, value: { confirmed: true, tokenId: null, registryAlias: null, receiptId: null } });
+      expect(updateSpy).not.toHaveBeenCalled();
+      expect(receiptSpy).not.toHaveBeenCalled();
+    });
+
+    it('still refuses REGISTRY_REREAD_FAILED when the reread fails outright AND the chain did not verify a mint either', async () => {
+      const result = await checkAgentRegistrationStatus(baseInput, {
+        mcpClient: fakeMcpClient({ statusText: '{"status":"confirmed"}' }),
+        fetchRegistryAgent: async () => ({ ok: false, ready: true, reason: 'timeout' }),
+      });
+      expect(result).toMatchObject({ ok: false, refusalCode: 'REGISTRY_REREAD_FAILED' });
+    });
+
+    it('still recovers via the chain when the reread fails outright (the pre-existing fallback path, preserved)', async () => {
+      mockDecodeAgentId.mockResolvedValue({
+        ok: true,
+        agentId: CHAIN_TOKEN_ID,
+        registry: CHAIN_REGISTRY,
+        agentURI: null,
+        source: 'Registered',
+        blockNumber: 5,
+        logIndex: 0,
+      });
+      const result = await checkAgentRegistrationStatus(baseInput, {
+        mcpClient: fakeMcpClient({ statusText: '{"status":"pending"}' }),
+        fetchRegistryAgent: async () => ({ ok: false, ready: true, reason: 'timeout' }),
+      });
+      expect(result).toMatchObject({ ok: true, value: { confirmed: true, tokenId: CHAIN_TOKEN_ID, confirmationSource: 'on-chain-receipt' } });
+    });
+
+    it('prefers Horizen\'s own reread tokenId over the chain fallback when both are available — the chain is a fallback, never an override', async () => {
+      mockDecodeAgentId.mockResolvedValue({
+        ok: true,
+        agentId: CHAIN_TOKEN_ID,
+        registry: CHAIN_REGISTRY,
+        agentURI: null,
+        source: 'Registered',
+        blockNumber: 5,
+        logIndex: 0,
+      });
+      const result = await checkAgentRegistrationStatus(baseInput, {
+        mcpClient: fakeMcpClient({ statusText: '{"status":"active"}' }),
+        fetchRegistryAgent: async () => ({ ok: true, ready: true, value: { tokenId: '4567', registryAlias: '0x11d7' } }),
+      });
+      expect(result).toMatchObject({ ok: true, value: { tokenId: '4567', registryAlias: '0x11d7' } });
+    });
   });
 });
 
