@@ -4,6 +4,10 @@ import { bestReceiptStatus } from '@/services/journey/consequenceForkProjection'
 import type { ReceiptStatus } from '@/services/receipts/activityReceiptService';
 
 export const dynamic = 'force-dynamic';
+// See app/api/ops/journey/agent-forensics/route.ts's own comment —
+// mitigates the default serverless timeout against a slow
+// agents_invoked containment query.
+export const maxDuration = 60;
 
 /**
  * GET /api/ops/dvn/agent-receipts?agentRuntimeId=aigent-nakamoto&actionTypes=standing_accrued,pnl_service_registered,pnl_service_verified

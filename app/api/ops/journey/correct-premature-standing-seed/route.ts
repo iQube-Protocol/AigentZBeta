@@ -5,6 +5,9 @@ import { readJourneyResolution } from '@/services/journey/stageResolution';
 import { findAgentReceiptRefs, createActivityReceipt } from '@/services/receipts/activityReceiptService';
 
 export const dynamic = 'force-dynamic';
+// See agent-forensics/route.ts's own comment — mitigates the default
+// serverless timeout against a slow agents_invoked containment query.
+export const maxDuration = 60;
 
 /**
  * POST /api/ops/journey/correct-premature-standing-seed

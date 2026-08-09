@@ -5,6 +5,12 @@ import { readJourneyResolution } from '@/services/journey/stageResolution';
 import { findAgentReceiptRefs } from '@/services/receipts/activityReceiptService';
 
 export const dynamic = 'force-dynamic';
+// Same reasoning as app/api/journey/moneypenny-horizen/state/route.ts's own
+// maxDuration: the default serverless function timeout can be shorter than
+// an array-containment query against activity_receipts takes without a GIN
+// index on agents_invoked (see migration 20260930002600). Raising this is
+// a mitigation for THAT gap, not a substitute for it.
+export const maxDuration = 60;
 
 /**
  * GET /api/ops/journey/agent-forensics?agentRuntimeId=aigent-moneypenny&aigentQubeId=aigentqube-moneypenny&journeyId=horizen-moneypenny-admission
