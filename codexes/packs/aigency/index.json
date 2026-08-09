@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-09T09:57:07.015Z",
+  "last_updated": "2026-08-09T11:08:40.770Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "6ad4cf41dca44899f26e129bdebc0ac46e02b456",
-  "latest_commit_short": "6ad4cf4",
-  "latest_commit_title": "Correct Horizen PnL onboarding contract + wire production Onboard action",
+  "latest_commit": "e720dcdb71d68ddde1a299150eb1c543f3588c04",
+  "latest_commit_short": "e720dcd",
+  "latest_commit_title": "Fix DVN Pending fork pill + P&L three-state UI, add purpose-bound agent wallet binding",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "e720dcd",
+      "full_sha": "e720dcdb71d68ddde1a299150eb1c543f3588c04",
+      "title": "Fix DVN Pending fork pill + P&L three-state UI, add purpose-bound agent wallet binding",
+      "author": "Claude",
+      "timestamp": "2026-08-09T11:06:08Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-e720dcd.md"
+    },
     {
       "sha": "6ad4cf4",
       "full_sha": "6ad4cf41dca44899f26e129bdebc0ac46e02b456",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-07-16T20:44:12Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-8bc16a9.md"
-    },
-    {
-      "sha": "6b2e5a2",
-      "full_sha": "6b2e5a202f70005655dcf4413f111703f2de59da",
-      "title": "canonize Invariant Representations as the interface stratum (CRP-002 §0.8)",
-      "author": "Claude",
-      "timestamp": "2026-07-16T20:59:45Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-6b2e5a2.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
