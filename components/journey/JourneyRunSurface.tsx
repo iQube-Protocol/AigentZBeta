@@ -295,6 +295,25 @@ export function JourneyRunSurface({
   }, [activeStageId, measureOverflow]);
   const activeIdx = journey.stages.findIndex((s) => s.id === activeStageId);
 
+  /*
+   * CONSEQUENCE FORK (Threshold Journey — Orient + Consequence Fork,
+   * 2026-08-09) — a rendering-only split, driven by `forkPosition`
+   * (types/journey.ts). Stages that opt in are drawn as a three-pronged
+   * trident branching from ONE junction after the spine, never mixed into
+   * the numbered spine row and never drawn before it. A journey with no
+   * `forkPosition`-tagged stages (e.g. the Validation Programme) yields an
+   * empty `forkStages` and renders exactly as before — this is purely
+   * additive. Gating is untouched: `forkPosition` decides WHERE a stage's
+   * node is drawn, never whether it is reachable or complete.
+   */
+  const spineStages = journey.stages.filter((s) => !s.forkPosition);
+  const forkStages = journey.stages.filter((s) => s.forkPosition);
+  const FORK_ROWS: Array<{ position: 'upper' | 'middle' | 'lower' }> = [
+    { position: 'upper' },
+    { position: 'middle' },
+    { position: 'lower' },
+  ];
+
   const content = (
     <div className="flex h-full flex-col gap-4 p-4 text-slate-100">
       <div className="flex items-center justify-between gap-3">
@@ -438,14 +457,14 @@ export function JourneyRunSurface({
           onScroll={measureOverflow}
           className="flex items-center overflow-x-auto scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
-          {journey.stages.map((stage, i) => {
+          {spineStages.map((stage, i) => {
             const stageState = runtimeState?.stages.find((s) => s.stageId === stage.id)?.state ?? 'NOT_STARTED';
             const isDone = stageState === 'COMPLETE';
             const isCurrent = stage.id === activeStageId;
             const isBlocked = stageState === 'BLOCKED';
             const prevDone =
               i === 0 ||
-              (runtimeState?.stages.find((s) => s.stageId === journey.stages[i - 1].id)?.state ?? 'NOT_STARTED') ===
+              (runtimeState?.stages.find((s) => s.stageId === spineStages[i - 1].id)?.state ?? 'NOT_STARTED') ===
                 'COMPLETE';
             return (
               <React.Fragment key={stage.id}>
@@ -489,6 +508,76 @@ export function JourneyRunSurface({
             );
           })}
         </div>
+
+        {/*
+          CONSEQUENCE FORK — one trident, emerging from ONE junction after the
+          spine ends (never three floating cards, never appearing before the
+          spine). An L-shaped tree connector: one vertical trunk, one
+          horizontal tick per prong. Ratify (upper), Ingest (middle,
+          continuing the main line visually), Standing (lower) — operator
+          spec, 2026-08-09. Each prong is rendered from its OWN stage
+          definition — own state, own evidence, own receipts — `forkPosition`
+          only decides where the node is drawn.
+        */}
+        {forkStages.length > 0 && (
+          <div className="mt-2 flex items-stretch gap-2 border-t border-slate-800/60 pt-2" data-testid="consequence-fork">
+            <div className="flex w-4 shrink-0 flex-col items-center">
+              <div className="h-1.5 w-px bg-slate-700" />
+              <div className="w-px flex-1 bg-slate-700" />
+            </div>
+            <div className="flex flex-1 flex-col gap-1.5 py-0.5">
+              <span className="text-[10px] uppercase tracking-wide text-slate-500">Consequence Fork — independent, after aigentMe</span>
+              {FORK_ROWS.map(({ position }) => {
+                const stage = forkStages.find((s) => s.forkPosition === position);
+                if (!stage) return null;
+                const stageState = runtimeState?.stages.find((s) => s.stageId === stage.id)?.state ?? 'NOT_STARTED';
+                const isDone = stageState === 'COMPLETE';
+                const isCurrent = stage.id === activeStageId;
+                const isBlocked = stageState === 'BLOCKED';
+                return (
+                  <div key={stage.id} className="flex items-center gap-1.5" data-fork-position={position}>
+                    <div className="h-px w-3 shrink-0 bg-slate-700" />
+                    <button
+                      data-stage-id={stage.id}
+                      onClick={() => selectStage(stage.id)}
+                      className="flex shrink-0 items-center gap-1.5 px-1"
+                      title={isBlocked ? 'Blocked — prerequisites not yet met' : stage.description}
+                    >
+                      <span
+                        className={`flex h-5 w-5 items-center justify-center rounded-full border text-[10px] ${
+                          isDone
+                            ? 'border-emerald-500/50 bg-emerald-500/20 text-emerald-300'
+                            : isCurrent
+                              ? 'border-purple-400 bg-purple-500/20 text-purple-200'
+                              : isBlocked
+                                ? 'border-slate-700 text-slate-600'
+                                : 'border-slate-600 text-slate-400'
+                        }`}
+                      >
+                        {isBlocked && !isDone ? (
+                          <Lock className="h-2.5 w-2.5" />
+                        ) : loading && isCurrent ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : isDone ? (
+                          <Check className="h-3 w-3" />
+                        ) : (
+                          <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                        )}
+                      </span>
+                      <span
+                        className={`whitespace-nowrap text-[11px] ${
+                          isCurrent ? 'font-semibold text-purple-200' : isDone ? 'text-emerald-300/80' : 'text-slate-400'
+                        }`}
+                      >
+                        {stage.label}
+                      </span>
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="flex flex-1 flex-col gap-3 overflow-y-auto rounded-lg border border-slate-800 bg-slate-900/40 p-4">

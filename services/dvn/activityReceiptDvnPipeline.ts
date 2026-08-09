@@ -311,6 +311,10 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   // constitutional question, identity-binding attribution) — never replaces
   // either. (Action-type addition only.)
   'pnl_service_verified',
+  // Threshold Journey — Orient stage (operator spec, 2026-08-09). The
+  // operator's constitutional acknowledgment act belongs in tamper-evident
+  // memory, same tier as the other constitutional-transition receipts above.
+  'orientation_ritual_completed',
 ]);
 
 export function shouldAnchorActionType(actionType: string): boolean {

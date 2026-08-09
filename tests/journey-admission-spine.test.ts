@@ -42,7 +42,15 @@ const byId = (id: string): JourneyStageDefinition => {
 };
 const orderOf = (id: string) => STAGES.findIndex((s) => s.id === id);
 
-const SPINE = ['register', 'claim', 'passport', 'delegate', 'aigentme'] as const;
+/*
+ * ORIENT INSERTED 2026-08-09 (Threshold Journey — Orient stage + Consequence
+ * Fork, operator spec): the spine is now Register -> Claim -> Orient ->
+ * Passport -> Delegate -> aigentMe. Orient answers "what must become
+ * constitutionally true before I can act as the principal from whom
+ * authority originates" — a real, receipted stage
+ * (services/journey/orientationContext.ts), not a step Passport can skip.
+ */
+const SPINE = ['register', 'claim', 'orient', 'passport', 'delegate', 'aigentme'] as const;
 
 /** Read from the module's own closed union so the canary cannot drift from it. */
 const SETTLED_PREDICATES = fs
@@ -61,7 +69,10 @@ describe('the admission spine is Register -> Claim -> Passport -> Delegate -> ai
   it('each spine stage requires only its predecessor', () => {
     // THE ASSERTION THAT FAILS ON THE DEFECT: Claim used to require 'verify'.
     expect(byId('claim').prerequisites).toEqual(['register']);
-    expect(byId('passport').prerequisites).toEqual(['claim']);
+    // Orient now sits between Claim and Passport (2026-08-09) — Passport's
+    // own prerequisite moved from 'claim' to 'orient'; Orient's is 'claim'.
+    expect(byId('orient').prerequisites).toEqual(['claim']);
+    expect(byId('passport').prerequisites).toEqual(['orient']);
     expect(byId('delegate').prerequisites).toEqual(['passport']);
     expect(byId('aigentme').prerequisites).toEqual(['delegate']);
   });

@@ -38,6 +38,7 @@ import {
   type BlockingReason,
 } from '@/services/journey/stageResolution';
 import { resolveRatificationRefs } from '@/services/journey/ratificationRefs';
+import { resolveOrientationContext, type OrientationContext } from '@/services/journey/orientationContext';
 import {
   getAgreement,
   requireAuthorizedAgreement,
@@ -83,6 +84,8 @@ const JOURNEY_ACTION_TYPES: ActivityActionType[] = [
   'horizen_pnl_transparency_enabled',
   'agent_card_enriched',
   'agent_control_proven',
+  // Orient stage (Threshold Journey — Orient + Consequence Fork, 2026-08-09).
+  'orientation_ritual_completed',
   'marketa_eligibility_recommended',
   'operator_passport_validated',
   'agent_sponsorship_recorded',
@@ -202,6 +205,11 @@ async function resolveState(req: NextRequest) {
    */
   let personaAssignedAsDelegate: boolean | undefined;
   let priorResolution: Awaited<ReturnType<typeof readJourneyResolution>> = null;
+  // Orient's contextual ritual — resolved from the OPERATOR's own prior
+  // constitutional history, never from which agent is selected (see
+  // services/journey/orientationContext.ts). null only when no active
+  // persona could be resolved on this request — an audit gap, never guessed.
+  let orientationContext: OrientationContext | null = null;
   /*
    * ══ THE OPERATOR'S OWN PASSPORT — RECOGNIZED, NEVER RE-APPLIED FOR ═══════
    *
@@ -536,6 +544,18 @@ async function resolveState(req: NextRequest) {
     if (supabase) await guarded('prior-resolution', async () => {
       priorResolution = await readJourneyResolution(supabase, agent.aigentQubeId, HORIZEN_MONEYPENNY_JOURNEY.id);
     });
+    /*
+     * ORIENT — resolved from the OPERATOR's own prior constitutional history
+     * (see services/journey/orientationContext.ts), never re-derived here.
+     * Uses the same active-persona resolution as every other operator-scoped
+     * guarded read above; no active persona resolvable is an audit gap, left
+     * null, never guessed.
+     */
+    if (supabase) await guarded('orientation-context', async () => {
+      const activePersona = await getActivePersona(req);
+      if (!activePersona?.personaId) return;
+      orientationContext = await resolveOrientationContext(activePersona.personaId, agent);
+    });
   }
 
   const hasReceipt = (type: ActivityActionType) => (receiptRefs[type]?.length ?? 0) > 0;
@@ -635,6 +655,13 @@ async function resolveState(req: NextRequest) {
          * enrichment and gates nothing on the admission spine.
          */
         controlProofFresh: hasReceipt('agent_control_proven'),
+      },
+      orient: {
+        // The ONLY thing that flips this true is the operator's explicit
+        // acknowledgment act (app/api/journey/moneypenny-horizen/orient/
+        // acknowledge/route.ts) — never merely having viewed the stage or
+        // having this route resolve a ritual for it.
+        orientationComplete: hasReceipt('orientation_ritual_completed'),
       },
       passport: {
         /*
@@ -972,5 +999,8 @@ async function resolveState(req: NextRequest) {
     },
     passportEligibility: eligibility,
     agentCardResolved: !!agentCard,
+    // Orient's contextually-resolved ritual (services/journey/orientationContext.ts)
+    // — null only when no active persona could be resolved on this request.
+    orientationContext,
   });
 }

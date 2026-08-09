@@ -356,7 +356,13 @@ export type ActivityActionType =
   // confirmation) and partner_agent_evidence_recorded (a DIFFERENT
   // constitutional question: identity-binding attribution) — never replaces
   // either.
-  | 'pnl_service_verified';
+  | 'pnl_service_verified'
+  // Threshold Journey — Orient stage (operator spec, 2026-08-09). The
+  // operator's explicit acknowledgment of the contextually-resolved
+  // orientation ritual (which of the two ritual kinds applies is resolved
+  // from state, never from agent name) — never issued merely for viewing
+  // the stage. See services/journey/orientationContext.ts.
+  | 'orientation_ritual_completed';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 

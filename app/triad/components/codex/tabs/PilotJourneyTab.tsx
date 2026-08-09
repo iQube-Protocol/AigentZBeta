@@ -28,6 +28,7 @@ import { HorizenAgentPageSurface } from '@/components/journey/HorizenAgentPageSu
 import { AgreementRatifyPanel } from '@/components/journey/AgreementRatifyPanel';
 import { PulseTransparencyToggle } from '@/components/journey/PulseTransparencyToggle';
 import { MarketaEligibilityView } from '@/components/journey/MarketaEligibilityView';
+import { OrientationPanel } from '@/components/journey/OrientationPanel';
 import { PassportBureauApplyTab } from './PassportBureauApplyTab';
 import { BoundedDelegationTab } from './BoundedDelegationTab';
 import { ParticipationStandingTab } from './ParticipationStandingTab';
@@ -58,6 +59,7 @@ const JOURNEY_COMPONENTS: Record<string, React.ComponentType<Record<string, unkn
   AgreementRatifyPanel,
   PulseTransparencyToggle,
   MarketaEligibilityView,
+  OrientationPanel,
   PassportBureauApplyTab,
   BoundedDelegationTab,
   ParticipationStandingTab,
@@ -172,6 +174,12 @@ function PilotJourneyTabInner({ personaId, isAdmin }: PilotJourneyTabProps) {
            reason PulseTransparencyToggle's is: a default would silently
            restore exactly this. */
         : descriptor.component === 'MarketaEligibilityView'
+          ? { agentSlug: selectedAgentSlug }
+        /* Orient must speak about the agent Register/Claim just acted on, the
+           same discipline as Claim/Verify's own agentSlug threading above —
+           never a default, which would silently resolve the wrong agent's
+           orientation context (services/journey/orientationContext.ts). */
+        : descriptor.component === 'OrientationPanel'
           ? { agentSlug: selectedAgentSlug }
         : descriptor.component === 'PassportBureauApplyTab'
           ? {

@@ -162,6 +162,16 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
       '(services/horizen/agentCardEnrichment.ts). Honestly blocks on a missing tokenId rather than ' +
       'fabricating a toggle when Register has not completed.',
   },
+  'orientation-panel': {
+    kind: 'component',
+    component: 'OrientationPanel',
+    note:
+      "Orient stage's ONE guided action (Threshold Journey — Orient + Consequence Fork, 2026-08-09, " +
+      'components/journey/OrientationPanel.tsx) — reads the contextually-resolved ritual ' +
+      '(services/journey/orientationContext.ts, never agent-name-derived) and records the operator\'s ' +
+      'explicit acknowledgment via POST /api/journey/moneypenny-horizen/orient/acknowledge. Mirrors ' +
+      "MarketaEligibilityView's observe-then-act shape exactly.",
+  },
   'marketa-eligibility-view': {
     kind: 'component',
     component: 'MarketaEligibilityView',
