@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-09T12:31:34.589Z",
+  "last_updated": "2026-08-09T17:54:31.985Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "e860c628dba82c839df9dd33fefc6e05a18688c4",
-  "latest_commit_short": "e860c62",
-  "latest_commit_title": "Fix AigentQube-presence/Factory-ingestion conflation + wire P&L service registered evidence",
+  "latest_commit": "2ba52ac029613d97006ec7e296642f508768ccff",
+  "latest_commit_short": "2ba52ac",
+  "latest_commit_title": "Add GitHub Actions workflows for the ops routes needing CRON_TRIGGER_TOKEN",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "2ba52ac",
+      "full_sha": "2ba52ac029613d97006ec7e296642f508768ccff",
+      "title": "Add GitHub Actions workflows for the ops routes needing CRON_TRIGGER_TOKEN",
+      "author": "Claude",
+      "timestamp": "2026-08-09T17:51:55Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-2ba52ac.md"
+    },
     {
       "sha": "e860c62",
       "full_sha": "e860c628dba82c839df9dd33fefc6e05a18688c4",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-07-16T20:24:42Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-a05fcff.md"
-    },
-    {
-      "sha": "0ffeb9a",
-      "full_sha": "0ffeb9a961c6e9e48aacca4f3af0a47d915800e0",
-      "title": "CRP-002 §0 + supporting amendment: the Three Computational Compressions content",
-      "author": "Claude",
-      "timestamp": "2026-07-16T20:25:36Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-0ffeb9a.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
