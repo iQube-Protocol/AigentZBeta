@@ -22,7 +22,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, Lock, Loader2, RefreshCw, ExternalLink, Construction, Maximize2, Minimize2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Check, Lock, Loader2, RefreshCw, ExternalLink, Construction, Maximize2, Minimize2, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 import { personaFetch } from '@/utils/personaSpine';
 import { buildCodexUrl } from '@/utils/codex-nav';
 import { JOURNEY_SURFACES, buildEmbedSurfaceSrc, type JourneySurfaceDescriptor } from '@/services/journey/journeySurfaceRegistry';
@@ -318,6 +318,37 @@ export function JourneyRunSurface({
   const activeStage = journey.stages.find((s) => s.id === activeStageId) ?? journey.stages[0];
   const activeStageRuntime = runtimeState?.stages.find((s) => s.stageId === activeStageId);
 
+  /**
+   * The evidence checklist is a POPOVER anchored to its own trigger, not a
+   * `<details>` disclosure in normal flow — a `<details>` open state pushes
+   * everything below it down the page, which is exactly what the compact
+   * layout correction (2026-08-09) exists to stop. Closed on stage change so
+   * a stale checklist for the PREVIOUS stage never appears to describe the
+   * new one, and on outside click / Escape like any other transient popover.
+   */
+  const [evidenceOpen, setEvidenceOpen] = useState(false);
+  const evidenceRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    setEvidenceOpen(false);
+  }, [activeStageId]);
+
+  useEffect(() => {
+    if (!evidenceOpen) return;
+    const onPointerDown = (e: MouseEvent) => {
+      if (evidenceRef.current && !evidenceRef.current.contains(e.target as Node)) setEvidenceOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setEvidenceOpen(false);
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [evidenceOpen]);
+
   // Keep the active stage visible in the carousel — including when it was
   // selected from OUTSIDE this strip (the companion's `journey:select-stage`),
   // which is exactly the case a manual-scroll-only strip leaves stranded.
@@ -407,63 +438,98 @@ export function JourneyRunSurface({
         </div>
       )}
 
-      <div className="flex items-center gap-2 overflow-hidden text-xs">
-        <span className="shrink-0 rounded bg-purple-500/20 px-1.5 py-0.5 font-semibold text-purple-200">
-          {activeIdx + 1}
-        </span>
-        <span className="shrink-0 font-medium text-slate-100">{activeStage.label}</span>
-        <span className="shrink-0 text-slate-600">—</span>
-        <RotatingStatusLine
-          key={activeStageId}
-          slides={[
-            { key: 'description', node: <span className="text-slate-400">{activeStage.description}</span> },
-            ...(activeStageRuntime && activeStageRuntime.evidenceMissing.length > 0
-              ? [{ key: 'awaiting', node: <span className="text-slate-400">Awaiting: {activeStageRuntime.evidenceMissing.map(humaniseSignal).join(', ')}</span> }]
-              : []),
-            ...(activeStageRuntime?.refusalReason
-              ? [{ key: 'refused', node: <span className="text-rose-300">Refused: {activeStageRuntime.refusalReason}</span> }]
-              : []),
-          ]}
-        />
-      </div>
-
       {/*
-        EVIDENCE CHECKLIST — the pilot must not need a SQL console to learn why
-        a finished-looking stage is not complete (operator, 2026-08-03: "The
-        application should eventually expose this same receipt checklist
-        directly in the Journey interface so you are not required to use
-        Supabase for normal pilot completion").
-
-        Every value here already travelled to this component in
-        `evidencePresent` / `evidenceMissing` / `receiptRefs` — the surface was
-        summarising it to a comma list and discarding the met/unmet split. This
-        renders the same server-derived facts, and computes nothing of its own:
-        a checklist that could disagree with the stage state would be one more
-        thing to go stale (the same rule registerCeremonyProgress follows).
+        STAGE DESCRIPTION + EVIDENCE AFFORDANCE SHARE ONE ROW (compact layout
+        correction, 2026-08-09) — a `<details>` checklist in normal flow below
+        this row used to push the stage viewport down whenever it was opened.
+        The description column is `flex-1 min-w-0` (it truncates/rotates
+        rather than grows); the evidence trigger is `shrink-0` and opens an
+        ANCHORED popover instead of displacing anything below it.
       */}
-      {activeStageRuntime && (activeStageRuntime.evidencePresent.length > 0 || activeStageRuntime.evidenceMissing.length > 0) && (
-        <details className="mt-1.5">
-          <summary className="cursor-pointer text-[11px] text-slate-500 hover:text-slate-300">
-            Evidence checklist — {activeStageRuntime.evidencePresent.length} of{' '}
-            {activeStageRuntime.evidencePresent.length + activeStageRuntime.evidenceMissing.length} recorded
-            {activeStageRuntime.receiptRefs.length > 0 ? ` · ${activeStageRuntime.receiptRefs.length} receipts` : ''}
-          </summary>
-          <ul className="mt-1.5 space-y-1 rounded-lg border border-slate-800 bg-slate-900/40 p-2.5">
-            {activeStageRuntime.evidencePresent.map((sig) => (
-              <li key={sig} className="flex items-center gap-2 text-[11px] text-emerald-300/80">
-                <Check className="h-3 w-3 shrink-0" />
-                <span>{humaniseSignal(sig)}</span>
-              </li>
-            ))}
-            {activeStageRuntime.evidenceMissing.map((sig) => (
-              <li key={sig} className="flex items-center gap-2 text-[11px] text-slate-400">
-                <span className="h-3 w-3 shrink-0 rounded-full border border-slate-600" />
-                <span>{humaniseSignal(sig)}</span>
-              </li>
-            ))}
-          </ul>
-        </details>
-      )}
+      <div className="flex items-center gap-2 text-xs">
+        <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
+          <span className="shrink-0 rounded bg-purple-500/20 px-1.5 py-0.5 font-semibold text-purple-200">
+            {activeIdx + 1}
+          </span>
+          <span className="shrink-0 font-medium text-slate-100">{activeStage.label}</span>
+          <span className="shrink-0 text-slate-600">—</span>
+          <RotatingStatusLine
+            key={activeStageId}
+            slides={[
+              { key: 'description', node: <span className="text-slate-400">{activeStage.description}</span> },
+              ...(activeStageRuntime && activeStageRuntime.evidenceMissing.length > 0
+                ? [{ key: 'awaiting', node: <span className="text-slate-400">Awaiting: {activeStageRuntime.evidenceMissing.map(humaniseSignal).join(', ')}</span> }]
+                : []),
+              ...(activeStageRuntime?.refusalReason
+                ? [{ key: 'refused', node: <span className="text-rose-300">Refused: {activeStageRuntime.refusalReason}</span> }]
+                : []),
+            ]}
+          />
+        </div>
+
+        {/*
+          EVIDENCE CHECKLIST — the pilot must not need a SQL console to learn
+          why a finished-looking stage is not complete (operator, 2026-08-03:
+          "The application should eventually expose this same receipt
+          checklist directly in the Journey interface so you are not
+          required to use Supabase for normal pilot completion").
+
+          Every value here already travelled to this component in
+          `evidencePresent` / `evidenceMissing` / `receiptRefs` — the surface
+          was summarising it to a comma list and discarding the met/unmet
+          split. This renders the same server-derived facts, and computes
+          nothing of its own: a checklist that could disagree with the stage
+          state would be one more thing to go stale (the same rule
+          registerCeremonyProgress follows).
+        */}
+        {activeStageRuntime && (activeStageRuntime.evidencePresent.length > 0 || activeStageRuntime.evidenceMissing.length > 0) && (
+          <div className="relative shrink-0" ref={evidenceRef}>
+            <button
+              type="button"
+              onClick={() => setEvidenceOpen((v) => !v)}
+              aria-expanded={evidenceOpen}
+              className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-slate-800 bg-slate-900/40 px-2 py-1 text-[11px] text-slate-400 hover:bg-slate-800/60 hover:text-slate-300"
+            >
+              Evidence {activeStageRuntime.evidencePresent.length}/
+              {activeStageRuntime.evidencePresent.length + activeStageRuntime.evidenceMissing.length}
+              {activeStageRuntime.receiptRefs.length > 0 ? ` · ${activeStageRuntime.receiptRefs.length} receipts` : ''}
+              <ChevronDown className={`h-3 w-3 shrink-0 transition-transform ${evidenceOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {evidenceOpen && (
+              <div
+                className="absolute right-0 top-[calc(100%+4px)] z-20 max-w-[min(90vw,32rem)] rounded-lg border border-slate-800 bg-slate-900/95 p-2.5 shadow-lg backdrop-blur-sm"
+              >
+                {/*
+                  HORIZONTAL, not a tall vertical list — evidence reads as a
+                  row of status chips, scrolling sideways rather than
+                  consuming viewport height (compact layout correction,
+                  2026-08-09).
+                */}
+                <div className="flex flex-nowrap items-center gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
+                  {activeStageRuntime.evidencePresent.map((sig) => (
+                    <span
+                      key={sig}
+                      className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-emerald-900/60 bg-emerald-950/20 px-2 py-0.5 text-[11px] text-emerald-300/80"
+                    >
+                      <Check className="h-3 w-3 shrink-0" />
+                      {humaniseSignal(sig)}
+                    </span>
+                  ))}
+                  {activeStageRuntime.evidenceMissing.map((sig) => (
+                    <span
+                      key={sig}
+                      className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-slate-700 px-2 py-0.5 text-[11px] text-slate-400"
+                    >
+                      <span className="h-2.5 w-2.5 shrink-0 rounded-full border border-slate-600" />
+                      {humaniseSignal(sig)}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       <div className="relative border-b border-slate-800 bg-slate-900/40 px-4 py-2.5 rounded-lg">
         {/* Rendered only while there is somewhere to scroll TO. */}

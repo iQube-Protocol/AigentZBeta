@@ -278,6 +278,58 @@ describe('JourneyRunSurface renders the fork as one trident after the spine, nev
     expect(forkTestIdAt).toBeGreaterThan(spineMapAt);
     expect(forkTestIdAt).toBeLessThan(stripCloseAt);
   });
+
+  /*
+   * ── COMPACT EVIDENCE AFFORDANCE (operator, 2026-08-09, "Compact the
+   *    Journey Evidence Checklist") ──────────────────────────────────────
+   *
+   * The evidence checklist used to be a `<details>` disclosure in normal
+   * document flow BELOW the stage description row — opening it pushed the
+   * stage stepper/viewport down the page. These canaries protect the
+   * corrected shape: description + evidence trigger share one row, the
+   * open checklist is an ANCHORED popover (never `<details>`), and its
+   * contents are a horizontally-scrolling chip row (never a tall `<ul>`).
+   */
+  it('the stage description and the evidence trigger share ONE row — description is flex-1 min-w-0, evidence trigger is shrink-0', () => {
+    const rowAt = source.indexOf('STAGE DESCRIPTION + EVIDENCE AFFORDANCE SHARE ONE ROW');
+    expect(rowAt, 'the compact single-row comment anchor is missing').toBeGreaterThan(-1);
+    const section = source.slice(rowAt, rowAt + 3200);
+    expect(section).toMatch(/className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden"/);
+    expect(section).toMatch(/Evidence \{activeStageRuntime\.evidencePresent\.length\}/);
+    expect(section).toMatch(/className="relative shrink-0"/);
+  });
+
+  it('the evidence checklist opens as an ANCHORED popover, never a <details> disclosure that pushes content down', () => {
+    const triggerAt = source.indexOf('Evidence {activeStageRuntime.evidencePresent.length}');
+    expect(triggerAt).toBeGreaterThan(-1);
+    const section = source.slice(Math.max(0, triggerAt - 600), triggerAt + 2200);
+    // Popover: absolutely positioned, anchored to its own `relative` trigger
+    // container — never the old `<details>` element for this checklist.
+    expect(section).toMatch(/absolute right-0 top-\[calc\(100%\+4px\)\]/);
+    expect(section).not.toMatch(/<details/);
+    // Closes on stage change, outside click, and Escape — never lingers
+    // showing the PREVIOUS stage's evidence after the active stage changes.
+    expect(source).toMatch(/setEvidenceOpen\(false\);\s*\}, \[activeStageId\]\)/);
+    expect(source).toMatch(/e\.key === 'Escape'\) setEvidenceOpen\(false\)/);
+  });
+
+  it('open evidence renders as a HORIZONTAL, scrollable chip row — never a tall vertical list', () => {
+    const triggerAt = source.indexOf('Evidence {activeStageRuntime.evidencePresent.length}');
+    const section = source.slice(triggerAt, triggerAt + 2200);
+    expect(section).toMatch(/flex flex-nowrap items-center gap-1\.5 overflow-x-auto/);
+    // The old vertical list classes must not reappear for this checklist.
+    expect(section).not.toMatch(/<ul className="mt-1\.5 space-y-1/);
+    expect(section).not.toMatch(/<li key=\{sig\}/);
+  });
+
+  it('the popover consumes the SAME server-derived evidencePresent/evidenceMissing/receiptRefs — no second evidence resolver', () => {
+    const triggerAt = source.indexOf('Evidence {activeStageRuntime.evidencePresent.length}');
+    const section = source.slice(triggerAt, triggerAt + 2200);
+    expect(section).toMatch(/activeStageRuntime\.evidencePresent\.map/);
+    expect(section).toMatch(/activeStageRuntime\.evidenceMissing\.map/);
+    expect(section).toMatch(/activeStageRuntime\.receiptRefs\.length/);
+    expect(section).toMatch(/humaniseSignal\(sig\)/);
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
