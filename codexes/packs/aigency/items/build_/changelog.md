@@ -1,4 +1,7 @@
 # Build — Changelog
+- [`52d1e56`](https://github.com/iQube-Protocol/AigentZBeta/commit/52d1e56fe85f5ed718103d37efff857f16767769) [fix] Fix tokenId fallback when Horizen reread succeeds without one (Claude, 2026-08-09T06:24:43Z)
+- [`04572c9`](https://github.com/iQube-Protocol/AigentZBeta/commit/04572c9443deb6ad397f3ed907d14a7c465a8cf3) [push] Replace global get_ready_messages() with targeted per-receipt DVN reads (Claude, 2026-08-09T06:24:52Z)
+- [`126e971`](https://github.com/iQube-Protocol/AigentZBeta/commit/126e9719e1ef76fcc01895ba5fc19a7b3cb94591) [push] Revert fixed-width journey connectors to equal flex-grow (Claude, 2026-08-09T06:24:58Z)
 - [`b5abe6e`](https://github.com/iQube-Protocol/AigentZBeta/commit/b5abe6ed98cbb356ec81a3828dbbe4fc11eed03d) [push] Split Ratify P&L into three independent tiers, uniform journey spacing (Claude, 2026-08-09T05:41:11Z)
 - [`51917a4`](https://github.com/iQube-Protocol/AigentZBeta/commit/51917a43e947c2d88de362c98ad57b825d58caf4) [fix] Fix Orient regression, anchor Consequence Fork trident to spine end, verb labels (Claude, 2026-08-09T03:25:19Z)
 - [`b96a7b3`](https://github.com/iQube-Protocol/AigentZBeta/commit/b96a7b31877fcd1ee0d8b1d4ae3a895789f96464) [push] Rebuild Consequence Fork trident as one absolutely-positioned box, not stacked rows (Claude, 2026-08-09T04:22:05Z)

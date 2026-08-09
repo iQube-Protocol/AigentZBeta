@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-09T05:53:03.903Z",
+  "last_updated": "2026-08-09T06:27:19.234Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "b5abe6ed98cbb356ec81a3828dbbe4fc11eed03d",
-  "latest_commit_short": "b5abe6e",
-  "latest_commit_title": "Split Ratify P&L into three independent tiers, uniform journey spacing",
+  "latest_commit": "52d1e56fe85f5ed718103d37efff857f16767769",
+  "latest_commit_short": "52d1e56",
+  "latest_commit_title": "Fix tokenId fallback when Horizen reread succeeds without one",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,33 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "52d1e56",
+      "full_sha": "52d1e56fe85f5ed718103d37efff857f16767769",
+      "title": "Fix tokenId fallback when Horizen reread succeeds without one",
+      "author": "Claude",
+      "timestamp": "2026-08-09T06:24:43Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-52d1e56.md"
+    },
+    {
+      "sha": "04572c9",
+      "full_sha": "04572c9443deb6ad397f3ed907d14a7c465a8cf3",
+      "title": "Replace global get_ready_messages() with targeted per-receipt DVN reads",
+      "author": "Claude",
+      "timestamp": "2026-08-09T06:24:52Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-04572c9.md"
+    },
+    {
+      "sha": "126e971",
+      "full_sha": "126e9719e1ef76fcc01895ba5fc19a7b3cb94591",
+      "title": "Revert fixed-width journey connectors to equal flex-grow",
+      "author": "Claude",
+      "timestamp": "2026-08-09T06:24:58Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-126e971.md"
+    },
     {
       "sha": "b5abe6e",
       "full_sha": "b5abe6ed98cbb356ec81a3828dbbe4fc11eed03d",
@@ -1225,33 +1252,6 @@
       "timestamp": "2026-07-16T23:57:19Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-d233171.md"
-    },
-    {
-      "sha": "46e7354",
-      "full_sha": "46e7354a5f2d0fe1b435b42909f55b20560ff1a0",
-      "title": "author CRP-003a Constitutional Financial Services Programme implementation spine (docs-first)",
-      "author": "Claude",
-      "timestamp": "2026-07-17T00:07:39Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-46e7354.md"
-    },
-    {
-      "sha": "a35a6ee",
-      "full_sha": "a35a6ee6aab634940440396155494d3170e50f84",
-      "title": "build CRP-003a Increment 1 (N1): the Constitutional Agreement primitive",
-      "author": "Claude",
-      "timestamp": "2026-07-17T00:23:50Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-a35a6ee.md"
-    },
-    {
-      "sha": "6178eca",
-      "full_sha": "6178ecad6496788897454361444227277c14815d",
-      "title": "build CRP-003a Increment 2 (N2): canonical service pattern, shadow on Domain 3",
-      "author": "Claude",
-      "timestamp": "2026-07-17T00:40:59Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-6178eca.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
