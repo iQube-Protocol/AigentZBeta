@@ -7,59 +7,58 @@
  * `pnlServiceVerification.ts` is deliberately read-only — it discovers and
  * receipts EVIDENCE of an existing PnL correlation, and never mutates
  * anything. Registering an agent with Horizen's Verifiable-PnL service is a
- * genuine mutation (a signed SIWE session, a signed EIP-712 wallet-link, a
+ * genuine mutation (a signed SIWE session, a signed SIWE wallet-link, a
  * `POST /v1/register` call) and belongs in its own boundary — the same
  * separation `registrationClient.ts` (mutating: prepare/broadcast/check) and
  * `client.ts` (read-only: registry/pulse/PnL correlation reads) already
  * establish for ERC-8004 identity registration. This module is that
  * boundary for Verifiable PnL.
  *
- * ── THE CONTRACT, VERIFIED LIVE (2026-08-09) ────────────────────────────────
+ * ── THE CONTRACT, RE-VERIFIED LIVE (2026-08-09, second pass) ────────────────
  *
- * Every endpoint, field name and error code below is quoted from Horizen's
- * OWN currently-published documents, fetched live on this date — never
- * inferred, never carried forward from the older 2026-07-28 partner brief:
+ * Every endpoint and field name below is quoted from Horizen's OWN
+ * currently-published runbook, re-fetched fresh on this date:
  *   - `https://agent-registry.horizenlabs.io/verifiable-pnl/AGENTS.md`
- *     (the runbook — end-to-end flow, error catalog, SIWE message template)
- *   - `https://agent-registry.horizenlabs.io/verifiable-pnl/openapi.json`
- *     (the machine-readable contract — exact request/response schemas)
  *
- * ── WHAT THIS MODULE CANNOT YET DO, AND WHY ─────────────────────────────────
+ * CORRECTION to this module's first pass (same day, earlier): the first read
+ * assumed `existing`-mode registration signed an `ownerSiwe` inline and
+ * required an undocumented `tradingLinkWallet` EIP-712 envelope. A second,
+ * more careful fetch of AGENTS.md shows the REAL shape:
  *
- * `existing`-mode registration (attaching Verifiable PnL to an ALREADY
- * registered ERC-8004 token — Nakamoto's tokenId 8798, MoneyPenny's 8872 —
- * never minting a second identity) requires TWO things this module does not
- * invent:
+ *   POST /v1/register (mode: 'existing')
+ *   { mode: 'existing', tokenId, agentCard: { name }, ownerWallet,
+ *     tradingWallet, tradingSiwe: { message, signature } }
  *
- *   1. A TRADING WALLET DISTINCT FROM THE OWNER WALLET. The runbook states
- *      this as a hard server-side rule: "tradingWallet must differ from the
- *      owner wallet... rejected with 400 INVALID_INPUT" — because the trading
- *      wallet's PnL is PUBLISHED on the leaderboard, and linking the owner
- *      wallet would deanonymize the owner. This codebase's current wallet
- *      topology has exactly ONE wallet per agent (`agent_keys`, one
- *      `evm_address` per `runtimeAgentId` — see `registrableAgents.ts`'s own
- *      doctrine: "the ONE agent-wallet custody path, never a parallel one").
- *      There is no dedicated trading wallet to reach for. This module NEVER
- *      silently reuses the owner wallet (that request would be rejected
- *      anyway) and never fabricates a new one — `checkExistingModeEligibility`
- *      refuses with `TRADING_WALLET_DECISION_REQUIRED` until a genuine,
- *      distinct trading wallet address is supplied by the caller.
+ * Owner identity is established by a PRIOR `POST /v1/auth/siwe` call (owner
+ * signs a standard SIWE message, server sets a session cookie); `ownerWallet`
+ * in the register body is then just the plain address, checked against that
+ * session — no `ownerSiwe` field in the register call itself. The ONLY
+ * signature carried inline in `/v1/register` is `tradingSiwe`: a standard
+ * SIWE message (the SAME template `buildPnlSiweMessage` already builds for
+ * the owner) signed by the TRADING wallet, proving ITS consent to the link.
+ * No EIP-712 anywhere in this flow — EIP-712 is used only by the separate
+ * `POST /v1/prove/{jobId}/sign` performance-proof step, which is out of scope
+ * here. The previous `TRADING_LINK_SIGNATURE_FORMAT_UNPUBLISHED` refusal
+ * described a schema gap that turned out not to exist and is removed.
  *
- *   2. THE `tradingLinkWallet` EIP-712 SCHEMA. The OpenAPI spec names the
- *      field (`existing`-mode registration requires `ownerSiwe` + a
- *      `tradingLinkWallet: { signature, deadline }` the spec's own
- *      description calls "EIP-712 (proof the trading wallet consents to
- *      being linked)") but publishes NO domain/types/message definition for
- *      it — unlike the `POST /v1/prove` EIP-712 envelope, which IS fully
- *      specified. `registerExistingAgent` accepts a pre-computed
- *      `tradingLinkWallet` as an explicit input rather than constructing it,
- *      and refuses with `TRADING_LINK_SIGNATURE_FORMAT_UNPUBLISHED` when one
- *      isn't supplied — never guessing a typed-data shape Horizen has not
- *      documented.
+ * ── WHAT THIS MODULE STILL CANNOT DO, AND WHY ───────────────────────────────
  *
- * Everything else below — terms/nonce fetch, the owner SIWE message and
- * session, the ownership pre-check, the register call itself once its inputs
- * are genuinely available — is fully specified and implemented for real.
+ * A TRADING WALLET DISTINCT FROM THE OWNER WALLET. The runbook states this as
+ * a hard server-side rule, confirmed on both fetches: "tradingWallet MUST
+ * differ from ownerWallet... rejected with 400 INVALID_INPUT" — because the
+ * trading wallet's PnL is PUBLISHED on the leaderboard, and linking the owner
+ * wallet would deanonymize the owner. This codebase's current wallet topology
+ * has exactly ONE wallet per agent (`agent_keys`, one `evm_address` per
+ * `runtimeAgentId` — see `registrableAgents.ts`'s own doctrine: "the ONE
+ * agent-wallet custody path, never a parallel one"). There is no dedicated
+ * trading wallet to reach for, and none is fabricated here —
+ * `checkExistingModeEligibility` refuses with `TRADING_WALLET_DECISION_REQUIRED`
+ * until a genuine, distinct trading wallet address (with a resolvable private
+ * key, so its SIWE consent message can actually be signed) is supplied.
+ *
+ * Everything else below — terms/nonce fetch, the owner SIWE session, the
+ * trading-wallet SIWE consent message, the ownership pre-check, the register
+ * call itself — is fully specified and implemented for real.
  */
 
 import { ethers } from 'ethers';
@@ -72,13 +71,14 @@ export type PnlOnboardingRefusalCode =
   | 'UNKNOWN_AGENT'
   | 'OWNER_WALLET_UNRESOLVED'
   | 'OWNER_KEY_NOT_CONFIGURED'
+  | 'TRADING_KEY_NOT_CONFIGURED'
   | 'TERMS_UNAVAILABLE'
   | 'NONCE_UNAVAILABLE'
   | 'TOKEN_OWNERSHIP_UNVERIFIABLE'
   | 'TOKEN_NOT_OWNED_BY_AGENT'
   | 'TRADING_WALLET_DECISION_REQUIRED'
   | 'TRADING_WALLET_MUST_DIFFER_FROM_OWNER'
-  | 'TRADING_LINK_SIGNATURE_FORMAT_UNPUBLISHED'
+  | 'OWNER_AUTH_FAILED'
   | 'CONFIRM_REQUIRED'
   | 'REGISTER_REQUEST_FAILED';
 
@@ -92,6 +92,15 @@ export interface PnlOnboardingDeps {
   resolveOwnerPrivateKey?: (agent: RegistrableAgentConfig) => Promise<string | null>;
   /** Injectable so tests never touch a real AgentKeyService/Supabase. Defaults to the same resolver registrationClient.ts's Register stage uses. */
   resolveOwnerWalletAddress?: (agent: RegistrableAgentConfig) => Promise<string | null>;
+  /**
+   * The TRADING wallet's own private key, so its SIWE consent message
+   * (`tradingSiwe`) can be signed. No default resolver exists — this
+   * codebase has no dedicated trading-wallet custody path yet (see the
+   * module doc). A caller with a genuinely provisioned trading wallet must
+   * supply this explicitly; absent, `registerExistingAgent` refuses with
+   * `TRADING_KEY_NOT_CONFIGURED` rather than falling back to anything.
+   */
+  resolveTradingWalletPrivateKey?: (tradingWalletAddress: string) => Promise<string | null>;
 }
 
 async function defaultResolveOwnerPrivateKey(agent: RegistrableAgentConfig): Promise<string | null> {
@@ -218,22 +227,87 @@ export interface RegisterExistingAgentInput {
   network: HorizenNetwork;
   /** Never skipped implicitly — mirrors registrationClient.ts's broadcastAgentRegistration confirm gate. */
   confirm: true;
-  /**
-   * A pre-computed EIP-712 signature proving the trading wallet consents to
-   * the link — see the module doc's blocker #2. This module does not (and,
-   * without Horizen publishing the schema, cannot) construct this itself.
-   */
-  tradingLinkWallet?: { signature: string; deadline: string };
 }
 
 export interface RegisteredPnlAgent {
   agentId: string;
 }
 
+function rawFetch(deps: PnlOnboardingDeps) {
+  return deps.fetchImpl ?? (fetch as unknown as HorizenFetch);
+}
+
+/**
+ * `POST /v1/auth/siwe` — establishes the owner's session (Set-Cookie), which
+ * `POST /v1/register`'s `ownerWallet` field is checked against. Standalone
+ * because both `existing`-mode registration and any future `/v1/agents/owned`
+ * read need the same owner session.
+ */
+async function authenticateOwnerSession(
+  agent: RegistrableAgentConfig,
+  ownerWalletAddress: string,
+  ownerPrivateKey: string,
+  network: HorizenNetwork,
+  deps: PnlOnboardingDeps,
+): Promise<{ ok: true; cookie: string | null } | { ok: false; refusalCode: PnlOnboardingRefusalCode; detail: string }> {
+  const clientOptions: HorizenClientOptions = { fetchImpl: deps.fetchImpl };
+  const termsRead = await fetchPnlTerms(clientOptions);
+  if (!termsRead.ok) {
+    return { ok: false, refusalCode: 'TERMS_UNAVAILABLE', detail: `GET /v1/terms failed: ${termsRead.detail}` };
+  }
+  const nonceRead = await fetchPnlSiweNonce(clientOptions);
+  if (!nonceRead.ok) {
+    return { ok: false, refusalCode: 'NONCE_UNAVAILABLE', detail: `GET /v1/siwe/nonce failed: ${nonceRead.detail}` };
+  }
+
+  // Identity chain, not the P&L proof chain — see part D's chain-semantics
+  // note in pnlServiceVerification.ts. SIWE authenticates OWNERSHIP of the
+  // ERC-8004 identity, which lives on this network.
+  const chainId = HORIZEN_NETWORK_FACTS[network].chainId;
+  const issuedAt = new Date().toISOString();
+  const expirationTime = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+  const message = buildPnlSiweMessage({
+    domain: nonceRead.value.expectedDomain,
+    address: ownerWalletAddress,
+    uri: nonceRead.value.expectedUri,
+    termsStatement: termsRead.value.statement,
+    chainId,
+    nonce: nonceRead.value.nonce,
+    issuedAt,
+    expirationTime,
+  });
+  const wallet = new ethers.Wallet(ownerPrivateKey);
+  const signature = await wallet.signMessage(message);
+
+  const doFetch = rawFetch(deps);
+  try {
+    const res = await doFetch(`${HORIZEN_PNL_BASE}/v1/auth/siwe`, {
+      headers: { 'Content-Type': 'application/json' },
+      ...({ method: 'POST', body: JSON.stringify({ message, signature }) } as Record<string, unknown>),
+    } as Parameters<HorizenFetch>[1]);
+    if (!res.ok) {
+      const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+      const err = (json.error ?? {}) as Record<string, unknown>;
+      return { ok: false, refusalCode: 'OWNER_AUTH_FAILED', detail: `POST /v1/auth/siwe rejected [${err.code ?? res.status}]: ${err.message ?? 'unknown error'}` };
+    }
+    const cookie = typeof res.headers?.get === 'function' ? res.headers.get('set-cookie') : null;
+    return { ok: true, cookie };
+  } catch (err) {
+    return { ok: false, refusalCode: 'OWNER_AUTH_FAILED', detail: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 /**
  * `POST /v1/register` with `mode: 'existing'` — the real mutation. Refuses
  * before ever contacting Horizen if any precondition is unmet; never signs
  * or submits partially.
+ *
+ * Ceremony (confirmed live, 2026-08-09 — see module doc):
+ *   1. Owner signs a SIWE message -> POST /v1/auth/siwe -> session cookie
+ *   2. Trading wallet signs ITS OWN SIWE message (same template, different
+ *      signer) -> carried inline as `tradingSiwe` in the register body
+ *   3. POST /v1/register { mode: 'existing', tokenId, agentCard, ownerWallet,
+ *      tradingWallet, tradingSiwe }, with the owner's session cookie attached
  */
 export async function registerExistingAgent(
   input: RegisterExistingAgentInput,
@@ -248,24 +322,33 @@ export async function registerExistingAgent(
   );
   if (!eligibility.ok) return eligibility;
 
-  if (!input.tradingLinkWallet) {
-    return {
-      ok: false,
-      refusalCode: 'TRADING_LINK_SIGNATURE_FORMAT_UNPUBLISHED',
-      detail:
-        'Horizen\'s openapi.json names the existing-mode field (tradingLinkWallet: an EIP-712 "proof the trading ' +
-        'wallet consents to being linked") but publishes no domain/types/message definition for it — unlike ' +
-        'POST /v1/prove\'s EIP-712 envelope, which IS fully specified. Refusing rather than fabricating a typed-data ' +
-        'shape Horizen has not documented. Supply a pre-computed { signature, deadline } once the schema is known.',
-    };
-  }
-
   const agent = resolveRegistrableAgent(input.agentSlug)!; // eligibility.ok already proved this resolves
   const resolveOwnerPrivateKey = deps.resolveOwnerPrivateKey ?? defaultResolveOwnerPrivateKey;
   const ownerPrivateKey = await resolveOwnerPrivateKey(agent);
   if (!ownerPrivateKey) {
     return { ok: false, refusalCode: 'OWNER_KEY_NOT_CONFIGURED', detail: `no owner wallet private key configured for "${agent.slug}" (agent_keys)` };
   }
+
+  // No default resolver exists for this — see the module doc. A caller
+  // without a genuinely provisioned trading wallet refuses HERE, not with a
+  // fabricated key or a silent fallback to the owner's.
+  if (!deps.resolveTradingWalletPrivateKey) {
+    return {
+      ok: false,
+      refusalCode: 'TRADING_KEY_NOT_CONFIGURED',
+      detail:
+        `No resolver for the trading wallet's (${input.tradingWalletAddress}) own private key was supplied — its SIWE ` +
+        `consent message ("tradingSiwe") must be signed by that wallet itself, and this codebase has no dedicated ` +
+        `trading-wallet custody path yet. Provisioning one is the operator decision this refusal exists to surface.`,
+    };
+  }
+  const tradingPrivateKey = await deps.resolveTradingWalletPrivateKey(input.tradingWalletAddress);
+  if (!tradingPrivateKey) {
+    return { ok: false, refusalCode: 'TRADING_KEY_NOT_CONFIGURED', detail: `no private key resolvable for trading wallet ${input.tradingWalletAddress}` };
+  }
+
+  const ownerAuth = await authenticateOwnerSession(agent, eligibility.value.ownerWalletAddress, ownerPrivateKey, input.network, deps);
+  if (!ownerAuth.ok) return ownerAuth;
 
   const clientOptions: HorizenClientOptions = { fetchImpl: deps.fetchImpl };
   const termsRead = await fetchPnlTerms(clientOptions);
@@ -276,16 +359,12 @@ export async function registerExistingAgent(
   if (!nonceRead.ok) {
     return { ok: false, refusalCode: 'NONCE_UNAVAILABLE', detail: `GET /v1/siwe/nonce failed: ${nonceRead.detail}` };
   }
-
-  // Identity chain, not the P&L proof chain — see D's chain-semantics note
-  // in pnlServiceVerification.ts. SIWE authenticates OWNERSHIP of the
-  // ERC-8004 identity, which lives on this network.
   const chainId = HORIZEN_NETWORK_FACTS[input.network].chainId;
   const issuedAt = new Date().toISOString();
   const expirationTime = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-  const ownerSiweMessage = buildPnlSiweMessage({
+  const tradingSiweMessage = buildPnlSiweMessage({
     domain: nonceRead.value.expectedDomain,
-    address: eligibility.value.ownerWalletAddress,
+    address: input.tradingWalletAddress,
     uri: nonceRead.value.expectedUri,
     termsStatement: termsRead.value.statement,
     chainId,
@@ -293,31 +372,25 @@ export async function registerExistingAgent(
     issuedAt,
     expirationTime,
   });
-  const ownerWallet = new ethers.Wallet(ownerPrivateKey);
-  const ownerSignature = await ownerWallet.signMessage(ownerSiweMessage);
+  const tradingWallet = new ethers.Wallet(tradingPrivateKey);
+  const tradingSignature = await tradingWallet.signMessage(tradingSiweMessage);
 
-  const fetchImpl = deps.fetchImpl;
+  const doFetch = rawFetch(deps);
   const body = {
     mode: 'existing' as const,
     tokenId: input.tokenId,
+    agentCard: { name: agent.displayName },
+    ownerWallet: eligibility.value.ownerWalletAddress,
     tradingWallet: input.tradingWalletAddress,
-    ownerSiwe: { message: ownerSiweMessage, signature: ownerSignature },
-    tradingLinkWallet: input.tradingLinkWallet,
+    tradingSiwe: { message: tradingSiweMessage, signature: tradingSignature },
   };
   try {
-    const res = fetchImpl
-      ? await fetchImpl(`${HORIZEN_PNL_BASE}/v1/register`, {
-          headers: { 'Content-Type': 'application/json' },
-          // HorizenFetch's type only declares GET-shaped options in client.ts,
-          // but the underlying fetch/fetchWithRetry both accept method+body —
-          // widened here rather than forking a second transport.
-          ...({ method: 'POST', body: JSON.stringify(body) } as Record<string, unknown>),
-        } as Parameters<HorizenFetch>[1])
-      : await fetch(`${HORIZEN_PNL_BASE}/v1/register`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        });
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (ownerAuth.cookie) headers['Cookie'] = ownerAuth.cookie;
+    const res = await doFetch(`${HORIZEN_PNL_BASE}/v1/register`, {
+      headers,
+      ...({ method: 'POST', body: JSON.stringify(body) } as Record<string, unknown>),
+    } as Parameters<HorizenFetch>[1]);
     const json = (await res.json()) as Record<string, unknown>;
     if (!res.ok) {
       const err = (json.error ?? {}) as Record<string, unknown>;
