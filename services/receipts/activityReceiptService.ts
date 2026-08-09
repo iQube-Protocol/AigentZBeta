@@ -764,11 +764,30 @@ export interface AgentRegistrationReceiptFacts {
  * receipts of OTHER types exist for this agent. `options.limit` now means
  * "how many of THIS type's own rows", not "how many rows total".
  */
+export interface AgentReceiptRef {
+  id: string;
+  actionType: ActivityActionType;
+  receiptStatus: ReceiptStatus;
+  /**
+   * Added 2026-08-09 (Horizen Pilot Closure — Standing tier classification +
+   * sequencing hardening) — the receipt's OWN structured evidence, read here
+   * rather than via a second, parallel query. This is what lets a caller
+   * classify a `standing_accrued` receipt as `tier: 'initial'` vs a genuine
+   * contribution accrual (services/journey/registrationStandingSeed.ts's own
+   * `basis`/`tier` fields), or recover a `reconciliation_discrepancy_recorded`
+   * receipt's superseded receipt ids — without inventing a raw query per
+   * caller. Never inferred from timing, amount or summary text; null when
+   * the receipt carries no structured action_input at all.
+   */
+  actionInput: Record<string, unknown> | null;
+  createdAt: string;
+}
+
 export async function findAgentReceiptRefs(
   runtimeAgentId: string,
   actionTypes: readonly ActivityActionType[],
   options?: { limit?: number },
-): Promise<{ id: string; actionType: ActivityActionType; receiptStatus: ReceiptStatus }[]> {
+): Promise<AgentReceiptRef[]> {
   if (!runtimeAgentId || actionTypes.length === 0) return [];
   const perTypeLimit = Math.min(Math.max(options?.limit ?? 20, 1), 100);
 
@@ -781,8 +800,9 @@ export async function findAgentReceiptRefs(
         // projection) — an EXISTING column on this table, never a new source
         // of truth. Lets a caller distinguish "evidence present" from "DVN
         // final" (services/journey/consequenceForkProjection.ts) without a
-        // second read.
-        .select('id, action_type, receipt_status')
+        // second read. `action_input`/`created_at` added the same day for
+        // the Standing tier/sequencing fix described above.
+        .select('id, action_type, receipt_status, action_input, created_at')
         .eq('action_type', actionType)
         .contains('agents_invoked', [runtimeAgentId])
         .order('created_at', { ascending: false })
@@ -792,7 +812,13 @@ export async function findAgentReceiptRefs(
         if (isMissingTable(error)) return [];
         throw new Error(`findAgentReceiptRefs failed for action_type "${actionType}": ${error.message}`);
       }
-      return (data ?? []) as { id: string; action_type: ActivityActionType; receipt_status: ReceiptStatus | null }[];
+      return (data ?? []) as {
+        id: string;
+        action_type: ActivityActionType;
+        receipt_status: ReceiptStatus | null;
+        action_input: Record<string, unknown> | null;
+        created_at: string;
+      }[];
     }),
   );
 
@@ -800,6 +826,8 @@ export async function findAgentReceiptRefs(
     id: r.id,
     actionType: r.action_type,
     receiptStatus: r.receipt_status ?? 'local',
+    actionInput: r.action_input ?? null,
+    createdAt: r.created_at,
   }));
 }
 

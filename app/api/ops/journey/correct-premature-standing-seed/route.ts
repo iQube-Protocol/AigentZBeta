@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { readSettledFact, invalidateSettledFact } from '@/services/journey/settledFacts';
 import { readJourneyResolution } from '@/services/journey/stageResolution';
-import { findAgentReceiptRefs, createActivityReceipt } from '@/services/receipts/activityReceiptService';
+import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
+import { resolveStandingEvidence } from '@/services/journey/standingEvidenceProjection';
 
 export const dynamic = 'force-dynamic';
 // See agent-forensics/route.ts's own comment — mitigates the default
@@ -13,21 +14,26 @@ export const maxDuration = 60;
  * POST /api/ops/journey/correct-premature-standing-seed
  *
  * The non-destructive correction for "URGENT SEQUENCING CORRECTION —
- * AigentQube Presence ≠ Factory Ingestion" part 5 (operator directive,
+ * AigentQube Presence ≠ Factory Ingestion" part 5, and "Horizen Pilot
+ * Closure — Final Standing + DVN Closure" part A2/A3 (operator directive,
  * 2026-08-09). Agent-generic — never MoneyPenny-specific — and re-verifies
- * the defect signature itself before touching anything; it does not trust
- * the caller's belief that a correction is warranted.
+ * the defect signature ITSELF, via the SAME canonical projection
+ * (services/journey/standingEvidenceProjection.ts's `resolveStandingEvidence`)
+ * the journey `/state` route and `/agent-forensics` both consume, before
+ * touching anything. It does not trust the caller's belief that a
+ * correction is warranted, and it never re-implements the ordering check a
+ * second, slightly-different way.
  *
  * ── What this does NOT do ────────────────────────────────────────────────
  *
- * NEVER deletes or mutates the original `standing_accrued` receipt — it
- * remains, permanently, as historical evidence (including evidence of an
+ * NEVER deletes or mutates the original `standing_accrued` receipt(s) — they
+ * remain, permanently, as historical evidence (including evidence of an
  * erroneous platform act). This route only:
  *
  *   1. Writes a NEW `reconciliation_discrepancy_recorded` receipt (the
  *      EXISTING, protocol-level, partner-agnostic receipt type this
  *      codebase already reserves for exactly this shape of correction —
- *      never a bespoke one-off type) documenting the discrepancy.
+ *      never a bespoke one-off type) naming the superseded receipt ids.
  *   2. Invalidates the `registry_standing_seeded` settled fact via
  *      `invalidateSettledFact`'s EXISTING `governed-correction-supersedes`
  *      event (services/journey/settledFacts.ts) — the constitutional
@@ -40,13 +46,19 @@ export const maxDuration = 60;
  *      does not touch. Every OTHER canonically-established stage in that
  *      array (register, claim, etc.) is preserved untouched.
  *
+ * The discrepancy receipt's `standingAccruedReceiptIds` is what
+ * `resolveStandingEvidence` reads on every LATER call to exclude these
+ * specific receipts from the effective set — "preserve historical evidence;
+ * invalidate its present consequence", made structural rather than a
+ * one-time cleanup.
+ *
  * ── The safety gate ───────────────────────────────────────────────────────
  *
- * Refuses (never proceeds) unless it can independently confirm the exact
- * defect signature: a `standing_accrued` receipt exists AND no
- * `capability_registered` receipt exists at or before it. If a genuine
- * Factory-ingestion receipt DOES predate the accrual, the seed may be
- * legitimate — this route will not touch it.
+ * Refuses (never proceeds) unless `resolveStandingEvidence` independently
+ * finds at least one `sequencingViolationReceiptIds` entry — a seed receipt
+ * that predates any genuine `capability_registered` receipt. If every
+ * standing_accrued receipt for this agent is genuinely ordered, this route
+ * changes nothing and reports why.
  *
  * Idempotent: if the settled fact is already invalidated and 'deploy'/
  * 'standing' are already absent from canonicalStages, reports no-op.
@@ -87,37 +99,28 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   try {
-    // ── Re-verify the defect signature independently ──────────────────────
-    const [standingReceipts, ingestReceipts, standingSeededFact, journeyResolution] = await Promise.all([
-      findAgentReceiptRefs(agentRuntimeId, ['standing_accrued'], { limit: 50 }),
-      findAgentReceiptRefs(agentRuntimeId, ['capability_registered'], { limit: 50 }),
+    // ── Re-verify the defect signature independently, via the canonical projection ──
+    const [standingEvidence, standingSeededFact, journeyResolution] = await Promise.all([
+      resolveStandingEvidence(agentRuntimeId),
       readSettledFact(admin, aigentQubeId, agentRuntimeId, 'registry_standing_seeded'),
       readJourneyResolution(admin, aigentQubeId, journeyId),
     ]);
 
-    if (standingReceipts.length === 0) {
-      return NextResponse.json({ ok: false, refusalCode: 'NO_STANDING_ACCRUED_RECEIPT', detail: 'nothing to correct — no standing_accrued receipt exists for this agent' }, { status: 409 });
-    }
-
-    const allIds = [...standingReceipts.map((r) => r.id), ...ingestReceipts.map((r) => r.id)];
-    const { data: receiptRows } = await admin.from('activity_receipts').select('id, created_at, action_type').in('id', allIds);
-    const createdAtById = new Map((receiptRows ?? []).map((r: any) => [r.id, r.created_at]));
-
-    const earliestStandingAt = standingReceipts.map((r) => createdAtById.get(r.id)).filter(Boolean).sort()[0] as string | undefined;
-    const earliestIngestAt = ingestReceipts.map((r) => createdAtById.get(r.id)).filter(Boolean).sort()[0] as string | undefined;
-    const genuinelyIngestedFirst = !!earliestIngestAt && !!earliestStandingAt && earliestIngestAt <= earliestStandingAt;
-
-    if (genuinelyIngestedFirst) {
+    if (standingEvidence.sequencingViolationReceiptIds.length === 0) {
       return NextResponse.json(
         {
           ok: false,
           refusalCode: 'NOT_PREMATURE',
-          detail: `a capability_registered receipt (${earliestIngestAt}) predates the earliest standing_accrued receipt (${earliestStandingAt}) — this accrual may be legitimate and will not be touched`,
+          detail:
+            standingEvidence.effectiveInitialReceipts.length === 0 && standingEvidence.effectiveContributionReceipts.length === 0
+              ? 'nothing to correct — no standing_accrued receipt exists for this agent (or all are already superseded)'
+              : 'every standing_accrued receipt for this agent is genuinely ordered after a capability_registered receipt — this accrual is legitimate and will not be touched',
         },
         { status: 409 },
       );
     }
 
+    const correctedIds = standingEvidence.sequencingViolationReceiptIds;
     const alreadyInvalidated = standingSeededFact?.status === 'invalidated';
     const alreadyRemoved =
       !(journeyResolution?.canonicalStages ?? []).includes('deploy') &&
@@ -127,7 +130,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       agentRuntimeId,
       aigentQubeId,
       journeyId,
-      correctedStandingAccruedReceiptIds: standingReceipts.map((r) => r.id),
+      correctedStandingAccruedReceiptIds: correctedIds,
     };
 
     // ── 1. Discrepancy receipt (never a substitute for, or mutation of, the original) ──
@@ -137,15 +140,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         personaId: correctingPersonaId,
         activeCartridge: 'agentiq',
         actionType: 'reconciliation_discrepancy_recorded',
-        summary: `Standing seed for ${agentRuntimeId} was awarded before genuine Factory ingestion — corrected under the 2026-08-09 AigentQube-presence/Factory-ingestion sequencing ruling`,
+        summary: `Standing accrual(s) for ${agentRuntimeId} predate genuine Factory ingestion — corrected under the 2026-08-09 AigentQube-presence/Factory-ingestion sequencing ruling`,
         agentsInvoked: [agentRuntimeId],
         actionInput: {
           discrepancyKind: 'PREMATURE_STANDING_SEED',
           journeyId,
-          standingAccruedReceiptIds: standingReceipts.map((r) => r.id),
-          capabilityRegisteredReceiptIds: ingestReceipts.map((r) => r.id),
-          earliestStandingAccruedAt: earliestStandingAt ?? null,
-          earliestCapabilityRegisteredAt: earliestIngestAt ?? null,
+          standingAccruedReceiptIds: correctedIds,
         },
       });
       discrepancyReceiptId = receipt?.id ?? null;
@@ -166,7 +166,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         agentRuntimeId,
         'registry_standing_seeded',
         'governed-correction-supersedes',
-        `Premature award — Factory ingestion evidence (capability_registered) did not predate this accrual. Corrected per discrepancy receipt ${discrepancyReceiptId}.`,
+        `Premature award — this accrual predates any genuine capability_registered receipt. Corrected per discrepancy receipt ${discrepancyReceiptId}.`,
         `ops/journey/correct-premature-standing-seed:${correctingPersonaId}`,
       );
       result.settledFactInvalidation = outcome.ok ? { applied: true } : { applied: false, reason: outcome.detail };
@@ -207,9 +207,10 @@ export async function GET(): Promise<NextResponse> {
     {
       method: 'POST',
       description:
-        'Non-destructive correction for a Standing seed awarded before genuine Factory ingestion (2026-08-09 sequencing ruling). ' +
-        'Body: { agentRuntimeId, aigentQubeId, journeyId?, correctingPersonaId }. Re-verifies the defect signature before acting; ' +
-        'never deletes or mutates the original standing_accrued receipt. Requires x-cron-token header (CRON_TRIGGER_TOKEN).',
+        'Non-destructive correction for Standing accrual(s) that predate genuine Factory ingestion (2026-08-09 sequencing ruling). ' +
+        'Body: { agentRuntimeId, aigentQubeId, journeyId?, correctingPersonaId }. Re-verifies the defect via the canonical ' +
+        'standingEvidenceProjection before acting; never deletes or mutates the original standing_accrued receipt(s). ' +
+        'Requires x-cron-token header (CRON_TRIGGER_TOKEN).',
     },
     { headers: { 'Cache-Control': 'no-store' } },
   );

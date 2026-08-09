@@ -81,6 +81,12 @@ import {
   admissionMilestones,
   type VerificationStepState,
 } from '@/services/journey/agentStateAxes';
+import {
+  resolveStandingEvidence,
+  hasEffectiveStandingEvidence,
+  effectiveStandingReceiptStatuses,
+  type StandingEvidenceProjection,
+} from '@/services/journey/standingEvidenceProjection';
 
 export const dynamic = 'force-dynamic';
 
@@ -256,6 +262,20 @@ async function resolveState(req: NextRequest) {
    */
   let registrationStandingSeeded = false;
   /*
+   * THE CANONICAL, CORRECTION-AWARE STANDING PROJECTION (Horizen Pilot
+   * Closure — Final Standing + DVN Closure, 2026-08-09). Every later
+   * consumer of Standing evidence — `standingGatewayEnabled`, the axis's
+   * `standingReceipts`/`initialStandingAwarded`, and the consequence fork's
+   * `receiptStatuses['standing_accrued']` — reads THIS, never a raw
+   * `receiptRefs['standing_accrued']` scan, so a superseded or sequencing-
+   * invalid receipt cannot re-enable Stand through one path while another
+   * path correctly excludes it. See services/journey/
+   * standingEvidenceProjection.ts's own header for the two defects this
+   * closes. `null` only on a failed read — an audit gap, never treated as
+   * "no evidence".
+   */
+  let standingEvidence: StandingEvidenceProjection | null = null;
+  /*
    * P&L SERVICE VERIFICATION — the result of THIS request's attempt, if any
    * (Horizen Pilot Closure item 4, 2026-08-09). Deliberately a distinct
    * variable from anything Pulse-authorization-related: `verified: true`
@@ -328,6 +348,9 @@ async function resolveState(req: NextRequest) {
         // the status column it always had. Never a second query.
         (receiptStatuses[ref.actionType] ??= []).push(ref.receiptStatus);
       }
+    });
+    if (supabase) await guarded('standing-evidence', async () => {
+      standingEvidence = await resolveStandingEvidence(agent.runtimeAgentId);
     });
     if (supabase) await guarded('aigentqube', async () => {
       // §3.1.1 correction — Register requires a real, persisted AigentQube
@@ -864,7 +887,15 @@ async function resolveState(req: NextRequest) {
         // an accrual receipt is the accrual. Reading registry presence here
         // would recreate the exact ingestion-equals-accrual collapse the
         // operator's ruling forbids.
-        standingGatewayEnabled: hasReceipt('standing_accrued'),
+        //
+        // NOT bare `hasReceipt('standing_accrued')` (operator correction,
+        // 2026-08-09) — a receipt superseded by a governed correction (or
+        // one that predates any genuine capability_registered receipt) is
+        // preserved as immutable history but must stop exerting a PRESENT
+        // consequence. `standingEvidence` is the one canonical, correction-
+        // aware projection every Standing consumer in this route reads —
+        // see services/journey/standingEvidenceProjection.ts.
+        standingGatewayEnabled: standingEvidence ? hasEffectiveStandingEvidence(standingEvidence) : false,
       },
       aigentme: {
         aigentMeActive: hasReceipt('aigentme_activated'),
@@ -1065,16 +1096,35 @@ async function resolveState(req: NextRequest) {
      * STANDING IS EARNED, NEVER GRANTED BY INGESTION. Only receipts for
      * qualifying, validated action count — the ingestion act itself is
      * deliberately absent from this list.
+     *
+     * NOT `receiptRefs['standing_accrued']` (operator correction,
+     * 2026-08-09) — that included the nominal admission seed's OWN receipt,
+     * which then double-counted: once here as "contribution", and again via
+     * `initialStandingAwarded` below from the SAME settled fact. This axis's
+     * own contract (services/journey/agentStateAxes.ts: "NOT the ingestion
+     * receipt") was always correct; the caller violated it. `standingEvidence`
+     * classifies by the receipt's own structured `action_input.tier` — never
+     * amount, timing or summary text — and excludes superseded/sequencing-
+     * invalid receipts the same way `standingGatewayEnabled` above does.
      */
-    standingReceipts: receiptRefs['standing_accrued'] ?? [],
+    standingReceipts: standingEvidence ? standingEvidence.effectiveContributionReceipts.map((r) => r.id) : [],
     /*
      * The nominal admission seed, reported separately from earned Standing
      * (operator correction, 2026-08-03: "Admission Standing must be
      * distinguishable from earned performance Standing"). It is awarded once,
      * gated on the `registry_standing_seeded` settled fact — so it is READ
      * here, never re-derived, and a refresh cannot re-award it.
+     *
+     * Additionally requires an EFFECTIVE seed receipt to exist (operator
+     * correction, 2026-08-09) — belt-and-suspenders alongside the settled-
+     * fact gate: a correction that invalidates `registry_standing_seeded`
+     * already flips `registrationStandingSeeded` to false on the next read,
+     * but this keeps the two facts from ever disagreeing even transiently.
      */
-    initialStandingAwarded: registrationStandingSeeded ? REGISTRATION_SEED_STANDING : 0,
+    initialStandingAwarded:
+      registrationStandingSeeded && standingEvidence && standingEvidence.effectiveInitialReceipts.length > 0
+        ? REGISTRATION_SEED_STANDING
+        : 0,
   });
   const branchOffers = resolveBranchOffers(axes);
 
@@ -1121,7 +1171,12 @@ async function resolveState(req: NextRequest) {
     standing: consequenceProngCopy(
       classifyConsequenceProng({
         stageState: stageStatus('standing'),
-        bestAnchorReceiptStatus: bestReceiptStatus(receiptStatuses['standing_accrued'] ?? []),
+        // NOT `receiptStatuses['standing_accrued']` (operator correction,
+        // 2026-08-09) — that includes superseded/sequencing-invalid
+        // receipts, which could let a governed-corrected accrual's stale
+        // DVN status still render Stand as Proven. `standingEvidence` is
+        // the same effective set `standingGatewayEnabled` above consumes.
+        bestAnchorReceiptStatus: bestReceiptStatus(standingEvidence ? effectiveStandingReceiptStatuses(standingEvidence) : []),
       }),
     ),
   };
