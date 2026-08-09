@@ -297,11 +297,18 @@ describe('EXP-P1 round policy is PINNED, not merely defaulted (verification, 202
     expect(pinnedObserverRoundPolicy('EXP-P2')).toBeNull();
   });
 
-  it('the assign route refuses a caller-supplied roundPolicy that disagrees with a pin, rather than silently honouring or overriding it', () => {
-    const src = readSource('app/api/research/observer-review/[experimentId]/route.ts');
-    expect(src).toMatch(/pinnedObserverRoundPolicy/);
-    expect(src).toMatch(/pinned && typeof body\.roundPolicy === 'string' && body\.roundPolicy !== pinned/);
-  });
+  it(
+    'the assign route refuses a caller-supplied roundPolicy that disagrees with a pin, rather than silently honouring or ' +
+      'overriding it — enforced in the shared assignObserverRound implementation the route delegates to (2026-08-09, EXP-P1 ' +
+      "go-live refactor: the route no longer inlines this logic, so a second caller — the ops bootstrap route — can't drift)",
+    () => {
+      const routeSrc = readSource('app/api/research/observer-review/[experimentId]/route.ts');
+      expect(routeSrc).toMatch(/assignObserverRound/);
+      const implSrc = readSource('services/research/observerRoundAssignment.ts');
+      expect(implSrc).toMatch(/pinnedObserverRoundPolicy/);
+      expect(implSrc).toMatch(/pinned && typeof input\.requestedRoundPolicy === 'string' && input\.requestedRoundPolicy !== pinned/);
+    },
+  );
 });
 
 describe('changes_requested and the frozen-state wire vocabulary (verification, 2026-08-09)', () => {

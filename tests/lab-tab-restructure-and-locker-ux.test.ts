@@ -197,7 +197,16 @@ describe('C — the Passport Registry left both Labs, and left no dangling link'
       const parsed = new URL(url, 'https://example.invalid');
       const slug = parsed.pathname.split('/').filter(Boolean).pop()!;
       const tabSlug = parsed.searchParams.get('tab');
-      const codex = CODEX_DEFINITIONS.find((c) => c.slug === slug);
+      // The embed route passes an id through UNCHANGED when it already carries
+      // a recognised suffix ('-codex' or '-cartridge') — it only appends
+      // '-codex' to a BARE slug lacking either. A '-cartridge' cartridge's
+      // deep link therefore correctly targets its `id`, not its marketing
+      // `slug` (fixed 2026-08-09 — the bare slug 404'd as "Failed to load
+      // codex": data/codex-configs.ts's IRL_OS_CARTRIDGE/AGENTIQ_OS_CARTRIDGE
+      // use id 'irl-os-cartridge'/'agentiq-os-cartridge' but slug 'irl-os'/
+      // 'agentiq-os'). Matching only `c.slug` here is the same incomplete
+      // simulation of the embed route's resolution that let that bug ship.
+      const codex = CODEX_DEFINITIONS.find((c) => c.slug === slug || c.id === slug);
       expect(codex, `passportDeepLinks().${name} targets unknown codex '${slug}'`).toBeTruthy();
       const tab = codex!.tabs.find((t) => t.slug === tabSlug && t.enabled);
       expect(tab, `passportDeepLinks().${name} targets unknown/disabled tab '${tabSlug}' in '${slug}'`).toBeTruthy();
