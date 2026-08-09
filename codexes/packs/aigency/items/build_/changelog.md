@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`b5abe6e`](https://github.com/iQube-Protocol/AigentZBeta/commit/b5abe6ed98cbb356ec81a3828dbbe4fc11eed03d) [push] Split Ratify P&L into three independent tiers, uniform journey spacing (Claude, 2026-08-09T05:41:11Z)
 - [`51917a4`](https://github.com/iQube-Protocol/AigentZBeta/commit/51917a43e947c2d88de362c98ad57b825d58caf4) [fix] Fix Orient regression, anchor Consequence Fork trident to spine end, verb labels (Claude, 2026-08-09T03:25:19Z)
 - [`b96a7b3`](https://github.com/iQube-Protocol/AigentZBeta/commit/b96a7b31877fcd1ee0d8b1d4ae3a895789f96464) [push] Rebuild Consequence Fork trident as one absolutely-positioned box, not stacked rows (Claude, 2026-08-09T04:22:05Z)
 - [`f2ca7aa`](https://github.com/iQube-Protocol/AigentZBeta/commit/f2ca7aaf0864a4ba20f5f20315770cca6f1f97f0) [feat] Add Post-Freeze Observer Review Closure for Crystal vP1 (EXP-P1) (Claude, 2026-08-09T03:05:48Z)

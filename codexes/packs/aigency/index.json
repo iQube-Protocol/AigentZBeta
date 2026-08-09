@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-09T04:26:32.626Z",
+  "last_updated": "2026-08-09T05:53:03.903Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "51917a43e947c2d88de362c98ad57b825d58caf4",
-  "latest_commit_short": "51917a4",
-  "latest_commit_title": "Fix Orient regression, anchor Consequence Fork trident to spine end, verb labels",
+  "latest_commit": "b5abe6ed98cbb356ec81a3828dbbe4fc11eed03d",
+  "latest_commit_short": "b5abe6e",
+  "latest_commit_title": "Split Ratify P&L into three independent tiers, uniform journey spacing",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "b5abe6e",
+      "full_sha": "b5abe6ed98cbb356ec81a3828dbbe4fc11eed03d",
+      "title": "Split Ratify P&L into three independent tiers, uniform journey spacing",
+      "author": "Claude",
+      "timestamp": "2026-08-09T05:41:11Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-b5abe6e.md"
+    },
     {
       "sha": "51917a4",
       "full_sha": "51917a43e947c2d88de362c98ad57b825d58caf4",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-07-17T00:40:59Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-6178eca.md"
-    },
-    {
-      "sha": "439b116",
-      "full_sha": "439b116fd10f6fdd8df2291140e738e9d9eb6221",
-      "title": "build CRP-003a Increment 3 (N3): the Financial Services Capability Suite surface",
-      "author": "Claude",
-      "timestamp": "2026-07-17T01:26:25Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-439b116.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
