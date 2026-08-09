@@ -3829,3 +3829,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-cc779a6.md](../build_/COMMITS/COMMIT-cc779a6.md)
 - Message: Give the DVN attestation processor scheduled liveness (B3 confirmed)
+
+## Commit `6e961c0` — 2026-08-09T21:48:06Z
+- Type: `feat`
+- Brief: [COMMIT-6e961c0.md](../build_/COMMITS/COMMIT-6e961c0.md)
+- Message: Add the missing Ingest act (capability_registered) plus its guided UI action
