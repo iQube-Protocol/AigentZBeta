@@ -30,7 +30,7 @@ describe('PulseTransparencyToggle — Pulse and P&L are never one solved item (2
   it('renders Pulse and P&L as two separate cards, not one combined "Pulse monitoring and P&L disclosure authorized" message', () => {
     expect(source).not.toContain('Pulse monitoring and P&amp;L disclosure authorized');
     expect(source).toContain('Pulse monitoring authorized');
-    expect(source).toContain('P&amp;L disclosure —');
+    expect(source).toContain('P&L disclosure —');
   });
 
   it('the P&L block states three independent facts plainly, rather than mirroring Pulse\'s confirmation (three-tier vocabulary correction, 2026-08-09)', () => {
@@ -43,10 +43,15 @@ describe('PulseTransparencyToggle — Pulse and P&L are never one solved item (2
     // on whichever signal happens to be present, and never inferred from
     // Pulse's own "enabled" state above.
     expect(block).toContain('P&amp;L transparency — three independent facts');
-    expect(block).toContain('P&amp;L disclosure —');
-    expect(block).toContain('P&amp;L service —');
-    expect(block).toContain('P&amp;L evidence —');
-    expect(block).toMatch(/structured\?\.verifiablePnlRegistered === undefined/);
+    expect(block).toContain('P&L disclosure —');
+    expect(block).toContain('P&L service —');
+    expect(block).toContain('P&L evidence —');
+    // "Unknown" must never sit indefinitely (operator instruction,
+    // 2026-08-09) — absence of confirmed registration renders as the
+    // actionable "Onboarding required", never an indefinite unknown state.
+    expect(block).toMatch(/structured\?\.verifiablePnlRegistered === true/);
+    expect(block).toContain('Onboarding required');
+    expect(block).not.toMatch(/Unknown \(no onboarding/);
     expect(block).toContain('NOT Horizen approving or registering financial performance');
     expect(block).toContain('distinct from, and never inferred from, service registration above');
   });

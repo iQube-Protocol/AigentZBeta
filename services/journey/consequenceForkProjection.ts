@@ -117,10 +117,17 @@ export function consequenceProngCopy(tier: ConsequenceProngTier): ConsequencePro
     case 'proven-consequence':
       return { tier, label: 'Proven', detail: 'This consequence is established and, where anchored, finalized.' };
     case 'pending-observer-active':
+      // "DVN Pending", not generic "Pending" (operator instruction,
+      // 2026-08-09): `bestAnchorReceiptStatus` is the DVN leg's own
+      // `ReceiptStatus` ('local'|'dvn_pending'|'dvn_recorded'|'dvn_failed') —
+      // this tier IS specifically the DVN-observer condition, never the
+      // separate BTC/PoS leg. Naming it says exactly what is still in
+      // flight rather than leaving the reader to guess which consequence a
+      // bare "Pending" refers to.
       return {
         tier,
-        label: 'Pending',
-        detail: 'Your action is complete. The external consequence is still being observed.',
+        label: 'DVN Pending',
+        detail: 'Your action is complete. DVN anchoring of that action has not yet reached finality.',
       };
     case 'refused-unresolved':
       return { tier, label: 'Unresolved', detail: 'Not yet established.' };

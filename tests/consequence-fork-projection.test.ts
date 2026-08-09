@@ -122,8 +122,18 @@ describe('A PENDING EXTERNAL CONSEQUENCE REMAINS PENDING ACROSS BROWSER/SESSION 
 describe('PENDING NEVER READS AS FAILURE', () => {
   it('the pending tier\'s own copy states the action is complete and the consequence is merely observed — never framed as an error', () => {
     const copy = consequenceProngCopy('pending-observer-active');
-    expect(copy.detail).toBe('Your action is complete. The external consequence is still being observed.');
+    expect(copy.detail.toLowerCase()).toContain('your action is complete');
     expect(copy.detail.toLowerCase()).not.toMatch(/fail|error|denied|refus/);
+  });
+
+  it('the pending tier\'s label says "DVN Pending", not a generic "Pending" — it names which consequence is still in flight (operator instruction, 2026-08-09)', () => {
+    expect(consequenceProngCopy('pending-observer-active').label).toBe('DVN Pending');
+  });
+
+  it('the renderer sources the pending/proven badge text from consequenceProngCopy\'s own label, never a second hardcoded string', () => {
+    const src = fs.readFileSync(path.join(__dirname, '..', 'components/journey/JourneyRunSurface.tsx'), 'utf8');
+    const pendingBadge = src.match(/pending-observer-active[\s\S]{0,260}/)?.[0] ?? '';
+    expect(pendingBadge).toMatch(/\{projection\.label\}/);
   });
 
   it('the renderer never colours a pending prong rose/red', () => {

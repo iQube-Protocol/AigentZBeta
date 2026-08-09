@@ -18,7 +18,7 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { CheckCircle2, Clock, Loader2, ShieldAlert, XCircle } from 'lucide-react';
+import { CheckCircle2, Circle, Clock, Loader2, ShieldAlert, XCircle } from 'lucide-react';
 import { personaFetch } from '@/utils/personaSpine';
 import { readJsonOrExplain } from '@/utils/readJsonOrExplain';
 import { PulseEnrollmentTracePanel } from './PulseEnrollmentTracePanel';
@@ -546,39 +546,55 @@ export function PulseTransparencyToggle({
             <p className="font-medium text-slate-200">P&amp;L transparency — three independent facts</p>
           </div>
           <dl className="mt-2 space-y-2 pl-5.5">
-            <div>
-              <dt className="text-slate-200">
-                P&amp;L disclosure — {horizen.pnl?.disclosureAuthorized ? 'Authorized' : 'Not authorized'}
-              </dt>
-              <dd className="mt-0.5 text-slate-500">
-                The operator's permission/scope grant only. Recorded via the SAME enable_pulse_monitoring call
-                that confirmed Pulse — this is NOT Horizen approving or registering financial performance.
-              </dd>
-            </div>
-            <div>
-              <dt className="text-slate-200">
-                P&amp;L service —{' '}
-                {structured?.verifiablePnlRegistered === undefined
-                  ? 'Unknown (no onboarding status read yet)'
-                  : structured.verifiablePnlRegistered
-                    ? 'Registered'
-                    : 'Not registered'}
-              </dt>
-              <dd className="mt-0.5 text-slate-500">
-                Whether Horizen's Verifiable-PnL service has onboarded this agent at all — read directly from
-                Horizen's own authoritative onboarding status, independent of disclosure authorization above.
-              </dd>
-            </div>
-            <div>
-              <dt className="text-slate-200">
-                P&amp;L evidence —{' '}
-                {pnlServiceVerified === undefined ? 'Pending (not yet checked)' : pnlServiceVerified ? 'Verified' : 'Pending'}
-              </dt>
-              <dd className="mt-0.5 text-slate-500">
-                Whether genuine, correlated proof evidence exists and has been independently verified
-                (pnl_service_verified) — distinct from, and never inferred from, service registration above.
-              </dd>
-            </div>
+            {(() => {
+              const disclosureAuthorized = Boolean(horizen.pnl?.disclosureAuthorized);
+              // "Unknown" must not sit indefinitely once we possess enough
+              // information to make a determination (operator instruction,
+              // 2026-08-09) — the ONLY evidence that would say otherwise is
+              // Horizen's own structured `verifiablePnlRegistered: true`; its
+              // absence (never read yet, or read and false) both mean the
+              // same actionable thing to the operator: onboarding has not
+              // happened. Never inferred from disclosure authorization above
+              // (CLAUDE.md: "Do NOT infer P&L registration from
+              // horizen_pnl_transparency_enabled").
+              const serviceRegistered = structured?.verifiablePnlRegistered === true;
+              const evidenceVerified = pnlServiceVerified === true;
+              const row = (present: boolean, label: string, detail: React.ReactNode) => (
+                <div className="flex items-start gap-2">
+                  {present ? (
+                    <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                  ) : (
+                    <Circle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-500" />
+                  )}
+                  <div>
+                    <dt className={present ? 'text-emerald-300' : 'text-slate-200'}>{label}</dt>
+                    <dd className="mt-0.5 text-slate-500">{detail}</dd>
+                  </div>
+                </div>
+              );
+              return (
+                <>
+                  {row(
+                    disclosureAuthorized,
+                    `P&L disclosure — ${disclosureAuthorized ? 'Authorized' : 'Not authorized'}`,
+                    "The operator's permission/scope grant only. Recorded via the SAME enable_pulse_monitoring call " +
+                      'that confirmed Pulse — this is NOT Horizen approving or registering financial performance.',
+                  )}
+                  {row(
+                    serviceRegistered,
+                    `P&L service — ${serviceRegistered ? 'Registered' : 'Onboarding required'}`,
+                    "Whether Horizen's Verifiable-PnL service has onboarded this agent at all — read directly from " +
+                      "Horizen's own authoritative onboarding status, independent of disclosure authorization above.",
+                  )}
+                  {row(
+                    evidenceVerified,
+                    `P&L evidence — ${evidenceVerified ? 'Verified' : 'Pending'}`,
+                    'Whether genuine, correlated proof evidence exists and has been independently verified ' +
+                      '(pnl_service_verified) — distinct from, and never inferred from, service registration above.',
+                  )}
+                </>
+              );
+            })()}
           </dl>
           {(horizen.pnl?.proofRefs?.length ?? 0) > 0 && (
             <p className="mt-2 text-slate-500">{horizen.pnl!.proofRefs.length} proof reference(s) on file.</p>

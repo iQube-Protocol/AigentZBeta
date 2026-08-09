@@ -72,8 +72,13 @@ describe('PulseTransparencyToggle — the enrolled branch projects Pulse/Identit
   });
 
   it('projects "P&L service" as the AUTHORITATIVE fact when structured evidence exists — never silently deferring to the inferred Agent Card flag (relabeled from "Verifiable P&L", three-tier vocabulary correction 2026-08-09)', () => {
-    expect(block).toContain('P&amp;L service —');
-    expect(block).toMatch(/structured\?\.verifiablePnlRegistered === undefined/);
+    expect(block).toContain('P&L service —');
+    expect(block).toMatch(/structured\?\.verifiablePnlRegistered === true/);
+  });
+
+  it('renders "Onboarding required" rather than an indefinite "Unknown" once absence of registration is itself a determination (operator instruction, 2026-08-09)', () => {
+    expect(block).toContain('Onboarding required');
+    expect(block).not.toMatch(/Unknown \(no onboarding/);
   });
 
   it('never renders a "Create fresh authorization" affordance in the enrolled branch — there is nothing left to authorize', () => {

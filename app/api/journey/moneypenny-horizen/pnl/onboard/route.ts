@@ -38,6 +38,20 @@ import { resolveAgentRegistrationState } from '@/services/horizen/agentRegistrat
 import { correlateAgent } from '@/services/horizen/correlate';
 import { checkExistingModeEligibility, registerExistingAgent } from '@/services/horizen/pnlOnboardingClient';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
+import { AgentPurposeWalletService } from '@/services/wallet/agentPurposeWalletService';
+import type { RegistrableAgentConfig } from '@/services/horizen/registrableAgents';
+
+/**
+ * The trading wallet is resolved from the agent's own provisioned
+ * agent_wallet_bindings row (Horizen Pilot Closure part 2/3, 2026-08-09) —
+ * never fabricated, never falling back to the owner wallet. If no binding
+ * has been provisioned yet, this returns null and the caller falls through
+ * to the existing TRADING_WALLET_DECISION_REQUIRED refusal path unchanged.
+ */
+async function resolveProvisionedTradingWalletAddress(agent: RegistrableAgentConfig): Promise<string | null> {
+  const binding = await new AgentPurposeWalletService().getBinding(agent.runtimeAgentId, 'trading');
+  return binding?.address ?? null;
+}
 
 interface OnboardBody {
   agentSlug?: string;
@@ -68,6 +82,21 @@ async function resolveCurrentState(agentSlug: string) {
 }
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
+  try {
+    return await getOnboardStatus(request);
+  } catch (err) {
+    return NextResponse.json(
+      {
+        ok: false,
+        refusalCode: 'UNHANDLED_ONBOARD_STATUS_ERROR',
+        error: `The onboarding status read threw before it could answer: ${err instanceof Error ? `${err.name}: ${err.message}` : String(err)}. Re-read the state before retrying.`,
+      },
+      { status: 500 },
+    );
+  }
+}
+
+async function getOnboardStatus(request: NextRequest): Promise<NextResponse> {
   const persona = await getActivePersona(request);
   if (!persona) return NextResponse.json({ ok: false, error: 'unauthenticated' }, { status: 401 });
 
@@ -85,7 +114,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     });
   }
 
-  const eligibility = await checkExistingModeEligibility({ agentSlug: state.agent.slug, tokenId: state.tokenId });
+  const tradingWalletAddress = await resolveProvisionedTradingWalletAddress(state.agent);
+  const eligibility = await checkExistingModeEligibility({
+    agentSlug: state.agent.slug,
+    tokenId: state.tokenId,
+    tradingWalletAddress: tradingWalletAddress ?? undefined,
+  });
   return NextResponse.json({
     ok: true,
     status: 'not_onboarded',
@@ -97,6 +131,23 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  try {
+    return await postOnboard(request);
+  } catch (err) {
+    return NextResponse.json(
+      {
+        ok: false,
+        refusalCode: 'UNHANDLED_ONBOARD_ERROR',
+        error:
+          `The onboarding ceremony threw before it could answer: ${err instanceof Error ? `${err.name}: ${err.message}` : String(err)}. ` +
+          'Nothing here says whether Horizen recorded a registration — re-read the state before retrying.',
+      },
+      { status: 500 },
+    );
+  }
+}
+
+async function postOnboard(request: NextRequest): Promise<NextResponse> {
   const persona = await getActivePersona(request);
   if (!persona) return NextResponse.json({ ok: false, error: 'unauthenticated' }, { status: 401 });
 
@@ -122,7 +173,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     });
   }
 
-  if (!body.tradingWalletAddress) {
+  const tradingWalletAddress = body.tradingWalletAddress || (await resolveProvisionedTradingWalletAddress(state.agent));
+  if (!tradingWalletAddress) {
     const eligibility = await checkExistingModeEligibility({ agentSlug: state.agent.slug, tokenId: state.tokenId });
     return NextResponse.json(
       { ok: false, status: 'not_onboarded', agentSlug: state.agent.slug, tokenId: state.tokenId, network: state.network, eligibility },
@@ -130,13 +182,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const registerResult = await registerExistingAgent({
-    agentSlug: state.agent.slug,
-    tokenId: state.tokenId,
-    tradingWalletAddress: body.tradingWalletAddress,
-    network: state.network,
-    confirm: true,
-  });
+  const registerResult = await registerExistingAgent(
+    {
+      agentSlug: state.agent.slug,
+      tokenId: state.tokenId,
+      tradingWalletAddress,
+      network: state.network,
+      confirm: true,
+    },
+    {
+      resolveTradingWalletPrivateKey: (address) => new AgentPurposeWalletService().resolvePurposeWalletPrivateKeyByAddress(address),
+    },
+  );
 
   if (!registerResult.ok) {
     return NextResponse.json(

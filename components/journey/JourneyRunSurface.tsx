@@ -714,16 +714,23 @@ export function JourneyRunSurface({
                             PENDING NEVER READS AS FAILURE (operator
                             instruction, 2026-08-09) — a distinct amber
                             badge, never rose/red, and only rendered once
-                            this prong's own projection is known.
+                            this prong's own projection is known. Text comes
+                            from `projection.label` (consequenceForkProjection.ts's
+                            `consequenceProngCopy` — "the ONE place this
+                            fork's tier copy is written") rather than a
+                            second hardcoded string here, so the pill can
+                            never drift from that canonical copy again (it
+                            said "Pending" here while the source of truth
+                            already said "DVN Pending").
                           */}
                           {projection && projection.tier === 'pending-observer-active' && (
                             <span className="whitespace-nowrap rounded-full border border-amber-800/60 bg-amber-950/30 px-1.5 py-0.5 text-[9px] font-medium text-amber-300">
-                              Pending
+                              {projection.label}
                             </span>
                           )}
                           {projection && projection.tier === 'proven-consequence' && isDone && (
                             <span className="whitespace-nowrap rounded-full border border-emerald-800/60 bg-emerald-950/30 px-1.5 py-0.5 text-[9px] font-medium text-emerald-300">
-                              Proven
+                              {projection.label}
                             </span>
                           )}
                         </button>
