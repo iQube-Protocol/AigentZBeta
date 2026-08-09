@@ -3774,3 +3774,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-c94c072.md](../build_/COMMITS/COMMIT-c94c072.md)
 - Message: Add migration-drift diagnostic covering dual-leg anchoring + MoneyPenny AigentQube seed
+
+## Commit `52cfb3f` — 2026-08-09T09:32:29Z
+- Type: `feat`
+- Brief: [COMMIT-52cfb3f.md](../build_/COMMITS/COMMIT-52cfb3f.md)
+- Message: Add wall-clock safety budget to DVN reconciler + targeted submit route + MoneyPenny AigentQube repair
