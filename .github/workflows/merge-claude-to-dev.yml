@@ -5,6 +5,10 @@ on:
     branches:
       - 'claude/**'
 
+permissions:
+  contents: write
+  issues: write
+
 jobs:
   merge:
     name: Auto-merge to dev
@@ -22,15 +26,143 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Merge claude branch into dev
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: ${{ github.ref_name }}
         # CLAUDE.md merge-message rule: a merge to dev must NAME what it
         # carries — never git's default "Merge remote-tracking branch …"
         # (--no-edit). The fast-forward path keeps the original descriptive
-        # commits; the merge-commit fallback now titles itself with the
-        # session branch + its head commit subject, so the Amplify deploy
-        # history reads as "what shipped", not boilerplate.
+        # commits; the merge-commit fallback titles itself with the head
+        # commit subject.
+        #
+        # THE SUBJECT COMES FIRST, AND THAT IS THE WHOLE POINT (2026-08-03).
+        # This used to read "merge ${branch}: ${SUBJECT}". Amplify's deploy
+        # list truncates the commit column at roughly 30 characters, and the
+        # branch name alone is 43 — so EVERY deployment rendered as the
+        # identical string "merge claude/tokenqube-minting…" and the operator
+        # could not tell one deploy from another. The messages were
+        # descriptive and the description was never visible.
+        #
+        # Putting ${SUBJECT} first spends the visible budget on what shipped.
+        # The branch is retained in a trailing bracket for correlation, where
+        # truncation costs nothing.
+        #
+        # ── CONFLICT RESOLUTION PATH (added 2026-08-09) ─────────────────────
+        #
+        # Before this, a real content conflict just failed the job silently —
+        # no push, no issue, nothing but an Actions log entry nobody was
+        # watching. A KNYTS Bridge session's branch sat unmerged against dev
+        # for two days (2026-08-08 through 2026-08-09) for exactly this
+        # reason: dev had independently evolved the same Horizen Pulse code
+        # the branch touched, the merge conflicted, the job failed, and
+        # NOTHING surfaced it until the branch's own new page 404'd on the
+        # live site. See codexes/packs/agentiq/updates/
+        # 2026-08-09_dev-merge-conflict-resolution-path.md for the incident.
+        #
+        # This step now distinguishes two cases:
+        #
+        #   1. The ONLY conflicting file is `.amplify-deploy` — a single-line
+        #      deploy-trigger timestamp with no semantic content. Two
+        #      branches touching it is never a real conflict, so it is
+        #      regenerated deterministically and the merge proceeds. This is
+        #      the ONLY conflict ever auto-resolved here; it is mechanical,
+        #      not a judgment call.
+        #
+        #   2. Any OTHER file conflicts — a real content conflict where
+        #      picking a side (or splicing both) requires actually reading
+        #      both versions, which this job cannot safely guess. The merge
+        #      is aborted (dev is left untouched) and a GitHub issue is
+        #      filed (or updated, if one is already open for this branch)
+        #      naming the conflicting files and the exact manual fallback
+        #      command sequence — so the failure is a durable, discoverable
+        #      artifact instead of a line in a log nobody is tailing. The job
+        #      still fails (exit 1), so Actions' own red-X signal is
+        #      unchanged; the issue is additive, not a replacement for it.
         run: |
           git checkout dev
-          SUBJECT="$(git log -1 --pretty=%s origin/${{ github.ref_name }})"
-          git merge --ff-only origin/${{ github.ref_name }} || \
-            git merge origin/${{ github.ref_name }} -m "merge ${{ github.ref_name }}: ${SUBJECT}"
-          git push origin dev
+          SUBJECT="$(git log -1 --pretty=%s origin/${BRANCH})"
+          MERGE_MSG="${SUBJECT} [merge ${BRANCH}]"
+
+          if git merge --ff-only "origin/${BRANCH}"; then
+            git push origin dev
+            exit 0
+          fi
+
+          set +e
+          git merge --no-commit "origin/${BRANCH}"
+          MERGE_EXIT=$?
+          set -e
+
+          if [ $MERGE_EXIT -eq 0 ]; then
+            # Merged clean without conflicts (rare once ff-only already
+            # failed, but possible with content-aware merge drivers) —
+            # commit with the descriptive message, same as the ff-only path.
+            git commit -m "$MERGE_MSG"
+            git push origin dev
+            exit 0
+          fi
+
+          CONFLICTS="$(git diff --name-only --diff-filter=U)"
+
+          if [ -z "$CONFLICTS" ]; then
+            # Merge failed for a reason OTHER than content conflicts (e.g. a
+            # transient git/network error) — not this step's case to handle.
+            # Abort cleanly and let the job fail as it always did.
+            git merge --abort || true
+            echo "::error::git merge failed with no conflicted files — not a content conflict. See job log above."
+            exit 1
+          fi
+
+          OTHER_CONFLICTS="$(echo "$CONFLICTS" | grep -v -x '\.amplify-deploy' || true)"
+
+          if [ -z "$OTHER_CONFLICTS" ]; then
+            # Only the deploy-trigger file conflicted — mechanical, always
+            # safe to regenerate.
+            date -u +"Deploy trigger %a %b %e %H:%M:%S UTC %Y" > .amplify-deploy
+            git add .amplify-deploy
+            git commit -m "$MERGE_MSG"
+            git push origin dev
+            exit 0
+          fi
+
+          # A real content conflict. Never guess a resolution here — abort
+          # and leave dev untouched, then surface it durably.
+          git merge --abort
+
+          ISSUE_TITLE="dev merge conflict: ${BRANCH}"
+          # Built line-by-line into a temp file (never a heredoc) — a heredoc's
+          # closing delimiter must sit at column 0 with no leading whitespace,
+          # which this YAML `run: |` block's own required indentation makes
+          # impossible to satisfy reliably. --body-file sidesteps that entirely.
+          BODY_FILE="$(mktemp)"
+          {
+            echo "Auto-merge from \`${BRANCH}\` to \`dev\` failed with a real content conflict — this is not the historical --no-edit/boilerplate-message defect; the conflicting content itself needs a human or agent to read both sides and decide, never an automatic pick."
+            echo ""
+            echo "**Conflicting files:**"
+            echo '```'
+            echo "${CONFLICTS}"
+            echo '```'
+            echo ""
+            echo "**To resolve** (see CLAUDE.md's \"Deployment\" and \"The auto-merge workflow is the enforcement point\" sections):"
+            echo '```bash'
+            echo "git fetch origin dev ${BRANCH}"
+            echo "git checkout ${BRANCH}"
+            echo "git merge origin/dev -m \"merge dev: sync before pushing <what this branch changed> [merge ${BRANCH}]\""
+            echo "# resolve conflicts, git add <files>, git commit"
+            echo "git push origin HEAD:dev"
+            echo '```'
+            echo ""
+            echo "Read each conflicting file's both sides before resolving — never default to \"ours\" or \"theirs\" blindly. If one side represents actively superseding work (e.g. a long-evolved fix on the same mechanism), it is usually correct to take that side wholesale rather than force a hybrid — say so explicitly in the merge commit message."
+            echo ""
+            echo "This issue was filed automatically by \`.github/workflows/merge-claude-to-dev.yml\`. Closing it does not resolve the conflict — \`${BRANCH}\` must actually reach \`dev\` first. It will not reopen itself; re-run this workflow (push again to \`${BRANCH}\`) after resolving to confirm."
+          } > "$BODY_FILE"
+
+          EXISTING_ISSUE="$(gh issue list --search "in:title \"${ISSUE_TITLE}\"" --state open --json number --jq '.[0].number // empty')"
+          if [ -n "$EXISTING_ISSUE" ]; then
+            gh issue comment "$EXISTING_ISSUE" --body-file "$BODY_FILE"
+          else
+            gh issue create --title "$ISSUE_TITLE" --body-file "$BODY_FILE"
+          fi
+
+          echo "::error::Real content conflict merging ${BRANCH} into dev — see the filed/updated GitHub issue and resolve manually."
+          exit 1
