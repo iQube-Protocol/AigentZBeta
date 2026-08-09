@@ -57,6 +57,7 @@ import { getActivePersona } from '@/services/identity/getActivePersona';
 import { isPassportUsable, loadUsableCitizenPassportForAuthProfile } from '@/services/identity/passportPrincipal';
 import { readSettledFact, settleFact, isSettled } from '@/services/journey/settledFacts';
 import { REGISTRATION_SEED_STANDING } from '@/services/journey/registrationStandingSeed';
+import { awardRegistrationStandingSeedIfEligible } from '@/services/journey/registrationStandingSeedAward';
 import {
   resolveAgentStateAxes,
   resolveBranchOffers,
@@ -384,6 +385,56 @@ async function resolveState(req: NextRequest) {
     });
     if (supabase) await guarded('agent-admission', async () => {
       admission = await resolveAgentAdmissionState(supabase, agent, caller?.authProfileId ?? null);
+    });
+    /*
+     * REGISTRATION STANDING SEED — awarded inline, the same idiom this route
+     * already uses for `passport_is_issued` above: a settled fact observed
+     * eligible is settled HERE, not deferred to a UI action nobody wires.
+     *
+     * Horizen Pilot Closure item 2 (operator, 2026-08-09): the seed
+     * (services/journey/registrationStandingSeed.ts) was fully specified —
+     * amount, basis, the settle-then-award contract — but had ZERO production
+     * callers. The state route READ the settled fact
+     * (`registrationStandingSeeded` above) but nothing ever WROTE it, so
+     * `initialStandingAwarded` below was always 0 for every agent, forever.
+     * See RES-2026-08-09-STANDING-SEED-PRODUCTION-WIRING-001.
+     *
+     * Eligibility reuses the EXACT two facts `factoryIngested` is computed
+     * from below (`admission?.factoryPresent`, the `capability_registered`
+     * receipt) — never a third, parallel eligibility check.
+     *
+     * Idempotent by construction: `settleFact` returns `alreadySettled: true`
+     * on every call after the first and does not overwrite, so this block is
+     * safe to run on every request (a page refresh, a retried reconciliation,
+     * concurrent tabs) without risk of a second award — the invariant the
+     * operator asked for ("cannot award repeatedly because reconciliation/UI
+     * is retried") is `settleFact`'s own guarantee, not a new one.
+     *
+     * Attribution: the ACTIVE OPERATOR persona, resolved the same way the
+     * ratify-agreement block below resolves it — never a static resolver
+     * string, because a Standing award (unlike Passport recognition) needs a
+     * real "who" for the audit trail. No active persona resolvable -> skipped
+     * as an audit gap, never guessed.
+     */
+    if (supabase) await guarded('standing-seed', async () => {
+      const capabilityReceiptIds = receiptRefs['capability_registered'] ?? [];
+      const activePersona = await getActivePersona(req);
+      if (!activePersona?.personaId) return; // cannot attribute — audit gap, never guessed
+
+      const outcome = await awardRegistrationStandingSeedIfEligible(supabase, agent, activePersona.personaId, {
+        alreadySeeded: registrationStandingSeeded,
+        factoryIngestedNow: admission?.factoryPresent === true || capabilityReceiptIds.length > 0,
+        evidenceReceiptIds: capabilityReceiptIds,
+      });
+      if (!outcome.awarded) return;
+
+      // Reflected in THIS response without a second round-trip — the fact was
+      // just settled and receipted in this same request, so both
+      // `registrationStandingSeeded` and the `standing_accrued` receiptRef
+      // (which `standingGatewayEnabled` below reads via `hasReceipt`) are
+      // updated together rather than lagging one request behind.
+      registrationStandingSeeded = true;
+      if (outcome.receiptId) (receiptRefs['standing_accrued'] ??= []).push(outcome.receiptId);
     });
     if (supabase) await guarded('persona-assignment', async () => {
       const agentRootId = admission?.agentRootId;

@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-09-STANDING-SEED-PRODUCTION-WIRING-001",
+  "statement": "A fully-specified capability with a documented caller contract is not complete until a production caller actually executes that contract at the boundary it names. A settled-fact read with no corresponding settle-fact write is not a smaller version of the capability — it is the capability's absence, silently rendered as a permanent zero/false to every downstream consumer. Closing this gap means wiring ONE canonical implementation of the documented contract at the observed completion boundary, generically for every eligible subject, never a per-subject patch and never a second, parallel eligibility check.",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "devon"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  },
+  "classification": "Operator directive, 2026-08-09 (Horizen Pilot Closure item 2), following the operator's own earlier correction (2026-08-03) that a registration act may earn a nominal, non-performance Standing seed. The audit that surfaced this found the spec module (registrationStandingSeed.ts) fully authored with its own caller contract in comments, and zero production import sites executing it — the exact 'specified but never wired' shape this invariant names.",
+  "scope": "local",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/registration-standing-seed-award.test.ts",
+      "assertion": "awardRegistrationStandingSeedIfEligible settles registry_standing_seeded and awards standing_accrued exactly once when eligibility is genuinely first-observed, for any RegistrableAgentConfig passed in (never a hardcoded slug); skips without calling settleFact when already-seeded or not-yet-eligible; never double-awards when settleFact itself reports the race as already-settled; never throws on a settle failure.",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "horizen-registration-standing-seed",
+      "defect": "registrationStandingSeed.ts specified amount, basis, and an explicit settle-then-award caller contract in its own comments, but no route or service ever called shouldAwardRegistrationSeed/settleFact for the registry_standing_seeded predicate — only two test files imported the module directly. The journey state route read the (never-written) settled fact and always computed initialStandingAwarded as 0.",
+      "resolutionId": "RES-2026-08-09-STANDING-SEED-PRODUCTION-WIRING-001",
+      "evidence": [
+        "tests/registration-standing-seed-award.test.ts"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-08-09-STANDING-SEED-PRODUCTION-WIRING-001"
+  ],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "A specific application of inv.engineering.036/037 ('one authoritative location per concern'; 'a parallel implementation of an existing capability is a defect') to the SPECIFY/WIRE split specifically — a spec module with a documented contract and zero callers is a distinct, recognisable failure shape from a duplicated implementation, and worth naming on its own: the defect is an absent edge in the call graph, not a second node.",
+    "Not yet claimed as cross-capability scope. The audit that produced this record found this exact shape (a fully-specified module, a documented contract, zero production callers) in TWO places in the same closure pass — this Standing seed, and (per the same pass's item 3/4 findings) the Ratify runtime-endpoint descriptor and pnlServiceVerification.ts's production wiring. A third independent occurrence outside this one closure pass would justify raising scope to cross-capability; kept local until then.",
+    "The fix pattern this occurrence used — extract the wiring into its own small, I/O-bearing service module (registrationStandingSeedAward.ts) rather than inlining it at the call site, mirroring registrationConfirmationDeps.ts from the same closure pass's item 1 — is itself worth naming if a third occurrence confirms it as the repeatable shape, but is recorded here only as a note, not asserted as its own invariant."
+  ]
+}
