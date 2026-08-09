@@ -3834,3 +3834,68 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-6e961c0.md](../build_/COMMITS/COMMIT-6e961c0.md)
 - Message: Add the missing Ingest act (capability_registered) plus its guided UI action
+
+## Commit `a0b9d8d` — 2026-08-09T22:05:08Z
+- Type: `push`
+- Brief: [COMMIT-a0b9d8d.md](../build_/COMMITS/COMMIT-a0b9d8d.md)
+- Message: Build KNYTS Bridge v1 — campaign-tagged crossing journey
+
+## Commit `db8a6df` — 2026-08-08T17:34:39-04:00
+- Type: `push`
+- Brief: [COMMIT-db8a6df.md](../build_/COMMITS/COMMIT-db8a6df.md)
+- Message: Register CI agent machine-readable package
+
+## Commit `5c233ea` — 2026-08-08T17:34:24-04:00
+- Type: `push`
+- Brief: [COMMIT-5c233ea.md](../build_/COMMITS/COMMIT-5c233ea.md)
+- Message: Register Constitutional Internet agent edition in Polity Core
+
+## Commit `6e9f7ca` — 2026-08-08T17:33:45-04:00
+- Type: `feat`
+- Brief: [COMMIT-6e9f7ca.md](../build_/COMMITS/COMMIT-6e9f7ca.md)
+- Message: Add agent accession intent schema v0.1
+
+## Commit `f935e9d` — 2026-08-08T17:33:36-04:00
+- Type: `feat`
+- Brief: [COMMIT-f935e9d.md](../build_/COMMITS/COMMIT-f935e9d.md)
+- Message: Add agent accession compact v0.1
+
+## Commit `9ebcea7` — 2026-08-08T17:33:29-04:00
+- Type: `feat`
+- Brief: [COMMIT-9ebcea7.md](../build_/COMMITS/COMMIT-9ebcea7.md)
+- Message: Add machine-readable CI agent edition v0.1
+
+## Commit `c432bce` — 2026-08-08T17:33:07-04:00
+- Type: `feat`
+- Brief: [COMMIT-c432bce.md](../build_/COMMITS/COMMIT-c432bce.md)
+- Message: Add CI agent edition machine-readable package manifest
+
+## Commit `ad60470` — 2026-08-08T17:32:55-04:00
+- Type: `feat`
+- Brief: [COMMIT-ad60470.md](../build_/COMMITS/COMMIT-ad60470.md)
+- Message: Add Constitutional Internet for Agents manuscript v0.1
+
+## Commit `4548472` — 2026-08-05T16:51:20Z
+- Type: `push`
+- Brief: [COMMIT-4548472.md](../build_/COMMITS/COMMIT-4548472.md)
+- Message: Produce v0.4 as the first publication-candidate manuscript
+
+## Commit `2165d02` — 2026-08-05T02:54:52Z
+- Type: `fix`
+- Brief: [COMMIT-2165d02.md](../build_/COMMITS/COMMIT-2165d02.md)
+- Message: Fix Horizen Pulse enable call to send the same 5 fields build used
+
+## Commit `b154b22` — 2026-08-05T00:48:26Z
+- Type: `fix`
+- Brief: [COMMIT-b154b22.md](../build_/COMMITS/COMMIT-b154b22.md)
+- Message: Correct v0.3 ruling identifier and companion-corpus status claims
+
+## Commit `ee0a61a` — 2026-08-04T20:32:14Z
+- Type: `push`
+- Brief: [COMMIT-ee0a61a.md](../build_/COMMITS/COMMIT-ee0a61a.md)
+- Message: Produce Controlling Manuscript v0.3 by consolidating v0.2 against the ratified register
+
+## Commit `2d9ede1` — 2026-08-04T03:43:05Z
+- Type: `push`
+- Brief: [COMMIT-2d9ede1.md](../build_/COMMITS/COMMIT-2d9ede1.md)
+- Message: Register CR-14: Constitution Before Substrate quantum launchpad (queued, not applied)
