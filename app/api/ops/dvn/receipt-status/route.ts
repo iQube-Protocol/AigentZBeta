@@ -46,17 +46,52 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'db unavailable' }, { status: 503 });
   }
 
+  // Column-by-column probe FIRST — Horizen Pilot Closure, part B3 (2026-08-09)
+  // discovered live that `dvn_status` (added by
+  // supabase/migrations/20260808010000_activity_receipt_dual_leg_anchoring.sql)
+  // does not exist on the deployed table, even though the DVN submission path
+  // writes it in the SAME UPDATE statement as receipt_status/dvn_receipt_id —
+  // a missing column fails that whole UPDATE, silently, so this route must
+  // never assume any dual-leg column is actually present. Report exactly
+  // which ones are, rather than fail outright or guess.
+  const candidateColumns = [
+    'id',
+    'action_type',
+    'receipt_status',
+    'dvn_receipt_id',
+    'created_at',
+    'commitment_hash',
+    'dvn_status',
+    'pos_status',
+    'pos_receipt_id',
+    'btc_anchor_txid',
+    'btc_batch_root',
+  ];
+  const missingColumns: string[] = [];
+  const presentColumns: string[] = [];
+  for (const col of candidateColumns) {
+    const probe = await admin.from('activity_receipts').select(col).limit(1);
+    if (probe.error && /does not exist/i.test(probe.error.message)) {
+      missingColumns.push(col);
+    } else {
+      presentColumns.push(col);
+    }
+  }
+
   const { data, error } = await admin
     .from('activity_receipts')
-    .select('id, action_type, receipt_status, dvn_receipt_id, dvn_status, pos_status, btc_anchor_txid, created_at')
+    .select(presentColumns.join(', '))
     .in('id', ids);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: error.message, presentColumns, missingColumns }, { status: 500 });
   }
 
-  const found = new Map((data ?? []).map((r) => [r.id, r]));
+  const found = new Map((data ?? []).map((r: any) => [r.id, r]));
   const receipts = ids.map((id) => found.get(id) ?? { id, notFound: true });
 
-  return NextResponse.json({ receipts }, { headers: { 'Cache-Control': 'no-store' } });
+  return NextResponse.json(
+    { receipts, schema: { presentColumns, missingColumns } },
+    { headers: { 'Cache-Control': 'no-store' } },
+  );
 }
