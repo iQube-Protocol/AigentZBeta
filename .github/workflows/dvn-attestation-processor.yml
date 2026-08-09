@@ -17,18 +17,24 @@ name: dvn-attestation-processor
 # independent liveness, driven from DVN pending state — never PoS pending
 # count.
 #
-# ── DELIBERATELY NO `schedule:` TRIGGER YET (Part B3) ───────────────────────
+# ── B3 BOUNDED PASS: CONFIRMED ACCEPTED (operator, 2026-08-09) ──────────────
 #
-# The operator's explicit sequencing: do not change validatorId generation,
-# signature generation, batch size, or attestation semantics, and do not
-# give this process scheduled liveness until ONE bounded manual pass
-# confirms the canister accepts the current pilot attestations. Trigger
-# this workflow manually (Actions -> dvn-attestation-processor -> Run
-# workflow) to run that bounded pass; its response reports
-# processed/rejected/failed/canisterErrors/total. Once that confirms
-# acceptance, add a `schedule:` block here (mirroring dvn-reconciler.yml's
-# `*/15 * * * *` or activity-receipts-finalizer.yml's `*/5 * * * *`) —
-# do not add it pre-emptively.
+# One manual workflow_dispatch run against the live canister returned
+# {"processed":10,"rejected":0,"failed":0,"canisterErrors":[]} — every
+# submission in the batch was accepted ("Attestation recorded. Need 1 more
+# attestations"). Per the operator's explicit instruction ("if the canister
+# accepts the current pilot attestations, then give the existing process
+# independent scheduled liveness"), this now runs on a schedule. Nothing
+# about validatorId generation, signature generation, batch size, or
+# attestation semantics changed to get here — this was a pure liveness
+# decision, made only after observing a real, accepted response.
+#
+# 5-minute cadence, matching activity-receipts-finalizer.yml's — that
+# finalizer is exactly what this processor unblocks (it promotes
+# dvn_pending -> dvn_recorded once a message's attestation count reaches
+# the canister's threshold), and the observed backlog (471 pending
+# messages, 10/run, 2 attestations required per message) needs sustained
+# ticking rather than the slower 15-minute PoS/anchor cadence.
 #
 # The current validator/signature substrate is test-grade
 # (`validator_<ts>_<id>` / `sig_<id>_<ts>` bytes) — this is the dev/pilot
@@ -38,8 +44,12 @@ name: dvn-attestation-processor
 # Required secret (already provisioned for dvn-reconciler.yml — same token,
 # same env var, no new secret to add):
 #   CRON_TRIGGER_TOKEN
+#
+# Manual trigger: Actions -> dvn-attestation-processor -> Run workflow.
 
 on:
+  schedule:
+    - cron: '*/5 * * * *'
   workflow_dispatch:
 
 concurrency:

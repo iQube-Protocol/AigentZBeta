@@ -29,15 +29,15 @@ export const maxDuration = 60;
  * dvnAttestationProcessor.ts and is shared with the operator-UI route
  * (app/api/ops/layerzero/process).
  *
- * ── SEQUENCING (Part B3) ─────────────────────────────────────────────────
+ * ── SEQUENCING (Part B3 — confirmed, 2026-08-09) ─────────────────────────
  *
  * Nothing about validatorId generation, signature generation, batch size,
- * or attestation semantics changes here. The corresponding workflow
- * (.github/workflows/dvn-attestation-processor.yml) is deliberately
- * `workflow_dispatch`-only for now — no `schedule:` trigger — until an
- * operator-run bounded pass confirms the canister accepts these pilot
- * attestations. Do not add a schedule trigger to that workflow without
- * that confirmation.
+ * or attestation semantics changed here. The operator ran one bounded
+ * workflow_dispatch pass against the live canister first
+ * ({"processed":10,"rejected":0,"failed":0,"canisterErrors":[]}) before the
+ * corresponding workflow (.github/workflows/dvn-attestation-processor.yml)
+ * was given a `schedule:` trigger — see that workflow's own header for the
+ * observed response.
  *
  * The current validator/signature substrate is test-grade
  * (`validator_<ts>_<id>` / `sig_<id>_<ts>` bytes) — the dev/pilot

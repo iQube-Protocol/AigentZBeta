@@ -83,7 +83,7 @@ describe('the shared processor is the ONE place submit_attestation is called', (
   });
 });
 
-describe('the workflow gives the processor liveness, without pre-emptively scheduling it', () => {
+describe('the workflow gives the processor scheduled liveness (B3 bounded pass confirmed accepted, 2026-08-09)', () => {
   const workflow = read('.github/workflows/dvn-attestation-processor.yml');
 
   it('drives the new attestation-processor-cron route with CRON_TRIGGER_TOKEN', () => {
@@ -92,8 +92,10 @@ describe('the workflow gives the processor liveness, without pre-emptively sched
     expect(workflow).toMatch(/x-cron-token/);
   });
 
-  it('is manually dispatchable, so the operator can run the required B3 bounded pass', () => {
+  it('is manually dispatchable AND scheduled — the manual B3 pass confirmed the canister accepts these attestations', () => {
     expect(workflow).toMatch(/workflow_dispatch:/);
+    expect(workflow).toMatch(/schedule:/);
+    expect(workflow).toMatch(/- cron:\s*'[^']+'/);
   });
 
   it('serialises runs — two concurrent passes could double-submit against the same pending set', () => {
