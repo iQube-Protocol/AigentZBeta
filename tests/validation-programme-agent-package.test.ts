@@ -245,6 +245,6 @@ describe('GET validation-programme/agent-package', () => {
       'experiment-progress',
     ]);
     const crystalStage = json.package.stages.find((s: { id: string }) => s.id === 'crystal-review');
-    expect(crystalStage.permittedActions).toEqual(['comment', 'recommend-change', 'contest-finding']);
+    expect(crystalStage.permittedActions).toEqual(['comment', 'recommend-change', 'contest-finding', 'submit-observer-decision']);
   });
 });

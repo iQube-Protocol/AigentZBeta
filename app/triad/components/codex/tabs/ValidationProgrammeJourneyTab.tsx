@@ -21,6 +21,7 @@ import { VALIDATION_PROGRAMME_JOURNEY } from '@/services/journey/validationProgr
 import { PartnerProgrammesTab } from './PartnerProgrammesTab';
 import { AgentiqCartridgeTab } from './AgentiqCartridgeTab';
 import IndependentReviewPanel from '@/components/composer/IndependentReviewPanel';
+import CrystalObserverReviewPanel from '@/components/composer/CrystalObserverReviewPanel';
 import { LockerTab } from './LockerTab';
 import { ReviewerAgreementPanel } from "@/components/research/ReviewerAgreementPanel";
 
@@ -33,6 +34,7 @@ const JOURNEY_COMPONENTS: Record<string, React.ComponentType<Record<string, unkn
   PartnerProgrammesTab,
   AgentiqCartridgeTab,
   IndependentReviewPanel,
+  CrystalObserverReviewPanel,
   LockerTab,
   ReviewerAgreementPanel,
 };

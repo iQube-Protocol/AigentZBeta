@@ -263,14 +263,16 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
   },
   'validation-programme-crystal-review': {
     kind: 'component',
-    component: 'IndependentReviewPanel',
+    component: 'CrystalObserverReviewPanel',
     note:
-      'The real IndependentReviewPanel (components/composer/IndependentReviewPanel.tsx) rendered ' +
-      'directly with reviewerMode=true, not the Laboratory\'s embed shell around it — operator ' +
-      'instruction 2026-08-01, point 4: "the exact same page... only addition: Download JSON for ' +
-      'Agent." reviewerMode hides New Review and every governed-resolution control (freeze preview, ' +
-      'accept/revise/defer/reject); Review Queue/Result/Crystal vP1 render unchanged, scoped server-' +
-      'side to the caller\'s reviewer grant (requireReviewReadAccess).',
+      'Post-Freeze Observer Review Closure (2026-08-09), points 2 and 10: the ONE canonical Workspace ' +
+      'Review surface for the autonomi-review-exp-p1 workspace. Composes the existing read-only Crystal ' +
+      'vP1 projection (IndependentReviewPanel rendered internally in reviewerMode=true — New Review and ' +
+      'every governed-resolution control still hidden, and the frozen-artifact summary + observer ' +
+      'acceptance status render once frozen) with the NEW self-service Observer Decision submission ' +
+      '(/api/research/observer-review/[experimentId]/decision). Replaces the prior direct mount of ' +
+      'IndependentReviewPanel here, which duplicated this workspace\'s review surface without an ' +
+      'observer-decision mechanism of its own.',
   },
   'validation-programme-reviewer-agreement': {
     kind: 'component',

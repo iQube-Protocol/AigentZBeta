@@ -218,7 +218,7 @@ describe('VALIDATION_PROGRAMME_JOURNEY — structure and reuse', () => {
     // literals that are explanatory prose rather than executable code).
     const crystalStage = VALIDATION_PROGRAMME_JOURNEY.stages.find((s) => s.id === 'crystal-review');
     expect(crystalStage).toBeTruthy();
-    expect(crystalStage!.permittedActions).toEqual(['comment', 'recommend-change', 'contest-finding']);
+    expect(crystalStage!.permittedActions).toEqual(['comment', 'recommend-change', 'contest-finding', 'submit-observer-decision']);
     for (const forbidden of ['freeze-crystal', 'ratify', 'approve-governance', 'modify-corpus', 'change-lifecycle']) {
       expect(crystalStage!.permittedActions).not.toContain(forbidden);
     }
@@ -248,7 +248,7 @@ describe('resolveJourneyState over the Validation Programme journey (behavioural
     const state = resolveJourneyState(VALIDATION_PROGRAMME_JOURNEY, {
       stages: {
         overview: { reviewerAccessConfirmed: true },
-        'crystal-review': { reviewDecisionSubmitted: true },
+        'crystal-review': { observerDecisionSubmitted: true },
       },
     });
     const byId = Object.fromEntries(state.stages.map((s) => [s.stageId, s.state]));
@@ -260,7 +260,7 @@ describe('resolveJourneyState over the Validation Programme journey (behavioural
     const state = resolveJourneyState(VALIDATION_PROGRAMME_JOURNEY, {
       stages: {
         overview: { reviewerAccessConfirmed: true },
-        'crystal-review': { reviewDecisionSubmitted: true },
+        'crystal-review': { observerDecisionSubmitted: true },
         'submit-review': {},
       },
     });
@@ -272,7 +272,7 @@ describe('resolveJourneyState over the Validation Programme journey (behavioural
     const state = resolveJourneyState(VALIDATION_PROGRAMME_JOURNEY, {
       stages: {
         overview: { reviewerAccessConfirmed: true },
-        'crystal-review': { reviewDecisionSubmitted: true },
+        'crystal-review': { observerDecisionSubmitted: true },
         'submit-review': { collaborationAgreementAuthorized: true },
       },
     });
@@ -282,7 +282,7 @@ describe('resolveJourneyState over the Validation Programme journey (behavioural
 });
 
 describe('State route — real state resolution, no fabrication', () => {
-  it('imports the real reviewer-reach check and the real review store, never a stub', () => {
+  it('imports the real reviewer-reach check and the real Observer Review round store, never a stub', () => {
     const graph = importAuthority(readSource('app/api/journey/validation-programme/state/route.ts'));
     // `diagnoseExperimentReviewAccess` is the STRUCTURED form of the same
     // rule `callerMayReadExperimentReview` answers — same module, same query,
@@ -297,7 +297,12 @@ describe('State route — real state resolution, no fabrication', () => {
           r.names.includes('diagnoseExperimentReviewAccess'),
       ),
     ).toBe(true);
-    expect(graph.records.some((r) => r.names.includes('listReviews'))).toBe(true);
+    // Post-Freeze Observer Review Closure (2026-08-09): Crystal Review
+    // completion is now derived from the REAL Observer Review round
+    // (services/research/observerReviewStore.ts), never from the automated
+    // dual-model R1/R2 pipeline's `listReviews` — the prior binding this
+    // canary checked for was itself the defect (SPEC point 5).
+    expect(graph.records.some((r) => r.names.includes('getObserverRound'))).toBe(true);
     expect(graph.records.some((r) => r.names.includes('resolveJourneyState'))).toBe(true);
   });
 

@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-08T23:16:08.848Z",
+  "last_updated": "2026-08-09T03:12:25.556Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "c56c1aa5ab85ded801b4c0f133bb7df42458b505",
-  "latest_commit_short": "c56c1aa",
-  "latest_commit_title": "docs(chrysalis): capture DVN Spine fast-follow backlog",
+  "latest_commit": "f2ca7aaf0864a4ba20f5f20315770cca6f1f97f0",
+  "latest_commit_short": "f2ca7aa",
+  "latest_commit_title": "Add Post-Freeze Observer Review Closure for Crystal vP1 (EXP-P1)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,159 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "f2ca7aa",
+      "full_sha": "f2ca7aaf0864a4ba20f5f20315770cca6f1f97f0",
+      "title": "Add Post-Freeze Observer Review Closure for Crystal vP1 (EXP-P1)",
+      "author": "Claude",
+      "timestamp": "2026-08-09T03:05:48Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-f2ca7aa.md"
+    },
+    {
+      "sha": "2126d7d",
+      "full_sha": "2126d7de123b6e87ad37ff8294e0fc78daa1d183",
+      "title": "Record the real commit hash on the observer-review resolution record",
+      "author": "Claude",
+      "timestamp": "2026-08-09T03:06:02Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-2126d7d.md"
+    },
+    {
+      "sha": "f294431",
+      "full_sha": "f294431c5fa3edf9f3660f7334a602a14fe7884f",
+      "title": "Surface the dual-leg (DVN + Bitcoin) receipt state through to the UI",
+      "author": "Claude",
+      "timestamp": "2026-08-08T20:59:02Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-f294431.md"
+    },
+    {
+      "sha": "82ff28e",
+      "full_sha": "82ff28e5585ef4fcb065a996965fae86767d5673",
+      "title": "Register Threshold/metaMe MCP server in .mcp.json + docs",
+      "author": "Claude",
+      "timestamp": "2026-08-08T22:40:18Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-82ff28e.md"
+    },
+    {
+      "sha": "8edc1f8",
+      "full_sha": "8edc1f890160b7fe16d47cc8e64a01172a5204b5",
+      "title": "Simplify DVN/BTC receipt badges to terse vocabulary + give the activity-receipts finalizer independent liveness",
+      "author": "Claude",
+      "timestamp": "2026-08-08T23:08:47Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-8edc1f8.md"
+    },
+    {
+      "sha": "e201597",
+      "full_sha": "e2015975513e3e2d814c38637679de3782878ed5",
+      "title": "Fix receipts-route allowlist drift hiding MoneyPenny's Register ceremony evidence",
+      "author": "Claude",
+      "timestamp": "2026-08-08T23:34:27Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-e201597.md"
+    },
+    {
+      "sha": "7638442",
+      "full_sha": "76384429e8d8a05b53930c1f4ea3226535eacd55",
+      "title": "Give Horizen registration confirmation independent server-side liveness",
+      "author": "Claude",
+      "timestamp": "2026-08-09T00:13:19Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-7638442.md"
+    },
+    {
+      "sha": "d427c26",
+      "full_sha": "d427c26e2a63ba0032e4bd888e87535d6fd898f8",
+      "title": "Wire the registration Standing seed into production, generically",
+      "author": "Claude",
+      "timestamp": "2026-08-09T00:41:56Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-d427c26.md"
+    },
+    {
+      "sha": "20dc5ed",
+      "full_sha": "20dc5ed3152c15db454ca3d079b9544fe4cb5e3b",
+      "title": "Close MoneyPenny's Ratify runtime-endpoint descriptor gap generically",
+      "author": "Claude",
+      "timestamp": "2026-08-09T00:46:01Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-20dc5ed.md"
+    },
+    {
+      "sha": "4846fa6",
+      "full_sha": "4846fa62ea04664d55f46e7aa68586ac337e8d69",
+      "title": "Wire real P&L verification into production, distinct from authorization",
+      "author": "Claude",
+      "timestamp": "2026-08-09T00:52:25Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-4846fa6.md"
+    },
+    {
+      "sha": "fc163cc",
+      "full_sha": "fc163cc1b03673b34c7ee6dec309246da9e8b0f9",
+      "title": "Remove duplicate PILOT_AGENTS registry; stop constructing aigent-\\${slug}",
+      "author": "Claude",
+      "timestamp": "2026-08-09T01:01:08Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-fc163cc.md"
+    },
+    {
+      "sha": "0eaaa90",
+      "full_sha": "0eaaa90b68c85d1ec509b2feefbb4dc44c08909b",
+      "title": "JourneyCompanionCarousel and journey narration are agent-generic",
+      "author": "Claude",
+      "timestamp": "2026-08-09T01:12:17Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-0eaaa90.md"
+    },
+    {
+      "sha": "6753cc2",
+      "full_sha": "6753cc2f4760cc10f0032bfb1fea66442f91eb09",
+      "title": "Produce DVN finality transition matrix, no mechanical Minted gating",
+      "author": "Claude",
+      "timestamp": "2026-08-09T01:14:09Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-6753cc2.md"
+    },
+    {
+      "sha": "a016920",
+      "full_sha": "a0169201da10a5d62acf524beda2d1ef2d8436a7",
+      "title": "Build the read-only Agent-N preflight check",
+      "author": "Claude",
+      "timestamp": "2026-08-09T01:17:29Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-a016920.md"
+    },
+    {
+      "sha": "edd2ed4",
+      "full_sha": "edd2ed43536efe9cc57e4ac6cad156ce14dcf31d",
+      "title": "Add Agent-N genericity proof with a third synthetic agent",
+      "author": "Claude",
+      "timestamp": "2026-08-09T01:21:54Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-edd2ed4.md"
+    },
+    {
+      "sha": "1a5d597",
+      "full_sha": "1a5d5978cc1db5aea0d4927e5c4834a73d26487c",
+      "title": "Horizen Pilot Closure Report — CODE READY / LIVE VERIFICATION PENDING",
+      "author": "Claude",
+      "timestamp": "2026-08-09T01:24:30Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-1a5d597.md"
+    },
+    {
+      "sha": "43e2e15",
+      "full_sha": "43e2e153cba171ab032c0af432dab6353d7814bd",
+      "title": "Insert Orient stage between Claim and Passport, render Ratify/Ingest/Standing as Consequence Fork",
+      "author": "Claude",
+      "timestamp": "2026-08-09T02:01:34Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-43e2e15.md"
+    },
     {
       "sha": "c56c1aa",
       "full_sha": "c56c1aa5ab85ded801b4c0f133bb7df42458b505",
@@ -1099,159 +1252,6 @@
       "timestamp": "2026-07-17T14:43:06Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-b795373.md"
-    },
-    {
-      "sha": "c658f88",
-      "full_sha": "c658f8842684140e3cbe2d539e54ef999fd1b180",
-      "title": "docs: CRP-003a 3b + 2b + P3 run doc + tracker (collections registered)",
-      "author": "Claude",
-      "timestamp": "2026-07-17T14:44:11Z",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-c658f88.md"
-    },
-    {
-      "sha": "f8774e8",
-      "full_sha": "f8774e854bae88f3a57ba9d45fd22a0aca8bfe18",
-      "title": "CRP-003a: Domain 1/2 executors + LLM analysis layer + settlement binding",
-      "author": "Claude",
-      "timestamp": "2026-07-17T14:59:24Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-f8774e8.md"
-    },
-    {
-      "sha": "bc51d94",
-      "full_sha": "bc51d946a0e3cfbd967e6c898e19fd376be8f588",
-      "title": "CRP-003a: money-moving agreement UI (domain selector + spend cap + settlement)",
-      "author": "Claude",
-      "timestamp": "2026-07-17T15:01:45Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-bc51d94.md"
-    },
-    {
-      "sha": "85e0532",
-      "full_sha": "85e0532fe773a8c551d6cf16156cd8109b33d8fc",
-      "title": "docs: CRP-003a money-moving domains run doc + tracker (collections registered)",
-      "author": "Claude",
-      "timestamp": "2026-07-17T15:02:44Z",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-85e0532.md"
-    },
-    {
-      "sha": "be5942a",
-      "full_sha": "be5942ae401d07ef623de7e352b49aa0a83154b7",
-      "title": "author CFS-037 / PRD-IRE-001 Invariant Resolution Engine (RATIFIED; P0 authorized)",
-      "author": "Claude",
-      "timestamp": "2026-07-17T16:57:01Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-be5942a.md"
-    },
-    {
-      "sha": "63399de",
-      "full_sha": "63399dec9785a4eddd31d0d4acea41d34551abdf",
-      "title": "build IRE Phase 0 (CFS-037): shadow resolution seam + Horizen pipeline observer",
-      "author": "Claude",
-      "timestamp": "2026-07-17T17:00:38Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-63399de.md"
-    },
-    {
-      "sha": "55da157",
-      "full_sha": "55da1579fe3dcabf7e0749e8a279e28953b280d9",
-      "title": "docs: CFS-037 IRE ratified + P0 run doc + tracker (collections registered)",
-      "author": "Claude",
-      "timestamp": "2026-07-17T17:01:26Z",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-55da157.md"
-    },
-    {
-      "sha": "b728906",
-      "full_sha": "b728906eea723619e2eef436eb6a6ab3d0365068",
-      "title": "author the CFS-037 PRD family: CCR / IPE / KRE / CFO (docs-first, reconciled)",
-      "author": "Claude",
-      "timestamp": "2026-07-17T17:53:01Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-b728906.md"
-    },
-    {
-      "sha": "5418dfb",
-      "full_sha": "5418dfbdbdbf65bfe51b7e8f88ba99242ed7fb6f",
-      "title": "wire video-article alignment output into the studio artifact service",
-      "author": "claude[bot]",
-      "timestamp": "2026-07-15T06:03:38Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-5418dfb.md"
-    },
-    {
-      "sha": "6cd14f6",
-      "full_sha": "6cd14f6cd11587ff7bc06500777ba9e402af7fed",
-      "title": "add marketer/creator-facing video-article flow in studio workflows tab",
-      "author": "claude[bot]",
-      "timestamp": "2026-07-15T06:03:44Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-6cd14f6.md"
-    },
-    {
-      "sha": "98ed85c",
-      "full_sha": "98ed85ced1892b85f6d6983b50251521a062e581",
-      "title": "document video-article remediation: studio integration + creator ux",
-      "author": "claude[bot]",
-      "timestamp": "2026-07-15T06:03:48Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-98ed85c.md"
-    },
-    {
-      "sha": "a064e14",
-      "full_sha": "a064e14f7df64e3ac42965eb9f4933246dcc98b2",
-      "title": "register 24-second video+article skill in the studio catalog",
-      "author": "claude[bot]",
-      "timestamp": "2026-07-14T13:44:31Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-a064e14.md"
-    },
-    {
-      "sha": "cf5ad6a",
-      "full_sha": "cf5ad6a4b410506057ce70283a9392ef5a020ed1",
-      "title": "add end-to-end orchestration canary for buildVideoArticlePlan",
-      "author": "claude[bot]",
-      "timestamp": "2026-07-14T13:46:48Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-cf5ad6a.md"
-    },
-    {
-      "sha": "5dda90d",
-      "full_sha": "5dda90db252639536029e80ba857c8362bd71dce",
-      "title": "document video-article pack re-dispatch finding + orchestration canary",
-      "author": "claude[bot]",
-      "timestamp": "2026-07-14T13:46:49Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-5dda90d.md"
-    },
-    {
-      "sha": "e6fb770",
-      "full_sha": "e6fb77026a4cceb460194dfd12e96490e05889d7",
-      "title": "Restructure DevTools into tabs (Environment & Canisters · Telemetry · DVN Pipeline · Escalation Log)",
-      "author": "Claude",
-      "timestamp": "2026-07-08T14:42:17Z",
-      "type": "refactor",
-      "brief": "items/build_/COMMITS/COMMIT-e6fb770.md"
-    },
-    {
-      "sha": "f354c8b",
-      "full_sha": "f354c8b9bec0d741581549018a0049ef263eca91",
-      "title": "Fix CDE tool-viewport hang: timebox every external probe (canister/DVN/GitHub/Linear)",
-      "author": "Claude",
-      "timestamp": "2026-07-08T09:20:31Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-f354c8b.md"
-    },
-    {
-      "sha": "c34a792",
-      "full_sha": "c34a792471c29529def93a9b66a1a22bd39fdb96",
-      "title": "Build the Bearing Instrument v1: the constitutional compass, operating within the CCRL reference field",
-      "author": "Claude",
-      "timestamp": "2026-07-08T08:29:40Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-c34a792.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

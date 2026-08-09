@@ -122,16 +122,18 @@ export const VALIDATION_PROGRAMME_JOURNEY: JourneyDefinition = {
         {
           mode: 'component',
           ref: 'validation-programme-crystal-review',
-          props: { reviewerMode: true },
+          props: { experimentId: VALIDATION_PROGRAMME_EXPERIMENT_ID },
           note:
-            'IndependentReviewPanel rendered directly in reviewerMode — the exact same Review Queue, ' +
-            'Review Result and Crystal vP1 views an operator sees, with New Review and every governed-' +
-            'resolution control hidden. Never a second, reviewer-only fork of the same reports.',
+            'CrystalObserverReviewPanel — the ONE canonical Workspace Review flow for this workspace ' +
+            '(Post-Freeze Observer Review Closure, 2026-08-09, points 2/10). Composes the existing ' +
+            'read-only Crystal vP1 projection with the new self-service Observer Decision submission. ' +
+            'Replaces the prior direct IndependentReviewPanel(reviewerMode) mount, which had no ' +
+            'structured decision mechanism of its own.',
         },
       ],
       prerequisites: ['overview'],
-      permittedActions: ['comment', 'recommend-change', 'contest-finding'],
-      completionEvidence: ['reviewDecisionSubmitted'],
+      permittedActions: ['comment', 'recommend-change', 'contest-finding', 'submit-observer-decision'],
+      completionEvidence: ['observerDecisionSubmitted'],
       receiptTypes: [],
       companion: {
         before:

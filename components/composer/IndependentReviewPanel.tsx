@@ -926,6 +926,19 @@ function CrystalPanel({ reviewerMode = false }: { reviewerMode?: boolean } = {})
   const unpopulatedProvenance = data?.unpopulatedProvenance as string | undefined;
   const reviewableScientificObject = Boolean(data?.reviewableScientificObject);
 
+  // Post-Freeze Observer Review Closure, point 1: once the crystal is
+  // FROZEN, every freeze-preparation/governance affordance below is
+  // suppressed and this immutable summary renders instead — never both.
+  const isFrozen = lifecycle?.stageId === "FROZEN" || lifecycle?.stageId === "CANONICAL";
+  const frozenArtifact = data?.frozenArtifact as
+    | { id: string; contentHash: string | null; commitmentHash: string | null; frozenAt: string | null; signedBy: string[]; receiptId: string | null }
+    | null
+    | undefined;
+  const observerAcceptance = data?.observerAcceptance as
+    | { acceptance: "pending" | "accepted" | "changes_requested" | "mixed"; assignedCount: number; decidedCount: number; outstandingObserverRefs: string[]; detail: string }
+    | null
+    | undefined;
+
   const pkg = previewResult?.package as
     | { packageHash: string; contentHash: string; eligibleForRatification: boolean; signatories: string[]; dvnAnchorRef: null }
     | undefined;
@@ -1046,16 +1059,20 @@ function CrystalPanel({ reviewerMode = false }: { reviewerMode?: boolean } = {})
             </ol>
           </div>
         ) : null}
-        <p className="mb-2 text-[11px] leading-relaxed text-slate-400">
-          Preparing a crystal for freeze is engineering; freezing a crystal is a separate constitutional act the
-          operator alone performs, outside this panel. Nothing here writes to the corpus or marks anything frozen.
-        </p>
-        <input
-          className={FIELD}
-          value={domain}
-          onChange={(e) => setDomain(e.target.value)}
-          placeholder="domain override — blank uses the experiment's ratified declaration"
-        />
+        {!isFrozen && (
+          <>
+            <p className="mb-2 text-[11px] leading-relaxed text-slate-400">
+              Preparing a crystal for freeze is engineering; freezing a crystal is a separate constitutional act the
+              operator alone performs, outside this panel. Nothing here writes to the corpus or marks anything frozen.
+            </p>
+            <input
+              className={FIELD}
+              value={domain}
+              onChange={(e) => setDomain(e.target.value)}
+              placeholder="domain override — blank uses the experiment's ratified declaration"
+            />
+          </>
+        )}
         {error && (
           <div className="mt-2 rounded-lg border border-rose-500/30 bg-rose-500/10 p-2.5 text-[11px] text-rose-200">
             <AlertTriangle className="mr-1 inline h-3 w-3" />
@@ -1211,7 +1228,59 @@ function CrystalPanel({ reviewerMode = false }: { reviewerMode?: boolean } = {})
         </div>
       )}
 
-      {!reviewerMode && (
+      {isFrozen && (
+        <div className={PANEL}>
+          <div className="mb-2 flex items-center gap-2">
+            <Gem className="h-4 w-4 text-emerald-400" />
+            <h4 className="text-xs font-semibold text-slate-100">Frozen Crystal — Immutable</h4>
+          </div>
+          <p className="mb-2 text-[11px] leading-relaxed text-slate-400">
+            This crystal has been frozen by a governed act. Its content is fixed and receipted — no
+            freeze-preparation or governance affordance is offered below; every further act against it is
+            Post-Freeze Observer Review (SPEC-IRL-WORKSPACE-001 closure), not a re-run of the ceremony.
+          </p>
+          {frozenArtifact && (
+            <div className="grid gap-1 text-[11px] text-slate-300 sm:grid-cols-2">
+              <div>artifact <span className="font-mono text-slate-200">{frozenArtifact.id}</span></div>
+              <div>frozen at <span className="text-slate-200">{frozenArtifact.frozenAt ?? "—"}</span></div>
+              <div>content hash <span className="font-mono text-slate-200">{frozenArtifact.contentHash?.slice(0, 24) ?? "—"}…</span></div>
+              <div>commitment hash <span className="font-mono text-slate-200">{frozenArtifact.commitmentHash?.slice(0, 24) ?? "—"}…</span></div>
+              <div>signed by <span className="text-slate-200">{frozenArtifact.signedBy?.join(", ") || "—"}</span></div>
+              <div>receipt <span className="font-mono text-slate-200">{frozenArtifact.receiptId ?? "—"}</span></div>
+            </div>
+          )}
+          <div className="mt-3 rounded-lg border border-slate-800 bg-slate-900/40 p-2.5 text-[11px] text-slate-300">
+            <div className="mb-1 text-[10px] uppercase tracking-wide text-slate-500">Observer acceptance</div>
+            {observerAcceptance ? (
+              <>
+                <div className="mb-1 flex items-center gap-2">
+                  <span
+                    className={`rounded px-1.5 py-0.5 text-[10px] font-semibold border ${
+                      observerAcceptance.acceptance === "accepted"
+                        ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-200"
+                        : observerAcceptance.acceptance === "changes_requested"
+                          ? "border-rose-500/40 bg-rose-500/10 text-rose-200"
+                          : "border-amber-500/40 bg-amber-500/10 text-amber-200"
+                    }`}
+                  >
+                    {observerAcceptance.acceptance}
+                  </span>
+                  <span className="text-slate-400">
+                    {observerAcceptance.decidedCount}/{observerAcceptance.assignedCount} decided
+                  </span>
+                </div>
+                <p className="text-[10px] leading-relaxed text-slate-500">{observerAcceptance.detail}</p>
+              </>
+            ) : (
+              <p className="text-[10px] leading-relaxed text-slate-500">
+                No Observer Review round has been assigned against this frozen artifact yet.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {!reviewerMode && !isFrozen && (
       <div className={PANEL}>
         <h4 className="mb-1 text-xs font-semibold text-slate-100">Preview a freeze ceremony package</h4>
         <p className="mb-3 text-[11px] leading-relaxed text-slate-400">

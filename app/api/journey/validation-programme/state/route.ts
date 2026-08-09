@@ -23,7 +23,8 @@ import {
   diagnoseExperimentReviewAccess,
   type ExperimentReviewAccessDiagnosis,
 } from '@/services/passport/participationAccess';
-import { listReviews } from '@/services/research/independentReviewStore';
+import { getArtifact } from '@/services/research/artifacts';
+import { observerRoundId, getObserverRound } from '@/services/research/observerReviewStore';
 import { isReviewerAgreementAuthorized } from '@/services/research/reviewerAgreement';
 import { resolveJourneyState, type AuthoritativePlatformState } from '@/services/journey/resolveJourneyState';
 import { VALIDATION_PROGRAMME_JOURNEY, VALIDATION_PROGRAMME_EXPERIMENT_ID } from '@/services/journey/validationProgrammeJourney';
@@ -94,22 +95,33 @@ async function getImpl(req: NextRequest) {
   }
   const reviewerAccessConfirmed = accessDiagnosis.mayRead;
 
-  // Stage 2 — Crystal Review: has THIS caller's own review decision already
-  // been recorded against an EXP-P1 review? Real read, no fabrication — a
-  // caller who has only READ the evidence (not yet decided) correctly stays
-  // IN_PROGRESS/READY, not COMPLETE.
-  let reviewDecisionSubmitted = false;
+  /*
+   * Stage 2 — Crystal Review: has THIS caller submitted their OWN Post-Freeze
+   * Observer Decision (Post-Freeze Observer Review Closure, point 5) against
+   * the current Observer Review round?
+   *
+   * PRIOR DEFECT, FIXED HERE (2026-08-09): this used to check the caller's
+   * ref against `r1Decisions`/`r2Decisions` — the AUTOMATED dual-model
+   * pipeline's reviewer slots, which belong to a completely different
+   * mechanism (services/research/review/adjudication.ts) than an external
+   * human observer's own decision on a FROZEN crystal. A caller could never
+   * genuinely satisfy that check by doing the thing this stage actually asks
+   * of them, and a caller who somehow matched an R1/R2 ref would have this
+   * stage read COMPLETE for a decision they never made. Reads the real
+   * Observer Review round instead (services/research/observerReviewStore.ts) —
+   * no round or no artifact yet correctly stays evidence-incomplete.
+   */
+  let observerDecisionSubmitted = false;
   if (admin) {
     try {
       const callerRef = personaPublicRef(persona.personaId);
-      const reviews = await listReviews(admin, 50);
-      reviewDecisionSubmitted = reviews.some(
-        (r) =>
-          r.request.experimentId === VALIDATION_PROGRAMME_EXPERIMENT_ID &&
-          [...r.r1Decisions, ...r.r2Decisions].some((d) => d.reviewerRef === callerRef),
-      );
+      const artifact = await getArtifact(VALIDATION_PROGRAMME_EXPERIMENT_ID, 'crystal-version');
+      if (artifact) {
+        const round = await getObserverRound(admin, observerRoundId(VALIDATION_PROGRAMME_EXPERIMENT_ID, artifact.id));
+        observerDecisionSubmitted = Boolean(round?.decisions.some((d) => d.observerRef === callerRef));
+      }
     } catch {
-      // Soft-fail — review store unavailable; stage stays evidence-incomplete.
+      // Soft-fail — observer round store unavailable; stage stays evidence-incomplete.
     }
   }
 
@@ -136,7 +148,7 @@ async function getImpl(req: NextRequest) {
   const platformState: AuthoritativePlatformState = {
     stages: {
       overview: { reviewerAccessConfirmed },
-      'crystal-review': { reviewDecisionSubmitted },
+      'crystal-review': { observerDecisionSubmitted },
       'submit-review': { collaborationAgreementAuthorized },
       'experiment-progress': {},
     },
