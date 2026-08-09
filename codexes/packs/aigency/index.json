@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-09T19:36:56.612Z",
+  "last_updated": "2026-08-09T20:19:47.316Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "90629c7b459bf0280238f63cfebb1cf63cc696f4",
-  "latest_commit_short": "90629c7",
-  "latest_commit_title": "Stop double-counting the Standing seed and make supersession consequential",
+  "latest_commit": "737915672d0a5061832ec3710a4efbf48d137e9e",
+  "latest_commit_short": "7379156",
+  "latest_commit_title": "Give DVN attestation processing scheduled liveness, secure its two mutation routes",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "7379156",
+      "full_sha": "737915672d0a5061832ec3710a4efbf48d137e9e",
+      "title": "Give DVN attestation processing scheduled liveness, secure its two mutation routes",
+      "author": "Claude",
+      "timestamp": "2026-08-09T19:51:43Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-7379156.md"
+    },
+    {
+      "sha": "a3aaa7f",
+      "full_sha": "a3aaa7f35629d9e3601e669d75840b905de96e84",
+      "title": "Add read-only DVN message classifier for Part B1 Nakamoto truth-check",
+      "author": "Claude",
+      "timestamp": "2026-08-09T19:56:02Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-a3aaa7f.md"
+    },
     {
       "sha": "90629c7",
       "full_sha": "90629c7b459bf0280238f63cfebb1cf63cc696f4",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-07-16T18:20:05Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-f0c2691.md"
-    },
-    {
-      "sha": "0cd56ac",
-      "full_sha": "0cd56ac6d463e1386483b0f292ab0867cb6ea7cd",
-      "title": "operator-gated shadow->authoritative flip control (CFS-035 §11)",
-      "author": "Claude",
-      "timestamp": "2026-07-16T18:25:19Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-0cd56ac.md"
-    },
-    {
-      "sha": "d427283",
-      "full_sha": "d42728352b1b0a255804ab198a85ea50438bd75e",
-      "title": "canonize CFS-036 The Three Computational Compressions",
-      "author": "Claude",
-      "timestamp": "2026-07-16T19:51:33Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-d427283.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
