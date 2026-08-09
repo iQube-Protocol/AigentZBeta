@@ -1,4 +1,11 @@
 # Build — Changelog
+- [`6ad4cf4`](https://github.com/iQube-Protocol/AigentZBeta/commit/6ad4cf41dca44899f26e129bdebc0ac46e02b456) [feat] Correct Horizen PnL onboarding contract + wire production Onboard action (Claude, 2026-08-09T09:55:10Z)
+- [`bd52b76`](https://github.com/iQube-Protocol/AigentZBeta/commit/bd52b76344ea1fca5d91eddd6f0c4a6a89c0b6df) [feat] Add workflow to trigger MoneyPenny AigentQube repair route (Claude, 2026-08-09T09:41:03Z)
+- [`52cfb3f`](https://github.com/iQube-Protocol/AigentZBeta/commit/52cfb3f9e07472e62888311b961c80972b207b8e) [feat] Add wall-clock safety budget to DVN reconciler + targeted submit route + MoneyPenny AigentQube repair (Claude, 2026-08-09T09:32:29Z)
+- [`c94c072`](https://github.com/iQube-Protocol/AigentZBeta/commit/c94c0722bef720ea01cb7b64c897d6c7760dca08) [feat] Add migration-drift diagnostic covering dual-leg anchoring + MoneyPenny AigentQube seed (Claude, 2026-08-09T08:59:48Z)
+- [`efe5d1a`](https://github.com/iQube-Protocol/AigentZBeta/commit/efe5d1a05332a6661b14f6b393263f0714b92e4e) [push] Make receipt-status diagnostic column-schema-safe after discovering dvn_status missing in prod (Claude, 2026-08-09T08:39:43Z)
+- [`21c278e`](https://github.com/iQube-Protocol/AigentZBeta/commit/21c278e3daa51c115a957f4f0279f403fd542ad4) [feat] Fix local-to-DVN reconciler starvation on non-anchorable backlog + add receipt-status diagnostic (Claude, 2026-08-09T08:06:03Z)
+- [`d5c8474`](https://github.com/iQube-Protocol/AigentZBeta/commit/d5c84747d50ca207fcabd5fe70b651a1a86218dd) [feat] Add Verifiable-PnL onboarding boundary, verified against Horizen's live contract (Claude, 2026-08-09T07:48:39Z)
 - [`c082ef3`](https://github.com/iQube-Protocol/AigentZBeta/commit/c082ef3911fab1ea2384e3525acfb70124c86437) [push] Compact Journey evidence checklist into the stage description row (Claude, 2026-08-09T07:18:13Z)
 - [`3694f4b`](https://github.com/iQube-Protocol/AigentZBeta/commit/3694f4b00c5f336c36935ce1ec59ce56c85de4ea) [feat] Add durable local-to-DVN-pending reconciler, closing the receipt lifecycle (Claude, 2026-08-09T07:32:48Z)
 - [`52d1e56`](https://github.com/iQube-Protocol/AigentZBeta/commit/52d1e56fe85f5ed718103d37efff857f16767769) [fix] Fix tokenId fallback when Horizen reread succeeds without one (Claude, 2026-08-09T06:24:43Z)

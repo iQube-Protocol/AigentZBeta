@@ -3754,3 +3754,38 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-c082ef3.md](../build_/COMMITS/COMMIT-c082ef3.md)
 - Message: Compact Journey evidence checklist into the stage description row
+
+## Commit `d5c8474` — 2026-08-09T07:48:39Z
+- Type: `feat`
+- Brief: [COMMIT-d5c8474.md](../build_/COMMITS/COMMIT-d5c8474.md)
+- Message: Add Verifiable-PnL onboarding boundary, verified against Horizen's live contract
+
+## Commit `21c278e` — 2026-08-09T08:06:03Z
+- Type: `feat`
+- Brief: [COMMIT-21c278e.md](../build_/COMMITS/COMMIT-21c278e.md)
+- Message: Fix local-to-DVN reconciler starvation on non-anchorable backlog + add receipt-status diagnostic
+
+## Commit `efe5d1a` — 2026-08-09T08:39:43Z
+- Type: `push`
+- Brief: [COMMIT-efe5d1a.md](../build_/COMMITS/COMMIT-efe5d1a.md)
+- Message: Make receipt-status diagnostic column-schema-safe after discovering dvn_status missing in prod
+
+## Commit `c94c072` — 2026-08-09T08:59:48Z
+- Type: `feat`
+- Brief: [COMMIT-c94c072.md](../build_/COMMITS/COMMIT-c94c072.md)
+- Message: Add migration-drift diagnostic covering dual-leg anchoring + MoneyPenny AigentQube seed
+
+## Commit `52cfb3f` — 2026-08-09T09:32:29Z
+- Type: `feat`
+- Brief: [COMMIT-52cfb3f.md](../build_/COMMITS/COMMIT-52cfb3f.md)
+- Message: Add wall-clock safety budget to DVN reconciler + targeted submit route + MoneyPenny AigentQube repair
+
+## Commit `bd52b76` — 2026-08-09T09:41:03Z
+- Type: `feat`
+- Brief: [COMMIT-bd52b76.md](../build_/COMMITS/COMMIT-bd52b76.md)
+- Message: Add workflow to trigger MoneyPenny AigentQube repair route
+
+## Commit `6ad4cf4` — 2026-08-09T09:55:10Z
+- Type: `feat`
+- Brief: [COMMIT-6ad4cf4.md](../build_/COMMITS/COMMIT-6ad4cf4.md)
+- Message: Correct Horizen PnL onboarding contract + wire production Onboard action

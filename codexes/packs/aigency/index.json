@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-09T07:35:10.212Z",
+  "last_updated": "2026-08-09T09:57:07.015Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "c082ef3911fab1ea2384e3525acfb70124c86437",
-  "latest_commit_short": "c082ef3",
-  "latest_commit_title": "Compact Journey evidence checklist into the stage description row",
+  "latest_commit": "6ad4cf41dca44899f26e129bdebc0ac46e02b456",
+  "latest_commit_short": "6ad4cf4",
+  "latest_commit_title": "Correct Horizen PnL onboarding contract + wire production Onboard action",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,69 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "6ad4cf4",
+      "full_sha": "6ad4cf41dca44899f26e129bdebc0ac46e02b456",
+      "title": "Correct Horizen PnL onboarding contract + wire production Onboard action",
+      "author": "Claude",
+      "timestamp": "2026-08-09T09:55:10Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-6ad4cf4.md"
+    },
+    {
+      "sha": "bd52b76",
+      "full_sha": "bd52b76344ea1fca5d91eddd6f0c4a6a89c0b6df",
+      "title": "Add workflow to trigger MoneyPenny AigentQube repair route",
+      "author": "Claude",
+      "timestamp": "2026-08-09T09:41:03Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-bd52b76.md"
+    },
+    {
+      "sha": "52cfb3f",
+      "full_sha": "52cfb3f9e07472e62888311b961c80972b207b8e",
+      "title": "Add wall-clock safety budget to DVN reconciler + targeted submit route + MoneyPenny AigentQube repair",
+      "author": "Claude",
+      "timestamp": "2026-08-09T09:32:29Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-52cfb3f.md"
+    },
+    {
+      "sha": "c94c072",
+      "full_sha": "c94c0722bef720ea01cb7b64c897d6c7760dca08",
+      "title": "Add migration-drift diagnostic covering dual-leg anchoring + MoneyPenny AigentQube seed",
+      "author": "Claude",
+      "timestamp": "2026-08-09T08:59:48Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-c94c072.md"
+    },
+    {
+      "sha": "efe5d1a",
+      "full_sha": "efe5d1a05332a6661b14f6b393263f0714b92e4e",
+      "title": "Make receipt-status diagnostic column-schema-safe after discovering dvn_status missing in prod",
+      "author": "Claude",
+      "timestamp": "2026-08-09T08:39:43Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-efe5d1a.md"
+    },
+    {
+      "sha": "21c278e",
+      "full_sha": "21c278e3daa51c115a957f4f0279f403fd542ad4",
+      "title": "Fix local-to-DVN reconciler starvation on non-anchorable backlog + add receipt-status diagnostic",
+      "author": "Claude",
+      "timestamp": "2026-08-09T08:06:03Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-21c278e.md"
+    },
+    {
+      "sha": "d5c8474",
+      "full_sha": "d5c84747d50ca207fcabd5fe70b651a1a86218dd",
+      "title": "Add Verifiable-PnL onboarding boundary, verified against Horizen's live contract",
+      "author": "Claude",
+      "timestamp": "2026-08-09T07:48:39Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-d5c8474.md"
+    },
     {
       "sha": "c082ef3",
       "full_sha": "c082ef3911fab1ea2384e3525acfb70124c86437",
@@ -1189,69 +1252,6 @@
       "timestamp": "2026-07-16T20:59:45Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-6b2e5a2.md"
-    },
-    {
-      "sha": "8392f60",
-      "full_sha": "8392f6015a76e204ec704638fe19c1b0d6b59e2e",
-      "title": "un-hedge structural-invariants-are-reality + add operational-truth register (CRP-002 §0.7-0.8)",
-      "author": "Claude",
-      "timestamp": "2026-07-16T21:17:58Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-8392f60.md"
-    },
-    {
-      "sha": "9576050",
-      "full_sha": "9576050e31d7b3fd45dc887e024550ec28aa957e",
-      "title": "reconcile 139/144 precisely: the access-and-codification bridge (inv.epistemology.150)",
-      "author": "Claude",
-      "timestamp": "2026-07-16T21:21:42Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-9576050.md"
-    },
-    {
-      "sha": "3a2f4db",
-      "full_sha": "3a2f4dbf904a36f0c20252585cd09ac0434ad052",
-      "title": "attribute operational-truth register to Polity Papers FACT + log canonization backlog",
-      "author": "Claude",
-      "timestamp": "2026-07-16T21:25:31Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-3a2f4db.md"
-    },
-    {
-      "sha": "a6baa9b",
-      "full_sha": "a6baa9bf3c3f76ee0bc5c956479a09442d460322",
-      "title": "CFS-035 Phase 1 finish: grounding consolidation + node invariants + flip-receipt CHECK fix",
-      "author": "Claude",
-      "timestamp": "2026-07-16T22:29:04Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-a6baa9b.md"
-    },
-    {
-      "sha": "e49714c",
-      "full_sha": "e49714cbba9312876fc024e439c7546065174e28",
-      "title": "CFS-035 Phase 2: Experience face + Invariant Lenses + routing node",
-      "author": "Claude",
-      "timestamp": "2026-07-16T22:59:16Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-e49714c.md"
-    },
-    {
-      "sha": "7392598",
-      "full_sha": "73925989a9e217a63c6b19f3b7a48341162dafde",
-      "title": "CFS-035 Phase 3: Field Extractor (Perception layer) v0 seam",
-      "author": "Claude",
-      "timestamp": "2026-07-16T23:01:14Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-7392598.md"
-    },
-    {
-      "sha": "8481526",
-      "full_sha": "848152681fdff19d7871e44ef9494d2267cba068",
-      "title": "CFS-035 Phase 4: close the Evolution cybernetic loop + OS-wide",
-      "author": "Claude",
-      "timestamp": "2026-07-16T23:04:28Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-8481526.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
