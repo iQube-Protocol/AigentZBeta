@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`d5c8474`](https://github.com/iQube-Protocol/AigentZBeta/commit/d5c84747d50ca207fcabd5fe70b651a1a86218dd) [feat] Add Verifiable-PnL onboarding boundary, verified against Horizen's live contract (Claude, 2026-08-09T07:48:39Z)
 - [`c082ef3`](https://github.com/iQube-Protocol/AigentZBeta/commit/c082ef3911fab1ea2384e3525acfb70124c86437) [push] Compact Journey evidence checklist into the stage description row (Claude, 2026-08-09T07:18:13Z)
 - [`3694f4b`](https://github.com/iQube-Protocol/AigentZBeta/commit/3694f4b00c5f336c36935ce1ec59ce56c85de4ea) [feat] Add durable local-to-DVN-pending reconciler, closing the receipt lifecycle (Claude, 2026-08-09T07:32:48Z)
 - [`52d1e56`](https://github.com/iQube-Protocol/AigentZBeta/commit/52d1e56fe85f5ed718103d37efff857f16767769) [fix] Fix tokenId fallback when Horizen reread succeeds without one (Claude, 2026-08-09T06:24:43Z)

@@ -3754,3 +3754,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-c082ef3.md](../build_/COMMITS/COMMIT-c082ef3.md)
 - Message: Compact Journey evidence checklist into the stage description row
+
+## Commit `d5c8474` — 2026-08-09T07:48:39Z
+- Type: `feat`
+- Brief: [COMMIT-d5c8474.md](../build_/COMMITS/COMMIT-d5c8474.md)
+- Message: Add Verifiable-PnL onboarding boundary, verified against Horizen's live contract

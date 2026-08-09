@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-09T07:35:10.212Z",
+  "last_updated": "2026-08-09T07:50:42.616Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "c082ef3911fab1ea2384e3525acfb70124c86437",
-  "latest_commit_short": "c082ef3",
-  "latest_commit_title": "Compact Journey evidence checklist into the stage description row",
+  "latest_commit": "d5c84747d50ca207fcabd5fe70b651a1a86218dd",
+  "latest_commit_short": "d5c8474",
+  "latest_commit_title": "Add Verifiable-PnL onboarding boundary, verified against Horizen's live contract",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "d5c8474",
+      "full_sha": "d5c84747d50ca207fcabd5fe70b651a1a86218dd",
+      "title": "Add Verifiable-PnL onboarding boundary, verified against Horizen's live contract",
+      "author": "Claude",
+      "timestamp": "2026-08-09T07:48:39Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-d5c8474.md"
+    },
     {
       "sha": "c082ef3",
       "full_sha": "c082ef3911fab1ea2384e3525acfb70124c86437",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-07-16T23:01:14Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-7392598.md"
-    },
-    {
-      "sha": "8481526",
-      "full_sha": "848152681fdff19d7871e44ef9494d2267cba068",
-      "title": "CFS-035 Phase 4: close the Evolution cybernetic loop + OS-wide",
-      "author": "Claude",
-      "timestamp": "2026-07-16T23:04:28Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-8481526.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
