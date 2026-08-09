@@ -845,16 +845,24 @@ export interface LocalReceiptPendingDvnAnchor {
   personaId: string;
 }
 
-export async function findLocalReceiptsPendingDvnAnchor(options?: { limit?: number }): Promise<LocalReceiptPendingDvnAnchor[]> {
+export async function findLocalReceiptsPendingDvnAnchor(options?: {
+  limit?: number;
+  /** Keyset cursor — only rows created strictly after this ISO timestamp. Lets a
+   * caller page forward past a run of non-anchorable rows instead of re-reading
+   * the same oldest page forever (see reconcileLocalReceiptsToDvn). */
+  afterCreatedAt?: string;
+}): Promise<LocalReceiptPendingDvnAnchor[]> {
   const limit = Math.min(Math.max(options?.limit ?? 50, 1), 200);
   const admin = getAdminClient();
-  const { data, error } = await admin
+  let query = admin
     .from('activity_receipts')
     .select('*')
     .eq('receipt_status', 'local')
-    .is('dvn_receipt_id', null)
-    .order('created_at', { ascending: true })
-    .limit(limit);
+    .is('dvn_receipt_id', null);
+  if (options?.afterCreatedAt) {
+    query = query.gt('created_at', options.afterCreatedAt);
+  }
+  const { data, error } = await query.order('created_at', { ascending: true }).limit(limit);
   if (error) {
     if (isMissingTable(error)) return [];
     throw new Error(`findLocalReceiptsPendingDvnAnchor failed: ${error.message}`);

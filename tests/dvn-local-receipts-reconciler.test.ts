@@ -61,7 +61,7 @@ vi.mock('@/app/api/_lib/supabaseServer', () => ({
 
 import { reconcileLocalReceiptsToDvn } from '@/services/dvn/activityReceiptDvnPipeline';
 
-function fakeRecord(overrides: Partial<{ id: string; actionType: string }> = {}) {
+function fakeRecord(overrides: Partial<{ id: string; actionType: string; createdAt: string }> = {}) {
   return {
     id: overrides.id ?? 'r1',
     sessionId: null,
@@ -88,7 +88,7 @@ function fakeRecord(overrides: Partial<{ id: string; actionType: string }> = {})
     actionConnectorId: null,
     actionConnectorLabel: null,
     actionInput: null,
-    createdAt: new Date(0).toISOString(),
+    createdAt: overrides.createdAt ?? new Date(0).toISOString(),
   } as any;
 }
 
@@ -185,5 +185,32 @@ describe('reconcileLocalReceiptsToDvn — drains the local backlog via the EXIST
 
     expect(result.ok).toBe(false);
     expect(result.error).toContain('supabase down');
+  });
+
+  it('pages forward past a full page of non-anchorable rows to reach an anchorable one behind it (starvation fix)', async () => {
+    // Page 1: a full page (50) of non-anchorable rows — before the paging fix,
+    // this alone would be re-fetched forever and the anchorable row on page 2
+    // would never be reached.
+    const page1 = Array.from({ length: 50 }, (_, i) =>
+      seedAndBuild(`old-${i}`, 'not_a_real_anchorable_type', new Date(i * 1000).toISOString()),
+    );
+    const page2 = [seedAndBuild('r-anchorable', 'approval_granted', new Date(50_000).toISOString())];
+
+    mockFindLocal.mockImplementation(async (opts: { afterCreatedAt?: string } = {}) => {
+      return opts.afterCreatedAt ? page2 : page1;
+    });
+    const submit = vi.fn(async () => 'dvn-msg-anchorable');
+    mockGetActor.mockResolvedValue({ submit_dvn_message: submit });
+
+    const result = await reconcileLocalReceiptsToDvn();
+
+    expect(submit).toHaveBeenCalledTimes(1);
+    expect(rows['r-anchorable']).toMatchObject({ dvn_receipt_id: 'dvn-msg-anchorable' });
+    expect(result).toMatchObject({ ok: true, pendingChecked: 51, submitted: 1, skippedNonAnchorable: 50 });
+
+    function seedAndBuild(id: string, actionType: string, createdAt: string) {
+      seedRow(id);
+      return { record: fakeRecord({ id, actionType, createdAt }), personaId: 'persona-1' };
+    }
   });
 });
