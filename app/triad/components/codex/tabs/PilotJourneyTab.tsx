@@ -29,6 +29,7 @@ import { AgreementRatifyPanel } from '@/components/journey/AgreementRatifyPanel'
 import { PulseTransparencyToggle } from '@/components/journey/PulseTransparencyToggle';
 import { MarketaEligibilityView } from '@/components/journey/MarketaEligibilityView';
 import { OrientationPanel } from '@/components/journey/OrientationPanel';
+import { IngestIntoFactoryPanel } from '@/components/journey/IngestIntoFactoryPanel';
 import { PassportBureauApplyTab } from './PassportBureauApplyTab';
 import { BoundedDelegationTab } from './BoundedDelegationTab';
 import { ParticipationStandingTab } from './ParticipationStandingTab';
@@ -60,6 +61,7 @@ const JOURNEY_COMPONENTS: Record<string, React.ComponentType<Record<string, unkn
   PulseTransparencyToggle,
   MarketaEligibilityView,
   OrientationPanel,
+  IngestIntoFactoryPanel,
   PassportBureauApplyTab,
   BoundedDelegationTab,
   ParticipationStandingTab,
@@ -206,6 +208,11 @@ function PilotJourneyTabInner({ personaId, isAdmin }: PilotJourneyTabProps) {
            never a default, which would silently resolve the wrong agent's
            orientation context (services/journey/orientationContext.ts). */
         : descriptor.component === 'OrientationPanel'
+          ? { agentSlug: selectedAgentSlug }
+        /* Ingest must speak about the agent Register/Claim/Operate just
+           acted on — same discipline as Orient/Claim/Verify's own agentSlug
+           threading above, never a default. */
+        : descriptor.component === 'IngestIntoFactoryPanel'
           ? { agentSlug: selectedAgentSlug }
         : descriptor.component === 'PassportBureauApplyTab'
           ? {

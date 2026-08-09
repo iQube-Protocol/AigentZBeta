@@ -945,10 +945,31 @@ describe('Deploy observes registry presence; Passport observes the receipt the B
 /*
  * ══ THE FACTORY SURFACE OPENS ON WHAT IS ALREADY THERE ════════════════════
  */
+describe('the Deploy (Ingest) stage carries its own guided act, not just the evidence catalogue', () => {
+  it('has an ingest-into-factory-action surface, resolving to IngestIntoFactoryPanel, before the read-only registry surface', () => {
+    const deploy = HORIZEN_MONEYPENNY_JOURNEY.stages.find((s) => s.id === 'deploy')!;
+    const actIndex = deploy.surfaces.findIndex((s) => s.ref === 'ingest-into-factory-action');
+    const registryIndex = deploy.surfaces.findIndex((s) => s.ref === 'venture-participate-standing');
+    expect(actIndex).toBeGreaterThanOrEqual(0);
+    expect(registryIndex).toBeGreaterThanOrEqual(0);
+    expect(actIndex).toBeLessThan(registryIndex);
+  });
+
+  it('completionEvidence is factoryIngested only — never re-derived from registry/AigentQube presence', () => {
+    const deploy = HORIZEN_MONEYPENNY_JOURNEY.stages.find((s) => s.id === 'deploy')!;
+    expect(deploy.completionEvidence).toEqual(['factoryIngested']);
+  });
+});
+
 describe('the Deploy stage deep-links into Ingested Assets', () => {
   it('pins the Ingestion Factory to its assets section', () => {
     const deploy = HORIZEN_MONEYPENNY_JOURNEY.stages.find((s) => s.id === 'deploy')!;
-    const surface = deploy.surfaces[0] as { props?: Record<string, unknown> };
+    // By ref, not position — the Ingest act's own guided-action surface
+    // ('ingest-into-factory-action', Horizen Pilot Closure part 2, 2026-08-09)
+    // was added ahead of this one in the array; identity must come from what
+    // is being rendered, never from where it sits in the list (the same
+    // discipline JourneyRunSurface's own surface keying already follows).
+    const surface = deploy.surfaces.find((s) => s.ref === 'venture-participate-standing') as { props?: Record<string, unknown> };
     expect(surface.props?.only).toBe('registry');
     expect(surface.props?.registrySection).toBe('assets');
   });

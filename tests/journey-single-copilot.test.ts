@@ -168,17 +168,22 @@ describe('journey surfaces are identified by what they are, not by list position
     const { HORIZEN_MONEYPENNY_JOURNEY } = await import('@/services/journey/horizenMoneyPennyJourney');
     const deploy = HORIZEN_MONEYPENNY_JOURNEY.stages.find((s) => s.id === 'deploy');
     const standing = HORIZEN_MONEYPENNY_JOURNEY.stages.find((s) => s.id === 'standing');
-    expect(deploy?.surfaces).toHaveLength(1);
-    expect(standing?.surfaces).toHaveLength(1);
+    // By ref, not position — Deploy gained a second surface, its own guided
+    // Ingest act ('ingest-into-factory-action', Horizen Pilot Closure part 2,
+    // 2026-08-09), ahead of this one in the array. Identity must come from
+    // what is being rendered, never from where it sits in the list — this
+    // test's own point — so it must not itself assume position either.
+    const deploySurface = deploy!.surfaces.find((s) => s.ref === 'venture-participate-standing')!;
+    const standingSurface = standing!.surfaces.find((s) => s.ref === 'venture-participate-standing-only')!;
     // Different surface refs — so the new key differs even though both stages
-    // render one surface at index 0.
-    expect(deploy!.surfaces[0].ref).not.toBe(standing!.surfaces[0].ref);
+    // render the same component.
+    expect(deploySurface.ref).not.toBe(standingSurface.ref);
     // …pinned to different views, which is what made the shared instance visible.
-    expect((deploy!.surfaces[0].props as { only?: string })?.only).toBe('registry');
-    expect((standing!.surfaces[0].props as { only?: string })?.only).toBe('standing');
+    expect((deploySurface.props as { only?: string })?.only).toBe('registry');
+    expect((standingSurface.props as { only?: string })?.only).toBe('standing');
     // …and both resolve to the SAME component (never a fork — inv.engineering.037).
-    const d = JOURNEY_SURFACES[deploy!.surfaces[0].ref];
-    const s = JOURNEY_SURFACES[standing!.surfaces[0].ref];
+    const d = JOURNEY_SURFACES[deploySurface.ref];
+    const s = JOURNEY_SURFACES[standingSurface.ref];
     expect(d.kind).toBe('component');
     expect(s.kind).toBe('component');
     if (d.kind !== 'component' || s.kind !== 'component') throw new Error('unreachable');

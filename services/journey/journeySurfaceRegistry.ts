@@ -205,6 +205,17 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
       'mounts. Rendered bare, superseding the Partner Pilot Command Center’s Constitutional ' +
       'Agreements iframe for this stage.',
   },
+  'ingest-into-factory-action': {
+    kind: 'component',
+    component: 'IngestIntoFactoryPanel',
+    note:
+      "The Ingest stage's ONE guided action (Horizen Pilot Closure, part 2, operator decision A, " +
+      '2026-08-09, components/journey/IngestIntoFactoryPanel.tsx) — writes the agent-scoped ' +
+      "`capability_registered` receipt via POST /api/journey/moneypenny-horizen/ingest. Mirrors " +
+      "OrientationPanel's observe-then-act shape exactly. Rendered ABOVE 'venture-participate-standing' " +
+      'below, which stays the read-only Ingested Assets evidence catalogue — this panel is the missing ' +
+      'consequential act, never a replacement for that evidence surface.',
+  },
   'venture-participate-standing': {
     kind: 'component',
     component: 'ParticipationStandingTab',

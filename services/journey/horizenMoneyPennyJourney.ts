@@ -494,6 +494,14 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
       surfaces: [
         {
           mode: 'component',
+          ref: 'ingest-into-factory-action',
+          note:
+            'PRIMARY — the one guided action ("Ingest into Factory") that writes the agent-scoped ' +
+            '`capability_registered` receipt (Horizen Pilot Closure, part 2, operator decision A, ' +
+            '2026-08-09). Rendered ABOVE the registry evidence surface below.',
+        },
+        {
+          mode: 'component',
           ref: 'venture-participate-standing',
           // `only` lives HERE, in the stage definition, not in the tab's
           // resolveSurfaceProps: surface props are applied LAST in
@@ -528,10 +536,21 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
        * not complete until Standing had accrued, while Standing lists Deploy
        * as its prerequisite — a cycle, and the reason neither ever went green.
        *
-       * Ingestion's own outcome is that the agent is IN the factory:
+       * Ingestion's own outcome is that the agent is IN the factory —
+       * evidenced ONLY by an agent-scoped `capability_registered` receipt.
        *
-       *   > "The ingested factory is essentially the registry so presence
-       *   >  there is a receipt in and of itself."
+       * CORRECTED 2026-08-09 (Horizen Pilot Closure, part 2, operator
+       * decision A): the line this comment used to carry —
+       * "the ingested factory is essentially the registry so presence there
+       * is a receipt in and of itself" — was the exact defect that let
+       * Nakamoto's AigentQube/registry PRESENCE stand in for genuine Factory
+       * INGESTION, with no agent-scoped `capability_registered` receipt ever
+       * written. `factoryIngested` is `hasReceipt('capability_registered')`
+       * ONLY (app/api/journey/moneypenny-horizen/state/route.ts) — never
+       * `admission?.factoryPresent`. The Ingest act itself now lives at
+       * POST /api/journey/moneypenny-horizen/ingest
+       * (see the 'ingest-into-factory-action' surface above) — presence in
+       * the registry is a PRECONDITION for that act, never a substitute for it.
        */
       completionEvidence: ['factoryIngested'],
       /*
