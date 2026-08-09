@@ -523,98 +523,120 @@ export function JourneyRunSurface({
           {/*
             CONSEQUENCE FORK — a trident anchored to the END of the spine, in
             the SAME horizontal strip (Horizen Journey trident correction,
-            2026-08-09). Never a detached block below: this is one more flex
-            child of `stripRef`, immediately after the last spine node
-            (Operate). Ingest is the MIDDLE row and visually continues the
-            spine's own horizontal line; Ratify branches up, Stand branches
-            down, from ONE junction. Flexbox centers this 3-row child on the
-            spine's single row automatically, so the middle row lands exactly
-            on the spine's own baseline with no manual vertical math.
+            2026-08-09). This is ONE fixed-size relative child of `stripRef`,
+            immediately after the last spine node (Operate) — never a
+            detached block below, never a second row, no section heading (the
+            geometry itself communicates the fork). The three prongs are
+            ABSOLUTELY positioned inside this one box, not stacked via normal
+            flex-column flow: Ingest sits at the box's vertical center and
+            visually continues the spine's own line through ONE junction;
+            Ratify's row sits at the top, Stand's at the bottom, each linked
+            to the junction by its own vertical-then-horizontal tick. A
+            three-row flex/grid stack would recreate the "second panel"
+            defect this corrects — the fixed box + absolute connectors are
+            what make it read as one object instead.
           */}
           {forkStages.length > 0 && (() => {
             const lastSpineDone =
               (runtimeState?.stages.find((s) => s.stageId === spineStages[spineStages.length - 1]?.id)?.state ??
                 'NOT_STARTED') === 'COMPLETE';
+            // Row 0 = Ratify (top), row 1 = Ingest (middle, box center), row
+            // 2 = Stand (bottom) — fixed pixel geometry for a 72px-tall box.
+            const ROW_TOP = ['top-0', 'top-6', 'top-12'];
+            const TICK_Y = ['top-3', 'top-1/2 -translate-y-1/2', 'bottom-3'];
             return (
-              <React.Fragment>
-                <div className={`h-px w-4 shrink-0 ${lastSpineDone ? 'bg-emerald-500/50' : 'bg-slate-700'}`} />
-                <div className="relative flex shrink-0 items-center pl-3" data-testid="consequence-fork">
-                  {/* The vertical trunk — structural, never colored by any
-                      one prong's state (MS-6-style: gate/rank per prong,
-                      never subtract from the group). */}
-                  <div className="absolute bottom-0 left-0 top-0 w-px bg-slate-700" />
-                  <div className="flex flex-col gap-2">
-                    {FORK_ROWS.map(({ position }) => {
-                      const stage = forkStages.find((s) => s.forkPosition === position);
-                      if (!stage) return null;
-                      const stageState = runtimeState?.stages.find((s) => s.stageId === stage.id)?.state ?? 'NOT_STARTED';
-                      const isDone = stageState === 'COMPLETE';
-                      const isCurrent = stage.id === activeStageId;
-                      const isBlocked = stageState === 'BLOCKED';
-                      const projection = consequenceFork?.[stage.id] ?? null;
-                      // Independent per-prong tick colour — Stand being
-                      // incomplete never dims Ratify's or Ingest's own tick.
-                      const tickDone = projection ? projection.tier !== 'refused-unresolved' : isDone;
-                      return (
-                        <div key={stage.id} className="flex items-center gap-1.5" data-fork-position={position}>
-                          <div className={`h-px w-3 shrink-0 ${tickDone ? 'bg-emerald-500/50' : 'bg-slate-700'}`} />
-                          <button
-                            data-stage-id={stage.id}
-                            onClick={() => selectStage(stage.id)}
-                            className="flex shrink-0 items-center gap-1.5 px-1"
-                            title={projection?.detail ?? (isBlocked ? 'Blocked — prerequisites not yet met' : stage.description)}
+              <div
+                data-testid="consequence-fork"
+                className="relative h-[72px] w-[170px] shrink-0"
+              >
+                {/* Incoming connector from Operate — reflects Operate's OWN
+                    completion, the same visual language as a spine connector. */}
+                <div
+                  className={`absolute left-0 top-1/2 h-px w-4 -translate-y-1/2 ${lastSpineDone ? 'bg-emerald-500/50' : 'bg-slate-700'}`}
+                />
+                {/* The vertical trunk — structural, never coloured by any ONE
+                    prong's state (MS-6-style: gate/rank per prong, never
+                    subtract from the group). Spans exactly between the top
+                    and bottom rows' own centers. */}
+                <div className="absolute bottom-3 left-4 top-3 w-px bg-slate-700" />
+                {/* The junction — ONE point, immediately after Operate. */}
+                <div className="absolute left-4 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-slate-600" />
+                {FORK_ROWS.map(({ position }, rowIndex) => {
+                  const stage = forkStages.find((s) => s.forkPosition === position);
+                  if (!stage) return null;
+                  const stageState = runtimeState?.stages.find((s) => s.stageId === stage.id)?.state ?? 'NOT_STARTED';
+                  const isDone = stageState === 'COMPLETE';
+                  const isCurrent = stage.id === activeStageId;
+                  const isBlocked = stageState === 'BLOCKED';
+                  const projection = consequenceFork?.[stage.id] ?? null;
+                  // Independent per-prong tick colour — Stand being
+                  // incomplete never dims Ratify's or Ingest's own tick.
+                  const tickDone = projection ? projection.tier !== 'refused-unresolved' : isDone;
+                  return (
+                    <React.Fragment key={stage.id}>
+                      {/* Short tick from the trunk to this row's own node —
+                          independently coloured by THIS prong's state. */}
+                      <div className={`absolute left-4 ${TICK_Y[rowIndex]} h-px w-2 ${tickDone ? 'bg-emerald-500/50' : 'bg-slate-700'}`} />
+                      <div
+                        className={`absolute left-6 ${ROW_TOP[rowIndex]} flex h-6 items-center gap-1.5 whitespace-nowrap`}
+                        data-fork-position={position}
+                      >
+                        <button
+                          data-stage-id={stage.id}
+                          onClick={() => selectStage(stage.id)}
+                          className="flex shrink-0 items-center gap-1.5"
+                          title={projection?.detail ?? (isBlocked ? 'Blocked — prerequisites not yet met' : stage.description)}
+                        >
+                          <span
+                            className={`flex h-5 w-5 items-center justify-center rounded-full border text-[10px] ${
+                              isDone
+                                ? 'border-emerald-500/50 bg-emerald-500/20 text-emerald-300'
+                                : isCurrent
+                                  ? 'border-purple-400 bg-purple-500/20 text-purple-200'
+                                  : isBlocked
+                                    ? 'border-slate-700 text-slate-600'
+                                    : 'border-slate-600 text-slate-400'
+                            }`}
                           >
-                            <span
-                              className={`flex h-5 w-5 items-center justify-center rounded-full border text-[10px] ${
-                                isDone
-                                  ? 'border-emerald-500/50 bg-emerald-500/20 text-emerald-300'
-                                  : isCurrent
-                                    ? 'border-purple-400 bg-purple-500/20 text-purple-200'
-                                    : isBlocked
-                                      ? 'border-slate-700 text-slate-600'
-                                      : 'border-slate-600 text-slate-400'
-                              }`}
-                            >
-                              {isBlocked && !isDone ? (
-                                <Lock className="h-2.5 w-2.5" />
-                              ) : loading && isCurrent ? (
-                                <Loader2 className="h-3 w-3 animate-spin" />
-                              ) : isDone ? (
-                                <Check className="h-3 w-3" />
-                              ) : (
-                                <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                              )}
-                            </span>
-                            <span
-                              className={`whitespace-nowrap text-[11px] ${
-                                isCurrent ? 'font-semibold text-purple-200' : isDone ? 'text-emerald-300/80' : 'text-slate-400'
-                              }`}
-                            >
-                              {stage.label}
-                            </span>
-                            {/*
-                              PENDING NEVER READS AS FAILURE (operator
-                              instruction, 2026-08-09) — a distinct amber
-                              badge, never rose/red, and only rendered once
-                              this prong's own projection is known.
-                            */}
-                            {projection && projection.tier === 'pending-observer-active' && (
-                              <span className="whitespace-nowrap rounded-full border border-amber-800/60 bg-amber-950/30 px-1.5 py-0.5 text-[9px] font-medium text-amber-300">
-                                Pending
-                              </span>
+                            {isBlocked && !isDone ? (
+                              <Lock className="h-2.5 w-2.5" />
+                            ) : loading && isCurrent ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : isDone ? (
+                              <Check className="h-3 w-3" />
+                            ) : (
+                              <span className="h-1.5 w-1.5 rounded-full bg-current" />
                             )}
-                            {projection && projection.tier === 'proven-consequence' && isDone && (
-                              <span className="whitespace-nowrap rounded-full border border-emerald-800/60 bg-emerald-950/30 px-1.5 py-0.5 text-[9px] font-medium text-emerald-300">
-                                Proven
-                              </span>
-                            )}
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </React.Fragment>
+                          </span>
+                          <span
+                            className={`whitespace-nowrap text-[11px] ${
+                              isCurrent ? 'font-semibold text-purple-200' : isDone ? 'text-emerald-300/80' : 'text-slate-400'
+                            }`}
+                          >
+                            {stage.label}
+                          </span>
+                          {/*
+                            PENDING NEVER READS AS FAILURE (operator
+                            instruction, 2026-08-09) — a distinct amber
+                            badge, never rose/red, and only rendered once
+                            this prong's own projection is known.
+                          */}
+                          {projection && projection.tier === 'pending-observer-active' && (
+                            <span className="whitespace-nowrap rounded-full border border-amber-800/60 bg-amber-950/30 px-1.5 py-0.5 text-[9px] font-medium text-amber-300">
+                              Pending
+                            </span>
+                          )}
+                          {projection && projection.tier === 'proven-consequence' && isDone && (
+                            <span className="whitespace-nowrap rounded-full border border-emerald-800/60 bg-emerald-950/30 px-1.5 py-0.5 text-[9px] font-medium text-emerald-300">
+                              Proven
+                            </span>
+                          )}
+                        </button>
+                      </div>
+                    </React.Fragment>
+                  );
+                })}
+              </div>
             );
           })()}
         </div>

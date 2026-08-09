@@ -119,32 +119,70 @@ describe('JourneyRunSurface renders the fork as one trident after the spine, nev
     expect(source.slice(stripAt, mapAt + 20)).toMatch(/spineStages\.map/);
   });
 
-  it('anchors the fork INSIDE the same horizontal strip as the spine — never a detached block underneath (2026-08-09 trident correction)', () => {
+  /*
+   * ── THE TEST THAT WAS PART OF THE DEFECT (operator, 2026-08-09) ──────────
+   *
+   * An earlier version of this canary asserted the fork block appears AFTER
+   * the spine strip's closing tag — i.e. it PROTECTED the detached-block
+   * layout the trident correction exists to remove. A correct
+   * inside-the-strip implementation would have failed that assertion and
+   * risked being "fixed" back toward the wrong layout. The canaries below
+   * assert the OPPOSITE: `data-testid="consequence-fork"` occurs inside
+   * `stripRef`, after the spine map, and before the strip's own closing
+   * boundary — and the historical detached markup never reappears.
+   */
+  it('data-testid="consequence-fork" occurs INSIDE stripRef, after the spine map and before the strip closes', () => {
     const stripAt = source.indexOf('ref={stripRef}');
     const spineMapAt = source.indexOf('spineStages.map(', stripAt);
-    const forkBlockAt = source.indexOf('forkStages.length > 0', stripAt);
+    const forkTestIdAt = source.indexOf('data-testid="consequence-fork"', stripAt);
     expect(spineMapAt).toBeGreaterThan(-1);
-    expect(forkBlockAt).toBeGreaterThan(spineMapAt);
-    // THE ASSERTION THAT FAILS ON THE DEFECT: the historical implementation
-    // closed the strip's own <div> (via a stray `mt-2` sibling block) BEFORE
-    // reaching the fork. The corrected geometry keeps both inside one
-    // container — no `</div>` closes the strip between the spine map and the
-    // fork block.
-    const between = source.slice(spineMapAt, forkBlockAt);
-    expect(between, 'the strip container closes before the fork — the fork is a detached block again').not.toMatch(
-      /<\/div>\s*$/,
-    );
-    expect(source, 'the old detached fork block (mt-2 border-t) has returned').not.toMatch(
-      /mt-2 flex items-stretch gap-2 border-t border-slate-800\/60/,
+    // THE ASSERTION THAT FAILS ON THE DEFECT: a detached fork renders its
+    // data-testid AFTER stripRef's own closing tag, not before it.
+    expect(forkTestIdAt, 'consequence-fork testid not found').toBeGreaterThan(spineMapAt);
+
+    // stripRef's own closing </div> is the first </div> whose matching open
+    // tag is the `ref={stripRef}` div itself — found by scanning forward from
+    // the spine map for the </div> that closes back to depth 0 relative to
+    // that div's own opening. Simplified here (this file has no nested <div>
+    // between the spine map and the fork/strip close) to: the LAST </div>
+    // before the sibling "CONSEQUENCE FORK renders the fork as trident" strip
+    // wrapper closes, i.e. the fork testid must precede it.
+    const stripCloseAt = source.indexOf('</div>\n      </div>', spineMapAt);
+    expect(stripCloseAt, 'strip closing boundary not found — the route moved').toBeGreaterThan(-1);
+    expect(forkTestIdAt, 'the fork renders after the strip has already closed — it is detached again').toBeLessThan(
+      stripCloseAt,
     );
   });
 
-  it('the fork continues the spine\'s own connector line into the junction, never starting a second line', () => {
-    // The tick immediately after the fork's gate is styled exactly like a
-    // spine connector (emerald when the last spine stage is done, slate
-    // otherwise) — the SAME visual language, not a second palette.
-    const forkBlockAt = source.indexOf('forkStages.length > 0');
-    const section = source.slice(forkBlockAt, forkBlockAt + 600);
+  it('never reintroduces the historical detached fork block (mt-2 / border-t / flex-column stack)', () => {
+    expect(source, 'the old detached fork block (mt-2 border-t) has returned').not.toMatch(
+      /mt-2 flex items-stretch gap-2 border-t border-slate-800\/60/,
+    );
+    // The three prongs must NOT be laid out via normal flex-column stacking
+    // relative to each other — that recreates the "second panel" look even
+    // when nested inside the strip. The corrected shape is one fixed-size
+    // relative box with absolutely-positioned rows.
+    expect(source).not.toMatch(/data-testid="consequence-fork"[^>]*>\s*<div className="flex flex-col gap-2">/);
+  });
+
+  it('renders NO section heading — the geometry itself communicates the fork (operator instruction, 2026-08-09)', () => {
+    expect(source.toLowerCase()).not.toMatch(/consequence fork.*independent.*after/s);
+  });
+
+  it('the fork is ONE fixed-size relative box with absolutely-positioned trunk, junction and rows', () => {
+    const forkBlockAt = source.indexOf('data-testid="consequence-fork"');
+    const section = source.slice(Math.max(0, forkBlockAt - 200), forkBlockAt + 1200);
+    expect(section).toMatch(/relative h-\[72px\] w-\[170px\] shrink-0/);
+    // The vertical trunk and the junction dot are both absolutely positioned
+    // within that one box — never a second, independently-flowing element.
+    expect(section).toMatch(/absolute bottom-3 left-4 top-3 w-px/);
+    expect(section).toMatch(/rounded-full bg-slate-600/); // the junction dot
+  });
+
+  it('the incoming connector into the junction reflects Operate\'s own completion — the same visual language as a spine connector', () => {
+    const forkGateAt = source.indexOf('forkStages.length > 0');
+    const forkTestIdAt = source.indexOf('data-testid="consequence-fork"');
+    const section = source.slice(forkGateAt, forkTestIdAt + 900);
     expect(section).toMatch(/lastSpineDone/);
     expect(section).toMatch(/bg-emerald-500\/50.*bg-slate-700|bg-slate-700.*bg-emerald-500\/50/s);
   });
@@ -161,10 +199,20 @@ describe('JourneyRunSurface renders the fork as one trident after the spine, nev
   });
 
   it('each fork row is keyed and driven by its OWN stage — no shared/collapsed state', () => {
-    const forkBlockAt = source.indexOf('forkStages.length > 0');
-    const forkSection = source.slice(forkBlockAt, forkBlockAt + 3000);
+    const forkBlockAt = source.indexOf('data-testid="consequence-fork"');
+    const forkSection = source.slice(forkBlockAt, forkBlockAt + 3500);
     expect(forkSection).toMatch(/forkStages\.find\(\(s\) => s\.forkPosition === position\)/);
     expect(forkSection).toMatch(/key=\{stage\.id\}/);
+  });
+
+  it('exact visible stage vocabulary — verbs only, spine then fork', () => {
+    const labelsMatch = source.match(/\{stage\.label\}/g);
+    // Structural check: the label is rendered from the stage object in both
+    // the spine map and the fork rows, never a hardcoded string — the
+    // vocabulary itself is asserted against the journey definition in
+    // tests/journey-orient-legacy-regression.test.ts ("stage labels are
+    // normalized to verbs"), which is the single source of truth for it.
+    expect(labelsMatch?.length ?? 0).toBeGreaterThanOrEqual(2);
   });
 });
 
