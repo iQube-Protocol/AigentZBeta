@@ -33,6 +33,8 @@ import {
   buildObserverReviewPackage,
   resolveObserverRound,
   pinnedObserverRoundPolicy,
+  deriveCallerObserverStatus,
+  blindOtherObserverDecisions,
   type ObserverRoundPolicy,
 } from '@/services/research/crystalObserverReview';
 import {
@@ -66,6 +68,10 @@ async function getImpl(req: NextRequest, { experimentId }: { experimentId: strin
   if (!mayRead) return NextResponse.json({ ok: false, error: 'Steward or assigned-reviewer access required' }, { status: 403 });
   if (!admin) return NextResponse.json({ ok: false, error: 'Store unavailable' }, { status: 503 });
 
+  const callerRef = personaPublicRef(persona.personaId);
+  const grant = isAdmin ? null : await resolveExperimentReviewGrant(admin, persona.personaId, experimentId);
+  const isSteward = isAdmin || (grant ? STEWARD_ROLES.has(grant.role) : false);
+
   const artifact = await getArtifact(experimentId, 'crystal-version').catch(() => null);
   if (!artifact) {
     return NextResponse.json({
@@ -91,8 +97,37 @@ async function getImpl(req: NextRequest, { experimentId }: { experimentId: strin
     });
   }
 
+  // The AGGREGATE resolution is computed from the FULL, real decision set —
+  // never the blinded projection below. Blinding is a display concern for
+  // this ONE caller; it must never change what the round actually resolves
+  // to (SPEC point 12's "resolve, do not ratify" discipline extended here).
   const resolution = resolveObserverRound({ pkg: round.package, decisions: round.decisions });
-  return NextResponse.json({ ok: true, round, resolution });
+  const callerObserverStatus = deriveCallerObserverStatus({ pkg: round.package, decisions: round.decisions, callerRef });
+
+  /*
+   * OBSERVER INDEPENDENCE (fixed 2026-08-09, Validation Programme JSON Agent
+   * Package completeness pass, point 8): this endpoint previously returned
+   * `round.decisions` — EVERY assigned observer's rationale and outcome — to
+   * any caller with review-read access, including a peer observer who had
+   * not yet decided. That is exactly the "did the other reviewer already
+   * accept?" leak independent review exists to prevent (the same defect
+   * class `review/isolation.ts` guards against for R1/R2, restated here for
+   * N human observers). A steward's oversight view is unaffected: stewards
+   * assign the round and resolve change proposals, and are not themselves a
+   * voting peer.
+   */
+  const callerHasDecided = round.decisions.some((d) => d.observerRef === callerRef);
+  const roundClosed = round.status !== 'open';
+  const mayViewAllDecisions = isSteward || callerHasDecided || roundClosed;
+  const decisions = blindOtherObserverDecisions({ decisions: round.decisions, callerRef, mayViewAll: mayViewAllDecisions });
+
+  return NextResponse.json({
+    ok: true,
+    round: { ...round, decisions },
+    resolution,
+    callerObserverStatus,
+    decisionsBlinded: !mayViewAllDecisions,
+  });
 }
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ experimentId: string }> }) {

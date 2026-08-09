@@ -525,3 +525,67 @@ export function resolveChangeProposal(
     resolutionReason: remedy.reason,
   };
 }
+
+// ─── Observer independence — blind peer decisions before the caller decides ──
+//
+// Added 2026-08-09 (Validation Programme JSON Agent Package completeness
+// pass, point 8): "do not reveal another assigned observer's substantive
+// decision before the current caller has submitted their own decision."
+//
+// The SAME concern R1/R2 isolation already enforces for the automated
+// pipeline (review/isolation.ts — "R2 never sees R1") applies here for N
+// human observer principals: Austin's rationale must not be visible to Avi
+// (or anyone else's decision to anyone else) before that reader has decided
+// themselves, or the round has closed. This is the ONE authoritative
+// derivation — both `/api/research/observer-review/[experimentId]` and the
+// Validation Programme Agent Package call it, so the two surfaces can never
+// disagree about what a given caller may see.
+//
+// A STEWARD's oversight view is NOT blinded by this function — pass
+// `mayViewAll: true` for a steward/PI/admin caller, who already holds wider
+// authority over the round (assigning it, resolving change proposals) and is
+// not themselves a voting peer.
+
+export interface CallerObserverStatus {
+  /** How many principals this round assigned — 0 if no round/package exists. */
+  assignedCount: number;
+  /** Is the CALLER one of the assigned observer principals? */
+  callerAssigned: boolean;
+  /** The caller's OWN decision kind, or 'not-decided'. Never another
+   *  observer's — this field is intentionally caller-scoped only. */
+  callerDecisionStatus: ObserverDecisionKind | 'not-decided';
+  /** Assigned minus decided, never negative. */
+  outstandingCount: number;
+}
+
+export function deriveCallerObserverStatus(input: {
+  pkg: ObserverReviewPackage | null;
+  decisions: readonly ObserverDecision[];
+  callerRef: string;
+}): CallerObserverStatus {
+  const assignedCount = input.pkg?.assignedObserverRefs.length ?? 0;
+  const callerAssigned = input.pkg?.assignedObserverRefs.includes(input.callerRef) ?? false;
+  const callerDecision = input.decisions.find((d) => d.observerRef === input.callerRef);
+  return {
+    assignedCount,
+    callerAssigned,
+    callerDecisionStatus: callerDecision?.decision ?? 'not-decided',
+    outstandingCount: Math.max(0, assignedCount - input.decisions.length),
+  };
+}
+
+/**
+ * Filters a round's decision list down to what THIS caller may see.
+ * `mayViewAll` is computed by the caller (steward/admin, or the caller has
+ * already decided, or the round is no longer open) — this function only
+ * applies the filter, so the "who may see everything" policy lives at each
+ * route's own authority boundary rather than being guessed here.
+ */
+export function blindOtherObserverDecisions(input: {
+  decisions: readonly ObserverDecision[];
+  callerRef: string;
+  mayViewAll: boolean;
+}): ObserverDecision[] {
+  if (input.mayViewAll) return [...input.decisions];
+  return input.decisions.filter((d) => d.observerRef === input.callerRef);
+}
