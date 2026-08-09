@@ -135,6 +135,20 @@ export interface JourneyRunSurfaceProps {
      * "not known yet", never as a negative finding.
      */
     runtimeState: JourneyRuntimeState | null;
+    /**
+     * P&L evidence (Final Horizen Projection Reconciliation part 2/3,
+     * 2026-08-09) — the SAME canonical-receipt-backed facts `runtimeState`
+     * carries for other stages, surfaced separately because they're
+     * deliberately excluded from `verify`'s `completionEvidence` (Pulse/P&L
+     * must never gate Ratify) and so never appear in any stage's
+     * `evidencePresent`. Null while the first read is in flight.
+     */
+    pnlEvidence: {
+      serviceRegistered: boolean;
+      serviceRegisteredDvnStatus: string | null;
+      serviceVerified: boolean;
+      serviceVerifiedDvnStatus: string | null;
+    } | null;
   }) => Record<string, unknown>;
   /**
    * The Journey's currently-selected agent (resolveRegistrableAgent slug,
@@ -182,6 +196,19 @@ export function JourneyRunSurface({
     string,
     { tier: string; label: string; detail: string }
   > | null>(null);
+  /**
+   * P&L evidence (Final Horizen Projection Reconciliation part 2/3,
+   * 2026-08-09) — `{ serviceRegistered, serviceRegisteredDvnStatus,
+   * serviceVerified, serviceVerifiedDvnStatus }`. Same optional-additive
+   * discipline as `consequenceFork` above: absent for journeys whose
+   * `/state` route doesn't compute it.
+   */
+  const [pnlEvidence, setPnlEvidence] = useState<{
+    serviceRegistered: boolean;
+    serviceRegisteredDvnStatus: string | null;
+    serviceVerified: boolean;
+    serviceVerifiedDvnStatus: string | null;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
@@ -211,6 +238,7 @@ export function JourneyRunSurface({
       const json = await readJsonOrExplain(res, 'journey/state');
       setRuntimeState(json.state as JourneyRuntimeState);
       setConsequenceFork((json.consequenceFork as typeof consequenceFork) ?? null);
+      setPnlEvidence((json.pnlEvidence as typeof pnlEvidence) ?? null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load journey state');
     } finally {
@@ -815,7 +843,7 @@ export function JourneyRunSurface({
                 );
               }
               const extraProps =
-                resolveSurfaceProps?.({ surfaceRef, descriptor, stage: activeStage, runtimeState }) ?? {};
+                resolveSurfaceProps?.({ surfaceRef, descriptor, stage: activeStage, runtimeState, pnlEvidence }) ?? {};
               return (
                 /*
                  * Keyed by the SURFACE, not by array position.

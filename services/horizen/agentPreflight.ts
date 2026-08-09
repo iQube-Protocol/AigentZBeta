@@ -122,7 +122,7 @@ export async function runAgentPreflight(agentSlug: string, request: NextRequest 
       if (error) return { outcome: 'DEGRADED', reason: `read failed: ${error.message}` };
       return data
         ? { outcome: 'ALREADY_COMPLETE', reason: `registry_assets row exists for "${agent.aigentQubeId}"` }
-        : { outcome: 'BLOCKED', reason: `no registry_assets row for "${agent.aigentQubeId}" — this agent was never ingested` };
+        : { outcome: 'BLOCKED', reason: `no registry_assets row for "${agent.aigentQubeId}" — no AigentQube persisted yet (this is a Register prerequisite, distinct from Factory ingestion — see the "deploy-factory-ingestion" line below)` };
     }),
     await line('runtime-endpoint', 'Runtime endpoint descriptor', async () => {
       if (!supabase) return { outcome: 'DEGRADED', reason: 'no Supabase admin client available' };
@@ -254,13 +254,20 @@ export async function runAgentPreflight(agentSlug: string, request: NextRequest 
   ];
 
   // ── Consequence ──────────────────────────────────────────────────────────
-  const factoryIngested = admission?.factoryPresent === true || (await hasReceipt('capability_registered'));
+  /*
+   * `admission?.factoryPresent` (mere AigentQube/registry-row existence)
+   * deliberately excluded (operator correction, 2026-08-09) — it answers
+   * "does this agent's AigentQube exist", not "was this agent Factory-
+   * ingested". See app/api/journey/moneypenny-horizen/state/route.ts's
+   * `stages.deploy.factoryIngested` comment for the full causal chain.
+   */
+  const factoryIngested = await hasReceipt('capability_registered');
   const standingSeeded = supabase ? isSettled(await readSettledFact(supabase, agent.aigentQubeId, agent.runtimeAgentId, 'registry_standing_seeded')) : false;
   const consequence: PreflightLine[] = [
     await line('deploy-factory-ingestion', 'Deploy / factory-ingestion path', async () =>
       factoryIngested
-        ? { outcome: 'ALREADY_COMPLETE', reason: 'registry_assets row present (or capability_registered receipted) — factory ingestion observed' }
-        : { outcome: 'BLOCKED', reason: 'no registry_assets row and no capability_registered receipt — this agent is not yet ingested' },
+        ? { outcome: 'ALREADY_COMPLETE', reason: 'capability_registered receipted — factory ingestion observed' }
+        : { outcome: 'BLOCKED', reason: 'no capability_registered receipt — this agent has not been Factory-ingested (AigentQube/registry-row presence alone does not count, see the note above)' },
     ),
     await line('standing-seed', 'Registration Standing seed', async () =>
       standingSeeded

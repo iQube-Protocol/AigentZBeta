@@ -121,7 +121,7 @@ function PilotJourneyTabInner({ personaId, isAdmin }: PilotJourneyTabProps) {
   }, []);
 
   const resolveSurfaceProps = useCallback(
-    ({ surfaceRef, descriptor, runtimeState }: Parameters<NonNullable<JourneyRunSurfaceProps['resolveSurfaceProps']>>[0]) => {
+    ({ surfaceRef, descriptor, runtimeState, pnlEvidence }: Parameters<NonNullable<JourneyRunSurfaceProps['resolveSurfaceProps']>>[0]) => {
       /*
        * IS THE OPERATOR'S PASSPORT PRESENT? — ASKED OF THE OBSERVER, ANSWERED
        * ONCE (operator, 2026-08-03: "in the passport step the decision should
@@ -171,14 +171,27 @@ function PilotJourneyTabInner({ personaId, isAdmin }: PilotJourneyTabProps) {
               agentDisplayName: selectedAgent.displayName,
               showDiagnostics: isAdmin === true,
               /*
-               * P&L EVIDENCE — the observer's OWN `verify` stage evidence
-               * (Horizen Journey P&L vocabulary correction, 2026-08-09) —
-               * never re-derived client-side. `undefined` while the state
-               * read is in flight, rendered as "Pending", never guessed.
+               * P&L EVIDENCE — from the observer's dedicated `pnlEvidence`
+               * projection (Final Horizen Projection Reconciliation part 2/3,
+               * 2026-08-09), never client-derived.
+               *
+               * FIXED DEFECT: this used to read `runtimeState.stages
+               * .find('verify').evidencePresent.includes('pnlServiceVerified')`
+               * — but `evidencePresent` is built ONLY from a stage's
+               * `completionEvidence` list (services/journey/
+               * resolveJourneyState.ts), and Pulse/P&L fields are
+               * DELIBERATELY excluded from `verify.completionEvidence` so
+               * they can never gate Ratify. That means this check could
+               * never be true, for any agent, regardless of the real
+               * receipt state — a structurally dead read. `pnlEvidence` is
+               * the dedicated, additive field built for exactly this.
+               * `undefined` while the state read is in flight, rendered as
+               * "Pending", never guessed.
                */
-              pnlServiceVerified: runtimeState?.stages
-                .find((s) => s.stageId === 'verify')
-                ?.evidencePresent.includes('pnlServiceVerified'),
+              pnlServiceVerified: pnlEvidence?.serviceVerified,
+              pnlServiceVerifiedDvnStatus: pnlEvidence?.serviceVerifiedDvnStatus ?? null,
+              pnlServiceRegistered: pnlEvidence?.serviceRegistered,
+              pnlServiceRegisteredDvnStatus: pnlEvidence?.serviceRegisteredDvnStatus ?? null,
             }
         /* Claim must speak about the agent Register/Verify just acted on, not
            a hardcoded MoneyPenny (operator, 2026-08-03 — Nakamoto's "Prove

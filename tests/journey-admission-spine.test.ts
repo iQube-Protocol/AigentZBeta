@@ -827,11 +827,68 @@ describe('Deploy observes registry presence; Passport observes the receipt the B
     expect(deploy.completionEvidence).not.toContain('standingGatewayEnabled');
   });
 
-  it('registry presence is read canonically, per "presence there is a receipt in itself"', () => {
+  /*
+   * SUPERSEDES "registry presence is read canonically, per 'presence there
+   * is a receipt in itself'" (operator correction, 2026-08-09 — "URGENT
+   * SEQUENCING CORRECTION: AigentQube Presence ≠ Factory Ingestion").
+   *
+   * The 2026-08-03 ruling this test used to pin was true only while
+   * `registry_assets` presence for an agent's asset_id could ONLY be a side
+   * effect of genuine Factory ingestion. The AigentQube entrance gate later
+   * started writing a row to the SAME table for an unrelated reason — "this
+   * agent has a persisted constitutional information object", a
+   * REGISTER-stage prerequisite — and the two facts collapsed: repairing
+   * MoneyPenny's AigentQube (Register-stage work, correct and necessary)
+   * silently satisfied Deploy's `factoryIngested` evidence, and because
+   * `resolveJourneyState` lets established completion evidence outrank an
+   * unmet prerequisite, Deploy and then Standing rendered COMPLETE before
+   * Claim/Orient/Passport/Delegate/Operate had ever happened for her.
+   *
+   * `factoryPresent` still exists (renamed in meaning, not in name — see
+   * its own doc comment) as "does the AigentQube row exist", genuinely
+   * useful for Register's own gate — it must simply never again answer
+   * "was this agent Factory-ingested".
+   */
+  it('Deploy\'s canonical outcome is its OWN capability_registered receipt — registry/AigentQube presence never counts', () => {
     expect(admissionSrc).toMatch(/from\('registry_assets'\)/);
     expect(admissionSrc).toMatch(/factoryPresent: boolean \| undefined/);
+    // The doc comment must now say this is NOT Factory ingestion.
+    expect(admissionSrc).toMatch(/NOT the same fact as Factory ingestion/);
+
     const block = stateSrc.slice(stateSrc.indexOf('const canonicalStages'));
-    expect(block.match(/^\s*deploy:[^\n]*/m)?.[0] ?? '').toContain('admission?.factoryPresent');
+    const deployLine = block.match(/^\s*deploy:[^\n]*/m)?.[0] ?? '';
+    expect(deployLine).not.toContain('admission?.factoryPresent');
+    expect(deployLine).toContain("hasReceipt('capability_registered')");
+
+    // Same correction applied everywhere else factoryIngested is computed —
+    // `stages.deploy.factoryIngested`, `axes.factoryIngested`, and the
+    // Standing seed eligibility must none of them ACTUALLY EVALUATE
+    // `factoryPresent` (the surrounding comments legitimately quote the old
+    // formula in prose while explaining the fix — only the live code lines
+    // are asserted on here, never the prose around them).
+    const codeLines = stateSrc
+      .split('\n')
+      .filter((line) => !line.trim().startsWith('*') && !line.trim().startsWith('//'));
+    const factoryIngestedCodeLines = codeLines.filter((line) => line.includes('factoryIngested'));
+    for (const line of factoryIngestedCodeLines) {
+      expect(line, `live code line must not read admission?.factoryPresent: "${line.trim()}"`).not.toContain('admission?.factoryPresent');
+    }
+    expect(factoryIngestedCodeLines.some((l) => l.includes("hasReceipt('capability_registered')"))).toBe(true);
+
+    const seedEligibilityCodeLines = codeLines.filter((line) => line.includes('factoryIngestedNow'));
+    for (const line of seedEligibilityCodeLines) {
+      expect(line, `live code line must not read admission?.factoryPresent: "${line.trim()}"`).not.toContain('admission?.factoryPresent');
+    }
+  });
+
+  it('the Standing seed award additionally requires aigentMe/Operate to be canonically active — belt-and-suspenders against the same evidence-precedes-prerequisite rule', () => {
+    const standingSeedBlock = stateSrc.slice(
+      stateSrc.indexOf("guarded('standing-seed'"),
+      stateSrc.indexOf("guarded('standing-seed'") + 2000,
+    );
+    expect(standingSeedBlock).toMatch(/aigentme_activated/);
+    expect(standingSeedBlock).toMatch(/experienceqube_focus_disposition_recorded/);
+    expect(standingSeedBlock).toMatch(/factoryIngestedNow:\s*aigentMeActiveForSeed\s*&&\s*genuinelyFactoryIngested/);
   });
 
   it('Standing has NO canonical shortcut — an accrual is the only thing that accrues', () => {

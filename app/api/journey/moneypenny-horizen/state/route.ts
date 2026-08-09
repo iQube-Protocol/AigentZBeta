@@ -125,6 +125,17 @@ const JOURNEY_ACTION_TYPES: ActivityActionType[] = [
   // from 'horizen_pnl_transparency_enabled' (disclosure AUTHORIZATION) above.
   // See services/horizen/pnlServiceVerification.ts's own header.
   'pnl_service_verified',
+  // The Verifiable-PnL ONBOARDING/REGISTRATION receipt (Final Horizen
+  // Projection Reconciliation, part 2, 2026-08-09) — the production
+  // onboarding route (app/api/journey/moneypenny-horizen/pnl/onboard)
+  // already emits this on a successful existing-mode registration; it was
+  // simply missing from this observer's own canonical receipt set, so a
+  // real, DVN-anchored registration could never surface here. Distinct from
+  // BOTH `horizen_pnl_transparency_enabled` (disclosure authorization) and
+  // `pnl_service_verified` (independently-correlated evidence) above — this
+  // is the middle tier: Horizen's own onboarding service accepted this
+  // agent.
+  'pnl_service_registered',
   'aigentme_activated',
   'experienceqube_focus_disposition_recorded',
   'journey_completed',
@@ -302,7 +313,15 @@ async function resolveState(req: NextRequest) {
      * codexes/packs/agentiq/updates/2026-08-03_observer-state-invariants.md.
      */
     if (supabase) await guarded('receipts', async () => {
-      const refs = await findAgentReceiptRefs(agent.runtimeAgentId, JOURNEY_ACTION_TYPES, { limit: 100 });
+      /*
+       * `limit` is now PER ACTION TYPE, not a global ceiling across every
+       * type combined (services/receipts/activityReceiptService.ts,
+       * 2026-08-09 — "Final Horizen Projection Reconciliation" part 5). 20 of
+       * THIS agent's own rows per type is far more than "strongest/latest"
+       * ever needs, and growth in one action type's receipt volume can no
+       * longer crowd another action type's evidence out of this read.
+       */
+      const refs = await findAgentReceiptRefs(agent.runtimeAgentId, JOURNEY_ACTION_TYPES, { limit: 20 });
       for (const ref of refs) {
         (receiptRefs[ref.actionType] ??= []).push(ref.id);
         // Consequence Fork projection (2026-08-09) — the SAME read, carrying
@@ -480,9 +499,41 @@ async function resolveState(req: NextRequest) {
      * `initialStandingAwarded` below was always 0 for every agent, forever.
      * See RES-2026-08-09-STANDING-SEED-PRODUCTION-WIRING-001.
      *
-     * Eligibility reuses the EXACT two facts `factoryIngested` is computed
-     * from below (`admission?.factoryPresent`, the `capability_registered`
-     * receipt) — never a third, parallel eligibility check.
+     * Eligibility reuses the EXACT SAME `capability_registered` receipt
+     * `factoryIngested` is computed from below — never a third, parallel
+     * eligibility check. `admission?.factoryPresent` (mere AigentQube/
+     * registry-row EXISTENCE) is deliberately NOT part of this — see the
+     * "AigentQube Presence ≠ Factory Ingestion" correction below.
+     *
+     * ── AigentQube Presence ≠ Factory Ingestion (operator correction, 2026-08-09) ──
+     *
+     * `factoryIngestedNow` used to be `admission?.factoryPresent === true ||
+     * capabilityReceiptIds.length > 0`. `admission.factoryPresent` answers
+     * "does this agent's AigentQube row exist in registry_assets" — a fact
+     * introduced as a PREREQUISITE FOR REGISTER (the AigentQube entrance
+     * gate), not evidence that Factory ingestion ever happened. Once that
+     * gate started writing the SAME registry_assets row the Deploy/Ingest
+     * stage was ALSO reading as its own completion evidence, the two
+     * genuinely different facts collapsed: repairing an agent's AigentQube
+     * (a Register-stage prerequisite) silently satisfied Ingest's evidence
+     * and — because `resolveJourneyState` lets established completion
+     * evidence outrank an unmet prerequisite (the "evidence precedes
+     * prerequisite gating" rule, services/journey/resolveJourneyState.ts) —
+     * let Ingest and then Standing render COMPLETE before Claim/Orient/
+     * Passport/Delegate/Operate had ever happened. Observed live on
+     * MoneyPenny immediately after her AigentQube was repaired this session.
+     *
+     * The fix: Factory ingestion is ONLY the `capability_registered`
+     * receipt, never registry presence. And because a receipted evidence
+     * field can still — by the same "evidence precedes prerequisite" rule —
+     * outrank the `aigentme` prerequisite if something ever mis-writes that
+     * receipt early, the SEED AWARD specifically (never merely the evidence
+     * field) requires aigentMe/Operate's OWN canonical completion fact
+     * (`aigentme_activated` AND `experienceqube_focus_disposition_recorded`
+     * receipts — the exact pair `axes`/`canonicalStages.aigentme` compute
+     * below, read here directly off `receiptRefs` since this block runs
+     * before that computation) as a second, independent gate — belt and
+     * suspenders, not a redefinition of what Operate-complete means.
      *
      * Idempotent by construction: `settleFact` returns `alreadySettled: true`
      * on every call after the first and does not overwrite, so this block is
@@ -502,9 +553,14 @@ async function resolveState(req: NextRequest) {
       const activePersona = await getActivePersona(req);
       if (!activePersona?.personaId) return; // cannot attribute — audit gap, never guessed
 
+      const genuinelyFactoryIngested = capabilityReceiptIds.length > 0;
+      const aigentMeActiveForSeed =
+        (receiptRefs['aigentme_activated']?.length ?? 0) > 0 &&
+        (receiptRefs['experienceqube_focus_disposition_recorded']?.length ?? 0) > 0;
+
       const outcome = await awardRegistrationStandingSeedIfEligible(supabase, agent, activePersona.personaId, {
         alreadySeeded: registrationStandingSeeded,
-        factoryIngestedNow: admission?.factoryPresent === true || capabilityReceiptIds.length > 0,
+        factoryIngestedNow: aigentMeActiveForSeed && genuinelyFactoryIngested,
         evidenceReceiptIds: capabilityReceiptIds,
       });
       if (!outcome.awarded) return;
@@ -677,6 +733,14 @@ async function resolveState(req: NextRequest) {
          * correlated a record for this exact agent/token/chain.
          */
         pnlServiceVerified: hasReceipt('pnl_service_verified'),
+        /*
+         * MIDDLE TIER — Horizen's own onboarding acceptance (Final Horizen
+         * Projection Reconciliation part 2, 2026-08-09). Surfaced here for
+         * completeness alongside its siblings; the client-facing read is
+         * `pnlEvidence` below, which also carries DVN finality detail this
+         * plain boolean cannot.
+         */
+        pnlServiceRegistered: hasReceipt('pnl_service_registered'),
         agentCardEnrichmentCommitted: hasReceipt('agent_card_enriched'),
       },
       claim: {
@@ -775,9 +839,25 @@ async function resolveState(req: NextRequest) {
        * id has an evidence entry and every evidence key names a real stage.
        */
       deploy: {
-        // Presence in the registry IS the receipt (operator, 2026-08-03) —
-        // corroborated by ingestion's own receipt where one was written.
-        factoryIngested: admission?.factoryPresent === true || hasReceipt('capability_registered'),
+        /*
+         * FACTORY INGESTION IS THE RECEIPT — REGISTRY PRESENCE IS NOT
+         * (operator correction, 2026-08-09, superseding the 2026-08-03
+         * "presence in the registry IS the receipt" ruling).
+         *
+         * That 2026-08-03 ruling was true when `registry_assets` presence
+         * for this agent's asset_id could ONLY be a side effect of genuine
+         * Factory ingestion. The AigentQube entrance gate (added later)
+         * writes a row to the SAME table for a DIFFERENT reason — "this
+         * agent has a persisted constitutional information object", a
+         * Register-stage prerequisite, not Factory participation. Once both
+         * facts shared one signal, `admission?.factoryPresent` stopped
+         * meaning "ingested" and started meaning "AigentQube exists", and
+         * repairing an agent's AigentQube (Register-stage work) silently
+         * completed Ingest for it. `capability_registered` is the ONLY
+         * evidence for this fact now — the receipt Factory ingestion
+         * itself writes, never inferred from a shared registry row.
+         */
+        factoryIngested: hasReceipt('capability_registered'),
       },
       standing: {
         // Standing is EARNED. It is the one stage with no canonical shortcut:
@@ -938,11 +1018,18 @@ async function resolveState(req: NextRequest) {
     passport: passportIssuedForAgent,
     delegate: admission?.delegationActive === true || hasReceipt('agent_delegated'),
     /*
-     * Deploy's canonical outcome is REGISTRY PRESENCE, not the receipt the
-     * original ingestion never wrote. Standing deliberately has NO entry here:
-     * it is earned, and the only thing that can establish it is an accrual.
+     * Deploy's canonical outcome is its OWN `capability_registered` receipt —
+     * never mere AigentQube/registry-row existence (operator correction,
+     * 2026-08-09; see the `stages.deploy.factoryIngested` comment above for
+     * the full causal chain this closes). Any agent whose Deploy was
+     * genuinely, historically established under the OLD registry-presence
+     * reading stays complete regardless — that is what the
+     * `priorResolution?.canonicalStages` union immediately below this object
+     * literal is for; this line only decides what a FRESH read may newly
+     * conclude. Standing deliberately has NO entry here: it is earned, and
+     * the only thing that can establish it is an accrual.
      */
-    deploy: admission?.factoryPresent === true || hasReceipt('capability_registered'),
+    deploy: hasReceipt('capability_registered'),
     /*
      * aigentMe is complete on the RECOGNITION ACT — activation plus the
      * principal's recorded disposition (operator, 2026-08-03). It no longer
@@ -963,10 +1050,15 @@ async function resolveState(req: NextRequest) {
      * earned Standing" the same observation — the precise collapse the ruling
      * forbids, arriving through the back door of a shared receipt type.
      */
-    factoryIngested:
-      admission?.factoryPresent === true ||
-      hasReceipt('capability_registered') ||
-      (priorResolution?.canonicalStages ?? []).includes('deploy'),
+    /*
+     * `admission?.factoryPresent` (mere AigentQube/registry-row existence)
+     * deliberately removed here too (operator correction, 2026-08-09) — see
+     * the `stages.deploy.factoryIngested` comment above. A prior GENUINE
+     * establishment survives via the monotonic floor
+     * (`priorResolution?.canonicalStages`), never via re-reading the same
+     * conflated registry signal on every future request.
+     */
+    factoryIngested: hasReceipt('capability_registered') || (priorResolution?.canonicalStages ?? []).includes('deploy'),
     pulse: pulseState,
     pnl: pnlState,
     /*
@@ -1034,6 +1126,27 @@ async function resolveState(req: NextRequest) {
     ),
   };
 
+  /*
+   * P&L EVIDENCE (Final Horizen Projection Reconciliation part 2/3,
+   * 2026-08-09) — the client-facing read for the three-tier P&L block
+   * (disclosure/service/evidence). `serviceRegistered`/`serviceVerified` are
+   * the SAME canonical `hasReceipt(...)` facts already recorded on
+   * `stages.verify` above; this object exists only to additionally carry
+   * DVN finality detail (`dvnStatus`) that a plain boolean cannot, using the
+   * SAME `bestReceiptStatus` helper the consequence fork uses — never a
+   * second completion source. `PulseTransparencyToggle`'s own live
+   * `checkStatus()` read (`structured?.verifiablePnlRegistered`) may
+   * CORROBORATE `serviceRegistered` client-side (an OR, never a
+   * replacement) — this receipt-backed fact must never be the one a later
+   * unavailable partner reread can regress.
+   */
+  const pnlEvidence = {
+    serviceRegistered: hasReceipt('pnl_service_registered'),
+    serviceRegisteredDvnStatus: bestReceiptStatus(receiptStatuses['pnl_service_registered'] ?? []),
+    serviceVerified: hasReceipt('pnl_service_verified'),
+    serviceVerifiedDvnStatus: bestReceiptStatus(receiptStatuses['pnl_service_verified'] ?? []),
+  };
+
   // Persist so refresh, persona change and route change all resolve the same
   // result. The write is itself monotonic — see recordJourneyResolution.
   try {
@@ -1088,5 +1201,9 @@ async function resolveState(req: NextRequest) {
     // — keyed by stage id, each { tier, label, detail }. Derived exclusively
     // from `resolution` + receipt status; never a second completion source.
     consequenceFork,
+    // { serviceRegistered, serviceRegisteredDvnStatus, serviceVerified,
+    //   serviceVerifiedDvnStatus } — see the definition above for why this
+    // is additive to, never a replacement for, stages.verify's own fields.
+    pnlEvidence,
   });
 }

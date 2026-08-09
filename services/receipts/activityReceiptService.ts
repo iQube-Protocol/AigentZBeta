@@ -741,6 +741,28 @@ export interface AgentRegistrationReceiptFacts {
  * agent done?" by resolving the agent's own persona finds nothing. Returns
  * ONLY `{id, actionType}` — enough to answer existence and to reference the
  * receipt, never the persona-scoped body.
+ *
+ * ── Per-action-type coverage, not one global scan (2026-08-09) ─────────────
+ *
+ * This used to be ONE query — `action_type IN (...) AND agents_invoked
+ * CONTAINS agent`, ordered by `created_at DESC`, `LIMIT options.limit` —
+ * applied across the WHOLE filtered set at once. That limit is a ceiling on
+ * TOTAL rows across every requested action type combined, so a caller asking
+ * for 20 action types with a limit of 100 could see a single action type's
+ * one relevant (and possibly `dvn_recorded`) receipt silently pushed out of
+ * the returned set by >100 more RECENT receipts of the OTHER 19 types for the
+ * same agent — a real, observed failure mode: an old `standing_accrued:
+ * dvn_recorded` receipt crowded out by newer unrelated receipts, so the
+ * consequence fork read `bestReceiptStatus([])` (nothing found) instead of
+ * the true strongest status, and a constitutional fact disappeared because
+ * unrelated receipt volume grew, not because anything about that fact
+ * changed.
+ *
+ * Fixed by resolving each action type INDEPENDENTLY, each with its own
+ * bounded slice — so the return set is guaranteed to include every
+ * requested action type's own most-recent rows regardless of how many
+ * receipts of OTHER types exist for this agent. `options.limit` now means
+ * "how many of THIS type's own rows", not "how many rows total".
  */
 export async function findAgentReceiptRefs(
   runtimeAgentId: string,
@@ -748,27 +770,33 @@ export async function findAgentReceiptRefs(
   options?: { limit?: number },
 ): Promise<{ id: string; actionType: ActivityActionType; receiptStatus: ReceiptStatus }[]> {
   if (!runtimeAgentId || actionTypes.length === 0) return [];
-  const limit = Math.min(Math.max(options?.limit ?? 100, 1), 200);
+  const perTypeLimit = Math.min(Math.max(options?.limit ?? 20, 1), 100);
 
   const admin = getAdminClient();
-  const { data, error } = await admin
-    .from('activity_receipts')
-    // `receipt_status` added 2026-08-09 (Horizen Journey Consequence Fork
-    // projection) — an EXISTING column on this table, never a new source of
-    // truth. Lets a caller distinguish "evidence present" from "DVN final"
-    // (services/journey/consequenceForkProjection.ts) without a second read.
-    .select('id, action_type, receipt_status')
-    .in('action_type', actionTypes as ActivityActionType[])
-    .contains('agents_invoked', [runtimeAgentId])
-    .order('created_at', { ascending: false })
-    .limit(limit);
+  const results = await Promise.all(
+    actionTypes.map(async (actionType) => {
+      const { data, error } = await admin
+        .from('activity_receipts')
+        // `receipt_status` added 2026-08-09 (Horizen Journey Consequence Fork
+        // projection) — an EXISTING column on this table, never a new source
+        // of truth. Lets a caller distinguish "evidence present" from "DVN
+        // final" (services/journey/consequenceForkProjection.ts) without a
+        // second read.
+        .select('id, action_type, receipt_status')
+        .eq('action_type', actionType)
+        .contains('agents_invoked', [runtimeAgentId])
+        .order('created_at', { ascending: false })
+        .limit(perTypeLimit);
 
-  if (error) {
-    if (isMissingTable(error)) return [];
-    throw new Error(`findAgentReceiptRefs failed: ${error.message}`);
-  }
-  if (!data) return [];
-  return (data as { id: string; action_type: ActivityActionType; receipt_status: ReceiptStatus | null }[]).map((r) => ({
+      if (error) {
+        if (isMissingTable(error)) return [];
+        throw new Error(`findAgentReceiptRefs failed for action_type "${actionType}": ${error.message}`);
+      }
+      return (data ?? []) as { id: string; action_type: ActivityActionType; receipt_status: ReceiptStatus | null }[];
+    }),
+  );
+
+  return results.flat().map((r) => ({
     id: r.id,
     actionType: r.action_type,
     receiptStatus: r.receipt_status ?? 'local',

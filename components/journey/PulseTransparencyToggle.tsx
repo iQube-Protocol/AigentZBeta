@@ -186,6 +186,25 @@ interface PulseTransparencyToggleProps {
    * flight — rendered as "Pending", never guessed as verified.
    */
   pnlServiceVerified?: boolean;
+  /** DVN finality of the `pnl_service_verified` receipt above — 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed' | null. Rendered as a secondary detail, never a substitute for the boolean fact itself. */
+  pnlServiceVerifiedDvnStatus?: string | null;
+  /**
+   * The Ratify stage's OWN `pnl_service_registered` evidence (Final Horizen
+   * Projection Reconciliation part 2, 2026-08-09) — the canonical,
+   * DVN-anchored fact that Horizen's onboarding service accepted this
+   * agent. This is the AUTHORITATIVE source for "Registered": combined
+   * (OR'd) with this component's own live `structured?.verifiablePnlRegistered`
+   * reread below so a corroborating live read can only ADD confidence, never
+   * a later unavailable reread regress an already-receipted registration.
+   */
+  pnlServiceRegistered?: boolean;
+  /** DVN finality of the `pnl_service_registered` receipt above. */
+  pnlServiceRegisteredDvnStatus?: string | null;
+}
+
+/** "DVN Minted" once `dvn_recorded`, otherwise "DVN Pending" — never rendered when the underlying fact itself is false. */
+function dvnFinalityDetail(dvnStatus: string | null | undefined): string {
+  return dvnStatus === 'dvn_recorded' ? 'DVN Minted' : 'DVN Pending';
 }
 
 export function PulseTransparencyToggle({
@@ -193,6 +212,9 @@ export function PulseTransparencyToggle({
   agentDisplayName,
   showDiagnostics = false,
   pnlServiceVerified,
+  pnlServiceVerifiedDvnStatus,
+  pnlServiceRegistered,
+  pnlServiceRegisteredDvnStatus,
 }: PulseTransparencyToggleProps) {
   const [loading, setLoading] = useState(true);
   const [horizen, setHorizen] = useState<AgentCardHorizen | null>(null);
@@ -548,16 +570,22 @@ export function PulseTransparencyToggle({
           <dl className="mt-2 space-y-2 pl-5.5">
             {(() => {
               const disclosureAuthorized = Boolean(horizen.pnl?.disclosureAuthorized);
-              // "Unknown" must not sit indefinitely once we possess enough
-              // information to make a determination (operator instruction,
-              // 2026-08-09) — the ONLY evidence that would say otherwise is
-              // Horizen's own structured `verifiablePnlRegistered: true`; its
-              // absence (never read yet, or read and false) both mean the
-              // same actionable thing to the operator: onboarding has not
-              // happened. Never inferred from disclosure authorization above
-              // (CLAUDE.md: "Do NOT infer P&L registration from
-              // horizen_pnl_transparency_enabled").
-              const serviceRegistered = structured?.verifiablePnlRegistered === true;
+              /*
+               * PRECEDENCE, CORRECTED (Final Horizen Projection
+               * Reconciliation part 2, 2026-08-09): the CANONICAL,
+               * DVN-anchored `pnl_service_registered` receipt is the
+               * authority. This component's own live `structured?.
+               * verifiablePnlRegistered` reread may CORROBORATE it (an OR),
+               * but must never be the SOLE authority — the prior code read
+               * ONLY the live reread and ignored the receipt entirely, so a
+               * genuinely-registered agent whose live status check happened
+               * to fail or lag still showed "Onboarding required". OR-ing
+               * also makes this non-regressing by construction: once either
+               * side has ever been true, no later unavailable/negative
+               * reread can flip it back — the boolean can only be widened,
+               * never narrowed, on every subsequent render.
+               */
+              const serviceRegistered = pnlServiceRegistered === true || structured?.verifiablePnlRegistered === true;
               const evidenceVerified = pnlServiceVerified === true;
               const row = (present: boolean, label: string, detail: React.ReactNode) => (
                 <div className="flex items-start gap-2">
@@ -582,13 +610,16 @@ export function PulseTransparencyToggle({
                   )}
                   {row(
                     serviceRegistered,
-                    `P&L service — ${serviceRegistered ? 'Registered' : 'Onboarding required'}`,
-                    "Whether Horizen's Verifiable-PnL service has onboarded this agent at all — read directly from " +
-                      "Horizen's own authoritative onboarding status, independent of disclosure authorization above.",
+                    `P&L service — ${serviceRegistered ? 'Registered' : 'Onboarding required'}` +
+                      (serviceRegistered && pnlServiceRegistered === true ? ` · ${dvnFinalityDetail(pnlServiceRegisteredDvnStatus)}` : ''),
+                    "Whether Horizen's Verifiable-PnL service has onboarded this agent at all — the canonical " +
+                      'pnl_service_registered receipt, corroborated (never solely decided) by a live reread of ' +
+                      "Horizen's own onboarding status, independent of disclosure authorization above.",
                   )}
                   {row(
                     evidenceVerified,
-                    `P&L evidence — ${evidenceVerified ? 'Verified' : 'Pending'}`,
+                    `P&L evidence — ${evidenceVerified ? 'Verified' : 'Pending'}` +
+                      (evidenceVerified ? ` · ${dvnFinalityDetail(pnlServiceVerifiedDvnStatus)}` : ''),
                     'Whether genuine, correlated proof evidence exists and has been independently verified ' +
                       '(pnl_service_verified) — distinct from, and never inferred from, service registration above.',
                   )}
