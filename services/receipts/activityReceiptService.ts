@@ -806,6 +806,49 @@ export async function findReceiptsByActionType(
   }));
 }
 
+/**
+ * A full `ActivityReceiptRecord` still `receipt_status: 'local'` with no
+ * `dvn_receipt_id` on file, paired with its OWN `personaId` — the durable-
+ * liveness counterpart to `createActivityReceipt()`'s fire-and-forget
+ * hot-path submission (Horizen Pilot Closure, "close the DVN lifecycle
+ * completely", 2026-08-09).
+ *
+ * `createActivityReceipt()` persists the row and then invokes
+ * `enqueueActivityReceiptAnchor` through an un-awaited background promise —
+ * latency-friendly, but not durable in a request/serverless environment: a
+ * receipt whose request ended before that background work ran is stranded at
+ * `local` forever with nothing left checking on it. This is that check: the
+ * SAME full-row shape `rowToRecord` already produces for every other reader,
+ * so the caller (a scheduled reconciler) can feed each result straight into
+ * the existing `enqueueReceiptLeg(record, personaId, 'dvn')` — never a second
+ * row-to-record mapping, never a parallel query shape. `personaId` is
+ * returned alongside the record rather than folded into it — `rowToRecord`
+ * deliberately never carries `persona_id` (it is T0; see this file's header),
+ * and `enqueueReceiptLeg` already takes it as its own explicit argument.
+ */
+export interface LocalReceiptPendingDvnAnchor {
+  record: ActivityReceiptRecord;
+  personaId: string;
+}
+
+export async function findLocalReceiptsPendingDvnAnchor(options?: { limit?: number }): Promise<LocalReceiptPendingDvnAnchor[]> {
+  const limit = Math.min(Math.max(options?.limit ?? 50, 1), 200);
+  const admin = getAdminClient();
+  const { data, error } = await admin
+    .from('activity_receipts')
+    .select('*')
+    .eq('receipt_status', 'local')
+    .is('dvn_receipt_id', null)
+    .order('created_at', { ascending: true })
+    .limit(limit);
+  if (error) {
+    if (isMissingTable(error)) return [];
+    throw new Error(`findLocalReceiptsPendingDvnAnchor failed: ${error.message}`);
+  }
+  if (!data) return [];
+  return (data as DbRow[]).map((row) => ({ record: rowToRecord(row), personaId: row.persona_id }));
+}
+
 export async function findAgentRegistrationReceipts(
   runtimeAgentId: string,
   options?: { limit?: number },

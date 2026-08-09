@@ -43,6 +43,7 @@ import { idlFactory as posIdl } from '@/services/ops/idl/proof_of_state';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { createHash } from 'crypto';
 import type { ActivityReceiptRecord } from '@/services/receipts/activityReceiptService';
+import { findLocalReceiptsPendingDvnAnchor } from '@/services/receipts/activityReceiptService';
 import { computeReceiptCommitment, receiptCommitmentInput } from '@/services/receipts/receiptCommitment';
 
 /** Action types worth anchoring on-chain. Low-value events stay local. */
@@ -746,6 +747,108 @@ export async function enqueueReceiptLeg(
       .eq('id', record.id);
   }
   return { attempted: true, ok: false, detail: res.error ?? 'unknown DVN failure' };
+}
+
+/**
+ * DURABLE local → DVN-submitted RECONCILIATION (Horizen Pilot Closure, "close
+ * the DVN lifecycle completely", 2026-08-09).
+ *
+ * ── THE GAP THIS CLOSES ─────────────────────────────────────────────────────
+ *
+ * `createActivityReceipt()` persists `receipt_status: 'local'` and then
+ * invokes `enqueueActivityReceiptAnchor` through an UN-AWAITED background
+ * promise — latency-friendly for the hot path, but not durable in a
+ * request/serverless environment: if the request/lambda invocation ends
+ * before that background work completes, the receipt is stranded at `local`
+ * with nothing left checking on it. The reconciler-generated MoneyPenny
+ * registration receipts demonstrated exactly this: the constitutional
+ * receipt survived, but DVN submission did not outlive the request.
+ *
+ * Same defect class as `finalizeReadyActivityReceipts` above and
+ * `services/horizen/registrationReconciliation.ts` — "observability must not
+ * be the thing providing liveness." This is the SAME fix, one hop earlier in
+ * the lifecycle: a scheduled reconciler drains the `local` backlog using the
+ * EXISTING per-leg primitive (`enqueueReceiptLeg`), never a second
+ * `submit_dvn_message` implementation, never a replacement receipt.
+ *
+ * The durable lifecycle this completes:
+ *
+ *   createActivityReceipt()
+ *     → optimistic hot-path submission when it survives the request
+ *     OR this scheduled recovery when it does not
+ *     → dvn_pending
+ *     → targeted finalizer (finalizeReadyActivityReceipts)
+ *     → dvn_recorded / DVN Minted
+ *
+ * ── WHAT THIS DOES NOT DO ────────────────────────────────────────────────────
+ *
+ *   - It never reimplements `submit_dvn_message` — every DVN call still goes
+ *     through `enqueueReceiptLeg` -> `submitActivityReceiptToDvn`.
+ *   - It never submits a non-anchorable action type — `enqueueReceiptLeg`
+ *     itself refuses via `shouldAnchorActionType`, checked again here so the
+ *     count is accurate without a second submission attempt.
+ *   - It never creates a replacement Activity Receipt — only ever promotes
+ *     an EXISTING `local` row via its own leg columns.
+ *   - It never changes commitment semantics — `enqueueReceiptLeg` recomputes
+ *     H only when the row does not already carry one, same as always.
+ *
+ * EXCEPTION ISOLATION: one receipt's failed submission is isolated in its own
+ * try/catch and must not stop the rest of the bounded batch.
+ */
+export interface LocalReceiptDvnReconciliationResult {
+  ok: boolean;
+  pendingChecked: number;
+  submitted: number;
+  alreadySubmitted: number;
+  skippedNonAnchorable: number;
+  failed: number;
+  error?: string;
+}
+
+/** Mirrors registrationReconciliation.ts's MAX_ITEMS_PER_RUN — a backlog larger than this drains over successive scheduled runs. */
+const LOCAL_RECONCILIATION_BATCH_SIZE = 50;
+
+export async function reconcileLocalReceiptsToDvn(): Promise<LocalReceiptDvnReconciliationResult> {
+  const result: LocalReceiptDvnReconciliationResult = {
+    ok: false,
+    pendingChecked: 0,
+    submitted: 0,
+    alreadySubmitted: 0,
+    skippedNonAnchorable: 0,
+    failed: 0,
+  };
+
+  let pending: Awaited<ReturnType<typeof findLocalReceiptsPendingDvnAnchor>>;
+  try {
+    pending = await findLocalReceiptsPendingDvnAnchor({ limit: LOCAL_RECONCILIATION_BATCH_SIZE });
+  } catch (err) {
+    result.error = `could not read local activity_receipts: ${err instanceof Error ? err.message : String(err)}`;
+    return result;
+  }
+  result.pendingChecked = pending.length;
+
+  for (const { record, personaId } of pending) {
+    if (!shouldAnchorActionType(record.actionType)) {
+      result.skippedNonAnchorable += 1;
+      continue;
+    }
+    try {
+      const outcome = await enqueueReceiptLeg(record, personaId, 'dvn');
+      if (outcome.ok) {
+        if (outcome.attempted) result.submitted += 1;
+        else result.alreadySubmitted += 1; // dvn_receipt_id already present — a no-op, not a fresh submission
+      } else {
+        result.failed += 1;
+      }
+    } catch (err) {
+      // ONE receipt's exception must not stop the rest of the batch.
+      result.failed += 1;
+      console.error(`[DVN ESCALATION] Local-receipt DVN reconciliation threw for receipt ${record.id}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  result.ok = true;
+  return result;
 }
 
 /**
