@@ -77,8 +77,13 @@ describe('horizenMoneyPennyJourney.ts — only verified subject-tagged stages op
   });
 });
 
-describe('PilotJourneyTab — threads the aigent-${slug} subject ref through (operator directive, 2026-08-08)', () => {
+describe('PilotJourneyTab — threads the selected agent\'s subject ref through (operator directive, 2026-08-08)', () => {
   it('passes receiptsSubjectAgentRef computed from the currently selected agent, not a hardcoded default', () => {
-    expect(tabSource).toContain('receiptsSubjectAgentRef={`aigent-${selectedAgentSlug}`}');
+    // Horizen Pilot Closure item 5 (2026-08-09): now the canonical
+    // runtimeAgentId from the resolved agent, never the aigent-${slug}
+    // string coincidence — so a future agent whose slug does not match that
+    // convention still scopes correctly.
+    expect(tabSource).toContain('receiptsSubjectAgentRef={selectedAgent.runtimeAgentId}');
+    expect(tabSource).not.toMatch(/receiptsSubjectAgentRef=\{`aigent-\$\{/);
   });
 });

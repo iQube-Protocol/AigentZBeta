@@ -65,23 +65,16 @@ import {
   REGISTER_CEREMONY_LADDER,
   type RegisterCeremonyProgress,
 } from '@/services/horizen/registerCeremonyProgress';
+import { resolveRegistrableAgent } from '@/services/horizen/registrableAgents';
 import { AgentCardSurface } from './AgentCardSurface';
 
 interface RegistrableAgentOption {
   slug: string;
   displayName: string;
   agentCardPath: string;
+  /** The canonical id — never re-derive `aigent-${slug}` when this is available. */
+  runtimeAgentId: string;
 }
-
-/**
- * Mirrors services/horizen/registrableAgents.ts's REGISTRABLE_AGENTS.
- * Duplicated as a small client-safe literal (not imported) — only the
- * slug/label/path a client needs, never the server-side agent_keys
- * resolution registrableAgents.ts's runtimeAgentId feeds into. Covered by
- * tests/horizen-registrable-agents.test.ts on the server side, so a drift
- * here would fail loudly (a 400 UNKNOWN_AGENT from register/prepare), never
- * silently.
- */
 
 /**
  * How long the live mandate has left, ticking, and an auto-reread on expiry.
@@ -133,11 +126,20 @@ function MandateCountdown({ expiresAt, onExpired }: { expiresAt: string; onExpir
  * fallback `resolveSurfaceProps` uses when a slug does not resolve. Both must
  * be the dry-run agent, or the fallback silently reintroduces the default this
  * change removes.
+ *
+ * PROJECTED FROM THE CANONICAL SOURCE, NOT HAND-COPIED (Horizen Pilot Closure
+ * item 5, 2026-08-09). This used to be a hand-maintained literal duplicating
+ * slug/displayName/agentCardPath from services/horizen/registrableAgents.ts's
+ * REGISTRABLE_AGENTS — a real drift risk (inv.engineering.036/037), not a
+ * safety boundary: `registrableAgents.ts` has zero imports and is pure data:
+ * strings, never a server-side secret or a dynamic require pulled into the
+ * client bundle. Only the ORDER (Nakamoto first) is still asserted here,
+ * explicitly, rather than inherited from REGISTRABLE_AGENTS' own declaration
+ * order — the display fields themselves can never drift again.
  */
-export const PILOT_AGENTS: RegistrableAgentOption[] = [
-  { slug: 'nakamoto', displayName: 'Aigent Nakamoto', agentCardPath: '/api/agents/nakamoto/agent-card.json' },
-  { slug: 'moneypenny', displayName: 'Aigent MoneyPenny', agentCardPath: '/api/agents/moneypenny/agent-card.json' },
-];
+export const PILOT_AGENTS: RegistrableAgentOption[] = (['nakamoto', 'moneypenny'] as const)
+  .map((slug) => resolveRegistrableAgent(slug))
+  .filter((a): a is NonNullable<typeof a> => a !== null);
 
 interface SponsoredAgent {
   agentRootId: string;
@@ -427,8 +429,13 @@ export function RegisterAgentPanel({
           } | null;
         }[];
       } | null;
+      // Canonical runtimeAgentId, never the aigent-${slug} string coincidence
+      // (Horizen Pilot Closure item 5) — falls back to the coincidence only
+      // if the slug genuinely does not resolve, so behavior is unchanged for
+      // every agent actually registered today.
+      const runtimeAgentIdForFilter = resolveRegistrableAgent(agentSlug)?.runtimeAgentId ?? `aigent-${agentSlug}`;
       const forThisAgent = (receiptJson?.receipts ?? []).filter((r) =>
-        (r.agentsInvoked ?? []).includes(`aigent-${agentSlug}`),
+        (r.agentsInvoked ?? []).includes(runtimeAgentIdForFilter),
       );
       const confirmedReceipts = forThisAgent.filter((r) => r.actionType === 'horizen_agent_registered');
       const confirmedHashes = new Set(
@@ -484,7 +491,7 @@ export function RegisterAgentPanel({
           : null,
       );
 
-      const mine = (reqJson?.requests ?? []).filter((r) => r.subjectAgentRef === `aigent-${agentSlug}`);
+      const mine = (reqJson?.requests ?? []).filter((r) => r.subjectAgentRef === runtimeAgentIdForFilter);
       const liveMandateRow = mine.find((r) => r.actionKind === 'authorize_registration' && !r.expired);
       setLiveMandateExpiresAt(liveMandateRow?.expiresAt ?? null);
       setProgress(
@@ -619,11 +626,12 @@ export function RegisterAgentPanel({
   const handOverToWallet = useCallback(
     (surface: 'PRINCIPAL_WALLET_PROVISIONING' | 'PENDING_ACTIONS', agentSlugForReturn: string, agentName: string) => {
       setHandoffUnanswered(false);
+      const runtimeAgentIdForReturn = resolveRegistrableAgent(agentSlugForReturn)?.runtimeAgentId ?? `aigent-${agentSlugForReturn}`;
       const token = requestWalletSurface({
         surface,
         origin: 'HORIZEN_REGISTER',
-        subjectAgentId: `aigent-${agentSlugForReturn}`,
-        returnTarget: `journey:horizen:register:aigent-${agentSlugForReturn}`,
+        subjectAgentId: runtimeAgentIdForReturn,
+        returnTarget: `journey:horizen:register:${runtimeAgentIdForReturn}`,
         returnLabel: `Continue to ${agentName} registration`,
       });
       awaitingAckTokenRef.current = token;
@@ -946,7 +954,7 @@ export function RegisterAgentPanel({
           typeof result.txHash === 'string' &&
           typeof result.ownerWalletAddress === 'string' &&
           typeof result.network === 'string' &&
-          result.subjectAgentRef === `aigent-${agentSlug}`
+          result.subjectAgentRef === (resolveRegistrableAgent(agentSlug)?.runtimeAgentId ?? `aigent-${agentSlug}`)
         ) {
           setFlow({
             step: 'polling',
