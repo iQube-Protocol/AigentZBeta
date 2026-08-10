@@ -3919,3 +3919,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-5eb4d29.md](../build_/COMMITS/COMMIT-5eb4d29.md)
 - Message: Fix correction route's tombstone catch-up gap for pre-fix corrections
+
+## Commit `aa1046e` — 2026-08-10T04:38:16Z
+- Type: `feat`
+- Brief: [COMMIT-aa1046e.md](../build_/COMMITS/COMMIT-aa1046e.md)
+- Message: Add Horizen coherence matrix for Nakamoto (POSIT coherence-pass item 6)

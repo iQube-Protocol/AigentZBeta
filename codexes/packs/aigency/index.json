@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-10T04:27:10.420Z",
+  "last_updated": "2026-08-10T04:40:25.962Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "5eb4d293a4ff8c785d994085050f2f98b5137382",
-  "latest_commit_short": "5eb4d29",
-  "latest_commit_title": "Fix correction route's tombstone catch-up gap for pre-fix corrections",
+  "latest_commit": "aa1046e372caa1fdb5f44341fbe06adcf528720e",
+  "latest_commit_short": "aa1046e",
+  "latest_commit_title": "Add Horizen coherence matrix for Nakamoto (POSIT coherence-pass item 6)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "aa1046e",
+      "full_sha": "aa1046e372caa1fdb5f44341fbe06adcf528720e",
+      "title": "Add Horizen coherence matrix for Nakamoto (POSIT coherence-pass item 6)",
+      "author": "Claude",
+      "timestamp": "2026-08-10T04:38:16Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-aa1046e.md"
+    },
     {
       "sha": "5eb4d29",
       "full_sha": "5eb4d293a4ff8c785d994085050f2f98b5137382",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-07-17T19:08:10Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-95178a2.md"
-    },
-    {
-      "sha": "b053b72",
-      "full_sha": "b053b72b03968cfc8af11f1201d525dc3fbd27e7",
-      "title": "Add Researcher as the fifth operator pathway + wire into subscription/FO flow",
-      "author": "Claude",
-      "timestamp": "2026-07-16T03:47:58Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-b053b72.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
