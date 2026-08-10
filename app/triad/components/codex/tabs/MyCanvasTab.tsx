@@ -16,6 +16,7 @@ import { SocialSharingModal } from "@/packages/smarttriad/src/SocialSharingModal
 import { InviteModal } from "@/components/shared/InviteModal";
 import { ListenButton } from "@/components/shared/ListenButton";
 import { useActivePersona } from "@/app/hooks/useActivePersona";
+import { usePassportSignInGate } from "@/app/hooks/usePassportSignInGate";
 
 type CanvasEntryType = "note" | "experience_origin" | "experience_derived";
 
@@ -94,6 +95,43 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
   const [inviteOpenForId, setInviteOpenForId] = useState<string | null>(null);
   const [inviteInput, setInviteInput] = useState("");
   const [remixSource, setRemixSource] = useState<CanvasEntry | null>(null);
+  // A Remix intent stashed while gated on Passport sign-in (KNYTS Bridge
+  // ORIENT/PASSPORT stages — see usePassportSignInGate). Only campaign-
+  // tagged entries (metaJson.campaign set) are gated at all; every other
+  // Remix trigger below still opens RemixDialog directly, unaffected.
+  const [pendingRemixSource, setPendingRemixSource] = useState<CanvasEntry | null>(null);
+  const { requestSignIn: requestPassportForRemix, handoffUnanswered: passportGateUnanswered } = usePassportSignInGate({
+    origin: 'MYCANVAS_REMIX',
+    returnTarget: 'campaign:knyts-bridge-crossing:remix',
+    returnLabel: 'Continue your crossing',
+    onSignedIn: useCallback(() => {
+      // personaId itself updates reactively via the aa-persona-change-v1
+      // broadcast (useCodexEmbedAuthBridge); the effect below promotes
+      // pendingRemixSource to remixSource once it does.
+    }, []),
+  });
+  // Once Passport sign-in completes and personaId becomes available,
+  // resume the exact Remix intent that was interrupted — never a generic
+  // myCanvas landing.
+  useEffect(() => {
+    if (!personaId || !pendingRemixSource) return;
+    setRemixSource(pendingRemixSource);
+    setPendingRemixSource(null);
+  }, [personaId, pendingRemixSource]);
+  /** Gate campaign-tagged Remix intents on Passport; open every other Remix directly. */
+  const startRemix = useCallback(
+    (entry: CanvasEntry) => {
+      const campaignTag =
+        typeof entry.metaJson?.campaign === 'string' ? entry.metaJson.campaign : null;
+      if (campaignTag && !personaId) {
+        setPendingRemixSource(entry);
+        requestPassportForRemix();
+        return;
+      }
+      setRemixSource(entry);
+    },
+    [personaId, requestPassportForRemix],
+  );
   // PIECE 4 of the 413 fix — tracks which entry IDs have been hydrated
   // via GET /[id]. Without this, a note entry (legitimate bodyMd='' +
   // metaJson={}) would re-trigger the hydration effect on every
@@ -135,6 +173,16 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
       title?: string;
       summary?: string;
       recommendations?: string[];
+      /** Campaign discriminator (e.g. 'knyts-bridge-crossing') — a
+          campaign-launched Remix (KNYTS Bridge REMIX stage) stamps this
+          into metaJson.campaign so publish-to-pulse can tag the resulting
+          community_generated_content row, and startRemix above can gate
+          on Passport before opening RemixDialog. */
+      campaign?: string;
+      /** Freeform prompt theme for provenance — not consumed elsewhere. */
+      theme?: string;
+      /** Pre-selects RemixDialog's Article/Story toggle. */
+      skill?: "article" | "story";
     } | null = null;
     try {
       payload = JSON.parse(decodeURIComponent(raw));
@@ -152,6 +200,13 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
     void handleCreate({
       title: payload.title,
       bodyMd: lines.join('\n'),
+      // A campaign-launched dispatch (payload.campaign set) seeds an
+      // 'experience_origin' entry — the same shape the "Remix template"
+      // affordance already uses — so the Remix action (and therefore the
+      // Passport gate in startRemix above) is available on it. Every other
+      // dispatch (specialist recommendations with no campaign) keeps the
+      // existing 'note' default.
+      entryType: payload.campaign ? 'experience_origin' : undefined,
       metaJson: {
         source: payload.source ?? 'unknown',
         specialistId: payload.specialistId ?? null,
@@ -161,6 +216,9 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
         // currently publish to does have Creator/created by field
         // which the user should be able to tag with their persona'.
         createdByPersonaId: personaId,
+        ...(payload.campaign ? { campaign: payload.campaign } : {}),
+        ...(payload.theme ? { theme: payload.theme } : {}),
+        ...(payload.skill ? { skill: payload.skill } : {}),
       },
     });
     // Clear the URL param so refresh doesn't re-seed.
@@ -257,6 +315,7 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
     title?: string;
     bodyMd?: string;
     metaJson?: Record<string, unknown>;
+    entryType?: CanvasEntryType;
   }) => {
     if (!personaId) return;
     setCreating(true);
@@ -282,6 +341,7 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
           bodyMd: seed?.bodyMd ?? '',
           visibility: defaultVisibility,
           metaJson: surfaceStamp,
+          ...(seed?.entryType ? { entryType: seed.entryType } : {}),
         }),
       });
       if (!res.ok) throw new Error(`create failed (${res.status})`);
@@ -667,7 +727,7 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
               onInviteCancel={() => { setInviteOpenForId(null); setInviteInput(""); }}
               onDelete={(id) => void handleDelete(id)}
               onShare={() => handleShare(selected)}
-              onRemix={() => setRemixSource(selected)}
+              onRemix={() => startRemix(selected)}
               onEdit={handleEntryEdit}
               onPublish={() => handlePublishToCommunity(selected)}
             />
@@ -683,7 +743,7 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
               onInviteCancel={() => { setInviteOpenForId(null); setInviteInput(""); }}
               onDelete={(id) => void handleDelete(id)}
               onShare={() => handleShare(selected)}
-              onRemix={() => setRemixSource(selected)}
+              onRemix={() => startRemix(selected)}
               onEdit={handleEntryEdit}
             />
           ) : (
@@ -816,6 +876,33 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
           {error && <p className="px-3 py-2 text-xs text-rose-300">{error}</p>}
         </section>
       </div>
+      {/* ORIENT — KNYTS Bridge Remix gate. Shown while a campaign-tagged
+          Remix intent is waiting on Passport sign-in (see startRemix /
+          usePassportSignInGate above). Static copy, no new mechanism. */}
+      {pendingRemixSource && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-slate-900/95 p-5 text-center shadow-2xl">
+            <h3 className="text-sm font-semibold text-white mb-1.5">Claim your Passport</h3>
+            <p className="text-xs text-slate-400 mb-4">
+              Telling your own crossing is something you do as yourself — claim your Passport to
+              continue remixing &ldquo;{pendingRemixSource.title || 'this crossing'}&rdquo;.
+            </p>
+            {passportGateUnanswered && (
+              <p className="text-[11px] text-amber-300 mb-3">
+                No wallet host answered here — open your wallet drawer directly to sign in, then
+                try Remix again.
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={() => setPendingRemixSource(null)}
+              className="text-xs text-slate-500 hover:text-slate-300"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
       {remixSource && (
         <RemixDialog
           open={true}
@@ -829,6 +916,14 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
           }
           initialTitle={remixSource.title}
           initialPrompt=""
+          initialSkill={
+            remixSource.metaJson.skill === "article" || remixSource.metaJson.skill === "story"
+              ? remixSource.metaJson.skill
+              : undefined
+          }
+          campaignTag={
+            typeof remixSource.metaJson.campaign === "string" ? remixSource.metaJson.campaign : undefined
+          }
           sourceImageUrl={
             typeof remixSource.metaJson.imageUrl === "string" ? remixSource.metaJson.imageUrl : null
           }

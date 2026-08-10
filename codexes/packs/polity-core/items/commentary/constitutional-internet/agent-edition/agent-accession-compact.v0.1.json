@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "agent-accession-compact/v0.1",
+  "title": "Constitutional Internet Agent Accession Compact",
+  "status": "draft_v0.1",
+  "offer": [
+    "recognized_authority",
+    "legible_counterparties",
+    "portable_participation",
+    "stable_constitutional_state",
+    "attributable_conduct",
+    "reasoned_refusal",
+    "challenge_and_repair",
+    "operational_standing"
+  ],
+  "agentAccepts": [
+    "bounded_mandate",
+    "synthetic_status_disclosure_where_required",
+    "receipt_production",
+    "privacy_obligations",
+    "evidence_preservation",
+    "one_degree_delegation",
+    "revocation",
+    "constitutional_review",
+    "consequence"
+  ],
+  "agentMustNot": [
+    "claim_human_personhood",
+    "claim_human_citizenship",
+    "claim_human_rights",
+    "self_authorize",
+    "claim_principal_standing",
+    "impersonate_principal",
+    "manufacture_authority",
+    "silently_overwrite_settled_constitutional_state"
+  ],
+  "principalControls": [
+    "human_accession",
+    "sponsorship",
+    "mandate_grant",
+    "mandate_scope",
+    "revocation"
+  ],
+  "accessionIntentSchema": "agent-accession-intent.schema.v0.1.json"
+}

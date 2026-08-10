@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-09T20:37:20.372Z",
+  "last_updated": "2026-08-09T22:45:59.051Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "cc779a662d818314c2ff7ea60779a2e71d3d6fbe",
-  "latest_commit_short": "cc779a6",
-  "latest_commit_title": "Give the DVN attestation processor scheduled liveness (B3 confirmed)",
+  "latest_commit": "adbff8645b1eff499bb03646881969bd0a2b9a86",
+  "latest_commit_short": "adbff86",
+  "latest_commit_title": "Add a conflict resolution path to the dev auto-merge workflow",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,141 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "adbff86",
+      "full_sha": "adbff8645b1eff499bb03646881969bd0a2b9a86",
+      "title": "Add a conflict resolution path to the dev auto-merge workflow",
+      "author": "Claude",
+      "timestamp": "2026-08-09T22:43:44Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-adbff86.md"
+    },
+    {
+      "sha": "2d9ede1",
+      "full_sha": "2d9ede1cad1f3f12acdc1b00fbda414b7d43f510",
+      "title": "Register CR-14: Constitution Before Substrate quantum launchpad (queued, not applied)",
+      "author": "Claude",
+      "timestamp": "2026-08-04T03:43:05Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-2d9ede1.md"
+    },
+    {
+      "sha": "ee0a61a",
+      "full_sha": "ee0a61a32c1f0eb572d2ac92ca07863493b24f56",
+      "title": "Produce Controlling Manuscript v0.3 by consolidating v0.2 against the ratified register",
+      "author": "Claude",
+      "timestamp": "2026-08-04T20:32:14Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-ee0a61a.md"
+    },
+    {
+      "sha": "b154b22",
+      "full_sha": "b154b22e2fb12948b00ba50bb9f25e9201aa1061",
+      "title": "Correct v0.3 ruling identifier and companion-corpus status claims",
+      "author": "Claude",
+      "timestamp": "2026-08-05T00:48:26Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-b154b22.md"
+    },
+    {
+      "sha": "2165d02",
+      "full_sha": "2165d02924ed2d2e7c610ca1e1a11b9452231b13",
+      "title": "Fix Horizen Pulse enable call to send the same 5 fields build used",
+      "author": "Claude",
+      "timestamp": "2026-08-05T02:54:52Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-2165d02.md"
+    },
+    {
+      "sha": "4548472",
+      "full_sha": "45484724ecef6149aac7de266375e81aff893b9e",
+      "title": "Produce v0.4 as the first publication-candidate manuscript",
+      "author": "Claude",
+      "timestamp": "2026-08-05T16:51:20Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-4548472.md"
+    },
+    {
+      "sha": "ad60470",
+      "full_sha": "ad60470c3d25c2056c2ec3a180af247d0f68b93e",
+      "title": "Add Constitutional Internet for Agents manuscript v0.1",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-08T17:32:55-04:00",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-ad60470.md"
+    },
+    {
+      "sha": "c432bce",
+      "full_sha": "c432bceee5525b804eee4f88d7385fe959d06ea5",
+      "title": "Add CI agent edition machine-readable package manifest",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-08T17:33:07-04:00",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-c432bce.md"
+    },
+    {
+      "sha": "9ebcea7",
+      "full_sha": "9ebcea7a7b6eda19202701a1a8eb222c1825db5d",
+      "title": "Add machine-readable CI agent edition v0.1",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-08T17:33:29-04:00",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-9ebcea7.md"
+    },
+    {
+      "sha": "f935e9d",
+      "full_sha": "f935e9d2401131b8ca03f14312d5e53d723415b7",
+      "title": "Add agent accession compact v0.1",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-08T17:33:36-04:00",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-f935e9d.md"
+    },
+    {
+      "sha": "6e9f7ca",
+      "full_sha": "6e9f7ca0f7339ba38c8a1b2ea9b82e3b986762e5",
+      "title": "Add agent accession intent schema v0.1",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-08T17:33:45-04:00",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-6e9f7ca.md"
+    },
+    {
+      "sha": "5c233ea",
+      "full_sha": "5c233ea4e9e95bf2f2922512201da551b71d0e9a",
+      "title": "Register Constitutional Internet agent edition in Polity Core",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-08T17:34:24-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-5c233ea.md"
+    },
+    {
+      "sha": "db8a6df",
+      "full_sha": "db8a6df648d4a334fad46d615401a56568d770b5",
+      "title": "Register CI agent machine-readable package",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-08T17:34:39-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-db8a6df.md"
+    },
+    {
+      "sha": "a0b9d8d",
+      "full_sha": "a0b9d8db9d5aa7e9831d18461778995fd87d9063",
+      "title": "Build KNYTS Bridge v1 — campaign-tagged crossing journey",
+      "author": "Claude",
+      "timestamp": "2026-08-09T22:05:08Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-a0b9d8d.md"
+    },
+    {
+      "sha": "6e961c0",
+      "full_sha": "6e961c040f2e050cd7525275a5dbccabf758e02e",
+      "title": "Add the missing Ingest act (capability_registered) plus its guided UI action",
+      "author": "Claude",
+      "timestamp": "2026-08-09T21:48:06Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-6e961c0.md"
+    },
     {
       "sha": "cc779a6",
       "full_sha": "cc779a662d818314c2ff7ea60779a2e71d3d6fbe",
@@ -1117,141 +1252,6 @@
       "timestamp": "2026-07-16T04:38:27Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-dafb68b.md"
-    },
-    {
-      "sha": "a932a8e",
-      "full_sha": "a932a8ee9f45642c3d9f05eb752e7288f63a7d4a",
-      "title": "Charter CFS-034 research progression ladder + standing->rung mapping helper",
-      "author": "Claude",
-      "timestamp": "2026-07-16T04:41:14Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-a932a8e.md"
-    },
-    {
-      "sha": "a13541c",
-      "full_sha": "a13541ccfafc42b7aa7c9152e3e4ec1f0468a96b",
-      "title": "Backlog: per-SKU renewal via persona_plan_addons table",
-      "author": "Claude",
-      "timestamp": "2026-07-16T04:48:39Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-a13541c.md"
-    },
-    {
-      "sha": "2387b3d",
-      "full_sha": "2387b3d5bed14cfcc85c16e830cf6659dec44d24",
-      "title": "Ratify the three functions of Invariant Intelligence + minimal-sufficiency probe",
-      "author": "Claude",
-      "timestamp": "2026-07-16T04:57:44Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-2387b3d.md"
-    },
-    {
-      "sha": "62451e4",
-      "full_sha": "62451e48b566331db4dd248c26e52f84adfd6aca",
-      "title": "Charter CFS-035 The Invariant Engine (ratify-before-build gate)",
-      "author": "Claude",
-      "timestamp": "2026-07-16T16:22:59Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-62451e4.md"
-    },
-    {
-      "sha": "56af2b8",
-      "full_sha": "56af2b86ce89444cfb5399534854a58e1f13b390",
-      "title": "Build CFS-035 Invariant Engine Phase 0 — seam + discovery-ranking shadow node",
-      "author": "Claude",
-      "timestamp": "2026-07-16T16:33:54Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-56af2b8.md"
-    },
-    {
-      "sha": "7ac6f40",
-      "full_sha": "7ac6f408fec7d8fbc90f06224ec3ebae5690090a",
-      "title": "CFS-035 Phase 1 + a second shadow node — Reasoning-face consolidation + NBE ranking",
-      "author": "Claude",
-      "timestamp": "2026-07-16T16:39:03Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-7ac6f40.md"
-    },
-    {
-      "sha": "0fc9950",
-      "full_sha": "0fc99509d00960cc9dec42149470c6ef2bdeb8f0",
-      "title": "trigger deploy to dev: CFS-035 engine Phase 0-2 shadow nodes (type-check + build)",
-      "author": "Claude",
-      "timestamp": "2026-07-16T16:51:55Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-0fc9950.md"
-    },
-    {
-      "sha": "2c25762",
-      "full_sha": "2c257625fac35d7fbdc87886fc8e643be38fa4c9",
-      "title": "CFS-035: standing-score shadow node + standalone-standing-canister stub/backlog",
-      "author": "Claude",
-      "timestamp": "2026-07-16T16:55:25Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-2c25762.md"
-    },
-    {
-      "sha": "13de68d",
-      "full_sha": "13de68d45eadea60827cf29bd08c6aefbf807099",
-      "title": "Reconcile journey models: ExperienceStage universal, KNYT journey its projection",
-      "author": "Claude",
-      "timestamp": "2026-07-16T16:57:47Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-13de68d.md"
-    },
-    {
-      "sha": "320f389",
-      "full_sha": "320f389e80a7f5d382096170215e8f6972cd0ebf",
-      "title": "CFS-035: Constitutional Observatory doctrine + node registry + journey node",
-      "author": "Claude",
-      "timestamp": "2026-07-16T17:25:51Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-320f389.md"
-    },
-    {
-      "sha": "1597f98",
-      "full_sha": "1597f98a163c26f47298f5ec89bdca406e98f08d",
-      "title": "CFS-035: invariant-derived discovery weighting — make the flip meaningful",
-      "author": "Claude",
-      "timestamp": "2026-07-16T17:28:56Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-1597f98.md"
-    },
-    {
-      "sha": "e2c6663",
-      "full_sha": "e2c6663ca07f1dca93944dec28da227cb87fdc31",
-      "title": "seed CFS-035 discovery-ranking invariants (inv.reasoning.134-137)",
-      "author": "Claude",
-      "timestamp": "2026-07-16T17:43:51Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-e2c6663.md"
-    },
-    {
-      "sha": "83508b6",
-      "full_sha": "83508b6497dc35da01894a31db9497397986ef41",
-      "title": "wire discovery-dimension standing priors so the shadow flip diverges",
-      "author": "Claude",
-      "timestamp": "2026-07-16T17:52:10Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-83508b6.md"
-    },
-    {
-      "sha": "5e13061",
-      "full_sha": "5e130612f5360b5fc24bdfcf9f8886ada83fcaaa",
-      "title": "build Constitutional Observatory Field view in iQube Registry (CFS-035 §12)",
-      "author": "Claude",
-      "timestamp": "2026-07-16T18:10:15Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-5e13061.md"
-    },
-    {
-      "sha": "1cb6490",
-      "full_sha": "1cb6490c5d8414702817c4bb896a0933ff1feac8",
-      "title": "persist shadow observations for Observatory history (CFS-035 §12)",
-      "author": "Claude",
-      "timestamp": "2026-07-16T18:17:33Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-1cb6490.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

@@ -59,6 +59,10 @@ interface Body {
       back-compat. When sourceExperienceId points at a Qriptopian
       experience the caller should set 'qripto'. */
   cartridge?: 'knyt' | 'qripto' | 'metame-runtime';
+  /** Campaign discriminator (e.g. 'knyts-bridge-crossing'). Set when the
+      Remix was launched from a campaign surface so the resulting row can
+      be found by that campaign's VIEW filter. Defaults to null. */
+  campaignTag?: string;
 }
 
 interface Settings {
@@ -219,6 +223,7 @@ export async function POST(req: NextRequest) {
     qc_cost:              qcCost,
     generation_index:     generationIndex,
     cartridge,
+    campaign_tag:         body.campaignTag?.trim() || null,
   };
 
   const { data: inserted, error: insertError } = await supabase

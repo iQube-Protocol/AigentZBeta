@@ -28,21 +28,17 @@ import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { personaPublicRef } from '@/services/identity/personaReferences';
 import { callerMayReadExperimentReview, resolveExperimentReviewGrant } from '@/services/passport/participationAccess';
 import { getArtifact } from '@/services/research/artifacts';
-import { writeLifecycleReceipt } from '@/services/research/lifecycle';
 import {
-  buildObserverReviewPackage,
   resolveObserverRound,
-  pinnedObserverRoundPolicy,
   deriveCallerObserverStatus,
   blindOtherObserverDecisions,
   projectResolutionForCaller,
-  type ObserverRoundPolicy,
 } from '@/services/research/crystalObserverReview';
 import {
   observerRoundId,
   getObserverRound,
-  upsertObserverRound,
 } from '@/services/research/observerReviewStore';
+import { assignObserverRound } from '@/services/research/observerRoundAssignment';
 
 export const dynamic = 'force-dynamic';
 
@@ -190,76 +186,15 @@ async function postImpl(req: NextRequest, { experimentId }: { experimentId: stri
     return NextResponse.json({ ok: false, error: "Unknown action — only 'assign' is supported" }, { status: 400 });
   }
   const observerRefs: string[] = Array.isArray(body.observerRefs) ? body.observerRefs.filter((x: unknown) => typeof x === 'string') : [];
-  const requestedPolicy: ObserverRoundPolicy = body.roundPolicy === 'any-assigned' ? 'any-assigned' : 'all-assigned';
 
-  /*
-   * A PINNED policy is a declaration, not a default — a caller-supplied
-   * value that DISAGREES with it is refused rather than silently honoured
-   * or silently overridden. Either silent behaviour would hide the mistake:
-   * honouring it would loosen EXP-P1's all-assigned requirement without
-   * anyone noticing; overriding it would let the caller believe their
-   * request took effect when it did not.
-   */
-  const pinned = pinnedObserverRoundPolicy(experimentId);
-  if (pinned && typeof body.roundPolicy === 'string' && body.roundPolicy !== pinned) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: `${experimentId}'s Observer Review round policy is pinned to '${pinned}' and may not be assigned as '${body.roundPolicy}'.`,
-      },
-      { status: 400 },
-    );
-  }
-  const roundPolicy: ObserverRoundPolicy = pinned ?? requestedPolicy;
-
-  const artifact = await getArtifact(experimentId, 'crystal-version').catch(() => null);
-  if (!artifact) {
-    return NextResponse.json({ ok: false, error: `No crystal-version artifact exists yet for ${experimentId}` }, { status: 409 });
-  }
-  if (artifact.lifecycle !== 'frozen') {
-    return NextResponse.json(
-      { ok: false, error: `artifact '${artifact.id}' is '${artifact.lifecycle}', not 'frozen' — assign an Observer Review round only after the crystal is frozen` },
-      { status: 409 },
-    );
-  }
-
-  const roundId = observerRoundId(experimentId, artifact.id);
-  let pkg;
-  try {
-    pkg = buildObserverReviewPackage({
-      packageId: `${roundId}:package`,
-      experimentId,
-      artifact,
-      roundPolicy,
-      assignedObserverRefs: observerRefs,
-      createdAt: new Date().toISOString(),
-    });
-  } catch (err) {
-    return NextResponse.json({ ok: false, error: err instanceof Error ? err.message : String(err) }, { status: 400 });
-  }
-
-  const existing = await getObserverRound(admin, roundId);
-  await upsertObserverRound(admin, {
-    roundId,
+  const result = await assignObserverRound(admin, {
     experimentId,
-    artifactId: artifact.id,
-    status: 'open',
-    package: pkg,
-    roundPolicy,
-    assignedObserverRefs: [...observerRefs],
-    decisions: existing?.decisions ?? [],
-    changeProposals: existing?.changeProposals ?? [],
-    supersedes: existing?.supersedes ?? null,
-    supersededBy: null,
+    observerRefs,
+    requestedRoundPolicy: body.roundPolicy,
+    actorPersonaId: persona.personaId,
+    createdAt: new Date().toISOString(),
   });
+  if (!result.ok) return NextResponse.json({ ok: false, error: result.error }, { status: result.status });
 
-  await writeLifecycleReceipt({
-    personaId: persona.personaId,
-    summary:
-      `${experimentId} Observer Review round assigned against '${artifact.id}' — package ${pkg.packageHash.slice(0, 16)}… ` +
-      `policy ${roundPolicy}, ${observerRefs.length} observer(s) assigned`,
-    invariantSeedIds: [],
-  }).catch(() => null);
-
-  return NextResponse.json({ ok: true, round: await getObserverRound(admin, roundId) });
+  return NextResponse.json({ ok: true, round: result.round });
 }

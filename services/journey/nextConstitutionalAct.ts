@@ -142,3 +142,52 @@ export function resolveNextConstitutionalAct(facts: ConstitutionalActFacts): Nex
     because: 'Your invitation is claimed and your access is active.',
   };
 }
+
+/**
+ * A sibling to `resolveNextConstitutionalAct` for gates that need ONLY the
+ * authentication rung — no invitation-claim semantics. The KNYTS Bridge
+ * Remix gate (ORIENT: "claim your Passport to tell your own crossing") is
+ * the first caller: crossing the Threshold to Remix a Crossing Story is not
+ * an invitation claim, it is the same "you must be signed in as yourself"
+ * act as `authenticate` above, generalized so a future non-invitation gate
+ * does not fork a new ladder for the same question.
+ *
+ * Same FAIL FAITHFUL discipline as the ladder above: `null` means "not yet
+ * known" and returns `observe`, never a guessed answer.
+ */
+export interface AuthGateFacts {
+  authenticated: boolean | null;
+}
+
+export interface NextAuthGateAct {
+  id: 'authenticate' | 'proceed' | 'observe';
+  label: string;
+  because: string;
+}
+
+export function resolveNextAuthGateAct(
+  facts: AuthGateFacts,
+  gatedAction: string,
+): NextAuthGateAct {
+  if (facts.authenticated === null) {
+    return {
+      id: 'observe',
+      label: 'Checking your access',
+      because: 'We are confirming whether you are already signed in.',
+    };
+  }
+
+  if (!facts.authenticated) {
+    return {
+      id: 'authenticate',
+      label: 'Claim your Passport',
+      because: `${gatedAction} is something you do as yourself, so it needs a signed-in Passport.`,
+    };
+  }
+
+  return {
+    id: 'proceed',
+    label: 'Continue',
+    because: 'You are signed in.',
+  };
+}

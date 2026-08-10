@@ -13,6 +13,10 @@
  *      qc_cost=0, image_url=null, status='draft', cartridge=body.cartridge.
  *      The shared table means a note can graduate into a rich-media
  *      article/story later via Studio exQubes without a row migration.
+ *      When the originating entry carries metaJson.campaign (stamped by a
+ *      campaign-launched Remix — see MyCanvasTab's remix= URL param parser),
+ *      the row is tagged campaign_tag=<that value> so campaign VIEW surfaces
+ *      (e.g. the KNYTS Bridge Pulse filter) can find it.
  *   5. Flip the freshly-minted row to 'shared' and write the matching
  *      {cartridge}_publication_states record so the Living Canon surfaces
  *      pick it up.
@@ -105,6 +109,8 @@ export async function POST(
   const title = (entry.title ?? '').trim() || 'Untitled note';
   const articleBody = entry.bodyMd ?? '';
   const promptText = title; // notes don't have an LLM prompt; reuse title
+  const campaignTag =
+    typeof entry.metaJson?.campaign === 'string' ? entry.metaJson.campaign : null;
 
   const insertPayload = {
     creator_persona_id:   persona.personaId,
@@ -119,6 +125,7 @@ export async function POST(
     qc_cost:              0,
     generation_index:     0,
     cartridge,
+    campaign_tag:         campaignTag,
   };
 
   const { data: inserted, error: insertError } = await supabase

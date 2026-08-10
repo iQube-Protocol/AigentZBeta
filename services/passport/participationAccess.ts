@@ -30,6 +30,13 @@ import { createActivityReceipt } from '@/services/receipts/activityReceiptServic
 import { personaPublicRef } from '@/services/identity/personaReferences';
 import { createOrGetChannel } from '@/services/qubetalk/peerChannel';
 import { EXPERIMENT_REGISTRY } from '@/types/research';
+import { getArtifact } from '@/services/research/artifacts';
+import { pinnedObserverRoundPolicy } from '@/services/research/crystalObserverReview';
+import { assignObserverRound } from '@/services/research/observerRoundAssignment';
+
+/** The one experiment this go-live hook is scoped to (operator instruction,
+ *  2026-08-09) — not a generic multi-experiment mechanism. */
+const OBSERVER_ROUND_BOOTSTRAP_EXPERIMENT_ID = 'EXP-P1';
 
 /**
  * Invite → auto-channel: when an invitation was flagged `open_peer_channel`,
@@ -538,6 +545,68 @@ export async function resolveExperimentReviewGrant(
   return null;
 }
 
+/**
+ * The LIST form of the single-persona reviewer-scope predicate above — every
+ * persona_id holding an ACTIVE research-lab `REVIEWER_INVITATION_ROLE` grant
+ * scoped to `experimentId` (via `allowed_experiments` containing it, or
+ * unrestricted). Built for the EXP-P1 Observer Round bootstrap (operator
+ * instruction, 2026-08-09 go-live): deriving the reviewer COHORT server-side
+ * from the constitutional grant the operator already issued, rather than
+ * having an agent shuttle opaque persona references around by hand.
+ * Deliberately the narrower `REVIEWER_INVITATION_ROLE` alone, never the
+ * wider `REVIEW_VIEW_READABLE_ROLES` (which also admits steward/PI/faculty
+ * lead/researcher) — a steward is not a voting observer principal.
+ * Deduplicated by persona_id.
+ */
+export async function listActiveReviewerPersonaIds(
+  admin: SupabaseClient,
+  experimentId: string,
+): Promise<string[]> {
+  const { data, error } = await admin
+    .from('access_grants')
+    .select('persona_id, allowed_experiments')
+    .eq('access_domain', 'research-lab')
+    .eq('role', REVIEWER_INVITATION_ROLE)
+    .eq('status', 'active');
+  if (error || !data) return [];
+  const ids = new Set<string>();
+  for (const row of data) {
+    const allowed = (row as { allowed_experiments?: string[] | null }).allowed_experiments;
+    const reaches = !allowed || allowed.length === 0 || allowed.includes(experimentId);
+    if (reaches) ids.add(String((row as { persona_id: string }).persona_id));
+  }
+  return [...ids];
+}
+
+/**
+ * Regression guard, not a second assignment mechanism (operator instruction,
+ * 2026-08-09 EXP-P1 go-live, point 4): re-derive the reviewer cohort from
+ * CURRENT active grants and (re)assign the Observer Review round through the
+ * SAME `assignObserverRound` a steward/admin would call. A no-op whenever
+ * the derived cohort doesn't change the round (`assignObserverRound`'s own
+ * hash-level idempotency), and a no-op before the crystal is frozen. Never
+ * widens authority, and an invitation claim is never itself treated as a
+ * decision/vote — it only ever completes who is ASSIGNED to decide.
+ * Best-effort: a failure here must never block the invitation claim that
+ * triggered it.
+ */
+export async function ensureCurrentObserverRoundAssignments(admin: SupabaseClient, experimentId: string): Promise<void> {
+  try {
+    const personaIds = await listActiveReviewerPersonaIds(admin, experimentId);
+    if (personaIds.length === 0) return;
+    const artifact = await getArtifact(experimentId, 'crystal-version').catch(() => null);
+    if (!artifact || artifact.lifecycle !== 'frozen') return;
+    await assignObserverRound(admin, {
+      experimentId,
+      observerRefs: personaIds.map((id) => personaPublicRef(id)),
+      requestedRoundPolicy: pinnedObserverRoundPolicy(experimentId) ?? 'all-assigned',
+      createdAt: new Date().toISOString(),
+    });
+  } catch {
+    // Best-effort — never blocks the invitation claim that triggered this.
+  }
+}
+
 function hashCode(rawCode: string): string {
   return createHash('sha256').update(rawCode).digest('hex');
 }
@@ -843,6 +912,15 @@ export async function claimAccessInvitation(
   // Invite → auto-channel (best-effort; never blocks the grant).
   const peerChannelId = await maybeOpenInviteChannel(inv as { open_peer_channel?: boolean; issuer_persona_id?: string | null; access_domain?: string | null }, claimant.personaId);
 
+  // EXP-P1 Observer Round regression guard (operator instruction, 2026-08-09
+  // go-live, point 4) — best-effort; never blocks the grant that triggered it.
+  if (domain === 'research-lab' && role === REVIEWER_INVITATION_ROLE) {
+    const allowedExp = (inv as { allowed_experiments?: string[] | null }).allowed_experiments;
+    if (!allowedExp || allowedExp.length === 0 || allowedExp.includes(OBSERVER_ROUND_BOOTSTRAP_EXPERIMENT_ID)) {
+      await ensureCurrentObserverRoundAssignments(admin, OBSERVER_ROUND_BOOTSTRAP_EXPERIMENT_ID).catch(() => null);
+    }
+  }
+
   return {
     ok: true,
     grant: { id: String(grant.id), accessDomain: String(grant.access_domain), role: String(grant.role), grantedAt: String(grant.granted_at) },
@@ -946,5 +1024,15 @@ export async function autoClaimEmailInvitation(
     .from('access_invitations')
     .update({ uses: nextUses, ...(nextUses >= Number(match.max_uses) ? { status: 'exhausted' } : {}) })
     .eq('id', match.id);
+
+  // EXP-P1 Observer Round regression guard — same hook as the bearer-code
+  // claim path above; best-effort, never blocks the grant.
+  if (domain === 'research-lab' && role === REVIEWER_INVITATION_ROLE) {
+    const allowedExp = (match as { allowed_experiments?: string[] | null }).allowed_experiments;
+    if (!allowedExp || allowedExp.length === 0 || allowedExp.includes(OBSERVER_ROUND_BOOTSTRAP_EXPERIMENT_ID)) {
+      await ensureCurrentObserverRoundAssignments(admin, OBSERVER_ROUND_BOOTSTRAP_EXPERIMENT_ID).catch(() => null);
+    }
+  }
+
   return true;
 }

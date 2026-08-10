@@ -54,6 +54,46 @@ export const CAMPAIGN_REGISTRY: Record<string, CampaignDefinition> = {
         targetCount: 1,
       },
     ],
+    shareRewardConfig: {
+      rewardType: 'herald_of_order',
+      rewardAmount: 0.25,
+      thresholds: { click: 10, signup: 3, conversion: 1 },
+    },
+  },
+  'knyts-bridge-crossing': {
+    id: 'knyts-bridge-crossing',
+    title: 'KNYTS Bridge — Crossing',
+    franchiseId: 'metaknyts',
+    tenantId: 'knyt',
+    group: 'rewarded',
+    phases: [
+      {
+        id: 'clicks',
+        label: 'Audience clicks (10)',
+        eventTypes: ['content_share_click'],
+        counterKey: 'clicks',
+        targetCount: 10,
+      },
+      {
+        id: 'signups',
+        label: 'Audience signups (3)',
+        eventTypes: ['content_share_signup'],
+        counterKey: 'signups',
+        targetCount: 3,
+      },
+      {
+        id: 'conversions',
+        label: 'Conversions (1)',
+        eventTypes: ['content_share_conversion'],
+        counterKey: 'conversions',
+        targetCount: 1,
+      },
+    ],
+    shareRewardConfig: {
+      rewardType: 'knyts_bridge_crossing',
+      rewardAmount: 0.25,
+      thresholds: { click: 10, signup: 3, conversion: 1 },
+    },
   },
 };
 

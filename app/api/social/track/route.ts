@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { distributeHeraldOfOrderReward } from '@/services/rewards/rewardsService';
+import { distributeShareReward } from '@/services/rewards/rewardsService';
 import { emitCampaignEvent } from '@/services/campaign/campaignService';
+import { getCampaignDefinition } from '@/services/campaign/campaignRegistry';
+
+const DEFAULT_SHARE_CAMPAIGN_ID = 'qriptopian-share';
 
 export async function POST(request: NextRequest) {
   try {
-    const { shareId, personaId, contentId, platform, eventType, action } = await request.json();
+    const { shareId, personaId, contentId, platform, eventType, action, campaignId } = await request.json();
     const resolvedEventType = eventType || action;
+    const resolvedCampaignId = campaignId || DEFAULT_SHARE_CAMPAIGN_ID;
     const resolvedShareId = shareId || (personaId && contentId ? `auto_${personaId}_${contentId}` : null);
     
     if (!resolvedShareId || !resolvedEventType) {
@@ -31,6 +35,7 @@ export async function POST(request: NextRequest) {
           content_id: contentId,
           platform: platform || 'unknown',
           share_url: request.headers.get('referer') || '',
+          campaign_id: campaignId || null,
           clicks: 0,
           signups: 0,
           conversions: 0,
@@ -76,6 +81,7 @@ export async function POST(request: NextRequest) {
           content_id: contentId,
           platform: platform || 'unknown',
           share_url: request.headers.get('referer') || '',
+          campaign_id: campaignId || null,
           clicks: 0,
           signups: 0,
           conversions: 0,
@@ -101,6 +107,12 @@ export async function POST(request: NextRequest) {
       })
       .eq('id', resolvedShareId);
 
+    // A share row's own campaign_id (set at creation) takes precedence over
+    // the campaignId on this event, so click/signup/conversion events against
+    // an existing share stay attributed to the campaign it was created under.
+    const effectiveCampaignId = share.campaign_id || resolvedCampaignId;
+    const campaignDefinition = getCampaignDefinition(effectiveCampaignId);
+
     const campaignEventType = resolvedEventType === 'click'
       ? 'content_share_click'
       : resolvedEventType === 'signup'
@@ -110,7 +122,7 @@ export async function POST(request: NextRequest) {
     const ownerPersonaId = share.persona_id || personaId;
     if (ownerPersonaId) {
       await emitCampaignEvent({
-        campaignId: 'qriptopian-share',
+        campaignId: effectiveCampaignId,
         eventType: campaignEventType,
         personaId: ownerPersonaId,
         contentId: share.content_id,
@@ -122,20 +134,25 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Check if reward threshold met and distribute Herald of Order reward
+    // Check if reward threshold met and distribute the campaign's share reward
     let rewardDistributed = false;
+    const rewardConfig = campaignDefinition?.shareRewardConfig ?? {
+      rewardType: 'herald_of_order',
+      rewardAmount: 0.25,
+      thresholds: { click: 10, signup: 3, conversion: 1 },
+    };
     if (share.persona_id) {
-      // Herald of Order reward thresholds
-      const shouldReward = 
-        (resolvedEventType === 'click' && newCount % 10 === 0) ||  // Every 10 clicks
-        (resolvedEventType === 'signup' && newCount % 3 === 0) ||   // Every 3 signups
-        (resolvedEventType === 'conversion');                        // Every conversion
+      const shouldReward =
+        (resolvedEventType === 'click' && rewardConfig.thresholds.click && newCount % rewardConfig.thresholds.click === 0) ||
+        (resolvedEventType === 'signup' && rewardConfig.thresholds.signup && newCount % rewardConfig.thresholds.signup === 0) ||
+        (resolvedEventType === 'conversion' && Boolean(rewardConfig.thresholds.conversion));
 
       if (shouldReward) {
-        const result = await distributeHeraldOfOrderReward(
+        const result = await distributeShareReward(
           share.persona_id,
           resolvedShareId,
-          resolvedEventType as 'click' | 'signup' | 'conversion'
+          resolvedEventType as 'click' | 'signup' | 'conversion',
+          rewardConfig
         );
         rewardDistributed = result.success;
       }

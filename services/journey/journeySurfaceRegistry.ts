@@ -320,6 +320,30 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
     component: 'PartnerProgrammesTab',
     note: "The Research Workspace's Activity view, locked to one workspace and rendered bare.",
   },
+
+  // ── KNYTS Bridge journey (2026-08-09) — the public front door
+  // (app/bridge/knyts/page.tsx) composes these directly rather than through
+  // JourneyRunSurface's generic stepper: that runner requires an
+  // authenticated stateUrl fetch on mount (personaFetch against a route
+  // that 401s a signed-out caller), which is incompatible with HOMECOMING/
+  // VIEW being browsable signed-out by design. These entries still document
+  // which real surface each stage composes, per the Surface Reuse Principle.
+  'knyts-bridge-mycanvas-remix': {
+    kind: 'component',
+    component: 'MyCanvasTab',
+    note:
+      'The existing myCanvas surface (app/triad/components/codex/tabs/MyCanvasTab.tsx), mounted with ' +
+      "surface='canvas' — same Remix/RemixDialog/publish-to-pulse path every other Remix uses. Never a " +
+      'forked campaign-specific remix UI.',
+  },
+  'knyts-bridge-stand': {
+    kind: 'component',
+    component: 'KnytsBridgeStandPanel',
+    note:
+      'Thin read-only projection (components/journey/KnytsBridgeStandPanel.tsx) over existing KNYT ' +
+      'reaction counts, campaign-tagged share/conversion counts, and remix lineage — never a new ' +
+      'reward ledger or scoring system (services/journey/knytsBridgeStand.ts).',
+  },
 };
 
 /**
