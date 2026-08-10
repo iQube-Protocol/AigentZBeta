@@ -13,13 +13,13 @@ import { CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY } from '@/services/journey/const
 
 function stateFor(overrides: Partial<{
   personaAuthenticated: boolean;
-  dispositionRecorded: boolean;
+  agentRelationshipStarted: boolean;
   constitutionalEventRecorded: boolean;
 }>): AuthoritativePlatformState {
   return {
     stages: {
       passport: { personaAuthenticated: overrides.personaAuthenticated ?? false },
-      act: { dispositionRecorded: overrides.dispositionRecorded ?? false },
+      act: { agentRelationshipStarted: overrides.agentRelationshipStarted ?? false },
       stand: { constitutionalEventRecorded: overrides.constitutionalEventRecorded ?? false },
     },
   };
@@ -37,7 +37,7 @@ describe('CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY', () => {
     expect(result.currentStageId).toBe('passport');
   });
 
-  it('passport crossed but no disposition yet: act is current, not gated by fabricated evidence', () => {
+  it('passport crossed but no agent relationship started yet: act is current, not gated by fabricated evidence', () => {
     const result = resolveJourneyState(
       CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY,
       stateFor({ personaAuthenticated: true }),
@@ -49,10 +49,10 @@ describe('CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY', () => {
     expect(result.currentStageId).toBe('act');
   });
 
-  it('disposition recorded but no constitutional event yet: stand is current', () => {
+  it('agent relationship started (either path) but no constitutional event yet: stand is current', () => {
     const result = resolveJourneyState(
       CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY,
-      stateFor({ personaAuthenticated: true, dispositionRecorded: true }),
+      stateFor({ personaAuthenticated: true, agentRelationshipStarted: true }),
     );
     const act = result.stages.find((s) => s.stageId === 'act');
     const stand = result.stages.find((s) => s.stageId === 'stand');
@@ -64,7 +64,7 @@ describe('CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY', () => {
   it('all three real facts true: every stage COMPLETE', () => {
     const result = resolveJourneyState(
       CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY,
-      stateFor({ personaAuthenticated: true, dispositionRecorded: true, constitutionalEventRecorded: true }),
+      stateFor({ personaAuthenticated: true, agentRelationshipStarted: true, constitutionalEventRecorded: true }),
     );
     for (const stage of result.stages) {
       expect(stage.state).toBe('COMPLETE');

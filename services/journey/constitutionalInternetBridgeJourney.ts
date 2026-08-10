@@ -34,17 +34,64 @@
  *     single fact this journey itself could gate on.
  *
  * So the tracked ladder is exactly the three acts with real, checkable
- * evidence: cross the Threshold (Passport), record a durable disposition
- * toward your agent relationship (Act), and see that a constitutional event
- * has genuinely occurred (Stand). HOME/VIEW/ORIENT/CHOOSE are rendered as
- * free (non-gated) sections of the public front door
- * (app/bridge/constitutional-internet/page.tsx) around this ladder, never as
- * JourneyDefinition stages with nothing to evidence.
+ * evidence: cross the Threshold (Passport), bring an agent into the field
+ * (Act), and see that a constitutional event has genuinely occurred (Stand).
+ * HOME/VIEW/ORIENT/CHOOSE are rendered as free (non-gated) sections of the
+ * public front door (app/bridge/constitutional-internet/page.tsx) around
+ * this ladder, never as JourneyDefinition stages with nothing to evidence.
+ *
+ * ── ACT: "Bring Your Agent Into the Field" — connection is not delegation ──
+ *
+ * Operator refinement (2026-08-10): ACT is not solely an ExperienceQube
+ * disposition ceremony. It is the first post-Passport human-agent
+ * relationship step, and it offers TWO sibling paths, neither of which
+ * grants constitutional authority:
+ *
+ *   (1) Connect an agent you already use — a real, already-working metaMe
+ *       Threshold MCP OAuth crossing (services/threshold/gateway.ts,
+ *       app/api/threshold/mcp/route.ts, app/threshold/authorize/page.tsx).
+ *       A base crossing grants ONLY `CONSTITUTIONAL_ROOT_CAPABILITIES`
+ *       (services/threshold/serviceRegistry.ts) — read/query scope over
+ *       Passport status, journeys, services; explicitly NO substantive
+ *       service action. Delegation requires a SEPARATE, later, explicit
+ *       human-authorized step (`propose_delegation` only ever drafts a
+ *       proposal; it cannot grant one). This is the governing principle:
+ *       "Context may cross before authority does."
+ *   (2) Meet aigentMe — the pre-existing generalized ExperienceQube
+ *       disposition ceremony (experienceQubeDispositionService.ts).
+ *
+ * Both are relationship/context facts, not delegation, not Standing, not a
+ * mandate. `completionEvidence: ['agentRelationshipStarted']` is true when
+ * EITHER path is taken (computed as an OR in the state route) — the two
+ * paths are alternatives, not a checklist.
  */
 
 import type { JourneyDefinition } from '@/types/journey';
 
 export const CI_BRIDGE_CAMPAIGN_ID = 'constitutional-internet-bridge';
+
+/**
+ * The real, canonical metaMe Threshold MCP endpoint (CLAUDE.md "MCP Servers
+ * — Threshold / metaMe Tool Access"). "Connect an agent you already use"
+ * deep-links here — never a guessed or invented URL. Auth is a standard
+ * OAuth 2.1 + PKCE + Dynamic Client Registration handshake
+ * (app/api/threshold/oauth/*); Claude Desktop's / claude.ai's own
+ * "add custom connector" flow speaks this directly.
+ */
+export const CI_BRIDGE_THRESHOLD_MCP_URL = 'https://dev-beta.aigentz.me/api/threshold/mcp';
+
+/**
+ * campaign_events eventType for the "Connect an agent you already use" path.
+ * This is a SELF-REPORT (the visitor clicks "I've connected" after following
+ * the instructions) — the same fidelity as ORIENT's orient_frontier_recorded
+ * and CHOOSE's book_interest, never a verified system fact. A future
+ * increment could instead verify against the real
+ * services/constitutional/constitutionalAgreement.ts record for this
+ * persona's one-way ownerCommitment once that schema is fully understood
+ * here — this does NOT attempt that today, to avoid guessing at a T2-safe
+ * commitment derivation under time pressure.
+ */
+export const CI_BRIDGE_EXTERNAL_AGENT_EVENT_TYPE = 'external_agent_connected';
 
 /**
  * The runtime agent id every Constitutional Internet Bridge disposition
@@ -100,23 +147,34 @@ export const CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY: JourneyDefinition = {
     {
       id: 'act',
       label: 'Act',
-      description: 'Shape your agent relationship — an explicit, principal-chosen disposition, never inferred or defaulted.',
+      description:
+        'Bring your agent into the field — an orientation and context connection, not delegation. ' +
+        'Connect an agent you already use, or begin shaping a constitutional companion with aigentMe. ' +
+        'Either is an explicit, principal-chosen act; neither confers constitutional authority.',
       actor: 'operator',
       subjectRef: 'visitor',
       surfaces: [
         {
           mode: 'component',
-          ref: 'ci-bridge-act-disposition',
-          note: 'A generalized ExperienceQube disposition ceremony — the same receipt-backed ceremony the Horizen/MoneyPenny journey uses, recorded under this journey\'s own agent scope and context.',
+          ref: 'ci-bridge-act-field-entry',
+          note:
+            'ConstitutionalAgentFieldEntrySurface — two sibling paths: (1) Connect an agent you already ' +
+            'use, via the real metaMe Threshold MCP OAuth crossing (services/threshold/*) — grants only ' +
+            'CONSTITUTIONAL_ROOT_CAPABILITIES (read/query scope), never delegation; (2) Meet aigentMe, the ' +
+            'same generalized ExperienceQube disposition ceremony the Horizen/MoneyPenny journey uses. ' +
+            'Governing rule: "Context may cross before authority does" — connection is never delegation.',
         },
       ],
       prerequisites: ['passport'],
-      permittedActions: ['record-agent-disposition'],
-      completionEvidence: ['dispositionRecorded'],
+      permittedActions: ['connect-external-agent', 'record-agent-disposition'],
+      completionEvidence: ['agentRelationshipStarted'],
       receiptTypes: [],
       companion: {
-        before: 'What role would you like an agent to play in shaping your experience, and how much authority would you give it? This is your choice alone — nothing here is inferred or assumed on your behalf.',
-        complete: 'Your disposition is recorded. Your agent relationship now begins from what you actually chose.',
+        before:
+          'What role would you like agents to play in your life? Bring an agent you already use into the ' +
+          'field, or begin shaping aigentMe as your constitutional companion. Either is a choice you make ' +
+          'explicitly — connection is never delegation, and nothing here is inferred or assumed on your behalf.',
+        complete: 'An agent has entered the field with you. Bounded delegation, if you ever want it, is a separate, later choice.',
       },
       nextStageId: 'stand',
     },

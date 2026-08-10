@@ -350,14 +350,17 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
   // Same reasoning as above applies: the public front door
   // (app/bridge/constitutional-internet/page.tsx) composes these directly
   // rather than through JourneyRunSurface's generic stepper.
-  'ci-bridge-act-disposition': {
+  'ci-bridge-act-field-entry': {
     kind: 'component',
-    component: 'ConstitutionalAgentDispositionSurface',
+    component: 'ConstitutionalAgentFieldEntrySurface',
     note:
-      'components/journey/ConstitutionalAgentDispositionSurface.tsx — a generalized ExperienceQube ' +
-      'disposition ceremony sharing its receipt taxonomy with the Horizen/MoneyPenny disposition route ' +
-      'via services/journey/experienceQubeDispositionService.ts, scoped under this journey\'s own agent ' +
-      'id and context tag so the two never cross-read each other\'s receipts.',
+      'components/journey/ConstitutionalAgentFieldEntrySurface.tsx — "Bring Your Agent Into the Field," ' +
+      'two sibling paths, neither delegation: (1) Connect an agent you already use, via the real metaMe ' +
+      'Threshold MCP OAuth crossing (read/query scope only); (2) Meet aigentMe, rendering ' +
+      'ConstitutionalAgentDispositionSurface.tsx inline — a generalized ExperienceQube disposition ' +
+      'ceremony sharing its receipt taxonomy with the Horizen/MoneyPenny disposition route via ' +
+      'services/journey/experienceQubeDispositionService.ts, scoped under this journey\'s own agent id ' +
+      'and context tag. Either path alone completes ACT (agentRelationshipStarted is an OR).',
   },
   'ci-bridge-stand': {
     kind: 'component',

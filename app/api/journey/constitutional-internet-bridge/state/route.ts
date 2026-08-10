@@ -14,11 +14,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { listActivityReceiptsForPersona } from '@/services/receipts/activityReceiptService';
+import { getCommunityContentSupabase } from '@/app/api/community-content/_lib/personaContext';
 import { resolveJourneyState, type AuthoritativePlatformState } from '@/services/journey/resolveJourneyState';
 import {
   CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY,
   CI_BRIDGE_RUNTIME_AGENT_ID,
   CI_BRIDGE_DISPOSITION_CONTEXT,
+  CI_BRIDGE_CAMPAIGN_ID,
+  CI_BRIDGE_EXTERNAL_AGENT_EVENT_TYPE,
 } from '@/services/journey/constitutionalInternetBridgeJourney';
 
 export const dynamic = 'force-dynamic';
@@ -48,6 +51,7 @@ async function getImpl(req: NextRequest) {
   const personaAuthenticated = Boolean(persona?.personaId);
 
   let dispositionRecorded = false;
+  let externalAgentConnected = false;
   let constitutionalEventRecorded = false;
 
   if (persona?.personaId) {
@@ -60,11 +64,28 @@ async function getImpl(req: NextRequest) {
       (r) => (r.actionInput as { context?: string } | null)?.context === CI_BRIDGE_DISPOSITION_CONTEXT,
     );
 
-    if (dispositionRecorded) {
+    const admin = getCommunityContentSupabase();
+    const { data: connectEvents } = await admin
+      .from('campaign_events')
+      .select('id')
+      .eq('campaign_id', CI_BRIDGE_CAMPAIGN_ID)
+      .eq('persona_id', persona.personaId)
+      .eq('event_type', CI_BRIDGE_EXTERNAL_AGENT_EVENT_TYPE)
+      .limit(1);
+    externalAgentConnected = Boolean(connectEvents && connectEvents.length > 0);
+
+    // ACT's two paths are ALTERNATIVES, not a checklist — either bringing an
+    // agent you already use into the field, or beginning to shape aigentMe,
+    // starts the agent relationship. See constitutionalInternetBridgeJourney
+    // .ts's "ACT: Bring Your Agent Into the Field" header.
+    const agentRelationshipStarted = dispositionRecorded || externalAgentConnected;
+
+    if (agentRelationshipStarted) {
       // The smallest real "a constitutional event happened" fact: Passport
-      // is already implied by personaAuthenticated, and the disposition
-      // itself is a receipted act — that pair is enough to say STAND has
-      // something honest to show, without inventing a richer formula.
+      // is already implied by personaAuthenticated, and starting the agent
+      // relationship (either path) is itself a recorded act — that pair is
+      // enough to say STAND has something honest to show, without inventing
+      // a richer formula.
       constitutionalEventRecorded = true;
     }
   }
@@ -72,7 +93,7 @@ async function getImpl(req: NextRequest) {
   const platformState: AuthoritativePlatformState = {
     stages: {
       passport: { personaAuthenticated },
-      act: { dispositionRecorded },
+      act: { agentRelationshipStarted: dispositionRecorded || externalAgentConnected },
       stand: { constitutionalEventRecorded },
     },
   };

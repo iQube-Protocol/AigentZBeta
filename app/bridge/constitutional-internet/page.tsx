@@ -27,7 +27,7 @@ import { usePassportSignInGate } from "@/app/hooks/usePassportSignInGate";
 import { BridgeMediaStage } from "@/components/journey/BridgeMediaStage";
 import { ConstitutionalInternetBridgeViewSequence } from "@/components/journey/ConstitutionalInternetBridgeViewSequence";
 import { ConstitutionalFrontierOrientSurface } from "@/components/journey/ConstitutionalFrontierOrientSurface";
-import { ConstitutionalAgentDispositionSurface } from "@/components/journey/ConstitutionalAgentDispositionSurface";
+import { ConstitutionalAgentFieldEntrySurface } from "@/components/journey/ConstitutionalAgentFieldEntrySurface";
 import { ConstitutionalInternetBridgeStandPanel } from "@/components/journey/ConstitutionalInternetBridgeStandPanel";
 import { ConstitutionalInternetBridgeChooseSurface } from "@/components/journey/ConstitutionalInternetBridgeChooseSurface";
 
@@ -97,14 +97,15 @@ export default function ConstitutionalInternetBridgePage() {
 
       {/* ACT — gated on Passport, resumes the same intent on sign-in */}
       <div className="mx-auto max-w-3xl px-6 pb-12">
-        <h2 className="text-sm font-semibold text-slate-200 mb-4">Shape Your Agent Relationship</h2>
+        <h2 className="text-sm font-semibold text-slate-200 mb-1">Bring Your Agent Into the Field</h2>
+        <p className="text-xs text-slate-500 mb-4">Context may cross before authority does. Connection is never delegation.</p>
         {personaId ? (
-          <ConstitutionalAgentDispositionSurface />
+          <ConstitutionalAgentFieldEntrySurface />
         ) : (
           <div className="rounded-2xl border border-white/10 bg-slate-900/40 p-5">
             <p className="text-sm text-slate-300">
               Crossing the Threshold is something you do as yourself, so this is the one step between
-              exploring the proposition and shaping your own agent relationship.
+              exploring the proposition and bringing an agent into the field with you.
             </p>
             <button
               type="button"
