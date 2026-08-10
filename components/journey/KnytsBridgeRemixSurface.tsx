@@ -20,6 +20,14 @@
  * dynamic payload like `remix=`, so this stays a `component` surface that
  * builds its own iframe src — the ONE deliberate exception to "embed via
  * the registry" in this journey, and only because of that dynamism.
+ *
+ * Focused surface-polish pass (2026-08-10): since this surface builds its
+ * own URL rather than going through a registry `embed` descriptor, it can't
+ * pick up JourneyRunSurface's shared `focused` treatment automatically —
+ * it applies the same `focused: true` option (utils/codex-nav.ts) and the
+ * same taller-viewport + "Explore metaMe ↗" affordance by hand, so myCanvas
+ * reads identically to VIEW/STAND/BUY: metaMe's top estate navigation is
+ * suppressed, myCanvas's own local navigation is untouched.
  */
 
 import { useEffect, useState } from 'react';
@@ -32,33 +40,59 @@ interface Props {
 
 export function KnytsBridgeRemixSurface({ personaId }: Props) {
   const [src, setSrc] = useState<string | null>(null);
+  const [openHref, setOpenHref] = useState<string | null>(null);
 
   useEffect(() => {
-    const base = buildCodexUrl('metame-codex', {
-      tab: 'mycanvas',
-      personaId,
-      shell: 'embed',
-      suppressCopilot: true,
-    });
-    try {
-      const url = new URL(base, window.location.origin);
-      url.searchParams.set('campaignTag', KNYTS_BRIDGE_CAMPAIGN_ID);
-      const pendingRemix = new URL(window.location.href).searchParams.get('remix');
-      if (pendingRemix) url.searchParams.set('remix', pendingRemix);
-      setSrc(url.pathname + url.search);
-    } catch {
-      setSrc(base);
-    }
+    const pendingRemix = (() => {
+      try {
+        return new URL(window.location.href).searchParams.get('remix');
+      } catch {
+        return null;
+      }
+    })();
+
+    const buildSrc = (focused: boolean) => {
+      const base = buildCodexUrl('metame-codex', {
+        tab: 'mycanvas',
+        personaId,
+        shell: 'embed',
+        suppressCopilot: true,
+        focused,
+      });
+      try {
+        const url = new URL(base, window.location.origin);
+        url.searchParams.set('campaignTag', KNYTS_BRIDGE_CAMPAIGN_ID);
+        if (pendingRemix) url.searchParams.set('remix', pendingRemix);
+        return url.pathname + url.search;
+      } catch {
+        return base;
+      }
+    };
+
+    setSrc(buildSrc(true));
+    setOpenHref(buildSrc(false));
   }, [personaId]);
 
   if (!src) return null;
 
   return (
-    <iframe
-      src={src}
-      title="Crossing the Threshold — myCanvas"
-      className="h-[36rem] w-full rounded-md border border-slate-800 bg-slate-950"
-    />
+    <div className="flex flex-col gap-1.5">
+      <div className="flex justify-end">
+        <a
+          href={openHref ?? '#'}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-slate-200"
+        >
+          Explore metaMe ↗
+        </a>
+      </div>
+      <iframe
+        src={src}
+        title="Crossing the Threshold — myCanvas"
+        className="h-[calc(100vh-200px)] w-full rounded-md border border-slate-800 bg-slate-950"
+      />
+    </div>
   );
 }
 

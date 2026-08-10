@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`d56b844`](https://github.com/iQube-Protocol/AigentZBeta/commit/d56b8444cbcefad7a30581ca7bd5edc0ab46cb1c) [push] Pre-recording Horizen polish: compact narrator header + Register ceremony replay (Claude, 2026-08-10T06:41:38Z)
 - [`169248d`](https://github.com/iQube-Protocol/AigentZBeta/commit/169248d21d0c0d80ad950ef95ebc907689ac1559) [push] Mirror CFS-055's ratified invariants 252-259 into the canon + seed (Claude, 2026-08-10T04:48:52Z)
 - [`3f76ccd`](https://github.com/iQube-Protocol/AigentZBeta/commit/3f76ccd53d31680c03d76f84db9ded974cec3bbe) [feat] Implement CFS-055 coherence pass: canonical Ratify projections + drawer (Claude, 2026-08-10T05:22:13Z)
 - [`aa1046e`](https://github.com/iQube-Protocol/AigentZBeta/commit/aa1046e372caa1fdb5f44341fbe06adcf528720e) [feat] Add Horizen coherence matrix for Nakamoto (POSIT coherence-pass item 6) (Claude, 2026-08-10T04:38:16Z)

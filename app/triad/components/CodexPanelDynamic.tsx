@@ -86,6 +86,30 @@ interface CodexPanelDynamicProps {
    */
   suppressFloatingCopilot?: boolean;
   /**
+   * Suppress this cartridge's PRIMARY chrome — the top-level brand/tab-group
+   * header bar and the group sub-header strip beneath it (the row that lets
+   * the operator jump to sibling tabs, e.g. Order/Treasury/Runtime/Shelf/
+   * Quests/Pulse). Does NOT touch the active tab's own content: TabRenderer
+   * mounts it unconditionally regardless of this flag, so any local toolbar,
+   * filter strip, or sub-navigation the tab renders itself is unaffected.
+   *
+   * Reuses the exact render branch `singleTabMode` already gates ("the tab
+   * shell manages its own navigation chrome") rather than adding a second,
+   * parallel suppression path — this flag just widens when that branch
+   * applies, from "there is only one tab" to "the host asked to focus".
+   *
+   * For a HOST that already supplies the outer navigation frame — the Guided
+   * Journey viewport, which composes cartridges by iframe beneath its own
+   * Posit Spine header — where the cartridge's estate-level nav would
+   * overwhelm a first-time visitor and duplicate the host's own chrome.
+   *
+   * Deliberately a per-MOUNT prop, not a cartridge config flag: the same
+   * cartridge opened on its own still needs its full primary chrome, where
+   * it is the only navigation on screen and entirely correct. Undefined
+   * everywhere else, so no existing mount changes.
+   */
+  suppressPrimaryChrome?: boolean;
+  /**
    * Which Journey-selectable agent the current mount concerns
    * (resolveRegistrableAgent slug, e.g. "nakamoto") — forwarded to
    * TabRenderer -> the active tab component. A single named field, not a
@@ -150,6 +174,7 @@ export default function CodexPanelDynamic({
   onClose,
   shell = 'embed',
   suppressFloatingCopilot = false,
+  suppressPrimaryChrome = false,
   agentSlug,
 }: CodexPanelDynamicProps) {
   const router = useRouter();
@@ -825,13 +850,16 @@ export default function CodexPanelDynamic({
 
   // When only one tab is available, the tab shell manages its own navigation chrome.
   const singleTabMode = enabledTabs.length <= 1;
+  // A focused-mode host (suppressPrimaryChrome) asks for the same effect on
+  // purpose rather than by tab count — see that prop's doc comment above.
+  const primaryChromeHidden = singleTabMode || suppressPrimaryChrome;
 
   return (
     <SmartTriadProvider personaId={resolvedPersonaId}>
      <WalletSurfaceHostProvider>
      <CopilotHostProvider>
       <div className={`flex flex-col h-full w-full ${resolvedTheme === 'dark' ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'}`}>
-        {!singleTabMode && (() => {
+        {!primaryChromeHidden && (() => {
           const accentColor = codex.metadata.color || 'indigo';
           // ── Build top-level nav items (groups + standalone tabs) ──
           const groups: TabGroup[] = codex.tabGroups ?? [];
