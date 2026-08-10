@@ -111,6 +111,17 @@ export interface JourneyRunSurfaceProps {
   personaId?: string;
   /** Rendered after the metaMe mark in the header row (journey-specific branding). */
   headerLabel: React.ReactNode;
+  /**
+   * Rendered on the SAME row as the stage description (compact mode) or the
+   * top row (two-row mode), immediately to the right of it and before
+   * `headerActions` (KNYTS Bridge Admin button, 2026-08-10). Optional and
+   * journey-specific — undefined for every caller that doesn't pass it, so
+   * Horizen/Validation are unaffected. Kept out of `headerLabel` because
+   * that prop sits inside a plain inline `<span>` (brand text), which wraps
+   * a block-level child like a `<button>` onto its own line the moment
+   * space runs short — this renders as a proper flex sibling instead.
+   */
+  headerExtra?: React.ReactNode;
   /** Companion quick-links document.title signal while this stage view is mounted (services/companion/quickLinks.ts). */
   documentTitle?: string;
   /** Per-journey component registry, keyed by journeySurfaceRegistry component name — never shared across journeys. */
@@ -235,6 +246,7 @@ export function JourneyRunSurface({
   stateUrl,
   personaId,
   headerLabel,
+  headerExtra,
   documentTitle,
   components,
   resolveSurfaceProps,
@@ -594,6 +606,7 @@ export function JourneyRunSurface({
             <span className="shrink-0 text-slate-600">—</span>
             <RotatingStatusLine key={activeStageId} slides={statusSlides} />
           </div>
+          {headerExtra}
           {headerActions}
         </div>
       ) : (
@@ -603,6 +616,7 @@ export function JourneyRunSurface({
             <img src="/metaMe/metaMe/metame-32.png" alt="" className="h-4 w-4 shrink-0" />
             {headerLabel}
           </div>
+          {headerExtra}
           {headerActions}
         </div>
       )}

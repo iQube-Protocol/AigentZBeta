@@ -158,18 +158,20 @@ export default function KnytsBridgePage() {
             <span className="shrink-0 font-semibold text-slate-100">KNYTS Bridge</span>
             <span className="shrink-0 text-slate-600">·</span>
             <span className="truncate text-amber-300">Threshold Guide</span>
-            {spine.cartridgeFlags.isAdmin && (
-              <button
-                type="button"
-                onClick={() => setAdminOpen(true)}
-                title="Bridge Admin"
-                className="ml-1 flex shrink-0 items-center gap-1 rounded-md border border-slate-800 bg-slate-900/40 px-1.5 py-0.5 text-[10px] text-slate-400 hover:bg-slate-800/60 hover:text-slate-200"
-              >
-                <Settings className="h-3 w-3" />
-                Bridge Admin
-              </button>
-            )}
           </>
+        }
+        headerExtra={
+          spine.cartridgeFlags.isAdmin ? (
+            <button
+              type="button"
+              onClick={() => setAdminOpen(true)}
+              title="Bridge Admin"
+              className="flex shrink-0 items-center gap-1 rounded-md border border-slate-800 bg-slate-900/40 px-2 py-1 text-[11px] text-slate-400 hover:bg-slate-800/60 hover:text-slate-200"
+            >
+              <Settings className="h-3 w-3" />
+              Bridge Admin
+            </button>
+          ) : undefined
         }
       />
 
