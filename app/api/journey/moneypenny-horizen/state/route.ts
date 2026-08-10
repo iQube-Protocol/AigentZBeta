@@ -23,6 +23,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import {
   findAgentReceiptRefs,
+  findReceiptsByIds,
   readReceiptAnchorStatus,
   type ActivityActionType,
   type ReceiptStatus,
@@ -203,6 +204,10 @@ async function resolveState(req: NextRequest) {
   // carrying `receipt_status` so the fork can distinguish "evidence present"
   // from "DVN final" without a second source of truth.
   const receiptStatuses: Record<string, ReceiptStatus[]> = {};
+  // Ratify sub-predicate projection (CFS-055 coherence pass, 2026-08-10) — the
+  // SAME agent-scoped receipts' own `created_at`, carried alongside so a
+  // sub-predicate's `effectiveAt` never needs a second, parallel query.
+  const receiptCreatedAt: Record<string, string[]> = {};
   let aigentQubeResolved = false;
   /*
    * THE SETTLED REGISTRATION — RETRIEVED, NEVER RE-DERIVED.
@@ -235,6 +240,12 @@ async function resolveState(req: NextRequest) {
   // see them. Read by id, off the agreement row's own receipt reference —
   // the same targeted lookup `readReceiptAnchorStatus` already exists for.
   let ratifyAnchorStatus: ReceiptStatus | null | undefined = null;
+  // Ratify sub-predicate projection (CFS-055 coherence pass, 2026-08-10) —
+  // `formedReceiptId`/`authorizedReceiptId`'s own createdAt/receiptStatus,
+  // read by id (same reason as `ratifyAnchorStatus` above: these receipts are
+  // never agent-scoped) so `agreementAuthorized`'s effectiveAt/dvnStatus never
+  // needs to be guessed or left null when the agreement itself is present.
+  const ratifyAgreementReceiptDetails: Map<string, { createdAt: string; receiptStatus: ReceiptStatus }> = new Map();
   /*
    * PERSONA ASSIGNMENT ≠ aigentMe DESIGNATION (al, 2026-08-04). Whether the
    * OPERATOR's active persona has structurally assigned this agent as a
@@ -347,6 +358,8 @@ async function resolveState(req: NextRequest) {
         // Consequence Fork projection (2026-08-09) — the SAME read, carrying
         // the status column it always had. Never a second query.
         (receiptStatuses[ref.actionType] ??= []).push(ref.receiptStatus);
+        // Ratify sub-predicate projection (2026-08-10) — same read again.
+        (receiptCreatedAt[ref.actionType] ??= []).push(ref.createdAt);
       }
     });
     if (supabase) await guarded('standing-evidence', async () => {
@@ -650,6 +663,16 @@ async function resolveState(req: NextRequest) {
     if (supabase) await guarded('ratify-anchor-status', async () => {
       if (!ratifyAgreement?.authorizedReceiptId) return;
       ratifyAnchorStatus = await readReceiptAnchorStatus(ratifyAgreement.authorizedReceiptId);
+    });
+    if (supabase) await guarded('ratify-agreement-receipt-details', async () => {
+      const ids = [ratifyAgreement?.formedReceiptId, ratifyAgreement?.authorizedReceiptId].filter(
+        (id): id is string => !!id,
+      );
+      if (ids.length === 0) return;
+      const rows = await findReceiptsByIds(ids);
+      for (const { record } of rows) {
+        ratifyAgreementReceiptDetails.set(record.id, { createdAt: record.createdAt, receiptStatus: record.receiptStatus });
+      }
     });
     if (supabase) await guarded('prior-resolution', async () => {
       priorResolution = await readJourneyResolution(supabase, agent.aigentQubeId, HORIZEN_MONEYPENNY_JOURNEY.id);
@@ -1069,7 +1092,18 @@ async function resolveState(req: NextRequest) {
      */
     aigentme: hasReceipt('aigentme_activated') && hasReceipt('experienceqube_focus_disposition_recorded'),
   };
+  /*
+   * A governed-correction tombstone (POSIT state model, operator ruling
+   * 2026-08-10) permanently retires the ratchet shortcut for a stage id —
+   * this axis-input union is the SECOND place (besides
+   * resolveMonotonicJourneyState's own priorCanonicalStages consumption
+   * below) that reads `priorResolution.canonicalStages` directly, so it must
+   * honour the same tombstone or a corrected stage could resurrect through
+   * this path even after resolveMonotonicJourneyState correctly excludes it.
+   */
+  const tombstonedStageIds = new Set(Object.keys(priorResolution?.invalidatedStages ?? {}));
   for (const stageId of priorResolution?.canonicalStages ?? []) {
+    if (tombstonedStageIds.has(stageId)) continue;
     if (canonicalStages[stageId] !== true) canonicalStages[stageId] = canonicalStages[stageId] || true;
   }
 
@@ -1089,7 +1123,9 @@ async function resolveState(req: NextRequest) {
      * (`priorResolution?.canonicalStages`), never via re-reading the same
      * conflated registry signal on every future request.
      */
-    factoryIngested: hasReceipt('capability_registered') || (priorResolution?.canonicalStages ?? []).includes('deploy'),
+    factoryIngested:
+      hasReceipt('capability_registered') ||
+      ((priorResolution?.canonicalStages ?? []).includes('deploy') && !tombstonedStageIds.has('deploy')),
     pulse: pulseState,
     pnl: pnlState,
     /*
@@ -1132,6 +1168,10 @@ async function resolveState(req: NextRequest) {
     canonicalOutcomes: { register: registration?.registered === true },
     priorCanonicalStages: priorResolution?.canonicalStages ?? [],
     priorMilestones: priorResolution?.milestones ?? [],
+    // The SAME tombstone set filtered above — a stage a governed correction
+    // invalidated gets no `prior-resolution` synthesis here either, but may
+    // still complete via genuine live evidence (canonicalAuthority: 'evidence').
+    invalidatedStages: Array.from(tombstonedStageIds),
     auditGaps: {
       register: registration?.auditGaps ?? [],
       // Failed canonical reads are DISCLOSED, never rendered as "did not happen".
@@ -1202,6 +1242,64 @@ async function resolveState(req: NextRequest) {
     serviceVerifiedDvnStatus: bestReceiptStatus(receiptStatuses['pnl_service_verified'] ?? []),
   };
 
+  /*
+   * RATIFY SUB-PREDICATE PROJECTION (CFS-055 coherence pass, 2026-08-10 —
+   * inv.engineering.255 "One Predicate, One Projection"). Ratify's five
+   * sub-facts (`agreementAuthorized`, `pulseAuthorized`,
+   * `pnlDisclosureAuthorized`, `pnlServiceRegistered`, `pnlEvidenceVerified`)
+   * previously existed only as bare booleans buried inside `stages.verify`'s
+   * completion-evidence object, each with no individually inspectable
+   * authority/effectiveAt/evidenceRefs/finality of its own — the exact gap
+   * the coherence matrix (codexes/packs/agentiq/updates/
+   * 2026-08-10_horizen-coherence-matrix-nakamoto.md, finding 3) named as why
+   * AgreementRatifyPanel/PulseTransparencyToggle each independently re-derive
+   * these facts instead of consuming a canonical projection: there was
+   * nothing canonical at this granularity TO consume.
+   *
+   * Every field below is sourced from the SAME `hasReceipt(...)`/agreement-row
+   * reads `stages.verify` already uses — never inferred from another
+   * sub-predicate (CFS-055 §11 inv.epistemology.257 "Evidence Does Not
+   * Collapse Predicates"). `receiptBackedSubPredicate` is the one function
+   * every receipt-only sub-predicate below shares — never four independent
+   * copies of the same shape.
+   */
+  const receiptBackedSubPredicate = (predicate: string, actionType: ActivityActionType) => {
+    const established = hasReceipt(actionType);
+    const createdAts = receiptCreatedAt[actionType] ?? [];
+    return {
+      predicate,
+      established,
+      authority: established ? ('evidence' as const) : ('none' as const),
+      effectiveAt: createdAts.length > 0 ? createdAts.slice().sort()[0] : null,
+      evidenceRefs: established ? [actionType] : [],
+      receiptRefs: receiptRefs[actionType] ?? [],
+      dvnStatus: bestReceiptStatus(receiptStatuses[actionType] ?? []),
+    };
+  };
+  const agreementAuthorizedEstablished = ratifyAgreementStatusAtLeast('authorized');
+  const agreementAuthorizedReceiptId = ratifyAgreement?.authorizedReceiptId ?? null;
+  const agreementAuthorizedReceiptDetail = agreementAuthorizedReceiptId
+    ? ratifyAgreementReceiptDetails.get(agreementAuthorizedReceiptId) ?? null
+    : null;
+  const ratifySubPredicates = {
+    // NOT receipt-backed like its siblings below — the agreement row IS the
+    // canonical record (see the `ratify-agreement` guarded read's own
+    // comment for why a receipt scan is the wrong tool for this one).
+    agreementAuthorized: {
+      predicate: 'agreementAuthorized',
+      established: agreementAuthorizedEstablished,
+      authority: ratifyAgreement ? ('external-authority' as const) : ('none' as const),
+      effectiveAt: agreementAuthorizedReceiptDetail?.createdAt ?? null,
+      evidenceRefs: agreementAuthorizedEstablished ? ['agreementAuthorized'] : [],
+      receiptRefs: agreementAuthorizedReceiptId ? [agreementAuthorizedReceiptId] : [],
+      dvnStatus: agreementAuthorizedReceiptDetail?.receiptStatus ?? null,
+    },
+    pulseAuthorized: receiptBackedSubPredicate('pulseAuthorized', 'horizen_pulse_authorized'),
+    pnlDisclosureAuthorized: receiptBackedSubPredicate('pnlDisclosureAuthorized', 'horizen_pnl_transparency_enabled'),
+    pnlServiceRegistered: receiptBackedSubPredicate('pnlServiceRegistered', 'pnl_service_registered'),
+    pnlEvidenceVerified: receiptBackedSubPredicate('pnlEvidenceVerified', 'pnl_service_verified'),
+  };
+
   // Persist so refresh, persona change and route change all resolve the same
   // result. The write is itself monotonic — see recordJourneyResolution.
   try {
@@ -1260,5 +1358,11 @@ async function resolveState(req: NextRequest) {
     //   serviceVerifiedDvnStatus } — see the definition above for why this
     // is additive to, never a replacement for, stages.verify's own fields.
     pnlEvidence,
+    // Ratify's five sub-predicates, each independently projected — see the
+    // definition above (CFS-055 coherence pass). This is what
+    // AgreementRatifyPanel/PulseTransparencyToggle/StageReceiptsDrawer must
+    // consume for these facts, never their own Agent Card fetch, `/verify/
+    // status` poll, or unscoped receipt search.
+    ratifySubPredicates,
   });
 }

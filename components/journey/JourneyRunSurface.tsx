@@ -149,6 +149,29 @@ export interface JourneyRunSurfaceProps {
       serviceVerified: boolean;
       serviceVerifiedDvnStatus: string | null;
     } | null;
+    /**
+     * Ratify's five sub-predicates, each independently projected (CFS-055
+     * coherence pass, 2026-08-10) — `{ predicate, established, authority,
+     * effectiveAt, evidenceRefs, receiptRefs, dvnStatus }` per key
+     * (`agreementAuthorized`, `pulseAuthorized`, `pnlDisclosureAuthorized`,
+     * `pnlServiceRegistered`, `pnlEvidenceVerified`). Null while the first
+     * read is in flight. This is what AgreementRatifyPanel/
+     * PulseTransparencyToggle must consume for these facts — never their
+     * own Agent Card fetch, `/verify/status` poll, or duplicated status-rank
+     * logic.
+     */
+    ratifySubPredicates: Record<
+      string,
+      {
+        predicate: string;
+        established: boolean;
+        authority: string;
+        effectiveAt: string | null;
+        evidenceRefs: string[];
+        receiptRefs: string[];
+        dvnStatus: string | null;
+      }
+    > | null;
   }) => Record<string, unknown>;
   /**
    * The Journey's currently-selected agent (resolveRegistrableAgent slug,
@@ -245,6 +268,20 @@ export function JourneyRunSurface({
     serviceVerified: boolean;
     serviceVerifiedDvnStatus: string | null;
   } | null>(null);
+  // Ratify sub-predicate projection (CFS-055 coherence pass, 2026-08-10) —
+  // same optional-additive discipline as `pnlEvidence` above.
+  const [ratifySubPredicates, setRatifySubPredicates] = useState<Record<
+    string,
+    {
+      predicate: string;
+      established: boolean;
+      authority: string;
+      effectiveAt: string | null;
+      evidenceRefs: string[];
+      receiptRefs: string[];
+      dvnStatus: string | null;
+    }
+  > | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
@@ -275,6 +312,7 @@ export function JourneyRunSurface({
       setRuntimeState(json.state as JourneyRuntimeState);
       setConsequenceFork((json.consequenceFork as typeof consequenceFork) ?? null);
       setPnlEvidence((json.pnlEvidence as typeof pnlEvidence) ?? null);
+      setRatifySubPredicates((json.ratifySubPredicates as typeof ratifySubPredicates) ?? null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load journey state');
     } finally {
@@ -499,6 +537,17 @@ export function JourneyRunSurface({
       </div>
     );
 
+  /**
+   * Evidence trigger lives HERE — between Refresh and Full screen (layout
+   * correction, 2026-08-10, from the dev branch's own coherence pass): its
+   * trigger was previously anchored at the far right of the stage-
+   * description row, congesting that corner. From here its popover opens
+   * directly onto the description row below (or, in `compact` mode, the
+   * same row it's already part of) — exactly where the information belongs.
+   * Shared between the two-row and one-row (`compact`) layouts via
+   * `headerActions` so neither can drift out of sync with the other's
+   * placement (KNYTS Bridge reconstitution, 2026-08-09/10).
+   */
   const headerActions = (
     <div className="flex shrink-0 items-center gap-2">
       <button
@@ -509,6 +558,7 @@ export function JourneyRunSurface({
         <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
         {!compact && 'Refresh state'}
       </button>
+      {evidenceTrigger}
       <button
         onClick={() => setFullScreen((v) => !v)}
         title={fullScreen ? 'Collapse' : 'Full screen'}
@@ -544,7 +594,6 @@ export function JourneyRunSurface({
             <span className="shrink-0 text-slate-600">—</span>
             <RotatingStatusLine key={activeStageId} slides={statusSlides} />
           </div>
-          {evidenceTrigger}
           {headerActions}
         </div>
       ) : (
@@ -591,15 +640,12 @@ export function JourneyRunSurface({
       )}
 
       {/*
-        STAGE DESCRIPTION + EVIDENCE AFFORDANCE SHARE ONE ROW (compact layout
-        correction, 2026-08-09) — a `<details>` checklist in normal flow below
-        this row used to push the stage viewport down whenever it was opened.
-        The description column is `flex-1 min-w-0` (it truncates/rotates
-        rather than grows); the evidence trigger is `shrink-0` and opens an
-        ANCHORED popover instead of displacing anything below it. Skipped
-        entirely when `compact` is set — that variant already folded this
-        same content (via the shared `statusSlides`/`evidenceTrigger`
-        variables above) into the one-row header.
+        STAGE DESCRIPTION ROW (compact layout correction, 2026-08-09; evidence
+        trigger relocated to the top row, 2026-08-10 — see `headerActions`'s
+        own comment). The description column is `flex-1 min-w-0`: it
+        truncates/rotates rather than grows. Skipped entirely when `compact`
+        is set — that variant already folded this same content into the
+        one-row header above.
       */}
       {!compact && (
         <div className="flex items-center gap-2 text-xs">
@@ -611,15 +657,6 @@ export function JourneyRunSurface({
             <span className="shrink-0 text-slate-600">—</span>
             <RotatingStatusLine key={activeStageId} slides={statusSlides} />
           </div>
-
-          {/*
-            EVIDENCE CHECKLIST — the pilot must not need a SQL console to learn
-            why a finished-looking stage is not complete (operator, 2026-08-03:
-            "The application should eventually expose this same receipt
-            checklist directly in the Journey interface so you are not
-            required to use Supabase for normal pilot completion").
-          */}
-          {evidenceTrigger}
         </div>
       )}
 
@@ -907,7 +944,7 @@ export function JourneyRunSurface({
                 );
               }
               const extraProps =
-                resolveSurfaceProps?.({ surfaceRef, descriptor, stage: activeStage, runtimeState, pnlEvidence }) ?? {};
+                resolveSurfaceProps?.({ surfaceRef, descriptor, stage: activeStage, runtimeState, pnlEvidence, ratifySubPredicates }) ?? {};
               return (
                 /*
                  * Keyed by the SURFACE, not by array position.
@@ -943,6 +980,11 @@ export function JourneyRunSurface({
                 ? [receiptsSubjectAgentRef]
                 : undefined
             }
+            // CFS-055 coherence pass (2026-08-10) — the SAME canonical
+            // evidence the checklist popover above already renders, never a
+            // second computation. Primary source for the drawer now.
+            canonicalEvidencePresent={activeStageRuntime?.evidencePresent}
+            canonicalReceiptRefs={activeStageRuntime?.receiptRefs}
           />
         )}
       </div>

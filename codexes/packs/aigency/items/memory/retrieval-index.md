@@ -3904,3 +3904,33 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-adbff86.md](../build_/COMMITS/COMMIT-adbff86.md)
 - Message: Add a conflict resolution path to the dev auto-merge workflow
+
+## Commit `ec5d5c2` — 2026-08-10T03:43:53Z
+- Type: `feat`
+- Brief: [COMMIT-ec5d5c2.md](../build_/COMMITS/COMMIT-ec5d5c2.md)
+- Message: Add stage invalidation tombstone so a correction's removal is durable
+
+## Commit `10e7aa1` — 2026-08-10T00:15:27-04:00
+- Type: `feat`
+- Brief: [COMMIT-10e7aa1.md](../build_/COMMITS/COMMIT-10e7aa1.md)
+- Message: canon: add CFS-055 Proof of State in Time coherence doctrine
+
+## Commit `5eb4d29` — 2026-08-10T04:24:39Z
+- Type: `fix`
+- Brief: [COMMIT-5eb4d29.md](../build_/COMMITS/COMMIT-5eb4d29.md)
+- Message: Fix correction route's tombstone catch-up gap for pre-fix corrections
+
+## Commit `aa1046e` — 2026-08-10T04:38:16Z
+- Type: `feat`
+- Brief: [COMMIT-aa1046e.md](../build_/COMMITS/COMMIT-aa1046e.md)
+- Message: Add Horizen coherence matrix for Nakamoto (POSIT coherence-pass item 6)
+
+## Commit `3f76ccd` — 2026-08-10T05:22:13Z
+- Type: `feat`
+- Brief: [COMMIT-3f76ccd.md](../build_/COMMITS/COMMIT-3f76ccd.md)
+- Message: Implement CFS-055 coherence pass: canonical Ratify projections + drawer
+
+## Commit `169248d` — 2026-08-10T04:48:52Z
+- Type: `push`
+- Brief: [COMMIT-169248d.md](../build_/COMMITS/COMMIT-169248d.md)
+- Message: Mirror CFS-055's ratified invariants 252-259 into the canon + seed

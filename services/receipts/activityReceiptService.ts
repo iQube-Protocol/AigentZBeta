@@ -665,6 +665,17 @@ export interface ListReceiptsOptions {
    * same type. Passing this closes that window without a second reader.
    */
   agentsInvoked?: string[];
+  /**
+   * Narrow to this EXACT set of receipt ids (CFS-055 coherence pass,
+   * 2026-08-10 — inv.engineering.258 "Receipts Prove; State Resolves").
+   * Lets a caller hydrate the specific receipts a canonical POSIT projection
+   * already named (`resolution.stages[stageId].receiptRefs`, a sub-predicate
+   * projection's own `receiptRefs`) — never a fresh type/agent search that
+   * would re-decide whether evidence exists a second way. Still persona-
+   * scoped like every other option here: an id the caller does not own
+   * simply matches nothing.
+   */
+  ids?: string[];
 }
 
 export async function listActivityReceiptsForPersona(
@@ -686,6 +697,9 @@ export async function listActivityReceiptsForPersona(
   }
   if (options?.agentsInvoked && options.agentsInvoked.length > 0) {
     q = q.contains('agents_invoked', options.agentsInvoked);
+  }
+  if (options?.ids && options.ids.length > 0) {
+    q = q.in('id', options.ids);
   }
 
   const { data, error } = await q.order('created_at', { ascending: false }).limit(limit);

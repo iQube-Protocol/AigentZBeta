@@ -33,7 +33,9 @@ describe('StageReceiptsDrawer — agent-scoped queries (operator directive, 2026
     expect(drawerSource).toContain('const scopeKey = `${receiptTypes.join');
     expect(drawerSource).toMatch(/if \(priorScopeKey\.current === scopeKey\) return;/);
     expect(drawerSource).toContain('setLoaded(false)');
-    expect(drawerSource).toMatch(/if \(open\) void load\(\);/);
+    // CFS-055 coherence pass (2026-08-10) added a second, canonical-evidence
+    // loader alongside the original — both must refetch on scope change.
+    expect(drawerSource).toMatch(/if \(open\) \{\s*\n\s*void load\(\);\s*\n\s*void loadCanonical\(\);/);
   });
 });
 
