@@ -95,6 +95,39 @@ export const CAMPAIGN_REGISTRY: Record<string, CampaignDefinition> = {
       thresholds: { click: 10, signup: 3, conversion: 1 },
     },
   },
+  'constitutional-internet-bridge': {
+    id: 'constitutional-internet-bridge',
+    title: 'The Constitutional Internet Bridge',
+    franchiseId: 'polity-core',
+    tenantId: 'polity',
+    group: 'rewarded',
+    phases: [
+      {
+        id: 'shares',
+        label: 'Bridge shared and clicked (10)',
+        eventTypes: ['content_share_click'],
+        counterKey: 'clicks',
+        targetCount: 10,
+      },
+      {
+        id: 'crossings',
+        label: 'Passport crossings from shares (3)',
+        eventTypes: ['content_share_signup'],
+        counterKey: 'signups',
+        targetCount: 3,
+      },
+      {
+        id: 'demand',
+        label: 'Book/participation demand expressed (1)',
+        eventTypes: ['book_interest', 'collaboration_interest', 'research_interest', 'partnership_interest'],
+        counterKey: 'demand_signals',
+        targetCount: 1,
+      },
+    ],
+    // No shareRewardConfig — sharing the CI Bridge is tracked (clicks,
+    // signups, demand signals) but is not KNYT-token-rewarded. Do not add
+    // one without an explicit operator decision on CI Bridge tokenomics.
+  },
 };
 
 export function getCampaignDefinition(campaignId: string): CampaignDefinition | null {

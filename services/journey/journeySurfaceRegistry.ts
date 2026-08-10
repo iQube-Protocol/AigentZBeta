@@ -446,6 +446,33 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
       'the Store tab’s own category/local controls untouched, with an "Open KNYT World ↗" affordance ' +
       'to leave the guide.',
   },
+
+  // ── Constitutional Internet Bridge journey (2026-08-10) — the canonical
+  // Ethos Bridge, cloned from the KNYTS Bridge Threshold Guide architecture.
+  // Same reasoning as above applies: the public front door
+  // (app/bridge/ci/page.tsx) composes these directly
+  // rather than through JourneyRunSurface's generic stepper.
+  'ci-bridge-act-field-entry': {
+    kind: 'component',
+    component: 'ConstitutionalAgentFieldEntrySurface',
+    note:
+      'components/journey/ConstitutionalAgentFieldEntrySurface.tsx — "Bring Your Agent Into the Field," ' +
+      'two sibling paths, neither delegation: (1) Connect an agent you already use, via the real metaMe ' +
+      'Threshold MCP OAuth crossing (read/query scope only); (2) Meet aigentMe, rendering ' +
+      'ConstitutionalAgentDispositionSurface.tsx inline — a generalized ExperienceQube disposition ' +
+      'ceremony sharing its receipt taxonomy with the Horizen/MoneyPenny disposition route via ' +
+      'services/journey/experienceQubeDispositionService.ts, scoped under this journey\'s own agent id ' +
+      'and context tag. Either path alone completes ACT (agentRelationshipStarted is an OR).',
+  },
+  'ci-bridge-stand': {
+    kind: 'component',
+    component: 'ConstitutionalInternetBridgeStandPanel',
+    note:
+      'components/journey/ConstitutionalInternetBridgeStandPanel.tsx — reads the real Passport/' +
+      'disposition receipts and the canonical Standing score (services/standing/standingScore.ts). ' +
+      'Deliberately does NOT repeat the KNYTS Bridge STAND panel\'s mislabeling of engagement counters ' +
+      'as "Standing" — see services/journey/constitutionalInternetBridgeStand.ts\'s header.',
+  },
 };
 
 /**
