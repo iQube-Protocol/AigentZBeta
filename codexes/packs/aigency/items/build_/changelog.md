@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`5eb4d29`](https://github.com/iQube-Protocol/AigentZBeta/commit/5eb4d293a4ff8c785d994085050f2f98b5137382) [fix] Fix correction route's tombstone catch-up gap for pre-fix corrections (Claude, 2026-08-10T04:24:39Z)
 - [`10e7aa1`](https://github.com/iQube-Protocol/AigentZBeta/commit/10e7aa17d450a961739e9d7606ff2e0ec9812f5d) [feat] canon: add CFS-055 Proof of State in Time coherence doctrine (Kn0w1, 2026-08-10T00:15:27-04:00)
 - [`ec5d5c2`](https://github.com/iQube-Protocol/AigentZBeta/commit/ec5d5c2671c64f8da4621c801714459e29d73f24) [feat] Add stage invalidation tombstone so a correction's removal is durable (Claude, 2026-08-10T03:43:53Z)
 - [`adbff86`](https://github.com/iQube-Protocol/AigentZBeta/commit/adbff8645b1eff499bb03646881969bd0a2b9a86) [feat] Add a conflict resolution path to the dev auto-merge workflow (Claude, 2026-08-09T22:43:44Z)

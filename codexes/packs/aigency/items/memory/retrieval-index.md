@@ -3914,3 +3914,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-10e7aa1.md](../build_/COMMITS/COMMIT-10e7aa1.md)
 - Message: canon: add CFS-055 Proof of State in Time coherence doctrine
+
+## Commit `5eb4d29` — 2026-08-10T04:24:39Z
+- Type: `fix`
+- Brief: [COMMIT-5eb4d29.md](../build_/COMMITS/COMMIT-5eb4d29.md)
+- Message: Fix correction route's tombstone catch-up gap for pre-fix corrections
