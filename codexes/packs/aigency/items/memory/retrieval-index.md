@@ -3939,3 +3939,13 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-d56b844.md](../build_/COMMITS/COMMIT-d56b844.md)
 - Message: Pre-recording Horizen polish: compact narrator header + Register ceremony replay
+
+## Commit `58856f7` — 2026-08-10T15:14:46Z
+- Type: `feat`
+- Brief: [COMMIT-58856f7.md](../build_/COMMITS/COMMIT-58856f7.md)
+- Message: Add Aigent Know1 as a third registrable Horizen agent (config + card + health)
+
+## Commit `e1dac8c` — 2026-08-10T07:33:31Z
+- Type: `push`
+- Brief: [COMMIT-e1dac8c.md](../build_/COMMITS/COMMIT-e1dac8c.md)
+- Message: Record MoneyPenny pre-recording evidence snapshot (live dev API baseline)

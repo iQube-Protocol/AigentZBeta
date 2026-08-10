@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`e1dac8c`](https://github.com/iQube-Protocol/AigentZBeta/commit/e1dac8cd53f79d518d695b99a89bf6be36159cb9) [push] Record MoneyPenny pre-recording evidence snapshot (live dev API baseline) (Claude, 2026-08-10T07:33:31Z)
+- [`58856f7`](https://github.com/iQube-Protocol/AigentZBeta/commit/58856f7ac7c0c117b7765e0ec9ddeab0d392ebac) [feat] Add Aigent Know1 as a third registrable Horizen agent (config + card + health) (Claude, 2026-08-10T15:14:46Z)
 - [`d56b844`](https://github.com/iQube-Protocol/AigentZBeta/commit/d56b8444cbcefad7a30581ca7bd5edc0ab46cb1c) [push] Pre-recording Horizen polish: compact narrator header + Register ceremony replay (Claude, 2026-08-10T06:41:38Z)
 - [`169248d`](https://github.com/iQube-Protocol/AigentZBeta/commit/169248d21d0c0d80ad950ef95ebc907689ac1559) [push] Mirror CFS-055's ratified invariants 252-259 into the canon + seed (Claude, 2026-08-10T04:48:52Z)
 - [`3f76ccd`](https://github.com/iQube-Protocol/AigentZBeta/commit/3f76ccd53d31680c03d76f84db9ded974cec3bbe) [feat] Implement CFS-055 coherence pass: canonical Ratify projections + drawer (Claude, 2026-08-10T05:22:13Z)
