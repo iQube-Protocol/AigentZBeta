@@ -6,15 +6,17 @@
  * from real reads, then resolves it via resolveJourneyState() — same shape
  * as /api/journey/knyts-bridge/state.
  *
- * Not gated on auth: HOME/VIEW/ORIENT are deliberately browsable signed-out,
- * so `passport` simply resolves NOT_STARTED/READY for a signed-out caller
- * rather than the route refusing to answer at all.
+ * Not gated on auth: HOME/VIEW/ORIENT/CHOOSE are deliberately browsable
+ * signed-out, so `passport` simply resolves NOT_STARTED/READY for a
+ * signed-out caller rather than the route refusing to answer at all.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { listActivityReceiptsForPersona } from '@/services/receipts/activityReceiptService';
 import { getCommunityContentSupabase } from '@/app/api/community-content/_lib/personaContext';
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+import { loadUsableCitizenPassportForAuthProfile } from '@/services/identity/passportPrincipal';
 import { resolveJourneyState, type AuthoritativePlatformState } from '@/services/journey/resolveJourneyState';
 import {
   CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY,
@@ -49,6 +51,21 @@ async function getImpl(req: NextRequest) {
   // simply null, and every stage's evidence stays honestly missing.
   const persona = await getActivePersona(req).catch(() => null);
   const personaAuthenticated = Boolean(persona?.personaId);
+
+  // Real constitutional presence, not merely "signed in" — the SAME
+  // canonical check KNYTS Bridge and Horizen's own admission ladder use
+  // (services/identity/passportPrincipal.ts's
+  // loadUsableCitizenPassportForAuthProfile / isPassportUsable), never a
+  // second, weaker definition of "crossed the Threshold"
+  // (inv.engineering.036/037).
+  let citizenPassportUsable = false;
+  if (persona?.authProfileId) {
+    const adminSupabase = getSupabaseServer();
+    if (adminSupabase) {
+      const result = await loadUsableCitizenPassportForAuthProfile(adminSupabase, persona.authProfileId);
+      citizenPassportUsable = result.ok;
+    }
+  }
 
   let dispositionRecorded = false;
   let externalAgentConnected = false;
@@ -92,7 +109,7 @@ async function getImpl(req: NextRequest) {
 
   const platformState: AuthoritativePlatformState = {
     stages: {
-      passport: { personaAuthenticated },
+      passport: { citizenPassportUsable },
       act: { agentRelationshipStarted: dispositionRecorded || externalAgentConnected },
       stand: { constitutionalEventRecorded },
     },

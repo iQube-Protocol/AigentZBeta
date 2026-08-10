@@ -447,11 +447,55 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
       'to leave the guide.',
   },
 
-  // ── Constitutional Internet Bridge journey (2026-08-10) — the canonical
-  // Ethos Bridge, cloned from the KNYTS Bridge Threshold Guide architecture.
-  // Same reasoning as above applies: the public front door
-  // (app/bridge/ci/page.tsx) composes these directly
-  // rather than through JourneyRunSurface's generic stepper.
+  // ── Constitutional Internet Bridge journey (built 2026-08-10, reconstituted
+  // onto JourneyRunSurface same day) — the canonical Ethos Bridge, sibling of
+  // the KNYTS Bridge Threshold Guide on the SAME shared runner. The public
+  // front door (app/bridge/ci/page.tsx) composes these THROUGH
+  // JourneyRunSurface's shared Posit Spine runner, like every other journey
+  // in this registry — never stacked manually beneath it. HOME/VIEW/ORIENT/
+  // CHOOSE are `component` surfaces (no canonical external cartridge tab
+  // equivalent exists for this bespoke CI content, unlike KNYTS's
+  // Pulse/Quests/Store embeds); PASSPORT stays a bare `component` because it
+  // needs the stage's own resolved evidence (citizenPassportUsable) to decide
+  // which half to render, exactly like knyts-bridge-passport-room.
+  'ci-bridge-home': {
+    kind: 'component',
+    component: 'BridgeMediaStage',
+    note:
+      'components/journey/BridgeMediaStage.tsx, themed indigo — the CI proposition ("The Internet ' +
+      'recognizes accounts. The Constitutional Internet recognizes persons."). The SAME generic hero ' +
+      'component KNYTS Bridge\'s own HOME section previously used (KNYTS has since reconstituted onto ' +
+      'its own cinematic KnytsBridgeMediaStage); the two CTA callbacks (advance to View / Choose) are ' +
+      'threaded in via the page\'s resolveSurfaceProps, dispatching the shared journey:select-stage event.',
+  },
+  'ci-bridge-view': {
+    kind: 'component',
+    component: 'ConstitutionalInternetBridgeViewSequence',
+    note:
+      'components/journey/ConstitutionalInternetBridgeViewSequence.tsx — real CANONICAL_PLATES_V1 plates ' +
+      'composed with verbatim manuscript excerpts (cited by line), never invented prose. A bare ' +
+      '`component`, not an `embed`, because no canonical external cartridge tab carries this content.',
+  },
+  'ci-bridge-orient': {
+    kind: 'component',
+    component: 'ConstitutionalFrontierOrientSurface',
+    note:
+      'components/journey/ConstitutionalFrontierOrientSurface.tsx — a deterministic, non-gating ' +
+      'questionnaire (no LLM). Persists choices as a best-effort intent/demand signal via the generic ' +
+      'campaign_events log, never as constitutional state — completing it is not tracked evidence.',
+  },
+  'ci-bridge-passport-room': {
+    kind: 'component',
+    component: 'ConstitutionalInternetBridgePassportRoom',
+    note:
+      'State-aware constitutional room (components/journey/ConstitutionalInternetBridgePassportRoom.tsx), ' +
+      'mirroring knyts-bridge-passport-room\'s exact pattern: no usable Passport -> the canonical ' +
+      'PassportBureauApplyTab claim flow; Passport established -> "You have crossed." + a continuation ' +
+      'toward ACT (never an inline aigentMe embed here, since ACT itself already is the agent-connection ' +
+      'experience). A bare `component` because it needs the Passport stage\'s OWN resolved evidence ' +
+      '(citizenPassportUsable, threaded in by the page via resolveSurfaceProps) to decide which half to ' +
+      'render — a plain embed cannot branch.',
+  },
   'ci-bridge-act-field-entry': {
     kind: 'component',
     component: 'ConstitutionalAgentFieldEntrySurface',
@@ -472,6 +516,16 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
       'disposition receipts and the canonical Standing score (services/standing/standingScore.ts). ' +
       'Deliberately does NOT repeat the KNYTS Bridge STAND panel\'s mislabeling of engagement counters ' +
       'as "Standing" — see services/journey/constitutionalInternetBridgeStand.ts\'s header.',
+  },
+  'ci-bridge-choose': {
+    kind: 'component',
+    component: 'ConstitutionalInternetBridgeChooseSurface',
+    note:
+      'components/journey/ConstitutionalInternetBridgeChooseSurface.tsx — reserve the book, continue ' +
+      'reading, meet aigentMe, join the research field, build/partner, share the Bridge. A bare ' +
+      '`component`, like knyts-bridge-buy-store\'s destination is an `embed` only because a canonical ' +
+      'KNYT Store tab exists to embed — no CI-equivalent commerce surface exists yet (see the CI Bridge ' +
+      'build history: the KNYT commerce engine has no wired preorder SKU for a new book product today).',
   },
 };
 

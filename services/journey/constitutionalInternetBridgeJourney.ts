@@ -2,50 +2,57 @@
  * The Constitutional Internet Bridge — the canonical Ethos Bridge into the
  * Polity (Guided Journey Runtime, PRD-GJR-001).
  *
- * Cloned from the KNYTS Bridge Crossing journey's own shape
- * (knytsBridgeCrossingJourney.ts) per the operator's explicit instruction:
- * "the capabilities already exist; the implementation task is composition,
- * hydration, contextualization and limited generalization." Do not fork the
- * Guided Journey Runtime — this is a sibling JourneyDefinition on the same
- * shared runner (JourneyRunSurface, resolveJourneyState).
+ * Reconstituted (2026-08-10) onto the shared Guided Journey Runtime runner
+ * (components/journey/JourneyRunSurface.tsx) — the SAME Posit Spine grammar
+ * KNYTS Bridge, Horizen and the Validation Programme use, projected here in
+ * Ethos language rather than KNYTS's Mythos or Horizen's evidentiary
+ * language. The Threshold Guide is a product, not a KNYTS feature: KNYTS
+ * speaks Mythos through it, CI speaks Ethos through it, and any future
+ * bridge speaks its own projection through the same shared substrate.
  *
- * ── Why this ladder has three stages, not the campaign's seven ─────────────
+ * ── Seven spine nodes, three tracked stages ─────────────────────────────────
  *
- * The public narrative has seven beats — HOME, VIEW, ORIENT, PASSPORT, ACT,
- * STAND, CHOOSE — but a JourneyDefinition stage is a unit of TRACKED,
- * EVIDENCED PROGRESS (Journey Guidance Principle, §5.1: button clicked !=
- * stage complete; authoritative state + receipt = stage complete). Four of
- * the seven have no such fact to track, by design — exactly the same
- * reasoning KNYTS Bridge's own header documents, generalized:
+ * An earlier version of this file reduced the public seven-beat narrative
+ * (HOME, VIEW, ORIENT, PASSPORT, ACT, STAND, CHOOSE) to a three-stage
+ * JourneyDefinition (passport/act/stand), reasoning that a JourneyDefinition
+ * stage is a unit of TRACKED, EVIDENCED PROGRESS (Journey Guidance
+ * Principle, §5.1) and the other four have nothing to gate or complete. That
+ * reasoning about EVIDENCE was correct and is preserved below — HOME/VIEW/
+ * ORIENT/CHOOSE still carry an empty `completionEvidence` and can never
+ * reach COMPLETE. What was wrong was the PRESENTATION consequence drawn from
+ * it: rendering the other four as free page sections OUTSIDE the spine
+ * entirely produced a bespoke, vertically-stacked landing page instead of
+ * the one-Posit-Spine, one-active-surface Threshold Guide every other
+ * journey in this codebase uses. KNYTS Bridge made and then corrected
+ * exactly this mistake (see knytsBridgeCrossingJourney.ts's own "seven
+ * spine nodes, three tracked stages" header) — this file now follows the
+ * same correction: a gate-less stage is a real spine node that always
+ * resolves READY/open, never a page section adrift from the spine.
  *
- *   HOME and VIEW are deliberately browsable without a session at all — the
- *     Constitutional Internet's proposition and the frontier it names must
- *     be legible to a signed-out visitor. There is nothing to gate or
- *     complete.
- *   ORIENT is not a distinct act either. It produces a demand/intent signal
- *     (persisted as a campaign event, never as constitutional state) but
- *     completing it is never a precondition anything downstream checks — a
- *     visitor who skips it can still claim a Passport. It is this journey's
- *     `passport` stage's own `companion.before` framing.
- *   CHOOSE is a set of destinations (book reserve, continue reading, meet
- *     aigentMe, join the research field, build/partner, share), each of
- *     which is its own already-evidenced act (a book_interest campaign
- *     event, a share receipt) or a deep link elsewhere entirely — never a
- *     single fact this journey itself could gate on.
+ * This is safe under resolveJourneyState.ts's actual resolution order
+ * (prerequisites are checked per-stage against ONLY the stages a stage
+ * explicitly lists): HOME/VIEW/ORIENT/CHOOSE carry `prerequisites: []` and
+ * are never listed as a prerequisite of PASSPORT or anything after it, so
+ * their permanent non-completion can never BLOCK the tracked ladder.
  *
- * So the tracked ladder is exactly the three acts with real, checkable
- * evidence: cross the Threshold (Passport), bring an agent into the field
- * (Act), and see that a constitutional event has genuinely occurred (Stand).
- * HOME/VIEW/ORIENT/CHOOSE are rendered as free (non-gated) sections of the
- * public front door (app/bridge/ci/page.tsx) around
- * this ladder, never as JourneyDefinition stages with nothing to evidence.
+ * ORIENT remains a real spine node for direct navigation, but is NOT a
+ * prerequisite gate in front of PASSPORT — the frontier framing it shows is
+ * also carried in PASSPORT's own `companion.before` text, so a visitor who
+ * jumps straight to PASSPORT still sees the same grounding without ORIENT
+ * being on their critical path.
+ *
+ * PASSPORT's completion evidence is `citizenPassportUsable` (an actual,
+ * usable Polity Citizen Passport — real constitutional presence), reusing
+ * the SAME canonical check KNYTS Bridge and Horizen's own admission ladder
+ * use (services/identity/passportPrincipal.ts's
+ * `loadUsableCitizenPassportForAuthProfile` / `isPassportUsable`) rather
+ * than the weaker `personaAuthenticated` (merely signed in) this file used
+ * before reconstitution.
  *
  * ── ACT: "Bring Your Agent Into the Field" — connection is not delegation ──
  *
- * Operator refinement (2026-08-10): ACT is not solely an ExperienceQube
- * disposition ceremony. It is the first post-Passport human-agent
- * relationship step, and it offers TWO sibling paths, neither of which
- * grants constitutional authority:
+ * ACT is the first post-Passport human-agent relationship step, and offers
+ * TWO sibling paths, neither of which grants constitutional authority:
  *
  *   (1) Connect an agent you already use — a real, already-working metaMe
  *       Threshold MCP OAuth crossing (services/threshold/gateway.ts,
@@ -55,8 +62,8 @@
  *       Passport status, journeys, services; explicitly NO substantive
  *       service action. Delegation requires a SEPARATE, later, explicit
  *       human-authorized step (`propose_delegation` only ever drafts a
- *       proposal; it cannot grant one). This is the governing principle:
- *       "Context may cross before authority does."
+ *       proposal; it cannot grant one). Governing principle: "Context may
+ *       cross before authority does."
  *   (2) Meet aigentMe — the pre-existing generalized ExperienceQube
  *       disposition ceremony (experienceQubeDispositionService.ts).
  *
@@ -64,6 +71,16 @@
  * mandate. `completionEvidence: ['agentRelationshipStarted']` is true when
  * EITHER path is taken (computed as an OR in the state route) — the two
  * paths are alternatives, not a checklist.
+ *
+ * STAND consumes real Passport/disposition receipts and the canonical
+ * Standing score — never fabricated from navigation or viewing.
+ *
+ * CHOOSE is a set of destinations (book reserve, continue reading, meet
+ * aigentMe, join the research field, build/partner, share), each of which
+ * is its own already-evidenced act (a book_interest campaign event, a share
+ * receipt) or a deep link elsewhere entirely — never a single fact this
+ * journey itself could gate on, so it carries no completion evidence
+ * either, exactly like KNYTS Bridge's own BUY stage.
  */
 
 import type { JourneyDefinition } from '@/types/journey';
@@ -112,12 +129,91 @@ export const CI_BRIDGE_DISPOSITION_CONTEXT = 'constitutional-internet-bridge-act
 
 export const CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY: JourneyDefinition = {
   id: 'constitutional-internet-bridge',
-  version: '1.0.0',
+  version: '2.0.0',
   label: 'The Constitutional Internet Bridge',
   partner: 'polity-core',
   destination: 'constitutional-internet',
   subjectRef: 'visitor',
   stages: [
+    {
+      id: 'home',
+      label: 'Home',
+      description: 'The Internet recognizes accounts. The Constitutional Internet recognizes persons.',
+      actor: 'operator',
+      subjectRef: 'visitor',
+      surfaces: [
+        {
+          mode: 'component',
+          ref: 'ci-bridge-home',
+          note: 'The shared Bridge hero surface (components/journey/BridgeMediaStage.tsx), themed indigo — the CI proposition, not KNYTS Mythos.',
+          props: {
+            eyebrow: 'The Constitutional Internet Bridge',
+            headline: 'The Internet recognizes accounts. The Constitutional Internet recognizes persons.',
+            paragraphs: [
+              'This is one path into the Polity — a constitutional home for people and their agents in the emerging Constitutional Internet.',
+            ],
+            primaryCtaLabel: 'Enter',
+            secondaryCtaLabel: 'Explore the book',
+            accent: 'indigo',
+          },
+        },
+      ],
+      prerequisites: [],
+      permittedActions: [],
+      completionEvidence: [],
+      receiptTypes: [],
+      receiptsSurfacedNatively: true,
+      companion: {
+        before: 'This is one path into the Polity — a constitutional home for people and their agents in the emerging Constitutional Internet.',
+        complete: '',
+      },
+    },
+    {
+      id: 'view',
+      label: 'View',
+      description: 'See the constitutional frontier.',
+      actor: 'operator',
+      subjectRef: 'visitor',
+      surfaces: [
+        {
+          mode: 'component',
+          ref: 'ci-bridge-view',
+          note: 'ConstitutionalInternetBridgeViewSequence — real Canonical Plates + verbatim manuscript excerpts, cited by line.',
+        },
+      ],
+      prerequisites: [],
+      permittedActions: [],
+      completionEvidence: [],
+      receiptTypes: [],
+      receiptsSurfacedNatively: true,
+      companion: {
+        before: 'Personhood precedes identity. Control is not authority. Infrastructure must not become sovereignty.',
+        complete: '',
+      },
+    },
+    {
+      id: 'orient',
+      label: 'Orient',
+      description: 'Understand your constitutional frontier and the role you want agents to play.',
+      actor: 'operator',
+      subjectRef: 'visitor',
+      surfaces: [
+        {
+          mode: 'component',
+          ref: 'ci-bridge-orient',
+          note: 'ConstitutionalFrontierOrientSurface — a deterministic, non-gating questionnaire. Not constitutional state.',
+        },
+      ],
+      prerequisites: [],
+      permittedActions: [],
+      completionEvidence: [],
+      receiptTypes: [],
+      receiptsSurfacedNatively: true,
+      companion: {
+        before: 'Where do you most want agents to help? What do you most want to remain yours? Claiming your Passport is your first constitutional act.',
+        complete: '',
+      },
+    },
     {
       id: 'passport',
       label: 'Passport',
@@ -127,13 +223,16 @@ export const CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY: JourneyDefinition = {
       surfaces: [
         {
           mode: 'component',
-          ref: 'passport-bureau-apply',
-          note: 'The existing Polity Passport application/sign-in surface — never a campaign-specific fork.',
+          ref: 'ci-bridge-passport-room',
+          note:
+            'State-aware constitutional room (ConstitutionalInternetBridgePassportRoom.tsx): no usable ' +
+            'Passport -> the canonical PassportBureauApplyTab claim flow; Passport established -> ' +
+            '"You have crossed." + a continuation toward ACT. Never a campaign-specific fork of Passport.',
         },
       ],
       prerequisites: [],
       permittedActions: ['claim-passport'],
-      completionEvidence: ['personaAuthenticated'],
+      completionEvidence: ['citizenPassportUsable'],
       receiptTypes: [],
       companion: {
         before:
@@ -198,6 +297,30 @@ export const CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY: JourneyDefinition = {
       companion: {
         before: 'Personhood → Intent → Action → Proof → Standing → Authority. Your Passport and your disposition are both real constitutional events; what follows from them, over time, is what Standing actually tracks.',
         complete: 'Your crossing is recorded. What you do next is what starts to become consequential.',
+      },
+      nextStageId: 'choose',
+    },
+    {
+      id: 'choose',
+      label: 'Choose',
+      description: 'Where next?',
+      actor: 'operator',
+      subjectRef: 'visitor',
+      surfaces: [
+        {
+          mode: 'component',
+          ref: 'ci-bridge-choose',
+          note: 'ConstitutionalInternetBridgeChooseSurface — reserve the book, continue reading, meet aigentMe, join the research field, build/partner, share the Bridge.',
+        },
+      ],
+      prerequisites: [],
+      permittedActions: [],
+      completionEvidence: [],
+      receiptTypes: [],
+      receiptsSurfacedNatively: true,
+      companion: {
+        before: 'Where next? Reserve the book, keep reading, meet aigentMe, join the research field, build or partner, or share the Bridge.',
+        complete: '',
       },
     },
   ],
