@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-10T05:24:51.516Z",
+  "last_updated": "2026-08-10T06:56:27.459Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "169248d21d0c0d80ad950ef95ebc907689ac1559",
-  "latest_commit_short": "169248d",
-  "latest_commit_title": "Mirror CFS-055's ratified invariants 252-259 into the canon + seed",
+  "latest_commit": "d56b8444cbcefad7a30581ca7bd5edc0ab46cb1c",
+  "latest_commit_short": "d56b844",
+  "latest_commit_title": "Pre-recording Horizen polish: compact narrator header + Register ceremony replay",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "d56b844",
+      "full_sha": "d56b8444cbcefad7a30581ca7bd5edc0ab46cb1c",
+      "title": "Pre-recording Horizen polish: compact narrator header + Register ceremony replay",
+      "author": "Claude",
+      "timestamp": "2026-08-10T06:41:38Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-d56b844.md"
+    },
     {
       "sha": "169248d",
       "full_sha": "169248d21d0c0d80ad950ef95ebc907689ac1559",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-07-17T19:46:17Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-8b202b8.md"
-    },
-    {
-      "sha": "6307a97",
-      "full_sha": "6307a9712f8491895d2f94d5ae4a8bbb7736647d",
-      "title": "register Polity Papers canonization pass 1 (collections + tracker)",
-      "author": "Claude",
-      "timestamp": "2026-07-17T19:48:55Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-6307a97.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
