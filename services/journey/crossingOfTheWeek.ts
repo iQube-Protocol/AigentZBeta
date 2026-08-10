@@ -2,9 +2,9 @@
  * KNYTS Bridge — Crossing of the Week.
  *
  * The smallest new subsystem the campaign needs (approved plan, item 7): a
- * thin read over campaign-tagged content joined with the STAND signals
- * (services/journey/knytsBridgeStand.ts), selecting one winner per ISO
- * week. Persisted as a single announcement row
+ * thin read over campaign-tagged content joined with real KNYT signal
+ * counts (reactions, campaign-tagged shares, remix lineage), selecting one
+ * winner per ISO week. Persisted as a single announcement row
  * (knyts_bridge_crossing_of_the_week) — never a ledger, never a recurring
  * reward schedule. v1's reward (graphic novel + featured Pulse placement)
  * is fulfilled manually by the operator once a winner is selected; this
