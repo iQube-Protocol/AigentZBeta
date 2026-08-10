@@ -37,7 +37,7 @@
  * evidence: cross the Threshold (Passport), bring an agent into the field
  * (Act), and see that a constitutional event has genuinely occurred (Stand).
  * HOME/VIEW/ORIENT/CHOOSE are rendered as free (non-gated) sections of the
- * public front door (app/bridge/constitutional-internet/page.tsx) around
+ * public front door (app/bridge/ci/page.tsx) around
  * this ladder, never as JourneyDefinition stages with nothing to evidence.
  *
  * ── ACT: "Bring Your Agent Into the Field" — connection is not delegation ──

@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * /bridge/constitutional-internet — the Constitutional Internet Bridge
+ * /bridge/ci — the Constitutional Internet Bridge
  * public front door. The canonical Ethos Bridge into the Polity, cloned
  * from the KNYTS Bridge's own Threshold Guide architecture
  * (app/bridge/knyts/page.tsx) per the operator's explicit instruction: "the

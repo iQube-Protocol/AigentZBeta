@@ -450,7 +450,7 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
   // ── Constitutional Internet Bridge journey (2026-08-10) — the canonical
   // Ethos Bridge, cloned from the KNYTS Bridge Threshold Guide architecture.
   // Same reasoning as above applies: the public front door
-  // (app/bridge/constitutional-internet/page.tsx) composes these directly
+  // (app/bridge/ci/page.tsx) composes these directly
   // rather than through JourneyRunSurface's generic stepper.
   'ci-bridge-act-field-entry': {
     kind: 'component',

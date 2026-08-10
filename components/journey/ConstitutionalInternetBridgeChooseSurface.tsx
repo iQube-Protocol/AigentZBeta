@@ -141,7 +141,7 @@ export function ConstitutionalInternetBridgeChooseSurface({ personaId }: Constit
           id: 'constitutional-internet-bridge',
           title: 'The Constitutional Internet Bridge',
           description: 'The Internet recognizes accounts. The Constitutional Internet recognizes persons.',
-          url: typeof window !== 'undefined' ? `${window.location.origin}/bridge/constitutional-internet` : undefined,
+          url: typeof window !== 'undefined' ? `${window.location.origin}/bridge/ci` : undefined,
         }}
         personaId={personaId}
         campaignId={CI_BRIDGE_CAMPAIGN_ID}

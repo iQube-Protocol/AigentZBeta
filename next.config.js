@@ -297,6 +297,20 @@ const nextConfig = {
     }
     return config;
   },
+  // /bridge/constitutional-internet was the CI Bridge's original route path;
+  // renamed to the shorter /bridge/ci (2026-08-10) to match /bridge/knyts's
+  // naming pattern. Kept as a redirect (not permanent — this is an early-
+  // stage route, not yet linked externally) so any link already shared to
+  // the longer path still resolves rather than 404ing.
+  async redirects() {
+    return [
+      {
+        source: "/bridge/constitutional-internet",
+        destination: "/bridge/ci",
+        permanent: false,
+      },
+    ];
+  },
   // Important: do NOT rewrite /api/* so local Next.js API routes are used.
   // If you need to proxy to a separate backend, use a distinct prefix like /core/*.
   async rewrites() {
