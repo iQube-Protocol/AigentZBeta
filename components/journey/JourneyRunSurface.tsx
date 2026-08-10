@@ -334,6 +334,19 @@ export function JourneyRunSurface({
   const [error, setError] = useState<string | null>(null);
   const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
   const [fullScreen, setFullScreen] = useState(false);
+  const [expandedEmbedIndices, setExpandedEmbedIndices] = useState<Set<number>>(new Set());
+
+  const toggleEmbedExpansion = (index: number) => {
+    setExpandedEmbedIndices(prev => {
+      const next = new Set(prev);
+      if (next.has(index)) {
+        next.delete(index);
+      } else {
+        next.add(index);
+      }
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (typeof document === 'undefined' || !documentTitle) return;
@@ -966,40 +979,33 @@ export function JourneyRunSurface({
               );
             }
             if (descriptor.kind === 'embed') {
-              // Declared on the surface, not decided here: only a cartridge
-              // that mounts its own floating copilot needs suppressing, and
-              // agentSlug is appended ONLY when the descriptor itself opts in
-              // (agentScoped: true) — see buildEmbedSurfaceSrc.
-              const src = buildEmbedSurfaceSrc(descriptor, { personaId, selectedAgentSlug }, buildCodexUrl);
-              // Focused surface-polish pass (2026-08-10): a `focused` surface
-              // fills the same taller viewport `fullScreen` already grants —
-              // "canonical content, contextual chrome" means the whole point
-              // is more room for the destination, not less — and gets a small
-              // affordance to reach the SAME destination with its full
-              // primary chrome restored, in a new tab, for a visitor who
-              // wants to go deeper than the guide.
-              const openHref = descriptor.focused
-                ? buildEmbedSurfaceSrc({ ...descriptor, focused: undefined }, { personaId, selectedAgentSlug }, buildCodexUrl)
-                : null;
+              // In-place chrome toggle (2026-08-10): each embed can toggle
+              // between focused (Lite) and expanded (Full) presentation states
+              // without leaving the journey. The iframe reloads when src changes.
+              const isExpanded = expandedEmbedIndices.has(i);
+              const shouldFocus = !isExpanded && descriptor.focused;
+              const src = buildEmbedSurfaceSrc(
+                { ...descriptor, focused: shouldFocus ? true : undefined },
+                { personaId, selectedAgentSlug },
+                buildCodexUrl
+              );
               return (
                 <div key={i} className="flex flex-col gap-1.5">
-                  {openHref && (
+                  {descriptor.focused && (
                     <div className="flex justify-end">
-                      <a
-                        href={openHref}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-slate-200"
+                      <button
+                        onClick={() => toggleEmbedExpansion(i)}
+                        className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-slate-200 bg-none border-none cursor-pointer p-0"
                       >
-                        {descriptor.openLabel ?? 'Open full view ↗'}
-                      </a>
+                        {isExpanded ? 'Focus view' : (descriptor.openLabel ?? 'Open full view ↗')}
+                      </button>
                     </div>
                   )}
                   <iframe
                     src={src}
                     title={surfaceRef.ref}
                     className={`w-full rounded-md border border-slate-800 bg-slate-950 ${
-                      fullScreen || descriptor.focused ? 'h-[calc(100vh-200px)]' : 'h-[36rem]'
+                      fullScreen || shouldFocus ? 'h-[calc(100vh-200px)]' : 'h-[36rem]'
                     }`}
                   />
                 </div>

@@ -1,4 +1,11 @@
 # Build — Changelog
+- [`d1ef756`](https://github.com/iQube-Protocol/AigentZBeta/commit/d1ef7562b741a5be55f6887a63b2aa6e51d530a5) [feat] implement in-place iframe chrome toggle for guided journey embeds (Claude, 2026-08-10T20:03:05Z)
+- [`7d0ed73`](https://github.com/iQube-Protocol/AigentZBeta/commit/7d0ed7363507db181a71bb169bd32d3372b4023d) [push] trigger deploy: in-place iframe chrome toggle for KNYTS Bridge embeds (Claude, 2026-08-10T20:03:08Z)
+- [`4262fbd`](https://github.com/iQube-Protocol/AigentZBeta/commit/4262fbde0022bfab8f8194455ca6f07e2d1dee58) [push] trigger deploy to dev (Claude, 2026-08-10T17:41:09Z)
+- [`d066bff`](https://github.com/iQube-Protocol/AigentZBeta/commit/d066bff81de30f2b30ba0208c2bfb56b34e774b9) [fix] Redeploy dev: fix bare deploy-trigger commit at branch tip (CI Bridge v1 ships in d81950a3e) (Claude, 2026-08-10T17:41:41Z)
+- [`f08b700`](https://github.com/iQube-Protocol/AigentZBeta/commit/f08b7009fc1fd35d2592089670719cdf2233d339) [push] Reframe ACT: Bring Your Agent Into the Field, not just an ExperienceQube disposition (Claude, 2026-08-10T17:52:46Z)
+- [`df68a8f`](https://github.com/iQube-Protocol/AigentZBeta/commit/df68a8fdb837a1a0b4ec4d3d498bd557a1c26a53) [refactor] Rename CI Bridge to /bridge/ci and redirect the old path (Claude, 2026-08-10T19:25:56Z)
+- [`6a9cc6d`](https://github.com/iQube-Protocol/AigentZBeta/commit/6a9cc6db75136491c0300d2e470324670124c4aa) [feat] Add the /bridge/ci redirect and update path references (rest of the rename) (Claude, 2026-08-10T19:26:21Z)
 - [`e1dac8c`](https://github.com/iQube-Protocol/AigentZBeta/commit/e1dac8cd53f79d518d695b99a89bf6be36159cb9) [push] Record MoneyPenny pre-recording evidence snapshot (live dev API baseline) (Claude, 2026-08-10T07:33:31Z)
 - [`58856f7`](https://github.com/iQube-Protocol/AigentZBeta/commit/58856f7ac7c0c117b7765e0ec9ddeab0d392ebac) [feat] Add Aigent Know1 as a third registrable Horizen agent (config + card + health) (Claude, 2026-08-10T15:14:46Z)
 - [`d56b844`](https://github.com/iQube-Protocol/AigentZBeta/commit/d56b8444cbcefad7a30581ca7bd5edc0ab46cb1c) [push] Pre-recording Horizen polish: compact narrator header + Register ceremony replay (Claude, 2026-08-10T06:41:38Z)
