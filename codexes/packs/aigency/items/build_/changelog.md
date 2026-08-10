@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`d1ef756`](https://github.com/iQube-Protocol/AigentZBeta/commit/d1ef7562b741a5be55f6887a63b2aa6e51d530a5) [feat] implement in-place iframe chrome toggle for guided journey embeds (Claude, 2026-08-10T20:03:05Z)
+- [`7d0ed73`](https://github.com/iQube-Protocol/AigentZBeta/commit/7d0ed7363507db181a71bb169bd32d3372b4023d) [push] trigger deploy: in-place iframe chrome toggle for KNYTS Bridge embeds (Claude, 2026-08-10T20:03:08Z)
 - [`4262fbd`](https://github.com/iQube-Protocol/AigentZBeta/commit/4262fbde0022bfab8f8194455ca6f07e2d1dee58) [push] trigger deploy to dev (Claude, 2026-08-10T17:41:09Z)
 - [`d066bff`](https://github.com/iQube-Protocol/AigentZBeta/commit/d066bff81de30f2b30ba0208c2bfb56b34e774b9) [fix] Redeploy dev: fix bare deploy-trigger commit at branch tip (CI Bridge v1 ships in d81950a3e) (Claude, 2026-08-10T17:41:41Z)
 - [`f08b700`](https://github.com/iQube-Protocol/AigentZBeta/commit/f08b7009fc1fd35d2592089670719cdf2233d339) [push] Reframe ACT: Bring Your Agent Into the Field, not just an ExperienceQube disposition (Claude, 2026-08-10T17:52:46Z)

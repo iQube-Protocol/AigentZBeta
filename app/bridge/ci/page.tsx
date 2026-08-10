@@ -1,167 +1,200 @@
-"use client";
+'use client';
 
 /**
- * /bridge/ci — the Constitutional Internet Bridge
- * public front door. The canonical Ethos Bridge into the Polity, cloned
- * from the KNYTS Bridge's own Threshold Guide architecture
- * (app/bridge/knyts/page.tsx) per the operator's explicit instruction: "the
- * capabilities already exist; the implementation task is composition,
- * hydration, contextualization and limited generalization."
+ * /bridge/ci — the Constitutional Internet Bridge public front door:
+ * Threshold Guide.
  *
- * HOME/VIEW/ORIENT are browsable without a session (Constitutional Time
- * Principle: reduce unnecessary decisions before the visitor has any reason
- * to make one). PASSPORT/ACT/STAND are the real, evidenced JourneyDefinition
- * stages (services/journey/constitutionalInternetBridgeJourney.ts). CHOOSE
- * is always available. This page hosts Passport sign-in itself
- * (usePassportSignInHost + PassportConnectPanel — the same surface
- * /invite/[code]/page.tsx and /bridge/knyts use directly) because it has no
- * SmartWalletDrawer mounted anywhere in its tree to answer a
- * PASSPORT_SIGN_IN request otherwise.
+ * Sibling of app/bridge/knyts/page.tsx on the SAME shared Guided Journey
+ * Runtime runner (components/journey/JourneyRunSurface.tsx) — the Threshold
+ * Guide is a product, not a KNYTS feature. KNYTS speaks Mythos through it;
+ * this page speaks Ethos. They share: JourneyRunSurface, the Posit Spine,
+ * the compact one-row header, the authoritative journey-state model, the
+ * surface registry, the focused/full canonical-surface presentation, and
+ * the one-guide/copilot rule. What differs is the journey definition
+ * (services/journey/constitutionalInternetBridgeJourney.ts), its surfaces,
+ * its accent (indigo, not KNYT amber), and its copilot identity.
+ *
+ * Surface map (see services/journey/journeySurfaceRegistry.ts's CI section
+ * for the full reuse rationale):
+ *   HOME    → BridgeMediaStage (the CI proposition)
+ *   VIEW    → ConstitutionalInternetBridgeViewSequence (real Plates + excerpts)
+ *   ORIENT  → ConstitutionalFrontierOrientSurface (deterministic questionnaire)
+ *   PASSPORT→ ConstitutionalInternetBridgePassportRoom (state-aware: claim,
+ *             or "you have crossed" + continue to ACT)
+ *   ACT     → ConstitutionalAgentFieldEntrySurface (Connect Claude / Meet aigentMe)
+ *   STAND   → ConstitutionalInternetBridgeStandPanel (real receipts + Standing)
+ *   CHOOSE  → ConstitutionalInternetBridgeChooseSurface (destinations)
+ *
+ * This page hosts Passport sign-in itself (usePassportSignInHost +
+ * PassportConnectPanel, the same surface /invite/[code]/page.tsx and
+ * app/bridge/knyts/page.tsx use directly) because a bare page has no
+ * SmartWalletDrawer anywhere in its tree to answer a PASSPORT_SIGN_IN
+ * request otherwise — structural parity with KNYTS even though no CI
+ * surface currently issues such a request (none needs to: PASSPORT is a
+ * proper spine stage before ACT, reached in order).
+ *
+ * One floating copilot (CodexCopilotLayer) is mounted once here, using the
+ * existing canonical aigentMe identity (data/codex-configs.ts's
+ * METAME_CODEX.copilot: agent id 'aigent-me', accent emerald) rather than
+ * inventing a new "aigent-ci" identity — there is no dedicated CI copilot
+ * configured anywhere in this codebase, and aigentMe is the correct
+ * existing constitutional guide for this Bridge's subject matter.
  */
 
-import React, { useEffect, useState } from "react";
-import { Sparkles } from "lucide-react";
-import { PassportConnectPanel } from "@/components/companion/PassportConnectPanel";
-import { usePassportSignInHost } from "@/app/hooks/usePassportSignInHost";
-import { usePassportSignInGate } from "@/app/hooks/usePassportSignInGate";
-import { BridgeMediaStage } from "@/components/journey/BridgeMediaStage";
-import { ConstitutionalInternetBridgeViewSequence } from "@/components/journey/ConstitutionalInternetBridgeViewSequence";
-import { ConstitutionalFrontierOrientSurface } from "@/components/journey/ConstitutionalFrontierOrientSurface";
-import { ConstitutionalAgentFieldEntrySurface } from "@/components/journey/ConstitutionalAgentFieldEntrySurface";
-import { ConstitutionalInternetBridgeStandPanel } from "@/components/journey/ConstitutionalInternetBridgeStandPanel";
-import { ConstitutionalInternetBridgeChooseSurface } from "@/components/journey/ConstitutionalInternetBridgeChooseSurface";
+import React, { useCallback, useEffect, useState } from 'react';
+import { JourneyRunSurface, type JourneyRunSurfaceProps } from '@/components/journey/JourneyRunSurface';
+import { CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY } from '@/services/journey/constitutionalInternetBridgeJourney';
+import { BridgeMediaStage } from '@/components/journey/BridgeMediaStage';
+import { ConstitutionalInternetBridgeViewSequence } from '@/components/journey/ConstitutionalInternetBridgeViewSequence';
+import { ConstitutionalFrontierOrientSurface } from '@/components/journey/ConstitutionalFrontierOrientSurface';
+import { ConstitutionalInternetBridgePassportRoom } from '@/components/journey/ConstitutionalInternetBridgePassportRoom';
+import { ConstitutionalAgentFieldEntrySurface } from '@/components/journey/ConstitutionalAgentFieldEntrySurface';
+import { ConstitutionalInternetBridgeStandPanel } from '@/components/journey/ConstitutionalInternetBridgeStandPanel';
+import { ConstitutionalInternetBridgeChooseSurface } from '@/components/journey/ConstitutionalInternetBridgeChooseSurface';
+import { PassportConnectPanel } from '@/components/companion/PassportConnectPanel';
+import { usePassportSignInHost } from '@/app/hooks/usePassportSignInHost';
+import { CodexCopilotLayer } from '@/app/components/codex/CodexCopilotLayer';
+import { MetaAvatarProvider } from '@/app/contexts/MetaAvatarContext';
 
-const ACT_RETURN_TARGET = "campaign:constitutional-internet-bridge:act";
+/** CI visual projection — indigo, never a change to JourneyRunSurface's own
+ *  default (purple), which every other journey keeps. */
+const CI_ACCENT = {
+  node: 'border-indigo-400 bg-indigo-500/20 text-indigo-200',
+  label: 'text-indigo-200',
+  chip: 'bg-indigo-500/20 text-indigo-200',
+};
+
+const CI_BRIDGE_COMPONENTS: Record<string, React.ComponentType<Record<string, unknown>>> = {
+  BridgeMediaStage,
+  ConstitutionalInternetBridgeViewSequence,
+  ConstitutionalFrontierOrientSurface,
+  ConstitutionalInternetBridgePassportRoom,
+  ConstitutionalAgentFieldEntrySurface,
+  ConstitutionalInternetBridgeStandPanel,
+  ConstitutionalInternetBridgeChooseSurface,
+};
+
+const CI_COPILOT_QUICK_PROMPTS = [
+  'What does this mean?',
+  'Why personhood before identity?',
+  'How do I connect Claude?',
+];
+
+function selectStage(stageId: string) {
+  try {
+    window.dispatchEvent(new CustomEvent('journey:select-stage', { detail: { stageId } }));
+  } catch {
+    /* non-fatal */
+  }
+}
 
 export default function ConstitutionalInternetBridgePage() {
   const [personaId, setPersonaId] = useState<string | undefined>(undefined);
+  const [copilotOpen, setCopilotOpen] = useState(false);
 
   useEffect(() => {
     try {
-      const stored = window.localStorage.getItem("currentPersonaId");
+      const stored = window.localStorage.getItem('currentPersonaId');
       if (stored) setPersonaId(stored);
-    } catch { /* storage unavailable — stays signed-out */ }
+    } catch {
+      /* storage unavailable — stays signed-out */
+    }
   }, []);
 
-  const { showPassportSignIn, completeSignIn, dismissSignIn } = usePassportSignInHost("ConstitutionalInternetBridgeFrontDoor");
+  const { showPassportSignIn, completeSignIn, dismissSignIn } = usePassportSignInHost('ConstitutionalInternetBridgeFrontDoor');
 
-  const { requestSignIn, handoffUnanswered } = usePassportSignInGate({
-    origin: "CI_BRIDGE_ACT",
-    returnTarget: ACT_RETURN_TARGET,
-    returnLabel: "Continue to your agent disposition",
-    onSignedIn: () => {
-      try {
-        const stored = window.localStorage.getItem("currentPersonaId");
-        if (stored) setPersonaId(stored);
-      } catch { /* ignore */ }
+  const resolveSurfaceProps = useCallback(
+    ({ surfaceRef, runtimeState }: Parameters<NonNullable<JourneyRunSurfaceProps['resolveSurfaceProps']>>[0]) => {
+      if (surfaceRef.ref === 'ci-bridge-passport-room') {
+        const passportStage = runtimeState?.stages.find((s) => s.stageId === 'passport');
+        return { citizenPassportUsable: passportStage?.evidencePresent.includes('citizenPassportUsable') };
+      }
+      if (surfaceRef.ref === 'ci-bridge-home') {
+        return {
+          onPrimaryCta: () => selectStage('view'),
+          onSecondaryCta: () => selectStage('choose'),
+        };
+      }
+      return {};
     },
-  });
-
-  const scrollToView = () => {
-    document.getElementById("ci-bridge-view")?.scrollIntoView({ behavior: "smooth" });
-  };
-  const scrollToBook = () => {
-    document.getElementById("ci-bridge-choose")?.scrollIntoView({ behavior: "smooth" });
-  };
+    [],
+  );
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
-      {/* HOME */}
-      <BridgeMediaStage
-        eyebrow="The Constitutional Internet Bridge"
-        headline="The Internet recognizes accounts. The Constitutional Internet recognizes persons."
-        paragraphs={[
-          "This is one path into the Polity — a constitutional home for people and their agents in the emerging Constitutional Internet.",
-        ]}
-        primaryCtaLabel="Enter"
-        onPrimaryCta={scrollToView}
-        secondaryCtaLabel="Explore the book"
-        onSecondaryCta={scrollToBook}
-        accent="indigo"
-      />
+    // MetaAvatarProvider wraps this page explicitly, same fix KNYTS Bridge
+    // needed (2026-08-10): CodexCopilotLayer's useMetaAvatar() throws
+    // without one, and this bare page sits outside both app/(shell)/layout.tsx
+    // and app/(embed)/layout.tsx — the only two places that layout normally
+    // supplies it.
+    <MetaAvatarProvider defaultAgent="aigent-me">
+      <div className="h-screen bg-slate-950 text-slate-100">
+        <JourneyRunSurface
+          journey={CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY}
+          stateUrl="/api/journey/constitutional-internet-bridge/state"
+          personaId={personaId}
+          documentTitle="The Constitutional Internet Bridge — Threshold Guide"
+          components={CI_BRIDGE_COMPONENTS}
+          resolveSurfaceProps={resolveSurfaceProps}
+          accent={CI_ACCENT}
+          compact
+          headerLabel={
+            <>
+              <span className="shrink-0 font-semibold text-slate-100">Constitutional Internet Bridge</span>
+              <span className="shrink-0 text-slate-600">·</span>
+              <span className="truncate text-indigo-300">Threshold Guide</span>
+            </>
+          }
+        />
 
-      {/* VIEW */}
-      <div id="ci-bridge-view" className="mx-auto max-w-3xl px-6 pb-12">
-        <div className="flex items-center gap-2 mb-4">
-          <Sparkles className="h-4 w-4 text-indigo-300" />
-          <h2 className="text-sm font-semibold text-slate-200">See the Frontier</h2>
-        </div>
-        <ConstitutionalInternetBridgeViewSequence />
-      </div>
-
-      {/* ORIENT */}
-      <div className="mx-auto max-w-3xl px-6 pb-12">
-        <h2 className="text-sm font-semibold text-slate-200 mb-4">Your Constitutional Frontier</h2>
-        <ConstitutionalFrontierOrientSurface />
-      </div>
-
-      {/* ACT — gated on Passport, resumes the same intent on sign-in */}
-      <div className="mx-auto max-w-3xl px-6 pb-12">
-        <h2 className="text-sm font-semibold text-slate-200 mb-1">Bring Your Agent Into the Field</h2>
-        <p className="text-xs text-slate-500 mb-4">Context may cross before authority does. Connection is never delegation.</p>
-        {personaId ? (
-          <ConstitutionalAgentFieldEntrySurface />
-        ) : (
-          <div className="rounded-2xl border border-white/10 bg-slate-900/40 p-5">
-            <p className="text-sm text-slate-300">
-              Crossing the Threshold is something you do as yourself, so this is the one step between
-              exploring the proposition and bringing an agent into the field with you.
-            </p>
-            <button
-              type="button"
-              onClick={requestSignIn}
-              className="mt-4 rounded-xl bg-indigo-500 px-5 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-indigo-400"
-            >
-              Claim your Passport
-            </button>
-            {handoffUnanswered && (
-              <p className="mt-2 text-xs text-rose-400">Could not reach a Passport sign-in surface on this page.</p>
-            )}
+        {/* PASSPORT — hosted inline for whichever surface above requested it.
+            No CI surface currently issues this request (Passport is a proper
+            spine stage reached in order), but the mechanism stays mounted
+            for structural parity with KNYTS and any future gated action. */}
+        {showPassportSignIn && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
+            <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-slate-900/95 shadow-2xl overflow-hidden">
+              <PassportConnectPanel
+                world="application"
+                embedded
+                onConnected={() => {
+                  try {
+                    const stored = window.localStorage.getItem('currentPersonaId');
+                    if (stored) setPersonaId(stored);
+                  } catch {
+                    /* ignore */
+                  }
+                  completeSignIn();
+                  selectStage('act');
+                }}
+              />
+              <button
+                type="button"
+                onClick={dismissSignIn}
+                className="w-full border-t border-white/10 px-4 py-2.5 text-[12px] text-slate-400 hover:text-slate-200"
+              >
+                Back
+              </button>
+            </div>
           </div>
         )}
+
+        {/* Omnipresent aigentMe copilot — the existing canonical constitutional
+            guide identity (data/codex-configs.ts's METAME_CODEX.copilot), not
+            an invented CI-specific agent. */}
+        <CodexCopilotLayer
+          isOpen={copilotOpen}
+          onClose={() => setCopilotOpen(false)}
+          onOpen={() => setCopilotOpen(true)}
+          variant="floating"
+          accentColor="emerald"
+          agent={{ id: 'aigent-me', name: 'aigentMe' }}
+          personaId={personaId}
+          enableInferenceRendering
+          contextId="ci-bridge"
+          promptPlaceholder="Ask about the Constitutional Internet..."
+          quickPrompts={CI_COPILOT_QUICK_PROMPTS}
+        />
       </div>
-
-      {/* STAND */}
-      {personaId && (
-        <div className="mx-auto max-w-3xl px-6 pb-12">
-          <h2 className="text-sm font-semibold text-slate-200 mb-4">See Yourself Enter the Loop</h2>
-          <div className="rounded-2xl border border-white/10 bg-slate-900/40 p-4">
-            <ConstitutionalInternetBridgeStandPanel personaId={personaId} />
-          </div>
-        </div>
-      )}
-
-      {/* CHOOSE */}
-      <div id="ci-bridge-choose" className="mx-auto max-w-3xl px-6 pb-20">
-        <h2 className="text-sm font-semibold text-slate-200 mb-4">Where Next?</h2>
-        <ConstitutionalInternetBridgeChooseSurface personaId={personaId} />
-      </div>
-
-      {/* PASSPORT — hosted inline for whichever surface above requested it */}
-      {showPassportSignIn && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
-          <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-slate-900/95 shadow-2xl overflow-hidden">
-            <PassportConnectPanel
-              world="application"
-              embedded
-              onConnected={() => {
-                try {
-                  const stored = window.localStorage.getItem("currentPersonaId");
-                  if (stored) setPersonaId(stored);
-                } catch { /* ignore */ }
-                completeSignIn();
-              }}
-            />
-            <button
-              type="button"
-              onClick={dismissSignIn}
-              className="w-full border-t border-white/10 px-4 py-2.5 text-[12px] text-slate-400 hover:text-slate-200"
-            >
-              Back
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
+    </MetaAvatarProvider>
   );
 }
