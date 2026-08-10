@@ -64,13 +64,60 @@ interface CanvasEntry {
 //                   'workspace'.
 type MyCanvasSurface = 'canvas' | 'workspace' | 'workbench';
 
+/**
+ * Starter-template metadata for the empty-canvas "Remix template" affordance
+ * (both the empty-state button and the sidebar Templates section below).
+ * Keyed by campaign tag — a campaign-launched canvas (surface reconciliation,
+ * 2026-08-09: "The Crossing template should replace the visible generic
+ * Qriptopian Agents of Change starter in this campaign context") offers its
+ * own seed instead of the generic one. Short-term hardcode, same discipline
+ * as the existing default; a follow-up can pull both from a registry.
+ */
+const DEFAULT_CANVAS_TEMPLATE = {
+  id: 'template-qriptopian-15min-sprint',
+  title: 'Qriptopian Agents of Change — 15-min reading sprint',
+  subtitle: 'Guided 15-min reading sprint · article or story',
+  tags: ['template', 'qriptopian', 'reading-sprint'],
+  metaJson: {
+    experienceId: 'exp_1773512145689_1vnt1jcnt',
+    sourceExperienceId: 'exp_1773512145689_1vnt1jcnt',
+    seedTemplate: 'qriptopian-agents-of-change-reading-sprint',
+  },
+};
+const CAMPAIGN_CANVAS_TEMPLATES: Record<string, typeof DEFAULT_CANVAS_TEMPLATE> = {
+  'knyts-bridge-crossing': {
+    id: 'template-knyts-bridge-crossing',
+    title: 'Crossing the Threshold',
+    subtitle: 'Article — tell your real crossing. Story — imagine a crossing.',
+    tags: ['template', 'knyts-bridge', 'crossing'],
+    metaJson: { seedTemplate: 'knyts-bridge-crossing', campaign: 'knyts-bridge-crossing' },
+  },
+};
+
 interface Props {
   personaId?: string;
   theme?: "light" | "dark";
   surface?: MyCanvasSurface;
+  /** Selects the starter-template seed above. Falls back to this tab's own
+   *  `?campaignTag=` URL param when omitted (the same convention
+   *  KnytCommunityContentTab's campaignTag prop already uses) — set by a
+   *  caller reaching this tab via an embed (e.g. KnytsBridgeRemixSurface)
+   *  that can't pass React props across the iframe boundary. */
+  campaignTag?: string;
 }
 
-export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: Props) {
+export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas', campaignTag: campaignTagProp }: Props) {
+  const [campaignTag, setCampaignTag] = useState<string | undefined>(campaignTagProp);
+  useEffect(() => {
+    if (campaignTagProp || typeof window === 'undefined') return;
+    try {
+      const fromUrl = new URL(window.location.href).searchParams.get('campaignTag');
+      if (fromUrl) setCampaignTag(fromUrl);
+    } catch {
+      /* non-fatal — stays on the default template */
+    }
+  }, [campaignTagProp]);
+  const canvasTemplate = (campaignTag && CAMPAIGN_CANVAS_TEMPLATES[campaignTag]) || DEFAULT_CANVAS_TEMPLATE;
   // Internal alias: 'workspace' (new) and 'workbench' (legacy alias)
   // share the same private-entries codepath. The distinction will be
   // erased entirely once a follow-up migration rewrites stamped
@@ -611,17 +658,13 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
                   <button
                     type="button"
                     onClick={() => setRemixSource({
-                      id: 'template-qriptopian-15min-sprint',
+                      id: canvasTemplate.id,
                       entryType: 'experience_origin',
-                      title: 'Qriptopian Agents of Change — 15-min reading sprint',
+                      title: canvasTemplate.title,
                       bodyMd: '',
-                      tags: ['template', 'qriptopian', 'reading-sprint'],
+                      tags: canvasTemplate.tags,
                       visibility: 'private',
-                      metaJson: {
-                        experienceId: 'exp_1773512145689_1vnt1jcnt',
-                        sourceExperienceId: 'exp_1773512145689_1vnt1jcnt',
-                        seedTemplate: 'qriptopian-agents-of-change-reading-sprint',
-                      },
+                      metaJson: canvasTemplate.metaJson,
                       createdAt: new Date().toISOString(),
                       updatedAt: new Date().toISOString(),
                     })}
@@ -631,10 +674,10 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
                       Remix template
                     </div>
                     <div className="text-xs font-semibold text-white">
-                      Qriptopian Agents of Change
+                      {canvasTemplate.title.split(' — ')[0]}
                     </div>
                     <div className="text-[10px] text-slate-400 mt-0.5">
-                      Guided 15-min reading sprint · article or story
+                      {canvasTemplate.subtitle}
                     </div>
                   </button>
                 )}
@@ -680,27 +723,23 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
                 <button
                   type="button"
                   onClick={() => setRemixSource({
-                    id: 'template-qriptopian-15min-sprint',
+                    id: canvasTemplate.id,
                     entryType: 'experience_origin',
-                    title: 'Qriptopian Agents of Change — 15-min reading sprint',
+                    title: canvasTemplate.title,
                     bodyMd: '',
-                    tags: ['template', 'qriptopian', 'reading-sprint'],
+                    tags: canvasTemplate.tags,
                     visibility: 'private',
-                    metaJson: {
-                      experienceId: 'exp_1773512145689_1vnt1jcnt',
-                      sourceExperienceId: 'exp_1773512145689_1vnt1jcnt',
-                      seedTemplate: 'qriptopian-agents-of-change-reading-sprint',
-                    },
+                    metaJson: canvasTemplate.metaJson,
                     createdAt: new Date().toISOString(),
                     updatedAt: new Date().toISOString(),
                   })}
                   className="w-full text-left rounded-md border border-violet-500/30 bg-violet-500/5 px-2.5 py-1.5 hover:border-violet-500/60 hover:bg-violet-500/10 transition"
                 >
                   <div className="text-[11px] font-semibold text-white">
-                    Qriptopian Agents of Change
+                    {canvasTemplate.title.split(' — ')[0]}
                   </div>
                   <div className="text-[10px] text-slate-400 mt-0.5">
-                    15-min reading sprint · remix
+                    {canvasTemplate.subtitle}
                   </div>
                 </button>
               </div>

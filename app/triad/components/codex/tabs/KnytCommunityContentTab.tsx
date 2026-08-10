@@ -23,6 +23,7 @@ import {
   RefreshCw,
   Share2,
   Sparkles,
+  Trophy,
   User,
   Zap,
 } from "lucide-react";
@@ -31,6 +32,14 @@ import { SocialSharingModal } from "@/packages/smarttriad/src/SocialSharingModal
 import { ListenButton } from "@/components/shared/ListenButton";
 import { useActivePersona } from "@/app/hooks/useActivePersona";
 import { usePassportSignInGate } from "@/app/hooks/usePassportSignInGate";
+import { KNYTS_BRIDGE_CAMPAIGN_ID } from "@/services/journey/knytsBridgeCrossingJourney";
+
+interface CrossingOfTheWeek {
+  weekStart: string;
+  communityContentId: string;
+  title: string;
+  score: number;
+}
 
 interface CommunityContentItem {
   id: string;
@@ -56,7 +65,15 @@ interface CommunityContentItem {
   createdAt: string;
 }
 
-type FilterMode = "all" | "mine";
+/**
+ * "crossings" (surface reconciliation, 2026-08-09) — a permanent Pulse-native
+ * filter for KNYTS Bridge Crossing Story content, not a Bridge-only overlay:
+ * "campaign additions should live on the canonical surface, not in a second
+ * renderer." Available from EVERY mount of this tab (cartridge or Bridge
+ * embed) — never gated on the `campaignTag` prop, which stays a separate,
+ * back-compat, caller-forced filter.
+ */
+type FilterMode = "all" | "mine" | "crossings";
 
 interface Props {
   personaId?: string;
@@ -89,6 +106,7 @@ export function KnytCommunityContentTab({ personaId, isAdmin: _isAdmin, cartridg
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterMode>("all");
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [crossingOfTheWeek, setCrossingOfTheWeek] = useState<CrossingOfTheWeek | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -102,7 +120,11 @@ export function KnytCommunityContentTab({ personaId, isAdmin: _isAdmin, cartridg
         params.set("status", "shared,runtime_promoted");
       }
       if (cartridge) params.set("cartridge", cartridge);
-      if (campaignTag) params.set("campaignTag", campaignTag);
+      // The self-service "Crossings" chip always wins over the caller's own
+      // campaignTag prop — a visitor who explicitly asked to see Crossings
+      // should see them regardless of how this tab was mounted.
+      const effectiveCampaignTag = filter === "crossings" ? KNYTS_BRIDGE_CAMPAIGN_ID : campaignTag;
+      if (effectiveCampaignTag) params.set("campaignTag", effectiveCampaignTag);
       const res = await fetch(`/api/community-content/list?${params}`, { cache: "no-store" });
       let json: { ok?: boolean; items?: CommunityContentItem[]; error?: string };
       try {
@@ -129,6 +151,25 @@ export function KnytCommunityContentTab({ personaId, isAdmin: _isAdmin, cartridg
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Crossing of the Week — a Pulse-native discovery hook into the KNYTS
+  // Bridge campaign (surface reconciliation, 2026-08-09), fetched once
+  // regardless of the active filter. Renders nothing when there is no
+  // current winner — never forced onto a visitor with no reason to care.
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/journey/knyts-bridge/crossing-of-the-week", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((json: { ok?: boolean; crossing?: CrossingOfTheWeek | null }) => {
+        if (!cancelled && json.ok && json.crossing) setCrossingOfTheWeek(json.crossing);
+      })
+      .catch(() => {
+        /* non-fatal */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const activeItem = useMemo(
     () => (activeId ? items.find((i) => i.id === activeId) ?? null : null),
@@ -185,6 +226,18 @@ export function KnytCommunityContentTab({ personaId, isAdmin: _isAdmin, cartridg
           >
             Mine
           </button>
+          <button
+            type="button"
+            onClick={() => setFilter("crossings")}
+            title="KNYTS Bridge Crossing Stories"
+            className={`flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] transition ${
+              filter === "crossings"
+                ? "border-amber-400/40 bg-amber-500/15 text-amber-200"
+                : "border-white/10 bg-white/5 text-slate-400 hover:text-white"
+            }`}
+          >
+            Crossings
+          </button>
         </div>
         <button
           type="button"
@@ -196,6 +249,18 @@ export function KnytCommunityContentTab({ personaId, isAdmin: _isAdmin, cartridg
           <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
         </button>
       </div>
+
+      {crossingOfTheWeek && (
+        <button
+          type="button"
+          onClick={() => setFilter("crossings")}
+          className="flex-shrink-0 flex items-center gap-2 border-b border-amber-400/20 bg-amber-500/10 px-4 py-2 text-left hover:bg-amber-500/15 transition"
+        >
+          <Trophy className="h-4 w-4 shrink-0 text-amber-300" />
+          <span className="text-[10px] uppercase tracking-wider text-amber-400 shrink-0">Crossing of the Week</span>
+          <span className="text-xs font-medium text-white truncate">{crossingOfTheWeek.title}</span>
+        </button>
+      )}
 
       {/* List */}
       <div className="flex-1 min-h-0 overflow-y-auto p-3">

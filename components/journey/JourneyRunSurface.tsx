@@ -191,6 +191,14 @@ export interface JourneyRunSurfaceProps {
     /** Status-row ordinal chip: bg + text, e.g. 'bg-purple-500/20 text-purple-200'. */
     chip: string;
   };
+  /**
+   * Fold the journey-brand row and the stage-description row into ONE
+   * compact row (KNYTS Bridge reconstitution, 2026-08-09) — see the
+   * `compact` render branch's own comment. Defaults to false: every existing
+   * caller (Horizen, Validation Programme) keeps the original two-row header
+   * byte-for-byte unless it opts in.
+   */
+  compact?: boolean;
 }
 
 const DEFAULT_ACCENT = {
@@ -210,6 +218,7 @@ export function JourneyRunSurface({
   selectedAgentSlug,
   receiptsSubjectAgentRef,
   accent = DEFAULT_ACCENT,
+  compact = false,
 }: JourneyRunSurfaceProps) {
   const [runtimeState, setRuntimeState] = useState<JourneyRuntimeState | null>(null);
   /**
@@ -435,31 +444,119 @@ export function JourneyRunSurface({
     { position: 'lower' },
   ];
 
+  /** Shared between the default two-row header and the `compact` one-row
+   *  variant (KNYTS Bridge reconstitution, 2026-08-09) — same status slides,
+   *  same evidence popover, just arranged differently. Extracted so neither
+   *  branch can silently drift from the other. */
+  const statusSlides = [
+    { key: 'description', node: <span className="text-slate-400">{activeStage.description}</span> },
+    ...(activeStageRuntime && activeStageRuntime.evidenceMissing.length > 0
+      ? [{ key: 'awaiting', node: <span className="text-slate-400">Awaiting: {activeStageRuntime.evidenceMissing.map(humaniseSignal).join(', ')}</span> }]
+      : []),
+    ...(activeStageRuntime?.refusalReason
+      ? [{ key: 'refused', node: <span className="text-rose-300">Refused: {activeStageRuntime.refusalReason}</span> }]
+      : []),
+  ];
+
+  const evidenceTrigger = activeStageRuntime &&
+    (activeStageRuntime.evidencePresent.length > 0 || activeStageRuntime.evidenceMissing.length > 0) && (
+      <div className="relative shrink-0" ref={evidenceRef}>
+        <button
+          type="button"
+          onClick={() => setEvidenceOpen((v) => !v)}
+          aria-expanded={evidenceOpen}
+          className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-slate-800 bg-slate-900/40 px-2 py-1 text-[11px] text-slate-400 hover:bg-slate-800/60 hover:text-slate-300"
+        >
+          Evidence {activeStageRuntime.evidencePresent.length}/
+          {activeStageRuntime.evidencePresent.length + activeStageRuntime.evidenceMissing.length}
+          {activeStageRuntime.receiptRefs.length > 0 ? ` · ${activeStageRuntime.receiptRefs.length} receipts` : ''}
+          <ChevronDown className={`h-3 w-3 shrink-0 transition-transform ${evidenceOpen ? 'rotate-180' : ''}`} />
+        </button>
+        {evidenceOpen && (
+          <div className="absolute right-0 top-[calc(100%+4px)] z-20 max-w-[min(90vw,32rem)] rounded-lg border border-slate-800 bg-slate-900/95 p-2.5 shadow-lg backdrop-blur-sm">
+            <div className="flex flex-nowrap items-center gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
+              {activeStageRuntime.evidencePresent.map((sig) => (
+                <span
+                  key={sig}
+                  className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-emerald-900/60 bg-emerald-950/20 px-2 py-0.5 text-[11px] text-emerald-300/80"
+                >
+                  <Check className="h-3 w-3 shrink-0" />
+                  {humaniseSignal(sig)}
+                </span>
+              ))}
+              {activeStageRuntime.evidenceMissing.map((sig) => (
+                <span
+                  key={sig}
+                  className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-slate-700 px-2 py-0.5 text-[11px] text-slate-400"
+                >
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full border border-slate-600" />
+                  {humaniseSignal(sig)}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+
+  const headerActions = (
+    <div className="flex shrink-0 items-center gap-2">
+      <button
+        onClick={() => void refresh()}
+        title="Refresh state"
+        className={`flex items-center gap-1.5 rounded-md border border-slate-800 bg-slate-900/40 text-slate-300 hover:bg-slate-800/60 ${compact ? 'p-1.5' : 'px-2.5 py-1.5 text-xs'}`}
+      >
+        <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+        {!compact && 'Refresh state'}
+      </button>
+      <button
+        onClick={() => setFullScreen((v) => !v)}
+        title={fullScreen ? 'Collapse' : 'Full screen'}
+        className={`flex items-center gap-1.5 rounded-md border border-slate-800 bg-slate-900/40 text-slate-300 hover:bg-slate-800/60 ${compact ? 'p-1.5' : 'px-2.5 py-1.5 text-xs'}`}
+      >
+        {fullScreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+      </button>
+    </div>
+  );
+
   const content = (
     <div className="flex h-full flex-col gap-4 p-4 text-slate-100">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2 text-sm">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/metaMe/metaMe/metame-32.png" alt="" className="h-4 w-4 shrink-0" />
-          {headerLabel}
+      {compact ? (
+        /*
+         * COMPACT ONE-ROW HEADER (KNYTS Bridge reconstitution, 2026-08-09) —
+         * the journey-brand row and the stage-description row are two
+         * genuinely separate FACTS (which journey; where in it) but were
+         * costing two full rows of vertical space to say so. A lighter
+         * journey than Horizen has no evidentiary weight to justify that;
+         * one compact row says both. Opt-in only — every existing caller
+         * (Horizen, Validation Programme) omits `compact` and keeps the
+         * original two-row layout untouched below.
+         */
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <div className="flex min-w-0 shrink-0 items-center gap-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/metaMe/metaMe/metame-32.png" alt="" className="h-4 w-4 shrink-0" />
+            <span className="text-sm">{headerLabel}</span>
+          </div>
+          <span className="shrink-0 text-slate-600">·</span>
+          <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
+            <span className="shrink-0 font-medium text-slate-100">{activeStage.label}</span>
+            <span className="shrink-0 text-slate-600">—</span>
+            <RotatingStatusLine key={activeStageId} slides={statusSlides} />
+          </div>
+          {evidenceTrigger}
+          {headerActions}
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <button
-            onClick={() => void refresh()}
-            className="flex items-center gap-1.5 rounded-md border border-slate-800 bg-slate-900/40 px-2.5 py-1.5 text-xs text-slate-300 hover:bg-slate-800/60"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-            Refresh state
-          </button>
-          <button
-            onClick={() => setFullScreen((v) => !v)}
-            title={fullScreen ? 'Collapse' : 'Full screen'}
-            className="flex items-center gap-1.5 rounded-md border border-slate-800 bg-slate-900/40 px-2.5 py-1.5 text-xs text-slate-300 hover:bg-slate-800/60"
-          >
-            {fullScreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
-          </button>
+      ) : (
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-2 text-sm">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/metaMe/metaMe/metame-32.png" alt="" className="h-4 w-4 shrink-0" />
+            {headerLabel}
+          </div>
+          {headerActions}
         </div>
-      </div>
+      )}
 
       {error && (
         // Amber, not rose: this is "we cannot tell you right now", which is a
@@ -499,92 +596,32 @@ export function JourneyRunSurface({
         this row used to push the stage viewport down whenever it was opened.
         The description column is `flex-1 min-w-0` (it truncates/rotates
         rather than grows); the evidence trigger is `shrink-0` and opens an
-        ANCHORED popover instead of displacing anything below it.
+        ANCHORED popover instead of displacing anything below it. Skipped
+        entirely when `compact` is set — that variant already folded this
+        same content (via the shared `statusSlides`/`evidenceTrigger`
+        variables above) into the one-row header.
       */}
-      <div className="flex items-center gap-2 text-xs">
-        <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
-          <span className={`shrink-0 rounded px-1.5 py-0.5 font-semibold ${accent.chip}`}>
-            {activeIdx + 1}
-          </span>
-          <span className="shrink-0 font-medium text-slate-100">{activeStage.label}</span>
-          <span className="shrink-0 text-slate-600">—</span>
-          <RotatingStatusLine
-            key={activeStageId}
-            slides={[
-              { key: 'description', node: <span className="text-slate-400">{activeStage.description}</span> },
-              ...(activeStageRuntime && activeStageRuntime.evidenceMissing.length > 0
-                ? [{ key: 'awaiting', node: <span className="text-slate-400">Awaiting: {activeStageRuntime.evidenceMissing.map(humaniseSignal).join(', ')}</span> }]
-                : []),
-              ...(activeStageRuntime?.refusalReason
-                ? [{ key: 'refused', node: <span className="text-rose-300">Refused: {activeStageRuntime.refusalReason}</span> }]
-                : []),
-            ]}
-          />
-        </div>
-
-        {/*
-          EVIDENCE CHECKLIST — the pilot must not need a SQL console to learn
-          why a finished-looking stage is not complete (operator, 2026-08-03:
-          "The application should eventually expose this same receipt
-          checklist directly in the Journey interface so you are not
-          required to use Supabase for normal pilot completion").
-
-          Every value here already travelled to this component in
-          `evidencePresent` / `evidenceMissing` / `receiptRefs` — the surface
-          was summarising it to a comma list and discarding the met/unmet
-          split. This renders the same server-derived facts, and computes
-          nothing of its own: a checklist that could disagree with the stage
-          state would be one more thing to go stale (the same rule
-          registerCeremonyProgress follows).
-        */}
-        {activeStageRuntime && (activeStageRuntime.evidencePresent.length > 0 || activeStageRuntime.evidenceMissing.length > 0) && (
-          <div className="relative shrink-0" ref={evidenceRef}>
-            <button
-              type="button"
-              onClick={() => setEvidenceOpen((v) => !v)}
-              aria-expanded={evidenceOpen}
-              className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-slate-800 bg-slate-900/40 px-2 py-1 text-[11px] text-slate-400 hover:bg-slate-800/60 hover:text-slate-300"
-            >
-              Evidence {activeStageRuntime.evidencePresent.length}/
-              {activeStageRuntime.evidencePresent.length + activeStageRuntime.evidenceMissing.length}
-              {activeStageRuntime.receiptRefs.length > 0 ? ` · ${activeStageRuntime.receiptRefs.length} receipts` : ''}
-              <ChevronDown className={`h-3 w-3 shrink-0 transition-transform ${evidenceOpen ? 'rotate-180' : ''}`} />
-            </button>
-            {evidenceOpen && (
-              <div
-                className="absolute right-0 top-[calc(100%+4px)] z-20 max-w-[min(90vw,32rem)] rounded-lg border border-slate-800 bg-slate-900/95 p-2.5 shadow-lg backdrop-blur-sm"
-              >
-                {/*
-                  HORIZONTAL, not a tall vertical list — evidence reads as a
-                  row of status chips, scrolling sideways rather than
-                  consuming viewport height (compact layout correction,
-                  2026-08-09).
-                */}
-                <div className="flex flex-nowrap items-center gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
-                  {activeStageRuntime.evidencePresent.map((sig) => (
-                    <span
-                      key={sig}
-                      className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-emerald-900/60 bg-emerald-950/20 px-2 py-0.5 text-[11px] text-emerald-300/80"
-                    >
-                      <Check className="h-3 w-3 shrink-0" />
-                      {humaniseSignal(sig)}
-                    </span>
-                  ))}
-                  {activeStageRuntime.evidenceMissing.map((sig) => (
-                    <span
-                      key={sig}
-                      className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-slate-700 px-2 py-0.5 text-[11px] text-slate-400"
-                    >
-                      <span className="h-2.5 w-2.5 shrink-0 rounded-full border border-slate-600" />
-                      {humaniseSignal(sig)}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
+      {!compact && (
+        <div className="flex items-center gap-2 text-xs">
+          <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
+            <span className={`shrink-0 rounded px-1.5 py-0.5 font-semibold ${accent.chip}`}>
+              {activeIdx + 1}
+            </span>
+            <span className="shrink-0 font-medium text-slate-100">{activeStage.label}</span>
+            <span className="shrink-0 text-slate-600">—</span>
+            <RotatingStatusLine key={activeStageId} slides={statusSlides} />
           </div>
-        )}
-      </div>
+
+          {/*
+            EVIDENCE CHECKLIST — the pilot must not need a SQL console to learn
+            why a finished-looking stage is not complete (operator, 2026-08-03:
+            "The application should eventually expose this same receipt
+            checklist directly in the Journey interface so you are not
+            required to use Supabase for normal pilot completion").
+          */}
+          {evidenceTrigger}
+        </div>
+      )}
 
       <div className="relative border-b border-slate-800 bg-slate-900/40 px-4 py-2.5 rounded-lg">
         {/* Rendered only while there is somewhere to scroll TO. */}
