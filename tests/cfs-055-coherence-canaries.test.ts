@@ -154,8 +154,10 @@ describe('6. DVN pending does not make an established predicate unresolved', () 
 describe('7. All surfaces representing the same predicate derive from the same canonical projection', () => {
   it('JourneyRunSurface fetches ratifySubPredicates ONCE from /state and threads it through resolveSurfaceProps — no second fetch', () => {
     expect(journeyRunSurface).toMatch(/setRatifySubPredicates\(\(json\.ratifySubPredicates as typeof ratifySubPredicates\) \?\? null\)/);
+    // registerCeremony (Pre-recording Horizen polish part C, 2026-08-10)
+    // legitimately rides alongside ratifySubPredicates now.
     expect(journeyRunSurface).toMatch(
-      /resolveSurfaceProps\?\.\(\{ surfaceRef, descriptor, stage: activeStage, runtimeState, pnlEvidence, ratifySubPredicates \}\)/,
+      /resolveSurfaceProps\?\.\(\{ surfaceRef, descriptor, stage: activeStage, runtimeState, pnlEvidence, ratifySubPredicates, registerCeremony \}\)/,
     );
   });
 

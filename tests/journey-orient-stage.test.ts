@@ -305,11 +305,50 @@ describe('JourneyRunSurface renders the fork as one trident after the spine, nev
     expect(between).toMatch(/className="relative shrink-0"/);
   });
 
-  it('the stage description row stays flex-1 min-w-0, independent of the evidence trigger', () => {
-    const rowAt = source.indexOf('STAGE DESCRIPTION ROW');
-    expect(rowAt, 'the stage description row comment anchor is missing').toBeGreaterThan(-1);
-    const section = source.slice(rowAt, rowAt + 1600);
-    expect(section).toMatch(/className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden"/);
+  /*
+   * ── THRESHOLD GUIDE HEADER COMPACTION (operator, 2026-08-10) ────────────
+   *
+   * The stage chip/label/narrator used to sit on their own row BELOW the
+   * top row — that second row is now gone entirely; its content moved into
+   * the top row alongside the branding and the State/Evidence/Full screen
+   * controls. The left cluster stays `flex-1 min-w-0 overflow-hidden` so the
+   * narrator (last in the cluster) is what truncates under width pressure,
+   * never the branding or the stage chip.
+   */
+  it('the stage chip/label/narrator now share the TOP row with the branding — no second row', () => {
+    const rowAt = source.indexOf('ONE COMPRESSED TOP ROW');
+    expect(rowAt, 'the compressed top-row comment anchor is missing').toBeGreaterThan(-1);
+    const section = source.slice(rowAt, rowAt + 1200);
+    expect(section).toMatch(/className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden text-sm"/);
+    expect(section).toMatch(/\{headerLabel\}/);
+    expect(section).toMatch(/\{activeIdx \+ 1\}/);
+    expect(section).toMatch(/\{activeStage\.label\}/);
+  });
+
+  it('the top row renders a rotating narrator (active <-> consequence) when the stage declares one, falling back to description otherwise', () => {
+    expect(source).toMatch(/activeStage\.narrator/);
+    expect(source).toMatch(/activeStage\.narrator\.active/);
+    expect(source).toMatch(/activeStage\.narrator\.consequence/);
+    // The fallback path for journeys/stages with no narrator — description
+    // must still be reachable, never dropped outright.
+    expect(source).toMatch(/\{ key: 'description', node: <span[^>]*>\{activeStage\.description\}<\/span> \}/);
+  });
+
+  it('"Destination: aigentMe" is gone from the header — removed for the one-row compaction', () => {
+    const tabSrc = fs.readFileSync(
+      path.join(__dirname, '..', 'app/triad/components/codex/tabs/PilotJourneyTab.tsx'),
+      'utf8',
+    );
+    expect(tabSrc).not.toMatch(/Destination: aigentMe/);
+  });
+
+  it('the Refresh/State control is compact — icon + "State", full label preserved only as a title attribute', () => {
+    const titleAt = source.indexOf('title="Refresh state"');
+    expect(titleAt, 'title="Refresh state" attribute missing').toBeGreaterThan(-1);
+    const buttonBlock = source.slice(titleAt, titleAt + 400);
+    expect(buttonBlock).toMatch(/<RefreshCw/);
+    expect(buttonBlock).toMatch(/\n\s*State\s*\n/);
+    expect(buttonBlock).not.toMatch(/>\s*Refresh state\s*</);
   });
 
   it('the evidence checklist opens as an ANCHORED popover, never a <details> disclosure that pushes content down', () => {

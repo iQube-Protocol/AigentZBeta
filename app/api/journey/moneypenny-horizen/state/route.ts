@@ -1300,6 +1300,46 @@ async function resolveState(req: NextRequest) {
     pnlEvidenceVerified: receiptBackedSubPredicate('pnlEvidenceVerified', 'pnl_service_verified'),
   };
 
+  /*
+   * REGISTER CEREMONY REPLAY PROJECTION (Pre-recording Horizen polish, part
+   * C, 2026-08-10) — the seven named ceremony steps
+   * (services/horizen/registerCeremony.ts's own wallet-signing-topology
+   * sequence), each independently sourced, for a generic read-only replay of
+   * an ALREADY-COMPLETE Register stage. Never a live-registration source of
+   * truth — RegisterAgentPanel's own ceremony/mandate/broadcast flow remains
+   * the ONLY writer; this is a pure reprojection of receipts that already
+   * exist, using the SAME `receiptBackedSubPredicate` helper Ratify's
+   * sub-predicates use above.
+   *
+   * Two of the seven steps — `principalWalletReady`, `mandatePrepared` —
+   * have NO receipt type at all (services/horizen/registerCeremony.ts never
+   * writes one for either; confirmed by direct audit, never assumed). Per
+   * operator instruction ("do not fabricate evidence for these... show only
+   * the level of proof actually available"), they carry `authority:
+   * 'inferred'` — true only because a LATER, receipted step in the same
+   * chain could not exist otherwise — never `authority: 'evidence'`, which
+   * is reserved for steps with an actual receipt.
+   */
+  const registerStageEstablished = resolution.stages.find((s) => s.stageId === 'register')?.canonicalOutcome === true;
+  const inferredCeremonyStep = (predicate: string) => ({
+    predicate,
+    established: registerStageEstablished,
+    authority: registerStageEstablished ? ('inferred' as const) : ('none' as const),
+    effectiveAt: null as string | null,
+    evidenceRefs: [] as string[],
+    receiptRefs: [] as string[],
+    dvnStatus: null as ReceiptStatus | null,
+  });
+  const registerCeremony = {
+    principalWalletReady: inferredCeremonyStep('principalWalletReady'),
+    mandatePrepared: inferredCeremonyStep('mandatePrepared'),
+    mandateSigned: receiptBackedSubPredicate('mandateSigned', 'principal_registration_mandate_signed'),
+    invocationApproved: receiptBackedSubPredicate('invocationApproved', 'agent_registry_transaction_signed'),
+    transactionBroadcast: receiptBackedSubPredicate('transactionBroadcast', 'horizen_registration_submitted'),
+    horizenConfirmed: receiptBackedSubPredicate('horizenConfirmed', 'horizen_registration_confirmed'),
+    registryBindingRecorded: receiptBackedSubPredicate('registryBindingRecorded', 'agent_registry_binding_recorded'),
+  };
+
   // Persist so refresh, persona change and route change all resolve the same
   // result. The write is itself monotonic — see recordJourneyResolution.
   try {
@@ -1364,5 +1404,14 @@ async function resolveState(req: NextRequest) {
     // consume for these facts, never their own Agent Card fetch, `/verify/
     // status` poll, or unscoped receipt search.
     ratifySubPredicates,
+    // Register's seven-step ceremony, replayed read-only from canonical
+    // evidence (Pre-recording Horizen polish, part C, 2026-08-10) — see the
+    // definition above. `principalWalletReady`/`mandatePrepared` carry
+    // `authority: 'inferred'` (no receipt type exists for either); the
+    // remaining five carry `authority: 'evidence'` from their own receipts.
+    // This is what RegisterCeremonyReplay must consume; it is never a
+    // second source of truth for whether Register is complete — that
+    // remains `resolution.stages.register.canonicalOutcome` alone.
+    registerCeremony,
   });
 }

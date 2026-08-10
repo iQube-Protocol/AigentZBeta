@@ -91,6 +91,16 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
           entityRef: 'moneypenny',
           note: "Agent-selectable registration panel — metaMe's complementary reflection of the same registration, plus the real Register action itself.",
         },
+        {
+          mode: 'component',
+          ref: 'register-ceremony-replay',
+          entityRef: 'moneypenny',
+          note:
+            'Pre-recording Horizen polish, part C (2026-08-10) — a non-mutating, read-only replay of ' +
+            "the seven-step wallet-signing ceremony for an ALREADY-REGISTERED agent, reconstructed " +
+            'from canonical receipts. Renders nothing while Register is not yet canonically complete; ' +
+            'RegisterAgentPanel above remains the only surface that can ever perform the live ceremony.',
+        },
       ],
       prerequisites: [],
       permittedActions: ['view-registration'],
@@ -133,6 +143,7 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
         complete:
           '{{agentDisplayName}} is now discoverable in Horizen. Registry presence proves identity and discoverability, but not constitutional authority.',
       },
+      narrator: { active: 'Registering agent', consequence: 'Establishes registry presence' },
       nextStageId: 'claim',
     },
         {
@@ -183,6 +194,7 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
         before: 'A wallet-control challenge must be signed to prove the agent’s controller wallet.',
         complete: 'Control has been proven without revealing the private key. Control does not yet equal authority.',
       },
+      narrator: { active: 'Proving wallet control', consequence: 'Establishes agent authority' },
       nextStageId: 'orient',
     },
     {
@@ -228,6 +240,7 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
         before: 'You have proved control of {{agentDisplayName}}. Control does not yet establish constitutional authority.',
         complete: 'Oriented — the constitutional act this operator needed before Passport was identified and acknowledged.',
       },
+      narrator: { active: 'Completing orientation', consequence: 'Establishes operating context' },
       nextStageId: 'passport',
     },
     {
@@ -268,6 +281,7 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
         before: "Your Polity Citizen Passport must resolve before you can sponsor {{agentDisplayName}}.",
         complete: 'The wallet proved control. The Passport now establishes the human source from whom authority may originate.',
       },
+      narrator: { active: 'Binding personhood', consequence: 'Establishes sponsorship' },
       nextStageId: 'delegate',
     },
     {
@@ -311,6 +325,7 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
         before: 'A bounded delegation and its structural assignment to this persona are required before aigentMe.',
         complete: 'Control says can. The Passport and delegation say may. Nakamoto is now a recognised bounded delegate.',
       },
+      narrator: { active: 'Bounding delegation', consequence: 'Establishes authority envelope' },
       nextStageId: 'aigentme',
     },
     {
@@ -366,6 +381,7 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
         complete:
           'You have crossed the threshold. Your Polity Citizen Passport establishes your continuing constitutional personhood. aigentMe is now active as your constitutional companion. {{agentDisplayName}} has joined your agent set through a Polity Delegate Passport and may act only within the authority and mandates you have granted.',
       },
+      narrator: { active: 'Activating delegate', consequence: 'Agent may now act' },
     },
     {
       id: 'verify',
@@ -474,6 +490,7 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
         complete:
           'The service agreement is authorized — {{agentDisplayName}} is ratified for the Financial Services runtime. Horizen Pulse and P&L transparency, below, remain real and worth completing, but they enrich its verifiable operational state; they do not create or enlarge this authority.',
       },
+      narrator: { active: 'Authorizing capability', consequence: 'Constitutional authority established' },
     },
 {
       id: 'deploy',
@@ -592,6 +609,7 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
         complete:
           'Ingested as a factory participant, now eligible to accrue Standing, and credited a nominal one-time registration award. That award records a completed act, not demonstrated performance — substantive Standing is still earned through validated contribution.',
       },
+      narrator: { active: 'Entering the Factory', consequence: 'Capability becomes operational' },
       nextStageId: 'standing',
     },
     {
@@ -629,6 +647,7 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
         before: 'Standing accrues from observed, receipted conduct — it is never granted by deploying.',
         complete: 'Standing is active and independently observable.',
       },
+      narrator: { active: 'Accruing Standing', consequence: 'Contribution becomes authority' },
     },
   ],
 };
