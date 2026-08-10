@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-10T19:29:07.636Z",
+  "last_updated": "2026-08-10T20:05:15.232Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "d81950a3e17b9fe18e9c07e5fcf1e7bb99a21831",
-  "latest_commit_short": "d81950a",
-  "latest_commit_title": "Build the Constitutional Internet Bridge as a v1 slice of the KNYTS Bridge architecture",
+  "latest_commit": "d1ef7562b741a5be55f6887a63b2aa6e51d530a5",
+  "latest_commit_short": "d1ef756",
+  "latest_commit_title": "implement in-place iframe chrome toggle for guided journey embeds",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "d1ef756",
+      "full_sha": "d1ef7562b741a5be55f6887a63b2aa6e51d530a5",
+      "title": "implement in-place iframe chrome toggle for guided journey embeds",
+      "author": "Claude",
+      "timestamp": "2026-08-10T20:03:05Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-d1ef756.md"
+    },
+    {
+      "sha": "7d0ed73",
+      "full_sha": "7d0ed7363507db181a71bb169bd32d3372b4023d",
+      "title": "trigger deploy: in-place iframe chrome toggle for KNYTS Bridge embeds",
+      "author": "Claude",
+      "timestamp": "2026-08-10T20:03:08Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-7d0ed73.md"
+    },
     {
       "sha": "d81950a",
       "full_sha": "d81950a3e17b9fe18e9c07e5fcf1e7bb99a21831",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-07-17T23:42:13Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-1505d97.md"
-    },
-    {
-      "sha": "34ab954",
-      "full_sha": "34ab954bf6e212f7ce0c80c4765d09b62856f1ef",
-      "title": "canonize Polity full corpus pass 3: seed inv.polity.207-309 (proposed)",
-      "author": "Claude",
-      "timestamp": "2026-07-17T23:34:38Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-34ab954.md"
-    },
-    {
-      "sha": "54963d3",
-      "full_sha": "54963d397a5d93236182391d89ee3325e1209cf4",
-      "title": "add Polity source texts: Experience Sovereignty, Thresholds, Embodied, Robots-Agents series",
-      "author": "Kn0w-1",
-      "timestamp": "2026-07-17T19:18:33-04:00",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-54963d3.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

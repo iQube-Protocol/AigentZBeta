@@ -3974,3 +3974,13 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-4262fbd.md](../build_/COMMITS/COMMIT-4262fbd.md)
 - Message: trigger deploy to dev
+
+## Commit `7d0ed73` — 2026-08-10T20:03:08Z
+- Type: `push`
+- Brief: [COMMIT-7d0ed73.md](../build_/COMMITS/COMMIT-7d0ed73.md)
+- Message: trigger deploy: in-place iframe chrome toggle for KNYTS Bridge embeds
+
+## Commit `d1ef756` — 2026-08-10T20:03:05Z
+- Type: `feat`
+- Brief: [COMMIT-d1ef756.md](../build_/COMMITS/COMMIT-d1ef756.md)
+- Message: implement in-place iframe chrome toggle for guided journey embeds
