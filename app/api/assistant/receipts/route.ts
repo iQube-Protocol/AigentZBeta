@@ -226,6 +226,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const cartridge = url.searchParams.get('cartridge') ?? undefined;
   const actionTypesRaw = url.searchParams.get('actionType');
   const agentsInvokedRaw = url.searchParams.get('agentsInvoked');
+  const idsRaw = url.searchParams.get('ids');
 
   const limit =
     limitRaw && /^\d+$/.test(limitRaw)
@@ -246,6 +247,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const agentsInvoked: string[] | undefined = agentsInvokedRaw
     ? agentsInvokedRaw.split(',').map((s) => s.trim()).filter(Boolean)
     : undefined;
+  // Hydrate an EXACT, caller-named set of receipt ids (CFS-055 coherence
+  // pass, 2026-08-10) — for a client consuming a canonical POSIT projection's
+  // own receiptRefs, never a fresh type/agent search. Persona-scoped like
+  // every other filter here.
+  const ids: string[] | undefined = idsRaw
+    ? idsRaw.split(',').map((s) => s.trim()).filter(Boolean)
+    : undefined;
 
   try {
     const [receipts, personaDisplayLabel] = await Promise.all([
@@ -254,6 +262,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         ...(cartridge ? { cartridge } : {}),
         ...(actionTypes && actionTypes.length > 0 ? { actionTypes } : {}),
         ...(agentsInvoked && agentsInvoked.length > 0 ? { agentsInvoked } : {}),
+        ...(ids && ids.length > 0 ? { ids } : {}),
       }),
       readPersonaDisplayLabel(context.personaId),
     ]);

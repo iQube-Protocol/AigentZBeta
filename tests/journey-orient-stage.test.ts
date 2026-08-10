@@ -281,22 +281,35 @@ describe('JourneyRunSurface renders the fork as one trident after the spine, nev
 
   /*
    * ── COMPACT EVIDENCE AFFORDANCE (operator, 2026-08-09, "Compact the
-   *    Journey Evidence Checklist") ──────────────────────────────────────
+   *    Journey Evidence Checklist"; relocated to the top row, 2026-08-10)
+   *    ──────────────────────────────────────────────────────────────────
    *
    * The evidence checklist used to be a `<details>` disclosure in normal
    * document flow BELOW the stage description row — opening it pushed the
-   * stage stepper/viewport down the page. These canaries protect the
-   * corrected shape: description + evidence trigger share one row, the
-   * open checklist is an ANCHORED popover (never `<details>`), and its
-   * contents are a horizontally-scrolling chip row (never a tall `<ul>`).
+   * stage stepper/viewport down the page. Corrected first to an ANCHORED
+   * popover sharing the description row (2026-08-09), then moved into the
+   * TOP row between Refresh state and Full screen (2026-08-10) — its own
+   * trigger was congesting the description row's right corner. Either way,
+   * the description row itself stays flex-1 min-w-0 (unaffected by the
+   * trigger's own position), the checklist opens as an ANCHORED popover
+   * (never `<details>`), and its contents are a horizontally-scrolling chip
+   * row (never a tall `<ul>`).
    */
-  it('the stage description and the evidence trigger share ONE row — description is flex-1 min-w-0, evidence trigger is shrink-0', () => {
-    const rowAt = source.indexOf('STAGE DESCRIPTION + EVIDENCE AFFORDANCE SHARE ONE ROW');
-    expect(rowAt, 'the compact single-row comment anchor is missing').toBeGreaterThan(-1);
-    const section = source.slice(rowAt, rowAt + 3200);
+  it('the evidence trigger lives in the TOP row, between Refresh state and Full screen', () => {
+    const refreshAt = source.indexOf('Refresh state');
+    const fullScreenAt = source.indexOf("title={fullScreen ? 'Collapse' : 'Full screen'}");
+    expect(refreshAt, 'Refresh state button missing').toBeGreaterThan(-1);
+    expect(fullScreenAt, 'Full screen button missing').toBeGreaterThan(-1);
+    const between = source.slice(refreshAt, fullScreenAt);
+    expect(between).toMatch(/Evidence \{activeStageRuntime\.evidencePresent\.length\}/);
+    expect(between).toMatch(/className="relative shrink-0"/);
+  });
+
+  it('the stage description row stays flex-1 min-w-0, independent of the evidence trigger', () => {
+    const rowAt = source.indexOf('STAGE DESCRIPTION ROW');
+    expect(rowAt, 'the stage description row comment anchor is missing').toBeGreaterThan(-1);
+    const section = source.slice(rowAt, rowAt + 1600);
     expect(section).toMatch(/className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden"/);
-    expect(section).toMatch(/Evidence \{activeStageRuntime\.evidencePresent\.length\}/);
-    expect(section).toMatch(/className="relative shrink-0"/);
   });
 
   it('the evidence checklist opens as an ANCHORED popover, never a <details> disclosure that pushes content down', () => {
