@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { readSettledFact, invalidateSettledFact } from '@/services/journey/settledFacts';
-import { readJourneyResolution } from '@/services/journey/stageResolution';
-import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
+import { readJourneyResolution, type StageInvalidationRecord } from '@/services/journey/stageResolution';
+import { createActivityReceipt, findAgentReceiptRefs } from '@/services/receipts/activityReceiptService';
 import { resolveStandingEvidence } from '@/services/journey/standingEvidenceProjection';
 
 export const dynamic = 'force-dynamic';
@@ -15,9 +15,10 @@ export const maxDuration = 60;
  *
  * The non-destructive correction for "URGENT SEQUENCING CORRECTION —
  * AigentQube Presence ≠ Factory Ingestion" part 5, and "Horizen Pilot
- * Closure — Final Standing + DVN Closure" part A2/A3 (operator directive,
- * 2026-08-09). Agent-generic — never MoneyPenny-specific — and re-verifies
- * the defect signature ITSELF, via the SAME canonical projection
+ * Closure — Final Standing + DVN Closure" part A2/A3 and the POSIT state
+ * model amendment (operator directive, 2026-08-09/2026-08-10). Agent-generic
+ * — never MoneyPenny-specific — and re-verifies the defect signature ITSELF,
+ * via the SAME canonical projection
  * (services/journey/standingEvidenceProjection.ts's `resolveStandingEvidence`)
  * the journey `/state` route and `/agent-forensics` both consume, before
  * touching anything. It does not trust the caller's belief that a
@@ -39,12 +40,30 @@ export const maxDuration = 60;
  *      event (services/journey/settledFacts.ts) — the constitutional
  *      mechanism this codebase already has for reopening a wrongly-settled
  *      fact, never a bespoke unsettle path.
- *   3. Removes ONLY 'deploy'/'standing' from the agent's persisted
- *      `journey_resolutions[journeyId].canonicalStages` array — the SECOND
- *      ratchet floor (services/journey/stageResolution.ts's
- *      `recordJourneyResolution`) that invalidating the settled fact alone
- *      does not touch. Every OTHER canonically-established stage in that
- *      array (register, claim, etc.) is preserved untouched.
+ *   3. Removes 'standing' — and 'deploy' ONLY IF Ingest is INDEPENDENTLY
+ *      shown to have no genuine evidence of its own (no agent-scoped
+ *      `capability_registered` receipt at all) — from the agent's persisted
+ *      `journey_resolutions[journeyId].canonicalStages` array. Correcting a
+ *      premature Standing seed never revokes a separately-established Ingest
+ *      state (operator ruling 2026-08-10: "A premature Standing award
+ *      invalidates Standing, not necessarily Ingest"). Every OTHER
+ *      canonically-established stage in that array (register, claim, etc.)
+ *      is preserved untouched regardless.
+ *   4. Writes a `StageInvalidationRecord` TOMBSTONE for every stage id
+ *      removed in step 3 (POSIT state model, 2026-08-10) — the fix for the
+ *      defect discovered reconciling MoneyPenny: `canonicalStages` alone is
+ *      a POSITIVE-ONLY ratchet (services/journey/stageResolution.ts's
+ *      `recordJourneyResolution` union can never shrink it), so a bare
+ *      removal from that array is not durable — the very next ordinary
+ *      `/state` read that happens to (re-)derive the same stage as
+ *      canonical writes it straight back, and it then self-perpetuates via
+ *      ratchet-synthesized evidence forever. The tombstone permanently
+ *      retires ONLY the `prior-resolution` synthesis shortcut for that stage
+ *      id — see `resolveMonotonicJourneyState`'s `invalidatedStages` input —
+ *      while still allowing genuine LIVE evidence to re-establish it later
+ *      with `canonicalAuthority: 'evidence'`. Never a permanent deny-list on
+ *      the stage itself: "old assertion → governed invalidation →
+ *      unresolved → new valid evidence → established again."
  *
  * The discrepancy receipt's `standingAccruedReceiptIds` is what
  * `resolveStandingEvidence` reads on every LATER call to exclude these
@@ -60,8 +79,9 @@ export const maxDuration = 60;
  * standing_accrued receipt for this agent is genuinely ordered, this route
  * changes nothing and reports why.
  *
- * Idempotent: if the settled fact is already invalidated and 'deploy'/
- * 'standing' are already absent from canonicalStages, reports no-op.
+ * Idempotent: if the settled fact is already invalidated, 'standing' is
+ * already absent from canonicalStages, and (Ingest is genuinely established
+ * OR 'deploy' is already absent too), reports no-op.
  *
  * Auth: CRON_TRIGGER_TOKEN. Requires `correctingPersonaId` in the body — a
  * real, named "who" for the audit trail, never a static resolver string
@@ -100,10 +120,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   try {
     // ── Re-verify the defect signature independently, via the canonical projection ──
-    const [standingEvidence, standingSeededFact, journeyResolution] = await Promise.all([
+    const [standingEvidence, standingSeededFact, journeyResolution, ingestReceipts] = await Promise.all([
       resolveStandingEvidence(agentRuntimeId),
       readSettledFact(admin, aigentQubeId, agentRuntimeId, 'registry_standing_seeded'),
       readJourneyResolution(admin, aigentQubeId, journeyId),
+      // INDEPENDENT of the Standing check — never coupled. This is the SAME
+      // agent-scoped evidence Ingest's own route
+      // (app/api/journey/moneypenny-horizen/ingest/route.ts) requires before
+      // writing capability_registered, read here rather than inferred.
+      findAgentReceiptRefs(agentRuntimeId, ['capability_registered'], { limit: 1 }),
     ]);
 
     if (standingEvidence.sequencingViolationReceiptIds.length === 0) {
@@ -122,15 +147,24 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const correctedIds = standingEvidence.sequencingViolationReceiptIds;
     const alreadyInvalidated = standingSeededFact?.status === 'invalidated';
+    // Ingest is invalidated ALONGSIDE Standing only when it independently has
+    // no evidence of its own — never merely because Standing was premature.
+    const ingestGenuinelyEstablished = ingestReceipts.length > 0;
+    const stagesToInvalidate = ingestGenuinelyEstablished ? ['standing'] : ['standing', 'deploy'];
+    const priorCanonicalStages = journeyResolution?.canonicalStages ?? [];
+    const priorTombstones = journeyResolution?.invalidatedStages ?? {};
     const alreadyRemoved =
-      !(journeyResolution?.canonicalStages ?? []).includes('deploy') &&
-      !(journeyResolution?.canonicalStages ?? []).includes('standing');
+      !priorCanonicalStages.includes('standing') &&
+      stagesToInvalidate.every((id) => Boolean(priorTombstones[id])) &&
+      (ingestGenuinelyEstablished || !priorCanonicalStages.includes('deploy'));
 
     const result: Record<string, unknown> = {
       agentRuntimeId,
       aigentQubeId,
       journeyId,
       correctedStandingAccruedReceiptIds: correctedIds,
+      ingestGenuinelyEstablished,
+      stagesToInvalidate,
     };
 
     // ── 1. Discrepancy receipt (never a substitute for, or mutation of, the original) ──
@@ -172,9 +206,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       result.settledFactInvalidation = outcome.ok ? { applied: true } : { applied: false, reason: outcome.detail };
     }
 
-    // ── 3. Remove 'deploy'/'standing' from the persisted canonical-stage ratchet ──
+    // ── 3. Remove the invalidated stage(s) from the canonical ratchet AND ──
+    // ── write a tombstone for each, in the SAME update (POSIT, 2026-08-10) ──
     if (alreadyRemoved) {
-      result.canonicalStagesCorrection = { applied: false, reason: 'deploy/standing already absent' };
+      result.canonicalStagesCorrection = { applied: false, reason: `${stagesToInvalidate.join('/')} already absent and tombstoned` };
     } else {
       const { data } = await admin.from('registry_assets').select('metadata').eq('asset_id', aigentQubeId).maybeSingle();
       const metadata = (data?.metadata as Record<string, unknown> | null) ?? {};
@@ -183,15 +218,41 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       if (!existing) {
         result.canonicalStagesCorrection = { applied: false, reason: 'no persisted journey_resolutions record for this journeyId' };
       } else {
-        const before = existing.canonicalStages ?? [];
-        const after = before.filter((s: string) => s !== 'deploy' && s !== 'standing');
+        const before: string[] = existing.canonicalStages ?? [];
+        const after = before.filter((s: string) => !stagesToInvalidate.includes(s));
+        const invalidatedAt = new Date().toISOString();
+        const newTombstones: Record<string, StageInvalidationRecord> = {};
+        for (const stageId of stagesToInvalidate) {
+          newTombstones[stageId] = {
+            invalidatedAt,
+            reason:
+              stageId === 'standing'
+                ? `Premature award — this accrual predates any genuine capability_registered receipt. Corrected per discrepancy receipt ${discrepancyReceiptId}.`
+                : `No agent-scoped capability_registered receipt exists — Ingest was never independently established (only the premature Standing seed asserted it).`,
+            correctionReceiptId: discrepancyReceiptId,
+            supersededEvidenceIds: stageId === 'standing' ? correctedIds : [],
+          };
+        }
+        const existingTombstones = (existing.invalidatedStages as Record<string, StageInvalidationRecord> | undefined) ?? {};
         const { error } = await admin
           .from('registry_assets')
-          .update({ metadata: { ...metadata, journey_resolutions: { ...map, [journeyId]: { ...existing, canonicalStages: after } } } })
+          .update({
+            metadata: {
+              ...metadata,
+              journey_resolutions: {
+                ...map,
+                [journeyId]: {
+                  ...existing,
+                  canonicalStages: after,
+                  invalidatedStages: { ...existingTombstones, ...newTombstones },
+                },
+              },
+            },
+          })
           .eq('asset_id', aigentQubeId);
         result.canonicalStagesCorrection = error
           ? { applied: false, reason: error.message }
-          : { applied: true, before, after };
+          : { applied: true, before, after, invalidatedStages: Object.keys(newTombstones) };
       }
     }
 

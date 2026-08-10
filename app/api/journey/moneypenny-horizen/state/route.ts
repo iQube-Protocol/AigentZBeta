@@ -1069,7 +1069,18 @@ async function resolveState(req: NextRequest) {
      */
     aigentme: hasReceipt('aigentme_activated') && hasReceipt('experienceqube_focus_disposition_recorded'),
   };
+  /*
+   * A governed-correction tombstone (POSIT state model, operator ruling
+   * 2026-08-10) permanently retires the ratchet shortcut for a stage id —
+   * this axis-input union is the SECOND place (besides
+   * resolveMonotonicJourneyState's own priorCanonicalStages consumption
+   * below) that reads `priorResolution.canonicalStages` directly, so it must
+   * honour the same tombstone or a corrected stage could resurrect through
+   * this path even after resolveMonotonicJourneyState correctly excludes it.
+   */
+  const tombstonedStageIds = new Set(Object.keys(priorResolution?.invalidatedStages ?? {}));
   for (const stageId of priorResolution?.canonicalStages ?? []) {
+    if (tombstonedStageIds.has(stageId)) continue;
     if (canonicalStages[stageId] !== true) canonicalStages[stageId] = canonicalStages[stageId] || true;
   }
 
@@ -1089,7 +1100,9 @@ async function resolveState(req: NextRequest) {
      * (`priorResolution?.canonicalStages`), never via re-reading the same
      * conflated registry signal on every future request.
      */
-    factoryIngested: hasReceipt('capability_registered') || (priorResolution?.canonicalStages ?? []).includes('deploy'),
+    factoryIngested:
+      hasReceipt('capability_registered') ||
+      ((priorResolution?.canonicalStages ?? []).includes('deploy') && !tombstonedStageIds.has('deploy')),
     pulse: pulseState,
     pnl: pnlState,
     /*
@@ -1132,6 +1145,10 @@ async function resolveState(req: NextRequest) {
     canonicalOutcomes: { register: registration?.registered === true },
     priorCanonicalStages: priorResolution?.canonicalStages ?? [],
     priorMilestones: priorResolution?.milestones ?? [],
+    // The SAME tombstone set filtered above — a stage a governed correction
+    // invalidated gets no `prior-resolution` synthesis here either, but may
+    // still complete via genuine live evidence (canonicalAuthority: 'evidence').
+    invalidatedStages: Array.from(tombstonedStageIds),
     auditGaps: {
       register: registration?.auditGaps ?? [],
       // Failed canonical reads are DISCLOSED, never rendered as "did not happen".
