@@ -90,6 +90,24 @@ export type JourneySurfaceDescriptor =
        * true; defaults to a generic "Open full view ↗" when omitted.
        */
       openLabel?: string;
+      /**
+       * Focused navigation depth (operator direction, 2026-08-10) — defines
+       * how many navigation tiers above the content to reveal when focused:
+       *   0 (default) — content surface only; no cartridge or domain nav
+       *   1 — content + immediate parent/domain nav (e.g., Store tabs, metaMe views)
+       *   2+ — content + multiple nav tiers (uncommon; future extensible)
+       *
+       * Only meaningful when `focused: true`. Examples:
+       *   Pulse (View) — depth 0 (publication feed, self-contained)
+       *   Store (Buy) — depth 1 (needs Episodes|KNYT Cards|Bundles|Investor KNYT tabs)
+       *   myCanvas (Remix) — depth 0 (self-contained composer)
+       *   aigentMe surfaces — depth 1 (needs metaMe/aigentMe nav context)
+       *
+       * May be dynamic (resolved per-call via resolveSurfaceProps) when
+       * runtime state determines the required depth (e.g., Passport: depth 0
+       * before established, depth 1 after).
+       */
+      focusedNavDepth?: number;
       note: string;
     }
   | {
@@ -379,6 +397,7 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
     tab: 'pulse',
     suppressFloatingCopilot: true,
     focused: true,
+    focusedNavDepth: 0,
     openLabel: 'Open KNYT World ↗',
     note:
       'The canonical KNYT Pulse tab itself, full and unfiltered — never a Bridge-scoped slice of it. ' +
@@ -387,7 +406,8 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
       'appear identically whether Pulse is reached through the Bridge or through the KNYT cartridge. ' +
       "Focused surface-polish pass (2026-08-10): `focused: true` hides the KNYT cartridge's own top-level " +
       "header/tab-group nav (Codex/Store/Order/Admin/Docs and the Order-group sibling strip) so a first-" +
-      "time Threshold visitor sees Pulse itself, not the whole cartridge — Pulse's own toolbar is unaffected.",
+      "time Threshold visitor sees Pulse itself, not the whole cartridge — Pulse's own toolbar is unaffected. " +
+      'Depth 0 means content only (publication feed).',
   },
   'knyts-bridge-orient': {
     kind: 'component',
@@ -425,26 +445,29 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
     tab: 'quests',
     suppressFloatingCopilot: true,
     focused: true,
+    focusedNavDepth: 0,
     openLabel: 'Open KNYT World ↗',
     note:
       'The canonical KNYT Quests tab (app/triad/components/codex/tabs/KnytQuestsTab.tsx) — "Standing is ' +
       'the constitutional outcome; Quest is the KNYT mechanic through which you earn it." The spine ' +
       'label stays Stand; the surface underneath is the real, KNYT-native Quests experience, never a ' +
       'thin bespoke Standing projection. `focused: true` (2026-08-10) hides the cartridge primary chrome; ' +
-      "Quests's own filters/controls are untouched.",
+      "Quests's own filters/controls are untouched. Depth 0 means content only (quests feed).",
   },
-  'knyts-bridge-buy-store': {
-    kind: 'embed',
-    codexSlug: 'knyt-codex',
-    tab: 'store-episodes',
+  ‘knyts-bridge-buy-store’: {
+    kind: ‘embed’,
+    codexSlug: ‘knyt-codex’,
+    tab: ‘store-episodes’,
     suppressFloatingCopilot: true,
     focused: true,
-    openLabel: 'Open KNYT World ↗',
+    focusedNavDepth: 1,
+    openLabel: ‘Open KNYT World ↗’,
     note:
-      'The existing KNYT Store — no new commerce code, same tab the old front door deep-linked to. ' +
+      ‘The existing KNYT Store — no new commerce code, same tab the old front door deep-linked to. ‘ +
       "`focused: true` (2026-08-10) gives a clean focused Store viewport: cartridge chrome suppressed, " +
-      'the Store tab’s own category/local controls untouched, with an "Open KNYT World ↗" affordance ' +
-      'to leave the guide.',
+      ‘the Store tab’s own category/local controls untouched, with an "Open KNYT World ↗" affordance ‘ +
+      ‘to leave the guide. Depth 1 retains the Store’s own navigation strip (Episodes|KNYT Cards|Bundles|’ +
+      ‘Investor KNYT) which is required for the destination to remain functionally navigable.’,
   },
 
   // ── Constitutional Internet Bridge journey (2026-08-10) — the canonical
@@ -495,6 +518,7 @@ export function buildEmbedSurfaceSrc(
     shell: 'embed',
     suppressCopilot: descriptor.suppressFloatingCopilot,
     focused: descriptor.focused,
+    focusedNavDepth: descriptor.focusedNavDepth,
     ...(descriptor.agentScoped && input.selectedAgentSlug ? { agentSlug: input.selectedAgentSlug } : {}),
   });
 }
