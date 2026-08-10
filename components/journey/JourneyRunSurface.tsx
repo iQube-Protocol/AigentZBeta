@@ -561,7 +561,7 @@ export function JourneyRunSurface({
    * placement (KNYTS Bridge reconstitution, 2026-08-09/10).
    */
   const headerActions = (
-    <div className="flex shrink-0 items-center gap-2">
+    <div className="ml-auto flex shrink-0 items-center gap-2">
       <button
         onClick={() => void refresh()}
         title="Refresh state"
@@ -585,20 +585,31 @@ export function JourneyRunSurface({
     <div className="flex h-full flex-col gap-4 p-4 text-slate-100">
       {compact ? (
         /*
-         * COMPACT ONE-ROW HEADER (KNYTS Bridge reconstitution, 2026-08-09) —
-         * the journey-brand row and the stage-description row are two
-         * genuinely separate FACTS (which journey; where in it) but were
-         * costing two full rows of vertical space to say so. A lighter
-         * journey than Horizen has no evidentiary weight to justify that;
-         * one compact row says both. Opt-in only — every existing caller
-         * (Horizen, Validation Programme) omits `compact` and keeps the
-         * original two-row layout untouched below.
+         * COMPACT ONE-ROW HEADER (KNYTS Bridge reconstitution, 2026-08-09;
+         * spacing/alignment correction, 2026-08-10) — the journey-brand row
+         * and the stage-description row are two genuinely separate FACTS
+         * (which journey; where in it) but were costing two full rows of
+         * vertical space to say so. A lighter journey than Horizen has no
+         * evidentiary weight to justify that; one compact row says both.
+         * Opt-in only — every existing caller (Horizen, Validation
+         * Programme) omits `compact` and keeps the original two-row layout
+         * untouched below.
+         *
+         * Semantic groups, left to right, every one `shrink-0` except the
+         * descriptor (the one group allowed to give up space):
+         *   brand (icon + headerLabel) → separator → descriptor (flex-1,
+         *   min-w-0, truncates) → headerExtra (e.g. Bridge Admin) →
+         *   headerActions (Refresh/Evidence/Full screen, pinned right via
+         *   its own `ml-auto`). `items-center` on the row baseline-aligns
+         *   every group; `flex-wrap` is a deliberate MOBILE fallback (an
+         *   allowed responsive collapse), never triggered on desktop widths
+         *   once the descriptor is the only group that can shrink.
          */
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          <div className="flex min-w-0 shrink-0 items-center gap-2">
+        <div className="flex flex-wrap items-center gap-3 text-xs">
+          <div className="flex min-w-0 shrink-0 items-center gap-1.5 text-sm">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/metaMe/metaMe/metame-32.png" alt="" className="h-4 w-4 shrink-0" />
-            <span className="text-sm">{headerLabel}</span>
+            {headerLabel}
           </div>
           <span className="shrink-0 text-slate-600">·</span>
           <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
