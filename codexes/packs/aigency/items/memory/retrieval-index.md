@@ -3984,3 +3984,13 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-d1ef756.md](../build_/COMMITS/COMMIT-d1ef756.md)
 - Message: implement in-place iframe chrome toggle for guided journey embeds
+
+## Commit `f65634b` — 2026-08-10T22:50:38Z
+- Type: `push`
+- Brief: [COMMIT-f65634b.md](../build_/COMMITS/COMMIT-f65634b.md)
+- Message: trigger deploy: focusedNavDepth depth-aware chrome suppression
+
+## Commit `a37a29e` — 2026-08-10T22:50:19Z
+- Type: `feat`
+- Brief: [COMMIT-a37a29e.md](../build_/COMMITS/COMMIT-a37a29e.md)
+- Message: Implement focusedNavDepth support for depth-aware chrome suppression

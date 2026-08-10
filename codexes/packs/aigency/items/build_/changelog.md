@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`a37a29e`](https://github.com/iQube-Protocol/AigentZBeta/commit/a37a29edbc6ef846a4be576104cb65ed2cbf87ba) [feat] Implement focusedNavDepth support for depth-aware chrome suppression (Claude, 2026-08-10T22:50:19Z)
+- [`f65634b`](https://github.com/iQube-Protocol/AigentZBeta/commit/f65634b26660b5f876d2f400ef1de351c7ced62a) [push] trigger deploy: focusedNavDepth depth-aware chrome suppression (Claude, 2026-08-10T22:50:38Z)
 - [`d1ef756`](https://github.com/iQube-Protocol/AigentZBeta/commit/d1ef7562b741a5be55f6887a63b2aa6e51d530a5) [feat] implement in-place iframe chrome toggle for guided journey embeds (Claude, 2026-08-10T20:03:05Z)
 - [`7d0ed73`](https://github.com/iQube-Protocol/AigentZBeta/commit/7d0ed7363507db181a71bb169bd32d3372b4023d) [push] trigger deploy: in-place iframe chrome toggle for KNYTS Bridge embeds (Claude, 2026-08-10T20:03:08Z)
 - [`4262fbd`](https://github.com/iQube-Protocol/AigentZBeta/commit/4262fbde0022bfab8f8194455ca6f07e2d1dee58) [push] trigger deploy to dev (Claude, 2026-08-10T17:41:09Z)

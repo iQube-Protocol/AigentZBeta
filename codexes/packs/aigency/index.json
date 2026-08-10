@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-10T20:05:15.232Z",
+  "last_updated": "2026-08-10T22:52:16.005Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "d1ef7562b741a5be55f6887a63b2aa6e51d530a5",
-  "latest_commit_short": "d1ef756",
-  "latest_commit_title": "implement in-place iframe chrome toggle for guided journey embeds",
+  "latest_commit": "a37a29edbc6ef846a4be576104cb65ed2cbf87ba",
+  "latest_commit_short": "a37a29e",
+  "latest_commit_title": "Implement focusedNavDepth support for depth-aware chrome suppression",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "a37a29e",
+      "full_sha": "a37a29edbc6ef846a4be576104cb65ed2cbf87ba",
+      "title": "Implement focusedNavDepth support for depth-aware chrome suppression",
+      "author": "Claude",
+      "timestamp": "2026-08-10T22:50:19Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-a37a29e.md"
+    },
+    {
+      "sha": "f65634b",
+      "full_sha": "f65634b26660b5f876d2f400ef1de351c7ced62a",
+      "title": "trigger deploy: focusedNavDepth depth-aware chrome suppression",
+      "author": "Claude",
+      "timestamp": "2026-08-10T22:50:38Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-f65634b.md"
+    },
     {
       "sha": "d1ef756",
       "full_sha": "d1ef7562b741a5be55f6887a63b2aa6e51d530a5",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-07-18T00:07:22Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-eb18469.md"
-    },
-    {
-      "sha": "fc7ba11",
-      "full_sha": "fc7ba1127e7a525f6021d39cc80e4dd0bbc4336b",
-      "title": "ratify Polity corpus + Knowledge Compression genesis into Canon (operator: 'ratify the lot')",
-      "author": "Claude",
-      "timestamp": "2026-07-17T23:52:53Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-fc7ba11.md"
-    },
-    {
-      "sha": "1505d97",
-      "full_sha": "1505d97d16bbe3ec90165bf8b35d60b6bc046ad5",
-      "title": "canonize Knowledge Compression genesis: preserve founding text + seed inv.reasoning.310-321 (proposed)",
-      "author": "Claude",
-      "timestamp": "2026-07-17T23:42:13Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-1505d97.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
