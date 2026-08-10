@@ -23,7 +23,7 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-const ALLOWED_SECTIONS = new Set(['home']);
+const ALLOWED_SECTIONS = new Set(['home', 'orient']);
 
 export async function GET(req: NextRequest) {
   try {

@@ -75,7 +75,14 @@ export const KNYTS_BRIDGE_CROSSING_JOURNEY: JourneyDefinition = {
       description: 'Homecoming begins here.',
       actor: 'operator',
       subjectRef: 'visitor',
-      surfaces: [{ mode: 'component', ref: 'knyts-bridge-home', note: 'Media-rich homecoming surface.' }],
+      surfaces: [
+        {
+          mode: 'component',
+          ref: 'knyts-bridge-home',
+          note: 'Media-rich homecoming surface.',
+          props: { section: 'home', ctaStageId: 'view', showCampaignExtras: true },
+        },
+      ],
       prerequisites: [],
       permittedActions: [],
       completionEvidence: [],
@@ -92,7 +99,7 @@ export const KNYTS_BRIDGE_CROSSING_JOURNEY: JourneyDefinition = {
       description: 'See the crossings already underway.',
       actor: 'operator',
       subjectRef: 'visitor',
-      surfaces: [{ mode: 'component', ref: 'knyts-bridge-view-pulse', note: 'Campaign-filtered KNYT Pulse.' }],
+      surfaces: [{ mode: 'iframe', ref: 'knyts-bridge-view-pulse', note: 'The canonical KNYT Pulse tab.' }],
       prerequisites: [],
       permittedActions: ['browse-crossings', 'remix-crossing-story'],
       completionEvidence: [],
@@ -109,7 +116,14 @@ export const KNYTS_BRIDGE_CROSSING_JOURNEY: JourneyDefinition = {
       description: 'Your personhood comes before your identity.',
       actor: 'operator',
       subjectRef: 'visitor',
-      surfaces: [{ mode: 'component', ref: 'knyts-bridge-orient', note: 'Light orientation card, no Bureau UI.' }],
+      surfaces: [
+        {
+          mode: 'component',
+          ref: 'knyts-bridge-orient',
+          note: 'Light orientation film, no Bureau UI.',
+          props: { section: 'orient', ctaStageId: 'passport' },
+        },
+      ],
       prerequisites: [],
       permittedActions: [],
       completionEvidence: [],
@@ -123,14 +137,16 @@ export const KNYTS_BRIDGE_CROSSING_JOURNEY: JourneyDefinition = {
     {
       id: 'passport',
       label: 'Passport',
-      description: 'Claiming your Passport is the actual constitutional crossing — everything before it was browsing.',
+      description: 'Claim your constitutional presence.',
       actor: 'operator',
       subjectRef: 'visitor',
       surfaces: [
         {
           mode: 'component',
-          ref: 'venture-participate-apply',
-          note: 'The canonical Polity Citizen Passport application/sign-in surface — never a campaign-specific fork.',
+          ref: 'knyts-bridge-passport-room',
+          note:
+            'State-aware constitutional room: claim your Passport, then meet/delegate to your aigentMe — ' +
+            'never a fork of either canonical surface.',
         },
       ],
       prerequisites: [],
@@ -149,15 +165,14 @@ export const KNYTS_BRIDGE_CROSSING_JOURNEY: JourneyDefinition = {
     {
       id: 'remix',
       label: 'Remix',
-      description: 'Tell your crossing by remixing an existing Crossing Story into your own article or story.',
+      description: 'Tell your crossing.',
       actor: 'operator',
       subjectRef: 'visitor',
       surfaces: [
         {
           mode: 'component',
           ref: 'knyts-bridge-mycanvas-remix',
-          note: 'The existing myCanvas Remix flow (RemixDialog + MyCanvasTab), campaign-tagged — never a forked remix UI.',
-          props: { surface: 'canvas' },
+          note: 'myCanvas, deep-linked inside the metaMe/aigentMe environment — campaign-tagged, never a forked remix UI.',
         },
       ],
       prerequisites: ['passport'],
@@ -173,14 +188,16 @@ export const KNYTS_BRIDGE_CROSSING_JOURNEY: JourneyDefinition = {
     {
       id: 'stand',
       label: 'Stand',
-      description: 'Become consequential within the Polity — every share, reaction and remix of your crossing counts.',
+      description: 'Quest, contribute and earn Standing.',
       actor: 'operator',
       subjectRef: 'visitor',
       surfaces: [
         {
-          mode: 'component',
+          mode: 'iframe',
           ref: 'knyts-bridge-stand',
-          note: 'Thin read-only projection over existing KNYT signal counts — see services/journey/knytsBridgeStand.ts.',
+          note:
+            'Standing is the constitutional outcome; Quest is the KNYT mechanic through which you earn ' +
+            'it — the canonical KNYT Quests tab, never a bespoke Standing projection.',
         },
       ],
       prerequisites: ['remix'],

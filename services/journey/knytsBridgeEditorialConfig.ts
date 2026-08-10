@@ -21,25 +21,51 @@ export interface KnytsBridgeEditorialSection {
 }
 
 /** Falls back to the copy that shipped with the original front door — never
- *  a blank page when the config row is missing (e.g. a fresh environment
- *  before the seed migration has run). */
-export const KNYTS_BRIDGE_HOME_DEFAULTS: KnytsBridgeEditorialSection = {
-  section: 'home',
-  headline: 'Cross the Threshold. Come home.',
-  shortCopy:
-    'The KNYTS Bridge is one path into the Polity — a constitutional home for people and their agents ' +
-    'in the emerging Constitutional Internet.\n\nFollow the stories of those who are crossing. When ' +
-    "you're ready, claim your Passport, cross the Threshold and tell your own.\n\nShare your crossing. " +
-    'Discover others. Earn Standing. Win rewards.',
-  videoUrl: null,
-  posterUrl: null,
-  campaignCta: 'Explore the crossings',
-  rewardCopy: 'Every crossing builds the bridge.',
-  updatedAt: null,
+ *  a blank page when a config row is missing (e.g. a fresh environment
+ *  before the seed migration has run). One default set per media-stage
+ *  section (HOME and ORIENT — reconstitution spec, points 5/6: "The
+ *  distinction is important: Home speaks Mythos. Orient explains the
+ *  constitutional choice."). Both sections share KnytsBridgeMediaStage;
+ *  only their copy/media differ. */
+export const KNYTS_BRIDGE_SECTION_DEFAULTS: Record<string, KnytsBridgeEditorialSection> = {
+  home: {
+    section: 'home',
+    headline: 'Cross the Threshold. Come home.',
+    shortCopy:
+      'The KNYTS Bridge is one path into the Polity — a constitutional home for people and their agents ' +
+      'in the emerging Constitutional Internet.\n\nFollow the stories of those who are crossing. When ' +
+      "you're ready, claim your Passport, cross the Threshold and tell your own.\n\nShare your crossing. " +
+      'Discover others. Earn Standing. Win rewards.',
+    videoUrl: null,
+    posterUrl: null,
+    campaignCta: 'Explore the crossings',
+    rewardCopy: 'Every crossing builds the bridge.',
+    updatedAt: null,
+  },
+  orient: {
+    section: 'orient',
+    headline: 'Before you cross',
+    shortCopy:
+      'Your personhood comes before your identity. Whatever name or persona you use here, it is you — ' +
+      'a person — the Polity recognises.\n\nClaiming your Passport is your first constitutional act. ' +
+      'Everything before it was browsing; this is the actual crossing.',
+    videoUrl: null,
+    posterUrl: null,
+    campaignCta: 'Claim your Passport',
+    rewardCopy: null,
+    updatedAt: null,
+  },
 };
 
+/** @deprecated kept for callers that haven't migrated to KNYTS_BRIDGE_SECTION_DEFAULTS.home yet. */
+export const KNYTS_BRIDGE_HOME_DEFAULTS = KNYTS_BRIDGE_SECTION_DEFAULTS.home;
+
+function defaultsForSection(section: string): KnytsBridgeEditorialSection {
+  return KNYTS_BRIDGE_SECTION_DEFAULTS[section] ?? { ...KNYTS_BRIDGE_SECTION_DEFAULTS.home, section };
+}
+
 function rowToSection(row: Record<string, unknown> | null, section: string): KnytsBridgeEditorialSection {
-  if (!row) return { ...KNYTS_BRIDGE_HOME_DEFAULTS, section };
+  if (!row) return defaultsForSection(section);
   return {
     section,
     headline: (row.headline as string) ?? null,
@@ -52,15 +78,25 @@ function rowToSection(row: Record<string, unknown> | null, section: string): Kny
   };
 }
 
+/**
+ * Fail faithful (not silently defaulted): a missing ROW is a legitimate,
+ * expected state (falls back to defaultsForSection) — a missing TABLE, a
+ * bad column, or any other query failure is a real error and must say so,
+ * never be indistinguishable from "no row yet". Swallowing `error` here
+ * previously meant this function returned the exact same shipped-copy
+ * defaults whether the editorial_config migration had been applied or not,
+ * so a 200 from the route it backs proved nothing about migration state.
+ */
 export async function getKnytsBridgeEditorialSection(
   supabase: SupabaseClient,
   section: string,
 ): Promise<KnytsBridgeEditorialSection> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('knyts_bridge_editorial_config')
     .select('section, headline, short_copy, video_url, poster_url, campaign_cta, reward_copy, updated_at')
     .eq('section', section)
     .maybeSingle();
+  if (error) throw new Error(`knyts_bridge_editorial_config read failed: ${error.message}`);
   return rowToSection(data as Record<string, unknown> | null, section);
 }
 

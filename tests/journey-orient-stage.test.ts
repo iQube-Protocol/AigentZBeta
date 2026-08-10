@@ -296,13 +296,22 @@ describe('JourneyRunSurface renders the fork as one trident after the spine, nev
    * row (never a tall `<ul>`).
    */
   it('the evidence trigger lives in the TOP row, between Refresh state and Full screen', () => {
+    // Refresh/Evidence/Full screen are shared between the compact (KNYTS
+    // Bridge) and non-compact (Horizen) headers via `headerActions` — the
+    // trigger itself is a variable reference here, its own JSX defined once
+    // above (`evidenceTrigger`), never duplicated per layout.
     const refreshAt = source.indexOf('Refresh state');
     const fullScreenAt = source.indexOf("title={fullScreen ? 'Collapse' : 'Full screen'}");
     expect(refreshAt, 'Refresh state button missing').toBeGreaterThan(-1);
     expect(fullScreenAt, 'Full screen button missing').toBeGreaterThan(-1);
     const between = source.slice(refreshAt, fullScreenAt);
-    expect(between).toMatch(/Evidence \{activeStageRuntime\.evidencePresent\.length\}/);
-    expect(between).toMatch(/className="relative shrink-0"/);
+    expect(between).toMatch(/\{evidenceTrigger\}/);
+    const evidenceDefAt = source.indexOf('const evidenceTrigger =');
+    expect(evidenceDefAt, 'evidenceTrigger definition missing').toBeGreaterThan(-1);
+    expect(evidenceDefAt).toBeLessThan(refreshAt);
+    const evidenceDef = source.slice(evidenceDefAt, evidenceDefAt + 1000);
+    expect(evidenceDef).toMatch(/Evidence \{activeStageRuntime\.evidencePresent\.length\}/);
+    expect(evidenceDef).toMatch(/className="relative shrink-0"/);
   });
 
   /*
@@ -318,7 +327,7 @@ describe('JourneyRunSurface renders the fork as one trident after the spine, nev
   it('the stage chip/label/narrator now share the TOP row with the branding — no second row', () => {
     const rowAt = source.indexOf('ONE COMPRESSED TOP ROW');
     expect(rowAt, 'the compressed top-row comment anchor is missing').toBeGreaterThan(-1);
-    const section = source.slice(rowAt, rowAt + 1200);
+    const section = source.slice(rowAt, rowAt + 1600);
     expect(section).toMatch(/className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden text-sm"/);
     expect(section).toMatch(/\{headerLabel\}/);
     expect(section).toMatch(/\{activeIdx \+ 1\}/);
@@ -345,9 +354,9 @@ describe('JourneyRunSurface renders the fork as one trident after the spine, nev
   it('the Refresh/State control is compact — icon + "State", full label preserved only as a title attribute', () => {
     const titleAt = source.indexOf('title="Refresh state"');
     expect(titleAt, 'title="Refresh state" attribute missing').toBeGreaterThan(-1);
-    const buttonBlock = source.slice(titleAt, titleAt + 400);
+    const buttonBlock = source.slice(titleAt, titleAt + 600);
     expect(buttonBlock).toMatch(/<RefreshCw/);
-    expect(buttonBlock).toMatch(/\n\s*State\s*\n/);
+    expect(buttonBlock).toMatch(/!compact && 'State'/);
     expect(buttonBlock).not.toMatch(/>\s*Refresh state\s*</);
   });
 
