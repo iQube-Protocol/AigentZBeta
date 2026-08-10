@@ -559,7 +559,10 @@ describe('the Verify stage speaks about the agent that was actually registered',
 
   it('the tab hands the selection to the Verify surface', () => {
     expect(tab).toMatch(/descriptor\.component === 'PulseTransparencyToggle'/);
-    expect(tab).toMatch(/agentSlug: selectedAgentSlug, agentDisplayName: selectedAgent\.displayName/);
+    // Both branches grew additional props (CFS-055 coherence pass,
+    // 2026-08-10), so these two now sit on their own lines rather than one —
+    // tolerate the whitespace, not the exact original single-line shape.
+    expect(tab).toMatch(/agentSlug:\s*selectedAgentSlug,\s*agentDisplayName:\s*selectedAgent\.displayName/);
   });
 
   it('refetching is scoped to the agent — switching agents re-reads the card', () => {

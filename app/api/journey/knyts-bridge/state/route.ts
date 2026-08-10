@@ -7,16 +7,21 @@
  * /api/journey/validation-programme/state.
  *
  * Unlike every other journey route in this codebase, an unauthenticated
- * caller is NOT a 401 here: HOMECOMING and VIEW are deliberately browsable
+ * caller is NOT a 401 here: HOME and VIEW are deliberately browsable
  * signed-out (the public front door calls this route to know whether to
  * show "claim your Passport" or the Remix/Stand surfaces), so `passport`
  * simply resolves NOT_STARTED/READY for a signed-out caller rather than the
- * route refusing to answer at all.
+ * route refusing to answer at all. HOME/VIEW/ORIENT/BUY carry no evidence at
+ * all (see the journey definition's own header) and so need no entry here —
+ * resolveJourneyState treats an absent stages[id] exactly like one with
+ * empty evidence.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getCommunityContentSupabase } from '@/app/api/community-content/_lib/personaContext';
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+import { loadUsableCitizenPassportForAuthProfile } from '@/services/identity/passportPrincipal';
 import { resolveJourneyState, type AuthoritativePlatformState } from '@/services/journey/resolveJourneyState';
 import { KNYTS_BRIDGE_CROSSING_JOURNEY, KNYTS_BRIDGE_CAMPAIGN_ID } from '@/services/journey/knytsBridgeCrossingJourney';
 
@@ -48,6 +53,23 @@ async function getImpl(req: NextRequest) {
   // simply null, and every stage's evidence stays honestly missing.
   const persona = await getActivePersona(req).catch(() => null);
   const personaAuthenticated = Boolean(persona?.personaId);
+
+  // Real constitutional presence, not merely "signed in" — the same
+  // canonical check Horizen's own admission ladder settles as
+  // `passport_is_issued` (services/identity/passportPrincipal.ts's
+  // loadUsableCitizenPassportForAuthProfile / isPassportUsable), never a
+  // second, weaker definition of "crossed the Threshold"
+  // (inv.engineering.036/037). Scoped by authProfileId, not by any
+  // Horizen agent/aigentQubeId — KNYTS has no agent-registration context,
+  // being personhood-first (reconstitution spec, point 9).
+  let citizenPassportUsable = false;
+  if (persona?.authProfileId) {
+    const adminSupabase = getSupabaseServer();
+    if (adminSupabase) {
+      const result = await loadUsableCitizenPassportForAuthProfile(adminSupabase, persona.authProfileId);
+      citizenPassportUsable = result.ok;
+    }
+  }
 
   let crossingPublished = false;
   let crossingHasConsequence = false;
@@ -83,7 +105,7 @@ async function getImpl(req: NextRequest) {
 
   const platformState: AuthoritativePlatformState = {
     stages: {
-      passport: { personaAuthenticated },
+      passport: { citizenPassportUsable },
       remix: { crossingPublished },
       stand: { crossingHasConsequence },
     },

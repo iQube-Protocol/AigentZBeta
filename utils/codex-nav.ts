@@ -77,6 +77,21 @@ export interface CodexNavOptions {
    * URL byte-for-byte.
    */
   agentSlug?: string;
+  /**
+   * Focused presentation (`?chrome=focused`) — suppresses the destination
+   * cartridge's PRIMARY chrome (its top-level brand/tab-group header and the
+   * group sub-header strip that lets the operator jump to sibling tabs) while
+   * leaving the active tab's own local content — including whatever toolbar,
+   * filters or sub-navigation that tab renders itself — completely untouched.
+   *
+   * For hosts that already provide the outer navigation frame — the Guided
+   * Journey viewport being the first — where the destination's own estate-
+   * level nav would double up on (or overwhelm) the host's. Off by default:
+   * a cartridge reached any other way keeps its full primary chrome, which is
+   * correct there. See CodexPanelDynamic's `suppressPrimaryChrome` prop,
+   * which this flag maps to server-side of the embed route.
+   */
+  focused?: boolean;
 }
 
 /**
@@ -101,6 +116,7 @@ export function buildCodexUrl(slug: string, opts: CodexNavOptions = {}): string 
     shell = "embed",
     suppressCopilot,
     agentSlug,
+    focused,
   } = opts;
 
   const params = new URLSearchParams();
@@ -120,6 +136,7 @@ export function buildCodexUrl(slug: string, opts: CodexNavOptions = {}): string 
   if (from)       params.set("from",       from);
   if (fromTab)    params.set("fromTab",    fromTab);
   if (suppressCopilot) params.set("copilot", "off");
+  if (focused) params.set("chrome", "focused");
   // Trimmed, non-empty only — URLSearchParams.set percent-encodes the value;
   // the receiving route is what actually validates it, via resolveRegistrableAgent.
   if (agentSlug && agentSlug.trim().length > 0) params.set("agentSlug", agentSlug.trim());

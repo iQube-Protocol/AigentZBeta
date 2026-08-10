@@ -69,6 +69,27 @@ export type JourneySurfaceDescriptor =
        * this true.
        */
       agentScoped?: true;
+      /**
+       * Focused presentation (operator direction, 2026-08-10 — "canonical
+       * content, contextual chrome"): suppresses the destination cartridge's
+       * PRIMARY chrome (its top-level brand/tab-group header and the group
+       * sub-header strip that lets the operator jump to sibling tabs) via
+       * CodexNavOptions.focused -> ?chrome=focused -> CodexPanelDynamic's
+       * `suppressPrimaryChrome`. The active tab's own local content —
+       * whatever toolbar, filters or sub-navigation it renders itself —
+       * is untouched, since TabRenderer mounts it unconditionally either
+       * way. A reusable journey behaviour, not KNYTS-specific: any stage
+       * composing a canonical multi-tab cartridge inside the Guided Journey
+       * viewport can opt a surface into it.
+       */
+      focused?: true;
+      /**
+       * Label for the "open the full canonical application" affordance
+       * JourneyRunSurface renders above a focused embed (e.g. "Open KNYT
+       * World ↗", "Explore metaMe ↗"). Only meaningful when `focused` is
+       * true; defaults to a generic "Open full view ↗" when omitted.
+       */
+      openLabel?: string;
       note: string;
     }
   | {
@@ -117,6 +138,17 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
       'then drives the real prepare->review->confirm->broadcast->status pipeline ' +
       '(services/horizen/registrationClient.ts) end to end. Composes AgentCardSurface internally for ' +
       'the selected agent\'s card display — never a second, parallel display.',
+  },
+  'register-ceremony-replay': {
+    kind: 'component',
+    component: 'RegisterCeremonyReplay',
+    note:
+      'Pre-recording Horizen polish, part C (2026-08-10, components/journey/RegisterCeremonyReplay.tsx) ' +
+      "— a generic, read-only replay of Register's seven wallet-signing ceremony steps for an already-" +
+      'registered agent, sourced from the state route\'s `registerCeremony` projection (each step ' +
+      "carrying `authority: 'evidence'` from a real receipt, or `authority: 'inferred'` where no receipt " +
+      'type exists). Never a second registration writer — RegisterAgentPanel stays the only surface ' +
+      'that can perform the live ceremony.',
   },
   'horizen-registry-agent-page': {
     kind: 'component',
@@ -321,28 +353,98 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
     note: "The Research Workspace's Activity view, locked to one workspace and rendered bare.",
   },
 
-  // ── KNYTS Bridge journey (2026-08-09) — the public front door
-  // (app/bridge/knyts/page.tsx) composes these directly rather than through
-  // JourneyRunSurface's generic stepper: that runner requires an
-  // authenticated stateUrl fetch on mount (personaFetch against a route
-  // that 401s a signed-out caller), which is incompatible with HOMECOMING/
-  // VIEW being browsable signed-out by design. These entries still document
-  // which real surface each stage composes, per the Surface Reuse Principle.
+  // ── KNYTS Bridge journey (built 2026-08-09, reconstituted onto
+  // JourneyRunSurface same day, surface-reconciled 2026-08-09 third pass) —
+  // the public front door (app/bridge/knyts/page.tsx) composes these
+  // THROUGH JourneyRunSurface's shared Posit Spine runner, like every other
+  // journey in this registry. Operator correction (surface reconciliation):
+  // "treat KNYTS Bridge as a surface-level constitutional guide into two
+  // deeper worlds: the KNYT cartridge and metaMe/aigentMe... each node
+  // should open a real existing destination surface, not a thin imitation
+  // of one." VIEW/STAND/BUY are now embeds of the actual KNYT cartridge tabs
+  // (never a second renderer); PASSPORT and REMIX stay bare `component`
+  // surfaces because they need per-visit state/dynamic params a plain embed
+  // descriptor can't carry (see each note below).
+  'knyts-bridge-home': {
+    kind: 'component',
+    component: 'KnytsBridgeMediaStage',
+    note:
+      'HOME half of the ONE shared cinematic surface (components/journey/KnytsBridgeMediaStage.tsx) — ' +
+      'hero/video/poster/CTA/reward copy, admin-editable via /api/journey/knyts-bridge/editorial-config. ' +
+      "Home speaks Mythos; see 'knyts-bridge-orient' for the same component's other half.",
+  },
+  'knyts-bridge-view-pulse': {
+    kind: 'embed',
+    codexSlug: 'knyt-codex',
+    tab: 'pulse',
+    suppressFloatingCopilot: true,
+    focused: true,
+    openLabel: 'Open KNYT World ↗',
+    note:
+      'The canonical KNYT Pulse tab itself, full and unfiltered — never a Bridge-scoped slice of it. ' +
+      "The Crossing-of-the-Week banner and the self-service 'Crossings' filter chip now live natively " +
+      'on KnytCommunityContentTab (app/triad/components/codex/tabs/KnytCommunityContentTab.tsx), so they ' +
+      'appear identically whether Pulse is reached through the Bridge or through the KNYT cartridge. ' +
+      "Focused surface-polish pass (2026-08-10): `focused: true` hides the KNYT cartridge's own top-level " +
+      "header/tab-group nav (Codex/Store/Order/Admin/Docs and the Order-group sibling strip) so a first-" +
+      "time Threshold visitor sees Pulse itself, not the whole cartridge — Pulse's own toolbar is unaffected.",
+  },
+  'knyts-bridge-orient': {
+    kind: 'component',
+    component: 'KnytsBridgeMediaStage',
+    note:
+      'ORIENT half of the shared cinematic surface — a short film explaining the Threshold and the first ' +
+      'constitutional act, minimal supporting copy, CTA into Passport. No heavy Bureau UI, no server ' +
+      'call, no completion evidence of its own (see knytsBridgeCrossingJourney.ts).',
+  },
+  'knyts-bridge-passport-room': {
+    kind: 'component',
+    component: 'KnytsBridgePassportRoom',
+    note:
+      'State-aware constitutional room (components/journey/KnytsBridgePassportRoom.tsx): no Passport → ' +
+      "the canonical PassportBureauApplyTab claim flow; Passport established → 'You have crossed.' + the " +
+      "SAME 'aigentme-welcome' embed Horizen's own journey uses, so meet/delegate states render from the " +
+      'existing aigentMe dashboard rather than a second, bespoke delegation-state UI. A bare `component` ' +
+      "because it needs the Passport stage's OWN resolved evidence (citizenPassportUsable, threaded in " +
+      'by the page via resolveSurfaceProps) to decide which half to render — a plain embed cannot branch.',
+  },
   'knyts-bridge-mycanvas-remix': {
     kind: 'component',
-    component: 'MyCanvasTab',
+    component: 'KnytsBridgeRemixSurface',
     note:
-      'The existing myCanvas surface (app/triad/components/codex/tabs/MyCanvasTab.tsx), mounted with ' +
-      "surface='canvas' — same Remix/RemixDialog/publish-to-pulse path every other Remix uses. Never a " +
-      'forked campaign-specific remix UI.',
+      'Embeds the canonical myCanvas tab (metame-codex/mycanvas) inside the metaMe/aigentMe environment ' +
+      '(components/journey/KnytsBridgeRemixSurface.tsx) — never the bare, cartridge-less MyCanvasTab ' +
+      "mount this used before. A bare `component` (not a plain embed) only because it must append a " +
+      "per-visit `remix=` payload when resuming an interrupted Remix intent, which a static embed " +
+      'descriptor cannot carry. Also carries `campaignTag=knyts-bridge-crossing` so MyCanvasTab offers ' +
+      'the Crossing the Threshold starter template instead of the generic Qriptopian one.',
   },
   'knyts-bridge-stand': {
-    kind: 'component',
-    component: 'KnytsBridgeStandPanel',
+    kind: 'embed',
+    codexSlug: 'knyt-codex',
+    tab: 'quests',
+    suppressFloatingCopilot: true,
+    focused: true,
+    openLabel: 'Open KNYT World ↗',
     note:
-      'Thin read-only projection (components/journey/KnytsBridgeStandPanel.tsx) over existing KNYT ' +
-      'reaction counts, campaign-tagged share/conversion counts, and remix lineage — never a new ' +
-      'reward ledger or scoring system (services/journey/knytsBridgeStand.ts).',
+      'The canonical KNYT Quests tab (app/triad/components/codex/tabs/KnytQuestsTab.tsx) — "Standing is ' +
+      'the constitutional outcome; Quest is the KNYT mechanic through which you earn it." The spine ' +
+      'label stays Stand; the surface underneath is the real, KNYT-native Quests experience, never a ' +
+      'thin bespoke Standing projection. `focused: true` (2026-08-10) hides the cartridge primary chrome; ' +
+      "Quests's own filters/controls are untouched.",
+  },
+  'knyts-bridge-buy-store': {
+    kind: 'embed',
+    codexSlug: 'knyt-codex',
+    tab: 'store-episodes',
+    suppressFloatingCopilot: true,
+    focused: true,
+    openLabel: 'Open KNYT World ↗',
+    note:
+      'The existing KNYT Store — no new commerce code, same tab the old front door deep-linked to. ' +
+      "`focused: true` (2026-08-10) gives a clean focused Store viewport: cartridge chrome suppressed, " +
+      'the Store tab’s own category/local controls untouched, with an "Open KNYT World ↗" affordance ' +
+      'to leave the guide.',
   },
 
   // ── Constitutional Internet Bridge journey (2026-08-10) — the canonical
@@ -392,6 +494,7 @@ export function buildEmbedSurfaceSrc(
     personaId: input.personaId,
     shell: 'embed',
     suppressCopilot: descriptor.suppressFloatingCopilot,
+    focused: descriptor.focused,
     ...(descriptor.agentScoped && input.selectedAgentSlug ? { agentSlug: input.selectedAgentSlug } : {}),
   });
 }

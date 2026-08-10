@@ -3899,3 +3899,53 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-2d9ede1.md](../build_/COMMITS/COMMIT-2d9ede1.md)
 - Message: Register CR-14: Constitution Before Substrate quantum launchpad (queued, not applied)
+
+## Commit `adbff86` — 2026-08-09T22:43:44Z
+- Type: `feat`
+- Brief: [COMMIT-adbff86.md](../build_/COMMITS/COMMIT-adbff86.md)
+- Message: Add a conflict resolution path to the dev auto-merge workflow
+
+## Commit `ec5d5c2` — 2026-08-10T03:43:53Z
+- Type: `feat`
+- Brief: [COMMIT-ec5d5c2.md](../build_/COMMITS/COMMIT-ec5d5c2.md)
+- Message: Add stage invalidation tombstone so a correction's removal is durable
+
+## Commit `10e7aa1` — 2026-08-10T00:15:27-04:00
+- Type: `feat`
+- Brief: [COMMIT-10e7aa1.md](../build_/COMMITS/COMMIT-10e7aa1.md)
+- Message: canon: add CFS-055 Proof of State in Time coherence doctrine
+
+## Commit `5eb4d29` — 2026-08-10T04:24:39Z
+- Type: `fix`
+- Brief: [COMMIT-5eb4d29.md](../build_/COMMITS/COMMIT-5eb4d29.md)
+- Message: Fix correction route's tombstone catch-up gap for pre-fix corrections
+
+## Commit `aa1046e` — 2026-08-10T04:38:16Z
+- Type: `feat`
+- Brief: [COMMIT-aa1046e.md](../build_/COMMITS/COMMIT-aa1046e.md)
+- Message: Add Horizen coherence matrix for Nakamoto (POSIT coherence-pass item 6)
+
+## Commit `3f76ccd` — 2026-08-10T05:22:13Z
+- Type: `feat`
+- Brief: [COMMIT-3f76ccd.md](../build_/COMMITS/COMMIT-3f76ccd.md)
+- Message: Implement CFS-055 coherence pass: canonical Ratify projections + drawer
+
+## Commit `169248d` — 2026-08-10T04:48:52Z
+- Type: `push`
+- Brief: [COMMIT-169248d.md](../build_/COMMITS/COMMIT-169248d.md)
+- Message: Mirror CFS-055's ratified invariants 252-259 into the canon + seed
+
+## Commit `d56b844` — 2026-08-10T06:41:38Z
+- Type: `push`
+- Brief: [COMMIT-d56b844.md](../build_/COMMITS/COMMIT-d56b844.md)
+- Message: Pre-recording Horizen polish: compact narrator header + Register ceremony replay
+
+## Commit `58856f7` — 2026-08-10T15:14:46Z
+- Type: `feat`
+- Brief: [COMMIT-58856f7.md](../build_/COMMITS/COMMIT-58856f7.md)
+- Message: Add Aigent Know1 as a third registrable Horizen agent (config + card + health)
+
+## Commit `e1dac8c` — 2026-08-10T07:33:31Z
+- Type: `push`
+- Brief: [COMMIT-e1dac8c.md](../build_/COMMITS/COMMIT-e1dac8c.md)
+- Message: Record MoneyPenny pre-recording evidence snapshot (live dev API baseline)

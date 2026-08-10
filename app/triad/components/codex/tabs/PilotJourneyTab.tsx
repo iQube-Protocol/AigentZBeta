@@ -30,6 +30,7 @@ import { PulseTransparencyToggle } from '@/components/journey/PulseTransparencyT
 import { MarketaEligibilityView } from '@/components/journey/MarketaEligibilityView';
 import { OrientationPanel } from '@/components/journey/OrientationPanel';
 import { IngestIntoFactoryPanel } from '@/components/journey/IngestIntoFactoryPanel';
+import { RegisterCeremonyReplay } from '@/components/journey/RegisterCeremonyReplay';
 import { PassportBureauApplyTab } from './PassportBureauApplyTab';
 import { BoundedDelegationTab } from './BoundedDelegationTab';
 import { ParticipationStandingTab } from './ParticipationStandingTab';
@@ -62,6 +63,7 @@ const JOURNEY_COMPONENTS: Record<string, React.ComponentType<Record<string, unkn
   MarketaEligibilityView,
   OrientationPanel,
   IngestIntoFactoryPanel,
+  RegisterCeremonyReplay,
   PassportBureauApplyTab,
   BoundedDelegationTab,
   ParticipationStandingTab,
@@ -123,7 +125,7 @@ function PilotJourneyTabInner({ personaId, isAdmin }: PilotJourneyTabProps) {
   }, []);
 
   const resolveSurfaceProps = useCallback(
-    ({ surfaceRef, descriptor, runtimeState, pnlEvidence }: Parameters<NonNullable<JourneyRunSurfaceProps['resolveSurfaceProps']>>[0]) => {
+    ({ surfaceRef, descriptor, runtimeState, pnlEvidence, ratifySubPredicates, registerCeremony }: Parameters<NonNullable<JourneyRunSurfaceProps['resolveSurfaceProps']>>[0]) => {
       /*
        * IS THE OPERATOR'S PASSPORT PRESENT? — ASKED OF THE OBSERVER, ANSWERED
        * ONCE (operator, 2026-08-03: "in the passport step the decision should
@@ -154,7 +156,17 @@ function PilotJourneyTabInner({ personaId, isAdmin }: PilotJourneyTabProps) {
            agentSlug — only this surface was never handed it, so Verify
            narrated a different agent than Register had just acted on. */
         : descriptor.component === 'AgreementRatifyPanel'
-          ? { agentSlug: selectedAgentSlug, agentDisplayName: selectedAgent.displayName }
+          ? {
+              agentSlug: selectedAgentSlug,
+              agentDisplayName: selectedAgent.displayName,
+              // CFS-055 coherence pass, 2026-08-10 — canonical sub-predicate
+              // projections, primary over this panel's own reads (see its
+              // own doc comment for why the panel's read still corroborates
+              // rather than being removed outright).
+              agreementAuthorized: ratifySubPredicates?.agreementAuthorized?.established,
+              pulseAuthorized: ratifySubPredicates?.pulseAuthorized?.established,
+              pnlDisclosureAuthorized: ratifySubPredicates?.pnlDisclosureAuthorized?.established,
+            }
         : descriptor.component === 'PulseTransparencyToggle'
           /*
            * "Run correlated trace" is a diagnostic instrument, not part of
@@ -194,6 +206,11 @@ function PilotJourneyTabInner({ personaId, isAdmin }: PilotJourneyTabProps) {
               pnlServiceVerifiedDvnStatus: pnlEvidence?.serviceVerifiedDvnStatus ?? null,
               pnlServiceRegistered: pnlEvidence?.serviceRegistered,
               pnlServiceRegisteredDvnStatus: pnlEvidence?.serviceRegisteredDvnStatus ?? null,
+              // CFS-055 coherence pass, 2026-08-10 — the SAME
+              // ratifySubPredicates object AgreementRatifyPanel consumes
+              // above, never a second read of these two facts.
+              pulseAuthorized: ratifySubPredicates?.pulseAuthorized?.established,
+              pnlDisclosureAuthorized: ratifySubPredicates?.pnlDisclosureAuthorized?.established,
             }
         /* Claim must speak about the agent Register/Verify just acted on, not
            a hardcoded MoneyPenny (operator, 2026-08-03 — Nakamoto's "Prove
@@ -214,6 +231,19 @@ function PilotJourneyTabInner({ personaId, isAdmin }: PilotJourneyTabProps) {
            threading above, never a default. */
         : descriptor.component === 'IngestIntoFactoryPanel'
           ? { agentSlug: selectedAgentSlug }
+        /* Pre-recording Horizen polish, part C (2026-08-10) — the replay
+           must speak about the agent Register just completed, same
+           discipline as every other agentSlug thread above. Gated on the
+           OBSERVER's own resolved Register stage state (never re-derived
+           here) so the replay renders only once Register is canonically
+           COMPLETE — before that, RegisterAgentPanel above stays the only
+           surface, live-ceremony-in-progress. */
+        : descriptor.component === 'RegisterCeremonyReplay'
+          ? {
+              agentSlug: selectedAgentSlug,
+              registerStageEstablished: runtimeState?.stages.find((s) => s.stageId === 'register')?.state === 'COMPLETE',
+              registerCeremony,
+            }
         : descriptor.component === 'PassportBureauApplyTab'
           ? {
               // Absolute, per the Bureau's URL validation — see the `origin` note above.
@@ -272,10 +302,7 @@ function PilotJourneyTabInner({ personaId, isAdmin }: PilotJourneyTabProps) {
       headerLabel={
         <>
           <span className="shrink-0 font-semibold text-slate-100">metaMe × Horizen</span>
-          <span className="shrink-0 text-slate-600">·</span>
-          <span className="truncate text-slate-300">{HORIZEN_MONEYPENNY_JOURNEY.label}</span>
-          <span className="shrink-0 text-slate-600">·</span>
-          <span className="shrink-0 text-xs text-slate-500">Destination: aigentMe</span>
+          <span className="truncate text-slate-300">Constitutional Threshold Guide</span>
         </>
       }
     />

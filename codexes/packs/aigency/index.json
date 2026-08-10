@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-09T22:34:08.735Z",
+  "last_updated": "2026-08-10T15:20:29.549Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "2d9ede1cad1f3f12acdc1b00fbda414b7d43f510",
-  "latest_commit_short": "2d9ede1",
-  "latest_commit_title": "Register CR-14: Constitution Before Substrate quantum launchpad (queued, not applied)",
+  "latest_commit": "e1dac8cd53f79d518d695b99a89bf6be36159cb9",
+  "latest_commit_short": "e1dac8c",
+  "latest_commit_title": "Record MoneyPenny pre-recording evidence snapshot (live dev API baseline)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,96 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "e1dac8c",
+      "full_sha": "e1dac8cd53f79d518d695b99a89bf6be36159cb9",
+      "title": "Record MoneyPenny pre-recording evidence snapshot (live dev API baseline)",
+      "author": "Claude",
+      "timestamp": "2026-08-10T07:33:31Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-e1dac8c.md"
+    },
+    {
+      "sha": "58856f7",
+      "full_sha": "58856f7ac7c0c117b7765e0ec9ddeab0d392ebac",
+      "title": "Add Aigent Know1 as a third registrable Horizen agent (config + card + health)",
+      "author": "Claude",
+      "timestamp": "2026-08-10T15:14:46Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-58856f7.md"
+    },
+    {
+      "sha": "d56b844",
+      "full_sha": "d56b8444cbcefad7a30581ca7bd5edc0ab46cb1c",
+      "title": "Pre-recording Horizen polish: compact narrator header + Register ceremony replay",
+      "author": "Claude",
+      "timestamp": "2026-08-10T06:41:38Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-d56b844.md"
+    },
+    {
+      "sha": "169248d",
+      "full_sha": "169248d21d0c0d80ad950ef95ebc907689ac1559",
+      "title": "Mirror CFS-055's ratified invariants 252-259 into the canon + seed",
+      "author": "Claude",
+      "timestamp": "2026-08-10T04:48:52Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-169248d.md"
+    },
+    {
+      "sha": "3f76ccd",
+      "full_sha": "3f76ccd53d31680c03d76f84db9ded974cec3bbe",
+      "title": "Implement CFS-055 coherence pass: canonical Ratify projections + drawer",
+      "author": "Claude",
+      "timestamp": "2026-08-10T05:22:13Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-3f76ccd.md"
+    },
+    {
+      "sha": "aa1046e",
+      "full_sha": "aa1046e372caa1fdb5f44341fbe06adcf528720e",
+      "title": "Add Horizen coherence matrix for Nakamoto (POSIT coherence-pass item 6)",
+      "author": "Claude",
+      "timestamp": "2026-08-10T04:38:16Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-aa1046e.md"
+    },
+    {
+      "sha": "5eb4d29",
+      "full_sha": "5eb4d293a4ff8c785d994085050f2f98b5137382",
+      "title": "Fix correction route's tombstone catch-up gap for pre-fix corrections",
+      "author": "Claude",
+      "timestamp": "2026-08-10T04:24:39Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-5eb4d29.md"
+    },
+    {
+      "sha": "10e7aa1",
+      "full_sha": "10e7aa17d450a961739e9d7606ff2e0ec9812f5d",
+      "title": "canon: add CFS-055 Proof of State in Time coherence doctrine",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-10T00:15:27-04:00",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-10e7aa1.md"
+    },
+    {
+      "sha": "ec5d5c2",
+      "full_sha": "ec5d5c2671c64f8da4621c801714459e29d73f24",
+      "title": "Add stage invalidation tombstone so a correction's removal is durable",
+      "author": "Claude",
+      "timestamp": "2026-08-10T03:43:53Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-ec5d5c2.md"
+    },
+    {
+      "sha": "adbff86",
+      "full_sha": "adbff8645b1eff499bb03646881969bd0a2b9a86",
+      "title": "Add a conflict resolution path to the dev auto-merge workflow",
+      "author": "Claude",
+      "timestamp": "2026-08-09T22:43:44Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-adbff86.md"
+    },
     {
       "sha": "2d9ede1",
       "full_sha": "2d9ede1cad1f3f12acdc1b00fbda414b7d43f510",
@@ -1162,96 +1252,6 @@
       "timestamp": "2026-07-17T21:21:32Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-871697d.md"
-    },
-    {
-      "sha": "9b7a56f",
-      "full_sha": "9b7a56f293d0f3e16ebdb84f27a406b7bb28e8a2",
-      "title": "ratify Polity Papers into Canon: promote inv.polity.160-174 proposed to canonical",
-      "author": "Claude",
-      "timestamp": "2026-07-17T20:01:27Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-9b7a56f.md"
-    },
-    {
-      "sha": "8b202b8",
-      "full_sha": "8b202b8566fee8846c6e7473802128eb5bf56315",
-      "title": "canonize Polity Papers pass 1: reconcile + seed inv.polity candidates (proposed)",
-      "author": "Claude",
-      "timestamp": "2026-07-17T19:46:17Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-8b202b8.md"
-    },
-    {
-      "sha": "6307a97",
-      "full_sha": "6307a9712f8491895d2f94d5ae4a8bbb7736647d",
-      "title": "register Polity Papers canonization pass 1 (collections + tracker)",
-      "author": "Claude",
-      "timestamp": "2026-07-17T19:48:55Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-6307a97.md"
-    },
-    {
-      "sha": "6f6039f",
-      "full_sha": "6f6039fce9c0af1a8e5eabe22eaed05ee52bb184",
-      "title": "docs: IPE Phase 2 (projection bridge) run-doc + tracker; note parallel Polity canonization",
-      "author": "Claude",
-      "timestamp": "2026-07-17T19:41:39Z",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-6f6039f.md"
-    },
-    {
-      "sha": "95178a2",
-      "full_sha": "95178a26a51c510d7907c019439f396978fd8399",
-      "title": "fix Amplify build-size overflow: exclude deploy-trigger commit briefs from Lambda tracing",
-      "author": "Claude",
-      "timestamp": "2026-07-17T19:08:10Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-95178a2.md"
-    },
-    {
-      "sha": "b053b72",
-      "full_sha": "b053b72b03968cfc8af11f1201d525dc3fbd27e7",
-      "title": "Add Researcher as the fifth operator pathway + wire into subscription/FO flow",
-      "author": "Claude",
-      "timestamp": "2026-07-16T03:47:58Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-b053b72.md"
-    },
-    {
-      "sha": "5274122",
-      "full_sha": "5274122245d9fbbadde692418cb2af337373df40",
-      "title": "Wire Research Copilot into the subscription tier UI (CitizenLadderModal)",
-      "author": "Claude",
-      "timestamp": "2026-07-16T03:50:12Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-5274122.md"
-    },
-    {
-      "sha": "70d3af5",
-      "full_sha": "70d3af55abe3ce7804655c51357985407c2ec7d2",
-      "title": "Make Research Copilot a first-class aigentMe roster specialist",
-      "author": "Claude",
-      "timestamp": "2026-07-16T04:18:42Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-70d3af5.md"
-    },
-    {
-      "sha": "dafb68b",
-      "full_sha": "dafb68b8bebd35262cf53debd5157f721a55a796",
-      "title": "Sell Research Copilot as its own dedicated tier/SKU, unbundled from aigentZ",
-      "author": "Claude",
-      "timestamp": "2026-07-16T04:38:27Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-dafb68b.md"
-    },
-    {
-      "sha": "a932a8e",
-      "full_sha": "a932a8ee9f45642c3d9f05eb752e7288f63a7d4a",
-      "title": "Charter CFS-034 research progression ladder + standing->rung mapping helper",
-      "author": "Claude",
-      "timestamp": "2026-07-16T04:41:14Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-a932a8e.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

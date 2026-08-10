@@ -2,9 +2,9 @@
  * KNYTS Bridge — Crossing of the Week.
  *
  * The smallest new subsystem the campaign needs (approved plan, item 7): a
- * thin read over campaign-tagged content joined with the STAND signals
- * (services/journey/knytsBridgeStand.ts), selecting one winner per ISO
- * week. Persisted as a single announcement row
+ * thin read over campaign-tagged content joined with real KNYT signal
+ * counts (reactions, campaign-tagged shares, remix lineage), selecting one
+ * winner per ISO week. Persisted as a single announcement row
  * (knyts_bridge_crossing_of_the_week) — never a ledger, never a recurring
  * reward schedule. v1's reward (graphic novel + featured Pulse placement)
  * is fulfilled manually by the operator once a winner is selected; this
@@ -39,12 +39,17 @@ export async function getCurrentCrossingOfTheWeek(
   now: Date,
 ): Promise<CrossingOfTheWeek | null> {
   const weekStart = isoWeekStart(now);
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('knyts_bridge_crossing_of_the_week')
     .select('week_start, community_content_id, score, selected_by, selected_at, community_generated_content(title, creator_persona_id)')
     .eq('week_start', weekStart)
     .maybeSingle();
 
+  // Fail faithful: a missing ROW this week is legitimate (null, not an
+  // error — see this route's own header). A missing TABLE or any other
+  // query failure is a real error and must say so, not be silently
+  // indistinguishable from "no winner yet".
+  if (error) throw new Error(`knyts_bridge_crossing_of_the_week read failed: ${error.message}`);
   if (!data) return null;
   const content = data.community_generated_content as unknown as
     | { title: string; creator_persona_id: string }

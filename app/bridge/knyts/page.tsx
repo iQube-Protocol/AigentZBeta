@@ -1,141 +1,181 @@
-"use client";
+'use client';
 
 /**
- * /bridge/knyts — The KNYTS Bridge public front door.
+ * /bridge/knyts — The KNYTS Bridge public front door: Threshold Guide.
  *
- * HOMECOMING and VIEW, browsable without a session (Constitutional Time
- * Principle: reduce unnecessary decisions before the visitor has any
- * reason to make one). ORIENT/PASSPORT/REMIX/STAND happen inline, gated
- * exactly where the visitor tries to act — see KnytCommunityContentTab's
- * RemixCrossingButton and usePassportSignInGate. BUY deep-links to the
- * existing KNYT Store; no new commerce code here.
+ * Reconstituted (2026-08-09) onto the shared Guided Journey Runtime runner
+ * (components/journey/JourneyRunSurface.tsx) — the SAME Posit Spine grammar
+ * Horizen and the Validation Programme use, themed amber/gold via the
+ * runner's `accent` prop, header-compressed via `compact`, and projected in
+ * Mythos language rather than evidentiary/technical language.
+ *
+ * Surface reconciliation (2026-08-09, third pass) — KNYTS Bridge is a
+ * surface-level constitutional guide into two deeper worlds (the KNYT
+ * cartridge and metaMe/aigentMe), not a viewer that reimplements slices of
+ * either. Every node now opens a real existing destination surface:
+ *   HOME/ORIENT → KnytsBridgeMediaStage (the one net-new cinematic surface)
+ *   VIEW/STAND/BUY → embeds of the canonical KNYT Pulse/Quests/Store tabs
+ *   PASSPORT → KnytsBridgePassportRoom (state-aware: claim, or meet/delegate
+ *             to aigentMe once established)
+ *   REMIX → KnytsBridgeRemixSurface, deep-linked into myCanvas inside the
+ *           metaMe/aigentMe environment
+ * See services/journey/journeySurfaceRegistry.ts's KNYTS Bridge section for
+ * the full reuse map.
  *
  * This page hosts Passport sign-in itself (usePassportSignInHost +
  * PassportConnectPanel, the same surface /invite/[code]/page.tsx uses
- * directly) because — unlike the cartridge tabs this page reuses — it has
- * no SmartWalletDrawer mounted anywhere in its tree to answer a
- * PASSPORT_SIGN_IN request otherwise.
+ * directly) because a bare page has no SmartWalletDrawer anywhere in its
+ * tree to answer a PASSPORT_SIGN_IN request otherwise — the proven
+ * interrupt/resume mechanism (RemixCrossingButton's usePassportSignInGate,
+ * KnytCommunityContentTab.tsx) is unchanged; only the Posit Spine's active
+ * stage is now kept in step with it.
+ *
+ * A single floating KNYT copilot (CodexCopilotLayer, the same
+ * agent/accent config the KNYT cartridge itself uses — data/codex-configs.ts
+ * KNYT_CODEX.copilot) is mounted once here and stays the ONE conversational
+ * partner throughout every stage (MS-1) — every embedded cartridge tab
+ * (VIEW/STAND/BUY) suppresses its own via the registry's
+ * `suppressFloatingCopilot`, so the visitor never sees two.
  */
 
-import React, { useCallback, useEffect, useState } from "react";
-import { ArrowRight, Loader2, ShoppingBag, Sparkles, Trophy } from "lucide-react";
-import { PassportConnectPanel } from "@/components/companion/PassportConnectPanel";
-import { usePassportSignInHost } from "@/app/hooks/usePassportSignInHost";
-import { KnytCommunityContentTab } from "@/app/triad/components/codex/tabs/KnytCommunityContentTab";
-import { KnytsBridgeStandPanel } from "@/components/journey/KnytsBridgeStandPanel";
-import { BridgeMediaStage } from "@/components/journey/BridgeMediaStage";
-import { buildCodexUrl } from "@/utils/codex-nav";
-import { KNYTS_BRIDGE_CAMPAIGN_ID } from "@/services/journey/knytsBridgeCrossingJourney";
+import React, { useCallback, useEffect, useState } from 'react';
+import { Settings } from 'lucide-react';
+import { JourneyRunSurface, type JourneyRunSurfaceProps } from '@/components/journey/JourneyRunSurface';
+import { KNYTS_BRIDGE_CROSSING_JOURNEY } from '@/services/journey/knytsBridgeCrossingJourney';
+import { KnytsBridgeMediaStage } from '@/components/journey/KnytsBridgeMediaStage';
+import { KnytsBridgePassportRoom } from '@/components/journey/KnytsBridgePassportRoom';
+import { KnytsBridgeRemixSurface } from '@/components/journey/KnytsBridgeRemixSurface';
+import { KnytsBridgeAdminPanel } from '@/components/journey/KnytsBridgeAdminPanel';
+import { PassportConnectPanel } from '@/components/companion/PassportConnectPanel';
+import { usePassportSignInHost } from '@/app/hooks/usePassportSignInHost';
+import { usePersonaSpine } from '@/utils/personaSpine';
+import { CodexCopilotLayer } from '@/app/components/codex/CodexCopilotLayer';
+import { MetaAvatarProvider } from '@/app/contexts/MetaAvatarContext';
 
-interface CrossingOfTheWeek {
-  weekStart: string;
-  communityContentId: string;
-  title: string;
-  score: number;
+/** KNYT visual projection — amber/gold, never a change to JourneyRunSurface's
+ *  own default (purple), which every other journey keeps. Same accent the
+ *  KNYT cartridge's own copilot uses (data/codex-configs.ts). */
+const KNYT_ACCENT = {
+  node: 'border-amber-400 bg-amber-500/20 text-amber-200',
+  label: 'text-amber-200',
+  chip: 'bg-amber-500/20 text-amber-200',
+};
+
+const KNYTS_BRIDGE_COMPONENTS: Record<string, React.ComponentType<Record<string, unknown>>> = {
+  KnytsBridgeMediaStage,
+  KnytsBridgePassportRoom,
+  KnytsBridgeRemixSurface,
+};
+
+const KNYT_COPILOT_QUICK_PROMPTS = [
+  'What does this mean?',
+  'What should I do?',
+  'How do I write my Crossing Story?',
+];
+
+function selectStage(stageId: string) {
+  try {
+    window.dispatchEvent(new CustomEvent('journey:select-stage', { detail: { stageId } }));
+  } catch {
+    /* non-fatal */
+  }
 }
 
 export default function KnytsBridgePage() {
   const [personaId, setPersonaId] = useState<string | undefined>(undefined);
-  const [crossingOfTheWeek, setCrossingOfTheWeek] = useState<CrossingOfTheWeek | null>(null);
+  const [adminOpen, setAdminOpen] = useState(false);
+  const [copilotOpen, setCopilotOpen] = useState(false);
+  const spine = usePersonaSpine();
 
   // Same pinned-persona read every top-level surface uses as its baseline
-  // (personaFetch's own fallback, MetaMeRuntimeClient's resolver) — no
-  // heavier resolution needed here: PassportConnectPanel's own completion
-  // is what populates this key when a visitor signs in on this page.
+  // (personaFetch's own fallback, MetaMeRuntimeClient's resolver).
   useEffect(() => {
     try {
-      const stored = window.localStorage.getItem("currentPersonaId");
+      const stored = window.localStorage.getItem('currentPersonaId');
       if (stored) setPersonaId(stored);
-    } catch { /* storage unavailable — stays signed-out */ }
+    } catch {
+      /* storage unavailable — stays signed-out */
+    }
   }, []);
 
-  const { showPassportSignIn, completeSignIn, dismissSignIn } = usePassportSignInHost("KnytsBridgeFrontDoor");
-
+  // Resume an interrupted Remix intent: RemixCrossingButton (inside this
+  // page's VIEW stage) targets `/bridge/knyts?remix=<payload>` when already
+  // on this page, so landing here with that param present means "put the
+  // spine on REMIX" — KnytsBridgeRemixSurface reads the same param to build
+  // its iframe src.
   useEffect(() => {
-    fetch("/api/journey/knyts-bridge/crossing-of-the-week", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((j: { ok?: boolean; crossing?: CrossingOfTheWeek | null }) => {
-        if (j.ok && j.crossing) setCrossingOfTheWeek(j.crossing);
-      })
-      .catch(() => { /* non-fatal — front door still renders without it */ });
+    try {
+      if (new URL(window.location.href).searchParams.has('remix')) {
+        selectStage('remix');
+      }
+    } catch {
+      /* non-fatal */
+    }
   }, []);
 
-  const scrollToView = useCallback(() => {
-    document.getElementById("knyts-bridge-view")?.scrollIntoView({ behavior: "smooth" });
-  }, []);
+  const { showPassportSignIn, completeSignIn, dismissSignIn } = usePassportSignInHost('KnytsBridgeFrontDoor');
 
-  const buyUrl = buildCodexUrl("knyt-codex", { tab: "store-episodes", personaId, shell: "viewer" });
+  // Keep the spine's active stage in step with the interrupt modal, so it
+  // never shows a stage the visitor has already moved past.
+  useEffect(() => {
+    if (showPassportSignIn) selectStage('passport');
+  }, [showPassportSignIn]);
+
+  const resolveSurfaceProps = useCallback(
+    ({ surfaceRef, runtimeState }: Parameters<NonNullable<JourneyRunSurfaceProps['resolveSurfaceProps']>>[0]) => {
+      if (surfaceRef.ref === 'knyts-bridge-passport-room') {
+        const passportStage = runtimeState?.stages.find((s) => s.stageId === 'passport');
+        return { citizenPassportUsable: passportStage?.evidencePresent.includes('citizenPassportUsable') };
+      }
+      return {};
+    },
+    [],
+  );
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
-      {/* HOMECOMING */}
-      <BridgeMediaStage
-        eyebrow="The KNYTS Bridge"
-        headline="Cross the Threshold. Come home."
-        paragraphs={[
-          "The KNYTS Bridge is one path into the Polity — a constitutional home for people and their agents in the emerging Constitutional Internet.",
-          "Follow the stories of those who are crossing. When you’re ready, claim your Passport, cross the Threshold and tell your own.",
-          "Share your crossing. Discover others. Earn Standing. Win rewards.",
-        ]}
-        highlightLine="Every crossing builds the bridge."
-        primaryCtaLabel="Explore the crossings"
-        onPrimaryCta={scrollToView}
-        accent="amber"
+    // MetaAvatarProvider wraps this page explicitly (surface reconciliation
+    // build fix, 2026-08-10): CodexCopilotLayer's useMetaAvatar() throws
+    // without one, and this bare page sits outside both app/(shell)/layout.tsx
+    // and app/(embed)/layout.tsx — the only two places that layout normally
+    // supplies it — so it crashed Amplify's static prerender of /bridge/knyts
+    // (and would have crashed the same way for every real visitor who opened
+    // the copilot, not just the build). The provider is a lightweight,
+    // self-contained context (local state only) — mounting a second instance
+    // here is safe and matches the KNYT copilot's own default agent.
+    <MetaAvatarProvider defaultAgent="aigent-kn0w1">
+    <div className="h-screen bg-slate-950 text-slate-100">
+      <JourneyRunSurface
+        journey={KNYTS_BRIDGE_CROSSING_JOURNEY}
+        stateUrl="/api/journey/knyts-bridge/state"
+        personaId={personaId}
+        documentTitle="The KNYTS Bridge — Threshold Guide"
+        components={KNYTS_BRIDGE_COMPONENTS}
+        resolveSurfaceProps={resolveSurfaceProps}
+        accent={KNYT_ACCENT}
+        compact
+        headerLabel={
+          <>
+            <span className="shrink-0 font-semibold text-slate-100">KNYTS Bridge</span>
+            <span className="shrink-0 text-slate-600">·</span>
+            <span className="truncate text-amber-300">Threshold Guide</span>
+          </>
+        }
+        headerExtra={
+          spine.cartridgeFlags.isAdmin ? (
+            <button
+              type="button"
+              onClick={() => setAdminOpen(true)}
+              title="Bridge Admin"
+              className="flex shrink-0 items-center gap-1 rounded-md border border-slate-800 bg-slate-900/40 px-2 py-1 text-[11px] text-slate-400 hover:bg-slate-800/60 hover:text-slate-200"
+            >
+              <Settings className="h-3 w-3" />
+              Bridge Admin
+            </button>
+          ) : undefined
+        }
       />
 
-      {/* Crossing of the Week */}
-      {crossingOfTheWeek && (
-        <div className="mx-auto max-w-3xl px-6 pb-6">
-          <div className="flex items-center gap-3 rounded-2xl border border-amber-400/30 bg-amber-500/10 px-4 py-3">
-            <Trophy className="h-5 w-5 text-amber-300 shrink-0" />
-            <div className="min-w-0">
-              <p className="text-[10px] uppercase tracking-wider text-amber-400">Crossing of the Week</p>
-              <p className="text-sm font-semibold text-white truncate">{crossingOfTheWeek.title}</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* VIEW — campaign-filtered Pulse, browsable signed-out */}
-      <div id="knyts-bridge-view" className="mx-auto max-w-5xl px-6 pb-10">
-        <div className="flex items-center gap-2 mb-3">
-          <Sparkles className="h-4 w-4 text-amber-300" />
-          <h2 className="text-sm font-semibold text-slate-200">Crossing Stories</h2>
-        </div>
-        <div className="h-[600px] rounded-2xl border border-white/10 overflow-hidden">
-          <KnytCommunityContentTab
-            personaId={personaId}
-            cartridge="knyt"
-            campaignTag={KNYTS_BRIDGE_CAMPAIGN_ID}
-          />
-        </div>
-      </div>
-
-      {/* STAND — only meaningful once signed in with a published crossing */}
-      {personaId && (
-        <div className="mx-auto max-w-3xl px-6 pb-10">
-          <h2 className="text-sm font-semibold text-slate-200 mb-3">Your Standing</h2>
-          <div className="rounded-2xl border border-white/10 bg-slate-900/40 p-4">
-            <KnytsBridgeStandPanel personaId={personaId} />
-          </div>
-        </div>
-      )}
-
-      {/* BUY — deep-link into the existing KNYT Store, no new commerce code */}
-      <div className="mx-auto max-w-3xl px-6 pb-20">
-        <a
-          href={buyUrl}
-          className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-slate-900/40 px-4 py-3.5 hover:border-amber-400/30 transition"
-        >
-          <span className="flex items-center gap-2 text-sm font-semibold text-white">
-            <ShoppingBag className="h-4 w-4 text-amber-300" />
-            Visit the KNYT Store
-          </span>
-          <ArrowRight className="h-4 w-4 text-slate-400" />
-        </a>
-      </div>
-
-      {/* PASSPORT — hosted inline for whichever surface above requested it */}
+      {/* PASSPORT — hosted inline for the Remix-without-Passport interrupt */}
       {showPassportSignIn && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
           <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-slate-900/95 shadow-2xl overflow-hidden">
@@ -144,10 +184,13 @@ export default function KnytsBridgePage() {
               embedded
               onConnected={() => {
                 try {
-                  const stored = window.localStorage.getItem("currentPersonaId");
+                  const stored = window.localStorage.getItem('currentPersonaId');
                   if (stored) setPersonaId(stored);
-                } catch { /* ignore */ }
+                } catch {
+                  /* ignore */
+                }
                 completeSignIn();
+                selectStage('remix');
               }}
             />
             <button
@@ -160,6 +203,46 @@ export default function KnytsBridgePage() {
           </div>
         </div>
       )}
+
+      {/* Bridge Admin — replaces the earlier standalone /bridge/knyts/admin
+          route (which 404'd) with an in-page modal, server-enforced by the
+          editorial-config PUT route's own requireAdminPersona check; this
+          client gate is optimistic UX only. */}
+      {adminOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
+          <div className="max-h-[85vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-white/10 bg-slate-900/95 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+              <span className="text-sm font-semibold text-slate-100">Bridge Admin</span>
+              <button type="button" onClick={() => setAdminOpen(false)} className="text-xs text-slate-400 hover:text-slate-200">
+                Close
+              </button>
+            </div>
+            <KnytsBridgeAdminPanel section="home" personaId={personaId} />
+            <div className="border-t border-white/10">
+              <KnytsBridgeAdminPanel section="orient" personaId={personaId} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Omnipresent KNYT copilot (surface reconciliation, point on the
+          floating copilot) — same agent/accent the KNYT cartridge itself
+          uses, so a visitor who later opens the cartridge directly meets
+          the same voice. */}
+      <CodexCopilotLayer
+        isOpen={copilotOpen}
+        onClose={() => setCopilotOpen(false)}
+        onOpen={() => setCopilotOpen(true)}
+        variant="floating"
+        accentColor="amber"
+        agent={{ id: 'aigent-kn0w1', name: 'KNYT Copilot' }}
+        personaId={personaId}
+        enableInferenceRendering
+        contextId="knyts-bridge"
+        promptPlaceholder="Ask about your crossing..."
+        quickPrompts={KNYT_COPILOT_QUICK_PROMPTS}
+      />
     </div>
+    </MetaAvatarProvider>
   );
 }
