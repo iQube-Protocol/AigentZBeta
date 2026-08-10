@@ -69,6 +69,27 @@ export type JourneySurfaceDescriptor =
        * this true.
        */
       agentScoped?: true;
+      /**
+       * Focused presentation (operator direction, 2026-08-10 — "canonical
+       * content, contextual chrome"): suppresses the destination cartridge's
+       * PRIMARY chrome (its top-level brand/tab-group header and the group
+       * sub-header strip that lets the operator jump to sibling tabs) via
+       * CodexNavOptions.focused -> ?chrome=focused -> CodexPanelDynamic's
+       * `suppressPrimaryChrome`. The active tab's own local content —
+       * whatever toolbar, filters or sub-navigation it renders itself —
+       * is untouched, since TabRenderer mounts it unconditionally either
+       * way. A reusable journey behaviour, not KNYTS-specific: any stage
+       * composing a canonical multi-tab cartridge inside the Guided Journey
+       * viewport can opt a surface into it.
+       */
+      focused?: true;
+      /**
+       * Label for the "open the full canonical application" affordance
+       * JourneyRunSurface renders above a focused embed (e.g. "Open KNYT
+       * World ↗", "Explore metaMe ↗"). Only meaningful when `focused` is
+       * true; defaults to a generic "Open full view ↗" when omitted.
+       */
+      openLabel?: string;
       note: string;
     }
   | {
@@ -346,11 +367,16 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
     codexSlug: 'knyt-codex',
     tab: 'pulse',
     suppressFloatingCopilot: true,
+    focused: true,
+    openLabel: 'Open KNYT World ↗',
     note:
       'The canonical KNYT Pulse tab itself, full and unfiltered — never a Bridge-scoped slice of it. ' +
       "The Crossing-of-the-Week banner and the self-service 'Crossings' filter chip now live natively " +
       'on KnytCommunityContentTab (app/triad/components/codex/tabs/KnytCommunityContentTab.tsx), so they ' +
-      'appear identically whether Pulse is reached through the Bridge or through the KNYT cartridge.',
+      'appear identically whether Pulse is reached through the Bridge or through the KNYT cartridge. ' +
+      "Focused surface-polish pass (2026-08-10): `focused: true` hides the KNYT cartridge's own top-level " +
+      "header/tab-group nav (Codex/Store/Order/Admin/Docs and the Order-group sibling strip) so a first-" +
+      "time Threshold visitor sees Pulse itself, not the whole cartridge — Pulse's own toolbar is unaffected.",
   },
   'knyts-bridge-orient': {
     kind: 'component',
@@ -387,18 +413,27 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
     codexSlug: 'knyt-codex',
     tab: 'quests',
     suppressFloatingCopilot: true,
+    focused: true,
+    openLabel: 'Open KNYT World ↗',
     note:
       'The canonical KNYT Quests tab (app/triad/components/codex/tabs/KnytQuestsTab.tsx) — "Standing is ' +
       'the constitutional outcome; Quest is the KNYT mechanic through which you earn it." The spine ' +
       'label stays Stand; the surface underneath is the real, KNYT-native Quests experience, never a ' +
-      'thin bespoke Standing projection.',
+      'thin bespoke Standing projection. `focused: true` (2026-08-10) hides the cartridge primary chrome; ' +
+      "Quests's own filters/controls are untouched.",
   },
   'knyts-bridge-buy-store': {
     kind: 'embed',
     codexSlug: 'knyt-codex',
     tab: 'store-episodes',
     suppressFloatingCopilot: true,
-    note: 'The existing KNYT Store — no new commerce code, same tab the old front door deep-linked to.',
+    focused: true,
+    openLabel: 'Open KNYT World ↗',
+    note:
+      'The existing KNYT Store — no new commerce code, same tab the old front door deep-linked to. ' +
+      "`focused: true` (2026-08-10) gives a clean focused Store viewport: cartridge chrome suppressed, " +
+      'the Store tab’s own category/local controls untouched, with an "Open KNYT World ↗" affordance ' +
+      'to leave the guide.',
   },
 };
 
@@ -421,6 +456,7 @@ export function buildEmbedSurfaceSrc(
     personaId: input.personaId,
     shell: 'embed',
     suppressCopilot: descriptor.suppressFloatingCopilot,
+    focused: descriptor.focused,
     ...(descriptor.agentScoped && input.selectedAgentSlug ? { agentSlug: input.selectedAgentSlug } : {}),
   });
 }
