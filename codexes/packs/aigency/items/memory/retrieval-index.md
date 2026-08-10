@@ -3909,3 +3909,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-ec5d5c2.md](../build_/COMMITS/COMMIT-ec5d5c2.md)
 - Message: Add stage invalidation tombstone so a correction's removal is durable
+
+## Commit `10e7aa1` — 2026-08-10T00:15:27-04:00
+- Type: `feat`
+- Brief: [COMMIT-10e7aa1.md](../build_/COMMITS/COMMIT-10e7aa1.md)
+- Message: canon: add CFS-055 Proof of State in Time coherence doctrine

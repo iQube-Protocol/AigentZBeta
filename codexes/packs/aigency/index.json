@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-10T03:47:18.547Z",
+  "last_updated": "2026-08-10T04:17:02.064Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "ec5d5c2671c64f8da4621c801714459e29d73f24",
-  "latest_commit_short": "ec5d5c2",
-  "latest_commit_title": "Add stage invalidation tombstone so a correction's removal is durable",
+  "latest_commit": "10e7aa17d450a961739e9d7606ff2e0ec9812f5d",
+  "latest_commit_short": "10e7aa1",
+  "latest_commit_title": "canon: add CFS-055 Proof of State in Time coherence doctrine",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "10e7aa1",
+      "full_sha": "10e7aa17d450a961739e9d7606ff2e0ec9812f5d",
+      "title": "canon: add CFS-055 Proof of State in Time coherence doctrine",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-10T00:15:27-04:00",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-10e7aa1.md"
+    },
     {
       "sha": "ec5d5c2",
       "full_sha": "ec5d5c2671c64f8da4621c801714459e29d73f24",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-07-16T03:50:12Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-5274122.md"
-    },
-    {
-      "sha": "70d3af5",
-      "full_sha": "70d3af55abe3ce7804655c51357985407c2ec7d2",
-      "title": "Make Research Copilot a first-class aigentMe roster specialist",
-      "author": "Claude",
-      "timestamp": "2026-07-16T04:18:42Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-70d3af5.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
