@@ -1,153 +1,134 @@
-"use client";
+'use client';
 
 /**
- * /bridge/knyts — The KNYTS Bridge public front door.
+ * /bridge/knyts — The KNYTS Bridge public front door: Threshold Guide.
  *
- * HOMECOMING and VIEW, browsable without a session (Constitutional Time
- * Principle: reduce unnecessary decisions before the visitor has any
- * reason to make one). ORIENT/PASSPORT/REMIX/STAND happen inline, gated
- * exactly where the visitor tries to act — see KnytCommunityContentTab's
- * RemixCrossingButton and usePassportSignInGate. BUY deep-links to the
- * existing KNYT Store; no new commerce code here.
+ * Reconstituted (2026-08-09) onto the shared Guided Journey Runtime runner
+ * (components/journey/JourneyRunSurface.tsx) — the SAME Posit Spine grammar
+ * Horizen and the Validation Programme use, themed amber/gold via the
+ * runner's `accent` prop and projected in Mythos language rather than
+ * evidentiary/technical language. One Posit Spine, one active stage, one
+ * live surface underneath — never seven sections stacked on a page.
+ *
+ * HOME and VIEW are deliberately browsable without a session (see
+ * knytsBridgeCrossingJourney.ts and the /state route's own headers).
+ * ORIENT/PASSPORT/REMIX/STAND happen inline on the spine; BUY deep-links to
+ * the existing KNYT Store via an embed surface — no new commerce code here.
  *
  * This page hosts Passport sign-in itself (usePassportSignInHost +
  * PassportConnectPanel, the same surface /invite/[code]/page.tsx uses
- * directly) because — unlike the cartridge tabs this page reuses — it has
- * no SmartWalletDrawer mounted anywhere in its tree to answer a
- * PASSPORT_SIGN_IN request otherwise.
+ * directly) because a bare page has no SmartWalletDrawer anywhere in its
+ * tree to answer a PASSPORT_SIGN_IN request otherwise — the proven
+ * interrupt/resume mechanism (RemixCrossingButton's usePassportSignInGate,
+ * KnytCommunityContentTab.tsx) is unchanged; only the Posit Spine's active
+ * stage is now kept in step with it, so the spine never shows a stage the
+ * visitor has already moved past.
  */
 
-import React, { useCallback, useEffect, useState } from "react";
-import { ArrowRight, Loader2, ShoppingBag, Sparkles, Trophy } from "lucide-react";
-import { PassportConnectPanel } from "@/components/companion/PassportConnectPanel";
-import { usePassportSignInHost } from "@/app/hooks/usePassportSignInHost";
-import { KnytCommunityContentTab } from "@/app/triad/components/codex/tabs/KnytCommunityContentTab";
-import { KnytsBridgeStandPanel } from "@/components/journey/KnytsBridgeStandPanel";
-import { buildCodexUrl } from "@/utils/codex-nav";
-import { KNYTS_BRIDGE_CAMPAIGN_ID } from "@/services/journey/knytsBridgeCrossingJourney";
+import React, { useCallback, useEffect, useState } from 'react';
+import { JourneyRunSurface, type JourneyRunSurfaceProps } from '@/components/journey/JourneyRunSurface';
+import { KNYTS_BRIDGE_CROSSING_JOURNEY, KNYTS_BRIDGE_CAMPAIGN_ID } from '@/services/journey/knytsBridgeCrossingJourney';
+import { KnytsBridgeHomeSurface } from '@/components/journey/KnytsBridgeHomeSurface';
+import { KnytsBridgeOrientationCard } from '@/components/journey/KnytsBridgeOrientationCard';
+import { KnytCommunityContentTab } from '@/app/triad/components/codex/tabs/KnytCommunityContentTab';
+import { MyCanvasTab } from '@/app/triad/components/codex/tabs/MyCanvasTab';
+import { KnytsBridgeStandPanel } from '@/components/journey/KnytsBridgeStandPanel';
+import { PassportBureauApplyTab } from '@/app/triad/components/codex/tabs/PassportBureauApplyTab';
+import { PassportConnectPanel } from '@/components/companion/PassportConnectPanel';
+import { usePassportSignInHost } from '@/app/hooks/usePassportSignInHost';
 
-interface CrossingOfTheWeek {
-  weekStart: string;
-  communityContentId: string;
-  title: string;
-  score: number;
+/** KNYT visual projection — amber/gold, never a change to JourneyRunSurface's
+ *  own default (purple), which every other journey keeps. */
+const KNYT_ACCENT = {
+  node: 'border-amber-400 bg-amber-500/20 text-amber-200',
+  label: 'text-amber-200',
+  chip: 'bg-amber-500/20 text-amber-200',
+};
+
+const KNYTS_BRIDGE_COMPONENTS: Record<string, React.ComponentType<Record<string, unknown>>> = {
+  KnytsBridgeHomeSurface,
+  KnytCommunityContentTab,
+  KnytsBridgeOrientationCard,
+  PassportBureauApplyTab,
+  MyCanvasTab,
+  KnytsBridgeStandPanel,
+};
+
+function selectStage(stageId: string) {
+  try {
+    window.dispatchEvent(new CustomEvent('journey:select-stage', { detail: { stageId } }));
+  } catch {
+    /* non-fatal */
+  }
 }
 
 export default function KnytsBridgePage() {
   const [personaId, setPersonaId] = useState<string | undefined>(undefined);
-  const [crossingOfTheWeek, setCrossingOfTheWeek] = useState<CrossingOfTheWeek | null>(null);
 
   // Same pinned-persona read every top-level surface uses as its baseline
-  // (personaFetch's own fallback, MetaMeRuntimeClient's resolver) — no
-  // heavier resolution needed here: PassportConnectPanel's own completion
-  // is what populates this key when a visitor signs in on this page.
+  // (personaFetch's own fallback, MetaMeRuntimeClient's resolver).
   useEffect(() => {
     try {
-      const stored = window.localStorage.getItem("currentPersonaId");
+      const stored = window.localStorage.getItem('currentPersonaId');
       if (stored) setPersonaId(stored);
-    } catch { /* storage unavailable — stays signed-out */ }
+    } catch {
+      /* storage unavailable — stays signed-out */
+    }
   }, []);
 
-  const { showPassportSignIn, completeSignIn, dismissSignIn } = usePassportSignInHost("KnytsBridgeFrontDoor");
-
+  // Resume an interrupted Remix intent: RemixCrossingButton (inside this
+  // page's VIEW stage) targets `/bridge/knyts?remix=<payload>` when already
+  // on this page, so landing here with that param present means "put the
+  // spine on REMIX" — MyCanvasTab's own remix= param seeding effect then
+  // resumes the draft from there.
   useEffect(() => {
-    fetch("/api/journey/knyts-bridge/crossing-of-the-week", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((j: { ok?: boolean; crossing?: CrossingOfTheWeek | null }) => {
-        if (j.ok && j.crossing) setCrossingOfTheWeek(j.crossing);
-      })
-      .catch(() => { /* non-fatal — front door still renders without it */ });
+    try {
+      if (new URL(window.location.href).searchParams.has('remix')) {
+        selectStage('remix');
+      }
+    } catch {
+      /* non-fatal */
+    }
   }, []);
 
-  const scrollToView = useCallback(() => {
-    document.getElementById("knyts-bridge-view")?.scrollIntoView({ behavior: "smooth" });
-  }, []);
+  const { showPassportSignIn, completeSignIn, dismissSignIn } = usePassportSignInHost('KnytsBridgeFrontDoor');
 
-  const buyUrl = buildCodexUrl("knyt-codex", { tab: "store-episodes", personaId, shell: "viewer" });
+  // Keep the spine's active stage in step with the interrupt modal, so it
+  // never shows a stage the visitor has already moved past.
+  useEffect(() => {
+    if (showPassportSignIn) selectStage('passport');
+  }, [showPassportSignIn]);
+
+  const resolveSurfaceProps = useCallback(
+    ({ surfaceRef }: Parameters<NonNullable<JourneyRunSurfaceProps['resolveSurfaceProps']>>[0]) => {
+      if (surfaceRef.ref === 'knyts-bridge-view-pulse') {
+        return { cartridge: 'knyt', campaignTag: KNYTS_BRIDGE_CAMPAIGN_ID };
+      }
+      return {};
+    },
+    [],
+  );
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
-      {/* HOMECOMING */}
-      <div className="mx-auto max-w-2xl px-6 pt-20 pb-10 text-center">
-        <p className="text-[11px] uppercase tracking-[0.3em] text-amber-400">The KNYTS Bridge</p>
-        <h1 className="mt-3 text-3xl sm:text-4xl font-bold leading-tight">
-          Cross the Threshold. Come home.
-        </h1>
-        <p className="mt-4 text-sm leading-relaxed text-slate-300">
-          The KNYTS Bridge is one path into the Polity — a constitutional home for people and their
-          agents in the emerging Constitutional Internet.
-        </p>
-        <p className="mt-3 text-sm leading-relaxed text-slate-300">
-          Follow the stories of those who are crossing. When you&rsquo;re ready, claim your Passport,
-          cross the Threshold and tell your own.
-        </p>
-        <p className="mt-3 text-sm leading-relaxed text-slate-300">
-          Share your crossing. Discover others. Earn Standing. Win rewards.
-        </p>
-        <p className="mt-4 text-sm font-semibold text-amber-300">Every crossing builds the bridge.</p>
-        <button
-          type="button"
-          onClick={scrollToView}
-          className="mt-7 inline-flex items-center gap-2 rounded-xl bg-amber-500 px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-amber-400"
-        >
-          Explore the crossings
-          <ArrowRight className="h-4 w-4" />
-        </button>
-      </div>
+    <div className="h-screen bg-slate-950 text-slate-100">
+      <JourneyRunSurface
+        journey={KNYTS_BRIDGE_CROSSING_JOURNEY}
+        stateUrl="/api/journey/knyts-bridge/state"
+        personaId={personaId}
+        documentTitle="The KNYTS Bridge — Threshold Guide"
+        components={KNYTS_BRIDGE_COMPONENTS}
+        resolveSurfaceProps={resolveSurfaceProps}
+        accent={KNYT_ACCENT}
+        headerLabel={
+          <>
+            <span className="shrink-0 font-semibold text-slate-100">KNYTS Bridge</span>
+            <span className="shrink-0 text-slate-600">·</span>
+            <span className="truncate text-amber-300">Threshold Guide</span>
+          </>
+        }
+      />
 
-      {/* Crossing of the Week */}
-      {crossingOfTheWeek && (
-        <div className="mx-auto max-w-3xl px-6 pb-6">
-          <div className="flex items-center gap-3 rounded-2xl border border-amber-400/30 bg-amber-500/10 px-4 py-3">
-            <Trophy className="h-5 w-5 text-amber-300 shrink-0" />
-            <div className="min-w-0">
-              <p className="text-[10px] uppercase tracking-wider text-amber-400">Crossing of the Week</p>
-              <p className="text-sm font-semibold text-white truncate">{crossingOfTheWeek.title}</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* VIEW — campaign-filtered Pulse, browsable signed-out */}
-      <div id="knyts-bridge-view" className="mx-auto max-w-5xl px-6 pb-10">
-        <div className="flex items-center gap-2 mb-3">
-          <Sparkles className="h-4 w-4 text-amber-300" />
-          <h2 className="text-sm font-semibold text-slate-200">Crossing Stories</h2>
-        </div>
-        <div className="h-[600px] rounded-2xl border border-white/10 overflow-hidden">
-          <KnytCommunityContentTab
-            personaId={personaId}
-            cartridge="knyt"
-            campaignTag={KNYTS_BRIDGE_CAMPAIGN_ID}
-          />
-        </div>
-      </div>
-
-      {/* STAND — only meaningful once signed in with a published crossing */}
-      {personaId && (
-        <div className="mx-auto max-w-3xl px-6 pb-10">
-          <h2 className="text-sm font-semibold text-slate-200 mb-3">Your Standing</h2>
-          <div className="rounded-2xl border border-white/10 bg-slate-900/40 p-4">
-            <KnytsBridgeStandPanel personaId={personaId} />
-          </div>
-        </div>
-      )}
-
-      {/* BUY — deep-link into the existing KNYT Store, no new commerce code */}
-      <div className="mx-auto max-w-3xl px-6 pb-20">
-        <a
-          href={buyUrl}
-          className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-slate-900/40 px-4 py-3.5 hover:border-amber-400/30 transition"
-        >
-          <span className="flex items-center gap-2 text-sm font-semibold text-white">
-            <ShoppingBag className="h-4 w-4 text-amber-300" />
-            Visit the KNYT Store
-          </span>
-          <ArrowRight className="h-4 w-4 text-slate-400" />
-        </a>
-      </div>
-
-      {/* PASSPORT — hosted inline for whichever surface above requested it */}
+      {/* PASSPORT — hosted inline for the Remix-without-Passport interrupt */}
       {showPassportSignIn && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
           <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-slate-900/95 shadow-2xl overflow-hidden">
@@ -156,10 +137,13 @@ export default function KnytsBridgePage() {
               embedded
               onConnected={() => {
                 try {
-                  const stored = window.localStorage.getItem("currentPersonaId");
+                  const stored = window.localStorage.getItem('currentPersonaId');
                   if (stored) setPersonaId(stored);
-                } catch { /* ignore */ }
+                } catch {
+                  /* ignore */
+                }
                 completeSignIn();
+                selectStage('remix');
               }}
             />
             <button

@@ -171,7 +171,33 @@ export interface JourneyRunSurfaceProps {
    * for the defect this closes.
    */
   receiptsSubjectAgentRef?: string;
+  /**
+   * Journey-specific accent theming (KNYTS Bridge reconstitution, 2026-08-09)
+   * — the ONE sanctioned way a caller projects its own visual identity onto
+   * the shared runner (spec point 7: "the runner should accept/theme through
+   * journey-specific props/config... never change JourneyRunSurface globally
+   * to make all journeys KNYT-like"). Every class below defaults to the
+   * EXACT purple classes this file always rendered, so omitting this prop —
+   * every existing journey (Horizen, Validation Programme) — is pixel
+   * identical to before this prop existed. Only the "current stage" accent
+   * is themeable; structural chrome (slate panels, emerald complete,
+   * amber-for-pending, rose-for-refused) stays shared across every journey.
+   */
+  accent?: {
+    /** Current-stage node: border + bg + text, e.g. 'border-purple-400 bg-purple-500/20 text-purple-200'. */
+    node: string;
+    /** Current-stage label text colour, e.g. 'text-purple-200'. */
+    label: string;
+    /** Status-row ordinal chip: bg + text, e.g. 'bg-purple-500/20 text-purple-200'. */
+    chip: string;
+  };
 }
+
+const DEFAULT_ACCENT = {
+  node: 'border-purple-400 bg-purple-500/20 text-purple-200',
+  label: 'text-purple-200',
+  chip: 'bg-purple-500/20 text-purple-200',
+};
 
 export function JourneyRunSurface({
   journey,
@@ -183,6 +209,7 @@ export function JourneyRunSurface({
   resolveSurfaceProps,
   selectedAgentSlug,
   receiptsSubjectAgentRef,
+  accent = DEFAULT_ACCENT,
 }: JourneyRunSurfaceProps) {
   const [runtimeState, setRuntimeState] = useState<JourneyRuntimeState | null>(null);
   /**
@@ -476,7 +503,7 @@ export function JourneyRunSurface({
       */}
       <div className="flex items-center gap-2 text-xs">
         <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
-          <span className="shrink-0 rounded bg-purple-500/20 px-1.5 py-0.5 font-semibold text-purple-200">
+          <span className={`shrink-0 rounded px-1.5 py-0.5 font-semibold ${accent.chip}`}>
             {activeIdx + 1}
           </span>
           <span className="shrink-0 font-medium text-slate-100">{activeStage.label}</span>
@@ -611,7 +638,7 @@ export function JourneyRunSurface({
                       isDone
                         ? 'border-emerald-500/50 bg-emerald-500/20 text-emerald-300'
                         : isCurrent
-                          ? 'border-purple-400 bg-purple-500/20 text-purple-200'
+                          ? accent.node
                           : isBlocked
                             ? 'border-slate-700 text-slate-600'
                             : 'border-slate-600 text-slate-400'
@@ -629,7 +656,7 @@ export function JourneyRunSurface({
                   </span>
                   <span
                     className={`whitespace-nowrap text-[11px] ${
-                      isCurrent ? 'font-semibold text-purple-200' : isDone ? 'text-emerald-300/80' : 'text-slate-400'
+                      isCurrent ? `font-semibold ${accent.label}` : isDone ? 'text-emerald-300/80' : 'text-slate-400'
                     }`}
                   >
                     {stage.label}
@@ -715,7 +742,7 @@ export function JourneyRunSurface({
                               isDone
                                 ? 'border-emerald-500/50 bg-emerald-500/20 text-emerald-300'
                                 : isCurrent
-                                  ? 'border-purple-400 bg-purple-500/20 text-purple-200'
+                                  ? accent.node
                                   : isBlocked
                                     ? 'border-slate-700 text-slate-600'
                                     : 'border-slate-600 text-slate-400'
@@ -733,7 +760,7 @@ export function JourneyRunSurface({
                           </span>
                           <span
                             className={`whitespace-nowrap text-[11px] ${
-                              isCurrent ? 'font-semibold text-purple-200' : isDone ? 'text-emerald-300/80' : 'text-slate-400'
+                              isCurrent ? `font-semibold ${accent.label}` : isDone ? 'text-emerald-300/80' : 'text-slate-400'
                             }`}
                           >
                             {stage.label}
