@@ -143,6 +143,17 @@ export interface JourneyStageDefinition {
   milestone?: JourneyMilestone;
   companion: { before: string; during?: string; complete: string; refused?: string };
   /**
+   * The top-row rotating narrator (Threshold Guide header compaction,
+   * 2026-08-10) — two terse phrases, alternated by `RotatingStatusLine`:
+   * what is currently happening, and the constitutional consequence that
+   * act has (or will have). Deliberately distinct from `companion` above,
+   * which is longer-form prose for a different surface (the companion
+   * chat/narration overlay) — this is a one-line label, not a sentence.
+   * Optional: a journey that omits it (e.g. Validation Programme) falls
+   * back to rendering the stage's own `description` instead, unchanged.
+   */
+  narrator?: { active: string; consequence: string };
+  /**
    * A POST-ACTIVATION BRANCH, not a step on the admission line (operator
    * ruling, 2026-08-03).
    *

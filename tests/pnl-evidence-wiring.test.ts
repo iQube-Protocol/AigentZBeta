@@ -55,9 +55,11 @@ describe('JourneyRunSurface threads pnlEvidence from the state response into res
   });
 
   it('passes pnlEvidence to resolveSurfaceProps alongside runtimeState', () => {
-    // ratifySubPredicates (CFS-055 coherence pass, 2026-08-10) legitimately
-    // rides alongside pnlEvidence now — not required to be the last field.
-    expect(src).toMatch(/resolveSurfaceProps\?\.\(\{\s*surfaceRef,\s*descriptor,\s*stage:\s*activeStage,\s*runtimeState,\s*pnlEvidence,\s*ratifySubPredicates\s*\}\)/);
+    // ratifySubPredicates (CFS-055 coherence pass, 2026-08-10) and
+    // registerCeremony (Pre-recording Horizen polish part C, 2026-08-10)
+    // legitimately ride alongside pnlEvidence now — not required to be the
+    // last field.
+    expect(src).toMatch(/resolveSurfaceProps\?\.\(\{\s*surfaceRef,\s*descriptor,\s*stage:\s*activeStage,\s*runtimeState,\s*pnlEvidence,\s*ratifySubPredicates,\s*registerCeremony\s*\}\)/);
   });
 });
 
@@ -65,9 +67,11 @@ describe('PilotJourneyTab reads P&L facts from pnlEvidence, never from evidenceP
   const src = read('app/triad/components/codex/tabs/PilotJourneyTab.tsx');
 
   it('destructures pnlEvidence from resolveSurfaceProps args', () => {
-    // ratifySubPredicates (CFS-055 coherence pass, 2026-08-10) legitimately
-    // rides alongside pnlEvidence now — not required to be the last field.
-    expect(src).toMatch(/\{\s*surfaceRef,\s*descriptor,\s*runtimeState,\s*pnlEvidence,\s*ratifySubPredicates\s*\}/);
+    // ratifySubPredicates (CFS-055 coherence pass, 2026-08-10) and
+    // registerCeremony (Pre-recording Horizen polish part C, 2026-08-10)
+    // legitimately ride alongside pnlEvidence now — not required to be the
+    // last field.
+    expect(src).toMatch(/\{\s*surfaceRef,\s*descriptor,\s*runtimeState,\s*pnlEvidence,\s*ratifySubPredicates,\s*registerCeremony\s*\}/);
   });
 
   it('PulseTransparencyToggle props are sourced from pnlEvidence, not evidencePresent.includes', () => {

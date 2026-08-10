@@ -183,6 +183,28 @@ export interface JourneyRunSurfaceProps {
         dvnStatus: string | null;
       }
     > | null;
+    /**
+     * Register's seven-step ceremony, replayed read-only from canonical
+     * evidence (Pre-recording Horizen polish, part C, 2026-08-10) — same
+     * per-step shape as `ratifySubPredicates` above, plus `authority` may be
+     * `'inferred'` for the two steps with no receipt type
+     * (`principalWalletReady`, `mandatePrepared`). This is what
+     * RegisterCeremonyReplay must consume; never a second source of truth
+     * for whether Register is complete. Null while the first read is in
+     * flight.
+     */
+    registerCeremony: Record<
+      string,
+      {
+        predicate: string;
+        established: boolean;
+        authority: string;
+        effectiveAt: string | null;
+        evidenceRefs: string[];
+        receiptRefs: string[];
+        dvnStatus: string | null;
+      }
+    > | null;
   }) => Record<string, unknown>;
   /**
    * The Journey's currently-selected agent (resolveRegistrableAgent slug,
@@ -294,6 +316,20 @@ export function JourneyRunSurface({
       dvnStatus: string | null;
     }
   > | null>(null);
+  // Register ceremony replay projection (Pre-recording Horizen polish, part
+  // C, 2026-08-10) — same optional-additive discipline as `ratifySubPredicates`.
+  const [registerCeremony, setRegisterCeremony] = useState<Record<
+    string,
+    {
+      predicate: string;
+      established: boolean;
+      authority: string;
+      effectiveAt: string | null;
+      evidenceRefs: string[];
+      receiptRefs: string[];
+      dvnStatus: string | null;
+    }
+  > | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
@@ -325,6 +361,7 @@ export function JourneyRunSurface({
       setConsequenceFork((json.consequenceFork as typeof consequenceFork) ?? null);
       setPnlEvidence((json.pnlEvidence as typeof pnlEvidence) ?? null);
       setRatifySubPredicates((json.ratifySubPredicates as typeof ratifySubPredicates) ?? null);
+      setRegisterCeremony((json.registerCeremony as typeof registerCeremony) ?? null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load journey state');
     } finally {
@@ -494,12 +531,24 @@ export function JourneyRunSurface({
     { position: 'lower' },
   ];
 
-  /** Shared between the default two-row header and the `compact` one-row
+  /** Shared between the default one-row header and the `compact` one-row
    *  variant (KNYTS Bridge reconstitution, 2026-08-09) — same status slides,
    *  same evidence popover, just arranged differently. Extracted so neither
-   *  branch can silently drift from the other. */
+   *  branch can silently drift from the other.
+   *
+   *  Narrator alternation (Threshold Guide header compaction, 2026-08-10) —
+   *  a stage that declares `narrator` (active/consequence, e.g. Horizen's
+   *  "Registering agent" ↔ "Establishes registry presence") swaps in for
+   *  the plain `description` slide; a stage without one (every KNYTS Bridge
+   *  stage today) falls back to `description` unchanged — same mechanism,
+   *  never a second rotation component. */
   const statusSlides = [
-    { key: 'description', node: <span className="text-slate-400">{activeStage.description}</span> },
+    ...(activeStage.narrator
+      ? [
+          { key: 'active', node: <span className="text-slate-400">{activeStage.narrator.active}</span> },
+          { key: 'consequence', node: <span className="italic text-slate-500">{activeStage.narrator.consequence}</span> },
+        ]
+      : [{ key: 'description', node: <span className="text-slate-400">{activeStage.description}</span> }]),
     ...(activeStageRuntime && activeStageRuntime.evidenceMissing.length > 0
       ? [{ key: 'awaiting', node: <span className="text-slate-400">Awaiting: {activeStageRuntime.evidenceMissing.map(humaniseSignal).join(', ')}</span> }]
       : []),
@@ -568,7 +617,10 @@ export function JourneyRunSurface({
         className={`flex items-center gap-1.5 rounded-md border border-slate-800 bg-slate-900/40 text-slate-300 hover:bg-slate-800/60 ${compact ? 'p-1.5' : 'px-2.5 py-1.5 text-xs'}`}
       >
         <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-        {!compact && 'Refresh state'}
+        {/* Compact label (Threshold Guide header compaction, 2026-08-10) —
+            the full label was crowding the merged one-row header; the icon
+            plus the title attribute above already carry the meaning. */}
+        {!compact && 'State'}
       </button>
       {evidenceTrigger}
       <button
@@ -592,8 +644,7 @@ export function JourneyRunSurface({
          * vertical space to say so. A lighter journey than Horizen has no
          * evidentiary weight to justify that; one compact row says both.
          * Opt-in only — every existing caller (Horizen, Validation
-         * Programme) omits `compact` and keeps the original two-row layout
-         * untouched below.
+         * Programme) omits `compact` and keeps its own one-row layout below.
          *
          * Semantic groups, left to right, every one `shrink-0` except the
          * descriptor (the one group allowed to give up space):
@@ -621,11 +672,29 @@ export function JourneyRunSurface({
           {headerActions}
         </div>
       ) : (
+        /*
+         * ONE COMPRESSED TOP ROW, non-compact variant (Threshold Guide
+         * header compaction, 2026-08-10) — merged onto the same
+         * headerActions/headerExtra/statusSlides this file already shares
+         * with `compact` above (KNYTS Bridge reconstitution, 2026-08-09/10),
+         * so neither the numbered stage chip nor the narrator gets a second,
+         * drifting implementation. The stage chip/label/narrator that used
+         * to sit on their own row below now share this row with the
+         * branding + controls, and that second row is gone entirely.
+         * `min-w-0 flex-1 overflow-hidden` on the left cluster is what makes
+         * this survive at narrow widths: the narrator truncates before
+         * anything else does.
+         */
         <div className="flex items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-2 text-sm">
+          <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden text-sm">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/metaMe/metaMe/metame-32.png" alt="" className="h-4 w-4 shrink-0" />
             {headerLabel}
+            <span className="shrink-0 text-slate-600">·</span>
+            <span className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-semibold ${accent.chip}`}>{activeIdx + 1}</span>
+            <span className="shrink-0 text-xs font-medium text-slate-100">{activeStage.label}</span>
+            <span className="shrink-0 text-slate-600">—</span>
+            <RotatingStatusLine key={activeStageId} slides={statusSlides} />
           </div>
           {headerExtra}
           {headerActions}
@@ -665,26 +734,12 @@ export function JourneyRunSurface({
       )}
 
       {/*
-        STAGE DESCRIPTION ROW (compact layout correction, 2026-08-09; evidence
-        trigger relocated to the top row, 2026-08-10 — see `headerActions`'s
-        own comment). The description column is `flex-1 min-w-0`: it
-        truncates/rotates rather than grows. Skipped entirely when `compact`
-        is set — that variant already folded this same content into the
-        one-row header above.
+        The stage chip/label/narrator that used to render here as a second
+        row (STAGE DESCRIPTION ROW) are now folded into the compressed top
+        row above, for both `compact` and non-compact layouts (Threshold
+        Guide header compaction, 2026-08-10) — this row is gone entirely,
+        not merely hidden.
       */}
-      {!compact && (
-        <div className="flex items-center gap-2 text-xs">
-          <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
-            <span className={`shrink-0 rounded px-1.5 py-0.5 font-semibold ${accent.chip}`}>
-              {activeIdx + 1}
-            </span>
-            <span className="shrink-0 font-medium text-slate-100">{activeStage.label}</span>
-            <span className="shrink-0 text-slate-600">—</span>
-            <RotatingStatusLine key={activeStageId} slides={statusSlides} />
-          </div>
-        </div>
-      )}
-
       <div className="relative border-b border-slate-800 bg-slate-900/40 px-4 py-2.5 rounded-lg">
         {/* Rendered only while there is somewhere to scroll TO. */}
         {overflow.left && (
@@ -994,7 +1049,7 @@ export function JourneyRunSurface({
                 );
               }
               const extraProps =
-                resolveSurfaceProps?.({ surfaceRef, descriptor, stage: activeStage, runtimeState, pnlEvidence, ratifySubPredicates }) ?? {};
+                resolveSurfaceProps?.({ surfaceRef, descriptor, stage: activeStage, runtimeState, pnlEvidence, ratifySubPredicates, registerCeremony }) ?? {};
               return (
                 /*
                  * Keyed by the SURFACE, not by array position.

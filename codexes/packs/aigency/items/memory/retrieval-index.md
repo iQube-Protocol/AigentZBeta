@@ -3934,3 +3934,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-169248d.md](../build_/COMMITS/COMMIT-169248d.md)
 - Message: Mirror CFS-055's ratified invariants 252-259 into the canon + seed
+
+## Commit `d56b844` — 2026-08-10T06:41:38Z
+- Type: `push`
+- Brief: [COMMIT-d56b844.md](../build_/COMMITS/COMMIT-d56b844.md)
+- Message: Pre-recording Horizen polish: compact narrator header + Register ceremony replay
