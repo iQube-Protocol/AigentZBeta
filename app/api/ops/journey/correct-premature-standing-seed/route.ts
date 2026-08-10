@@ -83,6 +83,25 @@ export const maxDuration = 60;
  * already absent from canonicalStages, and (Ingest is genuinely established
  * OR 'deploy' is already absent too), reports no-op.
  *
+ * ── The tombstone catch-up path (2026-08-10) ─────────────────────────────
+ *
+ * `resolveStandingEvidence` excludes a receipt from
+ * `sequencingViolationReceiptIds` once it is already named in an EXISTING
+ * `reconciliation_discrepancy_recorded` receipt's `standingAccruedReceiptIds`
+ * (it moves to `supersededReceiptIds` instead — see
+ * `services/journey/standingEvidenceProjection.ts`). That means a correction
+ * that ran BEFORE the stage-invalidation tombstone existed — evidence-layer
+ * steps 1-2 already applied, but step 3's tombstone never got written,
+ * because step 3 did not exist yet — makes this route's own safety gate
+ * report `NOT_PREMATURE` on every subsequent call: there is no live
+ * violation left to find, only a stale, untombstoned `canonicalStages` entry
+ * quietly self-resurrecting via ratchet-synthesis. Refusing here would leave
+ * that resurrection permanent. So the gate is: refuse ONLY when there is
+ * neither a live violation NOR a stale untombstoned resurrection of an
+ * already-invalidated stage. In the catch-up case, step 1 (the discrepancy
+ * receipt) is skipped — one already exists from the original correction —
+ * and only step 3 (ratchet removal + tombstone) runs.
+ *
  * Auth: CRON_TRIGGER_TOKEN. Requires `correctingPersonaId` in the body — a
  * real, named "who" for the audit trail, never a static resolver string
  * (same discipline the Standing-seed AWARD itself already follows).
@@ -131,21 +150,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       findAgentReceiptRefs(agentRuntimeId, ['capability_registered'], { limit: 1 }),
     ]);
 
-    if (standingEvidence.sequencingViolationReceiptIds.length === 0) {
-      return NextResponse.json(
-        {
-          ok: false,
-          refusalCode: 'NOT_PREMATURE',
-          detail:
-            standingEvidence.effectiveInitialReceipts.length === 0 && standingEvidence.effectiveContributionReceipts.length === 0
-              ? 'nothing to correct — no standing_accrued receipt exists for this agent (or all are already superseded)'
-              : 'every standing_accrued receipt for this agent is genuinely ordered after a capability_registered receipt — this accrual is legitimate and will not be touched',
-        },
-        { status: 409 },
-      );
-    }
-
     const correctedIds = standingEvidence.sequencingViolationReceiptIds;
+    const hasLiveViolation = correctedIds.length > 0;
     const alreadyInvalidated = standingSeededFact?.status === 'invalidated';
     // Ingest is invalidated ALONGSIDE Standing only when it independently has
     // no evidence of its own — never merely because Standing was premature.
@@ -153,6 +159,28 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const stagesToInvalidate = ingestGenuinelyEstablished ? ['standing'] : ['standing', 'deploy'];
     const priorCanonicalStages = journeyResolution?.canonicalStages ?? [];
     const priorTombstones = journeyResolution?.invalidatedStages ?? {};
+    const staleUntombstonedResurrection = stagesToInvalidate.some(
+      (id) => priorCanonicalStages.includes(id) && !priorTombstones[id],
+    );
+    // Catch-up: evidence layer already corrected (by a run that predates the
+    // tombstone mechanism), but the ratchet never got tombstoned and is
+    // quietly self-resurrecting. See the docstring above.
+    const isTombstoneCatchUp = !hasLiveViolation && alreadyInvalidated && staleUntombstonedResurrection;
+
+    if (!hasLiveViolation && !isTombstoneCatchUp) {
+      return NextResponse.json(
+        {
+          ok: false,
+          refusalCode: 'NOT_PREMATURE',
+          detail:
+            standingEvidence.effectiveInitialReceipts.length === 0 && standingEvidence.effectiveContributionReceipts.length === 0
+              ? 'nothing to correct — no standing_accrued receipt exists for this agent (or all are already superseded, and already tombstoned)'
+              : 'every standing_accrued receipt for this agent is genuinely ordered after a capability_registered receipt — this accrual is legitimate and will not be touched',
+        },
+        { status: 409 },
+      );
+    }
+
     const alreadyRemoved =
       !priorCanonicalStages.includes('standing') &&
       stagesToInvalidate.every((id) => Boolean(priorTombstones[id])) &&
@@ -165,26 +193,37 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       correctedStandingAccruedReceiptIds: correctedIds,
       ingestGenuinelyEstablished,
       stagesToInvalidate,
+      isTombstoneCatchUp,
     };
 
     // ── 1. Discrepancy receipt (never a substitute for, or mutation of, the original) ──
+    // Skipped in the catch-up case — one already exists from the original
+    // correction; writing another would duplicate the audit trail for a
+    // defect that was already recorded once.
     let discrepancyReceiptId: string | null = null;
-    try {
-      const receipt = await createActivityReceipt({
-        personaId: correctingPersonaId,
-        activeCartridge: 'agentiq',
-        actionType: 'reconciliation_discrepancy_recorded',
-        summary: `Standing accrual(s) for ${agentRuntimeId} predate genuine Factory ingestion — corrected under the 2026-08-09 AigentQube-presence/Factory-ingestion sequencing ruling`,
-        agentsInvoked: [agentRuntimeId],
-        actionInput: {
-          discrepancyKind: 'PREMATURE_STANDING_SEED',
-          journeyId,
-          standingAccruedReceiptIds: correctedIds,
-        },
-      });
-      discrepancyReceiptId = receipt?.id ?? null;
-    } catch (err) {
-      return NextResponse.json({ ok: false, refusalCode: 'DISCREPANCY_RECEIPT_WRITE_FAILED', detail: err instanceof Error ? err.message : String(err) }, { status: 500 });
+    if (hasLiveViolation) {
+      try {
+        const receipt = await createActivityReceipt({
+          personaId: correctingPersonaId,
+          activeCartridge: 'agentiq',
+          actionType: 'reconciliation_discrepancy_recorded',
+          summary: `Standing accrual(s) for ${agentRuntimeId} predate genuine Factory ingestion — corrected under the 2026-08-09 AigentQube-presence/Factory-ingestion sequencing ruling`,
+          agentsInvoked: [agentRuntimeId],
+          actionInput: {
+            discrepancyKind: 'PREMATURE_STANDING_SEED',
+            journeyId,
+            standingAccruedReceiptIds: correctedIds,
+          },
+        });
+        discrepancyReceiptId = receipt?.id ?? null;
+      } catch (err) {
+        return NextResponse.json({ ok: false, refusalCode: 'DISCREPANCY_RECEIPT_WRITE_FAILED', detail: err instanceof Error ? err.message : String(err) }, { status: 500 });
+      }
+    } else {
+      // Best-effort: reuse the prior discrepancy receipt id as the
+      // tombstone's correctionReceiptId provenance, if one is findable.
+      const priorDiscrepancy = await findAgentReceiptRefs(agentRuntimeId, ['reconciliation_discrepancy_recorded'], { limit: 1 });
+      discrepancyReceiptId = priorDiscrepancy[0]?.id ?? null;
     }
     result.discrepancyReceiptId = discrepancyReceiptId;
 
@@ -230,7 +269,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
                 ? `Premature award — this accrual predates any genuine capability_registered receipt. Corrected per discrepancy receipt ${discrepancyReceiptId}.`
                 : `No agent-scoped capability_registered receipt exists — Ingest was never independently established (only the premature Standing seed asserted it).`,
             correctionReceiptId: discrepancyReceiptId,
-            supersededEvidenceIds: stageId === 'standing' ? correctedIds : [],
+            supersededEvidenceIds: stageId === 'standing' ? [...new Set([...correctedIds, ...standingEvidence.supersededReceiptIds])] : [],
           };
         }
         const existingTombstones = (existing.invalidatedStages as Record<string, StageInvalidationRecord> | undefined) ?? {};
