@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`ec5d5c2`](https://github.com/iQube-Protocol/AigentZBeta/commit/ec5d5c2671c64f8da4621c801714459e29d73f24) [feat] Add stage invalidation tombstone so a correction's removal is durable (Claude, 2026-08-10T03:43:53Z)
 - [`adbff86`](https://github.com/iQube-Protocol/AigentZBeta/commit/adbff8645b1eff499bb03646881969bd0a2b9a86) [feat] Add a conflict resolution path to the dev auto-merge workflow (Claude, 2026-08-09T22:43:44Z)
 - [`2d9ede1`](https://github.com/iQube-Protocol/AigentZBeta/commit/2d9ede1cad1f3f12acdc1b00fbda414b7d43f510) [push] Register CR-14: Constitution Before Substrate quantum launchpad (queued, not applied) (Claude, 2026-08-04T03:43:05Z)
 - [`ee0a61a`](https://github.com/iQube-Protocol/AigentZBeta/commit/ee0a61a32c1f0eb572d2ac92ca07863493b24f56) [push] Produce Controlling Manuscript v0.3 by consolidating v0.2 against the ratified register (Claude, 2026-08-04T20:32:14Z)

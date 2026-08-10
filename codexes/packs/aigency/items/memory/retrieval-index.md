@@ -3904,3 +3904,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-adbff86.md](../build_/COMMITS/COMMIT-adbff86.md)
 - Message: Add a conflict resolution path to the dev auto-merge workflow
+
+## Commit `ec5d5c2` — 2026-08-10T03:43:53Z
+- Type: `feat`
+- Brief: [COMMIT-ec5d5c2.md](../build_/COMMITS/COMMIT-ec5d5c2.md)
+- Message: Add stage invalidation tombstone so a correction's removal is durable

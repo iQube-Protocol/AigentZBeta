@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-09T22:45:59.051Z",
+  "last_updated": "2026-08-10T03:47:18.547Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "adbff8645b1eff499bb03646881969bd0a2b9a86",
-  "latest_commit_short": "adbff86",
-  "latest_commit_title": "Add a conflict resolution path to the dev auto-merge workflow",
+  "latest_commit": "ec5d5c2671c64f8da4621c801714459e29d73f24",
+  "latest_commit_short": "ec5d5c2",
+  "latest_commit_title": "Add stage invalidation tombstone so a correction's removal is durable",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "ec5d5c2",
+      "full_sha": "ec5d5c2671c64f8da4621c801714459e29d73f24",
+      "title": "Add stage invalidation tombstone so a correction's removal is durable",
+      "author": "Claude",
+      "timestamp": "2026-08-10T03:43:53Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-ec5d5c2.md"
+    },
     {
       "sha": "adbff86",
       "full_sha": "adbff8645b1eff499bb03646881969bd0a2b9a86",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-07-16T04:18:42Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-70d3af5.md"
-    },
-    {
-      "sha": "dafb68b",
-      "full_sha": "dafb68b8bebd35262cf53debd5157f721a55a796",
-      "title": "Sell Research Copilot as its own dedicated tier/SKU, unbundled from aigentZ",
-      "author": "Claude",
-      "timestamp": "2026-07-16T04:38:27Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-dafb68b.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
