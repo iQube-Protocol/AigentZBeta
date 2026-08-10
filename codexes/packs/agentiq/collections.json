@@ -40,6 +40,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-08-10_horizen-coherence-matrix-nakamoto.md",
         "updates/2026-08-09_dev-merge-conflict-resolution-path.md",
         "updates/2026-08-09_validation-programme-agent-package-external-review-completeness.md",
         "updates/2026-08-09_agent-purpose-bound-wallet-model-backlog.md",
