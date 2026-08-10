@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-10T04:17:02.064Z",
+  "last_updated": "2026-08-10T04:27:10.420Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "10e7aa17d450a961739e9d7606ff2e0ec9812f5d",
-  "latest_commit_short": "10e7aa1",
-  "latest_commit_title": "canon: add CFS-055 Proof of State in Time coherence doctrine",
+  "latest_commit": "5eb4d293a4ff8c785d994085050f2f98b5137382",
+  "latest_commit_short": "5eb4d29",
+  "latest_commit_title": "Fix correction route's tombstone catch-up gap for pre-fix corrections",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "5eb4d29",
+      "full_sha": "5eb4d293a4ff8c785d994085050f2f98b5137382",
+      "title": "Fix correction route's tombstone catch-up gap for pre-fix corrections",
+      "author": "Claude",
+      "timestamp": "2026-08-10T04:24:39Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-5eb4d29.md"
+    },
     {
       "sha": "10e7aa1",
       "full_sha": "10e7aa17d450a961739e9d7606ff2e0ec9812f5d",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-07-16T03:47:58Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-b053b72.md"
-    },
-    {
-      "sha": "5274122",
-      "full_sha": "5274122245d9fbbadde692418cb2af337373df40",
-      "title": "Wire Research Copilot into the subscription tier UI (CitizenLadderModal)",
-      "author": "Claude",
-      "timestamp": "2026-07-16T03:50:12Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-5274122.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
