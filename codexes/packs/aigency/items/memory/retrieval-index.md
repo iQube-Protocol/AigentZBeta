@@ -3924,3 +3924,13 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-aa1046e.md](../build_/COMMITS/COMMIT-aa1046e.md)
 - Message: Add Horizen coherence matrix for Nakamoto (POSIT coherence-pass item 6)
+
+## Commit `3f76ccd` — 2026-08-10T05:22:13Z
+- Type: `feat`
+- Brief: [COMMIT-3f76ccd.md](../build_/COMMITS/COMMIT-3f76ccd.md)
+- Message: Implement CFS-055 coherence pass: canonical Ratify projections + drawer
+
+## Commit `169248d` — 2026-08-10T04:48:52Z
+- Type: `push`
+- Brief: [COMMIT-169248d.md](../build_/COMMITS/COMMIT-169248d.md)
+- Message: Mirror CFS-055's ratified invariants 252-259 into the canon + seed

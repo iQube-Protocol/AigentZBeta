@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`169248d`](https://github.com/iQube-Protocol/AigentZBeta/commit/169248d21d0c0d80ad950ef95ebc907689ac1559) [push] Mirror CFS-055's ratified invariants 252-259 into the canon + seed (Claude, 2026-08-10T04:48:52Z)
+- [`3f76ccd`](https://github.com/iQube-Protocol/AigentZBeta/commit/3f76ccd53d31680c03d76f84db9ded974cec3bbe) [feat] Implement CFS-055 coherence pass: canonical Ratify projections + drawer (Claude, 2026-08-10T05:22:13Z)
 - [`aa1046e`](https://github.com/iQube-Protocol/AigentZBeta/commit/aa1046e372caa1fdb5f44341fbe06adcf528720e) [feat] Add Horizen coherence matrix for Nakamoto (POSIT coherence-pass item 6) (Claude, 2026-08-10T04:38:16Z)
 - [`5eb4d29`](https://github.com/iQube-Protocol/AigentZBeta/commit/5eb4d293a4ff8c785d994085050f2f98b5137382) [fix] Fix correction route's tombstone catch-up gap for pre-fix corrections (Claude, 2026-08-10T04:24:39Z)
 - [`10e7aa1`](https://github.com/iQube-Protocol/AigentZBeta/commit/10e7aa17d450a961739e9d7606ff2e0ec9812f5d) [feat] canon: add CFS-055 Proof of State in Time coherence doctrine (Kn0w1, 2026-08-10T00:15:27-04:00)

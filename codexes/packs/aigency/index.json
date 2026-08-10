@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-10T04:40:25.962Z",
+  "last_updated": "2026-08-10T05:24:51.516Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "aa1046e372caa1fdb5f44341fbe06adcf528720e",
-  "latest_commit_short": "aa1046e",
-  "latest_commit_title": "Add Horizen coherence matrix for Nakamoto (POSIT coherence-pass item 6)",
+  "latest_commit": "169248d21d0c0d80ad950ef95ebc907689ac1559",
+  "latest_commit_short": "169248d",
+  "latest_commit_title": "Mirror CFS-055's ratified invariants 252-259 into the canon + seed",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "169248d",
+      "full_sha": "169248d21d0c0d80ad950ef95ebc907689ac1559",
+      "title": "Mirror CFS-055's ratified invariants 252-259 into the canon + seed",
+      "author": "Claude",
+      "timestamp": "2026-08-10T04:48:52Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-169248d.md"
+    },
+    {
+      "sha": "3f76ccd",
+      "full_sha": "3f76ccd53d31680c03d76f84db9ded974cec3bbe",
+      "title": "Implement CFS-055 coherence pass: canonical Ratify projections + drawer",
+      "author": "Claude",
+      "timestamp": "2026-08-10T05:22:13Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-3f76ccd.md"
+    },
     {
       "sha": "aa1046e",
       "full_sha": "aa1046e372caa1fdb5f44341fbe06adcf528720e",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-07-17T19:48:55Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-6307a97.md"
-    },
-    {
-      "sha": "6f6039f",
-      "full_sha": "6f6039fce9c0af1a8e5eabe22eaed05ee52bb184",
-      "title": "docs: IPE Phase 2 (projection bridge) run-doc + tracker; note parallel Polity canonization",
-      "author": "Claude",
-      "timestamp": "2026-07-17T19:41:39Z",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-6f6039f.md"
-    },
-    {
-      "sha": "95178a2",
-      "full_sha": "95178a26a51c510d7907c019439f396978fd8399",
-      "title": "fix Amplify build-size overflow: exclude deploy-trigger commit briefs from Lambda tracing",
-      "author": "Claude",
-      "timestamp": "2026-07-17T19:08:10Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-95178a2.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
