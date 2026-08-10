@@ -39,12 +39,17 @@ export async function getCurrentCrossingOfTheWeek(
   now: Date,
 ): Promise<CrossingOfTheWeek | null> {
   const weekStart = isoWeekStart(now);
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('knyts_bridge_crossing_of_the_week')
     .select('week_start, community_content_id, score, selected_by, selected_at, community_generated_content(title, creator_persona_id)')
     .eq('week_start', weekStart)
     .maybeSingle();
 
+  // Fail faithful: a missing ROW this week is legitimate (null, not an
+  // error — see this route's own header). A missing TABLE or any other
+  // query failure is a real error and must say so, not be silently
+  // indistinguishable from "no winner yet".
+  if (error) throw new Error(`knyts_bridge_crossing_of_the_week read failed: ${error.message}`);
   if (!data) return null;
   const content = data.community_generated_content as unknown as
     | { title: string; creator_persona_id: string }

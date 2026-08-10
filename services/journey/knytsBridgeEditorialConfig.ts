@@ -78,15 +78,25 @@ function rowToSection(row: Record<string, unknown> | null, section: string): Kny
   };
 }
 
+/**
+ * Fail faithful (not silently defaulted): a missing ROW is a legitimate,
+ * expected state (falls back to defaultsForSection) — a missing TABLE, a
+ * bad column, or any other query failure is a real error and must say so,
+ * never be indistinguishable from "no row yet". Swallowing `error` here
+ * previously meant this function returned the exact same shipped-copy
+ * defaults whether the editorial_config migration had been applied or not,
+ * so a 200 from the route it backs proved nothing about migration state.
+ */
 export async function getKnytsBridgeEditorialSection(
   supabase: SupabaseClient,
   section: string,
 ): Promise<KnytsBridgeEditorialSection> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('knyts_bridge_editorial_config')
     .select('section, headline, short_copy, video_url, poster_url, campaign_cta, reward_copy, updated_at')
     .eq('section', section)
     .maybeSingle();
+  if (error) throw new Error(`knyts_bridge_editorial_config read failed: ${error.message}`);
   return rowToSection(data as Record<string, unknown> | null, section);
 }
 
