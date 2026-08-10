@@ -344,6 +344,30 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
       'reaction counts, campaign-tagged share/conversion counts, and remix lineage — never a new ' +
       'reward ledger or scoring system (services/journey/knytsBridgeStand.ts).',
   },
+
+  // ── Constitutional Internet Bridge journey (2026-08-10) — the canonical
+  // Ethos Bridge, cloned from the KNYTS Bridge Threshold Guide architecture.
+  // Same reasoning as above applies: the public front door
+  // (app/bridge/constitutional-internet/page.tsx) composes these directly
+  // rather than through JourneyRunSurface's generic stepper.
+  'ci-bridge-act-disposition': {
+    kind: 'component',
+    component: 'ConstitutionalAgentDispositionSurface',
+    note:
+      'components/journey/ConstitutionalAgentDispositionSurface.tsx — a generalized ExperienceQube ' +
+      'disposition ceremony sharing its receipt taxonomy with the Horizen/MoneyPenny disposition route ' +
+      'via services/journey/experienceQubeDispositionService.ts, scoped under this journey\'s own agent ' +
+      'id and context tag so the two never cross-read each other\'s receipts.',
+  },
+  'ci-bridge-stand': {
+    kind: 'component',
+    component: 'ConstitutionalInternetBridgeStandPanel',
+    note:
+      'components/journey/ConstitutionalInternetBridgeStandPanel.tsx — reads the real Passport/' +
+      'disposition receipts and the canonical Standing score (services/standing/standingScore.ts). ' +
+      'Deliberately does NOT repeat the KNYTS Bridge STAND panel\'s mislabeling of engagement counters ' +
+      'as "Standing" — see services/journey/constitutionalInternetBridgeStand.ts\'s header.',
+  },
 };
 
 /**

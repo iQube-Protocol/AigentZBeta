@@ -23,6 +23,7 @@ import { PassportConnectPanel } from "@/components/companion/PassportConnectPane
 import { usePassportSignInHost } from "@/app/hooks/usePassportSignInHost";
 import { KnytCommunityContentTab } from "@/app/triad/components/codex/tabs/KnytCommunityContentTab";
 import { KnytsBridgeStandPanel } from "@/components/journey/KnytsBridgeStandPanel";
+import { BridgeMediaStage } from "@/components/journey/BridgeMediaStage";
 import { buildCodexUrl } from "@/utils/codex-nav";
 import { KNYTS_BRIDGE_CAMPAIGN_ID } from "@/services/journey/knytsBridgeCrossingJourney";
 
@@ -68,32 +69,19 @@ export default function KnytsBridgePage() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
       {/* HOMECOMING */}
-      <div className="mx-auto max-w-2xl px-6 pt-20 pb-10 text-center">
-        <p className="text-[11px] uppercase tracking-[0.3em] text-amber-400">The KNYTS Bridge</p>
-        <h1 className="mt-3 text-3xl sm:text-4xl font-bold leading-tight">
-          Cross the Threshold. Come home.
-        </h1>
-        <p className="mt-4 text-sm leading-relaxed text-slate-300">
-          The KNYTS Bridge is one path into the Polity — a constitutional home for people and their
-          agents in the emerging Constitutional Internet.
-        </p>
-        <p className="mt-3 text-sm leading-relaxed text-slate-300">
-          Follow the stories of those who are crossing. When you&rsquo;re ready, claim your Passport,
-          cross the Threshold and tell your own.
-        </p>
-        <p className="mt-3 text-sm leading-relaxed text-slate-300">
-          Share your crossing. Discover others. Earn Standing. Win rewards.
-        </p>
-        <p className="mt-4 text-sm font-semibold text-amber-300">Every crossing builds the bridge.</p>
-        <button
-          type="button"
-          onClick={scrollToView}
-          className="mt-7 inline-flex items-center gap-2 rounded-xl bg-amber-500 px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-amber-400"
-        >
-          Explore the crossings
-          <ArrowRight className="h-4 w-4" />
-        </button>
-      </div>
+      <BridgeMediaStage
+        eyebrow="The KNYTS Bridge"
+        headline="Cross the Threshold. Come home."
+        paragraphs={[
+          "The KNYTS Bridge is one path into the Polity — a constitutional home for people and their agents in the emerging Constitutional Internet.",
+          "Follow the stories of those who are crossing. When you’re ready, claim your Passport, cross the Threshold and tell your own.",
+          "Share your crossing. Discover others. Earn Standing. Win rewards.",
+        ]}
+        highlightLine="Every crossing builds the bridge."
+        primaryCtaLabel="Explore the crossings"
+        onPrimaryCta={scrollToView}
+        accent="amber"
+      />
 
       {/* Crossing of the Week */}
       {crossingOfTheWeek && (
