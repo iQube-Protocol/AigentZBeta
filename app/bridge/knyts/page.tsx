@@ -50,6 +50,7 @@ import { PassportConnectPanel } from '@/components/companion/PassportConnectPane
 import { usePassportSignInHost } from '@/app/hooks/usePassportSignInHost';
 import { usePersonaSpine } from '@/utils/personaSpine';
 import { CodexCopilotLayer } from '@/app/components/codex/CodexCopilotLayer';
+import { MetaAvatarProvider } from '@/app/contexts/MetaAvatarContext';
 
 /** KNYT visual projection — amber/gold, never a change to JourneyRunSurface's
  *  own default (purple), which every other journey keeps. Same accent the
@@ -132,6 +133,16 @@ export default function KnytsBridgePage() {
   );
 
   return (
+    // MetaAvatarProvider wraps this page explicitly (surface reconciliation
+    // build fix, 2026-08-10): CodexCopilotLayer's useMetaAvatar() throws
+    // without one, and this bare page sits outside both app/(shell)/layout.tsx
+    // and app/(embed)/layout.tsx — the only two places that layout normally
+    // supplies it — so it crashed Amplify's static prerender of /bridge/knyts
+    // (and would have crashed the same way for every real visitor who opened
+    // the copilot, not just the build). The provider is a lightweight,
+    // self-contained context (local state only) — mounting a second instance
+    // here is safe and matches the KNYT copilot's own default agent.
+    <MetaAvatarProvider defaultAgent="aigent-kn0w1">
     <div className="h-screen bg-slate-950 text-slate-100">
       <JourneyRunSurface
         journey={KNYTS_BRIDGE_CROSSING_JOURNEY}
@@ -230,5 +241,6 @@ export default function KnytsBridgePage() {
         quickPrompts={KNYT_COPILOT_QUICK_PROMPTS}
       />
     </div>
+    </MetaAvatarProvider>
   );
 }
