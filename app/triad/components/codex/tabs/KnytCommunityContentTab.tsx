@@ -433,6 +433,15 @@ function RemixCrossingButton({ item, personaId }: { item: CommunityContentItem; 
         skill: item.skill,
       }),
     );
+    // Mounted inside the KNYTS Bridge Posit Spine (this VIEW stage's own
+    // surface) — stay on the SAME page so MyCanvasTab's existing remix=
+    // param seeding effect resumes the intent inline on the REMIX stage,
+    // rather than escaping the spine to the generic /codex/viewer shell.
+    // Every other mount of this component (ordinary KNYT Pulse) keeps the
+    // pre-existing target.
+    if (typeof window !== 'undefined' && window.location.pathname.startsWith('/bridge/knyts')) {
+      return `/bridge/knyts?remix=${encodedPayload}`;
+    }
     return `/codex/viewer?slug=metame&tab=mycanvas&remix=${encodedPayload}`;
   }, [item]);
 

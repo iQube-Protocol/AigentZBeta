@@ -321,13 +321,46 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
     note: "The Research Workspace's Activity view, locked to one workspace and rendered bare.",
   },
 
-  // ── KNYTS Bridge journey (2026-08-09) — the public front door
-  // (app/bridge/knyts/page.tsx) composes these directly rather than through
-  // JourneyRunSurface's generic stepper: that runner requires an
-  // authenticated stateUrl fetch on mount (personaFetch against a route
-  // that 401s a signed-out caller), which is incompatible with HOMECOMING/
-  // VIEW being browsable signed-out by design. These entries still document
-  // which real surface each stage composes, per the Surface Reuse Principle.
+  // ── KNYTS Bridge journey (2026-08-09, reconstituted onto JourneyRunSurface
+  // 2026-08-09) — the public front door (app/bridge/knyts/page.tsx) now
+  // composes these THROUGH JourneyRunSurface's shared Posit Spine runner,
+  // like every other journey in this registry. The prior header here claimed
+  // JourneyRunSurface's stateUrl fetch on mount was incompatible with
+  // HOME/VIEW being browsable signed-out — that claim does not hold up
+  // against the actual route: /api/journey/knyts-bridge/state already
+  // resolves `persona = null` for a signed-out caller and answers 200 (never
+  // 401), and personaFetch itself never throws on a missing token — it just
+  // omits the Authorization header. There is no incompatibility to work
+  // around.
+  'knyts-bridge-home': {
+    kind: 'component',
+    component: 'KnytsBridgeHomeSurface',
+    note:
+      'The ONE net-new visual surface in this journey (components/journey/KnytsBridgeHomeSurface.tsx) — ' +
+      'hero/video/poster/CTA/reward copy, admin-editable via /api/journey/knyts-bridge/editorial-config. ' +
+      'Every other KNYTS Bridge stage below composes an existing platform surface.',
+  },
+  'knyts-bridge-view-pulse': {
+    kind: 'component',
+    component: 'KnytCommunityContentTab',
+    note:
+      'The existing KNYT Pulse surface (app/triad/components/codex/tabs/KnytCommunityContentTab.tsx), ' +
+      "campaign-filtered via the SAME cartridge='knyt', campaignTag=KNYTS_BRIDGE_CAMPAIGN_ID props the " +
+      'old bespoke front door already passed — never a second, forked Pulse component.',
+  },
+  'knyts-bridge-orient': {
+    kind: 'component',
+    component: 'KnytsBridgeOrientationCard',
+    note:
+      "ORIENT's light explanation card (components/journey/KnytsBridgeOrientationCard.tsx) — no heavy " +
+      'Bureau UI, no server call, no completion evidence of its own (see knytsBridgeCrossingJourney.ts).',
+  },
+  'knyts-bridge-buy-store': {
+    kind: 'embed',
+    codexSlug: 'knyt-codex',
+    tab: 'store-episodes',
+    note: 'The existing KNYT Store — no new commerce code, same tab the old front door deep-linked to.',
+  },
   'knyts-bridge-mycanvas-remix': {
     kind: 'component',
     component: 'MyCanvasTab',

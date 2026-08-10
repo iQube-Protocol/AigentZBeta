@@ -1,0 +1,102 @@
+/**
+ * KNYTS Bridge — editorial configuration (HOME's media/copy, and any future
+ * Bridge-owned media section, per the same shape — see the reconstitution
+ * spec, point 6). Deliberately narrow: this is copy and media ONLY. Pulse
+ * content, Passport mechanics, myCanvas templates, Standing and the Store
+ * are never read or written here — they stay owned by their own canonical
+ * systems and surfaces.
+ */
+
+import type { SupabaseClient } from '@supabase/supabase-js';
+
+export interface KnytsBridgeEditorialSection {
+  section: string;
+  headline: string | null;
+  shortCopy: string | null;
+  videoUrl: string | null;
+  posterUrl: string | null;
+  campaignCta: string | null;
+  rewardCopy: string | null;
+  updatedAt: string | null;
+}
+
+/** Falls back to the copy that shipped with the original front door — never
+ *  a blank page when the config row is missing (e.g. a fresh environment
+ *  before the seed migration has run). */
+export const KNYTS_BRIDGE_HOME_DEFAULTS: KnytsBridgeEditorialSection = {
+  section: 'home',
+  headline: 'Cross the Threshold. Come home.',
+  shortCopy:
+    'The KNYTS Bridge is one path into the Polity — a constitutional home for people and their agents ' +
+    'in the emerging Constitutional Internet.\n\nFollow the stories of those who are crossing. When ' +
+    "you're ready, claim your Passport, cross the Threshold and tell your own.\n\nShare your crossing. " +
+    'Discover others. Earn Standing. Win rewards.',
+  videoUrl: null,
+  posterUrl: null,
+  campaignCta: 'Explore the crossings',
+  rewardCopy: 'Every crossing builds the bridge.',
+  updatedAt: null,
+};
+
+function rowToSection(row: Record<string, unknown> | null, section: string): KnytsBridgeEditorialSection {
+  if (!row) return { ...KNYTS_BRIDGE_HOME_DEFAULTS, section };
+  return {
+    section,
+    headline: (row.headline as string) ?? null,
+    shortCopy: (row.short_copy as string) ?? null,
+    videoUrl: (row.video_url as string) ?? null,
+    posterUrl: (row.poster_url as string) ?? null,
+    campaignCta: (row.campaign_cta as string) ?? null,
+    rewardCopy: (row.reward_copy as string) ?? null,
+    updatedAt: (row.updated_at as string) ?? null,
+  };
+}
+
+export async function getKnytsBridgeEditorialSection(
+  supabase: SupabaseClient,
+  section: string,
+): Promise<KnytsBridgeEditorialSection> {
+  const { data } = await supabase
+    .from('knyts_bridge_editorial_config')
+    .select('section, headline, short_copy, video_url, poster_url, campaign_cta, reward_copy, updated_at')
+    .eq('section', section)
+    .maybeSingle();
+  return rowToSection(data as Record<string, unknown> | null, section);
+}
+
+export interface KnytsBridgeEditorialUpdate {
+  headline?: string | null;
+  shortCopy?: string | null;
+  videoUrl?: string | null;
+  posterUrl?: string | null;
+  campaignCta?: string | null;
+  rewardCopy?: string | null;
+}
+
+export async function upsertKnytsBridgeEditorialSection(
+  supabase: SupabaseClient,
+  section: string,
+  update: KnytsBridgeEditorialUpdate,
+  updatedBy: string,
+): Promise<KnytsBridgeEditorialSection> {
+  const { data, error } = await supabase
+    .from('knyts_bridge_editorial_config')
+    .upsert(
+      {
+        section,
+        ...(update.headline !== undefined ? { headline: update.headline } : {}),
+        ...(update.shortCopy !== undefined ? { short_copy: update.shortCopy } : {}),
+        ...(update.videoUrl !== undefined ? { video_url: update.videoUrl } : {}),
+        ...(update.posterUrl !== undefined ? { poster_url: update.posterUrl } : {}),
+        ...(update.campaignCta !== undefined ? { campaign_cta: update.campaignCta } : {}),
+        ...(update.rewardCopy !== undefined ? { reward_copy: update.rewardCopy } : {}),
+        updated_by: updatedBy,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'section' },
+    )
+    .select('section, headline, short_copy, video_url, poster_url, campaign_cta, reward_copy, updated_at')
+    .single();
+  if (error) throw new Error(error.message);
+  return rowToSection(data as Record<string, unknown>, section);
+}
