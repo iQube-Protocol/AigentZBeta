@@ -46,6 +46,18 @@
  * (3.5s) — the overlay visibly dissolves rather than blinking off. The
  * fade-BACK-IN on pause/end stays quick (its own shorter duration below) —
  * only the hide half of the animation is meant to read as slow/cinematic.
+ *
+ * Overlay visibility bug (corrected 2026-08-11, targeted correction pass):
+ * `showOverlay` used to be `!overlayFaded || hovering`, with `onMouseEnter`
+ * on the ENTIRE video frame setting `hovering`. Since a visitor's pointer
+ * is almost always resting somewhere over the hero while watching it,
+ * `hovering` stayed true for the whole playback and permanently defeated
+ * the fade — the overlay never actually disappeared in practice, only in
+ * the state that drove it. Removed `hovering` entirely: visibility is now a
+ * pure function of `isPlaying`/`overlayFaded` — `!isPlaying || !overlayFaded`
+ * — so playback alone controls it, matching the required invariant exactly
+ * (visible before playback; hidden once the fade completes during playback,
+ * regardless of pointer position; visible again on pause/end).
  */
 
 import React, { useEffect, useRef, useState } from 'react';
@@ -109,9 +121,10 @@ export function BridgeMediaStage({
   const classes = ACCENT_CLASSES[accent];
   const [isPlaying, setIsPlaying] = useState(false);
   const [overlayFaded, setOverlayFaded] = useState(false);
-  const [hovering, setHovering] = useState(false);
   const fadeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const showOverlay = !overlayFaded || hovering;
+  // Pure function of playback state — see the "Overlay visibility bug"
+  // header note above for why hover must never factor in here.
+  const showOverlay = !isPlaying || !overlayFaded;
 
   // Playback itself never hides the overlay instantly — only a short,
   // deliberate delay after play is clearly underway does. Pausing/ending
@@ -154,11 +167,7 @@ export function BridgeMediaStage({
     if (videoUrl) {
       return (
         <div className="mx-auto max-w-6xl px-4 pt-6 pb-6">
-          <div
-            className="relative aspect-video w-full overflow-hidden rounded-2xl border border-white/10 bg-black shadow-2xl shadow-black/50"
-            onMouseEnter={() => setHovering(true)}
-            onMouseLeave={() => setHovering(false)}
-          >
+          <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-white/10 bg-black shadow-2xl shadow-black/50">
             {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
             <video
               className="h-full w-full object-cover"

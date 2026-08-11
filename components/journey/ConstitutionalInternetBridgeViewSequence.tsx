@@ -61,6 +61,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { ChevronLeft, ChevronRight, Play } from 'lucide-react';
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from '@/components/ui/carousel';
 import { BridgeContentCapsule, type BridgeCapsuleRailCard } from '@/components/journey/BridgeContentCapsule';
+import { ArtifactMattedFrame } from '@/components/journey/ArtifactMattedFrame';
 import { ListenButton } from '@/components/shared/ListenButton';
 import { PDFLiteReaderModal } from '@/app/triad/components/content/PDFLiteReaderModal';
 import {
@@ -130,27 +131,33 @@ const ARTIFACT_KICKER: Record<ArtifactKind, string> = {
 
 /** The constant lower strip — an editorial BOOK EXCERPT, not a status
  *  panel: source line, proposition as a quiet chapter reference, the
- *  excerpt set as the dominant quotation, citation + Listen on one row.
+ *  excerpt set as the dominant quotation, citation on its own row.
  *  The active artifact type is a small secondary tag (top-right), never
  *  the dominant label — this is the same grounding quotation regardless
- *  of which rail card (Video/Plate/Paper) is active. */
+ *  of which rail card (Video/Plate/Paper) is active.
+ *
+ * Listen relocated to the top metadata row (targeted correction pass,
+ * 2026-08-11) — it now sits immediately beside the artifact-kind label
+ * (CANONICAL PLATE / VIDEO / POLITY PAPER), matching the operator's desired
+ * header shape, instead of the lower citation row. No change to TTS
+ * behavior — same `ListenButton`, same `getText`. */
 function BookInsertStrip({ block, activeKind }: { block: ViewContentBlock; activeKind: ArtifactKind }) {
   return (
     <div>
       <div className="flex items-baseline justify-between gap-3">
         <p className="text-[10px] uppercase tracking-[0.25em] text-amber-400/80">The Constitutional Internet</p>
-        <span className="shrink-0 text-[10px] uppercase tracking-[0.15em] text-slate-600">
-          {ARTIFACT_KICKER[activeKind]}
-        </span>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <span className="text-[10px] uppercase tracking-[0.15em] text-slate-600">
+            {ARTIFACT_KICKER[activeKind]}
+          </span>
+          <ListenButton compact getText={() => asProse(block.excerpt)} />
+        </div>
       </div>
       <p className="mt-1 text-xs text-slate-500">{block.proposition}</p>
       <p className="mt-2 font-serif text-[15px] italic leading-[1.55] text-slate-200">
         &ldquo;{asProse(block.excerpt)}&rdquo;
       </p>
-      <div className="mt-2.5 flex items-center justify-between gap-3">
-        <p className="min-w-0 truncate text-[10px] text-slate-600">{block.excerptSource}</p>
-        <ListenButton compact getText={() => asProse(block.excerpt)} className="shrink-0" />
-      </div>
+      <p className="mt-2.5 truncate text-[10px] text-slate-600">{block.excerptSource}</p>
     </div>
   );
 }
@@ -240,22 +247,14 @@ function ethosRailCards(
   return cards;
 }
 
-/** A framed, matted media mount — a restrained two-tone mat so the
- *  artifact reads as a mounted piece, not an image loose in a div. Colors
- *  (refined 2026-08-11) are sampled from the actual canonical assets — the
- *  seven CIP plates' own backgrounds average ~#f4e6d2, the Polity Papers
- *  covers ~#eee8df — so the mat HARMONIZES with the artwork instead of
- *  reading as a cold near-white viewport next to warm parchment plates.
- *  Never stretches/crops the asset; any leftover space is the matte, not a
- *  distortion of the artifact. */
+/** @deprecated moved to the shared `ArtifactMattedFrame.tsx` (targeted
+ *  correction pass, 2026-08-11) — Passport and Choose now need the same
+ *  treatment, so the mat is defined once and imported everywhere. This
+ *  local alias is kept only so the (many) call sites below don't all need
+ *  a mechanical rename in the same diff; new call sites should import
+ *  `ArtifactMattedFrame` directly instead of this alias. */
 function MattedFrame({ children }: { children: ReactNode }) {
-  return (
-    <div className="flex h-full w-full items-center justify-center bg-[#e8d9bd] p-3">
-      <div className="flex h-full w-full items-center justify-center rounded-[2px] bg-[#f6ecd9] p-3 shadow-[inset_0_0_0_1px_rgba(30,58,95,0.09),inset_0_1px_10px_rgba(0,0,0,0.06)]">
-        {children}
-      </div>
-    </div>
-  );
+  return <ArtifactMattedFrame>{children}</ArtifactMattedFrame>;
 }
 
 /** A smaller, dimmer neighbouring series cover — clicking it opens ITS OWN

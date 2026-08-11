@@ -37,6 +37,7 @@ import { ArrowRight, CheckCircle2, Compass, Hammer, Shield, Sparkles, Wrench, X 
 import { personaFetch } from '@/utils/personaSpine';
 import { PassportBureauApplyTab } from '@/app/triad/components/codex/tabs/PassportBureauApplyTab';
 import { canonicalPlateImage } from '@/services/artifact/canonicalPlateImages';
+import { ArtifactMattedFrame } from '@/components/journey/ArtifactMattedFrame';
 import {
   KNYTS_BRIDGE_SECTION_DEFAULTS,
   type KnytsBridgeEditorialSection,
@@ -183,23 +184,31 @@ export function ConstitutionalInternetBridgePassportRoom({ personaId, citizenPas
 
       <div className="grid gap-4 lg:grid-cols-[3fr_2fr]">
         {/* LEFT — personhood/Passport media, admin-editable video with a
-            CIP-007B fallback (same pattern as Orient). */}
+            CIP-007B fallback (same pattern as Orient). The still-image
+            fallback gets the same warm parchment museum-matte View mounts
+            its plates in (targeted correction pass, 2026-08-11) — it reads
+            as another canonical artifact in the same CI gallery system,
+            not a white image floating in a dark panel. Video (rare, admin-
+            configured) stays plain black-bg object-contain, matching
+            View's own video-vs-plate treatment split exactly. */}
         <div className="flex h-[45vh] max-h-[55vh] min-h-[16rem] w-full items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-slate-900/40">
           {config.videoUrl ? (
             // eslint-disable-next-line jsx-a11y/media-has-caption
             <video
-              className="h-full w-full object-contain"
+              className="h-full w-full bg-black object-contain"
               controls
               poster={config.posterUrl ?? undefined}
               src={config.videoUrl}
             />
           ) : (
             BEARING_INSTRUMENT && (
-              <img
-                src={BEARING_INSTRUMENT.url}
-                alt={BEARING_INSTRUMENT.title}
-                className="h-full w-full object-contain"
-              />
+              <ArtifactMattedFrame>
+                <img
+                  src={BEARING_INSTRUMENT.url}
+                  alt={BEARING_INSTRUMENT.title}
+                  className="max-h-full max-w-full object-contain"
+                />
+              </ArtifactMattedFrame>
             )
           )}
         </div>

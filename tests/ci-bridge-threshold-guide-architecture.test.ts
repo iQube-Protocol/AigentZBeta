@@ -25,16 +25,21 @@ const PAGE = path.join(REPO, 'app', 'bridge', 'ci', 'page.tsx');
 
 // Evolved 2026-08-11 (experience enrichment pass, not a reconstitution):
 // HOME and ORIENT gained self-fetching admin-config wrappers around what
-// used to be their bare component mounts, and PERSONIFY (renamed from ACT)
-// now carries TWO top-level surfaces — its new primary myCanvas surface
-// plus the renamed, repositioned supporting-tools surface.
+// used to be their bare component mounts. PERSONIFY briefly carried a
+// second top-level surface (its supporting-tools surface) but that was
+// CONSOLIDATED back into one surface the same day (targeted correction
+// pass) — the second surface's own embedded aigent-me iframe brought an
+// unrelated Horizen "Focus Check-in" ceremony along with it, producing
+// four stacked agent-relationship representations instead of one; its one
+// still-needed piece (the "Shape your story" capsule) now renders directly
+// inside ConstitutionalInternetBridgePersonifyMyCanvas as a second pane,
+// no iframe-in-iframe.
 const STAGE_SURFACE_COMPONENTS = [
   'ConstitutionalInternetBridgeMediaStage',
   'ConstitutionalInternetBridgeViewSequence',
   'ConstitutionalInternetBridgeOrientIntro',
   'ConstitutionalInternetBridgePassportRoom',
   'ConstitutionalInternetBridgePersonifyMyCanvas',
-  'ConstitutionalAgentFieldEntrySurface',
   'ConstitutionalInternetBridgeStandPanel',
   'ConstitutionalInternetBridgeChooseSurface',
 ];
@@ -86,12 +91,9 @@ describe('CI Bridge — Threshold Guide architecture canary', () => {
     expect(actualRefs).toEqual(expectedRefs);
   });
 
-  it('PERSONIFY carries its supporting-tools surface as a SECOND surface, never dropped', () => {
+  it('PERSONIFY carries exactly ONE surface (consolidated 2026-08-11 — no second, iframe-in-iframe supporting surface)', () => {
     const personify = CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY.stages.find((s) => s.id === 'personify');
     expect(personify).toBeTruthy();
-    expect(personify!.surfaces.map((s) => s.ref)).toEqual([
-      'ci-bridge-personify-mycanvas',
-      'ci-bridge-personify-field-entry',
-    ]);
+    expect(personify!.surfaces.map((s) => s.ref)).toEqual(['ci-bridge-personify-mycanvas']);
   });
 });

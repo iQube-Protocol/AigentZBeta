@@ -7,46 +7,66 @@
  * elsewhere — never a single fact this journey gates on (see
  * constitutionalInternetBridgeJourney.ts's header).
  *
- * Reconstituted 2026-08-11 (integration pass) into a two-column layout
- * mirroring Orient's geometry — left: dominant visual; right: destination
- * actions in the existing restrained card grammar.
+ * Two-column geometry (integration pass, 2026-08-11): left dominant visual,
+ * right destination cards, mirroring Orient.
  *
- * Left visual: there is no real canonical "Constitutional Internet" book
- * cover anywhere in this repo (confirmed by search — canonicalPlateImages.ts's
- * own header already says "there is no verified Polity Papers cover image in
- * this repo yet. Do not repurpose a plate as a fake cover" for the Papers
- * series, and the same holds for a book cover). Per operator instruction,
- * this renders the real CIP-006 plate ("The Constitutional Internet") with
- * an explicit "Concept — not the final cover" badge, rather than silently
- * presenting a plate as canon or fabricating cover art.
+ * Left viewport is CONTEXTUAL (targeted correction pass, 2026-08-11) —
+ * every destination selection swaps what the left panel shows, always
+ * inside the same warm parchment museum-matte View mounts its plates in
+ * (ArtifactMattedFrame), with the same in-viewport fullscreen control
+ * (FullscreenableFrame) View uses, never a pop-out:
  *
- * Embedding (integration pass): "Continue reading" and "Meet aigentMe" used
- * to be plain `<a href>` full-page navigations to `shell: 'viewer'` codex
- * URLs — the exact "leaves the Bridge" defect the embedding invariant
- * forbids. They now toggle the LEFT column between the book visual and an
- * embedded iframe of the chosen destination (`shell: 'embed'`), mirroring
- * ConstitutionalAgentFieldEntrySurface.tsx's MeetAigentMeEmbed recipe
- * verbatim for the aigentMe case — never a pop-out, never a mock UI.
- * "Join the research field"/"Build / partner" stay `mailto:` links (a
- * genuine external mail-client handoff, not a Bridge-internal navigation —
- * explicitly fine per the operator's "reserve book, sharing and application
- * actions remain appropriate").
+ *   Reserve / idle        → the CIP-006 concept visual (explicitly labeled
+ *                            "Concept — not the final cover"; no real
+ *                            canonical book cover exists in this repo —
+ *                            confirmed by search, never silently presented
+ *                            as canon)
+ *   Continue reading       → the real polity-core commentary tab, embedded
+ *   Meet aigentMe           → opens the existing aigentMe Copilot drawer
+ *                            (the page's own `CodexCopilotLayer`, via
+ *                            `onOpenAigentMeCopilot`) and shows an honest
+ *                            TEXT explainer of the person↔aigentMe
+ *                            relationship — no canonical plate exists for
+ *                            this yet, so this deliberately renders as
+ *                            typography with a "Canonical plate — pending"
+ *                            badge, never a fabricated image standing in
+ *                            for one
+ *   Join the IRL research
+ *   programme               → same pending-plate text explainer for the
+ *                            Invariant Research Lab
+ *   Partner with metaMe    → same pending-plate text explainer for the
+ *                            metaMe Venture Lab
+ *
+ * "Meet aigentMe" no longer embeds the metaMe cartridge in the left
+ * viewport (the prior pass's `buildCodexUrl('metame-codex', {tab:'aigent-
+ * me',...})` iframe) — the operator wants the ALREADY-MOUNTED aigentMe
+ * Copilot drawer opened instead, with Choose staying in place. That drawer
+ * is `app/bridge/ci/page.tsx`'s own `CodexCopilotLayer` (`copilotOpen`
+ * state) — threaded down as `onOpenAigentMeCopilot` via `resolveSurfaceProps`
+ * exactly the way `personaId` already is for other stages.
  */
 
 import React, { useState } from 'react';
-import { BookMarked, Handshake, Mail, Share2, Sparkles, ArrowRight, X } from 'lucide-react';
+import { BookMarked, Compass, Handshake, Mail, Share2, Sparkles, ArrowRight } from 'lucide-react';
 import { SocialSharingModal } from '@/packages/smarttriad/src/SocialSharingModal';
 import { buildCodexUrl } from '@/utils/codex-nav';
 import { canonicalPlateImage } from '@/services/artifact/canonicalPlateImages';
 import { CI_BRIDGE_CAMPAIGN_ID } from '@/services/journey/constitutionalInternetBridgeJourney';
+import { ArtifactMattedFrame } from '@/components/journey/ArtifactMattedFrame';
+import { FullscreenableFrame } from '@/components/journey/FullscreenableFrame';
 
 const CONTACT_EMAIL = 'info@metame.com';
 const BOOK_CONCEPT_PLATE = canonicalPlateImage('CIP-006');
 
-type EmbedId = 'reading' | 'aigentme';
+type LeftView = 'book' | 'reading' | 'aigentme' | 'irl' | 'partner';
 
 interface ConstitutionalInternetBridgeChooseSurfaceProps {
   personaId?: string;
+  /** Opens the page's existing aigentMe Copilot drawer (CodexCopilotLayer) —
+   *  see header note. Undefined is handled gracefully (button still
+   *  switches the left explainer; only the drawer-open side effect is
+   *  skipped) so this component never hard-depends on the page wiring it. */
+  onOpenAigentMeCopilot?: () => void;
 }
 
 function BookReserveOption() {
@@ -129,46 +149,113 @@ function DestinationButton({
   );
 }
 
-export function ConstitutionalInternetBridgeChooseSurface({ personaId }: ConstitutionalInternetBridgeChooseSurfaceProps) {
-  const [shareOpen, setShareOpen] = useState(false);
-  const [activeEmbed, setActiveEmbed] = useState<EmbedId | null>(null);
+/** A small mailto link surfaced ALONGSIDE a destination selector (rather
+ *  than the selector itself firing mailto), per the operator's split:
+ *  selecting IRL/Partner switches the left explainer; the actual contact
+ *  action stays separately available. */
+function MailtoJoinLink({ subject, label }: { subject: string; label: string }) {
+  return (
+    <a
+      href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(subject)}`}
+      className="mt-1.5 flex items-center gap-1.5 pl-1 text-[11px] font-medium text-indigo-300 hover:text-indigo-200"
+    >
+      <Mail className="h-3 w-3" /> {label}
+    </a>
+  );
+}
 
-  const embedSrc =
-    activeEmbed === 'reading'
-      ? buildCodexUrl('polity-core', { tab: 'commentary-constitutional-internet', personaId, shell: 'embed', suppressCopilot: true })
-      : activeEmbed === 'aigentme'
-        ? buildCodexUrl('metame-codex', { tab: 'aigent-me', personaId, shell: 'embed', suppressCopilot: true })
-        : null;
+/** Honest placeholder for a canonical plate that does not exist yet —
+ *  typography only, never a fabricated/repurposed image standing in for a
+ *  real plate. The badge makes the non-canonical status explicit, same
+ *  spirit as the book concept's "Concept — not the final cover" label. */
+function PendingCanonicalPlateExplainer({ title, points }: { title: string; points: string[] }) {
+  return (
+    <div className="flex h-full w-full flex-col items-start justify-center gap-3 overflow-y-auto p-6">
+      <span className="rounded-full border border-[#8a6f4a]/40 bg-[#8a6f4a]/10 px-2.5 py-1 text-[10px] uppercase tracking-wider text-[#8a6f4a]">
+        Canonical plate — pending
+      </span>
+      <h3 className="text-lg font-semibold text-[#3a2f22]">{title}</h3>
+      <ul className="space-y-1.5 text-sm text-[#5a4a35]">
+        {points.map((p) => (
+          <li key={p} className="flex gap-2">
+            <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-[#8a6f4a]" />
+            {p}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export function ConstitutionalInternetBridgeChooseSurface({ personaId, onOpenAigentMeCopilot }: ConstitutionalInternetBridgeChooseSurfaceProps) {
+  const [shareOpen, setShareOpen] = useState(false);
+  const [leftView, setLeftView] = useState<LeftView>('book');
+
+  const readingSrc = buildCodexUrl('polity-core-cartridge', {
+    tab: 'commentary-constitutional-internet',
+    personaId,
+    shell: 'embed',
+    suppressCopilot: true,
+  });
+
+  const openAigentMe = () => {
+    setLeftView('aigentme');
+    onOpenAigentMeCopilot?.();
+  };
 
   return (
     <div className="grid gap-4 lg:grid-cols-[3fr_2fr]">
-      {/* LEFT — book concept visual, or the embedded destination once a
-          Continue-reading/Meet-aigentMe card is chosen. */}
-      <div className="relative flex h-[55vh] max-h-[65vh] min-h-[18rem] w-full items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-slate-900/40">
-        {embedSrc ? (
-          <>
-            <iframe src={embedSrc} title={activeEmbed === 'reading' ? 'Continue reading' : 'Meet aigentMe'} className="h-full w-full rounded-2xl border-0 bg-slate-950" />
-            <button
-              type="button"
-              onClick={() => setActiveEmbed(null)}
-              aria-label="Back to book concept"
-              title="Back to book concept"
-              className="absolute right-2 top-2 z-10 inline-flex items-center justify-center rounded-md bg-black/50 p-1.5 text-white/80 backdrop-blur-sm transition hover:bg-black/70 hover:text-white"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          </>
+      {/* LEFT — contextual visual, always parchment-matted + fullscreen-capable. */}
+      <FullscreenableFrame className="h-[55vh] max-h-[65vh] min-h-[18rem] w-full bg-slate-900/40" title="Choose">
+        {leftView === 'reading' ? (
+          <iframe src={readingSrc} title="Continue reading — The Constitutional Internet" className="h-full w-full border-0" />
+        ) : leftView === 'aigentme' ? (
+          <ArtifactMattedFrame>
+            <PendingCanonicalPlateExplainer
+              title="You and aigentMe"
+              points={[
+                'You remain the principal — the constitutional subject.',
+                'aigentMe is a companion and delegate only within authority you grant.',
+                'Context crossing to aigentMe is not delegation.',
+                'Mandate and authority stay bounded — never open-ended.',
+              ]}
+            />
+          </ArtifactMattedFrame>
+        ) : leftView === 'irl' ? (
+          <ArtifactMattedFrame>
+            <PendingCanonicalPlateExplainer
+              title="The Invariant Research Lab"
+              points={[
+                'Invariants are reasoning compression — durable lessons carried forward.',
+                'Oriented around experiment and validation, not assertion.',
+                'A research programme in service of Constitutional Computing.',
+              ]}
+            />
+          </ArtifactMattedFrame>
+        ) : leftView === 'partner' ? (
+          <ArtifactMattedFrame>
+            <PendingCanonicalPlateExplainer
+              title="metaMe Venture Lab"
+              points={[
+                'A pathway to build and partner on the constitutional venture substrate.',
+                'Open to Builders and Founders as participants, not just customers.',
+                'Part of the wider metaMe ecosystem.',
+              ]}
+            />
+          </ArtifactMattedFrame>
         ) : (
-          <>
-            {BOOK_CONCEPT_PLATE && (
-              <img src={BOOK_CONCEPT_PLATE.url} alt={BOOK_CONCEPT_PLATE.title} className="h-full w-full object-contain" />
-            )}
-            <span className="absolute left-3 top-3 rounded-full border border-white/20 bg-black/50 px-2.5 py-1 text-[10px] uppercase tracking-wider text-slate-300 backdrop-blur-sm">
-              Concept — not the final cover
-            </span>
-          </>
+          <ArtifactMattedFrame>
+            <div className="relative flex h-full w-full items-center justify-center">
+              {BOOK_CONCEPT_PLATE && (
+                <img src={BOOK_CONCEPT_PLATE.url} alt={BOOK_CONCEPT_PLATE.title} className="max-h-full max-w-full object-contain" />
+              )}
+              <span className="absolute left-0 top-0 rounded-full border border-[#8a6f4a]/40 bg-[#8a6f4a]/10 px-2.5 py-1 text-[10px] uppercase tracking-wider text-[#8a6f4a]">
+                Concept — not the final cover
+              </span>
+            </div>
+          </ArtifactMattedFrame>
         )}
-      </div>
+      </FullscreenableFrame>
 
       {/* RIGHT — destination actions, restrained card grammar (unchanged). */}
       <div className="space-y-3">
@@ -177,32 +264,38 @@ export function ConstitutionalInternetBridgeChooseSurface({ personaId }: Constit
         <DestinationButton
           icon={<BookMarked className="h-4 w-4 text-indigo-300" />}
           label="Continue reading"
-          active={activeEmbed === 'reading'}
-          onClick={() => setActiveEmbed('reading')}
+          active={leftView === 'reading'}
+          onClick={() => setLeftView('reading')}
         />
 
-        <DestinationButton
-          icon={<Sparkles className="h-4 w-4 text-indigo-300" />}
-          label="Meet aigentMe"
-          active={activeEmbed === 'aigentme'}
-          onClick={() => setActiveEmbed('aigentme')}
-        />
+        <div>
+          <DestinationButton
+            icon={<Sparkles className="h-4 w-4 text-indigo-300" />}
+            label="Meet aigentMe"
+            active={leftView === 'aigentme'}
+            onClick={openAigentMe}
+          />
+        </div>
 
-        <a
-          href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('Constitutional Internet — research field')}`}
-          className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-900/40 px-4 py-3.5 hover:border-indigo-400/30 transition"
-        >
-          <span className="flex items-center gap-2 text-sm font-semibold text-white"><Mail className="h-4 w-4 text-indigo-300" /> Apply to join the IRL research programme</span>
-          <ArrowRight className="h-4 w-4 text-slate-400" />
-        </a>
+        <div>
+          <DestinationButton
+            icon={<Compass className="h-4 w-4 text-indigo-300" />}
+            label="Join the IRL research programme"
+            active={leftView === 'irl'}
+            onClick={() => setLeftView('irl')}
+          />
+          <MailtoJoinLink subject="Constitutional Internet — research field" label="Email us to join" />
+        </div>
 
-        <a
-          href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('Constitutional Internet — build / partner')}`}
-          className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-900/40 px-4 py-3.5 hover:border-indigo-400/30 transition"
-        >
-          <span className="flex items-center gap-2 text-sm font-semibold text-white"><Handshake className="h-4 w-4 text-indigo-300" /> Apply to partner with metaMe</span>
-          <ArrowRight className="h-4 w-4 text-slate-400" />
-        </a>
+        <div>
+          <DestinationButton
+            icon={<Handshake className="h-4 w-4 text-indigo-300" />}
+            label="Apply to partner with metaMe"
+            active={leftView === 'partner'}
+            onClick={() => setLeftView('partner')}
+          />
+          <MailtoJoinLink subject="Constitutional Internet — build / partner" label="Email us to partner" />
+        </div>
 
         <button
           type="button"

@@ -42,7 +42,7 @@
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { Award, ClipboardList, ReceiptText, ShieldCheck, X } from 'lucide-react';
+import { Award, ChevronDown, ClipboardList, ReceiptText, ShieldCheck, X } from 'lucide-react';
 import { personaFetch } from '@/utils/personaSpine';
 import { buildCodexUrl } from '@/utils/codex-nav';
 import { ActivityReceiptCard, type ActivityReceiptData } from '@/components/metame/cards/ActivityReceiptCard';
@@ -66,6 +66,41 @@ const LANES: Array<{ key: keyof StandingLanes; label: string; color: string; tip
 
 interface ConstitutionalInternetBridgeStandPanelProps {
   personaId?: string;
+}
+
+/** Collapsible section chrome for Why / Earn Standing (targeted correction
+ *  pass, 2026-08-11) — Your Standing stays always-open (no chevron); these
+ *  two get progressive disclosure since the operator's own framing treats
+ *  them as secondary to the headline number. Wraps the EXISTING body
+ *  content unchanged — no data-source change, purely a show/hide toggle. */
+function CollapsibleSection({
+  icon,
+  title,
+  defaultOpen,
+  children,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  defaultOpen: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="rounded-xl border border-white/[0.07] bg-slate-900/40 p-4">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex w-full items-center justify-between gap-2 text-left"
+      >
+        <h3 className="flex items-center gap-1.5 text-sm font-semibold text-slate-200">
+          {icon} {title}
+        </h3>
+        <ChevronDown className={`h-4 w-4 text-slate-500 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && <div className="mt-2">{children}</div>}
+    </div>
+  );
 }
 
 export function ConstitutionalInternetBridgeStandPanel({ personaId }: ConstitutionalInternetBridgeStandPanelProps) {
@@ -178,10 +213,7 @@ export function ConstitutionalInternetBridgeStandPanel({ personaId }: Constituti
       </div>
 
       {/* 2. Why */}
-      <div className="rounded-xl border border-white/[0.07] bg-slate-900/40 p-4">
-        <h3 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-slate-200">
-          <ReceiptText className="h-4 w-4 text-emerald-300" /> Why
-        </h3>
+      <CollapsibleSection icon={<ReceiptText className="h-4 w-4 text-emerald-300" />} title="Why" defaultOpen={false}>
         {loading ? (
           <p className="text-xs text-slate-500">Loading…</p>
         ) : receipts.length === 0 ? (
@@ -220,13 +252,10 @@ export function ConstitutionalInternetBridgeStandPanel({ personaId }: Constituti
             })}
           </div>
         )}
-      </div>
+      </CollapsibleSection>
 
       {/* 3. Earn Standing */}
-      <div className="rounded-xl border border-white/[0.07] bg-slate-900/40 p-4">
-        <h3 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-slate-200">
-          <ClipboardList className="h-4 w-4 text-amber-300" /> Earn Standing
-        </h3>
+      <CollapsibleSection icon={<ClipboardList className="h-4 w-4 text-amber-300" />} title="Earn Standing" defaultOpen={false}>
         <StandingSignalsPanel personaId={personaId} />
         <button
           type="button"
@@ -235,7 +264,7 @@ export function ConstitutionalInternetBridgeStandPanel({ personaId }: Constituti
         >
           Open Standing →
         </button>
-      </div>
+      </CollapsibleSection>
     </div>
   );
 }

@@ -51,6 +51,7 @@ import { usePassportSignInHost } from '@/app/hooks/usePassportSignInHost';
 import { usePersonaSpine } from '@/utils/personaSpine';
 import { CodexCopilotLayer } from '@/app/components/codex/CodexCopilotLayer';
 import { MetaAvatarProvider } from '@/app/contexts/MetaAvatarContext';
+import { MetaAvatarHost } from '@/app/components/metaVatar/MetaAvatarHost';
 
 /** KNYT visual projection — amber/gold, never a change to JourneyRunSurface's
  *  own default (purple), which every other journey keeps. Same accent the
@@ -243,6 +244,12 @@ export default function KnytsBridgePage() {
         quickPrompts={KNYT_COPILOT_QUICK_PROMPTS}
       />
     </div>
+    {/* Same missing-mount-gate bug identified on /bridge/ci (2026-08-11,
+        targeted correction pass #98) applies here identically: this page
+        sits outside app/(shell)/layout.tsx and app/(embed)/layout.tsx, the
+        only two places that previously rendered <MetaAvatar/>. See
+        MetaAvatarHost.tsx. */}
+    <MetaAvatarHost />
     </MetaAvatarProvider>
   );
 }

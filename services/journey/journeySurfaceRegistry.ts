@@ -540,29 +540,22 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
     kind: 'component',
     component: 'ConstitutionalInternetBridgePersonifyMyCanvas',
     note:
-      'components/journey/ConstitutionalInternetBridgePersonifyMyCanvas.tsx (new, 2026-08-11) — ' +
-      'PERSONIFY\'s PRIMARY surface, evolved from ACT: "Tell your Constitutional story." Mirrors ' +
-      'KnytsBridgeRemixSurface\'s exact pattern — the SAME myCanvas tab (metame-codex/mycanvas), ' +
-      'campaignTag=CI_BRIDGE_CAMPAIGN_ID selecting MyCanvasTab\'s starter template and, via its own ' +
-      'campaignTag->cartridge lock map, forcing published output to Qriptopian Pulse — never a second, ' +
-      'CI-specific editor or publishing endpoint. A bare `component` (not `embed`) because it builds its ' +
-      'own iframe src directly via buildCodexUrl, same as KnytsBridgeRemixSurface.',
-  },
-  'ci-bridge-personify-field-entry': {
-    kind: 'component',
-    component: 'ConstitutionalAgentFieldEntrySurface',
-    note:
-      'components/journey/ConstitutionalAgentFieldEntrySurface.tsx (renamed registry key only, from ' +
-      'ci-bridge-act-field-entry) — PERSONIFY\'s SUPPORTING-tools surface beneath ci-bridge-personify-' +
-      'mycanvas above, rebuilt 2026-08-11 onto the shared BridgeContentCapsule shell: two rail cards, ' +
-      '(1) Connect Claude — the reusable ActivateClaudeChip (components/shared/ActivateClaudeChip.tsx), ' +
-      'wired to this stage\'s own connect-agent route, via the real metaMe Threshold MCP OAuth crossing ' +
-      '(read/query scope only); (2) Meet aigentMe, rendering the existing ' +
-      'ConstitutionalAgentDispositionSurface.tsx ceremony PLUS the real, focused aigentMe/metaMe embed ' +
-      '(metame-codex/aigent-me, focusedNavDepth 1) so aigentMe can actually help shape the story. The ' +
-      'capsule\'s persistent strip carries "Context may cross before authority does" regardless of which ' +
-      'card is active. Either supporting path alone completes PERSONIFY\'s agentRelationshipStarted ' +
-      'evidence (an OR, unchanged by this evolution).',
+      'components/journey/ConstitutionalInternetBridgePersonifyMyCanvas.tsx — PERSONIFY\'s ONLY surface ' +
+      '(consolidated 2026-08-11, targeted correction pass — previously paired with a second registered ' +
+      'surface, ci-bridge-personify-field-entry/ConstitutionalAgentFieldEntrySurface, now removed: it ' +
+      'embedded a SECOND metame-codex/aigent-me iframe whose own internal AigentMeWelcomeSplitTab shell ' +
+      'brought along an unrelated Horizen "Focus Check-in" ceremony, producing four visually stacked ' +
+      'agent-relationship representations on one page instead of one). "Tell your Constitutional story," ' +
+      'mirroring KnytsBridgeRemixSurface\'s exact pattern — the SAME myCanvas tab (metame-codex/mycanvas), ' +
+      'campaignTag=CI_BRIDGE_CAMPAIGN_ID selecting MyCanvasTab\'s starter template (with its own "Connect ' +
+      'Claude" rail chip, also campaign-scoped) and, via its own campaignTag->cartridge lock map, forcing ' +
+      'published output to Qriptopian Pulse — never a second, CI-specific editor or publishing endpoint. ' +
+      'A bare `component` (not `embed`) because it builds its own iframe src directly via buildCodexUrl, ' +
+      'same as KnytsBridgeRemixSurface. Now composes TWO panes side by side: the myCanvas iframe (left) ' +
+      'and an aigentMe pane (right) rendering ConstitutionalAgentDispositionSurface\'s "Shape your story" ' +
+      'role/authority question directly as a React component wrapped in LayoutShell — no second iframe, ' +
+      'no incidental Horizen ceremony. Either the story itself or the disposition question alone still ' +
+      'completes PERSONIFY\'s agentRelationshipStarted evidence.',
   },
   'ci-bridge-stand': {
     kind: 'component',

@@ -289,23 +289,19 @@ export const CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY: JourneyDefinition = {
           mode: 'component',
           ref: 'ci-bridge-personify-mycanvas',
           note:
-            'ConstitutionalInternetBridgePersonifyMyCanvas — the stage\'s PRIMARY surface (evolved from ' +
-            'ACT, 2026-08-11): the canonical myCanvas Article/Story editor, embedded exactly like KNYTS\' ' +
-            'own Remix surface, publishing through the SAME existing /api/community-content/generate -> ' +
-            '/api/mycanvas/entries/[id]/publish-to-pulse pipeline, destination locked to Qriptopian Pulse ' +
-            '(cartridge=\'qripto\') via MyCanvasTab\'s campaignTag->cartridge lock map — never a second, ' +
-            'CI-specific publishing endpoint.',
-        },
-        {
-          mode: 'component',
-          ref: 'ci-bridge-personify-field-entry',
-          note:
-            'ConstitutionalAgentFieldEntrySurface (renamed registry key only, component unchanged) — now ' +
-            'framed as SUPPORTING tools beneath the myCanvas surface above: (1) Connect an agent you ' +
-            'already use, via the real metaMe Threshold MCP OAuth crossing (services/threshold/*) — grants ' +
-            'only CONSTITUTIONAL_ROOT_CAPABILITIES (read/query scope), never delegation; (2) Meet aigentMe, ' +
-            'the existing disposition ceremony PLUS the real, focused aigentMe/metaMe embed (the person ' +
-            'remains the author). Governing rule unchanged: "Context may cross before authority does."',
+            'ConstitutionalInternetBridgePersonifyMyCanvas — PERSONIFY\'s ONLY surface (consolidated ' +
+            '2026-08-11, targeted correction pass — a second registered surface previously sat below ' +
+            'this one; its own embedded metame-codex/aigent-me iframe brought an unrelated Horizen ' +
+            '"Focus Check-in" ceremony along with it, producing four stacked agent-relationship ' +
+            'representations on one page). The canonical myCanvas Article/Story editor, embedded exactly ' +
+            'like KNYTS\' own Remix surface, publishing through the SAME existing ' +
+            '/api/community-content/generate -> /api/mycanvas/entries/[id]/publish-to-pulse pipeline, ' +
+            'destination locked to Qriptopian Pulse (cartridge=\'qripto\') via MyCanvasTab\'s ' +
+            'campaignTag->cartridge lock map — never a second, CI-specific publishing endpoint. Composes ' +
+            'a second, non-iframe pane alongside the editor: the "Shape your story" role/authority ' +
+            'question (ConstitutionalAgentDispositionSurface), which alone or together with the story ' +
+            'itself satisfies agentRelationshipStarted below. "Connect an agent you already use" now ' +
+            'lives inside MyCanvasTab\'s own rail (campaign-scoped chip), not a separate surface.',
         },
       ],
       prerequisites: ['passport'],

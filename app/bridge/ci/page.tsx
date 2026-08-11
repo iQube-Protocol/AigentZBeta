@@ -67,7 +67,6 @@ import { ConstitutionalInternetBridgeViewSequence } from '@/components/journey/C
 import { ConstitutionalInternetBridgeOrientIntro } from '@/components/journey/ConstitutionalInternetBridgeOrientIntro';
 import { ConstitutionalInternetBridgePassportRoom } from '@/components/journey/ConstitutionalInternetBridgePassportRoom';
 import { ConstitutionalInternetBridgePersonifyMyCanvas } from '@/components/journey/ConstitutionalInternetBridgePersonifyMyCanvas';
-import { ConstitutionalAgentFieldEntrySurface } from '@/components/journey/ConstitutionalAgentFieldEntrySurface';
 import { ConstitutionalInternetBridgeStandPanel } from '@/components/journey/ConstitutionalInternetBridgeStandPanel';
 import { ConstitutionalInternetBridgeChooseSurface } from '@/components/journey/ConstitutionalInternetBridgeChooseSurface';
 import { KnytsBridgeAdminPanel } from '@/components/journey/KnytsBridgeAdminPanel';
@@ -76,6 +75,7 @@ import { usePassportSignInHost } from '@/app/hooks/usePassportSignInHost';
 import { usePersonaSpine } from '@/utils/personaSpine';
 import { CodexCopilotLayer } from '@/app/components/codex/CodexCopilotLayer';
 import { MetaAvatarProvider } from '@/app/contexts/MetaAvatarContext';
+import { MetaAvatarHost } from '@/app/components/metaVatar/MetaAvatarHost';
 
 /** CI visual projection — indigo, never a change to JourneyRunSurface's own
  *  default (purple), which every other journey keeps. */
@@ -91,7 +91,6 @@ const CI_BRIDGE_COMPONENTS: Record<string, React.ComponentType<Record<string, un
   ConstitutionalInternetBridgeOrientIntro,
   ConstitutionalInternetBridgePassportRoom,
   ConstitutionalInternetBridgePersonifyMyCanvas,
-  ConstitutionalAgentFieldEntrySurface,
   ConstitutionalInternetBridgeStandPanel,
   ConstitutionalInternetBridgeChooseSurface,
 };
@@ -142,17 +141,22 @@ export default function ConstitutionalInternetBridgePage() {
           onSecondaryCta: () => selectStage('choose'),
         };
       }
+      if (surfaceRef.ref === 'ci-bridge-choose') {
+        // "Meet aigentMe" opens the SAME floating Copilot drawer mounted
+        // once below (targeted correction pass, 2026-08-11) — never a
+        // second embedded metaMe surface. This is the existing personaId-
+        // drilling channel (resolveSurfaceProps), just one more callback.
+        return { personaId, onOpenAigentMeCopilot: () => setCopilotOpen(true) };
+      }
       if (
         surfaceRef.ref === 'ci-bridge-view' ||
         surfaceRef.ref === 'ci-bridge-personify-mycanvas' ||
-        surfaceRef.ref === 'ci-bridge-personify-field-entry' ||
         // Fixed 2026-08-11 (integration pass) — STAND never received
         // personaId before this, so it always rendered its signed-out
         // "Claim your Passport" branch regardless of whether the visitor
         // actually had a persona. Same one-line fix pattern as the
         // Passport-room personaId omission fixed the same day.
-        surfaceRef.ref === 'ci-bridge-stand' ||
-        surfaceRef.ref === 'ci-bridge-choose'
+        surfaceRef.ref === 'ci-bridge-stand'
       ) {
         return { personaId };
       }
@@ -285,6 +289,15 @@ export default function ConstitutionalInternetBridgePage() {
           quickPrompts={CI_COPILOT_QUICK_PROMPTS}
         />
       </div>
+      {/* Root cause of the blank Copilot metaVatar (2026-08-11, targeted
+          correction pass #98): MetaAvatarProvider above supplies context so
+          useMetaAvatar() doesn't throw, but the actual <MetaAvatar/> mount
+          gate previously existed ONLY inside app/(shell)/layout.tsx and
+          app/(embed)/layout.tsx — neither of which wraps this bare top-level
+          route. requestAvatar('codexCopilot', ...) updated context state
+          exactly as designed; nothing ever mounted the component the state
+          change implies should appear. See MetaAvatarHost.tsx. */}
+      <MetaAvatarHost />
     </MetaAvatarProvider>
   );
 }
