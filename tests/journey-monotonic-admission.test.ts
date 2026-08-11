@@ -457,8 +457,11 @@ describe('CANARY 5 — completing a stage does not route to the next executable 
   });
 
   it('walks the whole admission spine, one act at a time, without ever naming Verify', () => {
-    // Orient inserted between Claim and Passport (2026-08-09).
-    const spine = ['register', 'claim', 'orient', 'passport', 'delegate', 'aigentme'];
+    // Orient inserted between Claim and Passport (2026-08-09). Activate
+    // inserted between Passport and Delegate (2026-08-11) — a DERIVED
+    // transition, but still an executable act from resolveMonotonicJourneyState's
+    // point of view until its own canonicalOutcome is observed true.
+    const spine = ['register', 'claim', 'orient', 'passport', 'activate', 'delegate', 'aigentme'];
     const done: Record<string, boolean> = {};
     const visited: string[] = [];
     for (let i = 0; i < spine.length; i += 1) {
@@ -1246,7 +1249,7 @@ describe('AXES — a branch is never named as "the one next act"', () => {
    */
   it('offers no single next act once the admission spine is complete', () => {
     const resolution = resolveMonotonicJourneyState(HORIZEN_MONEYPENNY_JOURNEY, nakamotoPlatformState(), {
-      canonicalOutcomes: { register: true, claim: true, orient: true, passport: true, delegate: true, aigentme: true },
+      canonicalOutcomes: { register: true, claim: true, orient: true, passport: true, activate: true, delegate: true, aigentme: true },
     });
     expect(resolution.nextExecutableAct).toBeNull();
   });
@@ -1416,17 +1419,17 @@ describe('ACCEPTANCE 3 — each completed act routes directly to the next, never
    * projection. PRE-FIX PROOF: returning null from resolveNextExecutableAct
    * for a non-complete journey turns this red (mutation-verified).
    */
-  it('routes Claim → Orient → Passport → Delegate → aigentMe, one act at a time', () => {
+  it('routes Claim → Orient → Passport → Activate → Delegate → aigentMe, one act at a time', () => {
     const done: Record<string, boolean> = { register: true };
     const route: string[] = [];
-    for (const justFinished of ['claim', 'orient', 'passport', 'delegate']) {
+    for (const justFinished of ['claim', 'orient', 'passport', 'activate', 'delegate']) {
       done[justFinished] = true;
       const resolution = resolveMonotonicJourneyState(HORIZEN_MONEYPENNY_JOURNEY, nakamotoPlatformState(), {
         canonicalOutcomes: { ...done },
       });
       route.push(resolution.nextExecutableAct!.stageId);
     }
-    expect(route).toEqual(['orient', 'passport', 'delegate', 'aigentme']);
+    expect(route).toEqual(['orient', 'passport', 'activate', 'delegate', 'aigentme']);
     // Never a dashboard, cartridge home or status surface.
     for (const stageId of route) {
       expect(HORIZEN_MONEYPENNY_JOURNEY.stages.some((s) => s.id === stageId)).toBe(true);
@@ -1493,7 +1496,7 @@ describe('ACCEPTANCE 5/6 — the branch surface', () => {
    */
   it('neither branch is ever the mandatory next act', () => {
     const resolution = resolveMonotonicJourneyState(HORIZEN_MONEYPENNY_JOURNEY, nakamotoPlatformState(), {
-      canonicalOutcomes: { register: true, claim: true, orient: true, passport: true, delegate: true, aigentme: true },
+      canonicalOutcomes: { register: true, claim: true, orient: true, passport: true, activate: true, delegate: true, aigentme: true },
     });
     expect(resolution.nextExecutableAct).toBeNull();
   });

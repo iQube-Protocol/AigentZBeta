@@ -123,8 +123,27 @@ describe('Journey wiring — Deploy and Standing are separate stages, not a pair
     const deploy = source.match(/id: 'deploy',[\s\S]*?nextStageId: 'standing',/);
     expect(deploy, "the renamed Deploy stage must exist").not.toBeNull();
     expect(deploy![0]).toContain('Ingestion Factory');
-    // The old id must be gone, not merely relabelled.
-    expect(source).not.toContain("id: 'activate',");
+    // The Deploy stage's OWN id must be 'deploy', never a leftover 'activate'
+    // from before the 2026-08-02 Deploy/Standing split.
+    expect(deploy![0]).not.toContain("id: 'activate',");
+    /*
+     * A GENUINELY NEW, UNRELATED stage now legitimately owns the id
+     * 'activate' (Constitutional State Model Correction, 2026-08-11) — the
+     * derived registry-activation transition between Passport and Delegate,
+     * a completely different constitutional fact from Deploy/Factory
+     * ingestion. This is not the 2026-08-02 leftover-stage defect
+     * recurring: that stage read `factoryIngested`/wrote
+     * `capability_registered`; this one reads `registryActivated`/writes
+     * `agent_registry_activated`, and sits nowhere near Deploy in the
+     * journey graph.
+     */
+    const activate = source.match(/id: 'activate',[\s\S]*?nextStageId: 'delegate',/);
+    expect(activate, 'the new Activate stage must exist').not.toBeNull();
+    // Structural fields only — the stage's own explanatory prose legitimately
+    // NAMES capability_registered/factoryIngested in a negation ("NO
+    // involvement of...") to state what Activate deliberately excludes.
+    expect(activate![0]).toMatch(/completionEvidence: \['registryActivated'\]/);
+    expect(activate![0]).toMatch(/receiptTypes: \['agent_registry_activated'\]/);
   });
 
   it('Standing is its own eighth stage, standalone after Deploy', () => {
