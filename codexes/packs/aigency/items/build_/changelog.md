@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`ecbdd8b`](https://github.com/iQube-Protocol/AigentZBeta/commit/ecbdd8bd27d1c62aa280ac695cb67622987ae5a9) [push] phase 4.1: consolidate choose ctAs into destination cards (Claude, 2026-08-11T22:48:22Z)
+- [`407b215`](https://github.com/iQube-Protocol/AigentZBeta/commit/407b21532fc1549d060145330f702bba223d6ae3) [fix] complete phases 4.3 & fix: passport gate modal + qripto accept pattern (Claude, 2026-08-11T22:53:09Z)
 - [`019eb69`](https://github.com/iQube-Protocol/AigentZBeta/commit/019eb6904b156a1ca5516f7e7bf8fa53bea67155) [feat] data model fix: remove invalid asset kinds, add series_scope, extend series picker for canonical content (Claude, 2026-08-11T22:31:37Z)
 - [`6e2a68b`](https://github.com/iQube-Protocol/AigentZBeta/commit/6e2a68ba69bedb55032b79dc9c99c79975fc7c81) [push] complete phase 1: remove artifact class selector, simplify to series picker (Claude, 2026-08-11T22:35:32Z)
 - [`b8e75f8`](https://github.com/iQube-Protocol/AigentZBeta/commit/b8e75f81939e7d320505467fe63519938e056cd6) [feat] add back button to Horizen MoneyPenny journey in PilotJourneyTab (Claude, 2026-08-11T20:51:03Z)

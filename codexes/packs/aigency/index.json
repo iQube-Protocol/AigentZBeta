@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-11T22:39:53.045Z",
+  "last_updated": "2026-08-11T22:54:55.693Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "019eb6904b156a1ca5516f7e7bf8fa53bea67155",
-  "latest_commit_short": "019eb69",
-  "latest_commit_title": "data model fix: remove invalid asset kinds, add series_scope, extend series picker for canonical content",
+  "latest_commit": "ecbdd8bd27d1c62aa280ac695cb67622987ae5a9",
+  "latest_commit_short": "ecbdd8b",
+  "latest_commit_title": "phase 4.1: consolidate choose ctAs into destination cards",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "ecbdd8b",
+      "full_sha": "ecbdd8bd27d1c62aa280ac695cb67622987ae5a9",
+      "title": "phase 4.1: consolidate choose ctAs into destination cards",
+      "author": "Claude",
+      "timestamp": "2026-08-11T22:48:22Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-ecbdd8b.md"
+    },
+    {
+      "sha": "407b215",
+      "full_sha": "407b21532fc1549d060145330f702bba223d6ae3",
+      "title": "complete phases 4.3 & fix: passport gate modal + qripto accept pattern",
+      "author": "Claude",
+      "timestamp": "2026-08-11T22:53:09Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-407b215.md"
+    },
     {
       "sha": "019eb69",
       "full_sha": "019eb6904b156a1ca5516f7e7bf8fa53bea67155",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-08-08T12:47:57Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-7d77143.md"
-    },
-    {
-      "sha": "7fce0bf",
-      "full_sha": "7fce0bf9466bf4acefc42caca5770f96a81d1167",
-      "title": "fix: add defensive null checks and error handling to sidepanel message handlers",
-      "author": "Claude",
-      "timestamp": "2026-08-07T01:13:31Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-7fce0bf.md"
-    },
-    {
-      "sha": "91c57fe",
-      "full_sha": "91c57fee3f5bd70d7af5fd877d6a38df7ffa1511",
-      "title": "add extension distribution packages to .gitignore",
-      "author": "Claude",
-      "timestamp": "2026-08-07T01:08:11Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-91c57fe.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
