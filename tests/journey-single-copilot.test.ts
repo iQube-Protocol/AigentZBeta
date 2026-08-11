@@ -91,7 +91,11 @@ describe('the suppression travels end to end, and defaults to off at every hop',
       src,
       'a second, hand-inlined suppressCopilot construction here would drift from the registry builder',
     ).not.toContain('suppressCopilot: descriptor.suppressFloatingCopilot');
-    expect(src).toContain('buildEmbedSurfaceSrc(descriptor');
+    // Call shape gained the focused/Full override spread in the 2026-08-10
+    // in-place chrome toggle (`{ ...descriptor, focused: ... }` rather than
+    // the bare `descriptor`) — still the one builder, just passed an
+    // overridden copy of the same descriptor.
+    expect(src).toMatch(/buildEmbedSurfaceSrc\(\s*\{\s*\.\.\.descriptor/);
   });
 
   it('the embed page treats only the exact value as the suppression', () => {
