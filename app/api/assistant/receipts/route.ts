@@ -197,6 +197,9 @@ const VALID_ACTION_TYPES = new Set<ActivityActionType>([
   'agent_sponsorship_recorded',
   'passport_issued',
   'agent_delegate_passport_issued',
+  // Constitutional State Model Correction (2026-08-11) — the Activate
+  // stage's own receipt. See services/journey/agentRegistryActivation.ts.
+  'agent_registry_activated',
   'agent_delegated',
   'finance_authoritative_execution',
   'aigentme_activated',

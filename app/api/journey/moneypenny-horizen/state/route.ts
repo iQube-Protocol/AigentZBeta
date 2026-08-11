@@ -111,6 +111,9 @@ const JOURNEY_ACTION_TYPES: ActivityActionType[] = [
   'operator_passport_validated',
   'agent_sponsorship_recorded',
   'agent_delegate_passport_issued',
+  // Constitutional State Model Correction (2026-08-11) — the Activate stage's
+  // own receipt. See services/journey/agentRegistryActivation.ts.
+  'agent_registry_activated',
   /*
    * THE RECEIPT THE BUREAU ACTUALLY WRITES.
    *
@@ -520,7 +523,24 @@ async function resolveState(req: NextRequest) {
       }
     });
     if (supabase) await guarded('agent-admission', async () => {
-      admission = await resolveAgentAdmissionState(supabase, agent, caller?.authProfileId ?? null);
+      /*
+       * Constitutional State Model Correction (2026-08-11) — the resolver's
+       * OWN registry-activation check needs an authenticated persona to
+       * attribute a freshly-established `agent_registry_activated` receipt
+       * to. `null` here (no active persona) is never an error: the check
+       * still runs and reports honestly (`eligible-awaiting-actor`), it
+       * just performs no write — see agentRegistryActivation.ts's own
+       * five-valued outcome. This route never calls
+       * `ensureAgentRegistryActivation` itself; it only reads
+       * `admission.registryActivated` below.
+       */
+      const activePersonaForActivation = await getActivePersona(req);
+      admission = await resolveAgentAdmissionState(
+        supabase,
+        agent,
+        caller?.authProfileId ?? null,
+        activePersonaForActivation?.personaId ?? null,
+      );
     });
     /*
      * REGISTRATION STANDING SEED — awarded inline, the same idiom this route
@@ -854,6 +874,29 @@ async function resolveState(req: NextRequest) {
         sponsorBinding: admission?.sponsorshipRecorded === true || hasReceipt('agent_sponsorship_recorded'),
         delegatePassportIssued: passportIssuedForAgent,
       },
+      /*
+       * ── ACTIVATE — A DERIVED CONSTITUTIONAL TRANSITION, NEVER AN ACT ─────
+       *
+       * Constitutional State Model Correction (operator-ratified 2026-08-11).
+       * `registryActivated` is READ ONLY here — this route never calls
+       * `ensureAgentRegistryActivation` itself. The write happens at the
+       * Passport-completion boundary inside `resolveAgentAdmissionState`
+       * (services/journey/agentAdmissionState.ts), the moment it observes
+       * `sponsorshipRecorded` and `delegatePassportIssued` both true for an
+       * authenticated caller. This evidence block simply surfaces whatever
+       * that resolver already settled — canonical first, receipt as
+       * corroboration, same discipline as every other stage in this file.
+       *
+       * Deliberately carries NO `operationalBlockers` entry anywhere in this
+       * route (see the `operationalBlockers: { verify, passport }` map
+       * below) — Activate has no operator-facing act to perform, so it
+       * structurally cannot acquire the "COMPLETE stage still asserting its
+       * own predicate absent" contradiction the 2026-08-11 audit found on
+       * the Passport stage. `tests/registry-activation.test.ts` pins this.
+       */
+      activate: {
+        registryActivated: admission?.registryActivated === true || hasReceipt('agent_registry_activated'),
+      },
       delegate: {
         delegatePassportActive: passportIssuedForAgent,
         boundedDelegationActive: admission?.delegationActive === true || hasReceipt('agent_delegated'),
@@ -1070,6 +1113,13 @@ async function resolveState(req: NextRequest) {
     register: registration?.registered === true || Boolean(horizen?.tokenId),
     claim: hasReceipt('agent_control_proven'),
     passport: passportIssuedForAgent,
+    /*
+     * Activate's canonical outcome is ITS OWN settled fact / receipt —
+     * never re-derived from Delegate or Operate (Constitutional State Model
+     * Correction, 2026-08-11). `admission?.registryActivated` is the
+     * resolver's own answer; the receipt is corroboration only.
+     */
+    activate: admission?.registryActivated === true || hasReceipt('agent_registry_activated'),
     delegate: admission?.delegationActive === true || hasReceipt('agent_delegated'),
     /*
      * Deploy's canonical outcome is its OWN `capability_registered` receipt —

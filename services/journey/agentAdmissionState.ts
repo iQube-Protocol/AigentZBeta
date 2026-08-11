@@ -90,6 +90,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { RegistrableAgentConfig } from '@/services/horizen/registrableAgents';
 import { sponsorPolityAgent } from '@/services/agents/sponsorPolityAgent';
 import { listOwnedPersonaIds } from '@/services/identity/passportPrincipal';
+import { ensureAgentRegistryActivation } from './agentRegistryActivation';
 
 export interface AgentAdmissionState {
   /** A sponsoring persona + citizen passport are recorded against the agent. */
@@ -122,6 +123,17 @@ export interface AgentAdmissionState {
    * that alone.
    */
   agentRootId: string | null;
+  /**
+   * Constitutional State Model Correction (operator-ratified, 2026-08-11).
+   * `iQubeRegistryPresent ∧ sponsorBindingEstablished ∧ agentPassportIssued`
+   * — established via `ensureAgentRegistryActivation`
+   * (services/journey/agentRegistryActivation.ts) at this exact boundary,
+   * the moment this resolver observes Passport complete. NEVER derived from
+   * `delegationActive`, aigentMe/Operate, or `factoryPresent`/
+   * `capability_registered`. `undefined` only on a read failure — an audit
+   * gap, never "not activated".
+   */
+  registryActivated: boolean | undefined;
   /** Reads that failed, named. Disclosed, never folded into a `false`. */
   auditGaps: string[];
 }
@@ -261,6 +273,22 @@ export async function resolveAgentAdmissionState(
    * (the self-heal simply stays a no-op audit gap for them).
    */
   callerAuthProfileId: string | null = null,
+  /**
+   * The AUTHENTICATED caller's own personaId — used ONLY to attribute a
+   * freshly-established `agent_registry_activated` receipt (never to gate
+   * or alter any read above). `null` for an anonymous/preflight caller: the
+   * activation check still runs and reports honestly (`eligible-awaiting-
+   * actor` rather than a fabricated write), it just cannot write.
+   */
+  actorPersonaId: string | null = null,
+  /**
+   * 'legacy-reconciled' ONLY for the explicit, operator-invoked
+   * reconciliation route (app/api/ops/journey/
+   * reconcile-registry-activation/route.ts) — never automatically inferred
+   * here. Defaults to 'freshly-established', correct for the ordinary case
+   * of a live admission crossing the boundary for the first time.
+   */
+  activationProvenance: 'freshly-established' | 'legacy-reconciled' = 'freshly-established',
 ): Promise<AgentAdmissionState> {
   const auditGaps: string[] = [];
   let sponsorshipRecorded: boolean | undefined;
@@ -404,5 +432,51 @@ export async function resolveAgentAdmissionState(
     auditGaps.push(`registry presence read failed: ${err instanceof Error ? err.message : String(err)}`);
   }
 
-  return { sponsorshipRecorded, delegatePassportIssued, delegationActive, factoryPresent, agentRootId, auditGaps };
+  /*
+   * ── 5. Registry Activation — the derived constitutional transition ──────
+   *
+   * Constitutional State Model Correction (operator-ratified, 2026-08-11).
+   * This is the "Passport completion path" hook point: the exact boundary
+   * where this resolver observes `sponsorshipRecorded` and
+   * `delegatePassportIssued` become true is where `registryActivated` gets
+   * materialized — idempotently, via `ensureAgentRegistryActivation`
+   * (services/journey/agentRegistryActivation.ts) — mirroring the RootDID
+   * self-heal write immediately above (step 2.5), the ALREADY-established
+   * precedent in this exact file for "a read boundary performs an
+   * idempotent settlement write when it observes a completion".
+   *
+   * Only attempted when the reads above are trustworthy (no audit gap) —
+   * an evidence gap must never be reasoned over as though it were a
+   * negative. `registryPresent` reuses `factoryPresent`: same underlying
+   * fact ("does this agent's registry_assets row exist"), read once.
+   */
+  let registryActivated: boolean | undefined;
+  if (auditGaps.length === 0) {
+    try {
+      const activation = await ensureAgentRegistryActivation(
+        admin,
+        agent,
+        actorPersonaId,
+        {
+          registryPresent: factoryPresent === true,
+          sponsorBindingEstablished: sponsorshipRecorded === true,
+          agentPassportIssued: delegatePassportIssued === true,
+        },
+        activationProvenance,
+      );
+      registryActivated = activation.registryActivated;
+    } catch (err) {
+      auditGaps.push(`registry activation check failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  return {
+    sponsorshipRecorded,
+    delegatePassportIssued,
+    delegationActive,
+    factoryPresent,
+    agentRootId,
+    registryActivated,
+    auditGaps,
+  };
 }

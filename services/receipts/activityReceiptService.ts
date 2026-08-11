@@ -376,7 +376,20 @@ export type ActivityActionType =
   //     discoverAndReceiptPnlServiceEvidence, never by the registration
   //     mutation itself — registering is not self-certifying).
   // See services/horizen/pnlOnboardingClient.ts.
-  | 'pnl_service_registered';
+  | 'pnl_service_registered'
+  // Constitutional State Model Correction (operator-ratified, 2026-08-11):
+  // the agent became an accountable, active participant in the iQube
+  // Registry. Derived from, and ONLY from, iQubeRegistryPresent ∧
+  // sponsorBindingEstablished ∧ agentPassportIssued — never from Delegate,
+  // Operate, or `capability_registered` (Factory/Ingest evidence, which
+  // stays technical and is never conflated with this constitutional fact).
+  // Awards no Standing. Issued exactly once per agent via the settled-fact
+  // idempotency in `services/journey/agentRegistryActivation.ts`'s
+  // `ensureAgentRegistryActivation`. `actionInput.provenance` distinguishes
+  // a fresh establishment from a legacy agent whose predicates were already
+  // true before this mechanism existed ('freshly-established' |
+  // 'legacy-reconciled').
+  | 'agent_registry_activated';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 

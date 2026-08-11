@@ -282,6 +282,48 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
         complete: 'The wallet proved control. The Passport now establishes the human source from whom authority may originate.',
       },
       narrator: { active: 'Binding personhood', consequence: 'Establishes sponsorship' },
+      nextStageId: 'activate',
+    },
+    {
+      id: 'activate',
+      label: 'Activate',
+      description:
+        '{{agentDisplayName}} becomes an accountable, active participant in the iQube Registry — a derived constitutional transition, not an act the operator performs.',
+      /*
+       * ── DERIVED, NOT PERFORMED (Constitutional State Model Correction,
+       * operator-ratified 2026-08-11) ──────────────────────────────────────
+       *
+       * `registryActivated = iQubeRegistryPresent ∧ sponsorBindingEstablished
+       * ∧ agentPassportIssued`. Established automatically the moment
+       * Passport's own two acts (sponsorship + Delegate Passport issuance)
+       * are both observed true — see services/journey/
+       * agentRegistryActivation.ts's `ensureAgentRegistryActivation`, called
+       * from services/journey/agentAdmissionState.ts at that exact boundary.
+       *
+       * NO Delegate prerequisite. NO Operate prerequisite. NO involvement of
+       * `capability_registered` (Factory/Ingest — a technical fact, never
+       * constitutional-activation evidence). Awards NO Standing: admission
+       * creates eligibility to participate, never accrual.
+       *
+       * The visible order Passport → Activate → Delegate → Operate below is
+       * this pilot's GUIDED CEREMONY ORDER ONLY — it is not the
+       * constitutional dependency graph. The underlying model permits an
+       * Active/Operating agent with no current delegation; delegation and
+       * mandate are contextual operating-authority rituals performed WITHIN
+       * Operate, never existential prerequisites for it.
+       */
+      actor: 'moneypenny',
+      subjectRef: 'moneypenny',
+      surfaces: [],
+      prerequisites: ['passport'],
+      permittedActions: [],
+      completionEvidence: ['registryActivated'],
+      receiptTypes: ['agent_registry_activated'],
+      companion: {
+        before: 'Once sponsorship and {{agentDisplayName}}\'s Delegate Passport are both established, activation follows automatically.',
+        complete: '{{agentDisplayName}} is now an accountable, active participant in the iQube Registry. No Standing has been awarded — activation establishes eligibility to participate, never accrual.',
+      },
+      narrator: { active: 'Activating in the Registry', consequence: 'Establishes accountable participation' },
       nextStageId: 'delegate',
     },
     {
@@ -299,7 +341,7 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
           note: "Rendered bare — Venture Lab α's Participate → Delegation module (bounded delegation).",
         },
       ],
-      prerequisites: ['passport'],
+      prerequisites: ['activate'],
       permittedActions: ['approve-bounded-delegation', 'ratify-bootstrap'],
       /*
        * DELEGATE COMPLETES ON DELEGATION, NOT ON FS RUNTIME ACTIVATION
