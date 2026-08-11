@@ -574,11 +574,6 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
   // so switching tabs doesn't clobber the other side's selection.
   const [selectedQriptoSeries, setSelectedQriptoSeries] = useState<string>(QRIPTO_SERIES[0].value);
   const [selectedQriptoCategory, setSelectedQriptoCategory] = useState<QriptoCategoryId>('white-paper');
-  // Artifact Class (2026-08-11) — 'operational' preserves every existing
-  // Qripto upload behavior unchanged; 'canonical' swaps the Content Type
-  // picker to the stack-wide reference categories (see CANONICAL_QRIPTO_CATEGORIES).
-  const [qriptoArtifactClass, setQriptoArtifactClass] = useState<QriptoArtifactClass>('operational');
-  const [selectedCanonicalCategory, setSelectedCanonicalCategory] = useState<CanonicalCategoryId>('canonical-plate');
   const [uploadQueue, setUploadQueue] = useState<UploadItem[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [storageProvider, setStorageProvider] = useState<'auto-drive' | 'supabase'>('auto-drive');
@@ -587,10 +582,6 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
 
   const currentCategory = ASSET_CATEGORIES.find((c) => c.id === selectedCategory)!;
   const currentQriptoCategory = QRIPTO_CATEGORIES.find((c) => c.id === selectedQriptoCategory)!;
-  const currentQriptoOrCanonicalCategory =
-    qriptoArtifactClass === 'canonical'
-      ? CANONICAL_QRIPTO_CATEGORIES.find((c) => c.id === selectedCanonicalCategory)!
-      : currentQriptoCategory;
 
   // Series string passed to backend uploads. KNYT = 'metaKnyts',
   // Qripto = 'qriptopian'. Used in storage paths + master_content_qubes /
@@ -643,30 +634,6 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
       const files = Array.from(e.target.files ?? []);
       if (files.length === 0) return;
 
-      // Canonical Artifacts branch — stack-wide reference plates/videos, not
-      // scoped to a paper/magazine series. Still rides 'lore' as the generic
-      // storage bucket (unchanged routing), but the asset kind marks it as
-      // canonical so it's queryable separately from operational content.
-      if (qriptoArtifactClass === 'canonical') {
-        const canon = CANONICAL_QRIPTO_CATEGORIES.find((c) => c.id === selectedCanonicalCategory)!;
-        const newItems: UploadItem[] = files.map((file, idx) => ({
-          id: `${Date.now()}-q-${idx}`,
-          file,
-          category: 'lore',
-          assetKind: canon.assetKind,
-          episodeNumber: null,
-          title: file.name.replace(/\.[^/.]+$/, ''),
-          status: 'pending' as const,
-          progress: 0,
-          displayMode: (canon.id === 'canonical-video' ? 'video' : 'image') as DisplayMode,
-          cartridge: 'qriptopian' as const,
-          seriesMode: 'standalone' as const,
-        }));
-        setUploadQueue((prev) => [...prev, ...newItems]);
-        if (qriptoFileInputRef.current) qriptoFileInputRef.current.value = '';
-        return;
-      }
-
       // Non-cover categories ride 'lore' as the catch-all bucket so storage
       // routing stays uniform. Covers go through the dedicated 'cover'
       // bucket so the register route writes cover_thumb_url and the asset
@@ -680,6 +647,10 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
         'infographic': 'social_campaign_image',
       };
       const isCover = selectedQriptoCategory === 'cover';
+      // Read seriesScope from the selected series item (present for canonical,
+      // optional for papers/magazines).
+      const selectedSeriesItem = QRIPTO_SERIES.find((s) => s.value === selectedQriptoSeries);
+      const seriesScope = selectedSeriesItem?.seriesScope;
       const newItems: UploadItem[] = files.map((file, idx) => ({
         id: `${Date.now()}-q-${idx}`,
         file,
@@ -698,11 +669,12 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
         displayMode: 'pdf' as DisplayMode,
         cartridge: 'qriptopian' as const,
         seriesMode: 'standalone' as const,
+        seriesScope,
       }));
       setUploadQueue((prev) => [...prev, ...newItems]);
       if (qriptoFileInputRef.current) qriptoFileInputRef.current.value = '';
     },
-    [selectedQriptoCategory, qriptoArtifactClass, selectedCanonicalCategory],
+    [selectedQriptoCategory, selectedQriptoSeries],
   );
 
   const updateItem = useCallback((id: string, updates: Partial<UploadItem>) => {
@@ -1065,94 +1037,55 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
               )}
             </div>
           ) : (
-            // ── Qriptopian tab — Artifact Class + Series/Content Type pickers ──────────
+            // ── Qriptopian tab — Series + Content Type pickers ─────────────────────
             <div className="p-6">
-              {/* Artifact Class — orthogonal to Series/Content Type. Canonical
-                  Artifacts are stack-wide reference material (e.g. the
-                  Constitutional Internet Bridge's plates/videos); Operational
-                  Artifacts are the existing Papers/Magazines editorial content. */}
-              <div className="mb-4">
-                <label className="mb-2 block text-sm font-medium text-gray-300">Artifact Class</label>
-                <div className="inline-flex items-center gap-1 rounded-lg border border-gray-700 bg-gray-800 p-1">
-                  <button
-                    type="button"
-                    onClick={() => setQriptoArtifactClass('operational')}
-                    className={`rounded px-3 py-1.5 text-xs font-medium transition-colors ${qriptoArtifactClass === 'operational' ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-gray-200'}`}
-                  >
-                    Operational Artifacts
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setQriptoArtifactClass('canonical')}
-                    className={`rounded px-3 py-1.5 text-xs font-medium transition-colors ${qriptoArtifactClass === 'canonical' ? 'bg-amber-600 text-white' : 'text-gray-400 hover:text-gray-200'}`}
-                  >
-                    Canonical Artifacts
-                  </button>
-                </div>
-                <p className="mt-1.5 text-[11px] text-gray-500">
-                  {qriptoArtifactClass === 'canonical'
-                    ? 'Stack-wide reference plates/videos (e.g. Constitutional Internet Bridge plates) — not scoped to one paper or magazine issue.'
-                    : 'Papers/Magazines editorial content, scoped to the series picked below.'}
-                </p>
-              </div>
-
-              {qriptoArtifactClass === 'operational' ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                  {/* Series — Papers (sub-series) + Magazines (issues) */}
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-gray-300">Series</label>
-                    <select
-                      value={selectedQriptoSeries}
-                      onChange={(e) => setSelectedQriptoSeries(e.target.value)}
-                      className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white focus:border-purple-500 focus:outline-none"
-                    >
-                      <optgroup label="Papers">
-                        {QRIPTO_SERIES.filter((s) => s.group === 'papers').map((s) => (
-                          <option key={s.value} value={s.value}>{s.label}</option>
-                        ))}
-                      </optgroup>
-                      <optgroup label="Magazines">
-                        {QRIPTO_SERIES.filter((s) => s.group === 'magazines').map((s) => (
-                          <option key={s.value} value={s.value}>{s.label}</option>
-                        ))}
-                      </optgroup>
-                    </select>
-                  </div>
-                  {/* Content Type */}
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-gray-300">Content Type</label>
-                    <select
-                      value={selectedQriptoCategory}
-                      onChange={(e) => setSelectedQriptoCategory(e.target.value as QriptoCategoryId)}
-                      className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white focus:border-purple-500 focus:outline-none"
-                    >
-                      {QRIPTO_CATEGORIES.map((c) => (
-                        <option key={c.id} value={c.id}>{c.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              ) : (
-                <div className="mb-4">
-                  <label className="mb-2 block text-sm font-medium text-gray-300">Canonical Category</label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                {/* Series — Papers (sub-series), Magazines (issues), Canonical (stack-wide reference) */}
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-300">Series</label>
                   <select
-                    value={selectedCanonicalCategory}
-                    onChange={(e) => setSelectedCanonicalCategory(e.target.value as CanonicalCategoryId)}
-                    className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none md:w-1/2"
+                    value={selectedQriptoSeries}
+                    onChange={(e) => setSelectedQriptoSeries(e.target.value)}
+                    className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white focus:border-purple-500 focus:outline-none"
                   >
-                    {CANONICAL_QRIPTO_CATEGORIES.map((c) => (
+                    <optgroup label="Papers">
+                      {QRIPTO_SERIES.filter((s) => s.group === 'papers').map((s) => (
+                        <option key={s.value} value={s.value}>{s.label}</option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="Magazines">
+                      {QRIPTO_SERIES.filter((s) => s.group === 'magazines').map((s) => (
+                        <option key={s.value} value={s.value}>{s.label}</option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="Canonical">
+                      {QRIPTO_SERIES.filter((s) => s.group === 'canonical').map((s) => (
+                        <option key={s.value} value={s.value}>{s.label}</option>
+                      ))}
+                    </optgroup>
+                  </select>
+                </div>
+                {/* Content Type */}
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-300">Content Type</label>
+                  <select
+                    value={selectedQriptoCategory}
+                    onChange={(e) => setSelectedQriptoCategory(e.target.value as QriptoCategoryId)}
+                    className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white focus:border-purple-500 focus:outline-none"
+                  >
+                    {QRIPTO_CATEGORIES.map((c) => (
                       <option key={c.id} value={c.id}>{c.label}</option>
                     ))}
                   </select>
                 </div>
-              )}
+              </div>
 
               {/* Category description */}
-              <div className={`mb-4 rounded-lg border p-3 ${qriptoArtifactClass === 'canonical' ? 'border-amber-500/30 bg-amber-500/5' : 'border-purple-500/30 bg-purple-500/5'}`}>
-                <p className={`text-xs ${qriptoArtifactClass === 'canonical' ? 'text-amber-200' : 'text-purple-200'}`}>
-                  <strong>{currentQriptoOrCanonicalCategory.label}:</strong>{' '}
-                  {currentQriptoOrCanonicalCategory.description}{' '}
-                  <span className="text-gray-400">· Accepted: {currentQriptoOrCanonicalCategory.accept}</span>
+              <div className="mb-4 rounded-lg border border-purple-500/30 bg-purple-500/5 p-3">
+                <p className="text-xs text-purple-200">
+                  <strong>{currentQriptoCategory.label}:</strong>{' '}
+                  {currentQriptoCategory.description}{' '}
+                  <span className="text-gray-400">· Accepted: {currentQriptoCategory.accept}</span>
                 </p>
               </div>
 
