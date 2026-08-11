@@ -4034,3 +4034,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-d737498.md](../build_/COMMITS/COMMIT-d737498.md)
 - Message: add artifact class (canonical/operational) toggle to qriptopian upload modal
+
+## Commit `b8e75f8` — 2026-08-11T20:51:03Z
+- Type: `feat`
+- Brief: [COMMIT-b8e75f8.md](../build_/COMMITS/COMMIT-b8e75f8.md)
+- Message: add back button to Horizen MoneyPenny journey in PilotJourneyTab

@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`b8e75f8`](https://github.com/iQube-Protocol/AigentZBeta/commit/b8e75f81939e7d320505467fe63519938e056cd6) [feat] add back button to Horizen MoneyPenny journey in PilotJourneyTab (Claude, 2026-08-11T20:51:03Z)
 - [`d737498`](https://github.com/iQube-Protocol/AigentZBeta/commit/d737498f0e586a7f7ba89388bf440c984de728d8) [feat] add artifact class (canonical/operational) toggle to qriptopian upload modal (Claude, 2026-08-11T20:41:43Z)
 - [`7716251`](https://github.com/iQube-Protocol/AigentZBeta/commit/7716251ff997535f05742532a595b2160f5e784f) [push] improve artifact URL copy affordance in upload modal + redirect Claude Code button to code interface (Claude, 2026-08-11T20:43:21Z)
 - [`937b6d8`](https://github.com/iQube-Protocol/AigentZBeta/commit/937b6d832e22fce22e150afb9e4c59b2e37558a8) [feat] add back button to threshold guides + wire groundContext to bridge copilots (Claude, 2026-08-11T20:49:07Z)

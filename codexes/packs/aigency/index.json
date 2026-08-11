@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-11T20:51:14.384Z",
+  "last_updated": "2026-08-11T20:52:58.168Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "d737498f0e586a7f7ba89388bf440c984de728d8",
-  "latest_commit_short": "d737498",
-  "latest_commit_title": "add artifact class (canonical/operational) toggle to qriptopian upload modal",
+  "latest_commit": "b8e75f81939e7d320505467fe63519938e056cd6",
+  "latest_commit_short": "b8e75f8",
+  "latest_commit_title": "add back button to Horizen MoneyPenny journey in PilotJourneyTab",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "b8e75f8",
+      "full_sha": "b8e75f81939e7d320505467fe63519938e056cd6",
+      "title": "add back button to Horizen MoneyPenny journey in PilotJourneyTab",
+      "author": "Claude",
+      "timestamp": "2026-08-11T20:51:03Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-b8e75f8.md"
+    },
     {
       "sha": "d737498",
       "full_sha": "d737498f0e586a7f7ba89388bf440c984de728d8",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-06T22:53:23Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-e78fe17.md"
-    },
-    {
-      "sha": "c6113f2",
-      "full_sha": "c6113f259c378452a6db7a83ae64698ce085e387",
-      "title": "Document mandatory delegation security architecture and constraints",
-      "author": "Claude",
-      "timestamp": "2026-08-04T00:32:39Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-c6113f2.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
