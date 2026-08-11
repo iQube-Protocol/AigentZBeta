@@ -168,6 +168,7 @@ export default function ConstitutionalInternetBridgePage() {
           resolveSurfaceProps={resolveSurfaceProps}
           accent={CI_ACCENT}
           compact
+          distinguishAvailableStages
           headerLabel={
             <>
               <span className="shrink-0 font-semibold text-slate-100">Constitutional Internet Bridge</span>

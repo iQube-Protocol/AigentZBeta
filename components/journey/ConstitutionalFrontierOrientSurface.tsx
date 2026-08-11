@@ -14,19 +14,22 @@
  * /api/journey/constitutional-internet-bridge/orient — never presented as
  * Standing or authority.
  *
- * Rendered (2026-08-11) on the shared BridgeContentCapsule shell: exactly
- * three rail cards (Help / Preserve / Authority — never a fourth "Connect
- * Claude" card, per operator instruction), one question active at a time
- * instead of all three stacked, with a persistent strip carrying progress +
- * the "See your Constitutional Frontier" action so it survives switching
- * between questions. All state/logic below (options, buildSummary, the
- * best-effort POST) is UNCHANGED from the pre-capsule version — only the
- * render shape changed.
+ * Layout (revised 2026-08-11, final interaction pass): this no longer
+ * mounts on the shared BridgeContentCapsule shell — that shell's own
+ * internal viewport+rail two-column split was designed for a single card
+ * occupying a full-width slot, and would nest a second 3fr/1fr grid inside
+ * ORIENT's now-narrow (~40%-width) right column, cramping the question
+ * content the operator explicitly asked to keep legible. Instead this
+ * renders one bordered capsule (Help/Preserve/Authority as a compact
+ * horizontal tab row — never a fourth "Connect Claude" tab, per operator
+ * instruction) with one question active at a time, and a persistent footer
+ * strip carrying progress + the "See your Constitutional Frontier" action.
+ * All state/logic below (options, buildSummary, the best-effort POST) is
+ * UNCHANGED from the pre-capsule version — only the render shape changed.
  */
 
 import React, { useState } from 'react';
 import { personaFetch } from '@/utils/personaSpine';
-import { BridgeContentCapsule, type BridgeCapsuleRailCard } from '@/components/journey/BridgeContentCapsule';
 import { CI_BRIDGE_ORIENT_COMPANION_COPY } from '@/services/journey/constitutionalInternetBridgeJourney';
 
 const HELP_OPTIONS = [
@@ -73,19 +76,10 @@ function buildSummary(help: string, preserve: string, authority: string): string
 
 type QuestionId = 'help' | 'preserve' | 'authority';
 
-function orientRailThumb(number: string, label: string) {
-  return () => (
-    <div className="flex h-full w-full flex-col items-center justify-center gap-0.5 bg-slate-950/40">
-      <span className="text-[10px] tracking-[0.2em] text-slate-500">{number}</span>
-      <span className="text-xs font-medium text-slate-200">{label}</span>
-    </div>
-  );
-}
-
-const ORIENT_RAIL: BridgeCapsuleRailCard[] = [
-  { id: 'help', label: 'Help', aspect: 'compact', renderThumb: orientRailThumb('01', 'Help') },
-  { id: 'preserve', label: 'Preserve', aspect: 'compact', renderThumb: orientRailThumb('02', 'Preserve') },
-  { id: 'authority', label: 'Authority', aspect: 'compact', renderThumb: orientRailThumb('03', 'Authority') },
+const ORIENT_QUESTIONS: { id: QuestionId; label: string }[] = [
+  { id: 'help', label: 'Help' },
+  { id: 'preserve', label: 'Preserve' },
+  { id: 'authority', label: 'Authority' },
 ];
 
 function OptionGrid({
@@ -145,88 +139,102 @@ export function ConstitutionalFrontierOrientSurface() {
     setActiveQuestion('help');
   };
 
+  const answeredFor = (id: QuestionId) =>
+    id === 'help' ? Boolean(help) : id === 'preserve' ? Boolean(preserve) : Boolean(authority);
+
   return (
-    <BridgeContentCapsule
-      railCards={ORIENT_RAIL}
-      activeRailId={activeQuestion}
-      onRailChange={(id) => setActiveQuestion(id as QuestionId)}
-      allowFullscreen={false}
-      renderViewport={(activeId) => {
-          if (submitted && help && preserve && authority) {
-            return (
-              <div className="p-5">
-                <p className="text-[10px] uppercase tracking-wider text-slate-500 mb-2">Your Constitutional Frontier</p>
-                <p className="whitespace-pre-line text-sm leading-relaxed text-slate-200">
-                  {buildSummary(help, preserve, authority)}
-                </p>
-              </div>
-            );
-          }
-          if (activeId === 'help') {
-            return (
-              <OptionGrid
-                title="Where do you most want agents to help?"
-                options={HELP_OPTIONS}
-                value={help}
-                columns="grid-cols-2 sm:grid-cols-3"
-                onChange={(v) => {
-                  setHelp(v);
-                  setActiveQuestion('preserve');
-                }}
-              />
-            );
-          }
-          if (activeId === 'preserve') {
-            return (
-              <OptionGrid
-                title="What do you most want to remain yours?"
-                options={PRESERVE_OPTIONS}
-                value={preserve}
-                columns="grid-cols-2 sm:grid-cols-3"
-                onChange={(v) => {
-                  setPreserve(v);
-                  setActiveQuestion('authority');
-                }}
-              />
-            );
-          }
+    <div className="flex flex-col gap-3 rounded-2xl border border-white/[0.07] bg-slate-900/40 p-4">
+      <div className="flex items-center gap-1.5">
+        {ORIENT_QUESTIONS.map((q, i) => {
+          const isActive = !submitted && activeQuestion === q.id;
+          const answered = answeredFor(q.id);
           return (
-            <OptionGrid
-              title="How much authority would you currently give an agent?"
-              options={AUTHORITY_OPTIONS}
-              value={authority}
-              columns="grid-cols-1 sm:grid-cols-2"
-              onChange={(v) => setAuthority(v)}
-            />
+            <button
+              key={q.id}
+              type="button"
+              onClick={() => {
+                setSubmitted(false);
+                setActiveQuestion(q.id);
+              }}
+              aria-pressed={isActive}
+              className={`flex-1 rounded-lg border px-2 py-1.5 text-[11px] font-medium transition ${
+                isActive
+                  ? 'border-amber-400/50 bg-amber-500/10 text-amber-200'
+                  : 'border-white/[0.07] bg-slate-950/40 text-slate-400 hover:border-white/20'
+              }`}
+            >
+              {i + 1}. {q.label}
+              {answered && ' ✓'}
+            </button>
           );
-        }}
-      renderStrip={() => {
-          if (submitted) {
-            return (
-              <button
-                type="button"
-                onClick={changeAnswers}
-                className="text-[11px] text-slate-500 underline underline-offset-2 hover:text-slate-300"
-              >
-                Change my answers
-              </button>
-            );
-          }
-          return (
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-[11px] text-slate-500">{CI_BRIDGE_ORIENT_COMPANION_COPY}</p>
-              <button
-                type="button"
-                disabled={!allChosen}
-                onClick={reveal}
-                className="shrink-0 rounded-lg bg-amber-500 px-3.5 py-2 text-xs font-semibold text-slate-950 transition hover:bg-amber-400 disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {answeredCount}/3 — See your Constitutional Frontier
-              </button>
-            </div>
-          );
-      }}
-    />
+        })}
+      </div>
+
+      <div>
+        {submitted && help && preserve && authority ? (
+          <div className="p-1">
+            <p className="text-[10px] uppercase tracking-wider text-slate-500 mb-2">Your Constitutional Frontier</p>
+            <p className="whitespace-pre-line text-sm leading-relaxed text-slate-200">
+              {buildSummary(help, preserve, authority)}
+            </p>
+          </div>
+        ) : activeQuestion === 'help' ? (
+          <OptionGrid
+            title="Where do you most want agents to help?"
+            options={HELP_OPTIONS}
+            value={help}
+            columns="grid-cols-1 sm:grid-cols-2"
+            onChange={(v) => {
+              setHelp(v);
+              setActiveQuestion('preserve');
+            }}
+          />
+        ) : activeQuestion === 'preserve' ? (
+          <OptionGrid
+            title="What do you most want to remain yours?"
+            options={PRESERVE_OPTIONS}
+            value={preserve}
+            columns="grid-cols-1 sm:grid-cols-2"
+            onChange={(v) => {
+              setPreserve(v);
+              setActiveQuestion('authority');
+            }}
+          />
+        ) : (
+          <OptionGrid
+            title="How much authority would you currently give an agent?"
+            options={AUTHORITY_OPTIONS}
+            value={authority}
+            columns="grid-cols-1"
+            onChange={(v) => setAuthority(v)}
+          />
+        )}
+      </div>
+
+      <div>
+        {submitted ? (
+          <button
+            type="button"
+            onClick={changeAnswers}
+            className="text-[11px] text-slate-500 underline underline-offset-2 hover:text-slate-300"
+          >
+            Change my answers
+          </button>
+        ) : (
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-[11px] text-slate-500">{CI_BRIDGE_ORIENT_COMPANION_COPY}</p>
+            <button
+              type="button"
+              disabled={!allChosen}
+              onClick={reveal}
+              className="shrink-0 rounded-lg bg-amber-500 px-3.5 py-2 text-xs font-semibold text-slate-950 transition hover:bg-amber-400 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {answeredCount}/3 — See your Constitutional Frontier
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 

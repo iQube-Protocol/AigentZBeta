@@ -75,6 +75,17 @@ interface CommunityContentItem {
  */
 type FilterMode = "all" | "mine" | "crossings";
 
+/** The same shape RemixCrossingButton has always URL-encoded into `remix=` —
+ *  named here so an `onRemixIntent` caller gets a typed payload instead of
+ *  having to re-decode a query string. */
+export interface RemixIntentPayload {
+  source: "community-content";
+  title: string;
+  summary: string;
+  campaign: string | null;
+  skill: CommunityContentItem["skill"];
+}
+
 interface Props {
   personaId?: string;
   isAdmin?: boolean;
@@ -109,6 +120,19 @@ interface Props {
    * Defaults to false — every existing KNYT/Qriptopian mount is unaffected.
    */
   hideCrossingsFilter?: boolean;
+  /**
+   * When provided, "Remix" never navigates (no `window.location.assign`,
+   * same-origin or not) — it calls this instead with the same payload that
+   * would otherwise have been URL-encoded into `remix=`. Added for the
+   * Constitutional Internet Bridge's Crossings projection, which renders
+   * this tab directly in the page tree (not inside an iframe), so a
+   * top-level navigation would abandon the Bridge shell entirely — the
+   * one CI Bridge stage that mounts this component without also mounting
+   * KNYTS Bridge's `/bridge/knyts?remix=` resume path. Every other mount
+   * (ordinary KNYT/Qriptopian Pulse, KNYTS Bridge) leaves this undefined
+   * and keeps the pre-existing navigation behaviour unchanged.
+   */
+  onRemixIntent?: (payload: RemixIntentPayload) => void;
 }
 
 export function KnytCommunityContentTab({
@@ -117,6 +141,7 @@ export function KnytCommunityContentTab({
   cartridge,
   campaignTag,
   hideCrossingsFilter = false,
+  onRemixIntent,
 }: Props) {
   const [items, setItems] = useState<CommunityContentItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -305,7 +330,13 @@ export function KnytCommunityContentTab({
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {items.map((item) => (
-              <ContentCard key={item.id} item={item} personaId={personaId} onOpen={() => setActiveId(item.id)} />
+              <ContentCard
+                key={item.id}
+                item={item}
+                personaId={personaId}
+                onOpen={() => setActiveId(item.id)}
+                onRemixIntent={onRemixIntent}
+              />
             ))}
           </div>
         )}
@@ -320,10 +351,12 @@ function ContentCard({
   item,
   personaId,
   onOpen,
+  onRemixIntent,
 }: {
   item: CommunityContentItem;
   personaId?: string;
   onOpen: () => void;
+  onRemixIntent?: (payload: RemixIntentPayload) => void;
 }) {
   const SkillIcon = item.skill === "story" ? Sparkles : FileText;
   const skillColor = item.skill === "story" ? "text-violet-300" : "text-cyan-300";
@@ -401,7 +434,9 @@ function ContentCard({
       <div className="px-3 pb-2 flex items-center justify-between gap-2">
         <KnytReactionBar publicationId={item.id} personaId={personaId ?? null} />
         <div className="flex items-center gap-1 shrink-0">
-          {item.campaignTag && <RemixCrossingButton item={item} personaId={personaId} />}
+          {item.campaignTag && (
+            <RemixCrossingButton item={item} personaId={personaId} onRemixIntent={onRemixIntent} />
+          )}
           <ShareMenu item={item} personaId={personaId} personaLabel={personaLabel} compact />
         </div>
       </div>
@@ -507,17 +542,28 @@ function ContentDetail({ item, personaId }: { item: CommunityContentItem; person
  * completes, so "attempt Remix while signed out" resumes the SAME crossing
  * rather than losing the intent.
  */
-function RemixCrossingButton({ item, personaId }: { item: CommunityContentItem; personaId?: string }) {
+function RemixCrossingButton({
+  item,
+  personaId,
+  onRemixIntent,
+}: {
+  item: CommunityContentItem;
+  personaId?: string;
+  onRemixIntent?: (payload: RemixIntentPayload) => void;
+}) {
+  const remixPayload = useCallback(
+    (): RemixIntentPayload => ({
+      source: 'community-content',
+      title: item.title,
+      summary: item.prompt,
+      campaign: item.campaignTag,
+      skill: item.skill,
+    }),
+    [item],
+  );
+
   const buildRemixUrl = useCallback(() => {
-    const encodedPayload = encodeURIComponent(
-      JSON.stringify({
-        source: 'community-content',
-        title: item.title,
-        summary: item.prompt,
-        campaign: item.campaignTag,
-        skill: item.skill,
-      }),
-    );
+    const encodedPayload = encodeURIComponent(JSON.stringify(remixPayload()));
     // Mounted inside the KNYTS Bridge Posit Spine (this VIEW stage's own
     // surface) — stay on the SAME page so MyCanvasTab's existing remix=
     // param seeding effect resumes the intent inline on the REMIX stage,
@@ -528,15 +574,28 @@ function RemixCrossingButton({ item, personaId }: { item: CommunityContentItem; 
       return `/bridge/knyts?remix=${encodedPayload}`;
     }
     return `/codex/viewer?slug=metame&tab=mycanvas&remix=${encodedPayload}`;
-  }, [item]);
+  }, [remixPayload]);
+
+  // When onRemixIntent is supplied (CI Bridge's Crossings projection — this
+  // tab renders directly in the page tree there, not inside an iframe, so a
+  // window.location.assign would abandon the Bridge shell entirely), Remix
+  // never navigates: the caller decides what "stay embedded" means for its
+  // own shell instead of this shared tab guessing a route.
+  const fireRemix = useCallback(() => {
+    if (onRemixIntent) {
+      onRemixIntent(remixPayload());
+      return;
+    }
+    if (typeof window !== 'undefined') window.location.assign(buildRemixUrl());
+  }, [onRemixIntent, remixPayload, buildRemixUrl]);
 
   const { requestSignIn, handoffUnanswered } = usePassportSignInGate({
     origin: 'KNYT_PULSE_REMIX',
     returnTarget: `campaign:${item.campaignTag}:remix:${item.id}`,
     returnLabel: 'Continue your crossing',
     onSignedIn: useCallback(() => {
-      if (typeof window !== 'undefined') window.location.assign(buildRemixUrl());
-    }, [buildRemixUrl]),
+      fireRemix();
+    }, [fireRemix]),
   });
 
   return (
@@ -544,7 +603,7 @@ function RemixCrossingButton({ item, personaId }: { item: CommunityContentItem; 
       type="button"
       onClick={() => {
         if (personaId) {
-          if (typeof window !== 'undefined') window.location.assign(buildRemixUrl());
+          fireRemix();
           return;
         }
         requestSignIn();

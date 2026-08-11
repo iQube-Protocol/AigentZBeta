@@ -3,25 +3,27 @@
 /**
  * ConstitutionalInternetBridgeOrientIntro — the CI Bridge's ORIENT surface.
  *
- * Editorial polish pass (2026-08-11): the hero used to be able to grow to
- * "nearly an entire viewport" before the actual questions appeared —
- * exactly backwards for a stage the operator calls "an interactive
- * reflection ritual, not an image-viewing page." The hero is now a
- * cinematic HEADER STRIP, capped at a real height (not left to an
- * unconstrained `w-full` video/poster box), so the question capsule below
- * is reliably visible in the same viewport.
+ * Reconstituted 2026-08-11 (final interaction + layout pass) as a true
+ * two-column composition — REVERSING the same day's earlier "cinematic
+ * header strip" pass, which had shrunk the canonical media down to a
+ * ~26vh thumbnail. The operator's own words: "The current page is too
+ * compressed in the opposite direction: the media has become a small
+ * thumbnail. Reconstitute Orient as a proper two-column experience." Media
+ * is once again dominant (left column, ~60% width, fills most of the
+ * available viewport height, aspect ratio preserved via object-contain —
+ * never cropped/stretched); the right column (~40%) carries the
+ * proposition/intro copy and the question capsule
+ * (ConstitutionalFrontierOrientSurface), keeping the compressed copy
+ * treatment from the prior pass rather than reverting to long centered
+ * prose.
  *
  * Default visual is the real canonical CIP-007B plate ("Constitutional
  * Bearing Instrument — Navigate the Atlas", services/artifact/
  * canonicalPlateImages.ts) — never decorative/generic imagery. An admin
  * MAY still configure a real video (same config pattern as
  * ConstitutionalInternetBridgeMediaStage — GET /api/journey/knyts-bridge/
- * editorial-config?section=ci-orient) which takes over the same
- * capped-height frame when present.
- *
- * Composes with ConstitutionalFrontierOrientSurface, which since 2026-08-11
- * renders itself as a BridgeContentCapsule (its own bordered shell) — so
- * this wrapper does not nest it in a second border; one capsule chrome.
+ * editorial-config?section=ci-orient) which takes over the same frame when
+ * present.
  */
 
 import { useEffect, useState } from 'react';
@@ -58,42 +60,45 @@ export function ConstitutionalInternetBridgeOrientIntro() {
     .filter(Boolean);
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-start sm:gap-5">
-        <div className="h-[26vh] max-h-56 w-full shrink-0 overflow-hidden rounded-xl border border-white/10 bg-[#faf7f0] sm:w-64">
-          {config.videoUrl ? (
-            // eslint-disable-next-line jsx-a11y/media-has-caption
-            <video
+    <div className="grid gap-4 lg:grid-cols-[3fr_2fr]">
+      {/* LEFT — dominant media (~60% width on desktop), fills most of the
+          viewport height, aspect ratio preserved via object-contain. */}
+      <div className="flex h-[60vh] max-h-[70vh] min-h-[18rem] w-full items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-slate-900/40">
+        {config.videoUrl ? (
+          // eslint-disable-next-line jsx-a11y/media-has-caption
+          <video
+            className="h-full w-full object-contain"
+            controls
+            poster={config.posterUrl ?? undefined}
+            src={config.videoUrl}
+          />
+        ) : (
+          BEARING_INSTRUMENT && (
+            <img
+              src={BEARING_INSTRUMENT.url}
+              alt={BEARING_INSTRUMENT.title}
               className="h-full w-full object-contain"
-              controls
-              poster={config.posterUrl ?? undefined}
-              src={config.videoUrl}
             />
-          ) : (
-            BEARING_INSTRUMENT && (
-              <img
-                src={BEARING_INSTRUMENT.url}
-                alt={BEARING_INSTRUMENT.title}
-                className="h-full w-full object-contain"
-              />
-            )
-          )}
-        </div>
-        <div className="text-center sm:text-left">
-          <h2 className="text-2xl font-bold text-white">
+          )
+        )}
+      </div>
+
+      {/* RIGHT — proposition, intro copy, and the question capsule. */}
+      <div className="flex flex-col gap-3">
+        <div>
+          <h2 className="text-xl font-bold text-white sm:text-2xl">
             {config.headline ?? KNYTS_BRIDGE_SECTION_DEFAULTS[SECTION].headline}
           </h2>
-          <div className="mx-auto mt-2 max-w-[60ch] sm:mx-0">
+          <div className="mt-2">
             {paragraphs.map((p, i) => (
-              <p key={i} className="mt-1.5 text-[15px] leading-[1.5] text-slate-300">
+              <p key={i} className="mt-1.5 text-[13px] leading-[1.5] text-slate-300">
                 {p}
               </p>
             ))}
           </div>
         </div>
+        <ConstitutionalFrontierOrientSurface />
       </div>
-
-      <ConstitutionalFrontierOrientSurface />
     </div>
   );
 }
