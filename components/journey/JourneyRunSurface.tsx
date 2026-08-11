@@ -184,14 +184,15 @@ export interface JourneyRunSurfaceProps {
       }
     > | null;
     /**
-     * Register's seven-step ceremony, replayed read-only from canonical
-     * evidence (Pre-recording Horizen polish, part C, 2026-08-10) — same
-     * per-step shape as `ratifySubPredicates` above, plus `authority` may be
-     * `'inferred'` for the two steps with no receipt type
-     * (`principalWalletReady`, `mandatePrepared`). This is what
-     * RegisterCeremonyReplay must consume; never a second source of truth
-     * for whether Register is complete. Null while the first read is in
-     * flight.
+     * Register's seven-step ceremony projection, computed read-only from
+     * canonical evidence (Pre-recording Horizen polish, part C, 2026-08-10)
+     * — same per-step shape as `ratifySubPredicates` above, plus `authority`
+     * may be `'inferred'` for the two steps with no receipt type
+     * (`principalWalletReady`, `mandatePrepared`). Its former UI consumer
+     * (RegisterCeremonyReplay) was removed from the journey UI (2026-08-11);
+     * this projection and its thread-through are kept as-is — never a
+     * second source of truth for whether Register is complete. Null while
+     * the first read is in flight.
      */
     registerCeremony: Record<
       string,

@@ -157,17 +157,6 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
       '(services/horizen/registrationClient.ts) end to end. Composes AgentCardSurface internally for ' +
       'the selected agent\'s card display — never a second, parallel display.',
   },
-  'register-ceremony-replay': {
-    kind: 'component',
-    component: 'RegisterCeremonyReplay',
-    note:
-      'Pre-recording Horizen polish, part C (2026-08-10, components/journey/RegisterCeremonyReplay.tsx) ' +
-      "— a generic, read-only replay of Register's seven wallet-signing ceremony steps for an already-" +
-      'registered agent, sourced from the state route\'s `registerCeremony` projection (each step ' +
-      "carrying `authority: 'evidence'` from a real receipt, or `authority: 'inferred'` where no receipt " +
-      'type exists). Never a second registration writer — RegisterAgentPanel stays the only surface ' +
-      'that can perform the live ceremony.',
-  },
   'horizen-registry-agent-page': {
     kind: 'component',
     component: 'HorizenAgentPageSurface',
