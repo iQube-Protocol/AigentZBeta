@@ -10,20 +10,27 @@
  *     rail offers whichever artifact genuinely exists for it — Video
  *     (admin-overridable, section=`ci-view-<blockId>`), Plate (always — one
  *     of the seven REAL canonical CIP plate images, never a code-generated
- *     schematic — see services/artifact/canonicalPlateImages.ts and its own
- *     header for why the SVG schematics are off-limits here), Paper (only
- *     once a real Polity Papers cover exists — CLAUDE.md's No-Guessing rule
- *     forbids fabricating one to fill the tier; none of the seven supplied
- *     plates is a cover, so this tier stays dormant for now). Every artifact
- *     renders inside a strict 16:9 hero viewport (`viewportAspect="video"`),
- *     contained/matted — never stretched, squashed, or arbitrarily cropped.
+ *     schematic — see services/artifact/canonicalPlateImages.ts), Paper
+ *     (only for the one block that carries a real `paperRef` — the live
+ *     Qriptopian Codex "Polity Papers" record "The Constitution of the
+ *     Agentic Polity", cover + PDF both real, dev-beta `codex_media_assets`
+ *     row `f7342afc-...`). Every artifact keeps ITS OWN native aspect ratio
+ *     — the viewport is NOT forced to 16:9 for everything; only the Video
+ *     card locks to 16:9, Plate/Paper size the viewport from their own real
+ *     width/height (`viewportAspectRatio`), matted/contained, never
+ *     stretched or cropped. Selecting Paper shows a portrait cover-fronted
+ *     reading launch surface with an "Open Reader" action that launches the
+ *     EXISTING PDFLiteReaderModal in its native overlay — never a forked
+ *     inline reader, never a bare "Read the paper" link.
  *     The lower strip is a constant "Book Insert" — a kicker naming the
  *     active artifact, the verbatim excerpt as flowing PROSE (the manuscript
  *     quote's own line breaks are joined with spaces for display — the
  *     words are unchanged, only the "one clause per line" bullet-like
  *     stacking is removed), the citation, and a ListenButton — regardless of
  *     which rail card is active. Moving between vignettes is real
- *     horizontal swipe/paging via components/ui/carousel.tsx.
+ *     horizontal swipe/paging via components/ui/carousel.tsx. Geometry is
+ *     content-driven (see BridgeContentCapsule) — this component must NOT
+ *     wrap the capsule in a fixed height.
  *
  *   CROSSINGS — unchanged: a thin projection over the EXISTING, canonical
  *     Qriptopian Pulse infrastructure (community_generated_content via
@@ -40,6 +47,7 @@ import { ChevronLeft, ChevronRight, Play } from 'lucide-react';
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from '@/components/ui/carousel';
 import { BridgeContentCapsule, type BridgeCapsuleRailCard } from '@/components/journey/BridgeContentCapsule';
 import { ListenButton } from '@/components/shared/ListenButton';
+import { PDFLiteReaderModal } from '@/app/triad/components/content/PDFLiteReaderModal';
 import {
   CI_BRIDGE_VIEW_CONTENT,
   type ViewContentBlock,
@@ -152,7 +160,23 @@ function ethosRailCards(
         )
       : undefined,
   });
-  if (block.paperRef) cards.push({ id: 'paper', label: 'Paper', aspect: 'portrait' });
+  if (block.paperRef) {
+    const paperRef = block.paperRef;
+    cards.push({
+      id: 'paper',
+      label: 'Paper',
+      aspect: 'portrait',
+      renderThumb: () => (
+        <div className="flex h-full w-full items-center justify-center bg-[#faf7f0]">
+          <img
+            src={paperRef.coverImageUrl}
+            alt={paperRef.title}
+            className="max-h-full max-w-full object-contain"
+          />
+        </div>
+      ),
+    });
+  }
   return cards;
 }
 
@@ -162,17 +186,54 @@ function MattedFrame({ children }: { children: ReactNode }) {
   return <div className="flex h-full w-full items-center justify-center bg-[#faf7f0] p-3">{children}</div>;
 }
 
+/** Paper's viewport: a portrait cover-fronted reading launch surface — the
+ *  real cover, the real title, an "Open Reader" action. Opens the EXISTING
+ *  PDFLiteReaderModal in its native overlay; never a forked inline reader,
+ *  never a bare link-out card. */
+function PaperLaunchSurface({ paperRef }: { paperRef: NonNullable<ViewContentBlock['paperRef']> }) {
+  const [readerOpen, setReaderOpen] = useState(false);
+  return (
+    <MattedFrame>
+      <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
+        <img
+          src={paperRef.coverImageUrl}
+          alt={paperRef.title}
+          className="max-h-[calc(100%-3rem)] max-w-[70%] rounded-sm object-contain shadow-lg"
+        />
+        <button
+          type="button"
+          onClick={() => setReaderOpen(true)}
+          className="inline-block rounded-lg border border-[#a08444]/50 bg-[#a08444]/10 px-4 py-2 text-sm text-[#1e3a5f] transition hover:bg-[#a08444]/20"
+        >
+          Open Reader ↗
+        </button>
+      </div>
+      <PDFLiteReaderModal
+        open={readerOpen}
+        pdfUrl={paperRef.url}
+        title={paperRef.title}
+        onClose={() => setReaderOpen(false)}
+      />
+    </MattedFrame>
+  );
+}
+
 function EthosVignetteCapsule({ block, videoOverride }: { block: ViewContentBlock; videoOverride?: string | null }) {
   const plateImage = canonicalPlateImage(block.plateImageId);
   const videoUrl = videoOverride ?? block.videoUrl;
   const railCards = ethosRailCards(block, videoUrl, plateImage);
 
   return (
-    <div className="h-[30rem] rounded-2xl border border-white/10 bg-slate-950/20 p-3">
+    <div className="rounded-2xl border border-white/10 bg-slate-950/20 p-3">
       <BridgeContentCapsule
         railCards={railCards}
         allowFullscreen
-        viewportAspect="video"
+        viewportAspectRatio={(activeId) => {
+          if (activeId === 'video') return 16 / 9;
+          if (activeId === 'paper' && block.paperRef) return block.paperRef.coverWidth / block.paperRef.coverHeight;
+          if (activeId === 'plate' && plateImage) return plateImage.width / plateImage.height;
+          return 16 / 9;
+        }}
         renderViewport={(activeId) => {
           if (activeId === 'video' && videoUrl) {
             return (
@@ -181,21 +242,7 @@ function EthosVignetteCapsule({ block, videoOverride }: { block: ViewContentBloc
             );
           }
           if (activeId === 'paper' && block.paperRef) {
-            return (
-              <MattedFrame>
-                <div className="flex flex-col items-center gap-3 text-center">
-                  <p className="text-lg font-semibold text-[#1e3a5f]">{block.paperRef.title}</p>
-                  <a
-                    href={block.paperRef.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-block rounded-lg border border-[#a08444]/50 bg-[#a08444]/10 px-4 py-2 text-sm text-[#1e3a5f] transition hover:bg-[#a08444]/20"
-                  >
-                    Read the paper ↗
-                  </a>
-                </div>
-              </MattedFrame>
-            );
+            return <PaperLaunchSurface paperRef={block.paperRef} />;
           }
           return (
             <MattedFrame>

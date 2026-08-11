@@ -21,20 +21,42 @@
  * nests the viewport and the strip STACKED — so the strip's width is the
  * viewport's width, and it can never bleed under the rail (the bug the
  * brief was filed against: the strip used to be a second full-width row
- * spanning under both viewport AND rail). The RIGHT column is the rail,
- * occupying the FULL height of the capsule body — not a column that only
- * spans the viewport's row. Rail cards fill that height with WEIGHTED
- * flex-grow by aspect (portrait ~1.6x, landscape/compact ~1x) rather than
- * equal shares, so a portrait card (e.g. a paper cover) naturally claims
- * more vertical room than a landscape one — no page-level vertical scroll.
- * Every real hydration today (View's Video/Plate/Paper, Orient's 3
- * questions, Personify's 2 supporting tools) has at most a handful of rail
- * cards, so the rail is a static column, not a scrolling/paging list — a
- * carousel primitive would be premature abstraction for a list this short.
- * Moving between multiple CAPSULES (e.g. View's vignettes) is the parent's
- * concern: wrap sibling <BridgeContentCapsule key={...} /> instances in the
- * real swipeable components/ui/carousel.tsx primitive, not a feature of
- * this shell.
+ * spanning under both viewport AND rail).
+ *
+ * Geometry is CONTENT-DRIVEN, not a fixed-height box fought with overflow
+ * scroll (corrected again same day — a caller wrapping this in a fixed
+ * `h-[30rem]` let the aspect-locked viewport consume nearly all of it,
+ * squeezing the strip out). This component itself never sets its own
+ * height — it sizes to whatever the left column's content needs. The RIGHT
+ * column has no independent height of its own either: it is a plain grid
+ * item, so it STRETCHES to match the row's height (CSS Grid's default
+ * `align-items: stretch`, which resolves to the left column's natural
+ * content height) — that stretched, now-definite height is what its own
+ * `h-full` resolves against, letting the rail cards flex-distribute it.
+ * This is pure CSS; no ResizeObserver or measured height is needed, and
+ * callers must NOT wrap this component in a fixed-height box.
+ *
+ * The viewport's own height is driven by `viewportAspectRatio` — a
+ * per-active-card ratio (width/height) the CALLER supplies, since only the
+ * caller knows what's really being shown (a 16:9 video vs. a plate/cover
+ * with its own native ratio). Returning `undefined` for a card leaves the
+ * viewport unconstrained (sized by its content — Orient's questions,
+ * Personify's tool picker). This is deliberately NOT a fixed 'video' | fill'
+ * mode: forcing every artifact into one shape was the second defect this
+ * fix closes — a portrait cover or a 4:3 plate must never be squeezed into
+ * a 16:9 box.
+ *
+ * Rail cards fill the rail's height with WEIGHTED flex-grow by aspect
+ * (portrait ~1.6x, landscape/compact ~1x) rather than equal shares, so a
+ * portrait card (e.g. a paper cover) naturally claims more vertical room
+ * than a landscape one. Every real hydration today (View's Video/Plate/
+ * Paper, Orient's 3 questions, Personify's 2 supporting tools) has at most
+ * a handful of rail cards, so the rail is a static column, not a
+ * scrolling/paging list — a carousel primitive would be premature
+ * abstraction for a list this short. Moving between multiple CAPSULES
+ * (e.g. View's vignettes) is the parent's concern: wrap sibling
+ * <BridgeContentCapsule key={...} /> instances in the real swipeable
+ * components/ui/carousel.tsx primitive, not a feature of this shell.
  */
 
 import React, { useEffect, useState } from 'react';
@@ -61,12 +83,13 @@ export interface BridgeContentCapsuleProps {
   allowFullscreen?: boolean;
   className?: string;
   /**
-   * 'video' locks the main viewport to a strict 16:9 box (media hydrations —
-   * View's Video/Plate/Paper); 'fill' (default) lets it fill the available
-   * left-column height, unchanged behavior for non-media hydrations
-   * (Orient's questions, Personify's tool picker).
+   * Per-active-card viewport ratio (width / height), e.g. `16 / 9` for a
+   * video card or `plateImage.width / plateImage.height` for a plate card.
+   * Return `undefined` for a card to leave the viewport unconstrained
+   * (sized by its own content — the right default for Orient's questions
+   * and Personify's tool picker, which are not media at all).
    */
-  viewportAspect?: 'video' | 'fill';
+  viewportAspectRatio?: (activeRailId: string) => number | undefined;
 }
 
 /** Vertical-share weight per aspect — a portrait card (e.g. a paper cover)
@@ -85,7 +108,7 @@ export function BridgeContentCapsule({
   renderStrip,
   allowFullscreen = true,
   className,
-  viewportAspect = 'fill',
+  viewportAspectRatio,
 }: BridgeContentCapsuleProps) {
   const [internalActive, setInternalActive] = useState<string>(railCards[0]?.id ?? '');
   const [fullscreen, setFullscreen] = useState(false);
@@ -102,28 +125,46 @@ export function BridgeContentCapsule({
 
   if (!activeCard) return null;
 
+  const ratio = viewportAspectRatio?.(activeCard.id);
+
   const body = (
     <div
-      className={`grid h-full min-h-0 gap-3 ${className ?? ''}`}
-      style={{ gridTemplateColumns: railCards.length > 1 ? 'minmax(0, 3fr) minmax(200px, 1fr)' : 'minmax(0, 1fr)' }}
+      className={`grid gap-3 ${fullscreen ? 'h-full' : ''} ${className ?? ''}`}
+      style={{
+        gridTemplateColumns: railCards.length > 1 ? 'minmax(0, 3fr) minmax(200px, 1fr)' : 'minmax(0, 1fr)',
+        gridTemplateRows: '1fr',
+      }}
     >
-      {/* LEFT COLUMN — viewport + strip stacked. The strip's width is this
-          column's width; it can never bleed under the rail. */}
-      <div className="flex min-h-0 flex-col gap-3">
+      {/* LEFT COLUMN — viewport + strip stacked, sized to content. The
+          strip's width is this column's width; it can never bleed under
+          the rail, and this component never imposes its own height. */}
+      <div className="flex flex-col gap-3">
         <div
-          className={`overflow-y-auto overflow-x-hidden rounded-2xl border border-slate-800 bg-slate-900/40 ${
-            viewportAspect === 'video' ? 'aspect-video w-full shrink-0' : 'min-h-0 flex-1'
-          }`}
+          className="w-full overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/40"
+          style={
+            ratio
+              ? {
+                  aspectRatio: String(ratio),
+                  // A near-square/portrait asset at full left-column WIDTH can compute a
+                  // height taller than the whole page (e.g. a 4:3 plate at 1300px wide is
+                  // ~1000px tall) — pushing the strip below the fold, the exact defect
+                  // this cap exists to prevent. Capped, not removed: the box's rendered
+                  // shape may then sit a little short of `ratio`, but the actual media
+                  // inside (rendered with object-contain by the caller) still never
+                  // distorts — it just mattes with more side padding. No cap in
+                  // fullscreen, where filling the screen is the point.
+                  maxHeight: fullscreen ? undefined : 'min(28rem, 55vh)',
+                }
+              : undefined
+          }
         >
           {renderViewport(activeCard.id, { fullscreen })}
         </div>
         {renderStrip && (
-          <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-slate-800 bg-slate-900/40 p-3">
-            {renderStrip(activeCard.id)}
-          </div>
+          <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-3">{renderStrip(activeCard.id)}</div>
         )}
         {allowFullscreen && (
-          <div className="flex shrink-0 justify-end">
+          <div className="flex justify-end">
             <button
               type="button"
               onClick={() => setFullscreen((v) => !v)}
@@ -143,9 +184,13 @@ export function BridgeContentCapsule({
         )}
       </div>
 
-      {/* RIGHT COLUMN — the rail, full body height, one contained pane. */}
+      {/* RIGHT COLUMN — the rail. No height of its own: it's a plain grid
+          item, so it stretches (CSS Grid default `align-items: stretch`)
+          to match the row's height, which is the left column's natural
+          content height. That stretched height is what h-full resolves
+          against below, letting the cards flex-distribute it. */}
       {railCards.length > 1 && (
-        <div className="flex min-h-0 flex-col gap-2">
+        <div className="flex h-full min-h-0 flex-col gap-2">
           {railCards.map((card) => (
             <button
               key={card.id}
