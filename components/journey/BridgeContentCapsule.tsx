@@ -46,6 +46,13 @@
  * fix closes — a portrait cover or a 4:3 plate must never be squeezed into
  * a 16:9 box.
  *
+ * Selected-rail-card treatment (editorial polish pass, 2026-08-11): a
+ * restrained amber/gold edge, not a bright indigo dashboard glow — the
+ * constitutional accent already established by Orient's own option
+ * buttons, now shared by the rail across every hydration. Border opacity
+ * generally lowered (white/[0.07] instead of solid slate-800) so the
+ * artifact/content dominates over nested chrome.
+ *
  * Rail cards fill the rail's height with WEIGHTED flex-grow by aspect
  * (portrait ~1.6x, landscape/compact ~1x) rather than equal shares, so a
  * portrait card (e.g. a paper cover) naturally claims more vertical room
@@ -140,7 +147,7 @@ export function BridgeContentCapsule({
           the rail, and this component never imposes its own height. */}
       <div className="flex flex-col gap-3">
         <div
-          className="w-full overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/40"
+          className="w-full overflow-hidden rounded-2xl border border-white/[0.07] bg-slate-900/40"
           style={
             ratio
               ? {
@@ -161,7 +168,7 @@ export function BridgeContentCapsule({
           {renderViewport(activeCard.id, { fullscreen })}
         </div>
         {renderStrip && (
-          <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-3">{renderStrip(activeCard.id)}</div>
+          <div className="rounded-xl border border-white/[0.07] bg-slate-900/40 p-3.5">{renderStrip(activeCard.id)}</div>
         )}
         {allowFullscreen && (
           <div className="flex justify-end">
@@ -200,8 +207,8 @@ export function BridgeContentCapsule({
               style={{ flexGrow: RAIL_ASPECT_WEIGHT[card.aspect ?? 'landscape'], flexBasis: 0 }}
               className={`min-h-0 overflow-hidden rounded-lg border text-left transition ${
                 card.id === activeCard.id
-                  ? 'border-indigo-400/60 ring-1 ring-indigo-400/40'
-                  : 'border-slate-800 hover:border-slate-600'
+                  ? 'border-amber-400/50 ring-1 ring-amber-400/25'
+                  : 'border-white/[0.07] hover:border-white/20'
               }`}
             >
               {card.renderThumb ? (

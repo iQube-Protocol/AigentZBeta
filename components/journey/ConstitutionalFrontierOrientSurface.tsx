@@ -73,10 +73,19 @@ function buildSummary(help: string, preserve: string, authority: string): string
 
 type QuestionId = 'help' | 'preserve' | 'authority';
 
+function orientRailThumb(number: string, label: string) {
+  return () => (
+    <div className="flex h-full w-full flex-col items-center justify-center gap-0.5 bg-slate-950/40">
+      <span className="text-[10px] tracking-[0.2em] text-slate-500">{number}</span>
+      <span className="text-xs font-medium text-slate-200">{label}</span>
+    </div>
+  );
+}
+
 const ORIENT_RAIL: BridgeCapsuleRailCard[] = [
-  { id: 'help', label: 'Help', aspect: 'compact' },
-  { id: 'preserve', label: 'Preserve', aspect: 'compact' },
-  { id: 'authority', label: 'Authority', aspect: 'compact' },
+  { id: 'help', label: 'Help', aspect: 'compact', renderThumb: orientRailThumb('01', 'Help') },
+  { id: 'preserve', label: 'Preserve', aspect: 'compact', renderThumb: orientRailThumb('02', 'Preserve') },
+  { id: 'authority', label: 'Authority', aspect: 'compact', renderThumb: orientRailThumb('03', 'Authority') },
 ];
 
 function OptionGrid({

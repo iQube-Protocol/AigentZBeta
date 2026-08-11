@@ -1,33 +1,39 @@
 'use client';
 
 /**
- * ConstitutionalInternetBridgeOrientIntro — the CI Bridge's ORIENT surface,
- * evolved (2026-08-11) to add a media/context layer ahead of the existing
- * questionnaire, per the operator's framing: "the problem is that it
- * currently arrives too cold and feels form-like."
+ * ConstitutionalInternetBridgeOrientIntro — the CI Bridge's ORIENT surface.
  *
- * Composes two things:
- *   - a small self-fetching media header (same config pattern as
- *     ConstitutionalInternetBridgeMediaStage / KnytsBridgeMediaStage — GET
- *     /api/journey/knyts-bridge/editorial-config?section=ci-orient) framing
- *     the core proposition: personhood precedes identity;
- *   - ConstitutionalFrontierOrientSurface, which since 2026-08-11 renders
- *     itself as a BridgeContentCapsule (its own bordered shell) — so this
- *     wrapper no longer nests it in a second "reflection capsule" border;
- *     one capsule chrome, not two.
+ * Editorial polish pass (2026-08-11): the hero used to be able to grow to
+ * "nearly an entire viewport" before the actual questions appeared —
+ * exactly backwards for a stage the operator calls "an interactive
+ * reflection ritual, not an image-viewing page." The hero is now a
+ * cinematic HEADER STRIP, capped at a real height (not left to an
+ * unconstrained `w-full` video/poster box), so the question capsule below
+ * is reliably visible in the same viewport.
  *
- * Unlike the HOME wrapper, this header has no CTA button — the "next step"
- * is reading directly into the questions below, not a stage jump.
+ * Default visual is the real canonical CIP-007B plate ("Constitutional
+ * Bearing Instrument — Navigate the Atlas", services/artifact/
+ * canonicalPlateImages.ts) — never decorative/generic imagery. An admin
+ * MAY still configure a real video (same config pattern as
+ * ConstitutionalInternetBridgeMediaStage — GET /api/journey/knyts-bridge/
+ * editorial-config?section=ci-orient) which takes over the same
+ * capped-height frame when present.
+ *
+ * Composes with ConstitutionalFrontierOrientSurface, which since 2026-08-11
+ * renders itself as a BridgeContentCapsule (its own bordered shell) — so
+ * this wrapper does not nest it in a second border; one capsule chrome.
  */
 
 import { useEffect, useState } from 'react';
 import { ConstitutionalFrontierOrientSurface } from '@/components/journey/ConstitutionalFrontierOrientSurface';
+import { canonicalPlateImage } from '@/services/artifact/canonicalPlateImages';
 import {
   KNYTS_BRIDGE_SECTION_DEFAULTS,
   type KnytsBridgeEditorialSection,
 } from '@/services/journey/knytsBridgeEditorialConfig';
 
 const SECTION = 'ci-orient';
+const BEARING_INSTRUMENT = canonicalPlateImage('CIP-007B');
 
 export function ConstitutionalInternetBridgeOrientIntro() {
   const [config, setConfig] = useState<KnytsBridgeEditorialSection>(KNYTS_BRIDGE_SECTION_DEFAULTS[SECTION]);
@@ -53,21 +59,38 @@ export function ConstitutionalInternetBridgeOrientIntro() {
 
   return (
     <div className="space-y-4">
-      <div className="text-center">
-        {config.videoUrl && (
-          <div className="mb-5 overflow-hidden rounded-2xl border border-white/10">
-            {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-            <video className="w-full" controls poster={config.posterUrl ?? undefined} src={config.videoUrl} />
+      <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-start sm:gap-5">
+        <div className="h-[26vh] max-h-56 w-full shrink-0 overflow-hidden rounded-xl border border-white/10 bg-[#faf7f0] sm:w-64">
+          {config.videoUrl ? (
+            // eslint-disable-next-line jsx-a11y/media-has-caption
+            <video
+              className="h-full w-full object-contain"
+              controls
+              poster={config.posterUrl ?? undefined}
+              src={config.videoUrl}
+            />
+          ) : (
+            BEARING_INSTRUMENT && (
+              <img
+                src={BEARING_INSTRUMENT.url}
+                alt={BEARING_INSTRUMENT.title}
+                className="h-full w-full object-contain"
+              />
+            )
+          )}
+        </div>
+        <div className="text-center sm:text-left">
+          <h2 className="text-2xl font-bold text-white">
+            {config.headline ?? KNYTS_BRIDGE_SECTION_DEFAULTS[SECTION].headline}
+          </h2>
+          <div className="mx-auto mt-2 max-w-[60ch] sm:mx-0">
+            {paragraphs.map((p, i) => (
+              <p key={i} className="mt-1.5 text-[15px] leading-[1.5] text-slate-300">
+                {p}
+              </p>
+            ))}
           </div>
-        )}
-        <h2 className="text-xl font-bold text-white">
-          {config.headline ?? KNYTS_BRIDGE_SECTION_DEFAULTS[SECTION].headline}
-        </h2>
-        {paragraphs.map((p, i) => (
-          <p key={i} className="mx-auto mt-2 max-w-lg text-sm leading-relaxed text-slate-300">
-            {p}
-          </p>
-        ))}
+        </div>
       </div>
 
       <ConstitutionalFrontierOrientSurface />
