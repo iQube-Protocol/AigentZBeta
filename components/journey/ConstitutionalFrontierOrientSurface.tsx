@@ -13,10 +13,21 @@
  * three choices are persisted, best-effort, as an intent/demand signal via
  * /api/journey/constitutional-internet-bridge/orient — never presented as
  * Standing or authority.
+ *
+ * Rendered (2026-08-11) on the shared BridgeContentCapsule shell: exactly
+ * three rail cards (Help / Preserve / Authority — never a fourth "Connect
+ * Claude" card, per operator instruction), one question active at a time
+ * instead of all three stacked, with a persistent strip carrying progress +
+ * the "See your Constitutional Frontier" action so it survives switching
+ * between questions. All state/logic below (options, buildSummary, the
+ * best-effort POST) is UNCHANGED from the pre-capsule version — only the
+ * render shape changed.
  */
 
 import React, { useState } from 'react';
 import { personaFetch } from '@/utils/personaSpine';
+import { BridgeContentCapsule, type BridgeCapsuleRailCard } from '@/components/journey/BridgeContentCapsule';
+import { CI_BRIDGE_ORIENT_COMPANION_COPY } from '@/services/journey/constitutionalInternetBridgeJourney';
 
 const HELP_OPTIONS = [
   { value: 'work', label: 'Work / business' },
@@ -60,13 +71,55 @@ function buildSummary(help: string, preserve: string, authority: string): string
   );
 }
 
+type QuestionId = 'help' | 'preserve' | 'authority';
+
+const ORIENT_RAIL: BridgeCapsuleRailCard[] = [
+  { id: 'help', label: 'Help', aspect: 'compact' },
+  { id: 'preserve', label: 'Preserve', aspect: 'compact' },
+  { id: 'authority', label: 'Authority', aspect: 'compact' },
+];
+
+function OptionGrid({
+  title,
+  options,
+  value,
+  onChange,
+  columns,
+}: {
+  title: string;
+  options: readonly { value: string; label: string }[];
+  value: string | null;
+  onChange: (value: string) => void;
+  columns: string;
+}) {
+  return (
+    <div className="p-4">
+      <p className="text-xs font-medium text-slate-200 mb-3">{title}</p>
+      <div className={`grid gap-2 ${columns}`}>
+        {options.map((o) => (
+          <button
+            key={o.value}
+            type="button"
+            onClick={() => onChange(o.value)}
+            className={`rounded-lg border px-3 py-2 text-left text-xs transition ${value === o.value ? 'border-amber-400/60 bg-amber-500/10 text-amber-200' : 'border-white/10 bg-slate-950/40 text-slate-300 hover:border-white/20'}`}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function ConstitutionalFrontierOrientSurface() {
   const [help, setHelp] = useState<string | null>(null);
   const [preserve, setPreserve] = useState<string | null>(null);
   const [authority, setAuthority] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  const [activeQuestion, setActiveQuestion] = useState<QuestionId>('help');
 
   const allChosen = Boolean(help && preserve && authority);
+  const answeredCount = [help, preserve, authority].filter(Boolean).length;
 
   const reveal = () => {
     if (!allChosen) return;
@@ -78,80 +131,94 @@ export function ConstitutionalFrontierOrientSurface() {
     }).catch(() => { /* best-effort — the summary already renders regardless */ });
   };
 
-  if (submitted && help && preserve && authority) {
-    return (
-      <div className="rounded-2xl border border-white/10 bg-slate-900/40 p-5">
-        <p className="text-[10px] uppercase tracking-wider text-slate-500 mb-2">Your Constitutional Frontier</p>
-        <p className="whitespace-pre-line text-sm leading-relaxed text-slate-200">{buildSummary(help, preserve, authority)}</p>
-        <button
-          type="button"
-          onClick={() => setSubmitted(false)}
-          className="mt-3 text-[11px] text-slate-500 underline underline-offset-2 hover:text-slate-300"
-        >
-          Change my answers
-        </button>
-      </div>
-    );
-  }
+  const changeAnswers = () => {
+    setSubmitted(false);
+    setActiveQuestion('help');
+  };
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-slate-900/40 p-5 space-y-5">
-      <div>
-        <p className="text-xs font-medium text-slate-200 mb-2">Where do you most want agents to help?</p>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {HELP_OPTIONS.map((o) => (
-            <button
-              key={o.value}
-              type="button"
-              onClick={() => setHelp(o.value)}
-              className={`rounded-lg border px-3 py-2 text-left text-xs transition ${help === o.value ? 'border-amber-400/60 bg-amber-500/10 text-amber-200' : 'border-white/10 bg-slate-950/40 text-slate-300 hover:border-white/20'}`}
-            >
-              {o.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div>
-        <p className="text-xs font-medium text-slate-200 mb-2">What do you most want to remain yours?</p>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {PRESERVE_OPTIONS.map((o) => (
-            <button
-              key={o.value}
-              type="button"
-              onClick={() => setPreserve(o.value)}
-              className={`rounded-lg border px-3 py-2 text-left text-xs transition ${preserve === o.value ? 'border-amber-400/60 bg-amber-500/10 text-amber-200' : 'border-white/10 bg-slate-950/40 text-slate-300 hover:border-white/20'}`}
-            >
-              {o.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div>
-        <p className="text-xs font-medium text-slate-200 mb-2">How much authority would you currently give an agent?</p>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {AUTHORITY_OPTIONS.map((o) => (
-            <button
-              key={o.value}
-              type="button"
-              onClick={() => setAuthority(o.value)}
-              className={`rounded-lg border px-3 py-2 text-left text-xs transition ${authority === o.value ? 'border-amber-400/60 bg-amber-500/10 text-amber-200' : 'border-white/10 bg-slate-950/40 text-slate-300 hover:border-white/20'}`}
-            >
-              {o.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <button
-        type="button"
-        disabled={!allChosen}
-        onClick={reveal}
-        className="w-full rounded-xl bg-amber-500 px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-amber-400 disabled:opacity-40 disabled:cursor-not-allowed"
-      >
-        See your Constitutional Frontier
-      </button>
+    <div className="h-[26rem]">
+      <BridgeContentCapsule
+        railCards={ORIENT_RAIL}
+        activeRailId={activeQuestion}
+        onRailChange={(id) => setActiveQuestion(id as QuestionId)}
+        allowFullscreen={false}
+        renderViewport={(activeId) => {
+          if (submitted && help && preserve && authority) {
+            return (
+              <div className="p-5">
+                <p className="text-[10px] uppercase tracking-wider text-slate-500 mb-2">Your Constitutional Frontier</p>
+                <p className="whitespace-pre-line text-sm leading-relaxed text-slate-200">
+                  {buildSummary(help, preserve, authority)}
+                </p>
+              </div>
+            );
+          }
+          if (activeId === 'help') {
+            return (
+              <OptionGrid
+                title="Where do you most want agents to help?"
+                options={HELP_OPTIONS}
+                value={help}
+                columns="grid-cols-2 sm:grid-cols-3"
+                onChange={(v) => {
+                  setHelp(v);
+                  setActiveQuestion('preserve');
+                }}
+              />
+            );
+          }
+          if (activeId === 'preserve') {
+            return (
+              <OptionGrid
+                title="What do you most want to remain yours?"
+                options={PRESERVE_OPTIONS}
+                value={preserve}
+                columns="grid-cols-2 sm:grid-cols-3"
+                onChange={(v) => {
+                  setPreserve(v);
+                  setActiveQuestion('authority');
+                }}
+              />
+            );
+          }
+          return (
+            <OptionGrid
+              title="How much authority would you currently give an agent?"
+              options={AUTHORITY_OPTIONS}
+              value={authority}
+              columns="grid-cols-1 sm:grid-cols-2"
+              onChange={(v) => setAuthority(v)}
+            />
+          );
+        }}
+        renderStrip={() => {
+          if (submitted) {
+            return (
+              <button
+                type="button"
+                onClick={changeAnswers}
+                className="text-[11px] text-slate-500 underline underline-offset-2 hover:text-slate-300"
+              >
+                Change my answers
+              </button>
+            );
+          }
+          return (
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-[11px] text-slate-500">{CI_BRIDGE_ORIENT_COMPANION_COPY}</p>
+              <button
+                type="button"
+                disabled={!allChosen}
+                onClick={reveal}
+                className="shrink-0 rounded-lg bg-amber-500 px-3.5 py-2 text-xs font-semibold text-slate-950 transition hover:bg-amber-400 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {answeredCount}/3 — See your Constitutional Frontier
+              </button>
+            </div>
+          );
+        }}
+      />
     </div>
   );
 }

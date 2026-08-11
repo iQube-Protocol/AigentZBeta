@@ -6,15 +6,15 @@
  * questionnaire, per the operator's framing: "the problem is that it
  * currently arrives too cold and feels form-like."
  *
- * Composes two things, unchanged:
- *   - a NEW, small self-fetching media header (same config pattern as
+ * Composes two things:
+ *   - a small self-fetching media header (same config pattern as
  *     ConstitutionalInternetBridgeMediaStage / KnytsBridgeMediaStage — GET
  *     /api/journey/knyts-bridge/editorial-config?section=ci-orient) framing
  *     the core proposition: personhood precedes identity;
- *   - the EXISTING, UNTOUCHED ConstitutionalFrontierOrientSurface, nested in
- *     a bordered "reflection capsule" card so the questionnaire reads as a
- *     continuation of the header above it rather than a bare form dropped
- *     onto an empty page. No logic inside that component changes.
+ *   - ConstitutionalFrontierOrientSurface, which since 2026-08-11 renders
+ *     itself as a BridgeContentCapsule (its own bordered shell) — so this
+ *     wrapper no longer nests it in a second "reflection capsule" border;
+ *     one capsule chrome, not two.
  *
  * Unlike the HOME wrapper, this header has no CTA button — the "next step"
  * is reading directly into the questions below, not a stage jump.
@@ -70,17 +70,7 @@ export function ConstitutionalInternetBridgeOrientIntro() {
         ))}
       </div>
 
-      {/* Reflection capsule — the questionnaire emerges from the personhood
-          framing above rather than sitting alone on an empty page. A subtle
-          top gradient carries the eye from the header into the card; the
-          card itself is the canonical slate surface (CLAUDE.md house
-          style), never a white-hairline residual. */}
-      <div className="relative">
-        <div className="pointer-events-none absolute inset-x-0 -top-4 h-4 bg-gradient-to-b from-transparent to-slate-900/40" />
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
-          <ConstitutionalFrontierOrientSurface />
-        </div>
-      </div>
+      <ConstitutionalFrontierOrientSurface />
     </div>
   );
 }
