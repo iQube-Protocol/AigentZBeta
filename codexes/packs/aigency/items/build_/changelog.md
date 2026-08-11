@@ -1,4 +1,7 @@
 # Build — Changelog
+- [`d737498`](https://github.com/iQube-Protocol/AigentZBeta/commit/d737498f0e586a7f7ba89388bf440c984de728d8) [feat] add artifact class (canonical/operational) toggle to qriptopian upload modal (Claude, 2026-08-11T20:41:43Z)
+- [`7716251`](https://github.com/iQube-Protocol/AigentZBeta/commit/7716251ff997535f05742532a595b2160f5e784f) [push] improve artifact URL copy affordance in upload modal + redirect Claude Code button to code interface (Claude, 2026-08-11T20:43:21Z)
+- [`937b6d8`](https://github.com/iQube-Protocol/AigentZBeta/commit/937b6d832e22fce22e150afb9e4c59b2e37558a8) [feat] add back button to threshold guides + wire groundContext to bridge copilots (Claude, 2026-08-11T20:49:07Z)
 - [`6070ce9`](https://github.com/iQube-Protocol/AigentZBeta/commit/6070ce9c90180792b1f72c9d3a0be691b0a524ae) [push] Register Constitutional Bearing plates in Polity Core (Kn0w1, 2026-08-10T23:09:04-04:00)
 - [`07c03f6`](https://github.com/iQube-Protocol/AigentZBeta/commit/07c03f645e5a6a92873a52b4bd33fa2d06e723b8) [push] Register Constitutional Internet canonical plate records in Polity Core (Kn0w1, 2026-08-10T23:04:53-04:00)
 - [`bf2a980`](https://github.com/iQube-Protocol/AigentZBeta/commit/bf2a98062739f84c696f29ce9da412161503bbb0) [push] Remove RegisterCeremonyReplay surface from Register stage UI (Claude, 2026-08-11T02:38:35Z)

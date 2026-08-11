@@ -4019,3 +4019,18 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-6070ce9.md](../build_/COMMITS/COMMIT-6070ce9.md)
 - Message: Register Constitutional Bearing plates in Polity Core
+
+## Commit `937b6d8` — 2026-08-11T20:49:07Z
+- Type: `feat`
+- Brief: [COMMIT-937b6d8.md](../build_/COMMITS/COMMIT-937b6d8.md)
+- Message: add back button to threshold guides + wire groundContext to bridge copilots
+
+## Commit `7716251` — 2026-08-11T20:43:21Z
+- Type: `push`
+- Brief: [COMMIT-7716251.md](../build_/COMMITS/COMMIT-7716251.md)
+- Message: improve artifact URL copy affordance in upload modal + redirect Claude Code button to code interface
+
+## Commit `d737498` — 2026-08-11T20:41:43Z
+- Type: `feat`
+- Brief: [COMMIT-d737498.md](../build_/COMMITS/COMMIT-d737498.md)
+- Message: add artifact class (canonical/operational) toggle to qriptopian upload modal
