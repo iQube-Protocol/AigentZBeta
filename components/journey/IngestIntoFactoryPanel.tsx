@@ -1,18 +1,26 @@
 'use client';
 
 /**
- * IngestIntoFactoryPanel — the Ingest (deploy) stage's ONE guided action
- * (Horizen Pilot Closure — Final Standing + DVN Closure, part 2, operator
- * decision A, 2026-08-09: "The recorded MoneyPenny journey needs a visible
- * consequential act, not an observer magically flipping after viewing the
- * Assets catalogue").
+ * IngestIntoFactoryPanel — the Factory ingestion action, re-homed under the
+ * `activate` stage's surface (Activate Consolidation, 2026-08-11). Formerly
+ * the Ingest/`deploy` stage's ONE guided action (Horizen Pilot Closure —
+ * Final Standing + DVN Closure, part 2, operator decision A, 2026-08-09:
+ * "The recorded MoneyPenny journey needs a visible consequential act, not
+ * an observer magically flipping after viewing the Assets catalogue").
+ * `deploy` is now legacy/internal only — see horizenMoneyPennyJourney.ts's
+ * header comment on that stage.
+ *
+ * No longer gated on Operate/aigentMe (see `blockingReason` below):
+ * constitutional activation (`registryActivated`) is fully independent of
+ * Factory ingestion — this panel is technical-process tooling, never a
+ * second constitutional consent ceremony after Passport.
  *
  * Mirrors OrientationPanel's shape exactly: observe real state on mount
  * (GET), offer the act only while genuinely outstanding and eligible, POST
  * to perform it, then re-read (never trust the POST's own echo). The
- * Ingested Assets registry catalogue (ParticipationStandingTab's
- * `only:'registry'` mount) stays on this same stage, unchanged — this panel
- * is the missing act ABOVE it, not a replacement for it.
+ * registry catalogue ("iQube Registry" tab — ParticipationStandingTab's
+ * `only:'registry'` mount) stays alongside this panel, unchanged — this
+ * panel is the guided act ABOVE it, not a replacement for it.
  *
  * Writes no Standing itself. The existing state-route seed-award mechanism
  * observes the resulting `capability_registered` receipt on its own next
@@ -43,10 +51,13 @@ interface IngestIntoFactoryPanelProps {
   agentSlug: string;
 }
 
+// Was: also refused unless aigentMeActive/focusDispositionRecorded ("Ingest
+// requires Operate first"). Removed (Activate Consolidation, 2026-08-11) —
+// Factory ingestion is technical-process tooling, never sequenced behind
+// Operate.
 function blockingReason(status: IngestStatus): string | null {
   if (!status.aigentQubeResolved) return 'This agent has no AigentQube in the registry yet — Register must complete first.';
   if (!status.registered) return 'This agent has no confirmed Horizen registration yet — Register must complete first.';
-  if (!status.aigentMeActive || !status.focusDispositionRecorded) return 'Operate (aigentMe) has not been completed yet — Ingest requires Operate first.';
   return null;
 }
 

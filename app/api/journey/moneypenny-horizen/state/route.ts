@@ -1245,18 +1245,18 @@ async function resolveState(req: NextRequest) {
    * `classifyConsequenceProng` never re-decides completion, it only asks
    * whether an already-COMPLETE stage's external consequence has reached
    * DVN finality. Each prong resolves independently — Stand's incompleteness
-   * cannot dim an already-proven Ratify or Ingest.
+   * cannot dim an already-proven Ratify.
+   *
+   * NO `deploy` KEY (Activate Consolidation, 2026-08-11) — the fork is
+   * Ratify + Stand only. Ingest/`deploy` is no longer a visible
+   * constitutional consequence; its technical evidence
+   * (`capability_registered`) still exists and is readable, but it competes
+   * with nothing here.
    */
   const stageStatus = (id: string) => resolution.stages.find((s) => s.stageId === id)?.status ?? 'NOT_STARTED';
   const consequenceFork = {
     verify: consequenceProngCopy(
       classifyConsequenceProng({ stageState: stageStatus('verify'), bestAnchorReceiptStatus: ratifyAnchorStatus ?? null }),
-    ),
-    deploy: consequenceProngCopy(
-      classifyConsequenceProng({
-        stageState: stageStatus('deploy'),
-        bestAnchorReceiptStatus: bestReceiptStatus(receiptStatuses['capability_registered'] ?? []),
-      }),
     ),
     standing: consequenceProngCopy(
       classifyConsequenceProng({

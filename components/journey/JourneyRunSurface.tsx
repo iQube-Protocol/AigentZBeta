@@ -538,11 +538,17 @@ export function JourneyRunSurface({
    */
   const spineStages = journey.stages.filter((s) => !s.forkPosition);
   const forkStages = journey.stages.filter((s) => s.forkPosition);
-  const FORK_ROWS: Array<{ position: 'upper' | 'middle' | 'lower' }> = [
-    { position: 'upper' },
-    { position: 'middle' },
-    { position: 'lower' },
-  ];
+  /*
+   * Activate Consolidation (2026-08-11) — 'middle' dropped from the
+   * RENDERED rows. A stage may still carry `forkPosition: 'middle'` in its
+   * data (the legacy `deploy`/Ingest stage does, for `spineStages`
+   * exclusion + historical evidence linkage — see its own header comment
+   * in horizenMoneyPennyJourney.ts) without ever drawing a visible trident
+   * prong: `forkStages.find(s => s.forkPosition === position)` below only
+   * ever looks up 'upper'/'lower', so a 'middle' stage is structurally
+   * unreachable by this render regardless of what the data says.
+   */
+  const FORK_ROWS: Array<{ position: 'upper' | 'lower' }> = [{ position: 'upper' }, { position: 'lower' }];
 
   /** Shared between the default one-row header and the `compact` one-row
    *  variant (KNYTS Bridge reconstitution, 2026-08-09) — same status slides,
@@ -853,10 +859,27 @@ export function JourneyRunSurface({
             const lastSpineDone =
               (runtimeState?.stages.find((s) => s.stageId === spineStages[spineStages.length - 1]?.id)?.state ??
                 'NOT_STARTED') === 'COMPLETE';
-            // Row 0 = Ratify (top), row 1 = Ingest (middle, box center), row
-            // 2 = Stand (bottom) — fixed pixel geometry for a 72px-tall box.
-            const ROW_TOP = ['top-0', 'top-6', 'top-12'];
-            const TICK_Y = ['top-3', 'top-1/2 -translate-y-1/2', 'bottom-3'];
+            /*
+             * Keyed by POSITION NAME, not array index (Activate
+             * Consolidation, 2026-08-11 — the old 3-row Ratify/Ingest/Stand
+             * geometry indexed these arrays by `rowIndex`, which silently
+             * mis-positioned rows once FORK_ROWS shrank to two entries).
+             * Ratify (upper) sits at the box's top; Stand (lower) at its
+             * bottom — the SAME 72px-tall box, now spanning both ends
+             * cleanly instead of clustering near the top. 'middle' stays
+             * defined (unused today) so a future journey that legitimately
+             * needs a third rendered prong is not blocked by this type.
+             */
+            const ROW_TOP: Record<'upper' | 'middle' | 'lower', string> = {
+              upper: 'top-0',
+              middle: 'top-6',
+              lower: 'top-12',
+            };
+            const TICK_Y: Record<'upper' | 'middle' | 'lower', string> = {
+              upper: 'top-3',
+              middle: 'top-1/2 -translate-y-1/2',
+              lower: 'bottom-3',
+            };
             return (
               <React.Fragment key="consequence-fork">
                 {/* The SAME shared flexible connector as every ordinary spine
@@ -878,7 +901,7 @@ export function JourneyRunSurface({
                   <div className="absolute bottom-3 left-0 top-3 w-px bg-slate-700" />
                   {/* The junction — ONE point, immediately after Operate. */}
                   <div className="absolute left-0 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-slate-600" />
-                  {FORK_ROWS.map(({ position }, rowIndex) => {
+                  {FORK_ROWS.map(({ position }) => {
                   const stage = forkStages.find((s) => s.forkPosition === position);
                   if (!stage) return null;
                   const stageState = runtimeState?.stages.find((s) => s.stageId === stage.id)?.state ?? 'NOT_STARTED';
@@ -893,9 +916,9 @@ export function JourneyRunSurface({
                     <React.Fragment key={stage.id}>
                       {/* Short tick from the trunk to this row's own node —
                           independently coloured by THIS prong's state. */}
-                      <div className={`absolute left-0 ${TICK_Y[rowIndex]} h-px w-2 ${tickDone ? 'bg-emerald-500/50' : 'bg-slate-700'}`} />
+                      <div className={`absolute left-0 ${TICK_Y[position]} h-px w-2 ${tickDone ? 'bg-emerald-500/50' : 'bg-slate-700'}`} />
                       <div
-                        className={`absolute left-2 ${ROW_TOP[rowIndex]} flex h-6 items-center gap-1.5 whitespace-nowrap`}
+                        className={`absolute left-2 ${ROW_TOP[position]} flex h-6 items-center gap-1.5 whitespace-nowrap`}
                         data-fork-position={position}
                       >
                         <button

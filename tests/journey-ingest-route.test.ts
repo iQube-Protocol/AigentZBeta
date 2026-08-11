@@ -156,23 +156,31 @@ describe('POST /api/journey/moneypenny-horizen/ingest — preconditions refuse, 
     expect(mockCreateActivityReceipt).not.toHaveBeenCalled();
   });
 
-  it('refuses OPERATE_NOT_COMPLETE when aigentMe has not been activated', async () => {
+  /*
+   * Activate Consolidation (2026-08-11): constitutional activation
+   * (`registryActivated`) no longer depends on Operate, Delegate, or Factory
+   * ingestion — and symmetrically, Factory ingestion no longer depends on
+   * Operate. `OPERATE_NOT_COMPLETE` is retired; Ingest succeeds on the two
+   * REAL technical preconditions alone (AigentQube resolved + registered),
+   * regardless of aigentMe/focus-disposition state.
+   */
+  it('succeeds even when aigentMe has not been activated — Ingest no longer depends on Operate', async () => {
     aigentMeActive = false;
     const { POST } = await import('@/app/api/journey/moneypenny-horizen/ingest/route');
     const res = await POST(makeRequest());
     const json = await res.json();
-    expect(res.status).toBe(409);
-    expect(json.refusalCode).toBe('OPERATE_NOT_COMPLETE');
-    expect(mockCreateActivityReceipt).not.toHaveBeenCalled();
+    expect(res.status).toBe(200);
+    expect(json.status).toBe('ingested');
+    expect(mockCreateActivityReceipt).toHaveBeenCalledTimes(1);
   });
 
-  it('refuses OPERATE_NOT_COMPLETE when the focus disposition receipt is missing (both halves required)', async () => {
+  it('succeeds even when the focus disposition receipt is missing — neither half of Operate gates Ingest anymore', async () => {
     focusDispositionRecorded = false;
     const { POST } = await import('@/app/api/journey/moneypenny-horizen/ingest/route');
     const res = await POST(makeRequest());
     const json = await res.json();
-    expect(res.status).toBe(409);
-    expect(json.refusalCode).toBe('OPERATE_NOT_COMPLETE');
+    expect(res.status).toBe(200);
+    expect(json.status).toBe('ingested');
   });
 
   it('rejects an unknown agent slug without touching any real agent', async () => {
@@ -192,6 +200,15 @@ describe('GET /api/journey/moneypenny-horizen/ingest — read-only eligibility s
     const json = await (await GET(req)).json();
     expect(json).toMatchObject({ ok: true, agentSlug: 'agent-q', eligible: true, alreadyIngested: false });
     assertNamesOnlyAgentQ(json, 'ingest status');
+  });
+
+  it('reports eligible=true even when aigentMeActive/focusDispositionRecorded are both false — Operate no longer gates eligibility', async () => {
+    aigentMeActive = false;
+    focusDispositionRecorded = false;
+    const { GET } = await import('@/app/api/journey/moneypenny-horizen/ingest/route');
+    const req = new (require('next/server').NextRequest)('https://dev-beta.aigentz.me/api/journey/moneypenny-horizen/ingest?agentSlug=agent-q');
+    const json = await (await GET(req)).json();
+    expect(json).toMatchObject({ eligible: true, aigentMeActive: false, focusDispositionRecorded: false });
   });
 
   it('reports eligible=false and alreadyIngested=true once a receipt exists', async () => {

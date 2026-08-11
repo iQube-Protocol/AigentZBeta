@@ -8,6 +8,20 @@
  * must be corrected under the same generic rule as MoneyPenny... close the
  * actual Ingest-act gap").
  *
+ * ── ACTIVATE CONSOLIDATION (2026-08-11) — NO LONGER GATED ON OPERATE ──────
+ *
+ * Constitutional activation (`registryActivated`) is now derived entirely
+ * from Passport + sponsorship (services/journey/agentRegistryActivation.ts)
+ * — never from Delegate, Operate, or Factory ingestion. This route's own
+ * `aigentMeActive`/`focusDispositionRecorded` precondition, which used to
+ * refuse Ingest with `OPERATE_NOT_COMPLETE` until Operate finished, is
+ * retired: Factory ingestion is technical-process tooling (re-homed under
+ * the `activate` stage's surface), never a second constitutional consent
+ * ceremony sequenced behind admission. It still requires the two REAL
+ * technical preconditions — the agent's AigentQube resolves, and its
+ * Horizen registration resolves — because those are genuine prerequisites
+ * for a Factory participant to exist at all.
+ *
  * ── THE GAP THIS CLOSES ────────────────────────────────────────────────────
  *
  * The journey `state` route's Ingest/`deploy` stage has always defined
@@ -131,7 +145,11 @@ async function getIngestStatus(request: NextRequest): Promise<NextResponse> {
     ok: true,
     agentSlug: agent.slug,
     ...pre,
-    eligible: !pre.alreadyIngested && pre.aigentQubeResolved && pre.registered && pre.aigentMeActive && pre.focusDispositionRecorded,
+    // Was `&& pre.aigentMeActive && pre.focusDispositionRecorded` — Operate
+    // is no longer a precondition (Activate Consolidation, 2026-08-11).
+    // `aigentMeActive`/`focusDispositionRecorded` are still REPORTED above
+    // (via `...pre`) for visibility, just no longer gate eligibility.
+    eligible: !pre.alreadyIngested && pre.aigentQubeResolved && pre.registered,
   });
 }
 
@@ -188,12 +206,11 @@ async function postIngest(request: NextRequest): Promise<NextResponse> {
       { status: 409 },
     );
   }
-  if (!pre.aigentMeActive || !pre.focusDispositionRecorded) {
-    return NextResponse.json(
-      { ok: false, refusalCode: 'OPERATE_NOT_COMPLETE', error: `${agent.displayName} has not completed Operate (aigentMe) yet — Ingest requires Operate first` },
-      { status: 409 },
-    );
-  }
+  // Was: refuse with OPERATE_NOT_COMPLETE unless aigentMeActive/
+  // focusDispositionRecorded. Removed (Activate Consolidation, 2026-08-11)
+  // — Factory ingestion no longer requires Operate. `pre.aigentMeActive`/
+  // `pre.focusDispositionRecorded` remain in IngestPreconditions purely for
+  // reporting; nothing below reads them as a gate.
 
   const receipt = await createActivityReceipt({
     personaId: persona.personaId,
