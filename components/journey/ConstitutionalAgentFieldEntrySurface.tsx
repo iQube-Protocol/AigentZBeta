@@ -1,11 +1,13 @@
 'use client';
 
 /**
- * ConstitutionalAgentFieldEntrySurface — the Constitutional Internet
- * Bridge's ACT stage: "Bring Your Agent Into the Field."
+ * ConstitutionalAgentFieldEntrySurface — PERSONIFY's SUPPORTING-tools
+ * surface (evolved from ACT's primary surface, 2026-08-11).
  *
- * Operator refinement (2026-08-10): ACT is not solely an ExperienceQube
- * disposition ceremony. It offers two sibling, equally-valid paths, neither
+ * Repositioned, not rebuilt: PERSONIFY's primary surface is now
+ * ConstitutionalInternetBridgePersonifyMyCanvas ("Tell your Constitutional
+ * story"); this component's two original sibling paths are preserved
+ * exactly, just framed as OPTIONAL supporting tools underneath it, neither
  * of which is delegation:
  *
  *   (A) Connect an agent you already use — deep-links to the REAL, already-
@@ -19,21 +21,31 @@
  *       SELF-REPORT ("I've connected — continue"), not a verified check —
  *       see the connect-agent route's own header for why.
  *   (B) Meet aigentMe — the pre-existing ConstitutionalAgentDispositionSurface
- *       (a real, receipt-backed ceremony), rendered inline, unchanged.
+ *       ceremony (unchanged), now PAIRED with the real, focused aigentMe/
+ *       metaMe surface (the same embed pattern KNYTS' own Delegate stage
+ *       uses — utils/codex-nav.ts's focused/focusedNavDepth contract) so
+ *       aigentMe can actually help shape the person's story instead of the
+ *       ceremony floating in an otherwise-empty viewport. The person
+ *       remains the author.
  *
  * Governing rule, stated explicitly in the UI: "Context may cross before
  * authority does." Neither path requires the other; either alone completes
- * ACT (services/journey/constitutionalInternetBridgeJourney.ts's
- * `agentRelationshipStarted` evidence is an OR, not a checklist).
+ * PERSONIFY's `agentRelationshipStarted` evidence (an OR, not a checklist —
+ * unchanged by this evolution).
  */
 
 import React, { useEffect, useState } from 'react';
 import { CheckCircle2, Copy, Loader2, Sparkles } from 'lucide-react';
 import { personaFetch } from '@/utils/personaSpine';
+import { buildCodexUrl } from '@/utils/codex-nav';
 import { ConstitutionalAgentDispositionSurface } from '@/components/journey/ConstitutionalAgentDispositionSurface';
 import { CI_BRIDGE_THRESHOLD_MCP_URL } from '@/services/journey/constitutionalInternetBridgeJourney';
 
 type Path = 'choose' | 'connect' | 'aigentme';
+
+interface Props {
+  personaId?: string;
+}
 
 function ConnectAnAgentPath({ onConnected }: { onConnected: () => void }) {
   const [loading, setLoading] = useState(true);
@@ -116,11 +128,50 @@ function ConnectAnAgentPath({ onConnected }: { onConnected: () => void }) {
   );
 }
 
-export function ConstitutionalAgentFieldEntrySurface() {
+/** The real, focused aigentMe/metaMe surface — reuses the shared
+ *  Focused/Full contract (utils/codex-nav.ts) exactly like KNYTS' own
+ *  Delegate stage, so aigentMe actually helps shape the story rather than
+ *  the disposition ceremony above floating in an empty viewport. */
+function MeetAigentMeEmbed({ personaId }: { personaId?: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const src = buildCodexUrl('metame-codex', {
+    tab: 'aigent-me',
+    personaId,
+    shell: 'embed',
+    suppressCopilot: true,
+    focused: !expanded,
+    focusedNavDepth: expanded ? undefined : 1,
+  });
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex justify-end">
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-slate-200 bg-none border-none cursor-pointer p-0"
+        >
+          {expanded ? 'Focus view' : 'Explore metaMe ↗'}
+        </button>
+      </div>
+      <iframe
+        src={src}
+        title="Meet aigentMe"
+        className="h-[26rem] w-full rounded-md border border-slate-800 bg-slate-950"
+      />
+    </div>
+  );
+}
+
+export function ConstitutionalAgentFieldEntrySurface({ personaId }: Props) {
   const [path, setPath] = useState<Path>('choose');
 
   if (path === 'aigentme') {
-    return <ConstitutionalAgentDispositionSurface />;
+    return (
+      <div className="space-y-3">
+        <ConstitutionalAgentDispositionSurface />
+        <MeetAigentMeEmbed personaId={personaId} />
+      </div>
+    );
   }
 
   if (path === 'connect') {
@@ -141,8 +192,8 @@ export function ConstitutionalAgentFieldEntrySurface() {
   return (
     <div className="rounded-md border border-slate-800 bg-slate-950/40 p-3 space-y-3">
       <p className="text-xs text-slate-300">
-        What role would you like agents to play in your life? Bring an agent you already use into the field, or
-        begin shaping aigentMe as your constitutional companion. <span className="text-slate-400">Connection is
+        Optional supporting tools — not required to tell your story above. Bring an agent you already use into
+        the field, or let aigentMe help you shape your Article or Story. <span className="text-slate-400">Connection is
         never delegation</span> — either way, nothing here grants constitutional authority.
       </p>
       <button
@@ -159,7 +210,7 @@ export function ConstitutionalAgentFieldEntrySurface() {
         className="w-full rounded-lg border border-slate-800 bg-slate-900/40 p-3 text-left transition-colors hover:border-indigo-700/60 hover:bg-indigo-950/20"
       >
         <p className="flex items-center gap-1.5 text-sm font-medium text-slate-100"><Sparkles className="h-3.5 w-3.5 text-indigo-300" /> Meet aigentMe</p>
-        <p className="mt-0.5 text-xs text-slate-500">Begin shaping a constitutional companion around your ExperienceQube.</p>
+        <p className="mt-0.5 text-xs text-slate-500">Let aigentMe help shape your Constitutional story. You remain the author.</p>
       </button>
     </div>
   );

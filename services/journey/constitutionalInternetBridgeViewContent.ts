@@ -29,8 +29,19 @@ export interface ViewContentBlock {
   excerpt: string;
   /** Citation — file + line, so the quote can be checked against source. */
   excerptSource: string;
-  /** Optional real hero-film URL — undefined until a real asset exists. */
+  /** Optional real hero-film URL — undefined until a real asset exists. Also
+   *  admin-overridable per vignette via the ci-view-<id> editorial config
+   *  section (2026-08-11) — see ConstitutionalInternetBridgeViewSequence. */
   videoUrl?: string;
+  /**
+   * Optional "deep dive / further reading" reference (Polity Paper),
+   * per the Ethos hierarchy: Video+Plate = hero, Excerpt = supporting
+   * context, Paper = deep dive. Undefined for every block today — CLAUDE.md's
+   * No-Guessing rule forbids inventing a URL; a real paper reference is added
+   * here once one exists for a given proposition, never fabricated to fill
+   * the tier.
+   */
+  paperRef?: { title: string; url: string };
 }
 
 const MANUSCRIPT_SOURCE =

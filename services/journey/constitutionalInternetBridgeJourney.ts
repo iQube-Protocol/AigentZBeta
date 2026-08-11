@@ -13,8 +13,9 @@
  * ── Seven spine nodes, three tracked stages ─────────────────────────────────
  *
  * An earlier version of this file reduced the public seven-beat narrative
- * (HOME, VIEW, ORIENT, PASSPORT, ACT, STAND, CHOOSE) to a three-stage
- * JourneyDefinition (passport/act/stand), reasoning that a JourneyDefinition
+ * (HOME, VIEW, ORIENT, PASSPORT, PERSONIFY, STAND, CHOOSE — PERSONIFY named
+ * ACT before the 2026-08-11 experience evolution pass) to a three-stage
+ * JourneyDefinition (passport/personify/stand), reasoning that a JourneyDefinition
  * stage is a unit of TRACKED, EVIDENCED PROGRESS (Journey Guidance
  * Principle, §5.1) and the other four have nothing to gate or complete. That
  * reasoning about EVIDENCE was correct and is preserved below — HOME/VIEW/
@@ -49,10 +50,17 @@
  * than the weaker `personaAuthenticated` (merely signed in) this file used
  * before reconstitution.
  *
- * ── ACT: "Bring Your Agent Into the Field" — connection is not delegation ──
+ * ── PERSONIFY (evolved from ACT, 2026-08-11): "Tell your Constitutional
+ *    story" — the person is the protagonist ──────────────────────────────
  *
- * ACT is the first post-Passport human-agent relationship step, and offers
- * TWO sibling paths, neither of which grants constitutional authority:
+ * Renamed from ACT (public stage id `act` → `personify`) as an experience
+ * evolution, not a rebuild: every ACT capability below is preserved, only
+ * repositioned. The stage's PRIMARY surface is now a real, functional
+ * personal-expression act — writing a Constitutional Article or Story via
+ * the canonical myCanvas → Qriptopian Pulse pipeline (the same pipeline
+ * KNYTS' own Remix uses, pointed at Qriptopian instead of KNYT) — with the
+ * two original ACT paths kept as SUPPORTING tools underneath it, not the
+ * stage's main purpose:
  *
  *   (1) Connect an agent you already use — a real, already-working metaMe
  *       Threshold MCP OAuth crossing (services/threshold/gateway.ts,
@@ -65,12 +73,29 @@
  *       proposal; it cannot grant one). Governing principle: "Context may
  *       cross before authority does."
  *   (2) Meet aigentMe — the pre-existing generalized ExperienceQube
- *       disposition ceremony (experienceQubeDispositionService.ts).
+ *       disposition ceremony (experienceQubeDispositionService.ts), now
+ *       paired with the real, focused aigentMe/metaMe surface (the same
+ *       embed pattern KNYTS' own Delegate stage uses) so aigentMe actually
+ *       helps shape the story rather than leaving the ceremony floating in
+ *       an otherwise-empty viewport. The person remains the author.
  *
- * Both are relationship/context facts, not delegation, not Standing, not a
- * mandate. `completionEvidence: ['agentRelationshipStarted']` is true when
- * EITHER path is taken (computed as an OR in the state route) — the two
- * paths are alternatives, not a checklist.
+ * Both supporting paths are relationship/context facts, not delegation, not
+ * Standing, not a mandate. `completionEvidence: ['agentRelationshipStarted']`
+ * is UNCHANGED by this evolution — still true when EITHER supporting path is
+ * taken (computed as an OR in the state route), still an alternative
+ * pairing, never a checklist, and never requiring a published story (the
+ * spec is explicit: publishing is the primary invitation, not a completion
+ * gate).
+ *
+ * `CI_BRIDGE_DISPOSITION_CONTEXT` ('constitutional-internet-bridge-act') is
+ * DELIBERATELY left unrenamed — it is stamped into real, already-written
+ * disposition receipts, and the `act/disposition` and `act/connect-agent`
+ * route paths are unchanged internal plumbing (CLAUDE.md's own principle:
+ * a public stage label is not the same thing as an internal identifier).
+ * Verified before this rename: no persisted table or receipt stores the
+ * JourneyDefinition's stage id itself (`platformState.stages` is a fresh
+ * per-request object literal in the state route, never written to a
+ * database) — so this rename needed no backward-compatible alias.
  *
  * STAND consumes real Passport/disposition receipts and the canonical
  * Standing score — never fabricated from navigation or viewing.
@@ -227,7 +252,7 @@ export const CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY: JourneyDefinition = {
           note:
             'State-aware constitutional room (ConstitutionalInternetBridgePassportRoom.tsx): no usable ' +
             'Passport -> the canonical PassportBureauApplyTab claim flow; Passport established -> ' +
-            '"You have crossed." + a continuation toward ACT. Never a campaign-specific fork of Passport.',
+            '"You have crossed." + a continuation toward PERSONIFY. Never a campaign-specific fork of Passport.',
         },
       ],
       prerequisites: [],
@@ -241,38 +266,52 @@ export const CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY: JourneyDefinition = {
           'in the Polity.',
         complete: 'Your Passport is active. You are constitutionally present in the Polity.',
       },
-      nextStageId: 'act',
+      nextStageId: 'personify',
     },
     {
-      id: 'act',
-      label: 'Act',
+      id: 'personify',
+      label: 'Personify',
       description:
-        'Bring your agent into the field — an orientation and context connection, not delegation. ' +
-        'Connect an agent you already use, or begin shaping a constitutional companion with aigentMe. ' +
-        'Either is an explicit, principal-chosen act; neither confers constitutional authority.',
+        'Tell your Constitutional story. Write an Article — your real constitutional perspective — or a ' +
+        'Story — an imagined constitutional life — published to the real Qriptopian Pulse. Connecting an ' +
+        'agent you already use, or shaping aigentMe as a companion, are supporting tools, not the point: ' +
+        'the person is the protagonist.',
       actor: 'operator',
       subjectRef: 'visitor',
       surfaces: [
         {
           mode: 'component',
-          ref: 'ci-bridge-act-field-entry',
+          ref: 'ci-bridge-personify-mycanvas',
           note:
-            'ConstitutionalAgentFieldEntrySurface — two sibling paths: (1) Connect an agent you already ' +
-            'use, via the real metaMe Threshold MCP OAuth crossing (services/threshold/*) — grants only ' +
-            'CONSTITUTIONAL_ROOT_CAPABILITIES (read/query scope), never delegation; (2) Meet aigentMe, the ' +
-            'same generalized ExperienceQube disposition ceremony the Horizen/MoneyPenny journey uses. ' +
-            'Governing rule: "Context may cross before authority does" — connection is never delegation.',
+            'ConstitutionalInternetBridgePersonifyMyCanvas — the stage\'s PRIMARY surface (evolved from ' +
+            'ACT, 2026-08-11): the canonical myCanvas Article/Story editor, embedded exactly like KNYTS\' ' +
+            'own Remix surface, publishing through the SAME existing /api/community-content/generate -> ' +
+            '/api/mycanvas/entries/[id]/publish-to-pulse pipeline, destination locked to Qriptopian Pulse ' +
+            '(cartridge=\'qripto\') via MyCanvasTab\'s campaignTag->cartridge lock map — never a second, ' +
+            'CI-specific publishing endpoint.',
+        },
+        {
+          mode: 'component',
+          ref: 'ci-bridge-personify-field-entry',
+          note:
+            'ConstitutionalAgentFieldEntrySurface (renamed registry key only, component unchanged) — now ' +
+            'framed as SUPPORTING tools beneath the myCanvas surface above: (1) Connect an agent you ' +
+            'already use, via the real metaMe Threshold MCP OAuth crossing (services/threshold/*) — grants ' +
+            'only CONSTITUTIONAL_ROOT_CAPABILITIES (read/query scope), never delegation; (2) Meet aigentMe, ' +
+            'the existing disposition ceremony PLUS the real, focused aigentMe/metaMe embed (the person ' +
+            'remains the author). Governing rule unchanged: "Context may cross before authority does."',
         },
       ],
       prerequisites: ['passport'],
-      permittedActions: ['connect-external-agent', 'record-agent-disposition'],
+      permittedActions: ['publish-constitutional-story', 'connect-external-agent', 'record-agent-disposition'],
       completionEvidence: ['agentRelationshipStarted'],
       receiptTypes: [],
       companion: {
         before:
-          'What role would you like agents to play in your life? Bring an agent you already use into the ' +
-          'field, or begin shaping aigentMe as your constitutional companion. Either is a choice you make ' +
-          'explicitly — connection is never delegation, and nothing here is inferred or assumed on your behalf.',
+          'Tell your Constitutional story — an Article on your real perspective, or a Story imagining a ' +
+          'constitutional life. Connecting an agent you already use, or shaping aigentMe as a companion, ' +
+          'are optional supporting tools — connection is never delegation, and nothing here is inferred or ' +
+          'assumed on your behalf.',
         complete: 'An agent has entered the field with you. Bounded delegation, if you ever want it, is a separate, later choice.',
       },
       nextStageId: 'stand',
@@ -290,7 +329,7 @@ export const CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY: JourneyDefinition = {
           note: 'Reads real Passport/disposition receipts and the canonical Standing score — never fabricates Standing from navigation or viewing. See services/journey/constitutionalInternetBridgeStand.ts.',
         },
       ],
-      prerequisites: ['act'],
+      prerequisites: ['personify'],
       permittedActions: ['view-standing'],
       completionEvidence: ['constitutionalEventRecorded'],
       receiptTypes: [],
