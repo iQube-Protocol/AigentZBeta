@@ -16,12 +16,21 @@
  *     Agentic Polity", cover + PDF both real, dev-beta `codex_media_assets`
  *     row `f7342afc-...`). Every artifact keeps ITS OWN native aspect ratio
  *     — the viewport is NOT forced to 16:9 for everything; only the Video
- *     card locks to 16:9, Plate/Paper size the viewport from their own real
- *     width/height (`viewportAspectRatio`), matted/contained, never
- *     stretched or cropped. Selecting Paper shows a portrait cover-fronted
- *     reading launch surface with an "Open Reader" action that launches the
- *     EXISTING PDFLiteReaderModal in its native overlay — never a forked
- *     inline reader, never a bare "Read the paper" link.
+ *     card locks to 16:9, Plate sizes from its own real width/height
+ *     (`viewportAspectRatio`), matted/contained, never stretched or cropped.
+ *
+ *     Paper's featured state (refined 2026-08-11) is a document-GALLERY
+ *     composition, not one portrait cover floating alone in a wide
+ *     viewport: the selected cover, centred and visually primary, flanked
+ *     by its real neighbours in the same Qriptopian Codex Polity Papers
+ *     series (`services/artifact/polityPapersSeries.ts`) — series-COVER
+ *     fallback (option B), since no interior-page-thumbnail pipeline exists
+ *     in this codebase (see that file's header). Every cover keeps its
+ *     real native portrait ratio; clicking a neighbour opens ITS OWN
+ *     reader directly rather than reassigning "featured" state — no new
+ *     navigation architecture. "Open Reader" on the selected cover launches
+ *     the EXISTING PDFLiteReaderModal in its native overlay — never a
+ *     forked inline reader.
  *     The lower strip reads as an editorial BOOK EXCERPT, not a status
  *     panel (editorial polish pass, 2026-08-11): a small "The Constitutional
  *     Internet" source line, the proposition as a quiet chapter reference,
@@ -59,6 +68,7 @@ import {
   type ViewContentBlock,
 } from '@/services/journey/constitutionalInternetBridgeViewContent';
 import { canonicalPlateImage } from '@/services/artifact/canonicalPlateImages';
+import { polityPapersNeighbors, type PolityPaperSeriesEntry } from '@/services/artifact/polityPapersSeries';
 import { KnytCommunityContentTab } from '@/app/triad/components/codex/tabs/KnytCommunityContentTab';
 import type { KnytsBridgeEditorialSection } from '@/services/journey/knytsBridgeEditorialConfig';
 import { CI_BRIDGE_CAMPAIGN_ID } from '@/services/journey/constitutionalInternetBridgeJourney';
@@ -218,41 +228,84 @@ function ethosRailCards(
   return cards;
 }
 
-/** A framed, matted media mount — a restrained two-tone mat (warm outer
- *  border tone, ivory inner mat) so the artifact reads as a mounted piece,
- *  not an image loose in a div. Never stretches/crops the asset; any
- *  leftover space is the matte, not a distortion of the artifact. */
+/** A framed, matted media mount — a restrained two-tone mat so the
+ *  artifact reads as a mounted piece, not an image loose in a div. Colors
+ *  (refined 2026-08-11) are sampled from the actual canonical assets — the
+ *  seven CIP plates' own backgrounds average ~#f4e6d2, the Polity Papers
+ *  covers ~#eee8df — so the mat HARMONIZES with the artwork instead of
+ *  reading as a cold near-white viewport next to warm parchment plates.
+ *  Never stretches/crops the asset; any leftover space is the matte, not a
+ *  distortion of the artifact. */
 function MattedFrame({ children }: { children: ReactNode }) {
   return (
-    <div className="flex h-full w-full items-center justify-center bg-[#eee7d8] p-3">
-      <div className="flex h-full w-full items-center justify-center rounded-[2px] bg-[#faf7f0] p-3 shadow-[inset_0_0_0_1px_rgba(30,58,95,0.09),inset_0_1px_10px_rgba(0,0,0,0.05)]">
+    <div className="flex h-full w-full items-center justify-center bg-[#e8d9bd] p-3">
+      <div className="flex h-full w-full items-center justify-center rounded-[2px] bg-[#f6ecd9] p-3 shadow-[inset_0_0_0_1px_rgba(30,58,95,0.09),inset_0_1px_10px_rgba(0,0,0,0.06)]">
         {children}
       </div>
     </div>
   );
 }
 
-/** Paper's viewport: a portrait cover-fronted reading launch surface — the
- *  real cover, the real title, an "Open Reader" action. Opens the EXISTING
- *  PDFLiteReaderModal in its native overlay; never a forked inline reader,
- *  never a bare link-out card. */
-function PaperLaunchSurface({ paperRef }: { paperRef: NonNullable<ViewContentBlock['paperRef']> }) {
+/** A smaller, dimmer neighbouring series cover — clicking it opens ITS OWN
+ *  reader directly (never reassigns which paper is "featured", per the
+ *  operator's instruction not to invent new navigation architecture). */
+function AdjacentPaperCover({ entry, side }: { entry: PolityPaperSeriesEntry; side: 'previous' | 'next' }) {
   const [readerOpen, setReaderOpen] = useState(false);
   return (
-    <MattedFrame>
-      <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
+    <>
+      <button
+        type="button"
+        onClick={() => setReaderOpen(true)}
+        title={`Open "${entry.title}"`}
+        className="hidden h-full shrink-0 flex-col items-center justify-center gap-1.5 opacity-55 transition hover:opacity-90 sm:flex"
+      >
         <img
-          src={paperRef.coverImageUrl}
-          alt={paperRef.title}
-          className="max-h-[calc(100%-3rem)] max-w-[70%] rounded-sm object-contain shadow-lg"
+          src={entry.coverImageUrl}
+          alt={entry.title}
+          className="max-h-[62%] w-auto rounded-sm object-contain shadow-md shadow-black/15"
         />
-        <button
-          type="button"
-          onClick={() => setReaderOpen(true)}
-          className="inline-block rounded-lg border border-[#a08444]/50 bg-[#a08444]/10 px-4 py-2 text-sm text-[#1e3a5f] transition hover:bg-[#a08444]/20"
-        >
-          Open Reader ↗
-        </button>
+        <span className="max-w-[6.5rem] truncate text-[10px] text-[#6b6255]">
+          {side === 'previous' ? '← ' : ''}
+          {entry.title}
+          {side === 'next' ? ' →' : ''}
+        </span>
+      </button>
+      <PDFLiteReaderModal open={readerOpen} pdfUrl={entry.url} title={entry.title} onClose={() => setReaderOpen(false)} />
+    </>
+  );
+}
+
+/** Paper's featured viewport: a document-GALLERY composition — the
+ *  selected cover, centred and visually primary, flanked by its real
+ *  neighbours in the same Polity Papers series (series-cover fallback,
+ *  option B — no interior-page thumbnails exist in this codebase). Every
+ *  cover keeps its real native portrait ratio via object-contain; nothing
+ *  is cropped or stretched. "Open Reader" launches the EXISTING
+ *  PDFLiteReaderModal in its native overlay — never a forked inline
+ *  reader, never a bare link-out card. */
+function PaperLaunchSurface({ paperRef }: { paperRef: NonNullable<ViewContentBlock['paperRef']> }) {
+  const [readerOpen, setReaderOpen] = useState(false);
+  const { previous, next } = polityPapersNeighbors(paperRef.codexRef);
+
+  return (
+    <MattedFrame>
+      <div className="flex h-full w-full items-center justify-center gap-3 sm:gap-6">
+        {previous && <AdjacentPaperCover entry={previous} side="previous" />}
+        <div className="flex h-full min-w-0 flex-col items-center justify-center gap-2">
+          <img
+            src={paperRef.coverImageUrl}
+            alt={paperRef.title}
+            className="max-h-[calc(100%-2.25rem)] w-auto rounded-sm object-contain shadow-[0_10px_28px_rgba(0,0,0,0.25)]"
+          />
+          <button
+            type="button"
+            onClick={() => setReaderOpen(true)}
+            className="inline-block shrink-0 rounded-lg border border-[#a08444]/50 bg-[#a08444]/10 px-4 py-1.5 text-xs font-medium text-[#1e3a5f] transition hover:bg-[#a08444]/20"
+          >
+            Open Reader ↗
+          </button>
+        </div>
+        {next && <AdjacentPaperCover entry={next} side="next" />}
       </div>
       <PDFLiteReaderModal
         open={readerOpen}
@@ -276,7 +329,11 @@ function EthosVignetteCapsule({ block, videoOverride }: { block: ViewContentBloc
         allowFullscreen
         viewportAspectRatio={(activeId) => {
           if (activeId === 'video') return 16 / 9;
-          if (activeId === 'paper' && block.paperRef) return block.paperRef.coverWidth / block.paperRef.coverHeight;
+          // Paper's featured state is a wide gallery (cover + neighbours),
+          // not a single portrait cover — the viewport uses a landscape
+          // ratio; the covers inside still keep their own real ratio via
+          // object-contain (PaperLaunchSurface).
+          if (activeId === 'paper') return 16 / 10;
           if (activeId === 'plate' && plateImage) return plateImage.width / plateImage.height;
           return 16 / 9;
         }}
