@@ -72,9 +72,21 @@ interface Props {
   personaId?: string;
 }
 
+const ROLE_LABELS: Record<string, string> = {
+  guide: 'Guide',
+  researcher: 'Researcher',
+  operator: 'Operator',
+  'creative-collaborator': 'Creative collaborator',
+  'financial-assistant': 'Financial assistant',
+  'advocate-safeguard': 'Advocate / safeguard',
+  other: 'Other',
+};
+
 export function ConstitutionalInternetBridgePersonifyMyCanvas({ personaId }: Props) {
   const [src, setSrc] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
+  const [dispositionAnswered, setDispositionAnswered] = useState(false);
+  const [dispositionRole, setDispositionRole] = useState<string | null>(null);
   // Read-and-clear exactly ONCE per mount (lazy initializer, not the effect
   // below) — the effect re-runs every time `expanded` toggles, and
   // takeCiBridgeRemixIntent() clears sessionStorage on read, so re-reading
@@ -111,7 +123,45 @@ export function ConstitutionalInternetBridgePersonifyMyCanvas({ personaId }: Pro
 
   return (
     <div className="flex flex-col gap-3 lg:flex-row">
-      <div className="flex min-h-0 flex-1 flex-col gap-1.5 lg:flex-[3]">
+      {/* LEFT — Shape your story prep pane; collapses away after answer */}
+      <div
+        className={`min-h-0 transition-all duration-300 lg:flex-[2] ${
+          dispositionAnswered ? 'hidden lg:hidden' : 'flex-1 flex'
+        } flex-col`}
+      >
+        <div className="h-[calc(100vh-200px)]">
+          <LayoutShell
+            surfaceId="ci-bridge-personify-disposition"
+            disTemplateId="ci-bridge-personify-disposition-v1"
+            headerIcon={<Sparkles className="h-3.5 w-3.5" />}
+            headerEyebrow="aigentMe"
+            headerTitle="Shape your story"
+            body={
+              <ConstitutionalAgentDispositionSurface
+                onResolved={(disposition) => {
+                  setDispositionRole(disposition.role);
+                  setDispositionAnswered(true);
+                }}
+              />
+            }
+          />
+        </div>
+      </div>
+
+      {/* RIGHT — myCanvas editor */}
+      <div className={`flex min-h-0 flex-1 flex-col gap-1.5 ${dispositionAnswered ? 'lg:flex-1' : 'lg:flex-[3]'}`}>
+        {/* Current disposition pill — visible when answered and pane is collapsed */}
+        {dispositionAnswered && dispositionRole && (
+          <button
+            onClick={() => setDispositionAnswered(false)}
+            className="inline-flex items-center gap-2 rounded-lg border border-indigo-400/40 bg-indigo-500/10 px-3 py-2 text-left text-xs text-indigo-200 transition hover:border-indigo-400/60 hover:bg-indigo-500/20"
+          >
+            <span className="font-medium">Your disposition:</span>
+            <span className="font-semibold text-indigo-100">{ROLE_LABELS[dispositionRole] || dispositionRole}</span>
+            <span className="ml-auto shrink-0 text-indigo-300/60">← Edit</span>
+          </button>
+        )}
+
         <div className="flex items-center justify-between gap-2">
           <p className="text-xs text-slate-400">
             Article — your real constitutional perspective. Story — an imagined constitutional life.
@@ -126,24 +176,10 @@ export function ConstitutionalInternetBridgePersonifyMyCanvas({ personaId }: Pro
         <iframe
           src={src}
           title="Tell your Constitutional story — myCanvas"
-          className="h-[calc(100vh-200px)] w-full rounded-md border border-slate-800 bg-slate-950"
+          className={`w-full rounded-md border border-slate-800 bg-slate-950 ${
+            dispositionAnswered ? 'h-[calc(100vh-180px)]' : 'h-[calc(100vh-200px)]'
+          }`}
         />
-      </div>
-
-      {/* aigentMe pane — the "Shape your story" capsule, direct React
-          render (no iframe-in-iframe), so nothing else can hitchhike in
-          alongside it. */}
-      <div className="min-h-0 flex-1 lg:flex-[2]">
-        <div className="h-[calc(100vh-200px)]">
-          <LayoutShell
-            surfaceId="ci-bridge-personify-disposition"
-            disTemplateId="ci-bridge-personify-disposition-v1"
-            headerIcon={<Sparkles className="h-3.5 w-3.5" />}
-            headerEyebrow="aigentMe"
-            headerTitle="Shape your story"
-            body={<ConstitutionalAgentDispositionSurface />}
-          />
-        </div>
       </div>
     </div>
   );

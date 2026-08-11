@@ -33,7 +33,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { ArrowRight, CheckCircle2, Compass, Hammer, Shield, Sparkles, Wrench, X } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Compass, Hammer, Maximize2, Shield, Sparkles, Wrench, X } from 'lucide-react';
 import { personaFetch } from '@/utils/personaSpine';
 import { PassportBureauApplyTab } from '@/app/triad/components/codex/tabs/PassportBureauApplyTab';
 import { canonicalPlateImage } from '@/services/artifact/canonicalPlateImages';
@@ -125,6 +125,7 @@ export function ConstitutionalInternetBridgePassportRoom({ personaId, citizenPas
   // the visitor has already acknowledged for this page visit.
   const [noticeDismissed, setNoticeDismissed] = useState(false);
   const [config, setConfig] = useState<KnytsBridgeEditorialSection>(KNYTS_BRIDGE_SECTION_DEFAULTS[SECTION]);
+  const [fullscreenImage, setFullscreenImage] = useState(false);
 
   useEffect(() => {
     if (!citizenPassportUsable) return;
@@ -165,7 +166,7 @@ export function ConstitutionalInternetBridgePassportRoom({ personaId, citizenPas
         <div className="flex items-start gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
           <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-300" />
           <div className="flex-1">
-            <p className="text-sm font-semibold text-emerald-200">You have crossed.</p>
+            <p className="text-sm font-semibold text-emerald-200">You have crossed the threshold.</p>
             <p className="mt-0.5 text-xs text-emerald-300/80">
               Your constitutional presence is confirmed. Bring an agent into the field next.
             </p>
@@ -191,7 +192,16 @@ export function ConstitutionalInternetBridgePassportRoom({ personaId, citizenPas
             not a white image floating in a dark panel. Video (rare, admin-
             configured) stays plain black-bg object-contain, matching
             View's own video-vs-plate treatment split exactly. */}
-        <div className="flex h-[45vh] max-h-[55vh] min-h-[16rem] w-full items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-slate-900/40">
+        <div className="relative flex h-[45vh] max-h-[55vh] min-h-[16rem] w-full items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-slate-900/40">
+          <button
+            type="button"
+            onClick={() => setFullscreenImage(true)}
+            aria-label="Fullscreen"
+            title="Fullscreen"
+            className="absolute right-3 top-3 z-10 rounded-md bg-slate-900/60 p-2 text-slate-300 transition hover:bg-slate-900 hover:text-slate-100"
+          >
+            <Maximize2 className="h-4 w-4" />
+          </button>
           {config.videoUrl ? (
             // eslint-disable-next-line jsx-a11y/media-has-caption
             <video
@@ -233,6 +243,42 @@ export function ConstitutionalInternetBridgePassportRoom({ personaId, citizenPas
         <span className="text-sm font-semibold text-white">Tell your Constitutional story</span>
         <ArrowRight className="h-4 w-4 text-slate-400" />
       </button>
+
+      {fullscreenImage && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/95 p-4">
+          <div className="h-full w-full">
+            <div className="flex h-full items-center justify-center">
+              {config.videoUrl ? (
+                // eslint-disable-next-line jsx-a11y/media-has-caption
+                <video
+                  className="max-h-full max-w-full bg-black object-contain"
+                  controls
+                  autoPlay
+                  poster={config.posterUrl ?? undefined}
+                  src={config.videoUrl}
+                />
+              ) : (
+                BEARING_INSTRUMENT && (
+                  <img
+                    src={BEARING_INSTRUMENT.url}
+                    alt={BEARING_INSTRUMENT.title}
+                    className="max-h-full max-w-full object-contain"
+                  />
+                )
+              )}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setFullscreenImage(false)}
+            aria-label="Close fullscreen"
+            title="Close (Esc)"
+            className="absolute right-4 top-4 rounded-md bg-slate-900/60 p-2 text-slate-300 transition hover:bg-slate-900 hover:text-slate-100"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
