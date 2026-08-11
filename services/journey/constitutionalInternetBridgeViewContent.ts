@@ -13,18 +13,23 @@
  * Excerpts are VERBATIM quotes from the publication candidate manuscript
  * (codexes/packs/polity-core/items/commentary/constitutional-internet/
  * 01-controlling-manuscript-v1.0-publication-candidate.md), cited by line —
- * never paraphrased or invented. Plates are real entries from
- * CANONICAL_PLATES_V1 (services/artifact/canonicalPlates.ts), chosen for
- * thematic fit — never a new plate invented for this Bridge alone (the
- * Canonical Plates are deliberately fixed at seven; "no new diagrams, only
- * new compositions").
+ * never paraphrased or invented.
+ *
+ * Plates (2026-08-11): the operator supplied seven REAL canonical plate
+ * images (raster, `services/artifact/canonicalPlateImages.ts`) and ruled
+ * that the CI Bridge must render these — never the code-generated SVG
+ * schematics (`CANONICAL_PLATES_V1` / `CanonicalPlateFigure`), which are
+ * now off-limits for this surface ("no schematic diagrams... only the
+ * seven canonical plates"). `plateImageId` below is a thematic pairing
+ * chosen by Claude within that constraint (not specified by the operator
+ * block-by-block) — flagged for the operator to confirm/adjust.
  */
 
 export interface ViewContentBlock {
   id: string;
   proposition: string;
-  /** Real CANONICAL_PLATES_V1 plate number (see plateByNumber). */
-  plateNumber: string;
+  /** Real CANONICAL_PLATE_IMAGES id (services/artifact/canonicalPlateImages.ts) — never the SVG schematics. */
+  plateImageId: string;
   /** Verbatim manuscript excerpt. */
   excerpt: string;
   /** Citation — file + line, so the quote can be checked against source. */
@@ -51,7 +56,7 @@ export const CI_BRIDGE_VIEW_CONTENT: readonly ViewContentBlock[] = [
   {
     id: 'the-disappearing-person',
     proposition: 'Personhood precedes identity.',
-    plateNumber: 'CP-003', // Human Agency
+    plateImageId: 'CIP-003A', // Canonical MetaVitruvian — Male Rendering
     excerpt:
       'Personhood precedes identity.\nControl is not authority.\nAgents act under mandate.\nActions produce proof.\nStanding carries consequence.',
     excerptSource: `${MANUSCRIPT_SOURCE}:4236-4241`,
@@ -59,7 +64,7 @@ export const CI_BRIDGE_VIEW_CONTENT: readonly ViewContentBlock[] = [
   {
     id: 'the-acting-machine',
     proposition: 'Capability is not mandate.',
-    plateNumber: 'CP-005', // Constitutional Computing
+    plateImageId: 'CIP-007A', // The Constitutional Trinity — Reasoning · Order · Action
     excerpt:
       'Control is not authority.\nCapability is not mandate.\n…\nAuthority must precede consequence.\nThe person must remain the originating constitutional principal wherever the machine acts on their behalf.\n…\nWhere no legitimate authority exists, capability must not silently create it.',
     excerptSource: `${MANUSCRIPT_SOURCE}:1090-1097`,
@@ -67,7 +72,7 @@ export const CI_BRIDGE_VIEW_CONTENT: readonly ViewContentBlock[] = [
   {
     id: 'the-constitutional-frontier',
     proposition: 'Infrastructure must not become sovereignty.',
-    plateNumber: 'CP-006', // The metaMe Institutional Architecture
+    plateImageId: 'CIP-006', // The Constitutional Internet
     excerpt:
       'The provider remains capable of building and competing.\nIt does not retain the right to convert control of infrastructure into sovereignty over participation.\nInfrastructure must not become sovereignty.\nThe operator may govern its systems.\nIt may not own the persons and markets that depend upon them.',
     excerptSource: `${MANUSCRIPT_SOURCE}:5187-5191`,
