@@ -454,20 +454,20 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
       'thin bespoke Standing projection. `focused: true` (2026-08-10) hides the cartridge primary chrome; ' +
       "Quests's own filters/controls are untouched. Depth 0 means content only (quests feed).",
   },
-  ‘knyts-bridge-buy-store’: {
-    kind: ‘embed’,
-    codexSlug: ‘knyt-codex’,
-    tab: ‘store-episodes’,
+  'knyts-bridge-buy-store': {
+    kind: 'embed',
+    codexSlug: 'knyt-codex',
+    tab: 'store-episodes',
     suppressFloatingCopilot: true,
     focused: true,
     focusedNavDepth: 1,
-    openLabel: ‘Open KNYT World ↗’,
+    openLabel: 'Open KNYT World ↗',
     note:
-      ‘The existing KNYT Store — no new commerce code, same tab the old front door deep-linked to. ‘ +
+      'The existing KNYT Store — no new commerce code, same tab the old front door deep-linked to. ' +
       "`focused: true` (2026-08-10) gives a clean focused Store viewport: cartridge chrome suppressed, " +
-      ‘the Store tab’s own category/local controls untouched, with an "Open KNYT World ↗" affordance ‘ +
-      ‘to leave the guide. Depth 1 retains the Store’s own navigation strip (Episodes|KNYT Cards|Bundles|’ +
-      ‘Investor KNYT) which is required for the destination to remain functionally navigable.’,
+      "the Store tab's own category/local controls untouched, with an \"Open KNYT World ↗\" affordance " +
+      "to leave the guide. Depth 1 retains the Store's own navigation strip (Episodes|KNYT Cards|Bundles|" +
+      'Investor KNYT) which is required for the destination to remain functionally navigable.',
   },
 
   // ── Constitutional Internet Bridge journey (built 2026-08-10, reconstituted
