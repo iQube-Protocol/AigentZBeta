@@ -1,0 +1,121 @@
+{
+  "schemaVersion": "constitutional-internet-plates/v1.0",
+  "registerId": "CIP-REGISTER-V1",
+  "series": "The Constitutional Internet",
+  "status": "ratified",
+  "artifactClass": "canonical constitutional commentary",
+  "ratifiedAt": "2026-08-10",
+  "namespace": "CIP",
+  "namespaceNote": "Distinct from the CFS-027 Invariant Intelligence Canonical Plates CP-001..CP-007.",
+  "governingRules": [
+    "A plate is compressed constitutional argument, not decorative media.",
+    "A plate must not visually strengthen an implementation claim beyond its source evidence.",
+    "CIP-003A and CIP-003B are equally canonical renderings of one concept, CIP-003.",
+    "Gender contextualizes embodiment; it does not create personhood.",
+    "The form may rotate. The embodiment may change. The person remains."
+  ],
+  "bridgeGrammar": [
+    "Video creates consciousness.",
+    "Plate creates comprehension.",
+    "Prose creates depth.",
+    "Ritual creates state.",
+    "Choice creates demand.",
+    "Sharing proliferates the field."
+  ],
+  "plates": [
+    {
+      "plateId": "CIP-003",
+      "title": "Canonical MetaVitruvian",
+      "status": "ratified",
+      "type": "concept",
+      "renderings": ["CIP-003A", "CIP-003B"],
+      "machineSummary": "The person as constitutional subject in the agentic age, with personhood and agency primitives composed around embodied human agency."
+    },
+    {
+      "plateId": "CIP-003A",
+      "parentPlateId": "CIP-003",
+      "title": "Canonical MetaVitruvian — Male Rendering",
+      "status": "ratified",
+      "renderingVariant": "male",
+      "assetPath": "public/constitutional-plates/ci/CIP-003A-canonical-metavitruvian-male.jpeg",
+      "assetStatus": "approved-source; repository-binary-pending",
+      "source": {
+        "filename": "9C601FC1-B3AA-44FA-AE1E-4B2A0013050F.jpeg",
+        "mediaType": "image/jpeg",
+        "width": 1367,
+        "height": 1151,
+        "sha256": "da8164b82f3dbeee9035a9b82d380a9bb1c5f6404f791175665747852e24fbf4"
+      },
+      "bridgeStages": ["view"]
+    },
+    {
+      "plateId": "CIP-003B",
+      "parentPlateId": "CIP-003",
+      "title": "Canonical MetaVitruvian — Female Rendering",
+      "status": "ratified",
+      "renderingVariant": "female",
+      "assetPath": "public/constitutional-plates/ci/CIP-003B-canonical-metavitruvian-female.png",
+      "assetStatus": "approved-source; repository-binary-pending",
+      "source": {
+        "filename": "a_detailed_infographic_poster_style_image_in_a_par_1.png",
+        "mediaType": "image/png",
+        "width": 1448,
+        "height": 1086,
+        "sha256": "75f0e6bff5ab6478a1277c1d57dd588de79f3d38cffa8ea3746e7b930336f872"
+      },
+      "bridgeStages": ["view"]
+    },
+    {
+      "plateId": "CIP-004",
+      "title": "Government-Grade, Not Government-Dependent",
+      "status": "ratified",
+      "assetPath": "public/constitutional-plates/ci/CIP-004-government-grade-not-government-dependent.jpeg",
+      "assetStatus": "approved-source; repository-binary-pending",
+      "source": {
+        "filename": "BBF230FA-7172-48AF-A41A-B67740466D00.jpeg",
+        "mediaType": "image/jpeg",
+        "width": 1536,
+        "height": 864,
+        "sha256": "c9fdfca2385008396b54b56adb9fb4ec852fc59f7b16cbadfe1c575b3cd99c14"
+      },
+      "bridgeStages": ["view", "orient"]
+    },
+    {
+      "plateId": "CIP-005",
+      "title": "Constitutional Agency",
+      "status": "ratified",
+      "assetPath": "public/constitutional-plates/ci/CIP-005-constitutional-agency.jpeg",
+      "assetStatus": "approved-source; repository-binary-pending",
+      "source": {
+        "filename": "F69B5B33-640E-41A7-8F29-0F7D94A22AF5.jpeg",
+        "mediaType": "image/jpeg",
+        "width": 1536,
+        "height": 1024,
+        "sha256": "363b1b67e0a2f9e21f48bfbcc27726146c875d386357e3316d83996f02aa5227"
+      },
+      "bridgeStages": ["view", "act", "stand"]
+    },
+    {
+      "plateId": "CIP-006",
+      "title": "The Constitutional Internet",
+      "status": "ratified",
+      "assetPath": "public/constitutional-plates/ci/CIP-006-the-constitutional-internet.jpeg",
+      "assetStatus": "approved-source; repository-binary-pending",
+      "source": {
+        "filename": "D50405C5-578C-425A-9408-13C506C4F46B.jpeg",
+        "mediaType": "image/jpeg",
+        "width": 1536,
+        "height": 1024,
+        "sha256": "5eeb72797eed861552e174ecd043ac36d1d2b97531461581eea67952fc2dfe03"
+      },
+      "bridgeStages": ["view"]
+    }
+  ],
+  "reserved": [
+    {
+      "plateId": "CIP-007",
+      "title": "Constitutional Bearing",
+      "status": "reserved-candidate"
+    }
+  ]
+}
