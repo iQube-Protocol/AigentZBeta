@@ -184,7 +184,7 @@
     {
       "id": "col_commentary_constitutional_internet",
       "title": "Commentary · The Constitutional Internet",
-      "description": "Constitutional commentary — The Constitutional Internet book project (Dele Atanda): book constitution, editorial and controlling manuscripts, evidence and reconciliation records, and the agent-facing companion edition with its machine-readable accession package.",
+      "description": "Constitutional commentary — The Constitutional Internet book project (Dele Atanda): book constitution, editorial and controlling manuscripts, evidence and reconciliation records, the agent-facing companion edition, and the canonical Constitutional Internet plate set with machine-readable provenance.",
       "type": "static",
       "order": 10,
       "enabled": true,
@@ -210,7 +210,14 @@
         "items/commentary/constitutional-internet/03-volume-i-digitterian-tsunami.md",
         "items/commentary/constitutional-internet/03-volume-i-verification-notes.md",
         "items/commentary/constitutional-internet/03-source-lineage/internet-foundation-uddr/SRC-IF-IAPP-2017-001.md",
-        "items/commentary/constitutional-internet/CI-CORPUS-EXTERNALIZATION-001.md"
+        "items/commentary/constitutional-internet/CI-CORPUS-EXTERNALIZATION-001.md",
+        "items/commentary/constitutional-internet/plates/00-canonical-plate-register.md",
+        "items/commentary/constitutional-internet/plates/CIP-003-canonical-metavitruvian.md",
+        "items/commentary/constitutional-internet/plates/CIP-003A-canonical-metavitruvian-male.md",
+        "items/commentary/constitutional-internet/plates/CIP-003B-canonical-metavitruvian-female.md",
+        "items/commentary/constitutional-internet/plates/CIP-004-government-grade-not-government-dependent.md",
+        "items/commentary/constitutional-internet/plates/CIP-005-constitutional-agency.md",
+        "items/commentary/constitutional-internet/plates/CIP-006-the-constitutional-internet.md"
       ]
     }
   ]
