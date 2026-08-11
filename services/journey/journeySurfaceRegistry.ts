@@ -488,23 +488,30 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
     component: 'ConstitutionalInternetBridgeViewSequence',
     note:
       'components/journey/ConstitutionalInternetBridgeViewSequence.tsx — evolved 2026-08-11 into ' +
-      'Ethos | Crossings. Ethos: the real CANONICAL_PLATES_V1 plates + verbatim manuscript excerpts (cited ' +
-      'by line, never invented), reorganized into a horizontal vignette carousel with per-vignette video ' +
-      'admin-overridable via section=ci-view-<blockId> on the same editorial-config table. Crossings: a ' +
-      'thin projection over the EXISTING Qriptopian Pulse (KnytCommunityContentTab, cartridge=\'qripto\', ' +
-      'campaignTag=CI_BRIDGE_CAMPAIGN_ID) — never a new feed/table/moderation system. A bare `component`, ' +
-      'not an `embed`, because it needs personaId for Crossings\' Mine filter (threaded via resolveSurfaceProps).',
+      'Ethos | Crossings, then rebuilt the same day onto the shared BridgeContentCapsule shell ' +
+      '(components/journey/BridgeContentCapsule.tsx). Ethos: one capsule per vignette (block), whose rail ' +
+      'offers whichever media genuinely exists — Video (admin-overridable via section=ci-view-<blockId>), ' +
+      'Plate (always, real CANONICAL_PLATES_V1), Paper (only once a real paperRef exists) — with a constant ' +
+      '"Book Insert" strip (verbatim excerpt, cited by line, + ListenButton) regardless of the active rail ' +
+      'card. Moving between vignettes is real swipe/paging via components/ui/carousel.tsx, replacing the ' +
+      'earlier hand-rolled translateX carousel. Crossings: unchanged — a thin projection over the EXISTING ' +
+      'Qriptopian Pulse (KnytCommunityContentTab, cartridge=\'qripto\', campaignTag=CI_BRIDGE_CAMPAIGN_ID) — ' +
+      'never a new feed/table/moderation system. A bare `component`, not an `embed`, because it needs ' +
+      'personaId for Crossings\' Mine filter (threaded via resolveSurfaceProps).',
   },
   'ci-bridge-orient': {
     kind: 'component',
     component: 'ConstitutionalInternetBridgeOrientIntro',
     note:
-      'components/journey/ConstitutionalInternetBridgeOrientIntro.tsx (evolved 2026-08-11) — a NEW, ' +
+      'components/journey/ConstitutionalInternetBridgeOrientIntro.tsx (evolved 2026-08-11) — an ' +
       'admin-configurable media/context header (section=ci-orient, same editorial-config table as HOME) ' +
-      'framing "personhood precedes identity," composed above the EXISTING, untouched ' +
-      'ConstitutionalFrontierOrientSurface (a deterministic, non-gating questionnaire, no LLM; persists ' +
-      'choices as a best-effort intent/demand signal via the generic campaign_events log, never as ' +
-      'constitutional state — completing it is not tracked evidence), wrapped in a reflection-capsule card.',
+      'framing "personhood precedes identity," composed above ConstitutionalFrontierOrientSurface (a ' +
+      'deterministic, non-gating questionnaire, no LLM; persists choices as a best-effort intent/demand ' +
+      'signal via the generic campaign_events log, never as constitutional state — completing it is not ' +
+      'tracked evidence). That questionnaire itself now renders on the shared BridgeContentCapsule shell ' +
+      '(exactly 3 rail cards — Help / Preserve / Authority, never a 4th "Connect Claude" card — one question ' +
+      'active at a time, persistent strip carrying progress + the reveal action), so this wrapper composes ' +
+      'the header directly above it rather than nesting it in a second bordered card.',
   },
   'ci-bridge-passport-room': {
     kind: 'component',
@@ -535,12 +542,15 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
     component: 'ConstitutionalAgentFieldEntrySurface',
     note:
       'components/journey/ConstitutionalAgentFieldEntrySurface.tsx (renamed registry key only, from ' +
-      'ci-bridge-act-field-entry — component unchanged, copy repositioned) — PERSONIFY\'s SUPPORTING-tools ' +
-      'surface beneath ci-bridge-personify-mycanvas above: (1) Connect an agent you already use, via the ' +
-      'real metaMe Threshold MCP OAuth crossing (read/query scope only); (2) Meet aigentMe, rendering the ' +
-      'existing ConstitutionalAgentDispositionSurface.tsx ceremony PLUS (added 2026-08-11) the real, ' +
-      'focused aigentMe/metaMe embed (metame-codex/aigent-me, focusedNavDepth 1) so aigentMe can actually ' +
-      'help shape the story. Either supporting path alone completes PERSONIFY\'s agentRelationshipStarted ' +
+      'ci-bridge-act-field-entry) — PERSONIFY\'s SUPPORTING-tools surface beneath ci-bridge-personify-' +
+      'mycanvas above, rebuilt 2026-08-11 onto the shared BridgeContentCapsule shell: two rail cards, ' +
+      '(1) Connect Claude — the reusable ActivateClaudeChip (components/shared/ActivateClaudeChip.tsx), ' +
+      'wired to this stage\'s own connect-agent route, via the real metaMe Threshold MCP OAuth crossing ' +
+      '(read/query scope only); (2) Meet aigentMe, rendering the existing ' +
+      'ConstitutionalAgentDispositionSurface.tsx ceremony PLUS the real, focused aigentMe/metaMe embed ' +
+      '(metame-codex/aigent-me, focusedNavDepth 1) so aigentMe can actually help shape the story. The ' +
+      'capsule\'s persistent strip carries "Context may cross before authority does" regardless of which ' +
+      'card is active. Either supporting path alone completes PERSONIFY\'s agentRelationshipStarted ' +
       'evidence (an OR, unchanged by this evolution).',
   },
   'ci-bridge-stand': {

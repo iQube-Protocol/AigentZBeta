@@ -152,6 +152,12 @@ export const CI_BRIDGE_RUNTIME_AGENT_ID = 'aigent-z';
  *  agentsInvoked scope above. */
 export const CI_BRIDGE_DISPOSITION_CONTEXT = 'constitutional-internet-bridge-act';
 
+/** Single source for Orient's companion framing — also reused verbatim as
+ *  the ORIENT capsule's persistent strip copy (ConstitutionalFrontierOrientSurface),
+ *  so the two never drift apart into two descriptions of the same stage. */
+export const CI_BRIDGE_ORIENT_COMPANION_COPY =
+  'Where do you most want agents to help? What do you most want to remain yours? Claiming your Passport is your first constitutional act.';
+
 export const CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY: JourneyDefinition = {
   id: 'constitutional-internet-bridge',
   version: '2.0.0',
@@ -235,7 +241,7 @@ export const CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY: JourneyDefinition = {
       receiptTypes: [],
       receiptsSurfacedNatively: true,
       companion: {
-        before: 'Where do you most want agents to help? What do you most want to remain yours? Claiming your Passport is your first constitutional act.',
+        before: CI_BRIDGE_ORIENT_COMPANION_COPY,
         complete: '',
       },
     },

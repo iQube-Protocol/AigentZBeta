@@ -2,39 +2,38 @@
 
 /**
  * ConstitutionalInternetBridgeViewSequence — the Constitutional Internet
- * Bridge's VIEW stage, evolved (2026-08-11) into Ethos | Crossings.
+ * Bridge's VIEW stage: Ethos | Crossings.
  *
- *   ETHOS — the existing, citation-checked Video→Plate→Excerpt content
- *     (CI_BRIDGE_VIEW_CONTENT), reorganized from a vertically stacked
- *     document into a horizontal vignette carousel so a visitor moves
- *     laterally through the core propositions rather than scrolling a long
- *     page. Hierarchy per vignette: hero (video + plate) → supporting
- *     context (excerpt) → optional deep dive (Polity Paper, only when one
- *     genuinely exists — CLAUDE.md's No-Guessing rule, never a fabricated
- *     reference to fill the tier). Each vignette's video is admin-
- *     overridable via the SAME editorial-config table/route KNYTS Bridge
- *     uses (section=`ci-view-<blockId>`) — order, plate, excerpt and paper
- *     reference stay code-defined in constitutionalInternetBridgeViewContent
- *     .ts for this pass (operator instruction, 2026-08-11: narrow reuse now,
- *     full vignette CRUD is an explicit later follow-up, not this build).
+ *   ETHOS — the existing, citation-checked content (CI_BRIDGE_VIEW_CONTENT),
+ *     one BridgeContentCapsule per vignette (capsule = block). Each
+ *     capsule's rail offers whichever media genuinely exists for that
+ *     block — Video (admin-overridable, section=`ci-view-<blockId>`), Plate
+ *     (always — every block carries a real CANONICAL_PLATES_V1 plate), and
+ *     Paper (only once a real `paperRef` exists — CLAUDE.md's No-Guessing
+ *     rule forbids fabricating a reference to fill the tier). The lower
+ *     strip is a constant "Book Insert" — the verbatim excerpt + citation +
+ *     a ListenButton — regardless of which rail card is active, so the
+ *     grounding text never disappears while browsing media. Moving between
+ *     vignettes is real horizontal swipe/paging via components/ui/carousel
+ *     .tsx (replacing the earlier hand-rolled translateX carousel, which had
+ *     no touch/swipe handling).
  *
- *   CROSSINGS — a thin projection over the EXISTING, canonical Qriptopian
- *     Pulse infrastructure (community_generated_content via
+ *   CROSSINGS — unchanged: a thin projection over the EXISTING, canonical
+ *     Qriptopian Pulse infrastructure (community_generated_content via
  *     KnytCommunityContentTab, cartridge='qripto'), filtered to this
  *     journey's own campaign tag. No new feed, table, moderation queue or
  *     approval workflow — a published Personify Article/Story lands here
  *     through the exact same myCanvas → Pulse pipeline KNYTS already uses,
  *     just pointed at Qriptopian instead of KNYT (see
- *     ConstitutionalInternetBridgePersonifyMyCanvas). Ethos carries no
- *     All/Mine split (it is official, canonical content); Crossings does,
- *     via KnytCommunityContentTab's own All/Mine chips — its own
- *     self-service "Crossings" chip is suppressed here (hideCrossingsFilter)
- *     so it can never override this projection back to KNYTS' own campaign.
+ *     ConstitutionalInternetBridgePersonifyMyCanvas).
  */
 
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from '@/components/ui/carousel';
+import { BridgeContentCapsule, type BridgeCapsuleRailCard } from '@/components/journey/BridgeContentCapsule';
+import { ListenButton } from '@/components/shared/ListenButton';
 import {
   CI_BRIDGE_VIEW_CONTENT,
   type ViewContentBlock,
@@ -81,64 +80,110 @@ function useVignetteVideoOverrides(): Record<string, string | null> {
   return overrides;
 }
 
-function EthosVignette({ block, videoOverride }: { block: ViewContentBlock; videoOverride?: string | null }) {
-  const plate = plateByNumber(block.plateNumber);
-  const videoUrl = videoOverride ?? block.videoUrl;
+/** The constant lower strip — the excerpt is the grounding text and stays
+ *  visible no matter which rail card (Video/Plate/Paper) is active. */
+function BookInsertStrip({ block }: { block: ViewContentBlock }) {
   return (
-    <div className="w-full shrink-0 px-1">
-      <div className="h-full rounded-2xl border border-white/10 bg-slate-900/40 overflow-hidden">
-        {/* Hero tier — video (admin-overridable) + plate */}
-        {videoUrl && (
-          // eslint-disable-next-line jsx-a11y/media-has-caption
-          <video className="w-full" controls src={videoUrl} />
-        )}
-        <div className="p-5 sm:p-6">
-          <p className="text-[11px] uppercase tracking-[0.25em] text-indigo-400 mb-3">{block.proposition}</p>
-          {plate && (
-            <div className="mb-4 rounded-xl overflow-hidden border border-white/10">
-              <CanonicalPlateFigure plate={plate} />
-            </div>
-          )}
-          {/* Supporting-context tier — the excerpt, visually secondary to the hero */}
-          <blockquote className="whitespace-pre-line border-l-2 border-indigo-400/40 pl-4 text-sm italic leading-relaxed text-slate-300">
-            {block.excerpt}
-          </blockquote>
-          <p className="mt-2 text-[10px] text-slate-600">The Constitutional Internet — {block.excerptSource}</p>
-          {/* Deep-dive tier — optional Polity Paper, visually tertiary, only when real */}
-          {block.paperRef && (
-            <a
-              href={block.paperRef.url}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-3 inline-block text-[11px] text-indigo-300/80 underline underline-offset-2 hover:text-indigo-200"
-            >
-              Deep dive — {block.paperRef.title}
-            </a>
-          )}
-        </div>
+    <div className="flex items-start justify-between gap-3">
+      <div className="min-w-0">
+        <blockquote className="whitespace-pre-line border-l-2 border-indigo-400/40 pl-3 text-xs italic leading-relaxed text-slate-300">
+          {block.excerpt}
+        </blockquote>
+        <p className="mt-1 text-[10px] text-slate-600">The Constitutional Internet — {block.excerptSource}</p>
       </div>
+      <ListenButton compact getText={() => block.excerpt} className="mt-0.5 shrink-0" />
     </div>
   );
 }
 
-function EthosCarousel() {
-  const [index, setIndex] = useState(0);
+function ethosRailCards(block: ViewContentBlock, videoUrl: string | undefined): BridgeCapsuleRailCard[] {
+  const cards: BridgeCapsuleRailCard[] = [];
+  if (videoUrl) cards.push({ id: 'video', label: 'Video', aspect: 'landscape' });
+  cards.push({ id: 'plate', label: 'Plate', aspect: 'portrait' });
+  if (block.paperRef) cards.push({ id: 'paper', label: 'Paper', aspect: 'portrait' });
+  return cards;
+}
+
+function EthosVignetteCapsule({ block, videoOverride }: { block: ViewContentBlock; videoOverride?: string | null }) {
+  const plate = plateByNumber(block.plateNumber);
+  const videoUrl = videoOverride ?? block.videoUrl;
+  const railCards = ethosRailCards(block, videoUrl);
+
+  return (
+    <div className="h-[28rem] rounded-2xl border border-white/10 bg-slate-950/20 p-3">
+      <BridgeContentCapsule
+        railCards={railCards}
+        allowFullscreen
+        renderViewport={(activeId) => {
+          if (activeId === 'video' && videoUrl) {
+            return (
+              <div className="flex h-full flex-col">
+                <p className="px-4 pt-4 text-[11px] uppercase tracking-[0.25em] text-indigo-400">{block.proposition}</p>
+                {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+                <video className="mt-3 w-full flex-1 bg-black object-contain" controls src={videoUrl} />
+              </div>
+            );
+          }
+          if (activeId === 'paper' && block.paperRef) {
+            return (
+              <div className="flex h-full flex-col items-start justify-center gap-3 p-6">
+                <p className="text-[11px] uppercase tracking-[0.25em] text-indigo-400">{block.proposition}</p>
+                <p className="text-lg font-semibold text-white">{block.paperRef.title}</p>
+                <a
+                  href={block.paperRef.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-block rounded-lg border border-indigo-400/40 bg-indigo-500/10 px-4 py-2 text-sm text-indigo-200 transition hover:bg-indigo-500/20"
+                >
+                  Read the paper ↗
+                </a>
+              </div>
+            );
+          }
+          return (
+            <div className="flex h-full flex-col overflow-y-auto p-4">
+              <p className="mb-3 text-[11px] uppercase tracking-[0.25em] text-indigo-400">{block.proposition}</p>
+              {plate && <CanonicalPlateFigure plate={plate} />}
+            </div>
+          );
+        }}
+        renderStrip={() => <BookInsertStrip block={block} />}
+      />
+    </div>
+  );
+}
+
+function EthosSequence() {
   const overrides = useVignetteVideoOverrides();
+  const [api, setApi] = useState<CarouselApi>();
+  const [index, setIndex] = useState(0);
   const total = CI_BRIDGE_VIEW_CONTENT.length;
+
+  useEffect(() => {
+    if (!api) return;
+    setIndex(api.selectedScrollSnap());
+    const onSelect = () => setIndex(api.selectedScrollSnap());
+    api.on('select', onSelect);
+    return () => {
+      api.off('select', onSelect);
+    };
+  }, [api]);
 
   return (
     <div className="space-y-3">
-      <div className="overflow-hidden">
-        <div className="flex transition-transform duration-300 ease-out" style={{ transform: `translateX(-${index * 100}%)` }}>
+      <Carousel setApi={setApi} opts={{ align: 'start' }}>
+        <CarouselContent>
           {CI_BRIDGE_VIEW_CONTENT.map((block) => (
-            <EthosVignette key={block.id} block={block} videoOverride={overrides[block.id]} />
+            <CarouselItem key={block.id}>
+              <EthosVignetteCapsule block={block} videoOverride={overrides[block.id]} />
+            </CarouselItem>
           ))}
-        </div>
-      </div>
+        </CarouselContent>
+      </Carousel>
       <div className="flex items-center justify-center gap-3">
         <button
           type="button"
-          onClick={() => setIndex((i) => Math.max(0, i - 1))}
+          onClick={() => api?.scrollPrev()}
           disabled={index === 0}
           className="rounded-full border border-white/10 p-1.5 text-slate-400 transition disabled:opacity-30 hover:text-white"
           aria-label="Previous"
@@ -150,7 +195,7 @@ function EthosCarousel() {
             <button
               key={block.id}
               type="button"
-              onClick={() => setIndex(i)}
+              onClick={() => api?.scrollTo(i)}
               aria-label={`Go to ${block.proposition}`}
               className={`h-1.5 w-1.5 rounded-full transition ${i === index ? 'bg-indigo-400' : 'bg-slate-700'}`}
             />
@@ -158,7 +203,7 @@ function EthosCarousel() {
         </div>
         <button
           type="button"
-          onClick={() => setIndex((i) => Math.min(total - 1, i + 1))}
+          onClick={() => api?.scrollNext()}
           disabled={index === total - 1}
           className="rounded-full border border-white/10 p-1.5 text-slate-400 transition disabled:opacity-30 hover:text-white"
           aria-label="Next"
@@ -201,7 +246,7 @@ export function ConstitutionalInternetBridgeViewSequence({ personaId }: Props) {
       </div>
 
       {tab === 'ethos' ? (
-        <EthosCarousel />
+        <EthosSequence />
       ) : (
         <div className="h-[32rem] rounded-2xl border border-white/10 overflow-hidden">
           <KnytCommunityContentTab
