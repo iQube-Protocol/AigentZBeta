@@ -12,7 +12,9 @@
     "A plate must not visually strengthen an implementation claim beyond its source evidence.",
     "CIP-003A and CIP-003B are equally canonical renderings of one concept, CIP-003.",
     "Gender contextualizes embodiment; it does not create personhood.",
-    "The form may rotate. The embodiment may change. The person remains."
+    "The form may rotate. The embodiment may change. The person remains.",
+    "CIP-007A and CIP-007B are canonical renderings of the Constitutional Bearing plate family, CIP-007.",
+    "Bearing-instrument readouts are representational metaphors unless explicitly bound to measured state."
   ],
   "bridgeGrammar": [
     "Video creates consciousness.",
@@ -109,13 +111,52 @@
         "sha256": "5eeb72797eed861552e174ecd043ac36d1d2b97531461581eea67952fc2dfe03"
       },
       "bridgeStages": ["view"]
-    }
-  ],
-  "reserved": [
+    },
     {
       "plateId": "CIP-007",
       "title": "Constitutional Bearing",
-      "status": "reserved-candidate"
+      "status": "ratified",
+      "type": "plate-family",
+      "renderings": ["CIP-007A", "CIP-007B"],
+      "machineSummary": "A constitutional orientation model that locates reasoning, order and action within a field of invariants, consequence, artifacts and standing."
+    },
+    {
+      "plateId": "CIP-007A",
+      "parentPlateId": "CIP-007",
+      "title": "The Constitutional Trinity — Reasoning · Order · Action",
+      "status": "ratified",
+      "renderingVariant": "full-explanatory-plate",
+      "assetPath": "public/constitutional-plates/ci/CIP-007A-constitutional-trinity.jpeg",
+      "assetStatus": "approved-source; repository-binary-pending",
+      "source": {
+        "filename": "16BEAE96-0053-4E6A-8070-16F3B195DE5B.jpeg",
+        "mediaType": "image/jpeg",
+        "width": 1024,
+        "height": 1536,
+        "sha256": "213196b2a7efb7a75a153974becf2d5ff0ec3cdcda5f51af2efde5e5770cecfe"
+      },
+      "bridgeStages": ["view", "orient"],
+      "machineSummary": "The full Constitutional Trinity plate: Reasoning discerns truth, Order aligns and governs, and Action creates consequence, expressed through a constitutional bearing instrument and artifacts."
+    },
+    {
+      "plateId": "CIP-007B",
+      "parentPlateId": "CIP-007",
+      "title": "Constitutional Bearing Instrument — Navigate the Atlas",
+      "status": "ratified",
+      "renderingVariant": "focused-instrument",
+      "assetPath": "public/constitutional-plates/ci/CIP-007B-constitutional-bearing-instrument.jpeg",
+      "assetStatus": "approved-source; repository-binary-pending",
+      "source": {
+        "filename": "B9FC15EC-9951-484C-A399-8B2C826BE135.jpeg",
+        "mediaType": "image/jpeg",
+        "width": 1254,
+        "height": 1254,
+        "sha256": "891ab7627b7b555a476d391c14398e74540f6a72fcc908769950ceb39a6105da"
+      },
+      "bridgeStages": ["orient", "view"],
+      "layers": ["current-plate", "adjacent-domains", "knowledge-domains", "modalities-artifacts", "standing-ring"],
+      "machineSummary": "A focused constitutional navigation model showing Reasoning, Order and Action as bearings across context, adjacent domains, knowledge, modalities and standing."
     }
-  ]
+  ],
+  "reserved": []
 }
