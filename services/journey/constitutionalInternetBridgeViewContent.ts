@@ -21,8 +21,22 @@
  * schematics (`CANONICAL_PLATES_V1` / `CanonicalPlateFigure`), which are
  * now off-limits for this surface ("no schematic diagrams... only the
  * seven canonical plates"). `plateImageId` below is a thematic pairing
- * chosen by Claude within that constraint (not specified by the operator
- * block-by-block) — flagged for the operator to confirm/adjust.
+ * chosen by Claude within that constraint. Corrected same day: a plate's
+ * NATIVE aspect ratio governs which role it can play — a portrait plate
+ * (CIP-007A, 2:3) must never be forced into the landscape hero role just
+ * because its subject matches, so 'the-acting-machine' was moved off it
+ * onto CIP-005 (3:2, "Constitutional Agency" — capability/agency is the
+ * same theme, correctly shaped for a landscape hero).
+ *
+ * Paper (2026-08-11): `paperRef` now points to a REAL, LIVE Qriptopian
+ * Codex "Polity Papers" record — queried from the live
+ * `GET /api/codex/qripto/papers?group=papers` endpoint on dev-beta
+ * (scope `papers/polity`, id `f7342afc-477d-447f-a68b-75df94b2a954`,
+ * "4 The Constitution of the Agentic Polity" — cover fetched and visually
+ * confirmed, a genuine portrait white-paper cover, real pixel dimensions
+ * 1055×1491). This is the series' own canonical asset — never a
+ * fabricated cover or generic PDF icon. The series is "Polity Papers"
+ * (not "Policy Papers" — corrected naming, 2026-08-11).
  */
 
 export interface ViewContentBlock {
@@ -39,14 +53,21 @@ export interface ViewContentBlock {
    *  section (2026-08-11) — see ConstitutionalInternetBridgeViewSequence. */
   videoUrl?: string;
   /**
-   * Optional "deep dive / further reading" reference (Polity Paper),
-   * per the Ethos hierarchy: Video+Plate = hero, Excerpt = supporting
-   * context, Paper = deep dive. Undefined for every block today — CLAUDE.md's
-   * No-Guessing rule forbids inventing a URL; a real paper reference is added
-   * here once one exists for a given proposition, never fabricated to fill
-   * the tier.
+   * Optional "deep dive / further reading" reference into the real
+   * Qriptopian Codex Polity Papers series — Ethos hierarchy: Video+Plate =
+   * hero, Excerpt = supporting context, Paper = deep dive. `codexRef` is
+   * the real `codex_media_assets` row id (dev-beta, `papers/polity` scope);
+   * `coverImageUrl`/`coverWidth`/`coverHeight` are the series' own real
+   * cover asset and its real pixel dimensions — never invented.
    */
-  paperRef?: { title: string; url: string };
+  paperRef?: {
+    title: string;
+    url: string;
+    coverImageUrl: string;
+    coverWidth: number;
+    coverHeight: number;
+    codexRef: string;
+  };
 }
 
 const MANUSCRIPT_SOURCE =
@@ -64,7 +85,7 @@ export const CI_BRIDGE_VIEW_CONTENT: readonly ViewContentBlock[] = [
   {
     id: 'the-acting-machine',
     proposition: 'Capability is not mandate.',
-    plateImageId: 'CIP-007A', // The Constitutional Trinity — Reasoning · Order · Action
+    plateImageId: 'CIP-005', // Constitutional Agency (3:2 landscape — CIP-007A is portrait, not a hero shape)
     excerpt:
       'Control is not authority.\nCapability is not mandate.\n…\nAuthority must precede consequence.\nThe person must remain the originating constitutional principal wherever the machine acts on their behalf.\n…\nWhere no legitimate authority exists, capability must not silently create it.',
     excerptSource: `${MANUSCRIPT_SOURCE}:1090-1097`,
@@ -76,5 +97,14 @@ export const CI_BRIDGE_VIEW_CONTENT: readonly ViewContentBlock[] = [
     excerpt:
       'The provider remains capable of building and competing.\nIt does not retain the right to convert control of infrastructure into sovereignty over participation.\nInfrastructure must not become sovereignty.\nThe operator may govern its systems.\nIt may not own the persons and markets that depend upon them.',
     excerptSource: `${MANUSCRIPT_SOURCE}:5187-5191`,
+    paperRef: {
+      title: 'The Constitution of the Agentic Polity',
+      url: 'https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/codex/assets/qriptopian/background_lore_doc/papers-polity_1779909643233.pdf',
+      coverImageUrl:
+        'https://bsjhfvctmduxhohtllly.supabase.co/storage/v1/object/public/content-media/codex/assets/qriptopian/cover_image/papers-polity_1779909402717.png',
+      coverWidth: 1055,
+      coverHeight: 1491,
+      codexRef: 'f7342afc-477d-447f-a68b-75df94b2a954',
+    },
   },
 ];

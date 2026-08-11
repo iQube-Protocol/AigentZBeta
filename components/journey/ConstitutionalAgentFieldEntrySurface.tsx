@@ -105,43 +105,41 @@ function MeetAigentMeEmbed({ personaId }: { personaId?: string }) {
 
 export function ConstitutionalAgentFieldEntrySurface({ personaId }: Props) {
   return (
-    <div className="h-[26rem]">
-      <BridgeContentCapsule
-        railCards={FIELD_ENTRY_RAIL}
-        allowFullscreen={false}
-        renderViewport={(activeId) => {
-          if (activeId === 'aigentme') {
-            return (
-              <div className="space-y-3 p-3">
-                <ConstitutionalAgentDispositionSurface />
-                <MeetAigentMeEmbed personaId={personaId} />
-              </div>
-            );
-          }
+    <BridgeContentCapsule
+      railCards={FIELD_ENTRY_RAIL}
+      allowFullscreen={false}
+      renderViewport={(activeId) => {
+        if (activeId === 'aigentme') {
           return (
-            <div className="p-3">
-              <ActivateClaudeChip
-                checkConnected={checkClaudeConnected}
-                recordConnected={recordClaudeConnected}
-                context="your Constitutional story"
-              />
+            <div className="space-y-3 p-3">
+              <ConstitutionalAgentDispositionSurface />
+              <MeetAigentMeEmbed personaId={personaId} />
             </div>
           );
-        }}
-        renderStrip={(activeId) => (
-          <p className="text-[11px] text-slate-500">
-            {activeId === 'aigentme' ? (
-              <>
-                <Sparkles className="mr-1 inline h-3 w-3 text-indigo-300" /> aigentMe helps shape your story — you
-                remain the author.
-              </>
-            ) : (
-              'Context may cross before authority does. Connected agent ≠ delegated agent.'
-            )}
-          </p>
-        )}
-      />
-    </div>
+        }
+        return (
+          <div className="p-3">
+            <ActivateClaudeChip
+              checkConnected={checkClaudeConnected}
+              recordConnected={recordClaudeConnected}
+              context="your Constitutional story"
+            />
+          </div>
+        );
+      }}
+      renderStrip={(activeId) => (
+        <p className="text-[11px] text-slate-500">
+          {activeId === 'aigentme' ? (
+            <>
+              <Sparkles className="mr-1 inline h-3 w-3 text-indigo-300" /> aigentMe helps shape your story — you
+              remain the author.
+            </>
+          ) : (
+            'Context may cross before authority does. Connected agent ≠ delegated agent.'
+          )}
+        </p>
+      )}
+    />
   );
 }
 

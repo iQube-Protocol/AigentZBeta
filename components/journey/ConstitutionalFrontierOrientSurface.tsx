@@ -137,13 +137,12 @@ export function ConstitutionalFrontierOrientSurface() {
   };
 
   return (
-    <div className="h-[26rem]">
-      <BridgeContentCapsule
-        railCards={ORIENT_RAIL}
-        activeRailId={activeQuestion}
-        onRailChange={(id) => setActiveQuestion(id as QuestionId)}
-        allowFullscreen={false}
-        renderViewport={(activeId) => {
+    <BridgeContentCapsule
+      railCards={ORIENT_RAIL}
+      activeRailId={activeQuestion}
+      onRailChange={(id) => setActiveQuestion(id as QuestionId)}
+      allowFullscreen={false}
+      renderViewport={(activeId) => {
           if (submitted && help && preserve && authority) {
             return (
               <div className="p-5">
@@ -192,7 +191,7 @@ export function ConstitutionalFrontierOrientSurface() {
             />
           );
         }}
-        renderStrip={() => {
+      renderStrip={() => {
           if (submitted) {
             return (
               <button
@@ -217,9 +216,8 @@ export function ConstitutionalFrontierOrientSurface() {
               </button>
             </div>
           );
-        }}
-      />
-    </div>
+      }}
+    />
   );
 }
 
