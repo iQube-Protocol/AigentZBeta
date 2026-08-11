@@ -563,7 +563,12 @@ export function buildEmbedSurfaceSrc(
     shell: 'embed',
     suppressCopilot: descriptor.suppressFloatingCopilot,
     focused: descriptor.focused,
-    focusedNavDepth: descriptor.focusedNavDepth,
+    // Only meaningful when actually focused — a caller that has overridden
+    // `focused` to undefined (JourneyRunSurface's "Full view" expansion
+    // toggle) must render full canonical chrome, not the depth the REGISTRY
+    // still carries statically. Gating here, at the shared embed/chrome
+    // boundary, means neither caller has to remember to clear depth too.
+    focusedNavDepth: descriptor.focused ? descriptor.focusedNavDepth : undefined,
     ...(descriptor.agentScoped && input.selectedAgentSlug ? { agentSlug: input.selectedAgentSlug } : {}),
   });
 }

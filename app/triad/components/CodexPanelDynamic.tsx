@@ -12,6 +12,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCodexConfig, getEnabledTabs } from "@/app/hooks/useCodexConfig";
 import { useCartridgePresence } from "@/app/hooks/useCartridgePresence";
 import { CodexTab, TabGroup } from "@/types/codex";
+import { resolveCodexChromeVisibility } from "@/utils/codexChromeDepth";
 import type { DeviceType } from "@/app/types/knytLiquidUI";
 import { Loader2, AlertCircle, X, Coins, Zap, Sun, Moon, UserCircle2, ArrowRightLeft } from "lucide-react";
 import dynamic from "next/dynamic";
@@ -874,13 +875,16 @@ export default function CodexPanelDynamic({
   // When only one tab is available, the tab shell manages its own navigation chrome.
   const singleTabMode = enabledTabs.length <= 1;
 
-  // Depth-aware primary chrome visibility:
-  // - focusedNavDepth takes precedence when defined
-  // - depth 0 = content only, suppress chrome
-  // - depth >= 1 = show chrome with depth-aware limiting (TBD)
-  // - undefined = fall back to suppressPrimaryChrome for backward compatibility
-  const suppressChromeByDepth = focusedNavDepth !== undefined && focusedNavDepth === 0;
-  const primaryChromeHidden = singleTabMode || suppressChromeByDepth || (focusedNavDepth === undefined && suppressPrimaryChrome);
+  // Depth-aware chrome visibility, split into the two tiers the render
+  // below actually gates independently: the top-level brand/tab-group bar
+  // vs. the active group's own sibling-tab sub-header (see
+  // resolveCodexChromeVisibility's doc comment for the depth contract).
+  const { hideTopLevelNav, hideGroupSubHeader } = resolveCodexChromeVisibility({
+    focusedNavDepth,
+    suppressPrimaryChrome,
+    singleTabMode,
+  });
+  const primaryChromeHidden = hideTopLevelNav && hideGroupSubHeader;
 
   return (
     <SmartTriadProvider personaId={resolvedPersonaId}>
@@ -933,7 +937,10 @@ export default function CodexPanelDynamic({
           const isDark = resolvedTheme === 'dark';
           return (
             <>
-              {/* Primary tab bar */}
+              {/* Primary tab bar — the top-level brand/tab-group bar. Hidden
+                  independently of the group sub-header below (depth-aware
+                  chrome: depth 0 hides both, depth >= 1 hides only this). */}
+              {!hideTopLevelNav && (
               <div className={`flex-shrink-0 border-b px-4 ${isDark ? 'border-slate-700/50' : 'border-slate-200 bg-white'}`}>
                 <div className="flex items-center justify-between gap-3 py-3">
                   <div className="flex min-w-0 items-center gap-4">
@@ -1078,6 +1085,7 @@ export default function CodexPanelDynamic({
                   </div>
                 </div>
               </div>
+              )}
 
               {/* Single combined sub-header: sub-tabs on left, context badges + colored icon + title + description on right.
                   Mobile: sub-tabs become a horizontal scroll carousel (flex-1 + overflow-x-auto + no-scrollbar)
@@ -1085,8 +1093,12 @@ export default function CodexPanelDynamic({
                   (it duplicates the active sub-tab label anyway) so the carousel gets all available space. */}
               {/* Hide the entire sub-header row when the group has a single
                   tab and no sub-sub-tabs — the row adds nothing and wastes
-                  vertical space (aigentZ Command Center, for example). */}
-              {(activeGroupSubTabs.length > 1 || activeSubTabs.length > 0) && (
+                  vertical space (aigentZ Command Center, for example). Also
+                  hidden at focused depth 0 (content-only); shown again at
+                  depth >= 1 so the destination's own group nav (e.g. Store's
+                  Episodes | KNYT Cards | Bundles | Investor KNYT) stays
+                  navigable without the top-level cartridge bar above it. */}
+              {!hideGroupSubHeader && (activeGroupSubTabs.length > 1 || activeSubTabs.length > 0) && (
               <div className={`flex-shrink-0 border-b px-4 py-1.5 flex items-center gap-3 min-w-0 ${isDark ? 'border-white/[0.06] bg-white/[0.02] backdrop-blur-sm' : 'border-slate-200 bg-slate-50'}`}>
                 {activeGroup && activeGroupSubTabs.length > 1 ? (
                   <div className="flex gap-1 flex-1 min-w-0 overflow-x-auto no-scrollbar">

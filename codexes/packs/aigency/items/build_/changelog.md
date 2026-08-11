@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`5f20157`](https://github.com/iQube-Protocol/AigentZBeta/commit/5f201570c46b6f84f9e92a4fa45924b469abb28b) [push] Re-home Ingest surface under Activate; remove Ingest consequence-fork prong (Claude, 2026-08-11T01:43:35Z)
+- [`5c6cbed`](https://github.com/iQube-Protocol/AigentZBeta/commit/5c6cbed79772dcda914a40bdd6776cb13e57d6e2) [feat] Add Activate as a derived registry-activation stage between Passport and Delegate (Claude, 2026-08-11T00:39:17Z)
 - [`a37a29e`](https://github.com/iQube-Protocol/AigentZBeta/commit/a37a29edbc6ef846a4be576104cb65ed2cbf87ba) [feat] Implement focusedNavDepth support for depth-aware chrome suppression (Claude, 2026-08-10T22:50:19Z)
 - [`f65634b`](https://github.com/iQube-Protocol/AigentZBeta/commit/f65634b26660b5f876d2f400ef1de351c7ced62a) [push] trigger deploy: focusedNavDepth depth-aware chrome suppression (Claude, 2026-08-10T22:50:38Z)
 - [`d1ef756`](https://github.com/iQube-Protocol/AigentZBeta/commit/d1ef7562b741a5be55f6887a63b2aa6e51d530a5) [feat] implement in-place iframe chrome toggle for guided journey embeds (Claude, 2026-08-10T20:03:05Z)

@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-10T22:52:16.005Z",
+  "last_updated": "2026-08-11T01:46:07.076Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "a37a29edbc6ef846a4be576104cb65ed2cbf87ba",
-  "latest_commit_short": "a37a29e",
-  "latest_commit_title": "Implement focusedNavDepth support for depth-aware chrome suppression",
+  "latest_commit": "5f201570c46b6f84f9e92a4fa45924b469abb28b",
+  "latest_commit_short": "5f20157",
+  "latest_commit_title": "Re-home Ingest surface under Activate; remove Ingest consequence-fork prong",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "5f20157",
+      "full_sha": "5f201570c46b6f84f9e92a4fa45924b469abb28b",
+      "title": "Re-home Ingest surface under Activate; remove Ingest consequence-fork prong",
+      "author": "Claude",
+      "timestamp": "2026-08-11T01:43:35Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-5f20157.md"
+    },
+    {
+      "sha": "5c6cbed",
+      "full_sha": "5c6cbed79772dcda914a40bdd6776cb13e57d6e2",
+      "title": "Add Activate as a derived registry-activation stage between Passport and Delegate",
+      "author": "Claude",
+      "timestamp": "2026-08-11T00:39:17Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-5c6cbed.md"
+    },
     {
       "sha": "a37a29e",
       "full_sha": "a37a29edbc6ef846a4be576104cb65ed2cbf87ba",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-07-18T00:53:43Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-76f9df6.md"
-    },
-    {
-      "sha": "81e1abd",
-      "full_sha": "81e1abd635d7f72561823d21200bc62fa83cfcaf",
-      "title": "fix Invariant Registry: register polity namespace + raise public cap so all 319 invariants surface",
-      "author": "Claude",
-      "timestamp": "2026-07-18T00:45:49Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-81e1abd.md"
-    },
-    {
-      "sha": "eb18469",
-      "full_sha": "eb1846930adbf26c81679c62129bdec0b26d9409",
-      "title": "refine inv.polity.238 hierarchy: Ethics->Law->Economics->Consequence->Code (operator)",
-      "author": "Claude",
-      "timestamp": "2026-07-18T00:07:22Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-eb18469.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

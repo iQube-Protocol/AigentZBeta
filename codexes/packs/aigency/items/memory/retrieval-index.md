@@ -3994,3 +3994,13 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-a37a29e.md](../build_/COMMITS/COMMIT-a37a29e.md)
 - Message: Implement focusedNavDepth support for depth-aware chrome suppression
+
+## Commit `5c6cbed` — 2026-08-11T00:39:17Z
+- Type: `feat`
+- Brief: [COMMIT-5c6cbed.md](../build_/COMMITS/COMMIT-5c6cbed.md)
+- Message: Add Activate as a derived registry-activation stage between Passport and Delegate
+
+## Commit `5f20157` — 2026-08-11T01:43:35Z
+- Type: `push`
+- Brief: [COMMIT-5f20157.md](../build_/COMMITS/COMMIT-5f20157.md)
+- Message: Re-home Ingest surface under Activate; remove Ingest consequence-fork prong
