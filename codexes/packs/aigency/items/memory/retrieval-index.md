@@ -4049,3 +4049,13 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-019eb69.md](../build_/COMMITS/COMMIT-019eb69.md)
 - Message: data model fix: remove invalid asset kinds, add series_scope, extend series picker for canonical content
+
+## Commit `407b215` — 2026-08-11T22:53:09Z
+- Type: `fix`
+- Brief: [COMMIT-407b215.md](../build_/COMMITS/COMMIT-407b215.md)
+- Message: complete phases 4.3 & fix: passport gate modal + qripto accept pattern
+
+## Commit `ecbdd8b` — 2026-08-11T22:48:22Z
+- Type: `push`
+- Brief: [COMMIT-ecbdd8b.md](../build_/COMMITS/COMMIT-ecbdd8b.md)
+- Message: phase 4.1: consolidate choose ctAs into destination cards
