@@ -17,7 +17,7 @@ machine_manifest: "docs/constitutional-plates/constitutional-internet.v1.json"
 
 # Constitutional Internet Canonical Plates
 
-This register establishes the first ratified **Constitutional Internet canonical plate set** as canonical constitutional commentary for the book, the Constitutional Internet Bridge, agent orientation, and related media composition.
+This register establishes the ratified **Constitutional Internet canonical plate set** as canonical constitutional commentary for the book, the Constitutional Internet Bridge, agent orientation, and related media composition.
 
 The plate set is deliberately separate from the existing CFS-027 **Invariant Intelligence Canonical Plates** (`CP-001..CP-007`). Those seven plates encode the visual ontology of Invariant Intelligence. This register uses the `CIP` namespace to encode the visual doctrine of *The Constitutional Internet* without mutating or colliding with that established seven-plate system.
 
@@ -30,8 +30,12 @@ The plate set is deliberately separate from the existing CFS-027 **Invariant Int
 | **CIP-004** | Government-Grade, Not Government-Dependent | Ratified | View / Orient |
 | **CIP-005** | Constitutional Agency | Ratified | View / Act / Stand |
 | **CIP-006** | The Constitutional Internet | Ratified | View |
+| **CIP-007A** | The Constitutional Trinity — Reasoning · Order · Action | Ratified | View / Orient |
+| **CIP-007B** | Constitutional Bearing Instrument — Navigate the Atlas | Ratified | Orient / View |
 
 `CIP-003A` and `CIP-003B` are **two equally canonical renderings of one plate concept, CIP-003 — Canonical MetaVitruvian**. Gender contextualizes embodiment; it does not create personhood. Neither rendering has doctrinal precedence over the other.
+
+`CIP-007A` and `CIP-007B` are **two canonical renderings of one plate family, CIP-007 — Constitutional Bearing**. `CIP-007A` is the full explanatory plate; `CIP-007B` is the focused bearing instrument. Neither is a literal sensor or empirical measurement device: bearing, heading, altitude, ground-speed and track values are interface metaphors unless a future implementation explicitly binds them to measured state.
 
 ## Canonical use rule
 
@@ -48,7 +52,3 @@ The current working use is to compose these plates principally within the **View
 The approved source renderings were ratified from the author-provided/approved image set on 2026-08-10. Each rendering record carries its source filename, dimensions, media type, and SHA-256 digest so the visual can be verified independently of storage location.
 
 The repository connector used for this canonization can commit text and machine-readable records directly to `dev`; it does not expose a mounted-file binary upload parameter. Accordingly, the **records and hashes are canonical now**, while the corresponding binary image objects must be deposited at the asset paths declared in each record through a binary-capable repository client. The hash in each record is the binding check: a later binary upload must match it exactly, or be treated as a new rendering requiring a new provenance entry.
-
-## Reserved next candidate
-
-**CIP-007 — Constitutional Bearing** is reserved as the next likely candidate, subject to author review of the source plate and its machine-legible interpretation.
