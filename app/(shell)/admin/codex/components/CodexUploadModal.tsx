@@ -6,7 +6,9 @@ import {
   AlertCircle,
   Award,
   BookOpen,
+  Check,
   CheckCircle,
+  Copy,
   FileText,
   Gamepad2,
   Image,
@@ -309,6 +311,8 @@ interface QueueItemProps {
 }
 
 function UploadQueueItem({ item, category, onUpdate, onRemove }: QueueItemProps) {
+  const [copiedField, setCopiedField] = useState<'url' | 'id' | null>(null);
+
   const isQripto = item.cartridge === 'qriptopian';
   const isCover = item.category === 'cover';
   const isMaster = item.category === 'master' || item.category === 'still';
@@ -485,37 +489,73 @@ function UploadQueueItem({ item, category, onUpdate, onRemove }: QueueItemProps)
             // proxy gets the legacy CID form for Autonomys assets.
             const isHttpUrl = item.result.cid.startsWith('http://') || item.result.cid.startsWith('https://');
             const previewHref = isHttpUrl ? item.result.cid : `/api/content/cover/${item.result.cid}`;
+            const handleCopyUrl = () => {
+              navigator.clipboard.writeText(item.result!.cid);
+              setCopiedField('url');
+              setTimeout(() => setCopiedField(null), 2000);
+            };
+            const handleCopyId = () => {
+              navigator.clipboard.writeText(item.result!.id);
+              setCopiedField('id');
+              setTimeout(() => setCopiedField(null), 2000);
+            };
             return (
-            <div className="mt-1.5 space-y-1">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-[10px] text-gray-500 shrink-0">{isHttpUrl ? 'URL:' : 'CID:'}</span>
-                <a
-                  href={previewHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="truncate font-mono text-[10px] text-cyan-400 hover:text-cyan-300 underline underline-offset-2 max-w-[180px]"
-                  title={item.result.cid}
-                >
-                  {item.result.cid}
-                </a>
-                <button
-                  type="button"
-                  onClick={() => navigator.clipboard.writeText(item.result!.cid)}
-                  className="text-[9px] rounded border border-gray-600 bg-gray-700 px-1 py-0.5 text-gray-400 hover:text-white transition-colors shrink-0"
-                >
-                  copy
-                </button>
+            <div className="mt-1.5 space-y-2">
+              <div className="space-y-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-medium text-gray-400">{isHttpUrl ? 'URL' : 'CID'}</span>
+                </div>
+                <div className="flex items-center gap-2 rounded-md bg-slate-950/50 p-2">
+                  <code className="flex-1 truncate font-mono text-[10px] text-cyan-400" title={item.result.cid}>
+                    {item.result.cid}
+                  </code>
+                  <button
+                    type="button"
+                    onClick={handleCopyUrl}
+                    className="shrink-0 rounded px-2 py-1 text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-colors flex items-center gap-1"
+                    title="Copy URL/CID"
+                  >
+                    {copiedField === 'url' ? (
+                      <>
+                        <Check className="h-3 w-3" />
+                        <span className="text-[9px]">Copied</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-3 w-3" />
+                        <span className="text-[9px]">Copy</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] text-gray-500 shrink-0">ID:</span>
-                <span className="font-mono text-[10px] text-green-400">{item.result.id}</span>
-                <button
-                  type="button"
-                  onClick={() => navigator.clipboard.writeText(item.result!.id)}
-                  className="text-[9px] rounded border border-gray-600 bg-gray-700 px-1 py-0.5 text-gray-400 hover:text-white transition-colors shrink-0"
-                >
-                  copy
-                </button>
+              <div className="space-y-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-medium text-gray-400">ID</span>
+                </div>
+                <div className="flex items-center gap-2 rounded-md bg-slate-950/50 p-2">
+                  <code className="flex-1 truncate font-mono text-[10px] text-green-400" title={item.result.id}>
+                    {item.result.id}
+                  </code>
+                  <button
+                    type="button"
+                    onClick={handleCopyId}
+                    className="shrink-0 rounded px-2 py-1 text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-colors flex items-center gap-1"
+                    title="Copy ID"
+                  >
+                    {copiedField === 'id' ? (
+                      <>
+                        <Check className="h-3 w-3" />
+                        <span className="text-[9px]">Copied</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-3 w-3" />
+                        <span className="text-[9px]">Copy</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
               <a
                 href={previewHref}

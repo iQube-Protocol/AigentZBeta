@@ -98,7 +98,7 @@ export function ActivateClaudeChip({ checkConnected, recordConnected, context, c
   };
 
   const openClaude = () => {
-    window.open('https://claude.ai/new', '_blank', 'noopener,noreferrer');
+    window.open('https://claude.ai/code', '_blank', 'noopener,noreferrer');
   };
 
   if (loading) {
