@@ -314,7 +314,47 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
        */
       actor: 'moneypenny',
       subjectRef: 'moneypenny',
-      surfaces: [],
+      /*
+       * ── RE-HOMED FROM THE OLD `deploy`/"Ingest into Factory" STAGE
+       * (Activate Consolidation, 2026-08-11) ───────────────────────────────
+       *
+       * These are the SAME two surfaces that used to render on `deploy`,
+       * moved here verbatim — never duplicated into a second implementation.
+       * `deploy` itself is retired as a VISIBLE stage (no spine node, no
+       * consequence-fork prong) but survives internally for `standing`'s
+       * prerequisite and historical `capability_registered`/receipt
+       * evidence — see `deploy`'s own header comment below.
+       *
+       * Content hierarchy this produces on the Activate surface:
+       *   ACTIVATE — "Active in iQube Registry" (this stage's own
+       *     constitutional posture, from `registryActivated` alone)
+       *   Factory — Ingest New Asset | Pipeline Status (technical process,
+       *     unchanged labels — `IngestionFactoryPanel`)
+       *   iQube Registry — the persistent registry-assets catalogue
+       *     (renamed from "Ingested Assets": it displays persistent
+       *     registry STATE, not a history of ingestion events)
+       */
+      surfaces: [
+        {
+          mode: 'component',
+          ref: 'ingest-into-factory-action',
+          note:
+            'Re-homed from the old `deploy` stage (Activate Consolidation, 2026-08-11) — the Factory/' +
+            'process action (IngestIntoFactoryPanel) that writes the agent-scoped `capability_registered` ' +
+            'receipt. No longer gated on Operate/aigentMe: Factory ingestion is technical-process tooling, ' +
+            'never a second constitutional consent ceremony after Passport.',
+        },
+        {
+          mode: 'component',
+          ref: 'venture-participate-standing',
+          props: { only: 'registry', registrySection: 'assets' },
+          note:
+            'Re-homed from the old `deploy` stage (Activate Consolidation, 2026-08-11) — the registry ' +
+            'catalogue, unchanged plumbing. Its tab label reads "iQube Registry" ' +
+            '(components/registry/IngestionFactoryPanel.tsx), not "Ingested Assets": the list is ' +
+            'persistent registry STATE, never a history of ingestion events.',
+        },
+      ],
       prerequisites: ['passport'],
       permittedActions: [],
       completionEvidence: ['registryActivated'],
@@ -536,54 +576,50 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
     },
 {
       id: 'deploy',
-      // Branch A. Establishes PARTICIPATION and Standing ELIGIBILITY —
-      // ingestion is never itself an accrual of Standing.
+      /*
+       * ── LEGACY/INTERNAL — NO LONGER A VISIBLE CONSTITUTIONAL STAGE
+       * (Activate Consolidation, 2026-08-11) ───────────────────────────────
+       *
+       * The constitutional "is this agent active" question is answered by
+       * the `activate` stage alone (`registryActivated`), never by this one.
+       * `deploy` survives in this array ONLY because:
+       *
+       *   1. `standing.prerequisites` still points at it (Standing's own
+       *      gating — `standingGatewayEnabled` — is unchanged by this pass).
+       *   2. Historical/technical Factory evidence (`capability_registered`
+       *      receipts already written for MoneyPenny/Nakamoto) needs a
+       *      structural home to remain readable.
+       *
+       * It keeps `forkPosition: 'middle'` so `JourneyRunSurface`'s
+       * `spineStages = journey.stages.filter(s => !s.forkPosition)` still
+       * excludes it from the numbered spine — but `FORK_ROWS`
+       * (components/journey/JourneyRunSurface.tsx) no longer includes a
+       * `'middle'` row, so it renders NO visible trident prong either. It
+       * competes with nothing: `registryActivated` is never derived from,
+       * or overridden by, `factoryIngested`/`capability_registered`.
+       *
+       * `surfaces` is empty — the Ingest UI that used to render here moved
+       * to `activate` verbatim (see that stage's own header comment), never
+       * duplicated into a second implementation.
+       */
       branch: 'factory',
-      // Consequence Fork — middle/straight prong, visually continuing the
-      // main spine (operator spec, 2026-08-09).
       forkPosition: 'middle',
       // Product-facing label is 'Ingest' (Horizen Journey verb-normalization
-      // correction, 2026-08-09) — id stays 'deploy'. Full Factory-ingestion
-      // explanatory copy below is unchanged.
+      // correction, 2026-08-09) — id stays 'deploy'. Kept for any surface
+      // that still reads this stage's own label for historical evidence
+      // display; never shown as a stepper/fork node (see above).
       label: 'Ingest',
       description:
-        'Ingestion registers the activated agent as a factory participant and makes it ELIGIBLE to accrue Standing. It never accrues Standing itself.',
+        'Legacy/internal — Factory ingestion is now technical-process tooling rendered under Activate, never a second visible constitutional stage. Preserved for standing.prerequisites and historical capability_registered evidence.',
       actor: 'moneypenny',
       subjectRef: 'moneypenny',
-      surfaces: [
-        {
-          mode: 'component',
-          ref: 'ingest-into-factory-action',
-          note:
-            'PRIMARY — the one guided action ("Ingest into Factory") that writes the agent-scoped ' +
-            '`capability_registered` receipt (Horizen Pilot Closure, part 2, operator decision A, ' +
-            '2026-08-09). Rendered ABOVE the registry evidence surface below.',
-        },
-        {
-          mode: 'component',
-          ref: 'venture-participate-standing',
-          // `only` lives HERE, in the stage definition, not in the tab's
-          // resolveSurfaceProps: surface props are applied LAST in
-          // JourneyRunSurface's merge, so a stage's own declaration always
-          // wins, and what a stage renders stays readable from the stage
-          // itself. (It was briefly wired through resolveSurfaceProps and
-          // silently never applied — the two-tab strip stayed on both
-          // stages, operator report 2026-08-02.)
-          /*
-           * `registrySection: 'assets'` — the Factory opens on INGESTED ASSETS,
-           * not on "Ingest New Asset" (operator, 2026-08-03). By the time this
-           * stage is reachable the agent is already a published registry asset;
-           * landing on the ingest form invited the operator to re-perform an act
-           * the very same surface lists as done. Deep-link to the evidence.
-           */
-          props: { only: 'registry', registrySection: 'assets' },
-          note:
-            'Rendered bare — the registry Ingestion Factory ALONE (operator direction 2026-08-02). ' +
-            'Standing was split out of this surface into its own eighth stage below, so Deploy no longer ' +
-            'carries a Standing tab beside the Factory and the two are never conflated again.',
-        },
-      ],
-      prerequisites: ['aigentme'],
+      surfaces: [],
+      // Was ['aigentme'] — Factory ingestion is technical-process tooling,
+      // never sequenced behind Delegate/Operate (Activate Consolidation,
+      // 2026-08-11). The route's own preconditions
+      // (app/api/journey/moneypenny-horizen/ingest/route.ts) still require
+      // aigentQubeResolved + registered; nothing constitutional gates it now.
+      prerequisites: [],
       permittedActions: ['prepare-payment-mandate', 'execute-payment'],
       /*
        * A STAGE COMPLETES ON ITS OWN OUTCOME (operator ruling, 2026-08-03 —
