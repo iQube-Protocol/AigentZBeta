@@ -72,6 +72,7 @@ import { polityPapersNeighbors, type PolityPaperSeriesEntry } from '@/services/a
 import { KnytCommunityContentTab } from '@/app/triad/components/codex/tabs/KnytCommunityContentTab';
 import type { KnytsBridgeEditorialSection } from '@/services/journey/knytsBridgeEditorialConfig';
 import { CI_BRIDGE_CAMPAIGN_ID } from '@/services/journey/constitutionalInternetBridgeJourney';
+import { stashCiBridgeRemixIntent } from '@/services/journey/ciBridgeRemixIntent';
 
 type ViewTab = 'ethos' | 'crossings';
 type ArtifactKind = 'video' | 'plate' | 'paper';
@@ -385,74 +386,83 @@ export function ConstitutionalInternetBridgeViewSequence({ personaId }: Props) {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-center gap-1">
-        <button
-          type="button"
-          onClick={() => setTab('ethos')}
-          className={`rounded-full border px-3.5 py-1 text-xs font-medium transition ${
-            tab === 'ethos'
-              ? 'border-amber-400/40 bg-amber-500/10 text-amber-200'
-              : 'border-white/10 bg-white/5 text-slate-400 hover:text-white'
-          }`}
-        >
-          Ethos
-        </button>
-        <button
-          type="button"
-          onClick={() => setTab('crossings')}
-          className={`rounded-full border px-3.5 py-1 text-xs font-medium transition ${
-            tab === 'crossings'
-              ? 'border-amber-400/40 bg-amber-500/10 text-amber-200'
-              : 'border-white/10 bg-white/5 text-slate-400 hover:text-white'
-          }`}
-        >
-          Crossings
-        </button>
+      {/* One top row (editorial polish, 2026-08-11): Ethos/Crossings
+          left-aligned, capsule prev/dots/next centered in the remaining
+          width — so multiple capsules are discoverable immediately,
+          without needing a second nav row beneath the gallery. */}
+      <div className="grid grid-cols-3 items-center">
+        <div className="flex items-center justify-start gap-1">
+          <button
+            type="button"
+            onClick={() => setTab('ethos')}
+            className={`rounded-full border px-3.5 py-1 text-xs font-medium transition ${
+              tab === 'ethos'
+                ? 'border-amber-400/40 bg-amber-500/10 text-amber-200'
+                : 'border-white/10 bg-white/5 text-slate-400 hover:text-white'
+            }`}
+          >
+            Ethos
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab('crossings')}
+            className={`rounded-full border px-3.5 py-1 text-xs font-medium transition ${
+              tab === 'crossings'
+                ? 'border-amber-400/40 bg-amber-500/10 text-amber-200'
+                : 'border-white/10 bg-white/5 text-slate-400 hover:text-white'
+            }`}
+          >
+            Crossings
+          </button>
+        </div>
+        <div className="flex items-center justify-center gap-3">
+          {tab === 'ethos' && (
+            <>
+              <button
+                type="button"
+                onClick={() => api?.scrollPrev()}
+                disabled={index === 0}
+                className="rounded-full border border-white/10 p-1.5 text-slate-400 transition disabled:opacity-30 hover:text-white"
+                aria-label="Previous"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <div className="flex gap-1.5">
+                {CI_BRIDGE_VIEW_CONTENT.map((block, i) => (
+                  <button
+                    key={block.id}
+                    type="button"
+                    onClick={() => api?.scrollTo(i)}
+                    aria-label={`Go to ${block.proposition}`}
+                    className={`h-1.5 w-1.5 rounded-full transition ${i === index ? 'bg-amber-400' : 'bg-slate-700'}`}
+                  />
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => api?.scrollNext()}
+                disabled={index === total - 1}
+                className="rounded-full border border-white/10 p-1.5 text-slate-400 transition disabled:opacity-30 hover:text-white"
+                aria-label="Next"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </>
+          )}
+        </div>
+        <div />
       </div>
 
       {tab === 'ethos' ? (
-        <div className="space-y-3">
-          <Carousel setApi={setApi} opts={{ align: 'start' }}>
-            <CarouselContent>
-              {CI_BRIDGE_VIEW_CONTENT.map((block) => (
-                <CarouselItem key={block.id}>
-                  <EthosVignetteCapsule block={block} videoOverride={overrides[block.id]} />
-                </CarouselItem>
-              ))}
-            </CarouselContent>
-          </Carousel>
-          <div className="flex items-center justify-center gap-3">
-            <button
-              type="button"
-              onClick={() => api?.scrollPrev()}
-              disabled={index === 0}
-              className="rounded-full border border-white/10 p-1.5 text-slate-400 transition disabled:opacity-30 hover:text-white"
-              aria-label="Previous"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <div className="flex gap-1.5">
-              {CI_BRIDGE_VIEW_CONTENT.map((block, i) => (
-                <button
-                  key={block.id}
-                  type="button"
-                  onClick={() => api?.scrollTo(i)}
-                  aria-label={`Go to ${block.proposition}`}
-                  className={`h-1.5 w-1.5 rounded-full transition ${i === index ? 'bg-amber-400' : 'bg-slate-700'}`}
-                />
-              ))}
-            </div>
-            <button
-              type="button"
-              onClick={() => api?.scrollNext()}
-              disabled={index === total - 1}
-              className="rounded-full border border-white/10 p-1.5 text-slate-400 transition disabled:opacity-30 hover:text-white"
-              aria-label="Next"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
+        <Carousel setApi={setApi} opts={{ align: 'start' }}>
+          <CarouselContent>
+            {CI_BRIDGE_VIEW_CONTENT.map((block) => (
+              <CarouselItem key={block.id}>
+                <EthosVignetteCapsule block={block} videoOverride={overrides[block.id]} />
+              </CarouselItem>
+            ))}
+          </CarouselContent>
+        </Carousel>
       ) : (
         <div className="h-[32rem] rounded-2xl border border-white/10 overflow-hidden">
           <KnytCommunityContentTab
@@ -460,6 +470,14 @@ export function ConstitutionalInternetBridgeViewSequence({ personaId }: Props) {
             cartridge="qripto"
             campaignTag={CI_BRIDGE_CAMPAIGN_ID}
             hideCrossingsFilter
+            onRemixIntent={(payload) => {
+              stashCiBridgeRemixIntent(payload);
+              try {
+                window.dispatchEvent(new CustomEvent('journey:select-stage', { detail: { stageId: 'personify' } }));
+              } catch {
+                /* non-fatal */
+              }
+            }}
           />
         </div>
       )}

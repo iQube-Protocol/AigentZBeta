@@ -256,6 +256,34 @@ export interface JourneyRunSurfaceProps {
    * byte-for-byte unless it opts in.
    */
   compact?: boolean;
+  /**
+   * Distinguish "Bridge navigation availability" from "constitutional
+   * evidence complete" in the spine's node styling (CI Bridge final
+   * interaction pass, 2026-08-11). Without this flag, every stage that
+   * isn't COMPLETE/current/BLOCKED renders in one identical plain-grey
+   * bucket — which reads as "locked" even for a stage that has no
+   * prerequisite at all and was always clickable (see
+   * services/journey/resolveJourneyState.ts's `priorStagesAllComplete`
+   * gate: once a gate-less narrative stage like CI Bridge's HOME passes
+   * without ever reaching COMPLETE — by design, it has no
+   * completionEvidence — every later gate-less stage falls into the same
+   * generic NOT_STARTED bucket as a stage that hasn't opened yet).
+   *
+   * Enabling this splits that bucket into its own "available" style (a
+   * lighter emerald outline — distinct from COMPLETE's solid emerald+check
+   * and from BLOCKED's Lock) for any stage that is not done/current/blocked.
+   * This is PURELY a presentation reclassification of the stage's already
+   * -resolved `JourneyStageState` (read at line ~790 below) — it changes
+   * zero data, reads zero new fields, and does not touch
+   * resolveJourneyState.ts / types/journey.ts / any JourneyDefinition.
+   * Navigation itself (`selectStage`) was already unconditional before this
+   * flag existed and remains so: this never gates a click, only its icon.
+   *
+   * Defaults to false: every existing caller (Horizen, Validation
+   * Programme, KNYTS Bridge) renders byte-for-byte as before unless it
+   * opts in.
+   */
+  distinguishAvailableStages?: boolean;
 }
 
 const DEFAULT_ACCENT = {
@@ -277,6 +305,7 @@ export function JourneyRunSurface({
   receiptsSubjectAgentRef,
   accent = DEFAULT_ACCENT,
   compact = false,
+  distinguishAvailableStages = false,
 }: JourneyRunSurfaceProps) {
   const [runtimeState, setRuntimeState] = useState<JourneyRuntimeState | null>(null);
   /**
@@ -792,6 +821,11 @@ export function JourneyRunSurface({
             const isDone = stageState === 'COMPLETE';
             const isCurrent = stage.id === activeStageId;
             const isBlocked = stageState === 'BLOCKED';
+            // "Available" — not done/current/blocked. Only given its own
+            // distinct look when the caller opts in via
+            // distinguishAvailableStages; otherwise it stays folded into the
+            // same plain-grey bucket every caller has always rendered.
+            const isAvailable = distinguishAvailableStages && !isDone && !isCurrent && !isBlocked;
             const prevDone =
               i === 0 ||
               (runtimeState?.stages.find((s) => s.stageId === spineStages[i - 1].id)?.state ?? 'NOT_STARTED') ===
@@ -805,7 +839,7 @@ export function JourneyRunSurface({
                   data-stage-id={stage.id}
                   onClick={() => selectStage(stage.id)}
                   className="flex shrink-0 items-center gap-1.5 px-1"
-                  title={isBlocked ? 'Blocked — prerequisites not yet met' : stage.description}
+                  title={isBlocked ? 'Blocked — prerequisites not yet met' : isAvailable ? `${stage.description} (available now)` : stage.description}
                 >
                   <span
                     className={`flex h-5 w-5 items-center justify-center rounded-full border text-[10px] ${
@@ -815,7 +849,9 @@ export function JourneyRunSurface({
                           ? accent.node
                           : isBlocked
                             ? 'border-slate-700 text-slate-600'
-                            : 'border-slate-600 text-slate-400'
+                            : isAvailable
+                              ? 'border-emerald-500/40 bg-emerald-500/5 text-emerald-400/80'
+                              : 'border-slate-600 text-slate-400'
                     }`}
                   >
                     {isBlocked && !isDone ? (
@@ -830,7 +866,13 @@ export function JourneyRunSurface({
                   </span>
                   <span
                     className={`whitespace-nowrap text-[11px] ${
-                      isCurrent ? `font-semibold ${accent.label}` : isDone ? 'text-emerald-300/80' : 'text-slate-400'
+                      isCurrent
+                        ? `font-semibold ${accent.label}`
+                        : isDone
+                          ? 'text-emerald-300/80'
+                          : isAvailable
+                            ? 'text-emerald-400/70'
+                            : 'text-slate-400'
                     }`}
                   >
                     {stage.label}

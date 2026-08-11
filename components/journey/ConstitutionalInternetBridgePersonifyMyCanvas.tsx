@@ -22,14 +22,20 @@
  *     complete canonical chrome (the depth-aware Focused/Full contract
  *     fixed for KNYTS this session — see utils/codexChromeDepth.ts).
  *
- * No `remix=` resume payload — unlike KNYTS' Crossing flow, Personify has no
- * "resume an interrupted Remix" requirement in this pass; kept simpler on
- * purpose.
+ * `remix=` resume payload (added 2026-08-11, final interaction pass): when
+ * View's Crossings tab fires a Remix click, it stashes the intent via
+ * services/journey/ciBridgeRemixIntent.ts and switches the spine here
+ * instead of navigating anywhere — this component takes it once on mount
+ * and forwards it as a `remix=` param on the myCanvas iframe `src`, the
+ * SAME param MyCanvasTab's own remix-seeding effect already reads for
+ * every other Remix entry point (mirrors KnytsBridgeRemixSurface's
+ * identical `pendingRemix` handling for `/bridge/knyts?remix=`).
  */
 
 import { useEffect, useState } from 'react';
 import { buildCodexUrl } from '@/utils/codex-nav';
 import { CI_BRIDGE_CAMPAIGN_ID } from '@/services/journey/constitutionalInternetBridgeJourney';
+import { takeCiBridgeRemixIntent } from '@/services/journey/ciBridgeRemixIntent';
 
 interface Props {
   personaId?: string;
@@ -38,6 +44,12 @@ interface Props {
 export function ConstitutionalInternetBridgePersonifyMyCanvas({ personaId }: Props) {
   const [src, setSrc] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
+  // Read-and-clear exactly ONCE per mount (lazy initializer, not the effect
+  // below) — the effect re-runs every time `expanded` toggles, and
+  // takeCiBridgeRemixIntent() clears sessionStorage on read, so re-reading
+  // it there would drop the payload the moment the visitor toggled
+  // Focus/Explore after the first render.
+  const [pendingRemix] = useState(() => takeCiBridgeRemixIntent());
 
   useEffect(() => {
     const buildSrcForMode = (focused: boolean) => {
@@ -52,6 +64,7 @@ export function ConstitutionalInternetBridgePersonifyMyCanvas({ personaId }: Pro
       try {
         const url = new URL(base, window.location.origin);
         url.searchParams.set('campaignTag', CI_BRIDGE_CAMPAIGN_ID);
+        if (pendingRemix) url.searchParams.set('remix', JSON.stringify(pendingRemix));
         return url.pathname + url.search;
       } catch {
         return base;
@@ -60,6 +73,7 @@ export function ConstitutionalInternetBridgePersonifyMyCanvas({ personaId }: Pro
 
     // Focused (Lite) by default; Full when expanded.
     setSrc(expanded ? buildSrcForMode(false) : buildSrcForMode(true));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [personaId, expanded]);
 
   if (!src) return null;

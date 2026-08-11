@@ -24,7 +24,8 @@
  * record).
  */
 
-import { ArrowRight, CheckCircle2 } from 'lucide-react';
+import { useState } from 'react';
+import { ArrowRight, CheckCircle2, X } from 'lucide-react';
 import { PassportBureauApplyTab } from '@/app/triad/components/codex/tabs/PassportBureauApplyTab';
 
 interface Props {
@@ -44,6 +45,11 @@ function selectStage(stageId: string) {
 }
 
 export function ConstitutionalInternetBridgePassportRoom({ personaId, citizenPassportUsable }: Props) {
+  // Presentation-only: hiding the notice never touches Passport state,
+  // evidence, or the crossing itself — it only stops re-showing a banner
+  // the visitor has already acknowledged for this page visit.
+  const [noticeDismissed, setNoticeDismissed] = useState(false);
+
   if (!citizenPassportUsable) {
     return (
       <div className="space-y-3">
@@ -58,15 +64,26 @@ export function ConstitutionalInternetBridgePassportRoom({ personaId, citizenPas
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
-        <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-300" />
-        <div>
-          <p className="text-sm font-semibold text-emerald-200">You have crossed.</p>
-          <p className="mt-0.5 text-xs text-emerald-300/80">
-            Your constitutional presence is confirmed. Bring an agent into the field next.
-          </p>
+      {!noticeDismissed && (
+        <div className="flex items-start gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
+          <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-300" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-emerald-200">You have crossed.</p>
+            <p className="mt-0.5 text-xs text-emerald-300/80">
+              Your constitutional presence is confirmed. Bring an agent into the field next.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setNoticeDismissed(true)}
+            aria-label="Dismiss notice"
+            title="Dismiss — this only hides the notice, it does not undo your crossing"
+            className="shrink-0 rounded-md p-0.5 text-emerald-300/60 transition hover:bg-emerald-500/10 hover:text-emerald-200"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
         </div>
-      </div>
+      )}
       <button
         type="button"
         onClick={() => selectStage('personify')}

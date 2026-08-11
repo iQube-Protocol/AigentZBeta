@@ -36,10 +36,23 @@
  * video exists (true today — CLAUDE.md's No-Guessing rule forbids
  * inventing a hero-film URL), there is nothing to overlay onto, so this
  * falls back to the plain centered text treatment.
+ *
+ * Fade timing (refined again same day): the overlay does NOT vanish the
+ * instant `play` fires — that read as an abrupt cut before playback was
+ * even visually underway. It fades out `OVERLAY_FADE_DELAY_MS` (1.2s)
+ * after play starts, well under the operator's 3-4s ceiling, over a
+ * restrained 700ms opacity transition. Pausing/ending brings it back
+ * immediately — only the HIDE is delayed, never the reveal.
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ArrowRight } from 'lucide-react';
+
+/** How long playback must be clearly underway before the caption overlay
+ *  fades out — short enough to feel prompt, long enough that the fade
+ *  itself never reads as an instant/jarring cut the moment play is
+ *  pressed. Well under the operator's 3-4s ceiling. */
+const OVERLAY_FADE_DELAY_MS = 1200;
 
 export type BridgeAccent = 'amber' | 'indigo';
 export type BridgeMediaStageLayout = 'standard' | 'cinematic';
@@ -88,8 +101,25 @@ export function BridgeMediaStage({
 }: BridgeMediaStageProps) {
   const classes = ACCENT_CLASSES[accent];
   const [isPlaying, setIsPlaying] = useState(false);
+  const [overlayFaded, setOverlayFaded] = useState(false);
   const [hovering, setHovering] = useState(false);
-  const showOverlay = !isPlaying || hovering;
+  const fadeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showOverlay = !overlayFaded || hovering;
+
+  // Playback itself never hides the overlay instantly — only a short,
+  // deliberate delay after play is clearly underway does. Pausing/ending
+  // brings it back immediately (no delay needed to reveal, only to hide).
+  useEffect(() => {
+    if (isPlaying) {
+      fadeTimer.current = setTimeout(() => setOverlayFaded(true), OVERLAY_FADE_DELAY_MS);
+    } else {
+      if (fadeTimer.current) clearTimeout(fadeTimer.current);
+      setOverlayFaded(false);
+    }
+    return () => {
+      if (fadeTimer.current) clearTimeout(fadeTimer.current);
+    };
+  }, [isPlaying]);
 
   if (layout === 'cinematic') {
     const ctas = (
@@ -137,7 +167,7 @@ export function BridgeMediaStage({
                 reappears on pause/hover. Bottom padding clears the native
                 video control bar rather than fighting it with custom controls. */}
             <div
-              className={`pointer-events-none absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/85 via-black/20 to-transparent p-5 pb-14 transition-opacity duration-500 sm:p-8 sm:pb-16 ${
+              className={`pointer-events-none absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/85 via-black/20 to-transparent p-5 pb-14 transition-opacity duration-700 ease-out sm:p-8 sm:pb-16 ${
                 showOverlay ? 'opacity-100' : 'opacity-0'
               }`}
             >
