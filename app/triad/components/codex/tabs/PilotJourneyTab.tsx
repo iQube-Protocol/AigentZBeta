@@ -67,12 +67,22 @@ const JOURNEY_COMPONENTS: Record<string, React.ComponentType<Record<string, unkn
   ParticipationStandingTab,
 };
 
+function selectStage(stageId: string) {
+  try {
+    window.dispatchEvent(new CustomEvent('journey:select-stage', { detail: { stageId } }));
+  } catch {
+    /* non-fatal */
+  }
+}
+
 function PilotJourneyTabInner({ personaId, isAdmin }: PilotJourneyTabProps) {
   // Which registrable agent the Register stage is currently sponsoring
   // (services/horizen/registrableAgents.ts, MoneyPenny is the demo default).
   // The dry-run agent is the one being exercised, so it is the one selected on
   // arrival. Kept in step with PILOT_AGENTS[0] — see the note there.
   const [selectedAgentSlug, setSelectedAgentSlugState] = useState<string>('nakamoto');
+  const [previousStageId, setPreviousStageId] = useState<string | undefined>(undefined);
+  const [currentStageId, setCurrentStageId] = useState<string | undefined>(undefined);
   // Component-scoped so both resolveSurfaceProps AND the receipts-drawer prop
   // below read the SAME resolved agent — never two separate PILOT_AGENTS.find
   // calls that could observe a mid-render change differently.
@@ -96,6 +106,23 @@ function PilotJourneyTabInner({ personaId, isAdmin }: PilotJourneyTabProps) {
     setSelectedAgentSlugState(slug);
     setSelectedPilotAgentSlug(slug);
   }, []);
+
+  // Track stage navigation for back button functionality
+  useEffect(() => {
+    const handleStageSelect = (event: Event) => {
+      const customEvent = event as CustomEvent<{ stageId: string }>;
+      setPreviousStageId(currentStageId);
+      setCurrentStageId(customEvent.detail.stageId);
+    };
+    window.addEventListener('journey:select-stage', handleStageSelect);
+    return () => window.removeEventListener('journey:select-stage', handleStageSelect);
+  }, [currentStageId]);
+
+  const handleBack = useCallback(() => {
+    if (previousStageId) {
+      selectStage(previousStageId);
+    }
+  }, [previousStageId]);
 
   /*
    * THE AGENT CARD URL MUST BE ABSOLUTE (operator, 2026-08-03).
@@ -246,6 +273,7 @@ function PilotJourneyTabInner({ personaId, isAdmin }: PilotJourneyTabProps) {
   return (
     <JourneyRunSurface
       journey={HORIZEN_MONEYPENNY_JOURNEY}
+      onBack={handleBack}
       /*
        * THE OBSERVER MUST WATCH THE AGENT THE SURFACES ARE ACTING ON
        * (operator, 2026-08-03: "Is the observer recognising that the wallet
