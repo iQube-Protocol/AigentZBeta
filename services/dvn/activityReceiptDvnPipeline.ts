@@ -322,6 +322,13 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   // and pnl_service_verified (independently rediscovered proof evidence) —
   // see services/horizen/pnlOnboardingClient.ts. (Action-type addition only.)
   'pnl_service_registered',
+  // Constitutional State Model Correction (2026-08-11) — an agent becoming
+  // constitutionally active in the iQube Registry is a first-class
+  // constitutional fact and belongs in tamper-evident memory, same tier as
+  // the other admission-spine receipts above. (Action-type addition only —
+  // the one change this file permits unilaterally. Payload shape, state
+  // machine and hashPersonaRef untouched.)
+  'agent_registry_activated',
 ]);
 
 export function shouldAnchorActionType(actionType: string): boolean {

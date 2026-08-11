@@ -152,6 +152,25 @@ export interface StandingAxis {
   /** The receipts the CONTRIBUTION accrual is derived from. Empty when nothing
    *  has been earned, which is the honest state for a newly ingested agent. */
   sourceReceipts: string[];
+  /**
+   * THE CANONICAL "EARNED STANDING" READ (Constitutional State Model
+   * Correction, operator-ratified 2026-08-11) — currently always equal to
+   * `contributionAccrued`, and named explicitly so no future consumer has to
+   * rediscover that `accrued`/`initialAccrued` are the WRONG fields to gate
+   * on. Admission and activation create no Standing; Standing requires an
+   * independently qualifying consequential act.
+   *
+   * NOT a second doctrine: today `contributionAccrued` is the only field
+   * that satisfies that rule, because the sole `initialAccrued` value this
+   * codebase has ever produced is the nominal registration seed
+   * (services/journey/registrationStandingSeed.ts) — an admission marker,
+   * not a Standing class. If a future non-contribution Standing class is
+   * ever introduced that is NOT admission/activation-derived, it belongs
+   * here too; this field is deliberately not hardcoded to
+   * `contributionAccrued` at every call site so that expansion never
+   * requires a second destructive rename.
+   */
+  earnedStanding: number;
 }
 
 export interface AgentStateAxes {
@@ -225,6 +244,7 @@ export function resolveAgentStateAxes(input: AgentStateAxesInput): AgentStateAxe
     initialAccrued,
     contributionAccrued,
     sourceReceipts,
+    earnedStanding: contributionAccrued,
   };
 
   return { admission, factory, verification, standing };

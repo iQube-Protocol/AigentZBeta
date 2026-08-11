@@ -49,8 +49,18 @@ const orderOf = (id: string) => STAGES.findIndex((s) => s.id === id);
  * constitutionally true before I can act as the principal from whom
  * authority originates" — a real, receipted stage
  * (services/journey/orientationContext.ts), not a step Passport can skip.
+ *
+ * ACTIVATE INSERTED 2026-08-11 (Constitutional State Model Correction,
+ * operator-ratified): the spine is now Register -> Claim -> Orient ->
+ * Passport -> Activate -> Delegate -> aigentMe. Activate is a DERIVED
+ * constitutional transition — established automatically once sponsorship +
+ * Delegate Passport are both observed true (services/journey/
+ * agentRegistryActivation.ts) — never an operator act, never gated on
+ * Delegate or Operate. This pilot's visible order is the GUIDED CEREMONY
+ * ORDER, not the constitutional dependency graph: the underlying model
+ * permits an Active/Operating agent with no current delegation.
  */
-const SPINE = ['register', 'claim', 'orient', 'passport', 'delegate', 'aigentme'] as const;
+const SPINE = ['register', 'claim', 'orient', 'passport', 'activate', 'delegate', 'aigentme'] as const;
 
 /** Read from the module's own closed union so the canary cannot drift from it. */
 const SETTLED_PREDICATES = fs
@@ -73,7 +83,11 @@ describe('the admission spine is Register -> Claim -> Passport -> Delegate -> ai
     // own prerequisite moved from 'claim' to 'orient'; Orient's is 'claim'.
     expect(byId('orient').prerequisites).toEqual(['claim']);
     expect(byId('passport').prerequisites).toEqual(['orient']);
-    expect(byId('delegate').prerequisites).toEqual(['passport']);
+    // Activate now sits between Passport and Delegate (2026-08-11) — its own
+    // prerequisite is 'passport' alone (never 'delegate', never 'aigentme');
+    // Delegate's prerequisite moved from 'passport' to 'activate'.
+    expect(byId('activate').prerequisites).toEqual(['passport']);
+    expect(byId('delegate').prerequisites).toEqual(['activate']);
     expect(byId('aigentme').prerequisites).toEqual(['delegate']);
   });
 

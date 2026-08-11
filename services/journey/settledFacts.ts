@@ -84,7 +84,18 @@ export type SettledPredicate =
    * observer and lands exactly once. See
    * `services/journey/registrationStandingSeed.ts`.
    */
-  | 'registry_standing_seeded';
+  | 'registry_standing_seeded'
+  /*
+   * Constitutional State Model Correction (operator-ratified, 2026-08-11):
+   * the agent became an accountable, active participant in the iQube
+   * Registry — derived from, and ONLY from, iQubeRegistryPresent ∧
+   * sponsorBindingEstablished ∧ agentPassportIssued. Never from Delegate,
+   * Operate, or `capability_registered` (Factory/Ingest evidence stays
+   * technical, never constitutional-activation evidence). Settling this IS
+   * the idempotency mechanism for `ensureAgentRegistryActivation` — see
+   * `services/journey/agentRegistryActivation.ts`.
+   */
+  | 'registry_activated';
 
 /**
  * Why a settled fact may be reopened. NOTHING ELSE MAY.
