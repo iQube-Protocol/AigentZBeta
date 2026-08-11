@@ -100,6 +100,16 @@ function DynamicCodexContent() {
   // mounts it unconditionally either way. Absent or any other value keeps
   // full chrome, so every existing embed URL is unaffected.
   const querySuppressPrimaryChrome = searchParams?.get("chrome") === "focused";
+  // `?depth=N` — focused navigation depth (only meaningful when chrome=focused).
+  // Defines how many nav tiers above the content to reveal (0=content only,
+  // 1=content+domain nav, etc.). Defaults to 0. Forwarded to CodexPanelDynamic
+  // as focusedNavDepth.
+  const queryFocusedNavDepth = (() => {
+    const raw = searchParams?.get("depth");
+    if (!raw) return undefined;
+    const parsed = parseInt(raw, 10);
+    return isNaN(parsed) || parsed < 0 ? undefined : parsed;
+  })();
   const { personaId, isAdmin } = useCodexEmbedAuthBridge({
     initialPersonaId: queryPersonaId,
     initialAuthProfileId: queryAuthProfileId,
@@ -121,6 +131,7 @@ function DynamicCodexContent() {
       partnerId={queryPartnerId || undefined}
       suppressFloatingCopilot={querySuppressCopilot || undefined}
       suppressPrimaryChrome={querySuppressPrimaryChrome || undefined}
+      focusedNavDepth={queryFocusedNavDepth}
       agentSlug={queryAgentSlug}
       useDefaults={true}
     />

@@ -3939,3 +3939,58 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-d56b844.md](../build_/COMMITS/COMMIT-d56b844.md)
 - Message: Pre-recording Horizen polish: compact narrator header + Register ceremony replay
+
+## Commit `58856f7` — 2026-08-10T15:14:46Z
+- Type: `feat`
+- Brief: [COMMIT-58856f7.md](../build_/COMMITS/COMMIT-58856f7.md)
+- Message: Add Aigent Know1 as a third registrable Horizen agent (config + card + health)
+
+## Commit `e1dac8c` — 2026-08-10T07:33:31Z
+- Type: `push`
+- Brief: [COMMIT-e1dac8c.md](../build_/COMMITS/COMMIT-e1dac8c.md)
+- Message: Record MoneyPenny pre-recording evidence snapshot (live dev API baseline)
+
+## Commit `6a9cc6d` — 2026-08-10T19:26:21Z
+- Type: `feat`
+- Brief: [COMMIT-6a9cc6d.md](../build_/COMMITS/COMMIT-6a9cc6d.md)
+- Message: Add the /bridge/ci redirect and update path references (rest of the rename)
+
+## Commit `df68a8f` — 2026-08-10T19:25:56Z
+- Type: `refactor`
+- Brief: [COMMIT-df68a8f.md](../build_/COMMITS/COMMIT-df68a8f.md)
+- Message: Rename CI Bridge to /bridge/ci and redirect the old path
+
+## Commit `f08b700` — 2026-08-10T17:52:46Z
+- Type: `push`
+- Brief: [COMMIT-f08b700.md](../build_/COMMITS/COMMIT-f08b700.md)
+- Message: Reframe ACT: Bring Your Agent Into the Field, not just an ExperienceQube disposition
+
+## Commit `d066bff` — 2026-08-10T17:41:41Z
+- Type: `fix`
+- Brief: [COMMIT-d066bff.md](../build_/COMMITS/COMMIT-d066bff.md)
+- Message: Redeploy dev: fix bare deploy-trigger commit at branch tip (CI Bridge v1 ships in d81950a3e)
+
+## Commit `4262fbd` — 2026-08-10T17:41:09Z
+- Type: `push`
+- Brief: [COMMIT-4262fbd.md](../build_/COMMITS/COMMIT-4262fbd.md)
+- Message: trigger deploy to dev
+
+## Commit `7d0ed73` — 2026-08-10T20:03:08Z
+- Type: `push`
+- Brief: [COMMIT-7d0ed73.md](../build_/COMMITS/COMMIT-7d0ed73.md)
+- Message: trigger deploy: in-place iframe chrome toggle for KNYTS Bridge embeds
+
+## Commit `d1ef756` — 2026-08-10T20:03:05Z
+- Type: `feat`
+- Brief: [COMMIT-d1ef756.md](../build_/COMMITS/COMMIT-d1ef756.md)
+- Message: implement in-place iframe chrome toggle for guided journey embeds
+
+## Commit `f65634b` — 2026-08-10T22:50:38Z
+- Type: `push`
+- Brief: [COMMIT-f65634b.md](../build_/COMMITS/COMMIT-f65634b.md)
+- Message: trigger deploy: focusedNavDepth depth-aware chrome suppression
+
+## Commit `a37a29e` — 2026-08-10T22:50:19Z
+- Type: `feat`
+- Brief: [COMMIT-a37a29e.md](../build_/COMMITS/COMMIT-a37a29e.md)
+- Message: Implement focusedNavDepth support for depth-aware chrome suppression

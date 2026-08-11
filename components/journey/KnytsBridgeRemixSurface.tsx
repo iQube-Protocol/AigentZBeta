@@ -40,7 +40,7 @@ interface Props {
 
 export function KnytsBridgeRemixSurface({ personaId }: Props) {
   const [src, setSrc] = useState<string | null>(null);
-  const [openHref, setOpenHref] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     const pendingRemix = (() => {
@@ -51,7 +51,7 @@ export function KnytsBridgeRemixSurface({ personaId }: Props) {
       }
     })();
 
-    const buildSrc = (focused: boolean) => {
+    const buildSrcForMode = (focused: boolean) => {
       const base = buildCodexUrl('metame-codex', {
         tab: 'mycanvas',
         personaId,
@@ -69,23 +69,21 @@ export function KnytsBridgeRemixSurface({ personaId }: Props) {
       }
     };
 
-    setSrc(buildSrc(true));
-    setOpenHref(buildSrc(false));
-  }, [personaId]);
+    // Lite: focused=true when not expanded; Full: focused=false when expanded
+    setSrc(expanded ? buildSrcForMode(false) : buildSrcForMode(true));
+  }, [personaId, expanded]);
 
   if (!src) return null;
 
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex justify-end">
-        <a
-          href={openHref ?? '#'}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-slate-200"
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-slate-200 bg-none border-none cursor-pointer p-0"
         >
-          Explore metaMe ↗
-        </a>
+          {expanded ? 'Focus view' : 'Explore metaMe ↗'}
+        </button>
       </div>
       <iframe
         src={src}

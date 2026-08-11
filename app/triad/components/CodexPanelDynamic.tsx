@@ -117,6 +117,28 @@ interface CodexPanelDynamicProps {
    * isn't reached via a Journey iframe with `?agentSlug=`.
    */
   agentSlug?: string;
+  /**
+   * Focused navigation depth — controls how many navigation tiers above the
+   * content surface are revealed when in focused mode (suppressPrimaryChrome).
+   *
+   * Depths define how much cartridge chrome and domain navigation to expose:
+   *   0 — content surface only (no cartridge nav, no domain nav)
+   *   1 — content + immediate parent/domain nav (e.g., Store tabs, metaMe views)
+   *   2+ — content + multiple nav tiers (uncommon; future extensible)
+   *
+   * Only meaningful when suppressPrimaryChrome is true or when the focused
+   * surface needs depth-aware navigation control. Omitted or undefined leaves
+   * chrome visibility at the suppressPrimaryChrome level (backward compatible).
+   *
+   * Example (KNYTS Bridge):
+   *   - Pulse (View): depth 0 — publication feed, self-contained
+   *   - Store (Buy): depth 1 — needs Episodes|KNYT Cards|Bundles|Investor KNYT
+   *   - myCanvas (Remix): depth 0 — self-contained composer
+   *
+   * Dynamic depth: Passport at claim (depth 0) → post-crossing (depth 1).
+   * Resolved via resolveSurfaceProps for progressive cases.
+   */
+  focusedNavDepth?: number;
 }
 
 type IssueOption = {
@@ -176,6 +198,7 @@ export default function CodexPanelDynamic({
   suppressFloatingCopilot = false,
   suppressPrimaryChrome = false,
   agentSlug,
+  focusedNavDepth,
 }: CodexPanelDynamicProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -850,9 +873,14 @@ export default function CodexPanelDynamic({
 
   // When only one tab is available, the tab shell manages its own navigation chrome.
   const singleTabMode = enabledTabs.length <= 1;
-  // A focused-mode host (suppressPrimaryChrome) asks for the same effect on
-  // purpose rather than by tab count — see that prop's doc comment above.
-  const primaryChromeHidden = singleTabMode || suppressPrimaryChrome;
+
+  // Depth-aware primary chrome visibility:
+  // - focusedNavDepth takes precedence when defined
+  // - depth 0 = content only, suppress chrome
+  // - depth >= 1 = show chrome with depth-aware limiting (TBD)
+  // - undefined = fall back to suppressPrimaryChrome for backward compatibility
+  const suppressChromeByDepth = focusedNavDepth !== undefined && focusedNavDepth === 0;
+  const primaryChromeHidden = singleTabMode || suppressChromeByDepth || (focusedNavDepth === undefined && suppressPrimaryChrome);
 
   return (
     <SmartTriadProvider personaId={resolvedPersonaId}>
@@ -1287,6 +1315,7 @@ export default function CodexPanelDynamic({
                   previewDevice={previewDevice}
                   shell={shell}
                   agentSlug={agentSlug}
+                  focusedNavDepth={focusedNavDepth}
                 />
               </SubHeaderSlotContext.Provider>
             )}

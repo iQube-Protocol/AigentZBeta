@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-10T06:56:27.459Z",
+  "last_updated": "2026-08-10T22:52:16.005Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "d56b8444cbcefad7a30581ca7bd5edc0ab46cb1c",
-  "latest_commit_short": "d56b844",
-  "latest_commit_title": "Pre-recording Horizen polish: compact narrator header + Register ceremony replay",
+  "latest_commit": "a37a29edbc6ef846a4be576104cb65ed2cbf87ba",
+  "latest_commit_short": "a37a29e",
+  "latest_commit_title": "Implement focusedNavDepth support for depth-aware chrome suppression",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,114 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "a37a29e",
+      "full_sha": "a37a29edbc6ef846a4be576104cb65ed2cbf87ba",
+      "title": "Implement focusedNavDepth support for depth-aware chrome suppression",
+      "author": "Claude",
+      "timestamp": "2026-08-10T22:50:19Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-a37a29e.md"
+    },
+    {
+      "sha": "f65634b",
+      "full_sha": "f65634b26660b5f876d2f400ef1de351c7ced62a",
+      "title": "trigger deploy: focusedNavDepth depth-aware chrome suppression",
+      "author": "Claude",
+      "timestamp": "2026-08-10T22:50:38Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-f65634b.md"
+    },
+    {
+      "sha": "d1ef756",
+      "full_sha": "d1ef7562b741a5be55f6887a63b2aa6e51d530a5",
+      "title": "implement in-place iframe chrome toggle for guided journey embeds",
+      "author": "Claude",
+      "timestamp": "2026-08-10T20:03:05Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-d1ef756.md"
+    },
+    {
+      "sha": "7d0ed73",
+      "full_sha": "7d0ed7363507db181a71bb169bd32d3372b4023d",
+      "title": "trigger deploy: in-place iframe chrome toggle for KNYTS Bridge embeds",
+      "author": "Claude",
+      "timestamp": "2026-08-10T20:03:08Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-7d0ed73.md"
+    },
+    {
+      "sha": "d81950a",
+      "full_sha": "d81950a3e17b9fe18e9c07e5fcf1e7bb99a21831",
+      "title": "Build the Constitutional Internet Bridge as a v1 slice of the KNYTS Bridge architecture",
+      "author": "Claude",
+      "timestamp": "2026-08-10T17:41:04Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-d81950a.md"
+    },
+    {
+      "sha": "4262fbd",
+      "full_sha": "4262fbde0022bfab8f8194455ca6f07e2d1dee58",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-08-10T17:41:09Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-4262fbd.md"
+    },
+    {
+      "sha": "d066bff",
+      "full_sha": "d066bff81de30f2b30ba0208c2bfb56b34e774b9",
+      "title": "Redeploy dev: fix bare deploy-trigger commit at branch tip (CI Bridge v1 ships in d81950a3e)",
+      "author": "Claude",
+      "timestamp": "2026-08-10T17:41:41Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-d066bff.md"
+    },
+    {
+      "sha": "f08b700",
+      "full_sha": "f08b7009fc1fd35d2592089670719cdf2233d339",
+      "title": "Reframe ACT: Bring Your Agent Into the Field, not just an ExperienceQube disposition",
+      "author": "Claude",
+      "timestamp": "2026-08-10T17:52:46Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-f08b700.md"
+    },
+    {
+      "sha": "df68a8f",
+      "full_sha": "df68a8fdb837a1a0b4ec4d3d498bd557a1c26a53",
+      "title": "Rename CI Bridge to /bridge/ci and redirect the old path",
+      "author": "Claude",
+      "timestamp": "2026-08-10T19:25:56Z",
+      "type": "refactor",
+      "brief": "items/build_/COMMITS/COMMIT-df68a8f.md"
+    },
+    {
+      "sha": "6a9cc6d",
+      "full_sha": "6a9cc6db75136491c0300d2e470324670124c4aa",
+      "title": "Add the /bridge/ci redirect and update path references (rest of the rename)",
+      "author": "Claude",
+      "timestamp": "2026-08-10T19:26:21Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-6a9cc6d.md"
+    },
+    {
+      "sha": "e1dac8c",
+      "full_sha": "e1dac8cd53f79d518d695b99a89bf6be36159cb9",
+      "title": "Record MoneyPenny pre-recording evidence snapshot (live dev API baseline)",
+      "author": "Claude",
+      "timestamp": "2026-08-10T07:33:31Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-e1dac8c.md"
+    },
+    {
+      "sha": "58856f7",
+      "full_sha": "58856f7ac7c0c117b7765e0ec9ddeab0d392ebac",
+      "title": "Add Aigent Know1 as a third registrable Horizen agent (config + card + health)",
+      "author": "Claude",
+      "timestamp": "2026-08-10T15:14:46Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-58856f7.md"
+    },
     {
       "sha": "d56b844",
       "full_sha": "d56b8444cbcefad7a30581ca7bd5edc0ab46cb1c",
@@ -1144,114 +1252,6 @@
       "timestamp": "2026-07-18T00:07:22Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-eb18469.md"
-    },
-    {
-      "sha": "fc7ba11",
-      "full_sha": "fc7ba1127e7a525f6021d39cc80e4dd0bbc4336b",
-      "title": "ratify Polity corpus + Knowledge Compression genesis into Canon (operator: 'ratify the lot')",
-      "author": "Claude",
-      "timestamp": "2026-07-17T23:52:53Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-fc7ba11.md"
-    },
-    {
-      "sha": "1505d97",
-      "full_sha": "1505d97d16bbe3ec90165bf8b35d60b6bc046ad5",
-      "title": "canonize Knowledge Compression genesis: preserve founding text + seed inv.reasoning.310-321 (proposed)",
-      "author": "Claude",
-      "timestamp": "2026-07-17T23:42:13Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-1505d97.md"
-    },
-    {
-      "sha": "34ab954",
-      "full_sha": "34ab954bf6e212f7ce0c80c4765d09b62856f1ef",
-      "title": "canonize Polity full corpus pass 3: seed inv.polity.207-309 (proposed)",
-      "author": "Claude",
-      "timestamp": "2026-07-17T23:34:38Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-34ab954.md"
-    },
-    {
-      "sha": "54963d3",
-      "full_sha": "54963d397a5d93236182391d89ee3325e1209cf4",
-      "title": "add Polity source texts: Experience Sovereignty, Thresholds, Embodied, Robots-Agents series",
-      "author": "Kn0w-1",
-      "timestamp": "2026-07-17T19:18:33-04:00",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-54963d3.md"
-    },
-    {
-      "sha": "9196332",
-      "full_sha": "9196332acac81f4d6551c8293ac0133d3577cd9d",
-      "title": "canonize Polity Papers full text pass 2 — seed inv.polity.175-206 (proposed)",
-      "author": "Claude",
-      "timestamp": "2026-07-17T22:06:47Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-9196332.md"
-    },
-    {
-      "sha": "1506075",
-      "full_sha": "1506075624cc7a41db7e5cd2b7ac69abc550117f",
-      "title": "register Polity Papers pass-2 canonization report in agentiq updates collection",
-      "author": "Claude",
-      "timestamp": "2026-07-17T22:10:46Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-1506075.md"
-    },
-    {
-      "sha": "fa50254",
-      "full_sha": "fa502546560869012bf0c39e15d0cc9f6616dab8",
-      "title": "extract Polity Papers full text pass 2 (10 text-layer papers; 5 vision + 1 download deferred)",
-      "author": "Kn0w-1",
-      "timestamp": "2026-07-17T17:48:44-04:00",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-fa50254.md"
-    },
-    {
-      "sha": "3373fd8",
-      "full_sha": "3373fd8bf44735f17833958dc83e842499aa6b6b",
-      "title": "document canonical repo (iQube-Protocol) vs stale local clone (Kn0w-1) — stop the recurring wrong-remote trap",
-      "author": "Claude",
-      "timestamp": "2026-07-17T21:28:30Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-3373fd8.md"
-    },
-    {
-      "sha": "8954ca7",
-      "full_sha": "8954ca7ea0599f73dc7cec293e0863c4fabc76cf",
-      "title": "add polity namespace to invariant CHECK constraints (unblocks polity seed ingest)",
-      "author": "Claude",
-      "timestamp": "2026-07-17T21:25:26Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-8954ca7.md"
-    },
-    {
-      "sha": "871697d",
-      "full_sha": "871697d06683e6db7932bd16d8c1551c4aaa6755",
-      "title": "trigger deploy to dev — force fresh rebuild to surface session work (CFSP/IRE-IPE/Polity)",
-      "author": "Claude",
-      "timestamp": "2026-07-17T21:21:32Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-871697d.md"
-    },
-    {
-      "sha": "9b7a56f",
-      "full_sha": "9b7a56f293d0f3e16ebdb84f27a406b7bb28e8a2",
-      "title": "ratify Polity Papers into Canon: promote inv.polity.160-174 proposed to canonical",
-      "author": "Claude",
-      "timestamp": "2026-07-17T20:01:27Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-9b7a56f.md"
-    },
-    {
-      "sha": "8b202b8",
-      "full_sha": "8b202b8566fee8846c6e7473802128eb5bf56315",
-      "title": "canonize Polity Papers pass 1: reconcile + seed inv.polity candidates (proposed)",
-      "author": "Claude",
-      "timestamp": "2026-07-17T19:46:17Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-8b202b8.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

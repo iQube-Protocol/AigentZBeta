@@ -92,6 +92,23 @@ export interface CodexNavOptions {
    * which this flag maps to server-side of the embed route.
    */
   focused?: boolean;
+  /**
+   * Focused navigation depth (`?depth=N`). Only meaningful when `focused: true`.
+   * Defines how many navigation layers above the content to reveal:
+   *   0 — content surface only (no cartridge nav, no domain nav)
+   *   1 — content + immediate parent/domain nav (e.g., Store tabs, metaMe views)
+   *   2+ — content + multiple nav tiers (uncommon; future extensible)
+   *
+   * Omitted or undefined defaults to 0 (content only). Each cartridge documents
+   * the depth required to remain usable.
+   *
+   * Example depths for KNYTS Bridge:
+   *   Pulse (View) — depth 0 (publication feed)
+   *   Store (Buy) — depth 1 (needs Episodes|KNYT Cards|Bundles|Investor KNYT)
+   *   myCanvas (Remix) — depth 0 (self-contained composer)
+   *   aigentMe (Delegate) — depth 1 (needs metaMe/aigentMe context to navigate)
+   */
+  focusedNavDepth?: number;
 }
 
 /**
@@ -117,6 +134,7 @@ export function buildCodexUrl(slug: string, opts: CodexNavOptions = {}): string 
     suppressCopilot,
     agentSlug,
     focused,
+    focusedNavDepth,
   } = opts;
 
   const params = new URLSearchParams();
@@ -137,6 +155,7 @@ export function buildCodexUrl(slug: string, opts: CodexNavOptions = {}): string 
   if (fromTab)    params.set("fromTab",    fromTab);
   if (suppressCopilot) params.set("copilot", "off");
   if (focused) params.set("chrome", "focused");
+  if (focusedNavDepth !== undefined && focusedNavDepth >= 0) params.set("depth", String(focusedNavDepth));
   // Trimmed, non-empty only — URLSearchParams.set percent-encodes the value;
   // the receiving route is what actually validates it, via resolveRegistrableAgent.
   if (agentSlug && agentSlug.trim().length > 0) params.set("agentSlug", agentSlug.trim());

@@ -90,6 +90,24 @@ export type JourneySurfaceDescriptor =
        * true; defaults to a generic "Open full view ↗" when omitted.
        */
       openLabel?: string;
+      /**
+       * Focused navigation depth (operator direction, 2026-08-10) — defines
+       * how many navigation tiers above the content to reveal when focused:
+       *   0 (default) — content surface only; no cartridge or domain nav
+       *   1 — content + immediate parent/domain nav (e.g., Store tabs, metaMe views)
+       *   2+ — content + multiple nav tiers (uncommon; future extensible)
+       *
+       * Only meaningful when `focused: true`. Examples:
+       *   Pulse (View) — depth 0 (publication feed, self-contained)
+       *   Store (Buy) — depth 1 (needs Episodes|KNYT Cards|Bundles|Investor KNYT tabs)
+       *   myCanvas (Remix) — depth 0 (self-contained composer)
+       *   aigentMe surfaces — depth 1 (needs metaMe/aigentMe nav context)
+       *
+       * May be dynamic (resolved per-call via resolveSurfaceProps) when
+       * runtime state determines the required depth (e.g., Passport: depth 0
+       * before established, depth 1 after).
+       */
+      focusedNavDepth?: number;
       note: string;
     }
   | {
@@ -379,6 +397,7 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
     tab: 'pulse',
     suppressFloatingCopilot: true,
     focused: true,
+    focusedNavDepth: 0,
     openLabel: 'Open KNYT World ↗',
     note:
       'The canonical KNYT Pulse tab itself, full and unfiltered — never a Bridge-scoped slice of it. ' +
@@ -387,7 +406,8 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
       'appear identically whether Pulse is reached through the Bridge or through the KNYT cartridge. ' +
       "Focused surface-polish pass (2026-08-10): `focused: true` hides the KNYT cartridge's own top-level " +
       "header/tab-group nav (Codex/Store/Order/Admin/Docs and the Order-group sibling strip) so a first-" +
-      "time Threshold visitor sees Pulse itself, not the whole cartridge — Pulse's own toolbar is unaffected.",
+      "time Threshold visitor sees Pulse itself, not the whole cartridge — Pulse's own toolbar is unaffected. " +
+      'Depth 0 means content only (publication feed).',
   },
   'knyts-bridge-orient': {
     kind: 'component',
@@ -425,13 +445,14 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
     tab: 'quests',
     suppressFloatingCopilot: true,
     focused: true,
+    focusedNavDepth: 0,
     openLabel: 'Open KNYT World ↗',
     note:
       'The canonical KNYT Quests tab (app/triad/components/codex/tabs/KnytQuestsTab.tsx) — "Standing is ' +
       'the constitutional outcome; Quest is the KNYT mechanic through which you earn it." The spine ' +
       'label stays Stand; the surface underneath is the real, KNYT-native Quests experience, never a ' +
       'thin bespoke Standing projection. `focused: true` (2026-08-10) hides the cartridge primary chrome; ' +
-      "Quests's own filters/controls are untouched.",
+      "Quests's own filters/controls are untouched. Depth 0 means content only (quests feed).",
   },
   'knyts-bridge-buy-store': {
     kind: 'embed',
@@ -439,12 +460,95 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
     tab: 'store-episodes',
     suppressFloatingCopilot: true,
     focused: true,
+    focusedNavDepth: 1,
     openLabel: 'Open KNYT World ↗',
     note:
       'The existing KNYT Store — no new commerce code, same tab the old front door deep-linked to. ' +
       "`focused: true` (2026-08-10) gives a clean focused Store viewport: cartridge chrome suppressed, " +
-      'the Store tab’s own category/local controls untouched, with an "Open KNYT World ↗" affordance ' +
-      'to leave the guide.',
+      "the Store tab's own category/local controls untouched, with an \"Open KNYT World ↗\" affordance " +
+      "to leave the guide. Depth 1 retains the Store's own navigation strip (Episodes|KNYT Cards|Bundles|" +
+      'Investor KNYT) which is required for the destination to remain functionally navigable.',
+  },
+
+  // ── Constitutional Internet Bridge journey (built 2026-08-10, reconstituted
+  // onto JourneyRunSurface same day) — the canonical Ethos Bridge, sibling of
+  // the KNYTS Bridge Threshold Guide on the SAME shared runner. The public
+  // front door (app/bridge/ci/page.tsx) composes these THROUGH
+  // JourneyRunSurface's shared Posit Spine runner, like every other journey
+  // in this registry — never stacked manually beneath it. HOME/VIEW/ORIENT/
+  // CHOOSE are `component` surfaces (no canonical external cartridge tab
+  // equivalent exists for this bespoke CI content, unlike KNYTS's
+  // Pulse/Quests/Store embeds); PASSPORT stays a bare `component` because it
+  // needs the stage's own resolved evidence (citizenPassportUsable) to decide
+  // which half to render, exactly like knyts-bridge-passport-room.
+  'ci-bridge-home': {
+    kind: 'component',
+    component: 'BridgeMediaStage',
+    note:
+      'components/journey/BridgeMediaStage.tsx, themed indigo — the CI proposition ("The Internet ' +
+      'recognizes accounts. The Constitutional Internet recognizes persons."). The SAME generic hero ' +
+      'component KNYTS Bridge\'s own HOME section previously used (KNYTS has since reconstituted onto ' +
+      'its own cinematic KnytsBridgeMediaStage); the two CTA callbacks (advance to View / Choose) are ' +
+      'threaded in via the page\'s resolveSurfaceProps, dispatching the shared journey:select-stage event.',
+  },
+  'ci-bridge-view': {
+    kind: 'component',
+    component: 'ConstitutionalInternetBridgeViewSequence',
+    note:
+      'components/journey/ConstitutionalInternetBridgeViewSequence.tsx — real CANONICAL_PLATES_V1 plates ' +
+      'composed with verbatim manuscript excerpts (cited by line), never invented prose. A bare ' +
+      '`component`, not an `embed`, because no canonical external cartridge tab carries this content.',
+  },
+  'ci-bridge-orient': {
+    kind: 'component',
+    component: 'ConstitutionalFrontierOrientSurface',
+    note:
+      'components/journey/ConstitutionalFrontierOrientSurface.tsx — a deterministic, non-gating ' +
+      'questionnaire (no LLM). Persists choices as a best-effort intent/demand signal via the generic ' +
+      'campaign_events log, never as constitutional state — completing it is not tracked evidence.',
+  },
+  'ci-bridge-passport-room': {
+    kind: 'component',
+    component: 'ConstitutionalInternetBridgePassportRoom',
+    note:
+      'State-aware constitutional room (components/journey/ConstitutionalInternetBridgePassportRoom.tsx), ' +
+      'mirroring knyts-bridge-passport-room\'s exact pattern: no usable Passport -> the canonical ' +
+      'PassportBureauApplyTab claim flow; Passport established -> "You have crossed." + a continuation ' +
+      'toward ACT (never an inline aigentMe embed here, since ACT itself already is the agent-connection ' +
+      'experience). A bare `component` because it needs the Passport stage\'s OWN resolved evidence ' +
+      '(citizenPassportUsable, threaded in by the page via resolveSurfaceProps) to decide which half to ' +
+      'render — a plain embed cannot branch.',
+  },
+  'ci-bridge-act-field-entry': {
+    kind: 'component',
+    component: 'ConstitutionalAgentFieldEntrySurface',
+    note:
+      'components/journey/ConstitutionalAgentFieldEntrySurface.tsx — "Bring Your Agent Into the Field," ' +
+      'two sibling paths, neither delegation: (1) Connect an agent you already use, via the real metaMe ' +
+      'Threshold MCP OAuth crossing (read/query scope only); (2) Meet aigentMe, rendering ' +
+      'ConstitutionalAgentDispositionSurface.tsx inline — a generalized ExperienceQube disposition ' +
+      'ceremony sharing its receipt taxonomy with the Horizen/MoneyPenny disposition route via ' +
+      'services/journey/experienceQubeDispositionService.ts, scoped under this journey\'s own agent id ' +
+      'and context tag. Either path alone completes ACT (agentRelationshipStarted is an OR).',
+  },
+  'ci-bridge-stand': {
+    kind: 'component',
+    component: 'ConstitutionalInternetBridgeStandPanel',
+    note:
+      'components/journey/ConstitutionalInternetBridgeStandPanel.tsx — reads the real Passport/' +
+      'disposition receipts and the canonical Standing score (services/standing/standingScore.ts). ' +
+      'Deliberately does NOT repeat the KNYTS Bridge STAND panel\'s mislabeling of engagement counters ' +
+      'as "Standing" — see services/journey/constitutionalInternetBridgeStand.ts\'s header.',
+  },
+  'ci-bridge-choose': {
+    kind: 'component',
+    component: 'ConstitutionalInternetBridgeChooseSurface',
+    note:
+      'components/journey/ConstitutionalInternetBridgeChooseSurface.tsx — reserve the book, continue ' +
+      'reading, meet aigentMe, join the research field, build/partner, share the Bridge. A bare ' +
+      '`component`, like knyts-bridge-buy-store\'s destination is an `embed` only because a canonical ' +
+      'KNYT Store tab exists to embed — no CI-equivalent commerce surface exists yet (see the CI Bridge ' +
+      'build history: the KNYT commerce engine has no wired preorder SKU for a new book product today).',
   },
 };
 
@@ -468,6 +572,7 @@ export function buildEmbedSurfaceSrc(
     shell: 'embed',
     suppressCopilot: descriptor.suppressFloatingCopilot,
     focused: descriptor.focused,
+    focusedNavDepth: descriptor.focusedNavDepth,
     ...(descriptor.agentScoped && input.selectedAgentSlug ? { agentSlug: input.selectedAgentSlug } : {}),
   });
 }
