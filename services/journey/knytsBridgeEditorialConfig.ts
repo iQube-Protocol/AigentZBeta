@@ -103,6 +103,21 @@ export const KNYTS_BRIDGE_SECTION_DEFAULTS: Record<string, KnytsBridgeEditorialS
     rewardCopy: null,
     updatedAt: null,
   },
+  // Added 2026-08-11 (integration pass) — the PASSPORT stage's post-crossing
+  // orientation surface (ConstitutionalInternetBridgePassportRoom.tsx's
+  // "established" branch), same admin-editable video pattern as ci-orient.
+  'ci-passport-established': {
+    section: 'ci-passport-established',
+    headline: 'Your constitutional presence is confirmed.',
+    shortCopy:
+      'You are now recognized as a constitutional subject in the Polity. What you do next is yours to ' +
+      'choose — an agent can help, but only within what you decide here.',
+    videoUrl: null,
+    posterUrl: null,
+    campaignCta: null,
+    rewardCopy: null,
+    updatedAt: null,
+  },
 };
 
 /** @deprecated kept for callers that haven't migrated to KNYTS_BRIDGE_SECTION_DEFAULTS.home yet. */

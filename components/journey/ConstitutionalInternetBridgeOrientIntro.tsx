@@ -55,9 +55,15 @@ export function ConstitutionalInternetBridgeOrientIntro() {
     };
   }, []);
 
-  const paragraphs = (config.shortCopy ?? KNYTS_BRIDGE_SECTION_DEFAULTS[SECTION].shortCopy ?? '')
+  // One compact continuous paragraph (integration pass, 2026-08-11) — never
+  // multiple <p> blocks. Admin-authored copy may still use \n\n to organize
+  // the source text, but any such break is a paragraph-authoring artifact,
+  // not an intentional line break the visitor should see; join with a space
+  // rather than rendering each chunk as its own paragraph.
+  const introCopy = (config.shortCopy ?? KNYTS_BRIDGE_SECTION_DEFAULTS[SECTION].shortCopy ?? '')
     .split('\n\n')
-    .filter(Boolean);
+    .filter(Boolean)
+    .join(' ');
 
   return (
     <div className="grid gap-4 lg:grid-cols-[3fr_2fr]">
@@ -89,13 +95,9 @@ export function ConstitutionalInternetBridgeOrientIntro() {
           <h2 className="text-xl font-bold text-white sm:text-2xl">
             {config.headline ?? KNYTS_BRIDGE_SECTION_DEFAULTS[SECTION].headline}
           </h2>
-          <div className="mt-2">
-            {paragraphs.map((p, i) => (
-              <p key={i} className="mt-1.5 text-[13px] leading-[1.5] text-slate-300">
-                {p}
-              </p>
-            ))}
-          </div>
+          {introCopy && (
+            <p className="mt-2 text-[13px] leading-[1.5] text-slate-300">{introCopy}</p>
+          )}
         </div>
         <ConstitutionalFrontierOrientSurface />
       </div>

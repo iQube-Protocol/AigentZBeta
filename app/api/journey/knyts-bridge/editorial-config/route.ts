@@ -45,6 +45,7 @@ const ALLOWED_SECTIONS = new Set([
   'orient',
   'ci-home',
   'ci-orient',
+  'ci-passport-established',
   ...CI_BRIDGE_VIEW_CONTENT.map((block) => `ci-view-${block.id}`),
 ]);
 

@@ -58,12 +58,27 @@
  * portrait card (e.g. a paper cover) naturally claims more vertical room
  * than a landscape one. Every real hydration today (View's Video/Plate/
  * Paper, Orient's 3 questions, Personify's 2 supporting tools) has at most
- * a handful of rail cards, so the rail is a static column, not a
- * scrolling/paging list — a carousel primitive would be premature
- * abstraction for a list this short. Moving between multiple CAPSULES
- * (e.g. View's vignettes) is the parent's concern: wrap sibling
- * <BridgeContentCapsule key={...} /> instances in the real swipeable
- * components/ui/carousel.tsx primitive, not a feature of this shell.
+ * a handful of rail cards, so in NON-fullscreen mode the rail stays a
+ * static, content-driven column, not a scrolling/paging list. Fullscreen is
+ * different (integration pass, 2026-08-11): the operator wants the rail to
+ * support 4-5+ cards there, so in fullscreen ONLY the rail becomes its own
+ * bounded, independently-scrolling region (`sticky` + `max-h` + `overflow-
+ * y-auto`, per-card `minHeight` floor) — decoupled from the left column's
+ * height so a tall left pane (which the outer fullscreen portal itself now
+ * scrolls) never drags the rail's scroll position with it, and the rail's
+ * own scroll never forces the main artifact pane to move. Moving between
+ * multiple CAPSULES (e.g. View's vignettes) is still the parent's concern:
+ * wrap sibling <BridgeContentCapsule key={...} /> instances in the real
+ * swipeable components/ui/carousel.tsx primitive, not a feature of this
+ * shell.
+ *
+ * Fullscreen control (relocated 2026-08-11, integration pass): the
+ * Fullscreen/Exit-fullscreen toggle used to be a text link below the
+ * viewport+rail grid, next to the excerpt strip — that read as page-level
+ * chrome, not part of the artifact. It's now an icon-only button absolutely
+ * positioned INSIDE the viewport's own top-right corner (conventional media
+ * chrome, same position/treatment whether entering or exiting), which is
+ * why the viewport container below gained `relative`.
  */
 
 import React, { useEffect, useState } from 'react';
@@ -136,7 +151,15 @@ export function BridgeContentCapsule({
 
   const body = (
     <div
-      className={`grid gap-3 ${fullscreen ? 'h-full' : ''} ${className ?? ''}`}
+      // `min-h-full` (not `h-full`) in fullscreen: the grid must be AT
+      // LEAST the portal's height (so a short left column still fills the
+      // screen), but must be free to grow TALLER when the left column's
+      // natural content (e.g. a tall portrait viewport + strip) needs more
+      // room than the screen — that's what lets the outer portal's own
+      // `overflow-y-auto` engage instead of squeezing content. A hard
+      // `h-full` would clip the grid to exactly the screen height with
+      // nothing left to scroll.
+      className={`grid gap-3 ${fullscreen ? 'min-h-full' : ''} ${className ?? ''}`}
       style={{
         gridTemplateColumns: railCards.length > 1 ? 'minmax(0, 3fr) minmax(200px, 1fr)' : 'minmax(0, 1fr)',
         gridTemplateRows: '1fr',
@@ -147,7 +170,7 @@ export function BridgeContentCapsule({
           the rail, and this component never imposes its own height. */}
       <div className="flex flex-col gap-3">
         <div
-          className="w-full overflow-hidden rounded-2xl border border-white/[0.07] bg-slate-900/40"
+          className="relative w-full overflow-hidden rounded-2xl border border-white/[0.07] bg-slate-900/40"
           style={
             ratio
               ? {
@@ -166,46 +189,61 @@ export function BridgeContentCapsule({
           }
         >
           {renderViewport(activeCard.id, { fullscreen })}
+          {/* Fullscreen toggle — conventional media chrome, floating inside
+              the viewport's own top-right corner. Same position/treatment
+              entering or exiting; only the icon swaps. */}
+          {allowFullscreen && (
+            <button
+              type="button"
+              onClick={() => setFullscreen((v) => !v)}
+              aria-label={fullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+              title={fullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+              className="absolute right-2 top-2 z-10 inline-flex items-center justify-center rounded-md bg-black/50 p-1.5 text-white/80 backdrop-blur-sm transition hover:bg-black/70 hover:text-white"
+            >
+              {fullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+            </button>
+          )}
         </div>
         {renderStrip && (
           <div className="rounded-xl border border-white/[0.07] bg-slate-900/40 p-3.5">{renderStrip(activeCard.id)}</div>
         )}
-        {allowFullscreen && (
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={() => setFullscreen((v) => !v)}
-              className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-slate-200"
-            >
-              {fullscreen ? (
-                <>
-                  <Minimize2 className="h-3.5 w-3.5" /> Exit fullscreen
-                </>
-              ) : (
-                <>
-                  <Maximize2 className="h-3.5 w-3.5" /> Fullscreen
-                </>
-              )}
-            </button>
-          </div>
-        )}
       </div>
 
-      {/* RIGHT COLUMN — the rail. No height of its own: it's a plain grid
-          item, so it stretches (CSS Grid default `align-items: stretch`)
-          to match the row's height, which is the left column's natural
-          content height. That stretched height is what h-full resolves
-          against below, letting the cards flex-distribute it. */}
+      {/* RIGHT COLUMN — the rail.
+          Non-fullscreen: no height of its own — a plain grid item that
+          stretches (CSS Grid default `align-items: stretch`) to match the
+          row's height (the left column's natural content height), same as
+          before this pass.
+          Fullscreen: DECOUPLED from the left column's height on purpose —
+          `self-start` opts it out of the grid stretch, `max-h-[calc(100vh-2rem)]`
+          bounds it to the (padded) screen height, and `overflow-y-auto`
+          gives it its OWN scroll region. This is what makes the rail
+          support 4-5+ cards without the main artifact pane (which can be
+          much taller, e.g. a portrait cover at full height, and relies on
+          the outer portal's own overflow-y-auto below) dragging the rail's
+          scroll position with it, or vice versa. */}
       {railCards.length > 1 && (
-        <div className="flex h-full min-h-0 flex-col gap-2">
+        <div
+          className={`flex min-h-0 flex-col gap-2 ${
+            fullscreen ? 'self-start max-h-[calc(100vh-2rem)] overflow-y-auto' : 'h-full'
+          }`}
+        >
           {railCards.map((card) => (
             <button
               key={card.id}
               type="button"
               onClick={() => setActive(card.id)}
               aria-pressed={card.id === activeCard.id}
-              style={{ flexGrow: RAIL_ASPECT_WEIGHT[card.aspect ?? 'landscape'], flexBasis: 0 }}
-              className={`min-h-0 overflow-hidden rounded-lg border text-left transition ${
+              style={{
+                flexGrow: RAIL_ASPECT_WEIGHT[card.aspect ?? 'landscape'],
+                flexBasis: 0,
+                // Floor so cards keep a legible thumbnail size instead of
+                // flex-shrinking toward 0 before the rail's own scroll ever
+                // engages. Non-fullscreen is unaffected (undefined — the
+                // existing content-driven, no-scroll behavior).
+                minHeight: fullscreen ? '5.5rem' : undefined,
+              }}
+              className={`min-h-0 shrink-0 overflow-hidden rounded-lg border text-left transition ${
                 card.id === activeCard.id
                   ? 'border-amber-400/50 ring-1 ring-amber-400/25'
                   : 'border-white/[0.07] hover:border-white/20'
@@ -227,7 +265,7 @@ export function BridgeContentCapsule({
 
   if (fullscreen && mounted) {
     return createPortal(
-      <div className={`fixed inset-0 bg-slate-950 p-4 ${overlayZClass('CARTRIDGE_FULLSCREEN')}`}>{body}</div>,
+      <div className={`fixed inset-0 overflow-y-auto bg-slate-950 p-4 ${overlayZClass('CARTRIDGE_FULLSCREEN')}`}>{body}</div>,
       document.body,
     );
   }

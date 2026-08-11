@@ -211,16 +211,27 @@ function ethosRailCards(
     cards.push({
       id: 'paper',
       label: 'Paper',
-      aspect: 'portrait',
+      // Uniform landscape rail slot (integration pass, 2026-08-11) — was
+      // 'portrait' (matching the real 1055x1491 cover un-cropped), which
+      // made this slot a different shape than Video/Plate. The rail is a
+      // NAVIGATION PREVIEW, so a landscape crop derivative is fine here;
+      // the real cover stays untouched and full/selected Paper presentation
+      // (PaperLaunchSurface, below) remains portrait-aware/uncropped.
+      aspect: 'landscape',
       renderThumb: () => (
-        <div className="relative h-full w-full">
-          <div className="flex h-full w-full items-center justify-center bg-[#faf7f0]">
-            <img
-              src={paperRef.coverImageUrl}
-              alt={paperRef.title}
-              className="max-h-full max-w-full object-contain"
-            />
-          </div>
+        <div className="relative h-full w-full overflow-hidden bg-[#faf7f0]">
+          {/* object-cover + a top-biased object-position crops toward the
+              cover's title/identity area (conventionally near the top of a
+              book cover) rather than stretching or distorting the source
+              image. Pure CSS derivative — services/artifact/
+              polityPapersSeries.ts's coverImageUrl/coverWidth/coverHeight
+              are never altered. */}
+          <img
+            src={paperRef.coverImageUrl}
+            alt={paperRef.title}
+            className="h-full w-full object-cover"
+            style={{ objectPosition: 'center 18%' }}
+          />
           <RailCaption kicker="Polity Paper" title={paperRef.title} />
         </div>
       ),
