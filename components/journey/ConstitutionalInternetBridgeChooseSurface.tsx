@@ -7,23 +7,43 @@
  * elsewhere — never a single fact this journey gates on (see
  * constitutionalInternetBridgeJourney.ts's header).
  *
- * "Continue reading" and "Meet aigentMe" deep-link to real, already-
- * registered codex tabs (polity-core's commentary-constitutional-internet
- * tab; the metame codex) — never a guessed URL. "Join the research field"
- * and "Build / partner" reuse the same info@metame.com contact address
- * already used elsewhere in this codebase (KnytStoreInvestorTab's default)
- * rather than inventing a new one. "Share the Bridge" reuses the generic
- * SocialSharingModal with an explicit destination URL and this journey's
- * own campaignId.
+ * Reconstituted 2026-08-11 (integration pass) into a two-column layout
+ * mirroring Orient's geometry — left: dominant visual; right: destination
+ * actions in the existing restrained card grammar.
+ *
+ * Left visual: there is no real canonical "Constitutional Internet" book
+ * cover anywhere in this repo (confirmed by search — canonicalPlateImages.ts's
+ * own header already says "there is no verified Polity Papers cover image in
+ * this repo yet. Do not repurpose a plate as a fake cover" for the Papers
+ * series, and the same holds for a book cover). Per operator instruction,
+ * this renders the real CIP-006 plate ("The Constitutional Internet") with
+ * an explicit "Concept — not the final cover" badge, rather than silently
+ * presenting a plate as canon or fabricating cover art.
+ *
+ * Embedding (integration pass): "Continue reading" and "Meet aigentMe" used
+ * to be plain `<a href>` full-page navigations to `shell: 'viewer'` codex
+ * URLs — the exact "leaves the Bridge" defect the embedding invariant
+ * forbids. They now toggle the LEFT column between the book visual and an
+ * embedded iframe of the chosen destination (`shell: 'embed'`), mirroring
+ * ConstitutionalAgentFieldEntrySurface.tsx's MeetAigentMeEmbed recipe
+ * verbatim for the aigentMe case — never a pop-out, never a mock UI.
+ * "Join the research field"/"Build / partner" stay `mailto:` links (a
+ * genuine external mail-client handoff, not a Bridge-internal navigation —
+ * explicitly fine per the operator's "reserve book, sharing and application
+ * actions remain appropriate").
  */
 
 import React, { useState } from 'react';
-import { BookMarked, Handshake, Mail, Share2, Sparkles, ArrowRight } from 'lucide-react';
+import { BookMarked, Handshake, Mail, Share2, Sparkles, ArrowRight, X } from 'lucide-react';
 import { SocialSharingModal } from '@/packages/smarttriad/src/SocialSharingModal';
 import { buildCodexUrl } from '@/utils/codex-nav';
+import { canonicalPlateImage } from '@/services/artifact/canonicalPlateImages';
 import { CI_BRIDGE_CAMPAIGN_ID } from '@/services/journey/constitutionalInternetBridgeJourney';
 
 const CONTACT_EMAIL = 'info@metame.com';
+const BOOK_CONCEPT_PLATE = canonicalPlateImage('CIP-006');
+
+type EmbedId = 'reading' | 'aigentme';
 
 interface ConstitutionalInternetBridgeChooseSurfaceProps {
   personaId?: string;
@@ -84,55 +104,115 @@ function BookReserveOption() {
   );
 }
 
+function DestinationButton({
+  icon,
+  label,
+  active,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  active?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3.5 transition ${
+        active ? 'border-amber-400/50 bg-amber-500/10' : 'border-white/10 bg-slate-900/40 hover:border-indigo-400/30'
+      }`}
+    >
+      <span className="flex items-center gap-2 text-sm font-semibold text-white">{icon} {label}</span>
+      <ArrowRight className="h-4 w-4 text-slate-400" />
+    </button>
+  );
+}
+
 export function ConstitutionalInternetBridgeChooseSurface({ personaId }: ConstitutionalInternetBridgeChooseSurfaceProps) {
   const [shareOpen, setShareOpen] = useState(false);
-  const readingUrl = buildCodexUrl('polity-core', { tab: 'commentary-constitutional-internet', personaId, shell: 'viewer' });
-  const aigentMeUrl = buildCodexUrl('metame', { personaId, shell: 'viewer' });
+  const [activeEmbed, setActiveEmbed] = useState<EmbedId | null>(null);
+
+  const embedSrc =
+    activeEmbed === 'reading'
+      ? buildCodexUrl('polity-core', { tab: 'commentary-constitutional-internet', personaId, shell: 'embed', suppressCopilot: true })
+      : activeEmbed === 'aigentme'
+        ? buildCodexUrl('metame-codex', { tab: 'aigent-me', personaId, shell: 'embed', suppressCopilot: true })
+        : null;
 
   return (
-    <div className="space-y-3">
-      <BookReserveOption />
+    <div className="grid gap-4 lg:grid-cols-[3fr_2fr]">
+      {/* LEFT — book concept visual, or the embedded destination once a
+          Continue-reading/Meet-aigentMe card is chosen. */}
+      <div className="relative flex h-[55vh] max-h-[65vh] min-h-[18rem] w-full items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-slate-900/40">
+        {embedSrc ? (
+          <>
+            <iframe src={embedSrc} title={activeEmbed === 'reading' ? 'Continue reading' : 'Meet aigentMe'} className="h-full w-full rounded-2xl border-0 bg-slate-950" />
+            <button
+              type="button"
+              onClick={() => setActiveEmbed(null)}
+              aria-label="Back to book concept"
+              title="Back to book concept"
+              className="absolute right-2 top-2 z-10 inline-flex items-center justify-center rounded-md bg-black/50 p-1.5 text-white/80 backdrop-blur-sm transition hover:bg-black/70 hover:text-white"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </>
+        ) : (
+          <>
+            {BOOK_CONCEPT_PLATE && (
+              <img src={BOOK_CONCEPT_PLATE.url} alt={BOOK_CONCEPT_PLATE.title} className="h-full w-full object-contain" />
+            )}
+            <span className="absolute left-3 top-3 rounded-full border border-white/20 bg-black/50 px-2.5 py-1 text-[10px] uppercase tracking-wider text-slate-300 backdrop-blur-sm">
+              Concept — not the final cover
+            </span>
+          </>
+        )}
+      </div>
 
-      <a
-        href={readingUrl}
-        className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-900/40 px-4 py-3.5 hover:border-indigo-400/30 transition"
-      >
-        <span className="flex items-center gap-2 text-sm font-semibold text-white"><BookMarked className="h-4 w-4 text-indigo-300" /> Continue reading</span>
-        <ArrowRight className="h-4 w-4 text-slate-400" />
-      </a>
+      {/* RIGHT — destination actions, restrained card grammar (unchanged). */}
+      <div className="space-y-3">
+        <BookReserveOption />
 
-      <a
-        href={aigentMeUrl}
-        className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-900/40 px-4 py-3.5 hover:border-indigo-400/30 transition"
-      >
-        <span className="flex items-center gap-2 text-sm font-semibold text-white"><Sparkles className="h-4 w-4 text-indigo-300" /> Meet aigentMe</span>
-        <ArrowRight className="h-4 w-4 text-slate-400" />
-      </a>
+        <DestinationButton
+          icon={<BookMarked className="h-4 w-4 text-indigo-300" />}
+          label="Continue reading"
+          active={activeEmbed === 'reading'}
+          onClick={() => setActiveEmbed('reading')}
+        />
 
-      <a
-        href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('Constitutional Internet — research field')}`}
-        className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-900/40 px-4 py-3.5 hover:border-indigo-400/30 transition"
-      >
-        <span className="flex items-center gap-2 text-sm font-semibold text-white"><Mail className="h-4 w-4 text-indigo-300" /> Join the research field</span>
-        <ArrowRight className="h-4 w-4 text-slate-400" />
-      </a>
+        <DestinationButton
+          icon={<Sparkles className="h-4 w-4 text-indigo-300" />}
+          label="Meet aigentMe"
+          active={activeEmbed === 'aigentme'}
+          onClick={() => setActiveEmbed('aigentme')}
+        />
 
-      <a
-        href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('Constitutional Internet — build / partner')}`}
-        className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-900/40 px-4 py-3.5 hover:border-indigo-400/30 transition"
-      >
-        <span className="flex items-center gap-2 text-sm font-semibold text-white"><Handshake className="h-4 w-4 text-indigo-300" /> Build / partner</span>
-        <ArrowRight className="h-4 w-4 text-slate-400" />
-      </a>
+        <a
+          href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('Constitutional Internet — research field')}`}
+          className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-900/40 px-4 py-3.5 hover:border-indigo-400/30 transition"
+        >
+          <span className="flex items-center gap-2 text-sm font-semibold text-white"><Mail className="h-4 w-4 text-indigo-300" /> Apply to join the IRL research programme</span>
+          <ArrowRight className="h-4 w-4 text-slate-400" />
+        </a>
 
-      <button
-        type="button"
-        onClick={() => setShareOpen(true)}
-        className="flex w-full items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-900/40 px-4 py-3.5 hover:border-indigo-400/30 transition"
-      >
-        <span className="flex items-center gap-2 text-sm font-semibold text-white"><Share2 className="h-4 w-4 text-indigo-300" /> Share the Bridge</span>
-        <ArrowRight className="h-4 w-4 text-slate-400" />
-      </button>
+        <a
+          href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('Constitutional Internet — build / partner')}`}
+          className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-900/40 px-4 py-3.5 hover:border-indigo-400/30 transition"
+        >
+          <span className="flex items-center gap-2 text-sm font-semibold text-white"><Handshake className="h-4 w-4 text-indigo-300" /> Apply to partner with metaMe</span>
+          <ArrowRight className="h-4 w-4 text-slate-400" />
+        </a>
+
+        <button
+          type="button"
+          onClick={() => setShareOpen(true)}
+          className="flex w-full items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-900/40 px-4 py-3.5 hover:border-indigo-400/30 transition"
+        >
+          <span className="flex items-center gap-2 text-sm font-semibold text-white"><Share2 className="h-4 w-4 text-indigo-300" /> Share the Bridge</span>
+          <ArrowRight className="h-4 w-4 text-slate-400" />
+        </button>
+      </div>
 
       <SocialSharingModal
         isOpen={shareOpen}

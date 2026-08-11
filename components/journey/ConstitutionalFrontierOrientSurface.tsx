@@ -26,11 +26,24 @@
  * strip carrying progress + the "See your Constitutional Frontier" action.
  * All state/logic below (options, buildSummary, the best-effort POST) is
  * UNCHANGED from the pre-capsule version — only the render shape changed.
+ *
+ * Selection feedback (integration pass, 2026-08-11): clicking an option used
+ * to advance to the next question in the SAME tick as the click — the
+ * visitor never actually saw their choice highlighted before the question
+ * swapped out from under it. `selectAndAdvance` now sets the answer
+ * immediately (so the button highlights right away) and holds the question
+ * on screen for SELECTION_FEEDBACK_MS before swapping to the next one, with
+ * a brief opacity dip on the question body so the swap itself reads as a
+ * restrained transition rather than an instant cut.
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { personaFetch } from '@/utils/personaSpine';
 import { CI_BRIDGE_ORIENT_COMPANION_COPY } from '@/services/journey/constitutionalInternetBridgeJourney';
+
+/** How long a just-clicked option stays visibly selected before the
+ *  question advances — long enough to register, short enough not to stall. */
+const SELECTION_FEEDBACK_MS = 500;
 
 const HELP_OPTIONS = [
   { value: 'work', label: 'Work / business' },
@@ -120,9 +133,34 @@ export function ConstitutionalFrontierOrientSurface() {
   const [authority, setAuthority] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [activeQuestion, setActiveQuestion] = useState<QuestionId>('help');
+  // True for the SELECTION_FEEDBACK_MS window between a click and the
+  // question actually swapping — dims the question body slightly so the
+  // swap reads as a transition rather than an instant cut.
+  const [advancing, setAdvancing] = useState(false);
+  const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (advanceTimer.current) clearTimeout(advanceTimer.current);
+    };
+  }, []);
 
   const allChosen = Boolean(help && preserve && authority);
   const answeredCount = [help, preserve, authority].filter(Boolean).length;
+
+  /** Sets the answer immediately (so the clicked option highlights right
+   *  away), then holds the question on screen for SELECTION_FEEDBACK_MS
+   *  before advancing — the visitor must see their choice register before
+   *  the content underneath it changes. */
+  const selectAndAdvance = (setter: (v: string) => void, value: string, next: QuestionId) => {
+    setter(value);
+    setAdvancing(true);
+    if (advanceTimer.current) clearTimeout(advanceTimer.current);
+    advanceTimer.current = setTimeout(() => {
+      setActiveQuestion(next);
+      setAdvancing(false);
+    }, SELECTION_FEEDBACK_MS);
+  };
 
   const reveal = () => {
     if (!allChosen) return;
@@ -170,7 +208,7 @@ export function ConstitutionalFrontierOrientSurface() {
         })}
       </div>
 
-      <div>
+      <div className={`transition-opacity duration-300 ${advancing ? 'opacity-40' : 'opacity-100'}`}>
         {submitted && help && preserve && authority ? (
           <div className="p-1">
             <p className="text-[10px] uppercase tracking-wider text-slate-500 mb-2">Your Constitutional Frontier</p>
@@ -184,10 +222,7 @@ export function ConstitutionalFrontierOrientSurface() {
             options={HELP_OPTIONS}
             value={help}
             columns="grid-cols-1 sm:grid-cols-2"
-            onChange={(v) => {
-              setHelp(v);
-              setActiveQuestion('preserve');
-            }}
+            onChange={(v) => selectAndAdvance(setHelp, v, 'preserve')}
           />
         ) : activeQuestion === 'preserve' ? (
           <OptionGrid
@@ -195,10 +230,7 @@ export function ConstitutionalFrontierOrientSurface() {
             options={PRESERVE_OPTIONS}
             value={preserve}
             columns="grid-cols-1 sm:grid-cols-2"
-            onChange={(v) => {
-              setPreserve(v);
-              setActiveQuestion('authority');
-            }}
+            onChange={(v) => selectAndAdvance(setPreserve, v, 'authority')}
           />
         ) : (
           <OptionGrid

@@ -131,7 +131,10 @@ export default function ConstitutionalInternetBridgePage() {
     ({ surfaceRef, runtimeState }: Parameters<NonNullable<JourneyRunSurfaceProps['resolveSurfaceProps']>>[0]) => {
       if (surfaceRef.ref === 'ci-bridge-passport-room') {
         const passportStage = runtimeState?.stages.find((s) => s.stageId === 'passport');
-        return { citizenPassportUsable: passportStage?.evidencePresent.includes('citizenPassportUsable') };
+        return {
+          citizenPassportUsable: passportStage?.evidencePresent.includes('citizenPassportUsable'),
+          personaId,
+        };
       }
       if (surfaceRef.ref === 'ci-bridge-home') {
         return {
@@ -142,7 +145,14 @@ export default function ConstitutionalInternetBridgePage() {
       if (
         surfaceRef.ref === 'ci-bridge-view' ||
         surfaceRef.ref === 'ci-bridge-personify-mycanvas' ||
-        surfaceRef.ref === 'ci-bridge-personify-field-entry'
+        surfaceRef.ref === 'ci-bridge-personify-field-entry' ||
+        // Fixed 2026-08-11 (integration pass) — STAND never received
+        // personaId before this, so it always rendered its signed-out
+        // "Claim your Passport" branch regardless of whether the visitor
+        // actually had a persona. Same one-line fix pattern as the
+        // Passport-room personaId omission fixed the same day.
+        surfaceRef.ref === 'ci-bridge-stand' ||
+        surfaceRef.ref === 'ci-bridge-choose'
       ) {
         return { personaId };
       }
@@ -241,6 +251,9 @@ export default function ConstitutionalInternetBridgePage() {
               <KnytsBridgeAdminPanel section="ci-home" personaId={personaId} bridgeLabel="Constitutional Internet Bridge" />
               <div className="border-t border-white/10">
                 <KnytsBridgeAdminPanel section="ci-orient" personaId={personaId} bridgeLabel="Constitutional Internet Bridge" />
+              </div>
+              <div className="border-t border-white/10">
+                <KnytsBridgeAdminPanel section="ci-passport-established" personaId={personaId} bridgeLabel="Constitutional Internet Bridge" />
               </div>
               {CI_BRIDGE_VIEW_CONTENT.map((block) => (
                 <div key={block.id} className="border-t border-white/10">
