@@ -91,10 +91,12 @@ export const KNYTS_BRIDGE_SECTION_DEFAULTS: Record<string, KnytsBridgeEditorialS
   'ci-orient': {
     section: 'ci-orient',
     headline: 'Personhood precedes identity.',
+    // Compressed 2026-08-11 (editorial polish pass) from a two-paragraph
+    // essay to the operator's own suggested two-line version — same
+    // meaning, far less visual weight ahead of the actual questions.
     shortCopy:
-      'Before the questions below, one proposition: whatever name or persona you use here, it is you — ' +
-      'a person — the Polity recognises.\n\nIf you are the constitutional unit, what follows is what must ' +
-      'remain yours. The reflection below is how you start to answer that for yourself.',
+      'The Polity begins with you as the constitutional subject. These three questions help establish ' +
+      'what you want agents to do — and what must remain yours.',
     videoUrl: null,
     posterUrl: null,
     campaignCta: null,

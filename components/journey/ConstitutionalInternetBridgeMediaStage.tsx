@@ -22,6 +22,10 @@
  * widening that shared shape is out of scope for this narrow reuse pass.
  * Only headline, short copy, video, poster and the primary CTA label are
  * admin-configurable, via the SAME table/route/admin panel KNYTS uses.
+ *
+ * Passes `layout="cinematic"` (added 2026-08-11, editorial polish pass) —
+ * CI's own opt-in variant on the shared shell; KNYTS keeps the default
+ * 'standard' layout, visually unchanged.
  */
 
 import { useEffect, useState } from 'react';
@@ -72,6 +76,7 @@ export function ConstitutionalInternetBridgeMediaStage({ onPrimaryCta, onSeconda
       accent="indigo"
       videoUrl={config.videoUrl ?? undefined}
       posterUrl={config.posterUrl ?? undefined}
+      layout="cinematic"
     />
   );
 }

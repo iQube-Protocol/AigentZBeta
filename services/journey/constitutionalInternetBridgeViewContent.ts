@@ -42,6 +42,8 @@
 export interface ViewContentBlock {
   id: string;
   proposition: string;
+  /** Short (1-2 word) editorial rail caption for the Video card — Plate/Paper rail captions use their own real title instead (plateImage.title / paperRef.title). */
+  shortTitle: string;
   /** Real CANONICAL_PLATE_IMAGES id (services/artifact/canonicalPlateImages.ts) — never the SVG schematics. */
   plateImageId: string;
   /** Verbatim manuscript excerpt. */
@@ -77,6 +79,7 @@ export const CI_BRIDGE_VIEW_CONTENT: readonly ViewContentBlock[] = [
   {
     id: 'the-disappearing-person',
     proposition: 'Personhood precedes identity.',
+    shortTitle: 'Personhood',
     plateImageId: 'CIP-003A', // Canonical MetaVitruvian — Male Rendering
     excerpt:
       'Personhood precedes identity.\nControl is not authority.\nAgents act under mandate.\nActions produce proof.\nStanding carries consequence.',
@@ -85,6 +88,7 @@ export const CI_BRIDGE_VIEW_CONTENT: readonly ViewContentBlock[] = [
   {
     id: 'the-acting-machine',
     proposition: 'Capability is not mandate.',
+    shortTitle: 'Capability',
     plateImageId: 'CIP-005', // Constitutional Agency (3:2 landscape — CIP-007A is portrait, not a hero shape)
     excerpt:
       'Control is not authority.\nCapability is not mandate.\n…\nAuthority must precede consequence.\nThe person must remain the originating constitutional principal wherever the machine acts on their behalf.\n…\nWhere no legitimate authority exists, capability must not silently create it.',
@@ -93,6 +97,7 @@ export const CI_BRIDGE_VIEW_CONTENT: readonly ViewContentBlock[] = [
   {
     id: 'the-constitutional-frontier',
     proposition: 'Infrastructure must not become sovereignty.',
+    shortTitle: 'Sovereignty',
     plateImageId: 'CIP-006', // The Constitutional Internet
     excerpt:
       'The provider remains capable of building and competing.\nIt does not retain the right to convert control of infrastructure into sovereignty over participation.\nInfrastructure must not become sovereignty.\nThe operator may govern its systems.\nIt may not own the persons and markets that depend upon them.',

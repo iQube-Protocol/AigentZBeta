@@ -22,15 +22,21 @@
  *     reading launch surface with an "Open Reader" action that launches the
  *     EXISTING PDFLiteReaderModal in its native overlay — never a forked
  *     inline reader, never a bare "Read the paper" link.
- *     The lower strip is a constant "Book Insert" — a kicker naming the
- *     active artifact, the verbatim excerpt as flowing PROSE (the manuscript
- *     quote's own line breaks are joined with spaces for display — the
- *     words are unchanged, only the "one clause per line" bullet-like
- *     stacking is removed), the citation, and a ListenButton — regardless of
- *     which rail card is active. Moving between vignettes is real
- *     horizontal swipe/paging via components/ui/carousel.tsx. Geometry is
- *     content-driven (see BridgeContentCapsule) — this component must NOT
- *     wrap the capsule in a fixed height.
+ *     The lower strip reads as an editorial BOOK EXCERPT, not a status
+ *     panel (editorial polish pass, 2026-08-11): a small "The Constitutional
+ *     Internet" source line, the proposition as a quiet chapter reference,
+ *     the verbatim excerpt set as the dominant quotation (flowing PROSE —
+ *     the manuscript quote's own line breaks are joined with spaces for
+ *     display, words unchanged, only the "one clause per line" bullet-like
+ *     stacking removed), then citation + Listen on one row. The active
+ *     artifact type is a small secondary tag, not the dominant label — the
+ *     excerpt is the SAME grounding quotation regardless of which rail card
+ *     is selected. Moving between vignettes is real horizontal swipe/paging
+ *     via components/ui/carousel.tsx. Geometry is content-driven (see
+ *     BridgeContentCapsule) — this component must NOT wrap the capsule in a
+ *     fixed height. Rail cards carry a small caption (kicker + real title —
+ *     the plate/paper's own title, or the block's `shortTitle` for Video)
+ *     so the rail reads as curated, not bare thumbnails.
  *
  *   CROSSINGS — unchanged: a thin projection over the EXISTING, canonical
  *     Qriptopian Pulse infrastructure (community_generated_content via
@@ -111,18 +117,41 @@ const ARTIFACT_KICKER: Record<ArtifactKind, string> = {
   paper: 'Polity Paper',
 };
 
-/** The constant lower strip — a kicker naming the active artifact, the
- *  excerpt as prose (the grounding text), and its citation. Stays visible
- *  no matter which rail card (Video/Plate/Paper) is active. */
+/** The constant lower strip — an editorial BOOK EXCERPT, not a status
+ *  panel: source line, proposition as a quiet chapter reference, the
+ *  excerpt set as the dominant quotation, citation + Listen on one row.
+ *  The active artifact type is a small secondary tag (top-right), never
+ *  the dominant label — this is the same grounding quotation regardless
+ *  of which rail card (Video/Plate/Paper) is active. */
 function BookInsertStrip({ block, activeKind }: { block: ViewContentBlock; activeKind: ArtifactKind }) {
   return (
-    <div className="flex items-start justify-between gap-3">
-      <div className="min-w-0">
-        <p className="text-[10px] uppercase tracking-[0.2em] text-indigo-400">{ARTIFACT_KICKER[activeKind]}</p>
-        <p className="mt-1 text-sm leading-relaxed text-slate-200">{asProse(block.excerpt)}</p>
-        <p className="mt-1.5 text-[10px] text-slate-600">The Constitutional Internet — {block.excerptSource}</p>
+    <div>
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="text-[10px] uppercase tracking-[0.25em] text-amber-400/80">The Constitutional Internet</p>
+        <span className="shrink-0 text-[10px] uppercase tracking-[0.15em] text-slate-600">
+          {ARTIFACT_KICKER[activeKind]}
+        </span>
       </div>
-      <ListenButton compact getText={() => asProse(block.excerpt)} className="mt-0.5 shrink-0" />
+      <p className="mt-1 text-xs text-slate-500">{block.proposition}</p>
+      <p className="mt-2 font-serif text-[15px] italic leading-[1.55] text-slate-200">
+        &ldquo;{asProse(block.excerpt)}&rdquo;
+      </p>
+      <div className="mt-2.5 flex items-center justify-between gap-3">
+        <p className="min-w-0 truncate text-[10px] text-slate-600">{block.excerptSource}</p>
+        <ListenButton compact getText={() => asProse(block.excerpt)} className="shrink-0" />
+      </div>
+    </div>
+  );
+}
+
+/** A tiny curated caption band over a rail thumbnail — kicker + real title
+ *  (never a bare, uncaptioned image). Legible over both dark (video) and
+ *  ivory (plate/paper) thumbnails via the gradient's own darkening. */
+function RailCaption({ kicker, title }: { kicker: string; title: string }) {
+  return (
+    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/35 to-transparent px-2 pb-1 pt-5">
+      <p className="text-[9px] uppercase tracking-[0.15em] text-amber-200/90">{kicker}</p>
+      <p className="truncate text-[11px] font-medium text-white">{title}</p>
     </div>
   );
 }
@@ -144,22 +173,28 @@ function ethosRailCards(
           <div className="absolute inset-0 flex items-center justify-center">
             <Play className="h-6 w-6 text-white/80" fill="currentColor" />
           </div>
+          <RailCaption kicker="Video" title={block.shortTitle} />
         </div>
       ),
     });
   }
-  cards.push({
-    id: 'plate',
-    label: 'Plate',
-    aspect: 'landscape',
-    renderThumb: plateImage
-      ? () => (
+  if (plateImage) {
+    const plateNumber = plateImage.id.match(/CIP-(\d+)/)?.[1];
+    const plateKicker = plateNumber ? `Plate ${String(parseInt(plateNumber, 10)).padStart(2, '0')}` : 'Plate';
+    cards.push({
+      id: 'plate',
+      label: 'Plate',
+      aspect: 'landscape',
+      renderThumb: () => (
+        <div className="relative h-full w-full">
           <div className="flex h-full w-full items-center justify-center bg-[#faf7f0]">
             <img src={plateImage.url} alt={plateImage.title} className="max-h-full max-w-full object-contain" />
           </div>
-        )
-      : undefined,
-  });
+          <RailCaption kicker={plateKicker} title={plateImage.title} />
+        </div>
+      ),
+    });
+  }
   if (block.paperRef) {
     const paperRef = block.paperRef;
     cards.push({
@@ -167,12 +202,15 @@ function ethosRailCards(
       label: 'Paper',
       aspect: 'portrait',
       renderThumb: () => (
-        <div className="flex h-full w-full items-center justify-center bg-[#faf7f0]">
-          <img
-            src={paperRef.coverImageUrl}
-            alt={paperRef.title}
-            className="max-h-full max-w-full object-contain"
-          />
+        <div className="relative h-full w-full">
+          <div className="flex h-full w-full items-center justify-center bg-[#faf7f0]">
+            <img
+              src={paperRef.coverImageUrl}
+              alt={paperRef.title}
+              className="max-h-full max-w-full object-contain"
+            />
+          </div>
+          <RailCaption kicker="Polity Paper" title={paperRef.title} />
         </div>
       ),
     });
@@ -180,10 +218,18 @@ function ethosRailCards(
   return cards;
 }
 
-/** Matted, contained media frame — never stretches/crops the asset; any
+/** A framed, matted media mount — a restrained two-tone mat (warm outer
+ *  border tone, ivory inner mat) so the artifact reads as a mounted piece,
+ *  not an image loose in a div. Never stretches/crops the asset; any
  *  leftover space is the matte, not a distortion of the artifact. */
 function MattedFrame({ children }: { children: ReactNode }) {
-  return <div className="flex h-full w-full items-center justify-center bg-[#faf7f0] p-3">{children}</div>;
+  return (
+    <div className="flex h-full w-full items-center justify-center bg-[#eee7d8] p-3">
+      <div className="flex h-full w-full items-center justify-center rounded-[2px] bg-[#faf7f0] p-3 shadow-[inset_0_0_0_1px_rgba(30,58,95,0.09),inset_0_1px_10px_rgba(0,0,0,0.05)]">
+        {children}
+      </div>
+    </div>
+  );
 }
 
 /** Paper's viewport: a portrait cover-fronted reading launch surface — the
@@ -224,7 +270,7 @@ function EthosVignetteCapsule({ block, videoOverride }: { block: ViewContentBloc
   const railCards = ethosRailCards(block, videoUrl, plateImage);
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-slate-950/20 p-3">
+    <div className="p-1">
       <BridgeContentCapsule
         railCards={railCards}
         allowFullscreen
@@ -288,7 +334,7 @@ export function ConstitutionalInternetBridgeViewSequence({ personaId }: Props) {
           onClick={() => setTab('ethos')}
           className={`rounded-full border px-3.5 py-1 text-xs font-medium transition ${
             tab === 'ethos'
-              ? 'border-indigo-400/40 bg-indigo-500/15 text-indigo-200'
+              ? 'border-amber-400/40 bg-amber-500/10 text-amber-200'
               : 'border-white/10 bg-white/5 text-slate-400 hover:text-white'
           }`}
         >
@@ -299,7 +345,7 @@ export function ConstitutionalInternetBridgeViewSequence({ personaId }: Props) {
           onClick={() => setTab('crossings')}
           className={`rounded-full border px-3.5 py-1 text-xs font-medium transition ${
             tab === 'crossings'
-              ? 'border-indigo-400/40 bg-indigo-500/15 text-indigo-200'
+              ? 'border-amber-400/40 bg-amber-500/10 text-amber-200'
               : 'border-white/10 bg-white/5 text-slate-400 hover:text-white'
           }`}
         >
@@ -335,7 +381,7 @@ export function ConstitutionalInternetBridgeViewSequence({ personaId }: Props) {
                   type="button"
                   onClick={() => api?.scrollTo(i)}
                   aria-label={`Go to ${block.proposition}`}
-                  className={`h-1.5 w-1.5 rounded-full transition ${i === index ? 'bg-indigo-400' : 'bg-slate-700'}`}
+                  className={`h-1.5 w-1.5 rounded-full transition ${i === index ? 'bg-amber-400' : 'bg-slate-700'}`}
                 />
               ))}
             </div>
