@@ -4059,3 +4059,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-ecbdd8b.md](../build_/COMMITS/COMMIT-ecbdd8b.md)
 - Message: phase 4.1: consolidate choose ctAs into destination cards
+
+## Commit `581418d` — 2026-08-11T23:40:14Z
+- Type: `push`
+- Brief: [COMMIT-581418d.md](../build_/COMMITS/COMMIT-581418d.md)
+- Message: trigger deploy: CI Bridge final correction pass (passport gate + choose consolidation)
