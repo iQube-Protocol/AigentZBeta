@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-11T20:52:58.168Z",
+  "last_updated": "2026-08-11T22:39:53.045Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "b8e75f81939e7d320505467fe63519938e056cd6",
-  "latest_commit_short": "b8e75f8",
-  "latest_commit_title": "add back button to Horizen MoneyPenny journey in PilotJourneyTab",
+  "latest_commit": "019eb6904b156a1ca5516f7e7bf8fa53bea67155",
+  "latest_commit_short": "019eb69",
+  "latest_commit_title": "data model fix: remove invalid asset kinds, add series_scope, extend series picker for canonical content",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "019eb69",
+      "full_sha": "019eb6904b156a1ca5516f7e7bf8fa53bea67155",
+      "title": "data model fix: remove invalid asset kinds, add series_scope, extend series picker for canonical content",
+      "author": "Claude",
+      "timestamp": "2026-08-11T22:31:37Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-019eb69.md"
+    },
+    {
+      "sha": "6e2a68b",
+      "full_sha": "6e2a68ba69bedb55032b79dc9c99c79975fc7c81",
+      "title": "complete phase 1: remove artifact class selector, simplify to series picker",
+      "author": "Claude",
+      "timestamp": "2026-08-11T22:35:32Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-6e2a68b.md"
+    },
     {
       "sha": "b8e75f8",
       "full_sha": "b8e75f81939e7d320505467fe63519938e056cd6",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-08-07T01:08:11Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-91c57fe.md"
-    },
-    {
-      "sha": "a91d664",
-      "full_sha": "a91d664c8b6cd93b6bf975c68ffa5551726e7e1e",
-      "title": "fix MoneyPenny: align Chat styling with Architect/Runtime, improve KB ground-truth resolution with proper budget limits",
-      "author": "Claude",
-      "timestamp": "2026-08-06T23:46:35Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-a91d664.md"
-    },
-    {
-      "sha": "e78fe17",
-      "full_sha": "e78fe17dd057901f865956c6d291853e489e1bea",
-      "title": "fix MoneyPenny KB: include common constitutional ground-truth (polity namespace) in addition to domain-scoped finance invariants",
-      "author": "Claude",
-      "timestamp": "2026-08-06T22:53:23Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-e78fe17.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

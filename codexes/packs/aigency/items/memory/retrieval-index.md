@@ -4039,3 +4039,13 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-b8e75f8.md](../build_/COMMITS/COMMIT-b8e75f8.md)
 - Message: add back button to Horizen MoneyPenny journey in PilotJourneyTab
+
+## Commit `6e2a68b` — 2026-08-11T22:35:32Z
+- Type: `push`
+- Brief: [COMMIT-6e2a68b.md](../build_/COMMITS/COMMIT-6e2a68b.md)
+- Message: complete phase 1: remove artifact class selector, simplify to series picker
+
+## Commit `019eb69` — 2026-08-11T22:31:37Z
+- Type: `feat`
+- Brief: [COMMIT-019eb69.md](../build_/COMMITS/COMMIT-019eb69.md)
+- Message: data model fix: remove invalid asset kinds, add series_scope, extend series picker for canonical content
