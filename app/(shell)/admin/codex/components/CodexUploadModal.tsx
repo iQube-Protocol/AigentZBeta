@@ -43,16 +43,7 @@ type CodexAssetKind =
   | 'cover_image'
   | 'cover_motion'
   | 'bundle_pack'
-  | 'ra_badge'
-  // Canonical Artifacts (2026-08-11) — reference plates/videos meant for
-  // reuse across the platform stack (e.g. Constitutional Internet Bridge
-  // View/Choose plates), as distinct from the Operational Artifacts above
-  // (papers, magazine articles, campaign media). `asset_kind` is a free
-  // text column (no DB CHECK constraint — confirmed against
-  // supabase/migrations before adding these), so new values need no
-  // migration.
-  | 'stack_canonical_plate'
-  | 'stack_canonical_video';
+  | 'ra_badge';
 
 interface UploadItem {
   id: string;
@@ -79,6 +70,8 @@ interface UploadItem {
   seriesMode?: 'standalone' | 'part-of-series';
   partNumber?: number;
   partTotal?: number;
+  // Series scope for canonical assets (e.g. canonical/constitutional-internet)
+  seriesScope?: string;
 }
 
 type Props = {
@@ -99,14 +92,16 @@ const EPISODES: { number: number | null; title: string }[] = [
 ];
 
 // ── Qriptopian series dropdown ───────────────────────────────────────────────
-// Qriptopian content is organised by series rather than episodes. Two groups:
+// Qriptopian content is organised by series rather than episodes. Three groups:
 //   - Papers: long-form thesis pieces grouped by series (Protocols, The
 //     Polity, COYN Thesis, Experience Sovereignty, The Polity and the
 //     Plutocracy).
 //   - Magazines: numbered issues of The Qriptopian (#0, #1, ...).
-// Series scope flows into Supabase storage paths as `papers-<sub>` or
-// `magazines-<issue>` (see /api/admin/codex/storage/sign).
-const QRIPTO_SERIES: { value: string; label: string; group: 'papers' | 'magazines' }[] = [
+//   - Canonical: platform reference material (Constitutional Internet plates, etc.)
+//     with series_scope = "canonical/constitutional-internet" or similar.
+// Series scope flows into Supabase storage paths and series_scope column.
+type QriptoPapersMagazinesGroup = 'papers' | 'magazines' | 'canonical';
+const QRIPTO_SERIES: { value: string; label: string; group: QriptoPapersMagazinesGroup; seriesScope?: string }[] = [
   { value: 'papers/protocols',                  label: 'Papers · Protocols',                       group: 'papers' },
   { value: 'papers/polity',                     label: 'Papers · The Polity',                      group: 'papers' },
   { value: 'papers/coyn-thesis',                label: 'Papers · COYN Thesis',                     group: 'papers' },
@@ -116,26 +111,15 @@ const QRIPTO_SERIES: { value: string; label: string; group: 'papers' | 'magazine
   { value: 'magazines/1',                       label: 'Magazines · #1',                           group: 'magazines' },
   { value: 'magazines/2',                       label: 'Magazines · #2',                           group: 'magazines' },
   { value: 'magazines/3',                       label: 'Magazines · #3',                           group: 'magazines' },
+  { value: 'canonical/constitutional-internet', label: 'Canonical · Constitutional Internet',      group: 'canonical', seriesScope: 'canonical/constitutional-internet' },
 ];
 
 // ── Qriptopian content type categories ───────────────────────────────────────
 // Replaces the KNYT ASSET_CATEGORIES for the qriptopian tab. White-papers
 // are scoped to the Papers series; the rest are valid for both Papers and
-// Magazines.
-//
-// ARTIFACT CLASS (2026-08-11) — an orthogonal axis to content type, added so
-// operators can upload the platform's own reference material (canonical
-// plates/videos reused across the stack — e.g. the Constitutional Internet
-// Bridge's View/Choose plates) through the same modal instead of those
-// staying as honest "canonical plate — pending" placeholders forever.
-//   - Operational Artifacts: the existing Papers/Magazines editorial content
-//     (white-papers, articles, video, audio, images, infographics, covers) —
-//     unchanged, still the default.
-//   - Canonical Artifacts: reference plates and videos meant for reuse
-//     ACROSS the platform, not scoped to one paper/magazine issue. These
-//     write new `stack_canonical_plate` / `stack_canonical_video` asset
-//     kinds so they're queryable separately from operational content.
-type QriptoArtifactClass = 'operational' | 'canonical';
+// Magazines. Canonical assets (e.g. Constitutional Internet Bridge plates)
+// are organized via the series picker and use the same content types
+// (Image/Infographic) as operational content.
 
 type QriptoCategoryId = 'cover' | 'white-paper' | 'article' | 'video' | 'audio' | 'image' | 'infographic';
 const QRIPTO_CATEGORIES: {
@@ -152,19 +136,6 @@ const QRIPTO_CATEGORIES: {
   { id: 'audio',       label: 'Audio',         icon: Video,    description: 'Audio essays, podcasts, interview cuts',          accept: '.mp3,.wav,.m4a,.ogg' },
   { id: 'image',       label: 'Images',        icon: Image,    description: 'Editorial photography, illustrations, covers',    accept: '.png,.jpg,.jpeg,.webp,.gif' },
   { id: 'infographic', label: 'Infographics',  icon: Image,    description: 'Diagrams + visual explainers (SVG / PNG / PDF)',  accept: '.svg,.png,.jpg,.pdf' },
-];
-
-type CanonicalCategoryId = 'canonical-plate' | 'canonical-video';
-const CANONICAL_QRIPTO_CATEGORIES: {
-  id: CanonicalCategoryId;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-  description: string;
-  accept: string;
-  assetKind: CodexAssetKind;
-}[] = [
-  { id: 'canonical-plate', label: 'Canonical Plate', icon: Image, description: 'A reference plate/diagram reused across the stack (e.g. Constitutional Internet Bridge View/Choose plates) — not scoped to one paper or magazine issue.', accept: '.png,.jpg,.jpeg,.webp,.svg,.pdf', assetKind: 'stack_canonical_plate' },
-  { id: 'canonical-video', label: 'Canonical Video',  icon: Video, description: 'A reference video reused across the stack (e.g. a Bridge hero or explainer clip).',                                                                    accept: '.mp4,.webm,.mov',            assetKind: 'stack_canonical_video' },
 ];
 
 const ASSET_CATEGORIES: {
