@@ -4004,3 +4004,18 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-5f20157.md](../build_/COMMITS/COMMIT-5f20157.md)
 - Message: Re-home Ingest surface under Activate; remove Ingest consequence-fork prong
+
+## Commit `bf2a980` — 2026-08-11T02:38:35Z
+- Type: `push`
+- Brief: [COMMIT-bf2a980.md](../build_/COMMITS/COMMIT-bf2a980.md)
+- Message: Remove RegisterCeremonyReplay surface from Register stage UI
+
+## Commit `07c03f6` — 2026-08-10T23:04:53-04:00
+- Type: `push`
+- Brief: [COMMIT-07c03f6.md](../build_/COMMITS/COMMIT-07c03f6.md)
+- Message: Register Constitutional Internet canonical plate records in Polity Core
+
+## Commit `6070ce9` — 2026-08-10T23:09:04-04:00
+- Type: `push`
+- Brief: [COMMIT-6070ce9.md](../build_/COMMITS/COMMIT-6070ce9.md)
+- Message: Register Constitutional Bearing plates in Polity Core

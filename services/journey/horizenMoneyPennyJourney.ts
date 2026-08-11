@@ -91,16 +91,6 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
           entityRef: 'moneypenny',
           note: "Agent-selectable registration panel — metaMe's complementary reflection of the same registration, plus the real Register action itself.",
         },
-        {
-          mode: 'component',
-          ref: 'register-ceremony-replay',
-          entityRef: 'moneypenny',
-          note:
-            'Pre-recording Horizen polish, part C (2026-08-10) — a non-mutating, read-only replay of ' +
-            "the seven-step wallet-signing ceremony for an ALREADY-REGISTERED agent, reconstructed " +
-            'from canonical receipts. Renders nothing while Register is not yet canonically complete; ' +
-            'RegisterAgentPanel above remains the only surface that can ever perform the live ceremony.',
-        },
       ],
       prerequisites: [],
       permittedActions: ['view-registration'],

@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-11T01:46:07.076Z",
+  "last_updated": "2026-08-11T03:10:58.646Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "5f201570c46b6f84f9e92a4fa45924b469abb28b",
-  "latest_commit_short": "5f20157",
-  "latest_commit_title": "Re-home Ingest surface under Activate; remove Ingest consequence-fork prong",
+  "latest_commit": "6070ce9c90180792b1f72c9d3a0be691b0a524ae",
+  "latest_commit_short": "6070ce9",
+  "latest_commit_title": "Register Constitutional Bearing plates in Polity Core",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,33 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "6070ce9",
+      "full_sha": "6070ce9c90180792b1f72c9d3a0be691b0a524ae",
+      "title": "Register Constitutional Bearing plates in Polity Core",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-10T23:09:04-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-6070ce9.md"
+    },
+    {
+      "sha": "07c03f6",
+      "full_sha": "07c03f645e5a6a92873a52b4bd33fa2d06e723b8",
+      "title": "Register Constitutional Internet canonical plate records in Polity Core",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-10T23:04:53-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-07c03f6.md"
+    },
+    {
+      "sha": "bf2a980",
+      "full_sha": "bf2a98062739f84c696f29ce9da412161503bbb0",
+      "title": "Remove RegisterCeremonyReplay surface from Register stage UI",
+      "author": "Claude",
+      "timestamp": "2026-08-11T02:38:35Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-bf2a980.md"
+    },
     {
       "sha": "5f20157",
       "full_sha": "5f201570c46b6f84f9e92a4fa45924b469abb28b",
@@ -1225,33 +1252,6 @@
       "timestamp": "2026-07-29T18:42:52-04:00",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-065fecd.md"
-    },
-    {
-      "sha": "a10f5fd",
-      "full_sha": "a10f5fd83550411a56b4aae37b23b0b406df87a8",
-      "title": "add Stage-0 instrument validation (IRV-001/IPV-001) — shake down IRE+IPE before the science",
-      "author": "Claude",
-      "timestamp": "2026-07-18T01:11:40Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-a10f5fd.md"
-    },
-    {
-      "sha": "afdd507",
-      "full_sha": "afdd507e5c26b89eabc56c7a3bdd74d8f9e12191",
-      "title": "charter the three-experiment Validation Programme v1 (EXP-P1/P2/P3)",
-      "author": "Claude",
-      "timestamp": "2026-07-18T01:01:20Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-afdd507.md"
-    },
-    {
-      "sha": "76f9df6",
-      "full_sha": "76f9df6cfda89ab50179f01419a4a35df6193f95",
-      "title": "author IRL Validation Roadmap + seed invariant-field first principles (322/323)",
-      "author": "Claude",
-      "timestamp": "2026-07-18T00:53:43Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-76f9df6.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

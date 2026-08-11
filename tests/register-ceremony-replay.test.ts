@@ -1,16 +1,23 @@
 /**
- * Pre-recording Horizen polish, part C (operator directive, 2026-08-10) —
- * a non-mutating, read-only replay of Register's seven-step ceremony for
- * an ALREADY-REGISTERED agent. Source-scan style, matching this repo's
- * existing convention (no React rendering harness is set up here) — see
- * tests/cfs-055-coherence-canaries.test.ts, tests/register-stage-receipt-
- * agent-isolation.test.ts for the same pattern.
+ * Register ceremony projection — the `registerCeremony` field computed by
+ * the state route for an ALREADY-REGISTERED agent's seven-step ceremony.
+ *
+ * The UI surface that once rendered this projection (`RegisterCeremonyReplay`,
+ * Pre-recording Horizen polish part C, 2026-08-10) was removed from the
+ * journey UI (2026-08-11, operator directive) — Register returns to one
+ * canonical operational surface (`register-agent-panel`) plus the standard
+ * Evidence drawer, with no duplicate "historical replay" block. The
+ * `registerCeremony` projection itself, and its generic thread-through in
+ * JourneyRunSurface, were kept: removing the UI consumer does not require
+ * touching the underlying state/evidence computation. This file now pins
+ * only what survives that removal.
+ *
+ * Source-scan style, matching this repo's existing convention (no React
+ * rendering harness is set up here) — see tests/cfs-055-coherence-canaries.test.ts,
+ * tests/register-stage-receipt-agent-isolation.test.ts for the same pattern.
  *
  * The operator's requirements, verbatim, that this canary pins:
  *   - MoneyPenny is already registered and MUST NOT be registered again.
- *   - Render completed items as read-only/proven ceremony steps.
- *   - They must not be executable controls.
- *   - If evidence exists, allow expansion into its evidence/receipt.
  *   - Do not fabricate evidence for `Mandate prepared` or other
  *     non-receipted preparatory states — show only the level of proof
  *     actually available.
@@ -20,37 +27,13 @@
 import { describe, it, expect } from 'vitest';
 import fs from 'fs';
 import path from 'path';
-import { HORIZEN_MONEYPENNY_JOURNEY } from '@/services/journey/horizenMoneyPennyJourney';
-import { JOURNEY_SURFACES } from '@/services/journey/journeySurfaceRegistry';
 
 function read(relPath: string): string {
   return fs.readFileSync(path.join(__dirname, '..', relPath), 'utf8');
 }
 
 const stateRoute = read('app/api/journey/moneypenny-horizen/state/route.ts');
-const replayComponent = read('components/journey/RegisterCeremonyReplay.tsx');
-const pilotJourneyTab = read('app/triad/components/codex/tabs/PilotJourneyTab.tsx');
 const journeyRunSurface = read('components/journey/JourneyRunSurface.tsx');
-
-const register = HORIZEN_MONEYPENNY_JOURNEY.stages.find((s) => s.id === 'register')!;
-
-describe('Register ceremony replay — surface registration', () => {
-  it('is declared on the register stage, after register-agent-panel — never a replacement for it', () => {
-    const refs = register.surfaces.map((s) => s.ref);
-    const panelAt = refs.indexOf('register-agent-panel');
-    const replayAt = refs.indexOf('register-ceremony-replay');
-    expect(panelAt).toBeGreaterThan(-1);
-    expect(replayAt).toBeGreaterThan(-1);
-    expect(replayAt).toBeGreaterThan(panelAt);
-  });
-
-  it('is registered in JOURNEY_SURFACES as a real, built component — never a placeholder', () => {
-    const descriptor = JOURNEY_SURFACES['register-ceremony-replay'];
-    expect(descriptor).toBeDefined();
-    expect(descriptor.kind).toBe('component');
-    expect((descriptor as { component: string }).component).toBe('RegisterCeremonyReplay');
-  });
-});
 
 describe('Register ceremony replay — state route projection: two authority tiers, never conflated', () => {
   it('defines all seven ceremony steps, keyed exactly as the operator named them', () => {
@@ -105,58 +88,11 @@ describe('Register ceremony replay — state route projection: two authority tie
   });
 });
 
-describe('Register ceremony replay — component never mutates, never fabricates', () => {
-  it('contains no executable control — zero <button> elements that can perform a live action', () => {
-    // The receipt-expansion toggle is a non-mutating disclosure control, not
-    // a registration action — it never calls personaFetch with a mutating
-    // method, so it is excluded from this check by verifying the file has
-    // no POST/PUT/PATCH/DELETE fetch call anywhere.
-    expect(replayComponent).not.toMatch(/method:\s*['"](POST|PUT|PATCH|DELETE)['"]/);
-  });
-
-  it('renders nothing while Register has not yet canonically completed', () => {
-    expect(replayComponent).toMatch(/if \(!registerStageEstablished \|\| !registerCeremony\) return null;/);
-  });
-
-  it("distinguishes 'inferred' (no receipt) from 'evidence' (real receipt) — never renders an inferred step as proven", () => {
-    expect(replayComponent).toMatch(/authority === 'inferred'/);
-    expect(replayComponent).toMatch(/authority === 'evidence'/);
-    expect(replayComponent).toMatch(/Implied — no receipt/);
-  });
-
-  it('only a step with real receiptRefs (authority evidence) can expand — inferred steps are never expandable', () => {
-    expect(replayComponent).toMatch(/const canExpand = isEvidence && receiptIds\.length > 0;/);
-  });
-
-  it('names itself explicitly as a replay, not a live action — states plainly it cannot be re-run here', () => {
-    expect(replayComponent).toMatch(/read-only reconstruction/i);
-    expect(replayComponent).toMatch(/cannot be re-run here/i);
-  });
-
-  it('is built generically — no MoneyPenny-specific (or any other agent-specific) literal in the component', () => {
-    expect(replayComponent).not.toMatch(/moneypenny/i);
-    expect(replayComponent).not.toMatch(/nakamoto/i);
-  });
-
-  it('hydrates receipts by exact id via the existing /api/assistant/receipts?ids= route — never a fresh type/agent search', () => {
-    expect(replayComponent).toMatch(/\/api\/assistant\/receipts\?ids=\$\{receiptIds\.join\(','\)\}/);
-    expect(replayComponent).not.toMatch(/actionType=/);
-  });
-});
-
 describe('Register ceremony replay — wiring: one canonical projection, no second computation', () => {
   it('JourneyRunSurface fetches registerCeremony ONCE from /state and threads it through resolveSurfaceProps — same discipline as ratifySubPredicates', () => {
     expect(journeyRunSurface).toMatch(/setRegisterCeremony\(\(json\.registerCeremony as typeof registerCeremony\) \?\? null\)/);
     expect(journeyRunSurface).toMatch(
       /resolveSurfaceProps\?\.\(\{ surfaceRef, descriptor, stage: activeStage, runtimeState, pnlEvidence, ratifySubPredicates, registerCeremony \}\)/,
     );
-  });
-
-  it('PilotJourneyTab threads the SAME registerCeremony object to RegisterCeremonyReplay, gated on the observer\'s own resolved Register stage state', () => {
-    const at = pilotJourneyTab.indexOf("descriptor.component === 'RegisterCeremonyReplay'");
-    expect(at).toBeGreaterThan(-1);
-    const block = pilotJourneyTab.slice(at, at + 500);
-    expect(block).toMatch(/registerStageEstablished: runtimeState\?\.stages\.find\(\(s\) => s\.stageId === 'register'\)\?\.state === 'COMPLETE'/);
-    expect(block).toMatch(/registerCeremony,/);
   });
 });

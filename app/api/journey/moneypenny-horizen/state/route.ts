@@ -1459,7 +1459,8 @@ async function resolveState(req: NextRequest) {
     // definition above. `principalWalletReady`/`mandatePrepared` carry
     // `authority: 'inferred'` (no receipt type exists for either); the
     // remaining five carry `authority: 'evidence'` from their own receipts.
-    // This is what RegisterCeremonyReplay must consume; it is never a
+    // Its former UI consumer (RegisterCeremonyReplay) was removed from the
+    // journey UI (2026-08-11); this projection is kept as-is and is never a
     // second source of truth for whether Register is complete — that
     // remains `resolution.stages.register.canonicalOutcome` alone.
     registerCeremony,

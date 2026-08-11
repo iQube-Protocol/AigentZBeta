@@ -30,7 +30,6 @@ import { PulseTransparencyToggle } from '@/components/journey/PulseTransparencyT
 import { MarketaEligibilityView } from '@/components/journey/MarketaEligibilityView';
 import { OrientationPanel } from '@/components/journey/OrientationPanel';
 import { IngestIntoFactoryPanel } from '@/components/journey/IngestIntoFactoryPanel';
-import { RegisterCeremonyReplay } from '@/components/journey/RegisterCeremonyReplay';
 import { PassportBureauApplyTab } from './PassportBureauApplyTab';
 import { BoundedDelegationTab } from './BoundedDelegationTab';
 import { ParticipationStandingTab } from './ParticipationStandingTab';
@@ -63,7 +62,6 @@ const JOURNEY_COMPONENTS: Record<string, React.ComponentType<Record<string, unkn
   MarketaEligibilityView,
   OrientationPanel,
   IngestIntoFactoryPanel,
-  RegisterCeremonyReplay,
   PassportBureauApplyTab,
   BoundedDelegationTab,
   ParticipationStandingTab,
@@ -231,19 +229,6 @@ function PilotJourneyTabInner({ personaId, isAdmin }: PilotJourneyTabProps) {
            threading above, never a default. */
         : descriptor.component === 'IngestIntoFactoryPanel'
           ? { agentSlug: selectedAgentSlug }
-        /* Pre-recording Horizen polish, part C (2026-08-10) — the replay
-           must speak about the agent Register just completed, same
-           discipline as every other agentSlug thread above. Gated on the
-           OBSERVER's own resolved Register stage state (never re-derived
-           here) so the replay renders only once Register is canonically
-           COMPLETE — before that, RegisterAgentPanel above stays the only
-           surface, live-ceremony-in-progress. */
-        : descriptor.component === 'RegisterCeremonyReplay'
-          ? {
-              agentSlug: selectedAgentSlug,
-              registerStageEstablished: runtimeState?.stages.find((s) => s.stageId === 'register')?.state === 'COMPLETE',
-              registerCeremony,
-            }
         : descriptor.component === 'PassportBureauApplyTab'
           ? {
               // Absolute, per the Bureau's URL validation — see the `origin` note above.
