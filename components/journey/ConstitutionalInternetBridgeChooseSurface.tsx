@@ -124,45 +124,45 @@ function BookReserveOption() {
   );
 }
 
-function DestinationButton({
+function DestinationCard({
   icon,
   label,
   active,
   onClick,
+  mailtoSubject,
+  mailtoLabel,
 }: {
   icon: React.ReactNode;
   label: string;
   active?: boolean;
   onClick: () => void;
+  mailtoSubject?: string;
+  mailtoLabel?: string;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3.5 transition ${
-        active ? 'border-amber-400/50 bg-amber-500/10' : 'border-white/10 bg-slate-900/40 hover:border-indigo-400/30'
-      }`}
-    >
-      <span className="flex items-center gap-2 text-sm font-semibold text-white">{icon} {label}</span>
-      <ArrowRight className="h-4 w-4 text-slate-400" />
-    </button>
+    <div className={`rounded-xl border transition ${
+      active ? 'border-amber-400/50 bg-amber-500/10' : 'border-white/10 bg-slate-900/40'
+    }`}>
+      <button
+        type="button"
+        onClick={onClick}
+        className="flex w-full items-center justify-between gap-3 px-4 py-3.5 hover:opacity-80"
+      >
+        <span className="flex items-center gap-2 text-sm font-semibold text-white">{icon} {label}</span>
+        <ArrowRight className="h-4 w-4 text-slate-400" />
+      </button>
+      {mailtoSubject && mailtoLabel && (
+        <a
+          href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(mailtoSubject)}`}
+          className="flex items-center gap-1.5 border-t border-white/5 px-4 py-2.5 text-[11px] font-medium text-indigo-300 hover:text-indigo-200"
+        >
+          <Mail className="h-3 w-3" /> {mailtoLabel}
+        </a>
+      )}
+    </div>
   );
 }
 
-/** A small mailto link surfaced ALONGSIDE a destination selector (rather
- *  than the selector itself firing mailto), per the operator's split:
- *  selecting IRL/Partner switches the left explainer; the actual contact
- *  action stays separately available. */
-function MailtoJoinLink({ subject, label }: { subject: string; label: string }) {
-  return (
-    <a
-      href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(subject)}`}
-      className="mt-1.5 flex items-center gap-1.5 pl-1 text-[11px] font-medium text-indigo-300 hover:text-indigo-200"
-    >
-      <Mail className="h-3 w-3" /> {label}
-    </a>
-  );
-}
 
 /** Honest placeholder for a canonical plate that does not exist yet —
  *  typography only, never a fabricated/repurposed image standing in for a
@@ -257,45 +257,41 @@ export function ConstitutionalInternetBridgeChooseSurface({ personaId, onOpenAig
         )}
       </FullscreenableFrame>
 
-      {/* RIGHT — destination actions, restrained card grammar (unchanged). */}
+      {/* RIGHT — destination cards. */}
       <div className="space-y-3">
         <BookReserveOption />
 
-        <DestinationButton
+        <DestinationCard
           icon={<BookMarked className="h-4 w-4 text-indigo-300" />}
           label="Continue reading"
           active={leftView === 'reading'}
           onClick={() => setLeftView('reading')}
         />
 
-        <div>
-          <DestinationButton
-            icon={<Sparkles className="h-4 w-4 text-indigo-300" />}
-            label="Meet aigentMe"
-            active={leftView === 'aigentme'}
-            onClick={openAigentMe}
-          />
-        </div>
+        <DestinationCard
+          icon={<Sparkles className="h-4 w-4 text-indigo-300" />}
+          label="Meet aigentMe"
+          active={leftView === 'aigentme'}
+          onClick={openAigentMe}
+        />
 
-        <div>
-          <DestinationButton
-            icon={<Compass className="h-4 w-4 text-indigo-300" />}
-            label="Join the IRL research programme"
-            active={leftView === 'irl'}
-            onClick={() => setLeftView('irl')}
-          />
-          <MailtoJoinLink subject="Constitutional Internet — research field" label="Email us to join" />
-        </div>
+        <DestinationCard
+          icon={<Compass className="h-4 w-4 text-indigo-300" />}
+          label="Join the IRL research programme"
+          active={leftView === 'irl'}
+          onClick={() => setLeftView('irl')}
+          mailtoSubject="Constitutional Internet — research field"
+          mailtoLabel="Email us to join"
+        />
 
-        <div>
-          <DestinationButton
-            icon={<Handshake className="h-4 w-4 text-indigo-300" />}
-            label="Apply to partner with metaMe"
-            active={leftView === 'partner'}
-            onClick={() => setLeftView('partner')}
-          />
-          <MailtoJoinLink subject="Constitutional Internet — build / partner" label="Email us to partner" />
-        </div>
+        <DestinationCard
+          icon={<Handshake className="h-4 w-4 text-indigo-300" />}
+          label="Apply to partner with metaMe"
+          active={leftView === 'partner'}
+          onClick={() => setLeftView('partner')}
+          mailtoSubject="Constitutional Internet — build / partner"
+          mailtoLabel="Email us to partner"
+        />
 
         <button
           type="button"
