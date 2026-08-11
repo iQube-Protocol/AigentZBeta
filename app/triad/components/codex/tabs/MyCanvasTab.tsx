@@ -73,7 +73,20 @@ type MyCanvasSurface = 'canvas' | 'workspace' | 'workbench';
  * own seed instead of the generic one. Short-term hardcode, same discipline
  * as the existing default; a follow-up can pull both from a registry.
  */
-const DEFAULT_CANVAS_TEMPLATE = {
+interface CanvasTemplate {
+  id: string;
+  title: string;
+  subtitle: string;
+  tags: string[];
+  metaJson: {
+    seedTemplate: string;
+    campaign?: string;
+    experienceId?: string;
+    sourceExperienceId?: string;
+  };
+}
+
+const DEFAULT_CANVAS_TEMPLATE: CanvasTemplate = {
   id: 'template-qriptopian-15min-sprint',
   title: 'Qriptopian Agents of Change — 15-min reading sprint',
   subtitle: 'Guided 15-min reading sprint · article or story',
@@ -84,7 +97,7 @@ const DEFAULT_CANVAS_TEMPLATE = {
     seedTemplate: 'qriptopian-agents-of-change-reading-sprint',
   },
 };
-const CAMPAIGN_CANVAS_TEMPLATES: Record<string, typeof DEFAULT_CANVAS_TEMPLATE> = {
+const CAMPAIGN_CANVAS_TEMPLATES: Record<string, CanvasTemplate> = {
   'knyts-bridge-crossing': {
     id: 'template-knyts-bridge-crossing',
     title: 'Crossing the Threshold',
@@ -92,6 +105,32 @@ const CAMPAIGN_CANVAS_TEMPLATES: Record<string, typeof DEFAULT_CANVAS_TEMPLATE> 
     tags: ['template', 'knyts-bridge', 'crossing'],
     metaJson: { seedTemplate: 'knyts-bridge-crossing', campaign: 'knyts-bridge-crossing' },
   },
+  // Constitutional Internet Bridge's Personify surface (2026-08-11). The key
+  // must match CI_BRIDGE_CAMPAIGN_ID (services/journey/
+  // constitutionalInternetBridgeJourney.ts) — hardcoded here rather than
+  // imported, matching the existing 'knyts-bridge-crossing' entry's own
+  // convention in this file.
+  'constitutional-internet-bridge': {
+    id: 'template-constitutional-internet-bridge-personify',
+    title: 'Tell your Constitutional story',
+    subtitle: 'Article — your real constitutional perspective. Story — an imagined constitutional life.',
+    tags: ['template', 'constitutional-internet-bridge', 'personify'],
+    metaJson: { seedTemplate: 'constitutional-internet-bridge-personify', campaign: 'constitutional-internet-bridge' },
+  },
+};
+
+/**
+ * Destination cartridge lock, keyed by campaignTag (2026-08-11) — forces a
+ * campaign's published output to a specific Pulse without presenting the
+ * KNYT/Qriptopian choice. Added so the Constitutional Internet Bridge's
+ * myCanvas output lands in Qriptopian Pulse (never a new "CI Pulse"),
+ * reusing the SAME /api/community-content/generate and
+ * /api/mycanvas/entries/[id]/publish-to-pulse routes every other campaign
+ * uses. `knyts-bridge-crossing` is intentionally absent — KNYTS keeps its
+ * existing KNYT/Qriptopian picker, unaffected by this lock.
+ */
+const CAMPAIGN_CARTRIDGE_LOCK: Record<string, "knyt" | "qripto"> = {
+  'constitutional-internet-bridge': 'qripto',
 };
 
 interface Props {
@@ -118,6 +157,11 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas', cam
     }
   }, [campaignTagProp]);
   const canvasTemplate = (campaignTag && CAMPAIGN_CANVAS_TEMPLATES[campaignTag]) || DEFAULT_CANVAS_TEMPLATE;
+  // Locked destination cartridge for this campaign, if any (see
+  // CAMPAIGN_CARTRIDGE_LOCK's own header) — undefined for every campaign
+  // (including no campaign at all) that keeps the existing KNYT/Qriptopian
+  // choice.
+  const lockCartridge = campaignTag ? CAMPAIGN_CARTRIDGE_LOCK[campaignTag] : undefined;
   // Internal alias: 'workspace' (new) and 'workbench' (legacy alias)
   // share the same private-entries codepath. The distinction will be
   // erased entirely once a follow-up migration rewrites stamped
@@ -521,6 +565,15 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas', cam
   // entry's metaJson.contentId points at the original community_generated_content
   // row created when the user first remixed. Flipping its status to 'shared'
   // exposes it in KNYT / Qriptopian community tabs.
+  //
+  // TODO(destination-aware publisher, not this pass): handlePublishToCommunity
+  // and handlePublishNoteToPulse duplicate the same "flip status, upsert
+  // publication_states" dispatch shape across two entry types. A future pass
+  // could unify them behind one `publishMyCanvasToPulse(destination: 'knyt' |
+  // 'qripto', entry)` helper once a third campaign/cartridge makes the
+  // duplication cost real — deliberately not generalized now (2026-08-11
+  // Constitutional Internet Bridge evolution: reuse + activation, not
+  // infrastructure refactoring).
   const handlePublishToCommunity = useCallback(
     async (entry: CanvasEntry): Promise<{ ok: boolean; error?: string }> => {
       const contentId =
@@ -852,23 +905,40 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas', cam
               </div>
               {publishOpenForId === selected.id && selected.entryType === "note" && (
                 <div className="p-3 border-b border-slate-700/50 bg-slate-800/40 flex items-center gap-2">
-                  <span className="text-xs text-slate-400">Publish to:</span>
-                  <button
-                    type="button"
-                    onClick={() => void handlePublishNoteToPulse(selected, "knyt")}
-                    disabled={publishingId === selected.id}
-                    className="flex items-center gap-1 px-2.5 py-1.5 rounded border border-violet-500/40 bg-violet-500/10 hover:bg-violet-500/20 text-violet-100 text-xs disabled:opacity-50"
-                  >
-                    <Radio className="w-3 h-3" /> KNYT Pulse
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void handlePublishNoteToPulse(selected, "qripto")}
-                    disabled={publishingId === selected.id}
-                    className="flex items-center gap-1 px-2.5 py-1.5 rounded border border-indigo-500/40 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-100 text-xs disabled:opacity-50"
-                  >
-                    <Radio className="w-3 h-3" /> Qriptopian Pulse
-                  </button>
+                  {lockCartridge ? (
+                    // Destination locked by campaign (e.g. Constitutional
+                    // Internet Bridge → Qriptopian Pulse only) — no
+                    // KNYT/Qriptopian choice to present.
+                    <button
+                      type="button"
+                      onClick={() => void handlePublishNoteToPulse(selected, lockCartridge)}
+                      disabled={publishingId === selected.id}
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded border border-indigo-500/40 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-100 text-xs disabled:opacity-50"
+                    >
+                      <Radio className="w-3 h-3" />
+                      Publish to {lockCartridge === "qripto" ? "Qriptopian Pulse" : "KNYT Pulse"}
+                    </button>
+                  ) : (
+                    <>
+                      <span className="text-xs text-slate-400">Publish to:</span>
+                      <button
+                        type="button"
+                        onClick={() => void handlePublishNoteToPulse(selected, "knyt")}
+                        disabled={publishingId === selected.id}
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded border border-violet-500/40 bg-violet-500/10 hover:bg-violet-500/20 text-violet-100 text-xs disabled:opacity-50"
+                      >
+                        <Radio className="w-3 h-3" /> KNYT Pulse
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handlePublishNoteToPulse(selected, "qripto")}
+                        disabled={publishingId === selected.id}
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded border border-indigo-500/40 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-100 text-xs disabled:opacity-50"
+                      >
+                        <Radio className="w-3 h-3" /> Qriptopian Pulse
+                      </button>
+                    </>
+                  )}
                   <button
                     type="button"
                     onClick={() => setPublishOpenForId(null)}
@@ -962,6 +1032,11 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas', cam
           }
           campaignTag={
             typeof remixSource.metaJson.campaign === "string" ? remixSource.metaJson.campaign : undefined
+          }
+          cartridge={
+            typeof remixSource.metaJson.campaign === "string"
+              ? CAMPAIGN_CARTRIDGE_LOCK[remixSource.metaJson.campaign]
+              : undefined
           }
           sourceImageUrl={
             typeof remixSource.metaJson.imageUrl === "string" ? remixSource.metaJson.imageUrl : null

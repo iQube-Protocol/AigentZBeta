@@ -15,15 +15,21 @@
  * its accent (indigo, not KNYT amber), and its copilot identity.
  *
  * Surface map (see services/journey/journeySurfaceRegistry.ts's CI section
- * for the full reuse rationale):
- *   HOME    → BridgeMediaStage (the CI proposition)
- *   VIEW    → ConstitutionalInternetBridgeViewSequence (real Plates + excerpts)
- *   ORIENT  → ConstitutionalFrontierOrientSurface (deterministic questionnaire)
- *   PASSPORT→ ConstitutionalInternetBridgePassportRoom (state-aware: claim,
- *             or "you have crossed" + continue to ACT)
- *   ACT     → ConstitutionalAgentFieldEntrySurface (Connect Claude / Meet aigentMe)
- *   STAND   → ConstitutionalInternetBridgeStandPanel (real receipts + Standing)
- *   CHOOSE  → ConstitutionalInternetBridgeChooseSurface (destinations)
+ * for the full reuse rationale) — evolved 2026-08-11, experience enrichment
+ * pass (NOT a reconstitution — the scaffold below is unchanged):
+ *   HOME      → ConstitutionalInternetBridgeMediaStage (admin-configurable
+ *               media wrapper around the existing BridgeMediaStage)
+ *   VIEW      → ConstitutionalInternetBridgeViewSequence (Ethos | Crossings)
+ *   ORIENT    → ConstitutionalInternetBridgeOrientIntro (media header +
+ *               the existing, untouched ConstitutionalFrontierOrientSurface)
+ *   PASSPORT  → ConstitutionalInternetBridgePassportRoom (state-aware:
+ *               claim, or "you have crossed" + continue to PERSONIFY)
+ *   PERSONIFY → ConstitutionalInternetBridgePersonifyMyCanvas (primary:
+ *               "Tell your Constitutional story") + ConstitutionalAgent
+ *               FieldEntrySurface (supporting: Connect Claude / Meet
+ *               aigentMe) — renamed from ACT, capabilities preserved
+ *   STAND     → ConstitutionalInternetBridgeStandPanel (real receipts + Standing)
+ *   CHOOSE    → ConstitutionalInternetBridgeChooseSurface (destinations)
  *
  * This page hosts Passport sign-in itself (usePassportSignInHost +
  * PassportConnectPanel, the same surface /invite/[code]/page.tsx and
@@ -31,28 +37,43 @@
  * SmartWalletDrawer anywhere in its tree to answer a PASSPORT_SIGN_IN
  * request otherwise — structural parity with KNYTS even though no CI
  * surface currently issues such a request (none needs to: PASSPORT is a
- * proper spine stage before ACT, reached in order).
+ * proper spine stage before PERSONIFY, reached in order).
  *
  * One floating copilot (CodexCopilotLayer) is mounted once here, using the
  * existing canonical aigentMe identity (data/codex-configs.ts's
  * METAME_CODEX.copilot: agent id 'aigent-me', accent emerald) rather than
  * inventing a new "aigent-ci" identity — there is no dedicated CI copilot
  * configured anywhere in this codebase, and aigentMe is the correct
- * existing constitutional guide for this Bridge's subject matter.
+ * existing constitutional guide for this Bridge's subject matter. The new
+ * PERSONIFY aigentMe embed suppresses its OWN floating copilot
+ * (suppressCopilot on that iframe) so this remains the only one on screen.
+ *
+ * Bridge Admin (added 2026-08-11) mirrors KNYTS Bridge's admin panel
+ * exactly — same table, same route, same KnytsBridgeAdminPanel component
+ * (with bridgeLabel="Constitutional Internet Bridge" so it doesn't show
+ * KNYTS branding), listing CI's own editorial sections: ci-home, ci-orient,
+ * and one ci-view-<blockId> row per Ethos vignette (video-slot only — see
+ * ConstitutionalInternetBridgeViewSequence's own header for why vignette
+ * order/plate/excerpt/paper stay code-defined this pass).
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
+import { Settings } from 'lucide-react';
 import { JourneyRunSurface, type JourneyRunSurfaceProps } from '@/components/journey/JourneyRunSurface';
 import { CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY } from '@/services/journey/constitutionalInternetBridgeJourney';
-import { BridgeMediaStage } from '@/components/journey/BridgeMediaStage';
+import { CI_BRIDGE_VIEW_CONTENT } from '@/services/journey/constitutionalInternetBridgeViewContent';
+import { ConstitutionalInternetBridgeMediaStage } from '@/components/journey/ConstitutionalInternetBridgeMediaStage';
 import { ConstitutionalInternetBridgeViewSequence } from '@/components/journey/ConstitutionalInternetBridgeViewSequence';
-import { ConstitutionalFrontierOrientSurface } from '@/components/journey/ConstitutionalFrontierOrientSurface';
+import { ConstitutionalInternetBridgeOrientIntro } from '@/components/journey/ConstitutionalInternetBridgeOrientIntro';
 import { ConstitutionalInternetBridgePassportRoom } from '@/components/journey/ConstitutionalInternetBridgePassportRoom';
+import { ConstitutionalInternetBridgePersonifyMyCanvas } from '@/components/journey/ConstitutionalInternetBridgePersonifyMyCanvas';
 import { ConstitutionalAgentFieldEntrySurface } from '@/components/journey/ConstitutionalAgentFieldEntrySurface';
 import { ConstitutionalInternetBridgeStandPanel } from '@/components/journey/ConstitutionalInternetBridgeStandPanel';
 import { ConstitutionalInternetBridgeChooseSurface } from '@/components/journey/ConstitutionalInternetBridgeChooseSurface';
+import { KnytsBridgeAdminPanel } from '@/components/journey/KnytsBridgeAdminPanel';
 import { PassportConnectPanel } from '@/components/companion/PassportConnectPanel';
 import { usePassportSignInHost } from '@/app/hooks/usePassportSignInHost';
+import { usePersonaSpine } from '@/utils/personaSpine';
 import { CodexCopilotLayer } from '@/app/components/codex/CodexCopilotLayer';
 import { MetaAvatarProvider } from '@/app/contexts/MetaAvatarContext';
 
@@ -65,10 +86,11 @@ const CI_ACCENT = {
 };
 
 const CI_BRIDGE_COMPONENTS: Record<string, React.ComponentType<Record<string, unknown>>> = {
-  BridgeMediaStage,
+  ConstitutionalInternetBridgeMediaStage,
   ConstitutionalInternetBridgeViewSequence,
-  ConstitutionalFrontierOrientSurface,
+  ConstitutionalInternetBridgeOrientIntro,
   ConstitutionalInternetBridgePassportRoom,
+  ConstitutionalInternetBridgePersonifyMyCanvas,
   ConstitutionalAgentFieldEntrySurface,
   ConstitutionalInternetBridgeStandPanel,
   ConstitutionalInternetBridgeChooseSurface,
@@ -91,6 +113,8 @@ function selectStage(stageId: string) {
 export default function ConstitutionalInternetBridgePage() {
   const [personaId, setPersonaId] = useState<string | undefined>(undefined);
   const [copilotOpen, setCopilotOpen] = useState(false);
+  const [adminOpen, setAdminOpen] = useState(false);
+  const spine = usePersonaSpine();
 
   useEffect(() => {
     try {
@@ -115,9 +139,16 @@ export default function ConstitutionalInternetBridgePage() {
           onSecondaryCta: () => selectStage('choose'),
         };
       }
+      if (
+        surfaceRef.ref === 'ci-bridge-view' ||
+        surfaceRef.ref === 'ci-bridge-personify-mycanvas' ||
+        surfaceRef.ref === 'ci-bridge-personify-field-entry'
+      ) {
+        return { personaId };
+      }
       return {};
     },
-    [],
+    [personaId],
   );
 
   return (
@@ -144,6 +175,19 @@ export default function ConstitutionalInternetBridgePage() {
               <span className="truncate text-indigo-300">Threshold Guide</span>
             </>
           }
+          headerExtra={
+            spine.cartridgeFlags.isAdmin ? (
+              <button
+                type="button"
+                onClick={() => setAdminOpen(true)}
+                title="Bridge Admin"
+                className="flex shrink-0 items-center gap-1 rounded-md border border-slate-800 bg-slate-900/40 px-2 py-1 text-[11px] text-slate-400 hover:bg-slate-800/60 hover:text-slate-200"
+              >
+                <Settings className="h-3 w-3" />
+                Bridge Admin
+              </button>
+            ) : undefined
+          }
         />
 
         {/* PASSPORT — hosted inline for whichever surface above requested it.
@@ -164,7 +208,7 @@ export default function ConstitutionalInternetBridgePage() {
                     /* ignore */
                   }
                   completeSignIn();
-                  selectStage('act');
+                  selectStage('personify');
                 }}
               />
               <button
@@ -174,6 +218,38 @@ export default function ConstitutionalInternetBridgePage() {
               >
                 Back
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* Bridge Admin — mirrors app/bridge/knyts/page.tsx's own modal
+            exactly: same table, same route, same KnytsBridgeAdminPanel
+            component (bridgeLabel swapped so the heading says the right
+            bridge), server-enforced by the editorial-config PUT route's own
+            requireAdminPersona check — this client gate is optimistic UX
+            only. */}
+        {adminOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
+            <div className="max-h-[85vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-white/10 bg-slate-900/95 shadow-2xl">
+              <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+                <span className="text-sm font-semibold text-slate-100">Bridge Admin</span>
+                <button type="button" onClick={() => setAdminOpen(false)} className="text-xs text-slate-400 hover:text-slate-200">
+                  Close
+                </button>
+              </div>
+              <KnytsBridgeAdminPanel section="ci-home" personaId={personaId} bridgeLabel="Constitutional Internet Bridge" />
+              <div className="border-t border-white/10">
+                <KnytsBridgeAdminPanel section="ci-orient" personaId={personaId} bridgeLabel="Constitutional Internet Bridge" />
+              </div>
+              {CI_BRIDGE_VIEW_CONTENT.map((block) => (
+                <div key={block.id} className="border-t border-white/10">
+                  <KnytsBridgeAdminPanel
+                    section={`ci-view-${block.id}`}
+                    personaId={personaId}
+                    bridgeLabel="Constitutional Internet Bridge"
+                  />
+                </div>
+              ))}
             </div>
           </div>
         )}

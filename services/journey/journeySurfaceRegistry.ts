@@ -483,29 +483,37 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
   // which half to render, exactly like knyts-bridge-passport-room.
   'ci-bridge-home': {
     kind: 'component',
-    component: 'BridgeMediaStage',
+    component: 'ConstitutionalInternetBridgeMediaStage',
     note:
-      'components/journey/BridgeMediaStage.tsx, themed indigo — the CI proposition ("The Internet ' +
-      'recognizes accounts. The Constitutional Internet recognizes persons."). The SAME generic hero ' +
-      'component KNYTS Bridge\'s own HOME section previously used (KNYTS has since reconstituted onto ' +
-      'its own cinematic KnytsBridgeMediaStage); the two CTA callbacks (advance to View / Choose) are ' +
-      'threaded in via the page\'s resolveSurfaceProps, dispatching the shared journey:select-stage event.',
+      'components/journey/ConstitutionalInternetBridgeMediaStage.tsx (evolved 2026-08-11 from a bare ' +
+      'BridgeMediaStage mount to a self-fetching wrapper around it) — the CI proposition ("The Internet ' +
+      'recognizes accounts. The Constitutional Internet recognizes persons."), now admin-configurable ' +
+      '(headline/copy/video/poster/primary-CTA-label) via the SAME knyts_bridge_editorial_config table ' +
+      'KNYTS uses (section=ci-home). The two CTA callbacks (advance to View / Choose) are still threaded ' +
+      'in via the page\'s resolveSurfaceProps, dispatching the shared journey:select-stage event.',
   },
   'ci-bridge-view': {
     kind: 'component',
     component: 'ConstitutionalInternetBridgeViewSequence',
     note:
-      'components/journey/ConstitutionalInternetBridgeViewSequence.tsx — real CANONICAL_PLATES_V1 plates ' +
-      'composed with verbatim manuscript excerpts (cited by line), never invented prose. A bare ' +
-      '`component`, not an `embed`, because no canonical external cartridge tab carries this content.',
+      'components/journey/ConstitutionalInternetBridgeViewSequence.tsx — evolved 2026-08-11 into ' +
+      'Ethos | Crossings. Ethos: the real CANONICAL_PLATES_V1 plates + verbatim manuscript excerpts (cited ' +
+      'by line, never invented), reorganized into a horizontal vignette carousel with per-vignette video ' +
+      'admin-overridable via section=ci-view-<blockId> on the same editorial-config table. Crossings: a ' +
+      'thin projection over the EXISTING Qriptopian Pulse (KnytCommunityContentTab, cartridge=\'qripto\', ' +
+      'campaignTag=CI_BRIDGE_CAMPAIGN_ID) — never a new feed/table/moderation system. A bare `component`, ' +
+      'not an `embed`, because it needs personaId for Crossings\' Mine filter (threaded via resolveSurfaceProps).',
   },
   'ci-bridge-orient': {
     kind: 'component',
-    component: 'ConstitutionalFrontierOrientSurface',
+    component: 'ConstitutionalInternetBridgeOrientIntro',
     note:
-      'components/journey/ConstitutionalFrontierOrientSurface.tsx — a deterministic, non-gating ' +
-      'questionnaire (no LLM). Persists choices as a best-effort intent/demand signal via the generic ' +
-      'campaign_events log, never as constitutional state — completing it is not tracked evidence.',
+      'components/journey/ConstitutionalInternetBridgeOrientIntro.tsx (evolved 2026-08-11) — a NEW, ' +
+      'admin-configurable media/context header (section=ci-orient, same editorial-config table as HOME) ' +
+      'framing "personhood precedes identity," composed above the EXISTING, untouched ' +
+      'ConstitutionalFrontierOrientSurface (a deterministic, non-gating questionnaire, no LLM; persists ' +
+      'choices as a best-effort intent/demand signal via the generic campaign_events log, never as ' +
+      'constitutional state — completing it is not tracked evidence), wrapped in a reflection-capsule card.',
   },
   'ci-bridge-passport-room': {
     kind: 'component',
@@ -514,22 +522,35 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
       'State-aware constitutional room (components/journey/ConstitutionalInternetBridgePassportRoom.tsx), ' +
       'mirroring knyts-bridge-passport-room\'s exact pattern: no usable Passport -> the canonical ' +
       'PassportBureauApplyTab claim flow; Passport established -> "You have crossed." + a continuation ' +
-      'toward ACT (never an inline aigentMe embed here, since ACT itself already is the agent-connection ' +
-      'experience). A bare `component` because it needs the Passport stage\'s OWN resolved evidence ' +
-      '(citizenPassportUsable, threaded in by the page via resolveSurfaceProps) to decide which half to ' +
-      'render — a plain embed cannot branch.',
+      'toward PERSONIFY (renamed from ACT, 2026-08-11; never an inline aigentMe embed here, since ' +
+      'PERSONIFY itself already offers the real aigentMe embed as a supporting tool). A bare `component` ' +
+      'because it needs the Passport stage\'s OWN resolved evidence (citizenPassportUsable, threaded in ' +
+      'by the page via resolveSurfaceProps) to decide which half to render — a plain embed cannot branch.',
   },
-  'ci-bridge-act-field-entry': {
+  'ci-bridge-personify-mycanvas': {
+    kind: 'component',
+    component: 'ConstitutionalInternetBridgePersonifyMyCanvas',
+    note:
+      'components/journey/ConstitutionalInternetBridgePersonifyMyCanvas.tsx (new, 2026-08-11) — ' +
+      'PERSONIFY\'s PRIMARY surface, evolved from ACT: "Tell your Constitutional story." Mirrors ' +
+      'KnytsBridgeRemixSurface\'s exact pattern — the SAME myCanvas tab (metame-codex/mycanvas), ' +
+      'campaignTag=CI_BRIDGE_CAMPAIGN_ID selecting MyCanvasTab\'s starter template and, via its own ' +
+      'campaignTag->cartridge lock map, forcing published output to Qriptopian Pulse — never a second, ' +
+      'CI-specific editor or publishing endpoint. A bare `component` (not `embed`) because it builds its ' +
+      'own iframe src directly via buildCodexUrl, same as KnytsBridgeRemixSurface.',
+  },
+  'ci-bridge-personify-field-entry': {
     kind: 'component',
     component: 'ConstitutionalAgentFieldEntrySurface',
     note:
-      'components/journey/ConstitutionalAgentFieldEntrySurface.tsx — "Bring Your Agent Into the Field," ' +
-      'two sibling paths, neither delegation: (1) Connect an agent you already use, via the real metaMe ' +
-      'Threshold MCP OAuth crossing (read/query scope only); (2) Meet aigentMe, rendering ' +
-      'ConstitutionalAgentDispositionSurface.tsx inline — a generalized ExperienceQube disposition ' +
-      'ceremony sharing its receipt taxonomy with the Horizen/MoneyPenny disposition route via ' +
-      'services/journey/experienceQubeDispositionService.ts, scoped under this journey\'s own agent id ' +
-      'and context tag. Either path alone completes ACT (agentRelationshipStarted is an OR).',
+      'components/journey/ConstitutionalAgentFieldEntrySurface.tsx (renamed registry key only, from ' +
+      'ci-bridge-act-field-entry — component unchanged, copy repositioned) — PERSONIFY\'s SUPPORTING-tools ' +
+      'surface beneath ci-bridge-personify-mycanvas above: (1) Connect an agent you already use, via the ' +
+      'real metaMe Threshold MCP OAuth crossing (read/query scope only); (2) Meet aigentMe, rendering the ' +
+      'existing ConstitutionalAgentDispositionSurface.tsx ceremony PLUS (added 2026-08-11) the real, ' +
+      'focused aigentMe/metaMe embed (metame-codex/aigent-me, focusedNavDepth 1) so aigentMe can actually ' +
+      'help shape the story. Either supporting path alone completes PERSONIFY\'s agentRelationshipStarted ' +
+      'evidence (an OR, unchanged by this evolution).',
   },
   'ci-bridge-stand': {
     kind: 'component',

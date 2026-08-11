@@ -20,10 +20,33 @@ import {
   getKnytsBridgeEditorialSection,
   upsertKnytsBridgeEditorialSection,
 } from '@/services/journey/knytsBridgeEditorialConfig';
+import { CI_BRIDGE_VIEW_CONTENT } from '@/services/journey/constitutionalInternetBridgeViewContent';
 
 export const dynamic = 'force-dynamic';
 
-const ALLOWED_SECTIONS = new Set(['home', 'orient']);
+/**
+ * This table/route now serves more than one Threshold Guide bridge (KNYTS's
+ * `home`/`orient`, and — added 2026-08-11 — the Constitutional Internet
+ * Bridge's `ci-home`/`ci-orient`/`ci-view-<blockId>` video-slot overrides).
+ * Reusing the existing table via distinct primary-key strings needed zero
+ * schema change. The `ci-view-*` keys are derived from
+ * CI_BRIDGE_VIEW_CONTENT (the single source of truth for Ethos vignette
+ * ids) rather than hand-duplicated, so a future vignette addition/removal
+ * never drifts out of sync with what this route accepts.
+ *
+ * TODO(generalize): once a second bridge beyond CI proves this reuse is the
+ * durable shape, rename this table/service/route to a bridge-neutral
+ * "Threshold Guide editorial config" substrate — deliberately NOT done in
+ * this pass (operator instruction, 2026-08-11: reuse for speed now, don't
+ * let naming cleanup expand this build).
+ */
+const ALLOWED_SECTIONS = new Set([
+  'home',
+  'orient',
+  'ci-home',
+  'ci-orient',
+  ...CI_BRIDGE_VIEW_CONTENT.map((block) => `ci-view-${block.id}`),
+]);
 
 export async function GET(req: NextRequest) {
   try {

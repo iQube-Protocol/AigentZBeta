@@ -21,6 +21,11 @@ import { KNYTS_BRIDGE_HOME_DEFAULTS } from '@/services/journey/knytsBridgeEditor
 interface Props {
   section?: string;
   personaId?: string;
+  /** Heading prefix — defaults to 'KNYTS Bridge' so every existing mount is
+   *  byte-identical. The Constitutional Internet Bridge's reuse of this
+   *  panel (2026-08-11) passes 'Constitutional Internet Bridge' so its admin
+   *  doesn't see KNYTS branding while editing CI copy. */
+  bridgeLabel?: string;
 }
 
 const FIELDS: Array<{ key: keyof KnytsBridgeEditorialSection; label: string; multiline?: boolean }> = [
@@ -32,7 +37,7 @@ const FIELDS: Array<{ key: keyof KnytsBridgeEditorialSection; label: string; mul
   { key: 'rewardCopy', label: 'Current prize / reward copy' },
 ];
 
-export function KnytsBridgeAdminPanel({ section = 'home', personaId }: Props) {
+export function KnytsBridgeAdminPanel({ section = 'home', personaId, bridgeLabel = 'KNYTS Bridge' }: Props) {
   const [config, setConfig] = useState<KnytsBridgeEditorialSection>({ ...KNYTS_BRIDGE_HOME_DEFAULTS, section });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -85,7 +90,7 @@ export function KnytsBridgeAdminPanel({ section = 'home', personaId }: Props) {
 
   return (
     <div className="mx-auto max-w-xl space-y-4 p-6">
-      <h1 className="text-lg font-semibold text-slate-100">KNYTS Bridge — {section.toUpperCase()} editorial config</h1>
+      <h1 className="text-lg font-semibold text-slate-100">{bridgeLabel} — {section.toUpperCase()} editorial config</h1>
       <p className="text-xs text-slate-500">
         Copy and media for this section only. Pulse, Passport, myCanvas, Standing and the Store are
         edited in their own canonical admin surfaces, not here.

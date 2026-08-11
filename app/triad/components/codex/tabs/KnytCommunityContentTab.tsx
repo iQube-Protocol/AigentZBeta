@@ -98,9 +98,26 @@ interface Props {
    * cartridge mount.
    */
   campaignTag?: string;
+  /**
+   * Suppresses the self-service "Crossings" chip and the "Crossing of the
+   * Week" banner — both hardcode KNYTS_BRIDGE_CAMPAIGN_ID and would
+   * otherwise let a visitor override this mount's own `campaignTag` prop
+   * back to KNYTS' campaign. For a caller that already scopes this tab to
+   * ITS OWN campaign (e.g. the Constitutional Internet Bridge's Crossings
+   * projection, `campaignTag={CI_BRIDGE_CAMPAIGN_ID}`), leaving these
+   * visible would leak KNYTS content into a differently-branded projection.
+   * Defaults to false — every existing KNYT/Qriptopian mount is unaffected.
+   */
+  hideCrossingsFilter?: boolean;
 }
 
-export function KnytCommunityContentTab({ personaId, isAdmin: _isAdmin, cartridge, campaignTag }: Props) {
+export function KnytCommunityContentTab({
+  personaId,
+  isAdmin: _isAdmin,
+  cartridge,
+  campaignTag,
+  hideCrossingsFilter = false,
+}: Props) {
   const [items, setItems] = useState<CommunityContentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -157,6 +174,7 @@ export function KnytCommunityContentTab({ personaId, isAdmin: _isAdmin, cartridg
   // regardless of the active filter. Renders nothing when there is no
   // current winner — never forced onto a visitor with no reason to care.
   useEffect(() => {
+    if (hideCrossingsFilter) return;
     let cancelled = false;
     fetch("/api/journey/knyts-bridge/crossing-of-the-week", { cache: "no-store" })
       .then((r) => r.json())
@@ -169,7 +187,7 @@ export function KnytCommunityContentTab({ personaId, isAdmin: _isAdmin, cartridg
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [hideCrossingsFilter]);
 
   const activeItem = useMemo(
     () => (activeId ? items.find((i) => i.id === activeId) ?? null : null),
@@ -226,18 +244,20 @@ export function KnytCommunityContentTab({ personaId, isAdmin: _isAdmin, cartridg
           >
             Mine
           </button>
-          <button
-            type="button"
-            onClick={() => setFilter("crossings")}
-            title="KNYTS Bridge Crossing Stories"
-            className={`flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] transition ${
-              filter === "crossings"
-                ? "border-amber-400/40 bg-amber-500/15 text-amber-200"
-                : "border-white/10 bg-white/5 text-slate-400 hover:text-white"
-            }`}
-          >
-            Crossings
-          </button>
+          {!hideCrossingsFilter && (
+            <button
+              type="button"
+              onClick={() => setFilter("crossings")}
+              title="KNYTS Bridge Crossing Stories"
+              className={`flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] transition ${
+                filter === "crossings"
+                  ? "border-amber-400/40 bg-amber-500/15 text-amber-200"
+                  : "border-white/10 bg-white/5 text-slate-400 hover:text-white"
+              }`}
+            >
+              Crossings
+            </button>
+          )}
         </div>
         <button
           type="button"
@@ -250,7 +270,7 @@ export function KnytCommunityContentTab({ personaId, isAdmin: _isAdmin, cartridg
         </button>
       </div>
 
-      {crossingOfTheWeek && (
+      {!hideCrossingsFilter && crossingOfTheWeek && (
         <button
           type="button"
           onClick={() => setFilter("crossings")}

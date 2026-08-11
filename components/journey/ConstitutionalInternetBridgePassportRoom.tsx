@@ -6,12 +6,14 @@
  *
  *   NO USABLE PASSPORT    → claim it (the canonical PassportBureauApplyTab —
  *                           never a campaign-specific fork).
- *   PASSPORT ESTABLISHED  → "You have crossed." + a continuation toward ACT.
+ *   PASSPORT ESTABLISHED  → "You have crossed." + a continuation toward
+ *                           PERSONIFY (renamed from ACT, 2026-08-11).
  *
  * Unlike KnytsBridgePassportRoom, the post-crossing state does NOT embed
- * aigentMe inline — CI's own ACT stage IS the agent-connection/disposition
- * experience (ConstitutionalAgentFieldEntrySurface), so embedding it again
- * here would be the same surface rendered twice. This room simply invites
+ * aigentMe inline — CI's own PERSONIFY stage already offers the real,
+ * focused aigentMe/metaMe surface as a supporting tool alongside its primary
+ * myCanvas surface, so embedding it again here would be the same surface
+ * rendered twice. This room simply invites
  * the visitor onward via the shared `journey:select-stage` dispatch every
  * other Threshold Guide stage uses to navigate the spine.
  *
@@ -67,10 +69,10 @@ export function ConstitutionalInternetBridgePassportRoom({ personaId, citizenPas
       </div>
       <button
         type="button"
-        onClick={() => selectStage('act')}
+        onClick={() => selectStage('personify')}
         className="flex w-full items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-900/40 px-4 py-3.5 hover:border-indigo-400/30 transition"
       >
-        <span className="text-sm font-semibold text-white">Bring your agent into the field</span>
+        <span className="text-sm font-semibold text-white">Tell your Constitutional story</span>
         <ArrowRight className="h-4 w-4 text-slate-400" />
       </button>
     </div>
