@@ -4009,3 +4009,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-bf2a980.md](../build_/COMMITS/COMMIT-bf2a980.md)
 - Message: Remove RegisterCeremonyReplay surface from Register stage UI
+
+## Commit `07c03f6` — 2026-08-10T23:04:53-04:00
+- Type: `push`
+- Brief: [COMMIT-07c03f6.md](../build_/COMMITS/COMMIT-07c03f6.md)
+- Message: Register Constitutional Internet canonical plate records in Polity Core

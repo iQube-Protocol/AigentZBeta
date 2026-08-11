@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-11T02:45:44.435Z",
+  "last_updated": "2026-08-11T03:06:44.443Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "bf2a98062739f84c696f29ce9da412161503bbb0",
-  "latest_commit_short": "bf2a980",
-  "latest_commit_title": "Remove RegisterCeremonyReplay surface from Register stage UI",
+  "latest_commit": "07c03f645e5a6a92873a52b4bd33fa2d06e723b8",
+  "latest_commit_short": "07c03f6",
+  "latest_commit_title": "Register Constitutional Internet canonical plate records in Polity Core",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "07c03f6",
+      "full_sha": "07c03f645e5a6a92873a52b4bd33fa2d06e723b8",
+      "title": "Register Constitutional Internet canonical plate records in Polity Core",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-10T23:04:53-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-07c03f6.md"
+    },
     {
       "sha": "bf2a980",
       "full_sha": "bf2a98062739f84c696f29ce9da412161503bbb0",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-07-18T01:11:40Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-a10f5fd.md"
-    },
-    {
-      "sha": "afdd507",
-      "full_sha": "afdd507e5c26b89eabc56c7a3bdd74d8f9e12191",
-      "title": "charter the three-experiment Validation Programme v1 (EXP-P1/P2/P3)",
-      "author": "Claude",
-      "timestamp": "2026-07-18T01:01:20Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-afdd507.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

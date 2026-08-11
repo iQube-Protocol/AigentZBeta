@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`07c03f6`](https://github.com/iQube-Protocol/AigentZBeta/commit/07c03f645e5a6a92873a52b4bd33fa2d06e723b8) [push] Register Constitutional Internet canonical plate records in Polity Core (Kn0w1, 2026-08-10T23:04:53-04:00)
 - [`bf2a980`](https://github.com/iQube-Protocol/AigentZBeta/commit/bf2a98062739f84c696f29ce9da412161503bbb0) [push] Remove RegisterCeremonyReplay surface from Register stage UI (Claude, 2026-08-11T02:38:35Z)
 - [`5f20157`](https://github.com/iQube-Protocol/AigentZBeta/commit/5f201570c46b6f84f9e92a4fa45924b469abb28b) [push] Re-home Ingest surface under Activate; remove Ingest consequence-fork prong (Claude, 2026-08-11T01:43:35Z)
 - [`5c6cbed`](https://github.com/iQube-Protocol/AigentZBeta/commit/5c6cbed79772dcda914a40bdd6776cb13e57d6e2) [feat] Add Activate as a derived registry-activation stage between Passport and Delegate (Claude, 2026-08-11T00:39:17Z)
