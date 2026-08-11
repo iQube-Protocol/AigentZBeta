@@ -124,7 +124,27 @@ export default function ConstitutionalInternetBridgePage() {
     }
   }, []);
 
+  const [previousStageId, setPreviousStageId] = useState<string | undefined>(undefined);
+  const [currentStageId, setCurrentStageId] = useState<string | undefined>(undefined);
+
   const { showPassportSignIn, completeSignIn, dismissSignIn } = usePassportSignInHost('ConstitutionalInternetBridgeFrontDoor');
+
+  // Track stage navigation for back button functionality
+  useEffect(() => {
+    const handleStageSelect = (event: Event) => {
+      const customEvent = event as CustomEvent<{ stageId: string }>;
+      setPreviousStageId(currentStageId);
+      setCurrentStageId(customEvent.detail.stageId);
+    };
+    window.addEventListener('journey:select-stage', handleStageSelect);
+    return () => window.removeEventListener('journey:select-stage', handleStageSelect);
+  }, [currentStageId]);
+
+  const handleBack = useCallback(() => {
+    if (previousStageId) {
+      selectStage(previousStageId);
+    }
+  }, [previousStageId]);
 
   const resolveSurfaceProps = useCallback(
     ({ surfaceRef, runtimeState }: Parameters<NonNullable<JourneyRunSurfaceProps['resolveSurfaceProps']>>[0]) => {
@@ -182,6 +202,7 @@ export default function ConstitutionalInternetBridgePage() {
           resolveSurfaceProps={resolveSurfaceProps}
           accent={CI_ACCENT}
           compact
+          onBack={handleBack}
           distinguishAvailableStages
           headerLabel={
             <>
@@ -287,6 +308,15 @@ export default function ConstitutionalInternetBridgePage() {
           contextId="ci-bridge"
           promptPlaceholder="Ask about the Constitutional Internet..."
           quickPrompts={CI_COPILOT_QUICK_PROMPTS}
+          groundContext={{
+            surface: 'ci-bridge',
+            bridgeTitle: 'The Constitutional Internet Bridge',
+            stageContent: CI_BRIDGE_VIEW_CONTENT.map(block => ({
+              proposition: block.proposition,
+              excerpt: block.excerpt,
+              source: block.excerptSource,
+            })),
+          }}
         />
       </div>
       {/* Root cause of the blank Copilot metaVatar (2026-08-11, targeted

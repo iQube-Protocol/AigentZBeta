@@ -2851,6 +2851,10 @@ export async function POST(request: NextRequest) {
       // for cartridge-scoped semantic search (v0.5 fully wires the KB
       // filter; today it falls back to domain-scoped).
       cartridgeSlug,
+      // Journey/surface context ID (e.g. "ci-bridge" for Constitutional Internet
+      // Bridge). Used to configure KB search and system prompt when cartridgeSlug
+      // is not provided. Maps to appropriate content domain or journey-specific KB.
+      contextId,
     } = body;
 
     if (!message) {
@@ -3168,6 +3172,10 @@ export async function POST(request: NextRequest) {
 
       // Fetch codex metadata, KB results, protocol KB (when relevant), live KNYT
       // state, and aigent-z platform knowledge + stage ground data in parallel
+      // KB search scope — use cartridge context if available, fall back to contextId
+      // (e.g. "ci-bridge" for Constitutional Internet Bridge) for journey surfaces
+      const kbSearchScope = cartridgeContext?.cartridgeSlug || (typeof contextId === 'string' ? contextId : undefined);
+
       const [resolvedMetadata, resolvedKbResults, resolvedProtocolResults, resolvedLiveContext, resolvedPlatformKnowledge, resolvedStageGroundData, resolvedKnowledgeInit, resolvedOntology] = await Promise.all([
         fetchCodexMetadata(domain),
         // Prompt-assembly slimming (2026-07-15, operator-ratified): the
@@ -3179,8 +3187,8 @@ export async function POST(request: NextRequest) {
         // ceiling. Skip it; the empty result is identical.
         domain === 'aigentMe'
           ? Promise.resolve([] as KBSearchResult[])
-          : searchKnowledgeBase(message, domain, 3, cartridgeContext?.cartridgeSlug),
-        needsProtocolKB ? searchKnowledgeBase(message, 'protocol', 3, cartridgeContext?.cartridgeSlug) : Promise.resolve([]),
+          : searchKnowledgeBase(message, domain, 3, kbSearchScope),
+        needsProtocolKB ? searchKnowledgeBase(message, 'protocol', 3, kbSearchScope) : Promise.resolve([]),
         isKn0w1 ? fetchKnytLiveContext(typeof personaId === 'string' ? personaId : undefined) : Promise.resolve(undefined),
         isAigentZ
           ? buildAigentZPlatformKnowledge(message, new URL(request.url).origin).catch((err) => {
@@ -3199,7 +3207,7 @@ export async function POST(request: NextRequest) {
         // the Invariant Service, so warm turns cost no extra queries.
         // Enrichment-only — any failure yields null and the turn proceeds.
         initializeKnowledge({
-          domains: [domain, cartridgeContext?.cartridgeSlug].filter(
+          domains: [domain, kbSearchScope].filter(
             (d, i, a): d is string => Boolean(d) && a.indexOf(d) === i,
           ),
         }).catch((err) => {

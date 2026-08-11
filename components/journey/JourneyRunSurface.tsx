@@ -22,7 +22,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, Lock, Loader2, RefreshCw, ExternalLink, Construction, Maximize2, Minimize2, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
+import { Check, Lock, Loader2, RefreshCw, ExternalLink, Construction, Maximize2, Minimize2, ChevronLeft, ChevronRight, ChevronDown, ArrowLeft } from 'lucide-react';
 import { personaFetch } from '@/utils/personaSpine';
 import { buildCodexUrl } from '@/utils/codex-nav';
 import { JOURNEY_SURFACES, buildEmbedSurfaceSrc, type JourneySurfaceDescriptor } from '@/services/journey/journeySurfaceRegistry';
@@ -122,6 +122,12 @@ export interface JourneyRunSurfaceProps {
    * space runs short — this renders as a proper flex sibling instead.
    */
   headerExtra?: React.ReactNode;
+  /** Optional back button callback. When provided, renders a back button
+   * on the left side of the header (after branding) that triggers this
+   * callback. Used when opening an embedded cartridge so users can return
+   * to their previous position in the guide.
+   */
+  onBack?: () => void;
   /** Companion quick-links document.title signal while this stage view is mounted (services/companion/quickLinks.ts). */
   documentTitle?: string;
   /** Per-journey component registry, keyed by journeySurfaceRegistry component name — never shared across journeys. */
@@ -297,6 +303,7 @@ export function JourneyRunSurface({
   personaId,
   headerLabel,
   headerExtra,
+  onBack,
   documentTitle,
   components,
   resolveSurfaceProps,
@@ -710,6 +717,19 @@ export function JourneyRunSurface({
             <img src="/metaMe/metaMe/metame-32.png" alt="" className="h-4 w-4 shrink-0" />
             {headerLabel}
           </div>
+          {onBack && (
+            <>
+              <span className="shrink-0 text-slate-600">·</span>
+              <button
+                type="button"
+                onClick={onBack}
+                className="shrink-0 rounded p-1 text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 transition"
+                title="Back to previous stage"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+              </button>
+            </>
+          )}
           <span className="shrink-0 text-slate-600">·</span>
           <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
             <span className="shrink-0 font-medium text-slate-100">{activeStage.label}</span>
@@ -738,6 +758,19 @@ export function JourneyRunSurface({
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/metaMe/metaMe/metame-32.png" alt="" className="h-4 w-4 shrink-0" />
             {headerLabel}
+            {onBack && (
+              <>
+                <span className="shrink-0 text-slate-600">·</span>
+                <button
+                  type="button"
+                  onClick={onBack}
+                  className="shrink-0 rounded p-1 text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 transition"
+                  title="Back to previous stage"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                </button>
+              </>
+            )}
             <span className="shrink-0 text-slate-600">·</span>
             <span className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-semibold ${accent.chip}`}>{activeIdx + 1}</span>
             <span className="shrink-0 text-xs font-medium text-slate-100">{activeStage.label}</span>

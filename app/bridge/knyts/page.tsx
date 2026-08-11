@@ -86,6 +86,8 @@ export default function KnytsBridgePage() {
   const [personaId, setPersonaId] = useState<string | undefined>(undefined);
   const [adminOpen, setAdminOpen] = useState(false);
   const [copilotOpen, setCopilotOpen] = useState(false);
+  const [previousStageId, setPreviousStageId] = useState<string | undefined>(undefined);
+  const [currentStageId, setCurrentStageId] = useState<string | undefined>(undefined);
   const spine = usePersonaSpine();
 
   // Same pinned-persona read every top-level surface uses as its baseline
@@ -122,6 +124,23 @@ export default function KnytsBridgePage() {
     if (showPassportSignIn) selectStage('passport');
   }, [showPassportSignIn]);
 
+  // Track stage navigation for back button functionality
+  useEffect(() => {
+    const handleStageSelect = (event: Event) => {
+      const customEvent = event as CustomEvent<{ stageId: string }>;
+      setPreviousStageId(currentStageId);
+      setCurrentStageId(customEvent.detail.stageId);
+    };
+    window.addEventListener('journey:select-stage', handleStageSelect);
+    return () => window.removeEventListener('journey:select-stage', handleStageSelect);
+  }, [currentStageId]);
+
+  const handleBack = useCallback(() => {
+    if (previousStageId) {
+      selectStage(previousStageId);
+    }
+  }, [previousStageId]);
+
   const resolveSurfaceProps = useCallback(
     ({ surfaceRef, runtimeState }: Parameters<NonNullable<JourneyRunSurfaceProps['resolveSurfaceProps']>>[0]) => {
       if (surfaceRef.ref === 'knyts-bridge-passport-room') {
@@ -154,6 +173,7 @@ export default function KnytsBridgePage() {
         resolveSurfaceProps={resolveSurfaceProps}
         accent={KNYT_ACCENT}
         compact
+        onBack={handleBack}
         headerLabel={
           <>
             <span className="shrink-0 font-semibold text-slate-100">KNYTS Bridge</span>
@@ -242,6 +262,14 @@ export default function KnytsBridgePage() {
         contextId="knyts-bridge"
         promptPlaceholder="Ask about your crossing..."
         quickPrompts={KNYT_COPILOT_QUICK_PROMPTS}
+        groundContext={{
+          surface: 'knyts-bridge',
+          bridgeTitle: 'The KNYTS Bridge — Threshold Guide',
+          stageContent: KNYTS_BRIDGE_CROSSING_JOURNEY.stages.map(stage => ({
+            stage: stage.stageId,
+            title: stage.stageName,
+          })),
+        }}
       />
     </div>
     {/* Same missing-mount-gate bug identified on /bridge/ci (2026-08-11,
