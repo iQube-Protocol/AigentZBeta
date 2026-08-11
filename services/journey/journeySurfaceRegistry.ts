@@ -259,19 +259,21 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
     kind: 'component',
     component: 'IngestIntoFactoryPanel',
     note:
-      "The Ingest stage's ONE guided action (Horizen Pilot Closure, part 2, operator decision A, " +
+      "Re-homed onto the Activate stage (Activate Consolidation, 2026-08-11) — formerly the Ingest/" +
+      "deploy stage's ONE guided action (Horizen Pilot Closure, part 2, operator decision A, " +
       '2026-08-09, components/journey/IngestIntoFactoryPanel.tsx) — writes the agent-scoped ' +
-      "`capability_registered` receipt via POST /api/journey/moneypenny-horizen/ingest. Mirrors " +
-      "OrientationPanel's observe-then-act shape exactly. Rendered ABOVE 'venture-participate-standing' " +
-      'below, which stays the read-only Ingested Assets evidence catalogue — this panel is the missing ' +
-      'consequential act, never a replacement for that evidence surface.',
+      "`capability_registered` receipt via POST /api/journey/moneypenny-horizen/ingest. No longer " +
+      "gated on Operate. Mirrors OrientationPanel's observe-then-act shape exactly. Rendered ABOVE " +
+      "'venture-participate-standing' below, which stays the read-only iQube Registry evidence " +
+      'catalogue — this panel is the guided act, never a replacement for that evidence surface.',
   },
   'venture-participate-standing': {
     kind: 'component',
     component: 'ParticipationStandingTab',
     note:
-      'The Deploy stage surface: the registry Ingestion Factory ALONE. It was previously paired with ' +
-      'Standing as two tabs here; operator direction 2026-08-02 separated them, so this mount pins ' +
+      'Re-homed onto the Activate stage (Activate Consolidation, 2026-08-11): the registry Ingestion Factory' +
+      ' ALONE. It was previously paired with Standing as two tabs here; operator direction ' +
+      '2026-08-02 separated them, so this mount pins ' +
       "`only: 'registry'` and the tab strip disappears. Standing has its own stage below.",
   },
   'venture-participate-standing-only': {
