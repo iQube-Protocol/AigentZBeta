@@ -69,6 +69,7 @@ import { ConstitutionalInternetBridgePassportRoom } from '@/components/journey/C
 import { ConstitutionalInternetBridgePersonifyMyCanvas } from '@/components/journey/ConstitutionalInternetBridgePersonifyMyCanvas';
 import { ConstitutionalInternetBridgeStandPanel } from '@/components/journey/ConstitutionalInternetBridgeStandPanel';
 import { ConstitutionalInternetBridgeChooseSurface } from '@/components/journey/ConstitutionalInternetBridgeChooseSurface';
+import { ConstitutionalInternetBridgePassportGate } from '@/components/journey/ConstitutionalInternetBridgePassportGate';
 import { KnytsBridgeAdminPanel } from '@/components/journey/KnytsBridgeAdminPanel';
 import { PassportConnectPanel } from '@/components/companion/PassportConnectPanel';
 import { usePassportSignInHost } from '@/app/hooks/usePassportSignInHost';
@@ -113,6 +114,8 @@ export default function ConstitutionalInternetBridgePage() {
   const [personaId, setPersonaId] = useState<string | undefined>(undefined);
   const [copilotOpen, setCopilotOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
+  const [citizenPassportUsable, setCitizenPassportUsable] = useState<boolean | undefined>(undefined);
+  const [showPassportGate, setShowPassportGate] = useState(false);
   const spine = usePersonaSpine();
 
   useEffect(() => {
@@ -129,16 +132,24 @@ export default function ConstitutionalInternetBridgePage() {
 
   const { showPassportSignIn, completeSignIn, dismissSignIn } = usePassportSignInHost('ConstitutionalInternetBridgeFrontDoor');
 
-  // Track stage navigation for back button functionality
+  // Track stage navigation for back button functionality and passport gating
   useEffect(() => {
     const handleStageSelect = (event: Event) => {
       const customEvent = event as CustomEvent<{ stageId: string }>;
+      const targetStageId = customEvent.detail.stageId;
+
+      // Gate: remix and personify require a claimed passport
+      if ((targetStageId === 'personify' || targetStageId === 'remix') && !citizenPassportUsable) {
+        setShowPassportGate(true);
+        return; // Don't advance the stage
+      }
+
       setPreviousStageId(currentStageId);
-      setCurrentStageId(customEvent.detail.stageId);
+      setCurrentStageId(targetStageId);
     };
     window.addEventListener('journey:select-stage', handleStageSelect);
     return () => window.removeEventListener('journey:select-stage', handleStageSelect);
-  }, [currentStageId]);
+  }, [currentStageId, citizenPassportUsable]);
 
   const handleBack = useCallback(() => {
     if (previousStageId) {
@@ -150,8 +161,10 @@ export default function ConstitutionalInternetBridgePage() {
     ({ surfaceRef, runtimeState }: Parameters<NonNullable<JourneyRunSurfaceProps['resolveSurfaceProps']>>[0]) => {
       if (surfaceRef.ref === 'ci-bridge-passport-room') {
         const passportStage = runtimeState?.stages.find((s) => s.stageId === 'passport');
+        const isPassportUsable = passportStage?.evidencePresent.includes('citizenPassportUsable');
+        setCitizenPassportUsable(isPassportUsable);
         return {
-          citizenPassportUsable: passportStage?.evidencePresent.includes('citizenPassportUsable'),
+          citizenPassportUsable: isPassportUsable,
           personaId,
         };
       }
@@ -316,6 +329,16 @@ export default function ConstitutionalInternetBridgePage() {
               excerpt: block.excerpt,
               source: block.excerptSource,
             })),
+          }}
+        />
+
+        {/* Passport gate — blocks access to REMIX/PERSONIFY until passport claimed */}
+        <ConstitutionalInternetBridgePassportGate
+          isOpen={showPassportGate}
+          onDismiss={() => setShowPassportGate(false)}
+          onProceedToPassport={() => {
+            setShowPassportGate(false);
+            selectStage('passport');
           }}
         />
       </div>

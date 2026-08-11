@@ -138,6 +138,8 @@ const QRIPTO_CATEGORIES: {
   { id: 'infographic', label: 'Infographics',  icon: Image,    description: 'Diagrams + visual explainers (SVG / PNG / PDF)',  accept: '.svg,.png,.jpg,.pdf' },
 ];
 
+const QRIPTO_ACCEPT_ALL = '.jpg,.jpeg,.png,.webp,.gif,.pdf,.md,.docx,.txt,.mp4,.webm,.mov,.mp3,.wav,.m4a,.ogg,.svg';
+
 const ASSET_CATEGORIES: {
   id: UploadCategory;
   label: string;
@@ -1096,12 +1098,12 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
               >
                 <Upload className="mb-2 h-8 w-8 text-gray-400" />
                 <p className="text-sm text-white">Click to select files or drag and drop</p>
-                <p className="mt-1 text-xs text-gray-500">Accepted: {currentQriptoOrCanonicalCategory.accept}</p>
+                <p className="mt-1 text-xs text-gray-500">Accepted: images, PDFs, videos, audio, documents</p>
                 <input
                   ref={qriptoFileInputRef}
                   type="file"
                   multiple
-                  accept={currentQriptoOrCanonicalCategory.accept}
+                  accept={QRIPTO_ACCEPT_ALL}
                   onChange={handleQriptoFileSelect}
                   className="hidden"
                 />
