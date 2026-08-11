@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`019eb69`](https://github.com/iQube-Protocol/AigentZBeta/commit/019eb6904b156a1ca5516f7e7bf8fa53bea67155) [feat] data model fix: remove invalid asset kinds, add series_scope, extend series picker for canonical content (Claude, 2026-08-11T22:31:37Z)
+- [`6e2a68b`](https://github.com/iQube-Protocol/AigentZBeta/commit/6e2a68ba69bedb55032b79dc9c99c79975fc7c81) [push] complete phase 1: remove artifact class selector, simplify to series picker (Claude, 2026-08-11T22:35:32Z)
 - [`b8e75f8`](https://github.com/iQube-Protocol/AigentZBeta/commit/b8e75f81939e7d320505467fe63519938e056cd6) [feat] add back button to Horizen MoneyPenny journey in PilotJourneyTab (Claude, 2026-08-11T20:51:03Z)
 - [`d737498`](https://github.com/iQube-Protocol/AigentZBeta/commit/d737498f0e586a7f7ba89388bf440c984de728d8) [feat] add artifact class (canonical/operational) toggle to qriptopian upload modal (Claude, 2026-08-11T20:41:43Z)
 - [`7716251`](https://github.com/iQube-Protocol/AigentZBeta/commit/7716251ff997535f05742532a595b2160f5e784f) [push] improve artifact URL copy affordance in upload modal + redirect Claude Code button to code interface (Claude, 2026-08-11T20:43:21Z)
