@@ -1,4 +1,7 @@
 # Build — Changelog
+- [`a238834`](https://github.com/iQube-Protocol/AigentZBeta/commit/a238834861e84c36af5f3b99ccc744d97a1f1beb) [feat] feat(irl): add risk-field primitives for IDE v2 (Kn0w1, 2026-08-12T13:03:08-04:00)
+- [`be46bc6`](https://github.com/iQube-Protocol/AigentZBeta/commit/be46bc68150c07f10af193ad1dad577bdad9eccc) [test] test(irl): cover IDE v2 risk-field primitives (Kn0w1, 2026-08-12T13:03:24-04:00)
+- [`94b3469`](https://github.com/iQube-Protocol/AigentZBeta/commit/94b3469169fa1e90311a8275c122248338a1d50e) [docs] docs(irl): ground IDE v2 and Crystal vP2 in Lehigh risk research (Kn0w1, 2026-08-12T13:04:29-04:00)
 - [`2b00476`](https://github.com/iQube-Protocol/AigentZBeta/commit/2b00476526c84dbf74db8ba1be33ba2067f00c55) [feat] add diagnostic logging for copilot empty response trace (Claude, 2026-08-12T02:06:58Z)
 - [`dcb6ade`](https://github.com/iQube-Protocol/AigentZBeta/commit/dcb6ade5e62527d5114f919e28f9319fe61f6b4e) [chore] update copilot fallback message to explicit failure state (Claude, 2026-08-12T02:07:12Z)
 - [`8b8f24f`](https://github.com/iQube-Protocol/AigentZBeta/commit/8b8f24f3c074baf4251c3e690b95dae8298ced1d) [feat] canon: add machine-readable bounded-order invariant (Kn0w1, 2026-08-11T21:03:01-04:00)

@@ -4079,3 +4079,18 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-2b00476.md](../build_/COMMITS/COMMIT-2b00476.md)
 - Message: add diagnostic logging for copilot empty response trace
+
+## Commit `94b3469` — 2026-08-12T13:04:29-04:00
+- Type: `docs`
+- Brief: [COMMIT-94b3469.md](../build_/COMMITS/COMMIT-94b3469.md)
+- Message: docs(irl): ground IDE v2 and Crystal vP2 in Lehigh risk research
+
+## Commit `be46bc6` — 2026-08-12T13:03:24-04:00
+- Type: `test`
+- Brief: [COMMIT-be46bc6.md](../build_/COMMITS/COMMIT-be46bc6.md)
+- Message: test(irl): cover IDE v2 risk-field primitives
+
+## Commit `a238834` — 2026-08-12T13:03:08-04:00
+- Type: `feat`
+- Brief: [COMMIT-a238834.md](../build_/COMMITS/COMMIT-a238834.md)
+- Message: feat(irl): add risk-field primitives for IDE v2
