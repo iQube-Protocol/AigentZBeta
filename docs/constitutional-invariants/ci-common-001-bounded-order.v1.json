@@ -6,22 +6,26 @@
   "series": "The Constitutional Internet",
   "status": "ratified",
   "ratifiedAt": "2026-08-11",
-  "canonicalText": "Better to be free in bounded order than in unbound chaos.",
-  "companionText": "Constraint is not the opposite of freedom. Legitimate order is what makes freedom consequentially sustainable.",
-  "lampText": "The lamp is bounded order. Outside it is not freedom, but unbound chaos.",
+  "refinedAt": "2026-08-11",
+  "canonicalText": "It is better to be free in bounded order than captive in unbound chaos.",
+  "supersedesText": "Better to be free in bounded order than in unbound chaos.",
+  "companionText": "Freedom is not the absence of bounds. Freedom is agency within legitimate bounds that prevent arbitrary captivity.",
+  "secondaryCompanionText": "Constraint is not the opposite of freedom. Legitimate order is what makes freedom consequentially sustainable.",
+  "lampText": "The lamp is bounded order. Outside it is not necessarily freedom; it may be captivity in unbound chaos.",
   "governingDistinctions": [
     "The invariant is common to humans and agents at the level of agency, not constitutional status.",
     "A human enters constitutional order as a sovereign person.",
     "An agent enters consequential action through a constitutionally recognizable mandate, authorization, or other ratified basis appropriate to its class.",
     "Bounded order means legitimate, inspectable, attributable, and remediable constitutional bounds; it does not mean arbitrary control.",
+    "Unboundedness is not necessarily freedom; apparent absence of constraint can coexist with practical captivity.",
     "Capability is not authority.",
     "We do not constitutionalize cognition. We constitutionalize consequence."
   ],
   "usageRules": [
-    "Preserve the canonical short form when quoting the invariant.",
+    "Preserve the complete canonical wording, including the opening words 'It is', when quoting the invariant as doctrine.",
+    "Preserve the word 'captive'; it is a substantive part of the invariant, not stylistic decoration.",
     "Do not silently substitute bounded control for bounded order.",
-    "Do not silently substitute anthropomorphic formulations such as enslavement for unbound chaos.",
-    "Treat the invariant as an argument for constitutional order, not control as such."
+    "Treat the invariant as an argument for constitutional order as a condition of meaningful freedom, not control as such."
   ],
   "canonicalRecord": "codexes/packs/polity-core/items/commentary/constitutional-internet/constitutional-rulings/CR-18_bounded-order-common-invariant.md"
 }
