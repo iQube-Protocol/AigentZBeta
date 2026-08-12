@@ -89,6 +89,7 @@ import {
   effectiveStandingReceiptStatuses,
   type StandingEvidenceProjection,
 } from '@/services/journey/standingEvidenceProjection';
+import { assignAgent } from '@/services/identity/personaAssignmentStore';
 
 export const dynamic = 'force-dynamic';
 
@@ -609,9 +610,38 @@ async function resolveState(req: NextRequest) {
         .eq('active', true)
         .maybeSingle();
       if (error) throw new Error(error.message);
-      // Either role counts as "assigned" — aigentMe is a separate designation
-      // layered on TOP of being assigned, never a substitute for it.
-      personaAssignedAsDelegate = Boolean(data && (data.role === 'delegate' || data.role === 'aigentMe'));
+      if (data) {
+        // Either role counts as "assigned" — aigentMe is a separate designation
+        // layered on TOP of being assigned, never a substitute for it.
+        personaAssignedAsDelegate = data.role === 'delegate' || data.role === 'aigentMe';
+      } else if ((receiptRefs['agent_delegated']?.length ?? 0) > 0) {
+        /*
+         * RECONCILE: the delegation ceremony has already occurred (agent_delegated
+         * receipt exists) but the structural assignment row is absent. Write it
+         * idempotently — this aligns the observer with the already-written
+         * canonical delegation acts without re-performing any ceremony.
+         *
+         * Operator instruction (2026-08-12): "Do not ask the operator to delegate
+         * again. Align the observer with the already-written canonical grant/
+         * assignment records." The agent_delegated receipt IS the canonical record.
+         * The assignment row is a structural projection of it, not a separate act.
+         */
+        const result = await assignAgent({
+          personaId: activePersona.personaId,
+          agentRootId,
+          role: 'delegate',
+          ownedPersonaIds: [activePersona.personaId],
+        });
+        if (result.ok) {
+          personaAssignedAsDelegate = true;
+        } else if (result.code === 'not_bound' || result.code === 'migration_pending') {
+          // Soft-fail: agent not in bound roster or table not yet provisioned.
+          // personaAssignedAsDelegate stays false — the stage stays IN_PROGRESS.
+          console.warn('[JOURNEY STATE] persona-assignment reconcile skipped:', result.error);
+        } else {
+          throw new Error(`persona-assignment reconcile: ${result.error}`);
+        }
+      }
     });
     if (supabase) await guarded('authorization-store', async () => {
       authorizationStore = await checkAuthorizationStoreAvailable(supabase);
