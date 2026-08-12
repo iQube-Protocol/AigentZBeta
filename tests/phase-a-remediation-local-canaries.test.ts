@@ -155,7 +155,7 @@ describe('Commit 4 — SmartWallet durable correlation schema seam', () => {
 
   it('migration file for correlation FK exists', () => {
     const migration = readSrc(
-      'supabase/migrations/20260812000000_signing_requests_activity_receipt_correlation.sql',
+      'supabase/migrations/20260930002700_signing_requests_activity_receipt_correlation.sql',
     );
     expect(migration).toMatch(/ADD COLUMN IF NOT EXISTS related_activity_receipt_id/);
     expect(migration).toMatch(/REFERENCES public\.activity_receipts\(id\)/);
