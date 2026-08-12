@@ -72,7 +72,9 @@ import { getActivePersona } from '@/services/identity/getActivePersona';
 import { isPassportUsable, loadUsableCitizenPassportForAuthProfile } from '@/services/identity/passportPrincipal';
 import { readSettledFact, settleFact, isSettled } from '@/services/journey/settledFacts';
 import { REGISTRATION_SEED_STANDING } from '@/services/journey/registrationStandingSeed';
-import { awardRegistrationStandingSeedIfEligible } from '@/services/journey/registrationStandingSeedAward';
+// RETIRED (2026-08-12): awardRegistrationStandingSeedIfEligible — forward rule is
+// "new admission Standing = 0, earned only through consequential contribution"
+// import { awardRegistrationStandingSeedIfEligible } from '@/services/journey/registrationStandingSeedAward';
 import { attemptPnlServiceVerificationIfEligible } from '@/services/horizen/pnlVerificationBoundary';
 import type { discoverAndReceiptPnlServiceEvidence } from '@/services/horizen/pnlServiceVerification';
 import {
@@ -572,29 +574,27 @@ async function resolveState(req: NextRequest) {
      * as an audit gap, never guessed.
      */
     if (supabase) await guarded('standing-seed', async () => {
-      const capabilityReceiptIds = receiptRefs['capability_registered'] ?? [];
-      const activePersona = await getActivePersona(req);
-      if (!activePersona?.personaId) return; // cannot attribute — audit gap, never guessed
-
-      const genuinelyFactoryIngested = capabilityReceiptIds.length > 0;
-      const aigentMeActiveForSeed =
-        (receiptRefs['aigentme_activated']?.length ?? 0) > 0 &&
-        (receiptRefs['experienceqube_focus_disposition_recorded']?.length ?? 0) > 0;
-
-      const outcome = await awardRegistrationStandingSeedIfEligible(supabase, agent, activePersona.personaId, {
-        alreadySeeded: registrationStandingSeeded,
-        factoryIngestedNow: aigentMeActiveForSeed && genuinelyFactoryIngested,
-        evidenceReceiptIds: capabilityReceiptIds,
-      });
-      if (!outcome.awarded) return;
-
-      // Reflected in THIS response without a second round-trip — the fact was
-      // just settled and receipted in this same request, so both
-      // `registrationStandingSeeded` and the `standing_accrued` receiptRef
-      // (which `standingGatewayEnabled` below reads via `hasReceipt`) are
-      // updated together rather than lagging one request behind.
-      registrationStandingSeeded = true;
-      if (outcome.receiptId) (receiptRefs['standing_accrued'] ??= []).push(outcome.receiptId);
+      // RETIRED (2026-08-12): Forward canonical rule (operator ruling 2026-08-09) is
+      // "new admission Standing = 0, earned only through qualifying consequential
+      // contribution". The superseded registration-seed award machinery
+      // (awardRegistrationStandingSeedIfEligible) is preserved as immutable history
+      // and filtered by the correction-aware standing evidence projection
+      // (standingEvidenceProjection.ts), but no new seeds are awarded from this
+      // request forward. Historical seeds remain for audit continuity; they do
+      // not drive present Standing gates.
+      //
+      // Old code paths for reference — DO NOT REACTIVATE WITHOUT OPERATOR APPROVAL:
+      // const capabilityReceiptIds = receiptRefs['capability_registered'] ?? [];
+      // const activePersona = await getActivePersona(req);
+      // if (!activePersona?.personaId) return;
+      // const genuinelyFactoryIngested = capabilityReceiptIds.length > 0;
+      // const aigentMeActiveForSeed =
+      //   (receiptRefs['aigentme_activated']?.length ?? 0) > 0 &&
+      //   (receiptRefs['experienceqube_focus_disposition_recorded']?.length ?? 0) > 0;
+      // const outcome = await awardRegistrationStandingSeedIfEligible(...);
+      // if (!outcome.awarded) return;
+      // registrationStandingSeeded = true;
+      // if (outcome.receiptId) (receiptRefs['standing_accrued'] ??= []).push(...);
     });
     if (supabase) await guarded('persona-assignment', async () => {
       const agentRootId = admission?.agentRootId;
