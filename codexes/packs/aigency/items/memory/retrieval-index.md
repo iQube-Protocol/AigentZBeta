@@ -4094,3 +4094,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-a238834.md](../build_/COMMITS/COMMIT-a238834.md)
 - Message: feat(irl): add risk-field primitives for IDE v2
+
+## Commit `fe16064` — 2026-08-12T13:09:38-04:00
+- Type: `feat`
+- Brief: [COMMIT-fe16064.md](../build_/COMMITS/COMMIT-fe16064.md)
+- Message: feat(invariants): add consequence calibration primitives

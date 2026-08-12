@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-12T17:06:51.017Z",
+  "last_updated": "2026-08-12T17:11:22.027Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "a238834861e84c36af5f3b99ccc744d97a1f1beb",
-  "latest_commit_short": "a238834",
-  "latest_commit_title": "feat(irl): add risk-field primitives for IDE v2",
+  "latest_commit": "fe160647f3f9d28345d77fd4ac72d73195a74136",
+  "latest_commit_short": "fe16064",
+  "latest_commit_title": "feat(invariants): add consequence calibration primitives",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "fe16064",
+      "full_sha": "fe160647f3f9d28345d77fd4ac72d73195a74136",
+      "title": "feat(invariants): add consequence calibration primitives",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-12T13:09:38-04:00",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-fe16064.md"
+    },
     {
       "sha": "a238834",
       "full_sha": "a238834861e84c36af5f3b99ccc744d97a1f1beb",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-08T07:34:57-04:00",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-ad02a1a.md"
-    },
-    {
-      "sha": "ccb537f",
-      "full_sha": "ccb537f8629d9ea32d82e09e3ea2effa54b5f480",
-      "title": "Add proof_of_state_v2 Candid parity canary",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-08T07:35:15-04:00",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-ccb537f.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
