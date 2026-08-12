@@ -4069,3 +4069,13 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-8b8f24f.md](../build_/COMMITS/COMMIT-8b8f24f.md)
 - Message: canon: add machine-readable bounded-order invariant
+
+## Commit `dcb6ade` — 2026-08-12T02:07:12Z
+- Type: `chore`
+- Brief: [COMMIT-dcb6ade.md](../build_/COMMITS/COMMIT-dcb6ade.md)
+- Message: update copilot fallback message to explicit failure state
+
+## Commit `2b00476` — 2026-08-12T02:06:58Z
+- Type: `feat`
+- Brief: [COMMIT-2b00476.md](../build_/COMMITS/COMMIT-2b00476.md)
+- Message: add diagnostic logging for copilot empty response trace

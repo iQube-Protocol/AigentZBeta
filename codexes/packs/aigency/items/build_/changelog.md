@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`2b00476`](https://github.com/iQube-Protocol/AigentZBeta/commit/2b00476526c84dbf74db8ba1be33ba2067f00c55) [feat] add diagnostic logging for copilot empty response trace (Claude, 2026-08-12T02:06:58Z)
+- [`dcb6ade`](https://github.com/iQube-Protocol/AigentZBeta/commit/dcb6ade5e62527d5114f919e28f9319fe61f6b4e) [chore] update copilot fallback message to explicit failure state (Claude, 2026-08-12T02:07:12Z)
 - [`8b8f24f`](https://github.com/iQube-Protocol/AigentZBeta/commit/8b8f24f3c074baf4251c3e690b95dae8298ced1d) [feat] canon: add machine-readable bounded-order invariant (Kn0w1, 2026-08-11T21:03:01-04:00)
 - [`581418d`](https://github.com/iQube-Protocol/AigentZBeta/commit/581418d8e1048a41432b785b892a3db08c8f076c) [push] trigger deploy: CI Bridge final correction pass (passport gate + choose consolidation) (Claude, 2026-08-11T23:40:14Z)
 - [`ecbdd8b`](https://github.com/iQube-Protocol/AigentZBeta/commit/ecbdd8bd27d1c62aa280ac695cb67622987ae5a9) [push] phase 4.1: consolidate choose ctAs into destination cards (Claude, 2026-08-11T22:48:22Z)
