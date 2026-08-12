@@ -51,6 +51,7 @@ import {
   resolveCitizenStepAfterAccountCreation,
   resolveDelegateStepAfterClassChoice,
   wizardSteps,
+  hasApprovedCitizenApplication,
   type StepId,
   type PassportClass,
 } from '@/services/passport/passportWizardSteps';
@@ -185,19 +186,32 @@ interface PassportBureauApplyTabProps {
    */
   routeTo?: 'citizen' | 'delegate';
   /**
-   * CFS-055 coherence pass (2026-08-12) — the SMALLEST outward signal this
-   * component gives when it has just witnessed a consequential Passport
-   * state change (either `/api/passport/usable-status` positively
-   * confirming an existing usable Citizen Passport, or a fresh application
-   * being submitted/claimed inside this same wizard). This callback carries
-   * NO payload and asserts NOTHING — it never passes `true` upward as
-   * constitutional truth. The caller's own job is to turn it into a request
-   * that the enclosing Journey observer reread authoritative state (e.g.
-   * `JourneyRunSurface`'s `requestStateRefresh()`, threaded down through
-   * `resolveSurfaceProps`) — this component has no opinion on HOW that
-   * happens, and never mutates any stage's completion itself. Optional:
-   * every caller that doesn't pass it (standalone Bureau access, Horizen's
-   * PilotJourneyTab) is unaffected.
+   * CFS-055 coherence pass (2026-08-12, second invocation wired 2026-08-13)
+   * — the SMALLEST outward signal this component gives when it has just
+   * witnessed a consequential Passport state change. TWO real call sites,
+   * both positive confirmations, never a proxy for one:
+   *
+   *   1. Account-step sign-in (Bureau OR wallet auth) — `/api/passport/
+   *      usable-status` positively confirms an EXISTING usable Citizen
+   *      Passport for the now-authenticated caller.
+   *   2. In-flow issuance — `applications` (populated by the existing
+   *      `loadStatus()`) shows a citizen application that has moved to
+   *      `applicationStatus === 'approved'` (`hasApprovedCitizenApplication`,
+   *      services/passport/passportWizardSteps.ts) — the exact moment
+   *      services/passport/issuanceService.ts issues the citizen record
+   *      with `citizen_status: 'active'`. Mere SUBMISSION
+   *      (`applicationStatus === 'submitted'`) never fires this — that is
+   *      not issuance, and firing on it would be exactly the premature
+   *      signal this callback exists to avoid.
+   *
+   * This callback carries NO payload and asserts NOTHING — it never passes
+   * `true` upward as constitutional truth. The caller's own job is to turn
+   * it into a request that the enclosing Journey observer reread
+   * authoritative state (e.g. `JourneyRunSurface`'s `requestStateRefresh()`,
+   * threaded down through `resolveSurfaceProps`) — this component has no
+   * opinion on HOW that happens, and never mutates any stage's completion
+   * itself. Optional: every caller that doesn't pass it (standalone Bureau
+   * access, Horizen's PilotJourneyTab) is unaffected.
    */
   onUsablePassportDetected?: () => void;
 }
@@ -580,6 +594,35 @@ export function PassportBureauApplyTab({
   const [citizenJustSubmitted, setCitizenJustSubmitted] = useState(false);
   const [continuationDismissed, setContinuationDismissed] = useState(false);
   const turnstileRef = useRef<HTMLDivElement | null>(null);
+
+  /*
+   * SECOND onUsablePassportDetected INVOCATION (CFS-055 coherence pass,
+   * 2026-08-13) — the in-flow completion path this callback's own doc
+   * comment already promised. `applications` is populated by the EXISTING
+   * `loadStatus()` (called at session restore, after Account, and after
+   * Submit — no new fetch introduced here). Whenever it comes back
+   * showing a citizen application that has moved to 'approved' —
+   * `hasApprovedCitizenApplication`'s exact predicate, which is NEVER true
+   * for 'submitted'/'pending_approval'/'needs_more_information'/'denied'
+   * — that is the canonical, positive confirmation that a Citizen Passport
+   * was just issued (services/passport/issuanceService.ts sets
+   * `citizen_status: 'active'` at the SAME moment a steward's decision
+   * sets `application_status: 'approved'`). Fires at most once per mount
+   * (the ref guards against re-firing on every subsequent loadStatus()
+   * call once already detected), after the same ~500ms confirmation
+   * interval as the Account-step invocation, and never mutates any
+   * journey/stage state itself — it only asks, exactly like the other
+   * invocation.
+   */
+  const approvedCitizenNotifiedRef = useRef(false);
+  useEffect(() => {
+    if (approvedCitizenNotifiedRef.current) return;
+    if (!hasApprovedCitizenApplication(applications)) return;
+    approvedCitizenNotifiedRef.current = true;
+    if (onUsablePassportDetected) {
+      setTimeout(() => onUsablePassportDetected(), 500);
+    }
+  }, [applications, onUsablePassportDetected]);
 
   // Render the Turnstile challenge when the citizen submit panel mounts
   // and a site key is configured. Loads the script once; cleans up the

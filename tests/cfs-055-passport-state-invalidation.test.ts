@@ -34,6 +34,7 @@ import { describe, it, expect } from 'vitest';
 import { resolveJourneyState, type AuthoritativePlatformState } from '@/services/journey/resolveJourneyState';
 import { KNYTS_BRIDGE_CROSSING_JOURNEY } from '@/services/journey/knytsBridgeCrossingJourney';
 import { CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY } from '@/services/journey/constitutionalInternetBridgeJourney';
+import { hasApprovedCitizenApplication } from '@/services/passport/passportWizardSteps';
 import { readSource, stripComments } from './_lib/sourceAuthority';
 
 function stageState(runtimeState: ReturnType<typeof resolveJourneyState>, stageId: string) {
@@ -200,5 +201,33 @@ describe('Structural canary — Stand gates on Passport alone, on BOTH bridges (
     const personify = CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY.stages.find((s) => s.id === 'personify');
     expect(personify).toBeTruthy();
     expect(personify?.prerequisites).toEqual(['passport']);
+  });
+});
+
+describe('BEHAVIORAL — new-user same-session issuance never fires early, fires exactly on approval (2026-08-13 follow-up)', () => {
+  it('a brand-new applicant\'s applications progress from none -> submitted -> approved; only the last state confirms usability', () => {
+    // Same-session, new-user progression through PassportBureauApplyTab's
+    // OWN `applications` shape (populated by its existing loadStatus()):
+    // no application yet, then a fresh submission, then — later in the
+    // same session — the steward's approval landing on a subsequent
+    // loadStatus() read. hasApprovedCitizenApplication is the exact
+    // predicate the component's second onUsablePassportDetected call site
+    // gates on; driven here with the real function against realistic data.
+    const beforeAnyApplication: Array<{ passportClass: string; applicationStatus: string }> = [];
+    expect(hasApprovedCitizenApplication(beforeAnyApplication)).toBe(false);
+
+    const justSubmitted = [{ passportClass: 'citizen', applicationStatus: 'submitted' }];
+    expect(hasApprovedCitizenApplication(justSubmitted)).toBe(false);
+
+    const stillUnderReview = [{ passportClass: 'citizen', applicationStatus: 'pending_approval' }];
+    expect(hasApprovedCitizenApplication(stillUnderReview)).toBe(false);
+
+    const nowApproved = [{ passportClass: 'citizen', applicationStatus: 'approved' }];
+    expect(hasApprovedCitizenApplication(nowApproved)).toBe(true);
+
+    // A Participant/Delegate application reaching 'approved' must never be
+    // mistaken for Citizen issuance — Human Personhood Exclusivity holds.
+    const approvedButParticipant = [{ passportClass: 'participant', applicationStatus: 'approved' }];
+    expect(hasApprovedCitizenApplication(approvedButParticipant)).toBe(false);
   });
 });
