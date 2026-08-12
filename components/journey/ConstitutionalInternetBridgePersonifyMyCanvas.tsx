@@ -32,6 +32,15 @@
  * from the Passport-room surface's own resolveJourneyState read — never
  * inferred from `personaId`, which only proves sign-in, not a claimed
  * Passport). `undefined` (not yet resolved) is treated as NOT usable.
+ *
+ * GATE DISMISSAL (2026-08-12, gating polish pass) — the secondary button
+ * reads "Later", not "Back", and NEVER navigates: dismissing only hides the
+ * modal overlay (local `gateOpen` state), leaving the visitor exactly where
+ * they were — on Personify, looking at the public metaMe surface already
+ * mounted behind the gate. `selectStage('view')` was the prior behavior and
+ * is wrong: "Later" is not a page-navigation action, it is "not now" for
+ * this one modal. MyCanvas/personification stays unmounted regardless
+ * (`passportUsable` still gates `src`, independent of `gateOpen`).
  */
 
 import { useEffect, useState } from 'react';
@@ -59,8 +68,16 @@ export function ConstitutionalInternetBridgePersonifyMyCanvas({ personaId, citiz
   const [publicSrc, setPublicSrc] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [pendingRemix] = useState(() => takeCiBridgeRemixIntent());
+  const [gateOpen, setGateOpen] = useState(true);
 
   const passportUsable = citizenPassportUsable === true;
+
+  // Fresh gate on every entry into the not-usable state (e.g. the visitor
+  // left Personify and came back) — "Later" dismisses THIS visit, not
+  // forever.
+  useEffect(() => {
+    if (!passportUsable) setGateOpen(true);
+  }, [passportUsable]);
 
   useEffect(() => {
     // Not usable — do NOT build/mount the myCanvas src at all (fail closed).
@@ -104,9 +121,10 @@ export function ConstitutionalInternetBridgePersonifyMyCanvas({ personaId, citiz
           <iframe src={publicSrc} title="metaMe" className="h-full w-full border-0" />
         )}
         <ConstitutionalInternetBridgePassportGate
-          isOpen
-          onDismiss={() => selectStage('view')}
+          isOpen={gateOpen}
+          onDismiss={() => setGateOpen(false)}
           onProceedToPassport={() => selectStage('passport')}
+          dismissLabel="Later"
         />
       </div>
     );

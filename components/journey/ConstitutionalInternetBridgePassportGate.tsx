@@ -20,12 +20,23 @@ interface ConstitutionalInternetBridgePassportGateProps {
   isOpen: boolean;
   onDismiss: () => void;
   onProceedToPassport: () => void;
+  /**
+   * Secondary-button label (2026-08-12, gating polish pass). Defaults to
+   * 'Back' — the page-level mount (app/bridge/ci/page.tsx) keeps that
+   * wording unchanged. Personify's own mount passes 'Later': there,
+   * dismissing the gate must NEVER read as "navigate back" — it stays on
+   * Personify and simply reveals the public metaMe surface already
+   * mounted behind the gate. The label is the only thing this prop
+   * changes; `onDismiss`'s actual behavior is entirely the caller's.
+   */
+  dismissLabel?: string;
 }
 
 export function ConstitutionalInternetBridgePassportGate({
   isOpen,
   onDismiss,
   onProceedToPassport,
+  dismissLabel = 'Back',
 }: ConstitutionalInternetBridgePassportGateProps) {
   if (!isOpen) return null;
 
@@ -75,7 +86,7 @@ export function ConstitutionalInternetBridgePassportGate({
             onClick={onDismiss}
             className="rounded-lg border border-slate-800 px-4 py-2 text-sm text-slate-400 transition hover:border-slate-700 hover:text-slate-200"
           >
-            Back
+            {dismissLabel}
           </button>
         </div>
       </div>

@@ -220,16 +220,21 @@ export default function ConstitutionalInternetBridgePage() {
           compact
           onBack={handleBack}
           distinguishAvailableStages
-          // CI-specific presentation seam (forensic correction pass,
-          // 2026-08-12) — see JourneyRunSurface's emphasizeAvailableStage
-          // doc. Home/View/Orient are never gated, so they keep the emerald
-          // "available now" look. Personify/Stand/Choose are only truly
-          // reachable once Passport is claimed; before that, painting them
-          // emerald falsely reads as "constitutionally established". Passport
-          // itself is unaffected — its color comes from isDone/isCurrent, not
-          // this callback.
+          // CI-specific presentation seam (gating polish pass, 2026-08-12) —
+          // see JourneyRunSurface's emphasizeAvailableStage doc. Home/View/
+          // Orient/Choose are all available WITHOUT a Passport — none of
+          // them require personhood merely to be explored, so all four keep
+          // the emerald "available now" look. Personify and Stand alone are
+          // personhood-bound (MyCanvas/Standing require a claimed Passport);
+          // before that, painting THEM emerald falsely reads as
+          // "constitutionally established". Choose was wrongly included in
+          // this branch in the prior pass — Continue reading / Meet aigentMe
+          // / Join IRL / Partner with metaMe / Share the Bridge are all
+          // selectable without a Passport, so Choose must never depend on
+          // citizenPassportUsable. Passport itself is unaffected — its color
+          // comes from isDone/isCurrent, not this callback.
           emphasizeAvailableStage={(stageId) => {
-            if (stageId === 'personify' || stageId === 'stand' || stageId === 'choose') {
+            if (stageId === 'personify' || stageId === 'stand') {
               return citizenPassportUsable === true;
             }
             return true;

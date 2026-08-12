@@ -86,6 +86,17 @@ function scopeOrderIndex(scope: string): number {
 
 const COVER_KINDS = new Set(['cover_image', 'cover_pdf']);
 
+// Consumer-facing projection hygiene (2026-08-12) — Protocols cards are
+// UUID-titled, cover-less, non-publication-ready assets (see
+// canonicalPlateImages.ts's own header: these are the seven canonical CIP
+// plates, uploaded under papers/protocols by filename accident, not real
+// papers). They must never surface in the public Qriptopian Codex. This
+// hides them from the `papers` array ONLY — the underlying
+// codex_media_assets rows are untouched, and `assets` (the admin/dev
+// listing QriptopianAdminTab reads) still includes them so admin/upload
+// surfaces retain full visibility.
+const CONSUMER_HIDDEN_SCOPES = new Set(['papers/protocols']);
+
 /**
  * Parse the series scope out of a storage URL like
  *   .../codex/assets/qriptopian/background_lore_doc/papers-polity_1779846543025.pdf
@@ -235,6 +246,11 @@ export async function GET(req: NextRequest) {
 
     const papers: PaperCard[] = [];
     for (const [scope, bucket] of buckets) {
+      // Consumer projection only — `assets` (built above, from the SAME
+      // `buckets` map) already captured every row for admin/dev visibility
+      // before this skip, so hiding a scope here never touches that.
+      if (CONSUMER_HIDDEN_SCOPES.has(scope)) continue;
+
       const imageCovers = bucket.covers
         .filter((c) => (c.mime_type || '').startsWith('image/'))
         .sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? ''));
