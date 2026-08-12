@@ -58,9 +58,13 @@ describe('the corpus is derived from the agent, never pinned to KNYT', () => {
     // The fix must not strip KNYT surfaces of their legitimate grounding.
     // KnytTab and friends send no `domain` either, so the derivation has to
     // carry them, or "fixing" the leak would break the cartridge it came from.
+    // Variable renamed resolvedAgentForFetch -> resolvedAgentId (2026-08-12
+    // closure pass, item 5A) when agent+domain resolution was hoisted above
+    // userContext construction — same derivation, same formula, one binding
+    // used everywhere instead of two independently-computed copies.
     const code = stripComments(readSource(ROUTE));
     expect(code).toMatch(
-      /KNYT_FOCUSED_AGENTS\.has\(resolvedAgentForFetch\) \? 'metaKnyts' : 'protocol'/,
+      /KNYT_FOCUSED_AGENTS\.has\(resolvedAgentId\) \? 'metaKnyts' : 'protocol'/,
     );
   });
 

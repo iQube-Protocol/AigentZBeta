@@ -2916,6 +2916,27 @@ export async function POST(request: NextRequest) {
     // Infer primary role from message and declared roles
     const primaryRole = inferPrimaryRole(message, declaredRoles);
 
+    // Effective agent + effective domain — resolved ONCE, here, before
+    // userContext is constructed (fixed 2026-08-12: `domain` was referenced
+    // in the userContext literal below and in the log line immediately
+    // after it, but was only ever DECLARED later, inside the non-composer
+    // `else` branch — a block scoped after and separate from this point, so
+    // TypeScript could not even see a `domain` binding here at all
+    // (`TS18004: No value exists in scope for the shorthand property
+    // 'domain'`). That made every request — composer or not — throw before
+    // reaching KB search, ontology resolution, or provider routing; the
+    // 500 was a crash on this line, not a model or grounding failure. The
+    // later `const resolvedAgentId` (used throughout the rest of the
+    // handler for provider routing) computed the identical agent value a
+    // second time — hoisting collapses both to one binding, used
+    // everywhere, so composer mode gets a valid domain too.
+    const resolvedAgentId =
+      (typeof aigentId === 'string' && normalizeAgentId(aigentId)) ||
+      defaultAgentIdForPersona(persona);
+    const domain: ContentDomain =
+      (requestedDomain as ContentDomain | undefined) ??
+      (KNYT_FOCUSED_AGENTS.has(resolvedAgentId) ? 'metaKnyts' : 'protocol');
+
     // Build user context (includes metaMe policy settings when provided)
     const userContext: UserContext = {
       domain,
@@ -3031,6 +3052,16 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Declared here (not `const` inside the else branch below) so the
+    // diagnostic checkpoint after the branch — which needs to report the
+    // scope a KB search actually ran with — can read it without a second
+    // out-of-scope reference (2026-08-12 fix: this was ALSO referenced out
+    // of scope, same class of bug as `domain` above, and would throw for
+    // any message containing "personhood"/"identity" even after the
+    // `domain` crash was fixed). Composer mode never sets it; stays
+    // undefined there, which the checkpoint logs plainly.
+    let kbSearchScope: string | undefined;
+
     if (isComposerMode) {
       systemPrompt = buildComposerSystemPrompt(composerSessionContext as ComposerSessionContext);
       // The composer builds its prompt on a different path, which is exactly
@@ -3101,19 +3132,11 @@ export async function POST(request: NextRequest) {
         }
       }
     } else {
-      const resolvedAgentForFetch = (typeof aigentId === 'string' && normalizeAgentId(aigentId)) || defaultAgentIdForPersona(persona);
-      const isKn0w1 = resolvedAgentForFetch === 'aigent-kn0w1';
-      // The corpus a turn is grounded on. An explicit `domain` from the client
-      // always wins; otherwise it is DERIVED from the agent. KNYT-focused
-      // agents get the KNYT corpus (which is correct and is what KnytTab and
-      // friends relied on when they sent no domain); everyone else gets
-      // 'protocol', whose branch returns an empty content scaffold so the LLM
-      // uses persona + cartridge context instead of someone else's lore.
-      const domain: ContentDomain =
-        (requestedDomain as ContentDomain | undefined) ??
-        (KNYT_FOCUSED_AGENTS.has(resolvedAgentForFetch) ? 'metaKnyts' : 'protocol');
-      const isAigentMe = resolvedAgentForFetch === 'aigent-me';
-      const isAigentZ = resolvedAgentForFetch === 'aigent-z';
+      // resolvedAgentId + domain are the SAME hoisted bindings from above
+      // (no shadowing, no second source of truth — see the fix note there).
+      const isKn0w1 = resolvedAgentId === 'aigent-kn0w1';
+      const isAigentMe = resolvedAgentId === 'aigent-me';
+      const isAigentZ = resolvedAgentId === 'aigent-z';
       const activeSkill = isKn0w1 ? detectSkillIntent(message) : null;
       const needsProtocolKB = isProtocolQuery(message);
 
@@ -3174,7 +3197,7 @@ export async function POST(request: NextRequest) {
       // state, and aigent-z platform knowledge + stage ground data in parallel
       // KB search scope — use cartridge context if available, fall back to contextId
       // (e.g. "ci-bridge" for Constitutional Internet Bridge) for journey surfaces
-      const kbSearchScope = cartridgeContext?.cartridgeSlug || (typeof contextId === 'string' ? contextId : undefined);
+      kbSearchScope = cartridgeContext?.cartridgeSlug || (typeof contextId === 'string' ? contextId : undefined);
 
       const [resolvedMetadata, resolvedKbResults, resolvedProtocolResults, resolvedLiveContext, resolvedPlatformKnowledge, resolvedStageGroundData, resolvedKnowledgeInit, resolvedOntology] = await Promise.all([
         fetchCodexMetadata(domain),
@@ -3303,9 +3326,8 @@ export async function POST(request: NextRequest) {
 
     const requestedProviderId = normalizeRuntimeProviderId(provider_id);
     const requestedModelId = typeof llm_id === 'string' ? llm_id : null;
-    const resolvedAgentId =
-      (typeof aigentId === 'string' && normalizeAgentId(aigentId)) ||
-      defaultAgentIdForPersona(persona);
+    // resolvedAgentId is the SAME hoisted binding from above — no second
+    // computation (removed duplicate 2026-08-12).
     const providerAvailability = getProviderAvailability();
     const { attempts: providerAttempts, skipped: skippedProviders } = buildProviderAttempts(
       requestedProviderId,
@@ -3322,7 +3344,8 @@ export async function POST(request: NextRequest) {
         requestedModelId,
         providerAttempts: providerAttempts.map(a => `${a.providerId}/${a.modelId}`),
         kbSearchScope,
-        domain: !isComposerMode && resolvedAgentId ? (KNYT_FOCUSED_AGENTS.has(resolvedAgentId) ? 'metaKnyts' : 'protocol') : 'N/A',
+        domain,
+        isComposerMode,
       });
     }
 
