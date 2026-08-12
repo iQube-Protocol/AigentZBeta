@@ -4064,3 +4064,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-581418d.md](../build_/COMMITS/COMMIT-581418d.md)
 - Message: trigger deploy: CI Bridge final correction pass (passport gate + choose consolidation)
+
+## Commit `8b8f24f` — 2026-08-11T21:03:01-04:00
+- Type: `feat`
+- Brief: [COMMIT-8b8f24f.md](../build_/COMMITS/COMMIT-8b8f24f.md)
+- Message: canon: add machine-readable bounded-order invariant
