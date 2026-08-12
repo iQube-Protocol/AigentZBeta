@@ -91,8 +91,15 @@ describe('Register ceremony replay — state route projection: two authority tie
 describe('Register ceremony replay — wiring: one canonical projection, no second computation', () => {
   it('JourneyRunSurface fetches registerCeremony ONCE from /state and threads it through resolveSurfaceProps — same discipline as ratifySubPredicates', () => {
     expect(journeyRunSurface).toMatch(/setRegisterCeremony\(\(json\.registerCeremony as typeof registerCeremony\) \?\? null\)/);
-    expect(journeyRunSurface).toMatch(
-      /resolveSurfaceProps\?\.\(\{ surfaceRef, descriptor, stage: activeStage, runtimeState, pnlEvidence, ratifySubPredicates, registerCeremony \}\)/,
-    );
+    // CFS-055 coherence pass (2026-08-12) reformatted the call onto multiple
+    // lines and added requestStateRefresh alongside these fields — still
+    // the ONE call site, still every field present.
+    const callIdx = journeyRunSurface.indexOf('resolveSurfaceProps?.({');
+    expect(callIdx, 'resolveSurfaceProps call site not found').toBeGreaterThan(-1);
+    const callEnd = journeyRunSurface.indexOf('}) ?? {};', callIdx);
+    const call = journeyRunSurface.slice(callIdx, callEnd);
+    for (const field of ['surfaceRef', 'descriptor', 'stage: activeStage', 'runtimeState', 'pnlEvidence', 'ratifySubPredicates', 'registerCeremony']) {
+      expect(call, `${field} missing from the ONE resolveSurfaceProps call`).toContain(field);
+    }
   });
 });

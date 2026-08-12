@@ -63,7 +63,12 @@ describe('KNYTS stepper — Remix/Stand gated on citizenPassportUsable, mirrorin
 
   it('resolveSurfaceProps threads citizenPassportUsable into the passport room and remix surface', () => {
     const code = stripComments(readSource(PAGE));
-    expect(code).toContain("setCitizenPassportUsable(isPassportUsable)");
+    // CFS-055 coherence pass (2026-08-12): citizenPassportUsable is now
+    // derived from the WHOLE runtimeState via onRuntimeStateChange, never
+    // discovered as a resolveSurfaceProps side effect — see the dedicated
+    // state-coherence test file for the full canary set.
+    expect(code).toContain('onRuntimeStateChange={handleRuntimeStateChange}');
+    expect(code).not.toContain('setCitizenPassportUsable(isPassportUsable)');
   });
 });
 

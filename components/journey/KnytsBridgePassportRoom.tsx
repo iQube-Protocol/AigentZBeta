@@ -49,6 +49,17 @@ interface Props {
    *  treated the same as "not yet established" so the claim flow is always
    *  the safe default until evidence says otherwise. */
   citizenPassportUsable?: boolean;
+  /**
+   * CFS-055 coherence pass (2026-08-12) — threaded straight from
+   * JourneyRunSurface's `resolveSurfaceProps` seam (`requestStateRefresh`).
+   * Passed to PassportBureauApplyTab as `onUsablePassportDetected` so that
+   * when the Bureau discovers an existing usable Citizen Passport (wallet
+   * auth sign-in), the enclosing observer rereads authoritative state —
+   * this room never sets `citizenPassportUsable` itself, and never advances
+   * the stage; the Journey's own next `/state` read is what flips this
+   * room from the claim branch to the established branch below.
+   */
+  requestStateRefresh?: () => void;
 }
 
 function selectStage(stageId: string) {
@@ -59,7 +70,7 @@ function selectStage(stageId: string) {
   }
 }
 
-export function KnytsBridgePassportRoom({ personaId, citizenPassportUsable }: Props) {
+export function KnytsBridgePassportRoom({ personaId, citizenPassportUsable, requestStateRefresh }: Props) {
   const [noticeDismissed, setNoticeDismissed] = useState(false);
   const [config, setConfig] = useState<KnytsBridgeEditorialSection>(KNYTS_BRIDGE_SECTION_DEFAULTS[SECTION]);
   const [fullscreenImage, setFullscreenImage] = useState(false);
@@ -96,7 +107,11 @@ export function KnytsBridgePassportRoom({ personaId, citizenPassportUsable }: Pr
             account | Sign in) when signed out, or straight to Personhood
             binding when a Bureau session already exists. No new deep-link
             parameter, no fork — the same prop the Bureau already supports. */}
-        <PassportBureauApplyTab personaId={personaId} routeTo="citizen" />
+        <PassportBureauApplyTab
+          personaId={personaId}
+          routeTo="citizen"
+          onUsablePassportDetected={requestStateRefresh}
+        />
       </div>
     );
   }

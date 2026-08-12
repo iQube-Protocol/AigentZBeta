@@ -23,7 +23,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, Lock, Loader2, RefreshCw, ExternalLink, Construction, Maximize2, Minimize2, ChevronLeft, ChevronRight, ChevronDown, ArrowLeft } from 'lucide-react';
-import { personaFetch } from '@/utils/personaSpine';
+import { personaFetch, usePersonaSpine } from '@/utils/personaSpine';
 import { buildCodexUrl } from '@/utils/codex-nav';
 import { JOURNEY_SURFACES, buildEmbedSurfaceSrc, type JourneySurfaceDescriptor } from '@/services/journey/journeySurfaceRegistry';
 import { requestBridgeEmbedReturn } from '@/services/journey/bridgeEmbedNav';
@@ -153,6 +153,19 @@ export interface JourneyRunSurfaceProps {
      * "not known yet", never as a negative finding.
      */
     runtimeState: JourneyRuntimeState | null;
+    /**
+     * CFS-055 state-coherence seam (2026-08-12) — the ONLY way a rendered
+     * surface may ask the observer to reread authoritative state after a
+     * consequential change it just witnessed (e.g. Passport Bureau
+     * discovering a usable Citizen Passport via wallet auth). Calling this
+     * re-runs the SAME `refresh()` this file already uses for its own
+     * mount/manual-refresh paths — never a second fetch mechanism, never a
+     * local stage-completion shortcut. A surface must not, and cannot
+     * through this seam, set any stage's evidence/completion itself: the
+     * flow is always request → `stateUrl` → resolveJourneyState → new
+     * `runtimeState` → every projection updates from that one read.
+     */
+    requestStateRefresh: () => void;
     /**
      * P&L evidence (Final Horizen Projection Reconciliation part 2/3,
      * 2026-08-09) — the SAME canonical-receipt-backed facts `runtimeState`
@@ -307,6 +320,23 @@ export interface JourneyRunSurfaceProps {
    * gates `selectStage`, only the icon/label color.
    */
   emphasizeAvailableStage?: (stageId: string) => boolean;
+  /**
+   * Read-only state projection seam (CFS-055 coherence pass, 2026-08-12) —
+   * fired with the freshly-resolved `runtimeState` every time a `refresh()`
+   * (initial load, manual refresh, persona-spine-transition reread, or a
+   * surface's own `requestStateRefresh()`) completes successfully. Lets a
+   * caller derive a single page-level presentation/gating value from the
+   * WHOLE resolved state, regardless of which stage happens to be active —
+   * the fix for deriving it only while one particular stage's surface was
+   * mounted (brittle: state coherence then depended on which surface
+   * happened to be on screen). Never fired with `null` — a caller that
+   * needs the loading/not-yet-known case should track that separately, the
+   * same way `runtimeState === null` already means "not known yet" inside
+   * this file. Read-only: this callback cannot feed anything back into the
+   * observer — it is fed FROM it, one-way, same as `resolveSurfaceProps`'s
+   * own `runtimeState` argument.
+   */
+  onRuntimeStateChange?: (state: JourneyRuntimeState) => void;
 }
 
 const DEFAULT_ACCENT = {
@@ -331,6 +361,7 @@ export function JourneyRunSurface({
   compact = false,
   distinguishAvailableStages = false,
   emphasizeAvailableStage,
+  onRuntimeStateChange,
 }: JourneyRunSurfaceProps) {
   const [runtimeState, setRuntimeState] = useState<JourneyRuntimeState | null>(null);
   /**
@@ -507,6 +538,55 @@ export function JourneyRunSurface({
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  /**
+   * CFS-055 coherence pass (2026-08-12) — "Observer observes → POSIT
+   * resolves → projection represents." A surface may WITNESS a
+   * consequential state change (Passport Bureau discovering a usable
+   * Citizen Passport via wallet auth) but must never become a competing
+   * constitutional state engine — it can only ask the observer to reread.
+   * `requestStateRefresh` (threaded into `resolveSurfaceProps` below) is
+   * that ask; this callback is the read-only side, firing with the
+   * freshly-resolved state after every successful refresh so a caller can
+   * derive one page-level value from the WHOLE state rather than only
+   * while one particular stage's surface happens to be mounted. Never
+   * fired with `null` — `runtimeState` starts null only during the very
+   * first load, before this effect has anything to report.
+   */
+  useEffect(() => {
+    if (runtimeState) onRuntimeStateChange?.(runtimeState);
+  }, [runtimeState, onRuntimeStateChange]);
+
+  /**
+   * Persona Spine transition → authoritative reread (CFS-055 coherence
+   * pass, 2026-08-12). Consumes the EXISTING Persona Spine singleton
+   * (utils/personaSpine.tsx) — never a second Supabase auth observer.
+   * `usePersonaSpine()` is safe to call again here: the module is a
+   * dedicated single-flight store, so this join costs no extra request
+   * beyond whatever the rest of the tree already triggered.
+   *
+   * Only the UNAUTHENTICATED <-> READY/REFRESHING boundary reruns the
+   * journey read — transiting through 'loading'/'idle'/'error' on its own
+   * triggers nothing, and the very first observation (ref still null) is
+   * the initial mount, not a transition, so it must not double the
+   * mount-time refresh() above.
+   */
+  const { status: personaSpineStatus } = usePersonaSpine();
+  const previousPersonaSpineStatusRef = useRef<string | null>(null);
+  useEffect(() => {
+    const previous = previousPersonaSpineStatusRef.current;
+    if (previous !== null) {
+      const isAuthenticated = (s: string) => s === 'ready' || s === 'refreshing';
+      const cameFromUnauthenticated = previous === 'unauthenticated';
+      const cameFromAuthenticated = isAuthenticated(previous);
+      const nowAuthenticated = isAuthenticated(personaSpineStatus);
+      const nowUnauthenticated = personaSpineStatus === 'unauthenticated';
+      if ((cameFromUnauthenticated && nowAuthenticated) || (cameFromAuthenticated && nowUnauthenticated)) {
+        void refresh();
+      }
+    }
+    previousPersonaSpineStatusRef.current = personaSpineStatus;
+  }, [personaSpineStatus, refresh]);
 
   // Companion synchronization (PRD-GJR-001 §11.5): one journey state, multiple
   // authorized renderers. Location and context only — this never completes a
@@ -1204,7 +1284,16 @@ export function JourneyRunSurface({
                 );
               }
               const extraProps =
-                resolveSurfaceProps?.({ surfaceRef, descriptor, stage: activeStage, runtimeState, pnlEvidence, ratifySubPredicates, registerCeremony }) ?? {};
+                resolveSurfaceProps?.({
+                  surfaceRef,
+                  descriptor,
+                  stage: activeStage,
+                  runtimeState,
+                  pnlEvidence,
+                  ratifySubPredicates,
+                  registerCeremony,
+                  requestStateRefresh: () => void refresh(),
+                }) ?? {};
               return (
                 /*
                  * Keyed by the SURFACE, not by array position.

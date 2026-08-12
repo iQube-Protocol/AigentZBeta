@@ -20,12 +20,22 @@ describe('KNYTS + CI Passport rooms deep-link straight to the Citizen route', ()
 
   it('KnytsBridgePassportRoom mounts PassportBureauApplyTab with routeTo="citizen"', () => {
     const code = stripComments(readSource(KNYTS_ROOM));
-    expect(code).toMatch(/<PassportBureauApplyTab personaId=\{personaId\} routeTo="citizen" \/>/);
+    const idx = code.indexOf('<PassportBureauApplyTab');
+    const end = code.indexOf('/>', idx);
+    const mount = code.slice(idx, end);
+    expect(mount).toContain('personaId={personaId}');
+    expect(mount).toContain('routeTo="citizen"');
+    expect(mount).toContain('onUsablePassportDetected={requestStateRefresh}');
   });
 
   it('ConstitutionalInternetBridgePassportRoom mounts PassportBureauApplyTab with routeTo="citizen"', () => {
     const code = stripComments(readSource(CI_ROOM));
-    expect(code).toMatch(/<PassportBureauApplyTab personaId=\{personaId\} routeTo="citizen" \/>/);
+    const idx = code.indexOf('<PassportBureauApplyTab');
+    const end = code.indexOf('/>', idx);
+    const mount = code.slice(idx, end);
+    expect(mount).toContain('personaId={personaId}');
+    expect(mount).toContain('routeTo="citizen"');
+    expect(mount).toContain('onUsablePassportDetected={requestStateRefresh}');
   });
 
   it('both mounts stay inside the !citizenPassportUsable branch — an existing usable Passport never remounts the wizard', () => {

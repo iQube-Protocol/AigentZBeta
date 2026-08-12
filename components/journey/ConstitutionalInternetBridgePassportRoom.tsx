@@ -56,6 +56,17 @@ interface Props {
    *  treated the same as "not yet established" so the claim flow is always
    *  the safe default until evidence says otherwise. */
   citizenPassportUsable?: boolean;
+  /**
+   * CFS-055 coherence pass (2026-08-12) — threaded straight from
+   * JourneyRunSurface's `resolveSurfaceProps` seam (`requestStateRefresh`).
+   * Passed to PassportBureauApplyTab as `onUsablePassportDetected` so that
+   * when the Bureau discovers an existing usable Citizen Passport (wallet
+   * auth sign-in), the enclosing observer rereads authoritative state —
+   * this room never sets `citizenPassportUsable` itself, and never advances
+   * the stage; the Journey's own next `/state` read is what flips this
+   * room from the claim branch to the established branch below.
+   */
+  requestStateRefresh?: () => void;
 }
 
 function selectStage(stageId: string) {
@@ -66,7 +77,7 @@ function selectStage(stageId: string) {
   }
 }
 
-export function ConstitutionalInternetBridgePassportRoom({ personaId, citizenPassportUsable }: Props) {
+export function ConstitutionalInternetBridgePassportRoom({ personaId, citizenPassportUsable, requestStateRefresh }: Props) {
   // Presentation-only: hiding the notice never touches Passport state,
   // evidence, or the crossing itself — it only stops re-showing a banner
   // the visitor has already acknowledged for this page visit.
@@ -106,7 +117,11 @@ export function ConstitutionalInternetBridgePassportRoom({ personaId, citizenPas
             account | Sign in) when signed out, or straight to Personhood
             binding when a Bureau session already exists. No new deep-link
             parameter, no fork — the same prop the Bureau already supports. */}
-        <PassportBureauApplyTab personaId={personaId} routeTo="citizen" />
+        <PassportBureauApplyTab
+          personaId={personaId}
+          routeTo="citizen"
+          onUsablePassportDetected={requestStateRefresh}
+        />
       </div>
     );
   }

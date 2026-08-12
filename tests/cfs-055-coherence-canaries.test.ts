@@ -154,11 +154,26 @@ describe('6. DVN pending does not make an established predicate unresolved', () 
 describe('7. All surfaces representing the same predicate derive from the same canonical projection', () => {
   it('JourneyRunSurface fetches ratifySubPredicates ONCE from /state and threads it through resolveSurfaceProps — no second fetch', () => {
     expect(journeyRunSurface).toMatch(/setRatifySubPredicates\(\(json\.ratifySubPredicates as typeof ratifySubPredicates\) \?\? null\)/);
-    // registerCeremony (Pre-recording Horizen polish part C, 2026-08-10)
-    // legitimately rides alongside ratifySubPredicates now.
-    expect(journeyRunSurface).toMatch(
-      /resolveSurfaceProps\?\.\(\{ surfaceRef, descriptor, stage: activeStage, runtimeState, pnlEvidence, ratifySubPredicates, registerCeremony \}\)/,
-    );
+    // registerCeremony (Pre-recording Horizen polish part C, 2026-08-10) and
+    // requestStateRefresh (CFS-055 coherence pass, 2026-08-12 — the seam a
+    // surface uses to ask the SAME observer to reread, never a second state
+    // engine) legitimately ride alongside ratifySubPredicates now.
+    const callIdx = journeyRunSurface.indexOf('resolveSurfaceProps?.({');
+    expect(callIdx, 'resolveSurfaceProps call site not found').toBeGreaterThan(-1);
+    const callEnd = journeyRunSurface.indexOf('}) ?? {};', callIdx);
+    const call = journeyRunSurface.slice(callIdx, callEnd);
+    for (const field of [
+      'surfaceRef',
+      'descriptor',
+      'stage: activeStage',
+      'runtimeState',
+      'pnlEvidence',
+      'ratifySubPredicates',
+      'registerCeremony',
+      'requestStateRefresh: () => void refresh()',
+    ]) {
+      expect(call, `${field} missing from the ONE resolveSurfaceProps call`).toContain(field);
+    }
   });
 
   it('PilotJourneyTab distributes the SAME ratifySubPredicates object to both AgreementRatifyPanel and PulseTransparencyToggle — never a per-component re-derivation', () => {

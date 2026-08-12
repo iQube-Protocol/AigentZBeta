@@ -331,7 +331,14 @@ export const CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY: JourneyDefinition = {
           note: 'Reads real Passport/disposition receipts and the canonical Standing score — never fabricates Standing from navigation or viewing. See services/journey/constitutionalInternetBridgeStand.ts.',
         },
       ],
-      prerequisites: ['personify'],
+      // Passport determines ELIGIBILITY to enter Stand (2026-08-12, CFS-055
+      // coherence pass — mirrors knytsBridgeCrossingJourney.ts's identical
+      // fix). Personify is a separate, independently-available post-
+      // Passport constitutional contribution, not a prerequisite of Stand:
+      // the operator may visit either first. Whether Stand becomes
+      // COMPLETE is still governed entirely by completionEvidence below —
+      // Passport establishes access, it does not award Standing.
+      prerequisites: ['passport'],
       permittedActions: ['view-standing'],
       completionEvidence: ['constitutionalEventRecorded'],
       receiptTypes: [],

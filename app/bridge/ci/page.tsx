@@ -60,6 +60,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Settings } from 'lucide-react';
 import { JourneyRunSurface, type JourneyRunSurfaceProps } from '@/components/journey/JourneyRunSurface';
+import type { JourneyRuntimeState } from '@/types/journey';
 import { CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY } from '@/services/journey/constitutionalInternetBridgeJourney';
 import { CI_BRIDGE_VIEW_CONTENT } from '@/services/journey/constitutionalInternetBridgeViewContent';
 import { ConstitutionalInternetBridgeMediaStage } from '@/components/journey/ConstitutionalInternetBridgeMediaStage';
@@ -114,9 +115,18 @@ export default function ConstitutionalInternetBridgePage() {
   const [personaId, setPersonaId] = useState<string | undefined>(undefined);
   const [copilotOpen, setCopilotOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
+  // Derived exclusively from `onRuntimeStateChange` below — never as a side
+  // effect of `resolveSurfaceProps` while the Passport room happens to be
+  // the active surface (CFS-055 coherence pass, 2026-08-12: state coherence
+  // must not depend on which stage is on screen).
   const [citizenPassportUsable, setCitizenPassportUsable] = useState<boolean | undefined>(undefined);
   const [showPassportGate, setShowPassportGate] = useState(false);
   const spine = usePersonaSpine();
+
+  const handleRuntimeStateChange = useCallback((state: JourneyRuntimeState) => {
+    const passportStage = state.stages.find((s) => s.stageId === 'passport');
+    setCitizenPassportUsable(Boolean(passportStage?.evidencePresent.includes('citizenPassportUsable')));
+  }, []);
 
   useEffect(() => {
     try {
@@ -157,15 +167,15 @@ export default function ConstitutionalInternetBridgePage() {
     }
   }, [previousStageId]);
 
+  // Consumes `citizenPassportUsable` (derived above from the WHOLE
+  // runtimeState via onRuntimeStateChange) — never discovers it.
   const resolveSurfaceProps = useCallback(
-    ({ surfaceRef, runtimeState }: Parameters<NonNullable<JourneyRunSurfaceProps['resolveSurfaceProps']>>[0]) => {
+    ({ surfaceRef, requestStateRefresh }: Parameters<NonNullable<JourneyRunSurfaceProps['resolveSurfaceProps']>>[0]) => {
       if (surfaceRef.ref === 'ci-bridge-passport-room') {
-        const passportStage = runtimeState?.stages.find((s) => s.stageId === 'passport');
-        const isPassportUsable = passportStage?.evidencePresent.includes('citizenPassportUsable');
-        setCitizenPassportUsable(isPassportUsable);
         return {
-          citizenPassportUsable: isPassportUsable,
+          citizenPassportUsable,
           personaId,
+          requestStateRefresh,
         };
       }
       if (surfaceRef.ref === 'ci-bridge-home') {
@@ -216,6 +226,7 @@ export default function ConstitutionalInternetBridgePage() {
           documentTitle="The Constitutional Internet Bridge — Threshold Guide"
           components={CI_BRIDGE_COMPONENTS}
           resolveSurfaceProps={resolveSurfaceProps}
+          onRuntimeStateChange={handleRuntimeStateChange}
           accent={CI_ACCENT}
           compact
           onBack={handleBack}

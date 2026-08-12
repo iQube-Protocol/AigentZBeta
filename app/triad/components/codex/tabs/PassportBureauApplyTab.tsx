@@ -184,9 +184,31 @@ interface PassportBureauApplyTabProps {
    *                 never a guess in either direction.
    */
   routeTo?: 'citizen' | 'delegate';
+  /**
+   * CFS-055 coherence pass (2026-08-12) — the SMALLEST outward signal this
+   * component gives when it has just witnessed a consequential Passport
+   * state change (either `/api/passport/usable-status` positively
+   * confirming an existing usable Citizen Passport, or a fresh application
+   * being submitted/claimed inside this same wizard). This callback carries
+   * NO payload and asserts NOTHING — it never passes `true` upward as
+   * constitutional truth. The caller's own job is to turn it into a request
+   * that the enclosing Journey observer reread authoritative state (e.g.
+   * `JourneyRunSurface`'s `requestStateRefresh()`, threaded down through
+   * `resolveSurfaceProps`) — this component has no opinion on HOW that
+   * happens, and never mutates any stage's completion itself. Optional:
+   * every caller that doesn't pass it (standalone Bureau access, Horizen's
+   * PilotJourneyTab) is unaffected.
+   */
+  onUsablePassportDetected?: () => void;
 }
 
-export function PassportBureauApplyTab({ personaId, prefillAgentCardUrl, prefillAgentDisplayName, routeTo }: PassportBureauApplyTabProps = {}) {
+export function PassportBureauApplyTab({
+  personaId,
+  prefillAgentCardUrl,
+  prefillAgentDisplayName,
+  routeTo,
+  onUsablePassportDetected,
+}: PassportBureauApplyTabProps = {}) {
   const subHeaderSlotEl = useContext(SubHeaderSlotContext);
   const [step, setStep] = useState<StepId>('class');
   const [passportClass, setPassportClass] = useState<PassportClass>('citizen');
@@ -746,6 +768,20 @@ export function PassportBureauApplyTab({ personaId, prefillAgentCardUrl, prefill
       if (alreadyHasPassport) {
         setExistingUsablePassport(true);
         setNotice('You already hold an active Polity Citizen Passport — no need to apply again.');
+        /*
+         * CFS-055 coherence pass (2026-08-12): this component's OWN state
+         * (`existingUsablePassport`) is a local confirmation, never the
+         * constitutional truth the enclosing Journey acts on — the
+         * emerald banner above renders from it immediately, but the
+         * Passport STAGE only becomes COMPLETE once the Journey observer
+         * independently rereads `loadUsableCitizenPassportForAuthProfile`
+         * via its own `/state` route. The ~500ms delay lets the visitor
+         * actually see this confirmation before the enclosing surface
+         * potentially swaps to the post-Passport room underneath it.
+         */
+        if (onUsablePassportDetected) {
+          setTimeout(() => onUsablePassportDetected(), 500);
+        }
       } else {
         // Only the Citizen route ever reaches this step — Delegate/agent
         // applicants never visit Account (resolveDelegateStepAfterClassChoice
@@ -758,7 +794,7 @@ export function PassportBureauApplyTab({ personaId, prefillAgentCardUrl, prefill
     } finally {
       setBusy(false);
     }
-  }, [username, password, recoveryEmail, mode, loadStatus, signInWithWalletAuth]);
+  }, [username, password, recoveryEmail, mode, loadStatus, signInWithWalletAuth, onUsablePassportDetected]);
 
   const handleBind = useCallback(async () => {
     setBusy(true);

@@ -45,6 +45,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Settings } from 'lucide-react';
 import { JourneyRunSurface, type JourneyRunSurfaceProps } from '@/components/journey/JourneyRunSurface';
+import type { JourneyRuntimeState } from '@/types/journey';
 import { KNYTS_BRIDGE_CROSSING_JOURNEY } from '@/services/journey/knytsBridgeCrossingJourney';
 import { KnytsBridgeMediaStage } from '@/components/journey/KnytsBridgeMediaStage';
 import { KnytsBridgeOrientIntro } from '@/components/journey/KnytsBridgeOrientIntro';
@@ -95,11 +96,21 @@ export default function KnytsBridgePage() {
   const [copilotOpen, setCopilotOpen] = useState(false);
   const [previousStageId, setPreviousStageId] = useState<string | undefined>(undefined);
   const [currentStageId, setCurrentStageId] = useState<string | undefined>(undefined);
-  // Authoritative runtime-state signal (2026-08-12, KNYTS↔CI parity pass) —
-  // same pattern CI's page already uses: stored here (not just returned
-  // inline from resolveSurfaceProps) so it can also gate stage selection
-  // and drive the stepper's emphasizeAvailableStage projection below.
+  // Authoritative runtime-state signal (2026-08-12, KNYTS↔CI parity pass;
+  // re-derived CFS-055 coherence pass, same day). Previously discovered as
+  // a SIDE EFFECT of `resolveSurfaceProps` while the Passport room happened
+  // to be the active surface — brittle, because state coherence then
+  // depended on which stage was on screen. Now derived exclusively from
+  // `onRuntimeStateChange` below, which fires from the WHOLE resolved
+  // runtimeState on every refresh, active stage notwithstanding. Drives the
+  // Passport room, the stepper's emphasizeAvailableStage projection, and
+  // the Remix/Stand gate listener — one value, one source.
   const [citizenPassportUsable, setCitizenPassportUsable] = useState<boolean | undefined>(undefined);
+
+  const handleRuntimeStateChange = useCallback((state: JourneyRuntimeState) => {
+    const passportStage = state.stages.find((s) => s.stageId === 'passport');
+    setCitizenPassportUsable(Boolean(passportStage?.evidencePresent.includes('citizenPassportUsable')));
+  }, []);
   const [showPassportGate, setShowPassportGate] = useState(false);
   const spine = usePersonaSpine();
 
@@ -168,13 +179,14 @@ export default function KnytsBridgePage() {
     }
   }, [previousStageId]);
 
+  // Consumes `citizenPassportUsable` (derived above from the WHOLE
+  // runtimeState via onRuntimeStateChange) — never discovers it. See that
+  // state's own comment for why this split matters (CFS-055 coherence
+  // pass, 2026-08-12).
   const resolveSurfaceProps = useCallback(
-    ({ surfaceRef, runtimeState }: Parameters<NonNullable<JourneyRunSurfaceProps['resolveSurfaceProps']>>[0]) => {
+    ({ surfaceRef, requestStateRefresh }: Parameters<NonNullable<JourneyRunSurfaceProps['resolveSurfaceProps']>>[0]) => {
       if (surfaceRef.ref === 'knyts-bridge-passport-room') {
-        const passportStage = runtimeState?.stages.find((s) => s.stageId === 'passport');
-        const isPassportUsable = passportStage?.evidencePresent.includes('citizenPassportUsable');
-        setCitizenPassportUsable(isPassportUsable);
-        return { citizenPassportUsable: isPassportUsable, personaId };
+        return { citizenPassportUsable, personaId, requestStateRefresh };
       }
       if (surfaceRef.ref === 'knyts-bridge-mycanvas-remix') {
         return { personaId, citizenPassportUsable };
@@ -203,6 +215,7 @@ export default function KnytsBridgePage() {
         documentTitle="The KNYTS Bridge — Threshold Guide"
         components={KNYTS_BRIDGE_COMPONENTS}
         resolveSurfaceProps={resolveSurfaceProps}
+        onRuntimeStateChange={handleRuntimeStateChange}
         accent={KNYT_ACCENT}
         compact
         onBack={handleBack}
