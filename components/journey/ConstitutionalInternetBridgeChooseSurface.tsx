@@ -46,7 +46,7 @@
  * exactly the way `personaId` already is for other stages.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BookMarked, Compass, Handshake, Mail, Share2, Sparkles, ArrowRight } from 'lucide-react';
 import { SocialSharingModal } from '@/packages/smarttriad/src/SocialSharingModal';
 import { buildCodexUrl } from '@/utils/codex-nav';
@@ -187,9 +187,62 @@ function PendingCanonicalPlateExplainer({ title, points }: { title: string; poin
   );
 }
 
+interface CanonicalAsset {
+  id: string;
+  title: string;
+  originalFilename: string;
+  mimeType: string;
+  assetKind: string;
+  seriesScope: string;
+  publicUrl: string;
+  cid?: string;
+}
+
 export function ConstitutionalInternetBridgeChooseSurface({ personaId, onOpenAigentMeCopilot }: ConstitutionalInternetBridgeChooseSurfaceProps) {
   const [shareOpen, setShareOpen] = useState(false);
   const [leftView, setLeftView] = useState<LeftView>('book');
+  const [canonicalAssets, setCanonicalAssets] = useState<Record<string, CanonicalAsset | null>>({
+    aigentme: null,
+    irl: null,
+    partner: null,
+  });
+
+  // Fetch canonical plates on mount
+  useEffect(() => {
+    const fetchCanonicalAssets = async () => {
+      try {
+        const res = await fetch('/api/codex/qripto/canonical-assets?scope=canonical/constitutional-internet');
+        if (!res.ok) return;
+        const json = await res.json() as { assets: CanonicalAsset[] };
+        const assets = json.assets || [];
+
+        // Map by case-insensitive filename stem
+        const resolved: Record<string, CanonicalAsset | null> = {
+          aigentme: null,
+          irl: null,
+          partner: null,
+        };
+
+        for (const asset of assets) {
+          const stem = asset.originalFilename.replace(/\.[^.]+$/, '').toLowerCase();
+
+          if (stem === 'agentime_plate' || stem === 'agentmeplate') {
+            resolved.aigentme = asset;
+          } else if (stem === 'irl_plate' || stem === 'irlplate') {
+            resolved.irl = asset;
+          } else if (stem === 'metame_vl_plate' || stem === 'metame_vl_plate' || stem === 'metame_venture_lab_plate') {
+            resolved.partner = asset;
+          }
+        }
+
+        setCanonicalAssets(resolved);
+      } catch (error) {
+        console.error('[Canonical Assets]', error);
+      }
+    };
+
+    fetchCanonicalAssets();
+  }, []);
 
   const readingSrc = buildCodexUrl('polity-core-cartridge', {
     tab: 'commentary-constitutional-internet',
@@ -211,37 +264,55 @@ export function ConstitutionalInternetBridgeChooseSurface({ personaId, onOpenAig
           <iframe src={readingSrc} title="Continue reading — The Constitutional Internet" className="h-full w-full border-0" />
         ) : leftView === 'aigentme' ? (
           <ArtifactMattedFrame>
-            <PendingCanonicalPlateExplainer
-              title="You and aigentMe"
-              points={[
-                'You remain the principal — the constitutional subject.',
-                'aigentMe is a companion and delegate only within authority you grant.',
-                'Context crossing to aigentMe is not delegation.',
-                'Mandate and authority stay bounded — never open-ended.',
-              ]}
-            />
+            {canonicalAssets.aigentme ? (
+              <div className="relative flex h-full w-full items-center justify-center">
+                <img src={canonicalAssets.aigentme.publicUrl} alt={canonicalAssets.aigentme.title} className="max-h-full max-w-full object-contain" />
+              </div>
+            ) : (
+              <PendingCanonicalPlateExplainer
+                title="You and aigentMe"
+                points={[
+                  'You remain the principal — the constitutional subject.',
+                  'aigentMe is a companion and delegate only within authority you grant.',
+                  'Context crossing to aigentMe is not delegation.',
+                  'Mandate and authority stay bounded — never open-ended.',
+                ]}
+              />
+            )}
           </ArtifactMattedFrame>
         ) : leftView === 'irl' ? (
           <ArtifactMattedFrame>
-            <PendingCanonicalPlateExplainer
-              title="The Invariant Research Lab"
-              points={[
-                'Invariants are reasoning compression — durable lessons carried forward.',
-                'Oriented around experiment and validation, not assertion.',
-                'A research programme in service of Constitutional Computing.',
-              ]}
-            />
+            {canonicalAssets.irl ? (
+              <div className="relative flex h-full w-full items-center justify-center">
+                <img src={canonicalAssets.irl.publicUrl} alt={canonicalAssets.irl.title} className="max-h-full max-w-full object-contain" />
+              </div>
+            ) : (
+              <PendingCanonicalPlateExplainer
+                title="The Invariant Research Lab"
+                points={[
+                  'Invariants are reasoning compression — durable lessons carried forward.',
+                  'Oriented around experiment and validation, not assertion.',
+                  'A research programme in service of Constitutional Computing.',
+                ]}
+              />
+            )}
           </ArtifactMattedFrame>
         ) : leftView === 'partner' ? (
           <ArtifactMattedFrame>
-            <PendingCanonicalPlateExplainer
-              title="metaMe Venture Lab"
-              points={[
-                'A pathway to build and partner on the constitutional venture substrate.',
-                'Open to Builders and Founders as participants, not just customers.',
-                'Part of the wider metaMe ecosystem.',
-              ]}
-            />
+            {canonicalAssets.partner ? (
+              <div className="relative flex h-full w-full items-center justify-center">
+                <img src={canonicalAssets.partner.publicUrl} alt={canonicalAssets.partner.title} className="max-h-full max-w-full object-contain" />
+              </div>
+            ) : (
+              <PendingCanonicalPlateExplainer
+                title="metaMe Venture Lab"
+                points={[
+                  'A pathway to build and partner on the constitutional venture substrate.',
+                  'Open to Builders and Founders as participants, not just customers.',
+                  'Part of the wider metaMe ecosystem.',
+                ]}
+              />
+            )}
           </ArtifactMattedFrame>
         ) : (
           <ArtifactMattedFrame>
