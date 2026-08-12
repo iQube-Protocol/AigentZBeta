@@ -3235,6 +3235,18 @@ export async function POST(request: NextRequest) {
 
       console.log(`[CodexChat] KB: ${resolvedKbResults.length} domain + ${resolvedProtocolResults.length} protocol results${isKn0w1 ? `, skill: ${activeSkill ?? 'none'}` : ''}`);
 
+      // Diagnostic checkpoint: KB retrieval for trace "Why personhood before identity?"
+      if (message.toLowerCase().includes('personhood') || message.toLowerCase().includes('identity')) {
+        console.log('[CodexChat-DIAG] CHECKPOINT: KB retrieval', {
+          messageInput: message.substring(0, 60),
+          domainKBResults: resolvedKbResults.length,
+          protocolKBResults: resolvedProtocolResults.length,
+          domainKBTitles: resolvedKbResults.slice(0, 2).map(r => r.title),
+          protocolKBTitles: resolvedProtocolResults.slice(0, 2).map(r => r.title),
+          searchScope: kbSearchScope || 'default',
+        });
+      }
+
       // Cartridge-scoped overlay enrichments. The L1 substrate was already
       // resolved unconditionally above (`constitutionalGround`) — what remains
       // here genuinely NEEDS a cartridge, because it is keyed by cartridge id.
@@ -3300,6 +3312,19 @@ export async function POST(request: NextRequest) {
       requestedModelId,
       resolvedAgentId,
     );
+
+    // Diagnostic checkpoint: provider selection for trace "Why personhood before identity?"
+    if (message.toLowerCase().includes('personhood') || message.toLowerCase().includes('identity')) {
+      console.log('[CodexChat-DIAG] CHECKPOINT: provider selection', {
+        messageInput: message.substring(0, 60),
+        resolvedAgentId,
+        requestedProviderId,
+        requestedModelId,
+        providerAttempts: providerAttempts.map(a => `${a.providerId}/${a.modelId}`),
+        kbSearchScope,
+        domain: !isComposerMode && resolvedAgentId ? (KNYT_FOCUSED_AGENTS.has(resolvedAgentId) ? 'metaKnyts' : 'protocol') : 'N/A',
+      });
+    }
 
     // Build shared conversation array
     const conversationHistory: ChatMessage[] = [
@@ -3507,6 +3532,20 @@ export async function POST(request: NextRequest) {
     const walletActions = inferWalletActions(message, messageSansStageData);
     const suggestedLayouts = inferSuggestedLayouts(message, messageSansStageData, chatHistory);
     const responseForClient = stripLayoutTags(messageSansStageData);
+
+    // Diagnostic checkpoint: response content chain for trace "Why personhood before identity?"
+    if (message.toLowerCase().includes('personhood') || message.toLowerCase().includes('identity')) {
+      console.log('[CodexChat-DIAG] CHECKPOINT: response content chain', {
+        messageInput: message,
+        executionResultContent: executionResult.content ? `${executionResult.content.length} chars` : 'NULL',
+        assistantMessagePreview: assistantMessage.substring(0, 100),
+        afterStageExtraction: messageSansStageData.substring(0, 100),
+        afterStripLayoutTags: responseForClient.substring(0, 100),
+        responseForClientLength: responseForClient.length,
+        isEmpty: responseForClient.length === 0,
+        isWhitespace: responseForClient.trim().length === 0,
+      });
+    }
 
     console.log('[CodexChat] Response length:', responseForClient.length);
     console.log('[CodexChat] Response preview:', responseForClient.substring(0, 200) + '...');
