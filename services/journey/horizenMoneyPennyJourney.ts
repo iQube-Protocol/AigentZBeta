@@ -714,7 +714,7 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
       // technical process, not a constitutional gate. Standing is one of three
       // independent consequence fork prongs once Operate (aigentme) is reached;
       // it should not depend on Ingest (deploy).
-      // prerequisites: ['deploy'],  // RETIRED — no prerequisite
+      prerequisites: [],  // RETIRED (2026-08-12): was ['deploy'] — Deploy is technical, not a constitutional gate
       permittedActions: ['view-standing'],
       completionEvidence: ['standingGatewayEnabled'],
       receiptTypes: ['standing_accrued'],
