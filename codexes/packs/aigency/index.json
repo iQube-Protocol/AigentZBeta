@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-12T17:11:22.027Z",
+  "last_updated": "2026-08-12T19:11:59.329Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "fe160647f3f9d28345d77fd4ac72d73195a74136",
-  "latest_commit_short": "fe16064",
-  "latest_commit_title": "feat(invariants): add consequence calibration primitives",
+  "latest_commit": "c931c795660567f50a3d8b26a7243f68e21195ab",
+  "latest_commit_short": "c931c79",
+  "latest_commit_title": "trigger deploy: Delegate stage reconciliation",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "c931c79",
+      "full_sha": "c931c795660567f50a3d8b26a7243f68e21195ab",
+      "title": "trigger deploy: Delegate stage reconciliation",
+      "author": "Claude",
+      "timestamp": "2026-08-12T19:10:10Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-c931c79.md"
+    },
     {
       "sha": "fe16064",
       "full_sha": "fe160647f3f9d28345d77fd4ac72d73195a74136",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-08T07:34:33-04:00",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-7baf817.md"
-    },
-    {
-      "sha": "ad02a1a",
-      "full_sha": "ad02a1ae81b33f73b29105f36b38983948fec43e",
-      "title": "Add explicit CAP-1 activation gate and parked evidence",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-08T07:34:57-04:00",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-ad02a1a.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

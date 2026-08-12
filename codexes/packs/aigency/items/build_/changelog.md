@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`c931c79`](https://github.com/iQube-Protocol/AigentZBeta/commit/c931c795660567f50a3d8b26a7243f68e21195ab) [push] trigger deploy: Delegate stage reconciliation (Claude, 2026-08-12T19:10:10Z)
 - [`fe16064`](https://github.com/iQube-Protocol/AigentZBeta/commit/fe160647f3f9d28345d77fd4ac72d73195a74136) [feat] feat(invariants): add consequence calibration primitives (Kn0w1, 2026-08-12T13:09:38-04:00)
 - [`a238834`](https://github.com/iQube-Protocol/AigentZBeta/commit/a238834861e84c36af5f3b99ccc744d97a1f1beb) [feat] feat(irl): add risk-field primitives for IDE v2 (Kn0w1, 2026-08-12T13:03:08-04:00)
 - [`be46bc6`](https://github.com/iQube-Protocol/AigentZBeta/commit/be46bc68150c07f10af193ad1dad577bdad9eccc) [test] test(irl): cover IDE v2 risk-field primitives (Kn0w1, 2026-08-12T13:03:24-04:00)

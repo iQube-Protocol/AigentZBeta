@@ -4099,3 +4099,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-fe16064.md](../build_/COMMITS/COMMIT-fe16064.md)
 - Message: feat(invariants): add consequence calibration primitives
+
+## Commit `c931c79` — 2026-08-12T19:10:10Z
+- Type: `push`
+- Brief: [COMMIT-c931c79.md](../build_/COMMITS/COMMIT-c931c79.md)
+- Message: trigger deploy: Delegate stage reconciliation
