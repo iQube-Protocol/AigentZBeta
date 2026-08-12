@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-11T22:54:55.693Z",
+  "last_updated": "2026-08-12T01:04:47.031Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "ecbdd8bd27d1c62aa280ac695cb67622987ae5a9",
-  "latest_commit_short": "ecbdd8b",
-  "latest_commit_title": "phase 4.1: consolidate choose ctAs into destination cards",
+  "latest_commit": "8b8f24f3c074baf4251c3e690b95dae8298ced1d",
+  "latest_commit_short": "8b8f24f",
+  "latest_commit_title": "canon: add machine-readable bounded-order invariant",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "8b8f24f",
+      "full_sha": "8b8f24f3c074baf4251c3e690b95dae8298ced1d",
+      "title": "canon: add machine-readable bounded-order invariant",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-11T21:03:01-04:00",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-8b8f24f.md"
+    },
+    {
+      "sha": "581418d",
+      "full_sha": "581418d8e1048a41432b785b892a3db08c8f076c",
+      "title": "trigger deploy: CI Bridge final correction pass (passport gate + choose consolidation)",
+      "author": "Claude",
+      "timestamp": "2026-08-11T23:40:14Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-581418d.md"
+    },
     {
       "sha": "ecbdd8b",
       "full_sha": "ecbdd8bd27d1c62aa280ac695cb67622987ae5a9",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-08-08T12:28:57Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-de41937.md"
-    },
-    {
-      "sha": "439fa9c",
-      "full_sha": "439fa9c94439e5985c3f8f5fb4b508e50d7c0c01",
-      "title": "Fix test:ci's missing coverage dependency; add non-secret placeholder env vars",
-      "author": "Claude",
-      "timestamp": "2026-08-08T12:47:23Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-439fa9c.md"
-    },
-    {
-      "sha": "7d77143",
-      "full_sha": "7d77143225b577caca3bd91ed74852db0ca42124",
-      "title": "Ignore vitest's coverage/ output directory",
-      "author": "Claude",
-      "timestamp": "2026-08-08T12:47:57Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-7d77143.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
