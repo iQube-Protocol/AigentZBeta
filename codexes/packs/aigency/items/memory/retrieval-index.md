@@ -4104,3 +4104,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-c931c79.md](../build_/COMMITS/COMMIT-c931c79.md)
 - Message: trigger deploy: Delegate stage reconciliation
+
+## Commit `1c05d36` — 2026-08-12T19:39:35Z
+- Type: `refactor`
+- Brief: [COMMIT-1c05d36.md](../build_/COMMITS/COMMIT-1c05d36.md)
+- Message: record moneypenny dress rehearsal closure — all stages stable, ready to move to know1

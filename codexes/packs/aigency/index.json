@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-12T19:11:59.329Z",
+  "last_updated": "2026-08-12T19:41:27.958Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "c931c795660567f50a3d8b26a7243f68e21195ab",
-  "latest_commit_short": "c931c79",
-  "latest_commit_title": "trigger deploy: Delegate stage reconciliation",
+  "latest_commit": "1c05d3608f270228c9dd5d0ea03100d51f236cb6",
+  "latest_commit_short": "1c05d36",
+  "latest_commit_title": "record moneypenny dress rehearsal closure — all stages stable, ready to move to know1",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "1c05d36",
+      "full_sha": "1c05d3608f270228c9dd5d0ea03100d51f236cb6",
+      "title": "record moneypenny dress rehearsal closure — all stages stable, ready to move to know1",
+      "author": "Claude",
+      "timestamp": "2026-08-12T19:39:35Z",
+      "type": "refactor",
+      "brief": "items/build_/COMMITS/COMMIT-1c05d36.md"
+    },
     {
       "sha": "c931c79",
       "full_sha": "c931c795660567f50a3d8b26a7243f68e21195ab",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-08T07:33:30-04:00",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-7e8979e.md"
-    },
-    {
-      "sha": "7baf817",
-      "full_sha": "7baf81790147764d8a4b80d12c5515e38e08a4d5",
-      "title": "Record CAP-1 v2 canisters and close A4 provenance gate",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-08T07:34:33-04:00",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-7baf817.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
