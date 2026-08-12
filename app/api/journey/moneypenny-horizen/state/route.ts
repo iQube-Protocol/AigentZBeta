@@ -1235,7 +1235,15 @@ async function resolveState(req: NextRequest) {
     // Unchanged shape for every existing consumer — now carrying canonical
     // outcomes and gating relief, so the stepper and this route cannot
     // disagree (One-State Principle §5.3).
-    state: resolution.runtimeState,
+    state: {
+      ...resolution.runtimeState,
+      // Agent-generic subjectRef parameterization (2026-08-12): the journey
+      // definition HORIZEN_MONEYPENNY_JOURNEY has subjectRef: 'moneypenny'
+      // hardcoded at every stage, predating agent selectability (2026-07-31).
+      // Substitute the resolved agent's slug so the response reflects the
+      // actual agent being queried, not the static journey definition.
+      subjectRef: agent.slug,
+    },
     // THREE AXES, reported separately so no consumer can collapse them.
     axes,
     branchOffers,
