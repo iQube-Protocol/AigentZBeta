@@ -243,11 +243,24 @@ export function ConstitutionalInternetBridgeChooseSurface({ personaId, onOpenAig
           const titleStem = normalizeStem(asset.title || '');
           const filenameStem = normalizeStem(asset.originalFilename || '');
 
+          let matchedAnyAlias = false;
           for (const key of Object.keys(ALIASES) as Array<keyof typeof ALIASES>) {
             if (resolved[key]) continue;
             if (ALIASES[key].includes(titleStem) || ALIASES[key].includes(filenameStem)) {
               resolved[key] = asset;
+              matchedAnyAlias = true;
             }
+          }
+          // Diagnostic (2026-08-12 closure pass) — the endpoint returned a
+          // row that matched no alias. Never guess a fix from this alone;
+          // it names the exact stems so the ONE missing alias can be added.
+          if (!matchedAnyAlias) {
+            console.warn('[Canonical Assets] unmatched asset', {
+              title: asset.title,
+              originalFilename: asset.originalFilename,
+              titleStem,
+              filenameStem,
+            });
           }
         }
 
@@ -260,22 +273,21 @@ export function ConstitutionalInternetBridgeChooseSurface({ personaId, onOpenAig
     fetchCanonicalAssets();
   }, []);
 
-  // "Continue reading" → Qriptopian Codex → Papers → The Polity (revised
-  // 2026-08-12): the working Polity Core commentary tab is admin-only
+  // "Continue reading" → Qriptopian Codex → Magazines (revised 2026-08-12
+  // closure pass): the working Polity Core commentary tab stays admin-only
   // internal development material (see data/codex-configs.ts), never a
-  // public Bridge destination. The public canonical source is the
-  // published Polity Papers series inside the Qriptopian Codex's own Papers
-  // tab (data/codex-configs.ts QRIPTO_CODEX, slug 'qripto', tab 'papers').
-  // `scope` is not a typed buildCodexUrl option (utils/codex-nav.ts is
-  // deliberately closed to generic passthrough) so it's appended directly —
-  // QriptoPapersTab reads it to land the visitor inside the Polity series
-  // specifically rather than the top of the full Papers index.
-  const readingSrc = `${buildCodexUrl('qripto', {
-    tab: 'papers',
+  // public Bridge destination. Papers was the prior landing tab; the
+  // operator now wants the Magazines editorial surface as the landing tab
+  // instead — the real registered tab id/slug is `codex`/`magazines`
+  // (data/codex-configs.ts QRIPTO_CODEX.tabs, NOT the `papers` tab). Papers
+  // remains reachable from inside Qriptopian's own navigation; no `&scope=`
+  // param travels with this link since it was Papers-specific.
+  const readingSrc = buildCodexUrl('qripto', {
+    tab: 'magazines',
     personaId,
     shell: 'embed',
     suppressCopilot: true,
-  })}&scope=${encodeURIComponent('papers/polity')}`;
+  });
 
   const openAigentMe = () => {
     setLeftView('aigentme');

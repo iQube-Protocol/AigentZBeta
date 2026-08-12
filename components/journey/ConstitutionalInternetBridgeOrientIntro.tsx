@@ -167,7 +167,9 @@ export function ConstitutionalInternetBridgeOrientIntro() {
               aria-label={i === 0 ? 'Show orientation video' : 'Show Government-Grade, Not Government-Dependent plate'}
               aria-current={activeIndex === i}
               className={`h-1.5 w-1.5 rounded-full transition ${
-                activeIndex === i ? 'bg-indigo-300' : 'bg-slate-600 hover:bg-slate-500'
+                // Same selected-dot token as View's own carousel (2026-08-12
+                // closure pass, item 4) — bg-amber-400, not indigo.
+                activeIndex === i ? 'bg-amber-400' : 'bg-slate-600 hover:bg-slate-500'
               }`}
             />
           ))}

@@ -59,10 +59,15 @@ export async function GET(request: NextRequest) {
 
     const supabase = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
 
-    // Real schema, real enum value — see file header.
+    // Real schema, real enum value — see file header. `original_filename`
+    // is NOT a real column (2026-08-12 closure pass: it was invented in the
+    // prior version of this route and never actually read — the response
+    // mapping below already used `title` for `originalFilename`). Selecting
+    // it produced `column codex_media_assets.original_filename does not
+    // exist`, a 500 masked by Choose's fallback explainer.
     const { data, error } = await supabase
       .from('codex_media_assets')
-      .select('id, title, supabase_title, original_filename, mime_type, asset_kind, series_scope, auto_drive_cid, cover_thumb_url, status')
+      .select('id, title, supabase_title, mime_type, asset_kind, series_scope, auto_drive_cid, cover_thumb_url, status')
       .eq('series', 'qriptopian')
       .eq('status', 'active')
       .in('asset_kind', ['social_campaign_image', 'cover_image']);
