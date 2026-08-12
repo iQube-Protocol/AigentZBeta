@@ -1,4 +1,4 @@
--- 20260812000000_signing_requests_activity_receipt_correlation.sql
+-- 20260930002700_signing_requests_activity_receipt_correlation.sql
 --
 -- SmartWallet Durable Correlation — Phase A Closure (2026-08-12)
 --
