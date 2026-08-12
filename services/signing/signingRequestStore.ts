@@ -40,6 +40,7 @@ interface DbRow {
   signer_address: string | null;
   refusal_code: string | null;
   refusal_detail: string | null;
+  related_activity_receipt_id: string | null;
   created_at: string;
   resolved_at: string | null;
 }
@@ -68,6 +69,7 @@ function rowToRecord(row: DbRow): SigningRequest {
     signerAddress: row.signer_address,
     refusalCode: row.refusal_code,
     refusalDetail: row.refusal_detail,
+    relatedActivityReceiptId: row.related_activity_receipt_id,
   };
 }
 

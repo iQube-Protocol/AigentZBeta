@@ -707,7 +707,14 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
             'reading as the same act.',
         },
       ],
-      prerequisites: ['deploy'],
+      // REMOVED (2026-08-12): hidden Deploy prerequisite. Deploy is an internal/
+      // technical stage (Factory ingestion) with no visible spine node. Standing
+      // is an operator-visible constitutional stage and should not gate on an
+      // invisible process. The operator ruling (2026-08-09) is that Deploy is a
+      // technical process, not a constitutional gate. Standing is one of three
+      // independent consequence fork prongs once Operate (aigentme) is reached;
+      // it should not depend on Ingest (deploy).
+      // prerequisites: ['deploy'],  // RETIRED — no prerequisite
       permittedActions: ['view-standing'],
       completionEvidence: ['standingGatewayEnabled'],
       receiptTypes: ['standing_accrued'],
