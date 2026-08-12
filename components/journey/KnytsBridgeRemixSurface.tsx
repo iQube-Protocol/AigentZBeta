@@ -28,21 +28,54 @@
  * same taller-viewport + "Explore metaMe ↗" affordance by hand, so myCanvas
  * reads identically to VIEW/STAND/BUY: metaMe's top estate navigation is
  * suppressed, myCanvas's own local navigation is untouched.
+ *
+ * PASSPORT GATE (2026-08-12, KNYTS↔CI parity pass) — mirrors CI's
+ * Personify fix: the page-level `journey:select-stage` listener cannot
+ * actually gate this surface (JourneyRunSurface's own stepper switches the
+ * active stage before dispatching that event), so this surface fails
+ * closed itself, from the authoritative `citizenPassportUsable` signal.
+ * `undefined` (not yet resolved) is treated as NOT usable.
  */
 
 import { useEffect, useState } from 'react';
 import { buildCodexUrl } from '@/utils/codex-nav';
 import { KNYTS_BRIDGE_CAMPAIGN_ID } from '@/services/journey/knytsBridgeCrossingJourney';
+import { BridgePassportGate } from '@/components/journey/BridgePassportGate';
+
+function selectStage(stageId: string) {
+  try {
+    window.dispatchEvent(new CustomEvent('journey:select-stage', { detail: { stageId } }));
+  } catch {
+    /* non-fatal */
+  }
+}
 
 interface Props {
   personaId?: string;
+  /** Authoritative — see file header. Undefined = not yet resolved = gated. */
+  citizenPassportUsable?: boolean;
 }
 
-export function KnytsBridgeRemixSurface({ personaId }: Props) {
+export function KnytsBridgeRemixSurface({ personaId, citizenPassportUsable }: Props) {
   const [src, setSrc] = useState<string | null>(null);
+  const [publicSrc, setPublicSrc] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
+  const [gateOpen, setGateOpen] = useState(true);
+
+  const passportUsable = citizenPassportUsable === true;
 
   useEffect(() => {
+    if (!passportUsable) setGateOpen(true);
+  }, [passportUsable]);
+
+  useEffect(() => {
+    if (!passportUsable) {
+      setSrc(null);
+      setPublicSrc(buildCodexUrl('metame-codex', { tab: 'metame-web', shell: 'embed', suppressCopilot: true, focused: true, focusedNavDepth: 0 }));
+      return;
+    }
+    setPublicSrc(null);
+
     const pendingRemix = (() => {
       try {
         return new URL(window.location.href).searchParams.get('remix');
@@ -71,7 +104,31 @@ export function KnytsBridgeRemixSurface({ personaId }: Props) {
 
     // Lite: focused=true when not expanded; Full: focused=false when expanded
     setSrc(expanded ? buildSrcForMode(false) : buildSrcForMode(true));
-  }, [personaId, expanded]);
+  }, [personaId, expanded, passportUsable]);
+
+  if (!passportUsable) {
+    return (
+      <div className="relative h-[calc(100vh-200px)] w-full overflow-hidden rounded-md border border-slate-800 bg-slate-950">
+        {publicSrc && (
+          <iframe src={publicSrc} title="metaMe" className="h-full w-full border-0" />
+        )}
+        <BridgePassportGate
+          isOpen={gateOpen}
+          onDismiss={() => setGateOpen(false)}
+          onProceedToPassport={() => selectStage('passport')}
+          dismissLabel="Later"
+          accent="amber"
+          headline="Claim Your Passport First"
+          explanation="Your Polity Citizen Passport is your constitutional presence. You must establish it before you can remix your crossing."
+          points={[
+            'Passport proves your constitutional personhood',
+            "You'll cross a threshold once claimed",
+            'Then remix your crossing story',
+          ]}
+        />
+      </div>
+    );
+  }
 
   if (!src) return null;
 

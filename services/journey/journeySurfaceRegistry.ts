@@ -108,6 +108,21 @@ export type JourneySurfaceDescriptor =
        * before established, depth 1 after).
        */
       focusedNavDepth?: number;
+      /**
+       * Embedded-return mechanism (2026-08-12, KNYTS↔CI parity pass) —
+       * services/journey/bridgeEmbedNav.ts. Declares that this focused
+       * embed's content can navigate itself to a sibling tab in the SAME
+       * cartridge (e.g. a Quests card opening Living Canon via
+       * CartridgePresenceRegistry's same-window tab switch) with no chrome
+       * left to click back with. When set, JourneyRunSurface renders a
+       * "← {returnLabel}" toolbar button that posts a return command into
+       * the embed asking it to reset back to `rootTab` — WITHOUT switching
+       * to expanded/full-chrome presentation (that remains the separate
+       * `openLabel` affordance). Only meaningful alongside `focused: true`.
+       */
+      rootTab?: string;
+      /** Label for the embedded-return toolbar button, e.g. "Back to Quests". */
+      returnLabel?: string;
       note: string;
     }
   | {
@@ -378,9 +393,11 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
     kind: 'component',
     component: 'KnytsBridgeMediaStage',
     note:
-      'HOME half of the ONE shared cinematic surface (components/journey/KnytsBridgeMediaStage.tsx) — ' +
-      'hero/video/poster/CTA/reward copy, admin-editable via /api/journey/knyts-bridge/editorial-config. ' +
-      "Home speaks Mythos; see 'knyts-bridge-orient' for the same component's other half.",
+      'KNYTS↔CI parity pass (2026-08-12): HOME-only now (ORIENT split into ' +
+      "KnytsBridgeOrientIntro) — a thin amber-preset wrapper over the SAME generic " +
+      'BridgeMediaStage (layout="cinematic") CI\'s own ConstitutionalInternetBridgeMediaStage ' +
+      'uses, including its overlay fade behavior. Hero/video/poster/CTA/reward copy stay ' +
+      'admin-editable via /api/journey/knyts-bridge/editorial-config.',
   },
   'knyts-bridge-view-pulse': {
     kind: 'embed',
@@ -402,22 +419,27 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
   },
   'knyts-bridge-orient': {
     kind: 'component',
-    component: 'KnytsBridgeMediaStage',
+    component: 'KnytsBridgeOrientIntro',
     note:
-      'ORIENT half of the shared cinematic surface — a short film explaining the Threshold and the first ' +
-      'constitutional act, minimal supporting copy, CTA into Passport. No heavy Bureau UI, no server ' +
-      'call, no completion evidence of its own (see knytsBridgeCrossingJourney.ts).',
+      'KNYTS↔CI parity pass (2026-08-12): ORIENT is now a thin amber-preset wrapper ' +
+      '(components/journey/KnytsBridgeOrientIntro.tsx) over the bridge-neutral ' +
+      'BridgeOrientSurface — the SAME two-column layout and shared ' +
+      'ConstitutionalFrontierOrientSurface questionnaire CI composes, never a second ' +
+      'questionnaire implementation. No heavy Bureau UI, no server call, no completion ' +
+      'evidence of its own (see knytsBridgeCrossingJourney.ts).',
   },
   'knyts-bridge-passport-room': {
     kind: 'component',
     component: 'KnytsBridgePassportRoom',
     note:
-      'State-aware constitutional room (components/journey/KnytsBridgePassportRoom.tsx): no Passport → ' +
-      "the canonical PassportBureauApplyTab claim flow; Passport established → 'You have crossed.' + the " +
-      "SAME 'aigentme-welcome' embed Horizen's own journey uses, so meet/delegate states render from the " +
-      'existing aigentMe dashboard rather than a second, bespoke delegation-state UI. A bare `component` ' +
-      "because it needs the Passport stage's OWN resolved evidence (citizenPassportUsable, threaded in " +
-      'by the page via resolveSurfaceProps) to decide which half to render — a plain embed cannot branch.',
+      'KNYTS↔CI parity pass (2026-08-12): reconstituted onto the CI Passport framework — no usable ' +
+      'Passport → the canonical PassportBureauApplyTab claim flow; Passport established → a dismissible ' +
+      '"you have crossed" banner, a parchment-matte plate pane, and the SAME shared ' +
+      'BridgeActionModeQuestion (Create/Build/Develop/Research/Safeguard) CI composes, never a second ' +
+      'questionnaire. The prior auto-embedded aigentMe iframe is retired — meeting/delegating to aigentMe ' +
+      'is a PERSONIFY/Remix-time decision, not forced on every visitor at Passport establishment. A bare ' +
+      "`component` because it needs the Passport stage's OWN resolved evidence (citizenPassportUsable, " +
+      'threaded in by the page via resolveSurfaceProps) to decide which half to render.',
   },
   'knyts-bridge-mycanvas-remix': {
     kind: 'component',
@@ -438,12 +460,17 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
     focused: true,
     focusedNavDepth: 0,
     openLabel: 'Open KNYT World ↗',
+    rootTab: 'quests',
+    returnLabel: 'Back to Quests',
     note:
       'The canonical KNYT Quests tab (app/triad/components/codex/tabs/KnytQuestsTab.tsx) — "Standing is ' +
       'the constitutional outcome; Quest is the KNYT mechanic through which you earn it." The spine ' +
       'label stays Stand; the surface underneath is the real, KNYT-native Quests experience, never a ' +
       'thin bespoke Standing projection. `focused: true` (2026-08-10) hides the cartridge primary chrome; ' +
-      "Quests's own filters/controls are untouched. Depth 0 means content only (quests feed).",
+      "Quests's own filters/controls are untouched. Depth 0 means content only (quests feed). " +
+      'rootTab/returnLabel (2026-08-12, parity pass): Quests cards can navigate this SAME cartridge to ' +
+      'Living Canon (a same-window CartridgePresenceRegistry tab switch); the "Back to Quests" toolbar ' +
+      '(services/journey/bridgeEmbedNav.ts) returns here without leaving focused presentation.',
   },
   'knyts-bridge-buy-store': {
     kind: 'embed',

@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { tryOpenInMountedCartridge } from "@/services/cartridge/CartridgePresenceRegistry";
+import { requestWalletSurface } from "@/services/wallet/walletSurfaceRequest";
 
 interface KnytQuestsTabProps {
   personaId?: string;
@@ -61,8 +62,17 @@ export function KnytQuestsTab({ personaId: _personaId }: KnytQuestsTabProps) {
 
   // Bring-a-Knight and Herald share actions live in the wallet drawer (it
   // owns the share-link issuance flow). From the canonical Quests surface
-  // we surface the explanation + reward model; the actual share button is
-  // one click away in the wallet.
+  // we surface the explanation + reward model, plus an explicit button
+  // (2026-08-12, KNYTS↔CI parity pass — these cards were prose-only before)
+  // that opens the wallet straight to its EXISTING Tasks tab via the
+  // generic wallet-surface-request bus. Works identically standalone (the
+  // multi-cartridge shell's own SmartWalletDrawer answers) and inside the
+  // KNYTS Bridge's embedded Stand surface (CodexPanelDynamic mounts its own
+  // SmartWalletDrawer in the SAME iframe as this tab, so the local dispatch
+  // reaches it directly) — never a second wallet/drawer/Tasks implementation.
+  const openWalletTasks = useCallback((origin: string) => {
+    requestWalletSurface({ surface: "TASKS_TAB", origin });
+  }, []);
 
   return (
     <div className="grid gap-4 p-4 md:p-6">
@@ -117,6 +127,15 @@ export function KnytQuestsTab({ personaId: _personaId }: KnytQuestsTabProps) {
             Share your invite from the <span className="text-cyan-300">Wallet → Tasks</span> tab —
             it generates a per-persona link that tracks clicks, signups, and conversions.
           </p>
+          <button
+            type="button"
+            onClick={() => openWalletTasks("knyt-quests-bring-a-knight")}
+            className="inline-flex items-center gap-1.5 mt-1 px-3 py-1.5 rounded bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-200 text-xs"
+          >
+            <Users className="h-3.5 w-3.5" />
+            Open Wallet Tasks
+            <ArrowRight className="h-3 w-3" />
+          </button>
         </CardContent>
       </Card>
 
@@ -186,6 +205,15 @@ export function KnytQuestsTab({ personaId: _personaId }: KnytQuestsTabProps) {
             Issue your Herald link from the <span className="text-amber-300">Wallet → Tasks</span>{" "}
             tab. Targets: 10 clicks · 3 signups for the next ladder rung.
           </p>
+          <button
+            type="button"
+            onClick={() => openWalletTasks("knyt-quests-herald")}
+            className="inline-flex items-center gap-1.5 mt-1 px-3 py-1.5 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-xs"
+          >
+            <Trophy className="h-3.5 w-3.5" />
+            Open Wallet Tasks
+            <ArrowRight className="h-3 w-3" />
+          </button>
         </CardContent>
       </Card>
 

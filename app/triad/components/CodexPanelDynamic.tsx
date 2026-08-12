@@ -22,6 +22,7 @@ import {
   type WalletSurfaceRequest,
 } from "@/services/wallet/walletSurfaceRequest";
 import { WalletSurfaceHostProvider } from "@/services/wallet/walletSurfaceHost";
+import { subscribeBridgeEmbedReturn } from "@/services/journey/bridgeEmbedNav";
 const CodexCopilotLayer = dynamic(
   () => import("@/app/components/codex/CodexCopilotLayer").then(m => ({ default: m.CodexCopilotLayer })),
   { ssr: false }
@@ -264,6 +265,25 @@ export default function CodexPanelDynamic({
         acknowledgeWalletSurfaceRequest(request.token, 'CodexPanelDynamic');
       }),
     [],
+  );
+
+  /**
+   * A Guided Journey Bridge host (JourneyRunSurface) asking this mounted
+   * cartridge to reset its active tab back to a focused embed descriptor's
+   * `rootTab` (services/journey/bridgeEmbedNav.ts) — e.g. the KNYTS Bridge's
+   * "← Back to Quests" toolbar, after the visitor navigated within this same
+   * cartridge to a sibling tab (Living Canon) that the focused embed's
+   * suppressed chrome offers no way back from. Only acts when the command
+   * names THIS cartridge — a Bridge page can embed more than one cartridge,
+   * and this listener must never reset an unrelated one's tab.
+   */
+  useEffect(
+    () =>
+      subscribeBridgeEmbedReturn((command) => {
+        if (command.cartridgeId !== codexId) return;
+        setActiveTabSlug(command.rootTab);
+      }),
+    [codexId],
   );
 
   // When SmartWalletDrawer reports a persona switch, update the global context

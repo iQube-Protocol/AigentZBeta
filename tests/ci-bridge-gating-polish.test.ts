@@ -18,13 +18,23 @@ import { readSource, stripComments } from './_lib/sourceAuthority';
 describe('Personify Passport gate — "Later" dismisses locally, never navigates', () => {
   const PAGE = 'app/bridge/ci/page.tsx';
   const PERSONIFY = 'components/journey/ConstitutionalInternetBridgePersonifyMyCanvas.tsx';
-  const GATE = 'components/journey/ConstitutionalInternetBridgePassportGate.tsx';
+  // Generalized into a bridge-neutral component (2026-08-12, KNYTS↔CI
+  // parity pass) — CI's own file is now a thin indigo-preset wrapper around
+  // it, so the dismissLabel mechanism itself lives here.
+  const GATE = 'components/journey/BridgePassportGate.tsx';
+  const CI_GATE_WRAPPER = 'components/journey/ConstitutionalInternetBridgePassportGate.tsx';
 
   it('the shared gate component supports a dismissLabel override, defaulting to Back', () => {
     const code = stripComments(readSource(GATE));
     expect(code).toContain('dismissLabel?: string');
     expect(code).toMatch(/dismissLabel = 'Back'/);
     expect(code).toContain('{dismissLabel}');
+  });
+
+  it("CI's wrapper forwards dismissLabel through to the shared component, preset to indigo", () => {
+    const code = stripComments(readSource(CI_GATE_WRAPPER));
+    expect(code).toContain('accent="indigo"');
+    expect(code).toContain('{...props}');
   });
 
   it("Personify's gate mount passes dismissLabel=\"Later\"", () => {

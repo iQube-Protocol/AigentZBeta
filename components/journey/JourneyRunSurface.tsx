@@ -26,6 +26,7 @@ import { Check, Lock, Loader2, RefreshCw, ExternalLink, Construction, Maximize2,
 import { personaFetch } from '@/utils/personaSpine';
 import { buildCodexUrl } from '@/utils/codex-nav';
 import { JOURNEY_SURFACES, buildEmbedSurfaceSrc, type JourneySurfaceDescriptor } from '@/services/journey/journeySurfaceRegistry';
+import { requestBridgeEmbedReturn } from '@/services/journey/bridgeEmbedNav';
 import { StageReceiptsDrawer } from '@/components/journey/StageReceiptsDrawer';
 import type { JourneyDefinition, JourneyRuntimeState, JourneyStageDefinition, JourneySurfaceRef } from '@/types/journey';
 import { overlayZClass } from '@/components/ui/overlayLayers';
@@ -389,6 +390,13 @@ export function JourneyRunSurface({
   const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
   const [fullScreen, setFullScreen] = useState(false);
   const [expandedEmbedIndices, setExpandedEmbedIndices] = useState<Set<number>>(new Set());
+  /** Direct references to embed iframes, keyed by their render index — the
+   *  "← Back to Quests" toolbar posts a bridgeEmbedNav return command into
+   *  the SPECIFIC frame it addresses (never a broadcast, unlike wallet
+   *  surface requests, since resetting an unrelated embed's tab would be
+   *  wrong). Not state — a ref because the element itself, not a re-render
+   *  trigger, is what the toolbar's onClick needs. */
+  const embedFrameRefs = useRef<Record<number, HTMLIFrameElement | null>>({});
 
   const toggleEmbedExpansion = (index: number) => {
     setExpandedEmbedIndices(prev => {
@@ -1112,17 +1120,37 @@ export function JourneyRunSurface({
               );
               return (
                 <div key={i} className="flex flex-col gap-1.5">
-                  {descriptor.focused && (
-                    <div className="flex justify-end">
-                      <button
-                        onClick={() => toggleEmbedExpansion(i)}
-                        className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-slate-200 bg-none border-none cursor-pointer p-0"
-                      >
-                        {isExpanded ? 'Focus view' : (descriptor.openLabel ?? 'Open full view ↗')}
-                      </button>
+                  {(descriptor.rootTab || descriptor.focused) && (
+                    <div className="flex items-center justify-between gap-2">
+                      {descriptor.rootTab && (
+                        <button
+                          onClick={() =>
+                            requestBridgeEmbedReturn(
+                              embedFrameRefs.current[i]?.contentWindow,
+                              descriptor.codexSlug,
+                              descriptor.rootTab!,
+                            )
+                          }
+                          className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-slate-200 bg-none border-none cursor-pointer p-0"
+                        >
+                          <ArrowLeft className="h-3 w-3" />
+                          {descriptor.returnLabel ?? 'Back'}
+                        </button>
+                      )}
+                      {descriptor.focused && (
+                        <button
+                          onClick={() => toggleEmbedExpansion(i)}
+                          className="ml-auto inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-slate-200 bg-none border-none cursor-pointer p-0"
+                        >
+                          {isExpanded ? 'Focus view' : (descriptor.openLabel ?? 'Open full view ↗')}
+                        </button>
+                      )}
                     </div>
                   )}
                   <iframe
+                    ref={(el) => {
+                      embedFrameRefs.current[i] = el;
+                    }}
                     src={src}
                     title={surfaceRef.ref}
                     className={`w-full rounded-md border border-slate-800 bg-slate-950 ${

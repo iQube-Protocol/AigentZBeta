@@ -63,6 +63,21 @@ export const KNYTS_BRIDGE_SECTION_DEFAULTS: Record<string, KnytsBridgeEditorialS
     rewardCopy: null,
     updatedAt: null,
   },
+  // Added 2026-08-12 (KNYTS↔CI parity pass) — the PASSPORT stage's
+  // post-crossing surface (KnytsBridgePassportRoom.tsx's "established"
+  // branch), mirroring `ci-passport-established`'s pattern exactly.
+  'passport-established': {
+    section: 'passport-established',
+    headline: 'You have crossed the Threshold.',
+    shortCopy:
+      'Your constitutional presence is confirmed. What you do next is yours to choose — tell your own ' +
+      'crossing when you are ready.',
+    videoUrl: null,
+    posterUrl: null,
+    campaignCta: null,
+    rewardCopy: null,
+    updatedAt: null,
+  },
   // ── Constitutional Internet Bridge sections (added 2026-08-11, experience
   // evolution pass) — same table, distinct section keys, zero schema change.
   // `ci-home` mirrors the copy that already ships hardcoded in
