@@ -5614,6 +5614,14 @@ export const POLITY_CORE_CARTRIDGE: CodexConfig = {
       label: 'The Constitutional Internet',
       slug: 'commentary-constitutional-internet',
       enabled: true,
+      // Working-manuscript development material — admin-only (2026-08-12
+      // forensic correction pass). This tab surfaces the book's live
+      // manuscript, editorial master, register and source/evidence matrix;
+      // the public-facing Bridge deep-links to the Qriptopian Codex's
+      // published "Polity Papers" series instead (never this tab). Uses the
+      // existing Codex access-gate system — no second CI-specific
+      // permission mechanism.
+      adminOnly: true,
       group: 'commentary',
       order: 3,
       type: 'static',

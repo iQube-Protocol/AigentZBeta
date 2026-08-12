@@ -207,7 +207,15 @@ export function ConstitutionalInternetBridgeChooseSurface({ personaId, onOpenAig
     partner: null,
   });
 
-  // Fetch canonical plates on mount
+  // Fetch canonical plates on mount. Stem-matching bugs fixed (2026-08-12
+  // forensic correction pass) — the prior normalizer checked
+  // 'agentime_plate' (typo) and 'agentmeplate' (missing underscore), neither
+  // of which matches the real uploaded stem 'agentme_plate', and duplicated
+  // the same 'metame_vl_plate' literal twice instead of adding the real
+  // alias. `normalizeStem` strips ALL non-alphanumerics (not just
+  // underscores) so punctuation/casing variants ("agentMe-Plate.PNG",
+  // "agentMe_Plate.PNG") all collapse to the same key. Title is checked
+  // before the filename fallback — same normalization, so either resolves.
   useEffect(() => {
     const fetchCanonicalAssets = async () => {
       try {
@@ -216,7 +224,15 @@ export function ConstitutionalInternetBridgeChooseSurface({ personaId, onOpenAig
         const json = await res.json() as { assets: CanonicalAsset[] };
         const assets = json.assets || [];
 
-        // Map by case-insensitive filename stem
+        const normalizeStem = (value: string) =>
+          value.replace(/\.[^.]+$/, '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+
+        const ALIASES: Record<'aigentme' | 'irl' | 'partner', string[]> = {
+          aigentme: ['agentmeplate'],
+          irl: ['irlplate'],
+          partner: ['metamevlplate', 'metameventurelabplate'],
+        };
+
         const resolved: Record<string, CanonicalAsset | null> = {
           aigentme: null,
           irl: null,
@@ -224,14 +240,14 @@ export function ConstitutionalInternetBridgeChooseSurface({ personaId, onOpenAig
         };
 
         for (const asset of assets) {
-          const stem = asset.originalFilename.replace(/\.[^.]+$/, '').toLowerCase();
+          const titleStem = normalizeStem(asset.title || '');
+          const filenameStem = normalizeStem(asset.originalFilename || '');
 
-          if (stem === 'agentime_plate' || stem === 'agentmeplate') {
-            resolved.aigentme = asset;
-          } else if (stem === 'irl_plate' || stem === 'irlplate') {
-            resolved.irl = asset;
-          } else if (stem === 'metame_vl_plate' || stem === 'metame_vl_plate' || stem === 'metame_venture_lab_plate') {
-            resolved.partner = asset;
+          for (const key of Object.keys(ALIASES) as Array<keyof typeof ALIASES>) {
+            if (resolved[key]) continue;
+            if (ALIASES[key].includes(titleStem) || ALIASES[key].includes(filenameStem)) {
+              resolved[key] = asset;
+            }
           }
         }
 
@@ -244,12 +260,22 @@ export function ConstitutionalInternetBridgeChooseSurface({ personaId, onOpenAig
     fetchCanonicalAssets();
   }, []);
 
-  const readingSrc = buildCodexUrl('polity-core-cartridge', {
-    tab: 'commentary-constitutional-internet',
+  // "Continue reading" → Qriptopian Codex → Papers → The Polity (revised
+  // 2026-08-12): the working Polity Core commentary tab is admin-only
+  // internal development material (see data/codex-configs.ts), never a
+  // public Bridge destination. The public canonical source is the
+  // published Polity Papers series inside the Qriptopian Codex's own Papers
+  // tab (data/codex-configs.ts QRIPTO_CODEX, slug 'qripto', tab 'papers').
+  // `scope` is not a typed buildCodexUrl option (utils/codex-nav.ts is
+  // deliberately closed to generic passthrough) so it's appended directly —
+  // QriptoPapersTab reads it to land the visitor inside the Polity series
+  // specifically rather than the top of the full Papers index.
+  const readingSrc = `${buildCodexUrl('qripto', {
+    tab: 'papers',
     personaId,
     shell: 'embed',
     suppressCopilot: true,
-  });
+  })}&scope=${encodeURIComponent('papers/polity')}`;
 
   const openAigentMe = () => {
     setLeftView('aigentme');

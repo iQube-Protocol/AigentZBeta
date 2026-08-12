@@ -42,11 +42,19 @@
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { Award, ChevronDown, ClipboardList, ReceiptText, ShieldCheck, X } from 'lucide-react';
+import { Award, ChevronDown, ClipboardList, Lock, ReceiptText, ShieldCheck, X } from 'lucide-react';
 import { personaFetch } from '@/utils/personaSpine';
 import { buildCodexUrl } from '@/utils/codex-nav';
 import { ActivityReceiptCard, type ActivityReceiptData } from '@/components/metame/cards/ActivityReceiptCard';
 import { StandingSignalsPanel } from '@/components/metame/standing/StandingSignalsPanel';
+
+function selectStage(stageId: string) {
+  try {
+    window.dispatchEvent(new CustomEvent('journey:select-stage', { detail: { stageId } }));
+  } catch {
+    /* non-fatal */
+  }
+}
 
 interface StandingLanes {
   personal: number;
@@ -66,6 +74,15 @@ const LANES: Array<{ key: keyof StandingLanes; label: string; color: string; tip
 
 interface ConstitutionalInternetBridgeStandPanelProps {
   personaId?: string;
+  /** Authoritative runtime-state signal (CI Bridge correction pass,
+   *  2026-08-12) — Passport, NOT persona, is the gate for Standing. A
+   *  visitor can hold a persona (signed in) without having claimed a
+   *  usable Citizen Passport; Passport makes them ELIGIBLE to earn
+   *  Standing, it does not itself award any. Undefined (not yet resolved
+   *  by the Passport-room surface) is treated as NOT usable — fail closed,
+   *  never optimistically render personal Standing data before the
+   *  authoritative state is known. */
+  citizenPassportUsable?: boolean;
 }
 
 /** Collapsible section chrome for Why / Earn Standing (targeted correction
@@ -103,7 +120,7 @@ function CollapsibleSection({
   );
 }
 
-export function ConstitutionalInternetBridgeStandPanel({ personaId }: ConstitutionalInternetBridgeStandPanelProps) {
+export function ConstitutionalInternetBridgeStandPanel({ personaId, citizenPassportUsable }: ConstitutionalInternetBridgeStandPanelProps) {
   const [standing, setStanding] = useState<StandingLanes | null>(null);
   const [receipts, setReceipts] = useState<ActivityReceiptData[]>([]);
   const [personaDisplayLabel, setPersonaDisplayLabel] = useState<string | null>(null);
@@ -112,8 +129,14 @@ export function ConstitutionalInternetBridgeStandPanel({ personaId }: Constituti
   const [error, setError] = useState<string | null>(null);
   const [openFull, setOpenFull] = useState(false);
 
+  const passportUsable = citizenPassportUsable === true;
+
   const load = useCallback(async () => {
-    if (!personaId) {
+    // Passport, not persona, is the gate (fixed 2026-08-12 — the prior
+    // `!personaId` predicate let a signed-in-but-passportless visitor's
+    // Standing fetch fire and fail, painting the blank-screen regression).
+    // No personal Standing API is ever called before Passport is usable.
+    if (!personaId || !passportUsable) {
       setLoading(false);
       return;
     }
@@ -140,7 +163,7 @@ export function ConstitutionalInternetBridgeStandPanel({ personaId }: Constituti
     } finally {
       setLoading(false);
     }
-  }, [personaId]);
+  }, [personaId, passportUsable]);
 
   useEffect(() => {
     void load();
@@ -164,8 +187,63 @@ export function ConstitutionalInternetBridgeStandPanel({ personaId }: Constituti
     );
   }
 
-  if (!personaId) {
-    return <p className="text-xs text-slate-400">Claim your Passport to see your constitutional standing.</p>;
+  // Passport-required gate — the Standing SKELETON still renders (so the
+  // visitor sees what Standing is before claiming a Passport), but no
+  // personal Standing data mounts underneath: `load()` above already
+  // short-circuited before calling `/api/wallet/tasks` or
+  // `/api/assistant/receipts`, so `standing`/`receipts` stay empty. The
+  // overlay is the honest surface — it never lets the skeleton's own empty
+  // states ("No standing record yet…") stand in for the real reason nothing
+  // loaded.
+  if (!passportUsable) {
+    return (
+      <div className="relative space-y-3">
+        <div className="pointer-events-none space-y-3 opacity-30 blur-[1px]" aria-hidden="true">
+          <div className="rounded-xl border border-white/[0.07] bg-slate-900/40 p-4">
+            <h3 className="flex items-center gap-1.5 text-sm font-semibold text-slate-200">
+              <Award className="h-4 w-4 text-violet-300" /> Your Standing
+            </h3>
+            <div className="mt-2 space-y-1.5">
+              {LANES.map(({ key, label, color }) => (
+                <div key={key} className="flex items-center gap-3">
+                  <span className="w-20 text-[11px] text-slate-400">{label}</span>
+                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-800">
+                    <div className={`h-full ${color}`} style={{ width: '0%' }} />
+                  </div>
+                  <span className="w-8 text-right text-[11px] text-slate-300">0.0</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="rounded-xl border border-white/[0.07] bg-slate-900/40 p-4">
+            <h3 className="flex items-center gap-1.5 text-sm font-semibold text-slate-200">
+              <ReceiptText className="h-4 w-4 text-emerald-300" /> Why
+            </h3>
+          </div>
+          <div className="rounded-xl border border-white/[0.07] bg-slate-900/40 p-4">
+            <h3 className="flex items-center gap-1.5 text-sm font-semibold text-slate-200">
+              <ClipboardList className="h-4 w-4 text-amber-300" /> Earn Standing
+            </h3>
+          </div>
+        </div>
+        <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-slate-950/70 p-4">
+          <div className="max-w-xs rounded-xl border border-indigo-400/20 bg-slate-900/95 p-4 text-center shadow-xl">
+            <Lock className="mx-auto h-5 w-5 text-indigo-300" />
+            <p className="mt-2 text-sm font-semibold text-white">Claim your Polity Passport to begin accruing Standing.</p>
+            <p className="mt-1.5 text-xs text-slate-400">
+              Passport makes you eligible to earn Standing; it does not itself award Standing.
+            </p>
+            <button
+              type="button"
+              onClick={() => selectStage('passport')}
+              className="mt-3 w-full rounded-lg bg-indigo-500 px-4 py-2 text-xs font-semibold text-slate-950 transition hover:bg-indigo-400"
+            >
+              Go to Passport
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (

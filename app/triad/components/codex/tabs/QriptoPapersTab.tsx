@@ -16,6 +16,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { FileText, Loader2, ImageOff, BookOpen } from 'lucide-react';
 import { PDFLiteReaderModal } from '@/app/triad/components/content/PDFLiteReaderModal';
 
@@ -46,6 +47,16 @@ export function QriptoPapersTab({ theme = 'dark', group = 'papers' }: QriptoPape
   // KNYT episodes (cover thumbnail → modal viewer → PDF body).
   const [activePdf, setActivePdf] = useState<{ url: string; title: string } | null>(null);
 
+  // Deep-link scope filter (`?scope=papers/polity`) — added 2026-08-12 so
+  // the Constitutional Internet Bridge's "Continue reading" can land the
+  // visitor specifically inside the Polity Papers series rather than the
+  // top of the full Papers index. Read once on mount; `scopeFilter` starts
+  // cleared so exploring away from the deep link (via "Show all Papers")
+  // never needs a router navigation.
+  const searchParams = useSearchParams();
+  const initialScope = searchParams?.get('scope') || null;
+  const [scopeFilter, setScopeFilter] = useState<string | null>(initialScope);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -72,8 +83,11 @@ export function QriptoPapersTab({ theme = 'dark', group = 'papers' }: QriptoPape
   const headingClass = isDark ? 'text-white' : 'text-slate-900';
   const mutedClass = isDark ? 'text-slate-400' : 'text-slate-600';
 
-  // Group cards by scope label for sub-section headers.
-  const grouped = papers.reduce<Record<string, PaperCard[]>>((acc, p) => {
+  // Group cards by scope label for sub-section headers. When a deep-link
+  // scope filter is active, only that series' papers are grouped — the
+  // visitor lands specifically inside it rather than the full index.
+  const visiblePapers = scopeFilter ? papers.filter((p) => p.scope === scopeFilter) : papers;
+  const grouped = visiblePapers.reduce<Record<string, PaperCard[]>>((acc, p) => {
     (acc[p.scopeLabel] ??= []).push(p);
     return acc;
   }, {});
@@ -111,6 +125,15 @@ export function QriptoPapersTab({ theme = 'dark', group = 'papers' }: QriptoPape
 
   return (
     <div className="p-6 space-y-8">
+      {scopeFilter && (
+        <button
+          type="button"
+          onClick={() => setScopeFilter(null)}
+          className={`text-xs font-medium ${isDark ? 'text-indigo-300 hover:text-indigo-200' : 'text-indigo-600 hover:text-indigo-700'}`}
+        >
+          ← Show all Papers
+        </button>
+      )}
       {Object.entries(grouped).map(([label, items]) => (
         <section key={label}>
           <h3 className={`mb-3 text-sm font-semibold uppercase tracking-wide ${mutedClass}`}>

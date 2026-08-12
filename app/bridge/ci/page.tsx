@@ -181,21 +181,24 @@ export default function ConstitutionalInternetBridgePage() {
         // drilling channel (resolveSurfaceProps), just one more callback.
         return { personaId, onOpenAigentMeCopilot: () => setCopilotOpen(true) };
       }
+      if (surfaceRef.ref === 'ci-bridge-view') {
+        return { personaId };
+      }
       if (
-        surfaceRef.ref === 'ci-bridge-view' ||
+        // Fixed 2026-08-12 (forensic correction pass) — Personify and Stand
+        // must fail closed on the AUTHORITATIVE `citizenPassportUsable`
+        // signal (set above, from the Passport-room's own runtime-state
+        // read), never on `personaId` alone. A signed-in visitor without a
+        // claimed Passport is exactly the case that produced the blank
+        // Stand screen and the un-gated Personify myCanvas mount.
         surfaceRef.ref === 'ci-bridge-personify-mycanvas' ||
-        // Fixed 2026-08-11 (integration pass) — STAND never received
-        // personaId before this, so it always rendered its signed-out
-        // "Claim your Passport" branch regardless of whether the visitor
-        // actually had a persona. Same one-line fix pattern as the
-        // Passport-room personaId omission fixed the same day.
         surfaceRef.ref === 'ci-bridge-stand'
       ) {
-        return { personaId };
+        return { personaId, citizenPassportUsable };
       }
       return {};
     },
-    [personaId],
+    [personaId, citizenPassportUsable],
   );
 
   return (
@@ -217,6 +220,20 @@ export default function ConstitutionalInternetBridgePage() {
           compact
           onBack={handleBack}
           distinguishAvailableStages
+          // CI-specific presentation seam (forensic correction pass,
+          // 2026-08-12) — see JourneyRunSurface's emphasizeAvailableStage
+          // doc. Home/View/Orient are never gated, so they keep the emerald
+          // "available now" look. Personify/Stand/Choose are only truly
+          // reachable once Passport is claimed; before that, painting them
+          // emerald falsely reads as "constitutionally established". Passport
+          // itself is unaffected — its color comes from isDone/isCurrent, not
+          // this callback.
+          emphasizeAvailableStage={(stageId) => {
+            if (stageId === 'personify' || stageId === 'stand' || stageId === 'choose') {
+              return citizenPassportUsable === true;
+            }
+            return true;
+          }}
           headerLabel={
             <>
               <span className="shrink-0 font-semibold text-slate-100">Constitutional Internet Bridge</span>

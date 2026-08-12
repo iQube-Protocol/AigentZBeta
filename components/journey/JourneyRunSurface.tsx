@@ -290,6 +290,22 @@ export interface JourneyRunSurfaceProps {
    * opts in.
    */
   distinguishAvailableStages?: boolean;
+  /**
+   * Journey-specific override for WHICH available stages (not done, not
+   * current, not blocked) actually get the emerald "available now"
+   * treatment when `distinguishAvailableStages` is on (CI Bridge correction
+   * pass, 2026-08-12). Without this, every available stage paints emerald
+   * uniformly — which is correct for a spine with no post-threshold field,
+   * but wrong for CI: Personify/Stand/Choose are merely NAVIGABLE before
+   * Passport is claimed, and painting them emerald reads as "constitutionally
+   * established" when they are not. Returns true for a stage id to keep the
+   * emerald treatment; false to fall back to the plain grey numbered-step
+   * look (same as pre-`distinguishAvailableStages` default). Undefined
+   * (every other caller) preserves the existing behavior — every available
+   * stage is emerald — byte-for-byte. This is presentation only: it never
+   * gates `selectStage`, only the icon/label color.
+   */
+  emphasizeAvailableStage?: (stageId: string) => boolean;
 }
 
 const DEFAULT_ACCENT = {
@@ -313,6 +329,7 @@ export function JourneyRunSurface({
   accent = DEFAULT_ACCENT,
   compact = false,
   distinguishAvailableStages = false,
+  emphasizeAvailableStage,
 }: JourneyRunSurfaceProps) {
   const [runtimeState, setRuntimeState] = useState<JourneyRuntimeState | null>(null);
   /**
@@ -858,7 +875,12 @@ export function JourneyRunSurface({
             // distinct look when the caller opts in via
             // distinguishAvailableStages; otherwise it stays folded into the
             // same plain-grey bucket every caller has always rendered.
-            const isAvailable = distinguishAvailableStages && !isDone && !isCurrent && !isBlocked;
+            const isAvailable =
+              distinguishAvailableStages &&
+              !isDone &&
+              !isCurrent &&
+              !isBlocked &&
+              (emphasizeAvailableStage ? emphasizeAvailableStage(stage.id) : true);
             const prevDone =
               i === 0 ||
               (runtimeState?.stages.find((s) => s.stageId === spineStages[i - 1].id)?.state ?? 'NOT_STARTED') ===

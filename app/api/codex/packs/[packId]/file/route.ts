@@ -2,11 +2,33 @@
  * GET /api/codex/packs/:packId/file?path=...
  *
  * Serves files from codexes/packs/:packId (markdown or JSON).
+ *
+ * SECURITY (2026-08-12 forensic correction pass): this route has no access
+ * control of its own — it is a general-purpose reader for AgentiqCartridgeTab,
+ * and most pack collections ARE meant to be publicly readable that way
+ * (AlphaDocsTab, RefStudioTab, etc.). The codex tab-registry `adminOnly` flag
+ * on a specific tab (e.g. `polity-core-commentary-constitutional-internet`)
+ * is a CLIENT-SIDE gate only — it hides the tab in the UI, but a direct
+ * request to this route with the same packId/path bypasses it entirely,
+ * since this route never consulted the tab registry at all.
+ *
+ * `ADMIN_GATED_PACK_PATHS` closes that gap for the specific collections that
+ * carry working, non-public material — the Constitutional Internet
+ * manuscript is the first entry, added because its tab is `adminOnly: true`
+ * while its sibling commentary tabs (Experience Sovereignty, COYN Thesis,
+ * The Polity) are not and must stay reachable. Scoped to exact
+ * pack+path-prefix pairs rather than gating this whole route, so every other
+ * pack/collection's existing public-read behavior is unchanged.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import path from "path";
 import { corpusReadPackFile } from "@/services/knowledge/packCorpusStore";
+import { getActivePersona } from "@/services/identity/getActivePersona";
+
+const ADMIN_GATED_PACK_PATHS: Array<{ packId: string; pathPrefix: string }> = [
+  { packId: "polity-core", pathPrefix: "items/commentary/constitutional-internet/" },
+];
 
 function isValidPackId(packId: string): boolean {
   return /^[a-z0-9-]+$/i.test(packId);
@@ -46,6 +68,16 @@ export async function GET(request: NextRequest, context: { params: Promise<{ pac
   const fullPath = path.join(packRoot, safePath);
   if (!fullPath.startsWith(packRoot + path.sep)) {
     return NextResponse.json({ ok: false, error: "Path out of bounds." }, { status: 400 });
+  }
+
+  const gate = ADMIN_GATED_PACK_PATHS.find(
+    (g) => g.packId === packId && safePath.startsWith(g.pathPrefix),
+  );
+  if (gate) {
+    const persona = await getActivePersona(request).catch(() => null);
+    if (!persona?.cartridgeFlags?.isAdmin) {
+      return NextResponse.json({ ok: false, error: "Admin required." }, { status: 403 });
+    }
   }
 
   try {
