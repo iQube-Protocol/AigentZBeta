@@ -34,6 +34,7 @@ type AssetRow = {
   auto_drive_cid: string | null;
   cover_thumb_url: string | null;
   created_at: string | null;
+  series_scope: string | null;
 };
 
 type PaperCard = {
@@ -113,7 +114,7 @@ export async function GET(req: NextRequest) {
 
     const { data, error } = await supabase
       .from('codex_media_assets')
-      .select('id, title, supabase_title, asset_kind, mime_type, auto_drive_cid, cover_thumb_url, created_at')
+      .select('id, title, supabase_title, asset_kind, mime_type, auto_drive_cid, cover_thumb_url, created_at, series_scope')
       .eq('series', 'qriptopian')
       .eq('status', 'active')
       .order('created_at', { ascending: false });
@@ -122,7 +123,17 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: error.message, papers: [] }, { status: 500 });
     }
 
-    const rows = (data || []) as AssetRow[];
+    // Canonical assets (plates, infographics — resolved separately by
+    // /api/codex/qripto/canonical-assets for the CI Bridge and any future
+    // canonical consumer) are NEVER Papers, regardless of asset_kind or
+    // filename shape (2026-08-12 revision — defense in depth on top of the
+    // URL-prefix parsing below, which already excludes them incidentally;
+    // this makes the exclusion explicit and correct once series_scope is
+    // populated on write, not just an accident of the papers/magazines
+    // regex not matching a canonical filename prefix).
+    const rows = ((data || []) as AssetRow[]).filter(
+      (row) => !(row.series_scope && row.series_scope.startsWith('canonical/')),
+    );
 
     // Bucket rows by scope, separating covers from papers. Group-filter
     // (papers vs magazines) is applied here but `assets` below returns
