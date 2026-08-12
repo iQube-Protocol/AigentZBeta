@@ -87,7 +87,16 @@ export function KnytsBridgePassportRoom({ personaId, citizenPassportUsable }: Pr
           <p className="text-xs font-semibold uppercase tracking-wider text-amber-400">First constitutional act</p>
           <p className="mt-1 text-sm text-slate-300">Claim your Polity Citizen Passport.</p>
         </div>
-        <PassportBureauApplyTab personaId={personaId} />
+        {/* Both crossings this Bridge hosts are explicitly human/Citizen —
+            `routeTo="citizen"` reuses the SAME auto-route mechanism
+            PilotJourneyTab already drives from its own observer
+            (autoRoutedRef effect in PassportBureauApplyTab.tsx), so the
+            wizard skips the generic Citizen/Agent class picker and opens
+            directly on the Citizen route's own next step: Account (New
+            account | Sign in) when signed out, or straight to Personhood
+            binding when a Bureau session already exists. No new deep-link
+            parameter, no fork — the same prop the Bureau already supports. */}
+        <PassportBureauApplyTab personaId={personaId} routeTo="citizen" />
       </div>
     );
   }
