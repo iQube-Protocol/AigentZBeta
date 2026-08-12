@@ -1361,7 +1361,7 @@ export function CodexCopilotLayer({
             {
               id: (Date.now() + 1).toString(),
               role: "assistant",
-              content: responseContent ?? "I can help with that.",
+              content: responseContent ?? "aigentMe returned no response. Retry.",
               timestamp: new Date(),
               walletActions: responseWalletActions,
             },
@@ -1441,7 +1441,7 @@ export function CodexCopilotLayer({
         {
           id: (Date.now() + 1).toString(),
           role: "assistant",
-          content: navParsed?.cleaned || data?.response || "I can help with that.",
+          content: navParsed?.cleaned || data?.response || "aigentMe returned no response. Retry.",
           timestamp: new Date(),
           walletActions: structuredWalletActions.length > 0 ? structuredWalletActions : undefined,
           navChips: navParsed && navParsed.chips.length > 0 ? navParsed.chips : undefined,
