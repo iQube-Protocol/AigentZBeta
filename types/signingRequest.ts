@@ -107,6 +107,9 @@ export interface SigningRequest {
 
   refusalCode: string | null;
   refusalDetail: string | null;
+
+  /** The activity_receipt written when this approved signing request's downstream custody act completes. Null until approval. SmartWallet durable correlation (Phase A, 2026-08-12). */
+  relatedActivityReceiptId: string | null;
 }
 
 export interface CreateSigningRequestInput {
