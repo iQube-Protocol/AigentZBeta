@@ -38,7 +38,31 @@
  * either side.
  */
 
-export type RequestableWalletSurface = 'PRINCIPAL_WALLET_PROVISIONING' | 'PENDING_ACTIONS';
+export type RequestableWalletSurface =
+  | 'PRINCIPAL_WALLET_PROVISIONING'
+  | 'PENDING_ACTIONS'
+  /**
+   * Passport sign-in, requested from OUTSIDE the wallet's own host — e.g. a
+   * campaign surface (KNYTS Bridge Remix) gating an act on an active
+   * Passport. Mirrors the `PASSPORT_SIGN_IN` surface `SmartWalletDrawer`
+   * already renders internally (persona menu, auto-open-on-visit); this
+   * entry lets a DIFFERENT host ask for that same surface across the
+   * iframe boundary and get a completion back when it resolves, using the
+   * same request/returnTarget/completion protocol PRINCIPAL_WALLET_PROVISIONING
+   * already proved out for Register.
+   */
+  | 'PASSPORT_SIGN_IN'
+  /**
+   * The wallet's existing "Tasks" tab (`DrawerTab = "tasks"` in
+   * SmartWalletDrawer.tsx) — requested from OUTSIDE the wallet's own host
+   * (2026-08-12, KNYTS↔CI parity pass: KnytQuestsTab's "Bring a Knight" /
+   * "Herald of the Order" cards, whose share links live in Wallet → Tasks).
+   * Not a new overlay surface — SmartWalletDrawer converts this one-shot
+   * request straight into `setActiveTab('tasks')` on the SAME already-
+   * mounted drawer, then clears it, so it renders the tasks tab that
+   * already exists rather than a second Tasks implementation.
+   */
+  | 'TASKS_TAB';
 
 export const WALLET_SURFACE_REQUEST_TYPE = 'metame:wallet-surface-request:v1';
 export const WALLET_SURFACE_COMPLETION_TYPE = 'metame:wallet-surface-completion:v1';

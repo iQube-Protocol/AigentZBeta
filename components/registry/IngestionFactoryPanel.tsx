@@ -716,7 +716,7 @@ export function IngestionFactoryPanel({ initialSection = "ingest" }: IngestionFa
                   : "text-slate-400 hover:text-slate-200"
               }`}
             >
-              {s === "ingest" ? "Ingest New Asset" : s === "pipeline" ? "Pipeline Status" : "Ingested Assets"}
+              {s === "ingest" ? "Ingest New Asset" : s === "pipeline" ? "Pipeline Status" : "iQube Registry"}
             </button>
           ))}
         </div>

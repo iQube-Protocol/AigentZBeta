@@ -7,13 +7,8 @@
       "type": "static",
       "order": 0,
       "enabled": true,
-      "metadata": {
-        "icon": "Landmark",
-        "category": "main"
-      },
-      "items": [
-        "items/CONSTITUTION.md"
-      ]
+      "metadata": {"icon": "Landmark", "category": "main"},
+      "items": ["items/CONSTITUTION.md"]
     },
     {
       "id": "col_constitution_agentic_polity",
@@ -22,13 +17,8 @@
       "type": "static",
       "order": 0.5,
       "enabled": true,
-      "metadata": {
-        "icon": "Landmark",
-        "category": "main"
-      },
-      "items": [
-        "items/CONSTITUTION_OF_AGENTIC_POLITY.md"
-      ]
+      "metadata": {"icon": "Landmark", "category": "main"},
+      "items": ["items/CONSTITUTION_OF_AGENTIC_POLITY.md"]
     },
     {
       "id": "col_invariant_intelligence",
@@ -37,13 +27,8 @@
       "type": "static",
       "order": 0.75,
       "enabled": true,
-      "metadata": {
-        "icon": "Infinity",
-        "category": "main"
-      },
-      "items": [
-        "constitutional-records/invariant-intelligence.md"
-      ]
+      "metadata": {"icon": "Infinity", "category": "main"},
+      "items": ["constitutional-records/invariant-intelligence.md"]
     },
     {
       "id": "col_agent_charter",
@@ -52,13 +37,8 @@
       "type": "static",
       "order": 1,
       "enabled": true,
-      "metadata": {
-        "icon": "Bot",
-        "category": "main"
-      },
-      "items": [
-        "items/AGENT_CHARTER.md"
-      ]
+      "metadata": {"icon": "Bot", "category": "main"},
+      "items": ["items/AGENT_CHARTER.md"]
     },
     {
       "id": "col_delegation_framework",
@@ -67,13 +47,8 @@
       "type": "static",
       "order": 2,
       "enabled": true,
-      "metadata": {
-        "icon": "Link2",
-        "category": "main"
-      },
-      "items": [
-        "items/DELEGATION_FRAMEWORK.md"
-      ]
+      "metadata": {"icon": "Link2", "category": "main"},
+      "items": ["items/DELEGATION_FRAMEWORK.md"]
     },
     {
       "id": "col_standing_charter",
@@ -82,13 +57,8 @@
       "type": "static",
       "order": 3,
       "enabled": true,
-      "metadata": {
-        "icon": "Award",
-        "category": "main"
-      },
-      "items": [
-        "items/STANDING_CHARTER.md"
-      ]
+      "metadata": {"icon": "Award", "category": "main"},
+      "items": ["items/STANDING_CHARTER.md"]
     },
     {
       "id": "col_metacommons_charter",
@@ -97,13 +67,8 @@
       "type": "static",
       "order": 4,
       "enabled": true,
-      "metadata": {
-        "icon": "Globe",
-        "category": "main"
-      },
-      "items": [
-        "items/METACOMMONS_CHARTER.md"
-      ]
+      "metadata": {"icon": "Globe", "category": "main"},
+      "items": ["items/METACOMMONS_CHARTER.md"]
     },
     {
       "id": "col_founder_office_charter",
@@ -112,13 +77,8 @@
       "type": "static",
       "order": 5,
       "enabled": true,
-      "metadata": {
-        "icon": "Rocket",
-        "category": "main"
-      },
-      "items": [
-        "items/FOUNDER_OFFICE_CHARTER.md"
-      ]
+      "metadata": {"icon": "Rocket", "category": "main"},
+      "items": ["items/FOUNDER_OFFICE_CHARTER.md"]
     },
     {
       "id": "col_participation_model",
@@ -127,13 +87,8 @@
       "type": "static",
       "order": 5.5,
       "enabled": true,
-      "metadata": {
-        "icon": "Users",
-        "category": "main"
-      },
-      "items": [
-        "items/PARTICIPATION_MODEL.md"
-      ]
+      "metadata": {"icon": "Users", "category": "main"},
+      "items": ["items/PARTICIPATION_MODEL.md"]
     },
     {
       "id": "col_ventureqube_spec",
@@ -142,13 +97,8 @@
       "type": "static",
       "order": 6,
       "enabled": true,
-      "metadata": {
-        "icon": "Layers",
-        "category": "main"
-      },
-      "items": [
-        "items/VENTUREQUBE_SPEC.md"
-      ]
+      "metadata": {"icon": "Layers", "category": "main"},
+      "items": ["items/VENTUREQUBE_SPEC.md"]
     },
     {
       "id": "col_standing_framework",
@@ -157,13 +107,8 @@
       "type": "static",
       "order": 3,
       "enabled": true,
-      "metadata": {
-        "icon": "Award",
-        "category": "main"
-      },
-      "items": [
-        "items/STANDING_FRAMEWORK.md"
-      ]
+      "metadata": {"icon": "Award", "category": "main"},
+      "items": ["items/STANDING_FRAMEWORK.md"]
     },
     {
       "id": "col_governance_framework",
@@ -172,13 +117,8 @@
       "type": "static",
       "order": 4,
       "enabled": true,
-      "metadata": {
-        "icon": "Scale",
-        "category": "main"
-      },
-      "items": [
-        "items/GOVERNANCE_FRAMEWORK.md"
-      ]
+      "metadata": {"icon": "Scale", "category": "main"},
+      "items": ["items/GOVERNANCE_FRAMEWORK.md"]
     },
     {
       "id": "col_amendment_records",
@@ -187,13 +127,8 @@
       "type": "static",
       "order": 5,
       "enabled": true,
-      "metadata": {
-        "icon": "FileText",
-        "category": "main"
-      },
-      "items": [
-        "items/AMENDMENT_RECORDS.md"
-      ]
+      "metadata": {"icon": "FileText", "category": "main"},
+      "items": ["items/AMENDMENT_RECORDS.md"]
     },
     {
       "id": "col_machine_readable",
@@ -202,13 +137,8 @@
       "type": "static",
       "order": 6,
       "enabled": true,
-      "metadata": {
-        "icon": "Code",
-        "category": "main"
-      },
-      "items": [
-        "items/MACHINE_READABLE.md"
-      ]
+      "metadata": {"icon": "Code", "category": "main"},
+      "items": ["items/MACHINE_READABLE.md"]
     },
     {
       "id": "col_commentary_experience_sovereignty",
@@ -217,13 +147,8 @@
       "type": "static",
       "order": 7,
       "enabled": true,
-      "metadata": {
-        "icon": "BookOpen",
-        "category": "commentary"
-      },
-      "items": [
-        "items/commentary/experience-sovereignty/07-agent-runbook.md"
-      ]
+      "metadata": {"icon": "BookOpen", "category": "commentary"},
+      "items": ["items/commentary/experience-sovereignty/07-agent-runbook.md"]
     },
     {
       "id": "col_commentary_coyn_thesis",
@@ -232,10 +157,7 @@
       "type": "static",
       "order": 8,
       "enabled": true,
-      "metadata": {
-        "icon": "BookOpen",
-        "category": "commentary"
-      },
+      "metadata": {"icon": "BookOpen", "category": "commentary"},
       "items": [
         "items/commentary/coyn-thesis/01-the-fallacy-of-free-information.md",
         "items/commentary/coyn-thesis/02-time-sovereignty.md",
@@ -251,10 +173,7 @@
       "type": "static",
       "order": 9,
       "enabled": true,
-      "metadata": {
-        "icon": "BookOpen",
-        "category": "commentary"
-      },
+      "metadata": {"icon": "BookOpen", "category": "commentary"},
       "items": [
         "items/commentary/polity/01-beyond-the-binary.md",
         "items/commentary/polity/02-from-perimeter-to-polity.md",
@@ -265,19 +184,24 @@
     {
       "id": "col_commentary_constitutional_internet",
       "title": "Commentary · The Constitutional Internet",
-      "description": "Constitutional commentary — The Constitutional Internet book project (Dele Atanda): CI-CC-001 Book Constitution, Editorial Master, correction register, working manuscript, Source & Evidence Matrix, and the repo reconciliation audit outputs.",
+      "description": "Constitutional commentary — The Constitutional Internet book project (Dele Atanda): book constitution, editorial and controlling manuscripts, evidence and reconciliation records, the agent-facing companion edition, and the canonical Constitutional Internet plate set with machine-readable provenance.",
       "type": "static",
       "order": 10,
       "enabled": true,
-      "metadata": {
-        "icon": "BookOpen",
-        "category": "commentary"
-      },
+      "metadata": {"icon": "BookOpen", "category": "commentary"},
       "items": [
         "items/commentary/constitutional-internet/00-project-structure.md",
         "items/commentary/constitutional-internet/00-editorial-master.md",
         "items/commentary/constitutional-internet/00-editorial-register.md",
         "items/commentary/constitutional-internet/01-working-manuscript.md",
+        "items/commentary/constitutional-internet/01-controlling-manuscript-v0.3.md",
+        "items/commentary/constitutional-internet/01-controlling-manuscript-v0.3-companion.md",
+        "items/commentary/constitutional-internet/01-controlling-manuscript-v0.4.md",
+        "items/commentary/constitutional-internet/01-controlling-manuscript-v0.4-companion.md",
+        "items/commentary/constitutional-internet/01-controlling-manuscript-v1.0-publication-candidate.md",
+        "items/commentary/constitutional-internet/01-controlling-manuscript-v1.0-companion.md",
+        "items/commentary/constitutional-internet/agent-edition/00-agent-edition-package.md",
+        "items/commentary/constitutional-internet/agent-edition/01-ci-agent-edition-manuscript-v0.1.md",
         "items/commentary/constitutional-internet/ci-cc-001-book-constitution.md",
         "items/commentary/constitutional-internet/BOOK_IMPLEMENTATION_RECONCILIATION.md",
         "items/commentary/constitutional-internet/BOOK_DOCTRINE_LINEAGE.md",
@@ -286,7 +210,17 @@
         "items/commentary/constitutional-internet/03-volume-i-digitterian-tsunami.md",
         "items/commentary/constitutional-internet/03-volume-i-verification-notes.md",
         "items/commentary/constitutional-internet/03-source-lineage/internet-foundation-uddr/SRC-IF-IAPP-2017-001.md",
-        "items/commentary/constitutional-internet/CI-CORPUS-EXTERNALIZATION-001.md"
+        "items/commentary/constitutional-internet/CI-CORPUS-EXTERNALIZATION-001.md",
+        "items/commentary/constitutional-internet/plates/00-canonical-plate-register.md",
+        "items/commentary/constitutional-internet/plates/CIP-003-canonical-metavitruvian.md",
+        "items/commentary/constitutional-internet/plates/CIP-003A-canonical-metavitruvian-male.md",
+        "items/commentary/constitutional-internet/plates/CIP-003B-canonical-metavitruvian-female.md",
+        "items/commentary/constitutional-internet/plates/CIP-004-government-grade-not-government-dependent.md",
+        "items/commentary/constitutional-internet/plates/CIP-005-constitutional-agency.md",
+        "items/commentary/constitutional-internet/plates/CIP-006-the-constitutional-internet.md",
+        "items/commentary/constitutional-internet/plates/CIP-007-constitutional-bearing.md",
+        "items/commentary/constitutional-internet/plates/CIP-007A-constitutional-trinity.md",
+        "items/commentary/constitutional-internet/plates/CIP-007B-constitutional-bearing-instrument.md"
       ]
     }
   ]

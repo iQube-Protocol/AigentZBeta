@@ -89,6 +89,22 @@ interface Props {
   sourceExperienceId?: string | null;
   initialTitle?: string;
   initialPrompt?: string;
+  /** Pre-selects the Article/Story toggle instead of defaulting to
+      'article' — e.g. a campaign-launched Remix (KNYTS Bridge) that asks
+      specifically for a Story. Omitted by every existing caller. */
+  initialSkill?: Skill;
+  /** Campaign discriminator (e.g. 'knyts-bridge-crossing'), forwarded to
+      /api/community-content/generate so the resulting row can be found by
+      that campaign's VIEW filter. Omitted by every existing caller. */
+  campaignTag?: string;
+  /** Destination cartridge lock (e.g. 'qripto'), forwarded to
+      /api/community-content/generate so the resulting row is stamped with
+      this cartridge instead of the route's own 'knyt' default. Omitted by
+      every existing caller — added 2026-08-11 so the Constitutional
+      Internet Bridge's Personify surface can force its myCanvas output to
+      Qriptopian Pulse without a KNYT/Qriptopian choice, via
+      MyCanvasTab.tsx's campaignTag→cartridge lock map. */
+  cartridge?: 'knyt' | 'qripto';
   /** Full source-experience cover image — saved alongside the origin entry
       when the user saves the remix to myCanvas so the canvas can render
       the original capsule, not just an ID reference. */
@@ -123,6 +139,9 @@ export function RemixDialog({
   sourceExperienceId,
   initialTitle,
   initialPrompt,
+  initialSkill,
+  campaignTag,
+  cartridge,
   sourceImageUrl,
   sourceDescription,
   onClose,
@@ -131,7 +150,7 @@ export function RemixDialog({
   onConnectWallet,
   variant = 'modal',
 }: Props) {
-  const [skill, setSkill] = useState<Skill>("article");
+  const [skill, setSkill] = useState<Skill>(initialSkill ?? "article");
   const [title, setTitle] = useState(initialTitle ?? "");
   const [prompt, setPrompt] = useState(initialPrompt ?? "");
   // Drafter strip — one-liner idea → LLM-drafted title/article/image prompts.
@@ -211,7 +230,7 @@ export function RemixDialog({
   // Hydrate state from props on open
   useEffect(() => {
     if (!open) return;
-    setSkill("article");
+    setSkill(initialSkill ?? "article");
     setTitle(initialTitle ?? "");
     setPrompt(initialPrompt ?? "");
     setGenerated(null);
@@ -226,7 +245,7 @@ export function RemixDialog({
     setPaymentPending(null);
     setPaymentError(null);
     setNeedsBuyQc(false);
-  }, [open, initialTitle, initialPrompt]);
+  }, [open, initialTitle, initialPrompt, initialSkill]);
 
   // Fetch source ownership state when dialog opens with a sourceExperienceId.
   // The spine call is fail-open (returns null on any error / unknown asset);
@@ -380,6 +399,8 @@ export function RemixDialog({
           imagePrompt: imagePrompt.trim() || null,
           sourceExperienceId: sourceExperienceId || null,
           paymentMode,
+          campaignTag: campaignTag || undefined,
+          cartridge: cartridge || undefined,
         }),
         personaIdHint: personaId ?? undefined,
       });

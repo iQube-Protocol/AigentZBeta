@@ -43,6 +43,40 @@ surface for code. Option A enforcement uses it to:
 - reference `REVOCATION_STATES` (active · paused · suspended · revoked ·
   quarantined · destroyed).
 
+## Constitutional Internet for Agents package
+
+The agent-facing companion edition is available under:
+
+`codexes/packs/polity-core/items/commentary/constitutional-internet/agent-edition/`
+
+Machine-readable artifacts:
+
+| Artifact | Source |
+|---|---|
+| Agent constitutional orientation | `constitutional-internet-for-agents.v0.1.json` |
+| Agent accession compact | `agent-accession-compact.v0.1.json` |
+| Agent accession intent schema | `agent-accession-intent.schema.v0.1.json` |
+
+Human-readable controlling source for this draft:
+
+`01-ci-agent-edition-manuscript-v0.1.md`
+
+These objects are **constitutional commentary and orientation**, not new sources of authority. They do not confer personhood, self-authorization, sponsorship, mandate, or accession. Consequential authority still requires the ratified constitutional bundle, a valid principal and mandate, and the required state transitions and receipts.
+
+## Constitutional Internet canonical plates
+
+The Constitutional Internet visual doctrine has a separate machine-readable plate manifest:
+
+`docs/constitutional-plates/constitutional-internet.v1.json`
+
+Human-readable canonical records live under:
+
+`codexes/packs/polity-core/items/commentary/constitutional-internet/plates/`
+
+The `CIP` namespace is deliberately distinct from the CFS-027 Invariant Intelligence Canonical Plates (`CP-001..CP-007`). The current Constitutional Internet set ratifies `CIP-003A`, `CIP-003B`, `CIP-004`, `CIP-005`, and `CIP-006`, with `CIP-003A/B` as equally canonical renderings of one MetaVitruvian concept (`CIP-003`).
+
+The plate manifest is **canonical constitutional commentary**, not a new source of constitutional authority. It exists so human and machine readers can resolve plate identity, provenance, source hashes, usage context, interpretive constraints, and bridge relevance without deriving meaning from pixels alone.
+
 ## Immutability (Autodrive)
 
 The machine-readable frameworks are published to Autodrive (Autonomys) for

@@ -200,6 +200,16 @@ interface PulseTransparencyToggleProps {
   pnlServiceRegistered?: boolean;
   /** DVN finality of the `pnl_service_registered` receipt above. */
   pnlServiceRegisteredDvnStatus?: string | null;
+  /**
+   * CFS-055 coherence pass, 2026-08-10 — the canonical `horizen_pulse_authorized`
+   * fact from the state route's `ratifySubPredicates` projection. PRIMARY:
+   * this component's own live Agent Card read (`horizen.pulse?.enabled`)
+   * corroborates (OR's into) this, exactly like `pnlServiceRegistered`'s own
+   * precedence rule above — never the sole authority.
+   */
+  pulseAuthorized?: boolean;
+  /** Same precedence rule as `pulseAuthorized`, for `horizen_pnl_transparency_enabled`. */
+  pnlDisclosureAuthorized?: boolean;
 }
 
 /** "DVN Minted" once `dvn_recorded`, otherwise "DVN Pending" — never rendered when the underlying fact itself is false. */
@@ -215,6 +225,8 @@ export function PulseTransparencyToggle({
   pnlServiceVerifiedDvnStatus,
   pnlServiceRegistered,
   pnlServiceRegisteredDvnStatus,
+  pulseAuthorized,
+  pnlDisclosureAuthorized,
 }: PulseTransparencyToggleProps) {
   const [loading, setLoading] = useState(true);
   const [horizen, setHorizen] = useState<AgentCardHorizen | null>(null);
@@ -463,7 +475,12 @@ export function PulseTransparencyToggle({
     );
   }
 
-  if (!horizen?.tokenId) {
+  // CFS-055 coherence pass, 2026-08-10 — an established canonical fact must
+  // never render as unresolved merely because THIS component's own live
+  // Agent Card read is unavailable or lacks a tokenId (inv.engineering.254
+  // "Representation Follows State"). Fall through to the authorized-state
+  // branches below, which guard every `horizen.*` read defensively.
+  if (!horizen?.tokenId && pulseAuthorized !== true && pnlDisclosureAuthorized !== true) {
     return (
       <div className="flex items-start gap-2 rounded-md border border-slate-800 bg-slate-950/40 p-3 text-xs text-slate-400">
         <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-500" />
@@ -504,7 +521,7 @@ export function PulseTransparencyToggle({
    * Pulse's OWN evidence alone — never AND'd with P&L's inferred flag, which
    * is exactly the conflation that used to collapse two questions into one.
    */
-  if (horizen.pulse?.enabled) {
+  if (pulseAuthorized === true || horizen?.pulse?.enabled) {
     const structured = status?.structuredStatus;
     const hasEndpointWarning = structured ? 'endpointWarning' in structured : false;
     return (
@@ -569,7 +586,7 @@ export function PulseTransparencyToggle({
           </div>
           <dl className="mt-2 space-y-2 pl-5.5">
             {(() => {
-              const disclosureAuthorized = Boolean(horizen.pnl?.disclosureAuthorized);
+              const disclosureAuthorized = pnlDisclosureAuthorized === true || Boolean(horizen?.pnl?.disclosureAuthorized);
               /*
                * PRECEDENCE, CORRECTED (Final Horizen Projection
                * Reconciliation part 2, 2026-08-09): the CANONICAL,
@@ -627,8 +644,8 @@ export function PulseTransparencyToggle({
               );
             })()}
           </dl>
-          {(horizen.pnl?.proofRefs?.length ?? 0) > 0 && (
-            <p className="mt-2 text-slate-500">{horizen.pnl!.proofRefs.length} proof reference(s) on file.</p>
+          {(horizen?.pnl?.proofRefs?.length ?? 0) > 0 && (
+            <p className="mt-2 text-slate-500">{horizen?.pnl?.proofRefs.length} proof reference(s) on file.</p>
           )}
         </div>
         {tracePanel}

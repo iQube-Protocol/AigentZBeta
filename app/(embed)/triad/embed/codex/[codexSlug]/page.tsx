@@ -92,6 +92,24 @@ function DynamicCodexContent() {
   // floating copilot, so only one is on screen (MS-1: one navigation). Absent
   // or any other value keeps it, so every existing embed URL is unaffected.
   const querySuppressCopilot = searchParams?.get("copilot") === "off";
+  // `?chrome=focused` — a HOST that already provides the outer navigation
+  // frame (today: the Guided Journey viewport) suppresses the destination
+  // cartridge's PRIMARY chrome (top-level brand/tab-group header + the group
+  // sub-header strip), while the active tab's own local content — including
+  // any toolbar/filters it renders itself — is untouched, since TabRenderer
+  // mounts it unconditionally either way. Absent or any other value keeps
+  // full chrome, so every existing embed URL is unaffected.
+  const querySuppressPrimaryChrome = searchParams?.get("chrome") === "focused";
+  // `?depth=N` — focused navigation depth (only meaningful when chrome=focused).
+  // Defines how many nav tiers above the content to reveal (0=content only,
+  // 1=content+domain nav, etc.). Defaults to 0. Forwarded to CodexPanelDynamic
+  // as focusedNavDepth.
+  const queryFocusedNavDepth = (() => {
+    const raw = searchParams?.get("depth");
+    if (!raw) return undefined;
+    const parsed = parseInt(raw, 10);
+    return isNaN(parsed) || parsed < 0 ? undefined : parsed;
+  })();
   const { personaId, isAdmin } = useCodexEmbedAuthBridge({
     initialPersonaId: queryPersonaId,
     initialAuthProfileId: queryAuthProfileId,
@@ -112,6 +130,8 @@ function DynamicCodexContent() {
       isInvestor={queryIsInvestor || undefined}
       partnerId={queryPartnerId || undefined}
       suppressFloatingCopilot={querySuppressCopilot || undefined}
+      suppressPrimaryChrome={querySuppressPrimaryChrome || undefined}
+      focusedNavDepth={queryFocusedNavDepth}
       agentSlug={queryAgentSlug}
       useDefaults={true}
     />

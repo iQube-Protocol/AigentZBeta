@@ -8,6 +8,9 @@
  *   cartridge?  — 'knyt' | 'qripto' — filter by cartridge column. When
  *                 omitted, returns rows from every cartridge (back-compat
  *                 for legacy callers that pre-date the cartridge split).
+ *   campaignTag? — filter by the campaign_tag column (e.g.
+ *                 'knyts-bridge-crossing'). When omitted, returns rows
+ *                 regardless of campaign_tag (back-compat).
  *   limit?      — default 30, max 100
  *
  * Returns: { ok, items: [...], count }
@@ -41,6 +44,7 @@ interface ContentRow {
   cartridge: string | null;
   runtime_menu: string | null;
   runtime_submenu: string | null;
+  campaign_tag: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -63,6 +67,7 @@ export async function GET(req: NextRequest) {
     .filter((s) => ALLOWED_STATUSES.has(s));
   const cartridgeParam = params.get('cartridge')?.trim().toLowerCase() || null;
   const cartridge = cartridgeParam && ALLOWED_CARTRIDGES.has(cartridgeParam) ? cartridgeParam : null;
+  const campaignTag = params.get('campaignTag')?.trim() || null;
   const limit = Math.min(100, Math.max(1, Number.parseInt(params.get('limit') || '30', 10) || 30));
 
   if (mine && !personaId) {
@@ -82,7 +87,7 @@ export async function GET(req: NextRequest) {
       // looked up separately (see imagePreview hydration on the client)
       // and the full article body is fetched on-demand when the user
       // opens an item.
-      .select('id, creator_persona_id, source_experience_id, parent_id, skill, title, prompt, status, qc_cost, generation_index, runtime_promoted_at, cartridge, runtime_menu, runtime_submenu, created_at, updated_at')
+      .select('id, creator_persona_id, source_experience_id, parent_id, skill, title, prompt, status, qc_cost, generation_index, runtime_promoted_at, cartridge, runtime_menu, runtime_submenu, campaign_tag, created_at, updated_at')
       .order('created_at', { ascending: false })
       .limit(limit);
 
@@ -98,6 +103,10 @@ export async function GET(req: NextRequest) {
     // migration so legacy behaviour stays correct).
     if (cartridge) {
       query = query.eq('cartridge', cartridge);
+    }
+
+    if (campaignTag) {
+      query = query.eq('campaign_tag', campaignTag);
     }
 
     const { data, error } = await query;
@@ -185,6 +194,7 @@ export async function GET(req: NextRequest) {
       cartridge:           (r.cartridge as 'knyt' | 'qripto' | 'metame-runtime' | null) ?? 'knyt',
       runtimeMenu:         r.runtime_menu ?? null,
       runtimeSubmenu:      r.runtime_submenu ?? null,
+      campaignTag:         r.campaign_tag ?? null,
       createdAt:           r.created_at,
       updatedAt:           r.updated_at,
     }));

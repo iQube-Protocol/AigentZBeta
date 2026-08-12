@@ -5780,6 +5780,151 @@
         "originalLabel": "Constitutional Agreement Required",
         "note": "Provider-agnostic (\"primitives are invariant, providers are replaceable\", CFS-018 amendment): x409/Consenti is the pilot's first candidate PROVIDER, never the invariant itself. Already implemented in code as services/constitutional/constitutionalAgreement.ts's form/accept/authorize lifecycle."
       }
+    },
+    {
+      "id": "inv.interaction.252",
+      "namespace": "interaction",
+      "semantic_type": "law",
+      "statement": "Observation–Resolution Separation — the Observer Spine observes evidence and external authority; it never becomes a competing constitutional truth model. Reconciliation of observations into current state belongs to the POSIT Spine.",
+      "status": "canonical",
+      "contexts": [
+        "journey-observation",
+        "state-coherence"
+      ],
+      "provenance": {
+        "source": "CFS-055 §11 (operator-ratified 2026-08-10)",
+        "canonical_basis": {
+          "source": "CFS-055",
+          "ratified": true
+        }
+      }
+    },
+    {
+      "id": "inv.constitutional.253",
+      "namespace": "constitutional",
+      "semantic_type": "definition",
+      "statement": "Proof of State in Time (POSIT) — a constitutional state is represented as its current value together with effective time, provenance, authority, validity/supersession and evidentiary finality; chronology alone is never the constitutional source of truth.",
+      "status": "canonical",
+      "contexts": [
+        "state-coherence",
+        "journey-observation"
+      ],
+      "provenance": {
+        "source": "CFS-055 §11 (operator-ratified 2026-08-10)",
+        "canonical_basis": {
+          "source": "CFS-055",
+          "ratified": true
+        }
+      }
+    },
+    {
+      "id": "inv.representation.254",
+      "namespace": "representation",
+      "semantic_type": "law",
+      "statement": "Representation Follows State — the AR Engine renders canonical POSIT state and may never independently re-derive a conflicting constitutional state; contextual rendering may vary, constitutional truth may not.",
+      "status": "canonical",
+      "contexts": [
+        "state-coherence",
+        "rendering"
+      ],
+      "provenance": {
+        "source": "CFS-055 §11 (operator-ratified 2026-08-10)",
+        "canonical_basis": {
+          "source": "CFS-055",
+          "ratified": true
+        }
+      }
+    },
+    {
+      "id": "inv.engineering.255",
+      "namespace": "engineering",
+      "semantic_type": "law",
+      "statement": "One Predicate, One Projection — for each constitutional predicate within a context there shall be one authoritative current-state projection; parallel durable interpretations of the same predicate are a defect.",
+      "status": "canonical",
+      "contexts": [
+        "state-coherence",
+        "engineering"
+      ],
+      "provenance": {
+        "source": "CFS-055 §11 (operator-ratified 2026-08-10)",
+        "canonical_basis": {
+          "source": "CFS-055",
+          "ratified": true
+        }
+      }
+    },
+    {
+      "id": "inv.constitutional.256",
+      "namespace": "constitutional",
+      "semantic_type": "principle",
+      "statement": "Journey-as-State-Vector — journey order defines the normative transformation path, while journey nodes report current constitutional state; time, provenance, correction and finality are dimensions of state rather than proof that a session traversed every preceding node.",
+      "status": "canonical",
+      "contexts": [
+        "state-coherence",
+        "journey-observation"
+      ],
+      "provenance": {
+        "source": "CFS-055 §11 (operator-ratified 2026-08-10)",
+        "canonical_basis": {
+          "source": "CFS-055",
+          "ratified": true
+        }
+      }
+    },
+    {
+      "id": "inv.epistemology.257",
+      "namespace": "epistemology",
+      "semantic_type": "principle",
+      "statement": "Evidence Does Not Collapse Predicates — related receipts or observations may corroborate multiple facts but may not collapse distinct predicates; disclosure, registration, verification, ingestion and standing remain separately provable states unless a constitutional law explicitly binds them.",
+      "status": "canonical",
+      "contexts": [
+        "state-coherence",
+        "evidence"
+      ],
+      "provenance": {
+        "source": "CFS-055 §11 (operator-ratified 2026-08-10)",
+        "canonical_basis": {
+          "source": "CFS-055",
+          "ratified": true
+        }
+      }
+    },
+    {
+      "id": "inv.engineering.258",
+      "namespace": "engineering",
+      "semantic_type": "principle",
+      "statement": "Receipts Prove; State Resolves — receipts and DVN attestations evidence and finalize transitions, but do not constitute a second state engine; evidence surfaces shall derive from the canonical evidence references supporting the resolved state.",
+      "status": "canonical",
+      "contexts": [
+        "state-coherence",
+        "evidence",
+        "dvn"
+      ],
+      "provenance": {
+        "source": "CFS-055 §11 (operator-ratified 2026-08-10)",
+        "canonical_basis": {
+          "source": "CFS-055",
+          "ratified": true
+        }
+      }
+    },
+    {
+      "id": "inv.cybernetics.259",
+      "namespace": "cybernetics",
+      "semantic_type": "law",
+      "statement": "Correction Preserves History Without Preserving Error — governed correction supersedes the current consequence of invalid evidence without deleting its history; stale state may not resurrect through prior-resolution, while later valid evidence may establish a new state at a later effective time.",
+      "status": "canonical",
+      "contexts": [
+        "state-coherence",
+        "correction"
+      ],
+      "provenance": {
+        "source": "CFS-055 §11 (operator-ratified 2026-08-10)",
+        "canonical_basis": {
+          "source": "CFS-055",
+          "ratified": true
+        }
+      }
     }
   ]
 }

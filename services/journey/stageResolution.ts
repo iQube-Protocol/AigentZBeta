@@ -227,9 +227,19 @@ export interface MonotonicResolutionInput {
   priorCanonicalStages?: readonly string[];
   priorMilestones?: readonly JourneyMilestone[];
   /**
-   * Stage ids whose canonical outcome has been INVALIDATED by one of
-   * `settledFacts`' five listed events. The ONLY subtraction this module
-   * permits, and it is never inferred — a caller must name it.
+   * Stage ids whose canonical outcome has been INVALIDATED — by one of
+   * `settledFacts`' five listed events, or by a governed correction's
+   * persisted `StageInvalidationRecord` tombstone (POSIT state model,
+   * operator ruling 2026-08-10). The ONLY subtraction this module permits,
+   * and it is never inferred — a caller must name it.
+   *
+   * PERMANENT for the ratchet shortcut, never for the stage itself: a listed
+   * stage id is excluded from `priorCanonicalStages` this pass (so it gets no
+   * synthesized `prior-resolution` evidence), but it is NOT excluded from
+   * `status === 'COMPLETE'` via genuine live evidence below — that is what
+   * lets "old assertion → governed invalidation → unresolved → new valid
+   * evidence → established again" hold without the caller doing anything
+   * beyond continuing to pass the same tombstoned id on every future read.
    */
   invalidatedStages?: readonly string[];
   /**
@@ -535,11 +545,42 @@ export function resolveNextExecutableAct(
  * blocked on one unapplied migration, and adding a second prerequisite in
  * order to fix a continuity problem would raise Time to Repair to buy nothing.
  */
+/**
+ * A governed-correction TOMBSTONE (Horizen Pilot Closure — POSIT state model,
+ * operator ruling 2026-08-10): "State is monotonic only until valid contrary
+ * evidence or governed correction occurs. A correction supersedes earlier
+ * state evidence; subsequent valid evidence may establish a new state at a
+ * later effective time."
+ *
+ * Recorded by a correction route (never inferred) alongside the settled-fact
+ * invalidation it accompanies. Its ONLY effect is to permanently retire the
+ * `prior-resolution` RATCHET-SYNTHESIS shortcut for this one stage id — see
+ * `resolveMonotonicJourneyState`'s `input.invalidatedStages` consumption.
+ * It does NOT block the stage from ever completing again: genuine live
+ * evidence on a later read still earns `canonicalOutcome: true` with
+ * `canonicalAuthority: 'evidence'`, exactly the same as a stage that was
+ * never canonical at all — old assertion → governed invalidation →
+ * unresolved → new valid evidence → established again, without rewriting
+ * history. Retained forever once written (never cleared) — a stage that has
+ * been through a governed correction once must always reprove itself from
+ * live evidence rather than regain the ratchet shortcut, which is a
+ * deliberately narrower, safer trade than either a positive-only ratchet or a
+ * permanent deny-list on the stage itself.
+ */
+export interface StageInvalidationRecord {
+  invalidatedAt: string;
+  reason: string;
+  correctionReceiptId?: string | null;
+  supersededEvidenceIds?: string[];
+}
+
 export interface PersistedJourneyResolution {
   journeyId: string;
   journeyVersion: string;
   subjectRef: string;
   canonicalStages: string[];
+  /** Governed-correction tombstones, keyed by stage id. See `StageInvalidationRecord`. */
+  invalidatedStages?: Record<string, StageInvalidationRecord>;
   milestones: JourneyMilestone[];
   highestMilestone: JourneyMilestone | null;
   recordedAt: string;
@@ -586,11 +627,24 @@ export async function recordJourneyResolution(
 
   const canonicalStages = Array.from(new Set([...(existing?.canonicalStages ?? []), ...resolution.canonicalStages]));
   const milestones = advanceMilestones(existing?.milestones ?? [], resolution.milestones);
+  /*
+   * Tombstones are carried forward on EVERY write, never dropped — this
+   * function's caller (the ordinary journey `/state` read) never invalidates
+   * anything itself, so it never passes `resolution.invalidatedStages`, but
+   * it still overwrites the whole `journey_resolutions[journeyId]` record on
+   * every call; without this merge, the very next ordinary read after a
+   * governed correction would silently erase the tombstone the correction
+   * just wrote. A caller that DOES pass new tombstones (a correction route)
+   * gets them unioned in, keyed by stage id — never destructive, matching
+   * `canonicalStages`' own union discipline above.
+   */
+  const invalidatedStages = { ...(existing?.invalidatedStages ?? {}), ...(resolution.invalidatedStages ?? {}) };
   const record: PersistedJourneyResolution = {
     journeyId: resolution.journeyId,
     journeyVersion: resolution.journeyVersion,
     subjectRef: resolution.subjectRef,
     canonicalStages,
+    ...(Object.keys(invalidatedStages).length > 0 ? { invalidatedStages } : {}),
     milestones,
     highestMilestone: highestMilestone(milestones),
     recordedAt: resolution.recordedAt ?? new Date().toISOString(),

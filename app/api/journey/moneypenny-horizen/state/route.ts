@@ -23,6 +23,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import {
   findAgentReceiptRefs,
+  findReceiptsByIds,
   readReceiptAnchorStatus,
   type ActivityActionType,
   type ReceiptStatus,
@@ -113,6 +114,9 @@ const JOURNEY_ACTION_TYPES: ActivityActionType[] = [
   'operator_passport_validated',
   'agent_sponsorship_recorded',
   'agent_delegate_passport_issued',
+  // Constitutional State Model Correction (2026-08-11) — the Activate stage's
+  // own receipt. See services/journey/agentRegistryActivation.ts.
+  'agent_registry_activated',
   /*
    * THE RECEIPT THE BUREAU ACTUALLY WRITES.
    *
@@ -206,6 +210,10 @@ async function resolveState(req: NextRequest) {
   // carrying `receipt_status` so the fork can distinguish "evidence present"
   // from "DVN final" without a second source of truth.
   const receiptStatuses: Record<string, ReceiptStatus[]> = {};
+  // Ratify sub-predicate projection (CFS-055 coherence pass, 2026-08-10) — the
+  // SAME agent-scoped receipts' own `created_at`, carried alongside so a
+  // sub-predicate's `effectiveAt` never needs a second, parallel query.
+  const receiptCreatedAt: Record<string, string[]> = {};
   let aigentQubeResolved = false;
   /*
    * THE SETTLED REGISTRATION — RETRIEVED, NEVER RE-DERIVED.
@@ -238,6 +246,12 @@ async function resolveState(req: NextRequest) {
   // see them. Read by id, off the agreement row's own receipt reference —
   // the same targeted lookup `readReceiptAnchorStatus` already exists for.
   let ratifyAnchorStatus: ReceiptStatus | null | undefined = null;
+  // Ratify sub-predicate projection (CFS-055 coherence pass, 2026-08-10) —
+  // `formedReceiptId`/`authorizedReceiptId`'s own createdAt/receiptStatus,
+  // read by id (same reason as `ratifyAnchorStatus` above: these receipts are
+  // never agent-scoped) so `agreementAuthorized`'s effectiveAt/dvnStatus never
+  // needs to be guessed or left null when the agreement itself is present.
+  const ratifyAgreementReceiptDetails: Map<string, { createdAt: string; receiptStatus: ReceiptStatus }> = new Map();
   /*
    * PERSONA ASSIGNMENT ≠ aigentMe DESIGNATION (al, 2026-08-04). Whether the
    * OPERATOR's active persona has structurally assigned this agent as a
@@ -350,6 +364,8 @@ async function resolveState(req: NextRequest) {
         // Consequence Fork projection (2026-08-09) — the SAME read, carrying
         // the status column it always had. Never a second query.
         (receiptStatuses[ref.actionType] ??= []).push(ref.receiptStatus);
+        // Ratify sub-predicate projection (2026-08-10) — same read again.
+        (receiptCreatedAt[ref.actionType] ??= []).push(ref.createdAt);
       }
     });
     if (supabase) await guarded('standing-evidence', async () => {
@@ -510,7 +526,24 @@ async function resolveState(req: NextRequest) {
       }
     });
     if (supabase) await guarded('agent-admission', async () => {
-      admission = await resolveAgentAdmissionState(supabase, agent, caller?.authProfileId ?? null);
+      /*
+       * Constitutional State Model Correction (2026-08-11) — the resolver's
+       * OWN registry-activation check needs an authenticated persona to
+       * attribute a freshly-established `agent_registry_activated` receipt
+       * to. `null` here (no active persona) is never an error: the check
+       * still runs and reports honestly (`eligible-awaiting-actor`), it
+       * just performs no write — see agentRegistryActivation.ts's own
+       * five-valued outcome. This route never calls
+       * `ensureAgentRegistryActivation` itself; it only reads
+       * `admission.registryActivated` below.
+       */
+      const activePersonaForActivation = await getActivePersona(req);
+      admission = await resolveAgentAdmissionState(
+        supabase,
+        agent,
+        caller?.authProfileId ?? null,
+        activePersonaForActivation?.personaId ?? null,
+      );
     });
     /*
      * REGISTRATION STANDING SEED — awarded inline, the same idiom this route
@@ -680,6 +713,16 @@ async function resolveState(req: NextRequest) {
     if (supabase) await guarded('ratify-anchor-status', async () => {
       if (!ratifyAgreement?.authorizedReceiptId) return;
       ratifyAnchorStatus = await readReceiptAnchorStatus(ratifyAgreement.authorizedReceiptId);
+    });
+    if (supabase) await guarded('ratify-agreement-receipt-details', async () => {
+      const ids = [ratifyAgreement?.formedReceiptId, ratifyAgreement?.authorizedReceiptId].filter(
+        (id): id is string => !!id,
+      );
+      if (ids.length === 0) return;
+      const rows = await findReceiptsByIds(ids);
+      for (const { record } of rows) {
+        ratifyAgreementReceiptDetails.set(record.id, { createdAt: record.createdAt, receiptStatus: record.receiptStatus });
+      }
     });
     if (supabase) await guarded('prior-resolution', async () => {
       priorResolution = await readJourneyResolution(supabase, agent.aigentQubeId, HORIZEN_MONEYPENNY_JOURNEY.id);
@@ -860,6 +903,29 @@ async function resolveState(req: NextRequest) {
          */
         sponsorBinding: admission?.sponsorshipRecorded === true || hasReceipt('agent_sponsorship_recorded'),
         delegatePassportIssued: passportIssuedForAgent,
+      },
+      /*
+       * ── ACTIVATE — A DERIVED CONSTITUTIONAL TRANSITION, NEVER AN ACT ─────
+       *
+       * Constitutional State Model Correction (operator-ratified 2026-08-11).
+       * `registryActivated` is READ ONLY here — this route never calls
+       * `ensureAgentRegistryActivation` itself. The write happens at the
+       * Passport-completion boundary inside `resolveAgentAdmissionState`
+       * (services/journey/agentAdmissionState.ts), the moment it observes
+       * `sponsorshipRecorded` and `delegatePassportIssued` both true for an
+       * authenticated caller. This evidence block simply surfaces whatever
+       * that resolver already settled — canonical first, receipt as
+       * corroboration, same discipline as every other stage in this file.
+       *
+       * Deliberately carries NO `operationalBlockers` entry anywhere in this
+       * route (see the `operationalBlockers: { verify, passport }` map
+       * below) — Activate has no operator-facing act to perform, so it
+       * structurally cannot acquire the "COMPLETE stage still asserting its
+       * own predicate absent" contradiction the 2026-08-11 audit found on
+       * the Passport stage. `tests/registry-activation.test.ts` pins this.
+       */
+      activate: {
+        registryActivated: admission?.registryActivated === true || hasReceipt('agent_registry_activated'),
       },
       delegate: {
         delegatePassportActive: passportIssuedForAgent,
@@ -1077,6 +1143,13 @@ async function resolveState(req: NextRequest) {
     register: registration?.registered === true || Boolean(horizen?.tokenId),
     claim: hasReceipt('agent_control_proven'),
     passport: passportIssuedForAgent,
+    /*
+     * Activate's canonical outcome is ITS OWN settled fact / receipt —
+     * never re-derived from Delegate or Operate (Constitutional State Model
+     * Correction, 2026-08-11). `admission?.registryActivated` is the
+     * resolver's own answer; the receipt is corroboration only.
+     */
+    activate: admission?.registryActivated === true || hasReceipt('agent_registry_activated'),
     delegate: admission?.delegationActive === true || hasReceipt('agent_delegated'),
     /*
      * Deploy's canonical outcome is its OWN `capability_registered` receipt —
@@ -1099,7 +1172,18 @@ async function resolveState(req: NextRequest) {
      */
     aigentme: hasReceipt('aigentme_activated') && hasReceipt('experienceqube_focus_disposition_recorded'),
   };
+  /*
+   * A governed-correction tombstone (POSIT state model, operator ruling
+   * 2026-08-10) permanently retires the ratchet shortcut for a stage id —
+   * this axis-input union is the SECOND place (besides
+   * resolveMonotonicJourneyState's own priorCanonicalStages consumption
+   * below) that reads `priorResolution.canonicalStages` directly, so it must
+   * honour the same tombstone or a corrected stage could resurrect through
+   * this path even after resolveMonotonicJourneyState correctly excludes it.
+   */
+  const tombstonedStageIds = new Set(Object.keys(priorResolution?.invalidatedStages ?? {}));
   for (const stageId of priorResolution?.canonicalStages ?? []) {
+    if (tombstonedStageIds.has(stageId)) continue;
     if (canonicalStages[stageId] !== true) canonicalStages[stageId] = canonicalStages[stageId] || true;
   }
 
@@ -1119,7 +1203,9 @@ async function resolveState(req: NextRequest) {
      * (`priorResolution?.canonicalStages`), never via re-reading the same
      * conflated registry signal on every future request.
      */
-    factoryIngested: hasReceipt('capability_registered') || (priorResolution?.canonicalStages ?? []).includes('deploy'),
+    factoryIngested:
+      hasReceipt('capability_registered') ||
+      ((priorResolution?.canonicalStages ?? []).includes('deploy') && !tombstonedStageIds.has('deploy')),
     pulse: pulseState,
     pnl: pnlState,
     /*
@@ -1162,6 +1248,10 @@ async function resolveState(req: NextRequest) {
     canonicalOutcomes: { register: registration?.registered === true },
     priorCanonicalStages: priorResolution?.canonicalStages ?? [],
     priorMilestones: priorResolution?.milestones ?? [],
+    // The SAME tombstone set filtered above — a stage a governed correction
+    // invalidated gets no `prior-resolution` synthesis here either, but may
+    // still complete via genuine live evidence (canonicalAuthority: 'evidence').
+    invalidatedStages: Array.from(tombstonedStageIds),
     auditGaps: {
       register: registration?.auditGaps ?? [],
       // Failed canonical reads are DISCLOSED, never rendered as "did not happen".
@@ -1185,18 +1275,18 @@ async function resolveState(req: NextRequest) {
    * `classifyConsequenceProng` never re-decides completion, it only asks
    * whether an already-COMPLETE stage's external consequence has reached
    * DVN finality. Each prong resolves independently — Stand's incompleteness
-   * cannot dim an already-proven Ratify or Ingest.
+   * cannot dim an already-proven Ratify.
+   *
+   * NO `deploy` KEY (Activate Consolidation, 2026-08-11) — the fork is
+   * Ratify + Stand only. Ingest/`deploy` is no longer a visible
+   * constitutional consequence; its technical evidence
+   * (`capability_registered`) still exists and is readable, but it competes
+   * with nothing here.
    */
   const stageStatus = (id: string) => resolution.stages.find((s) => s.stageId === id)?.status ?? 'NOT_STARTED';
   const consequenceFork = {
     verify: consequenceProngCopy(
       classifyConsequenceProng({ stageState: stageStatus('verify'), bestAnchorReceiptStatus: ratifyAnchorStatus ?? null }),
-    ),
-    deploy: consequenceProngCopy(
-      classifyConsequenceProng({
-        stageState: stageStatus('deploy'),
-        bestAnchorReceiptStatus: bestReceiptStatus(receiptStatuses['capability_registered'] ?? []),
-      }),
     ),
     standing: consequenceProngCopy(
       classifyConsequenceProng({
@@ -1230,6 +1320,104 @@ async function resolveState(req: NextRequest) {
     serviceRegisteredDvnStatus: bestReceiptStatus(receiptStatuses['pnl_service_registered'] ?? []),
     serviceVerified: hasReceipt('pnl_service_verified'),
     serviceVerifiedDvnStatus: bestReceiptStatus(receiptStatuses['pnl_service_verified'] ?? []),
+  };
+
+  /*
+   * RATIFY SUB-PREDICATE PROJECTION (CFS-055 coherence pass, 2026-08-10 —
+   * inv.engineering.255 "One Predicate, One Projection"). Ratify's five
+   * sub-facts (`agreementAuthorized`, `pulseAuthorized`,
+   * `pnlDisclosureAuthorized`, `pnlServiceRegistered`, `pnlEvidenceVerified`)
+   * previously existed only as bare booleans buried inside `stages.verify`'s
+   * completion-evidence object, each with no individually inspectable
+   * authority/effectiveAt/evidenceRefs/finality of its own — the exact gap
+   * the coherence matrix (codexes/packs/agentiq/updates/
+   * 2026-08-10_horizen-coherence-matrix-nakamoto.md, finding 3) named as why
+   * AgreementRatifyPanel/PulseTransparencyToggle each independently re-derive
+   * these facts instead of consuming a canonical projection: there was
+   * nothing canonical at this granularity TO consume.
+   *
+   * Every field below is sourced from the SAME `hasReceipt(...)`/agreement-row
+   * reads `stages.verify` already uses — never inferred from another
+   * sub-predicate (CFS-055 §11 inv.epistemology.257 "Evidence Does Not
+   * Collapse Predicates"). `receiptBackedSubPredicate` is the one function
+   * every receipt-only sub-predicate below shares — never four independent
+   * copies of the same shape.
+   */
+  const receiptBackedSubPredicate = (predicate: string, actionType: ActivityActionType) => {
+    const established = hasReceipt(actionType);
+    const createdAts = receiptCreatedAt[actionType] ?? [];
+    return {
+      predicate,
+      established,
+      authority: established ? ('evidence' as const) : ('none' as const),
+      effectiveAt: createdAts.length > 0 ? createdAts.slice().sort()[0] : null,
+      evidenceRefs: established ? [actionType] : [],
+      receiptRefs: receiptRefs[actionType] ?? [],
+      dvnStatus: bestReceiptStatus(receiptStatuses[actionType] ?? []),
+    };
+  };
+  const agreementAuthorizedEstablished = ratifyAgreementStatusAtLeast('authorized');
+  const agreementAuthorizedReceiptId = ratifyAgreement?.authorizedReceiptId ?? null;
+  const agreementAuthorizedReceiptDetail = agreementAuthorizedReceiptId
+    ? ratifyAgreementReceiptDetails.get(agreementAuthorizedReceiptId) ?? null
+    : null;
+  const ratifySubPredicates = {
+    // NOT receipt-backed like its siblings below — the agreement row IS the
+    // canonical record (see the `ratify-agreement` guarded read's own
+    // comment for why a receipt scan is the wrong tool for this one).
+    agreementAuthorized: {
+      predicate: 'agreementAuthorized',
+      established: agreementAuthorizedEstablished,
+      authority: ratifyAgreement ? ('external-authority' as const) : ('none' as const),
+      effectiveAt: agreementAuthorizedReceiptDetail?.createdAt ?? null,
+      evidenceRefs: agreementAuthorizedEstablished ? ['agreementAuthorized'] : [],
+      receiptRefs: agreementAuthorizedReceiptId ? [agreementAuthorizedReceiptId] : [],
+      dvnStatus: agreementAuthorizedReceiptDetail?.receiptStatus ?? null,
+    },
+    pulseAuthorized: receiptBackedSubPredicate('pulseAuthorized', 'horizen_pulse_authorized'),
+    pnlDisclosureAuthorized: receiptBackedSubPredicate('pnlDisclosureAuthorized', 'horizen_pnl_transparency_enabled'),
+    pnlServiceRegistered: receiptBackedSubPredicate('pnlServiceRegistered', 'pnl_service_registered'),
+    pnlEvidenceVerified: receiptBackedSubPredicate('pnlEvidenceVerified', 'pnl_service_verified'),
+  };
+
+  /*
+   * REGISTER CEREMONY REPLAY PROJECTION (Pre-recording Horizen polish, part
+   * C, 2026-08-10) — the seven named ceremony steps
+   * (services/horizen/registerCeremony.ts's own wallet-signing-topology
+   * sequence), each independently sourced, for a generic read-only replay of
+   * an ALREADY-COMPLETE Register stage. Never a live-registration source of
+   * truth — RegisterAgentPanel's own ceremony/mandate/broadcast flow remains
+   * the ONLY writer; this is a pure reprojection of receipts that already
+   * exist, using the SAME `receiptBackedSubPredicate` helper Ratify's
+   * sub-predicates use above.
+   *
+   * Two of the seven steps — `principalWalletReady`, `mandatePrepared` —
+   * have NO receipt type at all (services/horizen/registerCeremony.ts never
+   * writes one for either; confirmed by direct audit, never assumed). Per
+   * operator instruction ("do not fabricate evidence for these... show only
+   * the level of proof actually available"), they carry `authority:
+   * 'inferred'` — true only because a LATER, receipted step in the same
+   * chain could not exist otherwise — never `authority: 'evidence'`, which
+   * is reserved for steps with an actual receipt.
+   */
+  const registerStageEstablished = resolution.stages.find((s) => s.stageId === 'register')?.canonicalOutcome === true;
+  const inferredCeremonyStep = (predicate: string) => ({
+    predicate,
+    established: registerStageEstablished,
+    authority: registerStageEstablished ? ('inferred' as const) : ('none' as const),
+    effectiveAt: null as string | null,
+    evidenceRefs: [] as string[],
+    receiptRefs: [] as string[],
+    dvnStatus: null as ReceiptStatus | null,
+  });
+  const registerCeremony = {
+    principalWalletReady: inferredCeremonyStep('principalWalletReady'),
+    mandatePrepared: inferredCeremonyStep('mandatePrepared'),
+    mandateSigned: receiptBackedSubPredicate('mandateSigned', 'principal_registration_mandate_signed'),
+    invocationApproved: receiptBackedSubPredicate('invocationApproved', 'agent_registry_transaction_signed'),
+    transactionBroadcast: receiptBackedSubPredicate('transactionBroadcast', 'horizen_registration_submitted'),
+    horizenConfirmed: receiptBackedSubPredicate('horizenConfirmed', 'horizen_registration_confirmed'),
+    registryBindingRecorded: receiptBackedSubPredicate('registryBindingRecorded', 'agent_registry_binding_recorded'),
   };
 
   // Persist so refresh, persona change and route change all resolve the same
@@ -1298,5 +1486,21 @@ async function resolveState(req: NextRequest) {
     //   serviceVerifiedDvnStatus } — see the definition above for why this
     // is additive to, never a replacement for, stages.verify's own fields.
     pnlEvidence,
+    // Ratify's five sub-predicates, each independently projected — see the
+    // definition above (CFS-055 coherence pass). This is what
+    // AgreementRatifyPanel/PulseTransparencyToggle/StageReceiptsDrawer must
+    // consume for these facts, never their own Agent Card fetch, `/verify/
+    // status` poll, or unscoped receipt search.
+    ratifySubPredicates,
+    // Register's seven-step ceremony, replayed read-only from canonical
+    // evidence (Pre-recording Horizen polish, part C, 2026-08-10) — see the
+    // definition above. `principalWalletReady`/`mandatePrepared` carry
+    // `authority: 'inferred'` (no receipt type exists for either); the
+    // remaining five carry `authority: 'evidence'` from their own receipts.
+    // Its former UI consumer (RegisterCeremonyReplay) was removed from the
+    // journey UI (2026-08-11); this projection is kept as-is and is never a
+    // second source of truth for whether Register is complete — that
+    // remains `resolution.stages.register.canonicalOutcome` alone.
+    registerCeremony,
   });
 }

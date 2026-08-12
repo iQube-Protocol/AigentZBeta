@@ -29,6 +29,7 @@ import { AgreementRatifyPanel } from '@/components/journey/AgreementRatifyPanel'
 import { PulseTransparencyToggle } from '@/components/journey/PulseTransparencyToggle';
 import { MarketaEligibilityView } from '@/components/journey/MarketaEligibilityView';
 import { OrientationPanel } from '@/components/journey/OrientationPanel';
+import { IngestIntoFactoryPanel } from '@/components/journey/IngestIntoFactoryPanel';
 import { PassportBureauApplyTab } from './PassportBureauApplyTab';
 import { BoundedDelegationTab } from './BoundedDelegationTab';
 import { ParticipationStandingTab } from './ParticipationStandingTab';
@@ -60,10 +61,19 @@ const JOURNEY_COMPONENTS: Record<string, React.ComponentType<Record<string, unkn
   PulseTransparencyToggle,
   MarketaEligibilityView,
   OrientationPanel,
+  IngestIntoFactoryPanel,
   PassportBureauApplyTab,
   BoundedDelegationTab,
   ParticipationStandingTab,
 };
+
+function selectStage(stageId: string) {
+  try {
+    window.dispatchEvent(new CustomEvent('journey:select-stage', { detail: { stageId } }));
+  } catch {
+    /* non-fatal */
+  }
+}
 
 function PilotJourneyTabInner({ personaId, isAdmin }: PilotJourneyTabProps) {
   // Which registrable agent the Register stage is currently sponsoring
@@ -71,6 +81,8 @@ function PilotJourneyTabInner({ personaId, isAdmin }: PilotJourneyTabProps) {
   // The dry-run agent is the one being exercised, so it is the one selected on
   // arrival. Kept in step with PILOT_AGENTS[0] — see the note there.
   const [selectedAgentSlug, setSelectedAgentSlugState] = useState<string>('nakamoto');
+  const [previousStageId, setPreviousStageId] = useState<string | undefined>(undefined);
+  const [currentStageId, setCurrentStageId] = useState<string | undefined>(undefined);
   // Component-scoped so both resolveSurfaceProps AND the receipts-drawer prop
   // below read the SAME resolved agent — never two separate PILOT_AGENTS.find
   // calls that could observe a mid-render change differently.
@@ -94,6 +106,23 @@ function PilotJourneyTabInner({ personaId, isAdmin }: PilotJourneyTabProps) {
     setSelectedAgentSlugState(slug);
     setSelectedPilotAgentSlug(slug);
   }, []);
+
+  // Track stage navigation for back button functionality
+  useEffect(() => {
+    const handleStageSelect = (event: Event) => {
+      const customEvent = event as CustomEvent<{ stageId: string }>;
+      setPreviousStageId(currentStageId);
+      setCurrentStageId(customEvent.detail.stageId);
+    };
+    window.addEventListener('journey:select-stage', handleStageSelect);
+    return () => window.removeEventListener('journey:select-stage', handleStageSelect);
+  }, [currentStageId]);
+
+  const handleBack = useCallback(() => {
+    if (previousStageId) {
+      selectStage(previousStageId);
+    }
+  }, [previousStageId]);
 
   /*
    * THE AGENT CARD URL MUST BE ABSOLUTE (operator, 2026-08-03).
@@ -121,7 +150,7 @@ function PilotJourneyTabInner({ personaId, isAdmin }: PilotJourneyTabProps) {
   }, []);
 
   const resolveSurfaceProps = useCallback(
-    ({ surfaceRef, descriptor, runtimeState, pnlEvidence }: Parameters<NonNullable<JourneyRunSurfaceProps['resolveSurfaceProps']>>[0]) => {
+    ({ surfaceRef, descriptor, runtimeState, pnlEvidence, ratifySubPredicates, registerCeremony }: Parameters<NonNullable<JourneyRunSurfaceProps['resolveSurfaceProps']>>[0]) => {
       /*
        * IS THE OPERATOR'S PASSPORT PRESENT? — ASKED OF THE OBSERVER, ANSWERED
        * ONCE (operator, 2026-08-03: "in the passport step the decision should
@@ -152,7 +181,17 @@ function PilotJourneyTabInner({ personaId, isAdmin }: PilotJourneyTabProps) {
            agentSlug — only this surface was never handed it, so Verify
            narrated a different agent than Register had just acted on. */
         : descriptor.component === 'AgreementRatifyPanel'
-          ? { agentSlug: selectedAgentSlug, agentDisplayName: selectedAgent.displayName }
+          ? {
+              agentSlug: selectedAgentSlug,
+              agentDisplayName: selectedAgent.displayName,
+              // CFS-055 coherence pass, 2026-08-10 — canonical sub-predicate
+              // projections, primary over this panel's own reads (see its
+              // own doc comment for why the panel's read still corroborates
+              // rather than being removed outright).
+              agreementAuthorized: ratifySubPredicates?.agreementAuthorized?.established,
+              pulseAuthorized: ratifySubPredicates?.pulseAuthorized?.established,
+              pnlDisclosureAuthorized: ratifySubPredicates?.pnlDisclosureAuthorized?.established,
+            }
         : descriptor.component === 'PulseTransparencyToggle'
           /*
            * "Run correlated trace" is a diagnostic instrument, not part of
@@ -192,6 +231,11 @@ function PilotJourneyTabInner({ personaId, isAdmin }: PilotJourneyTabProps) {
               pnlServiceVerifiedDvnStatus: pnlEvidence?.serviceVerifiedDvnStatus ?? null,
               pnlServiceRegistered: pnlEvidence?.serviceRegistered,
               pnlServiceRegisteredDvnStatus: pnlEvidence?.serviceRegisteredDvnStatus ?? null,
+              // CFS-055 coherence pass, 2026-08-10 — the SAME
+              // ratifySubPredicates object AgreementRatifyPanel consumes
+              // above, never a second read of these two facts.
+              pulseAuthorized: ratifySubPredicates?.pulseAuthorized?.established,
+              pnlDisclosureAuthorized: ratifySubPredicates?.pnlDisclosureAuthorized?.established,
             }
         /* Claim must speak about the agent Register/Verify just acted on, not
            a hardcoded MoneyPenny (operator, 2026-08-03 — Nakamoto's "Prove
@@ -206,6 +250,11 @@ function PilotJourneyTabInner({ personaId, isAdmin }: PilotJourneyTabProps) {
            never a default, which would silently resolve the wrong agent's
            orientation context (services/journey/orientationContext.ts). */
         : descriptor.component === 'OrientationPanel'
+          ? { agentSlug: selectedAgentSlug }
+        /* Ingest must speak about the agent Register/Claim/Operate just
+           acted on — same discipline as Orient/Claim/Verify's own agentSlug
+           threading above, never a default. */
+        : descriptor.component === 'IngestIntoFactoryPanel'
           ? { agentSlug: selectedAgentSlug }
         : descriptor.component === 'PassportBureauApplyTab'
           ? {
@@ -224,6 +273,7 @@ function PilotJourneyTabInner({ personaId, isAdmin }: PilotJourneyTabProps) {
   return (
     <JourneyRunSurface
       journey={HORIZEN_MONEYPENNY_JOURNEY}
+      onBack={handleBack}
       /*
        * THE OBSERVER MUST WATCH THE AGENT THE SURFACES ARE ACTING ON
        * (operator, 2026-08-03: "Is the observer recognising that the wallet
@@ -265,10 +315,7 @@ function PilotJourneyTabInner({ personaId, isAdmin }: PilotJourneyTabProps) {
       headerLabel={
         <>
           <span className="shrink-0 font-semibold text-slate-100">metaMe × Horizen</span>
-          <span className="shrink-0 text-slate-600">·</span>
-          <span className="truncate text-slate-300">{HORIZEN_MONEYPENNY_JOURNEY.label}</span>
-          <span className="shrink-0 text-slate-600">·</span>
-          <span className="shrink-0 text-xs text-slate-500">Destination: aigentMe</span>
+          <span className="truncate text-slate-300">Constitutional Threshold Guide</span>
         </>
       }
     />

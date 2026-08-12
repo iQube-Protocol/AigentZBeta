@@ -31,6 +31,21 @@
  *
  * Spine-gated route (resolves getActivePersona) — personaFetch only, never
  * raw fetch (CLAUDE.md's Identity & Access Spine rule).
+ *
+ * ── CFS-055 coherence pass (2026-08-10) ─────────────────────────────────
+ *
+ * Prior defect (coherence matrix finding 3): this panel's `isAuthorized`
+ * came ONLY from its own `loadAgreement()` read, hand-duplicating the exact
+ * same `AGREEMENT_STATUS_RANK` comparison the state route already performs
+ * canonically — two independent interpretations of the identical fact, with
+ * no shared source. Fix: `agreementAuthorized`/`pulseAuthorized`/
+ * `pnlDisclosureAuthorized` are now threaded in as props from the state
+ * route's `ratifySubPredicates` projection (via `resolveSurfaceProps`) and
+ * are PRIMARY. This panel's own reads remain — a fresh action needs an
+ * immediate reflection this request-response cycle, before the parent's
+ * next full `/state` refresh — but now corroborate (OR into) the canonical
+ * value rather than deciding it alone, and can never cause Ratify to
+ * regress from authorized back to unauthorized.
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
@@ -72,9 +87,22 @@ interface AgreementRatifyPanelProps {
   personaId?: string;
   agentSlug: string;
   agentDisplayName?: string;
+  // CFS-055 coherence pass, 2026-08-10 — canonical sub-predicate projections
+  // from the state route's `ratifySubPredicates` (PRIMARY; this panel's own
+  // reads corroborate, never replace). Undefined (parent not yet threading
+  // them) preserves this panel's pre-existing own-read-only behavior.
+  agreementAuthorized?: boolean;
+  pulseAuthorized?: boolean;
+  pnlDisclosureAuthorized?: boolean;
 }
 
-export function AgreementRatifyPanel({ agentSlug, agentDisplayName }: AgreementRatifyPanelProps) {
+export function AgreementRatifyPanel({
+  agentSlug,
+  agentDisplayName,
+  agreementAuthorized: canonicalAgreementAuthorized,
+  pulseAuthorized: canonicalPulseAuthorized,
+  pnlDisclosureAuthorized: canonicalPnlDisclosureAuthorized,
+}: AgreementRatifyPanelProps) {
   const refs = resolveRatificationRefs(agentSlug);
   const displayName = agentDisplayName ?? agentSlug;
 
@@ -116,7 +144,15 @@ export function AgreementRatifyPanel({ agentSlug, agentDisplayName }: AgreementR
   }, [loadAgreement, loadTransparency]);
 
   const status = agreement?.status ?? 'not-started';
-  const isAuthorized = status === 'authorized' || status === 'executed' || status === 'settled' || status === 'reconstitutable';
+  const ownReadAuthorized =
+    status === 'authorized' || status === 'executed' || status === 'settled' || status === 'reconstitutable';
+  // Canonical-first, OR-safe against this panel's own read (same precedence
+  // rule PulseTransparencyToggle already uses correctly for
+  // pnlServiceRegistered/pnlServiceVerified) — never regresses once the
+  // canonical projection says authorized, and still reflects an
+  // authorization this component itself just performed before the parent's
+  // next full refresh.
+  const isAuthorized = canonicalAgreementAuthorized === true || ownReadAuthorized;
 
   const verifyAndSign = useCallback(async () => {
     setBusy(true);
@@ -214,11 +250,19 @@ export function AgreementRatifyPanel({ agentSlug, agentDisplayName }: AgreementR
       {note && <div className="text-[11px] text-slate-400">{note}</div>}
 
       {isAuthorized && (
-        <div className="border-t border-slate-800 pt-2 text-[11px] text-slate-400">
-          Service authorized · Transparency {transparency}
-          {transparency === 'conflicted' && (
-            <span className="text-amber-300"> — see the Transparency section below for detail</span>
-          )}
+        <div className="border-t border-slate-800 pt-2 text-[11px] text-slate-400 space-y-0.5">
+          <div>Service authorized</div>
+          {/* Each sub-predicate distinct (CFS-055 §11 inv.epistemology.257 —
+              "Evidence Does Not Collapse Predicates"): canonical boolean
+              first, the richer /verify/status label only as supplementary
+              detail when the canonical fact is not yet established. */}
+          <div>
+            Pulse — {canonicalPulseAuthorized ? 'Authorized' : transparency === 'conflicted' ? 'Conflicted' : 'Pending'}
+            {!canonicalPulseAuthorized && transparency === 'conflicted' && (
+              <span className="text-amber-300"> — see the Transparency section below for detail</span>
+            )}
+          </div>
+          <div>P&amp;L Disclosure — {canonicalPnlDisclosureAuthorized ? 'Authorized' : 'Pending'}</div>
         </div>
       )}
     </div>

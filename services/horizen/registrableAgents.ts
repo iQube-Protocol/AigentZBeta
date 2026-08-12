@@ -97,6 +97,44 @@ export const REGISTRABLE_AGENTS: Record<string, RegistrableAgentConfig> = {
     fioHandle: 'nakamoto@aigent',
     runtimeHealthPath: '/api/agents/nakamoto/health',
   },
+  /*
+   * Third registrable agent (Horizen Pilot — Know1 Recording Readiness Pass,
+   * 2026-08-10) — added purely as configuration, per this file's own header
+   * above. Every value below is sourced from an EXISTING, real record, never
+   * invented:
+   *   - runtimeAgentId 'aigent-kn0w1': services/metame/agentLlmOrchestra.ts's
+   *     RUNTIME_AGENT_IDS (first-class runtime agent, with its own
+   *     model/tool config), and app/data/personas.ts's 'aigent-kn0w1' entry
+   *     (the system prompt actually driving his live chat behaviour).
+   *   - aigentQubeId 'aigentqube-kn0w1': the EXISTING registry_assets row
+   *     from supabase/migrations/20260414000000_aigentqube_registry_assets.sql
+   *     + 20260415030000_aigentqube_add_aigent_know1.sql — an older AigentQube
+   *     representation, upgraded additively by
+   *     20260810010000_kn0w1_horizen_admission_fields.sql (this pass), never
+   *     a duplicate record.
+   *   - fioHandle 'kn0w1@aigent': scripts/register-agent-keys.ts's AGENTS
+   *     entry (agentId: 'aigent-kn0w1').
+   *
+   * `slug` keeps the zero (matches the operator's canonical code identifier
+   * exactly, per instruction: "do not invent aliases"). `displayName` drops
+   * the zero — "Aigent Know1", not "Aigent Kn0w1" — a DELIBERATE operator
+   * choice for TTS pronunciation on front-end/journey-narration surfaces,
+   * confirmed to diverge from this repo's OTHER existing Kn0w1 display
+   * convention (app/data/personas.ts's own "Naming conventions (locked)"
+   * section states "Kn0w1" as the primary label for the KNYT-chat/avatar
+   * surfaces) — that convention is untouched; this displayName applies only
+   * within the Horizen admission journey's own narration/UI, the same scope
+   * every other field on this object is already scoped to.
+   */
+  kn0w1: {
+    slug: 'kn0w1',
+    displayName: 'Aigent Know1',
+    runtimeAgentId: 'aigent-kn0w1',
+    aigentQubeId: 'aigentqube-kn0w1',
+    agentCardPath: '/api/agents/kn0w1/agent-card.json',
+    fioHandle: 'kn0w1@aigent',
+    runtimeHealthPath: '/api/agents/kn0w1/health',
+  },
 };
 
 export const DEFAULT_REGISTRABLE_AGENT_SLUG = 'moneypenny';

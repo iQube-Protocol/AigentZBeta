@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { NextRequest } from 'next/server';
 import { createHash } from 'crypto';
+import { getTimedFetch, resolveSupabaseFetchTimeoutMs } from '@/app/api/_lib/supabaseServer';
 
 export type PersonaVisibility = 'owner' | 'tenant_discoverable' | 'none';
 
@@ -53,19 +54,33 @@ function getEnv(name: string): string | undefined {
  * can reach `auth.admin` without standing up a second client factory — one
  * definition, per `inv.engineering.036`. Callers outside this module must be
  * server-only; this key must never reach a browser bundle.
+ *
+ * Time-boxed fetch (added 2026-08-11, targeted correction pass): this used
+ * to be a PLAIN `createClient(url, key)` with no `global.fetch` override —
+ * a hung Supabase Auth call had nothing to abort it, so the platform's own
+ * ~30s request ceiling surfaced as an opaque 504 instead of a fast, clean
+ * app error. Now uses the SAME `getTimedFetch`/`resolveSupabaseFetchTimeoutMs`
+ * `app/api/_lib/supabaseServer.ts`'s `getSupabaseServer()` already applies —
+ * one shared implementation, not a second hand-rolled timeout.
  */
 export function getSupabaseAdminClient(): SupabaseClient {
   const url = getEnv('SUPABASE_URL') || getEnv('NEXT_PUBLIC_SUPABASE_URL');
   const key = getEnv('SUPABASE_SERVICE_ROLE_KEY');
   if (!url || !key) throw new Error('Missing Supabase server configuration');
-  return createClient(url, key, { auth: { persistSession: false } });
+  return createClient(url, key, {
+    auth: { persistSession: false },
+    global: { fetch: getTimedFetch(resolveSupabaseFetchTimeoutMs()) },
+  });
 }
 
 function getSupabaseAnonClient(): SupabaseClient {
   const url = getEnv('SUPABASE_URL') || getEnv('NEXT_PUBLIC_SUPABASE_URL');
   const key = getEnv('SUPABASE_ANON_KEY') || getEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY');
   if (!url || !key) throw new Error('Missing Supabase anon configuration');
-  return createClient(url, key, { auth: { persistSession: false } });
+  return createClient(url, key, {
+    auth: { persistSession: false },
+    global: { fetch: getTimedFetch(resolveSupabaseFetchTimeoutMs()) },
+  });
 }
 
 function isUuid(value: string): boolean {

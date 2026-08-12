@@ -376,7 +376,20 @@ export type ActivityActionType =
   //     discoverAndReceiptPnlServiceEvidence, never by the registration
   //     mutation itself — registering is not self-certifying).
   // See services/horizen/pnlOnboardingClient.ts.
-  | 'pnl_service_registered';
+  | 'pnl_service_registered'
+  // Constitutional State Model Correction (operator-ratified, 2026-08-11):
+  // the agent became an accountable, active participant in the iQube
+  // Registry. Derived from, and ONLY from, iQubeRegistryPresent ∧
+  // sponsorBindingEstablished ∧ agentPassportIssued — never from Delegate,
+  // Operate, or `capability_registered` (Factory/Ingest evidence, which
+  // stays technical and is never conflated with this constitutional fact).
+  // Awards no Standing. Issued exactly once per agent via the settled-fact
+  // idempotency in `services/journey/agentRegistryActivation.ts`'s
+  // `ensureAgentRegistryActivation`. `actionInput.provenance` distinguishes
+  // a fresh establishment from a legacy agent whose predicates were already
+  // true before this mechanism existed ('freshly-established' |
+  // 'legacy-reconciled').
+  | 'agent_registry_activated';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 
@@ -665,6 +678,17 @@ export interface ListReceiptsOptions {
    * same type. Passing this closes that window without a second reader.
    */
   agentsInvoked?: string[];
+  /**
+   * Narrow to this EXACT set of receipt ids (CFS-055 coherence pass,
+   * 2026-08-10 — inv.engineering.258 "Receipts Prove; State Resolves").
+   * Lets a caller hydrate the specific receipts a canonical POSIT projection
+   * already named (`resolution.stages[stageId].receiptRefs`, a sub-predicate
+   * projection's own `receiptRefs`) — never a fresh type/agent search that
+   * would re-decide whether evidence exists a second way. Still persona-
+   * scoped like every other option here: an id the caller does not own
+   * simply matches nothing.
+   */
+  ids?: string[];
 }
 
 export async function listActivityReceiptsForPersona(
@@ -686,6 +710,9 @@ export async function listActivityReceiptsForPersona(
   }
   if (options?.agentsInvoked && options.agentsInvoked.length > 0) {
     q = q.contains('agents_invoked', options.agentsInvoked);
+  }
+  if (options?.ids && options.ids.length > 0) {
+    q = q.in('id', options.ids);
   }
 
   const { data, error } = await q.order('created_at', { ascending: false }).limit(limit);

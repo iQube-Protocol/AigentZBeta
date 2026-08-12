@@ -25,7 +25,7 @@ import { useMetaAvatar } from "@/app/contexts/MetaAvatarContext";
 import { PassportConnectPanel, type PassportFacts } from "@/components/companion/PassportConnectPanel";
 import { PasskeyEnrolmentPanel } from "@/components/passport/PasskeyEnrolmentPanel";
 import { PrincipalWalletProvisioningPanel } from "@/components/wallet/PrincipalWalletProvisioningPanel";
-import { subscribeWalletSurfaceRequest, acknowledgeWalletSurfaceRequest } from "@/services/wallet/walletSurfaceRequest";
+import { subscribeWalletSurfaceRequest, acknowledgeWalletSurfaceRequest, announceWalletSurfaceCompletion } from "@/services/wallet/walletSurfaceRequest";
 import { PendingActionsPanel } from "@/components/wallet/PendingActionsPanel";
 import AliasConsentToggle from "../identity/AliasConsentToggle";
 import PersonaReferencesInventory from "../identity/PersonaReferencesInventory";
@@ -223,7 +223,13 @@ type WalletSurface =
    * been preparing real principal mandates and then saying, honestly, that
    * the surface to sign them did not exist. This is that surface.
    */
-  | "PENDING_ACTIONS";
+  | "PENDING_ACTIONS"
+  /**
+   * One-shot: converted straight into `setActiveTab('tasks')` by the effect
+   * below, then cleared. Never rendered as an overlay — see
+   * services/wallet/walletSurfaceRequest.ts's matching doc comment.
+   */
+  | "TASKS_TAB";
 
 interface SmartWalletDrawerProps {
   open: boolean;
@@ -629,7 +635,12 @@ export default function SmartWalletDrawer({
       subscribeWalletSurfaceRequest((request) => {
         // Honour any surface this drawer can render — a listener that only
         // knew one surface would silently drop the second one added.
-        if (request.surface !== 'PRINCIPAL_WALLET_PROVISIONING' && request.surface !== 'PENDING_ACTIONS') return;
+        if (
+          request.surface !== 'PRINCIPAL_WALLET_PROVISIONING' &&
+          request.surface !== 'PENDING_ACTIONS' &&
+          request.surface !== 'PASSPORT_SIGN_IN' &&
+          request.surface !== 'TASKS_TAB'
+        ) return;
         setWalletSurface(request.surface);
         setDeepLinkReturn({ target: request.returnTarget ?? null, label: request.returnLabel ?? null });
         acknowledgeWalletSurfaceRequest(request.token, "SmartWalletDrawer");
@@ -751,6 +762,15 @@ export default function SmartWalletDrawer({
     lastWalletSurfaceTokenRef.current = walletSurfaceRequestToken;
     if (initialWalletSurface) setWalletSurface(initialWalletSurface);
   }, [walletSurfaceRequestToken, initialWalletSurface]);
+  // TASKS_TAB is a request for the EXISTING "tasks" DrawerTab, not a new
+  // overlay — convert it to a plain tab switch and clear the surface so
+  // nothing below tries to render an overlay for it (2026-08-12, KNYTS↔CI
+  // parity pass: Wallet → Tasks, requested from KnytQuestsTab).
+  useEffect(() => {
+    if (walletSurface !== 'TASKS_TAB') return;
+    setActiveTab('tasks');
+    setWalletSurface(null);
+  }, [walletSurface]);
   // Auto-opens PASSPORT_SIGN_IN exactly once per signed-out visit — never
   // re-fires after an explicit Back, and resets once the visitor is
   // genuinely signed in so a LATER sign-out prompts again.
@@ -6327,6 +6347,19 @@ export default function SmartWalletDrawer({
                   void refreshPersonas();
                   setConnectedPassport(passport ?? null);
                   setWalletSurface('PASSPORT_CONNECTED');
+                  // Tell a cross-iframe requester (e.g. a campaign surface's
+                  // Remix-gate) that Passport sign-in completed, so it can
+                  // resume the intent it was interrupted from. A no-op for
+                  // every existing entry point (persona menu, auto-open) —
+                  // those never set a returnTarget, so deepLinkReturn.target
+                  // is null and nothing is announced.
+                  if (deepLinkReturn.target) {
+                    announceWalletSurfaceCompletion({
+                      surface: 'PASSPORT_SIGN_IN',
+                      outcome: 'ACTION_COMPLETED',
+                      returnTarget: deepLinkReturn.target,
+                    });
+                  }
                 }}
               />
             )}

@@ -457,8 +457,11 @@ describe('CANARY 5 — completing a stage does not route to the next executable 
   });
 
   it('walks the whole admission spine, one act at a time, without ever naming Verify', () => {
-    // Orient inserted between Claim and Passport (2026-08-09).
-    const spine = ['register', 'claim', 'orient', 'passport', 'delegate', 'aigentme'];
+    // Orient inserted between Claim and Passport (2026-08-09). Activate
+    // inserted between Passport and Delegate (2026-08-11) — a DERIVED
+    // transition, but still an executable act from resolveMonotonicJourneyState's
+    // point of view until its own canonicalOutcome is observed true.
+    const spine = ['register', 'claim', 'orient', 'passport', 'activate', 'delegate', 'aigentme'];
     const done: Record<string, boolean> = {};
     const visited: string[] = [];
     for (let i = 0; i < spine.length; i += 1) {
@@ -630,6 +633,161 @@ describe('CANARY 6 — a refresh changes stage completion without a canonical-st
       expect(second.record.canonicalStages).toEqual(expect.arrayContaining(['register', 'verify']));
       expect(second.record.milestones).toEqual(expect.arrayContaining(['REGISTERED', 'VERIFIED']));
       expect(second.record.highestMilestone).toBe('VERIFIED');
+    }
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+describe('CANARY 7 — a governed-correction tombstone is durable, and never permanent for the STAGE itself', () => {
+  /*
+   * HISTORICAL DEFECT (found reconciling MoneyPenny, Horizen Pilot Closure,
+   * operator ruling 2026-08-10): `recordJourneyResolution`'s canonicalStages
+   * union can never shrink a stored resolution (CANARY 6 above, by design).
+   * A correction route that removes a stage from `canonicalStages` directly
+   * (bypassing that union) fixes the persisted array ONCE — but the very
+   * next ordinary `/state` read that happens to (re-)derive the same stage
+   * as canonical (via `resolveMonotonicJourneyState`'s own ratchet-synthesis
+   * at `canonicalisedStages[stage.id] = canonicalisedEvidence(...)` for any
+   * id already in `priorCanonicalStages`) writes it straight back, and it
+   * then self-perpetuates forever — observed live: MoneyPenny's `standing`
+   * stage read "Proven" in the consequence fork while `axes.standing.
+   * accrued` was genuinely 0, because `canonicalStages` still contained
+   * "standing" a full day after the correction that was supposed to remove
+   * it.
+   * PRE-FIX PROOF: test B below, run without `invalidatedStages` threaded
+   * through, reproduces exactly this — `canonicalAuthority: 'prior-
+   * resolution'` and a synthesized `standingGatewayEnabled` in
+   * `evidencePresent`, from nothing but a stale array entry.
+   * POST-FIX PROOF: this whole block.
+   * PROTECTED INVARIANT: the POSIT state model — "state is monotonic only
+   * until valid contrary evidence or governed correction occurs. A
+   * correction supersedes earlier state evidence; subsequent valid evidence
+   * may establish a new state at a later effective time."
+   * RETIREMENT: never.
+   */
+
+  it('A. regression — a tombstoned stage stays unresolved across repeated ordinary reads, never resurrecting', () => {
+    // Round 1: 'standing' was (wrongly) canonical, and a correction has just
+    // tombstoned it. Evidence is genuinely absent (no accrual exists).
+    const round1 = resolveMonotonicJourneyState(HORIZEN_MONEYPENNY_JOURNEY, nakamotoPlatformState(), {
+      priorCanonicalStages: ['register', 'deploy'], // 'standing' already removed by the correction
+      invalidatedStages: ['standing'],
+    });
+    expect(stage(round1, 'standing').canonicalOutcome).toBe(false);
+
+    // Round 2 and 3: ordinary subsequent reads, each threading forward
+    // exactly what a real caller persists (canonicalOutcome-true stage ids)
+    // plus the SAME tombstone every time — never resurrects.
+    let prior = round1;
+    for (let i = 0; i < 2; i++) {
+      const next = resolveMonotonicJourneyState(HORIZEN_MONEYPENNY_JOURNEY, nakamotoPlatformState(), {
+        priorCanonicalStages: prior.stages.filter((s) => s.canonicalOutcome).map((s) => s.stageId),
+        invalidatedStages: ['standing'],
+      });
+      expect(stage(next, 'standing').canonicalOutcome, `round ${i + 2} resurrected 'standing'`).toBe(false);
+      prior = next;
+    }
+  });
+
+  it('B. no self-resurrection — a stale canonicalStages entry newer than the tombstone gets no prior-resolution synthesis', () => {
+    // The exact corrupted shape observed live: 'standing' sitting in the
+    // persisted array despite being tombstoned.
+    const resolution = resolveMonotonicJourneyState(HORIZEN_MONEYPENNY_JOURNEY, nakamotoPlatformState(), {
+      priorCanonicalStages: ['register', 'deploy', 'standing'],
+      invalidatedStages: ['standing'],
+    });
+    expect(stage(resolution, 'standing').canonicalOutcome).toBe(false);
+    expect(stage(resolution, 'standing').canonicalAuthority).toBe('none');
+
+    // PRE-FIX PROOF (same inputs, no tombstone threaded through) — this is
+    // exactly the live defect: the stale array entry alone synthesizes
+    // completion via canonicalOutcome/canonicalAuthority. (evidencePresent is
+    // always sourced from the raw evidence pass regardless of tombstone
+    // state — ratchet-synthesis never fabricates evidence, only the
+    // status/authority derived from it — so it is not part of this proof.)
+    const withoutTombstone = resolveMonotonicJourneyState(HORIZEN_MONEYPENNY_JOURNEY, nakamotoPlatformState(), {
+      priorCanonicalStages: ['register', 'deploy', 'standing'],
+    });
+    expect(stage(withoutTombstone, 'standing').canonicalOutcome).toBe(true);
+    expect(stage(withoutTombstone, 'standing').canonicalAuthority).toBe('prior-resolution');
+  });
+
+  it('C. legitimate reacquisition — tombstoned, then genuine live evidence establishes it again, via evidence not prior-resolution', () => {
+    const resolution = resolveMonotonicJourneyState(
+      HORIZEN_MONEYPENNY_JOURNEY,
+      nakamotoPlatformState({
+        // Operate established, Ingest established, THEN a valid accrual —
+        // the causal order the write-side award rule already enforces.
+        aigentme: { aigentMeActive: true, focusDispositionRecorded: true },
+        deploy: { factoryIngested: true },
+        standing: { standingGatewayEnabled: true },
+      }),
+      {
+        priorCanonicalStages: ['register'], // 'standing' NOT in the floor — it was removed by the correction
+        invalidatedStages: ['standing'], // and permanently excluded from ratchet-synthesis
+      },
+    );
+    expect(stage(resolution, 'standing').canonicalOutcome).toBe(true);
+    expect(stage(resolution, 'standing').canonicalAuthority).toBe('evidence');
+    expect(stage(resolution, 'standing').evidencePresent).toContain('standingGatewayEnabled');
+  });
+
+  it('D. state independence — invalidating one stage never revokes a separately-established neighbor', () => {
+    const resolution = resolveMonotonicJourneyState(HORIZEN_MONEYPENNY_JOURNEY, nakamotoPlatformState(), {
+      canonicalOutcomes: SETTLED_REGISTER,
+      priorCanonicalStages: ['register', 'deploy'],
+      invalidatedStages: ['standing'], // ONLY standing was corrected — deploy was independently proven, untouched
+    });
+    expect(stage(resolution, 'register').canonicalOutcome).toBe(true);
+    expect(stage(resolution, 'deploy').canonicalOutcome).toBe(true);
+    expect(stage(resolution, 'deploy').canonicalAuthority).toBe('prior-resolution');
+    expect(stage(resolution, 'standing').canonicalOutcome).toBe(false);
+  });
+
+  it('a normal write carries the tombstone forward — the very next ordinary /state read cannot drop it', async () => {
+    const row = {
+      metadata: {
+        journey_resolutions: {
+          [HORIZEN_MONEYPENNY_JOURNEY.id]: {
+            journeyId: HORIZEN_MONEYPENNY_JOURNEY.id,
+            journeyVersion: '1.0.0',
+            subjectRef: NAKAMOTO.agent,
+            canonicalStages: ['register'],
+            invalidatedStages: {
+              standing: { invalidatedAt: '2026-08-09T18:19:50.292Z', reason: 'premature seed', correctionReceiptId: 'disc-1' },
+            },
+            milestones: ['REGISTERED'],
+            highestMilestone: 'REGISTERED',
+            recordedAt: '2026-08-09T18:19:50.292Z',
+          },
+        },
+      } as Record<string, unknown>,
+    };
+    const admin = {
+      from: () => ({
+        select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: row }) }) }),
+        update: (patch: Record<string, unknown>) => {
+          row.metadata = patch.metadata as Record<string, unknown>;
+          return { eq: async () => ({ error: null }) };
+        },
+      }),
+    } as never;
+
+    // An ordinary write that never mentions invalidatedStages at all — the
+    // shape every real /state read's call to recordJourneyResolution takes.
+    const result = await recordJourneyResolution(admin, NAKAMOTO.aigentQubeId, {
+      journeyId: HORIZEN_MONEYPENNY_JOURNEY.id,
+      journeyVersion: '1.0.0',
+      subjectRef: NAKAMOTO.agent,
+      canonicalStages: ['register'],
+      milestones: ['REGISTERED'],
+      highestMilestone: 'REGISTERED',
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.record.invalidatedStages).toEqual(
+        expect.objectContaining({ standing: expect.objectContaining({ reason: 'premature seed' }) }),
+      );
     }
   });
 });
@@ -1091,7 +1249,7 @@ describe('AXES — a branch is never named as "the one next act"', () => {
    */
   it('offers no single next act once the admission spine is complete', () => {
     const resolution = resolveMonotonicJourneyState(HORIZEN_MONEYPENNY_JOURNEY, nakamotoPlatformState(), {
-      canonicalOutcomes: { register: true, claim: true, orient: true, passport: true, delegate: true, aigentme: true },
+      canonicalOutcomes: { register: true, claim: true, orient: true, passport: true, activate: true, delegate: true, aigentme: true },
     });
     expect(resolution.nextExecutableAct).toBeNull();
   });
@@ -1261,17 +1419,17 @@ describe('ACCEPTANCE 3 — each completed act routes directly to the next, never
    * projection. PRE-FIX PROOF: returning null from resolveNextExecutableAct
    * for a non-complete journey turns this red (mutation-verified).
    */
-  it('routes Claim → Orient → Passport → Delegate → aigentMe, one act at a time', () => {
+  it('routes Claim → Orient → Passport → Activate → Delegate → aigentMe, one act at a time', () => {
     const done: Record<string, boolean> = { register: true };
     const route: string[] = [];
-    for (const justFinished of ['claim', 'orient', 'passport', 'delegate']) {
+    for (const justFinished of ['claim', 'orient', 'passport', 'activate', 'delegate']) {
       done[justFinished] = true;
       const resolution = resolveMonotonicJourneyState(HORIZEN_MONEYPENNY_JOURNEY, nakamotoPlatformState(), {
         canonicalOutcomes: { ...done },
       });
       route.push(resolution.nextExecutableAct!.stageId);
     }
-    expect(route).toEqual(['orient', 'passport', 'delegate', 'aigentme']);
+    expect(route).toEqual(['orient', 'passport', 'activate', 'delegate', 'aigentme']);
     // Never a dashboard, cartridge home or status surface.
     for (const stageId of route) {
       expect(HORIZEN_MONEYPENNY_JOURNEY.stages.some((s) => s.id === stageId)).toBe(true);
@@ -1338,7 +1496,7 @@ describe('ACCEPTANCE 5/6 — the branch surface', () => {
    */
   it('neither branch is ever the mandatory next act', () => {
     const resolution = resolveMonotonicJourneyState(HORIZEN_MONEYPENNY_JOURNEY, nakamotoPlatformState(), {
-      canonicalOutcomes: { register: true, claim: true, orient: true, passport: true, delegate: true, aigentme: true },
+      canonicalOutcomes: { register: true, claim: true, orient: true, passport: true, activate: true, delegate: true, aigentme: true },
     });
     expect(resolution.nextExecutableAct).toBeNull();
   });

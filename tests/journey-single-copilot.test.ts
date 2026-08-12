@@ -91,7 +91,11 @@ describe('the suppression travels end to end, and defaults to off at every hop',
       src,
       'a second, hand-inlined suppressCopilot construction here would drift from the registry builder',
     ).not.toContain('suppressCopilot: descriptor.suppressFloatingCopilot');
-    expect(src).toContain('buildEmbedSurfaceSrc(descriptor');
+    // Call shape gained the focused/Full override spread in the 2026-08-10
+    // in-place chrome toggle (`{ ...descriptor, focused: ... }` rather than
+    // the bare `descriptor`) — still the one builder, just passed an
+    // overridden copy of the same descriptor.
+    expect(src).toMatch(/buildEmbedSurfaceSrc\(\s*\{\s*\.\.\.descriptor/);
   });
 
   it('the embed page treats only the exact value as the suppression', () => {
@@ -164,21 +168,30 @@ describe('journey surfaces are identified by what they are, not by list position
     ).not.toMatch(/key=\{i\}/);
   });
 
-  it('Deploy and Standing really are two distinct surfaces of the same component', async () => {
+  it('Activate and Standing really are two distinct surfaces of the same component', async () => {
     const { HORIZEN_MONEYPENNY_JOURNEY } = await import('@/services/journey/horizenMoneyPennyJourney');
-    const deploy = HORIZEN_MONEYPENNY_JOURNEY.stages.find((s) => s.id === 'deploy');
+    // Was `deploy` — the registry-catalogue surface re-homed onto `activate`
+    // (Activate Consolidation, 2026-08-11); `deploy` itself now carries no
+    // surfaces (legacy/internal only — see its own header comment).
+    const activate = HORIZEN_MONEYPENNY_JOURNEY.stages.find((s) => s.id === 'activate');
     const standing = HORIZEN_MONEYPENNY_JOURNEY.stages.find((s) => s.id === 'standing');
-    expect(deploy?.surfaces).toHaveLength(1);
-    expect(standing?.surfaces).toHaveLength(1);
+    // By ref, not position — Activate carries a second surface, its own
+    // guided Ingest act ('ingest-into-factory-action', Horizen Pilot Closure
+    // part 2, 2026-08-09), ahead of this one in the array. Identity must
+    // come from what is being rendered, never from where it sits in the
+    // list — this test's own point — so it must not itself assume position
+    // either.
+    const activateSurface = activate!.surfaces.find((s) => s.ref === 'venture-participate-standing')!;
+    const standingSurface = standing!.surfaces.find((s) => s.ref === 'venture-participate-standing-only')!;
     // Different surface refs — so the new key differs even though both stages
-    // render one surface at index 0.
-    expect(deploy!.surfaces[0].ref).not.toBe(standing!.surfaces[0].ref);
+    // render the same component.
+    expect(activateSurface.ref).not.toBe(standingSurface.ref);
     // …pinned to different views, which is what made the shared instance visible.
-    expect((deploy!.surfaces[0].props as { only?: string })?.only).toBe('registry');
-    expect((standing!.surfaces[0].props as { only?: string })?.only).toBe('standing');
+    expect((activateSurface.props as { only?: string })?.only).toBe('registry');
+    expect((standingSurface.props as { only?: string })?.only).toBe('standing');
     // …and both resolve to the SAME component (never a fork — inv.engineering.037).
-    const d = JOURNEY_SURFACES[deploy!.surfaces[0].ref];
-    const s = JOURNEY_SURFACES[standing!.surfaces[0].ref];
+    const d = JOURNEY_SURFACES[activateSurface.ref];
+    const s = JOURNEY_SURFACES[standingSurface.ref];
     expect(d.kind).toBe('component');
     expect(s.kind).toBe('component');
     if (d.kind !== 'component' || s.kind !== 'component') throw new Error('unreachable');

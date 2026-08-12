@@ -8,14 +8,81 @@
  * invites table; acceptance flow lands later.
  */
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Check, Cpu, Loader2, Plus, PenSquare, Radio, Share2, Sparkles, Trash2, Save, X, UserPlus } from "lucide-react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Bot, Check, Cpu, Loader2, Plus, PenSquare, Radio, Share2, Sparkles, Trash2, Save, X, UserPlus } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
 import { RemixDialog } from "@/components/metame/runtime/RemixDialog";
 import { SocialSharingModal } from "@/packages/smarttriad/src/SocialSharingModal";
 import { InviteModal } from "@/components/shared/InviteModal";
 import { ListenButton } from "@/components/shared/ListenButton";
+import { ActivateClaudeChip } from "@/components/shared/ActivateClaudeChip";
 import { useActivePersona } from "@/app/hooks/useActivePersona";
+import { usePassportSignInGate } from "@/app/hooks/usePassportSignInGate";
+import { CI_BRIDGE_CAMPAIGN_ID } from "@/services/journey/constitutionalInternetBridgeJourney";
+
+const CI_CONNECT_AGENT_ROUTE = "/api/journey/constitutional-internet-bridge/act/connect-agent";
+
+async function checkCiClaudeConnected(): Promise<boolean> {
+  const res = await personaFetch(CI_CONNECT_AGENT_ROUTE, { cache: "no-store" });
+  const json = await res.json().catch(() => null);
+  return Boolean(json?.connected);
+}
+
+async function recordCiClaudeConnected(): Promise<void> {
+  await personaFetch(CI_CONNECT_AGENT_ROUTE, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ agent: "claude" }),
+  });
+}
+
+/**
+ * ConnectClaudeModal — same modal grammar as RemixDialog (overlay, bordered
+ * card, icon+title header with a close X, scrollable body, no separate
+ * footer needed here). Unlike ActivateClaudeChip's own plain-inline render
+ * (still reused here for the actual connect/status UI), this modal adds the
+ * explicit numbered setup walk-through the operator asked for, plus the
+ * "grants context/read-query access, not delegation" language up front.
+ */
+function ConnectClaudeModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className="relative flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-slate-900/95 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between gap-2 border-b border-white/[0.08] px-4 py-2.5">
+          <span className="flex items-center gap-2 text-sm font-semibold text-white">
+            <Bot className="h-4 w-4 text-amber-300" /> Connect Claude
+          </span>
+          <button type="button" onClick={onClose} className="rounded-md p-1 text-slate-400 hover:bg-white/5 hover:text-slate-200">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-4 py-3">
+          <p className="mb-3 text-xs font-medium text-amber-200">
+            Connection grants context/read-query access. It is not delegation — Claude cannot act, transact, or represent you.
+          </p>
+          <ol className="mb-4 list-decimal space-y-1 pl-5 text-xs text-slate-300">
+            <li>In Claude, open <span className="text-slate-100">Settings</span></li>
+            <li>Go to <span className="text-slate-100">Add / Manage Connections</span></li>
+            <li>Choose <span className="text-slate-100">Add custom MCP</span></li>
+            <li>Paste the metaMe MCP URL below</li>
+            <li>Sign in</li>
+            <li>Authorize the connection</li>
+            <li>Return to this Bridge</li>
+          </ol>
+          <ActivateClaudeChip
+            checkConnected={checkCiClaudeConnected}
+            recordConnected={recordCiClaudeConnected}
+            context="your Constitutional story"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 type CanvasEntryType = "note" | "experience_origin" | "experience_derived";
 
@@ -63,13 +130,104 @@ interface CanvasEntry {
 //                   'workspace'.
 type MyCanvasSurface = 'canvas' | 'workspace' | 'workbench';
 
+/**
+ * Starter-template metadata for the empty-canvas "Remix template" affordance
+ * (both the empty-state button and the sidebar Templates section below).
+ * Keyed by campaign tag — a campaign-launched canvas (surface reconciliation,
+ * 2026-08-09: "The Crossing template should replace the visible generic
+ * Qriptopian Agents of Change starter in this campaign context") offers its
+ * own seed instead of the generic one. Short-term hardcode, same discipline
+ * as the existing default; a follow-up can pull both from a registry.
+ */
+interface CanvasTemplate {
+  id: string;
+  title: string;
+  subtitle: string;
+  tags: string[];
+  metaJson: {
+    seedTemplate: string;
+    campaign?: string;
+    experienceId?: string;
+    sourceExperienceId?: string;
+  };
+}
+
+const DEFAULT_CANVAS_TEMPLATE: CanvasTemplate = {
+  id: 'template-qriptopian-15min-sprint',
+  title: 'Qriptopian Agents of Change — 15-min reading sprint',
+  subtitle: 'Guided 15-min reading sprint · article or story',
+  tags: ['template', 'qriptopian', 'reading-sprint'],
+  metaJson: {
+    experienceId: 'exp_1773512145689_1vnt1jcnt',
+    sourceExperienceId: 'exp_1773512145689_1vnt1jcnt',
+    seedTemplate: 'qriptopian-agents-of-change-reading-sprint',
+  },
+};
+const CAMPAIGN_CANVAS_TEMPLATES: Record<string, CanvasTemplate> = {
+  'knyts-bridge-crossing': {
+    id: 'template-knyts-bridge-crossing',
+    title: 'Crossing the Threshold',
+    subtitle: 'Article — tell your real crossing. Story — imagine a crossing.',
+    tags: ['template', 'knyts-bridge', 'crossing'],
+    metaJson: { seedTemplate: 'knyts-bridge-crossing', campaign: 'knyts-bridge-crossing' },
+  },
+  // Constitutional Internet Bridge's Personify surface (2026-08-11). The key
+  // must match CI_BRIDGE_CAMPAIGN_ID (services/journey/
+  // constitutionalInternetBridgeJourney.ts) — hardcoded here rather than
+  // imported, matching the existing 'knyts-bridge-crossing' entry's own
+  // convention in this file.
+  'constitutional-internet-bridge': {
+    id: 'template-constitutional-internet-bridge-personify',
+    title: 'Tell your Constitutional story',
+    subtitle: 'Article — your real constitutional perspective. Story — an imagined constitutional life.',
+    tags: ['template', 'constitutional-internet-bridge', 'personify'],
+    metaJson: { seedTemplate: 'constitutional-internet-bridge-personify', campaign: 'constitutional-internet-bridge' },
+  },
+};
+
+/**
+ * Destination cartridge lock, keyed by campaignTag (2026-08-11) — forces a
+ * campaign's published output to a specific Pulse without presenting the
+ * KNYT/Qriptopian choice. Added so the Constitutional Internet Bridge's
+ * myCanvas output lands in Qriptopian Pulse (never a new "CI Pulse"),
+ * reusing the SAME /api/community-content/generate and
+ * /api/mycanvas/entries/[id]/publish-to-pulse routes every other campaign
+ * uses. `knyts-bridge-crossing` is intentionally absent — KNYTS keeps its
+ * existing KNYT/Qriptopian picker, unaffected by this lock.
+ */
+const CAMPAIGN_CARTRIDGE_LOCK: Record<string, "knyt" | "qripto"> = {
+  'constitutional-internet-bridge': 'qripto',
+};
+
 interface Props {
   personaId?: string;
   theme?: "light" | "dark";
   surface?: MyCanvasSurface;
+  /** Selects the starter-template seed above. Falls back to this tab's own
+   *  `?campaignTag=` URL param when omitted (the same convention
+   *  KnytCommunityContentTab's campaignTag prop already uses) — set by a
+   *  caller reaching this tab via an embed (e.g. KnytsBridgeRemixSurface)
+   *  that can't pass React props across the iframe boundary. */
+  campaignTag?: string;
 }
 
-export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: Props) {
+export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas', campaignTag: campaignTagProp }: Props) {
+  const [campaignTag, setCampaignTag] = useState<string | undefined>(campaignTagProp);
+  useEffect(() => {
+    if (campaignTagProp || typeof window === 'undefined') return;
+    try {
+      const fromUrl = new URL(window.location.href).searchParams.get('campaignTag');
+      if (fromUrl) setCampaignTag(fromUrl);
+    } catch {
+      /* non-fatal — stays on the default template */
+    }
+  }, [campaignTagProp]);
+  const canvasTemplate = (campaignTag && CAMPAIGN_CANVAS_TEMPLATES[campaignTag]) || DEFAULT_CANVAS_TEMPLATE;
+  // Locked destination cartridge for this campaign, if any (see
+  // CAMPAIGN_CARTRIDGE_LOCK's own header) — undefined for every campaign
+  // (including no campaign at all) that keeps the existing KNYT/Qriptopian
+  // choice.
+  const lockCartridge = campaignTag ? CAMPAIGN_CARTRIDGE_LOCK[campaignTag] : undefined;
   // Internal alias: 'workspace' (new) and 'workbench' (legacy alias)
   // share the same private-entries codepath. The distinction will be
   // erased entirely once a follow-up migration rewrites stamped
@@ -94,6 +252,44 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
   const [inviteOpenForId, setInviteOpenForId] = useState<string | null>(null);
   const [inviteInput, setInviteInput] = useState("");
   const [remixSource, setRemixSource] = useState<CanvasEntry | null>(null);
+  const [connectClaudeOpen, setConnectClaudeOpen] = useState(false);
+  // A Remix intent stashed while gated on Passport sign-in (KNYTS Bridge
+  // ORIENT/PASSPORT stages — see usePassportSignInGate). Only campaign-
+  // tagged entries (metaJson.campaign set) are gated at all; every other
+  // Remix trigger below still opens RemixDialog directly, unaffected.
+  const [pendingRemixSource, setPendingRemixSource] = useState<CanvasEntry | null>(null);
+  const { requestSignIn: requestPassportForRemix, handoffUnanswered: passportGateUnanswered } = usePassportSignInGate({
+    origin: 'MYCANVAS_REMIX',
+    returnTarget: 'campaign:knyts-bridge-crossing:remix',
+    returnLabel: 'Continue your crossing',
+    onSignedIn: useCallback(() => {
+      // personaId itself updates reactively via the aa-persona-change-v1
+      // broadcast (useCodexEmbedAuthBridge); the effect below promotes
+      // pendingRemixSource to remixSource once it does.
+    }, []),
+  });
+  // Once Passport sign-in completes and personaId becomes available,
+  // resume the exact Remix intent that was interrupted — never a generic
+  // myCanvas landing.
+  useEffect(() => {
+    if (!personaId || !pendingRemixSource) return;
+    setRemixSource(pendingRemixSource);
+    setPendingRemixSource(null);
+  }, [personaId, pendingRemixSource]);
+  /** Gate campaign-tagged Remix intents on Passport; open every other Remix directly. */
+  const startRemix = useCallback(
+    (entry: CanvasEntry) => {
+      const campaignTag =
+        typeof entry.metaJson?.campaign === 'string' ? entry.metaJson.campaign : null;
+      if (campaignTag && !personaId) {
+        setPendingRemixSource(entry);
+        requestPassportForRemix();
+        return;
+      }
+      setRemixSource(entry);
+    },
+    [personaId, requestPassportForRemix],
+  );
   // PIECE 4 of the 413 fix — tracks which entry IDs have been hydrated
   // via GET /[id]. Without this, a note entry (legitimate bodyMd='' +
   // metaJson={}) would re-trigger the hydration effect on every
@@ -135,6 +331,16 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
       title?: string;
       summary?: string;
       recommendations?: string[];
+      /** Campaign discriminator (e.g. 'knyts-bridge-crossing') — a
+          campaign-launched Remix (KNYTS Bridge REMIX stage) stamps this
+          into metaJson.campaign so publish-to-pulse can tag the resulting
+          community_generated_content row, and startRemix above can gate
+          on Passport before opening RemixDialog. */
+      campaign?: string;
+      /** Freeform prompt theme for provenance — not consumed elsewhere. */
+      theme?: string;
+      /** Pre-selects RemixDialog's Article/Story toggle. */
+      skill?: "article" | "story";
     } | null = null;
     try {
       payload = JSON.parse(decodeURIComponent(raw));
@@ -152,6 +358,13 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
     void handleCreate({
       title: payload.title,
       bodyMd: lines.join('\n'),
+      // A campaign-launched dispatch (payload.campaign set) seeds an
+      // 'experience_origin' entry — the same shape the "Remix template"
+      // affordance already uses — so the Remix action (and therefore the
+      // Passport gate in startRemix above) is available on it. Every other
+      // dispatch (specialist recommendations with no campaign) keeps the
+      // existing 'note' default.
+      entryType: payload.campaign ? 'experience_origin' : undefined,
       metaJson: {
         source: payload.source ?? 'unknown',
         specialistId: payload.specialistId ?? null,
@@ -161,6 +374,9 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
         // currently publish to does have Creator/created by field
         // which the user should be able to tag with their persona'.
         createdByPersonaId: personaId,
+        ...(payload.campaign ? { campaign: payload.campaign } : {}),
+        ...(payload.theme ? { theme: payload.theme } : {}),
+        ...(payload.skill ? { skill: payload.skill } : {}),
       },
     });
     // Clear the URL param so refresh doesn't re-seed.
@@ -180,7 +396,7 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
   // and 'workbench' (legacy alias) share the same private-entries set,
   // so a stamped 'workbench' row surfaces under the new 'workspace'
   // tab and vice versa.
-  const filteredEntries = entries.filter((e) => {
+  const filteredEntries = useMemo(() => entries.filter((e) => {
     const stamped = (e.metaJson as { surface?: string } | undefined)?.surface;
     const stampedIsPrivate = stamped === 'workbench' || stamped === 'workspace';
     const surfaceIsPrivate = surface === 'workbench' || surface === 'workspace';
@@ -188,7 +404,7 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
     // surface === 'canvas' — only show entries that are NOT stamped
     // private. Legacy entries with no stamp default to canvas too.
     return !stampedIsPrivate;
-  });
+  }), [entries, surface]);
 
   const fetchEntries = useCallback(async () => {
     if (!personaId) { setLoading(false); return; }
@@ -205,6 +421,30 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
       setLoading(false);
     }
   }, [personaId]);
+
+  // Default-story-on-arrival (integration pass, 2026-08-11): "Do not land
+  // on a large blank canvas if usable content exists." `listEntries`
+  // (services/mycanvas/canvasService.ts) already orders by updated_at
+  // descending, so filteredEntries[0] IS the most-recently-updated story —
+  // no extra sort needed. Runs at most once per mount; never re-fires once
+  // it has picked something (including "nothing to pick" — an empty list
+  // on first load must not retroactively select an entry created later via
+  // an explicit New/Remix action, which already sets selectedId itself).
+  // Skipped while the URL still carries a pending remix=/draft= seed — that
+  // seeding effect above owns the initial selection for that arrival, and
+  // this effect would otherwise race it before the seeded entry exists.
+  const autoSelectedRef = useRef(false);
+  useEffect(() => {
+    if (autoSelectedRef.current || loading || selectedId) return;
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      if (url.searchParams.get(isWorkbench ? 'draft' : 'remix')) return;
+    }
+    if (filteredEntries.length > 0) {
+      autoSelectedRef.current = true;
+      setSelectedId(filteredEntries[0].id);
+    }
+  }, [loading, selectedId, filteredEntries, isWorkbench]);
 
   useEffect(() => { void fetchEntries(); }, [fetchEntries]);
 
@@ -257,6 +497,7 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
     title?: string;
     bodyMd?: string;
     metaJson?: Record<string, unknown>;
+    entryType?: CanvasEntryType;
   }) => {
     if (!personaId) return;
     setCreating(true);
@@ -282,6 +523,7 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
           bodyMd: seed?.bodyMd ?? '',
           visibility: defaultVisibility,
           metaJson: surfaceStamp,
+          ...(seed?.entryType ? { entryType: seed.entryType } : {}),
         }),
       });
       if (!res.ok) throw new Error(`create failed (${res.status})`);
@@ -414,6 +656,15 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
   // entry's metaJson.contentId points at the original community_generated_content
   // row created when the user first remixed. Flipping its status to 'shared'
   // exposes it in KNYT / Qriptopian community tabs.
+  //
+  // TODO(destination-aware publisher, not this pass): handlePublishToCommunity
+  // and handlePublishNoteToPulse duplicate the same "flip status, upsert
+  // publication_states" dispatch shape across two entry types. A future pass
+  // could unify them behind one `publishMyCanvasToPulse(destination: 'knyt' |
+  // 'qripto', entry)` helper once a third campaign/cartridge makes the
+  // duplication cost real — deliberately not generalized now (2026-08-11
+  // Constitutional Internet Bridge evolution: reuse + activation, not
+  // infrastructure refactoring).
   const handlePublishToCommunity = useCallback(
     async (entry: CanvasEntry): Promise<{ ok: boolean; error?: string }> => {
       const contentId =
@@ -536,49 +787,51 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
             </button>
           </div>
           <div className="flex-1 overflow-y-auto">
+            {/* Starter-template chip — PINNED AT TOP (integration pass,
+                2026-08-11: operator-ordered rail — template first, stories
+                beneath, Connect Claude after). Always visible on the canvas
+                surface, empty or populated, rather than only appearing in
+                the empty state or buried below the story list. Short-term:
+                hardcoded Qriptopian Agents of Change / campaign seed.
+                Follow-up: pull a list of templates from a registry. */}
+            {surface === 'canvas' && (
+              <div className="border-b border-slate-700/40 p-3">
+                <p className="text-[10px] uppercase tracking-wider text-slate-500 mb-1.5">
+                  {entries.length === 0 ? 'Start here' : 'Templates'}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setRemixSource({
+                    id: canvasTemplate.id,
+                    entryType: 'experience_origin',
+                    title: canvasTemplate.title,
+                    bodyMd: '',
+                    tags: canvasTemplate.tags,
+                    visibility: 'private',
+                    metaJson: canvasTemplate.metaJson,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                  })}
+                  className="w-full text-left rounded-md border border-violet-500/30 bg-violet-500/5 px-2.5 py-1.5 hover:border-violet-500/60 hover:bg-violet-500/10 transition"
+                >
+                  <div className="text-[11px] font-semibold text-white">
+                    {canvasTemplate.title.split(' — ')[0]}
+                  </div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">
+                    {canvasTemplate.subtitle}
+                  </div>
+                </button>
+              </div>
+            )}
+
             {loading ? (
               <div className="p-3 text-xs text-slate-400 flex items-center gap-2">
                 <Loader2 className="w-3 h-3 animate-spin" /> Loading…
               </div>
             ) : entries.length === 0 ? (
-              <div className="p-3 space-y-3">
-                <p className="text-xs text-slate-500 italic">
-                  {surface === 'canvas'
-                    ? 'No entries yet — start from a template below or hit New.'
-                    : 'No entries yet — your private drafts live here.'}
-                </p>
-                {surface === 'canvas' && (
-                  <button
-                    type="button"
-                    onClick={() => setRemixSource({
-                      id: 'template-qriptopian-15min-sprint',
-                      entryType: 'experience_origin',
-                      title: 'Qriptopian Agents of Change — 15-min reading sprint',
-                      bodyMd: '',
-                      tags: ['template', 'qriptopian', 'reading-sprint'],
-                      visibility: 'private',
-                      metaJson: {
-                        experienceId: 'exp_1773512145689_1vnt1jcnt',
-                        sourceExperienceId: 'exp_1773512145689_1vnt1jcnt',
-                        seedTemplate: 'qriptopian-agents-of-change-reading-sprint',
-                      },
-                      createdAt: new Date().toISOString(),
-                      updatedAt: new Date().toISOString(),
-                    })}
-                    className="w-full text-left rounded-md border border-violet-500/30 bg-violet-500/5 px-3 py-2 hover:border-violet-500/60 hover:bg-violet-500/10 transition"
-                  >
-                    <div className="text-[11px] uppercase tracking-wider text-violet-400 mb-0.5">
-                      Remix template
-                    </div>
-                    <div className="text-xs font-semibold text-white">
-                      Qriptopian Agents of Change
-                    </div>
-                    <div className="text-[10px] text-slate-400 mt-0.5">
-                      Guided 15-min reading sprint · article or story
-                    </div>
-                  </button>
-                )}
-              </div>
+              surface !== 'canvas' && (
+                <p className="p-3 text-xs text-slate-500 italic">No entries yet — your private drafts live here.</p>
+              )
             ) : (
               <ul>
                 {filteredEntries.map((e) => (
@@ -607,41 +860,23 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
                 ))}
               </ul>
             )}
-            {/* Always-available "remix from template" affordance —
-                visible on canvas surface in both empty + populated
-                states. Short-term: hardcoded Qriptopian Agents of
-                Change seed. Follow-up: pull a list of templates from
-                a registry. */}
-            {surface === 'canvas' && entries.length > 0 && (
+
+            {/* Connect Claude — AFTER the story list, per the operator's
+                ordering. Scoped to the Constitutional Internet Bridge
+                campaign only (mirrors canvasTemplate's own campaignTag
+                gating above) — this chip's check/record calls hit CI
+                Bridge's own connect-agent route, not a generic capability,
+                so it must not render for other myCanvas mounts. */}
+            {campaignTag === CI_BRIDGE_CAMPAIGN_ID && (
               <div className="border-t border-slate-700/40 p-3">
-                <p className="text-[10px] uppercase tracking-wider text-slate-500 mb-1.5">
-                  Templates
-                </p>
+                <p className="text-[10px] uppercase tracking-wider text-slate-500 mb-1.5">Connect an agent</p>
                 <button
                   type="button"
-                  onClick={() => setRemixSource({
-                    id: 'template-qriptopian-15min-sprint',
-                    entryType: 'experience_origin',
-                    title: 'Qriptopian Agents of Change — 15-min reading sprint',
-                    bodyMd: '',
-                    tags: ['template', 'qriptopian', 'reading-sprint'],
-                    visibility: 'private',
-                    metaJson: {
-                      experienceId: 'exp_1773512145689_1vnt1jcnt',
-                      sourceExperienceId: 'exp_1773512145689_1vnt1jcnt',
-                      seedTemplate: 'qriptopian-agents-of-change-reading-sprint',
-                    },
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString(),
-                  })}
-                  className="w-full text-left rounded-md border border-violet-500/30 bg-violet-500/5 px-2.5 py-1.5 hover:border-violet-500/60 hover:bg-violet-500/10 transition"
+                  onClick={() => setConnectClaudeOpen(true)}
+                  className="flex w-full items-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-2.5 py-1.5 text-left hover:border-amber-500/60 hover:bg-amber-500/10 transition"
                 >
-                  <div className="text-[11px] font-semibold text-white">
-                    Qriptopian Agents of Change
-                  </div>
-                  <div className="text-[10px] text-slate-400 mt-0.5">
-                    15-min reading sprint · remix
-                  </div>
+                  <Bot className="h-3.5 w-3.5 shrink-0 text-amber-300" />
+                  <span className="text-[11px] font-semibold text-white">Connect Claude</span>
                 </button>
               </div>
             )}
@@ -667,7 +902,7 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
               onInviteCancel={() => { setInviteOpenForId(null); setInviteInput(""); }}
               onDelete={(id) => void handleDelete(id)}
               onShare={() => handleShare(selected)}
-              onRemix={() => setRemixSource(selected)}
+              onRemix={() => startRemix(selected)}
               onEdit={handleEntryEdit}
               onPublish={() => handlePublishToCommunity(selected)}
             />
@@ -683,7 +918,7 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
               onInviteCancel={() => { setInviteOpenForId(null); setInviteInput(""); }}
               onDelete={(id) => void handleDelete(id)}
               onShare={() => handleShare(selected)}
-              onRemix={() => setRemixSource(selected)}
+              onRemix={() => startRemix(selected)}
               onEdit={handleEntryEdit}
             />
           ) : (
@@ -753,23 +988,40 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
               </div>
               {publishOpenForId === selected.id && selected.entryType === "note" && (
                 <div className="p-3 border-b border-slate-700/50 bg-slate-800/40 flex items-center gap-2">
-                  <span className="text-xs text-slate-400">Publish to:</span>
-                  <button
-                    type="button"
-                    onClick={() => void handlePublishNoteToPulse(selected, "knyt")}
-                    disabled={publishingId === selected.id}
-                    className="flex items-center gap-1 px-2.5 py-1.5 rounded border border-violet-500/40 bg-violet-500/10 hover:bg-violet-500/20 text-violet-100 text-xs disabled:opacity-50"
-                  >
-                    <Radio className="w-3 h-3" /> KNYT Pulse
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void handlePublishNoteToPulse(selected, "qripto")}
-                    disabled={publishingId === selected.id}
-                    className="flex items-center gap-1 px-2.5 py-1.5 rounded border border-indigo-500/40 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-100 text-xs disabled:opacity-50"
-                  >
-                    <Radio className="w-3 h-3" /> Qriptopian Pulse
-                  </button>
+                  {lockCartridge ? (
+                    // Destination locked by campaign (e.g. Constitutional
+                    // Internet Bridge → Qriptopian Pulse only) — no
+                    // KNYT/Qriptopian choice to present.
+                    <button
+                      type="button"
+                      onClick={() => void handlePublishNoteToPulse(selected, lockCartridge)}
+                      disabled={publishingId === selected.id}
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded border border-indigo-500/40 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-100 text-xs disabled:opacity-50"
+                    >
+                      <Radio className="w-3 h-3" />
+                      Publish to {lockCartridge === "qripto" ? "Qriptopian Pulse" : "KNYT Pulse"}
+                    </button>
+                  ) : (
+                    <>
+                      <span className="text-xs text-slate-400">Publish to:</span>
+                      <button
+                        type="button"
+                        onClick={() => void handlePublishNoteToPulse(selected, "knyt")}
+                        disabled={publishingId === selected.id}
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded border border-violet-500/40 bg-violet-500/10 hover:bg-violet-500/20 text-violet-100 text-xs disabled:opacity-50"
+                      >
+                        <Radio className="w-3 h-3" /> KNYT Pulse
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handlePublishNoteToPulse(selected, "qripto")}
+                        disabled={publishingId === selected.id}
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded border border-indigo-500/40 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-100 text-xs disabled:opacity-50"
+                      >
+                        <Radio className="w-3 h-3" /> Qriptopian Pulse
+                      </button>
+                    </>
+                  )}
                   <button
                     type="button"
                     onClick={() => setPublishOpenForId(null)}
@@ -816,6 +1068,33 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
           {error && <p className="px-3 py-2 text-xs text-rose-300">{error}</p>}
         </section>
       </div>
+      {/* ORIENT — KNYTS Bridge Remix gate. Shown while a campaign-tagged
+          Remix intent is waiting on Passport sign-in (see startRemix /
+          usePassportSignInGate above). Static copy, no new mechanism. */}
+      {pendingRemixSource && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-slate-900/95 p-5 text-center shadow-2xl">
+            <h3 className="text-sm font-semibold text-white mb-1.5">Claim your Passport</h3>
+            <p className="text-xs text-slate-400 mb-4">
+              Telling your own crossing is something you do as yourself — claim your Passport to
+              continue remixing &ldquo;{pendingRemixSource.title || 'this crossing'}&rdquo;.
+            </p>
+            {passportGateUnanswered && (
+              <p className="text-[11px] text-amber-300 mb-3">
+                No wallet host answered here — open your wallet drawer directly to sign in, then
+                try Remix again.
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={() => setPendingRemixSource(null)}
+              className="text-xs text-slate-500 hover:text-slate-300"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
       {remixSource && (
         <RemixDialog
           open={true}
@@ -829,6 +1108,19 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
           }
           initialTitle={remixSource.title}
           initialPrompt=""
+          initialSkill={
+            remixSource.metaJson.skill === "article" || remixSource.metaJson.skill === "story"
+              ? remixSource.metaJson.skill
+              : undefined
+          }
+          campaignTag={
+            typeof remixSource.metaJson.campaign === "string" ? remixSource.metaJson.campaign : undefined
+          }
+          cartridge={
+            typeof remixSource.metaJson.campaign === "string"
+              ? CAMPAIGN_CARTRIDGE_LOCK[remixSource.metaJson.campaign]
+              : undefined
+          }
           sourceImageUrl={
             typeof remixSource.metaJson.imageUrl === "string" ? remixSource.metaJson.imageUrl : null
           }
@@ -869,6 +1161,7 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
         personaId={personaId ?? null}
         onInvited={() => void fetchEntries()}
       />
+      <ConnectClaudeModal open={connectClaudeOpen} onClose={() => setConnectClaudeOpen(false)} />
     </div>
   );
 }

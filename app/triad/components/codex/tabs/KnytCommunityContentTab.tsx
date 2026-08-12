@@ -19,9 +19,11 @@ import {
   Coins,
   FileText,
   Loader2,
+  PenLine,
   RefreshCw,
   Share2,
   Sparkles,
+  Trophy,
   User,
   Zap,
 } from "lucide-react";
@@ -29,6 +31,15 @@ import { KnytReactionBar } from "@/components/metame/KnytReactionBar";
 import { SocialSharingModal } from "@/packages/smarttriad/src/SocialSharingModal";
 import { ListenButton } from "@/components/shared/ListenButton";
 import { useActivePersona } from "@/app/hooks/useActivePersona";
+import { usePassportSignInGate } from "@/app/hooks/usePassportSignInGate";
+import { KNYTS_BRIDGE_CAMPAIGN_ID } from "@/services/journey/knytsBridgeCrossingJourney";
+
+interface CrossingOfTheWeek {
+  weekStart: string;
+  communityContentId: string;
+  title: string;
+  score: number;
+}
 
 interface CommunityContentItem {
   id: string;
@@ -50,10 +61,30 @@ interface CommunityContentItem {
     isMe: boolean;
   };
   promotedToRuntime: boolean;
+  campaignTag: string | null;
   createdAt: string;
 }
 
-type FilterMode = "all" | "mine";
+/**
+ * "crossings" (surface reconciliation, 2026-08-09) — a permanent Pulse-native
+ * filter for KNYTS Bridge Crossing Story content, not a Bridge-only overlay:
+ * "campaign additions should live on the canonical surface, not in a second
+ * renderer." Available from EVERY mount of this tab (cartridge or Bridge
+ * embed) — never gated on the `campaignTag` prop, which stays a separate,
+ * back-compat, caller-forced filter.
+ */
+type FilterMode = "all" | "mine" | "crossings";
+
+/** The same shape RemixCrossingButton has always URL-encoded into `remix=` —
+ *  named here so an `onRemixIntent` caller gets a typed payload instead of
+ *  having to re-decode a query string. */
+export interface RemixIntentPayload {
+  source: "community-content";
+  title: string;
+  summary: string;
+  campaign: string | null;
+  skill: CommunityContentItem["skill"];
+}
 
 interface Props {
   personaId?: string;
@@ -68,14 +99,56 @@ interface Props {
    * unfiltered list. The Qriptopian Pulse tab passes 'qripto'.
    */
   cartridge?: "knyt" | "qripto";
+  /**
+   * Campaign filter. When set, only rows where
+   * community_generated_content.campaign_tag matches are returned by
+   * /api/community-content/list?campaignTag=<campaignTag> — e.g. the
+   * KNYTS Bridge VIEW stage passes 'knyts-bridge-crossing' to show only
+   * Crossing Story content. Defaults to undefined (no filter, every
+   * campaign_tag including null) for back-compat with every existing
+   * cartridge mount.
+   */
+  campaignTag?: string;
+  /**
+   * Suppresses the self-service "Crossings" chip and the "Crossing of the
+   * Week" banner — both hardcode KNYTS_BRIDGE_CAMPAIGN_ID and would
+   * otherwise let a visitor override this mount's own `campaignTag` prop
+   * back to KNYTS' campaign. For a caller that already scopes this tab to
+   * ITS OWN campaign (e.g. the Constitutional Internet Bridge's Crossings
+   * projection, `campaignTag={CI_BRIDGE_CAMPAIGN_ID}`), leaving these
+   * visible would leak KNYTS content into a differently-branded projection.
+   * Defaults to false — every existing KNYT/Qriptopian mount is unaffected.
+   */
+  hideCrossingsFilter?: boolean;
+  /**
+   * When provided, "Remix" never navigates (no `window.location.assign`,
+   * same-origin or not) — it calls this instead with the same payload that
+   * would otherwise have been URL-encoded into `remix=`. Added for the
+   * Constitutional Internet Bridge's Crossings projection, which renders
+   * this tab directly in the page tree (not inside an iframe), so a
+   * top-level navigation would abandon the Bridge shell entirely — the
+   * one CI Bridge stage that mounts this component without also mounting
+   * KNYTS Bridge's `/bridge/knyts?remix=` resume path. Every other mount
+   * (ordinary KNYT/Qriptopian Pulse, KNYTS Bridge) leaves this undefined
+   * and keeps the pre-existing navigation behaviour unchanged.
+   */
+  onRemixIntent?: (payload: RemixIntentPayload) => void;
 }
 
-export function KnytCommunityContentTab({ personaId, isAdmin: _isAdmin, cartridge }: Props) {
+export function KnytCommunityContentTab({
+  personaId,
+  isAdmin: _isAdmin,
+  cartridge,
+  campaignTag,
+  hideCrossingsFilter = false,
+  onRemixIntent,
+}: Props) {
   const [items, setItems] = useState<CommunityContentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterMode>("all");
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [crossingOfTheWeek, setCrossingOfTheWeek] = useState<CrossingOfTheWeek | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -89,6 +162,11 @@ export function KnytCommunityContentTab({ personaId, isAdmin: _isAdmin, cartridg
         params.set("status", "shared,runtime_promoted");
       }
       if (cartridge) params.set("cartridge", cartridge);
+      // The self-service "Crossings" chip always wins over the caller's own
+      // campaignTag prop — a visitor who explicitly asked to see Crossings
+      // should see them regardless of how this tab was mounted.
+      const effectiveCampaignTag = filter === "crossings" ? KNYTS_BRIDGE_CAMPAIGN_ID : campaignTag;
+      if (effectiveCampaignTag) params.set("campaignTag", effectiveCampaignTag);
       const res = await fetch(`/api/community-content/list?${params}`, { cache: "no-store" });
       let json: { ok?: boolean; items?: CommunityContentItem[]; error?: string };
       try {
@@ -110,11 +188,31 @@ export function KnytCommunityContentTab({ personaId, isAdmin: _isAdmin, cartridg
     } finally {
       setLoading(false);
     }
-  }, [personaId, filter, cartridge]);
+  }, [personaId, filter, cartridge, campaignTag]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Crossing of the Week — a Pulse-native discovery hook into the KNYTS
+  // Bridge campaign (surface reconciliation, 2026-08-09), fetched once
+  // regardless of the active filter. Renders nothing when there is no
+  // current winner — never forced onto a visitor with no reason to care.
+  useEffect(() => {
+    if (hideCrossingsFilter) return;
+    let cancelled = false;
+    fetch("/api/journey/knyts-bridge/crossing-of-the-week", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((json: { ok?: boolean; crossing?: CrossingOfTheWeek | null }) => {
+        if (!cancelled && json.ok && json.crossing) setCrossingOfTheWeek(json.crossing);
+      })
+      .catch(() => {
+        /* non-fatal */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [hideCrossingsFilter]);
 
   const activeItem = useMemo(
     () => (activeId ? items.find((i) => i.id === activeId) ?? null : null),
@@ -171,6 +269,20 @@ export function KnytCommunityContentTab({ personaId, isAdmin: _isAdmin, cartridg
           >
             Mine
           </button>
+          {!hideCrossingsFilter && (
+            <button
+              type="button"
+              onClick={() => setFilter("crossings")}
+              title="KNYTS Bridge Crossing Stories"
+              className={`flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] transition ${
+                filter === "crossings"
+                  ? "border-amber-400/40 bg-amber-500/15 text-amber-200"
+                  : "border-white/10 bg-white/5 text-slate-400 hover:text-white"
+              }`}
+            >
+              Crossings
+            </button>
+          )}
         </div>
         <button
           type="button"
@@ -182,6 +294,18 @@ export function KnytCommunityContentTab({ personaId, isAdmin: _isAdmin, cartridg
           <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
         </button>
       </div>
+
+      {!hideCrossingsFilter && crossingOfTheWeek && (
+        <button
+          type="button"
+          onClick={() => setFilter("crossings")}
+          className="flex-shrink-0 flex items-center gap-2 border-b border-amber-400/20 bg-amber-500/10 px-4 py-2 text-left hover:bg-amber-500/15 transition"
+        >
+          <Trophy className="h-4 w-4 shrink-0 text-amber-300" />
+          <span className="text-[10px] uppercase tracking-wider text-amber-400 shrink-0">Crossing of the Week</span>
+          <span className="text-xs font-medium text-white truncate">{crossingOfTheWeek.title}</span>
+        </button>
+      )}
 
       {/* List */}
       <div className="flex-1 min-h-0 overflow-y-auto p-3">
@@ -206,7 +330,13 @@ export function KnytCommunityContentTab({ personaId, isAdmin: _isAdmin, cartridg
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {items.map((item) => (
-              <ContentCard key={item.id} item={item} personaId={personaId} onOpen={() => setActiveId(item.id)} />
+              <ContentCard
+                key={item.id}
+                item={item}
+                personaId={personaId}
+                onOpen={() => setActiveId(item.id)}
+                onRemixIntent={onRemixIntent}
+              />
             ))}
           </div>
         )}
@@ -221,10 +351,12 @@ function ContentCard({
   item,
   personaId,
   onOpen,
+  onRemixIntent,
 }: {
   item: CommunityContentItem;
   personaId?: string;
   onOpen: () => void;
+  onRemixIntent?: (payload: RemixIntentPayload) => void;
 }) {
   const SkillIcon = item.skill === "story" ? Sparkles : FileText;
   const skillColor = item.skill === "story" ? "text-violet-300" : "text-cyan-300";
@@ -237,6 +369,15 @@ function ContentCard({
   // fallback via onError).
   const imageSrc = `/api/community-content/${item.id}/image`;
   const [imageOk, setImageOk] = React.useState(true);
+
+  // T1 label for the share modal's 'Shared by <label>' badge — same
+  // canonical surface ContentDetail's ShareMenu uses.
+  const { surface: activePersonaSurface } = useActivePersona();
+  type SurfaceWithFio = typeof activePersonaSurface & { ownFioHandle?: string };
+  const personaLabel =
+    activePersonaSurface?.displayLabel ??
+    (activePersonaSurface as SurfaceWithFio | null)?.ownFioHandle ??
+    undefined;
 
   return (
     <div className="flex flex-col rounded-xl border border-white/10 bg-slate-900/60 overflow-hidden hover:border-white/20 transition-colors">
@@ -290,8 +431,14 @@ function ContentCard({
           </div>
         </div>
       </button>
-      <div className="px-3 pb-2">
+      <div className="px-3 pb-2 flex items-center justify-between gap-2">
         <KnytReactionBar publicationId={item.id} personaId={personaId ?? null} />
+        <div className="flex items-center gap-1 shrink-0">
+          {item.campaignTag && (
+            <RemixCrossingButton item={item} personaId={personaId} onRemixIntent={onRemixIntent} />
+          )}
+          <ShareMenu item={item} personaId={personaId} personaLabel={personaLabel} compact />
+        </div>
       </div>
     </div>
   );
@@ -380,6 +527,100 @@ function ContentDetail({ item, personaId }: { item: CommunityContentItem; person
   );
 }
 
+// ─── Remix (campaign Crossing Stories only) ─────────────────────────────────
+
+/**
+ * "Remix this crossing" — only rendered for campaign-tagged content
+ * (item.campaignTag set, e.g. 'knyts-bridge-crossing'). Deep-links to the
+ * same `remix=<JSON>` myCanvas dispatch shape the welcome surface's
+ * dispatchArtifact() uses (see MyCanvasTab's seeding effect), carrying
+ * `campaign` so the resulting entry — and everything generated from it —
+ * stays tagged to this campaign end to end.
+ *
+ * Signed-out visitors are the expected case here (VIEW is public): gate on
+ * Passport via usePassportSignInGate and only navigate once sign-in
+ * completes, so "attempt Remix while signed out" resumes the SAME crossing
+ * rather than losing the intent.
+ */
+function RemixCrossingButton({
+  item,
+  personaId,
+  onRemixIntent,
+}: {
+  item: CommunityContentItem;
+  personaId?: string;
+  onRemixIntent?: (payload: RemixIntentPayload) => void;
+}) {
+  const remixPayload = useCallback(
+    (): RemixIntentPayload => ({
+      source: 'community-content',
+      title: item.title,
+      summary: item.prompt,
+      campaign: item.campaignTag,
+      skill: item.skill,
+    }),
+    [item],
+  );
+
+  const buildRemixUrl = useCallback(() => {
+    const encodedPayload = encodeURIComponent(JSON.stringify(remixPayload()));
+    // Mounted inside the KNYTS Bridge Posit Spine (this VIEW stage's own
+    // surface) — stay on the SAME page so MyCanvasTab's existing remix=
+    // param seeding effect resumes the intent inline on the REMIX stage,
+    // rather than escaping the spine to the generic /codex/viewer shell.
+    // Every other mount of this component (ordinary KNYT Pulse) keeps the
+    // pre-existing target.
+    if (typeof window !== 'undefined' && window.location.pathname.startsWith('/bridge/knyts')) {
+      return `/bridge/knyts?remix=${encodedPayload}`;
+    }
+    return `/codex/viewer?slug=metame&tab=mycanvas&remix=${encodedPayload}`;
+  }, [remixPayload]);
+
+  // When onRemixIntent is supplied (CI Bridge's Crossings projection — this
+  // tab renders directly in the page tree there, not inside an iframe, so a
+  // window.location.assign would abandon the Bridge shell entirely), Remix
+  // never navigates: the caller decides what "stay embedded" means for its
+  // own shell instead of this shared tab guessing a route.
+  const fireRemix = useCallback(() => {
+    if (onRemixIntent) {
+      onRemixIntent(remixPayload());
+      return;
+    }
+    if (typeof window !== 'undefined') window.location.assign(buildRemixUrl());
+  }, [onRemixIntent, remixPayload, buildRemixUrl]);
+
+  const { requestSignIn, handoffUnanswered } = usePassportSignInGate({
+    origin: 'KNYT_PULSE_REMIX',
+    returnTarget: `campaign:${item.campaignTag}:remix:${item.id}`,
+    returnLabel: 'Continue your crossing',
+    onSignedIn: useCallback(() => {
+      fireRemix();
+    }, [fireRemix]),
+  });
+
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        if (personaId) {
+          fireRemix();
+          return;
+        }
+        requestSignIn();
+      }}
+      title={
+        personaId
+          ? 'Remix this crossing into your own article or story'
+          : 'Claim your Passport to remix this crossing'
+      }
+      className="inline-flex items-center gap-1 rounded-lg border border-amber-400/30 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-200 hover:bg-amber-500/20 shrink-0"
+    >
+      <PenLine className="h-3.5 w-3.5" />
+      {handoffUnanswered ? 'No wallet host' : 'Remix'}
+    </button>
+  );
+}
+
 // ─── Share menu ──────────────────────────────────────────────────────────────
 
 /**
@@ -389,10 +630,12 @@ function ContentDetail({ item, personaId }: { item: CommunityContentItem; person
  * /api/social/track; raw personaId no longer travels in URLs (Step 1
  * of the share/invite consolidation).
  */
-function ShareMenu({ item, personaId, personaLabel }: {
+function ShareMenu({ item, personaId, personaLabel, compact }: {
   item: CommunityContentItem;
   personaId?: string;
   personaLabel?: string;
+  /** Smaller icon-only affordance for card-level placement. */
+  compact?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -400,10 +643,14 @@ function ShareMenu({ item, personaId, personaLabel }: {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300 hover:bg-white/10"
+        className={
+          compact
+            ? "inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[11px] text-slate-400 hover:bg-white/10 hover:text-white shrink-0"
+            : "inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300 hover:bg-white/10"
+        }
       >
         <Share2 className="h-3.5 w-3.5" />
-        Share
+        {!compact && "Share"}
       </button>
       <SocialSharingModal
         isOpen={open}
@@ -424,6 +671,7 @@ function ShareMenu({ item, personaId, personaLabel }: {
         }}
         personaId={personaId}
         personaLabel={personaLabel}
+        campaignId={item.campaignTag ?? undefined}
       />
     </>
   );

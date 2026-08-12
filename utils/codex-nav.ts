@@ -77,6 +77,38 @@ export interface CodexNavOptions {
    * URL byte-for-byte.
    */
   agentSlug?: string;
+  /**
+   * Focused presentation (`?chrome=focused`) — suppresses the destination
+   * cartridge's PRIMARY chrome (its top-level brand/tab-group header and the
+   * group sub-header strip that lets the operator jump to sibling tabs) while
+   * leaving the active tab's own local content — including whatever toolbar,
+   * filters or sub-navigation that tab renders itself — completely untouched.
+   *
+   * For hosts that already provide the outer navigation frame — the Guided
+   * Journey viewport being the first — where the destination's own estate-
+   * level nav would double up on (or overwhelm) the host's. Off by default:
+   * a cartridge reached any other way keeps its full primary chrome, which is
+   * correct there. See CodexPanelDynamic's `suppressPrimaryChrome` prop,
+   * which this flag maps to server-side of the embed route.
+   */
+  focused?: boolean;
+  /**
+   * Focused navigation depth (`?depth=N`). Only meaningful when `focused: true`.
+   * Defines how many navigation layers above the content to reveal:
+   *   0 — content surface only (no cartridge nav, no domain nav)
+   *   1 — content + immediate parent/domain nav (e.g., Store tabs, metaMe views)
+   *   2+ — content + multiple nav tiers (uncommon; future extensible)
+   *
+   * Omitted or undefined defaults to 0 (content only). Each cartridge documents
+   * the depth required to remain usable.
+   *
+   * Example depths for KNYTS Bridge:
+   *   Pulse (View) — depth 0 (publication feed)
+   *   Store (Buy) — depth 1 (needs Episodes|KNYT Cards|Bundles|Investor KNYT)
+   *   myCanvas (Remix) — depth 0 (self-contained composer)
+   *   aigentMe (Delegate) — depth 1 (needs metaMe/aigentMe context to navigate)
+   */
+  focusedNavDepth?: number;
 }
 
 /**
@@ -101,6 +133,8 @@ export function buildCodexUrl(slug: string, opts: CodexNavOptions = {}): string 
     shell = "embed",
     suppressCopilot,
     agentSlug,
+    focused,
+    focusedNavDepth,
   } = opts;
 
   const params = new URLSearchParams();
@@ -120,6 +154,8 @@ export function buildCodexUrl(slug: string, opts: CodexNavOptions = {}): string 
   if (from)       params.set("from",       from);
   if (fromTab)    params.set("fromTab",    fromTab);
   if (suppressCopilot) params.set("copilot", "off");
+  if (focused) params.set("chrome", "focused");
+  if (focusedNavDepth !== undefined && focusedNavDepth >= 0) params.set("depth", String(focusedNavDepth));
   // Trimmed, non-empty only — URLSearchParams.set percent-encodes the value;
   // the receiving route is what actually validates it, via resolveRegistrableAgent.
   if (agentSlug && agentSlug.trim().length > 0) params.set("agentSlug", agentSlug.trim());

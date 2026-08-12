@@ -168,3 +168,35 @@ whatever way the caller's error branch happens to be written.
 
 `tests/no-promoted-local-canister-ids.test.ts` enforces the AigentZBeta half:
 no active config or doc may present a local-shaped principal as mainnet truth.
+
+## A failed dev merge must be visible, never silent (PARAMOUNT, 2026-08-09)
+
+**`.github/workflows/merge-claude-to-dev.yml` auto-merges every `claude/**` push into `dev`. A real
+content conflict there must never fail the job with no further trace — the failure has to be a
+durable, discoverable artifact, not a line in an Actions log nobody is tailing.**
+
+### The failure that established this
+
+A session branch pushed real work — a manuscript, a partner-integration fix, a feature — across
+several pushes over two days. Every push conflicted against `dev` (which had independently evolved
+the exact mechanism one of the branch's own fixes touched) and every merge job failed silently: no
+issue, no notification, nothing beyond a log entry. `dev`/Amplify never received the work. The gap
+surfaced only when a brand-new page the branch shipped 404'd on the live site — an incident report
+from a human, not from the platform's own tooling. Full account:
+`codexes/packs/agentiq/updates/2026-08-09_dev-merge-conflict-resolution-path.md`.
+
+### Required
+
+1. **`.amplify-deploy` conflicts auto-resolve.** It is a single-line deploy-trigger timestamp with
+   no semantic content — if it is the ONLY conflicting file, regenerate it and continue. This is
+   the only conflict ever auto-resolved in CI; it is mechanical, never a judgment call.
+2. **Any other conflicting file aborts the merge and files a GitHub issue.** `dev` is left
+   untouched (never a partial or guessed-side commit); the issue names the conflicting files and
+   the exact manual resolution command sequence. The job still exits 1 — the issue is additive to
+   that signal, not a replacement for it.
+3. **A human or agent resolving a filed conflict reads BOTH sides before choosing** — never
+   `--ours`/`--theirs` by default. If one side is actively superseding work on the same mechanism,
+   say so explicitly in the merge commit rather than forcing a hybrid.
+4. **This applies to every agent** working this repo, for the same reason the dev-merge-message
+   rule does: a silent failure here is indistinguishable from success until someone notices a live
+   page is missing.

@@ -668,6 +668,101 @@ reference · one demonstration receipt per layer · deployed-environment evidenc
 **operator-attested** — the same footing CR-8 held before `SRC-IF-IAPP-2017-001` was archived, and
 resolvable the same way.
 
+### CR-17 — Constitution Before Substrate: quantum transition launchpad (operator-ratified 2026-08-04)
+
+**Status:** **Doctrine ratified. Manuscript insertion APPLIED in `01-controlling-manuscript-v0.3.md`
+(2026-08-04 consolidation pass).** `01-working-manuscript.md` (v0.2) is left unmodified as the
+archival source of record — the insertion lives only in the controlling manuscript.
+
+This adds a compact constitutional launchpad for quantum transition into the canon **without
+reopening the book architecture and without expanding Volume II into a technical quantum
+treatment.** It establishes that the Constitutional Internet is not constitutionally dependent on
+any single computational substrate.
+
+#### Canonical doctrine
+
+> **Constitution precedes substrate.**
+> The substrate may change. The constitutional subject must remain continuous.
+
+The Constitutional Internet must remain valid across changes in computational form, including:
+classical computing · distributed systems · blockchains · secure enclaves · post-quantum
+cryptography · quantum entropy systems · future quantum-native information or computing
+environments.
+
+Technological change must not alter, by technical accident: who the constitutional subject is ·
+where authority originates · how mandates are bounded · how state transitions are validated · how
+receipts establish consequence · how personhood remains continuous · how rights and standing remain
+attributable.
+
+#### Governing distinction (four-part)
+
+> Quantum resistance protects the present constitutional order.
+> Quantum entropy strengthens its operations.
+> Quantum-native computation may transform its future substrate.
+> Constitutional continuity must govern all three.
+
+#### Volume II scope — compact launchpad only
+
+Volume II may address only: quantum resistance as continuity protection · quantum entropy as a
+source of stronger randomness for keys, identifiers, cohorts and privacy-preserving processes · the
+constitutional requirement that the order survive a change in computational substrate.
+
+**Must NOT introduce technical treatment of:** qubit imprinting · quantum-native iQubes ·
+quantum-state identity · entanglement as a governance primitive · quantum storage architecture ·
+speculative quantum collective intelligence. **These belong to Volume III, *The Constitutional
+Society*.**
+
+#### Manuscript insertion — queued, Chapter 19 (*Constitutional Information and Computing*)
+
+> The Constitutional Internet cannot be constitutionally bound to a single computational substrate.
+> Today, its proofs, credentials, mandates and records are expressed predominantly through classical
+> systems, cryptographic networks and distributed infrastructure. Those systems will change.
+> Post-quantum cryptography will alter how continuity is protected. Quantum entropy may strengthen
+> how identifiers, keys and privacy-preserving processes are generated. More radically, future
+> information systems may represent and process state through quantum rather than exclusively
+> classical forms.
+>
+> None of these changes can be permitted to redefine the constitutional subject by technical
+> accident. The person must remain continuous across changes in representation. Authority must
+> remain attributable. Mandates must remain bounded. State transitions must remain inspectable. The
+> substrate may evolve; the constitutional order must persist.
+>
+> Constitution precedes substrate.
+
+#### Epilogue forward reference — queued
+
+> The next constitutional frontier is not only the governance of intelligent systems, but the
+> preservation of constitutional continuity as the information substrate itself evolves beyond
+> exclusively classical forms.
+
+#### Canon registration
+
+| Field | Value |
+|---|---|
+| Doctrine | **Ratified** |
+| Volume II treatment | Compact launchpad only |
+| Volume III treatment | Reserved for substantive development |
+| Engineering claims | None |
+| Operational quantum-native implementation | Not claimed |
+| Quantum entropy integration | Separately governed by CR-9 / `PRD-DIDQ-QBIT-001` |
+| Post-quantum readiness | Constitutional requirement; implementation state tracked separately |
+| **Manuscript application** | **Applied — `01-controlling-manuscript-v0.3.md` (2026-08-04)** |
+| **Deploy status** | **Not pushed live as of the consolidation pass; deploy is a separate operator decision** |
+
+#### Required cross-references
+
+Ch17 (privacy, entropy and quantum resistance) · Ch19 (constitutional information and computing) ·
+Epilogue (transition toward *The Constitutional Society*) · Qubit entropy integration PRD
+(`PRD-DIDQ-QBIT-001`) · DIDQube operating model · "Infrastructure must not become sovereignty" ·
+"Personhood gives continuity" · "State is constitutional" · "Representation never supersedes the
+embodied person."
+
+#### Governing interpretation
+
+Do not frame this as a claim that quantum systems are already integrated into the Constitutional
+Internet. **The claim is constitutional, not technical:** the Constitutional Internet is designed
+as an order that must remain valid through changes in computational substrate.
+
 ---
 
 ---
@@ -792,3 +887,41 @@ the book's **working corpus** (manuscript, evidence matrix, editorial registers,
 carrying a pointer record and, at most, the ratified volume registered in `collections.json`.
 Relocation is a separate deliberate change; `docs/` is **not** glob-traced (only three specific files
 are), so it is a viable interim home if Supabase upload is not yet available.
+
+---
+
+## Consolidation pass — v0.3 Controlling Manuscript produced (2026-08-04)
+
+Operator-directed consolidation pass produced `01-controlling-manuscript-v0.3.md`, applying CR-1
+through CR-17 and ADD-1 through ADD-3 to v0.2 (`01-working-manuscript.md`, left unmodified as the
+archival source of record). Full disposition of every ruling, the still-open editorial decisions
+this pass does not resolve, the implementation matters kept out of manuscript scope, and a
+chapter-by-chapter publication-readiness call are recorded in the companion document,
+`01-controlling-manuscript-v0.3-companion.md`. Both files are registered in
+`codexes/packs/polity-core/collections.json` under `col_commentary_constitutional_internet`.
+
+Not pushed to Amplify as part of this pass — that remains a separate operator decision.
+
+---
+
+## Publication-readiness pass — v0.4 First Publication Candidate produced (2026-08-04)
+
+Operator-directed reader-experience editorial pass over v0.3, producing
+`01-controlling-manuscript-v0.4.md`. Does not reopen any ratified ruling or resolve any item the
+v0.3 companion recorded as genuinely unresolved. Three independent reviewers read the full 24
+chapters and Epilogue for narrative continuity, repetition, transitions, and accessibility; their
+findings plus direct resolution of Chapter Twelve (consequence vs. expulsion, fair representation)
+and Chapter Twenty-One / the Epilogue (Internet Foundation present-tense mandate claims) are
+recorded in full — change register, chapter-readiness table, remaining-evidence list, and the two
+operator-decision gates that remain — in `01-controlling-manuscript-v0.4-companion.md`. Both files
+registered in `collections.json`.
+
+The parallel companion-series work named alongside this instruction (Genie in the Lamp human/agent
+constraint section, Paper VI manuscript deposit, Constitutional Internet for Agents outline) was
+not attempted in this pass: an exhaustive repo-wide search (this session, current branch and every
+remote branch) found no `CI-AGENT-EDITION.md`, no `BL-17` entry, and no deposited Paper VI or Genie
+in the Lamp manuscript anywhere in `iQube-Protocol/AigentZBeta`. Producing that work here would mean
+fabricating content this register cannot verify exists. Flagged for the operator to locate or
+deposit; not fabricated.
+
+Not pushed to Amplify as part of this pass — that remains a separate operator decision.

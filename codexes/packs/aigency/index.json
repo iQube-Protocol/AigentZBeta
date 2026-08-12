@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-09T20:37:20.372Z",
+  "last_updated": "2026-08-12T17:11:22.027Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "cc779a662d818314c2ff7ea60779a2e71d3d6fbe",
-  "latest_commit_short": "cc779a6",
-  "latest_commit_title": "Give the DVN attestation processor scheduled liveness (B3 confirmed)",
+  "latest_commit": "fe160647f3f9d28345d77fd4ac72d73195a74136",
+  "latest_commit_short": "fe16064",
+  "latest_commit_title": "feat(invariants): add consequence calibration primitives",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,501 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "fe16064",
+      "full_sha": "fe160647f3f9d28345d77fd4ac72d73195a74136",
+      "title": "feat(invariants): add consequence calibration primitives",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-12T13:09:38-04:00",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-fe16064.md"
+    },
+    {
+      "sha": "a238834",
+      "full_sha": "a238834861e84c36af5f3b99ccc744d97a1f1beb",
+      "title": "feat(irl): add risk-field primitives for IDE v2",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-12T13:03:08-04:00",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-a238834.md"
+    },
+    {
+      "sha": "be46bc6",
+      "full_sha": "be46bc68150c07f10af193ad1dad577bdad9eccc",
+      "title": "test(irl): cover IDE v2 risk-field primitives",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-12T13:03:24-04:00",
+      "type": "test",
+      "brief": "items/build_/COMMITS/COMMIT-be46bc6.md"
+    },
+    {
+      "sha": "94b3469",
+      "full_sha": "94b3469169fa1e90311a8275c122248338a1d50e",
+      "title": "docs(irl): ground IDE v2 and Crystal vP2 in Lehigh risk research",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-12T13:04:29-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-94b3469.md"
+    },
+    {
+      "sha": "2b00476",
+      "full_sha": "2b00476526c84dbf74db8ba1be33ba2067f00c55",
+      "title": "add diagnostic logging for copilot empty response trace",
+      "author": "Claude",
+      "timestamp": "2026-08-12T02:06:58Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-2b00476.md"
+    },
+    {
+      "sha": "dcb6ade",
+      "full_sha": "dcb6ade5e62527d5114f919e28f9319fe61f6b4e",
+      "title": "update copilot fallback message to explicit failure state",
+      "author": "Claude",
+      "timestamp": "2026-08-12T02:07:12Z",
+      "type": "chore",
+      "brief": "items/build_/COMMITS/COMMIT-dcb6ade.md"
+    },
+    {
+      "sha": "8b8f24f",
+      "full_sha": "8b8f24f3c074baf4251c3e690b95dae8298ced1d",
+      "title": "canon: add machine-readable bounded-order invariant",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-11T21:03:01-04:00",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-8b8f24f.md"
+    },
+    {
+      "sha": "581418d",
+      "full_sha": "581418d8e1048a41432b785b892a3db08c8f076c",
+      "title": "trigger deploy: CI Bridge final correction pass (passport gate + choose consolidation)",
+      "author": "Claude",
+      "timestamp": "2026-08-11T23:40:14Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-581418d.md"
+    },
+    {
+      "sha": "ecbdd8b",
+      "full_sha": "ecbdd8bd27d1c62aa280ac695cb67622987ae5a9",
+      "title": "phase 4.1: consolidate choose ctAs into destination cards",
+      "author": "Claude",
+      "timestamp": "2026-08-11T22:48:22Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-ecbdd8b.md"
+    },
+    {
+      "sha": "407b215",
+      "full_sha": "407b21532fc1549d060145330f702bba223d6ae3",
+      "title": "complete phases 4.3 & fix: passport gate modal + qripto accept pattern",
+      "author": "Claude",
+      "timestamp": "2026-08-11T22:53:09Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-407b215.md"
+    },
+    {
+      "sha": "019eb69",
+      "full_sha": "019eb6904b156a1ca5516f7e7bf8fa53bea67155",
+      "title": "data model fix: remove invalid asset kinds, add series_scope, extend series picker for canonical content",
+      "author": "Claude",
+      "timestamp": "2026-08-11T22:31:37Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-019eb69.md"
+    },
+    {
+      "sha": "6e2a68b",
+      "full_sha": "6e2a68ba69bedb55032b79dc9c99c79975fc7c81",
+      "title": "complete phase 1: remove artifact class selector, simplify to series picker",
+      "author": "Claude",
+      "timestamp": "2026-08-11T22:35:32Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-6e2a68b.md"
+    },
+    {
+      "sha": "b8e75f8",
+      "full_sha": "b8e75f81939e7d320505467fe63519938e056cd6",
+      "title": "add back button to Horizen MoneyPenny journey in PilotJourneyTab",
+      "author": "Claude",
+      "timestamp": "2026-08-11T20:51:03Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-b8e75f8.md"
+    },
+    {
+      "sha": "d737498",
+      "full_sha": "d737498f0e586a7f7ba89388bf440c984de728d8",
+      "title": "add artifact class (canonical/operational) toggle to qriptopian upload modal",
+      "author": "Claude",
+      "timestamp": "2026-08-11T20:41:43Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-d737498.md"
+    },
+    {
+      "sha": "7716251",
+      "full_sha": "7716251ff997535f05742532a595b2160f5e784f",
+      "title": "improve artifact URL copy affordance in upload modal + redirect Claude Code button to code interface",
+      "author": "Claude",
+      "timestamp": "2026-08-11T20:43:21Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-7716251.md"
+    },
+    {
+      "sha": "937b6d8",
+      "full_sha": "937b6d832e22fce22e150afb9e4c59b2e37558a8",
+      "title": "add back button to threshold guides + wire groundContext to bridge copilots",
+      "author": "Claude",
+      "timestamp": "2026-08-11T20:49:07Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-937b6d8.md"
+    },
+    {
+      "sha": "6070ce9",
+      "full_sha": "6070ce9c90180792b1f72c9d3a0be691b0a524ae",
+      "title": "Register Constitutional Bearing plates in Polity Core",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-10T23:09:04-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-6070ce9.md"
+    },
+    {
+      "sha": "07c03f6",
+      "full_sha": "07c03f645e5a6a92873a52b4bd33fa2d06e723b8",
+      "title": "Register Constitutional Internet canonical plate records in Polity Core",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-10T23:04:53-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-07c03f6.md"
+    },
+    {
+      "sha": "bf2a980",
+      "full_sha": "bf2a98062739f84c696f29ce9da412161503bbb0",
+      "title": "Remove RegisterCeremonyReplay surface from Register stage UI",
+      "author": "Claude",
+      "timestamp": "2026-08-11T02:38:35Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-bf2a980.md"
+    },
+    {
+      "sha": "5f20157",
+      "full_sha": "5f201570c46b6f84f9e92a4fa45924b469abb28b",
+      "title": "Re-home Ingest surface under Activate; remove Ingest consequence-fork prong",
+      "author": "Claude",
+      "timestamp": "2026-08-11T01:43:35Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-5f20157.md"
+    },
+    {
+      "sha": "5c6cbed",
+      "full_sha": "5c6cbed79772dcda914a40bdd6776cb13e57d6e2",
+      "title": "Add Activate as a derived registry-activation stage between Passport and Delegate",
+      "author": "Claude",
+      "timestamp": "2026-08-11T00:39:17Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-5c6cbed.md"
+    },
+    {
+      "sha": "a37a29e",
+      "full_sha": "a37a29edbc6ef846a4be576104cb65ed2cbf87ba",
+      "title": "Implement focusedNavDepth support for depth-aware chrome suppression",
+      "author": "Claude",
+      "timestamp": "2026-08-10T22:50:19Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-a37a29e.md"
+    },
+    {
+      "sha": "f65634b",
+      "full_sha": "f65634b26660b5f876d2f400ef1de351c7ced62a",
+      "title": "trigger deploy: focusedNavDepth depth-aware chrome suppression",
+      "author": "Claude",
+      "timestamp": "2026-08-10T22:50:38Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-f65634b.md"
+    },
+    {
+      "sha": "d1ef756",
+      "full_sha": "d1ef7562b741a5be55f6887a63b2aa6e51d530a5",
+      "title": "implement in-place iframe chrome toggle for guided journey embeds",
+      "author": "Claude",
+      "timestamp": "2026-08-10T20:03:05Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-d1ef756.md"
+    },
+    {
+      "sha": "7d0ed73",
+      "full_sha": "7d0ed7363507db181a71bb169bd32d3372b4023d",
+      "title": "trigger deploy: in-place iframe chrome toggle for KNYTS Bridge embeds",
+      "author": "Claude",
+      "timestamp": "2026-08-10T20:03:08Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-7d0ed73.md"
+    },
+    {
+      "sha": "d81950a",
+      "full_sha": "d81950a3e17b9fe18e9c07e5fcf1e7bb99a21831",
+      "title": "Build the Constitutional Internet Bridge as a v1 slice of the KNYTS Bridge architecture",
+      "author": "Claude",
+      "timestamp": "2026-08-10T17:41:04Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-d81950a.md"
+    },
+    {
+      "sha": "4262fbd",
+      "full_sha": "4262fbde0022bfab8f8194455ca6f07e2d1dee58",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-08-10T17:41:09Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-4262fbd.md"
+    },
+    {
+      "sha": "d066bff",
+      "full_sha": "d066bff81de30f2b30ba0208c2bfb56b34e774b9",
+      "title": "Redeploy dev: fix bare deploy-trigger commit at branch tip (CI Bridge v1 ships in d81950a3e)",
+      "author": "Claude",
+      "timestamp": "2026-08-10T17:41:41Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-d066bff.md"
+    },
+    {
+      "sha": "f08b700",
+      "full_sha": "f08b7009fc1fd35d2592089670719cdf2233d339",
+      "title": "Reframe ACT: Bring Your Agent Into the Field, not just an ExperienceQube disposition",
+      "author": "Claude",
+      "timestamp": "2026-08-10T17:52:46Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-f08b700.md"
+    },
+    {
+      "sha": "df68a8f",
+      "full_sha": "df68a8fdb837a1a0b4ec4d3d498bd557a1c26a53",
+      "title": "Rename CI Bridge to /bridge/ci and redirect the old path",
+      "author": "Claude",
+      "timestamp": "2026-08-10T19:25:56Z",
+      "type": "refactor",
+      "brief": "items/build_/COMMITS/COMMIT-df68a8f.md"
+    },
+    {
+      "sha": "6a9cc6d",
+      "full_sha": "6a9cc6db75136491c0300d2e470324670124c4aa",
+      "title": "Add the /bridge/ci redirect and update path references (rest of the rename)",
+      "author": "Claude",
+      "timestamp": "2026-08-10T19:26:21Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-6a9cc6d.md"
+    },
+    {
+      "sha": "e1dac8c",
+      "full_sha": "e1dac8cd53f79d518d695b99a89bf6be36159cb9",
+      "title": "Record MoneyPenny pre-recording evidence snapshot (live dev API baseline)",
+      "author": "Claude",
+      "timestamp": "2026-08-10T07:33:31Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-e1dac8c.md"
+    },
+    {
+      "sha": "58856f7",
+      "full_sha": "58856f7ac7c0c117b7765e0ec9ddeab0d392ebac",
+      "title": "Add Aigent Know1 as a third registrable Horizen agent (config + card + health)",
+      "author": "Claude",
+      "timestamp": "2026-08-10T15:14:46Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-58856f7.md"
+    },
+    {
+      "sha": "d56b844",
+      "full_sha": "d56b8444cbcefad7a30581ca7bd5edc0ab46cb1c",
+      "title": "Pre-recording Horizen polish: compact narrator header + Register ceremony replay",
+      "author": "Claude",
+      "timestamp": "2026-08-10T06:41:38Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-d56b844.md"
+    },
+    {
+      "sha": "169248d",
+      "full_sha": "169248d21d0c0d80ad950ef95ebc907689ac1559",
+      "title": "Mirror CFS-055's ratified invariants 252-259 into the canon + seed",
+      "author": "Claude",
+      "timestamp": "2026-08-10T04:48:52Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-169248d.md"
+    },
+    {
+      "sha": "3f76ccd",
+      "full_sha": "3f76ccd53d31680c03d76f84db9ded974cec3bbe",
+      "title": "Implement CFS-055 coherence pass: canonical Ratify projections + drawer",
+      "author": "Claude",
+      "timestamp": "2026-08-10T05:22:13Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-3f76ccd.md"
+    },
+    {
+      "sha": "aa1046e",
+      "full_sha": "aa1046e372caa1fdb5f44341fbe06adcf528720e",
+      "title": "Add Horizen coherence matrix for Nakamoto (POSIT coherence-pass item 6)",
+      "author": "Claude",
+      "timestamp": "2026-08-10T04:38:16Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-aa1046e.md"
+    },
+    {
+      "sha": "5eb4d29",
+      "full_sha": "5eb4d293a4ff8c785d994085050f2f98b5137382",
+      "title": "Fix correction route's tombstone catch-up gap for pre-fix corrections",
+      "author": "Claude",
+      "timestamp": "2026-08-10T04:24:39Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-5eb4d29.md"
+    },
+    {
+      "sha": "10e7aa1",
+      "full_sha": "10e7aa17d450a961739e9d7606ff2e0ec9812f5d",
+      "title": "canon: add CFS-055 Proof of State in Time coherence doctrine",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-10T00:15:27-04:00",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-10e7aa1.md"
+    },
+    {
+      "sha": "ec5d5c2",
+      "full_sha": "ec5d5c2671c64f8da4621c801714459e29d73f24",
+      "title": "Add stage invalidation tombstone so a correction's removal is durable",
+      "author": "Claude",
+      "timestamp": "2026-08-10T03:43:53Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-ec5d5c2.md"
+    },
+    {
+      "sha": "adbff86",
+      "full_sha": "adbff8645b1eff499bb03646881969bd0a2b9a86",
+      "title": "Add a conflict resolution path to the dev auto-merge workflow",
+      "author": "Claude",
+      "timestamp": "2026-08-09T22:43:44Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-adbff86.md"
+    },
+    {
+      "sha": "2d9ede1",
+      "full_sha": "2d9ede1cad1f3f12acdc1b00fbda414b7d43f510",
+      "title": "Register CR-14: Constitution Before Substrate quantum launchpad (queued, not applied)",
+      "author": "Claude",
+      "timestamp": "2026-08-04T03:43:05Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-2d9ede1.md"
+    },
+    {
+      "sha": "ee0a61a",
+      "full_sha": "ee0a61a32c1f0eb572d2ac92ca07863493b24f56",
+      "title": "Produce Controlling Manuscript v0.3 by consolidating v0.2 against the ratified register",
+      "author": "Claude",
+      "timestamp": "2026-08-04T20:32:14Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-ee0a61a.md"
+    },
+    {
+      "sha": "b154b22",
+      "full_sha": "b154b22e2fb12948b00ba50bb9f25e9201aa1061",
+      "title": "Correct v0.3 ruling identifier and companion-corpus status claims",
+      "author": "Claude",
+      "timestamp": "2026-08-05T00:48:26Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-b154b22.md"
+    },
+    {
+      "sha": "2165d02",
+      "full_sha": "2165d02924ed2d2e7c610ca1e1a11b9452231b13",
+      "title": "Fix Horizen Pulse enable call to send the same 5 fields build used",
+      "author": "Claude",
+      "timestamp": "2026-08-05T02:54:52Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-2165d02.md"
+    },
+    {
+      "sha": "4548472",
+      "full_sha": "45484724ecef6149aac7de266375e81aff893b9e",
+      "title": "Produce v0.4 as the first publication-candidate manuscript",
+      "author": "Claude",
+      "timestamp": "2026-08-05T16:51:20Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-4548472.md"
+    },
+    {
+      "sha": "ad60470",
+      "full_sha": "ad60470c3d25c2056c2ec3a180af247d0f68b93e",
+      "title": "Add Constitutional Internet for Agents manuscript v0.1",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-08T17:32:55-04:00",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-ad60470.md"
+    },
+    {
+      "sha": "c432bce",
+      "full_sha": "c432bceee5525b804eee4f88d7385fe959d06ea5",
+      "title": "Add CI agent edition machine-readable package manifest",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-08T17:33:07-04:00",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-c432bce.md"
+    },
+    {
+      "sha": "9ebcea7",
+      "full_sha": "9ebcea7a7b6eda19202701a1a8eb222c1825db5d",
+      "title": "Add machine-readable CI agent edition v0.1",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-08T17:33:29-04:00",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-9ebcea7.md"
+    },
+    {
+      "sha": "f935e9d",
+      "full_sha": "f935e9d2401131b8ca03f14312d5e53d723415b7",
+      "title": "Add agent accession compact v0.1",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-08T17:33:36-04:00",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-f935e9d.md"
+    },
+    {
+      "sha": "6e9f7ca",
+      "full_sha": "6e9f7ca0f7339ba38c8a1b2ea9b82e3b986762e5",
+      "title": "Add agent accession intent schema v0.1",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-08T17:33:45-04:00",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-6e9f7ca.md"
+    },
+    {
+      "sha": "5c233ea",
+      "full_sha": "5c233ea4e9e95bf2f2922512201da551b71d0e9a",
+      "title": "Register Constitutional Internet agent edition in Polity Core",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-08T17:34:24-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-5c233ea.md"
+    },
+    {
+      "sha": "db8a6df",
+      "full_sha": "db8a6df648d4a334fad46d615401a56568d770b5",
+      "title": "Register CI agent machine-readable package",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-08T17:34:39-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-db8a6df.md"
+    },
+    {
+      "sha": "a0b9d8d",
+      "full_sha": "a0b9d8db9d5aa7e9831d18461778995fd87d9063",
+      "title": "Build KNYTS Bridge v1 — campaign-tagged crossing journey",
+      "author": "Claude",
+      "timestamp": "2026-08-09T22:05:08Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-a0b9d8d.md"
+    },
+    {
+      "sha": "6e961c0",
+      "full_sha": "6e961c040f2e050cd7525275a5dbccabf758e02e",
+      "title": "Add the missing Ingest act (capability_registered) plus its guided UI action",
+      "author": "Claude",
+      "timestamp": "2026-08-09T21:48:06Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-6e961c0.md"
+    },
     {
       "sha": "cc779a6",
       "full_sha": "cc779a662d818314c2ff7ea60779a2e71d3d6fbe",
@@ -757,501 +1252,6 @@
       "timestamp": "2026-08-08T07:34:57-04:00",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-ad02a1a.md"
-    },
-    {
-      "sha": "ccb537f",
-      "full_sha": "ccb537f8629d9ea32d82e09e3ea2effa54b5f480",
-      "title": "Add proof_of_state_v2 Candid parity canary",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-08T07:35:15-04:00",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-ccb537f.md"
-    },
-    {
-      "sha": "34ee202",
-      "full_sha": "34ee2024fe098533e5be222f13a755883d051a9b",
-      "title": "Add CAP-1 activation canary with PoS leg held dark",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-08T07:35:35-04:00",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-34ee202.md"
-    },
-    {
-      "sha": "19f1887",
-      "full_sha": "19f188714b1af8adc87ee3b92a50250717a222be",
-      "title": "Update provenance canary for CAP-1 v2 deployment",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-08T07:36:16-04:00",
-      "type": "chore",
-      "brief": "items/build_/COMMITS/COMMIT-19f1887.md"
-    },
-    {
-      "sha": "8513b6e",
-      "full_sha": "8513b6e3f3e3706c710663e1a007fe5e36eb5431",
-      "title": "Correct A4 source-rebuild claim; run CI on PRs into dev",
-      "author": "Claude",
-      "timestamp": "2026-08-08T12:14:51Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-8513b6e.md"
-    },
-    {
-      "sha": "bf82b58",
-      "full_sha": "bf82b58814be6f706ba7bfda5e24f5d60d834922",
-      "title": "Replace dev CI fix with a narrow dedicated workflow",
-      "author": "Claude",
-      "timestamp": "2026-08-08T12:18:48Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-bf82b58.md"
-    },
-    {
-      "sha": "de41937",
-      "full_sha": "de419377fcf91e8c609c893685a9cd5ef071ca4c",
-      "title": "Fix tsconfig.json crash blocking type-check on every commit; make it informational in the new dev workflow",
-      "author": "Claude",
-      "timestamp": "2026-08-08T12:28:57Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-de41937.md"
-    },
-    {
-      "sha": "439fa9c",
-      "full_sha": "439fa9c94439e5985c3f8f5fb4b508e50d7c0c01",
-      "title": "Fix test:ci's missing coverage dependency; add non-secret placeholder env vars",
-      "author": "Claude",
-      "timestamp": "2026-08-08T12:47:23Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-439fa9c.md"
-    },
-    {
-      "sha": "7d77143",
-      "full_sha": "7d77143225b577caca3bd91ed74852db0ca42124",
-      "title": "Ignore vitest's coverage/ output directory",
-      "author": "Claude",
-      "timestamp": "2026-08-08T12:47:57Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-7d77143.md"
-    },
-    {
-      "sha": "7fce0bf",
-      "full_sha": "7fce0bf9466bf4acefc42caca5770f96a81d1167",
-      "title": "fix: add defensive null checks and error handling to sidepanel message handlers",
-      "author": "Claude",
-      "timestamp": "2026-08-07T01:13:31Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-7fce0bf.md"
-    },
-    {
-      "sha": "91c57fe",
-      "full_sha": "91c57fee3f5bd70d7af5fd877d6a38df7ffa1511",
-      "title": "add extension distribution packages to .gitignore",
-      "author": "Claude",
-      "timestamp": "2026-08-07T01:08:11Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-91c57fe.md"
-    },
-    {
-      "sha": "a91d664",
-      "full_sha": "a91d664c8b6cd93b6bf975c68ffa5551726e7e1e",
-      "title": "fix MoneyPenny: align Chat styling with Architect/Runtime, improve KB ground-truth resolution with proper budget limits",
-      "author": "Claude",
-      "timestamp": "2026-08-06T23:46:35Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-a91d664.md"
-    },
-    {
-      "sha": "e78fe17",
-      "full_sha": "e78fe17dd057901f865956c6d291853e489e1bea",
-      "title": "fix MoneyPenny KB: include common constitutional ground-truth (polity namespace) in addition to domain-scoped finance invariants",
-      "author": "Claude",
-      "timestamp": "2026-08-06T22:53:23Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-e78fe17.md"
-    },
-    {
-      "sha": "c6113f2",
-      "full_sha": "c6113f259c378452a6db7a83ae64698ce085e387",
-      "title": "Document mandatory delegation security architecture and constraints",
-      "author": "Claude",
-      "timestamp": "2026-08-04T00:32:39Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-c6113f2.md"
-    },
-    {
-      "sha": "bca5b77",
-      "full_sha": "bca5b771ef59e24ed1ab23f550817da4a69b71de",
-      "title": "Document Nakamoto asset publication and aigentMe state reset findings and fixes",
-      "author": "Claude",
-      "timestamp": "2026-08-04T00:26:23Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-bca5b77.md"
-    },
-    {
-      "sha": "232dd70",
-      "full_sha": "232dd70cc955bf4ba06a631457b26ba1cc8a43b1",
-      "title": "record 15 autodrive CIDs from 2026-08-02 publication",
-      "author": "Kn0w-1",
-      "timestamp": "2026-08-02T16:28:01-04:00",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-232dd70.md"
-    },
-    {
-      "sha": "065fecd",
-      "full_sha": "065fecd09985d1239bd4998bbcbcbee20b5c9277",
-      "title": "add canonical metaMe and iQube brand source assets",
-      "author": "Kn0w-1",
-      "timestamp": "2026-07-29T18:42:52-04:00",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-065fecd.md"
-    },
-    {
-      "sha": "a10f5fd",
-      "full_sha": "a10f5fd83550411a56b4aae37b23b0b406df87a8",
-      "title": "add Stage-0 instrument validation (IRV-001/IPV-001) — shake down IRE+IPE before the science",
-      "author": "Claude",
-      "timestamp": "2026-07-18T01:11:40Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-a10f5fd.md"
-    },
-    {
-      "sha": "afdd507",
-      "full_sha": "afdd507e5c26b89eabc56c7a3bdd74d8f9e12191",
-      "title": "charter the three-experiment Validation Programme v1 (EXP-P1/P2/P3)",
-      "author": "Claude",
-      "timestamp": "2026-07-18T01:01:20Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-afdd507.md"
-    },
-    {
-      "sha": "76f9df6",
-      "full_sha": "76f9df6cfda89ab50179f01419a4a35df6193f95",
-      "title": "author IRL Validation Roadmap + seed invariant-field first principles (322/323)",
-      "author": "Claude",
-      "timestamp": "2026-07-18T00:53:43Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-76f9df6.md"
-    },
-    {
-      "sha": "81e1abd",
-      "full_sha": "81e1abd635d7f72561823d21200bc62fa83cfcaf",
-      "title": "fix Invariant Registry: register polity namespace + raise public cap so all 319 invariants surface",
-      "author": "Claude",
-      "timestamp": "2026-07-18T00:45:49Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-81e1abd.md"
-    },
-    {
-      "sha": "eb18469",
-      "full_sha": "eb1846930adbf26c81679c62129bdec0b26d9409",
-      "title": "refine inv.polity.238 hierarchy: Ethics->Law->Economics->Consequence->Code (operator)",
-      "author": "Claude",
-      "timestamp": "2026-07-18T00:07:22Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-eb18469.md"
-    },
-    {
-      "sha": "fc7ba11",
-      "full_sha": "fc7ba1127e7a525f6021d39cc80e4dd0bbc4336b",
-      "title": "ratify Polity corpus + Knowledge Compression genesis into Canon (operator: 'ratify the lot')",
-      "author": "Claude",
-      "timestamp": "2026-07-17T23:52:53Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-fc7ba11.md"
-    },
-    {
-      "sha": "1505d97",
-      "full_sha": "1505d97d16bbe3ec90165bf8b35d60b6bc046ad5",
-      "title": "canonize Knowledge Compression genesis: preserve founding text + seed inv.reasoning.310-321 (proposed)",
-      "author": "Claude",
-      "timestamp": "2026-07-17T23:42:13Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-1505d97.md"
-    },
-    {
-      "sha": "34ab954",
-      "full_sha": "34ab954bf6e212f7ce0c80c4765d09b62856f1ef",
-      "title": "canonize Polity full corpus pass 3: seed inv.polity.207-309 (proposed)",
-      "author": "Claude",
-      "timestamp": "2026-07-17T23:34:38Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-34ab954.md"
-    },
-    {
-      "sha": "54963d3",
-      "full_sha": "54963d397a5d93236182391d89ee3325e1209cf4",
-      "title": "add Polity source texts: Experience Sovereignty, Thresholds, Embodied, Robots-Agents series",
-      "author": "Kn0w-1",
-      "timestamp": "2026-07-17T19:18:33-04:00",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-54963d3.md"
-    },
-    {
-      "sha": "9196332",
-      "full_sha": "9196332acac81f4d6551c8293ac0133d3577cd9d",
-      "title": "canonize Polity Papers full text pass 2 — seed inv.polity.175-206 (proposed)",
-      "author": "Claude",
-      "timestamp": "2026-07-17T22:06:47Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-9196332.md"
-    },
-    {
-      "sha": "1506075",
-      "full_sha": "1506075624cc7a41db7e5cd2b7ac69abc550117f",
-      "title": "register Polity Papers pass-2 canonization report in agentiq updates collection",
-      "author": "Claude",
-      "timestamp": "2026-07-17T22:10:46Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-1506075.md"
-    },
-    {
-      "sha": "fa50254",
-      "full_sha": "fa502546560869012bf0c39e15d0cc9f6616dab8",
-      "title": "extract Polity Papers full text pass 2 (10 text-layer papers; 5 vision + 1 download deferred)",
-      "author": "Kn0w-1",
-      "timestamp": "2026-07-17T17:48:44-04:00",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-fa50254.md"
-    },
-    {
-      "sha": "3373fd8",
-      "full_sha": "3373fd8bf44735f17833958dc83e842499aa6b6b",
-      "title": "document canonical repo (iQube-Protocol) vs stale local clone (Kn0w-1) — stop the recurring wrong-remote trap",
-      "author": "Claude",
-      "timestamp": "2026-07-17T21:28:30Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-3373fd8.md"
-    },
-    {
-      "sha": "8954ca7",
-      "full_sha": "8954ca7ea0599f73dc7cec293e0863c4fabc76cf",
-      "title": "add polity namespace to invariant CHECK constraints (unblocks polity seed ingest)",
-      "author": "Claude",
-      "timestamp": "2026-07-17T21:25:26Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-8954ca7.md"
-    },
-    {
-      "sha": "871697d",
-      "full_sha": "871697d06683e6db7932bd16d8c1551c4aaa6755",
-      "title": "trigger deploy to dev — force fresh rebuild to surface session work (CFSP/IRE-IPE/Polity)",
-      "author": "Claude",
-      "timestamp": "2026-07-17T21:21:32Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-871697d.md"
-    },
-    {
-      "sha": "9b7a56f",
-      "full_sha": "9b7a56f293d0f3e16ebdb84f27a406b7bb28e8a2",
-      "title": "ratify Polity Papers into Canon: promote inv.polity.160-174 proposed to canonical",
-      "author": "Claude",
-      "timestamp": "2026-07-17T20:01:27Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-9b7a56f.md"
-    },
-    {
-      "sha": "8b202b8",
-      "full_sha": "8b202b8566fee8846c6e7473802128eb5bf56315",
-      "title": "canonize Polity Papers pass 1: reconcile + seed inv.polity candidates (proposed)",
-      "author": "Claude",
-      "timestamp": "2026-07-17T19:46:17Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-8b202b8.md"
-    },
-    {
-      "sha": "6307a97",
-      "full_sha": "6307a9712f8491895d2f94d5ae4a8bbb7736647d",
-      "title": "register Polity Papers canonization pass 1 (collections + tracker)",
-      "author": "Claude",
-      "timestamp": "2026-07-17T19:48:55Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-6307a97.md"
-    },
-    {
-      "sha": "6f6039f",
-      "full_sha": "6f6039fce9c0af1a8e5eabe22eaed05ee52bb184",
-      "title": "docs: IPE Phase 2 (projection bridge) run-doc + tracker; note parallel Polity canonization",
-      "author": "Claude",
-      "timestamp": "2026-07-17T19:41:39Z",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-6f6039f.md"
-    },
-    {
-      "sha": "95178a2",
-      "full_sha": "95178a26a51c510d7907c019439f396978fd8399",
-      "title": "fix Amplify build-size overflow: exclude deploy-trigger commit briefs from Lambda tracing",
-      "author": "Claude",
-      "timestamp": "2026-07-17T19:08:10Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-95178a2.md"
-    },
-    {
-      "sha": "b053b72",
-      "full_sha": "b053b72b03968cfc8af11f1201d525dc3fbd27e7",
-      "title": "Add Researcher as the fifth operator pathway + wire into subscription/FO flow",
-      "author": "Claude",
-      "timestamp": "2026-07-16T03:47:58Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-b053b72.md"
-    },
-    {
-      "sha": "5274122",
-      "full_sha": "5274122245d9fbbadde692418cb2af337373df40",
-      "title": "Wire Research Copilot into the subscription tier UI (CitizenLadderModal)",
-      "author": "Claude",
-      "timestamp": "2026-07-16T03:50:12Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-5274122.md"
-    },
-    {
-      "sha": "70d3af5",
-      "full_sha": "70d3af55abe3ce7804655c51357985407c2ec7d2",
-      "title": "Make Research Copilot a first-class aigentMe roster specialist",
-      "author": "Claude",
-      "timestamp": "2026-07-16T04:18:42Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-70d3af5.md"
-    },
-    {
-      "sha": "dafb68b",
-      "full_sha": "dafb68b8bebd35262cf53debd5157f721a55a796",
-      "title": "Sell Research Copilot as its own dedicated tier/SKU, unbundled from aigentZ",
-      "author": "Claude",
-      "timestamp": "2026-07-16T04:38:27Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-dafb68b.md"
-    },
-    {
-      "sha": "a932a8e",
-      "full_sha": "a932a8ee9f45642c3d9f05eb752e7288f63a7d4a",
-      "title": "Charter CFS-034 research progression ladder + standing->rung mapping helper",
-      "author": "Claude",
-      "timestamp": "2026-07-16T04:41:14Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-a932a8e.md"
-    },
-    {
-      "sha": "a13541c",
-      "full_sha": "a13541ccfafc42b7aa7c9152e3e4ec1f0468a96b",
-      "title": "Backlog: per-SKU renewal via persona_plan_addons table",
-      "author": "Claude",
-      "timestamp": "2026-07-16T04:48:39Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-a13541c.md"
-    },
-    {
-      "sha": "2387b3d",
-      "full_sha": "2387b3d5bed14cfcc85c16e830cf6659dec44d24",
-      "title": "Ratify the three functions of Invariant Intelligence + minimal-sufficiency probe",
-      "author": "Claude",
-      "timestamp": "2026-07-16T04:57:44Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-2387b3d.md"
-    },
-    {
-      "sha": "62451e4",
-      "full_sha": "62451e48b566331db4dd248c26e52f84adfd6aca",
-      "title": "Charter CFS-035 The Invariant Engine (ratify-before-build gate)",
-      "author": "Claude",
-      "timestamp": "2026-07-16T16:22:59Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-62451e4.md"
-    },
-    {
-      "sha": "56af2b8",
-      "full_sha": "56af2b86ce89444cfb5399534854a58e1f13b390",
-      "title": "Build CFS-035 Invariant Engine Phase 0 — seam + discovery-ranking shadow node",
-      "author": "Claude",
-      "timestamp": "2026-07-16T16:33:54Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-56af2b8.md"
-    },
-    {
-      "sha": "7ac6f40",
-      "full_sha": "7ac6f408fec7d8fbc90f06224ec3ebae5690090a",
-      "title": "CFS-035 Phase 1 + a second shadow node — Reasoning-face consolidation + NBE ranking",
-      "author": "Claude",
-      "timestamp": "2026-07-16T16:39:03Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-7ac6f40.md"
-    },
-    {
-      "sha": "0fc9950",
-      "full_sha": "0fc99509d00960cc9dec42149470c6ef2bdeb8f0",
-      "title": "trigger deploy to dev: CFS-035 engine Phase 0-2 shadow nodes (type-check + build)",
-      "author": "Claude",
-      "timestamp": "2026-07-16T16:51:55Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-0fc9950.md"
-    },
-    {
-      "sha": "2c25762",
-      "full_sha": "2c257625fac35d7fbdc87886fc8e643be38fa4c9",
-      "title": "CFS-035: standing-score shadow node + standalone-standing-canister stub/backlog",
-      "author": "Claude",
-      "timestamp": "2026-07-16T16:55:25Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-2c25762.md"
-    },
-    {
-      "sha": "13de68d",
-      "full_sha": "13de68d45eadea60827cf29bd08c6aefbf807099",
-      "title": "Reconcile journey models: ExperienceStage universal, KNYT journey its projection",
-      "author": "Claude",
-      "timestamp": "2026-07-16T16:57:47Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-13de68d.md"
-    },
-    {
-      "sha": "320f389",
-      "full_sha": "320f389e80a7f5d382096170215e8f6972cd0ebf",
-      "title": "CFS-035: Constitutional Observatory doctrine + node registry + journey node",
-      "author": "Claude",
-      "timestamp": "2026-07-16T17:25:51Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-320f389.md"
-    },
-    {
-      "sha": "1597f98",
-      "full_sha": "1597f98a163c26f47298f5ec89bdca406e98f08d",
-      "title": "CFS-035: invariant-derived discovery weighting — make the flip meaningful",
-      "author": "Claude",
-      "timestamp": "2026-07-16T17:28:56Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-1597f98.md"
-    },
-    {
-      "sha": "e2c6663",
-      "full_sha": "e2c6663ca07f1dca93944dec28da227cb87fdc31",
-      "title": "seed CFS-035 discovery-ranking invariants (inv.reasoning.134-137)",
-      "author": "Claude",
-      "timestamp": "2026-07-16T17:43:51Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-e2c6663.md"
-    },
-    {
-      "sha": "83508b6",
-      "full_sha": "83508b6497dc35da01894a31db9497397986ef41",
-      "title": "wire discovery-dimension standing priors so the shadow flip diverges",
-      "author": "Claude",
-      "timestamp": "2026-07-16T17:52:10Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-83508b6.md"
-    },
-    {
-      "sha": "5e13061",
-      "full_sha": "5e130612f5360b5fc24bdfcf9f8886ada83fcaaa",
-      "title": "build Constitutional Observatory Field view in iQube Registry (CFS-035 §12)",
-      "author": "Claude",
-      "timestamp": "2026-07-16T18:10:15Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-5e13061.md"
-    },
-    {
-      "sha": "1cb6490",
-      "full_sha": "1cb6490c5d8414702817c4bb896a0933ff1feac8",
-      "title": "persist shadow observations for Observatory history (CFS-035 §12)",
-      "author": "Claude",
-      "timestamp": "2026-07-16T18:17:33Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-1cb6490.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

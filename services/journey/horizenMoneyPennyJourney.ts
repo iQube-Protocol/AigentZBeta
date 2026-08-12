@@ -133,6 +133,7 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
         complete:
           '{{agentDisplayName}} is now discoverable in Horizen. Registry presence proves identity and discoverability, but not constitutional authority.',
       },
+      narrator: { active: 'Registering agent', consequence: 'Establishes registry presence' },
       nextStageId: 'claim',
     },
         {
@@ -183,6 +184,7 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
         before: 'A wallet-control challenge must be signed to prove the agent’s controller wallet.',
         complete: 'Control has been proven without revealing the private key. Control does not yet equal authority.',
       },
+      narrator: { active: 'Proving wallet control', consequence: 'Establishes agent authority' },
       nextStageId: 'orient',
     },
     {
@@ -228,6 +230,7 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
         before: 'You have proved control of {{agentDisplayName}}. Control does not yet establish constitutional authority.',
         complete: 'Oriented — the constitutional act this operator needed before Passport was identified and acknowledged.',
       },
+      narrator: { active: 'Completing orientation', consequence: 'Establishes operating context' },
       nextStageId: 'passport',
     },
     {
@@ -268,6 +271,89 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
         before: "Your Polity Citizen Passport must resolve before you can sponsor {{agentDisplayName}}.",
         complete: 'The wallet proved control. The Passport now establishes the human source from whom authority may originate.',
       },
+      narrator: { active: 'Binding personhood', consequence: 'Establishes sponsorship' },
+      nextStageId: 'activate',
+    },
+    {
+      id: 'activate',
+      label: 'Activate',
+      description:
+        '{{agentDisplayName}} becomes an accountable, active participant in the iQube Registry — a derived constitutional transition, not an act the operator performs.',
+      /*
+       * ── DERIVED, NOT PERFORMED (Constitutional State Model Correction,
+       * operator-ratified 2026-08-11) ──────────────────────────────────────
+       *
+       * `registryActivated = iQubeRegistryPresent ∧ sponsorBindingEstablished
+       * ∧ agentPassportIssued`. Established automatically the moment
+       * Passport's own two acts (sponsorship + Delegate Passport issuance)
+       * are both observed true — see services/journey/
+       * agentRegistryActivation.ts's `ensureAgentRegistryActivation`, called
+       * from services/journey/agentAdmissionState.ts at that exact boundary.
+       *
+       * NO Delegate prerequisite. NO Operate prerequisite. NO involvement of
+       * `capability_registered` (Factory/Ingest — a technical fact, never
+       * constitutional-activation evidence). Awards NO Standing: admission
+       * creates eligibility to participate, never accrual.
+       *
+       * The visible order Passport → Activate → Delegate → Operate below is
+       * this pilot's GUIDED CEREMONY ORDER ONLY — it is not the
+       * constitutional dependency graph. The underlying model permits an
+       * Active/Operating agent with no current delegation; delegation and
+       * mandate are contextual operating-authority rituals performed WITHIN
+       * Operate, never existential prerequisites for it.
+       */
+      actor: 'moneypenny',
+      subjectRef: 'moneypenny',
+      /*
+       * ── RE-HOMED FROM THE OLD `deploy`/"Ingest into Factory" STAGE
+       * (Activate Consolidation, 2026-08-11) ───────────────────────────────
+       *
+       * These are the SAME two surfaces that used to render on `deploy`,
+       * moved here verbatim — never duplicated into a second implementation.
+       * `deploy` itself is retired as a VISIBLE stage (no spine node, no
+       * consequence-fork prong) but survives internally for `standing`'s
+       * prerequisite and historical `capability_registered`/receipt
+       * evidence — see `deploy`'s own header comment below.
+       *
+       * Content hierarchy this produces on the Activate surface:
+       *   ACTIVATE — "Active in iQube Registry" (this stage's own
+       *     constitutional posture, from `registryActivated` alone)
+       *   Factory — Ingest New Asset | Pipeline Status (technical process,
+       *     unchanged labels — `IngestionFactoryPanel`)
+       *   iQube Registry — the persistent registry-assets catalogue
+       *     (renamed from "Ingested Assets": it displays persistent
+       *     registry STATE, not a history of ingestion events)
+       */
+      surfaces: [
+        {
+          mode: 'component',
+          ref: 'ingest-into-factory-action',
+          note:
+            'Re-homed from the old `deploy` stage (Activate Consolidation, 2026-08-11) — the Factory/' +
+            'process action (IngestIntoFactoryPanel) that writes the agent-scoped `capability_registered` ' +
+            'receipt. No longer gated on Operate/aigentMe: Factory ingestion is technical-process tooling, ' +
+            'never a second constitutional consent ceremony after Passport.',
+        },
+        {
+          mode: 'component',
+          ref: 'venture-participate-standing',
+          props: { only: 'registry', registrySection: 'assets' },
+          note:
+            'Re-homed from the old `deploy` stage (Activate Consolidation, 2026-08-11) — the registry ' +
+            'catalogue, unchanged plumbing. Its tab label reads "iQube Registry" ' +
+            '(components/registry/IngestionFactoryPanel.tsx), not "Ingested Assets": the list is ' +
+            'persistent registry STATE, never a history of ingestion events.',
+        },
+      ],
+      prerequisites: ['passport'],
+      permittedActions: [],
+      completionEvidence: ['registryActivated'],
+      receiptTypes: ['agent_registry_activated'],
+      companion: {
+        before: 'Once sponsorship and {{agentDisplayName}}\'s Delegate Passport are both established, activation follows automatically.',
+        complete: '{{agentDisplayName}} is now an accountable, active participant in the iQube Registry. No Standing has been awarded — activation establishes eligibility to participate, never accrual.',
+      },
+      narrator: { active: 'Activating in the Registry', consequence: 'Establishes accountable participation' },
       nextStageId: 'delegate',
     },
     {
@@ -285,7 +371,7 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
           note: "Rendered bare — Venture Lab α's Participate → Delegation module (bounded delegation).",
         },
       ],
-      prerequisites: ['passport'],
+      prerequisites: ['activate'],
       permittedActions: ['approve-bounded-delegation', 'ratify-bootstrap'],
       /*
        * DELEGATE COMPLETES ON DELEGATION, NOT ON FS RUNTIME ACTIVATION
@@ -311,6 +397,7 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
         before: 'A bounded delegation and its structural assignment to this persona are required before aigentMe.',
         complete: 'Control says can. The Passport and delegation say may. Nakamoto is now a recognised bounded delegate.',
       },
+      narrator: { active: 'Bounding delegation', consequence: 'Establishes authority envelope' },
       nextStageId: 'aigentme',
     },
     {
@@ -366,6 +453,7 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
         complete:
           'You have crossed the threshold. Your Polity Citizen Passport establishes your continuing constitutional personhood. aigentMe is now active as your constitutional companion. {{agentDisplayName}} has joined your agent set through a Polity Delegate Passport and may act only within the authority and mandates you have granted.',
       },
+      narrator: { active: 'Activating delegate', consequence: 'Agent may now act' },
     },
     {
       id: 'verify',
@@ -474,49 +562,54 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
         complete:
           'The service agreement is authorized — {{agentDisplayName}} is ratified for the Financial Services runtime. Horizen Pulse and P&L transparency, below, remain real and worth completing, but they enrich its verifiable operational state; they do not create or enlarge this authority.',
       },
+      narrator: { active: 'Authorizing capability', consequence: 'Constitutional authority established' },
     },
 {
       id: 'deploy',
-      // Branch A. Establishes PARTICIPATION and Standing ELIGIBILITY —
-      // ingestion is never itself an accrual of Standing.
+      /*
+       * ── LEGACY/INTERNAL — NO LONGER A VISIBLE CONSTITUTIONAL STAGE
+       * (Activate Consolidation, 2026-08-11) ───────────────────────────────
+       *
+       * The constitutional "is this agent active" question is answered by
+       * the `activate` stage alone (`registryActivated`), never by this one.
+       * `deploy` survives in this array ONLY because:
+       *
+       *   1. `standing.prerequisites` still points at it (Standing's own
+       *      gating — `standingGatewayEnabled` — is unchanged by this pass).
+       *   2. Historical/technical Factory evidence (`capability_registered`
+       *      receipts already written for MoneyPenny/Nakamoto) needs a
+       *      structural home to remain readable.
+       *
+       * It keeps `forkPosition: 'middle'` so `JourneyRunSurface`'s
+       * `spineStages = journey.stages.filter(s => !s.forkPosition)` still
+       * excludes it from the numbered spine — but `FORK_ROWS`
+       * (components/journey/JourneyRunSurface.tsx) no longer includes a
+       * `'middle'` row, so it renders NO visible trident prong either. It
+       * competes with nothing: `registryActivated` is never derived from,
+       * or overridden by, `factoryIngested`/`capability_registered`.
+       *
+       * `surfaces` is empty — the Ingest UI that used to render here moved
+       * to `activate` verbatim (see that stage's own header comment), never
+       * duplicated into a second implementation.
+       */
       branch: 'factory',
-      // Consequence Fork — middle/straight prong, visually continuing the
-      // main spine (operator spec, 2026-08-09).
       forkPosition: 'middle',
       // Product-facing label is 'Ingest' (Horizen Journey verb-normalization
-      // correction, 2026-08-09) — id stays 'deploy'. Full Factory-ingestion
-      // explanatory copy below is unchanged.
+      // correction, 2026-08-09) — id stays 'deploy'. Kept for any surface
+      // that still reads this stage's own label for historical evidence
+      // display; never shown as a stepper/fork node (see above).
       label: 'Ingest',
       description:
-        'Ingestion registers the activated agent as a factory participant and makes it ELIGIBLE to accrue Standing. It never accrues Standing itself.',
+        'Legacy/internal — Factory ingestion is now technical-process tooling rendered under Activate, never a second visible constitutional stage. Preserved for standing.prerequisites and historical capability_registered evidence.',
       actor: 'moneypenny',
       subjectRef: 'moneypenny',
-      surfaces: [
-        {
-          mode: 'component',
-          ref: 'venture-participate-standing',
-          // `only` lives HERE, in the stage definition, not in the tab's
-          // resolveSurfaceProps: surface props are applied LAST in
-          // JourneyRunSurface's merge, so a stage's own declaration always
-          // wins, and what a stage renders stays readable from the stage
-          // itself. (It was briefly wired through resolveSurfaceProps and
-          // silently never applied — the two-tab strip stayed on both
-          // stages, operator report 2026-08-02.)
-          /*
-           * `registrySection: 'assets'` — the Factory opens on INGESTED ASSETS,
-           * not on "Ingest New Asset" (operator, 2026-08-03). By the time this
-           * stage is reachable the agent is already a published registry asset;
-           * landing on the ingest form invited the operator to re-perform an act
-           * the very same surface lists as done. Deep-link to the evidence.
-           */
-          props: { only: 'registry', registrySection: 'assets' },
-          note:
-            'Rendered bare — the registry Ingestion Factory ALONE (operator direction 2026-08-02). ' +
-            'Standing was split out of this surface into its own eighth stage below, so Deploy no longer ' +
-            'carries a Standing tab beside the Factory and the two are never conflated again.',
-        },
-      ],
-      prerequisites: ['aigentme'],
+      surfaces: [],
+      // Was ['aigentme'] — Factory ingestion is technical-process tooling,
+      // never sequenced behind Delegate/Operate (Activate Consolidation,
+      // 2026-08-11). The route's own preconditions
+      // (app/api/journey/moneypenny-horizen/ingest/route.ts) still require
+      // aigentQubeResolved + registered; nothing constitutional gates it now.
+      prerequisites: [],
       permittedActions: ['prepare-payment-mandate', 'execute-payment'],
       /*
        * A STAGE COMPLETES ON ITS OWN OUTCOME (operator ruling, 2026-08-03 —
@@ -528,10 +621,21 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
        * not complete until Standing had accrued, while Standing lists Deploy
        * as its prerequisite — a cycle, and the reason neither ever went green.
        *
-       * Ingestion's own outcome is that the agent is IN the factory:
+       * Ingestion's own outcome is that the agent is IN the factory —
+       * evidenced ONLY by an agent-scoped `capability_registered` receipt.
        *
-       *   > "The ingested factory is essentially the registry so presence
-       *   >  there is a receipt in and of itself."
+       * CORRECTED 2026-08-09 (Horizen Pilot Closure, part 2, operator
+       * decision A): the line this comment used to carry —
+       * "the ingested factory is essentially the registry so presence there
+       * is a receipt in and of itself" — was the exact defect that let
+       * Nakamoto's AigentQube/registry PRESENCE stand in for genuine Factory
+       * INGESTION, with no agent-scoped `capability_registered` receipt ever
+       * written. `factoryIngested` is `hasReceipt('capability_registered')`
+       * ONLY (app/api/journey/moneypenny-horizen/state/route.ts) — never
+       * `admission?.factoryPresent`. The Ingest act itself now lives at
+       * POST /api/journey/moneypenny-horizen/ingest
+       * (see the 'ingest-into-factory-action' surface above) — presence in
+       * the registry is a PRECONDITION for that act, never a substitute for it.
        */
       completionEvidence: ['factoryIngested'],
       /*
@@ -573,6 +677,7 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
         complete:
           'Ingested as a factory participant, now eligible to accrue Standing, and credited a nominal one-time registration award. That award records a completed act, not demonstrated performance — substantive Standing is still earned through validated contribution.',
       },
+      narrator: { active: 'Entering the Factory', consequence: 'Capability becomes operational' },
       nextStageId: 'standing',
     },
     {
@@ -617,6 +722,7 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
         before: 'Standing accrues from observed, receipted conduct — it is never granted by deploying.',
         complete: 'Standing is active and independently observable.',
       },
+      narrator: { active: 'Accruing Standing', consequence: 'Contribution becomes authority' },
     },
   ],
 };

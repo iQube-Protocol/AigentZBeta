@@ -68,7 +68,14 @@ describe('Orient sits between Claim and Passport on the admission spine', () => 
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-describe('the Consequence Fork — Ratify upper, Ingest middle, Standing lower', () => {
+/*
+ * RENAMED from "Ratify upper, Ingest middle, Standing lower" (Activate
+ * Consolidation, 2026-08-11) — the fork is now Ratify + Stand only. `deploy`
+ * keeps its `forkPosition: 'middle'` DATA (structural — see its own header
+ * comment in horizenMoneyPennyJourney.ts) but renders no visible prong;
+ * `JourneyRunSurface`'s `FORK_ROWS` no longer includes a 'middle' row.
+ */
+describe('the Consequence Fork — Ratify upper, Stand lower (Ingest/deploy renders no prong)', () => {
   it('assigns exactly one stage to each fork position', () => {
     expect(byId('verify').forkPosition).toBe('upper');
     expect(byId('deploy').forkPosition).toBe('middle');
@@ -80,7 +87,9 @@ describe('the Consequence Fork — Ratify upper, Ingest middle, Standing lower',
     // 2026-08-03) — not a dependency Orient/the fork introduced. Ratify and
     // Deploy must not depend on each other or on Standing.
     expect(byId('verify').prerequisites).toEqual(['aigentme']);
-    expect(byId('deploy').prerequisites).toEqual(['aigentme']);
+    // Was ['aigentme'] — Activate Consolidation (2026-08-11) dropped the
+    // Operate prerequisite; `deploy` is legacy/internal, unsequenced.
+    expect(byId('deploy').prerequisites).toEqual([]);
     expect(byId('standing').prerequisites).toEqual(['deploy']);
     expect(byId('verify').prerequisites).not.toContain('deploy');
     expect(byId('verify').prerequisites).not.toContain('standing');
@@ -191,7 +200,7 @@ describe('JourneyRunSurface renders the fork as one trident after the spine, nev
     expect(section).toMatch(/bg-emerald-500\/50.*bg-slate-700|bg-slate-700.*bg-emerald-500\/50/s);
   });
 
-  it('walks fork rows in upper, middle, lower order — Ratify, Ingest, Standing', () => {
+  it('walks fork rows in upper, lower order — Ratify, Stand (Ingest/middle dropped, 2026-08-11)', () => {
     const rowsMatch = source.match(/const FORK_ROWS[\s\S]*?\];/);
     expect(rowsMatch).not.toBeNull();
     // Matches only the array's object-literal entries (`{ position: 'x' },`) —
@@ -199,7 +208,7 @@ describe('JourneyRunSurface renders the fork as one trident after the spine, nev
     // type annotation on the same declaration, which would otherwise add a
     // spurious leading 'upper'.
     const order = Array.from(rowsMatch![0].matchAll(/\{ position: '([a-z]+)' \}/g)).map((m) => m[1]);
-    expect(order).toEqual(['upper', 'middle', 'lower']);
+    expect(order).toEqual(['upper', 'lower']);
   });
 
   it('each fork row is keyed and driven by its OWN stage — no shared/collapsed state', () => {
@@ -281,22 +290,83 @@ describe('JourneyRunSurface renders the fork as one trident after the spine, nev
 
   /*
    * ── COMPACT EVIDENCE AFFORDANCE (operator, 2026-08-09, "Compact the
-   *    Journey Evidence Checklist") ──────────────────────────────────────
+   *    Journey Evidence Checklist"; relocated to the top row, 2026-08-10)
+   *    ──────────────────────────────────────────────────────────────────
    *
    * The evidence checklist used to be a `<details>` disclosure in normal
    * document flow BELOW the stage description row — opening it pushed the
-   * stage stepper/viewport down the page. These canaries protect the
-   * corrected shape: description + evidence trigger share one row, the
-   * open checklist is an ANCHORED popover (never `<details>`), and its
-   * contents are a horizontally-scrolling chip row (never a tall `<ul>`).
+   * stage stepper/viewport down the page. Corrected first to an ANCHORED
+   * popover sharing the description row (2026-08-09), then moved into the
+   * TOP row between Refresh state and Full screen (2026-08-10) — its own
+   * trigger was congesting the description row's right corner. Either way,
+   * the description row itself stays flex-1 min-w-0 (unaffected by the
+   * trigger's own position), the checklist opens as an ANCHORED popover
+   * (never `<details>`), and its contents are a horizontally-scrolling chip
+   * row (never a tall `<ul>`).
    */
-  it('the stage description and the evidence trigger share ONE row — description is flex-1 min-w-0, evidence trigger is shrink-0', () => {
-    const rowAt = source.indexOf('STAGE DESCRIPTION + EVIDENCE AFFORDANCE SHARE ONE ROW');
-    expect(rowAt, 'the compact single-row comment anchor is missing').toBeGreaterThan(-1);
-    const section = source.slice(rowAt, rowAt + 3200);
-    expect(section).toMatch(/className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden"/);
-    expect(section).toMatch(/Evidence \{activeStageRuntime\.evidencePresent\.length\}/);
-    expect(section).toMatch(/className="relative shrink-0"/);
+  it('the evidence trigger lives in the TOP row, between Refresh state and Full screen', () => {
+    // Refresh/Evidence/Full screen are shared between the compact (KNYTS
+    // Bridge) and non-compact (Horizen) headers via `headerActions` — the
+    // trigger itself is a variable reference here, its own JSX defined once
+    // above (`evidenceTrigger`), never duplicated per layout.
+    const refreshAt = source.indexOf('Refresh state');
+    const fullScreenAt = source.indexOf("title={fullScreen ? 'Collapse' : 'Full screen'}");
+    expect(refreshAt, 'Refresh state button missing').toBeGreaterThan(-1);
+    expect(fullScreenAt, 'Full screen button missing').toBeGreaterThan(-1);
+    const between = source.slice(refreshAt, fullScreenAt);
+    expect(between).toMatch(/\{evidenceTrigger\}/);
+    const evidenceDefAt = source.indexOf('const evidenceTrigger =');
+    expect(evidenceDefAt, 'evidenceTrigger definition missing').toBeGreaterThan(-1);
+    expect(evidenceDefAt).toBeLessThan(refreshAt);
+    const evidenceDef = source.slice(evidenceDefAt, evidenceDefAt + 1000);
+    expect(evidenceDef).toMatch(/Evidence \{activeStageRuntime\.evidencePresent\.length\}/);
+    expect(evidenceDef).toMatch(/className="relative shrink-0"/);
+  });
+
+  /*
+   * ── THRESHOLD GUIDE HEADER COMPACTION (operator, 2026-08-10) ────────────
+   *
+   * The stage chip/label/narrator used to sit on their own row BELOW the
+   * top row — that second row is now gone entirely; its content moved into
+   * the top row alongside the branding and the State/Evidence/Full screen
+   * controls. The left cluster stays `flex-1 min-w-0 overflow-hidden` so the
+   * narrator (last in the cluster) is what truncates under width pressure,
+   * never the branding or the stage chip.
+   */
+  it('the stage chip/label/narrator now share the TOP row with the branding — no second row', () => {
+    const rowAt = source.indexOf('ONE COMPRESSED TOP ROW');
+    expect(rowAt, 'the compressed top-row comment anchor is missing').toBeGreaterThan(-1);
+    const section = source.slice(rowAt, rowAt + 1600);
+    expect(section).toMatch(/className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden text-sm"/);
+    expect(section).toMatch(/\{headerLabel\}/);
+    expect(section).toMatch(/\{activeIdx \+ 1\}/);
+    expect(section).toMatch(/\{activeStage\.label\}/);
+  });
+
+  it('the top row renders a rotating narrator (active <-> consequence) when the stage declares one, falling back to description otherwise', () => {
+    expect(source).toMatch(/activeStage\.narrator/);
+    expect(source).toMatch(/activeStage\.narrator\.active/);
+    expect(source).toMatch(/activeStage\.narrator\.consequence/);
+    // The fallback path for journeys/stages with no narrator — description
+    // must still be reachable, never dropped outright.
+    expect(source).toMatch(/\{ key: 'description', node: <span[^>]*>\{activeStage\.description\}<\/span> \}/);
+  });
+
+  it('"Destination: aigentMe" is gone from the header — removed for the one-row compaction', () => {
+    const tabSrc = fs.readFileSync(
+      path.join(__dirname, '..', 'app/triad/components/codex/tabs/PilotJourneyTab.tsx'),
+      'utf8',
+    );
+    expect(tabSrc).not.toMatch(/Destination: aigentMe/);
+  });
+
+  it('the Refresh/State control is compact — icon + "State", full label preserved only as a title attribute', () => {
+    const titleAt = source.indexOf('title="Refresh state"');
+    expect(titleAt, 'title="Refresh state" attribute missing').toBeGreaterThan(-1);
+    const buttonBlock = source.slice(titleAt, titleAt + 600);
+    expect(buttonBlock).toMatch(/<RefreshCw/);
+    expect(buttonBlock).toMatch(/!compact && 'State'/);
+    expect(buttonBlock).not.toMatch(/>\s*Refresh state\s*</);
   });
 
   it('the evidence checklist opens as an ANCHORED popover, never a <details> disclosure that pushes content down', () => {

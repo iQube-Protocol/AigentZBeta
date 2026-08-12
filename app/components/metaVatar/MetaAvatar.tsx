@@ -33,7 +33,8 @@
  * keeping it mounted-but-inert each left the surface beneath it broken.
  */
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { AlertTriangle } from 'lucide-react';
 import { useMetaAvatar } from '@/app/contexts/MetaAvatarContext';
 
 // D-ID configuration - extracted from Netlify app
@@ -87,6 +88,20 @@ export function MetaAvatar() {
   const scriptRef = useRef<HTMLScriptElement | null>(null);
   const containerIdRef = useRef<string>(`did-avatar-container-${Math.random().toString(36).slice(2)}`);
   const { activeAgent } = useMetaAvatar();
+  /**
+   * Confirmed 2026-08-11 (targeted correction pass, #98) as a REAL, separate
+   * bug from the unrelated "active-persona failed (504)" defect fixed in
+   * `services/wallet/personaRepo.ts` the same day — this component's D-ID
+   * script `onerror` handler existed but only ever `console.error`d; there
+   * was no visible state at all, so a failed SDK load rendered as a
+   * permanently blank black box with nothing to tell the operator (or an
+   * engineer looking at the live surface) that a load failure — not a
+   * persona/auth failure — is what happened. This is an honest surfaced
+   * failure state for THIS component's own dependency, not a stand-in for a
+   * missing persona/avatar identity, so it does not fall under "do not mask
+   * a failed persona read with a placeholder avatar."
+   */
+  const [loadFailed, setLoadFailed] = useState(false);
 
   useEffect(() => {
     // The document-level styles the SDK is known to reach for BEFORE it loads.
@@ -108,6 +123,10 @@ export function MetaAvatar() {
       containerIdRef.current = containerId;
 
       console.log('[MetaAvatar] init', { containerId, agent: activeAgent, ts: new Date().toISOString() });
+
+      // Clear any previous failure state — this init() may be a `reload()`
+      // recovering from an earlier failed load.
+      setLoadFailed(false);
 
       // Remove any previously injected D-ID artifacts (global cleanup),
       // including the body-level nodes the host wrapper never contained.
@@ -147,9 +166,10 @@ export function MetaAvatar() {
       script.setAttribute('data-monitor', 'true');
       script.setAttribute('data-target-id', containerId);
       
-      // Handle script load errors gracefully
+      // Handle script load errors gracefully — visibly, not just to the console.
       script.onerror = () => {
         console.error('[MetaAvatar] Failed to load D-ID SDK');
+        setLoadFailed(true);
       };
 
       document.body.appendChild(script);
@@ -238,10 +258,25 @@ export function MetaAvatar() {
   }, [activeAgent]);
 
   return (
-    <div 
-      ref={containerRef} 
-      className="w-full h-full bg-black rounded-lg overflow-hidden"
-    />
+    <div className="relative w-full h-full">
+      <div
+        ref={containerRef}
+        className="w-full h-full bg-black rounded-lg overflow-hidden"
+      />
+      {loadFailed && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-lg bg-black/90 px-4 text-center">
+          <AlertTriangle className="h-5 w-5 text-amber-400" />
+          <p className="text-xs text-slate-300">Avatar unavailable — couldn&apos;t load the D-ID agent.</p>
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new Event('metaAvatarRefresh'))}
+            className="text-[11px] text-amber-400 underline underline-offset-2 hover:text-amber-300"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 
