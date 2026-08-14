@@ -344,14 +344,15 @@ function EthosVignetteCapsule({
   const plateImage = canonicalPlateImage(block.plateImageId);
   const videoUrl = videoOverride ?? block.videoUrl;
   const railCards = ethosRailCards(block, videoUrl, plateImage);
-  const [activeRailId, setActiveRailId] = useState<string | undefined>();
+  const [activeRailId, setActiveRailId] = useState<string | undefined>(railCards[0]?.id);
 
   return (
     <div className="p-1">
       <BridgeContentCapsule
         railCards={railCards}
         allowFullscreen
-        onRailChange={(id) => setActiveRailId(id)}
+        activeRailId={activeRailId}
+        onRailChange={setActiveRailId}
         viewportAspectRatio={(activeId) => {
           if (activeId === 'video') return 16 / 9;
           // Paper's featured state is a wide gallery (cover + neighbours),

@@ -16,7 +16,7 @@
  * the browser's own error UI underneath. No "timed out" message ever.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 const LOADED_URLS_KEY = 'codex:pdflite:loaded-urls:v1';
 const MEDIA_FURNITURE_IDLE_FADE_MS = 5000;

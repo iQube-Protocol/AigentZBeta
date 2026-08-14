@@ -51,6 +51,7 @@ import { KnytsBridgeMediaStage } from '@/components/journey/KnytsBridgeMediaStag
 import { KnytsBridgeOrientIntro } from '@/components/journey/KnytsBridgeOrientIntro';
 import { KnytsBridgePassportRoom } from '@/components/journey/KnytsBridgePassportRoom';
 import { KnytsBridgeRemixSurface } from '@/components/journey/KnytsBridgeRemixSurface';
+import { KnytsBridgeChooseSurface } from '@/components/journey/KnytsBridgeChooseSurface';
 import { KnytsBridgeAdminPanel } from '@/components/journey/KnytsBridgeAdminPanel';
 import { PassportConnectPanel } from '@/components/companion/PassportConnectPanel';
 import { usePassportSignInHost } from '@/app/hooks/usePassportSignInHost';
@@ -73,6 +74,7 @@ const KNYTS_BRIDGE_COMPONENTS: Record<string, React.ComponentType<Record<string,
   KnytsBridgeOrientIntro,
   KnytsBridgePassportRoom,
   KnytsBridgeRemixSurface,
+  KnytsBridgeChooseSurface,
 };
 
 const KNYT_COPILOT_QUICK_PROMPTS = [
@@ -156,6 +158,9 @@ export default function KnytsBridgePage() {
       }
       if (surfaceRef.ref === 'knyts-bridge-mycanvas-remix') {
         return { personaId, citizenPassportUsable };
+      }
+      if (surfaceRef.ref === 'knyts-bridge-choose') {
+        return { personaId, onOpenKnytCopilot: () => setCopilotOpen(true) };
       }
       return {};
     },

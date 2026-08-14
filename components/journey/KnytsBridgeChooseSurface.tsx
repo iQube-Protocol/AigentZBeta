@@ -22,7 +22,7 @@
  * completion evidence — exactly like KNYTS Bridge's own predecessor BUY stage.
  */
 
-import { Mail, Sparkles, ArrowRight, BookMarked, Handshake, Compass } from 'lucide-react';
+import { Mail, Sparkles, ArrowRight, BookMarked, Handshake, Compass, MessageCircle } from 'lucide-react';
 import { buildCodexUrl } from '@/utils/codex-nav';
 import { KNYTS_BRIDGE_CAMPAIGN_ID } from '@/services/journey/knytsBridgeCrossingJourney';
 
@@ -30,9 +30,11 @@ const CONTACT_EMAIL = 'info@metame.com';
 
 interface KnytsBridgeChooseSurfaceProps {
   personaId?: string;
+  /** Opens the page-level KNYT CodexCopilotLayer — never a second, surface-local copilot instance. */
+  onOpenKnytCopilot?: () => void;
 }
 
-export function KnytsBridgeChooseSurface({ personaId }: KnytsBridgeChooseSurfaceProps) {
+export function KnytsBridgeChooseSurface({ personaId, onOpenKnytCopilot }: KnytsBridgeChooseSurfaceProps) {
   const storeUrl = buildCodexUrl('knyt-codex', { tab: 'store-episodes', personaId, shell: 'viewer' });
   const ciUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/bridge/ci`;
 
@@ -53,17 +55,19 @@ export function KnytsBridgeChooseSurface({ personaId }: KnytsBridgeChooseSurface
 
       {/* RIGHT — destination cards */}
       <div className="flex flex-col gap-3">
-        {/* Reserve metaKnyt Agentic GN */}
-        <button
-          type="button"
-          className="flex items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-900/40 px-4 py-3.5 hover:border-amber-400/30 transition text-left"
+        {/* Reserve metaKnyt Agentic GN — mailto interest action for launch,
+            same no-new-commerce-infrastructure pattern as the CFS Pilot card
+            below (no reservation infrastructure exists for v1). */}
+        <a
+          href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('metaKnyt Agentic GN — reservation interest')}`}
+          className="flex items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-900/40 px-4 py-3.5 hover:border-amber-400/30 transition"
         >
           <span className="flex items-center gap-2 text-sm font-semibold text-white">
             <BookMarked className="h-4 w-4 text-amber-300" />
             Reserve metaKnyt Agentic GN
           </span>
           <ArrowRight className="h-4 w-4 shrink-0 text-slate-400" />
-        </button>
+        </a>
 
         {/* Explore the KNYT Store */}
         <a
@@ -100,6 +104,21 @@ export function KnytsBridgeChooseSurface({ personaId }: KnytsBridgeChooseSurface
           </span>
           <ArrowRight className="h-4 w-4 text-slate-400" />
         </a>
+
+        {/* Ask Kn0w1 — opens the page-level KNYT CodexCopilotLayer (the ONE
+            conversational partner for this bridge, MS-1); never mounts a
+            second copilot instance here. */}
+        <button
+          type="button"
+          onClick={() => onOpenKnytCopilot?.()}
+          className="flex items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-900/40 px-4 py-3.5 hover:border-amber-400/30 transition text-left"
+        >
+          <span className="flex items-center gap-2 text-sm font-semibold text-white">
+            <MessageCircle className="h-4 w-4 text-amber-300" />
+            Ask Kn0w1
+          </span>
+          <ArrowRight className="h-4 w-4 shrink-0 text-slate-400" />
+        </button>
       </div>
     </div>
   );
