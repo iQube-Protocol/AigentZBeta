@@ -65,7 +65,7 @@ import {
   REGISTER_CEREMONY_LADDER,
   type RegisterCeremonyProgress,
 } from '@/services/horizen/registerCeremonyProgress';
-import { resolveRegistrableAgent } from '@/services/horizen/registrableAgents';
+import { resolveRegistrableAgent, listRegistrableAgents } from '@/services/horizen/registrableAgents';
 import { AgentCardSurface } from './AgentCardSurface';
 
 interface RegistrableAgentOption {
@@ -137,9 +137,13 @@ function MandateCountdown({ expiresAt, onExpired }: { expiresAt: string; onExpir
  * explicitly, rather than inherited from REGISTRABLE_AGENTS' own declaration
  * order — the display fields themselves can never drift again.
  */
-export const PILOT_AGENTS: RegistrableAgentOption[] = (['nakamoto', 'moneypenny'] as const)
-  .map((slug) => resolveRegistrableAgent(slug))
-  .filter((a): a is NonNullable<typeof a> => a !== null);
+export const PILOT_AGENTS: RegistrableAgentOption[] = listRegistrableAgents()
+  .sort((a, b) => {
+    // Nakamoto first (dry-run agent), then others in declaration order
+    if (a.runtimeAgentId === 'aigent-nakamoto') return -1;
+    if (b.runtimeAgentId === 'aigent-nakamoto') return 1;
+    return 0;
+  });
 
 interface SponsoredAgent {
   agentRootId: string;

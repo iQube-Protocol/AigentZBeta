@@ -20,12 +20,61 @@
  * codebase for either Bridge today (CLAUDE.md "No Guessing" — a URL is
  * never invented). When a real video asset is available, pass `videoUrl`
  * (+ optional `posterUrl`) and this component renders it above the copy.
+ *
+ * `layout` (added 2026-08-11, editorial polish pass): 'standard' is the
+ * ORIGINAL, UNCHANGED KNYTS rendering (centered, max-w-2xl, tall padding) —
+ * the default, so KNYTS Bridge's visual output stays exactly as it was.
+ * 'cinematic' is CI Bridge's opt-in.
+ *
+ * Refined again same day (hero-overlay pass): when a real `videoUrl`
+ * exists, the video is now the full-bleed hero surface and the
+ * eyebrow/headline/copy/CTAs render as a floating caption overlay anchored
+ * lower-left INSIDE the video frame — not a separate block stacked below
+ * it. The overlay fades out while the video plays (native `onPlay`/
+ * `onPause`/`onEnded`) and reappears on pause or on hover, so the video can
+ * breathe once playing rather than permanently carrying text. When no
+ * video exists (true today — CLAUDE.md's No-Guessing rule forbids
+ * inventing a hero-film URL), there is nothing to overlay onto, so this
+ * falls back to the plain centered text treatment.
+ *
+ * Fade timing (corrected 2026-08-11, integration pass): the operator's own
+ * language distinguishes two separate numbers — "retain it briefly, THEN
+ * fade it out OVER ~3-4 seconds." The previous pass read "3-4s" as the
+ * ceiling for the retain delay and gave the fade TRANSITION itself a snappy
+ * 700ms — backwards. Retain is now a short `OVERLAY_RETAIN_MS` (1s, "briefly"),
+ * and the fade-OUT transition itself is the slow, cinematic `OVERLAY_FADE_MS`
+ * (3.5s) — the overlay visibly dissolves rather than blinking off. The
+ * fade-BACK-IN on pause/end stays quick (its own shorter duration below) —
+ * only the hide half of the animation is meant to read as slow/cinematic.
+ *
+ * Overlay visibility bug (corrected 2026-08-11, targeted correction pass):
+ * `showOverlay` used to be `!overlayFaded || hovering`, with `onMouseEnter`
+ * on the ENTIRE video frame setting `hovering`. Since a visitor's pointer
+ * is almost always resting somewhere over the hero while watching it,
+ * `hovering` stayed true for the whole playback and permanently defeated
+ * the fade — the overlay never actually disappeared in practice, only in
+ * the state that drove it. Removed `hovering` entirely: visibility is now a
+ * pure function of `isPlaying`/`overlayFaded` — `!isPlaying || !overlayFaded`
+ * — so playback alone controls it, matching the required invariant exactly
+ * (visible before playback; hidden once the fade completes during playback,
+ * regardless of pointer position; visible again on pause/end).
  */
 
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ArrowRight } from 'lucide-react';
 
+/** How long playback must be clearly underway before the caption overlay
+ *  starts fading — short ("briefly"), not the fade's own duration. */
+const OVERLAY_RETAIN_MS = 1000;
+/** How long the fade-OUT transition itself takes once it starts — the
+ *  operator's "~3-4 seconds", applied to the transition, not the delay
+ *  before it. Fading back in (pause/end) uses OVERLAY_FADE_IN_MS instead —
+ *  quick, since reappearing should never feel sluggish. */
+const OVERLAY_FADE_OUT_MS = 3500;
+const OVERLAY_FADE_IN_MS = 400;
+
 export type BridgeAccent = 'amber' | 'indigo';
+export type BridgeMediaStageLayout = 'standard' | 'cinematic';
 
 const ACCENT_CLASSES: Record<BridgeAccent, { eyebrow: string; highlight: string; button: string }> = {
   amber: {
@@ -52,6 +101,7 @@ export interface BridgeMediaStageProps {
   accent?: BridgeAccent;
   videoUrl?: string;
   posterUrl?: string;
+  layout?: BridgeMediaStageLayout;
 }
 
 export function BridgeMediaStage({
@@ -66,8 +116,115 @@ export function BridgeMediaStage({
   accent = 'amber',
   videoUrl,
   posterUrl,
+  layout = 'standard',
 }: BridgeMediaStageProps) {
   const classes = ACCENT_CLASSES[accent];
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [overlayFaded, setOverlayFaded] = useState(false);
+  const fadeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Pure function of playback state — see the "Overlay visibility bug"
+  // header note above for why hover must never factor in here.
+  const showOverlay = !isPlaying || !overlayFaded;
+
+  // Playback itself never hides the overlay instantly — only a short,
+  // deliberate delay after play is clearly underway does. Pausing/ending
+  // brings it back immediately (no delay needed to reveal, only to hide).
+  useEffect(() => {
+    if (isPlaying) {
+      fadeTimer.current = setTimeout(() => setOverlayFaded(true), OVERLAY_RETAIN_MS);
+    } else {
+      if (fadeTimer.current) clearTimeout(fadeTimer.current);
+      setOverlayFaded(false);
+    }
+    return () => {
+      if (fadeTimer.current) clearTimeout(fadeTimer.current);
+    };
+  }, [isPlaying]);
+
+  if (layout === 'cinematic') {
+    const ctas = (
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={onPrimaryCta}
+          className={`inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition ${classes.button}`}
+        >
+          {primaryCtaLabel}
+          <ArrowRight className="h-4 w-4" />
+        </button>
+        {secondaryCtaLabel && onSecondaryCta && (
+          <button
+            type="button"
+            onClick={onSecondaryCta}
+            className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-black/20 px-4 py-2.5 text-sm font-medium text-slate-200 backdrop-blur-sm transition hover:border-white/40"
+          >
+            {secondaryCtaLabel}
+          </button>
+        )}
+      </div>
+    );
+
+    if (videoUrl) {
+      return (
+        <div className="mx-auto max-w-6xl px-4 pt-6 pb-6">
+          <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-white/10 bg-black shadow-2xl shadow-black/50">
+            {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+            <video
+              className="h-full w-full object-cover"
+              controls
+              poster={posterUrl}
+              src={videoUrl}
+              onPlay={() => setIsPlaying(true)}
+              onPause={() => setIsPlaying(false)}
+              onEnded={() => setIsPlaying(false)}
+            />
+            {/* Cinematic caption overlay — lower-left, inset from the focal
+                center, fades out while playing so the video can breathe;
+                reappears on pause/hover. Bottom padding clears the native
+                video control bar rather than fighting it with custom controls. */}
+            <div
+              className={`pointer-events-none absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/85 via-black/20 to-transparent p-5 pb-14 transition-opacity ease-out sm:p-8 sm:pb-16 ${
+                showOverlay ? 'opacity-100' : 'opacity-0'
+              }`}
+              style={{ transitionDuration: showOverlay ? `${OVERLAY_FADE_IN_MS}ms` : `${OVERLAY_FADE_OUT_MS}ms` }}
+            >
+              <div className="pointer-events-auto max-w-md">
+                <p className={`text-[10px] uppercase tracking-[0.3em] ${classes.eyebrow}`}>{eyebrow}</p>
+                <h1 className="mt-1.5 text-xl font-semibold leading-snug text-white sm:text-2xl">{headline}</h1>
+                {paragraphs.slice(0, 2).map((p, i) => (
+                  <p key={i} className="mt-1.5 text-sm leading-[1.5] text-slate-200/90">
+                    {p}
+                  </p>
+                ))}
+                {highlightLine && <p className={`mt-1.5 text-sm font-semibold ${classes.highlight}`}>{highlightLine}</p>}
+                <div className="mt-4">{ctas}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // No real hero film exists yet — nothing to overlay onto. Plain
+    // centered fallback, kept compact/restrained rather than tall+empty.
+    return (
+      <div className="mx-auto max-w-5xl px-6 pt-10 pb-8 text-center">
+        <p className={`text-[11px] uppercase tracking-[0.3em] ${classes.eyebrow}`}>{eyebrow}</p>
+        <h1 className="mt-2 text-2xl sm:text-3xl font-bold leading-snug text-white">{headline}</h1>
+        {(paragraphs.length > 0 || highlightLine) && (
+          <div className="mx-auto mt-4 max-w-[65ch]">
+            {paragraphs.map((p, i) => (
+              <p key={i} className="mt-2 text-[15px] leading-[1.55] text-slate-300">
+                {p}
+              </p>
+            ))}
+            {highlightLine && <p className={`mt-2 text-sm font-semibold ${classes.highlight}`}>{highlightLine}</p>}
+          </div>
+        )}
+        <div className="mt-6 flex items-center justify-center gap-3">{ctas}</div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-2xl px-6 pt-20 pb-10 text-center">

@@ -13,10 +13,14 @@
  * surface-level constitutional guide into two deeper worlds (the KNYT
  * cartridge and metaMe/aigentMe), not a viewer that reimplements slices of
  * either. Every node now opens a real existing destination surface:
- *   HOME/ORIENT → KnytsBridgeMediaStage (the one net-new cinematic surface)
+ *   HOME → KnytsBridgeMediaStage, ORIENT → KnytsBridgeOrientIntro (split
+ *          2026-08-12, KNYTS↔CI parity pass — both thin amber-preset
+ *          wrappers over the SAME bridge-neutral BridgeMediaStage /
+ *          BridgeOrientSurface CI's own HOME/ORIENT compose)
  *   VIEW/STAND/BUY → embeds of the canonical KNYT Pulse/Quests/Store tabs
- *   PASSPORT → KnytsBridgePassportRoom (state-aware: claim, or meet/delegate
- *             to aigentMe once established)
+ *   PASSPORT → KnytsBridgePassportRoom (state-aware: claim, or a dismissible
+ *             "you have crossed" banner + the shared BridgeActionModeQuestion
+ *             signal question, mirroring CI's own Passport room exactly)
  *   REMIX → KnytsBridgeRemixSurface, deep-linked into myCanvas inside the
  *           metaMe/aigentMe environment
  * See services/journey/journeySurfaceRegistry.ts's KNYTS Bridge section for
@@ -41,16 +45,20 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Settings } from 'lucide-react';
 import { JourneyRunSurface, type JourneyRunSurfaceProps } from '@/components/journey/JourneyRunSurface';
+import type { JourneyRuntimeState } from '@/types/journey';
 import { KNYTS_BRIDGE_CROSSING_JOURNEY } from '@/services/journey/knytsBridgeCrossingJourney';
 import { KnytsBridgeMediaStage } from '@/components/journey/KnytsBridgeMediaStage';
+import { KnytsBridgeOrientIntro } from '@/components/journey/KnytsBridgeOrientIntro';
 import { KnytsBridgePassportRoom } from '@/components/journey/KnytsBridgePassportRoom';
 import { KnytsBridgeRemixSurface } from '@/components/journey/KnytsBridgeRemixSurface';
 import { KnytsBridgeAdminPanel } from '@/components/journey/KnytsBridgeAdminPanel';
+import { BridgePassportGate } from '@/components/journey/BridgePassportGate';
 import { PassportConnectPanel } from '@/components/companion/PassportConnectPanel';
 import { usePassportSignInHost } from '@/app/hooks/usePassportSignInHost';
 import { usePersonaSpine } from '@/utils/personaSpine';
 import { CodexCopilotLayer } from '@/app/components/codex/CodexCopilotLayer';
 import { MetaAvatarProvider } from '@/app/contexts/MetaAvatarContext';
+import { MetaAvatarHost } from '@/app/components/metaVatar/MetaAvatarHost';
 
 /** KNYT visual projection — amber/gold, never a change to JourneyRunSurface's
  *  own default (purple), which every other journey keeps. Same accent the
@@ -63,6 +71,7 @@ const KNYT_ACCENT = {
 
 const KNYTS_BRIDGE_COMPONENTS: Record<string, React.ComponentType<Record<string, unknown>>> = {
   KnytsBridgeMediaStage,
+  KnytsBridgeOrientIntro,
   KnytsBridgePassportRoom,
   KnytsBridgeRemixSurface,
 };
@@ -85,6 +94,24 @@ export default function KnytsBridgePage() {
   const [personaId, setPersonaId] = useState<string | undefined>(undefined);
   const [adminOpen, setAdminOpen] = useState(false);
   const [copilotOpen, setCopilotOpen] = useState(false);
+  const [previousStageId, setPreviousStageId] = useState<string | undefined>(undefined);
+  const [currentStageId, setCurrentStageId] = useState<string | undefined>(undefined);
+  // Authoritative runtime-state signal (2026-08-12, KNYTS↔CI parity pass;
+  // re-derived CFS-055 coherence pass, same day). Previously discovered as
+  // a SIDE EFFECT of `resolveSurfaceProps` while the Passport room happened
+  // to be the active surface — brittle, because state coherence then
+  // depended on which stage was on screen. Now derived exclusively from
+  // `onRuntimeStateChange` below, which fires from the WHOLE resolved
+  // runtimeState on every refresh, active stage notwithstanding. Drives the
+  // Passport room, the stepper's emphasizeAvailableStage projection, and
+  // the Remix/Stand gate listener — one value, one source.
+  const [citizenPassportUsable, setCitizenPassportUsable] = useState<boolean | undefined>(undefined);
+
+  const handleRuntimeStateChange = useCallback((state: JourneyRuntimeState) => {
+    const passportStage = state.stages.find((s) => s.stageId === 'passport');
+    setCitizenPassportUsable(Boolean(passportStage?.evidencePresent.includes('citizenPassportUsable')));
+  }, []);
+  const [showPassportGate, setShowPassportGate] = useState(false);
   const spine = usePersonaSpine();
 
   // Same pinned-persona read every top-level surface uses as its baseline
@@ -121,15 +148,52 @@ export default function KnytsBridgePage() {
     if (showPassportSignIn) selectStage('passport');
   }, [showPassportSignIn]);
 
+  // Track stage navigation for back button functionality and Passport
+  // gating (2026-08-12, parity pass — mirrors CI's page listener). Note
+  // this is a UX nicety, not the real gate: JourneyRunSurface's own
+  // stepper click handler sets its internal selectedStageId BEFORE
+  // dispatching this event, so by the time this listener runs the visible
+  // stage has already switched. The real enforcement lives in
+  // KnytsBridgeRemixSurface/the Stand surface themselves, failing closed
+  // on citizenPassportUsable — same as CI's Personify/Stand.
+  useEffect(() => {
+    const handleStageSelect = (event: Event) => {
+      const customEvent = event as CustomEvent<{ stageId: string }>;
+      const targetStageId = customEvent.detail.stageId;
+
+      if ((targetStageId === 'remix' || targetStageId === 'stand') && !citizenPassportUsable) {
+        setShowPassportGate(true);
+        return;
+      }
+
+      setPreviousStageId(currentStageId);
+      setCurrentStageId(targetStageId);
+    };
+    window.addEventListener('journey:select-stage', handleStageSelect);
+    return () => window.removeEventListener('journey:select-stage', handleStageSelect);
+  }, [currentStageId, citizenPassportUsable]);
+
+  const handleBack = useCallback(() => {
+    if (previousStageId) {
+      selectStage(previousStageId);
+    }
+  }, [previousStageId]);
+
+  // Consumes `citizenPassportUsable` (derived above from the WHOLE
+  // runtimeState via onRuntimeStateChange) — never discovers it. See that
+  // state's own comment for why this split matters (CFS-055 coherence
+  // pass, 2026-08-12).
   const resolveSurfaceProps = useCallback(
-    ({ surfaceRef, runtimeState }: Parameters<NonNullable<JourneyRunSurfaceProps['resolveSurfaceProps']>>[0]) => {
+    ({ surfaceRef, requestStateRefresh }: Parameters<NonNullable<JourneyRunSurfaceProps['resolveSurfaceProps']>>[0]) => {
       if (surfaceRef.ref === 'knyts-bridge-passport-room') {
-        const passportStage = runtimeState?.stages.find((s) => s.stageId === 'passport');
-        return { citizenPassportUsable: passportStage?.evidencePresent.includes('citizenPassportUsable') };
+        return { citizenPassportUsable, personaId, requestStateRefresh };
+      }
+      if (surfaceRef.ref === 'knyts-bridge-mycanvas-remix') {
+        return { personaId, citizenPassportUsable };
       }
       return {};
     },
-    [],
+    [personaId, citizenPassportUsable],
   );
 
   return (
@@ -151,8 +215,25 @@ export default function KnytsBridgePage() {
         documentTitle="The KNYTS Bridge — Threshold Guide"
         components={KNYTS_BRIDGE_COMPONENTS}
         resolveSurfaceProps={resolveSurfaceProps}
+        onRuntimeStateChange={handleRuntimeStateChange}
         accent={KNYT_ACCENT}
         compact
+        onBack={handleBack}
+        distinguishAvailableStages
+        // KNYTS-specific presentation seam (2026-08-12, KNYTS↔CI parity
+        // pass) — mirrors CI's own emphasizeAvailableStage exactly. Home/
+        // View/Orient/Buy are all publicly available, so they keep the
+        // emerald "available now" look. Remix and Stand alone are
+        // Passport-bound (no requirement to complete Remix before entering
+        // Stand — both gate on Passport independently, never on each
+        // other). Passport itself is unaffected — its color comes from
+        // isDone/isCurrent, not this callback.
+        emphasizeAvailableStage={(stageId) => {
+          if (stageId === 'remix' || stageId === 'stand') {
+            return citizenPassportUsable === true;
+          }
+          return true;
+        }}
         headerLabel={
           <>
             <span className="shrink-0 font-semibold text-slate-100">KNYTS Bridge</span>
@@ -241,8 +322,43 @@ export default function KnytsBridgePage() {
         contextId="knyts-bridge"
         promptPlaceholder="Ask about your crossing..."
         quickPrompts={KNYT_COPILOT_QUICK_PROMPTS}
+        groundContext={{
+          surface: 'knyts-bridge',
+          bridgeTitle: 'The KNYTS Bridge — Threshold Guide',
+          stageContent: KNYTS_BRIDGE_CROSSING_JOURNEY.stages.map(stage => ({
+            stage: stage.stageId,
+            title: stage.stageName,
+          })),
+        }}
+      />
+
+      {/* Passport gate — blocks direct navigation into REMIX/STAND until
+          Passport is claimed (2026-08-12, KNYTS↔CI parity pass). "Later"
+          only dismisses the modal; it never claims or simulates a Passport. */}
+      <BridgePassportGate
+        isOpen={showPassportGate}
+        onDismiss={() => setShowPassportGate(false)}
+        onProceedToPassport={() => {
+          setShowPassportGate(false);
+          selectStage('passport');
+        }}
+        dismissLabel="Later"
+        accent="amber"
+        headline="Claim Your Passport First"
+        explanation="Your Polity Citizen Passport is your constitutional presence. You must establish it before you can remix your crossing or stand in the Quests."
+        points={[
+          'Passport proves your constitutional personhood',
+          "You'll cross a threshold once claimed",
+          'Then remix your crossing and stand in the Quests',
+        ]}
       />
     </div>
+    {/* Same missing-mount-gate bug identified on /bridge/ci (2026-08-11,
+        targeted correction pass #98) applies here identically: this page
+        sits outside app/(shell)/layout.tsx and app/(embed)/layout.tsx, the
+        only two places that previously rendered <MetaAvatar/>. See
+        MetaAvatarHost.tsx. */}
+    <MetaAvatarHost />
     </MetaAvatarProvider>
   );
 }

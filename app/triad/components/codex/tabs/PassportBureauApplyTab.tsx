@@ -51,6 +51,7 @@ import {
   resolveCitizenStepAfterAccountCreation,
   resolveDelegateStepAfterClassChoice,
   wizardSteps,
+  hasApprovedCitizenApplication,
   type StepId,
   type PassportClass,
 } from '@/services/passport/passportWizardSteps';
@@ -184,9 +185,44 @@ interface PassportBureauApplyTabProps {
    *                 never a guess in either direction.
    */
   routeTo?: 'citizen' | 'delegate';
+  /**
+   * CFS-055 coherence pass (2026-08-12, second invocation wired 2026-08-13)
+   * — the SMALLEST outward signal this component gives when it has just
+   * witnessed a consequential Passport state change. TWO real call sites,
+   * both positive confirmations, never a proxy for one:
+   *
+   *   1. Account-step sign-in (Bureau OR wallet auth) — `/api/passport/
+   *      usable-status` positively confirms an EXISTING usable Citizen
+   *      Passport for the now-authenticated caller.
+   *   2. In-flow issuance — `applications` (populated by the existing
+   *      `loadStatus()`) shows a citizen application that has moved to
+   *      `applicationStatus === 'approved'` (`hasApprovedCitizenApplication`,
+   *      services/passport/passportWizardSteps.ts) — the exact moment
+   *      services/passport/issuanceService.ts issues the citizen record
+   *      with `citizen_status: 'active'`. Mere SUBMISSION
+   *      (`applicationStatus === 'submitted'`) never fires this — that is
+   *      not issuance, and firing on it would be exactly the premature
+   *      signal this callback exists to avoid.
+   *
+   * This callback carries NO payload and asserts NOTHING — it never passes
+   * `true` upward as constitutional truth. The caller's own job is to turn
+   * it into a request that the enclosing Journey observer reread
+   * authoritative state (e.g. `JourneyRunSurface`'s `requestStateRefresh()`,
+   * threaded down through `resolveSurfaceProps`) — this component has no
+   * opinion on HOW that happens, and never mutates any stage's completion
+   * itself. Optional: every caller that doesn't pass it (standalone Bureau
+   * access, Horizen's PilotJourneyTab) is unaffected.
+   */
+  onUsablePassportDetected?: () => void;
 }
 
-export function PassportBureauApplyTab({ personaId, prefillAgentCardUrl, prefillAgentDisplayName, routeTo }: PassportBureauApplyTabProps = {}) {
+export function PassportBureauApplyTab({
+  personaId,
+  prefillAgentCardUrl,
+  prefillAgentDisplayName,
+  routeTo,
+  onUsablePassportDetected,
+}: PassportBureauApplyTabProps = {}) {
   const subHeaderSlotEl = useContext(SubHeaderSlotContext);
   const [step, setStep] = useState<StepId>('class');
   const [passportClass, setPassportClass] = useState<PassportClass>('citizen');
@@ -212,8 +248,12 @@ export function PassportBureauApplyTab({ personaId, prefillAgentCardUrl, prefill
     ).catch(() => setVspLoading(false));
   }, [step]);
 
-  // Participant — agent identity + bounded-delegation binding
-  const { sessionPersonas } = useSupabaseSessionPersonas();
+  // Participant — agent identity + bounded-delegation binding.
+  // `signIn` is the SAME canonical wallet authentication call
+  // SmartWalletDrawer uses (services/wallet, via this shared hook) — reused
+  // directly by the account step's wallet-email sign-in path below, never
+  // duplicated (2026-08-12).
+  const { sessionPersonas, signIn: signInWithWalletAuth } = useSupabaseSessionPersonas();
   const operatorPersonaId = sessionPersonas[0]?.id ?? '';
   const [agentName, setAgentName] = useState(prefillAgentDisplayName ?? '');
   const [agentType, setAgentType] = useState('general');
@@ -526,6 +566,11 @@ export function PassportBureauApplyTab({ personaId, prefillAgentCardUrl, prefill
   const [recoveryEmail, setRecoveryEmail] = useState('');
   const [mode, setMode] = useState<'signup' | 'signin'>('signup');
   const [signedIn, setSignedIn] = useState(false);
+  /** Set right after a successful Account-step sign-in (Bureau OR wallet)
+   *  when /api/passport/usable-status reports the now-authenticated caller
+   *  already holds a usable Citizen Passport — short-circuits the wizard
+   *  instead of re-running personhood binding / vault / consents / submit. */
+  const [existingUsablePassport, setExistingUsablePassport] = useState(false);
 
   // Step 2 — identity
   const [displayName, setDisplayName] = useState('');
@@ -549,6 +594,35 @@ export function PassportBureauApplyTab({ personaId, prefillAgentCardUrl, prefill
   const [citizenJustSubmitted, setCitizenJustSubmitted] = useState(false);
   const [continuationDismissed, setContinuationDismissed] = useState(false);
   const turnstileRef = useRef<HTMLDivElement | null>(null);
+
+  /*
+   * SECOND onUsablePassportDetected INVOCATION (CFS-055 coherence pass,
+   * 2026-08-13) — the in-flow completion path this callback's own doc
+   * comment already promised. `applications` is populated by the EXISTING
+   * `loadStatus()` (called at session restore, after Account, and after
+   * Submit — no new fetch introduced here). Whenever it comes back
+   * showing a citizen application that has moved to 'approved' —
+   * `hasApprovedCitizenApplication`'s exact predicate, which is NEVER true
+   * for 'submitted'/'pending_approval'/'needs_more_information'/'denied'
+   * — that is the canonical, positive confirmation that a Citizen Passport
+   * was just issued (services/passport/issuanceService.ts sets
+   * `citizen_status: 'active'` at the SAME moment a steward's decision
+   * sets `application_status: 'approved'`). Fires at most once per mount
+   * (the ref guards against re-firing on every subsequent loadStatus()
+   * call once already detected), after the same ~500ms confirmation
+   * interval as the Account-step invocation, and never mutates any
+   * journey/stage state itself — it only asks, exactly like the other
+   * invocation.
+   */
+  const approvedCitizenNotifiedRef = useRef(false);
+  useEffect(() => {
+    if (approvedCitizenNotifiedRef.current) return;
+    if (!hasApprovedCitizenApplication(applications)) return;
+    approvedCitizenNotifiedRef.current = true;
+    if (onUsablePassportDetected) {
+      setTimeout(() => onUsablePassportDetected(), 500);
+    }
+  }, [applications, onUsablePassportDetected]);
 
   // Render the Turnstile challenge when the citizen submit panel mounts
   // and a site key is configured. Loads the script once; cleans up the
@@ -657,8 +731,9 @@ export function PassportBureauApplyTab({ personaId, prefillAgentCardUrl, prefill
     setBusy(true);
     setError(null);
     try {
-      const syntheticEmail = `${username.trim().toLowerCase()}@passport.metame.internal`;
+      const identifier = username.trim();
       if (mode === 'signup') {
+        // UNCHANGED — Bureau persona-name + password account creation.
         const res = await fetch('/api/passport/auth/signup', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -667,24 +742,102 @@ export function PassportBureauApplyTab({ personaId, prefillAgentCardUrl, prefill
         const json = await res.json();
         if (!json.ok) throw new Error(json.error || 'Signup failed');
         setNotice(json.recoveryPolicy?.warning ?? null);
+        const syntheticEmail = `${identifier.toLowerCase()}@passport.metame.internal`;
+        const { error: signInError } = await getSupabaseBrowserClient().auth.signInWithPassword({
+          email: syntheticEmail,
+          password,
+        });
+        if (signInError) throw new Error(signInError.message);
+      } else {
+        /*
+         * SIGN IN — two identifiers, one field (operator directive,
+         * 2026-08-12: "Persona name, username, or email").
+         *
+         * A Bureau persona name can NEVER contain "@" — validateBureauUsername
+         * (services/passport/bureauIdentityService.ts) only ever allows
+         * lowercase letters, digits and hyphens — so testing for "@" is an
+         * unambiguous, lossless split, never a heuristic that could
+         * misroute a valid Bureau sign-in:
+         *
+         *   contains "@"   → an existing wallet's real email. Resolved
+         *                    through the EXACT canonical wallet
+         *                    authentication call SmartWalletDrawer itself
+         *                    uses (useSupabaseSessionPersonas's `signIn`,
+         *                    which calls supabase.auth.signInWithPassword)
+         *                    — never a parallel password verifier.
+         *   no "@"         → the existing Bureau persona-name path,
+         *                    byte-for-byte unchanged (synthetic email +
+         *                    signInWithPassword).
+         *
+         * A distinct "wallet username" identifier does not exist in the
+         * canonical wallet auth service today (Supabase Auth resolves by
+         * email only) — CLAUDE.md's No-Guessing rule forbids inventing a
+         * second lookup for one, so this stays exactly the two real paths.
+         */
+        if (identifier.includes('@')) {
+          const { error } = await signInWithWalletAuth(identifier, password);
+          if (error) throw new Error(error);
+        } else {
+          const syntheticEmail = `${identifier.toLowerCase()}@passport.metame.internal`;
+          const { error: signInError } = await getSupabaseBrowserClient().auth.signInWithPassword({
+            email: syntheticEmail,
+            password,
+          });
+          if (signInError) throw new Error(signInError.message);
+        }
       }
-      const { error: signInError } = await getSupabaseBrowserClient().auth.signInWithPassword({
-        email: syntheticEmail,
-        password,
-      });
-      if (signInError) throw new Error(signInError.message);
       setSignedIn(true);
-      // Only the Citizen route ever reaches this step — Delegate/agent
-      // applicants never visit Account (resolveDelegateStepAfterClassChoice
-      // sends them straight to 'agent' from Class).
-      setStep(resolveCitizenStepAfterAccountCreation());
+
+      /*
+       * Authentication resolves an existing usable Citizen Passport before
+       * continuing (operator directive: "C. Existing Passport holder —
+       * Authentication resolves existing usable Passport; no duplicate
+       * Passport issuance"). Applies uniformly to the Bureau path and the
+       * wallet path alike — a returning holder, however they just
+       * authenticated, is never pushed through personhood binding / vault /
+       * consents / submit a second time. Best-effort: a failed check simply
+       * falls through to the existing continuation, never blocking sign-in.
+       */
+      let alreadyHasPassport = false;
+      try {
+        const headers = await authedFetchHeaders();
+        const statusRes = await fetch('/api/passport/usable-status', { headers, cache: 'no-store' });
+        const statusJson = await statusRes.json();
+        alreadyHasPassport = Boolean(statusJson?.ok && statusJson.usable);
+      } catch {
+        /* best-effort — falls through to the normal continuation */
+      }
+
+      if (alreadyHasPassport) {
+        setExistingUsablePassport(true);
+        setNotice('You already hold an active Polity Citizen Passport — no need to apply again.');
+        /*
+         * CFS-055 coherence pass (2026-08-12): this component's OWN state
+         * (`existingUsablePassport`) is a local confirmation, never the
+         * constitutional truth the enclosing Journey acts on — the
+         * emerald banner above renders from it immediately, but the
+         * Passport STAGE only becomes COMPLETE once the Journey observer
+         * independently rereads `loadUsableCitizenPassportForAuthProfile`
+         * via its own `/state` route. The ~500ms delay lets the visitor
+         * actually see this confirmation before the enclosing surface
+         * potentially swaps to the post-Passport room underneath it.
+         */
+        if (onUsablePassportDetected) {
+          setTimeout(() => onUsablePassportDetected(), 500);
+        }
+      } else {
+        // Only the Citizen route ever reaches this step — Delegate/agent
+        // applicants never visit Account (resolveDelegateStepAfterClassChoice
+        // sends them straight to 'agent' from Class).
+        setStep(resolveCitizenStepAfterAccountCreation());
+      }
       void loadStatus();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Account step failed');
     } finally {
       setBusy(false);
     }
-  }, [username, password, recoveryEmail, mode, loadStatus]);
+  }, [username, password, recoveryEmail, mode, loadStatus, signInWithWalletAuth, onUsablePassportDetected]);
 
   const handleBind = useCallback(async () => {
     setBusy(true);
@@ -943,6 +1096,29 @@ export function PassportBureauApplyTab({ personaId, prefillAgentCardUrl, prefill
       {passportClass === 'participant' ? 'Delegate Application' : 'Citizen Application'}
     </div>
   ) : null;
+
+  // Short-circuit: the account step's sign-in just resolved an existing
+  // usable Citizen Passport for this caller (Bureau OR wallet auth) — never
+  // re-run personhood binding / vault / consents / submit on a holder who
+  // already has one. Checked before the step-strip/class-picker render, not
+  // folded into a StepId, since it can arise from EITHER route's Account
+  // step and is not itself a wizard stage.
+  if (existingUsablePassport) {
+    return (
+      <div className="mx-auto max-w-4xl space-y-6 p-4">
+        <div className="flex items-center gap-3 rounded-xl border border-emerald-700 bg-emerald-950/40 p-4">
+          <CheckCircle2 className="h-6 w-6 shrink-0 text-emerald-400" />
+          <div>
+            <h2 className="text-lg font-semibold text-slate-100">You already hold a Polity Citizen Passport</h2>
+            <p className="mt-0.5 text-sm text-slate-400">
+              Your constitutional presence is already established for this account — there is nothing
+              further to apply for.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 p-4">
@@ -1350,12 +1526,17 @@ export function PassportBureauApplyTab({ personaId, prefillAgentCardUrl, prefill
           <input
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            placeholder="Persona name (lowercase letters, numbers and hyphens)"
+            placeholder={
+              mode === 'signup'
+                ? 'Persona name (lowercase letters, numbers and hyphens)'
+                : 'Persona name, username, or email'
+            }
             className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
           />
           <p className="text-xs text-slate-500">
-            Your persona name is the handle through which you enter and act within the platform. It
-            is not the proof of your personhood.
+            {mode === 'signup'
+              ? 'Your persona name is the handle through which you enter and act within the platform. It is not the proof of your personhood.'
+              : "Already have a metaMe/estate wallet? Sign in with its email and password — the same authentication your wallet already uses. No new account is created."}
           </p>
           <input
             type="password"

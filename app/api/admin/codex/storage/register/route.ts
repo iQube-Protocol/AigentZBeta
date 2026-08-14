@@ -92,6 +92,15 @@ export async function POST(req: NextRequest) {
     const {
       path, bucket = BUCKET,
       category, title, series = 'metaKnyts',
+      // Qripto-only: 'papers/protocols', 'canonical/constitutional-internet',
+      // etc. Sent by CodexUploadModal (registerBody.seriesScope) but never
+      // persisted before this fix (2026-08-12 forensic correction pass) —
+      // the column existed (migration 20260811223027) but nothing wrote it,
+      // forcing every scope-aware query to fall back to brittle URL-filename
+      // parsing. Persisted verbatim on codex_media_assets going forward;
+      // legacy rows without it stay queryable via the same URL-parsing
+      // fallback the papers/canonical-assets routes already use.
+      seriesScope,
       episodeNumber, assetKind, contentType,
       editionTier, rarityTier, variantName,
       mimeType, fileSize,
@@ -100,6 +109,7 @@ export async function POST(req: NextRequest) {
     } = body as {
       path: string; bucket?: string;
       category: string; title: string; series?: string;
+      seriesScope?: string;
       episodeNumber?: number | null; assetKind?: string; contentType?: string;
       editionTier?: string; rarityTier?: string; variantName?: string;
       mimeType?: string; fileSize?: number;
@@ -219,6 +229,7 @@ export async function POST(req: NextRequest) {
       episode_number: episodeNumber ?? null,
       asset_kind: assetKind,
       series,
+      series_scope: seriesScope || null,
       auto_drive_cid: storageUrl,
       wip_storage_url: storageUrl,
       mime_type: safeMime,

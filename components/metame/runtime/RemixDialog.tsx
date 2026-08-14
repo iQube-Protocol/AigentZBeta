@@ -97,6 +97,14 @@ interface Props {
       /api/community-content/generate so the resulting row can be found by
       that campaign's VIEW filter. Omitted by every existing caller. */
   campaignTag?: string;
+  /** Destination cartridge lock (e.g. 'qripto'), forwarded to
+      /api/community-content/generate so the resulting row is stamped with
+      this cartridge instead of the route's own 'knyt' default. Omitted by
+      every existing caller — added 2026-08-11 so the Constitutional
+      Internet Bridge's Personify surface can force its myCanvas output to
+      Qriptopian Pulse without a KNYT/Qriptopian choice, via
+      MyCanvasTab.tsx's campaignTag→cartridge lock map. */
+  cartridge?: 'knyt' | 'qripto';
   /** Full source-experience cover image — saved alongside the origin entry
       when the user saves the remix to myCanvas so the canvas can render
       the original capsule, not just an ID reference. */
@@ -133,6 +141,7 @@ export function RemixDialog({
   initialPrompt,
   initialSkill,
   campaignTag,
+  cartridge,
   sourceImageUrl,
   sourceDescription,
   onClose,
@@ -391,6 +400,7 @@ export function RemixDialog({
           sourceExperienceId: sourceExperienceId || null,
           paymentMode,
           campaignTag: campaignTag || undefined,
+          cartridge: cartridge || undefined,
         }),
         personaIdHint: personaId ?? undefined,
       });

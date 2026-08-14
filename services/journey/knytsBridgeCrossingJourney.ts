@@ -120,8 +120,9 @@ export const KNYTS_BRIDGE_CROSSING_JOURNEY: JourneyDefinition = {
         {
           mode: 'component',
           ref: 'knyts-bridge-orient',
-          note: 'Light orientation film, no Bureau UI.',
-          props: { section: 'orient', ctaStageId: 'passport' },
+          note:
+            'KnytsBridgeOrientIntro — a thin amber-preset wrapper over the bridge-neutral ' +
+            'BridgeOrientSurface CI also composes. No heavy Bureau UI, no server call.',
         },
       ],
       prerequisites: [],
@@ -145,8 +146,9 @@ export const KNYTS_BRIDGE_CROSSING_JOURNEY: JourneyDefinition = {
           mode: 'component',
           ref: 'knyts-bridge-passport-room',
           note:
-            'State-aware constitutional room: claim your Passport, then meet/delegate to your aigentMe — ' +
-            'never a fork of either canonical surface.',
+            'State-aware constitutional room, reconstituted onto the CI Passport framework ' +
+            '(2026-08-12, KNYTS↔CI parity pass): claim your Passport, then a signal question ' +
+            '(what would you like to do in the Polity) before telling your own crossing in Remix.',
         },
       ],
       prerequisites: [],
@@ -200,7 +202,12 @@ export const KNYTS_BRIDGE_CROSSING_JOURNEY: JourneyDefinition = {
             'it — the canonical KNYT Quests tab, never a bespoke Standing projection.',
         },
       ],
-      prerequisites: ['remix'],
+      // Passport determines ELIGIBILITY to enter Stand/Quests (2026-08-12
+      // parity pass) — Remix is a separate, optional creative act, not a
+      // constitutional requirement to browse or perform Quests. Whether
+      // Stand becomes ESTABLISHED/complete is still governed entirely by
+      // completionEvidence below; this only changes who may enter.
+      prerequisites: ['passport'],
       permittedActions: ['share-crossing'],
       completionEvidence: ['crossingHasConsequence'],
       receiptTypes: [],

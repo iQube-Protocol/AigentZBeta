@@ -15,7 +15,7 @@ import { resolveJourneyState, type AuthoritativePlatformState } from '@/services
 import { CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY } from '@/services/journey/constitutionalInternetBridgeJourney';
 
 const OPEN_NARRATIVE_STAGES = ['home', 'view', 'orient', 'choose'];
-const TRACKED_STAGES = ['passport', 'act', 'stand'];
+const TRACKED_STAGES = ['passport', 'personify', 'stand'];
 
 function stateFor(overrides: Partial<{
   citizenPassportUsable: boolean;
@@ -25,20 +25,20 @@ function stateFor(overrides: Partial<{
   return {
     stages: {
       passport: { citizenPassportUsable: overrides.citizenPassportUsable ?? false },
-      act: { agentRelationshipStarted: overrides.agentRelationshipStarted ?? false },
+      personify: { agentRelationshipStarted: overrides.agentRelationshipStarted ?? false },
       stand: { constitutionalEventRecorded: overrides.constitutionalEventRecorded ?? false },
     },
   };
 }
 
 describe('CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY — seven real spine nodes', () => {
-  it('has exactly seven stages, in the public order: home, view, orient, passport, act, stand, choose', () => {
+  it('has exactly seven stages, in the public order: home, view, orient, passport, personify, stand, choose', () => {
     expect(CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY.stages.map((s) => s.id)).toEqual([
       'home',
       'view',
       'orient',
       'passport',
-      'act',
+      'personify',
       'stand',
       'choose',
     ]);
@@ -62,10 +62,10 @@ describe('CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY — seven real spine nodes', ()
     }
   });
 
-  it('tracked stages (passport/act/stand) carry real completion evidence', () => {
+  it('tracked stages (passport/personify/stand) carry real completion evidence', () => {
     const evidenceByStage: Record<string, string[]> = {
       passport: ['citizenPassportUsable'],
-      act: ['agentRelationshipStarted'],
+      personify: ['agentRelationshipStarted'],
       stand: ['constitutionalEventRecorded'],
     };
     for (const id of TRACKED_STAGES) {
@@ -80,29 +80,29 @@ describe('CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY — seven real spine nodes', ()
     expect(passport?.state).not.toBe('COMPLETE');
   });
 
-  it('passport crossed but no agent relationship started yet: act is not yet complete, not gated by fabricated evidence', () => {
+  it('passport crossed but no agent relationship started yet: personify is not yet complete, not gated by fabricated evidence', () => {
     const result = resolveJourneyState(
       CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY,
       stateFor({ citizenPassportUsable: true }),
     );
     const passport = result.stages.find((s) => s.stageId === 'passport');
-    const act = result.stages.find((s) => s.stageId === 'act');
+    const personify = result.stages.find((s) => s.stageId === 'personify');
     expect(passport?.state).toBe('COMPLETE');
-    expect(act?.state).not.toBe('COMPLETE');
+    expect(personify?.state).not.toBe('COMPLETE');
   });
 
-  it('agent relationship started (either path) but no constitutional event yet: stand is not yet complete', () => {
+  it('agent relationship started (either supporting path) but no constitutional event yet: stand is not yet complete', () => {
     const result = resolveJourneyState(
       CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY,
       stateFor({ citizenPassportUsable: true, agentRelationshipStarted: true }),
     );
-    const act = result.stages.find((s) => s.stageId === 'act');
+    const personify = result.stages.find((s) => s.stageId === 'personify');
     const stand = result.stages.find((s) => s.stageId === 'stand');
-    expect(act?.state).toBe('COMPLETE');
+    expect(personify?.state).toBe('COMPLETE');
     expect(stand?.state).not.toBe('COMPLETE');
   });
 
-  it('all tracked facts true: passport/act/stand all COMPLETE', () => {
+  it('all tracked facts true: passport/personify/stand all COMPLETE', () => {
     const result = resolveJourneyState(
       CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY,
       stateFor({ citizenPassportUsable: true, agentRelationshipStarted: true, constitutionalEventRecorded: true }),

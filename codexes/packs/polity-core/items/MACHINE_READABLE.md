@@ -63,6 +63,20 @@ Human-readable controlling source for this draft:
 
 These objects are **constitutional commentary and orientation**, not new sources of authority. They do not confer personhood, self-authorization, sponsorship, mandate, or accession. Consequential authority still requires the ratified constitutional bundle, a valid principal and mandate, and the required state transitions and receipts.
 
+## Constitutional Internet canonical plates
+
+The Constitutional Internet visual doctrine has a separate machine-readable plate manifest:
+
+`docs/constitutional-plates/constitutional-internet.v1.json`
+
+Human-readable canonical records live under:
+
+`codexes/packs/polity-core/items/commentary/constitutional-internet/plates/`
+
+The `CIP` namespace is deliberately distinct from the CFS-027 Invariant Intelligence Canonical Plates (`CP-001..CP-007`). The current Constitutional Internet set ratifies `CIP-003A`, `CIP-003B`, `CIP-004`, `CIP-005`, and `CIP-006`, with `CIP-003A/B` as equally canonical renderings of one MetaVitruvian concept (`CIP-003`).
+
+The plate manifest is **canonical constitutional commentary**, not a new source of constitutional authority. It exists so human and machine readers can resolve plate identity, provenance, source hashes, usage context, interpretive constraints, and bridge relevance without deriving meaning from pixels alone.
+
 ## Immutability (Autodrive)
 
 The machine-readable frameworks are published to Autodrive (Autonomys) for

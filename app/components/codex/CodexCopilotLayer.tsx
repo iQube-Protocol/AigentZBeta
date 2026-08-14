@@ -1361,7 +1361,7 @@ export function CodexCopilotLayer({
             {
               id: (Date.now() + 1).toString(),
               role: "assistant",
-              content: responseContent ?? "I can help with that.",
+              content: responseContent ?? "aigentMe returned no response. Retry.",
               timestamp: new Date(),
               walletActions: responseWalletActions,
             },
@@ -1431,6 +1431,24 @@ export function CodexCopilotLayer({
         }),
       });
       const data = (await response.json().catch(() => ({}))) as CodexChatResponse;
+
+      // Distinguish "the HTTP request failed" from "the model returned an
+      // empty completion" (2026-08-12 fix) — the prior code never checked
+      // `response.ok`, so a server 500 (e.g. the chat route's own crash
+      // before reaching inference) fell straight to
+      // `data?.response || "aigentMe returned no response. Retry."`,
+      // reporting a genuine server failure as if the model had simply said
+      // nothing. Those are distinct failure states with distinct causes;
+      // conflating them made the real defect invisible from the client.
+      if (!response.ok) {
+        console.error('[CodexCopilot] chat request failed', response.status, data);
+        throw new Error(
+          typeof (data as { error?: unknown })?.error === 'string'
+            ? (data as { error: string }).error
+            : `Chat request failed (${response.status})`,
+        );
+      }
+
       const structuredWalletActions = normalizeWalletActions(data?.wallet_actions);
       sessionInvariants.ingest(data?.resolved_invariants);
       // PRD §6 — lift [[nav:Label]] markers out of the reply into chips.
@@ -1441,13 +1459,19 @@ export function CodexCopilotLayer({
         {
           id: (Date.now() + 1).toString(),
           role: "assistant",
-          content: navParsed?.cleaned || data?.response || "I can help with that.",
+          content: navParsed?.cleaned || data?.response || "aigentMe returned no response. Retry.",
           timestamp: new Date(),
           walletActions: structuredWalletActions.length > 0 ? structuredWalletActions : undefined,
           navChips: navParsed && navParsed.chips.length > 0 ? navParsed.chips : undefined,
         },
       ]);
-    } catch {
+    } catch (err) {
+      // Diagnostic truth stays in the console (the exact server error /
+      // HTTP status thrown above); the user-facing message stays friendly.
+      // This is a REQUEST failure — never mislabel it as an empty model
+      // completion (that case is handled separately, below, only when the
+      // HTTP call actually succeeded).
+      console.error('[CodexCopilot] request failed', err);
       updateMessages((prev) => [
         ...prev,
         {

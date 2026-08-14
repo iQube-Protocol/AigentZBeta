@@ -3984,3 +3984,128 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-d1ef756.md](../build_/COMMITS/COMMIT-d1ef756.md)
 - Message: implement in-place iframe chrome toggle for guided journey embeds
+
+## Commit `f65634b` — 2026-08-10T22:50:38Z
+- Type: `push`
+- Brief: [COMMIT-f65634b.md](../build_/COMMITS/COMMIT-f65634b.md)
+- Message: trigger deploy: focusedNavDepth depth-aware chrome suppression
+
+## Commit `a37a29e` — 2026-08-10T22:50:19Z
+- Type: `feat`
+- Brief: [COMMIT-a37a29e.md](../build_/COMMITS/COMMIT-a37a29e.md)
+- Message: Implement focusedNavDepth support for depth-aware chrome suppression
+
+## Commit `5c6cbed` — 2026-08-11T00:39:17Z
+- Type: `feat`
+- Brief: [COMMIT-5c6cbed.md](../build_/COMMITS/COMMIT-5c6cbed.md)
+- Message: Add Activate as a derived registry-activation stage between Passport and Delegate
+
+## Commit `5f20157` — 2026-08-11T01:43:35Z
+- Type: `push`
+- Brief: [COMMIT-5f20157.md](../build_/COMMITS/COMMIT-5f20157.md)
+- Message: Re-home Ingest surface under Activate; remove Ingest consequence-fork prong
+
+## Commit `bf2a980` — 2026-08-11T02:38:35Z
+- Type: `push`
+- Brief: [COMMIT-bf2a980.md](../build_/COMMITS/COMMIT-bf2a980.md)
+- Message: Remove RegisterCeremonyReplay surface from Register stage UI
+
+## Commit `07c03f6` — 2026-08-10T23:04:53-04:00
+- Type: `push`
+- Brief: [COMMIT-07c03f6.md](../build_/COMMITS/COMMIT-07c03f6.md)
+- Message: Register Constitutional Internet canonical plate records in Polity Core
+
+## Commit `6070ce9` — 2026-08-10T23:09:04-04:00
+- Type: `push`
+- Brief: [COMMIT-6070ce9.md](../build_/COMMITS/COMMIT-6070ce9.md)
+- Message: Register Constitutional Bearing plates in Polity Core
+
+## Commit `937b6d8` — 2026-08-11T20:49:07Z
+- Type: `feat`
+- Brief: [COMMIT-937b6d8.md](../build_/COMMITS/COMMIT-937b6d8.md)
+- Message: add back button to threshold guides + wire groundContext to bridge copilots
+
+## Commit `7716251` — 2026-08-11T20:43:21Z
+- Type: `push`
+- Brief: [COMMIT-7716251.md](../build_/COMMITS/COMMIT-7716251.md)
+- Message: improve artifact URL copy affordance in upload modal + redirect Claude Code button to code interface
+
+## Commit `d737498` — 2026-08-11T20:41:43Z
+- Type: `feat`
+- Brief: [COMMIT-d737498.md](../build_/COMMITS/COMMIT-d737498.md)
+- Message: add artifact class (canonical/operational) toggle to qriptopian upload modal
+
+## Commit `b8e75f8` — 2026-08-11T20:51:03Z
+- Type: `feat`
+- Brief: [COMMIT-b8e75f8.md](../build_/COMMITS/COMMIT-b8e75f8.md)
+- Message: add back button to Horizen MoneyPenny journey in PilotJourneyTab
+
+## Commit `6e2a68b` — 2026-08-11T22:35:32Z
+- Type: `push`
+- Brief: [COMMIT-6e2a68b.md](../build_/COMMITS/COMMIT-6e2a68b.md)
+- Message: complete phase 1: remove artifact class selector, simplify to series picker
+
+## Commit `019eb69` — 2026-08-11T22:31:37Z
+- Type: `feat`
+- Brief: [COMMIT-019eb69.md](../build_/COMMITS/COMMIT-019eb69.md)
+- Message: data model fix: remove invalid asset kinds, add series_scope, extend series picker for canonical content
+
+## Commit `407b215` — 2026-08-11T22:53:09Z
+- Type: `fix`
+- Brief: [COMMIT-407b215.md](../build_/COMMITS/COMMIT-407b215.md)
+- Message: complete phases 4.3 & fix: passport gate modal + qripto accept pattern
+
+## Commit `ecbdd8b` — 2026-08-11T22:48:22Z
+- Type: `push`
+- Brief: [COMMIT-ecbdd8b.md](../build_/COMMITS/COMMIT-ecbdd8b.md)
+- Message: phase 4.1: consolidate choose ctAs into destination cards
+
+## Commit `581418d` — 2026-08-11T23:40:14Z
+- Type: `push`
+- Brief: [COMMIT-581418d.md](../build_/COMMITS/COMMIT-581418d.md)
+- Message: trigger deploy: CI Bridge final correction pass (passport gate + choose consolidation)
+
+## Commit `8b8f24f` — 2026-08-11T21:03:01-04:00
+- Type: `feat`
+- Brief: [COMMIT-8b8f24f.md](../build_/COMMITS/COMMIT-8b8f24f.md)
+- Message: canon: add machine-readable bounded-order invariant
+
+## Commit `dcb6ade` — 2026-08-12T02:07:12Z
+- Type: `chore`
+- Brief: [COMMIT-dcb6ade.md](../build_/COMMITS/COMMIT-dcb6ade.md)
+- Message: update copilot fallback message to explicit failure state
+
+## Commit `2b00476` — 2026-08-12T02:06:58Z
+- Type: `feat`
+- Brief: [COMMIT-2b00476.md](../build_/COMMITS/COMMIT-2b00476.md)
+- Message: add diagnostic logging for copilot empty response trace
+
+## Commit `94b3469` — 2026-08-12T13:04:29-04:00
+- Type: `docs`
+- Brief: [COMMIT-94b3469.md](../build_/COMMITS/COMMIT-94b3469.md)
+- Message: docs(irl): ground IDE v2 and Crystal vP2 in Lehigh risk research
+
+## Commit `be46bc6` — 2026-08-12T13:03:24-04:00
+- Type: `test`
+- Brief: [COMMIT-be46bc6.md](../build_/COMMITS/COMMIT-be46bc6.md)
+- Message: test(irl): cover IDE v2 risk-field primitives
+
+## Commit `a238834` — 2026-08-12T13:03:08-04:00
+- Type: `feat`
+- Brief: [COMMIT-a238834.md](../build_/COMMITS/COMMIT-a238834.md)
+- Message: feat(irl): add risk-field primitives for IDE v2
+
+## Commit `fe16064` — 2026-08-12T13:09:38-04:00
+- Type: `feat`
+- Brief: [COMMIT-fe16064.md](../build_/COMMITS/COMMIT-fe16064.md)
+- Message: feat(invariants): add consequence calibration primitives
+
+## Commit `c931c79` — 2026-08-12T19:10:10Z
+- Type: `push`
+- Brief: [COMMIT-c931c79.md](../build_/COMMITS/COMMIT-c931c79.md)
+- Message: trigger deploy: Delegate stage reconciliation
+
+## Commit `1c05d36` — 2026-08-12T19:39:35Z
+- Type: `refactor`
+- Brief: [COMMIT-1c05d36.md](../build_/COMMITS/COMMIT-1c05d36.md)
+- Message: record moneypenny dress rehearsal closure — all stages stable, ready to move to know1

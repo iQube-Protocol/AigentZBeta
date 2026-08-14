@@ -22,10 +22,11 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, Lock, Loader2, RefreshCw, ExternalLink, Construction, Maximize2, Minimize2, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
-import { personaFetch } from '@/utils/personaSpine';
+import { Check, Lock, Loader2, RefreshCw, ExternalLink, Construction, Maximize2, Minimize2, ChevronLeft, ChevronRight, ChevronDown, ArrowLeft } from 'lucide-react';
+import { personaFetch, usePersonaSpine } from '@/utils/personaSpine';
 import { buildCodexUrl } from '@/utils/codex-nav';
 import { JOURNEY_SURFACES, buildEmbedSurfaceSrc, type JourneySurfaceDescriptor } from '@/services/journey/journeySurfaceRegistry';
+import { requestBridgeEmbedReturn } from '@/services/journey/bridgeEmbedNav';
 import { StageReceiptsDrawer } from '@/components/journey/StageReceiptsDrawer';
 import type { JourneyDefinition, JourneyRuntimeState, JourneyStageDefinition, JourneySurfaceRef } from '@/types/journey';
 import { overlayZClass } from '@/components/ui/overlayLayers';
@@ -122,6 +123,12 @@ export interface JourneyRunSurfaceProps {
    * space runs short — this renders as a proper flex sibling instead.
    */
   headerExtra?: React.ReactNode;
+  /** Optional back button callback. When provided, renders a back button
+   * on the left side of the header (after branding) that triggers this
+   * callback. Used when opening an embedded cartridge so users can return
+   * to their previous position in the guide.
+   */
+  onBack?: () => void;
   /** Companion quick-links document.title signal while this stage view is mounted (services/companion/quickLinks.ts). */
   documentTitle?: string;
   /** Per-journey component registry, keyed by journeySurfaceRegistry component name — never shared across journeys. */
@@ -146,6 +153,19 @@ export interface JourneyRunSurfaceProps {
      * "not known yet", never as a negative finding.
      */
     runtimeState: JourneyRuntimeState | null;
+    /**
+     * CFS-055 state-coherence seam (2026-08-12) — the ONLY way a rendered
+     * surface may ask the observer to reread authoritative state after a
+     * consequential change it just witnessed (e.g. Passport Bureau
+     * discovering a usable Citizen Passport via wallet auth). Calling this
+     * re-runs the SAME `refresh()` this file already uses for its own
+     * mount/manual-refresh paths — never a second fetch mechanism, never a
+     * local stage-completion shortcut. A surface must not, and cannot
+     * through this seam, set any stage's evidence/completion itself: the
+     * flow is always request → `stateUrl` → resolveJourneyState → new
+     * `runtimeState` → every projection updates from that one read.
+     */
+    requestStateRefresh: () => void;
     /**
      * P&L evidence (Final Horizen Projection Reconciliation part 2/3,
      * 2026-08-09) — the SAME canonical-receipt-backed facts `runtimeState`
@@ -184,14 +204,15 @@ export interface JourneyRunSurfaceProps {
       }
     > | null;
     /**
-     * Register's seven-step ceremony, replayed read-only from canonical
-     * evidence (Pre-recording Horizen polish, part C, 2026-08-10) — same
-     * per-step shape as `ratifySubPredicates` above, plus `authority` may be
-     * `'inferred'` for the two steps with no receipt type
-     * (`principalWalletReady`, `mandatePrepared`). This is what
-     * RegisterCeremonyReplay must consume; never a second source of truth
-     * for whether Register is complete. Null while the first read is in
-     * flight.
+     * Register's seven-step ceremony projection, computed read-only from
+     * canonical evidence (Pre-recording Horizen polish, part C, 2026-08-10)
+     * — same per-step shape as `ratifySubPredicates` above, plus `authority`
+     * may be `'inferred'` for the two steps with no receipt type
+     * (`principalWalletReady`, `mandatePrepared`). Its former UI consumer
+     * (RegisterCeremonyReplay) was removed from the journey UI (2026-08-11);
+     * this projection and its thread-through are kept as-is — never a
+     * second source of truth for whether Register is complete. Null while
+     * the first read is in flight.
      */
     registerCeremony: Record<
       string,
@@ -255,6 +276,67 @@ export interface JourneyRunSurfaceProps {
    * byte-for-byte unless it opts in.
    */
   compact?: boolean;
+  /**
+   * Distinguish "Bridge navigation availability" from "constitutional
+   * evidence complete" in the spine's node styling (CI Bridge final
+   * interaction pass, 2026-08-11). Without this flag, every stage that
+   * isn't COMPLETE/current/BLOCKED renders in one identical plain-grey
+   * bucket — which reads as "locked" even for a stage that has no
+   * prerequisite at all and was always clickable (see
+   * services/journey/resolveJourneyState.ts's `priorStagesAllComplete`
+   * gate: once a gate-less narrative stage like CI Bridge's HOME passes
+   * without ever reaching COMPLETE — by design, it has no
+   * completionEvidence — every later gate-less stage falls into the same
+   * generic NOT_STARTED bucket as a stage that hasn't opened yet).
+   *
+   * Enabling this splits that bucket into its own "available" style (a
+   * lighter emerald outline — distinct from COMPLETE's solid emerald+check
+   * and from BLOCKED's Lock) for any stage that is not done/current/blocked.
+   * This is PURELY a presentation reclassification of the stage's already
+   * -resolved `JourneyStageState` (read at line ~790 below) — it changes
+   * zero data, reads zero new fields, and does not touch
+   * resolveJourneyState.ts / types/journey.ts / any JourneyDefinition.
+   * Navigation itself (`selectStage`) was already unconditional before this
+   * flag existed and remains so: this never gates a click, only its icon.
+   *
+   * Defaults to false: every existing caller (Horizen, Validation
+   * Programme, KNYTS Bridge) renders byte-for-byte as before unless it
+   * opts in.
+   */
+  distinguishAvailableStages?: boolean;
+  /**
+   * Journey-specific override for WHICH available stages (not done, not
+   * current, not blocked) actually get the emerald "available now"
+   * treatment when `distinguishAvailableStages` is on (CI Bridge correction
+   * pass, 2026-08-12). Without this, every available stage paints emerald
+   * uniformly — which is correct for a spine with no post-threshold field,
+   * but wrong for CI: Personify/Stand/Choose are merely NAVIGABLE before
+   * Passport is claimed, and painting them emerald reads as "constitutionally
+   * established" when they are not. Returns true for a stage id to keep the
+   * emerald treatment; false to fall back to the plain grey numbered-step
+   * look (same as pre-`distinguishAvailableStages` default). Undefined
+   * (every other caller) preserves the existing behavior — every available
+   * stage is emerald — byte-for-byte. This is presentation only: it never
+   * gates `selectStage`, only the icon/label color.
+   */
+  emphasizeAvailableStage?: (stageId: string) => boolean;
+  /**
+   * Read-only state projection seam (CFS-055 coherence pass, 2026-08-12) —
+   * fired with the freshly-resolved `runtimeState` every time a `refresh()`
+   * (initial load, manual refresh, persona-spine-transition reread, or a
+   * surface's own `requestStateRefresh()`) completes successfully. Lets a
+   * caller derive a single page-level presentation/gating value from the
+   * WHOLE resolved state, regardless of which stage happens to be active —
+   * the fix for deriving it only while one particular stage's surface was
+   * mounted (brittle: state coherence then depended on which surface
+   * happened to be on screen). Never fired with `null` — a caller that
+   * needs the loading/not-yet-known case should track that separately, the
+   * same way `runtimeState === null` already means "not known yet" inside
+   * this file. Read-only: this callback cannot feed anything back into the
+   * observer — it is fed FROM it, one-way, same as `resolveSurfaceProps`'s
+   * own `runtimeState` argument.
+   */
+  onRuntimeStateChange?: (state: JourneyRuntimeState) => void;
 }
 
 const DEFAULT_ACCENT = {
@@ -269,6 +351,7 @@ export function JourneyRunSurface({
   personaId,
   headerLabel,
   headerExtra,
+  onBack,
   documentTitle,
   components,
   resolveSurfaceProps,
@@ -276,6 +359,9 @@ export function JourneyRunSurface({
   receiptsSubjectAgentRef,
   accent = DEFAULT_ACCENT,
   compact = false,
+  distinguishAvailableStages = false,
+  emphasizeAvailableStage,
+  onRuntimeStateChange,
 }: JourneyRunSurfaceProps) {
   const [runtimeState, setRuntimeState] = useState<JourneyRuntimeState | null>(null);
   /**
@@ -335,6 +421,13 @@ export function JourneyRunSurface({
   const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
   const [fullScreen, setFullScreen] = useState(false);
   const [expandedEmbedIndices, setExpandedEmbedIndices] = useState<Set<number>>(new Set());
+  /** Direct references to embed iframes, keyed by their render index — the
+   *  "← Back to Quests" toolbar posts a bridgeEmbedNav return command into
+   *  the SPECIFIC frame it addresses (never a broadcast, unlike wallet
+   *  surface requests, since resetting an unrelated embed's tab would be
+   *  wrong). Not state — a ref because the element itself, not a re-render
+   *  trigger, is what the toolbar's onClick needs. */
+  const embedFrameRefs = useRef<Record<number, HTMLIFrameElement | null>>({});
 
   const toggleEmbedExpansion = (index: number) => {
     setExpandedEmbedIndices(prev => {
@@ -446,6 +539,55 @@ export function JourneyRunSurface({
     void refresh();
   }, [refresh]);
 
+  /**
+   * CFS-055 coherence pass (2026-08-12) — "Observer observes → POSIT
+   * resolves → projection represents." A surface may WITNESS a
+   * consequential state change (Passport Bureau discovering a usable
+   * Citizen Passport via wallet auth) but must never become a competing
+   * constitutional state engine — it can only ask the observer to reread.
+   * `requestStateRefresh` (threaded into `resolveSurfaceProps` below) is
+   * that ask; this callback is the read-only side, firing with the
+   * freshly-resolved state after every successful refresh so a caller can
+   * derive one page-level value from the WHOLE state rather than only
+   * while one particular stage's surface happens to be mounted. Never
+   * fired with `null` — `runtimeState` starts null only during the very
+   * first load, before this effect has anything to report.
+   */
+  useEffect(() => {
+    if (runtimeState) onRuntimeStateChange?.(runtimeState);
+  }, [runtimeState, onRuntimeStateChange]);
+
+  /**
+   * Persona Spine transition → authoritative reread (CFS-055 coherence
+   * pass, 2026-08-12). Consumes the EXISTING Persona Spine singleton
+   * (utils/personaSpine.tsx) — never a second Supabase auth observer.
+   * `usePersonaSpine()` is safe to call again here: the module is a
+   * dedicated single-flight store, so this join costs no extra request
+   * beyond whatever the rest of the tree already triggered.
+   *
+   * Only the UNAUTHENTICATED <-> READY/REFRESHING boundary reruns the
+   * journey read — transiting through 'loading'/'idle'/'error' on its own
+   * triggers nothing, and the very first observation (ref still null) is
+   * the initial mount, not a transition, so it must not double the
+   * mount-time refresh() above.
+   */
+  const { status: personaSpineStatus } = usePersonaSpine();
+  const previousPersonaSpineStatusRef = useRef<string | null>(null);
+  useEffect(() => {
+    const previous = previousPersonaSpineStatusRef.current;
+    if (previous !== null) {
+      const isAuthenticated = (s: string) => s === 'ready' || s === 'refreshing';
+      const cameFromUnauthenticated = previous === 'unauthenticated';
+      const cameFromAuthenticated = isAuthenticated(previous);
+      const nowAuthenticated = isAuthenticated(personaSpineStatus);
+      const nowUnauthenticated = personaSpineStatus === 'unauthenticated';
+      if ((cameFromUnauthenticated && nowAuthenticated) || (cameFromAuthenticated && nowUnauthenticated)) {
+        void refresh();
+      }
+    }
+    previousPersonaSpineStatusRef.current = personaSpineStatus;
+  }, [personaSpineStatus, refresh]);
+
   // Companion synchronization (PRD-GJR-001 §11.5): one journey state, multiple
   // authorized renderers. Location and context only — this never completes a
   // stage (§11.7 temporary invariant).
@@ -538,11 +680,17 @@ export function JourneyRunSurface({
    */
   const spineStages = journey.stages.filter((s) => !s.forkPosition);
   const forkStages = journey.stages.filter((s) => s.forkPosition);
-  const FORK_ROWS: Array<{ position: 'upper' | 'middle' | 'lower' }> = [
-    { position: 'upper' },
-    { position: 'middle' },
-    { position: 'lower' },
-  ];
+  /*
+   * Activate Consolidation (2026-08-11) — 'middle' dropped from the
+   * RENDERED rows. A stage may still carry `forkPosition: 'middle'` in its
+   * data (the legacy `deploy`/Ingest stage does, for `spineStages`
+   * exclusion + historical evidence linkage — see its own header comment
+   * in horizenMoneyPennyJourney.ts) without ever drawing a visible trident
+   * prong: `forkStages.find(s => s.forkPosition === position)` below only
+   * ever looks up 'upper'/'lower', so a 'middle' stage is structurally
+   * unreachable by this render regardless of what the data says.
+   */
+  const FORK_ROWS: Array<{ position: 'upper' | 'lower' }> = [{ position: 'upper' }, { position: 'lower' }];
 
   /** Shared between the default one-row header and the `compact` one-row
    *  variant (KNYTS Bridge reconstitution, 2026-08-09) — same status slides,
@@ -675,6 +823,19 @@ export function JourneyRunSurface({
             <img src="/metaMe/metaMe/metame-32.png" alt="" className="h-4 w-4 shrink-0" />
             {headerLabel}
           </div>
+          {onBack && (
+            <>
+              <span className="shrink-0 text-slate-600">·</span>
+              <button
+                type="button"
+                onClick={onBack}
+                className="shrink-0 rounded p-1 text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 transition"
+                title="Back to previous stage"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+              </button>
+            </>
+          )}
           <span className="shrink-0 text-slate-600">·</span>
           <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
             <span className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-semibold ${accent.chip}`}>{activeIdx + 1}</span>
@@ -704,6 +865,19 @@ export function JourneyRunSurface({
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/metaMe/metaMe/metame-32.png" alt="" className="h-4 w-4 shrink-0" />
             {headerLabel}
+            {onBack && (
+              <>
+                <span className="shrink-0 text-slate-600">·</span>
+                <button
+                  type="button"
+                  onClick={onBack}
+                  className="shrink-0 rounded p-1 text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 transition"
+                  title="Back to previous stage"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                </button>
+              </>
+            )}
             <span className="shrink-0 text-slate-600">·</span>
             <span className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-semibold ${accent.chip}`}>{activeIdx + 1}</span>
             <span className="shrink-0 text-xs font-medium text-slate-100">{activeStage.label}</span>
@@ -786,6 +960,16 @@ export function JourneyRunSurface({
             const isDone = stageState === 'COMPLETE';
             const isCurrent = stage.id === activeStageId;
             const isBlocked = stageState === 'BLOCKED';
+            // "Available" — not done/current/blocked. Only given its own
+            // distinct look when the caller opts in via
+            // distinguishAvailableStages; otherwise it stays folded into the
+            // same plain-grey bucket every caller has always rendered.
+            const isAvailable =
+              distinguishAvailableStages &&
+              !isDone &&
+              !isCurrent &&
+              !isBlocked &&
+              (emphasizeAvailableStage ? emphasizeAvailableStage(stage.id) : true);
             const prevDone =
               i === 0 ||
               (runtimeState?.stages.find((s) => s.stageId === spineStages[i - 1].id)?.state ?? 'NOT_STARTED') ===
@@ -799,7 +983,7 @@ export function JourneyRunSurface({
                   data-stage-id={stage.id}
                   onClick={() => selectStage(stage.id)}
                   className="flex shrink-0 items-center gap-1.5 px-1"
-                  title={isBlocked ? 'Blocked — prerequisites not yet met' : stage.description}
+                  title={isBlocked ? 'Blocked — prerequisites not yet met' : isAvailable ? `${stage.description} (available now)` : stage.description}
                 >
                   <span
                     className={`flex h-5 w-5 items-center justify-center rounded-full border text-[10px] ${
@@ -809,7 +993,9 @@ export function JourneyRunSurface({
                           ? accent.node
                           : isBlocked
                             ? 'border-slate-700 text-slate-600'
-                            : 'border-slate-600 text-slate-400'
+                            : isAvailable
+                              ? 'border-emerald-500/40 bg-emerald-500/5 text-emerald-400/80'
+                              : 'border-slate-600 text-slate-400'
                     }`}
                   >
                     {isBlocked && !isDone ? (
@@ -824,7 +1010,13 @@ export function JourneyRunSurface({
                   </span>
                   <span
                     className={`whitespace-nowrap text-[11px] ${
-                      isCurrent ? `font-semibold ${accent.label}` : isDone ? 'text-emerald-300/80' : 'text-slate-400'
+                      isCurrent
+                        ? `font-semibold ${accent.label}`
+                        : isDone
+                          ? 'text-emerald-300/80'
+                          : isAvailable
+                            ? 'text-emerald-400/70'
+                            : 'text-slate-400'
                     }`}
                   >
                     {stage.label}
@@ -854,10 +1046,27 @@ export function JourneyRunSurface({
             const lastSpineDone =
               (runtimeState?.stages.find((s) => s.stageId === spineStages[spineStages.length - 1]?.id)?.state ??
                 'NOT_STARTED') === 'COMPLETE';
-            // Row 0 = Ratify (top), row 1 = Ingest (middle, box center), row
-            // 2 = Stand (bottom) — fixed pixel geometry for a 72px-tall box.
-            const ROW_TOP = ['top-0', 'top-6', 'top-12'];
-            const TICK_Y = ['top-3', 'top-1/2 -translate-y-1/2', 'bottom-3'];
+            /*
+             * Keyed by POSITION NAME, not array index (Activate
+             * Consolidation, 2026-08-11 — the old 3-row Ratify/Ingest/Stand
+             * geometry indexed these arrays by `rowIndex`, which silently
+             * mis-positioned rows once FORK_ROWS shrank to two entries).
+             * Ratify (upper) sits at the box's top; Stand (lower) at its
+             * bottom — the SAME 72px-tall box, now spanning both ends
+             * cleanly instead of clustering near the top. 'middle' stays
+             * defined (unused today) so a future journey that legitimately
+             * needs a third rendered prong is not blocked by this type.
+             */
+            const ROW_TOP: Record<'upper' | 'middle' | 'lower', string> = {
+              upper: 'top-0',
+              middle: 'top-6',
+              lower: 'top-12',
+            };
+            const TICK_Y: Record<'upper' | 'middle' | 'lower', string> = {
+              upper: 'top-3',
+              middle: 'top-1/2 -translate-y-1/2',
+              lower: 'bottom-3',
+            };
             return (
               <React.Fragment key="consequence-fork">
                 {/* The SAME shared flexible connector as every ordinary spine
@@ -879,7 +1088,7 @@ export function JourneyRunSurface({
                   <div className="absolute bottom-3 left-0 top-3 w-px bg-slate-700" />
                   {/* The junction — ONE point, immediately after Operate. */}
                   <div className="absolute left-0 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-slate-600" />
-                  {FORK_ROWS.map(({ position }, rowIndex) => {
+                  {FORK_ROWS.map(({ position }) => {
                   const stage = forkStages.find((s) => s.forkPosition === position);
                   if (!stage) return null;
                   const stageState = runtimeState?.stages.find((s) => s.stageId === stage.id)?.state ?? 'NOT_STARTED';
@@ -894,9 +1103,9 @@ export function JourneyRunSurface({
                     <React.Fragment key={stage.id}>
                       {/* Short tick from the trunk to this row's own node —
                           independently coloured by THIS prong's state. */}
-                      <div className={`absolute left-0 ${TICK_Y[rowIndex]} h-px w-2 ${tickDone ? 'bg-emerald-500/50' : 'bg-slate-700'}`} />
+                      <div className={`absolute left-0 ${TICK_Y[position]} h-px w-2 ${tickDone ? 'bg-emerald-500/50' : 'bg-slate-700'}`} />
                       <div
-                        className={`absolute left-2 ${ROW_TOP[rowIndex]} flex h-6 items-center gap-1.5 whitespace-nowrap`}
+                        className={`absolute left-2 ${ROW_TOP[position]} flex h-6 items-center gap-1.5 whitespace-nowrap`}
                         data-fork-position={position}
                       >
                         <button
@@ -992,17 +1201,37 @@ export function JourneyRunSurface({
               );
               return (
                 <div key={i} className="flex flex-col gap-1.5">
-                  {descriptor.focused && (
-                    <div className="flex justify-end">
-                      <button
-                        onClick={() => toggleEmbedExpansion(i)}
-                        className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-slate-200 bg-none border-none cursor-pointer p-0"
-                      >
-                        {isExpanded ? 'Focus view' : (descriptor.openLabel ?? 'Open full view ↗')}
-                      </button>
+                  {(descriptor.rootTab || descriptor.focused) && (
+                    <div className="flex items-center justify-between gap-2">
+                      {descriptor.rootTab && (
+                        <button
+                          onClick={() =>
+                            requestBridgeEmbedReturn(
+                              embedFrameRefs.current[i]?.contentWindow,
+                              descriptor.codexSlug,
+                              descriptor.rootTab!,
+                            )
+                          }
+                          className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-slate-200 bg-none border-none cursor-pointer p-0"
+                        >
+                          <ArrowLeft className="h-3 w-3" />
+                          {descriptor.returnLabel ?? 'Back'}
+                        </button>
+                      )}
+                      {descriptor.focused && (
+                        <button
+                          onClick={() => toggleEmbedExpansion(i)}
+                          className="ml-auto inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-slate-200 bg-none border-none cursor-pointer p-0"
+                        >
+                          {isExpanded ? 'Focus view' : (descriptor.openLabel ?? 'Open full view ↗')}
+                        </button>
+                      )}
                     </div>
                   )}
                   <iframe
+                    ref={(el) => {
+                      embedFrameRefs.current[i] = el;
+                    }}
                     src={src}
                     title={surfaceRef.ref}
                     className={`w-full rounded-md border border-slate-800 bg-slate-950 ${
@@ -1056,7 +1285,16 @@ export function JourneyRunSurface({
                 );
               }
               const extraProps =
-                resolveSurfaceProps?.({ surfaceRef, descriptor, stage: activeStage, runtimeState, pnlEvidence, ratifySubPredicates, registerCeremony }) ?? {};
+                resolveSurfaceProps?.({
+                  surfaceRef,
+                  descriptor,
+                  stage: activeStage,
+                  runtimeState,
+                  pnlEvidence,
+                  ratifySubPredicates,
+                  registerCeremony,
+                  requestStateRefresh: () => void refresh(),
+                }) ?? {};
               return (
                 /*
                  * Keyed by the SURFACE, not by array position.

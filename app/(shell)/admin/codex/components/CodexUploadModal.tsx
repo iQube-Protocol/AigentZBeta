@@ -6,7 +6,9 @@ import {
   AlertCircle,
   Award,
   BookOpen,
+  Check,
   CheckCircle,
+  Copy,
   FileText,
   Gamepad2,
   Image,
@@ -68,6 +70,8 @@ interface UploadItem {
   seriesMode?: 'standalone' | 'part-of-series';
   partNumber?: number;
   partTotal?: number;
+  // Series scope for canonical assets (e.g. canonical/constitutional-internet)
+  seriesScope?: string;
 }
 
 type Props = {
@@ -88,14 +92,16 @@ const EPISODES: { number: number | null; title: string }[] = [
 ];
 
 // ── Qriptopian series dropdown ───────────────────────────────────────────────
-// Qriptopian content is organised by series rather than episodes. Two groups:
+// Qriptopian content is organised by series rather than episodes. Three groups:
 //   - Papers: long-form thesis pieces grouped by series (Protocols, The
 //     Polity, COYN Thesis, Experience Sovereignty, The Polity and the
 //     Plutocracy).
 //   - Magazines: numbered issues of The Qriptopian (#0, #1, ...).
-// Series scope flows into Supabase storage paths as `papers-<sub>` or
-// `magazines-<issue>` (see /api/admin/codex/storage/sign).
-const QRIPTO_SERIES: { value: string; label: string; group: 'papers' | 'magazines' }[] = [
+//   - Canonical: platform reference material (Constitutional Internet plates, etc.)
+//     with series_scope = "canonical/constitutional-internet" or similar.
+// Series scope flows into Supabase storage paths and series_scope column.
+type QriptoPapersMagazinesGroup = 'papers' | 'magazines' | 'canonical';
+const QRIPTO_SERIES: { value: string; label: string; group: QriptoPapersMagazinesGroup; seriesScope?: string }[] = [
   { value: 'papers/protocols',                  label: 'Papers · Protocols',                       group: 'papers' },
   { value: 'papers/polity',                     label: 'Papers · The Polity',                      group: 'papers' },
   { value: 'papers/coyn-thesis',                label: 'Papers · COYN Thesis',                     group: 'papers' },
@@ -105,12 +111,16 @@ const QRIPTO_SERIES: { value: string; label: string; group: 'papers' | 'magazine
   { value: 'magazines/1',                       label: 'Magazines · #1',                           group: 'magazines' },
   { value: 'magazines/2',                       label: 'Magazines · #2',                           group: 'magazines' },
   { value: 'magazines/3',                       label: 'Magazines · #3',                           group: 'magazines' },
+  { value: 'canonical/constitutional-internet', label: 'Canonical · Constitutional Internet',      group: 'canonical', seriesScope: 'canonical/constitutional-internet' },
 ];
 
 // ── Qriptopian content type categories ───────────────────────────────────────
 // Replaces the KNYT ASSET_CATEGORIES for the qriptopian tab. White-papers
 // are scoped to the Papers series; the rest are valid for both Papers and
-// Magazines.
+// Magazines. Canonical assets (e.g. Constitutional Internet Bridge plates)
+// are organized via the series picker and use the same content types
+// (Image/Infographic) as operational content.
+
 type QriptoCategoryId = 'cover' | 'white-paper' | 'article' | 'video' | 'audio' | 'image' | 'infographic';
 const QRIPTO_CATEGORIES: {
   id: QriptoCategoryId;
@@ -127,6 +137,8 @@ const QRIPTO_CATEGORIES: {
   { id: 'image',       label: 'Images',        icon: Image,    description: 'Editorial photography, illustrations, covers',    accept: '.png,.jpg,.jpeg,.webp,.gif' },
   { id: 'infographic', label: 'Infographics',  icon: Image,    description: 'Diagrams + visual explainers (SVG / PNG / PDF)',  accept: '.svg,.png,.jpg,.pdf' },
 ];
+
+const QRIPTO_ACCEPT_ALL = '.jpg,.jpeg,.png,.webp,.gif,.pdf,.md,.docx,.txt,.mp4,.webm,.mov,.mp3,.wav,.m4a,.ogg,.svg';
 
 const ASSET_CATEGORIES: {
   id: UploadCategory;
@@ -272,6 +284,8 @@ interface QueueItemProps {
 }
 
 function UploadQueueItem({ item, category, onUpdate, onRemove }: QueueItemProps) {
+  const [copiedField, setCopiedField] = useState<'url' | 'id' | null>(null);
+
   const isQripto = item.cartridge === 'qriptopian';
   const isCover = item.category === 'cover';
   const isMaster = item.category === 'master' || item.category === 'still';
@@ -448,37 +462,73 @@ function UploadQueueItem({ item, category, onUpdate, onRemove }: QueueItemProps)
             // proxy gets the legacy CID form for Autonomys assets.
             const isHttpUrl = item.result.cid.startsWith('http://') || item.result.cid.startsWith('https://');
             const previewHref = isHttpUrl ? item.result.cid : `/api/content/cover/${item.result.cid}`;
+            const handleCopyUrl = () => {
+              navigator.clipboard.writeText(item.result!.cid);
+              setCopiedField('url');
+              setTimeout(() => setCopiedField(null), 2000);
+            };
+            const handleCopyId = () => {
+              navigator.clipboard.writeText(item.result!.id);
+              setCopiedField('id');
+              setTimeout(() => setCopiedField(null), 2000);
+            };
             return (
-            <div className="mt-1.5 space-y-1">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-[10px] text-gray-500 shrink-0">{isHttpUrl ? 'URL:' : 'CID:'}</span>
-                <a
-                  href={previewHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="truncate font-mono text-[10px] text-cyan-400 hover:text-cyan-300 underline underline-offset-2 max-w-[180px]"
-                  title={item.result.cid}
-                >
-                  {item.result.cid}
-                </a>
-                <button
-                  type="button"
-                  onClick={() => navigator.clipboard.writeText(item.result!.cid)}
-                  className="text-[9px] rounded border border-gray-600 bg-gray-700 px-1 py-0.5 text-gray-400 hover:text-white transition-colors shrink-0"
-                >
-                  copy
-                </button>
+            <div className="mt-1.5 space-y-2">
+              <div className="space-y-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-medium text-gray-400">{isHttpUrl ? 'URL' : 'CID'}</span>
+                </div>
+                <div className="flex items-center gap-2 rounded-md bg-slate-950/50 p-2">
+                  <code className="flex-1 truncate font-mono text-[10px] text-cyan-400" title={item.result.cid}>
+                    {item.result.cid}
+                  </code>
+                  <button
+                    type="button"
+                    onClick={handleCopyUrl}
+                    className="shrink-0 rounded px-2 py-1 text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-colors flex items-center gap-1"
+                    title="Copy URL/CID"
+                  >
+                    {copiedField === 'url' ? (
+                      <>
+                        <Check className="h-3 w-3" />
+                        <span className="text-[9px]">Copied</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-3 w-3" />
+                        <span className="text-[9px]">Copy</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] text-gray-500 shrink-0">ID:</span>
-                <span className="font-mono text-[10px] text-green-400">{item.result.id}</span>
-                <button
-                  type="button"
-                  onClick={() => navigator.clipboard.writeText(item.result!.id)}
-                  className="text-[9px] rounded border border-gray-600 bg-gray-700 px-1 py-0.5 text-gray-400 hover:text-white transition-colors shrink-0"
-                >
-                  copy
-                </button>
+              <div className="space-y-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-medium text-gray-400">ID</span>
+                </div>
+                <div className="flex items-center gap-2 rounded-md bg-slate-950/50 p-2">
+                  <code className="flex-1 truncate font-mono text-[10px] text-green-400" title={item.result.id}>
+                    {item.result.id}
+                  </code>
+                  <button
+                    type="button"
+                    onClick={handleCopyId}
+                    className="shrink-0 rounded px-2 py-1 text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-colors flex items-center gap-1"
+                    title="Copy ID"
+                  >
+                    {copiedField === 'id' ? (
+                      <>
+                        <Check className="h-3 w-3" />
+                        <span className="text-[9px]">Copied</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-3 w-3" />
+                        <span className="text-[9px]">Copy</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
               <a
                 href={previewHref}
@@ -585,6 +635,7 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = Array.from(e.target.files ?? []);
       if (files.length === 0) return;
+
       // Non-cover categories ride 'lore' as the catch-all bucket so storage
       // routing stays uniform. Covers go through the dedicated 'cover'
       // bucket so the register route writes cover_thumb_url and the asset
@@ -598,6 +649,10 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
         'infographic': 'social_campaign_image',
       };
       const isCover = selectedQriptoCategory === 'cover';
+      // Read seriesScope from the selected series item (present for canonical,
+      // optional for papers/magazines).
+      const selectedSeriesItem = QRIPTO_SERIES.find((s) => s.value === selectedQriptoSeries);
+      const seriesScope = selectedSeriesItem?.seriesScope;
       const newItems: UploadItem[] = files.map((file, idx) => ({
         id: `${Date.now()}-q-${idx}`,
         file,
@@ -616,11 +671,12 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
         displayMode: 'pdf' as DisplayMode,
         cartridge: 'qriptopian' as const,
         seriesMode: 'standalone' as const,
+        seriesScope,
       }));
       setUploadQueue((prev) => [...prev, ...newItems]);
       if (qriptoFileInputRef.current) qriptoFileInputRef.current.value = '';
     },
-    [selectedQriptoCategory],
+    [selectedQriptoCategory, selectedQriptoSeries],
   );
 
   const updateItem = useCallback((id: string, updates: Partial<UploadItem>) => {
@@ -983,10 +1039,10 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
               )}
             </div>
           ) : (
-            // ── Qriptopian tab — Series + Content Type pickers ──────────
+            // ── Qriptopian tab — Series + Content Type pickers ─────────────────────
             <div className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                {/* Series — Papers (sub-series) + Magazines (issues) */}
+                {/* Series — Papers (sub-series), Magazines (issues), Canonical (stack-wide reference) */}
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-300">Series</label>
                   <select
@@ -1001,6 +1057,11 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
                     </optgroup>
                     <optgroup label="Magazines">
                       {QRIPTO_SERIES.filter((s) => s.group === 'magazines').map((s) => (
+                        <option key={s.value} value={s.value}>{s.label}</option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="Canonical">
+                      {QRIPTO_SERIES.filter((s) => s.group === 'canonical').map((s) => (
                         <option key={s.value} value={s.value}>{s.label}</option>
                       ))}
                     </optgroup>
@@ -1037,12 +1098,12 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
               >
                 <Upload className="mb-2 h-8 w-8 text-gray-400" />
                 <p className="text-sm text-white">Click to select files or drag and drop</p>
-                <p className="mt-1 text-xs text-gray-500">Accepted: {currentQriptoCategory.accept}</p>
+                <p className="mt-1 text-xs text-gray-500">Accepted: images, PDFs, videos, audio, documents</p>
                 <input
                   ref={qriptoFileInputRef}
                   type="file"
                   multiple
-                  accept={currentQriptoCategory.accept}
+                  accept={QRIPTO_ACCEPT_ALL}
                   onChange={handleQriptoFileSelect}
                   className="hidden"
                 />

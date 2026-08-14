@@ -68,7 +68,14 @@ describe('Orient sits between Claim and Passport on the admission spine', () => 
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-describe('the Consequence Fork — Ratify upper, Ingest middle, Standing lower', () => {
+/*
+ * RENAMED from "Ratify upper, Ingest middle, Standing lower" (Activate
+ * Consolidation, 2026-08-11) — the fork is now Ratify + Stand only. `deploy`
+ * keeps its `forkPosition: 'middle'` DATA (structural — see its own header
+ * comment in horizenMoneyPennyJourney.ts) but renders no visible prong;
+ * `JourneyRunSurface`'s `FORK_ROWS` no longer includes a 'middle' row.
+ */
+describe('the Consequence Fork — Ratify upper, Stand lower (Ingest/deploy renders no prong)', () => {
   it('assigns exactly one stage to each fork position', () => {
     expect(byId('verify').forkPosition).toBe('upper');
     expect(byId('deploy').forkPosition).toBe('middle');
@@ -80,7 +87,9 @@ describe('the Consequence Fork — Ratify upper, Ingest middle, Standing lower',
     // 2026-08-03) — not a dependency Orient/the fork introduced. Ratify and
     // Deploy must not depend on each other or on Standing.
     expect(byId('verify').prerequisites).toEqual(['aigentme']);
-    expect(byId('deploy').prerequisites).toEqual(['aigentme']);
+    // Was ['aigentme'] — Activate Consolidation (2026-08-11) dropped the
+    // Operate prerequisite; `deploy` is legacy/internal, unsequenced.
+    expect(byId('deploy').prerequisites).toEqual([]);
     expect(byId('standing').prerequisites).toEqual(['deploy']);
     expect(byId('verify').prerequisites).not.toContain('deploy');
     expect(byId('verify').prerequisites).not.toContain('standing');
@@ -191,7 +200,7 @@ describe('JourneyRunSurface renders the fork as one trident after the spine, nev
     expect(section).toMatch(/bg-emerald-500\/50.*bg-slate-700|bg-slate-700.*bg-emerald-500\/50/s);
   });
 
-  it('walks fork rows in upper, middle, lower order — Ratify, Ingest, Standing', () => {
+  it('walks fork rows in upper, lower order — Ratify, Stand (Ingest/middle dropped, 2026-08-11)', () => {
     const rowsMatch = source.match(/const FORK_ROWS[\s\S]*?\];/);
     expect(rowsMatch).not.toBeNull();
     // Matches only the array's object-literal entries (`{ position: 'x' },`) —
@@ -199,7 +208,7 @@ describe('JourneyRunSurface renders the fork as one trident after the spine, nev
     // type annotation on the same declaration, which would otherwise add a
     // spurious leading 'upper'.
     const order = Array.from(rowsMatch![0].matchAll(/\{ position: '([a-z]+)' \}/g)).map((m) => m[1]);
-    expect(order).toEqual(['upper', 'middle', 'lower']);
+    expect(order).toEqual(['upper', 'lower']);
   });
 
   it('each fork row is keyed and driven by its OWN stage — no shared/collapsed state', () => {

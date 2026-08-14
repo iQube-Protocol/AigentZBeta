@@ -63,3 +63,24 @@ export function wizardSteps(passportClass: PassportClass): StepId[] {
     ? ['class', 'agent', 'consents', 'submit']
     : ['class', 'account', 'identity', 'vault', 'consents', 'submit'];
 }
+
+/**
+ * The canonical, in-Bureau-flow signal that a Citizen Passport has just
+ * become USABLE — never merely submitted (CFS-055 coherence pass,
+ * 2026-08-13). `application_status` (this list) and `citizen_status` (the
+ * separate `polity_passport_records` row `isPassportUsable` reads) are
+ * distinct fields, but `services/passport/issuanceService.ts` issues a
+ * citizen record with `citizen_status: 'active'` at the exact moment a
+ * steward's decision sets `application_status: 'approved'` — so 'approved'
+ * on a citizen-class application IS the positive confirmation, not a proxy
+ * for it. 'submitted' / 'pending_approval' / 'needs_more_information' /
+ * 'denied' must never trigger this — only 'approved' does.
+ */
+export interface CitizenApplicationStatusSnapshot {
+  passportClass: string;
+  applicationStatus: string;
+}
+
+export function hasApprovedCitizenApplication(applications: CitizenApplicationStatusSnapshot[]): boolean {
+  return applications.some((a) => a.passportClass === 'citizen' && a.applicationStatus === 'approved');
+}

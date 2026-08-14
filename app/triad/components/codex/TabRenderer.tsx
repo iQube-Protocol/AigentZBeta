@@ -199,6 +199,16 @@ interface TabRendererProps {
    * ignores the extra prop harmlessly. Undefined for every non-Journey mount.
    */
   agentSlug?: string;
+  /**
+   * Focused navigation depth — controls navigation tier visibility when in
+   * focused mode. Forwarded to tab components that need depth-aware behavior
+   * (e.g., dynamic depth resolution for Passport progressive cases).
+   *
+   * Depths: 0 = content only, 1 = content + parent nav, 2+ = extended tiers.
+   * Most tabs ignore this prop harmlessly; only components with depth-aware
+   * behavior (Passport, dynamic surfaces) consume it.
+   */
+  focusedNavDepth?: number;
 }
 
 // Component registry for static tabs
@@ -386,7 +396,7 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   TutorialsTab: PlaceholderTab,
 };
 
-export function TabRenderer({ tab, codexId, theme, density, personaId, isAdmin, isPartner, isInvestor, partnerId, issueSlug, previewDevice, shell, agentSlug }: TabRendererProps) {
+export function TabRenderer({ tab, codexId, theme, density, personaId, isAdmin, isPartner, isInvestor, partnerId, issueSlug, previewDevice, shell, agentSlug, focusedNavDepth }: TabRendererProps) {
   // Handle static tabs
   if (tab.type === 'static') {
     const componentName = tab.config.component;
@@ -427,6 +437,7 @@ export function TabRenderer({ tab, codexId, theme, density, personaId, isAdmin, 
         codexId={codexId}
         shell={shell}
         agentSlug={agentSlug}
+        focusedNavDepth={focusedNavDepth}
         {...tab.config.props}
       />
     );
@@ -461,6 +472,7 @@ export function TabRenderer({ tab, codexId, theme, density, personaId, isAdmin, 
           issueSlug={issueSlug}
           forcedDevice={previewDevice}
           dataSource={dataSource}
+          focusedNavDepth={focusedNavDepth}
           {...tab.config.props}
         />
       );

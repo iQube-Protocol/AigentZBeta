@@ -12,6 +12,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCodexConfig, getEnabledTabs } from "@/app/hooks/useCodexConfig";
 import { useCartridgePresence } from "@/app/hooks/useCartridgePresence";
 import { CodexTab, TabGroup } from "@/types/codex";
+import { resolveCodexChromeVisibility } from "@/utils/codexChromeDepth";
 import type { DeviceType } from "@/app/types/knytLiquidUI";
 import { Loader2, AlertCircle, X, Coins, Zap, Sun, Moon, UserCircle2, ArrowRightLeft } from "lucide-react";
 import dynamic from "next/dynamic";
@@ -21,6 +22,7 @@ import {
   type WalletSurfaceRequest,
 } from "@/services/wallet/walletSurfaceRequest";
 import { WalletSurfaceHostProvider } from "@/services/wallet/walletSurfaceHost";
+import { subscribeBridgeEmbedReturn } from "@/services/journey/bridgeEmbedNav";
 const CodexCopilotLayer = dynamic(
   () => import("@/app/components/codex/CodexCopilotLayer").then(m => ({ default: m.CodexCopilotLayer })),
   { ssr: false }
@@ -117,6 +119,28 @@ interface CodexPanelDynamicProps {
    * isn't reached via a Journey iframe with `?agentSlug=`.
    */
   agentSlug?: string;
+  /**
+   * Focused navigation depth — controls how many navigation tiers above the
+   * content surface are revealed when in focused mode (suppressPrimaryChrome).
+   *
+   * Depths define how much cartridge chrome and domain navigation to expose:
+   *   0 — content surface only (no cartridge nav, no domain nav)
+   *   1 — content + immediate parent/domain nav (e.g., Store tabs, metaMe views)
+   *   2+ — content + multiple nav tiers (uncommon; future extensible)
+   *
+   * Only meaningful when suppressPrimaryChrome is true or when the focused
+   * surface needs depth-aware navigation control. Omitted or undefined leaves
+   * chrome visibility at the suppressPrimaryChrome level (backward compatible).
+   *
+   * Example (KNYTS Bridge):
+   *   - Pulse (View): depth 0 — publication feed, self-contained
+   *   - Store (Buy): depth 1 — needs Episodes|KNYT Cards|Bundles|Investor KNYT
+   *   - myCanvas (Remix): depth 0 — self-contained composer
+   *
+   * Dynamic depth: Passport at claim (depth 0) → post-crossing (depth 1).
+   * Resolved via resolveSurfaceProps for progressive cases.
+   */
+  focusedNavDepth?: number;
 }
 
 type IssueOption = {
@@ -176,6 +200,7 @@ export default function CodexPanelDynamic({
   suppressFloatingCopilot = false,
   suppressPrimaryChrome = false,
   agentSlug,
+  focusedNavDepth,
 }: CodexPanelDynamicProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -240,6 +265,25 @@ export default function CodexPanelDynamic({
         acknowledgeWalletSurfaceRequest(request.token, 'CodexPanelDynamic');
       }),
     [],
+  );
+
+  /**
+   * A Guided Journey Bridge host (JourneyRunSurface) asking this mounted
+   * cartridge to reset its active tab back to a focused embed descriptor's
+   * `rootTab` (services/journey/bridgeEmbedNav.ts) — e.g. the KNYTS Bridge's
+   * "← Back to Quests" toolbar, after the visitor navigated within this same
+   * cartridge to a sibling tab (Living Canon) that the focused embed's
+   * suppressed chrome offers no way back from. Only acts when the command
+   * names THIS cartridge — a Bridge page can embed more than one cartridge,
+   * and this listener must never reset an unrelated one's tab.
+   */
+  useEffect(
+    () =>
+      subscribeBridgeEmbedReturn((command) => {
+        if (command.cartridgeId !== codexId) return;
+        setActiveTabSlug(command.rootTab);
+      }),
+    [codexId],
   );
 
   // When SmartWalletDrawer reports a persona switch, update the global context
@@ -850,9 +894,17 @@ export default function CodexPanelDynamic({
 
   // When only one tab is available, the tab shell manages its own navigation chrome.
   const singleTabMode = enabledTabs.length <= 1;
-  // A focused-mode host (suppressPrimaryChrome) asks for the same effect on
-  // purpose rather than by tab count — see that prop's doc comment above.
-  const primaryChromeHidden = singleTabMode || suppressPrimaryChrome;
+
+  // Depth-aware chrome visibility, split into the two tiers the render
+  // below actually gates independently: the top-level brand/tab-group bar
+  // vs. the active group's own sibling-tab sub-header (see
+  // resolveCodexChromeVisibility's doc comment for the depth contract).
+  const { hideTopLevelNav, hideGroupSubHeader } = resolveCodexChromeVisibility({
+    focusedNavDepth,
+    suppressPrimaryChrome,
+    singleTabMode,
+  });
+  const primaryChromeHidden = hideTopLevelNav && hideGroupSubHeader;
 
   return (
     <SmartTriadProvider personaId={resolvedPersonaId}>
@@ -905,7 +957,10 @@ export default function CodexPanelDynamic({
           const isDark = resolvedTheme === 'dark';
           return (
             <>
-              {/* Primary tab bar */}
+              {/* Primary tab bar — the top-level brand/tab-group bar. Hidden
+                  independently of the group sub-header below (depth-aware
+                  chrome: depth 0 hides both, depth >= 1 hides only this). */}
+              {!hideTopLevelNav && (
               <div className={`flex-shrink-0 border-b px-4 ${isDark ? 'border-slate-700/50' : 'border-slate-200 bg-white'}`}>
                 <div className="flex items-center justify-between gap-3 py-3">
                   <div className="flex min-w-0 items-center gap-4">
@@ -1050,6 +1105,7 @@ export default function CodexPanelDynamic({
                   </div>
                 </div>
               </div>
+              )}
 
               {/* Single combined sub-header: sub-tabs on left, context badges + colored icon + title + description on right.
                   Mobile: sub-tabs become a horizontal scroll carousel (flex-1 + overflow-x-auto + no-scrollbar)
@@ -1057,8 +1113,12 @@ export default function CodexPanelDynamic({
                   (it duplicates the active sub-tab label anyway) so the carousel gets all available space. */}
               {/* Hide the entire sub-header row when the group has a single
                   tab and no sub-sub-tabs — the row adds nothing and wastes
-                  vertical space (aigentZ Command Center, for example). */}
-              {(activeGroupSubTabs.length > 1 || activeSubTabs.length > 0) && (
+                  vertical space (aigentZ Command Center, for example). Also
+                  hidden at focused depth 0 (content-only); shown again at
+                  depth >= 1 so the destination's own group nav (e.g. Store's
+                  Episodes | KNYT Cards | Bundles | Investor KNYT) stays
+                  navigable without the top-level cartridge bar above it. */}
+              {!hideGroupSubHeader && (activeGroupSubTabs.length > 1 || activeSubTabs.length > 0) && (
               <div className={`flex-shrink-0 border-b px-4 py-1.5 flex items-center gap-3 min-w-0 ${isDark ? 'border-white/[0.06] bg-white/[0.02] backdrop-blur-sm' : 'border-slate-200 bg-slate-50'}`}>
                 {activeGroup && activeGroupSubTabs.length > 1 ? (
                   <div className="flex gap-1 flex-1 min-w-0 overflow-x-auto no-scrollbar">
@@ -1287,6 +1347,7 @@ export default function CodexPanelDynamic({
                   previewDevice={previewDevice}
                   shell={shell}
                   agentSlug={agentSlug}
+                  focusedNavDepth={focusedNavDepth}
                 />
               </SubHeaderSlotContext.Provider>
             )}

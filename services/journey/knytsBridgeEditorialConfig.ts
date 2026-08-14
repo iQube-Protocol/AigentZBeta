@@ -1,10 +1,18 @@
 /**
- * KNYTS Bridge — editorial configuration (HOME's media/copy, and any future
- * Bridge-owned media section, per the same shape — see the reconstitution
- * spec, point 6). Deliberately narrow: this is copy and media ONLY. Pulse
- * content, Passport mechanics, myCanvas templates, Standing and the Store
- * are never read or written here — they stay owned by their own canonical
- * systems and surfaces.
+ * Threshold Guide bridge editorial configuration (HOME's media/copy, and any
+ * future Bridge-owned media section, per the same shape — see the KNYTS
+ * reconstitution spec, point 6). Deliberately narrow: this is copy and media
+ * ONLY. Pulse content, Passport mechanics, myCanvas templates, Standing and
+ * the Store are never read or written here — they stay owned by their own
+ * canonical systems and surfaces.
+ *
+ * Despite the KNYTS-specific filename, this module now backs MORE than one
+ * bridge: the Constitutional Internet Bridge's `ci-home`/`ci-orient`/
+ * `ci-view-*` sections reuse it as-is (2026-08-11 experience evolution pass,
+ * operator instruction: reuse for speed, mark for later generalization
+ * rather than renaming now). A future pass may promote this to a
+ * bridge-neutral "Threshold Guide editorial config" module once a second
+ * bridge beyond CI proves the reuse is durable.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -52,6 +60,76 @@ export const KNYTS_BRIDGE_SECTION_DEFAULTS: Record<string, KnytsBridgeEditorialS
     videoUrl: null,
     posterUrl: null,
     campaignCta: 'Claim your Passport',
+    rewardCopy: null,
+    updatedAt: null,
+  },
+  // Added 2026-08-12 (KNYTS↔CI parity pass) — the PASSPORT stage's
+  // post-crossing surface (KnytsBridgePassportRoom.tsx's "established"
+  // branch), mirroring `ci-passport-established`'s pattern exactly.
+  'passport-established': {
+    section: 'passport-established',
+    headline: 'You have crossed the Threshold.',
+    shortCopy:
+      'Your constitutional presence is confirmed. What you do next is yours to choose — tell your own ' +
+      'crossing when you are ready.',
+    videoUrl: null,
+    posterUrl: null,
+    campaignCta: null,
+    rewardCopy: null,
+    updatedAt: null,
+  },
+  // ── Constitutional Internet Bridge sections (added 2026-08-11, experience
+  // evolution pass) — same table, distinct section keys, zero schema change.
+  // `ci-home` mirrors the copy that already ships hardcoded in
+  // constitutionalInternetBridgeJourney.ts's home stage (never invented
+  // here — this is a fallback for when no admin row exists yet, not new
+  // copy). `ci-orient` is genuinely new: CI's ORIENT stage previously had no
+  // media header at all (the questionnaire was the whole surface), so this
+  // is the intro copy ConstitutionalInternetBridgeOrientIntro.tsx falls back
+  // to. `ci-view-<blockId>` sections (one per CI_BRIDGE_VIEW_CONTENT block)
+  // deliberately have NO default entry here — they exist only to carry an
+  // optional admin-overridden `videoUrl`; a missing row correctly falls
+  // through to defaultsForSection()'s generic fallback, whose `videoUrl` is
+  // null, meaning "no override — use the vignette's own static videoUrl".
+  'ci-home': {
+    section: 'ci-home',
+    headline: 'The Internet recognizes accounts. The Constitutional Internet recognizes persons.',
+    shortCopy:
+      'This is one path into the Polity — a constitutional home for people and their agents in the ' +
+      'emerging Constitutional Internet.',
+    videoUrl: null,
+    posterUrl: null,
+    campaignCta: 'Enter',
+    rewardCopy: null,
+    updatedAt: null,
+  },
+  'ci-orient': {
+    section: 'ci-orient',
+    headline: 'Personhood precedes identity.',
+    // Compressed 2026-08-11 (editorial polish pass) from a two-paragraph
+    // essay to the operator's own suggested two-line version — same
+    // meaning, far less visual weight ahead of the actual questions.
+    shortCopy:
+      'The Polity begins with you as the constitutional subject. These three questions help establish ' +
+      'what you want agents to do — and what must remain yours.',
+    videoUrl: null,
+    posterUrl: null,
+    campaignCta: null,
+    rewardCopy: null,
+    updatedAt: null,
+  },
+  // Added 2026-08-11 (integration pass) — the PASSPORT stage's post-crossing
+  // orientation surface (ConstitutionalInternetBridgePassportRoom.tsx's
+  // "established" branch), same admin-editable video pattern as ci-orient.
+  'ci-passport-established': {
+    section: 'ci-passport-established',
+    headline: 'Your constitutional presence is confirmed.',
+    shortCopy:
+      'You are now recognized as a constitutional subject in the Polity. What you do next is yours to ' +
+      'choose — an agent can help, but only within what you decide here.',
+    videoUrl: null,
+    posterUrl: null,
+    campaignCta: null,
     rewardCopy: null,
     updatedAt: null,
   },

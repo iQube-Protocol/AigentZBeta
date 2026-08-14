@@ -30,7 +30,6 @@ import { PulseTransparencyToggle } from '@/components/journey/PulseTransparencyT
 import { MarketaEligibilityView } from '@/components/journey/MarketaEligibilityView';
 import { OrientationPanel } from '@/components/journey/OrientationPanel';
 import { IngestIntoFactoryPanel } from '@/components/journey/IngestIntoFactoryPanel';
-import { RegisterCeremonyReplay } from '@/components/journey/RegisterCeremonyReplay';
 import { PassportBureauApplyTab } from './PassportBureauApplyTab';
 import { BoundedDelegationTab } from './BoundedDelegationTab';
 import { ParticipationStandingTab } from './ParticipationStandingTab';
@@ -63,11 +62,18 @@ const JOURNEY_COMPONENTS: Record<string, React.ComponentType<Record<string, unkn
   MarketaEligibilityView,
   OrientationPanel,
   IngestIntoFactoryPanel,
-  RegisterCeremonyReplay,
   PassportBureauApplyTab,
   BoundedDelegationTab,
   ParticipationStandingTab,
 };
+
+function selectStage(stageId: string) {
+  try {
+    window.dispatchEvent(new CustomEvent('journey:select-stage', { detail: { stageId } }));
+  } catch {
+    /* non-fatal */
+  }
+}
 
 function PilotJourneyTabInner({ personaId, isAdmin }: PilotJourneyTabProps) {
   // Which registrable agent the Register stage is currently sponsoring
@@ -75,6 +81,8 @@ function PilotJourneyTabInner({ personaId, isAdmin }: PilotJourneyTabProps) {
   // The dry-run agent is the one being exercised, so it is the one selected on
   // arrival. Kept in step with PILOT_AGENTS[0] — see the note there.
   const [selectedAgentSlug, setSelectedAgentSlugState] = useState<string>('nakamoto');
+  const [previousStageId, setPreviousStageId] = useState<string | undefined>(undefined);
+  const [currentStageId, setCurrentStageId] = useState<string | undefined>(undefined);
   // Component-scoped so both resolveSurfaceProps AND the receipts-drawer prop
   // below read the SAME resolved agent — never two separate PILOT_AGENTS.find
   // calls that could observe a mid-render change differently.
@@ -98,6 +106,23 @@ function PilotJourneyTabInner({ personaId, isAdmin }: PilotJourneyTabProps) {
     setSelectedAgentSlugState(slug);
     setSelectedPilotAgentSlug(slug);
   }, []);
+
+  // Track stage navigation for back button functionality
+  useEffect(() => {
+    const handleStageSelect = (event: Event) => {
+      const customEvent = event as CustomEvent<{ stageId: string }>;
+      setPreviousStageId(currentStageId);
+      setCurrentStageId(customEvent.detail.stageId);
+    };
+    window.addEventListener('journey:select-stage', handleStageSelect);
+    return () => window.removeEventListener('journey:select-stage', handleStageSelect);
+  }, [currentStageId]);
+
+  const handleBack = useCallback(() => {
+    if (previousStageId) {
+      selectStage(previousStageId);
+    }
+  }, [previousStageId]);
 
   /*
    * THE AGENT CARD URL MUST BE ABSOLUTE (operator, 2026-08-03).
@@ -231,19 +256,6 @@ function PilotJourneyTabInner({ personaId, isAdmin }: PilotJourneyTabProps) {
            threading above, never a default. */
         : descriptor.component === 'IngestIntoFactoryPanel'
           ? { agentSlug: selectedAgentSlug }
-        /* Pre-recording Horizen polish, part C (2026-08-10) — the replay
-           must speak about the agent Register just completed, same
-           discipline as every other agentSlug thread above. Gated on the
-           OBSERVER's own resolved Register stage state (never re-derived
-           here) so the replay renders only once Register is canonically
-           COMPLETE — before that, RegisterAgentPanel above stays the only
-           surface, live-ceremony-in-progress. */
-        : descriptor.component === 'RegisterCeremonyReplay'
-          ? {
-              agentSlug: selectedAgentSlug,
-              registerStageEstablished: runtimeState?.stages.find((s) => s.stageId === 'register')?.state === 'COMPLETE',
-              registerCeremony,
-            }
         : descriptor.component === 'PassportBureauApplyTab'
           ? {
               // Absolute, per the Bureau's URL validation — see the `origin` note above.
@@ -261,6 +273,7 @@ function PilotJourneyTabInner({ personaId, isAdmin }: PilotJourneyTabProps) {
   return (
     <JourneyRunSurface
       journey={HORIZEN_MONEYPENNY_JOURNEY}
+      onBack={handleBack}
       /*
        * THE OBSERVER MUST WATCH THE AGENT THE SURFACES ARE ACTING ON
        * (operator, 2026-08-03: "Is the observer recognising that the wallet

@@ -73,7 +73,9 @@ import { getActivePersona } from '@/services/identity/getActivePersona';
 import { isPassportUsable, loadUsableCitizenPassportForAuthProfile } from '@/services/identity/passportPrincipal';
 import { readSettledFact, settleFact, isSettled } from '@/services/journey/settledFacts';
 import { REGISTRATION_SEED_STANDING } from '@/services/journey/registrationStandingSeed';
-import { awardRegistrationStandingSeedIfEligible } from '@/services/journey/registrationStandingSeedAward';
+// RETIRED (2026-08-12): awardRegistrationStandingSeedIfEligible — forward rule is
+// "new admission Standing = 0, earned only through consequential contribution"
+// import { awardRegistrationStandingSeedIfEligible } from '@/services/journey/registrationStandingSeedAward';
 import { attemptPnlServiceVerificationIfEligible } from '@/services/horizen/pnlVerificationBoundary';
 import type { discoverAndReceiptPnlServiceEvidence } from '@/services/horizen/pnlServiceVerification';
 import {
@@ -88,6 +90,7 @@ import {
   effectiveStandingReceiptStatuses,
   type StandingEvidenceProjection,
 } from '@/services/journey/standingEvidenceProjection';
+import { assignAgent } from '@/services/identity/personaAssignmentStore';
 
 export const dynamic = 'force-dynamic';
 
@@ -111,6 +114,9 @@ const JOURNEY_ACTION_TYPES: ActivityActionType[] = [
   'operator_passport_validated',
   'agent_sponsorship_recorded',
   'agent_delegate_passport_issued',
+  // Constitutional State Model Correction (2026-08-11) — the Activate stage's
+  // own receipt. See services/journey/agentRegistryActivation.ts.
+  'agent_registry_activated',
   /*
    * THE RECEIPT THE BUREAU ACTUALLY WRITES.
    *
@@ -520,7 +526,24 @@ async function resolveState(req: NextRequest) {
       }
     });
     if (supabase) await guarded('agent-admission', async () => {
-      admission = await resolveAgentAdmissionState(supabase, agent, caller?.authProfileId ?? null);
+      /*
+       * Constitutional State Model Correction (2026-08-11) — the resolver's
+       * OWN registry-activation check needs an authenticated persona to
+       * attribute a freshly-established `agent_registry_activated` receipt
+       * to. `null` here (no active persona) is never an error: the check
+       * still runs and reports honestly (`eligible-awaiting-actor`), it
+       * just performs no write — see agentRegistryActivation.ts's own
+       * five-valued outcome. This route never calls
+       * `ensureAgentRegistryActivation` itself; it only reads
+       * `admission.registryActivated` below.
+       */
+      const activePersonaForActivation = await getActivePersona(req);
+      admission = await resolveAgentAdmissionState(
+        supabase,
+        agent,
+        caller?.authProfileId ?? null,
+        activePersonaForActivation?.personaId ?? null,
+      );
     });
     /*
      * REGISTRATION STANDING SEED — awarded inline, the same idiom this route
@@ -585,29 +608,27 @@ async function resolveState(req: NextRequest) {
      * as an audit gap, never guessed.
      */
     if (supabase) await guarded('standing-seed', async () => {
-      const capabilityReceiptIds = receiptRefs['capability_registered'] ?? [];
-      const activePersona = await getActivePersona(req);
-      if (!activePersona?.personaId) return; // cannot attribute — audit gap, never guessed
-
-      const genuinelyFactoryIngested = capabilityReceiptIds.length > 0;
-      const aigentMeActiveForSeed =
-        (receiptRefs['aigentme_activated']?.length ?? 0) > 0 &&
-        (receiptRefs['experienceqube_focus_disposition_recorded']?.length ?? 0) > 0;
-
-      const outcome = await awardRegistrationStandingSeedIfEligible(supabase, agent, activePersona.personaId, {
-        alreadySeeded: registrationStandingSeeded,
-        factoryIngestedNow: aigentMeActiveForSeed && genuinelyFactoryIngested,
-        evidenceReceiptIds: capabilityReceiptIds,
-      });
-      if (!outcome.awarded) return;
-
-      // Reflected in THIS response without a second round-trip — the fact was
-      // just settled and receipted in this same request, so both
-      // `registrationStandingSeeded` and the `standing_accrued` receiptRef
-      // (which `standingGatewayEnabled` below reads via `hasReceipt`) are
-      // updated together rather than lagging one request behind.
-      registrationStandingSeeded = true;
-      if (outcome.receiptId) (receiptRefs['standing_accrued'] ??= []).push(outcome.receiptId);
+      // RETIRED (2026-08-12): Forward canonical rule (operator ruling 2026-08-09) is
+      // "new admission Standing = 0, earned only through qualifying consequential
+      // contribution". The superseded registration-seed award machinery
+      // (awardRegistrationStandingSeedIfEligible) is preserved as immutable history
+      // and filtered by the correction-aware standing evidence projection
+      // (standingEvidenceProjection.ts), but no new seeds are awarded from this
+      // request forward. Historical seeds remain for audit continuity; they do
+      // not drive present Standing gates.
+      //
+      // Old code paths for reference — DO NOT REACTIVATE WITHOUT OPERATOR APPROVAL:
+      // const capabilityReceiptIds = receiptRefs['capability_registered'] ?? [];
+      // const activePersona = await getActivePersona(req);
+      // if (!activePersona?.personaId) return;
+      // const genuinelyFactoryIngested = capabilityReceiptIds.length > 0;
+      // const aigentMeActiveForSeed =
+      //   (receiptRefs['aigentme_activated']?.length ?? 0) > 0 &&
+      //   (receiptRefs['experienceqube_focus_disposition_recorded']?.length ?? 0) > 0;
+      // const outcome = await awardRegistrationStandingSeedIfEligible(...);
+      // if (!outcome.awarded) return;
+      // registrationStandingSeeded = true;
+      // if (outcome.receiptId) (receiptRefs['standing_accrued'] ??= []).push(...);
     });
     if (supabase) await guarded('persona-assignment', async () => {
       const agentRootId = admission?.agentRootId;
@@ -622,9 +643,38 @@ async function resolveState(req: NextRequest) {
         .eq('active', true)
         .maybeSingle();
       if (error) throw new Error(error.message);
-      // Either role counts as "assigned" — aigentMe is a separate designation
-      // layered on TOP of being assigned, never a substitute for it.
-      personaAssignedAsDelegate = Boolean(data && (data.role === 'delegate' || data.role === 'aigentMe'));
+      if (data) {
+        // Either role counts as "assigned" — aigentMe is a separate designation
+        // layered on TOP of being assigned, never a substitute for it.
+        personaAssignedAsDelegate = data.role === 'delegate' || data.role === 'aigentMe';
+      } else if ((receiptRefs['agent_delegated']?.length ?? 0) > 0) {
+        /*
+         * RECONCILE: the delegation ceremony has already occurred (agent_delegated
+         * receipt exists) but the structural assignment row is absent. Write it
+         * idempotently — this aligns the observer with the already-written
+         * canonical delegation acts without re-performing any ceremony.
+         *
+         * Operator instruction (2026-08-12): "Do not ask the operator to delegate
+         * again. Align the observer with the already-written canonical grant/
+         * assignment records." The agent_delegated receipt IS the canonical record.
+         * The assignment row is a structural projection of it, not a separate act.
+         */
+        const result = await assignAgent({
+          personaId: activePersona.personaId,
+          agentRootId,
+          role: 'delegate',
+          ownedPersonaIds: [activePersona.personaId],
+        });
+        if (result.ok) {
+          personaAssignedAsDelegate = true;
+        } else if (result.code === 'not_bound' || result.code === 'migration_pending') {
+          // Soft-fail: agent not in bound roster or table not yet provisioned.
+          // personaAssignedAsDelegate stays false — the stage stays IN_PROGRESS.
+          console.warn('[JOURNEY STATE] persona-assignment reconcile skipped:', result.error);
+        } else {
+          throw new Error(`persona-assignment reconcile: ${result.error}`);
+        }
+      }
     });
     if (supabase) await guarded('authorization-store', async () => {
       authorizationStore = await checkAuthorizationStoreAvailable(supabase);
@@ -854,6 +904,29 @@ async function resolveState(req: NextRequest) {
         sponsorBinding: admission?.sponsorshipRecorded === true || hasReceipt('agent_sponsorship_recorded'),
         delegatePassportIssued: passportIssuedForAgent,
       },
+      /*
+       * ── ACTIVATE — A DERIVED CONSTITUTIONAL TRANSITION, NEVER AN ACT ─────
+       *
+       * Constitutional State Model Correction (operator-ratified 2026-08-11).
+       * `registryActivated` is READ ONLY here — this route never calls
+       * `ensureAgentRegistryActivation` itself. The write happens at the
+       * Passport-completion boundary inside `resolveAgentAdmissionState`
+       * (services/journey/agentAdmissionState.ts), the moment it observes
+       * `sponsorshipRecorded` and `delegatePassportIssued` both true for an
+       * authenticated caller. This evidence block simply surfaces whatever
+       * that resolver already settled — canonical first, receipt as
+       * corroboration, same discipline as every other stage in this file.
+       *
+       * Deliberately carries NO `operationalBlockers` entry anywhere in this
+       * route (see the `operationalBlockers: { verify, passport }` map
+       * below) — Activate has no operator-facing act to perform, so it
+       * structurally cannot acquire the "COMPLETE stage still asserting its
+       * own predicate absent" contradiction the 2026-08-11 audit found on
+       * the Passport stage. `tests/registry-activation.test.ts` pins this.
+       */
+      activate: {
+        registryActivated: admission?.registryActivated === true || hasReceipt('agent_registry_activated'),
+      },
       delegate: {
         delegatePassportActive: passportIssuedForAgent,
         boundedDelegationActive: admission?.delegationActive === true || hasReceipt('agent_delegated'),
@@ -1070,6 +1143,13 @@ async function resolveState(req: NextRequest) {
     register: registration?.registered === true || Boolean(horizen?.tokenId),
     claim: hasReceipt('agent_control_proven'),
     passport: passportIssuedForAgent,
+    /*
+     * Activate's canonical outcome is ITS OWN settled fact / receipt —
+     * never re-derived from Delegate or Operate (Constitutional State Model
+     * Correction, 2026-08-11). `admission?.registryActivated` is the
+     * resolver's own answer; the receipt is corroboration only.
+     */
+    activate: admission?.registryActivated === true || hasReceipt('agent_registry_activated'),
     delegate: admission?.delegationActive === true || hasReceipt('agent_delegated'),
     /*
      * Deploy's canonical outcome is its OWN `capability_registered` receipt —
@@ -1195,18 +1275,18 @@ async function resolveState(req: NextRequest) {
    * `classifyConsequenceProng` never re-decides completion, it only asks
    * whether an already-COMPLETE stage's external consequence has reached
    * DVN finality. Each prong resolves independently — Stand's incompleteness
-   * cannot dim an already-proven Ratify or Ingest.
+   * cannot dim an already-proven Ratify.
+   *
+   * NO `deploy` KEY (Activate Consolidation, 2026-08-11) — the fork is
+   * Ratify + Stand only. Ingest/`deploy` is no longer a visible
+   * constitutional consequence; its technical evidence
+   * (`capability_registered`) still exists and is readable, but it competes
+   * with nothing here.
    */
   const stageStatus = (id: string) => resolution.stages.find((s) => s.stageId === id)?.status ?? 'NOT_STARTED';
   const consequenceFork = {
     verify: consequenceProngCopy(
       classifyConsequenceProng({ stageState: stageStatus('verify'), bestAnchorReceiptStatus: ratifyAnchorStatus ?? null }),
-    ),
-    deploy: consequenceProngCopy(
-      classifyConsequenceProng({
-        stageState: stageStatus('deploy'),
-        bestAnchorReceiptStatus: bestReceiptStatus(receiptStatuses['capability_registered'] ?? []),
-      }),
     ),
     standing: consequenceProngCopy(
       classifyConsequenceProng({
@@ -1373,7 +1453,15 @@ async function resolveState(req: NextRequest) {
     // Unchanged shape for every existing consumer — now carrying canonical
     // outcomes and gating relief, so the stepper and this route cannot
     // disagree (One-State Principle §5.3).
-    state: resolution.runtimeState,
+    state: {
+      ...resolution.runtimeState,
+      // Agent-generic subjectRef parameterization (2026-08-12): the journey
+      // definition HORIZEN_MONEYPENNY_JOURNEY has subjectRef: 'moneypenny'
+      // hardcoded at every stage, predating agent selectability (2026-07-31).
+      // Substitute the resolved agent's slug so the response reflects the
+      // actual agent being queried, not the static journey definition.
+      subjectRef: agent.slug,
+    },
     // THREE AXES, reported separately so no consumer can collapse them.
     axes,
     branchOffers,
@@ -1409,7 +1497,8 @@ async function resolveState(req: NextRequest) {
     // definition above. `principalWalletReady`/`mandatePrepared` carry
     // `authority: 'inferred'` (no receipt type exists for either); the
     // remaining five carry `authority: 'evidence'` from their own receipts.
-    // This is what RegisterCeremonyReplay must consume; it is never a
+    // Its former UI consumer (RegisterCeremonyReplay) was removed from the
+    // journey UI (2026-08-11); this projection is kept as-is and is never a
     // second source of truth for whether Register is complete — that
     // remains `resolution.stages.register.canonicalOutcome` alone.
     registerCeremony,

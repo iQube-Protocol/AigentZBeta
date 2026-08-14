@@ -91,10 +91,10 @@ async function getImpl(req: NextRequest) {
       .limit(1);
     externalAgentConnected = Boolean(connectEvents && connectEvents.length > 0);
 
-    // ACT's two paths are ALTERNATIVES, not a checklist — either bringing an
-    // agent you already use into the field, or beginning to shape aigentMe,
-    // starts the agent relationship. See constitutionalInternetBridgeJourney
-    // .ts's "ACT: Bring Your Agent Into the Field" header.
+    // PERSONIFY's two supporting paths are ALTERNATIVES, not a checklist —
+    // either bringing an agent you already use into the field, or beginning
+    // to shape aigentMe, starts the agent relationship. See
+    // constitutionalInternetBridgeJourney.ts's "PERSONIFY" header.
     const agentRelationshipStarted = dispositionRecorded || externalAgentConnected;
 
     if (agentRelationshipStarted) {
@@ -110,7 +110,7 @@ async function getImpl(req: NextRequest) {
   const platformState: AuthoritativePlatformState = {
     stages: {
       passport: { citizenPassportUsable },
-      act: { agentRelationshipStarted: dispositionRecorded || externalAgentConnected },
+      personify: { agentRelationshipStarted: dispositionRecorded || externalAgentConnected },
       stand: { constitutionalEventRecorded },
     },
   };

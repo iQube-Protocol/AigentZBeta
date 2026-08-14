@@ -223,7 +223,13 @@ type WalletSurface =
    * been preparing real principal mandates and then saying, honestly, that
    * the surface to sign them did not exist. This is that surface.
    */
-  | "PENDING_ACTIONS";
+  | "PENDING_ACTIONS"
+  /**
+   * One-shot: converted straight into `setActiveTab('tasks')` by the effect
+   * below, then cleared. Never rendered as an overlay — see
+   * services/wallet/walletSurfaceRequest.ts's matching doc comment.
+   */
+  | "TASKS_TAB";
 
 interface SmartWalletDrawerProps {
   open: boolean;
@@ -632,7 +638,8 @@ export default function SmartWalletDrawer({
         if (
           request.surface !== 'PRINCIPAL_WALLET_PROVISIONING' &&
           request.surface !== 'PENDING_ACTIONS' &&
-          request.surface !== 'PASSPORT_SIGN_IN'
+          request.surface !== 'PASSPORT_SIGN_IN' &&
+          request.surface !== 'TASKS_TAB'
         ) return;
         setWalletSurface(request.surface);
         setDeepLinkReturn({ target: request.returnTarget ?? null, label: request.returnLabel ?? null });
@@ -755,6 +762,15 @@ export default function SmartWalletDrawer({
     lastWalletSurfaceTokenRef.current = walletSurfaceRequestToken;
     if (initialWalletSurface) setWalletSurface(initialWalletSurface);
   }, [walletSurfaceRequestToken, initialWalletSurface]);
+  // TASKS_TAB is a request for the EXISTING "tasks" DrawerTab, not a new
+  // overlay — convert it to a plain tab switch and clear the surface so
+  // nothing below tries to render an overlay for it (2026-08-12, KNYTS↔CI
+  // parity pass: Wallet → Tasks, requested from KnytQuestsTab).
+  useEffect(() => {
+    if (walletSurface !== 'TASKS_TAB') return;
+    setActiveTab('tasks');
+    setWalletSurface(null);
+  }, [walletSurface]);
   // Auto-opens PASSPORT_SIGN_IN exactly once per signed-out visit — never
   // re-fires after an explicit Back, and resets once the visitor is
   // genuinely signed in so a LATER sign-out prompts again.

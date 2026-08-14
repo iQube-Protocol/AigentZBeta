@@ -4348,18 +4348,30 @@ export const METAME_CODEX: CodexConfig = {
       metadata: { icon: 'Star', description: 'Qriptopian featured content', color: 'violet' }
     },
     {
+      // Wired 2026-08-11 (was PlaceholderTab, "Coming soon") — the canonical
+      // Qriptopian Pulse moderation queue, mirroring KNYT > Admin > Community
+      // Admin's exact reuse pattern: QriptoPulseAdminTab is the SAME
+      // KnytCommunityContentAdminTab component, scoped via cartridge='qripto'
+      // (app/triad/components/codex/tabs/QriptoPulseAdminTab.tsx) — inherits
+      // Promote / Runtime / Reject / Delete and the existing
+      // requireCommunityAdmin gate unchanged. Gated the SAME way its sibling
+      // 'qriptopia-admin' tab is (adminOfCartridge, not the platform-wide
+      // adminOnly flag) so a Qriptopian-cartridge admin who isn't a
+      // platform-wide admin can still moderate. No new table, no new
+      // approval workflow — this is the same surface QRIPTO_CODEX's own
+      // 'admin-pulse' tab already wires, reached here via metaMe's mirror.
       id: 'qriptopia-community',
       label: 'Community',
       slug: 'qriptopia-community',
       enabled: true,
+      adminOfCartridge: 'qripto',
       group: 'qriptopia',
       order: 51,
       type: 'static',
       config: {
-        component: 'PlaceholderTab',
-        props: { title: 'Community', description: 'Qriptopia community surface. Coming soon.' }
+        component: 'QriptoPulseAdminTab'
       },
-      metadata: { icon: 'Users', description: 'Qriptopia community', color: 'violet' }
+      metadata: { icon: 'Shield', description: 'Qriptopian Pulse moderation queue', color: 'violet' }
     },
     {
       id: 'qriptopia-21sats',
@@ -5602,6 +5614,14 @@ export const POLITY_CORE_CARTRIDGE: CodexConfig = {
       label: 'The Constitutional Internet',
       slug: 'commentary-constitutional-internet',
       enabled: true,
+      // Working-manuscript development material — admin-only (2026-08-12
+      // forensic correction pass). This tab surfaces the book's live
+      // manuscript, editorial master, register and source/evidence matrix;
+      // the public-facing Bridge deep-links to the Qriptopian Codex's
+      // published "Polity Papers" series instead (never this tab). Uses the
+      // existing Codex access-gate system — no second CI-specific
+      // permission mechanism.
+      adminOnly: true,
       group: 'commentary',
       order: 3,
       type: 'static',

@@ -55,11 +55,18 @@ describe('JourneyRunSurface threads pnlEvidence from the state response into res
   });
 
   it('passes pnlEvidence to resolveSurfaceProps alongside runtimeState', () => {
-    // ratifySubPredicates (CFS-055 coherence pass, 2026-08-10) and
-    // registerCeremony (Pre-recording Horizen polish part C, 2026-08-10)
+    // ratifySubPredicates (CFS-055 coherence pass, 2026-08-10),
+    // registerCeremony (Pre-recording Horizen polish part C, 2026-08-10),
+    // and requestStateRefresh (CFS-055 coherence pass, 2026-08-12)
     // legitimately ride alongside pnlEvidence now — not required to be the
-    // last field.
-    expect(src).toMatch(/resolveSurfaceProps\?\.\(\{\s*surfaceRef,\s*descriptor,\s*stage:\s*activeStage,\s*runtimeState,\s*pnlEvidence,\s*ratifySubPredicates,\s*registerCeremony\s*\}\)/);
+    // last field, and the call is now multi-line.
+    const callIdx = src.indexOf('resolveSurfaceProps?.({');
+    expect(callIdx, 'resolveSurfaceProps call site not found').toBeGreaterThan(-1);
+    const callEnd = src.indexOf('}) ?? {};', callIdx);
+    const call = src.slice(callIdx, callEnd);
+    for (const field of ['surfaceRef', 'descriptor', 'stage: activeStage', 'runtimeState', 'pnlEvidence', 'ratifySubPredicates', 'registerCeremony']) {
+      expect(call, `${field} missing from the ONE resolveSurfaceProps call`).toContain(field);
+    }
   });
 });
 

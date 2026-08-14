@@ -13,10 +13,37 @@
  * three choices are persisted, best-effort, as an intent/demand signal via
  * /api/journey/constitutional-internet-bridge/orient — never presented as
  * Standing or authority.
+ *
+ * Layout (revised 2026-08-11, final interaction pass): this no longer
+ * mounts on the shared BridgeContentCapsule shell — that shell's own
+ * internal viewport+rail two-column split was designed for a single card
+ * occupying a full-width slot, and would nest a second 3fr/1fr grid inside
+ * ORIENT's now-narrow (~40%-width) right column, cramping the question
+ * content the operator explicitly asked to keep legible. Instead this
+ * renders one bordered capsule (Help/Preserve/Authority as a compact
+ * horizontal tab row — never a fourth "Connect Claude" tab, per operator
+ * instruction) with one question active at a time, and a persistent footer
+ * strip carrying progress + the "See your Constitutional Frontier" action.
+ * All state/logic below (options, buildSummary, the best-effort POST) is
+ * UNCHANGED from the pre-capsule version — only the render shape changed.
+ *
+ * Selection feedback (integration pass, 2026-08-11): clicking an option used
+ * to advance to the next question in the SAME tick as the click — the
+ * visitor never actually saw their choice highlighted before the question
+ * swapped out from under it. `selectAndAdvance` now sets the answer
+ * immediately (so the button highlights right away) and holds the question
+ * on screen for SELECTION_FEEDBACK_MS before swapping to the next one, with
+ * a brief opacity dip on the question body so the swap itself reads as a
+ * restrained transition rather than an instant cut.
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { personaFetch } from '@/utils/personaSpine';
+import { CI_BRIDGE_ORIENT_COMPANION_COPY } from '@/services/journey/constitutionalInternetBridgeJourney';
+
+/** How long a just-clicked option stays visibly selected before the
+ *  question advances — long enough to register, short enough not to stall. */
+const SELECTION_FEEDBACK_MS = 500;
 
 const HELP_OPTIONS = [
   { value: 'work', label: 'Work / business' },
@@ -60,13 +87,80 @@ function buildSummary(help: string, preserve: string, authority: string): string
   );
 }
 
+type QuestionId = 'help' | 'preserve' | 'authority';
+
+const ORIENT_QUESTIONS: { id: QuestionId; label: string }[] = [
+  { id: 'help', label: 'Help' },
+  { id: 'preserve', label: 'Preserve' },
+  { id: 'authority', label: 'Authority' },
+];
+
+function OptionGrid({
+  title,
+  options,
+  value,
+  onChange,
+  columns,
+}: {
+  title: string;
+  options: readonly { value: string; label: string }[];
+  value: string | null;
+  onChange: (value: string) => void;
+  columns: string;
+}) {
+  return (
+    <div className="p-4">
+      <p className="text-xs font-medium text-slate-200 mb-3">{title}</p>
+      <div className={`grid gap-2 ${columns}`}>
+        {options.map((o) => (
+          <button
+            key={o.value}
+            type="button"
+            onClick={() => onChange(o.value)}
+            className={`rounded-lg border px-3 py-2 text-left text-xs transition ${value === o.value ? 'border-amber-400/60 bg-amber-500/10 text-amber-200' : 'border-white/10 bg-slate-950/40 text-slate-300 hover:border-white/20'}`}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function ConstitutionalFrontierOrientSurface() {
   const [help, setHelp] = useState<string | null>(null);
   const [preserve, setPreserve] = useState<string | null>(null);
   const [authority, setAuthority] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  const [activeQuestion, setActiveQuestion] = useState<QuestionId>('help');
+  // True for the SELECTION_FEEDBACK_MS window between a click and the
+  // question actually swapping — dims the question body slightly so the
+  // swap reads as a transition rather than an instant cut.
+  const [advancing, setAdvancing] = useState(false);
+  const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (advanceTimer.current) clearTimeout(advanceTimer.current);
+    };
+  }, []);
 
   const allChosen = Boolean(help && preserve && authority);
+  const answeredCount = [help, preserve, authority].filter(Boolean).length;
+
+  /** Sets the answer immediately (so the clicked option highlights right
+   *  away), then holds the question on screen for SELECTION_FEEDBACK_MS
+   *  before advancing — the visitor must see their choice register before
+   *  the content underneath it changes. */
+  const selectAndAdvance = (setter: (v: string) => void, value: string, next: QuestionId) => {
+    setter(value);
+    setAdvancing(true);
+    if (advanceTimer.current) clearTimeout(advanceTimer.current);
+    advanceTimer.current = setTimeout(() => {
+      setActiveQuestion(next);
+      setAdvancing(false);
+    }, SELECTION_FEEDBACK_MS);
+  };
 
   const reveal = () => {
     if (!allChosen) return;
@@ -78,80 +172,100 @@ export function ConstitutionalFrontierOrientSurface() {
     }).catch(() => { /* best-effort — the summary already renders regardless */ });
   };
 
-  if (submitted && help && preserve && authority) {
-    return (
-      <div className="rounded-2xl border border-white/10 bg-slate-900/40 p-5">
-        <p className="text-[10px] uppercase tracking-wider text-slate-500 mb-2">Your Constitutional Frontier</p>
-        <p className="whitespace-pre-line text-sm leading-relaxed text-slate-200">{buildSummary(help, preserve, authority)}</p>
-        <button
-          type="button"
-          onClick={() => setSubmitted(false)}
-          className="mt-3 text-[11px] text-slate-500 underline underline-offset-2 hover:text-slate-300"
-        >
-          Change my answers
-        </button>
-      </div>
-    );
-  }
+  const changeAnswers = () => {
+    setSubmitted(false);
+    setActiveQuestion('help');
+  };
+
+  const answeredFor = (id: QuestionId) =>
+    id === 'help' ? Boolean(help) : id === 'preserve' ? Boolean(preserve) : Boolean(authority);
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-slate-900/40 p-5 space-y-5">
-      <div>
-        <p className="text-xs font-medium text-slate-200 mb-2">Where do you most want agents to help?</p>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {HELP_OPTIONS.map((o) => (
+    <div className="flex flex-col gap-3 rounded-2xl border border-white/[0.07] bg-slate-900/40 p-4">
+      <div className="flex items-center gap-1.5">
+        {ORIENT_QUESTIONS.map((q, i) => {
+          const isActive = !submitted && activeQuestion === q.id;
+          const answered = answeredFor(q.id);
+          return (
             <button
-              key={o.value}
+              key={q.id}
               type="button"
-              onClick={() => setHelp(o.value)}
-              className={`rounded-lg border px-3 py-2 text-left text-xs transition ${help === o.value ? 'border-amber-400/60 bg-amber-500/10 text-amber-200' : 'border-white/10 bg-slate-950/40 text-slate-300 hover:border-white/20'}`}
+              onClick={() => {
+                setSubmitted(false);
+                setActiveQuestion(q.id);
+              }}
+              aria-pressed={isActive}
+              className={`flex-1 rounded-lg border px-2 py-1.5 text-[11px] font-medium transition ${
+                isActive
+                  ? 'border-amber-400/50 bg-amber-500/10 text-amber-200'
+                  : 'border-white/[0.07] bg-slate-950/40 text-slate-400 hover:border-white/20'
+              }`}
             >
-              {o.label}
+              {i + 1}. {q.label}
+              {answered && ' ✓'}
             </button>
-          ))}
-        </div>
+          );
+        })}
+      </div>
+
+      <div className={`transition-opacity duration-300 ${advancing ? 'opacity-40' : 'opacity-100'}`}>
+        {submitted && help && preserve && authority ? (
+          <div className="p-1">
+            <p className="text-[10px] uppercase tracking-wider text-slate-500 mb-2">Your Constitutional Frontier</p>
+            <p className="whitespace-pre-line text-sm leading-relaxed text-slate-200">
+              {buildSummary(help, preserve, authority)}
+            </p>
+          </div>
+        ) : activeQuestion === 'help' ? (
+          <OptionGrid
+            title="Where do you most want agents to help?"
+            options={HELP_OPTIONS}
+            value={help}
+            columns="grid-cols-1 sm:grid-cols-2"
+            onChange={(v) => selectAndAdvance(setHelp, v, 'preserve')}
+          />
+        ) : activeQuestion === 'preserve' ? (
+          <OptionGrid
+            title="What do you most want to remain yours?"
+            options={PRESERVE_OPTIONS}
+            value={preserve}
+            columns="grid-cols-1 sm:grid-cols-2"
+            onChange={(v) => selectAndAdvance(setPreserve, v, 'authority')}
+          />
+        ) : (
+          <OptionGrid
+            title="How much authority would you currently give an agent?"
+            options={AUTHORITY_OPTIONS}
+            value={authority}
+            columns="grid-cols-1"
+            onChange={(v) => setAuthority(v)}
+          />
+        )}
       </div>
 
       <div>
-        <p className="text-xs font-medium text-slate-200 mb-2">What do you most want to remain yours?</p>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {PRESERVE_OPTIONS.map((o) => (
+        {submitted ? (
+          <button
+            type="button"
+            onClick={changeAnswers}
+            className="text-[11px] text-slate-500 underline underline-offset-2 hover:text-slate-300"
+          >
+            Change my answers
+          </button>
+        ) : (
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-[11px] text-slate-500">{CI_BRIDGE_ORIENT_COMPANION_COPY}</p>
             <button
-              key={o.value}
               type="button"
-              onClick={() => setPreserve(o.value)}
-              className={`rounded-lg border px-3 py-2 text-left text-xs transition ${preserve === o.value ? 'border-amber-400/60 bg-amber-500/10 text-amber-200' : 'border-white/10 bg-slate-950/40 text-slate-300 hover:border-white/20'}`}
+              disabled={!allChosen}
+              onClick={reveal}
+              className="shrink-0 rounded-lg bg-amber-500 px-3.5 py-2 text-xs font-semibold text-slate-950 transition hover:bg-amber-400 disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              {o.label}
+              {answeredCount}/3 — See your Constitutional Frontier
             </button>
-          ))}
-        </div>
+          </div>
+        )}
       </div>
-
-      <div>
-        <p className="text-xs font-medium text-slate-200 mb-2">How much authority would you currently give an agent?</p>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {AUTHORITY_OPTIONS.map((o) => (
-            <button
-              key={o.value}
-              type="button"
-              onClick={() => setAuthority(o.value)}
-              className={`rounded-lg border px-3 py-2 text-left text-xs transition ${authority === o.value ? 'border-amber-400/60 bg-amber-500/10 text-amber-200' : 'border-white/10 bg-slate-950/40 text-slate-300 hover:border-white/20'}`}
-            >
-              {o.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <button
-        type="button"
-        disabled={!allChosen}
-        onClick={reveal}
-        className="w-full rounded-xl bg-amber-500 px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-amber-400 disabled:opacity-40 disabled:cursor-not-allowed"
-      >
-        See your Constitutional Frontier
-      </button>
     </div>
   );
 }

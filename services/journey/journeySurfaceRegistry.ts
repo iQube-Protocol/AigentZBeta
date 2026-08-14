@@ -90,6 +90,39 @@ export type JourneySurfaceDescriptor =
        * true; defaults to a generic "Open full view ↗" when omitted.
        */
       openLabel?: string;
+      /**
+       * Focused navigation depth (operator direction, 2026-08-10) — defines
+       * how many navigation tiers above the content to reveal when focused:
+       *   0 (default) — content surface only; no cartridge or domain nav
+       *   1 — content + immediate parent/domain nav (e.g., Store tabs, metaMe views)
+       *   2+ — content + multiple nav tiers (uncommon; future extensible)
+       *
+       * Only meaningful when `focused: true`. Examples:
+       *   Pulse (View) — depth 0 (publication feed, self-contained)
+       *   Store (Buy) — depth 1 (needs Episodes|KNYT Cards|Bundles|Investor KNYT tabs)
+       *   myCanvas (Remix) — depth 0 (self-contained composer)
+       *   aigentMe surfaces — depth 1 (needs metaMe/aigentMe nav context)
+       *
+       * May be dynamic (resolved per-call via resolveSurfaceProps) when
+       * runtime state determines the required depth (e.g., Passport: depth 0
+       * before established, depth 1 after).
+       */
+      focusedNavDepth?: number;
+      /**
+       * Embedded-return mechanism (2026-08-12, KNYTS↔CI parity pass) —
+       * services/journey/bridgeEmbedNav.ts. Declares that this focused
+       * embed's content can navigate itself to a sibling tab in the SAME
+       * cartridge (e.g. a Quests card opening Living Canon via
+       * CartridgePresenceRegistry's same-window tab switch) with no chrome
+       * left to click back with. When set, JourneyRunSurface renders a
+       * "← {returnLabel}" toolbar button that posts a return command into
+       * the embed asking it to reset back to `rootTab` — WITHOUT switching
+       * to expanded/full-chrome presentation (that remains the separate
+       * `openLabel` affordance). Only meaningful alongside `focused: true`.
+       */
+      rootTab?: string;
+      /** Label for the embedded-return toolbar button, e.g. "Back to Quests". */
+      returnLabel?: string;
       note: string;
     }
   | {
@@ -138,17 +171,6 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
       'then drives the real prepare->review->confirm->broadcast->status pipeline ' +
       '(services/horizen/registrationClient.ts) end to end. Composes AgentCardSurface internally for ' +
       'the selected agent\'s card display — never a second, parallel display.',
-  },
-  'register-ceremony-replay': {
-    kind: 'component',
-    component: 'RegisterCeremonyReplay',
-    note:
-      'Pre-recording Horizen polish, part C (2026-08-10, components/journey/RegisterCeremonyReplay.tsx) ' +
-      "— a generic, read-only replay of Register's seven wallet-signing ceremony steps for an already-" +
-      'registered agent, sourced from the state route\'s `registerCeremony` projection (each step ' +
-      "carrying `authority: 'evidence'` from a real receipt, or `authority: 'inferred'` where no receipt " +
-      'type exists). Never a second registration writer — RegisterAgentPanel stays the only surface ' +
-      'that can perform the live ceremony.',
   },
   'horizen-registry-agent-page': {
     kind: 'component',
@@ -241,19 +263,21 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
     kind: 'component',
     component: 'IngestIntoFactoryPanel',
     note:
-      "The Ingest stage's ONE guided action (Horizen Pilot Closure, part 2, operator decision A, " +
+      "Re-homed onto the Activate stage (Activate Consolidation, 2026-08-11) — formerly the Ingest/" +
+      "deploy stage's ONE guided action (Horizen Pilot Closure, part 2, operator decision A, " +
       '2026-08-09, components/journey/IngestIntoFactoryPanel.tsx) — writes the agent-scoped ' +
-      "`capability_registered` receipt via POST /api/journey/moneypenny-horizen/ingest. Mirrors " +
-      "OrientationPanel's observe-then-act shape exactly. Rendered ABOVE 'venture-participate-standing' " +
-      'below, which stays the read-only Ingested Assets evidence catalogue — this panel is the missing ' +
-      'consequential act, never a replacement for that evidence surface.',
+      "`capability_registered` receipt via POST /api/journey/moneypenny-horizen/ingest. No longer " +
+      "gated on Operate. Mirrors OrientationPanel's observe-then-act shape exactly. Rendered ABOVE " +
+      "'venture-participate-standing' below, which stays the read-only iQube Registry evidence " +
+      'catalogue — this panel is the guided act, never a replacement for that evidence surface.',
   },
   'venture-participate-standing': {
     kind: 'component',
     component: 'ParticipationStandingTab',
     note:
-      'The Deploy stage surface: the registry Ingestion Factory ALONE. It was previously paired with ' +
-      'Standing as two tabs here; operator direction 2026-08-02 separated them, so this mount pins ' +
+      'Re-homed onto the Activate stage (Activate Consolidation, 2026-08-11): the registry Ingestion Factory' +
+      ' ALONE. It was previously paired with Standing as two tabs here; operator direction ' +
+      '2026-08-02 separated them, so this mount pins ' +
       "`only: 'registry'` and the tab strip disappears. Standing has its own stage below.",
   },
   'venture-participate-standing-only': {
@@ -369,9 +393,11 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
     kind: 'component',
     component: 'KnytsBridgeMediaStage',
     note:
-      'HOME half of the ONE shared cinematic surface (components/journey/KnytsBridgeMediaStage.tsx) — ' +
-      'hero/video/poster/CTA/reward copy, admin-editable via /api/journey/knyts-bridge/editorial-config. ' +
-      "Home speaks Mythos; see 'knyts-bridge-orient' for the same component's other half.",
+      'KNYTS↔CI parity pass (2026-08-12): HOME-only now (ORIENT split into ' +
+      "KnytsBridgeOrientIntro) — a thin amber-preset wrapper over the SAME generic " +
+      'BridgeMediaStage (layout="cinematic") CI\'s own ConstitutionalInternetBridgeMediaStage ' +
+      'uses, including its overlay fade behavior. Hero/video/poster/CTA/reward copy stay ' +
+      'admin-editable via /api/journey/knyts-bridge/editorial-config.',
   },
   'knyts-bridge-view-pulse': {
     kind: 'embed',
@@ -379,6 +405,7 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
     tab: 'pulse',
     suppressFloatingCopilot: true,
     focused: true,
+    focusedNavDepth: 0,
     openLabel: 'Open KNYT World ↗',
     note:
       'The canonical KNYT Pulse tab itself, full and unfiltered — never a Bridge-scoped slice of it. ' +
@@ -387,26 +414,32 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
       'appear identically whether Pulse is reached through the Bridge or through the KNYT cartridge. ' +
       "Focused surface-polish pass (2026-08-10): `focused: true` hides the KNYT cartridge's own top-level " +
       "header/tab-group nav (Codex/Store/Order/Admin/Docs and the Order-group sibling strip) so a first-" +
-      "time Threshold visitor sees Pulse itself, not the whole cartridge — Pulse's own toolbar is unaffected.",
+      "time Threshold visitor sees Pulse itself, not the whole cartridge — Pulse's own toolbar is unaffected. " +
+      'Depth 0 means content only (publication feed).',
   },
   'knyts-bridge-orient': {
     kind: 'component',
-    component: 'KnytsBridgeMediaStage',
+    component: 'KnytsBridgeOrientIntro',
     note:
-      'ORIENT half of the shared cinematic surface — a short film explaining the Threshold and the first ' +
-      'constitutional act, minimal supporting copy, CTA into Passport. No heavy Bureau UI, no server ' +
-      'call, no completion evidence of its own (see knytsBridgeCrossingJourney.ts).',
+      'KNYTS↔CI parity pass (2026-08-12): ORIENT is now a thin amber-preset wrapper ' +
+      '(components/journey/KnytsBridgeOrientIntro.tsx) over the bridge-neutral ' +
+      'BridgeOrientSurface — the SAME two-column layout and shared ' +
+      'ConstitutionalFrontierOrientSurface questionnaire CI composes, never a second ' +
+      'questionnaire implementation. No heavy Bureau UI, no server call, no completion ' +
+      'evidence of its own (see knytsBridgeCrossingJourney.ts).',
   },
   'knyts-bridge-passport-room': {
     kind: 'component',
     component: 'KnytsBridgePassportRoom',
     note:
-      'State-aware constitutional room (components/journey/KnytsBridgePassportRoom.tsx): no Passport → ' +
-      "the canonical PassportBureauApplyTab claim flow; Passport established → 'You have crossed.' + the " +
-      "SAME 'aigentme-welcome' embed Horizen's own journey uses, so meet/delegate states render from the " +
-      'existing aigentMe dashboard rather than a second, bespoke delegation-state UI. A bare `component` ' +
-      "because it needs the Passport stage's OWN resolved evidence (citizenPassportUsable, threaded in " +
-      'by the page via resolveSurfaceProps) to decide which half to render — a plain embed cannot branch.',
+      'KNYTS↔CI parity pass (2026-08-12): reconstituted onto the CI Passport framework — no usable ' +
+      'Passport → the canonical PassportBureauApplyTab claim flow; Passport established → a dismissible ' +
+      '"you have crossed" banner, a parchment-matte plate pane, and the SAME shared ' +
+      'BridgeActionModeQuestion (Create/Build/Develop/Research/Safeguard) CI composes, never a second ' +
+      'questionnaire. The prior auto-embedded aigentMe iframe is retired — meeting/delegating to aigentMe ' +
+      'is a PERSONIFY/Remix-time decision, not forced on every visitor at Passport establishment. A bare ' +
+      "`component` because it needs the Passport stage's OWN resolved evidence (citizenPassportUsable, " +
+      'threaded in by the page via resolveSurfaceProps) to decide which half to render.',
   },
   'knyts-bridge-mycanvas-remix': {
     kind: 'component',
@@ -425,22 +458,34 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
     tab: 'quests',
     suppressFloatingCopilot: true,
     focused: true,
+    focusedNavDepth: 0,
     openLabel: 'Open KNYT World ↗',
+    rootTab: 'quests',
+    returnLabel: 'Back to Quests',
     note:
       'The canonical KNYT Quests tab (app/triad/components/codex/tabs/KnytQuestsTab.tsx) — "Standing is ' +
       'the constitutional outcome; Quest is the KNYT mechanic through which you earn it." The spine ' +
       'label stays Stand; the surface underneath is the real, KNYT-native Quests experience, never a ' +
       'thin bespoke Standing projection. `focused: true` (2026-08-10) hides the cartridge primary chrome; ' +
-      "Quests's own filters/controls are untouched.",
+      "Quests's own filters/controls are untouched. Depth 0 means content only (quests feed). " +
+      'rootTab/returnLabel (2026-08-12, parity pass): Quests cards can navigate this SAME cartridge to ' +
+      'Living Canon (a same-window CartridgePresenceRegistry tab switch); the "Back to Quests" toolbar ' +
+      '(services/journey/bridgeEmbedNav.ts) returns here without leaving focused presentation.',
   },
-  ‘knyts-bridge-choose’: {
-    kind: ‘component’,
-    component: ‘KnytsBridgeChooseSurface’,
+  'knyts-bridge-buy-store': {
+    kind: 'embed',
+    codexSlug: 'knyt-codex',
+    tab: 'store-episodes',
+    suppressFloatingCopilot: true,
+    focused: true,
+    focusedNavDepth: 1,
+    openLabel: 'Open KNYT World ↗',
     note:
-      ‘components/journey/KnytsBridgeChooseSurface.tsx — four destination cards: (1) Reserve metaKnyt ‘ +
-      ‘Agentic GN (reuse existing interest mechanism); (2) Explore the KNYT Store (link to existing Store); ‘ +
-      ‘(3) Learn about the Constitutional Internet (deep link to CI Bridge, embedded-left-pane pattern); ‘ +
-      ‘(4) Apply to join the Constitutional Financial Services Pilot (mailto interest action for launch).’,
+      'The existing KNYT Store — no new commerce code, same tab the old front door deep-linked to. ' +
+      "`focused: true` (2026-08-10) gives a clean focused Store viewport: cartridge chrome suppressed, " +
+      "the Store tab's own category/local controls untouched, with an \"Open KNYT World ↗\" affordance " +
+      "to leave the guide. Depth 1 retains the Store's own navigation strip (Episodes|KNYT Cards|Bundles|" +
+      'Investor KNYT) which is required for the destination to remain functionally navigable.',
   },
 
   // ── Constitutional Internet Bridge journey (built 2026-08-10, reconstituted
@@ -456,29 +501,44 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
   // which half to render, exactly like knyts-bridge-passport-room.
   'ci-bridge-home': {
     kind: 'component',
-    component: 'BridgeMediaStage',
+    component: 'ConstitutionalInternetBridgeMediaStage',
     note:
-      'components/journey/BridgeMediaStage.tsx, themed indigo — the CI proposition ("The Internet ' +
-      'recognizes accounts. The Constitutional Internet recognizes persons."). The SAME generic hero ' +
-      'component KNYTS Bridge\'s own HOME section previously used (KNYTS has since reconstituted onto ' +
-      'its own cinematic KnytsBridgeMediaStage); the two CTA callbacks (advance to View / Choose) are ' +
-      'threaded in via the page\'s resolveSurfaceProps, dispatching the shared journey:select-stage event.',
+      'components/journey/ConstitutionalInternetBridgeMediaStage.tsx (evolved 2026-08-11 from a bare ' +
+      'BridgeMediaStage mount to a self-fetching wrapper around it) — the CI proposition ("The Internet ' +
+      'recognizes accounts. The Constitutional Internet recognizes persons."), now admin-configurable ' +
+      '(headline/copy/video/poster/primary-CTA-label) via the SAME knyts_bridge_editorial_config table ' +
+      'KNYTS uses (section=ci-home). The two CTA callbacks (advance to View / Choose) are still threaded ' +
+      'in via the page\'s resolveSurfaceProps, dispatching the shared journey:select-stage event.',
   },
   'ci-bridge-view': {
     kind: 'component',
     component: 'ConstitutionalInternetBridgeViewSequence',
     note:
-      'components/journey/ConstitutionalInternetBridgeViewSequence.tsx — real CANONICAL_PLATES_V1 plates ' +
-      'composed with verbatim manuscript excerpts (cited by line), never invented prose. A bare ' +
-      '`component`, not an `embed`, because no canonical external cartridge tab carries this content.',
+      'components/journey/ConstitutionalInternetBridgeViewSequence.tsx — evolved 2026-08-11 into ' +
+      'Ethos | Crossings, then rebuilt the same day onto the shared BridgeContentCapsule shell ' +
+      '(components/journey/BridgeContentCapsule.tsx). Ethos: one capsule per vignette (block), whose rail ' +
+      'offers whichever media genuinely exists — Video (admin-overridable via section=ci-view-<blockId>), ' +
+      'Plate (always, real CANONICAL_PLATES_V1), Paper (only once a real paperRef exists) — with a constant ' +
+      '"Book Insert" strip (verbatim excerpt, cited by line, + ListenButton) regardless of the active rail ' +
+      'card. Moving between vignettes is real swipe/paging via components/ui/carousel.tsx, replacing the ' +
+      'earlier hand-rolled translateX carousel. Crossings: unchanged — a thin projection over the EXISTING ' +
+      'Qriptopian Pulse (KnytCommunityContentTab, cartridge=\'qripto\', campaignTag=CI_BRIDGE_CAMPAIGN_ID) — ' +
+      'never a new feed/table/moderation system. A bare `component`, not an `embed`, because it needs ' +
+      'personaId for Crossings\' Mine filter (threaded via resolveSurfaceProps).',
   },
   'ci-bridge-orient': {
     kind: 'component',
-    component: 'ConstitutionalFrontierOrientSurface',
+    component: 'ConstitutionalInternetBridgeOrientIntro',
     note:
-      'components/journey/ConstitutionalFrontierOrientSurface.tsx — a deterministic, non-gating ' +
-      'questionnaire (no LLM). Persists choices as a best-effort intent/demand signal via the generic ' +
-      'campaign_events log, never as constitutional state — completing it is not tracked evidence.',
+      'components/journey/ConstitutionalInternetBridgeOrientIntro.tsx (evolved 2026-08-11) — an ' +
+      'admin-configurable media/context header (section=ci-orient, same editorial-config table as HOME) ' +
+      'framing "personhood precedes identity," composed above ConstitutionalFrontierOrientSurface (a ' +
+      'deterministic, non-gating questionnaire, no LLM; persists choices as a best-effort intent/demand ' +
+      'signal via the generic campaign_events log, never as constitutional state — completing it is not ' +
+      'tracked evidence). That questionnaire itself now renders on the shared BridgeContentCapsule shell ' +
+      '(exactly 3 rail cards — Help / Preserve / Authority, never a 4th "Connect Claude" card — one question ' +
+      'active at a time, persistent strip carrying progress + the reveal action), so this wrapper composes ' +
+      'the header directly above it rather than nesting it in a second bordered card.',
   },
   'ci-bridge-passport-room': {
     kind: 'component',
@@ -487,19 +547,31 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
       'State-aware constitutional room (components/journey/ConstitutionalInternetBridgePassportRoom.tsx), ' +
       'mirroring knyts-bridge-passport-room\'s exact pattern: no usable Passport -> the canonical ' +
       'PassportBureauApplyTab claim flow; Passport established -> "You have crossed." + a continuation ' +
-      'toward ACT (never an inline aigentMe embed here, since ACT itself already is the agent-connection ' +
-      'experience). A bare `component` because it needs the Passport stage\'s OWN resolved evidence ' +
-      '(citizenPassportUsable, threaded in by the page via resolveSurfaceProps) to decide which half to ' +
-      'render — a plain embed cannot branch.',
+      'toward PERSONIFY (renamed from ACT, 2026-08-11; never an inline aigentMe embed here, since ' +
+      'PERSONIFY itself already offers the real aigentMe embed as a supporting tool). A bare `component` ' +
+      'because it needs the Passport stage\'s OWN resolved evidence (citizenPassportUsable, threaded in ' +
+      'by the page via resolveSurfaceProps) to decide which half to render — a plain embed cannot branch.',
   },
-  'ci-bridge-personify': {
+  'ci-bridge-personify-mycanvas': {
     kind: 'component',
     component: 'ConstitutionalInternetBridgePersonifyMyCanvas',
     note:
-      'components/journey/ConstitutionalInternetBridgePersonifyMyCanvas.tsx — embeds the canonical ' +
-      'myCanvas tab for the visitor to tell their Constitutional story. Gated by citizenPassportUsable evidence ' +
-      'from Passport stage. Campaign-tagged with constitutional-internet-bridge so the Article Zero ' +
-      'instructional template appears by default. Auth/persona propagation via personaId and session state.',
+      'components/journey/ConstitutionalInternetBridgePersonifyMyCanvas.tsx — PERSONIFY\'s ONLY surface ' +
+      '(consolidated 2026-08-11, targeted correction pass — previously paired with a second registered ' +
+      'surface, ci-bridge-personify-field-entry/ConstitutionalAgentFieldEntrySurface, now removed: it ' +
+      'embedded a SECOND metame-codex/aigent-me iframe whose own internal AigentMeWelcomeSplitTab shell ' +
+      'brought along an unrelated Horizen "Focus Check-in" ceremony, producing four visually stacked ' +
+      'agent-relationship representations on one page instead of one). "Tell your Constitutional story," ' +
+      'mirroring KnytsBridgeRemixSurface\'s exact pattern — the SAME myCanvas tab (metame-codex/mycanvas), ' +
+      'campaignTag=CI_BRIDGE_CAMPAIGN_ID selecting MyCanvasTab\'s starter template (with its own "Connect ' +
+      'Claude" rail chip, also campaign-scoped) and, via its own campaignTag->cartridge lock map, forcing ' +
+      'published output to Qriptopian Pulse — never a second, CI-specific editor or publishing endpoint. ' +
+      'A bare `component` (not `embed`) because it builds its own iframe src directly via buildCodexUrl, ' +
+      'same as KnytsBridgeRemixSurface. Now composes TWO panes side by side: the myCanvas iframe (left) ' +
+      'and an aigentMe pane (right) rendering ConstitutionalAgentDispositionSurface\'s "Shape your story" ' +
+      'role/authority question directly as a React component wrapped in LayoutShell — no second iframe, ' +
+      'no incidental Horizen ceremony. Either the story itself or the disposition question alone still ' +
+      'completes PERSONIFY\'s agentRelationshipStarted evidence.',
   },
   'ci-bridge-stand': {
     kind: 'component',
@@ -542,6 +614,12 @@ export function buildEmbedSurfaceSrc(
     shell: 'embed',
     suppressCopilot: descriptor.suppressFloatingCopilot,
     focused: descriptor.focused,
+    // Only meaningful when actually focused — a caller that has overridden
+    // `focused` to undefined (JourneyRunSurface's "Full view" expansion
+    // toggle) must render full canonical chrome, not the depth the REGISTRY
+    // still carries statically. Gating here, at the shared embed/chrome
+    // boundary, means neither caller has to remember to clear depth too.
+    focusedNavDepth: descriptor.focused ? descriptor.focusedNavDepth : undefined,
     ...(descriptor.agentScoped && input.selectedAgentSlug ? { agentSlug: input.selectedAgentSlug } : {}),
   });
 }

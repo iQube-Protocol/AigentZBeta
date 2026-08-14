@@ -49,8 +49,18 @@ const orderOf = (id: string) => STAGES.findIndex((s) => s.id === id);
  * constitutionally true before I can act as the principal from whom
  * authority originates" — a real, receipted stage
  * (services/journey/orientationContext.ts), not a step Passport can skip.
+ *
+ * ACTIVATE INSERTED 2026-08-11 (Constitutional State Model Correction,
+ * operator-ratified): the spine is now Register -> Claim -> Orient ->
+ * Passport -> Activate -> Delegate -> aigentMe. Activate is a DERIVED
+ * constitutional transition — established automatically once sponsorship +
+ * Delegate Passport are both observed true (services/journey/
+ * agentRegistryActivation.ts) — never an operator act, never gated on
+ * Delegate or Operate. This pilot's visible order is the GUIDED CEREMONY
+ * ORDER, not the constitutional dependency graph: the underlying model
+ * permits an Active/Operating agent with no current delegation.
  */
-const SPINE = ['register', 'claim', 'orient', 'passport', 'delegate', 'aigentme'] as const;
+const SPINE = ['register', 'claim', 'orient', 'passport', 'activate', 'delegate', 'aigentme'] as const;
 
 /** Read from the module's own closed union so the canary cannot drift from it. */
 const SETTLED_PREDICATES = fs
@@ -73,7 +83,11 @@ describe('the admission spine is Register -> Claim -> Passport -> Delegate -> ai
     // own prerequisite moved from 'claim' to 'orient'; Orient's is 'claim'.
     expect(byId('orient').prerequisites).toEqual(['claim']);
     expect(byId('passport').prerequisites).toEqual(['orient']);
-    expect(byId('delegate').prerequisites).toEqual(['passport']);
+    // Activate now sits between Passport and Delegate (2026-08-11) — its own
+    // prerequisite is 'passport' alone (never 'delegate', never 'aigentme');
+    // Delegate's prerequisite moved from 'passport' to 'activate'.
+    expect(byId('activate').prerequisites).toEqual(['passport']);
+    expect(byId('delegate').prerequisites).toEqual(['activate']);
     expect(byId('aigentme').prerequisites).toEqual(['delegate']);
   });
 
@@ -105,7 +119,10 @@ describe('enrichments and factory ingestion are parallel branches, not steps', (
   it('Factory ingestion is its own branch, and does not require Verify', () => {
     const deploy = byId('deploy');
     expect(deploy.branch).toBe('factory');
-    expect(deploy.prerequisites).toEqual(['aigentme']);
+    // Was ['aigentme'] — Activate Consolidation (2026-08-11) dropped the
+    // Operate prerequisite: `deploy` is legacy/internal, no longer a
+    // sequenced admission step.
+    expect(deploy.prerequisites).toEqual([]);
     expect(deploy.prerequisites, 'a verification failure must not block ingestion').not.toContain('verify');
   });
 
@@ -287,7 +304,8 @@ describe('FSE is additive, never requisite (2026-08-03)', () => {
    * make Standing wait on Pulse/P&L, which is exactly the collapse forbidden.
    */
   it('Factory ingestion does not depend on the verification branch', () => {
-    expect(deploy.prerequisites).toEqual(['aigentme']);
+    // Was ['aigentme'] — see the "own branch" test above for the 2026-08-11 correction.
+    expect(deploy.prerequisites).toEqual([]);
     expect(deploy.prerequisites).not.toContain('verify');
   });
 
@@ -945,14 +963,19 @@ describe('Deploy observes registry presence; Passport observes the receipt the B
 /*
  * ══ THE FACTORY SURFACE OPENS ON WHAT IS ALREADY THERE ════════════════════
  */
-describe('the Deploy (Ingest) stage carries its own guided act, not just the evidence catalogue', () => {
-  it('has an ingest-into-factory-action surface, resolving to IngestIntoFactoryPanel, before the read-only registry surface', () => {
-    const deploy = HORIZEN_MONEYPENNY_JOURNEY.stages.find((s) => s.id === 'deploy')!;
-    const actIndex = deploy.surfaces.findIndex((s) => s.ref === 'ingest-into-factory-action');
-    const registryIndex = deploy.surfaces.findIndex((s) => s.ref === 'venture-participate-standing');
+describe('the Ingest surface is re-homed under Activate (Activate Consolidation, 2026-08-11)', () => {
+  it('has an ingest-into-factory-action surface, resolving to IngestIntoFactoryPanel, before the read-only registry surface — on `activate`, not `deploy`', () => {
+    const activate = HORIZEN_MONEYPENNY_JOURNEY.stages.find((s) => s.id === 'activate')!;
+    const actIndex = activate.surfaces.findIndex((s) => s.ref === 'ingest-into-factory-action');
+    const registryIndex = activate.surfaces.findIndex((s) => s.ref === 'venture-participate-standing');
     expect(actIndex).toBeGreaterThanOrEqual(0);
     expect(registryIndex).toBeGreaterThanOrEqual(0);
     expect(actIndex).toBeLessThan(registryIndex);
+  });
+
+  it('the legacy `deploy` stage carries no surfaces of its own — never a duplicate implementation', () => {
+    const deploy = HORIZEN_MONEYPENNY_JOURNEY.stages.find((s) => s.id === 'deploy')!;
+    expect(deploy.surfaces).toEqual([]);
   });
 
   it('completionEvidence is factoryIngested only — never re-derived from registry/AigentQube presence', () => {
@@ -961,15 +984,15 @@ describe('the Deploy (Ingest) stage carries its own guided act, not just the evi
   });
 });
 
-describe('the Deploy stage deep-links into Ingested Assets', () => {
+describe('the Activate stage deep-links into the iQube Registry catalogue', () => {
   it('pins the Ingestion Factory to its assets section', () => {
-    const deploy = HORIZEN_MONEYPENNY_JOURNEY.stages.find((s) => s.id === 'deploy')!;
+    const activate = HORIZEN_MONEYPENNY_JOURNEY.stages.find((s) => s.id === 'activate')!;
     // By ref, not position — the Ingest act's own guided-action surface
     // ('ingest-into-factory-action', Horizen Pilot Closure part 2, 2026-08-09)
     // was added ahead of this one in the array; identity must come from what
     // is being rendered, never from where it sits in the list (the same
     // discipline JourneyRunSurface's own surface keying already follows).
-    const surface = deploy.surfaces.find((s) => s.ref === 'venture-participate-standing') as { props?: Record<string, unknown> };
+    const surface = activate.surfaces.find((s) => s.ref === 'venture-participate-standing') as { props?: Record<string, unknown> };
     expect(surface.props?.only).toBe('registry');
     expect(surface.props?.registrySection).toBe('assets');
   });

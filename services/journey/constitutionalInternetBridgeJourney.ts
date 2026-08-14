@@ -13,8 +13,9 @@
  * ── Seven spine nodes, three tracked stages ─────────────────────────────────
  *
  * An earlier version of this file reduced the public seven-beat narrative
- * (HOME, VIEW, ORIENT, PASSPORT, ACT, STAND, CHOOSE) to a three-stage
- * JourneyDefinition (passport/act/stand), reasoning that a JourneyDefinition
+ * (HOME, VIEW, ORIENT, PASSPORT, PERSONIFY, STAND, CHOOSE — PERSONIFY named
+ * ACT before the 2026-08-11 experience evolution pass) to a three-stage
+ * JourneyDefinition (passport/personify/stand), reasoning that a JourneyDefinition
  * stage is a unit of TRACKED, EVIDENCED PROGRESS (Journey Guidance
  * Principle, §5.1) and the other four have nothing to gate or complete. That
  * reasoning about EVIDENCE was correct and is preserved below — HOME/VIEW/
@@ -49,10 +50,17 @@
  * than the weaker `personaAuthenticated` (merely signed in) this file used
  * before reconstitution.
  *
- * ── ACT: "Bring Your Agent Into the Field" — connection is not delegation ──
+ * ── PERSONIFY (evolved from ACT, 2026-08-11): "Tell your Constitutional
+ *    story" — the person is the protagonist ──────────────────────────────
  *
- * ACT is the first post-Passport human-agent relationship step, and offers
- * TWO sibling paths, neither of which grants constitutional authority:
+ * Renamed from ACT (public stage id `act` → `personify`) as an experience
+ * evolution, not a rebuild: every ACT capability below is preserved, only
+ * repositioned. The stage's PRIMARY surface is now a real, functional
+ * personal-expression act — writing a Constitutional Article or Story via
+ * the canonical myCanvas → Qriptopian Pulse pipeline (the same pipeline
+ * KNYTS' own Remix uses, pointed at Qriptopian instead of KNYT) — with the
+ * two original ACT paths kept as SUPPORTING tools underneath it, not the
+ * stage's main purpose:
  *
  *   (1) Connect an agent you already use — a real, already-working metaMe
  *       Threshold MCP OAuth crossing (services/threshold/gateway.ts,
@@ -65,12 +73,29 @@
  *       proposal; it cannot grant one). Governing principle: "Context may
  *       cross before authority does."
  *   (2) Meet aigentMe — the pre-existing generalized ExperienceQube
- *       disposition ceremony (experienceQubeDispositionService.ts).
+ *       disposition ceremony (experienceQubeDispositionService.ts), now
+ *       paired with the real, focused aigentMe/metaMe surface (the same
+ *       embed pattern KNYTS' own Delegate stage uses) so aigentMe actually
+ *       helps shape the story rather than leaving the ceremony floating in
+ *       an otherwise-empty viewport. The person remains the author.
  *
- * Both are relationship/context facts, not delegation, not Standing, not a
- * mandate. `completionEvidence: ['agentRelationshipStarted']` is true when
- * EITHER path is taken (computed as an OR in the state route) — the two
- * paths are alternatives, not a checklist.
+ * Both supporting paths are relationship/context facts, not delegation, not
+ * Standing, not a mandate. `completionEvidence: ['agentRelationshipStarted']`
+ * is UNCHANGED by this evolution — still true when EITHER supporting path is
+ * taken (computed as an OR in the state route), still an alternative
+ * pairing, never a checklist, and never requiring a published story (the
+ * spec is explicit: publishing is the primary invitation, not a completion
+ * gate).
+ *
+ * `CI_BRIDGE_DISPOSITION_CONTEXT` ('constitutional-internet-bridge-act') is
+ * DELIBERATELY left unrenamed — it is stamped into real, already-written
+ * disposition receipts, and the `act/disposition` and `act/connect-agent`
+ * route paths are unchanged internal plumbing (CLAUDE.md's own principle:
+ * a public stage label is not the same thing as an internal identifier).
+ * Verified before this rename: no persisted table or receipt stores the
+ * JourneyDefinition's stage id itself (`platformState.stages` is a fresh
+ * per-request object literal in the state route, never written to a
+ * database) — so this rename needed no backward-compatible alias.
  *
  * STAND consumes real Passport/disposition receipts and the canonical
  * Standing score — never fabricated from navigation or viewing.
@@ -127,6 +152,12 @@ export const CI_BRIDGE_RUNTIME_AGENT_ID = 'aigent-z';
  *  agentsInvoked scope above. */
 export const CI_BRIDGE_DISPOSITION_CONTEXT = 'constitutional-internet-bridge-act';
 
+/** Single source for Orient's companion framing — also reused verbatim as
+ *  the ORIENT capsule's persistent strip copy (ConstitutionalFrontierOrientSurface),
+ *  so the two never drift apart into two descriptions of the same stage. */
+export const CI_BRIDGE_ORIENT_COMPANION_COPY =
+  'Where do you most want agents to help? What do you most want to remain yours? Claiming your Passport is your first constitutional act.';
+
 export const CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY: JourneyDefinition = {
   id: 'constitutional-internet-bridge',
   version: '2.0.0',
@@ -138,7 +169,7 @@ export const CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY: JourneyDefinition = {
     {
       id: 'home',
       label: 'Home',
-      description: 'Enter the Constitutional Internet.',
+      description: 'The Internet recognizes accounts. The Constitutional Internet recognizes persons.',
       actor: 'operator',
       subjectRef: 'visitor',
       surfaces: [
@@ -171,7 +202,7 @@ export const CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY: JourneyDefinition = {
     {
       id: 'view',
       label: 'View',
-      description: 'Encounter the Ethos.',
+      description: 'See the constitutional frontier.',
       actor: 'operator',
       subjectRef: 'visitor',
       surfaces: [
@@ -194,7 +225,7 @@ export const CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY: JourneyDefinition = {
     {
       id: 'orient',
       label: 'Orient',
-      description: 'Understand why the person comes first.',
+      description: 'Understand your constitutional frontier and the role you want agents to play.',
       actor: 'operator',
       subjectRef: 'visitor',
       surfaces: [
@@ -210,14 +241,14 @@ export const CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY: JourneyDefinition = {
       receiptTypes: [],
       receiptsSurfacedNatively: true,
       companion: {
-        before: 'Where do you most want agents to help? What do you most want to remain yours? Claiming your Passport is your first constitutional act.',
+        before: CI_BRIDGE_ORIENT_COMPANION_COPY,
         complete: '',
       },
     },
     {
       id: 'passport',
       label: 'Passport',
-      description: 'Claim your constitutional presence.',
+      description: 'Crossing the Threshold is the actual constitutional act — everything before it was exploring the proposition.',
       actor: 'operator',
       subjectRef: 'visitor',
       surfaces: [
@@ -227,7 +258,7 @@ export const CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY: JourneyDefinition = {
           note:
             'State-aware constitutional room (ConstitutionalInternetBridgePassportRoom.tsx): no usable ' +
             'Passport -> the canonical PassportBureauApplyTab claim flow; Passport established -> ' +
-            '"You have crossed." + a continuation toward ACT. Never a campaign-specific fork of Passport.',
+            '"You have crossed." + a continuation toward PERSONIFY. Never a campaign-specific fork of Passport.',
         },
       ],
       prerequisites: [],
@@ -246,32 +277,51 @@ export const CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY: JourneyDefinition = {
     {
       id: 'personify',
       label: 'Personify',
-      description: 'Tell your Constitutional story.',
+      description:
+        'Tell your Constitutional story. Write an Article — your real constitutional perspective — or a ' +
+        'Story — an imagined constitutional life — published to the real Qriptopian Pulse. Connecting an ' +
+        'agent you already use, or shaping aigentMe as a companion, are supporting tools, not the point: ' +
+        'the person is the protagonist.',
       actor: 'operator',
       subjectRef: 'visitor',
       surfaces: [
         {
           mode: 'component',
-          ref: 'ci-bridge-personify',
+          ref: 'ci-bridge-personify-mycanvas',
           note:
-            'ConstitutionalInternetBridgePersonifyMyCanvas — embeds canonical myCanvas for telling ' +
-            'Constitutional story. Campaign-tagged with constitutional-internet-bridge. Gated by Passport evidence.',
+            'ConstitutionalInternetBridgePersonifyMyCanvas — PERSONIFY\'s ONLY surface (consolidated ' +
+            '2026-08-11, targeted correction pass — a second registered surface previously sat below ' +
+            'this one; its own embedded metame-codex/aigent-me iframe brought an unrelated Horizen ' +
+            '"Focus Check-in" ceremony along with it, producing four stacked agent-relationship ' +
+            'representations on one page). The canonical myCanvas Article/Story editor, embedded exactly ' +
+            'like KNYTS\' own Remix surface, publishing through the SAME existing ' +
+            '/api/community-content/generate -> /api/mycanvas/entries/[id]/publish-to-pulse pipeline, ' +
+            'destination locked to Qriptopian Pulse (cartridge=\'qripto\') via MyCanvasTab\'s ' +
+            'campaignTag->cartridge lock map — never a second, CI-specific publishing endpoint. Composes ' +
+            'a second, non-iframe pane alongside the editor: the "Shape your story" role/authority ' +
+            'question (ConstitutionalAgentDispositionSurface), which alone or together with the story ' +
+            'itself satisfies agentRelationshipStarted below. "Connect an agent you already use" now ' +
+            'lives inside MyCanvasTab\'s own rail (campaign-scoped chip), not a separate surface.',
         },
       ],
-      prerequisites: [],
-      permittedActions: [],
-      completionEvidence: [],
+      prerequisites: ['passport'],
+      permittedActions: ['publish-constitutional-story', 'connect-external-agent', 'record-agent-disposition'],
+      completionEvidence: ['agentRelationshipStarted'],
       receiptTypes: [],
       companion: {
-        before: 'Tell your story. Remix an existing crossing, or start with the Article Zero template.',
-        complete: 'Your Constitutional story is published.',
+        before:
+          'Tell your Constitutional story — an Article on your real perspective, or a Story imagining a ' +
+          'constitutional life. Connecting an agent you already use, or shaping aigentMe as a companion, ' +
+          'are optional supporting tools — connection is never delegation, and nothing here is inferred or ' +
+          'assumed on your behalf.',
+        complete: 'An agent has entered the field with you. Bounded delegation, if you ever want it, is a separate, later choice.',
       },
       nextStageId: 'stand',
     },
     {
       id: 'stand',
       label: 'Stand',
-      description: 'See and build your Standing.',
+      description: 'See yourself enter the loop — the real constitutional events recorded so far, honestly framed.',
       actor: 'operator',
       subjectRef: 'visitor',
       surfaces: [
@@ -281,7 +331,14 @@ export const CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY: JourneyDefinition = {
           note: 'Reads real Passport/disposition receipts and the canonical Standing score — never fabricates Standing from navigation or viewing. See services/journey/constitutionalInternetBridgeStand.ts.',
         },
       ],
-      prerequisites: [],
+      // Passport determines ELIGIBILITY to enter Stand (2026-08-12, CFS-055
+      // coherence pass — mirrors knytsBridgeCrossingJourney.ts's identical
+      // fix). Personify is a separate, independently-available post-
+      // Passport constitutional contribution, not a prerequisite of Stand:
+      // the operator may visit either first. Whether Stand becomes
+      // COMPLETE is still governed entirely by completionEvidence below —
+      // Passport establishes access, it does not award Standing.
+      prerequisites: ['passport'],
       permittedActions: ['view-standing'],
       completionEvidence: ['constitutionalEventRecorded'],
       receiptTypes: [],
@@ -294,7 +351,7 @@ export const CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY: JourneyDefinition = {
     {
       id: 'choose',
       label: 'Choose',
-      description: 'Choose where to go next.',
+      description: 'Where next?',
       actor: 'operator',
       subjectRef: 'visitor',
       surfaces: [

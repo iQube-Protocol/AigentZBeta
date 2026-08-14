@@ -2851,6 +2851,10 @@ export async function POST(request: NextRequest) {
       // for cartridge-scoped semantic search (v0.5 fully wires the KB
       // filter; today it falls back to domain-scoped).
       cartridgeSlug,
+      // Journey/surface context ID (e.g. "ci-bridge" for Constitutional Internet
+      // Bridge). Used to configure KB search and system prompt when cartridgeSlug
+      // is not provided. Maps to appropriate content domain or journey-specific KB.
+      contextId,
     } = body;
 
     if (!message) {
@@ -2911,6 +2915,27 @@ export async function POST(request: NextRequest) {
 
     // Infer primary role from message and declared roles
     const primaryRole = inferPrimaryRole(message, declaredRoles);
+
+    // Effective agent + effective domain — resolved ONCE, here, before
+    // userContext is constructed (fixed 2026-08-12: `domain` was referenced
+    // in the userContext literal below and in the log line immediately
+    // after it, but was only ever DECLARED later, inside the non-composer
+    // `else` branch — a block scoped after and separate from this point, so
+    // TypeScript could not even see a `domain` binding here at all
+    // (`TS18004: No value exists in scope for the shorthand property
+    // 'domain'`). That made every request — composer or not — throw before
+    // reaching KB search, ontology resolution, or provider routing; the
+    // 500 was a crash on this line, not a model or grounding failure. The
+    // later `const resolvedAgentId` (used throughout the rest of the
+    // handler for provider routing) computed the identical agent value a
+    // second time — hoisting collapses both to one binding, used
+    // everywhere, so composer mode gets a valid domain too.
+    const resolvedAgentId =
+      (typeof aigentId === 'string' && normalizeAgentId(aigentId)) ||
+      defaultAgentIdForPersona(persona);
+    const domain: ContentDomain =
+      (requestedDomain as ContentDomain | undefined) ??
+      (KNYT_FOCUSED_AGENTS.has(resolvedAgentId) ? 'metaKnyts' : 'protocol');
 
     // Build user context (includes metaMe policy settings when provided)
     const userContext: UserContext = {
@@ -3027,6 +3052,16 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Declared here (not `const` inside the else branch below) so the
+    // diagnostic checkpoint after the branch — which needs to report the
+    // scope a KB search actually ran with — can read it without a second
+    // out-of-scope reference (2026-08-12 fix: this was ALSO referenced out
+    // of scope, same class of bug as `domain` above, and would throw for
+    // any message containing "personhood"/"identity" even after the
+    // `domain` crash was fixed). Composer mode never sets it; stays
+    // undefined there, which the checkpoint logs plainly.
+    let kbSearchScope: string | undefined;
+
     if (isComposerMode) {
       systemPrompt = buildComposerSystemPrompt(composerSessionContext as ComposerSessionContext);
       // The composer builds its prompt on a different path, which is exactly
@@ -3097,19 +3132,11 @@ export async function POST(request: NextRequest) {
         }
       }
     } else {
-      const resolvedAgentForFetch = (typeof aigentId === 'string' && normalizeAgentId(aigentId)) || defaultAgentIdForPersona(persona);
-      const isKn0w1 = resolvedAgentForFetch === 'aigent-kn0w1';
-      // The corpus a turn is grounded on. An explicit `domain` from the client
-      // always wins; otherwise it is DERIVED from the agent. KNYT-focused
-      // agents get the KNYT corpus (which is correct and is what KnytTab and
-      // friends relied on when they sent no domain); everyone else gets
-      // 'protocol', whose branch returns an empty content scaffold so the LLM
-      // uses persona + cartridge context instead of someone else's lore.
-      const domain: ContentDomain =
-        (requestedDomain as ContentDomain | undefined) ??
-        (KNYT_FOCUSED_AGENTS.has(resolvedAgentForFetch) ? 'metaKnyts' : 'protocol');
-      const isAigentMe = resolvedAgentForFetch === 'aigent-me';
-      const isAigentZ = resolvedAgentForFetch === 'aigent-z';
+      // resolvedAgentId + domain are the SAME hoisted bindings from above
+      // (no shadowing, no second source of truth — see the fix note there).
+      const isKn0w1 = resolvedAgentId === 'aigent-kn0w1';
+      const isAigentMe = resolvedAgentId === 'aigent-me';
+      const isAigentZ = resolvedAgentId === 'aigent-z';
       const activeSkill = isKn0w1 ? detectSkillIntent(message) : null;
       const needsProtocolKB = isProtocolQuery(message);
 
@@ -3168,6 +3195,10 @@ export async function POST(request: NextRequest) {
 
       // Fetch codex metadata, KB results, protocol KB (when relevant), live KNYT
       // state, and aigent-z platform knowledge + stage ground data in parallel
+      // KB search scope — use cartridge context if available, fall back to contextId
+      // (e.g. "ci-bridge" for Constitutional Internet Bridge) for journey surfaces
+      kbSearchScope = cartridgeContext?.cartridgeSlug || (typeof contextId === 'string' ? contextId : undefined);
+
       const [resolvedMetadata, resolvedKbResults, resolvedProtocolResults, resolvedLiveContext, resolvedPlatformKnowledge, resolvedStageGroundData, resolvedKnowledgeInit, resolvedOntology] = await Promise.all([
         fetchCodexMetadata(domain),
         // Prompt-assembly slimming (2026-07-15, operator-ratified): the
@@ -3179,8 +3210,8 @@ export async function POST(request: NextRequest) {
         // ceiling. Skip it; the empty result is identical.
         domain === 'aigentMe'
           ? Promise.resolve([] as KBSearchResult[])
-          : searchKnowledgeBase(message, domain, 3, cartridgeContext?.cartridgeSlug),
-        needsProtocolKB ? searchKnowledgeBase(message, 'protocol', 3, cartridgeContext?.cartridgeSlug) : Promise.resolve([]),
+          : searchKnowledgeBase(message, domain, 3, kbSearchScope),
+        needsProtocolKB ? searchKnowledgeBase(message, 'protocol', 3, kbSearchScope) : Promise.resolve([]),
         isKn0w1 ? fetchKnytLiveContext(typeof personaId === 'string' ? personaId : undefined) : Promise.resolve(undefined),
         isAigentZ
           ? buildAigentZPlatformKnowledge(message, new URL(request.url).origin).catch((err) => {
@@ -3199,7 +3230,7 @@ export async function POST(request: NextRequest) {
         // the Invariant Service, so warm turns cost no extra queries.
         // Enrichment-only — any failure yields null and the turn proceeds.
         initializeKnowledge({
-          domains: [domain, cartridgeContext?.cartridgeSlug].filter(
+          domains: [domain, kbSearchScope].filter(
             (d, i, a): d is string => Boolean(d) && a.indexOf(d) === i,
           ),
         }).catch((err) => {
@@ -3226,6 +3257,18 @@ export async function POST(request: NextRequest) {
       });
 
       console.log(`[CodexChat] KB: ${resolvedKbResults.length} domain + ${resolvedProtocolResults.length} protocol results${isKn0w1 ? `, skill: ${activeSkill ?? 'none'}` : ''}`);
+
+      // Diagnostic checkpoint: KB retrieval for trace "Why personhood before identity?"
+      if (message.toLowerCase().includes('personhood') || message.toLowerCase().includes('identity')) {
+        console.log('[CodexChat-DIAG] CHECKPOINT: KB retrieval', {
+          messageInput: message.substring(0, 60),
+          domainKBResults: resolvedKbResults.length,
+          protocolKBResults: resolvedProtocolResults.length,
+          domainKBTitles: resolvedKbResults.slice(0, 2).map(r => r.title),
+          protocolKBTitles: resolvedProtocolResults.slice(0, 2).map(r => r.title),
+          searchScope: kbSearchScope || 'default',
+        });
+      }
 
       // Cartridge-scoped overlay enrichments. The L1 substrate was already
       // resolved unconditionally above (`constitutionalGround`) — what remains
@@ -3283,15 +3326,28 @@ export async function POST(request: NextRequest) {
 
     const requestedProviderId = normalizeRuntimeProviderId(provider_id);
     const requestedModelId = typeof llm_id === 'string' ? llm_id : null;
-    const resolvedAgentId =
-      (typeof aigentId === 'string' && normalizeAgentId(aigentId)) ||
-      defaultAgentIdForPersona(persona);
+    // resolvedAgentId is the SAME hoisted binding from above — no second
+    // computation (removed duplicate 2026-08-12).
     const providerAvailability = getProviderAvailability();
     const { attempts: providerAttempts, skipped: skippedProviders } = buildProviderAttempts(
       requestedProviderId,
       requestedModelId,
       resolvedAgentId,
     );
+
+    // Diagnostic checkpoint: provider selection for trace "Why personhood before identity?"
+    if (message.toLowerCase().includes('personhood') || message.toLowerCase().includes('identity')) {
+      console.log('[CodexChat-DIAG] CHECKPOINT: provider selection', {
+        messageInput: message.substring(0, 60),
+        resolvedAgentId,
+        requestedProviderId,
+        requestedModelId,
+        providerAttempts: providerAttempts.map(a => `${a.providerId}/${a.modelId}`),
+        kbSearchScope,
+        domain,
+        isComposerMode,
+      });
+    }
 
     // Build shared conversation array
     const conversationHistory: ChatMessage[] = [
@@ -3499,6 +3555,20 @@ export async function POST(request: NextRequest) {
     const walletActions = inferWalletActions(message, messageSansStageData);
     const suggestedLayouts = inferSuggestedLayouts(message, messageSansStageData, chatHistory);
     const responseForClient = stripLayoutTags(messageSansStageData);
+
+    // Diagnostic checkpoint: response content chain for trace "Why personhood before identity?"
+    if (message.toLowerCase().includes('personhood') || message.toLowerCase().includes('identity')) {
+      console.log('[CodexChat-DIAG] CHECKPOINT: response content chain', {
+        messageInput: message,
+        executionResultContent: executionResult.content ? `${executionResult.content.length} chars` : 'NULL',
+        assistantMessagePreview: assistantMessage.substring(0, 100),
+        afterStageExtraction: messageSansStageData.substring(0, 100),
+        afterStripLayoutTags: responseForClient.substring(0, 100),
+        responseForClientLength: responseForClient.length,
+        isEmpty: responseForClient.length === 0,
+        isWhitespace: responseForClient.trim().length === 0,
+      });
+    }
 
     console.log('[CodexChat] Response length:', responseForClient.length);
     console.log('[CodexChat] Response preview:', responseForClient.substring(0, 200) + '...');

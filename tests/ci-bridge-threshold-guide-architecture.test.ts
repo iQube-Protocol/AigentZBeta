@@ -23,12 +23,23 @@ import { JOURNEY_SURFACES } from '@/services/journey/journeySurfaceRegistry';
 const REPO = path.join(__dirname, '..');
 const PAGE = path.join(REPO, 'app', 'bridge', 'ci', 'page.tsx');
 
+// Evolved 2026-08-11 (experience enrichment pass, not a reconstitution):
+// HOME and ORIENT gained self-fetching admin-config wrappers around what
+// used to be their bare component mounts. PERSONIFY briefly carried a
+// second top-level surface (its supporting-tools surface) but that was
+// CONSOLIDATED back into one surface the same day (targeted correction
+// pass) — the second surface's own embedded aigent-me iframe brought an
+// unrelated Horizen "Focus Check-in" ceremony along with it, producing
+// four stacked agent-relationship representations instead of one; its one
+// still-needed piece (the "Shape your story" capsule) now renders directly
+// inside ConstitutionalInternetBridgePersonifyMyCanvas as a second pane,
+// no iframe-in-iframe.
 const STAGE_SURFACE_COMPONENTS = [
-  'BridgeMediaStage',
+  'ConstitutionalInternetBridgeMediaStage',
   'ConstitutionalInternetBridgeViewSequence',
-  'ConstitutionalFrontierOrientSurface',
+  'ConstitutionalInternetBridgeOrientIntro',
   'ConstitutionalInternetBridgePassportRoom',
-  'ConstitutionalAgentFieldEntrySurface',
+  'ConstitutionalInternetBridgePersonifyMyCanvas',
   'ConstitutionalInternetBridgeStandPanel',
   'ConstitutionalInternetBridgeChooseSurface',
 ];
@@ -66,17 +77,23 @@ describe('CI Bridge — Threshold Guide architecture canary', () => {
     }
   });
 
-  it('the seven public stages map onto exactly the seven CI registry surfaces', () => {
+  it('the seven public stages map onto exactly the seven CI registry surfaces (PERSONIFY\'s surfaces[0] is now its primary myCanvas surface)', () => {
     const expectedRefs = [
       'ci-bridge-home',
       'ci-bridge-view',
       'ci-bridge-orient',
       'ci-bridge-passport-room',
-      'ci-bridge-act-field-entry',
+      'ci-bridge-personify-mycanvas',
       'ci-bridge-stand',
       'ci-bridge-choose',
     ];
     const actualRefs = CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY.stages.map((s) => s.surfaces[0]?.ref);
     expect(actualRefs).toEqual(expectedRefs);
+  });
+
+  it('PERSONIFY carries exactly ONE surface (consolidated 2026-08-11 — no second, iframe-in-iframe supporting surface)', () => {
+    const personify = CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY.stages.find((s) => s.id === 'personify');
+    expect(personify).toBeTruthy();
+    expect(personify!.surfaces.map((s) => s.ref)).toEqual(['ci-bridge-personify-mycanvas']);
   });
 });
