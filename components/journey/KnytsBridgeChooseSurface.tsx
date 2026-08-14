@@ -12,8 +12,11 @@
  * once clicked).
  *
  * Six destinations:
- *   1. "Reserve metaKnyt Agentic Graphic Novel" — mailto interest action (unchanged;
- *      no reservation infrastructure exists for v1).
+ *   1. "Reserve metaKnyt Agentic Graphic Novel" — the same reserve-interest
+ *      form CI's "Reserve The Constitutional Internet" uses
+ *      (BridgeReserveInterestCard), posting to its own
+ *      knyts-bridge/choose/book-interest route (KNYTS_BRIDGE_CAMPAIGN_ID).
+ *      No product/SKU/preorder/payment flow — a demand-signal log only.
  *   2. "Explore the KNYT Store" — switches the left pane to the canonical
  *      embedded Store (knyt-codex/store-episodes, focused depth 1 so the
  *      Store's own Episodes|KNYT Cards|Bundles|Investor KNYT strip stays
@@ -44,11 +47,12 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { Mail, Sparkles, ArrowRight, BookMarked, Handshake, Compass, MessageCircle, Share2 } from 'lucide-react';
+import { Mail, Sparkles, ArrowRight, Handshake, Compass, MessageCircle, Share2 } from 'lucide-react';
 import { buildCodexUrl } from '@/utils/codex-nav';
 import { SocialSharingModal } from '@/packages/smarttriad/src/SocialSharingModal';
 import { KNYTS_BRIDGE_CAMPAIGN_ID } from '@/services/journey/knytsBridgeCrossingJourney';
 import { FullscreenableFrame } from '@/components/journey/FullscreenableFrame';
+import { BridgeReserveInterestCard } from '@/components/journey/BridgeReserveInterestCard';
 import {
   KNYTS_BRIDGE_SECTION_DEFAULTS,
   type KnytsBridgeEditorialSection,
@@ -153,7 +157,7 @@ export function KnytsBridgeChooseSurface({ personaId, onOpenKnytCopilot }: Knyts
   return (
     <div className="grid gap-4 lg:grid-cols-[3fr_2fr]">
       {/* LEFT — contextual visual, same interaction model as CI Choose. */}
-      <FullscreenableFrame className="h-[45vh] max-h-[55vh] min-h-[16rem] w-full bg-slate-900/40" title="Choose">
+      <FullscreenableFrame className="h-[55vh] max-h-[65vh] min-h-[18rem] w-full bg-slate-900/40" title="Choose">
         {leftView === 'store' ? (
           <iframe src={storeUrl} title="Explore the KNYT Store" className="h-full w-full border-0" />
         ) : leftView === 'ci' ? (
@@ -181,10 +185,12 @@ export function KnytsBridgeChooseSurface({ personaId, onOpenKnytCopilot }: Knyts
 
       {/* RIGHT — destination cards */}
       <div className="flex flex-col gap-3">
-        <MailtoCard
-          icon={<BookMarked className="h-4 w-4 text-amber-300" />}
-          label="Reserve metaKnyt Agentic Graphic Novel"
-          mailtoSubject="metaKnyt Agentic GN — reservation interest"
+        <BridgeReserveInterestCard
+          title="Reserve metaKnyt Agentic Graphic Novel"
+          description="Tell us you want a copy. This is an interest signal, not a paid preorder."
+          submitUrl="/api/journey/knyts-bridge/choose/book-interest"
+          successTitle="Thanks — we'll let you know."
+          successDescription="This is an interest signal, not a payment — you haven't been charged."
         />
 
         <DestinationCard

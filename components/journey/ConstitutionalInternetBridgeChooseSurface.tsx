@@ -54,6 +54,7 @@ import { canonicalPlateImage } from '@/services/artifact/canonicalPlateImages';
 import { CI_BRIDGE_CAMPAIGN_ID } from '@/services/journey/constitutionalInternetBridgeJourney';
 import { ArtifactMattedFrame } from '@/components/journey/ArtifactMattedFrame';
 import { FullscreenableFrame } from '@/components/journey/FullscreenableFrame';
+import { BridgeReserveInterestCard } from '@/components/journey/BridgeReserveInterestCard';
 
 const CONTACT_EMAIL = 'info@metame.com';
 const BOOK_CONCEPT_PLATE = canonicalPlateImage('CIP-006');
@@ -67,61 +68,6 @@ interface ConstitutionalInternetBridgeChooseSurfaceProps {
    *  switches the left explainer; only the drawer-open side effect is
    *  skipped) so this component never hard-depends on the page wiring it. */
   onOpenAigentMeCopilot?: () => void;
-}
-
-function BookReserveOption() {
-  const [email, setEmail] = useState('');
-  const [status, setStatus] = useState<'idle' | 'submitting' | 'done' | 'error'>('idle');
-
-  const submit = async () => {
-    if (!email.includes('@')) return;
-    setStatus('submitting');
-    try {
-      const res = await fetch('/api/journey/constitutional-internet-bridge/choose/book-interest', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
-      const json = await res.json().catch(() => null);
-      setStatus(json?.ok ? 'done' : 'error');
-    } catch {
-      setStatus('error');
-    }
-  };
-
-  if (status === 'done') {
-    return (
-      <div className="rounded-xl border border-white/10 bg-slate-900/40 p-4">
-        <p className="flex items-center gap-2 text-sm font-semibold text-white"><BookMarked className="h-4 w-4 text-indigo-300" /> Thanks &mdash; we&rsquo;ll let you know.</p>
-        <p className="mt-1 text-xs text-slate-400">This is a demand signal, not a payment &mdash; you haven&rsquo;t been charged.</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="rounded-xl border border-white/10 bg-slate-900/40 p-4">
-      <p className="flex items-center gap-2 text-sm font-semibold text-white"><BookMarked className="h-4 w-4 text-indigo-300" /> Reserve The Constitutional Internet</p>
-      <p className="mt-1 text-xs text-slate-400">Tell us you want a copy. This is a demand signal, not a paid preorder.</p>
-      <div className="mt-3 flex gap-2">
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="you@example.com"
-          className="flex-1 rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2 text-xs text-slate-200 placeholder:text-slate-600 focus:border-indigo-400/50 focus:outline-none"
-        />
-        <button
-          type="button"
-          disabled={status === 'submitting' || !email.includes('@')}
-          onClick={submit}
-          className="rounded-lg bg-indigo-500 px-4 py-2 text-xs font-semibold text-slate-950 transition hover:bg-indigo-400 disabled:opacity-40"
-        >
-          Reserve
-        </button>
-      </div>
-      {status === 'error' && <p className="mt-2 text-xs text-rose-400">Could not record your interest — please try again.</p>}
-    </div>
-  );
 }
 
 function DestinationCard({
@@ -377,7 +323,13 @@ export function ConstitutionalInternetBridgeChooseSurface({ personaId, onOpenAig
 
       {/* RIGHT — destination cards. */}
       <div className="space-y-3">
-        <BookReserveOption />
+        <BridgeReserveInterestCard
+          title="Reserve The Constitutional Internet"
+          description="Tell us you want a copy. This is a demand signal, not a paid preorder."
+          submitUrl="/api/journey/constitutional-internet-bridge/choose/book-interest"
+          successTitle="Thanks — we'll let you know."
+          successDescription="This is a demand signal, not a payment — you haven't been charged."
+        />
 
         <DestinationCard
           icon={<BookMarked className="h-4 w-4 text-indigo-300" />}

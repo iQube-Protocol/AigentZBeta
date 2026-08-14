@@ -43,6 +43,7 @@ export const dynamic = 'force-dynamic';
 const ALLOWED_SECTIONS = new Set([
   'home',
   'orient',
+  'choose',
   'ci-home',
   'ci-orient',
   'ci-passport-established',
