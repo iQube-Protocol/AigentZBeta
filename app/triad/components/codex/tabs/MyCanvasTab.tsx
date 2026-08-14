@@ -396,15 +396,40 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas', cam
   // and 'workbench' (legacy alias) share the same private-entries set,
   // so a stamped 'workbench' row surfaces under the new 'workspace'
   // tab and vice versa.
-  const filteredEntries = useMemo(() => entries.filter((e) => {
-    const stamped = (e.metaJson as { surface?: string } | undefined)?.surface;
-    const stampedIsPrivate = stamped === 'workbench' || stamped === 'workspace';
-    const surfaceIsPrivate = surface === 'workbench' || surface === 'workspace';
-    if (surfaceIsPrivate) return stampedIsPrivate;
-    // surface === 'canvas' — only show entries that are NOT stamped
-    // private. Legacy entries with no stamp default to canvas too.
-    return !stampedIsPrivate;
-  }), [entries, surface]);
+  // Campaign-specific Article Zero synthetic entry (non-persisted, non-hydrated).
+  // Available only when KNYTS Bridge campaign is active on the canvas surface.
+  const syntheticArticleZero: CanvasEntry | null = useMemo(() => {
+    if (surface !== 'canvas' || campaignTag !== 'knyts-bridge-crossing') return null;
+    return {
+      id: 'synthetic:knyts-article-zero',
+      title: 'Article Zero',
+      bodyMd: '# Your Crossing\n\nTell your story. Every crossing builds the bridge.',
+      tags: ['synthetic', 'knyts-bridge', 'article-zero'],
+      visibility: 'invited',
+      entryType: 'experience_origin',
+      metaJson: {
+        synthetic: true,
+        campaign: 'knyts-bridge-crossing',
+        seedTemplate: 'knyts-bridge-crossing-article-zero',
+      },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+  }, [surface, campaignTag]);
+
+  const filteredEntries = useMemo(() => {
+    const baseEntries = entries.filter((e) => {
+      const stamped = (e.metaJson as { surface?: string } | undefined)?.surface;
+      const stampedIsPrivate = stamped === 'workbench' || stamped === 'workspace';
+      const surfaceIsPrivate = surface === 'workbench' || surface === 'workspace';
+      if (surfaceIsPrivate) return stampedIsPrivate;
+      // surface === 'canvas' — only show entries that are NOT stamped
+      // private. Legacy entries with no stamp default to canvas too.
+      return !stampedIsPrivate;
+    });
+    // Prepend synthetic Article Zero when active.
+    return syntheticArticleZero ? [syntheticArticleZero, ...baseEntries] : baseEntries;
+  }, [entries, surface, syntheticArticleZero]);
 
   const fetchEntries = useCallback(async () => {
     if (!personaId) { setLoading(false); return; }
@@ -539,6 +564,11 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas', cam
 
   const handleSave = useCallback(async () => {
     if (!personaId || !selected) return;
+    // Synthetic entries are read-only; cannot save them directly.
+    if (typeof selected.metaJson?.synthetic === 'boolean' && selected.metaJson.synthetic) {
+      setError('Cannot save synthetic starter entries. Create a new entry to save your work.');
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -597,6 +627,12 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas', cam
 
   const handleDelete = useCallback(async (id: string) => {
     if (!personaId) return;
+    // Synthetic entries are read-only; cannot delete them.
+    const entry = entries.find((e) => e.id === id);
+    if (entry && typeof entry.metaJson?.synthetic === 'boolean' && entry.metaJson.synthetic) {
+      setError('Cannot delete synthetic starter entries.');
+      return;
+    }
     if (typeof window !== "undefined" && !window.confirm("Delete this entry?")) return;
     try {
       const res = await personaFetch(`${entriesApiBase}/${id}`, {
@@ -609,7 +645,7 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas', cam
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
-  }, [personaId, selectedId]);
+  }, [personaId, selectedId, entries]);
 
   const handleInvite = useCallback(async (entryId: string) => {
     if (!personaId || !inviteInput.trim()) return;

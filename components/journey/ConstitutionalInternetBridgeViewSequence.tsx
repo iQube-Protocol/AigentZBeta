@@ -293,9 +293,19 @@ function AdjacentPaperCover({ entry, side }: { entry: PolityPaperSeriesEntry; si
  *  cover keeps its real native portrait ratio via object-contain; nothing
  *  is cropped or stretched. "Open Reader" launches the EXISTING
  *  PDFLiteReaderModal in its native overlay — never a forked inline
- *  reader, never a bare link-out card. */
-function PaperLaunchSurface({ paperRef }: { paperRef: NonNullable<ViewContentBlock['paperRef']> }) {
-  const [readerOpen, setReaderOpen] = useState(false);
+ *  reader, never a bare link-out card.
+ *
+ *  Modal is lifted outside BridgeContentCapsule to prevent clipping
+ *  (2026-08-14): PDF reader state is owned by parent (ConstitutionalInternet
+ *  BridgeViewSequence) and rendered at the top level, so the modal's fixed
+ *  positioning is not constrained by the carousel or capsule boundaries. */
+function PaperLaunchSurface({
+  paperRef,
+  onOpenReader,
+}: {
+  paperRef: NonNullable<ViewContentBlock['paperRef']>;
+  onOpenReader?: (url: string, title: string) => void;
+}) {
   const { previous, next } = polityPapersNeighbors(paperRef.codexRef);
 
   return (
@@ -310,7 +320,7 @@ function PaperLaunchSurface({ paperRef }: { paperRef: NonNullable<ViewContentBlo
           />
           <button
             type="button"
-            onClick={() => setReaderOpen(true)}
+            onClick={() => onOpenReader?.(paperRef.url, paperRef.title)}
             className="inline-block shrink-0 rounded-lg border border-[#a08444]/50 bg-[#a08444]/10 px-4 py-1.5 text-xs font-medium text-[#1e3a5f] transition hover:bg-[#a08444]/20"
           >
             Open Reader ↗
@@ -318,26 +328,30 @@ function PaperLaunchSurface({ paperRef }: { paperRef: NonNullable<ViewContentBlo
         </div>
         {next && <AdjacentPaperCover entry={next} side="next" />}
       </div>
-      <PDFLiteReaderModal
-        open={readerOpen}
-        pdfUrl={paperRef.url}
-        title={paperRef.title}
-        onClose={() => setReaderOpen(false)}
-      />
     </MattedFrame>
   );
 }
 
-function EthosVignetteCapsule({ block, videoOverride }: { block: ViewContentBlock; videoOverride?: string | null }) {
+function EthosVignetteCapsule({
+  block,
+  videoOverride,
+  onOpenReader,
+}: {
+  block: ViewContentBlock;
+  videoOverride?: string | null;
+  onOpenReader?: (url: string, title: string) => void;
+}) {
   const plateImage = canonicalPlateImage(block.plateImageId);
   const videoUrl = videoOverride ?? block.videoUrl;
   const railCards = ethosRailCards(block, videoUrl, plateImage);
+  const [activeRailId, setActiveRailId] = useState<string | undefined>();
 
   return (
     <div className="p-1">
       <BridgeContentCapsule
         railCards={railCards}
         allowFullscreen
+        onRailChange={(id) => setActiveRailId(id)}
         viewportAspectRatio={(activeId) => {
           if (activeId === 'video') return 16 / 9;
           // Paper's featured state is a wide gallery (cover + neighbours),
@@ -352,11 +366,16 @@ function EthosVignetteCapsule({ block, videoOverride }: { block: ViewContentBloc
           if (activeId === 'video' && videoUrl) {
             return (
               // eslint-disable-next-line jsx-a11y/media-has-caption
-              <video className="h-full w-full bg-black object-contain" controls src={videoUrl} />
+              <video
+                autoPlay
+                className="h-full w-full bg-black object-contain"
+                controls
+                src={videoUrl}
+              />
             );
           }
           if (activeId === 'paper' && block.paperRef) {
-            return <PaperLaunchSurface paperRef={block.paperRef} />;
+            return <PaperLaunchSurface paperRef={block.paperRef} onOpenReader={onOpenReader} />;
           }
           return (
             <MattedFrame>
@@ -383,6 +402,7 @@ export function ConstitutionalInternetBridgeViewSequence({ personaId }: Props) {
   const [api, setApi] = useState<CarouselApi>();
   const [index, setIndex] = useState(0);
   const total = CI_BRIDGE_VIEW_CONTENT.length;
+  const [pdfReaderOpen, setPdfReaderOpen] = useState<{ open: boolean; url: string; title: string }>({ open: false, url: '', title: '' });
 
   useEffect(() => {
     if (!api) return;
@@ -468,7 +488,11 @@ export function ConstitutionalInternetBridgeViewSequence({ personaId }: Props) {
           <CarouselContent>
             {CI_BRIDGE_VIEW_CONTENT.map((block) => (
               <CarouselItem key={block.id}>
-                <EthosVignetteCapsule block={block} videoOverride={overrides[block.id]} />
+                <EthosVignetteCapsule
+                  block={block}
+                  videoOverride={overrides[block.id]}
+                  onOpenReader={(url, title) => setPdfReaderOpen({ open: true, url, title })}
+                />
               </CarouselItem>
             ))}
           </CarouselContent>
@@ -491,6 +515,14 @@ export function ConstitutionalInternetBridgeViewSequence({ personaId }: Props) {
           />
         </div>
       )}
+
+      {/* PDF reader modal lifted outside carousel/capsule to prevent clipping */}
+      <PDFLiteReaderModal
+        open={pdfReaderOpen.open}
+        pdfUrl={pdfReaderOpen.url}
+        title={pdfReaderOpen.title}
+        onClose={() => setPdfReaderOpen({ open: false, url: '', title: '' })}
+      />
     </div>
   );
 }

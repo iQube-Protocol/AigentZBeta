@@ -139,27 +139,35 @@ function DestinationCard({
   mailtoSubject?: string;
   mailtoLabel?: string;
 }) {
-  return (
-    <div className={`rounded-xl border transition ${
-      active ? 'border-amber-400/50 bg-amber-500/10' : 'border-white/10 bg-slate-900/40'
-    }`}>
-      <button
-        type="button"
-        onClick={onClick}
-        className="flex w-full items-center justify-between gap-3 px-4 py-3.5 hover:opacity-80"
+  // If this card has a mailto CTA, render label and CTA on same row within the card
+  if (mailtoSubject && mailtoLabel) {
+    return (
+      <a
+        href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(mailtoSubject)}`}
+        className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3.5 transition hover:opacity-80 ${
+          active ? 'border-indigo-400/40 bg-indigo-500/10' : 'border-white/10 bg-slate-900/40'
+        }`}
       >
         <span className="flex items-center gap-2 text-sm font-semibold text-white">{icon} {label}</span>
-        <ArrowRight className="h-4 w-4 text-slate-400" />
-      </button>
-      {mailtoSubject && mailtoLabel && (
-        <a
-          href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(mailtoSubject)}`}
-          className="flex items-center gap-1.5 border-t border-white/5 px-4 py-2.5 text-[11px] font-medium text-indigo-300 hover:text-indigo-200"
-        >
+        <span className="flex items-center gap-1.5 text-[11px] font-medium text-indigo-300">
           <Mail className="h-3 w-3" /> {mailtoLabel}
-        </a>
-      )}
-    </div>
+        </span>
+      </a>
+    );
+  }
+
+  // Standard clickable card without mailto
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3.5 transition hover:opacity-80 ${
+        active ? 'border-indigo-400/40 bg-indigo-500/10' : 'border-white/10 bg-slate-900/40'
+      }`}
+    >
+      <span className="flex items-center gap-2 text-sm font-semibold text-white">{icon} {label}</span>
+      <ArrowRight className="h-4 w-4 text-slate-400" />
+    </button>
   );
 }
 
@@ -273,17 +281,11 @@ export function ConstitutionalInternetBridgeChooseSurface({ personaId, onOpenAig
     fetchCanonicalAssets();
   }, []);
 
-  // "Continue reading" → Qriptopian Codex → Magazines (revised 2026-08-12
-  // closure pass): the working Polity Core commentary tab stays admin-only
-  // internal development material (see data/codex-configs.ts), never a
-  // public Bridge destination. Papers was the prior landing tab; the
-  // operator now wants the Magazines editorial surface as the landing tab
-  // instead — the real registered tab id/slug is `codex`/`magazines`
-  // (data/codex-configs.ts QRIPTO_CODEX.tabs, NOT the `papers` tab). Papers
-  // remains reachable from inside Qriptopian's own navigation; no `&scope=`
-  // param travels with this link since it was Papers-specific.
+  // "Continue reading" → Qriptopian Codex → Papers (Polity-scoped, 2026-08-14
+  // QA revision): restore to Papers tab with Polity-scope filter, not Magazines.
   const readingSrc = buildCodexUrl('qripto', {
-    tab: 'magazines',
+    tab: 'papers',
+    scope: 'papers/polity',
     personaId,
     shell: 'embed',
     suppressCopilot: true,
@@ -401,6 +403,14 @@ export function ConstitutionalInternetBridgeChooseSurface({ personaId, onOpenAig
           mailtoSubject="Constitutional Internet — build / partner"
           mailtoLabel="Email us to partner"
         />
+
+        <a
+          href={typeof window !== 'undefined' ? `${window.location.origin}/bridge/knyts` : '/bridge/knyts'}
+          className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-900/40 px-4 py-3.5 hover:border-indigo-400/30 transition"
+        >
+          <span className="flex items-center gap-2 text-sm font-semibold text-white"><Compass className="h-4 w-4 text-indigo-300" /> Explore the Mythos</span>
+          <ArrowRight className="h-4 w-4 text-slate-400" />
+        </a>
 
         <button
           type="button"

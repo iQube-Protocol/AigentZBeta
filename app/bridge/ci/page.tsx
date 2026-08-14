@@ -70,11 +70,7 @@ import { ConstitutionalInternetBridgePassportRoom } from '@/components/journey/C
 import { ConstitutionalInternetBridgePersonifyMyCanvas } from '@/components/journey/ConstitutionalInternetBridgePersonifyMyCanvas';
 import { ConstitutionalInternetBridgeStandPanel } from '@/components/journey/ConstitutionalInternetBridgeStandPanel';
 import { ConstitutionalInternetBridgeChooseSurface } from '@/components/journey/ConstitutionalInternetBridgeChooseSurface';
-import { ConstitutionalInternetBridgePassportGate } from '@/components/journey/ConstitutionalInternetBridgePassportGate';
 import { KnytsBridgeAdminPanel } from '@/components/journey/KnytsBridgeAdminPanel';
-import { PassportConnectPanel } from '@/components/companion/PassportConnectPanel';
-import { usePassportSignInHost } from '@/app/hooks/usePassportSignInHost';
-import { usePersonaSpine } from '@/utils/personaSpine';
 import { CodexCopilotLayer } from '@/app/components/codex/CodexCopilotLayer';
 import { MetaAvatarProvider } from '@/app/contexts/MetaAvatarContext';
 import { MetaAvatarHost } from '@/app/components/metaVatar/MetaAvatarHost';
@@ -120,8 +116,6 @@ export default function ConstitutionalInternetBridgePage() {
   // the active surface (CFS-055 coherence pass, 2026-08-12: state coherence
   // must not depend on which stage is on screen).
   const [citizenPassportUsable, setCitizenPassportUsable] = useState<boolean | undefined>(undefined);
-  const [showPassportGate, setShowPassportGate] = useState(false);
-  const spine = usePersonaSpine();
 
   const handleRuntimeStateChange = useCallback((state: JourneyRuntimeState) => {
     const passportStage = state.stages.find((s) => s.stageId === 'passport');
@@ -137,35 +131,6 @@ export default function ConstitutionalInternetBridgePage() {
     }
   }, []);
 
-  const [previousStageId, setPreviousStageId] = useState<string | undefined>(undefined);
-  const [currentStageId, setCurrentStageId] = useState<string | undefined>(undefined);
-
-  const { showPassportSignIn, completeSignIn, dismissSignIn } = usePassportSignInHost('ConstitutionalInternetBridgeFrontDoor');
-
-  // Track stage navigation for back button functionality and passport gating
-  useEffect(() => {
-    const handleStageSelect = (event: Event) => {
-      const customEvent = event as CustomEvent<{ stageId: string }>;
-      const targetStageId = customEvent.detail.stageId;
-
-      // Gate: remix and personify require a claimed passport
-      if ((targetStageId === 'personify' || targetStageId === 'remix') && !citizenPassportUsable) {
-        setShowPassportGate(true);
-        return; // Don't advance the stage
-      }
-
-      setPreviousStageId(currentStageId);
-      setCurrentStageId(targetStageId);
-    };
-    window.addEventListener('journey:select-stage', handleStageSelect);
-    return () => window.removeEventListener('journey:select-stage', handleStageSelect);
-  }, [currentStageId, citizenPassportUsable]);
-
-  const handleBack = useCallback(() => {
-    if (previousStageId) {
-      selectStage(previousStageId);
-    }
-  }, [previousStageId]);
 
   // Consumes `citizenPassportUsable` (derived above from the WHOLE
   // runtimeState via onRuntimeStateChange) — never discovers it.
@@ -229,7 +194,6 @@ export default function ConstitutionalInternetBridgePage() {
           onRuntimeStateChange={handleRuntimeStateChange}
           accent={CI_ACCENT}
           compact
-          onBack={handleBack}
           distinguishAvailableStages
           // CI-specific presentation seam (gating polish pass, 2026-08-12) —
           // see JourneyRunSurface's emphasizeAvailableStage doc. Home/View/
