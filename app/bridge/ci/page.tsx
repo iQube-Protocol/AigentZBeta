@@ -71,6 +71,9 @@ import { ConstitutionalInternetBridgePersonifyMyCanvas } from '@/components/jour
 import { ConstitutionalInternetBridgeStandPanel } from '@/components/journey/ConstitutionalInternetBridgeStandPanel';
 import { ConstitutionalInternetBridgeChooseSurface } from '@/components/journey/ConstitutionalInternetBridgeChooseSurface';
 import { KnytsBridgeAdminPanel } from '@/components/journey/KnytsBridgeAdminPanel';
+import { PassportConnectPanel } from '@/components/companion/PassportConnectPanel';
+import { usePassportSignInHost } from '@/app/hooks/usePassportSignInHost';
+import { usePersonaSpine } from '@/utils/personaSpine';
 import { CodexCopilotLayer } from '@/app/components/codex/CodexCopilotLayer';
 import { MetaAvatarProvider } from '@/app/contexts/MetaAvatarContext';
 import { MetaAvatarHost } from '@/app/components/metaVatar/MetaAvatarHost';
@@ -116,6 +119,7 @@ export default function ConstitutionalInternetBridgePage() {
   // the active surface (CFS-055 coherence pass, 2026-08-12: state coherence
   // must not depend on which stage is on screen).
   const [citizenPassportUsable, setCitizenPassportUsable] = useState<boolean | undefined>(undefined);
+  const spine = usePersonaSpine();
 
   const handleRuntimeStateChange = useCallback((state: JourneyRuntimeState) => {
     const passportStage = state.stages.find((s) => s.stageId === 'passport');
@@ -131,6 +135,7 @@ export default function ConstitutionalInternetBridgePage() {
     }
   }, []);
 
+  const { showPassportSignIn, completeSignIn, dismissSignIn } = usePassportSignInHost('ConstitutionalInternetBridgeFrontDoor');
 
   // Consumes `citizenPassportUsable` (derived above from the WHOLE
   // runtimeState via onRuntimeStateChange) — never discovers it.
@@ -326,16 +331,6 @@ export default function ConstitutionalInternetBridgePage() {
               excerpt: block.excerpt,
               source: block.excerptSource,
             })),
-          }}
-        />
-
-        {/* Passport gate — blocks access to REMIX/PERSONIFY until passport claimed */}
-        <ConstitutionalInternetBridgePassportGate
-          isOpen={showPassportGate}
-          onDismiss={() => setShowPassportGate(false)}
-          onProceedToPassport={() => {
-            setShowPassportGate(false);
-            selectStage('passport');
           }}
         />
       </div>

@@ -54,6 +54,7 @@ import { KnytsBridgeRemixSurface } from '@/components/journey/KnytsBridgeRemixSu
 import { KnytsBridgeAdminPanel } from '@/components/journey/KnytsBridgeAdminPanel';
 import { PassportConnectPanel } from '@/components/companion/PassportConnectPanel';
 import { usePassportSignInHost } from '@/app/hooks/usePassportSignInHost';
+import { usePersonaSpine } from '@/utils/personaSpine';
 import { CodexCopilotLayer } from '@/app/components/codex/CodexCopilotLayer';
 import { MetaAvatarProvider } from '@/app/contexts/MetaAvatarContext';
 import { MetaAvatarHost } from '@/app/components/metaVatar/MetaAvatarHost';
@@ -92,8 +93,7 @@ export default function KnytsBridgePage() {
   const [personaId, setPersonaId] = useState<string | undefined>(undefined);
   const [adminOpen, setAdminOpen] = useState(false);
   const [copilotOpen, setCopilotOpen] = useState(false);
-  const [previousStageId, setPreviousStageId] = useState<string | undefined>(undefined);
-  const [currentStageId, setCurrentStageId] = useState<string | undefined>(undefined);
+  const spine = usePersonaSpine();
   // Authoritative runtime-state signal (2026-08-12, KNYTS↔CI parity pass;
   // re-derived CFS-055 coherence pass, same day). Previously discovered as
   // a SIDE EFFECT of `resolveSurfaceProps` while the Passport room happened
