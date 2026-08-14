@@ -222,8 +222,17 @@ export async function ventureReceiptDeploymentCheck(
   let accepted: readonly string[] | null;
   try {
     accepted = await probe();
-  } catch {
-    // A probe that cannot run is not evidence of compatibility.
+  } catch (error) {
+    // A probe that cannot run is not evidence of compatibility — but the
+    // underlying cause (missing function, revoked grant, invalid key,
+    // network/timeout) was previously discarded here, so every
+    // `probe-unavailable` build failure looked identical in the log with no
+    // way to tell which of those four it was without reproducing it by hand.
+    // Logging it is diagnostic only; the fail-closed verdict is unchanged.
+    console.error(
+      '[VENTURE RECEIPT GATE] probe threw — treating as incompatible:',
+      error instanceof Error ? error.message : error,
+    );
     return evaluateVentureReceiptConstraint(null, false);
   }
   return evaluateVentureReceiptConstraint(accepted, true);
