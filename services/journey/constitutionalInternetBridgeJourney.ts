@@ -138,7 +138,7 @@ export const CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY: JourneyDefinition = {
     {
       id: 'home',
       label: 'Home',
-      description: 'The Internet recognizes accounts. The Constitutional Internet recognizes persons.',
+      description: 'Enter the Constitutional Internet.',
       actor: 'operator',
       subjectRef: 'visitor',
       surfaces: [
@@ -171,7 +171,7 @@ export const CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY: JourneyDefinition = {
     {
       id: 'view',
       label: 'View',
-      description: 'See the constitutional frontier.',
+      description: 'Encounter the Ethos.',
       actor: 'operator',
       subjectRef: 'visitor',
       surfaces: [
@@ -194,7 +194,7 @@ export const CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY: JourneyDefinition = {
     {
       id: 'orient',
       label: 'Orient',
-      description: 'Understand your constitutional frontier and the role you want agents to play.',
+      description: 'Understand why the person comes first.',
       actor: 'operator',
       subjectRef: 'visitor',
       surfaces: [
@@ -217,7 +217,7 @@ export const CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY: JourneyDefinition = {
     {
       id: 'passport',
       label: 'Passport',
-      description: 'Crossing the Threshold is the actual constitutional act — everything before it was exploring the proposition.',
+      description: 'Claim your constitutional presence.',
       actor: 'operator',
       subjectRef: 'visitor',
       surfaces: [
@@ -241,46 +241,37 @@ export const CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY: JourneyDefinition = {
           'in the Polity.',
         complete: 'Your Passport is active. You are constitutionally present in the Polity.',
       },
-      nextStageId: 'act',
+      nextStageId: 'personify',
     },
     {
-      id: 'act',
-      label: 'Act',
-      description:
-        'Bring your agent into the field — an orientation and context connection, not delegation. ' +
-        'Connect an agent you already use, or begin shaping a constitutional companion with aigentMe. ' +
-        'Either is an explicit, principal-chosen act; neither confers constitutional authority.',
+      id: 'personify',
+      label: 'Personify',
+      description: 'Tell your Constitutional story.',
       actor: 'operator',
       subjectRef: 'visitor',
       surfaces: [
         {
           mode: 'component',
-          ref: 'ci-bridge-act-field-entry',
+          ref: 'ci-bridge-personify',
           note:
-            'ConstitutionalAgentFieldEntrySurface — two sibling paths: (1) Connect an agent you already ' +
-            'use, via the real metaMe Threshold MCP OAuth crossing (services/threshold/*) — grants only ' +
-            'CONSTITUTIONAL_ROOT_CAPABILITIES (read/query scope), never delegation; (2) Meet aigentMe, the ' +
-            'same generalized ExperienceQube disposition ceremony the Horizen/MoneyPenny journey uses. ' +
-            'Governing rule: "Context may cross before authority does" — connection is never delegation.',
+            'ConstitutionalInternetBridgePersonifyMyCanvas — embeds canonical myCanvas for telling ' +
+            'Constitutional story. Campaign-tagged with constitutional-internet-bridge. Gated by Passport evidence.',
         },
       ],
-      prerequisites: ['passport'],
-      permittedActions: ['connect-external-agent', 'record-agent-disposition'],
-      completionEvidence: ['agentRelationshipStarted'],
+      prerequisites: [],
+      permittedActions: [],
+      completionEvidence: [],
       receiptTypes: [],
       companion: {
-        before:
-          'What role would you like agents to play in your life? Bring an agent you already use into the ' +
-          'field, or begin shaping aigentMe as your constitutional companion. Either is a choice you make ' +
-          'explicitly — connection is never delegation, and nothing here is inferred or assumed on your behalf.',
-        complete: 'An agent has entered the field with you. Bounded delegation, if you ever want it, is a separate, later choice.',
+        before: 'Tell your story. Remix an existing crossing, or start with the Article Zero template.',
+        complete: 'Your Constitutional story is published.',
       },
       nextStageId: 'stand',
     },
     {
       id: 'stand',
       label: 'Stand',
-      description: 'See yourself enter the loop — the real constitutional events recorded so far, honestly framed.',
+      description: 'See and build your Standing.',
       actor: 'operator',
       subjectRef: 'visitor',
       surfaces: [
@@ -290,7 +281,7 @@ export const CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY: JourneyDefinition = {
           note: 'Reads real Passport/disposition receipts and the canonical Standing score — never fabricates Standing from navigation or viewing. See services/journey/constitutionalInternetBridgeStand.ts.',
         },
       ],
-      prerequisites: ['act'],
+      prerequisites: [],
       permittedActions: ['view-standing'],
       completionEvidence: ['constitutionalEventRecorded'],
       receiptTypes: [],
@@ -303,7 +294,7 @@ export const CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY: JourneyDefinition = {
     {
       id: 'choose',
       label: 'Choose',
-      description: 'Where next?',
+      description: 'Choose where to go next.',
       actor: 'operator',
       subjectRef: 'visitor',
       surfaces: [

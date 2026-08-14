@@ -57,15 +57,22 @@ export function KnytsBridgePassportRoom({ personaId, citizenPassportUsable }: Pr
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
+      <div className="flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 animate-pulse opacity-100 transition-opacity duration-300" style={{ animation: 'fadeOutBanner 2.5s ease-out forwards' }}>
         <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-300" />
         <div>
-          <p className="text-sm font-semibold text-emerald-200">You have crossed.</p>
+          <p className="text-sm font-semibold text-emerald-200">You have crossed the threshold.</p>
           <p className="mt-0.5 text-xs text-emerald-300/80">
             Your constitutional presence is confirmed. Meet your companion below, and delegate when you're ready.
           </p>
         </div>
       </div>
+      <style>{`
+        @keyframes fadeOutBanner {
+          0% { opacity: 1; }
+          85% { opacity: 1; }
+          100% { opacity: 0; display: none; }
+        }
+      `}</style>
       <iframe
         src={aigentMeSrc}
         title="aigentMe"

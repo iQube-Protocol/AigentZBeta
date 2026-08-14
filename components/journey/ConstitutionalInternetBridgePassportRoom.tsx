@@ -22,7 +22,6 @@
  * record).
  */
 
-import { useEffect } from 'react';
 import { ArrowRight, CheckCircle2 } from 'lucide-react';
 import { PassportBureauApplyTab } from '@/app/triad/components/codex/tabs/PassportBureauApplyTab';
 
@@ -43,12 +42,6 @@ function selectStage(stageId: string) {
 }
 
 export function ConstitutionalInternetBridgePassportRoom({ personaId, citizenPassportUsable }: Props) {
-  // Auto-advance to ACT stage after 4 seconds when Passport is just established
-  useEffect(() => {
-    if (!citizenPassportUsable) return;
-    const timer = setTimeout(() => selectStage('act'), 4000);
-    return () => clearTimeout(timer);
-  }, [citizenPassportUsable]);
 
   if (!citizenPassportUsable) {
     return (
@@ -64,21 +57,28 @@ export function ConstitutionalInternetBridgePassportRoom({ personaId, citizenPas
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 animate-pulse">
+      <div className="flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3" style={{ animation: 'fadeOutBanner 2.5s ease-out forwards' }}>
         <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-300" />
         <div>
-          <p className="text-sm font-semibold text-emerald-200">You have crossed.</p>
+          <p className="text-sm font-semibold text-emerald-200">You have crossed the threshold.</p>
           <p className="mt-0.5 text-xs text-emerald-300/80">
-            Your constitutional presence is confirmed. Continuing to the next step…
+            Your constitutional presence is confirmed. Tell your Constitutional story.
           </p>
         </div>
       </div>
+      <style>{`
+        @keyframes fadeOutBanner {
+          0% { opacity: 1; }
+          85% { opacity: 1; }
+          100% { opacity: 0; display: none; }
+        }
+      `}</style>
       <button
         type="button"
-        onClick={() => selectStage('act')}
+        onClick={() => selectStage('personify')}
         className="flex w-full items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-900/40 px-4 py-3.5 hover:border-indigo-400/30 transition"
       >
-        <span className="text-sm font-semibold text-white">Bring your agent into the field</span>
+        <span className="text-sm font-semibold text-white">Tell your Constitutional story</span>
         <ArrowRight className="h-4 w-4 text-slate-400" />
       </button>
     </div>

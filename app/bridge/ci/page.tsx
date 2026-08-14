@@ -51,8 +51,6 @@ import { ConstitutionalInternetBridgePassportRoom } from '@/components/journey/C
 import { ConstitutionalAgentFieldEntrySurface } from '@/components/journey/ConstitutionalAgentFieldEntrySurface';
 import { ConstitutionalInternetBridgeStandPanel } from '@/components/journey/ConstitutionalInternetBridgeStandPanel';
 import { ConstitutionalInternetBridgeChooseSurface } from '@/components/journey/ConstitutionalInternetBridgeChooseSurface';
-import { PassportConnectPanel } from '@/components/companion/PassportConnectPanel';
-import { usePassportSignInHost } from '@/app/hooks/usePassportSignInHost';
 import { CodexCopilotLayer } from '@/app/components/codex/CodexCopilotLayer';
 import { MetaAvatarProvider } from '@/app/contexts/MetaAvatarContext';
 
@@ -101,8 +99,6 @@ export default function ConstitutionalInternetBridgePage() {
     }
   }, []);
 
-  const { showPassportSignIn, completeSignIn, dismissSignIn } = usePassportSignInHost('ConstitutionalInternetBridgeFrontDoor');
-
   const resolveSurfaceProps = useCallback(
     ({ surfaceRef, runtimeState }: Parameters<NonNullable<JourneyRunSurfaceProps['resolveSurfaceProps']>>[0]) => {
       if (surfaceRef.ref === 'ci-bridge-passport-room') {
@@ -145,38 +141,6 @@ export default function ConstitutionalInternetBridgePage() {
             </>
           }
         />
-
-        {/* PASSPORT — hosted inline for whichever surface above requested it.
-            No CI surface currently issues this request (Passport is a proper
-            spine stage reached in order), but the mechanism stays mounted
-            for structural parity with KNYTS and any future gated action. */}
-        {showPassportSignIn && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
-            <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-slate-900/95 shadow-2xl overflow-hidden">
-              <PassportConnectPanel
-                world="application"
-                embedded
-                onConnected={() => {
-                  try {
-                    const stored = window.localStorage.getItem('currentPersonaId');
-                    if (stored) setPersonaId(stored);
-                  } catch {
-                    /* ignore */
-                  }
-                  completeSignIn();
-                  selectStage('act');
-                }}
-              />
-              <button
-                type="button"
-                onClick={dismissSignIn}
-                className="w-full border-t border-white/10 px-4 py-2.5 text-[12px] text-slate-400 hover:text-slate-200"
-              >
-                Back
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* Omnipresent aigentMe copilot — the existing canonical constitutional
             guide identity (data/codex-configs.ts's METAME_CODEX.copilot), not

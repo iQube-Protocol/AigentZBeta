@@ -433,18 +433,14 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
       'thin bespoke Standing projection. `focused: true` (2026-08-10) hides the cartridge primary chrome; ' +
       "Quests's own filters/controls are untouched.",
   },
-  'knyts-bridge-buy-store': {
-    kind: 'embed',
-    codexSlug: 'knyt-codex',
-    tab: 'store-episodes',
-    suppressFloatingCopilot: true,
-    focused: true,
-    openLabel: 'Open KNYT World ↗',
+  ‘knyts-bridge-choose’: {
+    kind: ‘component’,
+    component: ‘KnytsBridgeChooseSurface’,
     note:
-      'The existing KNYT Store — no new commerce code, same tab the old front door deep-linked to. ' +
-      "`focused: true` (2026-08-10) gives a clean focused Store viewport: cartridge chrome suppressed, " +
-      'the Store tab’s own category/local controls untouched, with an "Open KNYT World ↗" affordance ' +
-      'to leave the guide.',
+      ‘components/journey/KnytsBridgeChooseSurface.tsx — four destination cards: (1) Reserve metaKnyt ‘ +
+      ‘Agentic GN (reuse existing interest mechanism); (2) Explore the KNYT Store (link to existing Store); ‘ +
+      ‘(3) Learn about the Constitutional Internet (deep link to CI Bridge, embedded-left-pane pattern); ‘ +
+      ‘(4) Apply to join the Constitutional Financial Services Pilot (mailto interest action for launch).’,
   },
 
   // ── Constitutional Internet Bridge journey (built 2026-08-10, reconstituted
@@ -496,17 +492,14 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
       '(citizenPassportUsable, threaded in by the page via resolveSurfaceProps) to decide which half to ' +
       'render — a plain embed cannot branch.',
   },
-  'ci-bridge-act-field-entry': {
+  'ci-bridge-personify': {
     kind: 'component',
-    component: 'ConstitutionalAgentFieldEntrySurface',
+    component: 'ConstitutionalInternetBridgePersonifyMyCanvas',
     note:
-      'components/journey/ConstitutionalAgentFieldEntrySurface.tsx — "Bring Your Agent Into the Field," ' +
-      'two sibling paths, neither delegation: (1) Connect an agent you already use, via the real metaMe ' +
-      'Threshold MCP OAuth crossing (read/query scope only); (2) Meet aigentMe, rendering ' +
-      'ConstitutionalAgentDispositionSurface.tsx inline — a generalized ExperienceQube disposition ' +
-      'ceremony sharing its receipt taxonomy with the Horizen/MoneyPenny disposition route via ' +
-      'services/journey/experienceQubeDispositionService.ts, scoped under this journey\'s own agent id ' +
-      'and context tag. Either path alone completes ACT (agentRelationshipStarted is an OR).',
+      'components/journey/ConstitutionalInternetBridgePersonifyMyCanvas.tsx — embeds the canonical ' +
+      'myCanvas tab for the visitor to tell their Constitutional story. Gated by citizenPassportUsable evidence ' +
+      'from Passport stage. Campaign-tagged with constitutional-internet-bridge so the Article Zero ' +
+      'instructional template appears by default. Auth/persona propagation via personaId and session state.',
   },
   'ci-bridge-stand': {
     kind: 'component',

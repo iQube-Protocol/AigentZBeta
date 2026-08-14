@@ -86,8 +86,9 @@ function BookReserveOption() {
 
 export function ConstitutionalInternetBridgeChooseSurface({ personaId }: ConstitutionalInternetBridgeChooseSurfaceProps) {
   const [shareOpen, setShareOpen] = useState(false);
-  const readingUrl = buildCodexUrl('polity-core', { tab: 'commentary-constitutional-internet', personaId, shell: 'viewer' });
+  const readingUrl = buildCodexUrl('qripto', { tab: 'papers', personaId, shell: 'viewer' });
   const aigentMeUrl = buildCodexUrl('metame', { personaId, shell: 'viewer' });
+  const knytsMythosUrl = typeof window !== 'undefined' ? `${window.location.origin}/bridge/knyts` : '/bridge/knyts';
 
   return (
     <div className="space-y-3">
@@ -110,6 +111,14 @@ export function ConstitutionalInternetBridgeChooseSurface({ personaId }: Constit
       </a>
 
       <a
+        href={knytsMythosUrl}
+        className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-900/40 px-4 py-3.5 hover:border-indigo-400/30 transition"
+      >
+        <span className="flex items-center gap-2 text-sm font-semibold text-white"><Sparkles className="h-4 w-4 text-indigo-300" /> Explore the Mythos</span>
+        <ArrowRight className="h-4 w-4 text-slate-400" />
+      </a>
+
+      <a
         href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('Constitutional Internet — research field')}`}
         className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-900/40 px-4 py-3.5 hover:border-indigo-400/30 transition"
       >
@@ -122,6 +131,14 @@ export function ConstitutionalInternetBridgeChooseSurface({ personaId }: Constit
         className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-900/40 px-4 py-3.5 hover:border-indigo-400/30 transition"
       >
         <span className="flex items-center gap-2 text-sm font-semibold text-white"><Handshake className="h-4 w-4 text-indigo-300" /> Build / partner</span>
+        <ArrowRight className="h-4 w-4 text-slate-400" />
+      </a>
+
+      <a
+        href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('Constitutional Financial Services Pilot — interest')}`}
+        className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-900/40 px-4 py-3.5 hover:border-indigo-400/30 transition"
+      >
+        <span className="flex items-center gap-2 text-sm font-semibold text-white"><Handshake className="h-4 w-4 text-indigo-300" /> Apply to join the Constitutional Financial Services Pilot</span>
         <ArrowRight className="h-4 w-4 text-slate-400" />
       </a>
 
