@@ -297,11 +297,6 @@ export default function KnytsBridgePage() {
         }}
       />
 
-          'Passport proves your constitutional personhood',
-          "You'll cross a threshold once claimed",
-          'Then remix your crossing and stand in the Quests',
-        ]}
-      />
     </div>
     {/* Same missing-mount-gate bug identified on /bridge/ci (2026-08-11,
         targeted correction pass #98) applies here identically: this page
