@@ -58,7 +58,7 @@ import { FullscreenableFrame } from '@/components/journey/FullscreenableFrame';
 const CONTACT_EMAIL = 'info@metame.com';
 const BOOK_CONCEPT_PLATE = canonicalPlateImage('CIP-006');
 
-type LeftView = 'book' | 'reading' | 'aigentme' | 'irl' | 'partner';
+type LeftView = 'book' | 'reading' | 'aigentme' | 'irl' | 'partner' | 'mythos';
 
 interface ConstitutionalInternetBridgeChooseSurfaceProps {
   personaId?: string;
@@ -307,6 +307,8 @@ export function ConstitutionalInternetBridgeChooseSurface({ personaId, onOpenAig
       <FullscreenableFrame className="h-[55vh] max-h-[65vh] min-h-[18rem] w-full bg-slate-900/40" title="Choose">
         {leftView === 'reading' ? (
           <iframe src={readingSrc} title="Continue reading — The Constitutional Internet" className="h-full w-full border-0" />
+        ) : leftView === 'mythos' ? (
+          <iframe src="/bridge/knyts" title="The KNYTS Bridge" className="h-full w-full border-0" />
         ) : leftView === 'aigentme' ? (
           <ArtifactMattedFrame>
             {canonicalAssets.aigentme ? (
@@ -409,13 +411,12 @@ export function ConstitutionalInternetBridgeChooseSurface({ personaId, onOpenAig
           mailtoLabel="Email us to partner"
         />
 
-        <a
-          href={typeof window !== 'undefined' ? `${window.location.origin}/bridge/knyts` : '/bridge/knyts'}
-          className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-900/40 px-4 py-3.5 hover:border-indigo-400/30 transition"
-        >
-          <span className="flex items-center gap-2 text-sm font-semibold text-white"><Compass className="h-4 w-4 text-indigo-300" /> Explore the Mythos</span>
-          <ArrowRight className="h-4 w-4 text-slate-400" />
-        </a>
+        <DestinationCard
+          icon={<Compass className="h-4 w-4 text-indigo-300" />}
+          label="Explore the Mythos"
+          active={leftView === 'mythos'}
+          onClick={() => setLeftView('mythos')}
+        />
 
         <button
           type="button"

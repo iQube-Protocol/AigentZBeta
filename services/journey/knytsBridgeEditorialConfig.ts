@@ -63,6 +63,23 @@ export const KNYTS_BRIDGE_SECTION_DEFAULTS: Record<string, KnytsBridgeEditorialS
     rewardCopy: null,
     updatedAt: null,
   },
+  // Added 2026-08-14 (final Choose-surface closure pass) — the CHOOSE
+  // stage's contextual left pane (KnytsBridgeChooseSurface.tsx). Only
+  // `videoUrl`/`posterUrl` are actually consumed there: when an admin sets a
+  // video, it plays on landing; when absent, the surface falls back to its
+  // own hardcoded "Where next?" explainer (never derived from headline/
+  // shortCopy below — those exist only so the generic admin form has
+  // sensible starting text, matching every other section's shape).
+  choose: {
+    section: 'choose',
+    headline: 'Where next?',
+    shortCopy: 'Your crossing is published. Choose how to continue in the Polity.',
+    videoUrl: null,
+    posterUrl: null,
+    campaignCta: null,
+    rewardCopy: null,
+    updatedAt: null,
+  },
   // Added 2026-08-12 (KNYTS↔CI parity pass) — the PASSPORT stage's
   // post-crossing surface (KnytsBridgePassportRoom.tsx's "established"
   // branch), mirroring `ci-passport-established`'s pattern exactly.

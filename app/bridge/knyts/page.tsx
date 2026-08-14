@@ -272,6 +272,9 @@ export default function KnytsBridgePage() {
             <div className="border-t border-white/10">
               <KnytsBridgeAdminPanel section="orient" personaId={personaId} />
             </div>
+            <div className="border-t border-white/10">
+              <KnytsBridgeAdminPanel section="choose" personaId={personaId} />
+            </div>
           </div>
         </div>
       )}

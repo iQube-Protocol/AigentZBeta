@@ -491,10 +491,12 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
     kind: 'component',
     component: 'KnytsBridgeChooseSurface',
     note:
-      'CHOOSE stage — four destination options for continuing the journey: Reserve metaKnyt Agentic GN, ' +
-      'Explore the KNYT Store, Learn about the Constitutional Internet, Apply to join the Constitutional ' +
-      'Financial Services Pilot. A bare `component` surface with contextual layout and actions, mirroring ' +
-      'the CI Bridge CHOOSE pattern (ConstitutionalInternetBridgeChooseSurface).',
+      'CHOOSE stage — six destination options for continuing the journey: Reserve metaKnyt Agentic Graphic ' +
+      'Novel, Explore the KNYT Store, Learn about the Constitutional Internet, Apply to join the ' +
+      'Constitutional Financial Services Pilot, Ask Kn0w1, Share the Bridge & Earn $KNYT. A bare ' +
+      '`component` surface using the same contextual-left-pane interaction model as the CI Bridge CHOOSE ' +
+      'pattern (ConstitutionalInternetBridgeChooseSurface) — Store/CI switch an embedded left pane rather ' +
+      'than navigating away.',
   },
 
   // ── Constitutional Internet Bridge journey (built 2026-08-10, reconstituted
