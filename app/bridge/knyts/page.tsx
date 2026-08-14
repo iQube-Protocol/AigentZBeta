@@ -52,10 +52,8 @@ import { KnytsBridgeOrientIntro } from '@/components/journey/KnytsBridgeOrientIn
 import { KnytsBridgePassportRoom } from '@/components/journey/KnytsBridgePassportRoom';
 import { KnytsBridgeRemixSurface } from '@/components/journey/KnytsBridgeRemixSurface';
 import { KnytsBridgeAdminPanel } from '@/components/journey/KnytsBridgeAdminPanel';
-import { BridgePassportGate } from '@/components/journey/BridgePassportGate';
 import { PassportConnectPanel } from '@/components/companion/PassportConnectPanel';
 import { usePassportSignInHost } from '@/app/hooks/usePassportSignInHost';
-import { usePersonaSpine } from '@/utils/personaSpine';
 import { CodexCopilotLayer } from '@/app/components/codex/CodexCopilotLayer';
 import { MetaAvatarProvider } from '@/app/contexts/MetaAvatarContext';
 import { MetaAvatarHost } from '@/app/components/metaVatar/MetaAvatarHost';
@@ -111,8 +109,6 @@ export default function KnytsBridgePage() {
     const passportStage = state.stages.find((s) => s.stageId === 'passport');
     setCitizenPassportUsable(Boolean(passportStage?.evidencePresent.includes('citizenPassportUsable')));
   }, []);
-  const [showPassportGate, setShowPassportGate] = useState(false);
-  const spine = usePersonaSpine();
 
   // Same pinned-persona read every top-level surface uses as its baseline
   // (personaFetch's own fallback, MetaMeRuntimeClient's resolver).
@@ -148,36 +144,6 @@ export default function KnytsBridgePage() {
     if (showPassportSignIn) selectStage('passport');
   }, [showPassportSignIn]);
 
-  // Track stage navigation for back button functionality and Passport
-  // gating (2026-08-12, parity pass — mirrors CI's page listener). Note
-  // this is a UX nicety, not the real gate: JourneyRunSurface's own
-  // stepper click handler sets its internal selectedStageId BEFORE
-  // dispatching this event, so by the time this listener runs the visible
-  // stage has already switched. The real enforcement lives in
-  // KnytsBridgeRemixSurface/the Stand surface themselves, failing closed
-  // on citizenPassportUsable — same as CI's Personify/Stand.
-  useEffect(() => {
-    const handleStageSelect = (event: Event) => {
-      const customEvent = event as CustomEvent<{ stageId: string }>;
-      const targetStageId = customEvent.detail.stageId;
-
-      if ((targetStageId === 'remix' || targetStageId === 'stand') && !citizenPassportUsable) {
-        setShowPassportGate(true);
-        return;
-      }
-
-      setPreviousStageId(currentStageId);
-      setCurrentStageId(targetStageId);
-    };
-    window.addEventListener('journey:select-stage', handleStageSelect);
-    return () => window.removeEventListener('journey:select-stage', handleStageSelect);
-  }, [currentStageId, citizenPassportUsable]);
-
-  const handleBack = useCallback(() => {
-    if (previousStageId) {
-      selectStage(previousStageId);
-    }
-  }, [previousStageId]);
 
   // Consumes `citizenPassportUsable` (derived above from the WHOLE
   // runtimeState via onRuntimeStateChange) — never discovers it. See that
@@ -218,7 +184,6 @@ export default function KnytsBridgePage() {
         onRuntimeStateChange={handleRuntimeStateChange}
         accent={KNYT_ACCENT}
         compact
-        onBack={handleBack}
         distinguishAvailableStages
         // KNYTS-specific presentation seam (2026-08-12, KNYTS↔CI parity
         // pass) — mirrors CI's own emphasizeAvailableStage exactly. Home/
@@ -332,21 +297,6 @@ export default function KnytsBridgePage() {
         }}
       />
 
-      {/* Passport gate — blocks direct navigation into REMIX/STAND until
-          Passport is claimed (2026-08-12, KNYTS↔CI parity pass). "Later"
-          only dismisses the modal; it never claims or simulates a Passport. */}
-      <BridgePassportGate
-        isOpen={showPassportGate}
-        onDismiss={() => setShowPassportGate(false)}
-        onProceedToPassport={() => {
-          setShowPassportGate(false);
-          selectStage('passport');
-        }}
-        dismissLabel="Later"
-        accent="amber"
-        headline="Claim Your Passport First"
-        explanation="Your Polity Citizen Passport is your constitutional presence. You must establish it before you can remix your crossing or stand in the Quests."
-        points={[
           'Passport proves your constitutional personhood',
           "You'll cross a threshold once claimed",
           'Then remix your crossing and stand in the Quests',

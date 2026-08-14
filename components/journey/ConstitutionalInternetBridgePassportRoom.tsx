@@ -49,6 +49,7 @@ import {
 const SECTION = 'ci-passport-established';
 const BEARING_INSTRUMENT = canonicalPlateImage('CIP-007B');
 const INTENT_POST_URL = '/api/journey/constitutional-internet-bridge/passport/intent';
+const NOTICE_AUTO_DISMISS_MS = 2750;
 
 interface Props {
   personaId?: string;
@@ -100,6 +101,14 @@ export function ConstitutionalInternetBridgePassportRoom({ personaId, citizenPas
       cancelled = true;
     };
   }, [citizenPassportUsable]);
+
+  useEffect(() => {
+    if (!citizenPassportUsable || noticeDismissed) return;
+    const timer = setTimeout(() => {
+      setNoticeDismissed(true);
+    }, NOTICE_AUTO_DISMISS_MS);
+    return () => clearTimeout(timer);
+  }, [citizenPassportUsable, noticeDismissed]);
 
   if (!citizenPassportUsable) {
     return (

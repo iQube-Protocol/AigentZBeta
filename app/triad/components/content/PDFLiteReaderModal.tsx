@@ -16,9 +16,10 @@
  * the browser's own error UI underneath. No "timed out" message ever.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 const LOADED_URLS_KEY = 'codex:pdflite:loaded-urls:v1';
+const MEDIA_FURNITURE_IDLE_FADE_MS = 5000;
 const FIRST_LOAD_SPINNER_MS = 5000;         // hide spinner after 5s on first load
 const REPEAT_LOAD_SPINNER_MS = 1500;        // hide spinner after 1.5s when cache-hit is likely
 const LOADED_URL_TTL_MS = 7 * 24 * 60 * 60 * 1000; // remember a successful load for 7 days
@@ -95,8 +96,27 @@ function useIsMobileViewport(): boolean {
 
 export function PDFLiteReaderModal({ open, pdfUrl, title, onClose }: PDFLiteReaderModalProps) {
   const [loading, setLoading] = useState(true);
+  const [furnitureVisible, setFurnitureVisible] = useState(false);
+  const furnitureTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const safePdfUrl = buildSecureViewerUrl(pdfUrl);
   const isMobile = useIsMobileViewport();
+
+  // Media furniture visibility management: invisible at rest, visible on hover/focus/touch, fade after 5s idle.
+  const showFurniture = useCallback(() => {
+    setFurnitureVisible(true);
+    if (furnitureTimeoutRef.current) clearTimeout(furnitureTimeoutRef.current);
+    furnitureTimeoutRef.current = setTimeout(() => {
+      setFurnitureVisible(false);
+    }, MEDIA_FURNITURE_IDLE_FADE_MS);
+  }, []);
+
+  useEffect(() => {
+    if (!open) {
+      if (furnitureTimeoutRef.current) clearTimeout(furnitureTimeoutRef.current);
+      setFurnitureVisible(false);
+      return;
+    }
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -151,8 +171,13 @@ export function PDFLiteReaderModal({ open, pdfUrl, title, onClose }: PDFLiteRead
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="relative w-full h-full md:w-[min(896px,95vw)] md:h-[min(100%,900px)] bg-zinc-950 border border-white/10 rounded-none md:rounded-xl overflow-hidden shadow-xl">
-        <div className="flex items-center justify-between px-4 md:px-6 py-4 md:py-5 border-b border-white/10">
+      <div
+        className="relative w-full h-full md:w-[min(896px,95vw)] md:h-[min(100%,900px)] bg-zinc-950 border border-white/10 rounded-none md:rounded-xl overflow-hidden shadow-xl"
+        onMouseMove={showFurniture}
+        onMouseEnter={showFurniture}
+        onTouchStart={showFurniture}
+      >
+        <div className={`flex items-center justify-between px-4 md:px-6 py-4 md:py-5 border-b border-white/10 transition-opacity duration-300 ${furnitureVisible ? 'opacity-100' : 'opacity-0'}`}>
           <div className="min-w-0">
             <div className="text-sm font-semibold text-white truncate">
               {title || 'Reading'}
@@ -163,8 +188,9 @@ export function PDFLiteReaderModal({ open, pdfUrl, title, onClose }: PDFLiteRead
           </div>
 
           <button
-            className="w-10 h-10 rounded-full bg-black/50 border border-white/20 text-white hover:bg-black/70 transition-colors flex items-center justify-center"
+            className="w-10 h-10 rounded-full bg-black/50 border border-white/20 text-white hover:bg-black/70 transition-colors flex items-center justify-center focus:opacity-100"
             onClick={onClose}
+            onFocus={showFurniture}
             aria-label="Close PDF preview"
           >
             ×

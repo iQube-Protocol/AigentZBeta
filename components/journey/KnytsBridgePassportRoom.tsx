@@ -42,6 +42,7 @@ import {
 const SECTION = 'passport-established';
 const BEARING_INSTRUMENT = canonicalPlateImage('CIP-007B');
 const INTENT_POST_URL = '/api/journey/knyts-bridge/passport/intent';
+const NOTICE_AUTO_DISMISS_MS = 2750;
 
 interface Props {
   personaId?: string;
@@ -91,6 +92,14 @@ export function KnytsBridgePassportRoom({ personaId, citizenPassportUsable, requ
     };
   }, [citizenPassportUsable]);
 
+  useEffect(() => {
+    if (!citizenPassportUsable || noticeDismissed) return;
+    const timer = setTimeout(() => {
+      setNoticeDismissed(true);
+    }, NOTICE_AUTO_DISMISS_MS);
+    return () => clearTimeout(timer);
+  }, [citizenPassportUsable, noticeDismissed]);
+
   if (!citizenPassportUsable) {
     return (
       <div className="space-y-3">
@@ -127,7 +136,7 @@ export function KnytsBridgePassportRoom({ personaId, citizenPassportUsable, requ
         <div className="flex items-start gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
           <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-300" />
           <div className="flex-1">
-            <p className="text-sm font-semibold text-emerald-200">You have crossed.</p>
+            <p className="text-sm font-semibold text-emerald-200">You have crossed the threshold.</p>
             <p className="mt-0.5 text-xs text-emerald-300/80">
               Your constitutional presence is confirmed. Tell your own crossing when you're ready.
             </p>

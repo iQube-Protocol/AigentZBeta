@@ -177,7 +177,7 @@ export const KNYTS_BRIDGE_CROSSING_JOURNEY: JourneyDefinition = {
           note: 'myCanvas, deep-linked inside the metaMe/aigentMe environment — campaign-tagged, never a forked remix UI.',
         },
       ],
-      prerequisites: [],
+      prerequisites: ['passport'],
       permittedActions: ['remix-crossing-story', 'publish-to-pulse'],
       completionEvidence: ['crossingPublished'],
       receiptTypes: [],
