@@ -22,6 +22,7 @@
  * record).
  */
 
+import { useEffect } from 'react';
 import { ArrowRight, CheckCircle2 } from 'lucide-react';
 import { PassportBureauApplyTab } from '@/app/triad/components/codex/tabs/PassportBureauApplyTab';
 
@@ -42,6 +43,13 @@ function selectStage(stageId: string) {
 }
 
 export function ConstitutionalInternetBridgePassportRoom({ personaId, citizenPassportUsable }: Props) {
+  // Auto-advance to ACT stage after 4 seconds when Passport is just established
+  useEffect(() => {
+    if (!citizenPassportUsable) return;
+    const timer = setTimeout(() => selectStage('act'), 4000);
+    return () => clearTimeout(timer);
+  }, [citizenPassportUsable]);
+
   if (!citizenPassportUsable) {
     return (
       <div className="space-y-3">
@@ -56,12 +64,12 @@ export function ConstitutionalInternetBridgePassportRoom({ personaId, citizenPas
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
+      <div className="flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 animate-pulse">
         <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-300" />
         <div>
           <p className="text-sm font-semibold text-emerald-200">You have crossed.</p>
           <p className="mt-0.5 text-xs text-emerald-300/80">
-            Your constitutional presence is confirmed. Bring an agent into the field next.
+            Your constitutional presence is confirmed. Continuing to the next step…
           </p>
         </div>
       </div>

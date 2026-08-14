@@ -84,6 +84,30 @@ const DEFAULT_CANVAS_TEMPLATE = {
     seedTemplate: 'qriptopian-agents-of-change-reading-sprint',
   },
 };
+const ARTICLE_ZERO_TEMPLATES = {
+  'template-article-zero-guide': {
+    id: 'template-article-zero-guide',
+    title: 'Article Zero — Guided Structure',
+    subtitle: 'Start with a guided outline: premise, evidence, implications.',
+    tags: ['template', 'article-zero', 'guided'],
+    metaJson: { seedTemplate: 'article-zero-guide', articleZero: true },
+  },
+  'template-article-zero-freeform': {
+    id: 'template-article-zero-freeform',
+    title: 'Article Zero — Freeform',
+    subtitle: 'Begin with a blank canvas and your own structure.',
+    tags: ['template', 'article-zero', 'freeform'],
+    metaJson: { seedTemplate: 'article-zero-freeform', articleZero: true },
+  },
+  'template-article-zero-research': {
+    id: 'template-article-zero-research',
+    title: 'Article Zero — Research',
+    subtitle: 'Document findings: question, research process, discoveries.',
+    tags: ['template', 'article-zero', 'research'],
+    metaJson: { seedTemplate: 'article-zero-research', articleZero: true },
+  },
+};
+
 const CAMPAIGN_CANVAS_TEMPLATES: Record<string, typeof DEFAULT_CANVAS_TEMPLATE> = {
   'knyts-bridge-crossing': {
     id: 'template-knyts-bridge-crossing',
@@ -92,6 +116,7 @@ const CAMPAIGN_CANVAS_TEMPLATES: Record<string, typeof DEFAULT_CANVAS_TEMPLATE> 
     tags: ['template', 'knyts-bridge', 'crossing'],
     metaJson: { seedTemplate: 'knyts-bridge-crossing', campaign: 'knyts-bridge-crossing' },
   },
+  ...ARTICLE_ZERO_TEMPLATES,
 };
 
 interface Props {
