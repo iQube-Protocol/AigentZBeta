@@ -677,7 +677,6 @@ export function JourneyRunSurface({
           </div>
           <span className="shrink-0 text-slate-600">·</span>
           <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
-            <span className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-semibold ${accent.chip}`}>{activeIdx + 1}</span>
             <span className="shrink-0 font-medium text-slate-100">{activeStage.label}</span>
             <span className="shrink-0 text-slate-600">—</span>
             <RotatingStatusLine key={activeStageId} slides={statusSlides} />
