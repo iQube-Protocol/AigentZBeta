@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-12T19:41:27.958Z",
+  "last_updated": "2026-08-14T03:50:55.138Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "1c05d3608f270228c9dd5d0ea03100d51f236cb6",
-  "latest_commit_short": "1c05d36",
-  "latest_commit_title": "record moneypenny dress rehearsal closure — all stages stable, ready to move to know1",
+  "latest_commit": "5b77bdfccf8ba090fef5fe89e1201adb22c1f5aa",
+  "latest_commit_short": "5b77bdf",
+  "latest_commit_title": "groom knyts-bridge: remove duplicate passport gate (A1), auto-advance passport room (A2), embed article-zero templates (A3)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,42 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "5b77bdf",
+      "full_sha": "5b77bdfccf8ba090fef5fe89e1201adb22c1f5aa",
+      "title": "groom knyts-bridge: remove duplicate passport gate (A1), auto-advance passport room (A2), embed article-zero templates (A3)",
+      "author": "Claude",
+      "timestamp": "2026-08-14T02:18:05Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-5b77bdf.md"
+    },
+    {
+      "sha": "2941362",
+      "full_sha": "29413627bbf9399cde4bc8e79ced80e9ae484f67",
+      "title": "groom bridges: header stage numbers (A4), auto-advance passport room (A2), article-zero templates (A3), pdf border styling (A6), duplicate passport gate removal (A1)",
+      "author": "Claude",
+      "timestamp": "2026-08-14T02:19:53Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-2941362.md"
+    },
+    {
+      "sha": "bff416b",
+      "full_sha": "bff416b853ac17de98defd4c3d5636c037615e62",
+      "title": "Revert \"groom bridges: header stage numbers (A4), auto-advance passport room (A2), article-zero templates (A3), pdf border styling (A6), duplicate passport gate removal (A1)\"",
+      "author": "Claude",
+      "timestamp": "2026-08-14T02:40:53Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-bff416b.md"
+    },
+    {
+      "sha": "0132bdb",
+      "full_sha": "0132bdbf95c5cbbabcb883b2aa4f0075a9bc032e",
+      "title": "soft-launch grooming pass: Constitutional Internet Bridge + KNYTS Bridge refinements",
+      "author": "Claude",
+      "timestamp": "2026-08-14T03:46:46Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-0132bdb.md"
+    },
     {
       "sha": "1c05d36",
       "full_sha": "1c05d3608f270228c9dd5d0ea03100d51f236cb6",
@@ -1216,42 +1252,6 @@
       "timestamp": "2026-08-09T01:24:30Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-1a5d597.md"
-    },
-    {
-      "sha": "43e2e15",
-      "full_sha": "43e2e153cba171ab032c0af432dab6353d7814bd",
-      "title": "Insert Orient stage between Claim and Passport, render Ratify/Ingest/Standing as Consequence Fork",
-      "author": "Claude",
-      "timestamp": "2026-08-09T02:01:34Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-43e2e15.md"
-    },
-    {
-      "sha": "c56c1aa",
-      "full_sha": "c56c1aa5ab85ded801b4c0f133bb7df42458b505",
-      "title": "docs(chrysalis): capture DVN Spine fast-follow backlog",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-08T19:14:29-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-c56c1aa.md"
-    },
-    {
-      "sha": "cee3d41",
-      "full_sha": "cee3d4149757191bcbcceb02ab9bb3ce3703c9f5",
-      "title": "Add proof_of_state_v2 canonical DID for CAP-1 integration",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-08T07:33:08-04:00",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-cee3d41.md"
-    },
-    {
-      "sha": "7e8979e",
-      "full_sha": "7e8979e6af79b5450ed3bf3e2201fbe7142a75d0",
-      "title": "Add proof_of_state_v2 TypeScript binding",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-08T07:33:30-04:00",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-7e8979e.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

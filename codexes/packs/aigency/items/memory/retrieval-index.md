@@ -4109,3 +4109,23 @@ Top-level retrieval anchors for this pack.
 - Type: `refactor`
 - Brief: [COMMIT-1c05d36.md](../build_/COMMITS/COMMIT-1c05d36.md)
 - Message: record moneypenny dress rehearsal closure — all stages stable, ready to move to know1
+
+## Commit `0132bdb` — 2026-08-14T03:46:46Z
+- Type: `push`
+- Brief: [COMMIT-0132bdb.md](../build_/COMMITS/COMMIT-0132bdb.md)
+- Message: soft-launch grooming pass: Constitutional Internet Bridge + KNYTS Bridge refinements
+
+## Commit `bff416b` — 2026-08-14T02:40:53Z
+- Type: `push`
+- Brief: [COMMIT-bff416b.md](../build_/COMMITS/COMMIT-bff416b.md)
+- Message: Revert "groom bridges: header stage numbers (A4), auto-advance passport room (A2), article-zero templates (A3), pdf border styling (A6), duplicate passport gate removal (A1)"
+
+## Commit `2941362` — 2026-08-14T02:19:53Z
+- Type: `push`
+- Brief: [COMMIT-2941362.md](../build_/COMMITS/COMMIT-2941362.md)
+- Message: groom bridges: header stage numbers (A4), auto-advance passport room (A2), article-zero templates (A3), pdf border styling (A6), duplicate passport gate removal (A1)
+
+## Commit `5b77bdf` — 2026-08-14T02:18:05Z
+- Type: `push`
+- Brief: [COMMIT-5b77bdf.md](../build_/COMMITS/COMMIT-5b77bdf.md)
+- Message: groom knyts-bridge: remove duplicate passport gate (A1), auto-advance passport room (A2), embed article-zero templates (A3)
