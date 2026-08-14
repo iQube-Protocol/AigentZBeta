@@ -151,7 +151,7 @@ export function PDFLiteReaderModal({ open, pdfUrl, title, onClose }: PDFLiteRead
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="relative w-full h-full md:w-[min(896px,95vw)] md:h-[min(100%,900px)] bg-zinc-950 border border-white/10 rounded-none md:rounded-xl overflow-hidden shadow-xl">
+      <div className="relative w-full h-full md:w-[min(896px,95vw)] md:h-[min(100%,900px)] bg-zinc-950 border border-slate-800 rounded-none md:rounded-xl overflow-hidden shadow-xl">
         <div className="flex items-center justify-between px-4 md:px-6 py-4 md:py-5 border-b border-white/10">
           <div className="min-w-0">
             <div className="text-sm font-semibold text-white truncate">
