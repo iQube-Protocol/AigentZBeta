@@ -87,8 +87,7 @@ import {
 } from "@/services/dcir/eventStream";
 import { useDcirSeam } from "@/services/dcir/useDcirSeam";
 import type { DcirEvent } from "@/types/dcir";
-import { partitionByEpistemicStanding } from "@/services/devCommandCenter/invariantEnvelope";
-import { partitionByCausalClaim } from "@/services/devCommandCenter/implementationContext";
+import { partitionByEpistemicStanding, partitionByCausalClaim } from "@/services/devCommandCenter/envelopeViews";
 
 import {
   IntentLayout,

@@ -24,7 +24,7 @@
  */
 
 import { INVARIANT_BUDGET } from '@/services/invariants/resolution';
-import { partitionByEpistemicStanding } from '@/services/devCommandCenter/invariantEnvelope';
+import { partitionByEpistemicStanding, partitionByCausalClaim as partitionByCausalClaimPure } from '@/services/devCommandCenter/envelopeViews';
 import {
   epistemicMarker,
   mayBeCitedAsEstablished,
@@ -136,18 +136,11 @@ export function bindFalsification(
 /**
  * The consequences that carry a causal claim, and those that do not.
  *
- * Reported rather than enforced: whether a given consequence SHOULD carry one
- * is a judgement about the intent, not a property a function can compute.
+ * RELOCATED to `envelopeViews.ts` (2026-08-15, same client-bundle fix as
+ * `partitionByEpistemicStanding` above) — re-exported here so existing
+ * importers of this module are unaffected.
  */
-export function partitionByCausalClaim(entries: readonly ConsequenceEntry[]): {
-  testable: ConsequenceEntry[];
-  ordinary: ConsequenceEntry[];
-} {
-  const testable: ConsequenceEntry[] = [];
-  const ordinary: ConsequenceEntry[] = [];
-  for (const e of entries) (e.falsification ? testable : ordinary).push(e);
-  return { testable, ordinary };
-}
+export const partitionByCausalClaim = partitionByCausalClaimPure;
 
 // ---------------------------------------------------------------------------
 // §3 Implementation context — compression that preserves epistemic boundaries
