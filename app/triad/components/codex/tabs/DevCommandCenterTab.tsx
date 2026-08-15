@@ -48,6 +48,8 @@ import {
   isPristineDevLoopSession,
   canAdvance,
   advanceStage,
+  nextStage,
+  getStageLabel,
   STAGE_ORDER,
   buildImplementationPackage,
   buildIntentSummary,
@@ -88,6 +90,7 @@ import {
 import { useDcirSeam } from "@/services/dcir/useDcirSeam";
 import type { DcirEvent } from "@/types/dcir";
 import { partitionByEpistemicStanding, partitionByCausalClaim } from "@/services/devCommandCenter/envelopeViews";
+import { STAGES, getStageIndex } from "@/components/devcommandcenter/stageMeta";
 
 import {
   IntentLayout,
@@ -136,19 +139,8 @@ function classifyPromptTier(prompt: string): RoutingDecision {
 }
 
 // ─── Stage metadata (UI rendering) ────────────────────────────────────────
-
-const STAGES: { id: DevLoopStage; label: string; icon: typeof Cpu }[] = [
-  { id: "intent_capture", label: "Intent", icon: Target },
-  { id: "context_assembly", label: "Context", icon: Package },
-  { id: "gap_analysis", label: "Gaps", icon: FileSearch },
-  { id: "consequence_modeling", label: "Consequences", icon: AlertTriangle },
-  { id: "constitutional_decision", label: "Decide", icon: Scale },
-  { id: "implementation", label: "Implement", icon: Cpu },
-  { id: "consequence_validation", label: "Validate", icon: CheckCircle },
-  { id: "remediation", label: "Remediate", icon: ShieldAlert },
-  { id: "deployment_authorization", label: "Deploy Auth", icon: Rocket },
-  { id: "complete", label: "Complete", icon: CheckCircle },
-];
+// STAGES/getStageIndex are the canonical shared metadata (Phase B1, 2026-08-15)
+// — see components/devcommandcenter/stageMeta.ts for why this is hoisted.
 
 const STAGE_TO_CAPSULE: Partial<Record<DevLoopStage, DevCapsuleId>> = {
   intent_capture: "intent",
@@ -176,10 +168,6 @@ const CAPSULE_TO_STAGE: Partial<Record<DevCapsuleId, DevLoopStage>> = {
   remediation: "remediation",
   "deployment-authorization": "deployment_authorization",
 };
-
-function getStageIndex(stage: DevLoopStage): number {
-  return STAGES.findIndex(s => s.id === stage);
-}
 
 // ─── Capability chip metadata ────────────────────────────────────────────
 
@@ -447,6 +435,79 @@ function InvariantEvidencePanel({ session, dcirEvents }: { session: DevLoopState
   );
 }
 
+/**
+ * The current stage's own artifact — one card, not a matrix. Reuses the exact
+ * per-stage summary text the (removed) capability-card matrix used to render
+ * for all 10 capabilities at once; here it's narrowed to the ONE capsule that
+ * corresponds to `session.stage`, via the SAME `STAGE_TO_CAPSULE` mapping the
+ * Views row already uses for navigation — no second mapping.
+ *
+ * Returns null for `complete` (no capsule maps to it today — see DevOn UI
+ * Refinement Phase B notes: a full Completion-state summary, PRD §15, is
+ * explicitly deferred rather than stubbed with fabricated content).
+ */
+function currentArtifactSummary(
+  session: DevLoopState,
+): { label: string; icon: typeof Cpu; text: string; capsuleId: DevCapsuleId } | null {
+  const capsuleId = STAGE_TO_CAPSULE[session.stage];
+  if (!capsuleId) return null;
+  const cap = CAPABILITIES.find((c) => c.id === capsuleId);
+  if (!cap) return null;
+  const text = ((): string => {
+    switch (capsuleId) {
+      case "intent":
+        return session.intent ? `${session.intent.status} — ${session.intent.goal}` : "Start a new intent";
+      case "context":
+        return session.contextPack ? `${session.contextPack.items.length} items assembled` : "Pending intent";
+      case "gap-analysis":
+        return session.gapAnalysis
+          ? `${session.gapAnalysis.existing.length} existing · ${session.gapAnalysis.missing.length} missing`
+          : "Pending context";
+      case "consequence-canvas":
+        return session.consequenceCanvas
+          ? `${session.consequenceCanvas.shouldHappen.length + session.consequenceCanvas.shouldNeverHappen.length} entries`
+          : "Pending gaps";
+      case "decision":
+        return session.constitutionalDecision ? "Decision recorded" : "Pending consequences";
+      case "implementation":
+        return session.implementationBrief ? "Brief ready — generate the pack" : "Pending decision";
+      case "validation":
+        return session.validationReport ? session.validationReport.overallVerdict : "Pending implementation";
+      case "remediation":
+        return session.remediationPlan ? `${session.remediationPlan.remedies.length} remed(ies)` : "No remediation required";
+      case "deployment-authorization":
+        return session.deploymentAuthorization
+          ? session.deploymentAuthorization.authorized ? "Authorized" : "Blocked"
+          : "Pending validation";
+      default:
+        return "";
+    }
+  })();
+  return { label: cap.label, icon: cap.icon, text, capsuleId };
+}
+
+/**
+ * The default right-pane stack. DevOn UI Refinement, Phase B (2026-08-15) —
+ * "elegance through resolved complexity": this replaces three prior
+ * representations of the lifecycle (the always-expanded 10-card capability
+ * matrix, the "Experience Model" accordion's duplicate stage list, and the
+ * always-expanded "Development Loop" diagram) with Current Work + Active
+ * Artifact + Evidence, each backed by data that already existed.
+ *
+ * Where each removed concept's real content went, rather than being hidden:
+ *  - the capability matrix's per-stage summaries → `currentArtifactSummary`,
+ *    narrowed to the ONE current stage instead of rendering all 10 at once
+ *    (navigation to the other 9 is the Views row above, unchanged);
+ *  - "Experience Model"'s stage list → removed outright (pure duplicate of
+ *    STAGES/StageStrip, no unique content);
+ *  - the Development Loop diagram's "Claude Code" step → an actor event in
+ *    the left-pane stream (Phase C, not yet built);
+ *  - its "Receipts" step → the existing "Dev Receipts" accordion, unchanged;
+ *  - its "Memory Update" step → explicitly DEFERRED to a future
+ *    Completion-state phase (PRD §15) rather than stubbed with fabricated
+ *    content — `complete` has no capsule mapping today
+ *    (`currentArtifactSummary` returns null for it, honestly).
+ */
 function StackLayout({ session, activeStage, onCapabilityClick, pending, dcirEvents }: {
   session: DevLoopState;
   activeStage: DevLoopStage;
@@ -454,77 +515,69 @@ function StackLayout({ session, activeStage, onCapabilityClick, pending, dcirEve
   pending: Partial<Record<DevCapsuleId, StageProposal>>;
   dcirEvents: DcirEvent[];
 }) {
+  const stageIdx = getStageIndex(activeStage);
+  const stageMetaCurrent = STAGES[stageIdx];
+  const ready = canAdvance(session);
+  const next = nextStage(session);
+  const artifact = currentArtifactSummary(session);
+  const artifactPending = artifact ? pending[artifact.capsuleId] !== undefined : false;
+
   return (
-    <div className="space-y-4">
-      {/* Capability cards — larger, with summaries + pending indicators */}
-      <div className="space-y-2">
-        <div className="text-[10px] text-slate-500 uppercase font-semibold px-1">Capabilities</div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-          {CAPABILITIES.map(cap => {
-            const Icon = cap.icon;
-            const hasData = capabilityHasData(cap.id, session);
-            const hasPending = pending[cap.id] !== undefined;
-            return (
-              <button
-                key={cap.id}
-                onClick={() => onCapabilityClick(cap.id)}
-                className={`relative flex items-center gap-3 p-3 rounded-lg border transition-all text-left ${
-                  hasData ? cap.hasDataClass : cap.emptyClass
-                } ${hasPending ? "ring-1 ring-amber-500/40" : ""}`}
-              >
-                <Icon className={`w-5 h-5 shrink-0 ${hasData ? cap.iconActiveClass : cap.iconEmptyClass}`} />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-white">{cap.label}</span>
-                    {hasData && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />}
-                  </div>
-                  <div className="text-[10px] text-slate-400">
-                    {cap.id === "project-overview" && (session.intent ? session.intent.goal : "No active intent")}
-                    {cap.id === "intent" && (session.intent ? `${session.intent.status} — ${session.intent.goal}` : "Start a new intent")}
-                    {cap.id === "context" && (session.contextPack ? `${session.contextPack.items.length} items assembled` : "Pending intent")}
-                    {cap.id === "gap-analysis" && (session.gapAnalysis ? `${session.gapAnalysis.existing.length} existing · ${session.gapAnalysis.missing.length} missing` : "Pending context")}
-                    {cap.id === "consequence-canvas" && (session.consequenceCanvas ? `${session.consequenceCanvas.shouldHappen.length + session.consequenceCanvas.shouldNeverHappen.length} entries` : "Pending gaps")}
-                    {cap.id === "implementation" && (session.implementationBrief ? "Brief ready — generate the pack" : "Pending consequences")}
-                    {cap.id === "validation" && (session.validationReport ? session.validationReport.overallVerdict : "Pending implementation")}
-                    {cap.id === "remediation" && (session.remediationPlan ? `${session.remediationPlan.remedies.length} remed(ies)` : "No remediation required")}
-                    {cap.id === "deployment-authorization" && (session.deploymentAuthorization ? (session.deploymentAuthorization.authorized ? "Authorized" : "Blocked") : "Pending validation")}
-                  </div>
-                </div>
-                {hasPending && (
-                  <span className="absolute -top-1 -right-1 flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold animate-pulse">
-                    Pending
-                  </span>
-                )}
-              </button>
-            );
-          })}
+    <div className="space-y-3">
+      {/* Current Work — compact orientation only: what's happening now, and
+          what needs attention next. StageStrip (State, above) already answers
+          "where are we globally" — this does NOT re-list the lifecycle. */}
+      <div className="p-3 rounded-lg bg-slate-800/40 border border-slate-700/40">
+        <div className="text-[9px] uppercase tracking-wider text-slate-600 font-semibold mb-1.5">Current Work</div>
+        <div className="flex items-center gap-2 mb-1">
+          {stageMetaCurrent && <stageMetaCurrent.icon className="w-4 h-4 text-green-400 shrink-0" />}
+          <span className="text-sm font-semibold text-white">{stageMetaCurrent?.label ?? activeStage}</span>
+        </div>
+        <div className="text-xs">
+          {ready ? (
+            <span className="text-emerald-300">Ready to advance{next ? ` — next: ${getStageLabel(next)}` : ""}</span>
+          ) : (
+            <span className="text-slate-400">{artifact?.text || "Working…"}</span>
+          )}
         </div>
       </div>
 
-      {/* Accordion sections */}
-      <AccordionSection title="Experience Model" icon={Layers} defaultOpen={false}>
-        <div className="space-y-2">
-          <div className="text-[10px] text-slate-500 uppercase font-semibold">Dev Loop Stages</div>
-          {STAGES.map((s, i) => {
-            const stageIdx = getStageIndex(activeStage);
-            const isCurrent = s.id === activeStage;
-            const isPast = i < stageIdx;
-            const SIcon = s.icon;
-            return (
-              <div key={s.id} className="flex items-center gap-2 py-0.5">
-                <SIcon className={`w-3 h-3 ${isCurrent ? "text-green-400" : isPast ? "text-emerald-400/60" : "text-slate-600"}`} />
-                <span className={`text-xs ${isCurrent ? "text-green-300 font-semibold" : isPast ? "text-emerald-300/60" : "text-slate-500"}`}>{s.label}</span>
-                {isCurrent && <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/20 text-green-300">Active</span>}
-                {isPast && <span className="text-[10px] text-emerald-400/50">✓</span>}
-              </div>
-            );
-          })}
-          <div className="pt-1 border-t border-slate-700/20">
-            <div className="text-[10px] text-slate-500">Implementation package: {session.intent && session.contextPack && session.gapAnalysis && session.consequenceCanvas ? <span className="text-emerald-300">ready to assemble</span> : <span className="text-amber-300">incomplete — fill remaining capabilities</span>}</div>
+      {/* Active Artifact — this stage's own artifact. A View (not a stage) —
+          opens the matching capsule via the same onCapabilityClick every
+          Views chip already uses. */}
+      {artifact && (
+        <button
+          type="button"
+          onClick={() => onCapabilityClick(artifact.capsuleId)}
+          className={`relative w-full flex items-center gap-3 p-3 rounded-lg border transition-all text-left hover:ring-1 hover:ring-white/20 bg-slate-800/30 border-slate-700/40 ${
+            artifactPending ? "ring-1 ring-amber-500/40" : ""
+          }`}
+        >
+          <artifact.icon className="w-5 h-5 shrink-0 text-slate-300" />
+          <div className="min-w-0 flex-1">
+            <div className="text-[9px] uppercase tracking-wider text-slate-600 font-semibold">Active Artifact</div>
+            <div className="text-sm font-semibold text-white">{artifact.label}</div>
+            <div className="text-[10px] text-slate-400">{artifact.text}</div>
           </div>
-        </div>
+          {artifactPending && (
+            <span className="absolute -top-1 -right-1 text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold animate-pulse">
+              Pending
+            </span>
+          )}
+        </button>
+      )}
+
+      {/* Evidence — Homecoming III Phase 5's Invariants/Risks/Consequences/
+          Evidence panel, promoted higher in the default stack (previously the
+          last, most-buried accordion). Reads session.invariantEnvelope + the
+          live DCIR event log through the SAME pure functions the service
+          layer already exercises (partitionByEpistemicStanding,
+          partitionByCausalClaim) — no re-derivation here. */}
+      <AccordionSection title="Evidence — Invariants · Risks · Consequences" icon={Eye} defaultOpen={false}>
+        <InvariantEvidencePanel session={session} dcirEvents={dcirEvents} />
       </AccordionSection>
 
+      {/* Secondary controls (collapsed by default) */}
       <AccordionSection title="Specialists" icon={Cpu} defaultOpen={false}>
         <div className="space-y-2">
           {[
@@ -578,58 +631,6 @@ function StackLayout({ session, activeStage, onCapabilityClick, pending, dcirEve
           </div>
         </div>
       </AccordionSection>
-
-      {/* Homecoming III Phase 5 — read-only visibility into the invariant-
-          driven loop. Existing layout (AccordionSection), no new capsule,
-          no new stage: reads session.invariantEnvelope + the live DCIR
-          event log through the SAME pure functions the service layer
-          already exercises (partitionByEpistemicStanding,
-          partitionByCausalClaim) rather than re-deriving the classification
-          here. */}
-      <AccordionSection title="Invariants · Risks · Consequences · Evidence" icon={Eye} defaultOpen={false}>
-        <InvariantEvidencePanel session={session} dcirEvents={dcirEvents} />
-      </AccordionSection>
-
-      {/* Dev loop diagram */}
-      <div className="p-3 rounded-lg bg-slate-800/30 border border-slate-700/30">
-        <div className="flex items-baseline gap-2 mb-2 min-w-0">
-          <h4 className="text-xs font-semibold text-white shrink-0">Development Loop</h4>
-          <p className="text-[10px] text-slate-400 truncate">
-            Claude Code generates code. aigentZ generates and validates capability. The loop is cyclical.
-          </p>
-        </div>
-        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-1 text-xs">
-          {[
-            { label: "User Intent", stage: "intent_capture" },
-            { label: "Intent Distillation", stage: "intent_capture" },
-            { label: "Context Pack", stage: "context_assembly" },
-            { label: "Gap Analysis", stage: "gap_analysis" },
-            { label: "Consequence Canvas", stage: "consequence_modeling" },
-            { label: "Claude Code", stage: "implementation" },
-            { label: "Generated Code", stage: "implementation" },
-            { label: "Constitutional Validation", stage: "consequence_validation" },
-            { label: "Remediation", stage: "remediation" },
-            { label: "Deployment Authorization", stage: "deployment_authorization" },
-            { label: "Receipts", stage: "complete" },
-            { label: "Memory Update", stage: "complete" },
-          ].map((step, i, arr) => {
-            const stageIdx = getStageIndex(activeStage);
-            const stepStageIdx = STAGES.findIndex(s => s.id === step.stage);
-            const isPast = stepStageIdx < stageIdx;
-            const isCurrent = step.stage === activeStage;
-            return (
-              <React.Fragment key={step.label}>
-                <span className={`px-2 py-1 rounded whitespace-nowrap shrink-0 ${
-                  isCurrent ? "bg-green-500/20 text-green-300 ring-1 ring-green-500/30"
-                  : isPast ? "bg-emerald-500/10 text-emerald-300/60"
-                  : "bg-slate-700/50 text-white"
-                }`}>{step.label}</span>
-                {i < arr.length - 1 && <ArrowRight className={`w-3 h-3 shrink-0 ${isPast || isCurrent ? "text-emerald-400/40" : "text-slate-600"}`} />}
-              </React.Fragment>
-            );
-          })}
-        </div>
-      </div>
     </div>
   );
 }
@@ -1266,8 +1267,10 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
 
       {/* ── RIGHT: Development Command Center (50/50 split) ─── */}
       <div className="lg:w-1/2 w-full h-full min-h-0 relative flex flex-col">
-        {/* Stage strip at top */}
-        <div className="shrink-0 py-2">
+        {/* State — where the development process IS. Never changed by view
+            navigation below; StageStrip highlights purely off session.stage. */}
+        <div className="shrink-0 pt-2">
+          <div className="px-1 text-[9px] uppercase tracking-wider text-slate-600 font-semibold">State</div>
           <StageStrip stage={session.stage} onStageClick={handleStageClick} />
         </div>
 
@@ -1316,8 +1319,13 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
           )}
         </div>
 
-        {/* CTA chip row — mirrors aigentMe's capsule chip strip */}
-        <div className="shrink-0 py-1">
+        {/* Views — what the operator is INSPECTING, never a second lifecycle.
+            Navigating a view never advances or otherwise mutates session.stage
+            (engageCapsuleAndMount only sets activeCapsuleId/activeLayoutId) —
+            inspecting Implementation while the runtime is in Validation must
+            never read as having moved the process backward. */}
+        <div className="shrink-0 pt-2 pb-1 border-t border-slate-800/60">
+          <div className="px-1 pt-1 text-[9px] uppercase tracking-wider text-slate-600 font-semibold">Views</div>
           <CapabilityChipRow
             session={session}
             activeCapsuleId={activeCapsuleId}
