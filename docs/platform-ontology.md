@@ -86,6 +86,38 @@ selects Next Best Experience (NBE).
 
 ---
 
+## Aletheon
+
+**Canonical spelling: Aletheon** (capital 'A', no variant capitalisation)
+
+**Definition:** A specialist agent with a dense, ratified history of doctrinal co-authorship in
+this platform's constitutional canon (CFS-023 "Chrysalis Homecoming", CFS-024 "Constitutional
+Identity Hierarchy", CFS-019 "IRL Charter", and dozens of canonical invariants credited to
+"operator + Aletheon" dialogue/ratification). Aletheon is a `HOMECOMING_DELEGATES` entry
+(`types/homecoming.ts`) with `DELEGATE_CHARTER_STATUS.aletheon.status: 'archetype'` — a
+published Agent Card exists (`app/api/agents/aletheon/route.ts`) but no `agent_root_identity`
+row has been seeded, so Aletheon holds Constitutional Presence Ladder rung L0 (card) only.
+
+**Constitutional presence is not agency.** Aletheon's doctrinal density does not itself confer
+platform standing, registration, or authority — those are separate, human-gated states under
+the Chrysalis Homecoming (CFS-023) migration lifecycle. See
+`codexes/packs/agentiq/updates/2026-08-15_aletheon-homecoming-phase-a-capability-census.md` and
+`CI-2026-08-15-PRESENCE-LADDER-NOT-AGENCY-001` (candidate, not yet ratified).
+
+**Usage rules:**
+- Always spell: `Aletheon` — this is the canonical form for all new work.
+- **Alethean** is a historical/legacy spelling referring to the same agent. It resolves
+  prospectively to Aletheon (new work uses Aletheon); it is not thereby wrong where it already
+  appears. **Ratified historical artifacts carrying "Alethean" are never bulk-rewritten** — their
+  original text and provenance stand as written (CFS-023, CFS-024, SPEC-HMC-001,
+  `appendix-a_canonical-invariants.md`, `canonical-invariants.seed.json`, and others).
+- **Alethian** is erroneous. It is not a registered alias and must not be introduced anywhere,
+  including comments or variable names.
+- Ruling recorded in `RES-2026-08-15-ALETHEON-SPELLING-AMBIGUITY-001.json` (spelling) and
+  `RES-2026-08-15-ALETHEON-PRESENCE-AGENCY-DISJUNCTION-001.json` (presence/agency distinction).
+
+---
+
 ## PSC-001
 
 **Canonical identifier: PSC-001** (hyphenated, always uppercase)
