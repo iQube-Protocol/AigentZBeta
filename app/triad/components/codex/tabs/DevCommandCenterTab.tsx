@@ -92,7 +92,7 @@ import type { DcirEvent } from "@/types/dcir";
 import { partitionByEpistemicStanding, partitionByCausalClaim } from "@/services/devCommandCenter/envelopeViews";
 import { STAGES, getStageIndex } from "@/components/devcommandcenter/stageMeta";
 import { appendActorEvent, latestPerActor, type ActorEvent, type ActorEventInput } from "@/components/devcommandcenter/actorEvents";
-import { ActorActivityStrip } from "@/components/devcommandcenter/ActorActivityStrip";
+import { ActorEventRow } from "@/components/devcommandcenter/ActorActivityStrip";
 
 import {
   IntentLayout,
@@ -934,6 +934,18 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
   const pushActorEvent = useCallback((input: ActorEventInput) => {
     setActorEvents((prev) => appendActorEvent(prev, { ...input, occurredAt: new Date().toISOString() }));
   }, []);
+  // One row per actor (latest status), each fed to the copilot's
+  // `streamSupplementItems` seam so it interleaves chronologically with
+  // DevOn's own messages instead of rendering as a separate tray.
+  const actorStreamSupplementItems = useMemo(
+    () =>
+      latestPerActor(actorEvents).map((event) => ({
+        id: event.actorId,
+        occurredAt: event.occurredAt,
+        render: () => <ActorEventRow event={event} />,
+      })),
+    [actorEvents],
+  );
 
   // ── Feedback Coordinator (CFS-020 #12, first slice) — observation-initiated
   // turns (operator finding 6, 2026-07-06). Minted ONLY from an approval that
@@ -1272,7 +1284,7 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
           onClearHighlights={clearCapsuleSuggestions}
           autoPrompt={autoPrompt}
           onClose={() => undefined}
-          footerContent={<ActorActivityStrip events={latestPerActor(actorEvents)} />}
+          streamSupplementItems={actorStreamSupplementItems}
         />
       </div>
 
