@@ -91,6 +91,8 @@ import { useDcirSeam } from "@/services/dcir/useDcirSeam";
 import type { DcirEvent } from "@/types/dcir";
 import { partitionByEpistemicStanding, partitionByCausalClaim } from "@/services/devCommandCenter/envelopeViews";
 import { STAGES, getStageIndex } from "@/components/devcommandcenter/stageMeta";
+import { appendActorEvent, latestPerActor, type ActorEvent, type ActorEventInput } from "@/components/devcommandcenter/actorEvents";
+import { ActorActivityStrip } from "@/components/devcommandcenter/ActorActivityStrip";
 
 import {
   IntentLayout,
@@ -925,6 +927,14 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
   // ── ICE engine: pending stage proposals
   const [pendingProposals, setPendingProposals] = useState<Partial<Record<DevCapsuleId, StageProposal>>>({});
 
+  // ── Actor stream (DevOn UI Refinement Phase C) — orchestration activity,
+  // never a lifecycle stage, never DevLoopState, never DCIR actor identity.
+  // Transient, session-local, mirrors pendingProposals' own posture exactly.
+  const [actorEvents, setActorEvents] = useState<ActorEvent[]>([]);
+  const pushActorEvent = useCallback((input: ActorEventInput) => {
+    setActorEvents((prev) => appendActorEvent(prev, { ...input, occurredAt: new Date().toISOString() }));
+  }, []);
+
   // ── Feedback Coordinator (CFS-020 #12, first slice) — observation-initiated
   // turns (operator finding 6, 2026-07-06). Minted ONLY from an approval that
   // advanced the loop (an operator-gated transition): the copilot prompts the
@@ -1262,6 +1272,7 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
           onClearHighlights={clearCapsuleSuggestions}
           autoPrompt={autoPrompt}
           onClose={() => undefined}
+          footerContent={<ActorActivityStrip events={latestPerActor(actorEvents)} />}
         />
       </div>
 
@@ -1474,6 +1485,7 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
                 observe(devImplementationPackGeneratedEvent());
               }}
               onDeploymentProposed={() => observe(devDeploymentProposedEvent())}
+              onActorEvent={pushActorEvent}
             />
           )}
           {isCapsuleLayout && activeCapsuleId === "validation" && (

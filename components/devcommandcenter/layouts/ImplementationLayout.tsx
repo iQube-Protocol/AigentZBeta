@@ -32,6 +32,7 @@ import { personaFetch } from "@/utils/personaSpine";
 import { packMarkdown, type PackView } from "@/components/composer/CapabilityPipelineTab";
 import { evidenceFromSession } from "./types";
 import type { DevLayoutProps } from "./types";
+import type { ActorEventInput } from "../actorEvents";
 
 export function ImplementationLayout({
   session,
@@ -43,6 +44,7 @@ export function ImplementationLayout({
   onReceipt,
   onPackGenerated,
   onDeploymentProposed,
+  onActorEvent,
 }: DevLayoutProps & {
   /** Writes the generated pack's markdown back into the session as the
    * implementation brief — satisfying the stage's advance gate. The pack VIEW
@@ -52,6 +54,14 @@ export function ImplementationLayout({
    * successfully recorded. Observe-mode only: no payload, no behavior
    * change; the receipt pipeline stays authoritative. */
   onDeploymentProposed?: () => void;
+  /**
+   * DevOn UI Refinement Phase C — fired the moment `repository_dispatch`
+   * genuinely succeeds (the API call returned `ok: true`), never before.
+   * ONLY `invoked` is wired here: `working`/`completed`/`failed` require
+   * live CI status this layout has no way to observe (Phase D). Optional;
+   * existing callers that don't wire it stay unchanged.
+   */
+  onActorEvent?: (event: ActorEventInput) => void;
 }) {
   const canAdvanceNow = canAdvance(session);
   const derived = useMemo(() => buildImplementationPackage(session), [session]);
@@ -121,6 +131,18 @@ export function ImplementationLayout({
       if (typeof data.receiptId === "string" && data.receiptId) {
         onReceipt?.({ id: data.receiptId, actionType: "implementation_dispatched" });
       }
+      // Real, not fabricated: this fires exactly when the dispatch API call
+      // itself succeeded — the only thing genuinely known at this point.
+      // working/completed/failed need live CI status (Phase D); until that
+      // seam exists, this stays the only actor-event transition wired here.
+      onActorEvent?.({
+        actorId: "claude-code",
+        actorName: "Claude Code",
+        action: "invoked",
+        actionLabel: "Implementing",
+        summary: "Implementation Pack dispatched",
+        detail: branch ? `Branch ${branch}` : null,
+      });
       noteLinear(data.linear);
     } catch (err) {
       setDispatchNote(err instanceof Error ? err.message : "dispatch failed");
