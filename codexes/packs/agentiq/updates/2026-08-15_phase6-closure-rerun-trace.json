@@ -1,0 +1,125 @@
+{
+  "schemaVersion": "homecoming-iii-phase6-closure-rerun-trace/v1.0",
+  "intent": {
+    "intentId": "intent-phase6-crystal2-contextbinding-scope",
+    "rawInput": "Use DevOn to scope the first internal Crystal 2.0 implementation assignment: a contract-first type definition for the context-binding axis recorded as a design requirement in RES-2026-08-15-SCOPE-CONTEXT-BINDING-AXIS-001, without implementing enforcement or wiring it to any live surface.",
+    "goal": "Scope and stub the first internal Crystal 2.0 implementation assignment: a contract-first type definition for the context-binding axis (platform / workspace / project / developer / principal-user / session-intent).",
+    "users": [
+      "devon",
+      "future-context-binding-consumers"
+    ],
+    "constraints": [
+      "Must not add personaId/rootDid/authProfileId/fioHandle/kybeAttestation or any other T0 identifier to the new contract",
+      "Must not extend INVARIANT_SCOPES or otherwise represent context binding as a causal scope",
+      "Must not wire the new contract into DevLoopState or any live runtime surface in this assignment",
+      "Contract-first only — no enforcement runtime, no persistence mechanism, in this assignment"
+    ],
+    "desiredOutcomes": [
+      "A durable, reviewable type contract exists for the context-binding axis",
+      "Future DevOn/Crystal work has a named place to attach authorized context binding without reopening Phase 1 contracts"
+    ],
+    "successCriteria": [
+      "types/contextBinding.ts exists with the six-rung axis pinned as data",
+      "No T0-identifier-shaped field name appears in the new file",
+      "A canary pins the six-rung order and the import-graph/adoption boundaries discovered this run",
+      "npm run report:resolutions remains clear"
+    ],
+    "relatedVentures": [],
+    "relatedCartridges": [
+      "devon"
+    ],
+    "priority": "medium",
+    "status": "approved",
+    "createdAt": "2026-08-15T00:00:00.000Z",
+    "updatedAt": "2026-08-15T00:00:00.000Z"
+  },
+  "beforeRepair": {
+    "carriedLiveDiscoveries": [
+      "pos-0",
+      "pos-1",
+      "pos-2",
+      "neg-0",
+      "neg-1",
+      "neg-2"
+    ],
+    "carriedSignals": [
+      "CI-2026-08-03-IDENTIFIER-RECOVERY-CONTRACT-001",
+      "CI-2026-08-08-CFS-ROOTDID-AUTHORITY-001",
+      "CI-2026-08-08-PNL-INDEPENDENT-EVIDENCE-001"
+    ],
+    "omittedRefs": [
+      "CI-2026-08-08-PULSE-EVIDENCE-BOOTSTRAP-001",
+      "CI-2026-08-08-RECEIPT-SUBJECT-SCOPING-001",
+      "CI-2026-08-08-RECEIPTED-CONSTITUTIONAL-STATE-001",
+      "CI-2026-08-08-RECONCILIATION-NEVER-REWRITES-001",
+      "CI-2026-08-09-STANDING-SEED-PRODUCTION-WIRING-001",
+      "CI-2026-08-15-CANONICAL-TERM-RESOLUTION-001",
+      "CI-2026-08-15-COLLECTION-KEY-UNIQUENESS-001",
+      "CI-2026-08-15-DESTINATION-ADDRESSABLE-001",
+      "CI-2026-08-15-QUIESCENT-MEASUREMENT-001",
+      "CI-2026-08-15-SCOPE-CONTEXT-BINDING-AXIS-001",
+      "CI-2026-08-03-ADMISSION-CIRCULAR-PREREQUISITE-001",
+      "CI-2026-08-03-BOUNDED-PROCESSOR-PARTIAL-COMPLETION-001",
+      "CI-2026-08-03-CANARY-SUBJECT-SELECTION-001",
+      "CI-2026-08-03-CANONICAL-READER-OWNERSHIP-001",
+      "CI-2026-08-03-CAPACITY-LIMIT-BATCHES-NOT-TRUNCATES-001",
+      "CI-2026-08-03-CHAIN-AS-INDEPENDENT-EVIDENCE-001",
+      "CI-2026-08-03-CONTROL-CONSTRAINS-RECORD-001",
+      "CI-2026-08-03-CONVERGE-ON-PROTOCOL-CONTRACT-001",
+      "CI-2026-08-03-DISTINCT-STATE-AXES-001",
+      "CI-2026-08-03-EXCEPTION-TERMINATES-IN-ACT-001",
+      "CI-2026-08-03-EXECUTION-CONSTRAINT-ABSORPTION-001",
+      "CI-2026-08-03-ONE-ADMISSION-GATE-001",
+      "CI-2026-08-03-PREPARED-EXECUTION-001",
+      "CI-2026-08-03-SCHEMA-ENRICHMENT-RECOVERY-001",
+      "CI-2026-08-03-SETTLED-STAGE-OUTCOME-MONOTONIC-001",
+      "CI-2026-08-03-UX-MINIMIZE-CONSTITUTIONAL-COGNITIVE-LOAD-001",
+      "CI-2026-08-03-UX-RECOMMENDATION-PREPARED-IN-ADVANCE-001"
+    ]
+  },
+  "afterRepair": {
+    "carriedLiveDiscoveries": [
+      "pos-0",
+      "pos-1",
+      "pos-2",
+      "neg-0",
+      "neg-1",
+      "neg-2"
+    ],
+    "carriedSignals": [
+      "CI-2026-08-15-SCOPE-CONTEXT-BINDING-AXIS-001",
+      "CI-2026-08-03-EXCEPTION-TERMINATES-IN-ACT-001",
+      "CI-2026-08-03-CONVERGE-ON-PROTOCOL-CONTRACT-001"
+    ],
+    "omittedRefs": [
+      "CI-2026-08-03-IDENTIFIER-RECOVERY-CONTRACT-001",
+      "CI-2026-08-08-CFS-ROOTDID-AUTHORITY-001",
+      "CI-2026-08-08-PNL-INDEPENDENT-EVIDENCE-001",
+      "CI-2026-08-08-PULSE-EVIDENCE-BOOTSTRAP-001",
+      "CI-2026-08-08-RECEIPT-SUBJECT-SCOPING-001",
+      "CI-2026-08-08-RECEIPTED-CONSTITUTIONAL-STATE-001",
+      "CI-2026-08-08-RECONCILIATION-NEVER-REWRITES-001",
+      "CI-2026-08-09-STANDING-SEED-PRODUCTION-WIRING-001",
+      "CI-2026-08-15-CANONICAL-TERM-RESOLUTION-001",
+      "CI-2026-08-15-COLLECTION-KEY-UNIQUENESS-001",
+      "CI-2026-08-15-DESTINATION-ADDRESSABLE-001",
+      "CI-2026-08-15-QUIESCENT-MEASUREMENT-001",
+      "CI-2026-08-03-ADMISSION-CIRCULAR-PREREQUISITE-001",
+      "CI-2026-08-03-BOUNDED-PROCESSOR-PARTIAL-COMPLETION-001",
+      "CI-2026-08-03-CANARY-SUBJECT-SELECTION-001",
+      "CI-2026-08-03-CANONICAL-READER-OWNERSHIP-001",
+      "CI-2026-08-03-CAPACITY-LIMIT-BATCHES-NOT-TRUNCATES-001",
+      "CI-2026-08-03-CHAIN-AS-INDEPENDENT-EVIDENCE-001",
+      "CI-2026-08-03-CONTROL-CONSTRAINS-RECORD-001",
+      "CI-2026-08-03-DISTINCT-STATE-AXES-001",
+      "CI-2026-08-03-EXECUTION-CONSTRAINT-ABSORPTION-001",
+      "CI-2026-08-03-ONE-ADMISSION-GATE-001",
+      "CI-2026-08-03-PREPARED-EXECUTION-001",
+      "CI-2026-08-03-SCHEMA-ENRICHMENT-RECOVERY-001",
+      "CI-2026-08-03-SETTLED-STAGE-OUTCOME-MONOTONIC-001",
+      "CI-2026-08-03-UX-MINIMIZE-CONSTITUTIONAL-COGNITIVE-LOAD-001",
+      "CI-2026-08-03-UX-RECOMMENDATION-PREPARED-IN-ADVANCE-001"
+    ],
+    "text": "### Established invariants (ratified or canonical — may be relied upon as ground)\n- [ratified] Constitutional computing shall reduce Time to Value while keeping Time to Repair within constitutional bounds. A reduction in Time to Repair must not be achieved through a material increase in Time to Value, and a reduction in Time to Value must not create an unacceptable increase in Time to Repair. Constitutional safeguards constrain unsafe acts while accelerating constitutionally safe work. (CI-2026-08-03-TTV-TTR-OBJECTIVE-001, projection-devon)\n- [ratified] Actor, subject and owner are distinct references. A system must not substitute one for another merely because they are related through the same transaction, wallet or persona. (CI-2026-08-03-ACTOR-SUBJECT-OWNER-001, projection-devon)\n- [ratified] A regression canary is valid only if it demonstrably fails against the historical defect and passes against the verified resolution. A green test that encodes the defective assumption is evidence of instrument failure, not protection. (CI-2026-08-03-CANARY-REPRODUCES-DEFECT-001, projection-devon)\n\n### Candidate signals (NOT established — reason WITH these, never FROM them)\n- [candidate — not yet validated] Invariant scope (where a causal proposition applies) and context binding (which authorized person's, developer's, or project's state is relevant to the present resolution) are kept as separate axes. Personal or project state is never represented as an additional rung on the causal scope ladder, and evidence gathered under one authorized context is never pooled into broader Crystal learning without that authorization boundary being explicitly cleared. (CI-2026-08-15-SCOPE-CONTEXT-BINDING-AXIS-001, projection-devon)\n- [candidate — not yet validated] Every exception must terminate in an executable decision. An exception surface is incomplete unless it offers the next safe act in context, carrying the evidence, the recommendation, the rationale, the consequence and the action. (CI-2026-08-03-EXCEPTION-TERMINATES-IN-ACT-001, projection-devon)\n- [candidate — not yet validated] When integrating with an external protocol, implementation must converge toward the protocol contract, not repeated inference from observed responses. Diagnostics may be used to discover the contract, but once the contract is known the implementation must validate against it rather than heuristics. (CI-2026-08-03-CONVERGE-ON-PROTOCOL-CONTRACT-001, projection-devon)\n\n### Live discoveries (found during this run — in no registry, have earned nothing)\n- [unrecorded — discovered this run] The context-binding axis's six rungs exist as one pinned, ordered array of string literals whose exact sequence a canary asserts — never a free-form string a caller could mistype. (pos-0, live-discovery)\n- [unrecorded — discovered this run] Every future reader of the context-binding contract can trace it back to the ruling that authorized it, via an in-file cross-reference to RES/CI-2026-08-15-SCOPE-CONTEXT-BINDING-AXIS-001. (pos-1, live-discovery)\n- [unrecorded — discovered this run] The contract's schema version follows the repo's existing `<kebab-domain-slug>/v<major>.<minor>` convention, so a future enforcement layer can extend it by version rather than by silent shape drift. (pos-2, live-discovery)\n- [unrecorded — discovered this run] The context-binding module's import graph remains independent of `types/invariantEnvelope.ts`'s `InvariantScope` export, so a change to either can never silently couple to the other. (neg-0, live-discovery)\n- [unrecorded — discovered this run] No field name or rung value in the context-binding contract lexically collides with any T0 key name already forbidden on DevLoopState, checked by the SAME predicate technique `findForbiddenStateKey` already applies rather than a second, independently-tuned check. (neg-1, live-discovery)\n- [unrecorded — discovered this run] At the close of this assignment, zero non-test production module imports the context-binding contract — its existence is not yet its adoption. (neg-2, live-discovery)"
+  }
+}
