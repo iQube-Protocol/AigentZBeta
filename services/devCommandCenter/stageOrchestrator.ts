@@ -69,6 +69,23 @@ export const STAGE_PROPOSAL_KIND: Record<DevLoopStage, StageProposalKind | null>
   context_assembly: 'context_pack',
   gap_analysis: 'gap_analysis',
   consequence_modeling: 'consequence_canvas',
+  /**
+   * NULL BY DESIGN, not an omission (repaired 2026-08-15).
+   *
+   * The Constitutional Decision stage produces no LLM proposal: the realization
+   * mechanism is decided by its own service and route
+   * (services/constitutional/constitutionalDecision.ts,
+   * /api/constitutional/decision) and folded onto the session there. `null` is
+   * therefore the honest value — the same as `complete` — and NOT a missing
+   * proposal kind waiting to be filled in.
+   *
+   * The key was absent entirely until this repair, which `Record<DevLoopStage,
+   * …>` had been reporting as a type error since `constitutional_decision`
+   * joined `STAGE_ORDER`. Totality is now canaried in
+   * tests/invariant-envelope-devon-wiring.test.ts so stage-definition drift
+   * cannot silently reopen it.
+   */
+  constitutional_decision: null,
   implementation: 'implementation_brief',
   consequence_validation: 'validation_report',
   remediation: 'remediation_plan',
@@ -270,6 +287,8 @@ const STAGE_BEHAVIOR: Record<DevLoopStage, string> = {
     'Compare the intent\'s capability requirements against the context pack and registry assets. THE GOLDEN RULE: never Create when Extend is possible; never Extend when Reuse is possible. Every "missing" entry must state why no existing capability covers it.',
   consequence_modeling:
     'Model the consequences of implementing this intent. shouldNeverHappen MUST include duplicate-capability creation, sovereignty violations, policy/governance violations, and registry conflicts when relevant. Define a concrete successState.',
+  constitutional_decision:
+    'Narrate the Constitutional Decision stage (CFS-029 §7.1): HOW the capability is realized — one of the nine realization mechanisms, or \'none\' — decided BEFORE the implementation is planned. Do NOT emit a proposal for this stage: the decision is taken by its own service and route (services/constitutional/constitutionalDecision.ts, /api/constitutional/decision) and folded onto the session there, which is why STAGE_PROPOSAL_KIND is null here. Explain what is being decided and what the mechanism commits the build to; leave the taking of the decision to the operator.',
   implementation:
     'Produce the implementation brief: a PRD, an architecture plan honoring the gap analysis (reuse > extend > create), a task list with repository targets, and a Claude Code instruction package. Cite the consequence guardrails as hard constraints.',
   consequence_validation:
