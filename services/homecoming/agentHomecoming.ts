@@ -16,7 +16,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { sponsorPolityAgent, SLUG_RE } from '@/services/agents/sponsorPolityAgent';
+import { sponsorPolityAgent, SLUG_RE, type SponsorshipCapacityOverride } from '@/services/agents/sponsorPolityAgent';
 import type { HomecomingDelegateId } from '@/types/homecoming';
 
 export interface DelegateStandUpSpec {
@@ -112,6 +112,15 @@ export interface StandUpResult {
   agent: ResolvedAgent;
   /** True when the RootDID already existed (a prior stand-up) — idempotent. */
   alreadySeeded: boolean;
+  /**
+   * Present ONLY when a canonical administrator proceeded past the sponsor's
+   * exhausted ordinary sponsorship capacity (see sponsorPolityAgent). Null on
+   * every ordinary stand-up and on the alreadySeeded fallback path (genesis
+   * was never reached, so no capacity decision was made this call). Surfaced
+   * here — rather than dropped, as it previously was — so a caller (e.g. the
+   * stand-up route's receipt) can record an exercised exception as such.
+   */
+  capacityOverride: SponsorshipCapacityOverride | null;
 }
 
 /**
@@ -152,6 +161,7 @@ export async function standUpDelegate(input: StandUpDelegateInput): Promise<Stan
     return {
       spec,
       alreadySeeded: false,
+      capacityOverride: outcome.capacityOverride ?? null,
       agent: {
         agentRootId: a.agentRootId,
         agentId: a.agentId,
@@ -178,6 +188,7 @@ export async function standUpDelegate(input: StandUpDelegateInput): Promise<Stan
       return {
         spec,
         alreadySeeded: true,
+        capacityOverride: null,
         agent: {
           agentRootId: String(existing.id),
           agentId: String(existing.agent_id),

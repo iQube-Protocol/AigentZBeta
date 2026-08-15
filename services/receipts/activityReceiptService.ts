@@ -389,7 +389,18 @@ export type ActivityActionType =
   // a fresh establishment from a legacy agent whose predicates were already
   // true before this mechanism existed ('freshly-established' |
   // 'legacy-reconciled').
-  | 'agent_registry_activated';
+  | 'agent_registry_activated'
+  // Chrysalis Homecoming (CFS-023) mechanical stand-up (operator-directed,
+  // 2026-08-15 Aletheon Homecoming Stage 1 preflight): a Homecoming delegate's
+  // agent_root_identity and/or agent_persona was newly created this call via
+  // POST /api/homecoming/agent/stand-up (services/homecoming/agentHomecoming.ts
+  // ::standUpDelegate). Records the completed L0→L2 mechanical transition; it
+  // is emitted best-effort AFTER the state writes succeed and never gates
+  // them. Fired only when at least one of the two rows was freshly created in
+  // this call — an idempotent re-run where both already existed emits no
+  // second event. Carries agent-scoped identifiers only (agent_root_id,
+  // agent_id, agent_card_slug, agent_class) — no sponsor persona/passport id.
+  | 'agent_delegate_stood_up';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 

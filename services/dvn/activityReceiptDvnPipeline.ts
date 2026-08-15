@@ -329,6 +329,15 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   // the one change this file permits unilaterally. Payload shape, state
   // machine and hashPersonaRef untouched.)
   'agent_registry_activated',
+  // Chrysalis Homecoming (CFS-023) mechanical stand-up (operator-directed,
+  // 2026-08-15 Aletheon Homecoming Stage 1 preflight) — a delegate's
+  // agent_root_identity/agent_persona rows were newly created via the generic
+  // genesis pipeline. Same tier as agent_revocation_state_changed and
+  // agent_registry_activated: a constitutional agency-lifecycle fact belongs
+  // in tamper-evident memory. (Action-type addition only — the one change
+  // this file permits unilaterally. Payload shape, state machine and
+  // hashPersonaRef untouched.)
+  'agent_delegate_stood_up',
 ]);
 
 export function shouldAnchorActionType(actionType: string): boolean {
