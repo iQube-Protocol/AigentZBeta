@@ -104,6 +104,42 @@ export interface BearingRecovery {
   searchDomain: string;
   /** The risk vector that motivated a risk-driven recovery, where one did. */
   riskVectorRef: RiskVectorRef | null;
+  /**
+   * The repair path the risk vector implied — the middle link of the causal
+   * chain below. Null on an intent-driven recovery, which has no repair to
+   * reason from.
+   */
+  repairPath: string | null;
+  /** How the search widened past the intent's own domain, where it did. */
+  scopeExpansion: ScopeExpansion | null;
+}
+
+/**
+ * One widening of the search, recorded so the reason survives the result.
+ *
+ * THE CAUSAL CHAIN THIS COMPLETES (operator ruling, 2026-08-15):
+ *
+ *   intent / risk vector  →  repair path  →  scope expansion  →  candidate
+ *
+ * Every link is retained on the recovery. Without it, a negative-bearing
+ * candidate arrives as a bare statement from an unrelated domain and the only
+ * available reading is "the model wandered" — which is indistinguishable from
+ * a genuinely risk-driven discovery, and will eventually be pruned as noise.
+ * The chain is what makes an out-of-domain finding auditable rather than
+ * merely surprising.
+ *
+ * `motivatedByRiskVectorId` is a RISK VECTOR ID, never an invariant ref: risk
+ * vectors guide the search and are not themselves invariants.
+ */
+export interface ScopeExpansion {
+  /** The domain the search began in — normally the intent's own. */
+  fromDomain: string;
+  /** The domain it widened to. */
+  toDomain: string;
+  fromScope: InvariantScope;
+  toScope: InvariantScope;
+  /** The `RiskVectorRef.id` that motivated the widening. */
+  motivatedByRiskVectorId: string;
 }
 
 // ---------------------------------------------------------------------------
