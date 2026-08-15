@@ -79,6 +79,37 @@ export interface MissingCapability {
   estimatedComplexity: 'trivial' | 'small' | 'medium' | 'large';
   dependencies: string[];
   suggestedLocation: string;
+  /**
+   * Homecoming III Phase 4 — THE CAUSAL SPLIT (PRD §15).
+   *
+   * `causalRequirement` is the condition that must hold for the intended
+   * consequence to occur. `implementationMechanism` is one way of making it
+   * hold. They are separate fields because they are separate KINDS of thing,
+   * and the failure mode this prevents is recording the mechanism as though it
+   * were the requirement:
+   *
+   *   mechanism   "a scheduler"
+   *   requirement "submitted state eventually becomes independently observable
+   *                to dependent consumers"
+   *
+   * A scheduler is not an invariant. It is one implementation of one. Record
+   * the mechanism as the requirement and the invariant registry fills with
+   * implementation choices, which cannot be reused, cannot be falsified, and
+   * go stale the moment the mechanism is replaced.
+   *
+   * THE TEST OF A CORRECTLY-STATED REQUIREMENT: substitute a different
+   * mechanism and the requirement must survive unchanged. A polling consumer,
+   * a webhook and a scheduler are three mechanisms for the observability
+   * requirement above; if swapping them alters the requirement's meaning, the
+   * requirement was really a mechanism. Canaried in
+   * tests/gap-analysis-causal-split.test.ts.
+   *
+   * Optional so existing gap analyses remain valid without migration; absence
+   * means the split was never made, which is honest for a pre-Phase-4 record.
+   */
+  causalRequirement?: string;
+  /** The proposed way to satisfy `causalRequirement`. Replaceable by design. */
+  implementationMechanism?: string;
 }
 
 export interface CapabilityGapAnalysis {
@@ -96,6 +127,45 @@ export interface ConsequenceEntry {
   description: string;
   category: 'workflow' | 'data' | 'governance' | 'permission' | 'integration' | 'user_experience';
   severity: 'critical' | 'high' | 'medium' | 'low';
+  /**
+   * Homecoming III Phase 4 — falsification binding (PRD §16).
+   *
+   * PRESENT ONLY WHERE A CAUSAL PROPOSITION IS ACTUALLY BEING TESTED
+   * (operator ruling, 2026-08-15). Most consequences are ordinary: "the tab
+   * renders the new column", "the operator sees a confirmation". They assert
+   * nothing causal, so they carry no binding.
+   *
+   * Forcing an invariant ref onto every consequence would manufacture causal
+   * claims to satisfy a schema — and a registry of manufactured claims is
+   * worse than none, because each one looks like evidence. Optional is the
+   * point, not a convenience.
+   */
+  falsification?: ConsequenceFalsificationBinding;
+}
+
+/**
+ * Binds a material causal assumption to what would prove it wrong.
+ *
+ * The chain the operator specified:
+ *
+ *   invariant / candidate → expected consequence → prohibited consequence
+ *                         → observable falsifier → required evidence
+ *
+ * `invariantRef` may name an established invariant OR a live candidate; which
+ * it is travels in the envelope's own lifecycle data, not here — this binding
+ * does not re-state standing and must never be read as conferring it.
+ */
+export interface ConsequenceFalsificationBinding {
+  /** The invariant or candidate whose truth this consequence tests. */
+  invariantRef: string;
+  /** What must be observable if it holds. */
+  expectedConsequence: string;
+  /** What must never be observable. */
+  prohibitedConsequence: string;
+  /** The observation that would falsify it. */
+  observableFalsifier: string;
+  /** Where that observation would be read from. */
+  requiredEvidence: string[];
 }
 
 export interface ConsequenceCanvas {
