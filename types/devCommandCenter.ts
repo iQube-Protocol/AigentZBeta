@@ -10,6 +10,7 @@
  */
 
 import type { AgentRoleId } from './orchestration';
+import type { InvariantDevelopmentEnvelope } from './invariantEnvelope';
 
 // ─── Capability 1: Structured Development Intent ────────────────────────────
 
@@ -230,6 +231,21 @@ export interface DevLoopState {
   remediationPlan?: RemediationPlan | null;
   /** ICE-8 Deployment Authorization record — consequence-test-before-deploy. */
   deploymentAuthorization?: DeploymentAuthorization | null;
+  /**
+   * Homecoming III — the causal/risk field governing this intent (IDE 2.0).
+   *
+   * ONE OPTIONAL FIELD, DELIBERATELY. The envelope is HORIZONTAL: constructed
+   * at `intent_capture` and progressively enriched across the existing stages,
+   * never a stage of its own and never a second session store. Attaching it
+   * here rather than beside the session is what keeps `DevLoopState` the
+   * single source of truth for a development session (inv.engineering.036).
+   *
+   * Optional so every existing session — and `createDevLoopSession()`'s
+   * pristine default — remains valid without migration. Absence means the
+   * envelope has not been constructed, which is honest for a session that
+   * predates it.
+   */
+  invariantEnvelope?: InvariantDevelopmentEnvelope | null;
   receipts: DevLoopReceipt[];
   startedAt: string;
   updatedAt: string;
