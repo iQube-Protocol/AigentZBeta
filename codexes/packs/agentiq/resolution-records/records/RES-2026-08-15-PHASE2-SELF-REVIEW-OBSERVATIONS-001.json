@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "resolutionId": "RES-2026-08-15-PHASE2-SELF-REVIEW-OBSERVATIONS-001",
+  "capability": "Homecoming III bootstrap — invariant-driven DevOn + IDE 2.0 kernel",
+  "milestone": "Phase 2 close — self-review observations carried into Phase 3",
+  "problem": "Two defects surfaced during Phase 2 that were neither caught by a canary nor reported by a tool: one in the code under construction, one in the method used to measure it. Both were found by looking rather than by failing, which is why they are recorded at `observed` — a single occurrence each, with a plausible causal abstraction and no claim to generality yet. Defect 1: compressEnvelope() computed its omission set against a Set of REFS, but a ref is not unique within an envelope — the contract deliberately permits one invariant to appear at several scopes. When one copy was carried and another cut, the cut copy vanished from omittedRefs: dropped from the prompt and named nowhere. The 'no silent omission' guarantee was defeated by the bookkeeping rather than by the budget. Defect 2: a regression measurement was taken while the working tree was being edited — resolution-record JSONs were written mid-run — so the validator read a half-written registry and reported a failure that did not exist. A reported 41-vs-34 regression was entirely an artefact of the measurement.",
+  "observedFailure": [
+    "compressEnvelope({ref: 'inv.shared', scope: 'constitutional'}, {ref: 'inv.shared', scope: 'cross-domain'}, budget 1) carried the constitutional copy and reported ONE omitted ref, not two. The cross-domain copy was excluded from the prompt and absent from omittedRefs.",
+    "The suite reported 41 failing tests with Phase 2 present against 34 without, implying 7 regressions. Re-run on quiesced committed trees: 17 failing files on both, empty difference. The 7 were never real.",
+    "The extra failure was tests/resolution-records.test.ts — a suite that passes when run directly, and which was reading a registry mid-write.",
+    "A later measurement script embedded `git checkout HEAD~1 -- .` as a cleanup step and silently reverted two already-committed files in the working tree. The commit was intact; the workspace was not."
+  ],
+  "rootCauses": [
+    "Set-membership bookkeeping keyed on a field the collection explicitly permits to repeat. `ref` identifies an INVARIANT; the collection's members are OCCURRENCES of invariants at scopes, and the contract states scope is a property of the retrieval rather than an exclusive classification. Keying completeness on a non-unique field silently conflates two members.",
+    "The defect class is invisible to type checking and to every test that happens to use distinct refs — which every other test in the suite did. It surfaces only when the collection exercises the multiplicity the contract allows.",
+    "A measurement was taken of a system while the system was being mutated. Each individual operation was correct: the edits were correct, the test run was correct, and the failure it reported was a true statement about the tree AT THAT INSTANT. The invalid step was treating a reading taken during mutation as a reading of the stable system.",
+    "The variance was initially attributed to flakiness in the suite rather than to the observer. That misattribution is the more instructive part: the first hypothesis pointed away from the measurer."
+  ],
+  "resolution": [
+    "compressEnvelope now keys its omission set on OBJECT IDENTITY (`Set<EnvelopeInvariant>`), so each retrieved occurrence is tracked as itself regardless of what it shares with another. Canaried by a test that reproduces the defect: it reports one omitted ref before the fix and two after.",
+    "Regression measurement moved to quiesced committed trees, with no editing during a run, and the two concurrent background suites stopped before measuring.",
+    "The `git checkout HEAD~1 -- .` cleanup was removed and the working tree restored to HEAD from the commit.",
+    "Both lessons recorded as candidate causal patterns at `observed` rather than asserted as invariants (operator ruling, 2026-08-15). One occurrence each; the causal abstraction is plausible and untested."
+  ],
+  "rejectedApproaches": [
+    "Deduplicating envelope members by ref so that the ref key would become valid. Rejected: it would delete real information. An invariant surfacing at both constitutional and repository scope is two facts about the retrieval, and collapsing them would hide the scope-awareness Phase 2 exists to demonstrate.",
+    "Making `ref` unique by compounding it with scope. Rejected: `ref` is the stable reference used to cite an invariant across surfaces, and overloading it to carry retrieval context would make citations non-portable — a second, worse coupling.",
+    "Attributing the measurement variance to suite flakiness and moving on. Rejected once the extra failure was identified as a suite that passes in isolation. Flakiness was the convenient hypothesis and would have left a false regression count in the record.",
+    "Silently re-measuring and reporting only the corrected number. Rejected: the incorrect figure had already been reported to the operator, and a quiet correction would leave them unable to calibrate how much to trust subsequent measurements.",
+    "Promoting either lesson straight to `candidate`. Rejected on operator ruling: one occurrence, no demonstrated recurrence, no portability evidence. `observed` is the honest rung."
+  ],
+  "candidateInvariants": [
+    "CI-2026-08-15-COLLECTION-KEY-UNIQUENESS-001",
+    "CI-2026-08-15-QUIESCENT-MEASUREMENT-001"
+  ],
+  "canaries": [
+    "tests/invariant-envelope-devon-wiring.test.ts"
+  ],
+  "scope": "local",
+  "status": "observed",
+  "trigger": "reusable-pattern-established",
+  "evidence": {
+    "commits": [
+      "5b4120341"
+    ],
+    "tests": [
+      "tests/invariant-envelope-devon-wiring.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "services/devCommandCenter/invariantEnvelope.ts"
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-08-15_homecoming-iii-bootstrap-architecture-audit.md"
+  ],
+  "date": "2026-08-15",
+  "projections": {
+    "targets": [
+      "devon"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  }
+}
