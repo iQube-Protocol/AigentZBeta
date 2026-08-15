@@ -28,7 +28,7 @@ import React, { useState, useCallback, useMemo, useEffect, useRef } from "react"
 import {
   Cpu, Target, FileSearch, AlertTriangle, CheckCircle,
   ChevronDown, Package, Layers, ArrowRight,
-  Play, ShieldAlert, Rocket, Scale,
+  Play, ShieldAlert, Rocket, Scale, Eye,
 } from "lucide-react";
 import { SmartTriadCopilotLayer, type SuggestedLayoutHint, type CopilotStageProposal } from "@/components/smarttriad/copilot/SmartTriadCopilotLayer";
 import { ExploreQuickActionsStrip, type ExploreToolId, type ExploreSuggestionMap } from "@/components/metame/copilot/ExploreQuickActionsStrip";
@@ -86,6 +86,9 @@ import {
   devToolUsedEvent,
 } from "@/services/dcir/eventStream";
 import { useDcirSeam } from "@/services/dcir/useDcirSeam";
+import type { DcirEvent } from "@/types/dcir";
+import { partitionByEpistemicStanding } from "@/services/devCommandCenter/invariantEnvelope";
+import { partitionByCausalClaim } from "@/services/devCommandCenter/implementationContext";
 
 import {
   IntentLayout,
@@ -360,11 +363,97 @@ function AccordionSection({ title, icon: Icon, defaultOpen, children }: {
   );
 }
 
-function StackLayout({ session, activeStage, onCapabilityClick, pending }: {
+const INVARIANT_EVIDENCE_KINDS = [
+  'InvariantSupported', 'InvariantChallenged', 'InvariantFalsified',
+  'InvariantUnresolved', 'NewRiskObservation',
+] as const;
+
+/**
+ * Read-only visibility panel (Homecoming III Phase 5, requirement 7).
+ * Reads `session.invariantEnvelope` and the live DCIR event log through the
+ * SAME pure classification functions the service layer uses — never a
+ * second, UI-local derivation of established/signal/discovery or
+ * testable/ordinary. No mutation, no new capsule, no new stage.
+ */
+function InvariantEvidencePanel({ session, dcirEvents }: { session: DevLoopState; dcirEvents: DcirEvent[] }) {
+  const envelope = session.invariantEnvelope;
+  const evidenceEvents = dcirEvents.filter((e) => (INVARIANT_EVIDENCE_KINDS as readonly string[]).includes(e.kind));
+
+  if (!envelope) {
+    return (
+      <div className="text-xs text-slate-400 py-1">
+        No invariant envelope constructed yet — this fills in once IDE 2.0 retrieval runs at Intent
+        Capture.
+      </div>
+    );
+  }
+
+  const { established, signals, discoveries } = partitionByEpistemicStanding(envelope.invariants);
+  const allConsequences = session.consequenceCanvas
+    ? [...session.consequenceCanvas.shouldHappen, ...session.consequenceCanvas.shouldNeverHappen]
+    : [];
+  const { testable, ordinary } = partitionByCausalClaim(allConsequences);
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <div className="text-[10px] uppercase font-semibold text-slate-400 mb-1">Invariants</div>
+        <div className="flex gap-3 text-[10px] text-slate-300">
+          <span className="text-emerald-300">{established.length} established</span>
+          <span className="text-amber-300">{signals.length} candidate/signal</span>
+          <span className="text-slate-400">{discoveries.length} live discovery</span>
+        </div>
+      </div>
+
+      <div>
+        <div className="text-[10px] uppercase font-semibold text-slate-400 mb-1">Risks</div>
+        <div className="flex gap-3 text-[10px] text-slate-300">
+          <span>{envelope.riskField?.vectors.length ?? 0} vectors in field</span>
+          <span>{envelope.proofsOfRisk.length} proofs of risk</span>
+        </div>
+      </div>
+
+      <div>
+        <div className="text-[10px] uppercase font-semibold text-slate-400 mb-1">Consequences</div>
+        <div className="flex gap-3 text-[10px] text-slate-300">
+          <span className="text-amber-300">{testable.length} carry a falsifiable claim</span>
+          <span className="text-slate-400">{ordinary.length} ordinary</span>
+        </div>
+      </div>
+
+      <div>
+        <div className="text-[10px] uppercase font-semibold text-slate-400 mb-1">
+          Evidence ({evidenceEvents.length})
+        </div>
+        {evidenceEvents.length > 0 ? (
+          <div className="space-y-1">
+            {evidenceEvents.slice(-8).map((e) => (
+              <div key={e.id} className="text-[10px] text-slate-300 truncate">{e.summary}</div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-[10px] text-slate-500">No evidence observed yet this session.</div>
+        )}
+      </div>
+
+      {envelope.unresolvedQuestions.length > 0 && (
+        <div>
+          <div className="text-[10px] uppercase font-semibold text-slate-400 mb-1">Unresolved</div>
+          {envelope.unresolvedQuestions.map((q, i) => (
+            <div key={i} className="text-[10px] text-slate-400">{q}</div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StackLayout({ session, activeStage, onCapabilityClick, pending, dcirEvents }: {
   session: DevLoopState;
   activeStage: DevLoopStage;
   onCapabilityClick: (id: DevCapsuleId) => void;
   pending: Partial<Record<DevCapsuleId, StageProposal>>;
+  dcirEvents: DcirEvent[];
 }) {
   return (
     <div className="space-y-4">
@@ -489,6 +578,17 @@ function StackLayout({ session, activeStage, onCapabilityClick, pending }: {
             <span>Started: {new Date(session.startedAt).toLocaleDateString()}</span>
           </div>
         </div>
+      </AccordionSection>
+
+      {/* Homecoming III Phase 5 — read-only visibility into the invariant-
+          driven loop. Existing layout (AccordionSection), no new capsule,
+          no new stage: reads session.invariantEnvelope + the live DCIR
+          event log through the SAME pure functions the service layer
+          already exercises (partitionByEpistemicStanding,
+          partitionByCausalClaim) rather than re-deriving the classification
+          here. */}
+      <AccordionSection title="Invariants · Risks · Consequences · Evidence" icon={Eye} defaultOpen={false}>
+        <InvariantEvidencePanel session={session} dcirEvents={dcirEvents} />
       </AccordionSection>
 
       {/* Dev loop diagram */}
@@ -1244,6 +1344,7 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
                 activeStage={session.stage}
                 onCapabilityClick={engageCapsuleAndMount}
                 pending={pendingProposals}
+                dcirEvents={dcirEvents}
               />
             </div>
           )}
