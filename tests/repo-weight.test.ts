@@ -91,7 +91,10 @@ const BUILD_OUTPUT_PREFIXES = [
  * Mostly design sources and render plates. They are debt, not permission.
  */
 const GRANDFATHERED_OVERSIZE: ReadonlySet<string> = new Set([
-  'artifacts/build-info/8e0b546c03e786b027ab3524a94e5b7d.json',
+  // artifacts/build-info/8e0b546c03e786b027ab3524a94e5b7d.json — RETIRED
+  // 2026-08-15. It was a 1.7MB Hardhat compiler dump; `artifacts/` (with
+  // `.dfx/` and `cache/`) was untracked as build output, so the debt this
+  // entry described no longer exists.
   'codexes/packs/irl/foundation/plates/canonical-plates-v0.9-superseded.png',
   'codexes/packs/irl/foundation/plates/canonical-plates-v1.0-reference.png',
   'package-lock.json',

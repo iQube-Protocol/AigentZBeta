@@ -40,6 +40,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-08-15_homecoming-iii-bootstrap-architecture-audit.md",
         "updates/2026-08-12_moneypenny-dress-rehearsal-closure.md",
         "updates/2026-08-10_moneypenny-pre-recording-evidence-snapshot.md",
         "updates/2026-08-10_horizen-coherence-matrix-nakamoto.md",
