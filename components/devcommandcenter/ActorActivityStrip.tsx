@@ -1,21 +1,28 @@
 "use client";
 
 /**
- * ActorActivityStrip — DevOn UI Refinement Phase C.
+ * ActorActivityStrip / ActorEventRow — DevOn UI Refinement Phase C, repositioned in C2.
  *
- * Renders orchestration activity (who is acting, what they're doing, what
- * happened) as a compact status strip, mounted via SmartTriadCopilotLayer's
- * existing `footerContent` extension seam — the one additive slot the
- * component already provides, so no change to `SmartTriadMessage` or to the
- * copilot's own message-state management was needed (that would have
- * required taking over full controlled-`messages` ownership, a far bigger
- * change than this phase calls for).
+ * `ActorEventRow` renders a single actor-event as one lightweight,
+ * operational row (icon + name + action label + summary), and is what
+ * `DevCommandCenterTab.tsx` feeds into SmartTriadCopilotLayer's
+ * `streamSupplementItems` seam — each row is interleaved chronologically
+ * into the same scrolling conversation as DevOn's messages, above the
+ * composer, per the engagement-stream rule: acts belong in the
+ * conversation, never in a separate footer/tray/pane. No change to
+ * `SmartTriadMessage` or to the copilot's own message-state management was
+ * needed (that would have required taking over full controlled-`messages`
+ * ownership, a far bigger change than this phase calls for).
  *
  * Deliberately NOT rendered as chat bubbles: DevOn is the persistent
- * orchestrator narrating in the message stream above; this strip is
- * orchestration STATUS, visually distinct (status rows, not speech bubbles)
- * so Aigent Z / Claude Code / reviewers never read as separate chat
- * participants competing with DevOn.
+ * orchestrator narrating in the message stream; these rows are
+ * orchestration STATUS, visually distinct (compact status rows, not
+ * speech bubbles) so Aigent Z / Claude Code / reviewers never read as
+ * separate chat participants competing with DevOn.
+ *
+ * `ActorActivityStrip` groups several rows under one heading and remains
+ * available for any future grouped/non-interleaved presentation, but is
+ * not the current integration path.
  *
  * Provider-neutral by construction — nothing below branches on `actorId`.
  * `actorName` and `actionLabel` are the only per-actor data, both supplied
@@ -33,7 +40,7 @@ const ACTION_TONE: Record<ActorEventAction, { dotClass: string; textClass: strin
   "awaiting-authorization": { dotClass: "bg-violet-400", textClass: "text-violet-200", Icon: ShieldAlert },
 };
 
-function ActorEventRow({ event }: { event: ActorEvent }) {
+export function ActorEventRow({ event }: { event: ActorEvent }) {
   const tone = ACTION_TONE[event.action];
   const Icon = tone.Icon;
   const label = event.actionLabel || DEFAULT_ACTION_LABEL[event.action];

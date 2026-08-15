@@ -121,9 +121,21 @@ describe('non-persistence — actor activity never reaches DevLoopState, DCIR, o
     expect(SMART_TRIAD_MESSAGE_SOURCE).not.toMatch(/actorId/);
   });
 
-  it('the actor stream integrates via the existing footerContent seam, not by taking over controlled `messages`', () => {
-    expect(TAB_SOURCE).toMatch(/footerContent=\{<ActorActivityStrip events=\{latestPerActor\(actorEvents\)\} \/>\}/);
+  it('the actor stream integrates via the streamSupplementItems seam, not by taking over controlled `messages`', () => {
+    expect(TAB_SOURCE).toMatch(/streamSupplementItems=\{actorStreamSupplementItems\}/);
+    expect(TAB_SOURCE).toMatch(/latestPerActor\(actorEvents\)\.map/);
     expect(TAB_SOURCE).not.toMatch(/<SmartTriadCopilotLayer[\s\S]{0,2000}?\bmessages=\{/);
+  });
+
+  it('SmartTriadCopilotLayer merges stream-supplement items into the scrolling message container, never a footer/tray', () => {
+    const layoutPath = path.join(
+      process.cwd(),
+      'components/smarttriad/copilot/SmartTriadCopilotLayer.tsx',
+    );
+    const layoutSource = readFileSync(layoutPath, 'utf-8');
+    expect(layoutSource).toMatch(/streamSupplementItems\?:\s*StreamSupplementItem\[\]/);
+    // The merge is timestamp-sorted with messages, not appended after them.
+    expect(layoutSource).toMatch(/\.sort\(\(a,\s*b\)\s*=>\s*a\.at\s*-\s*b\.at\)/);
   });
 });
 

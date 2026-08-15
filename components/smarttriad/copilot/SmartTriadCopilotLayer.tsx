@@ -34,6 +34,21 @@ import {
 import "./styles/smarttriad-copilot.css";
 import { useSessionInvariants } from '@/hooks/useSessionInvariants';
 
+/**
+ * A single non-chat item that renders inline, in chronological position,
+ * within the same scrolling message stream — e.g. orchestration/actor
+ * activity (DevOn's engagement-stream requirement: acts belong in the
+ * conversation, never in a separate footer/tray/pane). Deliberately
+ * generic: this file has no knowledge of what produced the item, only
+ * that it has an id, a timestamp to sort against `message.timestamp`,
+ * and a renderer.
+ */
+export interface StreamSupplementItem {
+  id: string;
+  occurredAt: string;
+  render: () => React.ReactNode;
+}
+
 interface SmartTriadCopilotLayerProps {
   isOpen: boolean;
   onClose: () => void;
@@ -54,6 +69,14 @@ interface SmartTriadCopilotLayerProps {
   onMessagesChange?: (messages: SmartTriadMessage[]) => void;
   promptPlaceholder?: string;
   footerContent?: React.ReactNode;
+  /**
+   * Items interleaved chronologically (by `occurredAt` vs. each
+   * message's `timestamp`) into the scrolling conversation, above the
+   * composer — not appended below it. Visually distinct from
+   * `SmartTriadMessage` bubbles (renderer supplied by the caller), but
+   * part of the same continuous stream. See `StreamSupplementItem`.
+   */
+  streamSupplementItems?: StreamSupplementItem[];
   panelClassName?: string;
   floatingInput?: boolean;
   disablePromptInput?: boolean;
@@ -248,6 +271,7 @@ export function SmartTriadCopilotLayer({
   onMessagesChange,
   promptPlaceholder = "Ask me anything about the Codex...",
   footerContent,
+  streamSupplementItems,
   panelClassName,
   floatingInput = false,
   disablePromptInput = false,
@@ -796,6 +820,7 @@ export function SmartTriadCopilotLayer({
           inputRef={inputRef}
           messagesEndRef={messagesEndRef}
           footerContent={footerContent}
+          streamSupplementItems={streamSupplementItems}
           panelBorder={panelBorder}
           enableAdvancedRendering={enableAdvancedRendering}
           tenantConfig={tenantConfig}
@@ -834,6 +859,7 @@ export function SmartTriadCopilotLayer({
           inputRef={inputRef}
           messagesEndRef={messagesEndRef}
           footerContent={footerContent}
+          streamSupplementItems={streamSupplementItems}
           panelClassName={panelClassName}
           inputPanelClassName={inputPanelClassName}
           inputPanelInputClassName={inputPanelInputClassName}
@@ -883,6 +909,7 @@ function FloatingCopilot({
   inputRef,
   messagesEndRef,
   footerContent,
+  streamSupplementItems,
   panelBorder,
   enableAdvancedRendering,
   tenantConfig,
@@ -921,6 +948,7 @@ function FloatingCopilot({
   inputRef: React.RefObject<HTMLInputElement>;
   messagesEndRef: React.RefObject<HTMLDivElement>;
   footerContent?: React.ReactNode;
+  streamSupplementItems?: StreamSupplementItem[];
   panelBorder: boolean;
   enableAdvancedRendering: boolean;
   tenantConfig?: any;
@@ -948,6 +976,26 @@ function FloatingCopilot({
   onClearHighlights?: () => void;
 }) {
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
+
+  // Chronological merge of chat messages with stream-supplement items
+  // (e.g. orchestration/actor activity) — both render in the same
+  // scrolling stream, in the order they actually occurred, rather than
+  // supplement items being appended as a separate block underneath.
+  const timelineEntries = useMemo(() => {
+    const messageEntries = messages.map((message) => ({
+      kind: "message" as const,
+      key: `message-${message.id}`,
+      at: message.timestamp instanceof Date ? message.timestamp.getTime() : new Date(message.timestamp).getTime(),
+      message,
+    }));
+    const supplementEntries = (streamSupplementItems ?? []).map((item) => ({
+      kind: "supplement" as const,
+      key: `supplement-${item.id}`,
+      at: new Date(item.occurredAt).getTime(),
+      item,
+    }));
+    return [...messageEntries, ...supplementEntries].sort((a, b) => a.at - b.at);
+  }, [messages, streamSupplementItems]);
 
   // STT — replaces the prior cosmetic micActive toggle that didn't
   // actually wire to any transcription path. The mic button now
@@ -1115,16 +1163,20 @@ function FloatingCopilot({
             <div
               className="absolute inset-0 overflow-y-auto px-4 py-3 space-y-1 overscroll-contain"
             >
-              {messages.map((message) => (
-                <SmartTriadInferenceRenderer
-                  key={message.id}
-                  message={message}
-                  showMetadata={enableAdvancedRendering}
-                  showScores={false}
-                  enableModelSelector={false}
-                  tenantConfig={tenantConfig}
-                />
-              ))}
+              {timelineEntries.map((entry) =>
+                entry.kind === "message" ? (
+                  <SmartTriadInferenceRenderer
+                    key={entry.key}
+                    message={entry.message}
+                    showMetadata={enableAdvancedRendering}
+                    showScores={false}
+                    enableModelSelector={false}
+                    tenantConfig={tenantConfig}
+                  />
+                ) : (
+                  <div key={entry.key}>{entry.item.render()}</div>
+                ),
+              )}
               {isProcessing && (
                 <div className="flex justify-start">
                   <div className="bg-white/5 px-3 py-2 rounded-xl rounded-bl-sm ring-1 ring-white/10">
@@ -1437,6 +1489,7 @@ function EmbeddedCopilot({
   inputRef,
   messagesEndRef,
   footerContent,
+  streamSupplementItems,
   panelClassName,
   inputPanelClassName,
   inputPanelInputClassName,
@@ -1467,6 +1520,7 @@ function EmbeddedCopilot({
   inputRef: React.RefObject<HTMLInputElement>;
   messagesEndRef: React.RefObject<HTMLDivElement>;
   footerContent?: React.ReactNode;
+  streamSupplementItems?: StreamSupplementItem[];
   panelClassName?: string;
   inputPanelClassName?: string;
   inputPanelInputClassName?: string;
@@ -1478,6 +1532,22 @@ function EmbeddedCopilot({
   agentId?: string;
   agentSubtitle?: string;
 }) {
+  // Same chronological merge as FloatingCopilot — see its comment.
+  const timelineEntries = useMemo(() => {
+    const messageEntries = messages.map((message) => ({
+      kind: "message" as const,
+      key: `message-${message.id}`,
+      at: message.timestamp instanceof Date ? message.timestamp.getTime() : new Date(message.timestamp).getTime(),
+      message,
+    }));
+    const supplementEntries = (streamSupplementItems ?? []).map((item) => ({
+      kind: "supplement" as const,
+      key: `supplement-${item.id}`,
+      at: new Date(item.occurredAt).getTime(),
+      item,
+    }));
+    return [...messageEntries, ...supplementEntries].sort((a, b) => a.at - b.at);
+  }, [messages, streamSupplementItems]);
 
   return (
     <div className={`h-full flex flex-col ${panelClassName}`}>
@@ -1504,16 +1574,20 @@ function EmbeddedCopilot({
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
-        {messages.map((message) => (
-          <SmartTriadInferenceRenderer
-            key={message.id}
-            message={message}
-            showMetadata={enableAdvancedRendering}
-            showScores={false} // Disable scores in embedded mode for cleaner UI
-            enableModelSelector={false} // Disable model selector in embedded mode
-            tenantConfig={tenantConfig}
-          />
-        ))}
+        {timelineEntries.map((entry) =>
+          entry.kind === "message" ? (
+            <SmartTriadInferenceRenderer
+              key={entry.key}
+              message={entry.message}
+              showMetadata={enableAdvancedRendering}
+              showScores={false} // Disable scores in embedded mode for cleaner UI
+              enableModelSelector={false} // Disable model selector in embedded mode
+              tenantConfig={tenantConfig}
+            />
+          ) : (
+            <div key={entry.key}>{entry.item.render()}</div>
+          ),
+        )}
         <div ref={messagesEndRef} />
       </div>
 
