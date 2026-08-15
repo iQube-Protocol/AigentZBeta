@@ -136,15 +136,25 @@ export function expandScope(
 // Convergence — dual is evidence, never promotion
 // ---------------------------------------------------------------------------
 
-/** Normalised form used only to test whether two statements are the same claim. */
-export function claimKey(statement: string): string {
+/**
+ * Lowercase, strip punctuation, drop stopwords/short words. The shared
+ * tokenizer behind `claimKey` (exact-claim convergence matching) and, since
+ * 2026-08-15, `implementationContext.ts`'s causal-relevance keyword-overlap
+ * fallback — one tokenizer, two consumers, rather than a second normalizer
+ * tuned independently and silently drifting from this one
+ * (inv.engineering.036/037).
+ */
+export function tokenizeStatement(statement: string): string[] {
   return statement
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, '')
     .split(/\s+/)
-    .filter((w) => w.length > 3 && !STOPWORDS.has(w))
-    .sort()
-    .join(' ');
+    .filter((w) => w.length > 3 && !STOPWORDS.has(w));
+}
+
+/** Normalised form used only to test whether two statements are the same claim. */
+export function claimKey(statement: string): string {
+  return tokenizeStatement(statement).sort().join(' ');
 }
 
 const STOPWORDS = new Set(['that', 'this', 'must', 'with', 'from', 'into', 'been', 'were', 'their', 'which', 'when', 'where']);
