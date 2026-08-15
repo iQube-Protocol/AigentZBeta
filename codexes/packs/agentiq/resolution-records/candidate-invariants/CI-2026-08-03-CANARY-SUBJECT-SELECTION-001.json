@@ -36,17 +36,36 @@
       "evidence": [
         "commit 37b49ff85"
       ]
+    },
+    {
+      "site": "tests/dev-merge-message-discipline.test.ts",
+      "defect": "The canary asserts the auto-merge workflow source matches /-m \"\\$\\{SUBJECT\\}/ — an IMPLEMENTATION SHAPE. The workflow on claude/resume-consumer-session-qm3v7c satisfies the RULE (it builds MERGE_MSG=\"${SUBJECT} [merge ${BRANCH}]\" and commits with it, subject-first as required) but a refactor moved the value into an intermediate variable, so the canary reddens against a workflow that is correct. It selects its subject by current source text rather than by the property under test — that the dev merge message begins with what shipped. A second assertion in the same file measures HISTORICAL merges already in the log, so it has no green state reachable by any present action.",
+      "resolutionId": "RES-2026-08-15-DEVON-WIRING-PROCESS-RISK-001",
+      "evidence": [
+        ".github/workflows/merge-claude-to-dev.yml",
+        "tests/dev-merge-message-discipline.test.ts"
+      ]
+    },
+    {
+      "site": "tests/invariant-envelope-contract.test.ts",
+      "defect": "A canary asserting the envelope has exactly ONE home on DevLoopState counted occurrences of the bare string 'invariantEnvelope' in types/devCommandCenter.ts. The import specifier `from './invariantEnvelope'` also contains that string, so the count was 2 and the canary failed against correct code. Repaired to count FIELD DECLARATIONS (/^\\s*invariantEnvelope\\??:/gm) — the construct actually under test. THE INFORMATIVE PART: this was authored in Homecoming III Phase 1 by an agent that had cited this very invariant in the same session. A known-but-unmechanised invariant does not bind.",
+      "resolutionId": "RES-2026-08-15-DEVON-WIRING-PROCESS-RISK-001",
+      "evidence": [
+        "tests/invariant-envelope-contract.test.ts"
+      ]
     }
   ],
   "derivedFrom": [
-    "RES-2026-08-03-HORIZEN-OBSERVER-RECONCILIATION-001"
+    "RES-2026-08-03-HORIZEN-OBSERVER-RECONCILIATION-001",
+    "RES-2026-08-15-DEVON-WIRING-PROCESS-RISK-001"
   ],
   "ratifiedSource": null,
   "notes": [
     "Operator-added 2026-08-03, verbatim: \"A regression test must select its subject by the property under test, not by incidental ordering, index, fixture position or current registry shape.\"",
     "CHILD of CI-2026-08-03-CANARY-REPRODUCES-DEFECT-001. Hierarchy:  CANARY-REPRODUCES-DEFECT  └── CANARY-SUBJECT-SELECTION. Recorded as a child rather than a peer for the same reason IDENTIFIER-RECOVERY-CONTRACT was: it is an application of the parent, not an independent claim.",
     "Three occurrences at ONE site (this test file), so it does NOT meet the >=2-distinct-sites bar for `validated`. Deliberately left at `candidate`: the rule is almost certainly general, but its evidence so far is not. Recurrence elsewhere is what would earn promotion — and an agent may not ratify.",
-    "Discovered minutes after the parent was ratified, by the parent applying to its own instrument: a green test that had silently stopped testing its subject is exactly \"instrument failure, not protection\"."
+    "Discovered minutes after the parent was ratified, by the parent applying to its own instrument: a green test that had silently stopped testing its subject is exactly \"instrument failure, not protection\".",
+    "OCCURRENCE SITES BROADENED 2026-08-15. The first three occurrences were all in tests/resolution-records.test.ts — thin support for a 'cross-capability' scope claim, since one file is one site. Two further occurrences now sit in tests/dev-merge-message-discipline.test.ts (a CI workflow canary) and tests/invariant-envelope-contract.test.ts (a type-contract canary), in unrelated capabilities. The scope claim is materially better evidenced than it was; whether that reaches 'validated' is the operator's call, not this record's."
   ],
   "family": "engineering",
   "parentCandidateId": "CI-2026-08-03-CANARY-REPRODUCES-DEFECT-001",
