@@ -79,8 +79,9 @@ function makeGenericReadOnlyAdmin() {
   return { from: () => chain };
 }
 
+const mockGetSupabaseServer = vi.fn(() => makeGenericReadOnlyAdmin());
 vi.mock('@/app/api/_lib/supabaseServer', () => ({
-  getSupabaseServer: () => makeGenericReadOnlyAdmin(),
+  getSupabaseServer: () => mockGetSupabaseServer(),
 }));
 
 vi.mock('@/app/api/agents/_lib/requestOrigin', () => ({
@@ -343,5 +344,48 @@ describe('GET /api/homecoming/agent/stand-up — read-only sponsor preflight (Al
     expect(json.sponsorPassportId).toBe('passport-fixture-should-not-leak'); // caller's own resolved sponsor — self-view, fine
     const serialized = JSON.stringify(json);
     expect(serialized).not.toContain(ADMIN_PERSONA.personaId); // the T0 field — never
+  });
+
+  it('a revoked/suspended citizen passport is reported as NOT valid, even though passport_class is citizen', async () => {
+    mockGetSupabaseServer.mockReturnValueOnce({
+      from: (table: string) => {
+        const chain: Record<string, unknown> = {
+          select: () => chain,
+          eq: () => chain,
+          in: () => chain,
+          maybeSingle: async () => {
+            if (table === 'polity_passport_records') {
+              return { data: { passport_id: 'passport-fixture', passport_class: 'citizen', citizen_status: 'revoked' }, error: null };
+            }
+            return { data: null, error: null };
+          },
+        };
+        (chain as { then: (resolve: (v: unknown) => void) => void }).then = (resolve) =>
+          resolve({ data: null, count: 0, error: null });
+        return chain;
+      },
+    });
+
+    const { GET } = await import('@/app/api/homecoming/agent/stand-up/route');
+    const res = await GET(
+      makePreflightRequest('?delegate=aletheon&preflight=true&sponsorPassportId=passport-fixture'),
+    );
+    const json = await res.json();
+    expect(json.sponsorResolved).toBe(true);
+    expect(json.citizenStatus).toBe('revoked');
+    expect(json.passportValid).toBe(false); // revoked must never read as a valid sponsor
+  });
+
+  it('reports whether the resolved sponsor is the caller\'s own authenticated persona (relational, not the raw id)', async () => {
+    const { GET } = await import('@/app/api/homecoming/agent/stand-up/route');
+    const res = await GET(
+      makePreflightRequest('?delegate=aletheon&preflight=true&sponsorPassportId=some-other-citizens-passport'),
+    );
+    const json = await res.json();
+    // No explicit sponsorPersonaId override was given via personas lookup here
+    // (resolveSponsorForCaller only widens the SEARCH when no explicit passport
+    // is supplied) — an explicit sponsorPassportId keeps sponsorPersonaId as the
+    // caller's own active persona, so this should read true.
+    expect(json.sponsorIsCallersAuthenticatedPersona).toBe(true);
   });
 });

@@ -259,7 +259,10 @@ async function GET_preflight(req: NextRequest, delegate: HomecomingDelegateId) {
     .select('passport_id, passport_class, citizen_status')
     .eq('passport_id', sponsorPassportId)
     .maybeSingle();
-  const passportValid = Boolean(passportRow) && passportRow?.passport_class === 'citizen';
+  const citizenStatus: string | null = passportRow?.citizen_status ?? null;
+  // "Owns an ACTIVE citizen passport" — passport_class alone is not enough;
+  // a revoked/suspended citizen passport must not read as a valid sponsor.
+  const passportValid = Boolean(passportRow) && passportRow?.passport_class === 'citizen' && citizenStatus === 'active';
 
   // Mirrors provisionAgentPersona's read-only root/did_persona resolution —
   // preview only, never writes. See that file for the authoritative version
@@ -306,7 +309,13 @@ async function GET_preflight(req: NextRequest, delegate: HomecomingDelegateId) {
     delegate,
     preflight: true,
     sponsorResolved: true,
+    // The resolved sponsor is reported relationally (T0-safe), not by raw
+    // persona UUID: is this the caller's OWN currently-authenticated persona,
+    // or a different persona on the same auth account (resolveSponsorForCaller
+    // widens across every persona on the caller's authProfileId)?
+    sponsorIsCallersAuthenticatedPersona: sponsorPersonaId === persona.personaId,
     sponsorPassportId, // caller's own resolved sponsor (self-view) — never sponsorPersonaId (T0)
+    citizenStatus,
     passportValid,
     sponsorRootResolvable,
     wouldWriteDelegationUserRoot: sponsorRootResolvable,
