@@ -1,0 +1,60 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "resolutionId": "RES-2026-08-15-PHASE4-SELF-REVIEW-OBSERVATIONS-001",
+  "capability": "Homecoming III bootstrap — invariant-driven DevOn + IDE 2.0 kernel",
+  "milestone": "Phase 4 close — self-review observations carried forward",
+  "problem": "Two defects were found in services/devCommandCenter/implementationContext.ts during Phase 4, both by deliberate mutation testing rather than by a test failing on its own. Defect 1: the composer's constraints section selected members by PROVENANCE ALONE ('constitutional-substrate'), so a constitutional-substrate invariant at status 'proposed' would have rendered under the 'non-negotiable' heading — a source claim mistaken for a standing claim. Defect 2: the composer's rendered sections, its reported carried-refs, and its omission bookkeeping were each computed from a SEPARATE expression over the same input, so a mutation that changed what was rendered left the reported 'carried' refs describing the OLD membership — the canary asserting on 'carried' stayed green against code that had genuinely changed behaviour.",
+  "observedFailure": [
+    "A hand-authored mutation (`constitutional = invariants.filter(i => i.provenance === 'constitutional-substrate')`, dropping the standing check) did not redden the canary suite until a specific test for a PROPOSED constitutional member was added — the composer would otherwise have silently promoted an unratified constitutional hypothesis into the constraints section.",
+    "A mutation slicing the constitutional membership to one member (simulating the budget wrongly applying to it) left `ctx.carried['constitutional-constraints']` reporting all three original members, because `carried` was built from a different expression than the one that had been mutated. The canary asserting only on `carried` passed against code whose rendered output had changed.",
+    "Both defects were found DURING Phase 4's own mutation-testing discipline, before commit — neither reached the committed tree in its defective form."
+  ],
+  "rootCauses": [
+    "Provenance and lifecycle answer different questions (WHERE a statement came from vs WHAT STANDING it has) and the composer's first draft used only the first to decide membership in a heading whose whole meaning is standing ('non-negotiable'). The two are easy to conflate because 'constitutional' reads as if it already implies authority.",
+    "Three outputs — rendered text, carried refs, and the omission set — were computed by three independent expressions over the same underlying decision. Nothing enforced that they described the same membership, so they could drift independently, and a canary that reads only one of the three cannot see the other two disagree with it."
+  ],
+  "resolution": [
+    "The constraints section now additionally requires `mayBeCitedAsEstablished(lifecycle)`; a proposed constitutional member falls through to the candidate-and-risk-signals section, where its marker already states what it is.",
+    "All three outputs are now derived from one `membership: Record<ContextSection, EnvelopeInvariant[]>` map, computed once; `sections`, `carried`, and the omission `Set` are all projections of that one map rather than independent expressions.",
+    "A canary was added asserting the invariant directly: for every section, the number of rendered lines equals the number of carried refs, and every carried ref appears in its section's rendered text — so the three projections cannot drift without failing here first.",
+    "Both lessons recorded as candidate causal patterns at `observed`, not promoted to `candidate` or higher (operator ruling, 2026-08-15): one occurrence each, found in code written in the same milestone, causal abstraction plausible and untested elsewhere."
+  ],
+  "rejectedApproaches": [
+    "Trusting the original three-expression form once the specific defects were patched. Rejected: patching the two known instances leaves the STRUCTURE that allowed them (three readers of one fact) in place for a future field or section to repeat the same drift. The single-membership-map refactor removes the shape, not just the two symptoms.",
+    "Treating the provenance-only defect as fully covered by the existing CANARY-06/CI-2026-08-03-CANONICAL-READER-OWNERSHIP-001 material without a fresh occurrence. Rejected: that invariant is about one FACT having one reader; the provenance/standing conflation is a distinct shape (two AXES conflated into one), and recording it as its own candidate keeps the two lessons separately falsifiable rather than one absorbing evidence that does not actually support it."
+  ],
+  "candidateInvariants": [
+    "CI-2026-08-15-PROVENANCE-IS-NOT-STANDING-001",
+    "CI-2026-08-03-CANONICAL-READER-OWNERSHIP-001"
+  ],
+  "canaries": [
+    "tests/gap-analysis-causal-split.test.ts"
+  ],
+  "scope": "local",
+  "status": "observed",
+  "trigger": "canary-encoded-the-defect",
+  "evidence": {
+    "commits": [
+      "dd9ae6650"
+    ],
+    "tests": [
+      "tests/gap-analysis-causal-split.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "services/devCommandCenter/implementationContext.ts"
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-08-15_homecoming-iii-bootstrap-architecture-audit.md"
+  ],
+  "date": "2026-08-15",
+  "projections": {
+    "targets": [
+      "devon"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  }
+}

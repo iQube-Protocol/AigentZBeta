@@ -90,7 +90,24 @@ export type DcirEventKind =
   | 'ToolOutputProduced'
   | 'ConversationTurn'
   | 'PersonaChanged'
-  | 'SystemEvent';
+  | 'SystemEvent'
+  /*
+   * Homecoming III Phase 5 — appended, never repurposing an existing kind
+   * (the contract's own rule, §1 above). DCIR already observes DevOn (the
+   * nine `dev*` emitters in services/dcir/eventStream.ts); these five close
+   * the loop by giving it a vocabulary for INVARIANT EVIDENCE — whether an
+   * implementation supported, challenged, or falsified the invariants its
+   * envelope relied on. DCIR PRODUCES this evidence; it does not canonize —
+   * see mayBeCitedAsEstablished() in types/invariantEnvelope.ts, which
+   * remains the only path into established context. Nothing about these five
+   * kinds writes to the invariant substrate or the resolution-record
+   * registry; they are observations, full stop.
+   */
+  | 'InvariantSupported'
+  | 'InvariantChallenged'
+  | 'InvariantFalsified'
+  | 'InvariantUnresolved'
+  | 'NewRiskObservationRecorded';
 
 /**
  * Identifier-exposure tier of an event payload (Identity & Access Spine).

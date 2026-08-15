@@ -454,6 +454,69 @@ export function registryCopilotOpenedEvent(agentName: string): DcirEvent {
   });
 }
 
+// ─── Invariant evidence (Homecoming III Phase 5) ────────────────────────────
+//
+// Five emitters beside the nine `dev*` functions above, giving DCIR a
+// vocabulary for what an implementation did to the invariants its envelope
+// relied on. Every summary is T2-safe: an invariant/candidate REF and a
+// verdict, never a raw statement body and never a personaId. These emit
+// EVIDENCE only — see services/devCommandCenter/consequenceObservation.ts for
+// the pure decision logic that produces the verdict these functions record.
+
+/** An established invariant's expected consequence was observed. */
+export function invariantSupportedEvent(invariantRef: string): DcirEvent {
+  return emitDcirEvent({
+    kind: 'InvariantSupported',
+    runtime: 'observation',
+    summary: `supported: ${invariantRef}`,
+    capsuleScope: null,
+  });
+}
+
+/** Observation partially or ambiguously contradicts the invariant's claim. */
+export function invariantChallengedEvent(invariantRef: string): DcirEvent {
+  return emitDcirEvent({
+    kind: 'InvariantChallenged',
+    runtime: 'observation',
+    summary: `challenged: ${invariantRef}`,
+    capsuleScope: null,
+  });
+}
+
+/** The bound falsifier fired — the invariant's claim did not hold here. */
+export function invariantFalsifiedEvent(invariantRef: string): DcirEvent {
+  return emitDcirEvent({
+    kind: 'InvariantFalsified',
+    runtime: 'observation',
+    summary: `falsified: ${invariantRef}`,
+    capsuleScope: null,
+  });
+}
+
+/** No evidence yet either way — surfaced honestly, not defaulted to a verdict. */
+export function invariantUnresolvedEvent(invariantRef: string): DcirEvent {
+  return emitDcirEvent({
+    kind: 'InvariantUnresolved',
+    runtime: 'observation',
+    summary: `unresolved: ${invariantRef}`,
+    capsuleScope: null,
+  });
+}
+
+/**
+ * A falsifier fired for a condition NO bound invariant or Proof of Risk
+ * anticipated. This is CANARY-05's gate: an unanticipated failure becomes a
+ * risk observation first, never a direct edit to any invariant.
+ */
+export function newRiskObservationEvent(description: string): DcirEvent {
+  return emitDcirEvent({
+    kind: 'NewRiskObservationRecorded',
+    runtime: 'observation',
+    summary: description.slice(0, DCIR_EVENT_SUMMARY_MAX),
+    capsuleScope: null,
+  });
+}
+
 // ─── Observation seam (ground-context rendering) ────────────────────────────
 
 /**

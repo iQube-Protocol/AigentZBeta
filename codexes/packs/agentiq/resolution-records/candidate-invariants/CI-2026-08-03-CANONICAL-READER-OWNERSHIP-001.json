@@ -23,7 +23,8 @@
   "scope": "cross-capability",
   "status": "candidate",
   "derivedFrom": [
-    "RES-2026-08-03-HORIZEN-OBSERVER-RECONCILIATION-001"
+    "RES-2026-08-03-HORIZEN-OBSERVER-RECONCILIATION-001",
+    "RES-2026-08-15-PHASE4-SELF-REVIEW-OBSERVATIONS-001"
   ],
   "occurrences": [
     {
@@ -41,6 +42,15 @@
       "evidence": [
         "fd12d4547",
         "tests/horizen-agent-registration-binding.test.ts"
+      ]
+    },
+    {
+      "site": "services/devCommandCenter/implementationContext.ts — composeImplementationContext()",
+      "defect": "sections (rendered text), carried (refs) and the omission Set were each computed from their OWN filter/map expression over the same underlying membership decision, rather than one canonical computation projected three ways. A mutation that changed which members were rendered left `carried` reporting the pre-mutation membership, so a canary asserting only on `carried` passed against code whose rendered output had genuinely changed. Fixed by deriving all three from one `membership` map.",
+      "resolutionId": "RES-2026-08-15-PHASE4-SELF-REVIEW-OBSERVATIONS-001",
+      "evidence": [
+        "dd9ae6650",
+        "tests/gap-analysis-causal-split.test.ts"
       ]
     }
   ],
