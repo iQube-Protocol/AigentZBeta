@@ -4079,3 +4079,53 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-2b00476.md](../build_/COMMITS/COMMIT-2b00476.md)
 - Message: add diagnostic logging for copilot empty response trace
+
+## Commit `94b3469` — 2026-08-12T13:04:29-04:00
+- Type: `docs`
+- Brief: [COMMIT-94b3469.md](../build_/COMMITS/COMMIT-94b3469.md)
+- Message: docs(irl): ground IDE v2 and Crystal vP2 in Lehigh risk research
+
+## Commit `be46bc6` — 2026-08-12T13:03:24-04:00
+- Type: `test`
+- Brief: [COMMIT-be46bc6.md](../build_/COMMITS/COMMIT-be46bc6.md)
+- Message: test(irl): cover IDE v2 risk-field primitives
+
+## Commit `a238834` — 2026-08-12T13:03:08-04:00
+- Type: `feat`
+- Brief: [COMMIT-a238834.md](../build_/COMMITS/COMMIT-a238834.md)
+- Message: feat(irl): add risk-field primitives for IDE v2
+
+## Commit `fe16064` — 2026-08-12T13:09:38-04:00
+- Type: `feat`
+- Brief: [COMMIT-fe16064.md](../build_/COMMITS/COMMIT-fe16064.md)
+- Message: feat(invariants): add consequence calibration primitives
+
+## Commit `c931c79` — 2026-08-12T19:10:10Z
+- Type: `push`
+- Brief: [COMMIT-c931c79.md](../build_/COMMITS/COMMIT-c931c79.md)
+- Message: trigger deploy: Delegate stage reconciliation
+
+## Commit `1c05d36` — 2026-08-12T19:39:35Z
+- Type: `refactor`
+- Brief: [COMMIT-1c05d36.md](../build_/COMMITS/COMMIT-1c05d36.md)
+- Message: record moneypenny dress rehearsal closure — all stages stable, ready to move to know1
+
+## Commit `0132bdb` — 2026-08-14T03:46:46Z
+- Type: `push`
+- Brief: [COMMIT-0132bdb.md](../build_/COMMITS/COMMIT-0132bdb.md)
+- Message: soft-launch grooming pass: Constitutional Internet Bridge + KNYTS Bridge refinements
+
+## Commit `bff416b` — 2026-08-14T02:40:53Z
+- Type: `push`
+- Brief: [COMMIT-bff416b.md](../build_/COMMITS/COMMIT-bff416b.md)
+- Message: Revert "groom bridges: header stage numbers (A4), auto-advance passport room (A2), article-zero templates (A3), pdf border styling (A6), duplicate passport gate removal (A1)"
+
+## Commit `2941362` — 2026-08-14T02:19:53Z
+- Type: `push`
+- Brief: [COMMIT-2941362.md](../build_/COMMITS/COMMIT-2941362.md)
+- Message: groom bridges: header stage numbers (A4), auto-advance passport room (A2), article-zero templates (A3), pdf border styling (A6), duplicate passport gate removal (A1)
+
+## Commit `5b77bdf` — 2026-08-14T02:18:05Z
+- Type: `push`
+- Brief: [COMMIT-5b77bdf.md](../build_/COMMITS/COMMIT-5b77bdf.md)
+- Message: groom knyts-bridge: remove duplicate passport gate (A1), auto-advance passport room (A2), embed article-zero templates (A3)

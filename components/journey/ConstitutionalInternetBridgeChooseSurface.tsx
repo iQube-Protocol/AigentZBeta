@@ -54,11 +54,12 @@ import { canonicalPlateImage } from '@/services/artifact/canonicalPlateImages';
 import { CI_BRIDGE_CAMPAIGN_ID } from '@/services/journey/constitutionalInternetBridgeJourney';
 import { ArtifactMattedFrame } from '@/components/journey/ArtifactMattedFrame';
 import { FullscreenableFrame } from '@/components/journey/FullscreenableFrame';
+import { BridgeReserveInterestCard } from '@/components/journey/BridgeReserveInterestCard';
 
 const CONTACT_EMAIL = 'info@metame.com';
 const BOOK_CONCEPT_PLATE = canonicalPlateImage('CIP-006');
 
-type LeftView = 'book' | 'reading' | 'aigentme' | 'irl' | 'partner';
+type LeftView = 'book' | 'reading' | 'aigentme' | 'irl' | 'partner' | 'mythos';
 
 interface ConstitutionalInternetBridgeChooseSurfaceProps {
   personaId?: string;
@@ -67,61 +68,6 @@ interface ConstitutionalInternetBridgeChooseSurfaceProps {
    *  switches the left explainer; only the drawer-open side effect is
    *  skipped) so this component never hard-depends on the page wiring it. */
   onOpenAigentMeCopilot?: () => void;
-}
-
-function BookReserveOption() {
-  const [email, setEmail] = useState('');
-  const [status, setStatus] = useState<'idle' | 'submitting' | 'done' | 'error'>('idle');
-
-  const submit = async () => {
-    if (!email.includes('@')) return;
-    setStatus('submitting');
-    try {
-      const res = await fetch('/api/journey/constitutional-internet-bridge/choose/book-interest', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
-      const json = await res.json().catch(() => null);
-      setStatus(json?.ok ? 'done' : 'error');
-    } catch {
-      setStatus('error');
-    }
-  };
-
-  if (status === 'done') {
-    return (
-      <div className="rounded-xl border border-white/10 bg-slate-900/40 p-4">
-        <p className="flex items-center gap-2 text-sm font-semibold text-white"><BookMarked className="h-4 w-4 text-indigo-300" /> Thanks &mdash; we&rsquo;ll let you know.</p>
-        <p className="mt-1 text-xs text-slate-400">This is a demand signal, not a payment &mdash; you haven&rsquo;t been charged.</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="rounded-xl border border-white/10 bg-slate-900/40 p-4">
-      <p className="flex items-center gap-2 text-sm font-semibold text-white"><BookMarked className="h-4 w-4 text-indigo-300" /> Reserve The Constitutional Internet</p>
-      <p className="mt-1 text-xs text-slate-400">Tell us you want a copy. This is a demand signal, not a paid preorder.</p>
-      <div className="mt-3 flex gap-2">
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="you@example.com"
-          className="flex-1 rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2 text-xs text-slate-200 placeholder:text-slate-600 focus:border-indigo-400/50 focus:outline-none"
-        />
-        <button
-          type="button"
-          disabled={status === 'submitting' || !email.includes('@')}
-          onClick={submit}
-          className="rounded-lg bg-indigo-500 px-4 py-2 text-xs font-semibold text-slate-950 transition hover:bg-indigo-400 disabled:opacity-40"
-        >
-          Reserve
-        </button>
-      </div>
-      {status === 'error' && <p className="mt-2 text-xs text-rose-400">Could not record your interest — please try again.</p>}
-    </div>
-  );
 }
 
 function DestinationCard({
@@ -139,27 +85,30 @@ function DestinationCard({
   mailtoSubject?: string;
   mailtoLabel?: string;
 }) {
+  // The main card is always the contextual-left-view trigger, mailto CTA or
+  // not — the mailto affordance is an inline extra, never a replacement for
+  // the card's own onClick (a card that is entirely a mailto anchor can never
+  // set the contextual left view again once clicked).
   return (
-    <div className={`rounded-xl border transition ${
-      active ? 'border-amber-400/50 bg-amber-500/10' : 'border-white/10 bg-slate-900/40'
-    }`}>
-      <button
-        type="button"
-        onClick={onClick}
-        className="flex w-full items-center justify-between gap-3 px-4 py-3.5 hover:opacity-80"
-      >
-        <span className="flex items-center gap-2 text-sm font-semibold text-white">{icon} {label}</span>
-        <ArrowRight className="h-4 w-4 text-slate-400" />
-      </button>
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3.5 transition hover:opacity-80 ${
+        active ? 'border-indigo-400/40 bg-indigo-500/10' : 'border-white/10 bg-slate-900/40'
+      }`}
+    >
+      <span className="flex items-center gap-2 text-sm font-semibold text-white">{icon} {label}</span>
       {mailtoSubject && mailtoLabel && (
         <a
           href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(mailtoSubject)}`}
-          className="flex items-center gap-1.5 border-t border-white/5 px-4 py-2.5 text-[11px] font-medium text-indigo-300 hover:text-indigo-200"
+          onClick={(e) => e.stopPropagation()}
+          className="flex items-center gap-1.5 text-[11px] font-medium text-indigo-300 hover:text-indigo-200"
         >
           <Mail className="h-3 w-3" /> {mailtoLabel}
         </a>
       )}
-    </div>
+      <ArrowRight className="h-4 w-4 shrink-0 text-slate-400" />
+    </button>
   );
 }
 
@@ -273,21 +222,25 @@ export function ConstitutionalInternetBridgeChooseSurface({ personaId, onOpenAig
     fetchCanonicalAssets();
   }, []);
 
-  // "Continue reading" → Qriptopian Codex → Magazines (revised 2026-08-12
-  // closure pass): the working Polity Core commentary tab stays admin-only
-  // internal development material (see data/codex-configs.ts), never a
-  // public Bridge destination. Papers was the prior landing tab; the
-  // operator now wants the Magazines editorial surface as the landing tab
-  // instead — the real registered tab id/slug is `codex`/`magazines`
-  // (data/codex-configs.ts QRIPTO_CODEX.tabs, NOT the `papers` tab). Papers
-  // remains reachable from inside Qriptopian's own navigation; no `&scope=`
-  // param travels with this link since it was Papers-specific.
-  const readingSrc = buildCodexUrl('qripto', {
-    tab: 'magazines',
-    personaId,
-    shell: 'embed',
-    suppressCopilot: true,
-  });
+  // "Continue reading" → Qriptopian Codex → Papers (Polity-scoped, 2026-08-14
+  // QA revision): restore to Papers tab with Polity-scope filter, not Magazines.
+  // `buildCodexUrl` has no `scope` option (CodexNavOptions carries no such
+  // field) — QriptoPapersTab already reads `?scope=` itself, so the param is
+  // appended explicitly onto the normal embed URL rather than invented as an
+  // unsupported buildCodexUrl option.
+  const readingSrc = (() => {
+    const url = new URL(
+      buildCodexUrl('qripto', {
+        tab: 'papers',
+        personaId,
+        shell: 'embed',
+        suppressCopilot: true,
+      }),
+      'http://localhost',
+    );
+    url.searchParams.set('scope', 'papers/polity');
+    return `${url.pathname}${url.search}`;
+  })();
 
   const openAigentMe = () => {
     setLeftView('aigentme');
@@ -300,6 +253,8 @@ export function ConstitutionalInternetBridgeChooseSurface({ personaId, onOpenAig
       <FullscreenableFrame className="h-[55vh] max-h-[65vh] min-h-[18rem] w-full bg-slate-900/40" title="Choose">
         {leftView === 'reading' ? (
           <iframe src={readingSrc} title="Continue reading — The Constitutional Internet" className="h-full w-full border-0" />
+        ) : leftView === 'mythos' ? (
+          <iframe src="/bridge/knyts" title="The KNYTS Bridge" className="h-full w-full border-0" />
         ) : leftView === 'aigentme' ? (
           <ArtifactMattedFrame>
             {canonicalAssets.aigentme ? (
@@ -368,7 +323,13 @@ export function ConstitutionalInternetBridgeChooseSurface({ personaId, onOpenAig
 
       {/* RIGHT — destination cards. */}
       <div className="space-y-3">
-        <BookReserveOption />
+        <BridgeReserveInterestCard
+          title="Reserve The Constitutional Internet"
+          description="Tell us you want a copy. This is a demand signal, not a paid preorder."
+          submitUrl="/api/journey/constitutional-internet-bridge/choose/book-interest"
+          successTitle="Thanks — we'll let you know."
+          successDescription="This is a demand signal, not a payment — you haven't been charged."
+        />
 
         <DestinationCard
           icon={<BookMarked className="h-4 w-4 text-indigo-300" />}
@@ -400,6 +361,13 @@ export function ConstitutionalInternetBridgeChooseSurface({ personaId, onOpenAig
           onClick={() => setLeftView('partner')}
           mailtoSubject="Constitutional Internet — build / partner"
           mailtoLabel="Email us to partner"
+        />
+
+        <DestinationCard
+          icon={<Compass className="h-4 w-4 text-indigo-300" />}
+          label="Explore the Mythos"
+          active={leftView === 'mythos'}
+          onClick={() => setLeftView('mythos')}
         />
 
         <button

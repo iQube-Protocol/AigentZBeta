@@ -72,7 +72,7 @@ export const KNYTS_BRIDGE_CROSSING_JOURNEY: JourneyDefinition = {
     {
       id: 'home',
       label: 'Home',
-      description: 'Homecoming begins here.',
+      description: 'Cross the Threshold. Come home.',
       actor: 'operator',
       subjectRef: 'visitor',
       surfaces: [
@@ -96,7 +96,7 @@ export const KNYTS_BRIDGE_CROSSING_JOURNEY: JourneyDefinition = {
     {
       id: 'view',
       label: 'View',
-      description: 'See the crossings already underway.',
+      description: 'See the crossings underway.',
       actor: 'operator',
       subjectRef: 'visitor',
       surfaces: [{ mode: 'iframe', ref: 'knyts-bridge-view-pulse', note: 'The canonical KNYT Pulse tab.' }],
@@ -113,7 +113,7 @@ export const KNYTS_BRIDGE_CROSSING_JOURNEY: JourneyDefinition = {
     {
       id: 'orient',
       label: 'Orient',
-      description: 'Your personhood comes before your identity.',
+      description: 'Personhood comes first.',
       actor: 'operator',
       subjectRef: 'visitor',
       surfaces: [
@@ -217,12 +217,12 @@ export const KNYTS_BRIDGE_CROSSING_JOURNEY: JourneyDefinition = {
       },
     },
     {
-      id: 'buy',
-      label: 'Buy',
-      description: 'Participate in the KNYT cultural economy.',
+      id: 'choose',
+      label: 'Choose',
+      description: 'Choose where to go next.',
       actor: 'operator',
       subjectRef: 'visitor',
-      surfaces: [{ mode: 'iframe', ref: 'knyts-bridge-buy-store', note: 'The existing KNYT Store — no new commerce code.' }],
+      surfaces: [{ mode: 'component', ref: 'knyts-bridge-choose', note: 'Four destination options for continuing the journey.' }],
       prerequisites: [],
       permittedActions: [],
       completionEvidence: [],

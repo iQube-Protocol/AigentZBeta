@@ -51,8 +51,8 @@ import { KnytsBridgeMediaStage } from '@/components/journey/KnytsBridgeMediaStag
 import { KnytsBridgeOrientIntro } from '@/components/journey/KnytsBridgeOrientIntro';
 import { KnytsBridgePassportRoom } from '@/components/journey/KnytsBridgePassportRoom';
 import { KnytsBridgeRemixSurface } from '@/components/journey/KnytsBridgeRemixSurface';
+import { KnytsBridgeChooseSurface } from '@/components/journey/KnytsBridgeChooseSurface';
 import { KnytsBridgeAdminPanel } from '@/components/journey/KnytsBridgeAdminPanel';
-import { BridgePassportGate } from '@/components/journey/BridgePassportGate';
 import { PassportConnectPanel } from '@/components/companion/PassportConnectPanel';
 import { usePassportSignInHost } from '@/app/hooks/usePassportSignInHost';
 import { usePersonaSpine } from '@/utils/personaSpine';
@@ -74,6 +74,7 @@ const KNYTS_BRIDGE_COMPONENTS: Record<string, React.ComponentType<Record<string,
   KnytsBridgeOrientIntro,
   KnytsBridgePassportRoom,
   KnytsBridgeRemixSurface,
+  KnytsBridgeChooseSurface,
 };
 
 const KNYT_COPILOT_QUICK_PROMPTS = [
@@ -94,8 +95,7 @@ export default function KnytsBridgePage() {
   const [personaId, setPersonaId] = useState<string | undefined>(undefined);
   const [adminOpen, setAdminOpen] = useState(false);
   const [copilotOpen, setCopilotOpen] = useState(false);
-  const [previousStageId, setPreviousStageId] = useState<string | undefined>(undefined);
-  const [currentStageId, setCurrentStageId] = useState<string | undefined>(undefined);
+  const spine = usePersonaSpine();
   // Authoritative runtime-state signal (2026-08-12, KNYTS↔CI parity pass;
   // re-derived CFS-055 coherence pass, same day). Previously discovered as
   // a SIDE EFFECT of `resolveSurfaceProps` while the Passport room happened
@@ -111,8 +111,6 @@ export default function KnytsBridgePage() {
     const passportStage = state.stages.find((s) => s.stageId === 'passport');
     setCitizenPassportUsable(Boolean(passportStage?.evidencePresent.includes('citizenPassportUsable')));
   }, []);
-  const [showPassportGate, setShowPassportGate] = useState(false);
-  const spine = usePersonaSpine();
 
   // Same pinned-persona read every top-level surface uses as its baseline
   // (personaFetch's own fallback, MetaMeRuntimeClient's resolver).
@@ -148,36 +146,6 @@ export default function KnytsBridgePage() {
     if (showPassportSignIn) selectStage('passport');
   }, [showPassportSignIn]);
 
-  // Track stage navigation for back button functionality and Passport
-  // gating (2026-08-12, parity pass — mirrors CI's page listener). Note
-  // this is a UX nicety, not the real gate: JourneyRunSurface's own
-  // stepper click handler sets its internal selectedStageId BEFORE
-  // dispatching this event, so by the time this listener runs the visible
-  // stage has already switched. The real enforcement lives in
-  // KnytsBridgeRemixSurface/the Stand surface themselves, failing closed
-  // on citizenPassportUsable — same as CI's Personify/Stand.
-  useEffect(() => {
-    const handleStageSelect = (event: Event) => {
-      const customEvent = event as CustomEvent<{ stageId: string }>;
-      const targetStageId = customEvent.detail.stageId;
-
-      if ((targetStageId === 'remix' || targetStageId === 'stand') && !citizenPassportUsable) {
-        setShowPassportGate(true);
-        return;
-      }
-
-      setPreviousStageId(currentStageId);
-      setCurrentStageId(targetStageId);
-    };
-    window.addEventListener('journey:select-stage', handleStageSelect);
-    return () => window.removeEventListener('journey:select-stage', handleStageSelect);
-  }, [currentStageId, citizenPassportUsable]);
-
-  const handleBack = useCallback(() => {
-    if (previousStageId) {
-      selectStage(previousStageId);
-    }
-  }, [previousStageId]);
 
   // Consumes `citizenPassportUsable` (derived above from the WHOLE
   // runtimeState via onRuntimeStateChange) — never discovers it. See that
@@ -190,6 +158,9 @@ export default function KnytsBridgePage() {
       }
       if (surfaceRef.ref === 'knyts-bridge-mycanvas-remix') {
         return { personaId, citizenPassportUsable };
+      }
+      if (surfaceRef.ref === 'knyts-bridge-choose') {
+        return { personaId, onOpenKnytCopilot: () => setCopilotOpen(true) };
       }
       return {};
     },
@@ -218,7 +189,6 @@ export default function KnytsBridgePage() {
         onRuntimeStateChange={handleRuntimeStateChange}
         accent={KNYT_ACCENT}
         compact
-        onBack={handleBack}
         distinguishAvailableStages
         // KNYTS-specific presentation seam (2026-08-12, KNYTS↔CI parity
         // pass) — mirrors CI's own emphasizeAvailableStage exactly. Home/
@@ -302,6 +272,9 @@ export default function KnytsBridgePage() {
             <div className="border-t border-white/10">
               <KnytsBridgeAdminPanel section="orient" personaId={personaId} />
             </div>
+            <div className="border-t border-white/10">
+              <KnytsBridgeAdminPanel section="choose" personaId={personaId} />
+            </div>
           </div>
         </div>
       )}
@@ -332,26 +305,6 @@ export default function KnytsBridgePage() {
         }}
       />
 
-      {/* Passport gate — blocks direct navigation into REMIX/STAND until
-          Passport is claimed (2026-08-12, KNYTS↔CI parity pass). "Later"
-          only dismisses the modal; it never claims or simulates a Passport. */}
-      <BridgePassportGate
-        isOpen={showPassportGate}
-        onDismiss={() => setShowPassportGate(false)}
-        onProceedToPassport={() => {
-          setShowPassportGate(false);
-          selectStage('passport');
-        }}
-        dismissLabel="Later"
-        accent="amber"
-        headline="Claim Your Passport First"
-        explanation="Your Polity Citizen Passport is your constitutional presence. You must establish it before you can remix your crossing or stand in the Quests."
-        points={[
-          'Passport proves your constitutional personhood',
-          "You'll cross a threshold once claimed",
-          'Then remix your crossing and stand in the Quests',
-        ]}
-      />
     </div>
     {/* Same missing-mount-gate bug identified on /bridge/ci (2026-08-11,
         targeted correction pass #98) applies here identically: this page

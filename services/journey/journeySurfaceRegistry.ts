@@ -487,6 +487,17 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
       "to leave the guide. Depth 1 retains the Store's own navigation strip (Episodes|KNYT Cards|Bundles|" +
       'Investor KNYT) which is required for the destination to remain functionally navigable.',
   },
+  'knyts-bridge-choose': {
+    kind: 'component',
+    component: 'KnytsBridgeChooseSurface',
+    note:
+      'CHOOSE stage — six destination options for continuing the journey: Reserve metaKnyt Agentic Graphic ' +
+      'Novel, Explore the KNYT Store, Learn about the Constitutional Internet, Apply to join the ' +
+      'Constitutional Financial Services Pilot, Ask Kn0w1, Share the Bridge & Earn $KNYT. A bare ' +
+      '`component` surface using the same contextual-left-pane interaction model as the CI Bridge CHOOSE ' +
+      'pattern (ConstitutionalInternetBridgeChooseSurface) — Store/CI switch an embedded left pane rather ' +
+      'than navigating away.',
+  },
 
   // ── Constitutional Internet Bridge journey (built 2026-08-10, reconstituted
   // onto JourneyRunSurface same day) — the canonical Ethos Bridge, sibling of

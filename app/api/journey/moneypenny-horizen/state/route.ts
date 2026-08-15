@@ -73,7 +73,9 @@ import { getActivePersona } from '@/services/identity/getActivePersona';
 import { isPassportUsable, loadUsableCitizenPassportForAuthProfile } from '@/services/identity/passportPrincipal';
 import { readSettledFact, settleFact, isSettled } from '@/services/journey/settledFacts';
 import { REGISTRATION_SEED_STANDING } from '@/services/journey/registrationStandingSeed';
-import { awardRegistrationStandingSeedIfEligible } from '@/services/journey/registrationStandingSeedAward';
+// RETIRED (2026-08-12): awardRegistrationStandingSeedIfEligible — forward rule is
+// "new admission Standing = 0, earned only through consequential contribution"
+// import { awardRegistrationStandingSeedIfEligible } from '@/services/journey/registrationStandingSeedAward';
 import { attemptPnlServiceVerificationIfEligible } from '@/services/horizen/pnlVerificationBoundary';
 import type { discoverAndReceiptPnlServiceEvidence } from '@/services/horizen/pnlServiceVerification';
 import {
@@ -88,6 +90,7 @@ import {
   effectiveStandingReceiptStatuses,
   type StandingEvidenceProjection,
 } from '@/services/journey/standingEvidenceProjection';
+import { assignAgent } from '@/services/identity/personaAssignmentStore';
 
 export const dynamic = 'force-dynamic';
 
@@ -605,29 +608,27 @@ async function resolveState(req: NextRequest) {
      * as an audit gap, never guessed.
      */
     if (supabase) await guarded('standing-seed', async () => {
-      const capabilityReceiptIds = receiptRefs['capability_registered'] ?? [];
-      const activePersona = await getActivePersona(req);
-      if (!activePersona?.personaId) return; // cannot attribute — audit gap, never guessed
-
-      const genuinelyFactoryIngested = capabilityReceiptIds.length > 0;
-      const aigentMeActiveForSeed =
-        (receiptRefs['aigentme_activated']?.length ?? 0) > 0 &&
-        (receiptRefs['experienceqube_focus_disposition_recorded']?.length ?? 0) > 0;
-
-      const outcome = await awardRegistrationStandingSeedIfEligible(supabase, agent, activePersona.personaId, {
-        alreadySeeded: registrationStandingSeeded,
-        factoryIngestedNow: aigentMeActiveForSeed && genuinelyFactoryIngested,
-        evidenceReceiptIds: capabilityReceiptIds,
-      });
-      if (!outcome.awarded) return;
-
-      // Reflected in THIS response without a second round-trip — the fact was
-      // just settled and receipted in this same request, so both
-      // `registrationStandingSeeded` and the `standing_accrued` receiptRef
-      // (which `standingGatewayEnabled` below reads via `hasReceipt`) are
-      // updated together rather than lagging one request behind.
-      registrationStandingSeeded = true;
-      if (outcome.receiptId) (receiptRefs['standing_accrued'] ??= []).push(outcome.receiptId);
+      // RETIRED (2026-08-12): Forward canonical rule (operator ruling 2026-08-09) is
+      // "new admission Standing = 0, earned only through qualifying consequential
+      // contribution". The superseded registration-seed award machinery
+      // (awardRegistrationStandingSeedIfEligible) is preserved as immutable history
+      // and filtered by the correction-aware standing evidence projection
+      // (standingEvidenceProjection.ts), but no new seeds are awarded from this
+      // request forward. Historical seeds remain for audit continuity; they do
+      // not drive present Standing gates.
+      //
+      // Old code paths for reference — DO NOT REACTIVATE WITHOUT OPERATOR APPROVAL:
+      // const capabilityReceiptIds = receiptRefs['capability_registered'] ?? [];
+      // const activePersona = await getActivePersona(req);
+      // if (!activePersona?.personaId) return;
+      // const genuinelyFactoryIngested = capabilityReceiptIds.length > 0;
+      // const aigentMeActiveForSeed =
+      //   (receiptRefs['aigentme_activated']?.length ?? 0) > 0 &&
+      //   (receiptRefs['experienceqube_focus_disposition_recorded']?.length ?? 0) > 0;
+      // const outcome = await awardRegistrationStandingSeedIfEligible(...);
+      // if (!outcome.awarded) return;
+      // registrationStandingSeeded = true;
+      // if (outcome.receiptId) (receiptRefs['standing_accrued'] ??= []).push(...);
     });
     if (supabase) await guarded('persona-assignment', async () => {
       const agentRootId = admission?.agentRootId;
@@ -642,9 +643,38 @@ async function resolveState(req: NextRequest) {
         .eq('active', true)
         .maybeSingle();
       if (error) throw new Error(error.message);
-      // Either role counts as "assigned" — aigentMe is a separate designation
-      // layered on TOP of being assigned, never a substitute for it.
-      personaAssignedAsDelegate = Boolean(data && (data.role === 'delegate' || data.role === 'aigentMe'));
+      if (data) {
+        // Either role counts as "assigned" — aigentMe is a separate designation
+        // layered on TOP of being assigned, never a substitute for it.
+        personaAssignedAsDelegate = data.role === 'delegate' || data.role === 'aigentMe';
+      } else if ((receiptRefs['agent_delegated']?.length ?? 0) > 0) {
+        /*
+         * RECONCILE: the delegation ceremony has already occurred (agent_delegated
+         * receipt exists) but the structural assignment row is absent. Write it
+         * idempotently — this aligns the observer with the already-written
+         * canonical delegation acts without re-performing any ceremony.
+         *
+         * Operator instruction (2026-08-12): "Do not ask the operator to delegate
+         * again. Align the observer with the already-written canonical grant/
+         * assignment records." The agent_delegated receipt IS the canonical record.
+         * The assignment row is a structural projection of it, not a separate act.
+         */
+        const result = await assignAgent({
+          personaId: activePersona.personaId,
+          agentRootId,
+          role: 'delegate',
+          ownedPersonaIds: [activePersona.personaId],
+        });
+        if (result.ok) {
+          personaAssignedAsDelegate = true;
+        } else if (result.code === 'not_bound' || result.code === 'migration_pending') {
+          // Soft-fail: agent not in bound roster or table not yet provisioned.
+          // personaAssignedAsDelegate stays false — the stage stays IN_PROGRESS.
+          console.warn('[JOURNEY STATE] persona-assignment reconcile skipped:', result.error);
+        } else {
+          throw new Error(`persona-assignment reconcile: ${result.error}`);
+        }
+      }
     });
     if (supabase) await guarded('authorization-store', async () => {
       authorizationStore = await checkAuthorizationStoreAvailable(supabase);
@@ -1423,7 +1453,15 @@ async function resolveState(req: NextRequest) {
     // Unchanged shape for every existing consumer — now carrying canonical
     // outcomes and gating relief, so the stepper and this route cannot
     // disagree (One-State Principle §5.3).
-    state: resolution.runtimeState,
+    state: {
+      ...resolution.runtimeState,
+      // Agent-generic subjectRef parameterization (2026-08-12): the journey
+      // definition HORIZEN_MONEYPENNY_JOURNEY has subjectRef: 'moneypenny'
+      // hardcoded at every stage, predating agent selectability (2026-07-31).
+      // Substitute the resolved agent's slug so the response reflects the
+      // actual agent being queried, not the static journey definition.
+      subjectRef: agent.slug,
+    },
     // THREE AXES, reported separately so no consumer can collapse them.
     axes,
     branchOffers,
