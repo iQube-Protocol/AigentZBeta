@@ -52,6 +52,24 @@
  *     (`services/invariants/resolutionRecords.ts`). Persisting a proposal is
  *     the existing manual, reviewed convention every other record in the
  *     registry already follows; nothing here writes to disk.
+ *
+ *  5. **Scope is not context-binding** (operator ruling, 2026-08-15 —
+ *     `RES-2026-08-15-SCOPE-CONTEXT-BINDING-AXIS-001`). `InvariantScope`
+ *     (`types/invariantEnvelope.ts`) answers WHERE a causal proposition
+ *     applies; it is not extended with a `developer`/`user` rung, and never
+ *     will be, because authorized personal/project relevance is a SEPARATE
+ *     axis from causal scope. That axis — recorded as a design requirement,
+ *     not implemented here — would represent `platform / workspace / project
+ *     / developer / principal-user / session-intent`, deferred to Crystal 2.0
+ *     / post-threshold. Until it exists, `RiskObservation`/
+ *     `RecurrencePortabilityAssessment` carry no personal-context field, and
+ *     any future caller that wires a persistent, cross-session store MUST
+ *     pre-filter to an authorized scope before pooling (see the caller
+ *     contract on `assessRecurrencePortability`,
+ *     `services/devCommandCenter/failureLearning.ts`) — never by adding a
+ *     `personaId`-shaped field here, which `DEV_LOOP_FORBIDDEN_STATE_KEYS`
+ *     (below) already forbids on `DevLoopState` for the same T0-isolation
+ *     reason.
  */
 
 import type { CompletionStage } from './capabilityCompletion';
