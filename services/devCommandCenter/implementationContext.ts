@@ -24,7 +24,8 @@
  */
 
 import { INVARIANT_BUDGET } from '@/services/invariants/resolution';
-import { partitionByEpistemicStanding } from '@/services/devCommandCenter/invariantEnvelope';
+import { partitionByEpistemicStanding, partitionByCausalClaim as partitionByCausalClaimPure } from '@/services/devCommandCenter/envelopeViews';
+import { tokenizeStatement } from '@/services/devCommandCenter/bearingDiscovery';
 import {
   epistemicMarker,
   mayBeCitedAsEstablished,
@@ -136,18 +137,11 @@ export function bindFalsification(
 /**
  * The consequences that carry a causal claim, and those that do not.
  *
- * Reported rather than enforced: whether a given consequence SHOULD carry one
- * is a judgement about the intent, not a property a function can compute.
+ * RELOCATED to `envelopeViews.ts` (2026-08-15, same client-bundle fix as
+ * `partitionByEpistemicStanding` above) — re-exported here so existing
+ * importers of this module are unaffected.
  */
-export function partitionByCausalClaim(entries: readonly ConsequenceEntry[]): {
-  testable: ConsequenceEntry[];
-  ordinary: ConsequenceEntry[];
-} {
-  const testable: ConsequenceEntry[] = [];
-  const ordinary: ConsequenceEntry[] = [];
-  for (const e of entries) (e.falsification ? testable : ordinary).push(e);
-  return { testable, ordinary };
-}
+export const partitionByCausalClaim = partitionByCausalClaimPure;
 
 // ---------------------------------------------------------------------------
 // §3 Implementation context — compression that preserves epistemic boundaries
@@ -193,6 +187,130 @@ export interface ImplementationContext {
   text: string;
 }
 
+// ---------------------------------------------------------------------------
+// §3a Causal relevance — admission ranks by relevance, not registry order
+//
+// Homecoming III Phase 6 Closure (2026-08-15). The live dogfood against the
+// real, 33-member devon-projected candidate registry found that admission
+// ranked by array order (registry-accumulation order) within each epistemic
+// bucket, then sliced each bucket SEQUENTIALLY from a shared budget. Both
+// halves of that design are the defect:
+//
+//  1. WITHIN a bucket, array order is not relevance — an unrelated candidate
+//     registered earlier beat the single most on-point candidate for this
+//     intent purely by insertion position.
+//  2. ACROSS buckets, signals took the ENTIRE remaining budget before
+//     discoveries were even considered, so any live discovery — however
+//     relevant — was structurally guaranteed zero admission once the signal
+//     population alone exceeded the budget.
+//
+// The repair is admission/ranking, not capacity: `INVARIANT_BUDGET` is
+// unchanged. Candidate signals and live discoveries are pooled into ONE
+// relevance-ranked competition for the shared non-established budget, so a
+// highly relevant discovery can outrank a low-relevance signal — then the
+// admitted pool is split back into its own section by `provenance` for
+// rendering, so lifecycle/provenance separation in the OUTPUT is untouched;
+// only the SLICING decision is joint.
+// ---------------------------------------------------------------------------
+
+export interface CausalRelevanceContext {
+  /** The intent's own text (goal + rawInput + desired outcomes, caller-joined). */
+  intentText?: string;
+  /** Residual material uncertainty this cycle didn't resolve, caller-joined. */
+  unresolvedText?: string;
+  /**
+   * Invariant refs a `ProofOfRisk` ties to a vector in the CURRENT
+   * `IntentRiskField` — i.e. structurally proven relevant to the risk this
+   * cycle is actually reasoning about, not merely retrieved. See
+   * `deriveRiskDrivenRefs` below.
+   */
+  riskDrivenRefs?: ReadonlySet<string>;
+}
+
+/**
+ * The refs a risk is materially relevant to, restricted to vectors that are
+ * actually IN the current risk field — a `ProofOfRisk` for a retired or
+ * foreign vector must not lend its invariants borrowed relevance here.
+ */
+export function deriveRiskDrivenRefs(
+  proofsOfRisk: readonly ProofOfRisk[],
+  riskField: IntentRiskField | null,
+): Set<string> {
+  const currentVectorIds = new Set((riskField?.vectors ?? []).map((v) => v.id));
+  const refs = new Set<string>();
+  for (const proof of proofsOfRisk) {
+    if (!proof.riskVectorRef || !currentVectorIds.has(proof.riskVectorRef.id)) continue;
+    for (const ref of proof.invariantRefs) refs.add(ref);
+  }
+  return refs;
+}
+
+/**
+ * Bounded [0,1] keyword-overlap fallback for material with no structural
+ * relevance signal — reuses `tokenizeStatement` (the SAME tokenizer
+ * `claimKey` uses for convergence matching) rather than a second,
+ * independently-tuned similarity metric. Deliberately bounded well below the
+ * structural-tie scores below: a keyword match is a weak, honest heuristic
+ * (the same "bootstrap-heuristic-v1" candor the risk model already applies
+ * to itself), never allowed to outrank a proven causal tie.
+ */
+function tokenOverlapScore(statement: string, against: string): number {
+  if (!against) return 0;
+  const a = new Set(tokenizeStatement(statement));
+  const b = new Set(tokenizeStatement(against));
+  if (a.size === 0 || b.size === 0) return 0;
+  let shared = 0;
+  for (const t of a) if (b.has(t)) shared += 1;
+  return shared / Math.min(a.size, b.size);
+}
+
+/**
+ * Score one member's causal relevance to the current intent/risk field.
+ *
+ * Ordered by confidence, highest first, each tier strictly outranking the
+ * next regardless of how many lower-tier members exist — this is what
+ * "compete by relevance, not accumulation" actually requires: a hundred
+ * keyword-overlap-only signals must never outweigh one structurally-proven
+ * risk-driven finding.
+ *
+ *  4.x — proven relevant to the CURRENT risk field via a real ProofOfRisk.
+ *  3.5 — this run's OWN discovery process already established the tie:
+ *        positive bearing is intent-driven by construction; negative bearing
+ *        is risk-driven by construction (`bearingDiscovery.ts`).
+ *  1-2 — an actually-ASSESSED materiality (never 'unknown') is a real signal.
+ *  0-1 — keyword overlap against the intent text and residual uncertainty —
+ *        the honest fallback for established/signal members with no
+ *        structural tie. Zero context and zero overlap score exactly 0,
+ *        which a stable sort leaves in its ORIGINAL order — so a caller that
+ *        supplies no relevance context reproduces today's array-order
+ *        behavior exactly (no silent change for existing callers).
+ */
+export function causalRelevanceScore(item: EnvelopeInvariant, ctx: CausalRelevanceContext): number {
+  if (ctx.riskDrivenRefs?.has(item.ref)) return 4;
+  if (item.recoveries.some((r) => r.route === 'intent-driven' || r.route === 'risk-driven')) return 3.5;
+  if (typeof item.materiality === 'number') return 1 + Math.max(0, Math.min(1, item.materiality));
+  return (
+    tokenOverlapScore(item.statement, ctx.intentText ?? '') +
+    tokenOverlapScore(item.statement, ctx.unresolvedText ?? '') * 1.5
+  );
+}
+
+/**
+ * Rank by `causalRelevanceScore`, STABLE (ties keep their input order) —
+ * explicit index tiebreak rather than relying on engine sort stability, so
+ * the "no context supplied → today's array-order behavior" guarantee holds
+ * regardless of runtime.
+ */
+function rankByCausalRelevance(
+  items: readonly EnvelopeInvariant[],
+  ctx: CausalRelevanceContext,
+): EnvelopeInvariant[] {
+  return items
+    .map((item, index) => ({ item, index, score: causalRelevanceScore(item, ctx) }))
+    .sort((a, b) => (b.score !== a.score ? b.score - a.score : a.index - b.index))
+    .map((r) => r.item);
+}
+
 /**
  * Compose the implementation prompt with epistemic boundaries intact.
  *
@@ -209,11 +327,25 @@ export interface ImplementationContext {
  * Constitutional constraints are admitted before anything else and are NOT
  * subject to the budget: they bound what may be built at all, and a budget
  * that can silently remove the bounds is not a budget, it is a hazard.
+ *
+ * ── Admission order (Phase 6 Closure, 2026-08-15) ───────────────────────────
+ *
+ * 1. Constitutional — unconditional, as always.
+ * 2. Established — admitted next from the shared budget, internally ranked
+ *    by causal relevance so a materially-applicable established member is
+ *    never crowded out by a less relevant one (requirement 2).
+ * 3. Signals + discoveries — pooled into ONE causal-relevance ranking and
+ *    admitted together from what remains, then split back into their own
+ *    sections by provenance. This is the actual repair: a highly relevant
+ *    live discovery or risk-driven finding can now outrank an unrelated
+ *    signal for the shared budget, instead of every signal being admitted
+ *    before any discovery is even considered (requirements 3, 4, 5).
  */
 export function composeImplementationContext(
   invariants: readonly EnvelopeInvariant[],
   unresolvedQuestions: readonly string[],
   budget: number = INVARIANT_BUDGET.withSessionMemory,
+  relevance: CausalRelevanceContext = {},
 ): ImplementationContext {
   /*
    * THE CONSTRAINTS SECTION IS PROVENANCE **AND** STANDING, NOT PROVENANCE ALONE.
@@ -244,9 +376,20 @@ export function composeImplementationContext(
     remaining -= out.length;
     return out;
   };
-  const keptEstablished = take(established);
-  const keptSignals = take(signals);
-  const keptDiscoveries = take(discoveries);
+
+  // Established is admitted next, ranked internally by relevance so a
+  // materially-applicable member can never be crowded out by a less
+  // relevant one even if the established population itself grows large.
+  const keptEstablished = take(rankByCausalRelevance(established, relevance));
+
+  // Signals and discoveries POOL for what remains, ranked TOGETHER by
+  // relevance — the actual repair. Splitting them into their own sections
+  // AFTER admission (by `provenance`, never by re-deriving membership)
+  // keeps rendering's lifecycle/provenance separation exactly as before;
+  // only the shared slice decision changed.
+  const admittedPool = take(rankByCausalRelevance([...signals, ...discoveries], relevance));
+  const keptSignals = admittedPool.filter((i) => i.provenance !== 'live-discovery');
+  const keptDiscoveries = admittedPool.filter((i) => i.provenance === 'live-discovery');
 
   const line = (i: EnvelopeInvariant) =>
     `- ${epistemicMarker(i.lifecycle)} ${i.statement} (${i.ref}, ${i.provenance})`;

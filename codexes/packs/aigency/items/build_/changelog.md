@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`2e5b4c0`](https://github.com/iQube-Protocol/AigentZBeta/commit/2e5b4c0285b3fd5a5efa527085175801db027471) [docs] docs: canonize domain runtime orchestrator model (Kn0w1, 2026-08-15T15:36:29-04:00)
 - [`5b77bdf`](https://github.com/iQube-Protocol/AigentZBeta/commit/5b77bdfccf8ba090fef5fe89e1201adb22c1f5aa) [push] groom knyts-bridge: remove duplicate passport gate (A1), auto-advance passport room (A2), embed article-zero templates (A3) (Claude, 2026-08-14T02:18:05Z)
 - [`2941362`](https://github.com/iQube-Protocol/AigentZBeta/commit/29413627bbf9399cde4bc8e79ced80e9ae484f67) [push] groom bridges: header stage numbers (A4), auto-advance passport room (A2), article-zero templates (A3), pdf border styling (A6), duplicate passport gate removal (A1) (Claude, 2026-08-14T02:19:53Z)
 - [`bff416b`](https://github.com/iQube-Protocol/AigentZBeta/commit/bff416b853ac17de98defd4c3d5636c037615e62) [push] Revert "groom bridges: header stage numbers (A4), auto-advance passport room (A2), article-zero templates (A3), pdf border styling (A6), duplicate passport gate removal (A1)" (Claude, 2026-08-14T02:40:53Z)

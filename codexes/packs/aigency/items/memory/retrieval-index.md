@@ -4129,3 +4129,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-5b77bdf.md](../build_/COMMITS/COMMIT-5b77bdf.md)
 - Message: groom knyts-bridge: remove duplicate passport gate (A1), auto-advance passport room (A2), embed article-zero templates (A3)
+
+## Commit `2e5b4c0` — 2026-08-15T15:36:29-04:00
+- Type: `docs`
+- Brief: [COMMIT-2e5b4c0.md](../build_/COMMITS/COMMIT-2e5b4c0.md)
+- Message: docs: canonize domain runtime orchestrator model

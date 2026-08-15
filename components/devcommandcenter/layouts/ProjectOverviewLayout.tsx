@@ -5,22 +5,8 @@ import { Layers, Play, Target, Package, FileSearch, AlertTriangle, CheckCircle }
 import { LayoutShell } from "@/components/metame/welcome/layouts/LayoutShell";
 import { PendingProposalCard } from "./PendingProposalCard";
 import { canAdvance, buildImplementationPackage } from "@/services/devCommandCenter";
+import { STAGES, getStageIndex } from "@/components/devcommandcenter/stageMeta";
 import type { DevLayoutProps, DevCapsuleId } from "./types";
-import type { DevLoopStage } from "@/types/devCommandCenter";
-
-const STAGES: { id: DevLoopStage; label: string; icon: typeof Target }[] = [
-  { id: "intent_capture", label: "Intent", icon: Target },
-  { id: "context_assembly", label: "Context", icon: Package },
-  { id: "gap_analysis", label: "Gaps", icon: FileSearch },
-  { id: "consequence_modeling", label: "Consequences", icon: AlertTriangle },
-  { id: "implementation", label: "Implement", icon: Target },
-  { id: "consequence_validation", label: "Validate", icon: CheckCircle },
-  { id: "complete", label: "Complete", icon: CheckCircle },
-];
-
-function getStageIndex(stage: DevLoopStage): number {
-  return STAGES.findIndex(s => s.id === stage);
-}
 
 export interface ProjectOverviewLayoutProps extends DevLayoutProps {
   onNavigateCapsule?: (id: DevCapsuleId) => void;

@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-14T03:50:55.138Z",
+  "last_updated": "2026-08-15T19:38:10.050Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "5b77bdfccf8ba090fef5fe89e1201adb22c1f5aa",
-  "latest_commit_short": "5b77bdf",
-  "latest_commit_title": "groom knyts-bridge: remove duplicate passport gate (A1), auto-advance passport room (A2), embed article-zero templates (A3)",
+  "latest_commit": "2e5b4c0285b3fd5a5efa527085175801db027471",
+  "latest_commit_short": "2e5b4c0",
+  "latest_commit_title": "docs: canonize domain runtime orchestrator model",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "2e5b4c0",
+      "full_sha": "2e5b4c0285b3fd5a5efa527085175801db027471",
+      "title": "docs: canonize domain runtime orchestrator model",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-15T15:36:29-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-2e5b4c0.md"
+    },
     {
       "sha": "5b77bdf",
       "full_sha": "5b77bdfccf8ba090fef5fe89e1201adb22c1f5aa",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-09T01:21:54Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-edd2ed4.md"
-    },
-    {
-      "sha": "1a5d597",
-      "full_sha": "1a5d5978cc1db5aea0d4927e5c4834a73d26487c",
-      "title": "Horizen Pilot Closure Report — CODE READY / LIVE VERIFICATION PENDING",
-      "author": "Claude",
-      "timestamp": "2026-08-09T01:24:30Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-1a5d597.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

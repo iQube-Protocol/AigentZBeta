@@ -1,0 +1,818 @@
+{
+  "schemaVersion": "homecoming-iii-phase6-dogfood-trace/v1.0",
+  "intent": {
+    "intentId": "intent-phase6-crystal2-contextbinding-scope",
+    "rawInput": "Use DevOn to scope the first internal Crystal 2.0 implementation assignment: a contract-first type definition for the context-binding axis recorded as a design requirement in RES-2026-08-15-SCOPE-CONTEXT-BINDING-AXIS-001, without implementing enforcement or wiring it to any live surface.",
+    "goal": "Scope and stub the first internal Crystal 2.0 implementation assignment: a contract-first type definition for the context-binding axis (platform / workspace / project / developer / principal-user / session-intent).",
+    "users": [
+      "devon",
+      "future-context-binding-consumers"
+    ],
+    "constraints": [
+      "Must not add personaId/rootDid/authProfileId/fioHandle/kybeAttestation or any other T0 identifier to the new contract",
+      "Must not extend INVARIANT_SCOPES or otherwise represent context binding as a causal scope",
+      "Must not wire the new contract into DevLoopState or any live runtime surface in this assignment",
+      "Contract-first only — no enforcement runtime, no persistence mechanism, in this assignment"
+    ],
+    "desiredOutcomes": [
+      "A durable, reviewable type contract exists for the context-binding axis",
+      "Future DevOn/Crystal work has a named place to attach authorized context binding without reopening Phase 1 contracts"
+    ],
+    "successCriteria": [
+      "types/contextBinding.ts exists with the six-rung axis pinned as data",
+      "No T0-identifier-shaped field name appears in the new file",
+      "A canary pins the six-rung order and the import-graph/adoption boundaries discovered this run",
+      "npm run report:resolutions remains clear"
+    ],
+    "relatedVentures": [],
+    "relatedCartridges": [
+      "devon"
+    ],
+    "priority": "medium",
+    "status": "approved",
+    "createdAt": "2026-08-15T00:00:00.000Z",
+    "updatedAt": "2026-08-15T00:00:00.000Z"
+  },
+  "envelopeAsRetrieved": {
+    "scopesSearched": [
+      "cross-domain",
+      "repository"
+    ],
+    "invariantCount": 33,
+    "invariants": [
+      {
+        "ref": "CI-2026-08-03-IDENTIFIER-RECOVERY-CONTRACT-001",
+        "statement": "Identifier recovery must return the subject's authoritative identifier; related actor, owner or wallet identifiers may be used only as lookup keys and must never be substituted as the answer.",
+        "provenance": "projection-devon",
+        "lifecycle": {
+          "registry": "resolution-records",
+          "status": "candidate"
+        },
+        "scope": "repository",
+        "bearing": null,
+        "recoveries": [],
+        "materiality": "unknown"
+      },
+      {
+        "ref": "CI-2026-08-08-CFS-ROOTDID-AUTHORITY-001",
+        "statement": "An agreement declared authorityBinding: 'ROOT_DID' is authorized by RootDID equivalence, not persona identity: the forming and authorizing personas may differ, and authorization succeeds only when both resolve through the identity spine to the same RootDID commitment. RootDID equivalence establishes who may exercise the principal's authority — it never expands the agreement's allowed actions, TTL, financial limits, verification requirements, or agent authority, and the acting persona is preserved in the authorization receipt as an auditable commitment without becoming the constitutional principal of record.",
+        "provenance": "projection-devon",
+        "lifecycle": {
+          "registry": "resolution-records",
+          "status": "candidate"
+        },
+        "scope": "repository",
+        "bearing": null,
+        "recoveries": [],
+        "materiality": "unknown"
+      },
+      {
+        "ref": "CI-2026-08-08-PNL-INDEPENDENT-EVIDENCE-001",
+        "statement": "P&L verification is an independent, asynchronous capability transition from Pulse admission, with its own state (absent / evidence-pending / verified). Absence of P&L evidence must never invalidate, gate, or block already-proven upstream constitutional state (Pulse Verified, CFS authorization, or Ratify). A P&L receipt is minted ONLY when a read-only Horizen correlation returns a genuine artifact independently attributable to the exact agent/token/chain — never fabricated to make a status render green, and never inferred from Pulse's own confirmation.",
+        "provenance": "projection-devon",
+        "lifecycle": {
+          "registry": "resolution-records",
+          "status": "candidate"
+        },
+        "scope": "repository",
+        "bearing": null,
+        "recoveries": [],
+        "materiality": "unknown"
+      },
+      {
+        "ref": "CI-2026-08-08-PULSE-EVIDENCE-BOOTSTRAP-001",
+        "statement": "Establishing receipted evidence for the FIRST time on an already-CONFIRMED row (no baseline exists yet) is a distinct act from reconciliation (which compares a fresh read against a baseline that must already exist). The two are never folded into one function: a bootstrap that finds no prior evidence makes exactly one live, read-only call and mints the supported fine-grained receipts; once it succeeds, ordinary reconciliation is the only external reread mechanism that row needs afterward.",
+        "provenance": "projection-devon",
+        "lifecycle": {
+          "registry": "resolution-records",
+          "status": "candidate"
+        },
+        "scope": "repository",
+        "bearing": null,
+        "recoveries": [],
+        "materiality": "unknown"
+      },
+      {
+        "ref": "CI-2026-08-08-RECEIPT-SUBJECT-SCOPING-001",
+        "statement": "A receipt is admissible as evidence for a specific runtime agent's stage/checklist/completion iff the receipt's own agents_invoked names that exact runtime agent — never merely because the querying/acting persona is the same, and never merely because the action type matches. A query that filters only by actionType and the acting persona's scope, with no subject-agent filter, returns every agent's receipts of that type the persona has ever produced and must not be trusted as agent-scoped evidence.",
+        "provenance": "projection-devon",
+        "lifecycle": {
+          "registry": "resolution-records",
+          "status": "candidate"
+        },
+        "scope": "repository",
+        "bearing": null,
+        "recoveries": [],
+        "materiality": "unknown"
+      },
+      {
+        "ref": "CI-2026-08-08-RECEIPTED-CONSTITUTIONAL-STATE-001",
+        "statement": "A verified external fact, checked against a valid constitutional policy and recorded in a DVN-attributable receipt carrying the evidence that justified it, IS the canonical constitutional state transition — downstream surfaces read that receipted state, never re-derive it by reinterpreting the external network's raw response at render time.",
+        "provenance": "projection-devon",
+        "lifecycle": {
+          "registry": "resolution-records",
+          "status": "candidate"
+        },
+        "scope": "repository",
+        "bearing": null,
+        "recoveries": [],
+        "materiality": "unknown"
+      },
+      {
+        "ref": "CI-2026-08-08-RECONCILIATION-NEVER-REWRITES-001",
+        "statement": "Reconciling a receipted constitutional state against a fresh external read never rewrites that state: agreement records the check, and disagreement produces a NEW, independently-receipted discrepancy event — the state field itself is only ever changed by a subsequent verified-and-receipted transition, never by a reconciliation read.",
+        "provenance": "projection-devon",
+        "lifecycle": {
+          "registry": "resolution-records",
+          "status": "candidate"
+        },
+        "scope": "repository",
+        "bearing": null,
+        "recoveries": [],
+        "materiality": "unknown"
+      },
+      {
+        "ref": "CI-2026-08-09-STANDING-SEED-PRODUCTION-WIRING-001",
+        "statement": "A fully-specified capability with a documented caller contract is not complete until a production caller actually executes that contract at the boundary it names. A settled-fact read with no corresponding settle-fact write is not a smaller version of the capability — it is the capability's absence, silently rendered as a permanent zero/false to every downstream consumer. Closing this gap means wiring ONE canonical implementation of the documented contract at the observed completion boundary, generically for every eligible subject, never a per-subject patch and never a second, parallel eligibility check.",
+        "provenance": "projection-devon",
+        "lifecycle": {
+          "registry": "resolution-records",
+          "status": "candidate"
+        },
+        "scope": "repository",
+        "bearing": null,
+        "recoveries": [],
+        "materiality": "unknown"
+      },
+      {
+        "ref": "CI-2026-08-15-CANONICAL-TERM-RESOLUTION-001",
+        "statement": "A canonical term's meaning is resolved from governed Common Ground before it is inferred from context. Where the term is absent from canon, it is surfaced as unresolved rather than reconstructed.",
+        "provenance": "projection-devon",
+        "lifecycle": {
+          "registry": "resolution-records",
+          "status": "candidate"
+        },
+        "scope": "repository",
+        "bearing": null,
+        "recoveries": [],
+        "materiality": "unknown"
+      },
+      {
+        "ref": "CI-2026-08-15-COLLECTION-KEY-UNIQUENESS-001",
+        "statement": "A completeness guarantee computed by set difference is sound only where the key it uses is unique within the collection; where the collection permits the key to repeat, the bookkeeping keys on occurrence identity instead.",
+        "provenance": "projection-devon",
+        "lifecycle": {
+          "registry": "resolution-records",
+          "status": "observed"
+        },
+        "scope": "repository",
+        "bearing": null,
+        "recoveries": [],
+        "materiality": "unknown"
+      },
+      {
+        "ref": "CI-2026-08-15-DESTINATION-ADDRESSABLE-001",
+        "statement": "Committed work is addressable by the name the process tracks it under, verified before the work is made rather than after it is attempted.",
+        "provenance": "projection-devon",
+        "lifecycle": {
+          "registry": "resolution-records",
+          "status": "candidate"
+        },
+        "scope": "repository",
+        "bearing": null,
+        "recoveries": [],
+        "materiality": "unknown"
+      },
+      {
+        "ref": "CI-2026-08-15-QUIESCENT-MEASUREMENT-001",
+        "statement": "A measurement of a system's state is evidence about that system only if the system is quiescent for the duration of the measurement; a reading taken during mutation is evidence about the measurement, not about the system.",
+        "provenance": "projection-devon",
+        "lifecycle": {
+          "registry": "resolution-records",
+          "status": "observed"
+        },
+        "scope": "repository",
+        "bearing": null,
+        "recoveries": [],
+        "materiality": "unknown"
+      },
+      {
+        "ref": "CI-2026-08-15-SCOPE-CONTEXT-BINDING-AXIS-001",
+        "statement": "Invariant scope (where a causal proposition applies) and context binding (which authorized person's, developer's, or project's state is relevant to the present resolution) are kept as separate axes. Personal or project state is never represented as an additional rung on the causal scope ladder, and evidence gathered under one authorized context is never pooled into broader Crystal learning without that authorization boundary being explicitly cleared.",
+        "provenance": "projection-devon",
+        "lifecycle": {
+          "registry": "resolution-records",
+          "status": "candidate"
+        },
+        "scope": "repository",
+        "bearing": null,
+        "recoveries": [],
+        "materiality": "unknown"
+      },
+      {
+        "ref": "CI-2026-08-03-ACTOR-SUBJECT-OWNER-001",
+        "statement": "Actor, subject and owner are distinct references. A system must not substitute one for another merely because they are related through the same transaction, wallet or persona.",
+        "provenance": "projection-devon",
+        "lifecycle": {
+          "registry": "resolution-records",
+          "status": "ratified"
+        },
+        "scope": "cross-domain",
+        "bearing": null,
+        "recoveries": [],
+        "materiality": "unknown"
+      },
+      {
+        "ref": "CI-2026-08-03-CANARY-REPRODUCES-DEFECT-001",
+        "statement": "A regression canary is valid only if it demonstrably fails against the historical defect and passes against the verified resolution. A green test that encodes the defective assumption is evidence of instrument failure, not protection.",
+        "provenance": "projection-devon",
+        "lifecycle": {
+          "registry": "resolution-records",
+          "status": "ratified"
+        },
+        "scope": "cross-domain",
+        "bearing": null,
+        "recoveries": [],
+        "materiality": "unknown"
+      },
+      {
+        "ref": "CI-2026-08-03-TTV-TTR-OBJECTIVE-001",
+        "statement": "Constitutional computing shall reduce Time to Value while keeping Time to Repair within constitutional bounds. A reduction in Time to Repair must not be achieved through a material increase in Time to Value, and a reduction in Time to Value must not create an unacceptable increase in Time to Repair. Constitutional safeguards constrain unsafe acts while accelerating constitutionally safe work.",
+        "provenance": "projection-devon",
+        "lifecycle": {
+          "registry": "resolution-records",
+          "status": "ratified"
+        },
+        "scope": "cross-domain",
+        "bearing": null,
+        "recoveries": [],
+        "materiality": "unknown"
+      },
+      {
+        "ref": "CI-2026-08-03-ADMISSION-CIRCULAR-PREREQUISITE-001",
+        "statement": "Admission confidence must not depend on evidence produced only after admission.",
+        "provenance": "projection-devon",
+        "lifecycle": {
+          "registry": "resolution-records",
+          "status": "candidate"
+        },
+        "scope": "cross-domain",
+        "bearing": null,
+        "recoveries": [],
+        "materiality": "unknown"
+      },
+      {
+        "ref": "CI-2026-08-03-BOUNDED-PROCESSOR-PARTIAL-COMPLETION-001",
+        "statement": "A bounded processor must distinguish partial completion from complete processing. Unprocessed population must be disclosed, counted and either resumed or explicitly excluded.",
+        "provenance": "projection-devon",
+        "lifecycle": {
+          "registry": "resolution-records",
+          "status": "candidate"
+        },
+        "scope": "cross-domain",
+        "bearing": null,
+        "recoveries": [],
+        "materiality": "unknown"
+      },
+      {
+        "ref": "CI-2026-08-03-CANARY-SUBJECT-SELECTION-001",
+        "statement": "A regression test must select its subject by the property under test, not by incidental ordering, index, fixture position or current registry shape.",
+        "provenance": "projection-devon",
+        "lifecycle": {
+          "registry": "resolution-records",
+          "status": "candidate"
+        },
+        "scope": "cross-domain",
+        "bearing": null,
+        "recoveries": [],
+        "materiality": "unknown"
+      },
+      {
+        "ref": "CI-2026-08-03-CANONICAL-READER-OWNERSHIP-001",
+        "statement": "One canonical reader owns the lookup of a fact; a consumer that re-implements the query becomes a second observer that will eventually disagree.",
+        "provenance": "projection-devon",
+        "lifecycle": {
+          "registry": "resolution-records",
+          "status": "candidate"
+        },
+        "scope": "cross-domain",
+        "bearing": null,
+        "recoveries": [],
+        "materiality": "unknown"
+      },
+      {
+        "ref": "CI-2026-08-03-CAPACITY-LIMIT-BATCHES-NOT-TRUNCATES-001",
+        "statement": "Capacity limits must produce pagination or batching, not silent population truncation.",
+        "provenance": "projection-devon",
+        "lifecycle": {
+          "registry": "resolution-records",
+          "status": "candidate"
+        },
+        "scope": "cross-domain",
+        "bearing": null,
+        "recoveries": [],
+        "materiality": "unknown"
+      },
+      {
+        "ref": "CI-2026-08-03-CHAIN-AS-INDEPENDENT-EVIDENCE-001",
+        "statement": "A confirmed external consequence is independent evidence: it must be readable without the vendor’s agreement, the confirming source must be named, and a divergence between sources must be stated in both directions rather than resolved by preferring one.",
+        "provenance": "projection-devon",
+        "lifecycle": {
+          "registry": "resolution-records",
+          "status": "candidate"
+        },
+        "scope": "cross-domain",
+        "bearing": null,
+        "recoveries": [],
+        "materiality": "unknown"
+      },
+      {
+        "ref": "CI-2026-08-03-CONTROL-CONSTRAINS-RECORD-001",
+        "statement": "Constitutional control constrains the unsafe record, not the safe remainder.",
+        "provenance": "projection-devon",
+        "lifecycle": {
+          "registry": "resolution-records",
+          "status": "candidate"
+        },
+        "scope": "cross-domain",
+        "bearing": null,
+        "recoveries": [],
+        "materiality": "unknown"
+      },
+      {
+        "ref": "CI-2026-08-03-CONVERGE-ON-PROTOCOL-CONTRACT-001",
+        "statement": "When integrating with an external protocol, implementation must converge toward the protocol contract, not repeated inference from observed responses. Diagnostics may be used to discover the contract, but once the contract is known the implementation must validate against it rather than heuristics.",
+        "provenance": "projection-devon",
+        "lifecycle": {
+          "registry": "resolution-records",
+          "status": "candidate"
+        },
+        "scope": "cross-domain",
+        "bearing": null,
+        "recoveries": [],
+        "materiality": "unknown"
+      },
+      {
+        "ref": "CI-2026-08-03-DISTINCT-STATE-AXES-001",
+        "statement": "Independent state axes must not be collapsed into one blocking sequence. A capability, participation or enrichment state may condition only its own axis; it may never gate, and may never regress, a constitutional state on another axis.",
+        "provenance": "projection-devon",
+        "lifecycle": {
+          "registry": "resolution-records",
+          "status": "candidate"
+        },
+        "scope": "cross-domain",
+        "bearing": null,
+        "recoveries": [],
+        "materiality": "unknown"
+      },
+      {
+        "ref": "CI-2026-08-03-EXCEPTION-TERMINATES-IN-ACT-001",
+        "statement": "Every exception must terminate in an executable decision. An exception surface is incomplete unless it offers the next safe act in context, carrying the evidence, the recommendation, the rationale, the consequence and the action.",
+        "provenance": "projection-devon",
+        "lifecycle": {
+          "registry": "resolution-records",
+          "status": "candidate"
+        },
+        "scope": "cross-domain",
+        "bearing": null,
+        "recoveries": [],
+        "materiality": "unknown"
+      },
+      {
+        "ref": "CI-2026-08-03-EXECUTION-CONSTRAINT-ABSORPTION-001",
+        "statement": "Implementation constraints that do not alter constitutional intent shall be absorbed by the system rather than projected onto the operator.",
+        "provenance": "projection-devon",
+        "lifecycle": {
+          "registry": "resolution-records",
+          "status": "candidate"
+        },
+        "scope": "cross-domain",
+        "bearing": null,
+        "recoveries": [],
+        "materiality": "unknown"
+      },
+      {
+        "ref": "CI-2026-08-03-ONE-ADMISSION-GATE-001",
+        "statement": "An admission decision has exactly one implementation, and its blocking set is closed. A condition may block admission only where a ratified rule says it must; every other condition is recorded as a disclosed, non-blocking exception carrying the authority for that classification.",
+        "provenance": "projection-devon",
+        "lifecycle": {
+          "registry": "resolution-records",
+          "status": "candidate"
+        },
+        "scope": "cross-domain",
+        "bearing": null,
+        "recoveries": [],
+        "materiality": "unknown"
+      },
+      {
+        "ref": "CI-2026-08-03-PREPARED-EXECUTION-001",
+        "statement": "When intent is fully specified, prepare execution. The operator approves prepared work rather than reconstructs work.",
+        "provenance": "projection-devon",
+        "lifecycle": {
+          "registry": "resolution-records",
+          "status": "candidate"
+        },
+        "scope": "cross-domain",
+        "bearing": null,
+        "recoveries": [],
+        "materiality": "unknown"
+      },
+      {
+        "ref": "CI-2026-08-03-SCHEMA-ENRICHMENT-RECOVERY-001",
+        "statement": "Schema enrichment must preserve recovery for historical receipts.",
+        "provenance": "projection-devon",
+        "lifecycle": {
+          "registry": "resolution-records",
+          "status": "candidate"
+        },
+        "scope": "cross-domain",
+        "bearing": null,
+        "recoveries": [],
+        "materiality": "unknown"
+      },
+      {
+        "ref": "CI-2026-08-03-SETTLED-STAGE-OUTCOME-MONOTONIC-001",
+        "statement": "A stage's canonical outcome and its evidence completeness are separate facts. Missing evidence is disclosed as an audit gap and never demotes an established outcome; and once established, an outcome is reversed only by a named invalidation event, never by a later stage's failure or a degraded read.",
+        "provenance": "projection-devon",
+        "lifecycle": {
+          "registry": "resolution-records",
+          "status": "candidate"
+        },
+        "scope": "cross-domain",
+        "bearing": null,
+        "recoveries": [],
+        "materiality": "unknown"
+      },
+      {
+        "ref": "CI-2026-08-03-UX-MINIMIZE-CONSTITUTIONAL-COGNITIVE-LOAD-001",
+        "statement": "Constitutional governance increases decision quality; it must decrease interaction cost.",
+        "provenance": "projection-devon",
+        "lifecycle": {
+          "registry": "resolution-records",
+          "status": "candidate"
+        },
+        "scope": "cross-domain",
+        "bearing": null,
+        "recoveries": [],
+        "materiality": "unknown"
+      },
+      {
+        "ref": "CI-2026-08-03-UX-RECOMMENDATION-PREPARED-IN-ADVANCE-001",
+        "statement": "By the time the operator sees something, the system must already have prepared the recommended disposition, rationale, receipts, affected records and consequences.",
+        "provenance": "projection-devon",
+        "lifecycle": {
+          "registry": "resolution-records",
+          "status": "candidate"
+        },
+        "scope": "cross-domain",
+        "bearing": null,
+        "recoveries": [],
+        "materiality": "unknown"
+      }
+    ],
+    "note": "DB-backed legs (constitutional-substrate, crystal-substrate) returned EMPTY — no Supabase credentials in this sandbox (verified: no .env.local, no SUPABASE_* env vars). Fail-open per buildInvariantEnvelope's documented contract. The devon-projection leg (filesystem-backed) ran for real."
+  },
+  "riskField": {
+    "intentRef": "intent-phase6-crystal2-contextbinding-scope",
+    "vectors": [
+      {
+        "model": "bootstrap-heuristic-v1",
+        "id": "rv-scope-context-binding-reopen",
+        "label": "Stubbing the axis re-litigates or blurs the just-ruled scope/context-binding boundary"
+      },
+      {
+        "model": "bootstrap-heuristic-v1",
+        "id": "rv-t0-identifier-leak",
+        "label": "A 'developer'/'principal-user' rung invites a raw T0 identifier field by convenience"
+      },
+      {
+        "model": "bootstrap-heuristic-v1",
+        "id": "rv-premature-wiring",
+        "label": "The contract existing gets silently adopted by a live surface before authorization/enforcement exists"
+      }
+    ],
+    "proofRefs": [],
+    "originsPresent": [
+      "projected"
+    ],
+    "revision": 1,
+    "constructedAt": "2026-08-15T00:00:00.000Z"
+  },
+  "proofsOfRisk": [
+    {
+      "id": "por-rv1",
+      "intentRef": "intent-phase6-crystal2-contextbinding-scope",
+      "riskVectorRef": {
+        "model": "bootstrap-heuristic-v1",
+        "id": "rv-scope-context-binding-reopen",
+        "label": "Stubbing the axis re-litigates or blurs the just-ruled scope/context-binding boundary"
+      },
+      "origin": "projected",
+      "invariantRefs": [],
+      "initiatingCondition": "The new contract is read alongside INVARIANT_SCOPES by a future agent",
+      "adverseConsequence": "A future change couples or conflates the causal scope ladder with context binding",
+      "severity": "unknown",
+      "probability": "unknown",
+      "uncertainty": "unknown",
+      "repairPath": null,
+      "reversibility": "unknown",
+      "blastRadius": null,
+      "evidenceRefs": [],
+      "status": "projected",
+      "createdAt": "2026-08-15T00:00:00.000Z"
+    },
+    {
+      "id": "por-rv2",
+      "intentRef": "intent-phase6-crystal2-contextbinding-scope",
+      "riskVectorRef": {
+        "model": "bootstrap-heuristic-v1",
+        "id": "rv-t0-identifier-leak",
+        "label": "A 'developer'/'principal-user' rung invites a raw T0 identifier field by convenience"
+      },
+      "origin": "projected",
+      "invariantRefs": [],
+      "initiatingCondition": "A rung value or field is named for convenience without checking T0 discipline",
+      "adverseConsequence": "A T0 identifier reaches a T2/T1-bound contract",
+      "severity": "unknown",
+      "probability": "unknown",
+      "uncertainty": "unknown",
+      "repairPath": null,
+      "reversibility": "unknown",
+      "blastRadius": null,
+      "evidenceRefs": [],
+      "status": "projected",
+      "createdAt": "2026-08-15T00:00:00.000Z"
+    },
+    {
+      "id": "por-rv3",
+      "intentRef": "intent-phase6-crystal2-contextbinding-scope",
+      "riskVectorRef": {
+        "model": "bootstrap-heuristic-v1",
+        "id": "rv-premature-wiring",
+        "label": "The contract existing gets silently adopted by a live surface before authorization/enforcement exists"
+      },
+      "origin": "projected",
+      "invariantRefs": [],
+      "initiatingCondition": "Another surface imports the new contract before enforcement exists",
+      "adverseConsequence": "A recorded design requirement becomes live, unauthorized wiring without review",
+      "severity": "unknown",
+      "probability": "unknown",
+      "uncertainty": "unknown",
+      "repairPath": null,
+      "reversibility": "unknown",
+      "blastRadius": null,
+      "evidenceRefs": [],
+      "status": "projected",
+      "createdAt": "2026-08-15T00:00:00.000Z"
+    }
+  ],
+  "discovery": {
+    "passOrder": [
+      "risk-field",
+      "positive",
+      "negative",
+      "convergence"
+    ],
+    "riskFieldRevision": 1,
+    "discovered": [
+      {
+        "ref": "pos-0",
+        "statement": "The context-binding axis's six rungs exist as one pinned, ordered array of string literals whose exact sequence a canary asserts — never a free-form string a caller could mistype.",
+        "provenance": "live-discovery",
+        "lifecycle": {
+          "registry": "none",
+          "status": "unrecorded"
+        },
+        "scope": "intent",
+        "bearing": "positive",
+        "recoveries": [
+          {
+            "bearing": "positive",
+            "route": "intent-driven",
+            "searchDomain": "devon",
+            "riskVectorRef": null,
+            "repairPath": null,
+            "scopeExpansion": null
+          }
+        ],
+        "materiality": "unknown"
+      },
+      {
+        "ref": "pos-1",
+        "statement": "Every future reader of the context-binding contract can trace it back to the ruling that authorized it, via an in-file cross-reference to RES/CI-2026-08-15-SCOPE-CONTEXT-BINDING-AXIS-001.",
+        "provenance": "live-discovery",
+        "lifecycle": {
+          "registry": "none",
+          "status": "unrecorded"
+        },
+        "scope": "intent",
+        "bearing": "positive",
+        "recoveries": [
+          {
+            "bearing": "positive",
+            "route": "intent-driven",
+            "searchDomain": "devon",
+            "riskVectorRef": null,
+            "repairPath": null,
+            "scopeExpansion": null
+          }
+        ],
+        "materiality": "unknown"
+      },
+      {
+        "ref": "pos-2",
+        "statement": "The contract's schema version follows the repo's existing `<kebab-domain-slug>/v<major>.<minor>` convention, so a future enforcement layer can extend it by version rather than by silent shape drift.",
+        "provenance": "live-discovery",
+        "lifecycle": {
+          "registry": "none",
+          "status": "unrecorded"
+        },
+        "scope": "intent",
+        "bearing": "positive",
+        "recoveries": [
+          {
+            "bearing": "positive",
+            "route": "intent-driven",
+            "searchDomain": "devon",
+            "riskVectorRef": null,
+            "repairPath": null,
+            "scopeExpansion": null
+          }
+        ],
+        "materiality": "unknown"
+      },
+      {
+        "ref": "neg-0",
+        "statement": "The context-binding module's import graph remains independent of `types/invariantEnvelope.ts`'s `InvariantScope` export, so a change to either can never silently couple to the other.",
+        "provenance": "live-discovery",
+        "lifecycle": {
+          "registry": "none",
+          "status": "unrecorded"
+        },
+        "scope": "cross-domain",
+        "bearing": "negative",
+        "recoveries": [
+          {
+            "bearing": "negative",
+            "route": "risk-driven",
+            "searchDomain": "constitutional-computing",
+            "riskVectorRef": {
+              "model": "bootstrap-heuristic-v1",
+              "id": "rv-scope-context-binding-reopen",
+              "label": "Stubbing the axis re-litigates or blurs the just-ruled scope/context-binding boundary"
+            },
+            "repairPath": "A canary asserts the new file imports nothing from types/invariantEnvelope.ts",
+            "scopeExpansion": {
+              "fromDomain": "devon",
+              "toDomain": "constitutional-computing",
+              "fromScope": "intent",
+              "toScope": "cross-domain",
+              "motivatedByRiskVectorId": "rv-scope-context-binding-reopen"
+            }
+          }
+        ],
+        "materiality": "unknown"
+      },
+      {
+        "ref": "neg-1",
+        "statement": "No field name or rung value in the context-binding contract lexically collides with any T0 key name already forbidden on DevLoopState, checked by the SAME predicate technique `findForbiddenStateKey` already applies rather than a second, independently-tuned check.",
+        "provenance": "live-discovery",
+        "lifecycle": {
+          "registry": "none",
+          "status": "unrecorded"
+        },
+        "scope": "cross-domain",
+        "bearing": "negative",
+        "recoveries": [
+          {
+            "bearing": "negative",
+            "route": "risk-driven",
+            "searchDomain": "identity-spine",
+            "riskVectorRef": {
+              "model": "bootstrap-heuristic-v1",
+              "id": "rv-t0-identifier-leak",
+              "label": "A 'developer'/'principal-user' rung invites a raw T0 identifier field by convenience"
+            },
+            "repairPath": "Reuse findForbiddenStateKey against the new file's own source text in a canary",
+            "scopeExpansion": {
+              "fromDomain": "devon",
+              "toDomain": "identity-spine",
+              "fromScope": "intent",
+              "toScope": "cross-domain",
+              "motivatedByRiskVectorId": "rv-t0-identifier-leak"
+            }
+          }
+        ],
+        "materiality": "unknown"
+      },
+      {
+        "ref": "neg-2",
+        "statement": "At the close of this assignment, zero non-test production module imports the context-binding contract — its existence is not yet its adoption.",
+        "provenance": "live-discovery",
+        "lifecycle": {
+          "registry": "none",
+          "status": "unrecorded"
+        },
+        "scope": "cross-domain",
+        "bearing": "negative",
+        "recoveries": [
+          {
+            "bearing": "negative",
+            "route": "risk-driven",
+            "searchDomain": "repository",
+            "riskVectorRef": {
+              "model": "bootstrap-heuristic-v1",
+              "id": "rv-premature-wiring",
+              "label": "The contract existing gets silently adopted by a live surface before authorization/enforcement exists"
+            },
+            "repairPath": "A canary greps the repo for non-test importers of the new file and asserts none exist",
+            "scopeExpansion": {
+              "fromDomain": "devon",
+              "toDomain": "repository",
+              "fromScope": "intent",
+              "toScope": "cross-domain",
+              "motivatedByRiskVectorId": "rv-premature-wiring"
+            }
+          }
+        ],
+        "materiality": "unknown"
+      }
+    ]
+  },
+  "mergedInvariantCount": 39,
+  "compressedImplementationContext": {
+    "sections": {
+      "constitutional-constraints": [],
+      "established-invariants": [
+        "- [ratified] Actor, subject and owner are distinct references. A system must not substitute one for another merely because they are related through the same transaction, wallet or persona. (CI-2026-08-03-ACTOR-SUBJECT-OWNER-001, projection-devon)",
+        "- [ratified] A regression canary is valid only if it demonstrably fails against the historical defect and passes against the verified resolution. A green test that encodes the defective assumption is evidence of instrument failure, not protection. (CI-2026-08-03-CANARY-REPRODUCES-DEFECT-001, projection-devon)",
+        "- [ratified] Constitutional computing shall reduce Time to Value while keeping Time to Repair within constitutional bounds. A reduction in Time to Repair must not be achieved through a material increase in Time to Value, and a reduction in Time to Value must not create an unacceptable increase in Time to Repair. Constitutional safeguards constrain unsafe acts while accelerating constitutionally safe work. (CI-2026-08-03-TTV-TTR-OBJECTIVE-001, projection-devon)"
+      ],
+      "candidate-and-risk-signals": [
+        "- [candidate — not yet validated] Identifier recovery must return the subject's authoritative identifier; related actor, owner or wallet identifiers may be used only as lookup keys and must never be substituted as the answer. (CI-2026-08-03-IDENTIFIER-RECOVERY-CONTRACT-001, projection-devon)",
+        "- [candidate — not yet validated] An agreement declared authorityBinding: 'ROOT_DID' is authorized by RootDID equivalence, not persona identity: the forming and authorizing personas may differ, and authorization succeeds only when both resolve through the identity spine to the same RootDID commitment. RootDID equivalence establishes who may exercise the principal's authority — it never expands the agreement's allowed actions, TTL, financial limits, verification requirements, or agent authority, and the acting persona is preserved in the authorization receipt as an auditable commitment without becoming the constitutional principal of record. (CI-2026-08-08-CFS-ROOTDID-AUTHORITY-001, projection-devon)",
+        "- [candidate — not yet validated] P&L verification is an independent, asynchronous capability transition from Pulse admission, with its own state (absent / evidence-pending / verified). Absence of P&L evidence must never invalidate, gate, or block already-proven upstream constitutional state (Pulse Verified, CFS authorization, or Ratify). A P&L receipt is minted ONLY when a read-only Horizen correlation returns a genuine artifact independently attributable to the exact agent/token/chain — never fabricated to make a status render green, and never inferred from Pulse's own confirmation. (CI-2026-08-08-PNL-INDEPENDENT-EVIDENCE-001, projection-devon)",
+        "- [candidate — not yet validated] Establishing receipted evidence for the FIRST time on an already-CONFIRMED row (no baseline exists yet) is a distinct act from reconciliation (which compares a fresh read against a baseline that must already exist). The two are never folded into one function: a bootstrap that finds no prior evidence makes exactly one live, read-only call and mints the supported fine-grained receipts; once it succeeds, ordinary reconciliation is the only external reread mechanism that row needs afterward. (CI-2026-08-08-PULSE-EVIDENCE-BOOTSTRAP-001, projection-devon)",
+        "- [candidate — not yet validated] A receipt is admissible as evidence for a specific runtime agent's stage/checklist/completion iff the receipt's own agents_invoked names that exact runtime agent — never merely because the querying/acting persona is the same, and never merely because the action type matches. A query that filters only by actionType and the acting persona's scope, with no subject-agent filter, returns every agent's receipts of that type the persona has ever produced and must not be trusted as agent-scoped evidence. (CI-2026-08-08-RECEIPT-SUBJECT-SCOPING-001, projection-devon)",
+        "- [candidate — not yet validated] A verified external fact, checked against a valid constitutional policy and recorded in a DVN-attributable receipt carrying the evidence that justified it, IS the canonical constitutional state transition — downstream surfaces read that receipted state, never re-derive it by reinterpreting the external network's raw response at render time. (CI-2026-08-08-RECEIPTED-CONSTITUTIONAL-STATE-001, projection-devon)",
+        "- [candidate — not yet validated] Reconciling a receipted constitutional state against a fresh external read never rewrites that state: agreement records the check, and disagreement produces a NEW, independently-receipted discrepancy event — the state field itself is only ever changed by a subsequent verified-and-receipted transition, never by a reconciliation read. (CI-2026-08-08-RECONCILIATION-NEVER-REWRITES-001, projection-devon)",
+        "- [candidate — not yet validated] A fully-specified capability with a documented caller contract is not complete until a production caller actually executes that contract at the boundary it names. A settled-fact read with no corresponding settle-fact write is not a smaller version of the capability — it is the capability's absence, silently rendered as a permanent zero/false to every downstream consumer. Closing this gap means wiring ONE canonical implementation of the documented contract at the observed completion boundary, generically for every eligible subject, never a per-subject patch and never a second, parallel eligibility check. (CI-2026-08-09-STANDING-SEED-PRODUCTION-WIRING-001, projection-devon)",
+        "- [candidate — not yet validated] A canonical term's meaning is resolved from governed Common Ground before it is inferred from context. Where the term is absent from canon, it is surfaced as unresolved rather than reconstructed. (CI-2026-08-15-CANONICAL-TERM-RESOLUTION-001, projection-devon)"
+      ],
+      "live-discoveries": [],
+      "unresolved-material-uncertainty": []
+    },
+    "carried": {
+      "constitutional-constraints": [],
+      "established-invariants": [
+        "CI-2026-08-03-ACTOR-SUBJECT-OWNER-001",
+        "CI-2026-08-03-CANARY-REPRODUCES-DEFECT-001",
+        "CI-2026-08-03-TTV-TTR-OBJECTIVE-001"
+      ],
+      "candidate-and-risk-signals": [
+        "CI-2026-08-03-IDENTIFIER-RECOVERY-CONTRACT-001",
+        "CI-2026-08-08-CFS-ROOTDID-AUTHORITY-001",
+        "CI-2026-08-08-PNL-INDEPENDENT-EVIDENCE-001",
+        "CI-2026-08-08-PULSE-EVIDENCE-BOOTSTRAP-001",
+        "CI-2026-08-08-RECEIPT-SUBJECT-SCOPING-001",
+        "CI-2026-08-08-RECEIPTED-CONSTITUTIONAL-STATE-001",
+        "CI-2026-08-08-RECONCILIATION-NEVER-REWRITES-001",
+        "CI-2026-08-09-STANDING-SEED-PRODUCTION-WIRING-001",
+        "CI-2026-08-15-CANONICAL-TERM-RESOLUTION-001"
+      ],
+      "live-discoveries": [],
+      "unresolved-material-uncertainty": []
+    },
+    "omittedRefs": [
+      "pos-0",
+      "pos-1",
+      "pos-2",
+      "CI-2026-08-15-COLLECTION-KEY-UNIQUENESS-001",
+      "CI-2026-08-15-DESTINATION-ADDRESSABLE-001",
+      "CI-2026-08-15-QUIESCENT-MEASUREMENT-001",
+      "CI-2026-08-15-SCOPE-CONTEXT-BINDING-AXIS-001",
+      "CI-2026-08-03-ADMISSION-CIRCULAR-PREREQUISITE-001",
+      "CI-2026-08-03-BOUNDED-PROCESSOR-PARTIAL-COMPLETION-001",
+      "CI-2026-08-03-CANARY-SUBJECT-SELECTION-001",
+      "CI-2026-08-03-CANONICAL-READER-OWNERSHIP-001",
+      "CI-2026-08-03-CAPACITY-LIMIT-BATCHES-NOT-TRUNCATES-001",
+      "CI-2026-08-03-CHAIN-AS-INDEPENDENT-EVIDENCE-001",
+      "CI-2026-08-03-CONTROL-CONSTRAINS-RECORD-001",
+      "CI-2026-08-03-CONVERGE-ON-PROTOCOL-CONTRACT-001",
+      "CI-2026-08-03-DISTINCT-STATE-AXES-001",
+      "CI-2026-08-03-EXCEPTION-TERMINATES-IN-ACT-001",
+      "CI-2026-08-03-EXECUTION-CONSTRAINT-ABSORPTION-001",
+      "CI-2026-08-03-ONE-ADMISSION-GATE-001",
+      "CI-2026-08-03-PREPARED-EXECUTION-001",
+      "CI-2026-08-03-SCHEMA-ENRICHMENT-RECOVERY-001",
+      "CI-2026-08-03-SETTLED-STAGE-OUTCOME-MONOTONIC-001",
+      "CI-2026-08-03-UX-MINIMIZE-CONSTITUTIONAL-COGNITIVE-LOAD-001",
+      "CI-2026-08-03-UX-RECOMMENDATION-PREPARED-IN-ADVANCE-001",
+      "neg-0",
+      "neg-1",
+      "neg-2"
+    ],
+    "budgetApplied": 12,
+    "text": "### Established invariants (ratified or canonical — may be relied upon as ground)\n- [ratified] Actor, subject and owner are distinct references. A system must not substitute one for another merely because they are related through the same transaction, wallet or persona. (CI-2026-08-03-ACTOR-SUBJECT-OWNER-001, projection-devon)\n- [ratified] A regression canary is valid only if it demonstrably fails against the historical defect and passes against the verified resolution. A green test that encodes the defective assumption is evidence of instrument failure, not protection. (CI-2026-08-03-CANARY-REPRODUCES-DEFECT-001, projection-devon)\n- [ratified] Constitutional computing shall reduce Time to Value while keeping Time to Repair within constitutional bounds. A reduction in Time to Repair must not be achieved through a material increase in Time to Value, and a reduction in Time to Value must not create an unacceptable increase in Time to Repair. Constitutional safeguards constrain unsafe acts while accelerating constitutionally safe work. (CI-2026-08-03-TTV-TTR-OBJECTIVE-001, projection-devon)\n\n### Candidate signals (NOT established — reason WITH these, never FROM them)\n- [candidate — not yet validated] Identifier recovery must return the subject's authoritative identifier; related actor, owner or wallet identifiers may be used only as lookup keys and must never be substituted as the answer. (CI-2026-08-03-IDENTIFIER-RECOVERY-CONTRACT-001, projection-devon)\n- [candidate — not yet validated] An agreement declared authorityBinding: 'ROOT_DID' is authorized by RootDID equivalence, not persona identity: the forming and authorizing personas may differ, and authorization succeeds only when both resolve through the identity spine to the same RootDID commitment. RootDID equivalence establishes who may exercise the principal's authority — it never expands the agreement's allowed actions, TTL, financial limits, verification requirements, or agent authority, and the acting persona is preserved in the authorization receipt as an auditable commitment without becoming the constitutional principal of record. (CI-2026-08-08-CFS-ROOTDID-AUTHORITY-001, projection-devon)\n- [candidate — not yet validated] P&L verification is an independent, asynchronous capability transition from Pulse admission, with its own state (absent / evidence-pending / verified). Absence of P&L evidence must never invalidate, gate, or block already-proven upstream constitutional state (Pulse Verified, CFS authorization, or Ratify). A P&L receipt is minted ONLY when a read-only Horizen correlation returns a genuine artifact independently attributable to the exact agent/token/chain — never fabricated to make a status render green, and never inferred from Pulse's own confirmation. (CI-2026-08-08-PNL-INDEPENDENT-EVIDENCE-001, projection-devon)\n- [candidate — not yet validated] Establishing receipted evidence for the FIRST time on an already-CONFIRMED row (no baseline exists yet) is a distinct act from reconciliation (which compares a fresh read against a baseline that must already exist). The two are never folded into one function: a bootstrap that finds no prior evidence makes exactly one live, read-only call and mints the supported fine-grained receipts; once it succeeds, ordinary reconciliation is the only external reread mechanism that row needs afterward. (CI-2026-08-08-PULSE-EVIDENCE-BOOTSTRAP-001, projection-devon)\n- [candidate — not yet validated] A receipt is admissible as evidence for a specific runtime agent's stage/checklist/completion iff the receipt's own agents_invoked names that exact runtime agent — never merely because the querying/acting persona is the same, and never merely because the action type matches. A query that filters only by actionType and the acting persona's scope, with no subject-agent filter, returns every agent's receipts of that type the persona has ever produced and must not be trusted as agent-scoped evidence. (CI-2026-08-08-RECEIPT-SUBJECT-SCOPING-001, projection-devon)\n- [candidate — not yet validated] A verified external fact, checked against a valid constitutional policy and recorded in a DVN-attributable receipt carrying the evidence that justified it, IS the canonical constitutional state transition — downstream surfaces read that receipted state, never re-derive it by reinterpreting the external network's raw response at render time. (CI-2026-08-08-RECEIPTED-CONSTITUTIONAL-STATE-001, projection-devon)\n- [candidate — not yet validated] Reconciling a receipted constitutional state against a fresh external read never rewrites that state: agreement records the check, and disagreement produces a NEW, independently-receipted discrepancy event — the state field itself is only ever changed by a subsequent verified-and-receipted transition, never by a reconciliation read. (CI-2026-08-08-RECONCILIATION-NEVER-REWRITES-001, projection-devon)\n- [candidate — not yet validated] A fully-specified capability with a documented caller contract is not complete until a production caller actually executes that contract at the boundary it names. A settled-fact read with no corresponding settle-fact write is not a smaller version of the capability — it is the capability's absence, silently rendered as a permanent zero/false to every downstream consumer. Closing this gap means wiring ONE canonical implementation of the documented contract at the observed completion boundary, generically for every eligible subject, never a per-subject patch and never a second, parallel eligibility check. (CI-2026-08-09-STANDING-SEED-PRODUCTION-WIRING-001, projection-devon)\n- [candidate — not yet validated] A canonical term's meaning is resolved from governed Common Ground before it is inferred from context. Where the term is absent from canon, it is surfaced as unresolved rather than reconstructed. (CI-2026-08-15-CANONICAL-TERM-RESOLUTION-001, projection-devon)"
+  }
+}

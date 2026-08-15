@@ -75,6 +75,37 @@ export type DcirRuntime = (typeof DCIR_RUNTIMES)[number];
  * selection/editing, recommendation and artefact dispositions, undo,
  * navigation, workflow progress, tool outputs, conversation turns, persona
  * changes, and system events. Extend by appending — never repurpose a kind.
+ *
+ * ── Homecoming III Phase 5 appendix (invariant-evidence observations) ──────
+ *
+ * Five kinds appended, never repurposing an existing one (the terminology
+ * audit's own finding: DCIR already observes DevOn — this closes the ONE
+ * real gap named there, that it observed a stage advancing but not whether
+ * the invariant the stage relied on held):
+ *
+ *   InvariantSupported     — an observed consequence matched what an
+ *                             invariant/candidate predicted.
+ *   InvariantChallenged    — an observed consequence partially contradicted
+ *                             a bound expectation, without fully falsifying it.
+ *   InvariantFalsified     — an observed consequence was the prohibited one,
+ *                             or a bound falsifier's observation occurred.
+ *   InvariantUnresolved    — a bound expectation was neither confirmed nor
+ *                             contradicted; the question stays open.
+ *   NewRiskObservation     — a material failure was observed that the
+ *                             existing risk field did not project. This
+ *                             event records that a RiskObservation was
+ *                             created — it NEVER records a candidate
+ *                             invariant, which the failure-learning path
+ *                             (services/devCommandCenter/failureLearning.ts)
+ *                             gates behind a separate recurrence/portability
+ *                             assessment (CANARY-05: failure ≠ invariant).
+ *
+ * These observe the SAME evidentiary act every other kind observes — they
+ * carry T2-safe summaries (a ref + a short label), never a statement body,
+ * never a personaId, never a provider/model identity (CANARY-09: provider
+ * identity is not constitutional semantics — an event's kind and summary
+ * depend only on WHAT was observed, never on WHICH provider produced the
+ * observation).
  */
 export type DcirEventKind =
   | 'DocumentCreated'
@@ -91,23 +122,11 @@ export type DcirEventKind =
   | 'ConversationTurn'
   | 'PersonaChanged'
   | 'SystemEvent'
-  /*
-   * Homecoming III Phase 5 — appended, never repurposing an existing kind
-   * (the contract's own rule, §1 above). DCIR already observes DevOn (the
-   * nine `dev*` emitters in services/dcir/eventStream.ts); these five close
-   * the loop by giving it a vocabulary for INVARIANT EVIDENCE — whether an
-   * implementation supported, challenged, or falsified the invariants its
-   * envelope relied on. DCIR PRODUCES this evidence; it does not canonize —
-   * see mayBeCitedAsEstablished() in types/invariantEnvelope.ts, which
-   * remains the only path into established context. Nothing about these five
-   * kinds writes to the invariant substrate or the resolution-record
-   * registry; they are observations, full stop.
-   */
   | 'InvariantSupported'
   | 'InvariantChallenged'
   | 'InvariantFalsified'
   | 'InvariantUnresolved'
-  | 'NewRiskObservationRecorded';
+  | 'NewRiskObservation';
 
 /**
  * Identifier-exposure tier of an event payload (Identity & Access Spine).

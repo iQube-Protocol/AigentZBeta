@@ -454,66 +454,77 @@ export function registryCopilotOpenedEvent(agentName: string): DcirEvent {
   });
 }
 
-// ─── Invariant evidence (Homecoming III Phase 5) ────────────────────────────
-//
-// Five emitters beside the nine `dev*` functions above, giving DCIR a
-// vocabulary for what an implementation did to the invariants its envelope
-// relied on. Every summary is T2-safe: an invariant/candidate REF and a
-// verdict, never a raw statement body and never a personaId. These emit
-// EVIDENCE only — see services/devCommandCenter/consequenceObservation.ts for
-// the pure decision logic that produces the verdict these functions record.
+// ─── Invariant-evidence typed helpers (Homecoming III Phase 5) ─────────────
+// Appended kinds only (types/dcir.ts) — no existing kind is repurposed. These
+// close the ONE real gap the Phase 0 terminology audit named: DCIR already
+// observes that a DevOn stage advanced; it did not yet observe whether the
+// invariant that stage relied on held. `invariantRef` is the T2-safe
+// identifier already used to cite an envelope member across surfaces — never
+// the statement text, never a personaId. `evidenceSummary` is a short label
+// (what was observed), never the full consequence description or a provider/
+// model identity (CANARY-09: provider identity is not constitutional
+// semantics — these helpers take no provider parameter, and none may be
+// added, because the evidence kind and summary must depend only on WHAT was
+// observed).
 
-/** An established invariant's expected consequence was observed. */
-export function invariantSupportedEvent(invariantRef: string): DcirEvent {
+/** An observed consequence matched what an invariant/candidate predicted. */
+export function invariantSupportedEvent(invariantRef: string, evidenceSummary: string): DcirEvent {
   return emitDcirEvent({
     kind: 'InvariantSupported',
     runtime: 'observation',
-    summary: `supported: ${invariantRef}`,
-    capsuleScope: null,
+    summary: `invariant supported: ${invariantRef} — ${evidenceSummary}`,
+    artefactRefs: [invariantRef],
+    capsuleScope: 'implementation',
   });
 }
 
-/** Observation partially or ambiguously contradicts the invariant's claim. */
-export function invariantChallengedEvent(invariantRef: string): DcirEvent {
+/** An observed consequence partially contradicted a bound expectation, without fully falsifying it. */
+export function invariantChallengedEvent(invariantRef: string, evidenceSummary: string): DcirEvent {
   return emitDcirEvent({
     kind: 'InvariantChallenged',
     runtime: 'observation',
-    summary: `challenged: ${invariantRef}`,
-    capsuleScope: null,
+    summary: `invariant challenged: ${invariantRef} — ${evidenceSummary}`,
+    artefactRefs: [invariantRef],
+    capsuleScope: 'implementation',
   });
 }
 
-/** The bound falsifier fired — the invariant's claim did not hold here. */
-export function invariantFalsifiedEvent(invariantRef: string): DcirEvent {
+/** An observed consequence was the prohibited one, or a bound falsifier's observation occurred. */
+export function invariantFalsifiedEvent(invariantRef: string, evidenceSummary: string): DcirEvent {
   return emitDcirEvent({
     kind: 'InvariantFalsified',
     runtime: 'observation',
-    summary: `falsified: ${invariantRef}`,
-    capsuleScope: null,
+    summary: `invariant falsified: ${invariantRef} — ${evidenceSummary}`,
+    artefactRefs: [invariantRef],
+    capsuleScope: 'implementation',
   });
 }
 
-/** No evidence yet either way — surfaced honestly, not defaulted to a verdict. */
-export function invariantUnresolvedEvent(invariantRef: string): DcirEvent {
+/** A bound expectation was neither confirmed nor contradicted; the question stays open. */
+export function invariantUnresolvedEvent(invariantRef: string, reason: string): DcirEvent {
   return emitDcirEvent({
     kind: 'InvariantUnresolved',
     runtime: 'observation',
-    summary: `unresolved: ${invariantRef}`,
-    capsuleScope: null,
+    summary: `invariant unresolved: ${invariantRef} — ${reason}`,
+    artefactRefs: [invariantRef],
+    capsuleScope: 'implementation',
   });
 }
 
 /**
- * A falsifier fired for a condition NO bound invariant or Proof of Risk
- * anticipated. This is CANARY-05's gate: an unanticipated failure becomes a
- * risk observation first, never a direct edit to any invariant.
+ * A material failure was observed that the existing risk field did not
+ * project. This records ONLY that a RiskObservation was created — never a
+ * candidate invariant. Whether that observation ever becomes a candidate is
+ * decided later, by a separate recurrence/portability assessment
+ * (services/devCommandCenter/failureLearning.ts) that this event cannot see
+ * and does not anticipate (CANARY-05: failure does not equal invariant).
  */
-export function newRiskObservationEvent(description: string): DcirEvent {
+export function newRiskObservationEvent(riskLabel: string, initiatingConditionSummary: string): DcirEvent {
   return emitDcirEvent({
-    kind: 'NewRiskObservationRecorded',
+    kind: 'NewRiskObservation',
     runtime: 'observation',
-    summary: description.slice(0, DCIR_EVENT_SUMMARY_MAX),
-    capsuleScope: null,
+    summary: `new risk observed: ${riskLabel} — ${initiatingConditionSummary}`,
+    capsuleScope: 'implementation',
   });
 }
 

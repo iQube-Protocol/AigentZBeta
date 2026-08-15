@@ -178,43 +178,15 @@ export function candidateScope(candidate: CandidateInvariant): InvariantScope {
 
 // ---------------------------------------------------------------------------
 // Epistemic partition — the shape prompt composition must preserve
+//
+// RELOCATED to `envelopeViews.ts` (2026-08-15) so a client component can
+// import this PURE function without pulling in this module's I/O imports
+// (`loadRegistry`, `resolveConstitutionalField`) — see that file's header.
+// Re-exported here so every existing importer of THIS module keeps working.
 // ---------------------------------------------------------------------------
 
-export interface EpistemicPartition {
-  /** Citable as established: constitutional + ratified/canonical members. */
-  established: EnvelopeInvariant[];
-  /** Real, relevant, and NOT established — candidates and proposals. */
-  signals: EnvelopeInvariant[];
-  /** Discovered this run, in no registry. */
-  discoveries: EnvelopeInvariant[];
-}
-
-/**
- * Split an envelope into its epistemic populations.
- *
- * Operator requirement, 2026-08-15: "established invariants, candidate
- * signals, live discoveries, and constitutional constraints must remain
- * structurally distinct" all the way through prompt composition. A single
- * ranked list with markers keeps them DISTINGUISHABLE; this partition keeps
- * them SEPARATE, so a composer cannot merge them by accident even while
- * respecting the markers.
- *
- * Constitutional members land in `established` — they are established by
- * ratification, which is what the constitutional pass returns — while
- * remaining identifiable by `provenance` for a composer that wants to render
- * them under their own heading.
- */
-export function partitionByEpistemicStanding(items: readonly EnvelopeInvariant[]): EpistemicPartition {
-  const established: EnvelopeInvariant[] = [];
-  const signals: EnvelopeInvariant[] = [];
-  const discoveries: EnvelopeInvariant[] = [];
-  for (const item of items) {
-    if (item.provenance === 'live-discovery') discoveries.push(item);
-    else if (mayBeCitedAsEstablished(item.lifecycle)) established.push(item);
-    else signals.push(item);
-  }
-  return { established, signals, discoveries };
-}
+export { partitionByEpistemicStanding, type EpistemicPartition } from './envelopeViews';
+import { partitionByEpistemicStanding } from './envelopeViews';
 
 // ---------------------------------------------------------------------------
 // Compression — the minimal causally determining set (PRD §14)
