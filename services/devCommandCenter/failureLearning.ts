@@ -28,6 +28,26 @@
  * (`types/resolutionRecords.ts`): a `cross-capability` claim requires
  * occurrences in more than one capability. Here, "more than one SITE" is the
  * same requirement restated for a risk observation rather than a resolution.
+ *
+ * ── Scope-authority boundary (caller's responsibility) ─────────────────────
+ *
+ * `assessRecurrencePortability` takes `priorObservations` as a flat list and
+ * performs no scope filtering of its own — it is a pure function over
+ * whatever the caller hands it. Today nothing in this codebase calls it with
+ * a persisted, cross-session `RiskObservation` store (only this file's own
+ * tests supply `priorObservations`), so no live path pools observations
+ * across scope-authority boundaries yet. When a persistent store is wired
+ * (Phase 6 territory — DevOn is single-tenant/internal today, per
+ * `types/devLoopLearning.ts`'s deliberate omission of `personaId` from
+ * `DevLoopState`), the caller MUST pre-filter `priorObservations` to the set
+ * this session/project/developer is authorized to see before calling this
+ * function. Recurrence across two developers' sessions on the SAME
+ * repository is legitimate portable evidence (the existing resolution-record
+ * registry already pools exactly this, team-wide); recurrence pooled across
+ * two different projects/tenants without that authorization check would
+ * silently manufacture a "cross-capability" candidate from coincidence, not
+ * causation — the exact failure mode this comment exists to name so it is
+ * never solved by assumption at the call site.
  */
 
 import { claimKey } from '@/services/devCommandCenter/bearingDiscovery';
