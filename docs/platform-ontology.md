@@ -229,6 +229,85 @@ between a company and its branded products. See the `metaProof` entry above.
 
 ---
 
+## The four development-lifecycle runtimes — DevOn · IDE 2.0 · DCIR · Crystal
+
+These four terms name **distinct roles in one loop**. They are not synonyms, not layers of each
+other, and not interchangeable. Each entry below states the role, because a term whose *meaning*
+is guessable but whose *boundary* is not still produces the wrong architecture.
+
+### DCIR
+
+**Canonical expansion: Dynamic Constitutional Interaction Runtime.** Ratified under CFS-020
+(Operation Chrysalis 2.0 Phase 3).
+
+**Definition:** The runtime through which relevant actions and consequences are observed and
+governed. DCIR is **general**, not development-specific: it observes and governs dynamic
+constitutional interaction across contexts. Its use inside DevOn is *one application* of the
+runtime, not its definition.
+
+**Contract:** `types/dcir.ts`. Organs: `services/dcir/{eventStream,stateEngine,affordances,useDcirSeam}.ts`.
+
+> **"Development Constitutional Invariant Runtime" is INCORRECT — it is not an alias.**
+> It is recorded here as a known-wrong expansion so that an agent encountering it in a draft
+> recognises the error rather than adopting it. Do not register it as a synonym; a glossary that
+> lists a wrong meaning still teaches it. Provenance: `RES-2026-08-15-CANONICAL-TERM-RESOLUTION-001`.
+
+### DevOn
+
+**Definition:** The development process orchestrator — it owns the development lifecycle from
+intent through authorization and consequence. Implemented as the **Dev Command Center**:
+`services/devCommandCenter/**`, `app/api/dev-command-center/**`.
+
+**Usage rule:** DevOn and Dev Command Center name the same thing. DevOn is the role; Dev Command
+Center is the implementation. Neither is a rename of the other, and no third name may be minted.
+
+### IDE 2.0
+
+**Canonical expansion: Invariant Discovery Engine, version 2.0.**
+
+**Definition:** Discovers and retrieves invariants, and constructs the causal and risk field for
+an intent. **IDE 2.0 is horizontal** — it operates *across* the DevOn lifecycle and is never a
+stage within it.
+
+> **Collision warning:** "IDE" in general software usage means *integrated development
+> environment*. In this system it does not. When ambiguity is possible, write **IDE 2.0** or
+> spell it out.
+
+### Crystal
+
+**Definition:** The compiled causal memory — governed, falsifiable invariant memory with
+provenance. Contains previously evidenced invariants and the record of what supports or
+challenges them. See `services/research/crystal*.ts`.
+
+**Usage rule:** Crystal is *memory*, never a discovery mechanism. IDE 2.0 reads Crystal; Crystal
+does not discover.
+
+### How the four compose
+
+```
+Intent → IDE 2.0 → DevOn → coding capability → DCIR → IDE 2.0 → Crystal
+         (field)  (orchestrate)  (implement)  (observe)  (evidence)  (memory)
+```
+
+**Usage rules for all four:**
+- Never substitute one term for another, and never infer an expansion from context — resolve it
+  here first. This rule is the reason the section exists (see below).
+- Do not mint a second vocabulary for a role that already has a term.
+- A term used in a PRD, spec or prompt that contradicts this file is an error **in that document**,
+  not a licence to redefine the term.
+
+**Why this section exists.** DCIR was twice reconstructed from context as "Development
+Constitutional Invariant Runtime" — a plausible, wrong expansion — because the canonical
+expansion was resolvable only by reading the source. Each reconstruction produced a different
+architecture: a *second* observation runtime parallel to the real one, which
+`services/dcir/eventStream.ts` already provided. The governing candidate invariant
+(`CI-2026-08-15-CANONICAL-TERM-RESOLUTION-001`) states it causally: *a canonical term's meaning
+is resolved from governed Common Ground before it is inferred from context.* Canon exists so
+that compute is spent discovering what is not known, rather than repeatedly guessing what the
+system has already established.
+
+---
+
 ## Enforcement
 
 All agents (Claude Code, Codex, Lovable, any future agent) must:
@@ -236,5 +315,7 @@ All agents (Claude Code, Codex, Lovable, any future agent) must:
 2. Correct any non-canonical spelling they encounter in files they are editing
 3. Never introduce a variant spelling, even in comments or variable names
 4. Treat a non-canonical spelling as a bug to be fixed, not a style preference
+5. **Resolve a canonical term from this file before inferring its meaning from context.** Where a
+   term is absent, surface it as unresolved rather than reconstructing it confidently.
 
-Last updated: 2026-07-27
+Last updated: 2026-08-15
