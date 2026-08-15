@@ -40,6 +40,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-08-15_phase6-live-dogfood-verdict.md",
         "updates/2026-08-15_scope-context-binding-axis-ruling.md",
         "updates/2026-08-15_homecoming-iii-bootstrap-architecture-audit.md",
         "updates/2026-08-12_moneypenny-dress-rehearsal-closure.md",
