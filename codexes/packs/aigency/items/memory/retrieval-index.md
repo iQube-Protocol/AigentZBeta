@@ -4219,3 +4219,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-269bf79.md](../build_/COMMITS/COMMIT-269bf79.md)
 - Message: research: add authority provenance candidate invariants
+
+## Commit `28c77db` — 2026-08-16T18:06:19-04:00
+- Type: `docs`
+- Brief: [COMMIT-28c77db.md](../build_/COMMITS/COMMIT-28c77db.md)
+- Message: docs: define four-lane prospective evolution roadmaps

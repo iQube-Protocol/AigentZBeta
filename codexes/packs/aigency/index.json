@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-16T21:25:05.109Z",
+  "last_updated": "2026-08-16T22:08:05.618Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "269bf79c3392bed0b854188f957b5d415cac37b4",
-  "latest_commit_short": "269bf79",
-  "latest_commit_title": "research: add authority provenance candidate invariants",
+  "latest_commit": "28c77dba2bf62afb796068a63ec905ba8fb5ce1b",
+  "latest_commit_short": "28c77db",
+  "latest_commit_title": "docs: define four-lane prospective evolution roadmaps",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "28c77db",
+      "full_sha": "28c77dba2bf62afb796068a63ec905ba8fb5ce1b",
+      "title": "docs: define four-lane prospective evolution roadmaps",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-16T18:06:19-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-28c77db.md"
+    },
     {
       "sha": "269bf79",
       "full_sha": "269bf79c3392bed0b854188f957b5d415cac37b4",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-09T06:24:58Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-126e971.md"
-    },
-    {
-      "sha": "b5abe6e",
-      "full_sha": "b5abe6ed98cbb356ec81a3828dbbe4fc11eed03d",
-      "title": "Split Ratify P&L into three independent tiers, uniform journey spacing",
-      "author": "Claude",
-      "timestamp": "2026-08-09T05:41:11Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-b5abe6e.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
