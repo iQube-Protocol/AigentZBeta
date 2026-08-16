@@ -455,16 +455,6 @@ export async function generateImplementationPack(input: {
   // this pack's OWN signals — never a second, hand-authored classification.
   const forbiddenFiles = deriveForbiddenFiles(input.authorizedProtectedFiles ?? []);
 
-  // Route selection sees the PRE-filter surface: a draft/evidence proposing a
-  // protected file is real signal the goal touches higher-stakes territory
-  // (escalates to the 'protected' profile, stronger model) even though that
-  // file is about to be excluded below — the conflict itself is the signal,
-  // not something to launder away before routing sees it.
-  const executionRoute: ExecutionRoute = routeExecution(
-    { areasToTouch: fields.areasToTouch, forbiddenFiles, preflight },
-    input.priorAttemptFailed ?? false,
-  );
-
   // Coherence repair (2026-08-17, operator-directed): "areasToTouch ∩
   // forbiddenFiles = ∅ unless a governed explicit protected-file
   // authorization exists." authorizedProtectedFiles already narrows
@@ -472,11 +462,29 @@ export async function generateImplementationPack(input: {
   // an UNAUTHORIZED protected file is removed, loudly (excludedProtectedAreas
   // below), never silently. The pack that actually ships — what an
   // implementation actor reads as its surface — must never simultaneously
-  // request and forbid the same file.
+  // request and forbid the same file. This MUST run BEFORE routing: routing
+  // reads areasToTouch as the pack's FINAL surface (see below).
   const excludedProtectedAreas = fields.areasToTouch.filter((a) => forbiddenFiles.includes(a));
   if (excludedProtectedAreas.length > 0) {
     fields = { ...fields, areasToTouch: fields.areasToTouch.filter((a) => !forbiddenFiles.includes(a)) };
   }
+
+  // Routing correction (2026-08-18, operator-directed): route selection sees
+  // the FINAL, post-filter surface — NOT the pre-filter draft/evidence one.
+  // A protected file that was proposed but then EXCLUDED (unauthorized,
+  // reference/evidence-only) is by now simply absent from areasToTouch and
+  // must never, by itself, force the 'protected' profile — that would
+  // escalate model/cost for a routine goal merely because retrieval
+  // surfaced a protected reference, reopening the unpinned-cost risk Phase F
+  // exists to close. An AUTHORIZED protected file, by contrast, remains in
+  // this final areasToTouch and correctly escalates (selectExecutionProfile
+  // checks the full protected-file manifest, independent of authorization —
+  // see executionRouting.ts) — protected routing tracks genuine
+  // protected-surface MODIFICATION, never a mere reference.
+  const executionRoute: ExecutionRoute = routeExecution(
+    { areasToTouch: fields.areasToTouch, forbiddenFiles, preflight },
+    input.priorAttemptFailed ?? false,
+  );
 
   return {
     id: randomUUID(),

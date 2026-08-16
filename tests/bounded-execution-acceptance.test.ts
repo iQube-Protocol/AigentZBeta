@@ -323,16 +323,41 @@ describe('pack coherence — a protected file can never survive into areasToTouc
     expect(intersection).toEqual([]);
   });
 
-  it('a protected-surface conflict still escalates execution routing to the protected profile, even though the file is excluded', async () => {
+  // Routing correction (2026-08-18, operator-directed): a protected file
+  // that was merely SURFACED by retrieval/evidence and then EXCLUDED
+  // (unauthorized, reference-only) must NOT by itself force the 'protected'
+  // profile — that would silently escalate model/cost for an otherwise
+  // routine goal just because retrieval mentioned a protected path, exactly
+  // the unpinned-cost risk Phase F exists to close. Protected routing must
+  // track genuine protected-surface MODIFICATION (an authorized file
+  // remaining in the final areasToTouch), never a mere reference.
+  it('an EXCLUDED (unauthorized) protected file does NOT by itself force the protected profile', async () => {
     const { generateImplementationPack } = await import('@/services/constitutional/implementationPack');
     const pack = await generateImplementationPack({
       goal: 'a goal whose evidence points at a protected file',
       capabilityEvidence: evidenceWithProtectedTarget,
     });
-    // The conflict itself is real signal (higher-stakes territory) — routing
-    // sees the PRE-filter surface and escalates, even though the shipped
-    // pack's own areasToTouch no longer contains the protected file.
+    expect(pack.excludedProtectedAreas).toContain('types/access.ts');
+    expect(pack.areasToTouch).not.toContain('types/access.ts');
+    // No other escalation signal here (no preflight escalate, no prior
+    // failure, no elevated risk score in this template-fallback path) — the
+    // profile must be 'routine', not 'protected'.
+    expect(pack.executionRoute.profile).toBe('routine');
+    expect(pack.executionRoute.model).toBe('claude-sonnet-4-6');
+  });
+
+  it('an AUTHORIZED protected file remaining in areasToTouch DOES escalate to the protected profile', async () => {
+    const { generateImplementationPack } = await import('@/services/constitutional/implementationPack');
+    const pack = await generateImplementationPack({
+      goal: 'a goal whose evidence points at a protected file, operator-authorized',
+      capabilityEvidence: evidenceWithProtectedTarget,
+      authorizedProtectedFiles: ['types/access.ts'],
+    });
+    expect(pack.areasToTouch).toContain('types/access.ts');
+    expect(pack.excludedProtectedAreas).toEqual([]);
+    // Genuine protected-surface modification — this DOES escalate.
     expect(pack.executionRoute.profile).toBe('protected');
+    expect(pack.executionRoute.model).toBe('claude-opus-4-6');
   });
 
   it('a pack with no protected-surface contact reports no exclusions', async () => {

@@ -30,6 +30,7 @@ import {
   type ExecutionBudget,
   type ExecutionProfile,
 } from '@/services/constitutional/executionBudget';
+import { isProtectedFile } from '@/services/constitutional/protectedFiles';
 
 export type { ExecutionProfile };
 export { EXECUTION_PROFILES };
@@ -53,7 +54,14 @@ export type ImplementationActorProvider = (typeof IMPLEMENTATION_ACTOR_PROVIDERS
 
 /** The exact subset of `ImplementationPack` execution routing needs. */
 export interface RoutingInput {
+  /** The pack's FINAL surface — after implementationPack.ts has already
+   *  excluded any unauthorized protected file. Profile selection trusts this
+   *  is final; it does not re-derive or re-filter it. */
   areasToTouch: string[];
+  /** Carried for context/telemetry parity with the pack — protected-surface
+   *  escalation itself checks `areasToTouch` against the full protected-file
+   *  manifest (`isProtectedFile`), not this narrowed list (2026-08-18
+   *  correction; see `selectExecutionProfile`). */
   forbiddenFiles: string[];
   preflight: { disposition: 'proceed' | 'escalate'; risk: { score: number } } | null;
 }
@@ -80,20 +88,34 @@ const HIGH_RISK_SCORE_THRESHOLD = 60;
  *              failure. The common case; the cheapest capable model.
  * complex    — no protected-surface contact, but the preflight risk score is
  *              elevated (still `disposition: 'proceed'`, just not trivial).
- * protected  — the pack's own `areasToTouch` overlaps its `forbiddenFiles`
- *              (a pack that has been explicitly, narrowly authorized to
- *              touch a normally-protected file — see
- *              `protectedFiles.ts::deriveForbiddenFiles`'s
- *              `authorizedProtectedFiles` param) OR the preflight forced
- *              `disposition: 'escalate'`. Either way: highest-stakes
- *              territory, strongest model, regardless of surface size.
+ * protected  — the pack's FINAL, post-coherence-filter `areasToTouch`
+ *              (see `implementationPack.ts` — a protected file that was
+ *              proposed by retrieval/evidence but excluded as unauthorized
+ *              is, by the time it reaches here, simply absent from
+ *              `areasToTouch`) still names a genuinely protected file —
+ *              either it was explicitly authorized (`authorizedProtectedFiles`)
+ *              or the preflight forced `disposition: 'escalate'`. Either way:
+ *              highest-stakes territory, strongest model, regardless of
+ *              surface size.
  * remediation — a prior attempt on this exact branch already failed. The
  *              failure itself is evidence the task is harder than first
  *              estimated; treated as an escalation, not a discount.
  */
 export function selectExecutionProfile(pack: RoutingInput, priorAttemptFailed: boolean): ExecutionProfile {
   if (priorAttemptFailed) return 'remediation';
-  const touchesProtectedSurface = pack.areasToTouch.some((a) => pack.forbiddenFiles.includes(a));
+  // Pack-coherence correction (2026-08-18, operator-directed): checked
+  // against the FULL protected-file manifest (`isProtectedFile`), never the
+  // possibly-narrowed `forbiddenFiles` — an authorized protected file is NOT
+  // in forbiddenFiles (that is what authorization means) but MUST still
+  // escalate, because approved implementation genuinely touches it. Checked
+  // over the CALLER-SUPPLIED areasToTouch, which by contract is the pack's
+  // FINAL surface (implementationPack.ts filters unauthorized protected
+  // files out before calling this) — so a file merely surfaced as
+  // reference/evidence and then excluded is already gone from areasToTouch
+  // and cannot, by itself, force this escalation. Retrieval surfacing a
+  // protected reference is not the same fact as the approved implementation
+  // requiring a protected-surface MODIFICATION; only the latter escalates.
+  const touchesProtectedSurface = pack.areasToTouch.some((a) => isProtectedFile(a));
   const forcesEscalation = pack.preflight?.disposition === 'escalate';
   if (touchesProtectedSurface || forcesEscalation) return 'protected';
   if ((pack.preflight?.risk.score ?? 0) > HIGH_RISK_SCORE_THRESHOLD) return 'complex';
