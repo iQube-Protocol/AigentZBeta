@@ -195,3 +195,24 @@ Runtime shell must preserve:
 - `SUPABASE_SERVICE_ROLE_KEY` is never `NEXT_PUBLIC_`
 - Hooks enforce: no prod DB writes, no live wallet access, no unmanaged secrets
 - Guardian cannot be bypassed by cartridge or specialist agents
+
+---
+
+## 11. Prospective Evolution Capture — PROACTIVE, OPERATOR-AUTHORIZED
+
+Every material discussion, research exchange, implementation task, debugging session, product refinement or partner conversation may surface proposals that belong in the platform's prospective evolution pipeline. The operator should not have to remember to ask agents to capture them after the fact.
+
+Every agent MUST remain alert for four proposal classes:
+
+1. **Candidate invariant** — what may need to remain true.
+2. **Candidate experiment** — what falsifiable uncertainty may need structured testing.
+3. **Candidate architectural refinement** — how the system may need to change in structure, boundaries, custody or composition.
+4. **Candidate capability** — what new ability, integration or service the platform may need.
+
+When a credible candidate surfaces, the agent MUST proactively identify it, classify it, and recommend capture in the appropriate prospective roadmap. **The agent is authorized to propose; the operator retains authority to approve registration.** Unless capture has already been explicitly authorized in the current turn or by a clear standing instruction, do not silently write the candidate into the pipeline.
+
+Do not force one insight into all four lanes. A candidate invariant does not automatically require an experiment; an architectural proposal is not an approved build; a capability proposal is not a shipped capability. Preserve epistemic status and provenance.
+
+At a natural milestone or close of a substantive turn, perform a lightweight scan: did the work surface a candidate invariant, experiment, architecture refinement, or capability? If yes, surface those candidates to the operator before moving on.
+
+Canonical operating rule: `docs/agent-harness/prospective-evolution-capture.md`. Prospective roadmap design: `codexes/packs/irl/foundation/CFS-051A_prospective-evolution-roadmaps.md`. This rule composes with, but is broader than, the Resolution → Invariant Loop: it applies even where there has been no defect or repair cycle.
