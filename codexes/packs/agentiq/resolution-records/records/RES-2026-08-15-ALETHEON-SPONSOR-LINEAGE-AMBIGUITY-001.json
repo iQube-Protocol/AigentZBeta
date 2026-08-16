@@ -1,0 +1,56 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "resolutionId": "RES-2026-08-15-ALETHEON-SPONSOR-LINEAGE-AMBIGUITY-001",
+  "capability": "Chrysalis Homecoming (CFS-023) constitutional anchoring repair — live execution attempt against Aletheon",
+  "milestone": "The generic anchoring repair (services/agents/repairDelegationAnchor.ts) was invoked live against Aletheon and correctly refused, precisely locating the blocking condition as a pre-existing, sponsor-side identity-consolidation gap rather than a defect in the repair itself",
+  "problem": "The generic constitutional-anchoring repair built and tested this session (RES/CI records from earlier the same day) was invoked live by the operator against Aletheon: POST /api/homecoming/agent/repair-anchor { delegate: 'aletheon' }. It returned { ok: false, error: 'principal_unresolved', detail: 'lineage_incomplete' } rather than anchoring the delegate. This is the repair's own sibling-root disambiguation rule (reused verbatim from services/identity/passportPrincipal.ts::resolveAuthUserForKybe) firing as designed: devagent@qripto's Kybe lineage resolves to MORE THAN ONE distinct auth_user_id across sibling root_identity rows, which is exactly the ambiguity that rule refuses to resolve by guessing.",
+  "observedFailure": [
+    "The repair's refusal is CORRECT behaviour, not a defect — confirmed by design and by the canary suite (tests/agent-delegation-anchor-repair.test.ts's 'sibling-root determinism' describe block already exercises exactly this refusal path with a mocked lineage_incomplete result).",
+    "The underlying condition is a genuine, pre-existing gap: passportPrincipal.ts's own header comment names it directly — 'two auth users under one personhood is precisely what Passport consolidation (Amendment A §A.5) exists to reconcile. Until it ships, refuse rather than choose.' Amendment A §A.5 has not shipped as of this record.",
+    "This gap predates and is unrelated to Aletheon's own genesis or the anchoring repair built this session. It is a property of the SPONSOR's own account lineage (devagent@qripto), not of Aletheon's agent_root_identity or agent_persona rows, which remain exactly as they were (untouched — the repair made no writes on this attempt, confirmed by its own no-write-on-refusal design)."
+  ],
+  "rootCauses": [
+    "The sponsor persona devagent@qripto has, at the database level, more than one root_identity row sharing its Kybe (personhood) lineage but resolving to different Supabase auth_user_id values — the exact case Passport consolidation (§A.5) was chartered to reconcile, which has not yet been built.",
+    "Because the repair (correctly) reuses the platform's existing, deliberately conservative disambiguation rule rather than inventing a laxer one for this occasion, it inherits that rule's refusal posture. This is the intended, governed behaviour — the alternative (silently picking one sibling root) would risk anchoring Aletheon to the WRONG principal identity, an error with real constitutional-continuity consequences that a refusal avoids entirely."
+  ],
+  "resolution": [
+    "No repair code change is proposed or needed — the refusal is the repair functioning correctly, evidenced by its own test suite already covering this exact path before the live attempt occurred.",
+    "The blocking condition is out of scope for the Aletheon anchoring repair to resolve: it is a sponsor-account identity-consolidation question, not a Homecoming delegate question. Resolving it requires either (a) Amendment A §A.5's consolidation mechanism, not yet built, or (b) a direct, human-supervised inspection of the sponsor's sibling root_identity rows to determine whether they represent the same human via two login methods (benign) or a genuine data-integrity question — read-only SQL for this inspection was provided to the operator, not executed by this session (no live DB access).",
+    "Per operator's closeout directive ('do not open new conceptual work unless a blocking contradiction appears'): this IS a blocking contradiction for Aletheon's anchoring specifically, so it is reported and Aletheon-specific work stops here, rather than building a Passport-consolidation feature unprompted — that would be new, unscoped, platform-wide work far beyond this session's mandate."
+  ],
+  "rejectedApproaches": [
+    "Relaxing resolveAuthUserForKybe's refusal rule (e.g., picking the most-recently-created sibling root, or the one with an active kyc_status) to let the Aletheon repair proceed. Rejected: this would silently choose a principal identity on ambiguous grounds, exactly the failure mode the existing rule exists to prevent, and would apply platform-wide to every future caller of that shared function, not just this one case.",
+    "Building an Aletheon-specific bypass or a one-off consolidation shortcut inside the anchoring repair. Rejected per the operator's own repeated instruction across this session: implement the smallest GENERIC resolution at the personhood layer, never an Aletheon-specific branch — the same discipline that produced resolvePassportPrincipalById in the first place forbids special-casing this failure away."
+  ],
+  "candidateInvariants": [],
+  "canaries": [
+    "tests/agent-delegation-anchor-repair.test.ts"
+  ],
+  "scope": "local",
+  "status": "observed",
+  "trigger": "local-anomaly-blocked-batch",
+  "evidence": {
+    "commits": [],
+    "tests": ["tests/agent-delegation-anchor-repair.test.ts"],
+    "receipts": [],
+    "incidentRefs": [
+      "services/identity/passportPrincipal.ts",
+      "services/agents/repairDelegationAnchor.ts",
+      "app/api/homecoming/agent/repair-anchor/route.ts"
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-08-15_aletheon-homecoming-phase-a-capability-census.md",
+    "codexes/packs/agentiq/resolution-records/records/RES-2026-08-15-ALETHEON-LIVE-STATE-SUPERSESSION-001.json"
+  ],
+  "date": "2026-08-15",
+  "projections": {
+    "targets": [
+      "constitutional-computing",
+      "irl"
+    ],
+    "researchRequired": true,
+    "ratificationRequired": false,
+    "track": "constitutional"
+  }
+}
