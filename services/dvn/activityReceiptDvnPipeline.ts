@@ -346,6 +346,7 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   // and hashPersonaRef untouched.)
   'agent_delegation_anchor_repaired',
   'legacy_passport_linkage_reconciled',
+  'implementation_execution_observed',
 ]);
 
 export function shouldAnchorActionType(actionType: string): boolean {

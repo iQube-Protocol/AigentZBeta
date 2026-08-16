@@ -111,7 +111,18 @@ export function ImplementationLayout({
       const res = await personaFetch("/api/dev-command-center/implement", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ packId: pack.id, goal: pack.goal, packMarkdown: packMarkdown(pack) }),
+        body: JSON.stringify({
+          packId: pack.id,
+          goal: pack.goal,
+          packMarkdown: packMarkdown(pack),
+          // Phase F bounded-execution repair (2026-08-16): routing SIGNALS
+          // only — the server re-derives forbiddenFiles/executionRoute
+          // itself (routeExecution) rather than trusting a client-supplied
+          // route/model/budget directly.
+          areasToTouch: pack.areasToTouch,
+          preflight: pack.preflight,
+          knownBaselineFailures: pack.knownBaselineFailures ?? [],
+        }),
       });
       const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
       if (!res.ok || data.ok !== true) {

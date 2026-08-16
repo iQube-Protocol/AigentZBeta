@@ -42,6 +42,8 @@ import {
   isRealizationMechanism,
   type ConstitutionalDecision,
 } from '@/services/constitutional/constitutionalDecision';
+import { deriveForbiddenFiles } from '@/services/constitutional/protectedFiles';
+import { routeExecution, type ExecutionRoute } from '@/services/constitutional/executionRouting';
 
 // ---------------------------------------------------------------------------
 // Shape
@@ -110,6 +112,24 @@ export interface ImplementationPack {
    * a session) · 'persisted-fresh' · 'persisted-stale' (older than the window
    * — re-inventory recommended, grounding proceeded LOUDLY) · 'none'. */
   evidenceFreshness: EvidenceFreshness;
+  /** Phase F bounded-execution repair (operator-directed 2026-08-16): the
+   * files an ordinary implementation actor may NEVER touch — derived from
+   * CLAUDE.md's own protected-file lists
+   * (`services/constitutional/protectedFiles.ts`), never a second
+   * hand-written list. Ships on EVERY pack so the actor never has to
+   * re-read repo-wide governance prose to reconstruct this boundary. */
+  forbiddenFiles: string[];
+  /** Pre-existing test/typecheck failures the implementation actor should
+   * NOT spend turns rediscovering or attempting to fix (unless the pack's
+   * own goal names them). Supplied by the caller (e.g. DevOn's dev-loop
+   * validation pass) — never invented or live-derived here; empty when the
+   * caller has no such evidence yet. */
+  knownBaselineFailures: string[];
+  /** The selected implementation-actor route (profile, provider, model,
+   * execution budget) — computed from THIS pack's own risk/uncertainty/
+   * protected-surface signals (`services/constitutional/executionRouting.ts`),
+   * closing the forensic audit's "unpinned model, no budget" finding. */
+  executionRoute: ExecutionRoute;
 }
 
 export interface PackPreflight {
@@ -122,6 +142,16 @@ export interface PackPreflight {
   risk: { score: number; flags: string[]; basis: 'heuristic' };
   /** Q¢ integer cents (Q¢ canon) — display USD-primary. */
   value: { workPotentialQc: number; basis: 'heuristic' };
+  /** Phase F (2026-08-16): specific, named uncertainties the implementation
+   * actor should treat as KNOWN open questions rather than rediscovering —
+   * e.g. "the owning cartridge for this surface was not resolved with
+   * confidence." Empty when the preflight found nothing genuinely uncertain. */
+  uncertaintyNotes: string[];
+  /** Named conditions under which the actor MUST escalate
+   * (`awaiting-escalation`) rather than proceed or silently expand scope —
+   * distinct from `forcesEscalation` (a computed boolean gate): these are the
+   * human-readable REASONS an escalation, if it happens, would be correct. */
+  escalationConditions: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -207,10 +237,16 @@ function templateFields(): Pick<
     composedBy: 'template',
     implementationMechanism: 'code',
     areasToTouch: [],
+    // Phase F fix (2026-08-16): the prior default here — 'existing test
+    // suite' — read literally as an instruction to run the WHOLE repo's
+    // test suite on every template-fallback pack, regardless of scope. The
+    // staged ladder below scopes validation to the touched surface first,
+    // reserving a full regression for the final gate, run at most once.
     validationPlan: [
-      'esbuild parse gates on touched files',
-      'existing test suite',
-      'coherence/canary checks where applicable',
+      'typecheck/esbuild parse gates on touched files',
+      'targeted canaries named in the pack (none named — template fallback)',
+      'affected-subsystem tests for the touched surface',
+      'full regression exactly once, at the final validation gate',
     ],
     receiptPlan: [
       'implementation_pack_generated on generation',
@@ -239,6 +275,22 @@ export async function generateImplementationPack(input: {
    * identically — constitutional operation continues even if the pinned
    * provider fails. */
   providerPin?: ExperimentProvider;
+  /** Phase F (2026-08-16): pre-existing test/typecheck failures the caller
+   * already knows about (e.g. from DevOn's own dev-loop validation pass) —
+   * carried onto the pack so the implementation actor never spends turns
+   * rediscovering established baseline noise. Never computed here; supplied
+   * or omitted (defaults to none known). */
+  knownBaselineFailures?: string[];
+  /** Phase F (2026-08-16): true when a prior implementation attempt on this
+   * exact goal/branch already failed — routes to the 'remediation' execution
+   * profile (a stronger model, a larger budget) rather than repeating the
+   * same routine-tier attempt. Defaults to false (first attempt). */
+  priorAttemptFailed?: boolean;
+  /** Phase F (2026-08-16): protected files this SPECIFIC pack has been
+   * explicitly, operator-approved to modify — narrows `forbiddenFiles` from
+   * the full protected manifest. Never inferred; empty by default (the
+   * maximally protective case). */
+  authorizedProtectedFiles?: string[];
 }): Promise<ImplementationPack> {
   let contextPack = await assembleContextPack(input.goal, {
     domains: input.context?.domains,
@@ -339,6 +391,20 @@ export async function generateImplementationPack(input: {
       knowledgeSize: invariantBindings.length,
       now,
     });
+    // Phase F (2026-08-16): named, honest uncertainty signals — never
+    // invented beyond what the forecast/evidence themselves already show.
+    const uncertaintyNotes: string[] = [];
+    if (evidenceFreshness === 'persisted-stale') {
+      uncertaintyNotes.push('grounding evidence is persisted and stale — paths/dispositions may be outdated');
+    }
+    if (!coherent) {
+      uncertaintyNotes.push(`${forecast.contradicts} reachable contradiction(s) in the invariant footprint`);
+    }
+    const escalationConditions: string[] = [
+      'a genuinely unresolved constitutional question arises during implementation (escalate — never reload broad canon to self-resolve it)',
+      'implementation would require modifying a file in forbiddenFiles',
+      'the execution budget is exhausted before the goal is complete',
+    ];
     preflight = {
       disposition: forecast.forcesEscalation ? 'escalate' : 'proceed',
       forcesEscalation: forecast.forcesEscalation,
@@ -348,6 +414,8 @@ export async function generateImplementationPack(input: {
       rationale: forecast.rationale,
       risk: { score: risk.overall_score, flags: risk.risk_flags, basis: 'heuristic' },
       value: { workPotentialQc: value.work_potential_qc, basis: 'heuristic' },
+      uncertaintyNotes,
+      escalationConditions,
     };
   } catch (err) {
     console.warn(
@@ -374,6 +442,14 @@ export async function generateImplementationPack(input: {
     fields = { ...fields, implementationMechanism: 'knowledge', areasToTouch: [] };
   }
 
+  // Phase F (2026-08-16): forbiddenFiles + executionRoute are computed from
+  // this pack's OWN signals — never a second, hand-authored classification.
+  const forbiddenFiles = deriveForbiddenFiles(input.authorizedProtectedFiles ?? []);
+  const executionRoute: ExecutionRoute = routeExecution(
+    { areasToTouch: fields.areasToTouch, forbiddenFiles, preflight },
+    input.priorAttemptFailed ?? false,
+  );
+
   return {
     id: randomUUID(),
     intentId: input.intentId ?? null,
@@ -387,6 +463,9 @@ export async function generateImplementationPack(input: {
     capabilityEvidenceId: evidenceId,
     constitutionalDecision: decision,
     evidenceFreshness,
+    forbiddenFiles,
+    knownBaselineFailures: input.knownBaselineFailures ?? [],
+    executionRoute,
     ...fields,
   };
 }
