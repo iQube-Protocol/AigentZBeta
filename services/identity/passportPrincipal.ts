@@ -351,107 +351,37 @@ async function resolveAuthUserForKybe(
   return { ok: true, authUserId: authUserIds[0] };
 }
 
-export type ClusterPrincipalFailure =
-  | 'cluster_principal_unresolved' // no persona in the cluster resolves to any root/kybe
-  | 'cluster_principal_ambiguous' // the cluster spans more than one distinct kybe, or its sibling roots span more than one auth user
-  | 'unavailable';
-
-export type ClusterPrincipalResult =
-  | { ok: true; rootIdentityId: string; kybeId: string }
-  | { ok: false; reason: ClusterPrincipalFailure };
-
 /**
- * Resolve the established principal (root + kybe) for a persona whose OWN
- * `root_did` does not (or cannot be relied on to) resolve directly, by
- * walking every persona sharing its `auth_profile_id` — the same "cluster"
- * `listOwnedPersonaIds` above answers "what does this holder own" over.
+ * SUPERSEDED 2026-08-15 (operator-locked ontology ruling, same day): this
+ * module used to export `resolveClusterPrincipalForPersona`, which resolved
+ * a principal by walking a persona's `auth_profile_id` cluster and matching
+ * `personas.root_did` against `root_identity.did_uri` — a PERSONA-UPWARD
+ * heuristic. It has been removed.
  *
- * Added for the legacy Passport/personhood linkage reconciliation
- * (operator-directed 2026-08-15): a Passport whose `kybe_identity_id` /
- * `root_identity_id` were never written (the same issuance gap documented
- * on `loadUsablePassportByKybe` above) still belongs to a real, already
- * -established principal — one its OWNER's other personas already resolve
- * to. This walks that establishment, generically, at the personhood layer.
+ * Read-only audit (2026-08-15) proved `personas.root_did` is a semantically
+ * overloaded legacy column: only ONE write site
+ * (`services/passport/bureauIdentityService.ts::bindBureauIdentity`) ever
+ * writes a genuine `root_identity.did_uri` into it. Every other persona
+ * -creation path — `services/identity/personaService.ts`,
+ * `app/api/persona/create`, `app/api/identity/persona/create-with-fio`,
+ * `app/api/wallet/persona`, batch-import scripts — writes a disposable,
+ * persona-level identifier instead (`did:fio:<handle>`, a hash of the FIO
+ * handle, or an import placeholder). A persona-upward walk therefore only
+ * ever worked by COINCIDENCE, for personas that happened to go through the
+ * Bureau path — it inherited every other path's inconsistency by
+ * construction, and was superseded rather than patched.
  *
- * Deliberately does NOT invent `root_identity.auth_user_id ==
- * personas.auth_profile_id` as an equality — live evidence in this
- * deployment disproves it (they are different layers: `auth_profile_id` is
- * the persona-cluster key, `auth_user_id` is the Supabase auth principal).
- * Instead it reuses the EXACT walk `bureauIdentityService.ts::
- * lookupExistingBinding` already performs for a single persona
- * (`personas.root_did` → `root_identity` by `did_uri`), run across every
- * distinct `root_did` the cluster holds, then reuses `resolveAuthUserForKybe`
- * — the same sibling-root disambiguation every other entry point in this
- * file already relies on — to pick the one canonical root under the
- * resolved kybe. No new disambiguation rule is introduced anywhere in this
- * function.
+ * KybeDID/RootDID are person-grade, persona-agnostic credentials.
+ * `root_identity`/`kybe_identity` are the durable spine; `personas` are
+ * contextual bindings BENEATH that spine, never the other way round.
+ * Principal resolution now flows exclusively from the authenticated
+ * session's own `auth_user_id` (see `resolveRootPrincipalForAuthUser`
+ * below) — KybeDID/RootDID → Passport → personas, never
+ * persona → guess a root → infer personhood. `personas.root_did` itself is
+ * left untouched here (a separate identity-spine normalization question,
+ * not resolved by this change) but MUST NOT be read for principal
+ * resolution anywhere in this codebase going forward.
  */
-export async function resolveClusterPrincipalForPersona(
-  personaId: string,
-): Promise<ClusterPrincipalResult> {
-  const supabase = getSupabaseServer();
-  if (!supabase) return { ok: false, reason: 'unavailable' };
-
-  const { data: personaRow, error: personaErr } = await supabase
-    .from('personas')
-    .select('auth_profile_id')
-    .eq('id', personaId)
-    .maybeSingle();
-  if (personaErr) return { ok: false, reason: 'unavailable' };
-  const authProfileId = (personaRow as { auth_profile_id?: string } | null)?.auth_profile_id;
-  if (!authProfileId) return { ok: false, reason: 'cluster_principal_unresolved' };
-
-  // Every persona in the SAME cluster (never filtered by status — a dormant
-  // sibling persona may still hold the established root_did).
-  const { data: clusterRows, error: clusterErr } = await supabase
-    .from('personas')
-    .select('root_did')
-    .eq('auth_profile_id', authProfileId);
-  if (clusterErr) return { ok: false, reason: 'unavailable' };
-  const rootDids = [
-    ...new Set(
-      (clusterRows ?? [])
-        .map((r) => (r as { root_did?: string | null }).root_did)
-        .filter((v): v is string => Boolean(v)),
-    ),
-  ];
-  if (rootDids.length === 0) return { ok: false, reason: 'cluster_principal_unresolved' };
-
-  const kybeIds = new Set<string>();
-  for (const rootDid of rootDids) {
-    const { data: rootRow, error: rootErr } = await supabase
-      .from('root_identity')
-      .select('kybe_id')
-      .eq('did_uri', rootDid)
-      .maybeSingle();
-    if (rootErr) return { ok: false, reason: 'unavailable' };
-    const kybeId = (rootRow as { kybe_id?: string } | null)?.kybe_id;
-    if (kybeId) kybeIds.add(kybeId);
-  }
-  if (kybeIds.size === 0) return { ok: false, reason: 'cluster_principal_unresolved' };
-  // The cluster's personas resolving to more than one distinct personhood is
-  // a genuine ambiguity this function must refuse, not choose between.
-  if (kybeIds.size > 1) return { ok: false, reason: 'cluster_principal_ambiguous' };
-  const kybeId = [...kybeIds][0];
-
-  // Kybe resolved once, from cluster evidence — now reuse the SAME
-  // sibling-root disambiguation every other entry point in this file uses.
-  const authUserResult = await resolveAuthUserForKybe(supabase, kybeId);
-  if (!authUserResult.ok) return { ok: false, reason: 'cluster_principal_ambiguous' };
-
-  const { data: canonicalRootRow, error: canonicalErr } = await supabase
-    .from('root_identity')
-    .select('id')
-    .eq('kybe_id', kybeId)
-    .eq('auth_user_id', authUserResult.authUserId)
-    .limit(1)
-    .maybeSingle();
-  if (canonicalErr) return { ok: false, reason: 'unavailable' };
-  const rootIdentityId = (canonicalRootRow as { id?: string } | null)?.id;
-  if (!rootIdentityId) return { ok: false, reason: 'cluster_principal_unresolved' };
-
-  return { ok: true, rootIdentityId, kybeId };
-}
 
 /**
  * Resolve the constitutional principal behind an auth user a caller has
@@ -473,9 +403,49 @@ export async function resolvePassportPrincipalForAuthUser(
   const supabase = getSupabaseServer();
   if (!supabase) return { ok: false, reason: 'unavailable' };
 
-  // 1. Auth user → roots → kybe. One personhood or refusal: two kybes under
-  //    one auth user is the consolidation problem (§A.5) — refuse rather than
-  //    choose, the same posture as the wallet walk.
+  // 1. Auth user → root → kybe.
+  const rootPrincipal = await resolveRootPrincipalForAuthUser(authUserId);
+  if (!rootPrincipal.ok) return { ok: false, reason: rootPrincipal.reason };
+  const { rootIdentityId, kybeId } = rootPrincipal;
+
+  // 2. Personhood → Passport — the same lookup the wallet walk ends in.
+  const passportResult = await loadUsablePassportByKybe(supabase, kybeId);
+  if (!passportResult.ok) return passportResult;
+
+  return {
+    ok: true,
+    principal: { kybeId, rootIdentityId, authUserId, passport: passportResult.passport },
+  };
+}
+
+export type RootPrincipalFailure = 'lineage_incomplete' | 'unavailable';
+
+export type RootPrincipalResult =
+  | { ok: true; rootIdentityId: string; kybeId: string }
+  | { ok: false; reason: RootPrincipalFailure };
+
+/**
+ * The auth_user_id → root_identity → kybe_id walk — THE canonical
+ * person-grade principal resolver, entered directly from an authenticated
+ * session's own `auth_user_id`. Never touches `personas`.
+ *
+ * Extracted from `resolvePassportPrincipalForAuthUser` (which additionally
+ * requires the resolved kybe to already hold a currently-usable Passport) so
+ * a caller that only needs the root/kybe — not an existing Passport under it
+ * — can reuse the identical walk without re-deriving it
+ * (inv.engineering.036/037). The canonical use case: legacy Passport
+ * linkage reconciliation (`services/passport/legacyPassportLinkageRepair.ts`)
+ * exists specifically to ATTACH a Passport to this exact principal, so
+ * requiring one already resolvable would be circular.
+ *
+ * One personhood or refusal: two kybes under one auth user is the
+ * consolidation problem (§A.5) — refuse rather than choose, the same
+ * posture as the wallet walk.
+ */
+export async function resolveRootPrincipalForAuthUser(authUserId: string): Promise<RootPrincipalResult> {
+  const supabase = getSupabaseServer();
+  if (!supabase) return { ok: false, reason: 'unavailable' };
+
   const { data: rootRows, error: rootErr } = await supabase
     .from('root_identity')
     .select('id, kybe_id')
@@ -489,14 +459,7 @@ export async function resolvePassportPrincipalForAuthUser(
   const rootIdentityId = String(roots.find((r) => r.kybe_id === kybeId)?.id ?? '');
   if (!rootIdentityId) return { ok: false, reason: 'lineage_incomplete' };
 
-  // 2. Personhood → Passport — the same lookup the wallet walk ends in.
-  const passportResult = await loadUsablePassportByKybe(supabase, kybeId);
-  if (!passportResult.ok) return passportResult;
-
-  return {
-    ok: true,
-    principal: { kybeId, rootIdentityId, authUserId, passport: passportResult.passport },
-  };
+  return { ok: true, rootIdentityId, kybeId };
 }
 
 /**
