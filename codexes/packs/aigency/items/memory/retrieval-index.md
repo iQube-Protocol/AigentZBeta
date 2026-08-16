@@ -4224,3 +4224,8 @@ Top-level retrieval anchors for this pack.
 - Type: `docs`
 - Brief: [COMMIT-28c77db.md](../build_/COMMITS/COMMIT-28c77db.md)
 - Message: docs: define four-lane prospective evolution roadmaps
+
+## Commit `480cfb9` — 2026-08-16T18:17:24-04:00
+- Type: `chore`
+- Brief: [COMMIT-480cfb9.md](../build_/COMMITS/COMMIT-480cfb9.md)
+- Message: chore: load prospective evolution rule into Claude sessions

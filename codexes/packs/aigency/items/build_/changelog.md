@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`480cfb9`](https://github.com/iQube-Protocol/AigentZBeta/commit/480cfb99d223aa459d8991def7129d5afc81fee7) [chore] chore: load prospective evolution rule into Claude sessions (Kn0w1, 2026-08-16T18:17:24-04:00)
 - [`28c77db`](https://github.com/iQube-Protocol/AigentZBeta/commit/28c77dba2bf62afb796068a63ec905ba8fb5ce1b) [docs] docs: define four-lane prospective evolution roadmaps (Kn0w1, 2026-08-16T18:06:19-04:00)
 - [`269bf79`](https://github.com/iQube-Protocol/AigentZBeta/commit/269bf79c3392bed0b854188f957b5d415cac37b4) [feat] research: add authority provenance candidate invariants (Kn0w1, 2026-08-16T17:23:23-04:00)
 - [`31d532e`](https://github.com/iQube-Protocol/AigentZBeta/commit/31d532e40620f40a267139b483be68f779e65541) [fix] Homecoming Phase II Gate 0: fix Kickstarter CTA navigation + CI copy (Claude, 2026-08-16T20:06:07Z)

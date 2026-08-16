@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-16T22:08:05.618Z",
+  "last_updated": "2026-08-16T22:19:09.336Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "28c77dba2bf62afb796068a63ec905ba8fb5ce1b",
-  "latest_commit_short": "28c77db",
-  "latest_commit_title": "docs: define four-lane prospective evolution roadmaps",
+  "latest_commit": "480cfb99d223aa459d8991def7129d5afc81fee7",
+  "latest_commit_short": "480cfb9",
+  "latest_commit_title": "chore: load prospective evolution rule into Claude sessions",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "480cfb9",
+      "full_sha": "480cfb99d223aa459d8991def7129d5afc81fee7",
+      "title": "chore: load prospective evolution rule into Claude sessions",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-16T18:17:24-04:00",
+      "type": "chore",
+      "brief": "items/build_/COMMITS/COMMIT-480cfb9.md"
+    },
     {
       "sha": "28c77db",
       "full_sha": "28c77dba2bf62afb796068a63ec905ba8fb5ce1b",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-09T06:24:52Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-04572c9.md"
-    },
-    {
-      "sha": "126e971",
-      "full_sha": "126e9719e1ef76fcc01895ba5fc19a7b3cb94591",
-      "title": "Revert fixed-width journey connectors to equal flex-grow",
-      "author": "Claude",
-      "timestamp": "2026-08-09T06:24:58Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-126e971.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
