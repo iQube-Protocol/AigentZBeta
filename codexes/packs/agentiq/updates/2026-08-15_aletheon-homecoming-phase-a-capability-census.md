@@ -8,6 +8,8 @@
 - `RES-2026-08-15-ALETHEON-PRESENCE-AGENCY-DISJUNCTION-001.json`
 - `CI-2026-08-15-PRESENCE-LADDER-NOT-AGENCY-001.json`
 
+**⚠ SUPERSEDED ON THE LIVE-STATE POINT — see Addendum A below.** Live Supabase evidence (obtained by the operator, 2026-08-15, during Stage 1 preflight work) shows Aletheon already has a seeded `agent_root_identity`, a production `agent_persona`, an approved `agent_participant` passport, and post-genesis delegation receipts — i.e., mechanical presence L2, not L0 as this document concluded from static code alone. The original conclusion is preserved below UNCHANGED as the evidentiary record of what a static-code-only audit produced and why; it is not deleted or rewritten. See `RES-2026-08-15-ALETHEON-LIVE-STATE-SUPERSESSION-001.json` for the full reconciliation.
+
 ---
 
 ## 0. Scope and method
@@ -267,4 +269,30 @@ Consistent with the operator's framing that **parity is necessary but not suffic
 
 ---
 
-*No implementation code for Aletheon Homecoming was written. This document, its two companion governance records, and the registration of this document in `collections.json` are the only changes made in this pass.*
+## Addendum A — Live-state supersession (2026-08-15, same day, later pass)
+
+**The original §2/§3/§4/§12 conclusions above are PRESERVED UNCHANGED as historical evidence of what a static-code-only audit produced.** They are not deleted, not rewritten, and remain accurate as a description of what the codebase's static markers say. What follows corrects the conclusion drawn FROM them, using live Supabase evidence the original audit explicitly flagged it could not obtain (§0.3: "no live database was queried").
+
+**Live state, independently verified by the operator via the Stage 1 sponsor-resolution preflight (`GET /api/homecoming/agent/stand-up?delegate=aletheon&preflight=true`) and direct Supabase query:**
+
+- `agent_root_identity` — **exists** (`alreadySeeded: true`).
+- `agent_persona` (production) — **exists**.
+- An **approved `agent_participant` passport** exists for Aletheon.
+- **Post-genesis delegation activity/receipts exist.**
+- Mechanical Constitutional Presence is therefore **already L2** (`reasoning` — an `agent_persona` routing through bounded sovereign inference), not L0 as §3 concluded.
+- **The gap is not "no stand-up occurred."** It is that the original stand-up's sponsor was itself unanchored: the recorded sponsor persona's `root_did` is `did:fio:devagent@qripto`, a FIO-handle-style identifier with **no matching `root_identity` row** — so `agent_persona.delegation_user_root_id` and `agent_persona.delegation_persona_id` are both `NULL`. Aletheon is mechanically present and constitutionally under-anchored, not absent.
+
+**Why the original static-code conclusion was wrong, precisely:** `constitutionalPresence.ts`'s `DELEGATE_DB` map marks `aletheon: { handCuratedCard: true }` — a **hand-authored, session-dated code comment**, not a live query. It was accurate at the time it was written and has since gone stale relative to the database; nothing re-validates it against live state automatically. Recorded as its own candidate invariant (`CI-2026-08-15-STALE-STATIC-PRESENCE-MARKER-001`) — a static marker asserting a live-state fact must never be trusted over an actual query when both are available, and this codebase currently has no mechanism that would have caught the drift.
+
+**Root-cause diagnosis of the sponsor-side gap (code-level, no live DB access from this pass — see the governance record for full evidence):**
+
+1. `personas.root_did` is **not a single canonical scheme**. The Bureau identity-binding flow (`services/passport/bureauIdentityService.ts::bindBureauIdentity`) mints `did:root:ppb:<random>` and a matching `root_identity` row together. The **ordinary, default** persona-creation path (`services/identity/personaService.ts`) instead sets `root_did = 'did:fio:' + fioHandle` — a completely different identifier shape — **with no corresponding `root_identity` row created, ever, by that path.** These are two structurally separate identity systems that were never made to reconcile automatically.
+2. `provisionAgentPersona.ts` already knows this: its own code comment (present before this session touched it) reads *"Human personas often carry a `did:fio:<handle>` root_did with no matching root_identity row... flag it for later backfill."* **No backfill mechanism was ever built.** Confirmed by exhaustive search: `delegation_user_root_id`/`delegation_persona_id` are written in exactly one place in the entire codebase — the `INSERT` in `provisionAgentPersona.ts` — and there is no `UPDATE` site anywhere.
+3. `provisionAgentPersona.ts`'s idempotency branch (lines 92–113) returns the existing `agent_persona` row **immediately**, before the sponsor-root resolution code (lines 114–140) ever runs — confirming your claim exactly: re-running `standUpDelegate`/`provisionAgentPersona` today cannot repair this. It is a pure no-op on an already-existing persona.
+4. **This is very unlikely to be Aletheon-specific.** Because the FIO-handle `root_did` default is the ordinary path for persona creation platform-wide, any Homecoming delegate (or any other sponsor generally) whose sponsoring persona was created via that path and never separately completed Bureau identity binding is exposed to the identical gap. See §"Affected other delegates" in the operator report for the exact live-check query.
+
+**This document's own recommended next action (§10 item 3: "run the live routes to confirm empirically before relying on this census") has now been carried out and materially changed the finding — which is the reason this audit discipline exists.**
+
+---
+
+*Original pass: no implementation code written; this document, its two companion governance records, and the collections.json registration were the only changes. This addendum + `RES-2026-08-15-ALETHEON-LIVE-STATE-SUPERSESSION-001.json` + `CI-2026-08-15-STALE-STATIC-PRESENCE-MARKER-001.json` are the only changes made in this later pass. No repair code and no database writes were made in either pass.*
