@@ -4164,3 +4164,8 @@ Top-level retrieval anchors for this pack.
 - Type: `docs`
 - Brief: [COMMIT-3d0dd87.md](../build_/COMMITS/COMMIT-3d0dd87.md)
 - Message: docs: close Homecoming Phase I and define manual execution policy
+
+## Commit `8e09a0f` — 2026-08-16T15:45:36-04:00
+- Type: `docs`
+- Brief: [COMMIT-8e09a0f.md](../build_/COMMITS/COMMIT-8e09a0f.md)
+- Message: docs: add Homecoming Phase II activation implementation pack

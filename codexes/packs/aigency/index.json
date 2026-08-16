@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-16T19:32:52.158Z",
+  "last_updated": "2026-08-16T19:47:16.562Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "3d0dd87d0085f5d0d55acc8341a9e892510e07e7",
-  "latest_commit_short": "3d0dd87",
-  "latest_commit_title": "docs: close Homecoming Phase I and define manual execution policy",
+  "latest_commit": "8e09a0fd5753be998ad7a96282720dd9a96f0cdc",
+  "latest_commit_short": "8e09a0f",
+  "latest_commit_title": "docs: add Homecoming Phase II activation implementation pack",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "8e09a0f",
+      "full_sha": "8e09a0fd5753be998ad7a96282720dd9a96f0cdc",
+      "title": "docs: add Homecoming Phase II activation implementation pack",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-16T15:45:36-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-8e09a0f.md"
+    },
     {
       "sha": "3d0dd87",
       "full_sha": "3d0dd87d0085f5d0d55acc8341a9e892510e07e7",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-09T00:41:56Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-d427c26.md"
-    },
-    {
-      "sha": "20dc5ed",
-      "full_sha": "20dc5ed3152c15db454ca3d079b9544fe4cb5e3b",
-      "title": "Close MoneyPenny's Ratify runtime-endpoint descriptor gap generically",
-      "author": "Claude",
-      "timestamp": "2026-08-09T00:46:01Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-20dc5ed.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
