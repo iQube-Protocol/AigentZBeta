@@ -12,7 +12,7 @@
  */
 
 export const KS_BASE_URL =
-  'https://www.kickstarter.com/projects/430245948/metaknyt-the-legend-of-kn0w1-and-the-21-sats';
+  'https://www.kickstarter.com/projects/430245948/metaknyt-the-legend-of-kn0w1-and-the-21-sats-0';
 
 export interface KsReward {
   id: string;
