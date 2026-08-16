@@ -410,7 +410,18 @@ export type ActivityActionType =
   // services/agents/repairDelegationAnchor.ts. Forward-looking only — this
   // describes the REPAIR act, dated to when it happened, never a fabricated
   // historical genesis receipt for the original stand-up.
-  | 'agent_delegation_anchor_repaired';
+  | 'agent_delegation_anchor_repaired'
+  // Legacy Passport/personhood linkage reconciliation (operator-directed,
+  // 2026-08-15) — a Citizen or Participant Passport issued before its
+  // kybe_identity_id/root_identity_id anchors were written (the same
+  // issuance gap loadUsablePassportByKybe's own header documents) had those
+  // two columns filled via services/passport/legacyPassportLinkageRepair.ts,
+  // resolved through the persona-cluster walk in
+  // resolveClusterPrincipalForPersona — never a status transition, never a
+  // new Passport, never §A.5 consolidation/reissuance. Forward-looking only:
+  // describes the RECONCILIATION act, dated to when it happened. Carries the
+  // public passport_id and two booleans only — no root/kybe/persona ids.
+  | 'legacy_passport_linkage_reconciled';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 

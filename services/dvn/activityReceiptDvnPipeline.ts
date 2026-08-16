@@ -345,6 +345,7 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   // one change this file permits unilaterally. Payload shape, state machine
   // and hashPersonaRef untouched.)
   'agent_delegation_anchor_repaired',
+  'legacy_passport_linkage_reconciled',
 ]);
 
 export function shouldAnchorActionType(actionType: string): boolean {

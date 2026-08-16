@@ -351,6 +351,108 @@ async function resolveAuthUserForKybe(
   return { ok: true, authUserId: authUserIds[0] };
 }
 
+export type ClusterPrincipalFailure =
+  | 'cluster_principal_unresolved' // no persona in the cluster resolves to any root/kybe
+  | 'cluster_principal_ambiguous' // the cluster spans more than one distinct kybe, or its sibling roots span more than one auth user
+  | 'unavailable';
+
+export type ClusterPrincipalResult =
+  | { ok: true; rootIdentityId: string; kybeId: string }
+  | { ok: false; reason: ClusterPrincipalFailure };
+
+/**
+ * Resolve the established principal (root + kybe) for a persona whose OWN
+ * `root_did` does not (or cannot be relied on to) resolve directly, by
+ * walking every persona sharing its `auth_profile_id` — the same "cluster"
+ * `listOwnedPersonaIds` above answers "what does this holder own" over.
+ *
+ * Added for the legacy Passport/personhood linkage reconciliation
+ * (operator-directed 2026-08-15): a Passport whose `kybe_identity_id` /
+ * `root_identity_id` were never written (the same issuance gap documented
+ * on `loadUsablePassportByKybe` above) still belongs to a real, already
+ * -established principal — one its OWNER's other personas already resolve
+ * to. This walks that establishment, generically, at the personhood layer.
+ *
+ * Deliberately does NOT invent `root_identity.auth_user_id ==
+ * personas.auth_profile_id` as an equality — live evidence in this
+ * deployment disproves it (they are different layers: `auth_profile_id` is
+ * the persona-cluster key, `auth_user_id` is the Supabase auth principal).
+ * Instead it reuses the EXACT walk `bureauIdentityService.ts::
+ * lookupExistingBinding` already performs for a single persona
+ * (`personas.root_did` → `root_identity` by `did_uri`), run across every
+ * distinct `root_did` the cluster holds, then reuses `resolveAuthUserForKybe`
+ * — the same sibling-root disambiguation every other entry point in this
+ * file already relies on — to pick the one canonical root under the
+ * resolved kybe. No new disambiguation rule is introduced anywhere in this
+ * function.
+ */
+export async function resolveClusterPrincipalForPersona(
+  personaId: string,
+): Promise<ClusterPrincipalResult> {
+  const supabase = getSupabaseServer();
+  if (!supabase) return { ok: false, reason: 'unavailable' };
+
+  const { data: personaRow, error: personaErr } = await supabase
+    .from('personas')
+    .select('auth_profile_id')
+    .eq('id', personaId)
+    .maybeSingle();
+  if (personaErr) return { ok: false, reason: 'unavailable' };
+  const authProfileId = (personaRow as { auth_profile_id?: string } | null)?.auth_profile_id;
+  if (!authProfileId) return { ok: false, reason: 'cluster_principal_unresolved' };
+
+  // Every persona in the SAME cluster (never filtered by status — a dormant
+  // sibling persona may still hold the established root_did).
+  const { data: clusterRows, error: clusterErr } = await supabase
+    .from('personas')
+    .select('root_did')
+    .eq('auth_profile_id', authProfileId);
+  if (clusterErr) return { ok: false, reason: 'unavailable' };
+  const rootDids = [
+    ...new Set(
+      (clusterRows ?? [])
+        .map((r) => (r as { root_did?: string | null }).root_did)
+        .filter((v): v is string => Boolean(v)),
+    ),
+  ];
+  if (rootDids.length === 0) return { ok: false, reason: 'cluster_principal_unresolved' };
+
+  const kybeIds = new Set<string>();
+  for (const rootDid of rootDids) {
+    const { data: rootRow, error: rootErr } = await supabase
+      .from('root_identity')
+      .select('kybe_id')
+      .eq('did_uri', rootDid)
+      .maybeSingle();
+    if (rootErr) return { ok: false, reason: 'unavailable' };
+    const kybeId = (rootRow as { kybe_id?: string } | null)?.kybe_id;
+    if (kybeId) kybeIds.add(kybeId);
+  }
+  if (kybeIds.size === 0) return { ok: false, reason: 'cluster_principal_unresolved' };
+  // The cluster's personas resolving to more than one distinct personhood is
+  // a genuine ambiguity this function must refuse, not choose between.
+  if (kybeIds.size > 1) return { ok: false, reason: 'cluster_principal_ambiguous' };
+  const kybeId = [...kybeIds][0];
+
+  // Kybe resolved once, from cluster evidence — now reuse the SAME
+  // sibling-root disambiguation every other entry point in this file uses.
+  const authUserResult = await resolveAuthUserForKybe(supabase, kybeId);
+  if (!authUserResult.ok) return { ok: false, reason: 'cluster_principal_ambiguous' };
+
+  const { data: canonicalRootRow, error: canonicalErr } = await supabase
+    .from('root_identity')
+    .select('id')
+    .eq('kybe_id', kybeId)
+    .eq('auth_user_id', authUserResult.authUserId)
+    .limit(1)
+    .maybeSingle();
+  if (canonicalErr) return { ok: false, reason: 'unavailable' };
+  const rootIdentityId = (canonicalRootRow as { id?: string } | null)?.id;
+  if (!rootIdentityId) return { ok: false, reason: 'cluster_principal_unresolved' };
+
+  return { ok: true, rootIdentityId, kybeId };
+}
+
 /**
  * Resolve the constitutional principal behind an auth user a caller has
  * ALREADY authenticated cryptographically — the passkey unlock path (§A.6
