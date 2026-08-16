@@ -60,16 +60,34 @@
  * is silently popup-blocked, and (2) if the POST itself failed for any
  * reason, `kickstarterUrl` was never populated and the visitor reached
  * nothing at all — directly contradicting the code's own comment that
- * telemetry must never block navigation. The fix decouples navigation from
+ * telemetry must never block navigation. The fix decoupled navigation from
  * telemetry entirely: the Kickstarter URL is resolved synchronously
  * client-side (getKnytsBridgeKickstarterUrl() has no server-only
- * dependency), the left pane switches to it immediately on click, and the
- * evidence POST fires fully in the background. A real `<a target="_blank">`
- * fallback is always rendered alongside the framed attempt — an anchor
- * click is a direct user gesture regardless of prior JS timing, and cross-
- * origin iframe refusal (Kickstarter's X-Frame-Options/CSP) cannot be
- * reliably detected from client code, so the fallback is unconditional
- * rather than failure-triggered.
+ * dependency), and the evidence POST fires fully in the background.
+ *
+ * ── BUG-FIX PASS (three-item closure, 2026-08-16) ─────────────────────────
+ * The Gate 0A fix above still embedded Kickstarter in an `<iframe>`, which
+ * spins indefinitely: Kickstarter's own X-Frame-Options/CSP refuses to be
+ * framed, and that refusal is silent — the iframe never fires `onError`, so
+ * the loading UI (or, here, a blank frame) never resolves. Cross-origin
+ * frame refusal cannot be reliably detected from client code, so the fix is
+ * to never attempt the embed at all: "Follow the Kickstarter" now (1) fires
+ * `kickstarter_preview_clicked` telemetry fire-and-forget, (2) opens the
+ * canonical Kickstarter URL directly in a new tab via `window.open()`
+ * called SYNCHRONOUSLY inside the click handler (a direct user gesture,
+ * never gated behind an `await`), and (3) switches the left pane to a
+ * simple first-party KNYTS confirmation panel — never an iframe of
+ * Kickstarter itself. The visible "Open Kickstarter in new tab" link stays
+ * in that panel as the existing fallback, useful if the browser blocked the
+ * automatic `window.open()`.
+ *
+ * The same pass also fixed the active-state discriminator: "Follow the
+ * Kickstarter" previously rendered permanently in the amber
+ * highlighted/"active" style regardless of `leftView`, so it visually
+ * stayed "selected" even after Store/CI was chosen. It now derives its
+ * highlight from the SAME single `leftView` state every other destination
+ * card already uses (`active={leftView === 'kickstarter'}`) — there is no
+ * separate `kickstarterActive`/`showKickstarterPreview` boolean.
  */
 
 import React, { useEffect, useState } from 'react';
@@ -137,16 +155,35 @@ function DestinationCard({
 }
 
 /**
- * "Follow the Kickstarter" — always-available outbound CTA. Switches the
- * left pane to the Kickstarter project SYNCHRONOUSLY on click (never gated
- * on the telemetry POST — see the Gate 0A fix note above) and records
- * `kickstarter_preview_clicked` (observed evidence, never promoted to a
- * confirmed follow — spec §6) fully in the background. Reward copy is
- * truthful: nothing is earned merely by clicking.
+ * "Follow the Kickstarter" — always-available outbound CTA. Opens the
+ * Kickstarter project in a new tab SYNCHRONOUSLY on click (a direct user
+ * gesture — never behind an `await`, never embedded in an iframe; see the
+ * bug-fix note above), switches the left pane to a first-party confirmation
+ * panel, and records `kickstarter_preview_clicked` (observed evidence,
+ * never promoted to a confirmed follow — spec §6) fully in the background.
+ * Reward copy is truthful: nothing is earned merely by clicking. Active
+ * styling derives from `active` (== `leftView === 'kickstarter'` at the
+ * call site) — the SAME single discriminator every other destination card
+ * uses, never a separate boolean.
  */
-function KickstarterFollowCard({ onFollow }: { onFollow: () => void }) {
+function KickstarterFollowCard({
+  active,
+  kickstarterUrl,
+  onFollow,
+}: {
+  active: boolean;
+  kickstarterUrl: string;
+  onFollow: () => void;
+}) {
   const handleFollow = () => {
     onFollow();
+    // Direct user-gesture open — synchronous, so browsers do not treat it
+    // as an unrequested popup. Kept even though a visible fallback link
+    // also renders in the confirmation panel, since most visitors never
+    // need the fallback at all.
+    if (typeof window !== 'undefined') {
+      window.open(kickstarterUrl, '_blank', 'noopener,noreferrer');
+    }
     // Fire-and-forget — best-effort evidence only, never gates navigation.
     void fetch('/api/journey/knyts-bridge/choose/kickstarter-click', {
       method: 'POST',
@@ -161,7 +198,11 @@ function KickstarterFollowCard({ onFollow }: { onFollow: () => void }) {
     <button
       type="button"
       onClick={handleFollow}
-      className="flex flex-col gap-1 rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3.5 text-left transition hover:border-amber-400/50"
+      className={`flex flex-col gap-1 rounded-xl border px-4 py-3.5 text-left transition ${
+        active
+          ? 'border-amber-400/40 bg-amber-500/10'
+          : 'border-slate-800 bg-slate-900/40 hover:border-amber-400/30'
+      }`}
     >
       <span className="flex items-center justify-between gap-3">
         <span className="flex items-center gap-2 text-sm font-semibold text-white">
@@ -231,18 +272,26 @@ export function KnytsBridgeChooseSurface({ personaId, onOpenKnytCopilot }: Knyts
       {/* LEFT — contextual visual, same interaction model as CI Choose. */}
       <FullscreenableFrame className="h-[55vh] max-h-[65vh] min-h-[18rem] w-full bg-slate-900/40" title="Choose">
         {leftView === 'kickstarter' ? (
-          <div className="relative h-full w-full">
-            <iframe src={kickstarterUrl} title="metaKnyt Kickstarter" className="h-full w-full border-0" />
-            {/* Always-visible, never failure-gated — cross-origin iframe
-                refusal (X-Frame-Options/CSP) cannot be reliably detected
-                from client code, so this is unconditional, not a fallback
-                shown only after a detected failure. A real <a target="_blank">
-                click is a direct user gesture and is never popup-blocked. */}
+          // First-party confirmation panel — Kickstarter is NEVER embedded
+          // in an iframe (its own X-Frame-Options/CSP silently refuses to
+          // be framed, which is what produced the indefinite spinner this
+          // pass fixes). The visitor already left in a new tab via the
+          // synchronous window.open() in KickstarterFollowCard's click
+          // handler; this panel just confirms that and offers the same
+          // link again for when the automatic open was blocked.
+          <div className="flex h-full flex-col items-center justify-center gap-4 px-6 py-8 text-center">
+            <Rocket className="h-16 w-16 text-amber-300" />
+            <div>
+              <h3 className="text-lg font-semibold text-white">Kickstarter opened in a new tab</h3>
+              <p className="mt-2 text-sm text-slate-300">
+                If it didn&apos;t open automatically, use the link below.
+              </p>
+            </div>
             <a
               href={kickstarterUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-lg border border-amber-400/40 bg-slate-950/80 px-3 py-1.5 text-xs font-medium text-amber-200 backdrop-blur hover:border-amber-400/70"
+              className="flex items-center gap-1.5 rounded-lg border border-amber-400/40 bg-slate-950/80 px-3 py-1.5 text-xs font-medium text-amber-200 backdrop-blur hover:border-amber-400/70"
             >
               <ExternalLink className="h-3.5 w-3.5" />
               Open Kickstarter in new tab
@@ -281,9 +330,14 @@ export function KnytsBridgeChooseSurface({ personaId, onOpenKnytCopilot }: Knyts
           submitUrl="/api/journey/knyts-bridge/choose/book-interest"
           successTitle="You're on the list. Now follow the Kickstarter."
           successDescription="This is an interest signal, not a payment — you haven't been charged."
+          accent="amber"
         />
 
-        <KickstarterFollowCard onFollow={() => setLeftView('kickstarter')} />
+        <KickstarterFollowCard
+          active={leftView === 'kickstarter'}
+          kickstarterUrl={kickstarterUrl}
+          onFollow={() => setLeftView('kickstarter')}
+        />
 
         <DestinationCard
           icon={<Sparkles className="h-4 w-4 text-amber-300" />}
