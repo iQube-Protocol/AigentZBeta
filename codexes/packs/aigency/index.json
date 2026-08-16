@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-15T19:38:10.050Z",
+  "last_updated": "2026-08-16T16:53:42.597Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "2e5b4c0285b3fd5a5efa527085175801db027471",
-  "latest_commit_short": "2e5b4c0",
-  "latest_commit_title": "docs: canonize domain runtime orchestrator model",
+  "latest_commit": "8b9c6cbc3c688952341e6466c0e3991294c86d05",
+  "latest_commit_short": "8b9c6cb",
+  "latest_commit_title": "canon: ratify personhood identity standing reputation ontology",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "8b9c6cb",
+      "full_sha": "8b9c6cbc3c688952341e6466c0e3991294c86d05",
+      "title": "canon: ratify personhood identity standing reputation ontology",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-16T12:51:51-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-8b9c6cb.md"
+    },
     {
       "sha": "2e5b4c0",
       "full_sha": "2e5b4c0285b3fd5a5efa527085175801db027471",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-09T01:17:29Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-a016920.md"
-    },
-    {
-      "sha": "edd2ed4",
-      "full_sha": "edd2ed43536efe9cc57e4ac6cad156ce14dcf31d",
-      "title": "Add Agent-N genericity proof with a third synthetic agent",
-      "author": "Claude",
-      "timestamp": "2026-08-09T01:21:54Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-edd2ed4.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

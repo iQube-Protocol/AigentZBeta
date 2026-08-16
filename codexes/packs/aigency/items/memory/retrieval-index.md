@@ -4134,3 +4134,8 @@ Top-level retrieval anchors for this pack.
 - Type: `docs`
 - Brief: [COMMIT-2e5b4c0.md](../build_/COMMITS/COMMIT-2e5b4c0.md)
 - Message: docs: canonize domain runtime orchestrator model
+
+## Commit `8b9c6cb` — 2026-08-16T12:51:51-04:00
+- Type: `push`
+- Brief: [COMMIT-8b9c6cb.md](../build_/COMMITS/COMMIT-8b9c6cb.md)
+- Message: canon: ratify personhood identity standing reputation ontology
