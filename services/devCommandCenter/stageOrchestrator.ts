@@ -577,6 +577,18 @@ export function applyStageProposal(session: DevLoopState, proposal: StageProposa
         status: 'refined',
       });
       // A new intent restarts the loop: downstream artifacts are stale.
+      //
+      // Transaction-isolation repair (2026-08-17, operator-directed): this
+      // reset was INCOMPLETE — it cleared contextPack/gapAnalysis/
+      // consequenceCanvas/validationReport/implementationBrief but left
+      // constitutionalDecision, generatedPack, remediationPlan,
+      // deploymentAuthorization, and invariantEnvelope standing. A prior
+      // intent's Constitutional Decision (e.g. its rationale) then survived
+      // into a fresh intent's Implementation Pack generation
+      // (ImplementationLayout.tsx sends `session.constitutionalDecision`
+      // verbatim whenever it's set — implementationPack.ts honours a supplied
+      // decision without re-deciding). Every field below is per-intent
+      // artifact state; NONE may silently satisfy a stage in a new intent.
       return {
         ...session,
         stage: 'intent_capture',
@@ -586,6 +598,11 @@ export function applyStageProposal(session: DevLoopState, proposal: StageProposa
         consequenceCanvas: null,
         validationReport: null,
         implementationBrief: null,
+        constitutionalDecision: null,
+        generatedPack: null,
+        remediationPlan: null,
+        deploymentAuthorization: null,
+        invariantEnvelope: null,
         updatedAt: now,
       };
     }

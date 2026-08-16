@@ -645,6 +645,91 @@ describe('applyStageProposal gap analysis (coercion + advance)', () => {
   });
 });
 
+// ─── Transaction isolation — a new intent restarts the loop COMPLETELY ─────
+//
+// Phase F pack-coherence repair (2026-08-17, operator-directed): the 'intent'
+// proposal handler cleared contextPack/gapAnalysis/consequenceCanvas/
+// validationReport/implementationBrief on a new intent but left
+// constitutionalDecision, generatedPack, remediationPlan,
+// deploymentAuthorization, and invariantEnvelope standing. A live run
+// reproduced the exact failure: Intent A ("video/article") took a
+// Constitutional Decision, the operator started a New intent for Intent B
+// ("TS2322"), and the TS2322 Implementation Pack inherited Intent A's
+// decision rationale verbatim — because ImplementationLayout.tsx sends
+// `session.constitutionalDecision` into pack generation whenever it is set,
+// and implementationPack.ts honours a supplied decision without re-deciding.
+// This reproduces that exact 6-step sequence and asserts zero artifact from
+// Intent A survives into Intent B's session state.
+describe('cross-intent artifact isolation (transaction boundary)', () => {
+  it('reproduces Intent A (video/article) -> New intent -> Intent B (TS2322): zero Intent A artifact survives', () => {
+    // 1. Intent A = video/article.
+    let session = createDevLoopSession();
+    session = applyStageProposal(session, {
+      kind: 'intent',
+      summary: 'video/article',
+      data: {
+        rawInput: 'I want to generate a 24-second video and a corresponding article',
+        goal: 'Generate a 24-second video and a corresponding article',
+        users: ['creator'],
+        desiredOutcomes: ['published video + article bundle'],
+        successCriteria: ['video renders', 'article published'],
+      },
+    });
+    expect(session.intent?.goal).toMatch(/video/i);
+
+    // 2. Generate/approve its constitutional decision (+ a generated pack and
+    // other downstream artifacts a real session would carry at this point).
+    session = {
+      ...session,
+      constitutionalDecision: {
+        mechanism: 'code',
+        noBuildRequired: false,
+        rationale: 'The capability to generate a 24-second video and a corresponding article requires new construction',
+        alternatives: [],
+        decidedBy: 'llm',
+        decidedAt: new Date().toISOString(),
+      },
+      generatedPack: { goal: 'Generate a 24-second video and a corresponding article', areasToTouch: ['services/video/'] },
+      remediationPlan: { intentId: 'intent-a', remedies: [], generatedAt: new Date().toISOString() } as unknown as DevLoopState['remediationPlan'],
+      deploymentAuthorization: { authorized: true, reason: 'ok', authorizedAt: new Date().toISOString() } as unknown as DevLoopState['deploymentAuthorization'],
+      invariantEnvelope: { intentId: 'intent-a' } as unknown as DevLoopState['invariantEnvelope'],
+    };
+    expect(session.constitutionalDecision?.rationale).toMatch(/video/i);
+
+    // 3. Start New intent. 4. Intent B = TS2322.
+    session = applyStageProposal(session, {
+      kind: 'intent',
+      summary: 'TS2322 fix',
+      data: {
+        rawInput: 'Fix the pre-existing TS2322 in implementationPack.ts',
+        goal: 'Fix pre-existing TS2322 at implementationPack.ts:416',
+        users: ['operator'],
+        desiredOutcomes: ['tsc passes'],
+        successCriteria: ['no TS2322 at that line'],
+      },
+    });
+
+    // 5/6. Assert ZERO artifact/content/decision from Intent A is present in
+    // Intent B — every downstream, per-intent field must be reset, not just
+    // the ones the original (incomplete) fix cleared.
+    expect(session.intent?.goal).toMatch(/TS2322/);
+    expect(session.constitutionalDecision).toBeNull();
+    expect(session.generatedPack).toBeNull();
+    expect(session.remediationPlan).toBeNull();
+    expect(session.deploymentAuthorization).toBeNull();
+    expect(session.invariantEnvelope).toBeNull();
+    expect(session.contextPack).toBeNull();
+    expect(session.gapAnalysis).toBeNull();
+    expect(session.consequenceCanvas).toBeNull();
+    expect(session.validationReport).toBeNull();
+    expect(session.implementationBrief).toBeNull();
+    // Never present anywhere in the new session's serialized state, not just
+    // absent from the fields we happen to check by name.
+    expect(JSON.stringify(session)).not.toMatch(/video/i);
+    expect(JSON.stringify(session)).not.toMatch(/intent-a/i);
+  });
+});
+
 // ─── DCIR D1 — event stream + observation seam (CFS-020, observe-mode) ──────
 // Canaries: the event stream is tier-disciplined from birth (no T0 keys,
 // summaries are labels not bodies), the ring buffer never grows past its

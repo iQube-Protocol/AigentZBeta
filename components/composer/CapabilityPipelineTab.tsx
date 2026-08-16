@@ -54,6 +54,12 @@ export interface PackView {
    *  implementation actor may never touch — derived server-side from
    *  CLAUDE.md's protected-file lists, never re-authored here. */
   forbiddenFiles?: string[];
+  /** Pack-coherence repair (2026-08-17): protected files the draft/evidence
+   *  proposed as areasToTouch but that were excluded before this pack shipped
+   *  — an "impossible surface declaration" (areasToTouch ∩ forbiddenFiles ≠
+   *  ∅) must never reach an implementation actor. Empty when nothing was
+   *  excluded. */
+  excludedProtectedAreas?: string[];
   /** Pre-existing test/typecheck failures the implementation actor should
    *  not spend turns rediscovering. */
   knownBaselineFailures?: string[];
@@ -119,6 +125,17 @@ ${pack.areasToTouch.map((a) => `- ${a}`).join("\n") || (pack.constitutionalDecis
 
 ## Forbidden files (never modify without explicit operator authorization)
 ${(pack.forbiddenFiles ?? []).map((f) => `- ${f}`).join("\n") || "_none supplied_"}
+${
+  (pack.excludedProtectedAreas ?? []).length > 0
+    ? `
+## ⚠ Excluded from areas to touch (protected, unauthorized)
+The draft/evidence proposed touching these files, but they are protected and were NOT
+explicitly authorized for this pack — excluded before this pack shipped. Explicit operator
+authorization is required before any implementation actor may touch them:
+${(pack.excludedProtectedAreas ?? []).map((f) => `- ${f}`).join("\n")}
+`
+    : ""
+}
 
 ## Known baseline failures (pre-existing — do not spend turns rediscovering)
 ${(pack.knownBaselineFailures ?? []).map((f) => `- ${f}`).join("\n") || "_none known_"}

@@ -130,6 +130,15 @@ export interface ImplementationPack {
    * protected-surface signals (`services/constitutional/executionRouting.ts`),
    * closing the forensic audit's "unpinned model, no budget" finding. */
   executionRoute: ExecutionRoute;
+  /** Pack-coherence repair (2026-08-17, operator-directed): protected files
+   * that the LLM draft or evidence-seeded `areasToTouch` proposed but that
+   * were REMOVED before this pack shipped, because they are in
+   * `forbiddenFiles` and were not explicitly authorized
+   * (`authorizedProtectedFiles`). An "impossible surface declaration" — a
+   * pack that simultaneously requests and forbids the same file — must never
+   * reach an implementation actor; this is the audit trail of what was
+   * excluded and why. Empty when nothing was excluded. */
+  excludedProtectedAreas: string[];
 }
 
 export interface PackPreflight {
@@ -445,10 +454,29 @@ export async function generateImplementationPack(input: {
   // Phase F (2026-08-16): forbiddenFiles + executionRoute are computed from
   // this pack's OWN signals — never a second, hand-authored classification.
   const forbiddenFiles = deriveForbiddenFiles(input.authorizedProtectedFiles ?? []);
+
+  // Route selection sees the PRE-filter surface: a draft/evidence proposing a
+  // protected file is real signal the goal touches higher-stakes territory
+  // (escalates to the 'protected' profile, stronger model) even though that
+  // file is about to be excluded below — the conflict itself is the signal,
+  // not something to launder away before routing sees it.
   const executionRoute: ExecutionRoute = routeExecution(
     { areasToTouch: fields.areasToTouch, forbiddenFiles, preflight },
     input.priorAttemptFailed ?? false,
   );
+
+  // Coherence repair (2026-08-17, operator-directed): "areasToTouch ∩
+  // forbiddenFiles = ∅ unless a governed explicit protected-file
+  // authorization exists." authorizedProtectedFiles already narrows
+  // forbiddenFiles above, so an authorized file is never excluded here — only
+  // an UNAUTHORIZED protected file is removed, loudly (excludedProtectedAreas
+  // below), never silently. The pack that actually ships — what an
+  // implementation actor reads as its surface — must never simultaneously
+  // request and forbid the same file.
+  const excludedProtectedAreas = fields.areasToTouch.filter((a) => forbiddenFiles.includes(a));
+  if (excludedProtectedAreas.length > 0) {
+    fields = { ...fields, areasToTouch: fields.areasToTouch.filter((a) => !forbiddenFiles.includes(a)) };
+  }
 
   return {
     id: randomUUID(),
@@ -466,6 +494,7 @@ export async function generateImplementationPack(input: {
     forbiddenFiles,
     knownBaselineFailures: input.knownBaselineFailures ?? [],
     executionRoute,
+    excludedProtectedAreas,
     ...fields,
   };
 }

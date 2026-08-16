@@ -272,6 +272,80 @@ describe('Mutation-focused boundary tests — max-turns/escalation', () => {
   });
 });
 
+// ─── Pack coherence — areasToTouch ∩ forbiddenFiles = ∅ ────────────────────
+//
+// Phase F pack-coherence repair (2026-08-17, operator-directed): a live run
+// produced an "impossible surface declaration" — a pack whose areasToTouch
+// included `types/access.ts` (a protected file) while forbiddenFiles ALSO
+// listed `types/access.ts`, simultaneously requesting and prohibiting the
+// same file. The pack generator computed forbiddenFiles and areasToTouch
+// independently and never cross-checked them. This section proves the fix:
+// a protected file proposed via evidence-seeded areasToTouch is EXCLUDED
+// (never silently) unless explicitly authorized, and the exclusion is
+// recorded on the pack (`excludedProtectedAreas`) so the operator sees it.
+describe('pack coherence — a protected file can never survive into areasToTouch unless authorized', () => {
+  const evidenceWithProtectedTarget = {
+    missing: [
+      { name: 'access spine change', path: 'types/access.ts', complexity: 'small' as const },
+      { name: 'the real fix', path: 'services/constitutional/implementationPack.ts', complexity: 'small' as const },
+    ],
+  };
+
+  it('an unauthorized protected file is excluded from areasToTouch and recorded in excludedProtectedAreas', async () => {
+    const { generateImplementationPack } = await import('@/services/constitutional/implementationPack');
+    const pack = await generateImplementationPack({
+      goal: 'a goal whose evidence points at a protected file',
+      capabilityEvidence: evidenceWithProtectedTarget,
+    });
+    // The coherence invariant, checked directly: areasToTouch ∩ forbiddenFiles = ∅.
+    const intersection = pack.areasToTouch.filter((a) => pack.forbiddenFiles.includes(a));
+    expect(intersection).toEqual([]);
+    // Never silent: the exclusion is on the record.
+    expect(pack.excludedProtectedAreas).toContain('types/access.ts');
+    // The non-protected file proposed alongside it is untouched.
+    expect(pack.areasToTouch).toContain('services/constitutional/implementationPack.ts');
+    expect(pack.areasToTouch).not.toContain('types/access.ts');
+  });
+
+  it('an explicitly authorized protected file is NOT excluded, and is absent from forbiddenFiles', async () => {
+    const { generateImplementationPack } = await import('@/services/constitutional/implementationPack');
+    const pack = await generateImplementationPack({
+      goal: 'a goal whose evidence points at a protected file, operator-authorized',
+      capabilityEvidence: evidenceWithProtectedTarget,
+      authorizedProtectedFiles: ['types/access.ts'],
+    });
+    expect(pack.forbiddenFiles).not.toContain('types/access.ts');
+    expect(pack.areasToTouch).toContain('types/access.ts');
+    expect(pack.excludedProtectedAreas).toEqual([]);
+    // The coherence invariant still holds — authorization narrowed
+    // forbiddenFiles, so there is no longer an intersection to exclude.
+    const intersection = pack.areasToTouch.filter((a) => pack.forbiddenFiles.includes(a));
+    expect(intersection).toEqual([]);
+  });
+
+  it('a protected-surface conflict still escalates execution routing to the protected profile, even though the file is excluded', async () => {
+    const { generateImplementationPack } = await import('@/services/constitutional/implementationPack');
+    const pack = await generateImplementationPack({
+      goal: 'a goal whose evidence points at a protected file',
+      capabilityEvidence: evidenceWithProtectedTarget,
+    });
+    // The conflict itself is real signal (higher-stakes territory) — routing
+    // sees the PRE-filter surface and escalates, even though the shipped
+    // pack's own areasToTouch no longer contains the protected file.
+    expect(pack.executionRoute.profile).toBe('protected');
+  });
+
+  it('a pack with no protected-surface contact reports no exclusions', async () => {
+    const { generateImplementationPack } = await import('@/services/constitutional/implementationPack');
+    const pack = await generateImplementationPack({
+      goal: 'a perfectly ordinary goal with no protected-file evidence',
+      capabilityEvidence: { missing: [{ name: 'x', path: 'services/foo/bar.ts', complexity: 'small' as const }] },
+    });
+    expect(pack.excludedProtectedAreas).toEqual([]);
+    expect(pack.areasToTouch.filter((a) => pack.forbiddenFiles.includes(a))).toEqual([]);
+  });
+});
+
 describe('Mutation-focused boundary tests — validation-order', () => {
   it('the ladder has exactly four rungs in the exact operator-specified order', async () => {
     const { generateImplementationPack } = await import('@/services/constitutional/implementationPack');
