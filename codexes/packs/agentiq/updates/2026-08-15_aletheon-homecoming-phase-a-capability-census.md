@@ -295,4 +295,32 @@ Consistent with the operator's framing that **parity is necessary but not suffic
 
 ---
 
-*Original pass: no implementation code written; this document, its two companion governance records, and the collections.json registration were the only changes. This addendum + `RES-2026-08-15-ALETHEON-LIVE-STATE-SUPERSESSION-001.json` + `CI-2026-08-15-STALE-STATIC-PRESENCE-MARKER-001.json` are the only changes made in this later pass. No repair code and no database writes were made in either pass.*
+## Addendum B — Constitutional anchoring repair built and tested (2026-08-15, same day, later pass)
+
+**Governing model, locked (operator-ruled 2026-08-15): delegated agency is principal-bound and persona-exercised.** Three layers, never conflated: (1) principal/personhood continuity (`root_identity`/kybe) — durable; (2) sponsorship provenance (`agent_root_identity.sponsor_persona_id`/`sponsor_passport_id`) — permanent, act-level, never rewritten; (3) operational delegation (`delegation_grants`) — mutable, independently persona-scoped, and confirmed by direct code read to already support multiple personas of the same principal holding simultaneous bounded-delegation grants against one polity-bound agent with zero interaction with the anchor fields.
+
+**A generic repair capability now exists** for exactly the gap Addendum A identified — `agent_persona.delegation_user_root_id`/`delegation_persona_id` left `NULL` because the original sponsor's identity never resolved through `provisionAgentPersona.ts`'s `root_did` string match:
+
+- `services/identity/passportPrincipal.ts::resolvePassportPrincipalById()` — a new, small, generic addition at the personhood layer (not an Aletheon-specific branch), reusing the file's own pre-existing `resolveAuthUserForKybe` sibling-root disambiguation rule verbatim: refuses (never guesses) when a sponsor's Kybe lineage has zero or more than one distinct auth user across sibling `root_identity` rows.
+- `services/agents/repairDelegationAnchor.ts` — resolves the principal via the RECORDED `sponsor_passport_id` only (never a caller-supplied or currently-active persona), fills each anchor column independently and only while still `NULL`, never touches `sponsor_persona_id`/`sponsor_passport_id`/timestamps/`delegation_grants`, and emits one forward-looking `agent_delegation_anchor_repaired` receipt describing the repair act — never a fabricated historical genesis receipt.
+- `POST /api/homecoming/agent/repair-anchor` — admin-gated, generic across any `polity_bound` legacy delegate in this state.
+- 15 canaries covering idempotency, principal resolution, sibling-root determinism, no sponsor-history rewrite, no conflicting non-null overwrite, T0 non-leakage, receipt-emission gating, and no impact on `delegation_grants` — all passing; full regression (302 tests) and typecheck clean.
+
+**Not yet executed against Aletheon or any live delegate — no live database access in this execution environment.** The operator must invoke `POST /api/homecoming/agent/repair-anchor` (`{"delegate": "aletheon"}`) authenticated, and the live verification checklist (root/persona/passport/receipts unchanged; `delegation_user_root_id` non-null and resolving to the principal; `delegation_persona_id` filled only if the original bridge genuinely exists; repair receipt present) must be confirmed before this verdict can be finalized.
+
+### Provisional verdict (pending live confirmation)
+
+**NOT PARITY READY**, with exactly one remaining gap: **the anchoring repair above has not yet been executed live.** Every other item this census originally flagged is resolved or superseded:
+
+| Original Phase A concern | Status as of this addendum |
+|---|---|
+| Mechanical presence (L0 → L2) | **Resolved** — already L2 (Addendum A), confirmed live |
+| Agent participant passport | **Already existed** — confirmed live |
+| Bounded delegation / receipts history | **Already existed** — confirmed live, untouched by this repair |
+| Constitutional anchoring / continuity | **Repair built, tested, awaiting live execution** — the sole remaining gap |
+
+Once the operator executes the repair and confirms the checklist, the verdict becomes **PARITY READY** with no remaining gaps identified in this census — to be recorded as a further addendum at that time, not a silent edit of this one.
+
+---
+
+*Original pass: no implementation code written; this document, its two companion governance records, and the collections.json registration were the only changes. Addendum A pass: no repair code, no database writes — audit and document reconciliation only. Addendum B pass: repair capability built and fully tested (7 files, 15 canaries); no database writes and no live execution — awaiting the operator.*
