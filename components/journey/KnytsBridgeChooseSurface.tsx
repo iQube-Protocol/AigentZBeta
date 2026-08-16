@@ -11,12 +11,18 @@
  * mailto anchor (that would make the card unable to set the left view again
  * once clicked).
  *
- * Six destinations:
- *   1. "Reserve metaKnyt Agentic Graphic Novel" — the same reserve-interest
- *      form CI's "Reserve The Constitutional Internet" uses
- *      (BridgeReserveInterestCard), posting to its own
- *      knyts-bridge/choose/book-interest route (KNYTS_BRIDGE_CAMPAIGN_ID).
- *      No product/SKU/preorder/payment flow — a demand-signal log only.
+ * Seven destinations (KNYTS Bridge campaign activation, 2026-08-16 —
+ * `KNYT_BRIDGE_CAMPAIGN_IMPLEMENTATION_SPEC_CLAUDE_CODE.md`):
+ *   1. "Get first access to the metaKnyt Kickstarter" — campaign
+ *      pre-registration, still the shared BridgeReserveInterestCard
+ *      (same component CI's reserve card uses), posting to the SAME
+ *      knyts-bridge/choose/book-interest route (URL unchanged; only the
+ *      route's behavior changed — see that file). An interest/notify
+ *      signal, never a preorder or payment.
+ *   1b. "Follow the Kickstarter" — always-available outbound CTA. Records
+ *      `kickstarter_preview_clicked` (observed evidence only — a click is
+ *      NEVER promoted into a confirmed follow) before opening the
+ *      centralized Kickstarter URL in a new tab.
  *   2. "Explore the KNYT Store" — switches the left pane to the canonical
  *      embedded Store (knyt-codex/store-episodes, focused depth 1 so the
  *      Store's own Episodes|KNYT Cards|Bundles|Investor KNYT strip stays
@@ -47,7 +53,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { Mail, Sparkles, ArrowRight, Handshake, Compass, MessageCircle, Share2 } from 'lucide-react';
+import { Mail, Sparkles, ArrowRight, Handshake, Compass, MessageCircle, Share2, Rocket } from 'lucide-react';
 import { buildCodexUrl } from '@/utils/codex-nav';
 import { SocialSharingModal } from '@/packages/smarttriad/src/SocialSharingModal';
 import { KNYTS_BRIDGE_CAMPAIGN_ID } from '@/services/journey/knytsBridgeCrossingJourney';
@@ -104,6 +110,56 @@ function DestinationCard({
           <Mail className="h-3 w-3" /> {mailtoLabel}
         </a>
       )}
+      <ArrowRight className="h-4 w-4 shrink-0 text-slate-400" />
+    </button>
+  );
+}
+
+/**
+ * "Follow the Kickstarter" — always-available outbound CTA. Records
+ * `kickstarter_preview_clicked` (observed evidence, never promoted to a
+ * confirmed follow — spec §6) before opening the campaign's Kickstarter
+ * project in a new tab. The URL is resolved server-side
+ * (getKnytsBridgeKickstarterUrl) so it is centralized in one place rather
+ * than hard-coded here.
+ */
+function KickstarterFollowCard({ personaId }: { personaId?: string }) {
+  const [pending, setPending] = useState(false);
+
+  const handleFollow = async () => {
+    if (pending) return;
+    setPending(true);
+    try {
+      const res = await fetch('/api/journey/knyts-bridge/choose/kickstarter-click', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const json = (await res.json().catch(() => null)) as { kickstarterUrl?: string } | null;
+      const url = json?.kickstarterUrl;
+      if (url && typeof window !== 'undefined') {
+        window.open(url, '_blank', 'noopener,noreferrer');
+      }
+    } catch {
+      // Non-fatal — the click is decorative telemetry; the visitor's ability
+      // to reach Kickstarter must not depend on it.
+    } finally {
+      setPending(false);
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={() => void handleFollow()}
+      disabled={pending}
+      data-persona-id={personaId}
+      className="flex items-center justify-between gap-3 rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3.5 text-left transition hover:border-amber-400/50 disabled:opacity-60"
+    >
+      <span className="flex items-center gap-2 text-sm font-semibold text-white">
+        <Rocket className="h-4 w-4 text-amber-300" />
+        Follow the Kickstarter
+      </span>
       <ArrowRight className="h-4 w-4 shrink-0 text-slate-400" />
     </button>
   );
@@ -186,12 +242,14 @@ export function KnytsBridgeChooseSurface({ personaId, onOpenKnytCopilot }: Knyts
       {/* RIGHT — destination cards */}
       <div className="flex flex-col gap-3">
         <BridgeReserveInterestCard
-          title="Reserve metaKnyt Agentic Graphic Novel"
-          description="Tell us you want a copy. This is an interest signal, not a paid preorder."
+          title="Get first access to the metaKnyt Kickstarter"
+          description="Pre-register for the campaign, then follow the Kickstarter preview so you're notified when we launch."
           submitUrl="/api/journey/knyts-bridge/choose/book-interest"
-          successTitle="Thanks — we'll let you know."
+          successTitle="You're on the list. Now follow the Kickstarter."
           successDescription="This is an interest signal, not a payment — you haven't been charged."
         />
+
+        <KickstarterFollowCard personaId={personaId} />
 
         <DestinationCard
           icon={<Sparkles className="h-4 w-4 text-amber-300" />}

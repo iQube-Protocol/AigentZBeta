@@ -40,6 +40,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-08-16_knyts-bridge-campaign-activation.md",
         "updates/2026-08-16_devon-phase-f-bounded-execution-forensic-audit.md",
         "updates/2026-08-15_aletheon-homecoming-phase-a-capability-census.md",
         "updates/2026-08-15_phase6-closure-repair-and-execution-path-blocker.md",

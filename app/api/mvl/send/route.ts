@@ -35,7 +35,7 @@ const CC_NAME         = "Dele Atanda";
 // Same URL used by the KS backer investor emails — driven by env var so it stays in sync
 const KS_URL =
   process.env.KICKSTARTER_CAMPAIGN_URL ??
-  "https://www.kickstarter.com/projects/430245948/metaknyt-the-legend-of-kn0w1-and-the-21-sats";
+  "https://www.kickstarter.com/projects/430245948/metaknyt-the-legend-of-kn0w1-and-the-21-sats-0";
 
 function basicAuth() {
   const key    = process.env.MAILJET_API_KEY    ?? "";
