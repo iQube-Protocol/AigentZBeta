@@ -1,24 +1,34 @@
 /**
- * repairLegacyPassportLinkage — legacy Passport/personhood linkage
- * reconciliation canaries (operator-directed, 2026-08-15).
+ * repairLegacyPassportLinkage — principal-first legacy Passport/personhood
+ * linkage reconciliation canaries (operator-directed, 2026-08-15; ontology
+ * locked same day).
  *
- * Mocks resolveClusterPrincipalForPersona (the personhood layer's own
- * persona-cluster resolution — exercised by its own module in
- * tests/cluster-principal-resolution.test.ts, not re-tested here) and
- * createActivityReceipt at the function-call boundary. The Supabase admin
- * client is a minimal fake reproducing the real chainable+thenable
- * query-builder shape (same style as
- * tests/agent-delegation-anchor-repair.test.ts), queued per table, with
- * `.update()` payloads captured so tests can assert exactly which columns
- * were ever written.
+ * Unit-level: mocks resolveRootPrincipalForAuthUser, listOwnedPersonaIds,
+ * and createActivityReceipt at the function-call boundary — each is
+ * exercised by its own module (resolveRootPrincipalForAuthUser in
+ * tests/root-principal-resolution.test.ts; the full principal-first +
+ * ownership walk together, with NO mocking, in
+ * tests/legacy-passport-linkage-principal-first.test.ts). This file proves
+ * the repair's own gating, conflict, idempotency, and receipt logic.
+ *
+ * The Supabase admin client is a minimal fake reproducing the real
+ * chainable+thenable query-builder shape, queued per table, with
+ * `.update()` payloads captured for column-write assertions.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-const mockResolveClusterPrincipalForPersona = vi.fn();
+const mockResolveRootPrincipalForAuthUser = vi.fn();
+const mockListOwnedPersonaIds = vi.fn();
 vi.mock('@/services/identity/passportPrincipal', () => ({
-  resolveClusterPrincipalForPersona: (...args: unknown[]) => mockResolveClusterPrincipalForPersona(...args),
+  resolveRootPrincipalForAuthUser: (...args: unknown[]) => mockResolveRootPrincipalForAuthUser(...args),
+  listOwnedPersonaIds: (...args: unknown[]) => mockListOwnedPersonaIds(...args),
+  isPassportUsable: (p: { revoked: boolean; expiresAt: string | null; citizenStatus: string | null; participantStatus: string | null }) => {
+    if (p.revoked) return false;
+    if (p.expiresAt && new Date(p.expiresAt).getTime() < Date.now()) return false;
+    return p.citizenStatus === 'active' || p.participantStatus === 'active';
+  },
 }));
 
 const mockCreateActivityReceipt = vi.fn();
@@ -75,20 +85,29 @@ function fakeClient(fake: FakeAdmin): SupabaseClient {
   return fake as unknown as SupabaseClient;
 }
 
-const ACTING_PERSONA = 'admin-persona-caller-1';
+const CALLER = {
+  authUserId: 'auth-user-caller-1',
+  authProfileId: 'auth-profile-caller-1',
+  actingPersonaId: 'persona-caller-1',
+};
 const PASSPORT_ID = 'ppc-mansa-meta-1';
 const PASSPORT_RECORD_UUID = 'passport-record-uuid-1';
-const PERSONA_ID = 'persona-mansa-meta-1';
-const RESOLVED_ROOT_IDENTITY_ID = 'root-identity-canonical-1';
-const RESOLVED_KYBE_ID = 'kybe-canonical-1';
+const PASSPORT_PERSONA_ID = 'persona-mansa-meta-1';
+const CALLER_ROOT_IDENTITY_ID = 'root-identity-caller-1';
+const CALLER_KYBE_ID = 'kybe-caller-1';
 
 function unlinkedPassportRow(overrides: Record<string, unknown> = {}) {
   return {
     id: PASSPORT_RECORD_UUID,
     passport_id: PASSPORT_ID,
-    persona_id: PERSONA_ID,
+    persona_id: PASSPORT_PERSONA_ID,
     root_identity_id: null,
     kybe_identity_id: null,
+    passport_class: 'citizen',
+    citizen_status: 'active',
+    participant_status: null,
+    revoked: false,
+    expires_at: null,
     ...overrides,
   };
 }
@@ -98,18 +117,72 @@ async function importRepair() {
 }
 
 beforeEach(() => {
-  mockResolveClusterPrincipalForPersona.mockReset();
+  mockResolveRootPrincipalForAuthUser.mockReset();
+  mockListOwnedPersonaIds.mockReset();
   mockCreateActivityReceipt.mockReset().mockResolvedValue({ id: 'receipt-legacy-linkage-1' });
 });
 
-describe('repairLegacyPassportLinkage — gates', () => {
+describe('repairLegacyPassportLinkage — principal resolution gate (never from the target persona)', () => {
+  it('fails closed with caller_principal_unresolved when the CALLER\'s own principal cannot be resolved', async () => {
+    mockResolveRootPrincipalForAuthUser.mockResolvedValue({ ok: false, reason: 'lineage_incomplete' });
+    const admin = new FakeAdmin();
+    const { repairLegacyPassportLinkage } = await importRepair();
+    const result = await repairLegacyPassportLinkage(fakeClient(admin), PASSPORT_ID, CALLER);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason).toBe('caller_principal_unresolved');
+      expect(result.detail).toBe('lineage_incomplete');
+    }
+    // Never even loads the Passport when the caller's own principal fails to resolve.
+    expect(admin.tablesTouched.length).toBe(0);
+    expect(mockListOwnedPersonaIds).not.toHaveBeenCalled();
+  });
+
+  it('resolves the principal from the CALLER\'s auth_user_id — never accepts a caller-supplied root/kybe id', async () => {
+    mockResolveRootPrincipalForAuthUser.mockResolvedValue({
+      ok: true,
+      rootIdentityId: CALLER_ROOT_IDENTITY_ID,
+      kybeId: CALLER_KYBE_ID,
+    });
+    mockListOwnedPersonaIds.mockResolvedValue({ ok: true, personaIds: [PASSPORT_PERSONA_ID] });
+    const admin = new FakeAdmin()
+      .queue('polity_passport_records', { data: unlinkedPassportRow(), error: null })
+      .queue('polity_passport_records', { data: { root_identity_id: CALLER_ROOT_IDENTITY_ID }, error: null })
+      .queue('polity_passport_records', { data: { kybe_identity_id: CALLER_KYBE_ID }, error: null });
+    const { repairLegacyPassportLinkage } = await importRepair();
+    await repairLegacyPassportLinkage(fakeClient(admin), PASSPORT_ID, CALLER);
+    expect(mockResolveRootPrincipalForAuthUser).toHaveBeenCalledWith(CALLER.authUserId);
+    expect(mockResolveRootPrincipalForAuthUser).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('repairLegacyPassportLinkage — Passport gates', () => {
+  beforeEach(() => {
+    mockResolveRootPrincipalForAuthUser.mockResolvedValue({
+      ok: true,
+      rootIdentityId: CALLER_ROOT_IDENTITY_ID,
+      kybeId: CALLER_KYBE_ID,
+    });
+  });
+
   it('refuses when the Passport does not exist', async () => {
     const admin = new FakeAdmin().queue('polity_passport_records', { data: null, error: null });
     const { repairLegacyPassportLinkage } = await importRepair();
-    const result = await repairLegacyPassportLinkage(fakeClient(admin), PASSPORT_ID, ACTING_PERSONA);
+    const result = await repairLegacyPassportLinkage(fakeClient(admin), PASSPORT_ID, CALLER);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.reason).toBe('passport_not_found');
-    expect(mockResolveClusterPrincipalForPersona).not.toHaveBeenCalled();
+    expect(mockListOwnedPersonaIds).not.toHaveBeenCalled();
+  });
+
+  it('refuses when the Passport is not usable (revoked/expired/inactive)', async () => {
+    const admin = new FakeAdmin().queue('polity_passport_records', {
+      data: unlinkedPassportRow({ citizen_status: 'expired_non_renewal' }),
+      error: null,
+    });
+    const { repairLegacyPassportLinkage } = await importRepair();
+    const result = await repairLegacyPassportLinkage(fakeClient(admin), PASSPORT_ID, CALLER);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe('passport_not_usable');
   });
 
   it('refuses when the Passport has no persona_id recorded', async () => {
@@ -118,70 +191,101 @@ describe('repairLegacyPassportLinkage — gates', () => {
       error: null,
     });
     const { repairLegacyPassportLinkage } = await importRepair();
-    const result = await repairLegacyPassportLinkage(fakeClient(admin), PASSPORT_ID, ACTING_PERSONA);
+    const result = await repairLegacyPassportLinkage(fakeClient(admin), PASSPORT_ID, CALLER);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.reason).toBe('no_persona_recorded');
-    expect(mockResolveClusterPrincipalForPersona).not.toHaveBeenCalled();
+    expect(mockListOwnedPersonaIds).not.toHaveBeenCalled();
   });
 });
 
-describe('repairLegacyPassportLinkage — cluster resolution reuse (canary: never a new equality)', () => {
-  it('reuses resolveClusterPrincipalForPersona with the Passport\'s OWN recorded persona_id', async () => {
-    mockResolveClusterPrincipalForPersona.mockResolvedValue({
+describe('repairLegacyPassportLinkage — authorization is ownership-only, never identity resolution', () => {
+  beforeEach(() => {
+    mockResolveRootPrincipalForAuthUser.mockResolvedValue({
       ok: true,
-      rootIdentityId: RESOLVED_ROOT_IDENTITY_ID,
-      kybeId: RESOLVED_KYBE_ID,
+      rootIdentityId: CALLER_ROOT_IDENTITY_ID,
+      kybeId: CALLER_KYBE_ID,
     });
-    const admin = new FakeAdmin()
-      .queue('polity_passport_records', { data: unlinkedPassportRow(), error: null })
-      .queue('polity_passport_records', { data: { root_identity_id: RESOLVED_ROOT_IDENTITY_ID }, error: null })
-      .queue('polity_passport_records', { data: { kybe_identity_id: RESOLVED_KYBE_ID }, error: null });
-    const { repairLegacyPassportLinkage } = await importRepair();
-    await repairLegacyPassportLinkage(fakeClient(admin), PASSPORT_ID, ACTING_PERSONA);
-    expect(mockResolveClusterPrincipalForPersona).toHaveBeenCalledWith(PERSONA_ID);
-    expect(mockResolveClusterPrincipalForPersona).toHaveBeenCalledTimes(1);
   });
 
-  it('refuses with cluster_principal_unresolved when no cluster-mate resolves to any root/kybe', async () => {
-    mockResolveClusterPrincipalForPersona.mockResolvedValue({ ok: false, reason: 'cluster_principal_unresolved' });
+  it('refuses with not_authorized when the Passport\'s persona is not in the caller\'s owned set', async () => {
+    mockListOwnedPersonaIds.mockResolvedValue({ ok: true, personaIds: ['some-other-persona'] });
     const admin = new FakeAdmin().queue('polity_passport_records', { data: unlinkedPassportRow(), error: null });
     const { repairLegacyPassportLinkage } = await importRepair();
-    const result = await repairLegacyPassportLinkage(fakeClient(admin), PASSPORT_ID, ACTING_PERSONA);
+    const result = await repairLegacyPassportLinkage(fakeClient(admin), PASSPORT_ID, CALLER);
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.reason).toBe('cluster_principal_unresolved');
+    if (!result.ok) expect(result.reason).toBe('not_authorized');
     expect(admin.updatePayloads.length).toBe(0);
-    expect(mockCreateActivityReceipt).not.toHaveBeenCalled();
   });
 
-  it('refuses with cluster_principal_ambiguous when the cluster spans more than one personhood (never chooses)', async () => {
-    mockResolveClusterPrincipalForPersona.mockResolvedValue({ ok: false, reason: 'cluster_principal_ambiguous' });
+  it('refuses with not_authorized when listOwnedPersonaIds itself fails', async () => {
+    mockListOwnedPersonaIds.mockResolvedValue({ ok: false, reason: 'unavailable' });
     const admin = new FakeAdmin().queue('polity_passport_records', { data: unlinkedPassportRow(), error: null });
     const { repairLegacyPassportLinkage } = await importRepair();
-    const result = await repairLegacyPassportLinkage(fakeClient(admin), PASSPORT_ID, ACTING_PERSONA);
+    const result = await repairLegacyPassportLinkage(fakeClient(admin), PASSPORT_ID, CALLER);
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.reason).toBe('cluster_principal_ambiguous');
+    if (!result.ok) expect(result.reason).toBe('not_authorized');
+  });
+});
+
+describe('repairLegacyPassportLinkage — principal conflict (canary: never silently overwrite or ignore)', () => {
+  beforeEach(() => {
+    mockResolveRootPrincipalForAuthUser.mockResolvedValue({
+      ok: true,
+      rootIdentityId: CALLER_ROOT_IDENTITY_ID,
+      kybeId: CALLER_KYBE_ID,
+    });
+    mockListOwnedPersonaIds.mockResolvedValue({ ok: true, personaIds: [PASSPORT_PERSONA_ID] });
+  });
+
+  it('refuses with principal_conflict when the Passport\'s existing root_identity_id disagrees with the caller\'s resolved principal', async () => {
+    const admin = new FakeAdmin().queue('polity_passport_records', {
+      data: unlinkedPassportRow({ root_identity_id: 'root-identity-SOMEONE-ELSE' }),
+      error: null,
+    });
+    const { repairLegacyPassportLinkage } = await importRepair();
+    const result = await repairLegacyPassportLinkage(fakeClient(admin), PASSPORT_ID, CALLER);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason).toBe('principal_conflict');
+      expect(result.detail).toBe('root_identity_id');
+    }
     expect(admin.updatePayloads.length).toBe(0);
+  });
+
+  it('refuses with principal_conflict when the Passport\'s existing kybe_identity_id disagrees with the caller\'s resolved principal', async () => {
+    const admin = new FakeAdmin().queue('polity_passport_records', {
+      data: unlinkedPassportRow({ kybe_identity_id: 'kybe-SOMEONE-ELSE' }),
+      error: null,
+    });
+    const { repairLegacyPassportLinkage } = await importRepair();
+    const result = await repairLegacyPassportLinkage(fakeClient(admin), PASSPORT_ID, CALLER);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason).toBe('principal_conflict');
+      expect(result.detail).toBe('kybe_identity_id');
+    }
   });
 });
 
 describe('repairLegacyPassportLinkage — successful repair', () => {
-  it('fills root_identity_id and kybe_identity_id when both resolve, emits one receipt', async () => {
-    mockResolveClusterPrincipalForPersona.mockResolvedValue({
+  it('fills root_identity_id and kybe_identity_id when both resolve and are authorized, emits one receipt', async () => {
+    mockResolveRootPrincipalForAuthUser.mockResolvedValue({
       ok: true,
-      rootIdentityId: RESOLVED_ROOT_IDENTITY_ID,
-      kybeId: RESOLVED_KYBE_ID,
+      rootIdentityId: CALLER_ROOT_IDENTITY_ID,
+      kybeId: CALLER_KYBE_ID,
     });
+    mockListOwnedPersonaIds.mockResolvedValue({ ok: true, personaIds: [PASSPORT_PERSONA_ID] });
     const admin = new FakeAdmin()
       .queue('polity_passport_records', { data: unlinkedPassportRow(), error: null })
-      .queue('polity_passport_records', { data: { root_identity_id: RESOLVED_ROOT_IDENTITY_ID }, error: null })
-      .queue('polity_passport_records', { data: { kybe_identity_id: RESOLVED_KYBE_ID }, error: null });
+      .queue('polity_passport_records', { data: { root_identity_id: CALLER_ROOT_IDENTITY_ID }, error: null })
+      .queue('polity_passport_records', { data: { kybe_identity_id: CALLER_KYBE_ID }, error: null });
     const { repairLegacyPassportLinkage } = await importRepair();
-    const result = await repairLegacyPassportLinkage(fakeClient(admin), PASSPORT_ID, ACTING_PERSONA);
+    const result = await repairLegacyPassportLinkage(fakeClient(admin), PASSPORT_ID, CALLER);
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.alreadyLinked).toBe(false);
-      expect(result.rootIdentityId).toBe(RESOLVED_ROOT_IDENTITY_ID);
-      expect(result.kybeIdentityId).toBe(RESOLVED_KYBE_ID);
+      expect(result.rootIdentityId).toBe(CALLER_ROOT_IDENTITY_ID);
+      expect(result.kybeIdentityId).toBe(CALLER_KYBE_ID);
       expect(result.rootAnchorFilledThisCall).toBe(true);
       expect(result.kybeAnchorFilledThisCall).toBe(true);
       expect(result.receiptId).toBe('receipt-legacy-linkage-1');
@@ -191,66 +295,69 @@ describe('repairLegacyPassportLinkage — successful repair', () => {
 });
 
 describe('repairLegacyPassportLinkage — idempotency (canary)', () => {
-  it('a second call on an already-fully-linked Passport is a no-op: no write, no receipt', async () => {
+  it('a second call on an already-fully-linked (matching) Passport is a no-op: no write, no receipt', async () => {
+    mockResolveRootPrincipalForAuthUser.mockResolvedValue({
+      ok: true,
+      rootIdentityId: CALLER_ROOT_IDENTITY_ID,
+      kybeId: CALLER_KYBE_ID,
+    });
+    mockListOwnedPersonaIds.mockResolvedValue({ ok: true, personaIds: [PASSPORT_PERSONA_ID] });
     const admin = new FakeAdmin().queue('polity_passport_records', {
-      data: unlinkedPassportRow({ root_identity_id: 'r-existing', kybe_identity_id: 'k-existing' }),
+      data: unlinkedPassportRow({ root_identity_id: CALLER_ROOT_IDENTITY_ID, kybe_identity_id: CALLER_KYBE_ID }),
       error: null,
     });
     const { repairLegacyPassportLinkage } = await importRepair();
-    const result = await repairLegacyPassportLinkage(fakeClient(admin), PASSPORT_ID, ACTING_PERSONA);
+    const result = await repairLegacyPassportLinkage(fakeClient(admin), PASSPORT_ID, CALLER);
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.alreadyLinked).toBe(true);
       expect(result.rootAnchorFilledThisCall).toBe(false);
       expect(result.kybeAnchorFilledThisCall).toBe(false);
     }
-    expect(mockResolveClusterPrincipalForPersona).not.toHaveBeenCalled();
     expect(mockCreateActivityReceipt).not.toHaveBeenCalled();
     expect(admin.callsByTable['polity_passport_records']).toBe(1); // read only, no update call
   });
 });
 
 describe('repairLegacyPassportLinkage — no conflicting non-null overwrite (canary)', () => {
-  it('a PARTIALLY linked Passport (root set, kybe null) fills ONLY the null field, never touches the existing root value', async () => {
-    const EXISTING_ROOT = 'root-identity-PRE-EXISTING-do-not-change';
-    mockResolveClusterPrincipalForPersona.mockResolvedValue({
+  it('a PARTIALLY linked Passport (root set + matching, kybe null) fills ONLY the null field', async () => {
+    mockResolveRootPrincipalForAuthUser.mockResolvedValue({
       ok: true,
-      // Deliberately a DIFFERENT root than the one already set, to prove a
-      // conflicting resolution is never written over an existing value.
-      rootIdentityId: RESOLVED_ROOT_IDENTITY_ID,
-      kybeId: RESOLVED_KYBE_ID,
+      rootIdentityId: CALLER_ROOT_IDENTITY_ID,
+      kybeId: CALLER_KYBE_ID,
     });
+    mockListOwnedPersonaIds.mockResolvedValue({ ok: true, personaIds: [PASSPORT_PERSONA_ID] });
     const admin = new FakeAdmin()
-      .queue('polity_passport_records', { data: unlinkedPassportRow({ root_identity_id: EXISTING_ROOT }), error: null })
-      .queue('polity_passport_records', { data: { kybe_identity_id: RESOLVED_KYBE_ID }, error: null }); // only the kybe update runs
+      .queue('polity_passport_records', { data: unlinkedPassportRow({ root_identity_id: CALLER_ROOT_IDENTITY_ID }), error: null })
+      .queue('polity_passport_records', { data: { kybe_identity_id: CALLER_KYBE_ID }, error: null }); // only the kybe update runs
     const { repairLegacyPassportLinkage } = await importRepair();
-    const result = await repairLegacyPassportLinkage(fakeClient(admin), PASSPORT_ID, ACTING_PERSONA);
+    const result = await repairLegacyPassportLinkage(fakeClient(admin), PASSPORT_ID, CALLER);
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.rootIdentityId).toBe(EXISTING_ROOT); // UNCHANGED
+      expect(result.rootIdentityId).toBe(CALLER_ROOT_IDENTITY_ID);
       expect(result.rootAnchorFilledThisCall).toBe(false); // never touched
-      expect(result.kybeIdentityId).toBe(RESOLVED_KYBE_ID);
+      expect(result.kybeIdentityId).toBe(CALLER_KYBE_ID);
       expect(result.kybeAnchorFilledThisCall).toBe(true);
     }
-    // Exactly ONE update call happened (the kybe column), not two.
     expect(admin.updatePayloads.length).toBe(1);
-    expect(admin.updatePayloads[0]).toEqual({ table: 'polity_passport_records', kybe_identity_id: RESOLVED_KYBE_ID });
+    expect(admin.updatePayloads[0]).toEqual({ table: 'polity_passport_records', kybe_identity_id: CALLER_KYBE_ID });
   });
 });
 
 describe('repairLegacyPassportLinkage — no status transition, no reissuance (canary)', () => {
   it('every .update() call writes ONLY root_identity_id/kybe_identity_id — never status/persona_id/passport_id/issued_at', async () => {
-    mockResolveClusterPrincipalForPersona.mockResolvedValue({
+    mockResolveRootPrincipalForAuthUser.mockResolvedValue({
       ok: true,
-      rootIdentityId: RESOLVED_ROOT_IDENTITY_ID,
-      kybeId: RESOLVED_KYBE_ID,
+      rootIdentityId: CALLER_ROOT_IDENTITY_ID,
+      kybeId: CALLER_KYBE_ID,
     });
+    mockListOwnedPersonaIds.mockResolvedValue({ ok: true, personaIds: [PASSPORT_PERSONA_ID] });
     const admin = new FakeAdmin()
       .queue('polity_passport_records', { data: unlinkedPassportRow(), error: null })
-      .queue('polity_passport_records', { data: { root_identity_id: RESOLVED_ROOT_IDENTITY_ID }, error: null })
-      .queue('polity_passport_records', { data: { kybe_identity_id: RESOLVED_KYBE_ID }, error: null });
+      .queue('polity_passport_records', { data: { root_identity_id: CALLER_ROOT_IDENTITY_ID }, error: null })
+      .queue('polity_passport_records', { data: { kybe_identity_id: CALLER_KYBE_ID }, error: null });
     const { repairLegacyPassportLinkage } = await importRepair();
-    await repairLegacyPassportLinkage(fakeClient(admin), PASSPORT_ID, ACTING_PERSONA);
+    await repairLegacyPassportLinkage(fakeClient(admin), PASSPORT_ID, CALLER);
 
     expect(admin.updatePayloads.length).toBe(2);
     for (const payload of admin.updatePayloads) {
@@ -258,24 +365,24 @@ describe('repairLegacyPassportLinkage — no status transition, no reissuance (c
       expect(keys.length).toBe(1);
       expect(['root_identity_id', 'kybe_identity_id']).toContain(keys[0]);
     }
-    // No other table (e.g. polity_passport_applications, a reissuance path) was ever touched.
     expect(admin.tablesTouched.every((t) => t === 'polity_passport_records')).toBe(true);
   });
 });
 
 describe('repairLegacyPassportLinkage — T0 non-leakage in the receipt (canary)', () => {
-  it('the receipt carries only the public passport_id + booleans — never persona/root/kybe ids', async () => {
-    mockResolveClusterPrincipalForPersona.mockResolvedValue({
+  it('the receipt carries only the public passport_id + booleans — never persona/root/kybe/auth ids', async () => {
+    mockResolveRootPrincipalForAuthUser.mockResolvedValue({
       ok: true,
-      rootIdentityId: RESOLVED_ROOT_IDENTITY_ID,
-      kybeId: RESOLVED_KYBE_ID,
+      rootIdentityId: CALLER_ROOT_IDENTITY_ID,
+      kybeId: CALLER_KYBE_ID,
     });
+    mockListOwnedPersonaIds.mockResolvedValue({ ok: true, personaIds: [PASSPORT_PERSONA_ID] });
     const admin = new FakeAdmin()
       .queue('polity_passport_records', { data: unlinkedPassportRow(), error: null })
-      .queue('polity_passport_records', { data: { root_identity_id: RESOLVED_ROOT_IDENTITY_ID }, error: null })
-      .queue('polity_passport_records', { data: { kybe_identity_id: RESOLVED_KYBE_ID }, error: null });
+      .queue('polity_passport_records', { data: { root_identity_id: CALLER_ROOT_IDENTITY_ID }, error: null })
+      .queue('polity_passport_records', { data: { kybe_identity_id: CALLER_KYBE_ID }, error: null });
     const { repairLegacyPassportLinkage } = await importRepair();
-    await repairLegacyPassportLinkage(fakeClient(admin), PASSPORT_ID, ACTING_PERSONA);
+    await repairLegacyPassportLinkage(fakeClient(admin), PASSPORT_ID, CALLER);
 
     expect(mockCreateActivityReceipt).toHaveBeenCalledTimes(1);
     const receiptInput = mockCreateActivityReceipt.mock.calls[0][0];
@@ -286,38 +393,47 @@ describe('repairLegacyPassportLinkage — T0 non-leakage in the receipt (canary)
       kybe_anchor_filled_this_call: true,
     });
     const serialized = JSON.stringify(receiptInput);
-    expect(serialized).not.toContain(PERSONA_ID);
-    expect(serialized).not.toContain(RESOLVED_ROOT_IDENTITY_ID);
-    expect(serialized).not.toContain(RESOLVED_KYBE_ID);
+    expect(serialized).not.toContain(PASSPORT_PERSONA_ID);
+    expect(serialized).not.toContain(CALLER_ROOT_IDENTITY_ID);
+    expect(serialized).not.toContain(CALLER_KYBE_ID);
+    expect(serialized).not.toContain(CALLER.authUserId);
+    expect(serialized).not.toContain(CALLER.authProfileId);
     // personaId is the ACTING caller's own id (self-view) — expected, not a leak.
-    expect(receiptInput.personaId).toBe(ACTING_PERSONA);
+    expect(receiptInput.personaId).toBe(CALLER.actingPersonaId);
   });
 });
 
 describe('repairLegacyPassportLinkage — receipt emission gating (canary)', () => {
-  it('does NOT emit a receipt when the repair is a no-op (already linked)', async () => {
+  it('does NOT emit a receipt when the repair is a no-op (already linked, matching)', async () => {
+    mockResolveRootPrincipalForAuthUser.mockResolvedValue({
+      ok: true,
+      rootIdentityId: CALLER_ROOT_IDENTITY_ID,
+      kybeId: CALLER_KYBE_ID,
+    });
+    mockListOwnedPersonaIds.mockResolvedValue({ ok: true, personaIds: [PASSPORT_PERSONA_ID] });
     const admin = new FakeAdmin().queue('polity_passport_records', {
-      data: unlinkedPassportRow({ root_identity_id: 'r-existing', kybe_identity_id: 'k-existing' }),
+      data: unlinkedPassportRow({ root_identity_id: CALLER_ROOT_IDENTITY_ID, kybe_identity_id: CALLER_KYBE_ID }),
       error: null,
     });
     const { repairLegacyPassportLinkage } = await importRepair();
-    await repairLegacyPassportLinkage(fakeClient(admin), PASSPORT_ID, ACTING_PERSONA);
+    await repairLegacyPassportLinkage(fakeClient(admin), PASSPORT_ID, CALLER);
     expect(mockCreateActivityReceipt).not.toHaveBeenCalled();
   });
 
   it('a receipt-write failure does not fail the repair result (best-effort)', async () => {
-    mockResolveClusterPrincipalForPersona.mockResolvedValue({
+    mockResolveRootPrincipalForAuthUser.mockResolvedValue({
       ok: true,
-      rootIdentityId: RESOLVED_ROOT_IDENTITY_ID,
-      kybeId: RESOLVED_KYBE_ID,
+      rootIdentityId: CALLER_ROOT_IDENTITY_ID,
+      kybeId: CALLER_KYBE_ID,
     });
+    mockListOwnedPersonaIds.mockResolvedValue({ ok: true, personaIds: [PASSPORT_PERSONA_ID] });
     mockCreateActivityReceipt.mockRejectedValue(new Error('activity_receipts insert failed'));
     const admin = new FakeAdmin()
       .queue('polity_passport_records', { data: unlinkedPassportRow(), error: null })
-      .queue('polity_passport_records', { data: { root_identity_id: RESOLVED_ROOT_IDENTITY_ID }, error: null })
-      .queue('polity_passport_records', { data: { kybe_identity_id: RESOLVED_KYBE_ID }, error: null });
+      .queue('polity_passport_records', { data: { root_identity_id: CALLER_ROOT_IDENTITY_ID }, error: null })
+      .queue('polity_passport_records', { data: { kybe_identity_id: CALLER_KYBE_ID }, error: null });
     const { repairLegacyPassportLinkage } = await importRepair();
-    const result = await repairLegacyPassportLinkage(fakeClient(admin), PASSPORT_ID, ACTING_PERSONA);
+    const result = await repairLegacyPassportLinkage(fakeClient(admin), PASSPORT_ID, CALLER);
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.rootAnchorFilledThisCall).toBe(true);

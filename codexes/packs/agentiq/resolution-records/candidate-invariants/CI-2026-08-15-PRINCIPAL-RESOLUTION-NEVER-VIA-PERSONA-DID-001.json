@@ -1,0 +1,55 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-15-PRINCIPAL-RESOLUTION-NEVER-VIA-PERSONA-DID-001",
+  "statement": "KybeDID and RootDID are person-grade, persona-agnostic credentials; personas are contextual bindings BENEATH that spine, never the other way round. Any code that needs a caller's constitutional principal must resolve it from the authenticated session's own auth_user_id via root_identity (person-grade, persona-agnostic), never by reading a persona-owned field that merely LOOKS like a DID (e.g. personas.root_did) and never by walking a persona cluster upward to infer personhood. Persona/auth_profile_id-scoped ownership may be used only as an authorization predicate on an ALREADY-resolved principal, never as the principal-resolution mechanism itself. A field's name is not evidence of its semantics — verify every write site before trusting a column as a sovereign identifier.",
+  "classification": "Engineering/architectural invariant (candidate causal pattern) about identity-resolution direction — principal-first (KybeDID/RootDID -> Passport -> personas) vs persona-upward (persona -> guess a root -> infer personhood) — in the Passport/personhood identity layer.",
+  "family": "engineering",
+  "scope": "local",
+  "status": "observed",
+  "ratifiedSource": null,
+  "parentCandidateId": null,
+  "supersededBy": null,
+  "governingPrinciple": false,
+  "derivedFrom": [
+    "RES-2026-08-15-PASSPORT-PRINCIPAL-FIRST-SUPERSESSION-001"
+  ],
+  "occurrences": [
+    {
+      "site": "services/identity/passportPrincipal.ts::resolveClusterPrincipalForPersona (removed 2026-08-15), services/passport/legacyPassportLinkageRepair.ts v1 (rewritten 2026-08-15)",
+      "defect": "A legacy Passport reconciliation capability resolved the principal by walking UP from a persona to its auth_profile_id cluster and matching personas.root_did against root_identity.did_uri. A same-day audit proved personas.root_did is a semantically overloaded legacy column — only one of at least eight write sites ever writes a genuine root_identity.did_uri into it; every other site writes a disposable, persona-level identifier (an FIO-handle DID, a hash of that handle, or an import placeholder). The heuristic therefore only worked by coincidence, for personas created through the one narrow write site that happened to bind correctly.",
+      "resolutionId": "RES-2026-08-15-PASSPORT-PRINCIPAL-FIRST-SUPERSESSION-001",
+      "evidence": [
+        "services/identity/personaService.ts",
+        "services/passport/bureauIdentityService.ts",
+        "services/passport/legacyPassportLinkageRepair.ts",
+        "tests/legacy-passport-linkage-principal-first.test.ts"
+      ]
+    }
+  ],
+  "canaries": [
+    {
+      "path": "tests/legacy-passport-linkage-principal-first.test.ts",
+      "assertion": "A persona whose OWN personas.root_did is a legacy 'did:fio:*' value (matching no root_identity.did_uri row) still gets its Passport's root_identity_id/kybe_identity_id reconciled successfully, because the resolved principal comes from the CALLER's auth_user_id, never from that field. A persona owned by a DIFFERENT auth_profile_id cluster cannot have its Passport rebound to the caller's principal — refused not_authorized, row left untouched.",
+      "verifiedFailingBeforeFix": false
+    },
+    {
+      "path": "tests/root-principal-resolution.test.ts",
+      "assertion": "resolveRootPrincipalForAuthUser resolves root_identity_id/kybe_id from auth_user_id alone and structurally never issues a query against the personas table (tablesTouched === ['root_identity']).",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "projections": {
+    "targets": [
+      "constitutional-computing",
+      "irl"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "notes": [
+    "SCHEMA DEBT RECORDED, NOT RESOLVED HERE: personas.root_did remains an overloaded legacy column with at least eight independent write sites producing at least four different semantic kinds of value (genuine RootDID, FIO-handle DID, hash-of-handle, import placeholder). Renaming it, migrating those write sites, or introducing a dedicated replacement FK (e.g. personas.bound_root_identity_id) is explicitly OUT OF SCOPE for the resolution this invariant derives from and is deferred to a separate identity-spine normalization task, per direct operator instruction (2026-08-15).",
+    "This invariant governs RESOLUTION DIRECTION, not the schema itself — it holds regardless of whether/when personas.root_did is eventually normalized, because the rule ('resolve principal from auth_user_id, use persona membership only for authorization') is correct independent of that column's later fate.",
+    "resolvePassportPrincipalForAuthUser and the newly extracted resolveRootPrincipalForAuthUser (services/identity/passportPrincipal.ts) were ALREADY the correct, ratified principal-first mechanism (PRD-PAG-001 Amendment A §A.3.1/§A.3.2, 2026-07-26) — this invariant does not introduce new architecture, it corrects a NEW capability that briefly deviated from already-ratified architecture, and generalizes the lesson so a future capability does not repeat the same deviation."
+  ]
+}
