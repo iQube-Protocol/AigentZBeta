@@ -313,6 +313,58 @@ and `delegation_grants` are the existing gates to route through; do not add a pa
 - Increment 2 (the aigentMe-role selector + chat-route wiring) is explicitly deferred, named, and
   scoped above — not silently left undone.
 
+## Increment 2 — IMPLEMENTED (2026-08-16, same day, operator-directed)
+
+The aigentMe-role runtime resolution end-to-end, no schema changes, exactly per the operator's
+three-axis model. Files:
+
+- **`services/agents/aigentMeRoleResolution.ts` (new)** — `resolveAigentMeIdentity(request)`
+  composes the EXISTING `resolveConstitutionalContext(request)` (`currentAigentMe` +
+  `boundAgents`), translates the assigned agent's `display_name` into a `SpecialistId` via two new
+  exported accessors on `specialistRouter.ts` (`specialistIdForLabel`, `personaKeyForSpecialist` —
+  derived from the existing `SPECIALIST_LABELS`/`SPECIALIST_PERSONA_KEY` maps, never a second
+  hand-maintained registry), and returns the `personas[]` key to use for this turn's system prompt.
+  Fails open to the Default aigentMe identity on any gap (no assignment, unwired display name,
+  resolution error) — a voice choice, not a security gate.
+- **`app/api/codex/chat/route.ts`** — the ONE existing `buildSystemPrompt(...)` call site now
+  receives a server-resolved `systemPromptPersonaId` instead of the raw, client-supplied
+  `persona`/`aigentId` body fields, but ONLY when `resolvedAgentId === 'aigent-me'` (the aigentMe
+  ROLE claim, which is fine to accept from the client — it says "render me as the aigentMe surface,"
+  not "let this specific agent act"). Every existing `resolvedAgentId === 'aigent-me'` /
+  `resolvedPersonaId === 'aigent-me'` / `isAigentMe` gate elsewhere in the route (metaMe context
+  block, attached-uploads block, layout-suggestion block) is UNTOUCHED — those are the surface's own
+  product features and must keep firing regardless of which agent speaks, per the audit's own
+  finding. Confirmed via regression test that the raw client fields are never passed to
+  `buildSystemPrompt` again.
+- **`components/smarttriad/copilot/AigentMeRoleSelector.tsx` (new)** — the "aigentMe · `<label>`"
+  header control. Reads the eligible roster from the EXISTING `boundAgents` list
+  (`GET /api/identity/constitutional-context`, already registry-driven — no new agent list) and
+  writes the assignment via the EXISTING `POST /api/identity/persona-assignments` path (the same
+  route `BoundedDelegationTab` already uses — no new write path). Never reads or writes
+  `delegation_grants` — confirmed by a structural regression test. After a successful write it only
+  refreshes its own label; the NEXT chat turn already resolves the new identity server-side, so no
+  client-side identity plumbing is threaded into the chat request at all.
+- **`components/smarttriad/copilot/SmartTriadCopilotLayer.tsx`** — mounts `AigentMeRoleSelector` in
+  both header render paths (`FloatingCopilot`'s `innerPanel` and `EmbeddedCopilot`, the
+  `variant="panel"` path `AigentMeWelcomeSplitTab.tsx` actually uses), gated on
+  `agentId === 'aigent-me'` so it never appears on any other agent's copilot mount.
+
+**Default aigentMe confirmed to have no backing `agent_root_identity` row** (per the Gate A0 audit)
+— the selector renders nothing when the persona has no eligible sponsored agents, so "Default" is
+never offered a synthetic identity to attach to; it stays a pure UI/runtime fallback role exactly as
+directed.
+
+**Tests:** `tests/homecoming-phase-ii-wpa-increment2.test.ts` (11 tests) — behavioural coverage of
+`resolveAigentMeIdentity` (no assignment / Aletheon assigned / assignment changed / unwired display
+name / resolution failure, all via a mocked `resolveConstitutionalContext`), structural regression
+pins (no `delegation_grants` reference in the new files; the selector only ever writes
+`role: 'aigentMe' | 'delegate'`; the chat route's role-gating checks are untouched; the raw client
+identity fields are never passed to `buildSystemPrompt` again), and a specialist-consultation
+independence check (Increment 1's wiring untouched).
+
+**Regression:** full suite re-run after Increment 2 — **17 failed test files / 40 failed tests**
+(unchanged from the established baseline), `tsc --noEmit` unchanged at **675 errors**.
+
 ---
 
 # WP-B — DevOn manual execution handoff + Execution Return seam

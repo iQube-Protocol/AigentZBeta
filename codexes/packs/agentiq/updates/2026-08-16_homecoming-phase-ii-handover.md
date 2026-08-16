@@ -88,9 +88,22 @@ wiring, §2 below) is implemented, tested (7 new tests in
 `tests/homecoming-phase-ii-wpa-aletheon.test.ts`, all passing; 68 tests green across the touched +
 adjacent suites; typecheck unchanged at the 675-error baseline), and committed. Report it honestly
 as "Aletheon consultable as a specialist via `POST /api/assistant/ask-agent`" — NOT "Aletheon
-activated as aigentMe." Increment 2 (threading `currentAigentMe` through the aigentMe Copilot's chat
-backend) remains a named, scoped, **not-yet-started** follow-up — do not conflate the two in the
-final report (#215).
+activated as aigentMe."
+
+**Increment 2 — DONE (2026-08-16, same-day operator follow-up).** The aigentMe-role runtime
+resolution is implemented end-to-end, no schema changes: `services/agents/aigentMeRoleResolution.ts`
+(new) resolves WHO fulfils the aigentMe role from the existing `currentAigentMe`
+(`resolveConstitutionalContext`), `app/api/codex/chat/route.ts` now resolves the system-prompt
+identity server-side instead of trusting the client's `persona`/`aigentId` fields (only when the
+role claim is `'aigent-me'`; every other role-gating check in that route is untouched),
+`components/smarttriad/copilot/AigentMeRoleSelector.tsx` (new) is the "aigentMe · `<label>`" header
+control mounted in `SmartTriadCopilotLayer.tsx`, reusing the existing eligible-roster read
+(`GET /api/identity/constitutional-context`) and assignment write
+(`POST /api/identity/persona-assignments`) paths — never `delegation_grants`. Full detail + exact
+file:line evidence recorded in the governing pack's "Increment 2 — IMPLEMENTED" section. 11 new
+tests in `tests/homecoming-phase-ii-wpa-increment2.test.ts`, all passing. Full regression re-run:
+**17 failed test files / 40 failed tests** (baseline, unchanged), typecheck unchanged at **675
+errors**. Not pushed — local commits only, per standing instruction.
 
 ## 2. WP-A — exact remaining implementation plan (not yet coded)
 

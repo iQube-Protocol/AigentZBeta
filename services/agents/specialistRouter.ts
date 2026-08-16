@@ -159,6 +159,29 @@ const SPECIALIST_LABELS: Record<SpecialistId, string> = {
   aletheon: 'Aletheon',
 };
 
+/**
+ * Reverse-lookup: which SpecialistId, if any, carries this exact display
+ * label (case-insensitive). Used by aigentMe role resolution
+ * (services/agents/aigentMeRoleResolution.ts) to translate a persona's
+ * assigned agent (agent_root_identity.display_name — the only field
+ * available without a schema change) into a specialist identity, so the
+ * aigentMe Copilot can speak in the assigned agent's voice. Derives from
+ * the existing SPECIALIST_LABELS map rather than hand-duplicating it
+ * (inv.engineering.036/037).
+ */
+export function specialistIdForLabel(label: string): SpecialistId | null {
+  const needle = label.trim().toLowerCase();
+  for (const [id, l] of Object.entries(SPECIALIST_LABELS) as [SpecialistId, string][]) {
+    if (l.toLowerCase() === needle) return id;
+  }
+  return null;
+}
+
+/** The personas[] key backing a specialist's system prompt, if any. */
+export function personaKeyForSpecialist(id: SpecialistId): keyof typeof personas | null {
+  return SPECIALIST_PERSONA_KEY[id];
+}
+
 // Map specialist + cartridge → default request type so the prompt knows
 // what the user expects shape-wise.
 function inferRequestType(specialistId: SpecialistId, cartridge: string): SpecialistRequestType {

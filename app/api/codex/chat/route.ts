@@ -31,6 +31,10 @@ import {
 import { getExperienceQube, getPersonalGuide } from '@/services/iqube/experienceQube';
 import { listRecentIntentsForPersona } from '@/services/iqube/intentQube';
 import { getActivePersona } from '@/services/identity/getActivePersona';
+import {
+  resolveAigentMeIdentity,
+  DEFAULT_AIGENT_ME_IDENTITY,
+} from '@/services/agents/aigentMeRoleResolution';
 import { getCartridgeChatContext } from '@/services/cartridge/getChatContext';
 import { getPersonaUploadService } from '@/services/uploads/supabaseUploadAdapter';
 import { buildAigentZPlatformKnowledge } from '@/services/knowledge/aigentZPlatformKnowledge';
@@ -2937,6 +2941,26 @@ export async function POST(request: NextRequest) {
       (requestedDomain as ContentDomain | undefined) ??
       (KNYT_FOCUSED_AGENTS.has(resolvedAgentId) ? 'metaKnyts' : 'protocol');
 
+    // WP-A Increment 2 (Homecoming Phase II) — "aigentMe" is a ROLE, not a
+    // fixed identity. `resolvedAgentId === 'aigent-me'` above is a ROLE claim
+    // (this turn is on the aigentMe surface) and stays untouched — every
+    // downstream `resolvedAgentId === 'aigent-me'` / `isAigentMe` gate below
+    // must keep firing for the surface's own features (metaMe context,
+    // attached uploads, layout suggestions) regardless of which agent speaks.
+    // WHO speaks as aigentMe is resolved separately, server-side, from the
+    // caller's own persisted assignment — never trusted from the client's
+    // `aigentId`/`persona` fields, which is why this call ignores them.
+    // Fails open to the Default aigentMe persona on any gap (see
+    // aigentMeRoleResolution.ts) — a voice choice, not a security gate; the
+    // actual authority gate (delegation_grants) is untouched by this.
+    let systemPromptPersonaId: string = persona;
+    if (resolvedAgentId === 'aigent-me') {
+      const aigentMeIdentity = await resolveAigentMeIdentity(request).catch(
+        () => DEFAULT_AIGENT_ME_IDENTITY,
+      );
+      systemPromptPersonaId = aigentMeIdentity.personaKey;
+    }
+
     // Build user context (includes metaMe policy settings when provided)
     const userContext: UserContext = {
       domain,
@@ -3312,7 +3336,7 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      systemPrompt = buildSystemPrompt(metadata, persona, userContext, kbResults, resolvedLiveContext ?? undefined, activeSkill, platformKnowledgeBlock || undefined, resolvedKnowledgeInit, typeof message === 'string' ? message : undefined, constitutionalGround);
+      systemPrompt = buildSystemPrompt(metadata, systemPromptPersonaId, userContext, kbResults, resolvedLiveContext ?? undefined, activeSkill, platformKnowledgeBlock || undefined, resolvedKnowledgeInit, typeof message === 'string' ? message : undefined, constitutionalGround);
 
       // Canonical Ontology (CFS-015): append canonical-term guidance to the
       // prompt and cite the governing invariants (Reach, Law XII) —

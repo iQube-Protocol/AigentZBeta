@@ -14,6 +14,7 @@ import { useSpeechSynthesis } from "@/hooks/useSpeechSynthesis";
 import { useTTSPlayer } from "@/app/hooks/useTTSPlayer";
 import { SmartTriadInferenceRenderer, type SmartTriadMessage } from "./SmartTriadInferenceRenderer";
 import { UploadAttachmentPicker } from "@/components/metame/uploads/UploadAttachmentPicker";
+import { AigentMeRoleSelector } from "./AigentMeRoleSelector";
 import {
   Bot,
   User,
@@ -1107,6 +1108,10 @@ function FloatingCopilot({
                   {agentSubtitle}
                 </span>
               )}
+              {/* aigentMe-role selector — only on the aigentMe surface
+                  (agentId === 'aigent-me'). Selection changes routing only;
+                  see AigentMeRoleSelector's header comment. */}
+              {agentId === 'aigent-me' && <AigentMeRoleSelector personaId={personaId} />}
             </div>
             <div className="flex items-center gap-3">
               {/* Listen — read the latest assistant message aloud via
@@ -1566,6 +1571,7 @@ function EmbeddedCopilot({
               {agentSubtitle}
             </span>
           )}
+          {agentId === 'aigent-me' && <AigentMeRoleSelector personaId={personaId} />}
         </div>
         {enableAdvancedRendering && (
           <span className="text-xs text-cyan-400 flex-shrink-0">Advanced</span>
