@@ -400,7 +400,17 @@ export type ActivityActionType =
   // this call — an idempotent re-run where both already existed emits no
   // second event. Carries agent-scoped identifiers only (agent_root_id,
   // agent_id, agent_card_slug, agent_class) — no sponsor persona/passport id.
-  | 'agent_delegate_stood_up';
+  | 'agent_delegate_stood_up'
+  // Chrysalis Homecoming (CFS-023) constitutional anchoring repair
+  // (operator-directed, 2026-08-15) — a legacy polity-bound delegate whose
+  // mechanical stand-up completed but whose sponsor never resolved through
+  // provisionAgentPersona.ts's root_did string match (see that file's own
+  // "flag it for later backfill" comment) had its
+  // delegation_user_root_id/delegation_persona_id filled via
+  // services/agents/repairDelegationAnchor.ts. Forward-looking only — this
+  // describes the REPAIR act, dated to when it happened, never a fabricated
+  // historical genesis receipt for the original stand-up.
+  | 'agent_delegation_anchor_repaired';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 

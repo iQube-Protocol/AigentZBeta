@@ -246,6 +246,71 @@ export async function resolvePassportPrincipalByWorldId(
 }
 
 /**
+ * Resolve the constitutional principal from an EXISTING Passport id — the
+ * caller already has a `passport_id` in hand (e.g. a recorded
+ * `sponsor_passport_id` on some other row) and needs its principal root, with
+ * no live wallet proof or WorldID session available. Same walk as the other
+ * two entry points (Passport → kybe → every sibling root → single auth
+ * user), entered one link later because the Passport is already identified
+ * by id rather than discovered via wallet fingerprint or WorldID nullifier
+ * hash. Generic at the personhood layer — for anything holding a passport_id
+ * that needs its principal, not specific to any one delegate or agent
+ * (added for the Chrysalis Homecoming delegation-anchor repair,
+ * operator-directed 2026-08-15, but not delegate-specific in any way).
+ */
+export async function resolvePassportPrincipalById(passportId: string): Promise<PrincipalResult> {
+  const supabase = getSupabaseServer();
+  if (!supabase) return { ok: false, reason: 'unavailable' };
+
+  const { data: passportRow, error: ppErr } = await supabase
+    .from('polity_passport_records')
+    .select(
+      'kybe_identity_id, passport_class, citizen_status, participant_status, passport_grade, revoked, expires_at',
+    )
+    .eq('passport_id', passportId)
+    .maybeSingle();
+  if (ppErr) return { ok: false, reason: 'unavailable' };
+  if (!passportRow) return { ok: false, reason: 'no_passport' };
+
+  const row = passportRow as Record<string, unknown>;
+  const kybeId = row.kybe_identity_id as string | null;
+  if (!kybeId) return { ok: false, reason: 'lineage_incomplete' };
+
+  const passport: PassportSnapshot = {
+    passportClass: (row.passport_class as string) ?? null,
+    citizenStatus: (row.citizen_status as string) ?? null,
+    participantStatus: (row.participant_status as string) ?? null,
+    passportGrade: (row.passport_grade as string) ?? null,
+    revoked: Boolean(row.revoked),
+    expiresAt: (row.expires_at as string) ?? null,
+  };
+  if (!isPassportUsable(passport)) return { ok: false, reason: 'passport_inactive' };
+
+  // Kybe → every sibling root under it → the single internal Supabase
+  // principal. Refuses on zero or ambiguous (>1) auth users — the SAME
+  // disambiguation rule the wallet and WorldID entry points use, not a
+  // re-derived copy.
+  const authUserResult = await resolveAuthUserForKybe(supabase, kybeId);
+  if (!authUserResult.ok) return authUserResult;
+
+  const { data: rootRow, error: rootErr } = await supabase
+    .from('root_identity')
+    .select('id')
+    .eq('kybe_id', kybeId)
+    .eq('auth_user_id', authUserResult.authUserId)
+    .limit(1)
+    .maybeSingle();
+  if (rootErr) return { ok: false, reason: 'unavailable' };
+  const rootIdentityId = (rootRow as { id?: string } | null)?.id;
+  if (!rootIdentityId) return { ok: false, reason: 'lineage_incomplete' };
+
+  return {
+    ok: true,
+    principal: { kybeId, rootIdentityId, authUserId: authUserResult.authUserId, passport },
+  };
+}
+
+/**
  * The kybe → sibling roots → single auth user walk, shared by the wallet
  * entry point and the World ID entry point (inv.engineering.036 — one
  * authoritative location, not two copies that could drift).
