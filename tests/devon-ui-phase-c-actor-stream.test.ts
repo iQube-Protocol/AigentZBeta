@@ -162,11 +162,18 @@ describe('the authorization boundary — completed and awaiting-authorization ar
     expect(latest.map((e) => e.action).sort()).toEqual(['awaiting-authorization', 'completed']);
   });
 
-  it('ImplementationLayout only wires the invoked transition — working/completed/failed are explicitly NOT fabricated here', () => {
+  it('ImplementationLayout wires invoked at dispatch time — working/completed/failed/awaiting-authorization now follow from Phase D\'s status poll, never fabricated ahead of it', () => {
     const onActorEventCalls = IMPLEMENTATION_LAYOUT_SOURCE.match(/onActorEvent\?\.\(\{[\s\S]*?\}\);/g) ?? [];
-    expect(onActorEventCalls.length).toBe(1);
-    expect(onActorEventCalls[0]).toMatch(/action:\s*["']invoked["']/);
-    expect(onActorEventCalls[0]).not.toMatch(/action:\s*["'](working|completed|failed|awaiting-authorization)["']/);
+    // invoked (dispatch) + working + completed + failed + awaiting-authorization (poll) = 5.
+    expect(onActorEventCalls.length).toBe(5);
+    const actions = onActorEventCalls.map((call) => call.match(/action:\s*["']([a-z-]+)["']/)?.[1]);
+    expect(actions.sort()).toEqual(
+      ['awaiting-authorization', 'completed', 'failed', 'invoked', 'working'].sort(),
+    );
+    // invoked still fires exactly where Phase C put it — at dispatch success,
+    // never inside the poll loop.
+    const invokedCall = onActorEventCalls.find((call) => /action:\s*["']invoked["']/.test(call));
+    expect(invokedCall).toMatch(/action:\s*["']invoked["']/);
   });
 });
 

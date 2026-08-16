@@ -22,7 +22,7 @@
  *      as a `deployment_proposed` receipt once the implementation commits exist.
  */
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Check, Copy, Cpu, Hammer, Loader2, Play, Rocket } from "lucide-react";
 import { LayoutShell } from "@/components/metame/welcome/layouts/LayoutShell";
 import { PendingProposalCard } from "./PendingProposalCard";
@@ -55,10 +55,13 @@ export function ImplementationLayout({
    * change; the receipt pipeline stays authoritative. */
   onDeploymentProposed?: () => void;
   /**
-   * DevOn UI Refinement Phase C — fired the moment `repository_dispatch`
-   * genuinely succeeds (the API call returned `ok: true`), never before.
-   * ONLY `invoked` is wired here: `working`/`completed`/`failed` require
-   * live CI status this layout has no way to observe (Phase D). Optional;
+   * DevOn UI Refinement Phase C/D — `invoked` fires the moment
+   * `repository_dispatch` genuinely succeeds. `working`/`completed`/`failed`
+   * then follow from Phase D's read-only GitHub Actions status poll
+   * (`GET /api/dev-command-center/implement/status`), never fabricated.
+   * `completed` reports Claude Code's execution only; a separate `DevOn`
+   * `awaiting-authorization` event follows it — human merge authorization is
+   * distinct from Claude's execution completion (CFS-016 D1). Optional;
    * existing callers that don't wire it stay unchanged.
    */
   onActorEvent?: (event: ActorEventInput) => void;
@@ -100,6 +103,94 @@ export function ImplementationLayout({
     );
   };
 
+  // Phase D — polls the read-only status seam while a dispatch is
+  // outstanding THIS session. Component-local by design (mirrors the plan's
+  // own scoping): if the operator navigates away from this capsule the poll
+  // stops with it, same as any other transient session-local UI state here
+  // (pendingProposals, etc.) — the durable record is the PR itself, not this
+  // poll loop.
+  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const POLL_INTERVAL_MS = 10_000;
+  const MAX_POLL_ATTEMPTS = 40; // ~6-7 minutes — an honest bound, never a fabricated terminal status
+  useEffect(() => () => {
+    if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+  }, []);
+
+  const pollExecutionStatus = (packId: string, dispatchedAtIso: string) => {
+    if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+    let attempts = 0;
+    let lastStatus: "invoked" | "working" | "completed" | "failed" = "invoked";
+    const tick = async () => {
+      attempts += 1;
+      try {
+        const res = await personaFetch(
+          `/api/dev-command-center/implement/status?packId=${encodeURIComponent(packId)}&since=${encodeURIComponent(dispatchedAtIso)}`,
+          { cache: "no-store" },
+        );
+        const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+        if (res.ok && data.ok === true && typeof data.status === "string") {
+          const status = data.status as "working" | "completed" | "failed";
+          if (status !== lastStatus) {
+            lastStatus = status;
+            if (status === "working") {
+              onActorEvent?.({
+                actorId: "claude-code",
+                actorName: "Claude Code",
+                action: "working",
+                actionLabel: "Implementing",
+                summary: "Working on the implementation pack",
+                detail: typeof data.runUrl === "string" ? data.runUrl : null,
+              });
+            } else if (status === "completed") {
+              const prNumber = typeof data.prNumber === "number" ? data.prNumber : null;
+              onActorEvent?.({
+                actorId: "claude-code",
+                actorName: "Claude Code",
+                action: "completed",
+                actionLabel: "Complete",
+                summary: prNumber ? `PR #${prNumber} ready` : "Implementation complete",
+                detail: typeof data.prUrl === "string" ? data.prUrl : null,
+              });
+              // Distinct from Claude's own completion — human merge is a
+              // separate authorization act (CFS-016 D1), never implied by it.
+              onActorEvent?.({
+                actorId: "devon",
+                actorName: "DevOn",
+                action: "awaiting-authorization",
+                actionLabel: "Awaiting authorization",
+                summary: "Review and merge required",
+                detail: prNumber ? `PR #${prNumber}` : null,
+              });
+            } else if (status === "failed") {
+              onActorEvent?.({
+                actorId: "claude-code",
+                actorName: "Claude Code",
+                action: "failed",
+                actionLabel: "Failed",
+                summary: typeof data.runConclusion === "string" ? `CI run ${data.runConclusion}` : "CI run failed",
+                detail: typeof data.runUrl === "string" ? data.runUrl : null,
+              });
+            }
+          }
+          if (status === "completed" || status === "failed") {
+            if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+            pollTimerRef.current = null;
+            return;
+          }
+        }
+      } catch {
+        // Transient network hiccup — the next tick tries again; a failed
+        // poll is never itself reported as a Claude Code failure.
+      }
+      if (attempts >= MAX_POLL_ATTEMPTS && pollTimerRef.current) {
+        clearInterval(pollTimerRef.current);
+        pollTimerRef.current = null;
+      }
+    };
+    tick();
+    pollTimerRef.current = setInterval(tick, POLL_INTERVAL_MS);
+  };
+
   const dispatchToClaude = async () => {
     if (!pack) return;
     setDispatching(true);
@@ -133,8 +224,7 @@ export function ImplementationLayout({
       }
       // Real, not fabricated: this fires exactly when the dispatch API call
       // itself succeeded — the only thing genuinely known at this point.
-      // working/completed/failed need live CI status (Phase D); until that
-      // seam exists, this stays the only actor-event transition wired here.
+      const dispatchedAtIso = new Date().toISOString();
       onActorEvent?.({
         actorId: "claude-code",
         actorName: "Claude Code",
@@ -143,6 +233,9 @@ export function ImplementationLayout({
         summary: "Implementation Pack dispatched",
         detail: branch ? `Branch ${branch}` : null,
       });
+      // working/completed/failed follow from here — Phase D's read-only
+      // GitHub Actions status poll, correlated by this exact timestamp.
+      pollExecutionStatus(pack.id, dispatchedAtIso);
       noteLinear(data.linear);
     } catch (err) {
       setDispatchNote(err instanceof Error ? err.message : "dispatch failed");
