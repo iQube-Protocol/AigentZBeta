@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`0c26f22`](https://github.com/iQube-Protocol/AigentZBeta/commit/0c26f22e2a41db5fc674eb164e51f92ce8e194e9) [push] spec(knyt): define DevOn bounded implementation for campaign activation (Kn0w1, 2026-08-16T13:20:08-04:00)
 - [`c1ee041`](https://github.com/iQube-Protocol/AigentZBeta/commit/c1ee0414c11a47ec0763df0aa8c468289362c763) [docs] docs(knyt): codify bridge standing reputation rewards activation (Kn0w1, 2026-08-16T13:09:43-04:00)
 - [`8b9c6cb`](https://github.com/iQube-Protocol/AigentZBeta/commit/8b9c6cbc3c688952341e6466c0e3991294c86d05) [push] canon: ratify personhood identity standing reputation ontology (Kn0w1, 2026-08-16T12:51:51-04:00)
 - [`2e5b4c0`](https://github.com/iQube-Protocol/AigentZBeta/commit/2e5b4c0285b3fd5a5efa527085175801db027471) [docs] docs: canonize domain runtime orchestrator model (Kn0w1, 2026-08-15T15:36:29-04:00)

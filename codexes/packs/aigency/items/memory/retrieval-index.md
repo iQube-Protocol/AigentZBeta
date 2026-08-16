@@ -4144,3 +4144,8 @@ Top-level retrieval anchors for this pack.
 - Type: `docs`
 - Brief: [COMMIT-c1ee041.md](../build_/COMMITS/COMMIT-c1ee041.md)
 - Message: docs(knyt): codify bridge standing reputation rewards activation
+
+## Commit `0c26f22` — 2026-08-16T13:20:08-04:00
+- Type: `push`
+- Brief: [COMMIT-0c26f22.md](../build_/COMMITS/COMMIT-0c26f22.md)
+- Message: spec(knyt): define DevOn bounded implementation for campaign activation

@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-16T17:11:26.207Z",
+  "last_updated": "2026-08-16T17:21:52.864Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "c1ee0414c11a47ec0763df0aa8c468289362c763",
-  "latest_commit_short": "c1ee041",
-  "latest_commit_title": "docs(knyt): codify bridge standing reputation rewards activation",
+  "latest_commit": "0c26f22e2a41db5fc674eb164e51f92ce8e194e9",
+  "latest_commit_short": "0c26f22",
+  "latest_commit_title": "spec(knyt): define DevOn bounded implementation for campaign activation",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "0c26f22",
+      "full_sha": "0c26f22e2a41db5fc674eb164e51f92ce8e194e9",
+      "title": "spec(knyt): define DevOn bounded implementation for campaign activation",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-16T13:20:08-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-0c26f22.md"
+    },
     {
       "sha": "c1ee041",
       "full_sha": "c1ee0414c11a47ec0763df0aa8c468289362c763",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-09T01:12:17Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-0eaaa90.md"
-    },
-    {
-      "sha": "6753cc2",
-      "full_sha": "6753cc2f4760cc10f0032bfb1fea66442f91eb09",
-      "title": "Produce DVN finality transition matrix, no mechanical Minted gating",
-      "author": "Claude",
-      "timestamp": "2026-08-09T01:14:09Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-6753cc2.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
