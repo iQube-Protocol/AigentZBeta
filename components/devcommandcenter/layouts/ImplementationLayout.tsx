@@ -26,7 +26,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Check, Copy, Cpu, Hammer, Loader2, Play, Rocket } from "lucide-react";
 import { LayoutShell } from "@/components/metame/welcome/layouts/LayoutShell";
 import { PendingProposalCard } from "./PendingProposalCard";
-import { canAdvance, buildImplementationPackage, constitutionalThresholdMet } from "@/services/devCommandCenter";
+import { canEnterValidation, buildImplementationPackage, constitutionalThresholdMet } from "@/services/devCommandCenter";
 import { experimentStep } from "@/components/composer/experimentStepFetch";
 import { personaFetch } from "@/utils/personaSpine";
 import { packMarkdown, type PackView } from "@/components/composer/CapabilityPipelineTab";
@@ -45,11 +45,20 @@ export function ImplementationLayout({
   onPackGenerated,
   onDeploymentProposed,
   onActorEvent,
+  onExecutionReturnAccepted,
 }: DevLayoutProps & {
   /** Writes the generated pack's markdown back into the session as the
    * implementation brief — satisfying the stage's advance gate. The pack VIEW
    * travels too, so the session (not this layout) owns pack state. */
   onPackGenerated?: (briefMarkdown: string, pack?: Record<string, unknown>) => void;
+  /**
+   * Homecoming Phase II WP-B — fired once `/api/constitutional/execution-
+   * return` accepts a submitted Execution Return for THIS session's
+   * generated pack. Writes `session.acceptedExecutionReturn`, the one fact
+   * `canEnterValidation` reads — never fired for a rejected/pending
+   * submission, and never itself an authorization act.
+   */
+  onExecutionReturnAccepted?: (input: { packId: string; receiptId: string }) => void;
   /** DCIR D1 observation hook — fired after a deployment proposal is
    * successfully recorded. Observe-mode only: no payload, no behavior
    * change; the receipt pipeline stays authoritative. */
@@ -66,7 +75,11 @@ export function ImplementationLayout({
    */
   onActorEvent?: (event: ActorEventInput) => void;
 }) {
-  const canAdvanceNow = canAdvance(session);
+  // WP-B: leaving Implementation for a pack-linked session now requires an
+  // accepted Execution Return, not merely a brief — see canEnterValidation's
+  // own doc comment (services/devCommandCenter/devLoop.ts) for why this is
+  // layered on top of canAdvance rather than a change to it.
+  const canAdvanceNow = canEnterValidation(session);
   const derived = useMemo(() => buildImplementationPackage(session), [session]);
   const brief = session.implementationBrief || derived?.brief || null;
 
@@ -101,6 +114,49 @@ export function ImplementationLayout({
         ? `Linear: ${l.issueIdentifier ?? "issue"} updated${l.issueUrl ? ` (${l.issueUrl})` : ""}`
         : `Linear not tracking this pack: ${l.reason ?? "mirror skipped"}`,
     );
+  };
+
+  // WP-B — the paste-and-submit Execution Return affordance. Component-
+  // local UI state only; the durable record is the receipt the route
+  // writes, not this form.
+  const [executionReturnText, setExecutionReturnText] = useState("");
+  const [submittingReturn, setSubmittingReturn] = useState(false);
+  const [executionReturnNote, setExecutionReturnNote] = useState<string | null>(null);
+
+  const submitExecutionReturn = async () => {
+    setSubmittingReturn(true);
+    setExecutionReturnNote(null);
+    try {
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(executionReturnText);
+      } catch {
+        throw new Error("Not valid JSON — paste the exact block from the pack's Execution Return section.");
+      }
+      const res = await personaFetch("/api/constitutional/execution-return", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(parsed),
+      });
+      const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+      if (!res.ok || data.ok !== true) {
+        throw new Error((typeof data.error === "string" && data.error) || `submission failed (HTTP ${res.status})`);
+      }
+      const packId = typeof (parsed as Record<string, unknown>)?.packId === "string"
+        ? ((parsed as Record<string, unknown>).packId as string)
+        : "";
+      const receiptId = typeof data.receiptId === "string" ? data.receiptId : "";
+      setExecutionReturnNote(
+        data.replayed === true
+          ? `Already recorded — reusing the existing evidence receipt \`${receiptId.slice(0, 8)}…\`.`
+          : `Accepted — evidence receipt \`${receiptId.slice(0, 8)}…\` recorded. Validation is now reachable.`,
+      );
+      if (packId && receiptId) onExecutionReturnAccepted?.({ packId, receiptId });
+    } catch (err) {
+      setExecutionReturnNote(err instanceof Error ? err.message : "submission failed");
+    } finally {
+      setSubmittingReturn(false);
+    }
   };
 
   // Phase D — polls the read-only status seam while a dispatch is
@@ -447,6 +503,36 @@ export function ImplementationLayout({
                 {dispatching ? "Dispatching…" : "Dispatch to Claude"}
               </button>
               {dispatchNote && <p className="text-[10px] text-slate-400">{dispatchNote}</p>}
+            </div>
+
+            {/* WP-B — Execution Return: the return half of the loop. The
+                Implementation Pack sent bounded intent outward; this is
+                where evidence of what executed comes back in. Refused
+                unless packId matches this pack; never itself an
+                authorization act. */}
+            <div className="rounded border border-violet-500/25 bg-violet-500/5 p-2 space-y-1.5">
+              <div className="text-[10px] font-semibold text-violet-300">Execution Return — evidence of what executed</div>
+              <p className="text-[10px] text-slate-500">
+                Paste the JSON block the executing actor returns (see the pack&apos;s own{" "}
+                <code className="text-slate-400">Execution Return</code> section). Accepted only when its{" "}
+                <code className="text-slate-400">packId</code> matches this pack. This is evidence, not
+                authorization — Validation only becomes reachable once it is recorded.
+              </p>
+              <textarea
+                className="w-full rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-slate-100 text-[11px] font-mono min-h-24"
+                placeholder='{"packId": "...", "actor": "claude-code", "filesChanged": [...], "validationResults": [...], "completedAt": "..."}'
+                value={executionReturnText}
+                onChange={(e) => setExecutionReturnText(e.target.value)}
+              />
+              <button
+                onClick={submitExecutionReturn}
+                disabled={submittingReturn || !executionReturnText.trim()}
+                className="inline-flex items-center gap-1 rounded bg-violet-700 hover:bg-violet-600 px-2 py-1 text-[11px] text-white disabled:opacity-50"
+              >
+                {submittingReturn ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                {submittingReturn ? "Submitting…" : "Submit Execution Return"}
+              </button>
+              {executionReturnNote && <p className="text-[10px] text-slate-400">{executionReturnNote}</p>}
             </div>
 
             {/* D1 — propose deployment */}
