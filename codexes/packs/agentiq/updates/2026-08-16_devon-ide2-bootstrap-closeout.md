@@ -135,18 +135,25 @@ report:
   — same `dispatchBranchFor`, same `event_type: claude-implement`, same `client_payload` shape as
   `POST /api/dev-command-center/implement`).
 
-**Attempted and blocked, precisely, in this session:**
-- `POST https://api.github.com/repos/iQube-Protocol/AigentZBeta/dispatches` with this session's
-  `GITHUB_TOKEN` → **401 Bad credentials.** The same token succeeds on reads (repo metadata, file
-  contents) — it is scoped for this session's own git/CI operations, not for triggering a
-  `repository_dispatch` write.
+**Attempted and blocked, precisely, in this session — re-tested twice, on two separate occasions, with
+sharper evidence the second time:**
+- First attempt: `POST https://api.github.com/repos/iQube-Protocol/AigentZBeta/dispatches` with this
+  session's `GITHUB_TOKEN` → **401 Bad credentials.** The same token succeeds on reads (repo metadata,
+  file contents).
 - `mcp__github__actions_run_trigger`'s `run_workflow` method requires a `ref` (branch/tag) and calls
   the `workflow_dispatch` REST endpoint — a different trigger type. `claude-implement.yml` declares
   only `on: repository_dispatch`; no available MCP tool wraps that specific endpoint.
+- Re-tested a second time (correct `Content-Type: application/json`, ruling out a request-formatting
+  artifact): the response is **not from GitHub at all** — it comes from this environment's own outbound
+  proxy, and states so explicitly: `403 {"message":"repository_dispatch is not permitted for this
+  session type.","documentation_url":"https://docs.anthropic.com/en/docs/claude-code/github-actions"}`.
+  This is a **categorical, session-type-level policy restriction**, not a scoped-credential accident —
+  no `GITHUB_TOKEN` available to a Claude Code session, of any scope, would pass this gate. The first
+  attempt's 401 and this 403 are two different layers independently confirming the same conclusion.
 
-**What actually closing this requires**: firing the dispatch from a context that has write access —
-the deployed app's authenticated admin UI (Dev Command Center → Implement → "Dispatch to Claude"), or
-a `curl`/script call using a `GITHUB_TOKEN` scoped for `repo` write, with the exact payload already
+**What actually closing this requires**: firing the dispatch from OUTSIDE any Claude Code session
+entirely — the deployed app's authenticated admin UI (Dev Command Center → Implement → "Dispatch to
+Claude"), or the operator's own machine/credentials via `curl`/script, using the exact payload already
 prepared in `scripts/homecoming-iii-phase6-closure-dispatch.ts`. Once dispatched: watch GitHub →
 Actions → "Claude Implement (DCC dispatch)"; it will open a PR from `aigentz/pack-phase6-closure-
 contextbinding-governing--1946e43e` to `dev`. **That PR is the human merge gate — nothing in any
@@ -202,6 +209,13 @@ omission, is exercising the real human-gated execution seam this session cannot 
 therefore not yet home: the kernel and the DevOn UI are ready to receive the next assignment, but the
 loop that proves an assignment can travel all the way to a merged, deployed PR has not yet been
 walked end-to-end.
+
+The operator has separately reported the Aletheon/identity-spine prerequisite as closed ("PARITY
+READY") as of this same session. That prerequisite and the identity-spine work it governs are outside
+this closeout's scope and were not reopened, re-verified, or touched here — this document takes no
+position on that closure beyond noting it. It is a distinct concern from, and does not resolve, the
+execution-seam restriction above: that restriction is a categorical, session-type-level policy on
+firing `repository_dispatch` from within a Claude Code session, unrelated to identity-spine state.
 
 ---
 
