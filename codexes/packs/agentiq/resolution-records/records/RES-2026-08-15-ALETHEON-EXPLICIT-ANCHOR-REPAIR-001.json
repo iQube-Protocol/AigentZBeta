@@ -1,0 +1,65 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "resolutionId": "RES-2026-08-15-ALETHEON-EXPLICIT-ANCHOR-REPAIR-001",
+  "capability": "Chrysalis Homecoming (CFS-023) constitutional anchoring repair — second live execution attempt against Aletheon, after the sponsor Passport's own linkage had been reconciled",
+  "milestone": "POST /api/homecoming/agent/repair-anchor {delegate:'aletheon'} succeeded live: ok:true, delegationUserRootId resolved to the operator's person-grade root, delegationPersonaId filled from a genuine Bureau bridge, sponsor provenance and delegation_grants confirmed untouched — closing the Aletheon Homecoming Stage 1 anchoring gap this workstream exists to close.",
+  "problem": "After services/passport/legacyPassportLinkageRepair.ts (principal-first version) reconciled the sponsor Passport's root_identity_id/kybe_identity_id live, the operator reran the UNCHANGED POST /api/homecoming/agent/repair-anchor route and it refused AGAIN — same error shape (principal_unresolved / lineage_incomplete) as the very first live attempt earlier the same day, even though the specific gap that first refusal diagnosed (a NULL kybe_identity_id on the sponsor Passport) was now fixed.",
+  "observedFailure": [
+    "repairDelegationAnchor() called resolvePassportPrincipalById(sponsor_passport_id), which — once kybe_identity_id resolved successfully — proceeded to resolveAuthUserForKybe(): a kybe-wide scan for every sibling root_identity row sharing that kybe_id, refusing unless exactly one distinct auth_user_id is found across them.",
+    "The operator's own account has multiple root_identity rows under the now-resolved kybe, spanning more than one Supabase auth_user_id (a real, pre-existing multi-login condition, unrelated to Aletheon or to the Passport-linkage reconciliation just performed). resolveAuthUserForKybe correctly refused on that ambiguity — it is doing exactly what it is designed to do.",
+    "The refusal was nonetheless WRONG for this specific consumer: the sponsor Passport had ALREADY named its own resolved root_identity_id explicitly (written by legacyPassportLinkageRepair.ts, itself resolved from the caller's own authenticated auth_user_id — a decision already made, correctly, once). Re-deriving the principal a second time via a kybe-wide auth-user scan re-litigated that completed decision and was vulnerable to a totally unrelated historical fact (sibling root rows under other logins) that has nothing to do with which root the sponsor Passport itself names."
+  ],
+  "rootCauses": [
+    "resolvePassportPrincipalById is, by design, an authentication-sensitive resolver — it exists to answer 'what principal does this Passport's kybe resolve to, verified against a single unambiguous auth user', which is the right question for a caller that needs session-grade certainty. repairDelegationAnchor's actual question is narrower and different: 'what root/kybe does THIS SPECIFIC, ALREADY-RECONCILED Passport explicitly name', which does not need auth-user verification at all, because the Passport's own columns already ARE the resolved answer.",
+    "Correction to RES-2026-08-15-ALETHEON-SPONSOR-LINEAGE-AMBIGUITY-001 (preserved unchanged, not rewritten): that record's diagnosis — 'devagent@qripto's Kybe lineage resolves to MORE THAN ONE distinct auth_user_id across sibling root_identity rows' — was MISATTRIBUTED to the FIRST live refusal, which was actually caused by an earlier branch (kybe_identity_id being NULL on the sponsor Passport, fixed by RES-2026-08-15-PASSPORT-PRINCIPAL-FIRST-SUPERSESSION-001). The sibling-auth-user-ambiguity diagnosis is, however, ACCURATE for THIS second refusal, confirmed live by this record. The earlier record's underlying concern was real; it was simply attached to the wrong instance of the failure."
+  ],
+  "resolution": [
+    "Added resolvePassportExplicitAnchor (services/identity/passportPrincipal.ts): reads root_identity_id/kybe_identity_id directly off the named Passport (single lookup, no kybe-wide scan), verifies the referenced root_identity row exists, verifies that root's own kybe_id agrees with the Passport's kybe_identity_id (defense in depth against data drift), and confirms the Passport is still usable. Never touches auth_user_id, never calls resolveAuthUserForKybe, never queries for sibling roots.",
+    "repairDelegationAnchor() now calls resolvePassportExplicitAnchor() instead of resolvePassportPrincipalById(). resolvePassportPrincipalById itself is UNCHANGED and remains correct for its existing authentication-sensitive callers (the wallet/WorldID/passkey connection flows) — this is a narrower, additional entry point, not a relaxation of the existing one (inv.engineering.036/037: extend by composition, never weaken the shared rule).",
+    "Live execution confirmed the fix: POST /api/homecoming/agent/repair-anchor {delegate:'aletheon'} returned ok:true, delegationUserRootId = 1b356340-7e4e-4c1c-950b-1625db4bf3d7 (the same root_identity_id legacyPassportLinkageRepair.ts had just written onto the sponsor Passport), delegationPersonaId filled from a genuine Bureau did_persona bridge, rootAnchorFilledThisCall/personaBridgeFilledThisCall both true, and the response's own note confirms sponsor_persona_id/sponsor_passport_id/timestamps/delegation_grants are untouched.",
+    "The forward-looking repair receipt (agent_delegation_anchor_repaired) again returned null (best-effort, write-unaffected) — per explicit operator instruction this does not block the parity verdict and is tracked separately, not investigated further in this workstream."
+  ],
+  "rejectedApproaches": [
+    "Relaxing or modifying resolveAuthUserForKybe (e.g. to tolerate multiple auth users, or to pick one heuristically). Rejected per explicit operator instruction: this function's refusal is correct and must remain unchanged; its existing callers (wallet/WorldID/passkey) genuinely need session-grade auth-user certainty and must not be weakened to unblock a different consumer's narrower question.",
+    "Building a full PRD-PAG-001 Amendment A §A.5 Passport-consolidation flow to eliminate the sibling auth-user condition at its source. Rejected as out of scope: the operator was explicit that Aletheon's anchoring repair does not need to determine an auth user at all, so resolving the underlying multi-login condition is unnecessary to close this specific gap, and remains separate, deferred identity-spine work.",
+    "Passing an explicit override/bypass flag into resolvePassportPrincipalById to skip its auth-user check for this one caller. Rejected: a conditional bypass inside a shared, authentication-sensitive resolver is exactly the kind of special-casing that erodes a shared invariant over time; a separate, narrowly-scoped function with its own name and its own (weaker, honestly documented) guarantee is clearer and safer than a hidden mode switch on the strict one."
+  ],
+  "candidateInvariants": [
+    "CI-2026-08-15-EXPLICIT-ANCHOR-AUTHORITATIVE-001"
+  ],
+  "canaries": [
+    "tests/passport-explicit-anchor-resolution.test.ts",
+    "tests/agent-delegation-anchor-repair.test.ts"
+  ],
+  "scope": "local",
+  "status": "observed",
+  "trigger": "defect-recurred",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/passport-explicit-anchor-resolution.test.ts",
+      "tests/agent-delegation-anchor-repair.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "services/identity/passportPrincipal.ts",
+      "services/agents/repairDelegationAnchor.ts",
+      "app/api/homecoming/agent/repair-anchor/route.ts"
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-08-15_aletheon-homecoming-phase-a-capability-census.md",
+    "codexes/packs/agentiq/resolution-records/records/RES-2026-08-15-ALETHEON-SPONSOR-LINEAGE-AMBIGUITY-001.json",
+    "codexes/packs/agentiq/resolution-records/records/RES-2026-08-15-PASSPORT-PRINCIPAL-FIRST-SUPERSESSION-001.json"
+  ],
+  "date": "2026-08-15",
+  "projections": {
+    "targets": [
+      "constitutional-computing",
+      "irl"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  }
+}

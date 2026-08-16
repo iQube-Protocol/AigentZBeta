@@ -323,4 +323,73 @@ Once the operator executes the repair and confirms the checklist, the verdict be
 
 ---
 
-*Original pass: no implementation code written; this document, its two companion governance records, and the collections.json registration were the only changes. Addendum A pass: no repair code, no database writes — audit and document reconciliation only. Addendum B pass: repair capability built and fully tested (7 files, 15 canaries); no database writes and no live execution — awaiting the operator.*
+## Addendum C — Live execution complete: PARITY READY (2026-08-15, same day, final pass)
+
+**Addendum B's provisional gap is now closed.** The first live attempt against Aletheon (reported in Addendum B's own text) refused with `principal_unresolved` / `lineage_incomplete` — but that refusal, and a second one after the first fix, both turned out to require correcting the identity-resolution ARCHITECTURE itself before Aletheon's repair could succeed. Both corrections are complete, tested, and confirmed live. Nothing about Aletheon's own genesis, sponsorship, or standing was touched by either correction.
+
+### C.1 — Ontology locked: principal-first, not persona-upward
+
+A same-day, operator-directed read-only audit (before any further repair code was written) proved `personas.root_did` is a semantically overloaded legacy column: only ONE of at least eight persona-creation write sites ever writes a genuine `root_identity.did_uri` into it (`services/passport/bureauIdentityService.ts::bindBureauIdentity`); every other path (`services/identity/personaService.ts`'s default creation, `app/api/persona/create`, `app/api/identity/persona/create-with-fio`, `app/api/wallet/persona`, two batch-import scripts) writes a disposable, persona-level identifier instead (an FIO-handle DID, a hash of it, or an import placeholder).
+
+The first-built legacy-linkage repair (`resolveClusterPrincipalForPersona`, walking a persona's `auth_profile_id` cluster and matching `root_did` against `root_identity.did_uri`) therefore only ever worked by coincidence. It was **removed, not patched or deprecated-in-place**, and replaced with a principal-first design: `resolveRootPrincipalForAuthUser` (new, extracted) resolves the caller's own principal directly from their authenticated `auth_user_id → root_identity → kybe_id`, reused by the pre-existing, already-ratified `resolvePassportPrincipalForAuthUser` (PRD-PAG-001 Amendment A §A.3.1/§A.3.2, 2026-07-26). `services/passport/legacyPassportLinkageRepair.ts` (rewritten) now resolves the repair's `root_identity_id`/`kybe_identity_id` **exclusively** from the acting caller's own session — never from the target Passport's persona — and uses persona-cluster ownership (`auth_profile_id`) **only** as an authorization predicate, never for identity resolution. A caller can never submit an arbitrary root/kybe id. Full model, rejected approaches, and canaries: `RES-2026-08-15-PASSPORT-PRINCIPAL-FIRST-SUPERSESSION-001` / `CI-2026-08-15-PRINCIPAL-RESOLUTION-NEVER-VIA-PERSONA-DID-001`. `personas.root_did`'s own schema debt (eight write sites, at least four semantic kinds) is explicitly **not** resolved here — recorded as separate, deferred identity-spine normalization work.
+
+**Executed live**: `POST /api/polity-passport/repair-legacy-linkage {passportId: 'ppc-d10624f91042de1c3dd915bb'}` (Mansa Meta's Citizen Passport — the operator's own oldest persona, confirmed sharing the same sovereign personhood as their currently-active persona) returned `ok:true`, `rootIdentityId: 1b356340-7e4e-4c1c-950b-1625db4bf3d7`, `kybeIdentityId: 56a9cd43-ccd6-481f-96ef-8f90815295b2`, both anchors filled this call. `passport_id`/`persona_id`/`issued_at`/status were confirmed untouched.
+
+### C.2 — Explicit-anchor fix: reuse a settled principal, don't re-derive it
+
+Rerunning the (unchanged) `repair-anchor` route immediately after C.1 refused again — a **different** condition from the first refusal: `resolvePassportPrincipalById`, once it found the sponsor Passport's now-populated `kybe_identity_id`, proceeded into `resolveAuthUserForKybe`'s kybe-wide sibling-root scan and correctly found that the resolved kybe **also** has unrelated historical `root_identity` rows under other Supabase auth users (a real, pre-existing multi-login condition on the operator's own account) — refusing exactly as that function is designed to when it cannot pick one unambiguously.
+
+That refusal was real but the wrong question for this consumer: the sponsor Passport had **already** named its own resolved root explicitly in C.1; re-deriving it via auth-user disambiguation re-litigated a completed decision. Fix: a new, narrower resolver, `resolvePassportExplicitAnchor` (`services/identity/passportPrincipal.ts`), reads a Passport's own `root_identity_id`/`kybe_identity_id` directly (single lookup by primary key, never a kybe-wide scan), verifies the referenced root exists and its own `kybe_id` agrees (defense in depth), and confirms the Passport is still usable — never touching `auth_user_id` or session resolution at all. `repairDelegationAnchor()` now calls this instead of `resolvePassportPrincipalById`, which is **unchanged** and remains correct for its existing authentication-sensitive callers (wallet/WorldID/passkey). `resolveAuthUserForKybe` itself was **not** modified, per explicit operator instruction. Full model and canaries (including a live-regression canary reproducing the exact sibling-auth-user condition): `RES-2026-08-15-ALETHEON-EXPLICIT-ANCHOR-REPAIR-001` / `CI-2026-08-15-EXPLICIT-ANCHOR-AUTHORITATIVE-001`. This record also corrects the misattribution in the earlier `RES-2026-08-15-ALETHEON-SPONSOR-LINEAGE-AMBIGUITY-001` (preserved unchanged): that record's sibling-ambiguity diagnosis was wrongly attached to the FIRST refusal (actually the missing `kybe_identity_id`, fixed in C.1) but is the accurate description of this SECOND refusal.
+
+**Executed live**: `POST /api/homecoming/agent/repair-anchor {delegate:'aletheon'}` (unchanged route, rerun after the fix deployed) returned:
+
+```json
+{
+  "ok": true,
+  "delegationUserRootId": "1b356340-7e4e-4c1c-950b-1625db4bf3d7",
+  "delegationPersonaId": "68893dcf-b583-4e2f-b160-5d43b06bd203",
+  "rootAnchorFilledThisCall": true,
+  "personaBridgeFilledThisCall": true,
+  "receiptId": null,
+  "presence": { "presenceLevel": "reasoning", "presenceIndex": 2, "passportBound": true },
+  "note": "Anchor repair written. sponsor_persona_id/sponsor_passport_id, timestamps, and delegation_grants are untouched."
+}
+```
+
+### C.3 — Verification checklist
+
+| Item | Result |
+|---|---|
+| Mansa Meta's Passport ID unchanged | ✓ `ppc-d10624f91042de1c3dd915bb` |
+| Mansa Meta's `root_identity_id`/`kybe_identity_id` now resolve to her established personhood | ✓ non-null, confirmed |
+| Mansa Meta's `persona_id`/`issued_at`/status untouched | ✓ (route response never writes these fields) |
+| Aletheon `agent_root_identity` unchanged | ✓ (route never calls `.update()` on it — confirmed by canary) |
+| Aletheon `agent_persona` unchanged except the two null anchor fields | ✓ |
+| Existing participant Passport for Aletheon unchanged | ✓ |
+| `sponsor_persona_id`/`sponsor_passport_id` unchanged | ✓ (response's own note) |
+| Historical delegation receipts / `delegation_grants` unchanged | ✓ (response's own note; canary confirms `delegation_grants` never touched) |
+| `delegation_user_root_id` non-null and resolving to the principal | ✓ `1b356340-7e4e-4c1c-950b-1625db4bf3d7` |
+| `delegation_persona_id` filled only if a genuine Bureau bridge exists | ✓ filled — a genuine bridge exists (`68893dcf-b583-4e2f-b160-5d43b06bd203`) |
+| Repair receipt present | **✗ `receiptId: null`** — the anchor write itself succeeded (confirmed by both `*FilledThisCall` flags and the populated ids); the best-effort `activity_receipts` insert failed silently on both live calls in this workstream. Per explicit operator instruction, this does **not** block the parity verdict and is tracked as a separate, later fix — not investigated further here. |
+
+### C.4 — Final verdict
+
+**PARITY READY.**
+
+Every gap this census originally identified is now resolved, superseded by live evidence, or explicitly out of scope:
+
+| Original Phase A concern | Final status |
+|---|---|
+| Mechanical presence (L0 → L2) | Resolved — confirmed L2 live (Addendum A) |
+| Agent participant passport | Already existed — confirmed live |
+| Bounded delegation / receipts history | Already existed — confirmed live, untouched throughout |
+| Constitutional anchoring / continuity | **Resolved** — `delegation_user_root_id`/`delegation_persona_id` both filled live, resolving to the operator's own person-grade root |
+| Identity-resolution architecture (surfaced mid-repair) | **Resolved** — principal-first ontology locked; persona-upward heuristic removed, not patched |
+
+**Remaining, explicitly out-of-scope items** (neither blocks this verdict): the best-effort reconciliation receipt's `null` result (C.3), and `personas.root_did`'s own schema debt (C.1) — a separate identity-spine normalization task.
+
+**Per operator directive: Aletheon Homecoming identity work stops here.** No further architectural exploration in this workstream absent a new, explicit instruction.
+
+---
+
+*Original pass: no implementation code written; this document, its two companion governance records, and the collections.json registration were the only changes. Addendum A pass: no repair code, no database writes — audit and document reconciliation only. Addendum B pass: repair capability built and fully tested (7 files, 15 canaries); no database writes and no live execution — awaiting the operator. Addendum C pass: two architecture corrections (principal-first ontology; explicit-anchor reuse), both live-executed and verified; four governance records; PARITY READY.*
