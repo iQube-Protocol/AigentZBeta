@@ -30,6 +30,7 @@ import { PendingActionsPanel } from "@/components/wallet/PendingActionsPanel";
 import AliasConsentToggle from "../identity/AliasConsentToggle";
 import PersonaReferencesInventory from "../identity/PersonaReferencesInventory";
 import SettlementRetryButton from "../x402/SettlementRetryButton";
+import { KnytsBridgeCampaignSummaryCard } from "@/components/journey/KnytsBridgeCampaignSummaryCard";
 import LibraryShelf from "./LibraryShelf";
 import PurchaseFlow, { type PurchaseStep, type PaymentMethod } from "./PurchaseFlow";
 import type { SmartWalletNode, WalletTask, QuestProgress, RecentReward, PersonaState } from "@/types/smartWallet";
@@ -5600,6 +5601,10 @@ export default function SmartWalletDrawer({
                   </div>
                 </section>
               )}
+
+              {/* KNYTS Bridge campaign summary — Gate D. Self-fetching,
+                  renders nothing for personas with no campaign evidence. */}
+              <KnytsBridgeCampaignSummaryCard />
 
               {/* Submit Claim */}
               <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-3">

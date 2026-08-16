@@ -11,7 +11,7 @@
  *   - Template variables: reward_name, reward_price, reward_full_price, reward_savings
  */
 
-const KS_BASE_URL =
+export const KS_BASE_URL =
   'https://www.kickstarter.com/projects/430245948/metaknyt-the-legend-of-kn0w1-and-the-21-sats';
 
 export interface KsReward {

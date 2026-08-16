@@ -1215,7 +1215,8 @@ export type ReputationEventSourceType =
   | 'external_verification'
   | 'dispute_resolution'
   | 'decay'
-  | 'correction';
+  | 'correction'
+  | 'campaign_contribution';
 
 export type RewardPillar = 'knowledge' | 'compute' | 'capital';
 

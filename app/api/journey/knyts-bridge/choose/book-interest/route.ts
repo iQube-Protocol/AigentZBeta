@@ -1,22 +1,36 @@
 /**
  * POST /api/journey/knyts-bridge/choose/book-interest
  *
- * Captures a "reserve / notify me" demand signal for metaKnyt Agentic
- * Graphic Novel (KNYTS Choose Reserve-form patch, three-item closure).
- * Mirrors constitutional-internet-bridge/choose/book-interest exactly:
- * reuses the existing generic campaign event log (recordCampaignEvent →
- * campaign_events, already-existing table, no new schema) with the same
- * `book_interest` eventType, scoped to KNYTS_BRIDGE_CAMPAIGN_ID instead of
- * the CI campaign. `contentId`/`metadata` identify the graphic novel so a
- * later CRM prospect-ingestion adapter has something to key on — that
- * adapter, and any product/SKU/preorder/payment flow, are deliberately NOT
- * built here.
+ * KNYTS Bridge campaign activation, Gate A (`KNYT_BRIDGE_CAMPAIGN_IMPLEMENTATION_SPEC_CLAUDE_CODE.md`).
+ * The CHOOSE surface's first card is now campaign pre-registration for the
+ * metaKnyt Kickstarter, not a graphic-novel reserve signal — this route
+ * keeps its original path (no client-side submitUrl change needed) but its
+ * behavior is substantially different:
+ *
+ *   1. Normalizes the email and resolves/dedupes the CRM contact
+ *      (`resolveCampaignContact`) — an existing metaKnyt investor keeps
+ *      their record; a genuinely new visitor gets exactly one prospect.
+ *   2. Records ONE idempotent `campaign_preregistered` evidence event per
+ *      normalized email (`recordKnytsBridgeEvidence`) — repeated submission
+ *      does not create duplicate CRM records, evidence, or rewards.
+ *   3. On a freshly-recorded (non-duplicate) event, independently projects
+ *      Reputation/Standing/Reward (`projectKnytsBridgeEvidenceOutputs`) —
+ *      Gate B. A repeat submission skips projection entirely (idempotent).
+ *   4. Returns the centralized Kickstarter follow URL so the CHOOSE surface
+ *      can reveal the "Follow the Kickstarter" CTA without hard-coding it.
+ *
+ * Anonymous/signed-out visitors ARE now captured (spec §3.1: "email address
+ * — required for anonymous/non-authenticated visitors") — the prior
+ * behavior of silently discarding unauthenticated submissions
+ * (`{ok:true, persisted:false}`) is the exact gap this activation closes.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
-import { recordCampaignEvent } from '@/services/campaign/campaignService';
-import { KNYTS_BRIDGE_CAMPAIGN_ID } from '@/services/journey/knytsBridgeCrossingJourney';
+import { resolveCampaignContact, normalizeEmail } from '@/services/crm/campaignContactResolver';
+import { recordKnytsBridgeEvidence } from '@/services/campaign/knytsBridgeCampaignEvidence';
+import { projectKnytsBridgeEvidenceOutputs } from '@/services/campaign/knytsBridgeCampaignProjector';
+import { getKnytsBridgeKickstarterUrl } from '@/services/journey/knytsBridgeCampaignConfig';
 
 export const dynamic = 'force-dynamic';
 
@@ -50,27 +64,40 @@ async function postImpl(req: NextRequest) {
     return NextResponse.json({ error: 'invalid-json' }, { status: 400 });
   }
 
-  const email = body.email?.trim();
-  if (!email || !email.includes('@')) {
+  const rawEmail = body.email?.trim();
+  if (!rawEmail || !rawEmail.includes('@')) {
     return NextResponse.json({ error: 'invalid-email' }, { status: 400 });
   }
+  const normalizedEmail = normalizeEmail(rawEmail);
 
   const persona = await getActivePersona(req).catch(() => null);
-  if (!persona?.personaId) {
-    // Signed-out visitors can still express demand — CHOOSE never requires
-    // Passport. Nothing to attribute this to server-side beyond the email
-    // itself, so we simply acknowledge; there's no campaign_events row
-    // without a personaId (recordCampaignEvent requires one).
-    return NextResponse.json({ ok: true, persisted: false });
-  }
 
-  await recordCampaignEvent({
-    campaignId: KNYTS_BRIDGE_CAMPAIGN_ID,
-    eventType: 'book_interest',
-    personaId: persona.personaId,
-    contentId: 'metaknyt-agentic-graphic-novel',
-    metadata: { email, product: 'metaKnyt Agentic Graphic Novel' },
+  const contact = await resolveCampaignContact({
+    normalizedEmail,
+    activePersonaId: persona?.personaId ?? null,
   });
 
-  return NextResponse.json({ ok: true, persisted: true });
+  const { isNew, evidence } = await recordKnytsBridgeEvidence({
+    actionType: 'campaign_preregistered',
+    idempotencyKey: `campaign_preregistered:${normalizedEmail}`,
+    personaId: persona?.personaId ?? null,
+    crmPersonaId: contact.crmPersonaId,
+    normalizedEmail,
+    investorKnown: contact.investorKnown,
+    evidenceGrade: 'verified',
+    sourceSurface: 'knyts_bridge_choose',
+    metadata: { email: rawEmail },
+  });
+
+  if (isNew) {
+    await projectKnytsBridgeEvidenceOutputs(evidence);
+  }
+
+  return NextResponse.json({
+    ok: true,
+    persisted: true,
+    isNewSubmission: isNew,
+    investorKnown: contact.investorKnown,
+    kickstarterUrl: getKnytsBridgeKickstarterUrl(),
+  });
 }
