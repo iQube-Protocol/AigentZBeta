@@ -178,6 +178,62 @@ export async function ghTree(path = ''): Promise<GhResult<GhTreeEntry[]>> {
   };
 }
 
+export interface GhWorkflowRun {
+  id: number;
+  /** 'queued' | 'in_progress' | 'completed' — the only facts read here. */
+  status: string;
+  /** 'success' | 'failure' | 'cancelled' | 'timed_out' | ... | null while not completed. */
+  conclusion: string | null;
+  htmlUrl: string;
+  createdAt: string;
+}
+
+/** Recent runs of one workflow file, dispatch-triggered only (DCC Phase D —
+ *  the execution-status seam). No log scraping, no derived sub-status:
+ *  callers map only `status`/`conclusion` as GitHub reports them. */
+export async function ghWorkflowRuns(workflowFile: string, limit = 10): Promise<GhResult<GhWorkflowRun[]>> {
+  const r = await ghGet<{
+    workflow_runs: Array<{ id: number; status: string; conclusion: string | null; html_url: string; created_at: string }>;
+  }>(
+    `/actions/workflows/${encodeURIComponent(workflowFile)}/runs?event=repository_dispatch&per_page=${Math.min(Math.max(limit, 1), 30)}`,
+  );
+  if (!r.ok || !r.data) return { ok: r.ok, status: r.status, error: r.error };
+  return {
+    ok: true,
+    status: r.status,
+    data: r.data.workflow_runs.map((run) => ({
+      id: run.id,
+      status: run.status,
+      conclusion: run.conclusion,
+      htmlUrl: run.html_url,
+      createdAt: run.created_at,
+    })),
+  };
+}
+
+export interface GhPullForBranch {
+  number: number;
+  htmlUrl: string;
+  state: string;
+  merged: boolean;
+}
+
+/** Open-or-closed PRs whose head is `branch` — reuses the exact `state=all`
+ *  head-filter pattern `validate/route.ts` already inlines for PR-awareness,
+ *  extracted here so Phase D's status endpoint doesn't duplicate it. */
+export async function ghPullsForBranch(branch: string): Promise<GhResult<GhPullForBranch[]>> {
+  const owner = GITHUB_REPO.split('/')[0];
+  const r = await ghGet<Array<{ number: number; html_url: string; state: string; merged_at?: string | null }>>(
+    `/pulls?state=all&head=${encodeURIComponent(`${owner}:${branch}`)}&per_page=5`,
+  );
+  if (!r.ok || !r.data) return { ok: r.ok, status: r.status, error: r.error };
+  return {
+    ok: true,
+    status: r.status,
+    data: r.data.map((p) => ({ number: p.number, htmlUrl: p.html_url, state: p.state, merged: Boolean(p.merged_at) })),
+  };
+}
+
 export interface GhFile {
   path: string;
   /** Decoded UTF-8 text (empty when unavailable — see `note`). */
