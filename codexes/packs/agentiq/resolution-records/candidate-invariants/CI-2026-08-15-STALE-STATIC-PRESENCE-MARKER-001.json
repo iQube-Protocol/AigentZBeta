@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-15-STALE-STATIC-PRESENCE-MARKER-001",
+  "statement": "A hand-authored code marker that stands in for a live database fact (e.g. 'this delegate has no seeded identity yet') is accurate only as of when it was written and carries no mechanism to detect its own drift. It must be treated as a last-known-state hint, never as current truth, whenever a live query for the same fact is available.",
+  "classification": "Engineering/architectural invariant (candidate causal pattern) about static presence markers vs live database state in the Chrysalis Homecoming (CFS-023) presence-assessment code.",
+  "family": "engineering",
+  "scope": "local",
+  "status": "observed",
+  "ratifiedSource": null,
+  "parentCandidateId": null,
+  "supersededBy": null,
+  "governingPrinciple": false,
+  "derivedFrom": [
+    "RES-2026-08-15-ALETHEON-LIVE-STATE-SUPERSESSION-001"
+  ],
+  "occurrences": [
+    {
+      "site": "services/homecoming/constitutionalPresence.ts's DELEGATE_DB.aletheon: { handCuratedCard: true }, discovered stale 2026-08-15",
+      "defect": "The Phase A capability census (2026-08-15, static-code-only, no live DB access) read this marker as the best available signal and concluded Aletheon held presence rung L0 only. Live Supabase evidence, obtained the same day via the operator's own preflight query, showed agent_root_identity, agent_persona, an approved passport, and delegation receipts already existed — mechanical presence L2. The marker was correct when written and had gone stale by the time it was relied upon, with no code path that would have surfaced the drift on its own.",
+      "resolutionId": "RES-2026-08-15-ALETHEON-LIVE-STATE-SUPERSESSION-001",
+      "evidence": [
+        "services/homecoming/constitutionalPresence.ts",
+        "codexes/packs/agentiq/updates/2026-08-15_aletheon-homecoming-phase-a-capability-census.md"
+      ]
+    }
+  ],
+  "canaries": [],
+  "projections": {
+    "targets": [
+      "constitutional-computing",
+      "irl"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "notes": [
+    "NOT A CLAIM THAT constitutionalPresence.ts's design is wrong. handCuratedCard exists precisely because a hand-curated Agent Card route CAN exist before any DB seed — the marker's original purpose (distinguish a card-only archetype from a DB-backed one) is legitimate. The failure mode is relying on it as CURRENT truth once live-query capability exists, rather than re-deriving it live.",
+    "ONE OCCURRENCE, RECORDED HONESTLY. Whether other DELEGATE_DB entries (moneypenny, nakamoto, kn0w1, aigent-z, marketa) carry similarly stale hand-authored flags is unconfirmed — this occurrence does not assert it, and checking would require the same live-query discipline this occurrence demonstrates the value of.",
+    "RELATIONSHIP TO CI-2026-08-15-PRESENCE-LADDER-NOT-AGENCY-001: that invariant is about two MECHANISMS (presence ladder, agency/standing) being structurally disjoint by design. This invariant is about a STATIC CODE COMMENT going stale relative to a live table it was standing in for. Different failure shapes — not merged."
+  ]
+}
