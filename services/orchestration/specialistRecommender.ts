@@ -67,6 +67,7 @@ const SPECIALIST_LABELS: Record<SpecialistId, string> = {
   moneypenny: 'MoneyPenny',
   metaye: 'Metayé',
   researcher: 'Research Copilot',
+  aletheon: 'Aletheon',
 };
 
 const SPECIALIST_DESCRIPTIONS: Record<SpecialistId, string> = {
@@ -79,6 +80,7 @@ const SPECIALIST_DESCRIPTIONS: Record<SpecialistId, string> = {
   moneypenny: 'Q¢ economics, micro-transactions, payment ops',
   metaye: 'Sovereign Cybernetic Polity, governance, civic primitives',
   researcher: 'Invariant substrate, experiments, protocols, structured discovery',
+  aletheon: 'Constitutional reasoning, knowledge synthesis, institutional memory, revealed context',
 };
 
 /**
@@ -97,6 +99,7 @@ const SPECIALIST_ACTIVATION_GATE: Record<SpecialistId, { id: string; label: stri
   'aigent-c': null,
   'aigent-nakamoto': null,
   moneypenny: null,
+  aletheon: null,
 };
 
 /**

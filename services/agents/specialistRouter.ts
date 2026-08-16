@@ -47,7 +47,8 @@ export type SpecialistId =
   | 'aigent-nakamoto'
   | 'moneypenny'
   | 'metaye'
-  | 'researcher';
+  | 'researcher'
+  | 'aletheon';
 
 export type SpecialistRequestType =
   | 'proposal'
@@ -142,6 +143,7 @@ const SPECIALIST_PERSONA_KEY: Record<SpecialistId, keyof typeof personas | null>
   moneypenny: 'aigent-moneypenny',
   metaye: 'aigent-metaye',
   researcher: 'aigent-researcher',
+  aletheon: 'aigent-aletheon',
 };
 
 const SPECIALIST_LABELS: Record<SpecialistId, string> = {
@@ -154,6 +156,7 @@ const SPECIALIST_LABELS: Record<SpecialistId, string> = {
   moneypenny: 'MoneyPenny',
   metaye: 'Metayé',
   researcher: 'Research Copilot',
+  aletheon: 'Aletheon',
 };
 
 // Map specialist + cartridge → default request type so the prompt knows
@@ -168,6 +171,7 @@ function inferRequestType(specialistId: SpecialistId, cartridge: string): Specia
   if (specialistId === 'moneypenny') return 'micro_economics_brief';
   if (specialistId === 'metaye') return 'sovereignty_brief';
   if (specialistId === 'researcher') return 'research_brief';
+  if (specialistId === 'aletheon') return 'sovereignty_brief';
   // Cartridge hint:
   if (cartridge === 'qriptopian') return 'editorial_angle';
   if (cartridge === 'knyt') return 'mission_recommendation';
@@ -598,6 +602,25 @@ function templateResponse(
       // Research artifacts are protocol/design docs, the brief that frames
       // the experiment, and a private working draft to iterate before
       // proposing (authoring is a proposal — a human ratifies).
+      suggestedArtifacts: ['google-doc', 'brief', 'myworkbench-draft'],
+      requiresApproval: false,
+      confidence: 'high',
+    };
+  }
+  if (specialistId === 'aletheon') {
+    return {
+      requestType,
+      title: `Constitutional context for "${intent}"`,
+      summary:
+        `Aletheon surfaces the assumptions, dependencies, and constitutional implications of ${intent} — illuminating the decision, not making it.`,
+      recommendations: [
+        `Name the constitutional principles or invariants ${intent} touches, and cite them.`,
+        `Surface what is assumed vs. verified before acting on ${intent}.`,
+        `Identify the bounded-delegation or authority question, if any, that ${intent} raises.`,
+        `Preserve the institutional memory this moment creates — what should be recorded for continuity.`,
+      ],
+      // Aletheon's artifacts are briefs and working drafts — reasoning
+      // support, not campaign/creative output.
       suggestedArtifacts: ['google-doc', 'brief', 'myworkbench-draft'],
       requiresApproval: false,
       confidence: 'high',

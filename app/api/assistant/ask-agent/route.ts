@@ -315,7 +315,7 @@ function attributeNakamotoContribution(moneyPenny: SpecialistResponse, nakamoto:
   };
 }
 
-const VALID_SPECIALISTS: SpecialistId[] = ['marketa', 'quill', 'kn0w1', 'aigent-z', 'aigent-c', 'aigent-nakamoto', 'moneypenny', 'metaye', 'researcher'];
+const VALID_SPECIALISTS: SpecialistId[] = ['marketa', 'quill', 'kn0w1', 'aigent-z', 'aigent-c', 'aigent-nakamoto', 'moneypenny', 'metaye', 'researcher', 'aletheon'];
 
 /**
  * Aliases that map short / alternate names back onto the canonical
@@ -334,6 +334,10 @@ const SPECIALIST_ALIASES: Record<string, SpecialistId> = {
   'research-copilot': 'researcher',
   'aigent-researcher': 'researcher',
   research: 'researcher',
+  // Ratified historical spelling ambiguity (RES-2026-08-15-ALETHEON-SPELLING-AMBIGUITY-001) —
+  // accept either spelling so a caller using the older form still resolves.
+  alethean: 'aletheon',
+  'aigent-aletheon': 'aletheon',
 };
 
 function resolveSpecialistId(value: unknown): SpecialistId | null {
