@@ -388,4 +388,71 @@ describe('GET /api/homecoming/agent/stand-up — read-only sponsor preflight (Al
     // caller's own active persona, so this should read true.
     expect(json.sponsorIsCallersAuthenticatedPersona).toBe(true);
   });
+
+  it('the exact Aletheon-approval-gate negative case: a valid ACTIVE citizen sponsor resolves on the SAME auth profile but a DIFFERENT persona id than the caller', async () => {
+    // No explicit sponsorPassportId — forces resolveSponsorForCaller's
+    // auto-widen path: query personas by auth_profile_id, then the citizen
+    // passports among those persona ids. This is the exact shape the
+    // Aletheon approval gate depends on (sponsorIsCallersAuthenticatedPersona
+    // must be false here, not merely true-by-construction of the other
+    // tests), so it gets its own explicit canary per operator instruction
+    // rather than being inferred from the equality expression alone.
+    const OTHER_PERSONA_ID = 'other-persona-same-auth-profile-2';
+    mockGetActivePersona.mockResolvedValue({
+      personaId: ADMIN_PERSONA.personaId,
+      authProfileId: 'auth-profile-shared-1',
+      cartridgeFlags: { isAdmin: true },
+    });
+    mockGetSupabaseServer.mockReturnValueOnce({
+      from: (table: string) => {
+        const chain: Record<string, unknown> = {
+          select: () => chain,
+          eq: () => chain,
+          in: () => chain,
+          maybeSingle: async () => {
+            if (table === 'polity_passport_records') {
+              // GET_preflight's own validity re-check of the resolved passport.
+              return { data: { passport_id: 'passport-other-2', passport_class: 'citizen', citizen_status: 'active' }, error: null };
+            }
+            if (table === 'personas') {
+              // root_did / capacity lookups for the resolved sponsor — kept
+              // minimal (no root) since root resolution isn't this canary's
+              // subject; the relational identity + non-leakage assertions are.
+              return { data: { root_did: null, sponsorship_capacity_base: 0, sponsorship_capacity_earned: 0 }, error: null };
+            }
+            return { data: null, error: null }; // agent_root_identity existingRoot check
+          },
+        };
+        (chain as { then: (resolve: (v: unknown) => void) => void }).then = (resolve) => {
+          if (table === 'personas') {
+            // resolveSponsorForCaller's "every persona on this auth account" query.
+            return resolve({ data: [{ id: OTHER_PERSONA_ID }], count: 0, error: null });
+          }
+          if (table === 'polity_passport_records') {
+            // resolveSponsorForCaller's citizen-passport-among-those-personas query.
+            return resolve({
+              data: [{ passport_id: 'passport-other-2', persona_id: OTHER_PERSONA_ID, citizen_status: 'active' }],
+              count: 0,
+              error: null,
+            });
+          }
+          return resolve({ data: null, count: 0, error: null }); // agent_root_identity used-count query
+        };
+        return chain;
+      },
+    });
+
+    const { GET } = await import('@/app/api/homecoming/agent/stand-up/route');
+    const res = await GET(makePreflightRequest('?delegate=aletheon&preflight=true'));
+    expect(res.status).toBe(200);
+    const json = await res.json();
+
+    expect(json.sponsorResolved).toBe(true);
+    expect(json.passportValid).toBe(true);
+    expect(json.sponsorIsCallersAuthenticatedPersona).toBe(false);
+
+    const serialized = JSON.stringify(json);
+    expect(serialized).not.toContain(OTHER_PERSONA_ID); // the resolved sponsor's raw persona UUID — never
+    expect(serialized).not.toContain(ADMIN_PERSONA.personaId); // the caller's own raw persona UUID — never either
+  });
 });
