@@ -32,6 +32,7 @@ import {
   saveCapabilityEvidence,
   readLatestCapabilityEvidence,
   evidenceFreshnessFor,
+  verifyExistingEvidencePaths,
   EVIDENCE_FRESHNESS_WINDOW_DAYS,
   type EvidenceFreshness,
   type ImplementationMechanism as Mechanism,
@@ -139,6 +140,14 @@ export interface ImplementationPack {
    * reach an implementation actor; this is the audit trail of what was
    * excluded and why. Empty when nothing was excluded. */
   excludedProtectedAreas: string[];
+  /** Evidence-integrity repair (2026-08-18, operator-directed): capability
+   * -evidence paths that were claimed EXISTING/use_directly but did NOT
+   * verify against the repo's actual file tree — dropped from the evidence
+   * itself (never shown to the drafter as fact) and, if the drafter had
+   * already echoed one into `areasToTouch`, excluded from there too. Never
+   * silent: this is the audit trail of what was rejected and why. Empty
+   * when every EXISTING claim verified (or none was made). */
+  unverifiedExistingPaths: string[];
 }
 
 export interface PackPreflight {
@@ -342,6 +351,18 @@ export async function generateImplementationPack(input: {
     }
   }
 
+  // Existence verification (2026-08-18, operator-directed): "repository
+  // -backed files/capabilities may be classified EXISTING only when
+  // existence is actually verified." An EXISTING/use_directly claim naming a
+  // path that does not exist in the repo is dropped HERE — before it can
+  // shape the drafter's prompt (capabilityEvidenceBlock), seed areasToTouch
+  // (areasFromEvidence), or appear in the pack as settled fact. Applies to
+  // BOTH supplied and persisted-readback evidence — a stale persisted row
+  // can carry the same fabricated claim forward otherwise.
+  const verifiedEvidence = verifyExistingEvidencePaths(evidence ?? undefined);
+  evidence = verifiedEvidence.evidence ?? null;
+  const unverifiedExistingPaths = verifiedEvidence.unverifiedExistingPaths;
+
   // ── Constitutional Decision (CFS-029): HOW the capability is realized,
   // decided BEFORE any plan is drafted — over the nine mechanisms + 'none'.
   // A decision already taken at the DCC Decision stage is honoured verbatim.
@@ -451,6 +472,23 @@ export async function generateImplementationPack(input: {
     fields = { ...fields, implementationMechanism: 'knowledge', areasToTouch: [] };
   }
 
+  // Evidence-integrity repair (2026-08-18, operator-directed): "an unverified
+  // suggested path must not enter areasToTouch as an existing dependency."
+  // Verifying evidence.existing above already keeps a fabricated EXISTING
+  // claim out of the drafter's prompt and out of areasFromEvidence's own
+  // seeding — but the drafter's OWN drafted areasToTouch is a separate
+  // channel this doesn't reach (it can echo a path the ORIGINAL,
+  // pre-verification evidence — or a stale persisted row read before this
+  // fix existed — named as existing). Defense in depth: any area-to-touch
+  // path that was SPECIFICALLY claimed-and-refuted as an existing dependency
+  // is excluded here too, loudly. This does NOT touch any other
+  // areasToTouch path — a genuinely new file the plan proposes to create is
+  // never rejected merely for not existing yet.
+  const unverifiedInAreas = fields.areasToTouch.filter((a) => unverifiedExistingPaths.includes(a));
+  if (unverifiedInAreas.length > 0) {
+    fields = { ...fields, areasToTouch: fields.areasToTouch.filter((a) => !unverifiedExistingPaths.includes(a)) };
+  }
+
   // Phase F (2026-08-16): forbiddenFiles + executionRoute are computed from
   // this pack's OWN signals — never a second, hand-authored classification.
   const forbiddenFiles = deriveForbiddenFiles(input.authorizedProtectedFiles ?? []);
@@ -503,6 +541,7 @@ export async function generateImplementationPack(input: {
     knownBaselineFailures: input.knownBaselineFailures ?? [],
     executionRoute,
     excludedProtectedAreas,
+    unverifiedExistingPaths,
     ...fields,
   };
 }

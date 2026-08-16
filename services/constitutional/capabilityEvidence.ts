@@ -22,6 +22,8 @@
  */
 
 import { createHash } from 'crypto';
+import fs from 'fs';
+import path from 'path';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import type { ConstitutionalObject } from '@/types/constitutionalObject';
 import { standingBandFor } from '@/types/constitutionalObject';
@@ -143,6 +145,57 @@ export function areasFromEvidence(evidence: CapabilityEvidence | undefined): str
 
 /** Legacy name — same function. */
 export const areasFromFindings = areasFromEvidence;
+
+// ---------------------------------------------------------------------------
+// Existence verification (2026-08-18, operator-directed): the No-Guessing
+// line applies to capability evidence itself, not just to the plan built
+// from it. A live pack claimed an EXISTING/use_directly capability at a
+// path that does not exist in the repo — grounding the plan (and the
+// operator's read of what already exists) in a fabricated fact.
+// ---------------------------------------------------------------------------
+
+/** Real filesystem check, repo-root-relative. Server-only (this whole module
+ *  already is — see the header). Never throws — an unreadable/odd path is
+ *  treated as unverified, never as a crash. */
+function repoPathExists(relPath: string): boolean {
+  try {
+    return fs.existsSync(path.join(process.cwd(), relPath));
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * "Repository-backed files/capabilities may be classified EXISTING only
+ * when existence is actually verified" (operator instruction). Filters
+ * `evidence.existing` to entries whose `path` either names no specific file
+ * (a conceptual/registry capability — nothing to verify) or is confirmed to
+ * exist on disk. An EXISTING claim naming a path that does NOT exist is
+ * dropped from the evidence entirely — never honored as ground truth, never
+ * allowed to seed `areasToTouch` via `areasFromEvidence`, never shown to the
+ * drafter as fact. The dropped paths are returned alongside so the pack can
+ * record what was rejected and why (never a silent drop).
+ *
+ * Deliberately narrow: this verifies EXISTING claims only. `missing`
+ * capabilities are legitimately not-yet-built — their suggested locations
+ * are supposed to not exist yet, and are untouched here.
+ */
+export function verifyExistingEvidencePaths(evidence: CapabilityEvidence | undefined): {
+  evidence: CapabilityEvidence | undefined;
+  unverifiedExistingPaths: string[];
+} {
+  if (!evidence || !evidence.existing || evidence.existing.length === 0) {
+    return { evidence, unverifiedExistingPaths: [] };
+  }
+  const unverifiedExistingPaths: string[] = [];
+  const verifiedExisting = evidence.existing.filter((e) => {
+    if (!e.path) return true; // no specific file claimed — nothing to verify
+    if (repoPathExists(e.path)) return true;
+    unverifiedExistingPaths.push(e.path);
+    return false;
+  });
+  return { evidence: { ...evidence, existing: verifiedExisting }, unverifiedExistingPaths };
+}
 
 // ---------------------------------------------------------------------------
 // The durable store — evidence persists; sessions don't

@@ -59,4 +59,28 @@ describe('TS2322 acceptance pack — regenerated end-to-end shape', () => {
     expect(pack.executionRoute.model).toBe('claude-sonnet-4-6');
     expect(pack.executionRoute.budget.maxTurns).toBe(20);
   });
+
+  it('a fabricated EXISTING capability (the second reproduced live-run bug, 2026-08-18): excluded, recorded, areasToTouch narrows to the real fix only', async () => {
+    const pack = await generateImplementationPack({
+      goal: GOAL,
+      capabilityEvidence: {
+        // Reproduces the exact live-evidence defect: a nonexistent path
+        // claimed as an EXISTING/use_directly capability ("Optional Value
+        // Handling") that a repo inspection does not find anywhere.
+        existing: [
+          { name: 'Optional Value Handling', path: 'services/utils/optionalValueHandler.ts', disposition: 'use_directly' },
+        ],
+        missing: [{ name: 'the real fix', path: 'services/constitutional/implementationPack.ts', complexity: 'small' }],
+      },
+    });
+    expect(pack.areasToTouch).toEqual(['services/constitutional/implementationPack.ts']);
+    expect(pack.unverifiedExistingPaths).toEqual(['services/utils/optionalValueHandler.ts']);
+    // The fabricated claim never survives as evidence fact either.
+    expect(pack.capabilityEvidence?.existing ?? []).toEqual([]);
+    // Route unaffected — an evidence-integrity rejection is not a
+    // protected-surface or escalation signal.
+    expect(pack.executionRoute.profile).toBe('routine');
+    expect(pack.executionRoute.model).toBe('claude-sonnet-4-6');
+    expect(pack.executionRoute.budget.maxTurns).toBe(20);
+  });
 });

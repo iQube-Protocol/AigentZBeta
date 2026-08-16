@@ -60,6 +60,12 @@ export interface PackView {
    *  ∅) must never reach an implementation actor. Empty when nothing was
    *  excluded. */
   excludedProtectedAreas?: string[];
+  /** Evidence-integrity repair (2026-08-18): capability-evidence paths
+   *  claimed EXISTING/use_directly that did NOT verify against the repo's
+   *  actual file tree — dropped from evidence and excluded from
+   *  areasToTouch if the drafter had already echoed one in. Empty when
+   *  every EXISTING claim verified. */
+  unverifiedExistingPaths?: string[];
   /** Pre-existing test/typecheck failures the implementation actor should
    *  not spend turns rediscovering. */
   knownBaselineFailures?: string[];
@@ -133,6 +139,17 @@ The draft/evidence proposed touching these files, but they are protected and wer
 explicitly authorized for this pack — excluded before this pack shipped. Explicit operator
 authorization is required before any implementation actor may touch them:
 ${(pack.excludedProtectedAreas ?? []).map((f) => `- ${f}`).join("\n")}
+`
+    : ""
+}
+${
+  (pack.unverifiedExistingPaths ?? []).length > 0
+    ? `
+## ⚠ Unverified EXISTING-capability claims (rejected)
+These paths were claimed as an EXISTING/use_directly capability but do NOT verify against
+the repo's actual file tree — dropped from the evidence and excluded from areas to touch
+before this pack shipped. Never honored as fact:
+${(pack.unverifiedExistingPaths ?? []).map((f) => `- ${f}`).join("\n")}
 `
     : ""
 }
