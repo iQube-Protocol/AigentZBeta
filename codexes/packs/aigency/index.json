@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-16T19:47:16.562Z",
+  "last_updated": "2026-08-16T20:21:02.561Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "8e09a0fd5753be998ad7a96282720dd9a96f0cdc",
-  "latest_commit_short": "8e09a0f",
-  "latest_commit_title": "docs: add Homecoming Phase II activation implementation pack",
+  "latest_commit": "bcaaedc9053eaaf055c1c4a7ba56ff5d5a56f17b",
+  "latest_commit_short": "bcaaedc",
+  "latest_commit_title": "docs: separate active persona, Agent Me agent, and delegated authority",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "bcaaedc",
+      "full_sha": "bcaaedc9053eaaf055c1c4a7ba56ff5d5a56f17b",
+      "title": "docs: separate active persona, Agent Me agent, and delegated authority",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-16T16:19:19-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-bcaaedc.md"
+    },
     {
       "sha": "8e09a0f",
       "full_sha": "8e09a0fd5753be998ad7a96282720dd9a96f0cdc",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-09T00:13:19Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-7638442.md"
-    },
-    {
-      "sha": "d427c26",
-      "full_sha": "d427c26e2a63ba0032e4bd888e87535d6fd898f8",
-      "title": "Wire the registration Standing seed into production, generically",
-      "author": "Claude",
-      "timestamp": "2026-08-09T00:41:56Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-d427c26.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
