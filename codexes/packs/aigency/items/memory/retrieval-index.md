@@ -4214,3 +4214,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-31d532e.md](../build_/COMMITS/COMMIT-31d532e.md)
 - Message: Homecoming Phase II Gate 0: fix Kickstarter CTA navigation + CI copy
+
+## Commit `269bf79` — 2026-08-16T17:23:23-04:00
+- Type: `feat`
+- Brief: [COMMIT-269bf79.md](../build_/COMMITS/COMMIT-269bf79.md)
+- Message: research: add authority provenance candidate invariants
