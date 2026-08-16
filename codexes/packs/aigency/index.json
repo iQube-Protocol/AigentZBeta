@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-16T17:21:52.864Z",
+  "last_updated": "2026-08-16T17:28:34.760Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "0c26f22e2a41db5fc674eb164e51f92ce8e194e9",
-  "latest_commit_short": "0c26f22",
-  "latest_commit_title": "spec(knyt): define DevOn bounded implementation for campaign activation",
+  "latest_commit": "b78f40edd12229553bb9db2f56e85759ac73b5dd",
+  "latest_commit_short": "b78f40e",
+  "latest_commit_title": "docs(knyt): add Claude Code campaign implementation specification for KNYTS Bridge activation",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "b78f40e",
+      "full_sha": "b78f40edd12229553bb9db2f56e85759ac73b5dd",
+      "title": "docs(knyt): add Claude Code campaign implementation specification for KNYTS Bridge activation",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-16T13:26:40-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-b78f40e.md"
+    },
     {
       "sha": "0c26f22",
       "full_sha": "0c26f22e2a41db5fc674eb164e51f92ce8e194e9",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-09T01:01:08Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-fc163cc.md"
-    },
-    {
-      "sha": "0eaaa90",
-      "full_sha": "0eaaa90b68c85d1ec509b2feefbb4dc44c08909b",
-      "title": "JourneyCompanionCarousel and journey narration are agent-generic",
-      "author": "Claude",
-      "timestamp": "2026-08-09T01:12:17Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-0eaaa90.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

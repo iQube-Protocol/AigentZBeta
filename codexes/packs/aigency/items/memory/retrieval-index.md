@@ -4149,3 +4149,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-0c26f22.md](../build_/COMMITS/COMMIT-0c26f22.md)
 - Message: spec(knyt): define DevOn bounded implementation for campaign activation
+
+## Commit `b78f40e` — 2026-08-16T13:26:40-04:00
+- Type: `docs`
+- Brief: [COMMIT-b78f40e.md](../build_/COMMITS/COMMIT-b78f40e.md)
+- Message: docs(knyt): add Claude Code campaign implementation specification for KNYTS Bridge activation
