@@ -83,10 +83,14 @@ including the one confirmed open question the operator asked about: **"Default a
 backing `agent_root_identity` row at all** (confirmed absent from every migration's seed list) — it
 is a pure UI/copilot role, not an agent identity, and should stay that way for Phase II.
 
-**Practical effect on task #212:** implement ONLY "Increment 1" from the pack amendment (the
-specialist-router wiring, i.e. exactly §2 below) in this pass, report it honestly as "Aletheon
-consultable as a specialist" rather than "Aletheon activated as aigentMe," and leave Increment 2 as
-a named, scoped, not-yet-started follow-up in the final report (#215).
+**Practical effect on task #212 — DONE, commit `01debe39e`:** Increment 1 (the specialist-router
+wiring, §2 below) is implemented, tested (7 new tests in
+`tests/homecoming-phase-ii-wpa-aletheon.test.ts`, all passing; 68 tests green across the touched +
+adjacent suites; typecheck unchanged at the 675-error baseline), and committed. Report it honestly
+as "Aletheon consultable as a specialist via `POST /api/assistant/ask-agent`" — NOT "Aletheon
+activated as aigentMe." Increment 2 (threading `currentAigentMe` through the aigentMe Copilot's chat
+backend) remains a named, scoped, **not-yet-started** follow-up — do not conflate the two in the
+final report (#215).
 
 ## 2. WP-A — exact remaining implementation plan (not yet coded)
 
