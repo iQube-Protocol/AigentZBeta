@@ -4139,3 +4139,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-8b9c6cb.md](../build_/COMMITS/COMMIT-8b9c6cb.md)
 - Message: canon: ratify personhood identity standing reputation ontology
+
+## Commit `c1ee041` — 2026-08-16T13:09:43-04:00
+- Type: `docs`
+- Brief: [COMMIT-c1ee041.md](../build_/COMMITS/COMMIT-c1ee041.md)
+- Message: docs(knyt): codify bridge standing reputation rewards activation

@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-16T16:53:42.597Z",
+  "last_updated": "2026-08-16T17:11:26.207Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "8b9c6cbc3c688952341e6466c0e3991294c86d05",
-  "latest_commit_short": "8b9c6cb",
-  "latest_commit_title": "canon: ratify personhood identity standing reputation ontology",
+  "latest_commit": "c1ee0414c11a47ec0763df0aa8c468289362c763",
+  "latest_commit_short": "c1ee041",
+  "latest_commit_title": "docs(knyt): codify bridge standing reputation rewards activation",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "c1ee041",
+      "full_sha": "c1ee0414c11a47ec0763df0aa8c468289362c763",
+      "title": "docs(knyt): codify bridge standing reputation rewards activation",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-16T13:09:43-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-c1ee041.md"
+    },
     {
       "sha": "8b9c6cb",
       "full_sha": "8b9c6cbc3c688952341e6466c0e3991294c86d05",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-09T01:14:09Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-6753cc2.md"
-    },
-    {
-      "sha": "a016920",
-      "full_sha": "a0169201da10a5d62acf524beda2d1ef2d8436a7",
-      "title": "Build the read-only Agent-N preflight check",
-      "author": "Claude",
-      "timestamp": "2026-08-09T01:17:29Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-a016920.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
