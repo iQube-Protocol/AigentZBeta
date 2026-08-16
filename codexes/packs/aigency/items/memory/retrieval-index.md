@@ -4179,3 +4179,38 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-b0e4a2f.md](../build_/COMMITS/COMMIT-b0e4a2f.md)
 - Message: research: seed OCSGA context erosion experiments and invariants
+
+## Commit `431283a` — 2026-08-16T20:47:59Z
+- Type: `push`
+- Brief: [COMMIT-431283a.md](../build_/COMMITS/COMMIT-431283a.md)
+- Message: Homecoming Phase II handover: finalize resume-here pointer for session handoff (Gate 0 + WP-A done, WP-B not started)
+
+## Commit `b0396c4` — 2026-08-16T20:44:25Z
+- Type: `push`
+- Brief: [COMMIT-b0396c4.md](../build_/COMMITS/COMMIT-b0396c4.md)
+- Message: Homecoming Phase II WP-A Increment 2: aigentMe-role runtime resolution end-to-end
+
+## Commit `f49451b` — 2026-08-16T20:28:06Z
+- Type: `push`
+- Brief: [COMMIT-f49451b.md](../build_/COMMITS/COMMIT-f49451b.md)
+- Message: Homecoming Phase II handover: mark WP-A Increment 1 done, Increment 2 still open
+
+## Commit `01debe3` — 2026-08-16T20:27:46Z
+- Type: `feat`
+- Brief: [COMMIT-01debe3.md](../build_/COMMITS/COMMIT-01debe3.md)
+- Message: Homecoming Phase II WP-A Increment 1: wire Aletheon into the specialist-consult seam
+
+## Commit `947ad4d` — 2026-08-16T20:23:01Z
+- Type: `push`
+- Brief: [COMMIT-947ad4d.md](../build_/COMMITS/COMMIT-947ad4d.md)
+- Message: Homecoming Phase II: Gate A0 audit + three-axis WP-A model amendment
+
+## Commit `dab0fb4` — 2026-08-16T20:08:21Z
+- Type: `push`
+- Brief: [COMMIT-dab0fb4.md](../build_/COMMITS/COMMIT-dab0fb4.md)
+- Message: Homecoming Phase II: handover doc for WP-A/WP-B audit + implementation plan
+
+## Commit `31d532e` — 2026-08-16T20:06:07Z
+- Type: `fix`
+- Brief: [COMMIT-31d532e.md](../build_/COMMITS/COMMIT-31d532e.md)
+- Message: Homecoming Phase II Gate 0: fix Kickstarter CTA navigation + CI copy

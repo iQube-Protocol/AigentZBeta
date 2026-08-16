@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-16T20:51:24.637Z",
+  "last_updated": "2026-08-16T21:00:17.453Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "b0e4a2fc6eebffd56d5ab2c6b88b7b39b377886a",
-  "latest_commit_short": "b0e4a2f",
-  "latest_commit_title": "research: seed OCSGA context erosion experiments and invariants",
+  "latest_commit": "31d532e40620f40a267139b483be68f779e65541",
+  "latest_commit_short": "31d532e",
+  "latest_commit_title": "Homecoming Phase II Gate 0: fix Kickstarter CTA navigation + CI copy",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,69 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "31d532e",
+      "full_sha": "31d532e40620f40a267139b483be68f779e65541",
+      "title": "Homecoming Phase II Gate 0: fix Kickstarter CTA navigation + CI copy",
+      "author": "Claude",
+      "timestamp": "2026-08-16T20:06:07Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-31d532e.md"
+    },
+    {
+      "sha": "dab0fb4",
+      "full_sha": "dab0fb407661200d4ac776e07e4f086d7a509fe3",
+      "title": "Homecoming Phase II: handover doc for WP-A/WP-B audit + implementation plan",
+      "author": "Claude",
+      "timestamp": "2026-08-16T20:08:21Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-dab0fb4.md"
+    },
+    {
+      "sha": "947ad4d",
+      "full_sha": "947ad4dce08abc0ca5f15484db35687ac55481a9",
+      "title": "Homecoming Phase II: Gate A0 audit + three-axis WP-A model amendment",
+      "author": "Claude",
+      "timestamp": "2026-08-16T20:23:01Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-947ad4d.md"
+    },
+    {
+      "sha": "01debe3",
+      "full_sha": "01debe39ed8a8b37f1ff753e631ac522c43b09b5",
+      "title": "Homecoming Phase II WP-A Increment 1: wire Aletheon into the specialist-consult seam",
+      "author": "Claude",
+      "timestamp": "2026-08-16T20:27:46Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-01debe3.md"
+    },
+    {
+      "sha": "f49451b",
+      "full_sha": "f49451bb897a77f678ee9809c432a4c55923fd67",
+      "title": "Homecoming Phase II handover: mark WP-A Increment 1 done, Increment 2 still open",
+      "author": "Claude",
+      "timestamp": "2026-08-16T20:28:06Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-f49451b.md"
+    },
+    {
+      "sha": "b0396c4",
+      "full_sha": "b0396c49ef98d43c386fddfa6c98a9023d7d580f",
+      "title": "Homecoming Phase II WP-A Increment 2: aigentMe-role runtime resolution end-to-end",
+      "author": "Claude",
+      "timestamp": "2026-08-16T20:44:25Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-b0396c4.md"
+    },
+    {
+      "sha": "431283a",
+      "full_sha": "431283a9feb4e5d5eb2864b5f6c01e0909e95397",
+      "title": "Homecoming Phase II handover: finalize resume-here pointer for session handoff (Gate 0 + WP-A done, WP-B not started)",
+      "author": "Claude",
+      "timestamp": "2026-08-16T20:47:59Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-431283a.md"
+    },
     {
       "sha": "b0e4a2f",
       "full_sha": "b0e4a2fc6eebffd56d5ab2c6b88b7b39b377886a",
@@ -1189,69 +1252,6 @@
       "timestamp": "2026-08-09T03:25:19Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-51917a4.md"
-    },
-    {
-      "sha": "b96a7b3",
-      "full_sha": "b96a7b31877fcd1ee0d8b1d4ae3a895789f96464",
-      "title": "Rebuild Consequence Fork trident as one absolutely-positioned box, not stacked rows",
-      "author": "Claude",
-      "timestamp": "2026-08-09T04:22:05Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-b96a7b3.md"
-    },
-    {
-      "sha": "f2ca7aa",
-      "full_sha": "f2ca7aaf0864a4ba20f5f20315770cca6f1f97f0",
-      "title": "Add Post-Freeze Observer Review Closure for Crystal vP1 (EXP-P1)",
-      "author": "Claude",
-      "timestamp": "2026-08-09T03:05:48Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-f2ca7aa.md"
-    },
-    {
-      "sha": "2126d7d",
-      "full_sha": "2126d7de123b6e87ad37ff8294e0fc78daa1d183",
-      "title": "Record the real commit hash on the observer-review resolution record",
-      "author": "Claude",
-      "timestamp": "2026-08-09T03:06:02Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-2126d7d.md"
-    },
-    {
-      "sha": "f294431",
-      "full_sha": "f294431c5fa3edf9f3660f7334a602a14fe7884f",
-      "title": "Surface the dual-leg (DVN + Bitcoin) receipt state through to the UI",
-      "author": "Claude",
-      "timestamp": "2026-08-08T20:59:02Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-f294431.md"
-    },
-    {
-      "sha": "82ff28e",
-      "full_sha": "82ff28e5585ef4fcb065a996965fae86767d5673",
-      "title": "Register Threshold/metaMe MCP server in .mcp.json + docs",
-      "author": "Claude",
-      "timestamp": "2026-08-08T22:40:18Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-82ff28e.md"
-    },
-    {
-      "sha": "8edc1f8",
-      "full_sha": "8edc1f890160b7fe16d47cc8e64a01172a5204b5",
-      "title": "Simplify DVN/BTC receipt badges to terse vocabulary + give the activity-receipts finalizer independent liveness",
-      "author": "Claude",
-      "timestamp": "2026-08-08T23:08:47Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-8edc1f8.md"
-    },
-    {
-      "sha": "e201597",
-      "full_sha": "e2015975513e3e2d814c38637679de3782878ed5",
-      "title": "Fix receipts-route allowlist drift hiding MoneyPenny's Register ceremony evidence",
-      "author": "Claude",
-      "timestamp": "2026-08-08T23:34:27Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-e201597.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

@@ -1,4 +1,11 @@
 # Build — Changelog
+- [`31d532e`](https://github.com/iQube-Protocol/AigentZBeta/commit/31d532e40620f40a267139b483be68f779e65541) [fix] Homecoming Phase II Gate 0: fix Kickstarter CTA navigation + CI copy (Claude, 2026-08-16T20:06:07Z)
+- [`dab0fb4`](https://github.com/iQube-Protocol/AigentZBeta/commit/dab0fb407661200d4ac776e07e4f086d7a509fe3) [push] Homecoming Phase II: handover doc for WP-A/WP-B audit + implementation plan (Claude, 2026-08-16T20:08:21Z)
+- [`947ad4d`](https://github.com/iQube-Protocol/AigentZBeta/commit/947ad4dce08abc0ca5f15484db35687ac55481a9) [push] Homecoming Phase II: Gate A0 audit + three-axis WP-A model amendment (Claude, 2026-08-16T20:23:01Z)
+- [`01debe3`](https://github.com/iQube-Protocol/AigentZBeta/commit/01debe39ed8a8b37f1ff753e631ac522c43b09b5) [feat] Homecoming Phase II WP-A Increment 1: wire Aletheon into the specialist-consult seam (Claude, 2026-08-16T20:27:46Z)
+- [`f49451b`](https://github.com/iQube-Protocol/AigentZBeta/commit/f49451bb897a77f678ee9809c432a4c55923fd67) [push] Homecoming Phase II handover: mark WP-A Increment 1 done, Increment 2 still open (Claude, 2026-08-16T20:28:06Z)
+- [`b0396c4`](https://github.com/iQube-Protocol/AigentZBeta/commit/b0396c49ef98d43c386fddfa6c98a9023d7d580f) [push] Homecoming Phase II WP-A Increment 2: aigentMe-role runtime resolution end-to-end (Claude, 2026-08-16T20:44:25Z)
+- [`431283a`](https://github.com/iQube-Protocol/AigentZBeta/commit/431283a9feb4e5d5eb2864b5f6c01e0909e95397) [push] Homecoming Phase II handover: finalize resume-here pointer for session handoff (Gate 0 + WP-A done, WP-B not started) (Claude, 2026-08-16T20:47:59Z)
 - [`b0e4a2f`](https://github.com/iQube-Protocol/AigentZBeta/commit/b0e4a2fc6eebffd56d5ab2c6b88b7b39b377886a) [push] research: seed OCSGA context erosion experiments and invariants (Kn0w1, 2026-08-16T16:49:37-04:00)
 - [`bcaaedc`](https://github.com/iQube-Protocol/AigentZBeta/commit/bcaaedc9053eaaf055c1c4a7ba56ff5d5a56f17b) [docs] docs: separate active persona, Agent Me agent, and delegated authority (Kn0w1, 2026-08-16T16:19:19-04:00)
 - [`8e09a0f`](https://github.com/iQube-Protocol/AigentZBeta/commit/8e09a0fd5753be998ad7a96282720dd9a96f0cdc) [docs] docs: add Homecoming Phase II activation implementation pack (Kn0w1, 2026-08-16T15:45:36-04:00)
