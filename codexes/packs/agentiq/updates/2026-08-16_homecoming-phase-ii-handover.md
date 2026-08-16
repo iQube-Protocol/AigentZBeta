@@ -51,6 +51,43 @@ No delegate-scoped memory table exists (platform-wide gap, not Aletheon-specific
 
 ---
 
+## 1f. Operator revision (2026-08-16, after this doc was first written) — three-axis model + Gate A0
+
+The operator revised WP-A's framing before implementation started, correcting a conflation in the
+original plan: "aigentMe" is a **role** an eligible agent can fulfil (routing/representative
+identity), never authority by itself. Three independent axes — active persona / active aigentMe
+agent / bounded delegation grant — must never let selecting one silently mutate either of the
+others. Full model + a completed Gate A0 factual audit are now recorded as an amendment inside the
+governing spec itself: see
+`codexes/packs/agentiq/updates/2026-08-16_homecoming-phase-ii-activation-pack.md`, section
+**"WP-A Amendment (2026-08-16, operator-directed) — the three-axis model + Gate A0 audit"** —
+read that section before writing any more WP-A code; it supersedes §2 below wherever they conflict.
+
+**Headline finding:** the persistence/resolution layer (`services/identity/constitutionalContext.ts`,
+`services/identity/personaAssignmentStore.ts`, `delegation_grants`) **already implements the
+operator's three-axis model correctly** — `persona_agent_assignments` (role='aigentMe'|'delegate')
+is already documented and coded as pure routing preference, never authority; `currentAigentMe`
+already resolves with the right precedence and keeps `delegatedAuthority` populated only from the
+active grant. **No schema change is needed.** The real gap is narrower than first framed: the
+aigentMe Copilot's actual chat backend (`AigentMeWelcomeSplitTab.tsx`,
+`app/api/codex/chat/route.ts`) hardcodes the literal identity `'aigent-me'` everywhere (10+ call
+sites) and never consults `currentAigentMe` at all — so wiring Aletheon into the specialist router
+(§2 below) makes her consultable as a specialist, but does NOT make her selectable as "the thing
+fulfilling the aigentMe role." That second, larger piece (thread the resolved assignment through the
+chat route, add the aigentMe-header selector reusing the existing
+`GET /api/identity/constitutional-context` + `POST /api/identity/persona-assignments` endpoints, add
+a "Manage authority" affordance reusing the existing Delegation UI) is **audited but deliberately not
+coded in this pass** — it touches large, high-traffic, shared chat infrastructure and deserves a
+dedicated pass rather than being rushed. It's fully scoped as "Increment 2" in the pack amendment,
+including the one confirmed open question the operator asked about: **"Default aigentMe" has no
+backing `agent_root_identity` row at all** (confirmed absent from every migration's seed list) — it
+is a pure UI/copilot role, not an agent identity, and should stay that way for Phase II.
+
+**Practical effect on task #212:** implement ONLY "Increment 1" from the pack amendment (the
+specialist-router wiring, i.e. exactly §2 below) in this pass, report it honestly as "Aletheon
+consultable as a specialist" rather than "Aletheon activated as aigentMe," and leave Increment 2 as
+a named, scoped, not-yet-started follow-up in the final report (#215).
+
 ## 2. WP-A — exact remaining implementation plan (not yet coded)
 
 Goal: wire Aletheon into the **specialist router** (the generic delegate/specialist seam), reusing the identical pattern every other specialist already uses — confirmed via `grep -rn "Record<SpecialistId"` that exactly **5 parallel `Record<SpecialistId, X>` maps** must be updated together (this is the established, TS-enforced pattern per a prior session's own doc: `codexes/packs/agentiq/updates/2026-07-22_founder-office-action-modes-amendment.md:177`). TypeScript will refuse to compile if any map is missed once `'aletheon'` is added to the `SpecialistId` union — use that as the completeness check.

@@ -202,6 +202,119 @@ This is a canonical first operational task for Aletheon after activation.
 
 ---
 
+# WP-A Amendment (2026-08-16, operator-directed) — the three-axis model + Gate A0 audit
+
+**This amendment supersedes WP-A's implementation framing above wherever they conflict. The audit
+requirements and acceptance canaries above still hold; this section corrects HOW to satisfy them.**
+
+## The corrected operating model
+
+Three independent state dimensions, none of which may silently mutate either of the others:
+
+```
+Who am I acting as?      → active Persona
+Who is acting for me?    → active aigentMe Agent   (a ROLE, not a fixed identity)
+What may that agent do?  → Bounded Delegation Grant
+```
+
+Selecting a persona sets contextual identity. Selecting an agent to fulfil the **aigentMe role**
+changes routing/representative identity only — it grants zero authority by itself. Delegating
+authority (a separate, explicit act) is the only thing that lets the active agent perform a
+consequential action. **Selection is not delegation** — this is the invariant to hard-code, not
+merely document.
+
+## Gate A0 — factual state audit (performed before any further code; no schema touched)
+
+Traced with file:line evidence, per persistence layer:
+
+| Concept | Where it lives | What it actually is |
+|---|---|---|
+| Person ↔ Agent BINDING (sponsorship) | `agent_root_identity.sponsor_persona_id` / `sponsor_passport_id` (`supabase/migrations/20260427000001_agent_did_schema.sql`, `20260613200000_agent_genesis_polity_bound.sql`) | Permanent genesis act. Does not change when the active persona changes. |
+| Person ↔ Agent eligible-roster discovery | `services/identity/constitutionalContext.ts:200-216` (`resolveConstitutionalContext`'s `boundAgents`) | Registry-driven query (`agent_root_identity` WHERE `sponsor_persona_id IN` the caller's owned personas) — **not a hardcoded allowlist**. Aletheon already surfaces here automatically once her row's sponsor matches. |
+| Persona → active-agent ASSIGNMENT (routing preference, incl. "aigentMe") | `persona_agent_assignments` table (`supabase/migrations/20260710000000_persona_agent_assignments.sql`), store: `services/identity/personaAssignmentStore.ts` | **Already correctly separated in its own header comment** (lines 1-21): "Assigning does NOT grant authority — that stays with the bounded-delegation grant. This store is the structural layer only." One `role='aigentMe'` row per persona (DB partial-unique enforced), many `role='delegate'` rows allowed. This is the operator's "active aigentMe Agent" axis, already implemented as a pure routing/preference layer — not conflated with authority at the schema level. |
+| Legacy Person ↔ Agent aigentMe flag | `agent_root_identity.is_aigent_me` boolean, routes `app/api/agents/aigentme/route.ts` (GET/POST/PATCH) | **Heavier than a routing preference.** POST mints a brand-new sponsored agent AND flags it `is_aigent_me=true`; PATCH ("promote") flips that same boolean on an *existing* sponsored agent. Either path also calls `provisionAigentMePersona()`, which mints a **new, persistent wallet `personas` row** (`app_origin='aigent-me'`) 1:1 keyed to that agent's DID. This is a real identity/state mutation, not a nullable session preference — flagging as a heavier mechanism than the operator's model calls for, kept only as the resolver's fallback (see next row), not the mechanism to reuse for Aletheon. |
+| Authoritative "who is my aigentMe right now" resolution | `services/identity/constitutionalContext.ts:271-275` (`currentAigentMe`), full contract in `types/constitutionalContext.ts:130-161` | **Already resolves in exactly the operator's precedence order**: `persona_agent_assignments` row with `role='aigentMe'` first, falling back to the legacy `is_aigent_me` flag only if no assignment row exists yet. `ConstitutionalContext.assignedAgents[]` carries `delegatedAuthority` populated **only from the active `delegation_grants` row for whichever agent it targets** (lines 225-248) — i.e. the resolver already keeps assignment and authority as two separate fields joined only for display, never conflated into one write. |
+| Runtime authority (the actual grant) | `delegation_grants` table (`supabase/migrations/20260622500000_delegation_grants.sql`) | Scoped by `(persona_id, agent_root_did)` pair — **not** a property of sponsorship or of the aigentMe assignment. Confirmed: assigning an agent as aigentMe and granting it authority are two separate write paths today; no code path grants authority as a side effect of assignment. |
+| Wallet display of the current assignment | `app/components/content/SmartWalletDrawer.tsx:1553-1595` | **Read-only today** — resolves `currentAigentMe` from `GET /api/identity/constitutional-context` and renders a star badge on the matching sponsored agent. It does not expose a picker to change the assignment. |
+| Assignment-editing UI | `app/triad/components/codex/tabs/BoundedDelegationTab.tsx` → `POST /api/identity/persona-assignments` → `assignAgent()` | The only UI that currently *writes* `persona_agent_assignments`. It is an admin-facing Codex tab, not the wallet's primary persona control or the aigentMe Copilot header. |
+| **The gap — the actual aigentMe Copilot chat surface does NOT read any of the above** | `app/triad/components/codex/tabs/AigentMeWelcomeSplitTab.tsx:3072` (`agent={{ id: 'aigent-me', name: 'aigentMe' }}`), `app/api/codex/chat/route.ts` (`resolvedPersonaId === 'aigent-me'` / `resolvedAgentId === 'aigent-me'` gates scattered throughout, e.g. lines 2092, 2277, 3138, 3359) | **This is the actual conflation, and it is narrower than originally framed.** The aigentMe chat/copilot surface hardcodes the literal string `'aigent-me'` as both its persona-lookup key (`app/data/personas.ts['aigent-me']`) and its identity everywhere in the chat route. It never reads `currentAigentMe` / `ConstitutionalContext.assignedAgents` to decide whose system prompt, label, or memory backs the conversation. Wiring Aletheon into `specialistRouter.ts`'s `SpecialistId` union (the WP-A plan in the section above) makes her reachable as a **separate specialist you can explicitly consult** — it does NOT make her selectable as the thing fulfilling the **aigentMe role itself** inside the one mounted aigentMe Copilot surface. Those are different outcomes and the spec's UI language ("aigentMe · Aletheon") describes the second one. |
+
+### What this means for scope
+
+The persistence/resolution layer (`constitutionalContext.ts`, `personaAssignmentStore.ts`,
+`delegation_grants`) **already implements the operator's three-axis model correctly** — no schema
+change, no migration, no new store is needed for axes 1 and 3, and axis 2's persistence
+(`persona_agent_assignments`) is also already correct. The genuine gap is entirely at the
+**UI/routing layer**: (a) no control exposes the assignment as "who is my aigentMe" next to the
+persona switcher, and (b) the aigentMe Copilot's own chat backend never consults the resolved
+assignment — it is wired to one hardcoded identity (`'aigent-me'`) regardless of what
+`currentAigentMe` says.
+
+Fully closing (b) means threading `currentAigentMe`-resolved identity through
+`AigentMeWelcomeSplitTab.tsx` and `app/api/codex/chat/route.ts` — both large, high-traffic,
+production chat-path files with many `'aigent-me'`-keyed branches (confirmed 10+ call sites in the
+chat route alone). That is real, non-trivial surgery on shared infrastructure, not a small addition,
+and was deliberately **not attempted in this pass** given its size and blast radius. It is named
+explicitly as the next concrete WP-A increment below rather than rushed.
+
+## Revised WP-A implementation plan (supersedes the un-amended plan's framing, keeps its file list where still valid)
+
+**Increment 1 (small, safe, additive — matches the original WP-A file list in
+`2026-08-16_homecoming-phase-ii-handover.md` §2):** wire `'aletheon'` into the `SpecialistId` union
+and its five parallel `Record<SpecialistId, X>` maps (`services/agents/specialistRouter.ts`,
+`services/orchestration/specialistRecommender.ts`, `app/api/assistant/ask-agent/route.ts`), plus a
+persona entry in `app/data/personas.ts` sourced verbatim from Aletheon's real Agent Card. This makes
+Aletheon reachable as an **explicitly-consulted specialist** (same pattern as MoneyPenny/Nakamoto/
+Kn0w1) — a real, honest, and independently useful capability step, but it is **not** yet "Aletheon
+selected as the active aigentMe." Ship this increment on its own and report it as exactly that
+capability (LIVE: "consult Aletheon as a specialist"; NOT YET: "Aletheon fulfilling the aigentMe
+role").
+
+**Increment 2 (the actual "aigentMe role" wiring — scope for a dedicated follow-up pass, audited
+but not coded here):**
+1. Add a small, visible control next to the aigentMe Copilot's existing header/label — reusing
+   `GET /api/identity/constitutional-context`'s `currentAigentMe` + `assignedAgents` (already fetched
+   by the wallet drawer; the same call, a new consumer) to render "aigentMe · Aletheon" vs.
+   "aigentMe · Default", and reuse the existing `POST /api/identity/persona-assignments` write path
+   (already used by `BoundedDelegationTab.tsx`) to change it — no new write path.
+2. Thread the resolved `currentAigentMe` agent identity through `AigentMeWelcomeSplitTab.tsx` /
+   `app/api/codex/chat/route.ts` so the conversation's system prompt/label/memory follow the
+   assignment instead of the hardcoded `'aigent-me'` string, when an assignment other than the
+   default exists. **Audit first, in a dedicated pass**, exactly how many of the `'aigent-me'`-keyed
+   branches in the chat route are identity-only (safe to parametrize) vs. load-bearing product logic
+   specific to the *default* aigentMe experience (e.g. the metaMe-context/attached-uploads/
+   layout-suggestion blocks gated at lines 2092/2277/2689/2702/2835 appear to be **default-aigentMe
+   product features**, not generic-agent features — do not silently extend them to every selected
+   agent without checking whether that is wanted).
+3. Add the "Manage authority" affordance next to the selector, reusing the existing Delegation UI
+   scoped to `(activePersona, activeAgent)` — no new authority UI.
+4. Open question the operator flagged and left genuinely open: **does "Default aigentMe" have a
+   true root agent identity today capable of receiving a `delegation_grants` row, or is it purely a
+   runtime/copilot role with no `agent_root_identity` row of its own?** Confirmed by this audit:
+   **no** — the `20260427000001_agent_did_schema.sql` seed list (`metame-guardian, aigent-z,
+   aigent-c, marketa, know1, claude-code`) does not include an `aigent-me`/default entry, and no
+   other migration seeds one. "Default aigentMe" is a **pure UI/copilot role with no backing
+   `agent_root_identity` row** — consistent with the operator's instruction not to invent one just
+   for symmetry. Consequential delegation under the default identity, if ever needed, is out of
+   scope for Phase II; leave it unavailable and make delegated authority available only once an
+   eligible sponsored agent (e.g. Aletheon) is selected.
+
+**Execution-tuple discipline (server-side, whenever Increment 2 lands):** every consequential
+aigentMe tool invocation must resolve and carry `{ principalRootId, activePersonaId,
+activeAigentMeAgentRootId, delegationGrantId? }` server-side from the spine/resolver — never trust a
+client-supplied `isAigentMe`/agent-identity claim as authority. `services/access/evaluateAccess.ts`
+and `delegation_grants` are the existing gates to route through; do not add a parallel check.
+
+## Revised acceptance canaries (Increment 1, the scope actually implemented in this pass)
+
+- Aletheon is invocable via the specialist-consult seam (`ask-agent`) like any other specialist.
+- No identity/binding/grant row is created or mutated by Increment 1 — confirmed, since it only
+  touches `SpecialistId`-keyed maps and a static persona system-prompt entry.
+- Increment 2 (the aigentMe-role selector + chat-route wiring) is explicitly deferred, named, and
+  scoped above — not silently left undone.
+
+---
+
 # WP-B — DevOn manual execution handoff + Execution Return seam
 
 ## Objective
