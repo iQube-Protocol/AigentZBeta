@@ -4174,3 +4174,8 @@ Top-level retrieval anchors for this pack.
 - Type: `docs`
 - Brief: [COMMIT-bcaaedc.md](../build_/COMMITS/COMMIT-bcaaedc.md)
 - Message: docs: separate active persona, Agent Me agent, and delegated authority
+
+## Commit `b0e4a2f` — 2026-08-16T16:49:37-04:00
+- Type: `push`
+- Brief: [COMMIT-b0e4a2f.md](../build_/COMMITS/COMMIT-b0e4a2f.md)
+- Message: research: seed OCSGA context erosion experiments and invariants

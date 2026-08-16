@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`b0e4a2f`](https://github.com/iQube-Protocol/AigentZBeta/commit/b0e4a2fc6eebffd56d5ab2c6b88b7b39b377886a) [push] research: seed OCSGA context erosion experiments and invariants (Kn0w1, 2026-08-16T16:49:37-04:00)
 - [`bcaaedc`](https://github.com/iQube-Protocol/AigentZBeta/commit/bcaaedc9053eaaf055c1c4a7ba56ff5d5a56f17b) [docs] docs: separate active persona, Agent Me agent, and delegated authority (Kn0w1, 2026-08-16T16:19:19-04:00)
 - [`8e09a0f`](https://github.com/iQube-Protocol/AigentZBeta/commit/8e09a0fd5753be998ad7a96282720dd9a96f0cdc) [docs] docs: add Homecoming Phase II activation implementation pack (Kn0w1, 2026-08-16T15:45:36-04:00)
 - [`3d0dd87`](https://github.com/iQube-Protocol/AigentZBeta/commit/3d0dd87d0085f5d0d55acc8341a9e892510e07e7) [docs] docs: close Homecoming Phase I and define manual execution policy (Kn0w1, 2026-08-16T15:31:08-04:00)
