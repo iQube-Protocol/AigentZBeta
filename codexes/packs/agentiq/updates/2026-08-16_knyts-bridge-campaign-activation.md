@@ -1,9 +1,9 @@
 # KNYTS Bridge Campaign Activation — Launch-Readiness Report
 
-**Date:** 2026-08-16
-**Branch:** `claude/resume-consumer-session-qm3v7c` (commit `249bb8661`) — **not pushed, not merged to `dev`**
+**Date:** 2026-08-16 (amended same day after a pre-push constitutional audit)
+**Branch:** `claude/resume-consumer-session-qm3v7c` (commits `249bb8661`, `394a995da`, plus the post-audit attribution fix) — **not pushed, not merged to `dev`**
 **Governing spec:** `codexes/packs/knyt/items/KNYT_BRIDGE_CAMPAIGN_IMPLEMENTATION_SPEC_CLAUDE_CODE.md`
-**Status:** Gates A, B, D implemented and tested. Gate C implemented except share/referral triple-projection (deliberate, reported gap). Human review/merge is the final deployment authorization per the spec — this stops here.
+**Status:** Gates A, B, D implemented and tested. Gate C implemented except share/referral triple-projection (deliberate, reported gap). A pre-push audit found and this patch fixes a cross-persona Reputation-misattribution defect (§9). Person-grade Standing unification remains a named, deferred post-launch migration (§9.3) — not fixed here, per operator instruction. Human review/merge is the final deployment authorization per the spec — this stops here.
 
 ---
 
@@ -25,6 +25,10 @@ Full detail was reported to the operator in-conversation before implementation b
 - `components/journey/KnytsBridgeCampaignSummaryCard.tsx`
 - `supabase/migrations/20260930003200_knyts_bridge_campaign_activation.sql`
 - `tests/knyts-bridge-campaign-activation.test.ts` (41 tests)
+- `tests/knyts-bridge-cross-persona-attribution.test.ts` (12 tests, added post-audit — §9)
+
+**Modified (post-audit, §9):**
+- `services/crm/campaignContactResolver.ts` — cross-persona Reputation-misattribution fix
 
 **Modified:**
 - `app/api/journey/knyts-bridge/choose/book-interest/route.ts` — now dedupes, captures anonymous email, records evidence, projects outputs
@@ -52,9 +56,9 @@ supabase db push
 
 ## 4. Tests
 
-41 new targeted canaries in `tests/knyts-bridge-campaign-activation.test.ts` — reward matrix constitutional distinctions, CRM dedupe precedence, evidence idempotency, Gate B lane-independence, self-like/cap/threshold invariants, admin gating, and CHOOSE-surface regression. All pass.
+41 targeted canaries in `tests/knyts-bridge-campaign-activation.test.ts` — reward matrix constitutional distinctions, CRM dedupe precedence, evidence idempotency, Gate B lane-independence, self-like/cap/threshold invariants, admin gating, and CHOOSE-surface regression. Plus 12 behavioral canaries in `tests/knyts-bridge-cross-persona-attribution.test.ts` (added post-audit, §9) driving the real `resolveCampaignContact()` against a fake in-memory CRM store. All 53 pass.
 
-Full regression: **17 failed files / 40 failed tests — unchanged from the established baseline** (confirmed by exact failing-file-set diff, not just counts). Typecheck: **675 errors before and after — unchanged baseline** (the touched files carry zero new errors).
+Full regression (post-fix): **17 failed files / 40 failed tests — unchanged from the established baseline** (confirmed by exact failing-file-set diff, not just counts). Typecheck: **675 errors before and after — unchanged baseline** (the touched files carry zero new errors).
 
 ## 5. Manual/live steps still required before announcing
 
@@ -74,9 +78,33 @@ Centralized in `services/journey/knytsBridgeCampaignConfig.ts::KNYTS_BRIDGE_REWA
 3. **No operator-facing UI for `operator-metrics`.** The route exists and is admin-gated; a small panel (following the existing `KnytsBridgeAdminPanel.tsx` pattern) was not built in this pass.
 4. **Investor `campaign_state`/click/backed timestamps deliberately untouched.** The resolver only appends `campaign_tags`; it never writes `nakamoto_knyt_personas.campaign_state`, `kickstarter_clicked_at`, or `kickstarter_backed_at`, since those columns are owned by the live email-send/tracking pipeline and writing them here risked corrupting that pipeline's own state machine.
 
-## 8. Verdict
+## 9. Pre-push constitutional audit + fix (2026-08-16)
 
-**Launch-ready for the acquisition/CRM/evidence loop (Gate A) and the triple-output attribution model (Gate B) — the campaign can announce tomorrow on the strength of pre-registration + honest click tracking.** The confirmed-Kickstarter-follow reward (gap §7.1) will not pay out until an operator-side reconciliation step exists; recommend announcing pre-registration and "follow the Kickstarter" prominently, and treating confirmed-follow rewards as a fast-follow once a reconciliation import is authorized.
+Before pushing, a constitutional audit traced Standing/Reputation attribution end-to-end against Canon II (`codexes/packs/polity-core/constitutional-records/personhood-identity-standing-reputation.md`: *"Standing accrues to the person. Reputation accrues to the persona. Evidence is the governed bridge."*) using the exact two-persona scenario — one real person acting through Persona A and Persona B, sharing the same email.
+
+### 9.1 Defect found and fixed — cross-persona Reputation misattribution
+
+`campaignContactResolver.ts`'s email-match step could hand Persona B the SAME `crm_personas` row already bound (via `identity_persona_id`) to Persona A whenever B supplied A's email. Since `crmPersonaId` is the Reputation-partition key consumed by `knytsBridgeCampaignProjector.ts`'s `createReputationEvent()`, this meant **B's Reputation could silently accrue onto A's record** — a direct violation of "Reputation accrues to the persona" for the non-acting persona, not merely an incompleteness.
+
+**Fix:** `resolveCampaignContact()`'s email-match branch now checks whether the matched row is already `identity_persona_id`-bound to a *different* persona than the one acting. If so, that row is used only for CRM/investor context (its own investor tags are still appended) and is never returned as the acting persona's attribution record; control falls through to create/reuse a row scoped specifically to the acting `activePersonaId`. Preserved unchanged: anonymous email-only prospects, an email match against an unbound row, the same persona returning with the same email, and known-investor recognition — each has its own regression canary in `tests/knyts-bridge-cross-persona-attribution.test.ts`.
+
+Verified behaviorally (not just structurally) against a fake in-memory CRM store: two personas sharing one email now resolve to two distinct `crm_personas` rows, each persona's own row is stable across repeat calls, investor recognition is still shared as context via the same email, and repeating either persona's action never creates a third row or double-credits.
+
+### 9.2 Reward currency — confirmed, not changed
+
+`services/wallet/knyt/knytLedgerService.ts` is the canonical DVN KNYT ledger (its own header: *"Core service for DVN KNYT (x402 ledger) operations"*; `wallet_balances`/`wallet_transactions` fields are literally named `dvnKnyt`). `creditKnyt()` — the only reward-writing call in the projector — is that same substrate. "Knightcoin" is campaign-facing copy only; settlement is DVN KNYT throughout. No second ledger was created; none is needed.
+
+### 9.3 Named, deferred gap — person-grade Standing unification (NOT fixed in this patch, by design)
+
+**Standing still does not unify across two personas of one person.** `accrueStanding()` (`services/crm/standingAccrualService.ts`) remains keyed by `crm_persona_reputation.persona_id = crmPersonaId` — unchanged, per operator instruction not to introduce another heuristic persona→person resolver into this campaign patch. Persona A and Persona B of the same real person, each with their own `crm_personas` row (guaranteed distinct by the §9.1 fix), will each independently accrue Standing on their own row rather than converging on one person-level Standing entitlement.
+
+This is now recorded as a **named post-launch constitutional migration**: a genuine person-grade Standing unification requires walking the real personhood spine (KybeDID/RootDID/Passport — e.g. `resolvePassportPrincipalById`/`resolveRootPrincipalForAuthUser` in `services/identity/passportPrincipal.ts`) to resolve the underlying person, then re-keying Standing accrual to that anchor rather than to `crm_personas.id`. `KNYT_BRIDGE_STANDING_REPUTATION_REWARDS_ACTIVATION_SPEC.md` §3 anticipates exactly this: *"Add a person-grade attribution seam... until a dedicated Standing migration is authorized."* That migration is out of scope for tomorrow's launch and should be tracked as its own workstream.
+
+## 10. Verdict
+
+**READY TO PUSH — WITH STANDING MIGRATION DEFERRED.**
+
+Launch-ready for the acquisition/CRM/evidence loop (Gate A) and the triple-output attribution model (Gate B), with the cross-persona Reputation defect fixed and verified. The confirmed-Kickstarter-follow reward (gap §7.1) will not pay out until an operator-side reconciliation step exists; recommend announcing pre-registration and "follow the Kickstarter" prominently, and treating confirmed-follow rewards as a fast-follow once a reconciliation import is authorized. Person-grade Standing unification across a person's multiple personas (§9.3) is a real, named limitation — Standing still accrues correctly to whichever single persona/CRM-contact performed each action, but will not converge across two personas of the same person until the deferred migration lands.
 
 **Human review/merge remains the final deployment authorization**, per the governing spec. This branch has not been pushed to the remote: this repo's existing `merge-claude-to-dev` GitHub Action auto-merges any push to a `claude/**` branch straight into `dev`, which would bypass the review this task explicitly required. To review and ship:
 

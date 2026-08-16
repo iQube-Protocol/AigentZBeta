@@ -51,12 +51,36 @@ export interface CampaignContactResolution {
  *
  * Precedence, per spec §4.2:
  *   1. authenticated persona already linked to a crm_personas row
- *   2. normalized email match on crm_personas.email
+ *   2. normalized email match on crm_personas.email — BUT ONLY when that
+ *      row is not already bound (via identity_persona_id) to a DIFFERENT
+ *      acting persona (see the cross-persona guard below).
  *   3. existing metaKnyt investor record (nakamoto_knyt_personas by email) —
  *      NOT itself a crm_personas row; if found and no crm_personas row
  *      exists yet, create one carrying the email so future dedupe resolves
  *      by identifier (2) above, and tag the investor row.
  *   4. new prospect
+ *
+ * ── CROSS-PERSONA REPUTATION GUARD (2026-08-16 pre-push audit) ────────────
+ *
+ * `crmPersonaId` is the Reputation-partition key (services/campaign/
+ * knytsBridgeCampaignProjector.ts writes `crm_reputation_events`/RQH keyed
+ * on it). Two different personas of the same real person supplying the SAME
+ * email must NEVER be handed the SAME `crm_personas` row for an
+ * authenticated action — doing so silently accrues persona B's Reputation
+ * onto persona A's record, which violates "Reputation accrues to the
+ * persona" (Canon II — a real defect found by the pre-push audit, not a
+ * hypothetical). So when an authenticated caller's email matches a row
+ * already `identity_persona_id`-bound to a DIFFERENT persona, that row is
+ * treated as "known via email" (CRM/investor context only) but is NOT
+ * returned as the acting persona's attribution record — control falls
+ * through to steps 3/4, which resolve/create a row scoped specifically to
+ * `activePersonaId`.
+ *
+ * This does NOT solve person-grade Standing unification (two personas of
+ * one person still accrue Standing on two separate `crm_personas` rows) —
+ * that requires a real KybeDID/RootDID/Passport walk and is deliberately
+ * out of scope here. See the launch-readiness report for the named,
+ * deferred post-launch migration.
  */
 export async function resolveCampaignContact(params: {
   normalizedEmail: string;
@@ -105,29 +129,41 @@ export async function resolveCampaignContact(params: {
   // 2. Normalized email match on crm_personas (case-insensitive).
   const { data: byEmail } = await client
     .from('crm_personas')
-    .select('id')
+    .select('id, identity_persona_id')
     .ilike('email', normalizedEmail)
     .limit(1)
     .maybeSingle();
   if (byEmail?.id) {
-    if (activePersonaId) {
-      // A later authenticated session proves this prospect belongs to a
-      // known identity — link it (spec §4.2.7) rather than creating a
-      // second CRM identity, but never overwrite an existing linkage.
-      await client
-        .from('crm_personas')
-        .update({ identity_persona_id: activePersonaId, updated_at: new Date().toISOString() })
-        .eq('id', byEmail.id)
-        .is('identity_persona_id', null);
+    const boundToOtherPersona =
+      Boolean(activePersonaId) &&
+      Boolean((byEmail as { identity_persona_id?: string | null }).identity_persona_id) &&
+      (byEmail as { identity_persona_id?: string | null }).identity_persona_id !== activePersonaId;
+
+    if (!boundToOtherPersona) {
+      if (activePersonaId) {
+        // A later authenticated session proves this prospect belongs to a
+        // known identity — link it (spec §4.2.7) rather than creating a
+        // second CRM identity, but never overwrite an existing linkage.
+        await client
+          .from('crm_personas')
+          .update({ identity_persona_id: activePersonaId, updated_at: new Date().toISOString() })
+          .eq('id', byEmail.id)
+          .is('identity_persona_id', null);
+      }
+      const investor = await findInvestorByEmail(client, normalizedEmail);
+      if (investor) await appendInvestorCampaignTags(client, investor.id);
+      return {
+        crmPersonaId: byEmail.id,
+        isNewProspect: false,
+        investorKnown: Boolean(investor),
+        nakamotoPersonaId: investor?.id ?? null,
+      };
     }
-    const investor = await findInvestorByEmail(client, normalizedEmail);
-    if (investor) await appendInvestorCampaignTags(client, investor.id);
-    return {
-      crmPersonaId: byEmail.id,
-      isNewProspect: false,
-      investorKnown: Boolean(investor),
-      nakamotoPersonaId: investor?.id ?? null,
-    };
+    // Cross-persona guard fired: this email is already bound to a DIFFERENT
+    // acting persona's crm_personas row. Do not return it — fall through to
+    // steps 3/4, which resolve/create a row scoped to THIS activePersonaId.
+    // Investor recognition is independently re-established there via the
+    // same email (findInvestorByEmail), so it is never lost.
   }
 
   // 3. Existing metaKnyt investor by email, no crm_personas row yet.
