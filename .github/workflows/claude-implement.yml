@@ -25,6 +25,15 @@
 #   • `knownBaselineFailures` → embedded so Claude doesn't re-diagnose a
 #     pre-existing failure as caused by its own change
 #
+# ── Transport fix (2026-08-18) ──
+# GitHub's repository_dispatch API allows at most 10 top-level properties in
+# client_payload. The flat Phase F shape reached 12 and a live dispatch
+# failed with dispatch_failed_422 as a direct result. The bounded-execution
+# fields now arrive NESTED — client_payload.execution.{model,profile,budget}
+# and client_payload.constraints.{forbiddenFiles,knownBaselineFailures} — 6
+# top-level keys total. This workflow's materialize step reads the nested
+# shape; it never re-flattens or re-derives these values itself.
+#
 # ── D1 (CFS-016): execution stays HUMAN ──
 # Nothing this workflow does reaches `dev` (the deploy branch) by itself:
 #   • the working branch is `aigentz/pack-*` — deliberately NOT `claude/**`,
@@ -88,17 +97,22 @@ jobs:
 
       # The pack travels as JSON through toJSON() → file, never interpolated
       # into shell or prompt text (injection-safe). Bounded-execution fields
-      # (model/profile/budget/forbiddenFiles/knownBaselineFailures) are the
-      # dispatch route's own output — this step never invents a fallback for
-      # `model`/`maxTurns` beyond an honest "routine"-tier default, so an
-      # older-format dispatch degrades to the cheapest profile rather than
-      # silently resolving to an unpinned one.
+      # arrive NESTED under execution/constraints (2026-08-18 transport fix —
+      # a flat 12-key client_payload exceeded GitHub's 10-property ceiling
+      # and caused a live dispatch_failed_422). This step reads the nested
+      # shape and never invents a fallback for `model`/`maxTurns` beyond an
+      # honest "routine"-tier default, so an older-format dispatch degrades
+      # to the cheapest profile rather than silently resolving to an
+      # unpinned one.
       - name: Materialize implementation pack
         env:
           PAYLOAD_JSON: ${{ toJSON(github.event.client_payload) }}
         run: |
           node -e '
             const p = JSON.parse(process.env.PAYLOAD_JSON || "{}");
+            const execution = p.execution && typeof p.execution === "object" ? p.execution : {};
+            const budget = execution.budget && typeof execution.budget === "object" ? execution.budget : {};
+            const constraints = p.constraints && typeof p.constraints === "object" ? p.constraints : {};
             const fs = require("fs");
             fs.writeFileSync("/tmp/implementation-pack.md",
               String(p.packMarkdown || ""), "utf8");
@@ -106,16 +120,16 @@ jobs:
               packId: String(p.packId || ""),
               goal: String(p.goal || ""),
               branch: String(p.branch || ""),
-              forbiddenFiles: Array.isArray(p.forbiddenFiles) ? p.forbiddenFiles : [],
-              knownBaselineFailures: Array.isArray(p.knownBaselineFailures) ? p.knownBaselineFailures : [],
+              forbiddenFiles: Array.isArray(constraints.forbiddenFiles) ? constraints.forbiddenFiles : [],
+              knownBaselineFailures: Array.isArray(constraints.knownBaselineFailures) ? constraints.knownBaselineFailures : [],
             }, null, 2), "utf8");
             fs.writeFileSync("/tmp/execution-budget.json", JSON.stringify({
-              model: String(p.model || "claude-sonnet-4-6"),
-              executionProfile: String(p.executionProfile || "routine"),
-              maxTurns: Number(p.maxTurns) || 20,
-              maxWallClockMinutes: Number(p.maxWallClockMinutes) || 12,
-              maxValidationPasses: Number(p.maxValidationPasses) || 4,
-              maxContextExpansionEvents: Number(p.maxContextExpansionEvents) || 3,
+              model: String(execution.model || "claude-sonnet-4-6"),
+              executionProfile: String(execution.profile || "routine"),
+              maxTurns: Number(budget.maxTurns) || 20,
+              maxWallClockMinutes: Number(budget.maxWallClockMinutes) || 12,
+              maxValidationPasses: Number(budget.maxValidationPasses) || 4,
+              maxContextExpansionEvents: Number(budget.maxContextExpansionEvents) || 3,
             }, null, 2), "utf8");
           '
           echo "pack bytes: $(wc -c < /tmp/implementation-pack.md)"

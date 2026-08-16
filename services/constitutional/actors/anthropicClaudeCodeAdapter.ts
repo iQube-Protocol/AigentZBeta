@@ -11,6 +11,16 @@
  * the dispatch itself beyond the new bounded-execution payload fields
  * (`model`, `executionProfile`, `maxTurns`, `forbiddenFiles`,
  * `knownBaselineFailures`) the rewritten workflow now reads.
+ *
+ * Transport fix (2026-08-18): GitHub's `repository_dispatch` API allows at
+ * most 10 top-level properties in `client_payload`. The flat Phase F shape
+ * had grown to 12 (packId, goal, branch, packMarkdown, model,
+ * executionProfile, maxTurns, maxWallClockMinutes, maxValidationPasses,
+ * maxContextExpansionEvents, forbiddenFiles, knownBaselineFailures) —
+ * confirmed as the direct cause of a live `dispatch_failed_422`. The
+ * bounded-execution fields are now nested under `execution`/`constraints`
+ * (6 top-level keys total), carrying the exact same data — the workflow's
+ * materialize step reads the nested shape.
  */
 
 import {
@@ -49,24 +59,33 @@ export const anthropicClaudeCodeAdapter: ImplementationActorAdapter = {
         Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
         Accept: 'application/vnd.github+json',
         'X-GitHub-Api-Version': '2022-11-28',
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         event_type: 'claude-implement',
+        // 6 top-level keys — well under GitHub's 10-property client_payload
+        // ceiling. Bounded-execution fields are nested (execution/
+        // constraints), never re-derived by the CI actor itself; the
+        // rewritten workflow's materialize step reads this exact shape.
         client_payload: {
           packId: pack.id,
           goal: pack.goal.slice(0, 300),
           branch,
           packMarkdown,
-          // Bounded-execution fields the rewritten workflow reads directly —
-          // never re-derived by the CI actor itself.
-          model: route.model,
-          executionProfile: route.profile,
-          maxTurns: route.budget.maxTurns,
-          maxWallClockMinutes: route.budget.maxWallClockMinutes,
-          maxValidationPasses: route.budget.maxValidationPasses,
-          maxContextExpansionEvents: route.budget.maxContextExpansionEvents,
-          forbiddenFiles: pack.forbiddenFiles,
-          knownBaselineFailures: pack.knownBaselineFailures,
+          execution: {
+            model: route.model,
+            profile: route.profile,
+            budget: {
+              maxTurns: route.budget.maxTurns,
+              maxWallClockMinutes: route.budget.maxWallClockMinutes,
+              maxValidationPasses: route.budget.maxValidationPasses,
+              maxContextExpansionEvents: route.budget.maxContextExpansionEvents,
+            },
+          },
+          constraints: {
+            forbiddenFiles: pack.forbiddenFiles,
+            knownBaselineFailures: pack.knownBaselineFailures,
+          },
         },
       }),
       cache: 'no-store',

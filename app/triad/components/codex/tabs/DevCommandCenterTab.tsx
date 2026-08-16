@@ -1454,15 +1454,30 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
               onDismissProposal={() => handleDismissProposal("implementation")}
               onReceipt={handleReceipt}
               onPackGenerated={(briefMarkdown, pack) => {
-                // Auto-pass to Validate (operator reports 2026-07-13 + 07-14:
-                // "no auto pass to the validate stage"). The old guard only
-                // advanced from stage === "implementation" — a session parked
-                // at ANY earlier stage generated a pack and went nowhere. The
-                // pack satisfies every remaining pre-validation gate, so:
-                // fold the pack's constitutional decision into the session
-                // when the Decide capsule was skipped (the pack generation
-                // took one — CFS-029 §7), then fast-forward the gate-checked
-                // walk to Constitutional Validation and mount its capsule.
+                // Lifecycle correction (2026-08-18, operator-directed):
+                // generating an Implementation Pack is an ARTIFACT-PRODUCTION
+                // event INSIDE the Implementation stage — it is NOT
+                // implementation completion. The prior "auto-pass to
+                // Validate" behavior (2026-07-13/07-14) conflated the two,
+                // fast-forwarding the session to Constitutional Validation
+                // and mounting it the instant a pack was generated, before
+                // any actual implementation had happened. The session now
+                // stays at 'implementation' so the operator can inspect the
+                // generated pack and Dispatch to Claude from this SAME
+                // surface. Fold the pack's constitutional decision into the
+                // session when the Decide capsule was skipped (the pack
+                // generation took one — CFS-029 §7); do not otherwise
+                // advance the stage or mount another capsule.
+                //
+                // No governed implementation-complete -> Validation
+                // transition exists yet: Phase D's status poll
+                // (pollExecutionStatus) drives ActorEvents only
+                // (working/completed/failed/awaiting-authorization) —
+                // transient stream state, never a DevLoopState.stage
+                // mutation. Inventing one here to advance the UI would be
+                // exactly the fabricated-completion mistake this correction
+                // exists to remove; that governed transition is a real gap,
+                // reported rather than papered over.
                 const s = sessionRef.current;
                 const rawDecision = (pack as Record<string, unknown> | null)?.constitutionalDecision as
                   | Record<string, unknown>
@@ -1481,19 +1496,14 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
                         decidedAt: new Date().toISOString(),
                       }
                     : null);
-                let next: DevLoopState = {
+                const next: DevLoopState = {
                   ...s,
                   implementationBrief: briefMarkdown,
                   generatedPack: pack ?? s.generatedPack ?? null,
                   constitutionalDecision: foldedDecision,
                   updatedAt: new Date().toISOString(),
                 };
-                const validationIdx = STAGE_ORDER.indexOf("consequence_validation");
-                while (canAdvance(next) && STAGE_ORDER.indexOf(next.stage) < validationIdx) {
-                  next = advanceStage(next);
-                }
                 setSession(next);
-                if (next.stage === "consequence_validation") engageCapsuleAndMount("validation");
                 observe(devImplementationPackGeneratedEvent());
               }}
               onDeploymentProposed={() => observe(devDeploymentProposedEvent())}

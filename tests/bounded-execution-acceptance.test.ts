@@ -52,7 +52,7 @@ describe('1 — model is explicitly reported, never left to an implicit default'
     });
     const [, init] = fetchSpy.mock.calls[0];
     const body = JSON.parse(init.body);
-    expect(body.client_payload.model).toBe(route.model);
+    expect(body.client_payload.execution.model).toBe(route.model);
     vi.unstubAllGlobals();
     delete process.env.GITHUB_TOKEN;
   });
@@ -76,7 +76,7 @@ describe('2 — maxTurns is present in the payload and mapped to the real --max-
     });
     const [, init] = fetchSpy.mock.calls[0];
     const body = JSON.parse(init.body);
-    expect(body.client_payload.maxTurns).toBe(route.budget.maxTurns);
+    expect(body.client_payload.execution.budget.maxTurns).toBe(route.budget.maxTurns);
     vi.unstubAllGlobals();
     delete process.env.GITHUB_TOKEN;
   });
@@ -93,6 +93,98 @@ describe('2 — maxTurns is present in the payload and mapped to the real --max-
       contextExpansionEvents: 0,
     });
     expect(evalu.exceeded).toContain('maxTurns');
+  });
+});
+
+// ─── Transport fix — client_payload stays under GitHub's 10-property ceiling ─
+//
+// A real live dispatch returned dispatch_failed_422. Code inspection found
+// the flat Phase F client_payload had grown to 12 top-level properties
+// (packId, goal, branch, packMarkdown, model, executionProfile, maxTurns,
+// maxWallClockMinutes, maxValidationPasses, maxContextExpansionEvents,
+// forbiddenFiles, knownBaselineFailures) — GitHub's repository_dispatch API
+// allows at most 10. Fixed by nesting the bounded-execution fields under
+// `execution`/`constraints` (6 top-level keys). This section pins the fix.
+describe('Transport — client_payload has at most 10 top-level properties', () => {
+  async function dispatchAndCaptureBody() {
+    const fetchSpy = vi.fn(async () => ({ status: 204, text: async () => '' }) as any);
+    vi.stubGlobal('fetch', fetchSpy);
+    process.env.GITHUB_TOKEN = 'test-token';
+    const route = routeExecution(routineInput, false);
+    await anthropicClaudeCodeAdapter.dispatch({
+      pack: {
+        id: 'p',
+        goal: 'g',
+        forbiddenFiles: ['services/identity/getActivePersona.ts'],
+        knownBaselineFailures: ['tests/some-pre-existing.test.ts'],
+      },
+      packMarkdown: '# pack',
+      branch: 'aigentz/pack-p-00000000',
+      route,
+    });
+    const [, init] = fetchSpy.mock.calls[0];
+    const body = JSON.parse(init.body);
+    vi.unstubAllGlobals();
+    delete process.env.GITHUB_TOKEN;
+    return { body, route };
+  }
+
+  it('client_payload has <= 10 top-level properties', async () => {
+    const { body } = await dispatchAndCaptureBody();
+    const keyCount = Object.keys(body.client_payload).length;
+    expect(keyCount).toBeLessThanOrEqual(10);
+    // Pin the exact count too — a silent re-flattening should fail loudly,
+    // not just barely squeak under the ceiling.
+    expect(keyCount).toBe(6);
+  });
+
+  it('model/profile/budget survive serialization unchanged, nested under execution', async () => {
+    const { body, route } = await dispatchAndCaptureBody();
+    expect(body.client_payload.execution.model).toBe(route.model);
+    expect(body.client_payload.execution.profile).toBe(route.profile);
+    expect(body.client_payload.execution.budget).toEqual(route.budget);
+  });
+
+  it('forbiddenFiles/knownBaselineFailures survive serialization unchanged, nested under constraints', async () => {
+    const { body } = await dispatchAndCaptureBody();
+    expect(body.client_payload.constraints.forbiddenFiles).toEqual(['services/identity/getActivePersona.ts']);
+    expect(body.client_payload.constraints.knownBaselineFailures).toEqual(['tests/some-pre-existing.test.ts']);
+  });
+
+  it('the request includes Content-Type: application/json', async () => {
+    const fetchSpy = vi.fn(async () => ({ status: 204, text: async () => '' }) as any);
+    vi.stubGlobal('fetch', fetchSpy);
+    process.env.GITHUB_TOKEN = 'test-token';
+    await anthropicClaudeCodeAdapter.dispatch({
+      pack: { id: 'p', goal: 'g', forbiddenFiles: [], knownBaselineFailures: [] },
+      packMarkdown: '# pack',
+      branch: 'aigentz/pack-p-00000000',
+      route: routeExecution(routineInput, false),
+    });
+    const [, init] = fetchSpy.mock.calls[0];
+    expect(init.headers['Content-Type']).toBe('application/json');
+    vi.unstubAllGlobals();
+    delete process.env.GITHUB_TOKEN;
+  });
+
+  it('the workflow reads the nested shape (execution/constraints), never the old flat field names', () => {
+    const materializeStep = workflowYaml.jobs.implement.steps.find(
+      (s: any) => s.name === 'Materialize implementation pack',
+    );
+    const script = materializeStep.run as string;
+    expect(script).toMatch(/p\.execution/);
+    expect(script).toMatch(/p\.constraints/);
+    expect(script).toMatch(/execution\.budget/);
+    // The old flat top-level field names must not be read directly off `p` —
+    // only via the nested execution/constraints objects.
+    expect(script).not.toMatch(/p\.model\b/);
+    expect(script).not.toMatch(/p\.executionProfile\b/);
+    expect(script).not.toMatch(/p\.maxTurns\b/);
+    expect(script).not.toMatch(/p\.maxWallClockMinutes\b/);
+    expect(script).not.toMatch(/p\.maxValidationPasses\b/);
+    expect(script).not.toMatch(/p\.maxContextExpansionEvents\b/);
+    expect(script).not.toMatch(/p\.forbiddenFiles\b/);
+    expect(script).not.toMatch(/p\.knownBaselineFailures\b/);
   });
 });
 
