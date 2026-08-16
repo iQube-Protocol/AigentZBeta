@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`3d0dd87`](https://github.com/iQube-Protocol/AigentZBeta/commit/3d0dd87d0085f5d0d55acc8341a9e892510e07e7) [docs] docs: close Homecoming Phase I and define manual execution policy (Kn0w1, 2026-08-16T15:31:08-04:00)
 - [`2636e9b`](https://github.com/iQube-Protocol/AigentZBeta/commit/2636e9bf5e6000928e52bdd40acd3829aa3d6088) [docs] docs: extend OCSGA dossier with structural invariance research (Kn0w1, 2026-08-16T14:06:01-04:00)
 - [`b78f40e`](https://github.com/iQube-Protocol/AigentZBeta/commit/b78f40edd12229553bb9db2f56e85759ac73b5dd) [docs] docs(knyt): add Claude Code campaign implementation specification for KNYTS Bridge activation (Kn0w1, 2026-08-16T13:26:40-04:00)
 - [`0c26f22`](https://github.com/iQube-Protocol/AigentZBeta/commit/0c26f22e2a41db5fc674eb164e51f92ce8e194e9) [push] spec(knyt): define DevOn bounded implementation for campaign activation (Kn0w1, 2026-08-16T13:20:08-04:00)

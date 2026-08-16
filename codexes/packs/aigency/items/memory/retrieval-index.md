@@ -4159,3 +4159,8 @@ Top-level retrieval anchors for this pack.
 - Type: `docs`
 - Brief: [COMMIT-2636e9b.md](../build_/COMMITS/COMMIT-2636e9b.md)
 - Message: docs: extend OCSGA dossier with structural invariance research
+
+## Commit `3d0dd87` — 2026-08-16T15:31:08-04:00
+- Type: `docs`
+- Brief: [COMMIT-3d0dd87.md](../build_/COMMITS/COMMIT-3d0dd87.md)
+- Message: docs: close Homecoming Phase I and define manual execution policy
