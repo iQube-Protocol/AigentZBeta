@@ -4154,3 +4154,8 @@ Top-level retrieval anchors for this pack.
 - Type: `docs`
 - Brief: [COMMIT-b78f40e.md](../build_/COMMITS/COMMIT-b78f40e.md)
 - Message: docs(knyt): add Claude Code campaign implementation specification for KNYTS Bridge activation
+
+## Commit `2636e9b` — 2026-08-16T14:06:01-04:00
+- Type: `docs`
+- Brief: [COMMIT-2636e9b.md](../build_/COMMITS/COMMIT-2636e9b.md)
+- Message: docs: extend OCSGA dossier with structural invariance research

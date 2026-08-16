@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-16T17:28:34.760Z",
+  "last_updated": "2026-08-16T18:07:40.858Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "b78f40edd12229553bb9db2f56e85759ac73b5dd",
-  "latest_commit_short": "b78f40e",
-  "latest_commit_title": "docs(knyt): add Claude Code campaign implementation specification for KNYTS Bridge activation",
+  "latest_commit": "2636e9bf5e6000928e52bdd40acd3829aa3d6088",
+  "latest_commit_short": "2636e9b",
+  "latest_commit_title": "docs: extend OCSGA dossier with structural invariance research",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "2636e9b",
+      "full_sha": "2636e9bf5e6000928e52bdd40acd3829aa3d6088",
+      "title": "docs: extend OCSGA dossier with structural invariance research",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-16T14:06:01-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-2636e9b.md"
+    },
     {
       "sha": "b78f40e",
       "full_sha": "b78f40edd12229553bb9db2f56e85759ac73b5dd",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-09T00:52:25Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-4846fa6.md"
-    },
-    {
-      "sha": "fc163cc",
-      "full_sha": "fc163cc1b03673b34c7ee6dec309246da9e8b0f9",
-      "title": "Remove duplicate PILOT_AGENTS registry; stop constructing aigent-\\${slug}",
-      "author": "Claude",
-      "timestamp": "2026-08-09T01:01:08Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-fc163cc.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
