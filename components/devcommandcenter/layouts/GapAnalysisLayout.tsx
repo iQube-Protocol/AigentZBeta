@@ -70,7 +70,7 @@ export function GapAnalysisLayout({
         </div>
       ) : (
         <div className="text-xs text-slate-400 italic py-8 text-center">
-          Gap analysis runs after context pack is assembled. Ask aigentZ to analyze gaps — it will audit existing capabilities against the golden rule: Reuse &gt; Extend &gt; Create.
+          Gap analysis runs after context pack is assembled. Ask DevOn to analyze gaps — it will audit existing capabilities against the golden rule: Reuse &gt; Extend &gt; Create.
         </div>
       )}
     </div>

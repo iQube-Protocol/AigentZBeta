@@ -60,7 +60,7 @@ export function ContextLayout({
         </div>
       ) : (
         <div className="text-xs text-slate-400 italic py-8 text-center">
-          Context pack assembles after intent is refined. Ask aigentZ to assemble context — it will propose a pack here grounded in real platform inventory.
+          Context pack assembles after intent is refined. Ask DevOn to assemble context — it will propose a pack here grounded in real platform inventory.
         </div>
       )}
     </div>

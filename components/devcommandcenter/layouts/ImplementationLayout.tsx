@@ -343,7 +343,7 @@ export function ImplementationLayout({
       {brief ? (
         <div className="space-y-1">
           <div className="text-[10px] text-slate-500 uppercase font-semibold">
-            Implementation brief {session.implementationBrief ? "" : "(derived — approve aigentZ's brief proposal or generate a pack to enrich)"}
+            Implementation brief {session.implementationBrief ? "" : "(derived — approve DevOn's brief proposal or generate a pack to enrich)"}
           </div>
           <pre className="whitespace-pre-wrap break-words rounded-lg border border-slate-700/30 bg-slate-900/50 p-3 text-[11px] leading-relaxed text-slate-300 font-mono max-h-64 overflow-y-auto">
             {brief}
@@ -352,7 +352,7 @@ export function ImplementationLayout({
       ) : (
         <div className="text-xs text-slate-400 italic py-4 text-center">
           No implementation brief yet. Complete intent → context → gaps → consequences first, or ask
-          aigentZ to produce the implementation brief.
+          DevOn to produce the implementation brief.
         </div>
       )}
 

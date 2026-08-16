@@ -21,7 +21,7 @@ interface TerminalEntry {
 }
 
 const WELCOME: string[] = [
-  "aigentZ Constitutional Terminal — read-only command surface (CFS-016 D1).",
+  "DevOn Constitutional Terminal — read-only command surface (CFS-016 D1).",
   "This is NOT a shell; execution stays human. Type `help` for the command set.",
 ];
 
@@ -124,7 +124,7 @@ export function TerminalLayout({
       {history.map((entry, i) => (
         <div key={i} className="mb-2">
           <div className="text-emerald-400">
-            <span className="text-slate-600">aigentZ$</span> {entry.command}
+            <span className="text-slate-600">DevOn$</span> {entry.command}
           </div>
           {entry.lines.map((line, j) => (
             <div key={j} className="whitespace-pre-wrap break-words text-slate-300">
@@ -134,7 +134,7 @@ export function TerminalLayout({
         </div>
       ))}
       <div className="flex items-center gap-2">
-        <span className="text-slate-600 shrink-0">aigentZ$</span>
+        <span className="text-slate-600 shrink-0">DevOn$</span>
         <input
           autoFocus
           value={input}

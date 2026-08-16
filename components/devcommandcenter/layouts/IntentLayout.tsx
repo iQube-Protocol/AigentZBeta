@@ -73,7 +73,7 @@ export function IntentLayout({
         </div>
       ) : (
         <div className="text-xs text-slate-400 italic py-8 text-center">
-          No intent captured yet. Use the copilot to start a new intent — aigentZ will propose a structured intent card here for your approval.
+          No intent captured yet. Use the copilot to start a new intent — DevOn will propose a structured intent card here for your approval.
         </div>
       )}
     </div>

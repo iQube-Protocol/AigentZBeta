@@ -1,14 +1,22 @@
 "use client";
 
 /**
- * DevCommandCenterTab — aigentZ Development Command Center
- * Operation Chrysalis Phase 1
+ * DevCommandCenterTab — DevOn Development Command Center
+ * Operation Chrysalis Phase 1 · DevOn identity (Phase E)
+ *
+ * DevOn is the Smart Triad Copilot's software-development specialist
+ * instantiation — the user's orchestrator/interlocutor for this surface. It
+ * may orchestrate Aigent Z (deep platform/engineering intelligence), Claude
+ * Code (implementation actor), and specialist reviewers; their activity
+ * renders in the left-pane engagement stream, attributed by name, never as
+ * DevOn itself. `agent.id` stays `"aigent-z"` (the underlying persona/KB/
+ * avatar identity is unchanged) — only the display name changed.
  *
  * Two-pane split mirroring AigentMeWelcomeSplitTab:
  *
  *   ┌─────────────────────────┬────────────────────────────┐
  *   │                         │  Stage strip (carousel)    │
- *   │   aigentZ Copilot       │  CTA chip row (capsule     │
+ *   │   DevOn Copilot         │  CTA chip row (capsule     │
  *   │   (embedded, persistent)│   activators with advance) │
  *   │                         │  Active layout (capsule)   │
  *   │   Quick-prompt chips:   │                            │
@@ -596,7 +604,7 @@ function StackLayout({ session, activeStage, onCapabilityClick, pending, dcirEve
               <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300">{spec.status}</span>
             </div>
           ))}
-          <div className="text-[10px] text-slate-500 pt-1">Specialists are invoked by aigentZ during gap analysis and validation stages.</div>
+          <div className="text-[10px] text-slate-500 pt-1">Specialists are invoked by DevOn during gap analysis and validation stages.</div>
         </div>
       </AccordionSection>
 
@@ -1077,7 +1085,7 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
     sessionId: session.sessionId,
     canAdvance: canAdvance(session),
     twoTierRouting: {
-      description: "aigentZ routes prompts either to the LLM (tier 1, planning/analysis) or to Claude Code (tier 2, code generation). Results from Claude Code flow back through aigentZ for disposition.",
+      description: "DevOn routes prompts either to the LLM (tier 1, planning/analysis) or to Claude Code (tier 2, code generation). Results from Claude Code flow back through DevOn for disposition.",
       currentTier: "llm",
     },
     capabilities: CAPABILITIES.map(c => c.id),
@@ -1267,14 +1275,14 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
 
   return (
     <div className="h-[calc(100vh-96px)] flex flex-col lg:flex-row gap-2 px-2 pr-3 overflow-hidden">
-      {/* ── LEFT: aigentZ Copilot (50/50 split) ──────────────── */}
+      {/* ── LEFT: DevOn Copilot — engagement stream (50/50 split) ── */}
       <div className="lg:w-1/2 w-full h-full min-h-0 flex flex-col">
         <SmartTriadCopilotLayer
           isOpen
           variant="panel"
           quickPrompts={copilotQuickPrompts}
-          promptPlaceholder="Ask aigentZ — new intent, analyze gaps, model consequences…"
-          agent={{ id: "aigent-z", name: "aigentZ" }}
+          promptPlaceholder="Ask DevOn — new intent, analyze gaps, model consequences…"
+          agent={{ id: "aigent-z", name: "DevOn" }}
           agentSubtitle="Development Command Center · consequence engineering"
           personaId={personaId}
           groundContext={copilotGroundContext}

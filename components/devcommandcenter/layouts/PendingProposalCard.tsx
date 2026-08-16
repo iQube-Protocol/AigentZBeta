@@ -316,7 +316,7 @@ export function PendingProposalCard({ proposal, onApprove, onDismiss }: {
       <div className="flex items-center gap-2">
         <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
         <span className="text-[10px] uppercase tracking-wide text-amber-300 font-semibold">
-          Proposed by aigentZ — review, then approve
+          Proposed by DevOn — review, then approve
         </span>
       </div>
       <div className="text-xs font-semibold text-white">
@@ -352,7 +352,7 @@ export function PendingProposalCard({ proposal, onApprove, onDismiss }: {
           Dismiss
         </button>
         <span className="text-[10px] text-slate-500 ml-1">
-          or ask aigentZ to refine it — a fresh card replaces this one
+          or ask DevOn to refine it — a fresh card replaces this one
         </span>
       </div>
     </div>

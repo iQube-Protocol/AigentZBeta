@@ -91,7 +91,7 @@ export function ConsequenceCanvasLayout({
         </div>
       ) : (
         <div className="text-xs text-slate-400 italic py-8 text-center">
-          Consequence canvas models what should and shouldn&apos;t happen. Ask aigentZ to model consequences — it will propose a canvas with should-happen and must-never-happen entries.
+          Consequence canvas models what should and shouldn&apos;t happen. Ask DevOn to model consequences — it will propose a canvas with should-happen and must-never-happen entries.
         </div>
       )}
     </div>
