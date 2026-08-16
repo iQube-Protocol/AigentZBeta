@@ -1,13 +1,79 @@
-# Homecoming Phase II — Handover (Gate 0 done; WP-A/WP-B audited, not yet coded)
+# Homecoming Phase II — Handover (Gate 0 + WP-A DONE; WP-B not started)
 
 **Date:** 2026-08-16
-**Status:** IN PROGRESS — handing off mid-implementation, ahead of a possible session rate-cap cutoff
-**Governing spec:** `codexes/packs/agentiq/updates/2026-08-16_homecoming-phase-ii-activation-pack.md` — read it in full before continuing; this doc only records audit findings + the exact remaining plan, it does not restate the spec.
-**Branch:** `claude/resume-consumer-session-qm3v7c` — do NOT push/merge without explicit operator authorization (standing instruction this session).
+**Status:** IN PROGRESS — handing off ahead of a session rate-cap cutoff. Gate 0 and WP-A
+(Increments 1 AND 2) are fully implemented, tested, and committed. **WP-B has not been started at
+all** — its audit is complete (see §3-4 below) but zero WP-B code exists yet.
+**Governing spec:** `codexes/packs/agentiq/updates/2026-08-16_homecoming-phase-ii-activation-pack.md`
+— read it in full, INCLUDING its two amendments ("WP-A Amendment... three-axis model + Gate A0
+audit" and "Increment 2 — IMPLEMENTED"), before writing any more code. This doc records audit
+findings + the exact remaining plan; it does not restate the spec.
+**Branch:** `claude/resume-consumer-session-qm3v7c` — 13 commits ahead of `origin`, all local. **Do
+NOT push or merge without explicit operator authorization** — this repo's `merge-claude-to-dev`
+GitHub Action auto-merges any push to a `claude/**` branch straight into `dev`, and the operator's
+standing instruction for this task is to stop for review before merge/deploy. The working tree is
+clean (nothing uncommitted) as of the last commit below.
+
+## RESUME HERE — next concrete step
+
+**Everything through WP-A Increment 2 is done.** The next task is **WP-B: manual DevOn handoff +
+Execution Return seam**. Its factual audit is already complete — read §3 and §4 below, which give
+the exact file:line implementation plan (new `ExecutionReturn` type, the one-line additive fix to
+`app/api/constitutional/implementation-pack/route.ts`'s receipt so `packId` becomes queryable, the
+new ingestion route, the two `packMarkdown()` content additions). Start WP-B by re-reading those two
+sections, then implement in the order given there. Do not re-audit — the audit is done and correct.
+
+After WP-B is implemented and tested, the remaining work is the Homecoming Phase II **final report**
+(originally task #215 in this session's own tracker, which does not carry over to a new session): a
+capability census (Aletheon: LIVE as a consultable specialist + as a selectable aigentMe-role agent
+with zero authority granted by selection; PARTIAL/MISSING: CRM-cohort tool-calling, per §"Aletheon
+capability census" further down), proof snippets for every acceptance canary in the governing pack,
+a regression/typecheck comparison against the baseline named below, and a list of unresolved gaps
+(stale `docs/platform-ontology.md`, no `delegation_grants` row ever minted for Aletheon in this pass,
+no agent-tool-calling registry for CRM/campaign functions, `agent_persona.delegation_scopes` dead
+code platform-wide). Then stop for operator review — do not push/merge.
+
+**Established regression baseline — compare against this, not zero:** `npx vitest run` →
+**17 failed test files / 40 failed tests** (6827+ passing). `npx tsc --noEmit -p .` → **675 errors**.
+This baseline has been reconfirmed unchanged after every single change made in this session,
+including all of WP-A Increment 2 — any new failure/error above these counts is a real regression to
+fix or explain, not to fold into the recorded baseline.
 
 ---
 
 ## 0. What is DONE and committed
+
+Local commits on this branch, oldest to newest (none pushed):
+
+- `31d532e40` — Gate 0 (Kickstarter CTA fix + CI copy).
+- `dab0fb407` — handover doc v1 (WP-A/WP-B audit findings + plan, pre-three-axis-amendment).
+- `947ad4dce` — Gate A0 audit + the operator's three-axis model recorded as a WP-A amendment in the
+  governing pack.
+- `01debe39e` — **WP-A Increment 1**: Aletheon wired into the specialist-consult seam
+  (`services/agents/specialistRouter.ts`, `services/orchestration/specialistRecommender.ts`,
+  `app/api/assistant/ask-agent/route.ts`, `app/data/personas.ts`) + 7 tests.
+- `f49451bb8` — handover doc updated to mark Increment 1 done.
+- `b0396c49e` — **WP-A Increment 2**: the aigentMe-role runtime resolution end-to-end
+  (`services/agents/aigentMeRoleResolution.ts` new, `app/api/codex/chat/route.ts` wired,
+  `components/smarttriad/copilot/AigentMeRoleSelector.tsx` new + mounted in
+  `SmartTriadCopilotLayer.tsx`) + 11 tests. **This is the most recent commit** — `git log -1` on this
+  branch should show it.
+
+Full technical detail for Increments 1 and 2 (exact file:line changes, what's reused vs. new, why
+each design choice was made) is recorded in the governing pack itself — search it for "Increment 1"
+and "Increment 2 — IMPLEMENTED" rather than duplicating that detail here.
+
+### Superseded content below
+
+Sections 0 (original), 2, and the pre-amendment WP-A framing further down in this doc were written
+BEFORE the operator's three-axis model amendment and BEFORE Increments 1-2 were implemented. §1f
+below records the amendment; §2 is kept only as historical context for the file-list Increment 1
+actually followed. Do not re-implement anything §2 describes — it is done (see §0 above). Sections 3
+and 4 (WP-B) are still fully current — nothing has changed there.
+
+---
+
+## 0-orig. Prior version of this section (historical, superseded by §0 above)
 
 Commit `31d532e40` on this branch (local, not yet pushed):
 
