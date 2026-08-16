@@ -1,21 +1,37 @@
 /**
  * POST /api/dev-command-center/implement — dispatch an Implementation Pack to
- * Claude Code running in CI (the DCC implementation-dispatch seam, 2026-07-14).
+ * a bounded implementation actor (the DCC implementation-dispatch seam,
+ * 2026-07-14; rebuilt as a provider-neutral dispatch, Phase F
+ * bounded-execution repair, operator-directed 2026-08-16).
  *
  * Closes the copy-paste break the operator named: the Implement capsule could
  * generate a pack but only offer "Copy pack" — the operator had to paste it
- * into Claude Code by hand. This route fires a GitHub `repository_dispatch`
- * (event_type `claude-implement`) whose workflow runs Claude Code against the
- * pack on a fresh `aigentz/pack-*` branch and opens a PR to dev.
+ * into an implementation actor by hand. This route SELECTS an
+ * `ExecutionRoute` (profile → provider/model/budget,
+ * `services/constitutional/executionRouting.ts`) from the pack's own
+ * risk/uncertainty signals and calls the matching
+ * `ImplementationActorAdapter` (`services/constitutional/actors/
+ * implementationActorAdapter.ts`) — today, always `anthropic-claude-code`,
+ * which fires the SAME GitHub `repository_dispatch` this route used to build
+ * inline. Every other provider is a stub that fails before any spend.
+ *
+ * `forbiddenFiles` is ALWAYS derived server-side from CLAUDE.md's protected
+ * -file manifest (`services/constitutional/protectedFiles.ts`) — never
+ * trusted from the client. `areasToTouch`/`preflight`/`knownBaselineFailures`
+ * are accepted as ROUTING SIGNALS from the client-held pack (no server-side
+ * pack store exists today — packs are generated once and held client-side);
+ * a client that mis-states them can only cause a sub-optimal model/budget
+ * choice, never bypass the protected-file boundary, which does not depend
+ * on them.
  *
  * ── D1 (CFS-016): execution stays HUMAN ──
  * This route INITIATES implementation; it executes nothing. The working branch
  * is `aigentz/pack-*` — deliberately NOT `claude/**` (merge-claude-to-dev.yml
  * auto-merges claude/** into dev, the deploy branch, which would collapse the
- * human gate). Claude opens a PR; the operator's merge is the execution gate.
+ * human gate). The implementation actor opens a PR; the operator's merge is
+ * the execution gate — untouched by any part of this repair.
  *
- * Admin-gated (spine). GITHUB_TOKEN server-side only (mirrors _lib/github /
- * write-doc config). Best-effort `implementation_dispatched` receipt — the
+ * Admin-gated (spine). Best-effort `implementation_dispatched` receipt — the
  * initiation record in the development provenance chain (pack → dispatch →
  * PR → human merge). Receipt summary is T2-safe (goal excerpt + pack id +
  * branch — no persona identifier).
@@ -25,9 +41,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createHash } from 'crypto';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
-import { GITHUB_REPO, githubConfigured, GITHUB_MISSING_ENV } from '@/app/api/dev-command-center/_lib/github';
+import { githubConfigured, GITHUB_MISSING_ENV } from '@/app/api/dev-command-center/_lib/github';
 import { mirrorLifecycleToLinear } from '@/services/linear/lifecycleMirror';
 import { packSlug } from '@/app/api/dev-command-center/github/merge/route';
+import { deriveForbiddenFiles } from '@/services/constitutional/protectedFiles';
+import { routeExecution, type ExecutionProfile } from '@/services/constitutional/executionRouting';
+import { getImplementationActorAdapter } from '@/services/constitutional/actors/implementationActorAdapter';
+import type { PackPreflight } from '@/services/constitutional/implementationPack';
 
 export const dynamic = 'force-dynamic';
 
@@ -54,7 +74,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, configured: false, missingEnv: GITHUB_MISSING_ENV }, { status: 503 });
   }
 
-  let body: { packId?: unknown; goal?: unknown; packMarkdown?: unknown };
+  let body: {
+    packId?: unknown;
+    goal?: unknown;
+    packMarkdown?: unknown;
+    areasToTouch?: unknown;
+    preflight?: unknown;
+    knownBaselineFailures?: unknown;
+    priorAttemptFailed?: unknown;
+  };
   try {
     body = await request.json();
   } catch {
@@ -83,34 +111,40 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const branch = dispatchBranchFor(packId);
+  // Routing SIGNALS only — client-held (no server-side pack store exists),
+  // so a mis-stated value can at most cause a sub-optimal model/budget
+  // choice. `forbiddenFiles` below is NEVER taken from these — it is always
+  // server-derived from CLAUDE.md's own protected-file manifest.
+  const areasToTouch = Array.isArray(body.areasToTouch)
+    ? body.areasToTouch.filter((a): a is string => typeof a === 'string')
+    : [];
+  const rawPreflight =
+    body.preflight && typeof body.preflight === 'object' ? (body.preflight as Record<string, unknown>) : null;
+  const preflight: PackPreflight | null =
+    rawPreflight &&
+    (rawPreflight.disposition === 'proceed' || rawPreflight.disposition === 'escalate') &&
+    typeof (rawPreflight.risk as Record<string, unknown> | undefined)?.score === 'number'
+      ? (rawPreflight as unknown as PackPreflight)
+      : null;
+  const knownBaselineFailures = Array.isArray(body.knownBaselineFailures)
+    ? body.knownBaselineFailures.filter((f): f is string => typeof f === 'string')
+    : [];
+  const priorAttemptFailed = body.priorAttemptFailed === true;
 
-  // Fire the repository_dispatch. GitHub answers 204 No Content on success.
-  const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/dispatches`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
-      Accept: 'application/vnd.github+json',
-      'X-GitHub-Api-Version': '2022-11-28',
-    },
-    body: JSON.stringify({
-      event_type: 'claude-implement',
-      client_payload: { packId, goal: goal.slice(0, 300), branch, packMarkdown },
-    }),
-    cache: 'no-store',
+  const branch = dispatchBranchFor(packId);
+  const forbiddenFiles = deriveForbiddenFiles();
+  const route = routeExecution({ areasToTouch, forbiddenFiles, preflight }, priorAttemptFailed);
+
+  const dispatchResult = await getImplementationActorAdapter(route.provider).dispatch({
+    pack: { id: packId, goal, forbiddenFiles, knownBaselineFailures },
+    packMarkdown,
+    branch,
+    route,
   });
-  if (res.status !== 204) {
-    const detail = await res.text().catch(() => '');
+  if (!dispatchResult.ok) {
     return NextResponse.json(
-      {
-        ok: false,
-        error:
-          `GitHub dispatch failed (${res.status}). ` +
-          (res.status === 404
-            ? 'Common causes: the claude-implement.yml workflow is not on the default branch yet, or GITHUB_TOKEN lacks repo scope.'
-            : detail.slice(0, 300)),
-      },
-      { status: 502 },
+      { ok: false, error: dispatchResult.error, detail: dispatchResult.detail, route },
+      { status: dispatchResult.error === 'not-configured' ? 503 : 502 },
     );
   }
 
@@ -122,7 +156,8 @@ export async function POST(request: NextRequest) {
       actionType: 'implementation_dispatched',
       summary:
         `Implementation dispatched to Claude Code (CI): "${goal.slice(0, 140)}" — ` +
-        `pack ${packId}, branch ${branch}. Execution stays human at the PR merge (CFS-016 D1).`,
+        `pack ${packId}, branch ${branch}, model ${route.model} (${route.profile} profile). ` +
+        `Execution stays human at the PR merge (CFS-016 D1).`,
       activeCartridge: 'agentiq',
       contextShared: ['dev-command-center'],
     });
@@ -156,6 +191,11 @@ export async function POST(request: NextRequest) {
     dispatched: true,
     branch,
     workflow: 'Claude Implement (DCC dispatch)',
+    provider: route.provider,
+    model: route.model,
+    executionProfile: route.profile,
+    executionBudget: route.budget,
+    routingReason: route.reason,
     receiptId,
     linear,
     watch:

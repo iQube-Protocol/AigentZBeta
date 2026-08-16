@@ -46,6 +46,31 @@ export interface PackView {
     rationale: string;
     risk: { score: number; flags: string[]; basis: string };
     value: { workPotentialQc: number; basis: string };
+    /** Phase F (2026-08-16) — optional so an older/cached pack still renders. */
+    uncertaintyNotes?: string[];
+    escalationConditions?: string[];
+  } | null;
+  /** Phase F bounded-execution repair (2026-08-16): the files an ordinary
+   *  implementation actor may never touch — derived server-side from
+   *  CLAUDE.md's protected-file lists, never re-authored here. */
+  forbiddenFiles?: string[];
+  /** Pre-existing test/typecheck failures the implementation actor should
+   *  not spend turns rediscovering. */
+  knownBaselineFailures?: string[];
+  /** The selected implementation-actor route — profile, provider, model,
+   *  execution budget, and why it was chosen. Optional so an older/cached
+   *  pack (generated before this field existed) still renders. */
+  executionRoute?: {
+    profile: string;
+    provider: string;
+    model: string;
+    budget: {
+      maxWallClockMinutes: number;
+      maxTurns: number;
+      maxValidationPasses: number;
+      maxContextExpansionEvents: number;
+    };
+    reason: string;
   } | null;
   /** Capability Evidence (CFS-029: persisted constitutional primitive) —
    * the what-exists-vs-needed inventory the pack was grounded in. */
@@ -90,7 +115,23 @@ ${pack.invariantBindings.map((b) => `- ${b.seedId ? `[${b.seedId}] ` : ""}${b.st
 ${pack.resolvedTerms.map((t) => `- "${t.term}" → **${t.canonical}**${t.invariantIds.length ? ` (governed by ${t.invariantIds.join(", ")})` : ""}`).join("\n") || "_none_"}
 
 ## Areas to touch
-${pack.areasToTouch.map((a) => `- ${a}`).join("\n") || (pack.constitutionalDecision?.noBuildRequired ? "_none — the constitutional decision is composition, not construction_" : "_not drafted (template pack — determine during implementation)_")}
+${pack.areasToTouch.map((a) => `- ${a}`).join("\n") || (pack.constitutionalDecision?.noBuildRequired ? "_none — the constitutional decision is composition, not construction_" : "_not drafted — this is the DEFAULT implementation surface; expanding beyond it requires recording why (see Execution contract below)_")}
+
+## Forbidden files (never modify without explicit operator authorization)
+${(pack.forbiddenFiles ?? []).map((f) => `- ${f}`).join("\n") || "_none supplied_"}
+
+## Known baseline failures (pre-existing — do not spend turns rediscovering)
+${(pack.knownBaselineFailures ?? []).map((f) => `- ${f}`).join("\n") || "_none known_"}
+${
+  pack.executionRoute
+    ? `
+## Execution route
+- Profile: **${pack.executionRoute.profile}** — ${pack.executionRoute.reason}
+- Provider / model: \`${pack.executionRoute.provider}\` / \`${pack.executionRoute.model}\`
+- Budget: max ${pack.executionRoute.budget.maxTurns} turns · max ${pack.executionRoute.budget.maxWallClockMinutes}m wall-clock · max ${pack.executionRoute.budget.maxValidationPasses} validation passes · max ${pack.executionRoute.budget.maxContextExpansionEvents} scope-expansion events
+- Exceeding this budget yields **awaiting-escalation**, never autonomous continuation.`
+    : ""
+}
 ${
   pack.constitutionalDecision
     ? `
@@ -126,6 +167,12 @@ ${
         `- Rationale: ${pack.preflight.rationale}`,
         `- Risk: ${pack.preflight.risk.score}/100 (${pack.preflight.risk.basis})${pack.preflight.risk.flags.length ? ` — flags: ${pack.preflight.risk.flags.join(", ")}` : ""}`,
         `- Value: $${(pack.preflight.value.workPotentialQc / 100).toFixed(2)} (${pack.preflight.value.workPotentialQc} Q¢, ${pack.preflight.value.basis} work-potential)`,
+        ...(pack.preflight.uncertaintyNotes?.length
+          ? [`- Known uncertainty: ${pack.preflight.uncertaintyNotes.join("; ")}`]
+          : []),
+        ...(pack.preflight.escalationConditions?.length
+          ? [`- Escalate rather than proceed if: ${pack.preflight.escalationConditions.join("; ")}`]
+          : []),
       ].join("\n")
     : "_preflight could not run — pack shipped without it (best-effort by design)_"
 }

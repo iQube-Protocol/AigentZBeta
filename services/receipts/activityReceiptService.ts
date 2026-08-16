@@ -421,7 +421,16 @@ export type ActivityActionType =
   // new Passport, never §A.5 consolidation/reissuance. Forward-looking only:
   // describes the RECONCILIATION act, dated to when it happened. Carries the
   // public passport_id and two booleans only — no root/kybe/persona ids.
-  | 'legacy_passport_linkage_reconciled';
+  | 'legacy_passport_linkage_reconciled'
+  // DevOn Phase F bounded-execution repair (operator-directed, 2026-08-16) —
+  // the observation ledger for one implementation-actor dispatch: which
+  // provider/model actually ran, turns, wall-clock, tokens, observed cost,
+  // permission-denial count, and the resulting execution state
+  // (proceeding/awaiting-escalation/complete). Never the live governor
+  // (`evaluateBudget` in services/constitutional/executionBudget.ts is) —
+  // this is durable observation only, extracted from the actor's own
+  // terminal result JSON via services/constitutional/executionTelemetry.ts.
+  | 'implementation_execution_observed';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 

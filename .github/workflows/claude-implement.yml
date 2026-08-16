@@ -5,16 +5,43 @@
 # against the Implementation Pack carried in the payload, implements it on the
 # payload's working branch (aigentz/pack-*), and opens a PR to `dev`.
 #
+# ── Phase F bounded-execution repair (operator-directed 2026-08-16) ──
+# Rewritten after the forensic audit
+# (codexes/packs/agentiq/updates/2026-08-16_devon-phase-f-bounded-execution-forensic-audit.md)
+# found this workflow ran with NO pinned model, NO turn ceiling, a mandatory
+# full-CLAUDE.md read on every dispatch, an unscoped exploration grant, and a
+# `gh pr list` permission gap that caused repeated self-inflicted friction.
+# The dispatch route (`app/api/dev-command-center/implement/route.ts`) now
+# selects an `ExecutionRoute` — an explicit model + turn/wall-clock budget —
+# from the pack's own risk signals, and this workflow reads that route
+# straight from the dispatch payload rather than falling back to whatever the
+# CLI/SDK defaults to that day:
+#   • `model`             → `--model` (was: unpinned, resolved to Opus both times)
+#   • `maxTurns`           → `--max-turns` (was: no ceiling; 45 turns observed)
+#   • `maxWallClockMinutes` → this step's own `timeout-minutes` (was: only the
+#     60-minute JOB ceiling, shared with checkout/setup, not Claude-specific)
+#   • `forbiddenFiles`     → embedded in the prompt from the payload, not
+#     rediscovered by reading CLAUDE.md's 1,778 lines on every dispatch
+#   • `knownBaselineFailures` → embedded so Claude doesn't re-diagnose a
+#     pre-existing failure as caused by its own change
+#
 # ── D1 (CFS-016): execution stays HUMAN ──
 # Nothing this workflow does reaches `dev` (the deploy branch) by itself:
 #   • the working branch is `aigentz/pack-*` — deliberately NOT `claude/**`,
 #     because merge-claude-to-dev.yml auto-merges claude/** into dev (deploy).
 #   • Claude is instructed to open a PR and NEVER merge it. The operator's PR
 #     merge is the human execution gate; Amplify deploys only from dev.
+#   • Budget exhaustion (checked post-hoc by the telemetry step below) becomes
+#     an `awaiting-escalation` PR comment — NEVER another autonomous
+#     invocation. This workflow does not retry itself.
 #
 # ── Setup (operator, one-time) ──
 #   1. Repo secret ANTHROPIC_API_KEY (Settings → Secrets and variables → Actions).
-#   2. This file must exist on the DEFAULT branch (main) — repository_dispatch
+#   2. Repo secret CRON_TRIGGER_TOKEN (same token already used by the app's
+#      infra-driven cron routes) — authorizes the telemetry callback below.
+#   3. Repo variable (or secret) APP_BASE_URL — the deployed app host the
+#      telemetry POST targets (e.g. https://dev-beta.aigentz.me).
+#   4. This file must exist on the DEFAULT branch (main) — repository_dispatch
 #      only triggers workflows from the default branch (same gotcha as
 #      merge-claude-to-dev.yml, documented in CLAUDE.md).
 
@@ -60,7 +87,12 @@ jobs:
           fi
 
       # The pack travels as JSON through toJSON() → file, never interpolated
-      # into shell or prompt text (injection-safe).
+      # into shell or prompt text (injection-safe). Bounded-execution fields
+      # (model/profile/budget/forbiddenFiles/knownBaselineFailures) are the
+      # dispatch route's own output — this step never invents a fallback for
+      # `model`/`maxTurns` beyond an honest "routine"-tier default, so an
+      # older-format dispatch degrades to the cheapest profile rather than
+      # silently resolving to an unpinned one.
       - name: Materialize implementation pack
         env:
           PAYLOAD_JSON: ${{ toJSON(github.event.client_payload) }}
@@ -74,11 +106,35 @@ jobs:
               packId: String(p.packId || ""),
               goal: String(p.goal || ""),
               branch: String(p.branch || ""),
+              forbiddenFiles: Array.isArray(p.forbiddenFiles) ? p.forbiddenFiles : [],
+              knownBaselineFailures: Array.isArray(p.knownBaselineFailures) ? p.knownBaselineFailures : [],
+            }, null, 2), "utf8");
+            fs.writeFileSync("/tmp/execution-budget.json", JSON.stringify({
+              model: String(p.model || "claude-sonnet-4-6"),
+              executionProfile: String(p.executionProfile || "routine"),
+              maxTurns: Number(p.maxTurns) || 20,
+              maxWallClockMinutes: Number(p.maxWallClockMinutes) || 12,
+              maxValidationPasses: Number(p.maxValidationPasses) || 4,
+              maxContextExpansionEvents: Number(p.maxContextExpansionEvents) || 3,
             }, null, 2), "utf8");
           '
           echo "pack bytes: $(wc -c < /tmp/implementation-pack.md)"
+          echo "execution route: $(cat /tmp/execution-budget.json)"
+          {
+            echo "route_model=$(node -pe 'require("/tmp/execution-budget.json").model')"
+            echo "route_profile=$(node -pe 'require("/tmp/execution-budget.json").executionProfile')"
+            echo "route_max_turns=$(node -pe 'require("/tmp/execution-budget.json").maxTurns')"
+            echo "route_max_wall_clock_minutes=$(node -pe 'require("/tmp/execution-budget.json").maxWallClockMinutes')"
+          } >> "$GITHUB_OUTPUT"
+        id: route
 
       - name: Claude Code — implement the pack
+        id: claude
+        # Claude-step-specific wall-clock ceiling (ExecutionBudget.maxWallClockMinutes)
+        # — tighter than the job's own 60-minute backstop above, which stays
+        # as the outer ceiling covering checkout/setup/PR steps too.
+        timeout-minutes: ${{ fromJSON(steps.route.outputs.route_max_wall_clock_minutes) }}
+        continue-on-error: true
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -87,35 +143,125 @@ jobs:
           # "is_error:true" with no cause (first live dispatch, 2026-07-14).
           show_full_output: true
           prompt: |
-            You are implementing a Dev Command Center Implementation Pack inside CI.
+            You are implementing a Dev Command Center Implementation Pack inside CI,
+            under an explicit bounded-execution envelope. This is a BOUNDED
+            implementation actor, not a second full dev orchestrator: the pack
+            below already carries the governing invariants, risk assessment, and
+            validation plan an earlier constitutional pipeline computed — do not
+            re-derive them.
 
-            1. Read /tmp/dispatch-meta.json (packId, goal, working branch) and
+            1. Read /tmp/dispatch-meta.json (packId, goal, working branch,
+               forbiddenFiles, knownBaselineFailures) and
                /tmp/implementation-pack.md (the full Implementation Pack:
-               governing invariants, areas to touch, validation plan, receipt plan).
-            2. Read CLAUDE.md at the repo root FIRST and follow it exactly —
-               especially the protected-files list (identity spine, DVN pipeline,
-               access gates): if the pack requires modifying any protected file,
-               DO NOT modify it — implement everything else and record the
-               blocked step in the PR body under "Requires operator approval".
-            3. Implement the pack on the CURRENT branch (already checked out —
+               governing invariants, areas to touch, validation plan, receipt
+               plan — this pack ALREADY embeds the forbidden-files list and
+               known baseline failures from CLAUDE.md; do not re-read
+               CLAUDE.md's full text unless step 2 below applies).
+            2. forbiddenFiles in /tmp/dispatch-meta.json are OFF LIMITS — do
+               not modify them regardless of what the pack asks. If the pack
+               genuinely cannot be completed without touching one, or a truly
+               unresolved constitutional question arises, STOP and record it
+               in the PR body under "Requires operator approval" — do NOT
+               reload CLAUDE.md's full canon to self-resolve it.
+            3. knownBaselineFailures in /tmp/dispatch-meta.json are PRE-EXISTING
+               — do not attempt to fix them and do not treat them as caused by
+               your change.
+            4. Scope: implement only within the pack's "Areas to touch" and
+               their direct dependencies. If you must read or edit outside
+               that surface, add a "## Scope expansions" section to the PR
+               body naming the file, the uncertainty that triggered it, and
+               why — never expand silently.
+            5. Implement the pack on the CURRENT branch (already checked out —
                never create another branch, never switch branches).
-            4. Validate what you build (at minimum, parse/build checks on every
-               file you touch). Report validation honestly in the PR body.
-            5. Commit in focused commits (imperative, lowercase subjects) and push:
+            6. Validate using the pack's OWN staged validation ladder (touched
+               -surface parse/typecheck → its named targeted checks → the
+               affected subsystem) — run a full/whole-suite regression AT MOST
+               ONCE, as the final gate before opening the PR, never as a
+               per-step habit. Report validation results honestly in the PR
+               body, rung by rung.
+            7. Commit in focused commits (imperative, lowercase subjects) and push:
                git push -u origin HEAD
-            6. If an open PR already exists for this branch (a remediation
-               pass), do NOT create another one — pushing updates it; add a
-               PR comment summarizing the remediation via:
+            8. Check for an existing PR on this branch with `gh pr list --head
+               <branch> --state open`. If one exists (a remediation pass), do
+               NOT create another — pushing updates it; add a PR comment
+               summarizing the remediation via:
                gh pr comment <number> --body "<remedies addressed, validation results>"
                Otherwise open a pull request to the dev branch:
-               gh pr create --base dev --title "<concise title from the pack goal>" --body "<what was implemented, validation results, honest limits, packId>"
-            7. NEVER push to dev or main directly. NEVER merge the PR. NEVER
+               gh pr create --base dev --title "<concise title from the pack goal>" --body "<what was implemented, validation results rung by rung, honest limits, packId>"
+            9. NEVER push to dev or main directly. NEVER merge the PR. NEVER
                enable auto-merge. Deployment stays human (CFS-016 D1) — the
                operator reviews and merges.
 
             If the pack is empty or unreadable, open no PR; exit with a clear
             error message instead.
           claude_args: |
-            --allowedTools "Bash(git:*),Bash(gh pr create:*),Bash(gh pr view:*),Bash(npx:*),Bash(node:*),Bash(npm:*),Read,Write,Edit,Glob,Grep"
+            --model ${{ steps.route.outputs.route_model }}
+            --max-turns ${{ steps.route.outputs.route_max_turns }}
+            --allowedTools "Bash(git:*),Bash(gh pr create:*),Bash(gh pr view:*),Bash(gh pr list:*),Bash(gh pr comment:*),Bash(npx:*),Bash(node:*),Bash(npm:*),Read,Write,Edit,Glob,Grep"
         env:
           GH_TOKEN: ${{ github.token }}
+
+      # Best-effort, ALWAYS runs — this is the observation ledger closing the
+      # loop back to the app (executionTelemetry.ts / evaluateBudget). Never
+      # blocks the run and never influences whether the PR step above already
+      # happened; a failed telemetry POST only means the observation is
+      # missing, not that execution is retried or altered.
+      - name: Report execution telemetry
+        if: always()
+        continue-on-error: true
+        env:
+          APP_BASE_URL: ${{ vars.APP_BASE_URL }}
+          CRON_TRIGGER_TOKEN: ${{ secrets.CRON_TRIGGER_TOKEN }}
+        run: |
+          RESULT_FILE="/home/runner/work/_temp/claude-execution-output.json"
+          if [ ! -f "$RESULT_FILE" ]; then
+            echo "no execution-output file at $RESULT_FILE — nothing to report"
+            exit 0
+          fi
+          if [ -z "$APP_BASE_URL" ] || [ -z "$CRON_TRIGGER_TOKEN" ]; then
+            echo "APP_BASE_URL or CRON_TRIGGER_TOKEN not configured — skipping telemetry POST (see workflow header Setup notes)"
+            exit 0
+          fi
+          node -e '
+            const fs = require("fs");
+            const https = require("https");
+            const meta = JSON.parse(fs.readFileSync("/tmp/dispatch-meta.json", "utf8"));
+            const budget = JSON.parse(fs.readFileSync("/tmp/execution-budget.json", "utf8"));
+            let resultJson = null;
+            try { resultJson = JSON.parse(fs.readFileSync(process.argv[1], "utf8")); } catch (e) {
+              console.warn("could not parse execution-output.json:", e.message);
+            }
+            const body = JSON.stringify({
+              packId: meta.packId,
+              branch: meta.branch,
+              resultJson,
+              budget: {
+                maxWallClockMinutes: budget.maxWallClockMinutes,
+                maxTurns: budget.maxTurns,
+                maxValidationPasses: budget.maxValidationPasses,
+                maxContextExpansionEvents: budget.maxContextExpansionEvents,
+              },
+            });
+            const url = new URL("/api/dev-command-center/implement/telemetry", process.argv[2]);
+            const req = https.request(url, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "x-cron-token": process.argv[3],
+                "Content-Length": Buffer.byteLength(body),
+              },
+            }, (res) => {
+              let data = "";
+              res.on("data", (c) => (data += c));
+              res.on("end", () => console.log(`telemetry POST -> ${res.statusCode}: ${data.slice(0, 500)}`));
+            });
+            req.on("error", (e) => console.warn("telemetry POST failed (non-fatal):", e.message));
+            req.write(body);
+            req.end();
+          ' "$RESULT_FILE" "$APP_BASE_URL" "$CRON_TRIGGER_TOKEN"
+
+      - name: Fail the run if Claude Code step failed
+        if: steps.claude.outcome == 'failure'
+        run: |
+          echo "Claude Code step failed — surfacing as a job failure after telemetry was reported."
+          exit 1
