@@ -365,7 +365,7 @@ export function ConstitutionalInternetBridgeChooseSurface({ personaId, onOpenAig
 
         <DestinationCard
           icon={<Compass className="h-4 w-4 text-indigo-300" />}
-          label="Explore the Mythos"
+          label="Explore the Mythos of the Polity"
           active={leftView === 'mythos'}
           onClick={() => setLeftView('mythos')}
         />
