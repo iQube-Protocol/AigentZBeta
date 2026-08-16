@@ -20,10 +20,18 @@
  *   - `agent_root_identity.sponsor_persona_id` / `sponsor_passport_id` =
  *     historical act provenance. Read-only in this module.
  *   - `agent_persona.delegation_user_root_id` = the principal/root anchor.
- *     Filled ONLY if currently null, resolved via the CANONICAL personhood/
- *     Passport continuity path (`resolvePassportPrincipalById`, which reuses
- *     — never re-derives — the same sibling-root disambiguation rule the
- *     wallet and WorldID connection flows already use).
+ *     Filled ONLY if currently null, resolved via the sponsor Passport's OWN
+ *     already-reconciled `root_identity_id`/`kybe_identity_id` anchor
+ *     columns (`resolvePassportExplicitAnchor`) — NOT via `resolveAuthUserForKybe`'s
+ *     auth-user disambiguation. The Passport's linkage repair
+ *     (`services/passport/legacyPassportLinkageRepair.ts`) has already
+ *     performed the constitutional root selection using the SPONSOR's own
+ *     authenticated session; re-running auth-user disambiguation here would
+ *     re-litigate that decision and incorrectly refuse whenever the resolved
+ *     kybe also has unrelated historical sibling `root_identity` rows under
+ *     other auth users — a real, separate §A.5 consolidation question this
+ *     anchoring repair has no need to answer, because the Passport already
+ *     names its own root (operator-directed correction, 2026-08-15).
  *   - `agent_persona.delegation_persona_id` = the original sponsor's Bureau
  *     `did_persona` bridge. Filled only if it genuinely resolves; left null
  *     otherwise — an honest, unrepaired-but-accurate state, not an error.
@@ -39,7 +47,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { resolvePassportPrincipalById } from '@/services/identity/passportPrincipal';
+import { resolvePassportExplicitAnchor } from '@/services/identity/passportPrincipal';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 
 export type AnchorRepairFailure =
@@ -123,20 +131,23 @@ export async function repairDelegationAnchor(
     };
   }
 
-  // 3. Resolve the PRINCIPAL via the canonical, reused personhood path — the
-  //    RECORDED sponsor_passport_id only. Never a caller-supplied or
-  //    currently-active persona; never falls back to inventing one.
+  // 3. Resolve the PRINCIPAL from the sponsor Passport's OWN, already
+  //    -reconciled anchor columns — the RECORDED sponsor_passport_id only.
+  //    Never a caller-supplied or currently-active persona; never falls
+  //    back to inventing one; never re-runs auth-user disambiguation (that
+  //    decision was already made when the Passport's own linkage was
+  //    reconciled).
   let resolvedRootIdentityId: string | null = null;
   let resolvedDelegationPersonaId: string | null = null;
   if (!rootAlreadyAnchored || !personaBridgeAlreadyFilled) {
     if (!root.sponsor_passport_id) {
       return { ok: false, reason: 'no_sponsor_passport_recorded' };
     }
-    const principalResult = await resolvePassportPrincipalById(root.sponsor_passport_id);
-    if (!principalResult.ok) {
-      return { ok: false, reason: 'principal_unresolved', detail: principalResult.reason };
+    const anchorResult = await resolvePassportExplicitAnchor(root.sponsor_passport_id);
+    if (!anchorResult.ok) {
+      return { ok: false, reason: 'principal_unresolved', detail: anchorResult.reason };
     }
-    resolvedRootIdentityId = principalResult.principal.rootIdentityId;
+    resolvedRootIdentityId = anchorResult.rootIdentityId;
 
     // Sponsor's Bureau did_persona bridge, scoped to the SAME canonical root
     // just resolved — may legitimately be absent (left null, not an error).

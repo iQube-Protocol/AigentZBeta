@@ -310,6 +310,89 @@ export async function resolvePassportPrincipalById(passportId: string): Promise<
   };
 }
 
+export type ExplicitAnchorFailure =
+  | 'no_passport'
+  | 'anchor_incomplete' // root_identity_id or kybe_identity_id is null
+  | 'root_not_found'
+  | 'kybe_mismatch' // the referenced root's own kybe_id disagrees with the Passport's kybe_identity_id
+  | 'passport_inactive'
+  | 'unavailable';
+
+export type ExplicitAnchorResult =
+  | { ok: true; rootIdentityId: string; kybeId: string }
+  | { ok: false; reason: ExplicitAnchorFailure };
+
+/**
+ * Resolve the principal root/kybe from a Passport's OWN, ALREADY-RECONCILED
+ * `root_identity_id`/`kybe_identity_id` anchor columns — no auth-user
+ * disambiguation, no sibling-root walk, no session/auth_user_id involved at
+ * all.
+ *
+ * For a caller whose Passport linkage has ALREADY had its constitutional
+ * root selection performed (`services/passport/
+ * legacyPassportLinkageRepair.ts`, which itself resolves via the caller's
+ * own authenticated `auth_user_id` and writes the resolved anchors onto the
+ * Passport). A consumer of that already-reconciled Passport — e.g. the
+ * Chrysalis Homecoming anchoring repair reading a `sponsor_passport_id` —
+ * does not need to re-derive the principal by walking `resolveAuthUserForKybe`
+ * a second time; that would re-litigate a decision already made, and
+ * incorrectly refuse whenever the resolved kybe ALSO happens to have
+ * unrelated historical sibling `root_identity` rows under other auth users
+ * (a real, separate §A.5 consolidation question this specific consumer has
+ * no need to answer, because the Passport already names its own root).
+ *
+ * Fails closed if either anchor is null, the referenced `root_identity` row
+ * does not exist, that root's own `kybe_id` disagrees with the Passport's
+ * `kybe_identity_id` (defense in depth against a data-integrity drift), or
+ * the Passport is no longer usable (revoked/expired/inactive).
+ *
+ * Deliberately does NOT call `resolveAuthUserForKybe` — this function never
+ * resolves or disambiguates an auth user, and must not be used anywhere a
+ * caller needs session/auth-user-level authority. `resolvePassportPrincipalById`
+ * is unchanged and remains the correct choice for any authentication
+ * -sensitive consumer that needs the stricter, auth-user-verified walk.
+ */
+export async function resolvePassportExplicitAnchor(passportId: string): Promise<ExplicitAnchorResult> {
+  const supabase = getSupabaseServer();
+  if (!supabase) return { ok: false, reason: 'unavailable' };
+
+  const { data: passportRow, error: ppErr } = await supabase
+    .from('polity_passport_records')
+    .select(
+      'root_identity_id, kybe_identity_id, passport_class, citizen_status, participant_status, passport_grade, revoked, expires_at',
+    )
+    .eq('passport_id', passportId)
+    .maybeSingle();
+  if (ppErr) return { ok: false, reason: 'unavailable' };
+  if (!passportRow) return { ok: false, reason: 'no_passport' };
+
+  const row = passportRow as Record<string, unknown>;
+  const rootIdentityId = row.root_identity_id as string | null;
+  const kybeId = row.kybe_identity_id as string | null;
+  if (!rootIdentityId || !kybeId) return { ok: false, reason: 'anchor_incomplete' };
+
+  const passport: PassportSnapshot = {
+    passportClass: (row.passport_class as string) ?? null,
+    citizenStatus: (row.citizen_status as string) ?? null,
+    participantStatus: (row.participant_status as string) ?? null,
+    passportGrade: (row.passport_grade as string) ?? null,
+    revoked: Boolean(row.revoked),
+    expiresAt: (row.expires_at as string) ?? null,
+  };
+  if (!isPassportUsable(passport)) return { ok: false, reason: 'passport_inactive' };
+
+  const { data: rootRow, error: rootErr } = await supabase
+    .from('root_identity')
+    .select('id, kybe_id')
+    .eq('id', rootIdentityId)
+    .maybeSingle();
+  if (rootErr) return { ok: false, reason: 'unavailable' };
+  if (!rootRow) return { ok: false, reason: 'root_not_found' };
+  if ((rootRow as { kybe_id?: string }).kybe_id !== kybeId) return { ok: false, reason: 'kybe_mismatch' };
+
+  return { ok: true, rootIdentityId, kybeId };
+}
+
 /**
  * The kybe → sibling roots → single auth user walk, shared by the wallet
  * entry point and the World ID entry point (inv.engineering.036 — one
