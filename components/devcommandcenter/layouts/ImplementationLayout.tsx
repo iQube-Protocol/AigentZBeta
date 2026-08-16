@@ -375,6 +375,20 @@ export function ImplementationLayout({
           pipeline: invariant bindings, consequence preflight, and an{" "}
           <code className="text-slate-300">implementation_pack_generated</code> receipt (DVN-anchorable).
         </p>
+        {/* Diagnostic safeguard (2026-08-18, operator-directed): the goal
+            below is EXACTLY what generate() sends as `goal` — session.intent.goal,
+            nothing else. Making the bound intent visible here is the last line
+            of defense if the engagement conversation and the session's
+            authoritative intent have ever diverged (a stale hydration, a race,
+            an operator working two threads at once) — the operator sees
+            precisely what will be generated against BEFORE clicking, rather
+            than discovering a mismatch only after the pack comes back wrong. */}
+        {session.intent && (
+          <div className="rounded border border-amber-500/20 bg-amber-500/5 px-2 py-1.5 text-[10px]">
+            <span className="font-semibold text-amber-300">Bound intent: </span>
+            <span className="text-slate-300">{session.intent.goal}</span>
+          </div>
+        )}
         <button
           onClick={generate}
           disabled={generating || !session.intent}

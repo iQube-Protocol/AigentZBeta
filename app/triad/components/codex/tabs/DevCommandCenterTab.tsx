@@ -988,6 +988,47 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
     console.log(`[aigentZ ICE] approved ${proposal.kind} → stage ${next.stage}`);
     setSession(next);
     observe(devProposalApprovedEvent(proposal.kind, capsule));
+    // Transaction-authority repair (2026-08-18, operator-directed): accepting
+    // a NEW intent replaces the session's entire downstream lineage in
+    // memory immediately (the cross-intent isolation fix), but the standard
+    // autosave effect below is DEBOUNCED 1.5s after the last change. That
+    // left a real window — live evidence confirmed it — where a component
+    // remount's mount-time hydration effect could fetch "the caller's most
+    // recent session" from the DB *before* the new intent had ever been
+    // persisted, silently restoring the PRIOR intent and reverting an
+    // operator's just-accepted Intent B back to Intent A with no visible
+    // sign anything happened. A new intent is a discrete, rare, high-stakes
+    // event — never a keystroke-rate change — so it is persisted
+    // IMMEDIATELY here, not debounced, shrinking the unsaved window from
+    // 1.5s+ down to one network round-trip. Same sessionId, same upsert
+    // endpoint as the regular autosave below: "New intent" REPLACES the
+    // authoritative current intent in place — it does not fork a second
+    // session identity. Fire-and-forget (never blocks the UI); on success it
+    // primes lastSavedRef so the debounced effect doesn't redundantly
+    // re-POST identical state, but that redundant POST is a safe, idempotent
+    // fallback if this one is still in flight or fails.
+    if (proposal.kind === "intent") {
+      const serialized = JSON.stringify(next);
+      void personaFetch("/api/dev-command-center/sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session: next }),
+        cache: "no-store",
+      })
+        .then((res) => {
+          if (res.ok) {
+            lastSavedRef.current = serialized;
+            setSaveStatus("saved");
+          } else {
+            setSaveStatus("failed");
+            console.warn(`[dev-cmd] immediate intent save failed (non-blocking): HTTP ${res.status}`);
+          }
+        })
+        .catch((err) => {
+          setSaveStatus("failed");
+          console.warn("[dev-cmd] immediate intent save failed (non-blocking):", err);
+        });
+    }
     // Merge validation gate (2026-07-14): approving a validation report writes
     // the Constitutional-class receipt SERVER-SIDE — before this, the report
     // lived only in session state and no `constitutional_validation_recorded`
