@@ -1,22 +1,25 @@
 /**
  * repairDelegationAnchor — Chrysalis Homecoming (CFS-023) constitutional
- * anchoring repair canaries (operator-directed, 2026-08-15).
+ * anchoring repair canaries (operator-directed, 2026-08-15; corrected same
+ * day to resolve via the sponsor Passport's own explicit anchor rather than
+ * re-deriving through auth-user disambiguation).
  *
- * Mocks resolvePassportPrincipalById (the personhood layer's own canonical
- * sibling-root resolution — exercised by its own module, not re-tested here)
- * and createActivityReceipt at the function-call boundary. The Supabase
- * admin client is a minimal fake reproducing the real chainable+thenable
- * query-builder shape (same style as tests/passport-first-connection.test.ts),
- * queued per table so each of the module's sequential .from() calls gets its
- * own canned response.
+ * Mocks resolvePassportExplicitAnchor (the personhood layer's own resolver
+ * for an ALREADY-reconciled Passport's root/kybe columns — exercised by its
+ * own module in tests/passport-explicit-anchor-resolution.test.ts, not
+ * re-tested here) and createActivityReceipt at the function-call boundary.
+ * The Supabase admin client is a minimal fake reproducing the real
+ * chainable+thenable query-builder shape (same style as
+ * tests/passport-first-connection.test.ts), queued per table so each of the
+ * module's sequential .from() calls gets its own canned response.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-const mockResolvePassportPrincipalById = vi.fn();
+const mockResolvePassportExplicitAnchor = vi.fn();
 vi.mock('@/services/identity/passportPrincipal', () => ({
-  resolvePassportPrincipalById: (...args: unknown[]) => mockResolvePassportPrincipalById(...args),
+  resolvePassportExplicitAnchor: (...args: unknown[]) => mockResolvePassportExplicitAnchor(...args),
 }));
 
 const mockCreateActivityReceipt = vi.fn();
@@ -90,7 +93,7 @@ async function importRepair() {
 }
 
 beforeEach(() => {
-  mockResolvePassportPrincipalById.mockReset();
+  mockResolvePassportExplicitAnchor.mockReset();
   mockCreateActivityReceipt.mockReset().mockResolvedValue({ id: 'receipt-anchor-1' });
 });
 
@@ -125,13 +128,13 @@ describe('repairDelegationAnchor — gates', () => {
     const result = await repairDelegationAnchor(fakeClient(admin), ALETHEON_ROOT_ID, ACTING_PERSONA);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.reason).toBe('no_sponsor_passport_recorded');
-    expect(mockResolvePassportPrincipalById).not.toHaveBeenCalled();
+    expect(mockResolvePassportExplicitAnchor).not.toHaveBeenCalled();
   });
 });
 
-describe('repairDelegationAnchor — sibling-root determinism (canary: never chooses ambiguously)', () => {
-  it('refuses with principal_unresolved when the personhood layer reports lineage_incomplete (ambiguous siblings)', async () => {
-    mockResolvePassportPrincipalById.mockResolvedValue({ ok: false, reason: 'lineage_incomplete' });
+describe('repairDelegationAnchor — explicit-anchor reuse (canary: never re-derives via auth-user disambiguation)', () => {
+  it('refuses with principal_unresolved when the sponsor Passport\'s anchors are incomplete', async () => {
+    mockResolvePassportExplicitAnchor.mockResolvedValue({ ok: false, reason: 'anchor_incomplete' });
     const admin = new FakeAdmin()
       .queue('agent_root_identity', { data: ROOT_ROW, error: null })
       .queue('agent_persona', { data: unanchoredPersonaRow(), error: null });
@@ -140,27 +143,28 @@ describe('repairDelegationAnchor — sibling-root determinism (canary: never cho
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.reason).toBe('principal_unresolved');
-      expect(result.detail).toBe('lineage_incomplete');
+      expect(result.detail).toBe('anchor_incomplete');
     }
     expect(admin.callsByTable['agent_persona']).toBe(1); // read only — never reached the write step
     expect(mockCreateActivityReceipt).not.toHaveBeenCalled();
   });
 
-  it('refuses with principal_unresolved when the sponsor human has no root at all (principal_unprovisioned)', async () => {
-    mockResolvePassportPrincipalById.mockResolvedValue({ ok: false, reason: 'principal_unprovisioned' });
+  it('refuses with principal_unresolved when the sponsor Passport itself is inactive/revoked', async () => {
+    mockResolvePassportExplicitAnchor.mockResolvedValue({ ok: false, reason: 'passport_inactive' });
     const admin = new FakeAdmin()
       .queue('agent_root_identity', { data: ROOT_ROW, error: null })
       .queue('agent_persona', { data: unanchoredPersonaRow(), error: null });
     const { repairDelegationAnchor } = await importRepair();
     const result = await repairDelegationAnchor(fakeClient(admin), ALETHEON_ROOT_ID, ACTING_PERSONA);
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.detail).toBe('principal_unprovisioned');
+    if (!result.ok) expect(result.detail).toBe('passport_inactive');
   });
 
-  it('reuses resolvePassportPrincipalById with the RECORDED sponsor_passport_id — never a different id', async () => {
-    mockResolvePassportPrincipalById.mockResolvedValue({
+  it('reuses resolvePassportExplicitAnchor with the RECORDED sponsor_passport_id — never a different id', async () => {
+    mockResolvePassportExplicitAnchor.mockResolvedValue({
       ok: true,
-      principal: { kybeId: 'kybe-1', rootIdentityId: CANONICAL_ROOT_IDENTITY_ID, authUserId: 'auth-user-1', passport: {} },
+      rootIdentityId: CANONICAL_ROOT_IDENTITY_ID,
+      kybeId: 'kybe-1',
     });
     const admin = new FakeAdmin()
       .queue('agent_root_identity', { data: ROOT_ROW, error: null })
@@ -170,16 +174,50 @@ describe('repairDelegationAnchor — sibling-root determinism (canary: never cho
       .queue('agent_persona', { data: null, error: null }); // no persona bridge to fill (did_persona empty)
     const { repairDelegationAnchor } = await importRepair();
     await repairDelegationAnchor(fakeClient(admin), ALETHEON_ROOT_ID, ACTING_PERSONA);
-    expect(mockResolvePassportPrincipalById).toHaveBeenCalledWith(SPONSOR_PASSPORT_ID);
-    expect(mockResolvePassportPrincipalById).toHaveBeenCalledTimes(1);
+    expect(mockResolvePassportExplicitAnchor).toHaveBeenCalledWith(SPONSOR_PASSPORT_ID);
+    expect(mockResolvePassportExplicitAnchor).toHaveBeenCalledTimes(1);
+  });
+
+  it('LIVE REGRESSION: succeeds using the Passport\'s own recorded root even when its kybe has unrelated sibling auth roots — no sibling is selected or mutated', async () => {
+    // The exact live condition (2026-08-15): Mansa Meta's Passport had its
+    // own root_identity_id/kybe_identity_id explicitly reconciled by
+    // legacyPassportLinkageRepair.ts, but the resolved kybe ALSO has
+    // unrelated historical sibling root_identity rows under other auth
+    // users — the condition that made the OLD resolvePassportPrincipalById
+    // path (auth-user disambiguation) incorrectly refuse with
+    // lineage_incomplete. resolvePassportExplicitAnchor never performs that
+    // walk at all, so this repair must succeed regardless, using ONLY the
+    // Passport's own named root.
+    mockResolvePassportExplicitAnchor.mockResolvedValue({
+      ok: true,
+      rootIdentityId: CANONICAL_ROOT_IDENTITY_ID,
+      kybeId: 'kybe-with-sibling-auth-roots',
+    });
+    const admin = new FakeAdmin()
+      .queue('agent_root_identity', { data: ROOT_ROW, error: null })
+      .queue('agent_persona', { data: unanchoredPersonaRow(), error: null })
+      .queue('did_persona', { data: [], error: null })
+      .queue('agent_persona', { data: { delegation_user_root_id: CANONICAL_ROOT_IDENTITY_ID }, error: null });
+    const { repairDelegationAnchor } = await importRepair();
+    const result = await repairDelegationAnchor(fakeClient(admin), ALETHEON_ROOT_ID, ACTING_PERSONA);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.delegationUserRootId).toBe(CANONICAL_ROOT_IDENTITY_ID);
+      expect(result.rootAnchorFilledThisCall).toBe(true);
+    }
+    // Never touches root_identity at all — resolution happens entirely
+    // inside the (mocked) resolver; this repair module itself never queries
+    // sibling roots or auth users.
+    expect(admin.tablesTouched).not.toContain('root_identity');
   });
 });
 
 describe('repairDelegationAnchor — principal resolution + successful repair', () => {
   it('fills delegation_user_root_id and delegation_persona_id when both resolve, emits one receipt', async () => {
-    mockResolvePassportPrincipalById.mockResolvedValue({
+    mockResolvePassportExplicitAnchor.mockResolvedValue({
       ok: true,
-      principal: { kybeId: 'kybe-1', rootIdentityId: CANONICAL_ROOT_IDENTITY_ID, authUserId: 'auth-user-1', passport: {} },
+      rootIdentityId: CANONICAL_ROOT_IDENTITY_ID,
+      kybeId: 'kybe-1',
     });
     const admin = new FakeAdmin()
       .queue('agent_root_identity', { data: ROOT_ROW, error: null })
@@ -202,9 +240,10 @@ describe('repairDelegationAnchor — principal resolution + successful repair', 
   });
 
   it('leaves delegation_persona_id null when the sponsor has no Bureau did_persona bridge (honest, not an error)', async () => {
-    mockResolvePassportPrincipalById.mockResolvedValue({
+    mockResolvePassportExplicitAnchor.mockResolvedValue({
       ok: true,
-      principal: { kybeId: 'kybe-1', rootIdentityId: CANONICAL_ROOT_IDENTITY_ID, authUserId: 'auth-user-1', passport: {} },
+      rootIdentityId: CANONICAL_ROOT_IDENTITY_ID,
+      kybeId: 'kybe-1',
     });
     const admin = new FakeAdmin()
       .queue('agent_root_identity', { data: ROOT_ROW, error: null })
@@ -238,7 +277,7 @@ describe('repairDelegationAnchor — idempotency (canary)', () => {
       expect(result.rootAnchorFilledThisCall).toBe(false);
       expect(result.personaBridgeFilledThisCall).toBe(false);
     }
-    expect(mockResolvePassportPrincipalById).not.toHaveBeenCalled(); // no re-resolution needed
+    expect(mockResolvePassportExplicitAnchor).not.toHaveBeenCalled(); // no re-resolution needed
     expect(mockCreateActivityReceipt).not.toHaveBeenCalled();
     expect(admin.callsByTable['agent_persona']).toBe(1); // read only, no update call
   });
@@ -247,11 +286,12 @@ describe('repairDelegationAnchor — idempotency (canary)', () => {
 describe('repairDelegationAnchor — no conflicting non-null overwrite (canary)', () => {
   it('a PARTIALLY anchored persona (root set, bridge null) fills ONLY the null field, never touches the existing root value', async () => {
     const EXISTING_ROOT = 'root-identity-PRE-EXISTING-do-not-change';
-    mockResolvePassportPrincipalById.mockResolvedValue({
+    mockResolvePassportExplicitAnchor.mockResolvedValue({
       ok: true,
       // Deliberately a DIFFERENT root than the one already set, to prove a
       // conflicting resolution is never written over an existing value.
-      principal: { kybeId: 'kybe-1', rootIdentityId: CANONICAL_ROOT_IDENTITY_ID, authUserId: 'auth-user-1', passport: {} },
+      rootIdentityId: CANONICAL_ROOT_IDENTITY_ID,
+      kybeId: 'kybe-1',
     });
     const admin = new FakeAdmin()
       .queue('agent_root_identity', { data: ROOT_ROW, error: null })
@@ -277,9 +317,10 @@ describe('repairDelegationAnchor — no conflicting non-null overwrite (canary)'
 
 describe('repairDelegationAnchor — no sponsor-history rewrite (canary)', () => {
   it('never reads or writes sponsor_persona_id/sponsor_passport_id, and never calls .update on agent_root_identity', async () => {
-    mockResolvePassportPrincipalById.mockResolvedValue({
+    mockResolvePassportExplicitAnchor.mockResolvedValue({
       ok: true,
-      principal: { kybeId: 'kybe-1', rootIdentityId: CANONICAL_ROOT_IDENTITY_ID, authUserId: 'auth-user-1', passport: {} },
+      rootIdentityId: CANONICAL_ROOT_IDENTITY_ID,
+      kybeId: 'kybe-1',
     });
     const admin = new FakeAdmin()
       .queue('agent_root_identity', { data: ROOT_ROW, error: null })
@@ -296,9 +337,10 @@ describe('repairDelegationAnchor — no sponsor-history rewrite (canary)', () =>
 
 describe('repairDelegationAnchor — T0 non-leakage in the receipt (canary)', () => {
   it('the receipt never contains the sponsor passport id or any sponsor persona id', async () => {
-    mockResolvePassportPrincipalById.mockResolvedValue({
+    mockResolvePassportExplicitAnchor.mockResolvedValue({
       ok: true,
-      principal: { kybeId: 'kybe-1', rootIdentityId: CANONICAL_ROOT_IDENTITY_ID, authUserId: 'auth-user-secret-1', passport: {} },
+      rootIdentityId: CANONICAL_ROOT_IDENTITY_ID,
+      kybeId: 'kybe-1',
     });
     const admin = new FakeAdmin()
       .queue('agent_root_identity', { data: ROOT_ROW, error: null })
@@ -314,7 +356,6 @@ describe('repairDelegationAnchor — T0 non-leakage in the receipt (canary)', ()
     expect(receiptInput.actionType).toBe('agent_delegation_anchor_repaired');
     const serialized = JSON.stringify(receiptInput);
     expect(serialized).not.toContain(SPONSOR_PASSPORT_ID);
-    expect(serialized).not.toContain('auth-user-secret-1');
     expect(receiptInput.actionInput).not.toHaveProperty('sponsor_persona_id');
     expect(receiptInput.actionInput).not.toHaveProperty('sponsor_passport_id');
     // personaId is the ACTING caller's own id (self-view) — expected, not a leak.
@@ -324,9 +365,10 @@ describe('repairDelegationAnchor — T0 non-leakage in the receipt (canary)', ()
 
 describe('repairDelegationAnchor — no impact on delegation_grants (canary)', () => {
   it('never reads or writes the delegation_grants table at any point', async () => {
-    mockResolvePassportPrincipalById.mockResolvedValue({
+    mockResolvePassportExplicitAnchor.mockResolvedValue({
       ok: true,
-      principal: { kybeId: 'kybe-1', rootIdentityId: CANONICAL_ROOT_IDENTITY_ID, authUserId: 'auth-user-1', passport: {} },
+      rootIdentityId: CANONICAL_ROOT_IDENTITY_ID,
+      kybeId: 'kybe-1',
     });
     const admin = new FakeAdmin()
       .queue('agent_root_identity', { data: ROOT_ROW, error: null })
@@ -354,9 +396,10 @@ describe('repairDelegationAnchor — receipt emission gating (canary)', () => {
   });
 
   it('a receipt-write failure does not fail the repair result (best-effort)', async () => {
-    mockResolvePassportPrincipalById.mockResolvedValue({
+    mockResolvePassportExplicitAnchor.mockResolvedValue({
       ok: true,
-      principal: { kybeId: 'kybe-1', rootIdentityId: CANONICAL_ROOT_IDENTITY_ID, authUserId: 'auth-user-1', passport: {} },
+      rootIdentityId: CANONICAL_ROOT_IDENTITY_ID,
+      kybeId: 'kybe-1',
     });
     mockCreateActivityReceipt.mockRejectedValue(new Error('activity_receipts insert failed'));
     const admin = new FakeAdmin()
