@@ -338,6 +338,13 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   // this file permits unilaterally. Payload shape, state machine and
   // hashPersonaRef untouched.)
   'agent_delegate_stood_up',
+  // Chrysalis Homecoming (CFS-023) constitutional anchoring repair
+  // (operator-directed, 2026-08-15) — same tier as agent_delegate_stood_up:
+  // a delegate's anchor moving from unanchored to anchored is a
+  // constitutional agency-lifecycle fact. (Action-type addition only — the
+  // one change this file permits unilaterally. Payload shape, state machine
+  // and hashPersonaRef untouched.)
+  'agent_delegation_anchor_repaired',
 ]);
 
 export function shouldAnchorActionType(actionType: string): boolean {
