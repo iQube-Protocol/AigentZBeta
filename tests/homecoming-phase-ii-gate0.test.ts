@@ -43,15 +43,20 @@ describe('Gate 0A — Kickstarter CTA navigates unconditionally', () => {
     expect(body).not.toMatch(/await fetch\(/);
   });
 
-  it('an always-visible, real <a target="_blank"> fallback exists — never gated on a detected iframe failure', () => {
-    const idx = SRC.indexOf("leftView === 'kickstarter'");
-    const block = SRC.slice(idx, idx + 1200);
+  it('an always-visible, real <a target="_blank"> fallback exists as a badge over the video', () => {
+    // Final closure pass (two-item closure, 2026-08-17): 'kickstarter' is no
+    // longer a left-pane view at all — clicking Follow no longer replaces
+    // the video with a confirmation panel (that was itself the wrong UX;
+    // see tests/knyts-bridge-choose-final-closure.test.ts). The fallback
+    // anchor now overlays the existing video frame, gated on
+    // `kickstarterOpened`, never swapping the video out.
+    const idx = SRC.indexOf('{kickstarterOpened && (');
+    expect(idx, 'kickstarterOpened-gated overlay badge not found').toBeGreaterThan(-1);
+    const block = SRC.slice(idx, idx + 500);
     expect(block).toContain('target="_blank"');
     expect(block).toContain('rel="noopener noreferrer"');
     expect(block).toContain('Open Kickstarter in new tab');
-    // Unconditional — the anchor is a sibling of the iframe, not behind an
-    // onError/failure-detected conditional.
-    expect(block).not.toMatch(/onError.*Open Kickstarter/s);
+    expect(block).not.toContain('<iframe');
   });
 
   it('reward copy is truthful: states the CONFIRMED-follow amount, never implies the click itself earned it', () => {

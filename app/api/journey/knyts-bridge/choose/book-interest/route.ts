@@ -89,8 +89,23 @@ async function postImpl(req: NextRequest) {
     metadata: { email: rawEmail },
   });
 
+  // Required behavior: once evidence is persisted, preregistration IS the
+  // success — the downstream Reputation/Standing/Knightcoin projection is
+  // an independent, best-effort leg that must never turn an already-
+  // successful preregistration into a failed request. Isolated in its own
+  // try/catch (rather than relying solely on the projector's own internal
+  // per-leg guards) because a genuinely unexpected throw here — a schema
+  // mismatch, a transient network error — must withhold only the affected
+  // output, never the acquisition itself.
   if (isNew) {
-    await projectKnytsBridgeEvidenceOutputs(evidence);
+    try {
+      await projectKnytsBridgeEvidenceOutputs(evidence);
+    } catch (err) {
+      console.error(
+        '[knyts-bridge/choose/book-interest] projection failed after evidence was persisted (non-fatal — preregistration still succeeds):',
+        err,
+      );
+    }
   }
 
   return NextResponse.json({
