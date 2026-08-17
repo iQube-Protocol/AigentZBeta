@@ -196,7 +196,11 @@ function templateDraft(input: DraftEmailInput): Omit<DraftEmailOutput, 'source' 
   // header length limit.
   const subjectSeed = input.prompt.trim().replace(/\s+/g, ' ').slice(0, 60);
   return {
-    to: '',
+    // A resolved recipient (persona_contacts, via services/contacts/
+    // resolveRecipient.ts) fills "to" here too — the template fallback must
+    // not silently drop a recipient the LLM path already honors (RESOLVED
+    // RECIPIENT block in userPrompt()).
+    to: ctx.recipientEmail ?? '',
     cc: '',
     bcc: '',
     subject: subjectSeed.length < input.prompt.trim().length ? `${subjectSeed}…` : subjectSeed,
