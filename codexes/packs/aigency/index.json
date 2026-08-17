@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-17T18:16:27.595Z",
+  "last_updated": "2026-08-17T18:23:46.342Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "f27d17988fdeabf3672781c0e61295f454261dd9",
-  "latest_commit_short": "f27d179",
-  "latest_commit_title": "gate-e: add reintroduction-specific evidence gathering and narrative gap analysis",
+  "latest_commit": "ca6f57699866910fed74bc2e115a7fc12e4782d8",
+  "latest_commit_short": "ca6f576",
+  "latest_commit_title": "Gate F: wire deliberation intent detection into chat route",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "ca6f576",
+      "full_sha": "ca6f57699866910fed74bc2e115a7fc12e4782d8",
+      "title": "Gate F: wire deliberation intent detection into chat route",
+      "author": "Claude",
+      "timestamp": "2026-08-17T18:21:51Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-ca6f576.md"
+    },
     {
       "sha": "f27d179",
       "full_sha": "f27d17988fdeabf3672781c0e61295f454261dd9",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-09T07:48:39Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-d5c8474.md"
-    },
-    {
-      "sha": "c082ef3",
-      "full_sha": "c082ef3911fab1ea2384e3525acfb70124c86437",
-      "title": "Compact Journey evidence checklist into the stage description row",
-      "author": "Claude",
-      "timestamp": "2026-08-09T07:18:13Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-c082ef3.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
