@@ -15,6 +15,8 @@ import type { SmartTriadDeepLink, SmartTriadOperation } from "@/types/smartTriad
 const SmartWalletDrawer = dynamic(() => import("../content/SmartWalletDrawer"), { ssr: false });
 import { CopilotInferenceBodyRenderer, type PromptSuggestionMeta } from "./CopilotInferenceBodyRenderer";
 import { AigentMeRoleSelector } from "@/components/smarttriad/copilot/AigentMeRoleSelector";
+import { useTTSListen } from "@/components/smarttriad/copilot/useTTSListen";
+import { TTSListenButton } from "@/components/smarttriad/copilot/TTSListenButton";
 import {
   Bot,
   User,
@@ -1060,6 +1062,17 @@ export function CodexCopilotLayer({
     return <div className="flex items-center gap-0.5">{dots}</div>;
   };
 
+  // Listen — shared with SmartTriadCopilotLayer via useTTSListen (WPA-3,
+  // 2026-08-17). ttsIsLoading also feeds the R/T dots' busy pulse below,
+  // per the platform's documented busy-pulse convention (either the chat
+  // round-trip OR a TTS fetch in flight pulses the dots).
+  const {
+    isSpeaking: ttsIsSpeaking,
+    isLoading: ttsIsLoading,
+    hasContent: ttsHasContent,
+    handleListenToggle: handleTTSListenToggle,
+  } = useTTSListen(chatMessages);
+
   const handleWalletMenuEnter = () => {
     if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
     setWalletMenuHover(true);
@@ -1828,13 +1841,25 @@ export function CodexCopilotLayer({
                             </span>
                           )}
                           <div className="flex items-center gap-4">
+                          {/* Listen — shared with SmartTriadCopilotLayer (the
+                              main/embedded copilot) via useTTSListen/
+                              TTSListenButton (WPA-3, 2026-08-17): same icon,
+                              same hook, same play/stop/loading behaviour.
+                              Sits to the left of the R/T dots, matching the
+                              main copilot's placement convention. */}
+                          <TTSListenButton
+                            isSpeaking={ttsIsSpeaking}
+                            isLoading={ttsIsLoading}
+                            hasContent={ttsHasContent}
+                            onToggle={handleTTSListenToggle}
+                          />
                           <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-white/70">
                             <span className="text-[10px] text-white/60">R</span>
-                            {renderDots(getReliabilityScore(), "reliability", isLoading || !!externalIsProcessing)}
+                            {renderDots(getReliabilityScore(), "reliability", isLoading || !!externalIsProcessing || ttsIsLoading)}
                           </div>
                           <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-white/70">
                             <span className="text-[10px] text-white/60">T</span>
-                            {renderDots(getTrustScore(), "trust", isLoading || !!externalIsProcessing)}
+                            {renderDots(getTrustScore(), "trust", isLoading || !!externalIsProcessing || ttsIsLoading)}
                           </div>
                           </div>
                         </div>

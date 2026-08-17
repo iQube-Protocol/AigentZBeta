@@ -26,7 +26,7 @@ import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getExperienceQube } from '@/services/iqube/experienceQube';
 import { getIntentQube } from '@/services/iqube/intentQube';
 import { draftEmail, type DraftEmailContext } from '@/services/agents/draftEmail';
-import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+import { resolveRecipientFromPrompt } from '@/services/contacts/resolveRecipient';
 
 export const dynamic = 'force-dynamic';
 
@@ -126,36 +126,22 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (cleaned.length > 0) draftCtx.relatedArtifacts = cleaned;
   }
 
-  // Contact lookup — extract candidate names from the prompt and resolve
-  // email address from persona_contacts so the To field pre-populates.
-  // Pattern: "to <Name>", "for <Name>", words starting with uppercase.
-  // We take the first contact match (most-relevant contact for the prompt).
+  // Contact resolution — the ONE canonical resolver (services/contacts/
+  // resolveRecipient.ts) against persona_contacts. Ambiguity (2+ plausible
+  // contacts) is surfaced explicitly to the caller rather than silently
+  // guessed — see recipientAmbiguity in the response below.
+  let recipientAmbiguity: Array<{ contactId: string; displayName: string | null; email: string }> | undefined;
   if (!draftCtx.recipientEmail) {
     try {
-      const supabase = getSupabaseServer();
-      // Strip common email meta-words and extract capitalised tokens as name candidates
-      const stopWords = /\b(draft|send|email|an?|the|to|for|re|about|regarding|follow|up|again|resend|reply|write|compose|create|from|with|on|of|at|and|or|message|note|letter)\b/gi;
-      const nameCandidates = prompt
-        .replace(stopWords, ' ')
-        .replace(/[^\w\s]/g, ' ')
-        .trim()
-        .split(/\s+/)
-        .filter(w => w.length > 2)
-        .slice(0, 6);
-
-      if (nameCandidates.length > 0) {
-        const q = nameCandidates.map(w => w + ':*').join(' | ');
-        const { data } = await supabase
-          .from('persona_contacts')
-          .select('display_name, email')
-          .eq('persona_id', context.personaId)
-          .not('email', 'is', null)
-          .textSearch('fts', q, { config: 'english', type: 'plain' })
-          .limit(1);
-        if (data && data[0]?.email) {
-          draftCtx.recipientEmail = data[0].email as string;
-          draftCtx.recipientName = data[0].display_name as string | undefined;
-        }
+      const resolution = await resolveRecipientFromPrompt(context.personaId, prompt);
+      if (resolution.status === 'resolved') {
+        draftCtx.recipientEmail = resolution.candidate.email;
+        draftCtx.recipientName = resolution.candidate.displayName ?? undefined;
+      } else if (resolution.status === 'ambiguous') {
+        // Never guess — the draft proceeds with "to" left for the operator/
+        // LLM to fill by name; the caller surfaces recipientAmbiguity so the
+        // UI can ask "which <name> did you mean?" before a send is possible.
+        recipientAmbiguity = resolution.candidates;
       }
     } catch {
       // Soft-fail — draft still works without the lookup.
@@ -164,7 +150,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const draft = await draftEmail({ prompt, context: draftCtx });
 
-  return NextResponse.json(draft, {
-    headers: { 'Cache-Control': 'no-store' },
-  });
+  return NextResponse.json(
+    { ...draft, ...(recipientAmbiguity ? { recipientAmbiguity } : {}) },
+    { headers: { 'Cache-Control': 'no-store' } },
+  );
 }

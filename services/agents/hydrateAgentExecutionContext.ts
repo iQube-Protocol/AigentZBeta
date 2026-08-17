@@ -49,6 +49,11 @@ import { readDelegateStanding } from '@/services/homecoming/delegateStanding';
 export interface AgentExecutionContext {
   agentRootId: string;
   agentId: string;
+  /** agent_root_identity.agent_card_slug — the same convention
+   *  RUNTIME_AGENT_IDS/REGISTRABLE_AGENTS use ('aigent-' + slug). Exposed so
+   *  callers (e.g. aigentMeRoleResolution.ts) can resolve this agent's own
+   *  personas[] entry generically, without a second identifiers lookup. */
+  agentCardSlug: string | null;
   displayName: string | null;
   description: string | null;
 
@@ -96,7 +101,8 @@ export async function hydrateAgentExecutionContext(agentRootId: string): Promise
   return {
     agentRootId: identifiers.agentRootId,
     agentId: identifiers.agentId,
-    displayName: identifiers.displayName,
+    agentCardSlug: identifiers.agentCardSlug,
+    displayName: handCurated?.name ?? identifiers.displayName,
     description,
     capabilities: skills.length > 0 ? { skills } : null,
     knowledge: {
