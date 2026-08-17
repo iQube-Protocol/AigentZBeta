@@ -4229,3 +4229,8 @@ Top-level retrieval anchors for this pack.
 - Type: `chore`
 - Brief: [COMMIT-480cfb9.md](../build_/COMMITS/COMMIT-480cfb9.md)
 - Message: chore: load prospective evolution rule into Claude sessions
+
+## Commit `de5aee7` — 2026-08-17T18:02:31Z
+- Type: `feat`
+- Brief: [COMMIT-de5aee7.md](../build_/COMMITS/COMMIT-de5aee7.md)
+- Message: gate-c: add VentureReportBriefLayout + VentureReintroductionBriefLayout + deliberation routing

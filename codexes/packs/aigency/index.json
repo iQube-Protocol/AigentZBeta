@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-16T22:19:09.336Z",
+  "last_updated": "2026-08-17T18:04:30.295Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "480cfb99d223aa459d8991def7129d5afc81fee7",
-  "latest_commit_short": "480cfb9",
-  "latest_commit_title": "chore: load prospective evolution rule into Claude sessions",
+  "latest_commit": "de5aee773d3b205514824f508b0c4f1e39a8baf5",
+  "latest_commit_short": "de5aee7",
+  "latest_commit_title": "gate-c: add VentureReportBriefLayout + VentureReintroductionBriefLayout + deliberation routing",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "de5aee7",
+      "full_sha": "de5aee773d3b205514824f508b0c4f1e39a8baf5",
+      "title": "gate-c: add VentureReportBriefLayout + VentureReintroductionBriefLayout + deliberation routing",
+      "author": "Claude",
+      "timestamp": "2026-08-17T18:02:31Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-de5aee7.md"
+    },
     {
       "sha": "480cfb9",
       "full_sha": "480cfb99d223aa459d8991def7129d5afc81fee7",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-09T06:24:43Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-52d1e56.md"
-    },
-    {
-      "sha": "04572c9",
-      "full_sha": "04572c9443deb6ad397f3ed907d14a7c465a8cf3",
-      "title": "Replace global get_ready_messages() with targeted per-receipt DVN reads",
-      "author": "Claude",
-      "timestamp": "2026-08-09T06:24:52Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-04572c9.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
