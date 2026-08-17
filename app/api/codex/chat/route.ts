@@ -65,6 +65,13 @@ import { buildStageGroundData } from '@/services/devCommandCenter/stageGroundDat
 import { initializeKnowledge, type KnowledgeManifest } from '@/services/invariants';
 import { resolveOntology, ontologyPromptBlock, citeResolvedConcepts } from '@/services/constitutional/ontologyResolver';
 import { MODEL_ROUTING_INVARIANTS } from '@/services/constitutional/modelQube';
+import {
+  detectDeliberationIntent,
+  extractBriefContextFromPrompt,
+} from '@/services/deliberativeArtifact/deliberationIntentDetector';
+import {
+  suggestDeliberationFromPrompt,
+} from '@/services/deliberativeArtifact/chatDeliberationBridge';
 
 // The heaviest chat turns — DCC consequence-validation with a full session
 // ground context + dual-stage proposal schemas — outlive the Lambda DEFAULT
@@ -2939,6 +2946,37 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Gate F: Detect natural language deliberation intent
+    // Analyzes the user's message for patterns indicating intent to create
+    // venture reports or reintroductions. Returns the detected intent (if any)
+    // for the client to decide whether to engage the deliberation layout.
+    const deliberationIntent = detectDeliberationIntent(message);
+    let suggestedDeliberationAction = null;
+
+    if (
+      deliberationIntent.detected &&
+      deliberationIntent.artifactType &&
+      deliberationIntent.confidence >= 0.7
+    ) {
+      // Note: Full SuggestedDeliberationAction (with initialized brief) requires
+      // ventureId and nbeId from the calling context. The client should provide
+      // these if they're available, or the aigentMe layout can request them.
+      // For now, we return just the intent detection so the UI can decide to engage.
+      suggestedDeliberationAction = {
+        detected: true,
+        artifactType: deliberationIntent.artifactType,
+        pattern: deliberationIntent.pattern,
+        confidence: deliberationIntent.confidence,
+        context: deliberationIntent.context,
+      };
+
+      console.log('[CodexChat] Deliberation intent detected:', {
+        artifactType: deliberationIntent.artifactType,
+        pattern: deliberationIntent.pattern,
+        confidence: deliberationIntent.confidence,
+      });
+    }
+
     // Infer primary role from message and declared roles
     const primaryRole = inferPrimaryRole(message, declaredRoles);
 
@@ -3477,6 +3515,7 @@ export async function POST(request: NextRequest) {
         persona,
         wallet_actions: walletActions,
         suggested_layouts: suggestedLayouts,
+        suggested_deliberation_action: suggestedDeliberationAction,
         event_meta: eventMeta,
         fallback: true,
         provider_availability: providerAvailability,
@@ -3679,6 +3718,7 @@ export async function POST(request: NextRequest) {
       persona,
       wallet_actions: walletActions,
       suggested_layouts: suggestedLayouts,
+      suggested_deliberation_action: suggestedDeliberationAction,
       stage_proposals: stageProposals,
       event_meta: eventMeta,
       userContext: {

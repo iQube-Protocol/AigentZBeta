@@ -8,6 +8,8 @@
 
 // ─── Composition Policy ──────────────────────────────────────────────────────
 
+export type DeliberativeArtifactType = 'venture-report' | 'venture-reintroduction';
+
 export type CompositionMode = 'direct' | 'deliberative';
 
 export type EvidenceMode = 'none' | 'contextual' | 'platform-native';
