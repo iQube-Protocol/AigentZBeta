@@ -1,16 +1,22 @@
 /**
  * Deliberation Seam — lifecycle manager for deliberative artifacts.
  *
- * Handles state transitions and brief completeness checks.
+ * Handles state transitions, brief completeness checks, and evidence assembly
+ * for deliberative artifact composition.
  */
 
-import { generateId } from '@/utils/ids';
+// Generate a unique ID for deliberation sessions
+function generateDeliberationId(): string {
+  return `delibr_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
 import type {
   DeliberationBrief,
   DeliberationState,
   VentureReportBriefSpec,
   VentureReintroductionBriefSpec,
+  ReportEvidenceItem,
 } from '@/types/deliberativeArtifact';
+import { assembleVentureReportEvidence } from '@/services/venture/assembleVentureReportEvidence';
 
 // ─── Deliberation Lifecycle ─────────────────────────────────────────────────
 
@@ -22,7 +28,7 @@ export function initializeDeliberation(
   nbeId: string
 ): DeliberationBrief {
   return {
-    deliberationId: generateId('delibr'),
+    deliberationId: generateDeliberationId(),
     artifactType,
     nbeId,
     state: 'proposed',
@@ -60,6 +66,41 @@ export function transitionToDeliberating(
     state: 'deliberating',
     updatedAt: new Date().toISOString(),
   };
+}
+
+/**
+ * Gather evidence for a venture report.
+ * Called during context_assembling phase to fetch platform-native artifacts.
+ * Stores evidence array in brief for display in the deliberation panel.
+ */
+export async function gatherVentureReportEvidence(
+  brief: DeliberationBrief,
+  ventureId: string,
+  personaId: string
+): Promise<{ brief: DeliberationBrief; evidence: ReportEvidenceItem[] }> {
+  if (brief.artifactType !== 'venture-report' && brief.artifactType !== 'venture-reintroduction') {
+    return { brief, evidence: [] };
+  }
+
+  try {
+    const bundle = await assembleVentureReportEvidence(ventureId, personaId);
+
+    const updatedBrief: DeliberationBrief = {
+      ...brief,
+      briefSpec: {
+        ...brief.briefSpec,
+        assembledEvidenceCount: bundle.artifacts.length,
+        maturityDistribution: bundle.maturityDistribution,
+      },
+      updatedAt: new Date().toISOString(),
+    };
+
+    return { brief: updatedBrief, evidence: bundle.artifacts };
+  } catch (error) {
+    // Soft failure — continue with empty evidence rather than blocking the brief
+    console.error('[Gate D] Error assembling venture evidence:', error);
+    return { brief, evidence: [] };
+  }
 }
 
 /**
@@ -156,7 +197,7 @@ export function cancelDeliberation(
 export function isVentureReportBriefComplete(spec: VentureReportBriefSpec): boolean {
   const hasPurpose = spec.purpose !== undefined;
   const hasDisclosure = spec.disclosure !== undefined;
-  const hasScope = spec.scope && spec.scope.length > 0;
+  const hasScope = !!(spec.scope && spec.scope.length > 0);
   const hasPeriodOrCurrent =
     (spec.periodStart !== undefined && spec.periodEnd !== undefined) ||
     spec.periodStart === 'current';
@@ -175,11 +216,12 @@ export function isVentureReintroductionBriefComplete(
   const hasPurpose = spec.purpose !== undefined;
   const hasAudience = spec.audience !== undefined;
   const hasOutcome = spec.reintroductionGoal !== undefined;
-  const hasScope = spec.scope && spec.scope.length > 0;
-  const hasPriorUnderstanding =
+  const hasScope = !!(spec.scope && spec.scope.length > 0);
+  const hasPriorUnderstanding = !!(
     spec.priorUnderstandingSource &&
     (spec.priorUnderstandingSource === 'unknown' ||
-      spec.likelyPriorUnderstanding !== undefined);
+      spec.likelyPriorUnderstanding !== undefined)
+  );
 
   return hasPurpose && hasAudience && hasOutcome && hasScope && hasPriorUnderstanding;
 }
@@ -188,6 +230,8 @@ export function isVentureReintroductionBriefComplete(
  * Generic completeness check — delegates to type-specific checks.
  */
 export function isBriefComplete(brief: DeliberationBrief): boolean {
+  if (!brief.briefSpec) return false;
+
   switch (brief.artifactType) {
     case 'venture-report':
       return isVentureReportBriefComplete(brief.briefSpec as VentureReportBriefSpec);
@@ -205,8 +249,9 @@ export function isBriefComplete(brief: DeliberationBrief): boolean {
  * Update completeness flag.
  */
 export function updateBriefCompleteness(brief: DeliberationBrief): DeliberationBrief {
+  const isComplete: boolean = isBriefComplete(brief);
   return {
     ...brief,
-    isComplete: isBriefComplete(brief),
+    isComplete,
   };
 }
