@@ -22,20 +22,22 @@ import { KpiDetailLayout } from "./KpiDetailLayout";
 import { ActiveWorkDetailLayout } from "./ActiveWorkDetailLayout";
 import { SpecialistsLayout } from "./SpecialistsLayout";
 import { MoneyPennyFocusLayout } from "./MoneyPennyFocusLayout";
+import { VentureReportBriefLayout } from "./VentureReportBriefLayout";
 import type { RightPaneLayoutDefinition, RightPaneLayoutId } from "./types";
 
 const REGISTRY: Record<RightPaneLayoutId, RightPaneLayoutDefinition> = {
-  "stack":               StackLayout,
-  "brief":               BriefLayout,
-  "decision-board":      DecisionBoardLayout,
-  "venture-cockpit":     VentureCockpitLayout,
-  "composer":            ComposerLayout,
-  "approval-interrupt":  ApprovalLayout,
-  "ledger":              LedgerLayout,
-  "kpi-detail":          KpiDetailLayout,
-  "active-work-detail":  ActiveWorkDetailLayout,
-  "specialists":         SpecialistsLayout,
-  "moneypenny-focus":    MoneyPennyFocusLayout,
+  "stack":                    StackLayout,
+  "brief":                    BriefLayout,
+  "decision-board":           DecisionBoardLayout,
+  "venture-cockpit":          VentureCockpitLayout,
+  "composer":                 ComposerLayout,
+  "approval-interrupt":       ApprovalLayout,
+  "ledger":                   LedgerLayout,
+  "kpi-detail":               KpiDetailLayout,
+  "active-work-detail":       ActiveWorkDetailLayout,
+  "specialists":              SpecialistsLayout,
+  "moneypenny-focus":         MoneyPennyFocusLayout,
+  "venture-report-brief":     VentureReportBriefLayout,
 };
 
 export function getLayout(id: RightPaneLayoutId | string | null | undefined): RightPaneLayoutDefinition {

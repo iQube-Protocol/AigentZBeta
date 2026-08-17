@@ -106,6 +106,16 @@ import {
   type SectionId,
   type CardKind,
 } from "@/components/metame/welcome/useAigentMeCopilotBridge";
+import {
+  requiresDeliberation,
+  resolveCompositionPolicy,
+} from "@/services/deliberativeArtifact/compositionPolicy";
+import {
+  initializeDeliberation,
+} from "@/services/deliberativeArtifact/deliberationSeam";
+import type {
+  DeliberationBrief,
+} from "@/types/deliberativeArtifact";
 
 interface Specialist {
   id: 'marketa' | 'quill' | 'kn0w1' | 'aigent-z' | 'aigent-c' | 'aigent-nakamoto' | 'moneypenny' | 'metaye';
@@ -595,6 +605,10 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin, ag
   // and the activator chips set this state to route the pane.
   // DIS: codexes/packs/agentiq/items/dis/aigentme-phase-2.dis.json
   const [activeLayoutId, setActiveLayoutId] = useState<RightPaneLayoutId>(DEFAULT_LAYOUT_ID);
+
+  // Deliberative artifact seam — stores the DeliberationBrief as the operator
+  // works through scoping questions and brief assembly before generation.
+  const [deliberationBrief, setDeliberationBrief] = useState<DeliberationBrief | null>(null);
 
   // Capsule activator — engages the Capsule AND mounts its canonical
   // dedicated layout in one atomic call. Every Capsule chip (left-pane
@@ -1393,6 +1407,22 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin, ag
       // and aren't affected by the regression.
       setPendingApprovalHint(null);
       const artifactType = action.suggestedArtifact ?? '';
+
+      // Deliberation seam check — if this artifact type requires deliberation,
+      // initialize the deliberation brief and mount the appropriate deliberation
+      // layout instead of proceeding through standard dispatch.
+      if (requiresDeliberation(artifactType)) {
+        const newBrief = initializeDeliberation(artifactType, action.id);
+        setDeliberationBrief(newBrief);
+        // Route to the deliberation layout (venture-report-brief, venture-reintroduction-brief, etc.)
+        // based on the artifact type.
+        const layoutId = artifactType === 'venture-reintroduction'
+          ? 'venture-reintroduction-brief'
+          : 'venture-report-brief';
+        setActiveLayoutId(layoutId as RightPaneLayoutId);
+        return;
+      }
+
       const cls = classifySuggestedArtifact(artifactType);
 
       if (cls.kind === 'composer' || cls.kind === 'unknown') {
@@ -3223,12 +3253,32 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin, ag
                   setBrief(null);
                   setBriefError(null);
                   setBriefLoading(false);
+                  setDeliberationBrief(null);
                   // Phase 2 Slice 1: dismissing the brief returns the
                   // pane to the default stack layout so the operator
                   // doesn't sit on an empty BriefLayout.
                   setActiveLayoutId('stack');
                 },
                 onBriefVariantChange: (briefType) => { void fetchBrief(briefType); },
+                // Deliberative artifact seam props — passed to VentureReportBriefLayout, etc.
+                deliberationBrief,
+                deliberationLoading: false,
+                deliberationError: null,
+                onUpdateBriefSpec: (updates: Record<string, unknown>) => {
+                  if (deliberationBrief) {
+                    const updated = {
+                      ...deliberationBrief,
+                      briefSpec: { ...deliberationBrief.briefSpec, ...updates },
+                      updatedAt: new Date().toISOString(),
+                    };
+                    setDeliberationBrief(updated);
+                  }
+                },
+                onGenerateReport: () => {
+                  // Placeholder: generate the actual report from the deliberation brief
+                  // This will be implemented in Gate D (artifact generation)
+                  console.log('Generate report from brief:', deliberationBrief);
+                },
                 onDismissVenture: () => {
                   setVentureProgress(null);
                   setVentureProgressError(null);
