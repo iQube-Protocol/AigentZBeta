@@ -43,17 +43,16 @@ describe('Gate 0A — Kickstarter CTA navigates unconditionally', () => {
     expect(body).not.toMatch(/await fetch\(/);
   });
 
-  it('an always-visible, real <a target="_blank"> fallback exists in the first-party confirmation panel', () => {
-    // Bug-fix pass (three-item closure, 2026-08-16): the kickstarter
-    // left-view is no longer an <iframe> at all — Kickstarter's own
-    // X-Frame-Options/CSP silently refuses to be framed, which is what
-    // produced the indefinite spinner. The fallback anchor now lives in a
-    // first-party confirmation panel instead of alongside an iframe; see
-    // tests/knyts-bridge-choose-three-bug-fixes.test.ts for the no-iframe
-    // assertion and the window.open()-on-click coverage.
-    const idx = SRC.indexOf("leftView === 'kickstarter'");
-    const endIdx = SRC.indexOf("leftView === 'store'", idx);
-    const block = SRC.slice(idx, endIdx);
+  it('an always-visible, real <a target="_blank"> fallback exists as a badge over the video', () => {
+    // Final closure pass (two-item closure, 2026-08-17): 'kickstarter' is no
+    // longer a left-pane view at all — clicking Follow no longer replaces
+    // the video with a confirmation panel (that was itself the wrong UX;
+    // see tests/knyts-bridge-choose-final-closure.test.ts). The fallback
+    // anchor now overlays the existing video frame, gated on
+    // `kickstarterOpened`, never swapping the video out.
+    const idx = SRC.indexOf('{kickstarterOpened && (');
+    expect(idx, 'kickstarterOpened-gated overlay badge not found').toBeGreaterThan(-1);
+    const block = SRC.slice(idx, idx + 500);
     expect(block).toContain('target="_blank"');
     expect(block).toContain('rel="noopener noreferrer"');
     expect(block).toContain('Open Kickstarter in new tab');
