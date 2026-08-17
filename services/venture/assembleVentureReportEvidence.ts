@@ -32,6 +32,32 @@ export interface EvidenceBundle {
   assembledAt: string;
 }
 
+export interface NarrativeGap {
+  /** Unique identifier for this gap. */
+  id: string;
+  /** Category of the gap (major_pivot, unresolved_blocker, strategy_shift, milestone_missed). */
+  category: 'major_pivot' | 'unresolved_blocker' | 'strategy_shift' | 'milestone_missed' | 'context_change';
+  /** Human-readable title of the gap. */
+  title: string;
+  /** Detailed description of what's missing or changed. */
+  description: string;
+  /** Domain/area affected. */
+  domain: string;
+  /** How critical is this gap to explain (1-5 scale). */
+  criticalityLevel: 1 | 2 | 3 | 4 | 5;
+  /** Evidence items that would help fill this gap. */
+  relatedEvidenceIds: string[];
+  /** Suggested narrative for explaining this gap in reintroduction. */
+  suggestedNarrative?: string;
+}
+
+export interface ReintroductionBundle extends EvidenceBundle {
+  /** Narrative gaps — information gaps between prior understanding and current state. */
+  narrativeGaps: NarrativeGap[];
+  /** How aligned is the current state with likely prior understanding (0-1). */
+  narrativeAlignment: number;
+}
+
 export type EvidenceCategory = 'outcome' | 'capability' | 'risk' | 'context';
 
 interface EvidenceSource {
@@ -55,6 +81,39 @@ interface EvidenceSource {
   excerpt?: string;
   /** Confidence in this evidence (0-1 if uncertain). */
   confidence?: number;
+}
+
+/**
+ * Assemble evidence for a venture reintroduction from all platform-native sources
+ * plus narrative gap analysis.
+ * Called when operator opens the VentureReintroductionBriefLayout deliberation panel.
+ *
+ * @param ventureId — the iQube or venture slug being reintroduced
+ * @param personaId — operator gathering evidence
+ * @param lastInteractionDate — ISO date when audience last meaningfully interacted
+ * @returns ReintroductionBundle with artifacts, gaps, and alignment score
+ */
+export async function assembleVentureReintroductionEvidence(
+  ventureId: string,
+  personaId: string,
+  lastInteractionDate?: string,
+): Promise<ReintroductionBundle> {
+  // First gather the base evidence
+  const baseBundle = await assembleVentureReportEvidence(ventureId, personaId);
+
+  // Then analyze narrative gaps based on what's changed since last interaction
+  const narrativeGaps = lastInteractionDate
+    ? analyzeNarrativeGaps(baseBundle.artifacts, lastInteractionDate, ventureId)
+    : [];
+
+  // Calculate alignment — how well current state aligns with prior expectations
+  const narrativeAlignment = calculateNarrativeAlignment(baseBundle.artifacts, narrativeGaps);
+
+  return {
+    ...baseBundle,
+    narrativeGaps,
+    narrativeAlignment,
+  };
 }
 
 /**
@@ -431,4 +490,144 @@ function calculateMaturityDistribution(
   });
 
   return dist;
+}
+
+// ─── Narrative Gap Analysis (Reintroduction-Specific) ────────────────────────
+
+/**
+ * Analyze narrative gaps — information gaps between prior understanding and current state.
+ * Identifies evidence items that represent major changes, pivots, or unresolved blockers
+ * that have emerged since the last meaningful interaction.
+ */
+function analyzeNarrativeGaps(
+  artifacts: ReportEvidenceItem[],
+  lastInteractionDate: string,
+  ventureId: string,
+): NarrativeGap[] {
+  const gaps: NarrativeGap[] = [];
+  let gapIdCounter = 1;
+
+  const lastInteractionTime = new Date(lastInteractionDate).getTime();
+
+  // Group artifacts by domain
+  const artifactsByDomain = new Map<string, ReportEvidenceItem[]>();
+  artifacts.forEach((a) => {
+    const domain = a.domain || 'other';
+    if (!artifactsByDomain.has(domain)) {
+      artifactsByDomain.set(domain, []);
+    }
+    artifactsByDomain.get(domain)!.push(a);
+  });
+
+  // Detect major pivots — projects/initiatives that shifted or were abandoned
+  const pivotEvidence = artifacts.filter(
+    (a) =>
+      (a.state === 'blocked' || a.sourceType === 'venture_objective') &&
+      a.occurredAt &&
+      new Date(a.occurredAt).getTime() > lastInteractionTime,
+  );
+
+  if (pivotEvidence.length > 0) {
+    gaps.push({
+      id: `gap-${gapIdCounter++}`,
+      category: 'major_pivot',
+      title: 'Strategy or Initiative Changes',
+      description: `Since last interaction on ${lastInteractionDate}, there have been ${pivotEvidence.length} significant changes to initiatives or strategic direction.`,
+      domain: 'strategy',
+      criticalityLevel: 4,
+      relatedEvidenceIds: pivotEvidence.map((e) => e.id),
+      suggestedNarrative: `We've made some important strategic shifts. Let me walk you through what changed and why.`,
+    });
+  }
+
+  // Detect unresolved blockers — items stuck in blocked state
+  const blockedEvidence = artifacts.filter((a) => a.state === 'blocked');
+  if (blockedEvidence.length > 0) {
+    gaps.push({
+      id: `gap-${gapIdCounter++}`,
+      category: 'unresolved_blocker',
+      title: 'Unresolved Blockers',
+      description: `There are ${blockedEvidence.length} items currently blocked or at risk. These should be explained proactively.`,
+      domain: 'risk',
+      criticalityLevel: 5,
+      relatedEvidenceIds: blockedEvidence.map((e) => e.id),
+      suggestedNarrative: `We're actively working through some blockers. Here's what's holding us up and our plan to resolve it.`,
+    });
+  }
+
+  // Detect missing outcomes — planned items with low confidence
+  const lowConfidenceOutcomes = artifacts.filter(
+    (a) =>
+      a.sourceType === 'venture_objective' &&
+      a.state === 'in_progress' &&
+      (a.confidence === undefined || a.confidence < 0.7),
+  );
+
+  if (lowConfidenceOutcomes.length > 0) {
+    gaps.push({
+      id: `gap-${gapIdCounter++}`,
+      category: 'milestone_missed',
+      title: 'Milestone Confidence Gaps',
+      description: `${lowConfidenceOutcomes.length} objectives are in progress but with low certainty. These represent areas where outcomes are less certain than expected.`,
+      domain: 'execution',
+      criticalityLevel: 3,
+      relatedEvidenceIds: lowConfidenceOutcomes.map((e) => e.id),
+      suggestedNarrative: `Some milestones we expected to hit more confidently are in flux. Here's where we are and what we're learning.`,
+    });
+  }
+
+  // Detect new capability activations — significant new abilities since last interaction
+  const newCapabilities = artifacts.filter(
+    (a) =>
+      a.sourceType === 'capability_activation' &&
+      a.state === 'activated' &&
+      a.occurredAt &&
+      new Date(a.occurredAt).getTime() > lastInteractionTime,
+  );
+
+  if (newCapabilities.length > 0) {
+    gaps.push({
+      id: `gap-${gapIdCounter++}`,
+      category: 'context_change',
+      title: 'New Capabilities Added',
+      description: `${newCapabilities.length} new capabilities have been activated since your last interaction. These expand what we're now able to do.`,
+      domain: 'capability',
+      criticalityLevel: 2,
+      relatedEvidenceIds: newCapabilities.map((e) => e.id),
+      suggestedNarrative: `We've expanded our capabilities significantly. Let me show you what new things we can now do.`,
+    });
+  }
+
+  return gaps;
+}
+
+/**
+ * Calculate narrative alignment score — how well does current state align with
+ * what was likely understood at the time of last interaction?
+ */
+function calculateNarrativeAlignment(
+  artifacts: ReportEvidenceItem[],
+  gaps: NarrativeGap[],
+): number {
+  // Start at 1.0 (fully aligned)
+  let alignment = 1.0;
+
+  // Each high-criticality gap reduces alignment
+  const criticalGaps = gaps.filter((g) => g.criticalityLevel >= 4).length;
+  alignment -= criticalGaps * 0.15;
+
+  // Blocked items also reduce alignment
+  const blockedCount = artifacts.filter((a) => a.state === 'blocked').length;
+  alignment -= Math.min(blockedCount * 0.05, 0.2);
+
+  // In-progress items with low confidence reduce alignment slightly
+  const uncertainInProgress = artifacts.filter(
+    (a) =>
+      a.state === 'in_progress' &&
+      (a.confidence === undefined || a.confidence < 0.6),
+  ).length;
+  alignment -= Math.min(uncertainInProgress * 0.03, 0.1);
+
+  // Return alignment clamped to [0, 1]
+  return Math.max(0, Math.min(1.0, alignment));
 }

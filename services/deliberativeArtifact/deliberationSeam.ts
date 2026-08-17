@@ -16,7 +16,11 @@ import type {
   VentureReintroductionBriefSpec,
   ReportEvidenceItem,
 } from '@/types/deliberativeArtifact';
-import { assembleVentureReportEvidence } from '@/services/venture/assembleVentureReportEvidence';
+import {
+  assembleVentureReportEvidence,
+  assembleVentureReintroductionEvidence,
+} from '@/services/venture/assembleVentureReportEvidence';
+import type { NarrativeGap, ReintroductionBundle } from '@/services/venture/assembleVentureReportEvidence';
 
 // ─── Deliberation Lifecycle ─────────────────────────────────────────────────
 
@@ -78,7 +82,7 @@ export async function gatherVentureReportEvidence(
   ventureId: string,
   personaId: string
 ): Promise<{ brief: DeliberationBrief; evidence: ReportEvidenceItem[] }> {
-  if (brief.artifactType !== 'venture-report' && brief.artifactType !== 'venture-reintroduction') {
+  if (brief.artifactType !== 'venture-report') {
     return { brief, evidence: [] };
   }
 
@@ -100,6 +104,61 @@ export async function gatherVentureReportEvidence(
     // Soft failure — continue with empty evidence rather than blocking the brief
     console.error('[Gate D] Error assembling venture evidence:', error);
     return { brief, evidence: [] };
+  }
+}
+
+/**
+ * Gather evidence for a venture reintroduction.
+ * Called during context_assembling phase to fetch platform-native artifacts
+ * plus analyze narrative gaps between prior understanding and current state.
+ */
+export async function gatherVentureReintroductionEvidence(
+  brief: DeliberationBrief,
+  ventureId: string,
+  personaId: string
+): Promise<{
+  brief: DeliberationBrief;
+  evidence: ReportEvidenceItem[];
+  narrativeGaps: NarrativeGap[];
+  narrativeAlignment: number;
+}> {
+  if (brief.artifactType !== 'venture-reintroduction') {
+    return { brief, evidence: [], narrativeGaps: [], narrativeAlignment: 1.0 };
+  }
+
+  try {
+    // Extract last interaction date from briefSpec if available
+    const spec = brief.briefSpec as Record<string, unknown>;
+    const lastInteractionDate = (spec.lastInteraction as string) || undefined;
+
+    const bundle = await assembleVentureReintroductionEvidence(
+      ventureId,
+      personaId,
+      lastInteractionDate
+    );
+
+    const updatedBrief: DeliberationBrief = {
+      ...brief,
+      briefSpec: {
+        ...brief.briefSpec,
+        assembledEvidenceCount: bundle.artifacts.length,
+        maturityDistribution: bundle.maturityDistribution,
+        narrativeGapCount: bundle.narrativeGaps.length,
+        narrativeAlignment: Math.round(bundle.narrativeAlignment * 100), // Store as percentage
+      },
+      updatedAt: new Date().toISOString(),
+    };
+
+    return {
+      brief: updatedBrief,
+      evidence: bundle.artifacts,
+      narrativeGaps: bundle.narrativeGaps,
+      narrativeAlignment: bundle.narrativeAlignment,
+    };
+  } catch (error) {
+    // Soft failure — continue with empty evidence rather than blocking the brief
+    console.error('[Gate E] Error assembling reintroduction evidence:', error);
+    return { brief, evidence: [], narrativeGaps: [], narrativeAlignment: 1.0 };
   }
 }
 
