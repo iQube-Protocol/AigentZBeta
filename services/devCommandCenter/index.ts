@@ -47,6 +47,7 @@ export {
   findForbiddenStateKey,
   isPristineDevLoopSession,
   canAdvance,
+  canEnterValidation,
   advanceStage,
   nextStage,
   getStageIndex,

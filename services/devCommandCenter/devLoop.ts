@@ -257,6 +257,31 @@ export function canAdvance(state: DevLoopState): boolean {
 }
 
 /**
+ * Homecoming Phase II WP-B — the cybernetic return path: the Implementation
+ * Pack sends bounded intent OUTWARD to an executing actor; Execution Return
+ * brings evidence of what actually happened back IN. Leaving Implementation
+ * must therefore be a CONSEQUENCE of admissible evidence, not merely an API
+ * call asking the system to change state — `canAdvance`'s existing
+ * `state.implementationBrief` check alone accepts a narrative claim with no
+ * evidence that anything executed.
+ *
+ * Deliberately layered ON TOP of `canAdvance` (called from inside
+ * `advanceStage` below), never a rewrite of it: a session with NO generated
+ * pack (a manually-authored brief, never dispatched to an external actor)
+ * has no packId for evidence to attach to, so it keeps the exact prior
+ * brief-only behavior — this gate only tightens the pack-linked path, where
+ * "implementation happened" is a checkable fact, not a claim.
+ */
+export function canEnterValidation(state: DevLoopState): boolean {
+  if (!canAdvance(state)) return false;
+  if (state.stage !== 'implementation') return true;
+  const pack = state.generatedPack as { id?: unknown } | null | undefined;
+  const packId = typeof pack?.id === 'string' ? pack.id : null;
+  if (!packId) return true;
+  return state.acceptedExecutionReturn?.packId === packId;
+}
+
+/**
  * The next stage given the current state — a CONDITIONAL walk, not a linear
  * one, because Constitutional Validation forks. Returns null at the terminal
  * stage. Pure — canary-pinned.
@@ -286,6 +311,10 @@ export function nextStage(state: DevLoopState): DevLoopStage | null {
 
 export function advanceStage(state: DevLoopState): DevLoopState {
   if (!canAdvance(state)) return state;
+  // WP-B: the ONE additive guard beyond canAdvance — see canEnterValidation's
+  // own doc comment for why this lives here (the single choke point every
+  // stage transition already passes through) rather than in canAdvance itself.
+  if (state.stage === 'implementation' && !canEnterValidation(state)) return state;
   const next = nextStage(state);
   if (!next) return state;
   return {

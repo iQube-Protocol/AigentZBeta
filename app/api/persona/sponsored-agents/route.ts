@@ -21,6 +21,7 @@ import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { getCrmClient } from '@/services/crm/crmDataAccess';
 import { provisionAigentMePersona } from '@/services/agents/provisionAigentMePersona';
+import { resolveConstitutionalContext } from '@/services/identity/constitutionalContext';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,37 +37,23 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, error: 'Supabase configuration missing' }, { status: 500 });
     }
 
-    // Pull all sponsored agents for this persona. The aigentMe designation
-    // (is_aigent_me) is a later migration than genesis — if that column isn't
-    // present yet we fall back to the pre-aigentMe query so sponsored agents
-    // keep rendering rather than vanishing.
+    // currentAigentMe is resolved ONCE, authoritatively, by
+    // resolveConstitutionalContext() (services/identity/constitutionalContext.ts)
+    // — the CFS-024 single source of truth. This route no longer queries
+    // agent_root_identity.is_aigent_me directly; that legacy column exists
+    // only as resolveConstitutionalContext's own internal last-resort
+    // fallback (Homecoming Phase II P1 Item 3, operator brief 2026-08-16).
+    const ctx = await resolveConstitutionalContext(req);
+    const currentAigentMe = ctx.currentAigentMe;
+
     const baseCols =
       'id, agent_id, did_uri, agent_class, display_name, description, agent_card_url, agent_card_slug, sponsor_passport_id, bound_passport_id, created_at';
 
-    let rows: Record<string, unknown>[] | null = null;
-    let error: { message: string } | null = null;
-
-    const enriched = await admin
+    const { data: rows, error } = await admin
       .from('agent_root_identity')
-      .select(`${baseCols}, is_aigent_me`)
+      .select(baseCols)
       .eq('sponsor_persona_id', persona.personaId)
-      // aigentMe (the primary delegate) sorts first, then newest sponsorships.
-      .order('is_aigent_me', { ascending: false })
       .order('created_at', { ascending: false });
-
-    if (enriched.error && enriched.error.message.includes('is_aigent_me')) {
-      // aigentMe migration pending — retry without the column/order.
-      const fallback = await admin
-        .from('agent_root_identity')
-        .select(baseCols)
-        .eq('sponsor_persona_id', persona.personaId)
-        .order('created_at', { ascending: false });
-      rows = fallback.data;
-      error = fallback.error;
-    } else {
-      rows = enriched.data;
-      error = enriched.error;
-    }
 
     if (error) {
       // Pre-migration soft-fail: return empty list rather than 500 so the
@@ -84,7 +71,13 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     }
 
-    const agentRows = rows ?? [];
+    // aigentMe (the primary delegate) sorts first, then newest sponsorships —
+    // resolved against ctx.currentAigentMe, never a raw column sort.
+    const agentRows = (rows ?? []).slice().sort((a, b) => {
+      const aIsAigentMe = a.id === currentAigentMe ? 1 : 0;
+      const bIsAigentMe = b.id === currentAigentMe ? 1 : 0;
+      return bIsAigentMe - aIsAigentMe;
+    });
 
     type PassportRow = {
       passport_id: string;
@@ -171,7 +164,7 @@ export async function GET(req: NextRequest) {
         description: row.description,
         agentCardUrl: row.agent_card_url,
         agentCardSlug: row.agent_card_slug,
-        isAigentMe: Boolean(row.is_aigent_me),
+        isAigentMe: row.id === currentAigentMe,
         sponsorPassportId: row.sponsor_passport_id,
         boundPassportId,
         passport: passport
@@ -211,7 +204,7 @@ export async function GET(req: NextRequest) {
     // Self-heal: ensure the aigentMe (if any) has its wallet persona so it
     // surfaces in the persona switcher. Idempotent + best-effort — covers
     // aigentMe agents designated before wallet-persona provisioning shipped.
-    const aigentMeRow = agentRows.find((r) => Boolean(r.is_aigent_me));
+    const aigentMeRow = agentRows.find((r) => r.id === currentAigentMe);
     if (aigentMeRow) {
       await provisionAigentMePersona({
         admin,
@@ -239,7 +232,7 @@ export async function GET(req: NextRequest) {
       }
     > = {};
 
-    const aigentMeAgents = agentRows.filter((r) => Boolean(r.is_aigent_me) && r.agent_id);
+    const aigentMeAgents = agentRows.filter((r) => r.id === currentAigentMe && r.agent_id);
     if (aigentMeAgents.length > 0) {
       try {
         const crm = getCrmClient();

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { RefreshCw, Users, TrendingUp, FileText, CheckCircle, XCircle, AlertTriangle, Bot, UserCircle, Shield } from 'lucide-react';
 import { EvidenceSubmissionForm } from '@/components/identity/EvidenceSubmissionForm';
 import { FIOVerificationIcon } from '@/components/identity/FIOVerificationBadge';
+import { isAgentPersonaKind } from '@/utils/personaKind';
 
 interface Persona {
   id: string;
@@ -127,9 +128,7 @@ export default function ReputationAdminPage() {
     return 'text-red-400';
   };
 
-  const isAgent = (worldIdStatus: string) => {
-    return worldIdStatus === 'agent_declared';
-  };
+  const isAgent = isAgentPersonaKind;
 
   const getBucketLabel = (bucket: number | null | undefined) => {
     if (bucket === null || bucket === undefined) return 'No Reputation';

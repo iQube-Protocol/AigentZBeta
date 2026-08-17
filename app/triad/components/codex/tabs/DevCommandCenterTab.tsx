@@ -1549,6 +1549,18 @@ export function DevCommandCenterTab({ personaId }: DevCommandCenterTabProps) {
               }}
               onDeploymentProposed={() => observe(devDeploymentProposedEvent())}
               onActorEvent={pushActorEvent}
+              onExecutionReturnAccepted={({ packId, receiptId }) => {
+                // WP-B: the ONE fact canEnterValidation reads — written only
+                // after the route has positively verified packId against a
+                // real implementation_pack_generated receipt and recorded
+                // the evidence. Never advances the stage itself; the
+                // operator's own Advance action does that, now unblocked.
+                setSession((s) => ({
+                  ...s,
+                  acceptedExecutionReturn: { packId, receiptId, recordedAt: new Date().toISOString() },
+                  updatedAt: new Date().toISOString(),
+                }));
+              }}
             />
           )}
           {isCapsuleLayout && activeCapsuleId === "validation" && (

@@ -430,7 +430,18 @@ export type ActivityActionType =
   // (`evaluateBudget` in services/constitutional/executionBudget.ts is) —
   // this is durable observation only, extracted from the actor's own
   // terminal result JSON via services/constitutional/executionTelemetry.ts.
-  | 'implementation_execution_observed';
+  | 'implementation_execution_observed'
+  // Homecoming Phase II WP-B (operator-directed, 2026-08-16) — the manual/
+  // external-actor counterpart to `implementation_execution_observed` above:
+  // a human-reviewed, qualitative account of what an implementation actor
+  // executed (branch, commits, PR, files changed, validation results,
+  // deviations, discoveries) submitted via the Execution Return ingestion
+  // route (services/constitutional/executionReturn.ts) and verified against
+  // an existing `implementation_pack_generated` receipt's `pack_id` before
+  // acceptance. Never authorizes deployment by itself — no
+  // `deployment_authorized` receipt is ever written by this path; it is
+  // evidence a stage-transition gate later reads, not an authority grant.
+  | 'implementation_execution_returned';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 

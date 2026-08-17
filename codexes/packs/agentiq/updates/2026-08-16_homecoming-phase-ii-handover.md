@@ -1,43 +1,72 @@
-# Homecoming Phase II — Handover (Gate 0 + WP-A DONE; WP-B not started)
+# Homecoming Phase II — Handover (Gate 0 + WP-A + WP-B DONE; final report remaining)
 
 **Date:** 2026-08-16
-**Status:** IN PROGRESS — handing off ahead of a session rate-cap cutoff. Gate 0 and WP-A
-(Increments 1 AND 2) are fully implemented, tested, and committed. **WP-B has not been started at
-all** — its audit is complete (see §3-4 below) but zero WP-B code exists yet.
+**Status:** IN PROGRESS. Gate 0, WP-A (Increments 1 AND 2), and **WP-B (Execution Return seam) are
+now all fully implemented, tested, and committed locally**. Only the Homecoming Phase II **final
+report** (§5 of the governing spec) remains.
 **Governing spec:** `codexes/packs/agentiq/updates/2026-08-16_homecoming-phase-ii-activation-pack.md`
-— read it in full, INCLUDING its two amendments ("WP-A Amendment... three-axis model + Gate A0
-audit" and "Increment 2 — IMPLEMENTED"), before writing any more code. This doc records audit
-findings + the exact remaining plan; it does not restate the spec.
-**Branch:** `claude/resume-consumer-session-qm3v7c` — 13 commits ahead of `origin`, all local. **Do
-NOT push or merge without explicit operator authorization** — this repo's `merge-claude-to-dev`
-GitHub Action auto-merges any push to a `claude/**` branch straight into `dev`, and the operator's
-standing instruction for this task is to stop for review before merge/deploy. The working tree is
-clean (nothing uncommitted) as of the last commit below.
+— read it in full, INCLUDING its three amendments ("WP-A Amendment... three-axis model + Gate A0
+audit", "Increment 2 — IMPLEMENTED", and "WP-B — IMPLEMENTED"), before writing any more code. This
+doc records audit findings + the plan; the spec's own "WP-B — IMPLEMENTED" section is the exact
+record of what WP-B built and why each choice was made.
+**Branch:** `claude/resume-consumer-session-qm3v7c`. **Do NOT push or merge without explicit
+operator authorization** — this repo's `merge-claude-to-dev` GitHub Action auto-merges any push to
+a `claude/**` branch straight into `dev`, and the operator's standing instruction for this task is
+to stop for review before merge/deploy. WP-B's changes are implemented, tested, and doc-recorded but
+**deliberately left as uncommitted working-tree changes** per the operator's explicit instruction
+this round ("do not commit WP-B yet — just save locally once completed") — commit only when asked.
 
 ## RESUME HERE — next concrete step
 
-**Everything through WP-A Increment 2 is done.** The next task is **WP-B: manual DevOn handoff +
-Execution Return seam**. Its factual audit is already complete — read §3 and §4 below, which give
-the exact file:line implementation plan (new `ExecutionReturn` type, the one-line additive fix to
-`app/api/constitutional/implementation-pack/route.ts`'s receipt so `packId` becomes queryable, the
-new ingestion route, the two `packMarkdown()` content additions). Start WP-B by re-reading those two
-sections, then implement in the order given there. Do not re-audit — the audit is done and correct.
-
-After WP-B is implemented and tested, the remaining work is the Homecoming Phase II **final report**
-(originally task #215 in this session's own tracker, which does not carry over to a new session): a
-capability census (Aletheon: LIVE as a consultable specialist + as a selectable aigentMe-role agent
-with zero authority granted by selection; PARTIAL/MISSING: CRM-cohort tool-calling, per §"Aletheon
-capability census" further down), proof snippets for every acceptance canary in the governing pack,
-a regression/typecheck comparison against the baseline named below, and a list of unresolved gaps
+**Everything through WP-B is done.** The only remaining task is the Homecoming Phase II **final
+report** (spec §"Final report required", also §5 of this doc below): a capability census (Aletheon:
+LIVE as a consultable specialist + as a selectable aigentMe-role agent with zero authority granted
+by selection; PARTIAL/MISSING: CRM-cohort tool-calling, per §"Aletheon capability census" further
+down), proof snippets for every acceptance canary in the governing pack (Gate 0, WP-A Increments 1-2,
+AND WP-B's own canaries — the new WP-B section below gives exact file:line evidence to cite), a
+regression/typecheck comparison against the baseline named below, and a list of unresolved gaps
 (stale `docs/platform-ontology.md`, no `delegation_grants` row ever minted for Aletheon in this pass,
 no agent-tool-calling registry for CRM/campaign functions, `agent_persona.delegation_scopes` dead
-code platform-wide). Then stop for operator review — do not push/merge.
+code platform-wide — WP-B introduces no new unresolved gaps beyond these). Then stop for operator
+review — do not push/merge/commit without asking first.
 
 **Established regression baseline — compare against this, not zero:** `npx vitest run` →
-**17 failed test files / 40 failed tests** (6827+ passing). `npx tsc --noEmit -p .` → **675 errors**.
-This baseline has been reconfirmed unchanged after every single change made in this session,
-including all of WP-A Increment 2 — any new failure/error above these counts is a real regression to
-fix or explain, not to fold into the recorded baseline.
+**17 failed test files / 40 failed tests** (6856+ passing after WP-B's 29 new tests). `npx tsc
+--noEmit -p .` → **675 errors**. This baseline has been reconfirmed unchanged after every single
+change made in this session, including all of WP-A Increment 2 AND all of WP-B — any new
+failure/error above these counts is a real regression to fix or explain, not to fold into the
+recorded baseline.
+
+---
+
+## WP-B — DONE (2026-08-16, same-day operator follow-up, tightened acceptance criteria)
+
+Implemented per §3-4's audited plan with no re-audit, plus the operator's own follow-up tightening
+(explicit duplicate/replay handling, an explicit "gated stage transition" requirement framed as the
+cybernetic return path: the pack sends bounded intent outward, Execution Return brings evidence
+back in, and stage transition is a CONSEQUENCE of admissible evidence — never a bare API call). Full
+file:line detail, design rationale, and the exact list of new/touched files is recorded in the
+governing pack's own "WP-B — IMPLEMENTED" section — search for that heading rather than duplicating
+it here. Headline facts:
+
+- New: `services/constitutional/executionReturn.ts`, `app/api/constitutional/execution-return/
+  route.ts`, `supabase/migrations/20260930003300_implementation_execution_returned_receipt_type.sql`,
+  `tests/homecoming-phase-ii-wpb-execution-return.test.ts` (29 tests, all passing, one mutation-tested
+  live).
+- Modified, additively: `app/api/constitutional/implementation-pack/route.ts` (one line —
+  `actionInput: { pack_id: pack.id }`), `services/receipts/activityReceiptService.ts` (one new
+  `ActivityActionType` member), `services/devCommandCenter/devLoop.ts` (new `canEnterValidation()`,
+  one additive guard line in `advanceStage()` — `canAdvance()` itself untouched),
+  `services/devCommandCenter/index.ts` (barrel export), `types/devCommandCenter.ts` (one new optional
+  field, `acceptedExecutionReturn`), `components/devcommandcenter/layouts/ImplementationLayout.tsx`
+  (Execution Return paste/submit UI + `canEnterValidation` for its own Advance gate),
+  `components/devcommandcenter/layouts/ValidationLayout.tsx` (read-only evidence card),
+  `app/triad/components/codex/tabs/DevCommandCenterTab.tsx` (wires the new callback into session
+  state), `components/composer/CapabilityPipelineTab.tsx`'s `packMarkdown()` (prints `pack.id` +
+  the Execution Return instruction footer).
+- Regression: **17 failed test files / 40 failed tests** (6856+ passing), **675 TS errors** — both
+  unchanged from the established baseline. Zero new failures, zero new errors.
+- **Not committed** — left as working-tree changes per this round's explicit operator instruction.
 
 ---
 

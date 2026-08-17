@@ -316,6 +316,18 @@ export interface DevLoopState {
    * predates it.
    */
   invariantEnvelope?: InvariantDevelopmentEnvelope | null;
+  /**
+   * Homecoming Phase II WP-B — the ONE fact `canEnterValidation()`
+   * (services/devCommandCenter/devLoop.ts) reads to gate leaving
+   * Implementation when a real Implementation Pack was generated: an
+   * ACCEPTED Execution Return exists for THIS session's current pack.
+   * Written only after `verifyPackExists()` confirms the packId against a
+   * real `implementation_pack_generated` receipt and the return is recorded
+   * — never set from narrative/brief text alone. Optional and additive, like
+   * `invariantEnvelope` above; a session predating WP-B is still valid
+   * without it (a session with no generated pack never needed this gate).
+   */
+  acceptedExecutionReturn?: { packId: string; receiptId: string; recordedAt: string } | null;
   receipts: DevLoopReceipt[];
   startedAt: string;
   updatedAt: string;
