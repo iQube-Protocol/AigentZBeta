@@ -158,6 +158,14 @@ interface SmartTriadCopilotLayerProps {
    */
   onStageProposals?: (proposals: CopilotStageProposal[]) => void;
   /**
+   * Gate F integration: fired when the server detects a deliberation
+   * intent (venture report or reintroduction) from the operator's natural
+   * language prompt. Returns a SuggestedDeliberationAction with the
+   * detected artifact type, confidence, and context. Parent should use
+   * this to engage the brief layout and initialize deliberation.
+   */
+  onSuggestedDeliberation?: (action: any) => void;
+  /**
    * Feedback Coordinator (CFS-020 component #12, first slice) —
    * observation-initiated turns. When the parent sets a NEW id here, the
    * layer sends `text` as a user turn through the NORMAL handleSend path,
@@ -294,6 +302,7 @@ export function SmartTriadCopilotLayer({
   groundContext,
   onSuggestedLayouts,
   onStageProposals,
+  onSuggestedDeliberation,
   onClearHighlights,
   onSentAttachments,
   autoPrompt,
@@ -662,6 +671,14 @@ export function SmartTriadCopilotLayer({
         onStageProposals?.(data.stage_proposals as CopilotStageProposal[]);
       } else {
         onStageProposals?.([]);
+      }
+
+      // Gate F integration — deliberation intent detection. When the
+      // operator expresses intent to create a venture report or
+      // reintroduction, fire the suggested deliberation action so the
+      // parent can engage the brief layout and initialize deliberation.
+      if (data?.suggested_deliberation_action) {
+        onSuggestedDeliberation?.(data.suggested_deliberation_action);
       }
 
       // Case A — escrow the operator-attached uploads for the next

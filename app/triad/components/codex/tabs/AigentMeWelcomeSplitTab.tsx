@@ -720,6 +720,30 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin, ag
     },
     [],
   );
+
+  // Gate F: handle deliberation intent suggestions from the chat route.
+  // When the operator expresses intent to create a venture report or
+  // reintroduction, engage the brief layout and initialize deliberation.
+  const handleSuggestedDeliberation = useCallback(
+    (action: any) => {
+      if (!action || !action.artifactType) {
+        console.warn('[AigentMeWelcomeSplitTab] Incomplete deliberation action:', action);
+        return;
+      }
+
+      // Initialize the deliberation brief with the artifact type and context
+      const brief = initializeDeliberation(action.artifactType, action.brief?.nbeId || '');
+      console.log('[AigentMeWelcomeSplitTab] Deliberation suggested:', {
+        artifactType: action.artifactType,
+        pattern: action.pattern,
+        confidence: action.confidence,
+      });
+
+      // Engage the brief capsule and mount its layout
+      engageCapsuleAndMount('brief');
+    },
+    [engageCapsuleAndMount],
+  );
   // After the operator engages a Capsule (or opens a composer / drawer)
   // the matching chip's highlight clears so the strip returns to neutral
   // FOR THAT CHIP. Other un-clicked suggestions stay pulsing — the
@@ -3105,6 +3129,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin, ag
               groundContext={copilotGroundContext}
               autoPrompt={autoPrompt}
               onSuggestedLayouts={handleSuggestedLayouts}
+              onSuggestedDeliberation={handleSuggestedDeliberation}
               onClearHighlights={clearCapsuleSuggestions}
               onSentAttachments={setComposerEscrowAttachments}
               onClose={() => undefined}
