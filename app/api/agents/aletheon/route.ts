@@ -23,8 +23,11 @@
  */
 
 import { NextResponse } from 'next/server';
+import { HAND_CURATED_AGENT_CARDS } from '@/services/agents/handCuratedAgentCards';
 
 export const dynamic = 'force-dynamic';
+
+const CARD = HAND_CURATED_AGENT_CARDS.aletheon;
 
 function withCors(res: NextResponse): NextResponse {
   res.headers.set('Access-Control-Allow-Origin', '*');
@@ -41,9 +44,8 @@ export async function GET() {
   return withCors(
     NextResponse.json({
       // Identity & Discovery
-      name: 'Aletheon',
-      description:
-        "The First Citizen's Constitutional Companion Intelligence. Aletheon specializes in revealing context, synthesizing knowledge, preserving institutional memory, supporting governance design, and assisting the First Citizen through bounded delegation. Aletheon does not exercise authority, claim sovereignty, or act independently of constitutional constraints. Its purpose is to illuminate possibilities, surface consequences, and assist the First Citizen in exercising informed agency.",
+      name: CARD.name,
+      description: CARD.description,
       url: 'https://dev-beta.aigentz.me/api/agents/aletheon/agent-card.json',
       version: '0.1.0',
 
@@ -64,43 +66,7 @@ export async function GET() {
       defaultOutputModes: ['text/plain'],
 
       // Declared Skills & Functions
-      skills: [
-        {
-          id: 'constitutional-reasoning',
-          name: 'Constitutional Reasoning',
-          description:
-            'Analyze decisions, proposals, and governance structures against constitutional principles, rights, obligations, and delegation frameworks.',
-          tags: ['governance', 'constitution', 'policy', 'delegation'],
-        },
-        {
-          id: 'knowledge-synthesis',
-          name: 'Knowledge Synthesis',
-          description:
-            'Transform large volumes of information into coherent insights, frameworks, papers, strategies, and actionable understanding.',
-          tags: ['knowledge', 'analysis', 'research', 'synthesis'],
-        },
-        {
-          id: 'institutional-memory',
-          name: 'Institutional Memory',
-          description:
-            'Preserve and connect historical context, decisions, assumptions, receipts, and prior work across evolving initiatives.',
-          tags: ['memory', 'history', 'continuity', 'provenance'],
-        },
-        {
-          id: 'sovereignty-advisory',
-          name: 'Sovereignty Advisory',
-          description:
-            'Assist citizens and agents in understanding sovereignty, bounded delegation, accountability, identity, and participation within The Polity.',
-          tags: ['sovereignty', 'identity', 'citizenship', 'agency'],
-        },
-        {
-          id: 'revealed-context',
-          name: 'Revealed Context',
-          description:
-            'Surface hidden assumptions, dependencies, trade-offs, risks, and consequences to improve decision quality.',
-          tags: ['context', 'risk', 'strategy', 'truth'],
-        },
-      ],
+      skills: CARD.skills,
 
       // Constitutional Metadata
       metadata: {

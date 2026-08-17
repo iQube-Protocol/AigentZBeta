@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { RefreshCw, User, Shield, TrendingUp, Bot, UserCircle } from 'lucide-react';
 import Link from 'next/link';
 import { FIOVerificationIcon } from '@/components/identity/FIOVerificationBadge';
+import { isAgentPersonaKind } from '@/utils/personaKind';
 
 interface Persona {
   id: string;
@@ -64,9 +65,7 @@ export function DiDQubeIdentityCard({ onPersonaClick }: DiDQubeIdentityCardProps
     return 'text-red-400';
   };
 
-  const isAgent = (worldIdStatus: string) => {
-    return worldIdStatus === 'agent_declared';
-  };
+  const isAgent = isAgentPersonaKind;
 
   return (
     <div className="rounded-lg border border-slate-700 bg-slate-900/60 shadow-sm backdrop-blur p-6">

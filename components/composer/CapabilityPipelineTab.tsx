@@ -117,6 +117,7 @@ const STUB_STAGES = new Set(["price"]);
 export function packMarkdown(pack: PackView): string {
   return `# Implementation Pack — ${pack.goal}
 
+**Pack ID:** \`${pack.id}\`
 **Generated:** ${pack.generatedAt} · **Composed by:** ${pack.composedBy} · **Canon version:** ${pack.canonVersion}
 **Mechanism:** ${pack.implementationMechanism} (capability-first — code is one of nine mechanisms)
 ${pack.intentId ? `**Intent:** ${pack.intentId}\n` : ""}
@@ -210,6 +211,29 @@ ${
       ].join("\n")
     : "_preflight could not run — pack shipped without it (best-effort by design)_"
 }
+
+## Execution Return — required when this pack is dispatched to an external actor
+When you (the implementation actor) finish executing this pack, submit an Execution Return —
+evidence of what happened, not a narrative claim of completion. POST to
+\`/api/constitutional/execution-return\` with:
+\`\`\`json
+{
+  "packId": "${pack.id}",
+  "actor": "<your identifier, e.g. claude-code>",
+  "branch": "<branch name, if any>",
+  "commits": ["<sha>", "..."],
+  "pullRequest": { "number": 0, "url": "<PR url, if any>" },
+  "filesChanged": ["<path>", "..."],
+  "validationResults": [{ "name": "<check>", "status": "passed|failed|not-run", "detail": "<optional>" }],
+  "deviationsFromPack": ["<anything you did differently from this pack, if anything>"],
+  "failuresOrEscalations": ["<anything that failed or needed escalation, if anything>"],
+  "discoveries": ["<anything learned worth recording, if anything>"],
+  "consequenceObservations": ["<observed effects worth recording, if anything>"],
+  "completedAt": "<ISO timestamp>"
+}
+\`\`\`
+This is refused unless \`packId\` matches this pack. It does not itself authorize deployment —
+it is the evidence a human-gated Validation transition reads before the loop can proceed.
 
 ---
 *Artifact-before-implementation (CFS-015 Constitutional Capability Pipeline). The pack's generation was receipted (\`implementation_pack_generated\`, DVN-anchorable) with its invariant bindings recorded as \`invariants_used\`.*

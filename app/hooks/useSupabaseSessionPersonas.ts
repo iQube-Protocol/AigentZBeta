@@ -13,6 +13,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { getSupabaseBrowserClient } from "@/utils/supabaseBrowser";
+import { isAgentPersonaKind } from "@/utils/personaKind";
 import type { PersonaState } from "@/types/smartWallet";
 
 const AUTH_PROFILE_STORAGE_KEYS = ["authProfileId", "agentiq_auth_profile_id"] as const;
@@ -68,12 +69,6 @@ async function consolidateIdentity(accessToken: string): Promise<void> {
   }
 }
 
-function isAgentPersona(fioHandle?: string | null, displayName?: string): boolean {
-  const h = (fioHandle ?? "").toLowerCase();
-  const n = (displayName ?? "").toLowerCase();
-  return h.includes("aigent") || h.includes("@aigent") || n.includes("aigent") || n.includes("agent");
-}
-
 function mapToPersonaState(record: Record<string, unknown>): PersonaState {
   const fioHandle = typeof record.fioHandle === "string" ? record.fioHandle : undefined;
   const displayName = typeof record.displayName === "string" ? record.displayName : "Persona";
@@ -92,7 +87,7 @@ function mapToPersonaState(record: Record<string, unknown>): PersonaState {
       worldIdStatus === "verified_human" || worldIdStatus === "agent_declared"
         ? worldIdStatus
         : "unverified",
-    isAgent: isAgentPersona(fioHandle, displayName),
+    isAgent: isAgentPersonaKind(worldIdStatus),
     appOrigin: typeof record.appOrigin === "string" ? record.appOrigin : "",
     badges: Array.isArray(record.badges) ? (record.badges as string[]) : [],
     evmAddress: typeof record.evmAddress === "string" && /^0x[0-9a-fA-F]{40}$/.test(record.evmAddress)
