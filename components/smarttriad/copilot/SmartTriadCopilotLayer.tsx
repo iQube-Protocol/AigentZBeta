@@ -11,7 +11,8 @@ import { useMetaAvatar } from "@/app/contexts/MetaAvatarContext";
 import { useIsMobile } from "@/app/hooks/use-mobile";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { useSpeechSynthesis } from "@/hooks/useSpeechSynthesis";
-import { useTTSPlayer } from "@/app/hooks/useTTSPlayer";
+import { useTTSListen } from "./useTTSListen";
+import { TTSListenButton } from "./TTSListenButton";
 import { SmartTriadInferenceRenderer, type SmartTriadMessage } from "./SmartTriadInferenceRenderer";
 import { UploadAttachmentPicker } from "@/components/metame/uploads/UploadAttachmentPicker";
 import { AigentMeRoleSelector } from "./AigentMeRoleSelector";
@@ -26,8 +27,6 @@ import {
   MicOff,
   PanelRightClose,
   Paperclip,
-  Volume2,
-  VolumeX,
   RotateCcw,
 } from "lucide-react";
 
@@ -1013,9 +1012,11 @@ function FloatingCopilot({
   });
   const micActive = stt.isListening;
 
-  // TTS — wired to the Listen icon next to the trust/reliability
-  // dots. Reads the latest assistant message aloud; cancels if the
-  // operator clicks again while speaking.
+  // TTS — wired to the Listen icon next to the trust/reliability dots.
+  // Reads the latest assistant message aloud; cancels if the operator
+  // clicks again while speaking. Shared with CodexCopilotLayer (the real
+  // floating copilot) via useTTSListen/TTSListenButton (WPA-3, 2026-08-17)
+  // — same hook, same icon, same behaviour, never a second TTS subsystem.
   //
   // useTTSPlayer hits /api/skills/tts which serves Cartesia Sonic
   // English (Marketa voice) as the primary, OpenAI tts-1 as the
@@ -1025,27 +1026,9 @@ function FloatingCopilot({
   // browserTts.isSupported below. The previous Volume2 icon wiring
   // talked to browser-native TTS directly, so the operator never
   // heard the Cartesia voice on this surface.
-  const lastAssistantMessage = useMemo(() => {
-    for (let i = messages.length - 1; i >= 0; i--) {
-      if (messages[i].role === 'assistant' && typeof messages[i].content === 'string') {
-        return messages[i].content as string;
-      }
-    }
-    return '';
-  }, [messages]);
-  const lastAssistantMessageRef = useRef(lastAssistantMessage);
-  useEffect(() => { lastAssistantMessageRef.current = lastAssistantMessage; }, [lastAssistantMessage]);
-  const tts = useTTSPlayer({
-    getText: () => lastAssistantMessageRef.current,
-    voice: 'nova',
-  });
   const browserTts = useSpeechSynthesis();
-  const handleListenToggle = useCallback(() => {
-    if (!lastAssistantMessage) return;
-    void tts.handleListen();
-  }, [tts, lastAssistantMessage]);
-  const ttsIsSpeaking = tts.ttsState === 'playing';
-  const ttsIsLoading = tts.ttsState === 'loading';
+  const { isSpeaking: ttsIsSpeaking, isLoading: ttsIsLoading, hasContent: ttsHasContent, handleListenToggle } =
+    useTTSListen(messages);
 
   const visibleQuickPrompts = showQuickPrompts && quickPrompts.length > 0;
 
@@ -1121,27 +1104,12 @@ function FloatingCopilot({
                   left of the R/T dots so the trust/reliability glance
                   stays uncluttered. */}
               {(browserTts.isSupported || true) && (
-                <button
-                  type="button"
-                  onClick={handleListenToggle}
-                  disabled={!lastAssistantMessage || ttsIsLoading}
-                  title={
-                    !lastAssistantMessage
-                      ? 'No reply to read yet'
-                      : ttsIsLoading
-                        ? 'Fetching Cartesia voice…'
-                        : ttsIsSpeaking
-                          ? 'Stop reading'
-                          : 'Read the latest reply aloud (Cartesia voice)'
-                  }
-                  className={`p-1 rounded-md transition-colors ${
-                    ttsIsSpeaking
-                      ? 'text-cyan-300 bg-cyan-500/15'
-                      : 'text-white/50 hover:text-cyan-300 hover:bg-white/5'
-                  } disabled:opacity-30 disabled:cursor-not-allowed`}
-                >
-                  {ttsIsSpeaking ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
-                </button>
+                <TTSListenButton
+                  isSpeaking={ttsIsSpeaking}
+                  isLoading={ttsIsLoading}
+                  hasContent={ttsHasContent}
+                  onToggle={handleListenToggle}
+                />
               )}
               <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-white/70">
                 <span className="text-[10px] text-white/60">R</span>
