@@ -4249,3 +4249,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-ca6f576.md](../build_/COMMITS/COMMIT-ca6f576.md)
 - Message: Gate F: wire deliberation intent detection into chat route
+
+## Commit `0fc6dca` — 2026-08-17T18:25:13Z
+- Type: `push`
+- Brief: [COMMIT-0fc6dca.md](../build_/COMMITS/COMMIT-0fc6dca.md)
+- Message: trigger deploy to dev

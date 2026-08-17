@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-17T18:23:46.342Z",
+  "last_updated": "2026-08-17T18:27:02.774Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "ca6f57699866910fed74bc2e115a7fc12e4782d8",
-  "latest_commit_short": "ca6f576",
-  "latest_commit_title": "Gate F: wire deliberation intent detection into chat route",
+  "latest_commit": "0fc6dcaa11c5da994df264c018a899fad322e8a5",
+  "latest_commit_short": "0fc6dca",
+  "latest_commit_title": "trigger deploy to dev",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "0fc6dca",
+      "full_sha": "0fc6dcaa11c5da994df264c018a899fad322e8a5",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-08-17T18:25:13Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-0fc6dca.md"
+    },
     {
       "sha": "ca6f576",
       "full_sha": "ca6f57699866910fed74bc2e115a7fc12e4782d8",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-09T08:06:03Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-21c278e.md"
-    },
-    {
-      "sha": "d5c8474",
-      "full_sha": "d5c84747d50ca207fcabd5fe70b651a1a86218dd",
-      "title": "Add Verifiable-PnL onboarding boundary, verified against Horizen's live contract",
-      "author": "Claude",
-      "timestamp": "2026-08-09T07:48:39Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-d5c8474.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

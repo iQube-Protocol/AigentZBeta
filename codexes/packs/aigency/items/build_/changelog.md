@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`0fc6dca`](https://github.com/iQube-Protocol/AigentZBeta/commit/0fc6dcaa11c5da994df264c018a899fad322e8a5) [push] trigger deploy to dev (Claude, 2026-08-17T18:25:13Z)
 - [`ca6f576`](https://github.com/iQube-Protocol/AigentZBeta/commit/ca6f57699866910fed74bc2e115a7fc12e4782d8) [feat] Gate F: wire deliberation intent detection into chat route (Claude, 2026-08-17T18:21:51Z)
 - [`f27d179`](https://github.com/iQube-Protocol/AigentZBeta/commit/f27d17988fdeabf3672781c0e61295f454261dd9) [feat] gate-e: add reintroduction-specific evidence gathering and narrative gap analysis (Claude, 2026-08-17T18:14:31Z)
 - [`04d4df7`](https://github.com/iQube-Protocol/AigentZBeta/commit/04d4df7da20c7e4e71fdc7fba92f67a0bb975353) [feat] gate-d: add evidence assembly service for venture reports (Claude, 2026-08-17T18:07:02Z)
