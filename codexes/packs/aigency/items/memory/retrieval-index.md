@@ -4239,3 +4239,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-04d4df7.md](../build_/COMMITS/COMMIT-04d4df7.md)
 - Message: gate-d: add evidence assembly service for venture reports
+
+## Commit `f27d179` — 2026-08-17T18:14:31Z
+- Type: `feat`
+- Brief: [COMMIT-f27d179.md](../build_/COMMITS/COMMIT-f27d179.md)
+- Message: gate-e: add reintroduction-specific evidence gathering and narrative gap analysis

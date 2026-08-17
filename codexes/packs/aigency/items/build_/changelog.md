@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`f27d179`](https://github.com/iQube-Protocol/AigentZBeta/commit/f27d17988fdeabf3672781c0e61295f454261dd9) [feat] gate-e: add reintroduction-specific evidence gathering and narrative gap analysis (Claude, 2026-08-17T18:14:31Z)
 - [`04d4df7`](https://github.com/iQube-Protocol/AigentZBeta/commit/04d4df7da20c7e4e71fdc7fba92f67a0bb975353) [feat] gate-d: add evidence assembly service for venture reports (Claude, 2026-08-17T18:07:02Z)
 - [`de5aee7`](https://github.com/iQube-Protocol/AigentZBeta/commit/de5aee773d3b205514824f508b0c4f1e39a8baf5) [feat] gate-c: add VentureReportBriefLayout + VentureReintroductionBriefLayout + deliberation routing (Claude, 2026-08-17T18:02:31Z)
 - [`480cfb9`](https://github.com/iQube-Protocol/AigentZBeta/commit/480cfb99d223aa459d8991def7129d5afc81fee7) [chore] chore: load prospective evolution rule into Claude sessions (Kn0w1, 2026-08-16T18:17:24-04:00)
