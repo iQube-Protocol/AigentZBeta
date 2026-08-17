@@ -4234,3 +4234,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-de5aee7.md](../build_/COMMITS/COMMIT-de5aee7.md)
 - Message: gate-c: add VentureReportBriefLayout + VentureReintroductionBriefLayout + deliberation routing
+
+## Commit `04d4df7` — 2026-08-17T18:07:02Z
+- Type: `feat`
+- Brief: [COMMIT-04d4df7.md](../build_/COMMITS/COMMIT-04d4df7.md)
+- Message: gate-d: add evidence assembly service for venture reports

@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-17T18:04:30.295Z",
+  "last_updated": "2026-08-17T18:08:57.318Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "de5aee773d3b205514824f508b0c4f1e39a8baf5",
-  "latest_commit_short": "de5aee7",
-  "latest_commit_title": "gate-c: add VentureReportBriefLayout + VentureReintroductionBriefLayout + deliberation routing",
+  "latest_commit": "04d4df7da20c7e4e71fdc7fba92f67a0bb975353",
+  "latest_commit_short": "04d4df7",
+  "latest_commit_title": "gate-d: add evidence assembly service for venture reports",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "04d4df7",
+      "full_sha": "04d4df7da20c7e4e71fdc7fba92f67a0bb975353",
+      "title": "gate-d: add evidence assembly service for venture reports",
+      "author": "Claude",
+      "timestamp": "2026-08-17T18:07:02Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-04d4df7.md"
+    },
     {
       "sha": "de5aee7",
       "full_sha": "de5aee773d3b205514824f508b0c4f1e39a8baf5",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-09T07:32:48Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-3694f4b.md"
-    },
-    {
-      "sha": "52d1e56",
-      "full_sha": "52d1e56fe85f5ed718103d37efff857f16767769",
-      "title": "Fix tokenId fallback when Horizen reread succeeds without one",
-      "author": "Claude",
-      "timestamp": "2026-08-09T06:24:43Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-52d1e56.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
