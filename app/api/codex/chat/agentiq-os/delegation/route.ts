@@ -31,6 +31,7 @@ import {
   readDelegateStanding,
   delegateStandingAllowsBand,
 } from '@/services/homecoming/delegateStanding';
+import { FOUNDER_COMMAND_CENTER_ACTIONS } from '@/services/delegation/delegatedActionVocabulary';
 
 // ============================================================================
 // Types
@@ -56,12 +57,21 @@ type TrustBand =
   | 'L4_PRODUCTION_APPROVED'
   | 'L5_CORE_SOVEREIGN';
 
+// Founder Command Center actions (Homecoming Closeout WP-C1, operator brief
+// 2026-08-17) are additive across every band: the connectors backing them
+// already carry their own requiresApproval gate (services/google/connectors.ts,
+// services/marketa/marketaConnector.ts) — that per-connector approval gate is
+// the safety boundary for externalizing actions, not the AgentiQ OS registry
+// trust-band tier, which governs a different axis (registry submission/
+// publish authority). Available at every band so a conservative/experimental
+// grant (L1) already covers them, per the closeout's "operationally useful
+// tomorrow" target.
 const TRUST_BAND_ACTIONS: Record<TrustBand, string[]> = {
-  L1_EXPERIMENTAL: ['knowledge_retrieval'],
-  L2_VERIFIED_COMMUNITY: ['knowledge_retrieval', 'draft_document'],
-  L3_PRODUCTION_CANDIDATE: ['knowledge_retrieval', 'draft_document', 'registry_submission_proposal'],
-  L4_PRODUCTION_APPROVED: ['knowledge_retrieval', 'draft_document', 'registry_submission_proposal', 'registry_publish'],
-  L5_CORE_SOVEREIGN: ['knowledge_retrieval', 'draft_document', 'registry_submission_proposal', 'registry_publish', 'full_delegation'],
+  L1_EXPERIMENTAL: ['knowledge_retrieval', ...FOUNDER_COMMAND_CENTER_ACTIONS],
+  L2_VERIFIED_COMMUNITY: ['knowledge_retrieval', 'draft_document', ...FOUNDER_COMMAND_CENTER_ACTIONS],
+  L3_PRODUCTION_CANDIDATE: ['knowledge_retrieval', 'draft_document', 'registry_submission_proposal', ...FOUNDER_COMMAND_CENTER_ACTIONS],
+  L4_PRODUCTION_APPROVED: ['knowledge_retrieval', 'draft_document', 'registry_submission_proposal', 'registry_publish', ...FOUNDER_COMMAND_CENTER_ACTIONS],
+  L5_CORE_SOVEREIGN: ['knowledge_retrieval', 'draft_document', 'registry_submission_proposal', 'registry_publish', 'full_delegation', ...FOUNDER_COMMAND_CENTER_ACTIONS],
 };
 
 // Minimum reputation score required to grant each trust band.

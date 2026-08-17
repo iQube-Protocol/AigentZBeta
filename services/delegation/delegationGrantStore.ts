@@ -466,6 +466,37 @@ export async function recordBindingOwnershipCheck(b: AgentIdentityBinding): Prom
   }
 }
 
+/**
+ * Increment a grant's actions_taken counter by 1 (Homecoming Closeout WP-C2,
+ * operator brief 2026-08-17) — called by the delegation authority gate ONLY
+ * after a delegated connector execution is actually permitted and attempted,
+ * never speculatively. Best-effort: a failed increment does not undo the
+ * action that already happened; it is reported via console only, matching
+ * this store's existing soft-fail discipline.
+ */
+export async function incrementActionsTaken(grantId: string): Promise<void> {
+  const admin = getSupabaseServer();
+  if (!admin) return;
+  try {
+    const { data, error: readError } = await admin
+      .from('delegation_grants')
+      .select('actions_taken')
+      .eq('grant_id', grantId)
+      .maybeSingle();
+    if (readError || !data) {
+      softFail('increment actions_taken', readError?.message ?? 'grant not found');
+      return;
+    }
+    const { error } = await admin
+      .from('delegation_grants')
+      .update({ actions_taken: Number(data.actions_taken ?? 0) + 1, updated_at: new Date().toISOString() })
+      .eq('grant_id', grantId);
+    if (error) softFail('increment actions_taken', error.message);
+  } catch (e) {
+    softFail('increment actions_taken', e instanceof Error ? e.message : String(e));
+  }
+}
+
 /** Flip a single grant to expired (called when a read finds it past TTL). */
 export async function markGrantExpired(grantId: string): Promise<void> {
   const admin = getSupabaseServer();

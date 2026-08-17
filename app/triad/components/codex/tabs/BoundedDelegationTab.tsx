@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { useSupabaseSessionPersonas } from "@/app/hooks/useSupabaseSessionPersonas";
 import { personaFetch } from "@/utils/personaSpine";
+import { FOUNDER_COMMAND_CENTER_ACTIONS } from "@/services/delegation/delegatedActionVocabulary";
 
 interface DelegateAgent {
   agentRootId: string;
@@ -71,11 +72,16 @@ interface BoundedDelegationTabProps {
   personaId?: string;
 }
 
+// Founder Command Center actions (Homecoming Closeout WP-C1/WP-C4, operator
+// brief 2026-08-17) — additive across every band, mirroring the server-side
+// grant-issuance route's TRUST_BAND_ACTIONS exactly (app/api/codex/chat/
+// agentiq-os/delegation/route.ts). Imported from the SAME shared vocabulary
+// module the server uses, so the two never drift on the new actions.
 const TRUST_BAND_ACTIONS: Record<string, string[]> = {
-  L1_EXPERIMENTAL: ["knowledge_retrieval"],
-  L2_VERIFIED_COMMUNITY: ["knowledge_retrieval", "draft_document"],
-  L3_PRODUCTION_CANDIDATE: ["knowledge_retrieval", "draft_document", "registry_submission_proposal"],
-  L4_PRODUCTION_APPROVED: ["knowledge_retrieval", "draft_document", "registry_submission_proposal", "registry_publish"],
+  L1_EXPERIMENTAL: ["knowledge_retrieval", ...FOUNDER_COMMAND_CENTER_ACTIONS],
+  L2_VERIFIED_COMMUNITY: ["knowledge_retrieval", "draft_document", ...FOUNDER_COMMAND_CENTER_ACTIONS],
+  L3_PRODUCTION_CANDIDATE: ["knowledge_retrieval", "draft_document", "registry_submission_proposal", ...FOUNDER_COMMAND_CENTER_ACTIONS],
+  L4_PRODUCTION_APPROVED: ["knowledge_retrieval", "draft_document", "registry_submission_proposal", "registry_publish", ...FOUNDER_COMMAND_CENTER_ACTIONS],
 };
 
 const TRUST_BANDS = ["L1_EXPERIMENTAL", "L2_VERIFIED_COMMUNITY", "L3_PRODUCTION_CANDIDATE", "L4_PRODUCTION_APPROVED"];
@@ -91,7 +97,29 @@ const SURFACE_OPTIONS = [
   { id: "knyt-codex", label: "KNYT Codex" },
   { id: "qripto-codex", label: "Qriptopian Codex" },
   { id: "agentiq-codex", label: "AgentiQ Codex" },
+  // 'metame' is the surface value connector executions actually run under
+  // (the cartridge param /api/connectors/execute defaults to when the
+  // aigentMe copilot calls it) — required for a Founder Command Center
+  // grant to pass the WP-C2 surface check.
+  { id: "metame", label: "metaMe (Founder Command Center)" },
 ];
+
+// A conservative, ready-to-grant preset for the Founder Command Center's
+// low-risk operational actions (Homecoming Closeout WP-C4). Generic — applies
+// to whichever Agent is currently selected as the delegate in this form, not
+// hardcoded to any one Agent's identity.
+const FOUNDER_COMMAND_CENTER_PRESET = {
+  trustBand: "L1_EXPERIMENTAL",
+  ttlHours: 8,
+  actions: [...FOUNDER_COMMAND_CENTER_ACTIONS],
+  surfaces: ["metame"],
+  disclosureClass: "tenant",
+  maxActions: 20,
+  spendAutonomy: "low" as const,
+  showReceipts: true,
+  curatedSkillsOnly: true,
+  explainBeforeActing: true,
+};
 
 const DISCLOSURE_CLASS_OPTIONS = [
   { value: "public", label: "Public", desc: "No restrictions on response content" },
@@ -1082,6 +1110,34 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
             </span>
             <code className="text-[10px] text-slate-500 ml-auto">{truncateDid(selectedAgent.didUri)}</code>
           </div>
+
+          {/* Founder Command Center preset (Homecoming Closeout WP-C4,
+              operator brief 2026-08-17) — a conservative, ready-to-grant
+              posture for the low-risk operational connectors (draft/send
+              email, calendar, docs/sheets/slides, Marketa). Applies to
+              whichever Agent is currently selected above; not specific to
+              any one Agent's identity. */}
+          <button
+            type="button"
+            onClick={() => {
+              const p = FOUNDER_COMMAND_CENTER_PRESET;
+              setSelectedTrustBand(p.trustBand);
+              setSelectedTtl(p.ttlHours);
+              setSelectedActions([...p.actions]);
+              setSelectedSurfaces([...p.surfaces]);
+              setSelectedDisclosureClass(p.disclosureClass);
+              setSelectedMaxActions(p.maxActions);
+              setSpendAutonomy(p.spendAutonomy);
+              setShowReceipts(p.showReceipts);
+              setCuratedSkillsOnly(p.curatedSkillsOnly);
+              setExplainBeforeActing(p.explainBeforeActing);
+            }}
+            className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-200 hover:bg-emerald-500/20 transition-colors"
+            title="Conservative preset: draft/send email, calendar, docs/sheets/slides, Marketa — 8h, L1, receipts on, curated skills only"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            Apply Founder Command Center preset
+          </button>
 
           <div className="space-y-1.5">
             <label className="text-xs text-slate-400">
