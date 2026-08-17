@@ -721,9 +721,21 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin, ag
     [],
   );
 
-  // Gate F: handle deliberation intent suggestions from the chat route.
+  // Gate H: map artifactType to the correct deliberation layout ID
+  const getDeliberationLayoutId = useCallback((artifactType: string): RightPaneLayoutId => {
+    switch (artifactType) {
+      case 'venture-report':
+        return 'venture-report-brief';
+      case 'venture-reintroduction':
+        return 'venture-reintroduction-brief';
+      default:
+        return 'brief';
+    }
+  }, []);
+
+  // Gate H: handle deliberation intent suggestions from the chat route.
   // When the operator expresses intent to create a venture report or
-  // reintroduction, engage the brief layout and initialize deliberation.
+  // reintroduction, initialize deliberation and route to the artifact-type-specific layout.
   const handleSuggestedDeliberation = useCallback(
     (action: any) => {
       if (!action || !action.artifactType) {
@@ -733,16 +745,25 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin, ag
 
       // Initialize the deliberation brief with the artifact type and context
       const brief = initializeDeliberation(action.artifactType, action.brief?.nbeId || '');
+      setDeliberationBrief(brief);
+
+      // Determine the layout ID based on artifact type
+      const layoutId = getDeliberationLayoutId(action.artifactType);
+
       console.log('[AigentMeWelcomeSplitTab] Deliberation suggested:', {
         artifactType: action.artifactType,
         pattern: action.pattern,
         confidence: action.confidence,
+        layoutId,
       });
 
-      // Engage the brief capsule and mount its layout
-      engageCapsuleAndMount('brief');
+      // Route directly to the deliberation-specific layout (not through capsule)
+      // because deliberation is a modal surface within the brief context
+      setActiveLayoutId(layoutId);
+      // Still engage the brief capsule for consistent Capsule↔Layout contract
+      engageCapsule('brief');
     },
-    [engageCapsuleAndMount],
+    [engageCapsule, getDeliberationLayoutId],
   );
   // After the operator engages a Capsule (or opens a composer / drawer)
   // the matching chip's highlight clears so the strip returns to neutral
