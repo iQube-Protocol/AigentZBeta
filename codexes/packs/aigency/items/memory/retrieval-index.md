@@ -4244,3 +4244,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-f27d179.md](../build_/COMMITS/COMMIT-f27d179.md)
 - Message: gate-e: add reintroduction-specific evidence gathering and narrative gap analysis
+
+## Commit `ca6f576` — 2026-08-17T18:21:51Z
+- Type: `feat`
+- Brief: [COMMIT-ca6f576.md](../build_/COMMITS/COMMIT-ca6f576.md)
+- Message: Gate F: wire deliberation intent detection into chat route
