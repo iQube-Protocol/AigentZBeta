@@ -23,7 +23,7 @@ import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { sponsorPolityAgent } from '@/services/agents/sponsorPolityAgent';
 import { provisionAigentMePersona } from '@/services/agents/provisionAigentMePersona';
-import { listOwnedPersonaRows } from '@/services/identity/constitutionalContext';
+import { listOwnedPersonaRows, resolveConstitutionalContext } from '@/services/identity/constitutionalContext';
 import { resolveRequestOrigin } from '@/app/api/agents/_lib/requestOrigin';
 
 export const dynamic = 'force-dynamic';
@@ -57,17 +57,23 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, error: 'Supabase configuration missing' }, { status: 500 });
     }
 
-    // Person-scoped (CFS-024): the aigentMe belongs to the person, so look across
-    // every persona the caller owns — not only the active one.
-    const ownedRows = await listOwnedPersonaRows(persona.authProfileId);
-    const ownedPersonaIds = Array.from(new Set([persona.personaId, ...ownedRows.map((r) => r.id)]));
+    // currentAigentMe is resolved ONCE, authoritatively, by
+    // resolveConstitutionalContext() (Homecoming Phase II P1 Item 3, operator
+    // brief 2026-08-16) — this route no longer independently re-derives it
+    // from agent_root_identity.is_aigent_me. That legacy column remains the
+    // WRITE-side designation mechanism (see POST/PATCH below) — it is only
+    // the READ-side re-derivation that is retired here.
+    const ctx = await resolveConstitutionalContext(req);
+    if (!ctx.currentAigentMe) {
+      return NextResponse.json(
+        { ok: true, agent: null },
+        { headers: { 'Cache-Control': 'no-store' } },
+      );
+    }
     const { data, error } = await admin
       .from('agent_root_identity')
       .select(AGENT_SELECT)
-      .in('sponsor_persona_id', ownedPersonaIds)
-      .eq('is_aigent_me', true)
-      .order('created_at', { ascending: false })
-      .limit(1)
+      .eq('id', ctx.currentAigentMe)
       .maybeSingle();
 
     if (error) {
@@ -98,8 +104,11 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    // data was fetched BY ctx.currentAigentMe, so it is authoritatively the
+    // current aigentMe regardless of what its own is_aigent_me column reads
+    // (e.g. an assignment established via persona_agent_assignments alone).
     return NextResponse.json(
-      { ok: true, agent: data ? projectAgent(data) : null, walletPersona },
+      { ok: true, agent: data ? { ...projectAgent(data), isAigentMe: true } : null, walletPersona },
       { headers: { 'Cache-Control': 'no-store' } },
     );
   } catch (e) {
@@ -136,19 +145,23 @@ export async function POST(req: NextRequest) {
     const ownedPersonaIds = Array.from(new Set([persona.personaId, ...ownedRows.map((r) => r.id)]));
 
     // Idempotent — return the existing aigentMe if the PERSON already has one.
-    const { data: existing, error: existingErr } = await admin
-      .from('agent_root_identity')
-      .select(AGENT_SELECT)
-      .in('sponsor_persona_id', ownedPersonaIds)
-      .eq('is_aigent_me', true)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (existingErr && !existingErr.message.includes('is_aigent_me')) {
-      return NextResponse.json({ ok: false, error: existingErr.message }, { status: 500 });
-    }
-    if (existing) {
-      return NextResponse.json({ ok: true, agent: projectAgent(existing), created: false });
+    // Resolved via resolveConstitutionalContext()'s ctx.currentAigentMe, never
+    // a direct is_aigent_me re-derivation — an aigentMe established solely
+    // through a persisted assignment (no is_aigent_me column ever set) must
+    // still be found here, or this would create a second, conflicting one.
+    const ctx = await resolveConstitutionalContext(req);
+    if (ctx.currentAigentMe) {
+      const { data: existing, error: existingErr } = await admin
+        .from('agent_root_identity')
+        .select(AGENT_SELECT)
+        .eq('id', ctx.currentAigentMe)
+        .maybeSingle();
+      if (existingErr) {
+        return NextResponse.json({ ok: false, error: existingErr.message }, { status: 500 });
+      }
+      if (existing) {
+        return NextResponse.json({ ok: true, agent: { ...projectAgent(existing), isAigentMe: true }, created: false });
+      }
     }
 
     // Resolve the caller's Citizen Passport across ALL their personas — the
@@ -262,6 +275,8 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ ok: false, error: 'agentRootId is required' }, { status: 400 });
     }
 
+    const ctx = await resolveConstitutionalContext(req);
+
     // Caller must already sponsor the target agent.
     const { data: target, error: targetErr } = await admin
       .from('agent_root_identity')
@@ -290,18 +305,14 @@ export async function PATCH(req: NextRequest) {
         { status: 403 },
       );
     }
-    if (target.is_aigent_me) {
-      return NextResponse.json({ ok: true, agent: projectAgent(target), promoted: false });
+    if (ctx.currentAigentMe === agentRootId) {
+      return NextResponse.json({ ok: true, agent: { ...projectAgent(target), isAigentMe: true }, promoted: false });
     }
 
     // One aigentMe per persona — block if another is already designated.
-    const { data: existing } = await admin
-      .from('agent_root_identity')
-      .select('id')
-      .eq('sponsor_persona_id', persona.personaId)
-      .eq('is_aigent_me', true)
-      .maybeSingle();
-    if (existing?.id) {
+    // Resolved via ctx.currentAigentMe, never a direct is_aigent_me
+    // re-derivation (Homecoming Phase II P1 Item 3).
+    if (ctx.currentAigentMe) {
       return NextResponse.json(
         {
           ok: false,

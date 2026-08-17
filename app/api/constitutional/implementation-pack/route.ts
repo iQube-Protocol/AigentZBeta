@@ -103,6 +103,12 @@ export async function POST(request: NextRequest) {
           `canon ${pack.canonVersion}`,
         activeCartridge: 'agentiq',
         invariantsUsed: pack.invariantBindings.map((b) => b.id),
+        // Homecoming Phase II WP-B: the ONLY structured, directly-queryable
+        // field this receipt carries — makes "does packId X correspond to a
+        // real generated pack" answerable by querying action_input->>'pack_id'
+        // (mirrors executionTelemetry.ts's recordExecutionTelemetry() shape),
+        // rather than parsing it back out of the free-text summary.
+        actionInput: { pack_id: pack.id },
       });
       receiptId = receipt?.id ?? null;
     } catch (err) {

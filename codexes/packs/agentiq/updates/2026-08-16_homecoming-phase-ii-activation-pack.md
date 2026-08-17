@@ -461,6 +461,104 @@ This work may define the missing governed **implementation-complete → Validati
 
 ---
 
+# WP-B — IMPLEMENTED (2026-08-16, same day, operator-directed)
+
+Implemented exactly per the audited plan in the handover doc's §3-4, with no re-audit. **Local
+commits only — not pushed**, per standing instruction.
+
+**Outbound handoff — no new button, the existing "Copy pack" affordance extended.** The audit
+(handover §3) found the existing `copyPack()` (`ImplementationLayout.tsx`) already satisfies
+"the smallest UX affordance" once `packMarkdown()`'s content is extended — so a duplicate "Copy
+for Claude Code" button was NOT added (would have been a parallel implementation of the same
+capability, `inv.engineering.037`). `packMarkdown()` (`components/composer/CapabilityPipelineTab.tsx`)
+now prints `**Pack ID:** \`${pack.id}\`` near the top and closes with an "Execution Return —
+required when this pack is dispatched to an external actor" section giving the exact JSON contract
+and the route to POST it to.
+
+**Execution Return contract — `services/constitutional/executionReturn.ts` (new).** The
+`ExecutionReturn` interface matches the spec's illustrative shape field-for-field (not imported
+from/coupled to `ExecutionTelemetry`, per the spec's explicit "do not fork schemas... do not reuse
+its narrow numeric type" instruction — this is the qualitative, human-reviewed counterpart to that
+module's numeric CI-telemetry ledger). `verifyPackExists(packId)` and
+`findAcceptedExecutionReturn(packId)` are both **three-valued** (`true/false/null` and
+`string/null/undefined` respectively) — the fail-closed discipline already established by
+`getActivityReceiptActionInput`: "could not check" is NEVER treated as "exists"/"no prior return".
+`recordExecutionReturn()` writes via the existing `createActivityReceipt()` framework — no second
+persistence mechanism.
+
+**New receipt type — `implementation_execution_returned`.** Added to `ActivityActionType`
+(`services/receipts/activityReceiptService.ts`) next to the existing
+`implementation_execution_observed` (the automated-CI-telemetry counterpart), with a full
+CHECK-constraint rebuild migration (`supabase/migrations/20260930003300_implementation_execution_
+returned_receipt_type.sql`) — `tests/activity-receipts-action-type-parity.test.ts` passes,
+confirming TS/SQL parity.
+
+**Pack-existence, structured field — `app/api/constitutional/implementation-pack/route.ts`.** The
+existing `implementation_pack_generated` receipt call now ALSO carries
+`actionInput: { pack_id: pack.id }` — a single additive line; every other field on that call
+(`personaId`, `summary`, `activeCartridge`, `invariantsUsed`) is untouched (canary-pinned in
+`tests/homecoming-phase-ii-wpb-execution-return.test.ts`). This is what makes `verifyPackExists`
+answerable by a real query instead of parsing the free-text summary.
+
+**Ingestion route — `app/api/constitutional/execution-return/route.ts` (new).** Admin-gated (same
+spine pattern as the sibling implementation-pack route). Refuses (400, `pack-not-found`) unless
+`verifyPackExists` returns exactly `true` — `false` AND `null` are refused identically (fail
+closed on any doubt, never optimistic acceptance). Duplicate/replayed submissions are handled
+deterministically: `findAcceptedExecutionReturn` locates any existing accepted return for the same
+`packId` and the route returns that SAME receipt id (`replayed: true`) without writing a second
+receipt; a duplicate-check failure (`undefined`) also refuses (503) rather than risk a second,
+divergent record. Malformed/incomplete bodies are rejected by the pure, separately-tested
+`parseExecutionReturn()` before any pack check or recording is attempted. Never calls or references
+`repository_dispatch`, the dispatch route, the merge route, or writes `deployment_authorized` —
+evidence only, never a new authority mechanism (confirmed by grep-based canaries against actual
+write calls, not doc-comment prose).
+
+**UI affordance — `ImplementationLayout.tsx`.** A "Paste Execution Return" textarea + "Submit
+Execution Return" button, visually adjacent to the existing "Drive implementation — dispatch to
+Claude" block (spec: "smallest existing-surface route/UI... both are wanted, not either/or"). On
+acceptance, `onExecutionReturnAccepted` fires up to `DevCommandCenterTab.tsx`, which writes
+`session.acceptedExecutionReturn = { packId, receiptId, recordedAt }` — the ONE new, additive,
+optional field on `DevLoopState` (`types/devCommandCenter.ts`) this pass introduces.
+
+**Visible to Validate — `ValidationLayout.tsx`.** A read-only "Execution Return accepted" card
+renders `session.acceptedExecutionReturn` when present (packId, receipt id, recorded timestamp),
+satisfying the spec's own "files/validations/deviations are visible to Validate" acceptance
+canary. States explicitly that it is evidence only — never a validation verdict or a deployment
+authorization.
+
+**The gated stage transition — `services/devCommandCenter/devLoop.ts` (the cybernetic-return
+invariant).** `canEnterValidation(state)` is layered ON TOP OF `canAdvance` (never a rewrite of
+it): for a session with NO generated pack (a manually-authored brief, never dispatched), it
+returns exactly what `canAdvance` already returned — the prior brief-only behavior is completely
+preserved. For a session WITH a generated pack, leaving Implementation additionally requires
+`state.acceptedExecutionReturn?.packId === pack.id` — the Implementation Pack sends bounded intent
+OUTWARD; Execution Return brings evidence back IN; state transition is a CONSEQUENCE of admissible
+evidence, never an unconditional API call. Wired into the single existing choke point every stage
+transition already passes through (`advanceStage()`, one additive early-return line) — not a
+parallel gate a caller could bypass, and not a restructuring of `STAGE_ORDER`/`nextStage`'s fork
+logic. `ImplementationLayout.tsx`'s own Advance-button gate now reads `canEnterValidation(session)`
+instead of `canAdvance(session)`; every other capsule's Advance button is unaffected (`canAdvance`
+itself is byte-for-byte unchanged).
+
+**Tests — `tests/homecoming-phase-ii-wpb-execution-return.test.ts`, 29 tests, all passing**,
+covering every canary the operator's follow-up instruction named explicitly: a valid pack-linked
+return is accepted; an unknown packId AND a could-not-verify packId both fail closed identically;
+malformed/incomplete evidence is refused before any pack check (never reaches a stage-eligible
+state); valid accepted evidence makes `canEnterValidation`/`advanceStage` succeed, and its absence
+(or a mismatched packId) keeps them blocked; a duplicate/replayed return is deterministic (same
+receipt id, no second write); pre-existing implementation-pack generation is provably unchanged
+(every original receipt field intact, `actionInput` the only addition); the actor identity is
+preserved verbatim and never rewritten to "DevOn"; no `deployment_authorized` write exists in
+either the service or the route; and the existing autonomous "Dispatch to Claude" path is
+unmodified. One canary was mutation-tested live (the `exists !== true` fail-closed check reverted
+to `exists === false`, confirmed to flood a null-check case with a false-accept, then restored).
+
+**Regression, reconfirmed against the SAME baseline named in the handover doc:** `npx vitest run` →
+**17 failed test files / 40 failed tests** (6856+ passing) — unchanged. `npx tsc --noEmit` →
+**675 errors** — unchanged. Zero new failures, zero new errors, from any change in this pass.
+
+---
+
 # Execution order
 
 1. Gate 0 bridge hotfixes.

@@ -160,11 +160,24 @@ describe('WP-A Increment 2 — chat route: role gating unchanged, identity resol
     expect(src).not.toContain('buildSystemPrompt(metadata, aigentId,');
   });
 
-  it('every existing resolvedAgentId/resolvedPersonaId === "aigent-me" role gate is untouched (feature gating stays keyed on the ROLE, not the resolved voice)', () => {
+  it('every existing aigent-me role gate stays keyed on the ROLE, not the resolved voice', () => {
     // These are the exact gates the WP-A Amendment's audit named as
     // default-aigentMe PRODUCT features that must keep firing regardless of
     // which agent speaks — confirms Increment 2 did not collapse them.
-    expect(src).toContain("resolvedPersonaId === 'aigent-me' && userContext?.metameContext");
+    //
+    // Homecoming Phase II P0 Item 1 (operator brief 2026-08-16) went further:
+    // buildSystemPrompt's internal surface-context gates (metaMe context,
+    // groundContext, uploads, layout instructions) were keyed on
+    // `resolvedPersonaId` — the resolved SPEAKER — which is exactly the
+    // "voice" this test's own title says must never gate a role feature.
+    // When a non-default agent (e.g. Aletheon) is assigned to the aigentMe
+    // role, `resolvedPersonaId` carries the speaker, not the role, so the
+    // gate silently missed. The fix introduces `surfaceId` (defaulting to
+    // the speaker id for every other caller) as the ROLE-keyed binding these
+    // gates now use — this assertion is updated to the corrected gate, not
+    // reverted to the defect it replaces.
+    expect(src).toContain("surfaceId === 'aigent-me' && userContext?.metameContext");
+    expect(src).not.toContain("resolvedPersonaId === 'aigent-me' && userContext?.metameContext");
     expect(src).toMatch(/isAigentMe\s*=\s*resolvedAgentId === 'aigent-me'/);
   });
 });

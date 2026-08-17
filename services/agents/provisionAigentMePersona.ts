@@ -23,17 +23,27 @@
  *   personas.root_did = agent_root_identity.did_uri  AND  app_origin='aigent-me'
  * (no dependency on persona_agent_binding, whose base schema isn't in
  * migrations). It deliberately carries NO kybe_identity link — it is an agent.
+ *
+ * Homecoming Phase II P1 Item 4 (operator brief 2026-08-16): this is now a
+ * thin wrapper over the generic provisionAgentWalletPersona({agentRoot, role})
+ * (services/agents/provisionAgentWalletPersona.ts) — every bound/sponsored
+ * agent projects through that ONE function, tagged by its actual role, so a
+ * non-aigentMe delegate is never mistakenly tagged app_origin='aigent-me'.
+ * This wrapper preserves the exact prior behaviour (same app_origin/
+ * fio_domain/type values) for its existing call sites. NOT the same module
+ * as services/agents/provisionAgentPersona.ts — see that file's header for
+ * the distinct concern it covers (agent_persona DID-schema genesis).
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import {
+  provisionAgentWalletPersona,
+  type AgentRootForWalletPersona,
+} from '@/services/agents/provisionAgentWalletPersona';
 
 export const AIGENT_ME_APP_ORIGIN = 'aigent-me';
 
-export interface AgentRootForPersona {
-  did_uri: string;
-  display_name: string;
-  agent_card_slug: string | null;
-}
+export type AgentRootForPersona = AgentRootForWalletPersona;
 
 export interface AigentMePersonaResult {
   personaId: string;
@@ -52,75 +62,5 @@ export async function provisionAigentMePersona(input: {
   agentRoot: AgentRootForPersona;
   tenantId?: string;
 }): Promise<AigentMePersonaResult | null> {
-  const { admin, callerAuthProfileId, agentRoot } = input;
-  const tenantId = input.tenantId ?? 'default';
-
-  // Without an auth profile the persona can't be owned by (and surfaced to)
-  // the caller — skip rather than orphan a row.
-  if (!callerAuthProfileId) return null;
-  if (!agentRoot?.did_uri) return null;
-
-  try {
-    // Idempotency — one aigentMe persona per (auth profile, agent did).
-    const { data: existing } = await admin
-      .from('personas')
-      .select('id, display_name')
-      .eq('auth_profile_id', callerAuthProfileId)
-      .eq('app_origin', AIGENT_ME_APP_ORIGIN)
-      .eq('root_did', agentRoot.did_uri)
-      .maybeSingle();
-    if (existing?.id) {
-      return { personaId: String(existing.id), displayName: String(existing.display_name), created: false };
-    }
-
-    const slug = agentRoot.agent_card_slug || agentRoot.did_uri.split(':').pop() || 'aigentme';
-    const fioHandle = `${slug}@aigent.me`;
-    // Placeholder EVM key envelope (mirrors /api/persona/create). The aigentMe
-    // is an agent persona — no kybe identity is attached (Option A constraint).
-    const hex = Array.from(crypto.getRandomValues(new Uint8Array(20)))
-      .map((b) => b.toString(16).padStart(2, '0'))
-      .join('');
-    const address = '0x' + hex;
-
-    const { data: created, error } = await admin
-      .from('personas')
-      .insert({
-        type: 'AigentMe',
-        fio_handle: fioHandle,
-        fio_domain: 'aigent.me',
-        root_did: agentRoot.did_uri,
-        display_name: agentRoot.display_name || 'aigentMe',
-        evm_key: { address },
-        chain_addresses: {},
-        tenant_id: tenantId,
-        auth_profile_id: callerAuthProfileId,
-        app_origin: AIGENT_ME_APP_ORIGIN,
-        // default_identity_state intentionally 'anonymous' — an agent persona
-        // never presents as a verified human.
-        default_identity_state: 'anonymous',
-      })
-      .select('id, display_name')
-      .single();
-
-    if (error) {
-      // fio_handle collision (re-run for same slug) — fetch and return it.
-      if (error.message.includes('fio_handle') || error.message.includes('duplicate')) {
-        const { data: byHandle } = await admin
-          .from('personas')
-          .select('id, display_name')
-          .eq('fio_handle', fioHandle)
-          .maybeSingle();
-        if (byHandle?.id) {
-          return { personaId: String(byHandle.id), displayName: String(byHandle.display_name), created: false };
-        }
-      }
-      console.error('[provisionAigentMePersona] insert failed', error.message);
-      return null;
-    }
-
-    return { personaId: String(created.id), displayName: String(created.display_name), created: true };
-  } catch (e) {
-    console.error('[provisionAigentMePersona] threw', e instanceof Error ? e.message : e);
-    return null;
-  }
+  return provisionAgentWalletPersona({ ...input, role: 'aigentMe' });
 }

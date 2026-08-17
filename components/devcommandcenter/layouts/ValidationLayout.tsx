@@ -77,6 +77,24 @@ export function ValidationLayout({
         />
       )}
 
+      {/* WP-B — the Execution Return's evidence, made visible to Validate
+          (the spec's own acceptance canary: "files/validations/deviations
+          are visible to Validate"). Read-only projection of session state;
+          this card records nothing and authorizes nothing on its own. */}
+      {session.acceptedExecutionReturn && (
+        <div className="rounded-lg border border-violet-500/25 bg-violet-500/5 p-3 space-y-1">
+          <div className="text-xs font-semibold text-violet-300">Execution Return accepted</div>
+          <div className="text-[10px] text-slate-400">
+            Pack <code className="text-slate-300">{session.acceptedExecutionReturn.packId}</code> — evidence
+            receipt <code className="text-slate-300">{session.acceptedExecutionReturn.receiptId.slice(0, 8)}…</code> recorded{" "}
+            {new Date(session.acceptedExecutionReturn.recordedAt).toLocaleString()}.
+          </div>
+          <div className="text-[10px] text-slate-500">
+            Evidence of what executed — not itself a validation verdict or a deployment authorization.
+          </div>
+        </div>
+      )}
+
       {/* The reliable validation lane — always available once a canvas exists. */}
       {canvas && !pendingProposal && (
         <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/5 p-3 space-y-1.5">
