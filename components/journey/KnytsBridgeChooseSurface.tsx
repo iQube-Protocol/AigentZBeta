@@ -19,11 +19,11 @@
  *      knyts-bridge/choose/book-interest route (URL unchanged; only the
  *      route's behavior changed — see that file). An interest/notify
  *      signal, never a preorder or payment.
- *   1b. "Follow the Kickstarter" — always-available outbound CTA. Switches
- *      the left pane to the Kickstarter project (with an always-visible
- *      "open in new tab" fallback) and records `kickstarter_preview_clicked`
+ *   1b. "Follow the Kickstarter" — always-available outbound CTA. Opens the
+ *      Kickstarter project in a new tab and records `kickstarter_preview_clicked`
  *      in the background (observed evidence only — a click is NEVER
- *      promoted into a confirmed follow). See the Gate 0A fix note below.
+ *      promoted into a confirmed follow) — see the final closure pass note
+ *      below for why this is no longer a left-pane view.
  *   2. "Explore the KNYT Store" — switches the left pane to the canonical
  *      embedded Store (knyt-codex/store-episodes, focused depth 1 so the
  *      Store's own Episodes|KNYT Cards|Bundles|Investor KNYT strip stays
@@ -70,24 +70,41 @@
  * spins indefinitely: Kickstarter's own X-Frame-Options/CSP refuses to be
  * framed, and that refusal is silent — the iframe never fires `onError`, so
  * the loading UI (or, here, a blank frame) never resolves. Cross-origin
- * frame refusal cannot be reliably detected from client code, so the fix is
- * to never attempt the embed at all: "Follow the Kickstarter" now (1) fires
- * `kickstarter_preview_clicked` telemetry fire-and-forget, (2) opens the
+ * frame refusal cannot be reliably detected from client code, so the fix
+ * was to never attempt the embed at all: "Follow the Kickstarter" fires
+ * `kickstarter_preview_clicked` telemetry fire-and-forget and opens the
  * canonical Kickstarter URL directly in a new tab via `window.open()`
  * called SYNCHRONOUSLY inside the click handler (a direct user gesture,
- * never gated behind an `await`), and (3) switches the left pane to a
- * simple first-party KNYTS confirmation panel — never an iframe of
- * Kickstarter itself. The visible "Open Kickstarter in new tab" link stays
- * in that panel as the existing fallback, useful if the browser blocked the
- * automatic `window.open()`.
+ * never gated behind an `await`).
  *
- * The same pass also fixed the active-state discriminator: "Follow the
- * Kickstarter" previously rendered permanently in the amber
- * highlighted/"active" style regardless of `leftView`, so it visually
- * stayed "selected" even after Store/CI was chosen. It now derives its
- * highlight from the SAME single `leftView` state every other destination
- * card already uses (`active={leftView === 'kickstarter'}`) — there is no
- * separate `kickstarterActive`/`showKickstarterPreview` boolean.
+ * ── FINAL CLOSURE PASS (two-item closure, 2026-08-17) ──────────────────────
+ * That pass still made `'kickstarter'` a LEFT-PANE VIEW — clicking Follow
+ * replaced the bridge video with a first-party confirmation panel, which
+ * was itself the wrong UX (Kickstarter is an outbound ACTION, not a
+ * destination the visitor is "at"). Kickstarter is no longer part of
+ * `LeftView` at all. `kickstarterOpened` (a separate, single-purpose flag)
+ * only controls a small "Open Kickstarter in new tab" badge overlaid on
+ * the existing video frame — it is never a left-pane content
+ * discriminator, so it cannot make the CI/Store/video invariant below a
+ * three-way problem. Clicking Follow the Kickstarter now: (1) resets
+ * `leftView` to `'video'` (so the bridge video is what's showing,
+ * consistent with every other non-contextual action below), (2) opens the
+ * URL in a new tab synchronously, (3) fires the same background telemetry,
+ * and (4) flips `kickstarterOpened` so the badge appears. The card no
+ * longer carries its own `active`/highlighted styling — it is an outbound
+ * action alongside Ask Kn0w1/Share/CFS Pilot, not a fourth contextual
+ * destination competing with Store/CI for the single `leftView` slot.
+ *
+ * The same pass fixed a second, independent bug: the CI (and Store) chip
+ * stayed visually "active" after Ask Kn0w1 / Share / the CFS Pilot mailto
+ * were clicked, because none of those three non-contextual actions ever
+ * touched `leftView` — the CI/Store chips correctly derive their own
+ * `active` from `leftView`, but nothing cleared it back to `'video'` when
+ * the visitor's intent moved to a non-contextual action. Each of those
+ * three handlers now calls `setLeftView('video')` before performing its own
+ * effect (opening the copilot / share modal / mailto), so the SAME single
+ * `leftView` state stays the one and only source of truth for "which
+ * contextual destination is active" — never a second boolean.
  */
 
 import React, { useEffect, useState } from 'react';
@@ -106,7 +123,7 @@ import {
 const CONTACT_EMAIL = 'info@metame.com';
 const SECTION = 'choose';
 
-type LeftView = 'video' | 'store' | 'ci' | 'kickstarter';
+type LeftView = 'video' | 'store' | 'ci';
 
 interface KnytsBridgeChooseSurfaceProps {
   personaId?: string;
@@ -155,32 +172,29 @@ function DestinationCard({
 }
 
 /**
- * "Follow the Kickstarter" — always-available outbound CTA. Opens the
- * Kickstarter project in a new tab SYNCHRONOUSLY on click (a direct user
- * gesture — never behind an `await`, never embedded in an iframe; see the
- * bug-fix note above), switches the left pane to a first-party confirmation
- * panel, and records `kickstarter_preview_clicked` (observed evidence,
- * never promoted to a confirmed follow — spec §6) fully in the background.
- * Reward copy is truthful: nothing is earned merely by clicking. Active
- * styling derives from `active` (== `leftView === 'kickstarter'` at the
- * call site) — the SAME single discriminator every other destination card
- * uses, never a separate boolean.
+ * "Follow the Kickstarter" — always-available outbound CTA, an external
+ * ACTION rather than a contextual destination (final closure pass — see
+ * header note). Opens the Kickstarter project in a new tab SYNCHRONOUSLY
+ * on click (a direct user gesture — never behind an `await`, never
+ * embedded in an iframe) and records `kickstarter_preview_clicked`
+ * (observed evidence, never promoted to a confirmed follow — spec §6)
+ * fully in the background. Reward copy is truthful: nothing is earned
+ * merely by clicking. `onFollow` (parent-supplied) resets `leftView` to
+ * `'video'` and flips `kickstarterOpened` — this card carries no
+ * `active`/highlighted styling of its own; it never competes with
+ * Store/CI for the single `leftView` slot.
  */
 function KickstarterFollowCard({
-  active,
   kickstarterUrl,
   onFollow,
 }: {
-  active: boolean;
   kickstarterUrl: string;
   onFollow: () => void;
 }) {
   const handleFollow = () => {
     onFollow();
     // Direct user-gesture open — synchronous, so browsers do not treat it
-    // as an unrequested popup. Kept even though a visible fallback link
-    // also renders in the confirmation panel, since most visitors never
-    // need the fallback at all.
+    // as an unrequested popup.
     if (typeof window !== 'undefined') {
       window.open(kickstarterUrl, '_blank', 'noopener,noreferrer');
     }
@@ -198,11 +212,7 @@ function KickstarterFollowCard({
     <button
       type="button"
       onClick={handleFollow}
-      className={`flex flex-col gap-1 rounded-xl border px-4 py-3.5 text-left transition ${
-        active
-          ? 'border-amber-400/40 bg-amber-500/10'
-          : 'border-slate-800 bg-slate-900/40 hover:border-amber-400/30'
-      }`}
+      className="flex flex-col gap-1 rounded-xl border border-slate-800 bg-slate-900/40 px-4 py-3.5 text-left transition hover:border-amber-400/30"
     >
       <span className="flex items-center justify-between gap-3">
         <span className="flex items-center gap-2 text-sm font-semibold text-white">
@@ -220,11 +230,24 @@ function KickstarterFollowCard({
 
 /** A pure interest action with no contextual left view of its own — Reserve
  *  and the CFS Pilot are link-only, so a plain mailto anchor is correct
- *  (nothing to guard propagation against). */
-function MailtoCard({ icon, label, mailtoSubject }: { icon: React.ReactNode; label: string; mailtoSubject: string }) {
+ *  (nothing to guard propagation against). `onClick` is optional so this
+ *  stays reusable for any future non-contextual mailto that has no
+ *  `leftView` to clear. */
+function MailtoCard({
+  icon,
+  label,
+  mailtoSubject,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  mailtoSubject: string;
+  onClick?: () => void;
+}) {
   return (
     <a
       href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(mailtoSubject)}`}
+      onClick={onClick}
       className="flex items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-900/40 px-4 py-3.5 transition hover:border-amber-400/30"
     >
       <span className="flex items-center gap-2 text-sm font-semibold text-white">{icon} {label}</span>
@@ -235,6 +258,10 @@ function MailtoCard({ icon, label, mailtoSubject }: { icon: React.ReactNode; lab
 
 export function KnytsBridgeChooseSurface({ personaId, onOpenKnytCopilot }: KnytsBridgeChooseSurfaceProps) {
   const [leftView, setLeftView] = useState<LeftView>('video');
+  // Single-purpose flag — controls ONLY the "Open Kickstarter in new tab"
+  // badge overlaid on the video. Never a left-pane content discriminator
+  // (see header note); Kickstarter is an outbound action, not a destination.
+  const [kickstarterOpened, setKickstarterOpened] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const defaults = KNYTS_BRIDGE_SECTION_DEFAULTS[SECTION];
   const [config, setConfig] = useState<KnytsBridgeEditorialSection>(defaults);
@@ -271,53 +298,46 @@ export function KnytsBridgeChooseSurface({ personaId, onOpenKnytCopilot }: Knyts
     <div className="grid gap-4 lg:grid-cols-[3fr_2fr]">
       {/* LEFT — contextual visual, same interaction model as CI Choose. */}
       <FullscreenableFrame className="h-[55vh] max-h-[65vh] min-h-[18rem] w-full bg-slate-900/40" title="Choose">
-        {leftView === 'kickstarter' ? (
-          // First-party confirmation panel — Kickstarter is NEVER embedded
-          // in an iframe (its own X-Frame-Options/CSP silently refuses to
-          // be framed, which is what produced the indefinite spinner this
-          // pass fixes). The visitor already left in a new tab via the
-          // synchronous window.open() in KickstarterFollowCard's click
-          // handler; this panel just confirms that and offers the same
-          // link again for when the automatic open was blocked.
-          <div className="flex h-full flex-col items-center justify-center gap-4 px-6 py-8 text-center">
-            <Rocket className="h-16 w-16 text-amber-300" />
-            <div>
-              <h3 className="text-lg font-semibold text-white">Kickstarter opened in a new tab</h3>
-              <p className="mt-2 text-sm text-slate-300">
-                If it didn&apos;t open automatically, use the link below.
-              </p>
-            </div>
-            <a
-              href={kickstarterUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 rounded-lg border border-amber-400/40 bg-slate-950/80 px-3 py-1.5 text-xs font-medium text-amber-200 backdrop-blur hover:border-amber-400/70"
-            >
-              <ExternalLink className="h-3.5 w-3.5" />
-              Open Kickstarter in new tab
-            </a>
-          </div>
-        ) : leftView === 'store' ? (
+        {leftView === 'store' ? (
           <iframe src={storeUrl} title="Explore the KNYT Store" className="h-full w-full border-0" />
         ) : leftView === 'ci' ? (
           <iframe src="/bridge/ci" title="The Constitutional Internet Bridge" className="h-full w-full border-0" />
-        ) : config.videoUrl ? (
-          // eslint-disable-next-line jsx-a11y/media-has-caption
-          <video
-            className="h-full w-full object-cover"
-            controls
-            poster={config.posterUrl ?? undefined}
-            src={config.videoUrl}
-          />
         ) : (
-          <div className="flex flex-col items-center justify-center gap-4 px-6 py-8 text-center">
-            <Compass className="h-16 w-16 text-amber-300" />
-            <div>
-              <h3 className="text-lg font-semibold text-white">Where next?</h3>
-              <p className="mt-2 text-sm text-slate-300">
-                Your crossing is published. Choose how to continue in the Polity.
-              </p>
-            </div>
+          // 'video' — the bridge's default/steady state. Never replaced by
+          // an outbound action (Follow Kickstarter included — see header
+          // note); the only thing an outbound action may add here is the
+          // small overlay badge below, never a swap of this content.
+          <div className="relative h-full w-full">
+            {config.videoUrl ? (
+              // eslint-disable-next-line jsx-a11y/media-has-caption
+              <video
+                className="h-full w-full object-cover"
+                controls
+                poster={config.posterUrl ?? undefined}
+                src={config.videoUrl}
+              />
+            ) : (
+              <div className="flex h-full flex-col items-center justify-center gap-4 px-6 py-8 text-center">
+                <Compass className="h-16 w-16 text-amber-300" />
+                <div>
+                  <h3 className="text-lg font-semibold text-white">Where next?</h3>
+                  <p className="mt-2 text-sm text-slate-300">
+                    Your crossing is published. Choose how to continue in the Polity.
+                  </p>
+                </div>
+              </div>
+            )}
+            {kickstarterOpened && (
+              <a
+                href={kickstarterUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-lg border border-amber-400/40 bg-slate-950/80 px-3 py-1.5 text-xs font-medium text-amber-200 backdrop-blur hover:border-amber-400/70"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                Open Kickstarter in new tab
+              </a>
+            )}
           </div>
         )}
       </FullscreenableFrame>
@@ -334,9 +354,15 @@ export function KnytsBridgeChooseSurface({ personaId, onOpenKnytCopilot }: Knyts
         />
 
         <KickstarterFollowCard
-          active={leftView === 'kickstarter'}
           kickstarterUrl={kickstarterUrl}
-          onFollow={() => setLeftView('kickstarter')}
+          onFollow={() => {
+            // Follow is an outbound action, not a destination — it clears
+            // any contextual selection back to the bridge video (same as
+            // every other non-contextual action below) rather than
+            // introducing a fourth leftView state.
+            setLeftView('video');
+            setKickstarterOpened(true);
+          }}
         />
 
         <DestinationCard
@@ -357,14 +383,20 @@ export function KnytsBridgeChooseSurface({ personaId, onOpenKnytCopilot }: Knyts
           icon={<Handshake className="h-4 w-4 text-amber-300" />}
           label="Apply to join the Constitutional Financial Services Pilot"
           mailtoSubject="Constitutional Financial Services Pilot — interest"
+          onClick={() => setLeftView('video')}
         />
 
         {/* Ask Kn0w1 — opens the page-level KNYT CodexCopilotLayer (the ONE
             conversational partner for this bridge, MS-1); never mounts a
-            second copilot instance here. */}
+            second copilot instance here. Clears any sticky contextual
+            selection first, same single leftView source of truth every
+            other action here uses. */}
         <button
           type="button"
-          onClick={() => onOpenKnytCopilot?.()}
+          onClick={() => {
+            setLeftView('video');
+            onOpenKnytCopilot?.();
+          }}
           className="flex items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-900/40 px-4 py-3.5 text-left transition hover:border-amber-400/30"
         >
           <span className="flex items-center gap-2 text-sm font-semibold text-white">
@@ -376,7 +408,10 @@ export function KnytsBridgeChooseSurface({ personaId, onOpenKnytCopilot }: Knyts
 
         <button
           type="button"
-          onClick={() => setShareOpen(true)}
+          onClick={() => {
+            setLeftView('video');
+            setShareOpen(true);
+          }}
           className="flex items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-900/40 px-4 py-3.5 text-left transition hover:border-amber-400/30"
         >
           <span className="flex items-center gap-2 text-sm font-semibold text-white">

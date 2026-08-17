@@ -119,19 +119,21 @@ describe('Bug 3A — Kickstarter is never embedded in an iframe; opens in a new 
     expect(fetchIdx).toBeGreaterThan(openIdx);
   });
 
-  it('a first-party confirmation panel renders for the kickstarter left-view, not a proxy or a second preview system', () => {
-    const idx = SRC.indexOf("leftView === 'kickstarter' ?");
-    const block = SRC.slice(idx, idx + 900);
-    expect(block).toContain('Kickstarter opened in a new tab');
-    expect(block).not.toContain('<iframe');
+  it('Kickstarter is an external action, not a left-pane view — no confirmation panel replaces the video (final closure pass, 2026-08-17)', () => {
+    // Superseded by the final closure pass: clicking Follow used to switch
+    // the left pane to a first-party confirmation panel, which was itself
+    // the wrong UX. See tests/knyts-bridge-choose-final-closure.test.ts for
+    // full coverage of the corrected badge-over-video behavior.
+    expect(SRC).not.toContain("leftView === 'kickstarter'");
+    expect(SRC).not.toMatch(/'video' \| 'store' \| 'ci' \| 'kickstarter'/);
   });
 
-  it('the visible "open in new tab" fallback link is preserved in the confirmation panel', () => {
+  it('the visible "open in new tab" fallback link is preserved, now as a badge over the video', () => {
     expect(SRC).toContain('Open Kickstarter in new tab');
   });
 });
 
-describe('Bug 3B — Follow-Kickstarter active styling derives from the same single leftView discriminator', () => {
+describe('Bug 3B — Follow-Kickstarter no longer competes with Store/CI for the leftView slot (final closure pass, 2026-08-17)', () => {
   const SRC = stripComments(readSource('components/journey/KnytsBridgeChooseSurface.tsx'));
 
   it('no separate kickstarterActive/showKickstarterPreview boolean exists anywhere in this surface', () => {
@@ -139,17 +141,13 @@ describe('Bug 3B — Follow-Kickstarter active styling derives from the same sin
     expect(SRC).not.toMatch(/showKickstarterPreview/);
   });
 
-  it('KickstarterFollowCard accepts and uses an active prop to switch its own highlight styling', () => {
+  it('KickstarterFollowCard no longer accepts an active prop — it is an outbound action, not a contextual destination', () => {
+    // Superseded: the earlier pass wired Kickstarter's own active/highlight
+    // styling to `leftView === 'kickstarter'`, but that state no longer
+    // exists. See tests/knyts-bridge-choose-final-closure.test.ts.
     const idx = SRC.indexOf('function KickstarterFollowCard(');
-    const block = SRC.slice(idx, idx + 1400);
-    expect(block).toContain('active: boolean');
-    expect(block).toMatch(/active\s*\?\s*'border-amber-400\/40 bg-amber-500\/10'/);
-  });
-
-  it('the call site passes active={leftView === \'kickstarter\'} — the same discriminator every other destination card reads', () => {
-    const idx = SRC.indexOf('<KickstarterFollowCard');
-    const block = SRC.slice(idx, idx + 250);
-    expect(block).toContain("active={leftView === 'kickstarter'}");
+    const block = SRC.slice(idx, idx + 400);
+    expect(block).not.toContain('active');
   });
 
   it('Store and CI destination cards read the identical leftView discriminator, so exactly one card is ever active', () => {
