@@ -24,6 +24,14 @@
 - For foundational architecture changes, require a regression test that would have failed against the broken pre-fix implementation. Preserve that test as a permanent architecture canary.
 - When an invariant breach is discovered, capture both the immediate repair and the class of failure that allowed the breach so future PRDs/specifications include a prevention mechanism, not only the restored behavior.
 
+## Prospective evolution capture — proactive, operator-authorized
+- During **any material discussion or task** — research exploration, partner conversation, code refinement, debugging, UX work, architecture review, implementation, experimentation, or product ideation — remain alert for credible candidates in four prospective roadmap classes: **candidate invariant, candidate experiment, candidate architectural refinement, candidate capability**.
+- When one surfaces, **proactively identify it, classify it, and recommend adding it to the appropriate prospective roadmap**. The operator should not have to remember to ask.
+- **Proposal is not registration.** Agents are delegated to notice and propose. Unless the operator has already explicitly authorized capture in the current turn or under a clear standing instruction, obtain operator approval before writing a new candidate into the CFS-051 pipeline or related roadmap artifact.
+- Do not force every insight into every lane. A candidate invariant does not automatically warrant an experiment; an architecture idea is not an approved build; a capability proposal is not a shipped capability.
+- At a natural milestone or close of a substantive turn, perform a lightweight scan: did this work surface a candidate invariant, experiment, architecture refinement, or capability? If yes, surface the candidates and proposed classifications before moving on.
+- Canonical rule: `docs/agent-harness/prospective-evolution-capture.md`. Roadmap model: `codexes/packs/irl/foundation/CFS-051A_prospective-evolution-roadmaps.md`. This composes with, but is broader than, the Resolution → Invariant Loop.
+
 ## Delivery rules
 - **Golden Rule: Do not recreate what already exists.** Reuse first, extend existing platform/cartridge functionality second, and create new systems only when there is no suitable existing surface, service, schema, connector, or workflow to extend.
 - Make clear in initial implementation plans what will be reused, what will be extended, and what is genuinely new.
@@ -35,7 +43,7 @@
 A metaMe/Threshold MCP server is available at `https://dev-beta.aigentz.me/api/threshold/mcp`
 (no API key or OAuth needed). It's registered in the repo root `.mcp.json` under the key
 `threshold` — any MCP-capable agent session opening this repo should read the endpoint from
-there rather than being told it out of band. If your harness doesn't auto-read `.mcp.json`, add
+there rather than being told out of band. If your harness doesn't auto-read `.mcp.json`, add
 the same endpoint manually using this URL. See `CLAUDE.md` for the full note.
 
 ## QubeTalk bridge delivery pattern (required)
