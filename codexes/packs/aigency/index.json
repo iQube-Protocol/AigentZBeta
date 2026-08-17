@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-17T18:08:57.318Z",
+  "last_updated": "2026-08-17T18:16:27.595Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "04d4df7da20c7e4e71fdc7fba92f67a0bb975353",
-  "latest_commit_short": "04d4df7",
-  "latest_commit_title": "gate-d: add evidence assembly service for venture reports",
+  "latest_commit": "f27d17988fdeabf3672781c0e61295f454261dd9",
+  "latest_commit_short": "f27d179",
+  "latest_commit_title": "gate-e: add reintroduction-specific evidence gathering and narrative gap analysis",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "f27d179",
+      "full_sha": "f27d17988fdeabf3672781c0e61295f454261dd9",
+      "title": "gate-e: add reintroduction-specific evidence gathering and narrative gap analysis",
+      "author": "Claude",
+      "timestamp": "2026-08-17T18:14:31Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-f27d179.md"
+    },
     {
       "sha": "04d4df7",
       "full_sha": "04d4df7da20c7e4e71fdc7fba92f67a0bb975353",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-09T07:18:13Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-c082ef3.md"
-    },
-    {
-      "sha": "3694f4b",
-      "full_sha": "3694f4b00c5f336c36935ce1ec59ce56c85de4ea",
-      "title": "Add durable local-to-DVN-pending reconciler, closing the receipt lifecycle",
-      "author": "Claude",
-      "timestamp": "2026-08-09T07:32:48Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-3694f4b.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
