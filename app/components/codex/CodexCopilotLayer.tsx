@@ -14,6 +14,7 @@ import { resolveVoicePersona } from "@/services/metame/voicePersona";
 import type { SmartTriadDeepLink, SmartTriadOperation } from "@/types/smartTriadContext";
 const SmartWalletDrawer = dynamic(() => import("../content/SmartWalletDrawer"), { ssr: false });
 import { CopilotInferenceBodyRenderer, type PromptSuggestionMeta } from "./CopilotInferenceBodyRenderer";
+import { AigentMeRoleSelector } from "@/components/smarttriad/copilot/AigentMeRoleSelector";
 import {
   Bot,
   User,
@@ -1785,6 +1786,14 @@ export function CodexCopilotLayer({
                               <span className="truncate text-xs font-medium text-white/80">
                                 {agent?.name ?? ""}
                               </span>
+                              {/* aigentMe-role selector — reuses the SAME
+                                  control SmartTriadCopilotLayer mounts (only
+                                  on the aigentMe surface, agent.id ===
+                                  'aigent-me'). Derives "aigentMe — <label>"
+                                  from the same role projection
+                                  (resolveConstitutionalContext) — never a
+                                  second selector. */}
+                              {agent?.id === 'aigent-me' && <AigentMeRoleSelector personaId={personaId} />}
                               {/* aigentMe marker — same amber Star convention
                                   SmartWalletDrawer's persona menu already uses
                                   for the delegate row. Never shown for a human
@@ -1815,6 +1824,7 @@ export function CodexCopilotLayer({
                               <span className="truncate text-xs font-medium text-white/80">
                                 {agent?.name ?? ""}
                               </span>
+                              {agent?.id === 'aigent-me' && <AigentMeRoleSelector personaId={personaId} />}
                             </span>
                           )}
                           <div className="flex items-center gap-4">

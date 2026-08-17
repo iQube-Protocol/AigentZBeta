@@ -2021,7 +2021,7 @@ function constitutionalGroundPromptBlock(
   return `\n\n## Governing platform invariants — the constitution you reason inside\n\nThese are IRE-resolved for THIS message (plus any carried session memory) from the platform's canonical invariant corpus. They hold on every surface, in every cartridge: they are the ground you share with every other copilot, NOT this cartridge's domain knowledge. Cite them by seed id when they ground a claim. Never contradict one; if a request would require contradicting one, say so plainly and name the invariant.\n\n${lines}`;
 }
 
-function buildSystemPrompt(
+export function buildSystemPrompt(
   metadata: CodexMetadata,
   aigentId: string,
   userContext?: UserContext,
@@ -2038,6 +2038,24 @@ function buildSystemPrompt(
    * an absent CARTRIDGE must never be what empties it.
    */
   constitutionalGround?: Array<{ seedId: string; statement: string }>,
+  /**
+   * aigentMe Agent Projection (Homecoming Phase II, operator-directed
+   * 2026-08-16) — the surface identity, as distinct from `aigentId` (which
+   * now carries the resolved SPEAKER, e.g. 'aigent-aletheon', once
+   * `resolveAigentMeIdentity()` has run). `aigentId` drives voice/persona
+   * (system prompt) and, downstream of this function, knowledge/memory/
+   * provider config — WHO is speaking. `surfaceRoleId` drives which
+   * surface's context/instructions get injected below — WHERE the speaker
+   * is speaking. Selecting a different speaker for the aigentMe role must
+   * never change which surface's context the model receives; conflating
+   * the two was the exact defect this parameter fixes (a resolved Aletheon
+   * speaker was silently losing ExperienceQube/groundContext/uploads/
+   * layout-control blocks because those gates checked the SPEAKER id
+   * instead of the surface's role claim). Defaults to `aigentId` so every
+   * OTHER caller/surface — which has no speaker/surface divergence — is
+   * completely unaffected.
+   */
+  surfaceRoleId?: string,
 ): string {
   // Normalize short keys ('marketa', 'kn0w1') to full IDs ('aigent-marketa', 'aigent-kn0w1').
   // Fall back via defaultAgentIdForPersona (not a hardcoded 'aigent-kn0w1') so any
@@ -2047,6 +2065,10 @@ function buildSystemPrompt(
   // KNYT-lore-flavoured prompt. Bug found 2026-07-23: Founders Club's Community Concierge
   // was narrating "the metaKnyts universe" because this line discarded its persona id.
   const resolvedPersonaId = normalizeAgentId(aigentId) ?? defaultAgentIdForPersona(aigentId ?? '');
+  // The surface identity — WHERE, never WHO. Every gate below that decides
+  // which surface's context/instructions to inject must key on this, never
+  // on resolvedPersonaId (the speaker).
+  const surfaceId = surfaceRoleId ?? aigentId;
   const personaConfig =
     personas[resolvedPersonaId as keyof typeof personas] ??
     personas['aigent-kn0w1'];
@@ -2093,7 +2115,7 @@ function buildSystemPrompt(
   // system orchestrator. Loaded by loadMetameContext() in the POST
   // handler; absent fields are omitted (no hallucination of state).
   const metameLines: string[] = [];
-  if (resolvedPersonaId === 'aigent-me' && userContext?.metameContext) {
+  if (surfaceId === 'aigent-me' && userContext?.metameContext) {
     const m = userContext.metameContext;
     if (m.experienceName)   metameLines.push(`- Current experience: **${m.experienceName}**${m.experienceType ? ` (${m.experienceType})` : ''}`);
     if (m.primaryGoal)      metameLines.push(`- Primary goal: ${m.primaryGoal}`);
@@ -2278,7 +2300,7 @@ function buildSystemPrompt(
   }
 
   if (
-    resolvedPersonaId === 'aigent-me' &&
+    surfaceId === 'aigent-me' &&
     userContext?.groundContext &&
     // The shell copilot's smart-triad context is handled by the generic block
     // above — don't let this NBA-shaped parser overwrite it.
@@ -2375,7 +2397,7 @@ function buildSystemPrompt(
   // aigent-z Dev Command Center ground truth — feeds the LLM with the
   // current dev loop session state so it can give stage-aware advice,
   // suggest the right capsule/tool, and reason about what's next.
-  if (resolvedPersonaId === 'aigent-z' && userContext?.groundContext) {
+  if (surfaceId === 'aigent-z' && userContext?.groundContext) {
     try {
       const gc = userContext.groundContext as Record<string, unknown>;
       if (gc.surface === 'dev-command-center') {
@@ -2695,7 +2717,7 @@ After your response, add:
   // POST handler resolved uploads against the persona, the block is
   // a fully-formatted markdown section ready to append.
   const attachedUploadsBlock =
-    resolvedPersonaId === 'aigent-me' && userContext?.attachedUploadsBlock
+    surfaceId === 'aigent-me' && userContext?.attachedUploadsBlock
       ? userContext.attachedUploadsBlock
       : '';
 
@@ -2703,16 +2725,16 @@ After your response, add:
   // to emit a [layout:<id>|<substance>] tag whenever it proposes a concrete
   // action. Tags are stripped from the user-facing response before render.
   const layoutSuggestionsBlock =
-    resolvedPersonaId === 'aigent-me'
+    surfaceId === 'aigent-me'
       ? `\n\n## Right-pane chip-strip control — append a layout tag when you propose an action\n\nThe operator's left pane (where you live) has a chip strip — and the right pane has matching surfaces. When YOU propose a concrete action in your reply, append a control tag at the end of your message in this exact form:\n\n[layout:<id>|<substance>]\n\nThe tag is stripped from the chat bubble — the operator never sees it. Its only role is to make the matching chip pulse so the operator can one-click into the right-pane surface with the action substance already seeded.\n\nValid <id> values (12 total):\n- brief, decision-board, venture-cockpit, specialists  (Capsule chips, left strip)\n- gmail, event, doc, sheet, slides, marketa            (Composer chips, right strip)\n- upload, download                                     (Drawer chips, right strip)\n\n<substance> rules (NON-NEGOTIABLE):\n- ≤180 chars.\n- Describe WHAT to do, distilled from the conversation. Example: "Draft a partnership outreach to Lamina 1 framing the three-lane metaProof campaign and offering co-marketing on the KNYT Wheel launch".\n- NEVER restate the user's meta-instruction. "Ask Marketa to draft a plan" is WRONG — that's the request, not the substance. The substance is what the plan IS ABOUT.\n- NEVER use placeholder strings like "[partner name]" or "[your goal]" — if you don't have grounded content, omit the tag entirely.\n- One tag per action you propose. Maximum 2 tags per reply (the chip strip caps suggestions at 4 total; we leave headroom for the keyword classifier).\n- Tag goes at the END of your reply, on its own line.\n\nWhen NOT to emit a tag:\n- You're answering a question, not proposing an action.\n- You don't have enough conversation context to write a real substance (≥10 words of actual content).\n- The user is in mid-clarification ("yes", "ok", "go ahead") — wait until the next turn when you have something concrete to propose.`
-    : resolvedPersonaId === 'aigent-z'
+    : surfaceId === 'aigent-z'
       ? `\n\n## Right-pane chip-strip control — append a layout tag when you suggest a dev action\n\nYou are aigentZ in the Development Command Center. The operator's left pane (your copilot) has capability quick-prompt chips, and the right pane has the Dev Command Center with capability capsules + an explore strip. When YOU propose a concrete next step, append a control tag:\n\n[layout:<id>|<substance>]\n\nThe tag is stripped from the chat bubble. Its role is to pulse the matching chip/button so the operator can one-click into the right surface.\n\nValid <id> values for dev surfaces:\n- intent, context, gap-analysis, consequence-canvas, validation, project-overview  (Capability capsules)\n- terminal, github, devtools, linear  (Explore strip tools)\n- upload, download  (Explore strip drawers)\n\n<substance> rules: same as aigent-me — ≤180 chars, describe WHAT to do, never placeholders, never meta-instructions.\n\nExamples:\n- [layout:intent|Distill the Executive Mobility Travel booking service into structured intent with users, constraints, and success criteria]\n- [layout:gap-analysis|Analyze which existing services (Passport Bureau, CRM, Marketa) can be reused for the travel workflow]\n- [layout:consequence-canvas|Model what should happen when a booking completes and what must never happen with travel data sovereignty]\n- [layout:terminal|Open a terminal to run the spine verification script against the dev environment]\n\nMaximum 2 tags per reply. Tag goes at the END of your reply.`
       : '';
 
   // Platform knowledge (repo map + pack excerpts + registry/network
   // snapshots) — built async in the POST handler, aigent-z only.
   const platformBlock =
-    resolvedPersonaId === 'aigent-z' && platformKnowledgeBlock ? platformKnowledgeBlock : '';
+    surfaceId === 'aigent-z' && platformKnowledgeBlock ? platformKnowledgeBlock : '';
 
   // Knowledge initialization (CFS-006 §3) — the canonical invariant closure
   // for this context, injected for the platform/system agents so every turn
@@ -3336,7 +3358,7 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      systemPrompt = buildSystemPrompt(metadata, systemPromptPersonaId, userContext, kbResults, resolvedLiveContext ?? undefined, activeSkill, platformKnowledgeBlock || undefined, resolvedKnowledgeInit, typeof message === 'string' ? message : undefined, constitutionalGround);
+      systemPrompt = buildSystemPrompt(metadata, systemPromptPersonaId, userContext, kbResults, resolvedLiveContext ?? undefined, activeSkill, platformKnowledgeBlock || undefined, resolvedKnowledgeInit, typeof message === 'string' ? message : undefined, constitutionalGround, resolvedAgentId);
 
       // Canonical Ontology (CFS-015): append canonical-term guidance to the
       // prompt and cite the governing invariants (Reach, Law XII) —
@@ -3352,11 +3374,24 @@ export async function POST(request: NextRequest) {
     const requestedModelId = typeof llm_id === 'string' ? llm_id : null;
     // resolvedAgentId is the SAME hoisted binding from above — no second
     // computation (removed duplicate 2026-08-12).
+    //
+    // Homecoming Phase II P1 Item 7 (operator brief 2026-08-16) — provider/
+    // model routing follows the assigned SPEAKER Agent (systemPromptPersonaId,
+    // e.g. 'aigent-aletheon'), not the generic role surface (resolvedAgentId,
+    // 'aigent-me'), whenever that speaker actually has a runtime provider
+    // configuration (RUNTIME_AGENT_IDS / services/metame/agentLlmOrchestra.ts).
+    // "Agent capability != authority to exercise it" applies to infrastructure
+    // too: an unconfigured speaker must fall back to the surface's own
+    // default, never silently borrow a DIFFERENT agent's provider config
+    // (the pre-fix behaviour when the speaker wasn't the surface itself).
+    const providerRoutingAgentId = normalizeAgentId(systemPromptPersonaId)
+      ? systemPromptPersonaId
+      : resolvedAgentId;
     const providerAvailability = getProviderAvailability();
     const { attempts: providerAttempts, skipped: skippedProviders } = buildProviderAttempts(
       requestedProviderId,
       requestedModelId,
-      resolvedAgentId,
+      providerRoutingAgentId,
     );
 
     // Diagnostic checkpoint: provider selection for trace "Why personhood before identity?"
