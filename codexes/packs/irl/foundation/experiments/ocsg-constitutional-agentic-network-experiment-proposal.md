@@ -46,8 +46,18 @@ Cross-domain participants should be able to verify sufficient authority for an a
 ### CAN-AUTH-008 — Personhood constitutionalizes rather than replaces IAM
 Personhood does not displace enterprise identity, roles, IAM, policies or agents. It can provide a portable constitutional root that enables existing organizational authority systems to participate in open agentic networks.
 
-### CAN-CAP-001 — Capability is amplified by authority, legitimacy and accountability
-Raw capability describes what an agent can do. Authority determines what it is permitted to do. Legitimacy affects whether counterparties and institutions recognize and accept that authority. Accountability makes consequential exercise of capability sufficiently governable for others to entrust it with greater scope. Effective agentic capability may therefore be amplified when raw capability is combined with verifiable authority, legitimacy and accountability.
+### CAN-CAP-001 — Capability is amplified by Trust
+In a consequential system, raw capability alone does not determine the scope of capability that can be effectively exercised. Trust is hypothesized to amplify realizable capability by increasing the consequential scope that actors and institutions are prepared to permit, rely upon and integrate. Trust is established through demonstrable **Authority, Legitimacy and Accountability**.
+
+Candidate causal compression:
+
+`Authority + Legitimacy + Accountability → Trust`
+
+`Capability → mediated by Trust → Effective Capability`
+
+The multiplicative shorthand `Capability × Trust → Effective Capability` may be used as a hypothesis, but is not yet an empirical equation. Experiments must determine whether Trust acts as a multiplier, threshold, constraint, mediator or some other functional relationship.
+
+**Market/research positioning hypothesis:** contemporary AI capability discourse is predominantly organized around model/inference performance. CAN-CAP-001 enters that same capability question orthogonally: not by disputing raw performance, but by asking how much of a system's capability becomes realizable, consequential and socially integrable once Trust is taken into account. This is a positioning hypothesis, not evidence about the entire market.
 
 ### CAN-CAP-002 — Capability is consequential
 In a cybernetic intelligence system, capability cannot be fully characterized by inference or output performance alone. Information and inference are themselves consequential. When inference is translated into agentic action, consequentiality becomes more directly materialized as external state change. Effective capability must therefore account for consequences produced, not merely outputs generated.
@@ -56,60 +66,57 @@ In a cybernetic intelligence system, capability cannot be fully characterized by
 Consequences of inference and action generate evidence that can inform governance of subsequent exercise of capability: `capability → inference/action → consequence → evidence → governance → future permitted/effective capability`.
 
 ### CAN-CAP-004 — Effective capability is a property of the cybernetic system, not solely the model
-Raw inferential capability may be a property of a model under specified conditions. Effective capability in a consequential environment is hypothesized to be a property of the larger cybernetic system in which intelligence is embedded, including authority, legitimacy, accountability, trust/acceptance, constraints, evidence, consequences and feedback.
+Raw inferential capability may be a property of a model under specified conditions. Effective capability in a consequential environment is hypothesized to be a property of the larger cybernetic system in which intelligence is embedded, including Trust, authority, legitimacy, accountability, constraints, evidence, consequences and feedback.
+
+### CAN-TRUST-001 — Trust is cybernetically updated by consequential evidence
+Trust is not assumed to be a static credential or a synonym for Standing. Authority, Legitimacy and Accountability establish the basis on which Trust may be extended; action and consequence generate evidence that may strengthen, weaken or otherwise update Trust; updated Trust may alter future permitted consequential scope. Standing may serve as an evidentiary/computational input to Trust without being identical to Trust.
+
+Candidate loop:
+
+`Authority + Legitimacy + Accountability → Trust → Permitted Consequential Scope → Action → Consequence → Evidence → Updated Trust`
 
 ### CAN-AGENCY-001 — Agency translates inference into consequential state change
 Reasoning and inference are already consequential; agency adds the capacity for inference to be translated directly into action that changes external state, thereby concretizing and potentially amplifying consequence.
 
-### CAN-SOCIAL-001 — Social integration of capability depends on more than performance
-The degree to which an intelligence system can be integrated into consequential social, organizational and economic activity is hypothesized to depend not only on raw performance but also on authority, legitimacy, accountability, evidence and resulting trust/acceptance.
+### CAN-SOCIAL-001 — Social integration of capability depends on Trust, not performance alone
+The degree to which an intelligence system can be integrated into consequential social, organizational and economic activity is hypothesized to depend not only on raw performance but on the Trust that actors and institutions can rationally extend to it. Authority, Legitimacy, Accountability and consequential evidence are candidate determinants of that Trust.
 
 ## 4. Convergent observation — Authority, Control and Mandate
 
 Ian's independent observation that **authority provenance is not the same thing as current permission** is recorded as convergent support for the existing **Authority–Control–Mandate trinity**, not as a new constitutional primitive.
 
-Working mapping for experimental purposes:
-
-- **Authority** — establishes the legitimate provenance under which an actor may act: originating subject, contextual identity, organizational authority/IAM, delegation and supporting authority evidence.
-- **Control** — determines whether valid authority may be exercised under the present constitutional and operational state: governing invariants, policy, revocation state, environment, consequence analysis, risk-of-repair, safety and other current constraints.
+- **Authority** — establishes the legitimate provenance under which an actor may act.
+- **Control** — determines whether valid authority may be exercised under the present constitutional and operational state.
 - **Mandate** — establishes the bounded objective, task or action the actor is charged or entitled to undertake.
 
 The three jointly determine permitted agency. A valid Authority and valid Mandate may coexist with a Control state of REFUSE or ESCALATE. Conversely, permissive Control does not manufacture missing Authority or Mandate.
 
-Ian's related distinctions are therefore treated as candidate observable consequences of the trinity rather than separate doctrine:
+Candidate observable consequences:
 
 - Capability does not confer Authority.
 - Authority does not override Control.
 - Authority without Mandate does not establish an action to execute.
 - Authority + Mandate remain subject to Control at execution time.
-- Permission does not guarantee execution; execution is a subsequent event that requires its own evidence.
+- Permission does not guarantee execution; execution requires its own evidence.
 
-Candidate operational model:
-
-`Raw Capability → Authority × Control × Mandate → Permitted Agency → Execution → Consequence → Evidence / Feedback`
-
-This model is heuristic. The trinity need not be strictly sequential; the experiment should test their independent and joint effects on the executable action state.
+Candidate operational model: `Raw Capability → Authority × Control × Mandate → Permitted Agency → Execution → Consequence → Evidence / Feedback`.
 
 ## 5. Candidate embodied-action invariants
 
 ### CAN-EMB-001 — Irreversible consequential action requires ex-ante constitutional authorization
-Where an agent can materially alter external state and the proposed action is irreversible, safety-critical, legally consequential, or exceeds an accepted risk-of-repair threshold, the applicable authority, invariant and consequence conditions must be resolved to a sufficient authorization decision before execution. Post-action evidence and feedback cannot substitute for ex-ante authorization in such cases.
+Where an agent can materially alter external state and the proposed action is irreversible, safety-critical, legally consequential, or exceeds an accepted risk-of-repair threshold, the applicable authority, invariant and consequence conditions must be resolved to a sufficient authorization decision before execution.
 
 ### CAN-EMB-002 — Effective embodied capability is the constitutionally authorized subset of realizable capability
-An embodied system's technical or physical capability does not itself establish permission to exercise that capability. At a given constitutional state, effective embodied capability is hypothesized to be the subset of physically realizable actions that are contextually permissible and constitutionally authorized.
-
-Candidate nesting: `Raw Capability Space ⊃ Physically Feasible Actions ⊃ Contextually Permissible Actions ⊃ Constitutionally Authorized Actions`.
+An embodied system's technical or physical capability does not itself establish permission to exercise that capability. Candidate nesting: `Raw Capability Space ⊃ Physically Feasible Actions ⊃ Contextually Permissible Actions ⊃ Constitutionally Authorized Actions`.
 
 ### CAN-EMB-003 — Constitutional authorization must precede consequential execution
-For actions above the applicable consequence/risk threshold, the runtime ordering must be `constitutional resolution → AUTHORIZE / REFUSE / ESCALATE → execution`, not `execution → constitutional assessment → remediation`. Ex-post analysis remains essential for evidence, accountability, learning and future governance, but is not a substitute for the prior permission decision.
+For actions above the applicable consequence/risk threshold, runtime ordering must be `constitutional resolution → AUTHORIZE / REFUSE / ESCALATE → execution`, not retrospective authorization.
 
 ### CAN-EMB-004 — The constitutional decision precedes the actuator
-For embodied systems, the final execution boundary must consume a resolved authorization state before an actuator performs the governed action. The authorization decision may be distributed across components, but no above-threshold physical act should rely solely on retrospective constitutional analysis.
+For embodied systems, the final execution boundary must consume a resolved authorization state before an actuator performs the governed action.
 
 ### CAN-EMB-005 — Consequence compression is an action-time requirement
-Embodied systems operating at machine pace cannot perform unbounded analysis before every action. Relevant authority, invariants, constraints and consequence/risk information must therefore be compressed into a sufficiently small and resolvable action-time field while preserving the conditions material to authorization.
-
-**Authorization conclusiveness:** "conclusive" means sufficient for the authorization decision, not epistemic certainty. The runtime must resolve to a bounded disposition such as **AUTHORIZE, REFUSE, or ESCALATE / REQUIRE HUMAN AUTHORITY** when the governed threshold applies.
+Relevant authority, invariants, constraints and consequence/risk information must be compressed into a sufficiently small and resolvable action-time field while preserving conditions material to authorization.
 
 ## 6. Candidate confidentiality and evidence invariants
 
@@ -117,7 +124,7 @@ Embodied systems operating at machine pace cannot perform unbounded analysis bef
 Open operation requires selective proof rather than indiscriminate disclosure of sensitive personal or organizational identity/context.
 
 ### CAN-CONF-002 — Constitutional confidentiality balances openness with accountability
-Constitutional computing should reveal what must be proven, conceal what need not be known, and preserve sufficient evidence to establish what occurred. **Openness without exposure. Confidentiality without opacity. Accountability without surveillance.**
+**Openness without exposure. Confidentiality without opacity. Accountability without surveillance.**
 
 ### CAN-EVID-001 — Machine-pace agency requires machine-pace auditability, accountability and compliance
 Authority, constraints, revocation and evidence must become increasingly machine-verifiable and execution-native as consequential operations move to machine pace.
@@ -134,27 +141,27 @@ Bounded delegation, invariant governance and constitutional evidence can improve
 > **Authority–Control–Mandate resolves permitted agency.**  
 > **Constitutional evidence establishes what occurred.**
 
-## 8. Consequential capability and embodied authorization model
+## 8. Consequential capability and trust model
 
 Conventional: `Input → Inference → Output → Performance score`
 
-Informational consequence: `Information → Inference → Informational Consequence`
+Trust-mediated effective capability: `Authority + Legitimacy + Accountability → Trust → greater/lower Permitted Consequential Scope`.
 
-Agentic seam: `Inference → Authority → Action → External State Change → Materialized Consequence`
+Agentic seam: `Inference → Authority → Action → External State Change → Materialized Consequence`.
 
-Embodied ex-ante loop: `Intent / Inference → Proposed Action → Authority–Control–Mandate Resolution → Relevant Invariant Field → Consequence / Risk-of-Repair Analysis → Constitutional Compression → AUTHORIZE / REFUSE / ESCALATE → Physical Action`
+Cybernetic trust loop: `Trust → Permitted Scope → Action → Consequence → Evidence → Updated Trust → Future Permitted Scope`.
 
-Ex-post learning loop: `Execution → Observed Consequence → Evidence → Validation → Standing / Invariant Learning / Governance Adaptation → Future Authorization`
-
-The ex-post loop must not be used to justify an above-threshold action that lacked the required ex-ante authorization.
+Embodied ex-ante loop: `Intent / Inference → Proposed Action → Authority–Control–Mandate Resolution → Relevant Invariant Field → Consequence / Risk-of-Repair Analysis → Constitutional Compression → AUTHORIZE / REFUSE / ESCALATE → Physical Action`.
 
 ## 9. Proposed research relations
 
 `Agent Capability × Network Reach × Service Diversity → Combinatorial Opportunity`
 
-`Effective Agency ∝ Capability × Authority × Legitimacy × Accountability`
+`Capability → mediated by Trust → Effective Capability`
 
-`Raw Capability → Consequential Agency → Outcomes + Risk-of-Repair → Effective Capability`
+Candidate basis of Trust: `Authority + Legitimacy + Accountability → Trust`.
+
+`Raw Capability → Consequential Agency → Outcomes + Risk-of-Repair → Effective Capability`.
 
 All are heuristic and subject to experimental revision or rejection.
 
@@ -172,11 +179,11 @@ Ablate CI, IRL and OCSGA contributions independently while holding workflow cons
 ### Experiment D — Open-network performance / combinatorial opportunity
 Vary network reach, service diversity and agent capability.
 
-### Experiment E — Capability amplification by authority, legitimacy and accountability
-Hold raw capability constant and vary authority, legitimacy and accountability independently and jointly.
+### Experiment E — Trust-mediated capability amplification
+Hold raw technical capability constant. Vary demonstrable Authority, Legitimacy and Accountability independently and jointly; measure their effect on Trust/acceptance and then on permitted consequential scope, transaction acceptance, value entrusted, authorization friction, risk-of-repair and realized value. Explicitly test whether Trust mediates the relationship and whether the components are independent, additive, thresholded or redundant.
 
 ### Experiment F — Raw vs effective consequential capability
-Progressively expose fixed underlying intelligence to inference, consequential inference, agency, authorized agency, accountable agency and socially integrated agency.
+Progressively expose fixed underlying intelligence to inference, consequential inference, agency, authorized agency, accountable agency and socially integrated/trusted agency. Test rank-order changes between raw performance and effective consequential capability.
 
 ### Experiment G — Embodied ex-ante constitutional authorization
 Compare retrospective governance, static rules, dynamic constitutional ex-ante resolution and ex-ante resolution plus cybernetic feedback.
@@ -184,45 +191,40 @@ Compare retrospective governance, static rules, dynamic constitutional ex-ante r
 ### Experiment H — OCSGA embodied multi-authority composition
 Test multi-source authority/constraint composition in simulated or low-risk embodied systems.
 
-## 11. Experiment I — Authority–Control–Mandate independent perturbation
+### Experiment I — Authority–Control–Mandate independent perturbation
+Hold two elements constant while perturbing the third; separately perturb execution and outcome to test evidence separation and the usefulness of the architectural boundary.
 
-### Research question
-Does the existing Authority–Control–Mandate trinity provide a useful and separable architectural boundary for determining permitted agency and execution?
+## 11. Trust perturbation extension
 
-### Design
-Hold two elements constant while perturbing the third, then test selected interaction conditions.
+Experiment E/F should include a dedicated Trust mediation test:
 
-1. **Control perturbation:** preserve valid Authority and Mandate; alter current operational/constitutional conditions so Control moves between AUTHORIZE, REFUSE and ESCALATE.
-2. **Mandate perturbation:** preserve Authority and permissive Control; change or remove the bounded task mandate and test whether execution remains appropriately constrained.
-3. **Authority perturbation:** preserve requested Mandate and otherwise permissive Control; revoke, expire, corrupt or remove authority provenance and test refusal/escalation.
-4. **Execution perturbation:** preserve valid Authority, Control and Mandate but prevent/interrupt execution; verify that permission evidence is not falsely treated as execution evidence.
-5. **Outcome perturbation:** preserve the prior authorization state while varying observed consequence; test whether outcome evidence updates future governance without retroactively changing the historical authorization decision.
-
-### Evidence objects to distinguish
-- capability evidence;
-- authority/provenance evidence;
-- Control/permission decision evidence;
-- Mandate/scope evidence;
-- execution evidence;
-- outcome/consequence evidence.
-
-### Measures
-Decision correctness, false authorization/refusal, revocation response, scope adherence, evidence separation, audit reconstruction, confidentiality/disclosure, authorization latency, risk-of-repair and future governance updates.
+1. Hold model/tool capability constant.
+2. Establish Authority but vary Legitimacy recognition.
+3. Hold Authority/Legitimacy constant while varying Accountability/evidence quality.
+4. Measure whether counterparties' or system policy's rationally permitted consequential scope changes.
+5. After successful action, introduce positive or adverse consequence evidence and measure updated Trust/permitted scope.
+6. Compare direct effects of Authority/Legitimacy/Accountability against a mediated Trust model.
 
 ### Falsification
-The architectural-boundary hypothesis is weakened if Authority, Control and Mandate cannot be independently perturbed in a meaningful way, if the distinctions add no explanatory or operational value over a simpler authorization model, or if the evidence objects cannot be usefully separated in execution and audit.
+CAN-CAP-001 is weakened if Trust does not materially affect realizable/permitted consequential capability at fixed raw capability; if Authority, Legitimacy and Accountability do not materially contribute to Trust in the tested context; or if a simpler model predicts permitted consequential scope equally or better. The research must also permit findings that Trust constrains rather than amplifies capability in some contexts, or that only one/two of the proposed determinants are material.
 
-## 12. Enterprise and robotics translation hypotheses
+## 12. Enterprise / market positioning hypothesis
 
-Enterprise: **Keep your IAM. Constitutionalize it.**
+The strategic entry point is **capability**, because it permits Constitutional Computing to engage the prevailing AI performance question from an orthogonal bearing:
 
-Robotics/embodiment: constitutional computing should govern not merely whether an embodied system was compliant after acting, but whether consequential agency was permitted to execute in the first place.
+> **The question is not only how capable the intelligence is. It is how much of that capability can be trusted enough to become legitimate consequential agency.**
 
-Candidate maxim for testing, not ratified invariant: **For embodied intelligence, governance after action is audit; governance before action is authority.**
+Candidate concise proposition:
+
+> **Capability is amplified by Trust. Trust is established through Authority, Legitimacy and Accountability.**
+
+This proposition should be tested before being represented as an empirical law. Its positioning value can be assessed separately from its scientific validity.
+
+Enterprise translation remains: **Keep your IAM. Constitutionalize it.**
 
 ## 13. Canon / evidence discipline
 
-All CAN-* items remain candidate/proposed. Ian's observation is recorded as convergent support for the existing Authority–Control–Mandate trinity, not as a new canonical invariant. Formal experiments must be promoted through the existing `EXPERIMENT_REGISTRY`; this dossier creates no parallel registry. Results must enter canonical experiment records and IRL-010A reconciliation. Unsupported claims are flagged, contradictory evidence retained, and experimental instruments must report outcomes even when they contradict the thesis.
+All CAN-* items remain candidate/proposed. Superseded candidate formulations are refined in-place within the Crucible but are not represented as validated findings. Formal experiments must be promoted through the existing `EXPERIMENT_REGISTRY`; results must enter canonical experiment records and IRL-010A reconciliation.
 
 ## 14. Proposed research progression
 
