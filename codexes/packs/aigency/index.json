@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-20T14:53:02.323Z",
+  "last_updated": "2026-08-20T15:50:18.113Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "d4dba3048771e659ff0bb1077a51f104a85e06da",
-  "latest_commit_short": "d4dba30",
-  "latest_commit_title": "docs(irl): add robotics industry perspective invariants from S2G/Formic transcript",
+  "latest_commit": "2dffdf2db727203a06302e06b5c2ef29cf13f818",
+  "latest_commit_short": "2dffdf2",
+  "latest_commit_title": "docs(irl): add Trusted Intelligence and Trusted Automation to Crucible",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "2dffdf2",
+      "full_sha": "2dffdf2db727203a06302e06b5c2ef29cf13f818",
+      "title": "docs(irl): add Trusted Intelligence and Trusted Automation to Crucible",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-20T11:48:29-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-2dffdf2.md"
+    },
     {
       "sha": "d4dba30",
       "full_sha": "d4dba3048771e659ff0bb1077a51f104a85e06da",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-09T18:23:29Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-1ea799b.md"
-    },
-    {
-      "sha": "2ba52ac",
-      "full_sha": "2ba52ac029613d97006ec7e296642f508768ccff",
-      "title": "Add GitHub Actions workflows for the ops routes needing CRON_TRIGGER_TOKEN",
-      "author": "Claude",
-      "timestamp": "2026-08-09T17:51:55Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-2ba52ac.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

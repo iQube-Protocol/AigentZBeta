@@ -4294,3 +4294,8 @@ Top-level retrieval anchors for this pack.
 - Type: `docs`
 - Brief: [COMMIT-d4dba30.md](../build_/COMMITS/COMMIT-d4dba30.md)
 - Message: docs(irl): add robotics industry perspective invariants from S2G/Formic transcript
+
+## Commit `2dffdf2` — 2026-08-20T11:48:29-04:00
+- Type: `docs`
+- Brief: [COMMIT-2dffdf2.md](../build_/COMMITS/COMMIT-2dffdf2.md)
+- Message: docs(irl): add Trusted Intelligence and Trusted Automation to Crucible

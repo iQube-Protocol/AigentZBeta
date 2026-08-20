@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`2dffdf2`](https://github.com/iQube-Protocol/AigentZBeta/commit/2dffdf2db727203a06302e06b5c2ef29cf13f818) [docs] docs(irl): add Trusted Intelligence and Trusted Automation to Crucible (Kn0w1, 2026-08-20T11:48:29-04:00)
 - [`d4dba30`](https://github.com/iQube-Protocol/AigentZBeta/commit/d4dba3048771e659ff0bb1077a51f104a85e06da) [docs] docs(irl): add robotics industry perspective invariants from S2G/Formic transcript (Kn0w1, 2026-08-20T10:50:54-04:00)
 - [`cb894a4`](https://github.com/iQube-Protocol/AigentZBeta/commit/cb894a4207c2eb00ab6a0e01d7f48d6edcb09f5c) [docs] docs(irl): compress capability candidate around trust (Kn0w1, 2026-08-20T08:59:09-04:00)
 - [`2b2e2f0`](https://github.com/iQube-Protocol/AigentZBeta/commit/2b2e2f0f6f5e1b4c4657d7ecff39efd09f5c8b63) [docs] docs(irl): map Ian authority-permission seam to Authority-Control-Mandate trinity (Kn0w1, 2026-08-20T08:23:53-04:00)
