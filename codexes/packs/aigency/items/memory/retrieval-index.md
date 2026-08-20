@@ -4289,3 +4289,8 @@ Top-level retrieval anchors for this pack.
 - Type: `docs`
 - Brief: [COMMIT-cb894a4.md](../build_/COMMITS/COMMIT-cb894a4.md)
 - Message: docs(irl): compress capability candidate around trust
+
+## Commit `d4dba30` — 2026-08-20T10:50:54-04:00
+- Type: `docs`
+- Brief: [COMMIT-d4dba30.md](../build_/COMMITS/COMMIT-d4dba30.md)
+- Message: docs(irl): add robotics industry perspective invariants from S2G/Formic transcript

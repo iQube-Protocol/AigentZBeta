@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-20T13:00:51.998Z",
+  "last_updated": "2026-08-20T14:53:02.323Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "cb894a4207c2eb00ab6a0e01d7f48d6edcb09f5c",
-  "latest_commit_short": "cb894a4",
-  "latest_commit_title": "docs(irl): compress capability candidate around trust",
+  "latest_commit": "d4dba3048771e659ff0bb1077a51f104a85e06da",
+  "latest_commit_short": "d4dba30",
+  "latest_commit_title": "docs(irl): add robotics industry perspective invariants from S2G/Formic transcript",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "d4dba30",
+      "full_sha": "d4dba3048771e659ff0bb1077a51f104a85e06da",
+      "title": "docs(irl): add robotics industry perspective invariants from S2G/Formic transcript",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-20T10:50:54-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-d4dba30.md"
+    },
     {
       "sha": "cb894a4",
       "full_sha": "cb894a4207c2eb00ab6a0e01d7f48d6edcb09f5c",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-09T17:51:55Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-2ba52ac.md"
-    },
-    {
-      "sha": "e860c62",
-      "full_sha": "e860c628dba82c839df9dd33fefc6e05a18688c4",
-      "title": "Fix AigentQube-presence/Factory-ingestion conflation + wire P&L service registered evidence",
-      "author": "Claude",
-      "timestamp": "2026-08-09T12:29:35Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-e860c62.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
