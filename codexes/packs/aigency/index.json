@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-20T06:48:36.496Z",
+  "last_updated": "2026-08-20T07:05:52.159Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "74a537de7205fb121797c3d9439d6befc4a069f5",
-  "latest_commit_short": "74a537d",
-  "latest_commit_title": "docs(irl): canonize The Crucible as pre-canon research and development substrate",
+  "latest_commit": "1154ac92fddbd0cf5e2acceee8cf9e8e61fdb8ec",
+  "latest_commit_short": "1154ac9",
+  "latest_commit_title": "docs(irl): open Crucible robotics and embodied systems dossier",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "1154ac9",
+      "full_sha": "1154ac92fddbd0cf5e2acceee8cf9e8e61fdb8ec",
+      "title": "docs(irl): open Crucible robotics and embodied systems dossier",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-20T03:04:03-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-1154ac9.md"
+    },
     {
       "sha": "74a537d",
       "full_sha": "74a537de7205fb121797c3d9439d6befc4a069f5",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-09T09:55:10Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-6ad4cf4.md"
-    },
-    {
-      "sha": "bd52b76",
-      "full_sha": "bd52b76344ea1fca5d91eddd6f0c4a6a89c0b6df",
-      "title": "Add workflow to trigger MoneyPenny AigentQube repair route",
-      "author": "Claude",
-      "timestamp": "2026-08-09T09:41:03Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-bd52b76.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

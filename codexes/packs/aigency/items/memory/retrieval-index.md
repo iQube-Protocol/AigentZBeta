@@ -4274,3 +4274,8 @@ Top-level retrieval anchors for this pack.
 - Type: `docs`
 - Brief: [COMMIT-74a537d.md](../build_/COMMITS/COMMIT-74a537d.md)
 - Message: docs(irl): canonize The Crucible as pre-canon research and development substrate
+
+## Commit `1154ac9` — 2026-08-20T03:04:03-04:00
+- Type: `docs`
+- Brief: [COMMIT-1154ac9.md](../build_/COMMITS/COMMIT-1154ac9.md)
+- Message: docs(irl): open Crucible robotics and embodied systems dossier
