@@ -1,10 +1,10 @@
 # OCSGA / Constitutional Agentic Network — Invariant & Experiment Proposal
 
-**Status:** PROPOSED — pre-canon research package; nothing in this document is ratified merely by being recorded here.  
+**Status:** PROPOSED — Crucible research package; nothing in this document is ratified merely by being recorded here.  
 **Date:** 2026-08-20  
 **Programme:** IRL × Constitutional Internet × OCSGA  
-**Governance:** CFS-051 Experiment / Constitutional / Invariant Pipeline. Candidate invariants remain candidates until the existing canonization ceremony promotes them. Experimental claims remain proposed until evidence exists.  
-**Companions:** IRL-001; IRL-002; IRL-010; IRL-010A; CFS-051; CFS-019.
+**Governance:** CFS-051 and CFS-052 The Crucible. Candidate invariants remain candidates until the existing canonization ceremony promotes them. Experimental claims remain proposed until evidence exists.  
+**Companions:** IRL-001; IRL-002; IRL-010; IRL-010A; CFS-051; CFS-052; CFS-019.
 
 ## 1. Research question
 
@@ -18,12 +18,7 @@ Working thesis: resolving question 2 operationally creates a falsifiable basis f
 ## 2. Stage-setting candidate invariant
 
 ### CAN-OPEN-001 — The Agentic Internet is not an intranet
-
 Agentic systems may operate within closed organizational trust domains, but an Agentic Internet exists only when agents can discover, establish authority with, coordinate and transact across independently governed domains. Closed systems can optimize local trust and control; they cannot reproduce the reach, specialization, composability and network effects of an open network. As autonomous machine agency lowers the marginal cost of discovery, coordination and transaction, the potential performance advantage of open networks is hypothesized to increase.
-
-**Status:** candidate; empirical component unvalidated.
-
-This invariant is stage-setting. Personhood is not assumed as the premise; its necessity or sufficiency is tested downstream of the open-network requirement.
 
 ## 3. Candidate authority and capability invariants
 
@@ -55,41 +50,56 @@ Personhood does not displace enterprise identity, roles, IAM, policies or agents
 Raw capability describes what an agent can do. Authority determines what it is permitted to do. Legitimacy affects whether counterparties and institutions recognize and accept that authority. Accountability makes consequential exercise of capability sufficiently governable for others to entrust it with greater scope. Effective agentic capability may therefore be amplified when raw capability is combined with verifiable authority, legitimacy and accountability.
 
 ### CAN-CAP-002 — Capability is consequential
-In a cybernetic intelligence system, capability cannot be fully characterized by inference or output performance alone. Information and inference are themselves consequential: they may alter belief, attention, valuation, uncertainty, choice or subsequent behaviour even without direct tool action. When inference is translated into agentic action, consequentiality becomes more directly materialized as external state change. Effective capability must therefore account for consequences produced, not merely outputs generated.
+In a cybernetic intelligence system, capability cannot be fully characterized by inference or output performance alone. Information and inference are themselves consequential. When inference is translated into agentic action, consequentiality becomes more directly materialized as external state change. Effective capability must therefore account for consequences produced, not merely outputs generated.
 
 ### CAN-CAP-003 — Consequence closes the capability loop
-In a cybernetic intelligence system, consequences of inference and action generate evidence that can inform governance of subsequent exercise of capability. Capability therefore participates in a recursive loop rather than terminating at output performance: `capability → inference/action → consequence → evidence → governance → future permitted/effective capability`.
+Consequences of inference and action generate evidence that can inform governance of subsequent exercise of capability: `capability → inference/action → consequence → evidence → governance → future permitted/effective capability`.
 
 ### CAN-CAP-004 — Effective capability is a property of the cybernetic system, not solely the model
 Raw inferential capability may be a property of a model under specified conditions. Effective capability in a consequential environment is hypothesized to be a property of the larger cybernetic system in which intelligence is embedded, including authority, legitimacy, accountability, trust/acceptance, constraints, evidence, consequences and feedback.
 
 ### CAN-AGENCY-001 — Agency translates inference into consequential state change
-Reasoning and inference are already consequential; agency does not create consequentiality from nothing. Agency adds the capacity for inference to be translated directly into action that changes external state, thereby concretizing and potentially amplifying consequence.
+Reasoning and inference are already consequential; agency adds the capacity for inference to be translated directly into action that changes external state, thereby concretizing and potentially amplifying consequence.
 
 ### CAN-SOCIAL-001 — Social integration of capability depends on more than performance
-The degree to which an intelligence system can be integrated into consequential social, organizational and economic activity is hypothesized to depend not only on raw performance but also on authority, legitimacy, accountability, evidence and resulting trust/acceptance. These factors may determine how much consequential scope a social system is willing to permit.
+The degree to which an intelligence system can be integrated into consequential social, organizational and economic activity is hypothesized to depend not only on raw performance but also on authority, legitimacy, accountability, evidence and resulting trust/acceptance.
 
-**Status:** CAN-CAP-001 through CAN-SOCIAL-001 are candidates. Their causal direction, independence, interaction form and generality are unvalidated.
+## 4. Candidate embodied-action invariants
 
-## 4. Candidate confidentiality and evidence invariants
+### CAN-EMB-001 — Irreversible consequential action requires ex-ante constitutional authorization
+Where an agent can materially alter external state and the proposed action is irreversible, safety-critical, legally consequential, or exceeds an accepted risk-of-repair threshold, the applicable authority, invariant and consequence conditions must be resolved to a sufficient authorization decision before execution. Post-action evidence and feedback cannot substitute for ex-ante authorization in such cases.
+
+### CAN-EMB-002 — Effective embodied capability is the constitutionally authorized subset of realizable capability
+An embodied system's technical or physical capability does not itself establish permission to exercise that capability. At a given constitutional state, effective embodied capability is hypothesized to be the subset of physically realizable actions that are contextually permissible and constitutionally authorized.
+
+Candidate nesting: `Raw Capability Space ⊃ Physically Feasible Actions ⊃ Contextually Permissible Actions ⊃ Constitutionally Authorized Actions`.
+
+### CAN-EMB-003 — Constitutional authorization must precede consequential execution
+For actions above the applicable consequence/risk threshold, the runtime ordering must be `constitutional resolution → AUTHORIZE / REFUSE / ESCALATE → execution`, not `execution → constitutional assessment → remediation`. Ex-post analysis remains essential for evidence, accountability, learning and future governance, but is not a substitute for the prior permission decision.
+
+### CAN-EMB-004 — The constitutional decision precedes the actuator
+For embodied systems, the final execution boundary must consume a resolved authorization state before an actuator performs the governed action. The authorization decision may be distributed across components, but no above-threshold physical act should rely solely on retrospective constitutional analysis.
+
+### CAN-EMB-005 — Consequence compression is an action-time requirement
+Embodied systems operating at machine pace cannot perform unbounded analysis before every action. Relevant authority, invariants, constraints and consequence/risk information must therefore be compressed into a sufficiently small and resolvable action-time field while preserving the conditions material to authorization.
+
+**Authorization conclusiveness:** "conclusive" means sufficient for the authorization decision, not epistemic certainty. The runtime must resolve to a bounded disposition such as **AUTHORIZE, REFUSE, or ESCALATE / REQUIRE HUMAN AUTHORITY** when the governed threshold applies.
+
+## 5. Candidate confidentiality and evidence invariants
 
 ### CAN-CONF-001 — Openness does not imply exposure
-As agents operate across organizational boundaries, both personal and organizational identity and context become more sensitive. Open operation therefore requires selective proof rather than indiscriminate disclosure.
+Open operation requires selective proof rather than indiscriminate disclosure of sensitive personal or organizational identity/context.
 
 ### CAN-CONF-002 — Constitutional confidentiality balances openness with accountability
-Constitutional computing should reveal what must be proven, conceal what need not be known, and preserve sufficient evidence to establish what occurred.
-
-Operational shorthand: **Openness without exposure. Confidentiality without opacity. Accountability without surveillance.**
+Constitutional computing should reveal what must be proven, conceal what need not be known, and preserve sufficient evidence to establish what occurred. **Openness without exposure. Confidentiality without opacity. Accountability without surveillance.**
 
 ### CAN-EVID-001 — Machine-pace agency requires machine-pace auditability, accountability and compliance
-As consequential operations move from human pace to machine pace, retrospective human reconstruction alone becomes insufficient. Authority, constraints, revocation and evidence must become increasingly machine-verifiable and execution-native.
+Authority, constraints, revocation and evidence must become increasingly machine-verifiable and execution-native as consequential operations move to machine pace.
 
 ### CAN-ENT-001 — Constitutional computing has internal value independent of cross-domain operation
-Bounded delegation, invariant governance and constitutional evidence can improve governance of agents inside a single organizational domain. Cross-domain operation adds further requirements for portable authority provenance and constitutional confidentiality.
+Bounded delegation, invariant governance and constitutional evidence can improve governance inside a single organizational domain. Cross-domain operation adds portable authority provenance and constitutional confidentiality.
 
-Enterprise adoption sequence: **Constitutionalize internally → re-constitute for portable authority → network constitutionally.**
-
-## 5. Authority decomposition
+## 6. Authority decomposition
 
 > **Personhood establishes the originating subject.**  
 > **Identity establishes contextual representation.**  
@@ -97,161 +107,125 @@ Enterprise adoption sequence: **Constitutionalize internally → re-constitute f
 > **Delegation establishes permitted agency.**  
 > **Constitutional evidence establishes what occurred.**
 
-Operationally: represented through identity; verified through context-appropriate personhood/organizational/authority proofs; delegated through bounded delegation; revoked at the relevant personal and/or organizational layer; evidenced through execution-native constitutional evidence.
+## 7. Consequential capability and embodied authorization model
 
-## 6. Consequential capability model
+Conventional: `Input → Inference → Output → Performance score`
 
-Conventional benchmark abstraction:
+Informational consequence: `Information → Inference → Informational Consequence`
 
-`Input → Inference → Output → Performance score`
+Agentic seam: `Inference → Authority → Action → External State Change → Materialized Consequence`
 
-Proposed informational-consequence loop:
+Embodied ex-ante loop: `Intent / Inference → Proposed Action → Authority Resolution → Relevant Invariant Field → Consequence / Risk-of-Repair Analysis → Constitutional Compression → AUTHORIZE / REFUSE / ESCALATE → Physical Action`
 
-`Information → Inference → Informational Consequence`
+Ex-post learning loop: `Execution → Observed Consequence → Evidence → Validation → Standing / Invariant Learning / Governance Adaptation → Future Authorization`
 
-Proposed agentic seam:
-
-`Inference → Authority → Action → External State Change → Materialized Consequence`
-
-Proposed constitutional-cybernetic loop:
-
-`Capability → Inference/Action → Consequence → Evidence → Accountability/Governance → Standing/Trust → Authority/Permitted Scope → future Effective Capability`
-
-Candidate definitions:
-
-- **Raw inferential capability:** demonstrated ability to generate an intended inference/output under specified conditions.
-- **Consequential capability:** capability evaluated with respect to the consequences flowing from inference, including indirect informational consequences.
-- **Agentic capability:** ability to translate inference into intended consequential state change.
-- **Effective capability:** demonstrated ability of the complete intelligence system to produce intended consequential outcomes under appropriate authority, legitimacy, accountability and constraints, with acceptable risk-of-repair.
-
-Trust is not assumed to be an independent multiplier. It may be an emergent state generated by capability, authority, legitimacy, accountability, evidence and prior consequence, and may in turn govern future permitted scope. Standing may computationally represent part of accumulated evidence but is not presumed synonymous with trust.
-
-## 7. Proposed authority loop
-
-`Personhood → Identity → IAM / Authority → Bounded Delegation → Action → Constitutional Evidence → Standing → Authority → further Delegation`
-
-Evidence of consequence may affect Standing and future earned/operational authority while personhood remains the continuity root for human-originated authority. This proposal must be reconciled with existing Law XIII and standing/authority doctrine before canonization.
+The ex-post loop must not be used to justify an above-threshold action that lacked the required ex-ante authorization.
 
 ## 8. Proposed research relations
 
-### CAN-EQ-001 — Combinatorial opportunity relation
 `Agent Capability × Network Reach × Service Diversity → Combinatorial Opportunity`
 
-### CAN-EQ-002 — Effective agency relation
 `Effective Agency ∝ Capability × Authority × Legitimacy × Accountability`
-
-### CAN-EQ-003 — Consequential realization relation
-Working structural hypothesis, not an equation:
 
 `Raw Capability → Consequential Agency → Outcomes + Risk-of-Repair → Effective Capability`
 
-with recursive feedback:
-
-`Effective Capabilityₜ → Evidence → Standing/Trust → Authority/Permitted Scopeₜ₊₁ → Effective Capabilityₜ₊₁`
-
-Linked opportunity hypotheses:
-
-`Potential Opportunity ≈ Capability × Network Reach × Service Diversity`
-
-`Realizable Opportunity ∝ Potential Opportunity × Authority × Legitimacy × Accountability`
-
-All CAN-EQ relations are heuristic. Experiments must determine variables, functional form, interaction effects, threshold conditions and disconfirmation criteria.
+All are heuristic and subject to experimental revision or rejection.
 
 ## 9. Existing experiment programme
 
 ### Experiment A — Internal constitutionalization
-Compare IAM baseline against bounded delegation, invariant governance and constitutional evidence. Measure task performance, scope violations, revocation, evidence completeness, audit/compliance burden, overhead and risk-of-repair.
+IAM baseline versus bounded delegation, invariant governance and constitutional evidence.
 
 ### Experiment B — Closed vs open vs constitutionally open network
-Compare one-domain IAM, conventional cross-domain operation and constitutionally open cross-domain operation. Perturb delegation, IAM permission, scope, re-delegation, invariants, disclosure, authority proofs and evidence continuity.
+One-domain IAM versus conventional cross-domain versus constitutionally open cross-domain operation.
 
 ### Experiment C — CI × IRL × OCSGA compositional ablation
-Ablate CI, IRL and OCSGA contributions independently while holding the workflow constant. If removal causes no distinct measurable loss, the compositional-architecture claim is weakened.
+Ablate CI, IRL and OCSGA contributions independently while holding workflow constant.
 
 ### Experiment D — Open-network performance / combinatorial opportunity
-Vary network reach, service diversity and agent capability. Measure opportunity discovery, service composition, task quality, time-to-value, transaction cost and risk-of-repair.
+Vary network reach, service diversity and agent capability.
 
 ### Experiment E — Capability amplification by authority, legitimacy and accountability
-Hold raw technical capability constant and vary authority, legitimacy and accountability independently and jointly. Measure permitted scope, transaction acceptance, consequential value entrusted, authorization friction, audit/compliance performance, risk-of-repair and realized value. Explicitly test additive, multiplicative, threshold and substitutable alternatives.
+Hold raw capability constant and vary authority, legitimacy and accountability independently and jointly.
 
-## 10. Experiment F — Raw vs effective consequential capability
+### Experiment F — Raw vs effective consequential capability
+Progressively expose fixed underlying intelligence to inference, consequential inference, agency, authorized agency, accountable agency and socially integrated agency.
+
+## 10. Experiment G — Embodied ex-ante constitutional authorization
 
 ### Research question
-Does conventional inference/output performance adequately predict effective capability once intelligence participates in a consequential cybernetic system?
+Can invariant/consequence compression and authority resolution prevent impermissible embodied action before actuator execution while preserving useful machine-pace performance?
 
-### Core design
-Hold the underlying model/intelligence as constant as practical and progressively expose it to consequence:
+### Safe experimental substrate
+Use simulation, digital twins, benchtop low-energy robotics or other controlled non-hazardous environments. No experiment requires creating unsafe physical conditions.
 
-A. **Inference:** conventional output/performance task.  
-B. **Consequential inference:** same intelligence produces advice/recommendations consumed by a decision-maker but performs no direct external action.  
-C. **Agency:** inference is translated into bounded external state-changing action.  
-D. **Authorized agency:** action requires explicit, verifiable bounded authority.  
-E. **Accountable agency:** add execution-native evidence, attribution and consequence recording.  
-F. **Socially integrated agency:** add counterparty recognition/legitimacy and a history of consequential evidence capable of affecting trust/Standing/permitted scope.
+### Core arms
+A. **Retrospective governance:** action is executed under ordinary task policy; constitutional assessment occurs after action.  
+B. **Static pre-action rules:** conventional pre-action allow/deny policy without dynamic invariant/consequence resolution.  
+C. **Constitutional ex-ante:** proposed action resolves authority + relevant invariant field + consequence/risk-of-repair before actuator authorization.  
+D. **Constitutional ex-ante + ex-post cybernetic feedback:** C plus evidence and outcome feedback capable of affecting subsequent authorization state.
 
-### Perturbation programme
-Perturb one factor at a time where possible:
+### Perturbations
+- revoke delegation immediately before proposed action;
+- change organizational authority while task intent remains constant;
+- introduce a simulated protected-person/hazard-zone constraint;
+- exceed a configured force, speed, proximity or resource threshold in simulation;
+- introduce conflicting task and safety/constitutional instructions;
+- remove or corrupt required authority provenance;
+- remove a material governing invariant from the resolved field;
+- create an evidence-chain discontinuity;
+- alter risk-of-repair while preserving nominal task objective;
+- test latency pressure to determine whether constitutional compression remains usable at machine pace.
 
-- preserve raw inference performance while removing authority;
-- preserve authority while removing/weakening accountability evidence;
-- preserve both while varying legitimacy/counterparty acceptance;
-- preserve governance while degrading raw model capability;
-- introduce high-performing outputs with high risk-of-repair;
-- introduce lower raw-performing outputs with lower risk-of-repair and stronger boundedness;
-- vary informational consequence without tool action (recommendation accepted, ignored, or acted upon by a human);
-- vary materialized consequence through direct agent action;
-- revoke authority after successful prior performance;
-- provide adverse consequence evidence after strong benchmark performance;
-- provide strong consequence evidence after middling benchmark performance;
-- vary evidence availability while holding actual outcome constant;
-- test whether accumulated evidence changes future permitted scope.
+### Primary measures
+- impermissible actions prevented before execution;
+- legitimate actions successfully authorized;
+- false refusal and false authorization rates;
+- authorization latency and throughput;
+- invariant-field size / compression efficiency;
+- escalation frequency and human intervention burden;
+- revocation propagation time;
+- consequence/risk-of-repair outcomes;
+- evidence completeness;
+- post-action adaptation quality;
+- failure mode under missing/ambiguous authority or invariants.
+
+### Falsification
+The candidate invariants are weakened if ex-ante constitutional resolution fails to prevent impermissible action materially better than ordinary/static controls, creates prohibitive latency or false refusals, cannot reliably resolve authority before execution, or if equivalent safety/governance performance is achieved by materially simpler mechanisms in the tested domain.
+
+## 11. Experiment H — OCSGA embodied multi-authority composition
+
+### Research question
+Does OCSGA contribute a distinct operational/governance function when an embodied agent must resolve multiple independently sourced authorities and constraints before action?
+
+### Scenario
+A simulated or low-risk embodied agent receives a task mandate involving a human-originating principal, an operating organization, an asset/equipment owner, an environment/site authority and governing safety/constitutional invariants. The experiment tests whether these can be composed into a determinate permitted-action state without collapsing them into one identity or trust domain.
+
+### Ablations
+- remove OCSGA composition while preserving CI authority provenance and IRL invariants;
+- remove personhood/provenance while preserving organizational IAM;
+- remove invariant governance while preserving authority topology;
+- remove constitutional evidence while preserving ex-ante authorization;
+- introduce conflicts between organizational mandates and governing invariants.
 
 ### Measures
-- conventional benchmark/task performance;
-- informational consequence and downstream decision impact;
-- external state-change success;
-- intended versus unintended consequence;
-- consequential value produced;
-- risk-of-repair;
-- authority/scope compliance;
-- counterparty acceptance;
-- permitted consequential scope;
-- human intervention burden;
-- evidence completeness;
-- audit/compliance performance;
-- Standing/trust update where applicable;
-- future authority/scope granted;
-- correlation/rank-order change between raw capability and effective capability.
+Correct authorization/refusal/escalation, conflict resolution, provenance preservation, unnecessary disclosure, latency, evidence completeness, auditability and risk-of-repair.
 
-### Key falsification tests
-CAN-CAP-002/003/004 are weakened if raw inference performance robustly predicts consequential outcomes and permitted/effective capability without material contribution from consequence, authority, evidence, accountability or feedback. The stronger claim is also weakened if rankings remain stable under consequential evaluation or if cybernetic context adds no explanatory power beyond conventional performance.
+### Criterion
+If OCSGA removal produces no distinct degradation once CI and IRL functions are held constant, its claimed role as an aligned stack component is weakened. A distinct, repeatable contribution to multi-authority composition would support the compositional hypothesis.
 
-A potentially supportive result would be a rank reversal: a nominally lower raw-performing system producing greater risk-adjusted consequential value and receiving greater rationally permitted scope because it is more bounded, accountable, legitimate and evidentially reliable. This is a hypothesis, not an expected result.
+## 12. Enterprise and robotics translation hypotheses
 
-## 11. Enterprise translation hypothesis
+Enterprise: **Keep your IAM. Constitutionalize it.**
 
-> **Keep your IAM. Constitutionalize it.**
+Robotics/embodiment: constitutional computing should govern not merely whether an embodied system was compliant after acting, but whether consequential agency was permitted to execute in the first place.
 
-Existing: `IAM + Policies + Agents + APIs`
+Candidate maxim for testing, not ratified invariant: **For embodied intelligence, governance after action is audit; governance before action is authority.**
 
-Internal constitutional extension: `+ bounded delegation + invariant governance + constitutional evidence`
+## 13. Canon / evidence discipline
 
-Open-network extension: `+ personhood-rooted authority provenance + constitutional confidentiality + cross-domain authority verification`
+All CAN-* items remain candidate/proposed. Formal experiments must be promoted through the existing `EXPERIMENT_REGISTRY`; this dossier creates no parallel registry. Results must enter canonical experiment records and IRL-010A reconciliation. Unsupported claims are flagged, contradictory evidence retained, and experimental instruments must report outcomes even when they contradict the thesis.
 
-The relevant unit of enterprise AI capability is hypothesized not to be inference performance alone, but legitimate, accountable, consequential agency.
+## 14. Proposed research progression
 
-## 12. Canon / evidence discipline
-
-1. Every CAN-* item is candidate/proposed, not canonical.
-2. Existing ratified laws are not modified here.
-3. Formal experiments must be promoted through the existing `EXPERIMENT_REGISTRY`; this file creates no parallel registry.
-4. Results must enter canonical experiment records and IRL-010A evidentiary reconciliation.
-5. Unsupported claims are flagged, not defended.
-6. Revisions supersede; they do not silently rewrite.
-7. Experimental instruments must faithfully report outcomes even when they contradict the programme's thesis (IRL Principle 004).
-
-## 13. Proposed research progression
-
-`CFS-051 candidate capture → protocol scoping → formal EXP registration → execution → canonical evidence → IRL-010A reconciliation → invariant validation/canonization where warranted → IRL-001/002/010 revision by supersession`
-
-This package records the discovery seam. It does not pre-judge its result.
+`Crucible candidate capture → protocol scoping → formal EXP registration → execution → canonical evidence → IRL-010A reconciliation → invariant validation/canonization where warranted → Crystal / Canon / Code`
