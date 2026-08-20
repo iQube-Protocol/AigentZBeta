@@ -57,8 +57,6 @@ Candidate causal compression:
 
 The multiplicative shorthand `Capability × Trust → Effective Capability` may be used as a hypothesis, but is not yet an empirical equation. Experiments must determine whether Trust acts as a multiplier, threshold, constraint, mediator or some other functional relationship.
 
-**Market/research positioning hypothesis:** contemporary AI capability discourse is predominantly organized around model/inference performance. CAN-CAP-001 enters that same capability question orthogonally: not by disputing raw performance, but by asking how much of a system's capability becomes realizable, consequential and socially integrable once Trust is taken into account. This is a positioning hypothesis, not evidence about the entire market.
-
 ### CAN-CAP-002 — Capability is consequential
 In a cybernetic intelligence system, capability cannot be fully characterized by inference or output performance alone. Information and inference are themselves consequential. When inference is translated into agentic action, consequentiality becomes more directly materialized as external state change. Effective capability must therefore account for consequences produced, not merely outputs generated.
 
@@ -81,7 +79,44 @@ Reasoning and inference are already consequential; agency adds the capacity for 
 ### CAN-SOCIAL-001 — Social integration of capability depends on Trust, not performance alone
 The degree to which an intelligence system can be integrated into consequential social, organizational and economic activity is hypothesized to depend not only on raw performance but on the Trust that actors and institutions can rationally extend to it. Authority, Legitimacy, Accountability and consequential evidence are candidate determinants of that Trust.
 
-## 4. Convergent observation — Authority, Control and Mandate
+## 4. Crucible terms — Trusted Intelligence and Trusted Automation
+
+These terms are committed to the Crucible as candidate constitutional vocabulary. Their usefulness, boundaries and causal claims remain subject to testing before canonization.
+
+### TERM-TI-001 — Trusted Intelligence
+**Trusted Intelligence** is intelligence whose capability is sufficiently grounded in verifiable Authority, Legitimacy and Accountability that it can be rationally relied upon within a defined consequential context.
+
+Trusted Intelligence is not synonymous with model accuracy, alignment, safety, reputation or Standing. It concerns whether intelligence is sufficiently trustworthy to be relied upon consequentially, given the evidence and context available.
+
+Candidate relation:
+
+`Capability + sufficient Trust → Trusted Intelligence`
+
+### TERM-TA-001 — Trusted Automation
+**Trusted Automation** is the governed translation of intelligence into consequential action, in which Authority, Control and Mandate are sufficiently resolved prior to governed execution and sufficient evidence is produced to establish execution and consequence.
+
+Trusted Automation is therefore a stronger condition than Trusted Intelligence: intelligence may be trusted for inference or recommendation without being permitted to automate a particular consequential action.
+
+Candidate relation:
+
+`Trusted Intelligence → Authority–Control–Mandate Resolution → Trusted Automation → Consequence → Evidence`
+
+### CAN-TA-001 — Trusted Intelligence does not automatically confer Trusted Automation
+Trust sufficient to rely upon an intelligence system's inference does not itself establish permission for that system to execute a consequential action. The transition from Trusted Intelligence to Trusted Automation requires the applicable Authority, Control and Mandate to be resolved for the proposed action and current state.
+
+### Candidate market/research decomposition
+
+- **AI Capability:** What can the intelligence do?
+- **Trusted Intelligence:** What intelligence can we rationally rely upon in this consequential context?
+- **Trusted Automation:** What can we permit that intelligence to do consequentially?
+
+Candidate hierarchy:
+
+`Capability → Trusted Intelligence → Trusted Automation → Consequential Agency`
+
+Constitutional Computing is hypothesized to govern the transitions. This is a research proposition, not yet a validated empirical claim.
+
+## 5. Convergent observation — Authority, Control and Mandate
 
 Ian's independent observation that **authority provenance is not the same thing as current permission** is recorded as convergent support for the existing **Authority–Control–Mandate trinity**, not as a new constitutional primitive.
 
@@ -101,7 +136,7 @@ Candidate observable consequences:
 
 Candidate operational model: `Raw Capability → Authority × Control × Mandate → Permitted Agency → Execution → Consequence → Evidence / Feedback`.
 
-## 5. Candidate embodied-action invariants
+## 6. Candidate embodied-action invariants
 
 ### CAN-EMB-001 — Irreversible consequential action requires ex-ante constitutional authorization
 Where an agent can materially alter external state and the proposed action is irreversible, safety-critical, legally consequential, or exceeds an accepted risk-of-repair threshold, the applicable authority, invariant and consequence conditions must be resolved to a sufficient authorization decision before execution.
@@ -118,7 +153,7 @@ For embodied systems, the final execution boundary must consume a resolved autho
 ### CAN-EMB-005 — Consequence compression is an action-time requirement
 Relevant authority, invariants, constraints and consequence/risk information must be compressed into a sufficiently small and resolvable action-time field while preserving conditions material to authorization.
 
-## 6. Candidate confidentiality and evidence invariants
+## 7. Candidate confidentiality and evidence invariants
 
 ### CAN-CONF-001 — Openness does not imply exposure
 Open operation requires selective proof rather than indiscriminate disclosure of sensitive personal or organizational identity/context.
@@ -132,7 +167,7 @@ Authority, constraints, revocation and evidence must become increasingly machine
 ### CAN-ENT-001 — Constitutional computing has internal value independent of cross-domain operation
 Bounded delegation, invariant governance and constitutional evidence can improve governance inside a single organizational domain. Cross-domain operation adds portable authority provenance and constitutional confidentiality.
 
-## 7. Authority decomposition
+## 8. Authority decomposition
 
 > **Personhood establishes the originating subject.**  
 > **Identity establishes contextual representation.**  
@@ -141,19 +176,17 @@ Bounded delegation, invariant governance and constitutional evidence can improve
 > **Authority–Control–Mandate resolves permitted agency.**  
 > **Constitutional evidence establishes what occurred.**
 
-## 8. Consequential capability and trust model
+## 9. Consequential capability and trust model
 
 Conventional: `Input → Inference → Output → Performance score`
 
 Trust-mediated effective capability: `Authority + Legitimacy + Accountability → Trust → greater/lower Permitted Consequential Scope`.
 
-Agentic seam: `Inference → Authority → Action → External State Change → Materialized Consequence`.
-
-Cybernetic trust loop: `Trust → Permitted Scope → Action → Consequence → Evidence → Updated Trust → Future Permitted Scope`.
+Trusted transition: `Capability → Trusted Intelligence → Authority–Control–Mandate → Trusted Automation → Consequence → Evidence → Updated Trust`.
 
 Embodied ex-ante loop: `Intent / Inference → Proposed Action → Authority–Control–Mandate Resolution → Relevant Invariant Field → Consequence / Risk-of-Repair Analysis → Constitutional Compression → AUTHORIZE / REFUSE / ESCALATE → Physical Action`.
 
-## 9. Proposed research relations
+## 10. Proposed research relations
 
 `Agent Capability × Network Reach × Service Diversity → Combinatorial Opportunity`
 
@@ -165,7 +198,7 @@ Candidate basis of Trust: `Authority + Legitimacy + Accountability → Trust`.
 
 All are heuristic and subject to experimental revision or rejection.
 
-## 10. Existing experiment programme
+## 11. Existing experiment programme
 
 ### Experiment A — Internal constitutionalization
 IAM baseline versus bounded delegation, invariant governance and constitutional evidence.
@@ -180,10 +213,10 @@ Ablate CI, IRL and OCSGA contributions independently while holding workflow cons
 Vary network reach, service diversity and agent capability.
 
 ### Experiment E — Trust-mediated capability amplification
-Hold raw technical capability constant. Vary demonstrable Authority, Legitimacy and Accountability independently and jointly; measure their effect on Trust/acceptance and then on permitted consequential scope, transaction acceptance, value entrusted, authorization friction, risk-of-repair and realized value. Explicitly test whether Trust mediates the relationship and whether the components are independent, additive, thresholded or redundant.
+Hold raw technical capability constant. Vary demonstrable Authority, Legitimacy and Accountability independently and jointly; measure their effect on Trust/acceptance and then on permitted consequential scope, transaction acceptance, value entrusted, authorization friction, risk-of-repair and realized value.
 
 ### Experiment F — Raw vs effective consequential capability
-Progressively expose fixed underlying intelligence to inference, consequential inference, agency, authorized agency, accountable agency and socially integrated/trusted agency. Test rank-order changes between raw performance and effective consequential capability.
+Progressively expose fixed underlying intelligence to inference, consequential inference, agency, authorized agency, accountable agency and socially integrated/trusted agency.
 
 ### Experiment G — Embodied ex-ante constitutional authorization
 Compare retrospective governance, static rules, dynamic constitutional ex-ante resolution and ex-ante resolution plus cybernetic feedback.
@@ -194,19 +227,20 @@ Test multi-source authority/constraint composition in simulated or low-risk embo
 ### Experiment I — Authority–Control–Mandate independent perturbation
 Hold two elements constant while perturbing the third; separately perturb execution and outcome to test evidence separation and the usefulness of the architectural boundary.
 
-## 11. Trust perturbation extension
+### Experiment J — Trusted Intelligence vs Trusted Automation boundary
+Hold underlying intelligence and inferential task constant while progressively varying Trust evidence and executable authority.
 
-Experiment E/F should include a dedicated Trust mediation test:
+Candidate arms:
+1. capable intelligence with insufficient Trust evidence;
+2. Trusted Intelligence permitted only to infer/recommend;
+3. Trusted Intelligence with Authority and Mandate but Control refusing execution;
+4. Trusted Intelligence with Authority–Control–Mandate resolved for execution;
+5. executed automation with incomplete execution/outcome evidence;
+6. executed automation with complete constitutional evidence and consequential feedback.
 
-1. Hold model/tool capability constant.
-2. Establish Authority but vary Legitimacy recognition.
-3. Hold Authority/Legitimacy constant while varying Accountability/evidence quality.
-4. Measure whether counterparties' or system policy's rationally permitted consequential scope changes.
-5. After successful action, introduce positive or adverse consequence evidence and measure updated Trust/permitted scope.
-6. Compare direct effects of Authority/Legitimacy/Accountability against a mediated Trust model.
+Measures: inferential performance, reliance/acceptance, permitted consequential scope, authorization correctness, execution rate, false automation, evidence completeness, risk-of-repair, latency and post-consequence Trust update.
 
-### Falsification
-CAN-CAP-001 is weakened if Trust does not materially affect realizable/permitted consequential capability at fixed raw capability; if Authority, Legitimacy and Accountability do not materially contribute to Trust in the tested context; or if a simpler model predicts permitted consequential scope equally or better. The research must also permit findings that Trust constrains rather than amplifies capability in some contexts, or that only one/two of the proposed determinants are material.
+Falsification: the distinction is weakened if Trusted Intelligence and Trusted Automation cannot be meaningfully separated in practice, or if the proposed constitutional conditions add no explanatory/predictive value over simpler capability/permission models.
 
 ## 12. Enterprise / market positioning hypothesis
 
@@ -218,13 +252,17 @@ Candidate concise proposition:
 
 > **Capability is amplified by Trust. Trust is established through Authority, Legitimacy and Accountability.**
 
-This proposition should be tested before being represented as an empirical law. Its positioning value can be assessed separately from its scientific validity.
+Trusted Intelligence and Trusted Automation create a candidate market vocabulary for the two transitions:
+
+> **Trusted Intelligence asks what intelligence can be relied upon. Trusted Automation asks what that intelligence can be permitted to do.**
+
+This vocabulary and its positioning value should be tested separately from the scientific validity of the underlying causal model.
 
 Enterprise translation remains: **Keep your IAM. Constitutionalize it.**
 
 ## 13. Canon / evidence discipline
 
-All CAN-* items remain candidate/proposed. Superseded candidate formulations are refined in-place within the Crucible but are not represented as validated findings. Formal experiments must be promoted through the existing `EXPERIMENT_REGISTRY`; results must enter canonical experiment records and IRL-010A reconciliation.
+All CAN-* and TERM-* items remain candidate/proposed. **Trusted Intelligence** and **Trusted Automation** have been committed to the Crucible, not ratified into canon. Formal experiments must be promoted through the existing `EXPERIMENT_REGISTRY`; results must enter canonical experiment records and IRL-010A reconciliation.
 
 ## 14. Proposed research progression
 
