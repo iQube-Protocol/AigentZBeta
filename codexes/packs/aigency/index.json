@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-20T07:05:52.159Z",
+  "last_updated": "2026-08-20T12:25:29.007Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "1154ac92fddbd0cf5e2acceee8cf9e8e61fdb8ec",
-  "latest_commit_short": "1154ac9",
-  "latest_commit_title": "docs(irl): open Crucible robotics and embodied systems dossier",
+  "latest_commit": "2b2e2f0f6f5e1b4c4657d7ecff39efd09f5c8b63",
+  "latest_commit_short": "2b2e2f0",
+  "latest_commit_title": "docs(irl): map Ian authority-permission seam to Authority-Control-Mandate trinity",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "2b2e2f0",
+      "full_sha": "2b2e2f0f6f5e1b4c4657d7ecff39efd09f5c8b63",
+      "title": "docs(irl): map Ian authority-permission seam to Authority-Control-Mandate trinity",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-20T08:23:53-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-2b2e2f0.md"
+    },
     {
       "sha": "1154ac9",
       "full_sha": "1154ac92fddbd0cf5e2acceee8cf9e8e61fdb8ec",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-09T11:06:08Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-e720dcd.md"
-    },
-    {
-      "sha": "6ad4cf4",
-      "full_sha": "6ad4cf41dca44899f26e129bdebc0ac46e02b456",
-      "title": "Correct Horizen PnL onboarding contract + wire production Onboard action",
-      "author": "Claude",
-      "timestamp": "2026-08-09T09:55:10Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-6ad4cf4.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

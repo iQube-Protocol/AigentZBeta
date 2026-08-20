@@ -4279,3 +4279,8 @@ Top-level retrieval anchors for this pack.
 - Type: `docs`
 - Brief: [COMMIT-1154ac9.md](../build_/COMMITS/COMMIT-1154ac9.md)
 - Message: docs(irl): open Crucible robotics and embodied systems dossier
+
+## Commit `2b2e2f0` — 2026-08-20T08:23:53-04:00
+- Type: `docs`
+- Brief: [COMMIT-2b2e2f0.md](../build_/COMMITS/COMMIT-2b2e2f0.md)
+- Message: docs(irl): map Ian authority-permission seam to Authority-Control-Mandate trinity
