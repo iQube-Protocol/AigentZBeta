@@ -4299,3 +4299,8 @@ Top-level retrieval anchors for this pack.
 - Type: `docs`
 - Brief: [COMMIT-2dffdf2.md](../build_/COMMITS/COMMIT-2dffdf2.md)
 - Message: docs(irl): add Trusted Intelligence and Trusted Automation to Crucible
+
+## Commit `10606ab` — 2026-08-20T13:45:37-04:00
+- Type: `docs`
+- Brief: [COMMIT-10606ab.md](../build_/COMMITS/COMMIT-10606ab.md)
+- Message: docs(irl): deepen Trusted Intelligence as human-synthetic consequence-aware cybernetics
