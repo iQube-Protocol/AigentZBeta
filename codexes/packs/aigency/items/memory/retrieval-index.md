@@ -4269,3 +4269,8 @@ Top-level retrieval anchors for this pack.
 - Type: `docs`
 - Brief: [COMMIT-a238fdf.md](../build_/COMMITS/COMMIT-a238fdf.md)
 - Message: docs(irl): add consequential capability invariants and perturbation experiment
+
+## Commit `74a537d` — 2026-08-20T02:46:56-04:00
+- Type: `docs`
+- Brief: [COMMIT-74a537d.md](../build_/COMMITS/COMMIT-74a537d.md)
+- Message: docs(irl): canonize The Crucible as pre-canon research and development substrate

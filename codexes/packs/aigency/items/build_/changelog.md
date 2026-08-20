@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`74a537d`](https://github.com/iQube-Protocol/AigentZBeta/commit/74a537de7205fb121797c3d9439d6befc4a069f5) [docs] docs(irl): canonize The Crucible as pre-canon research and development substrate (Kn0w1, 2026-08-20T02:46:56-04:00)
 - [`a238fdf`](https://github.com/iQube-Protocol/AigentZBeta/commit/a238fdffe4636fbd594f7649c55cfafd75b4b7c0) [docs] docs(irl): add consequential capability invariants and perturbation experiment (Kn0w1, 2026-08-20T02:43:07-04:00)
 - [`757a08c`](https://github.com/iQube-Protocol/AigentZBeta/commit/757a08c84a6b962afd11b14213a96e51949b9d00) [docs] docs(irl): add capability-authority-legitimacy-accountability candidate (Kn0w1, 2026-08-20T02:15:59-04:00)
 - [`bb8ee19`](https://github.com/iQube-Protocol/AigentZBeta/commit/bb8ee19701098dc82028cf2cd262eb92db0c6a6c) [docs] docs(irl): capture OCSGA open-agentic-network invariants and experiment programme (Kn0w1, 2026-08-20T02:00:20-04:00)

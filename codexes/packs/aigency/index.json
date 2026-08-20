@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-20T06:44:50.910Z",
+  "last_updated": "2026-08-20T06:48:36.496Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "a238fdffe4636fbd594f7649c55cfafd75b4b7c0",
-  "latest_commit_short": "a238fdf",
-  "latest_commit_title": "docs(irl): add consequential capability invariants and perturbation experiment",
+  "latest_commit": "74a537de7205fb121797c3d9439d6befc4a069f5",
+  "latest_commit_short": "74a537d",
+  "latest_commit_title": "docs(irl): canonize The Crucible as pre-canon research and development substrate",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "74a537d",
+      "full_sha": "74a537de7205fb121797c3d9439d6befc4a069f5",
+      "title": "docs(irl): canonize The Crucible as pre-canon research and development substrate",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-20T02:46:56-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-74a537d.md"
+    },
     {
       "sha": "a238fdf",
       "full_sha": "a238fdffe4636fbd594f7649c55cfafd75b4b7c0",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-09T09:41:03Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-bd52b76.md"
-    },
-    {
-      "sha": "52cfb3f",
-      "full_sha": "52cfb3f9e07472e62888311b961c80972b207b8e",
-      "title": "Add wall-clock safety budget to DVN reconciler + targeted submit route + MoneyPenny AigentQube repair",
-      "author": "Claude",
-      "timestamp": "2026-08-09T09:32:29Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-52cfb3f.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
