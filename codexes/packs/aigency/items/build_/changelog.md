@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`cb894a4`](https://github.com/iQube-Protocol/AigentZBeta/commit/cb894a4207c2eb00ab6a0e01d7f48d6edcb09f5c) [docs] docs(irl): compress capability candidate around trust (Kn0w1, 2026-08-20T08:59:09-04:00)
 - [`2b2e2f0`](https://github.com/iQube-Protocol/AigentZBeta/commit/2b2e2f0f6f5e1b4c4657d7ecff39efd09f5c8b63) [docs] docs(irl): map Ian authority-permission seam to Authority-Control-Mandate trinity (Kn0w1, 2026-08-20T08:23:53-04:00)
 - [`1154ac9`](https://github.com/iQube-Protocol/AigentZBeta/commit/1154ac92fddbd0cf5e2acceee8cf9e8e61fdb8ec) [docs] docs(irl): open Crucible robotics and embodied systems dossier (Kn0w1, 2026-08-20T03:04:03-04:00)
 - [`74a537d`](https://github.com/iQube-Protocol/AigentZBeta/commit/74a537de7205fb121797c3d9439d6befc4a069f5) [docs] docs(irl): canonize The Crucible as pre-canon research and development substrate (Kn0w1, 2026-08-20T02:46:56-04:00)

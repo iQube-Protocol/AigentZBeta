@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-20T12:25:29.007Z",
+  "last_updated": "2026-08-20T13:00:51.998Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "2b2e2f0f6f5e1b4c4657d7ecff39efd09f5c8b63",
-  "latest_commit_short": "2b2e2f0",
-  "latest_commit_title": "docs(irl): map Ian authority-permission seam to Authority-Control-Mandate trinity",
+  "latest_commit": "cb894a4207c2eb00ab6a0e01d7f48d6edcb09f5c",
+  "latest_commit_short": "cb894a4",
+  "latest_commit_title": "docs(irl): compress capability candidate around trust",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "cb894a4",
+      "full_sha": "cb894a4207c2eb00ab6a0e01d7f48d6edcb09f5c",
+      "title": "docs(irl): compress capability candidate around trust",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-20T08:59:09-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-cb894a4.md"
+    },
     {
       "sha": "2b2e2f0",
       "full_sha": "2b2e2f0f6f5e1b4c4657d7ecff39efd09f5c8b63",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-09T12:29:35Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-e860c62.md"
-    },
-    {
-      "sha": "e720dcd",
-      "full_sha": "e720dcdb71d68ddde1a299150eb1c543f3588c04",
-      "title": "Fix DVN Pending fork pill + P&L three-state UI, add purpose-bound agent wallet binding",
-      "author": "Claude",
-      "timestamp": "2026-08-09T11:06:08Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-e720dcd.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

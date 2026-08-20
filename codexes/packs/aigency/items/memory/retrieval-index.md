@@ -4284,3 +4284,8 @@ Top-level retrieval anchors for this pack.
 - Type: `docs`
 - Brief: [COMMIT-2b2e2f0.md](../build_/COMMITS/COMMIT-2b2e2f0.md)
 - Message: docs(irl): map Ian authority-permission seam to Authority-Control-Mandate trinity
+
+## Commit `cb894a4` — 2026-08-20T08:59:09-04:00
+- Type: `docs`
+- Brief: [COMMIT-cb894a4.md](../build_/COMMITS/COMMIT-cb894a4.md)
+- Message: docs(irl): compress capability candidate around trust
