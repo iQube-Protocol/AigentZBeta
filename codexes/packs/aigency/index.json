@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-20T06:17:44.649Z",
+  "last_updated": "2026-08-20T06:44:50.910Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "757a08c84a6b962afd11b14213a96e51949b9d00",
-  "latest_commit_short": "757a08c",
-  "latest_commit_title": "docs(irl): add capability-authority-legitimacy-accountability candidate",
+  "latest_commit": "a238fdffe4636fbd594f7649c55cfafd75b4b7c0",
+  "latest_commit_short": "a238fdf",
+  "latest_commit_title": "docs(irl): add consequential capability invariants and perturbation experiment",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "a238fdf",
+      "full_sha": "a238fdffe4636fbd594f7649c55cfafd75b4b7c0",
+      "title": "docs(irl): add consequential capability invariants and perturbation experiment",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-20T02:43:07-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-a238fdf.md"
+    },
     {
       "sha": "757a08c",
       "full_sha": "757a08c84a6b962afd11b14213a96e51949b9d00",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-09T09:32:29Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-52cfb3f.md"
-    },
-    {
-      "sha": "c94c072",
-      "full_sha": "c94c0722bef720ea01cb7b64c897d6c7760dca08",
-      "title": "Add migration-drift diagnostic covering dual-leg anchoring + MoneyPenny AigentQube seed",
-      "author": "Claude",
-      "timestamp": "2026-08-09T08:59:48Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-c94c072.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

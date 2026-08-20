@@ -4264,3 +4264,8 @@ Top-level retrieval anchors for this pack.
 - Type: `docs`
 - Brief: [COMMIT-757a08c.md](../build_/COMMITS/COMMIT-757a08c.md)
 - Message: docs(irl): add capability-authority-legitimacy-accountability candidate
+
+## Commit `a238fdf` — 2026-08-20T02:43:07-04:00
+- Type: `docs`
+- Brief: [COMMIT-a238fdf.md](../build_/COMMITS/COMMIT-a238fdf.md)
+- Message: docs(irl): add consequential capability invariants and perturbation experiment
