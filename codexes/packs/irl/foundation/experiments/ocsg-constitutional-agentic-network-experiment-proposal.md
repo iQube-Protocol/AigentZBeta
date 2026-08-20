@@ -64,7 +64,33 @@ Reasoning and inference are already consequential; agency adds the capacity for 
 ### CAN-SOCIAL-001 — Social integration of capability depends on more than performance
 The degree to which an intelligence system can be integrated into consequential social, organizational and economic activity is hypothesized to depend not only on raw performance but also on authority, legitimacy, accountability, evidence and resulting trust/acceptance.
 
-## 4. Candidate embodied-action invariants
+## 4. Convergent observation — Authority, Control and Mandate
+
+Ian's independent observation that **authority provenance is not the same thing as current permission** is recorded as convergent support for the existing **Authority–Control–Mandate trinity**, not as a new constitutional primitive.
+
+Working mapping for experimental purposes:
+
+- **Authority** — establishes the legitimate provenance under which an actor may act: originating subject, contextual identity, organizational authority/IAM, delegation and supporting authority evidence.
+- **Control** — determines whether valid authority may be exercised under the present constitutional and operational state: governing invariants, policy, revocation state, environment, consequence analysis, risk-of-repair, safety and other current constraints.
+- **Mandate** — establishes the bounded objective, task or action the actor is charged or entitled to undertake.
+
+The three jointly determine permitted agency. A valid Authority and valid Mandate may coexist with a Control state of REFUSE or ESCALATE. Conversely, permissive Control does not manufacture missing Authority or Mandate.
+
+Ian's related distinctions are therefore treated as candidate observable consequences of the trinity rather than separate doctrine:
+
+- Capability does not confer Authority.
+- Authority does not override Control.
+- Authority without Mandate does not establish an action to execute.
+- Authority + Mandate remain subject to Control at execution time.
+- Permission does not guarantee execution; execution is a subsequent event that requires its own evidence.
+
+Candidate operational model:
+
+`Raw Capability → Authority × Control × Mandate → Permitted Agency → Execution → Consequence → Evidence / Feedback`
+
+This model is heuristic. The trinity need not be strictly sequential; the experiment should test their independent and joint effects on the executable action state.
+
+## 5. Candidate embodied-action invariants
 
 ### CAN-EMB-001 — Irreversible consequential action requires ex-ante constitutional authorization
 Where an agent can materially alter external state and the proposed action is irreversible, safety-critical, legally consequential, or exceeds an accepted risk-of-repair threshold, the applicable authority, invariant and consequence conditions must be resolved to a sufficient authorization decision before execution. Post-action evidence and feedback cannot substitute for ex-ante authorization in such cases.
@@ -85,7 +111,7 @@ Embodied systems operating at machine pace cannot perform unbounded analysis bef
 
 **Authorization conclusiveness:** "conclusive" means sufficient for the authorization decision, not epistemic certainty. The runtime must resolve to a bounded disposition such as **AUTHORIZE, REFUSE, or ESCALATE / REQUIRE HUMAN AUTHORITY** when the governed threshold applies.
 
-## 5. Candidate confidentiality and evidence invariants
+## 6. Candidate confidentiality and evidence invariants
 
 ### CAN-CONF-001 — Openness does not imply exposure
 Open operation requires selective proof rather than indiscriminate disclosure of sensitive personal or organizational identity/context.
@@ -99,15 +125,16 @@ Authority, constraints, revocation and evidence must become increasingly machine
 ### CAN-ENT-001 — Constitutional computing has internal value independent of cross-domain operation
 Bounded delegation, invariant governance and constitutional evidence can improve governance inside a single organizational domain. Cross-domain operation adds portable authority provenance and constitutional confidentiality.
 
-## 6. Authority decomposition
+## 7. Authority decomposition
 
 > **Personhood establishes the originating subject.**  
 > **Identity establishes contextual representation.**  
 > **IAM establishes organizational authority.**  
-> **Delegation establishes permitted agency.**  
+> **Delegation establishes bounded agency.**  
+> **Authority–Control–Mandate resolves permitted agency.**  
 > **Constitutional evidence establishes what occurred.**
 
-## 7. Consequential capability and embodied authorization model
+## 8. Consequential capability and embodied authorization model
 
 Conventional: `Input → Inference → Output → Performance score`
 
@@ -115,13 +142,13 @@ Informational consequence: `Information → Inference → Informational Conseque
 
 Agentic seam: `Inference → Authority → Action → External State Change → Materialized Consequence`
 
-Embodied ex-ante loop: `Intent / Inference → Proposed Action → Authority Resolution → Relevant Invariant Field → Consequence / Risk-of-Repair Analysis → Constitutional Compression → AUTHORIZE / REFUSE / ESCALATE → Physical Action`
+Embodied ex-ante loop: `Intent / Inference → Proposed Action → Authority–Control–Mandate Resolution → Relevant Invariant Field → Consequence / Risk-of-Repair Analysis → Constitutional Compression → AUTHORIZE / REFUSE / ESCALATE → Physical Action`
 
 Ex-post learning loop: `Execution → Observed Consequence → Evidence → Validation → Standing / Invariant Learning / Governance Adaptation → Future Authorization`
 
 The ex-post loop must not be used to justify an above-threshold action that lacked the required ex-ante authorization.
 
-## 8. Proposed research relations
+## 9. Proposed research relations
 
 `Agent Capability × Network Reach × Service Diversity → Combinatorial Opportunity`
 
@@ -131,7 +158,7 @@ The ex-post loop must not be used to justify an above-threshold action that lack
 
 All are heuristic and subject to experimental revision or rejection.
 
-## 9. Existing experiment programme
+## 10. Existing experiment programme
 
 ### Experiment A — Internal constitutionalization
 IAM baseline versus bounded delegation, invariant governance and constitutional evidence.
@@ -151,68 +178,39 @@ Hold raw capability constant and vary authority, legitimacy and accountability i
 ### Experiment F — Raw vs effective consequential capability
 Progressively expose fixed underlying intelligence to inference, consequential inference, agency, authorized agency, accountable agency and socially integrated agency.
 
-## 10. Experiment G — Embodied ex-ante constitutional authorization
+### Experiment G — Embodied ex-ante constitutional authorization
+Compare retrospective governance, static rules, dynamic constitutional ex-ante resolution and ex-ante resolution plus cybernetic feedback.
+
+### Experiment H — OCSGA embodied multi-authority composition
+Test multi-source authority/constraint composition in simulated or low-risk embodied systems.
+
+## 11. Experiment I — Authority–Control–Mandate independent perturbation
 
 ### Research question
-Can invariant/consequence compression and authority resolution prevent impermissible embodied action before actuator execution while preserving useful machine-pace performance?
+Does the existing Authority–Control–Mandate trinity provide a useful and separable architectural boundary for determining permitted agency and execution?
 
-### Safe experimental substrate
-Use simulation, digital twins, benchtop low-energy robotics or other controlled non-hazardous environments. No experiment requires creating unsafe physical conditions.
+### Design
+Hold two elements constant while perturbing the third, then test selected interaction conditions.
 
-### Core arms
-A. **Retrospective governance:** action is executed under ordinary task policy; constitutional assessment occurs after action.  
-B. **Static pre-action rules:** conventional pre-action allow/deny policy without dynamic invariant/consequence resolution.  
-C. **Constitutional ex-ante:** proposed action resolves authority + relevant invariant field + consequence/risk-of-repair before actuator authorization.  
-D. **Constitutional ex-ante + ex-post cybernetic feedback:** C plus evidence and outcome feedback capable of affecting subsequent authorization state.
+1. **Control perturbation:** preserve valid Authority and Mandate; alter current operational/constitutional conditions so Control moves between AUTHORIZE, REFUSE and ESCALATE.
+2. **Mandate perturbation:** preserve Authority and permissive Control; change or remove the bounded task mandate and test whether execution remains appropriately constrained.
+3. **Authority perturbation:** preserve requested Mandate and otherwise permissive Control; revoke, expire, corrupt or remove authority provenance and test refusal/escalation.
+4. **Execution perturbation:** preserve valid Authority, Control and Mandate but prevent/interrupt execution; verify that permission evidence is not falsely treated as execution evidence.
+5. **Outcome perturbation:** preserve the prior authorization state while varying observed consequence; test whether outcome evidence updates future governance without retroactively changing the historical authorization decision.
 
-### Perturbations
-- revoke delegation immediately before proposed action;
-- change organizational authority while task intent remains constant;
-- introduce a simulated protected-person/hazard-zone constraint;
-- exceed a configured force, speed, proximity or resource threshold in simulation;
-- introduce conflicting task and safety/constitutional instructions;
-- remove or corrupt required authority provenance;
-- remove a material governing invariant from the resolved field;
-- create an evidence-chain discontinuity;
-- alter risk-of-repair while preserving nominal task objective;
-- test latency pressure to determine whether constitutional compression remains usable at machine pace.
-
-### Primary measures
-- impermissible actions prevented before execution;
-- legitimate actions successfully authorized;
-- false refusal and false authorization rates;
-- authorization latency and throughput;
-- invariant-field size / compression efficiency;
-- escalation frequency and human intervention burden;
-- revocation propagation time;
-- consequence/risk-of-repair outcomes;
-- evidence completeness;
-- post-action adaptation quality;
-- failure mode under missing/ambiguous authority or invariants.
-
-### Falsification
-The candidate invariants are weakened if ex-ante constitutional resolution fails to prevent impermissible action materially better than ordinary/static controls, creates prohibitive latency or false refusals, cannot reliably resolve authority before execution, or if equivalent safety/governance performance is achieved by materially simpler mechanisms in the tested domain.
-
-## 11. Experiment H — OCSGA embodied multi-authority composition
-
-### Research question
-Does OCSGA contribute a distinct operational/governance function when an embodied agent must resolve multiple independently sourced authorities and constraints before action?
-
-### Scenario
-A simulated or low-risk embodied agent receives a task mandate involving a human-originating principal, an operating organization, an asset/equipment owner, an environment/site authority and governing safety/constitutional invariants. The experiment tests whether these can be composed into a determinate permitted-action state without collapsing them into one identity or trust domain.
-
-### Ablations
-- remove OCSGA composition while preserving CI authority provenance and IRL invariants;
-- remove personhood/provenance while preserving organizational IAM;
-- remove invariant governance while preserving authority topology;
-- remove constitutional evidence while preserving ex-ante authorization;
-- introduce conflicts between organizational mandates and governing invariants.
+### Evidence objects to distinguish
+- capability evidence;
+- authority/provenance evidence;
+- Control/permission decision evidence;
+- Mandate/scope evidence;
+- execution evidence;
+- outcome/consequence evidence.
 
 ### Measures
-Correct authorization/refusal/escalation, conflict resolution, provenance preservation, unnecessary disclosure, latency, evidence completeness, auditability and risk-of-repair.
+Decision correctness, false authorization/refusal, revocation response, scope adherence, evidence separation, audit reconstruction, confidentiality/disclosure, authorization latency, risk-of-repair and future governance updates.
 
-### Criterion
-If OCSGA removal produces no distinct degradation once CI and IRL functions are held constant, its claimed role as an aligned stack component is weakened. A distinct, repeatable contribution to multi-authority composition would support the compositional hypothesis.
+### Falsification
+The architectural-boundary hypothesis is weakened if Authority, Control and Mandate cannot be independently perturbed in a meaningful way, if the distinctions add no explanatory or operational value over a simpler authorization model, or if the evidence objects cannot be usefully separated in execution and audit.
 
 ## 12. Enterprise and robotics translation hypotheses
 
@@ -224,7 +222,7 @@ Candidate maxim for testing, not ratified invariant: **For embodied intelligence
 
 ## 13. Canon / evidence discipline
 
-All CAN-* items remain candidate/proposed. Formal experiments must be promoted through the existing `EXPERIMENT_REGISTRY`; this dossier creates no parallel registry. Results must enter canonical experiment records and IRL-010A reconciliation. Unsupported claims are flagged, contradictory evidence retained, and experimental instruments must report outcomes even when they contradict the thesis.
+All CAN-* items remain candidate/proposed. Ian's observation is recorded as convergent support for the existing Authority–Control–Mandate trinity, not as a new canonical invariant. Formal experiments must be promoted through the existing `EXPERIMENT_REGISTRY`; this dossier creates no parallel registry. Results must enter canonical experiment records and IRL-010A reconciliation. Unsupported claims are flagged, contradictory evidence retained, and experimental instruments must report outcomes even when they contradict the thesis.
 
 ## 14. Proposed research progression
 
