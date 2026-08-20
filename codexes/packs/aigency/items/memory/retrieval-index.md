@@ -4259,3 +4259,8 @@ Top-level retrieval anchors for this pack.
 - Type: `docs`
 - Brief: [COMMIT-bb8ee19.md](../build_/COMMITS/COMMIT-bb8ee19.md)
 - Message: docs(irl): capture OCSGA open-agentic-network invariants and experiment programme
+
+## Commit `757a08c` — 2026-08-20T02:15:59-04:00
+- Type: `docs`
+- Brief: [COMMIT-757a08c.md](../build_/COMMITS/COMMIT-757a08c.md)
+- Message: docs(irl): add capability-authority-legitimacy-accountability candidate

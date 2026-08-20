@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-20T06:01:41.282Z",
+  "last_updated": "2026-08-20T06:17:44.649Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "bb8ee19701098dc82028cf2cd262eb92db0c6a6c",
-  "latest_commit_short": "bb8ee19",
-  "latest_commit_title": "docs(irl): capture OCSGA open-agentic-network invariants and experiment programme",
+  "latest_commit": "757a08c84a6b962afd11b14213a96e51949b9d00",
+  "latest_commit_short": "757a08c",
+  "latest_commit_title": "docs(irl): add capability-authority-legitimacy-accountability candidate",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "757a08c",
+      "full_sha": "757a08c84a6b962afd11b14213a96e51949b9d00",
+      "title": "docs(irl): add capability-authority-legitimacy-accountability candidate",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-20T02:15:59-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-757a08c.md"
+    },
     {
       "sha": "bb8ee19",
       "full_sha": "bb8ee19701098dc82028cf2cd262eb92db0c6a6c",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-09T08:59:48Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-c94c072.md"
-    },
-    {
-      "sha": "efe5d1a",
-      "full_sha": "efe5d1a05332a6661b14f6b393263f0714b92e4e",
-      "title": "Make receipt-status diagnostic column-schema-safe after discovering dvn_status missing in prod",
-      "author": "Claude",
-      "timestamp": "2026-08-09T08:39:43Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-efe5d1a.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
