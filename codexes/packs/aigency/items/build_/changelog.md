@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`bb8ee19`](https://github.com/iQube-Protocol/AigentZBeta/commit/bb8ee19701098dc82028cf2cd262eb92db0c6a6c) [docs] docs(irl): capture OCSGA open-agentic-network invariants and experiment programme (Kn0w1, 2026-08-20T02:00:20-04:00)
 - [`0fc6dca`](https://github.com/iQube-Protocol/AigentZBeta/commit/0fc6dcaa11c5da994df264c018a899fad322e8a5) [push] trigger deploy to dev (Claude, 2026-08-17T18:25:13Z)
 - [`ca6f576`](https://github.com/iQube-Protocol/AigentZBeta/commit/ca6f57699866910fed74bc2e115a7fc12e4782d8) [feat] Gate F: wire deliberation intent detection into chat route (Claude, 2026-08-17T18:21:51Z)
 - [`f27d179`](https://github.com/iQube-Protocol/AigentZBeta/commit/f27d17988fdeabf3672781c0e61295f454261dd9) [feat] gate-e: add reintroduction-specific evidence gathering and narrative gap analysis (Claude, 2026-08-17T18:14:31Z)

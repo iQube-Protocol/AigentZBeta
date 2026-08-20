@@ -4254,3 +4254,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-0fc6dca.md](../build_/COMMITS/COMMIT-0fc6dca.md)
 - Message: trigger deploy to dev
+
+## Commit `bb8ee19` — 2026-08-20T02:00:20-04:00
+- Type: `docs`
+- Brief: [COMMIT-bb8ee19.md](../build_/COMMITS/COMMIT-bb8ee19.md)
+- Message: docs(irl): capture OCSGA open-agentic-network invariants and experiment programme

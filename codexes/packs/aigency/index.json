@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-17T18:27:02.774Z",
+  "last_updated": "2026-08-20T06:01:41.282Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "0fc6dcaa11c5da994df264c018a899fad322e8a5",
-  "latest_commit_short": "0fc6dca",
-  "latest_commit_title": "trigger deploy to dev",
+  "latest_commit": "bb8ee19701098dc82028cf2cd262eb92db0c6a6c",
+  "latest_commit_short": "bb8ee19",
+  "latest_commit_title": "docs(irl): capture OCSGA open-agentic-network invariants and experiment programme",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "bb8ee19",
+      "full_sha": "bb8ee19701098dc82028cf2cd262eb92db0c6a6c",
+      "title": "docs(irl): capture OCSGA open-agentic-network invariants and experiment programme",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-20T02:00:20-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-bb8ee19.md"
+    },
     {
       "sha": "0fc6dca",
       "full_sha": "0fc6dcaa11c5da994df264c018a899fad322e8a5",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-09T08:39:43Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-efe5d1a.md"
-    },
-    {
-      "sha": "21c278e",
-      "full_sha": "21c278e3daa51c115a957f4f0279f403fd542ad4",
-      "title": "Fix local-to-DVN reconciler starvation on non-anchorable backlog + add receipt-status diagnostic",
-      "author": "Claude",
-      "timestamp": "2026-08-09T08:06:03Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-21c278e.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
