@@ -55,7 +55,7 @@ Candidate causal compression:
 
 `Capability → mediated by Trust → Effective Capability`
 
-The multiplicative shorthand `Capability × Trust → Effective Capability` may be used as a hypothesis, but is not yet an empirical equation. Experiments must determine whether Trust acts as a multiplier, threshold, constraint, mediator or some other functional relationship.
+The multiplicative shorthand `Capability × Trust → Effective Capability` may be used as a hypothesis, but is not yet an empirical equation.
 
 ### CAN-CAP-002 — Capability is consequential
 In a cybernetic intelligence system, capability cannot be fully characterized by inference or output performance alone. Information and inference are themselves consequential. When inference is translated into agentic action, consequentiality becomes more directly materialized as external state change. Effective capability must therefore account for consequences produced, not merely outputs generated.
@@ -77,29 +77,70 @@ Candidate loop:
 Reasoning and inference are already consequential; agency adds the capacity for inference to be translated directly into action that changes external state, thereby concretizing and potentially amplifying consequence.
 
 ### CAN-SOCIAL-001 — Social integration of capability depends on Trust, not performance alone
-The degree to which an intelligence system can be integrated into consequential social, organizational and economic activity is hypothesized to depend not only on raw performance but on the Trust that actors and institutions can rationally extend to it. Authority, Legitimacy, Accountability and consequential evidence are candidate determinants of that Trust.
+The degree to which an intelligence system can be integrated into consequential social, organizational and economic activity is hypothesized to depend not only on raw performance but on the Trust that actors and institutions can rationally extend to it.
 
 ## 4. Crucible terms — Trusted Intelligence and Trusted Automation
 
 These terms are committed to the Crucible as candidate constitutional vocabulary. Their usefulness, boundaries and causal claims remain subject to testing before canonization.
 
 ### TERM-TI-001 — Trusted Intelligence
-**Trusted Intelligence** is intelligence whose capability is sufficiently grounded in verifiable Authority, Legitimacy and Accountability that it can be rationally relied upon within a defined consequential context.
+**Trusted Intelligence** is consequence-aware, constitutionally governed human–synthetic intelligence whose combined capability can be rationally relied upon within a defined consequential context because Authority, Legitimacy and Accountability establish Trust, and consequential evidence continuously tests and updates that Trust.
 
-Trusted Intelligence is not synonymous with model accuracy, alignment, safety, reputation or Standing. It concerns whether intelligence is sufficiently trustworthy to be relied upon consequentially, given the evidence and context available.
+Trusted Intelligence is therefore not merely "trustworthy AI" and is not reducible to the properties of a model. It describes the cybernetic integration of human and synthetic intelligence under constitutional conditions.
 
-Candidate relation:
+Within human-originated delegated systems:
 
-`Capability + sufficient Trust → Trusted Intelligence`
+- **Human intelligence/personhood** supplies the originating locus of legitimate authority, intent, judgment, values, responsibility, delegation and constitutional controls.
+- **Synthetic intelligence** contributes inference, computation, scale, consistency, pattern detection, speed and increasingly autonomous capability.
+- **Constitutional Computing** governs how those capabilities are combined, bounded, evidenced and updated through consequence.
+
+Synthetic capability does not bootstrap legitimate human authority. It exercises authority through bounded delegation and applicable Authority–Control–Mandate resolution.
+
+Trusted Intelligence is not synonymous with model accuracy, alignment, safety, reputation or Standing. Standing may contribute evidence relevant to Trust but is not identical to Trust.
+
+Candidate relations:
+
+`Human Intelligence + Synthetic Intelligence + Constitutional Governance → Trusted Intelligence`
+
+`Authority + Legitimacy + Accountability → Trust`
+
+`Capability + sufficient Trust + consequence-awareness → Trusted Intelligence`
 
 ### TERM-TA-001 — Trusted Automation
-**Trusted Automation** is the governed translation of intelligence into consequential action, in which Authority, Control and Mandate are sufficiently resolved prior to governed execution and sufficient evidence is produced to establish execution and consequence.
+**Trusted Automation** is the governed translation of Trusted Intelligence into consequential action, in which Authority, Control and Mandate are sufficiently resolved prior to governed execution and sufficient evidence is produced to establish execution and consequence.
 
-Trusted Automation is therefore a stronger condition than Trusted Intelligence: intelligence may be trusted for inference or recommendation without being permitted to automate a particular consequential action.
+Trusted Automation is therefore a stronger condition than Trusted Intelligence: intelligence may be trusted for inference, judgment support or recommendation without being permitted to automate a particular consequential action.
 
 Candidate relation:
 
-`Trusted Intelligence → Authority–Control–Mandate Resolution → Trusted Automation → Consequence → Evidence`
+`Trusted Intelligence → Authority–Control–Mandate Resolution → Trusted Automation → Consequence → Evidence → Updated Trust`
+
+### CAN-TI-001 — Trusted Intelligence is cybernetic
+Trusted Intelligence emerges through constitutionally governed cooperation between human and synthetic intelligence and is continuously informed by the consequences of their combined inference and action. It is not reducible to the independent capability of either human or synthetic intelligence alone.
+
+### CAN-TI-002 — Human and synthetic intelligence can be mutually corrective
+Trusted Intelligence should exploit complementary capabilities and failure modes of human and synthetic intelligence so that each can provide evidence, challenge or constraint capable of mitigating failures of the other. Human bias, inconsistency or bounded attention may in some contexts be challenged by synthetic analysis; synthetic error, bias, opacity or lack of legitimate originating authority may in turn be constrained by human judgment, authority and accountability. Neither human objectivity nor synthetic objectivity is presumed.
+
+Candidate compression:
+
+`Human and Synthetic Intelligence → reciprocal checks → potentially greater Trusted Intelligence`
+
+### CAN-TI-003 — Trusted Intelligence is consequence-aware
+Trust cannot be established solely from authority, intention, inference, predicted performance or pre-action assurance. Observed consequences generate evidence that must be capable of updating Trust, governance and subsequent permitted agency.
+
+Candidate loop:
+
+`Human + Synthetic Intelligence → Constitutional Resolution → Action → Consequence → Evidence → Learning → Updated Trust → Future Intelligence / Action`
+
+### CAN-TI-004 — Consequence disciplines both human and synthetic intelligence
+Neither human intention nor synthetic inference determines whether an outcome was successful merely by assertion. Observed consequence supplies an external evidentiary signal against which both human judgment and synthetic prediction/action can be evaluated, subject to the quality and interpretation of the evidence.
+
+Candidate compression:
+
+`Synthetic intelligence can challenge human bias. Human authority can legitimate synthetic agency. Consequence can discipline both.`
+
+### CAN-TI-005 — Synthetic capability does not originate legitimate human authority
+Within human-originated delegated systems, synthetic capability does not itself create the legitimate human authority under which consequential agency is exercised. Such authority originates from the relevant human/personhood or lawful institutional source and may be exercised synthetically only through bounded delegation and applicable governance.
 
 ### CAN-TA-001 — Trusted Intelligence does not automatically confer Trusted Automation
 Trust sufficient to rely upon an intelligence system's inference does not itself establish permission for that system to execute a consequential action. The transition from Trusted Intelligence to Trusted Automation requires the applicable Authority, Control and Mandate to be resolved for the proposed action and current state.
@@ -107,7 +148,7 @@ Trust sufficient to rely upon an intelligence system's inference does not itself
 ### Candidate market/research decomposition
 
 - **AI Capability:** What can the intelligence do?
-- **Trusted Intelligence:** What intelligence can we rationally rely upon in this consequential context?
+- **Trusted Intelligence:** What combined human–synthetic intelligence can we rationally rely upon in this consequential context?
 - **Trusted Automation:** What can we permit that intelligence to do consequentially?
 
 Candidate hierarchy:
@@ -176,15 +217,21 @@ Bounded delegation, invariant governance and constitutional evidence can improve
 > **Authority–Control–Mandate resolves permitted agency.**  
 > **Constitutional evidence establishes what occurred.**
 
-## 9. Consequential capability and trust model
+## 9. Consequential capability and Trusted Intelligence model
 
 Conventional: `Input → Inference → Output → Performance score`
 
-Trust-mediated effective capability: `Authority + Legitimacy + Accountability → Trust → greater/lower Permitted Consequential Scope`.
+Trust basis: `Authority + Legitimacy + Accountability → Trust`.
 
-Trusted transition: `Capability → Trusted Intelligence → Authority–Control–Mandate → Trusted Automation → Consequence → Evidence → Updated Trust`.
+Human–synthetic integration: `Human Intelligence + Synthetic Intelligence + Constitutional Governance → Trusted Intelligence`.
 
-Embodied ex-ante loop: `Intent / Inference → Proposed Action → Authority–Control–Mandate Resolution → Relevant Invariant Field → Consequence / Risk-of-Repair Analysis → Constitutional Compression → AUTHORIZE / REFUSE / ESCALATE → Physical Action`.
+Trusted transition: `Trusted Intelligence → Authority–Control–Mandate → Trusted Automation → Consequence → Evidence → Updated Trust`.
+
+Full candidate cybernetic loop:
+
+`Personhood / Human Authority → Human + Synthetic Intelligence → Trust + Authority–Control–Mandate → Trusted Automation / Action → Consequence → Constitutional Evidence → Learning / Standing / Accountability → Updated Trust → Future Intelligence / Action`.
+
+The human need not manually approve every action. Candidate architectural principle: **human authority remains in the constitutional loop while synthetic intelligence may operate in the operational loop at machine pace**, subject to bounded delegation, controls and evidence.
 
 ## 10. Proposed research relations
 
@@ -192,9 +239,11 @@ Embodied ex-ante loop: `Intent / Inference → Proposed Action → Authority–C
 
 `Capability → mediated by Trust → Effective Capability`
 
-Candidate basis of Trust: `Authority + Legitimacy + Accountability → Trust`.
+`Authority + Legitimacy + Accountability → Trust`.
 
-`Raw Capability → Consequential Agency → Outcomes + Risk-of-Repair → Effective Capability`.
+`Human Intelligence + Synthetic Intelligence + Constitutional Governance → Trusted Intelligence`.
+
+`Trusted Intelligence → Authority–Control–Mandate → Trusted Automation`.
 
 All are heuristic and subject to experimental revision or rejection.
 
@@ -230,17 +279,19 @@ Hold two elements constant while perturbing the third; separately perturb execut
 ### Experiment J — Trusted Intelligence vs Trusted Automation boundary
 Hold underlying intelligence and inferential task constant while progressively varying Trust evidence and executable authority.
 
-Candidate arms:
-1. capable intelligence with insufficient Trust evidence;
-2. Trusted Intelligence permitted only to infer/recommend;
-3. Trusted Intelligence with Authority and Mandate but Control refusing execution;
-4. Trusted Intelligence with Authority–Control–Mandate resolved for execution;
-5. executed automation with incomplete execution/outcome evidence;
-6. executed automation with complete constitutional evidence and consequential feedback.
+### Experiment K — Human–synthetic reciprocal correction
+Hold task/domain constant and compare human-only, synthetic-only and constitutionally coupled human–synthetic decision conditions. Introduce known or measurable human and synthetic failure modes independently where ethically and operationally safe. Test whether the coupled system detects, constrains or corrects more errors than either component independently without creating greater correlated failure.
 
-Measures: inferential performance, reliance/acceptance, permitted consequential scope, authorization correctness, execution rate, false automation, evidence completeness, risk-of-repair, latency and post-consequence Trust update.
+Candidate measures: decision quality, error detection, false correction, disagreement resolution, reliance calibration, authority correctness, consequence/risk-of-repair and evidence quality.
 
-Falsification: the distinction is weakened if Trusted Intelligence and Trusted Automation cannot be meaningfully separated in practice, or if the proposed constitutional conditions add no explanatory/predictive value over simpler capability/permission models.
+Falsification: CAN-TI-002 is weakened if the coupled system does not materially mitigate characteristic failures, if it merely transfers or compounds bias/error, or if simpler independent review performs equally or better.
+
+### Experiment L — Consequence-aware Trusted Intelligence loop
+Hold initial Authority/Legitimacy/Accountability evidence and initial Trust constant. Execute repeated bounded decisions/actions with controlled positive, negative and ambiguous outcomes. Test whether consequential evidence appropriately updates Trust, governance and future permitted scope while preserving the historical record of prior authorization decisions.
+
+Candidate measures: calibration of Trust updates to observed consequence, response to adverse outcomes, recovery after positive evidence, resistance to noisy/ambiguous evidence, Standing interaction, future permission changes and audit reconstruction.
+
+Falsification: CAN-TI-003/CAN-TI-004 are weakened if consequence evidence cannot materially or appropriately update the system's Trust/governance state, or if updates are dominated by pre-action assertions rather than observed outcomes.
 
 ## 12. Enterprise / market positioning hypothesis
 
@@ -252,9 +303,13 @@ Candidate concise proposition:
 
 > **Capability is amplified by Trust. Trust is established through Authority, Legitimacy and Accountability.**
 
-Trusted Intelligence and Trusted Automation create a candidate market vocabulary for the two transitions:
+Trusted Intelligence and Trusted Automation create candidate vocabulary for the two transitions:
 
-> **Trusted Intelligence asks what intelligence can be relied upon. Trusted Automation asks what that intelligence can be permitted to do.**
+> **Trusted Intelligence is consequence-aware, constitutionally governed human–synthetic intelligence. Trusted Automation is what that intelligence is permitted to do consequentially.**
+
+Candidate research maxim:
+
+> **Synthetic intelligence can challenge human bias. Human authority can legitimate synthetic agency. Consequence can discipline both.**
 
 This vocabulary and its positioning value should be tested separately from the scientific validity of the underlying causal model.
 
@@ -262,7 +317,7 @@ Enterprise translation remains: **Keep your IAM. Constitutionalize it.**
 
 ## 13. Canon / evidence discipline
 
-All CAN-* and TERM-* items remain candidate/proposed. **Trusted Intelligence** and **Trusted Automation** have been committed to the Crucible, not ratified into canon. Formal experiments must be promoted through the existing `EXPERIMENT_REGISTRY`; results must enter canonical experiment records and IRL-010A reconciliation.
+All CAN-* and TERM-* items remain candidate/proposed. **Trusted Intelligence** and **Trusted Automation** have been committed to the Crucible, not ratified into canon. The revised Trusted Intelligence definition supersedes the earlier model-centric candidate definition in this dossier. Formal experiments must be promoted through the existing `EXPERIMENT_REGISTRY`; results must enter canonical experiment records and IRL-010A reconciliation.
 
 ## 14. Proposed research progression
 
