@@ -51,6 +51,11 @@ Cross-domain participants should be able to verify sufficient authority for an a
 ### CAN-AUTH-008 — Personhood constitutionalizes rather than replaces IAM
 Personhood does not displace enterprise identity, roles, IAM, policies or agents. It can provide a portable constitutional root that enables existing organizational authority systems to participate in open agentic networks.
 
+### CAN-CAP-001 — Capability is amplified by authority, legitimacy and accountability
+Raw capability describes what an agent can do. Authority determines what it is permitted to do. Legitimacy affects whether counterparties and institutions recognize and accept that authority. Accountability makes consequential exercise of capability sufficiently governable for others to entrust it with greater scope. The candidate invariant is therefore that effective agentic capability may be amplified when raw capability is combined with verifiable authority, legitimacy and accountability.
+
+**Status:** candidate; the direction, interaction form and causal contribution of each factor are unvalidated.
+
 ## 4. Candidate confidentiality and evidence invariants
 
 ### CAN-CONF-001 — Openness does not imply exposure
@@ -107,7 +112,7 @@ The loop proposes that evidence of consequence may affect Standing and therefore
 
 This proposal must be reconciled with existing Law XIII and standing/authority doctrine before any canonization; it does not silently supersede them.
 
-## 7. Proposed open-network opportunity relation
+## 7. Proposed open-network and effective-agency relations
 
 ### CAN-EQ-001 — Combinatorial opportunity relation
 
@@ -117,7 +122,21 @@ Working relation:
 
 Interpretation: as agents lower search, coordination and transaction costs, increases in reachable counterparties and heterogeneous services may interact multiplicatively rather than merely additively with agent capability.
 
-**Status:** heuristic research relation, not yet a formal equation or empirical law. The experiment programme must determine measurable variables, functional form and disconfirmation conditions before promotion.
+### CAN-EQ-002 — Effective agency relation
+
+Working proportionality:
+
+`Effective Agency ∝ Capability × Authority × Legitimacy × Accountability`
+
+This is deliberately a proportionality, not an equality or established multiplicative law. It distinguishes **raw capability** from **effective agency**: an agent may possess technical capability yet remain unable to exercise it consequentially if it lacks accepted authority, legitimacy or sufficient accountability.
+
+A linked opportunity hypothesis is:
+
+`Potential Opportunity ≈ Capability × Network Reach × Service Diversity`
+
+`Realizable Opportunity ∝ Potential Opportunity × Authority × Legitimacy × Accountability`
+
+**Status of CAN-EQ-001/002:** heuristic research relations, not formal equations or empirical laws. Experiments must determine measurable variables, functional form, interaction effects, threshold conditions and disconfirmation criteria before promotion. Authority, legitimacy and accountability may prove additive, conditional, thresholded or partially redundant rather than multiplicative.
 
 ## 8. Experiment A — Internal constitutionalization
 
@@ -211,7 +230,41 @@ Hold task family and agent capability constant while varying network reach and s
 ### Falsification
 If expanded reach/diversity produces no systematic benefit, or coordination/governance costs dominate gains as capability rises, CAN-OPEN-001's performance component and CAN-EQ-001 must be revised or rejected.
 
-## 12. Enterprise translation hypothesis
+## 12. Experiment E — Capability amplification by authority, legitimacy and accountability
+
+### Hypothesis
+For a fixed underlying agent/model/tool capability, increasing verifiable authority, recognized legitimacy and execution accountability increases the amount of consequential agency and economic opportunity that counterparties are willing and able to permit.
+
+### Design direction
+Hold raw technical capability and task family constant. Vary authority, legitimacy and accountability independently and in combination using a factorial or staged design. Do not assume all three are multiplicative.
+
+Candidate conditions include:
+
+A. raw capability only;  
+B. + verifiable bounded authority;  
+C. + recognized legitimacy / counterparty acceptance;  
+D. + execution-native accountability evidence;  
+E. full composition.
+
+Where practical, include removal/ablation conditions after trust has been established to test whether permissions and counterparty acceptance contract when a factor disappears.
+
+### Measures
+- task classes the agent is permitted to perform;
+- permission/scope granted by counterparties;
+- transaction acceptance/completion rate;
+- number/diversity of reachable counterparties willing to interact;
+- maximum consequential value entrusted;
+- time and friction required to authorize an action;
+- human approval burden;
+- audit/compliance performance;
+- risk-of-repair;
+- realized economic/task value;
+- execution overhead introduced by each constitutional factor.
+
+### Falsification and alternative models
+CAN-CAP-001 and CAN-EQ-002 are weakened if authority, legitimacy and accountability do not increase effective agency at fixed capability, or if their governance overhead systematically outweighs the additional permitted/realized agency. The experiment must also distinguish alternatives: legitimacy may add no independent effect once authority is verified; accountability may be a threshold prerequisite rather than an amplifier; factors may be additive or substitutable; or increased accountability may reduce short-run execution throughput while improving risk-adjusted agency. Results determine the model rather than being forced into the proposed equation.
+
+## 13. Enterprise translation hypothesis
 
 Candidate commercial proposition, not a scientific finding:
 
@@ -231,7 +284,7 @@ Open-network extension where required:
 
 Resulting hypothesis: an enterprise can receive standalone internal governance ROI before any Constitutional Internet network effect, then extend the same constitutional architecture outward for customers, suppliers, partners, marketplaces and external agents.
 
-## 13. Canon / evidence discipline
+## 14. Canon / evidence discipline
 
 1. Every CAN-* item in this document is **candidate/proposed**, not canonical.
 2. Existing ratified laws, including Law XIII, are not modified by this document.
@@ -241,7 +294,7 @@ Resulting hypothesis: an enterprise can receive standalone internal governance R
 6. Revisions supersede; they do not silently rewrite.
 7. Experimental instruments must faithfully report outcomes even when they contradict the programme's thesis (IRL Principle 004).
 
-## 14. Proposed research progression
+## 15. Proposed research progression
 
 `CFS-051 candidate capture → protocol scoping → formal EXP registration → execution → canonical evidence → IRL-010A reconciliation → invariant validation/canonization where warranted → IRL-001/002/010 revision by supersession`
 
