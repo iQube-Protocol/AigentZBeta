@@ -21,6 +21,48 @@ interface UseCodexConfigOptions {
   enabled?: boolean;      // Enable/disable the query
 }
 
+/**
+ * Qriptopian publication-class overlay.
+ *
+ * Threshold essays are a first-class Codex publication class between Papers
+ * and the (currently empty) Polity surface. Keep this overlay at the config
+ * projection boundary so both immediate static initialData and the registry
+ * response expose the same navigation shape. The canonical essay bodies stay
+ * in QubeBase/content; this only projects their navigation surface.
+ */
+function applyQriptoPublicationOverlay(codex: CodexConfig | undefined): CodexConfig | undefined {
+  if (!codex || codex.id !== 'qripto-codex') return codex;
+
+  const withoutEssays = codex.tabs.filter((tab) => tab.slug !== 'essays');
+  const tabs = withoutEssays.map((tab) => {
+    if (tab.slug === 'polity') {
+      return { ...tab, enabled: false, order: 3 };
+    }
+    return tab;
+  });
+
+  tabs.push({
+    id: 'essays',
+    label: 'Essays',
+    slug: 'essays',
+    enabled: true,
+    group: 'codex',
+    order: 2,
+    type: 'static',
+    config: {
+      component: 'QriptoPapersTab',
+      props: { group: 'essays' },
+    },
+    metadata: {
+      icon: 'BookOpenText',
+      description: 'Threshold Essays — field notes from a Constitutional Internet',
+      color: 'indigo',
+    },
+  });
+
+  return { ...codex, tabs };
+}
+
 export function useCodexConfig({ codexId, useDefaults = true, allowOverrides = false, enabled = true }: UseCodexConfigOptions) {
   return useQuery<CodexConfig, Error>({
     queryKey: ['codex-config', codexId, useDefaults, allowOverrides],
@@ -56,12 +98,12 @@ export function useCodexConfig({ codexId, useDefaults = true, allowOverrides = f
         throw new Error(data.error || 'Invalid response from codex registry');
       }
 
-      return data.data;
+      return applyQriptoPublicationOverlay(data.data)!;
     },
     // Static config as immediate fallback — lets the codex render at once even if
     // the registry fetch is slow or blocked (e.g. Brave Shields in strict mode).
     // React Query will still fetch in the background and update when it resolves.
-    initialData: () => getCodexById(codexId) ?? getCodexBySlug(codexId) ?? undefined,
+    initialData: () => applyQriptoPublicationOverlay(getCodexById(codexId) ?? getCodexBySlug(codexId) ?? undefined),
     initialDataUpdatedAt: 0, // treat as stale so the background fetch always runs
     enabled,
     retry: false,
