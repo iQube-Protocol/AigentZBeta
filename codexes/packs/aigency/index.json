@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-21T21:00:54.618Z",
+  "last_updated": "2026-08-21T23:48:10.460Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "8be978f9ca79436bfc0e8cd585962ddffea4da88",
-  "latest_commit_short": "8be978f",
-  "latest_commit_title": "feat(qriptopian): expose public commentary source index",
+  "latest_commit": "23fe1c6098966d3bf102b326fb3aa0cfa5a8dcff",
+  "latest_commit_short": "23fe1c6",
+  "latest_commit_title": "docs(irl): distinguish Authority governance from state Authorization",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "23fe1c6",
+      "full_sha": "23fe1c6098966d3bf102b326fb3aa0cfa5a8dcff",
+      "title": "docs(irl): distinguish Authority governance from state Authorization",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-21T19:46:31-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-23fe1c6.md"
+    },
     {
       "sha": "8be978f",
       "full_sha": "8be978f9ca79436bfc0e8cd585962ddffea4da88",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-08T17:33:07-04:00",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-c432bce.md"
-    },
-    {
-      "sha": "9ebcea7",
-      "full_sha": "9ebcea7a7b6eda19202701a1a8eb222c1825db5d",
-      "title": "Add machine-readable CI agent edition v0.1",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-08T17:33:29-04:00",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-9ebcea7.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

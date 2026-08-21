@@ -4354,3 +4354,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-8be978f.md](../build_/COMMITS/COMMIT-8be978f.md)
 - Message: feat(qriptopian): expose public commentary source index
+
+## Commit `23fe1c6` — 2026-08-21T19:46:31-04:00
+- Type: `docs`
+- Brief: [COMMIT-23fe1c6.md](../build_/COMMITS/COMMIT-23fe1c6.md)
+- Message: docs(irl): distinguish Authority governance from state Authorization
