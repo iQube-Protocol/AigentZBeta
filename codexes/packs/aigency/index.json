@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-21T15:35:26.586Z",
+  "last_updated": "2026-08-21T18:53:07.045Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "747b993ca1132523c402f0577988475fa4a9c9fa",
-  "latest_commit_short": "747b993",
-  "latest_commit_title": "docs(content): define reusable asset upload tool contract",
+  "latest_commit": "b4b8496cda3eac8b6b60a696452e46c41acb323f",
+  "latest_commit_short": "b4b8496",
+  "latest_commit_title": "Allow non-episode publication cover uploads",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "b4b8496",
+      "full_sha": "b4b8496cda3eac8b6b60a696452e46c41acb323f",
+      "title": "Allow non-episode publication cover uploads",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-21T14:51:10-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-b4b8496.md"
+    },
     {
       "sha": "747b993",
       "full_sha": "747b993ca1132523c402f0577988475fa4a9c9fa",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-08T17:34:39-04:00",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-db8a6df.md"
-    },
-    {
-      "sha": "a0b9d8d",
-      "full_sha": "a0b9d8db9d5aa7e9831d18461778995fd87d9063",
-      "title": "Build KNYTS Bridge v1 — campaign-tagged crossing journey",
-      "author": "Claude",
-      "timestamp": "2026-08-09T22:05:08Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-a0b9d8d.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

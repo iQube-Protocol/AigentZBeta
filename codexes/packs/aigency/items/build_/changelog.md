@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`b4b8496`](https://github.com/iQube-Protocol/AigentZBeta/commit/b4b8496cda3eac8b6b60a696452e46c41acb323f) [push] Allow non-episode publication cover uploads (Kn0w1, 2026-08-21T14:51:10-04:00)
 - [`747b993`](https://github.com/iQube-Protocol/AigentZBeta/commit/747b993ca1132523c402f0577988475fa4a9c9fa) [docs] docs(content): define reusable asset upload tool contract (Kn0w1, 2026-08-21T11:33:45-04:00)
 - [`eb07ba0`](https://github.com/iQube-Protocol/AigentZBeta/commit/eb07ba068e6b4a64fcb699fabf39b5c561989ad8) [feat] feat(qriptopian): link Threshold machine-readable editions (Kn0w1, 2026-08-21T10:49:25-04:00)
 - [`1cc7702`](https://github.com/iQube-Protocol/AigentZBeta/commit/1cc770242574c852a95d6cbd71629a14cf7bf099) [feat] feat(qriptopian): present Threshold as Essays series (Kn0w1, 2026-08-21T08:59:02-04:00)

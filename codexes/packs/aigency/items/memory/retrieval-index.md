@@ -4329,3 +4329,8 @@ Top-level retrieval anchors for this pack.
 - Type: `docs`
 - Brief: [COMMIT-747b993.md](../build_/COMMITS/COMMIT-747b993.md)
 - Message: docs(content): define reusable asset upload tool contract
+
+## Commit `b4b8496` — 2026-08-21T14:51:10-04:00
+- Type: `push`
+- Brief: [COMMIT-b4b8496.md](../build_/COMMITS/COMMIT-b4b8496.md)
+- Message: Allow non-episode publication cover uploads
