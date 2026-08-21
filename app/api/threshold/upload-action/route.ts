@@ -4,12 +4,12 @@
  * This endpoint accepts multipart/form-data with native binary files (not base64)
  * and is designed for ChatGPT, Claude actions, and other connector runtimes.
  *
- * It validates admin/creator privileges via Constitutional Handshake bearer token,
+ * It validates admin privileges via Constitutional Handshake bearer token,
  * then streams the bytes to the canonical /api/content/assets/upload endpoint.
  *
  * Auth flow:
  * - Client sends: Authorization: Bearer <constitutional_handshake_token>
- * - This endpoint validates the token and checks cartridgeFlags.isAdmin || isCreator
+ * - This endpoint validates the token and checks cartridgeFlags.isAdmin (canonical)
  * - If authorized, constructs FormData with native binary and forwards to /api/content/assets/upload
  * - That endpoint then calls getActivePersona on the forwarded request
  */
@@ -27,7 +27,7 @@ const ROLES = new Set(['cover', 'thumbnail', 'hero', 'social', 'pdf', 'video', '
 export async function POST(req: NextRequest) {
   const persona = await getActivePersona(req);
   if (!persona) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
-  if (!persona.cartridgeFlags.isAdmin && !persona.cartridgeFlags.isCreator) {
+  if (!persona.cartridgeFlags.isAdmin) {
     return NextResponse.json({ error: 'admin-only' }, { status: 403 });
   }
 
