@@ -4344,3 +4344,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-80e49da.md](../build_/COMMITS/COMMIT-80e49da.md)
 - Message: Harden canonical media delivery for Safari and range requests
+
+## Commit `7fcb58e` — 2026-08-21T16:48:32-04:00
+- Type: `fix`
+- Brief: [COMMIT-7fcb58e.md](../build_/COMMITS/COMMIT-7fcb58e.md)
+- Message: Fix public article image delivery via durable media cache

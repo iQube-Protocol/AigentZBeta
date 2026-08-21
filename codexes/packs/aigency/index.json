@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-21T20:23:14.595Z",
+  "last_updated": "2026-08-21T20:50:17.900Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "80e49da62c5421548702da1dda13a391ddd73b97",
-  "latest_commit_short": "80e49da",
-  "latest_commit_title": "Harden canonical media delivery for Safari and range requests",
+  "latest_commit": "7fcb58e24212da3609a98036701032dce9c8eb50",
+  "latest_commit_short": "7fcb58e",
+  "latest_commit_title": "Fix public article image delivery via durable media cache",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "7fcb58e",
+      "full_sha": "7fcb58e24212da3609a98036701032dce9c8eb50",
+      "title": "Fix public article image delivery via durable media cache",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-21T16:48:32-04:00",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-7fcb58e.md"
+    },
     {
       "sha": "80e49da",
       "full_sha": "80e49da62c5421548702da1dda13a391ddd73b97",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-08T17:33:36-04:00",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-f935e9d.md"
-    },
-    {
-      "sha": "6e9f7ca",
-      "full_sha": "6e9f7ca0f7339ba38c8a1b2ea9b82e3b986762e5",
-      "title": "Add agent accession intent schema v0.1",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-08T17:33:45-04:00",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-6e9f7ca.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

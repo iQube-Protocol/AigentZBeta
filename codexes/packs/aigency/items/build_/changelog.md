@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`7fcb58e`](https://github.com/iQube-Protocol/AigentZBeta/commit/7fcb58e24212da3609a98036701032dce9c8eb50) [fix] Fix public article image delivery via durable media cache (Kn0w1, 2026-08-21T16:48:32-04:00)
 - [`80e49da`](https://github.com/iQube-Protocol/AigentZBeta/commit/80e49da62c5421548702da1dda13a391ddd73b97) [push] Harden canonical media delivery for Safari and range requests (Kn0w1, 2026-08-21T16:21:33-04:00)
 - [`0c4a0af`](https://github.com/iQube-Protocol/AigentZBeta/commit/0c4a0af42fde7988ea5fae55bcff7b2bc18f5a9e) [push] Serve canonical Autonomys media assets for public content (Kn0w1, 2026-08-21T15:58:36-04:00)
 - [`b4b8496`](https://github.com/iQube-Protocol/AigentZBeta/commit/b4b8496cda3eac8b6b60a696452e46c41acb323f) [push] Allow non-episode publication cover uploads (Kn0w1, 2026-08-21T14:51:10-04:00)
