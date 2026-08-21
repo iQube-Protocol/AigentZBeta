@@ -98,6 +98,11 @@ interface CanvasEntry {
   updatedAt: string;
 }
 
+/** Detects synthetic (non-persisted, non-hydrated) entries. */
+function isSyntheticEntry(entry: CanvasEntry): boolean {
+  return entry.metaJson?.synthetic === true;
+}
+
 /**
  * Surface mode — distinguishes the two consumers of this component.
  *
@@ -402,8 +407,8 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas', cam
     if (surface !== 'canvas' || campaignTag !== 'knyts-bridge-crossing') return null;
     return {
       id: 'synthetic:knyts-article-zero',
-      title: 'Article Zero',
-      bodyMd: '# Your Crossing\n\nTell your story. Every crossing builds the bridge.',
+      title: 'Your Crossing',
+      bodyMd: '# Welcome to myCluster\n\nmyCluster is your personal publishing space — a canvas for the stories that matter to you.\n\n## What you can do here\n\nEvery entry starts as a draft: a note, an idea, or the seed of a crossing story. You can refine it, remix it with AI to explore new perspectives, or publish it to the community.\n\n## Crossing Stories\n\nA crossing story is your real account of a threshold you\'ve crossed — a moment that changed you. The template below gives you a starting point: tell your story, explore a variation, or describe how someone else crosses the same threshold.\n\nWith Remix, you can reshape your ideas infinitely: rewrite from different points of view, ask "what if" questions, or deepen what you\'ve written. Once you\'re happy with it, publish it to the KNYT community and see it appear in the Pulse.\n\n## Start now\n\nClick "Start your crossing" below to open the Crossing template and begin.',
       tags: ['synthetic', 'knyts-bridge', 'article-zero'],
       visibility: 'invited',
       entryType: 'experience_origin',
@@ -473,7 +478,7 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas', cam
 
   useEffect(() => { void fetchEntries(); }, [fetchEntries]);
 
-  const selected = entries.find((e) => e.id === selectedId) ?? null;
+  const selected = filteredEntries.find((e) => e.id === selectedId) ?? null;
 
   useEffect(() => {
     if (!selected) { setEditorTitle(""); setEditorBody(""); return; }
@@ -484,8 +489,10 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas', cam
   // PIECE 5 of the 413 fix — hydrate the full entry the first time it's
   // selected and merge body_md + meta_json back into the list state.
   // Each entry is fetched at most once per persona thanks to hydratedRef.
+  // Synthetic entries are never hydrated — they're non-persisted by definition.
   useEffect(() => {
     if (!personaId || !selected) return;
+    if (isSyntheticEntry(selected)) return;
     if (hydratedRef.current.has(selected.id)) return;
     hydratedRef.current.add(selected.id);
     const targetId = selected.id;
@@ -565,7 +572,7 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas', cam
   const handleSave = useCallback(async () => {
     if (!personaId || !selected) return;
     // Synthetic entries are read-only; cannot save them directly.
-    if (typeof selected.metaJson?.synthetic === 'boolean' && selected.metaJson.synthetic) {
+    if (isSyntheticEntry(selected)) {
       setError('Cannot save synthetic starter entries. Create a new entry to save your work.');
       return;
     }
@@ -628,8 +635,8 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas', cam
   const handleDelete = useCallback(async (id: string) => {
     if (!personaId) return;
     // Synthetic entries are read-only; cannot delete them.
-    const entry = entries.find((e) => e.id === id);
-    if (entry && typeof entry.metaJson?.synthetic === 'boolean' && entry.metaJson.synthetic) {
+    const entry = filteredEntries.find((e) => e.id === id);
+    if (entry && isSyntheticEntry(entry)) {
       setError('Cannot delete synthetic starter entries.');
       return;
     }
@@ -649,6 +656,12 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas', cam
 
   const handleInvite = useCallback(async (entryId: string) => {
     if (!personaId || !inviteInput.trim()) return;
+    // Synthetic entries cannot be invited.
+    const entry = filteredEntries.find((e) => e.id === entryId);
+    if (entry && isSyntheticEntry(entry)) {
+      setError('Cannot invite on synthetic starter entries.');
+      return;
+    }
     try {
       // Invite is canvas-only — workspace entries are private by design.
       const res = await personaFetch(`/api/mycanvas/entries/${entryId}/invite`, {
@@ -925,6 +938,24 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas', cam
             <div className="flex-1 flex items-center justify-center text-sm text-slate-500">
               Select an entry on the left, or create a new one.
             </div>
+          ) : isSyntheticEntry(selected) ? (
+            <ArticleZeroPanel
+              entry={selected}
+              canvasTemplate={canvasTemplate}
+              onStartCrossing={() => {
+                setRemixSource({
+                  id: canvasTemplate.id,
+                  entryType: 'experience_origin',
+                  title: canvasTemplate.title,
+                  bodyMd: '',
+                  tags: canvasTemplate.tags,
+                  visibility: 'private',
+                  metaJson: canvasTemplate.metaJson,
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString(),
+                });
+              }}
+            />
           ) : selected.entryType === "experience_derived" ? (
             <ExperienceDerivedPanel
               entry={selected}
@@ -1198,6 +1229,44 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas', cam
         onInvited={() => void fetchEntries()}
       />
       <ConnectClaudeModal open={connectClaudeOpen} onClose={() => setConnectClaudeOpen(false)} />
+    </div>
+  );
+}
+
+// ─── Article Zero orientation panel ───────────────────────────────────────────
+
+function ArticleZeroPanel({
+  entry,
+  canvasTemplate,
+  onStartCrossing,
+}: {
+  entry: CanvasEntry;
+  canvasTemplate: CanvasTemplate;
+  onStartCrossing: () => void;
+}) {
+  return (
+    <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="p-3 border-b border-slate-700/50 flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2 min-w-0">
+          <Sparkles className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+          <span className="text-[11px] font-semibold text-emerald-300 uppercase tracking-wider">
+            Welcome to myCluster
+          </span>
+        </div>
+      </div>
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+        <article className="prose prose-invert prose-sm max-w-none text-slate-200 text-sm leading-relaxed">
+          {entry.bodyMd}
+        </article>
+        <button
+          type="button"
+          onClick={onStartCrossing}
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-amber-500/40 bg-amber-500/15 hover:bg-amber-500/25 text-amber-100 font-semibold text-sm transition"
+        >
+          <Sparkles className="w-4 h-4" />
+          Start your crossing
+        </button>
+      </div>
     </div>
   );
 }
