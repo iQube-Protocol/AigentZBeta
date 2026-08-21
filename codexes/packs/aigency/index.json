@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-17T18:23:46.342Z",
+  "last_updated": "2026-08-21T15:35:26.586Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "ca6f57699866910fed74bc2e115a7fc12e4782d8",
-  "latest_commit_short": "ca6f576",
-  "latest_commit_title": "Gate F: wire deliberation intent detection into chat route",
+  "latest_commit": "747b993ca1132523c402f0577988475fa4a9c9fa",
+  "latest_commit_short": "747b993",
+  "latest_commit_title": "docs(content): define reusable asset upload tool contract",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,150 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "747b993",
+      "full_sha": "747b993ca1132523c402f0577988475fa4a9c9fa",
+      "title": "docs(content): define reusable asset upload tool contract",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-21T11:33:45-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-747b993.md"
+    },
+    {
+      "sha": "eb07ba0",
+      "full_sha": "eb07ba068e6b4a64fcb699fabf39b5c561989ad8",
+      "title": "feat(qriptopian): link Threshold machine-readable editions",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-21T10:49:25-04:00",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-eb07ba0.md"
+    },
+    {
+      "sha": "1cc7702",
+      "full_sha": "1cc770242574c852a95d6cbd71629a14cf7bf099",
+      "title": "feat(qriptopian): present Threshold as Essays series",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-21T08:59:02-04:00",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-1cc7702.md"
+    },
+    {
+      "sha": "f0b9642",
+      "full_sha": "f0b9642ac2576af6d69f961af0f311a8ea33461b",
+      "title": "fix(qriptopian): keep Essays projection hook-safe",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-21T08:51:28-04:00",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-f0b9642.md"
+    },
+    {
+      "sha": "49a4c74",
+      "full_sha": "49a4c74afeaea4340afc085655aa4620c1eb5bba",
+      "title": "feat(qriptopian): add Essays codex tab",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-21T08:47:08-04:00",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-49a4c74.md"
+    },
+    {
+      "sha": "10606ab",
+      "full_sha": "10606ab4d55c10ae51a5a0eb25c56087d148eb4b",
+      "title": "docs(irl): deepen Trusted Intelligence as human-synthetic consequence-aware cybernetics",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-20T13:45:37-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-10606ab.md"
+    },
+    {
+      "sha": "2dffdf2",
+      "full_sha": "2dffdf2db727203a06302e06b5c2ef29cf13f818",
+      "title": "docs(irl): add Trusted Intelligence and Trusted Automation to Crucible",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-20T11:48:29-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-2dffdf2.md"
+    },
+    {
+      "sha": "d4dba30",
+      "full_sha": "d4dba3048771e659ff0bb1077a51f104a85e06da",
+      "title": "docs(irl): add robotics industry perspective invariants from S2G/Formic transcript",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-20T10:50:54-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-d4dba30.md"
+    },
+    {
+      "sha": "cb894a4",
+      "full_sha": "cb894a4207c2eb00ab6a0e01d7f48d6edcb09f5c",
+      "title": "docs(irl): compress capability candidate around trust",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-20T08:59:09-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-cb894a4.md"
+    },
+    {
+      "sha": "2b2e2f0",
+      "full_sha": "2b2e2f0f6f5e1b4c4657d7ecff39efd09f5c8b63",
+      "title": "docs(irl): map Ian authority-permission seam to Authority-Control-Mandate trinity",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-20T08:23:53-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-2b2e2f0.md"
+    },
+    {
+      "sha": "1154ac9",
+      "full_sha": "1154ac92fddbd0cf5e2acceee8cf9e8e61fdb8ec",
+      "title": "docs(irl): open Crucible robotics and embodied systems dossier",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-20T03:04:03-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-1154ac9.md"
+    },
+    {
+      "sha": "74a537d",
+      "full_sha": "74a537de7205fb121797c3d9439d6befc4a069f5",
+      "title": "docs(irl): canonize The Crucible as pre-canon research and development substrate",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-20T02:46:56-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-74a537d.md"
+    },
+    {
+      "sha": "a238fdf",
+      "full_sha": "a238fdffe4636fbd594f7649c55cfafd75b4b7c0",
+      "title": "docs(irl): add consequential capability invariants and perturbation experiment",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-20T02:43:07-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-a238fdf.md"
+    },
+    {
+      "sha": "757a08c",
+      "full_sha": "757a08c84a6b962afd11b14213a96e51949b9d00",
+      "title": "docs(irl): add capability-authority-legitimacy-accountability candidate",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-20T02:15:59-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-757a08c.md"
+    },
+    {
+      "sha": "bb8ee19",
+      "full_sha": "bb8ee19701098dc82028cf2cd262eb92db0c6a6c",
+      "title": "docs(irl): capture OCSGA open-agentic-network invariants and experiment programme",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-20T02:00:20-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-bb8ee19.md"
+    },
+    {
+      "sha": "0fc6dca",
+      "full_sha": "0fc6dcaa11c5da994df264c018a899fad322e8a5",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-08-17T18:25:13Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-0fc6dca.md"
+    },
     {
       "sha": "ca6f576",
       "full_sha": "ca6f57699866910fed74bc2e115a7fc12e4782d8",
@@ -1108,150 +1252,6 @@
       "timestamp": "2026-08-09T22:05:08Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-a0b9d8d.md"
-    },
-    {
-      "sha": "6e961c0",
-      "full_sha": "6e961c040f2e050cd7525275a5dbccabf758e02e",
-      "title": "Add the missing Ingest act (capability_registered) plus its guided UI action",
-      "author": "Claude",
-      "timestamp": "2026-08-09T21:48:06Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-6e961c0.md"
-    },
-    {
-      "sha": "cc779a6",
-      "full_sha": "cc779a662d818314c2ff7ea60779a2e71d3d6fbe",
-      "title": "Give the DVN attestation processor scheduled liveness (B3 confirmed)",
-      "author": "Claude",
-      "timestamp": "2026-08-09T20:35:17Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-cc779a6.md"
-    },
-    {
-      "sha": "7379156",
-      "full_sha": "737915672d0a5061832ec3710a4efbf48d137e9e",
-      "title": "Give DVN attestation processing scheduled liveness, secure its two mutation routes",
-      "author": "Claude",
-      "timestamp": "2026-08-09T19:51:43Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-7379156.md"
-    },
-    {
-      "sha": "a3aaa7f",
-      "full_sha": "a3aaa7f35629d9e3601e669d75840b905de96e84",
-      "title": "Add read-only DVN message classifier for Part B1 Nakamoto truth-check",
-      "author": "Claude",
-      "timestamp": "2026-08-09T19:56:02Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-a3aaa7f.md"
-    },
-    {
-      "sha": "90629c7",
-      "full_sha": "90629c7b459bf0280238f63cfebb1cf63cc696f4",
-      "title": "Stop double-counting the Standing seed and make supersession consequential",
-      "author": "Claude",
-      "timestamp": "2026-08-09T19:34:39Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-90629c7.md"
-    },
-    {
-      "sha": "1ea799b",
-      "full_sha": "1ea799b68621043b6a823946197546732373e743",
-      "title": "Add GIN index on activity_receipts.agents_invoked + raise ops route timeouts",
-      "author": "Claude",
-      "timestamp": "2026-08-09T18:23:29Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-1ea799b.md"
-    },
-    {
-      "sha": "2ba52ac",
-      "full_sha": "2ba52ac029613d97006ec7e296642f508768ccff",
-      "title": "Add GitHub Actions workflows for the ops routes needing CRON_TRIGGER_TOKEN",
-      "author": "Claude",
-      "timestamp": "2026-08-09T17:51:55Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-2ba52ac.md"
-    },
-    {
-      "sha": "e860c62",
-      "full_sha": "e860c628dba82c839df9dd33fefc6e05a18688c4",
-      "title": "Fix AigentQube-presence/Factory-ingestion conflation + wire P&L service registered evidence",
-      "author": "Claude",
-      "timestamp": "2026-08-09T12:29:35Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-e860c62.md"
-    },
-    {
-      "sha": "e720dcd",
-      "full_sha": "e720dcdb71d68ddde1a299150eb1c543f3588c04",
-      "title": "Fix DVN Pending fork pill + P&L three-state UI, add purpose-bound agent wallet binding",
-      "author": "Claude",
-      "timestamp": "2026-08-09T11:06:08Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-e720dcd.md"
-    },
-    {
-      "sha": "6ad4cf4",
-      "full_sha": "6ad4cf41dca44899f26e129bdebc0ac46e02b456",
-      "title": "Correct Horizen PnL onboarding contract + wire production Onboard action",
-      "author": "Claude",
-      "timestamp": "2026-08-09T09:55:10Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-6ad4cf4.md"
-    },
-    {
-      "sha": "bd52b76",
-      "full_sha": "bd52b76344ea1fca5d91eddd6f0c4a6a89c0b6df",
-      "title": "Add workflow to trigger MoneyPenny AigentQube repair route",
-      "author": "Claude",
-      "timestamp": "2026-08-09T09:41:03Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-bd52b76.md"
-    },
-    {
-      "sha": "52cfb3f",
-      "full_sha": "52cfb3f9e07472e62888311b961c80972b207b8e",
-      "title": "Add wall-clock safety budget to DVN reconciler + targeted submit route + MoneyPenny AigentQube repair",
-      "author": "Claude",
-      "timestamp": "2026-08-09T09:32:29Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-52cfb3f.md"
-    },
-    {
-      "sha": "c94c072",
-      "full_sha": "c94c0722bef720ea01cb7b64c897d6c7760dca08",
-      "title": "Add migration-drift diagnostic covering dual-leg anchoring + MoneyPenny AigentQube seed",
-      "author": "Claude",
-      "timestamp": "2026-08-09T08:59:48Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-c94c072.md"
-    },
-    {
-      "sha": "efe5d1a",
-      "full_sha": "efe5d1a05332a6661b14f6b393263f0714b92e4e",
-      "title": "Make receipt-status diagnostic column-schema-safe after discovering dvn_status missing in prod",
-      "author": "Claude",
-      "timestamp": "2026-08-09T08:39:43Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-efe5d1a.md"
-    },
-    {
-      "sha": "21c278e",
-      "full_sha": "21c278e3daa51c115a957f4f0279f403fd542ad4",
-      "title": "Fix local-to-DVN reconciler starvation on non-anchorable backlog + add receipt-status diagnostic",
-      "author": "Claude",
-      "timestamp": "2026-08-09T08:06:03Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-21c278e.md"
-    },
-    {
-      "sha": "d5c8474",
-      "full_sha": "d5c84747d50ca207fcabd5fe70b651a1a86218dd",
-      "title": "Add Verifiable-PnL onboarding boundary, verified against Horizen's live contract",
-      "author": "Claude",
-      "timestamp": "2026-08-09T07:48:39Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-d5c8474.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

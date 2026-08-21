@@ -4249,3 +4249,83 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-ca6f576.md](../build_/COMMITS/COMMIT-ca6f576.md)
 - Message: Gate F: wire deliberation intent detection into chat route
+
+## Commit `0fc6dca` — 2026-08-17T18:25:13Z
+- Type: `push`
+- Brief: [COMMIT-0fc6dca.md](../build_/COMMITS/COMMIT-0fc6dca.md)
+- Message: trigger deploy to dev
+
+## Commit `bb8ee19` — 2026-08-20T02:00:20-04:00
+- Type: `docs`
+- Brief: [COMMIT-bb8ee19.md](../build_/COMMITS/COMMIT-bb8ee19.md)
+- Message: docs(irl): capture OCSGA open-agentic-network invariants and experiment programme
+
+## Commit `757a08c` — 2026-08-20T02:15:59-04:00
+- Type: `docs`
+- Brief: [COMMIT-757a08c.md](../build_/COMMITS/COMMIT-757a08c.md)
+- Message: docs(irl): add capability-authority-legitimacy-accountability candidate
+
+## Commit `a238fdf` — 2026-08-20T02:43:07-04:00
+- Type: `docs`
+- Brief: [COMMIT-a238fdf.md](../build_/COMMITS/COMMIT-a238fdf.md)
+- Message: docs(irl): add consequential capability invariants and perturbation experiment
+
+## Commit `74a537d` — 2026-08-20T02:46:56-04:00
+- Type: `docs`
+- Brief: [COMMIT-74a537d.md](../build_/COMMITS/COMMIT-74a537d.md)
+- Message: docs(irl): canonize The Crucible as pre-canon research and development substrate
+
+## Commit `1154ac9` — 2026-08-20T03:04:03-04:00
+- Type: `docs`
+- Brief: [COMMIT-1154ac9.md](../build_/COMMITS/COMMIT-1154ac9.md)
+- Message: docs(irl): open Crucible robotics and embodied systems dossier
+
+## Commit `2b2e2f0` — 2026-08-20T08:23:53-04:00
+- Type: `docs`
+- Brief: [COMMIT-2b2e2f0.md](../build_/COMMITS/COMMIT-2b2e2f0.md)
+- Message: docs(irl): map Ian authority-permission seam to Authority-Control-Mandate trinity
+
+## Commit `cb894a4` — 2026-08-20T08:59:09-04:00
+- Type: `docs`
+- Brief: [COMMIT-cb894a4.md](../build_/COMMITS/COMMIT-cb894a4.md)
+- Message: docs(irl): compress capability candidate around trust
+
+## Commit `d4dba30` — 2026-08-20T10:50:54-04:00
+- Type: `docs`
+- Brief: [COMMIT-d4dba30.md](../build_/COMMITS/COMMIT-d4dba30.md)
+- Message: docs(irl): add robotics industry perspective invariants from S2G/Formic transcript
+
+## Commit `2dffdf2` — 2026-08-20T11:48:29-04:00
+- Type: `docs`
+- Brief: [COMMIT-2dffdf2.md](../build_/COMMITS/COMMIT-2dffdf2.md)
+- Message: docs(irl): add Trusted Intelligence and Trusted Automation to Crucible
+
+## Commit `10606ab` — 2026-08-20T13:45:37-04:00
+- Type: `docs`
+- Brief: [COMMIT-10606ab.md](../build_/COMMITS/COMMIT-10606ab.md)
+- Message: docs(irl): deepen Trusted Intelligence as human-synthetic consequence-aware cybernetics
+
+## Commit `49a4c74` — 2026-08-21T08:47:08-04:00
+- Type: `feat`
+- Brief: [COMMIT-49a4c74.md](../build_/COMMITS/COMMIT-49a4c74.md)
+- Message: feat(qriptopian): add Essays codex tab
+
+## Commit `f0b9642` — 2026-08-21T08:51:28-04:00
+- Type: `fix`
+- Brief: [COMMIT-f0b9642.md](../build_/COMMITS/COMMIT-f0b9642.md)
+- Message: fix(qriptopian): keep Essays projection hook-safe
+
+## Commit `1cc7702` — 2026-08-21T08:59:02-04:00
+- Type: `feat`
+- Brief: [COMMIT-1cc7702.md](../build_/COMMITS/COMMIT-1cc7702.md)
+- Message: feat(qriptopian): present Threshold as Essays series
+
+## Commit `eb07ba0` — 2026-08-21T10:49:25-04:00
+- Type: `feat`
+- Brief: [COMMIT-eb07ba0.md](../build_/COMMITS/COMMIT-eb07ba0.md)
+- Message: feat(qriptopian): link Threshold machine-readable editions
+
+## Commit `747b993` — 2026-08-21T11:33:45-04:00
+- Type: `docs`
+- Brief: [COMMIT-747b993.md](../build_/COMMITS/COMMIT-747b993.md)
+- Message: docs(content): define reusable asset upload tool contract
