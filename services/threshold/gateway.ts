@@ -185,18 +185,19 @@ export function listTools() {
     {
       name: 'upload_content_asset',
       description:
-        'Upload a content asset (cover, thumbnail, document, media) to Autonomys storage. The file must be provided as base64-encoded content. Supported roles: cover (cover images), thumbnail (thumbnail previews), hero (hero/banner images), social (social media assets), pdf (PDF documents), video (video media), audio (audio media), attachment (general attachments). Requires an authenticated session with admin or creator privileges.',
+        'Upload a content asset (cover, thumbnail, document, media) to Autonomys storage. Supports two input methods: fileBase64 (for JSON-RPC clients) or file (for connector actions with native binary). Exactly one must be provided. Supported roles: cover, thumbnail, hero, social, pdf, video, audio, attachment. Requires admin or creator privileges.',
       inputSchema: {
         type: 'object',
         properties: {
-          file: { type: 'string', description: 'File content as base64-encoded string.' },
+          fileBase64: { type: 'string', description: 'File content as base64-encoded string (for JSON-RPC clients).' },
+          file: { type: 'string', description: 'File content as raw binary (for connector/action layer; implementation-specific encoding).' },
           fileName: { type: 'string', description: 'Original filename (e.g., "cover.jpg"). Used to determine MIME type.' },
           domain: { type: 'string', description: 'Domain/series name (e.g., "metaKnyts", "qriptopian").' },
           role: { type: 'string', enum: ['cover', 'thumbnail', 'hero', 'social', 'pdf', 'video', 'audio', 'attachment'], description: 'Asset role/category.' },
           contentId: { type: 'string', description: 'Optional content ID to associate with this asset.' },
           bind: { type: 'boolean', description: 'Whether to bind the asset to the specified contentId (default: true).' },
         },
-        required: ['file', 'fileName', 'domain', 'role'],
+        required: ['fileName', 'domain', 'role'],
         additionalProperties: false,
       },
     },
@@ -533,6 +534,7 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
         };
       }
 
+      const fileBase64 = typeof args.fileBase64 === 'string' ? args.fileBase64 : null;
       const file = typeof args.file === 'string' ? args.file : null;
       const fileName = typeof args.fileName === 'string' ? args.fileName : null;
       const domain = typeof args.domain === 'string' ? args.domain : null;
@@ -540,9 +542,23 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
       const contentId = typeof args.contentId === 'string' ? args.contentId : undefined;
       const bind = args.bind === false ? false : true;
 
-      if (!file || !fileName || !domain || !role) {
+      if (!fileName || !domain || !role) {
         return {
-          ...text('Missing required parameters: file, fileName, domain, role'),
+          ...text('Missing required parameters: fileName, domain, role'),
+          isError: true,
+        };
+      }
+
+      // Validate exactly one of file or fileBase64 is supplied
+      if (!file && !fileBase64) {
+        return {
+          ...text('Must supply either file or fileBase64, not neither'),
+          isError: true,
+        };
+      }
+      if (file && fileBase64) {
+        return {
+          ...text('Cannot supply both file and fileBase64 — provide only one'),
           isError: true,
         };
       }
@@ -583,13 +599,20 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
       const ext = '.' + fileName.split('.').pop()?.toLowerCase();
       let mimeType = mimeTypeMap[ext] || 'application/octet-stream';
 
-      // Decode base64 file
+      // Decode file (from base64 or already-decoded buffer)
       let buffer: Buffer;
       try {
-        buffer = Buffer.from(file, 'base64');
+        if (fileBase64) {
+          // JSON-RPC path: decode from base64
+          buffer = Buffer.from(fileBase64, 'base64');
+        } else {
+          // Connector action path: file is already a base64-encoded representation of bytes
+          // (from multipart adapter that encoded the binary before calling)
+          buffer = Buffer.from(file, 'base64');
+        }
       } catch {
         return {
-          ...text('Invalid base64 encoding for file parameter.'),
+          ...text('Invalid encoding for file parameter.'),
           isError: true,
         };
       }

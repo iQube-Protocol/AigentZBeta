@@ -2,15 +2,34 @@
 
 ## Overview
 
-The `upload_content_asset` tool exposes native binary file uploads to the metaMe Threshold Gateway MCP server. It allows authenticated MCP clients (ChatGPT, Claude via Companion, external integrations) to upload media assets directly to Autonomys storage and optionally bind them to content records.
+The `upload_content_asset` tool exposes file uploads to the metaMe Threshold Gateway, supporting two input interfaces:
 
-## Registration Location
+1. **JSON-RPC clients** (ChatGPT plugins, external integrations): base64-encoded files via the MCP gateway
+2. **Connector/action layer** (ChatGPT actions, Claude actions): native binary files via a thin HTTP adapter
 
-**File:** `services/threshold/gateway.ts`
+Both paths share identical authorization (admin/creator privilege), MIME inference, role mapping, and response structure.
 
-**Tool Name:** `upload_content_asset`
+## Registration Locations
 
-**Endpoint:** Requires authenticated MCP bearer token → routed through `/api/threshold/mcp` JSON-RPC dispatcher
+### MCP Gateway Tool
+
+**File:** `services/threshold/gateway.ts` → `callTool('upload_content_asset')`
+
+**Transport:** JSON-RPC 2.0 over HTTP (requires `fileBase64` parameter)
+
+**Endpoint:** `/api/threshold/mcp` (dispatcher routed)
+
+**Authentication:** Constitutional Handshake bearer token
+
+### Connector Action Endpoint
+
+**File:** `app/api/threshold/upload-action/route.ts` → `POST /api/threshold/upload-action`
+
+**Transport:** multipart/form-data with native binary file
+
+**Authentication:** Constitutional Handshake bearer token
+
+**Target:** Forwards to `/api/content/assets/upload` (canonical user-facing upload endpoint)
 
 ## Authorization Requirements
 
@@ -21,11 +40,13 @@ The `upload_content_asset` tool exposes native binary file uploads to the metaMe
 
 ## Request Schema
 
+### MCP (JSON-RPC) Interface
+
 ```json
 {
   "tool": "upload_content_asset",
   "input": {
-    "file": "string (base64-encoded binary file content)",
+    "fileBase64": "string (base64-encoded binary file content — exactly one of fileBase64 or file required)",
     "fileName": "string (original filename, e.g., 'cover.jpg')",
     "domain": "string (series/domain name, e.g., 'metaKnyts', 'qriptopian')",
     "role": "enum (cover | thumbnail | hero | social | pdf | video | audio | attachment)",
@@ -35,16 +56,37 @@ The `upload_content_asset` tool exposes native binary file uploads to the metaMe
 }
 ```
 
+### Connector Action (multipart) Interface
+
+```
+POST /api/threshold/upload-action
+Authorization: Bearer <constitutional_handshake_token>
+Content-Type: multipart/form-data
+
+file: <binary file content>
+fileName: string (e.g., "cover.jpg")
+domain: string (e.g., "metaKnyts")
+role: enum (cover | thumbnail | hero | social | pdf | video | audio | attachment)
+contentId: string (optional)
+bind: boolean (optional, default: true)
+```
+
 ### Parameter Details
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `file` | string | ✓ | Base64-encoded file content. Decoded before multipart upload. |
-| `fileName` | string | ✓ | Original filename. Used to infer MIME type (extension-based mapping). |
-| `domain` | string | ✓ | Series/domain name, stored in `series` field. Used in objectPath. |
-| `role` | enum | ✓ | Asset role/category. Maps to `assetKind` for storage. |
-| `contentId` | string | | Content ID to associate. Included in objectPath; skipped if unbound. |
-| `bind` | boolean | | Bind the asset to contentId (default: true). Ignored if contentId absent. |
+| Parameter | Type | Required | MCP | Connector | Description |
+|-----------|------|----------|-----|-----------|-------------|
+| `fileBase64` | string | ✓ (MCP only) | ✓ | ✗ | Base64-encoded file. Mutually exclusive with `file`. |
+| `file` | binary | ✓ (connector only) | ✗ | ✓ | Native binary file. Mutually exclusive with `fileBase64`. |
+| `fileName` | string | ✓ | ✓ | ✓ | Original filename. Used to infer MIME type. |
+| `domain` | string | ✓ | ✓ | ✓ | Series/domain name. Used in objectPath. |
+| `role` | enum | ✓ | ✓ | ✓ | Asset role/category (8 options). |
+| `contentId` | string | | ✓ | ✓ | Content ID to bind to (optional). |
+| `bind` | boolean | | ✓ | ✓ | Whether to bind to contentId (default: true). |
+
+**Validation Rules:**
+- Exactly one of `file` or `fileBase64` must be supplied (not both, not neither).
+- If both are supplied, request is rejected with error: `"Cannot supply both file and fileBase64"`
+- If neither is supplied, request is rejected with error: `"Must supply either file or fileBase64, not neither"`
 
 ### Role-to-AssetKind Mapping
 
@@ -121,18 +163,15 @@ Extension mapping (case-insensitive):
 
 ## Invocation Examples
 
-### Via ChatGPT Plugin
+### Via MCP (JSON-RPC) — ChatGPT Plugin, Custom Integration
 
-```
-[ChatGPT has access to the tool through the Threshold MCP server]
+The MCP interface requires base64-encoded file content:
 
-User: "Upload this cover image to the KNYT series"
-ChatGPT: [fetches file from user, base64-encodes it, calls upload_content_asset]
-Tool call:
+```json
 {
   "name": "upload_content_asset",
   "arguments": {
-    "file": "iVBORw0KGgo...",  // base64 PNG
+    "fileBase64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==",
     "fileName": "episode-42-cover.png",
     "domain": "metaKnyts",
     "role": "cover",
@@ -142,13 +181,46 @@ Tool call:
 }
 ```
 
+**ChatGPT plugin workflow:**
+1. User selects file or provides image
+2. Plugin base64-encodes the bytes
+3. Plugin calls `upload_content_asset` with `fileBase64` parameter
+4. MCP gateway decodes, uploads, returns response
+
+### Via Connector Action Endpoint — ChatGPT Actions, Claude Actions
+
+The connector action endpoint accepts native binary files without base64 encoding:
+
+```bash
+curl -X POST https://dev-beta.aigentz.me/api/threshold/upload-action \
+  -H 'Authorization: Bearer <constitutional_handshake_bearer>' \
+  -F 'file=@/path/to/cover.png' \
+  -F 'fileName=episode-42-cover.png' \
+  -F 'domain=metaKnyts' \
+  -F 'role=cover' \
+  -F 'contentId=episode-42' \
+  -F 'bind=true'
+```
+
+**ChatGPT action workflow:**
+1. User selects file or generates image
+2. Action POSTs native binary to `/api/threshold/upload-action`
+3. Endpoint validates auth, forwards to canonical `/api/content/assets/upload`
+4. Returns same response as MCP path
+
+**Advantages over base64:**
+- No encoding/decoding overhead
+- Streams binary directly to Supabase/Autonomys
+- Cleaner multipart interface for action declarations
+- Same final response and authorization
+
 ### Via Claude Companion
 
-The Companion (the browser extension paired with a human's crossing) can invoke the tool after a Constitutional Handshake:
+The Companion can invoke either path. MCP example:
 
 ```typescript
 const result = await mcpClient.callTool('upload_content_asset', {
-  file: base64FileContent,
+  fileBase64: base64EncodedContent,  // Must use fileBase64 for JSON-RPC
   fileName: 'hero.jpg',
   domain: 'metaKnyts',
   role: 'hero',
@@ -157,7 +229,7 @@ const result = await mcpClient.callTool('upload_content_asset', {
 });
 ```
 
-### Via Direct HTTP (for testing)
+### Via Direct HTTP (MCP path, for testing)
 
 ```bash
 curl -X POST https://dev-beta.aigentz.me/api/threshold/mcp \
@@ -170,7 +242,7 @@ curl -X POST https://dev-beta.aigentz.me/api/threshold/mcp \
     "params": {
       "name": "upload_content_asset",
       "arguments": {
-        "file": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==",
+        "fileBase64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==",
         "fileName": "pixel.png",
         "domain": "metaKnyts",
         "role": "thumbnail",
@@ -182,21 +254,37 @@ curl -X POST https://dev-beta.aigentz.me/api/threshold/mcp \
 
 ## Backend Flow
 
-1. **MCP Dispatch** → `/api/threshold/mcp` route.ts
-2. **JSON-RPC Handling** → `callTool('upload_content_asset', args, ctx)` in `gateway.ts`
-3. **Authorization Check** → Verify `session.cartridgeFlags.isAdmin || isCreator`
-4. **Base64 Decode** → Convert file parameter to Buffer
-5. **MIME Type Inference** → Map fileName extension to MIME type
-6. **Multipart Construction** → Build FormData with file + metadata
-7. **Upload POST** → `fetch('/api/admin/codex/upload-asset', { method: 'POST', body: formData })`
-8. **Parse Response** → Extract CID, assetId from upload response
-9. **Construct Return** → Build structured response with all required fields
+### MCP Path (JSON-RPC)
 
-## Upstream Endpoint
+1. **MCP Dispatch** → `/api/threshold/mcp` JSON-RPC router
+2. **JSON-RPC Handler** → `callTool('upload_content_asset', args, ctx)` in `services/threshold/gateway.ts`
+3. **Parameter Validation** → Verify exactly one of `fileBase64` or `file` is supplied
+4. **Authorization Check** → Verify bearer token + `session.cartridgeFlags.isAdmin || isCreator`
+5. **Base64 Decode** → Convert `fileBase64` to Buffer (or `file` if pre-decoded)
+6. **MIME Type Inference** → Map `fileName` extension to MIME type
+7. **Role Validation** → Verify role is one of 8 allowed values
+8. **Multipart Construction** → Build FormData with Buffer + metadata
+9. **Upload POST** → `fetch('/api/admin/codex/upload-asset', { method: 'POST', body: formData })`
+10. **Parse Response** → Extract CID, assetId, publicUrl from Autonomys response
+11. **Construct Return** → Build JSON-RPC response with ok, assetId, cid, publicUrl, etc.
 
-The tool proxies to:
+### Connector Action Path (multipart/form-data)
+
+1. **HTTP Dispatch** → `/api/threshold/upload-action` Next.js route handler
+2. **Multipart Parse** → `await req.formData()` extracts file + metadata
+3. **Authorization Check** → Verify bearer token + `session.cartridgeFlags.isAdmin || isCreator` (via `getActivePersona`)
+4. **Validation** → Verify file + role + required params
+5. **Multipart Construction** → Build new FormData with native File object + metadata
+6. **Forward Upload** → `fetch('/api/content/assets/upload', { method: 'POST', body: formData, headers: { Authorization } })`
+7. **Pass-through Response** → Parse response from canonical endpoint, return to caller
+
+## Upstream Endpoints
+
+### MCP Path Target
 
 **Endpoint:** `POST /api/admin/codex/upload-asset`
+
+**Scope:** Admin-only, Autonomys storage, returns CID
 
 **Payload (FormData):**
 - `file`: Blob (multipart file field)
