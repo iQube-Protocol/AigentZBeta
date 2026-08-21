@@ -13,6 +13,7 @@
  * SSR bundle lean (the platform sits near the Amplify output-size cap).
  */
 
+import { createHash } from 'crypto';
 import { serviceRegistrySnapshot, listServices, getService, knownCapabilities } from './serviceRegistry';
 import { journeyRegistrySnapshot } from './journeyRegistry';
 import { buildThresholdLink, type ThresholdLinkManifest } from './thresholdLink';
@@ -181,6 +182,24 @@ export function listTools() {
         additionalProperties: false,
       },
     },
+    {
+      name: 'upload_content_asset',
+      description:
+        'Upload a content asset (cover, thumbnail, document, media) to Autonomys storage. The file must be provided as base64-encoded content. Supported roles: cover (cover images), thumbnail (thumbnail previews), hero (hero/banner images), social (social media assets), pdf (PDF documents), video (video media), audio (audio media), attachment (general attachments). Requires an authenticated session with admin or creator privileges.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          file: { type: 'string', description: 'File content as base64-encoded string.' },
+          fileName: { type: 'string', description: 'Original filename (e.g., "cover.jpg"). Used to determine MIME type.' },
+          domain: { type: 'string', description: 'Domain/series name (e.g., "metaKnyts", "qriptopian").' },
+          role: { type: 'string', enum: ['cover', 'thumbnail', 'hero', 'social', 'pdf', 'video', 'audio', 'attachment'], description: 'Asset role/category.' },
+          contentId: { type: 'string', description: 'Optional content ID to associate with this asset.' },
+          bind: { type: 'boolean', description: 'Whether to bind the asset to the specified contentId (default: true).' },
+        },
+        required: ['file', 'fileName', 'domain', 'role'],
+        additionalProperties: false,
+      },
+    },
   ];
 }
 
@@ -248,6 +267,7 @@ export const HANDSHAKE_TOOLS = new Set([
   'read_shared_document',
   'submit_review',
   'send_qubetalk_message',
+  'upload_content_asset',
 ]);
 
 /** Authenticated tools IMPLEMENTED in this increment. They are a subset of
@@ -262,6 +282,7 @@ const AUTHENTICATED_TOOLS = new Set([
   'list_shared_documents',
   'read_shared_document',
   'submit_review',
+  'upload_content_asset',
 ]);
 
 function text(value: unknown) {
@@ -500,6 +521,136 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
         aggregates: args.aggregates && typeof args.aggregates === 'object' ? (args.aggregates as Record<string, unknown>) : {},
       });
       return text(result);
+    }
+
+    // ── Content asset upload — authenticated, admin/creator only ──
+    if (name === 'upload_content_asset') {
+      // Check admin/creator privileges
+      if (!s.cartridgeFlags?.isAdmin && !s.cartridgeFlags?.isCreator) {
+        return {
+          ...text('This action requires admin or creator privileges. You do not hold this authorization.'),
+          isError: true,
+        };
+      }
+
+      const file = typeof args.file === 'string' ? args.file : null;
+      const fileName = typeof args.fileName === 'string' ? args.fileName : null;
+      const domain = typeof args.domain === 'string' ? args.domain : null;
+      const role = typeof args.role === 'string' ? args.role : null;
+      const contentId = typeof args.contentId === 'string' ? args.contentId : undefined;
+      const bind = args.bind === false ? false : true;
+
+      if (!file || !fileName || !domain || !role) {
+        return {
+          ...text('Missing required parameters: file, fileName, domain, role'),
+          isError: true,
+        };
+      }
+
+      // Map role to assetKind
+      const roleToAssetKind: Record<string, string> = {
+        cover: 'cover_image',
+        thumbnail: 'cover_image', // thumbnails are cover variants
+        hero: 'social_campaign_image',
+        social: 'social_campaign_image',
+        pdf: 'background_lore_doc',
+        video: 'game_video',
+        audio: 'game_video', // placeholder — adjust if audio asset kind exists
+        attachment: 'background_lore_doc', // placeholder — adjust as needed
+      };
+
+      const assetKind = roleToAssetKind[role];
+      if (!assetKind) {
+        return {
+          ...text(`Invalid role: ${role}. Must be one of: cover, thumbnail, hero, social, pdf, video, audio, attachment`),
+          isError: true,
+        };
+      }
+
+      // Infer MIME type from fileName
+      const mimeTypeMap: Record<string, string> = {
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.png': 'image/png',
+        '.webp': 'image/webp',
+        '.gif': 'image/gif',
+        '.pdf': 'application/pdf',
+        '.mp4': 'video/mp4',
+        '.webm': 'video/webm',
+        '.mp3': 'audio/mpeg',
+        '.wav': 'audio/wav',
+      };
+      const ext = '.' + fileName.split('.').pop()?.toLowerCase();
+      let mimeType = mimeTypeMap[ext] || 'application/octet-stream';
+
+      // Decode base64 file
+      let buffer: Buffer;
+      try {
+        buffer = Buffer.from(file, 'base64');
+      } catch {
+        return {
+          ...text('Invalid base64 encoding for file parameter.'),
+          isError: true,
+        };
+      }
+
+      // POST to /api/admin/codex/upload-asset
+      try {
+        const uploadFormData = new FormData();
+        uploadFormData.append('file', new Blob([buffer], { type: mimeType }), fileName);
+        uploadFormData.append('assetKind', assetKind);
+        uploadFormData.append('title', fileName);
+        uploadFormData.append('series', domain);
+
+        if (contentId && bind) {
+          uploadFormData.append('contentId', contentId);
+        }
+
+        // Construct absolute URL for the upload endpoint
+        const uploadUrl = `${ctx.origin}/api/admin/codex/upload-asset`;
+        const uploadResp = await fetch(uploadUrl, {
+          method: 'POST',
+          body: uploadFormData,
+        });
+
+        if (!uploadResp.ok) {
+          const errText = await uploadResp.text();
+          return {
+            ...text(`Upload failed: ${uploadResp.status} ${uploadResp.statusText}. ${errText}`),
+            isError: true,
+          };
+        }
+
+        const uploadResult = await uploadResp.json();
+        const cid = uploadResult.cid || uploadResult.data?.cid;
+        const assetId = uploadResult.id || uploadResult.data?.id;
+
+        // Construct public URL (Autonomys or Supabase depending on where it was stored)
+        let publicUrl = '';
+        if (cid) {
+          // Autonomys CID-based URL
+          publicUrl = `https://autonomys-gateway.com/ipfs/${cid}`;
+        }
+
+        return text({
+          ok: true,
+          assetId,
+          cid,
+          publicUrl,
+          objectPath: `${domain}/${contentId || 'unbound'}/${assetId}`,
+          mimeType,
+          bytes: buffer.length,
+          sha256: createHash('sha256').update(buffer).digest('hex'),
+          role,
+          contentId: contentId || null,
+          bound: contentId && bind ? true : false,
+        });
+      } catch (err) {
+        return {
+          ...text(`Upload error: ${err instanceof Error ? err.message : String(err)}`),
+          isError: true,
+        };
+      }
     }
   }
 
