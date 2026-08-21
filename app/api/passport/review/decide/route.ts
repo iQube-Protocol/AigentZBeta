@@ -2,8 +2,14 @@
  * POST /api/passport/review/decide — steward review decision + issuance.
  *
  * PRD §10 steps 7–9, §14. Gate: spine cartridge-admin (operator decision 3).
- * Body: { applicationId, decision: 'approve'|'deny'|'needs_more_information',
+ * Body: { applicationId,
+ *         decision: 'approve'|'deny'|'needs_more_information'|'escalate',
  *         notes?, participantIssueStatus? }
+ *
+ * 'escalate' is Citizen-only (operator ruling, 2026-08-21) — replaces 'deny'
+ * in the Citizen review vocabulary; applyReviewDecision rejects 'deny' for
+ * citizens and rejects 'escalate' for participants, so this route trusts
+ * that guard rather than re-deriving it (see issuanceService.ts).
  *
  * Approval issues the passport via the status-machine-driven issuance
  * service: record row + (citizen) privilege standing + transition audit +
@@ -20,7 +26,12 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-const DECISIONS: ReadonlyArray<ReviewDecision> = ['approve', 'deny', 'needs_more_information'];
+const DECISIONS: ReadonlyArray<ReviewDecision> = [
+  'approve',
+  'deny',
+  'needs_more_information',
+  'escalate',
+];
 
 export async function POST(req: NextRequest) {
   try {

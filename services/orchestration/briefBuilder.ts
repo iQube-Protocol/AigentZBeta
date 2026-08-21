@@ -199,6 +199,16 @@ export interface BuildBriefInput {
   /** Defaults — if no ExperienceQube configured we still produce a useful brief. */
   defaultActiveCartridges?: ActiveCartridgeSlug[];
   /**
+   * Admin Action Centre aggregate count (operator brief §4/§13 — the
+   * Command-Centre-equivalent seam is this field, not a new widget).
+   * Resolved by the CALLER (app/api/assistant/brief/route.ts), which
+   * already has `context.cartridgeFlags` and gates this to admin personas
+   * only — briefBuilder itself never resolves admin scope. Omitted or
+   * undefined for a non-admin persona, which keeps the pre-existing
+   * behaviour (pendingApprovalsCount stays 0) exactly as it was.
+   */
+  adminActionRequiredCount?: number;
+  /**
    * Optional fresh signal from the Capability Gateway pre-flight pass
    * (e.g. web-search digest). Routed into the LLM rerank prompt as
    * `liveContext` so the model can use it to break ties / boost a
@@ -365,7 +375,9 @@ export async function buildBrief(input: BuildBriefInput): Promise<BriefShape> {
     topNbeReason,
     nbaContextualTitles,
     nbaPromptHints,
-    pendingApprovalsCount: 0, // Phase 6 wires this.
+    // Admin Action Centre aggregate (operator brief §4/§13) when the caller
+    // resolved one for an admin persona; otherwise the pre-existing 0.
+    pendingApprovalsCount: input.adminActionRequiredCount ?? 0,
     using,
     notShared: [
       'confidential strategy notes',

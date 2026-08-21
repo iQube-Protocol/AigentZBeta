@@ -34,7 +34,18 @@ import {
 
 export const PASSPORT_BUREAU_CARTRIDGE_SLUG = 'polity-passport-bureau';
 
-export type ReviewDecision = 'approve' | 'deny' | 'needs_more_information';
+/**
+ * 'escalate' is CITIZEN-ONLY (operator ruling, 2026-08-21 — "do not add
+ * deny/reject/decline as ordinary Citizen review outcomes"). It replaces
+ * 'deny' in the Citizen review vocabulary: it raises a Citizen application
+ * to committee-level attention WITHOUT terminating the applicant's standing
+ * — it maps to the existing `needs_more_information` application_status
+ * (no new status value; CitizenPassportStatus itself is untouched) plus a
+ * `review_priority` bump, never to 'denied'. Participant/agent applications
+ * still use 'deny' exactly as before — this decision value is rejected for
+ * them, by design (see the guard in applyReviewDecision below).
+ */
+export type ReviewDecision = 'approve' | 'deny' | 'needs_more_information' | 'escalate';
 
 export interface ReviewDecisionInput {
   applicationId: string;
@@ -47,6 +58,15 @@ export interface ReviewDecisionInput {
    * issue to 'active').
    */
   participantIssueStatus?: 'approved' | 'provisionally_issued';
+  /**
+   * 'system' marks this decision as machine-initiated (Citizen automatic
+   * recognition — services/passport/citizenAutoIssuance.ts). Defaults to
+   * 'steward' for full backward compatibility with every existing caller.
+   * A system decision never writes `assigned_steward_id` (no human was
+   * assigned) and records `actor_type: 'system'` in the transition audit
+   * row instead of the hardcoded 'steward'.
+   */
+  actorType?: 'steward' | 'system';
 }
 
 export interface ReviewDecisionResult {
@@ -85,16 +105,53 @@ export async function applyReviewDecision(
     };
   }
 
-  if (input.decision === 'deny' || input.decision === 'needs_more_information') {
-    const nextStatus = input.decision === 'deny' ? 'denied' : 'needs_more_information';
+  const passportClass = String(app.passport_class);
+  const isCitizen = passportClass === 'citizen';
+
+  // Citizen applications can never be denied (operator ruling, 2026-08-21):
+  // CitizenPassportStatus itself has no 'denied'/'revoked' — this rejects at
+  // the API boundary too, defense-in-depth against a raw call bypassing the
+  // UI (which no longer offers a Deny control for Citizen rows at all).
+  if (isCitizen && input.decision === 'deny') {
+    return {
+      ok: false,
+      error:
+        "Citizen applications cannot be denied — use 'escalate' for cases requiring further review.",
+    };
+  }
+  // 'escalate' is Citizen-only — Participant/agent review semantics are
+  // deliberately unchanged in this pass (operator ruling, 2026-08-21).
+  if (!isCitizen && input.decision === 'escalate') {
+    return {
+      ok: false,
+      error: "'escalate' is only a valid decision for citizen applications.",
+    };
+  }
+
+  if (
+    input.decision === 'deny' ||
+    input.decision === 'needs_more_information' ||
+    input.decision === 'escalate'
+  ) {
+    const nextStatus =
+      input.decision === 'deny'
+        ? 'denied'
+        // escalate maps to the EXISTING needs_more_information application
+        // status — no new status value, no CitizenPassportStatus change.
+        : 'needs_more_information';
+    const update: Record<string, unknown> = {
+      application_status: nextStatus,
+      assigned_steward_id: input.stewardPersonaId,
+      decided_at: input.decision === 'deny' ? new Date().toISOString() : null,
+      updated_at: new Date().toISOString(),
+    };
+    if (input.decision === 'escalate') {
+      // Highest existing review_priority value — no schema change.
+      update.review_priority = 'expedited';
+    }
     const { error: updateError } = await admin
       .from('polity_passport_applications')
-      .update({
-        application_status: nextStatus,
-        assigned_steward_id: input.stewardPersonaId,
-        decided_at: input.decision === 'deny' ? new Date().toISOString() : null,
-        updated_at: new Date().toISOString(),
-      })
+      .update(update)
       .eq('id', input.applicationId);
     if (updateError) return { ok: false, error: updateError.message };
 
@@ -103,15 +160,49 @@ export async function applyReviewDecision(
       summary:
         input.decision === 'deny'
           ? `Passport application denied (${String(app.passport_class)})`
-          : `Passport application needs more information (${String(app.passport_class)})`,
+          : input.decision === 'escalate'
+            ? `Citizen passport application escalated for committee-level review`
+            : `Passport application needs more information (${String(app.passport_class)})`,
       actionType: 'passport_status_changed',
     });
+
+    // A human decision on a Citizen application resolves whatever
+    // action_required item drew a steward's attention to it in the first
+    // place (needs_more_information keeps the exception open — the
+    // applicant still owes information — but escalate is itself the
+    // steward's resolution of the ORIGINAL exception, replaced by a fresh
+    // one for committee attention).
+    if (isCitizen && input.decision === 'escalate') {
+      const { resolveOpenActionsForSource, recordAdminAction } = await import(
+        '@/services/adminActions/adminActionService'
+      );
+      const { passportReviewRequiredKey } = await import(
+        '@/services/adminActions/idempotencyKeys'
+      );
+      await resolveOpenActionsForSource(
+        'passport_application',
+        input.applicationId,
+        input.stewardPersonaId,
+      );
+      await recordAdminAction({
+        idempotencyKey: passportReviewRequiredKey(input.applicationId, 'steward_escalated'),
+        category: 'passport',
+        severity: 'urgent',
+        disposition: 'action_required',
+        title: 'Citizen Passport application escalated',
+        summary: 'A steward escalated this application for committee-level review.',
+        sourceType: 'passport_application',
+        sourceRef: input.applicationId,
+        sourceSurface: PASSPORT_BUREAU_CARTRIDGE_SLUG,
+        actionType: 'review_application',
+        metadata: { reasonCode: 'steward_escalated' },
+      });
+    }
+
     return { ok: true, applicationStatus: nextStatus, receiptId };
   }
 
   // ── Approve → issue ──────────────────────────────────────────────────────
-  const passportClass = String(app.passport_class);
-  const isCitizen = passportClass === 'citizen';
 
   // Status-machine validation: issuance is the pending_approval → issued
   // edge; the rule supplies the receipt + evidence contract.
@@ -166,28 +257,33 @@ export async function applyReviewDecision(
     }
   }
 
+  const actorType = input.actorType ?? 'steward';
+
   // Status-transition audit row — fields come from the machine rule.
   await admin.from('passport_status_transitions').insert({
     passport_record_id: record.id,
     from_status: 'pending_approval',
     to_status: issuedStatus,
     passport_class: passportClass,
-    actor_type: 'steward',
+    actor_type: actorType,
     actor_id: input.stewardPersonaId,
     reason: input.notes ?? null,
     evidence_type: rule.evidence,
     receipt_action: rule.receipt,
   });
 
+  // A system decision assigns no human steward — assigned_steward_id names
+  // the human who reviewed an application, and no human reviewed this one.
+  const appUpdate: Record<string, unknown> = {
+    application_status: 'approved',
+    passport_id: passportId,
+    decided_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+  if (actorType === 'steward') appUpdate.assigned_steward_id = input.stewardPersonaId;
   const { error: appUpdateError } = await admin
     .from('polity_passport_applications')
-    .update({
-      application_status: 'approved',
-      passport_id: passportId,
-      assigned_steward_id: input.stewardPersonaId,
-      decided_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
+    .update(appUpdate)
     .eq('id', input.applicationId);
   if (appUpdateError) {
     console.error('[passport issuance] application update failed:', appUpdateError.message);
@@ -195,7 +291,10 @@ export async function applyReviewDecision(
 
   const receiptId = await writeReceipt({
     personaId: String(app.persona_id || '') || null,
-    summary: `Passport issued: ${passportId} (${passportClass}, ${issuedStatus})`,
+    summary:
+      actorType === 'system'
+        ? `Passport issued automatically: ${passportId} (${passportClass}, ${issuedStatus})`
+        : `Passport issued: ${passportId} (${passportClass}, ${issuedStatus})`,
     actionType: rule.receipt === 'passport_issued' ? 'passport_issued' : 'passport_status_changed',
     /*
      * ATTRIBUTE AN AGENT PASSPORT TO ITS AGENT (operator, 2026-08-03).

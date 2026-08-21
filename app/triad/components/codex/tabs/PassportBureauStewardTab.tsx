@@ -3,10 +3,20 @@
 /**
  * PassportBureauStewardTab — steward review dashboard (Stage 6 UI).
  *
- * PRD §4.5, §14. Queue of open applications with approve / deny /
- * needs-more-information actions. Mirrors the registry canonization-queue
- * workflow shape. Gate is server-side (spine cartridge-admin); this tab
- * simply surfaces the 403 when the caller is not a steward.
+ * PRD §4.5, §14. Queue of open applications. Mirrors the registry
+ * canonization-queue workflow shape. Gate is server-side (spine
+ * cartridge-admin); this tab simply surfaces the 403 when the caller is
+ * not a steward.
+ *
+ * VOCABULARY SPLIT (operator ruling, 2026-08-21): with automatic Citizen
+ * recognition live (services/passport/citizenAutoIssuance.ts), a Citizen
+ * row only ever reaches this queue when evidence was incomplete/ambiguous
+ * or an infra exception occurred — never as an ordinary admission decision.
+ * Citizen rows therefore get a distinct action set — Recognize / Needs
+ * information / Escalate — with NO Deny control at all (the service layer
+ * also rejects 'deny' for citizens defense-in-depth; see
+ * services/passport/issuanceService.ts). Participant/agent rows are
+ * UNCHANGED — Approve + issue / Needs info / Deny, exactly as before.
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
@@ -41,7 +51,7 @@ function cls(...xs: Array<string | false | undefined>) {
   return xs.filter(Boolean).join(' ');
 }
 
-type Decision = 'approve' | 'deny' | 'needs_more_information';
+type Decision = 'approve' | 'deny' | 'needs_more_information' | 'escalate';
 
 interface DecidedState {
   decision: Decision;
@@ -157,9 +167,11 @@ export function PassportBureauStewardTab() {
                 ? 'border-emerald-500/40 bg-emerald-950/30'
                 : itemDecided?.decision === 'deny'
                   ? 'border-rose-500/40 bg-rose-950/30'
-                  : itemDecided?.decision === 'needs_more_information'
-                    ? 'border-amber-500/40 bg-amber-950/30'
-                    : 'border-slate-700 bg-slate-900/60',
+                  : itemDecided?.decision === 'escalate'
+                    ? 'border-violet-500/40 bg-violet-950/30'
+                    : itemDecided?.decision === 'needs_more_information'
+                      ? 'border-amber-500/40 bg-amber-950/30'
+                      : 'border-slate-700 bg-slate-900/60',
             )}
           >
             <div className="flex items-center justify-between">
@@ -200,13 +212,17 @@ export function PassportBureauStewardTab() {
                         ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-300'
                         : itemDecided.decision === 'deny'
                           ? 'bg-rose-500/20 border border-rose-500/40 text-rose-300'
-                          : 'bg-amber-500/20 border border-amber-500/40 text-amber-300',
+                          : itemDecided.decision === 'escalate'
+                            ? 'bg-violet-500/20 border border-violet-500/40 text-violet-300'
+                            : 'bg-amber-500/20 border border-amber-500/40 text-amber-300',
                     )}
                   >
                     {itemDecided.decision === 'approve' ? (
-                      <><CheckCircle2 className="h-3 w-3" /> Approved + Issued</>
+                      <><CheckCircle2 className="h-3 w-3" /> {isCitizen ? 'Recognized + Issued' : 'Approved + Issued'}</>
                     ) : itemDecided.decision === 'deny' ? (
                       <><XCircle className="h-3 w-3" /> Denied</>
+                    ) : itemDecided.decision === 'escalate' ? (
+                      <><AlertCircle className="h-3 w-3" /> Escalated</>
                     ) : (
                       <><HelpCircle className="h-3 w-3" /> Needs Info</>
                     )}
@@ -226,7 +242,7 @@ export function PassportBureauStewardTab() {
             </div>
 
             <div className="space-y-1 text-xs text-slate-400">
-              <p>Status: {itemDecided ? (itemDecided.decision === 'approve' ? 'approved + issued' : itemDecided.decision === 'deny' ? 'denied' : 'needs_more_information') : item.applicationStatus} · Proof: {item.personhoodProofType ?? 'none'}</p>
+              <p>Status: {itemDecided ? (itemDecided.decision === 'approve' ? (isCitizen ? 'recognized + issued' : 'approved + issued') : itemDecided.decision === 'deny' ? 'denied' : itemDecided.decision === 'escalate' ? 'escalated for committee review' : 'needs_more_information') : item.applicationStatus} · Proof: {item.personhoodProofType ?? 'none'}</p>
               {item.agentCardUrl && (
                 <p className="break-all font-mono">Agent card: {item.agentCardUrl}</p>
               )}
@@ -261,7 +277,7 @@ export function PassportBureauStewardTab() {
                     ) : (
                       <CheckCircle2 className="h-4 w-4" />
                     )}
-                    Approve + issue
+                    {isCitizen ? 'Recognize' : 'Approve + issue'}
                   </button>
                   <button
                     onClick={() => void decide(item.applicationId, 'needs_more_information')}
@@ -269,16 +285,30 @@ export function PassportBureauStewardTab() {
                     className="flex items-center gap-1.5 rounded-lg bg-slate-700 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-600 disabled:opacity-50"
                   >
                     <HelpCircle className="h-4 w-4" />
-                    Needs info
+                    {isCitizen ? 'Needs information' : 'Needs info'}
                   </button>
-                  <button
-                    onClick={() => void decide(item.applicationId, 'deny')}
-                    disabled={busyId === item.applicationId}
-                    className="flex items-center gap-1.5 rounded-lg bg-rose-800 px-3 py-1.5 text-sm text-rose-100 hover:bg-rose-700 disabled:opacity-50"
-                  >
-                    <XCircle className="h-4 w-4" />
-                    Deny
-                  </button>
+                  {/* Citizen rows get Escalate, never Deny (operator ruling,
+                      2026-08-21) — Participant/agent rows keep Deny
+                      unchanged. */}
+                  {isCitizen ? (
+                    <button
+                      onClick={() => void decide(item.applicationId, 'escalate')}
+                      disabled={busyId === item.applicationId}
+                      className="flex items-center gap-1.5 rounded-lg bg-violet-800 px-3 py-1.5 text-sm text-violet-100 hover:bg-violet-700 disabled:opacity-50"
+                    >
+                      <AlertCircle className="h-4 w-4" />
+                      Escalate
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => void decide(item.applicationId, 'deny')}
+                      disabled={busyId === item.applicationId}
+                      className="flex items-center gap-1.5 rounded-lg bg-rose-800 px-3 py-1.5 text-sm text-rose-100 hover:bg-rose-700 disabled:opacity-50"
+                    >
+                      <XCircle className="h-4 w-4" />
+                      Deny
+                    </button>
+                  )}
                 </div>
               </>
             )}
