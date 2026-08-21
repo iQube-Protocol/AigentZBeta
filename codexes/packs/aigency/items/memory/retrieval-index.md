@@ -4339,3 +4339,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-0c4a0af.md](../build_/COMMITS/COMMIT-0c4a0af.md)
 - Message: Serve canonical Autonomys media assets for public content
+
+## Commit `80e49da` — 2026-08-21T16:21:33-04:00
+- Type: `push`
+- Brief: [COMMIT-80e49da.md](../build_/COMMITS/COMMIT-80e49da.md)
+- Message: Harden canonical media delivery for Safari and range requests

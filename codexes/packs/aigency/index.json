@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-21T20:00:18.822Z",
+  "last_updated": "2026-08-21T20:23:14.595Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "0c4a0af42fde7988ea5fae55bcff7b2bc18f5a9e",
-  "latest_commit_short": "0c4a0af",
-  "latest_commit_title": "Serve canonical Autonomys media assets for public content",
+  "latest_commit": "80e49da62c5421548702da1dda13a391ddd73b97",
+  "latest_commit_short": "80e49da",
+  "latest_commit_title": "Harden canonical media delivery for Safari and range requests",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "80e49da",
+      "full_sha": "80e49da62c5421548702da1dda13a391ddd73b97",
+      "title": "Harden canonical media delivery for Safari and range requests",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-21T16:21:33-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-80e49da.md"
+    },
     {
       "sha": "0c4a0af",
       "full_sha": "0c4a0af42fde7988ea5fae55bcff7b2bc18f5a9e",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-08T17:33:45-04:00",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-6e9f7ca.md"
-    },
-    {
-      "sha": "5c233ea",
-      "full_sha": "5c233ea4e9e95bf2f2922512201da551b71d0e9a",
-      "title": "Register Constitutional Internet agent edition in Polity Core",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-08T17:34:24-04:00",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-5c233ea.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`80e49da`](https://github.com/iQube-Protocol/AigentZBeta/commit/80e49da62c5421548702da1dda13a391ddd73b97) [push] Harden canonical media delivery for Safari and range requests (Kn0w1, 2026-08-21T16:21:33-04:00)
 - [`0c4a0af`](https://github.com/iQube-Protocol/AigentZBeta/commit/0c4a0af42fde7988ea5fae55bcff7b2bc18f5a9e) [push] Serve canonical Autonomys media assets for public content (Kn0w1, 2026-08-21T15:58:36-04:00)
 - [`b4b8496`](https://github.com/iQube-Protocol/AigentZBeta/commit/b4b8496cda3eac8b6b60a696452e46c41acb323f) [push] Allow non-episode publication cover uploads (Kn0w1, 2026-08-21T14:51:10-04:00)
 - [`747b993`](https://github.com/iQube-Protocol/AigentZBeta/commit/747b993ca1132523c402f0577988475fa4a9c9fa) [docs] docs(content): define reusable asset upload tool contract (Kn0w1, 2026-08-21T11:33:45-04:00)
