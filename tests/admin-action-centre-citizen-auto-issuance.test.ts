@@ -32,6 +32,9 @@ class FakeAdminChain implements PromiseLike<FakeAdminResult> {
   constructor(private readonly result: FakeAdminResult) {}
   select() { return this; }
   eq() { return this; }
+  neq() { return this; }
+  in() { return this; }
+  limit() { return this; }
   single(): Promise<FakeAdminResult> { return Promise.resolve(this.result); }
   maybeSingle(): Promise<FakeAdminResult> { return Promise.resolve(this.result); }
   then<T1 = FakeAdminResult, T2 = never>(
@@ -60,6 +63,20 @@ let currentFakeAdmin: FakeAdminClient;
 vi.mock('@/app/api/_lib/supabaseServer', () => ({
   getSupabaseServer: () => currentFakeAdmin,
 }));
+
+// applyReviewDecision is spied on directly (never faked-through-DB) so
+// canaries 1-3 below can assert, with certainty rather than inference, that
+// a Supabase read failure short-circuits BEFORE any issuance decision is
+// even attempted — the exact property the corrective audit (2026-08-21)
+// exists to prove. PASSPORT_BUREAU_CARTRIDGE_SLUG is re-exported verbatim
+// (not faked) since citizenAutoIssuance.ts imports both from this module.
+const mockApplyReviewDecision = vi.fn();
+vi.mock('@/services/passport/issuanceService', async () => {
+  const actual = await vi.importActual<typeof import('@/services/passport/issuanceService')>(
+    '@/services/passport/issuanceService',
+  );
+  return { ...actual, applyReviewDecision: mockApplyReviewDecision };
+});
 
 const CITIZEN_AUTO_ISSUANCE = 'services/passport/citizenAutoIssuance.ts';
 const ISSUANCE_SERVICE = 'services/passport/issuanceService.ts';
@@ -205,15 +222,59 @@ describe('Pre-push audit (2026-08-21) — fail-closed on infra exceptions, never
     const fetchAt = src.indexOf("from('polity_passport_applications')");
     expect(fetchAt, 'expected the initial application fetch').toBeGreaterThan(-1);
     // A try must open BEFORE this call and a catch must follow it, and that
-    // catch must record a review-required admin action rather than exiting
-    // silently — the defect this audit found and fixed.
+    // catch must route through the shared verification-unavailable handler
+    // rather than exiting silently — the defect this audit found and fixed.
     const tryAt = src.lastIndexOf('try {', fetchAt);
     expect(tryAt, 'expected the fetch to be inside a try block').toBeGreaterThan(-1);
     const catchAt = src.indexOf('} catch (e) {', fetchAt);
     expect(catchAt, 'expected a catch after the fetch').toBeGreaterThan(-1);
     const catchBlock = src.slice(catchAt, src.indexOf('return { issued: false', catchAt));
-    expect(catchBlock).toMatch(/passportReviewRequiredKey/);
-    expect(catchBlock).toMatch(/disposition:\s*['"]action_required['"]/);
+    expect(catchBlock).toMatch(/recordVerificationUnavailable\(/);
+
+    // And the shared handler itself must record a review-required
+    // action_required item (checked once, generically, rather than at every
+    // call site — there are now four).
+    const handlerAt = src.indexOf('async function recordVerificationUnavailable');
+    expect(handlerAt, 'expected the shared recordVerificationUnavailable handler').toBeGreaterThan(-1);
+    const handlerEnd = src.indexOf('\n}', handlerAt);
+    const handlerBody = src.slice(handlerAt, handlerEnd);
+    expect(handlerBody).toMatch(/passportReviewRequiredKey/);
+    expect(handlerBody).toMatch(/disposition:\s*['"]action_required['"]/);
+  });
+
+  it('an ordinary Supabase {error} result (no throw) on the initial fetch is handled identically to a throw, never folded into "not applicable"', () => {
+    const src = stripComments(readSource(CITIZEN_AUTO_ISSUANCE));
+    // CORRECTIVE AUDIT (2026-08-21): Supabase calls generally resolve with
+    // { data, error } rather than throwing. `appError` must be checked on
+    // its own, calling the SAME handler as the catch block — and that check
+    // must come BEFORE the `!app` → not_applicable branch, never folded
+    // into the same condition (`appError || !app`), which is exactly the
+    // defect this canary guards against regressing.
+    const appErrorAt = src.indexOf('if (appError) {');
+    expect(appErrorAt, 'expected a standalone `if (appError)` check').toBeGreaterThan(-1);
+    expect(src).not.toMatch(/if \(appError \|\| !app\)/);
+    const appErrorBlock = src.slice(appErrorAt, src.indexOf('not_applicable', appErrorAt));
+    expect(appErrorBlock).toMatch(/recordVerificationUnavailable\(/);
+    const notApplicableAt = src.indexOf("reason: 'not_applicable'", appErrorAt);
+    expect(appErrorAt).toBeLessThan(notApplicableAt);
+  });
+
+  it('the conflict/active-Passport check captures the FULL {data, error} result and checks error before reading data', () => {
+    const src = stripComments(readSource(CITIZEN_AUTO_ISSUANCE));
+    // CORRECTIVE AUDIT (2026-08-21): destructuring only `{ data }` out of
+    // each query result silently discards `error` — `Boolean(null && ...)`
+    // then reads as "no conflict found" for a query that never ran. The
+    // fix captures the whole result object and checks `.error` explicitly
+    // before ever reading `.data`.
+    const promiseAllAt = src.indexOf('await Promise.all([');
+    expect(promiseAllAt, 'expected the conflict-check Promise.all').toBeGreaterThan(-1);
+    expect(src).not.toMatch(/const \[\{ data: openApps \}, \{ data: activeCitizen \}\] = await Promise\.all/);
+    const errorCheckAt = src.indexOf('openResult.error || activeResult.error', promiseAllAt);
+    expect(errorCheckAt, 'expected an explicit openResult.error || activeResult.error check').toBeGreaterThan(-1);
+    const dataReadAt = src.indexOf('conflictingOpenApplicationExists = Boolean(openResult.data', promiseAllAt);
+    expect(dataReadAt, 'expected .data to be read only from the captured result objects').toBeGreaterThan(-1);
+    // The error check must come BEFORE any .data read.
+    expect(errorCheckAt).toBeLessThan(dataReadAt);
   });
 
   it('a receipt-write failure after successful issuance is action_required, never a silent clean informational', () => {
@@ -234,6 +295,92 @@ describe('Pre-push audit (2026-08-21) — fail-closed on infra exceptions, never
     // succeeded (operator brief §10: the receipt is not constitutional
     // truth).
     expect(guardBlock).toMatch(/return \{ issued: true, passportId: result\.passportId \}/);
+  });
+});
+
+describe('Corrective audit (2026-08-21) — ordinary Supabase {data:null,error} results, not just throws', () => {
+  beforeEach(() => {
+    currentFakeAdmin = new FakeAdminClient();
+    mockApplyReviewDecision.mockReset();
+    vi.resetModules();
+  });
+
+  const CITIZEN_ROW = {
+    id: 'app-1',
+    passport_class: 'citizen',
+    application_status: 'submitted',
+    persona_id: 'persona-1',
+    personhood_proof_type: 'captcha',
+    personhood_proof_ref: 'proof-ref-1',
+    consents: {
+      passport_terms_accepted: true,
+      privacy_terms_accepted: true,
+      registry_pending_record_consent: true,
+      blackqube_private_storage_consent: true,
+      self_custody_acknowledgements: {
+        private_data_not_stored_in_supabase_acknowledged: true,
+        bureau_cannot_decrypt_private_payload_acknowledged: true,
+        sysadmins_cannot_recover_private_payload_acknowledged: true,
+        loss_of_key_risk_acknowledged: true,
+      },
+    },
+    review_priority: 'normal',
+    passport_grade: 'anonymous_citizen',
+  };
+
+  it('1. initial fetch returns {data:null,error} → no issuance, an operational exception is recorded, applyReviewDecision is never called', async () => {
+    currentFakeAdmin.queue('polity_passport_applications', {
+      data: null,
+      error: { message: 'connection reset' },
+    });
+    currentFakeAdmin.queue('admin_action_items', { data: { id: 'action-1' }, error: null });
+
+    const { attemptCitizenAutoIssuance } = await import('@/services/passport/citizenAutoIssuance');
+    const outcome = await attemptCitizenAutoIssuance('app-1');
+
+    expect(outcome).toEqual({ issued: false, reason: 'evidence_incomplete' });
+    expect(mockApplyReviewDecision).not.toHaveBeenCalled();
+  });
+
+  it('2. the conflicting-application query returns {data:null,error} → no issuance, applyReviewDecision is never called', async () => {
+    // Initial fetch succeeds (a real, evidence-complete citizen row) so
+    // execution reaches the conflict-check stage at all.
+    currentFakeAdmin.queue('polity_passport_applications', { data: CITIZEN_ROW, error: null });
+    currentFakeAdmin.queue('admin_action_items', { data: { id: 'action-new-app' }, error: null }); // event class A
+    // The conflict-check query (also polity_passport_applications) fails.
+    currentFakeAdmin.queue('polity_passport_applications', {
+      data: null,
+      error: { message: 'conflict check unavailable' },
+    });
+    // The active-Passport query succeeds cleanly — isolating the failure
+    // to the conflicting-application query specifically.
+    currentFakeAdmin.queue('polity_passport_records', { data: [], error: null });
+    currentFakeAdmin.queue('admin_action_items', { data: { id: 'action-2' }, error: null }); // verification_unavailable
+
+    const { attemptCitizenAutoIssuance } = await import('@/services/passport/citizenAutoIssuance');
+    const outcome = await attemptCitizenAutoIssuance('app-1');
+
+    expect(outcome).toEqual({ issued: false, reason: 'evidence_incomplete' });
+    expect(mockApplyReviewDecision).not.toHaveBeenCalled();
+  });
+
+  it('3. the active-Passport query returns {data:null,error} → no issuance, applyReviewDecision is never called', async () => {
+    currentFakeAdmin.queue('polity_passport_applications', { data: CITIZEN_ROW, error: null });
+    currentFakeAdmin.queue('admin_action_items', { data: { id: 'action-new-app' }, error: null }); // event class A
+    // The conflicting-application query succeeds cleanly this time.
+    currentFakeAdmin.queue('polity_passport_applications', { data: [], error: null });
+    // The active-Passport query fails.
+    currentFakeAdmin.queue('polity_passport_records', {
+      data: null,
+      error: { message: 'active-passport check unavailable' },
+    });
+    currentFakeAdmin.queue('admin_action_items', { data: { id: 'action-3' }, error: null }); // verification_unavailable
+
+    const { attemptCitizenAutoIssuance } = await import('@/services/passport/citizenAutoIssuance');
+    const outcome = await attemptCitizenAutoIssuance('app-1');
+
+    expect(outcome).toEqual({ issued: false, reason: 'evidence_incomplete' });
+    expect(mockApplyReviewDecision).not.toHaveBeenCalled();
   });
 });
 
