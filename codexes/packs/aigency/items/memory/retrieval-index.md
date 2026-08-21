@@ -4314,3 +4314,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-f0b9642.md](../build_/COMMITS/COMMIT-f0b9642.md)
 - Message: fix(qriptopian): keep Essays projection hook-safe
+
+## Commit `1cc7702` — 2026-08-21T08:59:02-04:00
+- Type: `feat`
+- Brief: [COMMIT-1cc7702.md](../build_/COMMITS/COMMIT-1cc7702.md)
+- Message: feat(qriptopian): present Threshold as Essays series

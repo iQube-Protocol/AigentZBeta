@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`1cc7702`](https://github.com/iQube-Protocol/AigentZBeta/commit/1cc770242574c852a95d6cbd71629a14cf7bf099) [feat] feat(qriptopian): present Threshold as Essays series (Kn0w1, 2026-08-21T08:59:02-04:00)
 - [`f0b9642`](https://github.com/iQube-Protocol/AigentZBeta/commit/f0b9642ac2576af6d69f961af0f311a8ea33461b) [fix] fix(qriptopian): keep Essays projection hook-safe (Kn0w1, 2026-08-21T08:51:28-04:00)
 - [`49a4c74`](https://github.com/iQube-Protocol/AigentZBeta/commit/49a4c74afeaea4340afc085655aa4620c1eb5bba) [feat] feat(qriptopian): add Essays codex tab (Kn0w1, 2026-08-21T08:47:08-04:00)
 - [`10606ab`](https://github.com/iQube-Protocol/AigentZBeta/commit/10606ab4d55c10ae51a5a0eb25c56087d148eb4b) [docs] docs(irl): deepen Trusted Intelligence as human-synthetic consequence-aware cybernetics (Kn0w1, 2026-08-20T13:45:37-04:00)
