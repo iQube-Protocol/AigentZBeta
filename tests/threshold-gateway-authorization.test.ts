@@ -104,20 +104,18 @@ describe('Threshold Gateway upload authorization', () => {
     expect(hasScope(undefined, 'content.asset.upload')).toBe(false);
   });
 
-  it('canonical authority predicate: persona.cartridgeFlags.isAdmin || isCreator', () => {
+  it('canonical authority predicate: persona.cartridgeFlags.isAdmin (canonical only)', () => {
     // This is the predicate used at crossing time (oauth/complete route).
     // When true, content.asset.upload is added to the granted scope.
     // Implementation: services/threshold/oauth/complete/route.ts checks this
     // and conditionally adds 'content.asset.upload' to grantedScope.
+    // Note: isCreator does not exist in the canonical cartridgeFlags model.
+    // Only persona.cartridgeFlags.isAdmin is used.
 
     const isAdmin = true;
-    const isCreator = false;
-    const predicate = isAdmin || isCreator;
-    expect(predicate).toBe(true); // grant capability
+    expect(isAdmin).toBe(true); // grant capability
 
     const isAdminNo = false;
-    const isCreatorNo = false;
-    const predicateNo = isAdminNo || isCreatorNo;
-    expect(predicateNo).toBe(false); // deny capability
+    expect(isAdminNo).toBe(false); // deny capability
   });
 });

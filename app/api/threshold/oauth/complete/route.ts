@@ -52,12 +52,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: 'handshake expired' }, { status: 410 });
   }
 
-  // Resolve canonical admin/creator authority. The content.asset.upload capability is
-  // granted iff the persona carries admin or creator privilege at crossing time.
+  // Resolve canonical admin authority. The content.asset.upload capability is
+  // granted iff the persona carries admin privilege at crossing time.
   // This allows revocation: if admin rights are revoked later, the next crossing
   // will not grant the capability (existing bearers remain valid until expiry).
   const persona = await getActivePersona(request);
-  const hasAdminAuthority = persona && (persona.cartridgeFlags.isAdmin || persona.cartridgeFlags.isCreator);
+  const hasAdminAuthority = persona && persona.cartridgeFlags.isAdmin;
 
   let grantedScope = (handshake.requestedScope ?? []).filter((s) => !FORBIDDEN_ACTIONS.includes(s));
   if (hasAdminAuthority) {
