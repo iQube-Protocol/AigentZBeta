@@ -5,15 +5,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-/**
- * Canonical Qriptopian Threshold essays projection.
- *
- * Source of truth is the platform `content` table / QubeBase. Essays are
- * distinguished from Papers by editorial class, not storage format:
- *   domain = qriptopian
- *   status = published
- *   tags contains `thresholds` + `essay`
- */
+/** Canonical Qriptopian Threshold essays projection. */
 export async function GET() {
   try {
     const supabase = createClient(
@@ -24,7 +16,7 @@ export async function GET() {
 
     const { data, error } = await supabase
       .from('content')
-      .select('id,title,slug,excerpt,thumbnail,modalities,tags,published_at,created_at,placement,duration')
+      .select('id,title,slug,excerpt,thumbnail,modalities,tags,published_at,created_at,placement,duration,ai_metadata')
       .eq('domain', 'qriptopian')
       .eq('status', 'published')
       .contains('tags', ['thresholds', 'essay']);
@@ -45,6 +37,10 @@ export async function GET() {
         publishedAt: row.published_at || row.created_at || null,
         duration: row.duration || row.modalities?.read?.duration || null,
         position: Number(row.placement?.position ?? 999),
+        machineReadable: row.ai_metadata?.machineReadable === true,
+        machineUrl: row.ai_metadata?.machineEndpoint || (row.slug ? `/api/codex/qripto/essays/${row.slug}/machine` : null),
+        series: row.ai_metadata?.series || 'Thresholds',
+        seriesNumber: row.ai_metadata?.seriesNumber ?? null,
       }))
       .sort((a: any, b: any) => a.position - b.position || String(a.title).localeCompare(String(b.title)));
 
