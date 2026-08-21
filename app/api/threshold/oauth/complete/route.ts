@@ -26,6 +26,7 @@ import {
 import { personaPublicRef } from '@/services/identity/personaReferences';
 import { formAgreement, acceptAgreement, authorizeAgreement } from '@/services/constitutional/constitutionalAgreement';
 import { getHandshake, issueAuthorizationCode } from '@/services/threshold/gatewaySession';
+import { getActivePersona } from '@/services/identity/getActivePersona';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -51,7 +52,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: 'handshake expired' }, { status: 410 });
   }
 
-  const grantedScope = (handshake.requestedScope ?? []).filter((s) => !FORBIDDEN_ACTIONS.includes(s));
+  // Resolve canonical admin/creator authority. The content.asset.upload capability is
+  // granted iff the persona carries admin or creator privilege at crossing time.
+  // This allows revocation: if admin rights are revoked later, the next crossing
+  // will not grant the capability (existing bearers remain valid until expiry).
+  const persona = await getActivePersona(request);
+  const hasAdminAuthority = persona && (persona.cartridgeFlags.isAdmin || persona.cartridgeFlags.isCreator);
+
+  let grantedScope = (handshake.requestedScope ?? []).filter((s) => !FORBIDDEN_ACTIONS.includes(s));
+  if (hasAdminAuthority) {
+    grantedScope = [...grantedScope, 'content.asset.upload'];
+  }
+
   // A T2 alias for the bound Companion — a per-crossing commitment, never a raw id.
   const agentAlias = 'companion_' + createHash('sha256').update('threshold-agent:' + handshakeCode).digest('hex').slice(0, 16);
   const agreementId = `thr-${handshakeCode}`;
