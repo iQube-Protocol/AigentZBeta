@@ -4,21 +4,16 @@
  * QriptoPapersTab
  *
  * Renders Qriptopian Papers (or Magazines, when `group='magazines'`) as PDF
- * cards. Data comes from /api/codex/qripto/papers which queries
- * codex_media_assets and groups by series scope parsed from the storage
- * filename (papers/protocols, papers/polity, magazines/2, …).
- *
- * Each card shows the cover (if a cover was uploaded for the same scope)
- * and links to the PDF in a new tab. The PDF link is the direct Supabase
- * Storage URL because Qripto papers are currently uploaded to a public
- * bucket as WIP — Phase 2 token-gating + cover-paper FK linkage are tracked
- * in the WIP-ContentQube backlog doc.
+ * cards. `group='essays'` projects canonical Threshold essays from QubeBase
+ * through the same registered Codex component slot, keeping Essays a distinct
+ * publication class without duplicating the TabRenderer registry.
  */
 
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { FileText, Loader2, ImageOff, BookOpen } from 'lucide-react';
 import { PDFLiteReaderModal } from '@/app/triad/components/content/PDFLiteReaderModal';
+import { QriptoEssaysTab } from './QriptoEssaysTab';
 
 type PaperCard = {
   id: string;
@@ -34,11 +29,18 @@ type PaperCard = {
 
 interface QriptoPapersTabProps {
   theme?: 'light' | 'dark';
-  /** 'papers' (default) renders Papers/* scopes; 'magazines' renders Magazines/*. */
-  group?: 'papers' | 'magazines';
+  /** Papers/Magazines are PDF assets; Essays are canonical QubeBase content. */
+  group?: 'papers' | 'magazines' | 'essays';
 }
 
 export function QriptoPapersTab({ theme = 'dark', group = 'papers' }: QriptoPapersTabProps) {
+  // Essays intentionally reuse this already-registered component slot so the
+  // Qriptopian Codex can gain a first-class Essays tab without introducing a
+  // parallel tab-registry path. Their bodies remain canonical content rows.
+  if (group === 'essays') {
+    return <QriptoEssaysTab theme={theme} />;
+  }
+
   const [papers, setPapers] = useState<PaperCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -152,14 +154,8 @@ export function QriptoPapersTab({ theme = 'dark', group = 'papers' }: QriptoPape
                 className="group relative aspect-[3/4] rounded-lg overflow-hidden cursor-pointer transition-all duration-300 hover:ring-2 hover:ring-white/30 bg-slate-900"
                 aria-label={`Open ${p.title}`}
               >
-                {/* Background — gradient stays as a fallback when no cover
-                    is available, matching KNYT's purple→black wash. */}
                 <div className="absolute inset-0 bg-gradient-to-br from-purple-900 via-indigo-900 to-black" />
                 {p.coverUrl ? (
-                  /* PDF covers are rasterised server-side to WebP by the
-                     papers endpoint (see /api/codex/qripto/pdf-thumb).
-                     Both image and PDF covers reach the browser as a
-                     plain image URL, so the same <img> works for both. */
                   /* eslint-disable-next-line @next/next/no-img-element */
                   <img
                     src={p.coverUrl}
@@ -172,8 +168,6 @@ export function QriptoPapersTab({ theme = 'dark', group = 'papers' }: QriptoPape
                     <span className="text-xs">No cover</span>
                   </div>
                 )}
-                {/* Bottom-up gradient + title — same legibility treatment
-                    as KNYT episode cards. */}
                 <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/70 to-transparent p-3 pt-10">
                   <div className="flex items-start gap-2">
                     <FileText className="mt-0.5 h-4 w-4 shrink-0 text-white/80" />
@@ -186,7 +180,6 @@ export function QriptoPapersTab({ theme = 'dark', group = 'papers' }: QriptoPape
                     </span>
                   </div>
                 </div>
-                {/* Series-scope badge — top-right, KNYT pattern. */}
                 <span className="absolute top-2 right-2 px-2 py-1 bg-black/50 backdrop-blur-sm text-white text-[10px] font-semibold rounded">
                   {p.scopeLabel}
                 </span>
