@@ -152,14 +152,9 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    // Validate cover-specific fields
-    if (metadata.assetKind.startsWith('cover_')) {
-      if (metadata.episodeNumber === undefined) {
-        return NextResponse.json({
-          error: 'episodeNumber is required for cover assets',
-        }, { status: 400 });
-      }
-    }
+    // episodeNumber is intentionally optional for generic publication covers.
+    // Episode-specific callers can continue to provide it and retain their
+    // existing series/episode metadata.
 
     // Convert file to buffer
     const arrayBuffer = await file.arrayBuffer();
