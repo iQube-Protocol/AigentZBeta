@@ -152,14 +152,10 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    // Validate cover-specific fields
-    if (metadata.assetKind.startsWith('cover_')) {
-      if (metadata.episodeNumber === undefined) {
-        return NextResponse.json({
-          error: 'episodeNumber is required for cover assets',
-        }, { status: 400 });
-      }
-    }
+    // Covers may be either episode-bound or generic publication/domain covers.
+    // `upload_content_asset` intentionally supports unbound covers, so requiring
+    // episodeNumber here made the Threshold upload path deterministically reject
+    // valid generic covers such as Constitutional Computing.
 
     // Convert file to buffer
     const arrayBuffer = await file.arrayBuffer();
