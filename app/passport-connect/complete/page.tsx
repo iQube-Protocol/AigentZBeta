@@ -88,11 +88,22 @@ function CompleteInner() {
     }
 
     (async () => {
+      // type: "email" — NOT "magiclink". See PassportConnectPanel's
+      // companion exchange for the confirmed root cause: Supabase Auth's
+      // /verify endpoint resolves a generateLink({ type: 'magiclink' })
+      // token_hash under the unified 'email' OTP type; 'magiclink' is a
+      // generateLink()-only type and 400s here.
       const { error } = await getSupabaseBrowserClient().auth.verifyOtp({
         token_hash: tokenHash,
-        type: "magiclink",
+        type: "email",
       });
       if (error) {
+        // Safe diagnostic: status/code/name only — never the token_hash.
+        console.warn("[PassportConnect] application session exchange failed:", {
+          status: error.status,
+          code: error.code,
+          name: error.name,
+        });
         setState("error");
         return;
       }

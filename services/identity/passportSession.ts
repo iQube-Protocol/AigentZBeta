@@ -34,8 +34,16 @@
  *
  * A single-use `tokenHash`. Not the email, not the auth user id, not the kybe,
  * not a persona. The browser exchanges it via
- * `supabase.auth.verifyOtp({ token_hash, type: 'magiclink' })` and receives a
+ * `supabase.auth.verifyOtp({ token_hash, type: 'email' })` and receives a
  * normal session. Supabase owns the token's single-use and expiry semantics.
+ *
+ * NOTE: the `hashed_token` here is minted via `generateLink({ type:
+ * 'magiclink' })` (below) — that generateLink type is correct and unrelated
+ * to verifyOtp's type. verifyOtp itself must use 'email', not 'magiclink':
+ * Supabase Auth's /verify endpoint resolves a magiclink-generated token_hash
+ * under the unified 'email' OTP type; 'magiclink' is generateLink()-only and
+ * is rejected by /verify. Confirmed against Supabase's current passwordless
+ * email-login docs (2026-08-21 Passport sign-in repair).
  */
 
 import {
