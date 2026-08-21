@@ -352,7 +352,15 @@ type ConnectState =
   | { kind: "unlock-wallet-profile"; profile: LocalWalletProfile }
   | { kind: "link-passport"; profile: LocalWalletProfile } // NEW — "present Passport" (ruling 1)
   | { kind: "choose-persona"; transactionToken: string; personas: PersonaChoice[]; passport: PassportFacts } // NEW (ruling 2)
-  | { kind: "connected"; passport: PassportFacts; handoffUrl?: string } // E
+  | {
+      kind: "connected";
+      passport: PassportFacts;
+      handoffUrl?: string;
+      /** Set only when the sequential handoff-grant request itself failed
+       *  (P0.2, 2026-08-21) — the Companion session is still valid; calling
+       *  this re-attempts requesting a fresh handoff grant and opening it. */
+      handoffRetry?: () => void;
+    } // E
   | { kind: "working"; step: string }
   | { kind: "error"; message: string };
 
@@ -726,7 +734,7 @@ export function PassportConnectPanel({
    */
   const completeSessionFromGrant = useCallback(
     async (
-      grant: { tokenHash: string; handoffTokenHash?: string | null; passport: PassportFacts },
+      grant: { tokenHash: string; passport: PassportFacts },
       transactionToken: string | null,
     ) => {
       // Exchange for the Companion's OWN session (this iframe's storage
@@ -808,63 +816,121 @@ export function PassportConnectPanel({
       // ALREADY in the application's storage world — the session and pin
       // above landed exactly where the app reads them — so a handoff tab
       // would redeem a second grant for a world that already has one. Skip.
-      if (world === "companion" && typeof grant.handoffTokenHash === "string" && grant.handoffTokenHash) {
-        // `persona_tx` is always present in the URL, but empty for the
-        // passkey path (transactionToken null — no persona-choice step ran).
-        // `/passport-connect/complete` already treats an empty persona_tx as
-        // "nothing to redeem" (`if (personaTx)` is falsy for ""), so this
-        // needs no change there — it degrades to the app's own ordinary
-        // active-persona resolution, exactly as documented above.
-        const handoffUrl = `/passport-connect/complete?token_hash=${encodeURIComponent(grant.handoffTokenHash)}&persona_tx=${encodeURIComponent(transactionToken ?? "")}&next=${encodeURIComponent("/metame/runtime")}`;
-
-        // THE CROSSING MUST LAND IN THE RIGHT WINDOW (bug fix, 2026-08-01:
-        // "Pull Across" kept dying with a red ✗ even after this handoff
-        // reported "Connected", and Quick Links opening in a completely
-        // different, non-incognito browser window traced to the exact same
-        // mechanism). `world === "companion"` means this panel is mounted
-        // inside the extension's side panel iframe (see this file's own
-        // header), so a plain `window.open` here is a nested-iframe-under-a-
-        // side-panel `window.open` — it does not reliably open in the SAME
-        // window the side panel is docked to, which is exactly the window
-        // `extension/companion-observer/background.js`'s
-        // `chrome.tabs.query({ active: true, currentWindow: true })` looks
-        // in when pairing (`connectToMetaMe`). A handoff tab that opened
-        // elsewhere is invisible to that query, so pairing kept failing
-        // silently downstream of a handoff that this panel had already
-        // reported as successful. See
-        // `services/companion/sidePanelTabBridge.ts` for the full trace and
-        // the fix shared with Quick Links: ask the side panel (which IS
-        // correctly bound to the right window) to open the tab via
-        // `chrome.tabs.create` instead.
-        //
-        // The PRE-EXISTING popup-blocked detection (2026-07-31) is kept as
-        // the fallback for whenever the bridge cannot answer (no parent, or
-        // an older extension build without the `OPEN_TAB_REQUEST` handler) —
-        // by the time this line runs, the original click has passed through
-        // `fetch`/`await` at least three times (finalize → verifyOtp → the
-        // resolved-persona read), long enough that several browsers no
-        // longer treat a plain `window.open` as tied to the user's original
-        // gesture and silently block it. A blocked popup returns `null` (or
-        // an already-closed `Window`) with NO thrown error, so trusting
-        // `connected` unconditionally here would be exactly the "No
-        // Simulated Completion" defect CLAUDE.md forbids: claiming a
-        // crossing that did not happen. Detect it and offer a manual,
-        // one-click fallback (a real user gesture, so it is never blocked)
-        // instead of a silent dead end.
-        const handledByBridge = await openInSidePanelHostWindow(handoffUrl);
-        let popup: Window | null = null;
-        if (!handledByBridge) {
-          try {
-            popup = window.open(handoffUrl, "_blank", "noreferrer");
-          } catch {
-            popup = null;
+      //
+      // SEQUENTIAL, NOT SIMULTANEOUS (P0.2, 2026-08-21). The handoff grant
+      // used to arrive pre-minted alongside `tokenHash` — the exact defect
+      // that made `tokenHash` dead on arrival (see passportSession.ts's
+      // header). It is now requested HERE, after the line above has already
+      // proven a real Companion session exists, from the authenticated
+      // /handoff-grant endpoint. A failure to mint it must never invalidate
+      // the Companion session already established: the citizen stays
+      // "connected" here with a retry affordance instead of an error state.
+      if (world === "companion") {
+        const attemptHandoff = async (): Promise<void> => {
+          // POSITIVE CONFIRMATION the Companion session is real (operator
+          // requirement) — a network call to Supabase, not a local-storage
+          // read, so a session that verifyOtp reported as established but
+          // that never actually persisted cannot silently skip straight to
+          // requesting a second grant.
+          const { data: userData, error: userErr } = await getSupabaseBrowserClient().auth.getUser();
+          const { data: sessionData } = await getSupabaseBrowserClient().auth.getSession();
+          const accessToken = sessionData.session?.access_token;
+          if (userErr || !userData?.user || !accessToken) {
+            setState({
+              kind: "connected",
+              passport: grant.passport,
+              handoffRetry: () => void attemptHandoff(),
+            });
+            onConnected?.(grant.passport);
+            return;
           }
-        }
-        if (!handledByBridge && (!popup || popup.closed)) {
-          setState({ kind: "connected", passport: grant.passport, handoffUrl });
+
+          let handoffTokenHash: string | null = null;
+          try {
+            const res = await fetch("/api/passport-connect/handoff-grant", {
+              method: "POST",
+              headers: { Authorization: `Bearer ${accessToken}` },
+            });
+            const body = await res.json().catch(() => null);
+            handoffTokenHash = res.ok && body?.ok && typeof body?.tokenHash === "string" ? body.tokenHash : null;
+          } catch {
+            handoffTokenHash = null;
+          }
+          if (!handoffTokenHash) {
+            // The Companion session is unaffected — never treat a handoff
+            // failure as invalidating the successful Passport authentication.
+            setState({
+              kind: "connected",
+              passport: grant.passport,
+              handoffRetry: () => void attemptHandoff(),
+            });
+            onConnected?.(grant.passport);
+            return;
+          }
+
+          // `persona_tx` is always present in the URL, but empty for the
+          // passkey path (transactionToken null — no persona-choice step ran).
+          // `/passport-connect/complete` already treats an empty persona_tx as
+          // "nothing to redeem" (`if (personaTx)` is falsy for ""), so this
+          // needs no change there — it degrades to the app's own ordinary
+          // active-persona resolution, exactly as documented above.
+          const handoffUrl = `/passport-connect/complete?token_hash=${encodeURIComponent(handoffTokenHash)}&persona_tx=${encodeURIComponent(transactionToken ?? "")}&next=${encodeURIComponent("/metame/runtime")}`;
+
+          // THE CROSSING MUST LAND IN THE RIGHT WINDOW (bug fix, 2026-08-01:
+          // "Pull Across" kept dying with a red ✗ even after this handoff
+          // reported "Connected", and Quick Links opening in a completely
+          // different, non-incognito browser window traced to the exact same
+          // mechanism). `world === "companion"` means this panel is mounted
+          // inside the extension's side panel iframe (see this file's own
+          // header), so a plain `window.open` here is a nested-iframe-under-a-
+          // side-panel `window.open` — it does not reliably open in the SAME
+          // window the side panel is docked to, which is exactly the window
+          // `extension/companion-observer/background.js`'s
+          // `chrome.tabs.query({ active: true, currentWindow: true })` looks
+          // in when pairing (`connectToMetaMe`). A handoff tab that opened
+          // elsewhere is invisible to that query, so pairing kept failing
+          // silently downstream of a handoff that this panel had already
+          // reported as successful. See
+          // `services/companion/sidePanelTabBridge.ts` for the full trace and
+          // the fix shared with Quick Links: ask the side panel (which IS
+          // correctly bound to the right window) to open the tab via
+          // `chrome.tabs.create` instead.
+          //
+          // The PRE-EXISTING popup-blocked detection (2026-07-31) is kept as
+          // the fallback for whenever the bridge cannot answer (no parent, or
+          // an older extension build without the `OPEN_TAB_REQUEST` handler) —
+          // by the time this line runs, the original click has passed through
+          // `fetch`/`await` at least three times (finalize/auth-verify →
+          // verifyOtp → the handoff-grant request), long enough that several
+          // browsers no longer treat a plain `window.open` as tied to the
+          // user's original gesture and silently block it. A blocked popup
+          // returns `null` (or an already-closed `Window`) with NO thrown
+          // error, so trusting `connected` unconditionally here would be
+          // exactly the "No Simulated Completion" defect CLAUDE.md forbids:
+          // claiming a crossing that did not happen. Detect it and offer a
+          // manual, one-click fallback (a real user gesture, so it is never
+          // blocked) instead of a silent dead end.
+          const handledByBridge = await openInSidePanelHostWindow(handoffUrl);
+          let popup: Window | null = null;
+          if (!handledByBridge) {
+            try {
+              popup = window.open(handoffUrl, "_blank", "noreferrer");
+            } catch {
+              popup = null;
+            }
+          }
+          if (!handledByBridge && (!popup || popup.closed)) {
+            setState({ kind: "connected", passport: grant.passport, handoffUrl });
+            onConnected?.(grant.passport);
+            return;
+          }
+
+          setState({ kind: "connected", passport: grant.passport });
           onConnected?.(grant.passport);
-          return;
-        }
+        };
+
+        await attemptHandoff();
+        return;
       }
 
       setState({ kind: "connected", passport: grant.passport }); // E
@@ -894,7 +960,7 @@ export function PassportConnectPanel({
         return;
       }
       await completeSessionFromGrant(
-        { tokenHash: fin.tokenHash, handoffTokenHash: fin.handoffTokenHash, passport: fin.passport as PassportFacts },
+        { tokenHash: fin.tokenHash, passport: fin.passport as PassportFacts },
         transactionToken,
       );
     },
@@ -980,7 +1046,7 @@ export function PassportConnectPanel({
       recordStrongAuthentication();
 
       await completeSessionFromGrant(
-        { tokenHash: ver.tokenHash, handoffTokenHash: ver.handoffTokenHash, passport: ver.passport as PassportFacts },
+        { tokenHash: ver.tokenHash, passport: ver.passport as PassportFacts },
         null,
       );
     } catch {
@@ -1354,6 +1420,20 @@ export function PassportConnectPanel({
                 className="mt-1 rounded-lg border border-slate-800 bg-slate-900/40 px-4 py-2 text-sm text-slate-100 transition-all hover:bg-slate-900/60"
               >
                 Finish signing in on this site
+              </button>
+            </>
+          ) : null}
+          {state.handoffRetry ? (
+            <>
+              <p className="max-w-[22rem] text-xs text-amber-300">
+                This site hasn&apos;t signed in yet — your Passport session here is still valid.
+              </p>
+              <button
+                type="button"
+                onClick={() => state.handoffRetry?.()}
+                className="mt-1 rounded-lg border border-slate-800 bg-slate-900/40 px-4 py-2 text-sm text-slate-100 transition-all hover:bg-slate-900/60"
+              >
+                Retry finishing sign-in
               </button>
             </>
           ) : null}

@@ -153,12 +153,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   // T0 law: nothing below names a persona id, an auth profile, a root or a
   // kybe. personaPublicRef is T2-safe and is the SAME ref the client already
-  // holds from /proof's candidate list.
+  // holds from /proof's candidate list. The application-world handoff grant
+  // is no longer minted here (P0.2, 2026-08-21) — see
+  // POST /api/passport-connect/handoff-grant.
   return NextResponse.json(
     {
       ok: true,
       tokenHash: session.grant.tokenHash,
-      handoffTokenHash: session.grant.handoffTokenHash,
       passport: session.grant.passport,
       personaPublicRef: selection.choice.personaPublicRef,
     },
