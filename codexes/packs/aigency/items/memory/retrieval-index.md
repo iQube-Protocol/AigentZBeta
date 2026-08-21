@@ -4359,3 +4359,8 @@ Top-level retrieval anchors for this pack.
 - Type: `docs`
 - Brief: [COMMIT-23fe1c6.md](../build_/COMMITS/COMMIT-23fe1c6.md)
 - Message: docs(irl): distinguish Authority governance from state Authorization
+
+## Commit `fbfeb52` — 2026-08-21T19:50:11-04:00
+- Type: `docs`
+- Brief: [COMMIT-fbfeb52.md](../build_/COMMITS/COMMIT-fbfeb52.md)
+- Message: docs(canon): ratify Authority–Authorization temporal distinction

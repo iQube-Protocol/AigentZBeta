@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`fbfeb52`](https://github.com/iQube-Protocol/AigentZBeta/commit/fbfeb52e7afa135b8b2fc49ea318e6180376f602) [docs] docs(canon): ratify Authority–Authorization temporal distinction (Kn0w1, 2026-08-21T19:50:11-04:00)
 - [`23fe1c6`](https://github.com/iQube-Protocol/AigentZBeta/commit/23fe1c6098966d3bf102b326fb3aa0cfa5a8dcff) [docs] docs(irl): distinguish Authority governance from state Authorization (Kn0w1, 2026-08-21T19:46:31-04:00)
 - [`8be978f`](https://github.com/iQube-Protocol/AigentZBeta/commit/8be978f9ca79436bfc0e8cd585962ddffea4da88) [feat] feat(qriptopian): expose public commentary source index (Kn0w1, 2026-08-21T16:59:12-04:00)
 - [`7fcb58e`](https://github.com/iQube-Protocol/AigentZBeta/commit/7fcb58e24212da3609a98036701032dce9c8eb50) [fix] Fix public article image delivery via durable media cache (Kn0w1, 2026-08-21T16:48:32-04:00)
