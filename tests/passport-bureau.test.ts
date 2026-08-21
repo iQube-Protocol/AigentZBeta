@@ -287,14 +287,29 @@ describe('citizen submit route — plaintext exclusion canary (Stage 3)', () => 
   });
 
   it('submit route enforces all four mandatory self-custody acknowledgements', () => {
+    // The four ack names now live in one canonical module
+    // (services/passport/citizenPassportRequirements.ts — extracted so the
+    // submit-time gate and the P1 auto-issuance evaluator can never drift
+    // apart, inv.engineering.036/037) that both the submit route and the
+    // evaluator import — the literal strings are no longer repeated in the
+    // route file itself, so this checks the canonical source AND that the
+    // route actually imports from it, rather than re-declaring its own copy.
+    const requirementsSrc = readFileSync(
+      path.resolve(__dirname, '../services/passport/citizenPassportRequirements.ts'),
+      'utf-8',
+    );
     for (const ack of [
       'private_data_not_stored_in_supabase_acknowledged',
       'bureau_cannot_decrypt_private_payload_acknowledged',
       'sysadmins_cannot_recover_private_payload_acknowledged',
       'loss_of_key_risk_acknowledged',
     ]) {
-      expect(submitRouteSrc).toContain(ack);
+      expect(requirementsSrc).toContain(ack);
     }
+    expect(submitRouteSrc).toMatch(
+      /import\s*\{[^}]*MANDATORY_ACKS[^}]*\}\s*from\s*['"]@\/services\/passport\/citizenPassportRequirements['"]/,
+    );
+    expect(submitRouteSrc).toMatch(/for \(const ack of MANDATORY_ACKS\)/);
   });
 
   it('vault upload route refuses non-envelope bytes (no plaintext path)', () => {

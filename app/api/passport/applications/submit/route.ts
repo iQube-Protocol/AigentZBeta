@@ -23,22 +23,13 @@ import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 import { verifyWeakProof } from '@/services/passport/personhoodProof';
 import { didPublicRef } from '@/services/passport/bureauIdentityService';
+import {
+  MANDATORY_ACKS,
+  MANDATORY_CONSENTS,
+} from '@/services/passport/citizenPassportRequirements';
+import { attemptCitizenAutoIssuance } from '@/services/passport/citizenAutoIssuance';
 
 export const dynamic = 'force-dynamic';
-
-const MANDATORY_ACKS = [
-  'private_data_not_stored_in_supabase_acknowledged',
-  'bureau_cannot_decrypt_private_payload_acknowledged',
-  'sysadmins_cannot_recover_private_payload_acknowledged',
-  'loss_of_key_risk_acknowledged',
-] as const;
-
-const MANDATORY_CONSENTS = [
-  'passport_terms_accepted',
-  'privacy_terms_accepted',
-  'registry_pending_record_consent',
-  'blackqube_private_storage_consent',
-] as const;
 
 export async function POST(req: NextRequest) {
   try {
@@ -196,10 +187,31 @@ export async function POST(req: NextRequest) {
       console.error('[passport submit] receipt write failed:', e);
     }
 
+    // Automatic Citizen recognition (P1, operator ruling 2026-08-21): when
+    // mandatory evidence is satisfied, the system transitions this
+    // application to active immediately — the applicant never waits on a
+    // steward for evidence a machine can already confirm is complete. When
+    // it is not, this leaves application_status untouched ('submitted') and
+    // records an admin action so a steward's attention is drawn only to the
+    // exception, never to the ordinary case. Best-effort: a failure here
+    // must never turn a successful submission into an error response.
+    let applicationStatus = String(appRow.application_status);
+    let autoIssuedPassportId: string | null = null;
+    try {
+      const outcome = await attemptCitizenAutoIssuance(String(appRow.id));
+      if (outcome.issued) {
+        applicationStatus = 'approved';
+        autoIssuedPassportId = outcome.passportId;
+      }
+    } catch (e) {
+      console.error('[passport submit] auto-issuance attempt failed:', e);
+    }
+
     return NextResponse.json({
       ok: true,
       applicationId: String(appRow.id),
-      applicationStatus: String(appRow.application_status),
+      applicationStatus,
+      autoIssuedPassportId,
       receiptId,
     });
   } catch (e) {

@@ -33,6 +33,7 @@ import {
 import { runPreflightGather } from '@/services/capabilities/preflight';
 import { summarizeCartridgeAdminContext } from '@/services/orchestration/adminContextSummarizer';
 import { refreshCapabilityStandingFromActivity } from '@/services/crm/standingAccrualService';
+import { getAdminActionSummary } from '@/services/adminActions/adminActionService';
 import type { ActiveCartridgeSlug } from '@/services/iqube/experienceQube';
 
 export const dynamic = 'force-dynamic';
@@ -115,11 +116,23 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // Refresh Capability Standing from live VentureQube signals on each Brief engagement.
     void refreshCapabilityStandingFromActivity(context.personaId);
 
+    // Admin Action Centre aggregate (operator brief §4/§13 — reuse THIS
+    // seam for the Command-Centre-equivalent summary rather than a new
+    // widget). No-op for non-admins, mirroring summarizeCartridgeAdminContext
+    // above — briefBuilder itself never resolves admin scope.
+    const isPassportBureauAdmin =
+      context.cartridgeFlags.isAdmin ||
+      context.cartridgeFlags.adminCartridges.includes('polity-passport-bureau');
+    const adminActionRequiredCount = isPassportBureauAdmin
+      ? (await getAdminActionSummary(['passport'])).actionRequired
+      : undefined;
+
     const brief = await buildBrief({
       personaId: context.personaId,
       briefType,
       scopedCartridge,
       liveContext,
+      adminActionRequiredCount,
     });
     return NextResponse.json(
       preflight ? { ...brief, preflightContext: preflight } : brief,
