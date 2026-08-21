@@ -524,12 +524,14 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
       return text(result);
     }
 
-    // ── Content asset upload — authenticated, admin/creator only ──
+    // ── Content asset upload — authenticated, requires content.asset.upload capability ──
     if (name === 'upload_content_asset') {
-      // Check admin/creator privileges
-      if (!s.cartridgeFlags?.isAdmin && !s.cartridgeFlags?.isCreator) {
+      // Authorize via scope: the crossing grants content.asset.upload only if the
+      // persona carries admin or creator privilege at that time. (Revocation: if
+      // admin rights are revoked, new crossings will not grant the capability.)
+      if (!hasScope(s, 'content.asset.upload')) {
         return {
-          ...text('This action requires admin or creator privileges. You do not hold this authorization.'),
+          ...text('This action requires content.asset.upload capability. You do not hold this authorization.'),
           isError: true,
         };
       }
