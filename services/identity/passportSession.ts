@@ -44,6 +44,29 @@
  * under the unified 'email' OTP type; 'magiclink' is generateLink()-only and
  * is rejected by /verify. Confirmed against Supabase's current passwordless
  * email-login docs (2026-08-21 Passport sign-in repair).
+ *
+ * ── ONE GRANT PER CALL — SEQUENTIAL, NEVER SIMULTANEOUS (P0.2, 2026-08-21) ──
+ *
+ * This function used to mint TWO `generateLink({ type: 'magiclink' })` grants
+ * back-to-back for the SAME email — one for `tokenHash`, one for a second
+ * `handoffTokenHash` — and returned both. Live evidence (Supabase Auth logs +
+ * direct inspection of `auth.one_time_tokens`/`auth.users` on the connected
+ * project) proved this was never safe: a `magiclink` grant for an EXISTING
+ * user materializes in this project's GoTrue as a single-slot `recovery_token`
+ * column on `auth.users`, not an append-only store. The second call
+ * overwrote the first's token before this function even returned the grant,
+ * so `tokenHash` was dead on arrival every single time — 100% of `/verify`
+ * attempts in the live session under test failed with
+ * `otp_expired` / "One-time token not found", never intermittently.
+ *
+ * The fix is architectural, not a type change: this function now mints
+ * exactly ONE grant. A second, application-world grant is still needed (the
+ * Companion iframe and the top-level app are separate storage partitions —
+ * see `PassportSessionGrant`'s header, unchanged), but it is minted
+ * SEQUENTIALLY, only after the first grant is actually redeemed, by
+ * `POST /api/passport-connect/handoff-grant` — which itself calls this SAME
+ * function again, from the caller's own freshly-established Supabase Bearer
+ * session, never from a second call made before the first was consumed.
  */
 
 import {
@@ -61,22 +84,17 @@ export interface PassportSessionGrant {
   /**
    * Single-use handle the browser exchanges for a session. Carries no identity
    * on its face and is useless without the exchange.
+   *
+   * THE PARTITION GAP STILL EXISTS (operator report 2026-07-26): the
+   * Companion is an iframe inside the extension's side panel, and the
+   * browser PARTITIONS third-party iframe storage — a session established
+   * inside the Companion never reaches the top-level application tabs. That
+   * still requires a SECOND grant for the application-world handoff. What
+   * changed (P0.2, 2026-08-21) is WHEN and HOW that second grant is minted:
+   * never here, never before this one is redeemed — see
+   * `POST /api/passport-connect/handoff-grant`.
    */
   tokenHash: string;
-  /**
-   * A SECOND single-use handle, for the application handoff.
-   *
-   * WHY TWO (the partition gap, operator report 2026-07-26): the Companion is
-   * an iframe inside the extension's side panel, and the browser PARTITIONS
-   * third-party iframe storage — a session established inside the Companion
-   * never reaches the top-level application tabs. One single-use token cannot
-   * serve both storage worlds, so the proof mints one grant per world: the
-   * Companion consumes `tokenHash` in its own partition, and hands
-   * `handoffTokenHash` to a top-level page (/passport-connect/complete) that
-   * establishes the session where the application actually lives. This is the
-   * spec's "Companion and application handshake", closed.
-   */
-  handoffTokenHash: string | null;
   /** T2-safe passport facts, safe to render in the connect confirmation. */
   passport: PassportPrincipal['passport'];
 }
@@ -120,6 +138,13 @@ export async function issuePassportSession(
   // Supabase mints the session credential; we never hand-roll one. `magiclink`
   // requires the user to already exist, which is exactly the guarantee we want
   // — this path must resolve an existing principal, never conjure one.
+  //
+  // EXACTLY ONE CALL (P0.2, 2026-08-21 — see this file's header). A second
+  // `generateLink` call for the same email before this one is redeemed
+  // overwrites it in this project's live GoTrue — do not add one here. A
+  // caller that needs a second, application-world grant must request it
+  // AFTER redeeming this one, via `POST /api/passport-connect/handoff-grant`
+  // (which calls this same function again, sequentially).
   const { data: link, error: linkErr } = await admin.auth.admin.generateLink({
     type: 'magiclink',
     email,
@@ -127,15 +152,5 @@ export async function issuePassportSession(
   const tokenHash = link?.properties?.hashed_token ?? null;
   if (linkErr || !tokenHash) return { ok: false, reason: 'session_mint_failed' };
 
-  // The application-handoff grant (see PassportSessionGrant.handoffTokenHash).
-  // Best-effort: the Companion's own session must not fail because the second
-  // mint did — a null handoff degrades to "connect worked here; the app tab
-  // still needs its own connect", which is exactly the pre-handoff behaviour.
-  const { data: handoffLink } = await admin.auth.admin
-    .generateLink({ type: 'magiclink', email })
-    .then((r) => r)
-    .catch(() => ({ data: null }));
-  const handoffTokenHash = handoffLink?.properties?.hashed_token ?? null;
-
-  return { ok: true, grant: { tokenHash, handoffTokenHash, passport: principal.passport } };
+  return { ok: true, grant: { tokenHash, passport: principal.passport } };
 }

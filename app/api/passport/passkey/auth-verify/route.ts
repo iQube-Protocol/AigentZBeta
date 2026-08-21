@@ -87,13 +87,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   // T0 law: nothing below names a persona, an auth profile, a root or a kybe.
-  // Same grant shape as the wallet path — single-use token hashes plus
-  // T2-safe passport facts.
+  // Same grant shape as the wallet path — a single-use token hash plus
+  // T2-safe passport facts. The application-world handoff grant is no
+  // longer minted here (P0.2, 2026-08-21) — the client requests it
+  // separately, AFTER redeeming this grant, via
+  // POST /api/passport-connect/handoff-grant.
   return NextResponse.json(
     {
       ok: true,
       tokenHash: result.grant.tokenHash,
-      handoffTokenHash: result.grant.handoffTokenHash,
       passport: result.grant.passport,
     },
     { headers: noStore },

@@ -149,6 +149,10 @@ const PROOF_ROUTE = 'app/api/passport-connect/proof/route.ts';
 // for the full closure's own canaries.
 const FINALIZE_ROUTE = 'app/api/passport-connect/finalize/route.ts';
 const CONNECT_PANEL = 'components/companion/PassportConnectPanel.tsx';
+// HANDOFF_GRANT_ROUTE (added P0.2, 2026-08-21): the sequential replacement
+// for the simultaneous dual-mint defect — see this file's own canary below
+// and services/identity/passportSession.ts's header for the live evidence.
+const HANDOFF_GRANT_ROUTE = 'app/api/passport-connect/handoff-grant/route.ts';
 
 describe('no pre-session surface requires an identity the caller cannot have', () => {
   it('THE canary: none of the three pre-session routes authenticates its caller', () => {
@@ -446,22 +450,53 @@ describe('every gated companion surface passes through the one door', () => {
 describe('the Companion session reaches the application', () => {
   const COMPLETE_PAGE = 'app/passport-connect/complete/page.tsx';
 
-  it('finalize mints one grant per storage world', () => {
+  it('finalize mints exactly ONE grant — the second, application-world grant is sequential (P0.2, 2026-08-21)', () => {
     // Iframe storage partitioning means the Companion partition and the
     // top-level app never share a session; one single-use token cannot serve
-    // both. The handoff grant is best-effort — its failure degrades to the
-    // pre-handoff behaviour, never blocks the Companion's own session.
-    // MOVED 2026-07-28 (§A.11.2): session issuance is now FINALIZE_ROUTE's
-    // job, not PROOF_ROUTE's — /proof stops at a pending-auth transaction.
+    // both. A SECOND grant is still needed, but simultaneous dual minting was
+    // the live-evidenced defect (services/identity/passportSession.ts's own
+    // header): this project's GoTrue stores a `magiclink` grant for an
+    // existing user as a single-slot `recovery_token`, so a second mint
+    // before the first is redeemed silently overwrote it — the first grant
+    // was dead on arrival every time. The second grant is now requested
+    // separately, only after the first is redeemed, by the authenticated
+    // POST /api/passport-connect/handoff-grant endpoint (own file, own test
+    // coverage below) — issuePassportSession() itself mints exactly once.
+    // MOVED 2026-07-28 (§A.11.2): session issuance is FINALIZE_ROUTE's job,
+    // not PROOF_ROUTE's — /proof stops at a pending-auth transaction.
     const code = stripComments(readSource(SESSION));
-    expect(code).toContain('handoffTokenHash');
-    expect((code.match(/generateLink\(/g) ?? []).length).toBe(2);
+    expect(
+      (code.match(/generateLink\(/g) ?? []).length,
+      'a second generateLink call has crept back into the session issuer',
+    ).toBe(1);
+    expect(code, 'the removed simultaneous handoff mint has crept back').not.toContain('handoffTokenHash');
     const finalize = stripComments(readSource(FINALIZE_ROUTE));
-    expect(finalize).toContain('handoffTokenHash: session.grant.handoffTokenHash');
+    expect(finalize, 'finalize/route.ts still echoes a pre-minted handoff grant').not.toContain('handoffTokenHash');
     // /proof itself must NOT mint a session any more — the absence is the
     // point of this ruling, not incidental.
     const proof = stripComments(readSource(PROOF_ROUTE));
     expect(proof, 'proof/route.ts still mints a session directly').not.toContain('issuePassportSession');
+  });
+
+  it('the handoff-grant endpoint mints its OWN single grant, authenticated, server-resolved, from the SAME principal walk', () => {
+    const route = stripComments(readSource(HANDOFF_GRANT_ROUTE));
+    expect((route.match(/issuePassportSession\(/g) ?? []).length, 'exactly one mint per request').toBe(1);
+    // No parallel principal-resolution or generateLink call — reuses the
+    // same passport-native walk every other entry point uses
+    // (inv.engineering.036/037).
+    expect(route).toContain('resolvePassportPrincipalForAuthUser');
+    expect(route, 'a second, hand-rolled generateLink call was added here').not.toMatch(/\.generateLink\(/);
+    // Authenticated by the caller's OWN Bearer session — never a client-
+    // supplied identity anchor.
+    expect(route).toMatch(/authorization/i);
+    expect(route).toContain('auth.getUser(');
+    for (const forbidden of ['personaId', 'passportId', 'rootDid', 'kybeDid', 'authUserId']) {
+      expect(route, `handoff-grant reads a client-supplied ${forbidden}`).not.toMatch(
+        new RegExp(`body\\??\\.${forbidden}`),
+      );
+    }
+    // No request body is parsed for identity at all.
+    expect(route, 'handoff-grant parses a request body').not.toMatch(/request\.json\(\)/);
   });
 
   it('the handoff is exchanged top-level, and the panel opens it in the browser', () => {

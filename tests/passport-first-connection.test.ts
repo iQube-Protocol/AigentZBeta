@@ -411,12 +411,39 @@ describe('ruling A.7 — the Companion is preferred, never exclusive', () => {
     expect(code).not.toMatch(/\bchrome\s*\./);
   });
 
-  it('the application-world mount does NOT open the companion handoff tab', () => {
+  it('the application-world mount does NOT request or open the companion handoff grant', () => {
     const code = stripComments(readSource(PANEL));
-    // The handoff window.open must be gated on the companion world — an
-    // application-world mount already IS the world the handoff exists to
-    // reach, and an ungated open would redeem a second grant pointlessly.
-    expect(code).toMatch(/world === "companion"[\s\S]{0,120}handoffTokenHash/);
+    // The handoff request (P0.2, 2026-08-21: now a sequential fetch to
+    // /api/passport-connect/handoff-grant, not a pre-minted field) must be
+    // gated on the companion world — an application-world mount already IS
+    // the world the handoff exists to reach, and an ungated request would
+    // redeem a second grant pointlessly. Brace-balanced, not a character
+    // budget: the guarded block grew past a fixed distance once the handoff
+    // request added its own positive session confirmation.
+    const gateAt = code.indexOf('if (world === "companion")');
+    expect(gateAt, 'the companion-world gate is gone').toBeGreaterThan(-1);
+    const braceAt = code.indexOf('{', gateAt);
+    let depth = 1;
+    let end = -1;
+    for (let i = braceAt + 1; i < code.length; i++) {
+      if (code[i] === '{') depth++;
+      else if (code[i] === '}') {
+        depth--;
+        if (depth === 0) {
+          end = i;
+          break;
+        }
+      }
+    }
+    expect(end, 'unbalanced braces from the companion-world gate').toBeGreaterThan(-1);
+    const gatedBlock = code.slice(braceAt, end + 1);
+    expect(gatedBlock).toContain('handoff-grant');
+    expect(gatedBlock).toContain('handoffTokenHash');
+    // And no OTHER occurrence outside that gated block.
+    const outside = code.slice(0, gateAt) + code.slice(end + 1);
+    expect(outside, 'a second, ungated handoff request exists outside the companion-world gate').not.toContain(
+      'handoff-grant',
+    );
   });
 
   it('the persona activation is redeemed against the mount\'s own world, not hardcoded to companion', () => {

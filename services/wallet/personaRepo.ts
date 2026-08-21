@@ -73,7 +73,11 @@ export function getSupabaseAdminClient(): SupabaseClient {
   });
 }
 
-function getSupabaseAnonClient(): SupabaseClient {
+/** Exported (2026-08-21, P0.2) so callers outside this file that need a
+ *  strictly-verified `auth.getUser(token)` check — e.g. the handoff-grant
+ *  route — reuse this ONE anon client factory instead of a second,
+ *  hand-rolled `createClient` (inv.engineering.036/037). */
+export function getSupabaseAnonClient(): SupabaseClient {
   const url = getEnv('SUPABASE_URL') || getEnv('NEXT_PUBLIC_SUPABASE_URL');
   const key = getEnv('SUPABASE_ANON_KEY') || getEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY');
   if (!url || !key) throw new Error('Missing Supabase anon configuration');
