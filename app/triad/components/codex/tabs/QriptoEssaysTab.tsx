@@ -13,6 +13,8 @@ interface EssayCard {
   publishedAt?: string | null;
   duration?: string | null;
   position?: number;
+  machineReadable?: boolean;
+  machineUrl?: string | null;
 }
 
 interface QriptoEssaysTabProps {
@@ -143,10 +145,20 @@ export function QriptoEssaysTab({ theme = 'dark' }: QriptoEssaysTabProps) {
                 </button>
 
                 <div className="flex items-center justify-between px-4 pb-4 pt-2">
-                  <span className={`inline-flex items-center gap-1.5 text-[11px] ${muted}`} title="Machine-readable edition available">
-                    <Bot className="h-3.5 w-3.5" />
-                    Machine-readable
-                  </span>
+                  {essay.machineReadable && essay.machineUrl ? (
+                    <a
+                      href={essay.machineUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className={`inline-flex items-center gap-1.5 text-[11px] transition hover:text-indigo-400 ${muted}`}
+                      title="Open machine-readable edition"
+                    >
+                      <Bot className="h-3.5 w-3.5" />
+                      Machine-readable
+                    </a>
+                  ) : (
+                    <span />
+                  )}
                   <button
                     type="button"
                     onClick={() => shareEssay(essay)}
