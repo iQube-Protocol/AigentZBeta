@@ -731,11 +731,24 @@ export function PassportConnectPanel({
     ) => {
       // Exchange for the Companion's OWN session (this iframe's storage
       // partition). Supabase owns single-use and expiry; we never hand-roll.
+      //
+      // type: "email" — NOT "magiclink". Supabase Auth's /verify endpoint
+      // resolves a `generateLink({ type: 'magiclink' })` token_hash under
+      // the unified 'email' OTP type; 'magiclink' is a generateLink()-only
+      // type and is rejected here. Confirmed against Supabase's current
+      // passwordless-email-login docs (the canonical /auth/confirm example
+      // uses type: 'email' for exactly this token_hash exchange).
       const { error } = await getSupabaseBrowserClient().auth.verifyOtp({
         token_hash: grant.tokenHash,
-        type: "magiclink",
+        type: "email",
       });
       if (error) {
+        // Safe diagnostic: status/code/name only — never the token_hash.
+        console.warn("[PassportConnect] companion session exchange failed:", {
+          status: error.status,
+          code: error.code,
+          name: error.name,
+        });
         setState({ kind: "error", message: "Your Passport verified, but the session could not open." });
         return;
       }

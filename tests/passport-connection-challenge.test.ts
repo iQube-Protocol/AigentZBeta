@@ -477,7 +477,10 @@ describe('the Companion session reaches the application', () => {
     );
     expect(panel, 'the handoff must leave the iframe').toMatch(/window\.open\(handoffUrl/);
     const page = stripComments(readSource(COMPLETE_PAGE));
-    expect(page).toContain("type: \"magiclink\"");
+    // type: "email", not "magiclink" — P0 sign-in repair, 2026-08-21 (see
+    // tests/passport-signin-otp-type.test.ts for the dedicated canary on
+    // why "magiclink" is rejected by verifyOtp()).
+    expect(page).toContain("type: \"email\"");
   });
 
   it('a blocked handoff popup is detected and offered as a manual, one-click retry — never a silent "connected" that never crossed', () => {
