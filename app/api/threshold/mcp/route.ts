@@ -36,6 +36,11 @@ import { buildCompanionInstallBrief } from '@/services/companion/extensionArtifa
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+// Uploads can spend tens of seconds in Autonomys retry/chunking. Without an
+// explicit long-running budget the MCP invocation can be terminated before the
+// tool result is returned, which clients surface as the tool becoming
+// unavailable/disabled. Match the canonical upload endpoint's 5-minute budget.
+export const maxDuration = 300;
 
 function cors(res: NextResponse): NextResponse {
   res.headers.set('Access-Control-Allow-Origin', '*');
