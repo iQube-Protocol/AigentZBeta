@@ -4334,3 +4334,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-b4b8496.md](../build_/COMMITS/COMMIT-b4b8496.md)
 - Message: Allow non-episode publication cover uploads
+
+## Commit `0c4a0af` — 2026-08-21T15:58:36-04:00
+- Type: `push`
+- Brief: [COMMIT-0c4a0af.md](../build_/COMMITS/COMMIT-0c4a0af.md)
+- Message: Serve canonical Autonomys media assets for public content

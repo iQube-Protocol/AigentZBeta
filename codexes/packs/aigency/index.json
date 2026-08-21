@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-21T18:53:07.045Z",
+  "last_updated": "2026-08-21T20:00:18.822Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "b4b8496cda3eac8b6b60a696452e46c41acb323f",
-  "latest_commit_short": "b4b8496",
-  "latest_commit_title": "Allow non-episode publication cover uploads",
+  "latest_commit": "0c4a0af42fde7988ea5fae55bcff7b2bc18f5a9e",
+  "latest_commit_short": "0c4a0af",
+  "latest_commit_title": "Serve canonical Autonomys media assets for public content",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "0c4a0af",
+      "full_sha": "0c4a0af42fde7988ea5fae55bcff7b2bc18f5a9e",
+      "title": "Serve canonical Autonomys media assets for public content",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-21T15:58:36-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-0c4a0af.md"
+    },
     {
       "sha": "b4b8496",
       "full_sha": "b4b8496cda3eac8b6b60a696452e46c41acb323f",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-08T17:34:24-04:00",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-5c233ea.md"
-    },
-    {
-      "sha": "db8a6df",
-      "full_sha": "db8a6df648d4a334fad46d615401a56568d770b5",
-      "title": "Register CI agent machine-readable package",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-08T17:34:39-04:00",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-db8a6df.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
