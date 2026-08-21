@@ -17,7 +17,7 @@ export const maxDuration = 60;
  * without creating a second storage copy.
  */
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
@@ -69,14 +69,75 @@ export async function GET(
       key,
     });
 
-    return new NextResponse(plaintext, {
+    const total = plaintext.length;
+    const range = req.headers.get('range');
+    const baseHeaders: Record<string, string> = {
+      'Content-Type': asset.mime_type || 'application/octet-stream',
+      // Keep browser caching modest while this public delivery seam stabilises;
+      // the content itself is immutable and remains identified by asset ID/CID.
+      'Cache-Control': 'public, max-age=300, must-revalidate',
+      'Accept-Ranges': 'bytes',
+      'X-Content-Source': 'autonomys',
+      'X-Content-CID': asset.auto_drive_cid,
+      'X-Content-Type-Options': 'nosniff',
+    };
+
+    // Safari/WebKit may request image resources using byte ranges. Returning a
+    // full 200 response to a Range request can leave the image decoder with a
+    // partially rendered/cached resource. Honour a single bytes range here.
+    if (range) {
+      const match = /^bytes=(\d*)-(\d*)$/.exec(range.trim());
+      if (!match) {
+        return new Response(null, {
+          status: 416,
+          headers: { ...baseHeaders, 'Content-Range': `bytes */${total}` },
+        });
+      }
+
+      let start: number;
+      let end: number;
+      if (!match[1] && match[2]) {
+        const suffix = Number(match[2]);
+        if (!Number.isFinite(suffix) || suffix <= 0) {
+          return new Response(null, {
+            status: 416,
+            headers: { ...baseHeaders, 'Content-Range': `bytes */${total}` },
+          });
+        }
+        start = Math.max(0, total - suffix);
+        end = total - 1;
+      } else {
+        start = Number(match[1]);
+        end = match[2] ? Number(match[2]) : total - 1;
+      }
+
+      if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end < start || start >= total) {
+        return new Response(null, {
+          status: 416,
+          headers: { ...baseHeaders, 'Content-Range': `bytes */${total}` },
+        });
+      }
+
+      end = Math.min(end, total - 1);
+      const slice = plaintext.subarray(start, end + 1);
+      return new Response(new Uint8Array(slice), {
+        status: 206,
+        headers: {
+          ...baseHeaders,
+          'Content-Length': String(slice.length),
+          'Content-Range': `bytes ${start}-${end}/${total}`,
+        },
+      });
+    }
+
+    // Use the platform-standard Response with Uint8Array rather than passing a
+    // Node Buffer through NextResponse. This avoids adapter/body coercion on
+    // binary responses while preserving the exact decrypted bytes.
+    return new Response(new Uint8Array(plaintext), {
       status: 200,
       headers: {
-        'Content-Type': asset.mime_type || 'application/octet-stream',
-        'Content-Length': String(plaintext.length),
-        'Cache-Control': 'public, max-age=86400, s-maxage=31536000, immutable',
-        'X-Content-Source': 'autonomys',
-        'X-Content-CID': asset.auto_drive_cid,
+        ...baseHeaders,
+        'Content-Length': String(total),
       },
     });
   } catch (error) {
