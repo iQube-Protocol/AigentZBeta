@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`49a4c74`](https://github.com/iQube-Protocol/AigentZBeta/commit/49a4c74afeaea4340afc085655aa4620c1eb5bba) [feat] feat(qriptopian): add Essays codex tab (Kn0w1, 2026-08-21T08:47:08-04:00)
 - [`10606ab`](https://github.com/iQube-Protocol/AigentZBeta/commit/10606ab4d55c10ae51a5a0eb25c56087d148eb4b) [docs] docs(irl): deepen Trusted Intelligence as human-synthetic consequence-aware cybernetics (Kn0w1, 2026-08-20T13:45:37-04:00)
 - [`2dffdf2`](https://github.com/iQube-Protocol/AigentZBeta/commit/2dffdf2db727203a06302e06b5c2ef29cf13f818) [docs] docs(irl): add Trusted Intelligence and Trusted Automation to Crucible (Kn0w1, 2026-08-20T11:48:29-04:00)
 - [`d4dba30`](https://github.com/iQube-Protocol/AigentZBeta/commit/d4dba3048771e659ff0bb1077a51f104a85e06da) [docs] docs(irl): add robotics industry perspective invariants from S2G/Formic transcript (Kn0w1, 2026-08-20T10:50:54-04:00)

@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-20T17:47:15.606Z",
+  "last_updated": "2026-08-21T12:48:41.823Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "10606ab4d55c10ae51a5a0eb25c56087d148eb4b",
-  "latest_commit_short": "10606ab",
-  "latest_commit_title": "docs(irl): deepen Trusted Intelligence as human-synthetic consequence-aware cybernetics",
+  "latest_commit": "49a4c74afeaea4340afc085655aa4620c1eb5bba",
+  "latest_commit_short": "49a4c74",
+  "latest_commit_title": "feat(qriptopian): add Essays codex tab",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "49a4c74",
+      "full_sha": "49a4c74afeaea4340afc085655aa4620c1eb5bba",
+      "title": "feat(qriptopian): add Essays codex tab",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-21T08:47:08-04:00",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-49a4c74.md"
+    },
     {
       "sha": "10606ab",
       "full_sha": "10606ab4d55c10ae51a5a0eb25c56087d148eb4b",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-09T19:56:02Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-a3aaa7f.md"
-    },
-    {
-      "sha": "90629c7",
-      "full_sha": "90629c7b459bf0280238f63cfebb1cf63cc696f4",
-      "title": "Stop double-counting the Standing seed and make supersession consequential",
-      "author": "Claude",
-      "timestamp": "2026-08-09T19:34:39Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-90629c7.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

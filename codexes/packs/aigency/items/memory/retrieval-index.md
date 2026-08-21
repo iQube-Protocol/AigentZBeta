@@ -4304,3 +4304,8 @@ Top-level retrieval anchors for this pack.
 - Type: `docs`
 - Brief: [COMMIT-10606ab.md](../build_/COMMITS/COMMIT-10606ab.md)
 - Message: docs(irl): deepen Trusted Intelligence as human-synthetic consequence-aware cybernetics
+
+## Commit `49a4c74` — 2026-08-21T08:47:08-04:00
+- Type: `feat`
+- Brief: [COMMIT-49a4c74.md](../build_/COMMITS/COMMIT-49a4c74.md)
+- Message: feat(qriptopian): add Essays codex tab
