@@ -4324,3 +4324,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-eb07ba0.md](../build_/COMMITS/COMMIT-eb07ba0.md)
 - Message: feat(qriptopian): link Threshold machine-readable editions
+
+## Commit `747b993` — 2026-08-21T11:33:45-04:00
+- Type: `docs`
+- Brief: [COMMIT-747b993.md](../build_/COMMITS/COMMIT-747b993.md)
+- Message: docs(content): define reusable asset upload tool contract

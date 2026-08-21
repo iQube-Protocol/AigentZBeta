@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-21T14:51:41.643Z",
+  "last_updated": "2026-08-21T15:35:26.586Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "eb07ba068e6b4a64fcb699fabf39b5c561989ad8",
-  "latest_commit_short": "eb07ba0",
-  "latest_commit_title": "feat(qriptopian): link Threshold machine-readable editions",
+  "latest_commit": "747b993ca1132523c402f0577988475fa4a9c9fa",
+  "latest_commit_short": "747b993",
+  "latest_commit_title": "docs(content): define reusable asset upload tool contract",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "747b993",
+      "full_sha": "747b993ca1132523c402f0577988475fa4a9c9fa",
+      "title": "docs(content): define reusable asset upload tool contract",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-21T11:33:45-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-747b993.md"
+    },
     {
       "sha": "eb07ba0",
       "full_sha": "eb07ba068e6b4a64fcb699fabf39b5c561989ad8",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-09T22:05:08Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-a0b9d8d.md"
-    },
-    {
-      "sha": "6e961c0",
-      "full_sha": "6e961c040f2e050cd7525275a5dbccabf758e02e",
-      "title": "Add the missing Ingest act (capability_registered) plus its guided UI action",
-      "author": "Claude",
-      "timestamp": "2026-08-09T21:48:06Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-6e961c0.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
