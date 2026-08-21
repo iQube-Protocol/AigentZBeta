@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-21T12:48:41.823Z",
+  "last_updated": "2026-08-21T12:53:12.550Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "49a4c74afeaea4340afc085655aa4620c1eb5bba",
-  "latest_commit_short": "49a4c74",
-  "latest_commit_title": "feat(qriptopian): add Essays codex tab",
+  "latest_commit": "f0b9642ac2576af6d69f961af0f311a8ea33461b",
+  "latest_commit_short": "f0b9642",
+  "latest_commit_title": "fix(qriptopian): keep Essays projection hook-safe",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "f0b9642",
+      "full_sha": "f0b9642ac2576af6d69f961af0f311a8ea33461b",
+      "title": "fix(qriptopian): keep Essays projection hook-safe",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-21T08:51:28-04:00",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-f0b9642.md"
+    },
     {
       "sha": "49a4c74",
       "full_sha": "49a4c74afeaea4340afc085655aa4620c1eb5bba",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-09T19:51:43Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-7379156.md"
-    },
-    {
-      "sha": "a3aaa7f",
-      "full_sha": "a3aaa7f35629d9e3601e669d75840b905de96e84",
-      "title": "Add read-only DVN message classifier for Part B1 Nakamoto truth-check",
-      "author": "Claude",
-      "timestamp": "2026-08-09T19:56:02Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-a3aaa7f.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

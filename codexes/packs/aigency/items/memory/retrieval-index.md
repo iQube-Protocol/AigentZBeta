@@ -4309,3 +4309,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-49a4c74.md](../build_/COMMITS/COMMIT-49a4c74.md)
 - Message: feat(qriptopian): add Essays codex tab
+
+## Commit `f0b9642` — 2026-08-21T08:51:28-04:00
+- Type: `fix`
+- Brief: [COMMIT-f0b9642.md](../build_/COMMITS/COMMIT-f0b9642.md)
+- Message: fix(qriptopian): keep Essays projection hook-safe
