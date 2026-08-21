@@ -34,27 +34,24 @@ interface QriptoPapersTabProps {
 }
 
 export function QriptoPapersTab({ theme = 'dark', group = 'papers' }: QriptoPapersTabProps) {
-  // Essays intentionally reuse this already-registered component slot so the
-  // Qriptopian Codex can gain a first-class Essays tab without introducing a
-  // parallel tab-registry path. Their bodies remain canonical content rows.
   if (group === 'essays') {
     return <QriptoEssaysTab theme={theme} />;
   }
+  return <QriptoPdfAssetsTab theme={theme} group={group} />;
+}
 
+function QriptoPdfAssetsTab({
+  theme = 'dark',
+  group,
+}: {
+  theme?: 'light' | 'dark';
+  group: 'papers' | 'magazines';
+}) {
   const [papers, setPapers] = useState<PaperCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  // PDF-lite viewer state — clicking a card opens the modal in-place
-  // rather than navigating to the raw Supabase URL. Same pattern as
-  // KNYT episodes (cover thumbnail → modal viewer → PDF body).
   const [activePdf, setActivePdf] = useState<{ url: string; title: string } | null>(null);
 
-  // Deep-link scope filter (`?scope=papers/polity`) — added 2026-08-12 so
-  // the Constitutional Internet Bridge's "Continue reading" can land the
-  // visitor specifically inside the Polity Papers series rather than the
-  // top of the full Papers index. Read once on mount; `scopeFilter` starts
-  // cleared so exploring away from the deep link (via "Show all Papers")
-  // never needs a router navigation.
   const searchParams = useSearchParams();
   const initialScope = searchParams?.get('scope') || null;
   const [scopeFilter, setScopeFilter] = useState<string | null>(initialScope);
@@ -85,9 +82,6 @@ export function QriptoPapersTab({ theme = 'dark', group = 'papers' }: QriptoPape
   const headingClass = isDark ? 'text-white' : 'text-slate-900';
   const mutedClass = isDark ? 'text-slate-400' : 'text-slate-600';
 
-  // Group cards by scope label for sub-section headers. When a deep-link
-  // scope filter is active, only that series' papers are grouped — the
-  // visitor lands specifically inside it rather than the full index.
   const visiblePapers = scopeFilter ? papers.filter((p) => p.scope === scopeFilter) : papers;
   const grouped = visiblePapers.reduce<Record<string, PaperCard[]>>((acc, p) => {
     (acc[p.scopeLabel] ??= []).push(p);
@@ -141,10 +135,6 @@ export function QriptoPapersTab({ theme = 'dark', group = 'papers' }: QriptoPape
           <h3 className={`mb-3 text-sm font-semibold uppercase tracking-wide ${mutedClass}`}>
             {label}
           </h3>
-          {/* Card grid mirrors the KNYT cartridge surface plan: 2-up on
-              mobile, 3-up on md, 4-up on lg. Full-bleed cover with a
-              gradient overlay carrying the title, and a small scope
-              badge at top-right — same shape as a KNYT episode card. */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {items.map((p) => (
               <button
