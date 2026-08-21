@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-21T13:00:48.103Z",
+  "last_updated": "2026-08-21T14:51:41.643Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "1cc770242574c852a95d6cbd71629a14cf7bf099",
-  "latest_commit_short": "1cc7702",
-  "latest_commit_title": "feat(qriptopian): present Threshold as Essays series",
+  "latest_commit": "eb07ba068e6b4a64fcb699fabf39b5c561989ad8",
+  "latest_commit_short": "eb07ba0",
+  "latest_commit_title": "feat(qriptopian): link Threshold machine-readable editions",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "eb07ba0",
+      "full_sha": "eb07ba068e6b4a64fcb699fabf39b5c561989ad8",
+      "title": "feat(qriptopian): link Threshold machine-readable editions",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-21T10:49:25-04:00",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-eb07ba0.md"
+    },
     {
       "sha": "1cc7702",
       "full_sha": "1cc770242574c852a95d6cbd71629a14cf7bf099",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-09T21:48:06Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-6e961c0.md"
-    },
-    {
-      "sha": "cc779a6",
-      "full_sha": "cc779a662d818314c2ff7ea60779a2e71d3d6fbe",
-      "title": "Give the DVN attestation processor scheduled liveness (B3 confirmed)",
-      "author": "Claude",
-      "timestamp": "2026-08-09T20:35:17Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-cc779a6.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

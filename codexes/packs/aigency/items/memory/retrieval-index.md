@@ -4319,3 +4319,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-1cc7702.md](../build_/COMMITS/COMMIT-1cc7702.md)
 - Message: feat(qriptopian): present Threshold as Essays series
+
+## Commit `eb07ba0` — 2026-08-21T10:49:25-04:00
+- Type: `feat`
+- Brief: [COMMIT-eb07ba0.md](../build_/COMMITS/COMMIT-eb07ba0.md)
+- Message: feat(qriptopian): link Threshold machine-readable editions
