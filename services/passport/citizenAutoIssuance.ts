@@ -75,13 +75,41 @@ export async function attemptCitizenAutoIssuance(
   const admin = getSupabaseServer();
   if (!admin) return { issued: false, reason: 'not_applicable' };
 
-  const { data: app, error: appError } = await admin
-    .from('polity_passport_applications')
-    .select(
-      'id, passport_class, application_status, persona_id, personhood_proof_type, personhood_proof_ref, consents, review_priority, passport_grade',
-    )
-    .eq('id', applicationId)
-    .maybeSingle();
+  let app: unknown = null;
+  let appError: { message: string } | null = null;
+  try {
+    const fetched = await admin
+      .from('polity_passport_applications')
+      .select(
+        'id, passport_class, application_status, persona_id, personhood_proof_type, personhood_proof_ref, consents, review_priority, passport_grade',
+      )
+      .eq('id', applicationId)
+      .maybeSingle();
+    app = fetched.data;
+    appError = fetched.error;
+  } catch (e) {
+    // Consistent with the conflict-check queries below: a THROWN failure
+    // (not merely an {error} result) is an infrastructure exception, not
+    // an evidence verdict. Previously this path had no try/catch at all —
+    // a throw here would exit silently with no admin action of any kind,
+    // in contrast to the identical failure class two blocks below, which
+    // does record one. Fixed for consistency (pre-push audit, 2026-08-21).
+    await recordAdminAction({
+      idempotencyKey: passportReviewRequiredKey(applicationId, 'verification_unavailable'),
+      category: 'passport',
+      severity: 'attention',
+      disposition: 'action_required',
+      title: 'Citizen Passport application requires review',
+      summary: 'Automatic recognition could not complete: the application could not be read.',
+      sourceType: 'passport_application',
+      sourceRef: applicationId,
+      sourceSurface: PASSPORT_BUREAU_CARTRIDGE_SLUG,
+      actionType: 'review_application',
+      actionHref: reviewApplicationHref(applicationId),
+      metadata: { reasonCode: 'verification_unavailable', detail: e instanceof Error ? e.message : String(e) },
+    });
+    return { issued: false, reason: 'evidence_incomplete' };
+  }
 
   // Event class A — new application received. Recorded unconditionally,
   // before evaluation, regardless of outcome — this is a "something
@@ -209,12 +237,43 @@ export async function attemptCitizenAutoIssuance(
     return { issued: false, reason: 'issuance_failed' };
   }
 
-  // Event class B — auto-issued. Informational: no admin action is needed,
-  // only awareness. Also resolves any earlier review-required item for this
-  // application (e.g. a prior attempt failed evidence, was corrected, and
-  // this attempt now succeeds) — the exception that item existed to flag is
-  // over.
+  // A human decision on a Citizen application resolves whatever
+  // action_required item drew a steward's attention to it in the first
+  // place — an issued passport supersedes any earlier review-required
+  // exception regardless of which branch below fires next.
   await resolveOpenActionsForSource('passport_application', applicationId, SYSTEM_ACTOR_ID);
+
+  if (!result.receiptId) {
+    // The passport IS issued — the state transition succeeded and the
+    // citizen holds a real, active passport; that constitutional act must
+    // never be reverted because provenance tooling hiccuped (the receipt is
+    // a view into what happened, not the source of truth for it — operator
+    // brief §10). But writeReceipt() returning null means
+    // createActivityReceipt() itself threw, which is a genuine operational
+    // failure in the provenance/DVN-anchoring chain (CLAUDE.md's "DVN
+    // Pipeline Protection" section: a receipt gap must never be silent).
+    // Recording this as a clean informational "issued automatically" would
+    // hide exactly that failure — so it is action_required instead, even
+    // though issuance itself succeeded.
+    await recordAdminAction({
+      idempotencyKey: passportIssuanceFailedKey(applicationId, 'receipt_write_failed'),
+      category: 'passport',
+      severity: 'urgent',
+      disposition: 'action_required',
+      title: 'Citizen Passport issued, but its receipt failed to write',
+      summary: `Passport ${result.passportId} was issued; the provenance receipt failed and needs manual reconciliation.`,
+      sourceType: 'passport_application',
+      sourceRef: applicationId,
+      sourceSurface: PASSPORT_BUREAU_CARTRIDGE_SLUG,
+      actionType: 'review_application',
+      actionHref: reviewApplicationHref(applicationId),
+      metadata: { reasonCode: 'receipt_write_failed', passportId: result.passportId },
+    });
+    return { issued: true, passportId: result.passportId };
+  }
+
+  // Event class B — auto-issued. Informational: no admin action is needed,
+  // only awareness.
   await recordAdminAction({
     idempotencyKey: passportAutoIssuedKey(applicationId),
     category: 'passport',

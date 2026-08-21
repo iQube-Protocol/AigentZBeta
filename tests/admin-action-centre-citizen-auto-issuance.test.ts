@@ -199,6 +199,44 @@ describe('§15.4 — issuance infrastructure failure is an operational exception
   });
 });
 
+describe('Pre-push audit (2026-08-21) — fail-closed on infra exceptions, never silent', () => {
+  it('the initial application fetch is wrapped in try/catch, consistent with the conflict-check queries', () => {
+    const src = stripComments(readSource(CITIZEN_AUTO_ISSUANCE));
+    const fetchAt = src.indexOf("from('polity_passport_applications')");
+    expect(fetchAt, 'expected the initial application fetch').toBeGreaterThan(-1);
+    // A try must open BEFORE this call and a catch must follow it, and that
+    // catch must record a review-required admin action rather than exiting
+    // silently — the defect this audit found and fixed.
+    const tryAt = src.lastIndexOf('try {', fetchAt);
+    expect(tryAt, 'expected the fetch to be inside a try block').toBeGreaterThan(-1);
+    const catchAt = src.indexOf('} catch (e) {', fetchAt);
+    expect(catchAt, 'expected a catch after the fetch').toBeGreaterThan(-1);
+    const catchBlock = src.slice(catchAt, src.indexOf('return { issued: false', catchAt));
+    expect(catchBlock).toMatch(/passportReviewRequiredKey/);
+    expect(catchBlock).toMatch(/disposition:\s*['"]action_required['"]/);
+  });
+
+  it('a receipt-write failure after successful issuance is action_required, never a silent clean informational', () => {
+    const src = stripComments(readSource(CITIZEN_AUTO_ISSUANCE));
+    const receiptGuardAt = src.indexOf('!result.receiptId');
+    expect(receiptGuardAt, 'expected a !result.receiptId guard after issuance succeeds').toBeGreaterThan(-1);
+    const autoIssuedAt = src.indexOf('passportAutoIssuedKey(applicationId)');
+    expect(autoIssuedAt, 'expected the clean auto-issued admin action').toBeGreaterThan(-1);
+    // The receipt-failure guard must come BEFORE the clean informational
+    // record, so a failed receipt can never fall through to it.
+    expect(receiptGuardAt).toBeLessThan(autoIssuedAt);
+    const guardBlock = src.slice(receiptGuardAt, autoIssuedAt);
+    expect(guardBlock).toMatch(/passportIssuanceFailedKey\(applicationId,\s*['"]receipt_write_failed['"]\)/);
+    expect(guardBlock).toMatch(/disposition:\s*['"]action_required['"]/);
+    expect(guardBlock).toMatch(/severity:\s*['"]urgent['"]/);
+    // The passport itself must still be reported issued — a receipt hiccup
+    // must never revert or hide the constitutional act that already
+    // succeeded (operator brief §10: the receipt is not constitutional
+    // truth).
+    expect(guardBlock).toMatch(/return \{ issued: true, passportId: result\.passportId \}/);
+  });
+});
+
 describe('§15.5 — a repeated source event never creates a duplicate admin action (idempotency)', () => {
   beforeEach(() => {
     currentFakeAdmin = new FakeAdminClient();
