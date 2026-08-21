@@ -91,6 +91,26 @@ function selectStage(stageId: string) {
   }
 }
 
+/**
+ * MONOTONIC TRUE (KNYTS Remix live defect, 2026-08-21) — defense-in-depth
+ * on top of JourneyRunSurface's request-ordering guard (that component's
+ * own header), not a substitute for it. `CitizenPassportStatus` has no
+ * denied/revoked transition in an ordinary session (lifecycle/continuity
+ * states only — see services/passport/issuanceService.ts) — so once THIS
+ * client has observed a usable Citizen Passport, a later runtime-state read
+ * reporting it absent is never a legitimate in-session revocation. Treating
+ * it as one is exactly what let a transient/out-of-order read regress
+ * `citizenPassportUsable` back to false right as a visitor moved from
+ * Passport into Remix, rendering the public `metame-web` fallback instead
+ * of myCanvas for a citizen who had already crossed the threshold.
+ *
+ * Exported so this specific merge rule — not the whole page — is directly
+ * unit-testable without a render harness.
+ */
+export function mergeCitizenPassportUsable(previous: boolean | undefined, observedNow: boolean): boolean {
+  return previous === true ? true : observedNow;
+}
+
 export default function KnytsBridgePage() {
   const [personaId, setPersonaId] = useState<string | undefined>(undefined);
   const [adminOpen, setAdminOpen] = useState(false);
@@ -104,12 +124,15 @@ export default function KnytsBridgePage() {
   // `onRuntimeStateChange` below, which fires from the WHOLE resolved
   // runtimeState on every refresh, active stage notwithstanding. Drives the
   // Passport room, the stepper's emphasizeAvailableStage projection, and
-  // the Remix/Stand gate listener — one value, one source.
+  // the Remix/Stand gate listener — one value, one source. Merged through
+  // `mergeCitizenPassportUsable` (this file, above) on every update — see
+  // that function's own header for why a merge, not a plain assignment.
   const [citizenPassportUsable, setCitizenPassportUsable] = useState<boolean | undefined>(undefined);
 
   const handleRuntimeStateChange = useCallback((state: JourneyRuntimeState) => {
     const passportStage = state.stages.find((s) => s.stageId === 'passport');
-    setCitizenPassportUsable(Boolean(passportStage?.evidencePresent.includes('citizenPassportUsable')));
+    const observedNow = Boolean(passportStage?.evidencePresent.includes('citizenPassportUsable'));
+    setCitizenPassportUsable((prev) => mergeCitizenPassportUsable(prev, observedNow));
   }, []);
 
   // Same pinned-persona read every top-level surface uses as its baseline

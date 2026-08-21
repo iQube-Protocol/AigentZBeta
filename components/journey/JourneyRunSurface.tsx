@@ -450,7 +450,31 @@ export function JourneyRunSurface({
     };
   }, [documentTitle]);
 
+  /**
+   * OUT-OF-ORDER RESPONSE GUARD (KNYTS Remix live defect, 2026-08-21).
+   *
+   * `refresh()` is called from several independent triggers close together
+   * around a Citizen-recognition/passkey-completion moment — the mount
+   * effect, the persona-spine authentication-transition effect below, and
+   * every surface's own `requestStateRefresh()`. None of them coordinate
+   * with each other, and this function had no request-ordering guard: an
+   * OLDER, slower request (e.g. one issued a moment before authentication
+   * attached) could resolve AFTER a NEWER, faster one and silently overwrite
+   * fresh state with stale state — regressing `citizenPassportUsable` from
+   * true back to false/undefined for exactly as long as it took, with no
+   * visible error. A visitor who selected Remix inside that window (stage
+   * selection does not itself wait for or trigger a refresh) landed on the
+   * `metame-web` fallback despite a genuinely established Passport.
+   *
+   * `refreshSeqRef` makes every call self-identifying: a response is only
+   * applied if no NEWER call has been issued since it started. This is the
+   * root fix; `app/bridge/knyts/page.tsx`'s monotonic-true merge is
+   * deliberate defense-in-depth on top of it, not a substitute for it.
+   */
+  const refreshSeqRef = useRef(0);
+
   const refresh = useCallback(async () => {
+    const seq = ++refreshSeqRef.current;
     setLoading(true);
     setError(null);
     try {
@@ -463,15 +487,17 @@ export function JourneyRunSurface({
       const res = await personaFetch(stateUrl, { cache: 'no-store', personaIdHint: personaId });
       if (!res.ok) throw new Error(`Journey state request failed (${res.status})`);
       const json = await readJsonOrExplain(res, 'journey/state');
+      if (seq !== refreshSeqRef.current) return; // superseded by a newer refresh — discard
       setRuntimeState(json.state as JourneyRuntimeState);
       setConsequenceFork((json.consequenceFork as typeof consequenceFork) ?? null);
       setPnlEvidence((json.pnlEvidence as typeof pnlEvidence) ?? null);
       setRatifySubPredicates((json.ratifySubPredicates as typeof ratifySubPredicates) ?? null);
       setRegisterCeremony((json.registerCeremony as typeof registerCeremony) ?? null);
     } catch (err) {
+      if (seq !== refreshSeqRef.current) return;
       setError(err instanceof Error ? err.message : 'Failed to load journey state');
     } finally {
-      setLoading(false);
+      if (seq === refreshSeqRef.current) setLoading(false);
     }
   }, [stateUrl, personaId]);
 
