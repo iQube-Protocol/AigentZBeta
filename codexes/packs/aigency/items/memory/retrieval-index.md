@@ -4349,3 +4349,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-7fcb58e.md](../build_/COMMITS/COMMIT-7fcb58e.md)
 - Message: Fix public article image delivery via durable media cache
+
+## Commit `8be978f` — 2026-08-21T16:59:12-04:00
+- Type: `feat`
+- Brief: [COMMIT-8be978f.md](../build_/COMMITS/COMMIT-8be978f.md)
+- Message: feat(qriptopian): expose public commentary source index
