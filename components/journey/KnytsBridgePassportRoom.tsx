@@ -9,18 +9,25 @@
  *   NO USABLE PASSPORT    → claim it (the canonical PassportBureauApplyTab —
  *                           never a campaign-specific fork).
  *   PASSPORT ESTABLISHED  → a dismissible "you have crossed" banner, a
- *                           parchment-matte plate pane (fullscreenable), and
- *                           the SAME shared `BridgeActionModeQuestion`
+ *                           parchment-matte plate pane (fullscreenable), the
+ *                           SAME shared `BridgeActionModeQuestion`
  *                           (Create/Build/Develop/Research/Safeguard) CI
- *                           composes — never a second questionnaire.
+ *                           composes — never a second questionnaire — and
+ *                           TWO peer post-activation actions: "Create a
+ *                           delegate" and "Tell your own story".
  *
  * The prior behavior — auto-embedding the full aigentMe dashboard iframe the
  * instant a Passport was usable — is retired: KNYTS is personhood-first
- * (knytsBridgeCrossingJourney.ts's header note), and meeting/delegating to
- * aigentMe is a PERSONIFY/Remix-time decision, not something Passport should
- * force on every visitor immediately on establishment. The continuation
- * button below advances to REMIX (telling your own crossing), matching
- * `nextStageId: 'remix'` on the PASSPORT stage.
+ * (knytsBridgeCrossingJourney.ts's header note), and Passport completion
+ * itself never REQUIRES a delegate. Delegate creation remains optional — but
+ * (operator ruling, 2026-08-21) it is now intentionally EXPOSED as an
+ * optional post-activation capability right here on the Passport-established
+ * state, confirm-gated by a dismissible modal, rather than being reserved
+ * exclusively for Remix/PERSONIFY. "Tell your own story" advances to REMIX,
+ * matching `nextStageId: 'remix'` on the PASSPORT stage; "Create a delegate"
+ * opens the canonical Agent/Participant Passport flow
+ * (`PassportBureauApplyTab`, `routeTo="delegate"`) inline, once confirmed —
+ * never a KNYTS-specific delegate wizard.
  *
  * `citizenPassportUsable` is the SAME evidence value the Passport stage's
  * own completion already resolves from (services/identity/passportPrincipal.ts
@@ -31,6 +38,7 @@
 import { useEffect, useState } from 'react';
 import { ArrowRight, CheckCircle2, Maximize2, X } from 'lucide-react';
 import { PassportBureauApplyTab } from '@/app/triad/components/codex/tabs/PassportBureauApplyTab';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { canonicalPlateImage } from '@/services/artifact/canonicalPlateImages';
 import { ArtifactMattedFrame } from '@/components/journey/ArtifactMattedFrame';
 import { BridgeActionModeQuestion } from '@/components/journey/BridgeActionModeQuestion';
@@ -75,6 +83,13 @@ export function KnytsBridgePassportRoom({ personaId, citizenPassportUsable, requ
   const [noticeDismissed, setNoticeDismissed] = useState(false);
   const [config, setConfig] = useState<KnytsBridgeEditorialSection>(KNYTS_BRIDGE_SECTION_DEFAULTS[SECTION]);
   const [fullscreenImage, setFullscreenImage] = useState(false);
+  // Delegate affordance (operator ruling, 2026-08-21) — a confirm-gated,
+  // dismissible entry into the CANONICAL Agent/Participant Passport flow.
+  // `delegateModalOpen` is only the confirmation step; `delegateFlowOpen`
+  // is set ONLY from the modal's own "Create delegate" action, never from
+  // the row button directly — "Maybe later" must be a true no-op.
+  const [delegateModalOpen, setDelegateModalOpen] = useState(false);
+  const [delegateFlowOpen, setDelegateFlowOpen] = useState(false);
 
   useEffect(() => {
     if (!citizenPassportUsable) return;
@@ -200,14 +215,63 @@ export function KnytsBridgePassportRoom({ personaId, citizenPassportUsable, requ
         </div>
       </div>
 
-      <button
-        type="button"
-        onClick={() => selectStage('remix')}
-        className="flex w-full items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-900/40 px-4 py-3.5 transition hover:border-amber-400/30"
-      >
-        <span className="text-sm font-semibold text-white">Tell your own crossing</span>
-        <ArrowRight className="h-4 w-4 text-slate-400" />
-      </button>
+      {/* Two peer post-activation actions (operator ruling, 2026-08-21).
+          "Create a delegate" is the lighter-weight action — it only opens
+          a confirm step, never the delegate flow directly. "Tell your own
+          story" keeps the room's original stronger styling (amber hover,
+          arrow) since it remains this room's primary continuation. */}
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <button
+          type="button"
+          onClick={() => setDelegateModalOpen(true)}
+          className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-slate-800 bg-slate-900/40 px-4 py-3.5 transition hover:bg-slate-900/60"
+        >
+          <span className="text-sm font-medium text-slate-300">Create a delegate</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => selectStage('remix')}
+          className="flex flex-1 items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-900/40 px-4 py-3.5 transition hover:border-amber-400/30"
+        >
+          <span className="text-sm font-semibold text-white">Tell your own story</span>
+          <ArrowRight className="h-4 w-4 text-slate-400" />
+        </button>
+      </div>
+
+      <ConfirmDialog
+        open={delegateModalOpen}
+        title="Create your delegate"
+        description="Give an agent bounded authority to act with you in the Polity. You can do this now or come back later."
+        confirmText="Create delegate"
+        cancelText="Maybe later"
+        onConfirm={() => {
+          setDelegateModalOpen(false);
+          setDelegateFlowOpen(true);
+        }}
+        onCancel={() => setDelegateModalOpen(false)}
+      />
+
+      {delegateFlowOpen && (
+        <div className="space-y-3 rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold text-slate-200">Create your delegate</p>
+            <button
+              type="button"
+              onClick={() => setDelegateFlowOpen(false)}
+              aria-label="Close"
+              title="Close"
+              className="shrink-0 rounded-md p-0.5 text-slate-400 transition hover:bg-slate-800 hover:text-slate-200"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          {/* THE CANONICAL Agent/Participant Passport flow — the SAME
+              component this room already mounts for the Citizen path
+              above, routed to its existing agent-delegation entry
+              (`routeTo="delegate"`). Never a KNYTS-specific wizard. */}
+          <PassportBureauApplyTab personaId={personaId} routeTo="delegate" />
+        </div>
+      )}
 
       {fullscreenImage && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/95 p-4">
