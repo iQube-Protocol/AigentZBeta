@@ -10,6 +10,8 @@
  * one of these envelopes — do not build a second decision path.
  */
 
+import type { ConsequenceProjection } from './constitutionalCommerce';
+
 export type CapabilityExecutionMode = 'preview' | 'shadow' | 'authoritative';
 
 export interface CapabilityInvocation {
@@ -59,6 +61,25 @@ export interface CapabilityInvocation {
   delegationDepth: number;
   invocationPath: string[];
   maxInvocationDepth: number;
+
+  /**
+   * VELA-001 Slice 2F. Present ONLY for a capability whose admission into
+   * `authoritative` mode is conditioned on a unified consequence projection —
+   * today, exclusively `capabilityId: 'CONFIDENTIAL_CONSEQUENCE_PROJECTION'`.
+   * Computed by the caller BEFORE constructing this envelope (CFS-006a public
+   * forecast + confidential provider evidence, composed via
+   * `services/constitutionalCommerce/unifiedConsequenceProjection.ts`) — the
+   * gateway never computes a projection itself, only reads one.
+   *
+   * Gate 2 (`evaluateCapabilityAndRuntimeGate`) is the ONLY code that reads
+   * this field. An ACCEPTABLE projection lets Gate 2 pass; it does NOT by
+   * itself mean the invocation decision is an authorisation — `allow` from
+   * `invokeCapability()` is a governance-layer permission to dispatch, never
+   * the financial-domain `ActionAuthorisation`
+   * (`services/constitutionalCommerce/actionAuthorisation.ts` derives that,
+   * separately, downstream of a successful invocation).
+   */
+  consequenceProjection?: ConsequenceProjection;
 }
 
 export interface ExecutionEnvelope {
