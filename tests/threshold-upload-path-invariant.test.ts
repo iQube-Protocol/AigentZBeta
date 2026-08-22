@@ -35,7 +35,19 @@ describe('Threshold upload path invariant', () => {
 
   it('MCP base64 decoding keeps exact Buffer bytes instead of pooled ArrayBuffer backing storage', () => {
     const source = read('app/api/threshold/mcp/route.ts');
-    expect(source).toContain("Buffer.from(fileBase64 || file || '', 'base64')");
-    expect(source).toContain('Do NOT pass Buffer.buffer');
+    // 2026-08-22: superseded the raw Buffer.from(x, 'base64') call with
+    // decodeBase64Strict — it never touches `.buffer` (so the pooled-backing
+    // risk this canary originally guarded stays closed) and additionally
+    // rejects a data-URL prefix or malformed input loudly instead of the
+    // previous lenient decode, which is what let corrupt Qriptopian essay
+    // covers (002/003) reach Autonomys with no error anywhere in the
+    // pipeline. See tests/qriptopian-essay-cover-validation.test.ts.
+    expect(source).toContain('decodeBase64Strict(fileBase64 || file || ');
+    expect(source).not.toMatch(/Buffer\.from\([^)]*\)\.buffer/);
+  });
+
+  it('MCP upload validates image-bearing roles are genuinely decodable before persisting', () => {
+    const source = read('app/api/threshold/mcp/route.ts');
+    expect(source).toContain('assertDecodableImage(bytes, role)');
   });
 });

@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAutoDriveApi } from '@autonomys/auto-drive';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { decryptContent, unwrapKeyWithMasterKey } from '@/server/services/encryptionService';
+import { assertValidImageDerivative } from '@/server/services/imageDerivativeValidation';
+
+function isImageMime(mimeType: string | null | undefined): boolean {
+  return typeof mimeType === 'string' && mimeType.toLowerCase().startsWith('image/');
+}
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -65,7 +70,25 @@ export async function GET(
 
     if (!listError && existing?.some((entry) => entry.name === `${asset.id}.${extensionForMime(asset.mime_type)}`)) {
       const { data: publicData } = supabase.storage.from(PUBLIC_MEDIA_BUCKET).getPublicUrl(publicPath);
-      return NextResponse.redirect(publicData.publicUrl, 307);
+      if (!isImageMime(asset.mime_type)) {
+        return NextResponse.redirect(publicData.publicUrl, 307);
+      }
+      // A filename match is not validity. Re-validate a cached image
+      // derivative before trusting it — an earlier pipeline could have
+      // cached bytes decrypted from a corrupt/truncated source, and a stale
+      // object must never outrank a fresh, validated one.
+      try {
+        const cachedResp = await fetch(publicData.publicUrl, { cache: 'no-store' });
+        if (cachedResp.ok) {
+          const cachedBytes = Buffer.from(await cachedResp.arrayBuffer());
+          await assertValidImageDerivative(cachedBytes);
+          return NextResponse.redirect(publicData.publicUrl, 307);
+        }
+        console.error('[ContentMedia] cached derivative fetch failed', asset.id, cachedResp.status);
+      } catch (error) {
+        console.error('[ContentMedia] cached derivative invalid, purging', asset.id, error instanceof Error ? error.message : error);
+      }
+      await supabase.storage.from(PUBLIC_MEDIA_BUCKET).remove([publicPath]);
     }
   }
 
@@ -115,6 +138,22 @@ export async function GET(
     }
 
     if (asset.is_shareable) {
+      if (isImageMime(asset.mime_type)) {
+        // Validate the freshly-decrypted plaintext before it is ever cached
+        // or served — a truncated canonical download can produce bytes that
+        // pass the size check above (if the recorded size itself was wrong)
+        // yet decode to a corrupt or partially-filled raster.
+        try {
+          await assertValidImageDerivative(plaintext);
+        } catch (validationError) {
+          console.error('[ContentMedia] Decrypted image failed validation', asset.id, validationError instanceof Error ? validationError.message : validationError);
+          return NextResponse.json({
+            error: 'asset-derivative-invalid',
+            detail: validationError instanceof Error ? validationError.message : String(validationError),
+          }, { status: 502 });
+        }
+      }
+
       const { error: uploadError } = await supabase.storage
         .from(PUBLIC_MEDIA_BUCKET)
         .upload(publicPath, new Uint8Array(plaintext), {

@@ -25,7 +25,12 @@ import { resolveInvitation } from '@/services/threshold/resolveInvitation';
 import { resolveBearer, createUpgradeHandshake, hasScope } from '@/services/threshold/gatewaySession';
 import { makeIrlAdapter } from '@/services/threshold/irlAdapter';
 import { buildCompanionInstallBrief } from '@/services/companion/extensionArtifact';
-import { executeThresholdContentUpload, THRESHOLD_UPLOAD_ROLES } from '@/services/threshold/uploadContentAsset';
+import {
+  executeThresholdContentUpload,
+  THRESHOLD_UPLOAD_ROLES,
+  decodeBase64Strict,
+  assertDecodableImage,
+} from '@/services/threshold/uploadContentAsset';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -105,11 +110,18 @@ async function callUploadContentAsset(args: Record<string, unknown>, ctx: Gatewa
   }
 
   try {
-    // Buffer itself is the exact byte view. Do NOT pass Buffer.buffer: Node
-    // buffers can be slices of a larger pooled ArrayBuffer and that can append
-    // unrelated bytes to an upload.
-    const bytes = Buffer.from(fileBase64 || file || '', 'base64');
-    if (!bytes.length) throw new Error('empty-file');
+    // Strict decode: rejects a data-URL prefix, whitespace, or any non-base64
+    // character loudly instead of silently truncating to whatever Node's
+    // lenient decoder could salvage. A corrupt decode here previously
+    // persisted a garbage buffer all the way to Autonomys with no error
+    // anywhere in the pipeline — the failure only surfaced later, as an
+    // undecodable image on the display side.
+    const bytes = decodeBase64Strict(fileBase64 || file || '');
+
+    // Image-bearing roles must be genuine, fully-decodable rasters before
+    // they are ever encrypted and persisted — this is the one point where
+    // the original source is still in hand to validate against.
+    await assertDecodableImage(bytes, role);
 
     const receipt = await executeThresholdContentUpload({
       bytes,

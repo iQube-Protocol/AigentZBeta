@@ -4,6 +4,7 @@ import { NetworkId } from '@autonomys/auto-utils';
 import sharp from 'sharp';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { unwrapKeyWithMasterKey, decryptContent } from '@/server/services/encryptionService';
+import { assertValidImageDerivative as assertValidDerivative } from '@/server/services/imageDerivativeValidation';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -36,9 +37,27 @@ export async function GET(
     search: `${asset.id}.webp`,
     limit: 5,
   });
+
   if (existing?.some((entry) => entry.name === `${asset.id}.webp`)) {
+    // A filename match is not validity. Download and re-validate the cached
+    // derivative itself before trusting it — a prior implementation could
+    // have cached a truncated/gray-filled render, and a stale object must
+    // never outrank a fresh, validated one.
     const { data: publicData } = supabase.storage.from(BUCKET).getPublicUrl(objectPath);
-    return NextResponse.redirect(publicData.publicUrl, 307);
+    try {
+      const cachedResp = await fetch(publicData.publicUrl, { cache: 'no-store' });
+      if (cachedResp.ok) {
+        const cachedBytes = Buffer.from(await cachedResp.arrayBuffer());
+        await assertValidDerivative(cachedBytes);
+        return NextResponse.redirect(publicData.publicUrl, 307);
+      }
+      console.error('[QriptopianEssayCover] cached derivative fetch failed', id, cachedResp.status);
+    } catch (error) {
+      console.error('[QriptopianEssayCover] cached derivative invalid, purging', id, error instanceof Error ? error.message : error);
+    }
+    // Invalid or unreachable — remove it so this and any concurrent request
+    // regenerates from canonical source rather than re-serving corruption.
+    await supabase.storage.from(BUCKET).remove([objectPath]);
   }
 
   if (!asset.auto_drive_cid || !asset.encryption_iv || !asset.encryption_auth_tag || !asset.token_qube_id) {
@@ -92,6 +111,11 @@ export async function GET(
       .resize({ width: 1200, withoutEnlargement: true })
       .webp({ quality: 82 })
       .toBuffer();
+
+    // Re-open the derivative we are about to publish and validate it exactly
+    // as we would a cached one — a truncated canonical download can produce
+    // a structurally valid WebP with a corrupt (e.g. flat-filled) raster.
+    await assertValidDerivative(derivative);
 
     const { error: uploadError } = await supabase.storage.from(BUCKET).upload(
       objectPath,

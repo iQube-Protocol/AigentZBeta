@@ -1,4 +1,5 @@
 import { createHash } from 'crypto';
+import sharp from 'sharp';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 
 export const THRESHOLD_UPLOAD_ROLES = new Set([
@@ -11,6 +12,54 @@ export const THRESHOLD_UPLOAD_ROLES = new Set([
   'audio',
   'attachment',
 ]);
+
+/** Roles whose bytes must be a decodable raster image before persistence. */
+export const THRESHOLD_IMAGE_ROLES = new Set(['cover', 'thumbnail', 'hero', 'social']);
+
+const DATA_URL_PREFIX = /^data:[^;,]*;base64,/i;
+
+/**
+ * Decode a base64 payload strictly. A JSON-RPC caller occasionally sends a
+ * full data URL (`data:image/jpeg;base64,...`) or whitespace-padded text
+ * instead of a bare base64 string. Node's `Buffer.from(x, 'base64')` silently
+ * skips characters outside the base64 alphabet rather than rejecting them, so
+ * feeding it un-sanitized input produces a plausible-length but corrupt
+ * buffer with no error raised anywhere in the pipeline — the corruption only
+ * surfaces later, as an undecodable image at display time. Reject loudly
+ * here instead, at the one place the original text is still available.
+ */
+export function decodeBase64Strict(input: string): Buffer {
+  const stripped = input.replace(DATA_URL_PREFIX, '').replace(/\s+/g, '');
+  if (!stripped.length) throw new Error('empty-base64-input');
+  if (stripped.length % 4 !== 0) throw new Error('invalid-base64-encoding: bad length');
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(stripped)) throw new Error('invalid-base64-encoding: bad charset');
+  return Buffer.from(stripped, 'base64');
+}
+
+/**
+ * For image-bearing roles, verify the decoded bytes are actually a raster
+ * image Sharp can fully decode before they are ever encrypted/persisted.
+ * This is the upload-time half of asset validation — the display-time half
+ * (essay-cover / content-media routes) cannot repair bytes that were never
+ * valid to begin with, so the check belongs here, at the boundary where the
+ * real source is still in hand.
+ */
+export async function assertDecodableImage(bytes: Buffer, role: string): Promise<void> {
+  if (!THRESHOLD_IMAGE_ROLES.has(role)) return;
+  let meta: { width?: number; height?: number };
+  try {
+    meta = await sharp(bytes, { failOn: 'error' }).metadata();
+  } catch (error) {
+    throw new Error(`upload-not-a-decodable-image: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  if (!meta.width || !meta.height || meta.width < 1 || meta.height < 1) {
+    throw new Error('upload-not-a-decodable-image: degenerate dimensions');
+  }
+  // Full pixel decode, not just header/metadata parsing — a truncated source
+  // can carry a valid header and still fail (or silently gray-fill) partway
+  // through the raster.
+  await sharp(bytes, { failOn: 'error' }).raw().toBuffer();
+}
 
 const ROLE_TO_ASSET_KIND: Record<string, string> = {
   cover: 'cover_image',
