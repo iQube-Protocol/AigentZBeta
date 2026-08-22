@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-22T00:14:10.025Z",
+  "last_updated": "2026-08-22T02:10:48.122Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "85aa3be3598ddaa318e4132c941000b21a2c05ac",
-  "latest_commit_short": "85aa3be",
-  "latest_commit_title": "docs(irl): add projected vs realized consequence candidates",
+  "latest_commit": "fff9c67e2b222dfab5409c9f7e431f1199e03d36",
+  "latest_commit_short": "fff9c67",
+  "latest_commit_title": "Allow generic non-episode cover assets",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "fff9c67",
+      "full_sha": "fff9c67e2b222dfab5409c9f7e431f1199e03d36",
+      "title": "Allow generic non-episode cover assets",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-21T13:35:15-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-fff9c67.md"
+    },
+    {
+      "sha": "a33205e",
+      "full_sha": "a33205e4bad63587e1f10c27440e2ae8cb119893",
+      "title": "repair mcp gateway upload endpoint routing to canonical /api/content/assets/upload",
+      "author": "Claude",
+      "timestamp": "2026-08-22T01:55:26Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-a33205e.md"
+    },
     {
       "sha": "85aa3be",
       "full_sha": "85aa3be3598ddaa318e4132c941000b21a2c05ac",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-08-05T00:48:26Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-b154b22.md"
-    },
-    {
-      "sha": "2165d02",
-      "full_sha": "2165d02924ed2d2e7c610ca1e1a11b9452231b13",
-      "title": "Fix Horizen Pulse enable call to send the same 5 fields build used",
-      "author": "Claude",
-      "timestamp": "2026-08-05T02:54:52Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-2165d02.md"
-    },
-    {
-      "sha": "4548472",
-      "full_sha": "45484724ecef6149aac7de266375e81aff893b9e",
-      "title": "Produce v0.4 as the first publication-candidate manuscript",
-      "author": "Claude",
-      "timestamp": "2026-08-05T16:51:20Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-4548472.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

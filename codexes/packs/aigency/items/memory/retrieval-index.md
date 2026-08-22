@@ -4369,3 +4369,13 @@ Top-level retrieval anchors for this pack.
 - Type: `docs`
 - Brief: [COMMIT-85aa3be.md](../build_/COMMITS/COMMIT-85aa3be.md)
 - Message: docs(irl): add projected vs realized consequence candidates
+
+## Commit `a33205e` — 2026-08-22T01:55:26Z
+- Type: `fix`
+- Brief: [COMMIT-a33205e.md](../build_/COMMITS/COMMIT-a33205e.md)
+- Message: repair mcp gateway upload endpoint routing to canonical /api/content/assets/upload
+
+## Commit `fff9c67` — 2026-08-21T13:35:15-04:00
+- Type: `push`
+- Brief: [COMMIT-fff9c67.md](../build_/COMMITS/COMMIT-fff9c67.md)
+- Message: Allow generic non-episode cover assets
