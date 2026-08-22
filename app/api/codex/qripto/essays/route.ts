@@ -6,17 +6,16 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 function canonicalThumbnail(row: any): string | null {
-  if (row.thumbnail) return row.thumbnail;
-
-  const coverCid = row.ai_metadata?.coverCid || row.content?.cover?.cid || null;
-  if (coverCid) {
-    return `/api/content/cover/${encodeURIComponent(String(coverCid))}?variant=thumb`;
-  }
-
+  // Canonical Threshold essay covers use a dedicated derivative route keyed by
+  // asset id. That route validates/decrypts the Autonomys source once, re-encodes
+  // a compact WebP, stores it durably in public object storage, then redirects.
   const coverAssetId = row.ai_metadata?.coverAssetId || row.content?.cover?.assetId || null;
   if (coverAssetId) {
-    return `/api/content/media/${encodeURIComponent(String(coverAssetId))}`;
+    return `/api/qriptopian/essay-cover/${encodeURIComponent(String(coverAssetId))}`;
   }
+
+  // Legacy/public thumbnails remain valid for older essays such as Threshold 001.
+  if (row.thumbnail) return row.thumbnail;
 
   return null;
 }
