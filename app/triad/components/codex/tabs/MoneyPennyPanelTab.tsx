@@ -30,6 +30,7 @@ import { MoneyPennySmartTriad } from "@/app/(shell)/moneypenny/components/MoneyP
 import { CRMIntegration } from "@/app/(shell)/moneypenny/components/CRMIntegration";
 import { ArchitectPanel } from "@/app/(shell)/moneypenny/components/ArchitectPanel";
 import { RuntimePanel } from "@/app/(shell)/moneypenny/components/RuntimePanel";
+import { ServiceOrchestrationPanel } from "@/app/(shell)/moneypenny/components/ServiceOrchestrationPanel";
 import { MoneyPennyShell } from "@/app/(shell)/moneypenny/components/MoneyPennyShell";
 
 export type MoneyPennyPanelKey =
@@ -42,7 +43,8 @@ export type MoneyPennyPanelKey =
   | "smarttriad"
   | "crm"
   | "architect"
-  | "runtime";
+  | "runtime"
+  | "service-orchestration";
 
 const PANELS: Record<MoneyPennyPanelKey, React.ComponentType> = {
   "hft-console": HFTConsole,
@@ -55,6 +57,7 @@ const PANELS: Record<MoneyPennyPanelKey, React.ComponentType> = {
   crm: CRMIntegration,
   architect: ArchitectPanel,
   runtime: RuntimePanel,
+  "service-orchestration": ServiceOrchestrationPanel,
 };
 
 export interface MoneyPennyPanelTabProps {
