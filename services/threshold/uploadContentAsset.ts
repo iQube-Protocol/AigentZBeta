@@ -55,13 +55,15 @@ export interface ThresholdUploadReceipt {
   setPrimary: boolean;
 }
 
-function publicAssetUrl(origin: string, assetId: string, cid: string, role: string): string {
-  // Covers/thumbnails are rendered through the long-standing cover proxy. It
-  // decrypts the canonical Autonomys object and generates a compact webp thumb
-  // with Sharp, deliberately staying below the edge response limit. Do not use
-  // the generic media proxy for card thumbnails: a full-size JPEG streamed
-  // through the application runtime caused partial/half-rendered cards in Safari.
+function publicAssetUrl(origin: string, assetId: string, cid: string, role: string, domain: string): string {
   if (role === 'cover' || role === 'thumbnail') {
+    // Qriptopian/Constitutional Internet cards use a durable derivative route.
+    // It decrypts + validates the canonical Autonomys source once, re-encodes
+    // a compact WebP and stores it in public object storage. This avoids both
+    // the generic full-media proxy and repeated Lambda binary streaming.
+    if (domain === 'qriptopian' || domain === 'constitutional-internet') {
+      return `${origin}/api/qriptopian/essay-cover/${encodeURIComponent(assetId)}`;
+    }
     return `${origin}/api/content/cover/${encodeURIComponent(cid)}?variant=thumb`;
   }
   return `${origin}/api/content/media/${assetId}`;
@@ -145,6 +147,7 @@ export async function executeThresholdContentUpload(input: ThresholdUploadInput)
           }
         }
 
+        const assetUrl = publicAssetUrl(input.origin, assetId, cid, input.role, input.domain);
         const manifestAsset: Record<string, any> = {
           assetId,
           cid,
@@ -153,7 +156,7 @@ export async function executeThresholdContentUpload(input: ThresholdUploadInput)
           sha256,
           fileName: input.fileName,
           setPrimary,
-          publicUrl: publicAssetUrl(input.origin, assetId, cid, input.role),
+          publicUrl: assetUrl,
         };
         if (input.bundleId) manifestAsset.bundleId = input.bundleId;
         if (input.bundleLabel) manifestAsset.bundleLabel = input.bundleLabel;
@@ -170,9 +173,7 @@ export async function executeThresholdContentUpload(input: ThresholdUploadInput)
           content: nextContent,
           updated_at: new Date().toISOString(),
         };
-        if (input.role === 'cover' || input.role === 'thumbnail') {
-          patch.thumbnail = publicAssetUrl(input.origin, assetId, cid, input.role);
-        }
+        if (input.role === 'cover' || input.role === 'thumbnail') patch.thumbnail = assetUrl;
 
         const { error: bindError } = await supabase.from('content').update(patch).eq('id', contentId);
         if (bindError) warning = bindError.message;
