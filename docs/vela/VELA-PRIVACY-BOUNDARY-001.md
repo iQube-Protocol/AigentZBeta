@@ -4,6 +4,17 @@
 **Scope:** exactly what is confidential, what is pseudonymous/metadata-visible, and what is fully public in a Vela v0.2.0 deployment — at the granularity of individual fields, not "the app is private."
 **Companion:** `VELA-SIGNER-TOPOLOGY-001` (who holds the keys referenced below), `VELA-ATTESTATION-BOUNDARY-001` (how much the confidentiality claims below can actually be trusted, given what root of trust is in place).
 
+## THE STANDING CLAIM BOUNDARY (operator-ratified, 2026-08-22)
+
+**Vela protects confidential application state and computation. It does not make every surrounding transaction primitive private.**
+
+This is the sentence to use with Horizen, with regulators, and with Financial Services pilot participants — and the one to hold the line on internally. It is deliberately narrower than "Vela makes the transaction private", and the narrowness is a strength, not a concession: because the boundary is precise, we can say exactly what is private, exactly what is observable, and exactly what becomes evidence. A vaguer claim would be both weaker and less defensible.
+
+Two corollaries that follow directly and are now enforced in code:
+
+1. **Confidential computation ≠ transaction anonymity.** Deposit and withdrawal amounts, sender, `applicationId`/`requestId`, and the `TRUSTPROCESS`/trigger wire path are all observable regardless of app design (see the metadata table below). What is protected is the application's *state* and the *computation over it*.
+2. **The verdict is the leak surface, so the verdict must be coarse.** A confidential projection publishes its conclusion through an observable event. The projector therefore returns exactly `ACCEPTABLE | UNACCEPTABLE | UNRESOLVED` plus commitments — never an operand, never the specific condition that failed, never a rationale. `services/vela/wasm/projector/app/app.go` enforces this, and `app_test.go` fails the build if the verdict event ever carries more than one field.
+
 ## The one sentence that scopes everything else
 
 `docs/1_summary.md` §5, verbatim: **"All key material and cryptographic operations live inside the Nitro Enclave. The Manager only handles encrypted blobs and signed payloads."** This is not marketing language — it is the literal trust model the source code implements: the Manager process, which is where an operator (Horizen, or whoever runs the stack) has the most operational access, is modeled as **untrusted for confidentiality** and **trusted only for liveness/availability**. Every claim below either follows from or qualifies that sentence.
