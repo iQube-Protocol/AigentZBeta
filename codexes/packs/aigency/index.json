@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-22T09:24:20.662Z",
+  "last_updated": "2026-08-22T09:40:15.527Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "221a5ec8000fababf180aa7d7c1d61da3524aa15",
-  "latest_commit_short": "221a5ec",
-  "latest_commit_title": "fix upload-asset route silently dropping isShareable on individual-form-fields path",
+  "latest_commit": "a971e161fe689f0c721dd2e28595f969c550f613",
+  "latest_commit_short": "a971e16",
+  "latest_commit_title": "update smoke test expected asset ids after Qriptopian cover re-upload",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "a971e16",
+      "full_sha": "a971e161fe689f0c721dd2e28595f969c550f613",
+      "title": "update smoke test expected asset ids after Qriptopian cover re-upload",
+      "author": "Claude",
+      "timestamp": "2026-08-22T09:38:21Z",
+      "type": "chore",
+      "brief": "items/build_/COMMITS/COMMIT-a971e16.md"
+    },
     {
       "sha": "221a5ec",
       "full_sha": "221a5ec8000fababf180aa7d7c1d61da3524aa15",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-10T15:14:46Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-58856f7.md"
-    },
-    {
-      "sha": "d56b844",
-      "full_sha": "d56b8444cbcefad7a30581ca7bd5edc0ab46cb1c",
-      "title": "Pre-recording Horizen polish: compact narrator header + Register ceremony replay",
-      "author": "Claude",
-      "timestamp": "2026-08-10T06:41:38Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-d56b844.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
