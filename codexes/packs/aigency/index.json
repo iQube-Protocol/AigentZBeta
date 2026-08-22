@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-21T23:52:01.842Z",
+  "last_updated": "2026-08-22T00:14:10.025Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "fbfeb52e7afa135b8b2fc49ea318e6180376f602",
-  "latest_commit_short": "fbfeb52",
-  "latest_commit_title": "docs(canon): ratify Authority–Authorization temporal distinction",
+  "latest_commit": "85aa3be3598ddaa318e4132c941000b21a2c05ac",
+  "latest_commit_short": "85aa3be",
+  "latest_commit_title": "docs(irl): add projected vs realized consequence candidates",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "85aa3be",
+      "full_sha": "85aa3be3598ddaa318e4132c941000b21a2c05ac",
+      "title": "docs(irl): add projected vs realized consequence candidates",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-21T20:12:33-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-85aa3be.md"
+    },
     {
       "sha": "fbfeb52",
       "full_sha": "fbfeb52e7afa135b8b2fc49ea318e6180376f602",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-05T16:51:20Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-4548472.md"
-    },
-    {
-      "sha": "ad60470",
-      "full_sha": "ad60470c3d25c2056c2ec3a180af247d0f68b93e",
-      "title": "Add Constitutional Internet for Agents manuscript v0.1",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-08T17:32:55-04:00",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-ad60470.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

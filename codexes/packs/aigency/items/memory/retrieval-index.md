@@ -4364,3 +4364,8 @@ Top-level retrieval anchors for this pack.
 - Type: `docs`
 - Brief: [COMMIT-fbfeb52.md](../build_/COMMITS/COMMIT-fbfeb52.md)
 - Message: docs(canon): ratify Authority–Authorization temporal distinction
+
+## Commit `85aa3be` — 2026-08-21T20:12:33-04:00
+- Type: `docs`
+- Brief: [COMMIT-85aa3be.md](../build_/COMMITS/COMMIT-85aa3be.md)
+- Message: docs(irl): add projected vs realized consequence candidates
