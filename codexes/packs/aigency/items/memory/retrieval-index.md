@@ -4399,3 +4399,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-116a1e0.md](../build_/COMMITS/COMMIT-116a1e0.md)
 - Message: Derive Qriptopian essay thumbnails from canonical cover assets
+
+## Commit `3bb95b2` — 2026-08-22T03:20:04-04:00
+- Type: `push`
+- Brief: [COMMIT-3bb95b2.md](../build_/COMMITS/COMMIT-3bb95b2.md)
+- Message: Route Qriptopian covers through durable derivatives

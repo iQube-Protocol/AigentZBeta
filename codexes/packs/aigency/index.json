@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-22T06:56:54.734Z",
+  "last_updated": "2026-08-22T07:21:45.758Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "116a1e05718d005554d6f4829fba644f39df73ad",
-  "latest_commit_short": "116a1e0",
-  "latest_commit_title": "Derive Qriptopian essay thumbnails from canonical cover assets",
+  "latest_commit": "3bb95b2f7e4226bfd5da55da87201f2f7516c3ec",
+  "latest_commit_short": "3bb95b2",
+  "latest_commit_title": "Route Qriptopian covers through durable derivatives",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "3bb95b2",
+      "full_sha": "3bb95b2f7e4226bfd5da55da87201f2f7516c3ec",
+      "title": "Route Qriptopian covers through durable derivatives",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-22T03:20:04-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-3bb95b2.md"
+    },
     {
       "sha": "116a1e0",
       "full_sha": "116a1e05718d005554d6f4829fba644f39df73ad",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-10T00:15:27-04:00",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-10e7aa1.md"
-    },
-    {
-      "sha": "ec5d5c2",
-      "full_sha": "ec5d5c2671c64f8da4621c801714459e29d73f24",
-      "title": "Add stage invalidation tombstone so a correction's removal is durable",
-      "author": "Claude",
-      "timestamp": "2026-08-10T03:43:53Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-ec5d5c2.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
