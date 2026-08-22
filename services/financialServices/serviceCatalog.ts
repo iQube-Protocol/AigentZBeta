@@ -10,6 +10,7 @@
  * is a pure function over a static catalog, not a disguised live lookup.
  */
 
+import { MONEYPENNY_PROVIDER_MODE_CONSEQUENCE_CLASS } from '@/types/financialServices';
 import type { FinancialServiceDefinition } from '@/types/financialServices';
 
 /**
@@ -19,7 +20,8 @@ import type { FinancialServiceDefinition } from '@/types/financialServices';
  */
 export const MONEYPENNY_ADVISOR: FinancialServiceDefinition = {
   serviceId: 'moneypenny.advisor',
-  serviceClass: 'advisor',
+  providerMode: 'ADVISOR',
+  serviceClass: MONEYPENNY_PROVIDER_MODE_CONSEQUENCE_CLASS.ADVISOR,
   displayName: 'MoneyPenny Advisor',
   providerAgentId: 'aigent-moneypenny',
   capabilityId: 'MONEYPENNY_ADVISOR',
@@ -40,7 +42,8 @@ export const MONEYPENNY_ADVISOR: FinancialServiceDefinition = {
  */
 export const MONEYPENNY_ARCHITECT: FinancialServiceDefinition = {
   serviceId: 'moneypenny.architect',
-  serviceClass: 'architect',
+  providerMode: 'ARCHITECT',
+  serviceClass: MONEYPENNY_PROVIDER_MODE_CONSEQUENCE_CLASS.ARCHITECT,
   displayName: 'MoneyPenny Architect',
   providerAgentId: 'aigent-moneypenny',
   capabilityId: 'MONEYPENNY_ARCHITECT',
@@ -76,7 +79,8 @@ export const MONEYPENNY_ARCHITECT: FinancialServiceDefinition = {
  */
 export const MONEYPENNY_RUNTIME: FinancialServiceDefinition = {
   serviceId: 'moneypenny.runtime',
-  serviceClass: 'runtime',
+  providerMode: 'RUNTIME',
+  serviceClass: MONEYPENNY_PROVIDER_MODE_CONSEQUENCE_CLASS.RUNTIME,
   displayName: 'MoneyPenny Runtime',
   providerAgentId: 'aigent-moneypenny',
   capabilityId: 'CONFIDENTIAL_CONSEQUENCE_PROJECTION',

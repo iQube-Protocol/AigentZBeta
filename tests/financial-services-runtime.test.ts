@@ -86,6 +86,7 @@ import {
 import type { ConsequenceForecast } from '@/types/consequence';
 import type { ConstitutionalAuthority } from '@/types/constitutionalCommerce';
 import type { ConfidentialEvidenceInput } from '@/services/constitutionalCommerce/unifiedConsequenceProjection';
+import { MONEYPENNY_PROVIDER_MODE_CONSEQUENCE_CLASS } from '@/types/financialServices';
 import type { FinancialServiceRequest } from '@/types/financialServices';
 
 const CONSUMER = 'aigent-nakamoto';
@@ -159,6 +160,8 @@ describe('service discovery — serviceCatalog', () => {
       expect(resolveFinancialServiceDefinition(def.serviceId)).toEqual(def);
       expect(def.eligibilityPolicy).toBeDefined();
       expect(def.authorityRequirement).toBeDefined();
+      expect(def.serviceClass).toMatch(/^(INFORMATIONAL|PROPOSAL|CONSEQUENTIAL)$/);
+      expect(def.providerMode).toMatch(/^(ADVISOR|ARCHITECT|RUNTIME)$/);
       expect(def.projectionRequirement).toMatch(/^(NOT_REQUIRED|REQUIRED)$/);
       expect(def.confidentialityRequirement).toMatch(/^(NOT_REQUIRED|REQUIRED)$/);
       expect(def.attestationRequirement).toMatch(/^(NOT_REQUIRED|REQUIRED|UNSPECIFIED)$/);
@@ -182,6 +185,20 @@ describe('service discovery — serviceCatalog', () => {
   it('Runtime requires REQUIRED attestation by construction — the Phase 3 hard dependency', () => {
     expect(MONEYPENNY_RUNTIME.attestationRequirement).toBe('REQUIRED');
   });
+
+  it('providerMode and serviceClass are derived from the single explicit mapping, never independently authored', () => {
+    expect(MONEYPENNY_ADVISOR.providerMode).toBe('ADVISOR');
+    expect(MONEYPENNY_ADVISOR.serviceClass).toBe(MONEYPENNY_PROVIDER_MODE_CONSEQUENCE_CLASS.ADVISOR);
+    expect(MONEYPENNY_ADVISOR.serviceClass).toBe('INFORMATIONAL');
+
+    expect(MONEYPENNY_ARCHITECT.providerMode).toBe('ARCHITECT');
+    expect(MONEYPENNY_ARCHITECT.serviceClass).toBe(MONEYPENNY_PROVIDER_MODE_CONSEQUENCE_CLASS.ARCHITECT);
+    expect(MONEYPENNY_ARCHITECT.serviceClass).toBe('PROPOSAL');
+
+    expect(MONEYPENNY_RUNTIME.providerMode).toBe('RUNTIME');
+    expect(MONEYPENNY_RUNTIME.serviceClass).toBe(MONEYPENNY_PROVIDER_MODE_CONSEQUENCE_CLASS.RUNTIME);
+    expect(MONEYPENNY_RUNTIME.serviceClass).toBe('CONSEQUENTIAL');
+  });
 });
 
 // ── Full lifecycle: Advisor / Architect (DELIVERED, cross-agent) ────────
@@ -200,7 +217,8 @@ describe('requestFinancialService() — Advisor/Architect: cross-agent, no execu
       admin: fakeSupabase as any,
     });
     expect(outcome.status).toBe('DELIVERED');
-    expect(outcome.serviceClass).toBe('advisor');
+    expect(outcome.serviceClass).toBe('INFORMATIONAL');
+    expect(outcome.providerMode).toBe('ADVISOR');
     expect(outcome.authorisationRef).toBeNull();
     expect(outcome.executionRef).toBeNull();
     expect(mockAccrueStanding).toHaveBeenCalledWith(expect.objectContaining({ crmPersonaId: 'crm-nakamoto' }));
@@ -217,7 +235,8 @@ describe('requestFinancialService() — Advisor/Architect: cross-agent, no execu
       admin: fakeSupabase as any,
     });
     expect(outcome.status).toBe('DELIVERED');
-    expect(outcome.serviceClass).toBe('architect');
+    expect(outcome.serviceClass).toBe('PROPOSAL');
+    expect(outcome.providerMode).toBe('ARCHITECT');
   });
 
   it('refuses when the consumer is not admitted — Gate 1, unmodified', async () => {
@@ -346,6 +365,8 @@ describe('requestFinancialService() — Runtime: the Phase 3 hard dependency', (
       admin: fakeSupabase as any,
     });
     expect(outcome.status).toBe('AUTHORISED');
+    expect(outcome.serviceClass).toBe('CONSEQUENTIAL');
+    expect(outcome.providerMode).toBe('RUNTIME');
     expect(outcome.executionRef).toBeTruthy();
     expect(outcome.observedConsequenceRef).toBeTruthy();
     expect(outcome.validationState).toBe('MATCHED_PROJECTION');

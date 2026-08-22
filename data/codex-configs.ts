@@ -4955,6 +4955,18 @@ export const MONEYPENNY_CARTRIDGE: CodexConfig = {
       metadata: { icon: 'Cpu', description: 'Constitutional service pattern — shadow/authoritative runtime (PRD-MPY-001)', color: 'emerald' },
     },
     {
+      id: 'moneypenny-service-orchestration',
+      label: 'Orchestration',
+      slug: 'service-orchestration',
+      enabled: true,
+      adminOnly: false,
+      group: 'service',
+      order: 3,
+      type: 'static',
+      config: { component: 'MoneyPennyPanelTab', props: { panel: 'service-orchestration' } },
+      metadata: { icon: 'Network', description: 'Oversight console — admitted agents consuming MoneyPenny Financial Services (Phase 3)', color: 'emerald' },
+    },
+    {
       id: 'moneypenny-identity',
       label: 'Identity',
       slug: 'identity',
