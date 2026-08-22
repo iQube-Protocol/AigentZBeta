@@ -22,12 +22,17 @@ const args = process.argv.slice(2);
 const hostArg = args.find((a) => a.startsWith('--host='));
 const HOST = hostArg ? hostArg.split('=')[1] : 'https://dev-beta.aigentz.me';
 
-// Known-good bindings, captured during the 2026-08-22 forensic repair.
-// A drift here (e.g. CM's cover no longer resolving to f4ba6c5e...) is worth
-// failing loudly on, since it would mean a re-upload silently rebound the
-// canonical cover for an existing essay.
+// Known-good bindings. f4ba6c5e/53391ce6/c0d2635c were the ORIGINAL
+// (corrupt) asset ids discovered during the 2026-08-22 forensic repair —
+// 002/003/004 were re-uploaded through the fixed pipeline and rebound to
+// new ids on the same day. A drift here (e.g. TI's cover no longer
+// resolving to 15a87ead...) is worth failing loudly on, since it would
+// mean a re-upload silently rebound the canonical cover for an existing
+// essay.
 const EXPECTED_COVER_ASSET_IDS = {
-  'Constitutional Media': 'f4ba6c5e-64b7-4605-8bef-d9d9919d677a',
+  'The Internet Needs a Constitution': 'f8b28797-ad75-4837-94b7-7765da6244f1',
+  'Constitutional Media': '2fd1c69d-6383-479e-9e31-072c7485a634',
+  'Constitutional Computing': 'fc4b9335-ca25-4cc4-adcc-20616e69bdc9',
   'Trusted Intelligence': '15a87ead-894d-4c25-ba0e-f4fa03395098',
 };
 
