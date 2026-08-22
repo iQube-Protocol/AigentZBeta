@@ -1,18 +1,10 @@
 /**
  * POST /api/threshold/mcp — the metaMe Threshold Gateway (PRD-THR-001 §8).
  *
- * A minimal, spec-correct MCP server over Streamable HTTP: it responds to
- * JSON-RPC 2.0 POST messages with single `application/json` responses (stateless;
- * no server-initiated streaming needed for the read-only Increment 1 surface).
- * Hand-rolled rather than pulling the MCP SDK — keeps the SSR bundle lean (the
- * platform sits near the Amplify output-size cap) and gives full control of the
- * constitutional guardrails.
- *
- * Increment 1 is UNAUTHENTICATED + READ-ONLY: `initialize`, `tools/list`,
- * `tools/call` (list_services, inspect_threshold_link only), `resources/*`,
- * `prompts/*`, `ping`. The authenticated crossing tools (the Constitutional
- * Handshake) land in the next increment; calling one returns an honest
- * "handshake required" result. No persona/T0 identifiers are ever emitted.
+ * Minimal MCP server over Streamable HTTP. Threshold bearer authority is
+ * resolved once at the transport boundary. Upload execution uses the same
+ * shared executor as the native connector action so the two interfaces cannot
+ * drift onto different authentication/storage paths again.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -30,16 +22,13 @@ import {
   type GatewayContext,
 } from '@/services/threshold/gateway';
 import { resolveInvitation } from '@/services/threshold/resolveInvitation';
-import { resolveBearer, createUpgradeHandshake } from '@/services/threshold/gatewaySession';
+import { resolveBearer, createUpgradeHandshake, hasScope } from '@/services/threshold/gatewaySession';
 import { makeIrlAdapter } from '@/services/threshold/irlAdapter';
 import { buildCompanionInstallBrief } from '@/services/companion/extensionArtifact';
+import { executeThresholdContentUpload, THRESHOLD_UPLOAD_ROLES } from '@/services/threshold/uploadContentAsset';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-// Uploads can spend tens of seconds in Autonomys retry/chunking. Without an
-// explicit long-running budget the MCP invocation can be terminated before the
-// tool result is returned, which clients surface as the tool becoming
-// unavailable/disabled. Match the canonical upload endpoint's 5-minute budget.
 export const maxDuration = 300;
 
 function cors(res: NextResponse): NextResponse {
@@ -54,14 +43,9 @@ export async function OPTIONS() {
   return cors(new NextResponse(null, { status: 204 }));
 }
 
-// GET is used by MCP clients to open an SSE stream for server-initiated
-// messages. The stateless read-only gateway has none, so we accept + hold open
-// nothing: return 405 to signal "POST-only" (spec-permitted).
 export async function GET() {
   return cors(NextResponse.json({ error: 'Use POST for JSON-RPC; this gateway is stateless.' }, { status: 405 }));
 }
-
-// ── JSON-RPC dispatch ─────────────────────────────────────────────────────────
 
 interface RpcMsg { jsonrpc?: string; id?: string | number | null; method?: string; params?: Record<string, unknown> }
 
@@ -72,12 +56,95 @@ function err(id: RpcMsg['id'], code: number, message: string) {
   return { jsonrpc: '2.0', id: id ?? null, error: { code, message } };
 }
 
+function inferMime(fileName: string): string {
+  const lower = fileName.toLowerCase();
+  if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
+  if (lower.endsWith('.png')) return 'image/png';
+  if (lower.endsWith('.webp')) return 'image/webp';
+  if (lower.endsWith('.gif')) return 'image/gif';
+  if (lower.endsWith('.pdf')) return 'application/pdf';
+  if (lower.endsWith('.mp4')) return 'video/mp4';
+  if (lower.endsWith('.webm')) return 'video/webm';
+  if (lower.endsWith('.mp3')) return 'audio/mpeg';
+  if (lower.endsWith('.wav')) return 'audio/wav';
+  return 'application/octet-stream';
+}
+
+async function callUploadContentAsset(args: Record<string, unknown>, ctx: GatewayContext) {
+  const session = ctx.session;
+  if (!session || !hasScope(session, 'content.asset.upload')) {
+    return {
+      isError: true,
+      content: [{ type: 'text', text: 'content.asset.upload capability required' }],
+    };
+  }
+
+  const fileBase64 = typeof args.fileBase64 === 'string' ? args.fileBase64 : null;
+  const file = typeof args.file === 'string' ? args.file : null;
+  if ((fileBase64 && file) || (!fileBase64 && !file)) {
+    return {
+      isError: true,
+      content: [{ type: 'text', text: 'Exactly one of fileBase64 or file is required.' }],
+    };
+  }
+
+  const fileName = typeof args.fileName === 'string' ? args.fileName.trim() : '';
+  const domain = typeof args.domain === 'string' ? args.domain.trim() : '';
+  const role = typeof args.role === 'string' ? args.role.trim() : '';
+  if (!fileName || !domain || !role) {
+    return {
+      isError: true,
+      content: [{ type: 'text', text: 'Missing required parameters: fileName, domain, role' }],
+    };
+  }
+  if (!THRESHOLD_UPLOAD_ROLES.has(role)) {
+    return {
+      isError: true,
+      content: [{ type: 'text', text: `Invalid role: ${role}` }],
+    };
+  }
+
+  try {
+    // Buffer itself is the exact byte view. Do NOT pass Buffer.buffer: Node
+    // buffers can be slices of a larger pooled ArrayBuffer and that can append
+    // unrelated bytes to an upload.
+    const bytes = Buffer.from(fileBase64 || file || '', 'base64');
+    if (!bytes.length) throw new Error('empty-file');
+
+    const receipt = await executeThresholdContentUpload({
+      bytes,
+      mimeType: inferMime(fileName),
+      fileName,
+      domain,
+      role,
+      origin: ctx.origin,
+      contentId: typeof args.contentId === 'string' ? args.contentId : null,
+      bind: args.bind !== false,
+      bundleId: typeof args.bundleId === 'string' ? args.bundleId : null,
+      bundleLabel: typeof args.bundleLabel === 'string' ? args.bundleLabel : null,
+      bundleType: typeof args.bundleType === 'string' ? args.bundleType : null,
+      bundleOrder: typeof args.bundleOrder === 'number' ? args.bundleOrder : null,
+      assetUse: typeof args.assetUse === 'string' ? args.assetUse : null,
+      setPrimary: args.setPrimary === true,
+    });
+
+    return {
+      content: [{ type: 'text', text: JSON.stringify(receipt) }],
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'upload-failed';
+    console.error('[threshold/mcp] upload_content_asset failed:', message);
+    return {
+      isError: true,
+      content: [{ type: 'text', text: `Upload failed: ${message}` }],
+    };
+  }
+}
+
 async function handleOne(msg: RpcMsg, ctx: GatewayContext): Promise<object | null> {
   const { method, id, params = {} } = msg;
-  // Notifications (no id) — acknowledge without a response body.
-  if (id === undefined || id === null) {
-    return null;
-  }
+  if (id === undefined || id === null) return null;
+
   try {
     switch (method) {
       case 'initialize':
@@ -95,6 +162,12 @@ async function handleOne(msg: RpcMsg, ctx: GatewayContext): Promise<object | nul
       case 'tools/call': {
         const name = String(params.name ?? '');
         const args = (params.arguments as Record<string, unknown>) ?? {};
+        // Upload is intercepted at the transport boundary so both MCP and native
+        // connector paths share one authorized execution function. This avoids an
+        // authenticated MCP session making an unauthenticated internal HTTP hop.
+        if (name === 'upload_content_asset') {
+          return ok(id, await callUploadContentAsset(args, ctx));
+        }
         return ok(id, await callTool(name, args, ctx));
       }
       case 'resources/list':
@@ -122,10 +195,6 @@ export async function POST(request: NextRequest) {
   }
 
   const origin = publicOrigin(request);
-  // Resolve the Constitutional Handshake bearer, if one is presented. Defensive:
-  // resolveBearer degrades any error (incl. an unmigrated table) to null, so an
-  // absent/invalid/expired bearer simply leaves the gateway on its read-only
-  // surface — it never fails the request.
   const authz = request.headers.get('authorization');
   const bearer = authz?.toLowerCase().startsWith('bearer ') ? authz.slice(7).trim() : null;
   const session = await resolveBearer(bearer);
@@ -135,28 +204,16 @@ export async function POST(request: NextRequest) {
     resolveInvitation,
     session,
     irl: makeIrlAdapter(origin),
-    // Reads the checked-in extension source off disk, so it is injected here
-    // rather than imported by the (I/O-light, unit-tested) gateway module.
     companionInstall: () => buildCompanionInstallBrief(origin),
-    // Incremental service crossing: pinned to THIS session so the browser
-    // authorization upgrades the exact agent session it augments.
     beginServiceUpgrade: session
       ? async (service, missing) => {
           const hs = await createUpgradeHandshake({ parentSessionId: session.id, service, requestedScope: missing });
           if (!hs) return null;
-          // Deliver the handshake code in the URL FRAGMENT, not the query string
-          // (security review Finding 3): fragments are never sent to servers or in
-          // Referer headers, so the capability code stays out of access logs and
-          // any third-party Referer leak. The enter-service page reads it client-side.
           return { authorizeUrl: `${origin}/threshold/enter-service#code=${encodeURIComponent(hs.handshakeCode)}` };
         }
       : undefined,
   };
 
-  // MCP OAuth challenge: if a bearer-less Companion calls an authenticated
-  // crossing tool, answer with an HTTP 401 + WWW-Authenticate pointing at the
-  // protected-resource metadata (RFC 9728) — the spec trigger for the client to
-  // run the Constitutional Handshake. Read-only tools are never challenged.
   if (!session) {
     const msgs = Array.isArray(body) ? body : [body];
     const wantsAuthTool = msgs.some(
