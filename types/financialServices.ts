@@ -21,38 +21,72 @@
 import type { AttestationRequirement, ConfidentialRequirement, ProjectionDisposition } from './constitutionalCommerce';
 import type { CapabilityExecutionMode } from './capabilityInvocation';
 
-// ── Service classes ─────────────────────────────────────────────────────
+// ── Consequence classes (generic, provider-neutral) ─────────────────────
 
 /**
- * MoneyPenny's three initial services. Each maps to exactly one
- * `CapabilityExecutionMode` — the mapping IS the mechanism that keeps
- * advisor/architect from ever reaching a real authorisation without any
- * branch in the orchestrator's own code: Gate 2
- * (`services/registry/capabilityInvocationGates.ts`) already treats
- * `preview`/`shadow` as unconditionally passable and `authoritative` as
- * refused-by-default-except-the-one-named-capability. Nothing here
+ * The generic constitutional-consequence taxonomy a Financial Service
+ * belongs to — provider-neutral, so a future non-MoneyPenny provider is
+ * never forced into MoneyPenny's own mode vocabulary (see `providerMode`
+ * below). Each class maps to exactly one `CapabilityExecutionMode` — the
+ * mapping IS the mechanism that keeps INFORMATIONAL/PROPOSAL from ever
+ * reaching a real authorisation without any branch in the orchestrator's own
+ * code: Gate 2 (`services/registry/capabilityInvocationGates.ts`) already
+ * treats `preview`/`shadow` as unconditionally passable and `authoritative`
+ * as refused-by-default-except-the-one-named-capability. Nothing here
  * reimplements that; it only selects which mode a service requests.
  *
- *   advisor   -> preview      — informational only; never executes
- *   architect -> shadow       — proposes/plans; never authorises the real
- *                                action (existing `deriveActionAuthorisation`
- *                                rule: "shadow-only" is REFUSED)
- *   runtime   -> authoritative — the only class that can reach AUTHORISED
- *                                and bind execution
+ *   INFORMATIONAL -> preview      — informational only; never executes
+ *   PROPOSAL      -> shadow       — proposes/plans; never authorises the
+ *                                    real action (existing
+ *                                    `deriveActionAuthorisation` rule:
+ *                                    "shadow-only" is REFUSED)
+ *   CONSEQUENTIAL -> authoritative — the only class that can reach
+ *                                    AUTHORISED and bind execution
+ *
+ * Operator ruling (2026-08-22): this replaces an earlier `advisor|architect
+ * |runtime` serviceClass — those names are MoneyPenny's own `providerMode`
+ * (PRD-MPY-001's pre-existing, canonical vocabulary for her operating
+ * modes), not a generic taxonomy. Conflating the two would have created a
+ * second "Architect"/"Runtime" concept alongside PRD-MPY-001's already-live
+ * one under the same names but a different ontology.
  */
-export type FinancialServiceClass = 'advisor' | 'architect' | 'runtime';
+export type FinancialServiceConsequenceClass = 'INFORMATIONAL' | 'PROPOSAL' | 'CONSEQUENTIAL';
 
-export const SERVICE_CLASS_EXECUTION_MODE: Record<FinancialServiceClass, CapabilityExecutionMode> = {
-  advisor: 'preview',
-  architect: 'shadow',
-  runtime: 'authoritative',
+export const SERVICE_CLASS_EXECUTION_MODE: Record<FinancialServiceConsequenceClass, CapabilityExecutionMode> = {
+  INFORMATIONAL: 'preview',
+  PROPOSAL: 'shadow',
+  CONSEQUENTIAL: 'authoritative',
 };
 
-/** Only `runtime`-class services ever attempt authorisation/execution — see file header. */
-export const SERVICE_CLASS_EXECUTION_REACHABLE: Record<FinancialServiceClass, boolean> = {
-  advisor: false,
-  architect: false,
-  runtime: true,
+/** Only `CONSEQUENTIAL`-class services ever attempt authorisation/execution — see file header. */
+export const SERVICE_CLASS_EXECUTION_REACHABLE: Record<FinancialServiceConsequenceClass, boolean> = {
+  INFORMATIONAL: false,
+  PROPOSAL: false,
+  CONSEQUENTIAL: true,
+};
+
+// ── Provider modes (provider-specific) ───────────────────────────────────
+
+/**
+ * MoneyPenny's own canonical operating modes (PRD-MPY-001) — how SHE
+ * performs a service, distinct from what constitutional consequence class
+ * it belongs to. A future second provider defines its own `providerMode`
+ * vocabulary; nothing here requires it to have an "Architect mode" or a
+ * "Runtime mode" of its own.
+ */
+export type MoneyPennyProviderMode = 'ADVISOR' | 'ARCHITECT' | 'RUNTIME';
+
+/**
+ * The single explicit mapping MoneyPenny's catalog entries derive
+ * `serviceClass` from — one place, so `providerMode` and `serviceClass`
+ * can never drift apart on a MoneyPenny catalog entry. Not itself a second
+ * implementation of anything: it is data, read by
+ * `services/financialServices/serviceCatalog.ts`.
+ */
+export const MONEYPENNY_PROVIDER_MODE_CONSEQUENCE_CLASS: Record<MoneyPennyProviderMode, FinancialServiceConsequenceClass> = {
+  ADVISOR: 'INFORMATIONAL',
+  ARCHITECT: 'PROPOSAL',
+  RUNTIME: 'CONSEQUENTIAL',
 };
 
 // ── FinancialServiceDefinition — the catalog entry ──────────────────────
@@ -89,7 +123,16 @@ export interface FinancialServiceReceiptPolicy {
 
 export interface FinancialServiceDefinition {
   serviceId: string;
-  serviceClass: FinancialServiceClass;
+  /** Generic, provider-neutral constitutional-consequence class — see the type doc above. */
+  serviceClass: FinancialServiceConsequenceClass;
+  /**
+   * The PROVIDER's own operating-mode label (e.g. MoneyPenny's canonical
+   * ADVISOR|ARCHITECT|RUNTIME, PRD-MPY-001). Deliberately typed `string`
+   * here, not `MoneyPennyProviderMode` — a future non-MoneyPenny provider
+   * defines its own vocabulary; nothing in the shared contract may require
+   * it to reuse MoneyPenny's mode names.
+   */
+  providerMode: string;
   displayName: string;
   /** The canonical `runtimeAgentId` of the agent that fulfils this service (`services/horizen/registrableAgents.ts`). */
   providerAgentId: string;
@@ -136,10 +179,12 @@ export type FinancialServiceOutcomeStatus = 'INELIGIBLE' | 'DELIVERED' | 'AUTHOR
 export interface FinancialServiceOutcome {
   requestRef: string;
   serviceId: string;
-  serviceClass: FinancialServiceClass;
+  serviceClass: FinancialServiceConsequenceClass;
+  /** The resolved definition's `providerMode`, e.g. MoneyPenny's ADVISOR|ARCHITECT|RUNTIME. `null` only when no definition could be resolved (unknown serviceId). */
+  providerMode: string | null;
   status: FinancialServiceOutcomeStatus;
   reason: string;
-  /** Present only for `runtime`-class services that reached a real `ActionAuthorisation`. */
+  /** Present only for `CONSEQUENTIAL`-class services that reached a real `ActionAuthorisation`. */
   authorisationRef: string | null;
   executionRef: string | null;
   observedConsequenceRef: string | null;

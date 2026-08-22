@@ -96,6 +96,7 @@ export interface RequestFinancialServiceResult {
 function refusedOutcome(
   request: FinancialServiceRequest,
   serviceClass: FinancialServiceOutcome['serviceClass'],
+  providerMode: string | null,
   status: FinancialServiceOutcome['status'],
   reason: string,
 ): RequestFinancialServiceResult {
@@ -104,6 +105,7 @@ function refusedOutcome(
       requestRef: request.requestRef,
       serviceId: request.serviceId,
       serviceClass,
+      providerMode,
       status,
       reason,
       authorisationRef: null,
@@ -124,7 +126,7 @@ export async function requestFinancialService(
   // ── Service discovery ────────────────────────────────────────────────
   const definition = resolveFinancialServiceDefinition(request.serviceId);
   if (!definition) {
-    return refusedOutcome(request, 'advisor', 'INELIGIBLE', `unknown serviceId '${request.serviceId}'`);
+    return refusedOutcome(request, 'INFORMATIONAL', null, 'INELIGIBLE', `unknown serviceId '${request.serviceId}'`);
   }
 
   // ── Eligibility ──────────────────────────────────────────────────────
@@ -137,6 +139,7 @@ export async function requestFinancialService(
     return refusedOutcome(
       request,
       definition.serviceClass,
+      definition.providerMode,
       'INELIGIBLE',
       `${eligibility.code}: ${eligibility.reason}`,
     );
@@ -199,6 +202,7 @@ export async function requestFinancialService(
           requestRef: request.requestRef,
           serviceId: request.serviceId,
           serviceClass: definition.serviceClass,
+          providerMode: definition.providerMode,
           status: 'DELIVERED',
           reason: `'${definition.serviceId}' delivered in ${executionMode} mode`,
           authorisationRef: null,
@@ -212,7 +216,7 @@ export async function requestFinancialService(
     }
     const code = decision.decision === 'refuse' ? decision.code : decision.decision;
     const reason = decision.decision === 'refuse' ? decision.reason : `gateway decision '${decision.decision}'`;
-    return refusedOutcome(request, definition.serviceClass, 'REFUSED', `${code}: ${reason}`);
+    return refusedOutcome(request, definition.serviceClass, definition.providerMode, 'REFUSED', `${code}: ${reason}`);
   }
 
   // ── ActionAuthorisation — runtime-class only ─────────────────────────
@@ -235,6 +239,7 @@ export async function requestFinancialService(
         requestRef: request.requestRef,
         serviceId: request.serviceId,
         serviceClass: definition.serviceClass,
+        providerMode: definition.providerMode,
         status,
         reason: `ActionAuthorisation ${authorisation.status}`,
         authorisationRef: authorisation.authorisationRef,
@@ -260,6 +265,7 @@ export async function requestFinancialService(
         requestRef: request.requestRef,
         serviceId: request.serviceId,
         serviceClass: definition.serviceClass,
+        providerMode: definition.providerMode,
         status: 'UNRESOLVED',
         reason: bound.reason,
         authorisationRef: authorisation.authorisationRef,
@@ -283,6 +289,7 @@ export async function requestFinancialService(
         requestRef: request.requestRef,
         serviceId: request.serviceId,
         serviceClass: definition.serviceClass,
+        providerMode: definition.providerMode,
         status: 'AUTHORISED',
         reason: 'execution bound; observation not yet supplied',
         authorisationRef: authorisation.authorisationRef,
@@ -309,6 +316,7 @@ export async function requestFinancialService(
       requestRef: request.requestRef,
       serviceId: request.serviceId,
       serviceClass: definition.serviceClass,
+      providerMode: definition.providerMode,
       status: 'AUTHORISED',
       reason: 'execution bound and observed',
       authorisationRef: authorisation.authorisationRef,
