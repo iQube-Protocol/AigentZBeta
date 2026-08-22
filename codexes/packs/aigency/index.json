@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-22T06:43:04.899Z",
+  "last_updated": "2026-08-22T06:56:54.734Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "ce40c2ecc2ad789181d5aebe5ac136b476d243e1",
-  "latest_commit_short": "ce40c2e",
-  "latest_commit_title": "Add Threshold upload path canaries",
+  "latest_commit": "116a1e05718d005554d6f4829fba644f39df73ad",
+  "latest_commit_short": "116a1e0",
+  "latest_commit_title": "Derive Qriptopian essay thumbnails from canonical cover assets",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "116a1e0",
+      "full_sha": "116a1e05718d005554d6f4829fba644f39df73ad",
+      "title": "Derive Qriptopian essay thumbnails from canonical cover assets",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-22T02:55:08-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-116a1e0.md"
+    },
     {
       "sha": "ce40c2e",
       "full_sha": "ce40c2ecc2ad789181d5aebe5ac136b476d243e1",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-10T03:43:53Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-ec5d5c2.md"
-    },
-    {
-      "sha": "adbff86",
-      "full_sha": "adbff8645b1eff499bb03646881969bd0a2b9a86",
-      "title": "Add a conflict resolution path to the dev auto-merge workflow",
-      "author": "Claude",
-      "timestamp": "2026-08-09T22:43:44Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-adbff86.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

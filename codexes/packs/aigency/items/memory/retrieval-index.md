@@ -4394,3 +4394,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-ce40c2e.md](../build_/COMMITS/COMMIT-ce40c2e.md)
 - Message: Add Threshold upload path canaries
+
+## Commit `116a1e0` — 2026-08-22T02:55:08-04:00
+- Type: `push`
+- Brief: [COMMIT-116a1e0.md](../build_/COMMITS/COMMIT-116a1e0.md)
+- Message: Derive Qriptopian essay thumbnails from canonical cover assets
