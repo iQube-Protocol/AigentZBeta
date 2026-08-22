@@ -32,13 +32,22 @@ function extFor(file: File) {
 }
 
 function mergeAssetManifest(existing: unknown, asset: Record<string, unknown>) {
+  // Unbounded asset model: multiple assets with the same role coexist.
+  // Never filter by role — only append. Use identity (sha256) for uniqueness.
   const base = existing && typeof existing === 'object' && !Array.isArray(existing)
     ? { ...(existing as Record<string, unknown>) }
     : {};
   const current = Array.isArray(base.assets) ? [...base.assets] : [];
-  const role = String(asset.role || 'attachment');
-  const filtered = current.filter((entry) => !(entry && typeof entry === 'object' && (entry as any).role === role));
-  return { ...base, assets: [...filtered, asset] };
+  // If setPrimary is true on this asset, clear the primary flag from other assets of the same role
+  if (asset.setPrimary === true && asset.role) {
+    const role = asset.role;
+    for (const entry of current) {
+      if (entry && typeof entry === 'object' && (entry as any).role === role && (entry as any).setPrimary === true) {
+        (entry as any).setPrimary = false;
+      }
+    }
+  }
+  return { ...base, assets: [...current, asset] };
 }
 
 export async function POST(req: NextRequest) {
@@ -72,6 +81,15 @@ export async function POST(req: NextRequest) {
     const sha256 = createHash('sha256').update(bytes).digest('hex');
     const objectPath = `assets/${domain}/${safeSegment(contentId || 'unbound')}/${role}/${Date.now()}-${suppliedName.replace(/\.[^.]+$/, '')}.${ext}`;
 
+    // Extract bundle metadata (optional — supports unbounded asset bundling)
+    const bundleId = String(form.get('bundleId') || '').trim() || null;
+    const bundleLabel = String(form.get('bundleLabel') || '').trim() || null;
+    const bundleType = String(form.get('bundleType') || '').trim() || null;
+    const bundleOrderStr = String(form.get('bundleOrder') || '').trim();
+    const bundleOrder = bundleOrderStr ? parseInt(bundleOrderStr, 10) : null;
+    const assetUse = String(form.get('assetUse') || '').trim() || null;
+    const setPrimary = String(form.get('setPrimary') || '').trim() === 'true';
+
     const { error: uploadError } = await supabase.storage.from(bucket).upload(objectPath, bytes, {
       contentType: file.type || 'application/octet-stream',
       cacheControl: '31536000',
@@ -81,7 +99,7 @@ export async function POST(req: NextRequest) {
 
     const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(objectPath);
     const publicUrl = urlData.publicUrl;
-    const asset = {
+    const asset: Record<string, unknown> = {
       role,
       bucket,
       objectPath,
@@ -93,6 +111,14 @@ export async function POST(req: NextRequest) {
       uploadedAt: new Date().toISOString(),
       uploadedByPersonaId: persona.personaId,
     };
+
+    // Add bundle metadata if provided (unbounded asset bundling)
+    if (bundleId) asset.bundleId = bundleId;
+    if (bundleLabel) asset.bundleLabel = bundleLabel;
+    if (bundleType) asset.bundleType = bundleType;
+    if (bundleOrder !== null && !isNaN(bundleOrder)) asset.bundleOrder = bundleOrder;
+    if (assetUse) asset.assetUse = assetUse;
+    if (setPrimary) asset.setPrimary = true;
 
     if (bind && contentId) {
       const { data: row, error: readError } = await supabase

@@ -185,7 +185,7 @@ export function listTools() {
     {
       name: 'upload_content_asset',
       description:
-        'Upload a content asset (cover, thumbnail, document, media) to Autonomys storage. Supports two input methods: fileBase64 (for JSON-RPC clients) or file (for connector actions with native binary). Exactly one must be provided. Supported roles: cover, thumbnail, hero, social, pdf, video, audio, attachment. Requires admin or creator privileges.',
+        'Upload a content asset (cover, thumbnail, document, media) to Autonomys storage. Supports two input methods: fileBase64 (for JSON-RPC clients) or file (for connector actions with native binary). Exactly one must be provided. Supported roles: cover, thumbnail, hero, social, pdf, video, audio, attachment. Requires the content.asset.upload capability (granted at crossing time if the persona holds admin privilege). Assets may be bundled: multiple assets with the same role coexist (unbounded); setPrimary:true establishes a primary cover for the content.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -196,6 +196,12 @@ export function listTools() {
           role: { type: 'string', enum: ['cover', 'thumbnail', 'hero', 'social', 'pdf', 'video', 'audio', 'attachment'], description: 'Asset role/category.' },
           contentId: { type: 'string', description: 'Optional content ID to associate with this asset.' },
           bind: { type: 'boolean', description: 'Whether to bind the asset to the specified contentId (default: true).' },
+          bundleId: { type: 'string', description: 'Optional bundle identifier for grouping multiple assets. Assets with the same bundleId coexist (unbounded).' },
+          bundleLabel: { type: 'string', description: 'Optional human-readable label for the bundle.' },
+          bundleType: { type: 'string', description: 'Optional bundle classification (e.g. "covers", "chapters", "background").' },
+          bundleOrder: { type: 'number', description: 'Optional sequence position within the bundle (for ordered collections).' },
+          assetUse: { type: 'string', description: 'Optional classification of how this asset is used (e.g. "primary", "fallback", "alternate").' },
+          setPrimary: { type: 'boolean', description: 'If true, establish this asset as the primary cover/cover_image for its content.' },
         },
         required: ['fileName', 'domain', 'role'],
         additionalProperties: false,
@@ -527,7 +533,7 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
     // ── Content asset upload — authenticated, requires content.asset.upload capability ──
     if (name === 'upload_content_asset') {
       // Authorize via scope: the crossing grants content.asset.upload only if the
-      // persona carries admin or creator privilege at that time. (Revocation: if
+      // persona carries admin privilege at crossing time. (Revocation: if
       // admin rights are revoked, new crossings will not grant the capability.)
       if (!hasScope(s, 'content.asset.upload')) {
         return {
@@ -543,6 +549,14 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
       const role = typeof args.role === 'string' ? args.role : null;
       const contentId = typeof args.contentId === 'string' ? args.contentId : undefined;
       const bind = args.bind === false ? false : true;
+
+      // Bundle metadata parameters (optional)
+      const bundleId = typeof args.bundleId === 'string' ? args.bundleId : undefined;
+      const bundleLabel = typeof args.bundleLabel === 'string' ? args.bundleLabel : undefined;
+      const bundleType = typeof args.bundleType === 'string' ? args.bundleType : undefined;
+      const bundleOrder = typeof args.bundleOrder === 'number' ? args.bundleOrder : undefined;
+      const assetUse = typeof args.assetUse === 'string' ? args.assetUse : undefined;
+      const setPrimary = args.setPrimary === true;
 
       if (!fileName || !domain || !role) {
         return {
@@ -565,26 +579,6 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
         };
       }
 
-      // Map role to assetKind
-      const roleToAssetKind: Record<string, string> = {
-        cover: 'cover_image',
-        thumbnail: 'cover_image', // thumbnails are cover variants
-        hero: 'social_campaign_image',
-        social: 'social_campaign_image',
-        pdf: 'background_lore_doc',
-        video: 'game_video',
-        audio: 'game_video', // placeholder — adjust if audio asset kind exists
-        attachment: 'background_lore_doc', // placeholder — adjust as needed
-      };
-
-      const assetKind = roleToAssetKind[role];
-      if (!assetKind) {
-        return {
-          ...text(`Invalid role: ${role}. Must be one of: cover, thumbnail, hero, social, pdf, video, audio, attachment`),
-          isError: true,
-        };
-      }
-
       // Infer MIME type from fileName
       const mimeTypeMap: Record<string, string> = {
         '.jpg': 'image/jpeg',
@@ -602,15 +596,20 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
       let mimeType = mimeTypeMap[ext] || 'application/octet-stream';
 
       // Decode file (from base64 or already-decoded buffer)
-      let buffer: Buffer;
+      let fileBytes: ArrayBuffer;
       try {
         if (fileBase64) {
           // JSON-RPC path: decode from base64
-          buffer = Buffer.from(fileBase64, 'base64');
-        } else {
+          fileBytes = Buffer.from(fileBase64, 'base64').buffer;
+        } else if (file) {
           // Connector action path: file is already a base64-encoded representation of bytes
           // (from multipart adapter that encoded the binary before calling)
-          buffer = Buffer.from(file, 'base64');
+          fileBytes = Buffer.from(file, 'base64').buffer;
+        } else {
+          return {
+            ...text('Invalid file parameter.'),
+            isError: true,
+          };
         }
       } catch {
         return {
@@ -619,20 +618,42 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
         };
       }
 
-      // POST to /api/admin/codex/upload-asset
+      // Forward to the canonical /api/content/assets/upload endpoint
+      // Do not duplicate upload/storage logic — the canonical endpoint owns that.
       try {
         const uploadFormData = new FormData();
-        uploadFormData.append('file', new Blob([buffer], { type: mimeType }), fileName);
-        uploadFormData.append('assetKind', assetKind);
-        uploadFormData.append('title', fileName);
-        uploadFormData.append('series', domain);
+        uploadFormData.append('file', new Blob([fileBytes], { type: mimeType }), fileName);
+        uploadFormData.append('fileName', fileName);
+        uploadFormData.append('domain', domain);
+        uploadFormData.append('role', role);
+        uploadFormData.append('bind', bind ? 'true' : 'false');
 
-        if (contentId && bind) {
+        if (contentId) {
           uploadFormData.append('contentId', contentId);
         }
 
-        // Construct absolute URL for the upload endpoint
-        const uploadUrl = `${ctx.origin}/api/admin/codex/upload-asset`;
+        // Bundle metadata — forward to canonical endpoint for unbounded asset model
+        if (bundleId) {
+          uploadFormData.append('bundleId', bundleId);
+        }
+        if (bundleLabel) {
+          uploadFormData.append('bundleLabel', bundleLabel);
+        }
+        if (bundleType) {
+          uploadFormData.append('bundleType', bundleType);
+        }
+        if (bundleOrder !== undefined) {
+          uploadFormData.append('bundleOrder', String(bundleOrder));
+        }
+        if (assetUse) {
+          uploadFormData.append('assetUse', assetUse);
+        }
+        if (setPrimary) {
+          uploadFormData.append('setPrimary', 'true');
+        }
+
+        // Route to the canonical content assets endpoint
+        const uploadUrl = `${ctx.origin}/api/content/assets/upload`;
         const uploadResp = await fetch(uploadUrl, {
           method: 'POST',
           body: uploadFormData,
@@ -647,29 +668,8 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
         }
 
         const uploadResult = await uploadResp.json();
-        const cid = uploadResult.cid || uploadResult.data?.cid;
-        const assetId = uploadResult.id || uploadResult.data?.id;
-
-        // Construct public URL (Autonomys or Supabase depending on where it was stored)
-        let publicUrl = '';
-        if (cid) {
-          // Autonomys CID-based URL
-          publicUrl = `https://autonomys-gateway.com/ipfs/${cid}`;
-        }
-
-        return text({
-          ok: true,
-          assetId,
-          cid,
-          publicUrl,
-          objectPath: `${domain}/${contentId || 'unbound'}/${assetId}`,
-          mimeType,
-          bytes: buffer.length,
-          sha256: createHash('sha256').update(buffer).digest('hex'),
-          role,
-          contentId: contentId || null,
-          bound: contentId && bind ? true : false,
-        });
+        // Return the canonical endpoint response directly — no synthesis
+        return text(uploadResult);
       } catch (err) {
         return {
           ...text(`Upload error: ${err instanceof Error ? err.message : String(err)}`),
