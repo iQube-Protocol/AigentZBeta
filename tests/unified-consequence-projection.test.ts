@@ -64,11 +64,18 @@ function evidence(
   };
 }
 
+/**
+ * Test helper default: `attestationRequirement: 'NOT_REQUIRED'`, mirroring
+ * the ratified rule that local VELA-001 EXPLICITLY selects NOT_REQUIRED — the
+ * default here is what a caller would pass, never an implicit fallback inside
+ * the composition module itself (that default is UNSPECIFIED, and it fails
+ * closed — see the dedicated "attestationRequirement" describe block below).
+ */
 function compose(
   publicForecast: ConsequenceForecast,
   requirement: 'REQUIRED' | 'NOT_REQUIRED',
   confidentialEvidence?: ConfidentialEvidenceInput | null,
-  policy?: { requireVerifiedAttestation?: boolean },
+  policy?: { attestationRequirement?: 'NOT_REQUIRED' | 'REQUIRED' | 'UNSPECIFIED' },
 ) {
   return composeUnifiedConsequenceProjection({
     projectionContextRef: CONTEXT_REF,
@@ -78,7 +85,7 @@ function compose(
     publicForecast,
     confidentialRequirement: requirement,
     confidentialEvidence,
-    policy,
+    policy: { attestationRequirement: 'NOT_REQUIRED', ...policy },
   });
 }
 
@@ -370,18 +377,20 @@ describe('infrastructure failure never becomes UNACCEPTABLE', () => {
     expect(p.confidential.reason).toMatch(/not unacceptable/);
   });
 
-  it('an unverified attestation under policy is UNRESOLVED, not UNACCEPTABLE', () => {
+  it('an unverified attestation under REQUIRED policy is UNRESOLVED, not UNACCEPTABLE', () => {
     const p = compose(PUBLIC_ACCEPTABLE, 'REQUIRED', evidence('ACCEPTABLE'), {
-      requireVerifiedAttestation: true,
+      attestationRequirement: 'REQUIRED',
     });
     expect(p.disposition).toBe('UNRESOLVED');
     expect(p.confidential.reason).toMatch(/not unacceptable/);
   });
 
-  it('attestation policy defaults to permissive so a local deployment composes', () => {
-    expect(compose(PUBLIC_ACCEPTABLE, 'REQUIRED', evidence('ACCEPTABLE')).disposition).toBe(
-      'ACCEPTABLE',
-    );
+  it('explicit NOT_REQUIRED lets an unattested local deployment compose', () => {
+    expect(
+      compose(PUBLIC_ACCEPTABLE, 'REQUIRED', evidence('ACCEPTABLE'), {
+        attestationRequirement: 'NOT_REQUIRED',
+      }).disposition,
+    ).toBe('ACCEPTABLE');
   });
 
   it('an unverified-protocol result cannot yield UNACCEPTABLE even when the verdict says so', () => {
@@ -393,6 +402,143 @@ describe('infrastructure failure never becomes UNACCEPTABLE', () => {
       evidence('UNACCEPTABLE', { protocolExecutionVerified: false }),
     );
     expect(p.disposition).toBe('UNRESOLVED');
+  });
+});
+
+// ── Ratified refinement (2026-08-22): precedence, completeness, ──────────
+// ── attestationRequirement three-state, disposition-independent-of- ──────
+// ── attestation ───────────────────────────────────────────────────────────
+
+describe('attestationRequirement: UNSPECIFIED fails closed', () => {
+  it('composeUnifiedConsequenceProjection called with NO policy treats attestation as REQUIRED', () => {
+    // Deliberately bypasses the compose() helper's NOT_REQUIRED default to
+    // prove the MODULE's own default (when a caller supplies no policy at
+    // all) is fail-closed, not permissive.
+    const p = composeUnifiedConsequenceProjection({
+      projectionContextRef: CONTEXT_REF,
+      actionRef: 'action-1',
+      authorityRef: 'authority-1',
+      mandateRef: 'mandate-1',
+      publicForecast: PUBLIC_ACCEPTABLE,
+      confidentialRequirement: 'REQUIRED',
+      confidentialEvidence: evidence('ACCEPTABLE'), // teeAttestationVerified: false
+      // policy omitted entirely
+    });
+    expect(p.disposition).toBe('UNRESOLVED');
+    expect(p.confidential.reason).toMatch(/UNSPECIFIED \(fails closed as REQUIRED\)/);
+  });
+
+  it('an explicit policy object with attestationRequirement omitted ALSO fails closed', () => {
+    const p = composeUnifiedConsequenceProjection({
+      projectionContextRef: CONTEXT_REF,
+      actionRef: 'action-1',
+      authorityRef: 'authority-1',
+      mandateRef: 'mandate-1',
+      publicForecast: PUBLIC_ACCEPTABLE,
+      confidentialRequirement: 'REQUIRED',
+      confidentialEvidence: evidence('ACCEPTABLE'),
+      policy: {}, // attestationRequirement not set — not the same as NOT_REQUIRED
+    });
+    expect(p.disposition).toBe('UNRESOLVED');
+  });
+
+  it('a verified attestation satisfies UNSPECIFIED without any explicit policy stance', () => {
+    const p = composeUnifiedConsequenceProjection({
+      projectionContextRef: CONTEXT_REF,
+      actionRef: 'action-1',
+      authorityRef: 'authority-1',
+      mandateRef: 'mandate-1',
+      publicForecast: PUBLIC_ACCEPTABLE,
+      confidentialRequirement: 'REQUIRED',
+      confidentialEvidence: evidence('ACCEPTABLE', {
+        teeAttestationVerified: true,
+        attestationMode: 'NITRO_ATTESTED',
+      }),
+    });
+    expect(p.disposition).toBe('ACCEPTABLE');
+  });
+});
+
+describe('disposition remains independent of attestation (attestation is evidence quality, not consequence)', () => {
+  it('an unattested ACCEPTABLE verdict and an unattested UNACCEPTABLE verdict both become UNRESOLVED — symmetric treatment', () => {
+    const fromAcceptable = compose(
+      PUBLIC_ACCEPTABLE,
+      'REQUIRED',
+      evidence('ACCEPTABLE'),
+      { attestationRequirement: 'REQUIRED' },
+    );
+    const fromUnacceptable = compose(
+      PUBLIC_ACCEPTABLE,
+      'REQUIRED',
+      evidence('UNACCEPTABLE'),
+      { attestationRequirement: 'REQUIRED' },
+    );
+    // Neither the optimistic nor the pessimistic verdict is trusted through —
+    // insufficient evidence quality cannot establish EITHER outcome.
+    expect(fromAcceptable.disposition).toBe('UNRESOLVED');
+    expect(fromUnacceptable.disposition).toBe('UNRESOLVED');
+  });
+
+  it('the same evidence composes to the same disposition whether attested or not, once REQUIRED is satisfied', () => {
+    const unattested = compose(PUBLIC_ACCEPTABLE, 'REQUIRED', evidence('UNACCEPTABLE'));
+    const attested = compose(
+      PUBLIC_ACCEPTABLE,
+      'REQUIRED',
+      evidence('UNACCEPTABLE', { teeAttestationVerified: true, attestationMode: 'NITRO_ATTESTED' }),
+      { attestationRequirement: 'REQUIRED' },
+    );
+    expect(unattested.disposition).toBe('UNACCEPTABLE');
+    expect(attested.disposition).toBe('UNACCEPTABLE');
+  });
+});
+
+describe('completeness and unresolvedComponents are tracked independently of disposition', () => {
+  it('UNACCEPTABLE (public) + UNRESOLVED (confidential) composes to disposition UNACCEPTABLE, completeness PARTIAL, unresolved names confidential', () => {
+    const p = compose(PUBLIC_UNACCEPTABLE, 'REQUIRED', evidence('UNRESOLVED'));
+    expect(p.disposition).toBe('UNACCEPTABLE');
+    expect(p.completeness).toBe('PARTIAL');
+    expect(p.unresolvedComponents).toEqual(['confidential']);
+    expect(p.compositionRationale).toMatch(/PARTIAL/);
+  });
+
+  it('UNACCEPTABLE (confidential) + UNRESOLVED (public) composes to disposition UNACCEPTABLE, completeness PARTIAL, unresolved names public', () => {
+    const p = compose(PUBLIC_UNRESOLVED, 'REQUIRED', evidence('UNACCEPTABLE'));
+    expect(p.disposition).toBe('UNACCEPTABLE');
+    expect(p.completeness).toBe('PARTIAL');
+    expect(p.unresolvedComponents).toEqual(['public']);
+  });
+
+  it('the refusal is never hidden: an established UNACCEPTABLE is reported even though the picture is incomplete', () => {
+    // This is the exact case the ruling named: do not hide a known refusal
+    // behind unresolved evidence.
+    const p = compose(PUBLIC_UNACCEPTABLE, 'REQUIRED', evidence('UNRESOLVED'));
+    expect(p.disposition).not.toBe('UNRESOLVED');
+    expect(p.disposition).toBe('UNACCEPTABLE');
+  });
+
+  it('all components ACCEPTABLE is COMPLETE with no unresolved components', () => {
+    const p = compose(PUBLIC_ACCEPTABLE, 'REQUIRED', evidence('ACCEPTABLE'));
+    expect(p.completeness).toBe('COMPLETE');
+    expect(p.unresolvedComponents).toEqual([]);
+  });
+
+  it('both components UNRESOLVED is PARTIAL and names both', () => {
+    const p = compose(PUBLIC_UNRESOLVED, 'REQUIRED', evidence('UNRESOLVED'));
+    expect(p.disposition).toBe('UNRESOLVED');
+    expect(p.completeness).toBe('PARTIAL');
+    expect(p.unresolvedComponents.sort()).toEqual(['confidential', 'public']);
+  });
+
+  it('a REQUIRED-but-absent confidential component counts toward unresolvedComponents', () => {
+    const p = compose(PUBLIC_ACCEPTABLE, 'REQUIRED', null);
+    expect(p.unresolvedComponents).toEqual(['confidential']);
+    expect(p.completeness).toBe('PARTIAL');
+  });
+
+  it('NOT_REQUIRED confidential never appears in unresolvedComponents', () => {
+    const p = compose(PUBLIC_ACCEPTABLE, 'NOT_REQUIRED');
+    expect(p.unresolvedComponents).toEqual([]);
+    expect(p.completeness).toBe('COMPLETE');
   });
 });
 

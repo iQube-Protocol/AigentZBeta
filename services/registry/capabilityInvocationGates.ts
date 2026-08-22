@@ -133,6 +133,16 @@ export async function evaluateIdentityAndAuthorityGate(
 }
 
 /**
+ * The one capability whose admission into `authoritative` mode is
+ * conditioned on an attached unified consequence projection, rather than
+ * refused outright (VELA-001 Slice 2F). Naming it as a single constant here
+ * — not a config list, not a wildcard — keeps the exception narrow and
+ * auditable at a glance: every other capability's `authoritative` refusal
+ * below is completely unaffected.
+ */
+const CONSEQUENCE_PROJECTION_GATED_CAPABILITY = 'CONFIDENTIAL_CONSEQUENCE_PROJECTION';
+
+/**
  * Gate 2 — capability and runtime eligibility (design doc §4), the part
  * beyond resolution (already run in `resolveProviderForGates`).
  */
@@ -151,6 +161,34 @@ export function evaluateCapabilityAndRuntimeGate(req: CapabilityInvocation, prov
   // enforcement behind the scope note's "no authoritative mode is
   // reachable from any gate above" — not a hardcoded exemption list.
   if (req.executionMode === 'authoritative') {
+    // VELA-001 Slice 2F: the ONE narrow, structural exception. Every other
+    // capability still falls straight through to MODE_NOT_PERMITTED below —
+    // this does not open authoritative mode generally, and it is not a
+    // second decision path: it is one additional condition inside the SAME
+    // gate, for the SAME capability id, checked before the same unconditional
+    // refusal every other capability still hits.
+    if (req.capabilityId === CONSEQUENCE_PROJECTION_GATED_CAPABILITY) {
+      const projection = req.consequenceProjection;
+      if (!projection) {
+        return refuse(
+          'CONSEQUENCE_PROJECTION_UNRESOLVED',
+          `authoritative '${CONSEQUENCE_PROJECTION_GATED_CAPABILITY}' requires an attached ConsequenceProjection; none was supplied`,
+        );
+      }
+      // An ACCEPTABLE projection lets this gate pass. It does NOT itself mean
+      // the invocation is authorised — `allow` from invokeCapability() is a
+      // governance-layer permission to dispatch; the financial-domain
+      // ActionAuthorisation is derived separately, downstream, from this same
+      // projection plus ConstitutionalAuthority
+      // (services/constitutionalCommerce/actionAuthorisation.ts).
+      if (projection.disposition === 'ACCEPTABLE') {
+        return OK;
+      }
+      if (projection.disposition === 'UNACCEPTABLE') {
+        return refuse('CONSEQUENCE_PROJECTION_UNACCEPTABLE', projection.compositionRationale);
+      }
+      return refuse('CONSEQUENCE_PROJECTION_UNRESOLVED', projection.compositionRationale);
+    }
     return refuse('MODE_NOT_PERMITTED', 'authoritative execution has no declared policy binding permitting it in this phase');
   }
   return OK;

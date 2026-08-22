@@ -104,6 +104,19 @@ export interface OpportunityProjection {
 export type ProjectionDisposition = 'ACCEPTABLE' | 'UNACCEPTABLE' | 'UNRESOLVED';
 
 /**
+ * Whether every required component reached a definite (ACCEPTABLE or
+ * UNACCEPTABLE) disposition. Independent of `disposition` on purpose
+ * (operator ruling, 2026-08-22): precedence — UNACCEPTABLE > UNRESOLVED >
+ * ACCEPTABLE — decides the final disposition ONLY. It must not also decide
+ * whether the projection was epistemically complete, or a known refusal
+ * (UNACCEPTABLE, precedence-selected) would silently look identical to a
+ * fully-resolved one even when a required component never resolved.
+ * `unresolvedComponents` names which ones, so a genuine refusal is never
+ * hidden behind incomplete evidence.
+ */
+export type ProjectionCompleteness = 'COMPLETE' | 'PARTIAL';
+
+/**
  * Whether the confidential component is constitutionally required for this
  * action. Explicit rather than inferred from presence: "we didn't get
  * confidential evidence" and "this action never needed any" are different
@@ -111,6 +124,23 @@ export type ProjectionDisposition = 'ACCEPTABLE' | 'UNACCEPTABLE' | 'UNRESOLVED'
  * read as ACCEPTABLE.
  */
 export type ConfidentialRequirement = 'REQUIRED' | 'NOT_REQUIRED';
+
+/**
+ * Governs whether the confidential component's disposition may stand without
+ * a verified hardware attestation chain (operator ruling, 2026-08-22).
+ * Attestation is evidence QUALITY, never projected consequence — this policy
+ * gates whether a projection can be ESTABLISHED at all from unattested
+ * evidence; it never converts one disposition into another (an unattested
+ * ACCEPTABLE never becomes UNACCEPTABLE, and vice versa — only ACCEPTABLE or
+ * UNACCEPTABLE may be downgraded to UNRESOLVED, never re-signed as the other).
+ *
+ * `UNSPECIFIED` FAILS CLOSED: it is treated exactly as `REQUIRED`, never as
+ * `NOT_REQUIRED`. A caller that cares nothing about attestation (e.g. the
+ * local Vela deployment, which runs `NoAttestationTeeAuthenticator` with zero
+ * attestation by construction) must say so explicitly with `NOT_REQUIRED` —
+ * omission is never read as permission.
+ */
+export type AttestationRequirement = 'NOT_REQUIRED' | 'REQUIRED' | 'UNSPECIFIED';
 
 /**
  * The public half — CFS-006a's invariant-graph forecast. Carries the full
@@ -185,7 +215,20 @@ export interface ConsequenceProjection {
   opportunityProjection?: OpportunityProjection;
   public: PublicProjectionComponent;
   confidential: ConfidentialProjectionComponent;
+  /** Precedence-selected: UNACCEPTABLE > UNRESOLVED > ACCEPTABLE. Decides the final disposition ONLY — see `completeness`. */
   disposition: ProjectionDisposition;
+  /**
+   * COMPLETE only when every required component reached a definite
+   * (ACCEPTABLE or UNACCEPTABLE) disposition. PARTIAL whenever any required
+   * component is UNRESOLVED — including when `disposition` is UNACCEPTABLE
+   * because a DIFFERENT component established a definite refusal. A known
+   * refusal must never be hidden behind unresolved evidence: read
+   * `disposition` for what to do, `completeness` + `unresolvedComponents` for
+   * how much of the picture is actually in.
+   */
+  completeness: ProjectionCompleteness;
+  /** Labels of every required component whose own disposition was UNRESOLVED, regardless of the final composed disposition. */
+  unresolvedComponents: string[];
   /** Why the composition produced this disposition, naming the deciding component. */
   compositionRationale: string;
 }

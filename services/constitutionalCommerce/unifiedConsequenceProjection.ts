@@ -32,12 +32,14 @@
 
 import { createHash } from 'crypto';
 import type {
+  AttestationRequirement,
   ConfidentialProjectionComponent,
   ConfidentialRequirement,
   ConsequenceProjection,
   InvariantFinding,
   OpportunityProjection,
   ProjectedConsequence,
+  ProjectionCompleteness,
   ProjectionDisposition,
   PublicProjectionComponent,
   RiskProjection,
@@ -65,17 +67,14 @@ export interface ConfidentialEvidenceInput {
 
 export interface CompositionPolicy {
   /**
-   * When true, a confidential component whose `teeAttestationVerified` is
-   * false cannot establish a projection → UNRESOLVED.
-   *
-   * Defaults to FALSE so a local/emulated deployment can compose at all. That
-   * default is safe precisely because `teeAttestationVerified` is carried
-   * through to the composed projection as independent provenance — a consumer
-   * that requires hardware trust can read it. It must never be defaulted to
-   * true silently, and it must never make an unverifiable attestation read as
-   * UNACCEPTABLE (see composeConfidentialComponent).
+   * See `types/constitutionalCommerce.ts` `AttestationRequirement`.
+   * `UNSPECIFIED` (the default when omitted) FAILS CLOSED — treated exactly
+   * as `REQUIRED`. A caller must explicitly pass `NOT_REQUIRED` to compose
+   * from an unattested confidential result (e.g. the local Vela deployment,
+   * which runs `NoAttestationTeeAuthenticator` by construction) — omission is
+   * never read as permission.
    */
-  requireVerifiedAttestation?: boolean;
+  attestationRequirement?: AttestationRequirement;
 }
 
 export interface ComposeProjectionInput {
@@ -235,11 +234,25 @@ export function composeConfidentialComponent(
     };
   }
 
-  if (policy.requireVerifiedAttestation && !evidence.teeAttestationVerified) {
+  // UNSPECIFIED fails closed — treated exactly as REQUIRED. Omission of a
+  // stance on attestation is never read as "attestation doesn't matter here".
+  const attestationRequirement: AttestationRequirement =
+    policy.attestationRequirement ?? 'UNSPECIFIED';
+  const attestationSatisfied =
+    attestationRequirement === 'NOT_REQUIRED' || evidence.teeAttestationVerified;
+
+  if (!attestationSatisfied) {
+    // Deliberately independent of `evidence.disposition`: attestation is
+    // evidence QUALITY, not projected consequence. An unattested ACCEPTABLE
+    // and an unattested UNACCEPTABLE are treated identically here — both
+    // become UNRESOLVED, because insufficient evidence quality cannot
+    // establish EITHER outcome. This is what "disposition independent of
+    // attestation" means: attestation gates whether a projection was
+    // established at all, never which of ACCEPTABLE/UNACCEPTABLE it reads as.
     return {
       ...base,
       disposition: 'UNRESOLVED',
-      reason: `policy requires verified hardware attestation; this deployment is ${evidence.attestationMode} — unresolved, not unacceptable`,
+      reason: `attestationRequirement is ${attestationRequirement === 'UNSPECIFIED' ? 'UNSPECIFIED (fails closed as REQUIRED)' : attestationRequirement}; this deployment's attestation is ${evidence.attestationMode} (unverified) — unresolved, not unacceptable`,
     };
   }
 
@@ -260,27 +273,38 @@ export function composeConfidentialComponent(
 /**
  * Compose required component dispositions into one.
  *
- * Precedence: UNACCEPTABLE > UNRESOLVED > ACCEPTABLE.
+ * Precedence (ratified, 2026-08-22): UNACCEPTABLE > UNRESOLVED > ACCEPTABLE —
+ * and the ordering decides `disposition` ONLY. `completeness` and
+ * `unresolvedComponents` are tracked independently so a known refusal is
+ * never hidden behind unresolved evidence: `UNACCEPTABLE + UNRESOLVED` reads
+ * as `disposition: UNACCEPTABLE, completeness: PARTIAL,
+ * unresolvedComponents: [the one that didn't resolve]` — the refusal is
+ * acted on, and the gap in the evidence stays visible rather than being
+ * silently absorbed into a clean-looking verdict.
  *
  * ACCEPTABLE requires EVERY required component to be ACCEPTABLE — one
  * acceptable component can never rescue another that is unresolved or
  * unacceptable.
- *
- * The UNACCEPTABLE-over-UNRESOLVED ordering is a deliberate call the operator
- * ruling did not settle. Both outcomes block execution, so safety does not
- * distinguish them; accountability does. If one component established a
- * definite reason to refuse, reporting UNRESOLVED would hide a known refusal
- * behind "we could not tell", and would invite a pointless retry of an action
- * that is already known to be unacceptable. So an established refusal is
- * reported as such, and the unresolved component is still visible in its own
- * provenance.
  */
 export function composeDispositions(
   components: Array<{ label: string; disposition: ProjectionDisposition }>,
-): { disposition: ProjectionDisposition; rationale: string } {
+): {
+  disposition: ProjectionDisposition;
+  completeness: ProjectionCompleteness;
+  unresolvedComponents: string[];
+  rationale: string;
+} {
+  const unresolvedComponents = components
+    .filter((c) => c.disposition === 'UNRESOLVED')
+    .map((c) => c.label);
+  const completeness: ProjectionCompleteness =
+    components.length > 0 && unresolvedComponents.length === 0 ? 'COMPLETE' : 'PARTIAL';
+
   if (components.length === 0) {
     return {
       disposition: 'UNRESOLVED',
+      completeness,
+      unresolvedComponents,
       rationale: 'no required projection components — nothing was established',
     };
   }
@@ -289,20 +313,29 @@ export function composeDispositions(
   if (unacceptable.length > 0) {
     return {
       disposition: 'UNACCEPTABLE',
-      rationale: `UNACCEPTABLE — established by required component(s): ${unacceptable.map((c) => c.label).join(', ')}`,
+      completeness,
+      unresolvedComponents,
+      rationale:
+        `UNACCEPTABLE — established by required component(s): ${unacceptable.map((c) => c.label).join(', ')}` +
+        (unresolvedComponents.length > 0
+          ? `. Note: ${unresolvedComponents.join(', ')} did not independently resolve — the refusal above stands regardless, but the picture is PARTIAL, not COMPLETE.`
+          : ''),
     };
   }
 
-  const unresolved = components.filter((c) => c.disposition === 'UNRESOLVED');
-  if (unresolved.length > 0) {
+  if (unresolvedComponents.length > 0) {
     return {
       disposition: 'UNRESOLVED',
-      rationale: `UNRESOLVED — required component(s) could not establish a projection: ${unresolved.map((c) => c.label).join(', ')}`,
+      completeness,
+      unresolvedComponents,
+      rationale: `UNRESOLVED — required component(s) could not establish a projection: ${unresolvedComponents.join(', ')}`,
     };
   }
 
   return {
     disposition: 'ACCEPTABLE',
+    completeness,
+    unresolvedComponents,
     rationale: `ACCEPTABLE — all required components acceptable: ${components.map((c) => c.label).join(', ')}`,
   };
 }
@@ -340,7 +373,8 @@ export function composeUnifiedConsequenceProjection(
     });
   }
 
-  const { disposition, rationale } = composeDispositions(participating);
+  const { disposition, completeness, unresolvedComponents, rationale } =
+    composeDispositions(participating);
 
   return {
     projectionRef: ref(
@@ -361,6 +395,8 @@ export function composeUnifiedConsequenceProjection(
     public: publicComponent,
     confidential: confidentialComponent,
     disposition,
+    completeness,
+    unresolvedComponents,
     compositionRationale: rationale,
   };
 }

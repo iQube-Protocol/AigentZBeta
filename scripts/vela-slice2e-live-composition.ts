@@ -262,6 +262,11 @@ async function main() {
         c.requirement === 'REQUIRED' && !c.confidentialInputs
           ? 'confidential projection deliberately not produced for this case'
           : undefined,
+      // Ratified rule (2026-08-22): local VELA-001 EXPLICITLY selects
+      // NOT_REQUIRED — omitting this would fail closed to UNRESOLVED, since
+      // this deployment runs NoAttestationTeeAuthenticator by construction
+      // (see docs/vela/VELA-ATTESTATION-BOUNDARY-001.md).
+      policy: { attestationRequirement: 'NOT_REQUIRED' },
     });
 
     console.log(`  COMPOSED        ${projection.disposition}`);
