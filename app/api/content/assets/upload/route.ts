@@ -32,13 +32,10 @@ function extFor(file: File) {
 }
 
 function mergeAssetManifest(existing: unknown, asset: Record<string, unknown>) {
-  // Unbounded asset model: multiple assets with the same role coexist.
-  // Never filter by role — only append. Use identity (sha256) for uniqueness.
   const base = existing && typeof existing === 'object' && !Array.isArray(existing)
     ? { ...(existing as Record<string, unknown>) }
     : {};
   const current = Array.isArray(base.assets) ? [...base.assets] : [];
-  // If setPrimary is true on this asset, clear the primary flag from other assets of the same role
   if (asset.setPrimary === true && asset.role) {
     const role = asset.role;
     for (const entry of current) {
@@ -51,6 +48,15 @@ function mergeAssetManifest(existing: unknown, asset: Record<string, unknown>) {
 }
 
 export async function POST(req: NextRequest) {
+  // Compatibility guard: older connector schemas may still target this browser
+  // upload endpoint. A Threshold Constitutional Handshake bearer must never be
+  // interpreted as a Supabase persona token. Preserve the POST body + bearer and
+  // redirect it to the canonical Threshold action instead.
+  const authz = req.headers.get('authorization');
+  if (authz?.toLowerCase().startsWith('bearer ths_')) {
+    return NextResponse.redirect(new URL('/api/threshold/upload-action', req.url), 307);
+  }
+
   const persona = await getActivePersona(req);
   if (!persona) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
   if (!persona.cartridgeFlags.isAdmin) {
@@ -81,7 +87,6 @@ export async function POST(req: NextRequest) {
     const sha256 = createHash('sha256').update(bytes).digest('hex');
     const objectPath = `assets/${domain}/${safeSegment(contentId || 'unbound')}/${role}/${Date.now()}-${suppliedName.replace(/\.[^.]+$/, '')}.${ext}`;
 
-    // Extract bundle metadata (optional — supports unbounded asset bundling)
     const bundleId = String(form.get('bundleId') || '').trim() || null;
     const bundleLabel = String(form.get('bundleLabel') || '').trim() || null;
     const bundleType = String(form.get('bundleType') || '').trim() || null;
@@ -112,7 +117,6 @@ export async function POST(req: NextRequest) {
       uploadedByPersonaId: persona.personaId,
     };
 
-    // Add bundle metadata if provided (unbounded asset bundling)
     if (bundleId) asset.bundleId = bundleId;
     if (bundleLabel) asset.bundleLabel = bundleLabel;
     if (bundleType) asset.bundleType = bundleType;
