@@ -1,0 +1,51 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-22-VELA-ASSOCIATEKEY-PROVISIONING-001",
+  "statement": "ASSOCIATEKEY (registering a requester's P-521 confidential-channel public key with a Vela application) is a PROVISIONING/bootstrap step for that requester/application pair, completed once before any confidential PROCESS request is attempted — never an incidental repair performed inline, reactively, inside transaction-execution code after a decryption failure. A production MoneyPenny deployment MUST provision requester key association as an explicit onboarding step, distinct from and prior to any confidential consequence projection request.",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "research-registry"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "classification": "Operator directive, 2026-08-22, verbatim: \"ASSOCIATEKEY is an explicit prerequisite for a requester before confidential processing; that belongs in provisioning/bootstrap, not as an incidental repair during transaction execution.\"",
+  "scope": "local",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "scripts/vela-slice2g-associate-key.ts",
+      "assertion": "A standalone script performs ASSOCIATEKEY as its own complete operation (submit, wait for RequestCompleted, verify errorCode 0) — it is never invoked implicitly from inside a PROCESS-request code path.",
+      "verifiedFailingBeforeFix": true
+    },
+    {
+      "path": "scripts/vela-slice2g-live-proof.ts",
+      "assertion": "Association runs as an explicit, separately-logged phase ('Associating fresh P-521 key…') BEFORE the first live confidential PROCESS request in the same script — the transaction phase never discovers or reacts to a missing association; it always follows a completed provisioning phase.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "vela-001-slice-2g-live-proof",
+      "defect": "A live PROCESS request was submitted using a fresh P-521 key with no prior ASSOCIATEKEY step, failing with `errorCode 9 \"no Secp521r1_PubKey found\"` — a missing-provisioning condition first encountered reactively, mid-transaction-attempt, rather than caught by an explicit provisioning phase.",
+      "resolutionId": "RES-2026-08-22-VELA-ASSOCIATEKEY-PROVISIONING-001",
+      "evidence": [
+        "scripts/vela-slice2g-associate-key.ts",
+        "codexes/packs/agentiq/updates/2026-08-22_vela-001-slice-2g-execution-observation-validation.md"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-08-22-VELA-ASSOCIATEKEY-PROVISIONING-001"
+  ],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "Distinct from, but presents identically to, CI-2026-08-22-VELA-APPLICATION-ID-DEPLOYMENT-RECORD-001 at the provider layer — both surface as `disposition: 'UNRESOLVED'`. Diagnosing which prerequisite is actually missing requires reading the Executor's raw `errorCode`/`errorMsg` (via `fetchResult`), not guessing from the coarse disposition alone.",
+    "A production onboarding flow for MoneyPenny (or any future confidential-projection requester) should perform ASSOCIATEKEY once per (requester, application) pair as part of that requester's admission/provisioning, and record that it was done — mirroring the same 'settle a fact once, read the settled fact thereafter' discipline this codebase already applies to constitutional state elsewhere (e.g. RES-2026-08-08-RECEIPTED-CONSTITUTIONAL-STATE-001) — rather than re-deriving or re-attempting association on every transaction."
+  ]
+}
