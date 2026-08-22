@@ -5,6 +5,22 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
+function canonicalThumbnail(row: any): string | null {
+  if (row.thumbnail) return row.thumbnail;
+
+  const coverCid = row.ai_metadata?.coverCid || row.content?.cover?.cid || null;
+  if (coverCid) {
+    return `/api/content/cover/${encodeURIComponent(String(coverCid))}?variant=thumb`;
+  }
+
+  const coverAssetId = row.ai_metadata?.coverAssetId || row.content?.cover?.assetId || null;
+  if (coverAssetId) {
+    return `/api/content/media/${encodeURIComponent(String(coverAssetId))}`;
+  }
+
+  return null;
+}
+
 /** Canonical Qriptopian Threshold essays projection. */
 export async function GET() {
   try {
@@ -16,7 +32,7 @@ export async function GET() {
 
     const { data, error } = await supabase
       .from('content')
-      .select('id,title,slug,excerpt,thumbnail,modalities,tags,published_at,created_at,placement,duration,ai_metadata')
+      .select('id,title,slug,excerpt,thumbnail,content,modalities,tags,published_at,created_at,placement,duration,ai_metadata')
       .eq('domain', 'qriptopian')
       .eq('status', 'published')
       .contains('tags', ['thresholds', 'essay']);
@@ -31,7 +47,7 @@ export async function GET() {
         title: row.title,
         slug: row.slug,
         excerpt: row.excerpt || '',
-        thumbnail: row.thumbnail || null,
+        thumbnail: canonicalThumbnail(row),
         modalities: row.modalities || {},
         tags: row.tags || [],
         publishedAt: row.published_at || row.created_at || null,
