@@ -4409,3 +4409,13 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-a0b1b55.md](../build_/COMMITS/COMMIT-a0b1b55.md)
 - Message: Register Constitutional Media essay assets
+
+## Commit `6b90297` — 2026-08-22T08:50:51Z
+- Type: `fix`
+- Brief: [COMMIT-6b90297.md](../build_/COMMITS/COMMIT-6b90297.md)
+- Message: deploy: Qriptopian essay cover corruption fix (upload base64 validation + display-side derivative validation)
+
+## Commit `767ee6a` — 2026-08-22T08:50:37Z
+- Type: `fix`
+- Brief: [COMMIT-767ee6a.md](../build_/COMMITS/COMMIT-767ee6a.md)
+- Message: fix Qriptopian essay cover corruption at its two real root causes
