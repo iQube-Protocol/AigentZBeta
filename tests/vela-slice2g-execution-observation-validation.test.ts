@@ -605,6 +605,38 @@ describe.skipIf(!LIVE)('LIVE — execution, observation and validation against t
     expect(chain.confidentialRequestRef).toBeTruthy();
     expect(chain.executionRef).toBe(bound.execution!.executionRef);
 
+    // DIVERGED_FROM_PROJECTION: the SAME live ACCEPTABLE projection and its
+    // AUTHORISED authorisation, bound a SECOND time (a distinct execution
+    // intent — bindExecution() is not one-time-use), but this time reported
+    // as having actually observed UNACCEPTABLE — proving the mismatch lives
+    // on the OBSERVATION side, never on the (unchanged, still-live) projection.
+    const secondBound = bindExecution({
+      authorisation: acceptableAuth,
+      // Distinct signerRef (not merely relying on the clock, which can tick
+      // the same millisecond twice in a fast synchronous run) guarantees a
+      // distinct executionRef for this second, independent execution intent.
+      signerRef: 'aigent-moneypenny-diverged-case',
+      now: new Date().toISOString(),
+    });
+    expect(secondBound.status).toBe('execution_bound');
+    expect(secondBound.execution!.executionRef).not.toBe(bound.execution!.executionRef);
+    const divergedObserved = recordObservedConsequence({
+      execution: secondBound.execution!,
+      projection: acceptableProjection,
+      observedState: { liveConfirmed: true, actuallyHappened: 'UNACCEPTABLE' },
+      observedDisposition: 'UNACCEPTABLE',
+    });
+    expect(divergedObserved.validationState).toBe('DIVERGED_FROM_PROJECTION');
+    const divergedChain = assembleCausalChain({
+      action: { ...PROPOSED_ACTION, actionRef: 'live-slice2g-action' },
+      projection: acceptableProjection,
+      authorisation: acceptableAuth,
+      execution: secondBound.execution,
+      observedConsequence: divergedObserved,
+    });
+    expect(divergedChain.validationState).toBe('DIVERGED_FROM_PROJECTION');
+    expect(divergedChain.projectionRef).toBe(chain.projectionRef); // same live projection, different observation
+
     // UNACCEPTABLE: authorisation REFUSED -> execution refused, never bound.
     const unacceptableProjection = await liveProjection({
       currentExposure: 0,
@@ -644,5 +676,15 @@ describe.skipIf(!LIVE)('LIVE — execution, observation and validation against t
     expect(unresolvedAuth.status).toBe('UNRESOLVED');
     const unresolvedBound = bindExecution({ authorisation: unresolvedAuth, signerRef: 'aigent-moneypenny', now: new Date().toISOString() });
     expect(unresolvedBound.status).toBe('refused');
+    // ZERO execution — not merely "refused status", but no CommerceExecution record at all.
+    expect(unresolvedBound.execution).toBeNull();
+    const unresolvedChain = assembleCausalChain({
+      action: { ...PROPOSED_ACTION, actionRef: 'live-slice2g-action-unresolved' },
+      projection: unresolvedProjection,
+      authorisation: unresolvedAuth,
+    });
+    expect(unresolvedChain.executionRef).toBeNull();
+    expect(unresolvedChain.observedConsequenceRef).toBeNull();
+    expect(unresolvedChain.validationState).toBeNull();
   }, 240_000);
 });
