@@ -4384,3 +4384,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-fe1272a.md](../build_/COMMITS/COMMIT-fe1272a.md)
 - Message: Fix Threshold native upload bearer authentication
+
+## Commit `695e250` — 2026-08-21T23:25:05-04:00
+- Type: `push`
+- Brief: [COMMIT-695e250.md](../build_/COMMITS/COMMIT-695e250.md)
+- Message: Codify Threshold bearer authorization invariant

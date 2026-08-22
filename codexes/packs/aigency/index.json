@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-22T02:59:41.449Z",
+  "last_updated": "2026-08-22T03:26:51.231Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "fe1272a66780aff0233490df9d5efac8dbb929b1",
-  "latest_commit_short": "fe1272a",
-  "latest_commit_title": "Fix Threshold native upload bearer authentication",
+  "latest_commit": "695e2507eeda05c70d7e86faa558b767097bdea0",
+  "latest_commit_short": "695e250",
+  "latest_commit_title": "Codify Threshold bearer authorization invariant",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "695e250",
+      "full_sha": "695e2507eeda05c70d7e86faa558b767097bdea0",
+      "title": "Codify Threshold bearer authorization invariant",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-21T23:25:05-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-695e250.md"
+    },
     {
       "sha": "fe1272a",
       "full_sha": "fe1272a66780aff0233490df9d5efac8dbb929b1",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-04T03:43:05Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-2d9ede1.md"
-    },
-    {
-      "sha": "ee0a61a",
-      "full_sha": "ee0a61a32c1f0eb572d2ac92ca07863493b24f56",
-      "title": "Produce Controlling Manuscript v0.3 by consolidating v0.2 against the ratified register",
-      "author": "Claude",
-      "timestamp": "2026-08-04T20:32:14Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-ee0a61a.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
