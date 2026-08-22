@@ -26,6 +26,7 @@ import {
 import { personaPublicRef } from '@/services/identity/personaReferences';
 import { formAgreement, acceptAgreement, authorizeAgreement } from '@/services/constitutional/constitutionalAgreement';
 import { getHandshake, issueAuthorizationCode } from '@/services/threshold/gatewaySession';
+import { normalizeThresholdScope } from '@/services/threshold/requireThresholdSession';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 
 export const runtime = 'nodejs';
@@ -52,17 +53,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: 'handshake expired' }, { status: 410 });
   }
 
-  // Resolve canonical admin authority. The content.asset.upload capability is
-  // granted iff the persona carries admin privilege at crossing time.
-  // This allows revocation: if admin rights are revoked later, the next crossing
-  // will not grant the capability (existing bearers remain valid until expiry).
+  // This browser-only HUMAN authorization route is the deliberate exception to
+  // the Threshold bearer rule: it resolves canonical persona authority exactly
+  // once, at crossing time, and projects that authority into the bearer scope.
   const persona = await getActivePersona(request);
-  const hasAdminAuthority = persona && persona.cartridgeFlags.isAdmin;
+  const hasAdminAuthority = Boolean(persona?.cartridgeFlags.isAdmin);
 
-  let grantedScope = (handshake.requestedScope ?? []).filter((s) => !FORBIDDEN_ACTIONS.includes(s));
-  if (hasAdminAuthority) {
-    grantedScope = [...grantedScope, 'content.asset.upload'];
-  }
+  const requestedScope = (handshake.requestedScope ?? []).filter((s) => !FORBIDDEN_ACTIONS.includes(s));
+  const grantedScope = normalizeThresholdScope(
+    hasAdminAuthority ? [...requestedScope, 'content.asset.upload'] : requestedScope,
+  );
 
   // A T2 alias for the bound Companion — a per-crossing commitment, never a raw id.
   const agentAlias = 'companion_' + createHash('sha256').update('threshold-agent:' + handshakeCode).digest('hex').slice(0, 16);
