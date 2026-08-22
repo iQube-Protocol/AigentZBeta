@@ -284,6 +284,6 @@ export interface ObservedConsequence {
   executionRef: string;
   projectionRef: string;
   observedState: unknown;
-  validationState: 'MATCHED_PROJECTION' | 'DIVERGED' | 'UNRESOLVED';
+  validationState: 'MATCHED_PROJECTION' | 'DIVERGED_FROM_PROJECTION' | 'UNRESOLVED';
   receiptRefs: string[];
 }
