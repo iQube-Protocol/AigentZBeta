@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-22T02:10:48.122Z",
+  "last_updated": "2026-08-22T02:59:41.449Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "fff9c67e2b222dfab5409c9f7e431f1199e03d36",
-  "latest_commit_short": "fff9c67",
-  "latest_commit_title": "Allow generic non-episode cover assets",
+  "latest_commit": "fe1272a66780aff0233490df9d5efac8dbb929b1",
+  "latest_commit_short": "fe1272a",
+  "latest_commit_title": "Fix Threshold native upload bearer authentication",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "fe1272a",
+      "full_sha": "fe1272a66780aff0233490df9d5efac8dbb929b1",
+      "title": "Fix Threshold native upload bearer authentication",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-21T22:57:58-04:00",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-fe1272a.md"
+    },
     {
       "sha": "fff9c67",
       "full_sha": "fff9c67e2b222dfab5409c9f7e431f1199e03d36",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-04T20:32:14Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-ee0a61a.md"
-    },
-    {
-      "sha": "b154b22",
-      "full_sha": "b154b22e2fb12948b00ba50bb9f25e9201aa1061",
-      "title": "Correct v0.3 ruling identifier and companion-corpus status claims",
-      "author": "Claude",
-      "timestamp": "2026-08-05T00:48:26Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-b154b22.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

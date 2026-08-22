@@ -4379,3 +4379,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-fff9c67.md](../build_/COMMITS/COMMIT-fff9c67.md)
 - Message: Allow generic non-episode cover assets
+
+## Commit `fe1272a` — 2026-08-21T22:57:58-04:00
+- Type: `fix`
+- Brief: [COMMIT-fe1272a.md](../build_/COMMITS/COMMIT-fe1272a.md)
+- Message: Fix Threshold native upload bearer authentication
