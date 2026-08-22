@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-22T07:38:25.252Z",
+  "last_updated": "2026-08-22T08:52:43.607Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "a0b1b55bc5d6a25f4c074ae49c57789aa3dfb342",
-  "latest_commit_short": "a0b1b55",
-  "latest_commit_title": "Register Constitutional Media essay assets",
+  "latest_commit": "767ee6a160a9d1157fa3911293e24fe367edaa65",
+  "latest_commit_short": "767ee6a",
+  "latest_commit_title": "fix Qriptopian essay cover corruption at its two real root causes",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "767ee6a",
+      "full_sha": "767ee6a160a9d1157fa3911293e24fe367edaa65",
+      "title": "fix Qriptopian essay cover corruption at its two real root causes",
+      "author": "Claude",
+      "timestamp": "2026-08-22T08:50:37Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-767ee6a.md"
+    },
+    {
+      "sha": "6b90297",
+      "full_sha": "6b902970355507f2309818879dc8d78c53f71e78",
+      "title": "deploy: Qriptopian essay cover corruption fix (upload base64 validation + display-side derivative validation)",
+      "author": "Claude",
+      "timestamp": "2026-08-22T08:50:51Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-6b90297.md"
+    },
     {
       "sha": "a0b1b55",
       "full_sha": "a0b1b55bc5d6a25f4c074ae49c57789aa3dfb342",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-08-10T05:22:13Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-3f76ccd.md"
-    },
-    {
-      "sha": "aa1046e",
-      "full_sha": "aa1046e372caa1fdb5f44341fbe06adcf528720e",
-      "title": "Add Horizen coherence matrix for Nakamoto (POSIT coherence-pass item 6)",
-      "author": "Claude",
-      "timestamp": "2026-08-10T04:38:16Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-aa1046e.md"
-    },
-    {
-      "sha": "5eb4d29",
-      "full_sha": "5eb4d293a4ff8c785d994085050f2f98b5137382",
-      "title": "Fix correction route's tombstone catch-up gap for pre-fix corrections",
-      "author": "Claude",
-      "timestamp": "2026-08-10T04:24:39Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-5eb4d29.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

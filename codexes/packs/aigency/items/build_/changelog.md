@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`767ee6a`](https://github.com/iQube-Protocol/AigentZBeta/commit/767ee6a160a9d1157fa3911293e24fe367edaa65) [fix] fix Qriptopian essay cover corruption at its two real root causes (Claude, 2026-08-22T08:50:37Z)
+- [`6b90297`](https://github.com/iQube-Protocol/AigentZBeta/commit/6b902970355507f2309818879dc8d78c53f71e78) [fix] deploy: Qriptopian essay cover corruption fix (upload base64 validation + display-side derivative validation) (Claude, 2026-08-22T08:50:51Z)
 - [`a0b1b55`](https://github.com/iQube-Protocol/AigentZBeta/commit/a0b1b55bc5d6a25f4c074ae49c57789aa3dfb342) [push] Register Constitutional Media essay assets (Kn0w1, 2026-08-22T03:36:39-04:00)
 - [`3bb95b2`](https://github.com/iQube-Protocol/AigentZBeta/commit/3bb95b2f7e4226bfd5da55da87201f2f7516c3ec) [push] Route Qriptopian covers through durable derivatives (Kn0w1, 2026-08-22T03:20:04-04:00)
 - [`116a1e0`](https://github.com/iQube-Protocol/AigentZBeta/commit/116a1e05718d005554d6f4829fba644f39df73ad) [push] Derive Qriptopian essay thumbnails from canonical cover assets (Kn0w1, 2026-08-22T02:55:08-04:00)
