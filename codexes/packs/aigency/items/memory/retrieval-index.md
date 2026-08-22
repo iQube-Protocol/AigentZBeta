@@ -4419,3 +4419,13 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-767ee6a.md](../build_/COMMITS/COMMIT-767ee6a.md)
 - Message: fix Qriptopian essay cover corruption at its two real root causes
+
+## Commit `ec76551` — 2026-08-22T09:22:21Z
+- Type: `fix`
+- Brief: [COMMIT-ec76551.md](../build_/COMMITS/COMMIT-ec76551.md)
+- Message: deploy: isShareable upload-asset fix (Qriptopian re-upload prerequisite)
+
+## Commit `221a5ec` — 2026-08-22T09:22:17Z
+- Type: `fix`
+- Brief: [COMMIT-221a5ec.md](../build_/COMMITS/COMMIT-221a5ec.md)
+- Message: fix upload-asset route silently dropping isShareable on individual-form-fields path
