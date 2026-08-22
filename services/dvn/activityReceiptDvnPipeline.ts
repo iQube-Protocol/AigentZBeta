@@ -69,6 +69,21 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   'agent_revocation_state_changed',
   // Founder Office — Venture Blueprint handed to execution agents
   'venture_blueprint_handoff',
+  // VELA-001 Constitutional Commerce — Authorisation/Execution/Consequence
+  // planes (operator-directed, 2026-08-22). Each is a constitutional decision
+  // or its outcome (an AUTHORISED/REFUSED/UNRESOLVED action authorisation, a
+  // bound-or-refused execution, a recorded observed consequence), never
+  // routine volume — anchoring makes the financial-domain outcome tamper-
+  // evident, same rationale as capability_invocation_authorized/refused
+  // above it in the receipt taxonomy. (Action-type addition only — the one
+  // change this file permits unilaterally. State machine, canister call and
+  // hashPersonaRef untouched.)
+  'commerce_action_authorised',
+  'commerce_action_refused',
+  'commerce_action_unresolved',
+  'commerce_execution_bound',
+  'commerce_execution_refused',
+  'commerce_consequence_recorded',
   // Standing signals — operator-logged work + proof-of-work documents. These
   // are the verified-progress provenance the grounded progress report reads.
   'operator_action_logged',

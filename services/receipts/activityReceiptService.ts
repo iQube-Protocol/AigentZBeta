@@ -390,6 +390,30 @@ export type ActivityActionType =
   // true before this mechanism existed ('freshly-established' |
   // 'legacy-reconciled').
   | 'agent_registry_activated'
+  // VELA-001 — Constitutional Commerce Authorisation/Execution/Consequence
+  // planes (operator-directed, 2026-08-22, downstream of Slice 2F's Gate 2
+  // work). Distinct from capability_invocation_* (the GOVERNANCE-layer
+  // dispatch permission) — these are the FINANCIAL-DOMAIN outcomes
+  // deriveActionAuthorisation()/bindExecution()/recordObservedConsequence()
+  // produce, one level downstream, per services/constitutionalCommerce/. All
+  // five DVN-anchorable: an AUTHORISED/REFUSED/UNRESOLVED authorisation, a
+  // bound-or-refused execution, and a recorded observed consequence are each
+  // a constitutional decision or its outcome, never routine/high-volume.
+  // `commerce_action_unresolved` exists as its own type (not folded into
+  // `commerce_action_refused`) because PRD §31's fail-closed requirement
+  // ("UNRESOLVED projection produces an UNRESOLVED outcome") must stay
+  // auditably distinguishable from a REFUSED action that was actually
+  // established as unacceptable — the same UNACCEPTABLE-vs-UNRESOLVED
+  // discipline carried down from ConsequenceProjection/ActionAuthorisation.
+  // See services/constitutionalCommerce/boundedExecution.ts,
+  // services/constitutionalCommerce/observedConsequence.ts,
+  // services/constitutionalCommerce/causalChain.ts.
+  | 'commerce_action_authorised'
+  | 'commerce_action_refused'
+  | 'commerce_action_unresolved'
+  | 'commerce_execution_bound'
+  | 'commerce_execution_refused'
+  | 'commerce_consequence_recorded'
   // Chrysalis Homecoming (CFS-023) mechanical stand-up (operator-directed,
   // 2026-08-15 Aletheon Homecoming Stage 1 preflight): a Homecoming delegate's
   // agent_root_identity and/or agent_persona was newly created this call via
