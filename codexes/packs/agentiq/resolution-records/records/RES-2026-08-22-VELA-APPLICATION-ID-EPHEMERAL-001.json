@@ -1,0 +1,56 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-08-22",
+  "resolutionId": "RES-2026-08-22-VELA-APPLICATION-ID-EPHEMERAL-001",
+  "capability": "vela-001-confidential-constitutional-execution",
+  "milestone": "VELA-001 Slice 2G live proof — full execution/observation/validation/receipt chain against the real local Vela enclave",
+  "problem": "A `applicationId` recorded in an earlier session (Slice 2F: `2089125378143059424`) was treated as a durable identifier for the deployed MoneyPenny Confidential Consequence Projector WASM application when re-running the Slice 2G live proof against the same local Vela stack.",
+  "observedFailure": [
+    "A live PROCESS request against the recorded applicationId returned `disposition: 'UNRESOLVED'` from `VelaConfidentialProjectionProvider.getProjectionStatus` — the provider's own fail-closed path (correct behaviour for an executor error), but with no indication that the underlying cause was 'this application no longer exists', not 'the confidential evaluation could not be established'.",
+    "The ProcessorEndpoint/TeeAuthenticator CONTRACT ADDRESSES were unchanged and responded normally (`eth_getCode` returned real bytecode at both `VELA_LOCAL_DEPLOYMENT` addresses) — because the `deployer` container redeploys those contracts deterministically (same Anvil genesis account + nonce sequence) on every stack start. This made the chain LOOK fully live and correctly configured while the specific WASM APPLICATION deployed on top of it was actually gone, which is what made the UNRESOLVED result initially read as a projection/crypto problem rather than a missing-deployment problem."
+  ],
+  "rootCauses": [
+    "The local Vela chain (`vela-skit-chain`, Anvil) does not persist its in-memory ledger across a container restart — deploying WASM applications via `submitDeployRequest` is chain state, and chain state is exactly what does not survive a restart, even though the WASM ARTIFACT itself (uploaded to the Authority Service, stored in the `vela-skit-shared-data` named volume keyed by sha256) does survive.",
+    "`applicationId` was implicitly treated as if it had the same durability class as the WASM artifact's sha256 or the ProcessorEndpoint contract address — i.e. as a stable identity of 'the MoneyPenny projector' — when it is actually a property of ONE deployment TRANSACTION against a specific chain instance's current state."
+  ],
+  "resolution": [
+    "Diagnosed via `eth_getCode` (confirmed contracts alive) plus a raw `fetchResult` dump on the failing request, which surfaced the real Executor error path rather than guessing at the cause.",
+    "Built `scripts/vela-slice2g-redeploy.ts` — a fast, artifact-reuse redeploy: it re-submits `submitDeployRequest` for the ALREADY-uploaded WASM (verified present on disk at its recorded sha256 before redeploying, so no rebuild or re-upload was needed) and prints the fresh `applicationId` the caller must use going forward.",
+    "Re-ran the full Slice 2G live proof (both the vitest live tier and the standalone narrated proof) against the fresh `applicationId 7738404303895312998` — 20/20 and all three required cases passed.",
+    "Documented the discovery explicitly in `docs/vela/VELA_EARLY_ACCESS_HANDOFF.md` §6 ('Operational notes') so a future session does not re-diagnose the same UNRESOLVED-looking symptom from scratch."
+  ],
+  "rejectedApproaches": [
+    "Treating the stale `applicationId` as a bug to fix in `VelaConfidentialProjectionProvider` or `VelaClientAdapter` — rejected: the provider's fail-closed UNRESOLVED behaviour on an executor error is CORRECT (per `docs/vela/CONSEQUENCE-ONTOLOGY-001.md`'s own UNACCEPTABLE-vs-UNRESOLVED discipline); the defect was in this session's own assumption about applicationId durability, not in the provider's error handling.",
+    "Persisting Anvil chain state across restarts (e.g. via `--dump-state`/`--load-state` or a bind-mounted state file) to make applicationId durable after all — rejected as out of scope: that changes the vela-starterkit's own Docker Compose configuration (a third-party artifact this repo does not own or maintain) rather than this codebase's handling of the identifier, and would only relocate the problem to whatever OTHER environment eventually lacks persisted state (a fresh CI runner, a teammate's own local stack, a genuinely new environment) rather than eliminate it."
+  ],
+  "candidateInvariants": [
+    "CI-2026-08-22-VELA-APPLICATION-ID-DEPLOYMENT-RECORD-001"
+  ],
+  "canaries": [
+    "scripts/vela-slice2g-redeploy.ts",
+    "tests/vela-slice2g-execution-observation-validation.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "reusable-pattern-established",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/vela-slice2g-execution-observation-validation.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": []
+  },
+  "sourceDocs": [
+    "docs/vela/VELA_EARLY_ACCESS_HANDOFF.md",
+    "codexes/packs/agentiq/updates/2026-08-22_vela-001-slice-2g-execution-observation-validation.md"
+  ],
+  "projections": {
+    "targets": [
+      "research-registry"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  }
+}

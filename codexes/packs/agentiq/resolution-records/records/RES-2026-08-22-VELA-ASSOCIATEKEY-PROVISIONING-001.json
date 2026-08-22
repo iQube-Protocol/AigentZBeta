@@ -1,0 +1,54 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-08-22",
+  "resolutionId": "RES-2026-08-22-VELA-ASSOCIATEKEY-PROVISIONING-001",
+  "capability": "vela-001-confidential-constitutional-execution",
+  "milestone": "VELA-001 Slice 2G live proof — full execution/observation/validation/receipt chain against the real local Vela enclave",
+  "problem": "A live PROCESS request submitted with a freshly generated requester P-521 confidential-channel key, against a freshly (and correctly) redeployed application, still failed to decrypt — surfacing during transaction execution rather than being caught earlier as a missing prerequisite.",
+  "observedFailure": [
+    "`fetchResult` on the request returned `errorCode: 9`, `errorMsg: \"no Secp521r1_PubKey found\"`, with `decryptedUserEventJson: null` — the Executor could not find any registered public key for the requester, so it could not decrypt the confidential payload at all.",
+    "At the provider layer this reads as `disposition: 'UNRESOLVED'` (the same fail-closed shape as the application-id gap in `RES-2026-08-22-VELA-APPLICATION-ID-EPHEMERAL-001`), so a second, unrelated missing-prerequisite class of failure presented with the identical symptom and again required a raw `fetchResult` dump to distinguish from a genuine confidential-evaluation or crypto defect."
+  ],
+  "rootCauses": [
+    "The Vela protocol requires every requester's P-521 public key be registered on-chain via a separate `ASSOCIATEKEY` request (RequestType=3, per `ProcessorEndpoint.submitRequest`) BEFORE any `PROCESS` request from that requester/application pair can be decrypted by the Executor. This is documented in the vela-starterkit's own client guide (`docs/3_typescript-client.md`, \"Registering Your Key (Associate Key)\") but was never surfaced or codified anywhere in THIS codebase — `VelaConfidentialProjectionProvider`/`VelaClientAdapter` implement `prepareProjection`/`submitProjection`/`encryptForTee` but no association step.",
+    "This is a PROVISIONING-time prerequisite (register the requester's confidential-channel identity with the application once) that was instead discovered and worked around at TRANSACTION-execution time, mid-live-proof — the same class of mistake the operator's own ruling names: treating a one-time bootstrap requirement as an incidental step to patch around inside the execution path, rather than a distinct phase that must complete before execution is ever attempted."
+  ],
+  "resolution": [
+    "Diagnosed via the same raw `fetchResult` technique used for the application-id gap: the executor's own `errorCode`/`errorMsg` named the exact missing precondition rather than requiring speculation.",
+    "Built `scripts/vela-slice2g-associate-key.ts` — a standalone provisioning-phase script that submits `submitRequest(requestType=ASSOCIATEKEY)` with the requester's 133-byte uncompressed P-521 public key, waits for `RequestCompleted` with `errorCode 0`, and only then is that requester's key usable for PROCESS requests against that application.",
+    "Folded the SAME association step into `scripts/vela-slice2g-live-proof.ts` as an explicit, separately-logged phase that runs BEFORE any confidential PROCESS request is attempted, rather than reacting to the errorCode 9 failure inline.",
+    "Re-ran the full live proof with the association step in place — all three required cases (`MATCHED_PROJECTION`, `DIVERGED_FROM_PROJECTION`, `REQUIRED`-absent → `UNRESOLVED` → zero execution) passed.",
+    "Documented the requirement and its failure signature in `docs/vela/VELA_EARLY_ACCESS_HANDOFF.md` §6, explicitly flagged as a PROVISIONING/bootstrap step per the operator's own framing, not a transaction-time concern."
+  ],
+  "rejectedApproaches": [
+    "Silently auto-associating a key inside `VelaConfidentialProjectionProvider.prepareProjection` or `submitProjection` on first use (i.e. detecting the missing-key condition and self-healing mid-transaction) — rejected per the operator's explicit instruction that ASSOCIATEKEY 'belongs in provisioning/bootstrap, not as an incidental repair during transaction execution.' Folding it into the transaction path would hide a real prerequisite inside a business-logic call, making failures harder to diagnose (a transaction that ALSO silently deploys a missing dependency looks successful until the SECOND thing it silently did goes wrong) and blurring provisioning cost/latency into transaction cost/latency."
+  ],
+  "candidateInvariants": [
+    "CI-2026-08-22-VELA-ASSOCIATEKEY-PROVISIONING-001"
+  ],
+  "canaries": [
+    "scripts/vela-slice2g-associate-key.ts",
+    "scripts/vela-slice2g-live-proof.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "reusable-pattern-established",
+  "evidence": {
+    "commits": [],
+    "tests": [],
+    "receipts": [],
+    "incidentRefs": []
+  },
+  "sourceDocs": [
+    "docs/vela/VELA_EARLY_ACCESS_HANDOFF.md",
+    "codexes/packs/agentiq/updates/2026-08-22_vela-001-slice-2g-execution-observation-validation.md"
+  ],
+  "projections": {
+    "targets": [
+      "research-registry"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  }
+}
