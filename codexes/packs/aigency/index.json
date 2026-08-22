@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-22T09:40:15.527Z",
+  "last_updated": "2026-08-22T11:44:42.013Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "a971e161fe689f0c721dd2e28595f969c550f613",
-  "latest_commit_short": "a971e16",
-  "latest_commit_title": "update smoke test expected asset ids after Qriptopian cover re-upload",
+  "latest_commit": "2dff69a1e23f409ae67f2e66c3802d02acf7fb66",
+  "latest_commit_short": "2dff69a",
+  "latest_commit_title": "docs(irl): add OCSGA boundary-map discipline to Crucible",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "2dff69a",
+      "full_sha": "2dff69a1e23f409ae67f2e66c3802d02acf7fb66",
+      "title": "docs(irl): add OCSGA boundary-map discipline to Crucible",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-22T07:43:17-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-2dff69a.md"
+    },
     {
       "sha": "a971e16",
       "full_sha": "a971e161fe689f0c721dd2e28595f969c550f613",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-10T07:33:31Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-e1dac8c.md"
-    },
-    {
-      "sha": "58856f7",
-      "full_sha": "58856f7ac7c0c117b7765e0ec9ddeab0d392ebac",
-      "title": "Add Aigent Know1 as a third registrable Horizen agent (config + card + health)",
-      "author": "Claude",
-      "timestamp": "2026-08-10T15:14:46Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-58856f7.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

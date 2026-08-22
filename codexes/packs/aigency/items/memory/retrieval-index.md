@@ -4434,3 +4434,8 @@ Top-level retrieval anchors for this pack.
 - Type: `chore`
 - Brief: [COMMIT-a971e16.md](../build_/COMMITS/COMMIT-a971e16.md)
 - Message: update smoke test expected asset ids after Qriptopian cover re-upload
+
+## Commit `2dff69a` — 2026-08-22T07:43:17-04:00
+- Type: `docs`
+- Brief: [COMMIT-2dff69a.md](../build_/COMMITS/COMMIT-2dff69a.md)
+- Message: docs(irl): add OCSGA boundary-map discipline to Crucible
