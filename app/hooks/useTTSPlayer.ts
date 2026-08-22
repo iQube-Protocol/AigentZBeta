@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-type TtsState = "idle" | "loading" | "playing" | "error";
+type TtsState = "idle" | "loading" | "playing" | "paused" | "error";
 
 function splitTextIntoChunks(text: string, maxChars = 900): string[] {
   const sentences = text.split(/(?<=[.?!])\s+/);
@@ -97,17 +97,51 @@ export function useTTSPlayer(options: { getText: () => string; voice?: string })
     [options.voice]
   );
 
-  const handleListen = useCallback(async () => {
-    if (ttsState !== "idle") {
-      stopAll();
-      setTtsState("idle");
-      return;
-    }
+  /**
+   * Hard-stop whatever is in flight (loading or playing) and reset to idle.
+   * Exposed separately from `handleListen`'s own toggle-off branch so an
+   * external coordinator (e.g. a multi-item Listen controller) can stop
+   * THIS instance deterministically without depending on `handleListen`'s
+   * stale-closure-sensitive toggle logic.
+   */
+  const stop = useCallback(() => {
+    stopAll();
+    setTtsState("idle");
+  }, [stopAll]);
 
-    const text = options.getText().trim();
-    if (!text) return;
+  /**
+   * Pause in place — operates on the CURRENT `<audio>` element directly
+   * (native `.pause()`), so position within the chunk currently playing is
+   * preserved. A no-op while nothing is playing.
+   */
+  const pause = useCallback(() => {
+    if (!audioRef.current || ttsState !== "playing") return;
+    audioRef.current.pause();
+    setTtsState("paused");
+  }, [ttsState]);
 
-    const chunks = splitTextIntoChunks(text);
+  /** Resume a paused element from where it left off (native `.play()`). */
+  const resume = useCallback(() => {
+    if (!audioRef.current || ttsState !== "paused") return;
+    setTtsState("playing");
+    audioRef.current.play().catch(() => {
+      setTtsState("error");
+      setTimeout(() => setTtsState((s) => (s === "error" ? "idle" : s)), 3000);
+    });
+  }, [ttsState]);
+
+  /**
+   * Start playback of the given text unconditionally — never a toggle.
+   * Callers that need "start fresh, replacing whatever is currently
+   * playing" (e.g. switching between items) should call `stop()` first;
+   * `play` itself does not read or branch on `ttsState`, so it composes
+   * safely with an external caller's own state machine.
+   */
+  const play = useCallback(async (text: string): Promise<void> => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+
+    const chunks = splitTextIntoChunks(trimmed);
     if (!chunks.length) return;
 
     stopRequestedRef.current = false;
@@ -187,7 +221,19 @@ export function useTTSPlayer(options: { getText: () => string; voice?: string })
       audioRef.current = null;
       audioEndResolveRef.current = null;
     }
-  }, [ttsState, options, fetchChunk, playAudio, stopAll]);
+  }, [fetchChunk, playAudio, options.voice]);
+
+  const handleListen = useCallback(async () => {
+    if (ttsState !== "idle") {
+      stop();
+      return;
+    }
+
+    const text = options.getText().trim();
+    if (!text) return;
+
+    await play(text);
+  }, [ttsState, options, play, stop]);
 
   useEffect(() => {
     return () => {
@@ -195,5 +241,5 @@ export function useTTSPlayer(options: { getText: () => string; voice?: string })
     };
   }, [stopAll]);
 
-  return { ttsState, handleListen };
+  return { ttsState, handleListen, play, stop, pause, resume };
 }

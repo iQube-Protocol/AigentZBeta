@@ -29,7 +29,8 @@ import {
 } from "lucide-react";
 import { KnytReactionBar } from "@/components/metame/KnytReactionBar";
 import { SocialSharingModal } from "@/packages/smarttriad/src/SocialSharingModal";
-import { ListenButton } from "@/components/shared/ListenButton";
+import { SmartContentListenButton } from "@/components/shared/SmartContentListenButton";
+import { buildSpeechScript } from "@/services/smartcontent/readableTextForSpeech";
 import { useActivePersona } from "@/app/hooks/useActivePersona";
 import { usePassportSignInGate } from "@/app/hooks/usePassportSignInGate";
 import { KNYTS_BRIDGE_CAMPAIGN_ID } from "@/services/journey/knytsBridgeCrossingJourney";
@@ -336,6 +337,7 @@ export function KnytCommunityContentTab({
                 personaId={personaId}
                 onOpen={() => setActiveId(item.id)}
                 onRemixIntent={onRemixIntent}
+                cartridge={cartridge}
               />
             ))}
           </div>
@@ -352,11 +354,16 @@ function ContentCard({
   personaId,
   onOpen,
   onRemixIntent,
+  cartridge,
 }: {
   item: CommunityContentItem;
   personaId?: string;
   onOpen: () => void;
   onRemixIntent?: (payload: RemixIntentPayload) => void;
+  /** Gates the card-level Listen affordance to Qriptopian rows only (this
+   *  increment's explicit scope) — see this component's own file header
+   *  for the cartridge prop's general meaning. */
+  cartridge?: "knyt" | "qripto";
 }) {
   const SkillIcon = item.skill === "story" ? Sparkles : FileText;
   const skillColor = item.skill === "story" ? "text-violet-300" : "text-cyan-300";
@@ -437,6 +444,25 @@ function ContentCard({
           {item.campaignTag && (
             <RemixCrossingButton item={item} personaId={personaId} onRemixIntent={onRemixIntent} />
           )}
+          {cartridge === "qripto" && (
+            <SmartContentListenButton
+              compact
+              item={{
+                id: item.id,
+                title: item.title,
+                // List rows have articleBody stripped (Lambda payload cap —
+                // see ContentDetail's own hydration comment); Listen fetches
+                // the full body on demand, same endpoint the detail view
+                // already uses, so playback never needs the article opened.
+                getText: async () => {
+                  if (item.articleBody) return buildSpeechScript(item.title, item.articleBody);
+                  const res = await fetch(`/api/community-content/${item.id}`, { cache: "no-store" });
+                  const json = (await res.json().catch(() => null)) as { ok?: boolean; item?: { articleBody?: string | null } } | null;
+                  return buildSpeechScript(item.title, json?.item?.articleBody || item.prompt || "");
+                },
+              }}
+            />
+          )}
           <ShareMenu item={item} personaId={personaId} personaLabel={personaLabel} compact />
         </div>
       </div>
@@ -504,8 +530,17 @@ function ContentDetail({ item, personaId }: { item: CommunityContentItem; person
         </div>
         <div className="flex items-center gap-2">
           {(fullBody || item.prompt) ? (
-            <ListenButton
-              getText={() => `${item.title}. ${fullBody || item.prompt || ""}`}
+            // Upgraded to the shared SmartContent Listen controller (was a
+            // private, uncoordinated useTTSPlayer instance via the plain
+            // ListenButton) so opening this detail view while a card's
+            // Listen is already playing elsewhere correctly stops it, and
+            // vice versa — one active item across the whole surface.
+            <SmartContentListenButton
+              item={{
+                id: item.id,
+                title: item.title,
+                getText: () => buildSpeechScript(item.title, fullBody || item.prompt || ""),
+              }}
             />
           ) : null}
           <ShareMenu item={item} personaId={personaId} personaLabel={personaLabel} />
