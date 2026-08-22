@@ -1,4 +1,12 @@
 # Build — Changelog
+- [`85aa3be`](https://github.com/iQube-Protocol/AigentZBeta/commit/85aa3be3598ddaa318e4132c941000b21a2c05ac) [docs] docs(irl): add projected vs realized consequence candidates (Kn0w1, 2026-08-21T20:12:33-04:00)
+- [`fbfeb52`](https://github.com/iQube-Protocol/AigentZBeta/commit/fbfeb52e7afa135b8b2fc49ea318e6180376f602) [docs] docs(canon): ratify Authority–Authorization temporal distinction (Kn0w1, 2026-08-21T19:50:11-04:00)
+- [`23fe1c6`](https://github.com/iQube-Protocol/AigentZBeta/commit/23fe1c6098966d3bf102b326fb3aa0cfa5a8dcff) [docs] docs(irl): distinguish Authority governance from state Authorization (Kn0w1, 2026-08-21T19:46:31-04:00)
+- [`8be978f`](https://github.com/iQube-Protocol/AigentZBeta/commit/8be978f9ca79436bfc0e8cd585962ddffea4da88) [feat] feat(qriptopian): expose public commentary source index (Kn0w1, 2026-08-21T16:59:12-04:00)
+- [`7fcb58e`](https://github.com/iQube-Protocol/AigentZBeta/commit/7fcb58e24212da3609a98036701032dce9c8eb50) [fix] Fix public article image delivery via durable media cache (Kn0w1, 2026-08-21T16:48:32-04:00)
+- [`80e49da`](https://github.com/iQube-Protocol/AigentZBeta/commit/80e49da62c5421548702da1dda13a391ddd73b97) [push] Harden canonical media delivery for Safari and range requests (Kn0w1, 2026-08-21T16:21:33-04:00)
+- [`0c4a0af`](https://github.com/iQube-Protocol/AigentZBeta/commit/0c4a0af42fde7988ea5fae55bcff7b2bc18f5a9e) [push] Serve canonical Autonomys media assets for public content (Kn0w1, 2026-08-21T15:58:36-04:00)
+- [`b4b8496`](https://github.com/iQube-Protocol/AigentZBeta/commit/b4b8496cda3eac8b6b60a696452e46c41acb323f) [push] Allow non-episode publication cover uploads (Kn0w1, 2026-08-21T14:51:10-04:00)
 - [`747b993`](https://github.com/iQube-Protocol/AigentZBeta/commit/747b993ca1132523c402f0577988475fa4a9c9fa) [docs] docs(content): define reusable asset upload tool contract (Kn0w1, 2026-08-21T11:33:45-04:00)
 - [`eb07ba0`](https://github.com/iQube-Protocol/AigentZBeta/commit/eb07ba068e6b4a64fcb699fabf39b5c561989ad8) [feat] feat(qriptopian): link Threshold machine-readable editions (Kn0w1, 2026-08-21T10:49:25-04:00)
 - [`1cc7702`](https://github.com/iQube-Protocol/AigentZBeta/commit/1cc770242574c852a95d6cbd71629a14cf7bf099) [feat] feat(qriptopian): present Threshold as Essays series (Kn0w1, 2026-08-21T08:59:02-04:00)

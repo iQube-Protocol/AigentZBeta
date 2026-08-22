@@ -4329,3 +4329,43 @@ Top-level retrieval anchors for this pack.
 - Type: `docs`
 - Brief: [COMMIT-747b993.md](../build_/COMMITS/COMMIT-747b993.md)
 - Message: docs(content): define reusable asset upload tool contract
+
+## Commit `b4b8496` — 2026-08-21T14:51:10-04:00
+- Type: `push`
+- Brief: [COMMIT-b4b8496.md](../build_/COMMITS/COMMIT-b4b8496.md)
+- Message: Allow non-episode publication cover uploads
+
+## Commit `0c4a0af` — 2026-08-21T15:58:36-04:00
+- Type: `push`
+- Brief: [COMMIT-0c4a0af.md](../build_/COMMITS/COMMIT-0c4a0af.md)
+- Message: Serve canonical Autonomys media assets for public content
+
+## Commit `80e49da` — 2026-08-21T16:21:33-04:00
+- Type: `push`
+- Brief: [COMMIT-80e49da.md](../build_/COMMITS/COMMIT-80e49da.md)
+- Message: Harden canonical media delivery for Safari and range requests
+
+## Commit `7fcb58e` — 2026-08-21T16:48:32-04:00
+- Type: `fix`
+- Brief: [COMMIT-7fcb58e.md](../build_/COMMITS/COMMIT-7fcb58e.md)
+- Message: Fix public article image delivery via durable media cache
+
+## Commit `8be978f` — 2026-08-21T16:59:12-04:00
+- Type: `feat`
+- Brief: [COMMIT-8be978f.md](../build_/COMMITS/COMMIT-8be978f.md)
+- Message: feat(qriptopian): expose public commentary source index
+
+## Commit `23fe1c6` — 2026-08-21T19:46:31-04:00
+- Type: `docs`
+- Brief: [COMMIT-23fe1c6.md](../build_/COMMITS/COMMIT-23fe1c6.md)
+- Message: docs(irl): distinguish Authority governance from state Authorization
+
+## Commit `fbfeb52` — 2026-08-21T19:50:11-04:00
+- Type: `docs`
+- Brief: [COMMIT-fbfeb52.md](../build_/COMMITS/COMMIT-fbfeb52.md)
+- Message: docs(canon): ratify Authority–Authorization temporal distinction
+
+## Commit `85aa3be` — 2026-08-21T20:12:33-04:00
+- Type: `docs`
+- Brief: [COMMIT-85aa3be.md](../build_/COMMITS/COMMIT-85aa3be.md)
+- Message: docs(irl): add projected vs realized consequence candidates

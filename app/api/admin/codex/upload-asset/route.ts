@@ -153,9 +153,9 @@ export async function POST(req: NextRequest) {
     }
 
     // Covers may be either episode-bound or generic publication/domain covers.
-    // `upload_content_asset` intentionally supports unbound covers, so requiring
-    // episodeNumber here made the Threshold upload path deterministically reject
-    // valid generic covers such as Constitutional Computing.
+    // episodeNumber is intentionally optional for generic publication covers.
+    // The Threshold upload path supports unbound covers, so requiring
+    // episodeNumber would reject valid generic covers such as Constitutional Computing.
 
     // Convert file to buffer
     const arrayBuffer = await file.arrayBuffer();

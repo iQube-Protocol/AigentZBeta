@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-21T15:35:26.586Z",
+  "last_updated": "2026-08-22T00:14:10.025Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "747b993ca1132523c402f0577988475fa4a9c9fa",
-  "latest_commit_short": "747b993",
-  "latest_commit_title": "docs(content): define reusable asset upload tool contract",
+  "latest_commit": "85aa3be3598ddaa318e4132c941000b21a2c05ac",
+  "latest_commit_short": "85aa3be",
+  "latest_commit_title": "docs(irl): add projected vs realized consequence candidates",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,78 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "85aa3be",
+      "full_sha": "85aa3be3598ddaa318e4132c941000b21a2c05ac",
+      "title": "docs(irl): add projected vs realized consequence candidates",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-21T20:12:33-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-85aa3be.md"
+    },
+    {
+      "sha": "fbfeb52",
+      "full_sha": "fbfeb52e7afa135b8b2fc49ea318e6180376f602",
+      "title": "docs(canon): ratify Authority–Authorization temporal distinction",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-21T19:50:11-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-fbfeb52.md"
+    },
+    {
+      "sha": "23fe1c6",
+      "full_sha": "23fe1c6098966d3bf102b326fb3aa0cfa5a8dcff",
+      "title": "docs(irl): distinguish Authority governance from state Authorization",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-21T19:46:31-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-23fe1c6.md"
+    },
+    {
+      "sha": "8be978f",
+      "full_sha": "8be978f9ca79436bfc0e8cd585962ddffea4da88",
+      "title": "feat(qriptopian): expose public commentary source index",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-21T16:59:12-04:00",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-8be978f.md"
+    },
+    {
+      "sha": "7fcb58e",
+      "full_sha": "7fcb58e24212da3609a98036701032dce9c8eb50",
+      "title": "Fix public article image delivery via durable media cache",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-21T16:48:32-04:00",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-7fcb58e.md"
+    },
+    {
+      "sha": "80e49da",
+      "full_sha": "80e49da62c5421548702da1dda13a391ddd73b97",
+      "title": "Harden canonical media delivery for Safari and range requests",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-21T16:21:33-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-80e49da.md"
+    },
+    {
+      "sha": "0c4a0af",
+      "full_sha": "0c4a0af42fde7988ea5fae55bcff7b2bc18f5a9e",
+      "title": "Serve canonical Autonomys media assets for public content",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-21T15:58:36-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-0c4a0af.md"
+    },
+    {
+      "sha": "b4b8496",
+      "full_sha": "b4b8496cda3eac8b6b60a696452e46c41acb323f",
+      "title": "Allow non-episode publication cover uploads",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-21T14:51:10-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-b4b8496.md"
+    },
     {
       "sha": "747b993",
       "full_sha": "747b993ca1132523c402f0577988475fa4a9c9fa",
@@ -1180,78 +1252,6 @@
       "timestamp": "2026-08-05T16:51:20Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-4548472.md"
-    },
-    {
-      "sha": "ad60470",
-      "full_sha": "ad60470c3d25c2056c2ec3a180af247d0f68b93e",
-      "title": "Add Constitutional Internet for Agents manuscript v0.1",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-08T17:32:55-04:00",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-ad60470.md"
-    },
-    {
-      "sha": "c432bce",
-      "full_sha": "c432bceee5525b804eee4f88d7385fe959d06ea5",
-      "title": "Add CI agent edition machine-readable package manifest",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-08T17:33:07-04:00",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-c432bce.md"
-    },
-    {
-      "sha": "9ebcea7",
-      "full_sha": "9ebcea7a7b6eda19202701a1a8eb222c1825db5d",
-      "title": "Add machine-readable CI agent edition v0.1",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-08T17:33:29-04:00",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-9ebcea7.md"
-    },
-    {
-      "sha": "f935e9d",
-      "full_sha": "f935e9d2401131b8ca03f14312d5e53d723415b7",
-      "title": "Add agent accession compact v0.1",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-08T17:33:36-04:00",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-f935e9d.md"
-    },
-    {
-      "sha": "6e9f7ca",
-      "full_sha": "6e9f7ca0f7339ba38c8a1b2ea9b82e3b986762e5",
-      "title": "Add agent accession intent schema v0.1",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-08T17:33:45-04:00",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-6e9f7ca.md"
-    },
-    {
-      "sha": "5c233ea",
-      "full_sha": "5c233ea4e9e95bf2f2922512201da551b71d0e9a",
-      "title": "Register Constitutional Internet agent edition in Polity Core",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-08T17:34:24-04:00",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-5c233ea.md"
-    },
-    {
-      "sha": "db8a6df",
-      "full_sha": "db8a6df648d4a334fad46d615401a56568d770b5",
-      "title": "Register CI agent machine-readable package",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-08T17:34:39-04:00",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-db8a6df.md"
-    },
-    {
-      "sha": "a0b9d8d",
-      "full_sha": "a0b9d8db9d5aa7e9831d18461778995fd87d9063",
-      "title": "Build KNYTS Bridge v1 — campaign-tagged crossing journey",
-      "author": "Claude",
-      "timestamp": "2026-08-09T22:05:08Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-a0b9d8d.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
