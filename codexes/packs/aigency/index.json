@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-22T08:52:43.607Z",
+  "last_updated": "2026-08-22T09:24:20.662Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "767ee6a160a9d1157fa3911293e24fe367edaa65",
-  "latest_commit_short": "767ee6a",
-  "latest_commit_title": "fix Qriptopian essay cover corruption at its two real root causes",
+  "latest_commit": "221a5ec8000fababf180aa7d7c1d61da3524aa15",
+  "latest_commit_short": "221a5ec",
+  "latest_commit_title": "fix upload-asset route silently dropping isShareable on individual-form-fields path",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "221a5ec",
+      "full_sha": "221a5ec8000fababf180aa7d7c1d61da3524aa15",
+      "title": "fix upload-asset route silently dropping isShareable on individual-form-fields path",
+      "author": "Claude",
+      "timestamp": "2026-08-22T09:22:17Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-221a5ec.md"
+    },
+    {
+      "sha": "ec76551",
+      "full_sha": "ec7655149bb2c238b3c1726793f712ec95ba6b9c",
+      "title": "deploy: isShareable upload-asset fix (Qriptopian re-upload prerequisite)",
+      "author": "Claude",
+      "timestamp": "2026-08-22T09:22:21Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-ec76551.md"
+    },
     {
       "sha": "767ee6a",
       "full_sha": "767ee6a160a9d1157fa3911293e24fe367edaa65",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-08-10T06:41:38Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-d56b844.md"
-    },
-    {
-      "sha": "169248d",
-      "full_sha": "169248d21d0c0d80ad950ef95ebc907689ac1559",
-      "title": "Mirror CFS-055's ratified invariants 252-259 into the canon + seed",
-      "author": "Claude",
-      "timestamp": "2026-08-10T04:48:52Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-169248d.md"
-    },
-    {
-      "sha": "3f76ccd",
-      "full_sha": "3f76ccd53d31680c03d76f84db9ded974cec3bbe",
-      "title": "Implement CFS-055 coherence pass: canonical Ratify projections + drawer",
-      "author": "Claude",
-      "timestamp": "2026-08-10T05:22:13Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-3f76ccd.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

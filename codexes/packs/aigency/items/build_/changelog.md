@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`221a5ec`](https://github.com/iQube-Protocol/AigentZBeta/commit/221a5ec8000fababf180aa7d7c1d61da3524aa15) [fix] fix upload-asset route silently dropping isShareable on individual-form-fields path (Claude, 2026-08-22T09:22:17Z)
+- [`ec76551`](https://github.com/iQube-Protocol/AigentZBeta/commit/ec7655149bb2c238b3c1726793f712ec95ba6b9c) [fix] deploy: isShareable upload-asset fix (Qriptopian re-upload prerequisite) (Claude, 2026-08-22T09:22:21Z)
 - [`767ee6a`](https://github.com/iQube-Protocol/AigentZBeta/commit/767ee6a160a9d1157fa3911293e24fe367edaa65) [fix] fix Qriptopian essay cover corruption at its two real root causes (Claude, 2026-08-22T08:50:37Z)
 - [`6b90297`](https://github.com/iQube-Protocol/AigentZBeta/commit/6b902970355507f2309818879dc8d78c53f71e78) [fix] deploy: Qriptopian essay cover corruption fix (upload base64 validation + display-side derivative validation) (Claude, 2026-08-22T08:50:51Z)
 - [`a0b1b55`](https://github.com/iQube-Protocol/AigentZBeta/commit/a0b1b55bc5d6a25f4c074ae49c57789aa3dfb342) [push] Register Constitutional Media essay assets (Kn0w1, 2026-08-22T03:36:39-04:00)
