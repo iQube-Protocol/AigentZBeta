@@ -91,37 +91,103 @@ export interface OpportunityProjection {
 }
 
 /**
+ * The three-valued disposition every projection component and the composed
+ * projection share. Identical vocabulary to a confidential provider's
+ * `ConfidentialProjectionDisposition` on purpose — one word means one thing
+ * across the whole projection plane.
+ *
+ * UNACCEPTABLE = a projection WAS established, and the projected consequence
+ * is not acceptable. UNRESOLVED = a projection could not be established.
+ * Infrastructure failure, fee failure, missing evidence and unverifiable
+ * attestation are all UNRESOLVED — never UNACCEPTABLE.
+ */
+export type ProjectionDisposition = 'ACCEPTABLE' | 'UNACCEPTABLE' | 'UNRESOLVED';
+
+/**
+ * Whether the confidential component is constitutionally required for this
+ * action. Explicit rather than inferred from presence: "we didn't get
+ * confidential evidence" and "this action never needed any" are different
+ * facts, and conflating them is exactly how missing evidence would silently
+ * read as ACCEPTABLE.
+ */
+export type ConfidentialRequirement = 'REQUIRED' | 'NOT_REQUIRED';
+
+/**
+ * The public half — CFS-006a's invariant-graph forecast. Carries the full
+ * forecast so its findings stay independently inspectable; the composed
+ * disposition never replaces it.
+ */
+export interface PublicProjectionComponent {
+  source: 'consequence_operating_model';
+  disposition: ProjectionDisposition;
+  /** Provenance handle for the forecast that produced this component. */
+  forecastRef: string;
+  /** CFS-006a's own output, referenced not flattened. */
+  forecast: ConsequenceForecast;
+  reason: string;
+}
+
+/**
+ * The confidential half — evidence contributed by a confidential projection
+ * provider. Every provenance field is separate: which provider, which request,
+ * which verdict, which evidence commitment, and the two independent
+ * attestation booleans. Never collapsed into a score.
+ */
+export interface ConfidentialProjectionComponent {
+  requirement: ConfidentialRequirement;
+  /** null when NOT_REQUIRED, or when REQUIRED evidence never arrived. */
+  disposition: ProjectionDisposition | null;
+  provider: string | null;
+  requestRef: string | null;
+  /** Commitment over the confidential result — receipt-safe, never the result. */
+  evidenceRef: string | null;
+  /** Commitment tying the evidence to the exact ciphertext submitted. */
+  payloadCommitment: string | null;
+  /** The result was signed by the identity the chain trusts. */
+  protocolExecutionVerified: boolean | null;
+  /** A real hardware attestation chain was verified. NEVER inferred from the above. */
+  teeAttestationVerified: boolean | null;
+  attestationMode: string | null;
+  reason: string;
+}
+
+/**
  * Consequence Projection: if this proposed action is permitted, what is
  * expected to happen. Prospective — never to be confused with
  * ObservedConsequence (retrospective).
  *
- * `public` is populated by CFS-006a's `forecastConsequences()` — the
- * invariant-graph-based projection every action already gets. `confidential`
- * is populated by a ConfidentialProjectionProvider (Vela first) ONLY when the
- * action's consequenceDomain requires confidential evidence. A projection
- * with no confidential requirement simply has `confidential: undefined` —
- * that is a complete, valid projection, not a partial one.
+ * This is the COMPOSITION ENVELOPE. Neither CFS-006a nor a confidential
+ * provider owns the final constitutional projection alone:
+ *
+ *   CFS-006a forecastConsequences()  → `public`       (invariant-graph projection)
+ *   ConfidentialProjectionProvider   → `confidential` (confidential evidence)
+ *   this envelope                    → `disposition`  (the composition)
+ *
+ * Composed by `services/constitutionalCommerce/unifiedConsequenceProjection.ts`,
+ * which is deliberately owned by neither side.
  */
 export interface ConsequenceProjection {
   projectionRef: string;
+  /**
+   * Correlates this projection to the exact decision context it was produced
+   * from — the same context handle the Ian experiment uses, so a
+   * projected-vs-observed delta can later be attributed to a specific context
+   * rather than guessed at. Survives composition unchanged.
+   */
+  projectionContextRef: string;
   actionRef: string;
   authorityRef: string;
   mandateRef: string;
+  /** Descriptive aggregates. Never the basis of the disposition. */
   projectedConsequences: ProjectedConsequence[];
   invariantFindings: InvariantFinding[];
   riskProjection?: RiskProjection;
   opportunityProjection?: OpportunityProjection;
-  /** The public/invariant-graph half — CFS-006a's own forecast, referenced not duplicated. */
-  public?: {
-    source: 'consequence_operating_model';
-    forecast: ConsequenceForecast;
-  };
-  /** The confidential half. `provider` names the mechanism so accountability survives confidentiality. */
-  confidential?: {
-    provider: string;
-    confidentialEvidenceRefs: string[];
-  };
-  disposition: 'ACCEPTABLE' | 'UNACCEPTABLE' | 'UNRESOLVED';
+  public: PublicProjectionComponent;
+  confidential: ConfidentialProjectionComponent;
+  disposition: ProjectionDisposition;
+  /** Why the composition produced this disposition, naming the deciding component. */
+  compositionRationale: string;
 }
 
 // ── Plane 3 — Authorisation ──────────────────────────────────────────────
