@@ -4404,3 +4404,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-3bb95b2.md](../build_/COMMITS/COMMIT-3bb95b2.md)
 - Message: Route Qriptopian covers through durable derivatives
+
+## Commit `a0b1b55` — 2026-08-22T03:36:39-04:00
+- Type: `push`
+- Brief: [COMMIT-a0b1b55.md](../build_/COMMITS/COMMIT-a0b1b55.md)
+- Message: Register Constitutional Media essay assets
