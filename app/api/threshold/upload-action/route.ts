@@ -3,12 +3,13 @@
  *
  * IMPORTANT: the Authorization header on this route is a Threshold
  * Constitutional Handshake bearer (`ths_…`), not a Supabase user access token.
- * Authenticate it with the same gateway session resolver used by the MCP route.
+ * Authenticate it with the same canonical Threshold session adapter used by all
+ * Threshold action endpoints.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createHash } from 'crypto';
-import { resolveBearer, hasScope } from '@/services/threshold/gatewaySession';
+import { requireThresholdSession } from '@/services/threshold/requireThresholdSession';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 
 export const runtime = 'nodejs';
@@ -27,20 +28,9 @@ const ROLE_TO_ASSET_KIND: Record<string, string> = {
   attachment: 'background_lore_doc',
 };
 
-function bearerFrom(req: NextRequest): string | null {
-  const authz = req.headers.get('authorization');
-  return authz?.toLowerCase().startsWith('bearer ') ? authz.slice(7).trim() : null;
-}
-
 export async function POST(req: NextRequest) {
-  // This is a Threshold bearer. Do NOT run it through getActivePersona(), which
-  // expects the normal app/Supabase authentication context and therefore turns a
-  // perfectly valid ths_ bearer into a false `unauthenticated` response.
-  const session = await resolveBearer(bearerFrom(req));
-  if (!session) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
-  if (!hasScope(session, 'content.asset.upload')) {
-    return NextResponse.json({ error: 'missing-capability', required: 'content.asset.upload' }, { status: 403 });
-  }
+  const auth = await requireThresholdSession(req, 'content.asset.upload');
+  if (!auth.ok) return auth.response;
 
   try {
     const form = await req.formData();
