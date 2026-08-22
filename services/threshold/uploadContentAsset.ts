@@ -55,6 +55,18 @@ export interface ThresholdUploadReceipt {
   setPrimary: boolean;
 }
 
+function publicAssetUrl(origin: string, assetId: string, cid: string, role: string): string {
+  // Covers/thumbnails are rendered through the long-standing cover proxy. It
+  // decrypts the canonical Autonomys object and generates a compact webp thumb
+  // with Sharp, deliberately staying below the edge response limit. Do not use
+  // the generic media proxy for card thumbnails: a full-size JPEG streamed
+  // through the application runtime caused partial/half-rendered cards in Safari.
+  if (role === 'cover' || role === 'thumbnail') {
+    return `${origin}/api/content/cover/${encodeURIComponent(cid)}?variant=thumb`;
+  }
+  return `${origin}/api/content/media/${assetId}`;
+}
+
 /**
  * Canonical execution path AFTER Threshold bearer authorization has succeeded.
  *
@@ -78,8 +90,6 @@ export async function executeThresholdContentUpload(input: ThresholdUploadInput)
   uploadForm.append('title', input.fileName);
   uploadForm.append('assetKind', ROLE_TO_ASSET_KIND[input.role]);
   uploadForm.append('series', input.domain);
-  // Threshold publications are intended to be reusable/shareable unless later
-  // policy explicitly gates them. Covers and thumbnails must also be shareable.
   if (['cover', 'thumbnail', 'hero', 'social'].includes(input.role)) {
     uploadForm.append('isShareable', 'true');
   }
@@ -143,7 +153,7 @@ export async function executeThresholdContentUpload(input: ThresholdUploadInput)
           sha256,
           fileName: input.fileName,
           setPrimary,
-          publicUrl: `${input.origin}/api/content/media/${assetId}`,
+          publicUrl: publicAssetUrl(input.origin, assetId, cid, input.role),
         };
         if (input.bundleId) manifestAsset.bundleId = input.bundleId;
         if (input.bundleLabel) manifestAsset.bundleLabel = input.bundleLabel;
@@ -161,7 +171,7 @@ export async function executeThresholdContentUpload(input: ThresholdUploadInput)
           updated_at: new Date().toISOString(),
         };
         if (input.role === 'cover' || input.role === 'thumbnail') {
-          patch.thumbnail = `${input.origin}/api/content/media/${assetId}`;
+          patch.thumbnail = publicAssetUrl(input.origin, assetId, cid, input.role);
         }
 
         const { error: bindError } = await supabase.from('content').update(patch).eq('id', contentId);
