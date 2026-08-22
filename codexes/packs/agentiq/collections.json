@@ -40,6 +40,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-08-22_vela-001-slice-2e-unified-consequence-projection.md",
         "updates/2026-08-22_vela-001-slice-2b-confidential-projection-proven.md",
         "updates/2026-08-22_vela-001-signer-privacy-attestation-findings.md",
         "updates/2026-08-17_homecoming-closeout-final-summary.md",
