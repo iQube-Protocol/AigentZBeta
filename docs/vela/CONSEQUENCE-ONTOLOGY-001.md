@@ -1,6 +1,19 @@
 # CONSEQUENCE-ONTOLOGY-001
 
-**Status:** findings + an operator decision needed. **No types module has been written.** This document exists specifically because writing one without first resolving what's below would violate the codebase's own core principle ("a parallel implementation of an existing capability is a defect," `CLAUDE.md` → Core Principle / `inv.engineering.037`) and the Prospective Evolution Capture rule (a candidate architectural refinement must be surfaced for operator approval before it is acted on).
+**Status:** RESOLVED (2026-08-22, on receipt of the full VELA-001 PRD text). See "Resolution" below. Kept in place as the record of the collision this document exists to make un-ignorable, and as the compatibility contract between the two mechanisms it names.
+
+## Resolution
+
+The full VELA-001 PRD §8 answers the open question directly: *"Existing mature code does not require indiscriminate renaming. All new Vela, Ian, MoneyPenny commerce and consequence-aware runtime code must use this ontology."* Read together with §14's execution flow — which names *"construct public projection context"* as a step distinct from *"identify private projection requirements … prepare Vela confidential projection"* — this resolves the collision as **Option 1 (compose), specifically**:
+
+- **`types/consequence.ts` / `services/consequence/*` (CFS-006a) are not renamed and not superseded.** They remain the canonical invariant-graph-based forecasting mechanism (`forecastConsequences()`, `ConsequenceForecast`, the `execution`/`observation` pipeline stages) and continue to serve whatever already consumes them (`services/devCommandCenter/consequenceCanvas.ts`, `services/journey/consequenceForkProjection.ts`, the intent-chain template, existing tests).
+- **A new module, `types/constitutionalCommerce.ts`, carries the PRD §8 ontology** (`ConstitutionalAuthority`, `ProposedAction`, `ConsequenceProjection`, `ActionAuthorisation`, `CommerceExecution`, `ObservedConsequence`) under names that do not collide with CFS-006a's. This is the ontology "All new Vela, Ian, MoneyPenny commerce and consequence-aware runtime code" is required to use.
+- **The composition point is `ConsequenceProjection` itself**, at the exact seam the PRD's own flow names: CFS-006a's `forecastConsequences()` output is the natural implementation of the **public** half of a `ConsequenceProjection` (public/contextual conditions, invariant constraints, `forcesEscalation`/`constitutionalConstraint`), and a new `VelaConfidentialProjectionProvider` (Slice 2B) supplies the **confidential** half. Slice 2E's "Unified Consequence Projection" is precisely the place these two already-distinct mechanisms combine — not a third, independent forecasting engine.
+- This is a reuse decision, not a rename: `forecastConsequences()` is called *from* the new Projection Plane as its public-projection component; nothing in CFS-006a's own contract, tests, or consumers changes.
+
+No further operator input is needed to proceed on this basis. If a future slice's design reveals this composition doesn't hold cleanly (e.g. CFS-006a's `ConsequenceForecast` shape can't represent a case the financial domain needs), that is exactly the kind of thing to re-raise rather than silently work around — but the default, and the one this workstream proceeds under, is the composition above.
+
+## Original findings (unchanged — the record of why this needed resolving)
 
 ## What the VELA-001 PRD asked for
 
@@ -33,14 +46,12 @@ Renaming around the collision (e.g. calling the new module's type `VelaConsequen
 
 The same question recurs for `ObservedConsequence` vs. the existing `observation: 'confirmed' | 'contradicted'` result of `executeApproved()`, and for `CommerceExecution` vs. the existing `'execution'` stage.
 
-## What this document is NOT proposing
+## What was decided, mapped onto the three options this document originally posed
 
-It is not proposing to rename or restructure CFS-006a unilaterally, and it is not proposing to build a second, same-named ontology beside it. Per the codebase's Resolution → Invariant Loop and Prospective Evolution Capture rules, this is exactly the class of finding — *"two subsystems disagreed about the same canonical state"* (trigger #4 in the Resolution → Invariant Loop) and a genuine candidate architectural refinement — that must be surfaced for explicit operator direction before any types module or Slice 2E/2F code is written, rather than silently resolved by an agent's own judgment call.
+Of the three options originally laid out below, the PRD's §8 + §14 text resolves this as **option 1 (compose)**, in the specific, narrower form stated in "Resolution" above: not a merge of the two type systems, but `types/constitutionalCommerce.ts` as the new-code ontology with `ConsequenceProjection.public` populated by CFS-006a's existing `forecastConsequences()`, and `ConsequenceProjection.confidential` populated by the new Vela provider. `ObservedConsequence` (new ontology) and CFS-006a's `observation: 'confirmed' | 'contradicted'` follow the same pattern: MoneyPenny-originated runs produce an `ObservedConsequence` record, and if/when a run also passes through `executeApproved()`, that function's own `observation` field is a CFS-006a-internal detail, not something `ObservedConsequence` needs to import or wrap.
 
-## Proposed options (for the operator to choose between, not a recommendation ranked above the others without input)
+1. **Compose** (**adopted**, in the narrow form above) — no merge of type systems, a stated composition seam at `ConsequenceProjection`.
+2. **Adjacent, explicitly related** — not needed as a separate posture; the adopted form already keeps Vela's types out of CFS-006a's own contract while still naming the relationship explicitly, which was this option's actual goal.
+3. **Genuinely separate** — not adopted, for the reason originally stated (the `inv.engineering.037` failure shape).
 
-1. **Compose:** treat Vela as a new *projection provider* plugged into the existing CFS-006a `forecastConsequences()`/`ConsequenceForecast` slot (extend the type with an optional financial-projection field or a discriminated-union `via` source; extend `executeApproved()`'s observation step similarly for MoneyPenny-originated runs). No new top-level ontology; `CONSEQUENCE-ONTOLOGY-001` becomes a design note on *how* to extend CFS-006a, not a new module.
-2. **Adjacent, explicitly related:** keep a distinct `services/vela/` projection type for the TEE-specific verdict shape (evidence, confidentiality properties, WASM-specific fields that don't belong in the invariant-graph shape), but require every MoneyPenny call site to route through CFS-006a's existing stage functions as the single entry point — i.e., Vela's types are an *implementation detail* of one branch inside `forecastConsequences()`, never a parallel public API a caller could reach directly instead of the canonical pipeline.
-3. **Genuinely separate (not recommended without a stated reason):** treat financial/commerce consequence projection as out of CFS-006a's scope entirely and stand up a parallel pipeline for it. This is flagged as the option most likely to reproduce the exact `inv.engineering.037` failure mode the codebase has already paid for three times (`EXPERIMENT_REGISTRY`, pack-corpus URL sniff, `ASSIGNABLE_EXPERIMENTS` — see CLAUDE.md's "Source-of-truth parity is canary-enforced" section) — listed for completeness, not as a live recommendation.
-
-This finding, and the choice between the above (or another option the operator prefers), is being raised directly rather than assumed, per standing instruction.
+The three options are kept below as the reasoning trail, not as a still-open menu.
