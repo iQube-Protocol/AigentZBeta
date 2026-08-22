@@ -4389,3 +4389,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-695e250.md](../build_/COMMITS/COMMIT-695e250.md)
 - Message: Codify Threshold bearer authorization invariant
+
+## Commit `ce40c2e` — 2026-08-22T02:41:11-04:00
+- Type: `feat`
+- Brief: [COMMIT-ce40c2e.md](../build_/COMMITS/COMMIT-ce40c2e.md)
+- Message: Add Threshold upload path canaries

@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-22T03:26:51.231Z",
+  "last_updated": "2026-08-22T06:43:04.899Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "695e2507eeda05c70d7e86faa558b767097bdea0",
-  "latest_commit_short": "695e250",
-  "latest_commit_title": "Codify Threshold bearer authorization invariant",
+  "latest_commit": "ce40c2ecc2ad789181d5aebe5ac136b476d243e1",
+  "latest_commit_short": "ce40c2e",
+  "latest_commit_title": "Add Threshold upload path canaries",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "ce40c2e",
+      "full_sha": "ce40c2ecc2ad789181d5aebe5ac136b476d243e1",
+      "title": "Add Threshold upload path canaries",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-22T02:41:11-04:00",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-ce40c2e.md"
+    },
     {
       "sha": "695e250",
       "full_sha": "695e2507eeda05c70d7e86faa558b767097bdea0",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-09T22:43:44Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-adbff86.md"
-    },
-    {
-      "sha": "2d9ede1",
-      "full_sha": "2d9ede1cad1f3f12acdc1b00fbda414b7d43f510",
-      "title": "Register CR-14: Constitution Before Substrate quantum launchpad (queued, not applied)",
-      "author": "Claude",
-      "timestamp": "2026-08-04T03:43:05Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-2d9ede1.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

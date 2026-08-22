@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`ce40c2e`](https://github.com/iQube-Protocol/AigentZBeta/commit/ce40c2ecc2ad789181d5aebe5ac136b476d243e1) [feat] Add Threshold upload path canaries (Kn0w1, 2026-08-22T02:41:11-04:00)
 - [`695e250`](https://github.com/iQube-Protocol/AigentZBeta/commit/695e2507eeda05c70d7e86faa558b767097bdea0) [push] Codify Threshold bearer authorization invariant (Kn0w1, 2026-08-21T23:25:05-04:00)
 - [`fe1272a`](https://github.com/iQube-Protocol/AigentZBeta/commit/fe1272a66780aff0233490df9d5efac8dbb929b1) [fix] Fix Threshold native upload bearer authentication (Kn0w1, 2026-08-21T22:57:58-04:00)
 - [`fff9c67`](https://github.com/iQube-Protocol/AigentZBeta/commit/fff9c67e2b222dfab5409c9f7e431f1199e03d36) [push] Allow generic non-episode cover assets (Kn0w1, 2026-08-21T13:35:15-04:00)
