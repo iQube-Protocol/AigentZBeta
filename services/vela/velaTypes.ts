@@ -2,14 +2,16 @@
  * Vela (Horizen CCE) v0.2.0 wire-format types — source-verified against
  * pinned tags (see docs/vela/VELA-SIGNER-TOPOLOGY-001.md "Sources").
  *
- * These are the platform's own wire types (request types, deploy descriptor,
- * confidential projection provider capability/request/status shapes) — NOT
- * the shared commerce ontology. MoneyPenny-facing code consumes
- * `types/constitutionalCommerce.ts`; this module is what a
- * VelaConfidentialProjectionProvider (Slice 2B, not yet built) speaks
- * underneath that interface. Never let a Vela-specific shape leak past the
- * provider boundary into the Financial Services Runtime (PRD §10).
+ * These are the platform's own WIRE types (request opcodes, deploy
+ * descriptor, on-chain result shape, transport contract) — NOT the domain
+ * seam and NOT the commerce ontology. The domain layer speaks
+ * `types/confidentialProjection.ts` and `types/constitutionalCommerce.ts`;
+ * `velaProjectionProvider.ts` is the ONLY module that consumes both this file
+ * and those. Never let a Vela-specific shape leak past the provider boundary
+ * into the Financial Services Runtime (PRD §10, operator ruling 2026-08-22).
  */
+
+import type { AttestationMode } from '@/types/confidentialProjection';
 
 /** ProcessorEndpoint.RequestType (vela/contracts/contracts/ProcessorEndpoint.sol, v0.2.0). */
 export const VELA_REQUEST_TYPE = {
@@ -34,15 +36,24 @@ export interface VelaDeployDescriptor {
 }
 
 /**
- * Which `TeeAuthenticator` contract variant a deployment runs, and whether
- * its `teeSigner`/`pubSecp521r1` registration is attestation-backed. Per
+ * Which `TeeAuthenticator` contract variant a deployment runs. Per
  * VELA-ATTESTATION-BOUNDARY-001: this fact is invisible from
  * `ProcessorEndpoint` behavior and MUST be recorded explicitly per
  * deployment, never inferred.
+ *
+ * Maps 1:1 onto the domain-layer `AttestationMode`
+ * (`types/confidentialProjection.ts`) via `toDomainAttestationMode()` — the
+ * Vela-side spelling stays here so contract-variant vocabulary does not leak
+ * into the domain layer.
  */
 export type VelaAttestationMode =
   | 'no_attestation' // NoAttestationTeeAuthenticator — teeSigner set by admin fiat, zero proof
   | 'nitro_attested'; // TeeAuthenticator + INitroProver — real AWS Nitro attestation chain verified on-chain
+
+/** Translate the Vela contract-variant fact into the domain vocabulary. */
+export function toDomainAttestationMode(mode: VelaAttestationMode): AttestationMode {
+  return mode === 'nitro_attested' ? 'NITRO_ATTESTED' : 'NO_ATTESTATION_LOCAL';
+}
 
 /** One Vela deployment's on-chain coordinates. Never carries any private key. */
 export interface VelaDeploymentDescriptor {
@@ -63,76 +74,51 @@ export interface VelaApplicationRef {
 }
 
 /**
- * The confidential projection provider capability/request/status/evidence
- * shapes referenced by PRD §10's `ConfidentialProjectionProvider` interface.
- * Defined here (not yet implemented against — Slice 2B) so the interface can
- * be typed precisely when it is built.
+ * The result of one completed Vela request, as observed on-chain/via subgraph.
+ * This is the WIRE shape — the provider translates it into the domain's
+ * `ConfidentialProjectionEvidence`. Deliberately NOT exported past the
+ * provider boundary.
  */
-export interface ConfidentialProjectionCapabilities {
-  applicationId: string;
-  attestationMode: VelaAttestationMode;
-  /** True only when attestationMode === 'nitro_attested' AND a real attestation has been independently verified — never inferred from a successful request. */
-  attestationVerified: boolean;
-}
-
-export interface ConfidentialProjectionRequest {
-  actionRef: string;
-  /** Opaque, pre-encrypted payload bytes (ECDH+AES-256-GCM per VELA-PRIVACY-BOUNDARY-001) — plaintext confidential values never reach this type. */
-  encryptedPayload: Uint8Array;
-  /** hex-encoded 133-byte P-521 public key the requester registered via ASSOCIATEKEY. */
-  requesterP521PublicKeyHex: string;
-}
-
-export interface PreparedConfidentialProjection extends ConfidentialProjectionRequest {
-  applicationId: string;
-  requestType: typeof VELA_REQUEST_TYPE.PROCESS;
-}
-
-export interface ConfidentialProjectionSubmission {
-  requestId: string;
-  submittedAt: string;
-}
-
-export type ConfidentialProjectionObserverState =
-  | 'NOT_STARTED'
-  | 'PREPARED'
-  | 'AWAITING_APPROVAL'
-  | 'SUBMITTED'
-  | 'OBSERVING'
-  | 'PROJECTION_COMPLETE'
-  | 'ATTESTATION_VERIFIED'
-  | 'PROJECTION_ACCEPTABLE'
-  | 'PROJECTION_UNACCEPTABLE'
-  | 'PROJECTION_UNRESOLVED'
-  | 'ACTION_AUTHORISED'
-  | 'ACTION_REFUSED'
-  | 'FAILED'
-  | 'STATE_CONFLICT';
-
-export interface ConfidentialProjectionStatus {
-  requestId: string;
-  state: ConfidentialProjectionObserverState;
-}
-
-/**
- * Evidence returned alongside a completed projection. `PROJECTION_COMPLETE`
- * (a state update was signed and posted) is distinct from
- * `ATTESTATION_VERIFIED` (the signer's registration was independently
- * checked against a real Nitro attestation chain) — see
- * VELA-ATTESTATION-BOUNDARY-001. Never assume the latter from the former.
- */
-export interface ConfidentialProjectionEvidence {
+export interface VelaRequestResult {
   requestId: string;
   applicationId: string;
   /** hex-encoded state root the TEE signed, per AbstractTeeAuthenticator's signed-message fields. */
   stateRootHex: string;
   teeSignatureHex: string;
   teeSignerAddress: string;
-  attestationMode: VelaAttestationMode;
+  /**
+   * The submitted ciphertext as recorded on-chain (`PendingRequest.payload`).
+   * Lets the provider re-derive the payload commitment when fetching evidence
+   * statelessly, so evidence is tied to a specific request without the
+   * provider having to remember the submission.
+   */
+  submittedPayload: Uint8Array;
+  /** Decrypted per-user event payload (the app's own result JSON), if one was emitted to us. */
+  decryptedUserEventJson: string | null;
+  /** Non-zero when the Executor marked the request failed (errorCode/errorMsg on the update payload). */
+  errorCode: number;
+  errorMsg: string;
 }
 
-export interface ConfidentialEvidenceVerification {
-  requestId: string;
-  attestationVerified: boolean;
-  reason: string;
+/**
+ * The narrow transport the Vela provider needs. Implemented by
+ * `velaClientAdapter.ts` against the real stack, and by a deterministic
+ * in-memory double in tests so CI needs no Docker.
+ */
+export interface VelaTransport {
+  readonly deployment: VelaDeploymentDescriptor;
+  /**
+   * ECDH(requester P-521 ↔ enclave CommunicationKey) → HKDF-SHA256 →
+   * AES-256-GCM, nonce prepended. Matches vela/pkg/crypto/cipher.go exactly.
+   */
+  encryptForTee(plaintext: Uint8Array): Promise<Uint8Array>;
+  /** Submits a PROCESS request carrying the ciphertext. Returns the on-chain requestId. */
+  submitProcessRequest(applicationId: string, encryptedPayload: Uint8Array): Promise<string>;
+  /** Polls for a completed result. Returns null while still pending. */
+  fetchResult(requestId: string): Promise<VelaRequestResult | null>;
+  /**
+   * Reads the TeeAuthenticator's currently-registered signer so the provider
+   * can check the result was signed by the identity the chain trusts.
+   */
+  readRegisteredTeeSigner(): Promise<string>;
 }
