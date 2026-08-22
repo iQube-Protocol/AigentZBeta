@@ -50,4 +50,20 @@ describe('Threshold upload path invariant', () => {
     const source = read('app/api/threshold/mcp/route.ts');
     expect(source).toContain('assertDecodableImage(bytes, role)');
   });
+
+  it('upload-asset route honors isShareable from the individual-form-fields path', () => {
+    // 2026-08-22: services/threshold/uploadContentAsset.ts appends
+    // isShareable='true' as a form field for cover/thumbnail/hero/social
+    // roles, but the individual-form-fields branch of
+    // app/api/admin/codex/upload-asset/route.ts never read it — every asset
+    // uploaded through the shared Threshold executor silently landed as
+    // is_shareable=false, which the essay-cover / content-media display
+    // routes reject with 403 asset-not-shareable regardless of image
+    // validity. Discovered while re-uploading corrected Qriptopian essay
+    // covers: the fixed base64/image-validation path let a genuinely valid
+    // image through, and THIS gap is what surfaced next.
+    const source = read('app/api/admin/codex/upload-asset/route.ts');
+    expect(source).toContain("formData.get('isShareable')");
+    expect(source).toMatch(/isShareable:\s*isShareable === 'true'/);
+  });
 });

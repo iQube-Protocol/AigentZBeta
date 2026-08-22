@@ -77,6 +77,7 @@ export async function POST(req: NextRequest) {
       const priceAmount = formData.get('priceAmount') as string | null;
       const paymentType = formData.get('paymentType') as string | null;
       const paymentSurface = formData.get('paymentSurface') as string | null;
+      const isShareable = formData.get('isShareable') as string | null;
 
       if (!title || !assetKind) {
         return NextResponse.json({
@@ -110,6 +111,7 @@ export async function POST(req: NextRequest) {
         rarityTier: rarityTier as 'legendary' | 'epic' | 'rare' | 'common' | undefined,
         editionMax: editionMax ? parseInt(editionMax, 10) : undefined,
         displayMode: displayMode as DisplayMode | undefined,
+        isShareable: isShareable === 'true' ? true : undefined,
       };
     }
 
