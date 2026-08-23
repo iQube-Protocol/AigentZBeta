@@ -168,10 +168,11 @@ describe('deriveRuntimeReadinessProjection — confidentialExecution', () => {
   });
 });
 
-describe('deriveRuntimeReadinessProjection — independence of the four fields', () => {
+describe('deriveRuntimeReadinessProjection — independence of the four consumer-specific fields', () => {
   it('a fully ready operator (eligibility+standing+authority all ready) still reports confidentialExecution pending for the Confidential Runtime service', () => {
     const projection = deriveRuntimeReadinessProjection(baseContext(), MONEYPENNY_RUNTIME, authority({ state: 'ACTIVE' }));
     expect(projection).toEqual({
+      systemReady: 'ready',
       eligibility: 'ready',
       standing: 'ready',
       authority: 'ready',
@@ -186,10 +187,35 @@ describe('deriveRuntimeReadinessProjection — independence of the four fields',
       authority({ state: 'NONE', met: false, code: 'AUTHORITY_UNRESOLVED' }),
     );
     expect(projection).toEqual({
+      systemReady: 'ready',
       eligibility: 'ready',
       standing: 'not-ready',
       authority: 'pending',
       confidentialExecution: 'pending',
     });
+  });
+});
+
+describe('deriveRuntimeReadinessProjection — systemReady (2026-08-23 "close Standing + MoneyPenny Runtime" directive)', () => {
+  it('reports ready independently of a REFUSED consumer — a policy refusal for one consumer is never evidence the Runtime pipeline is down', () => {
+    const refusedConsumer = baseContext({
+      admission: { registryActivated: false, agentRootId: null, agentRootDid: null, auditGaps: [] } as any,
+      structurallyAssigned: false,
+      standingPersonaId: null,
+      standing: null,
+    });
+    const projection = deriveRuntimeReadinessProjection(refusedConsumer, MONEYPENNY_RUNTIME, null);
+    expect(projection.systemReady).toBe('ready');
+    expect(projection.eligibility).toBe('not-ready');
+    expect(projection.standing).toBe('unresolved');
+    expect(projection.authority).toBe('unresolved');
+  });
+
+  it('reports ready for both Constitutional and Confidential Runtime regardless of confidentialExecution state — Vela pending is isolated to its own field', () => {
+    const constitutional = deriveRuntimeReadinessProjection(baseContext(), MONEYPENNY_RUNTIME_CONSTITUTIONAL, authority());
+    const confidential = deriveRuntimeReadinessProjection(baseContext(), MONEYPENNY_RUNTIME, authority());
+    expect(constitutional.systemReady).toBe('ready');
+    expect(confidential.systemReady).toBe('ready');
+    expect(confidential.confidentialExecution).toBe('pending');
   });
 });

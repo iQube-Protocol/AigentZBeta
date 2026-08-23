@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-23-CREDIT-THE-PROVIDER-NOT-THE-REQUESTER-001",
+  "statement": "In any governed service-invocation lifecycle where one agent (the requester) causes a second, distinct agent (the provider) to perform work, a completed-work Standing/contribution credit MUST be resolved and accrued against the PROVIDER's own canonical identity — never against the requester's, and never against a fixed orchestrator identity that merely coordinated the call. The requester and any orchestrator MAY be recorded as interaction/context evidence alongside the credit, but MUST NOT be substituted for, or conflated with, the credited subject. A caller that already has 'whichever identity is in scope' available (e.g. the requester's own resolved eligibility context) must not default to crediting it merely because it is convenient — the credited identity must be independently resolved from the definition of who performed the work.",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "research-registry",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "classification": "A convenience-over-correctness attribution defect: the accrual call site had a resolved agent context readily in scope (the requester's) and used it, rather than resolving the actually-correct subject (the provider) through the same canonical identity-resolution chain already used elsewhere in the codebase for any other agent's Standing. The generic shape is any credit/reward/reputation accrual inside a multi-party interaction — the party 'in scope' at the call site is not automatically the party that earned the credit.",
+  "scope": "local",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/financial-services-runtime.test.ts",
+      "assertion": "provider-vs-requester attribution (P0-A, 2026-08-23): MoneyPenny is credited once per DELIVERED request regardless of which distinct consumer requested it — Nakamoto and Know1 never receive provider Standing merely for consuming the service; every accrueStanding call names the provider as subjectAgentRef and the actual requester as requestingAgentRef only.",
+      "verifiedFailingBeforeFix": true
+    },
+    {
+      "path": "tests/reconcile-provider-standing-attribution-route.test.ts",
+      "assertion": "the reconciliation route reverses the exact inverse magnitude on the REQUESTER's own persona and credits the PROVIDER's own persona once, genuinely, never crediting the requester and never re-crediting an already-corrected receipt.",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "services/financialServices/serviceRequestOrchestrator.ts",
+      "defect": "accrueStandingBestEffort(context.standingPersonaId, request.requestingAgentId) credited the REQUESTER's own resolved CRM Standing persona on every successful Financial Services delivery — the provider that performed the work never received any Standing credit.",
+      "resolutionId": "RES-2026-08-23-FSVC-PROVIDER-STANDING-ATTRIBUTION-001",
+      "evidence": [
+        "services/financialServices/serviceRequestOrchestrator.ts",
+        "services/crm/standingAccrualService.ts",
+        "app/api/ops/journey/reconcile-provider-standing-attribution/route.ts"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-08-23-FSVC-PROVIDER-STANDING-ATTRIBUTION-001"
+  ],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "Sibling to the earlier same-day receipt-attribution-labeling fix (RES-2026-08-23, `standing_attribution` correction kind) — that fix closed a discoverability gap for a receipt that already named the correct CRM persona but the wrong `agentsInvoked` label; this invariant governs the deeper question of which CRM persona is credited in the first place. Fixing the label without re-checking the credit target left the underlying defect this invariant names.",
+    "The reusable diagnostic question for a future reviewer: 'whose resolved context happened to be in scope at this call site, and is that actually who performed the credited work?' If the answer differs, the credited subject must be independently resolved, never inherited from whichever context object was already at hand."
+  ]
+}

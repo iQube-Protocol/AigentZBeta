@@ -141,12 +141,16 @@ const CONSUMER = 'aigent-nakamoto';
 const PROVIDER = 'aigent-moneypenny';
 const CONSUMER_ROOT_DID = 'did:agent:root:aigent-nakamoto';
 const KNOW1_ROOT_DID = 'did:agent:root:aigent-kn0w1';
+const PROVIDER_ROOT_DID = 'did:agent:root:aigent-moneypenny';
 // `agent_root_identity.id` (the row id `persona_agent_assignments.agent_root_id`
 // keys against) — DISTINCT from the DID above, which `delegation_grants`
 // keys against. Eligibility (Repair, second pass) matches on this; the
 // Authority Plane matches on the DID.
 const CONSUMER_ROOT_ID = 'root-id-aigent-nakamoto';
 const KNOW1_ROOT_ID = 'root-id-aigent-kn0w1';
+const PROVIDER_ROOT_ID = 'root-id-aigent-moneypenny';
+/** MoneyPenny's own canonical Standing CRM persona id — distinct from any consumer's, so a test asserting `crmPersonaId: PROVIDER_CRM_PERSONA_ID` genuinely proves provider-not-requester attribution rather than passing by coincidence. */
+const PROVIDER_CRM_PERSONA_ID = 'crm-moneypenny';
 const ACTOR_PERSONA_ID = 'persona-nakamoto-oversight';
 const ACTOR_AUTH_PROFILE_ID = 'auth-profile-nakamoto-oversight';
 
@@ -211,18 +215,30 @@ function request(serviceId: string, overrides: Partial<FinancialServiceRequest> 
  * clear the grant to prove eligibility no longer depends on it.
  */
 function wireHappyPath(): void {
-  mockResolveAgentAdmissionState.mockResolvedValue({
-    // `delegationActive` is Gate 1's own (unmodified, out-of-scope-for-this-
-    // repair) admission check (services/registry/capabilityInvocationGates.ts)
-    // — it still reads this exact field, independently of the Financial
-    // Services eligibility layer's own `registryActivated`/structural-
-    // assignment composition below. Both must be satisfied for a happy path.
-    delegationActive: true,
-    registryActivated: true,
-    agentRootId: CONSUMER_ROOT_ID,
-    agentRootDid: CONSUMER_ROOT_DID,
-    auditGaps: [],
-  });
+  // Differentiated by agent so a test asserting on the PROVIDER's own
+  // canonical Standing persona (crediting the agent that did the work,
+  // 2026-08-23 "close Standing" directive) can't pass merely by coincidence
+  // with the CONSUMER's identical mock return — see PROVIDER_CRM_PERSONA_ID.
+  mockResolveAgentAdmissionState.mockImplementation((_admin: unknown, agent: { runtimeAgentId: string }) =>
+    Promise.resolve(
+      agent.runtimeAgentId === PROVIDER
+        ? { delegationActive: true, registryActivated: true, agentRootId: PROVIDER_ROOT_ID, agentRootDid: PROVIDER_ROOT_DID, auditGaps: [] }
+        : {
+            // `delegationActive` is Gate 1's own (unmodified, out-of-scope-
+            // for-this-repair) admission check
+            // (services/registry/capabilityInvocationGates.ts) — it still
+            // reads this exact field, independently of the Financial
+            // Services eligibility layer's own `registryActivated`/
+            // structural-assignment composition below. Both must be
+            // satisfied for a happy path.
+            delegationActive: true,
+            registryActivated: true,
+            agentRootId: CONSUMER_ROOT_ID,
+            agentRootDid: CONSUMER_ROOT_DID,
+            auditGaps: [],
+          },
+    ),
+  );
   // STRUCTURAL fact for eligibility — persona_agent_assignments, NOT delegation_grants.
   mockListAssignments.mockResolvedValue([assignmentRow(CONSUMER_ROOT_ID)]);
   // AUTHORITY-PLANE fact only — never consulted by eligibility.ts.
@@ -232,7 +248,9 @@ function wireHappyPath(): void {
     pnlComplete: true,
     financialServicesEligible: true,
   });
-  mockResolveAgentStandingPersonaId.mockResolvedValue('crm-nakamoto');
+  mockResolveAgentStandingPersonaId.mockImplementation((_admin: unknown, agent: { runtimeAgentId: string }, _rootDid: unknown) =>
+    Promise.resolve(agent.runtimeAgentId === PROVIDER ? PROVIDER_CRM_PERSONA_ID : 'crm-nakamoto'),
+  );
   mockComputeStandingScore.mockResolvedValue({ score: 40, qualified: true });
   mockRequireAuthorizedAgreement.mockResolvedValue({ ok: true, agreementId: 'agr-1', status: 'authorized' });
   mockDraftFinancialStructure.mockResolvedValue({
@@ -385,7 +403,60 @@ describe('requestFinancialService() — Advisor/Architect: real provider dispatc
     expect(outcome.authorisationRef).toBeNull();
     expect(outcome.executionRef).toBeNull();
     expect(outcome.providerResultRef).toBeTruthy();
-    expect(mockAccrueStanding).toHaveBeenCalledWith(expect.objectContaining({ crmPersonaId: 'crm-nakamoto', subjectAgentRef: CONSUMER }));
+    // 2026-08-23 "close Standing" directive: the PROVIDER (MoneyPenny) that
+    // did the work is credited, never the CONSUMER (Nakamoto) that merely
+    // requested it. The consumer is preserved only as `requestingAgentRef`
+    // context evidence.
+    expect(mockAccrueStanding).toHaveBeenCalledWith(
+      expect.objectContaining({ crmPersonaId: PROVIDER_CRM_PERSONA_ID, subjectAgentRef: PROVIDER, requestingAgentRef: CONSUMER }),
+    );
+  });
+
+  it('provider-vs-requester attribution (P0-A, 2026-08-23): MoneyPenny is credited once per DELIVERED request regardless of which distinct consumer requested it — Nakamoto and Know1 never receive provider Standing merely for consuming the service', async () => {
+    mockResolveCapabilityProviders.mockResolvedValue([MONEYPENNY_ADVISOR_PROVIDER]);
+
+    await requestFinancialService({
+      request: request(MONEYPENNY_ADVISOR.serviceId, { requestingAgentId: CONSUMER, requestRef: 'req-nakamoto-advisor' }),
+      publicForecast: forecast(),
+      confidentialEvidence: null,
+      actorPersonaId: ACTOR_PERSONA_ID,
+      callerAuthProfileId: ACTOR_AUTH_PROFILE_ID,
+      now: '2026-08-22T00:00:00.000Z',
+      admin: fakeSupabase as any,
+    });
+
+    mockResolveAgentAdmissionState.mockImplementation((_admin: unknown, agent: { runtimeAgentId: string }) =>
+      Promise.resolve(
+        agent.runtimeAgentId === PROVIDER
+          ? { delegationActive: true, registryActivated: true, agentRootId: PROVIDER_ROOT_ID, agentRootDid: PROVIDER_ROOT_DID, auditGaps: [] }
+          : { delegationActive: true, registryActivated: true, agentRootId: KNOW1_ROOT_ID, agentRootDid: KNOW1_ROOT_DID, auditGaps: [] },
+      ),
+    );
+    mockListAssignments.mockResolvedValue([assignmentRow(KNOW1_ROOT_ID)]);
+    mockReadActiveGrant.mockResolvedValue({ grant_id: 'grant-know1', agent_root_did: KNOW1_ROOT_DID, persona_id: ACTOR_PERSONA_ID });
+
+    await requestFinancialService({
+      request: request(MONEYPENNY_ADVISOR.serviceId, { requestingAgentId: 'aigent-kn0w1', requestRef: 'req-know1-advisor' }),
+      publicForecast: forecast(),
+      confidentialEvidence: null,
+      actorPersonaId: ACTOR_PERSONA_ID,
+      callerAuthProfileId: ACTOR_AUTH_PROFILE_ID,
+      now: '2026-08-22T00:00:00.000Z',
+      admin: fakeSupabase as any,
+    });
+
+    expect(mockAccrueStanding).toHaveBeenCalledTimes(2);
+    for (const call of mockAccrueStanding.mock.calls) {
+      // Every call credits MoneyPenny's OWN persona/subject — never the
+      // requester's, regardless of which agent requested it.
+      expect(call[0]).toEqual(
+        expect.objectContaining({ crmPersonaId: PROVIDER_CRM_PERSONA_ID, subjectAgentRef: PROVIDER }),
+      );
+      expect(call[0].subjectAgentRef).not.toBe(CONSUMER);
+      expect(call[0].subjectAgentRef).not.toBe('aigent-kn0w1');
+    }
+    expect(mockAccrueStanding.mock.calls[0][0].requestingAgentRef).toBe(CONSUMER);
+    expect(mockAccrueStanding.mock.calls[1][0].requestingAgentRef).toBe('aigent-kn0w1');
   });
 
   it('Architect: Nakamoto receives DELIVERED only after draftFinancialStructure() actually persists an artifact — never AUTHORISED, never REFUSED via deriveActionAuthorisation', async () => {
@@ -1166,7 +1237,13 @@ describe('requestFinancialService() — Runtime: the Phase 3 hard dependency', (
     expect(outcome.executionRef).toBeTruthy();
     expect(outcome.observedConsequenceRef).toBeTruthy();
     expect(outcome.validationState).toBe('MATCHED_PROJECTION');
-    expect(mockAccrueStanding).toHaveBeenCalledWith(expect.objectContaining({ crmPersonaId: 'crm-nakamoto', subjectAgentRef: CONSUMER }));
+    // 2026-08-23 "close Standing" directive: the PROVIDER (MoneyPenny) that
+    // did the work is credited, never the CONSUMER (Nakamoto) that merely
+    // requested it. The consumer is preserved only as `requestingAgentRef`
+    // context evidence.
+    expect(mockAccrueStanding).toHaveBeenCalledWith(
+      expect.objectContaining({ crmPersonaId: PROVIDER_CRM_PERSONA_ID, subjectAgentRef: PROVIDER, requestingAgentRef: CONSUMER }),
+    );
   });
 
   it('an attested verdict WITHOUT an authorized agreement stays BOUNDED, not ACTIVE — deriveActionAuthorisation REFUSES for lack of authority', async () => {

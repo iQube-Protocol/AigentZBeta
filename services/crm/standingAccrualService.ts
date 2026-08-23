@@ -102,6 +102,18 @@ export interface AccrueStandingInput {
    * merely because it coordinated the act").
    */
   orchestratorAgentRef?: string | null;
+  /**
+   * The REQUESTING/consuming agent whose interaction produced this credit
+   * (e.g. a Financial Services consumer whose successfully-delivered request
+   * caused the PROVIDER to be credited) — recorded ONLY in `actionInput`,
+   * for interaction/context evidence. 2026-08-23 operator directive: "Preserve
+   * requester identity as interaction/context evidence, not as the recipient
+   * of provider contribution Standing." Like `orchestratorAgentRef`, this is
+   * NEVER placed into `agentsInvoked` and NEVER substituted for
+   * `subjectAgentRef` — the requester coordinated the interaction; it did not
+   * perform the credited work.
+   */
+  requestingAgentRef?: string | null;
 }
 
 function bucketFor(overall: number): number {
@@ -429,7 +441,11 @@ export async function accrueStanding(input: AccrueStandingInput): Promise<Standi
           iqubesUsed: ['VentureQube'],
           contextShared: ['standing_category', 'standing_delta', 'standing_overall'],
           actionInput: input.subjectAgentRef
-            ? { subjectAgentRef: input.subjectAgentRef, orchestratorAgentRef: input.orchestratorAgentRef ?? null }
+            ? {
+                subjectAgentRef: input.subjectAgentRef,
+                orchestratorAgentRef: input.orchestratorAgentRef ?? null,
+                requestingAgentRef: input.requestingAgentRef ?? null,
+              }
             : null,
         });
       } catch {

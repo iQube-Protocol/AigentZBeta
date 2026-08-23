@@ -46,6 +46,8 @@ import { evaluateFinancialServiceEligibility } from './eligibility';
 import { resolveAgentEligibilityContext } from './agentEligibilityContext';
 import { resolveConstitutionalAuthorityForService } from './constitutionalAuthorityAdapter';
 import { resolveRegistrableAgentByRuntimeId } from '@/services/horizen/registrableAgents';
+import { resolveAgentAdmissionState } from '@/services/journey/agentAdmissionState';
+import { resolveAgentStandingPersonaId } from '@/services/standing/agentStandingPersona';
 import { draftFinancialStructure } from '@/services/constitutional/moneyPennyArchitect';
 import { runMoneyPennyChat } from '@/app/api/moneypenny/chat/route';
 import { isProviderUnavailableError, describeInferenceUnavailability } from '@/services/constitutional/modelRouter';
@@ -84,8 +86,16 @@ import type {
 /** Bounded display preview length for a persisted Architect proposal body — the canonical, complete body always lives on the artifact record (`artifactId`); this only bounds what rides alongside the outcome for display. */
 const ARCHITECT_PREVIEW_MAX_CHARS = 600;
 
-/** A fixed, non-tuned contribution weight for a completed service interaction. Standing SCORING is a separate, later decision — this only wires the call site the lifecycle requires. */
-const SERVICE_COMPLETION_CVS = 1;
+/**
+ * A fixed, non-tuned contribution weight for a completed service interaction.
+ * Standing SCORING is a separate, later decision — this only wires the call
+ * site the lifecycle requires. Exported so the one-time reconciliation route
+ * for the pre-P0-A live pilot interactions (`app/api/ops/journey/
+ * reconcile-provider-standing-attribution/route.ts`) reverses the exact same
+ * magnitude it originally credited — never a second, independently-guessed
+ * constant.
+ */
+export const SERVICE_COMPLETION_CVS = 1;
 
 export interface RequestFinancialServiceInput {
   request: FinancialServiceRequest;
@@ -495,8 +505,10 @@ export async function requestFinancialService(
     });
     // Standing accrues only now — after a REAL completed provider result,
     // never merely on the gate's earlier 'allow' (the exact bug this repair
-    // removes).
-    await accrueStandingBestEffort(context.standingPersonaId, request.requestingAgentId);
+    // removes). Credits the PROVIDER that did the work, never the requester
+    // that merely consumed it (2026-08-23 attribution repair — see the
+    // function doc below).
+    await accrueStandingBestEffort(admin, definition.providerAgentId, request.requestingAgentId);
 
     return {
       outcome: {
@@ -578,7 +590,7 @@ export async function requestFinancialService(
     };
   }
 
-  await accrueStandingBestEffort(context.standingPersonaId, request.requestingAgentId);
+  await accrueStandingBestEffort(admin, definition.providerAgentId, request.requestingAgentId);
 
   // ── ObservedConsequence + validation — only when the caller supplied
   //    what actually happened; execution binding and observation are
@@ -634,17 +646,41 @@ export async function requestFinancialService(
  * interaction. A Standing failure must never break the service outcome it
  * describes — same discipline as `commerceReceipts.ts`'s receipt emitters.
  *
- * `subjectAgentRef` (the CONSUMER's own canonical runtime agent id) is the
- * Standing SUBJECT — never the orchestrator. This closes the 2026-08-23
- * attribution defect: every `standing_accrued` receipt previously carried a
- * fixed orchestrator id regardless of which agent actually earned the
- * credit, making genuine accrual invisible to the Horizen Journey's own
- * agent-scoped Standing observer (`resolveStandingEvidence`).
+ * 2026-08-23 operator directive ("Horizen Pilot — close Standing + MoneyPenny
+ * Runtime now"), correcting the 2026-08-23 attribution repair above: crediting
+ * `subjectAgentRef = request.requestingAgentId` fixed the receipt LABEL but
+ * not the underlying defect — it still credited the CRM Standing persona of
+ * whichever agent merely *requested* the service (`context.standingPersonaId`,
+ * resolved for the requester), never the agent that actually performed the
+ * work. Successful provider execution accrues contribution Standing to the
+ * PROVIDER's own canonical Standing persona (`definition.providerAgentId`,
+ * resolved the same way any agent's canonical Standing persona is resolved —
+ * `resolveRegistrableAgentByRuntimeId` -> `resolveAgentAdmissionState` ->
+ * `resolveAgentStandingPersonaId`, idempotently provisioning the provider's
+ * `aigent-canonical-standing` persona if it does not yet exist). The
+ * requester is preserved only as interaction/context evidence
+ * (`requestingAgentRef`, folded into the receipt's `actionInput`, never into
+ * `agentsInvoked`) — it is never the recipient of the provider's contribution
+ * Standing.
  */
 async function accrueStandingBestEffort(
-  standingPersonaId: string | null | undefined,
-  subjectAgentRef: string,
+  admin: SupabaseClient,
+  providerAgentId: string,
+  requestingAgentId: string,
 ): Promise<void> {
-  if (!standingPersonaId) return;
-  await accrueStanding({ crmPersonaId: standingPersonaId, cvs: SERVICE_COMPLETION_CVS, subjectAgentRef }).catch(() => undefined);
+  try {
+    const providerAgent = resolveRegistrableAgentByRuntimeId(providerAgentId);
+    if (!providerAgent) return;
+    const admission = await resolveAgentAdmissionState(admin, providerAgent).catch(() => undefined);
+    const providerStandingPersonaId = await resolveAgentStandingPersonaId(admin, providerAgent, admission?.agentRootDid);
+    if (!providerStandingPersonaId) return;
+    await accrueStanding({
+      crmPersonaId: providerStandingPersonaId,
+      cvs: SERVICE_COMPLETION_CVS,
+      subjectAgentRef: providerAgentId,
+      requestingAgentRef: requestingAgentId,
+    });
+  } catch {
+    // best-effort — see the doc above.
+  }
 }

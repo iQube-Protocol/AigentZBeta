@@ -78,6 +78,16 @@ function isSeedReceipt(actionInput: Record<string, unknown> | null): boolean {
  * (`rebaselineCapabilityStanding`'s `{fromFormulaVersion, ...}`), which this
  * projection must never mistake for Standing evidence. Never inferred from
  * summary text or timing.
+ *
+ * Deliberately NOT extended for the 2026-08-23 "close Standing" provider-
+ * attribution reconciliation (`app/api/ops/journey/
+ * reconcile-provider-standing-attribution/route.ts`): that route credits the
+ * provider via a genuine, ordinary `accrueStanding()` call, which already
+ * writes its own directly-discoverable `standing_accrued` receipt — folding
+ * its accompanying `standing_corrected` AUDIT receipt in here too would
+ * double-count one interaction as two pieces of contribution evidence
+ * (never a double SCORE, but still the "do not duplicate service-completion
+ * Standing" defect shape at the evidence-discoverability layer).
  */
 function isAttributionCorrectionReceipt(actionInput: Record<string, unknown> | null): boolean {
   return actionInput?.correctionKind === 'standing_attribution';

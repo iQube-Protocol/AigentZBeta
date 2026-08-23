@@ -125,6 +125,9 @@ const READINESS_TONE: Record<ReadinessState, string> = {
  * operator asked for.
  */
 function readinessLabel(field: keyof RuntimeReadinessProjection, state: ReadinessState): string {
+  if (field === "systemReady") {
+    return state === "ready" ? "Runtime: system ready" : `Runtime: ${state}`;
+  }
   if (field === "confidentialExecution") {
     if (state === "pending") return "Confidential execution: Vela Live attestation pending";
     if (state === "not-required") return "Confidential execution: not required";
@@ -393,10 +396,13 @@ export function ServiceOrchestrationPanel() {
                     {/* Layered readiness — "the desired pre-Vela UI is not
                         generic UNRESOLVED" (2026-08-23). A derived, read-only
                         projection over facts already shown above; never a
-                        new constitutional state. */}
+                        new constitutional state. `systemReady` renders FIRST
+                        and independently of the consumer-specific fields that
+                        follow it — a consumer refused on standing/authority
+                        never reads as the Runtime itself being down. */}
                     {readiness && (
                       <div className="flex flex-wrap items-center gap-1.5">
-                        {(["eligibility", "standing", "authority", "confidentialExecution"] as const).map((field) => (
+                        {(["systemReady", "eligibility", "standing", "authority", "confidentialExecution"] as const).map((field) => (
                           <span
                             key={field}
                             className={`w-fit rounded border px-1.5 py-0.5 text-[10px] ${READINESS_TONE[readiness[field]]}`}

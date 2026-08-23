@@ -106,8 +106,12 @@ export type ReadinessState = "ready" | "not-ready" | "pending" | "unresolved" | 
 
 /** A DERIVED, read-only readiness projection (2026-08-23) — see
  *  `services/financialServices/runtimeReadinessProjection.ts`'s header for
- *  the full invariant. Never a new frozen constitutional state. */
+ *  the full invariant. Never a new frozen constitutional state.
+ *  `systemReady` (2026-08-23 "close Standing + MoneyPenny Runtime" directive)
+ *  is the Runtime pipeline's OWN operational fact — independent of the
+ *  selected consumer's eligibility/standing/authority below it. */
 export interface RuntimeReadinessProjection {
+  systemReady: ReadinessState;
   eligibility: ReadinessState;
   standing: ReadinessState;
   authority: ReadinessState;

@@ -1,0 +1,260 @@
+/**
+ * POST /api/ops/journey/reconcile-provider-standing-attribution (2026-08-23
+ * "Horizen Pilot — close Standing + MoneyPenny Runtime now" directive, P0-C).
+ *
+ * Reverses a requester-side Standing credit erroneously produced by the
+ * pre-P0-A Financial Services orchestrator defect and credits the PROVIDER
+ * once, genuinely, per explicitly-supplied original receipt id. Generic
+ * fixture (Aigent Provider / Aigent Requester) per this session's convention
+ * — the mechanism names no live agent.
+ */
+
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+process.env.CRON_TRIGGER_TOKEN = 'test-cron-token';
+
+const PROVIDER = 'aigent-provider';
+const REQUESTER = 'aigent-requester';
+const PROVIDER_IDENTITY_PERSONA = 'identity-persona-provider';
+const REQUESTER_IDENTITY_PERSONA = 'identity-persona-requester';
+const PROVIDER_CRM_PERSONA = 'crm-provider';
+const REQUESTER_CRM_PERSONA = 'crm-requester';
+const ORIGINAL_RECEIPT_ID = 'original-receipt-1';
+
+const mockResolveRegistrableAgentByRuntimeId = vi.fn();
+vi.mock('@/services/horizen/registrableAgents', () => ({
+  resolveRegistrableAgentByRuntimeId: (...args: any[]) => mockResolveRegistrableAgentByRuntimeId(...args),
+}));
+
+const mockResolveAgentAdmissionState = vi.fn();
+vi.mock('@/services/journey/agentAdmissionState', () => ({
+  resolveAgentAdmissionState: (...args: any[]) => mockResolveAgentAdmissionState(...args),
+}));
+
+const mockResolveAgentStandingPersonaId = vi.fn();
+const mockResolveCanonicalAgentPersonaId = vi.fn();
+vi.mock('@/services/standing/agentStandingPersona', () => ({
+  resolveAgentStandingPersonaId: (...args: any[]) => mockResolveAgentStandingPersonaId(...args),
+  resolveCanonicalAgentPersonaId: (...args: any[]) => mockResolveCanonicalAgentPersonaId(...args),
+}));
+
+const mockAccrueStanding = vi.fn();
+vi.mock('@/services/crm/standingAccrualService', () => ({
+  accrueStanding: (...args: any[]) => mockAccrueStanding(...args),
+}));
+
+const mockCreateActivityReceipt = vi.fn(async (input: any) => ({ id: `correction-${input.actionInput.originalReceiptId}`, ...input }));
+let existingCorrections: Array<{ actionInput: Record<string, unknown> | null }>;
+let ingestRows: Array<{ createdAt: string }>;
+const mockFindAgentReceiptRefs = vi.fn(async (_agentId: string, actionTypes: string[]) =>
+  actionTypes.includes('capability_registered') ? ingestRows : existingCorrections,
+);
+vi.mock('@/services/receipts/activityReceiptService', () => ({
+  createActivityReceipt: (...args: any[]) => mockCreateActivityReceipt(...args),
+  findAgentReceiptRefs: (...args: any[]) => mockFindAgentReceiptRefs(...args),
+}));
+
+// SERVICE_COMPLETION_CVS is a real constant re-exported from the orchestrator
+// — importing the whole orchestrator module here would drag in its full
+// (separately-tested) dependency graph, so this file asserts against the
+// known literal value (1) instead, matching financial-services-runtime.test.ts's SERVICE_COMPLETION_CVS.
+const SERVICE_COMPLETION_CVS = 1;
+
+let originalRow: Record<string, unknown> | null;
+let receiptRowsById: Record<string, Record<string, unknown> | null> = {};
+vi.mock('@/app/api/_lib/supabaseServer', () => ({
+  getSupabaseServer: () => ({
+    from: (_table: string) => ({
+      select: () => ({
+        eq: (_col: string, id: string) => ({
+          maybeSingle: async () => ({ data: id in receiptRowsById ? receiptRowsById[id] : originalRow, error: null }),
+        }),
+      }),
+    }),
+  }),
+}));
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  mockResolveRegistrableAgentByRuntimeId.mockImplementation((id: string) => ({ runtimeAgentId: id, slug: id, displayName: id }));
+  mockResolveAgentAdmissionState.mockImplementation((_admin: unknown, agent: { runtimeAgentId: string }) =>
+    Promise.resolve({ agentRootDid: `did:agent:root:${agent.runtimeAgentId}` }),
+  );
+  mockResolveCanonicalAgentPersonaId.mockImplementation((_admin: unknown, agent: { runtimeAgentId: string }) =>
+    Promise.resolve(agent.runtimeAgentId === PROVIDER ? PROVIDER_IDENTITY_PERSONA : REQUESTER_IDENTITY_PERSONA),
+  );
+  mockResolveAgentStandingPersonaId.mockImplementation((_admin: unknown, agent: { runtimeAgentId: string }) =>
+    Promise.resolve(agent.runtimeAgentId === PROVIDER ? PROVIDER_CRM_PERSONA : REQUESTER_CRM_PERSONA),
+  );
+  mockAccrueStanding.mockResolvedValue({ personal: 1, delegated: 0, stewardship: 0, overall: 1, bucket: 0, thresholdCrossed: false, sponsorCapacityCredited: false });
+  existingCorrections = [];
+  ingestRows = [{ createdAt: '2026-08-01T00:00:00.000Z' }];
+  receiptRowsById = {};
+  originalRow = {
+    id: ORIGINAL_RECEIPT_ID,
+    action_type: 'standing_accrued',
+    persona_id: REQUESTER_IDENTITY_PERSONA,
+    agents_invoked: [REQUESTER],
+    action_input: null,
+    created_at: '2026-08-10T00:00:00.000Z',
+  };
+});
+
+function request(body: unknown, token = 'test-cron-token') {
+  return new Request('http://local/api/ops/journey/reconcile-provider-standing-attribution', {
+    method: 'POST',
+    headers: { 'x-cron-token': token },
+    body: JSON.stringify(body),
+  }) as any;
+}
+
+function correction(overrides: Partial<{ originalReceiptId: string; requestingAgentId: string; providerAgentId: string; correctingPersonaId: string }> = {}) {
+  return {
+    originalReceiptId: ORIGINAL_RECEIPT_ID,
+    requestingAgentId: REQUESTER,
+    providerAgentId: PROVIDER,
+    correctingPersonaId: 'operator-1',
+    ...overrides,
+  };
+}
+
+describe('POST /api/ops/journey/reconcile-provider-standing-attribution', () => {
+  it('refuses without a valid CRON_TRIGGER_TOKEN', async () => {
+    const { POST } = await import('@/app/api/ops/journey/reconcile-provider-standing-attribution/route');
+    const res = await POST(request({ corrections: [correction()] }, 'wrong-token'));
+    expect(res.status).toBe(401);
+  });
+
+  it('requires a non-empty corrections array', async () => {
+    const { POST } = await import('@/app/api/ops/journey/reconcile-provider-standing-attribution/route');
+    const res = await POST(request({ corrections: [] }));
+    expect(res.status).toBe(400);
+  });
+
+  it('reverses the requester credit and credits the provider once, genuinely, for a verified receipt', async () => {
+    const { POST } = await import('@/app/api/ops/journey/reconcile-provider-standing-attribution/route');
+    const res = await POST(request({ corrections: [correction()] }));
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.ok).toBe(true);
+    expect(json.results).toHaveLength(1);
+    expect(json.results[0].status).toBe('corrected');
+
+    expect(mockAccrueStanding).toHaveBeenCalledTimes(2);
+    // 1. reversal — exact inverse magnitude on the REQUESTER's own persona.
+    expect(mockAccrueStanding).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ crmPersonaId: REQUESTER_CRM_PERSONA, cvs: -SERVICE_COMPLETION_CVS, subjectAgentRef: REQUESTER }),
+    );
+    // 2. genuine credit — the PROVIDER's own persona, positive magnitude.
+    expect(mockAccrueStanding).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ crmPersonaId: PROVIDER_CRM_PERSONA, cvs: SERVICE_COMPLETION_CVS, subjectAgentRef: PROVIDER, requestingAgentRef: REQUESTER }),
+    );
+
+    // Additive audit receipt, never mutating the original.
+    expect(mockCreateActivityReceipt).toHaveBeenCalledTimes(1);
+    const auditCall = mockCreateActivityReceipt.mock.calls[0][0];
+    expect(auditCall.actionType).toBe('standing_corrected');
+    expect(auditCall.agentsInvoked).toEqual([PROVIDER]);
+    expect(auditCall.actionInput).toMatchObject({
+      correctionKind: 'service_completion_reattribution',
+      originalReceiptId: ORIGINAL_RECEIPT_ID,
+      requestingAgentId: REQUESTER,
+      providerAgentId: PROVIDER,
+    });
+  });
+
+  it('idempotent: re-running against an already-corrected receipt writes nothing new and never re-accrues', async () => {
+    existingCorrections = [
+      { actionInput: { correctionKind: 'service_completion_reattribution', originalReceiptId: ORIGINAL_RECEIPT_ID } },
+    ];
+    const { POST } = await import('@/app/api/ops/journey/reconcile-provider-standing-attribution/route');
+    const res = await POST(request({ corrections: [correction()] }));
+    const json = await res.json();
+
+    expect(json.results[0].status).toBe('skipped_already_corrected');
+    expect(mockAccrueStanding).not.toHaveBeenCalled();
+    expect(mockCreateActivityReceipt).not.toHaveBeenCalled();
+  });
+
+  it('No-Guessing: refuses when the named receipt does not genuinely credit the named requester\'s own identity persona', async () => {
+    originalRow = { ...originalRow, persona_id: 'someone-elses-persona' };
+    const { POST } = await import('@/app/api/ops/journey/reconcile-provider-standing-attribution/route');
+    const res = await POST(request({ corrections: [correction()] }));
+    const json = await res.json();
+
+    expect(json.results[0].status).toBe('refused');
+    expect(json.results[0].refusalCode).toBe('RECEIPT_NOT_REQUESTER_CREDITED');
+    expect(mockAccrueStanding).not.toHaveBeenCalled();
+  });
+
+  it('refuses a receipt that is not a standing_accrued receipt at all', async () => {
+    originalRow = { ...originalRow, action_type: 'capability_registered' };
+    const { POST } = await import('@/app/api/ops/journey/reconcile-provider-standing-attribution/route');
+    const res = await POST(request({ corrections: [correction()] }));
+    const json = await res.json();
+
+    expect(json.results[0].status).toBe('refused');
+    expect(json.results[0].refusalCode).toBe('NOT_A_STANDING_ACCRUAL');
+  });
+
+  it('refuses when the original receipt does not exist', async () => {
+    originalRow = null;
+    const { POST } = await import('@/app/api/ops/journey/reconcile-provider-standing-attribution/route');
+    const res = await POST(request({ corrections: [correction()] }));
+    const json = await res.json();
+
+    expect(json.results[0].status).toBe('refused');
+    expect(json.results[0].refusalCode).toBe('ORIGINAL_RECEIPT_NOT_FOUND');
+  });
+
+  it('SEQUENCING_INVALID: refuses when the provider has no genuine capability_registered receipt preceding the interaction', async () => {
+    ingestRows = [];
+    const { POST } = await import('@/app/api/ops/journey/reconcile-provider-standing-attribution/route');
+    const res = await POST(request({ corrections: [correction()] }));
+    const json = await res.json();
+
+    expect(json.results[0].status).toBe('refused');
+    expect(json.results[0].refusalCode).toBe('SEQUENCING_INVALID');
+    expect(mockAccrueStanding).not.toHaveBeenCalled();
+  });
+
+  it('SEQUENCING_INVALID: refuses when the interaction predates the provider\'s earliest genuine capability_registered receipt', async () => {
+    ingestRows = [{ createdAt: '2026-09-01T00:00:00.000Z' }]; // AFTER the interaction
+    const { POST } = await import('@/app/api/ops/journey/reconcile-provider-standing-attribution/route');
+    const res = await POST(request({ corrections: [correction()] }));
+    const json = await res.json();
+
+    expect(json.results[0].status).toBe('refused');
+    expect(json.results[0].refusalCode).toBe('SEQUENCING_INVALID');
+  });
+
+  it('never resurrects a superseded nominal seed — only ever calls accrueStanding with a fresh contribution subjectAgentRef, never the seed writer', async () => {
+    const { readFileSync } = await import('fs');
+    const { join } = await import('path');
+    const source = readFileSync(
+      join(process.cwd(), 'app/api/ops/journey/reconcile-provider-standing-attribution/route.ts'),
+      'utf8',
+    );
+    expect(source).not.toMatch(/import[^;]*registrationStandingSeedAward/);
+    expect(source).not.toMatch(/action_input:\s*{[^}]*'iqube_registry_registration'/);
+  });
+
+  it('processes multiple corrections independently, one refusal does not block another correction', async () => {
+    const secondReceiptId = 'original-receipt-2';
+    receiptRowsById = { [secondReceiptId]: null }; // second one not found
+    const { POST } = await import('@/app/api/ops/journey/reconcile-provider-standing-attribution/route');
+    const res = await POST(
+      request({
+        corrections: [correction(), correction({ originalReceiptId: secondReceiptId })],
+      }),
+    );
+    const json = await res.json();
+    expect(json.results).toHaveLength(2);
+    expect(json.results[0].status).toBe('corrected');
+    expect(json.results[1].status).toBe('refused');
+    expect(json.results[1].refusalCode).toBe('ORIGINAL_RECEIPT_NOT_FOUND');
+  });
+});

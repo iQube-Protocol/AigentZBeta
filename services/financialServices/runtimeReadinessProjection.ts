@@ -26,6 +26,23 @@ import type { FinancialServiceDefinition } from '@/types/financialServices';
 export type ReadinessState = 'ready' | 'not-ready' | 'pending' | 'unresolved' | 'not-required';
 
 export interface RuntimeReadinessProjection {
+  /**
+   * Whether the Runtime PIPELINE ITSELF is operational — independent of the
+   * selected consumer's own eligibility/standing/authority (2026-08-23
+   * "close Standing + MoneyPenny Runtime" directive: "Separate system
+   * readiness from selected-agent qualification in Service Orchestration").
+   * A consumer refused for `standing`/`authority`/`eligibility` is a policy
+   * outcome for THAT consumer, never evidence the Runtime is down — this
+   * field is what lets a caller show "Runtime: READY" and "this consumer:
+   * not qualified" as two independent facts instead of collapsing a policy
+   * refusal into an apparent system failure. Always `ready` today for both
+   * MoneyPenny Runtime services: this projection is only ever composed
+   * AFTER discovery has already resolved the service definition and agent
+   * context, and neither Runtime service has an infrastructure dependency
+   * beyond Vela attestation — which stays isolated in `confidentialExecution`
+   * and never conflated into this field.
+   */
+  systemReady: ReadinessState;
   eligibility: ReadinessState;
   standing: ReadinessState;
   authority: ReadinessState;
@@ -83,5 +100,12 @@ export function deriveRuntimeReadinessProjection(
   const confidentialExecution: ReadinessState =
     definition.attestationRequirement === 'REQUIRED' ? 'pending' : 'not-required';
 
-  return { eligibility, standing, authority: authorityState, confidentialExecution };
+  // This projection is only ever composed once discovery has already
+  // resolved a real service definition and agent context for a Runtime-class
+  // service — reaching this line IS the evidence the pipeline is
+  // operational. See the field's own doc comment for why this never folds
+  // in the consumer-specific facts below it.
+  const systemReady: ReadinessState = 'ready';
+
+  return { systemReady, eligibility, standing, authority: authorityState, confidentialExecution };
 }
