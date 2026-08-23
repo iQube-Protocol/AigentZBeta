@@ -1,0 +1,65 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-08-23",
+  "resolutionId": "RES-2026-08-23-FSVC-CROSS-AGENT-STATE-AND-RUNTIME-TIER-SPLIT-001",
+  "capability": "financial-services-runtime",
+  "milestone": "Phase 3 Track A/B follow-on — operator directive (live browser testing): fix a cross-agent client-state bleed in ServiceOrchestrationPanel, repair the Standing-persona binding blocking Runtime eligibility/authority, and restore discoverable access to the existing non-TEE PRD-MPY-001 Runtime pipeline alongside the Vela-gated confidential Runtime, without weakening Gate 2's frozen authoritative-mode exception.",
+  "problem": "Three independent, operator-identified defects blocking Phase 3 Runtime readiness after RES-2026-08-23-FSVC-ORCHESTRATION-BOUNDARY-REPAIR-001 landed: (1) ServiceOrchestrationPanel's Advisor/Architect intent/outcome/loading/error state was keyed on `serviceId` alone, so switching the selected consumer agent (Nakamoto <-> Kn0w1) exposed one agent's in-flight request state and results to the other; (2) `resolveAgentStandingPersonaId` queried `crm_personas.identity_persona_id` using the text runtime agent id directly, when that column is UUID-backed, so it could never resolve a real Standing persona for any agent, silently starving the already-correct Runtime-eligibility (score >= 25) and BOUNDED/ACTIVE authority derivation of their one missing input; (3) the catalog only exposed the Vela-gated Confidential Runtime service, so the existing, already-live, non-TEE PRD-MPY-001 Runtime (`/api/moneypenny/runtime`) had no discovery/eligibility surface at all, making Vela look like a prerequisite for every MoneyPenny Runtime capability rather than an assurance enhancement for one specific service.",
+  "observedFailure": [
+    "Live browser testing: selecting Kn0w1 in ServiceOrchestrationPanel after issuing a Nakamoto Advisor/Architect request showed Nakamoto's own intent text and/or result under the Kn0w1 selection — a genuine cross-principal confidentiality leak in a constitutional consumer-facing surface, not a cosmetic UI bug.",
+      "resolveAgentStandingPersonaId's live query filtered `crm_personas` on `identity_persona_id = '<agentRuntimeId>'` (a string like 'aigent-nakamoto'), which can never match a UUID column — every agent's Standing persona resolved to null/undefined regardless of whatever real Standing score existed, blocking Runtime eligibility and Authority derivation that were themselves already correctly implemented.",
+      "The Financial Services catalog declared exactly one Runtime-class service (`moneypenny.runtime`, Vela-gated, attestationRequirement: REQUIRED), so any consumer without a live NITRO_ATTESTED Vela deployment saw Runtime as entirely unreachable pre-Vela, even though the existing constitutionalAgreement.ts-gated `/api/moneypenny/runtime` pipeline has been live and callable independent of Vela the whole time."
+  ],
+  "rootCauses": [
+    "The panel's per-request UI state was designed around a single implicit consumer ('whichever agent is currently selected') rather than the actual multi-agent reality of the surface — a state-shape defect, not a missing clear-on-switch step (which the operator explicitly ruled out, since clearing would destroy the OTHER agent's own concurrent state instead of isolating it).",
+    "The Standing-persona lookup was authored against an assumed schema (a text-keyed identity column) rather than the actual canonical identity chain (`agent_root_identity.did_uri -> personas.root_did -> personas.id -> crm_personas.identity_persona_id -> crm_personas.id`), and no canonical persona had ever been provisioned for any registrable agent under a namespace guaranteed not to collide with per-sponsor wallet personas or ambiguous legacy CRM rows.",
+    "The catalog and Gate 2 conflated 'Runtime capability' with 'the one Vela-gated capability id Gate 2's authoritative-mode exception names' — there was structurally no way to represent a second, non-Vela-gated Runtime service without either aliasing it onto the frozen capability id (forbidden) or leaving it undiscoverable."
+  ],
+  "resolution": [
+    "Extracted a pure, framework-independent reducer (`app/(shell)/moneypenny/components/serviceOrchestrationPanelState.ts`) that keys every mutable per-request field (intent, outcome, provider output, requesting flag, service-level error) on the exact composite `(agentId, serviceId)` pair, never `serviceId` alone. `REQUEST_START` captures `requestAgentId` before the async call begins; `REQUEST_SUCCESS`/`REQUEST_ERROR` write only to that captured key, so a response resolving after the operator has switched agents can never land under the newly selected agent. Discovery/admission-diagnostic state is guarded separately by a monotonically increasing `discoveryGeneration` so a stale discovery response for a previously selected agent can never overwrite the current selection's view. `SELECT_AGENT` resets ONLY the discovery view, never the composite-keyed maps, so switching back restores the prior agent's own state exactly as it was.",
+    "Rewrote `resolveAgentStandingPersonaId` (services/standing/agentStandingPersona.ts) to walk the canonical chain end to end and, when no canonical Standing persona yet exists for an agent, provision a NEW dedicated `personas` row under a distinct `app_origin` marker (`aigent-canonical-standing`) rather than adopting any existing ambiguous row by fuzzy name match or fabricating a UUID. The auto-mirror trigger (`sync_persona_to_crm_persona`) then creates the matching `crm_personas` row automatically, so no manual CRM write is needed. Call site (`agentEligibilityContext.ts`) updated to the new 3-arg signature (admin, agent, agentRootDid).",
+    "Added `MONEYPENNY_RUNTIME_CONSTITUTIONAL` (services/financialServices/serviceCatalog.ts) as a second, distinct Runtime-class service definition alongside the existing `MONEYPENNY_RUNTIME`: `capabilityId: 'bounded_financial_execution'` (the real, already-live Agent Bench descriptor), `serviceClass: 'PROPOSAL'` (maps to Gate 2's unconditionally-passed `shadow` mode, mirroring the existing Advisor/Architect pattern), `attestationRequirement: 'NOT_REQUIRED'`, `executionPolicy.executionReachable: false`. Dispatch for this service (serviceRequestOrchestrator.ts's new RUNTIME branch) routes through the EXISTING, unmodified `constitutionalAgreement.ts` 409 gate + `runConstitutionalServicePattern` pipeline — never VELA's `composeUnifiedConsequenceProjection`/`deriveActionAuthorisation`/`bindExecution` primitives. Gate 2 and the frozen `CONFIDENTIAL_CONSEQUENCE_PROJECTION` authoritative-mode exception are untouched.",
+    "Added `runtimeReadinessProjection.ts`: a derived, read-only `RuntimeReadinessProjection` (eligibility/standing/authority/confidentialExecution, each independently `ready`/`not-ready`/`pending`/`unresolved`/`not-required`) computed purely from already-resolved context/authority facts, replacing a generic pre-Vela `UNRESOLVED` on the Confidential Runtime service with the layered readiness view the operator asked for. Explicitly not a new frozen constitutional state — a caller that ignores it and reads `eligibility.eligible`/`authority.state` directly gets the identical underlying facts.",
+    "Registered MoneyPenny's `CONFIDENTIAL_CONSEQUENCE_PROJECTION` capability descriptor in the Agent Bench registry seed (new additive migration, 20260930010200) so `resolveCapabilityProviders` can resolve a real provider for the one capability id Gate 2's frozen exception actually names, without aliasing `bounded_financial_execution` to it or touching Gate 2."
+  ],
+  "rejectedApproaches": [
+    "Clearing intent/outcome/loading state on SELECT_AGENT — rejected per explicit operator instruction ('Do not merely clear state on agent switch'): clearing would destroy the OTHER agent's own concurrent state rather than isolating it, and would not protect against a request that completes AFTER the switch.",
+    "Fuzzy-matching an agent's Standing persona by display name or wallet-persona heuristics against existing `crm_personas` rows — rejected: the operator's own live-DB check found the existing rows ambiguous (per-sponsor wallet personas, legacy CRM rows with no reliable discriminator), and CLAUDE.md's No-Guessing rule forbids treating a plausible match as a resolved identity.",
+    "Classifying `MONEYPENNY_RUNTIME_CONSTITUTIONAL` with the default `MONEYPENNY_PROVIDER_MODE_CONSEQUENCE_CLASS.RUNTIME` ('CONSEQUENTIAL') serviceClass — rejected: that maps to Gate 2's `authoritative` execution mode, which Gate 2 refuses by default except for the one frozen capability id, and widening that exception (or aliasing `bounded_financial_execution` onto it) is the exact mechanism the operator explicitly forbade.",
+    "Fabricating a 'ready' confidentialExecution readiness state pre-Vela to make the UI look complete — rejected: `runtimeReadinessProjection.ts` reports `pending` for any service with `attestationRequirement: 'REQUIRED'` until Stage 3.3 delivers a real NITRO_ATTESTED deployment, honestly, per the operator's own 'do not invent a new frozen constitutional state' and 'until Vela Live Early Access provides attested confidential evidence, execution must remain fail-closed' instructions."
+  ],
+  "candidateInvariants": [
+    "CI-2026-08-23-COMPOSITE-KEY-CONSUMER-STATE-ISOLATION-001",
+    "CI-2026-08-23-CANONICAL-IDENTITY-CHAIN-OVER-FUZZY-MATCH-001",
+    "CI-2026-08-23-DERIVED-READINESS-PROJECTION-NEVER-FROZEN-STATE-001"
+  ],
+  "canaries": [
+    "tests/service-orchestration-panel-state.test.ts",
+    "tests/moneypenny-service-orchestration-route.test.ts",
+    "tests/agent-standing-persona.test.ts",
+    "tests/financial-services-runtime.test.ts",
+    "tests/runtime-readiness-projection.test.ts",
+    "tests/moneypenny-runtime-authority-boundary.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "reusable-pattern-established",
+  "evidence": {
+    "commits": [
+      "c407db1b9"
+    ],
+    "tests": [
+      "tests/service-orchestration-panel-state.test.ts",
+      "tests/moneypenny-service-orchestration-route.test.ts",
+      "tests/agent-standing-persona.test.ts",
+      "tests/financial-services-runtime.test.ts",
+      "tests/runtime-readiness-projection.test.ts",
+      "tests/moneypenny-runtime-authority-boundary.test.ts"
+    ]
+  },
+  "unresolvedRisks": [
+    "The Constitutional-Runtime dispatch classification (serviceClass: 'PROPOSAL', chosen to avoid touching Gate 2 or the frozen authoritative-mode exception) was a judgment call made without an explicit operator confirmation on that exact mechanism — an earlier clarifying question received an apparently mismatched answer (a verbatim repeat of an unrelated earlier answer). The operator should confirm or correct this classification.",
+    "The new registry-asset migration (20260930010200) has not been applied to the live database from this session — no live Supabase credentials are available in this environment. The operator must run it (or the existing apply-migration path) before resolveCapabilityProviders can resolve a live provider for CONFIDENTIAL_CONSEQUENCE_PROJECTION.",
+    "tests/repo-weight.test.ts is failing independently of this work (103,028,174 bytes vs a 103,000,000-byte budget) — confirmed via `git ls-files` that the oversized tracked files are pre-existing and unrelated (images, package-lock.json, ComposerStudio.tsx), not introduced by this resolution."
+  ]
+}

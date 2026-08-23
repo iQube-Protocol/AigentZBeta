@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-23-CANONICAL-IDENTITY-CHAIN-OVER-FUZZY-MATCH-001",
+  "statement": "A resolver that must bind a runtime/agent identifier to a row in a DIFFERENT identity-bearing table (e.g. a CRM persona, a wallet persona, a registry asset) MUST walk a named, documented canonical chain of foreign-key/unique-constraint hops end to end. When no row exists at the end of that chain, the resolver MUST provision a NEW row under a distinct, collision-proof namespace marker (e.g. a dedicated app_origin/source tag) rather than adopting an existing row selected by fuzzy match (name similarity, partial identifier match, heuristic 'closest' row) or fabricating an identifier that was never actually issued. A resolver that cannot complete the chain returns `undefined`/`null` (three-valued: unresolved vs. genuinely absent), never a guessed value.",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": "inv.engineering.036",
+  "projections": {
+    "targets": [
+      "research-registry",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "classification": "A No-Guessing violation at the identity-resolution layer: querying a UUID-backed column with a text runtime id (or, more generally, matching an identity row by plausibility rather than by a real foreign-key chain) silently fails closed (resolves nothing) or, worse, could silently bind to the wrong principal if a fuzzy match were used instead. The generic shape is any cross-table identity lookup authored against an assumed schema rather than the actual documented chain of keys.",
+  "scope": "local",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/agent-standing-persona.test.ts",
+      "assertion": "resolveAgentStandingPersonaId walks agent_root_identity.did_uri -> personas.root_did -> personas.id -> crm_personas.identity_persona_id -> crm_personas.id; when no canonical persona exists it provisions one under app_origin = 'aigent-canonical-standing' rather than matching an existing ambiguous row; a failed read at any hop returns undefined, never a fabricated id.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "services/standing/agentStandingPersona.ts",
+      "defect": "resolveAgentStandingPersonaId queried crm_personas.identity_persona_id (UUID-backed) using the text runtime agent id (e.g. 'aigent-nakamoto') directly — a query shape that can never match, so every agent's Standing persona resolved to nothing regardless of whether a real Standing score existed, silently blocking Runtime eligibility (score >= 25) and Authority BOUNDED/ACTIVE derivation.",
+      "resolutionId": "RES-2026-08-23-FSVC-CROSS-AGENT-STATE-AND-RUNTIME-TIER-SPLIT-001",
+      "evidence": [
+        "services/standing/agentStandingPersona.ts",
+        "tests/agent-standing-persona.test.ts",
+        "supabase/migrations/20260512030000_crm_personas_auto_mirror.sql"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-08-23-FSVC-CROSS-AGENT-STATE-AND-RUNTIME-TIER-SPLIT-001"
+  ],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "A specialization of inv.engineering.036/037 (one authoritative location per concern) applied to IDENTITY RESOLUTION specifically: the canonical chain is the one authoritative path from a runtime agent id to its CRM Standing persona, and any resolver that re-derives its own shortcut (assumed column semantics, name-similarity match) risks drifting from — or silently binding the wrong identity to — that path.",
+    "The provisioning half of this invariant (create-under-a-distinct-namespace-marker rather than adopt-an-ambiguous-row) generalizes beyond Standing personas to any 'first touch creates the canonical record' resolver pattern in this codebase — e.g. AigentQube registry-asset provisioning already follows the same shape (ON CONFLICT DO UPDATE against a fixed, namespaced asset_id, never a fuzzy match against existing rows)."
+  ]
+}
