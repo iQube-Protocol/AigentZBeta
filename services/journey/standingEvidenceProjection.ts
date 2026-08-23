@@ -71,11 +71,35 @@ function isSeedReceipt(actionInput: Record<string, unknown> | null): boolean {
   return actionInput?.basis === REGISTRATION_SEED_BASIS && actionInput?.tier === 'initial';
 }
 
+/**
+ * A `standing_corrected` receipt is an ATTRIBUTION correction IFF its own
+ * `actionInput.correctionKind` says so — the same type also carries the
+ * unrelated Capability Standing formula re-baseline shape
+ * (`rebaselineCapabilityStanding`'s `{fromFormulaVersion, ...}`), which this
+ * projection must never mistake for Standing evidence. Never inferred from
+ * summary text or timing.
+ */
+function isAttributionCorrectionReceipt(actionInput: Record<string, unknown> | null): boolean {
+  return actionInput?.correctionKind === 'standing_attribution';
+}
+
 export async function resolveStandingEvidence(runtimeAgentId: string): Promise<StandingEvidenceProjection> {
-  const [standingRows, ingestRows, discrepancyRows] = await Promise.all([
+  const [standingRows, ingestRows, discrepancyRows, correctionRows] = await Promise.all([
     findAgentReceiptRefs(runtimeAgentId, ['standing_accrued'], { limit: 50 }),
     findAgentReceiptRefs(runtimeAgentId, ['capability_registered'], { limit: 50 }),
     findAgentReceiptRefs(runtimeAgentId, ['reconciliation_discrepancy_recorded'], { limit: 50 }),
+    // 2026-08-23 operator directive — attribution reconciliation for
+    // already-misattributed live receipts (`agentsInvoked: ['aigent-z']`
+    // regardless of which agent was actually credited). A
+    // `standing_corrected` receipt tagged `agentsInvoked: [runtimeAgentId]`
+    // and `actionInput.correctionKind === 'standing_attribution'` is genuine
+    // evidence THIS agent's Standing was credited — see
+    // `app/api/ops/journey/correct-standing-attribution/route.ts`, which
+    // NEVER mutates the original misattributed receipt and NEVER re-accrues
+    // Standing (the numeric score already lives correctly in
+    // crm_persona_reputation; only the evidence's discoverability was
+    // broken).
+    findAgentReceiptRefs(runtimeAgentId, ['standing_corrected'], { limit: 50 }),
   ]);
 
   const superseded = new Set<string>();
@@ -110,6 +134,19 @@ export async function resolveStandingEvidence(runtimeAgentId: string): Promise<S
 
     if (seed) effectiveInitialReceipts.push(row);
     else effectiveContributionReceipts.push(row);
+  }
+
+  // Attribution-correction receipts (see the query above) — genuine evidence
+  // for THIS agent, additive to (never a substitute for) any correctly-
+  // attributed standing_accrued receipt already counted above. A correction
+  // is excluded if the ORIGINAL misattributed receipt it names was ITSELF
+  // later superseded via reconciliation_discrepancy_recorded — a correction
+  // cannot outlive the discrepancy correction of the fact it corrects.
+  for (const row of correctionRows) {
+    if (!isAttributionCorrectionReceipt(row.actionInput)) continue; // the unrelated Capability-Standing re-baseline shape
+    const originalReceiptId = row.actionInput?.originalReceiptId;
+    if (typeof originalReceiptId === 'string' && superseded.has(originalReceiptId)) continue;
+    effectiveContributionReceipts.push(row);
   }
 
   return {

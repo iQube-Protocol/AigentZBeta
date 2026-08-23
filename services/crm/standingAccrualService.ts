@@ -71,6 +71,37 @@ export interface AccrueStandingInput {
   standingType?: 'personal' | 'delegated' | 'stewardship' | null;
   /** Source event id (reputation event id) for audit linkage. */
   sourceEventId?: string | null;
+  /**
+   * The canonical runtime agent id (`services/horizen/registrableAgents.ts`,
+   * e.g. 'aigent-nakamoto') that is the SUBJECT of this Standing credit —
+   * the exact id the Horizen Journey's Standing observer
+   * (`services/journey/standingEvidenceProjection.ts::resolveStandingEvidence`)
+   * must be able to find this receipt under via its
+   * `agents_invoked` containment lookup. 2026-08-23 operator directive: a
+   * `standing_accrued` receipt previously always carried
+   * `agentsInvoked: ['aigent-z']` regardless of which agent's Standing was
+   * actually credited, making genuine per-agent accrual invisible to its own
+   * observer. NEVER derive this from a display name or infer it — callers
+   * that credit a specific registrable agent's Standing (e.g. Financial
+   * Services passing `request.requestingAgentId`) MUST supply the same
+   * canonical id that agent is registered under everywhere else. Omitted
+   * (the default) preserves the prior `agentsInvoked: ['aigent-z']` behavior
+   * unchanged for human/citizen-driven accrual paths that credit no specific
+   * runtime agent (task completion, venture outcomes, campaign rules,
+   * delegate standing) — this field is additive, not a behavior change for
+   * every existing caller.
+   */
+  subjectAgentRef?: string | null;
+  /**
+   * The agent that coordinated/orchestrated this accrual, if any (e.g.
+   * 'aigent-z'). Recorded ONLY in the receipt's `actionInput` for audit —
+   * NEVER placed into `agentsInvoked` and NEVER substituted for
+   * `subjectAgentRef`, so an orchestrator can never be mistaken for the
+   * Standing subject by `resolveStandingEvidence`'s containment lookup
+   * (operator: "Aigent Z orchestration does not become the Standing subject
+   * merely because it coordinated the act").
+   */
+  orchestratorAgentRef?: string | null;
 }
 
 function bucketFor(overall: number): number {
@@ -384,14 +415,22 @@ export async function accrueStanding(input: AccrueStandingInput): Promise<Standi
           .maybeSingle();
         const identityPersonaId = crmRow?.identity_persona_id;
         if (!identityPersonaId) return;
+        // The Standing SUBJECT is whichever agent's credit this is — never
+        // substituted with the orchestrator. `agentsInvoked` carries ONLY the
+        // subject id so `resolveStandingEvidence`'s containment lookup can
+        // never mistake a coordinating agent for the credited one.
+        const agentsInvoked = input.subjectAgentRef ? [input.subjectAgentRef] : ['aigent-z'];
         await createActivityReceipt({
           personaId: identityPersonaId,
           actionType: 'standing_accrued',
           activeCartridge: 'metame',
           summary: `Standing accrued: +${personalDelta.toFixed(2)} ${category} (overall ${newOverall.toFixed(1)}, bucket ${bucketFor(newOverall)})`,
-          agentsInvoked: ['aigent-z'],
+          agentsInvoked,
           iqubesUsed: ['VentureQube'],
           contextShared: ['standing_category', 'standing_delta', 'standing_overall'],
+          actionInput: input.subjectAgentRef
+            ? { subjectAgentRef: input.subjectAgentRef, orchestratorAgentRef: input.orchestratorAgentRef ?? null }
+            : null,
         });
       } catch {
         /* best-effort — receipt failure must never block standing accrual */

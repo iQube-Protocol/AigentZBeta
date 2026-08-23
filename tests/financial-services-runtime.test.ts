@@ -385,7 +385,7 @@ describe('requestFinancialService() — Advisor/Architect: real provider dispatc
     expect(outcome.authorisationRef).toBeNull();
     expect(outcome.executionRef).toBeNull();
     expect(outcome.providerResultRef).toBeTruthy();
-    expect(mockAccrueStanding).toHaveBeenCalledWith(expect.objectContaining({ crmPersonaId: 'crm-nakamoto' }));
+    expect(mockAccrueStanding).toHaveBeenCalledWith(expect.objectContaining({ crmPersonaId: 'crm-nakamoto', subjectAgentRef: CONSUMER }));
   });
 
   it('Architect: Nakamoto receives DELIVERED only after draftFinancialStructure() actually persists an artifact — never AUTHORISED, never REFUSED via deriveActionAuthorisation', async () => {
@@ -1166,7 +1166,7 @@ describe('requestFinancialService() — Runtime: the Phase 3 hard dependency', (
     expect(outcome.executionRef).toBeTruthy();
     expect(outcome.observedConsequenceRef).toBeTruthy();
     expect(outcome.validationState).toBe('MATCHED_PROJECTION');
-    expect(mockAccrueStanding).toHaveBeenCalledWith(expect.objectContaining({ crmPersonaId: 'crm-nakamoto' }));
+    expect(mockAccrueStanding).toHaveBeenCalledWith(expect.objectContaining({ crmPersonaId: 'crm-nakamoto', subjectAgentRef: CONSUMER }));
   });
 
   it('an attested verdict WITHOUT an authorized agreement stays BOUNDED, not ACTIVE — deriveActionAuthorisation REFUSES for lack of authority', async () => {

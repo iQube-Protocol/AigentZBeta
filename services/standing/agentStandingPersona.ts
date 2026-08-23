@@ -59,7 +59,15 @@ import type { RegistrableAgentConfig } from '@/services/horizen/registrableAgent
  */
 export const CANONICAL_AGENT_STANDING_APP_ORIGIN = 'aigent-canonical-standing';
 
-async function resolveCanonicalAgentPersonaId(
+/**
+ * The agent's canonical Standing IDENTITY persona id (`personas.id`) —
+ * exported separately from `resolveAgentStandingPersonaId` (which returns
+ * the CRM persona id) because some callers need to match against
+ * `activity_receipts.persona_id`, which is always the T0 IDENTITY persona id
+ * (see `createActivityReceipt`'s `personaId` param), never the CRM row id.
+ * Same idempotent resolve-or-provision logic; only the returned id differs.
+ */
+export async function resolveCanonicalAgentPersonaId(
   admin: SupabaseClient,
   agent: RegistrableAgentConfig,
   agentRootDid: string,

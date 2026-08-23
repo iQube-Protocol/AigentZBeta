@@ -496,7 +496,7 @@ export async function requestFinancialService(
     // Standing accrues only now — after a REAL completed provider result,
     // never merely on the gate's earlier 'allow' (the exact bug this repair
     // removes).
-    await accrueStandingBestEffort(context.standingPersonaId);
+    await accrueStandingBestEffort(context.standingPersonaId, request.requestingAgentId);
 
     return {
       outcome: {
@@ -578,7 +578,7 @@ export async function requestFinancialService(
     };
   }
 
-  await accrueStandingBestEffort(context.standingPersonaId);
+  await accrueStandingBestEffort(context.standingPersonaId, request.requestingAgentId);
 
   // ── ObservedConsequence + validation — only when the caller supplied
   //    what actually happened; execution binding and observation are
@@ -629,8 +629,22 @@ export async function requestFinancialService(
   };
 }
 
-/** Best-effort Standing accrual on a successfully completed service interaction. A Standing failure must never break the service outcome it describes — same discipline as `commerceReceipts.ts`'s receipt emitters. */
-async function accrueStandingBestEffort(standingPersonaId: string | null | undefined): Promise<void> {
+/**
+ * Best-effort Standing accrual on a successfully completed service
+ * interaction. A Standing failure must never break the service outcome it
+ * describes — same discipline as `commerceReceipts.ts`'s receipt emitters.
+ *
+ * `subjectAgentRef` (the CONSUMER's own canonical runtime agent id) is the
+ * Standing SUBJECT — never the orchestrator. This closes the 2026-08-23
+ * attribution defect: every `standing_accrued` receipt previously carried a
+ * fixed orchestrator id regardless of which agent actually earned the
+ * credit, making genuine accrual invisible to the Horizen Journey's own
+ * agent-scoped Standing observer (`resolveStandingEvidence`).
+ */
+async function accrueStandingBestEffort(
+  standingPersonaId: string | null | undefined,
+  subjectAgentRef: string,
+): Promise<void> {
   if (!standingPersonaId) return;
-  await accrueStanding({ crmPersonaId: standingPersonaId, cvs: SERVICE_COMPLETION_CVS }).catch(() => undefined);
+  await accrueStanding({ crmPersonaId: standingPersonaId, cvs: SERVICE_COMPLETION_CVS, subjectAgentRef }).catch(() => undefined);
 }
