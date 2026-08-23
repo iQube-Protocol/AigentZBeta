@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { BookOpenText, Loader2, ImageOff, ArrowUpRight, Share2, Bot } from 'lucide-react';
 import { useSmartTriad } from '@/app/components/content/SmartTriadProvider';
+import { SmartContentListenButton } from '@/components/shared/SmartContentListenButton';
+import { buildSpeechScript } from '@/services/smartcontent/readableTextForSpeech';
 
 interface EssayCard {
   id: string;
@@ -15,6 +17,10 @@ interface EssayCard {
   position?: number;
   machineReadable?: boolean;
   machineUrl?: string | null;
+  /** Canonical prose — same field the full reader (ContentViewer) speaks
+   *  from. Already present in this list endpoint's response (the route
+   *  selects `modalities` in full), so Listen never needs a second fetch. */
+  modalities?: { read?: { text?: string } };
 }
 
 interface QriptoEssaysTabProps {
@@ -159,19 +165,30 @@ export function QriptoEssaysTab({ theme = 'dark' }: QriptoEssaysTabProps) {
                   ) : (
                     <span />
                   )}
-                  <button
-                    type="button"
-                    onClick={() => shareEssay(essay)}
-                    className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition ${
-                      isDark
-                        ? 'bg-white/5 text-slate-300 hover:bg-indigo-500/15 hover:text-indigo-300'
-                        : 'bg-slate-100 text-slate-700 hover:bg-indigo-50 hover:text-indigo-700'
-                    }`}
-                    aria-label={`Share ${essay.title}`}
-                  >
-                    <Share2 className="h-3.5 w-3.5" />
-                    Share
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <SmartContentListenButton
+                      compact
+                      item={{
+                        id: essay.id,
+                        title: essay.title,
+                        getText: () => buildSpeechScript(essay.title, essay.modalities?.read?.text ?? ''),
+                      }}
+                      disabledReason={essay.modalities?.read?.text ? undefined : 'No readable text available for this essay yet'}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => shareEssay(essay)}
+                      className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition ${
+                        isDark
+                          ? 'bg-white/5 text-slate-300 hover:bg-indigo-500/15 hover:text-indigo-300'
+                          : 'bg-slate-100 text-slate-700 hover:bg-indigo-50 hover:text-indigo-700'
+                      }`}
+                      aria-label={`Share ${essay.title}`}
+                    >
+                      <Share2 className="h-3.5 w-3.5" />
+                      Share
+                    </button>
+                  </div>
                 </div>
               </article>
             ))}

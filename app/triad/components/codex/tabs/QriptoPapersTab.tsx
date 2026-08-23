@@ -13,6 +13,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { FileText, Loader2, ImageOff, BookOpen } from 'lucide-react';
 import { PDFLiteReaderModal } from '@/app/triad/components/content/PDFLiteReaderModal';
+import { SmartContentListenButton } from '@/components/shared/SmartContentListenButton';
 import { QriptoEssaysTab } from './QriptoEssaysTab';
 
 type PaperCard = {
@@ -173,6 +174,19 @@ function QriptoPdfAssetsTab({
                 <span className="absolute top-2 right-2 px-2 py-1 bg-black/50 backdrop-blur-sm text-white text-[10px] font-semibold rounded">
                   {p.scopeLabel}
                 </span>
+                {/* Listen is honestly disabled here: codex_media_assets (PDF papers)
+                    has no extracted/canonical text field anywhere in the schema, so
+                    there is nothing yet to synthesize speech from. Rendered as an
+                    inert <span> (see SmartContentListenButton's disabledReason
+                    branch), which is why it's safe to nest inside this card's own
+                    outer <button> without a nested-button HTML violation. */}
+                <span className="absolute top-2 left-2" onClick={(e) => e.stopPropagation()}>
+                  <SmartContentListenButton
+                    compact
+                    item={{ id: p.id, title: p.title, getText: () => '' }}
+                    disabledReason="No readable text available for this paper yet"
+                  />
+                </span>
               </button>
             ))}
           </div>
@@ -183,6 +197,7 @@ function QriptoPdfAssetsTab({
         pdfUrl={activePdf?.url ?? ''}
         title={activePdf?.title}
         onClose={() => setActivePdf(null)}
+        listenDisabledReason="No readable text available for this paper yet"
       />
     </div>
   );

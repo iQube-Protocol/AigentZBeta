@@ -8,6 +8,12 @@ import { useMetaAvatar } from '../contexts/MetaAvatarContext';
 import { AGUIProvider } from '../components/AGUIProvider';
 import { PersonaProvider } from '../contexts/PersonaContext';
 import { ActivationsProvider } from '@/services/activations/ActivationsContext';
+// Same shared Listen (text-to-speech) coordinator mounted in app/(shell)/
+// layout.tsx — embed routes (/triad/embed/codex/...) render the same
+// Qriptopian tab components (QriptoEssaysTab, QriptoPapersTab,
+// KnytCommunityContentTab) via iframe, e.g. the CI/KNYTS Bridge journeys'
+// "Continue reading" destination, so they need the same provider ancestor.
+import { SmartContentAudioProvider } from '@/services/smartcontent/smartContentAudioController';
 
 function EmbedLayoutContent({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient({
@@ -91,7 +97,9 @@ function EmbedLayoutContent({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {children}
+      <SmartContentAudioProvider>
+        {children}
+      </SmartContentAudioProvider>
       {/* MOUNT GATE (2026-07-27). `avatarInitialized` latches true forever, so
           on its own it kept the host — and the SDK's body-level nodes — alive
           for the rest of the session after a single avatar use. Requiring an

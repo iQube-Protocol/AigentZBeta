@@ -15,6 +15,12 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { SmartContentActionProvider } from "../contexts/SmartContentActionContext";
 import { PersonaProvider } from "../contexts/PersonaContext";
 import { ActivationsProvider } from "@/services/activations/ActivationsContext";
+// Global SmartContent Listen (text-to-speech) controller — the ONE shared
+// audio coordinator for Qriptopian cards, feeds, and the article reader.
+// Mounted at the same shell level as SmartContentActionProvider so playback
+// survives navigating between a content list and the full article reader
+// within the same app session.
+import { SmartContentAudioProvider } from "@/services/smartcontent/smartContentAudioController";
 
 function ShellLayoutContent({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient({
@@ -115,6 +121,7 @@ function ShellLayoutContent({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <AGUIProvider runtimeUrl="/api/copilotkit">
+        <SmartContentAudioProvider>
         <SmartContentActionProvider>
           <ToastProvider>
             <div className="h-full bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-slate-100">
@@ -158,6 +165,7 @@ function ShellLayoutContent({ children }: { children: React.ReactNode }) {
             </div>
           </ToastProvider>
         </SmartContentActionProvider>
+        </SmartContentAudioProvider>
       </AGUIProvider>
       
       {/* GLOBAL PERSISTENT METAAVATAR — mounted only while a container owns it.

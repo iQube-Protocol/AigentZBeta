@@ -4429,3 +4429,13 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-221a5ec.md](../build_/COMMITS/COMMIT-221a5ec.md)
 - Message: fix upload-asset route silently dropping isShareable on individual-form-fields path
+
+## Commit `a971e16` — 2026-08-22T09:38:21Z
+- Type: `chore`
+- Brief: [COMMIT-a971e16.md](../build_/COMMITS/COMMIT-a971e16.md)
+- Message: update smoke test expected asset ids after Qriptopian cover re-upload
+
+## Commit `2dff69a` — 2026-08-22T07:43:17-04:00
+- Type: `docs`
+- Brief: [COMMIT-2dff69a.md](../build_/COMMITS/COMMIT-2dff69a.md)
+- Message: docs(irl): add OCSGA boundary-map discipline to Crucible

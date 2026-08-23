@@ -17,6 +17,8 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { SmartContentListenButton } from '@/components/shared/SmartContentListenButton';
+import type { SmartContentListenItem } from '@/services/smartcontent/smartContentAudioController';
 
 const LOADED_URLS_KEY = 'codex:pdflite:loaded-urls:v1';
 const MEDIA_FURNITURE_IDLE_FADE_MS = 5000;
@@ -64,6 +66,16 @@ interface PDFLiteReaderModalProps {
   pdfUrl: string;
   title?: string;
   onClose: () => void;
+  /**
+   * Optional Listen affordance for the expanded reader, mirroring whatever
+   * the calling card already shows (Listen must never appear here if the
+   * card didn't offer it, and vice versa — see the Papers card's own
+   * disabledReason in QriptoPapersTab.tsx). Omitted entirely by callers
+   * that don't have a text source at all, so no other PDFLiteReaderModal
+   * caller needs to change.
+   */
+  listenItem?: SmartContentListenItem;
+  listenDisabledReason?: string;
 }
 
 function buildSecureViewerUrl(rawUrl: string): string {
@@ -94,7 +106,7 @@ function useIsMobileViewport(): boolean {
   return isMobile;
 }
 
-export function PDFLiteReaderModal({ open, pdfUrl, title, onClose }: PDFLiteReaderModalProps) {
+export function PDFLiteReaderModal({ open, pdfUrl, title, onClose, listenItem, listenDisabledReason }: PDFLiteReaderModalProps) {
   const [loading, setLoading] = useState(true);
   const [furnitureVisible, setFurnitureVisible] = useState(false);
   const furnitureTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -187,14 +199,23 @@ export function PDFLiteReaderModal({ open, pdfUrl, title, onClose }: PDFLiteRead
             </div>
           </div>
 
-          <button
-            className="w-10 h-10 rounded-full bg-black/50 border border-white/20 text-white hover:bg-black/70 transition-colors flex items-center justify-center focus:opacity-100"
-            onClick={onClose}
-            onFocus={showFurniture}
-            aria-label="Close PDF preview"
-          >
-            ×
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            {(listenItem || listenDisabledReason) && (
+              <SmartContentListenButton
+                compact
+                item={listenItem ?? { id: pdfUrl, title: title || 'this document', getText: () => '' }}
+                disabledReason={listenDisabledReason}
+              />
+            )}
+            <button
+              className="w-10 h-10 rounded-full bg-black/50 border border-white/20 text-white hover:bg-black/70 transition-colors flex items-center justify-center focus:opacity-100"
+              onClick={onClose}
+              onFocus={showFurniture}
+              aria-label="Close PDF preview"
+            >
+              ×
+            </button>
+          </div>
         </div>
 
         <div className="relative w-full h-[calc(100%-60px)]">

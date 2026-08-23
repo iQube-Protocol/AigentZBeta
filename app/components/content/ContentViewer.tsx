@@ -13,6 +13,8 @@ import type {
   InteractModality,
 } from "@/types/smartContent";
 import { getCoverImageUrl } from "./mediaVariants";
+import { SmartContentListenButton } from "@/components/shared/SmartContentListenButton";
+import { buildSpeechScript } from "@/services/smartcontent/readableTextForSpeech";
 
 interface ContentViewerProps {
   content: SmartContentQube;
@@ -697,14 +699,26 @@ export default function ContentViewer({
             </span>
           )}
         </div>
-        {onClose && (
-          <button
-            onClick={onClose}
-            className="px-2 py-1 text-xs rounded-md bg-white/5 ring-1 ring-white/10 text-slate-200 hover:bg-white/10"
-          >
-            Close
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {resolvedReadText && (
+            <SmartContentListenButton
+              compact
+              item={{
+                id: content.id,
+                title: content.title,
+                getText: () => buildSpeechScript(content.title, resolvedReadText),
+              }}
+            />
+          )}
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="px-2 py-1 text-xs rounded-md bg-white/5 ring-1 ring-white/10 text-slate-200 hover:bg-white/10"
+            >
+              Close
+            </button>
+          )}
+        </div>
       </header>
 
       {/* Modality Tabs */}
