@@ -5890,6 +5890,24 @@ export const IRL_CARTRIDGE: CodexConfig = {
       metadata: { icon: 'Sparkles', description: 'Welcome to the Invariant Research Lab — how to join, and where to go once you have', color: 'violet' },
     },
     {
+      // Reciprocal Artifact Exchange (PRD-IRL-AX-001) — a GENERIC engagement
+      // type: bilateral, receipted exchange of independently frozen research
+      // artifacts, gated by reciprocal disclosure and a signing ritual. Not
+      // admin-only: an invited counterparty (e.g. a partner researcher) must
+      // reach this tab once their Passport/persona resolves. Server-side
+      // membership enforcement (services/research/reciprocalExchange.ts)
+      // means an uninvolved persona sees an empty/refused view regardless.
+      id: 'irl-exchange',
+      label: 'Exchange',
+      slug: 'irl-exchange',
+      enabled: true,
+      group: 'laboratory',
+      order: 5,
+      type: 'static',
+      config: { component: 'IRLExchangeTab' },
+      metadata: { icon: 'GitBranch', description: 'Reciprocal Artifact Exchange — bilateral, receipted exchange of independently frozen research artifacts', color: 'violet' },
+    },
+    {
       id: 'irl-dashboard',
       label: 'Dashboard',
       slug: 'irl-dashboard',

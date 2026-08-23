@@ -362,6 +362,13 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   'agent_delegation_anchor_repaired',
   'legacy_passport_linkage_reconciled',
   'implementation_execution_observed',
+  // Reciprocal Artifact Exchange (PRD-IRL-AX-001, 2026-08-23) — the bilateral
+  // crossing to EXCHANGED (reciprocal disclosure unlocked + Exchange Receipt
+  // issued) is a constitutional provenance event worth tamper-evident memory,
+  // same tier as agreement_formed/agreement_authorized above. (Action-type
+  // addition only — the one change this file permits unilaterally. Payload
+  // shape, state machine and hashPersonaRef untouched.)
+  'exchange_crossed',
 ]);
 
 export function shouldAnchorActionType(actionType: string): boolean {

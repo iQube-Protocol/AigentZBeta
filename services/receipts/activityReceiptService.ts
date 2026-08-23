@@ -465,7 +465,24 @@ export type ActivityActionType =
   // acceptance. Never authorizes deployment by itself — no
   // `deployment_authorized` receipt is ever written by this path; it is
   // evidence a stage-transition gate later reads, not an authority grant.
-  | 'implementation_execution_returned';
+  | 'implementation_execution_returned'
+  // Reciprocal Artifact Exchange (PRD-IRL-AX-001, 2026-08-23) — the generic
+  // bilateral, receipted exchange of independently frozen research artifacts.
+  // See services/research/reciprocalExchange.ts. `exchange_crossed` is the
+  // DVN-anchorable bilateral Exchange Receipt event (ANCHORABLE_ACTION_TYPES);
+  // the rest are local provenance of the surrounding ritual.
+  | 'exchange_created'
+  | 'exchange_counterparty_joined'
+  | 'exchange_artifact_deposited'
+  | 'exchange_artifact_replaced'
+  | 'exchange_freeze_declared'
+  | 'exchange_instrument_signed'
+  | 'exchange_crossed'
+  | 'exchange_receipt_acknowledged'
+  | 'exchange_comparison_opened'
+  | 'exchange_derivative_created'
+  | 'exchange_withdrawn'
+  | 'exchange_access_revoked';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 
