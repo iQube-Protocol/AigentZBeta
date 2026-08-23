@@ -4454,3 +4454,8 @@ Top-level retrieval anchors for this pack.
 - Type: `docs`
 - Brief: [COMMIT-d5dbd90.md](../build_/COMMITS/COMMIT-d5dbd90.md)
 - Message: docs(agentiq): register CI/IRL baseline as Experiment Architect resource
+
+## Commit `0e514ca` — 2026-08-23T15:19:30-04:00
+- Type: `docs`
+- Brief: [COMMIT-0e514ca.md](../build_/COMMITS/COMMIT-0e514ca.md)
+- Message: docs(irl): specify reciprocal artifact exchange capability

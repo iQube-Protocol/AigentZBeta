@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-23T18:25:31.771Z",
+  "last_updated": "2026-08-23T19:21:45.024Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "d5dbd9080476a338964d1ff9999d4d1ae75ce0be",
-  "latest_commit_short": "d5dbd90",
-  "latest_commit_title": "docs(agentiq): register CI/IRL baseline as Experiment Architect resource",
+  "latest_commit": "0e514ca4c5b6702d801bad3134039ff00a5f1809",
+  "latest_commit_short": "0e514ca",
+  "latest_commit_title": "docs(irl): specify reciprocal artifact exchange capability",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "0e514ca",
+      "full_sha": "0e514ca4c5b6702d801bad3134039ff00a5f1809",
+      "title": "docs(irl): specify reciprocal artifact exchange capability",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-23T15:19:30-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-0e514ca.md"
+    },
     {
       "sha": "d5dbd90",
       "full_sha": "d5dbd9080476a338964d1ff9999d4d1ae75ce0be",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-10T17:41:41Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-d066bff.md"
-    },
-    {
-      "sha": "f08b700",
-      "full_sha": "f08b7009fc1fd35d2592089670719cdf2233d339",
-      "title": "Reframe ACT: Bring Your Agent Into the Field, not just an ExperienceQube disposition",
-      "author": "Claude",
-      "timestamp": "2026-08-10T17:52:46Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-f08b700.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
