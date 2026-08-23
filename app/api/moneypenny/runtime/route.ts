@@ -48,13 +48,10 @@ import type { FinancialDomain } from '@/services/constitutional/financialIntelli
 // SPEC-CDR-001 D-1: derive the domain list, never restate it.
 import { isExecutionDomain } from '@/services/resolution/executionTaxonomy';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
-
-const MONEYPENNY_CAPABILITY_REF = 'cap-moneypenny-financial-services';
-// P4-6: a SECOND, distinct capabilityRef for the money-moving domains
-// (Investment/Market) — see the file header for why this must not share
-// Domain 3's capabilityRef.
-const MONEYPENNY_SETTLEMENT_CAPABILITY_REF = 'cap-moneypenny-financial-services-settlement';
-const MONEYPENNY_AGENT_REF = 'agent-moneypenny';
+import {
+  MONEYPENNY_RUNTIME_AGENT_REF,
+  resolveMoneyPennyRuntimeCapabilityRef,
+} from '@/services/constitutional/moneyPennyRuntimeRefs';
 
 export const dynamic = 'force-dynamic';
 
@@ -78,8 +75,8 @@ export async function POST(request: NextRequest) {
   // the settlement-tier ref, whose agreement can only reach its authorized
   // state under the World-ID grade (constitutionalAgreement.ts).
   const domain: FinancialDomain = isExecutionDomain(body.domain) ? body.domain : 'intelligence';
-  const capabilityRef = domain === 'intelligence' ? MONEYPENNY_CAPABILITY_REF : MONEYPENNY_SETTLEMENT_CAPABILITY_REF;
-  const selectedAgentRef = MONEYPENNY_AGENT_REF;
+  const capabilityRef = resolveMoneyPennyRuntimeCapabilityRef(domain);
+  const selectedAgentRef = MONEYPENNY_RUNTIME_AGENT_REF;
 
   // P4-5/P4-6: no more domain-based code clamp -- the requested mode passes
   // straight through. The REAL safety boundary is the pipeline's own step-3
@@ -109,7 +106,7 @@ export async function POST(request: NextRequest) {
       actionType: 'finance_authoritative_execution',
       activeCartridge: 'moneypenny',
       summary: `MoneyPenny Runtime authoritative execution [${domain}] agr=${result.agreementId ?? 'none'}: ${intent.slice(0, 140)}`,
-      agentsInvoked: [MONEYPENNY_AGENT_REF],
+      agentsInvoked: [MONEYPENNY_RUNTIME_AGENT_REF],
       invariantsUsed: result.execution?.evidenceRefs ?? [],
       contextShared: ['domain', 'agreement_id', 'evidence_refs'],
       policyEnvelopeId: result.agreementId,

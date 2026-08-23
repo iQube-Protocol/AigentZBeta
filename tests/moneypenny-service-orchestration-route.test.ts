@@ -168,6 +168,18 @@ describe('ServiceOrchestrationPanel — Trigger gating (source-level; no RTL/jsd
 
   it('never synthesizes an intent for Advisor/Architect — the composer requires real operator-entered, non-empty text before Trigger is enabled', () => {
     const src = stripComments(readSource(PANEL_PATH));
-    expect(src).toContain('!intents[definition.serviceId]?.trim()');
+    expect(src).toContain('!intentValue.trim()');
+  });
+
+  it('never keys intent/outcome state on serviceId alone (2026-08-23 P0 cross-agent isolation) — every read goes through the composite-keyed selectors', () => {
+    const src = stripComments(readSource(PANEL_PATH));
+    // The pre-repair vulnerable pattern that bled Nakamoto/Kn0w1 state together.
+    expect(src).not.toContain('intents[definition.serviceId]');
+    expect(src).not.toContain('outcomes[definition.serviceId]');
+    expect(src).not.toContain('requesting === definition.serviceId');
+    // The composite-keyed reducer/selectors from serviceOrchestrationPanelState.ts.
+    expect(src).toContain('selectIntent(state, selectedAgentId, definition.serviceId)');
+    expect(src).toContain('selectOutcome(state, selectedAgentId, definition.serviceId)');
+    expect(src).toContain('selectIsRequesting(state, selectedAgentId, definition.serviceId)');
   });
 });

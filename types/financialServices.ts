@@ -280,7 +280,19 @@ export interface ArchitectDisplayOutput {
   artifactId: string;
 }
 
-export type ProviderDisplayOutput = AdvisorDisplayOutput | ArchitectDisplayOutput;
+/** The Constitutional Runtime's real execution result (RUNTIME/PROPOSAL
+ *  class, `moneypenny.runtime.constitutional`) — the EXISTING
+ *  `constitutionalAgreement.ts` 409 gate + `runConstitutionalServicePattern`
+ *  pipeline result, never VELA's own authorisation/execution primitives. */
+export interface RuntimeExecutionDisplayOutput {
+  kind: 'RUNTIME_EXECUTION';
+  domain: string;
+  executed: boolean;
+  agreementId: string | null;
+  summary: string;
+}
+
+export type ProviderDisplayOutput = AdvisorDisplayOutput | ArchitectDisplayOutput | RuntimeExecutionDisplayOutput;
 
 export interface FinancialServiceOrchestrationStep {
   outcome: FinancialServiceOutcome;

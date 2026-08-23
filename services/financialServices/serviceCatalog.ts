@@ -99,7 +99,7 @@ export const MONEYPENNY_RUNTIME: FinancialServiceDefinition = {
   serviceId: 'moneypenny.runtime',
   providerMode: 'RUNTIME',
   serviceClass: MONEYPENNY_PROVIDER_MODE_CONSEQUENCE_CLASS.RUNTIME,
-  displayName: 'MoneyPenny Runtime',
+  displayName: 'MoneyPenny Runtime (Confidential)',
   providerAgentId: 'aigent-moneypenny',
   capabilityId: 'CONFIDENTIAL_CONSEQUENCE_PROJECTION',
   // Real consequential execution requires QUALIFIED Standing — parity with
@@ -114,10 +114,67 @@ export const MONEYPENNY_RUNTIME: FinancialServiceDefinition = {
   receiptPolicy: { anchorable: true },
 };
 
+/**
+ * The EXISTING, already-live, non-TEE PRD-MPY-001 Runtime pipeline
+ * (`/api/moneypenny/runtime`, `runConstitutionalServicePattern` +
+ * `constitutionalAgreement.ts`'s own 409 gate) — restored to this catalog's
+ * discovery/eligibility surface (2026-08-23 operator directive: "Vela is an
+ * assurance enhancement for the confidential service, not a prerequisite for
+ * every MoneyPenny Runtime capability").
+ *
+ * `providerMode: 'RUNTIME'` is shared with `MONEYPENNY_RUNTIME` above — the
+ * two are DISTINCT service definitions (distinct `serviceId`,
+ * `capabilityId`, and gating), never one aliased as the other.
+ *
+ * `serviceClass` is deliberately `'PROPOSAL'`, NOT the
+ * `MONEYPENNY_PROVIDER_MODE_CONSEQUENCE_CLASS.RUNTIME` ('CONSEQUENTIAL')
+ * default: a CONSEQUENTIAL serviceClass maps to Gate 2's `authoritative`
+ * execution mode, which Gate 2 refuses by default except for the ONE frozen
+ * capability id (`CONFIDENTIAL_CONSEQUENCE_PROJECTION`) — and this service
+ * must NEVER touch that exception or Gate 2 itself (operator directive: "Do
+ * not replace or weaken the existing Vela gate"). `PROPOSAL` maps to
+ * `shadow`, which Gate 2 already passes unconditionally for ANY capability
+ * id — mirroring EXACTLY the "Gate 1/2 grant permission to dispatch, the
+ * real decision is made by the provider itself" pattern Repair D already
+ * established for Advisor/Architect. The REAL authorization decision for
+ * this service is the EXISTING, unmodified `constitutionalAgreement.ts` 409
+ * gate, invoked inside `dispatchDelegatedProvider()`'s RUNTIME branch
+ * (`serviceRequestOrchestrator.ts`) — never VELA's own
+ * `composeUnifiedConsequenceProjection`/`deriveActionAuthorisation`/
+ * `bindExecution` primitives, which this service never reaches
+ * (`executionPolicy.executionReachable: false`, same as Advisor/Architect).
+ *
+ * `capabilityId: 'bounded_financial_execution'` is the REAL, already-live
+ * MoneyPenny Agent Bench descriptor for Runtime mode (Repair E's own
+ * finding) — never `CONFIDENTIAL_CONSEQUENCE_PROJECTION` (that remains
+ * exclusively `MONEYPENNY_RUNTIME`'s id) and never a fabricated new one.
+ */
+export const MONEYPENNY_RUNTIME_CONSTITUTIONAL: FinancialServiceDefinition = {
+  serviceId: 'moneypenny.runtime.constitutional',
+  providerMode: 'RUNTIME',
+  serviceClass: 'PROPOSAL',
+  displayName: 'MoneyPenny Runtime (Constitutional)',
+  providerAgentId: 'aigent-moneypenny',
+  capabilityId: 'bounded_financial_execution',
+  // Same Standing bar as the Confidential variant — both are MoneyPenny
+  // Runtime capabilities; neither is easier to reach than the other.
+  eligibilityPolicy: { requiresAdmission: true, consumerVerificationRequirement: 'NOT_REQUIRED', minimumStandingScore: 25 },
+  authorityRequirement: { requiredAuthoritySource: [], requiresActiveAuthority: true },
+  projectionRequirement: 'NOT_REQUIRED',
+  confidentialityRequirement: 'NOT_REQUIRED',
+  attestationRequirement: 'NOT_REQUIRED',
+  executionPolicy: { boundedOnly: true, executionReachable: false },
+  // The existing pipeline has no Q¢ pricing model of its own — never
+  // double-charge a mechanism that doesn't exist yet.
+  pricingPolicy: { priceQc: 0 },
+  receiptPolicy: { anchorable: true },
+};
+
 const CATALOG: Record<string, FinancialServiceDefinition> = {
   [MONEYPENNY_ADVISOR.serviceId]: MONEYPENNY_ADVISOR,
   [MONEYPENNY_ARCHITECT.serviceId]: MONEYPENNY_ARCHITECT,
   [MONEYPENNY_RUNTIME.serviceId]: MONEYPENNY_RUNTIME,
+  [MONEYPENNY_RUNTIME_CONSTITUTIONAL.serviceId]: MONEYPENNY_RUNTIME_CONSTITUTIONAL,
 };
 
 /** Service discovery. Pure lookup — see file header for what "discovery" honestly means today. */
