@@ -79,6 +79,11 @@ vi.mock('@/app/api/moneypenny/chat/route', () => ({
   runMoneyPennyChat: (...args: any[]) => mockRunMoneyPennyChat(...args),
 }));
 
+const mockRunConstitutionalServicePattern = vi.fn();
+vi.mock('@/services/constitutional/constitutionalServicePipeline', () => ({
+  runConstitutionalServicePattern: (...args: any[]) => mockRunConstitutionalServicePattern(...args),
+}));
+
 const mockAccrueStanding = vi.fn();
 vi.mock('@/services/crm/standingAccrualService', () => ({
   accrueStanding: (...args: any[]) => mockAccrueStanding(...args),
@@ -118,6 +123,7 @@ import {
   MONEYPENNY_ADVISOR,
   MONEYPENNY_ARCHITECT,
   MONEYPENNY_RUNTIME,
+  MONEYPENNY_RUNTIME_CONSTITUTIONAL,
 } from '@/services/financialServices/serviceCatalog';
 import { assembleFinancialServiceOrchestration } from '@/services/financialServices/orchestration';
 import {
@@ -167,6 +173,10 @@ const MONEYPENNY_ADVISOR_PROVIDER = {
 };
 const MONEYPENNY_ARCHITECT_PROVIDER = { ...MONEYPENNY_ADVISOR_PROVIDER, capabilityId: MONEYPENNY_ARCHITECT.capabilityId };
 const MONEYPENNY_RUNTIME_PROVIDER = { ...MONEYPENNY_ADVISOR_PROVIDER, capabilityId: MONEYPENNY_RUNTIME.capabilityId };
+const MONEYPENNY_RUNTIME_CONSTITUTIONAL_PROVIDER = {
+  ...MONEYPENNY_ADVISOR_PROVIDER,
+  capabilityId: MONEYPENNY_RUNTIME_CONSTITUTIONAL.capabilityId,
+};
 
 function forecast(): ConsequenceForecast {
   return {
@@ -247,6 +257,7 @@ beforeEach(() => {
   mockRequireAuthorizedAgreement.mockReset();
   mockDraftFinancialStructure.mockReset();
   mockRunMoneyPennyChat.mockReset();
+  mockRunConstitutionalServicePattern.mockReset();
   mockAccrueStanding.mockReset();
   mockAccrueStanding.mockResolvedValue(null);
   mockCreateActivityReceipt.mockReset();
@@ -259,8 +270,8 @@ beforeEach(() => {
 // ── Service discovery ───────────────────────────────────────────────────
 
 describe('service discovery — serviceCatalog', () => {
-  it('resolves Advisor, Architect and Runtime with every required policy field', () => {
-    for (const def of [MONEYPENNY_ADVISOR, MONEYPENNY_ARCHITECT, MONEYPENNY_RUNTIME]) {
+  it('resolves Advisor, Architect, Runtime (Confidential) and Runtime (Constitutional) with every required policy field', () => {
+    for (const def of [MONEYPENNY_ADVISOR, MONEYPENNY_ARCHITECT, MONEYPENNY_RUNTIME, MONEYPENNY_RUNTIME_CONSTITUTIONAL]) {
       expect(resolveFinancialServiceDefinition(def.serviceId)).toEqual(def);
       expect(def.eligibilityPolicy).toBeDefined();
       expect(def.authorityRequirement).toBeDefined();
@@ -273,23 +284,40 @@ describe('service discovery — serviceCatalog', () => {
       expect(def.pricingPolicy).toBeDefined();
       expect(def.receiptPolicy).toBeDefined();
     }
-    expect(listFinancialServiceDefinitions()).toHaveLength(3);
+    expect(listFinancialServiceDefinitions()).toHaveLength(4);
   });
 
   it('returns null for an unknown serviceId', () => {
     expect(resolveFinancialServiceDefinition('moneypenny.nonexistent')).toBeNull();
   });
 
-  it('Runtime is the ONLY service using the Gate-2-gated capability id; Advisor/Architect use the real MoneyPenny registry capability names', () => {
+  it('Runtime (Confidential) is the ONLY service using the Gate-2-gated capability id; every other service uses its own real MoneyPenny registry capability name', () => {
     expect(MONEYPENNY_RUNTIME.capabilityId).toBe('CONFIDENTIAL_CONSEQUENCE_PROJECTION');
     expect(MONEYPENNY_ADVISOR.capabilityId).toBe('financial_advisory');
     expect(MONEYPENNY_ARCHITECT.capabilityId).toBe('financial_structure_design');
+    expect(MONEYPENNY_RUNTIME_CONSTITUTIONAL.capabilityId).toBe('bounded_financial_execution');
     expect(MONEYPENNY_ADVISOR.capabilityId).not.toBe(MONEYPENNY_RUNTIME.capabilityId);
     expect(MONEYPENNY_ARCHITECT.capabilityId).not.toBe(MONEYPENNY_RUNTIME.capabilityId);
+    expect(MONEYPENNY_RUNTIME_CONSTITUTIONAL.capabilityId).not.toBe(MONEYPENNY_RUNTIME.capabilityId);
   });
 
-  it('Runtime requires REQUIRED attestation by construction — the Phase 3 hard dependency', () => {
+  it('Runtime (Confidential) requires REQUIRED attestation by construction — the Phase 3 hard dependency', () => {
     expect(MONEYPENNY_RUNTIME.attestationRequirement).toBe('REQUIRED');
+  });
+
+  it('Runtime (Constitutional) never requires Vela attestation/confidentiality — Vela is an assurance enhancement for the confidential service only, never a prerequisite for every MoneyPenny Runtime capability (2026-08-23)', () => {
+    expect(MONEYPENNY_RUNTIME_CONSTITUTIONAL.providerMode).toBe('RUNTIME');
+    expect(MONEYPENNY_RUNTIME_CONSTITUTIONAL.attestationRequirement).toBe('NOT_REQUIRED');
+    expect(MONEYPENNY_RUNTIME_CONSTITUTIONAL.confidentialityRequirement).toBe('NOT_REQUIRED');
+    // Deliberately NOT the RUNTIME->CONSEQUENTIAL default mapping — see
+    // serviceCatalog.ts's own comment for why: CONSEQUENTIAL maps to Gate 2's
+    // authoritative mode, which is refused-by-default except the ONE frozen
+    // CONFIDENTIAL_CONSEQUENCE_PROJECTION exception. This service must never
+    // touch that exception or Gate 2 itself.
+    expect(MONEYPENNY_RUNTIME_CONSTITUTIONAL.serviceClass).toBe('PROPOSAL');
+    expect(MONEYPENNY_RUNTIME_CONSTITUTIONAL.executionPolicy.executionReachable).toBe(false);
+    // The two Runtime variants are genuinely distinct services, never aliases of each other.
+    expect(MONEYPENNY_RUNTIME_CONSTITUTIONAL.serviceId).not.toBe(MONEYPENNY_RUNTIME.serviceId);
   });
 
   it('providerMode and serviceClass are derived from the single explicit mapping, never independently authored', () => {
@@ -366,7 +394,163 @@ describe('requestFinancialService() — Advisor/Architect: real provider dispatc
     expect(outcome.reason).toContain('inference failed');
     expect(mockAccrueStanding).not.toHaveBeenCalled();
   });
+});
 
+// ── 2026-08-23: Constitutional Runtime — restores the EXISTING PRD-MPY-001 ──
+// non-TEE pipeline, gated by ITS OWN constitutionalAgreement.ts 409 check —
+// never VELA's own authorisation/execution primitives, never Gate 2's
+// authoritative-mode exception.
+
+describe('requestFinancialService() — Runtime (Constitutional): dispatches to the EXISTING runConstitutionalServicePattern pipeline', () => {
+  function pipelineResult(overrides: Partial<{
+    ok: boolean;
+    executed: boolean;
+    blockedAtStep: number | null;
+    gate: { ok: boolean; status?: number; reason?: string; agreementId?: string };
+    agreementId: string | null;
+    trace: Array<{ step: number; name: string; status: string; detail: string }>;
+  }> = {}) {
+    return {
+      ok: true,
+      mode: 'authoritative',
+      domain: 'intelligence',
+      executed: true,
+      blockedAtStep: null,
+      gate: { ok: true, agreementId: 'agr-runtime-1', status: 'authorized' },
+      agreementId: 'agr-runtime-1',
+      execution: null,
+      verification: null,
+      settlement: null,
+      trace: [{ step: 3, name: 'Constitutional Agreement', status: 'ok', detail: 'authorized agr=agr-runtime-1' }],
+      ...overrides,
+    };
+  }
+
+  it('a successful pipeline run resolves DELIVERED, carrying the real execution result as providerOutput — never VELA authorisation/execution', async () => {
+    mockResolveCapabilityProviders.mockResolvedValue([MONEYPENNY_RUNTIME_CONSTITUTIONAL_PROVIDER]);
+    mockRunConstitutionalServicePattern.mockResolvedValue(pipelineResult());
+
+    const { outcome } = await requestFinancialService({
+      request: request(MONEYPENNY_RUNTIME_CONSTITUTIONAL.serviceId),
+      publicForecast: forecast(),
+      confidentialEvidence: null,
+      actorPersonaId: ACTOR_PERSONA_ID,
+      callerAuthProfileId: ACTOR_AUTH_PROFILE_ID,
+      now: '2026-08-22T00:00:00.000Z',
+      admin: fakeSupabase as any,
+    });
+
+    expect(mockRunConstitutionalServicePattern).toHaveBeenCalledWith(
+      expect.objectContaining({
+        intent: 'rehearsal intent for the provider',
+        requestingPersonaId: ACTOR_PERSONA_ID,
+        domain: 'intelligence',
+        mode: 'authoritative',
+      }),
+    );
+    expect(outcome.status).toBe('DELIVERED');
+    expect(outcome.authorisationRef).toBeNull(); // never VELA's own ActionAuthorisation
+    expect(outcome.executionRef).toBeNull(); // never VELA's own bindExecution
+    expect(outcome.providerResultRef).toBe('agr-runtime-1');
+    expect(outcome.providerOutput).toEqual(
+      expect.objectContaining({ kind: 'RUNTIME_EXECUTION', domain: 'intelligence', executed: true, agreementId: 'agr-runtime-1' }),
+    );
+  });
+
+  it('a REAL 409 agreement-gate refusal resolves REFUSED, never collapsed into the generic UNRESOLVED technical-failure bucket', async () => {
+    mockResolveCapabilityProviders.mockResolvedValue([MONEYPENNY_RUNTIME_CONSTITUTIONAL_PROVIDER]);
+    mockRunConstitutionalServicePattern.mockResolvedValue(
+      pipelineResult({
+        ok: false,
+        executed: false,
+        blockedAtStep: 3,
+        gate: { ok: false, status: 409, reason: 'no authorized agreement for this capability+agent' },
+        agreementId: null,
+        trace: [{ step: 3, name: 'Constitutional Agreement', status: 'refused', detail: '409: no authorized agreement for this capability+agent' }],
+      }),
+    );
+
+    const { outcome } = await requestFinancialService({
+      request: request(MONEYPENNY_RUNTIME_CONSTITUTIONAL.serviceId),
+      publicForecast: forecast(),
+      confidentialEvidence: null,
+      actorPersonaId: ACTOR_PERSONA_ID,
+      callerAuthProfileId: ACTOR_AUTH_PROFILE_ID,
+      now: '2026-08-22T00:00:00.000Z',
+      admin: fakeSupabase as any,
+    });
+
+    expect(outcome.status).toBe('REFUSED');
+    expect(outcome.reason).toContain('409');
+    expect(outcome.reason).toContain('no authorized agreement');
+    expect(outcome.providerResultRef).toBeNull();
+    expect(mockAccrueStanding).not.toHaveBeenCalled();
+  });
+
+  it('a forbidden-action refusal AFTER a successfully authorized agreement (gate.ok=true, blockedAtStep=5) still resolves REFUSED using the trace detail — gate.reason does not exist on that variant', async () => {
+    mockResolveCapabilityProviders.mockResolvedValue([MONEYPENNY_RUNTIME_CONSTITUTIONAL_PROVIDER]);
+    mockRunConstitutionalServicePattern.mockResolvedValue(
+      pipelineResult({
+        ok: false,
+        executed: false,
+        blockedAtStep: 5,
+        gate: { ok: true, agreementId: 'agr-runtime-2', status: 'authorized' },
+        agreementId: 'agr-runtime-2',
+        trace: [{ step: 5, name: 'Policy Validation', status: 'refused', detail: "action 'knowledge_retrieval' is in the agreement's forbidden envelope" }],
+      }),
+    );
+
+    const { outcome } = await requestFinancialService({
+      request: request(MONEYPENNY_RUNTIME_CONSTITUTIONAL.serviceId),
+      publicForecast: forecast(),
+      confidentialEvidence: null,
+      actorPersonaId: ACTOR_PERSONA_ID,
+      callerAuthProfileId: ACTOR_AUTH_PROFILE_ID,
+      now: '2026-08-22T00:00:00.000Z',
+      admin: fakeSupabase as any,
+    });
+
+    expect(outcome.status).toBe('REFUSED');
+    expect(outcome.reason).toContain('forbidden envelope');
+  });
+
+  it('an unexpected pipeline exception resolves UNRESOLVED (technical failure), never REFUSED', async () => {
+    mockResolveCapabilityProviders.mockResolvedValue([MONEYPENNY_RUNTIME_CONSTITUTIONAL_PROVIDER]);
+    mockRunConstitutionalServicePattern.mockRejectedValue(new Error('unexpected pipeline crash'));
+
+    const { outcome } = await requestFinancialService({
+      request: request(MONEYPENNY_RUNTIME_CONSTITUTIONAL.serviceId),
+      publicForecast: forecast(),
+      confidentialEvidence: null,
+      actorPersonaId: ACTOR_PERSONA_ID,
+      callerAuthProfileId: ACTOR_AUTH_PROFILE_ID,
+      now: '2026-08-22T00:00:00.000Z',
+      admin: fakeSupabase as any,
+    });
+
+    expect(outcome.status).toBe('UNRESOLVED');
+    expect(outcome.reason).toContain('unexpected pipeline crash');
+  });
+
+  it('never dispatches without an authenticated principal — the eligibility gate already refuses it as INELIGIBLE before dispatch is ever attempted', async () => {
+    mockResolveCapabilityProviders.mockResolvedValue([MONEYPENNY_RUNTIME_CONSTITUTIONAL_PROVIDER]);
+
+    const { outcome } = await requestFinancialService({
+      request: request(MONEYPENNY_RUNTIME_CONSTITUTIONAL.serviceId),
+      publicForecast: forecast(),
+      confidentialEvidence: null,
+      actorPersonaId: null,
+      callerAuthProfileId: null,
+      now: '2026-08-22T00:00:00.000Z',
+      admin: fakeSupabase as any,
+    });
+
+    expect(outcome.status).toBe('INELIGIBLE');
+    expect(mockRunConstitutionalServicePattern).not.toHaveBeenCalled();
+  });
+});
+
+describe('requestFinancialService() — Advisor: admission gate (unmodified)', () => {
   it('refuses when the consumer is not admitted — registry activation, unmodified', async () => {
     mockResolveCapabilityProviders.mockResolvedValue([MONEYPENNY_ADVISOR_PROVIDER]);
     mockResolveAgentAdmissionState.mockImplementation((_admin: unknown, agent: { runtimeAgentId: string }) =>
@@ -790,7 +974,11 @@ describe('requestFinancialService() — real ConstitutionalAuthority (Repair C)'
       now: '2026-08-22T00:00:00.000Z',
       admin: fakeSupabase as any,
     });
-    expect(mockResolveAgentStandingPersonaId).toHaveBeenCalledWith(expect.objectContaining({ runtimeAgentId: CONSUMER }));
+    expect(mockResolveAgentStandingPersonaId).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ runtimeAgentId: CONSUMER }),
+      expect.anything(),
+    );
   });
 
   it('resolves the mandate via requireAuthorizedAgreement — never a synthesized mandate-fsvc-oversight-* string', async () => {
@@ -1118,7 +1306,7 @@ describe('discoverFinancialServicesForConsumer() / discoverEligibleFinancialServ
     });
     expect(discovered.ok).toBe(true);
     if (!discovered.ok) throw new Error('unreachable');
-    expect(discovered.services).toHaveLength(3);
+    expect(discovered.services).toHaveLength(4);
     // Resolved ONCE per request (Repair F) — not once per catalog item.
     expect(mockResolveAgentAdmissionState).toHaveBeenCalledTimes(1);
 
@@ -1127,10 +1315,16 @@ describe('discoverFinancialServicesForConsumer() / discoverEligibleFinancialServ
     expect(byId.get(MONEYPENNY_ARCHITECT.serviceId)?.eligibility.eligible).toBe(true);
     expect(byId.get(MONEYPENNY_RUNTIME.serviceId)?.eligibility.eligible).toBe(false);
     expect(byId.get(MONEYPENNY_RUNTIME.serviceId)?.eligibility.code).toBe('STANDING_BELOW_THRESHOLD');
+    expect(byId.get(MONEYPENNY_RUNTIME_CONSTITUTIONAL.serviceId)?.eligibility.eligible).toBe(false);
+    expect(byId.get(MONEYPENNY_RUNTIME_CONSTITUTIONAL.serviceId)?.eligibility.code).toBe('STANDING_BELOW_THRESHOLD');
     // Advisor/Architect never compute an authority prerequisite — they never
-    // reach real authorisation.
+    // reach real authorisation. Runtime (Constitutional) is also
+    // executionReachable:false (its real authorization is the EXISTING
+    // constitutionalAgreement.ts gate, resolved only at dispatch time), so it
+    // never computes one either.
     expect(byId.get(MONEYPENNY_ADVISOR.serviceId)?.authority).toBeNull();
     expect(byId.get(MONEYPENNY_ARCHITECT.serviceId)?.authority).toBeNull();
+    expect(byId.get(MONEYPENNY_RUNTIME_CONSTITUTIONAL.serviceId)?.authority).toBeNull();
 
     const eligible = await discoverEligibleFinancialServices(CONSUMER, fakeSupabase as any, {
       actorPersonaId: ACTOR_PERSONA_ID,
@@ -1141,13 +1335,18 @@ describe('discoverFinancialServicesForConsumer() / discoverEligibleFinancialServ
     );
   });
 
-  it('an admitted consumer at/above the Runtime Standing floor sees all three services eligible', async () => {
+  it('an admitted consumer at/above the Runtime Standing floor sees all four services eligible', async () => {
     const eligible = await discoverEligibleFinancialServices(CONSUMER, fakeSupabase as any, {
       actorPersonaId: ACTOR_PERSONA_ID,
       callerAuthProfileId: ACTOR_AUTH_PROFILE_ID,
     });
     expect(eligible.map((d) => d.serviceId).sort()).toEqual(
-      [MONEYPENNY_ADVISOR.serviceId, MONEYPENNY_ARCHITECT.serviceId, MONEYPENNY_RUNTIME.serviceId].sort(),
+      [
+        MONEYPENNY_ADVISOR.serviceId,
+        MONEYPENNY_ARCHITECT.serviceId,
+        MONEYPENNY_RUNTIME.serviceId,
+        MONEYPENNY_RUNTIME_CONSTITUTIONAL.serviceId,
+      ].sort(),
     );
   });
 
@@ -1218,7 +1417,12 @@ describe('discoverFinancialServicesForConsumer() / discoverEligibleFinancialServ
       callerAuthProfileId: ACTOR_AUTH_PROFILE_ID,
     });
     expect(eligible.map((d) => d.serviceId).sort()).toEqual(
-      [MONEYPENNY_ADVISOR.serviceId, MONEYPENNY_ARCHITECT.serviceId, MONEYPENNY_RUNTIME.serviceId].sort(),
+      [
+        MONEYPENNY_ADVISOR.serviceId,
+        MONEYPENNY_ARCHITECT.serviceId,
+        MONEYPENNY_RUNTIME.serviceId,
+        MONEYPENNY_RUNTIME_CONSTITUTIONAL.serviceId,
+      ].sort(),
     );
   });
 

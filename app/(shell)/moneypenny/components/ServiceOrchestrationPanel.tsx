@@ -12,21 +12,48 @@
  * Distinct from — and does not duplicate — PRD-MPY-001's existing Architect/
  * Runtime panels (`ArchitectPanel.tsx`, `RuntimePanel.tsx`): those remain
  * MoneyPenny's canonical modes. This panel is generic across MoneyPenny's
- * three Financial Services (Advisor/Architect/Runtime `providerMode`) and
- * across consumers — it "routes into" the existing mode panels rather than
- * re-implementing them (a link per providerMode, below).
+ * four Financial Services (Advisor/Architect/Runtime-Confidential/
+ * Runtime-Constitutional) and across consumers — it "routes into" the
+ * existing mode panels rather than re-implementing them (a link per
+ * `serviceId`, below — both Runtime variants share `providerMode: 'RUNTIME'`
+ * but are distinct catalog entries with distinct gating, see
+ * `services/financialServices/serviceCatalog.ts`).
  *
  * Spine-authenticated via personaFetch (CLAUDE.md PARAMOUNT). Slate house
  * style — no white hairlines.
+ *
+ * 2026-08-23 P0 — cross-agent state isolation: every mutable per-request
+ * piece of state (intent, outcome, provider output, requesting/loading, the
+ * service-level error) is keyed on the exact `(agentId, serviceId)` pair via
+ * `serviceOrchestrationPanelState.ts`'s reducer — never on `serviceId` alone,
+ * and never cleared on agent switch. See that module's header for the full
+ * invariant and why the state machine is extracted into a plain, testable
+ * reducer rather than left inline (this repo's tests run in a `node`
+ * environment — no jsdom/RTL — so a real behavioural proof of isolation
+ * requires the transitions to be unit-testable without rendering React).
  */
 
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2, Network, ExternalLink } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
+import {
+  panelReducer,
+  initialPanelState,
+  selectIntent,
+  selectOutcome,
+  selectIsRequesting,
+  selectServiceError,
+  type FinancialServiceDefinitionSummary,
+  type DiscoveredService,
+  type EligibilityResult,
+  type AuthorityPrerequisite,
+  type ReadinessState,
+  type RuntimeReadinessProjection,
+} from "./serviceOrchestrationPanelState";
 
 interface RegistrableAgentSummary {
   slug: string;
@@ -34,83 +61,32 @@ interface RegistrableAgentSummary {
   runtimeAgentId: string;
 }
 
-interface FinancialServiceDefinitionSummary {
-  serviceId: string;
-  providerMode: string;
-  serviceClass: string;
-  displayName: string;
-  attestationRequirement: string;
-}
-
-interface EligibilityResult {
-  eligible: boolean | undefined;
-  code: string;
-  reason: string;
-}
-
 /**
- * Non-blocking Authority Plane prerequisite (2026-08-23 correction) — present
- * only for Runtime (`executionReachable`). A service can be `eligible` while
- * this reads `met: false`: eligibility is structural (admission + assignment
- * + verification + Standing); authority is the separate, current-delegation/
- * mandate fact a CONSEQUENTIAL action still needs before it can execute.
+ * Every service requiring a real, operator-entered request — never a
+ * synthesized one (2026-08-23 orchestration-boundary repair). Keyed by
+ * `serviceId`, NOT `providerMode`: both Runtime variants
+ * (`moneypenny.runtime` Confidential, `moneypenny.runtime.constitutional`
+ * Constitutional) share `providerMode: 'RUNTIME'` but need distinct UI
+ * treatment — only the Constitutional variant takes an inline intent here
+ * (the Confidential variant can never dispatch from this console without
+ * Vela attestation, so it keeps its existing "Open in MoneyPenny Runtime"
+ * link only).
  */
-interface AuthorityPrerequisite {
-  state: 'NONE' | 'PENDING' | 'BOUNDED' | 'ACTIVE';
-  met: boolean;
-  code: string;
-  reason: string;
-}
-
-interface DiscoveredService {
-  definition: FinancialServiceDefinitionSummary;
-  eligibility: EligibilityResult;
-  authority: AuthorityPrerequisite | null;
-}
-
-interface AdvisorDisplayOutput {
-  kind: "ADVISOR_RESPONSE";
-  text: string;
-}
-
-interface ArchitectDisplayOutput {
-  kind: "ARCHITECT_PROPOSAL";
-  title: string;
-  preview: string;
-  truncated: boolean;
-  artifactId: string;
-}
-
-type ProviderDisplayOutput = AdvisorDisplayOutput | ArchitectDisplayOutput;
-
-interface FinancialServiceOutcome {
-  requestRef: string;
-  serviceId: string;
-  serviceClass: string;
-  providerMode: string | null;
-  status: string;
-  reason: string;
-  authorisationRef: string | null;
-  executionRef: string | null;
-  observedConsequenceRef: string | null;
-  validationState: string | null;
-  providerResultRef?: string | null;
-  providerOutput?: ProviderDisplayOutput | null;
-  errorCode?: "INFERENCE_PROVIDER_UNAVAILABLE" | null;
-}
-
-/** Advisor/Architect require a real, operator-entered request — never a synthesized one (2026-08-23 orchestration-boundary repair). */
-const PROVIDER_MODE_INTENT_PROMPT: Record<string, string> = {
-  ADVISOR: "What should MoneyPenny advise this agent about?",
-  ARCHITECT: "What financial structure should MoneyPenny design?",
+const SERVICE_INTENT_PROMPT: Record<string, string> = {
+  "moneypenny.advisor": "What should MoneyPenny advise this agent about?",
+  "moneypenny.architect": "What financial structure should MoneyPenny design?",
+  "moneypenny.runtime.constitutional": "What should MoneyPenny do (Constitutional Runtime, no Vela attestation)?",
 };
 
 // Mirrors CanonicalSurfaceStyling — translucent slate, slate hairlines.
 const PANEL_CLASS = "bg-slate-900/40 border-slate-800 backdrop-blur-xl";
 
-const PROVIDER_MODE_ROUTE: Record<string, string> = {
-  ARCHITECT: "architect",
-  RUNTIME: "runtime",
+/** Deep-links into MoneyPenny's own dedicated mode panels — keyed by
+ *  `serviceId` for the same reason as `SERVICE_INTENT_PROMPT` above. */
+const SERVICE_ROUTE: Record<string, string> = {
+  "moneypenny.architect": "architect",
+  "moneypenny.runtime": "runtime",
+  "moneypenny.runtime.constitutional": "runtime",
 };
 
 const ELIGIBILITY_TONE: Record<string, string> = {
@@ -133,19 +109,41 @@ function eligibilityLabel(eligible: boolean | undefined): string {
   return "undetermined";
 }
 
+const READINESS_TONE: Record<ReadinessState, string> = {
+  ready: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
+  "not-ready": "border-rose-500/30 bg-rose-500/10 text-rose-300",
+  pending: "border-amber-500/30 bg-amber-500/10 text-amber-300",
+  unresolved: "border-amber-500/30 bg-amber-500/10 text-amber-300",
+  "not-required": "border-slate-700 text-white/40",
+};
+
+/**
+ * "The desired pre-Vela UI is not generic UNRESOLVED. It should make the
+ * layered readiness visible" (2026-08-23 operator directive). `readiness`'s
+ * `confidentialExecution` field is always about Vela attestation
+ * specifically, so `pending` on that one field reads as the exact phrase the
+ * operator asked for.
+ */
+function readinessLabel(field: keyof RuntimeReadinessProjection, state: ReadinessState): string {
+  if (field === "confidentialExecution") {
+    if (state === "pending") return "Confidential execution: Vela Live attestation pending";
+    if (state === "not-required") return "Confidential execution: not required";
+    return `Confidential execution: ${state}`;
+  }
+  const fieldLabel = field === "eligibility" ? "Eligibility" : field === "standing" ? "Standing" : "Authority";
+  return `${fieldLabel}: ${state}`;
+}
+
 export function ServiceOrchestrationPanel() {
   const [agents, setAgents] = useState<RegistrableAgentSummary[]>([]);
   const [catalog, setCatalog] = useState<FinancialServiceDefinitionSummary[]>([]);
-  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
-  const [discovery, setDiscovery] = useState<DiscoveredService[] | null>(null);
-  const [admissionDiagnostic, setAdmissionDiagnostic] = useState<Record<string, unknown> | null>(null);
-  const [showDiagnostic, setShowDiagnostic] = useState(false);
   const [loadingCatalog, setLoadingCatalog] = useState(true);
-  const [loadingDiscovery, setLoadingDiscovery] = useState(false);
-  const [requesting, setRequesting] = useState<string | null>(null);
-  const [outcomes, setOutcomes] = useState<Record<string, FinancialServiceOutcome>>({});
-  const [error, setError] = useState<string | null>(null);
-  const [intents, setIntents] = useState<Record<string, string>>({});
+  const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [showDiagnostic, setShowDiagnostic] = useState(false);
+
+  // Cross-agent-isolated state — see serviceOrchestrationPanelState.ts.
+  const [state, dispatch] = useReducer(panelReducer, initialPanelState);
+  const discoveryGenerationCounter = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -155,13 +153,13 @@ export function ServiceOrchestrationPanel() {
         const data = await res.json();
         if (cancelled) return;
         if (!res.ok || !data.ok) {
-          setError(data.error ?? "Failed to load Financial Services catalog");
+          setCatalogError(data.error ?? "Failed to load Financial Services catalog");
           return;
         }
         setAgents(data.agents ?? []);
         setCatalog(data.catalog ?? []);
       } catch {
-        if (!cancelled) setError("Failed to load Financial Services catalog");
+        if (!cancelled) setCatalogError("Failed to load Financial Services catalog");
       } finally {
         if (!cancelled) setLoadingCatalog(false);
       }
@@ -171,11 +169,7 @@ export function ServiceOrchestrationPanel() {
     };
   }, []);
 
-  const loadDiscovery = useCallback(async (agentId: string) => {
-    setLoadingDiscovery(true);
-    setDiscovery(null);
-    setAdmissionDiagnostic(null);
-    setError(null);
+  const loadDiscovery = useCallback(async (agentId: string, generation: number) => {
     try {
       const res = await personaFetch(
         `/api/moneypenny/service-orchestration?agentId=${encodeURIComponent(agentId)}`,
@@ -183,45 +177,60 @@ export function ServiceOrchestrationPanel() {
       );
       const data = await res.json();
       if (!res.ok || !data.ok) {
-        setError(data.error ?? `Failed to resolve eligibility for ${agentId}`);
+        dispatch({ type: "DISCOVERY_ERROR", generation, error: data.error ?? `Failed to resolve eligibility for ${agentId}` });
         return;
       }
-      setDiscovery(data.discovery ?? []);
-      setAdmissionDiagnostic(data.admissionDiagnostic ?? null);
+      dispatch({
+        type: "DISCOVERY_SUCCESS",
+        generation,
+        discovery: data.discovery ?? [],
+        admissionDiagnostic: data.admissionDiagnostic ?? null,
+      });
     } catch {
-      setError(`Failed to resolve eligibility for ${agentId}`);
-    } finally {
-      setLoadingDiscovery(false);
+      dispatch({ type: "DISCOVERY_ERROR", generation, error: `Failed to resolve eligibility for ${agentId}` });
     }
   }, []);
 
   const selectAgent = useCallback(
     (agentId: string) => {
-      setSelectedAgentId(agentId);
-      void loadDiscovery(agentId);
+      // A fresh generation on every selection — the reducer drops any
+      // DISCOVERY_* action whose generation doesn't match the CURRENT state,
+      // so a slow response for a previously selected agent can never
+      // overwrite what the operator is looking at now (P0).
+      const generation = ++discoveryGenerationCounter.current;
+      dispatch({ type: "SELECT_AGENT", agentId, generation });
+      void loadDiscovery(agentId, generation);
     },
     [loadDiscovery],
   );
 
   const requestService = useCallback(
     async (definition: FinancialServiceDefinitionSummary) => {
-      if (!selectedAgentId) return;
+      // Captured NOW, before the async request begins — the completion below
+      // writes ONLY to this agent's composite key, never to "whichever agent
+      // happens to be selected when the response arrives" (P0).
+      const requestAgentId = state.selectedAgentId;
+      if (!requestAgentId) return;
       const serviceId = definition.serviceId;
-      const needsIntent = Boolean(PROVIDER_MODE_INTENT_PROMPT[definition.providerMode]);
-      const intentText = intents[serviceId]?.trim() ?? "";
+      const needsIntent = Boolean(SERVICE_INTENT_PROMPT[serviceId]);
+      const intentText = selectIntent(state, requestAgentId, serviceId).trim();
       if (needsIntent && !intentText) {
-        setError(`Enter a request for ${definition.displayName} before triggering it`);
+        dispatch({
+          type: "REQUEST_VALIDATION_ERROR",
+          agentId: requestAgentId,
+          serviceId,
+          error: `Enter a request for ${definition.displayName} before triggering it`,
+        });
         return;
       }
 
-      setRequesting(serviceId);
-      setError(null);
+      dispatch({ type: "REQUEST_START", agentId: requestAgentId, serviceId });
       try {
         const res = await personaFetch("/api/moneypenny/service-orchestration", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            agentId: selectedAgentId,
+            agentId: requestAgentId,
             serviceId,
             input: needsIntent ? { intent: intentText } : undefined,
           }),
@@ -235,18 +244,28 @@ export function ServiceOrchestrationPanel() {
           // collapsed into one indistinguishable "Request ... failed"
           // (2026-08-23 orchestration-boundary repair).
           const reason = data?.error ? String(data.error) : `Request to '${serviceId}' failed`;
-          setError(data?.stage ? `${reason} (${data.stage})` : reason);
+          dispatch({
+            type: "REQUEST_ERROR",
+            agentId: requestAgentId,
+            serviceId,
+            error: data?.stage ? `${reason} (${data.stage})` : reason,
+          });
           return;
         }
-        setOutcomes((prev) => ({ ...prev, [serviceId]: data.outcome }));
+        dispatch({ type: "REQUEST_SUCCESS", agentId: requestAgentId, serviceId, outcome: data.outcome });
       } catch {
-        setError(`Request to '${serviceId}' failed — no response from the server`);
-      } finally {
-        setRequesting(null);
+        dispatch({
+          type: "REQUEST_ERROR",
+          agentId: requestAgentId,
+          serviceId,
+          error: `Request to '${serviceId}' failed — no response from the server`,
+        });
       }
     },
-    [selectedAgentId, intents],
+    [state],
   );
+
+  const selectedAgentId = state.selectedAgentId;
 
   return (
     <Card className={`${PANEL_CLASS} h-full flex flex-col`}>
@@ -262,7 +281,7 @@ export function ServiceOrchestrationPanel() {
         </CardDescription>
       </CardHeader>
       <CardContent className="flex-1 flex flex-col gap-4 overflow-y-auto">
-        {error && <p className="text-sm text-rose-400">{error}</p>}
+        {catalogError && <p className="text-sm text-rose-400">{catalogError}</p>}
 
         {loadingCatalog ? (
           <div className="flex items-center gap-2 text-sm text-white/60">
@@ -295,8 +314,8 @@ export function ServiceOrchestrationPanel() {
                 {agents.find((a) => a.runtimeAgentId === selectedAgentId)?.displayName ?? selectedAgentId}
               </h3>
               <div className="flex items-center gap-2">
-                {loadingDiscovery && <Loader2 className="h-4 w-4 animate-spin text-white/50" />}
-                {admissionDiagnostic && (
+                {state.loadingDiscovery && <Loader2 className="h-4 w-4 animate-spin text-white/50" />}
+                {state.admissionDiagnostic && (
                   <button
                     type="button"
                     onClick={() => setShowDiagnostic((v) => !v)}
@@ -308,16 +327,21 @@ export function ServiceOrchestrationPanel() {
               </div>
             </div>
 
-            {showDiagnostic && admissionDiagnostic && (
+            {state.discoveryError && <p className="text-xs text-rose-400">{state.discoveryError}</p>}
+
+            {showDiagnostic && state.admissionDiagnostic && (
               <pre className="overflow-x-auto rounded border border-slate-800 bg-black/30 p-2 text-[10px] text-white/60">
-                {JSON.stringify(admissionDiagnostic, null, 2)}
+                {JSON.stringify(state.admissionDiagnostic, null, 2)}
               </pre>
             )}
 
-            {(discovery ?? catalog.map((definition) => ({ definition, eligibility: undefined as unknown as EligibilityResult, authority: null as AuthorityPrerequisite | null })))
-              .map(({ definition, eligibility, authority }) => {
-                const outcome = outcomes[definition.serviceId];
-                const route = PROVIDER_MODE_ROUTE[definition.providerMode];
+            {(state.discovery ?? catalog.map((definition) => ({ definition, eligibility: undefined as unknown as EligibilityResult, authority: null as AuthorityPrerequisite | null, readiness: null })))
+              .map(({ definition, eligibility, authority, readiness }: DiscoveredService) => {
+                const outcome = selectOutcome(state, selectedAgentId, definition.serviceId);
+                const isRequesting = selectIsRequesting(state, selectedAgentId, definition.serviceId);
+                const serviceError = selectServiceError(state, selectedAgentId, definition.serviceId);
+                const intentValue = selectIntent(state, selectedAgentId, definition.serviceId);
+                const route = SERVICE_ROUTE[definition.serviceId];
                 return (
                   <div key={definition.serviceId} className="flex flex-col gap-2 rounded border border-slate-800 bg-slate-900/40 p-3">
                     <div className="flex items-center justify-between gap-2">
@@ -366,16 +390,38 @@ export function ServiceOrchestrationPanel() {
                       </span>
                     )}
 
-                    {PROVIDER_MODE_INTENT_PROMPT[definition.providerMode] && (
+                    {/* Layered readiness — "the desired pre-Vela UI is not
+                        generic UNRESOLVED" (2026-08-23). A derived, read-only
+                        projection over facts already shown above; never a
+                        new constitutional state. */}
+                    {readiness && (
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {(["eligibility", "standing", "authority", "confidentialExecution"] as const).map((field) => (
+                          <span
+                            key={field}
+                            className={`w-fit rounded border px-1.5 py-0.5 text-[10px] ${READINESS_TONE[readiness[field]]}`}
+                          >
+                            {readinessLabel(field, readiness[field])}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {SERVICE_INTENT_PROMPT[definition.serviceId] && (
                       <div className="flex flex-col gap-1">
                         <label htmlFor={`intent-${definition.serviceId}`} className="text-[10px] text-white/50">
-                          {PROVIDER_MODE_INTENT_PROMPT[definition.providerMode]}
+                          {SERVICE_INTENT_PROMPT[definition.serviceId]}
                         </label>
                         <textarea
                           id={`intent-${definition.serviceId}`}
-                          value={intents[definition.serviceId] ?? ""}
+                          value={intentValue}
                           onChange={(e) =>
-                            setIntents((prev) => ({ ...prev, [definition.serviceId]: e.target.value }))
+                            dispatch({
+                              type: "SET_INTENT",
+                              agentId: selectedAgentId,
+                              serviceId: definition.serviceId,
+                              text: e.target.value,
+                            })
                           }
                           rows={2}
                           placeholder="Enter the request the agent should carry to MoneyPenny…"
@@ -384,21 +430,20 @@ export function ServiceOrchestrationPanel() {
                       </div>
                     )}
 
+                    {serviceError && <p className="text-[10px] text-rose-400">{serviceError}</p>}
+
                     <div className="flex items-center gap-2">
                       <Button
                         size="sm"
                         disabled={
-                          requesting === definition.serviceId ||
+                          isRequesting ||
                           eligibility?.eligible !== true ||
-                          (Boolean(PROVIDER_MODE_INTENT_PROMPT[definition.providerMode]) &&
-                            !intents[definition.serviceId]?.trim())
+                          (Boolean(SERVICE_INTENT_PROMPT[definition.serviceId]) && !intentValue.trim())
                         }
                         onClick={() => void requestService(definition)}
                         className="w-fit bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30"
                       >
-                        {requesting === definition.serviceId ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
-                        ) : null}
+                        {isRequesting ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : null}
                         Trigger
                       </Button>
                       {outcome && (
@@ -436,6 +481,12 @@ export function ServiceOrchestrationPanel() {
                             View full proposal <ExternalLink className="h-3 w-3" />
                           </a>
                         )}
+                      </div>
+                    )}
+
+                    {outcome?.providerOutput?.kind === "RUNTIME_EXECUTION" && (
+                      <div className="rounded border border-slate-800 bg-black/30 p-2 text-xs text-white/80">
+                        {outcome.providerOutput.summary}
                       </div>
                     )}
 

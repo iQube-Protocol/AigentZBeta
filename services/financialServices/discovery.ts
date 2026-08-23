@@ -25,6 +25,7 @@ import { listFinancialServiceDefinitions } from './serviceCatalog';
 import { evaluateFinancialServiceEligibility, type FinancialServiceEligibilityResult } from './eligibility';
 import { resolveAgentEligibilityContext, type FinancialServiceAgentContext } from './agentEligibilityContext';
 import { resolveConstitutionalAuthorityForService } from './constitutionalAuthorityAdapter';
+import { deriveRuntimeReadinessProjection, type RuntimeReadinessProjection } from './runtimeReadinessProjection';
 import { resolveRegistrableAgentByRuntimeId } from '@/services/horizen/registrableAgents';
 import type { ConstitutionalAuthority } from '@/types/constitutionalCommerce';
 import type { FinancialServiceDefinition } from '@/types/financialServices';
@@ -42,6 +43,14 @@ export interface DiscoveredFinancialService {
   eligibility: FinancialServiceEligibilityResult;
   /** Non-null only for `executionPolicy.executionReachable` services (Runtime). */
   authority: FinancialServiceAuthorityPrerequisite | null;
+  /**
+   * A DERIVED, read-only UI projection (2026-08-23 operator directive) —
+   * "the desired pre-Vela UI is not generic UNRESOLVED; it should make the
+   * layered readiness visible". Non-null only alongside `authority` (Runtime-
+   * class services); never a new frozen constitutional state — see
+   * `runtimeReadinessProjection.ts`'s own header.
+   */
+  readiness: RuntimeReadinessProjection | null;
 }
 
 export interface DiscoveryCallerContext {
@@ -88,11 +97,13 @@ export async function discoverFinancialServicesForConsumer(
   for (const definition of listFinancialServiceDefinitions()) {
     const eligibility = evaluateFinancialServiceEligibility(definition, context);
     let authority: FinancialServiceAuthorityPrerequisite | null = null;
+    let readiness: RuntimeReadinessProjection | null = null;
     if (definition.executionPolicy.executionReachable) {
       const resolved = await resolveConstitutionalAuthorityForService(admin, context, definition);
       authority = describeAuthorityPrerequisite(resolved.authority.state);
+      readiness = deriveRuntimeReadinessProjection(context, definition, authority);
     }
-    services.push({ definition, eligibility, authority });
+    services.push({ definition, eligibility, authority, readiness });
   }
 
   return { ok: true, context, services };

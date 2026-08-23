@@ -49,6 +49,12 @@ import { resolveRegistrableAgentByRuntimeId } from '@/services/horizen/registrab
 import { draftFinancialStructure } from '@/services/constitutional/moneyPennyArchitect';
 import { runMoneyPennyChat } from '@/app/api/moneypenny/chat/route';
 import { isProviderUnavailableError, describeInferenceUnavailability } from '@/services/constitutional/modelRouter';
+import { runConstitutionalServicePattern } from '@/services/constitutional/constitutionalServicePipeline';
+import {
+  MONEYPENNY_RUNTIME_AGENT_REF,
+  resolveMoneyPennyRuntimeCapabilityRef,
+} from '@/services/constitutional/moneyPennyRuntimeRefs';
+import { isExecutionDomain, type FinancialDomain } from '@/services/resolution/executionTaxonomy';
 import {
   composeUnifiedConsequenceProjection,
   type ConfidentialEvidenceInput,
@@ -155,12 +161,13 @@ function refusedOutcome(
 
 type ProviderDispatchResult =
   | { ok: true; resultRef: string; displayOutput: ProviderDisplayOutput }
-  | { ok: false; error: string; errorCode?: 'INFERENCE_PROVIDER_UNAVAILABLE' };
+  | { ok: false; error: string; errorCode?: 'INFERENCE_PROVIDER_UNAVAILABLE'; refused?: boolean };
 
 /**
  * Actually invoke the canonical PRD-MPY-001 provider for an
  * `executionReachable: false` service (Repair D) — never a second
- * implementation of Architect/Advisor, only their existing entry points.
+ * implementation of Architect/Advisor/Constitutional-Runtime, only their
+ * existing entry points.
  *
  * 2026-08-23 repair pass (Parts A/B): a provider failure is classified as
  * `INFERENCE_PROVIDER_UNAVAILABLE` ONLY when it is the exact "every routed/
@@ -173,10 +180,22 @@ type ProviderDispatchResult =
  * carries the actual response text an operator reads. Architect's
  * `resultRef` stays the persisted artifact id; `displayOutput` carries a
  * bounded title+preview of the same persisted proposal.
+ *
+ * 2026-08-23 second repair pass — Constitutional Runtime
+ * (`moneypenny.runtime.constitutional`, `providerMode: 'RUNTIME'`,
+ * `executionPolicy.executionReachable: false` — see serviceCatalog.ts's own
+ * comment for why): dispatches to the EXISTING, unmodified
+ * `runConstitutionalServicePattern()` pipeline (`/api/moneypenny/runtime`'s
+ * own implementation) in `mode: 'authoritative'`. That pipeline's OWN 409
+ * `constitutionalAgreement.ts` gate is the real authorization boundary — a
+ * refusal there is a genuine constitutional negative (`refused: true`),
+ * never collapsed into the generic "technical dispatch failure" UNRESOLVED
+ * bucket Advisor/Architect's own failures use.
  */
-async function dispatchInformationalProvider(
+async function dispatchDelegatedProvider(
   definition: FinancialServiceDefinition,
   request: FinancialServiceRequest,
+  callerPersonaId: string | null,
 ): Promise<ProviderDispatchResult> {
   const rawInput = request.input as Record<string, unknown> | undefined;
   const intentCandidate = rawInput?.intent ?? rawInput?.message;
@@ -230,6 +249,60 @@ async function dispatchInformationalProvider(
       ok: true,
       resultRef: createHash('sha256').update(text).digest('hex').slice(0, 16),
       displayOutput: { kind: 'ADVISOR_RESPONSE', text },
+    };
+  }
+
+  if (definition.providerMode === 'RUNTIME') {
+    if (!callerPersonaId) {
+      return { ok: false, error: 'no authenticated principal directing this agent' };
+    }
+    const rawDomain = rawInput?.domain;
+    const domain: FinancialDomain = isExecutionDomain(rawDomain) ? rawDomain : 'intelligence';
+    const capabilityRef = resolveMoneyPennyRuntimeCapabilityRef(domain);
+
+    let result;
+    try {
+      result = await runConstitutionalServicePattern({
+        intent,
+        capabilityRef,
+        selectedAgentRef: MONEYPENNY_RUNTIME_AGENT_REF,
+        requestingPersonaId: callerPersonaId,
+        domain,
+        mode: 'authoritative',
+      });
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : 'Constitutional Runtime invocation failed' };
+    }
+
+    if (!result.ok) {
+      // A REAL constitutional refusal from the EXISTING, unmodified
+      // constitutionalAgreement.ts 409 gate, OR a later step (forbidden
+      // action / spend cap) refusing even though the agreement itself was
+      // authorized — `result.gate.reason` only exists on the 409 variant, so
+      // the refused step's own trace detail is the one reason string that is
+      // always present and always accurate — never collapsed into the
+      // generic technical-failure UNRESOLVED bucket Advisor/Architect's own
+      // dispatch failures use.
+      const refusalDetail =
+        result.trace.find((t) => t.step === result.blockedAtStep)?.detail ??
+        (result.gate.ok ? 'refused by a later constitutional check' : result.gate.reason);
+      return {
+        ok: false,
+        error: `Constitutional Runtime refused at step ${result.blockedAtStep} (${refusalDetail})`,
+        refused: true,
+      };
+    }
+
+    return {
+      ok: true,
+      resultRef: result.agreementId ?? createHash('sha256').update(JSON.stringify(result.trace)).digest('hex').slice(0, 16),
+      displayOutput: {
+        kind: 'RUNTIME_EXECUTION',
+        domain,
+        executed: result.executed,
+        agreementId: result.agreementId,
+        summary: `Constitutional Runtime [${domain}]: ${result.executed ? 'executed' : 'not executed'}${result.agreementId ? `, agreement ${result.agreementId}` : ''}`,
+      },
     };
   }
 
@@ -374,23 +447,28 @@ export async function requestFinancialService(
       return refusedOutcome(request, definition.serviceClass, definition.providerMode, 'REFUSED', `${code}: ${reason}`);
     }
 
-    const dispatch = await dispatchInformationalProvider(definition, request);
+    const dispatch = await dispatchDelegatedProvider(definition, request, context.callerPersonaId);
     if (!dispatch.ok) {
-      // A technical provider failure — never a silent DELIVERED, and never a
-      // REFUSED (the gate already allowed; nothing constitutional refused
-      // this, the provider itself simply did not complete). When the failure
-      // is specifically the inference-provider-infrastructure condition
-      // (2026-08-23 repair pass, Part A/C), `errorCode` lets a caller render
-      // "UNRESOLVED — inference provider unavailable" instead of implying
-      // the financial-service architecture itself failed.
+      // Two distinct failure shapes, never collapsed into one:
+      //   - a REAL constitutional refusal (Constitutional Runtime's own,
+      //     unmodified 409 agreement gate / forbidden action / spend cap) ->
+      //     REFUSED, dispatch.refused === true.
+      //   - a technical provider failure (inference outage, no response) ->
+      //     UNRESOLVED — the gate already allowed; nothing constitutional
+      //     refused this, the provider itself simply did not complete. When
+      //     the failure is specifically the inference-provider-infrastructure
+      //     condition (2026-08-23 repair pass, Part A/C), `errorCode` lets a
+      //     caller render "UNRESOLVED — inference provider unavailable"
+      //     instead of implying the financial-service architecture failed.
+      const status: FinancialServiceOutcome['status'] = dispatch.refused ? 'REFUSED' : 'UNRESOLVED';
       return {
         outcome: {
           requestRef: request.requestRef,
           serviceId: request.serviceId,
           serviceClass: definition.serviceClass,
           providerMode: definition.providerMode,
-          status: 'UNRESOLVED',
-          reason: `gate allowed but provider invocation did not complete: ${dispatch.error}`,
+          status,
+          reason: dispatch.refused ? dispatch.error : `gate allowed but provider invocation did not complete: ${dispatch.error}`,
           authorisationRef: null,
           executionRef: null,
           observedConsequenceRef: null,

@@ -124,7 +124,9 @@ export async function resolveAgentEligibilityContext(
 
   const verification = await resolveFinancialServicesVerification(agent).catch(() => undefined);
 
-  const standingPersonaId = await resolveAgentStandingPersonaId(agent).catch(() => undefined);
+  const standingPersonaId = await resolveAgentStandingPersonaId(admin, agent, admission?.agentRootDid).catch(
+    () => undefined,
+  );
   const standing = standingPersonaId ? await computeStandingScore(admin, standingPersonaId).catch(() => null) : null;
 
   return {
