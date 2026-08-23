@@ -4449,3 +4449,8 @@ Top-level retrieval anchors for this pack.
 - Type: `docs`
 - Brief: [COMMIT-bd84582.md](../build_/COMMITS/COMMIT-bd84582.md)
 - Message: docs(irl): freeze CI and IRL native architecture baseline for OCSGA comparison
+
+## Commit `d5dbd90` — 2026-08-23T14:23:59-04:00
+- Type: `docs`
+- Brief: [COMMIT-d5dbd90.md](../build_/COMMITS/COMMIT-d5dbd90.md)
+- Message: docs(agentiq): register CI/IRL baseline as Experiment Architect resource

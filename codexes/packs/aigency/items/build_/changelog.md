@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`d5dbd90`](https://github.com/iQube-Protocol/AigentZBeta/commit/d5dbd9080476a338964d1ff9999d4d1ae75ce0be) [docs] docs(agentiq): register CI/IRL baseline as Experiment Architect resource (Kn0w1, 2026-08-23T14:23:59-04:00)
 - [`bd84582`](https://github.com/iQube-Protocol/AigentZBeta/commit/bd84582d9ad48a3b257c9f651a8cbf7f1ac9eeb6) [docs] docs(irl): freeze CI and IRL native architecture baseline for OCSGA comparison (Kn0w1, 2026-08-23T14:02:51-04:00)
 - [`dc1e30d`](https://github.com/iQube-Protocol/AigentZBeta/commit/dc1e30d5083a09fe44101236f63db63adae60721) [docs] docs(irl): distinguish discovered from created compatibility (Kn0w1, 2026-08-23T14:00:53-04:00)
 - [`2dff69a`](https://github.com/iQube-Protocol/AigentZBeta/commit/2dff69a1e23f409ae67f2e66c3802d02acf7fb66) [docs] docs(irl): add OCSGA boundary-map discipline to Crucible (Kn0w1, 2026-08-22T07:43:17-04:00)

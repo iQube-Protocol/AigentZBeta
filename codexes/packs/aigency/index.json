@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-23T18:04:33.623Z",
+  "last_updated": "2026-08-23T18:25:31.771Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "bd84582d9ad48a3b257c9f651a8cbf7f1ac9eeb6",
-  "latest_commit_short": "bd84582",
-  "latest_commit_title": "docs(irl): freeze CI and IRL native architecture baseline for OCSGA comparison",
+  "latest_commit": "d5dbd9080476a338964d1ff9999d4d1ae75ce0be",
+  "latest_commit_short": "d5dbd90",
+  "latest_commit_title": "docs(agentiq): register CI/IRL baseline as Experiment Architect resource",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "d5dbd90",
+      "full_sha": "d5dbd9080476a338964d1ff9999d4d1ae75ce0be",
+      "title": "docs(agentiq): register CI/IRL baseline as Experiment Architect resource",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-23T14:23:59-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-d5dbd90.md"
+    },
     {
       "sha": "bd84582",
       "full_sha": "bd84582d9ad48a3b257c9f651a8cbf7f1ac9eeb6",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-10T17:52:46Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-f08b700.md"
-    },
-    {
-      "sha": "df68a8f",
-      "full_sha": "df68a8fdb837a1a0b4ec4d3d498bd557a1c26a53",
-      "title": "Rename CI Bridge to /bridge/ci and redirect the old path",
-      "author": "Claude",
-      "timestamp": "2026-08-10T19:25:56Z",
-      "type": "refactor",
-      "brief": "items/build_/COMMITS/COMMIT-df68a8f.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
