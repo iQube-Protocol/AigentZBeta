@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`bd84582`](https://github.com/iQube-Protocol/AigentZBeta/commit/bd84582d9ad48a3b257c9f651a8cbf7f1ac9eeb6) [docs] docs(irl): freeze CI and IRL native architecture baseline for OCSGA comparison (Kn0w1, 2026-08-23T14:02:51-04:00)
 - [`dc1e30d`](https://github.com/iQube-Protocol/AigentZBeta/commit/dc1e30d5083a09fe44101236f63db63adae60721) [docs] docs(irl): distinguish discovered from created compatibility (Kn0w1, 2026-08-23T14:00:53-04:00)
 - [`2dff69a`](https://github.com/iQube-Protocol/AigentZBeta/commit/2dff69a1e23f409ae67f2e66c3802d02acf7fb66) [docs] docs(irl): add OCSGA boundary-map discipline to Crucible (Kn0w1, 2026-08-22T07:43:17-04:00)
 - [`a971e16`](https://github.com/iQube-Protocol/AigentZBeta/commit/a971e161fe689f0c721dd2e28595f969c550f613) [chore] update smoke test expected asset ids after Qriptopian cover re-upload (Claude, 2026-08-22T09:38:21Z)

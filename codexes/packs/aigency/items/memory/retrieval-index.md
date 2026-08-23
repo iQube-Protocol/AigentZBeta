@@ -4444,3 +4444,8 @@ Top-level retrieval anchors for this pack.
 - Type: `docs`
 - Brief: [COMMIT-dc1e30d.md](../build_/COMMITS/COMMIT-dc1e30d.md)
 - Message: docs(irl): distinguish discovered from created compatibility
+
+## Commit `bd84582` — 2026-08-23T14:02:51-04:00
+- Type: `docs`
+- Brief: [COMMIT-bd84582.md](../build_/COMMITS/COMMIT-bd84582.md)
+- Message: docs(irl): freeze CI and IRL native architecture baseline for OCSGA comparison
