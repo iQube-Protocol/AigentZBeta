@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-23-BYTE-BUDGET-MUST-CARRY-REAL-HEADROOM-001",
+  "statement": "A fixed byte-budget canary (e.g. a repository tracked-size limit) must be re-derived with real working headroom whenever the tracked total is measured to be within a small margin of the budget — not left to sit at effectively zero slack. A budget with near-zero headroom fails on the next unrelated, entirely legitimate small contribution (a test file, a resolution record, a one-line fix), attributing an unrelated task's commit as 'the cause' when the true cause is that the budget was never re-based after the last time headroom was reclaimed or was consumed by grandfathered material. Diagnosing such a failure requires comparing tracked bytes immediately before and after the suspect batch, by newly-added file, before concluding the batch itself is at fault.",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "research-registry"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "structural"
+  },
+  "classification": "An attribution-and-margin-of-safety defect for any fixed resource budget canary: the budget itself, not the batch that happened to cross it, is the root cause once headroom has been silently consumed to near zero by prior, unrelated growth (or by grandfathered exemptions that were never revisited). The generic shape recurs anywhere a hard threshold gates CI on a slowly-growing total — token budgets, bundle-size budgets, connection-pool limits — not only `tests/repo-weight.test.ts`.",
+  "scope": "local",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/repo-weight.test.ts",
+      "assertion": "MAX_TRACKED_TOTAL_BYTES is lowered to roughly the post-cleanup size plus ~10% headroom whenever a large removal reclaims room (per the file's own existing header comment) — this candidate names the general form of that same discipline: a budget must be re-based with real margin, not left to erode to near-zero.",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "tests/repo-weight.test.ts",
+      "defect": "The repository was already at 102,993,110 of a 103,000,000-byte budget (6,890 bytes of headroom) before RES-2026-08-23-FSVC-CROSS-AGENT-STATE-AND-RUNTIME-TIER-SPLIT-001's own small, legitimate additions (~99KB of new source/tests/resolution-record documentation) tipped the total over — a before/after byte comparison confirmed the batch itself was not disposable, and the budget's near-zero headroom (not the batch) was the actual proximate cause of the failure.",
+      "resolutionId": "RES-2026-08-23-REPO-WEIGHT-PREEXISTING-HEADROOM-001",
+      "evidence": [
+        "tests/repo-weight.test.ts"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-08-23-REPO-WEIGHT-PREEXISTING-HEADROOM-001"
+  ],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "This candidate does NOT authorize any agent to raise MAX_TRACKED_TOTAL_BYTES unilaterally — CLAUDE.md's own repo-weight section is explicit that raising the budget is not the fix. The correct remedy is identifying and relocating oversized tracked material (per CLAUDE.md's Dense Materials section), after which the budget is lowered to the smaller, real footprint plus headroom — never raised to accommodate what would not otherwise fit."
+  ]
+}

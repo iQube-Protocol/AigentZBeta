@@ -65,6 +65,67 @@ export const SERVICE_CLASS_EXECUTION_REACHABLE: Record<FinancialServiceConsequen
   CONSEQUENTIAL: true,
 };
 
+/**
+ * The execution/governance-path discriminator (operator ruling, 2026-08-23,
+ * correcting an earlier repair pass that had misclassified MoneyPenny's
+ * Constitutional Runtime as `serviceClass: 'PROPOSAL'` purely to dodge Gate
+ * 2's `authoritative`-mode refusal).
+ *
+ * `serviceClass` answers "what KIND of consequence does this service carry"
+ * — a generic, provider-neutral taxonomy. It does NOT answer "which
+ * constitutional mechanism actually governs that consequence." Two services
+ * can both be genuinely `CONSEQUENTIAL` (both bind real financial
+ * consequence) while being governed by two entirely different, mutually
+ * exclusive mechanisms — and `serviceClass` alone cannot express that
+ * without collapsing one into looking like the other's class. This field is
+ * the second axis that keeps them distinct:
+ *
+ *   NONE                          — no constitutional execution mechanism
+ *                                    applies (Advisor/Architect: informational
+ *                                    or proposal-only, never execute anything)
+ *   CONSTITUTIONAL_SERVICE_PIPELINE — governed by the EXISTING, unmodified
+ *                                    PRD-MPY-001 pipeline
+ *                                    (`runConstitutionalServicePattern()` +
+ *                                    `constitutionalAgreement.ts`'s own 409
+ *                                    gate). MoneyPenny's Constitutional
+ *                                    Runtime (`moneypenny.runtime.constitutional`).
+ *   CONSTITUTIONAL_COMMERCE       — governed by the frozen VELA-001
+ *                                    constitutional-commerce ontology
+ *                                    (`composeUnifiedConsequenceProjection` /
+ *                                    `deriveActionAuthorisation` /
+ *                                    `bindExecution`). MoneyPenny's
+ *                                    Confidential Runtime (`moneypenny.runtime`).
+ *
+ * CRITICAL: this field must NEVER be used to widen Gate 2. Gate 2
+ * (`services/registry/capabilityInvocationGates.ts`) remains completely
+ * unmodified and still refuses `authoritative` execution mode for every
+ * capability id except the one frozen exception
+ * (`CONFIDENTIAL_CONSEQUENCE_PROJECTION`). What this field changes is which
+ * Gate-2-request MODE a service asks for in the first place — see
+ * `GOVERNANCE_PATH_EXECUTION_MODE_OVERRIDE` below — never what Gate 2 itself
+ * permits once asked. A `CONSTITUTIONAL_SERVICE_PIPELINE` service requests
+ * `shadow` (Gate 2's existing unconditional pass, identical to
+ * Advisor/Architect's own request) precisely so it is never routed through
+ * Gate 2's `authoritative`-mode exception at all — its real authoritative
+ * decision happens entirely downstream, inside the unmodified constitutional
+ * service pipeline, never inside Gate 2 and never inside VELA's
+ * ActionAuthorisation/execution primitives.
+ */
+export type FinancialServiceGovernancePath = 'NONE' | 'CONSTITUTIONAL_SERVICE_PIPELINE' | 'CONSTITUTIONAL_COMMERCE';
+
+/**
+ * The Gate-2-request `executionMode` a real governed mechanism requires —
+ * NEVER derived from `serviceClass` for these two paths, precisely so
+ * `CONSEQUENTIAL` does not collapse onto Gate 2's frozen `authoritative`
+ * exception merely by declaring the class. `NONE` has no entry here; a
+ * `NONE`-path service (Advisor/Architect) falls back to
+ * `SERVICE_CLASS_EXECUTION_MODE[serviceClass]` (preview/shadow respectively).
+ */
+export const GOVERNANCE_PATH_EXECUTION_MODE_OVERRIDE: Partial<Record<FinancialServiceGovernancePath, CapabilityExecutionMode>> = {
+  CONSTITUTIONAL_SERVICE_PIPELINE: 'shadow',
+  CONSTITUTIONAL_COMMERCE: 'authoritative',
+};
+
 // ── Provider modes (provider-specific) ───────────────────────────────────
 
 /**
@@ -146,6 +207,8 @@ export interface FinancialServiceDefinition {
   serviceId: string;
   /** Generic, provider-neutral constitutional-consequence class — see the type doc above. */
   serviceClass: FinancialServiceConsequenceClass;
+  /** Which constitutional mechanism actually governs this service's consequence — see `FinancialServiceGovernancePath`'s doc above. Independent of `serviceClass`; two `CONSEQUENTIAL` services may declare two different governance paths. */
+  governancePath: FinancialServiceGovernancePath;
   /**
    * The PROVIDER's own operating-mode label (e.g. MoneyPenny's canonical
    * ADVISOR|ARCHITECT|RUNTIME, PRD-MPY-001). Deliberately typed `string`

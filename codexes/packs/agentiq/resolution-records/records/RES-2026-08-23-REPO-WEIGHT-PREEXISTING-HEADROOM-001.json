@@ -1,0 +1,58 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-08-23",
+  "resolutionId": "RES-2026-08-23-REPO-WEIGHT-PREEXISTING-HEADROOM-001",
+  "capability": "repository-hygiene",
+  "milestone": "Operator directive: 'Compare repository size immediately before c407db1b9 with current HEAD and list the incremental bytes by newly added file. If this batch itself crossed the threshold, remove only genuinely disposable/generated material... If the incremental additions are legitimate and the real weight comes from previously tracked large assets, record repo-weight as an existing repository-hygiene defect and handle it separately.'",
+  "problem": "`tests/repo-weight.test.ts`'s total-tracked-bytes canary began failing during the RES-2026-08-23-FSVC-CROSS-AGENT-STATE-AND-RUNTIME-TIER-SPLIT-001 work session, after that batch's own commits landed.",
+  "observedFailure": [
+    "`npx vitest run tests/repo-weight.test.ts` reports the repo carries more than the 103,000,000-byte (98 MB) budget after commits c407db1b9 and a223a482b landed."
+  ],
+  "rootCauses": [
+    "A direct `git ls-tree -r -l` byte-count comparison shows the repository was ALREADY at 102,993,110 tracked bytes at commit af7941f21 (the parent of c407db1b9) — only 6,890 bytes (well under 0.01%) of headroom remained under the 103,000,000-byte budget BEFORE any of this session's Segment 3 work landed. The pre-existing, grandfathered large tracked assets (images, package-lock.json, and other files named in tests/repo-weight.test.ts's own FROZEN list) already consumed essentially the entire budget on their own; any normal source contribution of even a few tens of kilobytes was guaranteed to tip the total over.",
+    "This session's two commits (c407db1b9, a223a482b) added 11 new files totaling 72,186 bytes (all legitimate: new TypeScript source/tests, one SQL migration, four resolution-record/candidate-invariant JSON documents) plus modifications to 10 existing files, for a total increase of 99,209 bytes (102,993,110 -> 103,092,319) — none of it build output, media, or disposable/generated material; all of it either required source/tests or the Resolution -> Invariant Loop's own mandatory documentation output."
+  ],
+  "resolution": [
+    "Verified via `git ls-tree -r -l <commit>` at af7941f21 and at current HEAD, plus `git diff --name-status` to enumerate every newly added file and its exact byte size, that this session's own additions are legitimate and are NOT the root cause of the overage — the repository's pre-existing headroom was already effectively zero.",
+    "Per the operator's explicit instruction, none of this session's legitimate source, test, or resolution-record files were deleted or moved to manufacture headroom. The overage is recorded here as a pre-existing repository-hygiene defect, to be handled separately (identifying and relocating oversized pre-existing tracked assets per CLAUDE.md's 'Dense Materials' section, or deliberately re-evaluating MAX_TRACKED_TOTAL_BYTES/the FROZEN grandfather list) rather than folded into this session's Financial Services Runtime work."
+  ],
+  "rejectedApproaches": [
+    "Deleting or trimming this session's own new resolution-record/candidate-invariant JSON files, or the new test files, to reclaim headroom — rejected per explicit operator instruction: 'Resolution records, candidate invariants and required source/tests are not disposable merely because the repository was already close to the cap.'",
+    "Raising MAX_TRACKED_TOTAL_BYTES to make the failure disappear — rejected: CLAUDE.md's own repo-weight section is explicit that raising the budget is 'not the fix,' and doing so on my own initiative would be exactly the silent-widening-of-a-safeguard this canary exists to prevent."
+  ],
+  "candidateInvariants": [
+    "CI-2026-08-23-BYTE-BUDGET-MUST-CARRY-REAL-HEADROOM-001"
+  ],
+  "canaries": [
+    "tests/repo-weight.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "local-anomaly-blocked-batch",
+  "evidence": {
+    "commits": [
+      "af7941f21",
+      "c407db1b9",
+      "a223a482b"
+    ],
+    "tests": [
+      "tests/repo-weight.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": []
+  },
+  "sourceDocs": [
+    "tests/repo-weight.test.ts"
+  ],
+  "projections": {
+    "targets": [
+      "research-registry"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "structural"
+  },
+  "unresolvedRisks": [
+    "The next legitimate small contribution to this repository — from any agent, on any unrelated task — will very likely reproduce this same failure, since the pre-existing headroom is effectively exhausted. This should be triaged as its own repository-hygiene task (identify a grandfathered or newly-oversized tracked file that can be relocated to Supabase/Auto Drive per CLAUDE.md's Dense Materials section) rather than repeatedly re-diagnosed per task."
+  ]
+}

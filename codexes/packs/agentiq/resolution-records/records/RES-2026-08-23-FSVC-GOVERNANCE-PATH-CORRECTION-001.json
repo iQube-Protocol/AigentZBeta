@@ -1,0 +1,57 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-08-23",
+  "resolutionId": "RES-2026-08-23-FSVC-GOVERNANCE-PATH-CORRECTION-001",
+  "capability": "financial-services-runtime",
+  "milestone": "Operator correction to RES-2026-08-23-FSVC-CROSS-AGENT-STATE-AND-RUNTIME-TIER-SPLIT-001's Constitutional Runtime classification, delivered before that batch was even reported back — the operator caught the defect from the code alone, without a live repro.",
+  "problem": "An earlier repair pass classified MoneyPenny's Constitutional Runtime service (`moneypenny.runtime.constitutional`) as `serviceClass: 'PROPOSAL'` specifically to avoid Gate 2's `authoritative`-mode refusal, even though the service genuinely binds real financial consequence (it is CONSEQUENTIAL, exactly like the Vela-gated Confidential Runtime). The operator ruled this out explicitly: 'Do not classify Constitutional Runtime as PROPOSAL to obtain Gate-2 shadow behavior' — `serviceClass` had been bent to solve a mechanism problem, misrepresenting what kind of consequence the service actually carries.",
+  "observedFailure": [
+    "No live failure — the operator identified the defect by reading the classification and its own justifying comment in serviceCatalog.ts, recognizing that 'PROPOSAL' was chosen for its Gate-2 side effect rather than because the service is actually a proposal/plan that never executes anything."
+  ],
+  "rootCauses": [
+    "The codebase had only ONE axis (`serviceClass`) doing two jobs: describing the kind of consequence a service carries, AND selecting which Gate-2 execution mode it requests. Gate 2's frozen `authoritative`-mode exception is scoped to a single capability id, so the only way to keep a second CONSEQUENTIAL service out of that exception, given a single axis, was to misclassify its consequence — the wrong lever for the actual constraint."
+  ],
+  "resolution": [
+    "Added a second, independent axis: `FinancialServiceGovernancePath` ('NONE' | 'CONSTITUTIONAL_SERVICE_PIPELINE' | 'CONSTITUTIONAL_COMMERCE') on `FinancialServiceDefinition` (types/financialServices.ts). `serviceClass` now answers ONLY 'what kind of consequence' (both Runtime services are correctly `CONSEQUENTIAL`); `governancePath` answers 'which constitutional mechanism governs it'.",
+    "Restored `MONEYPENNY_RUNTIME_CONSTITUTIONAL.serviceClass` to `CONSEQUENTIAL` (`MONEYPENNY_PROVIDER_MODE_CONSEQUENCE_CLASS.RUNTIME`) and set `governancePath: 'CONSTITUTIONAL_SERVICE_PIPELINE'`. `MONEYPENNY_RUNTIME` (Confidential) sets `governancePath: 'CONSTITUTIONAL_COMMERCE'`; Advisor/Architect set `governancePath: 'NONE'`.",
+    "Added `GOVERNANCE_PATH_EXECUTION_MODE_OVERRIDE` — the Gate-2-request mode is now derived from `governancePath` first (falling back to the plain `serviceClass` mapping only for `NONE`), so `CONSTITUTIONAL_SERVICE_PIPELINE` still requests `shadow` (Gate 2's existing unconditional pass, identical to Advisor/Architect) and `CONSTITUTIONAL_COMMERCE` still requests `authoritative` (the one frozen exception) — Gate 2 itself (`capabilityInvocationGates.ts`) was read end to end and confirmed completely UNCHANGED and UNWIDENED by this fix.",
+    "Confirmed the ActionAuthorisation/VELA-execution branch in `serviceRequestOrchestrator.ts` was already gated on `executionPolicy.executionReachable` (independent of `serviceClass`), not on `governancePath` — no change was needed there; Constitutional Runtime still dispatches exclusively through the existing, unmodified `constitutionalAgreement.ts` 409 gate + `runConstitutionalServicePattern`.",
+    "Added a canary proving both Runtime services are `CONSEQUENTIAL` while only Confidential Runtime declares `governancePath: 'CONSTITUTIONAL_COMMERCE'` / `executionPolicy.executionReachable: true` (tests/financial-services-runtime.test.ts)."
+  ],
+  "rejectedApproaches": [
+    "Deriving `executionPolicy.executionReachable` FROM `governancePath` (e.g. `=== 'CONSTITUTIONAL_COMMERCE'`) to eliminate the apparent duplication between the two fields — deferred: `executionReachable` already correctly gates the VELA-specific branch and changing what it derives from is a wider blast-radius change than this correction required; the new canary instead pins the two fields to agree, so they cannot silently drift apart without failing a test."
+  ],
+  "candidateInvariants": [
+    "CI-2026-08-23-GOVERNANCE-PATH-INDEPENDENT-OF-SERVICE-CLASS-001"
+  ],
+  "canaries": [
+    "tests/financial-services-runtime.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "invariant-incomplete-or-misscoped",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/financial-services-runtime.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": []
+  },
+  "sourceDocs": [
+    "types/financialServices.ts",
+    "services/financialServices/serviceCatalog.ts",
+    "services/financialServices/serviceRequestOrchestrator.ts",
+    "services/registry/capabilityInvocationGates.ts"
+  ],
+  "projections": {
+    "targets": [
+      "research-registry",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "unresolvedRisks": []
+}
