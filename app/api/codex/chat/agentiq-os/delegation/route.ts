@@ -1,12 +1,25 @@
 /**
- * AgentiQ OS — Bounded Delegation Lifecycle
+ * AgentiQ OS — Bounded Delegation Lifecycle (CFS-024 multi-agent model,
+ * rewritten 2026-08-23).
  *
- * POST   /api/codex/chat/agentiq-os/delegation          — Grant delegation
+ * POST   /api/codex/chat/agentiq-os/delegation          — Grant delegation (one agent, or a batch)
  * GET    /api/codex/chat/agentiq-os/delegation           — Read active delegation state
  * GET    /api/codex/chat/agentiq-os/delegation?events=1  — Audit log (last 10 events)
- * DELETE /api/codex/chat/agentiq-os/delegation           — Revoke delegation
+ * DELETE /api/codex/chat/agentiq-os/delegation           — Revoke a named agent's grant, or ALL (explicit)
  *
- * Active delegation state: in-memory store (server restart clears).
+ * Canonical model (operator ruling, 2026-08-23): a persona may have MANY
+ * structurally assigned agents, exactly ONE designated `aigentMe`, and MANY
+ * simultaneously active bounded delegation grants — one independently
+ * bounded grant PER AGENT. `aigentMe` is a role/designation, never an
+ * exclusivity constraint on runtime authority. Granting one agent MUST NEVER
+ * revoke another agent's unrelated, independent grant.
+ *
+ * Active delegation state: in-memory store (server restart clears), keyed by
+ * `(persona_id, agent_root_did)` — never persona alone, so two agents' cached
+ * records never collide or overwrite each other.
+ * Durable backing: `delegation_grants` (services/delegation/delegationGrantStore.ts),
+ * itself agent-scoped end to end (`readActiveGrants`/`readActiveGrantForAgent`/
+ * `revokeGrantForAgent`/`revokeAllActiveGrants`).
  * Audit trail: Supabase orchestration_events table (receipt-eligible).
  *
  * All lifecycle events are emitted to Supabase with receipt_eligible metadata.
@@ -15,14 +28,17 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import type { PolicyEnvelope, HandoffPayload, OrchestrationEvent } from '@/types/orchestration';
+import type { AgentRoleId, PolicyEnvelope, HandoffPayload, OrchestrationEvent } from '@/types/orchestration';
 import { emitOrchestrationEvent } from '@/services/orchestration/orchestrationEvents';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import {
   persistDelegationGrant,
-  readActiveGrant,
-  revokeActiveGrant,
+  readActiveGrants,
+  readActiveGrantForAgent,
+  revokeGrantForAgent,
+  revokeAllActiveGrants,
   markGrantExpired,
+  type DelegationGrantRow,
 } from '@/services/delegation/delegationGrantStore';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 import { enqueueActivityReceiptAnchor } from '@/services/dvn/activityReceiptDvnPipeline';
@@ -39,14 +55,22 @@ import { FOUNDER_COMMAND_CENTER_ACTIONS } from '@/services/delegation/delegatedA
 
 interface DelegationRecord {
   handoff: HandoffPayload;
+  agent_root_did: string;
   expires_at: string;
   max_actions: number;
   actions_taken: number;
   created_at: string;
 }
 
-// Active delegation state — in-memory keyed by persona_id
+// Active delegation state — in-memory keyed by `${persona_id}::${agent_root_did}`
+// (never persona alone — a persona may hold many simultaneously active grants,
+// one independently bounded grant per agent; a persona-only key would let one
+// agent's cached record silently overwrite another's).
 const delegationStore = new Map<string, DelegationRecord>();
+
+function recordKey(personaId: string, agentRootDid: string): string {
+  return `${personaId}::${agentRootDid}`;
+}
 
 const AIGENT_C_OS_ROOT_DID = 'did:iqube:aigent-c-os-root';
 
@@ -142,6 +166,91 @@ async function emitDelegationEvent(
   });
 }
 
+/** T1-safe, per-agent projection shape the new multi-grant surfaces (BoundedDelegationTab) consume. */
+interface ActiveDelegationView {
+  agent_root_did: string;
+  active: boolean;
+  suspended: boolean;
+  handoff_id: string;
+  trust_band: string;
+  allowed_actions: string[];
+  allowed_surfaces: string[];
+  disclosure_class: string;
+  expires_at: string;
+  actions_taken: number;
+  max_actions: number;
+  created_at: string;
+  policy_envelope: PolicyEnvelope | undefined;
+}
+
+function toView(record: DelegationRecord): ActiveDelegationView {
+  const suspended = record.actions_taken >= record.max_actions;
+  return {
+    agent_root_did: record.agent_root_did,
+    active: !suspended,
+    suspended,
+    handoff_id: record.handoff.handoff_id,
+    trust_band: record.handoff.reason.match(/Trust band: (\S+)\./)?.[1] ?? 'L2_VERIFIED_COMMUNITY',
+    allowed_actions: record.handoff.open_tasks,
+    allowed_surfaces: record.handoff.policy_envelope?.allowed_surfaces ?? ['agentiq-os-cartridge'],
+    disclosure_class: record.handoff.policy_envelope?.disclosure_class ?? 'tenant',
+    expires_at: record.expires_at,
+    actions_taken: record.actions_taken,
+    max_actions: record.max_actions,
+    created_at: record.created_at,
+    policy_envelope: record.handoff.policy_envelope,
+  };
+}
+
+function grantToRecord(grant: DelegationGrantRow): DelegationRecord | null {
+  if (!grant.handoff) return null;
+  return {
+    handoff: grant.handoff,
+    agent_root_did: grant.agent_root_did,
+    expires_at: grant.expires_at,
+    max_actions: grant.max_actions,
+    actions_taken: grant.actions_taken,
+    created_at: grant.created_at,
+  };
+}
+
+/** Rehydrate (or return the cached) in-memory record for one (persona, agent) pair from the durable ledger. */
+async function resolveRecordForAgent(personaId: string, agentRootDid: string): Promise<DelegationRecord | null> {
+  const key = recordKey(personaId, agentRootDid);
+  let record = delegationStore.get(key);
+  if (record) return record;
+
+  const grant = await readActiveGrantForAgent(personaId, agentRootDid);
+  const fromGrant = grant ? grantToRecord(grant) : null;
+  if (fromGrant) {
+    delegationStore.set(key, fromGrant);
+    return fromGrant;
+  }
+  return null;
+}
+
+/**
+ * Every currently active delegation record for a persona — durable ledger
+ * first (authoritative for the live multi-agent model), rehydrating each
+ * agent's own in-memory cache entry as it goes. This does NOT attempt the
+ * legacy orchestration_events single-record reconstruction (see the LIST
+ * fallback note below) — that fallback predates the delegation_grants ledger
+ * and only ever reconstructed ONE record at a time, which is honest for the
+ * single-agent world it was built for but cannot enumerate a multi-agent
+ * roster; the durable ledger is the actual source of truth for that today.
+ */
+async function resolveAllRecords(personaId: string): Promise<DelegationRecord[]> {
+  const grants = await readActiveGrants(personaId);
+  const records: DelegationRecord[] = [];
+  for (const grant of grants) {
+    const fromGrant = grantToRecord(grant);
+    if (!fromGrant) continue;
+    delegationStore.set(recordKey(personaId, grant.agent_root_did), fromGrant);
+    records.push(fromGrant);
+  }
+  return records;
+}
+
 // ============================================================================
 // GET — Delegation state OR audit event log
 // ============================================================================
@@ -149,6 +258,7 @@ async function emitDelegationEvent(
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const persona_id = searchParams.get('persona_id');
+  const agent_root_did = searchParams.get('agent_root_did');
 
   if (!persona_id) {
     return NextResponse.json({ error: 'persona_id query param is required' }, { status: 400 });
@@ -172,145 +282,177 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Default — return active delegation state
-  let record = delegationStore.get(persona_id);
+  let records: DelegationRecord[];
+  if (agent_root_did) {
+    const one = await resolveRecordForAgent(persona_id, agent_root_did);
+    records = one ? [one] : [];
 
-  // Durable rehydration: if the in-memory cache lost state (server restart),
-  // read the active grant from the delegation_grants ledger first. The stored
-  // handoff JSON rehydrates the record exactly. Falls through to the
-  // orchestration_events reconstruction below if the table is absent/empty.
-  if (!record) {
-    const grant = await readActiveGrant(persona_id);
-    if (grant?.handoff) {
-      record = {
-        handoff: grant.handoff,
-        expires_at: grant.expires_at,
-        max_actions: grant.max_actions,
-        actions_taken: grant.actions_taken,
-        created_at: grant.created_at,
-      };
-      delegationStore.set(persona_id, record);
+    // Legacy single-record fallback (pre-ledger orchestration_events
+    // reconstruction) — only attempted when a specific agent was asked for,
+    // since it can only ever reconstruct one record at a time.
+    if (records.length === 0) {
+      const legacy = await reconstructFromEventsFallback(persona_id, agent_root_did);
+      if (legacy) records = [legacy];
+    }
+  } else {
+    records = await resolveAllRecords(persona_id);
+  }
+
+  // Lazily expire any stale cached records this request touched.
+  const live: DelegationRecord[] = [];
+  for (const record of records) {
+    if (isExpired(record)) {
+      const key = recordKey(persona_id, record.agent_root_did);
+      delegationStore.delete(key);
+      await markGrantExpired(record.handoff.handoff_id);
+      await emitDelegationEvent('control_returned_to_metame', persona_id, {
+        handoff_id: record.handoff.handoff_id,
+        agent_root_did: record.agent_root_did,
+        reason: 'TTL expired',
+      });
+    } else {
+      live.push(record);
     }
   }
 
-  // Fallback: if in-memory store lost state (server restart), reconstruct from latest
-  // z_delegated event in orchestration_events — but only if no revoke event is more recent.
-  if (!record) {
-    try {
-      const db = getDb();
-      // Fetch the most recent event of either type. If the latest is a revoke,
-      // the grant is inactive — never reconstruct from a stale z_delegated event.
-      const { data: latestAny } = await db
-        .from('orchestration_events')
-        .select('event_type, metadata, created_at')
-        .eq('active_cartridge', 'agentiq-os-cartridge')
-        .filter('metadata->>persona_id', 'eq', persona_id)
-        .in('event_type', ['z_delegated', 'control_returned_to_metame'])
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+  const activeDelegations = live.map(toView);
 
-      if (latestAny?.event_type === 'z_delegated' && latestAny.metadata) {
-        const meta = latestAny.metadata as Record<string, unknown>;
-        const expiresAt = typeof meta.expires_at === 'string' ? meta.expires_at : null;
-        const handoffId = typeof meta.handoff_id === 'string' ? meta.handoff_id : null;
-        const allowedActions = Array.isArray(meta.allowed_actions)
-          ? (meta.allowed_actions as string[])
-          : ['knowledge_retrieval'];
-        const trustBand = typeof meta.trust_band === 'string' ? meta.trust_band : 'L2_VERIFIED_COMMUNITY';
+  // Legacy compatibility projection (2026-08-23 CFS-024 multi-agent repair
+  // pass): older callers (SmartWalletDrawer, PassportRegistryTab) read a
+  // SINGLE top-level `{active, agent_root_did, ...}` shape rather than
+  // `activeDelegations`. When exactly one agent was asked for, project THAT
+  // one; when none was specified, project the most-recently-created active
+  // grant — explicitly a legacy convenience, never the canonical multi-agent
+  // answer (that is always `activeDelegations`).
+  const legacyRecord = agent_root_did
+    ? live[0] ?? null
+    : live.slice().sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0] ?? null;
 
-        if (expiresAt && handoffId && new Date(expiresAt) > new Date()) {
-          record = {
-            handoff: {
-              handoff_id: handoffId,
-              from_agent: 'aigent-z',
-              to_agent: 'aigent-c',
-              reason: `Restored from DVN event. Trust band: ${trustBand}.`,
-              user_context_summary: '',
-              journey_state_summary: {
-                persona_id,
-                journey_stage: 'acolyte',
-                experience_depth: 'codex',
-                active_cartridge: 'agentiq-os-cartridge',
-                active_codex: 'agentiq-os-cartridge',
-                blocked_reasons: [],
-                next_likely_step: null,
-                session_id: handoffId,
-              },
-              policy_envelope: {
-                tenant_id: 'default',
-                persona_id,
-                allowed_surfaces: ['agentiq-os-cartridge'],
-                forbidden_actions: BASE_FORBIDDEN_ACTIONS,
-                disclosure_class: 'tenant',
-                requires_guardian_approval: false,
-                cartridge_scope: 'agentiq-os-cartridge',
-              },
-              open_tasks: allowedActions,
-              return_conditions: ['task_complete', 'session_end', 'policy_escalation', 'user_exit'],
-              timestamp: latestAny.created_at,
-            },
-            expires_at: expiresAt,
-            max_actions: 20,
-            actions_taken: 0,
-            created_at: latestAny.created_at,
-          };
-          delegationStore.set(persona_id, record);
-        }
-      }
-      // else: latestAny is null (no events) or event_type is 'control_returned_to_metame'
-      // → no reconstruction, record stays null → GET returns { active: false }
-    } catch {
-      // Fallback reconstruction is non-fatal — return inactive state if it fails
-    }
-  }
-
-  if (!record) {
+  if (!legacyRecord) {
     return NextResponse.json({
       active: false,
       persona_id,
       agent_root_did: AIGENT_C_OS_ROOT_DID,
+      activeDelegations,
     });
   }
 
-  if (isExpired(record)) {
-    delegationStore.delete(persona_id);
-    await markGrantExpired(record.handoff.handoff_id);
-    await emitDelegationEvent('control_returned_to_metame', persona_id, {
-      handoff_id: record.handoff.handoff_id,
-      reason: 'TTL expired',
-    });
-    return NextResponse.json({
-      active: false,
-      expired: true,
-      persona_id,
-      agent_root_did: AIGENT_C_OS_ROOT_DID,
-    });
-  }
-
-  const suspended = record.actions_taken >= record.max_actions;
-
+  const legacyView = toView(legacyRecord);
   return NextResponse.json({
-    active: !suspended,
-    suspended,
+    active: legacyView.active,
+    suspended: legacyView.suspended,
     persona_id,
-    handoff_id: record.handoff.handoff_id,
-    trust_band: record.handoff.reason.match(/Trust band: (\S+)\./)?.[ 1] ?? 'L2_VERIFIED_COMMUNITY',
-    allowed_actions: record.handoff.open_tasks,
-    allowed_surfaces: record.handoff.policy_envelope?.allowed_surfaces ?? ['agentiq-os-cartridge'],
-    disclosure_class: record.handoff.policy_envelope?.disclosure_class ?? 'tenant',
-    expires_at: record.expires_at,
-    actions_taken: record.actions_taken,
-    max_actions: record.max_actions,
-    created_at: record.created_at,
-    agent_root_did: record.handoff.to_agent ?? AIGENT_C_OS_ROOT_DID,
-    policy_envelope: record.handoff.policy_envelope,
+    handoff_id: legacyView.handoff_id,
+    trust_band: legacyView.trust_band,
+    allowed_actions: legacyView.allowed_actions,
+    allowed_surfaces: legacyView.allowed_surfaces,
+    disclosure_class: legacyView.disclosure_class,
+    expires_at: legacyView.expires_at,
+    actions_taken: legacyView.actions_taken,
+    max_actions: legacyView.max_actions,
+    created_at: legacyView.created_at,
+    agent_root_did: legacyRecord.agent_root_did,
+    policy_envelope: legacyView.policy_envelope,
+    activeDelegations,
   });
 }
 
+/**
+ * Legacy fallback: reconstruct ONE agent's delegation record from the latest
+ * `z_delegated`/`control_returned_to_metame` orchestration_events pair, for
+ * the case the delegation_grants ledger migration is not yet applied. Scoped
+ * to a single (persona, agent) pair — this predates the multi-agent model
+ * and was never meant to enumerate a roster.
+ */
+async function reconstructFromEventsFallback(personaId: string, agentRootDid: string): Promise<DelegationRecord | null> {
+  try {
+    const db = getDb();
+    const { data: latestAny } = await db
+      .from('orchestration_events')
+      .select('event_type, metadata, created_at')
+      .eq('active_cartridge', 'agentiq-os-cartridge')
+      .filter('metadata->>persona_id', 'eq', personaId)
+      .filter('metadata->>agent_root_did', 'eq', agentRootDid)
+      .in('event_type', ['z_delegated', 'control_returned_to_metame'])
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (latestAny?.event_type !== 'z_delegated' || !latestAny.metadata) return null;
+    const meta = latestAny.metadata as Record<string, unknown>;
+    const expiresAt = typeof meta.expires_at === 'string' ? meta.expires_at : null;
+    const handoffId = typeof meta.handoff_id === 'string' ? meta.handoff_id : null;
+    const allowedActions = Array.isArray(meta.allowed_actions) ? (meta.allowed_actions as string[]) : ['knowledge_retrieval'];
+    const trustBand = typeof meta.trust_band === 'string' ? meta.trust_band : 'L2_VERIFIED_COMMUNITY';
+    if (!expiresAt || !handoffId || new Date(expiresAt) <= new Date()) return null;
+
+    const record: DelegationRecord = {
+      handoff: {
+        handoff_id: handoffId,
+        from_agent: 'aigent-z',
+        // HandoffPayload.to_agent is typed AgentRoleId (a closed role set),
+        // but this route (pre-existing, unrelated to this pass — see the two
+        // identical casts already accepted elsewhere in this file's POST
+        // handler) uses it to carry the actual delegated agent's DID/root id,
+        // not a role name. Not tightened here — out of scope for this repair.
+        to_agent: agentRootDid as AgentRoleId,
+        reason: `Restored from DVN event. Trust band: ${trustBand}.`,
+        user_context_summary: '',
+        journey_state_summary: {
+          persona_id: personaId,
+          journey_stage: 'acolyte',
+          experience_depth: 'codex',
+          active_cartridge: 'agentiq-os-cartridge',
+          active_codex: 'agentiq-os-cartridge',
+          blocked_reasons: [],
+          next_likely_step: null,
+          session_id: handoffId,
+        },
+        policy_envelope: {
+          tenant_id: 'default',
+          persona_id: personaId,
+          allowed_surfaces: ['agentiq-os-cartridge'],
+          forbidden_actions: BASE_FORBIDDEN_ACTIONS,
+          disclosure_class: 'tenant',
+          requires_guardian_approval: false,
+          cartridge_scope: 'agentiq-os-cartridge',
+        },
+        open_tasks: allowedActions,
+        return_conditions: ['task_complete', 'session_end', 'policy_escalation', 'user_exit'],
+        timestamp: latestAny.created_at,
+      },
+      agent_root_did: agentRootDid,
+      expires_at: expiresAt,
+      max_actions: 20,
+      actions_taken: 0,
+      created_at: latestAny.created_at,
+    };
+    delegationStore.set(recordKey(personaId, agentRootDid), record);
+    return record;
+  } catch {
+    return null;
+  }
+}
+
 // ============================================================================
-// POST — Grant delegation
+// POST — Grant delegation (one agent, or a batch — each independently sealed)
 // ============================================================================
+
+interface GrantResult {
+  agent_root_did: string;
+  handoff_id: string;
+  trust_band: TrustBand;
+  allowed_actions: string[];
+  allowed_surfaces: string[];
+  disclosure_class: string;
+  expires_at: string;
+  max_actions: number;
+}
+
+interface GrantRefusal {
+  agent_root_did: string;
+  error: string;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -346,6 +488,7 @@ export async function POST(request: NextRequest) {
     const {
       persona_id,
       agent_root_did: bodyAgentDid,
+      agent_root_dids: bodyAgentDids,
       trust_band = 'L2_VERIFIED_COMMUNITY',
       selected_actions,
       ttl_hours = 4,
@@ -361,6 +504,8 @@ export async function POST(request: NextRequest) {
     } = body as {
       persona_id?: string;
       agent_root_did?: string;
+      /** Batch shape (CFS-024 multi-agent model, 2026-08-23): each entry receives its own independently sealed grant, under the SAME shared configuration below. A batch is a UX convenience only — it creates no shared authority between the agents. */
+      agent_root_dids?: string[];
       trust_band?: TrustBand;
       selected_actions?: string[];
       ttl_hours?: number;
@@ -375,7 +520,14 @@ export async function POST(request: NextRequest) {
       explain_before_acting?: boolean;
     };
 
-    const agentRootDid = bodyAgentDid || AIGENT_C_OS_ROOT_DID;
+    // One or many target agents — a single-agent request behaves exactly as
+    // before (agent_root_did, defaulting to the AgentiQ OS system agent);
+    // agent_root_dids opts into the batch path. The two are mutually
+    // exclusive inputs to the SAME per-agent grant logic below — never a
+    // second implementation.
+    const targetAgentDids = Array.isArray(bodyAgentDids) && bodyAgentDids.length > 0
+      ? Array.from(new Set(bodyAgentDids.filter((d): d is string => typeof d === 'string' && d.length > 0)))
+      : [bodyAgentDid || AIGENT_C_OS_ROOT_DID];
 
     if (!persona_id || typeof persona_id !== 'string') {
       return NextResponse.json({ error: 'persona_id is required' }, { status: 400 });
@@ -422,7 +574,8 @@ export async function POST(request: NextRequest) {
      * refusing names what is missing. Resolving the grantor's score
      * server-side (personaAssetGraph reads it from CRM) is the follow-up that
      * removes the client's involvement entirely; until then the gate at least
-     * cannot be skipped by omission.
+     * cannot be skipped by omission. This gate is PERSONA-scoped (not
+     * per-agent) so it runs once, before the per-agent loop below.
      */
     const minScore = BAND_MIN_SCORE[trust_band] ?? 0;
     if (minScore > 0 && typeof reputation_score !== 'number') {
@@ -449,33 +602,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Dual grant gate, DELEGATE side (operator decision 2026-07-12, option (c)):
-    // L1/L2 stay grantor-gated only (the bootstrap floor — a new agent can be
-    // delegated and then EARN its climb by producing). L3+ additionally require
-    // the delegate's OWN earned trust-band ceiling (the CFS-023×CFS-025
-    // Standing loop; server-resolved — never client-asserted) to reach the
-    // requested band. Admins can accelerate a delegate's standing via
-    // POST /api/homecoming/agent/standing for testing.
-    if (!delegateStandingAllowsBand(trust_band, 'L1_EXPERIMENTAL')) {
-      const delegateAgentId = await resolveDelegateAgentIdByDid(agentRootDid);
-      const delegateStanding = delegateAgentId ? await readDelegateStanding(delegateAgentId) : null;
-      const earnedCeiling = delegateStanding?.trustBandCeiling ?? 'L1_EXPERIMENTAL';
-      if (!delegateStandingAllowsBand(trust_band, earnedCeiling)) {
-        return NextResponse.json(
-          {
-            error:
-              `Delegate has not earned ${trust_band}. Earned ceiling: ${earnedCeiling}` +
-              ` (standing ${delegateStanding?.overall ?? 0}). Standing accrues by producing` +
-              ` consequential artifacts; an admin can accelerate it for testing.`,
-            trust_band,
-            delegate_earned_ceiling: earnedCeiling,
-            delegate_standing: delegateStanding?.overall ?? 0,
-          },
-          { status: 403 },
-        );
-      }
-    }
-
     const clampedTtl = Math.min(Math.max(ttl_hours, 1), 8);
     const expiresAt = new Date(Date.now() + clampedTtl * 60 * 60 * 1000).toISOString();
 
@@ -492,118 +618,189 @@ export async function POST(request: NextRequest) {
       ? Math.min(bodyMaxActions, 200)
       : 20;
 
-    const envelope: PolicyEnvelope = {
-      tenant_id: tenant_id ?? 'default',
-      persona_id,
-      allowed_surfaces: resolvedSurfaces,
-      forbidden_actions: BASE_FORBIDDEN_ACTIONS,
-      disclosure_class: resolvedDisclosure,
-      requires_guardian_approval: false,
-      cartridge_scope: resolvedSurfaces[0] ?? 'agentiq-os-cartridge',
-    };
+    // ── Per-agent grant — each target agent gets its OWN independently
+    //    sealed PolicyEnvelope, handoff/grant id, expiry, counters and
+    //    receipts. A batch is a UX convenience only; it creates NO shared
+    //    authority, action count, mandate or receipt chain between agents —
+    //    every agent below runs the full per-agent gate + grant exactly as a
+    //    lone single-agent request would. ──────────────────────────────────
+    const grants: GrantResult[] = [];
+    const refusals: GrantRefusal[] = [];
 
-    const handoffId = buildHandoffId();
+    for (const agentRootDid of targetAgentDids) {
+      // Dual grant gate, DELEGATE side (operator decision 2026-07-12, option
+      // (c)): L1/L2 stay grantor-gated only (the bootstrap floor — a new
+      // agent can be delegated and then EARN its climb by producing). L3+
+      // additionally require the delegate's OWN earned trust-band ceiling
+      // (the CFS-023×CFS-025 Standing loop; server-resolved — never
+      // client-asserted) to reach the requested band. Per-agent: each agent
+      // in a batch is judged on ITS OWN earned standing, never the batch's.
+      if (!delegateStandingAllowsBand(trust_band, 'L1_EXPERIMENTAL')) {
+        const delegateAgentId = await resolveDelegateAgentIdByDid(agentRootDid);
+        const delegateStanding = delegateAgentId ? await readDelegateStanding(delegateAgentId) : null;
+        const earnedCeiling = delegateStanding?.trustBandCeiling ?? 'L1_EXPERIMENTAL';
+        if (!delegateStandingAllowsBand(trust_band, earnedCeiling)) {
+          refusals.push({
+            agent_root_did: agentRootDid,
+            error:
+              `Delegate has not earned ${trust_band}. Earned ceiling: ${earnedCeiling}` +
+              ` (standing ${delegateStanding?.overall ?? 0}). Standing accrues by producing` +
+              ` consequential artifacts; an admin can accelerate it for testing.`,
+          });
+          continue;
+        }
+      }
 
-    const handoff: HandoffPayload = {
-      handoff_id: handoffId,
-      from_agent: 'aigent-z',
-      to_agent: agentRootDid,
-      reason: `Bounded delegation granted. Trust band: ${trust_band}. Agent: ${agentRootDid}.`,
-      user_context_summary: `Persona ${persona_id} granted delegation to ${agentRootDid}. Allowed: ${allowedActions.join(', ')}. Surfaces: ${resolvedSurfaces.join(', ')}. Disclosure: ${resolvedDisclosure}. Expires: ${expiresAt}.`,
-      journey_state_summary: {
+      const envelope: PolicyEnvelope = {
+        tenant_id: tenant_id ?? 'default',
         persona_id,
-        journey_stage: 'acolyte',
-        experience_depth: 'codex',
-        active_cartridge: 'agentiq-os-cartridge',
-        active_codex: 'agentiq-os-cartridge',
-        blocked_reasons: [],
-        next_likely_step: null,
-        session_id: handoffId,
-      },
-      policy_envelope: envelope,
-      open_tasks: allowedActions,
-      return_conditions: ['task_complete', 'session_end', 'policy_escalation', 'user_exit'],
-      timestamp: new Date().toISOString(),
-    };
+        allowed_surfaces: resolvedSurfaces,
+        forbidden_actions: BASE_FORBIDDEN_ACTIONS,
+        disclosure_class: resolvedDisclosure,
+        requires_guardian_approval: false,
+        cartridge_scope: resolvedSurfaces[0] ?? 'agentiq-os-cartridge',
+      };
 
-    const record: DelegationRecord = {
-      handoff,
-      expires_at: expiresAt,
-      max_actions: resolvedMaxActions,
-      actions_taken: 0,
-      created_at: new Date().toISOString(),
-    };
+      const handoffId = buildHandoffId();
 
-    delegationStore.set(persona_id, record);
+      const handoff: HandoffPayload = {
+        handoff_id: handoffId,
+        from_agent: 'aigent-z',
+        to_agent: agentRootDid,
+        reason: `Bounded delegation granted. Trust band: ${trust_band}. Agent: ${agentRootDid}.`,
+        user_context_summary: `Persona ${persona_id} granted delegation to ${agentRootDid}. Allowed: ${allowedActions.join(', ')}. Surfaces: ${resolvedSurfaces.join(', ')}. Disclosure: ${resolvedDisclosure}. Expires: ${expiresAt}.`,
+        journey_state_summary: {
+          persona_id,
+          journey_stage: 'acolyte',
+          experience_depth: 'codex',
+          active_cartridge: 'agentiq-os-cartridge',
+          active_codex: 'agentiq-os-cartridge',
+          blocked_reasons: [],
+          next_likely_step: null,
+          session_id: handoffId,
+        },
+        policy_envelope: envelope,
+        open_tasks: allowedActions,
+        return_conditions: ['task_complete', 'session_end', 'policy_escalation', 'user_exit'],
+        timestamp: new Date().toISOString(),
+      };
 
-    // Durable persistence — survives serverless cold starts and gives Delegated
-    // Standing a real ledger. Best-effort: soft-fails if the migration is
-    // pending (the in-memory grant above keeps the flow working regardless).
-    await persistDelegationGrant({
-      grantId: handoffId,
-      personaId: persona_id,
-      agentRootDid,
-      tenantId: tenant_id ?? 'default',
-      trustBand: trust_band,
-      allowedActions,
-      allowedSurfaces: resolvedSurfaces,
-      forbiddenActions: BASE_FORBIDDEN_ACTIONS,
-      disclosureClass: resolvedDisclosure,
-      maxActions: resolvedMaxActions,
-      spendAutonomy: spend_autonomy ?? 'low',
-      showReceipts: show_receipts ?? true,
-      curatedSkillsOnly: curated_skills_only ?? true,
-      explainBeforeActing: explain_before_acting ?? false,
-      handoff,
-      expiresAt: expiresAt,
-    });
+      const record: DelegationRecord = {
+        handoff,
+        agent_root_did: agentRootDid,
+        expires_at: expiresAt,
+        max_actions: resolvedMaxActions,
+        actions_taken: 0,
+        created_at: new Date().toISOString(),
+      };
 
-    await emitDelegationEvent('z_delegated', persona_id, {
-      handoff_id: handoffId,
-      agent_root_did: agentRootDid,
-      trust_band,
-      allowed_actions: allowedActions,
-      allowed_surfaces: resolvedSurfaces,
-      disclosure_class: resolvedDisclosure,
-      max_actions: resolvedMaxActions,
-      expires_at: expiresAt,
-      ttl_hours: clampedTtl,
-      spend_autonomy: spend_autonomy ?? 'low',
-      show_receipts: show_receipts ?? true,
-      curated_skills_only: curated_skills_only ?? true,
-      explain_before_acting: explain_before_acting ?? false,
-    });
+      delegationStore.set(recordKey(persona_id, agentRootDid), record);
 
-    // Create an activity receipt so the delegation is anchored in the DVN pipeline.
-    // The receipt is fire-and-forget for the DVN submission but must be awaited
-    // for the DB write itself (serverless function freezes after response returns).
-    try {
-      const receipt = await createActivityReceipt({
+      // Durable persistence — survives serverless cold starts and gives
+      // Delegated Standing a real ledger. Best-effort: soft-fails if the
+      // migration is pending (the in-memory grant above keeps the flow
+      // working regardless). Supersedes ONLY this agent's own prior active
+      // grant for this persona — never any other agent's independent grant
+      // (delegationGrantStore.ts's own agent-scoped supersession).
+      await persistDelegationGrant({
+        grantId: handoffId,
         personaId: persona_id,
-        activeCartridge: 'agentiq-os-cartridge',
-        actionType: 'agent_delegated',
-        summary: `Bounded delegation granted to ${agentRootDid} (trust band: ${trust_band}, allowed: ${allowedActions.join(', ')})`,
-        agentsInvoked: [agentRootDid],
-        toolsUsed: allowedActions,
-        contextShared: [`handoff_id:${handoffId}`, `trust_band:${trust_band}`, `expires_at:${expiresAt}`],
+        agentRootDid,
+        tenantId: tenant_id ?? 'default',
+        trustBand: trust_band,
+        allowedActions,
+        allowedSurfaces: resolvedSurfaces,
+        forbiddenActions: BASE_FORBIDDEN_ACTIONS,
+        disclosureClass: resolvedDisclosure,
+        maxActions: resolvedMaxActions,
+        spendAutonomy: spend_autonomy ?? 'low',
+        showReceipts: show_receipts ?? true,
+        curatedSkillsOnly: curated_skills_only ?? true,
+        explainBeforeActing: explain_before_acting ?? false,
+        handoff,
+        expiresAt: expiresAt,
       });
-      if (receipt) enqueueActivityReceiptAnchor(receipt, persona_id);
-    } catch (receiptErr) {
-      // Soft-fail — the delegation itself succeeded; only the receipt is affected.
-      console.error('[Delegation POST] Activity receipt creation failed:', receiptErr);
+
+      await emitDelegationEvent('z_delegated', persona_id, {
+        handoff_id: handoffId,
+        agent_root_did: agentRootDid,
+        trust_band,
+        allowed_actions: allowedActions,
+        allowed_surfaces: resolvedSurfaces,
+        disclosure_class: resolvedDisclosure,
+        max_actions: resolvedMaxActions,
+        expires_at: expiresAt,
+        ttl_hours: clampedTtl,
+        spend_autonomy: spend_autonomy ?? 'low',
+        show_receipts: show_receipts ?? true,
+        curated_skills_only: curated_skills_only ?? true,
+        explain_before_acting: explain_before_acting ?? false,
+      });
+
+      // Create an activity receipt so the delegation is anchored in the DVN
+      // pipeline — one independent receipt PER agent, never a shared batch
+      // receipt (each grant is its own constitutional act).
+      try {
+        const receipt = await createActivityReceipt({
+          personaId: persona_id,
+          activeCartridge: 'agentiq-os-cartridge',
+          actionType: 'agent_delegated',
+          summary: `Bounded delegation granted to ${agentRootDid} (trust band: ${trust_band}, allowed: ${allowedActions.join(', ')})`,
+          agentsInvoked: [agentRootDid],
+          toolsUsed: allowedActions,
+          contextShared: [`handoff_id:${handoffId}`, `trust_band:${trust_band}`, `expires_at:${expiresAt}`],
+        });
+        if (receipt) enqueueActivityReceiptAnchor(receipt, persona_id);
+      } catch (receiptErr) {
+        // Soft-fail — the delegation itself succeeded; only the receipt is affected.
+        console.error('[Delegation POST] Activity receipt creation failed:', receiptErr);
+      }
+
+      grants.push({
+        agent_root_did: agentRootDid,
+        handoff_id: handoffId,
+        trust_band,
+        allowed_actions: allowedActions,
+        allowed_surfaces: resolvedSurfaces,
+        disclosure_class: resolvedDisclosure,
+        expires_at: expiresAt,
+        max_actions: resolvedMaxActions,
+      });
     }
+
+    if (grants.length === 0) {
+      // Every targeted agent was refused — no partial legacy-shape response
+      // to fall back to.
+      return NextResponse.json(
+        { ok: false, error: 'No delegation could be granted.', refusals },
+        { status: 403 },
+      );
+    }
+
+    // Legacy single-agent response shape, preserved for existing callers
+    // (PassportBureauApplyTab) that POST one agent and read the top-level
+    // fields directly — projected from grants[0] when exactly one agent was
+    // requested. `grants`/`refusals` are always present (the canonical,
+    // multi-agent-aware shape new callers should read).
+    const single = grants.length === 1 && targetAgentDids.length === 1 ? grants[0] : null;
 
     return NextResponse.json({
       ok: true,
-      handoff_id: handoffId,
       persona_id,
-      trust_band,
-      allowed_actions: allowedActions,
-      allowed_surfaces: resolvedSurfaces,
-      disclosure_class: resolvedDisclosure,
-      expires_at: expiresAt,
-      max_actions: resolvedMaxActions,
-      agent_root_did: agentRootDid,
+      grants,
+      refusals,
+      ...(single
+        ? {
+            handoff_id: single.handoff_id,
+            trust_band: single.trust_band,
+            allowed_actions: single.allowed_actions,
+            allowed_surfaces: single.allowed_surfaces,
+            disclosure_class: single.disclosure_class,
+            expires_at: single.expires_at,
+            max_actions: single.max_actions,
+            agent_root_did: single.agent_root_did,
+          }
+        : {}),
     });
   } catch (err) {
     console.error('[Delegation POST] Error:', err);
@@ -615,24 +812,68 @@ export async function POST(request: NextRequest) {
 }
 
 // ============================================================================
-// DELETE — Revoke delegation
+// DELETE — Revoke a named agent's grant, or ALL (explicit)
 // ============================================================================
 
 export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const persona_id = searchParams.get('persona_id');
+    const agent_root_did = searchParams.get('agent_root_did');
+    const revokeAll = searchParams.get('all') === '1';
 
     if (!persona_id) {
       return NextResponse.json({ error: 'persona_id query param is required' }, { status: 400 });
     }
+    if (!agent_root_did && !revokeAll) {
+      return NextResponse.json(
+        {
+          error:
+            'agent_root_did query param is required to revoke a named agent\'s grant. Pass all=1 explicitly to ' +
+            'revoke every active grant this persona holds.',
+        },
+        { status: 400 },
+      );
+    }
 
-    const record = delegationStore.get(persona_id);
+    if (revokeAll) {
+      const records = await resolveAllRecords(persona_id);
+      await revokeAllActiveGrants(persona_id, 'User revoked all delegations');
+      for (const record of records) {
+        delegationStore.delete(recordKey(persona_id, record.agent_root_did));
+        await emitDelegationEvent('control_returned_to_metame', persona_id, {
+          handoff_id: record.handoff.handoff_id,
+          agent_root_did: record.agent_root_did,
+          reason: 'User revoked all delegations',
+          actions_taken: record.actions_taken,
+        });
+        try {
+          const revokeReceipt = await createActivityReceipt({
+            personaId: persona_id,
+            activeCartridge: 'agentiq-os-cartridge',
+            actionType: 'agent_delegation_revoked',
+            summary: `Delegation revoked for ${record.agent_root_did} after ${record.actions_taken} of ${record.max_actions} actions (revoke-all)`,
+            agentsInvoked: [record.agent_root_did],
+            contextShared: [`handoff_id:${record.handoff.handoff_id}`, `actions_taken:${record.actions_taken}`],
+          });
+          if (revokeReceipt) enqueueActivityReceiptAnchor(revokeReceipt, persona_id);
+        } catch (receiptErr) {
+          console.error('[Delegation DELETE] Activity receipt creation failed:', receiptErr);
+        }
+      }
+      return NextResponse.json({ ok: true, message: 'All delegations revoked.', revoked: records.length });
+    }
+
+    // Named-agent revoke — never touches any OTHER agent's independent grant
+    // under the same persona (CFS-024 multi-agent model, 2026-08-23 repair
+    // pass — the exact single-slot defect this corrects).
+    const key = recordKey(persona_id, agent_root_did!);
+    const record = delegationStore.get(key) ?? (await resolveRecordForAgent(persona_id, agent_root_did!));
 
     // Always flip the durable ledger, even when the in-memory cache is cold —
     // a grant rehydrated from the table (or never cached this instance) must
     // still be revocable.
-    await revokeActiveGrant(persona_id, 'User revoked delegation');
+    await revokeGrantForAgent(persona_id, agent_root_did!, 'User revoked delegation');
 
     if (!record) {
       // The durable ledger was revoked above, but we MUST still emit
@@ -641,15 +882,17 @@ export async function DELETE(request: NextRequest) {
       // either type — if no revoke event exists, it reconstructs from the stale
       // z_delegated event and incorrectly returns active: true.
       await emitDelegationEvent('control_returned_to_metame', persona_id, {
+        agent_root_did,
         reason: 'User revoked delegation',
       });
-      return NextResponse.json({ ok: true, message: 'Delegation revoked.' });
+      return NextResponse.json({ ok: true, message: 'Delegation revoked.', agent_root_did });
     }
 
-    delegationStore.delete(persona_id);
+    delegationStore.delete(key);
 
     await emitDelegationEvent('control_returned_to_metame', persona_id, {
       handoff_id: record.handoff.handoff_id,
+      agent_root_did: record.agent_root_did,
       reason: 'User revoked delegation',
       actions_taken: record.actions_taken,
     });
@@ -673,7 +916,7 @@ export async function DELETE(request: NextRequest) {
       ok: true,
       message: 'Delegation revoked. Control returned to metaMe.',
       handoff_id: record.handoff.handoff_id,
-      agent_root_did: AIGENT_C_OS_ROOT_DID,
+      agent_root_did: record.agent_root_did,
     });
   } catch (err) {
     console.error('[Delegation DELETE] Error:', err);

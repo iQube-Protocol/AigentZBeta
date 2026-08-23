@@ -1,0 +1,60 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-23-PER-AGENT-AUTHORITY-KEY-001",
+  "statement": "Any durable store representing a principal's CURRENT AUTHORITY OVER AN ACTING AGENT (a delegation grant, a session, an active-binding row) MUST key its 'is this currently active' identity on (principal, agent) — never on the principal alone — whenever the principal may structurally act through more than one agent. A write path that supersedes/revokes 'the principal's' row on that store must scope the supersession to the SAME agent the new write targets; a read path that answers 'does this principal currently hold authority over THIS agent' must filter on that exact agent, never return 'the principal's' row generically and check the caller's own agent against it after the fact. Where the roster of eligible agents is itself allowed to be multi-membership (e.g. an assignment table with no cardinality limit per principal), every authority-plane store sitting beneath it must match that cardinality — a single-slot authority store beneath a multi-membership structural layer WILL leak one agent's authority onto another's identity check the moment a second agent is genuinely eligible.",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": "CI-2026-08-23-STRUCTURAL-ADMISSION-VS-LIVE-AUTHORITY-001",
+  "projections": {
+    "targets": [
+      "research-registry",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "classification": "A cardinality mismatch propagated across a layer boundary: the structural layer (persona_agent_assignments) was generalized to many-agents-per-principal, but the authority layer beneath it (delegation_grants) kept its original single-slot key, and every consumer built directly against the authority layer inherited the mismatch silently — each one independently, since no single call site owned the conflation.",
+  "scope": "cross-capability",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/delegation-multi-agent-model.test.ts",
+      "assertion": "A persona holding independent active grants for three distinct agents: granting/revoking/re-granting any one agent never touches another agent's own active grant; readActiveGrantForAgent(P, X) never returns a grant belonging to any agent other than X; a batch grant call emits one independently sealed grant (own id, own receipt) per agent, never a single shared grant.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "services/delegation/delegationGrantStore.ts",
+      "defect": "persistDelegationGrant/readActiveGrant/revokeActiveGrant were keyed on persona_id alone; every downstream caller (delegationAuthorityGate.ts, agentEligibilityContext.ts, constitutionalContext.ts, the bounded-delegation route + UI) inherited the single-slot assumption, so a current grant for one agent silently attributed its authority to — or hid the authority of — a completely different agent structurally assigned to the same persona.",
+      "resolutionId": "RES-2026-08-23-CFS024-MULTI-AGENT-DELEGATION-MODEL-001",
+      "evidence": [
+        "services/delegation/delegationGrantStore.ts",
+        "services/delegation/delegationAuthorityGate.ts",
+        "services/financialServices/agentEligibilityContext.ts",
+        "services/identity/constitutionalContext.ts",
+        "app/api/codex/chat/agentiq-os/delegation/route.ts",
+        "tests/delegation-multi-agent-model.test.ts"
+      ]
+    },
+    {
+      "site": "services/financialServices/agentEligibilityContext.ts",
+      "defect": "The FIRST occurrence of this same shape, fixed earlier the same day for its own call site only (RES-2026-08-23-FSVC-DELEGATION-VS-ASSIGNMENT-ELIGIBILITY-001) — recorded here as a second occurrence because the underlying store fix (this resolution) is what actually generalizes the correction to every consumer, confirming the pattern recurs whenever a shared single-slot store is generalized one caller at a time instead of at its source.",
+      "resolutionId": "RES-2026-08-23-FSVC-DELEGATION-VS-ASSIGNMENT-ELIGIBILITY-001",
+      "evidence": [
+        "services/financialServices/agentEligibilityContext.ts"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-08-23-CFS024-MULTI-AGENT-DELEGATION-MODEL-001",
+    "RES-2026-08-23-FSVC-DELEGATION-VS-ASSIGNMENT-ELIGIBILITY-001"
+  ],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "This candidate GENERALIZES CI-2026-08-23-STRUCTURAL-ADMISSION-VS-LIVE-AUTHORITY-001 (recorded as its parent): that one named the specific defect of reusing a live-authority store as a multi-cardinality eligibility roster; this one names the more general fix pattern — the authority store's KEY must match the structural layer's cardinality — and generalizes the occurrence count from one call site to the whole consumer set audited in this pass, meeting the ≥2-occurrences bar for `validated` status once an operator reviews it (not self-promoted here per the ladder rule).",
+    "Generic shape to watch for elsewhere: any 'active X for this principal' store (sessions, current-context selectors, single-slot caches) sitting beneath a structural layer that was, or might later be, generalized to allow multiple simultaneous memberships per principal."
+  ]
+}

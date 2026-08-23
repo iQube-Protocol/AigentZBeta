@@ -41,7 +41,7 @@ vi.mock('@/services/journey/agentAdmissionState', () => ({
 
 const mockReadActiveGrant = vi.fn();
 vi.mock('@/services/delegation/delegationGrantStore', () => ({
-  readActiveGrant: (...args: any[]) => mockReadActiveGrant(...args),
+  readActiveGrantForAgent: (...args: any[]) => mockReadActiveGrant(...args),
 }));
 
 const mockListAssignments = vi.fn();

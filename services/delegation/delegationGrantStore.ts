@@ -87,20 +87,24 @@ function softFail(scope: string, message: string): void {
 }
 
 /**
- * Upsert a grant on creation. Supersedes any prior active grant for the persona
- * (a persona has at most one active bounded delegation at a time) by marking
- * older actives 'revoked' before inserting the new row.
+ * Upsert a grant on creation. Supersedes any prior active grant for the SAME
+ * (persona, agent) pair only (CFS-024 multi-agent bounded delegation model,
+ * 2026-08-23 repair pass) — a persona may hold many simultaneously active
+ * grants, one independently bounded grant per agent. Granting Nakamoto must
+ * never revoke MoneyPenny's or Kn0w1's independent, unrelated grant.
  */
 export async function persistDelegationGrant(input: PersistDelegationGrantInput): Promise<void> {
   const admin = getSupabaseServer();
   if (!admin) return;
   try {
-    // Supersede prior actives for this persona — the in-memory Map only ever
-    // held one grant per persona, so the durable ledger mirrors that.
+    // Supersede only THIS agent's prior active grant for this persona — never
+    // every grant the persona holds (the exact single-slot defect this model
+    // corrects).
     await admin
       .from('delegation_grants')
       .update({ status: 'revoked', revoked_at: new Date().toISOString(), revoke_reason: 'superseded by new grant' })
       .eq('persona_id', input.personaId)
+      .eq('agent_root_did', input.agentRootDid)
       .eq('status', 'active');
 
     const { error } = await admin.from('delegation_grants').insert({
@@ -129,8 +133,57 @@ export async function persistDelegationGrant(input: PersistDelegationGrantInput)
   }
 }
 
-/** Read the persona's active, unexpired grant (rehydration on cache miss). */
-export async function readActiveGrant(personaId: string): Promise<DelegationGrantRow | null> {
+/**
+ * Every currently active, unexpired grant for a persona (CFS-024 multi-agent
+ * model, 2026-08-23 repair pass) — a persona may hold many simultaneously
+ * active grants, one independently bounded grant per agent. This is the
+ * canonical "what is this persona's full active delegation roster" read;
+ * never assume it returns at most one row.
+ *
+ * Lazily expires any stale row it finds (marks it 'expired' rather than
+ * returning it) so the ledger stays honest without a separate sweep job.
+ */
+export async function readActiveGrants(personaId: string): Promise<DelegationGrantRow[]> {
+  const admin = getSupabaseServer();
+  if (!admin) return [];
+  try {
+    const { data, error } = await admin
+      .from('delegation_grants')
+      .select('*')
+      .eq('persona_id', personaId)
+      .eq('status', 'active')
+      .order('created_at', { ascending: false });
+    if (error) {
+      softFail('read', error.message);
+      return [];
+    }
+    if (!data || data.length === 0) return [];
+    const now = new Date();
+    const live: DelegationGrantRow[] = [];
+    for (const row of data as DelegationGrantRow[]) {
+      if (new Date(row.expires_at) < now) {
+        await markGrantExpired(row.grant_id);
+      } else {
+        live.push(row);
+      }
+    }
+    return live;
+  } catch (e) {
+    softFail('read', e instanceof Error ? e.message : String(e));
+    return [];
+  }
+}
+
+/**
+ * The active, unexpired grant for one EXACT (persona, agent) pair — the
+ * correct read for any per-agent Authority Plane decision ("does THIS agent
+ * currently hold current delegated authority from THIS principal"). A grant
+ * for a different agent under the same persona is never returned here — this
+ * is the fix for the defect where a current MoneyPenny delegation made
+ * Nakamoto appear delegated (or hid Nakamoto's own independent grant), and
+ * vice versa.
+ */
+export async function readActiveGrantForAgent(personaId: string, agentRootDid: string): Promise<DelegationGrantRow | null> {
   const admin = getSupabaseServer();
   if (!admin) return null;
   try {
@@ -138,6 +191,7 @@ export async function readActiveGrant(personaId: string): Promise<DelegationGran
       .from('delegation_grants')
       .select('*')
       .eq('persona_id', personaId)
+      .eq('agent_root_did', agentRootDid)
       .eq('status', 'active')
       .order('created_at', { ascending: false })
       .limit(1)
@@ -174,9 +228,11 @@ export async function readActiveGrant(personaId: string): Promise<DelegationGran
  */
 export async function hasActiveDelegation(personaId: string): Promise<boolean> {
   if (!personaId) return false;
-  // 1. Durable ledger (the canonical rehydration source).
-  const grant = await readActiveGrant(personaId);
-  if (grant) return true;
+  // 1. Durable ledger (the canonical rehydration source). Persona-wide by
+  // design — this answers "does this persona have ANY active delegation at
+  // all", not "which agent", so every active grant (not just one) counts.
+  const grants = await readActiveGrants(personaId);
+  if (grants.length > 0) return true;
 
   // 2. orchestration_events fallback — the delegation POST always awaits a
   //    z_delegated event, so this survives even when the ledger migration is
@@ -201,8 +257,38 @@ export async function hasActiveDelegation(personaId: string): Promise<boolean> {
   }
 }
 
-/** Mark the persona's active grant revoked (user revoke / control return). */
-export async function revokeActiveGrant(personaId: string, reason: string): Promise<void> {
+/**
+ * Revoke exactly one agent's active grant for a persona — never any other
+ * agent's independent grant under the same persona. This is the ordinary
+ * per-agent revoke path (a named "Revoke" action on one Active Delegation
+ * card).
+ */
+export async function revokeGrantForAgent(personaId: string, agentRootDid: string, reason: string): Promise<void> {
+  const admin = getSupabaseServer();
+  if (!admin) return;
+  try {
+    const { error } = await admin
+      .from('delegation_grants')
+      .update({ status: 'revoked', revoked_at: new Date().toISOString(), revoke_reason: reason })
+      .eq('persona_id', personaId)
+      .eq('agent_root_did', agentRootDid)
+      .eq('status', 'active');
+    if (error) softFail('revoke', error.message);
+  } catch (e) {
+    softFail('revoke', e instanceof Error ? e.message : String(e));
+  }
+}
+
+/**
+ * Revoke EVERY active grant a persona holds, across every agent — reserved
+ * for genuine "return all authority to metaMe" / emergency-control scenarios
+ * (e.g. a lapsed subscription reconciling the whole runtime), never used as
+ * a side effect of granting or revoking one specific agent's authority. A
+ * caller reaching for this to implement a per-agent revoke is the exact
+ * single-slot regression this model corrects — use `revokeGrantForAgent`
+ * instead.
+ */
+export async function revokeAllActiveGrants(personaId: string, reason: string): Promise<void> {
   const admin = getSupabaseServer();
   if (!admin) return;
   try {

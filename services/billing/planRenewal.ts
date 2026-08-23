@@ -22,7 +22,7 @@ import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { debitQc } from '@/app/api/community-content/_lib/generate';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 import { tierKeyForPlanRow, tierLabel, getTierPrice } from '@/services/billing/planCheckout';
-import { revokeActiveGrant } from '@/services/delegation/delegationGrantStore';
+import { revokeAllActiveGrants } from '@/services/delegation/delegationGrantStore';
 
 export interface PlanRenewalSummary {
   ok: boolean;
@@ -45,15 +45,19 @@ const GRACE_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
  * Reconcile a persona's runtime when their subscription is cancelled. Per the
- * grace-then-downgrade policy: revoke the live bounded-delegate session (a
- * running agent acting on the persona's behalf) so delegated authority stops
- * at the moment the plan lapses. Sponsored agent identities and personas are
- * NOT deleted — they are flagged by falling to the free caps, and new genesis
- * is blocked by the capacity gate. Re-subscribing lets the user re-grant.
+ * grace-then-downgrade policy: revoke EVERY live bounded-delegate grant the
+ * persona holds — across every agent — so delegated authority stops entirely
+ * at the moment the plan lapses. This is a genuine "return all authority to
+ * metaMe" scenario (CFS-024 multi-agent model, 2026-08-23 repair pass), the
+ * one case `revokeAllActiveGrants` exists for — never used as a substitute
+ * for a per-agent revoke elsewhere. Sponsored agent identities and personas
+ * are NOT deleted — they are flagged by falling to the free caps, and new
+ * genesis is blocked by the capacity gate. Re-subscribing lets the user
+ * re-grant.
  */
 async function reconcilePlanCancellation(personaId: string): Promise<void> {
   try {
-    await revokeActiveGrant(personaId, 'subscription_cancelled');
+    await revokeAllActiveGrants(personaId, 'subscription_cancelled');
   } catch {
     /* best-effort — the capacity gate still blocks new delegation while free */
   }
