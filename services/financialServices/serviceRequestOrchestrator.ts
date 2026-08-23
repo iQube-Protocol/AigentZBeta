@@ -48,6 +48,7 @@ import { resolveConstitutionalAuthorityForService } from './constitutionalAuthor
 import { resolveRegistrableAgentByRuntimeId } from '@/services/horizen/registrableAgents';
 import { draftFinancialStructure } from '@/services/constitutional/moneyPennyArchitect';
 import { runMoneyPennyChat } from '@/app/api/moneypenny/chat/route';
+import { isProviderUnavailableError, describeInferenceUnavailability } from '@/services/constitutional/modelRouter';
 import {
   composeUnifiedConsequenceProjection,
   type ConfidentialEvidenceInput,
@@ -67,7 +68,15 @@ import type { ConsequenceForecast } from '@/types/consequence';
 import type { ProposedAction, ProjectionDisposition } from '@/types/constitutionalCommerce';
 import type { CapabilityInvocation } from '@/types/capabilityInvocation';
 import { SERVICE_CLASS_EXECUTION_MODE } from '@/types/financialServices';
-import type { FinancialServiceDefinition, FinancialServiceOutcome, FinancialServiceRequest } from '@/types/financialServices';
+import type {
+  FinancialServiceDefinition,
+  FinancialServiceOutcome,
+  FinancialServiceRequest,
+  ProviderDisplayOutput,
+} from '@/types/financialServices';
+
+/** Bounded display preview length for a persisted Architect proposal body — the canonical, complete body always lives on the artifact record (`artifactId`); this only bounds what rides alongside the outcome for display. */
+const ARCHITECT_PREVIEW_MAX_CHARS = 600;
 
 /** A fixed, non-tuned contribution weight for a completed service interaction. Standing SCORING is a separate, later decision — this only wires the call site the lifecycle requires. */
 const SERVICE_COMPLETION_CVS = 1;
@@ -144,15 +153,31 @@ function refusedOutcome(
   };
 }
 
+type ProviderDispatchResult =
+  | { ok: true; resultRef: string; displayOutput: ProviderDisplayOutput }
+  | { ok: false; error: string; errorCode?: 'INFERENCE_PROVIDER_UNAVAILABLE' };
+
 /**
  * Actually invoke the canonical PRD-MPY-001 provider for an
  * `executionReachable: false` service (Repair D) — never a second
  * implementation of Architect/Advisor, only their existing entry points.
+ *
+ * 2026-08-23 repair pass (Parts A/B): a provider failure is classified as
+ * `INFERENCE_PROVIDER_UNAVAILABLE` ONLY when it is the exact "every routed/
+ * fallback inference provider was unreachable" infrastructure condition
+ * (`isProviderUnavailableError`) — never a broader guess. And a SUCCESSFUL
+ * result now carries the real provider output (`displayOutput`) alongside
+ * `resultRef`, instead of discarding it: Advisor's `resultRef` stays a
+ * hash/commitment over the response (never the raw prose itself — that
+ * remains an evidence reference, not a display value), while `displayOutput`
+ * carries the actual response text an operator reads. Architect's
+ * `resultRef` stays the persisted artifact id; `displayOutput` carries a
+ * bounded title+preview of the same persisted proposal.
  */
 async function dispatchInformationalProvider(
   definition: FinancialServiceDefinition,
   request: FinancialServiceRequest,
-): Promise<{ ok: true; resultRef: string } | { ok: false; error: string }> {
+): Promise<ProviderDispatchResult> {
   const rawInput = request.input as Record<string, unknown> | undefined;
   const intentCandidate = rawInput?.intent ?? rawInput?.message;
   const intent = typeof intentCandidate === 'string' ? intentCandidate.trim() : '';
@@ -162,15 +187,50 @@ async function dispatchInformationalProvider(
     const result = await draftFinancialStructure({ intent }).catch((e) => ({
       ok: false as const,
       error: e instanceof Error ? e.message : String(e),
+      errorCode: isProviderUnavailableError(e) ? ('INFERENCE_PROVIDER_UNAVAILABLE' as const) : undefined,
     }));
-    if (!result.ok || !result.artifactId) return { ok: false, error: result.error ?? 'Architect returned no artifact' };
-    return { ok: true, resultRef: result.artifactId };
+    if (!result.ok || !result.artifactId || !result.title || !result.body) {
+      return {
+        ok: false,
+        error: result.error ?? 'Architect returned no artifact',
+        errorCode: result.errorCode,
+      };
+    }
+    const truncated = result.body.length > ARCHITECT_PREVIEW_MAX_CHARS;
+    return {
+      ok: true,
+      resultRef: result.artifactId,
+      displayOutput: {
+        kind: 'ARCHITECT_PROPOSAL',
+        title: result.title,
+        preview: truncated ? `${result.body.slice(0, ARCHITECT_PREVIEW_MAX_CHARS)}…` : result.body,
+        truncated,
+        artifactId: result.artifactId,
+      },
+    };
   }
 
   if (definition.providerMode === 'ADVISOR') {
-    const result = await runMoneyPennyChat({ messages: [{ role: 'user', content: intent }] }).catch(() => null);
-    if (!result?.response?.trim()) return { ok: false, error: 'Advisor returned no response' };
-    return { ok: true, resultRef: createHash('sha256').update(result.response).digest('hex').slice(0, 16) };
+    let result;
+    try {
+      result = await runMoneyPennyChat({ messages: [{ role: 'user', content: intent }] });
+    } catch (e) {
+      if (isProviderUnavailableError(e)) {
+        return {
+          ok: false,
+          error: `inference provider unavailable: ${describeInferenceUnavailability(e)}`,
+          errorCode: 'INFERENCE_PROVIDER_UNAVAILABLE',
+        };
+      }
+      return { ok: false, error: e instanceof Error ? e.message : 'Advisor invocation failed' };
+    }
+    const text = result?.response?.trim();
+    if (!text) return { ok: false, error: 'Advisor returned no response' };
+    return {
+      ok: true,
+      resultRef: createHash('sha256').update(text).digest('hex').slice(0, 16),
+      displayOutput: { kind: 'ADVISOR_RESPONSE', text },
+    };
   }
 
   return { ok: false, error: `no provider dispatch implemented for providerMode '${definition.providerMode}'` };
@@ -318,7 +378,11 @@ export async function requestFinancialService(
     if (!dispatch.ok) {
       // A technical provider failure — never a silent DELIVERED, and never a
       // REFUSED (the gate already allowed; nothing constitutional refused
-      // this, the provider itself simply did not complete).
+      // this, the provider itself simply did not complete). When the failure
+      // is specifically the inference-provider-infrastructure condition
+      // (2026-08-23 repair pass, Part A/C), `errorCode` lets a caller render
+      // "UNRESOLVED — inference provider unavailable" instead of implying
+      // the financial-service architecture itself failed.
       return {
         outcome: {
           requestRef: request.requestRef,
@@ -333,6 +397,8 @@ export async function requestFinancialService(
           validationState: null,
           projectionDisposition: null,
           providerResultRef: null,
+          providerOutput: null,
+          errorCode: dispatch.errorCode ?? null,
         },
         causalChain: null,
       };
@@ -360,6 +426,8 @@ export async function requestFinancialService(
         validationState: null,
         projectionDisposition: null,
         providerResultRef: dispatch.resultRef,
+        providerOutput: dispatch.displayOutput,
+        errorCode: null,
       },
       causalChain: null,
     };

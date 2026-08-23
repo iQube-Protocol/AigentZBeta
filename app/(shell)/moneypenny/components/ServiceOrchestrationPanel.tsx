@@ -68,6 +68,21 @@ interface DiscoveredService {
   authority: AuthorityPrerequisite | null;
 }
 
+interface AdvisorDisplayOutput {
+  kind: "ADVISOR_RESPONSE";
+  text: string;
+}
+
+interface ArchitectDisplayOutput {
+  kind: "ARCHITECT_PROPOSAL";
+  title: string;
+  preview: string;
+  truncated: boolean;
+  artifactId: string;
+}
+
+type ProviderDisplayOutput = AdvisorDisplayOutput | ArchitectDisplayOutput;
+
 interface FinancialServiceOutcome {
   requestRef: string;
   serviceId: string;
@@ -80,6 +95,8 @@ interface FinancialServiceOutcome {
   observedConsequenceRef: string | null;
   validationState: string | null;
   providerResultRef?: string | null;
+  providerOutput?: ProviderDisplayOutput | null;
+  errorCode?: "INFERENCE_PROVIDER_UNAVAILABLE" | null;
 }
 
 /** Advisor/Architect require a real, operator-entered request — never a synthesized one (2026-08-23 orchestration-boundary repair). */
@@ -386,10 +403,41 @@ export function ServiceOrchestrationPanel() {
                       </Button>
                       {outcome && (
                         <span className={`rounded border px-1.5 py-0.5 text-[10px] ${STATUS_TONE[outcome.status] ?? "border-slate-700 text-white/60"}`}>
-                          {outcome.status} — {outcome.reason}
+                          {outcome.errorCode === "INFERENCE_PROVIDER_UNAVAILABLE"
+                            ? "UNRESOLVED — inference provider unavailable"
+                            : `${outcome.status} — ${outcome.reason}`}
                         </span>
                       )}
                     </div>
+
+                    {/* An inference-provider-infrastructure failure is never
+                        "Architect refused" — the bounded diagnostic is shown
+                        separately from the badge above so the two read as
+                        distinct things: a status, and a detail. */}
+                    {outcome?.errorCode === "INFERENCE_PROVIDER_UNAVAILABLE" && (
+                      <p className="text-[10px] text-amber-300/80">{outcome.reason}</p>
+                    )}
+
+                    {outcome?.providerOutput?.kind === "ADVISOR_RESPONSE" && (
+                      <div className="rounded border border-slate-800 bg-black/30 p-2 text-xs text-white/80 whitespace-pre-wrap">
+                        {outcome.providerOutput.text}
+                      </div>
+                    )}
+
+                    {outcome?.providerOutput?.kind === "ARCHITECT_PROPOSAL" && (
+                      <div className="rounded border border-slate-800 bg-black/30 p-2 text-xs text-white/80">
+                        <div className="mb-1 font-semibold text-white/90">{outcome.providerOutput.title}</div>
+                        <p className="whitespace-pre-wrap text-white/70">{outcome.providerOutput.preview}</p>
+                        {outcome.providerOutput.truncated && (
+                          <a
+                            href={`?panel=architect&artifactId=${encodeURIComponent(outcome.providerOutput.artifactId)}`}
+                            className="mt-1 flex w-fit items-center gap-1 text-[10px] text-white/50 hover:text-white/80"
+                          >
+                            View full proposal <ExternalLink className="h-3 w-3" />
+                          </a>
+                        )}
+                      </div>
+                    )}
 
                     {outcome && (outcome.executionRef || outcome.authorisationRef || outcome.providerResultRef) && (
                       <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] font-mono text-white/40">

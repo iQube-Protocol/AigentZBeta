@@ -30,5 +30,11 @@ export async function POST(req: NextRequest) {
   if (!intent) return NextResponse.json({ ok: false, error: 'intent is required' }, { status: 400 });
 
   const result = await draftFinancialStructure({ intent });
-  return NextResponse.json(result, { status: result.ok ? 200 : 400 });
+  if (result.ok) return NextResponse.json(result, { status: 200 });
+
+  // An inference-provider-unavailable failure is an infrastructure/upstream
+  // condition, not a client error — surface it as 503, not 400, so callers
+  // (and the operator) never read it as "the Architect refused this intent."
+  const status = result.errorCode === 'INFERENCE_PROVIDER_UNAVAILABLE' ? 503 : 400;
+  return NextResponse.json(result, { status });
 }
