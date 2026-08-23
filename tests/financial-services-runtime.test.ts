@@ -259,6 +259,77 @@ describe('requestFinancialService() — Advisor/Architect: cross-agent, no execu
   });
 });
 
+// ── Live defect fix (2026-08-22): undefined admission state is never
+//    collapsed into a false NOT_ADMITTED ────────────────────────────────
+//
+// A live operator run on dev-beta.aigentz.me showed EVERY agent — including
+// MoneyPenny herself — as "not eligible — NOT_ADMITTED" for every service.
+// Root cause: resolveAgentAdmissionState() can genuinely return
+// `delegationActive: undefined` (an audit gap — e.g. a migrated agent whose
+// RootDID self-heal mint needs a callerAuthProfileId this eligibility check
+// never used to pass through). eligibility.ts's `if (!admission.delegationActive)`
+// treated that `undefined` exactly like a real `false`, so every agent read
+// as refused rather than "could not be determined." Fixed by distinguishing
+// the two, and by threading callerAuthProfileId/actorPersonaId through so
+// the self-heal can actually run for an authenticated caller.
+
+describe('eligibility — undefined admission state (audit gap) is never collapsed into NOT_ADMITTED', () => {
+  it('delegationActive: undefined resolves ADMISSION_UNRESOLVED, not NOT_ADMITTED', async () => {
+    mockResolveCapabilityProviders.mockResolvedValue([MONEYPENNY_ADVISOR_PROVIDER]);
+    mockResolveAgentAdmissionState.mockResolvedValue({
+      delegationActive: undefined,
+      auditGaps: ['migrated-agent RootDID mint failed: no authenticated caller to sponsor the mint from'],
+    });
+    const { outcome } = await requestFinancialService({
+      request: request(MONEYPENNY_ADVISOR.serviceId),
+      authority: ACTIVE_AUTHORITY,
+      publicForecast: forecast(),
+      confidentialEvidence: null,
+      now: '2026-08-22T00:00:00.000Z',
+      admin: fakeSupabase as any,
+    });
+    expect(outcome.status).toBe('INELIGIBLE');
+    expect(outcome.reason).toContain('ADMISSION_UNRESOLVED');
+    expect(outcome.reason).not.toContain('NOT_ADMITTED');
+  });
+
+  it('delegationActive: false (a real negative) still resolves NOT_ADMITTED', async () => {
+    mockResolveCapabilityProviders.mockResolvedValue([MONEYPENNY_ADVISOR_PROVIDER]);
+    mockResolveAgentAdmissionState.mockResolvedValue({ delegationActive: false, auditGaps: [] });
+    const { outcome } = await requestFinancialService({
+      request: request(MONEYPENNY_ADVISOR.serviceId),
+      authority: ACTIVE_AUTHORITY,
+      publicForecast: forecast(),
+      confidentialEvidence: null,
+      now: '2026-08-22T00:00:00.000Z',
+      admin: fakeSupabase as any,
+    });
+    expect(outcome.status).toBe('INELIGIBLE');
+    expect(outcome.reason).toContain('NOT_ADMITTED');
+  });
+
+  it('callerAuthProfileId/actorPersonaId are threaded through to resolveAgentAdmissionState unchanged', async () => {
+    mockResolveCapabilityProviders.mockResolvedValue([MONEYPENNY_ADVISOR_PROVIDER]);
+    mockResolveAgentAdmissionState.mockResolvedValue({ delegationActive: true, auditGaps: [] });
+    await requestFinancialService({
+      request: request(MONEYPENNY_ADVISOR.serviceId),
+      authority: ACTIVE_AUTHORITY,
+      publicForecast: forecast(),
+      confidentialEvidence: null,
+      callerAuthProfileId: 'auth-profile-aigent-z',
+      actorPersonaId: 'persona-aigent-z',
+      now: '2026-08-22T00:00:00.000Z',
+      admin: fakeSupabase as any,
+    });
+    expect(mockResolveAgentAdmissionState).toHaveBeenCalledWith(
+      fakeSupabase,
+      expect.objectContaining({ runtimeAgentId: CONSUMER }),
+      'auth-profile-aigent-z',
+      'persona-aigent-z',
+    );
+  });
+});
+
 // ── Full lifecycle: Runtime (the hard Phase-3 dependency) ───────────────
 
 describe('requestFinancialService() — Runtime: the Phase 3 hard dependency', () => {

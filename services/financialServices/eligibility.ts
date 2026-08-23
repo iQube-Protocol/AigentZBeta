@@ -32,6 +32,20 @@ export interface EvaluateFinancialServiceEligibilityInput {
   requestingAgentId: string;
   /** The CRM persona whose Standing is checked when `eligibilityPolicy.minimumStandingScore` is set. Caller-resolved via the existing identity spine — this function never derives it itself. */
   standingPersonaId?: string | null;
+  /**
+   * The AUTHENTICATED caller's own `authProfileId`/`personaId` (T0 — server-
+   * side only, never serialised to a client). Threaded through unchanged to
+   * `resolveAgentAdmissionState()` so its migrated-agent RootDID self-heal
+   * (see `services/journey/agentAdmissionState.ts`'s "THE MIGRATED-AGENT
+   * GAP") can actually run when this eligibility check is the first live
+   * boundary to observe a migrated agent's already-approved Delegate
+   * Passport. Omitting these does not change any read this function makes —
+   * it only leaves that one self-heal a no-op audit gap, exactly as
+   * `resolveAgentAdmissionState`'s own doc comment already states for any
+   * caller that "doesn't yet resolve caller identity."
+   */
+  callerAuthProfileId?: string | null;
+  actorPersonaId?: string | null;
 }
 
 export async function evaluateFinancialServiceEligibility(
@@ -44,11 +58,28 @@ export async function evaluateFinancialServiceEligibility(
     if (!agent) {
       return { eligible: false, code: 'UNKNOWN_AGENT', reason: `'${input.requestingAgentId}' is not a canonical registrable agent` };
     }
-    const admission = await resolveAgentAdmissionState(admin, agent).catch(() => null);
+    const admission = await resolveAgentAdmissionState(
+      admin,
+      agent,
+      input.callerAuthProfileId ?? null,
+      input.actorPersonaId ?? null,
+    ).catch(() => null);
     if (!admission) {
       return { eligible: undefined, code: 'ADMISSION_UNRESOLVED', reason: 'admission state could not be read' };
     }
-    if (!admission.delegationActive) {
+    // Three-valued, matching `resolveAgentAdmissionState`'s own discipline:
+    // `undefined` is an audit gap ("could not tell"), NEVER collapsed into
+    // the real negative `false` ("NOT_ADMITTED"). Conflating the two here
+    // would recreate exactly the defect class `agentAdmissionState.ts`'s own
+    // header documents and was written to close.
+    if (admission.delegationActive === undefined) {
+      return {
+        eligible: undefined,
+        code: 'ADMISSION_UNRESOLVED',
+        reason: `'${input.requestingAgentId}' delegation state has an unresolved audit gap: ${admission.auditGaps.join('; ') || 'unknown'}`,
+      };
+    }
+    if (admission.delegationActive === false) {
       return { eligible: false, code: 'NOT_ADMITTED', reason: `'${input.requestingAgentId}' has no active delegation` };
     }
   }

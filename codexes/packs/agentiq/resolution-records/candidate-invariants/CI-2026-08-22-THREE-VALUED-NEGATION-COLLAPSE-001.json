@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-22-THREE-VALUED-NEGATION-COLLAPSE-001",
+  "statement": "A three-valued admission/evidence fact (`true | false | undefined`, where `undefined` means 'could not be determined') MUST NEVER be read with a coarse boolean negation (`if (!value)`) to decide a refusal. `!undefined === true` in JavaScript, so a plain negation silently renders every unresolved audit gap as a hard negative. Any new call site that consumes a three-valued observer (`resolveAgentAdmissionState`, `resolveAgentRegistrationState`, and any future observer following the same house pattern) MUST branch on `=== undefined` (an audit gap: propagate as \"unresolved\", never as a refusal) and `=== false` (a real negative: refuse) as two explicit, distinct branches.",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "research-registry"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "classification": "Generalizes an already-repeated pattern this codebase has fixed multiple times at the OBSERVER layer (agentAdmissionState.ts's own header documents the sponsorship/Passport/registration cases) — this occurrence shows the same defect class recurring at a NEW CONSUMER call site that read the observer's three-valued contract carelessly, proving the pattern needs to be guarded at every consumption point, not just documented once at the source.",
+  "scope": "estate",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/financial-services-runtime.test.ts",
+      "assertion": "evaluateFinancialServiceEligibility() resolves ADMISSION_UNRESOLVED (never NOT_ADMITTED) when resolveAgentAdmissionState returns delegationActive: undefined, and resolves NOT_ADMITTED only when it returns delegationActive: false — the two are asserted as distinct outcomes, not merged.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "services/financialServices/eligibility.ts",
+      "defect": "`if (!admission.delegationActive)` collapsed `delegationActive: undefined` (an audit gap — e.g. a migrated agent whose RootDID self-heal never ran because callerAuthProfileId was never threaded through) into the same NOT_ADMITTED refusal as a real `delegationActive: false`, making every agent read as universally not-admitted on first live use.",
+      "resolutionId": "RES-2026-08-22-FSVC-ELIGIBILITY-UNDEFINED-COLLAPSE-001",
+      "evidence": [
+        "codexes/packs/agentiq/updates/2026-08-22_phase3-track-a-service-orchestration-console.md",
+        "tests/financial-services-runtime.test.ts"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-08-22-FSVC-ELIGIBILITY-UNDEFINED-COLLAPSE-001"
+  ],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "This is the SAME defect shape `services/journey/agentAdmissionState.ts`'s own header documents at length for its own three canonical sources (sponsorship/Passport/delegation) — 'A caller must not render \"not sponsored\" for \"could not tell\"'. That file got it right internally; the defect was a NEW consumer (this session's own eligibility.ts) that called it without preserving the same discipline. The general lesson: documenting a three-valued discipline at the producer does not, by itself, protect a future consumer — each new call site needs its own explicit undefined/false branch, and ideally a canary at that call site (as added here), not just trust that the author read the producer's comments.",
+    "A worthwhile future structural refinement (not built here, per the same session's 'no new primitives absent a proven gap' freeze ruling): a shared, typed helper (e.g. `resolveTristateRefusal(value, unresolvedCode, falseCode)`) that makes the undefined/false branch impossible to collapse by construction, rather than relying on every call site remembering to write both branches by hand. Flagged as a candidate architectural refinement per the Prospective Evolution Capture rule, not authorized to build without explicit operator sign-off."
+  ]
+}

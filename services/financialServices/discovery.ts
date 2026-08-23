@@ -20,17 +20,24 @@ export interface DiscoveredFinancialService {
   eligibility: FinancialServiceEligibilityResult;
 }
 
+export interface DiscoveryCallerContext {
+  /** The AUTHENTICATED caller's own identity — see `eligibility.ts`'s `EvaluateFinancialServiceEligibilityInput` doc for exactly what these unlock (the migrated-agent RootDID self-heal) and what omitting them costs (nothing except that one self-heal). */
+  callerAuthProfileId?: string | null;
+  actorPersonaId?: string | null;
+}
+
 /** Every catalog service, annotated with this consumer's current eligibility. */
 export async function discoverFinancialServicesForConsumer(
   consumerAgentId: string,
   standingPersonaId: string | null | undefined,
   admin: SupabaseClient,
+  caller: DiscoveryCallerContext = {},
 ): Promise<DiscoveredFinancialService[]> {
   const results: DiscoveredFinancialService[] = [];
   for (const definition of listFinancialServiceDefinitions()) {
     const eligibility = await evaluateFinancialServiceEligibility(
       definition,
-      { requestingAgentId: consumerAgentId, standingPersonaId },
+      { requestingAgentId: consumerAgentId, standingPersonaId, ...caller },
       admin,
     );
     results.push({ definition, eligibility });
@@ -43,7 +50,8 @@ export async function discoverEligibleFinancialServices(
   consumerAgentId: string,
   standingPersonaId: string | null | undefined,
   admin: SupabaseClient,
+  caller: DiscoveryCallerContext = {},
 ): Promise<FinancialServiceDefinition[]> {
-  const discovered = await discoverFinancialServicesForConsumer(consumerAgentId, standingPersonaId, admin);
+  const discovered = await discoverFinancialServicesForConsumer(consumerAgentId, standingPersonaId, admin, caller);
   return discovered.filter((d) => d.eligibility.eligible === true).map((d) => d.definition);
 }

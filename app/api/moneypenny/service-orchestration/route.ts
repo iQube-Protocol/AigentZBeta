@@ -65,7 +65,10 @@ export async function GET(req: NextRequest) {
   }
 
   const standingPersonaId = req.nextUrl.searchParams.get('standingPersonaId');
-  const discovery = await discoverFinancialServicesForConsumer(agentId, standingPersonaId, admin);
+  const discovery = await discoverFinancialServicesForConsumer(agentId, standingPersonaId, admin, {
+    callerAuthProfileId: persona.authProfileId,
+    actorPersonaId: persona.personaId,
+  });
   return NextResponse.json({ ok: true, agentId, discovery });
 }
 
@@ -125,6 +128,8 @@ export async function POST(req: NextRequest) {
     // visible, fail-closed result this console exists to surface.
     confidentialEvidence: null,
     standingPersonaId: body.standingPersonaId ?? null,
+    callerAuthProfileId: persona.authProfileId,
+    actorPersonaId: persona.personaId,
     personaId: persona.personaId,
     now,
     admin,

@@ -84,6 +84,9 @@ export interface RequestFinancialServiceInput {
   personaId?: string;
   /** CRM persona id for Standing eligibility/accrual — caller-resolved via the identity spine, never derived here. */
   standingPersonaId?: string | null;
+  /** The AUTHENTICATED caller's own identity — see `eligibility.ts`'s `EvaluateFinancialServiceEligibilityInput` doc. Passed straight through to the eligibility check; never used for anything else here. */
+  callerAuthProfileId?: string | null;
+  actorPersonaId?: string | null;
   now: string;
   admin: SupabaseClient;
 }
@@ -132,7 +135,12 @@ export async function requestFinancialService(
   // ── Eligibility ──────────────────────────────────────────────────────
   const eligibility = await evaluateFinancialServiceEligibility(
     definition,
-    { requestingAgentId: request.requestingAgentId, standingPersonaId: input.standingPersonaId },
+    {
+      requestingAgentId: request.requestingAgentId,
+      standingPersonaId: input.standingPersonaId,
+      callerAuthProfileId: input.callerAuthProfileId,
+      actorPersonaId: input.actorPersonaId,
+    },
     admin,
   );
   if (eligibility.eligible !== true) {
