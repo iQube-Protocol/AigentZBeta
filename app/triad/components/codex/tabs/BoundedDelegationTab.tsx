@@ -46,18 +46,26 @@ function truncateDid(did: string): string {
   return did.slice(0, 16) + '...' + did.slice(-8);
 }
 
-interface DelegationState {
+/**
+ * One entry in the multi-agent Active Delegations roster (CFS-024 multi-agent
+ * model, 2026-08-23 repair pass) — mirrors the route's `activeDelegations`
+ * projection. A persona may hold MANY of these simultaneously, one
+ * independently bounded grant per agent; granting or revoking one never
+ * touches another.
+ */
+interface ActiveDelegationView {
+  agent_root_did: string;
   active: boolean;
-  suspended?: boolean;
-  expired?: boolean;
-  handoff_id?: string;
-  trust_band?: string;
-  allowed_actions?: string[];
-  expires_at?: string;
-  actions_taken?: number;
-  max_actions?: number;
-  created_at?: string;
-  agent_root_did?: string;
+  suspended: boolean;
+  handoff_id: string;
+  trust_band: string;
+  allowed_actions: string[];
+  allowed_surfaces: string[];
+  disclosure_class: string;
+  expires_at: string;
+  actions_taken: number;
+  max_actions: number;
+  created_at: string;
 }
 
 interface AuditEvent {
@@ -106,7 +114,7 @@ const SURFACE_OPTIONS = [
 
 // A conservative, ready-to-grant preset for the Founder Command Center's
 // low-risk operational actions (Homecoming Closeout WP-C4). Generic — applies
-// to whichever Agent is currently selected as the delegate in this form, not
+// to whichever Agent(s) are currently selected as delegates in this form, not
 // hardcoded to any one Agent's identity.
 const FOUNDER_COMMAND_CENTER_PRESET = {
   trustBand: "L1_EXPERIMENTAL",
@@ -197,15 +205,17 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
 
   const [activeSubTab, setActiveSubTab] = useState<"delegation" | "demo">("delegation");
 
-  const [delegation, setDelegation] = useState<DelegationState | null>(null);
-  const [delegationAgentDid, setDelegationAgentDid] = useState<string | null>(null);
+  // Multi-agent Active Delegations roster (CFS-024 model, 2026-08-23 repair
+  // pass) — a persona may hold MANY simultaneously active grants, one per
+  // agent. Never collapsed to a single `delegation` value.
+  const [activeDelegations, setActiveDelegations] = useState<ActiveDelegationView[]>([]);
   const [loading, setLoading] = useState(true);
   const [granting, setGranting] = useState(false);
-  const [revoking, setRevoking] = useState(false);
+  const [revokingAgentId, setRevokingAgentId] = useState<string | null>(null);
+  const [revokingAll, setRevokingAll] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showGrantForm, setShowGrantForm] = useState(false);
   const [showConcept, setShowConcept] = useState(false);
-  const [justRevoked, setJustRevoked] = useState(false);
   const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
   const [auditLoading, setAuditLoading] = useState(false);
   const [showAudit, setShowAudit] = useState(false);
@@ -215,7 +225,11 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
   const [demoRunning, setDemoRunning] = useState(false);
 
   // Delegate roster state.
-  const [selectedAgent, setSelectedAgent] = useState<DelegateAgent | null>(null);
+  // Multi-select — the operator may check several assigned agents at once;
+  // "Grant Authority" then creates ONE independently sealed grant PER
+  // selected agent, under the same shared configuration template (never
+  // shared authority between them).
+  const [selectedAgentIds, setSelectedAgentIds] = useState<Set<string>>(new Set());
   const [otherAgents, setOtherAgents] = useState<DelegateAgent[]>([]); // sponsored (active persona), non-aigentMe
   const [boundAgents, setBoundAgents] = useState<DelegateAgent[]>([]); // person-scoped (CFS-024), all personas
   const [agentsLoading, setAgentsLoading] = useState(false);
@@ -270,8 +284,7 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
         { personaIdHint: pid },
       );
       const data = await res.json();
-      setDelegation(data);
-      if (data?.agent_root_did) setDelegationAgentDid(data.agent_root_did);
+      setActiveDelegations(Array.isArray(data?.activeDelegations) ? data.activeDelegations : []);
     } catch {
       setError("Failed to load delegation state.");
     } finally {
@@ -440,7 +453,7 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
   // Switching persona clears the in-flight grant selection so it never leaks
   // across personas.
   useEffect(() => {
-    setSelectedAgent(null);
+    setSelectedAgentIds(new Set());
     setShowGrantForm(false);
   }, [effectivePersonaId]);
 
@@ -512,7 +525,7 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
       } else if (data.agent) {
         const a = { ...mapAgent(data.agent), isAigentMe: true };
         setAigentMe(a);
-        setSelectedAgent(a);
+        setSelectedAgentIds((prev) => new Set(prev).add(a.agentRootId));
       }
     } catch {
       setError('aigentMe creation failed.');
@@ -521,79 +534,13 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
     }
   }
 
-  async function handleGrant() {
-    if (!selectedAgent) {
-      setError('Select a delegate first.');
-      return;
-    }
-    setGranting(true);
-    setError(null);
-    try {
-      /*
-       * personaFetch, NOT fetch — this route resolves the caller via
-       * getActivePersona (spine-gated: "A delegation grants authority to act
-       * on a persona's behalf, so it can only be issued by that persona").
-       * A raw fetch attaches no Bearer token, so the spine sees no caller at
-       * all and refuses with "Not authenticated" regardless of which persona
-       * is shown active in the header (CLAUDE.md: cookies are NOT sufficient
-       * for a spine endpoint). personaIdHint pins it to the SAME persona this
-       * component is already granting on behalf of (`pid`), rather than
-       * falling back to whatever the spine's own default resolution picks.
-       */
-      const res = await personaFetch("/api/codex/chat/agentiq-os/delegation", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        personaIdHint: pid,
-        body: JSON.stringify({
-          persona_id: pid,
-          agent_root_did: selectedAgent.didUri || selectedAgent.agentRootId,
-          trust_band: selectedTrustBand,
-          selected_actions: selectedActions,
-          ttl_hours: selectedTtl,
-          reputation_score: activePersona?.reputationScore ?? 0,
-          allowed_surfaces: selectedSurfaces,
-          disclosure_class: selectedDisclosureClass,
-          max_actions: selectedMaxActions,
-          spend_autonomy: spendAutonomy,
-          show_receipts: showReceipts,
-          curated_skills_only: curatedSkillsOnly,
-          explain_before_acting: explainBeforeActing,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? "Grant failed.");
-      } else {
-        setShowGrantForm(false);
-        await loadDelegation();
-        if (showAudit) await loadAuditEvents();
-        // Nudge shell observers (AccessionProgressBar) to re-read state —
-        // the Delegate step flips green immediately, not on next page load.
-        try { window.dispatchEvent(new CustomEvent("accession:refresh")); } catch { /* non-fatal */ }
-      }
-    } catch {
-      setError("Grant request failed.");
-    } finally {
-      setGranting(false);
-    }
-  }
-
-  async function handleRevoke() {
-    setRevoking(true);
-    setError(null);
-    try {
-      await personaFetch(`/api/codex/chat/agentiq-os/delegation?persona_id=${encodeURIComponent(pid)}`, {
-        method: "DELETE",
-        personaIdHint: pid,
-      });
-      setJustRevoked(true);
-      await loadDelegation();
-      if (showAudit) await loadAuditEvents();
-    } catch {
-      setError("Revoke request failed.");
-    } finally {
-      setRevoking(false);
-    }
+  function toggleAgentSelection(agentRootId: string) {
+    setSelectedAgentIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(agentRootId)) next.delete(agentRootId);
+      else next.add(agentRootId);
+      return next;
+    });
   }
 
   const bandActions = TRUST_BAND_ACTIONS[selectedTrustBand] ?? [];
@@ -667,6 +614,127 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
     [allKnownAgents, assignedRoleByAgent],
   );
 
+  const selectedAgentsList = useMemo(
+    () => assignedAgentsList.filter(({ agent }) => selectedAgentIds.has(agent.agentRootId)).map((x) => x.agent),
+    [assignedAgentsList, selectedAgentIds],
+  );
+
+  // Resolve every DID this tab knows about, for matching an Active Delegation
+  // row (keyed by agent_root_did) back to a displayable agent + its assigned
+  // role. Falls back to PLATFORM_AGENTS too (a system agent's own grant is
+  // still shown even for a non-admin viewer looking at their own delegations).
+  const agentByDid = useMemo(() => {
+    const m = new Map<string, DelegateAgent>();
+    for (const a of [...allKnownAgents, ...PLATFORM_AGENTS]) {
+      if (a.didUri) m.set(a.didUri, a);
+      if (a.agentRootId) m.set(a.agentRootId, a);
+    }
+    return m;
+  }, [allKnownAgents]);
+
+  const roleForAgent = useCallback(
+    (agent: DelegateAgent | undefined): AssignmentRole | null => {
+      if (!agent) return null;
+      return assignedRoleByAgent.get(agent.agentRootId) ?? (agent.isAigentMe ? 'aigentMe' : null);
+    },
+    [assignedRoleByAgent],
+  );
+
+  async function handleGrant() {
+    if (selectedAgentsList.length === 0) {
+      setError('Select at least one delegate first.');
+      return;
+    }
+    setGranting(true);
+    setError(null);
+    try {
+      /*
+       * personaFetch, NOT fetch — this route resolves the caller via
+       * getActivePersona (spine-gated: "A delegation grants authority to act
+       * on a persona's behalf, so it can only be issued by that persona").
+       * A raw fetch attaches no Bearer token, so the spine sees no caller at
+       * all and refuses with "Not authenticated" regardless of which persona
+       * is shown active in the header (CLAUDE.md: cookies are NOT sufficient
+       * for a spine endpoint). personaIdHint pins it to the SAME persona this
+       * component is already granting on behalf of (`pid`), rather than
+       * falling back to whatever the spine's own default resolution picks.
+       */
+      const res = await personaFetch("/api/codex/chat/agentiq-os/delegation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        personaIdHint: pid,
+        body: JSON.stringify({
+          persona_id: pid,
+          // Each entry receives its OWN independently sealed grant — a batch
+          // is a UX convenience only, never shared authority (CFS-024
+          // multi-agent model, 2026-08-23 repair pass).
+          agent_root_dids: selectedAgentsList.map((a) => a.didUri || a.agentRootId),
+          trust_band: selectedTrustBand,
+          selected_actions: selectedActions,
+          ttl_hours: selectedTtl,
+          reputation_score: activePersona?.reputationScore ?? 0,
+          allowed_surfaces: selectedSurfaces,
+          disclosure_class: selectedDisclosureClass,
+          max_actions: selectedMaxActions,
+          spend_autonomy: spendAutonomy,
+          show_receipts: showReceipts,
+          curated_skills_only: curatedSkillsOnly,
+          explain_before_acting: explainBeforeActing,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.ok === false) {
+        setError(data.error ?? "Grant failed.");
+      } else {
+        setShowGrantForm(false);
+        setSelectedAgentIds(new Set());
+        await loadDelegation();
+        if (showAudit) await loadAuditEvents();
+        // Nudge shell observers (AccessionProgressBar) to re-read state —
+        // the Delegate step flips green immediately, not on next page load.
+        try { window.dispatchEvent(new CustomEvent("accession:refresh")); } catch { /* non-fatal */ }
+      }
+    } catch {
+      setError("Grant request failed.");
+    } finally {
+      setGranting(false);
+    }
+  }
+
+  async function handleRevokeAgent(agentRootDid: string) {
+    setRevokingAgentId(agentRootDid);
+    setError(null);
+    try {
+      await personaFetch(
+        `/api/codex/chat/agentiq-os/delegation?persona_id=${encodeURIComponent(pid)}&agent_root_did=${encodeURIComponent(agentRootDid)}`,
+        { method: "DELETE", personaIdHint: pid },
+      );
+      await loadDelegation();
+      if (showAudit) await loadAuditEvents();
+    } catch {
+      setError("Revoke request failed.");
+    } finally {
+      setRevokingAgentId(null);
+    }
+  }
+
+  async function handleRevokeAll() {
+    setRevokingAll(true);
+    setError(null);
+    try {
+      await personaFetch(
+        `/api/codex/chat/agentiq-os/delegation?persona_id=${encodeURIComponent(pid)}&all=1`,
+        { method: "DELETE", personaIdHint: pid },
+      );
+      await loadDelegation();
+      if (showAudit) await loadAuditEvents();
+    } catch {
+      setError("Revoke-all request failed.");
+    } finally {
+      setRevokingAll(false);
+    }
+  }
+
   async function runDemoAction(type: "allowed" | "denied") {
     const prompt =
       type === "allowed"
@@ -723,7 +791,8 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
         <div>
           <h2 className="text-lg font-semibold text-slate-100">Aigent Delegates</h2>
           <p className="text-sm text-slate-400 mt-0.5">
-            Grant bounded authority to your Aigents — sealed, time-limited, DVN-signed.
+            Grant bounded authority to your Aigents — sealed, time-limited, DVN-signed. A persona may hold
+            many independently bounded delegations at once, one per agent.
           </p>
         </div>
       </div>
@@ -772,7 +841,7 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
         </p>
       </div>
 
-      {/* Assigned agents for the selected persona */}
+      {/* Assigned agents for the selected persona — multi-select for delegation */}
       <div className="rounded-xl border border-slate-700/40 bg-slate-900/30 p-4 space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -795,24 +864,30 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
         ) : (
           <div className="space-y-2">
             {assignedAgentsList.map(({ agent, role }) => {
-              const selected = selectedAgent?.agentRootId === agent.agentRootId;
+              const checked = selectedAgentIds.has(agent.agentRootId);
               const busy = assignmentBusy === agent.agentRootId;
               return (
                 <div
                   key={agent.agentRootId}
-                  className={`rounded-xl border p-3 transition ${selected ? "border-violet-500/60 bg-violet-500/10 ring-1 ring-violet-500/30" : "border-slate-700/50 bg-slate-900/30"}`}
+                  className={`rounded-xl border p-3 transition ${checked ? "border-violet-500/60 bg-violet-500/10 ring-1 ring-violet-500/30" : "border-slate-700/50 bg-slate-900/30"}`}
                 >
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => setSelectedAgent(agent)}
+                      onClick={() => toggleAgentSelection(agent.agentRootId)}
                       className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                      aria-pressed={checked}
                     >
-                      <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg ${selected ? "bg-violet-500/30" : "bg-slate-700/50"}`}>
-                        <Bot className={`h-4 w-4 ${selected ? "text-violet-300" : "text-slate-400"}`} />
+                      <span
+                        className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded border ${checked ? "border-violet-400 bg-violet-500/40" : "border-slate-600 bg-slate-800"}`}
+                      >
+                        {checked && <CheckCircle2 className="h-3 w-3 text-violet-200" />}
+                      </span>
+                      <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg ${checked ? "bg-violet-500/30" : "bg-slate-700/50"}`}>
+                        <Bot className={`h-4 w-4 ${checked ? "text-violet-300" : "text-slate-400"}`} />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className={`text-sm font-medium truncate ${selected ? "text-violet-200" : "text-slate-200"}`}>{agent.displayName}</p>
+                        <p className={`text-sm font-medium truncate ${checked ? "text-violet-200" : "text-slate-200"}`}>{agent.displayName}</p>
                         <p className="text-[10px] text-slate-500 truncate">{truncateDid(agent.didUri)}</p>
                       </div>
                     </button>
@@ -896,11 +971,11 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
       </div>
 
       {/* Injection warning banner */}
-      {hasInjectionWarning && showAudit && selectedAgent && (
+      {hasInjectionWarning && showAudit && (
         <div className="flex items-start gap-2 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2.5 text-sm text-red-300">
           <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
           <div>
-            <p className="font-medium">{selectedAgent.displayName} blocked a potential injection attempt</p>
+            <p className="font-medium">A delegate blocked a potential injection attempt</p>
             <p className="text-xs text-red-400 mt-0.5">
               at {new Date(lastBlockedEvent!.created_at).toLocaleString()}
             </p>
@@ -947,6 +1022,7 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
         {showConcept && (
           <div className="px-4 pb-4 text-xs text-slate-400 space-y-2 border-t border-slate-700/40 pt-3">
             <p>Bounded delegation grants any Aigent — your aigentMe, a sponsored delegate, or (for admins) a system agent — explicit, time-limited authority via a sealed <strong className="text-slate-300">PolicyEnvelope</strong>. The envelope binds the agent&apos;s Root DiD to your persona&apos;s disclosure class.</p>
+            <p>A persona may hold many of these grants at once — one independently bounded grant per agent. Granting or revoking one agent&apos;s authority never touches any other agent&apos;s independent grant.</p>
             <p>The envelope is immutable after creation — no conversation can expand it. Injection attempts and forbidden actions are blocked at the API boundary before reaching the LLM.</p>
             <p>Every delegation event emits a receipt-eligible <strong className="text-slate-300">OrchestrationEvent</strong> anchored to both Root DiDs (yours and the agent&apos;s). See <strong className="text-slate-300">Build → Aigent Ref</strong> for the full model including custom agent registration.</p>
           </div>
@@ -961,162 +1037,66 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
         </div>
       )}
 
-      {/* Delegation state */}
-      {loading ? (
-        <div className="flex items-center gap-2 text-slate-400 text-sm">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Loading delegation state…
-        </div>
-      ) : delegation?.active ? (
-        <div className="rounded-xl border border-green-500/20 bg-green-500/5 p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="h-5 w-5 text-green-400" />
-              <span className="text-sm font-semibold text-green-300">Active Delegation</span>
-            </div>
-            <button
-              type="button"
-              onClick={handleRevoke}
-              disabled={revoking}
-              className="inline-flex items-center gap-1 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1 text-xs text-red-300 hover:bg-red-500/20 disabled:opacity-50"
-            >
-              {revoking ? <Loader2 className="h-3 w-3 animate-spin" /> : <ShieldX className="h-3 w-3" />}
-              Revoke
-            </button>
-          </div>
-
-          {/* Delegated agent identity */}
-          {delegationAgentDid && (() => {
-            const allAgents = [
-              ...(aigentMe ? [aigentMe] : []),
-              ...pooledOtherAgents,
-              ...PLATFORM_AGENTS,
-            ];
-            const matched = allAgents.find((a) => a.agentRootId === delegationAgentDid || a.didUri === delegationAgentDid);
-            return (
-              <div className="flex items-center gap-2 rounded-lg border border-green-500/15 bg-green-500/5 px-3 py-2">
-                <Bot className="h-4 w-4 text-green-400" />
-                <span className="text-sm text-green-200 font-medium">{matched?.displayName ?? delegationAgentDid}</span>
-                {matched?.isAigentMe && (
-                  <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">
-                    <Crown className="h-2.5 w-2.5" /> aigentMe
-                  </span>
-                )}
-                {matched && (
-                  <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium capitalize ${agentClassColor(matched.agentClass)}`}>
-                    {matched.agentClass}
-                  </span>
-                )}
-              </div>
-            );
-          })()}
-
-          <div className="grid grid-cols-2 gap-2 text-sm">
-            <div className="flex items-center gap-1.5 text-slate-400">
-              <Clock className="h-3.5 w-3.5" />
-              Expires in {delegation.expires_at ? formatExpiry(delegation.expires_at) : "—"}
-            </div>
-            <div className="flex items-center gap-1.5 text-slate-400">
-              <Activity className="h-3.5 w-3.5" />
-              {delegation.actions_taken ?? 0} / {delegation.max_actions ?? 20} actions
-            </div>
-          </div>
-          {delegation.trust_band && (
-            <div className="flex items-center gap-1.5 text-sm text-slate-400">
-              <Shield className="h-3.5 w-3.5" />
-              Trust Band: <span className="text-violet-300">{String(delegation.trust_band).replace(/_/g, ' ')}</span>
-            </div>
-          )}
-          <div>
-            <p className="text-xs text-slate-500 mb-1.5">Allowed actions</p>
-            <div className="flex flex-wrap gap-1.5">
-              {(delegation.allowed_actions ?? []).map((a) => (
-                <span key={a} className="inline-flex items-center gap-1 rounded-full bg-green-500/10 border border-green-500/20 px-2 py-0.5 text-[11px] text-green-300">
-                  <CheckCircle2 className="h-3 w-3" />
-                  {a}
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
-      ) : delegation?.suspended ? (
-        <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 space-y-2">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-amber-400" />
-            <span className="text-sm font-semibold text-amber-300">Delegation Suspended</span>
-          </div>
-          <p className="text-xs text-slate-400">Action limit reached. Revoke and re-grant to continue.</p>
-          <button
-            type="button"
-            onClick={handleRevoke}
-            disabled={revoking}
-            className="inline-flex items-center gap-1 rounded-lg border border-slate-600 bg-slate-800 px-3 py-1 text-xs text-slate-300 hover:bg-slate-700 disabled:opacity-50"
-          >
-            {revoking ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
-            Clear & Re-grant
-          </button>
-        </div>
-      ) : (
+      {/* Grant trigger */}
+      {!showGrantForm && (
         <div className="rounded-xl border border-slate-700/40 bg-slate-900/20 p-4 space-y-3">
-          {justRevoked ? (
-            <>
-              <div className="flex items-center gap-2">
-                <ShieldX className="h-5 w-5 text-red-400" />
-                <span className="text-sm font-semibold text-red-300">Delegation Revoked</span>
-              </div>
-              <p className="text-xs text-slate-400">Authority has been revoked. A DVN receipt has been recorded. You can re-delegate at any time.</p>
-            </>
-          ) : (
-            <>
-              <div className="flex items-center gap-2">
-                <Shield className="h-5 w-5 text-slate-500" />
-                <span className="text-sm text-slate-400">No active delegation</span>
-              </div>
-              <p className="text-xs text-slate-500">
-                {selectedAgent
-                  ? `Grant authority to enable delegated actions for ${selectedAgent.displayName}.`
-                  : "Select a delegate above to grant authority."}
-              </p>
-            </>
-          )}
+          <div className="flex items-center gap-2">
+            <Shield className="h-5 w-5 text-slate-500" />
+            <span className="text-sm text-slate-400">
+              {selectedAgentsList.length > 0
+                ? `${selectedAgentsList.length} agent${selectedAgentsList.length === 1 ? "" : "s"} selected`
+                : "Select one or more delegates above to grant authority."}
+            </span>
+          </div>
           <button
             type="button"
-            disabled={!selectedAgent}
-            onClick={() => { setShowGrantForm((v) => !v); setJustRevoked(false); }}
+            disabled={selectedAgentsList.length === 0}
+            onClick={() => setShowGrantForm(true)}
             className="inline-flex items-center gap-2 rounded-xl border border-violet-500/40 bg-violet-500/10 px-4 py-2 text-sm font-semibold text-violet-200 hover:bg-violet-500/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             <Shield className="h-4 w-4" />
-            {showGrantForm ? "Cancel" : justRevoked ? "Delegate" : "Grant Authority"}
+            Grant Authority
           </button>
         </div>
       )}
 
-      {/* Grant form */}
-      {showGrantForm && !delegation?.active && selectedAgent && (
+      {/* Grant form — one shared configuration template, applied independently per selected agent */}
+      {showGrantForm && selectedAgentsList.length > 0 && (
         <div className="rounded-xl border border-slate-700/60 bg-slate-900/30 p-4 space-y-4">
-          <p className="text-sm font-semibold text-slate-200">Configure Delegation for {selectedAgent.displayName}</p>
+          <p className="text-sm font-semibold text-slate-200">
+            Configure Delegation for {selectedAgentsList.length} agent{selectedAgentsList.length === 1 ? "" : "s"}
+          </p>
 
-          {/* Selected agent summary */}
-          <div className="flex items-center gap-2 rounded-lg border border-violet-500/20 bg-violet-500/5 px-3 py-2">
-            <Bot className="h-4 w-4 text-violet-400" />
-            <span className="text-sm text-violet-200 font-medium">{selectedAgent.displayName}</span>
-            {selectedAgent.isAigentMe && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">
-                <Crown className="h-2.5 w-2.5" /> aigentMe
-              </span>
-            )}
-            <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium capitalize ${agentClassColor(selectedAgent.agentClass)}`}>
-              {selectedAgent.agentClass}
-            </span>
-            <code className="text-[10px] text-slate-500 ml-auto">{truncateDid(selectedAgent.didUri)}</code>
+          {/* Selected agents summary */}
+          <div className="flex flex-wrap gap-2">
+            {selectedAgentsList.map((agent) => (
+              <div key={agent.agentRootId} className="flex items-center gap-2 rounded-lg border border-violet-500/20 bg-violet-500/5 px-3 py-2">
+                <Bot className="h-4 w-4 text-violet-400" />
+                <span className="text-sm text-violet-200 font-medium">{agent.displayName}</span>
+                {agent.isAigentMe && (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">
+                    <Crown className="h-2.5 w-2.5" /> aigentMe
+                  </span>
+                )}
+                <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium capitalize ${agentClassColor(agent.agentClass)}`}>
+                  {agent.agentClass}
+                </span>
+              </div>
+            ))}
           </div>
+
+          {selectedAgentsList.length > 1 && (
+            <p className="rounded-lg border border-violet-500/20 bg-violet-500/5 px-3 py-2 text-xs text-violet-200">
+              This configuration will create {selectedAgentsList.length} independent bounded delegation grants — one per agent, each with its own PolicyEnvelope, grant id, expiry, and action budget. No authority is shared between them.
+            </p>
+          )}
 
           {/* Founder Command Center preset (Homecoming Closeout WP-C4,
               operator brief 2026-08-17) — a conservative, ready-to-grant
               posture for the low-risk operational connectors (draft/send
               email, calendar, docs/sheets/slides, Marketa). Applies to
-              whichever Agent is currently selected above; not specific to
-              any one Agent's identity. */}
+              every currently selected Agent; not specific to any one
+              Agent's identity. */}
           <button
             type="button"
             onClick={() => {
@@ -1274,7 +1254,7 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
                 </button>
               ))}
             </div>
-            <p className="text-[10px] text-slate-500">After this many delegated actions, delegation suspends pending your re-confirmation.</p>
+            <p className="text-[10px] text-slate-500">After this many delegated actions, delegation suspends pending your re-confirmation. Each selected agent gets its own independent budget.</p>
           </div>
 
           {/* Behaviour flags */}
@@ -1340,17 +1320,145 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
             <p>write_to_aigency_pack · access_supabase_service_role · push_to_registry_live · read_wallet_credentials · modify_other_persona · read_sovereign_iqube</p>
           </div>
 
-          <button
-            type="button"
-            onClick={handleGrant}
-            disabled={granting || selectedActions.length === 0}
-            className="inline-flex items-center gap-2 rounded-xl border border-violet-500/40 bg-violet-500/10 px-5 py-2 text-sm font-semibold text-violet-200 hover:bg-violet-500/20 disabled:opacity-50 transition-colors"
-          >
-            {granting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
-            {granting ? "Granting…" : "Confirm Grant"}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleGrant}
+              disabled={granting || selectedActions.length === 0}
+              className="inline-flex items-center gap-2 rounded-xl border border-violet-500/40 bg-violet-500/10 px-5 py-2 text-sm font-semibold text-violet-200 hover:bg-violet-500/20 disabled:opacity-50 transition-colors"
+            >
+              {granting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+              {granting
+                ? "Granting…"
+                : `Confirm Grant${selectedAgentsList.length > 1 ? ` (${selectedAgentsList.length} agents)` : ""}`}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowGrantForm(false)}
+              className="rounded-xl border border-slate-700 bg-slate-800/50 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800"
+            >
+              Cancel
+            </button>
+          </div>
         </div>
       )}
+
+      {/* Active Delegations — one card per agent (CFS-024 multi-agent model) */}
+      <div className="rounded-xl border border-slate-700/40 bg-slate-900/20 p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4 text-slate-400" />
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Active Delegations</p>
+          </div>
+          {activeDelegations.length > 1 && (
+            <button
+              type="button"
+              onClick={handleRevokeAll}
+              disabled={revokingAll}
+              className="inline-flex items-center gap-1 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1 text-xs text-red-300 hover:bg-red-500/20 disabled:opacity-50"
+            >
+              {revokingAll ? <Loader2 className="h-3 w-3 animate-spin" /> : <ShieldX className="h-3 w-3" />}
+              Revoke all delegations
+            </button>
+          )}
+        </div>
+
+        {loading ? (
+          <div className="flex items-center gap-2 text-slate-400 text-sm">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Loading delegation state…
+          </div>
+        ) : activeDelegations.length === 0 ? (
+          <p className="text-xs text-slate-500">No active delegations. Select a delegate above and grant authority.</p>
+        ) : (
+          <div className="space-y-3">
+            {activeDelegations.map((d) => {
+              const agent = agentByDid.get(d.agent_root_did);
+              const role = roleForAgent(agent);
+              return (
+                <div
+                  key={d.agent_root_did}
+                  className={`rounded-xl border p-4 space-y-3 ${d.suspended ? "border-amber-500/20 bg-amber-500/5" : "border-green-500/20 bg-green-500/5"}`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Bot className={`h-4 w-4 ${d.suspended ? "text-amber-400" : "text-green-400"}`} />
+                      <span className="text-sm font-semibold text-slate-100">{agent?.displayName ?? d.agent_root_did}</span>
+                      {role === "aigentMe" && (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">
+                          <Crown className="h-2.5 w-2.5" /> aigentMe
+                        </span>
+                      )}
+                      {agent && (
+                        <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium capitalize ${agentClassColor(agent.agentClass)}`}>
+                          {agent.agentClass}
+                        </span>
+                      )}
+                      {d.suspended && (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">
+                          Suspended
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleRevokeAgent(d.agent_root_did)}
+                      disabled={revokingAgentId === d.agent_root_did}
+                      className="inline-flex items-center gap-1 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1 text-xs text-red-300 hover:bg-red-500/20 disabled:opacity-50"
+                    >
+                      {revokingAgentId === d.agent_root_did ? <Loader2 className="h-3 w-3 animate-spin" /> : <ShieldX className="h-3 w-3" />}
+                      Revoke
+                    </button>
+                  </div>
+
+                  <p className="text-[10px] text-slate-500 font-mono truncate">{truncateDid(d.agent_root_did)}</p>
+
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div className="flex items-center gap-1.5 text-slate-400">
+                      <Clock className="h-3.5 w-3.5" />
+                      Expires in {formatExpiry(d.expires_at)}
+                    </div>
+                    <div className="flex items-center gap-1.5 text-slate-400">
+                      <Activity className="h-3.5 w-3.5" />
+                      {d.actions_taken} / {d.max_actions} actions
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 text-sm text-slate-400">
+                    <Shield className="h-3.5 w-3.5" />
+                    Trust Band: <span className="text-violet-300">{d.trust_band.replace(/_/g, ' ')}</span>
+                  </div>
+
+                  <div>
+                    <p className="text-xs text-slate-500 mb-1.5">Allowed actions</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {d.allowed_actions.map((a) => (
+                        <span key={a} className="inline-flex items-center gap-1 rounded-full bg-green-500/10 border border-green-500/20 px-2 py-0.5 text-[11px] text-green-300">
+                          <CheckCircle2 className="h-3 w-3" />
+                          {a}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-xs text-slate-500 mb-1.5">Allowed surfaces</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {d.allowed_surfaces.map((s) => (
+                        <span key={s} className="inline-flex items-center gap-1 rounded-full bg-slate-500/10 border border-slate-500/20 px-2 py-0.5 text-[11px] text-slate-300">
+                          {s}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <p className="text-[10px] text-slate-600 font-mono truncate">grant: {d.handoff_id}</p>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
       {/* Audit log */}
       <div className="rounded-xl border border-slate-700/40 bg-slate-900/20">
@@ -1428,7 +1536,7 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
             </p>
           </div>
 
-          {!delegation?.active && (
+          {activeDelegations.length === 0 && (
             <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-amber-300">
               Grant delegation first (Delegate tab) to see the full enforcement chain. The denied action will still be blocked regardless.
             </div>

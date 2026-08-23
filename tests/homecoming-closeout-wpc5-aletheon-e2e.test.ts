@@ -34,7 +34,7 @@ vi.mock('@/services/identity/constitutionalContext', () => ({
   resolveConstitutionalContext: (...args: unknown[]) => mockResolveConstitutionalContext(...args),
 }));
 vi.mock('@/services/delegation/delegationGrantStore', () => ({
-  readActiveGrant: (...args: unknown[]) => mockReadActiveGrant(...args),
+  readActiveGrantForAgent: (...args: unknown[]) => mockReadActiveGrant(...args),
   incrementActionsTaken: (...args: unknown[]) => mockIncrementActionsTaken(...args),
 }));
 vi.mock('@/services/receipts/activityReceiptService', () => ({

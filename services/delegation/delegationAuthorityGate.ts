@@ -31,7 +31,7 @@
 
 import type { NextRequest } from 'next/server';
 import { resolveConstitutionalContext } from '@/services/identity/constitutionalContext';
-import { readActiveGrant, incrementActionsTaken, type DelegationGrantRow } from '@/services/delegation/delegationGrantStore';
+import { readActiveGrantForAgent, incrementActionsTaken, type DelegationGrantRow } from '@/services/delegation/delegationGrantStore';
 import { delegatedActionForConnector, type DelegatedActionId } from '@/services/delegation/delegatedActionVocabulary';
 
 export interface DelegatedActionAttribution {
@@ -108,8 +108,13 @@ export async function checkDelegationAuthority(input: {
     connectorId: input.connectorId,
   };
 
+  // A persona may hold many simultaneously active grants, one independently
+  // bounded per agent (CFS-024 multi-agent model, 2026-08-23 repair pass) —
+  // read the grant for THIS EXACT agent, never "the persona's grant"
+  // generically. A current MoneyPenny/Kn0w1/Nakamoto grant must never make
+  // any OTHER agent appear delegated or hide its own independent grant.
   const personaId = ctx.persona.personaId;
-  const grant = personaId ? await readActiveGrant(personaId) : null;
+  const grant = personaId ? await readActiveGrantForAgent(personaId, bound.agentDid) : null;
 
   if (!grant) {
     return {
@@ -118,15 +123,6 @@ export async function checkDelegationAuthority(input: {
       code: 'no-active-grant',
       reason: `${bound.displayName} has no active delegation grant.`,
       attribution: { ...attributionBase, delegationGrantId: null },
-    };
-  }
-  if (grant.agent_root_did !== bound.agentDid) {
-    return {
-      delegated: true,
-      allowed: false,
-      code: 'grant-agent-mismatch',
-      reason: `The active delegation grant belongs to a different Agent than the one currently assigned to the aigentMe role.`,
-      attribution: { ...attributionBase, delegationGrantId: grant.grant_id },
     };
   }
   if (!Array.isArray(grant.allowed_actions) || !grant.allowed_actions.includes(delegatedAction)) {

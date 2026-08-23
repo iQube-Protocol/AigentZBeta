@@ -33,7 +33,7 @@ import type { NextRequest } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getMergedLinkedAuthProfileIds } from '@/services/wallet/multiEmailIdentity';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
-import { readActiveGrant, type DelegationGrantRow } from '@/services/delegation/delegationGrantStore';
+import { readActiveGrants, type DelegationGrantRow } from '@/services/delegation/delegationGrantStore';
 import { listAssignments } from '@/services/identity/personaAssignmentStore';
 import {
   emptyConstitutionalContext,
@@ -222,40 +222,47 @@ export async function resolveConstitutionalContext(
   );
   const aigentMeDid = aigentMeRow ? String(aigentMeRow.did_uri) : null;
 
-  // The active persona's live delegation grant → runtime authority for whichever
-  // assigned agent it targets.
-  const grant = await readActiveGrant(persona.personaId).catch(() => null);
+  // The active persona's live delegation grants → runtime authority for
+  // whichever assigned agents they target. A persona may hold MANY
+  // simultaneously active grants, one independently bounded per agent
+  // (CFS-024 multi-agent model, 2026-08-23 repair pass) — never collapse
+  // this to "the persona's grant" or every assigned agent but one silently
+  // loses its own independent delegatedAuthority/validUntil.
+  const grants = await readActiveGrants(persona.personaId).catch(() => []);
   const byDid = new Map(boundAgents.map((b) => [b.agentDid, b] as const));
-  const grantAgentRowId = grant ? (byDid.get(grant.agent_root_did)?.agentId ?? null) : null;
+  const grantsByAgentDid = new Map(grants.map((g) => [g.agent_root_did, g] as const));
 
   // Persisted per-persona assignments (CFS-024 Phase 3) — the structural layer.
   // Many agents may be assigned; exactly one is aigentMe. delegatedAuthority /
-  // validUntil are filled from the active grant only for the agent it targets.
+  // validUntil are filled from EACH assignment's OWN matching grant, if any —
+  // never from one shared grant applied to whichever agent it happens to target.
   const assignmentRows = await listAssignments(persona.personaId).catch(() => []);
   let assignedAgents: PersonaAssignment[] = assignmentRows.map((a) => {
-    const matchesGrant = grant != null && a.agent_root_id === grantAgentRowId;
+    const boundAgent = boundAgents.find((b) => b.agentId === a.agent_root_id);
+    const matchingGrant = boundAgent ? grantsByAgentDid.get(boundAgent.agentDid) : undefined;
     return {
       personaId: persona.personaId,
       agentId: a.agent_root_id,
       role: a.role,
       delegatedAuthority:
-        matchesGrant && Array.isArray(grant!.allowed_actions) ? grant!.allowed_actions : [],
+        matchingGrant && Array.isArray(matchingGrant.allowed_actions) ? matchingGrant.allowed_actions : [],
       active: a.active,
       validFrom: a.created_at ?? null,
-      validUntil: matchesGrant ? (grant!.expires_at ?? null) : null,
+      validUntil: matchingGrant ? (matchingGrant.expires_at ?? null) : null,
       relationship: 'assignment',
     };
   });
 
-  // Back-compat: no persisted assignments (migration pending / none) but a live
-  // grant exists → synthesize one so the surface still reflects reality.
-  if (assignedAgents.length === 0 && grant) {
-    const rowId = grantAgentRowId ?? grant.agent_root_did;
-    const isAigentMe =
-      aigentMeDid != null &&
-      (grant.agent_root_did === aigentMeDid || rowId === (aigentMeRow?.id as string));
-    assignedAgents = [
-      {
+  // Back-compat: no persisted assignments (migration pending / none) but one
+  // or more live grants exist → synthesize an assignment PER active grant so
+  // the surface still reflects reality for every delegated agent, not just one.
+  if (assignedAgents.length === 0 && grants.length > 0) {
+    assignedAgents = grants.map((grant) => {
+      const rowId = byDid.get(grant.agent_root_did)?.agentId ?? grant.agent_root_did;
+      const isAigentMe =
+        aigentMeDid != null &&
+        (grant.agent_root_did === aigentMeDid || rowId === (aigentMeRow?.id as string));
+      return {
         personaId: persona.personaId,
         agentId: rowId,
         role: isAigentMe ? 'aigentMe' : 'delegate',
@@ -264,8 +271,8 @@ export async function resolveConstitutionalContext(
         validFrom: grant.created_at ?? null,
         validUntil: grant.expires_at ?? null,
         relationship: 'assignment',
-      },
-    ];
+      };
+    });
   }
 
   // currentAigentMe = the aigentMe assignment's agent (row id), else the legacy

@@ -15,8 +15,9 @@
  *
  * Composes, never duplicates:
  *   - delegation status  → `latestGrantEvent()` (NEW, additive read added
- *     alongside the existing `hasActiveDelegation`/`readActiveGrant` in
- *     `delegationGrantStore.ts` — no new query mechanism, same table).
+ *     alongside the existing `hasActiveDelegation`/`readActiveGrants`/
+ *     `readActiveGrantForAgent` in `delegationGrantStore.ts` — no new query
+ *     mechanism, same table).
  *   - standing increase  → `computeStandingScore()` (existing, unmodified),
  *     diffed against this persona's last-seen snapshot in the new
  *     `companion_standing_snapshots` table (this migration), upserted here.

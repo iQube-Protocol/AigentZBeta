@@ -20,7 +20,7 @@ vi.mock('@/services/identity/constitutionalContext', () => ({
 }));
 
 vi.mock('@/services/delegation/delegationGrantStore', () => ({
-  readActiveGrant: (...args: unknown[]) => mockReadActiveGrant(...args),
+  readActiveGrantForAgent: (...args: unknown[]) => mockReadActiveGrant(...args),
   incrementActionsTaken: (...args: unknown[]) => mockIncrementActionsTaken(...args),
 }));
 
@@ -85,14 +85,20 @@ describe('checkDelegationAuthority — the generic delegation-authority gate', (
     if (!result.allowed) expect(result.code).toBe('no-active-grant');
   });
 
-  it('active grant belongs to a DIFFERENT agent than currently assigned -> refused', async () => {
+  it('reads the grant for the EXACT assigned agent — never a differently-targeted grant under the same persona (CFS-024 multi-agent model, 2026-08-23 repair pass)', async () => {
     mockResolveConstitutionalContext.mockResolvedValueOnce(ctxWith(AGENT_ROOT_ID));
-    mockReadActiveGrant.mockResolvedValueOnce(grant({ agent_root_did: 'did:polity:someone-else' }));
+    // readActiveGrantForAgent is queried BY agent DID — a grant belonging to
+    // a different agent under the same persona is never even a candidate
+    // (the old 'grant-agent-mismatch' app-level check is now structurally
+    // impossible, not merely unlikely: the store itself filters on
+    // agent_root_did, so a mismatched grant simply never resolves here).
+    mockReadActiveGrant.mockResolvedValueOnce(null);
     const result = await checkDelegationAuthority({
       request: fakeRequest, connectorId: 'google.gmail.send', surface: 'metame', requiresApproval: true,
     });
+    expect(mockReadActiveGrant).toHaveBeenCalledWith(PERSONA_ID, AGENT_DID);
     expect(result.allowed).toBe(false);
-    if (!result.allowed) expect(result.code).toBe('grant-agent-mismatch');
+    if (!result.allowed) expect(result.code).toBe('no-active-grant');
   });
 
   it('action absent from allowed_actions -> refused (proves refusal when action is absent from grant)', async () => {
@@ -146,6 +152,19 @@ describe('checkDelegationAuthority — the generic delegation-authority gate', (
         connectorId: 'google.gmail.send',
       });
     }
+  });
+
+  it('a current grant for a DIFFERENT agent under the SAME persona never leaks into this agent\'s authority check (CFS-024 multi-agent model)', async () => {
+    // A persona may hold many simultaneously active grants, one per agent.
+    // This agent's own check must depend ONLY on ITS OWN grant, regardless
+    // of what other independent grants the same persona currently holds.
+    mockResolveConstitutionalContext.mockResolvedValueOnce(ctxWith(AGENT_ROOT_ID));
+    mockReadActiveGrant.mockResolvedValueOnce(grant({ agent_root_did: AGENT_DID }));
+    const result = await checkDelegationAuthority({
+      request: fakeRequest, connectorId: 'google.gmail.send', surface: 'metame', requiresApproval: true,
+    });
+    expect(mockReadActiveGrant).toHaveBeenCalledWith(PERSONA_ID, AGENT_DID);
+    expect(result.allowed).toBe(true);
   });
 
   it('a drafting (no-approval) connector is labeled executionMode: autonomous', async () => {

@@ -26,7 +26,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { RegistrableAgentConfig } from '@/services/horizen/registrableAgents';
 import { resolveAgentAdmissionState, type AgentAdmissionState } from '@/services/journey/agentAdmissionState';
-import { readActiveGrant, type DelegationGrantRow } from '@/services/delegation/delegationGrantStore';
+import { readActiveGrantForAgent, type DelegationGrantRow } from '@/services/delegation/delegationGrantStore';
 import { listAssignments } from '@/services/identity/personaAssignmentStore';
 import {
   resolveFinancialServicesVerification,
@@ -113,8 +113,13 @@ export async function resolveAgentEligibilityContext(
   } else if (!callerPersonaId) {
     hasCurrentDelegationToAgent = false;
   } else {
-    activeGrant = await readActiveGrant(callerPersonaId).catch(() => null);
-    hasCurrentDelegationToAgent = activeGrant?.agent_root_did === admission.agentRootDid;
+    // A persona may hold many simultaneously active grants, one
+    // independently bounded per agent (CFS-024 multi-agent model,
+    // 2026-08-23 repair pass) — read THIS agent's own grant, never "the
+    // persona's grant" generically. A current MoneyPenny delegation must
+    // never make Nakamoto appear delegated, and vice versa.
+    activeGrant = await readActiveGrantForAgent(callerPersonaId, admission.agentRootDid).catch(() => null);
+    hasCurrentDelegationToAgent = activeGrant !== null;
   }
 
   const verification = await resolveFinancialServicesVerification(agent).catch(() => undefined);
