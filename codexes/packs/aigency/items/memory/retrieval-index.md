@@ -4439,3 +4439,8 @@ Top-level retrieval anchors for this pack.
 - Type: `docs`
 - Brief: [COMMIT-2dff69a.md](../build_/COMMITS/COMMIT-2dff69a.md)
 - Message: docs(irl): add OCSGA boundary-map discipline to Crucible
+
+## Commit `dc1e30d` — 2026-08-23T14:00:53-04:00
+- Type: `docs`
+- Brief: [COMMIT-dc1e30d.md](../build_/COMMITS/COMMIT-dc1e30d.md)
+- Message: docs(irl): distinguish discovered from created compatibility

@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`dc1e30d`](https://github.com/iQube-Protocol/AigentZBeta/commit/dc1e30d5083a09fe44101236f63db63adae60721) [docs] docs(irl): distinguish discovered from created compatibility (Kn0w1, 2026-08-23T14:00:53-04:00)
 - [`2dff69a`](https://github.com/iQube-Protocol/AigentZBeta/commit/2dff69a1e23f409ae67f2e66c3802d02acf7fb66) [docs] docs(irl): add OCSGA boundary-map discipline to Crucible (Kn0w1, 2026-08-22T07:43:17-04:00)
 - [`a971e16`](https://github.com/iQube-Protocol/AigentZBeta/commit/a971e161fe689f0c721dd2e28595f969c550f613) [chore] update smoke test expected asset ids after Qriptopian cover re-upload (Claude, 2026-08-22T09:38:21Z)
 - [`221a5ec`](https://github.com/iQube-Protocol/AigentZBeta/commit/221a5ec8000fababf180aa7d7c1d61da3524aa15) [fix] fix upload-asset route silently dropping isShareable on individual-form-fields path (Claude, 2026-08-22T09:22:17Z)
