@@ -259,3 +259,59 @@ export const modelRouter: ModelRouter = {
 export function describeRoutes(): StageRoute[] {
   return REASONING_STAGES.map((stage) => routeFor(stage));
 }
+
+// ─── Inference-provider-unavailable classification (2026-08-23) ─────────────
+//
+// `callStage()` throws exactly ONE distinguishable "constitutional failure":
+// every provider in the routed target + fallback ladder was unreachable. That
+// is an INFRASTRUCTURE condition — a credits/quota/timeout problem on the
+// inference providers — never a content-quality judgment and never a
+// governance refusal. Every caller of `callSovereign`/`callStage` (Architect,
+// Advisor, and anything else built on this entry point) hits the SAME shape,
+// so the classification lives here once rather than being re-derived (or
+// mis-derived) at each call site.
+
+/** The one infrastructure-level inference failure this platform classifies
+ *  distinctly. Never assigned for a content-quality or governance refusal. */
+export const INFERENCE_PROVIDER_UNAVAILABLE = 'INFERENCE_PROVIDER_UNAVAILABLE' as const;
+
+const ALL_PROVIDERS_FAILED_MARKER = 'all providers failed';
+
+/**
+ * True when `error` is the EXACT "every provider in the fallback ladder was
+ * unreachable" condition `callStage()` throws — matched on the marker text in
+ * that one throw site, never a broader heuristic guess at "this looks like an
+ * LLM error". A provider-specific failure that still left another provider
+ * reachable never reaches this condition — `callStage()` would have degraded
+ * to it and returned normally instead of throwing.
+ */
+export function isProviderUnavailableError(error: unknown): boolean {
+  return error instanceof Error && error.message.includes(ALL_PROVIDERS_FAILED_MARKER);
+}
+
+/**
+ * A bounded, receipt-safe diagnostic string for an inference-provider-
+ * unavailable failure — the per-provider reasons `callStage()` already
+ * collected (e.g. "anthropic: insufficient credits | openai: insufficient
+ * quota | venice: timed out..."), which are themselves derived from each
+ * provider's own HTTP response body or a local timeout message
+ * (services/experiments/llm.ts) — never a request URL, header, or API key.
+ * Truncated defensively; never a raw stack trace.
+ */
+export function describeInferenceUnavailability(error: unknown): string {
+  const raw = error instanceof Error ? error.message : String(error);
+  return raw.length > 400 ? `${raw.slice(0, 400)}…` : raw;
+}
+
+/**
+ * Read-only audit of the current fallback ladder's CONFIGURATION state —
+ * which providers have a credential present, never the credential's value.
+ * For diagnosing "why is inference unavailable" (an operator/ops question)
+ * without ever logging or receipting a secret.
+ */
+export function describeProviderLadderAvailability(): Array<{ provider: ConstitutionalProviderId; configured: boolean }> {
+  return FALLBACK_LADDER.map((provider) => ({
+    provider,
+    configured: isExperimentProvider(provider) && providerAvailable(provider),
+  }));
+}

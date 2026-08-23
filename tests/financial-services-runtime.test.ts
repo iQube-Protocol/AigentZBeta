@@ -391,6 +391,154 @@ describe('requestFinancialService() — Advisor/Architect: real provider dispatc
   });
 });
 
+// ── 2026-08-23 repair pass: inference-provider-unavailable classification +
+//    real provider output preserved (Parts A/B/C) ──────────────────────────
+
+describe('requestFinancialService() — inference-provider-unavailable is classified distinctly, never REFUSED', () => {
+  it('Architect: an INFERENCE_PROVIDER_UNAVAILABLE draftFinancialStructure() failure resolves UNRESOLVED with errorCode set, never REFUSED', async () => {
+    mockResolveCapabilityProviders.mockResolvedValue([MONEYPENNY_ARCHITECT_PROVIDER]);
+    mockDraftFinancialStructure.mockResolvedValue({
+      ok: false,
+      error: "inference provider unavailable: anthropic: insufficient credits | openai: insufficient quota | venice: timed out",
+      errorCode: 'INFERENCE_PROVIDER_UNAVAILABLE',
+    });
+    const { outcome } = await requestFinancialService({
+      request: request(MONEYPENNY_ARCHITECT.serviceId),
+      publicForecast: forecast(),
+      confidentialEvidence: null,
+      actorPersonaId: ACTOR_PERSONA_ID,
+      callerAuthProfileId: ACTOR_AUTH_PROFILE_ID,
+      now: '2026-08-22T00:00:00.000Z',
+      admin: fakeSupabase as any,
+    });
+    expect(outcome.status).toBe('UNRESOLVED');
+    expect(outcome.status).not.toBe('REFUSED');
+    expect(outcome.errorCode).toBe('INFERENCE_PROVIDER_UNAVAILABLE');
+    expect(outcome.reason).toContain('inference provider unavailable');
+    expect(outcome.providerOutput ?? null).toBeNull();
+    expect(mockAccrueStanding).not.toHaveBeenCalled();
+  });
+
+  it('Advisor: an "all providers failed" throw from runMoneyPennyChat() classifies as INFERENCE_PROVIDER_UNAVAILABLE, not a generic failure', async () => {
+    mockResolveCapabilityProviders.mockResolvedValue([MONEYPENNY_ADVISOR_PROVIDER]);
+    mockRunMoneyPennyChat.mockRejectedValue(
+      new Error("[ModelRouter] stage=reasoning: all providers failed — anthropic: insufficient credits | openai: insufficient quota"),
+    );
+    const { outcome } = await requestFinancialService({
+      request: request(MONEYPENNY_ADVISOR.serviceId),
+      publicForecast: forecast(),
+      confidentialEvidence: null,
+      actorPersonaId: ACTOR_PERSONA_ID,
+      callerAuthProfileId: ACTOR_AUTH_PROFILE_ID,
+      now: '2026-08-22T00:00:00.000Z',
+      admin: fakeSupabase as any,
+    });
+    expect(outcome.status).toBe('UNRESOLVED');
+    expect(outcome.errorCode).toBe('INFERENCE_PROVIDER_UNAVAILABLE');
+    expect(mockAccrueStanding).not.toHaveBeenCalled();
+  });
+
+  it('Advisor: a non-provider-unavailable Advisor error (e.g. a thrown Error unrelated to inference) still resolves UNRESOLVED but WITHOUT the errorCode', async () => {
+    mockResolveCapabilityProviders.mockResolvedValue([MONEYPENNY_ADVISOR_PROVIDER]);
+    mockRunMoneyPennyChat.mockRejectedValue(new Error('unexpected database error'));
+    const { outcome } = await requestFinancialService({
+      request: request(MONEYPENNY_ADVISOR.serviceId),
+      publicForecast: forecast(),
+      confidentialEvidence: null,
+      actorPersonaId: ACTOR_PERSONA_ID,
+      callerAuthProfileId: ACTOR_AUTH_PROFILE_ID,
+      now: '2026-08-22T00:00:00.000Z',
+      admin: fakeSupabase as any,
+    });
+    expect(outcome.status).toBe('UNRESOLVED');
+    expect(outcome.errorCode ?? null).toBeNull();
+  });
+});
+
+describe('requestFinancialService() — real provider output is preserved, never discarded (Part B)', () => {
+  it('Advisor: a successful dispatch carries the FULL real prose in providerOutput.text, alongside (never instead of) the hashed providerResultRef', async () => {
+    mockResolveCapabilityProviders.mockResolvedValue([MONEYPENNY_ADVISOR_PROVIDER]);
+    mockRunMoneyPennyChat.mockResolvedValue({
+      response: 'This is the real, complete MoneyPenny advisory answer the operator must actually see.',
+      timestamp: '2026-08-23T00:00:00.000Z',
+    });
+    const { outcome } = await requestFinancialService({
+      request: request(MONEYPENNY_ADVISOR.serviceId),
+      publicForecast: forecast(),
+      confidentialEvidence: null,
+      actorPersonaId: ACTOR_PERSONA_ID,
+      callerAuthProfileId: ACTOR_AUTH_PROFILE_ID,
+      now: '2026-08-22T00:00:00.000Z',
+      admin: fakeSupabase as any,
+    });
+    expect(outcome.status).toBe('DELIVERED');
+    expect(outcome.providerOutput).toEqual({
+      kind: 'ADVISOR_RESPONSE',
+      text: 'This is the real, complete MoneyPenny advisory answer the operator must actually see.',
+    });
+    // The evidence reference is still a bounded commitment, never the raw prose itself.
+    const advisorOutput = outcome.providerOutput as { kind: 'ADVISOR_RESPONSE'; text: string };
+    expect(outcome.providerResultRef).not.toBe(advisorOutput.text);
+    expect(outcome.providerResultRef).toHaveLength(16);
+  });
+
+  it('Architect: a successful dispatch carries title + a bounded preview + the persisted artifactId in providerOutput', async () => {
+    mockResolveCapabilityProviders.mockResolvedValue([MONEYPENNY_ARCHITECT_PROVIDER]);
+    mockDraftFinancialStructure.mockResolvedValue({
+      ok: true,
+      artifactId: 'moneypenny-architect-artifact-2',
+      recordId: 'rec-2',
+      title: 'A Constitutional Fee-Split Structure',
+      body: 'The full designed proposal body.',
+      citedInvariantIds: [],
+    });
+    const { outcome } = await requestFinancialService({
+      request: request(MONEYPENNY_ARCHITECT.serviceId),
+      publicForecast: forecast(),
+      confidentialEvidence: null,
+      actorPersonaId: ACTOR_PERSONA_ID,
+      callerAuthProfileId: ACTOR_AUTH_PROFILE_ID,
+      now: '2026-08-22T00:00:00.000Z',
+      admin: fakeSupabase as any,
+    });
+    expect(outcome.status).toBe('DELIVERED');
+    expect(outcome.providerOutput).toEqual({
+      kind: 'ARCHITECT_PROPOSAL',
+      title: 'A Constitutional Fee-Split Structure',
+      preview: 'The full designed proposal body.',
+      truncated: false,
+      artifactId: 'moneypenny-architect-artifact-2',
+    });
+    expect(outcome.providerResultRef).toBe('moneypenny-architect-artifact-2');
+  });
+
+  it('Architect: a proposal body over the preview bound is truncated in providerOutput.preview, never in the persisted artifact', async () => {
+    mockResolveCapabilityProviders.mockResolvedValue([MONEYPENNY_ARCHITECT_PROVIDER]);
+    const longBody = 'x'.repeat(900);
+    mockDraftFinancialStructure.mockResolvedValue({
+      ok: true,
+      artifactId: 'moneypenny-architect-artifact-3',
+      recordId: 'rec-3',
+      title: 'Long Proposal',
+      body: longBody,
+      citedInvariantIds: [],
+    });
+    const { outcome } = await requestFinancialService({
+      request: request(MONEYPENNY_ARCHITECT.serviceId),
+      publicForecast: forecast(),
+      confidentialEvidence: null,
+      actorPersonaId: ACTOR_PERSONA_ID,
+      callerAuthProfileId: ACTOR_AUTH_PROFILE_ID,
+      now: '2026-08-22T00:00:00.000Z',
+      admin: fakeSupabase as any,
+    });
+    expect(outcome.providerOutput?.kind).toBe('ARCHITECT_PROPOSAL');
+    const proposal = outcome.providerOutput as { kind: 'ARCHITECT_PROPOSAL'; preview: string; truncated: boolean };
+    expect(proposal.truncated).toBe(true);
+    expect(proposal.preview.length).toBeLessThan(longBody.length);
+  });
+});
+
 // ── Repair B: the composed eligibility reason codes, each kept distinct ──
 
 describe('eligibility — composed reason codes (Repair B), each an audit gap or a real negative, never conflated', () => {

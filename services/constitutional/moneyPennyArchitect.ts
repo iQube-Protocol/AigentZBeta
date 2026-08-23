@@ -22,7 +22,12 @@
 
 import { randomUUID } from 'crypto';
 import { buildInvariantSlice, citeInvariants } from '@/services/invariants/grounding';
-import { callSovereign } from '@/services/constitutional/modelRouter';
+import {
+  callSovereign,
+  isProviderUnavailableError,
+  describeInferenceUnavailability,
+  INFERENCE_PROVIDER_UNAVAILABLE,
+} from '@/services/constitutional/modelRouter';
 import { saveArtifactRecord } from '@/services/artifact/artifactRecordStore';
 
 const ARCHITECT_SYSTEM_PROMPT = `You are MoneyPenny, in Architect mode — the Constitutional Financial Services Agent designing a financial structure or product (pricing model, fee split, settlement-terms design, delegation envelope, agreement template).
@@ -41,6 +46,12 @@ export interface DraftFinancialStructureInput {
 export interface DraftFinancialStructureResult {
   ok: boolean;
   error?: string;
+  /** Set ONLY when the failure is the inference-provider-infrastructure
+   *  condition (every routed/fallback provider unreachable) — never for a
+   *  grounding failure, an empty-response, or any other error shape. This is
+   *  what lets a caller distinguish "the Architect refused/failed to design
+   *  something" from "no inference provider was reachable to ask." */
+  errorCode?: typeof INFERENCE_PROVIDER_UNAVAILABLE;
   artifactId?: string;
   recordId?: string | null;
   title?: string;
@@ -84,6 +95,13 @@ export async function draftFinancialStructure(
   try {
     sovereign = await callSovereign('reasoning', ARCHITECT_SYSTEM_PROMPT, userPrompt, 900, 0.5);
   } catch (e) {
+    if (isProviderUnavailableError(e)) {
+      return {
+        ok: false,
+        error: `inference provider unavailable: ${describeInferenceUnavailability(e)}`,
+        errorCode: INFERENCE_PROVIDER_UNAVAILABLE,
+      };
+    }
     return { ok: false, error: e instanceof Error ? e.message : 'inference failed' };
   }
   const body = sovereign.text?.trim();

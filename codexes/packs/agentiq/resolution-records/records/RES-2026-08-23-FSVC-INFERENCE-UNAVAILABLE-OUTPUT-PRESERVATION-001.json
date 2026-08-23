@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-08-23",
+  "resolutionId": "RES-2026-08-23-FSVC-INFERENCE-UNAVAILABLE-OUTPUT-PRESERVATION-001",
+  "capability": "moneypenny-financial-services-runtime-advisor-architect-dispatch",
+  "milestone": "Operator directive, live evidence from the deployed SmartWallet Architect: 'Architect failure is provider infrastructure, not an Architect regression' + 'Advisor output is being discarded' + 'Do not call a provider failure DELIVERED.' Explicit scope fence: do not change admission, eligibility, delegation, Gate 1 or Gate 2.",
+  "problem": "Two independent defects shared one root: `dispatchInformationalProvider()` (`services/financialServices/serviceRequestOrchestrator.ts`, Repair D) already distinguished DELIVERED (a real completed provider result) from UNRESOLVED (the gate allowed but the provider call did not complete) — but it went no further. (1) Every technical provider failure, whether an inference-provider-infrastructure outage or a genuine content/grounding failure, collapsed into the SAME generic 'provider invocation did not complete' reason string, with no way for a caller (the orchestration panel, the Architect route) to distinguish 'every inference provider is down' from 'the Architect itself failed to design something' — live evidence showed Anthropic/OpenAI/Venice all failing (credits/quota/timeout) and the operator-facing surface had no way to say so distinctly. (2) On the SUCCESS path, Advisor's real prose response was hashed into a 16-character `providerResultRef` and the actual text was thrown away before it ever reached the outcome; Architect's success path kept only the artifact id, discarding the title/body a human would need to read without a separate fetch.",
+  "observedFailure": [
+    "Live SmartWallet evidence: Anthropic -> insufficient credits, OpenAI -> insufficient quota, Venice -> timeout, ModelRouter -> 'all providers failed'. The Architect panel and Financial Service orchestration outcome had no distinct representation for this — it read as an generic Architect/service failure, not as 'no inference provider was reachable.'",
+    "`runMoneyPennyChat()` returns a real prose answer for Advisor requests, but the orchestrator's dispatch function discarded the text immediately after computing its hash, so no operator-facing surface could ever show what MoneyPenny actually said."
+  ],
+  "rootCauses": [
+    "`callStage()` (`services/constitutional/modelRouter.ts`) already throws exactly one distinguishable infrastructure-failure shape — 'all providers failed' — when every provider in the routed target + fallback ladder is unreachable, but nothing downstream of it classified that shape; every catch site treated it as an undifferentiated `Error`.",
+    "`dispatchInformationalProvider()`'s success paths were designed around 'preserve an immutable evidence/commitment reference' (Repair D's own stated discipline) without a parallel 'and preserve what a human should actually see' concern — the two were conflated into a single `resultRef` field, so satisfying the evidence-reference requirement necessarily discarded the display value.",
+    "The Advisor branch's `.catch(() => null)` actively discarded the real thrown error (whatever its cause) before any classification could occur — a specific instance of the general defect, not a separate one."
+  ],
+  "resolution": [
+    "`services/constitutional/modelRouter.ts`: added `INFERENCE_PROVIDER_UNAVAILABLE`, `isProviderUnavailableError()` (matches ONLY the exact 'all providers failed' marker `callStage()` throws — never a broader heuristic), `describeInferenceUnavailability()` (bounded to 400 chars; the underlying per-provider messages are already secret-safe response-body slices or timeout strings, confirmed by reading every throw site in `services/experiments/llm.ts`), and `describeProviderLadderAvailability()` (booleans only, never a credential value).",
+    "`moneyPennyArchitect.ts::draftFinancialStructure()`: the `callSovereign` catch now classifies via `isProviderUnavailableError` and sets `errorCode: 'INFERENCE_PROVIDER_UNAVAILABLE'` on that one shape, leaving every other failure path (grounding failure, empty response) unclassified as before.",
+    "`app/api/moneypenny/architect/route.ts`: an `INFERENCE_PROVIDER_UNAVAILABLE` result now returns HTTP 503 (infrastructure/upstream), not 400 (client error) — the status code itself now tells a caller which kind of failure this is.",
+    "`types/financialServices.ts`: added `AdvisorDisplayOutput`/`ArchitectDisplayOutput`/`ProviderDisplayOutput` and `providerOutput`/`errorCode` fields on `FinancialServiceOutcome`, explicitly documented as service-output display data OUTSIDE the frozen VELA-001 Authority/Projection/Authorisation/Execution/ObservedConsequence ontology — additive alongside `providerResultRef`, never a replacement for it.",
+    "`services/financialServices/serviceRequestOrchestrator.ts::dispatchInformationalProvider()`: rewritten to return `{ok, resultRef, displayOutput}` on success and `{ok:false, error, errorCode?}` on failure. Advisor's `.catch(() => null)` was replaced with a real try/catch that classifies the thrown error; a successful Advisor call now carries the FULL response text in `displayOutput.text` alongside the unchanged sha256-hash `resultRef` (the evidence reference is never replaced by raw prose — both are preserved, per the operator's explicit instruction). A successful Architect call carries `{title, preview (bounded to 600 chars, with a `truncated` flag), artifactId}` in `displayOutput`, alongside the unchanged `resultRef` = artifact id.",
+    "`requestFinancialService()`'s UNRESOLVED/DELIVERED outcome construction now threads `dispatch.errorCode`/`dispatch.displayOutput` into the outcome's new `errorCode`/`providerOutput` fields — the DELIVERED-vs-UNRESOLVED semantics from Repair D are otherwise UNCHANGED.",
+    "`ServiceOrchestrationPanel.tsx`: renders `providerOutput` inline (Advisor's full response text; Architect's title + preview + a link to the full artifact when truncated), and renders `errorCode === 'INFERENCE_PROVIDER_UNAVAILABLE'` as 'UNRESOLVED — inference provider unavailable' with the bounded diagnostic shown separately from the status badge — never as 'Architect refused.'"
+  ],
+  "rejectedApproaches": [
+    "Rewriting or forking `draftFinancialStructure()`/`runMoneyPennyChat()` to add provider-failure handling of their own — rejected per the operator's explicit instruction ('Do not rewrite or fork Architect'); the classification lives once in `modelRouter.ts`, at the one throw site every caller already shares.",
+    "Replacing `providerResultRef` with the raw prose/artifact body — rejected per the operator's explicit instruction ('Do not replace the evidence reference with raw prose'); `resultRef` (hash or artifact id) and `displayOutput` (the real content) are BOTH preserved, as two distinct fields.",
+    "Folding the new display fields into the frozen VELA-001 constitutional-commerce ontology (`types/constitutionalCommerce.ts`) — rejected per the operator's explicit instruction; they live on `types/financialServices.ts`'s `FinancialServiceOutcome`, documented as service output, not a second Authority/Projection/Authorisation mechanism.",
+    "A broader heuristic classifier ('this error message looks like an LLM/provider problem') — rejected under the No-Guessing discipline; the classifier matches only the one exact, already-proven throw shape from `callStage()`."
+  ],
+  "candidateInvariants": [
+    "CI-2026-08-23-INFRASTRUCTURE-VS-CONTENT-FAILURE-CLASSIFICATION-001"
+  ],
+  "canaries": [
+    "tests/inference-provider-unavailable.test.ts",
+    "tests/financial-services-runtime.test.ts"
+  ],
+  "scope": "cross-capability",
+  "status": "candidate",
+  "trigger": "invariant-incomplete-or-misscoped",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/inference-provider-unavailable.test.ts",
+      "tests/financial-services-runtime.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": []
+  },
+  "sourceDocs": [
+    "services/constitutional/modelRouter.ts",
+    "services/constitutional/moneyPennyArchitect.ts",
+    "services/financialServices/serviceRequestOrchestrator.ts",
+    "types/financialServices.ts"
+  ],
+  "projections": {
+    "targets": [
+      "research-registry",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  }
+}

@@ -231,7 +231,56 @@ export interface FinancialServiceOutcome {
    * outcome that never reached a completed provider call.
    */
   providerResultRef?: string | null;
+  /**
+   * Operator-visible provider output for this outcome (2026-08-23 repair
+   * pass, Part B) — see the `ProviderDisplayOutput` doc above. Additive
+   * display data alongside `providerResultRef`, never a replacement for it.
+   * Present only when a provider call actually completed successfully.
+   */
+  providerOutput?: ProviderDisplayOutput | null;
+  /**
+   * Set ONLY for the one infrastructure-level inference failure this
+   * platform classifies distinctly
+   * (`services/constitutional/modelRouter.ts::INFERENCE_PROVIDER_UNAVAILABLE`)
+   * — never for a content-quality or governance refusal. Lets a caller
+   * render "UNRESOLVED — inference provider unavailable" rather than
+   * implying the service itself refused the request.
+   */
+  errorCode?: 'INFERENCE_PROVIDER_UNAVAILABLE' | null;
 }
+
+// ── Provider display output (2026-08-23 repair pass, Part B) ────────────
+//
+// Deliberately OUTSIDE the frozen VELA-001 constitutional-commerce ontology
+// (Authority/Projection/Authorisation/Execution/ObservedConsequence) — this
+// is SERVICE OUTPUT a human reads, not a second constitutional mechanism.
+// `providerResultRef` on `FinancialServiceOutcome` remains the one immutable
+// evidence/commitment reference for a delivered outcome; `providerOutput`
+// below is purely a display payload alongside it. Neither field replaces the
+// other: the operator directive was explicit that the evidence reference
+// must never be swapped out for raw prose, and that the real provider output
+// must never be silently discarded either.
+
+/** MoneyPenny's real prose answer (ADVISOR/INFORMATIONAL class). The FULL
+ *  text — never truncated, never replaced by the `providerResultRef` hash. */
+export interface AdvisorDisplayOutput {
+  kind: 'ADVISOR_RESPONSE';
+  text: string;
+}
+
+/** The Architect's designed proposal (ARCHITECT/PROPOSAL class). The
+ *  canonical, complete body is the persisted artifact record (`artifactId`,
+ *  already durable via `saveArtifactRecord`) — `preview` is a bounded display
+ *  convenience over it, never a second source of truth. */
+export interface ArchitectDisplayOutput {
+  kind: 'ARCHITECT_PROPOSAL';
+  title: string;
+  preview: string;
+  truncated: boolean;
+  artifactId: string;
+}
+
+export type ProviderDisplayOutput = AdvisorDisplayOutput | ArchitectDisplayOutput;
 
 export interface FinancialServiceOrchestrationStep {
   outcome: FinancialServiceOutcome;
