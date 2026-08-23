@@ -237,13 +237,22 @@ export async function requestFinancialService(
       : null;
 
   // ── Governed capability invocation — Gate 1/2/3, UNCHANGED ──────────
+  // `orchestratorAgentId` is deliberately OMITTED: this consumer
+  // (`request.requestingAgentId`, e.g. Aigent Nakamoto) is not orchestrating
+  // anything — it is a principal-directed CONSUMER requesting a capability
+  // from a separately-resolved provider (MoneyPenny). Gate 1
+  // (services/registry/capabilityInvocationGates.ts) recognises this exact
+  // shape — requester !== resolved provider, no orchestratorAgentId — as its
+  // own admitted-consumer pattern (2026-08-23 repair). Previously this field
+  // was set to `request.requestingAgentId` to satisfy the orchestrated-
+  // pattern's structural check, which misrepresented the consumer as an
+  // orchestrator; do not reintroduce that.
   const envelope: CapabilityInvocation = {
     mode: 'capability',
     invocationId: `fsvc-${request.requestRef}`,
     principalRef: authority.principalRef,
     originatingSurface: 'financial-services',
     requestingAgentId: request.requestingAgentId,
-    orchestratorAgentId: request.requestingAgentId,
     capabilityId: definition.capabilityId,
     targetAgentId: definition.providerAgentId,
     runtimeMembershipRef: 'financial-services',

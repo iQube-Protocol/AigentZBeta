@@ -1,25 +1,33 @@
 /**
  * FinancialServiceAgentContext — the Repair F "resolve once" composition.
+ * Corrected 2026-08-23 (second pass): eligibility/discovery must be driven by
+ * STRUCTURAL admission facts, never by the single-slot runtime delegation
+ * grant.
  *
- * Operator directive (2026-08-23 repair pass, part F): "resolve
- * admission/delegation/verification/Standing once per selected agent
- * request, project it into every service card. Do not call mutation-capable
- * admission resolution once per catalog item plus once for diagnostics."
+ * Operator correction, verbatim: "`readActiveGrant(personaId)` represents
+ * the persona's current runtime authority envelope, and the grant store
+ * deliberately allows only one active grant per persona — creating a new one
+ * supersedes the old one. Therefore it cannot be used as the multi-agent
+ * Financial Services eligibility roster." A persona may have MANY
+ * structurally assigned agents (`persona_agent_assignments`); it can have at
+ * most ONE currently active delegation grant. Eligibility/discovery is a
+ * STRUCTURAL question ("is this agent constitutionally admitted and bound to
+ * this principal") — the ACTIVE GRANT is an AUTHORITY-PLANE fact for a later,
+ * per-action decision (`constitutionalAuthorityAdapter.ts`), not a
+ * discoverability gate.
  *
- * `resolveAgentAdmissionState` self-heals (mints a migrated agent's RootDID,
- * materializes `registryActivated`) — calling it more than once per HTTP
- * request is not semantically harmless, it is a repeated write attempt. This
- * module is the ONE place a Financial Services caller resolves an agent's
- * full eligibility-relevant state; `eligibility.ts` becomes a pure decision
- * function over the resulting context, and `discovery.ts` calls this once
- * per GET and reuses the SAME context for every catalog entry (including the
- * admission diagnostic the operator console renders).
+ * This module still resolves everything ONCE per request (Repair F is
+ * unchanged) — it now resolves TWO independent facts instead of conflating
+ * them into one: `structurallyAssigned` (persona_agent_assignments, for
+ * eligibility) and `activeGrant`/`hasCurrentDelegationToAgent`
+ * (delegation_grants, for the Authority Plane only).
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { RegistrableAgentConfig } from '@/services/horizen/registrableAgents';
 import { resolveAgentAdmissionState, type AgentAdmissionState } from '@/services/journey/agentAdmissionState';
 import { readActiveGrant, type DelegationGrantRow } from '@/services/delegation/delegationGrantStore';
+import { listAssignments } from '@/services/identity/personaAssignmentStore';
 import {
   resolveFinancialServicesVerification,
   type FinancialServicesVerificationState,
@@ -31,18 +39,37 @@ export interface FinancialServiceAgentContext {
   agent: RegistrableAgentConfig;
   /** `undefined` only when the admission read itself threw — an audit gap wider than any single field on it. */
   admission: AgentAdmissionState | undefined;
-  /** The AUTHENTICATED caller's own active grant (may target a different agent — see `personaScopedDelegationActive`). */
+  /**
+   * STRUCTURAL fact for eligibility/discovery: is this agent structurally
+   * assigned/bound to the requesting principal's persona
+   * (`persona_agent_assignments`, any role — a persona may have many
+   * assigned agents, not just one aigentMe)? `undefined` = could not be
+   * determined (the agent's own root-identity read failed, so there is no
+   * `agent_root_id` to check assignment against). `false` = a real negative:
+   * either the agent has no root identity at all, there is no authenticated
+   * principal, or the assignment table genuinely holds no active row for
+   * this (persona, agent) pair.
+   *
+   * Known limitation, disclosed rather than hidden: `listAssignments()`
+   * itself soft-fails to `[]` on a migration-pending table or a transient
+   * read error (services/identity/personaAssignmentStore.ts's own documented
+   * behavior) — so a `false` produced THROUGH that path is not perfectly
+   * three-valued at the assignment-table layer itself. This mirrors every
+   * other caller of that store today; tightening it is a separate, un-asked-
+   * for change to `personaAssignmentStore.ts`.
+   */
+  structurallyAssigned: boolean | undefined;
+  /** The AUTHENTICATED caller's own active grant (may target a different agent — see `hasCurrentDelegationToAgent`). AUTHORITY-PLANE ONLY — never consulted for eligibility/discovery. */
   activeGrant: DelegationGrantRow | null;
   /**
-   * Repair A — "an unexpired active grant for the selected agent under the
-   * authenticated principal/persona, not any active row for that RootDID."
-   * `undefined` = could not be determined (admission unresolved, or the
-   * agent's own root-identity read failed). `false` = a real negative: no
-   * root identity for this agent (nothing could target it), or the caller's
-   * active grant targets a DIFFERENT agent, or the caller has no active
-   * grant / no persona at all.
+   * Authority-plane fact only (constitutionalAuthorityAdapter.ts's BOUNDED
+   * vs ACTIVE derivation) — an unexpired grant for the EXACT target agent
+   * under the EXACT authenticated principal. `undefined` = could not be
+   * determined; `false` = no such current grant (agent has no root identity,
+   * caller has no active grant, or the active grant targets a different
+   * agent). NEVER used to decide `eligible` — see the file header.
    */
-  personaScopedDelegationActive: boolean | undefined;
+  hasCurrentDelegationToAgent: boolean | undefined;
   verification: FinancialServicesVerificationState | undefined;
   /** The agent's OWN CRM Standing persona — never a client-supplied value (Repair C). */
   standingPersonaId: string | null | undefined;
@@ -63,21 +90,31 @@ export async function resolveAgentEligibilityContext(
     () => undefined,
   );
 
-  let activeGrant: DelegationGrantRow | null = null;
-  let personaScopedDelegationActive: boolean | undefined;
+  // ── Structural assignment (eligibility/discovery) ─────────────────────────
+  let structurallyAssigned: boolean | undefined;
   if (!admission) {
-    personaScopedDelegationActive = undefined;
-  } else if (!admission.agentRootDid) {
-    // No root identity for this agent — an audit gap if the read itself
-    // failed (never collapse "could not tell" into a refusal), otherwise a
-    // real negative: nothing can be delegated to a DID that doesn't exist.
-    personaScopedDelegationActive = admission.auditGaps.length > 0 ? undefined : false;
+    structurallyAssigned = undefined;
+  } else if (!admission.agentRootId) {
+    structurallyAssigned = admission.auditGaps.length > 0 ? undefined : false;
   } else if (!callerPersonaId) {
-    // No authenticated principal to hold a grant at all — a real negative.
-    personaScopedDelegationActive = false;
+    structurallyAssigned = false;
+  } else {
+    const assignments = await listAssignments(callerPersonaId).catch(() => []);
+    structurallyAssigned = assignments.some((a) => a.agent_root_id === admission.agentRootId && a.active);
+  }
+
+  // ── Current bounded delegation (Authority Plane only — never eligibility) ─
+  let activeGrant: DelegationGrantRow | null = null;
+  let hasCurrentDelegationToAgent: boolean | undefined;
+  if (!admission) {
+    hasCurrentDelegationToAgent = undefined;
+  } else if (!admission.agentRootDid) {
+    hasCurrentDelegationToAgent = admission.auditGaps.length > 0 ? undefined : false;
+  } else if (!callerPersonaId) {
+    hasCurrentDelegationToAgent = false;
   } else {
     activeGrant = await readActiveGrant(callerPersonaId).catch(() => null);
-    personaScopedDelegationActive = activeGrant?.agent_root_did === admission.agentRootDid;
+    hasCurrentDelegationToAgent = activeGrant?.agent_root_did === admission.agentRootDid;
   }
 
   const verification = await resolveFinancialServicesVerification(agent).catch(() => undefined);
@@ -88,8 +125,9 @@ export async function resolveAgentEligibilityContext(
   return {
     agent,
     admission,
+    structurallyAssigned,
     activeGrant,
-    personaScopedDelegationActive,
+    hasCurrentDelegationToAgent,
     verification,
     standingPersonaId,
     standing,

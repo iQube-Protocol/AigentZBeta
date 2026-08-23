@@ -93,7 +93,7 @@ beforeEach(() => {
   mockResolveRegistrableAgentByRuntimeId.mockImplementation((id: string) =>
     id === 'aigent-moneypenny' ? MONEYPENNY_AGENT : id === 'aigent-nakamoto' ? NAKAMOTO_AGENT : null,
   );
-  mockResolveAgentAdmissionState.mockResolvedValue({ delegationActive: true });
+  mockResolveAgentAdmissionState.mockResolvedValue({ registryActivated: true });
 });
 
 describe('invokeCapability — MoneyPenny-orchestrated pattern reaches allow', () => {
@@ -176,11 +176,43 @@ describe('invokeCapability — OS-9 canary: delegation-depth / loop violations',
     expect(decision).toMatchObject({ decision: 'refuse', code: 'PROVIDER_MAY_NOT_ORCHESTRATE' });
   });
 
-  it('refuses DIRECT_REQUEST_TARGET_MISMATCH when a direct request names a capability it does not itself provide', async () => {
+});
+
+describe('invokeCapability — principal-directed consumer pattern (Phase 3, 2026-08-23)', () => {
+  it('allows an admitted consumer to request a separately-resolved provider\'s capability with no orchestratorAgentId set', async () => {
+    mockResolveCapabilityProviders.mockResolvedValue([NAKAMOTO_PROVIDER]);
+
     const decision = await invokeCapability(
       baseEnvelope({ requestingAgentId: 'aigent-moneypenny', orchestratorAgentId: undefined }),
     );
-    expect(decision).toMatchObject({ decision: 'refuse', code: 'DIRECT_REQUEST_TARGET_MISMATCH' });
+
+    expect(decision.decision).toBe('allow');
+  });
+
+  it('refuses CONSUMER_NOT_ADMITTED when the requesting consumer has no established constitutional admission', async () => {
+    mockResolveCapabilityProviders.mockResolvedValue([NAKAMOTO_PROVIDER]);
+    mockResolveAgentAdmissionState.mockImplementation((_admin: unknown, agent: { runtimeAgentId: string }) =>
+      Promise.resolve({ registryActivated: agent.runtimeAgentId !== 'aigent-moneypenny' }),
+    );
+
+    const decision = await invokeCapability(
+      baseEnvelope({ requestingAgentId: 'aigent-moneypenny', orchestratorAgentId: undefined }),
+    );
+
+    expect(decision).toMatchObject({ decision: 'refuse', code: 'CONSUMER_NOT_ADMITTED' });
+  });
+
+  it('refuses CONSUMER_ADMISSION_UNRESOLVED — an audit gap is never collapsed into a refusal-as-not-admitted', async () => {
+    mockResolveCapabilityProviders.mockResolvedValue([NAKAMOTO_PROVIDER]);
+    mockResolveAgentAdmissionState.mockImplementation((_admin: unknown, agent: { runtimeAgentId: string }) =>
+      Promise.resolve(agent.runtimeAgentId === 'aigent-moneypenny' ? { registryActivated: undefined } : { registryActivated: true }),
+    );
+
+    const decision = await invokeCapability(
+      baseEnvelope({ requestingAgentId: 'aigent-moneypenny', orchestratorAgentId: undefined }),
+    );
+
+    expect(decision).toMatchObject({ decision: 'refuse', code: 'CONSUMER_ADMISSION_UNRESOLVED' });
   });
 });
 
@@ -195,25 +227,47 @@ describe('invokeCapability — MODE_NOT_PERMITTED structurally refuses authorita
 });
 
 describe('invokeCapability — authority gate', () => {
-  it('refuses ORCHESTRATOR_NOT_DELEGATED when the orchestrator has no active delegation', async () => {
+  it('refuses ORCHESTRATOR_NOT_ADMITTED when the orchestrator has no established constitutional admission', async () => {
     mockResolveCapabilityProviders.mockResolvedValue([NAKAMOTO_PROVIDER]);
     mockResolveAgentAdmissionState.mockImplementation((_admin: unknown, agent: { runtimeAgentId: string }) =>
-      Promise.resolve({ delegationActive: agent.runtimeAgentId !== 'aigent-moneypenny' }),
+      Promise.resolve({ registryActivated: agent.runtimeAgentId !== 'aigent-moneypenny' }),
     );
 
     const decision = await invokeCapability(baseEnvelope());
 
-    expect(decision).toMatchObject({ decision: 'refuse', code: 'ORCHESTRATOR_NOT_DELEGATED' });
+    expect(decision).toMatchObject({ decision: 'refuse', code: 'ORCHESTRATOR_NOT_ADMITTED' });
   });
 
-  it('refuses PROVIDER_NOT_ADMITTED when the resolved provider has no independently active admission', async () => {
+  it('refuses ORCHESTRATOR_ADMISSION_UNRESOLVED — an audit gap is never collapsed into a refusal-as-not-admitted', async () => {
     mockResolveCapabilityProviders.mockResolvedValue([NAKAMOTO_PROVIDER]);
     mockResolveAgentAdmissionState.mockImplementation((_admin: unknown, agent: { runtimeAgentId: string }) =>
-      Promise.resolve({ delegationActive: agent.runtimeAgentId !== 'aigent-nakamoto' }),
+      Promise.resolve(agent.runtimeAgentId === 'aigent-moneypenny' ? { registryActivated: undefined } : { registryActivated: true }),
+    );
+
+    const decision = await invokeCapability(baseEnvelope());
+
+    expect(decision).toMatchObject({ decision: 'refuse', code: 'ORCHESTRATOR_ADMISSION_UNRESOLVED' });
+  });
+
+  it('refuses PROVIDER_NOT_ADMITTED when the resolved provider has no independently established constitutional admission', async () => {
+    mockResolveCapabilityProviders.mockResolvedValue([NAKAMOTO_PROVIDER]);
+    mockResolveAgentAdmissionState.mockImplementation((_admin: unknown, agent: { runtimeAgentId: string }) =>
+      Promise.resolve({ registryActivated: agent.runtimeAgentId !== 'aigent-nakamoto' }),
     );
 
     const decision = await invokeCapability(baseEnvelope());
 
     expect(decision).toMatchObject({ decision: 'refuse', code: 'PROVIDER_NOT_ADMITTED' });
+  });
+
+  it('refuses PROVIDER_ADMISSION_UNRESOLVED — an audit gap is never collapsed into a refusal-as-not-admitted', async () => {
+    mockResolveCapabilityProviders.mockResolvedValue([NAKAMOTO_PROVIDER]);
+    mockResolveAgentAdmissionState.mockImplementation((_admin: unknown, agent: { runtimeAgentId: string }) =>
+      Promise.resolve(agent.runtimeAgentId === 'aigent-nakamoto' ? { registryActivated: undefined } : { registryActivated: true }),
+    );
+
+    const decision = await invokeCapability(baseEnvelope());
+
+    expect(decision).toMatchObject({ decision: 'refuse', code: 'PROVIDER_ADMISSION_UNRESOLVED' });
   });
 });

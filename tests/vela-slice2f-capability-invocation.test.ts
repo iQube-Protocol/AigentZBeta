@@ -123,7 +123,7 @@ beforeEach(() => {
   mockResolveRegistrableAgentByRuntimeId.mockImplementation((id: string) =>
     id === 'aigent-moneypenny' ? MONEYPENNY_AGENT : null,
   );
-  mockResolveAgentAdmissionState.mockResolvedValue({ delegationActive: true });
+  mockResolveAgentAdmissionState.mockResolvedValue({ registryActivated: true });
 });
 
 // ── Fixtures: deterministic projections (VelaTestTransport, no Docker) ────
@@ -283,7 +283,7 @@ describe('invokeCapability() — full traversal for CONFIDENTIAL_CONSEQUENCE_PRO
   });
 
   it('an ACCEPTABLE projection still respects Gate 1 — no authority admission, no allow', async () => {
-    mockResolveAgentAdmissionState.mockResolvedValue({ delegationActive: false });
+    mockResolveAgentAdmissionState.mockResolvedValue({ registryActivated: false });
     const projection = await deterministicProjection('ACCEPTABLE');
     const decision = await invokeCapability(baseEnvelope({ consequenceProjection: projection }));
     // Gate 2's exception never bypasses Gate 1 — "preserve all authority,

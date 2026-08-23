@@ -11,11 +11,21 @@
  *   portion. It does not prove the exact Mandate."
  *
  * State mapping:
- *   registryActivated !== true                              -> NONE / PENDING
- *   registryActivated === true, no persona-scoped delegation -> PENDING
- *   + bounded delegation, no authorized Constitutional
- *     Agreement (mandate) for this exact capability+agent    -> BOUNDED
- *   + an authorized Constitutional Agreement                 -> ACTIVE
+ *   registryActivated !== true                                -> NONE / PENDING
+ *   registryActivated === true, no CURRENT delegation to       -> PENDING
+ *     this exact agent (Authority Plane fact — NEVER the
+ *     structural admission/assignment fact eligibility uses)
+ *   + current delegation, no authorized Constitutional
+ *     Agreement (mandate) for this exact capability+agent      -> BOUNDED
+ *   + an authorized Constitutional Agreement                   -> ACTIVE
+ *
+ * `hasCurrentDelegationToAgent` (`agentEligibilityContext.ts`) is an
+ * AUTHORITY-PLANE fact only — it is NEVER used to decide discoverability/
+ * eligibility (operator correction, 2026-08-23: the delegation_grants store
+ * allows exactly one active grant per persona, so it cannot serve as a
+ * multi-agent eligibility roster). A service can be `eligible` while this
+ * authority remains `PENDING`/`BOUNDED` — that is the expected, honest state
+ * for "eligible but a consequential action isn't currently authorised yet."
  *
  * The mandate itself is resolved via the EXISTING agreement primitive
  * (`services/constitutional/constitutionalAgreement.ts`'s
@@ -43,7 +53,7 @@ export async function resolveConstitutionalAuthorityForService(
   ctx: FinancialServiceAgentContext,
   definition: FinancialServiceDefinition,
 ): Promise<ConstitutionalAuthorityResolution> {
-  const { agent, admission, activeGrant, personaScopedDelegationActive, standingPersonaId, callerPersonaId } = ctx;
+  const { agent, admission, activeGrant, hasCurrentDelegationToAgent, standingPersonaId, callerPersonaId } = ctx;
 
   const noPrincipalGate: AgreementGateResult = {
     ok: false,
@@ -55,7 +65,11 @@ export async function resolveConstitutionalAuthorityForService(
   if (!callerPersonaId) {
     return {
       authority: {
-        principalRef: 'unresolved-principal',
+        // Empty, never a truthy placeholder like 'unresolved-principal' —
+        // Gate 1 (services/registry/capabilityInvocationGates.ts) refuses
+        // PRINCIPAL_UNRESOLVED on an empty principalRef, and a placeholder
+        // string here would defeat that fail-closed check by construction.
+        principalRef: '',
         actorRef: agent.runtimeAgentId,
         authoritySource: 'none',
         mandateRef: constitutionalRef('mandate-unresolved', `${agent.runtimeAgentId}:${definition.capabilityId}`),
@@ -89,12 +103,12 @@ export async function resolveConstitutionalAuthorityForService(
   }
 
   const delegationRef =
-    personaScopedDelegationActive === true && activeGrant ? constitutionalRef('delegation', activeGrant.grant_id) : undefined;
+    hasCurrentDelegationToAgent === true && activeGrant ? constitutionalRef('delegation', activeGrant.grant_id) : undefined;
   const standingRef = standingPersonaId ? constitutionalRef('agent-standing', standingPersonaId) : undefined;
 
   const sourceParts: string[] = [];
   if (admission?.registryActivated === true) sourceParts.push('registry-admission');
-  if (personaScopedDelegationActive === true) sourceParts.push('bounded-delegation');
+  if (hasCurrentDelegationToAgent === true) sourceParts.push('bounded-delegation');
   if (standingRef) sourceParts.push('standing');
   const authoritySource = sourceParts.length > 0 ? sourceParts.join('+') : 'none';
 
@@ -115,7 +129,7 @@ export async function resolveConstitutionalAuthorityForService(
   let state: ConstitutionalAuthority['state'];
   if (admission?.registryActivated !== true) {
     state = admission?.registryActivated === undefined ? 'PENDING' : 'NONE';
-  } else if (personaScopedDelegationActive !== true) {
+  } else if (hasCurrentDelegationToAgent !== true) {
     state = 'PENDING';
   } else if (agreementGate.ok) {
     state = 'ACTIVE';

@@ -79,6 +79,36 @@ export async function resolveProviderForGates(
  * Gate 1 — identity and authority (design doc §4). Requires the resolved
  * provider so it can check the provider's own admission independently of
  * the requester/orchestrator's.
+ *
+ * REPAIRED 2026-08-23 (operator directive): every admission check in this
+ * gate now reads `AgentAdmissionState.registryActivated` (canonical
+ * constitutional admission), never `.delegationActive` (the runtime
+ * execution grant). "Do not treat 'no current bounded delegation' as
+ * 'provider not admitted.'" Current delegation/mandate checks for
+ * CONSEQUENTIAL execution remain — downstream, through the frozen
+ * ConstitutionalAuthority / ActionAuthorisation path
+ * (services/constitutionalCommerce/actionAuthorisation.ts) — this gate never
+ * duplicated that check and still doesn't.
+ *
+ * Three invocation shapes are now recognised (Gate 2 remains completely
+ * unchanged by this repair):
+ *   - orchestrated:        requestingAgentId === orchestratorAgentId, a
+ *                           separately-resolved provider (MoneyPenny, this
+ *                           phase's only orchestrator)
+ *   - principal-directed
+ *     consumer (NEW):      orchestratorAgentId absent, requestingAgentId !==
+ *                           resolved provider — an admitted CONSUMER agent
+ *                           (e.g. Aigent Nakamoto) requests a capability from
+ *                           a separately-resolved provider (e.g. MoneyPenny),
+ *                           directed by the human principal's own
+ *                           constitutional context (`principalRef`, checked
+ *                           above). NOT orchestration — no agent here manages
+ *                           a further hop. Phase 3's genuine missing case;
+ *                           previously faked by setting
+ *                           `orchestratorAgentId = requestingAgentId`, which
+ *                           misrepresented a consumer as an orchestrator.
+ *   - direct specialist:   orchestratorAgentId absent, requestingAgentId ===
+ *                           resolved provider
  */
 export async function evaluateIdentityAndAuthorityGate(
   req: CapabilityInvocation,
@@ -103,30 +133,42 @@ export async function evaluateIdentityAndAuthorityGate(
       return refuse('ORCHESTRATOR_REQUESTER_MISMATCH', 'this phase requires orchestratorAgentId === requestingAgentId — a separated role split is a future phase');
     }
     const orchestratorAdmission = await resolveAgentAdmissionState(supabase, requesterAgent).catch(() => null);
-    if (!orchestratorAdmission?.delegationActive) {
-      return refuse('ORCHESTRATOR_NOT_DELEGATED', `orchestrator '${req.orchestratorAgentId}' has no active delegation under the current principal`);
+    if (orchestratorAdmission?.registryActivated === undefined) {
+      return refuse('ORCHESTRATOR_ADMISSION_UNRESOLVED', `orchestrator '${req.orchestratorAgentId}' admission state could not be determined`);
+    }
+    if (orchestratorAdmission.registryActivated === false) {
+      return refuse('ORCHESTRATOR_NOT_ADMITTED', `orchestrator '${req.orchestratorAgentId}' has no established constitutional admission`);
     }
     // §6 — a resolved provider may never itself be the orchestrator of a
     // further hop in this phase.
     if (req.orchestratorAgentId === provider.providerAgentId) {
       return refuse('PROVIDER_MAY_NOT_ORCHESTRATE', `resolved provider '${provider.providerAgentId}' cannot also be the orchestrator of this same call`);
     }
-  } else {
-    // Direct specialist pattern — requester must equal the resolved provider;
-    // a direct request naming a capability it does not itself provide is the
-    // structural form of "a helper may not orchestrate," applied requester-side.
-    if (req.requestingAgentId !== provider.providerAgentId) {
-      return refuse('DIRECT_REQUEST_TARGET_MISMATCH', `direct request from '${req.requestingAgentId}' but capability resolves to '${provider.providerAgentId}'`);
+  } else if (req.requestingAgentId !== provider.providerAgentId) {
+    // NEW — principal-directed consumer pattern (see header). The consumer's
+    // own constitutional admission is checked independently; its CURRENT
+    // delegation/mandate is a separate, downstream Authority Plane concern.
+    const consumerAdmission = await resolveAgentAdmissionState(supabase, requesterAgent).catch(() => null);
+    if (consumerAdmission?.registryActivated === undefined) {
+      return refuse('CONSUMER_ADMISSION_UNRESOLVED', `consumer '${req.requestingAgentId}' admission state could not be determined`);
+    }
+    if (consumerAdmission.registryActivated === false) {
+      return refuse('CONSUMER_NOT_ADMITTED', `consumer '${req.requestingAgentId}' has no established constitutional admission`);
     }
   }
+  // else: direct specialist pattern — requester === resolved provider; the
+  // provider admission check below covers this agent too.
 
   const providerAgent = resolveRegistrableAgentByRuntimeId(provider.providerAgentId);
   if (!providerAgent) {
     return refuse('UNKNOWN_AGENT', `resolved provider '${provider.providerAgentId}' is not a canonical registrable agent`);
   }
   const providerAdmission = await resolveAgentAdmissionState(supabase, providerAgent).catch(() => null);
-  if (!providerAdmission?.delegationActive) {
-    return refuse('PROVIDER_NOT_ADMITTED', `resolved provider '${provider.providerAgentId}' has no independently active admission`);
+  if (providerAdmission?.registryActivated === undefined) {
+    return refuse('PROVIDER_ADMISSION_UNRESOLVED', `resolved provider '${provider.providerAgentId}' admission state could not be determined`);
+  }
+  if (providerAdmission.registryActivated === false) {
+    return refuse('PROVIDER_NOT_ADMITTED', `resolved provider '${provider.providerAgentId}' has no independently established constitutional admission`);
   }
 
   return OK;

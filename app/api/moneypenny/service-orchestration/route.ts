@@ -9,7 +9,13 @@
  * through as the AUTHENTICATED principal directing the named agent — never
  * as the consumer itself, and never trusted from client input.
  *
- * GET  — no query: catalog + registrable-agent list, for the picker UI.
+ * GET  — no query: catalog + registrable-agent list, for the picker UI. The
+ *      agent list EXCLUDES MoneyPenny herself — she is the Financial
+ *      Services provider/orchestrator, not a self-consuming agent in this
+ *      console, and Gate 1's orchestrated-pattern check
+ *      (`PROVIDER_MAY_NOT_ORCHESTRATE`) would refuse her as a consumer
+ *      anyway. For the initial operating proof the consumers are Aigent
+ *      Nakamoto and Aigent Kn0w1 (operator directive, 2026-08-23).
  * GET  ?agentId=<runtimeAgentId> — discovery: every catalog service
  *      annotated with that agent's real eligibility
  *      (`discoverFinancialServicesForConsumer`). Also returns
@@ -32,7 +38,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { listRegistrableAgents, resolveRegistrableAgentByRuntimeId } from '@/services/horizen/registrableAgents';
-import { listFinancialServiceDefinitions } from '@/services/financialServices/serviceCatalog';
+import { listFinancialServiceDefinitions, MONEYPENNY_ADVISOR } from '@/services/financialServices/serviceCatalog';
 import { discoverFinancialServicesForConsumer } from '@/services/financialServices/discovery';
 import { requestFinancialService } from '@/services/financialServices/serviceRequestOrchestrator';
 import { forecastConsequences } from '@/services/consequence/stages';
@@ -46,9 +52,14 @@ export async function GET(req: NextRequest) {
 
   const agentId = req.nextUrl.searchParams.get('agentId');
   if (!agentId) {
+    // MoneyPenny is the provider/orchestrator, not a self-consuming agent —
+    // excluded from the consumer picker (see file header).
+    const consumerAgents = listRegistrableAgents().filter(
+      (a) => a.runtimeAgentId !== MONEYPENNY_ADVISOR.providerAgentId,
+    );
     return NextResponse.json({
       ok: true,
-      agents: listRegistrableAgents(),
+      agents: consumerAgents,
       catalog: listFinancialServiceDefinitions(),
     });
   }
@@ -77,9 +88,14 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     ok: true,
     agentId,
+    // Each entry carries `eligibility` (admission + structural assignment +
+    // verification + Standing — never gated on a current delegation grant)
+    // and, for Runtime only, `authority` (the separate, non-blocking
+    // current-delegation/mandate prerequisite — see discovery.ts).
     discovery: discovery.services,
     admissionDiagnostic,
-    personaScopedDelegationActive: discovery.context.personaScopedDelegationActive,
+    structurallyAssigned: discovery.context.structurallyAssigned,
+    hasCurrentDelegationToAgent: discovery.context.hasCurrentDelegationToAgent,
     verification: discovery.context.verification,
     standingPersonaId: discovery.context.standingPersonaId,
   });

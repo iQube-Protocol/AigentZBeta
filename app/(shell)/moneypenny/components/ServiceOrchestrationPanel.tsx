@@ -48,9 +48,24 @@ interface EligibilityResult {
   reason: string;
 }
 
+/**
+ * Non-blocking Authority Plane prerequisite (2026-08-23 correction) — present
+ * only for Runtime (`executionReachable`). A service can be `eligible` while
+ * this reads `met: false`: eligibility is structural (admission + assignment
+ * + verification + Standing); authority is the separate, current-delegation/
+ * mandate fact a CONSEQUENTIAL action still needs before it can execute.
+ */
+interface AuthorityPrerequisite {
+  state: 'NONE' | 'PENDING' | 'BOUNDED' | 'ACTIVE';
+  met: boolean;
+  code: string;
+  reason: string;
+}
+
 interface DiscoveredService {
   definition: FinancialServiceDefinitionSummary;
   eligibility: EligibilityResult;
+  authority: AuthorityPrerequisite | null;
 }
 
 interface FinancialServiceOutcome {
@@ -255,8 +270,8 @@ export function ServiceOrchestrationPanel() {
               </pre>
             )}
 
-            {(discovery ?? catalog.map((definition) => ({ definition, eligibility: undefined as unknown as EligibilityResult })))
-              .map(({ definition, eligibility }) => {
+            {(discovery ?? catalog.map((definition) => ({ definition, eligibility: undefined as unknown as EligibilityResult, authority: null as AuthorityPrerequisite | null })))
+              .map(({ definition, eligibility, authority }) => {
                 const outcome = outcomes[definition.serviceId];
                 const route = PROVIDER_MODE_ROUTE[definition.providerMode];
                 return (
@@ -289,6 +304,21 @@ export function ServiceOrchestrationPanel() {
                         className={`w-fit rounded border px-1.5 py-0.5 text-[10px] ${ELIGIBILITY_TONE[String(eligibility.eligible)]}`}
                       >
                         {eligibilityLabel(eligibility.eligible)} — {eligibility.code}
+                      </span>
+                    )}
+
+                    {/* Authority is a SEPARATE, non-blocking prerequisite for
+                        Runtime — a service can be eligible while this still
+                        reads "current delegation/mandate required". */}
+                    {authority && (
+                      <span
+                        className={`w-fit rounded border px-1.5 py-0.5 text-[10px] ${
+                          authority.met
+                            ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                            : "border-amber-500/30 bg-amber-500/10 text-amber-300"
+                        }`}
+                      >
+                        Authority: {authority.met ? "current" : "current delegation/mandate required"} ({authority.state})
                       </span>
                     )}
 

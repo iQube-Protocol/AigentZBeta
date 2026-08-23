@@ -146,7 +146,7 @@ beforeEach(() => {
   mockResolveRegistrableAgentByRuntimeId.mockImplementation((id: string) =>
     id === 'aigent-moneypenny' ? MONEYPENNY_AGENT : null,
   );
-  mockResolveAgentAdmissionState.mockResolvedValue({ delegationActive: true });
+  mockResolveAgentAdmissionState.mockResolvedValue({ registryActivated: true });
 });
 
 // ── Fixtures: deterministic projections (VelaTestTransport, no Docker) ────

@@ -44,6 +44,11 @@ vi.mock('@/services/delegation/delegationGrantStore', () => ({
   readActiveGrant: (...args: any[]) => mockReadActiveGrant(...args),
 }));
 
+const mockListAssignments = vi.fn();
+vi.mock('@/services/identity/personaAssignmentStore', () => ({
+  listAssignments: (...args: any[]) => mockListAssignments(...args),
+}));
+
 const mockResolveFinancialServicesVerification = vi.fn();
 vi.mock('@/services/journey/agentFinancialServicesVerification', () => ({
   resolveFinancialServicesVerification: (...args: any[]) => mockResolveFinancialServicesVerification(...args),
@@ -128,8 +133,26 @@ const CONSUMER = 'aigent-nakamoto';
 const PROVIDER = 'aigent-moneypenny';
 const CONSUMER_ROOT_DID = 'did:agent:root:aigent-nakamoto';
 const KNOW1_ROOT_DID = 'did:agent:root:aigent-kn0w1';
+// `agent_root_identity.id` (the row id `persona_agent_assignments.agent_root_id`
+// keys against) — DISTINCT from the DID above, which `delegation_grants`
+// keys against. Eligibility (Repair, second pass) matches on this; the
+// Authority Plane matches on the DID.
+const CONSUMER_ROOT_ID = 'root-id-aigent-nakamoto';
+const KNOW1_ROOT_ID = 'root-id-aigent-kn0w1';
 const ACTOR_PERSONA_ID = 'persona-nakamoto-oversight';
 const ACTOR_AUTH_PROFILE_ID = 'auth-profile-nakamoto-oversight';
+
+function assignmentRow(agentRootId: string, overrides: Partial<{ role: 'aigentMe' | 'delegate'; active: boolean }> = {}) {
+  return {
+    id: `assign-${agentRootId}`,
+    persona_id: ACTOR_PERSONA_ID,
+    agent_root_id: agentRootId,
+    role: overrides.role ?? 'delegate',
+    active: overrides.active ?? true,
+    created_at: '2026-08-01T00:00:00.000Z',
+    updated_at: '2026-08-01T00:00:00.000Z',
+  };
+}
 
 const MONEYPENNY_ADVISOR_PROVIDER = {
   capabilityId: MONEYPENNY_ADVISOR.capabilityId,
@@ -167,19 +190,30 @@ function request(serviceId: string, overrides: Partial<FinancialServiceRequest> 
   };
 }
 
-/** Default "everything checks out" wiring — an admitted, persona-scoped-delegated, verified, adequately-Standing consumer with an authorized mandate. Individual tests override one seam at a time. */
+/**
+ * Default "everything checks out" wiring — an admitted, STRUCTURALLY
+ * ASSIGNED, verified, adequately-Standing consumer, ALSO holding a current
+ * delegation grant + an authorized mandate (so Runtime tests exercising the
+ * full Authority Plane don't need to re-wire it every time). Individual
+ * tests override one seam at a time — including tests that deliberately
+ * clear the grant to prove eligibility no longer depends on it.
+ */
 function wireHappyPath(): void {
   mockResolveAgentAdmissionState.mockResolvedValue({
     // `delegationActive` is Gate 1's own (unmodified, out-of-scope-for-this-
     // repair) admission check (services/registry/capabilityInvocationGates.ts)
     // — it still reads this exact field, independently of the Financial
-    // Services eligibility layer's own `registryActivated`/persona-scoped
-    // delegation composition below. Both must be satisfied for a happy path.
+    // Services eligibility layer's own `registryActivated`/structural-
+    // assignment composition below. Both must be satisfied for a happy path.
     delegationActive: true,
     registryActivated: true,
+    agentRootId: CONSUMER_ROOT_ID,
     agentRootDid: CONSUMER_ROOT_DID,
     auditGaps: [],
   });
+  // STRUCTURAL fact for eligibility — persona_agent_assignments, NOT delegation_grants.
+  mockListAssignments.mockResolvedValue([assignmentRow(CONSUMER_ROOT_ID)]);
+  // AUTHORITY-PLANE fact only — never consulted by eligibility.ts.
   mockReadActiveGrant.mockResolvedValue({ grant_id: 'grant-1', agent_root_did: CONSUMER_ROOT_DID, persona_id: ACTOR_PERSONA_ID });
   mockResolveFinancialServicesVerification.mockResolvedValue({
     pulseComplete: true,
@@ -204,6 +238,7 @@ beforeEach(() => {
   mockResolveCapabilityProviders.mockReset();
   mockResolveAgentAdmissionState.mockReset();
   mockReadActiveGrant.mockReset();
+  mockListAssignments.mockReset();
   mockResolveFinancialServicesVerification.mockReset();
   mockResolveAgentStandingPersonaId.mockReset();
   mockComputeStandingScore.mockReset();
@@ -394,11 +429,11 @@ describe('eligibility — composed reason codes (Repair B), each an audit gap or
     expect(outcome.reason).toContain('NOT_ADMITTED');
   });
 
-  it('admitted but no active grant reaching this exact agent resolves NOT_DELEGATED_TO_CURRENT_PRINCIPAL, never NOT_ADMITTED (Repair A)', async () => {
+  it('admitted but not structurally assigned to this principal resolves NOT_ASSIGNED_TO_PRINCIPAL, never NOT_ADMITTED', async () => {
     mockResolveCapabilityProviders.mockResolvedValue([MONEYPENNY_ADVISOR_PROVIDER]);
-    // The caller HAS an active grant, but it targets a DIFFERENT agent's DID —
-    // the exact over-permissive-query defect Repair A closes.
-    mockReadActiveGrant.mockResolvedValue({ grant_id: 'grant-2', agent_root_did: 'did:agent:root:someone-else', persona_id: ACTOR_PERSONA_ID });
+    // persona_agent_assignments holds a row, but for a DIFFERENT agent —
+    // this principal has never had Nakamoto assigned/bound to it.
+    mockListAssignments.mockResolvedValue([assignmentRow('root-id-someone-else')]);
     const { outcome } = await requestFinancialService({
       request: request(MONEYPENNY_ADVISOR.serviceId),
       publicForecast: forecast(),
@@ -409,11 +444,11 @@ describe('eligibility — composed reason codes (Repair B), each an audit gap or
       admin: fakeSupabase as any,
     });
     expect(outcome.status).toBe('INELIGIBLE');
-    expect(outcome.reason).toContain('NOT_DELEGATED_TO_CURRENT_PRINCIPAL');
+    expect(outcome.reason).toContain('NOT_ASSIGNED_TO_PRINCIPAL');
     expect(outcome.reason).not.toContain('NOT_ADMITTED');
   });
 
-  it('no authenticated principal at all resolves NOT_DELEGATED_TO_CURRENT_PRINCIPAL, never a silently-granted authority', async () => {
+  it('no authenticated principal at all resolves NOT_ASSIGNED_TO_PRINCIPAL, never a silently-granted eligibility', async () => {
     mockResolveCapabilityProviders.mockResolvedValue([MONEYPENNY_ADVISOR_PROVIDER]);
     const { outcome } = await requestFinancialService({
       request: request(MONEYPENNY_ADVISOR.serviceId),
@@ -425,8 +460,48 @@ describe('eligibility — composed reason codes (Repair B), each an audit gap or
       admin: fakeSupabase as any,
     });
     expect(outcome.status).toBe('INELIGIBLE');
-    expect(outcome.reason).toContain('NOT_DELEGATED_TO_CURRENT_PRINCIPAL');
-    expect(mockReadActiveGrant).not.toHaveBeenCalled();
+    expect(outcome.reason).toContain('NOT_ASSIGNED_TO_PRINCIPAL');
+    expect(mockListAssignments).not.toHaveBeenCalled();
+  });
+
+  it('an ASSIGNMENT read failure resolves ASSIGNMENT_UNRESOLVED, never collapsed into NOT_ASSIGNED_TO_PRINCIPAL', async () => {
+    mockResolveCapabilityProviders.mockResolvedValue([MONEYPENNY_ADVISOR_PROVIDER]);
+    // agentRootId is null (root-identity read failed) — an audit gap, not a
+    // real negative — so the assignment fact cannot be checked at all.
+    mockResolveAgentAdmissionState.mockResolvedValue({
+      registryActivated: true,
+      agentRootId: null,
+      agentRootDid: null,
+      auditGaps: ['sponsorship read failed: timeout'],
+    });
+    const { outcome } = await requestFinancialService({
+      request: request(MONEYPENNY_ADVISOR.serviceId),
+      publicForecast: forecast(),
+      confidentialEvidence: null,
+      actorPersonaId: ACTOR_PERSONA_ID,
+      callerAuthProfileId: ACTOR_AUTH_PROFILE_ID,
+      now: '2026-08-22T00:00:00.000Z',
+      admin: fakeSupabase as any,
+    });
+    expect(outcome.status).toBe('INELIGIBLE');
+    expect(outcome.reason).toContain('ASSIGNMENT_UNRESOLVED');
+  });
+
+  it('CORE CORRECTION: a structurally assigned consumer with NO current delegation grant is still ELIGIBLE — the grant store cannot serve as the multi-agent eligibility roster', async () => {
+    mockResolveCapabilityProviders.mockResolvedValue([MONEYPENNY_ADVISOR_PROVIDER]);
+    // No active grant at all for this persona (e.g. it is currently spent on
+    // a DIFFERENT agent, since a persona may hold only one active grant).
+    mockReadActiveGrant.mockResolvedValue(null);
+    const { outcome } = await requestFinancialService({
+      request: request(MONEYPENNY_ADVISOR.serviceId),
+      publicForecast: forecast(),
+      confidentialEvidence: null,
+      actorPersonaId: ACTOR_PERSONA_ID,
+      callerAuthProfileId: ACTOR_AUTH_PROFILE_ID,
+      now: '2026-08-22T00:00:00.000Z',
+      admin: fakeSupabase as any,
+    });
+    expect(outcome.status).toBe('DELIVERED');
   });
 
   it('Financial Services verification incomplete resolves FINANCIAL_SERVICES_NOT_VERIFIED, distinct from admission/delegation', async () => {
@@ -728,7 +803,14 @@ describe('assembleFinancialServiceOrchestration()', () => {
 describe('genericity — the SAME requestFinancialService() implementation, no source branch per consumer', () => {
   it('Aigent Know1 (a second, distinct non-MoneyPenny consumer) uses the identical function with no special-casing', async () => {
     mockResolveCapabilityProviders.mockResolvedValue([MONEYPENNY_ADVISOR_PROVIDER]);
-    mockResolveAgentAdmissionState.mockResolvedValue({ delegationActive: true, registryActivated: true, agentRootDid: KNOW1_ROOT_DID, auditGaps: [] });
+    mockResolveAgentAdmissionState.mockResolvedValue({
+      delegationActive: true,
+      registryActivated: true,
+      agentRootId: KNOW1_ROOT_ID,
+      agentRootDid: KNOW1_ROOT_DID,
+      auditGaps: [],
+    });
+    mockListAssignments.mockResolvedValue([assignmentRow(KNOW1_ROOT_ID)]);
     mockReadActiveGrant.mockResolvedValue({ grant_id: 'grant-know1', agent_root_did: KNOW1_ROOT_DID, persona_id: ACTOR_PERSONA_ID });
     const { outcome } = await requestFinancialService({
       request: request(MONEYPENNY_ADVISOR.serviceId, { requestingAgentId: 'aigent-kn0w1', requestRef: 'req-know1-advisor' }),
@@ -805,11 +887,15 @@ describe('discoverFinancialServicesForConsumer() / discoverEligibleFinancialServ
     // Resolved ONCE per request (Repair F) — not once per catalog item.
     expect(mockResolveAgentAdmissionState).toHaveBeenCalledTimes(1);
 
-    const byId = new Map(discovered.services.map((d) => [d.definition.serviceId, d.eligibility]));
-    expect(byId.get(MONEYPENNY_ADVISOR.serviceId)?.eligible).toBe(true);
-    expect(byId.get(MONEYPENNY_ARCHITECT.serviceId)?.eligible).toBe(true);
-    expect(byId.get(MONEYPENNY_RUNTIME.serviceId)?.eligible).toBe(false);
-    expect(byId.get(MONEYPENNY_RUNTIME.serviceId)?.code).toBe('STANDING_BELOW_THRESHOLD');
+    const byId = new Map(discovered.services.map((d) => [d.definition.serviceId, d]));
+    expect(byId.get(MONEYPENNY_ADVISOR.serviceId)?.eligibility.eligible).toBe(true);
+    expect(byId.get(MONEYPENNY_ARCHITECT.serviceId)?.eligibility.eligible).toBe(true);
+    expect(byId.get(MONEYPENNY_RUNTIME.serviceId)?.eligibility.eligible).toBe(false);
+    expect(byId.get(MONEYPENNY_RUNTIME.serviceId)?.eligibility.code).toBe('STANDING_BELOW_THRESHOLD');
+    // Advisor/Architect never compute an authority prerequisite — they never
+    // reach real authorisation.
+    expect(byId.get(MONEYPENNY_ADVISOR.serviceId)?.authority).toBeNull();
+    expect(byId.get(MONEYPENNY_ARCHITECT.serviceId)?.authority).toBeNull();
 
     const eligible = await discoverEligibleFinancialServices(CONSUMER, fakeSupabase as any, {
       actorPersonaId: ACTOR_PERSONA_ID,
@@ -828,6 +914,35 @@ describe('discoverFinancialServicesForConsumer() / discoverEligibleFinancialServ
     expect(eligible.map((d) => d.serviceId).sort()).toEqual(
       [MONEYPENNY_ADVISOR.serviceId, MONEYPENNY_ARCHITECT.serviceId, MONEYPENNY_RUNTIME.serviceId].sort(),
     );
+  });
+
+  it('CORE CORRECTION: Runtime is still ELIGIBLE with no current delegation grant — authority is a separate, non-blocking prerequisite reading PENDING', async () => {
+    mockReadActiveGrant.mockResolvedValue(null);
+
+    const discovered = await discoverFinancialServicesForConsumer(CONSUMER, fakeSupabase as any, {
+      actorPersonaId: ACTOR_PERSONA_ID,
+      callerAuthProfileId: ACTOR_AUTH_PROFILE_ID,
+    });
+    expect(discovered.ok).toBe(true);
+    if (!discovered.ok) throw new Error('unreachable');
+
+    const runtime = discovered.services.find((d) => d.definition.serviceId === MONEYPENNY_RUNTIME.serviceId);
+    expect(runtime?.eligibility.eligible).toBe(true);
+    expect(runtime?.authority).toEqual(
+      expect.objectContaining({ state: 'PENDING', met: false, code: 'AUTHORITY_DELEGATION_REQUIRED' }),
+    );
+  });
+
+  it('once a current delegation AND an authorized mandate both exist, Runtime\'s authority prerequisite reads ACTIVE', async () => {
+    const discovered = await discoverFinancialServicesForConsumer(CONSUMER, fakeSupabase as any, {
+      actorPersonaId: ACTOR_PERSONA_ID,
+      callerAuthProfileId: ACTOR_AUTH_PROFILE_ID,
+    });
+    expect(discovered.ok).toBe(true);
+    if (!discovered.ok) throw new Error('unreachable');
+
+    const runtime = discovered.services.find((d) => d.definition.serviceId === MONEYPENNY_RUNTIME.serviceId);
+    expect(runtime?.authority).toEqual(expect.objectContaining({ state: 'ACTIVE', met: true, code: 'AUTHORITY_ACTIVE' }));
   });
 
   it('a non-admitted consumer sees nothing eligible, including Advisor/Architect which have no Standing requirement', async () => {
@@ -852,7 +967,14 @@ describe('discoverFinancialServicesForConsumer() / discoverEligibleFinancialServ
   });
 
   it('a second, distinct consumer (Aigent Know1) run through the identical discovery function reflects its own Standing — no per-consumer branch', async () => {
-    mockResolveAgentAdmissionState.mockResolvedValue({ delegationActive: true, registryActivated: true, agentRootDid: KNOW1_ROOT_DID, auditGaps: [] });
+    mockResolveAgentAdmissionState.mockResolvedValue({
+      delegationActive: true,
+      registryActivated: true,
+      agentRootId: KNOW1_ROOT_ID,
+      agentRootDid: KNOW1_ROOT_DID,
+      auditGaps: [],
+    });
+    mockListAssignments.mockResolvedValue([assignmentRow(KNOW1_ROOT_ID)]);
     mockReadActiveGrant.mockResolvedValue({ grant_id: 'grant-know1', agent_root_did: KNOW1_ROOT_DID, persona_id: ACTOR_PERSONA_ID });
     mockComputeStandingScore.mockResolvedValue({ score: 100, qualified: true });
 

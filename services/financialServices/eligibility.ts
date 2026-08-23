@@ -1,22 +1,31 @@
 /**
  * MoneyPenny Financial Services Runtime — eligibility (Phase 3, Stage 3.1;
- * rewritten in the 2026-08-23 repair pass, Repair B/F).
+ * corrected 2026-08-23, second pass).
  *
  * A PURE decision function over an already-resolved
  * `FinancialServiceAgentContext` (`services/financialServices/
- * agentEligibilityContext.ts`) — it performs NO reads of its own. This is the
- * Repair F correction: admission/delegation/verification/Standing are
- * resolved ONCE per agent request by the caller (discovery.ts,
- * serviceRequestOrchestrator.ts) and projected into every service card; this
- * function only composes already-known facts into a decision.
+ * agentEligibilityContext.ts`) — it performs NO reads of its own.
  *
- * Composes the four already-ratified facts the operator specified (Repair B):
- *   1. Constitutional admission established   (context.admission.registryActivated)
- *   2. Current-principal bounded delegation to
- *      this exact agent                       (context.personaScopedDelegationActive)
- *   3. Canonical Financial Services
- *      verification complete (Pulse + P&L)    (context.verification)
- *   4. Service-specific Standing threshold     (context.standing, per-definition)
+ * Operator correction (verbatim): eligibility must never require a currently
+ * active `delegation_grants` row — that store allows exactly one active grant
+ * PER PERSONA, so it cannot serve as a multi-agent discoverability roster.
+ * The corrected model:
+ *
+ *   constitutional admission established        (context.admission.registryActivated)
+ *   + agent structurally assigned/bound to
+ *     this principal/person                     (context.structurallyAssigned,
+ *                                                  persona_agent_assignments)
+ *   + Financial Services verification complete   (context.verification)
+ *   + service-specific Standing satisfied        (context.standing, per-definition)
+ *   = Financial Service eligible
+ *
+ * The ACTIVE bounded-delegation grant (+ an authorized Constitutional
+ * Agreement/mandate) remains real, but belongs to the AUTHORITY PLANE for a
+ * proposed CONSEQUENTIAL action (`constitutionalAuthorityAdapter.ts`,
+ * `deriveActionAuthorisation()`) — never to discoverability. An otherwise-
+ * eligible Runtime-class request that lacks current authority resolves
+ * REFUSED/UNRESOLVED downstream, at request time, through the real
+ * authority/authorisation path — never `INELIGIBLE` here.
  *
  * Three-valued, matching this codebase's house style:
  * `eligible: true | false | undefined`, where `undefined` means the
@@ -61,18 +70,18 @@ export function evaluateFinancialServiceEligibility(
       };
     }
 
-    if (ctx.personaScopedDelegationActive === undefined) {
+    if (ctx.structurallyAssigned === undefined) {
       return {
         eligible: undefined,
-        code: 'DELEGATION_UNRESOLVED',
-        reason: `'${agentId}' persona-scoped delegation state could not be determined`,
+        code: 'ASSIGNMENT_UNRESOLVED',
+        reason: `'${agentId}' structural assignment to the requesting principal could not be determined`,
       };
     }
-    if (ctx.personaScopedDelegationActive === false) {
+    if (ctx.structurallyAssigned === false) {
       return {
         eligible: false,
-        code: 'NOT_DELEGATED_TO_CURRENT_PRINCIPAL',
-        reason: `the requesting principal has no active bounded delegation to '${agentId}'`,
+        code: 'NOT_ASSIGNED_TO_PRINCIPAL',
+        reason: `'${agentId}' is not structurally assigned/bound to the requesting principal (persona_agent_assignments)`,
       };
     }
 
