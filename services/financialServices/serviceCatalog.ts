@@ -15,8 +15,13 @@ import type { FinancialServiceDefinition } from '@/types/financialServices';
 
 /**
  * Informational only — never executes. Gate 2 passes `preview` mode
- * unconditionally for any capability id, so this uses its own descriptive id
- * rather than the Gate-2-gated one.
+ * unconditionally for any capability id, so correctness here isn't about
+ * what Gate 2 permits — it's about `resolveCapabilityProviders` actually
+ * resolving a live MoneyPenny Agent Bench provider (2026-08-23 repair pass,
+ * Repair E). `financial_advisory` is the REAL capability descriptor name
+ * persisted by the MoneyPenny registry seed
+ * (supabase/migrations/20260930000400_aigentqube_moneypenny_registry_asset.sql)
+ * — the earlier `MONEYPENNY_ADVISOR` id matched nothing live.
  */
 export const MONEYPENNY_ADVISOR: FinancialServiceDefinition = {
   serviceId: 'moneypenny.advisor',
@@ -24,7 +29,7 @@ export const MONEYPENNY_ADVISOR: FinancialServiceDefinition = {
   serviceClass: MONEYPENNY_PROVIDER_MODE_CONSEQUENCE_CLASS.ADVISOR,
   displayName: 'MoneyPenny Advisor',
   providerAgentId: 'aigent-moneypenny',
-  capabilityId: 'MONEYPENNY_ADVISOR',
+  capabilityId: 'financial_advisory',
   eligibilityPolicy: { requiresAdmission: true, minimumStandingScore: null },
   authorityRequirement: { requiredAuthoritySource: [], requiresActiveAuthority: true },
   projectionRequirement: 'NOT_REQUIRED',
@@ -39,6 +44,9 @@ export const MONEYPENNY_ADVISOR: FinancialServiceDefinition = {
  * Proposes/plans — never authorises the real action. Gate 2 also passes
  * `shadow` mode unconditionally; `deriveActionAuthorisation()` is never
  * called for this class (see types/financialServices.ts's `DELIVERED` note).
+ * `financial_structure_design` is the REAL capability descriptor name
+ * persisted by the MoneyPenny registry seed (2026-08-23 repair pass, Repair
+ * E) — see `MONEYPENNY_ADVISOR`'s comment above for the same correction.
  */
 export const MONEYPENNY_ARCHITECT: FinancialServiceDefinition = {
   serviceId: 'moneypenny.architect',
@@ -46,7 +54,7 @@ export const MONEYPENNY_ARCHITECT: FinancialServiceDefinition = {
   serviceClass: MONEYPENNY_PROVIDER_MODE_CONSEQUENCE_CLASS.ARCHITECT,
   displayName: 'MoneyPenny Architect',
   providerAgentId: 'aigent-moneypenny',
-  capabilityId: 'MONEYPENNY_ARCHITECT',
+  capabilityId: 'financial_structure_design',
   eligibilityPolicy: { requiresAdmission: true, minimumStandingScore: null },
   authorityRequirement: { requiredAuthoritySource: [], requiresActiveAuthority: true },
   projectionRequirement: 'NOT_REQUIRED',
@@ -76,6 +84,16 @@ export const MONEYPENNY_ARCHITECT: FinancialServiceDefinition = {
  * `tests/financial-services-runtime.test.ts`. The ONLY way this changes is
  * Stage 3.3 (`docs/vela/VELA_EARLY_ACCESS_HANDOFF.md` §9) delivering a real
  * `NITRO_ATTESTED` deployment.
+ *
+ * `capabilityId` MUST stay `CONFIDENTIAL_CONSEQUENCE_PROJECTION` — the one
+ * id Gate 2's frozen authoritative-mode exception actually permits. The live
+ * MoneyPenny Agent Bench registry seed does not yet carry a descriptor by
+ * this exact name (its closest live entry is `bounded_financial_execution`,
+ * a documented, already-tracked "data change, needs live credentials" gap —
+ * docs/vela/VELA_EARLY_ACCESS_HANDOFF.md §6). Do NOT alias the two in
+ * `resolveCapabilityProviders` and do NOT change Gate 2 to accommodate the
+ * stale registry metadata (2026-08-23 repair-pass ruling, Repair E) — the
+ * fix is registering the real descriptor, not bridging the mismatch in code.
  */
 export const MONEYPENNY_RUNTIME: FinancialServiceDefinition = {
   serviceId: 'moneypenny.runtime',

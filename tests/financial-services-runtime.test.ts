@@ -1,5 +1,9 @@
 /**
  * MoneyPenny Financial Services Runtime — Phase 3, Stage 3.1 canaries.
+ * Rewritten in the 2026-08-23 repair pass (Repairs A-F) to match the
+ * "resolve once" context composition, the real ConstitutionalAuthority
+ * adapter, the real Advisor/Architect provider dispatch, and the corrected
+ * capability ids.
  *
  * Proves the complete lifecycle spec: service discovery -> eligibility ->
  * Authority -> Mandate -> ProposedAction -> ConsequenceProjection ->
@@ -11,9 +15,10 @@
  * Mirrors this repo's established mocking convention for
  * `invokeCapability()` (`tests/governed-capability-invocation.test.ts`,
  * `tests/vela-slice2f-capability-invocation.test.ts`) — only the DB-backed
- * capability-registry/admission/Standing seams are stood in. Gate 1, Gate 2,
- * `deriveActionAuthorisation`, `bindExecution`, `recordObservedConsequence`
- * and `assembleCausalChain` all run for real.
+ * capability-registry/admission/delegation/verification/Standing/agreement
+ * seams are stood in. Gate 1, Gate 2, `deriveActionAuthorisation`,
+ * `bindExecution`, `recordObservedConsequence` and `assembleCausalChain` all
+ * run for real.
  *
  * The consumer is Aigent Nakamoto (`aigent-nakamoto`) — a real, canonical,
  * non-MoneyPenny registrable agent — requesting a MoneyPenny
@@ -34,9 +39,39 @@ vi.mock('@/services/journey/agentAdmissionState', () => ({
   resolveAgentAdmissionState: (...args: any[]) => mockResolveAgentAdmissionState(...args),
 }));
 
+const mockReadActiveGrant = vi.fn();
+vi.mock('@/services/delegation/delegationGrantStore', () => ({
+  readActiveGrant: (...args: any[]) => mockReadActiveGrant(...args),
+}));
+
+const mockResolveFinancialServicesVerification = vi.fn();
+vi.mock('@/services/journey/agentFinancialServicesVerification', () => ({
+  resolveFinancialServicesVerification: (...args: any[]) => mockResolveFinancialServicesVerification(...args),
+}));
+
+const mockResolveAgentStandingPersonaId = vi.fn();
+vi.mock('@/services/standing/agentStandingPersona', () => ({
+  resolveAgentStandingPersonaId: (...args: any[]) => mockResolveAgentStandingPersonaId(...args),
+}));
+
 const mockComputeStandingScore = vi.fn();
 vi.mock('@/services/standing/standingScore', () => ({
   computeStandingScore: (...args: any[]) => mockComputeStandingScore(...args),
+}));
+
+const mockRequireAuthorizedAgreement = vi.fn();
+vi.mock('@/services/constitutional/constitutionalAgreement', () => ({
+  requireAuthorizedAgreement: (...args: any[]) => mockRequireAuthorizedAgreement(...args),
+}));
+
+const mockDraftFinancialStructure = vi.fn();
+vi.mock('@/services/constitutional/moneyPennyArchitect', () => ({
+  draftFinancialStructure: (...args: any[]) => mockDraftFinancialStructure(...args),
+}));
+
+const mockRunMoneyPennyChat = vi.fn();
+vi.mock('@/app/api/moneypenny/chat/route', () => ({
+  runMoneyPennyChat: (...args: any[]) => mockRunMoneyPennyChat(...args),
 }));
 
 const mockAccrueStanding = vi.fn();
@@ -47,6 +82,7 @@ vi.mock('@/services/crm/standingAccrualService', () => ({
 const mockCreateActivityReceipt = vi.fn();
 vi.mock('@/services/receipts/activityReceiptService', () => ({
   createActivityReceipt: (...args: any[]) => mockCreateActivityReceipt(...args),
+  findAgentReceiptRefs: vi.fn().mockResolvedValue([]),
 }));
 
 const mockEmitReceipt = vi.fn();
@@ -84,13 +120,16 @@ import {
   discoverEligibleFinancialServices,
 } from '@/services/financialServices/discovery';
 import type { ConsequenceForecast } from '@/types/consequence';
-import type { ConstitutionalAuthority } from '@/types/constitutionalCommerce';
 import type { ConfidentialEvidenceInput } from '@/services/constitutionalCommerce/unifiedConsequenceProjection';
 import { MONEYPENNY_PROVIDER_MODE_CONSEQUENCE_CLASS } from '@/types/financialServices';
 import type { FinancialServiceRequest } from '@/types/financialServices';
 
 const CONSUMER = 'aigent-nakamoto';
 const PROVIDER = 'aigent-moneypenny';
+const CONSUMER_ROOT_DID = 'did:agent:root:aigent-nakamoto';
+const KNOW1_ROOT_DID = 'did:agent:root:aigent-kn0w1';
+const ACTOR_PERSONA_ID = 'persona-nakamoto-oversight';
+const ACTOR_AUTH_PROFILE_ID = 'auth-profile-nakamoto-oversight';
 
 const MONEYPENNY_ADVISOR_PROVIDER = {
   capabilityId: MONEYPENNY_ADVISOR.capabilityId,
@@ -103,14 +142,6 @@ const MONEYPENNY_ADVISOR_PROVIDER = {
 };
 const MONEYPENNY_ARCHITECT_PROVIDER = { ...MONEYPENNY_ADVISOR_PROVIDER, capabilityId: MONEYPENNY_ARCHITECT.capabilityId };
 const MONEYPENNY_RUNTIME_PROVIDER = { ...MONEYPENNY_ADVISOR_PROVIDER, capabilityId: MONEYPENNY_RUNTIME.capabilityId };
-
-const ACTIVE_AUTHORITY: ConstitutionalAuthority = {
-  principalRef: 'polref-nakamoto-consumer',
-  actorRef: CONSUMER,
-  authoritySource: 'passport+standing',
-  mandateRef: 'mandate-fsvc-1',
-  state: 'ACTIVE',
-};
 
 function forecast(): ConsequenceForecast {
   return {
@@ -131,25 +162,61 @@ function request(serviceId: string, overrides: Partial<FinancialServiceRequest> 
     requestRef: `req-${serviceId}`,
     serviceId,
     requestingAgentId: CONSUMER,
-    principalRef: ACTIVE_AUTHORITY.principalRef,
-    mandateRef: ACTIVE_AUTHORITY.mandateRef,
-    input: {},
+    input: { intent: 'rehearsal intent for the provider' },
     ...overrides,
   };
+}
+
+/** Default "everything checks out" wiring — an admitted, persona-scoped-delegated, verified, adequately-Standing consumer with an authorized mandate. Individual tests override one seam at a time. */
+function wireHappyPath(): void {
+  mockResolveAgentAdmissionState.mockResolvedValue({
+    // `delegationActive` is Gate 1's own (unmodified, out-of-scope-for-this-
+    // repair) admission check (services/registry/capabilityInvocationGates.ts)
+    // — it still reads this exact field, independently of the Financial
+    // Services eligibility layer's own `registryActivated`/persona-scoped
+    // delegation composition below. Both must be satisfied for a happy path.
+    delegationActive: true,
+    registryActivated: true,
+    agentRootDid: CONSUMER_ROOT_DID,
+    auditGaps: [],
+  });
+  mockReadActiveGrant.mockResolvedValue({ grant_id: 'grant-1', agent_root_did: CONSUMER_ROOT_DID, persona_id: ACTOR_PERSONA_ID });
+  mockResolveFinancialServicesVerification.mockResolvedValue({
+    pulseComplete: true,
+    pnlComplete: true,
+    financialServicesEligible: true,
+  });
+  mockResolveAgentStandingPersonaId.mockResolvedValue('crm-nakamoto');
+  mockComputeStandingScore.mockResolvedValue({ score: 40, qualified: true });
+  mockRequireAuthorizedAgreement.mockResolvedValue({ ok: true, agreementId: 'agr-1', status: 'authorized' });
+  mockDraftFinancialStructure.mockResolvedValue({
+    ok: true,
+    artifactId: 'moneypenny-architect-artifact-1',
+    recordId: 'rec-1',
+    title: 'Structure',
+    body: 'body',
+    citedInvariantIds: [],
+  });
+  mockRunMoneyPennyChat.mockResolvedValue({ response: 'Here is some financial advice.', timestamp: '2026-08-23T00:00:00.000Z' });
 }
 
 beforeEach(() => {
   mockResolveCapabilityProviders.mockReset();
   mockResolveAgentAdmissionState.mockReset();
+  mockReadActiveGrant.mockReset();
+  mockResolveFinancialServicesVerification.mockReset();
+  mockResolveAgentStandingPersonaId.mockReset();
   mockComputeStandingScore.mockReset();
+  mockRequireAuthorizedAgreement.mockReset();
+  mockDraftFinancialStructure.mockReset();
+  mockRunMoneyPennyChat.mockReset();
   mockAccrueStanding.mockReset();
   mockAccrueStanding.mockResolvedValue(null);
   mockCreateActivityReceipt.mockReset();
   mockCreateActivityReceipt.mockResolvedValue({});
   mockEmitReceipt.mockReset();
   mockEmitReceipt.mockResolvedValue({});
-  // Both consumer (Nakamoto) and provider (MoneyPenny) independently admitted.
-  mockResolveAgentAdmissionState.mockResolvedValue({ delegationActive: true });
+  wireHappyPath();
 });
 
 // ── Service discovery ───────────────────────────────────────────────────
@@ -176,8 +243,10 @@ describe('service discovery — serviceCatalog', () => {
     expect(resolveFinancialServiceDefinition('moneypenny.nonexistent')).toBeNull();
   });
 
-  it('Runtime is the ONLY service using the Gate-2-gated capability id; Advisor/Architect use distinct ids', () => {
+  it('Runtime is the ONLY service using the Gate-2-gated capability id; Advisor/Architect use the real MoneyPenny registry capability names', () => {
     expect(MONEYPENNY_RUNTIME.capabilityId).toBe('CONFIDENTIAL_CONSEQUENCE_PROJECTION');
+    expect(MONEYPENNY_ADVISOR.capabilityId).toBe('financial_advisory');
+    expect(MONEYPENNY_ARCHITECT.capabilityId).toBe('financial_structure_design');
     expect(MONEYPENNY_ADVISOR.capabilityId).not.toBe(MONEYPENNY_RUNTIME.capabilityId);
     expect(MONEYPENNY_ARCHITECT.capabilityId).not.toBe(MONEYPENNY_RUNTIME.capabilityId);
   });
@@ -201,90 +270,106 @@ describe('service discovery — serviceCatalog', () => {
   });
 });
 
-// ── Full lifecycle: Advisor / Architect (DELIVERED, cross-agent) ────────
+// ── Full lifecycle: Advisor / Architect (DELIVERED only after real dispatch) ──
 
-describe('requestFinancialService() — Advisor/Architect: cross-agent, no execution attempted', () => {
-  it('Advisor: Nakamoto (non-MoneyPenny consumer) receives DELIVERED in preview mode', async () => {
+describe('requestFinancialService() — Advisor/Architect: real provider dispatch before DELIVERED (Repair D)', () => {
+  it('Advisor: Nakamoto receives DELIVERED only after runMoneyPennyChat() actually returns a response', async () => {
     mockResolveCapabilityProviders.mockResolvedValue([MONEYPENNY_ADVISOR_PROVIDER]);
     const { outcome } = await requestFinancialService({
       request: request(MONEYPENNY_ADVISOR.serviceId),
-      authority: ACTIVE_AUTHORITY,
       publicForecast: forecast(),
       confidentialEvidence: null,
       personaId: 'persona-nakamoto',
-      standingPersonaId: 'crm-nakamoto',
+      actorPersonaId: ACTOR_PERSONA_ID,
+      callerAuthProfileId: ACTOR_AUTH_PROFILE_ID,
       now: '2026-08-22T00:00:00.000Z',
       admin: fakeSupabase as any,
     });
+    expect(mockRunMoneyPennyChat).toHaveBeenCalledTimes(1);
     expect(outcome.status).toBe('DELIVERED');
     expect(outcome.serviceClass).toBe('INFORMATIONAL');
     expect(outcome.providerMode).toBe('ADVISOR');
     expect(outcome.authorisationRef).toBeNull();
     expect(outcome.executionRef).toBeNull();
+    expect(outcome.providerResultRef).toBeTruthy();
     expect(mockAccrueStanding).toHaveBeenCalledWith(expect.objectContaining({ crmPersonaId: 'crm-nakamoto' }));
   });
 
-  it('Architect: Nakamoto receives DELIVERED in shadow mode — never AUTHORISED, never REFUSED via deriveActionAuthorisation', async () => {
+  it('Architect: Nakamoto receives DELIVERED only after draftFinancialStructure() actually persists an artifact — never AUTHORISED, never REFUSED via deriveActionAuthorisation', async () => {
     mockResolveCapabilityProviders.mockResolvedValue([MONEYPENNY_ARCHITECT_PROVIDER]);
     const { outcome } = await requestFinancialService({
       request: request(MONEYPENNY_ARCHITECT.serviceId),
-      authority: ACTIVE_AUTHORITY,
       publicForecast: forecast(),
       confidentialEvidence: null,
+      actorPersonaId: ACTOR_PERSONA_ID,
+      callerAuthProfileId: ACTOR_AUTH_PROFILE_ID,
       now: '2026-08-22T00:00:00.000Z',
       admin: fakeSupabase as any,
     });
+    expect(mockDraftFinancialStructure).toHaveBeenCalledWith({ intent: 'rehearsal intent for the provider' });
     expect(outcome.status).toBe('DELIVERED');
     expect(outcome.serviceClass).toBe('PROPOSAL');
     expect(outcome.providerMode).toBe('ARCHITECT');
+    expect(outcome.providerResultRef).toBe('moneypenny-architect-artifact-1');
   });
 
-  it('refuses when the consumer is not admitted — Gate 1, unmodified', async () => {
-    mockResolveCapabilityProviders.mockResolvedValue([MONEYPENNY_ADVISOR_PROVIDER]);
-    mockResolveAgentAdmissionState.mockImplementation((_admin: unknown, agent: { runtimeAgentId: string }) =>
-      Promise.resolve({ delegationActive: agent.runtimeAgentId !== CONSUMER }),
-    );
+  it('a gate allow followed by a technical provider failure resolves UNRESOLVED, never a silent DELIVERED — the exact bug this repair removes', async () => {
+    mockResolveCapabilityProviders.mockResolvedValue([MONEYPENNY_ARCHITECT_PROVIDER]);
+    mockDraftFinancialStructure.mockResolvedValue({ ok: false, error: 'inference failed' });
     const { outcome } = await requestFinancialService({
-      request: request(MONEYPENNY_ADVISOR.serviceId),
-      authority: ACTIVE_AUTHORITY,
+      request: request(MONEYPENNY_ARCHITECT.serviceId),
       publicForecast: forecast(),
       confidentialEvidence: null,
+      actorPersonaId: ACTOR_PERSONA_ID,
+      callerAuthProfileId: ACTOR_AUTH_PROFILE_ID,
       now: '2026-08-22T00:00:00.000Z',
       admin: fakeSupabase as any,
     });
-    // Caught by this layer's OWN eligibility pre-check (reusing the same
-    // resolveAgentAdmissionState Gate 1 would also refuse on).
+    expect(outcome.status).toBe('UNRESOLVED');
+    expect(outcome.reason).toContain('inference failed');
+    expect(mockAccrueStanding).not.toHaveBeenCalled();
+  });
+
+  it('refuses when the consumer is not admitted — registry activation, unmodified', async () => {
+    mockResolveCapabilityProviders.mockResolvedValue([MONEYPENNY_ADVISOR_PROVIDER]);
+    mockResolveAgentAdmissionState.mockImplementation((_admin: unknown, agent: { runtimeAgentId: string }) =>
+      Promise.resolve({
+        registryActivated: agent.runtimeAgentId !== CONSUMER,
+        agentRootDid: agent.runtimeAgentId !== CONSUMER ? 'did:agent:root:other' : CONSUMER_ROOT_DID,
+        auditGaps: [],
+      }),
+    );
+    const { outcome } = await requestFinancialService({
+      request: request(MONEYPENNY_ADVISOR.serviceId),
+      publicForecast: forecast(),
+      confidentialEvidence: null,
+      actorPersonaId: ACTOR_PERSONA_ID,
+      callerAuthProfileId: ACTOR_AUTH_PROFILE_ID,
+      now: '2026-08-22T00:00:00.000Z',
+      admin: fakeSupabase as any,
+    });
     expect(outcome.status).toBe('INELIGIBLE');
     expect(outcome.reason).toContain('NOT_ADMITTED');
+    expect(mockRunMoneyPennyChat).not.toHaveBeenCalled();
   });
 });
 
-// ── Live defect fix (2026-08-22): undefined admission state is never
-//    collapsed into a false NOT_ADMITTED ────────────────────────────────
-//
-// A live operator run on dev-beta.aigentz.me showed EVERY agent — including
-// MoneyPenny herself — as "not eligible — NOT_ADMITTED" for every service.
-// Root cause: resolveAgentAdmissionState() can genuinely return
-// `delegationActive: undefined` (an audit gap — e.g. a migrated agent whose
-// RootDID self-heal mint needs a callerAuthProfileId this eligibility check
-// never used to pass through). eligibility.ts's `if (!admission.delegationActive)`
-// treated that `undefined` exactly like a real `false`, so every agent read
-// as refused rather than "could not be determined." Fixed by distinguishing
-// the two, and by threading callerAuthProfileId/actorPersonaId through so
-// the self-heal can actually run for an authenticated caller.
+// ── Repair B: the composed eligibility reason codes, each kept distinct ──
 
-describe('eligibility — undefined admission state (audit gap) is never collapsed into NOT_ADMITTED', () => {
-  it('delegationActive: undefined resolves ADMISSION_UNRESOLVED, not NOT_ADMITTED', async () => {
+describe('eligibility — composed reason codes (Repair B), each an audit gap or a real negative, never conflated', () => {
+  it('registryActivated: undefined resolves ADMISSION_UNRESOLVED, not NOT_ADMITTED', async () => {
     mockResolveCapabilityProviders.mockResolvedValue([MONEYPENNY_ADVISOR_PROVIDER]);
     mockResolveAgentAdmissionState.mockResolvedValue({
-      delegationActive: undefined,
-      auditGaps: ['migrated-agent RootDID mint failed: no authenticated caller to sponsor the mint from'],
+      registryActivated: undefined,
+      agentRootDid: null,
+      auditGaps: ['registry activation check failed: timeout'],
     });
     const { outcome } = await requestFinancialService({
       request: request(MONEYPENNY_ADVISOR.serviceId),
-      authority: ACTIVE_AUTHORITY,
       publicForecast: forecast(),
       confidentialEvidence: null,
+      actorPersonaId: ACTOR_PERSONA_ID,
+      callerAuthProfileId: ACTOR_AUTH_PROFILE_ID,
       now: '2026-08-22T00:00:00.000Z',
       admin: fakeSupabase as any,
     });
@@ -293,14 +378,15 @@ describe('eligibility — undefined admission state (audit gap) is never collaps
     expect(outcome.reason).not.toContain('NOT_ADMITTED');
   });
 
-  it('delegationActive: false (a real negative) still resolves NOT_ADMITTED', async () => {
+  it('registryActivated: false (a real negative) resolves NOT_ADMITTED', async () => {
     mockResolveCapabilityProviders.mockResolvedValue([MONEYPENNY_ADVISOR_PROVIDER]);
-    mockResolveAgentAdmissionState.mockResolvedValue({ delegationActive: false, auditGaps: [] });
+    mockResolveAgentAdmissionState.mockResolvedValue({ registryActivated: false, agentRootDid: null, auditGaps: [] });
     const { outcome } = await requestFinancialService({
       request: request(MONEYPENNY_ADVISOR.serviceId),
-      authority: ACTIVE_AUTHORITY,
       publicForecast: forecast(),
       confidentialEvidence: null,
+      actorPersonaId: ACTOR_PERSONA_ID,
+      callerAuthProfileId: ACTOR_AUTH_PROFILE_ID,
       now: '2026-08-22T00:00:00.000Z',
       admin: fakeSupabase as any,
     });
@@ -308,25 +394,126 @@ describe('eligibility — undefined admission state (audit gap) is never collaps
     expect(outcome.reason).toContain('NOT_ADMITTED');
   });
 
-  it('callerAuthProfileId/actorPersonaId are threaded through to resolveAgentAdmissionState unchanged', async () => {
+  it('admitted but no active grant reaching this exact agent resolves NOT_DELEGATED_TO_CURRENT_PRINCIPAL, never NOT_ADMITTED (Repair A)', async () => {
     mockResolveCapabilityProviders.mockResolvedValue([MONEYPENNY_ADVISOR_PROVIDER]);
-    mockResolveAgentAdmissionState.mockResolvedValue({ delegationActive: true, auditGaps: [] });
-    await requestFinancialService({
+    // The caller HAS an active grant, but it targets a DIFFERENT agent's DID —
+    // the exact over-permissive-query defect Repair A closes.
+    mockReadActiveGrant.mockResolvedValue({ grant_id: 'grant-2', agent_root_did: 'did:agent:root:someone-else', persona_id: ACTOR_PERSONA_ID });
+    const { outcome } = await requestFinancialService({
       request: request(MONEYPENNY_ADVISOR.serviceId),
-      authority: ACTIVE_AUTHORITY,
       publicForecast: forecast(),
       confidentialEvidence: null,
-      callerAuthProfileId: 'auth-profile-aigent-z',
-      actorPersonaId: 'persona-aigent-z',
+      actorPersonaId: ACTOR_PERSONA_ID,
+      callerAuthProfileId: ACTOR_AUTH_PROFILE_ID,
       now: '2026-08-22T00:00:00.000Z',
       admin: fakeSupabase as any,
     });
-    expect(mockResolveAgentAdmissionState).toHaveBeenCalledWith(
-      fakeSupabase,
-      expect.objectContaining({ runtimeAgentId: CONSUMER }),
-      'auth-profile-aigent-z',
-      'persona-aigent-z',
-    );
+    expect(outcome.status).toBe('INELIGIBLE');
+    expect(outcome.reason).toContain('NOT_DELEGATED_TO_CURRENT_PRINCIPAL');
+    expect(outcome.reason).not.toContain('NOT_ADMITTED');
+  });
+
+  it('no authenticated principal at all resolves NOT_DELEGATED_TO_CURRENT_PRINCIPAL, never a silently-granted authority', async () => {
+    mockResolveCapabilityProviders.mockResolvedValue([MONEYPENNY_ADVISOR_PROVIDER]);
+    const { outcome } = await requestFinancialService({
+      request: request(MONEYPENNY_ADVISOR.serviceId),
+      publicForecast: forecast(),
+      confidentialEvidence: null,
+      actorPersonaId: null,
+      callerAuthProfileId: null,
+      now: '2026-08-22T00:00:00.000Z',
+      admin: fakeSupabase as any,
+    });
+    expect(outcome.status).toBe('INELIGIBLE');
+    expect(outcome.reason).toContain('NOT_DELEGATED_TO_CURRENT_PRINCIPAL');
+    expect(mockReadActiveGrant).not.toHaveBeenCalled();
+  });
+
+  it('Financial Services verification incomplete resolves FINANCIAL_SERVICES_NOT_VERIFIED, distinct from admission/delegation', async () => {
+    mockResolveCapabilityProviders.mockResolvedValue([MONEYPENNY_ADVISOR_PROVIDER]);
+    mockResolveFinancialServicesVerification.mockResolvedValue({
+      pulseComplete: true,
+      pnlComplete: false,
+      financialServicesEligible: false,
+    });
+    const { outcome } = await requestFinancialService({
+      request: request(MONEYPENNY_ADVISOR.serviceId),
+      publicForecast: forecast(),
+      confidentialEvidence: null,
+      actorPersonaId: ACTOR_PERSONA_ID,
+      callerAuthProfileId: ACTOR_AUTH_PROFILE_ID,
+      now: '2026-08-22T00:00:00.000Z',
+      admin: fakeSupabase as any,
+    });
+    expect(outcome.status).toBe('INELIGIBLE');
+    expect(outcome.reason).toContain('FINANCIAL_SERVICES_NOT_VERIFIED');
+  });
+
+  it('an unresolved verification read resolves FINANCIAL_SERVICES_VERIFICATION_UNRESOLVED, never a false negative', async () => {
+    mockResolveCapabilityProviders.mockResolvedValue([MONEYPENNY_ADVISOR_PROVIDER]);
+    mockResolveFinancialServicesVerification.mockResolvedValue(undefined);
+    const { outcome } = await requestFinancialService({
+      request: request(MONEYPENNY_ADVISOR.serviceId),
+      publicForecast: forecast(),
+      confidentialEvidence: null,
+      actorPersonaId: ACTOR_PERSONA_ID,
+      callerAuthProfileId: ACTOR_AUTH_PROFILE_ID,
+      now: '2026-08-22T00:00:00.000Z',
+      admin: fakeSupabase as any,
+    });
+    expect(outcome.status).toBe('INELIGIBLE');
+    expect(outcome.reason).toContain('FINANCIAL_SERVICES_VERIFICATION_UNRESOLVED');
+  });
+});
+
+// ── Repair C: real ConstitutionalAuthority, never a fabricated one ──────
+
+describe('requestFinancialService() — real ConstitutionalAuthority (Repair C)', () => {
+  it('resolves standingPersonaId server-side via resolveAgentStandingPersonaId — never from client input', async () => {
+    mockResolveCapabilityProviders.mockResolvedValue([MONEYPENNY_ADVISOR_PROVIDER]);
+    await requestFinancialService({
+      request: request(MONEYPENNY_ADVISOR.serviceId),
+      publicForecast: forecast(),
+      confidentialEvidence: null,
+      actorPersonaId: ACTOR_PERSONA_ID,
+      callerAuthProfileId: ACTOR_AUTH_PROFILE_ID,
+      now: '2026-08-22T00:00:00.000Z',
+      admin: fakeSupabase as any,
+    });
+    expect(mockResolveAgentStandingPersonaId).toHaveBeenCalledWith(expect.objectContaining({ runtimeAgentId: CONSUMER }));
+  });
+
+  it('resolves the mandate via requireAuthorizedAgreement — never a synthesized mandate-fsvc-oversight-* string', async () => {
+    mockResolveCapabilityProviders.mockResolvedValue([MONEYPENNY_ADVISOR_PROVIDER]);
+    await requestFinancialService({
+      request: request(MONEYPENNY_ADVISOR.serviceId),
+      publicForecast: forecast(),
+      confidentialEvidence: null,
+      actorPersonaId: ACTOR_PERSONA_ID,
+      callerAuthProfileId: ACTOR_AUTH_PROFILE_ID,
+      now: '2026-08-22T00:00:00.000Z',
+      admin: fakeSupabase as any,
+    });
+    expect(mockRequireAuthorizedAgreement).toHaveBeenCalledWith({
+      capabilityRef: MONEYPENNY_ADVISOR.capabilityId,
+      selectedAgentRef: CONSUMER,
+      requestingPersonaId: ACTOR_PERSONA_ID,
+    });
+  });
+
+  it('an unauthorized agreement still lets Advisor/Architect DELIVER (BOUNDED authority is sufficient — they never call deriveActionAuthorisation)', async () => {
+    mockResolveCapabilityProviders.mockResolvedValue([MONEYPENNY_ADVISOR_PROVIDER]);
+    mockRequireAuthorizedAgreement.mockResolvedValue({ ok: false, status: 409, reason: 'no agreement', remediation: 'form one' });
+    const { outcome } = await requestFinancialService({
+      request: request(MONEYPENNY_ADVISOR.serviceId),
+      publicForecast: forecast(),
+      confidentialEvidence: null,
+      actorPersonaId: ACTOR_PERSONA_ID,
+      callerAuthProfileId: ACTOR_AUTH_PROFILE_ID,
+      now: '2026-08-22T00:00:00.000Z',
+      admin: fakeSupabase as any,
+    });
+    expect(outcome.status).toBe('DELIVERED');
   });
 });
 
@@ -350,13 +537,12 @@ describe('requestFinancialService() — Runtime: the Phase 3 hard dependency', (
 
   it('an ACCEPTABLE confidential verdict still resolves UNRESOLVED locally — REQUIRED attestation is unproven, zero execution', async () => {
     mockResolveCapabilityProviders.mockResolvedValue([MONEYPENNY_RUNTIME_PROVIDER]);
-    mockComputeStandingScore.mockResolvedValue({ score: 40, qualified: true });
     const { outcome, causalChain } = await requestFinancialService({
       request: request(MONEYPENNY_RUNTIME.serviceId),
-      authority: ACTIVE_AUTHORITY,
       publicForecast: forecast(),
       confidentialEvidence: realisticUnattestedEvidence('ACCEPTABLE'),
-      standingPersonaId: 'crm-nakamoto',
+      actorPersonaId: ACTOR_PERSONA_ID,
+      callerAuthProfileId: ACTOR_AUTH_PROFILE_ID,
       now: '2026-08-22T00:00:00.000Z',
       admin: fakeSupabase as any,
     });
@@ -369,20 +555,19 @@ describe('requestFinancialService() — Runtime: the Phase 3 hard dependency', (
 
   it('an UNACCEPTABLE confidential verdict is REFUSED, distinct from UNRESOLVED', async () => {
     mockResolveCapabilityProviders.mockResolvedValue([MONEYPENNY_RUNTIME_PROVIDER]);
-    mockComputeStandingScore.mockResolvedValue({ score: 40, qualified: true });
     // Attestation-independent: an UNACCEPTABLE verdict is a definite refusal
     // regardless of attestation state — proven with real (attested) evidence
     // so the REFUSED branch isn't conflated with the attestation-gated one.
     const { outcome } = await requestFinancialService({
       request: request(MONEYPENNY_RUNTIME.serviceId),
-      authority: ACTIVE_AUTHORITY,
       publicForecast: forecast(),
       confidentialEvidence: {
         ...realisticUnattestedEvidence('UNACCEPTABLE'),
         teeAttestationVerified: true,
         attestationMode: 'NITRO_ATTESTED',
       },
-      standingPersonaId: 'crm-nakamoto',
+      actorPersonaId: ACTOR_PERSONA_ID,
+      callerAuthProfileId: ACTOR_AUTH_PROFILE_ID,
       now: '2026-08-22T00:00:00.000Z',
       admin: fakeSupabase as any,
     });
@@ -394,10 +579,10 @@ describe('requestFinancialService() — Runtime: the Phase 3 hard dependency', (
     mockComputeStandingScore.mockResolvedValue({ score: 10, qualified: false });
     const { outcome } = await requestFinancialService({
       request: request(MONEYPENNY_RUNTIME.serviceId),
-      authority: ACTIVE_AUTHORITY,
       publicForecast: forecast(),
       confidentialEvidence: realisticUnattestedEvidence('ACCEPTABLE'),
-      standingPersonaId: 'crm-nakamoto',
+      actorPersonaId: ACTOR_PERSONA_ID,
+      callerAuthProfileId: ACTOR_AUTH_PROFILE_ID,
       now: '2026-08-22T00:00:00.000Z',
       admin: fakeSupabase as any,
     });
@@ -406,9 +591,23 @@ describe('requestFinancialService() — Runtime: the Phase 3 hard dependency', (
     expect(mockResolveCapabilityProviders).not.toHaveBeenCalled();
   });
 
-  it('SYNTHETIC FIXTURE (proves the mechanism, not a live claim): once evidence carries a genuinely attested verdict, Runtime reaches AUTHORISED, binds execution, and validates MATCHED_PROJECTION', async () => {
+  it('resolves STANDING_PERSONA_UNRESOLVED when the agent has no CRM Standing persona — never a guessed/client-supplied one', async () => {
+    mockResolveAgentStandingPersonaId.mockResolvedValue(null);
+    const { outcome } = await requestFinancialService({
+      request: request(MONEYPENNY_RUNTIME.serviceId),
+      publicForecast: forecast(),
+      confidentialEvidence: realisticUnattestedEvidence('ACCEPTABLE'),
+      actorPersonaId: ACTOR_PERSONA_ID,
+      callerAuthProfileId: ACTOR_AUTH_PROFILE_ID,
+      now: '2026-08-22T00:00:00.000Z',
+      admin: fakeSupabase as any,
+    });
+    expect(outcome.status).toBe('INELIGIBLE');
+    expect(outcome.reason).toContain('STANDING_PERSONA_UNRESOLVED');
+  });
+
+  it('SYNTHETIC FIXTURE (proves the mechanism, not a live claim): once evidence carries a genuinely attested verdict and a real authorized agreement exists, Runtime reaches AUTHORISED, binds execution, and validates MATCHED_PROJECTION', async () => {
     mockResolveCapabilityProviders.mockResolvedValue([MONEYPENNY_RUNTIME_PROVIDER]);
-    mockComputeStandingScore.mockResolvedValue({ score: 40, qualified: true });
     const attestedEvidence: ConfidentialEvidenceInput = {
       provider: 'vela',
       requestRef: '0xsynthetic-attested',
@@ -426,12 +625,12 @@ describe('requestFinancialService() — Runtime: the Phase 3 hard dependency', (
     };
     const { outcome } = await requestFinancialService({
       request: request(MONEYPENNY_RUNTIME.serviceId),
-      authority: ACTIVE_AUTHORITY,
       publicForecast: forecast(),
       confidentialEvidence: attestedEvidence,
       observedDisposition: 'ACCEPTABLE',
       observedState: { note: 'synthetic observation for mechanism proof' },
-      standingPersonaId: 'crm-nakamoto',
+      actorPersonaId: ACTOR_PERSONA_ID,
+      callerAuthProfileId: ACTOR_AUTH_PROFILE_ID,
       now: '2026-08-22T00:00:00.000Z',
       admin: fakeSupabase as any,
     });
@@ -444,12 +643,35 @@ describe('requestFinancialService() — Runtime: the Phase 3 hard dependency', (
     expect(mockAccrueStanding).toHaveBeenCalledWith(expect.objectContaining({ crmPersonaId: 'crm-nakamoto' }));
   });
 
+  it('an attested verdict WITHOUT an authorized agreement stays BOUNDED, not ACTIVE — deriveActionAuthorisation REFUSES for lack of authority', async () => {
+    mockResolveCapabilityProviders.mockResolvedValue([MONEYPENNY_RUNTIME_PROVIDER]);
+    mockRequireAuthorizedAgreement.mockResolvedValue({ ok: false, status: 409, reason: 'no agreement', remediation: 'form one' });
+    const { outcome } = await requestFinancialService({
+      request: request(MONEYPENNY_RUNTIME.serviceId),
+      publicForecast: forecast(),
+      confidentialEvidence: {
+        provider: 'vela',
+        requestRef: '0xsynthetic-noagreement',
+        disposition: 'ACCEPTABLE',
+        resultCommitment: 'c',
+        payloadCommitment: 'p',
+        protocolExecutionVerified: true,
+        teeAttestationVerified: true,
+        attestationMode: 'NITRO_ATTESTED',
+      },
+      actorPersonaId: ACTOR_PERSONA_ID,
+      callerAuthProfileId: ACTOR_AUTH_PROFILE_ID,
+      now: '2026-08-22T00:00:00.000Z',
+      admin: fakeSupabase as any,
+    });
+    expect(outcome.status).toBe('REFUSED');
+    expect(outcome.executionRef).toBeNull();
+  });
+
   it('execution binding is never confirmation — transactionRef is always absent, even in the synthetic AUTHORISED case', async () => {
     mockResolveCapabilityProviders.mockResolvedValue([MONEYPENNY_RUNTIME_PROVIDER]);
-    mockComputeStandingScore.mockResolvedValue({ score: 40, qualified: true });
     const { causalChain } = await requestFinancialService({
       request: request(MONEYPENNY_RUNTIME.serviceId),
-      authority: ACTIVE_AUTHORITY,
       publicForecast: forecast(),
       confidentialEvidence: {
         provider: 'vela',
@@ -461,7 +683,8 @@ describe('requestFinancialService() — Runtime: the Phase 3 hard dependency', (
         teeAttestationVerified: true,
         attestationMode: 'NITRO_ATTESTED',
       },
-      standingPersonaId: 'crm-nakamoto',
+      actorPersonaId: ACTOR_PERSONA_ID,
+      callerAuthProfileId: ACTOR_AUTH_PROFILE_ID,
       now: '2026-08-22T00:00:00.000Z',
       admin: fakeSupabase as any,
     });
@@ -479,9 +702,10 @@ describe('assembleFinancialServiceOrchestration()', () => {
     mockResolveCapabilityProviders.mockResolvedValue([MONEYPENNY_ADVISOR_PROVIDER]);
     const advisorResult = await requestFinancialService({
       request: request(MONEYPENNY_ADVISOR.serviceId),
-      authority: ACTIVE_AUTHORITY,
       publicForecast: forecast(),
       confidentialEvidence: null,
+      actorPersonaId: ACTOR_PERSONA_ID,
+      callerAuthProfileId: ACTOR_AUTH_PROFILE_ID,
       now: '2026-08-22T00:00:00.000Z',
       admin: fakeSupabase as any,
     });
@@ -504,11 +728,14 @@ describe('assembleFinancialServiceOrchestration()', () => {
 describe('genericity — the SAME requestFinancialService() implementation, no source branch per consumer', () => {
   it('Aigent Know1 (a second, distinct non-MoneyPenny consumer) uses the identical function with no special-casing', async () => {
     mockResolveCapabilityProviders.mockResolvedValue([MONEYPENNY_ADVISOR_PROVIDER]);
+    mockResolveAgentAdmissionState.mockResolvedValue({ delegationActive: true, registryActivated: true, agentRootDid: KNOW1_ROOT_DID, auditGaps: [] });
+    mockReadActiveGrant.mockResolvedValue({ grant_id: 'grant-know1', agent_root_did: KNOW1_ROOT_DID, persona_id: ACTOR_PERSONA_ID });
     const { outcome } = await requestFinancialService({
       request: request(MONEYPENNY_ADVISOR.serviceId, { requestingAgentId: 'aigent-kn0w1', requestRef: 'req-know1-advisor' }),
-      authority: { ...ACTIVE_AUTHORITY, actorRef: 'aigent-kn0w1' },
       publicForecast: forecast(),
       confidentialEvidence: null,
+      actorPersonaId: ACTOR_PERSONA_ID,
+      callerAuthProfileId: ACTOR_AUTH_PROFILE_ID,
       now: '2026-08-22T00:00:00.000Z',
       admin: fakeSupabase as any,
     });
@@ -562,56 +789,84 @@ describe('Marketa boundary — structural canary', () => {
   });
 });
 
-// ── Discovery — Standing/admission drive what a consumer is offered (Stage 3.2) ──
+// ── Discovery — Standing/admission drive what a consumer is offered, resolved ONCE (Stage 3.2 + Repair F) ──
 
-describe('discoverFinancialServicesForConsumer() / discoverEligibleFinancialServices() — Standing/admission drive discovery', () => {
+describe('discoverFinancialServicesForConsumer() / discoverEligibleFinancialServices() — Standing/admission drive discovery, resolved once', () => {
   it('an admitted consumer below the Runtime Standing floor sees Advisor/Architect eligible but Runtime ineligible', async () => {
-    mockResolveAgentAdmissionState.mockResolvedValue({ delegationActive: true });
     mockComputeStandingScore.mockResolvedValue({ score: 10, qualified: false });
 
-    const discovered = await discoverFinancialServicesForConsumer(CONSUMER, 'crm-nakamoto', fakeSupabase as any);
-    expect(discovered).toHaveLength(3);
+    const discovered = await discoverFinancialServicesForConsumer(CONSUMER, fakeSupabase as any, {
+      actorPersonaId: ACTOR_PERSONA_ID,
+      callerAuthProfileId: ACTOR_AUTH_PROFILE_ID,
+    });
+    expect(discovered.ok).toBe(true);
+    if (!discovered.ok) throw new Error('unreachable');
+    expect(discovered.services).toHaveLength(3);
+    // Resolved ONCE per request (Repair F) — not once per catalog item.
+    expect(mockResolveAgentAdmissionState).toHaveBeenCalledTimes(1);
 
-    const byId = new Map(discovered.map((d) => [d.definition.serviceId, d.eligibility]));
+    const byId = new Map(discovered.services.map((d) => [d.definition.serviceId, d.eligibility]));
     expect(byId.get(MONEYPENNY_ADVISOR.serviceId)?.eligible).toBe(true);
     expect(byId.get(MONEYPENNY_ARCHITECT.serviceId)?.eligible).toBe(true);
     expect(byId.get(MONEYPENNY_RUNTIME.serviceId)?.eligible).toBe(false);
     expect(byId.get(MONEYPENNY_RUNTIME.serviceId)?.code).toBe('STANDING_BELOW_THRESHOLD');
 
-    const eligible = await discoverEligibleFinancialServices(CONSUMER, 'crm-nakamoto', fakeSupabase as any);
+    const eligible = await discoverEligibleFinancialServices(CONSUMER, fakeSupabase as any, {
+      actorPersonaId: ACTOR_PERSONA_ID,
+      callerAuthProfileId: ACTOR_AUTH_PROFILE_ID,
+    });
     expect(eligible.map((d) => d.serviceId).sort()).toEqual(
       [MONEYPENNY_ADVISOR.serviceId, MONEYPENNY_ARCHITECT.serviceId].sort(),
     );
   });
 
   it('an admitted consumer at/above the Runtime Standing floor sees all three services eligible', async () => {
-    mockResolveAgentAdmissionState.mockResolvedValue({ delegationActive: true });
-    mockComputeStandingScore.mockResolvedValue({ score: 40, qualified: true });
-
-    const eligible = await discoverEligibleFinancialServices(CONSUMER, 'crm-nakamoto', fakeSupabase as any);
+    const eligible = await discoverEligibleFinancialServices(CONSUMER, fakeSupabase as any, {
+      actorPersonaId: ACTOR_PERSONA_ID,
+      callerAuthProfileId: ACTOR_AUTH_PROFILE_ID,
+    });
     expect(eligible.map((d) => d.serviceId).sort()).toEqual(
       [MONEYPENNY_ADVISOR.serviceId, MONEYPENNY_ARCHITECT.serviceId, MONEYPENNY_RUNTIME.serviceId].sort(),
     );
   });
 
   it('a non-admitted consumer sees nothing eligible, including Advisor/Architect which have no Standing requirement', async () => {
-    mockResolveAgentAdmissionState.mockResolvedValue({ delegationActive: false });
+    mockResolveAgentAdmissionState.mockResolvedValue({ registryActivated: false, agentRootDid: null, auditGaps: [] });
 
-    const discovered = await discoverFinancialServicesForConsumer(CONSUMER, 'crm-nakamoto', fakeSupabase as any);
-    expect(discovered.every((d) => d.eligibility.eligible === false)).toBe(true);
-    expect(discovered.every((d) => d.eligibility.code === 'NOT_ADMITTED')).toBe(true);
+    const discovered = await discoverFinancialServicesForConsumer(CONSUMER, fakeSupabase as any, {
+      actorPersonaId: ACTOR_PERSONA_ID,
+      callerAuthProfileId: ACTOR_AUTH_PROFILE_ID,
+    });
+    expect(discovered.ok).toBe(true);
+    if (!discovered.ok) throw new Error('unreachable');
+    expect(discovered.services.every((d) => d.eligibility.eligible === false)).toBe(true);
+    expect(discovered.services.every((d) => d.eligibility.code === 'NOT_ADMITTED')).toBe(true);
+    // The admission diagnostic surfaces from the SAME resolved context.
+    expect(discovered.context.admission?.registryActivated).toBe(false);
 
-    const eligible = await discoverEligibleFinancialServices(CONSUMER, 'crm-nakamoto', fakeSupabase as any);
+    const eligible = await discoverEligibleFinancialServices(CONSUMER, fakeSupabase as any, {
+      actorPersonaId: ACTOR_PERSONA_ID,
+      callerAuthProfileId: ACTOR_AUTH_PROFILE_ID,
+    });
     expect(eligible).toHaveLength(0);
   });
 
   it('a second, distinct consumer (Aigent Know1) run through the identical discovery function reflects its own Standing — no per-consumer branch', async () => {
-    mockResolveAgentAdmissionState.mockResolvedValue({ delegationActive: true });
+    mockResolveAgentAdmissionState.mockResolvedValue({ delegationActive: true, registryActivated: true, agentRootDid: KNOW1_ROOT_DID, auditGaps: [] });
+    mockReadActiveGrant.mockResolvedValue({ grant_id: 'grant-know1', agent_root_did: KNOW1_ROOT_DID, persona_id: ACTOR_PERSONA_ID });
     mockComputeStandingScore.mockResolvedValue({ score: 100, qualified: true });
 
-    const eligible = await discoverEligibleFinancialServices('aigent-kn0w1', 'crm-kn0w1', fakeSupabase as any);
+    const eligible = await discoverEligibleFinancialServices('aigent-kn0w1', fakeSupabase as any, {
+      actorPersonaId: ACTOR_PERSONA_ID,
+      callerAuthProfileId: ACTOR_AUTH_PROFILE_ID,
+    });
     expect(eligible.map((d) => d.serviceId).sort()).toEqual(
       [MONEYPENNY_ADVISOR.serviceId, MONEYPENNY_ARCHITECT.serviceId, MONEYPENNY_RUNTIME.serviceId].sort(),
     );
+  });
+
+  it('returns an error result for an unknown agent id — never a thrown exception', async () => {
+    const discovered = await discoverFinancialServicesForConsumer('aigent-does-not-exist', fakeSupabase as any);
+    expect(discovered.ok).toBe(false);
   });
 });

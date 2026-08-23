@@ -158,8 +158,16 @@ export interface FinancialServiceRequest {
   serviceId: string;
   /** The CONSUMER — may be any admitted registrable agent, never assumed to be MoneyPenny. */
   requestingAgentId: string;
-  principalRef: string;
-  mandateRef: string;
+  /**
+   * Deprecated as caller input (2026-08-23 repair pass, Repair C): the real
+   * principal/mandate are now resolved server-side by
+   * `services/financialServices/constitutionalAuthorityAdapter.ts` from the
+   * authenticated caller's identity — never accepted from a client. Optional
+   * so no caller needs to fabricate a value; `requestFinancialService()`
+   * ignores these fields entirely.
+   */
+  principalRef?: string;
+  mandateRef?: string;
   input: Record<string, unknown>;
   /** Only meaningful when the resolved service's `confidentialityRequirement === 'REQUIRED'`. */
   confidentialInputs?: Record<string, number> | null;
@@ -191,6 +199,17 @@ export interface FinancialServiceOutcome {
   validationState: 'MATCHED_PROJECTION' | 'DIVERGED_FROM_PROJECTION' | 'UNRESOLVED' | null;
   /** Whether the projected disposition (runtime-class only) was ACCEPTABLE/UNACCEPTABLE/UNRESOLVED, for observability — null for advisor/architect (no projection is composed for them). */
   projectionDisposition: ProjectionDisposition | null;
+  /**
+   * A reference to the REAL provider output this outcome is evidence of
+   * (2026-08-23 repair pass, Repair D — "receive a real successful provider
+   * result -> persist/reference its real output evidence"). For Architect,
+   * the persisted `moneyPennyArchitect.ts` artifact id (already self-
+   * persisted via `saveArtifactRecord`). For Advisor, a commitment over the
+   * response text (never the raw response — this envelope is receipt-
+   * adjacent). Omitted/undefined for runtime-class outcomes and for any
+   * outcome that never reached a completed provider call.
+   */
+  providerResultRef?: string | null;
 }
 
 export interface FinancialServiceOrchestrationStep {

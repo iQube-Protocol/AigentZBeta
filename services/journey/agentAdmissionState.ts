@@ -124,6 +124,16 @@ export interface AgentAdmissionState {
    */
   agentRootId: string | null;
   /**
+   * `agent_root_identity.did_uri` for this agent — exposed (2026-08-23) so a
+   * caller checking "is this agent the target of persona X's active
+   * delegation grant" can compare against `delegation_grants.agent_root_did`
+   * without a second `agent_root_identity` query (services/financialServices/
+   * eligibility.ts's persona-scoped delegation fix is the first consumer).
+   * `null` when the root identity read failed or found nothing — same
+   * three-valued discipline as `agentRootId`.
+   */
+  agentRootDid: string | null;
+  /**
    * Constitutional State Model Correction (operator-ratified, 2026-08-11).
    * `iQubeRegistryPresent ∧ sponsorBindingEstablished ∧ agentPassportIssued`
    * — established via `ensureAgentRegistryActivation`
@@ -476,6 +486,7 @@ export async function resolveAgentAdmissionState(
     delegationActive,
     factoryPresent,
     agentRootId,
+    agentRootDid,
     registryActivated,
     auditGaps,
   };

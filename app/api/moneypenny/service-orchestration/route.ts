@@ -5,28 +5,23 @@
  * Consumer model (operator ruling, 2026-08-22): the human principal is NEVER
  * the `requestingAgentId`. They observe/trigger/authorise an ADMITTED,
  * DELEGATED agent (MoneyPenny/Nakamoto/Kn0w1) consuming a Financial Service.
- * This route resolves the caller's own persona via the spine (for receipt
- * attribution only) and always sets `requestingAgentId` to the agent named
- * in the request — it does not, and must not, accept a human persona as the
- * consumer.
+ * This route resolves the caller's own persona via the spine and threads it
+ * through as the AUTHENTICATED principal directing the named agent — never
+ * as the consumer itself, and never trusted from client input.
  *
  * GET  — no query: catalog + registrable-agent list, for the picker UI.
  * GET  ?agentId=<runtimeAgentId> — discovery: every catalog service
  *      annotated with that agent's real eligibility
- *      (`discoverFinancialServicesForConsumer`, unchanged). Also returns
+ *      (`discoverFinancialServicesForConsumer`). Also returns
  *      `admissionDiagnostic` — the RAW `AgentAdmissionState` this agent's
- *      eligibility was computed from (sponsorshipRecorded/delegatePassportIssued/
- *      delegationActive/factoryPresent/agentRootId/registryActivated/auditGaps).
- *      Read-only, computed nothing this route didn't already compute for
- *      eligibility — exposed only so a `NOT_ADMITTED`/`ADMISSION_UNRESOLVED`
- *      reading can be root-caused from the actual fact, not guessed at.
- * POST { agentId, serviceId, input?, standingPersonaId? } — triggers
- *      `requestFinancialService()` UNCHANGED for that agent. `standingPersonaId`
- *      is optional and caller-supplied: `RegistrableAgentConfig` carries no
- *      agent->CRM-persona mapping today, so Runtime's Standing check honestly
- *      reports `STANDING_PERSONA_UNRESOLVED` (never a guess) when omitted —
- *      see the Track A session doc for why this is a documented gap, not
- *      something this route fabricates a mapping for.
+ *      eligibility was computed from, read from the SAME resolved context
+ *      discovery already produced (2026-08-23 repair pass, Repair F — no
+ *      second `resolveAgentAdmissionState()` call for the diagnostic).
+ * POST { agentId, serviceId, input? } — triggers `requestFinancialService()`
+ *      for that agent. `standingPersonaId` is NO LONGER accepted from the
+ *      client (Repair C: "Remove client assertions from constitutional
+ *      gates") — the agent's own CRM Standing persona is resolved
+ *      server-side (`services/standing/agentStandingPersona.ts`).
  *
  * This route computes NO authority, projection, authorisation, or execution
  * decision of its own — it is glue over `services/financialServices/`,
@@ -37,12 +32,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { listRegistrableAgents, resolveRegistrableAgentByRuntimeId } from '@/services/horizen/registrableAgents';
-import { resolveAgentAdmissionState } from '@/services/journey/agentAdmissionState';
 import { listFinancialServiceDefinitions } from '@/services/financialServices/serviceCatalog';
 import { discoverFinancialServicesForConsumer } from '@/services/financialServices/discovery';
 import { requestFinancialService } from '@/services/financialServices/serviceRequestOrchestrator';
 import { forecastConsequences } from '@/services/consequence/stages';
-import type { ConstitutionalAuthority } from '@/types/constitutionalCommerce';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -71,17 +64,25 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const standingPersonaId = req.nextUrl.searchParams.get('standingPersonaId');
-  const [discovery, admissionDiagnostic] = await Promise.all([
-    discoverFinancialServicesForConsumer(agentId, standingPersonaId, admin, {
-      callerAuthProfileId: persona.authProfileId,
-      actorPersonaId: persona.personaId,
-    }),
-    resolveAgentAdmissionState(admin, agent, persona.authProfileId, persona.personaId).catch((err) => ({
-      readFailed: err instanceof Error ? err.message : String(err),
-    })),
-  ]);
-  return NextResponse.json({ ok: true, agentId, discovery, admissionDiagnostic });
+  const discovery = await discoverFinancialServicesForConsumer(agentId, admin, {
+    callerAuthProfileId: persona.authProfileId,
+    actorPersonaId: persona.personaId,
+  });
+  if (!discovery.ok) {
+    return NextResponse.json({ ok: false, error: discovery.error }, { status: 400 });
+  }
+
+  // The SAME context discovery just resolved — never a second admission read.
+  const admissionDiagnostic = discovery.context.admission ?? { readFailed: 'admission state could not be read' };
+  return NextResponse.json({
+    ok: true,
+    agentId,
+    discovery: discovery.services,
+    admissionDiagnostic,
+    personaScopedDelegationActive: discovery.context.personaScopedDelegationActive,
+    verification: discovery.context.verification,
+    standingPersonaId: discovery.context.standingPersonaId,
+  });
 }
 
 export async function POST(req: NextRequest) {
@@ -92,7 +93,6 @@ export async function POST(req: NextRequest) {
     agentId?: string;
     serviceId?: string;
     input?: Record<string, unknown>;
-    standingPersonaId?: string;
   };
   const agentId = body.agentId?.trim();
   const serviceId = body.serviceId?.trim();
@@ -112,14 +112,6 @@ export async function POST(req: NextRequest) {
   }
 
   const now = new Date().toISOString();
-  const authority: ConstitutionalAuthority = {
-    principalRef: `polref-${agentId}-oversight`,
-    actorRef: agentId,
-    authoritySource: 'passport+standing',
-    mandateRef: `mandate-fsvc-oversight-${agentId}`,
-    state: 'ACTIVE',
-  };
-
   const publicForecast = await forecastConsequences(['inv.finance.001']);
 
   const { outcome, causalChain } = await requestFinancialService({
@@ -127,11 +119,11 @@ export async function POST(req: NextRequest) {
       requestRef: `fsvc-oversight-${agentId}-${serviceId}-${Date.now()}`,
       serviceId,
       requestingAgentId: agentId,
-      principalRef: authority.principalRef,
-      mandateRef: authority.mandateRef,
+      // principalRef/mandateRef are omitted — requestFinancialService()
+      // resolves the real ConstitutionalAuthority server-side (Repair C: no
+      // synthetic authority, never trusted from the caller).
       input: body.input ?? {},
     },
-    authority,
     publicForecast,
     // Track A scope: this console does not itself source confidential
     // evidence — that is Stage 3.3 territory (docs/vela/VELA-LIVE-ACTIVATION-001.md).
@@ -139,7 +131,6 @@ export async function POST(req: NextRequest) {
     // UNRESOLVED under REQUIRED confidentiality, which is the correct,
     // visible, fail-closed result this console exists to surface.
     confidentialEvidence: null,
-    standingPersonaId: body.standingPersonaId ?? null,
     callerAuthProfileId: persona.authProfileId,
     actorPersonaId: persona.personaId,
     personaId: persona.personaId,

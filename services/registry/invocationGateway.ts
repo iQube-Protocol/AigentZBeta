@@ -255,6 +255,36 @@ async function emitCapabilityReceipt(
 }
 
 /**
+ * Emit the `capability_invocation_completed` receipt — the fourth and final
+ * outcome `CAPABILITY_RECEIPT_ACTION_TYPE` already declares but which no
+ * caller invoked before the 2026-08-23 Financial Services repair pass
+ * (Repair D). `invokeCapability()` only ever returns a GATE decision
+ * ("requested"/"authorized"/"refused") — it does not itself dispatch the
+ * resolved provider's runtime, so it cannot know whether the invocation
+ * actually completed. A caller that DOES dispatch the provider (e.g.
+ * `services/financialServices/serviceRequestOrchestrator.ts`, after a real
+ * Advisor/Architect result) calls this once it has that result, completing
+ * the existing receipt lifecycle rather than inventing a parallel
+ * "financial service completed" event (operator directive, 2026-08-23: "There
+ * is already a `capability_invocation_completed` action vocabulary... prefer
+ * completing that existing lifecycle rather than inventing a parallel...
+ * event").
+ *
+ * `req` MUST be the SAME `CapabilityInvocation` envelope passed to the
+ * `invokeCapability()` call this completes — never a reconstructed one, so
+ * the receipt's `invocationId`/`capabilityId`/`requestingAgentId` correlate
+ * with the "authorized" receipt that preceded it.
+ */
+export async function emitCapabilityInvocationCompleted(
+  req: CapabilityInvocation,
+  personaId: string | undefined,
+  resolvedProviderId: string,
+  extra: Record<string, unknown> = {},
+): Promise<void> {
+  await emitCapabilityReceipt("completed", req, personaId, { resolvedProviderId, ...extra });
+}
+
+/**
  * Governed capability invocation — resolves `capabilityId` to its current
  * provider (never a caller-named agent directly), runs the depth/loop guard
  * and the three gates in the design doc's documented order, and returns a

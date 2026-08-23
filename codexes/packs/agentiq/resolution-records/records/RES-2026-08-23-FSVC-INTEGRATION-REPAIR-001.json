@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-08-23",
+  "resolutionId": "RES-2026-08-23-FSVC-INTEGRATION-REPAIR-001",
+  "capability": "phase-3-moneypenny-financial-services-runtime",
+  "milestone": "Phase 3 Track A repair pass — the operator's first live re-verification after RES-2026-08-22-FSVC-ELIGIBILITY-UNDEFINED-COLLAPSE-001's fix still showed a uniform 'NOT_ADMITTED' on every agent, proving that fix was correct but insufficient and exposing a deeper integration defect the operator specified a six-part repair for (A-F).",
+  "problem": "After fixing the undefined-vs-false collapse in eligibility.ts, the operator re-tested live and confirmed the badge STILL read exactly 'NOT_ADMITTED' for every agent — meaning the underlying admission/delegation fact genuinely computed to a real false, not merely an unreported audit gap. Root-causing this surfaced five further, distinct integration defects in the Financial Services Runtime layer that the badge fix alone could never have closed: (A) the delegation-truth check was scoped to an agent's RootDID only, never to the requesting persona, so it could both over-admit (any persona's grant to that DID) and, in the live case, simply find no row at all for a caller whose grant existed under a different persona-scoping path; (B) eligibility conflated admission, delegation, and Financial Services verification into a single undifferentiated 'not admitted' outcome instead of composing them as separate ratified facts with distinct reason codes; (C) the orchestration route fabricated a synthetic ConstitutionalAuthority (`state: 'ACTIVE'`, invented principalRef/mandateRef) and accepted a client-supplied `standingPersonaId`, both violating the 'no client assertions on constitutional gates' discipline and masking whether real authority existed at all; (D) Advisor/Architect returned DELIVERED and accrued Standing the moment the governance gate said 'allow', without ever invoking MoneyPenny's real provider implementation — an allow was silently treated as delivery; (E) the Phase 3 catalog invented capability ids (MONEYPENNY_ADVISOR/MONEYPENNY_ARCHITECT) that matched no live MoneyPenny Agent Bench descriptor, so even a correctly-admitted agent would have fallen into provider-resolution failure; (F) admission/delegation/Standing were re-resolved independently for each catalog item plus again for the diagnostic display, multiplying self-healing writes per request.",
+  "observedFailure": [
+    "Live re-verification on dev-beta.aigentz.me after the first fix (undefined/false distinction) STILL showed 'not eligible — NOT_ADMITTED' for MoneyPenny, Nakamoto and Know1 alike, confirmed explicitly by the operator ('Still exactly \"NOT_ADMITTED\"') — proving the prior fix addressed a real but different defect (an audit-gap misreport) than the one actually causing the live symptom (a genuine false reading produced by an over-permissive, non-persona-scoped delegation query that nonetheless found nothing for this caller's actual grant path)."
+  ],
+  "rootCauses": [
+    "services/journey/agentAdmissionState.ts's own delegation read queried `delegation_grants` filtered only by `agent_root_did`, with no `persona_id` filter — a query that is simultaneously too permissive (would accept ANY persona's grant to that DID) and, for the Financial Services caller's real use case, the wrong join entirely: the Financial Services layer needs 'does the CURRENT AUTHENTICATED PRINCIPAL have an active grant to this EXACT agent', not 'does any grant exist for this DID'.",
+    "The orchestration route (`app/api/moneypenny/service-orchestration/route.ts`) constructed a hardcoded `ConstitutionalAuthority` literal with `state: 'ACTIVE'` and synthesized `principalRef`/`mandateRef` strings (`polref-*-oversight`, `mandate-fsvc-oversight-*`) regardless of what was actually established — so the authority object could never honestly reflect NONE/PENDING/BOUNDED, and no real mandate (Constitutional Agreement) was ever checked.",
+    "`requestFinancialService()`'s advisor/architect branch returned `status: 'DELIVERED'` and called `accrueStandingBestEffort()` immediately after `invokeCapability()` returned `decision: 'allow'` — conflating a governance-layer permission to dispatch with an actual completed provider result; no call to `draftFinancialStructure()` or the MoneyPenny chat path ever happened.",
+    "`serviceCatalog.ts` invented `capabilityId: 'MONEYPENNY_ADVISOR'` / `'MONEYPENNY_ARCHITECT'` — names that were never registered against any live MoneyPenny Agent Bench descriptor (the real seed names are `financial_advisory` / `financial_structure_design`, confirmed from the static migration content), so `resolveCapabilityProviders` would find zero eligible providers for either service in a live environment.",
+    "`discoverFinancialServicesForConsumer()` called `resolveAgentAdmissionState()` once per catalog entry (a self-healing, write-capable resolver), and the orchestration route's GET handler called it AGAIN separately for the `admissionDiagnostic` field — multiplying an idempotent-but-not-free settlement write across a single HTTP request instead of resolving it once and projecting the same context everywhere."
+  ],
+  "resolution": [
+    "Repair A: exposed `agentRootDid` on `AgentAdmissionState` and added `services/financialServices/agentEligibilityContext.ts`'s `personaScopedDelegationActive`, which compares `readActiveGrant(callerPersonaId)`'s `agent_root_did` against the target agent's own `agentRootDid` — the actual persona-scoped delegation truth, never a global RootDID-only query.",
+    "Repair B: rewrote `eligibility.ts` as a pure function over a pre-resolved context, composing four ratified facts (admission / persona-scoped delegation / Financial Services verification (`services/journey/agentFinancialServicesVerification.ts`, new) / service-specific Standing) into ten distinct reason codes (ADMISSION_UNRESOLVED, NOT_ADMITTED, DELEGATION_UNRESOLVED, NOT_DELEGATED_TO_CURRENT_PRINCIPAL, FINANCIAL_SERVICES_VERIFICATION_UNRESOLVED, FINANCIAL_SERVICES_NOT_VERIFIED, STANDING_PERSONA_UNRESOLVED, STANDING_UNRESOLVED, STANDING_BELOW_THRESHOLD, ELIGIBLE), never conflating 'not admitted' with 'not delegated to this principal'.",
+    "Repair C: built `services/financialServices/constitutionalAuthorityAdapter.ts`, the first Financial-Services-to-ConstitutionalAuthority adapter, composing `personaPublicRef()` (T2-safe, never a raw personaId), a real passport lookup, the persona-scoped delegation ref, and `requireAuthorizedAgreement()` (the existing Constitutional Agreement mandate gate) to derive NONE/PENDING/BOUNDED/ACTIVE honestly — deleted the synthetic authority literal and the client-suppliable `standingPersonaId` from the orchestration route entirely.",
+    "Repair D: `requestFinancialService()`'s advisor/architect branch now calls the real provider (`draftFinancialStructure()` for Architect, `runMoneyPennyChat()` for Advisor) after a gate `allow`, and only reaches `DELIVERED` (and only then accrues Standing) once that call actually succeeds; a technical provider failure resolves `UNRESOLVED`, never a silent `DELIVERED`. Added `emitCapabilityInvocationCompleted()` to `invocationGateway.ts`, completing the pre-existing but previously-unused `capability_invocation_completed` receipt lifecycle rather than inventing a parallel event.",
+    "Repair E: corrected `serviceCatalog.ts`'s Advisor/Architect `capabilityId`s to the real MoneyPenny registry names (`financial_advisory`, `financial_structure_design`); left Runtime's `CONFIDENTIAL_CONSEQUENCE_PROJECTION` untouched (the one id Gate 2's frozen exception actually permits) with a comment documenting that the live registry gap for that exact name is a separate, already-tracked data-change dependency, never to be closed by aliasing capability ids in the resolver.",
+    "Repair F: added `services/financialServices/agentEligibilityContext.ts::resolveAgentEligibilityContext()` as the single per-request resolution of admission/delegation/verification/Standing; `discoverFinancialServicesForConsumer()` and `requestFinancialService()` each call it exactly once and project the same context into every catalog entry and the diagnostic display, rather than re-resolving per catalog item plus again for diagnostics."
+  ],
+  "rejectedApproaches": [
+    "Widening the diagnostic badge's copy (e.g. rendering 'NOT_ADMITTED' more gently) without touching the underlying resolution — rejected explicitly by the operator ('Do not patch the badge') because the badge was accurately reporting a real, if wrongly-derived, false value.",
+    "Aliasing `bounded_financial_execution` (the live registry's closest existing descriptor) to `CONFIDENTIAL_CONSEQUENCE_PROJECTION` in `resolveCapabilityProviders` to paper over the still-missing live registry entry for Runtime — rejected per explicit operator instruction: this is a documented, already-tracked external data-change dependency (VELA_EARLY_ACCESS_HANDOFF.md §6), not something the resolver should silently bridge, and doing so would also require weakening Gate 2's frozen exception.",
+    "Deriving `ConstitutionalAuthority.state: 'ACTIVE'` directly from an unexpired `readActiveGrant()` result — rejected per explicit operator correction: an active grant proves bounded delegation/authority only; it does not by itself prove a purpose-bound mandate exists, so the state must stay `BOUNDED` until a real Constitutional Agreement is authorized.",
+    "Accruing Financial Services completion Standing to a caller-supplied `standingPersonaId` (the pre-existing pattern) — rejected because it is exactly the kind of client assertion on a constitutional gate the operator's directive explicitly forbids; replaced with `resolveAgentStandingPersonaId()`, a server-side join from the agent's own `runtimeAgentId` to its CRM persona."
+  ],
+  "candidateInvariants": [
+    "CI-2026-08-22-THREE-VALUED-NEGATION-COLLAPSE-001",
+    "CI-2026-08-23-GATE-ALLOW-NOT-DELIVERY-001",
+    "CI-2026-08-23-NO-SYNTHETIC-CONSTITUTIONAL-AUTHORITY-001",
+    "CI-2026-08-23-DELEGATION-SCOPE-PERSONA-AND-TARGET-001"
+  ],
+  "canaries": [
+    "tests/financial-services-runtime.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "multi-cycle-repair",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/financial-services-runtime.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": []
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-08-22_phase3-track-a-service-orchestration-console.md",
+    "docs/vela/VELA-LIVE-ACTIVATION-001.md",
+    "services/journey/agentAdmissionState.ts",
+    "services/constitutional/constitutionalAgreement.ts"
+  ],
+  "projections": {
+    "targets": [
+      "research-registry"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  }
+}

@@ -1,26 +1,34 @@
 /**
- * MoneyPenny Financial Services Runtime — eligibility (Phase 3, Stage 3.1).
+ * MoneyPenny Financial Services Runtime — eligibility (Phase 3, Stage 3.1;
+ * rewritten in the 2026-08-23 repair pass, Repair B/F).
  *
- * A pre-flight, service-discovery-time check: can this consumer even ATTEMPT
- * this service. It is NOT a second admission or authority decision — it
- * reuses the exact same `resolveAgentAdmissionState()` Gate 1
- * (`services/registry/capabilityInvocationGates.ts`) independently calls,
- * and `computeStandingScore()` (`services/standing/standingScore.ts`), the
- * existing canonical Standing reader. Gate 1 still runs, unchanged, on every
- * actual invocation regardless of what this function decides — this is a
- * clearer, earlier refusal reason for the caller, never a bypass.
+ * A PURE decision function over an already-resolved
+ * `FinancialServiceAgentContext` (`services/financialServices/
+ * agentEligibilityContext.ts`) — it performs NO reads of its own. This is the
+ * Repair F correction: admission/delegation/verification/Standing are
+ * resolved ONCE per agent request by the caller (discovery.ts,
+ * serviceRequestOrchestrator.ts) and projected into every service card; this
+ * function only composes already-known facts into a decision.
  *
- * Three-valued, matching this codebase's house style for every other
- * admission/evidence reader: `eligible: true | false | undefined`, where
- * `undefined` means the check could not be completed (a read failure), never
- * a fabricated "ineligible."
+ * Composes the four already-ratified facts the operator specified (Repair B):
+ *   1. Constitutional admission established   (context.admission.registryActivated)
+ *   2. Current-principal bounded delegation to
+ *      this exact agent                       (context.personaScopedDelegationActive)
+ *   3. Canonical Financial Services
+ *      verification complete (Pulse + P&L)    (context.verification)
+ *   4. Service-specific Standing threshold     (context.standing, per-definition)
+ *
+ * Three-valued, matching this codebase's house style:
+ * `eligible: true | false | undefined`, where `undefined` means the
+ * underlying fact is an audit gap ("could not tell"), never a fabricated
+ * "ineligible" — the exact defect class the resolution record
+ * RES-2026-08-22-FSVC-ELIGIBILITY-UNDEFINED-COLLAPSE-001 closed and the
+ * candidate invariant CI-2026-08-22-THREE-VALUED-NEGATION-COLLAPSE-001
+ * generalizes.
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
 import type { FinancialServiceDefinition } from '@/types/financialServices';
-import { resolveRegistrableAgentByRuntimeId } from '@/services/horizen/registrableAgents';
-import { resolveAgentAdmissionState } from '@/services/journey/agentAdmissionState';
-import { computeStandingScore } from '@/services/standing/standingScore';
+import type { FinancialServiceAgentContext } from './agentEligibilityContext';
 
 export interface FinancialServiceEligibilityResult {
   eligible: boolean | undefined;
@@ -28,79 +36,78 @@ export interface FinancialServiceEligibilityResult {
   reason: string;
 }
 
-export interface EvaluateFinancialServiceEligibilityInput {
-  requestingAgentId: string;
-  /** The CRM persona whose Standing is checked when `eligibilityPolicy.minimumStandingScore` is set. Caller-resolved via the existing identity spine — this function never derives it itself. */
-  standingPersonaId?: string | null;
-  /**
-   * The AUTHENTICATED caller's own `authProfileId`/`personaId` (T0 — server-
-   * side only, never serialised to a client). Threaded through unchanged to
-   * `resolveAgentAdmissionState()` so its migrated-agent RootDID self-heal
-   * (see `services/journey/agentAdmissionState.ts`'s "THE MIGRATED-AGENT
-   * GAP") can actually run when this eligibility check is the first live
-   * boundary to observe a migrated agent's already-approved Delegate
-   * Passport. Omitting these does not change any read this function makes —
-   * it only leaves that one self-heal a no-op audit gap, exactly as
-   * `resolveAgentAdmissionState`'s own doc comment already states for any
-   * caller that "doesn't yet resolve caller identity."
-   */
-  callerAuthProfileId?: string | null;
-  actorPersonaId?: string | null;
-}
-
-export async function evaluateFinancialServiceEligibility(
+export function evaluateFinancialServiceEligibility(
   definition: FinancialServiceDefinition,
-  input: EvaluateFinancialServiceEligibilityInput,
-  admin: SupabaseClient,
-): Promise<FinancialServiceEligibilityResult> {
+  ctx: FinancialServiceAgentContext,
+): FinancialServiceEligibilityResult {
+  const agentId = ctx.agent.runtimeAgentId;
+
   if (definition.eligibilityPolicy.requiresAdmission) {
-    const agent = resolveRegistrableAgentByRuntimeId(input.requestingAgentId);
-    if (!agent) {
-      return { eligible: false, code: 'UNKNOWN_AGENT', reason: `'${input.requestingAgentId}' is not a canonical registrable agent` };
+    if (!ctx.admission) {
+      return { eligible: undefined, code: 'ADMISSION_UNRESOLVED', reason: `'${agentId}' admission state could not be read` };
     }
-    const admission = await resolveAgentAdmissionState(
-      admin,
-      agent,
-      input.callerAuthProfileId ?? null,
-      input.actorPersonaId ?? null,
-    ).catch(() => null);
-    if (!admission) {
-      return { eligible: undefined, code: 'ADMISSION_UNRESOLVED', reason: 'admission state could not be read' };
-    }
-    // Three-valued, matching `resolveAgentAdmissionState`'s own discipline:
-    // `undefined` is an audit gap ("could not tell"), NEVER collapsed into
-    // the real negative `false` ("NOT_ADMITTED"). Conflating the two here
-    // would recreate exactly the defect class `agentAdmissionState.ts`'s own
-    // header documents and was written to close.
-    if (admission.delegationActive === undefined) {
+    if (ctx.admission.registryActivated === undefined) {
       return {
         eligible: undefined,
         code: 'ADMISSION_UNRESOLVED',
-        reason: `'${input.requestingAgentId}' delegation state has an unresolved audit gap: ${admission.auditGaps.join('; ') || 'unknown'}`,
+        reason: `'${agentId}' registry activation has an unresolved audit gap: ${ctx.admission.auditGaps.join('; ') || 'unknown'}`,
       };
     }
-    if (admission.delegationActive === false) {
-      return { eligible: false, code: 'NOT_ADMITTED', reason: `'${input.requestingAgentId}' has no active delegation` };
+    if (ctx.admission.registryActivated === false) {
+      return {
+        eligible: false,
+        code: 'NOT_ADMITTED',
+        reason: `'${agentId}' is not constitutionally admitted (registry activation incomplete)`,
+      };
+    }
+
+    if (ctx.personaScopedDelegationActive === undefined) {
+      return {
+        eligible: undefined,
+        code: 'DELEGATION_UNRESOLVED',
+        reason: `'${agentId}' persona-scoped delegation state could not be determined`,
+      };
+    }
+    if (ctx.personaScopedDelegationActive === false) {
+      return {
+        eligible: false,
+        code: 'NOT_DELEGATED_TO_CURRENT_PRINCIPAL',
+        reason: `the requesting principal has no active bounded delegation to '${agentId}'`,
+      };
+    }
+
+    if (!ctx.verification) {
+      return {
+        eligible: undefined,
+        code: 'FINANCIAL_SERVICES_VERIFICATION_UNRESOLVED',
+        reason: `'${agentId}' Financial Services verification (Pulse + P&L) could not be read`,
+      };
+    }
+    if (!ctx.verification.financialServicesEligible) {
+      return {
+        eligible: false,
+        code: 'FINANCIAL_SERVICES_NOT_VERIFIED',
+        reason: `'${agentId}' has not completed Financial Services verification (pulse=${ctx.verification.pulseComplete}, pnl=${ctx.verification.pnlComplete})`,
+      };
     }
   }
 
   if (definition.eligibilityPolicy.minimumStandingScore !== null) {
-    if (!input.standingPersonaId) {
+    if (!ctx.standingPersonaId) {
       return {
         eligible: undefined,
         code: 'STANDING_PERSONA_UNRESOLVED',
-        reason: 'a minimum Standing score is required but no CRM persona id was supplied to check it against',
+        reason: `a minimum Standing score is required but '${agentId}' has no resolvable CRM Standing persona`,
       };
     }
-    const standing = await computeStandingScore(admin, input.standingPersonaId).catch(() => null);
-    if (!standing) {
+    if (!ctx.standing) {
       return { eligible: undefined, code: 'STANDING_UNRESOLVED', reason: 'Standing score could not be computed' };
     }
-    if (standing.score < definition.eligibilityPolicy.minimumStandingScore) {
+    if (ctx.standing.score < definition.eligibilityPolicy.minimumStandingScore) {
       return {
         eligible: false,
         code: 'STANDING_BELOW_THRESHOLD',
-        reason: `Standing score ${standing.score} is below the required ${definition.eligibilityPolicy.minimumStandingScore}`,
+        reason: `Standing score ${ctx.standing.score} is below the required ${definition.eligibilityPolicy.minimumStandingScore}`,
       };
     }
   }

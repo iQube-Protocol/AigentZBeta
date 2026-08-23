@@ -38,7 +38,6 @@ import { discoverFinancialServicesForConsumer } from '../services/financialServi
 import { requestFinancialService } from '../services/financialServices/serviceRequestOrchestrator';
 import { MONEYPENNY_ADVISOR } from '../services/financialServices/serviceCatalog';
 import type { ConsequenceForecast } from '../types/consequence';
-import type { ConstitutionalAuthority } from '../types/constitutionalCommerce';
 
 interface RehearsalStepEvidence {
   consumerAgentId: string;
@@ -62,17 +61,18 @@ function forecast(): ConsequenceForecast {
   };
 }
 
-function authorityFor(agentId: string): ConstitutionalAuthority {
-  return {
-    principalRef: `polref-${agentId}-rehearsal`,
-    actorRef: agentId,
-    authoritySource: 'passport+standing',
-    mandateRef: `mandate-fsvc-rehearsal-${agentId}`,
-    state: 'ACTIVE',
-  };
-}
-
-async function rehearseConsumer(consumerAgentId: string, standingPersonaId: string): Promise<RehearsalStepEvidence> {
+/**
+ * 2026-08-23 repair pass (Repair C/F): the caller no longer supplies a
+ * synthetic `ConstitutionalAuthority` or a client-asserted
+ * `standingPersonaId` — both are resolved server-side, inside
+ * `requestFinancialService()`, from the AUTHENTICATED principal directing
+ * the agent. This rehearsal script has no real human session to authenticate
+ * as, so it passes `actorPersonaId: null` — an honest "no principal" rather
+ * than a fabricated one, which the real Supabase-backed run will surface as
+ * `NOT_DELEGATED_TO_CURRENT_PRINCIPAL` / a `NONE`-state authority, not a
+ * silently-granted one.
+ */
+async function rehearseConsumer(consumerAgentId: string): Promise<RehearsalStepEvidence> {
   const admin = getSupabaseServer();
   if (!admin) {
     return {
@@ -85,9 +85,13 @@ async function rehearseConsumer(consumerAgentId: string, standingPersonaId: stri
   }
 
   console.log(`\n=== ${consumerAgentId} — discover ===`);
-  const discovery = await discoverFinancialServicesForConsumer(consumerAgentId, standingPersonaId, admin);
-  for (const d of discovery) {
-    console.log(`  ${d.definition.serviceId} (${d.definition.providerMode}/${d.definition.serviceClass}) -> eligible=${d.eligibility.eligible} [${d.eligibility.code}]`);
+  const discovery = await discoverFinancialServicesForConsumer(consumerAgentId, admin);
+  if (discovery.ok) {
+    for (const d of discovery.services) {
+      console.log(`  ${d.definition.serviceId} (${d.definition.providerMode}/${d.definition.serviceClass}) -> eligible=${d.eligibility.eligible} [${d.eligibility.code}]`);
+    }
+  } else {
+    console.log(`  discovery error: ${discovery.error}`);
   }
 
   console.log(`=== ${consumerAgentId} — request (${MONEYPENNY_ADVISOR.serviceId}) ===`);
@@ -96,14 +100,12 @@ async function rehearseConsumer(consumerAgentId: string, standingPersonaId: stri
       requestRef: `rehearsal-${consumerAgentId}-${MONEYPENNY_ADVISOR.serviceId}`,
       serviceId: MONEYPENNY_ADVISOR.serviceId,
       requestingAgentId: consumerAgentId,
-      principalRef: `polref-${consumerAgentId}-rehearsal`,
-      mandateRef: `mandate-fsvc-rehearsal-${consumerAgentId}`,
-      input: {},
+      input: { intent: `Rehearsal request from ${consumerAgentId}` },
     },
-    authority: authorityFor(consumerAgentId),
     publicForecast: forecast(),
     confidentialEvidence: null,
-    standingPersonaId,
+    actorPersonaId: null,
+    callerAuthProfileId: null,
     now: new Date().toISOString(),
     admin,
   });
@@ -137,11 +139,8 @@ async function main() {
   }
 
   const results: RehearsalStepEvidence[] = [];
-  for (const [agentId, standingPersonaId] of [
-    ['aigent-nakamoto', 'crm-nakamoto-rehearsal'],
-    ['aigent-kn0w1', 'crm-kn0w1-rehearsal'],
-  ] as const) {
-    results.push(await rehearseConsumer(agentId, standingPersonaId));
+  for (const agentId of ['aigent-nakamoto', 'aigent-kn0w1'] as const) {
+    results.push(await rehearseConsumer(agentId));
   }
 
   const evidence = {

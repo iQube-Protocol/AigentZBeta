@@ -14,7 +14,7 @@
     "track": "structural"
   },
   "classification": "Generalizes an already-repeated pattern this codebase has fixed multiple times at the OBSERVER layer (agentAdmissionState.ts's own header documents the sponsorship/Passport/registration cases) — this occurrence shows the same defect class recurring at a NEW CONSUMER call site that read the observer's three-valued contract carelessly, proving the pattern needs to be guarded at every consumption point, not just documented once at the source.",
-  "scope": "estate",
+  "scope": "cross-capability",
   "status": "candidate",
   "canaries": [
     {
@@ -32,10 +32,21 @@
         "codexes/packs/agentiq/updates/2026-08-22_phase3-track-a-service-orchestration-console.md",
         "tests/financial-services-runtime.test.ts"
       ]
+    },
+    {
+      "site": "services/financialServices/agentEligibilityContext.ts",
+      "defect": "The 2026-08-23 repair pass generalized the SAME discipline to two more branch points introduced by that pass's own composition: `personaScopedDelegationActive` (undefined when the agent's own root-identity read failed vs. false when it genuinely has none) and `FinancialServicesVerificationState` (undefined on a receipt-read failure vs. false when Pulse/P&L are genuinely incomplete) — each guarded with the same explicit undefined/false branching this candidate requires, proving the discipline needed to be re-applied deliberately at each new composition point rather than inherited automatically from the first fix.",
+      "resolutionId": "RES-2026-08-23-FSVC-INTEGRATION-REPAIR-001",
+      "evidence": [
+        "services/financialServices/agentEligibilityContext.ts",
+        "services/financialServices/eligibility.ts",
+        "tests/financial-services-runtime.test.ts"
+      ]
     }
   ],
   "derivedFrom": [
-    "RES-2026-08-22-FSVC-ELIGIBILITY-UNDEFINED-COLLAPSE-001"
+    "RES-2026-08-22-FSVC-ELIGIBILITY-UNDEFINED-COLLAPSE-001",
+    "RES-2026-08-23-FSVC-INTEGRATION-REPAIR-001"
   ],
   "ratifiedSource": null,
   "supersededBy": null,
