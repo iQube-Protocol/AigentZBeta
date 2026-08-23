@@ -4,7 +4,7 @@
   "statement": "A resolver that must bind a runtime/agent identifier to a row in a DIFFERENT identity-bearing table (e.g. a CRM persona, a wallet persona, a registry asset) MUST walk a named, documented canonical chain of foreign-key/unique-constraint hops end to end. When no row exists at the end of that chain, the resolver MUST provision a NEW row under a distinct, collision-proof namespace marker (e.g. a dedicated app_origin/source tag) rather than adopting an existing row selected by fuzzy match (name similarity, partial identifier match, heuristic 'closest' row) or fabricating an identifier that was never actually issued. A resolver that cannot complete the chain returns `undefined`/`null` (three-valued: unresolved vs. genuinely absent), never a guessed value.",
   "family": "engineering",
   "governingPrinciple": false,
-  "parentCandidateId": "inv.engineering.036",
+  "parentCandidateId": null,
   "projections": {
     "targets": [
       "research-registry",

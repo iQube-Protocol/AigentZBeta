@@ -73,7 +73,7 @@ import { accrueStanding } from '@/services/crm/standingAccrualService';
 import type { ConsequenceForecast } from '@/types/consequence';
 import type { ProposedAction, ProjectionDisposition } from '@/types/constitutionalCommerce';
 import type { CapabilityInvocation } from '@/types/capabilityInvocation';
-import { SERVICE_CLASS_EXECUTION_MODE } from '@/types/financialServices';
+import { SERVICE_CLASS_EXECUTION_MODE, GOVERNANCE_PATH_EXECUTION_MODE_OVERRIDE } from '@/types/financialServices';
 import type {
   FinancialServiceDefinition,
   FinancialServiceOutcome,
@@ -363,7 +363,15 @@ export async function requestFinancialService(
     consequenceDomain: 'financial-services',
   };
 
-  const executionMode = SERVICE_CLASS_EXECUTION_MODE[definition.serviceClass];
+  // The Gate-2-request mode is driven by `governancePath`, NOT bare
+  // `serviceClass`, precisely so a genuinely `CONSEQUENTIAL` service governed
+  // by the constitutional SERVICE pipeline (Constitutional Runtime) never
+  // collapses onto Gate 2's frozen `authoritative` exception merely by
+  // sharing its consequence class with the service governed by
+  // constitutional COMMERCE (Confidential Runtime). `NONE`-path services
+  // (Advisor/Architect) have no override and fall back to the plain
+  // serviceClass mapping. Gate 2 itself is untouched either way.
+  const executionMode = GOVERNANCE_PATH_EXECUTION_MODE_OVERRIDE[definition.governancePath] ?? SERVICE_CLASS_EXECUTION_MODE[definition.serviceClass];
 
   // ── ConsequenceProjection — runtime-class only, and only when a real
   //    public forecast was actually supplied. `publicForecast` is optional

@@ -55,11 +55,29 @@
       "tests/financial-services-runtime.test.ts",
       "tests/runtime-readiness-projection.test.ts",
       "tests/moneypenny-runtime-authority-boundary.test.ts"
-    ]
+    ],
+    "receipts": [],
+    "incidentRefs": []
+  },
+  "sourceDocs": [
+    "app/(shell)/moneypenny/components/serviceOrchestrationPanelState.ts",
+    "services/standing/agentStandingPersona.ts",
+    "services/financialServices/serviceCatalog.ts",
+    "services/financialServices/runtimeReadinessProjection.ts",
+    "types/financialServices.ts"
+  ],
+  "projections": {
+    "targets": [
+      "research-registry",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
   },
   "unresolvedRisks": [
-    "The Constitutional-Runtime dispatch classification (serviceClass: 'PROPOSAL', chosen to avoid touching Gate 2 or the frozen authoritative-mode exception) was a judgment call made without an explicit operator confirmation on that exact mechanism — an earlier clarifying question received an apparently mismatched answer (a verbatim repeat of an unrelated earlier answer). The operator should confirm or correct this classification.",
+    "The Constitutional-Runtime dispatch classification initially used serviceClass: 'PROPOSAL' to avoid touching Gate 2 or the frozen authoritative-mode exception; the operator subsequently corrected this to serviceClass: 'CONSEQUENTIAL' plus a new, independent `governancePath: 'CONSTITUTIONAL_SERVICE_PIPELINE'` discriminator (types/financialServices.ts's `FinancialServiceGovernancePath`) — Gate 2 remains untouched either way. See the companion resolution record for that correction.",
     "The new registry-asset migration (20260930010200) has not been applied to the live database from this session — no live Supabase credentials are available in this environment. The operator must run it (or the existing apply-migration path) before resolveCapabilityProviders can resolve a live provider for CONFIDENTIAL_CONSEQUENCE_PROJECTION.",
-    "tests/repo-weight.test.ts is failing independently of this work (103,028,174 bytes vs a 103,000,000-byte budget) — confirmed via `git ls-files` that the oversized tracked files are pre-existing and unrelated (images, package-lock.json, ComposerStudio.tsx), not introduced by this resolution."
+    "tests/repo-weight.test.ts is failing independently of this work — a before/after tracked-bytes comparison showed the repository was already at 102,993,110 of a 103,000,000-byte budget before this batch landed; this batch's own additions are all legitimate source/tests/resolution records, not disposable material. Recorded as a pre-existing repository-hygiene defect, handled separately."
   ]
 }

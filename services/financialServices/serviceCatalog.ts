@@ -27,6 +27,7 @@ export const MONEYPENNY_ADVISOR: FinancialServiceDefinition = {
   serviceId: 'moneypenny.advisor',
   providerMode: 'ADVISOR',
   serviceClass: MONEYPENNY_PROVIDER_MODE_CONSEQUENCE_CLASS.ADVISOR,
+  governancePath: 'NONE',
   displayName: 'MoneyPenny Advisor',
   providerAgentId: 'aigent-moneypenny',
   capabilityId: 'financial_advisory',
@@ -52,6 +53,7 @@ export const MONEYPENNY_ARCHITECT: FinancialServiceDefinition = {
   serviceId: 'moneypenny.architect',
   providerMode: 'ARCHITECT',
   serviceClass: MONEYPENNY_PROVIDER_MODE_CONSEQUENCE_CLASS.ARCHITECT,
+  governancePath: 'NONE',
   displayName: 'MoneyPenny Architect',
   providerAgentId: 'aigent-moneypenny',
   capabilityId: 'financial_structure_design',
@@ -66,8 +68,10 @@ export const MONEYPENNY_ARCHITECT: FinancialServiceDefinition = {
 };
 
 /**
- * The one service class that can reach AUTHORISED and bind execution — MUST
- * use the single capability id Gate 2 actually gates
+ * The Confidential Runtime — `governancePath: 'CONSTITUTIONAL_COMMERCE'`,
+ * the one service governed by the frozen VELA-001 constitutional-commerce
+ * ontology and the only one that can reach AUTHORISED and bind execution.
+ * MUST use the single capability id Gate 2 actually gates
  * (`CONFIDENTIAL_CONSEQUENCE_PROJECTION`), never a second authoritative-mode
  * exception.
  *
@@ -99,6 +103,7 @@ export const MONEYPENNY_RUNTIME: FinancialServiceDefinition = {
   serviceId: 'moneypenny.runtime',
   providerMode: 'RUNTIME',
   serviceClass: MONEYPENNY_PROVIDER_MODE_CONSEQUENCE_CLASS.RUNTIME,
+  governancePath: 'CONSTITUTIONAL_COMMERCE',
   displayName: 'MoneyPenny Runtime (Confidential)',
   providerAgentId: 'aigent-moneypenny',
   capabilityId: 'CONFIDENTIAL_CONSEQUENCE_PROJECTION',
@@ -126,23 +131,33 @@ export const MONEYPENNY_RUNTIME: FinancialServiceDefinition = {
  * two are DISTINCT service definitions (distinct `serviceId`,
  * `capabilityId`, and gating), never one aliased as the other.
  *
- * `serviceClass` is deliberately `'PROPOSAL'`, NOT the
- * `MONEYPENNY_PROVIDER_MODE_CONSEQUENCE_CLASS.RUNTIME` ('CONSEQUENTIAL')
- * default: a CONSEQUENTIAL serviceClass maps to Gate 2's `authoritative`
- * execution mode, which Gate 2 refuses by default except for the ONE frozen
- * capability id (`CONFIDENTIAL_CONSEQUENCE_PROJECTION`) — and this service
- * must NEVER touch that exception or Gate 2 itself (operator directive: "Do
- * not replace or weaken the existing Vela gate"). `PROPOSAL` maps to
- * `shadow`, which Gate 2 already passes unconditionally for ANY capability
- * id — mirroring EXACTLY the "Gate 1/2 grant permission to dispatch, the
- * real decision is made by the provider itself" pattern Repair D already
- * established for Advisor/Architect. The REAL authorization decision for
- * this service is the EXISTING, unmodified `constitutionalAgreement.ts` 409
+ * `serviceClass: 'CONSEQUENTIAL'` (operator correction, 2026-08-23, second
+ * pass) — a REAL constitutional consequence class, restored from an earlier
+ * repair pass that had misclassified this service as `'PROPOSAL'` purely to
+ * dodge Gate 2's `authoritative`-mode refusal. That was the wrong axis to
+ * bend: `serviceClass` describes WHAT KIND of consequence a service carries
+ * (both Runtime services genuinely bind real financial consequence — see
+ * `tests/financial-services-runtime.test.ts`'s
+ * "both Runtime services are CONSEQUENTIAL" canary), never WHICH MECHANISM
+ * governs it. `governancePath: 'CONSTITUTIONAL_SERVICE_PIPELINE'` is the
+ * correct, separate axis for that (see its doc in `types/financialServices.ts`).
+ *
+ * Gate 2 (`services/registry/capabilityInvocationGates.ts`) remains
+ * completely UNCHANGED and UNWIDENED: this service still requests `shadow`
+ * mode at the gate — via `GOVERNANCE_PATH_EXECUTION_MODE_OVERRIDE`, not via
+ * `serviceClass` — Gate 2 already passes `shadow` unconditionally for ANY
+ * capability id, exactly as it does for Advisor/Architect. This service
+ * NEVER requests `authoritative` mode and NEVER touches the one frozen
+ * `CONFIDENTIAL_CONSEQUENCE_PROJECTION` exception, despite now sharing
+ * `MONEYPENNY_RUNTIME`'s `CONSEQUENTIAL` class. Its real authorization
+ * decision remains the EXISTING, unmodified `constitutionalAgreement.ts` 409
  * gate, invoked inside `dispatchDelegatedProvider()`'s RUNTIME branch
  * (`serviceRequestOrchestrator.ts`) — never VELA's own
  * `composeUnifiedConsequenceProjection`/`deriveActionAuthorisation`/
  * `bindExecution` primitives, which this service never reaches
- * (`executionPolicy.executionReachable: false`, same as Advisor/Architect).
+ * (`executionPolicy.executionReachable: false` — this is the field that
+ * actually keeps it out of VELA's ActionAuthorisation path; it is
+ * independent of, and does not derive from, `governancePath`).
  *
  * `capabilityId: 'bounded_financial_execution'` is the REAL, already-live
  * MoneyPenny Agent Bench descriptor for Runtime mode (Repair E's own
@@ -152,7 +167,8 @@ export const MONEYPENNY_RUNTIME: FinancialServiceDefinition = {
 export const MONEYPENNY_RUNTIME_CONSTITUTIONAL: FinancialServiceDefinition = {
   serviceId: 'moneypenny.runtime.constitutional',
   providerMode: 'RUNTIME',
-  serviceClass: 'PROPOSAL',
+  serviceClass: MONEYPENNY_PROVIDER_MODE_CONSEQUENCE_CLASS.RUNTIME,
+  governancePath: 'CONSTITUTIONAL_SERVICE_PIPELINE',
   displayName: 'MoneyPenny Runtime (Constitutional)',
   providerAgentId: 'aigent-moneypenny',
   capabilityId: 'bounded_financial_execution',

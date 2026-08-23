@@ -134,7 +134,7 @@ import { evaluateFinancialServiceEligibility } from '@/services/financialService
 import type { FinancialServiceAgentContext } from '@/services/financialServices/agentEligibilityContext';
 import type { ConsequenceForecast } from '@/types/consequence';
 import type { ConfidentialEvidenceInput } from '@/services/constitutionalCommerce/unifiedConsequenceProjection';
-import { MONEYPENNY_PROVIDER_MODE_CONSEQUENCE_CLASS } from '@/types/financialServices';
+import { MONEYPENNY_PROVIDER_MODE_CONSEQUENCE_CLASS, GOVERNANCE_PATH_EXECUTION_MODE_OVERRIDE } from '@/types/financialServices';
 import type { FinancialServiceRequest } from '@/types/financialServices';
 
 const CONSUMER = 'aigent-nakamoto';
@@ -309,15 +309,43 @@ describe('service discovery — serviceCatalog', () => {
     expect(MONEYPENNY_RUNTIME_CONSTITUTIONAL.providerMode).toBe('RUNTIME');
     expect(MONEYPENNY_RUNTIME_CONSTITUTIONAL.attestationRequirement).toBe('NOT_REQUIRED');
     expect(MONEYPENNY_RUNTIME_CONSTITUTIONAL.confidentialityRequirement).toBe('NOT_REQUIRED');
-    // Deliberately NOT the RUNTIME->CONSEQUENTIAL default mapping — see
-    // serviceCatalog.ts's own comment for why: CONSEQUENTIAL maps to Gate 2's
-    // authoritative mode, which is refused-by-default except the ONE frozen
-    // CONFIDENTIAL_CONSEQUENCE_PROJECTION exception. This service must never
-    // touch that exception or Gate 2 itself.
-    expect(MONEYPENNY_RUNTIME_CONSTITUTIONAL.serviceClass).toBe('PROPOSAL');
+    // Both Runtime services are genuinely CONSEQUENTIAL (operator correction,
+    // 2026-08-23, second pass — an earlier repair pass had wrongly
+    // misclassified this service as 'PROPOSAL' purely to dodge Gate 2's
+    // authoritative-mode refusal). serviceClass describes WHAT KIND of
+    // consequence a service carries, never WHICH MECHANISM governs it — see
+    // the "governance path, not service class, drives the Gate-2 request
+    // mode" canary below for how the two Runtime services stay distinct
+    // without Gate 2 ever being touched.
+    expect(MONEYPENNY_RUNTIME_CONSTITUTIONAL.serviceClass).toBe('CONSEQUENTIAL');
     expect(MONEYPENNY_RUNTIME_CONSTITUTIONAL.executionPolicy.executionReachable).toBe(false);
     // The two Runtime variants are genuinely distinct services, never aliases of each other.
     expect(MONEYPENNY_RUNTIME_CONSTITUTIONAL.serviceId).not.toBe(MONEYPENNY_RUNTIME.serviceId);
+  });
+
+  it('governance path, not service class, drives the Gate-2 request mode and which mechanism reaches Vela (2026-08-23 correction)', () => {
+    // Both Runtime services are CONSEQUENTIAL — the shared consequence taxonomy.
+    expect(MONEYPENNY_RUNTIME.serviceClass).toBe('CONSEQUENTIAL');
+    expect(MONEYPENNY_RUNTIME_CONSTITUTIONAL.serviceClass).toBe('CONSEQUENTIAL');
+
+    // ...but they declare two DIFFERENT governance paths, and only the
+    // constitutional-commerce one ever reaches VELA's ActionAuthorisation /
+    // bindExecution primitives (`executionPolicy.executionReachable`).
+    expect(MONEYPENNY_RUNTIME.governancePath).toBe('CONSTITUTIONAL_COMMERCE');
+    expect(MONEYPENNY_RUNTIME.executionPolicy.executionReachable).toBe(true);
+
+    expect(MONEYPENNY_RUNTIME_CONSTITUTIONAL.governancePath).toBe('CONSTITUTIONAL_SERVICE_PIPELINE');
+    expect(MONEYPENNY_RUNTIME_CONSTITUTIONAL.executionPolicy.executionReachable).toBe(false);
+
+    // Advisor/Architect declare no governed execution mechanism at all.
+    expect(MONEYPENNY_ADVISOR.governancePath).toBe('NONE');
+    expect(MONEYPENNY_ARCHITECT.governancePath).toBe('NONE');
+
+    // The override table is the ONLY thing that may request Gate 2's
+    // authoritative mode — and it is scoped to exactly one governance path.
+    expect(GOVERNANCE_PATH_EXECUTION_MODE_OVERRIDE.CONSTITUTIONAL_COMMERCE).toBe('authoritative');
+    expect(GOVERNANCE_PATH_EXECUTION_MODE_OVERRIDE.CONSTITUTIONAL_SERVICE_PIPELINE).toBe('shadow');
+    expect(GOVERNANCE_PATH_EXECUTION_MODE_OVERRIDE.NONE).toBeUndefined();
   });
 
   it('providerMode and serviceClass are derived from the single explicit mapping, never independently authored', () => {
