@@ -596,6 +596,38 @@ describe('consumerVerificationRequirement — an explicit, opt-in policy (third 
   });
 });
 
+// ── publicForecast is optional — required ONLY for executionReachable ───
+
+describe('requestFinancialService() — publicForecast is optional (2026-08-23 orchestration-boundary repair)', () => {
+  it('never requires a publicForecast for Advisor/Architect (executionReachable: false) — omitting it still DELIVERS', async () => {
+    mockResolveCapabilityProviders.mockResolvedValue([MONEYPENNY_ADVISOR_PROVIDER]);
+    const { outcome } = await requestFinancialService({
+      request: request(MONEYPENNY_ADVISOR.serviceId),
+      // publicForecast omitted entirely — this must never throw.
+      confidentialEvidence: null,
+      actorPersonaId: ACTOR_PERSONA_ID,
+      callerAuthProfileId: ACTOR_AUTH_PROFILE_ID,
+      now: '2026-08-22T00:00:00.000Z',
+      admin: fakeSupabase as any,
+    } as any);
+    expect(outcome.status).toBe('DELIVERED');
+  });
+
+  it('resolves UNRESOLVED — never throws — when an executionReachable (Runtime) request omits publicForecast', async () => {
+    const { outcome } = await requestFinancialService({
+      request: request(MONEYPENNY_RUNTIME.serviceId),
+      publicForecast: null,
+      confidentialEvidence: null,
+      actorPersonaId: ACTOR_PERSONA_ID,
+      callerAuthProfileId: ACTOR_AUTH_PROFILE_ID,
+      now: '2026-08-22T00:00:00.000Z',
+      admin: fakeSupabase as any,
+    });
+    expect(outcome.status).toBe('UNRESOLVED');
+    expect(outcome.reason).toContain('public consequence forecast is required');
+  });
+});
+
 // ── Repair C: real ConstitutionalAuthority, never a fabricated one ──────
 
 describe('requestFinancialService() — real ConstitutionalAuthority (Repair C)', () => {

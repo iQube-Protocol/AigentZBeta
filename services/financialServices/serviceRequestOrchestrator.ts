@@ -74,8 +74,19 @@ const SERVICE_COMPLETION_CVS = 1;
 
 export interface RequestFinancialServiceInput {
   request: FinancialServiceRequest;
-  /** CFS-006a's public forecast — caller-resolved (live or fallback), same discipline as every VELA-001 live script. */
-  publicForecast: ConsequenceForecast;
+  /**
+   * CFS-006a's public forecast — caller-resolved (live or fallback), same
+   * discipline as every VELA-001 live script. Optional/null: only a service
+   * whose execution path is actually reachable (`executionPolicy.
+   * executionReachable`, Runtime today) ever composes a projection from
+   * this — Advisor/Architect never use it (2026-08-23 repair pass: a public
+   * forecast was previously computed unconditionally from a hardcoded seed
+   * id, which is invalid for a service that declares
+   * `projectionRequirement: 'NOT_REQUIRED'`). A caller that omits this for
+   * an `executionReachable` service gets a truthful `UNRESOLVED`, never a
+   * crash and never a silently-skipped projection.
+   */
+  publicForecast?: ConsequenceForecast | null;
   /** Present only when the resolved service's `confidentialityRequirement === 'REQUIRED'`; null otherwise. Never computed by this module — the same "gateway never computes a projection itself" discipline `capabilityInvocation.ts` already documents. */
   confidentialEvidence: ConfidentialEvidenceInput | null;
   /**
@@ -221,7 +232,32 @@ export async function requestFinancialService(
 
   const executionMode = SERVICE_CLASS_EXECUTION_MODE[definition.serviceClass];
 
-  // ── ConsequenceProjection — runtime-class only ───────────────────────
+  // ── ConsequenceProjection — runtime-class only, and only when a real
+  //    public forecast was actually supplied. `publicForecast` is optional
+  //    precisely because Advisor/Architect (`executionReachable: false`)
+  //    never reach this branch and must never require one; a runtime-class
+  //    service that reaches here without one is a genuine "could not
+  //    resolve a public projection input" gap — UNRESOLVED, never a throw
+  //    and never a silently-skipped projection. ───────────────────────────
+  if (definition.executionPolicy.executionReachable && !publicForecast) {
+    return {
+      outcome: {
+        requestRef: request.requestRef,
+        serviceId: request.serviceId,
+        serviceClass: definition.serviceClass,
+        providerMode: definition.providerMode,
+        status: 'UNRESOLVED',
+        reason: 'a public consequence forecast is required for an executionReachable service but none was supplied',
+        authorisationRef: null,
+        executionRef: null,
+        observedConsequenceRef: null,
+        validationState: null,
+        projectionDisposition: null,
+      },
+      causalChain: null,
+    };
+  }
+
   const projection =
     definition.executionPolicy.executionReachable
       ? composeUnifiedConsequenceProjection({
@@ -229,7 +265,7 @@ export async function requestFinancialService(
           actionRef: action.actionRef,
           authorityRef: authority.principalRef,
           mandateRef: authority.mandateRef,
-          publicForecast,
+          publicForecast: publicForecast as ConsequenceForecast,
           confidentialRequirement: definition.confidentialityRequirement,
           confidentialEvidence,
           policy: { attestationRequirement: definition.attestationRequirement },

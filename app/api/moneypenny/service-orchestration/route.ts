@@ -38,10 +38,46 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { listRegistrableAgents, resolveRegistrableAgentByRuntimeId } from '@/services/horizen/registrableAgents';
-import { listFinancialServiceDefinitions, MONEYPENNY_ADVISOR } from '@/services/financialServices/serviceCatalog';
+import {
+  listFinancialServiceDefinitions,
+  resolveFinancialServiceDefinition,
+  MONEYPENNY_ADVISOR,
+} from '@/services/financialServices/serviceCatalog';
 import { discoverFinancialServicesForConsumer } from '@/services/financialServices/discovery';
 import { requestFinancialService } from '@/services/financialServices/serviceRequestOrchestrator';
-import { forecastConsequences } from '@/services/consequence/stages';
+import { forecastConsequences, knowledgeCuration } from '@/services/consequence/stages';
+import type { ConsequenceForecast } from '@/types/consequence';
+import type { FinancialServiceOutcome } from '@/types/financialServices';
+
+/**
+ * Bounded stage markers for the POST lifecycle's top-level error boundary
+ * (2026-08-23 repair pass, Track A orchestration-boundary fixes). These name
+ * roughly where an UNEXPECTED technical exception occurred — never a
+ * substitute for the deterministic INELIGIBLE/REFUSED/UNRESOLVED outcomes
+ * `requestFinancialService()` already returns without throwing.
+ */
+type OrchestrationStage = 'INPUT' | 'PUBLIC_PROJECTION' | 'GATEWAY' | 'PROVIDER_DISPATCH';
+
+function unresolvedOutcome(
+  requestRef: string,
+  serviceId: string,
+  definition: ReturnType<typeof resolveFinancialServiceDefinition>,
+  reason: string,
+): FinancialServiceOutcome {
+  return {
+    requestRef,
+    serviceId,
+    serviceClass: definition?.serviceClass ?? 'INFORMATIONAL',
+    providerMode: definition?.providerMode ?? null,
+    status: 'UNRESOLVED',
+    reason,
+    authorisationRef: null,
+    executionRef: null,
+    observedConsequenceRef: null,
+    validationState: null,
+    projectionDisposition: null,
+  };
+}
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -102,57 +138,114 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const persona = await getActivePersona(req);
-  if (!persona?.personaId) return NextResponse.json({ ok: false, error: 'Not authenticated' }, { status: 401 });
+  let stage: OrchestrationStage = 'INPUT';
+  let requestRef = `fsvc-oversight-${Date.now()}`;
+  let serviceIdForError: string | undefined;
 
-  const body = (await req.json().catch(() => ({}))) as {
-    agentId?: string;
-    serviceId?: string;
-    input?: Record<string, unknown>;
-  };
-  const agentId = body.agentId?.trim();
-  const serviceId = body.serviceId?.trim();
-  if (!agentId || !serviceId) {
-    return NextResponse.json({ ok: false, error: 'agentId and serviceId are required' }, { status: 400 });
-  }
+  try {
+    const persona = await getActivePersona(req);
+    if (!persona?.personaId) return NextResponse.json({ ok: false, error: 'Not authenticated', stage }, { status: 401 });
 
-  const agent = resolveRegistrableAgentByRuntimeId(agentId);
-  if (!agent) return NextResponse.json({ ok: false, error: `Unknown agent '${agentId}'` }, { status: 400 });
+    const body = (await req.json().catch(() => ({}))) as {
+      agentId?: string;
+      serviceId?: string;
+      input?: Record<string, unknown>;
+    };
+    const agentId = body.agentId?.trim();
+    const serviceId = body.serviceId?.trim();
+    serviceIdForError = serviceId;
+    if (!agentId || !serviceId) {
+      return NextResponse.json({ ok: false, error: 'agentId and serviceId are required', stage }, { status: 400 });
+    }
+    requestRef = `fsvc-oversight-${agentId}-${serviceId}-${Date.now()}`;
 
-  const admin = getSupabaseServer();
-  if (!admin) {
+    const agent = resolveRegistrableAgentByRuntimeId(agentId);
+    if (!agent) return NextResponse.json({ ok: false, error: `Unknown agent '${agentId}'`, stage }, { status: 400 });
+
+    const definition = resolveFinancialServiceDefinition(serviceId);
+    if (!definition) {
+      return NextResponse.json({ ok: false, error: `Unknown serviceId '${serviceId}'`, stage }, { status: 400 });
+    }
+
+    const admin = getSupabaseServer();
+    if (!admin) {
+      return NextResponse.json(
+        { ok: false, error: 'Supabase is not configured in this environment — a service request requires a live admission/Standing/receipt read.', stage },
+        { status: 503 },
+      );
+    }
+
+    const now = new Date().toISOString();
+
+    // ── Public consequence forecasting — ONLY for a service whose execution
+    //    path is actually reachable (Runtime today). Advisor/Architect
+    //    declare `projectionRequirement: 'NOT_REQUIRED'` and
+    //    `executionReachable: false` — composing a forecast for them was
+    //    invalid (it fed a hardcoded seed-id STRING into a UUID-keyed graph
+    //    API) and unnecessary (requestFinancialService() never uses it for
+    //    them). Real persisted invariant UUIDs are resolved through the
+    //    canonical invariant service (knowledgeCuration -> listInvariants,
+    //    filtered to the ratified `finance` namespace) — never a hardcoded
+    //    seed id, and never invented/backfilled if none are live yet.
+    stage = 'PUBLIC_PROJECTION';
+    let publicForecast: ConsequenceForecast | null = null;
+    if (definition.executionPolicy.executionReachable) {
+      const knowledge = await knowledgeCuration({
+        intentRef: requestRef,
+        namespace: 'finance',
+      });
+      if (knowledge.invariantIds.length === 0) {
+        return NextResponse.json({
+          ok: true,
+          outcome: unresolvedOutcome(
+            requestRef,
+            serviceId,
+            definition,
+            "no persisted 'finance' namespace invariants are available to compose a public consequence forecast",
+          ),
+          causalChain: null,
+        });
+      }
+      publicForecast = await forecastConsequences(knowledge.invariantIds);
+    }
+
+    stage = 'GATEWAY';
+    const { outcome, causalChain } = await requestFinancialService({
+      request: {
+        requestRef,
+        serviceId,
+        requestingAgentId: agentId,
+        // principalRef/mandateRef are omitted — requestFinancialService()
+        // resolves the real ConstitutionalAuthority server-side (Repair C: no
+        // synthetic authority, never trusted from the caller).
+        input: body.input ?? {},
+      },
+      publicForecast,
+      // Track A scope: this console does not itself source confidential
+      // evidence — that is Stage 3.3 territory (docs/vela/VELA-LIVE-ACTIVATION-001.md).
+      // Passing null here is honest, not a placeholder: for Runtime it composes
+      // UNRESOLVED under REQUIRED confidentiality, which is the correct,
+      // visible, fail-closed result this console exists to surface.
+      confidentialEvidence: null,
+      callerAuthProfileId: persona.authProfileId,
+      actorPersonaId: persona.personaId,
+      personaId: persona.personaId,
+      now,
+      admin,
+    });
+
+    return NextResponse.json({ ok: true, outcome, causalChain });
+  } catch (e) {
+    // A top-level, always-JSON error boundary (2026-08-23 repair pass):
+    // every deterministic lifecycle outcome above returns via its own
+    // INELIGIBLE/REFUSED/UNRESOLVED/DELIVERED/AUTHORISED path without
+    // throwing. Reaching here means a genuinely UNEXPECTED technical
+    // exception occurred — never secrets or raw private inputs in the
+    // response, only the bounded `stage` it happened in.
+    const message = e instanceof Error ? e.message : String(e);
     return NextResponse.json(
-      { ok: false, error: 'Supabase is not configured in this environment — a service request requires a live admission/Standing/receipt read.' },
-      { status: 503 },
+      { ok: false, error: message, stage, serviceId: serviceIdForError },
+      { status: 500 },
     );
   }
-
-  const now = new Date().toISOString();
-  const publicForecast = await forecastConsequences(['inv.finance.001']);
-
-  const { outcome, causalChain } = await requestFinancialService({
-    request: {
-      requestRef: `fsvc-oversight-${agentId}-${serviceId}-${Date.now()}`,
-      serviceId,
-      requestingAgentId: agentId,
-      // principalRef/mandateRef are omitted — requestFinancialService()
-      // resolves the real ConstitutionalAuthority server-side (Repair C: no
-      // synthetic authority, never trusted from the caller).
-      input: body.input ?? {},
-    },
-    publicForecast,
-    // Track A scope: this console does not itself source confidential
-    // evidence — that is Stage 3.3 territory (docs/vela/VELA-LIVE-ACTIVATION-001.md).
-    // Passing null here is honest, not a placeholder: for Runtime it composes
-    // UNRESOLVED under REQUIRED confidentiality, which is the correct,
-    // visible, fail-closed result this console exists to surface.
-    confidentialEvidence: null,
-    callerAuthProfileId: persona.authProfileId,
-    actorPersonaId: persona.personaId,
-    personaId: persona.personaId,
-    now,
-    admin,
-  });
-
-  return NextResponse.json({ ok: true, outcome, causalChain });
 }

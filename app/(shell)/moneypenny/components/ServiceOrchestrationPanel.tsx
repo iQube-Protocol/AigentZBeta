@@ -79,7 +79,14 @@ interface FinancialServiceOutcome {
   executionRef: string | null;
   observedConsequenceRef: string | null;
   validationState: string | null;
+  providerResultRef?: string | null;
 }
+
+/** Advisor/Architect require a real, operator-entered request — never a synthesized one (2026-08-23 orchestration-boundary repair). */
+const PROVIDER_MODE_INTENT_PROMPT: Record<string, string> = {
+  ADVISOR: "What should MoneyPenny advise this agent about?",
+  ARCHITECT: "What financial structure should MoneyPenny design?",
+};
 
 // Mirrors CanonicalSurfaceStyling — translucent slate, slate hairlines.
 const PANEL_CLASS = "bg-slate-900/40 border-slate-800 backdrop-blur-xl";
@@ -121,6 +128,7 @@ export function ServiceOrchestrationPanel() {
   const [requesting, setRequesting] = useState<string | null>(null);
   const [outcomes, setOutcomes] = useState<Record<string, FinancialServiceOutcome>>({});
   const [error, setError] = useState<string | null>(null);
+  const [intents, setIntents] = useState<Record<string, string>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -179,29 +187,48 @@ export function ServiceOrchestrationPanel() {
   );
 
   const requestService = useCallback(
-    async (serviceId: string) => {
+    async (definition: FinancialServiceDefinitionSummary) => {
       if (!selectedAgentId) return;
+      const serviceId = definition.serviceId;
+      const needsIntent = Boolean(PROVIDER_MODE_INTENT_PROMPT[definition.providerMode]);
+      const intentText = intents[serviceId]?.trim() ?? "";
+      if (needsIntent && !intentText) {
+        setError(`Enter a request for ${definition.displayName} before triggering it`);
+        return;
+      }
+
       setRequesting(serviceId);
       setError(null);
       try {
         const res = await personaFetch("/api/moneypenny/service-orchestration", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ agentId: selectedAgentId, serviceId }),
+          body: JSON.stringify({
+            agentId: selectedAgentId,
+            serviceId,
+            input: needsIntent ? { intent: intentText } : undefined,
+          }),
         });
         const data = await res.json();
         if (!res.ok || !data.ok) {
-          setError(data.error ?? `Request to '${serviceId}' failed`);
+          // Always prefer the route's own structured reason (and the bounded
+          // lifecycle `stage` it happened in, when present) over the generic
+          // fallback — a malformed/missing-input failure must be visibly
+          // distinguishable from every other kind of failure, never
+          // collapsed into one indistinguishable "Request ... failed"
+          // (2026-08-23 orchestration-boundary repair).
+          const reason = data?.error ? String(data.error) : `Request to '${serviceId}' failed`;
+          setError(data?.stage ? `${reason} (${data.stage})` : reason);
           return;
         }
         setOutcomes((prev) => ({ ...prev, [serviceId]: data.outcome }));
       } catch {
-        setError(`Request to '${serviceId}' failed`);
+        setError(`Request to '${serviceId}' failed — no response from the server`);
       } finally {
         setRequesting(null);
       }
     },
-    [selectedAgentId],
+    [selectedAgentId, intents],
   );
 
   return (
@@ -322,11 +349,34 @@ export function ServiceOrchestrationPanel() {
                       </span>
                     )}
 
+                    {PROVIDER_MODE_INTENT_PROMPT[definition.providerMode] && (
+                      <div className="flex flex-col gap-1">
+                        <label htmlFor={`intent-${definition.serviceId}`} className="text-[10px] text-white/50">
+                          {PROVIDER_MODE_INTENT_PROMPT[definition.providerMode]}
+                        </label>
+                        <textarea
+                          id={`intent-${definition.serviceId}`}
+                          value={intents[definition.serviceId] ?? ""}
+                          onChange={(e) =>
+                            setIntents((prev) => ({ ...prev, [definition.serviceId]: e.target.value }))
+                          }
+                          rows={2}
+                          placeholder="Enter the request the agent should carry to MoneyPenny…"
+                          className="w-full resize-none rounded border border-slate-800 bg-black/30 p-2 text-xs text-white/80 placeholder:text-white/30 focus:border-emerald-500/40 focus:outline-none"
+                        />
+                      </div>
+                    )}
+
                     <div className="flex items-center gap-2">
                       <Button
                         size="sm"
-                        disabled={requesting === definition.serviceId || eligibility?.eligible === false}
-                        onClick={() => void requestService(definition.serviceId)}
+                        disabled={
+                          requesting === definition.serviceId ||
+                          eligibility?.eligible !== true ||
+                          (Boolean(PROVIDER_MODE_INTENT_PROMPT[definition.providerMode]) &&
+                            !intents[definition.serviceId]?.trim())
+                        }
+                        onClick={() => void requestService(definition)}
                         className="w-fit bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30"
                       >
                         {requesting === definition.serviceId ? (
@@ -341,10 +391,11 @@ export function ServiceOrchestrationPanel() {
                       )}
                     </div>
 
-                    {outcome && (outcome.executionRef || outcome.authorisationRef) && (
+                    {outcome && (outcome.executionRef || outcome.authorisationRef || outcome.providerResultRef) && (
                       <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] font-mono text-white/40">
                         {outcome.authorisationRef && <span>authorisation: {outcome.authorisationRef}</span>}
                         {outcome.executionRef && <span>execution: {outcome.executionRef}</span>}
+                        {outcome.providerResultRef && <span>result: {outcome.providerResultRef}</span>}
                         {outcome.validationState && <span>validation: {outcome.validationState}</span>}
                       </div>
                     )}

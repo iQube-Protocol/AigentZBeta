@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-23-PROJECTION-GATED-ON-EXECUTION-REACHABILITY-001",
+  "statement": "A caller invoking a governed/catalog-driven service MUST NEVER unconditionally compute a public consequence projection (or any other projection-plane input) before dispatch. It must gate that computation on the resolved service definition's own declared need for it (e.g. `executionPolicy.executionReachable` / `projectionRequirement`) — the SAME condition the downstream orchestrator already uses to decide whether the projection is composed at all. When the input required to compute a real projection cannot be resolved from persisted/live data, the caller returns an explicit UNRESOLVED with a truthful reason; it never fabricates, backfills, or hardcodes a placeholder value merely to satisfy the code path.",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "research-registry",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "classification": "A caller/callee condition-duplication defect: the callee (`requestFinancialService`) already had the correct gating condition (`executionPolicy.executionReachable`) for whether a projection is needed, but the caller (the oversight route) computed the projection input unconditionally instead of reusing that same condition — so every non-executionReachable service paid the cost, and risk, of an unnecessary and structurally invalid computation.",
+  "scope": "local",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/moneypenny-service-orchestration-route.test.ts",
+      "assertion": "An Advisor/Architect POST request never calls knowledgeCuration/forecastConsequences; a Runtime POST request resolves real persisted invariant UUIDs through the canonical invariant service (finance namespace) and resolves UNRESOLVED with an explicit reason — never a throw, never a hardcoded seed id — when none are live.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "app/api/moneypenny/service-orchestration/route.ts",
+      "defect": "Called forecastConsequences(['inv.finance.001']) unconditionally before dispatching ANY financial service, including Advisor/Architect which declare projectionRequirement: 'NOT_REQUIRED' and never consume a forecast — and fed a human-readable seed id into a UUID-keyed graph API with no live match.",
+      "resolutionId": "RES-2026-08-23-FSVC-ORCHESTRATION-BOUNDARY-REPAIR-001",
+      "evidence": [
+        "app/api/moneypenny/service-orchestration/route.ts",
+        "services/financialServices/serviceRequestOrchestrator.ts",
+        "services/consequence/stages.ts",
+        "tests/moneypenny-service-orchestration-route.test.ts"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-08-23-FSVC-ORCHESTRATION-BOUNDARY-REPAIR-001"
+  ],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "A specialization of `inv.engineering.036`/`037` (one authoritative location per concern) applied to a CONDITION rather than a value: the gating condition for 'does this service need a projection' has exactly one correct home (the service definition's own policy fields), and any caller that re-derives or ignores that condition risks drifting from it.",
+    "Generic shape to watch for elsewhere: any caller that precomputes an expensive or fallible input 'just in case' before dispatch, rather than deferring to (or explicitly checking) the callee's own declared need for that input."
+  ]
+}
