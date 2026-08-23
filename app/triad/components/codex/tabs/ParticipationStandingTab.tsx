@@ -77,9 +77,23 @@ export interface ParticipationStandingTabProps {
    * to `IngestionFactoryPanel`; only meaningful on the registry view.
    */
   registrySection?: "ingest" | "pipeline" | "assets";
+  /**
+   * 2026-08-23 operator directive — when this tab is mounted BY a Horizen
+   * Journey stage for a SELECTED AGENT (Nakamoto/Kn0w1/MoneyPenny/etc.),
+   * pass that agent's canonical runtime id here. The tab then renders THAT
+   * agent's own Standing + receipted contribution history
+   * (`/api/journey/agents/[agentRuntimeId]/standing`) instead of the
+   * authenticated human caller's own (`/api/wallet/tasks` +
+   * `/api/assistant/receipts`). Omitted for every OTHER mount (the
+   * standalone Participation surface) — that behavior is completely
+   * unchanged. Never show one agent's Standing under a different agent's
+   * Journey view, and never the human operator's own Standing under any
+   * agent's Journey view.
+   */
+  agentRuntimeId?: string;
 }
 
-export function ParticipationStandingTab({ only, registrySection }: ParticipationStandingTabProps = {}) {
+export function ParticipationStandingTab({ only, registrySection, agentRuntimeId }: ParticipationStandingTabProps = {}) {
   // Default 'registry': the operator lands on the Ingestion Factory, full
   // width, exactly as elsewhere — ingest first, monitor standing after.
   //
@@ -107,6 +121,31 @@ export function ParticipationStandingTab({ only, registrySection }: Participatio
     setLoading(true);
     setError(null);
     try {
+      if (agentRuntimeId) {
+        // Agent-scoped Journey mount — the SELECTED AGENT's own Standing,
+        // never the authenticated caller's. Still routes through
+        // personaFetch: this endpoint resolves the caller via the identity
+        // spine (getActivePersona) to GATE access, even though the DATA it
+        // returns is the named agent's, not the caller's own.
+        const res = await personaFetch(`/api/journey/agents/${encodeURIComponent(agentRuntimeId)}/standing`, { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.standing) setStanding(data.standing as StandingLanes);
+          if (data?.reputation) {
+            setReach({
+              overall: Number(data.reputation.overall) || 0,
+              lifetimeCvs: Number(data.reputation.lifetimeCvs) || 0,
+              totalTasksCompleted: Number(data.reputation.totalTasksCompleted) || 0,
+            });
+          }
+          setReceipts((data?.receipts ?? []) as ActivityReceiptData[]);
+          setPersonaDisplayLabel(data?.personaDisplayLabel ?? null);
+        } else {
+          setError('Could not load this agent’s standing.');
+        }
+        return;
+      }
+
       const [tasksRes, receiptsRes] = await Promise.allSettled([
         personaFetch('/api/wallet/tasks', { cache: 'no-store' }),
         personaFetch('/api/assistant/receipts?limit=25', { cache: 'no-store' }),
@@ -134,9 +173,17 @@ export function ParticipationStandingTab({ only, registrySection }: Participatio
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [agentRuntimeId]);
 
   useEffect(() => {
+    // Reset stale state from a PRIOR agent/human load before the new fetch
+    // resolves — otherwise switching which agent this tab is scoped to
+    // would briefly (or, on a failed fetch, permanently) show the previous
+    // subject's Standing under the newly selected one.
+    setStanding(null);
+    setReach(null);
+    setReceipts([]);
+    setPersonaDisplayLabel(null);
     void load();
   }, [load]);
 
@@ -196,10 +243,13 @@ export function ParticipationStandingTab({ only, registrySection }: Participatio
       {tabStrip}
       <div className="mx-auto max-w-3xl space-y-4 p-4">
         <div>
-          <h2 className="text-base font-semibold text-slate-100">Standing</h2>
+          <h2 className="text-base font-semibold text-slate-100">
+            {agentRuntimeId ? `${personaDisplayLabel ?? agentRuntimeId}'s Standing` : 'Standing'}
+          </h2>
           <p className="mt-1 text-xs text-slate-400 max-w-2xl">
-            Your relationship with the Institute, as the record shows it: standing lanes,
-            reach, and your receipted contribution history.
+            {agentRuntimeId
+              ? `${personaDisplayLabel ?? agentRuntimeId}'s relationship with the Institute, as the record shows it: standing lanes, reach, and its receipted contribution history.`
+              : 'Your relationship with the Institute, as the record shows it: standing lanes, reach, and your receipted contribution history.'}
           </p>
         </div>
         {error && <p className="text-xs text-amber-300">{error}</p>}

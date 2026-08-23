@@ -202,3 +202,42 @@ describe('Journey wiring — Deploy and Standing are separate stages, not a pair
     expect(source).toContain("prerequisites: ['aigentme']");
   });
 });
+
+// ── 2026-08-23 operator directive: agent-scoped Standing under a Journey ───
+
+describe('ParticipationStandingTab — agent-scoped mount never shows the human operator\'s own Standing', () => {
+  const source = read('app/triad/components/codex/tabs/ParticipationStandingTab.tsx');
+
+  it('accepts an agentRuntimeId prop, distinct from the standalone persona-scoped path', () => {
+    expect(source).toMatch(/agentRuntimeId\?:\s*string/);
+  });
+
+  it('an agentRuntimeId mount fetches the AGENT-scoped route, never /api/wallet/tasks', () => {
+    const branch = source.match(/if \(agentRuntimeId\) \{[\s\S]*?\n {6}\}/);
+    expect(branch).not.toBeNull();
+    expect(branch![0]).toContain('/api/journey/agents/');
+    expect(branch![0]).not.toContain('/api/wallet/tasks');
+  });
+
+  it('the agent-scoped fetch still goes through personaFetch — the endpoint is spine-authenticated (gates access, never picks whose data is returned)', () => {
+    const branch = source.match(/if \(agentRuntimeId\) \{[\s\S]*?\n {6}\}/);
+    expect(branch![0]).toContain('personaFetch(');
+  });
+
+  it('switching agentRuntimeId resets prior Standing/receipts state before the new fetch resolves — never a stale cross-agent flash', () => {
+    const effect = source.match(/useEffect\(\(\) => \{[\s\S]*?void load\(\);\s*\n\s*\}, \[load\]\);/);
+    expect(effect).not.toBeNull();
+    expect(effect![0]).toContain('setStanding(null)');
+    expect(effect![0]).toContain('setReceipts([])');
+  });
+});
+
+describe('PilotJourneyTab — Standing surface threads the SELECTED agent, never a default', () => {
+  const source = read('app/triad/components/codex/tabs/PilotJourneyTab.tsx');
+
+  it("resolveSurfaceProps passes agentRuntimeId: selectedAgent.runtimeAgentId to ParticipationStandingTab", () => {
+    const branch = source.match(/descriptor\.component === 'ParticipationStandingTab'[\s\S]*?\{[^}]*\}/);
+    expect(branch).not.toBeNull();
+    expect(branch![0]).toContain('agentRuntimeId: selectedAgent.runtimeAgentId');
+  });
+});

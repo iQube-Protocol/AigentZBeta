@@ -818,6 +818,43 @@ export async function listActivityReceiptsForPersona(
 }
 
 /**
+ * List receipts naming this AGENT as a subject (`agents_invoked` containment)
+ * — no `persona_id` scope at all, unlike `listActivityReceiptsForPersona`.
+ *
+ * Why a separate function rather than `listActivityReceiptsForPersona` with
+ * `agentsInvoked`: that function ALWAYS scopes by `persona_id` first, and an
+ * agent's receipted contribution history is not reliably confined to one
+ * persona_id — some receipts are written under the agent's own canonical
+ * identity persona (e.g. `standing_accrued`), others under whichever HUMAN
+ * operator persona performed the act while naming the agent as subject (e.g.
+ * `horizen_agent_registered`). This mirrors `findAgentReceiptRefs`'s exact
+ * query shape (agents_invoked containment, no persona filter) but returns
+ * full `ActivityReceiptRecord`s for display, not the lightweight evidence
+ * projection shape.
+ */
+export async function listActivityReceiptsForAgent(
+  runtimeAgentId: string,
+  options?: { limit?: number; actionTypes?: ActivityActionType[] },
+): Promise<ActivityReceiptRecord[]> {
+  if (!runtimeAgentId) return [];
+  const limit = Math.min(Math.max(options?.limit ?? 25, 1), 100);
+
+  const admin = getAdminClient();
+  let q = admin.from('activity_receipts').select('*').contains('agents_invoked', [runtimeAgentId]);
+  if (options?.actionTypes && options.actionTypes.length > 0) {
+    q = q.in('action_type', options.actionTypes);
+  }
+
+  const { data, error } = await q.order('created_at', { ascending: false }).limit(limit);
+  if (error) {
+    if (isMissingTable(error)) return [];
+    throw new Error(`listActivityReceiptsForAgent failed: ${error.message}`);
+  }
+  if (!data) return [];
+  return (data as DbRow[]).map(rowToRecord);
+}
+
+/**
  * A registration receipt's own narrow facts, found by AGENT rather than by
  * persona (Aigent Nakamoto's live registration, 2026-08-03).
  *

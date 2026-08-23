@@ -265,7 +265,17 @@ function PilotJourneyTabInner({ personaId, isAdmin }: PilotJourneyTabProps) {
             }
           : descriptor.component === 'HorizenAgentPageSurface'
             ? { agentSlug: selectedAgentSlug, mode: surfaceRef.ref === 'horizen-agent-page-verify' ? 'verify' : 'register' }
-            : {};
+            /*
+             * Standing must speak about the SELECTED agent's own canonical
+             * Standing, never the human operator's own (2026-08-23 operator
+             * directive: "Never show ArkAgent's Standing under Nakamoto,
+             * Kn0w1 or MoneyPenny"). Same `selectedAgent.runtimeAgentId`
+             * `receiptsSubjectAgentRef` already uses below — one resolved
+             * agent, never two independent lookups that could disagree.
+             */
+            : descriptor.component === 'ParticipationStandingTab'
+              ? { agentRuntimeId: selectedAgent.runtimeAgentId }
+              : {};
     },
     [selectedAgentSlug, origin, isAdmin],
   );
