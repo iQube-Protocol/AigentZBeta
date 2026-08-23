@@ -236,7 +236,7 @@ export function KnytCommunityContentTab({
           </span>
         </div>
         <div className="flex-1 min-h-0 overflow-y-auto p-4">
-          <ContentDetail item={activeItem} personaId={personaId} />
+          <ContentDetail item={activeItem} personaId={personaId} cartridge={cartridge} />
         </div>
       </div>
     );
@@ -472,7 +472,17 @@ function ContentCard({
 
 // ─── Detail view ─────────────────────────────────────────────────────────────
 
-function ContentDetail({ item, personaId }: { item: CommunityContentItem; personaId?: string }) {
+function ContentDetail({
+  item,
+  personaId,
+  cartridge,
+}: {
+  item: CommunityContentItem;
+  personaId?: string;
+  /** Must mirror ContentCard's gate — Listen is a Qriptopian-only affordance
+   *  today; the expanded reader must never show it when the card didn't. */
+  cartridge?: "knyt" | "qripto";
+}) {
   // Detail view also goes through the proxy. The 24h cache header on
   // the proxy means re-opening the detail after seeing the card thumb
   // pulls from the browser cache instantly.
@@ -529,7 +539,7 @@ function ContentDetail({ item, personaId }: { item: CommunityContentItem; person
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {(fullBody || item.prompt) ? (
+          {cartridge === "qripto" && (fullBody || item.prompt) ? (
             // Upgraded to the shared SmartContent Listen controller (was a
             // private, uncoordinated useTTSPlayer instance via the plain
             // ListenButton) so opening this detail view while a card's

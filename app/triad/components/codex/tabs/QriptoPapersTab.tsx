@@ -197,6 +197,7 @@ function QriptoPdfAssetsTab({
         pdfUrl={activePdf?.url ?? ''}
         title={activePdf?.title}
         onClose={() => setActivePdf(null)}
+        listenDisabledReason="No readable text available for this paper yet"
       />
     </div>
   );
