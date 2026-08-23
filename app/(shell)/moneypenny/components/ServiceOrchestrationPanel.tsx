@@ -99,6 +99,8 @@ export function ServiceOrchestrationPanel() {
   const [catalog, setCatalog] = useState<FinancialServiceDefinitionSummary[]>([]);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [discovery, setDiscovery] = useState<DiscoveredService[] | null>(null);
+  const [admissionDiagnostic, setAdmissionDiagnostic] = useState<Record<string, unknown> | null>(null);
+  const [showDiagnostic, setShowDiagnostic] = useState(false);
   const [loadingCatalog, setLoadingCatalog] = useState(true);
   const [loadingDiscovery, setLoadingDiscovery] = useState(false);
   const [requesting, setRequesting] = useState<string | null>(null);
@@ -132,6 +134,7 @@ export function ServiceOrchestrationPanel() {
   const loadDiscovery = useCallback(async (agentId: string) => {
     setLoadingDiscovery(true);
     setDiscovery(null);
+    setAdmissionDiagnostic(null);
     setError(null);
     try {
       const res = await personaFetch(
@@ -144,6 +147,7 @@ export function ServiceOrchestrationPanel() {
         return;
       }
       setDiscovery(data.discovery ?? []);
+      setAdmissionDiagnostic(data.admissionDiagnostic ?? null);
     } catch {
       setError(`Failed to resolve eligibility for ${agentId}`);
     } finally {
@@ -231,8 +235,25 @@ export function ServiceOrchestrationPanel() {
               <h3 className="text-sm font-semibold text-white/90">
                 {agents.find((a) => a.runtimeAgentId === selectedAgentId)?.displayName ?? selectedAgentId}
               </h3>
-              {loadingDiscovery && <Loader2 className="h-4 w-4 animate-spin text-white/50" />}
+              <div className="flex items-center gap-2">
+                {loadingDiscovery && <Loader2 className="h-4 w-4 animate-spin text-white/50" />}
+                {admissionDiagnostic && (
+                  <button
+                    type="button"
+                    onClick={() => setShowDiagnostic((v) => !v)}
+                    className="text-[10px] text-white/40 underline hover:text-white/70"
+                  >
+                    {showDiagnostic ? "hide" : "show"} admission diagnostic
+                  </button>
+                )}
+              </div>
             </div>
+
+            {showDiagnostic && admissionDiagnostic && (
+              <pre className="overflow-x-auto rounded border border-slate-800 bg-black/30 p-2 text-[10px] text-white/60">
+                {JSON.stringify(admissionDiagnostic, null, 2)}
+              </pre>
+            )}
 
             {(discovery ?? catalog.map((definition) => ({ definition, eligibility: undefined as unknown as EligibilityResult })))
               .map(({ definition, eligibility }) => {

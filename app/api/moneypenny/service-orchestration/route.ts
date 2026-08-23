@@ -13,7 +13,13 @@
  * GET  — no query: catalog + registrable-agent list, for the picker UI.
  * GET  ?agentId=<runtimeAgentId> — discovery: every catalog service
  *      annotated with that agent's real eligibility
- *      (`discoverFinancialServicesForConsumer`, unchanged).
+ *      (`discoverFinancialServicesForConsumer`, unchanged). Also returns
+ *      `admissionDiagnostic` — the RAW `AgentAdmissionState` this agent's
+ *      eligibility was computed from (sponsorshipRecorded/delegatePassportIssued/
+ *      delegationActive/factoryPresent/agentRootId/registryActivated/auditGaps).
+ *      Read-only, computed nothing this route didn't already compute for
+ *      eligibility — exposed only so a `NOT_ADMITTED`/`ADMISSION_UNRESOLVED`
+ *      reading can be root-caused from the actual fact, not guessed at.
  * POST { agentId, serviceId, input?, standingPersonaId? } — triggers
  *      `requestFinancialService()` UNCHANGED for that agent. `standingPersonaId`
  *      is optional and caller-supplied: `RegistrableAgentConfig` carries no
@@ -31,6 +37,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { listRegistrableAgents, resolveRegistrableAgentByRuntimeId } from '@/services/horizen/registrableAgents';
+import { resolveAgentAdmissionState } from '@/services/journey/agentAdmissionState';
 import { listFinancialServiceDefinitions } from '@/services/financialServices/serviceCatalog';
 import { discoverFinancialServicesForConsumer } from '@/services/financialServices/discovery';
 import { requestFinancialService } from '@/services/financialServices/serviceRequestOrchestrator';
@@ -65,11 +72,16 @@ export async function GET(req: NextRequest) {
   }
 
   const standingPersonaId = req.nextUrl.searchParams.get('standingPersonaId');
-  const discovery = await discoverFinancialServicesForConsumer(agentId, standingPersonaId, admin, {
-    callerAuthProfileId: persona.authProfileId,
-    actorPersonaId: persona.personaId,
-  });
-  return NextResponse.json({ ok: true, agentId, discovery });
+  const [discovery, admissionDiagnostic] = await Promise.all([
+    discoverFinancialServicesForConsumer(agentId, standingPersonaId, admin, {
+      callerAuthProfileId: persona.authProfileId,
+      actorPersonaId: persona.personaId,
+    }),
+    resolveAgentAdmissionState(admin, agent, persona.authProfileId, persona.personaId).catch((err) => ({
+      readFailed: err instanceof Error ? err.message : String(err),
+    })),
+  ]);
+  return NextResponse.json({ ok: true, agentId, discovery, admissionDiagnostic });
 }
 
 export async function POST(req: NextRequest) {
