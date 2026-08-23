@@ -14,7 +14,7 @@
  */
 
 import { Headphones, Loader2, Square } from 'lucide-react';
-import { useSmartContentAudio, type SmartContentListenItem } from '@/services/smartcontent/smartContentAudioController';
+import { useOptionalSmartContentAudio, type SmartContentListenItem } from '@/services/smartcontent/smartContentAudioController';
 
 interface SmartContentListenButtonProps {
   item: SmartContentListenItem;
@@ -26,7 +26,32 @@ interface SmartContentListenButtonProps {
 }
 
 export function SmartContentListenButton({ item, compact, className, disabledReason }: SmartContentListenButtonProps) {
-  const { isActive, status, toggle } = useSmartContentAudio();
+  // Optional, not the throwing useSmartContentAudio(): this button is a
+  // generic card-level control mounted from many hosts (Codex tabs, the
+  // article reader, cross-cartridge embeds under app/(embed)/layout.tsx).
+  // A host that hasn't mounted SmartContentAudioProvider must render an
+  // inert control, never crash the whole page — see the 2026-08-23 embed
+  // regression (a Papers card inside /triad/embed/codex/... threw
+  // "useSmartContentAudio must be used within a SmartContentAudioProvider").
+  const audio = useOptionalSmartContentAudio();
+  if (!audio) {
+    return (
+      <span
+        title={disabledReason ?? 'Listen is unavailable here'}
+        aria-disabled="true"
+        className={
+          className ??
+          (compact
+            ? 'inline-flex items-center gap-1 rounded-lg border border-white/5 bg-white/[0.02] px-2 py-1 text-[11px] text-slate-600 shrink-0'
+            : 'inline-flex items-center gap-1.5 rounded-lg border border-white/5 bg-white/[0.02] px-3 py-1.5 text-xs text-slate-600')
+        }
+      >
+        <Headphones className="h-3.5 w-3.5" />
+        {!compact && 'Listen'}
+      </span>
+    );
+  }
+  const { isActive, status, toggle } = audio;
   const active = isActive(item.id);
   const isBusy = active && (status === 'resolving' || status === 'loading');
   const isPlaying = active && (status === 'playing' || status === 'paused');
