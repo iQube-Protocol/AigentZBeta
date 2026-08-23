@@ -1,21 +1,33 @@
 /**
  * MoneyPenny Financial Services Runtime — eligibility (Phase 3, Stage 3.1;
- * corrected 2026-08-23, second pass).
+ * corrected 2026-08-23, third pass).
  *
  * A PURE decision function over an already-resolved
  * `FinancialServiceAgentContext` (`services/financialServices/
  * agentEligibilityContext.ts`) — it performs NO reads of its own.
  *
- * Operator correction (verbatim): eligibility must never require a currently
- * active `delegation_grants` row — that store allows exactly one active grant
- * PER PERSONA, so it cannot serve as a multi-agent discoverability roster.
+ * Operator correction #1 (verbatim): eligibility must never require a
+ * currently active `delegation_grants` row — that store allows exactly one
+ * active grant PER PERSONA, so it cannot serve as a multi-agent
+ * discoverability roster.
+ *
+ * Operator correction #2 (2026-08-23, third pass): Financial Services
+ * (Pulse + P&L) verification answers "may THIS agent PERFORM Financial
+ * Services work" — a PROVIDER/specialist qualification question. Nakamoto/
+ * Kn0w1 requesting a MoneyPenny service are CONSUMERS of that service, not
+ * providers of Financial Services themselves, so verification is NEVER
+ * bundled into `requiresAdmission` — it is `consumerVerificationRequirement`,
+ * an explicit, opt-in policy on the service definition, defaulting to
+ * `NOT_REQUIRED` for every catalog entry today.
+ *
  * The corrected model:
  *
  *   constitutional admission established        (context.admission.registryActivated)
  *   + agent structurally assigned/bound to
  *     this principal/person                     (context.structurallyAssigned,
  *                                                  persona_agent_assignments)
- *   + Financial Services verification complete   (context.verification)
+ *   + [only when the service opts in] Financial
+ *     Services verification complete            (context.verification)
  *   + service-specific Standing satisfied        (context.standing, per-definition)
  *   = Financial Service eligible
  *
@@ -84,7 +96,16 @@ export function evaluateFinancialServiceEligibility(
         reason: `'${agentId}' is not structurally assigned/bound to the requesting principal (persona_agent_assignments)`,
       };
     }
+  }
 
+  // Financial Services (Pulse + P&L) verification answers "may THIS agent
+  // PERFORM Financial Services work" — a PROVIDER/specialist qualification
+  // question. A consumer of a MoneyPenny service (e.g. Nakamoto/Kn0w1
+  // requesting Advisor/Architect/Runtime) is not thereby claiming to BE a
+  // Financial Services provider, so this is NEVER folded into
+  // `requiresAdmission` — it is its own opt-in policy, defaulting to
+  // NOT_REQUIRED (operator correction, 2026-08-23, second correction pass).
+  if (definition.eligibilityPolicy.consumerVerificationRequirement === 'REQUIRED') {
     if (!ctx.verification) {
       return {
         eligible: undefined,

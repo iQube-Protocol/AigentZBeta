@@ -124,6 +124,8 @@ import {
   discoverFinancialServicesForConsumer,
   discoverEligibleFinancialServices,
 } from '@/services/financialServices/discovery';
+import { evaluateFinancialServiceEligibility } from '@/services/financialServices/eligibility';
+import type { FinancialServiceAgentContext } from '@/services/financialServices/agentEligibilityContext';
 import type { ConsequenceForecast } from '@/types/consequence';
 import type { ConfidentialEvidenceInput } from '@/services/constitutionalCommerce/unifiedConsequenceProjection';
 import { MONEYPENNY_PROVIDER_MODE_CONSEQUENCE_CLASS } from '@/types/financialServices';
@@ -504,7 +506,7 @@ describe('eligibility — composed reason codes (Repair B), each an audit gap or
     expect(outcome.status).toBe('DELIVERED');
   });
 
-  it('Financial Services verification incomplete resolves FINANCIAL_SERVICES_NOT_VERIFIED, distinct from admission/delegation', async () => {
+  it('CORE CORRECTION (third pass): Financial Services verification is a PROVIDER/specialist question, never a consumer eligibility blocker for the current catalog — an Advisor request with incomplete verification is still DELIVERED', async () => {
     mockResolveCapabilityProviders.mockResolvedValue([MONEYPENNY_ADVISOR_PROVIDER]);
     mockResolveFinancialServicesVerification.mockResolvedValue({
       pulseComplete: true,
@@ -520,11 +522,10 @@ describe('eligibility — composed reason codes (Repair B), each an audit gap or
       now: '2026-08-22T00:00:00.000Z',
       admin: fakeSupabase as any,
     });
-    expect(outcome.status).toBe('INELIGIBLE');
-    expect(outcome.reason).toContain('FINANCIAL_SERVICES_NOT_VERIFIED');
+    expect(outcome.status).toBe('DELIVERED');
   });
 
-  it('an unresolved verification read resolves FINANCIAL_SERVICES_VERIFICATION_UNRESOLVED, never a false negative', async () => {
+  it('an UNRESOLVED verification read never blocks a NOT_REQUIRED-policy service either', async () => {
     mockResolveCapabilityProviders.mockResolvedValue([MONEYPENNY_ADVISOR_PROVIDER]);
     mockResolveFinancialServicesVerification.mockResolvedValue(undefined);
     const { outcome } = await requestFinancialService({
@@ -536,8 +537,62 @@ describe('eligibility — composed reason codes (Repair B), each an audit gap or
       now: '2026-08-22T00:00:00.000Z',
       admin: fakeSupabase as any,
     });
-    expect(outcome.status).toBe('INELIGIBLE');
-    expect(outcome.reason).toContain('FINANCIAL_SERVICES_VERIFICATION_UNRESOLVED');
+    expect(outcome.status).toBe('DELIVERED');
+  });
+});
+
+// ── consumerVerificationRequirement — opt-in policy, default NOT_REQUIRED ──
+
+describe('consumerVerificationRequirement — an explicit, opt-in policy (third correction pass)', () => {
+  function baseContext(overrides: Partial<FinancialServiceAgentContext> = {}): FinancialServiceAgentContext {
+    return {
+      agent: { runtimeAgentId: CONSUMER, aigentQubeId: 'aigentqube-nakamoto', agentCardPath: '/api/agents/nakamoto/agent-card.json', displayName: 'Aigent Nakamoto' } as any,
+      admission: { registryActivated: true, agentRootId: CONSUMER_ROOT_ID, agentRootDid: CONSUMER_ROOT_DID, auditGaps: [] } as any,
+      structurallyAssigned: true,
+      activeGrant: null,
+      hasCurrentDelegationToAgent: false,
+      verification: undefined,
+      standingPersonaId: null,
+      standing: null,
+      callerPersonaId: ACTOR_PERSONA_ID,
+      callerAuthProfileId: ACTOR_AUTH_PROFILE_ID,
+      ...overrides,
+    };
+  }
+
+  it('every current catalog entry declares consumerVerificationRequirement: NOT_REQUIRED', () => {
+    for (const definition of [MONEYPENNY_ADVISOR, MONEYPENNY_ARCHITECT, MONEYPENNY_RUNTIME]) {
+      expect(definition.eligibilityPolicy.consumerVerificationRequirement).toBe('NOT_REQUIRED');
+    }
+  });
+
+  it('a NOT_REQUIRED service is ELIGIBLE regardless of verification state (undefined, incomplete, or complete)', () => {
+    for (const verification of [undefined, { pulseComplete: false, pnlComplete: false, financialServicesEligible: false }, { pulseComplete: true, pnlComplete: true, financialServicesEligible: true }]) {
+      const result = evaluateFinancialServiceEligibility(MONEYPENNY_ADVISOR, baseContext({ verification: verification as any }));
+      expect(result.eligible).toBe(true);
+    }
+  });
+
+  it('a service that explicitly opts into consumerVerificationRequirement: REQUIRED still gates correctly — proves the mechanism was not simply deleted', () => {
+    const requiredDefinition = {
+      ...MONEYPENNY_ADVISOR,
+      eligibilityPolicy: { ...MONEYPENNY_ADVISOR.eligibilityPolicy, consumerVerificationRequirement: 'REQUIRED' as const },
+    };
+
+    const unresolved = evaluateFinancialServiceEligibility(requiredDefinition, baseContext({ verification: undefined }));
+    expect(unresolved).toMatchObject({ eligible: undefined, code: 'FINANCIAL_SERVICES_VERIFICATION_UNRESOLVED' });
+
+    const notVerified = evaluateFinancialServiceEligibility(
+      requiredDefinition,
+      baseContext({ verification: { pulseComplete: true, pnlComplete: false, financialServicesEligible: false } }),
+    );
+    expect(notVerified).toMatchObject({ eligible: false, code: 'FINANCIAL_SERVICES_NOT_VERIFIED' });
+
+    const verified = evaluateFinancialServiceEligibility(
+      requiredDefinition,
+      baseContext({ verification: { pulseComplete: true, pnlComplete: true, financialServicesEligible: true } }),
+    );
+    expect(verified.eligible).toBe(true);
   });
 });
 

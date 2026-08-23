@@ -91,9 +91,30 @@ export const MONEYPENNY_PROVIDER_MODE_CONSEQUENCE_CLASS: Record<MoneyPennyProvid
 
 // ── FinancialServiceDefinition — the catalog entry ──────────────────────
 
+/**
+ * Whether a CONSUMER of this service must itself hold completed Financial
+ * Services (Pulse + P&L) verification. Reuses the `REQUIRED`/`NOT_REQUIRED`
+ * vocabulary already established by `AttestationRequirement`/
+ * `ConfidentialRequirement` (`constitutionalCommerce.ts`) rather than a
+ * second boolean-vs-string-union convention.
+ *
+ * Operator correction, 2026-08-23 (second correction pass): Financial
+ * Services verification (`services/journey/agentFinancialServicesVerification.ts`)
+ * answers "may THIS agent perform Financial Services work" — a
+ * PROVIDER/specialist qualification question. Nakamoto/Kn0w1 requesting a
+ * MoneyPenny service are CONSUMERS of that service, not providers of
+ * Financial Services themselves, so this must default to `NOT_REQUIRED` and
+ * never be folded into `requiresAdmission`. A future service that genuinely
+ * needs its CONSUMER to be independently FS-verified declares
+ * `REQUIRED` explicitly here — never inferred from admission.
+ */
+export type ConsumerVerificationRequirement = 'NOT_REQUIRED' | 'REQUIRED';
+
 export interface FinancialServiceEligibilityPolicy {
   /** Re-checked via the SAME `resolveAgentAdmissionState` Gate 1 already calls — an early, presentational check, never a second admission decision. */
   requiresAdmission: boolean;
+  /** See `ConsumerVerificationRequirement`'s doc above. */
+  consumerVerificationRequirement: ConsumerVerificationRequirement;
   /** `null` = no Standing floor. Non-null reuses `computeStandingScore()` (`services/standing/standingScore.ts`) — never a second Standing computation. */
   minimumStandingScore: number | null;
 }

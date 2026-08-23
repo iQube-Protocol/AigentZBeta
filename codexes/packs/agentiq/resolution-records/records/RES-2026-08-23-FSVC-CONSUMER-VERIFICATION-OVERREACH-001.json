@@ -1,0 +1,56 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-08-23",
+  "resolutionId": "RES-2026-08-23-FSVC-CONSUMER-VERIFICATION-OVERREACH-001",
+  "capability": "phase-3-moneypenny-financial-services-runtime",
+  "milestone": "Phase 3 Track A third repair pass — live browser verification of RES-2026-08-23-FSVC-DELEGATION-VS-ASSIGNMENT-ELIGIBILITY-001 confirmed the picker fix and clean admission diagnostics, but surfaced a SEPARATE, previously-unaddressed defect: every service for every consumer read FINANCIAL_SERVICES_NOT_VERIFIED.",
+  "problem": "eligibility.ts unconditionally required `ctx.verification.financialServicesEligible` (Pulse + P&L verification) whenever a service declared `requiresAdmission: true` — every current catalog entry. Financial Services verification answers 'may THIS agent PERFORM Financial Services work' — a PROVIDER/specialist qualification question. Nakamoto and Kn0w1 requesting Advisor/Architect/Runtime are CONSUMERS of a MoneyPenny service, not providers of Financial Services themselves, so bundling the check into `requiresAdmission` incorrectly demanded provider-grade qualification from every consumer merely to be admitted.",
+  "observedFailure": [
+    "Live browser console (dev-beta.aigentz.me, /triad/embed/codex/moneypenny-codex, Track A): both Aigent Nakamoto and Aigent Know1 showed all three services (Advisor/Architect/Runtime) as 'not eligible — FINANCIAL_SERVICES_NOT_VERIFIED', despite clean admission diagnostics (registryActivated=true, structural assignment resolvable, auditGaps=[]) confirming RES-2026-08-23-FSVC-DELEGATION-VS-ASSIGNMENT-ELIGIBILITY-001's own fix was working correctly for its intended scope."
+  ],
+  "rootCauses": [
+    "eligibility.ts's `requiresAdmission` block conflated three genuinely distinct facts under one boolean: constitutional admission, structural assignment, AND Financial Services (provider-grade) verification. The first two are legitimate consumer-eligibility prerequisites; the third is a provider/specialist qualification question that has no bearing on whether an already-admitted, already-assigned agent may consume a downstream service.",
+    "No service definition had ever declared an explicit, opt-in policy for whether verification applies to its consumers — the check ran unconditionally for any service with `requiresAdmission: true`, silently treating 'admission' as if it implied 'is independently Financial-Services-qualified'."
+  ],
+  "resolution": [
+    "Added `ConsumerVerificationRequirement = 'NOT_REQUIRED' | 'REQUIRED'` (types/financialServices.ts) as an explicit, opt-in field on `FinancialServiceEligibilityPolicy`, following the same house convention as `AttestationRequirement`/`ConfidentialRequirement`.",
+    "Moved the Financial Services verification check in eligibility.ts out of the `requiresAdmission` block into its own top-level check, gated behind `definition.eligibilityPolicy.consumerVerificationRequirement === 'REQUIRED'` — a service that does not opt in is eligible regardless of the consumer's verification state.",
+    "Set `consumerVerificationRequirement: 'NOT_REQUIRED'` on all three current catalog entries (MONEYPENNY_ADVISOR, MONEYPENNY_ARCHITECT, MONEYPENNY_RUNTIME) — none of them require a consumer to independently be a verified Financial Services provider.",
+    "Preserved the verification-gating MECHANISM (not deleted): a locally-constructed service with `consumerVerificationRequirement: 'REQUIRED'` still correctly resolves FINANCIAL_SERVICES_VERIFICATION_UNRESOLVED / FINANCIAL_SERVICES_NOT_VERIFIED / eligible in the same three-valued style as before, for the day a future service genuinely needs consumer-side FS qualification."
+  ],
+  "rejectedApproaches": [
+    "Deleting the Financial Services verification check from eligibility.ts entirely — rejected: the check itself is not wrong, only its unconditional application to every admission-requiring service is; a future service MAY legitimately require a consumer to be independently FS-qualified, so the mechanism must remain available as an explicit opt-in rather than be removed.",
+    "Defaulting `consumerVerificationRequirement` to `REQUIRED` and only flipping the three current catalog entries to `NOT_REQUIRED` — rejected in favor of a `NOT_REQUIRED` default: the operator's ruling was explicit that admission must never be overloaded with a provider-qualification assumption; a `REQUIRED`-by-default type would re-introduce exactly that overload for any future service that forgets to declare the field."
+  ],
+  "candidateInvariants": [
+    "CI-2026-08-23-PROVIDER-QUALIFICATION-VS-CONSUMER-ADMISSION-001"
+  ],
+  "canaries": [
+    "tests/financial-services-runtime.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "multi-cycle-repair",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/financial-services-runtime.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": []
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-08-22_phase3-track-a-service-orchestration-console.md",
+    "services/journey/agentStateAxes.ts",
+    "services/journey/agentFinancialServicesVerification.ts"
+  ],
+  "projections": {
+    "targets": [
+      "research-registry",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  }
+}

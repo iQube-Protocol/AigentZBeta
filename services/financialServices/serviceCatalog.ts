@@ -30,7 +30,7 @@ export const MONEYPENNY_ADVISOR: FinancialServiceDefinition = {
   displayName: 'MoneyPenny Advisor',
   providerAgentId: 'aigent-moneypenny',
   capabilityId: 'financial_advisory',
-  eligibilityPolicy: { requiresAdmission: true, minimumStandingScore: null },
+  eligibilityPolicy: { requiresAdmission: true, consumerVerificationRequirement: 'NOT_REQUIRED', minimumStandingScore: null },
   authorityRequirement: { requiredAuthoritySource: [], requiresActiveAuthority: true },
   projectionRequirement: 'NOT_REQUIRED',
   confidentialityRequirement: 'NOT_REQUIRED',
@@ -55,7 +55,7 @@ export const MONEYPENNY_ARCHITECT: FinancialServiceDefinition = {
   displayName: 'MoneyPenny Architect',
   providerAgentId: 'aigent-moneypenny',
   capabilityId: 'financial_structure_design',
-  eligibilityPolicy: { requiresAdmission: true, minimumStandingScore: null },
+  eligibilityPolicy: { requiresAdmission: true, consumerVerificationRequirement: 'NOT_REQUIRED', minimumStandingScore: null },
   authorityRequirement: { requiredAuthoritySource: [], requiresActiveAuthority: true },
   projectionRequirement: 'NOT_REQUIRED',
   confidentialityRequirement: 'NOT_REQUIRED',
@@ -104,7 +104,7 @@ export const MONEYPENNY_RUNTIME: FinancialServiceDefinition = {
   capabilityId: 'CONFIDENTIAL_CONSEQUENCE_PROJECTION',
   // Real consequential execution requires QUALIFIED Standing — parity with
   // services/standing/standingScore.ts's own QUALIFY_THRESHOLD (25).
-  eligibilityPolicy: { requiresAdmission: true, minimumStandingScore: 25 },
+  eligibilityPolicy: { requiresAdmission: true, consumerVerificationRequirement: 'NOT_REQUIRED', minimumStandingScore: 25 },
   authorityRequirement: { requiredAuthoritySource: [], requiresActiveAuthority: true },
   projectionRequirement: 'REQUIRED',
   confidentialityRequirement: 'REQUIRED',
