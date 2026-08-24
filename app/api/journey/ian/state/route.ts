@@ -1,9 +1,19 @@
 /**
  * GET /api/journey/ian/state
  *
- * Resolve Ian Boundary Research journey state for the authenticated persona.
- * Serves as the authoritative state resolver for all Ian-related UI
- * components (JourneyRunSurface, the diagnostic viewer).
+ * Resolve Ian Boundary Research journey state. Serves as the authoritative
+ * state resolver for all Ian-related UI components (JourneyRunSurface, the
+ * diagnostic viewer).
+ *
+ * NOT gated on auth — mirrors app/api/journey/knyts-bridge/state/route.ts's
+ * own pattern exactly (2026-08-24 first-touch pass): an unauthenticated
+ * caller is not a 401 here. ORIENT is deliberately browsable signed-out (the
+ * invitation's first-touch orientation), so `getActivePersona` returning
+ * null simply means every persona-scoped evidence lookup is skipped and
+ * every stage's evidence stays honestly missing — never fabricated, never a
+ * refused response. Only the stage ACTS that write evidence (e.g.
+ * /api/journey/ian/orient/acknowledge) require real auth; reading state
+ * never does.
  *
  * SPEC-JS-001 §9: Pure, deterministic, no I/O (except required platform
  * fetches). Journey Guidance Principle: a stage is COMPLETE only when every
@@ -62,8 +72,19 @@ interface AuthoritativeStateResult {
   activeExchangeId: string | null;
 }
 
-async function fetchAuthoritativePlatformState(personaId: string): Promise<AuthoritativeStateResult> {
+async function fetchAuthoritativePlatformState(personaId: string | null): Promise<AuthoritativeStateResult> {
   const evidenceGaps: string[] = [];
+
+  if (!personaId) {
+    evidenceGaps.push(
+      'No signed-in persona yet — every stage past Orient stays honestly not-yet-started until sign-in resolves.',
+    );
+    return {
+      state: { stages: {}, receiptRefs: {} },
+      evidenceGaps,
+      activeExchangeId: null,
+    };
+  }
 
   const receipts = await listActivityReceiptsForPersona(personaId, {
     actionTypes: ['orientation_ritual_completed', 'passport_issued'],
@@ -136,14 +157,12 @@ async function fetchAuthoritativePlatformState(personaId: string): Promise<Autho
 
 export async function GET(request: NextRequest) {
   try {
-    const persona = await getActivePersona(request);
-    if (!persona) {
-      return NextResponse.json({ ok: false, error: 'unauthenticated' }, { status: 401 });
-    }
+    // Not gated on auth — see file header. A signed-out visitor's persona is
+    // simply null, and every stage's evidence stays honestly missing.
+    const persona = await getActivePersona(request).catch(() => null);
+    const personaId = persona?.personaId ?? null;
 
-    const { state: authState, evidenceGaps, activeExchangeId } = await fetchAuthoritativePlatformState(
-      persona.personaId,
-    );
+    const { state: authState, evidenceGaps, activeExchangeId } = await fetchAuthoritativePlatformState(personaId);
 
     const journeyState: JourneyRuntimeState = resolveJourneyState(IAN_BOUNDARY_RESEARCH_JOURNEY, authState);
 
@@ -152,9 +171,10 @@ export async function GET(request: NextRequest) {
       journeyState,
       // Authority for THIS journey is "may this persona participate at all" —
       // Journey Spine never manufactures this; absent a dedicated OCSGA
-      // admission gate, every authenticated persona is permitted to view
-      // their own journey state (the same posture the Horizen journey takes
-      // for its own operator-facing stages).
+      // admission gate, every persona (including a not-yet-signed-in
+      // visitor, who simply cannot progress past what requires identity) is
+      // permitted to view journey state — the same posture the KNYTS/CI
+      // Bridge state routes take for their own browsable-signed-out stages.
       { permitted: true },
       undefined,
       undefined,
@@ -167,6 +187,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       ok: true,
       state: responseState,
+      personaAuthenticated: Boolean(personaId),
       activeExchangeId,
       evidenceGaps,
     });
