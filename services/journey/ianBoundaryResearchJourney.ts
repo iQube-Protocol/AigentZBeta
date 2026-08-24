@@ -26,7 +26,9 @@ import type {
   JourneyDefinition,
   JourneyStageDefinition,
   ConditionExpression,
+  JourneyPhase,
 } from '@/types/journey';
+import { ActorRole, StepRequirement } from '@/types/journey';
 import { receiptCondition, andCondition } from './conditionEvaluator';
 
 /**
@@ -129,29 +131,23 @@ export const IAN_BOUNDARY_RESEARCH_JOURNEY: JourneyDefinition = {
     {
       id: 'orient',
       label: 'Orient to Crossing',
-      milestone: 'ORIENTED',
       description:
         'Understand what Boundary Research is, what it means to cross into it, and what ' +
         'constitutionally true conditions precede entry.',
 
       // New: Actor role semantics — PRINCIPAL (owner) vs DELEGATE vs EITHER
-      actorRole: 'principal',
+      actorRole: ActorRole.PRINCIPAL,
 
       // New: Requirement type — REQUIRED / OPTIONAL / CONDITIONAL / FUTURE
-      requirement: 'required',
+      requirement: StepRequirement.REQUIRED,
 
       actor: 'operator',
       subjectRef: 'ian-researcher',
       surfaces: [
         {
           mode: 'component',
-          ref: 'boundary-research-orientation-panel',
+          ref: 'ian-orientation-panel',
           note: 'Guided intro to Boundary Research, what crossing means, constitutional preconditions.',
-        },
-        {
-          mode: 'component',
-          ref: 'threshold-link-inspector',
-          note: 'Inspect the Threshold Link this crossing originates from.',
         },
       ],
       prerequisites: [],
@@ -181,20 +177,19 @@ export const IAN_BOUNDARY_RESEARCH_JOURNEY: JourneyDefinition = {
     {
       id: 'passport',
       label: 'Assert Identity',
-      milestone: 'IDENTITY_ASSERTED',
       description:
         'Establish Passport identity — persistent, verifiable proof of who you are within the Boundary Research commons.',
 
-      actorRole: 'principal',
-      requirement: 'required',
+      actorRole: ActorRole.PRINCIPAL,
+      requirement: StepRequirement.REQUIRED,
 
       actor: 'operator',
       subjectRef: 'ian-researcher',
       surfaces: [
         {
           mode: 'component',
-          ref: 'passport-qube-panel',
-          note: 'Passport identity attestation surface — surfaces existing Passport service.',
+          ref: 'venture-participate-apply',
+          note: 'The real Passport application module — surfaces existing Passport service, never forked.',
         },
       ],
       prerequisites: ['orient'],
@@ -219,21 +214,20 @@ export const IAN_BOUNDARY_RESEARCH_JOURNEY: JourneyDefinition = {
     {
       id: 'delegation-establish',
       label: 'Establish Delegation (Optional)',
-      milestone: 'DELEGATION_OPTIONAL',
       description:
         'Optionally delegate research authority to an agent (e.g. aigentMe, a research assistant). ' +
         'Delegation is orthogonal to Passport — you retain control regardless.',
 
-      actorRole: 'principal',
-      requirement: 'optional', // ← New: OPTIONAL type
+      actorRole: ActorRole.PRINCIPAL,
+      requirement: StepRequirement.OPTIONAL, // ← New: OPTIONAL type
 
       actor: 'operator',
       subjectRef: 'ian-researcher',
       surfaces: [
         {
           mode: 'component',
-          ref: 'delegation-browser-panel',
-          note: 'Browse and approve delegation relationships. Surfaces existing Delegation service.',
+          ref: 'venture-participate-delegation',
+          note: 'The real bounded-delegation module — surfaces existing Delegation service, never forked.',
         },
       ],
       prerequisites: ['passport'],
@@ -263,21 +257,20 @@ export const IAN_BOUNDARY_RESEARCH_JOURNEY: JourneyDefinition = {
     {
       id: 'create-deposit',
       label: 'Create Research Artifact',
-      milestone: 'ARTIFACT_CREATED',
       description:
         'Create and deposit an iQube artifact (a research contribution, data asset, or knowledge record). ' +
         'Artifact creation establishes you as an eligible Boundary Research participant.',
 
-      actorRole: 'principal', // ← Only PRINCIPAL can deposit; delegation may assist but cannot sign
-      requirement: 'required',
+      actorRole: ActorRole.PRINCIPAL, // ← Only PRINCIPAL can deposit; delegation may assist but cannot sign
+      requirement: StepRequirement.REQUIRED,
 
       actor: 'operator',
       subjectRef: 'ian-researcher',
       surfaces: [
         {
           mode: 'component',
-          ref: 'iqube-creation-panel',
-          note: 'iQube artifact creation interface. Surfaces existing iQube service.',
+          ref: 'irl-exchange-workspace',
+          note: 'The real Reciprocal Artifact Exchange workspace — deposit your artifact here.',
         },
       ],
       prerequisites: ['delegation-establish'],
@@ -302,21 +295,20 @@ export const IAN_BOUNDARY_RESEARCH_JOURNEY: JourneyDefinition = {
     {
       id: 'freeze-attestation-ready',
       label: 'Prepare for Attestation',
-      milestone: 'ATTESTATION_READY',
       description:
         'Review artifact and confirm readiness for multisig freeze attestation. ' +
         'This stage is presentation — no action, only acknowledgment.',
 
-      actorRole: 'principal',
-      requirement: 'required',
+      actorRole: ActorRole.PRINCIPAL,
+      requirement: StepRequirement.REQUIRED,
 
       actor: 'operator',
       subjectRef: 'ian-researcher',
       surfaces: [
         {
           mode: 'component',
-          ref: 'artifact-review-panel',
-          note: 'Review the iQube artifact pending freeze attestation.',
+          ref: 'irl-exchange-workspace',
+          note: 'Review your deposited artifact in the same Exchange workspace, ahead of freeze attestation.',
         },
       ],
       prerequisites: ['create-deposit'],
@@ -347,21 +339,20 @@ export const IAN_BOUNDARY_RESEARCH_JOURNEY: JourneyDefinition = {
     {
       id: 'freeze-attestation',
       label: 'Freeze & Attest Artifact',
-      milestone: 'ARTIFACT_FROZEN',
       description:
         'Apply multisig freeze attestation to the iQube artifact. ' +
         'Freeze establishes the artifact as immutable evidence for the crossing.',
 
-      actorRole: 'principal', // ← Freeze attestation is principal-only per constraint 2
-      requirement: 'required',
+      actorRole: ActorRole.PRINCIPAL, // ← Freeze attestation is principal-only per constraint 2
+      requirement: StepRequirement.REQUIRED,
 
       actor: 'operator',
       subjectRef: 'ian-researcher',
       surfaces: [
         {
           mode: 'component',
-          ref: 'freeze-attestation-panel',
-          note: 'Multisig freeze attestation interface. Surfaces existing Signing service.',
+          ref: 'irl-exchange-workspace',
+          note: 'Freeze declaration — the same Exchange workspace\'s Freeze Declaration action.',
         },
       ],
       prerequisites: ['freeze-attestation-ready'],
@@ -385,21 +376,20 @@ export const IAN_BOUNDARY_RESEARCH_JOURNEY: JourneyDefinition = {
     {
       id: 'exchange-ready',
       label: 'Sign Exchange Instrument',
-      milestone: 'EXCHANGE_READY',
       description:
         'Sign the reciprocal exchange instrument. This is the constitutional act that commits you ' +
         'to the crossing and activates Boundary Research access.',
 
-      actorRole: 'principal', // ← Only PRINCIPAL can sign the exchange instrument per constraint 2
-      requirement: 'required',
+      actorRole: ActorRole.PRINCIPAL, // ← Only PRINCIPAL can sign the exchange instrument per constraint 2
+      requirement: StepRequirement.REQUIRED,
 
       actor: 'operator',
       subjectRef: 'ian-researcher',
       surfaces: [
         {
           mode: 'component',
-          ref: 'exchange-instrument-panel',
-          note: 'Exchange instrument review and signing. Surfaces existing Exchange service.',
+          ref: 'irl-exchange-workspace',
+          note: 'Exchange Instrument review and signing — the same Exchange workspace.',
         },
       ],
       prerequisites: ['freeze-attestation'],
@@ -426,20 +416,19 @@ export const IAN_BOUNDARY_RESEARCH_JOURNEY: JourneyDefinition = {
     {
       id: 'exchange-complete',
       label: 'Complete Reciprocal Exchange',
-      milestone: 'CROSSED',
       description:
         'The reciprocal exchange is complete. Boundary Research becomes ACTIVE and your access is provisioned.',
 
-      actorRole: 'either', // ← Exchange completion may be confirmed by either party
-      requirement: 'required',
+      actorRole: ActorRole.EITHER, // ← Exchange completion may be confirmed by either party
+      requirement: StepRequirement.REQUIRED,
 
       actor: 'system', // System resolves exchange completion (not a direct user action)
       subjectRef: 'ian-researcher',
       surfaces: [
         {
           mode: 'component',
-          ref: 'exchange-completion-panel',
-          note: 'View exchange completion status and reciprocal acknowledgment.',
+          ref: 'irl-exchange-workspace',
+          note: 'View crossing/receipt status — the same Exchange workspace.',
         },
       ],
       prerequisites: ['exchange-ready'],
@@ -467,13 +456,12 @@ export const IAN_BOUNDARY_RESEARCH_JOURNEY: JourneyDefinition = {
     {
       id: 'research-active',
       label: 'Boundary Research Access Active',
-      milestone: 'RESEARCH_ACTIVE',
       description:
         'You are now an active participant in Boundary Research. This is a persistent destination — ' +
         'no further progression. Continued access derives from your maintained status as an active, eligible participant.',
 
-      actorRole: 'principal',
-      requirement: 'required',
+      actorRole: ActorRole.PRINCIPAL,
+      requirement: StepRequirement.REQUIRED,
 
       actor: 'system', // Passive stage; system maintains status
       subjectRef: 'ian-researcher',

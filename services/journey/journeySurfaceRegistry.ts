@@ -314,6 +314,47 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
       'assumption) — FounderOfficeTab, a live Workspace/Discover/Validate/Architect/Blueprint surface.',
   },
 
+  // ── Ian Boundary Research journey (2026-08-24 surgical pass) — every
+  // entry below composes an EXISTING real capability; nothing here forks a
+  // second implementation of Passport, Delegation, or Reciprocal Artifact
+  // Exchange. See services/journey/ianBoundaryResearchJourney.ts's header.
+  'ian-orientation-panel': {
+    kind: 'component',
+    component: 'IanOrientationPanel',
+    note:
+      'Orient stage — components/journey/IanOrientationPanel.tsx. A genuinely new, minimal panel ' +
+      '(no existing generic "explain this collaboration" surface to reuse) — deliberately NOT the ' +
+      'Horizen OrientationPanel, whose ritual is scoped to external-AGENT admission, a different ' +
+      'capability instance. Posts to /api/journey/ian/orient/acknowledge.',
+  },
+  'irl-exchange-workspace': {
+    kind: 'embed',
+    codexSlug: 'irl-cartridge',
+    tab: 'irl-exchange',
+    focused: true,
+    note:
+      'The REAL Reciprocal Artifact Exchange workspace (IRLExchangeTab, PRD-IRL-AX-001) — reused ' +
+      'verbatim across create-deposit, freeze-attestation-ready, freeze-attestation, exchange-ready ' +
+      'and exchange-complete. One real component; Journey Spine only labels which point in its own ' +
+      'internal deposit -> freeze -> sign -> cross flow the participant is at. Never forked.',
+  },
+  'boundary-research-entry-panel': {
+    kind: 'embed',
+    codexSlug: 'irl-cartridge',
+    tab: 'irl-welcome',
+    focused: true,
+    note:
+      'research-active\'s persistent destination — the REAL IRL Welcome tab (IRLWelcomeTab), already ' +
+      'built for exactly this: "how to join, and where to go once you have."',
+  },
+  'participant-dashboard': {
+    kind: 'embed',
+    codexSlug: 'irl-cartridge',
+    tab: 'irl-dashboard',
+    focused: true,
+    note: 'research-active\'s participation-history view — the REAL IRL Dashboard tab.',
+  },
+
   // ── Validation Programme journey (2026-08-01) — every entry below composes
   // PartnerProgrammesTab bare, locked to the autonomi-review-exp-p1 workspace
   // (services/journey/validationProgrammeJourney.ts's own header explains why

@@ -17,6 +17,7 @@
 
 import { useEffect, useState } from 'react';
 import type { JourneyRuntimeState } from '@/types/journey';
+import { personaFetch } from '@/utils/personaSpine';
 
 interface SurfacesResponse {
   journey: { id: string; label: string };
@@ -26,6 +27,7 @@ interface SurfacesResponse {
 export function IanJourneyViewer() {
   const [state, setState] = useState<JourneyRuntimeState | null>(null);
   const [surfaces, setSurfaces] = useState<SurfacesResponse | null>(null);
+  const [evidenceGaps, setEvidenceGaps] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,23 +37,32 @@ export function IanJourneyViewer() {
         setLoading(true);
         setError(null);
 
+        // Spine-gated routes — MUST use personaFetch, never raw fetch. Raw
+        // fetch carries no Authorization header and 401s even for a signed-
+        // in persona (CLAUDE.md's Identity & Access Spine rule); the prior
+        // bug here produced exactly that: "Error: State fetch failed:" with
+        // an empty reason, because HTTP/2 omits a status text for a 401.
         const [stateRes, surfacesRes] = await Promise.all([
-          fetch('/api/journey/ian/state'),
-          fetch('/api/journey/ian/surfaces'),
+          personaFetch('/api/journey/ian/state', { cache: 'no-store' }),
+          personaFetch('/api/journey/ian/surfaces', { cache: 'no-store' }),
         ]);
 
         if (!stateRes.ok) {
-          throw new Error(`State fetch failed: ${stateRes.statusText}`);
+          const body = await stateRes.json().catch(() => null);
+          throw new Error(`State fetch failed (${stateRes.status}): ${body?.error ?? stateRes.statusText}`);
         }
         if (!surfacesRes.ok) {
-          throw new Error(`Surfaces fetch failed: ${surfacesRes.statusText}`);
+          const body = await surfacesRes.json().catch(() => null);
+          throw new Error(`Surfaces fetch failed (${surfacesRes.status}): ${body?.error ?? surfacesRes.statusText}`);
         }
 
-        const stateData = (await stateRes.json()) as JourneyRuntimeState;
+        const stateJson = (await stateRes.json()) as { ok: boolean; state: JourneyRuntimeState; evidenceGaps?: string[] };
+        const stateData = stateJson.state;
         const surfacesData = (await surfacesRes.json()) as SurfacesResponse;
 
         setState(stateData);
         setSurfaces(surfacesData);
+        setEvidenceGaps(stateJson.evidenceGaps ?? []);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Unknown error');
       } finally {
@@ -174,13 +185,27 @@ export function IanJourneyViewer() {
         </div>
       </div>
 
+      {/* Evidence gaps — honest reporting from /api/journey/ian/state, never suppressed */}
+      {evidenceGaps.length > 0 && (
+        <div className="bg-amber-50 p-4 rounded border border-amber-300">
+          <h2 className="font-semibold mb-2 text-amber-900">Evidence Gaps</h2>
+          <ul className="space-y-1 list-disc pl-5">
+            {evidenceGaps.map((gap, idx) => (
+              <li key={idx} className="text-xs text-amber-800">
+                {gap}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {/* Interaction Context (if available) */}
       {state.interactionContext && (
         <div className="bg-slate-50 p-4 rounded border border-slate-800">
           <h2 className="font-semibold mb-2">Recommendations</h2>
           <div className="space-y-2">
-            {state.interactionContext.recommendedNextActions?.length > 0 ? (
-              state.interactionContext.recommendedNextActions.map((action) => (
+            {(state.interactionContext.recommendedNextActions?.length ?? 0) > 0 ? (
+              state.interactionContext.recommendedNextActions!.map((action) => (
                 <div key={action} className="text-sm font-mono bg-white px-2 py-1 rounded">
                   {action}
                 </div>

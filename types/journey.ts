@@ -229,6 +229,16 @@ export interface JourneyDefinition {
   destination?: string;
   subjectRef: string;
   stages: JourneyStageDefinition[];
+  /**
+   * Optional definitional phase groupings (SPEC-JS-001 §9) — which stage ids
+   * belong to which named phase, and that phase's own completion condition.
+   * Additive: a journey definition that omits this is unaffected. Distinct
+   * from JourneyRuntimeState.phases (JourneyPhase[] below), which records
+   * resolved runtime/history; this field is the static grouping a resolver
+   * or renderer can consume to label progress by phase rather than raw
+   * stage id.
+   */
+  phases?: JourneyPhase[];
 }
 
 export interface JourneyStageRuntimeState {
@@ -458,6 +468,7 @@ export interface JourneyPhase {
   version: string;
   activeSince: string;
   title: string;
+  description?: string;
   stageIds: string[];
   completionCondition: ConditionExpression;
   supersededBy?: string;
