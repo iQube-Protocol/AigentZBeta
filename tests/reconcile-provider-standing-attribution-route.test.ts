@@ -44,6 +44,16 @@ vi.mock('@/services/crm/standingAccrualService', () => ({
   accrueStanding: (...args: any[]) => mockAccrueStanding(...args),
 }));
 
+// Mocking getActivePersona is sufficient to control BOTH the admin-persona
+// auth path (requireAdminPersona's own `getActivePersona` call resolves
+// through this same mock, since it imports the identical module specifier)
+// and this route's own derivation of correctingPersonaId — no separate mock
+// of requireAdmin.ts needed.
+const mockGetActivePersona = vi.fn();
+vi.mock('@/services/identity/getActivePersona', () => ({
+  getActivePersona: (req: unknown) => mockGetActivePersona(req),
+}));
+
 const mockCreateActivityReceipt = vi.fn(async (input: any) => ({
   id: `correction-${input.actionInput.originalReceiptId ?? input.actionInput.invocationReceiptId}`,
   ...input,
@@ -91,6 +101,11 @@ beforeEach(() => {
     Promise.resolve(agent.runtimeAgentId === PROVIDER ? PROVIDER_CRM_PERSONA : REQUESTER_CRM_PERSONA),
   );
   mockAccrueStanding.mockResolvedValue({ personal: 1, delegated: 0, stewardship: 0, overall: 1, bucket: 0, thresholdCrossed: false, sponsorCapacityCredited: false });
+  // Default: no authenticated persona at all — tests that rely on the
+  // CRON_TRIGGER_TOKEN path never call getActivePersona (isCronAuthorized
+  // short-circuits before it), so this default is only observed by the
+  // admin-persona-path tests that don't override it.
+  mockGetActivePersona.mockResolvedValue(null);
   existingCorrections = [];
   ingestRows = [{ createdAt: '2026-08-01T00:00:00.000Z' }];
   receiptRowsById = {
@@ -131,10 +146,19 @@ function correction(overrides: Partial<{ originalReceiptId: string; requestingAg
 }
 
 describe('POST /api/ops/journey/reconcile-provider-standing-attribution', () => {
-  it('refuses without a valid CRON_TRIGGER_TOKEN', async () => {
+  it('refuses without a valid CRON_TRIGGER_TOKEN and without an authenticated admin persona', async () => {
+    mockGetActivePersona.mockResolvedValue(null);
     const { POST } = await import('@/app/api/ops/journey/reconcile-provider-standing-attribution/route');
     const res = await POST(request({ corrections: [correction()] }, 'wrong-token'));
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(403);
+  });
+
+  it('refuses an authenticated persona that is not an admin, even with a wrong cron token', async () => {
+    mockGetActivePersona.mockResolvedValue({ personaId: 'p-non-admin', cartridgeFlags: { isAdmin: false } });
+    const { POST } = await import('@/app/api/ops/journey/reconcile-provider-standing-attribution/route');
+    const res = await POST(request({ corrections: [correction()] }, 'wrong-token'));
+    expect(res.status).toBe(403);
+    expect(mockAccrueStanding).not.toHaveBeenCalled();
   });
 
   it('requires a non-empty corrections array', async () => {
@@ -408,5 +432,74 @@ describe('POST /api/ops/journey/reconcile-provider-standing-attribution — mode
       expect.objectContaining({ runtimeAgentId: PROVIDER }),
       expect.anything(),
     );
+  });
+});
+
+describe('POST /api/ops/journey/reconcile-provider-standing-attribution — authenticated admin-persona path (operator directive: not cron-only)', () => {
+  const ADMIN_PERSONA_ID = 'persona-admin-1';
+
+  function adminRequest(body: unknown) {
+    // No x-cron-token match at all — proves the admin-persona path is a
+    // genuinely independent route to authorization, not merely a fallback
+    // that still needs the cron secret.
+    return request(body, 'not-the-cron-token');
+  }
+
+  it('an authenticated admin persona may run a correction with NO correctingPersonaId in the body — it is derived server-side', async () => {
+    mockGetActivePersona.mockResolvedValue({ personaId: ADMIN_PERSONA_ID, cartridgeFlags: { isAdmin: true } });
+    const { originalReceiptId, requestingAgentId, providerAgentId } = correction();
+    const { POST } = await import('@/app/api/ops/journey/reconcile-provider-standing-attribution/route');
+    const res = await POST(adminRequest({ corrections: [{ originalReceiptId, requestingAgentId, providerAgentId }] }));
+    const resolved = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(resolved.results[0].status).toBe('corrected');
+    // The audit receipt's correctingPersonaId is the SERVER-RESOLVED admin
+    // persona — never a raw JWT claim, never email, never client-supplied.
+    const auditCall = mockCreateActivityReceipt.mock.calls[0][0];
+    expect(auditCall.actionInput.correctingPersonaId).toBe(ADMIN_PERSONA_ID);
+  });
+
+  it('a body-supplied correctingPersonaId that matches the resolved admin persona is accepted', async () => {
+    mockGetActivePersona.mockResolvedValue({ personaId: ADMIN_PERSONA_ID, cartridgeFlags: { isAdmin: true } });
+    const { POST } = await import('@/app/api/ops/journey/reconcile-provider-standing-attribution/route');
+    const res = await POST(adminRequest({ corrections: [correction({ correctingPersonaId: ADMIN_PERSONA_ID })] }));
+    expect(res.status).toBe(200);
+  });
+
+  it('never trusts a body-supplied correctingPersonaId that does not match the resolved admin persona — refuses rather than silently overriding', async () => {
+    mockGetActivePersona.mockResolvedValue({ personaId: ADMIN_PERSONA_ID, cartridgeFlags: { isAdmin: true } });
+    const { POST } = await import('@/app/api/ops/journey/reconcile-provider-standing-attribution/route');
+    const res = await POST(adminRequest({ corrections: [correction({ correctingPersonaId: 'someone-elses-persona-id' })] }));
+    expect(res.status).toBe(400);
+    expect(mockAccrueStanding).not.toHaveBeenCalled();
+    expect(mockCreateActivityReceipt).not.toHaveBeenCalled();
+  });
+
+  it('a non-admin authenticated persona is refused 403, never treated as an implicit correctingPersonaId source', async () => {
+    mockGetActivePersona.mockResolvedValue({ personaId: 'persona-regular-user', cartridgeFlags: { isAdmin: false } });
+    const { POST } = await import('@/app/api/ops/journey/reconcile-provider-standing-attribution/route');
+    const res = await POST(adminRequest({ corrections: [correction()] }));
+    expect(res.status).toBe(403);
+    expect(mockAccrueStanding).not.toHaveBeenCalled();
+  });
+
+  it('the CRON_TRIGGER_TOKEN path is unaffected — a valid cron token still works exactly as before, with a body-supplied correctingPersonaId', async () => {
+    mockGetActivePersona.mockResolvedValue(null); // no persona at all — the cron path never needs one
+    const { POST } = await import('@/app/api/ops/journey/reconcile-provider-standing-attribution/route');
+    const res = await POST(request({ corrections: [correction({ correctingPersonaId: 'automation-caller' })] }));
+    const resolved = await res.json();
+    expect(res.status).toBe(200);
+    expect(resolved.results[0].status).toBe('corrected');
+    const auditCall = mockCreateActivityReceipt.mock.calls[0][0];
+    expect(auditCall.actionInput.correctingPersonaId).toBe('automation-caller');
+  });
+
+  it('the CRON_TRIGGER_TOKEN path still refuses (400) a correction missing correctingPersonaId in the body', async () => {
+    mockGetActivePersona.mockResolvedValue(null);
+    const { originalReceiptId, requestingAgentId, providerAgentId } = correction();
+    const { POST } = await import('@/app/api/ops/journey/reconcile-provider-standing-attribution/route');
+    const res = await POST(request({ corrections: [{ originalReceiptId, requestingAgentId, providerAgentId }] }));
+    expect(res.status).toBe(400);
   });
 });

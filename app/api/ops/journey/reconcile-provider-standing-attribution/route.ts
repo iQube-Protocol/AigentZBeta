@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+import { requireAdminPersona } from '@/app/api/_lib/requireAdmin';
+import { getActivePersona } from '@/services/identity/getActivePersona';
 import { resolveRegistrableAgentByRuntimeId, type RegistrableAgentConfig } from '@/services/horizen/registrableAgents';
 import { resolveAgentAdmissionState } from '@/services/journey/agentAdmissionState';
 import { resolveAgentStandingPersonaId, resolveCanonicalAgentPersonaId } from '@/services/standing/agentStandingPersona';
@@ -108,7 +110,23 @@ const BACKFILL_CORRECTION_KIND = 'service_completion_provider_backfill';
  *    inverse/reversal accrual (there is no requester credit to reverse) and
  *    NEVER a fabricated "original" `standing_accrued` receipt.
  *
- * Auth: CRON_TRIGGER_TOKEN, same convention as every other `/api/ops/*` route.
+ * ── Auth: two paths, neither weaker than the other ──────────────────────────
+ * This is an operator-authorized reconciliation, not a cron-only operation —
+ * `requireAdminPersona(req)` (`app/api/_lib/requireAdmin.ts`), the SAME
+ * spine-resolved admin gate every other admin route in this codebase uses,
+ * is checked alongside the pre-existing `CRON_TRIGGER_TOKEN` headless path
+ * (kept for automation). Neither path is weakened by the other:
+ * 1. `x-cron-token` / `Authorization: Bearer <CRON_TRIGGER_TOKEN>` — the
+ *    original headless/automation path. Unchanged. `correctingPersonaId`
+ *    is trusted from the request body on this path (there is no persona to
+ *    derive it from).
+ * 2. `requireAdminPersona(req)` — an authenticated admin persona's own
+ *    session. `correctingPersonaId` is NEVER trusted from the body on this
+ *    path: it is derived server-side from `getActivePersona(req)`. A
+ *    body-supplied `correctingPersonaId` that does not exactly match the
+ *    resolved persona's own id refuses the request (400) rather than being
+ *    silently overridden or silently trusted — never email, never a raw JWT
+ *    claim, only the spine's own resolved `personaId`.
  */
 
 type CorrectionMode = 'REATTRIBUTE' | 'BACKFILL_MISSING_PROVIDER_CREDIT';
@@ -118,7 +136,8 @@ interface ReattributeCorrectionRequest {
   originalReceiptId: string;
   requestingAgentId: string;
   providerAgentId: string;
-  correctingPersonaId: string;
+  /** Trusted from the body ONLY on the CRON_TRIGGER_TOKEN path. On the admin-persona path this is derived server-side — see the file header. */
+  correctingPersonaId?: string;
 }
 
 interface BackfillCorrectionRequest {
@@ -126,7 +145,8 @@ interface BackfillCorrectionRequest {
   invocationReceiptId: string;
   requestingAgentId: string;
   providerAgentId: string;
-  correctingPersonaId: string;
+  /** Trusted from the body ONLY on the CRON_TRIGGER_TOKEN path. On the admin-persona path this is derived server-side — see the file header. */
+  correctingPersonaId?: string;
 }
 
 type CorrectionRequest = ReattributeCorrectionRequest | BackfillCorrectionRequest;
@@ -408,14 +428,26 @@ async function reconcileOne(admin: SupabaseClient, correction: CorrectionRequest
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
-  const expected = process.env.CRON_TRIGGER_TOKEN;
-  if (!expected) {
-    return NextResponse.json({ error: 'cron_token_not_configured' }, { status: 503 });
-  }
-  const provided =
+  // ── Path 1: headless/automation, unchanged. ────────────────────────────────
+  const cronExpected = process.env.CRON_TRIGGER_TOKEN;
+  const cronProvided =
     request.headers.get('x-cron-token') || request.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
-  if (provided !== expected) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  const isCronAuthorized = Boolean(cronExpected) && cronProvided === cronExpected;
+
+  // ── Path 2: authenticated admin persona — the canonical spine gate, never
+  //    a hand-rolled check, never email/raw-JWT-claim authority. ─────────────
+  let adminPersonaId: string | null = null;
+  if (!isCronAuthorized) {
+    const isAdmin = await requireAdminPersona(request);
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'unauthorized' }, { status: 403 });
+    }
+    // requireAdminPersona's own ops-token branch (ADMIN_OPS_TOKEN) authorizes
+    // with no persona to resolve — that headless sub-case is treated the same
+    // as the CRON_TRIGGER_TOKEN path below (correctingPersonaId trusted from
+    // the body), since there is no persona identity to derive it from either.
+    const persona = await getActivePersona(request).catch(() => null);
+    adminPersonaId = persona?.personaId ?? null;
   }
 
   let body: { corrections?: CorrectionRequest[] };
@@ -429,9 +461,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'corrections (non-empty array) is required' }, { status: 400 });
   }
   for (const c of corrections) {
-    if (!c.requestingAgentId || !c.providerAgentId || !c.correctingPersonaId) {
+    if (!c.requestingAgentId || !c.providerAgentId) {
       return NextResponse.json(
-        { error: 'each correction requires requestingAgentId, providerAgentId, correctingPersonaId' },
+        { error: 'each correction requires requestingAgentId and providerAgentId' },
         { status: 400 },
       );
     }
@@ -441,6 +473,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
     } else if (!c.originalReceiptId) {
       return NextResponse.json({ error: 'mode REATTRIBUTE (the default) requires originalReceiptId' }, { status: 400 });
+    }
+    if (adminPersonaId) {
+      // Never trust a body-supplied correctingPersonaId on the persona-
+      // authenticated path — derive it server-side, and refuse outright
+      // rather than silently overriding a mismatched one.
+      if (c.correctingPersonaId && c.correctingPersonaId !== adminPersonaId) {
+        return NextResponse.json(
+          { error: `correctingPersonaId '${c.correctingPersonaId}' does not match the authenticated admin persona — refusing rather than trusting a body-supplied value` },
+          { status: 400 },
+        );
+      }
+      c.correctingPersonaId = adminPersonaId;
+    } else if (!c.correctingPersonaId) {
+      return NextResponse.json({ error: 'each correction requires correctingPersonaId on the headless/server-token path' }, { status: 400 });
     }
   }
 
@@ -473,7 +519,9 @@ export async function GET(): Promise<NextResponse> {
         "'BACKFILL_MISSING_PROVIDER_CREDIT' issues the provider's missing credit for a genuinely completed " +
         'interaction that produced NO Standing receipt at all — never a reversal, never a fabricated original ' +
         'receipt — body: { mode, invocationReceiptId, requestingAgentId, providerAgentId, correctingPersonaId }. ' +
-        'Requires x-cron-token header (CRON_TRIGGER_TOKEN).',
+        'Auth: EITHER an x-cron-token header (CRON_TRIGGER_TOKEN, headless/automation — correctingPersonaId trusted ' +
+        'from the body) OR an authenticated admin persona session via requireAdminPersona (correctingPersonaId is ' +
+        'derived server-side from the resolved persona and MUST NOT be supplied, or must exactly match, in the body).',
     },
     { headers: { 'Cache-Control': 'no-store' } },
   );
