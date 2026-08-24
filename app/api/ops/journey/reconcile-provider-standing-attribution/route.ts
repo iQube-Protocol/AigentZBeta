@@ -11,7 +11,8 @@ import { SERVICE_COMPLETION_CVS } from '@/services/financialServices/serviceRequ
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-const CORRECTION_KIND = 'service_completion_reattribution';
+const REATTRIBUTE_CORRECTION_KIND = 'service_completion_reattribution';
+const BACKFILL_CORRECTION_KIND = 'service_completion_provider_backfill';
 
 /**
  * POST /api/ops/journey/reconcile-provider-standing-attribution
@@ -78,18 +79,63 @@ const CORRECTION_KIND = 'service_completion_reattribution';
  * applied here explicitly because a Financial Services contribution accrual
  * is not otherwise ingestion-gated.
  *
+ * ── Second mode: BACKFILL_MISSING_PROVIDER_CREDIT (operator directive,
+ *    live-DB-verified follow-up) ──────────────────────────────────────────
+ * The operator's own live read of the dev database established that of
+ * three genuinely completed MoneyPenny service interactions, only ONE has a
+ * matching erroneous requester-side `standing_accrued` receipt to reverse —
+ * the other two have NO Standing receipt at all (the provider credit was
+ * simply never issued; there is nothing to reverse). Reusing the
+ * REATTRIBUTE flow for those would require fabricating a nonexistent
+ * "original receipt", which this route must never do.
+ *
+ * `mode: 'BACKFILL_MISSING_PROVIDER_CREDIT'` instead takes the REAL
+ * `capability_invocation_completed` receipt id for the historical
+ * interaction (`invocationReceiptId`) and:
+ * 1. Verifies that receipt genuinely exists, is a `capability_invocation_completed`
+ *    receipt, and that its OWN `agents_invoked`/`action_input.resolvedProviderId`
+ *    corroborate the caller-supplied `requestingAgentId`/`providerAgentId` —
+ *    never trusting caller-supplied identity alone.
+ * 2. Verifies sequencing exactly as REATTRIBUTE does (provider's genuine
+ *    `capability_registered` receipt must precede the invocation).
+ * 3. Verifies prior-credit absence via the SAME idempotency marker pattern
+ *    (a `standing_corrected` receipt already naming this exact
+ *    `invocationReceiptId` under `correctionKind:
+ *    'service_completion_provider_backfill'` means it was already backfilled
+ *    — skip, never re-credit).
+ * 4. Issues the provider's missing credit ONCE via an ordinary
+ *    `accrueStanding({ cvs: +SERVICE_COMPLETION_CVS, ... })` call — NEVER an
+ *    inverse/reversal accrual (there is no requester credit to reverse) and
+ *    NEVER a fabricated "original" `standing_accrued` receipt.
+ *
  * Auth: CRON_TRIGGER_TOKEN, same convention as every other `/api/ops/*` route.
  */
 
-interface CorrectionRequest {
+type CorrectionMode = 'REATTRIBUTE' | 'BACKFILL_MISSING_PROVIDER_CREDIT';
+
+interface ReattributeCorrectionRequest {
+  mode?: 'REATTRIBUTE';
   originalReceiptId: string;
   requestingAgentId: string;
   providerAgentId: string;
   correctingPersonaId: string;
 }
 
+interface BackfillCorrectionRequest {
+  mode: 'BACKFILL_MISSING_PROVIDER_CREDIT';
+  invocationReceiptId: string;
+  requestingAgentId: string;
+  providerAgentId: string;
+  correctingPersonaId: string;
+}
+
+type CorrectionRequest = ReattributeCorrectionRequest | BackfillCorrectionRequest;
+
 interface CorrectionResult {
-  originalReceiptId: string;
+  mode: CorrectionMode;
+  /** Echoes whichever id the request named — `originalReceiptId` for REATTRIBUTE, `invocationReceiptId` for BACKFILL. */
+  originalReceiptId?: string;
+  invocationReceiptId?: string;
   status: 'corrected' | 'skipped_already_corrected' | 'refused';
   refusalCode?: string;
   detail?: string;
@@ -125,31 +171,32 @@ async function resolveAgentStandingContext(
   return { ok: true, identityPersonaId, crmPersonaId };
 }
 
-async function reconcileOne(admin: SupabaseClient, correction: CorrectionRequest): Promise<CorrectionResult> {
+async function reconcileReattribute(admin: SupabaseClient, correction: ReattributeCorrectionRequest): Promise<CorrectionResult> {
   const { originalReceiptId, requestingAgentId, providerAgentId, correctingPersonaId } = correction;
+  const mode: CorrectionMode = 'REATTRIBUTE';
 
   const requestingAgent = resolveRegistrableAgentByRuntimeId(requestingAgentId);
   if (!requestingAgent) {
-    return { originalReceiptId, status: 'refused', refusalCode: 'UNKNOWN_REQUESTING_AGENT', detail: `'${requestingAgentId}' is not a canonical registrable agent` };
+    return { mode, originalReceiptId, status: 'refused', refusalCode: 'UNKNOWN_REQUESTING_AGENT', detail: `'${requestingAgentId}' is not a canonical registrable agent` };
   }
   const providerAgent = resolveRegistrableAgentByRuntimeId(providerAgentId);
   if (!providerAgent) {
-    return { originalReceiptId, status: 'refused', refusalCode: 'UNKNOWN_PROVIDER_AGENT', detail: `'${providerAgentId}' is not a canonical registrable agent` };
+    return { mode, originalReceiptId, status: 'refused', refusalCode: 'UNKNOWN_PROVIDER_AGENT', detail: `'${providerAgentId}' is not a canonical registrable agent` };
   }
 
   const requesterCtx = await resolveAgentStandingContext(admin, requestingAgent);
-  if (!requesterCtx.ok) return { originalReceiptId, status: 'refused', refusalCode: requesterCtx.refusalCode, detail: requesterCtx.detail };
+  if (!requesterCtx.ok) return { mode, originalReceiptId, status: 'refused', refusalCode: requesterCtx.refusalCode, detail: requesterCtx.detail };
 
   const providerCtx = await resolveAgentStandingContext(admin, providerAgent);
-  if (!providerCtx.ok) return { originalReceiptId, status: 'refused', refusalCode: providerCtx.refusalCode, detail: providerCtx.detail };
+  if (!providerCtx.ok) return { mode, originalReceiptId, status: 'refused', refusalCode: providerCtx.refusalCode, detail: providerCtx.detail };
 
   // Idempotency FIRST — never re-derive anything for an already-reconciled receipt.
   const existingCorrections = await findAgentReceiptRefs(providerAgentId, ['standing_corrected'], { limit: 100 });
   const alreadyCorrected = existingCorrections.some(
-    (r) => r.actionInput?.correctionKind === CORRECTION_KIND && r.actionInput?.originalReceiptId === originalReceiptId,
+    (r) => r.actionInput?.correctionKind === REATTRIBUTE_CORRECTION_KIND && r.actionInput?.originalReceiptId === originalReceiptId,
   );
   if (alreadyCorrected) {
-    return { originalReceiptId, status: 'skipped_already_corrected' };
+    return { mode, originalReceiptId, status: 'skipped_already_corrected' };
   }
 
   const { data: originalRow, error: readErr } = await admin
@@ -157,13 +204,14 @@ async function reconcileOne(admin: SupabaseClient, correction: CorrectionRequest
     .select('id, action_type, persona_id, agents_invoked, action_input, created_at')
     .eq('id', originalReceiptId)
     .maybeSingle();
-  if (readErr) return { originalReceiptId, status: 'refused', refusalCode: 'READ_FAILED', detail: readErr.message };
-  if (!originalRow) return { originalReceiptId, status: 'refused', refusalCode: 'ORIGINAL_RECEIPT_NOT_FOUND', detail: `no receipt '${originalReceiptId}'` };
+  if (readErr) return { mode, originalReceiptId, status: 'refused', refusalCode: 'READ_FAILED', detail: readErr.message };
+  if (!originalRow) return { mode, originalReceiptId, status: 'refused', refusalCode: 'ORIGINAL_RECEIPT_NOT_FOUND', detail: `no receipt '${originalReceiptId}'` };
   if (originalRow.action_type !== 'standing_accrued') {
-    return { originalReceiptId, status: 'refused', refusalCode: 'NOT_A_STANDING_ACCRUAL', detail: `receipt action_type is '${originalRow.action_type}'` };
+    return { mode, originalReceiptId, status: 'refused', refusalCode: 'NOT_A_STANDING_ACCRUAL', detail: `receipt action_type is '${originalRow.action_type}'` };
   }
   if (originalRow.persona_id !== requesterCtx.identityPersonaId) {
     return {
+      mode,
       originalReceiptId,
       status: 'refused',
       refusalCode: 'RECEIPT_NOT_REQUESTER_CREDITED',
@@ -178,6 +226,7 @@ async function reconcileOne(admin: SupabaseClient, correction: CorrectionRequest
   const originalCreatedAt = originalRow.created_at as string;
   if (!earliestGenuineIngestAt || originalCreatedAt < earliestGenuineIngestAt) {
     return {
+      mode,
       originalReceiptId,
       status: 'refused',
       refusalCode: 'SEQUENCING_INVALID',
@@ -210,7 +259,7 @@ async function reconcileOne(admin: SupabaseClient, correction: CorrectionRequest
     summary: `Service-completion Standing reattributed: ${originalReceiptId} (requester ${requestingAgentId}) reversed, ${providerAgentId} credited genuinely`,
     agentsInvoked: [providerAgentId],
     actionInput: {
-      correctionKind: CORRECTION_KIND,
+      correctionKind: REATTRIBUTE_CORRECTION_KIND,
       originalReceiptId,
       requestingAgentId,
       providerAgentId,
@@ -219,12 +268,143 @@ async function reconcileOne(admin: SupabaseClient, correction: CorrectionRequest
   }).catch(() => null);
 
   return {
+    mode,
     originalReceiptId,
     status: 'corrected',
     reversalApplied: reversal !== null,
     creditApplied: credit !== null,
     correctionReceiptId: correctionReceipt?.id ?? null,
   };
+}
+
+async function reconcileBackfill(admin: SupabaseClient, correction: BackfillCorrectionRequest): Promise<CorrectionResult> {
+  const { invocationReceiptId, requestingAgentId, providerAgentId, correctingPersonaId } = correction;
+  const mode: CorrectionMode = 'BACKFILL_MISSING_PROVIDER_CREDIT';
+
+  const requestingAgent = resolveRegistrableAgentByRuntimeId(requestingAgentId);
+  if (!requestingAgent) {
+    return { mode, invocationReceiptId, status: 'refused', refusalCode: 'UNKNOWN_REQUESTING_AGENT', detail: `'${requestingAgentId}' is not a canonical registrable agent` };
+  }
+  const providerAgent = resolveRegistrableAgentByRuntimeId(providerAgentId);
+  if (!providerAgent) {
+    return { mode, invocationReceiptId, status: 'refused', refusalCode: 'UNKNOWN_PROVIDER_AGENT', detail: `'${providerAgentId}' is not a canonical registrable agent` };
+  }
+
+  // Resolving/provisioning the provider's Standing context is what lets the
+  // FIRST real credit idempotently provision MoneyPenny's missing
+  // `aigent-canonical-standing` persona — no separate provisioning step.
+  const providerCtx = await resolveAgentStandingContext(admin, providerAgent);
+  if (!providerCtx.ok) return { mode, invocationReceiptId, status: 'refused', refusalCode: providerCtx.refusalCode, detail: providerCtx.detail };
+
+  // Idempotency / prior-credit-absence FIRST — never re-derive anything for
+  // an interaction already backfilled.
+  const existingCorrections = await findAgentReceiptRefs(providerAgentId, ['standing_corrected'], { limit: 100 });
+  const alreadyBackfilled = existingCorrections.some(
+    (r) => r.actionInput?.correctionKind === BACKFILL_CORRECTION_KIND && r.actionInput?.invocationReceiptId === invocationReceiptId,
+  );
+  if (alreadyBackfilled) {
+    return { mode, invocationReceiptId, status: 'skipped_already_corrected' };
+  }
+
+  // Verify the completed interaction is REAL — never fabricate an "original"
+  // Standing receipt for it (there was never one to reverse).
+  const { data: invocationRow, error: readErr } = await admin
+    .from('activity_receipts')
+    .select('id, action_type, agents_invoked, action_input, created_at')
+    .eq('id', invocationReceiptId)
+    .maybeSingle();
+  if (readErr) return { mode, invocationReceiptId, status: 'refused', refusalCode: 'READ_FAILED', detail: readErr.message };
+  if (!invocationRow) {
+    return { mode, invocationReceiptId, status: 'refused', refusalCode: 'INVOCATION_RECEIPT_NOT_FOUND', detail: `no receipt '${invocationReceiptId}'` };
+  }
+  if (invocationRow.action_type !== 'capability_invocation_completed') {
+    return {
+      mode,
+      invocationReceiptId,
+      status: 'refused',
+      refusalCode: 'NOT_A_COMPLETED_INVOCATION',
+      detail: `receipt action_type is '${invocationRow.action_type}'`,
+    };
+  }
+
+  // Verify requester + provider against the receipt's OWN evidence — never
+  // trust caller-supplied identity alone (emitCapabilityInvocationCompleted
+  // writes agentsInvoked: [requestingAgentId, orchestratorAgentId?,
+  // resolvedProviderId] and actionInput.resolvedProviderId).
+  const invoked = Array.isArray(invocationRow.agents_invoked) ? (invocationRow.agents_invoked as string[]) : [];
+  if (!invoked.includes(requestingAgentId)) {
+    return {
+      mode,
+      invocationReceiptId,
+      status: 'refused',
+      refusalCode: 'REQUESTER_NOT_IN_INVOCATION',
+      detail: `'${requestingAgentId}' does not appear in this invocation's agents_invoked — refusing to guess`,
+    };
+  }
+  const invocationActionInput = (invocationRow.action_input ?? {}) as Record<string, unknown>;
+  if (invocationActionInput.resolvedProviderId !== providerAgentId || !invoked.includes(providerAgentId)) {
+    return {
+      mode,
+      invocationReceiptId,
+      status: 'refused',
+      refusalCode: 'PROVIDER_NOT_IN_INVOCATION',
+      detail: `'${providerAgentId}' is not this invocation's resolvedProviderId — refusing to guess`,
+    };
+  }
+
+  // Sequencing validity — identical discipline to REATTRIBUTE.
+  const providerIngestRows = await findAgentReceiptRefs(providerAgentId, ['capability_registered'], { limit: 50 });
+  const earliestGenuineIngestAt = providerIngestRows.map((r) => r.createdAt).sort()[0] ?? null;
+  const invocationCreatedAt = invocationRow.created_at as string;
+  if (!earliestGenuineIngestAt || invocationCreatedAt < earliestGenuineIngestAt) {
+    return {
+      mode,
+      invocationReceiptId,
+      status: 'refused',
+      refusalCode: 'SEQUENCING_INVALID',
+      detail: `no genuine capability_registered receipt for ${providerAgentId} precedes ${invocationReceiptId}`,
+    };
+  }
+
+  // ── Issue the missing provider credit ONCE — no reversal, nothing to
+  //    reverse (operator: "do not issue inverse requester accruals for those
+  //    two because no requester credit exists to reverse"). ─────────────────
+  const credit = await accrueStanding({
+    crmPersonaId: providerCtx.crmPersonaId,
+    cvs: SERVICE_COMPLETION_CVS,
+    subjectAgentRef: providerAgentId,
+    requestingAgentRef: requestingAgentId,
+  });
+
+  const correctionReceipt = await createActivityReceipt({
+    personaId: providerCtx.identityPersonaId,
+    actionType: 'standing_corrected',
+    activeCartridge: 'metame',
+    summary: `Missing provider Standing credit backfilled: ${invocationReceiptId} (requester ${requestingAgentId}) — ${providerAgentId} credited genuinely; no prior requester credit existed to reverse`,
+    agentsInvoked: [providerAgentId],
+    actionInput: {
+      correctionKind: BACKFILL_CORRECTION_KIND,
+      invocationReceiptId,
+      requestingAgentId,
+      providerAgentId,
+      correctingPersonaId,
+    },
+  }).catch(() => null);
+
+  return {
+    mode,
+    invocationReceiptId,
+    status: 'corrected',
+    creditApplied: credit !== null,
+    correctionReceiptId: correctionReceipt?.id ?? null,
+  };
+}
+
+async function reconcileOne(admin: SupabaseClient, correction: CorrectionRequest): Promise<CorrectionResult> {
+  if (correction.mode === 'BACKFILL_MISSING_PROVIDER_CREDIT') {
+    return reconcileBackfill(admin, correction);
+  }
+  return reconcileReattribute(admin, correction);
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -249,11 +429,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'corrections (non-empty array) is required' }, { status: 400 });
   }
   for (const c of corrections) {
-    if (!c.originalReceiptId || !c.requestingAgentId || !c.providerAgentId || !c.correctingPersonaId) {
+    if (!c.requestingAgentId || !c.providerAgentId || !c.correctingPersonaId) {
       return NextResponse.json(
-        { error: 'each correction requires originalReceiptId, requestingAgentId, providerAgentId, correctingPersonaId' },
+        { error: 'each correction requires requestingAgentId, providerAgentId, correctingPersonaId' },
         { status: 400 },
       );
+    }
+    if (c.mode === 'BACKFILL_MISSING_PROVIDER_CREDIT') {
+      if (!c.invocationReceiptId) {
+        return NextResponse.json({ error: 'mode BACKFILL_MISSING_PROVIDER_CREDIT requires invocationReceiptId' }, { status: 400 });
+      }
+    } else if (!c.originalReceiptId) {
+      return NextResponse.json({ error: 'mode REATTRIBUTE (the default) requires originalReceiptId' }, { status: 400 });
     }
   }
 
@@ -279,11 +466,14 @@ export async function GET(): Promise<NextResponse> {
     {
       method: 'POST',
       description:
-        'Idempotent, non-destructive reconciliation for pre-P0-A live pilot Financial Services interactions: ' +
-        'reverses the erroneous requester-side Standing credit and accrues the provider once, genuinely, per ' +
-        'explicitly-supplied original receipt id. Never auto-discovers candidates (No-Guessing rule) — the operator ' +
-        'must name each originalReceiptId. Body: { corrections: [{ originalReceiptId, requestingAgentId, ' +
-        'providerAgentId, correctingPersonaId }] }. Requires x-cron-token header (CRON_TRIGGER_TOKEN).',
+        'Idempotent, non-destructive reconciliation for pre-P0-A live pilot Financial Services interactions. Two ' +
+        'additive modes, both requiring explicit receipt ids (No-Guessing rule — never auto-discovers candidates): ' +
+        "mode 'REATTRIBUTE' (default) reverses an erroneous requester-side standing_accrued credit and accrues the " +
+        'provider once — body: { originalReceiptId, requestingAgentId, providerAgentId, correctingPersonaId }. mode ' +
+        "'BACKFILL_MISSING_PROVIDER_CREDIT' issues the provider's missing credit for a genuinely completed " +
+        'interaction that produced NO Standing receipt at all — never a reversal, never a fabricated original ' +
+        'receipt — body: { mode, invocationReceiptId, requestingAgentId, providerAgentId, correctingPersonaId }. ' +
+        'Requires x-cron-token header (CRON_TRIGGER_TOKEN).',
     },
     { headers: { 'Cache-Control': 'no-store' } },
   );

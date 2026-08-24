@@ -27,6 +27,11 @@
       "path": "tests/reconcile-provider-standing-attribution-route.test.ts",
       "assertion": "the reconciliation route reverses the exact inverse magnitude on the REQUESTER's own persona and credits the PROVIDER's own persona once, genuinely, never crediting the requester and never re-crediting an already-corrected receipt.",
       "verifiedFailingBeforeFix": false
+    },
+    {
+      "path": "tests/reconcile-provider-standing-attribution-route.test.ts",
+      "assertion": "mode BACKFILL_MISSING_PROVIDER_CREDIT (added after the operator's live-DB read found two completed interactions with no Standing receipt at all): issues the provider's missing credit exactly once via a single positive accrueStanding call, with zero reversal calls — the variant of this invariant where the defect isn't a MISDIRECTED credit but a MISSING one entirely still resolves to 'credit the provider, from real completed-work evidence, never the requester.'",
+      "verifiedFailingBeforeFix": false
     }
   ],
   "occurrences": [
@@ -37,6 +42,14 @@
       "evidence": [
         "services/financialServices/serviceRequestOrchestrator.ts",
         "services/crm/standingAccrualService.ts",
+        "app/api/ops/journey/reconcile-provider-standing-attribution/route.ts"
+      ]
+    },
+    {
+      "site": "live dev database (two of three completed MoneyPenny interactions)",
+      "defect": "Two genuinely completed provider interactions produced no Standing receipt at all — not a misdirected credit but an entirely missing one, discovered only by the operator's own live read of the database (no code-level signal could have found this without the live data).",
+      "resolutionId": "RES-2026-08-23-FSVC-PROVIDER-STANDING-ATTRIBUTION-001",
+      "evidence": [
         "app/api/ops/journey/reconcile-provider-standing-attribution/route.ts"
       ]
     }

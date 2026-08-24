@@ -20,6 +20,7 @@ const REQUESTER_IDENTITY_PERSONA = 'identity-persona-requester';
 const PROVIDER_CRM_PERSONA = 'crm-provider';
 const REQUESTER_CRM_PERSONA = 'crm-requester';
 const ORIGINAL_RECEIPT_ID = 'original-receipt-1';
+const INVOCATION_RECEIPT_ID = 'invocation-receipt-1';
 
 const mockResolveRegistrableAgentByRuntimeId = vi.fn();
 vi.mock('@/services/horizen/registrableAgents', () => ({
@@ -43,7 +44,10 @@ vi.mock('@/services/crm/standingAccrualService', () => ({
   accrueStanding: (...args: any[]) => mockAccrueStanding(...args),
 }));
 
-const mockCreateActivityReceipt = vi.fn(async (input: any) => ({ id: `correction-${input.actionInput.originalReceiptId}`, ...input }));
+const mockCreateActivityReceipt = vi.fn(async (input: any) => ({
+  id: `correction-${input.actionInput.originalReceiptId ?? input.actionInput.invocationReceiptId}`,
+  ...input,
+}));
 let existingCorrections: Array<{ actionInput: Record<string, unknown> | null }>;
 let ingestRows: Array<{ createdAt: string }>;
 const mockFindAgentReceiptRefs = vi.fn(async (_agentId: string, actionTypes: string[]) =>
@@ -89,7 +93,15 @@ beforeEach(() => {
   mockAccrueStanding.mockResolvedValue({ personal: 1, delegated: 0, stewardship: 0, overall: 1, bucket: 0, thresholdCrossed: false, sponsorCapacityCredited: false });
   existingCorrections = [];
   ingestRows = [{ createdAt: '2026-08-01T00:00:00.000Z' }];
-  receiptRowsById = {};
+  receiptRowsById = {
+    [INVOCATION_RECEIPT_ID]: {
+      id: INVOCATION_RECEIPT_ID,
+      action_type: 'capability_invocation_completed',
+      agents_invoked: [REQUESTER, PROVIDER],
+      action_input: { resolvedProviderId: PROVIDER, invocationId: 'inv-1' },
+      created_at: '2026-08-10T00:00:00.000Z',
+    },
+  };
   originalRow = {
     id: ORIGINAL_RECEIPT_ID,
     action_type: 'standing_accrued',
@@ -256,5 +268,145 @@ describe('POST /api/ops/journey/reconcile-provider-standing-attribution', () => 
     expect(json.results[0].status).toBe('corrected');
     expect(json.results[1].status).toBe('refused');
     expect(json.results[1].refusalCode).toBe('ORIGINAL_RECEIPT_NOT_FOUND');
+  });
+});
+
+function backfillCorrection(
+  overrides: Partial<{ invocationReceiptId: string; requestingAgentId: string; providerAgentId: string; correctingPersonaId: string }> = {},
+) {
+  return {
+    mode: 'BACKFILL_MISSING_PROVIDER_CREDIT' as const,
+    invocationReceiptId: INVOCATION_RECEIPT_ID,
+    requestingAgentId: REQUESTER,
+    providerAgentId: PROVIDER,
+    correctingPersonaId: 'operator-1',
+    ...overrides,
+  };
+}
+
+describe('POST /api/ops/journey/reconcile-provider-standing-attribution — mode BACKFILL_MISSING_PROVIDER_CREDIT', () => {
+  it('requires invocationReceiptId for this mode', async () => {
+    const { POST } = await import('@/app/api/ops/journey/reconcile-provider-standing-attribution/route');
+    const res = await POST(
+      request({ corrections: [{ mode: 'BACKFILL_MISSING_PROVIDER_CREDIT', requestingAgentId: REQUESTER, providerAgentId: PROVIDER, correctingPersonaId: 'op-1' }] }),
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it('issues the missing provider credit ONCE — no reversal, since no requester credit exists to reverse', async () => {
+    const { POST } = await import('@/app/api/ops/journey/reconcile-provider-standing-attribution/route');
+    const res = await POST(request({ corrections: [backfillCorrection()] }));
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.results[0].status).toBe('corrected');
+    expect(json.results[0].mode).toBe('BACKFILL_MISSING_PROVIDER_CREDIT');
+    expect(json.results[0].invocationReceiptId).toBe(INVOCATION_RECEIPT_ID);
+
+    // Exactly ONE accrual — the provider's positive credit — never a
+    // reversal (there is no requester credit to reverse).
+    expect(mockAccrueStanding).toHaveBeenCalledTimes(1);
+    expect(mockAccrueStanding).toHaveBeenCalledWith(
+      expect.objectContaining({ crmPersonaId: PROVIDER_CRM_PERSONA, cvs: SERVICE_COMPLETION_CVS, subjectAgentRef: PROVIDER, requestingAgentRef: REQUESTER }),
+    );
+    for (const call of mockAccrueStanding.mock.calls) {
+      expect(call[0].cvs).toBeGreaterThan(0); // never negative in this mode
+    }
+
+    // Additive audit receipt naming the REAL invocation receipt — never a fabricated "original" standing receipt.
+    expect(mockCreateActivityReceipt).toHaveBeenCalledTimes(1);
+    const auditCall = mockCreateActivityReceipt.mock.calls[0][0];
+    expect(auditCall.actionType).toBe('standing_corrected');
+    expect(auditCall.agentsInvoked).toEqual([PROVIDER]);
+    expect(auditCall.actionInput).toMatchObject({
+      correctionKind: 'service_completion_provider_backfill',
+      invocationReceiptId: INVOCATION_RECEIPT_ID,
+      requestingAgentId: REQUESTER,
+      providerAgentId: PROVIDER,
+    });
+    expect(auditCall.actionInput.originalReceiptId).toBeUndefined();
+  });
+
+  it('idempotent: re-running against an already-backfilled invocation writes nothing new and never re-accrues', async () => {
+    existingCorrections = [
+      { actionInput: { correctionKind: 'service_completion_provider_backfill', invocationReceiptId: INVOCATION_RECEIPT_ID } },
+    ];
+    const { POST } = await import('@/app/api/ops/journey/reconcile-provider-standing-attribution/route');
+    const res = await POST(request({ corrections: [backfillCorrection()] }));
+    const json = await res.json();
+
+    expect(json.results[0].status).toBe('skipped_already_corrected');
+    expect(mockAccrueStanding).not.toHaveBeenCalled();
+    expect(mockCreateActivityReceipt).not.toHaveBeenCalled();
+  });
+
+  it('refuses when the invocation receipt does not exist', async () => {
+    receiptRowsById[INVOCATION_RECEIPT_ID] = null;
+    const { POST } = await import('@/app/api/ops/journey/reconcile-provider-standing-attribution/route');
+    const res = await POST(request({ corrections: [backfillCorrection()] }));
+    const json = await res.json();
+
+    expect(json.results[0].status).toBe('refused');
+    expect(json.results[0].refusalCode).toBe('INVOCATION_RECEIPT_NOT_FOUND');
+  });
+
+  it('refuses a receipt that is not a capability_invocation_completed receipt at all — never fabricates one', async () => {
+    receiptRowsById[INVOCATION_RECEIPT_ID] = { ...receiptRowsById[INVOCATION_RECEIPT_ID], action_type: 'standing_accrued' };
+    const { POST } = await import('@/app/api/ops/journey/reconcile-provider-standing-attribution/route');
+    const res = await POST(request({ corrections: [backfillCorrection()] }));
+    const json = await res.json();
+
+    expect(json.results[0].status).toBe('refused');
+    expect(json.results[0].refusalCode).toBe('NOT_A_COMPLETED_INVOCATION');
+  });
+
+  it("No-Guessing: refuses when the named requester does not actually appear in the invocation's own evidence", async () => {
+    receiptRowsById[INVOCATION_RECEIPT_ID] = { ...receiptRowsById[INVOCATION_RECEIPT_ID], agents_invoked: [PROVIDER] };
+    const { POST } = await import('@/app/api/ops/journey/reconcile-provider-standing-attribution/route');
+    const res = await POST(request({ corrections: [backfillCorrection()] }));
+    const json = await res.json();
+
+    expect(json.results[0].status).toBe('refused');
+    expect(json.results[0].refusalCode).toBe('REQUESTER_NOT_IN_INVOCATION');
+    expect(mockAccrueStanding).not.toHaveBeenCalled();
+  });
+
+  it("No-Guessing: refuses when the named provider does not match the invocation's own resolvedProviderId", async () => {
+    receiptRowsById[INVOCATION_RECEIPT_ID] = {
+      ...receiptRowsById[INVOCATION_RECEIPT_ID],
+      action_input: { resolvedProviderId: 'aigent-someone-else' },
+    };
+    const { POST } = await import('@/app/api/ops/journey/reconcile-provider-standing-attribution/route');
+    const res = await POST(request({ corrections: [backfillCorrection()] }));
+    const json = await res.json();
+
+    expect(json.results[0].status).toBe('refused');
+    expect(json.results[0].refusalCode).toBe('PROVIDER_NOT_IN_INVOCATION');
+    expect(mockAccrueStanding).not.toHaveBeenCalled();
+  });
+
+  it('SEQUENCING_INVALID: refuses when the interaction predates the provider\'s earliest genuine capability_registered receipt', async () => {
+    ingestRows = [{ createdAt: '2026-09-01T00:00:00.000Z' }]; // AFTER the interaction
+    const { POST } = await import('@/app/api/ops/journey/reconcile-provider-standing-attribution/route');
+    const res = await POST(request({ corrections: [backfillCorrection()] }));
+    const json = await res.json();
+
+    expect(json.results[0].status).toBe('refused');
+    expect(json.results[0].refusalCode).toBe('SEQUENCING_INVALID');
+    expect(mockAccrueStanding).not.toHaveBeenCalled();
+  });
+
+  it('provisions the provider\'s canonical Standing persona idempotently as part of the first real credit (never a separate provisioning step)', async () => {
+    // Simulate "no aigent-canonical-standing persona exists yet" by having
+    // the resolver itself perform the provisioning — this test just proves
+    // the route calls the resolver (which owns provisioning) rather than
+    // assuming a persona id already exists.
+    const { POST } = await import('@/app/api/ops/journey/reconcile-provider-standing-attribution/route');
+    await POST(request({ corrections: [backfillCorrection()] }));
+    expect(mockResolveAgentStandingPersonaId).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ runtimeAgentId: PROVIDER }),
+      expect.anything(),
+    );
   });
 });
