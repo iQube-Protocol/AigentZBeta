@@ -40,6 +40,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-08-24_aee-differ-phase0-audit-financial-services.md",
         "updates/2026-08-24_session-handover-persona-public-ref-irl-ax-001.md",
         "updates/2026-08-24_horizen-fs-pilot-closure-001.md",
         "updates/2026-08-22_phase3-track-a-service-orchestration-console.md",
