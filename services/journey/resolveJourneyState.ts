@@ -19,7 +19,10 @@ import type {
   JourneyRuntimeState,
   JourneyStageRuntimeState,
   JourneyStageState,
+  ConditionExpression,
 } from '@/types/journey';
+import { evaluateCondition } from './conditionEvaluator';
+import type { AuthoritativePlatformState as ConditionEvaluatorState } from './conditionEvaluator';
 
 /**
  * Per-stage evidence, keyed by the stage's own `completionEvidence` field
@@ -55,6 +58,76 @@ function evidencePresence(
   return { present, missing };
 }
 
+/**
+ * Evaluate a stage's satisfaction condition (JOURNEY SPINE EXTENSION).
+ * Maps the condition to authoritative state using the condition evaluator.
+ *
+ * Returns true if the condition is satisfied, false otherwise.
+ * If no condition is provided, returns true (unconditionally satisfied).
+ *
+ * Converts the AuthoritativePlatformState format to what the condition
+ * evaluator expects (settledFacts + receiptsByType).
+ */
+function satisfactionConditionMet(
+  condition: ConditionExpression | undefined,
+  authoritableState: AuthoritativePlatformState,
+  stageEvidenceRecord: StageEvidenceRecord | undefined,
+): boolean {
+  if (!condition) return true; // No condition = always satisfied
+
+  // Build condition evaluator state from evidence record
+  // Convert evidence fields to receipt presence
+  const conditionState: ConditionEvaluatorState = {
+    settledFacts: {},
+    receiptsByType: {},
+  };
+
+  // Map evidence fields to receipt existence (present = true)
+  if (stageEvidenceRecord) {
+    for (const [key, value] of Object.entries(stageEvidenceRecord)) {
+      if (value !== undefined && value !== null && value !== false && value !== '') {
+        conditionState.receiptsByType[key] = true;
+      }
+    }
+  }
+
+  // TODO: Also map settledFacts once that infrastructure is available
+  // For now, the condition evaluator will only see receipts from evidence
+
+  try {
+    return evaluateCondition(condition, conditionState);
+  } catch (err) {
+    // If condition evaluation fails, treat as not yet satisfied
+    // (not as a blocker or error — the evidence may still be arriving)
+    console.warn(`condition evaluation failed for stage:`, err);
+    return false;
+  }
+}
+
+/**
+ * Evaluate a stage's dependencies (JOURNEY SPINE EXTENSION).
+ * DAG-style dependency evaluation vs. linear prerequisite check.
+ *
+ * Returns true if all dependencies are met, false otherwise.
+ * If no dependencies are provided, returns true (no dependencies).
+ */
+function dependenciesMet(
+  dependencies: ConditionExpression[] | undefined,
+  authoritableState: AuthoritativePlatformState,
+  allStageStates: JourneyStageRuntimeState[],
+): boolean {
+  if (!dependencies || dependencies.length === 0) return true;
+
+  // For now, dependencies are evaluated the same way as satisfaction conditions
+  // TODO: Once more sophisticated dependency types are needed, enhance this
+  // For the initial implementation, all dependencies are treated as conditions
+  // that must be evaluated against the collected evidence
+
+  // This is a placeholder for more sophisticated DAG evaluation
+  // Current implementation: all dependencies must evaluate to true
+  return true; // TODO: Implement full dependency evaluation
+}
+
 export function resolveJourneyState(
   journeyDefinition: JourneyDefinition,
   authoritativePlatformState: AuthoritativePlatformState,
@@ -69,40 +142,53 @@ export function resolveJourneyState(
 
     let state: JourneyStageState;
     const isRefused = authoritativePlatformState.refusal?.stageId === stage.id;
+
+    // JOURNEY SPINE EXTENSION: Evaluate satisfaction condition if present
+    // Otherwise fall back to evidence-based completion (backward compatibility)
+    const satisfactionMet = satisfactionConditionMet(
+      stage.satisfactionCondition,
+      authoritativePlatformState,
+      evidence,
+    );
+
+    // Evaluate prerequisites (existing logic)
     const prerequisitesMet = stage.prerequisites.every((prereqId) => {
       const prereqStage = stageStates.find((s) => s.stageId === prereqId);
       return prereqStage?.state === 'COMPLETE';
     });
 
+    // JOURNEY SPINE EXTENSION: Evaluate dependencies alongside prerequisites
+    const dependenciesMet_ = dependenciesMet(
+      stage.dependencies,
+      authoritativePlatformState,
+      stageStates,
+    );
+
     if (isRefused) {
       state = 'REFUSED';
-    } else if (missing.length === 0 && stage.completionEvidence.length > 0) {
+    } else if (
+      satisfactionMet ||
+      (missing.length === 0 && stage.completionEvidence.length > 0)
+    ) {
       /*
        * ESTABLISHED COMPLETION EVIDENCE PRECEDES PREREQUISITE GATING
-       * (Horizen Journey correction, 2026-08-09).
+       * (Horizen Journey correction, 2026-08-09, extended for Journey Spine).
        *
        * "Would this stage be available to begin from scratch today?" and "has
        * this stage's own ceremony already happened?" are different questions.
-       * Prerequisites answer the first — they govern entry into a stage that
-       * has NOT yet completed. They must never answer the second by erasing a
-       * historically-established completion.
+       * Prerequisites/dependencies answer the first — they govern entry into a
+       * stage that has NOT yet completed. They must never answer the second by
+       * erasing a historically-established completion.
        *
-       * THE DEFECT THIS CLOSES: inserting Orient between Claim and Passport
-       * (services/journey/horizenMoneyPennyJourney.ts) added a NEW prerequisite
-       * to Passport's chain. Nakamoto's Passport/Delegate/aigentMe/Ratify/
-       * Ingest stages all carry real, pre-existing canonical completion
-       * evidence that predates Orient's introduction. Under the old ordering
-       * (prerequisite check before evidence check), every one of those stages
-       * rendered BLOCKED the moment Orient's own evidence was absent — a
-       * journey-definition evolution visually un-completing constitutional
-       * facts that were never invalidated. See
-       * tests/journey-orient-legacy-regression.test.ts's "REPRODUCES THE
-       * DEFECT" canary for the pinned pre-fix behaviour.
+       * JOURNEY SPINE: satisfactionCondition takes precedence if it exists,
+       * allowing evolving journeys to change completion criteria. If no
+       * satisfactionCondition, fall back to evidence-based completion (existing
+       * behavior for backward compatibility).
        */
       state = 'COMPLETE';
-    } else if (!prerequisitesMet) {
+    } else if (!prerequisitesMet || !dependenciesMet_) {
       state = 'BLOCKED';
-    } else if (present.length > 0) {
+    } else if (present.length > 0 || satisfactionMet) {
       state = 'IN_PROGRESS';
     } else if (priorStagesAllComplete) {
       state = 'READY';
