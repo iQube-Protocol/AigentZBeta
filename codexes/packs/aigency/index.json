@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-23T19:21:45.024Z",
+  "last_updated": "2026-08-24T14:18:20.727Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "0e514ca4c5b6702d801bad3134039ff00a5f1809",
-  "latest_commit_short": "0e514ca",
-  "latest_commit_title": "docs(irl): specify reciprocal artifact exchange capability",
+  "latest_commit": "ffb64e438adf642673fd2597d795dc83ba52aa81",
+  "latest_commit_short": "ffb64e4",
+  "latest_commit_title": "docs(agentiq): specify Journey Spine runtime evolution",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "ffb64e4",
+      "full_sha": "ffb64e438adf642673fd2597d795dc83ba52aa81",
+      "title": "docs(agentiq): specify Journey Spine runtime evolution",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-24T10:16:39-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-ffb64e4.md"
+    },
     {
       "sha": "0e514ca",
       "full_sha": "0e514ca4c5b6702d801bad3134039ff00a5f1809",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-10T17:41:09Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-4262fbd.md"
-    },
-    {
-      "sha": "d066bff",
-      "full_sha": "d066bff81de30f2b30ba0208c2bfb56b34e774b9",
-      "title": "Redeploy dev: fix bare deploy-trigger commit at branch tip (CI Bridge v1 ships in d81950a3e)",
-      "author": "Claude",
-      "timestamp": "2026-08-10T17:41:41Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-d066bff.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

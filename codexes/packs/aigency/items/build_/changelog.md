@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`ffb64e4`](https://github.com/iQube-Protocol/AigentZBeta/commit/ffb64e438adf642673fd2597d795dc83ba52aa81) [docs] docs(agentiq): specify Journey Spine runtime evolution (Kn0w1, 2026-08-24T10:16:39-04:00)
 - [`0e514ca`](https://github.com/iQube-Protocol/AigentZBeta/commit/0e514ca4c5b6702d801bad3134039ff00a5f1809) [docs] docs(irl): specify reciprocal artifact exchange capability (Kn0w1, 2026-08-23T15:19:30-04:00)
 - [`d5dbd90`](https://github.com/iQube-Protocol/AigentZBeta/commit/d5dbd9080476a338964d1ff9999d4d1ae75ce0be) [docs] docs(agentiq): register CI/IRL baseline as Experiment Architect resource (Kn0w1, 2026-08-23T14:23:59-04:00)
 - [`bd84582`](https://github.com/iQube-Protocol/AigentZBeta/commit/bd84582d9ad48a3b257c9f651a8cbf7f1ac9eeb6) [docs] docs(irl): freeze CI and IRL native architecture baseline for OCSGA comparison (Kn0w1, 2026-08-23T14:02:51-04:00)

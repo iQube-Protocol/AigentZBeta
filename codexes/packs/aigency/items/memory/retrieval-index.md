@@ -4459,3 +4459,8 @@ Top-level retrieval anchors for this pack.
 - Type: `docs`
 - Brief: [COMMIT-0e514ca.md](../build_/COMMITS/COMMIT-0e514ca.md)
 - Message: docs(irl): specify reciprocal artifact exchange capability
+
+## Commit `ffb64e4` — 2026-08-24T10:16:39-04:00
+- Type: `docs`
+- Brief: [COMMIT-ffb64e4.md](../build_/COMMITS/COMMIT-ffb64e4.md)
+- Message: docs(agentiq): specify Journey Spine runtime evolution
