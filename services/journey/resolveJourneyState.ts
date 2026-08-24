@@ -143,16 +143,41 @@ export function resolveJourneyState(
     let state: JourneyStageState;
     const isRefused = authoritativePlatformState.refusal?.stageId === stage.id;
 
-    // JOURNEY SPINE EXTENSION: Evaluate satisfaction condition if present
-    // Otherwise fall back to evidence-based completion (backward compatibility)
-    const satisfactionMet = satisfactionConditionMet(
-      stage.satisfactionCondition,
-      authoritativePlatformState,
-      evidence,
-    );
+    /*
+     * JOURNEY SPINE EXTENSION: evaluate satisfactionCondition ONLY when the
+     * stage actually declares one. `satisfactionConditionMet(undefined, ...)`
+     * returns `true` (its OWN doc comment: "No condition = always satisfied")
+     * — that is correct for a condition-evaluator asked "is this condition
+     * satisfied", but WRONG to feed into `satisfactionMet` below, which is
+     * OR'd against the evidence-based check. Every stage across every
+     * existing journey (Horizen, Validation Programme, KNYTS/CI Bridge) that
+     * never declares a satisfactionCondition would otherwise resolve
+     * `satisfactionMet = true` unconditionally, short-circuiting the OR and
+     * marking the stage COMPLETE with zero evidence the moment any receipt
+     * arrived anywhere in the journey. Caught 2026-08-24 by
+     * tests/validation-programme-journey.test.ts (47 failures across the
+     * existing journey suite) when this file's Ian-journey changes were
+     * exercised against the FULL test suite for the first time — a
+     * regression from the original Journey Spine Stage 1 pass, not
+     * introduced by this fix. "Fall back to evidence-based completion" must
+     * mean defer to it, not silently outrank it.
+     */
+    const satisfactionMet = stage.satisfactionCondition
+      ? satisfactionConditionMet(stage.satisfactionCondition, authoritativePlatformState, evidence)
+      : false;
 
-    // Evaluate prerequisites (existing logic)
+    // Evaluate prerequisites (existing logic), extended for JS-LAW-002:
+    // "A step may block another step only where the underlying constitutional,
+    // operational, or evidentiary dependency genuinely requires it. Optional
+    // agent delegation must not block direct human artifact upload merely
+    // because the UI previously presented delegation first." A prerequisite
+    // stage DECLARED optional (`requirement: 'optional'`) never blocks its
+    // dependent, regardless of whether that optional stage itself has been
+    // completed or skipped — the dependent only waits on prerequisites that
+    // are themselves required.
     const prerequisitesMet = stage.prerequisites.every((prereqId) => {
+      const prereqDefinition = journeyDefinition.stages.find((s) => s.id === prereqId);
+      if (prereqDefinition?.requirement === 'optional') return true;
       const prereqStage = stageStates.find((s) => s.stageId === prereqId);
       return prereqStage?.state === 'COMPLETE';
     });
@@ -196,9 +221,13 @@ export function resolveJourneyState(
       state = 'NOT_STARTED';
     }
 
-    if (state !== 'COMPLETE') {
+    // JS-LAW-002, applied to the sequential READY gate too: an OPTIONAL
+    // stage that was never completed (skipped) must not permanently starve
+    // every later stage of READY, or "optional" would functionally mean
+    // "disabled" the moment it's skipped rather than genuinely bypassed.
+    if (state !== 'COMPLETE' && stage.requirement !== 'optional') {
       priorStagesAllComplete = false;
-    } else {
+    } else if (state === 'COMPLETE') {
       currentStageId = stage.nextStageId ?? stage.id;
     }
 
