@@ -188,6 +188,31 @@ export async function issueExternalRef(
   return toExternalRefRow(inserted);
 }
 
+/**
+ * PERSONA-PUBLIC-REF-001 (operator-ratified 2026-08-24) — admin-only reverse
+ * lookup: Persona Public Reference (the persisted `personas.public_ref`
+ * generated column, `supabase/migrations/20260930030000_persona_public_ref_column.sql`)
+ * -> `personas.id`.
+ *
+ * This is a plain indexed lookup, never a hash reversal — `public_ref` is
+ * persisted precisely so this doesn't need to recompute or brute-force
+ * anything. Returns ONLY the id; callers must never widen the select to
+ * leak other row fields through this path (the whole point of the public
+ * ref is that it is safe to hand out — the inverse lookup is not). Malformed
+ * input (not exactly 16 lowercase hex chars) returns null rather than
+ * querying, so a garbage ref can't be used to probe the table shape.
+ */
+export async function resolvePersonaIdByPublicRef(
+  admin: SupabaseClient,
+  publicRef: string,
+): Promise<string | null> {
+  const ref = publicRef.trim().toLowerCase();
+  if (!/^[0-9a-f]{16}$/.test(ref)) return null;
+  const { data, error } = await admin.from('personas').select('id').eq('public_ref', ref).maybeSingle();
+  if (error || !data) return null;
+  return data.id as string;
+}
+
 /** Revoke one ref by id, scoped to the caller's persona inventory. */
 export async function revokeExternalRef(
   admin: SupabaseClient,

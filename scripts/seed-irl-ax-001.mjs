@@ -30,7 +30,16 @@
  *   SUPABASE_SERVICE_ROLE_KEY
  *
  * Usage:
- *   node scripts/seed-irl-ax-001.mjs --initiator-persona-id=<real-uuid> [--dry-run]
+ *   node scripts/seed-irl-ax-001.mjs --initiator-public-ref=<16-hex> [--dry-run]
+ *   node scripts/seed-irl-ax-001.mjs --initiator-persona-id=<real-uuid> [--dry-run]   (debug override)
+ *
+ * PERSONA-PUBLIC-REF-001 (2026-08-24): `--initiator-public-ref` is the
+ * normal way to run this — the operator's own Persona Public Reference
+ * (16 hex chars, e.g. from the wallet self-view's "Copy public reference"),
+ * resolved here via the persisted `personas.public_ref` column. Passing the
+ * raw `--initiator-persona-id` UUID directly still works, for an operator
+ * debugging this exact script from a local shell with service-role
+ * credentials already in hand — but it is no longer the documented path.
  */
 
 import { createClient } from '@supabase/supabase-js';
@@ -45,23 +54,52 @@ const REPO = resolve(__dirname, '..');
 const ARTIFACT_PATH = 'codexes/packs/irl/foundation/experiments/ci-irl-native-architecture-baseline-v1.0.md';
 const DRY_RUN = process.argv.includes('--dry-run');
 
-const initiatorArg = process.argv.find((a) => a.startsWith('--initiator-persona-id='));
-const initiatorPersonaId = initiatorArg ? initiatorArg.split('=')[1] : null;
+const publicRefArg = process.argv.find((a) => a.startsWith('--initiator-public-ref='));
+const initiatorPublicRef = publicRefArg ? publicRefArg.split('=')[1]?.trim().toLowerCase() : null;
+const uuidArg = process.argv.find((a) => a.startsWith('--initiator-persona-id='));
+const initiatorPersonaIdArg = uuidArg ? uuidArg.split('=')[1] : null;
 
-if (!initiatorPersonaId) {
+if (!initiatorPublicRef && !initiatorPersonaIdArg) {
   console.error(
-    'Missing --initiator-persona-id=<uuid>. This is Dele/MetaProof/IRL\'s REAL persona id — ' +
-      'it must never be guessed (CLAUDE.md "No Guessing"). Look it up from the operator\'s own ' +
-      'active persona (e.g. via the wallet self-view or personas table) and pass it explicitly.',
+    'Missing --initiator-public-ref=<16-hex> (preferred — see the wallet self-view) or ' +
+      '--initiator-persona-id=<uuid> (debug override). This must be Dele/MetaProof/IRL\'s REAL ' +
+      'identifier — it must never be guessed (CLAUDE.md "No Guessing").',
   );
+  process.exit(1);
+}
+if (initiatorPublicRef && !/^[0-9a-f]{16}$/.test(initiatorPublicRef)) {
+  console.error(`--initiator-public-ref must be exactly 16 hex characters, got "${initiatorPublicRef}".`);
   process.exit(1);
 }
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-if (!DRY_RUN && (!url || !key)) {
+// A public-ref resolution is a READ, needed even in --dry-run so the dry
+// run reports the real initiator it would use — so this check is not
+// itself gated on DRY_RUN when a ref (rather than a raw uuid) was given.
+if ((!DRY_RUN || initiatorPublicRef) && (!url || !key)) {
   console.error('Missing NEXT_PUBLIC_SUPABASE_URL/SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY.');
   process.exit(1);
+}
+
+let initiatorPersonaId = initiatorPersonaIdArg;
+if (initiatorPublicRef) {
+  const lookupClient = createClient(url, key);
+  const { data, error } = await lookupClient
+    .from('personas')
+    .select('id')
+    .eq('public_ref', initiatorPublicRef)
+    .maybeSingle();
+  if (error) {
+    console.error(`Persona public reference lookup failed: ${error.message}`);
+    process.exit(1);
+  }
+  if (!data) {
+    console.error(`No persona found for public reference "${initiatorPublicRef}".`);
+    process.exit(1);
+  }
+  initiatorPersonaId = data.id;
+  console.log(`Resolved public reference ${initiatorPublicRef} -> persona ${initiatorPersonaId}`);
 }
 
 const fullPath = join(REPO, ARTIFACT_PATH);
