@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-24T14:18:20.727Z",
+  "last_updated": "2026-08-24T15:03:15.270Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "ffb64e438adf642673fd2597d795dc83ba52aa81",
-  "latest_commit_short": "ffb64e4",
-  "latest_commit_title": "docs(agentiq): specify Journey Spine runtime evolution",
+  "latest_commit": "d0db72cd4eee8dba752006bc569c00ed757bb966",
+  "latest_commit_short": "d0db72c",
+  "latest_commit_title": "docs(agentiq): specify adaptive experience engine with Differ provider seam",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "d0db72c",
+      "full_sha": "d0db72cd4eee8dba752006bc569c00ed757bb966",
+      "title": "docs(agentiq): specify adaptive experience engine with Differ provider seam",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-24T11:01:01-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-d0db72c.md"
+    },
     {
       "sha": "ffb64e4",
       "full_sha": "ffb64e438adf642673fd2597d795dc83ba52aa81",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-10T17:41:04Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-d81950a.md"
-    },
-    {
-      "sha": "4262fbd",
-      "full_sha": "4262fbde0022bfab8f8194455ca6f07e2d1dee58",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-08-10T17:41:09Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-4262fbd.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

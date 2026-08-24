@@ -4464,3 +4464,8 @@ Top-level retrieval anchors for this pack.
 - Type: `docs`
 - Brief: [COMMIT-ffb64e4.md](../build_/COMMITS/COMMIT-ffb64e4.md)
 - Message: docs(agentiq): specify Journey Spine runtime evolution
+
+## Commit `d0db72c` — 2026-08-24T11:01:01-04:00
+- Type: `docs`
+- Brief: [COMMIT-d0db72c.md](../build_/COMMITS/COMMIT-d0db72c.md)
+- Message: docs(agentiq): specify adaptive experience engine with Differ provider seam
