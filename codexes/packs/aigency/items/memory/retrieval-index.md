@@ -4469,3 +4469,8 @@ Top-level retrieval anchors for this pack.
 - Type: `docs`
 - Brief: [COMMIT-d0db72c.md](../build_/COMMITS/COMMIT-d0db72c.md)
 - Message: docs(agentiq): specify adaptive experience engine with Differ provider seam
+
+## Commit `da92fec` — 2026-08-24T11:17:28-04:00
+- Type: `docs`
+- Brief: [COMMIT-da92fec.md](../build_/COMMITS/COMMIT-da92fec.md)
+- Message: docs(aee): include MoneyPenny Advisor Architect Runtime in first Differ audit

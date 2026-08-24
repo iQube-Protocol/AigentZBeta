@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-24T15:03:15.270Z",
+  "last_updated": "2026-08-24T15:19:17.217Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "d0db72cd4eee8dba752006bc569c00ed757bb966",
-  "latest_commit_short": "d0db72c",
-  "latest_commit_title": "docs(agentiq): specify adaptive experience engine with Differ provider seam",
+  "latest_commit": "da92fec2a6e6cbf2db5caa0d71cc983c33a00935",
+  "latest_commit_short": "da92fec",
+  "latest_commit_title": "docs(aee): include MoneyPenny Advisor Architect Runtime in first Differ audit",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "da92fec",
+      "full_sha": "da92fec2a6e6cbf2db5caa0d71cc983c33a00935",
+      "title": "docs(aee): include MoneyPenny Advisor Architect Runtime in first Differ audit",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-24T11:17:28-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-da92fec.md"
+    },
     {
       "sha": "d0db72c",
       "full_sha": "d0db72cd4eee8dba752006bc569c00ed757bb966",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-10T20:03:08Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-7d0ed73.md"
-    },
-    {
-      "sha": "d81950a",
-      "full_sha": "d81950a3e17b9fe18e9c07e5fcf1e7bb99a21831",
-      "title": "Build the Constitutional Internet Bridge as a v1 slice of the KNYTS Bridge architecture",
-      "author": "Claude",
-      "timestamp": "2026-08-10T17:41:04Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-d81950a.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
