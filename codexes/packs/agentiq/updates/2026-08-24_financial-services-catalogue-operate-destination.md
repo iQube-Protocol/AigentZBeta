@@ -208,11 +208,22 @@ oversight — flagged here rather than silently assumed.
   errors in any touched file (confirmed by name-grepping the touched-file list against the error
   output).
 
-## SQL to run
+## SQL — applied
 
-The migration file is committed at `supabase/migrations/20260824000200_seed_moneypenny_activation_qube.sql`.
-No live database was written to from this session (no Supabase MCP connector was invoked). If your
-deploy pipeline doesn't auto-apply new migration files before the next release, run this directly:
+The migration file is committed at `supabase/migrations/20260824000200_seed_moneypenny_activation_qube.sql`
+and has been **applied to the live database** (Supabase project `bsjhfvctmduxhohtllly`, "Aigent Z" —
+identified by checking which of the three Supabase projects visible to this session already held
+all 14 existing `activation_tab` rows, not by guessing from the project name). Verified post-apply:
+
+```
+id: 00000000-0000-4000-8000-000000ac100f
+content_type: moneypenny
+title: MoneyPenny
+lifecycle_state: canonized
+gating_kind: free
+```
+
+For reference, the SQL that was run:
 
 ```sql
 INSERT INTO public.content_qubes
@@ -238,7 +249,7 @@ ON CONFLICT (content_qube_id) DO UPDATE SET
   gating_kind = EXCLUDED.gating_kind;
 ```
 
-Without this row, clicking "Activate" on the MoneyPenny card fails server-side with
+"Activate" on the MoneyPenny catalogue card no longer fails with
 `content_qube-missing — migration not applied?`.
 
 ## Files changed (final, cumulative)
@@ -276,11 +287,10 @@ Without this row, clicking "Activate" on the MoneyPenny card fails server-side w
 - **Horizen inheritance result:** Zero change to `horizenMoneyPennyJourney.ts` beyond one comment;
   stages/evidence/receipts/authority logic byte-identical.
 - **Dev URLs:** `/bridge/financial-services` (canonical), `/bridge/fs` (alias) — both pre-existing.
-- **Genuine remaining blocker:** none technical. The migration SQL above needs to be applied to the
-  live database before "Activate" will succeed on the MoneyPenny card (no Supabase connector was
-  available in this session to apply it directly). Live browser verification against
-  `dev-beta.aigentz.me` was not performed from this sandbox — recommend a check once Amplify
-  finishes building `dev`.
+- **Genuine remaining blocker:** none. The migration SQL has been applied to the live database
+  (verified above) — "Activate" on the MoneyPenny card will succeed. Live browser verification
+  against `dev-beta.aigentz.me` was not performed from this sandbox — recommend a check once
+  Amplify finishes building `dev`.
 
 ## Revision history
 
