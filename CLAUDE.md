@@ -1602,6 +1602,58 @@ and this section together — never let them drift.
 
 ---
 
+## Session Start — Verify Connector/MCP Access, Don't Assume It (MANDATORY)
+
+**Before promising or attempting any work that needs Supabase (live DB reads/writes/migrations),
+the metaMe Threshold MCP server, or GitHub (PRs, Actions, repo browsing), VERIFY the tool is
+actually reachable in THIS session — never assume it from a prior session, from what the operator's
+client UI shows, or from having had it earlier in the same session.**
+
+This is foundational, repo-wide, and applies to every agent (Claude Code, Codex, Lovable, any
+future agent) on every session — not just DB-touching work.
+
+### How to verify
+
+- **Supabase / metaMe Threshold (or any claude.ai connector)**: call `ListConnectors` AND search for
+  the connector's actual tools (e.g. `ToolSearch` with `"select:mcp__Supabase__execute_sql"` or a
+  keyword search). Both must succeed. `ListConnectors` returning `connected: true` is NOT
+  sufficient — check `enabledInChat` too, and confirm the tool search actually resolves a schema
+  before calling it.
+- **GitHub**: confirm the GitHub MCP tools are present and check the session's announced repository
+  scope before promising PR/Action/branch work — see this file's "Repository Scope" note pattern
+  (varies per session; read what the session itself states rather than assuming).
+
+### The known failure mode (observed live, 2026-08-24 — read this before re-diagnosing from scratch)
+
+A connector can be **connected at the account level with a nonzero tool count showing in the
+operator's client** (e.g. the connector picker showing "Supabase — 29 tools", "metaMe Threshold —
+13 tools", every individual tool permission set to "Always") **while the session itself still has
+zero access** — `ListConnectors` reports `enabledInChat: false` for that same connector, and
+`ToolSearch` finds none of its tools. This happened after a connector that WAS working mid-session
+(real Supabase queries succeeded) silently dropped, and re-toggling it from the operator's device
+did not reattach it to the already-running session.
+
+**What this means in practice:**
+
+1. **The operator's screenshot of a connector's permission list is not proof it's enabled for this
+   session.** Those "Always" settings govern behavior once a connector is active in the chat — they
+   are a different setting from whether it's active in the chat at all. Don't conflate the two, and
+   don't send the operator back through client settings screens more than once looking for a toggle
+   that may not exist on their side — if `ListConnectors`/`ToolSearch` still comes back empty after
+   one genuine attempt to re-enable, the mismatch is very likely session-side, not something further
+   client-side hunting will fix.
+2. **Never fabricate, assume, or narrate a DB read/write/migration result when the tool isn't
+   actually present.** Say plainly that the connector isn't reachable from this session.
+3. **Fall back to the manual path** — this repo already mandates exact, copy-pasteable SQL for the
+   operator to run themselves (see "Operator Instructions — Always Provide Runnable Scripts" above);
+   that path has no dependency on the connector and should be offered immediately, not after several
+   rounds of settings troubleshooting.
+4. **If the task genuinely requires live DB/Threshold access and no fallback exists, say so and
+   recommend a fresh session** — reattaching a dropped connector mid-session has been observed not
+   to reliably propagate; starting a new session picks it up cleanly.
+
+---
+
 ## QubeTalk — Sandbox Limitation
 
 **Outbound HTTPS is blocked in the Claude Code sandbox.** The `qubetalk-claude.sh` script and all `curl` calls to external hosts fail with a 403 CONNECT tunnel error. This includes both sending and reading QubeTalk messages.
