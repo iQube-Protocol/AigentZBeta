@@ -39,6 +39,15 @@ interface PilotJourneyTabProps {
   isAdmin?: boolean;
   isPartner?: boolean;
   theme?: string;
+  /**
+   * Optional passthrough to JourneyRunSurface's own onRuntimeStateChange
+   * (Financial Services / AEE closeout, 2026-08-24) — lets a bare-page host
+   * (FinancialServicesBridgeFrontDoor) derive Passport/Operate-completion
+   * state from the SAME observer this component already reads, rather than
+   * running a second read. Omitted by every existing caller
+   * (PartnerProgrammesTab) — no behavior change there.
+   */
+  onRuntimeStateChange?: JourneyRunSurfaceProps['onRuntimeStateChange'];
 }
 
 /**
@@ -75,7 +84,7 @@ function selectStage(stageId: string) {
   }
 }
 
-function PilotJourneyTabInner({ personaId, isAdmin }: PilotJourneyTabProps) {
+function PilotJourneyTabInner({ personaId, isAdmin, onRuntimeStateChange }: PilotJourneyTabProps) {
   // Which registrable agent the Register stage is currently sponsoring
   // (services/horizen/registrableAgents.ts, MoneyPenny is the demo default).
   // The dry-run agent is the one being exercised, so it is the one selected on
@@ -322,6 +331,7 @@ function PilotJourneyTabInner({ personaId, isAdmin }: PilotJourneyTabProps) {
       documentTitle="metaMe × Horizen — Constitutional Admission Journey"
       components={JOURNEY_COMPONENTS}
       resolveSurfaceProps={resolveSurfaceProps}
+      onRuntimeStateChange={onRuntimeStateChange}
       headerLabel={
         <>
           <span className="shrink-0 font-semibold text-slate-100">metaMe × Horizen</span>

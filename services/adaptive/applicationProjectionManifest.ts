@@ -33,7 +33,7 @@ export interface ProjectedRouteRefV01 {
   rationale: string;
   /**
    * Present only when this route's journey has a registered metaMe
-   * Catalogue destination (services/journey/operateDestinationProjection.ts)
+   * Catalogue destination (services/journey/catalogueDestinationHelper.ts)
    * — read-only signal for AEE; never a route/truth AEE owns.
    */
   operateDestination?: { catalogueItemId: string; defaultTab: string; availableModes?: string[] };

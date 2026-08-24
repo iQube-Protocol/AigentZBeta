@@ -90,7 +90,7 @@ export interface CapabilityProjectionRef {
  * Journey-scoped Operate destination projection (Financial Services / AEE
  * closeout, 2026-08-24) — where this journey's Operate-equivalent stage
  * lands inside the metaMe Catalogue, when one is registered
- * (services/journey/operateDestinationProjection.ts). AEE reads this to
+ * (services/journey/catalogueDestinationHelper.ts). AEE reads this to
  * reason over / recommend around the operator's destination context; it
  * never owns or derives it — the catalogue item and its tabs remain
  * data/activation-catalog.ts + data/codex-configs.ts's truth.

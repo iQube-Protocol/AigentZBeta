@@ -15,6 +15,7 @@ import { useActivations } from "@/services/activations/ActivationsContext";
 import { usePlanUpgradeModal } from "@/components/metame/billing/usePlanUpgradeModal";
 import type { PlanTierKey } from "@/components/metame/billing/PlanUpgradeModal";
 import { personaFetch } from "@/utils/personaSpine";
+import { embedSlugForSourceCartridge } from "@/data/activation-catalog";
 
 // Display labels for the "Upgrade to <next tier>" recommendation chip.
 const NEXT_TIER_LABEL: Record<PlanTierKey, string> = {
@@ -51,16 +52,8 @@ interface Props {
   theme?: "light" | "dark";
 }
 
-const SOURCE_TO_EMBED_SLUG: Record<string, string> = {
-  metame: 'metame',
-  knyt: 'knyt',
-  qriptopian: 'qripto',
-  marketa: 'marketa',
-  mvl: 'alpha-knyt',
-};
-
 function buildEmbedUrl(sourceCartridge: string, tabSlug: string): string {
-  const slug = SOURCE_TO_EMBED_SLUG[sourceCartridge] ?? sourceCartridge;
+  const slug = embedSlugForSourceCartridge(sourceCartridge);
   return `/triad/embed/codex/${slug}?tab=${encodeURIComponent(tabSlug)}&theme=dark&density=wide`;
 }
 

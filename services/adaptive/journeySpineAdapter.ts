@@ -30,7 +30,7 @@ import type {
   JourneyProjectionContext,
   ProjectionConstraint,
 } from '@/types/adaptiveExperience';
-import { resolveOperateDestination } from '@/services/journey/operateDestinationProjection';
+import { resolveOperateDestination } from '@/services/journey/catalogueDestinationHelper';
 
 export interface JourneySpineAdapterInput {
   journeyDefinition: JourneyDefinition;
@@ -55,7 +55,7 @@ export function buildJourneyProjectionContext(
   interactionContext: InteractionContext,
 ): JourneyProjectionContext {
   // Read-only lookup — never derived here. Present only for journeys with a
-  // registered destination (services/journey/operateDestinationProjection.ts);
+  // registered destination (services/journey/catalogueDestinationHelper.ts);
   // absent for every other journey, exactly as before this field existed.
   const operateDestination = resolveOperateDestination(journeyState.journeyId);
   return {

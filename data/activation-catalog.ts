@@ -455,6 +455,29 @@ export function getActivationEntry(id: string): ActivationCatalogEntry | null {
   return ACTIVATION_CATALOG.find((e) => e.id === id) ?? null;
 }
 
+/**
+ * Maps an ActivationCatalogEntry.sourceCartridge value to the embed slug
+ * (data/codex-configs.ts CodexConfig.slug) that actually hosts the tab. Most
+ * source cartridges use the same string as their embed slug; the exceptions
+ * (Venture Lab α's 'mvl' -> 'alpha-knyt', Qriptopian's 'qriptopian' ->
+ * 'qripto') are recorded explicitly so a resolver never has to guess.
+ *
+ * Single source of truth for both ActivationsTab's "copy embed URL"
+ * affordance and services/journey/catalogueDestinationHelper.ts's Operate
+ * destination resolution — inv.engineering.036, never fork this map.
+ */
+export const SOURCE_CARTRIDGE_EMBED_SLUG: Record<string, string> = {
+  metame: 'metame',
+  knyt: 'knyt',
+  qriptopian: 'qripto',
+  marketa: 'marketa',
+  mvl: 'alpha-knyt',
+};
+
+export function embedSlugForSourceCartridge(sourceCartridge: string): string {
+  return SOURCE_CARTRIDGE_EMBED_SLUG[sourceCartridge] ?? sourceCartridge;
+}
+
 export function activationIdForTabSlug(slug: string): string | null {
   const hit = ACTIVATION_CATALOG.find((e) => e.tabSlug === slug);
   return hit?.id ?? null;

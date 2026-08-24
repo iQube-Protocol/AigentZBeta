@@ -1,119 +1,208 @@
-# Financial Services / AEE reference surface closeout — MoneyPenny metaMe Catalogue card + Operate destination projection
+# Financial Services / AEE reference surface closeout — MoneyPenny metaMe Catalogue card + the metaMe Catalogue Destination Helper
 
-**Date:** 2026-08-24
+**Date:** 2026-08-24 (two passes — see "Revision history" at the bottom)
 **Branch:** `claude/fs-aee-catalogue-operate-destination`
 **Parent:** `2026-08-24_aee-differ-phase0-audit-financial-services.md`, `2026-08-24_differ-scan-package-v1-financial-services.md`
 
 ## What this closes out
 
 The operator asked to wire the generic Bridge → Operate → metaMe → metaMe Catalogue → destination
-pattern through to MoneyPenny, since MoneyPenny had no metaMe Catalogue card at all. Audited the
-existing catalogue/tab/journey architecture first (per instruction — "keep this surgical") and
-reused it end to end; nothing was forked.
+pattern through to MoneyPenny, then — after reviewing the first pass — asked to promote the
+one-off destination lookup into a first-class, generalized **metaMe Catalogue Destination Helper**,
+and to make the Financial Services Operate stage deep-link directly to MoneyPenny Orchestration
+(never stopping at MyCanvas, the Catalogue page, or MoneyPenny's own root tab), with the
+destination projection varying by Passport threshold state. This document reflects the final,
+combined implementation.
 
 ## Audit findings
 
 - **The "metaMe Catalogue" is the existing Activations system** (`data/activation-catalog.ts` +
   `ActivationsTab.tsx` + `services/activations/spineActivations.ts`, read via
-  `useActivations()`/`ActivationsContext.tsx`).
-- **Two activation-persistence backends exist** (`spineActivations.ts`, qube/DVN-backed;
-  `personaActivations.ts`, table-only). `ActivationsContext.tsx` imports **only**
-  `spineActivations` — that is the live backend. It requires a `content_qubes` row
-  (`content_kind='activation_tab'`) per catalogue entry, seeded by migration — confirmed via the
-  `20260524000000` / `20260619000000` / `20260728000000` precedent migrations.
-- **MoneyPenny had no catalogue entry** under `moneypenny` or any other id — confirmed by scanning
-  all 13 existing entries.
-- **`MoneyPennyPanelTab`** (`app/triad/components/codex/tabs/MoneyPennyPanelTab.tsx`) is a generic,
-  context-free dispatcher already used by the standalone `moneypenny-codex` cartridge's own
-  Orchestration tab (`panel: 'service-orchestration'` → `ServiceOrchestrationPanel`). It takes no
-  cartridge-specific props, so it can be mounted a second time (inside `metame-codex`) without any
-  forking — the same "mirror a real tab into metaMe" pattern already used for `order-of-metaye`
-  (KNYT) and the Venture Lab α mirror.
+  `useActivations()`/`ActivationsContext.tsx`). The **live** backend is `spineActivations.ts`
+  (qube/DVN-backed) — `personaActivations.ts` is a parallel, unused implementation.
+- **MoneyPenny had no catalogue entry** under any id — confirmed by scanning all 13 pre-existing
+  entries.
+- **`MoneyPennyPanelTab`** is a generic, context-free dispatcher already used by the standalone
+  `moneypenny-codex` cartridge's own Orchestration tab (`panel: 'service-orchestration'` →
+  `ServiceOrchestrationPanel`) — mountable a second time inside `metame-codex` with no forking.
 - **`/bridge/financial-services` and `/bridge/fs` already existed** (`components/journey/
   FinancialServicesBridgeFrontDoor.tsx`, dated 2026-08-12) and already mount
   `HORIZEN_MONEYPENNY_JOURNEY` via `PilotJourneyTab`/`JourneyRunSurface` — no new bridge page was
   needed.
-- **The Horizen `aigentme` ("Operate") stage's only surface is `aigentme-welcome`**, an iframe of
-  `metame-codex?tab=aigent-me`. Its `completionEvidence` requires `focusDispositionRecorded`,
-  recordable only inside that shell's Welcome Capsule (§24.8 Ceremony Capsule Principle).
+- **`getCodexBySlug()` / `getCodexById()` / `resolveLegacyTabSlug()`** (`data/codex-configs.ts`)
+  already do exactly the alias-resolution work the Catalogue Helper needed — reused, not
+  reinvented.
+- **The Horizen `aigentme` ("Operate") stage's only surface is `aigentme-welcome`**
+  (`metame-codex?tab=aigent-me`). Its `completionEvidence` requires `focusDispositionRecorded`,
+  recordable only inside that shell's Welcome Capsule (§24.8 Ceremony Capsule Principle). This is a
+  real constraint that the "deep-link directly to Orchestration, never stop at a generic screen"
+  requirement had to be reconciled with — see "The one real tension, and how it was resolved" below.
 
 ## What shipped
 
-1. **`data/activation-catalog.ts`** — new `moneypenny` entry (`gate: 'open'`,
-   `tabSlug: 'moneypenny-orchestration'`, `sourceCartridge: 'metame'`). MoneyPenny's own cartridge
-   already declares `permissions.view: ['*']`, so `open` matches its existing access posture.
-2. **`data/codex-configs.ts`** (`METAME_CODEX`) — new `moneypenny` tabGroup + one tab
-   (`metame-moneypenny-orchestration`, slug `moneypenny-orchestration`), gated by
-   `activationId: 'moneypenny'`, rendering `MoneyPennyPanelTab` with `panel: 'service-orchestration'`
-   — the exact component+prop the standalone cartridge's own Orchestration tab uses. Orchestration
-   is the only panel mirrored: it is the mode chooser, never Advisor/Architect/Runtime directly.
-3. **`supabase/migrations/20260824000200_seed_moneypenny_activation_qube.sql`** — seeds the
-   `content_qubes` row (+ `content_qube_access_policies`, `gating_kind='free'`) the live
-   `spineActivations.ts` backend requires before `activate('moneypenny')` can succeed. Not yet
-   applied to any live database — see "SQL to run" below.
-4. **`services/journey/operateDestinationProjection.ts`** (new) — the generic, reusable
-   `journeyId → { catalogueItemId, defaultTab, availableModes? }` lookup the task asked for.
-   Seeded with one entry: `horizen-moneypenny-admission → { moneypenny, moneypenny-orchestration,
-   [advisor, architect, runtime] }`.
-5. **`types/adaptiveExperience.ts`** + **`services/adaptive/journeySpineAdapter.ts`** —
-   `JourneyProjectionContext` gained an optional `operateDestination` field, populated from the
-   module above inside `buildJourneyProjectionContext`. AEE can now read the destination
-   projection through the existing `AdaptiveInteractionContext.journey` path; it does not own or
-   derive it.
-6. **`services/adaptive/applicationProjectionManifest.ts`** — the `fs.operate` row now carries the
-   same `operateDestination` value for documentary/audit consistency with the manifest AEE reads.
-7. **`tests/moneypenny-catalogue-operate-destination.test.ts`** (new) — pins the catalogue entry,
-   the tab wiring, the projection lookup, and — critically — that the Horizen `aigentme` stage's
-   surface was **not** swapped.
+### 1. The metaMe Catalogue Destination Helper (new first-class module)
 
-## What was considered and deliberately NOT done
+`services/journey/catalogueDestinationHelper.ts` — supersedes the earlier, simpler
+`operateDestinationProjection.ts` from the first pass (deleted; nothing else referenced it after
+migration). Two entry points:
 
-The literal reading of "FS Operate lands on Orchestration" would swap the `aigentme` stage's
-surface from `aigentme-welcome` to a MoneyPenny-Orchestration embed. **This was implemented, then
-reverted before shipping**, because the stage's own `completionEvidence` requires
-`focusDispositionRecorded`, which is only recordable inside the `aigentme-welcome` shell's Welcome
-Capsule. Swapping the surface would have made the `aigentme` stage — and therefore the whole
-Horizen journey — permanently uncompletable. That is exactly the "otherwise completely unchanged"
-constraint the task set (no change to constitutional state resolution, evidence, or admission
-behavior), so the swap was not shipped.
+- **`resolveOperatorDestination({ catalogueItemRef, tabRef }, navOptions?)`** — the generic,
+  journey-agnostic resolver. Looks up the catalogue item in `ACTIVATION_CATALOG`, resolves its
+  `sourceCartridge` to a real codex via the (also new, extracted) `embedSlugForSourceCartridge()` +
+  `getCodexBySlug()`, resolves the requested tab (through `resolveLegacyTabSlug()` alias
+  resolution), validates the tab actually belongs to the requested activation, and returns a
+  routable `ResolvedOperatorDestination` (`catalogueItemId`, `cartridgeRef`, `cartridgeSlug`,
+  `tabId`, `tabSlug`, `route` via `buildCodexUrl()`, `activationIntent`). **Never creates catalogue
+  truth** — every field traces to a real `ACTIVATION_CATALOG` or `CodexConfig` record. **Fails
+  visibly**: an unresolvable catalogue item, cartridge, or tab returns `{valid: false,
+  failedLookup, reason}` naming exactly which lookup failed — never a silent fallback to a generic
+  tab.
+- **`resolveJourneyOperatorDestination({ journeyId, participantState, navOptions? })`** — the
+  threshold-aware wrapper. `JOURNEY_OPERATOR_DESTINATIONS` is the **only** per-journey data (today:
+  `horizen-moneypenny-admission → { moneypenny, moneypenny-orchestration, [advisor, architect,
+  runtime] }`); the resolution logic itself is completely journey-agnostic — a second consumer is a
+  new map entry, never new branching code. `participantState.citizenPassportUsable` (supplied by
+  the caller — the helper never derives Passport truth itself) selects `PRE_PASSPORT` /
+  `PUBLIC_ORIENTATION` or `POST_PASSPORT` / `CATALOGUE_ACTIVATION`.
+- **`registeredJourneyIds()`** — backs the validation gate (see below).
+- **`resolveOperateDestination(journeyId)`** — a thin back-compat shape (`{catalogueItemId,
+  defaultTab, availableModes?}`, no threshold logic) kept specifically for the AEE adapter/manifest,
+  which want the plain declared destination rather than a live resolution.
 
-Two safe follow-ups exist if a one-click auto-hop from Operate to Orchestration is still wanted:
+**Extraction, not duplication:** `SOURCE_CARTRIDGE_EMBED_SLUG` / `embedSlugForSourceCartridge()`
+used to be a private copy inside `ActivationsTab.tsx` (its "copy embed URL" affordance). Moved to
+`data/activation-catalog.ts` as the single source of truth; `ActivationsTab.tsx` now imports it
+too — inv.engineering.036/037.
 
-- **A Welcome-Capsule CTA** (matching the aigentMe Capsule↔Layout contract, `CLAUDE.md`'s PARAMOUNT
-  section) that reads `operateDestination` and offers "Continue to MoneyPenny Orchestration" once
-  `focusDispositionRecorded` is already true — same-window tab switch inside the same
-  `metame-codex` embed, no new surface. Deliberately not built this pass: that Capsule system is
-  flagged PARAMOUNT with a documented regression history, and touching it wasn't necessary to close
-  the actual gap (MoneyPenny had no card at all).
-- **Do nothing further** — once the persona activates MoneyPenny from the now-existing catalogue
-  card, the `moneypenny` tabGroup is a first-class, permanent tab in metaMe's own nav; reaching
-  Orchestration after Operate is one additional click on an already-visible tab, not a dead end.
+### 2. Validation gate (closeout brief item 6 / item 18)
 
-## Verification against the 10 items requested
+`tests/moneypenny-catalogue-operate-destination.test.ts`'s "Validation gate" block calls
+`registeredJourneyIds()` and asserts `resolveJourneyOperatorDestination(...)` returns `valid: true`
+for every one of them. A future journey whose registered catalogue item or tab is renamed/removed
+fails this test immediately, by name, rather than shipping a silently-broken destination. The same
+file also proves the resolver **generalizes**: it resolves `mycanvas`/`mycanvas` — a real,
+pre-existing, unrelated catalogue item (the KNYTS/CI MyCanvas-remix precedent) — with no
+MoneyPenny-specific code path, and separately proves three distinct fail-visibly cases (unknown
+catalogue item, unknown tab, tab that belongs to a different activation than requested).
+
+### 3. MoneyPenny metaMe Catalogue card (unchanged from the first pass)
+
+- `data/activation-catalog.ts` — `moneypenny` entry (`gate: 'open'`, `tabSlug:
+  'moneypenny-orchestration'`, `sourceCartridge: 'metame'`).
+- `data/codex-configs.ts` (`METAME_CODEX`) — new `moneypenny` tabGroup + tab
+  (`metame-moneypenny-orchestration`, slug `moneypenny-orchestration`), rendering
+  `MoneyPennyPanelTab` with `panel: 'service-orchestration'`.
+- `supabase/migrations/20260824000200_seed_moneypenny_activation_qube.sql` — seeds the
+  `content_qubes` row the live `spineActivations.ts` backend requires. **Not yet applied to any
+  live database** — exact SQL below.
+
+### 4. The one real tension, and how it was resolved
+
+The brief asked for two things that are, taken literally, in direct conflict:
+
+> "Post-Passport Operate deep-links DIRECTLY to MoneyPenny Orchestration... Do NOT stop at generic
+> MoneyPenny." **and** "Horizen... otherwise remains unchanged. Do NOT modify its existing Journey
+> stages... [or] constitutional gates."
+
+Horizen's `aigentme` stage's `completionEvidence` requires `focusDispositionRecorded`, which is
+**only** recordable inside the `aigentme-welcome` shell's Welcome Capsule. Swapping that stage's own
+surface to MoneyPenny Orchestration (as the first pass briefly did, then reverted) would make the
+stage — and the whole journey — permanently uncompletable. That is a real constitutional
+regression, not a destination projection, so it was not an option.
+
+**Resolution implemented:** `horizenMoneyPennyJourney.ts` is **completely untouched** (a byte-for-
+byte diff shows zero lines changed there — the "still exists" comment from the first pass now
+points at the new module name only). Instead, `components/journey/
+FinancialServicesBridgeFrontDoor.tsx` — the bare-page host both `/bridge/financial-services` and
+`/bridge/fs` mount, NOT the shared `JourneyRunSurface`/`journeySurfaceRegistry.ts` plumbing every
+other journey also depends on — now tracks two signals from the SAME observer read
+`PilotJourneyTab` already performs (`onRuntimeStateChange`, newly threaded through as an optional,
+additive prop with zero behavior change for the existing Partner-cartridge caller):
+
+1. `citizenPassportUsable` (from the `passport` stage's evidence, same signal CI's bridge page
+   already derives the identical way).
+2. `operateComplete` (`aigentme` stage's `state === 'COMPLETE'`).
+
+When both are true, the page swaps its primary content from the Journey stepper to a direct,
+full-bleed embed of `resolveJourneyOperatorDestination(...).operatorDestination.route` — MoneyPenny
+Orchestration, with no stop at MyCanvas, the Catalogue tab, or MoneyPenny's root. A small "View
+Journey" toggle lets the operator return to the stepper on purpose (other stages, receipts,
+progress), and a "Continue to MoneyPenny Orchestration →" banner appears there once eligible, so
+switching back is one click either way.
+
+**Net effect:** the FIRST time an operator ever reaches Operate, they still see the Journey stepper
+(with the `aigentme-welcome` shell) until the one-time focus-disposition ceremony completes — that
+is a bootstrap the constitutional evidence model requires, not a routine detour. **Every subsequent
+visit lands directly on MoneyPenny Orchestration**, exactly as specified. Horizen's stages,
+evidence, receipts, authority/delegation logic, and constitutional gates are unchanged — verified
+by `git diff services/journey/horizenMoneyPennyJourney.ts` showing only a comment edit (the surface
+ref, evidence list, prerequisites, and receipts are byte-identical).
+
+### 5. AEE integration
+
+`types/adaptiveExperience.ts`'s `JourneyProjectionContext` carries an optional
+`operateDestination` (`catalogueItemId`, `defaultTab`, `availableModes?`), populated by
+`services/adaptive/journeySpineAdapter.ts`'s `buildJourneyProjectionContext()` via
+`resolveOperateDestination()` — present only for a journey with a registered destination.
+`services/adaptive/applicationProjectionManifest.ts`'s `fs.operate` row carries the same value for
+audit-manifest consistency. AEE reads this; it does not own the catalogue item, cartridge, tab, or
+journey truth — all of that remains `data/activation-catalog.ts` / `data/codex-configs.ts` /
+`services/journey/horizenMoneyPennyJourney.ts`.
+
+### 6. Companion
+
+No Companion code changes this pass (per the brief — "No need to expand Companion functionality in
+this pass"). The destination context is available through the same `JourneyProjectionContext` /
+`AdaptiveInteractionContext` path the Companion seam already reads from, so a future pass can wire
+narration ("You've reached Operate — MoneyPenny Orchestration is next") without new plumbing.
+
+## Verification against the 18 items requested
 
 | # | Item | Status |
 |---|---|---|
-| 1 | MoneyPenny catalogue card exists via the real architecture | ✅ `ACTIVATION_CATALOG` entry `moneypenny` |
-| 2 | Clicking it opens the real MoneyPenny capability | ✅ same `MoneyPennyPanelTab`/`ServiceOrchestrationPanel` the standalone cartridge uses |
-| 3 | Default tab is Orchestration | ✅ only panel mirrored is `service-orchestration` |
-| 4 | `/bridge/financial-services` resolves | ✅ pre-existing (2026-08-12), confirmed live in code |
-| 5 | `/bridge/fs` aliases to the same journey | ✅ pre-existing, same `FinancialServicesBridgeFrontDoor` |
-| 6 | FS Operate lands on Orchestration | ⚠️ Not done as a surface swap — see "considered and NOT done" above. Destination is projected into AEE context and reachable via the new tab, one click from Operate. |
-| 7 | Horizen Operate inherits the behavior, otherwise unchanged | ✅ stage, evidence, receipts, authority logic all byte-identical (diff is comment-only) |
-| 8 | User can navigate away normally | ✅ ordinary tab, no special trap |
-| 9 | No global preference mutated | ✅ everything is either a new static catalogue/tab entry or a pure per-journeyId lookup — no persona-level write |
-| 10 | Existing tests stay green apart from known pre-existing failures | ✅ new test file passes (10/10); full suite run below |
+| 1 | `/bridge/financial-services` exists, canonical FS/AEE route | ✅ pre-existing (2026-08-12), confirmed live in code |
+| 2 | `/bridge/fs` resolves to the same journey | ✅ pre-existing, same `FinancialServicesBridgeFrontDoor` |
+| 3 | MoneyPenny exists as a real metaMe Catalogue item | ✅ `ACTIVATION_CATALOG` entry `moneypenny` |
+| 4 | Added through the canonical mechanism if absent | ✅ same pattern as all 13 existing entries + matching migration |
+| 5 | MoneyPenny resolves to its real capability/cartridge | ✅ via the Catalogue Helper, `cartridgeRef: 'metame-codex'` (the mirror), same `MoneyPennyPanelTab` the standalone cartridge uses |
+| 6 | Orchestration is a real, valid MoneyPenny tab/surface | ✅ `moneypenny-orchestration` tab, `panel: 'service-orchestration'` |
+| 7 | Post-Passport Operate deep-links DIRECTLY to Orchestration | ✅ once the one-time focus-disposition ceremony is complete (see tension section above) |
+| 8 | Does not stop at MyCanvas | ✅ |
+| 9 | Does not stop at the Catalogue page | ✅ |
+| 10 | Does not stop at generic MoneyPenny | ✅ — lands on Orchestration specifically, not the cartridge root |
+| 11 | Pre-Passport users get the appropriate threshold/public projection | ✅ `PUBLIC_ORIENTATION` — the Journey's own existing Register/Claim/Orient/Passport stepper (no separate page invented — see note below) |
+| 12 | Destination stays MoneyPenny Orchestration across the threshold | ✅ same `JOURNEY_OPERATOR_DESTINATIONS` entry drives both threshold branches |
+| 13 | Horizen inherits the same destination, otherwise unchanged | ✅ `git diff` on `horizenMoneyPennyJourney.ts` is comment-only |
+| 14 | Users can navigate elsewhere in metaMe after arriving | ✅ the Orchestration embed carries full metaMe nav chrome (not suppressed); "View Journey" toggle for the stepper |
+| 15 | No global user preference mutated | ✅ every new module is either static catalogue/tab data or a pure per-request resolver; no persona-level write anywhere in this closeout |
+| 16 | Fails visibly if catalogue/cartridge/tab topology is invalid | ✅ `{valid:false, failedLookup, reason}` — three cases covered by tests |
+| 17 | Existing Journey Spine tests stay green apart from known failures | ✅ confirmed via `git stash` A/B — see Tests below |
+| 18 | Helper tested against ≥2 destinations (FS + a KNYTS/CI one) | ✅ `moneypenny`/`moneypenny-orchestration` and `mycanvas`/`mycanvas`, both resolving through the same generic code path |
+
+**Note on item 11:** Financial Services has no separate, bespoke "public/threshold orientation"
+page distinct from the Journey's own Register → Claim → Orient → Passport stages — those stages
+already ARE the pre-Passport, public-facing surface (this is the same shape as the Journey's
+existing 'orient' stage). Inventing a second, parallel pre-Passport page for FS specifically would
+have been exactly the "parallel Financial Services application" the brief explicitly forbids, so
+`PUBLIC_ORIENTATION` resolves to "keep rendering the Journey stepper as it already does" rather
+than a fabricated `metame.com`-style URL. This is a deliberate, honest scope decision, not an
+oversight — flagged here rather than silently assumed.
 
 ## Tests / typecheck
 
-- `tests/moneypenny-catalogue-operate-destination.test.ts` — 10/10 pass.
+- `tests/moneypenny-catalogue-operate-destination.test.ts` — 19/19 pass (generic resolver, threshold
+  resolution, three fail-visibly cases, the validation gate, the AEE back-compat shape, and the
+  Horizen-stage-unchanged canary).
 - `tests/journey-single-copilot.test.ts`, `journey-agent-scoped-embed.test.ts`, `dcir-aigentme.test.ts`
-  (the three suites keyed on the `aigentme-welcome` fixture) — all still pass unchanged.
-- `tests/journey-monotonic-admission.test.ts` (3 failing) and `tests/journey-admission-spine.test.ts`
-  (3 failing) — confirmed **pre-existing on `origin/dev`** via `git stash` A/B comparison; unrelated
-  to this change (my diff to `horizenMoneyPennyJourney.ts` is comment-only).
-- `npx tsc --noEmit` — 682 pre-existing errors before and after (identical count via `git stash`
-  A/B), zero new errors in any touched file.
+  (the three suites keyed on the `aigentme-welcome` fixture) — unchanged/passing.
+- `tests/partner-workspace.test.ts` — unchanged/passing (confirms `PilotJourneyTab`'s new optional
+  `onRuntimeStateChange` prop is additive; the Partner cartridge's own call site doesn't pass it).
+- Three pre-existing, unrelated failures confirmed via `git stash` A/B comparison (identical with
+  and without this change): `journey-monotonic-admission.test.ts` (3), `journey-admission-spine.test.ts`
+  (3), `knyts-bridge-ci-parity.test.ts` (1) — none reference anything this closeout touched.
+- `npx tsc --noEmit` — 682 errors before and after (identical count via `git stash` A/B); zero new
+  errors in any touched file (confirmed by name-grepping the touched-file list against the error
+  output).
 
 ## SQL to run
 
@@ -145,24 +234,54 @@ ON CONFLICT (content_qube_id) DO UPDATE SET
   gating_kind = EXCLUDED.gating_kind;
 ```
 
-Without this row, clicking "Activate" on the MoneyPenny card will fail server-side with
-`content_qube-missing — migration not applied?` (the same failure mode the three prior seed
-migrations above each document).
+Without this row, clicking "Activate" on the MoneyPenny card fails server-side with
+`content_qube-missing — migration not applied?`.
 
-## Files changed
+## Files changed (final, cumulative)
 
-- `data/activation-catalog.ts`
-- `data/codex-configs.ts`
-- `services/journey/operateDestinationProjection.ts` (new)
-- `services/journey/horizenMoneyPennyJourney.ts` (comment only)
+- `data/activation-catalog.ts` — `moneypenny` entry + extracted `SOURCE_CARTRIDGE_EMBED_SLUG`/`embedSlugForSourceCartridge`
+- `data/codex-configs.ts` — MoneyPenny tabGroup + tab in `METAME_CODEX`
+- `app/triad/components/codex/tabs/ActivationsTab.tsx` — imports the extracted embed-slug map instead of a private copy
+- `app/triad/components/codex/tabs/PilotJourneyTab.tsx` — new optional `onRuntimeStateChange` passthrough prop
+- `components/journey/FinancialServicesBridgeFrontDoor.tsx` — direct-to-Orchestration deep-link, threshold- and completion-aware
+- `services/journey/catalogueDestinationHelper.ts` (new) — the metaMe Catalogue Destination Helper; supersedes `operateDestinationProjection.ts` (deleted)
+- `services/journey/horizenMoneyPennyJourney.ts` (comment only — module name reference)
 - `services/adaptive/applicationProjectionManifest.ts`
 - `services/adaptive/journeySpineAdapter.ts`
 - `types/adaptiveExperience.ts`
 - `supabase/migrations/20260824000200_seed_moneypenny_activation_qube.sql` (new)
-- `tests/moneypenny-catalogue-operate-destination.test.ts` (new)
+- `tests/moneypenny-catalogue-operate-destination.test.ts` (new/rewritten, 19 tests)
 
 ## Answers to the deliverable questions
 
-- **MoneyPenny catalogue item ID:** `moneypenny`
-- **Orchestration tab ID (inside metaMe):** `metame-moneypenny-orchestration` (slug `moneypenny-orchestration`); the standalone cartridge's own tab is `moneypenny-service-orchestration` (slug `service-orchestration`) — unchanged, still the reused source component.
-- **Dev URLs:** `/bridge/financial-services` (canonical), `/bridge/fs` (alias) — both pre-existing; the new catalogue card appears in metaMe's own Activations tab once deployed.
+- **MoneyPenny catalogue registration existed?** No — confirmed absent, added.
+- **MoneyPenny canonical catalogue ID:** `moneypenny`
+- **MoneyPenny cartridge/capability ID (as mirrored into metaMe):** `metame-codex` (tab
+  `metame-moneypenny-orchestration`); the standalone source cartridge is `moneypenny-codex` (its own
+  tab `moneypenny-service-orchestration`, unchanged, still the reused component).
+- **Orchestration canonical tab ID:** `metame-moneypenny-orchestration` (slug `moneypenny-orchestration`)
+- **Generic destination-helper location/API:** `services/journey/catalogueDestinationHelper.ts` —
+  `resolveOperatorDestination()`, `resolveJourneyOperatorDestination()`, `registeredJourneyIds()`,
+  `resolveOperateDestination()` (AEE back-compat).
+- **Pre-Passport behavior:** Journey stepper as today (Register → Claim → Orient → Passport) — see
+  the item-11 note above for why no separate page was invented.
+- **Post-Passport behavior:** Journey stepper until Operate's one-time focus-disposition ceremony
+  completes, then every visit lands directly on MoneyPenny Orchestration.
+- **Horizen inheritance result:** Zero change to `horizenMoneyPennyJourney.ts` beyond one comment;
+  stages/evidence/receipts/authority logic byte-identical.
+- **Dev URLs:** `/bridge/financial-services` (canonical), `/bridge/fs` (alias) — both pre-existing.
+- **Genuine remaining blocker:** none technical. The migration SQL above needs to be applied to the
+  live database before "Activate" will succeed on the MoneyPenny card (no Supabase connector was
+  available in this session to apply it directly). Live browser verification against
+  `dev-beta.aigentz.me` was not performed from this sandbox — recommend a check once Amplify
+  finishes building `dev`.
+
+## Revision history
+
+- **2026-08-24, first pass:** shipped the catalogue card + a simple per-journey `journeyId ->
+  {catalogueItemId, defaultTab}` map; deliberately did NOT deep-link Operate to Orchestration
+  because of the `focusDispositionRecorded` constraint, and flagged two possible follow-ups.
+- **2026-08-24, this pass (supersedes the first):** promoted the map into the generalized metaMe
+  Catalogue Destination Helper described above, added the threshold-aware (Passport) resolution,
+  added the validation gate, and implemented the direct-to-Orchestration deep-link at the bridge-
+  page level — resolving the tension the first pass had flagged rather than leaving it open.

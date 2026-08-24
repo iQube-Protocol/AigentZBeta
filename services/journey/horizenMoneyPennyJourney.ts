@@ -423,7 +423,7 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
            * THIS shell's Welcome Capsule (§24.8). Replacing the surface
            * would make the stage permanently uncompletable — a
            * constitutional regression, not a destination projection.
-           * services/journey/operateDestinationProjection.ts still exists
+           * services/journey/catalogueDestinationHelper.ts still exists
            * and feeds AEE's interaction context (informational only); the
            * MoneyPenny catalogue card/tab it points at is reachable from
            * inside this same metame-codex embed once activated. See
