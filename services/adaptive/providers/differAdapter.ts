@@ -5,8 +5,24 @@
  * 2026-08-24_aee-differ-phase0-audit-financial-services.md §0) found ZERO
  * verified Differ integration surface anywhere in this repository: no SDK
  * dependency, no environment configuration, no credentials, no API client.
+ * That finding still stands.
  *
- * Per the spec's own instruction: "If no suitable stable API exists,
+ * ADDENDUM (2026-08-24, same day, see the audit doc's own "Vendor
+ * clarification" section): Differ's team clarified that Differ is not
+ * primarily an API/SDK provider — it is a hosting-and-observation platform
+ * (an initial compatibility SCAN, then a hosted runtime that injects
+ * analytics, observes usage, and generates recommendations held in an
+ * approval queue with auto-apply optionally OFF). This does not change
+ * anything in THIS file: there is still no verified scan result, no hosted
+ * relationship, and no capability to honestly report as available. It only
+ * changes what "verification" will look like when it happens — see
+ * `2026-08-24_differ-scan-package-v1-financial-services.md` for the bounded
+ * code slice prepared for that scan, and the corrected roadmap language:
+ * "Differ integration proceeds through scan -> hosted compatibility
+ * assessment -> bounded hosted observation/recommendation mode. API/SDK
+ * integration is not assumed or required."
+ *
+ * Per the parent spec's own instruction: "If no suitable stable API exists,
  * implement the provider interface + a truthful disabled/unavailable Differ
  * adapter and keep the native provider operational. Do not invent an API."
  *
@@ -14,14 +30,17 @@
  * Differ-specific request/response mapping, authentication, or capability
  * assumption — there is nothing verified to map. Every method fails closed
  * to "unavailable" honestly rather than silently no-opping or fabricating a
- * plausible-looking response.
+ * plausible-looking response. It is NOT forced to impersonate scan/hosting
+ * capability merely because Differ's real product shape is now understood —
+ * "understood" is not "verified".
  *
- * When an operator supplies real Differ API/SDK access, this file is the
- * ONLY place that should change to begin verification (SPEC-AEE-001 §11:
- * "The adapter owns: authentication; provider-specific request mapping;
- * provider-specific response parsing; timeouts/retries; capability
- * negotiation..."). Until then, callers MUST treat every response from this
- * adapter as "not available" and fall back to the native provider
+ * When a real Differ scan result and/or hosted-observation relationship
+ * exists, this file is the place to begin representing it (still behind the
+ * same `capabilities()`/`project()`/`health()` shape — a hosted
+ * recommendation queue maps to `project()` returning Differ's proposed
+ * projection for postflight validation, not to a different interface).
+ * Until then, callers MUST treat every response from this adapter as "not
+ * available" and fall back to the native provider
  * (services/adaptive/nativeProvider.ts) — see
  * services/adaptive/adaptiveExperienceEngine.ts for that fallback wiring.
  */
@@ -37,9 +56,11 @@ import type {
 export const DIFFER_PROVIDER_ID = 'differ';
 
 const UNAVAILABLE_REASON =
-  'No verified Differ API/SDK integration exists in this codebase (Phase 0 audit, 2026-08-24). ' +
-  'This adapter has not invented or assumed any Differ capability. Provide real API/SDK access ' +
-  'and update this file to begin verification before enabling any capability below.';
+  'No verified Differ scan result or hosted-observation relationship exists for this codebase yet ' +
+  '(Phase 0 audit + vendor-clarification addendum, 2026-08-24). Differ is a hosting/observation ' +
+  'platform (scan -> compatibility assessment -> bounded hosted observation), not an API/SDK — ' +
+  'this adapter has not invented or assumed any capability either way. See ' +
+  '2026-08-24_differ-scan-package-v1-financial-services.md for the prepared scan scope.';
 
 export class DifferUnavailableError extends Error {
   constructor() {

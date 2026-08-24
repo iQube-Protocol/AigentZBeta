@@ -192,3 +192,42 @@ The evidence supports building and shipping **Phase A (SPEC-AEE-001 §24) only**
 ## Compression
 
 > **Confirmed: Journey Spine, Constitutional Computing, and MoneyPenny's three-mode service pipeline are all real and already separate the right things. Differ is real only as a specification — zero verified capability exists in this codebase. This pass builds the provider-neutral seam honestly, with `native` as the only working provider, so that a future verified Differ integration is a plug-in, not a redesign.**
+
+---
+
+## Addendum (2026-08-24, same day) — Vendor clarification corrects the shape of Phase B, not the Phase 0 finding
+
+Differ's own team (Iris) responded directly to this audit's gap register item #1. Their clarification:
+
+> "At the moment we've got 2 products: 1) The initial scan. 2) The hosting platform — your app runs with us, we inject analytics, observe usage, and generate recommendations. Recommendations can be auto-applied or held for approval... Given it's a full hosting platform, it's not really an API or SDK... With auto-apply off, every recommendation lands in an approval queue with its supporting behavioural signals and rationale."
+
+**This does not contradict §0's finding — it corrects the SHAPE of what "verification" means for this provider.** §0's finding stands exactly as written: zero SDK/API integration exists in this codebase, and none was invented. What changes is the roadmap for closing gap #1, because Differ is architecturally a **hosting-and-observation environment with an initial compatibility scan**, not a conventional request/response projection API. The `AdaptiveExperienceProvider` interface (`types/adaptiveExperience.ts`) and the honestly-disabled `differAdapter.ts` remain correct as designed — SPEC-AEE-001 §10's shape (`capabilities()`, `project()`, `health()`) is provider-agnostic on purpose, and nothing about Differ's real product invalidates it. What was wrong was the assumed VERIFICATION PATH (Phase B §25's "verify current Differ capabilities and integration method" implicitly pictured an API/SDK check) — the real verification path is: **submit a bounded code slice to Differ's scan → read the compatibility result → (if compatible) enter hosted shadow observation with auto-apply OFF → treat every queued recommendation as a candidate Experience Projection, validated through this repo's own postflight validator before any application.**
+
+### Corrected roadmap language (supersedes SPEC-AEE-001 §25's implicit API-check framing for Differ specifically)
+
+Old: *"Differ adapter blocked pending API/SDK verification."*
+Corrected: *"Differ integration proceeds through scan → hosted compatibility assessment → bounded hosted observation/recommendation mode. API/SDK integration is not assumed or required."*
+
+### Revised governing separation (extends, does not replace, the Part 0 compression above)
+
+```
+metaMe / Constitutional Computing   — owns truth, authorization, object state, capability execution, receipts
+Journey Spine                        — owns progression
+ExQube / Experience Guide            — owns experience evidence and intent
+Adaptive Experience Engine (AEE)     — owns interpretation/validation/application of adaptive recommendations
+Differ                                — hosts selected UI, observes behavior, proposes changes (never authoritative)
+```
+
+The Differ approval queue (recommendation + behavioural signals + rationale, auto-apply OFF) maps directly onto `services/adaptive/projectionValidator.ts`'s existing role: a Differ recommendation becomes a candidate `ExperienceProjection`, validated by the SAME postflight checks (Part VIII) before it is ever applied — never a parallel trust path.
+
+### Revised gap register item #1 (supersedes the original wording, evidence trail preserved above)
+
+~~"No verified Differ API/SDK access. Blocking everything downstream of Phase A. Requires operator-provided credentials/docs before Phase B can begin honestly."~~
+
+**Corrected:** No verified Differ *scan result* exists yet for this codebase. Blocking Phase B is now: producing a bounded scan package (see `2026-08-24_differ-scan-package-v1-financial-services.md`) and having an operator submit it through Differ's compatibility scan (`https://ramp.getdiffer.com/`) — an external, third-party code-sharing action this audit does NOT perform unilaterally (see that doc's own "who does what" section). `differAdapter.ts` stays exactly as built — honestly disabled — until a real scan result and, if pursued, a real hosted-observation relationship exist to verify against.
+
+### What is NOT changing
+
+- `differAdapter.ts` is not modified to "impersonate" scan/hosting capability it has not yet been verified to have. It remains the honest, disabled seam.
+- No code is submitted to any third party as part of this addendum. Producing the scan package is documentation/scoping work only.
+- The Financial Services Surface Residency Matrix (§2) and MoneyPenny Residency Matrix (§3) are unchanged — they already anticipated a rendering/hosting provider, which is exactly what Differ turns out to be.
