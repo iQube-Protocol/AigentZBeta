@@ -281,6 +281,53 @@ describe('journeySpineAdapter — reshapes Journey Spine truth, never re-derives
     // Authority is never manufactured here — it passes through verbatim (or absent).
     expect(context.authorityContext).toBeUndefined();
   });
+
+  it('end-to-end: the same journey definition renders through the native provider without altering journey truth (SPEC-AEE-001 acceptance criterion 14)', async () => {
+    const journeyState: JourneyRuntimeState = {
+      journeyId: 'fixture-journey',
+      journeyVersion: '1.0.0',
+      subjectRef: 'fixture',
+      currentStageId: 'safe-stage',
+      stages: [],
+      complete: false,
+    };
+    const interactionContext: InteractionContext = {
+      participantRef: 'persona-ref-xyz',
+      journeyId: 'fixture-journey',
+      journeyVersion: '1.0.0',
+      currentStageId: 'safe-stage',
+      readyStageIds: ['safe-stage'],
+      completedStageIds: [],
+      waitingStageIds: [],
+      blockedStageIds: ['principal-stage'],
+      optionalStageIds: [],
+      availableCapabilities: [],
+      requiredConditions: [],
+    };
+
+    const context = buildAdaptiveInteractionContext({
+      journeyDefinition,
+      journeyState,
+      interactionContext,
+      hostId: 'metame-native',
+      nonSensitiveStageIds: ['safe-stage'],
+      generatedAt: '2026-08-24T00:00:00.000Z',
+    });
+
+    const outcome = await produceExperienceProjection(context, nativeProvider);
+
+    // The projection recommends the ready, non-sensitive stage — never the
+    // blocked, principal-only one — and this happens WITHOUT resolveJourneyState
+    // or the journey definition itself being touched or re-derived.
+    expect(outcome.fellBackToNative).toBe(false);
+    expect(outcome.projection.primaryAction?.capabilityId).toBe('safe-stage');
+    const blockedSurface = outcome.projection.surfaces.find((s) => s.capabilityId === 'principal-stage');
+    expect(blockedSurface?.emphasis).toBe('suppressed');
+
+    // Journey Spine's own truth is untouched — same object identity, no mutation.
+    expect(journeyState.currentStageId).toBe('safe-stage');
+    expect(interactionContext.blockedStageIds).toEqual(['principal-stage']);
+  });
 });
 
 describe('Application Projection Manifest v0.1 — Financial Services slice', () => {
