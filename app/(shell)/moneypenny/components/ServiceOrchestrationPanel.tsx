@@ -103,7 +103,7 @@ const STATUS_TONE: Record<string, string> = {
   INELIGIBLE: "border-rose-500/30 bg-rose-500/10 text-rose-300",
 };
 
-function eligibilityLabel(eligible: boolean | undefined): string {
+export function eligibilityLabel(eligible: boolean | undefined): string {
   if (eligible === true) return "eligible";
   if (eligible === false) return "not eligible";
   return "undetermined";
@@ -124,7 +124,7 @@ const READINESS_TONE: Record<ReadinessState, string> = {
  * specifically, so `pending` on that one field reads as the exact phrase the
  * operator asked for.
  */
-function readinessLabel(field: keyof RuntimeReadinessProjection, state: ReadinessState): string {
+export function readinessLabel(field: keyof RuntimeReadinessProjection, state: ReadinessState): string {
   if (field === "systemReady") {
     return state === "ready" ? "Runtime: system ready" : `Runtime: ${state}`;
   }
@@ -135,6 +135,111 @@ function readinessLabel(field: keyof RuntimeReadinessProjection, state: Readines
   }
   const fieldLabel = field === "eligibility" ? "Eligibility" : field === "standing" ? "Standing" : "Authority";
   return `${fieldLabel}: ${state}`;
+}
+
+export function confidentialAssuranceLabel(state: ReadinessState): string {
+  if (state === "pending") return "Confidential assurance: Vela Live attestation pending";
+  if (state === "ready") return "Confidential assurance: ready";
+  return `Confidential assurance: ${state}`;
+}
+
+/**
+ * Horizen / MoneyPenny Phase 3 — final closeout UI semantics (2026-08-24).
+ *
+ * "System readiness ≠ provider Standing ≠ consumer qualification ≠ authority
+ * ≠ confidential assurance." A selected agent failing a qualification rule
+ * (e.g. Standing below a service's threshold) is a POLICY OUTCOME for that
+ * agent — never evidence the Runtime pipeline itself is broken. This panel
+ * previously rendered both facts as one undifferentiated badge row, which
+ * read as "MoneyPenny Runtime: not eligible — STANDING_BELOW_THRESHOLD" —
+ * exactly the conflation the operator's directive calls out. The two groups
+ * below are purely presentational: they derive from the SAME `readiness` /
+ * `eligibility` / `governancePath` facts already computed server-side, never
+ * a new gate, threshold, or accrual decision.
+ */
+const GOVERNANCE_PATH_RUNTIME_LABEL: Record<string, string> = {
+  CONSTITUTIONAL_SERVICE_PIPELINE: "Constitutional Runtime",
+  CONSTITUTIONAL_COMMERCE: "Confidential Runtime",
+};
+
+const GOVERNANCE_PATH_EXECUTION_LABEL: Record<string, string> = {
+  CONSTITUTIONAL_SERVICE_PIPELINE: "Constitutional Service Pipeline",
+  CONSTITUTIONAL_COMMERCE: "Constitutional Commerce",
+};
+
+const STANDING_BELOW_THRESHOLD_PATTERN = /Standing score ([\d.]+) is below the required ([\d.]+)/;
+
+/**
+ * The "Selected agent qualification" copy for the eligibility fact. For
+ * `STANDING_BELOW_THRESHOLD` specifically, the operator's directive requires
+ * "Selected agent Standing: {score} / 25 — not yet qualified" in place of the
+ * generic red "not eligible — STANDING_BELOW_THRESHOLD" — the score/threshold
+ * are parsed from the SAME `eligibility.reason` string `evaluateFinancialServiceEligibility()`
+ * already returns (no new backend field). The raw machine code stays
+ * available via the `title` tooltip, per "the machine reason code may remain
+ * in diagnostics/tooltips."
+ */
+export function qualificationBadge(eligibility: EligibilityResult): { text: string; tone: string; title: string } {
+  if (eligibility.code === "STANDING_BELOW_THRESHOLD") {
+    const match = eligibility.reason.match(STANDING_BELOW_THRESHOLD_PATTERN);
+    if (match) {
+      const [, score, threshold] = match;
+      return {
+        text: `Selected agent Standing: ${score} / ${threshold} — not yet qualified`,
+        tone: "border-amber-500/30 bg-amber-500/10 text-amber-300",
+        title: `${eligibility.reason} (${eligibility.code})`,
+      };
+    }
+  }
+  return {
+    text: `${eligibilityLabel(eligibility.eligible)} — ${eligibility.code}`,
+    tone: ELIGIBILITY_TONE[String(eligibility.eligible)],
+    title: eligibility.reason,
+  };
+}
+
+/**
+ * The "Runtime system" layer — always independent of the selected consumer's
+ * own qualification. Constitutional Runtime never depends on Vela; Confidential
+ * Runtime's ONLY infrastructure dependency is Vela Live attestation, and a
+ * pending attestation reads as "Pre-Vela ready", never as the Runtime being
+ * down (`readiness.systemReady` is always `'ready'` once this projection
+ * exists at all — see `runtimeReadinessProjection.ts`'s header).
+ */
+export function runtimeSystemFields(
+  governancePath: string | undefined,
+  readiness: RuntimeReadinessProjection,
+  attestationRequirement: string,
+): Array<{ label: string; text: string; tone: string }> {
+  const readyTone = READINESS_TONE.ready;
+  const pendingTone = READINESS_TONE.pending;
+  const neutralTone = READINESS_TONE["not-required"];
+  const runtimeLabel = governancePath ? GOVERNANCE_PATH_RUNTIME_LABEL[governancePath] : undefined;
+  const executionLabel = governancePath ? GOVERNANCE_PATH_EXECUTION_LABEL[governancePath] : undefined;
+
+  if (governancePath === "CONSTITUTIONAL_COMMERCE") {
+    const attestationPending = readiness.confidentialExecution === "pending";
+    return [
+      {
+        label: runtimeLabel ?? "Runtime",
+        text: attestationPending ? "PRE-VELA READY" : "READY",
+        tone: readyTone,
+      },
+      { label: "Execution path", text: executionLabel ?? "—", tone: neutralTone },
+      {
+        label: "Vela Live attestation",
+        text: attestationPending ? "Pending" : "Not pending",
+        tone: attestationPending ? pendingTone : readyTone,
+      },
+    ];
+  }
+
+  return [
+    { label: runtimeLabel ?? "Runtime", text: "READY", tone: readyTone },
+    { label: "Execution path", text: executionLabel ?? "—", tone: neutralTone },
+    { label: "Vela", text: "Not required", tone: neutralTone },
+    { label: "Attestation", text: attestationRequirement === "REQUIRED" ? "Required" : "Not required", tone: neutralTone },
+  ];
 }
 
 export function ServiceOrchestrationPanel() {
@@ -370,46 +475,82 @@ export function ServiceOrchestrationPanel() {
                       )}
                     </div>
 
-                    {eligibility && (
-                      <span
-                        className={`w-fit rounded border px-1.5 py-0.5 text-[10px] ${ELIGIBILITY_TONE[String(eligibility.eligible)]}`}
-                      >
-                        {eligibilityLabel(eligibility.eligible)} — {eligibility.code}
-                      </span>
-                    )}
-
-                    {/* Authority is a SEPARATE, non-blocking prerequisite for
-                        Runtime — a service can be eligible while this still
-                        reads "current delegation/mandate required". */}
-                    {authority && (
-                      <span
-                        className={`w-fit rounded border px-1.5 py-0.5 text-[10px] ${
-                          authority.met
-                            ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-                            : "border-amber-500/30 bg-amber-500/10 text-amber-300"
-                        }`}
-                      >
-                        Authority: {authority.met ? "current" : "current delegation/mandate required"} ({authority.state})
-                      </span>
-                    )}
-
-                    {/* Layered readiness — "the desired pre-Vela UI is not
-                        generic UNRESOLVED" (2026-08-23). A derived, read-only
-                        projection over facts already shown above; never a
-                        new constitutional state. `systemReady` renders FIRST
-                        and independently of the consumer-specific fields that
-                        follow it — a consumer refused on standing/authority
-                        never reads as the Runtime itself being down. */}
+                    {/* Layer 1 — Runtime system. Always independent of the
+                        selected consumer's own qualification below it.
+                        Constitutional Runtime never depends on Vela;
+                        Confidential Runtime's ONLY infrastructure dependency
+                        is Vela Live attestation. Neither reads as "broken"
+                        while a consumer is refused on Standing/authority
+                        (Horizen/MoneyPenny Phase 3 UI closeout, 2026-08-24). */}
                     {readiness && (
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        {(["systemReady", "eligibility", "standing", "authority", "confidentialExecution"] as const).map((field) => (
-                          <span
-                            key={field}
-                            className={`w-fit rounded border px-1.5 py-0.5 text-[10px] ${READINESS_TONE[readiness[field]]}`}
-                          >
-                            {readinessLabel(field, readiness[field])}
-                          </span>
-                        ))}
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[9px] uppercase tracking-wide text-white/40">Runtime system</span>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {runtimeSystemFields(definition.governancePath, readiness, definition.attestationRequirement).map(
+                            (f) => (
+                              <span key={f.label} className={`w-fit rounded border px-1.5 py-0.5 text-[10px] ${f.tone}`}>
+                                {f.label}: {f.text}
+                              </span>
+                            ),
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Layer 2 — Selected agent qualification. A selected
+                        agent failing a qualification rule (Admission/
+                        Eligibility, Standing, Authority, Confidential
+                        assurance) is a POLICY OUTCOME for that agent, never
+                        evidence the Runtime pipeline is down. */}
+                    {(eligibility || authority || readiness) && (
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[9px] uppercase tracking-wide text-white/40">Selected agent qualification</span>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {eligibility &&
+                            (() => {
+                              const badge = qualificationBadge(eligibility);
+                              return (
+                                <span
+                                  title={badge.title}
+                                  className={`w-fit rounded border px-1.5 py-0.5 text-[10px] ${badge.tone}`}
+                                >
+                                  {badge.text}
+                                </span>
+                              );
+                            })()}
+
+                          {readiness && readiness.standing !== "not-required" && (
+                            <span
+                              className={`w-fit rounded border px-1.5 py-0.5 text-[10px] ${READINESS_TONE[readiness.standing]}`}
+                            >
+                              {readinessLabel("standing", readiness.standing)}
+                            </span>
+                          )}
+
+                          {/* Authority is a SEPARATE, non-blocking
+                              prerequisite for Runtime — a service can be
+                              eligible while this still reads "current
+                              delegation/mandate required". */}
+                          {authority && (
+                            <span
+                              className={`w-fit rounded border px-1.5 py-0.5 text-[10px] ${
+                                authority.met
+                                  ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                                  : "border-amber-500/30 bg-amber-500/10 text-amber-300"
+                              }`}
+                            >
+                              Authority: {authority.met ? "current" : "current delegation/mandate required"} ({authority.state})
+                            </span>
+                          )}
+
+                          {readiness && readiness.confidentialExecution !== "not-required" && (
+                            <span
+                              className={`w-fit rounded border px-1.5 py-0.5 text-[10px] ${READINESS_TONE[readiness.confidentialExecution]}`}
+                            >
+                              {confidentialAssuranceLabel(readiness.confidentialExecution)}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     )}
 

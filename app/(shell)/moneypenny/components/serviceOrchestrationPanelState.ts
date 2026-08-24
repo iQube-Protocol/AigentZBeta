@@ -87,6 +87,11 @@ export interface FinancialServiceDefinitionSummary {
   serviceClass: string;
   displayName: string;
   attestationRequirement: string;
+  /** Which constitutional mechanism governs this service (`types/financialServices.ts`).
+   *  Always present on the real API payload — added here (2026-08-24 UI closeout) so the
+   *  panel can render the Constitutional vs Confidential Runtime variant explicitly instead
+   *  of inferring it from `providerMode` alone (both variants share `providerMode: 'RUNTIME'`). */
+  governancePath?: string;
 }
 
 export interface EligibilityResult {

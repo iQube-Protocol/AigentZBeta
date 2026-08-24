@@ -287,6 +287,12 @@ export function ParticipationStandingTab({ only, registrySection, agentRuntimeId
           ) : (
             <p className="text-xs text-slate-500 italic">No standing record yet — standing accrues from receipted contributions.</p>
           )}
+          {standing && (
+            <p className="border-t border-slate-800 pt-2 text-[11px] leading-relaxed text-slate-500">
+              Stand established means genuine Standing now exists. It does not mean the agent has reached every
+              downstream service&apos;s qualification threshold — Consequential Runtime qualification threshold: 25.
+            </p>
+          )}
         </div>
 
         {/* Reach */}
