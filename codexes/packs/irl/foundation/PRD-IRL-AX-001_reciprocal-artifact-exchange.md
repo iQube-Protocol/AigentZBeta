@@ -1,6 +1,6 @@
 # PRD-IRL-AX-001 — Reciprocal Artifact Exchange
 
-**Status:** PROPOSED — generic IRL capability / dogfood target  
+**Status:** RATIFIED (2026-08-24) by operator act — architecture settled; the generic primitive is built (see Implementation Note below); the IRL-AX-001 dogfood instance awaits seeding.  
 **Date:** 2026-08-23  
 **Initial use case:** CI/IRL × OCSGA independently frozen architecture exchange  
 **Parent doctrine:** CFS-044 Open Lab / Research Spaces; CFS-051/CFS-052 Crucible research discipline  
@@ -394,3 +394,19 @@ This PRD specifies a capability and initial dogfood instance. It does not ratify
 Implementation should reuse existing Passport, Research Space, agreement, delegation, receipt, cohort and QubeTalk primitives wherever they are already deployed. Where a required primitive is only proposed in CFS-044 rather than built, the implementation plan must report that gap explicitly rather than assume it exists.
 
 The capability should remain thin: build the smallest uniform exchange primitive capable of executing IRL-AX-001 end-to-end, then generalize only from observed use.
+
+## 24. Implementation note (2026-08-24)
+
+The generic primitive is built: `services/research/reciprocalExchange.ts` (state machine),
+`supabase/migrations/20260930020000_reciprocal_artifact_exchange.sql` (schema), the
+`app/api/research/exchanges/*` routes, `app/triad/components/codex/tabs/IRLExchangeTab.tsx`
+(IRL cartridge tab), `scripts/seed-irl-ax-001.mjs` (idempotent IRL-AX-001 seeder), and
+`tests/reciprocal-exchange.test.ts` (behavioural canaries — passing). Reuses the identity
+spine, `activity_receipts`/DVN pipeline, QubeTalk, and the constitutional-agreement
+authorization pattern rather than duplicating them.
+
+The IRL-AX-001 dogfood instance itself is not yet seeded: `seed-irl-ax-001.mjs` requires
+Party A's (Dele/MetaProof/IRL) real persona UUID as an explicit CLI argument — per this
+repo's No-Guessing rule, the script refuses to infer or fabricate it. Party B's (Ian/OCSGA)
+artifact is deliberately left unset for his own accession (invitation → Passport/persona →
+deposit) rather than seeded on his behalf.
