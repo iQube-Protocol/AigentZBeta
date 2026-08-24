@@ -96,47 +96,50 @@ catalogue item, unknown tab, tab that belongs to a different activation than req
   `content_qubes` row the live `spineActivations.ts` backend requires. **Not yet applied to any
   live database** — exact SQL below.
 
-### 4. The one real tension, and how it was resolved
+### 4. The one real tension, and how it was resolved (refined twice — read this in order)
 
-The brief asked for two things that are, taken literally, in direct conflict:
+**First pass:** briefly swapped the `aigentme` stage's own surface to MoneyPenny Orchestration,
+caught that its `completionEvidence` (`focusDispositionRecorded`) is only recordable inside the
+`aigentme-welcome` shell's Welcome Capsule, and reverted before shipping — that swap would have made
+the stage permanently uncompletable.
 
-> "Post-Passport Operate deep-links DIRECTLY to MoneyPenny Orchestration... Do NOT stop at generic
-> MoneyPenny." **and** "Horizen... otherwise remains unchanged. Do NOT modify its existing Journey
-> stages... [or] constitutional gates."
+**Second pass:** implemented "deep-link directly to Orchestration" by gating it on BOTH Passport
+AND the `aigentme` stage's own completion (`operateComplete`) — i.e., the direct deep-link only
+activated once the focus-disposition ceremony was already done, with the Journey stepper shown
+until then.
 
-Horizen's `aigentme` stage's `completionEvidence` requires `focusDispositionRecorded`, which is
-**only** recordable inside the `aigentme-welcome` shell's Welcome Capsule. Swapping that stage's own
-surface to MoneyPenny Orchestration (as the first pass briefly did, then reverted) would make the
-stage — and the whole journey — permanently uncompletable. That is a real constitutional
-regression, not a destination projection, so it was not an option.
+**Third pass, per explicit operator correction (this document's current state) — "separate metaMe
+activation from aigentMe activation":** the second pass's `operateComplete` gate was **removed**.
+The DEFAULT foregrounded content for a Passport-holding visitor at Operate is now MoneyPenny
+Orchestration **unconditionally** — never gated on whether the aigentMe ceremony happened. aigentMe
+is a separate agent/capability WITHIN metaMe, reachable through the SAME embed's ordinary
+navigation (chrome is never suppressed — no `chrome=focused`/`depth=` on the resolved route) or
+through the page's "View Journey" toggle, exactly as it always was. Journey guidance determines the
+*default*, never the *maximum accessible depth*.
 
-**Resolution implemented:** `horizenMoneyPennyJourney.ts` is **completely untouched** (a byte-for-
-byte diff shows zero lines changed there — the "still exists" comment from the first pass now
-points at the new module name only). Instead, `components/journey/
+`horizenMoneyPennyJourney.ts` is **completely untouched** across all three passes (`git diff` shows
+only a comment referencing the new module's name). `components/journey/
 FinancialServicesBridgeFrontDoor.tsx` — the bare-page host both `/bridge/financial-services` and
 `/bridge/fs` mount, NOT the shared `JourneyRunSurface`/`journeySurfaceRegistry.ts` plumbing every
-other journey also depends on — now tracks two signals from the SAME observer read
-`PilotJourneyTab` already performs (`onRuntimeStateChange`, newly threaded through as an optional,
+other journey also depends on — tracks exactly one signal from the SAME observer read
+`PilotJourneyTab` already performs (`onRuntimeStateChange`, threaded through as an optional,
 additive prop with zero behavior change for the existing Partner-cartridge caller):
+`citizenPassportUsable` (from the `passport` stage's evidence, same signal CI's bridge page already
+derives the identical way).
 
-1. `citizenPassportUsable` (from the `passport` stage's evidence, same signal CI's bridge page
-   already derives the identical way).
-2. `operateComplete` (`aigentme` stage's `state === 'COMPLETE'`).
-
-When both are true, the page swaps its primary content from the Journey stepper to a direct,
+Once that's true, the page swaps its primary content from the Journey stepper to a direct,
 full-bleed embed of `resolveJourneyOperatorDestination(...).operatorDestination.route` — MoneyPenny
-Orchestration, with no stop at MyCanvas, the Catalogue tab, or MoneyPenny's root. A small "View
-Journey" toggle lets the operator return to the stepper on purpose (other stages, receipts,
-progress), and a "Continue to MoneyPenny Orchestration →" banner appears there once eligible, so
-switching back is one click either way.
+Orchestration, with no stop at MyCanvas, the Catalogue tab, or MoneyPenny's root, and no navigation
+chrome suppressed. A "View Journey" toggle lets the operator reach the stepper on purpose (other
+stages, receipts, progress, and — if they navigate to the aigentMe tab from there or from inside the
+MoneyPenny embed's own metaMe nav — the existing aigentMe welcome/focus-disposition ceremony,
+completely unchanged); a "Continue to MoneyPenny Orchestration →" banner switches back.
 
-**Net effect:** the FIRST time an operator ever reaches Operate, they still see the Journey stepper
-(with the `aigentme-welcome` shell) until the one-time focus-disposition ceremony completes — that
-is a bootstrap the constitutional evidence model requires, not a routine detour. **Every subsequent
-visit lands directly on MoneyPenny Orchestration**, exactly as specified. Horizen's stages,
-evidence, receipts, authority/delegation logic, and constitutional gates are unchanged — verified
-by `git diff services/journey/horizenMoneyPennyJourney.ts` showing only a comment edit (the surface
-ref, evidence list, prerequisites, and receipts are byte-identical).
+**Net effect:** every Passport-holding visit to Operate lands directly on MoneyPenny Orchestration,
+with zero dependency on whether aigentMe's own ceremony has ever run. aigentMe's completion path is
+exactly as it always was — reachable, unmodified, and never touched by MoneyPenny. MoneyPenny has
+no code path that references, derives, or writes `focusDispositionRecorded` at all (asserted by a
+grep-based canary test — see Tests below).
 
 ### 5. AEE integration
 
@@ -166,7 +169,7 @@ narration ("You've reached Operate — MoneyPenny Orchestration is next") withou
 | 4 | Added through the canonical mechanism if absent | ✅ same pattern as all 13 existing entries + matching migration |
 | 5 | MoneyPenny resolves to its real capability/cartridge | ✅ via the Catalogue Helper, `cartridgeRef: 'metame-codex'` (the mirror), same `MoneyPennyPanelTab` the standalone cartridge uses |
 | 6 | Orchestration is a real, valid MoneyPenny tab/surface | ✅ `moneypenny-orchestration` tab, `panel: 'service-orchestration'` |
-| 7 | Post-Passport Operate deep-links DIRECTLY to Orchestration | ✅ once the one-time focus-disposition ceremony is complete (see tension section above) |
+| 7 | Post-Passport Operate deep-links DIRECTLY to Orchestration | ✅ unconditionally, from the first Passport-holding visit — never gated on the aigentMe ceremony (see tension section above) |
 | 8 | Does not stop at MyCanvas | ✅ |
 | 9 | Does not stop at the Catalogue page | ✅ |
 | 10 | Does not stop at generic MoneyPenny | ✅ — lands on Orchestration specifically, not the cartridge root |
@@ -190,9 +193,10 @@ oversight — flagged here rather than silently assumed.
 
 ## Tests / typecheck
 
-- `tests/moneypenny-catalogue-operate-destination.test.ts` — 19/19 pass (generic resolver, threshold
-  resolution, three fail-visibly cases, the validation gate, the AEE back-compat shape, and the
-  Horizen-stage-unchanged canary).
+- `tests/moneypenny-catalogue-operate-destination.test.ts` — 22/22 pass (generic resolver, threshold
+  resolution, three fail-visibly cases, the validation gate, the AEE back-compat shape, the
+  Horizen-stage-unchanged canary, a nav-chrome-not-suppressed assertion on the resolved route, and a
+  grep-based canary proving no MoneyPenny source file references `focusDispositionRecorded`).
 - `tests/journey-single-copilot.test.ts`, `journey-agent-scoped-embed.test.ts`, `dcir-aigentme.test.ts`
   (the three suites keyed on the `aigentme-welcome` fixture) — unchanged/passing.
 - `tests/partner-workspace.test.ts` — unchanged/passing (confirms `PilotJourneyTab`'s new optional
@@ -265,8 +269,10 @@ Without this row, clicking "Activate" on the MoneyPenny card fails server-side w
   `resolveOperateDestination()` (AEE back-compat).
 - **Pre-Passport behavior:** Journey stepper as today (Register → Claim → Orient → Passport) — see
   the item-11 note above for why no separate page was invented.
-- **Post-Passport behavior:** Journey stepper until Operate's one-time focus-disposition ceremony
-  completes, then every visit lands directly on MoneyPenny Orchestration.
+- **Post-Passport behavior:** every visit lands directly on MoneyPenny Orchestration by default,
+  unconditionally — the aigentMe welcome/focus-disposition ceremony is a separate, still-fully-
+  functional path reachable through the same embed's ordinary navigation or the "View Journey"
+  toggle, never a gate on reaching MoneyPenny.
 - **Horizen inheritance result:** Zero change to `horizenMoneyPennyJourney.ts` beyond one comment;
   stages/evidence/receipts/authority logic byte-identical.
 - **Dev URLs:** `/bridge/financial-services` (canonical), `/bridge/fs` (alias) — both pre-existing.
@@ -281,7 +287,13 @@ Without this row, clicking "Activate" on the MoneyPenny card fails server-side w
 - **2026-08-24, first pass:** shipped the catalogue card + a simple per-journey `journeyId ->
   {catalogueItemId, defaultTab}` map; deliberately did NOT deep-link Operate to Orchestration
   because of the `focusDispositionRecorded` constraint, and flagged two possible follow-ups.
-- **2026-08-24, this pass (supersedes the first):** promoted the map into the generalized metaMe
-  Catalogue Destination Helper described above, added the threshold-aware (Passport) resolution,
-  added the validation gate, and implemented the direct-to-Orchestration deep-link at the bridge-
-  page level — resolving the tension the first pass had flagged rather than leaving it open.
+- **2026-08-24, second pass:** promoted the map into the generalized metaMe Catalogue Destination
+  Helper, added threshold-aware (Passport) resolution and the validation gate, and implemented a
+  direct-to-Orchestration deep-link gated on BOTH Passport AND the `aigentme` stage's own
+  completion.
+- **2026-08-24, third pass (current, supersedes the second's gating) — operator correction:**
+  "separate metaMe activation from aigentMe activation." Removed the `aigentme`-completion gate:
+  MoneyPenny Orchestration is now the unconditional default at Operate once Passport is
+  established; the aigentMe ceremony remains reachable, unmodified, and fully independent — never a
+  precondition for reaching MoneyPenny. Added tests asserting navigation chrome/depth is preserved
+  and that no MoneyPenny source references `focusDispositionRecorded`.

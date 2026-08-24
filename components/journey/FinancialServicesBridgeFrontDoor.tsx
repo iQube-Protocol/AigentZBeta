@@ -36,25 +36,39 @@
  * "prerequisite not met" state — the same thing the Partner path shows
  * before a wallet exists, never a silent failure.
  *
- * DIRECT OPERATE DEEP-LINK (2026-08-24, Catalogue Helper closeout) —
+ * DIRECT OPERATE DEEP-LINK (2026-08-24, Catalogue Helper closeout, refined
+ * same day per operator direction — "separate metaMe activation from
+ * aigentMe activation") —
  * `services/journey/catalogueDestinationHelper.ts`'s
  * `resolveJourneyOperatorDestination()` is the ONLY place this page decides
  * where "Operate" actually lands. Once the operator holds a usable Citizen
- * Passport AND the journey's `aigentme` (Operate) stage is COMPLETE, this
- * page swaps its primary content from the Journey stepper to a direct embed
- * of MoneyPenny's Orchestration console — the operator never has to stop at
+ * Passport, this page's DEFAULT foregrounded content is a direct embed of
+ * MoneyPenny's Orchestration console — the operator never has to stop at
  * MyCanvas, the metaMe Catalogue page, or MoneyPenny's own root tab first.
  *
- * This does NOT touch the `aigentme` stage's own definition, evidence, or
- * completion mechanism (services/journey/horizenMoneyPennyJourney.ts is
- * untouched): that stage's `focusDispositionRecorded` completion evidence is
- * still only recordable inside the aigentme-welcome shell's Welcome Capsule,
- * so the FIRST time an operator reaches Operate they still see the Journey
- * stepper (with that shell) until the ceremony is complete — a one-time
- * bootstrap, not a routine detour. Every subsequent visit (stage already
- * COMPLETE) lands directly on Orchestration. A "View Journey" toggle stays
- * available so the operator can always reach the stepper (other stages,
- * receipts, progress) on purpose.
+ * This default is deliberately NOT conditioned on the `aigentme` stage's own
+ * completion. metaMe activation (what's foregrounded when Operate is
+ * reached) and aigentMe activation (that stage's own welcome/focus-
+ * disposition ceremony) are two separate things:
+ *   - metaMe = the operating environment. Default at Operate: MoneyPenny
+ *     Orchestration.
+ *   - aigentMe = one agent/capability WITHIN that environment, reachable
+ *     through the embed's own full navigation chrome (never suppressed
+ *     here — `buildCodexUrl` is called without `focused`, so the standard
+ *     0/1/2/Full navigation-depth mechanics stay exactly as they are
+ *     elsewhere) or through the "View Journey" toggle below.
+ *
+ * `services/journey/horizenMoneyPennyJourney.ts` is completely untouched:
+ * the `aigentme` stage's `completionEvidence` (`focusDispositionRecorded`)
+ * is still only recordable inside the aigentme-welcome shell's Welcome
+ * Capsule, reached exactly as before — by navigating to aigentMe, whether
+ * from inside the MoneyPenny embed's own metaMe nav or via "View Journey".
+ * MoneyPenny never records, derives, or synthesizes that evidence — it has
+ * no code path that references it at all. Journey guidance determines the
+ * recommended/default path, never the maximum accessible capability depth:
+ * a task-focused operator can stay entirely inside MoneyPenny; an advanced
+ * operator can expand into full metaMe and reach aigentMe (or anything
+ * else) exactly as today.
  */
 
 import { useCallback, useEffect, useState } from 'react';
@@ -74,18 +88,19 @@ export function FinancialServicesBridgeFrontDoor() {
   // Derived exclusively from onRuntimeStateChange — never re-read from a
   // second observer (CFS-055 coherence discipline, same as the CI bridge).
   const [citizenPassportUsable, setCitizenPassportUsable] = useState<boolean | undefined>(undefined);
-  const [operateComplete, setOperateComplete] = useState<boolean>(false);
-  // Manual override: an operator who reached Orchestration directly can
-  // still ask to see the Journey stepper (other stages, receipts, progress)
-  // on purpose. Reset to false whenever the underlying resolution flips
-  // back to PUBLIC_ORIENTATION, so a signed-out visit never gets stuck on it.
+  // Manual override: metaMe activation is separate from aigentMe activation
+  // (operator direction, 2026-08-24) — MoneyPenny Orchestration is the
+  // DEFAULT foregrounded experience once Passport is established, never
+  // gated on the aigentMe stage's own completion. "View Journey" is the
+  // advanced/expanded path into the full Journey stepper (where aigentMe's
+  // existing welcome/focus-disposition ceremony still lives, untouched).
+  // Reset to false whenever the underlying resolution flips back to
+  // PUBLIC_ORIENTATION, so a signed-out visit never gets stuck on it.
   const [viewJourneyOverride, setViewJourneyOverride] = useState(false);
 
   const handleRuntimeStateChange = useCallback((state: JourneyRuntimeState) => {
     const passportStage = state.stages.find((s) => s.stageId === 'passport');
     setCitizenPassportUsable(Boolean(passportStage?.evidencePresent.includes('operatorPolityCitizenPassportValid')));
-    const operateStage = state.stages.find((s) => s.stageId === 'aigentme');
-    setOperateComplete(operateStage?.state === 'COMPLETE');
   }, []);
 
   useEffect(() => {
@@ -113,10 +128,7 @@ export function FinancialServicesBridgeFrontDoor() {
   });
 
   const showOrchestrationDirectly =
-    destination.valid &&
-    destination.activationMode === 'CATALOGUE_ACTIVATION' &&
-    operateComplete &&
-    !viewJourneyOverride;
+    destination.valid && destination.activationMode === 'CATALOGUE_ACTIVATION' && !viewJourneyOverride;
 
   return (
     <div className="min-h-screen bg-slate-950">
@@ -142,7 +154,7 @@ export function FinancialServicesBridgeFrontDoor() {
         </div>
       ) : (
         <>
-          {destination.valid && destination.activationMode === 'CATALOGUE_ACTIVATION' && operateComplete && (
+          {destination.valid && destination.activationMode === 'CATALOGUE_ACTIVATION' && (
             <div className="flex items-center justify-end border-b border-slate-800 bg-slate-900/60 px-4 py-2">
               <button
                 type="button"

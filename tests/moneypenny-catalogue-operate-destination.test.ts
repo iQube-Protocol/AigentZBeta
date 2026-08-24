@@ -1,7 +1,8 @@
 /**
  * MoneyPenny metaMe Catalogue card + metaMe Catalogue Destination Helper
  * (Financial Services / AEE reference-surface closeout, 2026-08-24 —
- * generalized into a first-class runtime adapter per operator direction).
+ * generalized into a first-class runtime adapter, then refined per operator
+ * direction to separate metaMe activation from aigentMe activation).
  *
  * Covers:
  *   1. ACTIVATION_CATALOG has a first-class 'moneypenny' entry.
@@ -23,9 +24,16 @@
  *      aigentme-welcome shell, so the direct-to-Orchestration deep-link is
  *      implemented at the bridge-page level (FinancialServicesBridgeFrontDoor),
  *      never by swapping the stage's own surface.
+ *   7. The resolved MoneyPenny route never suppresses metaMe's navigation
+ *      chrome — the 0/1/2/Full navigation-depth mechanics (and aigentMe's
+ *      reachability through them) stay exactly as they are elsewhere.
+ *   8. No MoneyPenny-side source file references `focusDispositionRecorded`
+ *      — MoneyPenny never records, derives, or synthesizes that evidence.
  */
 
 import { describe, it, expect } from 'vitest';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 import { ACTIVATION_CATALOG, getActivationEntry } from '@/data/activation-catalog';
 import { METAME_CODEX } from '@/data/codex-configs';
 import {
@@ -203,5 +211,49 @@ describe('Horizen aigentme stage — completion path NOT regressed', () => {
       expect(descriptor.codexSlug).toBe('metame-codex');
       expect(descriptor.tab).toBe('aigent-me');
     }
+  });
+});
+
+describe('metaMe activation vs aigentMe activation — kept separate (operator direction, 2026-08-24)', () => {
+  it('the resolved MoneyPenny route does not suppress metaMe navigation chrome (0/1/2/Full stays available)', () => {
+    const result = resolveOperatorDestination({ catalogueItemRef: 'moneypenny', tabRef: 'moneypenny-orchestration' });
+    expect(result.valid).toBe(true);
+    if (!result.valid) return;
+    // No ?chrome=focused / ?depth= — an operator inside this embed sees
+    // metaMe's full tab strip, including aigentMe, exactly as elsewhere.
+    expect(result.destination.route).not.toContain('chrome=focused');
+    expect(result.destination.route).not.toContain('depth=');
+  });
+
+  it('the aigentMe tabGroup is NOT gated by the moneypenny activation — it stays reachable regardless of MoneyPenny state', () => {
+    const aigentmeGroup = METAME_CODEX.tabGroups?.find((g) => g.id === 'aigentme');
+    expect(aigentmeGroup).toBeTruthy();
+    expect(aigentmeGroup?.activationId).toBeUndefined();
+  });
+
+  function collectFiles(dir: string, out: string[] = []): string[] {
+    for (const entry of readdirSync(dir)) {
+      const full = join(dir, entry);
+      const stat = statSync(full);
+      if (stat.isDirectory()) collectFiles(full, out);
+      else if (/\.(ts|tsx)$/.test(entry)) out.push(full);
+    }
+    return out;
+  }
+
+  it('no MoneyPenny-side source file references focusDispositionRecorded — MoneyPenny never synthesizes that evidence', () => {
+    const root = process.cwd();
+    const candidateDirs = [
+      join(root, 'app', '(shell)', 'moneypenny'),
+      join(root, 'services', 'financialServices'),
+    ];
+    const explicitFiles = [
+      join(root, 'app', 'triad', 'components', 'codex', 'tabs', 'MoneyPennyPanelTab.tsx'),
+      join(root, 'app', 'triad', 'components', 'codex', 'tabs', 'MoneyPennyTab.tsx'),
+    ];
+    const files = [...candidateDirs.flatMap((d) => collectFiles(d)), ...explicitFiles];
+    expect(files.length).toBeGreaterThan(0);
+    const offenders = files.filter((f) => readFileSync(f, 'utf-8').includes('focusDispositionRecorded'));
+    expect(offenders).toEqual([]);
   });
 });
