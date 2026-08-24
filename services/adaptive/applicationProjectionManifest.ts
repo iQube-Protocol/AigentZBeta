@@ -31,6 +31,12 @@ export interface ProjectedRouteRefV01 {
   residency: SurfaceResidencyClass;
   /** Why this residency was assigned — traces to the audit table row. */
   rationale: string;
+  /**
+   * Present only when this route's journey has a registered metaMe
+   * Catalogue destination (services/journey/operateDestinationProjection.ts)
+   * — read-only signal for AEE; never a route/truth AEE owns.
+   */
+  operateDestination?: { catalogueItemId: string; defaultTab: string; availableModes?: string[] };
 }
 
 export const FINANCIAL_SERVICES_JOURNEY_ROUTES: ProjectedRouteRefV01[] = [
@@ -40,7 +46,7 @@ export const FINANCIAL_SERVICES_JOURNEY_ROUTES: ProjectedRouteRefV01[] = [
   { routeId: 'fs.passport', stageId: 'passport', hostRefs: { native: 'venture-participate-apply' }, surfaceRef: 'venture-participate-apply', residency: 'NATIVE_ONLY', rationale: 'Personhood/Passport issuance — SPEC-AEE-001A §8 named example.' },
   { routeId: 'fs.activate', stageId: 'activate', hostRefs: { native: 'venture-participate-standing' }, surfaceRef: 'venture-participate-standing', residency: 'EXTERNAL_RENDER_ALLOWED', rationale: 'Derived registry-activation fact, read-only display.' },
   { routeId: 'fs.delegate', stageId: 'delegate', hostRefs: { native: 'venture-participate-delegation' }, surfaceRef: 'venture-participate-delegation', residency: 'NATIVE_ONLY', rationale: 'Principal-only delegation grant establishes the authority envelope.' },
-  { routeId: 'fs.operate', stageId: 'aigentme', hostRefs: { native: 'aigentme-welcome' }, surfaceRef: 'aigentme-welcome', residency: 'NATIVE_PREFERRED', rationale: 'Dense Operate stage — deferred to a later, separately-scoped audit per SPEC-AEE-001A §10 scope boundary.' },
+  { routeId: 'fs.operate', stageId: 'aigentme', hostRefs: { native: 'aigentme-welcome' }, surfaceRef: 'aigentme-welcome', residency: 'NATIVE_PREFERRED', rationale: 'Dense Operate stage — deferred to a later, separately-scoped audit per SPEC-AEE-001A §10 scope boundary.', operateDestination: { catalogueItemId: 'moneypenny', defaultTab: 'moneypenny-orchestration', availableModes: ['advisor', 'architect', 'runtime'] } },
   { routeId: 'fs.verify.primary', stageId: 'verify', hostRefs: { native: 'constitutional-agreement-ratify' }, surfaceRef: 'constitutional-agreement-ratify', residency: 'NATIVE_ONLY', rationale: 'The constitutional agreement authorization act itself.' },
   { routeId: 'fs.verify.secondary', stageId: 'verify', hostRefs: { native: 'pulse-transparency-toggle' }, surfaceRef: 'pulse-transparency-toggle', residency: 'EXTERNAL_RENDER_ALLOWED', rationale: 'Read-only Pulse/P&L transparency enrichment, never authority-bearing.' },
   { routeId: 'fs.standing', stageId: 'standing', hostRefs: { native: 'venture-participate-standing-only' }, surfaceRef: 'venture-participate-standing-only', residency: 'EXTERNAL_RENDER_ALLOWED', rationale: 'Pure read-only observed Standing state.' },

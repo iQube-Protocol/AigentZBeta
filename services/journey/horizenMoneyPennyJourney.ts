@@ -415,6 +415,23 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
         {
           mode: 'iframe',
           ref: 'aigentme-welcome',
+          /*
+           * NOT swapped to the MoneyPenny Orchestration destination
+           * (Financial Services / AEE closeout, 2026-08-24 — considered and
+           * rejected): this stage's completionEvidence requires
+           * 'focusDispositionRecorded', which is only recordable inside
+           * THIS shell's Welcome Capsule (§24.8). Replacing the surface
+           * would make the stage permanently uncompletable — a
+           * constitutional regression, not a destination projection.
+           * services/journey/operateDestinationProjection.ts still exists
+           * and feeds AEE's interaction context (informational only); the
+           * MoneyPenny catalogue card/tab it points at is reachable from
+           * inside this same metame-codex embed once activated. See
+           * codexes/packs/agentiq/updates/2026-08-24_financial-services-
+           * catalogue-operate-destination.md for the full reasoning and the
+           * safe follow-up path (a Welcome-Capsule CTA) if a one-click
+           * auto-hop is wanted later.
+           */
           note:
             "aigentMe's existing copilot/dashboard shell, composed as the base surface. The focus-" +
             'disposition ceremony (formerly a bolted-on second surface here) now lives inside this ' +

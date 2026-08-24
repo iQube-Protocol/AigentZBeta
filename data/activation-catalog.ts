@@ -427,6 +427,28 @@ export const ACTIVATION_CATALOG: ActivationCatalogEntry[] = [
     icon: 'Landmark',
     color: 'violet',
   },
+  {
+    // MoneyPenny's metaMe Catalogue card (2026-08-24, Financial Services /
+    // AEE reference-surface closeout). Mirrors the real MONEYPENNY_CARTRIDGE
+    // Orchestration tab (data/codex-configs.ts, id 'moneypenny-service-
+    // orchestration') into metaMe via the SAME MoneyPennyPanelTab component
+    // + panel prop — never a bespoke FS-only card. Orchestration (the mode
+    // chooser) is the default landing surface; Advisor/Architect/Runtime are
+    // selected FROM Orchestration, never defaulted into directly. This is
+    // also the catalogue destination the Financial Services / Horizen
+    // journey's Operate stage projects onto — see
+    // services/journey/operateDestinationProjection.ts.
+    id: 'moneypenny',
+    label: 'MoneyPenny',
+    description: 'Aigent MoneyPenny — the Constitutional Financial Services Agent. Advisor, Architect, and Runtime orchestration.',
+    longDescription:
+      'Activate Aigent MoneyPenny\'s Orchestration console inside metaMe — the oversight surface for choosing between Advisor (informational guidance), Architect (proposal-class financial structuring, PRD-MPY-001), and Runtime (the constitutional, consequential Financial Services execution pipeline). Orchestration is always the entry point; the three modes are selected from there.',
+    gate: 'open',
+    tabSlug: 'moneypenny-orchestration',
+    sourceCartridge: 'metame',
+    icon: 'TrendingUp',
+    color: 'emerald',
+  },
 ];
 
 export function getActivationEntry(id: string): ActivationCatalogEntry | null {

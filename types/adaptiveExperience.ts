@@ -86,6 +86,24 @@ export interface CapabilityProjectionRef {
   sensitive?: boolean;
 }
 
+/**
+ * Journey-scoped Operate destination projection (Financial Services / AEE
+ * closeout, 2026-08-24) — where this journey's Operate-equivalent stage
+ * lands inside the metaMe Catalogue, when one is registered
+ * (services/journey/operateDestinationProjection.ts). AEE reads this to
+ * reason over / recommend around the operator's destination context; it
+ * never owns or derives it — the catalogue item and its tabs remain
+ * data/activation-catalog.ts + data/codex-configs.ts's truth.
+ */
+export interface JourneyOperateDestinationProjection {
+  /** data/activation-catalog.ts ACTIVATION_CATALOG id. */
+  catalogueItemId: string;
+  /** metame-codex tab slug the catalogue item defaults to. */
+  defaultTab: string;
+  /** Sub-modes reachable from the default tab — context only, never a default-into hint. */
+  availableModes?: string[];
+}
+
 export interface JourneyProjectionContext {
   journeyId: string;
   journeyVersion: string;
@@ -99,6 +117,8 @@ export interface JourneyProjectionContext {
   futureStageIds?: string[];
   /** Immutable dependencies that presentation must not obscure (SPEC-AEE-001 §5). */
   immutableDependencyNotes?: string[];
+  /** Present only when this journeyId has a registered Operate destination. */
+  operateDestination?: JourneyOperateDestinationProjection;
 }
 
 export interface CompanionProjectionContext {

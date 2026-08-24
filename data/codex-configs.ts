@@ -3585,6 +3585,7 @@ export const METAME_CODEX: CodexConfig = {
     { id: 'agentiqos',    label: 'AgentiQ OS',       icon: 'Cpu',        order: 4,   activationId: 'agentiq-os' },
     { id: 'passport',     label: 'Passport',          icon: 'ShieldCheck',order: -0.5 },
     { id: 'standing',     label: 'Standing',         icon: 'Star',       order: 4.6, activationId: 'standing-cartridge' },
+    { id: 'moneypenny',   label: 'MoneyPenny',       icon: 'TrendingUp', order: 3.9, activationId: 'moneypenny' },
     { id: 'qriptopia',    label: 'Qriptopia',        icon: 'Globe',      order: 5,   activationId: 'qriptopian' },
     { id: 'admin',        label: 'Admin',            icon: 'Settings',   order: 6,   adminOnly: true },
   ],
@@ -3898,6 +3899,31 @@ export const METAME_CODEX: CodexConfig = {
       config: { component: 'TabRendererFallback', props: {} },
       metadata: { icon: 'Settings', description: 'Venture Lab admin surface — stubbed until VL ships its own adminOnly tabGroup. Visible only when the active persona admins the Venture Lab cartridge.', color: 'amber' },
       subTabs: ventureLabAdminTabsForMetameVl(),
+    },
+
+    // ── MoneyPenny group (activation-gated) — mirrors the real MoneyPenny
+    // Orchestration console into metaMe via the SAME MoneyPennyPanelTab
+    // component + panel prop the standalone MONEYPENNY_CARTRIDGE's own
+    // 'moneypenny-service-orchestration' tab uses (see that cartridge's
+    // definition below) — never a bespoke FS-only card. Orchestration is
+    // deliberately the ONLY mirrored panel: it's the mode chooser, and
+    // Advisor/Architect/Runtime stay reachable only from there, never
+    // defaulted into directly from the catalogue.
+    {
+      id: 'metame-moneypenny-orchestration',
+      label: 'MoneyPenny',
+      slug: 'moneypenny-orchestration',
+      enabled: true,
+      activationId: 'moneypenny',
+      group: 'moneypenny',
+      order: 0,
+      type: 'static',
+      config: { component: 'MoneyPennyPanelTab', props: { panel: 'service-orchestration' } },
+      metadata: {
+        icon: 'TrendingUp',
+        description: 'Aigent MoneyPenny — Orchestration console (choose Advisor / Architect / Runtime)',
+        color: 'emerald',
+      },
     },
 
     // ── Human Mobility group (payment-gated via activationId) ────────────────
