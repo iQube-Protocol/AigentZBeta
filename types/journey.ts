@@ -192,6 +192,33 @@ export interface JourneyStageDefinition {
    * implies the other.
    */
   forkPosition?: 'upper' | 'middle' | 'lower';
+
+  // JOURNEY SPINE EXTENSIONS — below this line (backward compatible; optional fields)
+  /**
+   * Step requirement classification (SPEC-JS-001 §6, JS-LAW-002).
+   * Defaults to 'required' for backward compatibility with existing journeys.
+   */
+  requirement?: StepRequirement;
+
+  /**
+   * Generic condition expression for stage satisfaction (SPEC-JS-001 §6).
+   * If provided, evaluated alongside completionEvidence.
+   * Maps to authoritative sources; never manufactures authorization.
+   */
+  satisfactionCondition?: ConditionExpression;
+
+  /**
+   * Dependency graph expressions (SPEC-JS-001 §7).
+   * Allows DAG structure vs. linear prerequisites.
+   * Evaluated alongside prerequisites for backward compatibility.
+   */
+  dependencies?: ConditionExpression[];
+
+  /**
+   * Explicit actor role typing (SPEC-JS-001 §14.2).
+   * Distinguishes principal, delegate, either, system, counterparty.
+   */
+  actorRole?: ActorRole;
 }
 
 export interface JourneyDefinition {
@@ -220,6 +247,12 @@ export interface JourneyRuntimeState {
   currentStageId: string;
   stages: JourneyStageRuntimeState[];
   complete: boolean;
+
+  // JOURNEY SPINE EXTENSIONS — below this line (backward compatible; optional fields)
+  targetStageId?: string; // Declared destination (SPEC-JS-001 §1)
+  phases?: JourneyPhase[]; // Versioning/history (SPEC-JS-001 §9, JS-LAW-007)
+  lastUpdatedAt?: string; // When state last changed
+  interactionContext?: InteractionContext; // Mutual awareness projection
 }
 
 export interface CompanionJourneyContext {
@@ -256,3 +289,176 @@ export type CompanionJourneyIntent =
   | 'SHOW_EVIDENCE'
   | 'SHOW_REFUSAL'
   | 'REQUEST_SOVEREIGN_ACTION';
+
+/**
+ * JOURNEY SPINE EXTENSIONS (SPEC-JS-001) — below this line are types that
+ * extend the Guided Journey Runtime into Journey Spine. These are additive
+ * to the existing contract and maintain backward compatibility.
+ */
+
+/**
+ * Actor role semantics — distinguishes principal, delegate, and system actors.
+ * Used to enforce actor-specific constraints (e.g., principal-required signatures).
+ * See SPEC-JS-001 §14.2 and CLAUDE.md "Artifact Deposit Actor" constraint.
+ */
+export enum ActorRole {
+  PRINCIPAL = 'principal',
+  DELEGATE = 'delegate',
+  EITHER = 'either',
+  SYSTEM = 'system',
+  COUNTERPARTY = 'counterparty',
+}
+
+/**
+ * Step requirement classification — determines whether a step is mandatory,
+ * optional, conditional, or future. Replaces binary "must do/must not do" with
+ * nuanced progression semantics (SPEC-JS-001 §2, JS-LAW-002).
+ */
+export enum StepRequirement {
+  REQUIRED = 'required',
+  OPTIONAL = 'optional',
+  CONDITIONAL = 'conditional',
+  FUTURE = 'future',
+}
+
+/**
+ * Extended step state model (SPEC-JS-001 §8, JS-LAW-008).
+ * Distinguishes waiting/blocked/refused states to prevent "incomplete progress bar" UX.
+ */
+export enum StepState {
+  COMPLETE = 'complete',
+  READY = 'ready',
+  OPTIONAL = 'optional',
+  WAITING = 'waiting',
+  BLOCKED = 'blocked',
+  FUTURE = 'future',
+  REFUSED = 'refused',
+  SUPERSEDED = 'superseded',
+}
+
+/**
+ * Generic condition expression for satisfaction/dependency evaluation.
+ * Maps to authoritative state sources; does not manufacture authorization.
+ * Adapter pattern (SPEC-JS-001 §1, CLAUDE.md constraint 1).
+ *
+ * Examples:
+ *   { type: 'settled-fact', value: 'is_registered' }
+ *   { type: 'receipt', value: 'horizen_agent_registered' }
+ *   { type: 'composite', operator: 'and', operands: [...] }
+ */
+export type ConditionExpression = {
+  type: 'settled-fact' | 'receipt' | 'composite' | 'boolean';
+  value?: string; // field name (settled fact), receipt type, or boolean literal
+  operator?: 'and' | 'or' | 'not';
+  operands?: ConditionExpression[];
+};
+
+/**
+ * Experience intent with explicit provenance — declared, observed, and inferred
+ * are kept separate (SPEC-JS-001 §10.1-10.3, JS-LAW-006).
+ */
+export interface ExperienceIntentProjection {
+  declaredPreferences?: Record<string, unknown>;
+  observedBehavior?: Record<string, unknown>;
+  inferredPreferences?: Array<{
+    preference: Record<string, unknown>;
+    confidence: number;
+    rationale: string;
+  }>;
+  provenance: {
+    declared: string[]; // source references
+    observed: string[]; // event types / behavior signals
+    inferred: string[]; // inference rule ids
+  };
+}
+
+/**
+ * Authority projection — what the owning capability permits, not Journey Spine policy.
+ * Explicitly separates recommendation from authorization (SPEC-JS-001 §18).
+ */
+export interface AuthorityProjection {
+  permitted: boolean;
+  reason?: string;
+  principalRequired?: boolean;
+  delegateMayAssist?: boolean;
+  delegateMaySign?: boolean;
+}
+
+/**
+ * Delegation context — active delegation info, if applicable.
+ */
+export interface DelegationProjection {
+  active: boolean;
+  agentId?: string;
+  scope?: string;
+}
+
+/**
+ * Mutual awareness projection (SPEC-JS-001 §5) — bounds what Companion, Experience,
+ * and future Differ/Adaptive Engine can consume without coupling them or leaking
+ * authorization decisions into multiple independent systems.
+ *
+ * CRITICAL: `recommendedNextActions` ≠ `authorityContext.permitted`
+ * Journey Spine may recommend what to do; Constitutional Computing decides what you can do.
+ */
+export interface InteractionContext {
+  participantRef: string;
+  personaRef?: string;
+  journeyId: string;
+  journeyVersion: string;
+  currentStageId: string;
+  targetStageId?: string;
+
+  // Stage readiness — canonical UX state model
+  readyStageIds: string[];
+  completedStageIds: string[];
+  waitingStageIds: string[];
+  blockedStageIds: string[];
+  optionalStageIds: string[];
+  futureStageIds?: string[];
+
+  // Capability availability — what surfaces exist
+  availableCapabilities: string[];
+
+  // Required conditions for progression — what must be true
+  requiredConditions: ConditionExpression[];
+
+  // Authority context — from owning capability, never manufactured by Journey Spine
+  authorityContext?: AuthorityProjection;
+
+  // Delegation state if applicable
+  delegationContext?: DelegationProjection;
+
+  // Experience signals with explicit provenance
+  experienceIntent?: ExperienceIntentProjection;
+
+  // Recommendations (clearly labeled as such)
+  recommendedNextActions?: string[];
+
+  // Companion integration seam
+  companionGuidance?: {
+    currentPhase: string;
+    explanation: string;
+    nextSteps?: string[];
+  };
+
+  // Presentation hints for future Differ
+  presentationHints?: Array<{
+    layout?: 'linear' | 'dag' | 'graph';
+    density?: 'compact' | 'normal' | 'detailed';
+    mode?: 'modal' | 'embedded' | 'cartridge';
+  }>;
+}
+
+/**
+ * Journey phase — supports versioning and history (SPEC-JS-001 §9, JS-LAW-007).
+ * Allows evolution (v1 → v2 → v3) while preserving historical phase evidence.
+ */
+export interface JourneyPhase {
+  version: string;
+  activeSince: string;
+  title: string;
+  stageIds: string[];
+  completionCondition: ConditionExpression;
+  supersededBy?: string;
+}
