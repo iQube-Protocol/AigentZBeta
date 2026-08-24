@@ -314,6 +314,55 @@ Also inventory:
 - external embeds/legacy surfaces;
 - state refresh requirements.
 
+### Mandatory first-pass scope: MoneyPenny service experience
+
+The Financial Services Journey audit MUST include not only the outer Journey Spine and its stage surfaces, but also the user-facing **MoneyPenny Constitutional Financial Services Agent experience** that sits inside the dense **Operate** phase.
+
+MoneyPenny is canonically a thin Financial Services specialization over the existing constitutional reasoning/runtime stack and operates in three modes:
+
+- **Advisor** — grounded, cited, read-only constitutional financial guidance;
+- **Architect** — designs financial structures/products and produces proposals/artifacts for human ratification;
+- **Runtime** — executes authorized financial actions within bounded, receipted, delegated authority.
+
+Canonical source:
+
+`codexes/packs/irl/foundation/PRD-MPY-001_moneypenny-constitutional-financial-services-agent.md`
+
+The first Differ audit must therefore treat these three MoneyPenny modes as first-class experience surfaces/processes and assess:
+
+`MONEYPENNY MODE | USER INTENT | CURRENT SURFACE | INPUT OBJECTS | OUTPUT OBJECTS | ACTIONS | CONSEQUENCE CLASS | AUTHORIZATION SENSITIVITY | EXPERIENCE GUIDE SIGNALS | DIFFER RENDER? | DIFFER HOST? | NATIVE HANDOFF REQUIRED? | RISK | RECOMMENDATION`
+
+At minimum inspect:
+
+- how a user enters/selects **Advisor / Architect / Runtime**;
+- whether the current experience exposes mode clearly or requires implicit navigation knowledge;
+- which ExQube / Experience Guide signals should influence mode presentation and next-best experience;
+- how Journey Spine should surface MoneyPenny services inside **Operate** without turning Operate into an undifferentiated container;
+- whether Differ can safely adapt the service chooser, explanatory layer, information density, Advisor outputs, Architect artifact views, and Runtime pre-action orientation;
+- where Runtime must hand back to native constitutional surfaces for authorization, signing, wallet/settlement, or other consequential operations;
+- what object-level contracts are needed for Advisor evidence/citations, Architect artifacts/proposals, and Runtime state/receipts;
+- how Companion should preserve continuity when the user moves between a Differ-rendered MoneyPenny service experience and native execution surfaces.
+
+### Scope boundary for the first pass
+
+The first audit should NOT expand merely for completeness into the whole metaMe operating environment.
+
+Specifically, **aigentMe, Aigent Z, DevOn, and the wider metaMe UI/UX are out of mandatory first-pass scope unless the audit proves that one of them is an unavoidable dependency for understanding or operating a MoneyPenny service surface.**
+
+If encountered, classify them as:
+
+- `DEPENDENCY_REQUIRED_NOW`
+- `INTEGRATION_SEAM_ONLY`
+- `DEFER_TO_LATER_AUDIT`
+
+Do not broaden the implementation simply because these systems are adjacent.
+
+The first meaningful adaptive target is therefore:
+
+> **Financial Services Journey Spine + MoneyPenny Advisor / Architect / Runtime experience, with the broader metaMe agentic operating environment kept at seam level unless genuinely required.**
+
+This gives Differ enough application depth to audit a real service experience rather than only navigation, while keeping the first pass bounded and falsifiable.
+
 ## 11. First-pass Differ shadow projection
 
 If a verified Differ integration surface exists, run a **shadow projection** of the Financial Services Journey:
@@ -321,13 +370,16 @@ If a verified Differ integration surface exists, run a **shadow projection** of 
 1. assemble provider-safe Journey + Experience + Capability context;
 2. provide Differ only the bounded projection manifest;
 3. ask Differ to produce a proposed navigation/rendering projection;
-4. do NOT expose consequential action credentials or execute writes;
-5. validate the proposed projection against native Journey/Authorization truth;
-6. compare native vs Differ projection;
-7. record differences and any invalid/unsafe recommendations;
-8. do not change the live journey until operator review.
+4. include the three MoneyPenny service modes — Advisor / Architect / Runtime — in the bounded service projection context;
+5. do NOT expose consequential action credentials or execute writes;
+6. validate the proposed projection against native Journey/Authorization truth;
+7. compare native vs Differ projection;
+8. record differences and any invalid/unsafe recommendations;
+9. do not change the live journey until operator review.
 
-Initial useful target: Journey Spine/navigation + low-risk explanatory/read-only surfaces, not wallet/signature/delegation execution.
+Initial useful target: Journey Spine/navigation + MoneyPenny service selection/orientation + low-risk explanatory/read-only Advisor/Architect surfaces, not wallet/signature/delegation/settlement execution.
+
+Runtime may be projected up to the pre-action boundary, but consequential execution stays native until its hosting/object/authorization contracts are separately validated.
 
 ## 12. Audit outputs
 
@@ -335,19 +387,20 @@ The first Financial Services audit should produce:
 
 1. **Differ Provider Capability Matrix**
 2. **Financial Services Surface Residency Matrix**
-3. **Application Projection Manifest v0.1** for the Financial Services journey
-4. **Object Projection Contract inventory**
-5. **Native vs Differ shadow projection comparison** if provider access exists
-6. **Hybrid-hosting recommendation** identifying the thinnest safe first externally hosted slice
-7. **Gap register** for any capability required before Mode 2 hosting
+3. **MoneyPenny Advisor / Architect / Runtime Experience Residency Matrix**
+4. **Application Projection Manifest v0.1** for the Financial Services journey
+5. **Object Projection Contract inventory** including MoneyPenny mode-specific objects
+6. **Native vs Differ shadow projection comparison** if provider access exists
+7. **Hybrid-hosting recommendation** identifying the thinnest safe first externally hosted slice
+8. **Gap register** for any capability required before Mode 2 hosting
 
 ## 13. First hosted slice candidate
 
 Do not pre-decide the result of the audit, but the expected safest candidate is:
 
-> **Differ-hosted Journey Spine + orientation/read-only journey summary, with native capability surfaces opened/embedded on demand.**
+> **Differ-hosted Journey Spine + MoneyPenny service chooser/orientation + selected low-risk Advisor/Architect read surfaces, with native constitutional capability surfaces opened/embedded on demand.**
 
-This would demonstrate navigation/capability decoupling without moving constitutional execution outside metaMe.
+This would demonstrate navigation/capability decoupling **and** adaptive service experience without moving constitutional execution outside metaMe.
 
 A later iteration may increase residency to selected read/write surfaces only after their object contracts and authorization handoffs are validated.
 
@@ -359,6 +412,7 @@ The architecture is ready for selective Differ hosting when:
 - a provider-safe Application Projection Manifest exists;
 - object-level data contracts exist for externally rendered surfaces;
 - every surface has a residency class;
+- MoneyPenny Advisor / Architect / Runtime are each explicitly classified for renderer/host suitability and native handoff boundaries;
 - provider access cannot bypass authorization or persona guards;
 - provider-hosted actions call platform-owned capability endpoints;
 - receipts/evidence remain platform-issued;
@@ -371,7 +425,7 @@ The architecture is ready for selective Differ hosting when:
 
 ### Phase 0 — Differ capability verification + Financial Services audit
 
-No application migration. Verify provider and inventory the Financial Services Journey.
+No application migration. Verify provider and inventory the Financial Services Journey **including MoneyPenny Advisor / Architect / Runtime as mandatory in-scope service experiences**.
 
 ### Phase 1 — Adaptive provider integration
 
@@ -383,7 +437,7 @@ Implement Application Projection Manifest + surface residency + route/slug proje
 
 ### Phase 2B — Object projection contracts
 
-Expose bounded object data for selected externally renderable surfaces.
+Expose bounded object data for selected externally renderable surfaces, beginning with Journey + MoneyPenny mode objects required by the audit-selected slice.
 
 ### Phase 2C — First hybrid hosting slice
 
@@ -396,6 +450,8 @@ Allow Journey Spine to project across native and Differ-hosted surfaces under on
 ### Phase 4 — Wider application hosting
 
 Only after evidence from the Financial Services slice. Expand cartridge/tab/application residency selectively, never through wholesale migration by assumption.
+
+Broader aigentMe / Aigent Z / DevOn / metaMe operating-environment hosting belongs here or in a separately scoped follow-on audit unless Phase 0 proves it is required earlier.
 
 ## 16. Governing principle
 
