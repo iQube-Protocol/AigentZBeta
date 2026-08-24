@@ -61,14 +61,15 @@
  * `services/journey/horizenMoneyPennyJourney.ts` is completely untouched:
  * the `aigentme` stage's `completionEvidence` (`focusDispositionRecorded`)
  * is still only recordable inside the aigentme-welcome shell's Welcome
- * Capsule, reached exactly as before — by navigating to aigentMe, whether
- * from inside the MoneyPenny embed's own metaMe nav or via "View Journey".
- * MoneyPenny never records, derives, or synthesizes that evidence — it has
- * no code path that references it at all. Journey guidance determines the
- * recommended/default path, never the maximum accessible capability depth:
- * a task-focused operator can stay entirely inside MoneyPenny; an advanced
- * operator can expand into full metaMe and reach aigentMe (or anything
- * else) exactly as today.
+ * Capsule, reached exactly as before — by navigating to aigentMe from within
+ * the MoneyPenny embed's own full navigation chrome (never suppressed) or
+ * through the stage stepper's own normal navigation. MoneyPenny never
+ * records, derives, or synthesizes that evidence — it has no code path that
+ * references it at all. Journey guidance determines the recommended/default
+ * path, never the maximum accessible capability depth: a task-focused
+ * operator can stay entirely inside MoneyPenny; an advanced operator can
+ * expand into full metaMe and reach aigentMe (or anything else) exactly as
+ * today.
  */
 
 import { useCallback, useEffect, useState } from 'react';
@@ -79,7 +80,6 @@ import { usePersonaSpine } from '@/utils/personaSpine';
 import type { JourneyRuntimeState } from '@/types/journey';
 import { HORIZEN_MONEYPENNY_JOURNEY } from '@/services/journey/horizenMoneyPennyJourney';
 import { resolveJourneyOperatorDestination } from '@/services/journey/catalogueDestinationHelper';
-import { ArrowLeft } from 'lucide-react';
 
 export function FinancialServicesBridgeFrontDoor() {
   const [personaId, setPersonaId] = useState<string | undefined>(undefined);
@@ -88,15 +88,6 @@ export function FinancialServicesBridgeFrontDoor() {
   // Derived exclusively from onRuntimeStateChange — never re-read from a
   // second observer (CFS-055 coherence discipline, same as the CI bridge).
   const [citizenPassportUsable, setCitizenPassportUsable] = useState<boolean | undefined>(undefined);
-  // Manual override: metaMe activation is separate from aigentMe activation
-  // (operator direction, 2026-08-24) — MoneyPenny Orchestration is the
-  // DEFAULT foregrounded experience once Passport is established, never
-  // gated on the aigentMe stage's own completion. "View Journey" is the
-  // advanced/expanded path into the full Journey stepper (where aigentMe's
-  // existing welcome/focus-disposition ceremony still lives, untouched).
-  // Reset to false whenever the underlying resolution flips back to
-  // PUBLIC_ORIENTATION, so a signed-out visit never gets stuck on it.
-  const [viewJourneyOverride, setViewJourneyOverride] = useState(false);
 
   const handleRuntimeStateChange = useCallback((state: JourneyRuntimeState) => {
     const passportStage = state.stages.find((s) => s.stageId === 'passport');
@@ -127,47 +118,39 @@ export function FinancialServicesBridgeFrontDoor() {
     navOptions: { personaId },
   });
 
-  const showOrchestrationDirectly =
-    destination.valid && destination.activationMode === 'CATALOGUE_ACTIVATION' && !viewJourneyOverride;
+  // Projection layer: MoneyPenny Orchestration is the foreground for aigentme
+  // (product-facing "Operate" label) when post-Passport, but the Journey Spine
+  // and all navigation remain unchanged (operator direction, 2026-08-24,
+  // "separate metaMe activation from aigentMe activation"). The stage stepper
+  // stays visible; only the aigentme stage's surface is overridden. If
+  // resolution fails, this stays undefined and PilotJourneyTab renders the
+  // normal aigentme surfaces.
+  const foregroundSurfacesByStage = destination.valid && destination.activationMode === 'CATALOGUE_ACTIVATION'
+    ? {
+        aigentme: (
+          <div className="flex h-full flex-col">
+            <div className="flex items-center justify-between border-b border-slate-800 bg-slate-900/60 px-4 py-2">
+              <span className="text-xs text-slate-400">
+                Financial Services — Operate → <span className="text-emerald-300">MoneyPenny Orchestration</span>
+              </span>
+            </div>
+            <iframe
+              src={destination.operatorDestination.route}
+              title="MoneyPenny Orchestration"
+              className="w-full flex-1 border-0"
+            />
+          </div>
+        ),
+      }
+    : undefined;
 
   return (
     <div className="min-h-screen bg-slate-950">
-      {showOrchestrationDirectly && destination.valid ? (
-        <div className="flex h-screen flex-col">
-          <div className="flex items-center justify-between border-b border-slate-800 bg-slate-900/60 px-4 py-2">
-            <span className="text-xs text-slate-400">
-              Financial Services — Operate → <span className="text-emerald-300">MoneyPenny Orchestration</span>
-            </span>
-            <button
-              type="button"
-              onClick={() => setViewJourneyOverride(true)}
-              className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-slate-200 bg-none border-none cursor-pointer p-0"
-            >
-              <ArrowLeft className="h-3 w-3" /> View Journey
-            </button>
-          </div>
-          <iframe
-            src={destination.operatorDestination.route}
-            title="MoneyPenny Orchestration"
-            className="w-full flex-1 border-0"
-          />
-        </div>
-      ) : (
-        <>
-          {destination.valid && destination.activationMode === 'CATALOGUE_ACTIVATION' && (
-            <div className="flex items-center justify-end border-b border-slate-800 bg-slate-900/60 px-4 py-2">
-              <button
-                type="button"
-                onClick={() => setViewJourneyOverride(false)}
-                className="text-[11px] text-emerald-300 hover:text-emerald-200 bg-none border-none cursor-pointer p-0"
-              >
-                Continue to MoneyPenny Orchestration →
-              </button>
-            </div>
-          )}
-          <PilotJourneyTab personaId={personaId} onRuntimeStateChange={handleRuntimeStateChange} />
-        </>
-      )}
+      <PilotJourneyTab
+        personaId={personaId}
+        onRuntimeStateChange={handleRuntimeStateChange}
+        foregroundSurfacesByStage={foregroundSurfacesByStage}
+      />
 
       {showPassportSignIn && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">

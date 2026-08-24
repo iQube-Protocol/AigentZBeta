@@ -337,6 +337,16 @@ export interface JourneyRunSurfaceProps {
    * own `runtimeState` argument.
    */
   onRuntimeStateChange?: (state: JourneyRuntimeState) => void;
+  /**
+   * Journey-scoped foreground surface override — maps stage ID to the
+   * React node to render instead of the journey's normal surfaces for that
+   * stage. Used by FinancialServicesBridgeFrontDoor (2026-08-24) to project
+   * MoneyPenny Orchestration as the foreground for Operate without modifying
+   * the journey definition. The stage stepper, navigation, and all other
+   * chrome remain unchanged. Only the surface content for the specified stage
+   * is replaced.
+   */
+  foregroundSurfacesByStage?: Record<string, React.ReactNode>;
 }
 
 const DEFAULT_ACCENT = {
@@ -362,6 +372,7 @@ export function JourneyRunSurface({
   distinguishAvailableStages = false,
   emphasizeAvailableStage,
   onRuntimeStateChange,
+  foregroundSurfacesByStage,
 }: JourneyRunSurfaceProps) {
   const [runtimeState, setRuntimeState] = useState<JourneyRuntimeState | null>(null);
   /**
@@ -1205,7 +1216,10 @@ export function JourneyRunSurface({
 
       <div className="flex flex-1 flex-col gap-3 overflow-y-auto rounded-lg border border-slate-800 bg-slate-900/40 p-4">
         <div className="flex flex-col gap-2">
-          {activeStage.surfaces.map((surfaceRef, i) => {
+          {foregroundSurfacesByStage?.[activeStage.id] ? (
+            <div key={`foreground-${activeStage.id}`}>{foregroundSurfacesByStage[activeStage.id]}</div>
+          ) : (
+            activeStage.surfaces.map((surfaceRef, i) => {
             const descriptor = JOURNEY_SURFACES[surfaceRef.ref];
             if (!descriptor) {
               return (
@@ -1343,7 +1357,8 @@ export function JourneyRunSurface({
                 {descriptor.note}
               </div>
             );
-          })}
+          }))}
+          )}
         </div>
         {/* Suppressed where the stage's own surface already shows its
             receipts (see JourneyStageDefinition.receiptsSurfacedNatively) —

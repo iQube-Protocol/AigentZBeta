@@ -48,6 +48,15 @@ interface PilotJourneyTabProps {
    * (PartnerProgrammesTab) — no behavior change there.
    */
   onRuntimeStateChange?: JourneyRunSurfaceProps['onRuntimeStateChange'];
+  /**
+   * Journey-scoped foreground surface override (Financial Services / AEE
+   * closeout, 2026-08-24) — passed directly through to JourneyRunSurface.
+   * Maps stage ID to the React node to render instead of that stage's normal
+   * surfaces. Used by FinancialServicesBridgeFrontDoor to project MoneyPenny
+   * Orchestration as the foreground for Operate without modifying the journey.
+   * Omitted by every existing caller — no behavior change there.
+   */
+  foregroundSurfacesByStage?: JourneyRunSurfaceProps['foregroundSurfacesByStage'];
 }
 
 /**
@@ -84,7 +93,7 @@ function selectStage(stageId: string) {
   }
 }
 
-function PilotJourneyTabInner({ personaId, isAdmin, onRuntimeStateChange }: PilotJourneyTabProps) {
+function PilotJourneyTabInner({ personaId, isAdmin, onRuntimeStateChange, foregroundSurfacesByStage }: PilotJourneyTabProps) {
   // Which registrable agent the Register stage is currently sponsoring
   // (services/horizen/registrableAgents.ts, MoneyPenny is the demo default).
   // The dry-run agent is the one being exercised, so it is the one selected on
@@ -332,6 +341,7 @@ function PilotJourneyTabInner({ personaId, isAdmin, onRuntimeStateChange }: Pilo
       components={JOURNEY_COMPONENTS}
       resolveSurfaceProps={resolveSurfaceProps}
       onRuntimeStateChange={onRuntimeStateChange}
+      foregroundSurfacesByStage={foregroundSurfacesByStage}
       headerLabel={
         <>
           <span className="shrink-0 font-semibold text-slate-100">metaMe × Horizen</span>
