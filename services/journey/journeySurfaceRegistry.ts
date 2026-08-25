@@ -91,6 +91,18 @@ export type JourneySurfaceDescriptor =
        */
       openLabel?: string;
       /**
+       * Static left-hand context label rendered on the SAME toolbar row as
+       * `openLabel` (FS Operate viewport parity, 2026-08-25) — e.g.
+       * "Financial Services — Operate → MoneyPenny Orchestration". Only
+       * meaningful when `focused` is true and `rootTab` is not set (the two
+       * occupy the same left slot; no current descriptor needs both). Static
+       * because this field belongs to a per-journey FOREGROUND override — a
+       * stage-scoped destination substitution, never a general-purpose
+       * per-surface breadcrumb — so it is only ever set on descriptors a
+       * `foregroundSurfaceRefByStage` override points at.
+       */
+      breadcrumb?: string;
+      /**
        * Focused navigation depth (operator direction, 2026-08-10) — defines
        * how many navigation tiers above the content to reveal when focused:
        *   0 (default) — content surface only; no cartridge or domain nav
@@ -304,6 +316,42 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
       'Confirmed real and live — AigentMeWelcomeSplitTab, the operator’s existing copilot/dashboard ' +
       'shell. The focus-disposition ceremony is a Welcome Capsule inside this shell itself (§24.8 ' +
       'Ceremony Capsule Principle) — never a second journey-level surface stacked alongside it.',
+  },
+  'moneypenny-orchestration-focused': {
+    kind: 'embed',
+    codexSlug: 'metame-codex',
+    tab: 'moneypenny-orchestration',
+    // The Journey Runtime copilot (mounted once by JourneyCopilotHost) is the
+    // one persistent MoneyPenny copilot on screen — the embedded tab must not
+    // mount a second one (MS-1), same rule as aigentme-welcome above.
+    suppressFloatingCopilot: true,
+    // FS Operate viewport parity (2026-08-25) — MoneyPenny Orchestration is
+    // self-contained (Advisor/Architect/Runtime modes are the tab's OWN
+    // internal navigation, mounted unconditionally by TabRenderer regardless
+    // of primary-chrome suppression), so depth 0 matches the KNYT Pulse/
+    // Quests precedent: content only, no cartridge/domain nav needed for the
+    // destination to remain functional.
+    focused: true,
+    focusedNavDepth: 0,
+    openLabel: 'Explore metaMe ↗',
+    breadcrumb: 'Financial Services — Operate → MoneyPenny Orchestration',
+    note:
+      'FS Operate viewport + Focus/Full parity correction (2026-08-25) — the SAME MoneyPenny ' +
+      'Orchestration tab (metame-codex/moneypenny-orchestration) `resolveJourneyOperatorDestination` ' +
+      'already resolves for Horizen\'s Operate stage, now composed through the canonical `kind: ' +
+      "'embed'` + `focused: true` presentation primitive (the same one KNYT Pulse/Quests/Store and " +
+      'CI/KNYTS myCanvas already use) instead of a raw, unsized iframe built by hand in ' +
+      'FinancialServicesBridgeFrontDoor. Fixes the Amplify-visible defect where the hand-built iframe ' +
+      "collapsed to its intrinsic browser height (no resolved h-full/flex-1 ancestor) and carried no " +
+      "Focus/Full toggle. Supersedes the earlier FS-specific decision to always embed MoneyPenny with " +
+      'full navigation chrome — the default is now focused (cartridge primary chrome suppressed), with ' +
+      "`openLabel`'s \"Explore metaMe ↗\" the explicit, reversible transition into full canonical " +
+      "metaMe navigation, exactly like every other focused Bridge embed. `resolveJourneyOperatorDestination` " +
+      'still owns WHETHER this is the correct Operate destination for the current threshold state — ' +
+      'this entry only owns HOW that destination is presented once chosen. codexSlug/tab intentionally ' +
+      "mirror ACTIVATION_CATALOG's 'moneypenny' entry (cartridgeRef/tabSlug) — kept in parity by a " +
+      'canary in tests/fs-operate-embed-viewport-parity.test.ts rather than derived at runtime, matching ' +
+      'every other static registry entry\'s convention.',
   },
   'founder-office': {
     kind: 'embed',

@@ -159,13 +159,20 @@ describe('Financial Services Bridge — one MoneyPenny copilot, always suppresse
     expect(graph.records.some((r) => r.specifier === '@/app/components/metaVatar/MetaAvatarHost' && r.names.includes('MetaAvatarHost'))).toBe(true);
   });
 
-  it('resolveJourneyOperatorDestination is always called with suppressCopilot: true', () => {
-    const code = stripComments(readSource(FS_BRIDGE_FRONT_DOOR));
-    const callAt = code.indexOf('resolveJourneyOperatorDestination({');
-    expect(callAt).toBeGreaterThan(-1);
-    const closeAt = code.indexOf('});', callAt);
-    const callBody = code.slice(callAt, closeAt);
-    expect(callBody).toContain('suppressCopilot: true');
+  it('the MoneyPenny Orchestration embed suppresses its own floating copilot via the registry ref (2026-08-25 — moved off navOptions.suppressCopilot when the raw-iframe foreground was replaced)', () => {
+    // FS Operate viewport parity (2026-08-25): the foreground destination is
+    // now the 'moneypenny-orchestration-focused' registry ref, rendered
+    // through JourneyRunSurface's shared embed switch — the SAME mechanism
+    // aigentme-welcome already uses for copilot suppression, never a second
+    // one threaded through resolveJourneyOperatorDestination's navOptions
+    // (which no longer affects the rendered iframe src at all — see
+    // tests/fs-operate-embed-viewport-parity.test.ts).
+    const registrySrc = stripComments(readSource('services/journey/journeySurfaceRegistry.ts'));
+    const entryAt = registrySrc.indexOf("'moneypenny-orchestration-focused': {");
+    expect(entryAt).toBeGreaterThan(-1);
+    const entryEnd = registrySrc.indexOf('\n  },', entryAt);
+    const entryBody = registrySrc.slice(entryAt, entryEnd);
+    expect(entryBody).toContain('suppressFloatingCopilot: true');
   });
 
   it('wires onPersonaChange={setPersonaId} on PilotJourneyTab', () => {

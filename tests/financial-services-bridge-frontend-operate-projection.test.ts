@@ -1,6 +1,7 @@
 /**
  * Financial Services Bridge FrontDoor — Operate projection integration test
- * (2026-08-24, Catalogue Helper closeout, architectural correction).
+ * (2026-08-24, Catalogue Helper closeout, architectural correction; updated
+ * 2026-08-25, FS Operate viewport + Focus/Full parity correction).
  *
  * Verifies that when FinancialServicesBridgeFrontDoor mounts at post-Passport
  * Operate, the foreground surface is actually moneypenny-orchestration — not
@@ -10,10 +11,17 @@
  * This test bridges the gap between:
  *   1. catalogueDestinationHelper.ts tests (unit: destination resolution works)
  *   2. Integration: the resolved destination actually becomes the foreground
+ *
+ * 2026-08-25 note: the foreground is now projected as a
+ * `foregroundSurfaceRefByStage` REGISTRY REF
+ * ('moneypenny-orchestration-focused'), not a raw hand-built iframe — see
+ * tests/fs-operate-embed-viewport-parity.test.ts for the ref/primitive-reuse
+ * canaries this change added. The tests below still exercise
+ * `resolveJourneyOperatorDestination` itself (unchanged by that fix) and the
+ * Horizen journey's own `aigentme` stage (also unchanged).
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import React from 'react';
 import { resolveJourneyOperatorDestination } from '@/services/journey/catalogueDestinationHelper';
 import { HORIZEN_MONEYPENNY_JOURNEY } from '@/services/journey/horizenMoneyPennyJourney';
 
@@ -82,44 +90,25 @@ describe('FinancialServicesBridgeFrontDoor — Operate projection integration', 
     expect(route).toContain('metame'); // The cartridge slug
   });
 
-  it('foreground surfaces object correctly maps "aigentme" stage to MoneyPenny', () => {
+  it('the "aigentme" stage foreground override resolves to the moneypenny-orchestration-focused ref (2026-08-25 — no longer a hand-built ReactNode)', () => {
     const destination = resolveJourneyOperatorDestination({
       journeyId: HORIZEN_MONEYPENNY_JOURNEY.id,
       participantState: { citizenPassportUsable: true },
-      navOptions: { personaId: 'test-persona-id' },
     });
 
     expect(destination.valid).toBe(true);
     if (!destination.valid) return;
 
-    // Simulate the foregroundSurfacesByStage construction from FinancialServicesBridgeFrontDoor
-    const foregroundSurfacesByStage =
+    // The REAL construction, mirrored from FinancialServicesBridgeFrontDoor
+    // (see tests/fs-operate-embed-viewport-parity.test.ts for the source-text
+    // canary proving the live component builds exactly this).
+    const foregroundSurfaceRefByStage =
       destination.activationMode === 'CATALOGUE_ACTIVATION'
-        ? {
-            aigentme: React.createElement(
-              'div',
-              { className: 'flex h-full flex-col' },
-              React.createElement(
-                'div',
-                { className: 'flex items-center justify-between border-b border-slate-800 bg-slate-900/60 px-4 py-2' },
-                React.createElement(
-                  'span',
-                  { className: 'text-xs text-slate-400' },
-                  'Financial Services — Operate → ',
-                  React.createElement('span', { className: 'text-emerald-300' }, 'MoneyPenny Orchestration'),
-                ),
-              ),
-              React.createElement('iframe', {
-                src: destination.operatorDestination.route,
-                title: 'MoneyPenny Orchestration',
-                className: 'w-full flex-1 border-0',
-              }),
-            ),
-          }
+        ? { aigentme: 'moneypenny-orchestration-focused' }
         : undefined;
 
-    expect(foregroundSurfacesByStage).toBeDefined();
-    expect(foregroundSurfacesByStage?.aigentme).toBeDefined();
+    expect(foregroundSurfaceRefByStage).toBeDefined();
+    expect(foregroundSurfaceRefByStage?.aigentme).toBe('moneypenny-orchestration-focused');
   });
 
   it('PRE_PASSPORT state does NOT produce a foreground override', () => {
@@ -136,28 +125,32 @@ describe('FinancialServicesBridgeFrontDoor — Operate projection integration', 
     expect(destination.activationMode).toBe('PUBLIC_ORIENTATION');
 
     // No foreground override — surfaces render the normal Operate journey
-    const foregroundSurfacesByStage =
+    const foregroundSurfaceRefByStage =
       destination.activationMode === 'CATALOGUE_ACTIVATION'
-        ? { operate: React.createElement('div') }
+        ? { operate: 'moneypenny-orchestration-focused' }
         : undefined;
 
-    expect(foregroundSurfacesByStage).toBeUndefined();
+    expect(foregroundSurfaceRefByStage).toBeUndefined();
   });
 
-  it('navigation chrome is not suppressed in the MoneyPenny foreground', () => {
+  it('the bare catalogue route itself still carries no chrome params — that decision now lives entirely in the registry ref, not this route (2026-08-25)', () => {
+    // Pre-2026-08-25 this route WAS the literal iframe src, so "no chrome
+    // suppression here" meant "MoneyPenny always renders full chrome." That
+    // decision is superseded — see tests/fs-operate-embed-viewport-parity.test.ts
+    // for the registry ref's `focused: true` (the mechanism that now owns
+    // Focus/Full presentation). This route is UNCHANGED and still carries no
+    // chrome params, because `resolveOperatorDestination`'s bare route is a
+    // generic, multi-purpose resolver — it is simply no longer what the FS
+    // Bridge's iframe src is built from.
     const destination = resolveJourneyOperatorDestination({
       journeyId: HORIZEN_MONEYPENNY_JOURNEY.id,
       participantState: { citizenPassportUsable: true },
-      navOptions: { personaId: 'test-persona-id' },
     });
 
     expect(destination.valid).toBe(true);
     if (!destination.valid) return;
 
     const route = destination.operatorDestination.route;
-
-    // No chrome suppression parameters — the embed keeps the full metaMe
-    // navigation chrome (0/1/2/Full depth mechanics remain unchanged).
     expect(route).not.toContain('chrome=focused');
     expect(route).not.toContain('depth=');
   });

@@ -41,7 +41,8 @@
  * aigentMe activation") —
  * `services/journey/catalogueDestinationHelper.ts`'s
  * `resolveJourneyOperatorDestination()` is the ONLY place this page decides
- * where "Operate" actually lands. Once the operator holds a usable Citizen
+ * WHETHER MoneyPenny Orchestration is the correct Operate destination for
+ * the current threshold state. Once the operator holds a usable Citizen
  * Passport, this page's DEFAULT foregrounded content is a direct embed of
  * MoneyPenny's Orchestration console — the operator never has to stop at
  * MyCanvas, the metaMe Catalogue page, or MoneyPenny's own root tab first.
@@ -53,23 +54,42 @@
  *   - metaMe = the operating environment. Default at Operate: MoneyPenny
  *     Orchestration.
  *   - aigentMe = one agent/capability WITHIN that environment, reachable
- *     through the embed's own full navigation chrome (never suppressed
- *     here — `buildCodexUrl` is called without `focused`, so the standard
- *     0/1/2/Full navigation-depth mechanics stay exactly as they are
- *     elsewhere) or through the "View Journey" toggle below.
+ *     through the "Explore metaMe ↗" affordance below (which expands the
+ *     SAME embed to full canonical metaMe navigation — see the FS Operate
+ *     viewport note) or through the stage stepper's own normal navigation.
  *
  * `services/journey/horizenMoneyPennyJourney.ts` is completely untouched:
  * the `aigentme` stage's `completionEvidence` (`focusDispositionRecorded`)
  * is still only recordable inside the aigentme-welcome shell's Welcome
  * Capsule, reached exactly as before — by navigating to aigentMe from within
- * the MoneyPenny embed's own full navigation chrome (never suppressed) or
- * through the stage stepper's own normal navigation. MoneyPenny never
- * records, derives, or synthesizes that evidence — it has no code path that
- * references it at all. Journey guidance determines the recommended/default
- * path, never the maximum accessible capability depth: a task-focused
- * operator can stay entirely inside MoneyPenny; an advanced operator can
- * expand into full metaMe and reach aigentMe (or anything else) exactly as
- * today.
+ * the MoneyPenny embed's own expanded/full navigation chrome or through the
+ * stage stepper's own normal navigation. MoneyPenny never records, derives,
+ * or synthesizes that evidence — it has no code path that references it at
+ * all. Journey guidance determines the recommended/default path, never the
+ * maximum accessible capability depth: a task-focused operator can stay
+ * entirely inside MoneyPenny; an advanced operator can expand into full
+ * metaMe and reach aigentMe (or anything else) exactly as today.
+ *
+ * FS OPERATE VIEWPORT + FOCUS/FULL PARITY (2026-08-25) — the foreground
+ * override for Operate is now a `foregroundSurfaceRefByStage` REF
+ * (`'moneypenny-orchestration-focused'`, journeySurfaceRegistry.ts), not a
+ * hand-built `<iframe>`. This closes a real Amplify-visible defect: the old
+ * hand-built `<div className="flex h-full flex-col"><iframe
+ * className="w-full flex-1">` had no resolved ancestor height for
+ * `h-full`/`flex-1` to resolve against (JourneyRunSurface wraps foreground
+ * nodes in ordinary auto-height divs), so the iframe collapsed to its
+ * intrinsic browser height — unusable for MoneyPenny's own modals. Routing
+ * through the registry ref instead means this destination renders through
+ * the EXACT SAME `descriptor.kind === 'embed'` switch every ordinary journey
+ * surface uses (JourneyRunSurface.tsx), inheriting its `h-[calc(100vh-200px)]`
+ * focused-viewport height, its Focus/Full in-place toggle, and its
+ * copilot-suppression handling for free — never a second, hand-rolled
+ * version of any of them. Also supersedes the earlier FS-specific decision
+ * to always embed MoneyPenny with full navigation chrome: the default is
+ * now FOCUSED (metaMe's primary cartridge chrome suppressed, matching every
+ * other focused Bridge embed), with the registry entry's own `openLabel`
+ * ("Explore metaMe ↗") the explicit, reversible affordance into full
+ * canonical metaMe navigation — never a second page, never a second iframe.
  *
  * JOURNEY RUNTIME COPILOT INVARIANT (item 1, semantic repair 2026-08-25) —
  * the single floating copilot is no longer mounted here by hand. It is now
@@ -81,8 +101,9 @@
  * `MONEYPENNY_CARTRIDGE.copilot`) — never hand-copied here anymore. It
  * stays mounted across every stage, including Operate/aigentme, and is
  * still NEVER doubled by a copilot inside the MoneyPenny Orchestration
- * iframe: `resolveJourneyOperatorDestination` is still called with
- * `suppressCopilot: true` in `navOptions`, unchanged (MS-1).
+ * embed: the `'moneypenny-orchestration-focused'` registry entry declares
+ * `suppressFloatingCopilot: true`, the same mechanism `aigentme-welcome`
+ * already uses (MS-1).
  *
  * `MetaAvatarProvider`/`MetaAvatarHost` still wrap this bare page for the
  * same reason KNYTS/CI Bridge each add their own instance (2026-08-10/11) —
@@ -133,40 +154,27 @@ export function FinancialServicesBridgeFrontDoor() {
   // catalogue id, a deleted tab) — never a silent fallback to a generic
   // surface. citizenPassportUsable defaults to false (PRE_PASSPORT) while
   // the first read is in flight, which is the correct fail-safe: an unknown
-  // threshold state must never resolve to CATALOGUE_ACTIVATION.
+  // threshold state must never resolve to CATALOGUE_ACTIVATION. Only
+  // `valid`/`activationMode` are consumed here — WHICH ref presents that
+  // destination is the registry's job (`.route` is unused; see the FS
+  // Operate viewport note above), so no `navOptions` is passed.
   const destination = resolveJourneyOperatorDestination({
     journeyId: HORIZEN_MONEYPENNY_JOURNEY.id,
     participantState: { citizenPassportUsable: citizenPassportUsable === true },
-    // suppressCopilot: true — MoneyPenny is already mounted once as this
-    // Bridge's own outer floating copilot (below); the embedded MoneyPenny
-    // Orchestration tab must never mount a second one (MS-1).
-    navOptions: { personaId, suppressCopilot: true },
   });
 
   // Projection layer: MoneyPenny Orchestration is the foreground for aigentme
   // (product-facing "Operate" label) when post-Passport, but the Journey Spine
   // and all navigation remain unchanged (operator direction, 2026-08-24,
   // "separate metaMe activation from aigentMe activation"). The stage stepper
-  // stays visible; only the aigentme stage's surface is overridden. If
-  // resolution fails, this stays undefined and PilotJourneyTab renders the
-  // normal aigentme surfaces.
-  const foregroundSurfacesByStage = destination.valid && destination.activationMode === 'CATALOGUE_ACTIVATION'
-    ? {
-        aigentme: (
-          <div className="flex h-full flex-col">
-            <div className="flex items-center justify-between border-b border-slate-800 bg-slate-900/60 px-4 py-2">
-              <span className="text-xs text-slate-400">
-                Financial Services — Operate → <span className="text-emerald-300">MoneyPenny Orchestration</span>
-              </span>
-            </div>
-            <iframe
-              src={destination.operatorDestination.route}
-              title="MoneyPenny Orchestration"
-              className="w-full flex-1 border-0"
-            />
-          </div>
-        ),
-      }
+  // stays visible; only the aigentme stage's surface ref is overridden, and
+  // renders through the SAME embed presentation primitive every ordinary
+  // journey surface uses (FS Operate viewport parity, 2026-08-25 — see the
+  // 'moneypenny-orchestration-focused' registry entry). If resolution fails,
+  // this stays undefined and PilotJourneyTab renders the normal aigentme
+  // surfaces.
+  const foregroundSurfaceRefByStage = destination.valid && destination.activationMode === 'CATALOGUE_ACTIVATION'
+    ? { aigentme: 'moneypenny-orchestration-focused' }
     : undefined;
 
   return (
@@ -175,7 +183,7 @@ export function FinancialServicesBridgeFrontDoor() {
       <PilotJourneyTab
         personaId={personaId}
         onRuntimeStateChange={handleRuntimeStateChange}
-        foregroundSurfacesByStage={foregroundSurfacesByStage}
+        foregroundSurfaceRefByStage={foregroundSurfaceRefByStage}
         onPersonaChange={setPersonaId}
       />
 

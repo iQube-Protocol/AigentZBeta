@@ -50,13 +50,14 @@ interface PilotJourneyTabProps {
   onRuntimeStateChange?: JourneyRunSurfaceProps['onRuntimeStateChange'];
   /**
    * Journey-scoped foreground surface override (Financial Services / AEE
-   * closeout, 2026-08-24) — passed directly through to JourneyRunSurface.
-   * Maps stage ID to the React node to render instead of that stage's normal
-   * surfaces. Used by FinancialServicesBridgeFrontDoor to project MoneyPenny
-   * Orchestration as the foreground for Operate without modifying the journey.
-   * Omitted by every existing caller — no behavior change there.
+   * closeout, 2026-08-24; FS Operate viewport parity, 2026-08-25) — passed
+   * directly through to JourneyRunSurface. Maps stage ID to a
+   * JOURNEY_SURFACES ref to render instead of that stage's normal surfaces.
+   * Used by FinancialServicesBridgeFrontDoor to project MoneyPenny
+   * Orchestration as the foreground for Operate without modifying the
+   * journey. Omitted by every existing caller — no behavior change there.
    */
-  foregroundSurfacesByStage?: JourneyRunSurfaceProps['foregroundSurfacesByStage'];
+  foregroundSurfaceRefByStage?: JourneyRunSurfaceProps['foregroundSurfaceRefByStage'];
   /**
    * Journey Principal Context (2026-08-25) — passed directly through to
    * JourneyRunSurface's own `onPersonaChange`. Omitted by every existing
@@ -100,7 +101,7 @@ function selectStage(stageId: string) {
   }
 }
 
-function PilotJourneyTabInner({ personaId, isAdmin, onRuntimeStateChange, foregroundSurfacesByStage, onPersonaChange }: PilotJourneyTabProps) {
+function PilotJourneyTabInner({ personaId, isAdmin, onRuntimeStateChange, foregroundSurfaceRefByStage, onPersonaChange }: PilotJourneyTabProps) {
   // Which registrable agent the Register stage is currently sponsoring
   // (services/horizen/registrableAgents.ts, MoneyPenny is the demo default).
   // The dry-run agent is the one being exercised, so it is the one selected on
@@ -348,7 +349,7 @@ function PilotJourneyTabInner({ personaId, isAdmin, onRuntimeStateChange, foregr
       components={JOURNEY_COMPONENTS}
       resolveSurfaceProps={resolveSurfaceProps}
       onRuntimeStateChange={onRuntimeStateChange}
-      foregroundSurfacesByStage={foregroundSurfacesByStage}
+      foregroundSurfaceRefByStage={foregroundSurfaceRefByStage}
       onPersonaChange={onPersonaChange}
       headerLabel={
         <>

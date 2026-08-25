@@ -340,15 +340,24 @@ export interface JourneyRunSurfaceProps {
    */
   onRuntimeStateChange?: (state: JourneyRuntimeState) => void;
   /**
-   * Journey-scoped foreground surface override — maps stage ID to the
-   * React node to render instead of the journey's normal surfaces for that
-   * stage. Used by FinancialServicesBridgeFrontDoor (2026-08-24) to project
-   * MoneyPenny Orchestration as the foreground for Operate without modifying
-   * the journey definition. The stage stepper, navigation, and all other
-   * chrome remain unchanged. Only the surface content for the specified stage
-   * is replaced.
+   * Journey-scoped foreground surface override — maps stage ID to a
+   * JOURNEY_SURFACES ref to render INSTEAD OF the journey definition's own
+   * `surfaces` array for that stage (FS Operate viewport parity, 2026-08-25;
+   * originally 2026-08-24 as a raw-ReactNode override, since replaced). Used
+   * by FinancialServicesBridgeFrontDoor to project MoneyPenny Orchestration
+   * as the foreground for Operate without modifying the journey definition.
+   *
+   * Deliberately a REF STRING, not a React node: the override renders
+   * through the EXACT SAME `descriptor.kind` switch below as every ordinary
+   * stage surface, so a `kind: 'embed'` override gets the shared Focus/Full
+   * toggle, height classes, and copilot-suppression handling for free — a
+   * caller can never hand-build a raw, unsized iframe that bypasses them
+   * (the defect this replaced: FS's old raw-node override collapsed to its
+   * intrinsic browser height with no Focus/Full affordance at all). The
+   * stage stepper, navigation, and all other chrome remain unchanged; only
+   * the surface(s) rendered for the specified stage are replaced.
    */
-  foregroundSurfacesByStage?: Record<string, React.ReactNode>;
+  foregroundSurfaceRefByStage?: Record<string, string>;
   /**
    * Journey Principal Context (2026-08-25) — fired when the shared
    * `ActivePersonaControl` reports a persona switch from its wallet. The
@@ -389,7 +398,7 @@ export function JourneyRunSurface({
   distinguishAvailableStages = false,
   emphasizeAvailableStage,
   onRuntimeStateChange,
-  foregroundSurfacesByStage,
+  foregroundSurfaceRefByStage,
   onPersonaChange,
 }: JourneyRunSurfaceProps) {
   const [runtimeState, setRuntimeState] = useState<JourneyRuntimeState | null>(null);
@@ -1251,10 +1260,16 @@ export function JourneyRunSurface({
 
       <div className="flex flex-1 flex-col gap-3 overflow-y-auto rounded-lg border border-slate-800 bg-slate-900/40 p-4">
         <div className="flex flex-col gap-2">
-          {foregroundSurfacesByStage?.[activeStage.id] ? (
-            <div key={`foreground-${activeStage.id}`}>{foregroundSurfacesByStage[activeStage.id]}</div>
-          ) : (
-            activeStage.surfaces.map((surfaceRef, i) => {
+          {(() => {
+            // Foreground override (FS Operate viewport parity, 2026-08-25):
+            // a stage-scoped ref substitution rendered through this SAME
+            // switch, never a parallel presentation path — see
+            // foregroundSurfaceRefByStage's own doc comment above.
+            const overrideRef = foregroundSurfaceRefByStage?.[activeStage.id];
+            const surfacesToRender: JourneySurfaceRef[] = overrideRef
+              ? [{ ref: overrideRef, mode: 'iframe' }]
+              : activeStage.surfaces;
+            return surfacesToRender.map((surfaceRef, i) => {
             const descriptor = JOURNEY_SURFACES[surfaceRef.ref];
             if (!descriptor) {
               return (
@@ -1285,9 +1300,9 @@ export function JourneyRunSurface({
               );
               return (
                 <div key={i} className="flex flex-col gap-1.5">
-                  {(descriptor.rootTab || descriptor.focused) && (
+                  {(descriptor.rootTab || descriptor.breadcrumb || descriptor.focused) && (
                     <div className="flex items-center justify-between gap-2">
-                      {descriptor.rootTab && (
+                      {descriptor.rootTab ? (
                         <button
                           onClick={() =>
                             requestBridgeEmbedReturn(
@@ -1301,6 +1316,10 @@ export function JourneyRunSurface({
                           <ArrowLeft className="h-3 w-3" />
                           {descriptor.returnLabel ?? 'Back'}
                         </button>
+                      ) : descriptor.breadcrumb ? (
+                        <span className="truncate text-[11px] text-slate-400">{descriptor.breadcrumb}</span>
+                      ) : (
+                        <span />
                       )}
                       {descriptor.focused && (
                         <button
@@ -1406,7 +1425,8 @@ export function JourneyRunSurface({
                 {(descriptor as { note?: string }).note}
               </div>
             );
-          }))}
+            });
+          })()}
         </div>
         {/* Suppressed where the stage's own surface already shows its
             receipts (see JourneyStageDefinition.receiptsSurfacedNatively) —
