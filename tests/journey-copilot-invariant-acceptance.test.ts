@@ -43,6 +43,7 @@ const BARE_PAGE_JOURNEY_HOSTS = [
   'app/bridge/knyts/page.tsx',
   'app/bridge/ci/page.tsx',
   'components/journey/FinancialServicesBridgeFrontDoor.tsx',
+  'app/bridge/ocsga/page.tsx',
 ];
 
 describe('item 9 — every JourneyDefinition supplies a copilot reference that actually resolves', () => {
@@ -101,6 +102,26 @@ describe('item 9 — every Journey spine has exactly one floating copilot', () =
       const code = stripComments(readSource(path));
       const count = (code.match(/<CodexCopilotLayer\b/g) ?? []).length;
       expect(count, `${path} must defer entirely to the shared JourneyCopilotHost`).toBe(0);
+    });
+
+    // 2026-08-25 build regression: /bridge/ocsga shipped without this wrapper
+    // and broke the Amplify build — prerendering threw "useMetaAvatar must be
+    // used within a MetaAvatarProvider" because JourneyCopilotHost (mounted
+    // unconditionally inside JourneyRunSurface as of the copilot invariant)
+    // uses CodexCopilotLayer, which requires useMetaAvatar(). Every bare
+    // Journey page sits outside app/(shell)/layout.tsx and
+    // app/(embed)/layout.tsx — the only two places that otherwise supply
+    // that context — so every one of them MUST wrap itself.
+    it(`${path} wraps itself in MetaAvatarProvider + mounts MetaAvatarHost`, () => {
+      const code = stripComments(readSource(path));
+      expect(code, `${path} must import MetaAvatarProvider`).toContain(
+        "import { MetaAvatarProvider } from '@/app/contexts/MetaAvatarContext';",
+      );
+      expect(code, `${path} must import MetaAvatarHost`).toContain(
+        "import { MetaAvatarHost } from '@/app/components/metaVatar/MetaAvatarHost';",
+      );
+      expect(code, `${path} must render <MetaAvatarProvider>`).toMatch(/<MetaAvatarProvider\b/);
+      expect(code, `${path} must render <MetaAvatarHost`).toMatch(/<MetaAvatarHost\b/);
     });
   }
 });

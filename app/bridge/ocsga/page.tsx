@@ -25,12 +25,25 @@
  *   → JourneyRunSurface's own personaId-keyed refresh() re-reads
  *     authoritative state — Ian lands back on /bridge/ocsga at the correct
  *     stage, never a second URL, never a fabricated completion.
+ *
+ * MetaAvatarProvider/MetaAvatarHost wrap this bare page for the same reason
+ * KNYTS/CI/FS Bridge each add their own instance (2026-08-10/11/25) — this
+ * page sits outside both app/(shell)/layout.tsx and app/(embed)/layout.tsx,
+ * the only two places that otherwise supply the context CodexCopilotLayer's
+ * useMetaAvatar() requires. Needed as of the Journey Runtime copilot
+ * invariant (item 1, semantic repair 2026-08-25): JourneyRunSurface now
+ * mounts JourneyCopilotHost (which uses CodexCopilotLayer) unconditionally,
+ * so this bare OCSGA page needs the same provider every other bare Journey
+ * page already carries. Omitting it broke the Amplify build — prerendering
+ * threw "useMetaAvatar must be used within a MetaAvatarProvider".
  */
 
 import { useCallback, useEffect, useState } from 'react';
 import { IanJourneyTab } from '@/app/triad/components/codex/tabs/IanJourneyTab';
 import { PassportConnectPanel } from '@/components/companion/PassportConnectPanel';
 import { usePassportSignInHost } from '@/app/hooks/usePassportSignInHost';
+import { MetaAvatarProvider } from '@/app/contexts/MetaAvatarContext';
+import { MetaAvatarHost } from '@/app/components/metaVatar/MetaAvatarHost';
 
 export default function OcsgaJourneyPage() {
   const [personaId, setPersonaId] = useState<string | undefined>(undefined);
@@ -51,6 +64,7 @@ export default function OcsgaJourneyPage() {
   const { showPassportSignIn, completeSignIn, dismissSignIn } = usePassportSignInHost('OcsgaBridge');
 
   return (
+    <MetaAvatarProvider defaultAgent="aigent-researcher">
     <div className="h-screen bg-slate-950 text-slate-100">
       <IanJourneyTab personaId={personaId} />
 
@@ -77,5 +91,7 @@ export default function OcsgaJourneyPage() {
         </div>
       )}
     </div>
+    <MetaAvatarHost />
+    </MetaAvatarProvider>
   );
 }
