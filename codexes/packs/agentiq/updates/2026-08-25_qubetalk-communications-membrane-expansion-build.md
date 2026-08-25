@@ -304,7 +304,7 @@ the architectural boundary of QubeTalk itself:
 
 ## I. Commit
 
-<COMMIT_SHA_FILLED_IN_AFTER_PUSH> (Slice 1 — Foundation: domain + policy + vocabulary + projection seam)
+`2c55dceaf` (Slice 1 — Foundation: domain + policy + vocabulary + projection seam)
 
 Slice 2 (Activation — real transport promotion + real surface consumers + continuity E2E proof +
 platform capability audit + Share→Publishing wiring) proceeds immediately as a fast-follow on top of
