@@ -48,6 +48,24 @@
  * most recently created exchange when more than one exists; see
  * `evidenceGaps` in the response for a live report of any resolution gap
  * encountered on a given request.
+ *
+ * OCSGA EARLY INVITATION ENTRY (2026-08-25) — `activeExchangeId` already
+ * resolved this way for the exchange stages (above) is ALSO the "has this
+ * participant associated a collaboration invitation" signal
+ * IanOrientationPanel's early Orient-stage invite field and
+ * IanJourneyTab.resolveSurfaceProps's Establish Presence routing decision
+ * both consume — `listMyExchanges` matches EITHER party
+ * (initiator_persona_id OR counterparty_persona_id), and a fresh OCSGA
+ * participant has no self-service way to become an initiator (no "create
+ * exchange" affordance in IRLExchangeTab's participant-facing landing
+ * state), so a non-null value here reliably means "an invitation was
+ * associated" for the actual OCSGA flow. `citizenPassportUsable` is a
+ * SEPARATE, additional field: the same canonical Citizen Passport read
+ * app/api/journey/moneypenny-horizen/state/route.ts already uses
+ * (services/identity/passportPrincipal.ts), so the routing decision never
+ * conflates "has an invite" with "holds a Citizen Passport" — the whole
+ * point of the constitutional distinction this entry point exists to
+ * preserve.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -62,6 +80,7 @@ import { hasActiveDelegation } from '@/services/delegation/delegationGrantStore'
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { listMyExchanges, getExchangeView } from '@/services/research/reciprocalExchange';
 import { hasCrossed } from '@/types/reciprocalExchange';
+import { isPassportUsable, loadUsableCitizenPassportForAuthProfile } from '@/services/identity/passportPrincipal';
 
 export const dynamic = 'force-dynamic';
 
@@ -70,9 +89,20 @@ interface AuthoritativeStateResult {
   /** Honest gap reports — never silently substituted with fabricated truth. */
   evidenceGaps: string[];
   activeExchangeId: string | null;
+  /**
+   * OCSGA early invitation entry (2026-08-25) — the SAME canonical Citizen
+   * Passport read app/api/journey/moneypenny-horizen/state/route.ts already
+   * uses, never re-derived from `passport_issued` receipts (that receipt
+   * type does not distinguish a Citizen from an Agent Passport — see
+   * types/journey.ts's `citizenPassportUsable` doc comment).
+   */
+  citizenPassportUsable: boolean;
 }
 
-async function fetchAuthoritativePlatformState(personaId: string | null): Promise<AuthoritativeStateResult> {
+async function fetchAuthoritativePlatformState(
+  personaId: string | null,
+  authProfileId: string | null,
+): Promise<AuthoritativeStateResult> {
   const evidenceGaps: string[] = [];
 
   if (!personaId) {
@@ -83,6 +113,7 @@ async function fetchAuthoritativePlatformState(personaId: string | null): Promis
       state: { stages: {}, receiptRefs: {} },
       evidenceGaps,
       activeExchangeId: null,
+      citizenPassportUsable: false,
     };
   }
 
@@ -100,6 +131,7 @@ async function fetchAuthoritativePlatformState(personaId: string | null): Promis
   let yourSigned = false;
   let crossed = false;
   let activeExchangeId: string | null = null;
+  let citizenPassportUsable = false;
 
   const admin = getSupabaseServer();
   if (!admin) {
@@ -132,6 +164,16 @@ async function fetchAuthoritativePlatformState(personaId: string | null): Promis
         crossed = hasCrossed(view.view.exchange.status);
       }
     }
+
+    // OCSGA early invitation entry (2026-08-25) — the SAME canonical Citizen
+    // Passport read Horizen's own state route uses, never the coarser
+    // `passport_issued` receipt (which does not distinguish a Citizen from
+    // an Agent Passport). Skipped honestly (stays false, no gap noise for
+    // the common case) when the caller has no authProfileId yet.
+    if (authProfileId) {
+      const credential = await loadUsableCitizenPassportForAuthProfile(admin, authProfileId);
+      citizenPassportUsable = credential.ok && isPassportUsable(credential.passport);
+    }
   }
 
   const state: JourneyAuthState = {
@@ -152,7 +194,7 @@ async function fetchAuthoritativePlatformState(personaId: string | null): Promis
     },
   };
 
-  return { state, evidenceGaps, activeExchangeId };
+  return { state, evidenceGaps, activeExchangeId, citizenPassportUsable };
 }
 
 export async function GET(request: NextRequest) {
@@ -161,8 +203,12 @@ export async function GET(request: NextRequest) {
     // simply null, and every stage's evidence stays honestly missing.
     const persona = await getActivePersona(request).catch(() => null);
     const personaId = persona?.personaId ?? null;
+    const authProfileId = persona?.authProfileId ?? null;
 
-    const { state: authState, evidenceGaps, activeExchangeId } = await fetchAuthoritativePlatformState(personaId);
+    const { state: authState, evidenceGaps, activeExchangeId, citizenPassportUsable } = await fetchAuthoritativePlatformState(
+      personaId,
+      authProfileId,
+    );
 
     const journeyState: JourneyRuntimeState = resolveJourneyState(IAN_BOUNDARY_RESEARCH_JOURNEY, authState);
 
@@ -180,7 +226,12 @@ export async function GET(request: NextRequest) {
       undefined,
     );
 
-    const responseState: JourneyRuntimeState = { ...journeyState, interactionContext };
+    // activeExchangeId/citizenPassportUsable folded INTO responseState
+    // (2026-08-25, OCSGA early invitation entry) so they survive
+    // JourneyRunSurface's `json.state` unwrap and reach resolveSurfaceProps
+    // via runtimeState — kept ALSO at the top level below for backward
+    // compatibility with any existing consumer reading them there.
+    const responseState: JourneyRuntimeState = { ...journeyState, interactionContext, activeExchangeId, citizenPassportUsable };
 
     // Wrapped under `state` — the shape components/journey/JourneyRunSurface.tsx
     // expects from every journey state route (`json.state as JourneyRuntimeState`).
@@ -189,6 +240,7 @@ export async function GET(request: NextRequest) {
       state: responseState,
       personaAuthenticated: Boolean(personaId),
       activeExchangeId,
+      citizenPassportUsable,
       evidenceGaps,
     });
   } catch (err) {

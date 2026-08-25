@@ -557,24 +557,36 @@ export function IRLExchangeTab() {
 
       {error ? <p className="mt-3 rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-[12px] text-rose-300">{error}</p> : null}
 
-      <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
-        <h3 className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Join with an invitation code</h3>
-        <div className="mt-2 flex gap-2">
-          <input
-            value={joinCode}
-            onChange={(e) => setJoinCode(e.target.value)}
-            placeholder="rax-…"
-            className="flex-1 rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-1.5 text-[13px] text-slate-100 outline-none focus:border-violet-500"
-          />
-          <button
-            disabled={busy || !joinCode.trim()}
-            onClick={joinByCode}
-            className="rounded-lg border border-violet-500/40 bg-violet-500/15 px-3 py-1.5 text-[12px] font-medium text-violet-100 hover:bg-violet-500/25 disabled:opacity-40"
-          >
-            Join
-          </button>
+      {/* OCSGA early invitation entry (2026-08-25) — an invitation may already
+          be associated (e.g. entered at Orient, via IanOrientationPanel,
+          which calls this SAME /api/research/exchanges/join route). Once
+          `list` affirmatively shows at least one exchange, this box never
+          demands a code again — the exchange is simply listed below. Never
+          shown while `list === null` (not yet known) to avoid a flash. */}
+      {list && list.length === 0 ? (
+        <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
+          <h3 className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Join with an invitation code</h3>
+          <div className="mt-2 flex gap-2">
+            <input
+              value={joinCode}
+              onChange={(e) => setJoinCode(e.target.value)}
+              placeholder="rax-…"
+              className="flex-1 rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-1.5 text-[13px] text-slate-100 outline-none focus:border-violet-500"
+            />
+            <button
+              disabled={busy || !joinCode.trim()}
+              onClick={joinByCode}
+              className="rounded-lg border border-violet-500/40 bg-violet-500/15 px-3 py-1.5 text-[12px] font-medium text-violet-100 hover:bg-violet-500/25 disabled:opacity-40"
+            >
+              Join
+            </button>
+          </div>
         </div>
-      </div>
+      ) : list && list.length > 0 ? (
+        <p className="mt-6 text-[12px] text-slate-500">
+          You&apos;re already associated with a collaboration exchange — select it below.
+        </p>
+      ) : null}
 
       <h2 className="mt-8 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Your exchanges</h2>
       {list === null ? (

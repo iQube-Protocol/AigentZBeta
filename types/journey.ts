@@ -294,6 +294,31 @@ export interface JourneyRuntimeState {
   phases?: JourneyPhase[]; // Versioning/history (SPEC-JS-001 §9, JS-LAW-007)
   lastUpdatedAt?: string; // When state last changed
   interactionContext?: InteractionContext; // Mutual awareness projection
+  /**
+   * OCSGA early invitation entry (2026-08-25) — the Reciprocal Artifact
+   * Exchange (PRD-IRL-AX-001) this participant is associated with, either
+   * party, as resolved by the Ian journey's own state route from the
+   * canonical `listMyExchanges` read. `null`/absent means no invitation has
+   * been associated yet. Constitutional distinction: an associated invite is
+   * a collaboration/admission context — it must never be read as proof of
+   * personhood, Passport issuance, delegation, or artifact/exchange
+   * completion evidence; those each have their own dedicated evidence keys.
+   * Currently populated only by app/api/journey/ian/state/route.ts — every
+   * other journey simply never sets it.
+   */
+  activeExchangeId?: string | null;
+  /**
+   * OCSGA early invitation entry (2026-08-25) — whether the operator holds a
+   * USABLE Polity Citizen Passport, resolved server-side via the SAME
+   * canonical read app/api/journey/moneypenny-horizen/state/route.ts already
+   * uses (services/identity/passportPrincipal.ts's
+   * `loadUsableCitizenPassportForAuthProfile` + `isPassportUsable`) — never
+   * re-derived from a stage's own `evidencePresent` array, whose field names
+   * are keyed to each journey's own `completionEvidence` declarations rather
+   * than a stable cross-journey contract. Currently populated only by Ian's
+   * OCSGA journey route.
+   */
+  citizenPassportUsable?: boolean;
 }
 
 export interface CompanionJourneyContext {

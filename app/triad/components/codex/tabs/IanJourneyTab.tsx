@@ -11,8 +11,10 @@
  * journey" section for the full reuse map (Passport application,
  * Delegation, the Reciprocal Artifact Exchange workspace, the persona-scoped
  * Boundary Research progress panel). This file owns only what is genuinely
- * journey-specific: the Orient stage's completion flag (read from the
- * already-resolved runtimeState, never re-derived) and the header label.
+ * journey-specific: the Orient stage's completion flag, the Establish
+ * Presence stage's `routeTo` derivation (OCSGA early invitation entry,
+ * 2026-08-25 — see resolveSurfaceProps below), and the header label — all
+ * read from the already-resolved runtimeState, never re-derived.
  *
  * This is the PARTICIPANT-facing surface — distinct from the diagnostic
  * viewer at /admin/journey/ian (components/journey/IanJourneyViewer.tsx),
@@ -49,7 +51,40 @@ function IanJourneyTabInner({ personaId }: IanJourneyTabProps) {
     ({ surfaceRef, runtimeState, requestStateRefresh }: Parameters<NonNullable<JourneyRunSurfaceProps['resolveSurfaceProps']>>[0]) => {
       if (surfaceRef.ref === 'ian-orientation-panel') {
         const orientState = runtimeState?.stages.find((s) => s.stageId === 'orient')?.state;
-        return { complete: orientState === 'COMPLETE', requestStateRefresh };
+        return {
+          complete: orientState === 'COMPLETE',
+          requestStateRefresh,
+          // OCSGA early invitation entry (2026-08-25) — already-resolved by
+          // the observer (/api/journey/ian/state), never re-derived here.
+          activeExchangeId: runtimeState?.activeExchangeId ?? null,
+        };
+      }
+      if (surfaceRef.ref === 'venture-participate-apply') {
+        /*
+         * OCSGA early invitation entry + Citizen Passport routing
+         * (2026-08-25) — "when this OCSGA participant has entered/associated
+         * a valid collaboration invite and does not already hold a usable
+         * Polity Citizen Passport, route the existing PassportBureauApplyTab
+         * directly into the Polity Citizen Passport path" (operator
+         * directive). Both facts come from the SAME already-resolved
+         * runtimeState the observer produced — never re-derived, never a
+         * second read. An invite alone is never enough on its own (the
+         * constitutional distinction this feature exists to preserve):
+         * routeTo only ever resolves to 'citizen', never inferred as
+         * 'delegate'/agent sponsorship from an invitation.
+         *
+         * When the operator already holds a usable Citizen Passport, this
+         * intentionally passes `routeTo: undefined` — PassportBureauApplyTab
+         * has its OWN existing "you already hold a Polity Citizen Passport"
+         * branch (a live /api/passport/usable-status read, independent of
+         * routeTo) that already handles that case correctly; overriding
+         * routeTo here would be a second, redundant decision about the same
+         * fact, never introduced.
+         */
+        const hasInvite = Boolean(runtimeState?.activeExchangeId);
+        const hasCitizenPassport = runtimeState?.citizenPassportUsable === true;
+        const routeTo = hasInvite && !hasCitizenPassport ? ('citizen' as const) : undefined;
+        return { routeTo };
       }
       return {};
     },

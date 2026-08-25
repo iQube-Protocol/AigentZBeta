@@ -30,10 +30,36 @@
  * where `personaId` has actually arrived, never from inside the completion
  * callback itself, which would risk a stale-closure race against the
  * personaId prop update.
+ *
+ * OCSGA EARLY INVITATION ENTRY (2026-08-25) — an OPTIONAL, ADDITIVE
+ * invitation-code field, independent of the acknowledge action above.
+ * Constitutional distinction (the whole reason this is a separate act, never
+ * folded into acknowledge): an invitation is a collaboration/admission
+ * context, never proof of personhood — it associates this persona with a
+ * Reciprocal Artifact Exchange (services/research/reciprocalExchange.ts,
+ * PRD-IRL-AX-001) as its counterparty, exactly what the ALREADY-EXISTING
+ * "Join with an invitation code" box in IRLExchangeTab does later in the
+ * flow (app/triad/components/codex/tabs/IRLExchangeTab.tsx, the
+ * `POST /api/research/exchanges/join` route). This panel calls the SAME
+ * route — no second invitation schema, validator, or receipt type. Applying
+ * an already-associated code again is idempotent because `joinExchange`
+ * itself is (services/research/reciprocalExchange.ts: re-joining as the
+ * SAME persona who already holds the counterparty slot returns `ok: true`
+ * with no write). A rejected/invalid code only sets local error state — it
+ * never disables or blocks the acknowledge button above; the two actions
+ * are fully independent.
+ *
+ * `activeExchangeId` arrives as a prop, resolved server-side by
+ * /api/journey/ian/state (never re-derived here) — when present, this panel
+ * shows an "associated" state instead of an open input, so it never demands
+ * a code that has already been supplied (mirrored by IRLExchangeTab's own
+ * later-surface behavior). It does not expose a "replace" affordance:
+ * changing collaboration context is deliberately not a one-click action from
+ * this early surface.
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, Link2 } from 'lucide-react';
 import { personaFetch } from '@/utils/personaSpine';
 import { readJsonOrExplain } from '@/utils/readJsonOrExplain';
 import { usePassportSignInGate } from '@/app/hooks/usePassportSignInGate';
@@ -42,9 +68,13 @@ interface IanOrientationPanelProps {
   personaId?: string;
   complete: boolean;
   requestStateRefresh: () => void;
+  /** The Reciprocal Artifact Exchange this persona is already associated
+   *  with (either party), resolved server-side — see the module doc comment.
+   *  `null`/`undefined` means no invitation has been associated yet. */
+  activeExchangeId?: string | null;
 }
 
-export function IanOrientationPanel({ personaId, complete, requestStateRefresh }: IanOrientationPanelProps) {
+export function IanOrientationPanel({ personaId, complete, requestStateRefresh, activeExchangeId }: IanOrientationPanelProps) {
   const [acknowledging, setAcknowledging] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pendingAfterSignIn, setPendingAfterSignIn] = useState(false);
@@ -94,18 +124,124 @@ export function IanOrientationPanel({ personaId, complete, requestStateRefresh }
     void acknowledge();
   }, [personaId, requestSignIn, acknowledge]);
 
+  // ── OCSGA early invitation entry (2026-08-25) ──────────────────────────
+  const [inviteCode, setInviteCode] = useState('');
+  const [applyingInvite, setApplyingInvite] = useState(false);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [pendingInviteAfterSignIn, setPendingInviteAfterSignIn] = useState(false);
+
+  const applyInvite = useCallback(async () => {
+    if (!inviteCode.trim()) return;
+    setApplyingInvite(true);
+    setInviteError(null);
+    try {
+      const res = await personaFetch('/api/research/exchanges/join', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        personaIdHint: personaId,
+        body: JSON.stringify({ code: inviteCode.trim() }),
+      });
+      const json = await readJsonOrExplain(res, 'research/exchanges/join');
+      if (!res.ok || !json.ok) throw new Error(typeof json?.error === 'string' ? json.error : `Request failed (${res.status})`);
+      setInviteCode('');
+      // Never trust this POST's own echo — the SAME re-read acknowledge()
+      // already relies on, so activeExchangeId only ever reflects the
+      // observer's authoritative state.
+      requestStateRefresh();
+    } catch (err) {
+      // A rejected/invalid code stays local — it never blocks acknowledge()
+      // or the rest of the journey; it simply remains unassociated.
+      setInviteError(err instanceof Error ? err.message : 'Could not apply that invitation code.');
+    } finally {
+      setApplyingInvite(false);
+    }
+  }, [inviteCode, personaId, requestStateRefresh]);
+
+  const { requestSignIn: requestInviteSignIn, handoffUnanswered: inviteHandoffUnanswered } = usePassportSignInGate({
+    origin: 'IanOrientationPanel',
+    // Unique returnTarget (distinct from orient-acknowledge above) — two
+    // concurrent gates on the same panel must not cross-fire each other's
+    // completions (usePassportSignInGate's own doc comment).
+    returnTarget: 'journey:ocsga:orient-invite-apply',
+    returnLabel: 'Apply your invitation code',
+    onSignedIn: useCallback(() => {
+      setPendingInviteAfterSignIn(true);
+    }, []),
+  });
+
+  useEffect(() => {
+    if (pendingInviteAfterSignIn && personaId) {
+      setPendingInviteAfterSignIn(false);
+      void applyInvite();
+    }
+  }, [pendingInviteAfterSignIn, personaId, applyInvite]);
+
+  const handleApplyInviteClick = useCallback(() => {
+    if (!personaId) {
+      requestInviteSignIn();
+      return;
+    }
+    void applyInvite();
+  }, [personaId, requestInviteSignIn, applyInvite]);
+
+  const waitingForInviteSignIn = pendingInviteAfterSignIn && !personaId;
+  const inviteBusy = applyingInvite || waitingForInviteSignIn;
+
+  const inviteSection = activeExchangeId ? (
+    <div className="rounded-md border border-slate-800 bg-slate-950/40 p-3 text-xs text-slate-400">
+      <div className="flex items-center gap-1.5">
+        <Link2 className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+        <span className="text-emerald-300">Invitation associated</span>
+      </div>
+      <p className="mt-1 opacity-80">
+        You&apos;re associated with a collaboration invitation. This is admission context only — it does not
+        establish personhood or issue a Passport; that happens separately, next.
+      </p>
+    </div>
+  ) : (
+    <div className="rounded-md border border-slate-800 bg-slate-950/40 p-3 space-y-2">
+      <p className="text-xs font-medium text-slate-300">Invitation code (optional)</p>
+      <p className="text-[11px] text-slate-500">
+        If you were given a collaboration invitation code, you can apply it now or later — it&apos;s never required
+        to continue.
+      </p>
+      <div className="flex gap-2">
+        <input
+          value={inviteCode}
+          onChange={(e) => setInviteCode(e.target.value)}
+          placeholder="rax-…"
+          className="flex-1 rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-1.5 text-[13px] text-slate-100 outline-none focus:border-violet-500"
+        />
+        <button
+          onClick={handleApplyInviteClick}
+          disabled={inviteBusy || !inviteCode.trim()}
+          className="rounded-lg border border-violet-500/40 bg-violet-500/15 px-3 py-1.5 text-[12px] font-medium text-violet-100 hover:bg-violet-500/25 disabled:opacity-40"
+        >
+          {applyingInvite ? 'Applying…' : waitingForInviteSignIn ? 'Finishing sign-in…' : 'Apply invitation'}
+        </button>
+      </div>
+      {inviteHandoffUnanswered && (
+        <p className="text-[11px] text-amber-400">No sign-in host answered — reload this page and try again.</p>
+      )}
+      {inviteError && <p className="text-[11px] text-rose-400">{inviteError}</p>}
+    </div>
+  );
+
   if (complete) {
     return (
-      <div className="rounded-md border border-emerald-900/60 bg-emerald-950/20 p-3 text-xs text-emerald-200">
-        <div className="flex items-start gap-2">
-          <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          <div>
-            <p className="font-medium">Oriented</p>
-            <p className="mt-1 opacity-80">
-              You understand the crossing. Identity comes next.
-            </p>
+      <div className="space-y-3">
+        <div className="rounded-md border border-emerald-900/60 bg-emerald-950/20 p-3 text-xs text-emerald-200">
+          <div className="flex items-start gap-2">
+            <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <div>
+              <p className="font-medium">Oriented</p>
+              <p className="mt-1 opacity-80">
+                You understand the crossing. Constitutional presence comes next.
+              </p>
+            </div>
           </div>
         </div>
+        {inviteSection}
       </div>
     );
   }
@@ -144,6 +280,7 @@ export function IanOrientationPanel({ personaId, complete, requestStateRefresh }
         </p>
       )}
       {error && <p className="text-xs text-rose-400">{error}</p>}
+      {inviteSection}
     </div>
   );
 }
