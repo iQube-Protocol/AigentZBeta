@@ -33,7 +33,7 @@ export function fakeUuid(): string {
 
 interface Filter {
   col: string;
-  op: 'eq' | 'is';
+  op: 'eq' | 'is' | 'in';
   val: unknown;
 }
 
@@ -94,6 +94,7 @@ function makeBuilder(tables: FakeTables, table: string) {
       actual = row[f.col];
     }
     if (f.op === 'is') return actual === null || actual === undefined;
+    if (f.op === 'in') return Array.isArray(f.val) && f.val.includes(actual);
     return actual === f.val;
   }
 
@@ -170,6 +171,10 @@ function makeBuilder(tables: FakeTables, table: string) {
     is: (col: string, val: unknown) => {
       expect(val, `fakeSupabase .is() only models IS NULL, got ${String(val)}`).toBeNull();
       filters.push({ col, op: 'is', val: null });
+      return builder;
+    },
+    in: (col: string, vals: unknown[]) => {
+      filters.push({ col, op: 'in', val: vals });
       return builder;
     },
     /** Models Postgrest's `.or("col1.eq.val1,col2.eq.val2")` — comma-separated

@@ -620,3 +620,201 @@ UI; this session can verify its result server-side (one `passport_peer_messages`
 and unit-tested (surface-continuity tests in `tests/contactgraph-substrate-scenarios.test.ts` and
 `tests/qubetalk-messaging-loop-e2e.test.ts`), but an authenticated, live cross-surface walkthrough
 requires the operator's own browser session — this sandbox cannot authenticate as the operator.
+
+---
+
+## Addendum — Publishing + Engagement (same-day increment)
+
+**Governing brief**: proceed directly from the messaging-loop closure into Publishing +
+Engagement as the next increment (operator's explicit instruction, no architecture-review pause).
+North-star loop: `canonical content -> Share -> Publish -> PublicationQube -> channel projection ->
+external publication -> comment/reply/mention/reaction -> EngagementQube -> ContactGraph
+participant resolution -> RelationshipQube -> ConversationQube -> human/aigentMe response`.
+
+### 1. Publishing reuse audit
+
+A dedicated audit pass (10 areas) found the load-bearing fact that reshaped this whole increment:
+**`services/qubetalk/publications.ts` and `services/qubetalk/engagement.ts` already fully
+implement PublicationQube/EngagementQube** against `qubetalk_publications`/
+`qubetalk_publication_projections`/`qubetalk_engagements` (schema from `20260930040000`) —
+`createPublication`, `setPublicationStatus`, `addChannelProjection`, `recordEngagement`,
+`convertEngagementToConversation` were all already written, correct, and honest (N11 discipline:
+an unsupported channel is created `'pending'`, never faked as published). **Zero callers existed**
+— no API route, no UI. This was "built but unplugged," not "not built." The increment's real job
+was wiring existing backend to real execution + a real UI, not building PublicationQube from
+scratch.
+
+Full findings, condensed:
+
+| Area | Verdict |
+|---|---|
+| Runtime `SocialSharingModal` | Copy-link/intent-URL/native-share only — no platform posts to any API. |
+| Marketa/campaign distribution | Live for email only (Mailjet/SendGrid); every social channel adapter is an explicit `plannedAdapter()` stub. |
+| LinkedIn/X | Zero posting capability anywhere in the repo — LinkedIn code only *imports* profile data for Standing Core. |
+| Discord | The ONLY genuinely live, credentialed external transport — `postDiscordMessages`, real bot-token-gated REST calls, exercised in production code paths already. |
+| Content provenance | `qubetalk_publications.source_content_ref` already exists as the reference-not-copy pattern this increment needed — no new provenance mechanism required. |
+| Scheduled publishing | None exists; one dead `publish_at` column with zero readers, left untouched. |
+| `qubetalk_events`/receipts | `qubetalk_publication_published`/`_withdrawn` already wired as receipt writers; `qubetalk_publication_projection_failed` was declared but never written — a real, named gap this increment closes. |
+
+**Conclusion**: Discord is the first real publishing transport by capability evidence, exactly as
+the brief anticipated ("if LinkedIn posting is not genuinely connected... a Discord publication
+projection can be the first proof").
+
+### 2. What was built
+
+- **`supabase/migrations/20260930070000_qubetalk_publication_execution.sql`** — four additive
+  columns closing the gap between the existing schema and the existing (unplugged) service logic:
+  `qubetalk_publications.body` (the distributable excerpt, distinct from `source_content_ref`),
+  `qubetalk_publication_projections.destination_ref` (publish intent, e.g. a Discord channel id,
+  set before execution — distinct from `external_publication_id`/`url`, the transport's result
+  after), `qubetalk_conversations.origin_engagement_id` (reverse pointer for "this conversation
+  began as a comment on Publication Y" — `qubetalk_engagements.converted_conversation_id` already
+  pointed forward; nothing pointed back), and a partial unique index on
+  `qubetalk_engagements (publication_projection_id, external_engagement_id)` for duplicate-webhook
+  idempotency (no such guard existed — a real gap). Also rebuilds the `activity_receipts` CHECK
+  constraint wholesale (this capability's own established pattern) to add ONE new action type,
+  `qubetalk_publication_projection_published` — the per-destination success receipt symmetric with
+  the already-declared `_projection_failed`.
+- **`services/qubetalk/transportRegistry.ts`** — Discord's descriptor gains `'post.publish':
+  'restricted'`, verified real (not aspirational): the publish-execution path posts a Discord
+  embed (title + description), reusing the exact same `postDiscordMessages` wrapper the message-send
+  path already uses — "exactly ONE Discord-calling code path in the repo" holds.
+- **`services/qubetalk/transports/discordTransport.ts`** — extracted `resolveDiscordChannelReference`
+  (snowflake-or-invite resolution) as a shared function; `egress.ts`'s `resolveDiscordDestination`
+  now calls it instead of duplicating the same three-function dance inline — a small reuse cleanup
+  surfaced while wiring the new publish path, fixed rather than left as a second copy.
+- **`services/qubetalk/publications.ts`** — extended, not forked: `createPublication`/
+  `addChannelProjection` gained the new fields; new `publishProjection`/`publishAllProjections`
+  functions are the actual execution this schema always needed — resolve capability, gate on Agent
+  authority (`agentMaySend`, same function/scope model egress.ts's send path already uses, scoped
+  to `transport`), dispatch to Discord, record the honest outcome, fire the per-projection receipt,
+  and aggregate the publication's own status per the partial-success rule (`published` /
+  `partially_published` / `failed` — never a false global success when one destination failed).
+- **`services/qubetalk/engagement.ts`** — `recordEngagement` now resolves the author through
+  ContactGraph as a fallback when QubeTalk's own directory has no match — the SAME two-step
+  resolution `services/qubetalk/ingestion.ts` already uses for an inbound message's sender (never
+  a second, divergent bridge). Idempotent on `externalEngagementId` (upsert when present, plain
+  insert when absent — deliberately not a blanket upsert, since Supabase's no-`onConflict` default
+  targets the primary key, not an arbitrary match). New `listEngagementsForPublication`/
+  `listEngagementsForOwner`/`getOwnedEngagement` read helpers. `convertEngagementToConversation`
+  now sets `originEngagementId` on the created conversation.
+- **API routes** (`app/api/qubetalk/publications/*`, `app/api/qubetalk/engagements/*`) — create/list
+  publications, add a channel projection, publish (execute all pending projections), withdraw,
+  list engagements per-publication and across-all-of-caller's-publications, convert an engagement
+  to a conversation, triage state transitions. Every route ownership-checks via `getOwnedPublication`/
+  `getOwnedEngagement` (author_ref/T2-ref comparison, mirroring the existing channel-ownership
+  pattern) — no route trusts a caller-supplied publication/engagement id without verifying authorship.
+- **Runtime**: `RuntimeQubeTalkDrawer` gains two more tabs — Publishing (draft, add Discord
+  destinations, publish, see per-destination status) and Engagement ("show me responses that need
+  me," triage, convert to conversation). Both panels are exported (`RuntimePublishingPanel`,
+  `RuntimeEngagementPanel`) specifically so aigentMe's compact layer can mount them verbatim.
+- **Share -> Publish**: a "Publish" entry added to Runtime's Share dropdown (both mobile/desktop
+  variants) alongside the existing Message/People/Invite, pre-filling the draft from the active
+  capsule's content (title/description/a constructed `sourceContentRef`); `"share-publish"`/
+  `"share-engagement"` registered in `DRAWER_ACTION_HANDLERS` for the same deep-link convergence
+  Phase 6 established for Message — one meaning, one entry point, reachable both ways.
+- **aigentMe seam**: `PublishingLayout`/`EngagementLayout` (new Capsules, `CAPSULE_LAYOUT`-mapped)
+  dynamically import the SAME `RuntimePublishingPanel`/`RuntimeEngagementPanel` Runtime uses —
+  fan-out, not fork, exactly mirroring how `ConversationsLayout` already reuses `QubeTalkInboxTab`.
+  Deliberately **not** a natural-language publish-intent parser ("Publish this to LinkedIn") —
+  CLAUDE.md's standing instruction against fake NLP routing applies here exactly as it did for
+  §13's deferral in the messaging-loop increment; this is a real, working compact surface, and the
+  conversational seam is named as a known limitation below, not built as a demo shortcut.
+
+### 3. Tests
+
+New file `tests/qubetalk-publishing-engagement.test.ts` — **16/16 passing**, covering: one
+publication published cleanly to Discord alone; Discord success + an unsupported-channel failure
+aggregating to `partially_published` (never false global success); an unresolvable Discord
+destination failing cleanly with no silent substitution; source-content provenance round-tripping;
+projection idempotency (re-adding the same channel updates, never duplicates); duplicate-webhook
+engagement dedup AND the inverse (two distinct manual engagements never merge); a known commenter
+resolving to an existing ContactPerson via the ContactGraph bridge (never a display-name guess);
+an unknown commenter staying explicitly unresolved; engagement→conversation conversion setting
+provenance in both directions; `agent_drafts` denying autonomous publish while a BOUNDED+active
+grant allows it (same gate egress.ts's send path uses); a structural proof that the disclosure gate
+has no conversation-origin branch (so a post-engagement conversation gets the identical gate as any
+other send); per-projection success/failure receipts both firing; and two structural checks that
+Runtime and aigentMe consume the literal same panel components and that Share→Publish converges
+with its deep-link form exactly like Message did.
+
+`tests/_lib/fakeSupabase.ts` gained `.in()` support (extended, not forked — the harness's own
+header already scopes it to "exactly the query shapes the QubeTalk services actually issue"; this
+increment's aggregate engagement-listing functions were the first callers to need it).
+
+Full regression: **132/132 passing** across `tests/contactgraph-substrate-scenarios.test.ts`,
+`tests/qubetalk-communications-membrane-scenarios.test.ts`, `tests/qubetalk-projection-contract.test.ts`,
+`tests/qubetalk-peer-channel.test.ts`, `tests/qubetalk-confidentiality.test.ts`,
+`tests/activity-receipts-action-type-parity.test.ts`, `tests/qubetalk-discord-transport-egress.test.ts`,
+`tests/qubetalk-messaging-loop-e2e.test.ts`, and the new file.
+
+`npx tsc --noEmit -p tsconfig.json`: **679 errors**, byte-identical to the standing baseline —
+zero new errors in any new/touched file.
+
+### 4. Live-vs-code-complete evidence
+
+**Code-complete, tested, tsc-clean.** `20260930070000` has **not yet been applied to live dev** —
+Supabase MCP was disconnected from this session for the relevant window (the same intermittent
+"connected but `enabledInChat: false`" failure mode this closeout's own earlier addendum
+documented) and had not reconnected by the time this increment closed. The migration is additive
+and follows the exact pattern of every prior migration in this file that WAS successfully applied
+live — no reason to expect friction once it can be run.
+
+### 5. Known limitations — Publishing + Engagement
+
+1. **Migration `20260930070000` not yet live** — see above. Apply via the same Supabase MCP path
+   used for every prior migration in this increment once reachable.
+2. **Runtime Engagement panel cannot navigate INTO a converted conversation.** `convertEngagementToConversation`
+   creates a real `public_thread`-topology `qubetalk_conversations` row with no `passport_peer_channels`
+   anchor (the commenter may not even be a resolved participant) — `QubeTalkInboxTab` is built
+   around channel-anchored dyadic threads, not free-standing public_thread conversations. The data
+   model and provenance are complete and tested; the UI shows the resulting conversation id inline
+   rather than attempting a navigation that would silently fail. Extending `QubeTalkInboxTab` to
+   also list/display public_thread conversations is real, separate UI work.
+3. **No live inbound engagement intake.** Exactly the same honest boundary Phase 6 drew for
+   inbound Discord messages: `POST .../projections/[projectionId]/engagements` is the only intake
+   path today (manual/API-triggered, idempotent), because no live webhook/poll adapter exists for
+   any transport. A future receiver would call the SAME `recordEngagement`, never a second path.
+4. **LinkedIn/X/other publish-shaped transports remain fully `'unsupported'`** — unchanged from the
+   reuse audit's own finding; this was never in scope for this increment.
+5. **aigentMe's publishing seam is UI-only, not conversational** — "Publish this to LinkedIn"/
+   "Show me responses that need me" as natural-language intents are explicitly deferred, matching
+   this repo's standing instruction against fake NLP routing. The Publishing/Engagement Capsules
+   are real, working, compact surfaces reachable via quick-prompt chips, not a parser.
+6. **No Discord message URL constructed.** A successful publish records `externalPublicationId`
+   (the Discord message id) but leaves `url` null — constructing a `discord.com/channels/...` link
+   needs the guild id, which a projection never carries; never fabricated rather than risk a wrong
+   link.
+
+### 6. P0.5 — off-platform relationship continuity (parallel track, operator-ruled, not yet implemented)
+
+Two independent research passes were run in parallel with this increment (per the operator's
+explicit "may proceed in parallel with Publishing + Engagement"). They reached genuinely different
+recommendations:
+
+- **Pass A** recommended extending `passport_peer_channels` with a `channel_kind` discriminator
+  column (nullable `principal_b_ref`, a CHECK constraint re-enforcing the old guarantee
+  conditionally on kind).
+- **Pass B** recommended a new sibling table, `qubetalk_contact_channels`, structurally parallel
+  to `passport_peer_channels` but scoped for the single-owner off-platform case, with nullable
+  sibling anchor columns on `qubetalk_conversations`/`passport_peer_messages` (the same pattern
+  `group_id` already established).
+
+**Operator ruling: Pass B (sibling table), explicitly rejecting the discriminator approach** — the
+personhood-bound guarantee on `passport_peer_channels` must never be weakened, and a discriminator
+column risks exactly that even with a CHECK constraint re-enforcing it. Pass B was then refined
+with the operator's explicit further requirement: a common `QubeTalkRelationship` TypeScript
+abstraction (`{kind:'personhood_peer', channel: PeerChannel} | {kind:'external_contact', channel:
+QubeTalkContactChannel}`) so `conversations.ts`/`relationships.ts`/`egress.ts` consume ONE
+interface rather than branching ad hoc — proposed as a new `services/qubetalk/relationshipResolver.ts`
+module, with `resolveOwnedRelationship` as the single ownership-checked entry point, transparently
+forwarding a promoted off-platform ref to its resulting real channel. Full DDL sketch, interface
+design, and exact call-site diffs are in the research agents' reports (not reproduced here — this
+is a summary pointer). **Explicitly research/design only — no migration file, no code written.**
+Open questions still requiring operator sign-off before implementation: the exact anchor granularity
+(`ContactPerson` vs `ContactPersona` level), Agent-authored sends on an unverified relationship
+(currently proposed as blocked outright pending a ruling), and the `passport_peer_messages_one_anchor_check`
+CHECK constraint (a new invariant on an existing table).
+
+**Not implemented this pass** — this is a design deliverable per the operator's own "return the
+reuse matrix before schema changes" instruction, not a deferral of scope.

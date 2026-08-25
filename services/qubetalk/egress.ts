@@ -33,7 +33,7 @@ import { resolveConversation, touchConversationActivity } from '@/services/qubet
 import { recordInteraction } from '@/services/qubetalk/relationships';
 import { emitQubeTalkEvent } from '@/services/qubetalk/events';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
-import { postDiscordMessages, isDiscordSnowflake, extractDiscordInviteCode, resolveDiscordChannelFromInvite } from '@/services/qubetalk/transports/discordTransport';
+import { postDiscordMessages, resolveDiscordChannelReference } from '@/services/qubetalk/transports/discordTransport';
 import { resolveOwnerAuthProfileId } from '@/services/contactGraph/ownerResolution';
 import { getContactEndpointById } from '@/services/contactGraph/contactEndpoints';
 import { evaluateDisclosure, type DisclosureContextItem } from '@/services/qubetalk/disclosurePolicy';
@@ -114,12 +114,8 @@ async function resolveDiscordDestination(
       return { ok: false, error: `endpoint is a '${endpoint.value.platform}' handle, not Discord`, code: 'endpoint_platform_mismatch' };
     }
     const identifier = endpoint.value.normalizedIdentifier;
-    if (isDiscordSnowflake(identifier)) return { ok: true, value: identifier };
-    const inviteCode = extractDiscordInviteCode(identifier);
-    if (inviteCode) {
-      const resolved = await resolveDiscordChannelFromInvite(inviteCode);
-      if (resolved) return { ok: true, value: resolved };
-    }
+    const resolved = await resolveDiscordChannelReference(identifier);
+    if (resolved) return { ok: true, value: resolved };
     return {
       ok: false,
       error: `could not resolve the Discord endpoint '${identifier}' to a real channel — it is neither a channel id nor a resolvable invite`,

@@ -85,6 +85,23 @@ export interface DiscordEmbed {
 }
 
 /**
+ * Resolve a raw destination reference (already a Discord channel snowflake,
+ * or an invite code/URL) to a real channel id. Shared by every caller that
+ * needs "turn what the caller supplied into a channel id" — egress.ts's
+ * message send and publications.ts's publish execution both call this
+ * rather than re-implementing snowflake/invite detection (never fork the
+ * one Discord-calling code path's resolution logic either).
+ */
+export async function resolveDiscordChannelReference(reference: string): Promise<string | null> {
+  const trimmed = normalizeString(reference);
+  if (!trimmed) return null;
+  if (isDiscordSnowflake(trimmed)) return trimmed;
+  const inviteCode = extractDiscordInviteCode(trimmed);
+  if (inviteCode) return resolveDiscordChannelFromInvite(inviteCode);
+  return null;
+}
+
+/**
  * `group.send` (registered 'restricted' in transportRegistry.ts — gated on
  * `DISCORD_BOT_TOKEN`, which this function does not itself read from env; the
  * caller supplies it, so this module has no ambient environment coupling and

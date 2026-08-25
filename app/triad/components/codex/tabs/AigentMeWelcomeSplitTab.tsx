@@ -558,7 +558,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin, ag
   // own bounded surface; the operator engages one, completes their
   // work, then moves to the next. Previous Capsules collapse into
   // the session-history strip and can be restored by click.
-  type CapsuleId = "brief" | "move-forward" | "venture-progress" | "ask-specialists" | "moneypenny-focus" | "people" | "conversations";
+  type CapsuleId = "brief" | "move-forward" | "venture-progress" | "ask-specialists" | "moneypenny-focus" | "people" | "conversations" | "publishing" | "engagement";
   // CANONICAL Capsule → Layout mapping. Every Capsule template owns
   // exactly one dedicated foreground layout. Activating a Capsule MUST
   // mount its layout (both states stay in lockstep) — otherwise the
@@ -579,6 +579,8 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin, ag
     "moneypenny-focus": "moneypenny-focus",
     "people": "people",
     "conversations": "conversations",
+    "publishing": "publishing",
+    "engagement": "engagement",
   };
   const [activeCapsuleId, setActiveCapsuleId] = useState<CapsuleId | null>(null);
   const [capsuleHistory, setCapsuleHistory] = useState<CapsuleId[]>([]);
@@ -3108,6 +3110,26 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin, ag
         skipInference: true,
         onSelect: () => {
           engageCapsuleAndMount('conversations');
+        },
+        onDispatchOnSend: async (_editedPrompt: string) => {},
+      },
+      {
+        id: 'publishing',
+        label: 'Publishing',
+        prompt: 'Show me my publications.',
+        skipInference: true,
+        onSelect: () => {
+          engageCapsuleAndMount('publishing');
+        },
+        onDispatchOnSend: async (_editedPrompt: string) => {},
+      },
+      {
+        id: 'engagement',
+        label: 'Engagement',
+        prompt: 'Show me responses that need me.',
+        skipInference: true,
+        onSelect: () => {
+          engageCapsuleAndMount('engagement');
         },
         onDispatchOnSend: async (_editedPrompt: string) => {},
       },

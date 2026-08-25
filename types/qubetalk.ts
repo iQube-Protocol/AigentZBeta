@@ -146,6 +146,11 @@ export interface QubeTalkConversation {
   groupId: string | null;
   topology: QubeTalkConversationTopology;
   title: string | null;
+  /** Set only when this conversation originated from converting a
+   *  publication engagement to a private conversation (§9's "publishing
+   *  becomes conversation") — the reverse of
+   *  QubeTalkEngagement.convertedConversationId. */
+  originEngagementId: string | null;
   createdAt: string;
   lastActivityAt: string;
 }
@@ -198,6 +203,10 @@ export interface QubeTalkPublication {
   agentRef: string | null;
   sourceContentRef: string | null;
   title: string;
+  /** Distributable excerpt/caption text actually sent to channels — distinct
+   *  from sourceContentRef, a reference to canonical content QubeTalk never
+   *  duplicates (§11: QubeTalk owns the publishing act, never the content). */
+  body: string | null;
   status: QubeTalkPublicationStatus;
   createdAt: string;
   updatedAt: string;
@@ -213,6 +222,11 @@ export interface QubeTalkPublicationProjection {
    *  — free text at the schema level (N11: the registry, not this CHECK, is
    *  the source of truth for what's actually supported). */
   channel: string;
+  /** Caller-supplied publish target (e.g. a Discord channel id/invite) —
+   *  the intent, resolved at execution time. Distinct from
+   *  externalPublicationId/url, which are the transport's RESULT, set only
+   *  after a successful publish. */
+  destinationRef: string | null;
   externalPublicationId: string | null;
   projectionStatus: QubeTalkProjectionStatus;
   url: string | null;

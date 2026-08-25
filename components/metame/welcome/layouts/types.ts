@@ -37,7 +37,9 @@ export type RightPaneLayoutId =
   | "venture-report-brief"
   | "venture-reintroduction-brief"
   | "people"
-  | "conversations";
+  | "conversations"
+  | "publishing"
+  | "engagement";
 
 /**
  * Compose handler shapes — each onCreate matches the corresponding

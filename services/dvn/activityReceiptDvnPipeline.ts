@@ -379,6 +379,7 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   'qubetalk_publication_published',
   'qubetalk_publication_withdrawn',
   'qubetalk_publication_projection_failed',
+  'qubetalk_publication_projection_published',
   'qubetalk_message_agent_sent',
   'qubetalk_group_message_agent_sent',
   'qubetalk_agent_approval_used',

@@ -71,6 +71,7 @@ import {
   Pencil,
   PlayCircle,
   FileText,
+  Radio,
   RefreshCw,
   RotateCcw,
   Send,
@@ -2303,13 +2304,16 @@ export default function MetaMeRuntimeClient() {
   // NEVER conflate this with conversationIdRef below, which is an
   // unrelated, inert per-mount analytics tag.
   const [qubeTalkDrawerOpen, setQubeTalkDrawerOpen] = useState(false);
-  const [qubeTalkDrawerTab, setQubeTalkDrawerTab] = useState<"people" | "conversations">("people");
+  const [qubeTalkDrawerTab, setQubeTalkDrawerTab] = useState<"people" | "conversations" | "publishing" | "engagement">("people");
   // Content in context when Message was invoked (§9: Share -> Message,
   // content-scoped) — reuses the SAME `active` capsule-content resolution
   // "share"/"invite" already use below; null when Message was invoked with
   // no specific content in context, in which case QubeTalkInboxTab simply
   // shows its normal pending-share-free composer.
   const [qubeTalkPendingShareArtifact, setQubeTalkPendingShareArtifact] = useState<{ artifactType: string; artifactId: string; title?: string } | null>(null);
+  // Content in context when Publish was invoked (Publishing + Engagement §4:
+  // Share -> Publish) — pre-fills the Publishing tab's draft form.
+  const [qubeTalkPendingPublishArtifact, setQubeTalkPendingPublishArtifact] = useState<{ title: string; body?: string | null; sourceContentRef?: string | null } | null>(null);
   const [walletInitialTab, setWalletInitialTab] = useState<"wallet" | "tasks" | "rewards" | "payments" | "reputation" | "library">("wallet");
   // Shell deep-link envelope state — see MENU_ACTION handler. One-shot
   // seeds for `SmartWalletDrawer.initialAuthMode` and
@@ -2777,6 +2781,20 @@ export default function MetaMeRuntimeClient() {
     const active = activeCapsuleId ? capsuleContents.find((c) => c.id === activeCapsuleId) : null;
     if (!active) return null;
     return { artifactType: active.runtimeContentKind || 'runtime-content', artifactId: active.id, title: active.title };
+  }, [activeCapsuleId, capsuleContents]);
+  // Share -> Publish (Publishing + Engagement, §4): the SAME "content in
+  // context" resolution as Message above, mapped into PublicationQube's
+  // create shape. Falls back to capsuleContents[0] (unlike Message) — a
+  // deliberate "Publish" invocation always needs SOME content to draft
+  // from, unlike Message which can legitimately be content-free.
+  const resolveActivePublishArtifact = useCallback((): { title: string; body?: string | null; sourceContentRef?: string | null } | null => {
+    const active = (activeCapsuleId && capsuleContents.find((c) => c.id === activeCapsuleId)) || capsuleContents[0] || null;
+    if (!active) return null;
+    return {
+      title: active.title || 'Untitled',
+      body: active.description ?? null,
+      sourceContentRef: `${active.runtimeContentKind || 'runtime-content'}:${active.id}`,
+    };
   }, [activeCapsuleId, capsuleContents]);
   const relayCloseCodexToNestedFrames = useCallback(() => {
     if (typeof window === "undefined") return;
@@ -5062,6 +5080,16 @@ export default function MetaMeRuntimeClient() {
             setQubeTalkDrawerTab("people");
             setQubeTalkDrawerOpen(true);
           },
+          // Same convergence for Publishing + Engagement's deep-link forms.
+          "share-publish": () => {
+            setQubeTalkPendingPublishArtifact(resolveActivePublishArtifact());
+            setQubeTalkDrawerTab("publishing");
+            setQubeTalkDrawerOpen(true);
+          },
+          "share-engagement": () => {
+            setQubeTalkDrawerTab("engagement");
+            setQubeTalkDrawerOpen(true);
+          },
         };
         if (menuActionId && menuActionId in DRAWER_ACTION_HANDLERS) {
           DRAWER_ACTION_HANDLERS[menuActionId]?.();
@@ -5529,6 +5557,13 @@ export default function MetaMeRuntimeClient() {
                     className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
                     <User className="h-3.5 w-3.5 text-slate-400" />People
                   </button>
+                  {/* Publishing + Engagement (§4: Share -> Publish) — creates/uses
+                      a PublicationQube, never routed through generic message
+                      semantics. */}
+                  <button type="button" onClick={() => { setQubeTalkPendingPublishArtifact(resolveActivePublishArtifact()); setQubeTalkDrawerTab("publishing"); setQubeTalkDrawerOpen(true); setShareMenuOpen(false); }}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
+                    <Radio className="h-3.5 w-3.5 text-slate-400" />Publish
+                  </button>
                   <button type="button" onClick={() => { handleRuntimeMenuIntent("share", "Invite someone to a shared QubeTalk environment."); setShareMenuOpen(false); }}
                     className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
                     <Users className="h-3.5 w-3.5 text-slate-400" />Invite
@@ -5701,6 +5736,13 @@ export default function MetaMeRuntimeClient() {
                   <button type="button" onClick={() => { setQubeTalkDrawerTab("people"); setQubeTalkDrawerOpen(true); setShareMenuOpen(false); }}
                     className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
                     <User className="h-3.5 w-3.5 text-slate-400" />People
+                  </button>
+                  {/* Publishing + Engagement (§4: Share -> Publish) — creates/uses
+                      a PublicationQube, never routed through generic message
+                      semantics. */}
+                  <button type="button" onClick={() => { setQubeTalkPendingPublishArtifact(resolveActivePublishArtifact()); setQubeTalkDrawerTab("publishing"); setQubeTalkDrawerOpen(true); setShareMenuOpen(false); }}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
+                    <Radio className="h-3.5 w-3.5 text-slate-400" />Publish
                   </button>
                   <button type="button" onClick={() => { handleRuntimeMenuIntent("share", "Invite someone to a shared QubeTalk environment."); setShareMenuOpen(false); }}
                     className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
@@ -6428,6 +6470,8 @@ export default function MetaMeRuntimeClient() {
         initialTab={qubeTalkDrawerTab}
         pendingShareArtifact={qubeTalkPendingShareArtifact}
         onShareArtifactHandled={() => setQubeTalkPendingShareArtifact(null)}
+        pendingPublishArtifact={qubeTalkPendingPublishArtifact}
+        onPublishArtifactHandled={() => setQubeTalkPendingPublishArtifact(null)}
       />
       {/* Persona picker — bottom sheet when no iqube_type specified */}
       {personaPickerOpen && (

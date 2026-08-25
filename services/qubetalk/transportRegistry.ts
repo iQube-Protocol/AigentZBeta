@@ -110,6 +110,19 @@ const QUBETALK_NATIVE: QubeTalkTransportDescriptor = {
  * avoid overclaiming. No other Discord capability (dm.*, group.read,
  * history.backfill, comment.*, mention.*, reaction.*, webhook.receive,
  * attachment.*) has verified working code in this repo.
+ *
+ * `post.publish` (2026-08-25, Publishing + Engagement increment) — ALSO
+ * genuinely real: services/qubetalk/publications.ts's publish-execution path
+ * posts a publication's title/body as a Discord embed (title + description +
+ * optional url) via the SAME postDiscordMessages this module has always
+ * used for group.send. This is a channel-message primitive standing in for
+ * "post.publish" honestly, not an article/blog-post API — Discord has no
+ * such API to call. 'restricted' (not 'supported') for the identical reason
+ * group.send already is: gated on an env credential this module cannot
+ * confirm is provisioned. article.publish/media.publish/schedule.publish
+ * remain 'unsupported' — no verified code posts a distinct "article" shape,
+ * attaches media beyond a single embed image url, or schedules a future
+ * publish for Discord in this repo.
  */
 const DISCORD_PARTIAL: QubeTalkTransportDescriptor = {
   transportId: 'discord',
@@ -118,6 +131,7 @@ const DISCORD_PARTIAL: QubeTalkTransportDescriptor = {
     ...ALL_UNSUPPORTED,
     'group.send': 'restricted',
     'identity.lookup': 'restricted',
+    'post.publish': 'restricted',
   },
 };
 

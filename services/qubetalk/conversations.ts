@@ -26,6 +26,7 @@ function rowToConversation(row: Record<string, unknown>): QubeTalkConversation {
     groupId: (row.group_id as string | null) ?? null,
     topology: row.topology as QubeTalkConversationTopology,
     title: (row.title as string | null) ?? null,
+    originEngagementId: (row.origin_engagement_id as string | null) ?? null,
     createdAt: String(row.created_at),
     lastActivityAt: String(row.last_activity_at),
   };
@@ -36,6 +37,12 @@ export async function createConversation(input: {
   groupId?: string | null;
   topology: QubeTalkConversationTopology;
   title?: string | null;
+  /** Set only when this conversation originated from converting a
+   *  publication engagement (services/qubetalk/engagement.ts
+   *  convertEngagementToConversation) — the reverse pointer to
+   *  qubetalk_engagements.converted_conversation_id, for provenance display
+   *  ("this conversation began as a comment on Publication Y"). */
+  originEngagementId?: string | null;
 }): Promise<PeerResult<QubeTalkConversation>> {
   const admin = getSupabaseServer();
   if (!admin) return { ok: false, error: 'Supabase unavailable' };
@@ -46,6 +53,7 @@ export async function createConversation(input: {
       group_id: input.groupId ?? null,
       topology: input.topology,
       title: input.title ?? null,
+      origin_engagement_id: input.originEngagementId ?? null,
     })
     .select('*')
     .single();

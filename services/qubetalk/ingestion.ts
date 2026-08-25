@@ -139,7 +139,7 @@ export async function ingestCommunicationEvent(event: IngressEvent): Promise<Pee
         value: {
           duplicate: true,
           participant: { id: '', ownerPersonaId: event.ownerPersonaId, principalRef: null, displayName: '', contactPersonId: null, createdAt: '', updatedAt: '' },
-          conversation: { id: '', relationshipChannelId: null, groupId: null, topology: 'dyadic', title: null, createdAt: '', lastActivityAt: '' },
+          conversation: { id: '', relationshipChannelId: null, groupId: null, topology: 'dyadic', title: null, originEngagementId: null, createdAt: '', lastActivityAt: '' },
           audienceSnapshot: null,
           sensitivity: 'standard',
           injectionRisk: false,
