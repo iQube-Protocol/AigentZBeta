@@ -25,6 +25,7 @@ import { PersonaIQubeDrawer } from "@/components/iqube/PersonaIQubeDrawer";
 import { IdentityIQubeDrawer } from "@/components/iqube/IdentityIQubeDrawer";
 import { MemoryIQubeDrawer } from "@/components/iqube/MemoryIQubeDrawer";
 import { ConnectionsIQubeDrawer } from "@/components/iqube/ConnectionsIQubeDrawer";
+import { RuntimeQubeTalkDrawer } from "@/components/metame/runtime/RuntimeQubeTalkDrawer";
 import { PreviewFrame } from "@/components/preview/PreviewFrame";
 import { DevicePreviewSwitcher, type DeviceType } from "@/components/preview/DevicePreviewSwitcher";
 import { useToast } from "@/components/ui/toaster";
@@ -83,6 +84,7 @@ import {
   Sun,
   Moon,
   Tv,
+  User,
   Users,
   X,
 } from "lucide-react";
@@ -2015,7 +2017,14 @@ export default function MetaMeRuntimeClient() {
   const shellOriginRef = useRef<string | null>(null);
   const shellContextRef = useRef<{ tenant_id?: string; persona_id?: string }>({});
   const runtimeReadyPostedRef = useRef(false);
-  // Stable conversation ID for the lifetime of this runtime session
+  // Stable conversation ID for the lifetime of this runtime session.
+  // NOTE (QubeTalk Fast-Follow): this is a client-only, per-mount analytics
+  // tag used SOLELY by the /api/iqube/memory write below — it has no
+  // relationship to a QubeTalk ConversationQube.id (a durable, server-side
+  // resolved communication context; types/qubetalk.ts's QubeTalkConversation).
+  // Do NOT equate the two. If Runtime ever needs to record "this session was
+  // focused on a specific QubeTalk conversation," use a separate, explicit
+  // field (e.g. qubeTalkConversationId state) rather than repurposing this ref.
   const conversationIdRef = useRef<string>(
     typeof crypto !== "undefined" ? crypto.randomUUID() : `conv-${Date.now()}`
   );
@@ -2283,6 +2292,14 @@ export default function MetaMeRuntimeClient() {
   const [playMenuOpen, setPlayMenuOpen] = useState(false);
   const [shareMenuOpen, setShareMenuOpen] = useState(false);
   const [connectionsDrawerOpen, setConnectionsDrawerOpen] = useState(false);
+  // QubeTalk Fast-Follow (Runtime fan-out) — the People + Conversations
+  // workbench (RuntimeQubeTalkDrawer). qubeTalkDrawerTab is a one-shot
+  // seed for which tab to land on (e.g. the Share seam opening straight
+  // into Conversations), not a durable QubeTalk conversation reference —
+  // NEVER conflate this with conversationIdRef below, which is an
+  // unrelated, inert per-mount analytics tag.
+  const [qubeTalkDrawerOpen, setQubeTalkDrawerOpen] = useState(false);
+  const [qubeTalkDrawerTab, setQubeTalkDrawerTab] = useState<"people" | "conversations">("people");
   const [walletInitialTab, setWalletInitialTab] = useState<"wallet" | "tasks" | "rewards" | "payments" | "reputation" | "library">("wallet");
   // Shell deep-link envelope state — see MENU_ACTION handler. One-shot
   // seeds for `SmartWalletDrawer.initialAuthMode` and
@@ -5459,9 +5476,18 @@ export default function MetaMeRuntimeClient() {
               <>
                 <div className="fixed inset-0 z-[45]" onClick={() => setShareMenuOpen(false)} />
                 <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-[46] flex flex-col gap-1 bg-slate-900/95 border border-white/10 rounded-xl p-2 shadow-2xl backdrop-blur-xl min-w-[130px]">
-                  <button type="button" onClick={() => { handleRuntimeMenuIntent("share", "Send a direct message via QubeTalk."); setShareMenuOpen(false); }}
+                  {/* QubeTalk Fast-Follow: "Message" now genuinely routes into
+                      the QubeTalk workbench (it previously only opened the
+                      generic SocialSharingModal despite already saying
+                      "via QubeTalk" in its prompt copy — reconciled, not
+                      replaced: Invite/Refer below are untouched). */}
+                  <button type="button" onClick={() => { setQubeTalkDrawerTab("conversations"); setQubeTalkDrawerOpen(true); setShareMenuOpen(false); }}
                     className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
                     <Send className="h-3.5 w-3.5 text-slate-400" />Message
+                  </button>
+                  <button type="button" onClick={() => { setQubeTalkDrawerTab("people"); setQubeTalkDrawerOpen(true); setShareMenuOpen(false); }}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
+                    <User className="h-3.5 w-3.5 text-slate-400" />People
                   </button>
                   <button type="button" onClick={() => { handleRuntimeMenuIntent("share", "Invite someone to a shared QubeTalk environment."); setShareMenuOpen(false); }}
                     className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
@@ -5625,9 +5651,16 @@ export default function MetaMeRuntimeClient() {
               <>
                 <div className="fixed inset-0 z-[45]" onClick={() => setShareMenuOpen(false)} />
                 <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-[46] flex flex-col gap-1 bg-slate-900/95 border border-white/10 rounded-xl p-2 shadow-2xl backdrop-blur-xl min-w-[130px]">
-                  <button type="button" onClick={() => { handleRuntimeMenuIntent("share", "Send a direct message via QubeTalk."); setShareMenuOpen(false); }}
+                  {/* QubeTalk Fast-Follow: "Message" now genuinely routes into
+                      the QubeTalk workbench (see the mobile variant above for
+                      the same reconciliation — Invite/Refer below untouched). */}
+                  <button type="button" onClick={() => { setQubeTalkDrawerTab("conversations"); setQubeTalkDrawerOpen(true); setShareMenuOpen(false); }}
                     className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
                     <Send className="h-3.5 w-3.5 text-slate-400" />Message
+                  </button>
+                  <button type="button" onClick={() => { setQubeTalkDrawerTab("people"); setQubeTalkDrawerOpen(true); setShareMenuOpen(false); }}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
+                    <User className="h-3.5 w-3.5 text-slate-400" />People
                   </button>
                   <button type="button" onClick={() => { handleRuntimeMenuIntent("share", "Invite someone to a shared QubeTalk environment."); setShareMenuOpen(false); }}
                     className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
@@ -6345,6 +6378,11 @@ export default function MetaMeRuntimeClient() {
       <MemoryIQubeDrawer open={memoryDrawerOpen} onClose={() => setMemoryDrawerOpen(false)} />
       {/* Connections iQube drawer */}
       <ConnectionsIQubeDrawer open={connectionsDrawerOpen} onClose={() => setConnectionsDrawerOpen(false)} />
+      {/* QubeTalk Fast-Follow — Runtime's People + Conversations workbench.
+          Consumes the SAME ContactGraph/QubeTalk services aigentMe's
+          PeopleLayout/ConversationsLayout consume — one capability, two
+          presentations (never a RuntimeContacts/AigentMeContacts split). */}
+      <RuntimeQubeTalkDrawer open={qubeTalkDrawerOpen} onClose={() => setQubeTalkDrawerOpen(false)} initialTab={qubeTalkDrawerTab} />
       {/* Persona picker — bottom sheet when no iqube_type specified */}
       {personaPickerOpen && (
         <>

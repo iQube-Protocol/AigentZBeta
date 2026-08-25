@@ -1,195 +1,65 @@
 "use client";
 
 /**
- * PeopleLayout — aigentMe's first ContactGraph consumer (QubeTalk
+ * PeopleLayout — aigentMe's compact ContactGraph consumer (QubeTalk
  * Fast-Follow, priority step 3: "People + Conversations must be real").
  *
- * A self-contained two-pane list/detail surface (mirrors
- * components/composer/QubeTalkInboxTab.tsx's own shape rather than
- * threading person-list state through AigentMeWelcomeSplitTab's already
- * large layoutProps object — QubeTalkInboxTab already proves that pattern
- * for a comparably-shaped surface in this codebase).
+ * A thin presentational wrapper over the SHARED `useContactGraphPeople`
+ * hook (components/metame/contactgraph/useContactGraphPeople.ts) — all
+ * data-fetching/mutation logic lives there so metaMe Runtime's richer
+ * People workbench can consume the exact same logic against the exact
+ * same /api/contactgraph/* routes, per the operator's "fan out, do not
+ * fork" instruction. This file owns ONLY the compact two-pane JSX.
  *
  * Every read/write goes through /api/contactgraph/* (personaFetch, spine-
  * authed) → services/contactGraph/*.ts. This component NEVER reads
- * contact_persons/contact_personas/contact_endpoints directly, and never
- * re-implements confidence/provenance logic that already lives server-side
- * — it only renders what those routes return and dispatches the operator's
- * explicit actions (confirm / reject / reassign / mark preferred / add).
+ * contact_persons/contact_personas/contact_endpoints directly.
  *
  * DIS template id: `people-layout-v1`.
  */
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React from "react";
 import { User, Users, Plus, Check, X as XIcon, Star, Loader2 } from "lucide-react";
 import { LayoutShell } from "./LayoutShell";
-import { personaFetch } from "@/utils/personaSpine";
+import { useContactGraphPeople, CONTACT_PLATFORM_LABEL } from "@/components/metame/contactgraph/useContactGraphPeople";
 import type { RightPaneLayoutDefinition, RightPaneLayoutProps } from "./types";
-import type {
-  ContactEndpoint,
-  ContactEndpointPlatform,
-  ContactGraphProjectionPersonSummary,
-  ContactPersona,
-  ContactPerson,
-} from "@/types/contactGraph";
+import type { ContactEndpointPlatform } from "@/types/contactGraph";
 import { CONTACT_ENDPOINT_PLATFORMS } from "@/types/contactGraph";
-
-async function fetchJson<T>(url: string, init?: RequestInit): Promise<{ ok: true; data: T } | { ok: false; error: string }> {
-  try {
-    const res = await personaFetch(url, init);
-    const body = await res.json().catch(() => null);
-    if (!res.ok || !body?.ok) return { ok: false, error: body?.error ?? `request failed (${res.status})` };
-    return { ok: true, data: body };
-  } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "network error" };
-  }
-}
-
-type PersonaWithEndpoints = ContactPersona & { endpoints: ContactEndpoint[] };
-
-interface PersonDetail {
-  person: ContactPerson;
-  personas: PersonaWithEndpoints[];
-  linkedQubeTalkParticipants: unknown[];
-}
-
-const PLATFORM_LABEL: Record<ContactEndpointPlatform, string> = {
-  metame: "metaMe",
-  email: "Email",
-  whatsapp: "WhatsApp",
-  telegram: "Telegram",
-  signal: "Signal",
-  linkedin: "LinkedIn",
-  discord: "Discord",
-  x: "X",
-  sms: "SMS",
-};
 
 function PeopleLayoutComponent(props: RightPaneLayoutProps) {
   const { theme = "dark", onRequestLayout } = props;
   const isDark = theme === "dark";
 
-  const [people, setPeople] = useState<ContactGraphProjectionPersonSummary[]>([]);
-  const [listLoading, setListLoading] = useState(true);
-  const [listError, setListError] = useState<string | null>(null);
-  const [query, setQuery] = useState("");
-  const [creatingPerson, setCreatingPerson] = useState(false);
-  const [newPersonName, setNewPersonName] = useState("");
-
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [detail, setDetail] = useState<PersonDetail | null>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [detailError, setDetailError] = useState<string | null>(null);
-  const [busyEndpointId, setBusyEndpointId] = useState<string | null>(null);
-
-  const [addingContextFor, setAddingContextFor] = useState(false);
-  const [newContextLabel, setNewContextLabel] = useState("");
-  const [addingHandleFor, setAddingHandleFor] = useState<string | null>(null); // contactPersonaId
-  const [newHandlePlatform, setNewHandlePlatform] = useState<ContactEndpointPlatform>("email");
-  const [newHandleIdentifier, setNewHandleIdentifier] = useState("");
-
-  const loadPeople = useCallback(async () => {
-    setListLoading(true);
-    setListError(null);
-    const result = await fetchJson<{ people: ContactGraphProjectionPersonSummary[] }>("/api/contactgraph/people");
-    if (result.ok) setPeople(result.data.people);
-    else setListError(result.error);
-    setListLoading(false);
-  }, []);
-
-  const loadDetail = useCallback(async (personId: string) => {
-    setDetailLoading(true);
-    setDetailError(null);
-    const result = await fetchJson<PersonDetail>(`/api/contactgraph/people/${personId}`);
-    if (result.ok) setDetail(result.data);
-    else setDetailError(result.error);
-    setDetailLoading(false);
-  }, []);
-
-  useEffect(() => {
-    void loadPeople();
-  }, [loadPeople]);
-
-  useEffect(() => {
-    if (selectedId) void loadDetail(selectedId);
-    else setDetail(null);
-  }, [selectedId, loadDetail]);
-
-  const filteredPeople = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return people;
-    return people.filter((p) => p.displayName.toLowerCase().includes(q));
-  }, [people, query]);
-
-  const handleCreatePerson = useCallback(async () => {
-    const displayName = newPersonName.trim();
-    if (!displayName) return;
-    setCreatingPerson(true);
-    const result = await fetchJson<{ person: ContactPerson }>("/api/contactgraph/people", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ displayName }),
-    });
-    setCreatingPerson(false);
-    if (result.ok) {
-      setNewPersonName("");
-      await loadPeople();
-      setSelectedId(result.data.person.id);
-    }
-  }, [newPersonName, loadPeople]);
-
-  const handleAddContext = useCallback(async () => {
-    if (!selectedId) return;
-    const label = newContextLabel.trim();
-    if (!label) return;
-    const result = await fetchJson(`/api/contactgraph/people/${selectedId}/personas`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ label }),
-    });
-    if (result.ok) {
-      setNewContextLabel("");
-      setAddingContextFor(false);
-      await loadDetail(selectedId);
-    }
-  }, [selectedId, newContextLabel, loadDetail]);
-
-  const handleAddHandle = useCallback(
-    async (contactPersonaId: string) => {
-      const identifier = newHandleIdentifier.trim();
-      if (!identifier || !selectedId) return;
-      const result = await fetchJson(`/api/contactgraph/personas/${contactPersonaId}/endpoints`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ platform: newHandlePlatform, identifier }),
-      });
-      if (result.ok) {
-        setNewHandleIdentifier("");
-        setAddingHandleFor(null);
-        await loadDetail(selectedId);
-        await loadPeople();
-      }
-    },
-    [newHandleIdentifier, newHandlePlatform, selectedId, loadDetail, loadPeople],
-  );
-
-  const handleEndpointAction = useCallback(
-    async (endpointId: string, body: Record<string, unknown>) => {
-      if (!selectedId) return;
-      setBusyEndpointId(endpointId);
-      const result = await fetchJson(`/api/contactgraph/endpoints/${endpointId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      setBusyEndpointId(null);
-      if (result.ok) {
-        await loadDetail(selectedId);
-        await loadPeople();
-      }
-    },
-    [selectedId, loadDetail, loadPeople],
-  );
+  const {
+    filteredPeople,
+    listLoading,
+    listError,
+    query,
+    setQuery,
+    creatingPerson,
+    newPersonName,
+    setNewPersonName,
+    handleCreatePerson,
+    selectedId,
+    setSelectedId,
+    detail,
+    detailLoading,
+    detailError,
+    busyEndpointId,
+    handleEndpointAction,
+    addingContextFor,
+    setAddingContextFor,
+    newContextLabel,
+    setNewContextLabel,
+    handleAddContext,
+    addingHandleFor,
+    setAddingHandleFor,
+    newHandlePlatform,
+    setNewHandlePlatform,
+    newHandleIdentifier,
+    setNewHandleIdentifier,
+    handleAddHandle,
+  } = useContactGraphPeople();
 
   const rowClass = (active: boolean) =>
     `w-full rounded-md border px-3 py-2 text-left text-xs transition-colors ${
@@ -232,7 +102,7 @@ function PeopleLayoutComponent(props: RightPaneLayoutProps) {
                 <span className="truncate font-medium">{p.displayName}</span>
                 {p.preferredEndpointPlatform && (
                   <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] ${isDark ? "bg-slate-800 text-slate-400" : "bg-slate-100 text-slate-500"}`}>
-                    {PLATFORM_LABEL[p.preferredEndpointPlatform]}
+                    {CONTACT_PLATFORM_LABEL[p.preferredEndpointPlatform]}
                   </span>
                 )}
               </div>
@@ -306,7 +176,7 @@ function PeopleLayoutComponent(props: RightPaneLayoutProps) {
                     {persona.endpoints.map((ep) => (
                       <div key={ep.id} className={`flex items-center justify-between gap-1.5 rounded px-1.5 py-1 text-[11px] ${isDark ? "bg-slate-900/60" : "bg-white"}`}>
                         <div className="min-w-0 flex-1">
-                          <span className={mutedClass}>{PLATFORM_LABEL[ep.platform]}: </span>
+                          <span className={mutedClass}>{CONTACT_PLATFORM_LABEL[ep.platform]}: </span>
                           <span className={isDark ? "text-slate-300" : "text-slate-700"}>{ep.identifier}</span>
                           {ep.isPreferred && <Star className="ml-1 inline h-2.5 w-2.5 fill-amber-400 text-amber-400" />}
                           <span className={`ml-1.5 rounded px-1 text-[9px] ${confidenceBadgeClass(ep.confidence, isDark)}`}>{ep.confidence.replace("_", " ")}</span>
@@ -368,7 +238,7 @@ function PeopleLayoutComponent(props: RightPaneLayoutProps) {
                       >
                         {CONTACT_ENDPOINT_PLATFORMS.map((p) => (
                           <option key={p} value={p}>
-                            {PLATFORM_LABEL[p]}
+                            {CONTACT_PLATFORM_LABEL[p]}
                           </option>
                         ))}
                       </select>

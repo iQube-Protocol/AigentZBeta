@@ -278,3 +278,123 @@ committed in the same push).
    ("do not implement fake NLP routing just to make demos pass") was followed by deferring this
    rather than building a shortcut; it requires auditing the existing Agent intent/action
    architecture first, which this pass did not do.
+
+---
+
+## Addendum — Runtime fan-out (product roles finalized, same day)
+
+**Governing directive**: operator's "Deployment adjustment — do not change track on aigentMe"
+(same day). aigentMe's People/Conversations increment was finished and left unchanged; this
+addendum fans the SAME ContactGraph/QubeTalk capability into metaMe Runtime as the primary
+full-depth communications workbench, per the finalized product roles:
+
+- **aigentMe** — where the operator asks their Agent to communicate (compact, conversational).
+- **metaMe Runtime** — where the operator sees, organizes, and manages the full communications
+  world that Agent is operating within (full-depth workbench).
+
+Neither owns or forks ContactGraph/QubeTalk state — both are Full consumers of the same contained
+capability (C13), proven by construction (same `/api/contactgraph/*` routes, same service layer)
+and by a new explicit surface-continuity test.
+
+### Reuse-audit preflight (before writing any Runtime code)
+
+Audited `MetaMeRuntimeClient.tsx`'s `conversationIdRef` — the operator's flagged highest-risk
+item — end to end: it is a client-only, per-React-mount `crypto.randomUUID()` held in a `useRef`,
+used in EXACTLY ONE place (a fire-and-forget analytics write to `/api/iqube/memory`'s `metadata`
+column), never read back anywhere, and never passed to the actual chat inference call
+(`/api/codex/chat`). **It has no relationship whatsoever to a QubeTalk `ConversationQube.id`.**
+No new Runtime↔QubeTalk conversation-focus association was needed this pass (Runtime's new
+workbench doesn't yet need to record "which QubeTalk conversation is this session looking at" as
+a durable fact) — but a code comment was added at `conversationIdRef`'s definition explicitly
+warning future agents never to conflate the two, and documenting where a genuine association
+would go (a separate, explicit field) if one becomes necessary.
+
+Also audited Runtime's existing Share/Invite/Message/Refer surface: `SocialSharingModal` and
+`InviteModal` are both content-entity-scoped (share/invite a MyCanvas entry or capsule content),
+not person-scoped — there was no pre-existing "Message a person" capability to preserve or
+conflict with. The "Message" button already existed with QubeTalk-flavored prompt copy ("Send a
+direct message via QubeTalk") but only opened the generic `SocialSharingModal` — genuinely
+disconnected from QubeTalk. `SocialSharingModal`/`InviteModal` themselves were left completely
+untouched; only the "Message" button's dispatch was reconciled to open the real workbench, and a
+new "People" button was added alongside it (both entry points, `Invite`/`Refer` unmodified).
+
+### What was built
+
+**Fan-out, not a fork** — the generalization shape follows this codebase's own established
+idiom (confirmed by the same audit pass, mirroring `QubeTalkInboxTab`'s "self-contained component
++ scope prop, reused verbatim by multiple callers" pattern already used elsewhere):
+
+- `components/metame/contactgraph/useContactGraphPeople.ts` (new) — ALL of PeopleLayout's
+  data-fetching/mutation logic (load list, load detail, create person, add persona/context, add
+  handle, confirm/reject/reassign/mark-preferred an endpoint) extracted into one shared hook.
+  Zero JSX. Both consumers below call this SAME hook — never two copies of the fetch logic.
+- `components/metame/welcome/layouts/PeopleLayout.tsx` — refactored to a thin presentational
+  wrapper over `useContactGraphPeople()`. Visually and behaviorally UNCHANGED (pure extraction,
+  proven by the unmodified 17/17 test assertions still passing).
+- `components/metame/runtime/RuntimeQubeTalkDrawer.tsx` (new) — the richer Runtime workbench.
+  Consumes the SAME `useContactGraphPeople()` hook for its People tab (wider two-column detail
+  grid, more breathing room than aigentMe's compact layout) and mounts the SAME
+  `QubeTalkInboxTab` (with `domainFilter="runtime"`, the identical reuse pattern
+  `ConversationsLayout` already established) for its Conversations tab. Follows this repo's
+  existing drawer idiom (`components/iqube/ConnectionsIQubeDrawer.tsx`/`MemoryIQubeDrawer.tsx` —
+  fixed backdrop + right-entering panel) rather than aigentMe's Capsule/LayoutShell chrome, matching
+  how Runtime's own UI shell already works. SLATE house style throughout (`border-slate-800`,
+  `bg-slate-900/40`) — deliberately not copying the residual `border-white/10` pattern present in
+  neighboring pre-existing drawer files (out of scope to fix; not introduced fresh here).
+- **`MetaMeRuntimeClient.tsx`** — three additive changes only: (1) two new `useState` slots
+  (`qubeTalkDrawerOpen`, `qubeTalkDrawerTab`) alongside the existing drawer states; (2) the drawer
+  mounted inside the existing `iQubeDrawerLayer` alongside `MemoryIQubeDrawer`/
+  `ConnectionsIQubeDrawer`; (3) the existing "Message" button (both mobile and desktop variants of
+  the Share dropdown) reconciled to open the workbench's Conversations tab, plus a new "People"
+  button opening the People tab — `Invite`/`Refer` and their existing modals untouched.
+
+### Runtime target IA — this increment
+
+Per the operator's explicit "People and Conversations remain the first required operational
+views" — both built; Groups/Needs Me/Waiting/Agent Managed/Publishing/Engagement are NOT
+attempted this pass (mirrors how aigentMe's own People/Conversations pass scoped itself, and how
+the original 2026-08-25 closeout already deferred the equivalent full-IA work for QubeTalk itself).
+
+### Surface continuity — proof
+
+Two new tests in `tests/contactgraph-substrate-scenarios.test.ts`
+(`describe('aigentMe <-> Runtime surface continuity...')`):
+
+1. A projection requested with `requestingSurface: 'aigentme'` and one requested with
+   `requestingSurface: 'metame-runtime'` against the same underlying data return
+   byte-identical results (`toEqual`). An endpoint added as if from Runtime is visible on
+   aigentMe's very next read with no synchronization step — and exactly one `ContactPerson` row
+   exists throughout, proving no duplicate was created by "switching surfaces."
+2. Reassigning an endpoint (as if from Runtime's richer picker) preserves the SAME row id and
+   link-history — aigentMe's compact view reads the identical endpoint in its new context.
+
+### Tests / tsc
+
+- **102/102 passing** (17 ContactGraph + 72 QubeTalk regression + 13 Discord transport, the
+  latter landed via the concurrent Discord agent's `3cc4dadf`, merged cleanly before this work
+  began). 2 of the 17 ContactGraph tests are the new surface-continuity tests above.
+- `npx tsc --noEmit`: zero errors in every new/touched file (`useContactGraphPeople.ts`,
+  `PeopleLayout.tsx`, `RuntimeQubeTalkDrawer.tsx`). `MetaMeRuntimeClient.tsx` carries 10
+  pre-existing errors, confirmed byte-identical (same messages, consistently shifted line numbers)
+  against the pre-Runtime-edit baseline — none introduced by this pass.
+- **Build verification**: `GET /metame/runtime` against a live dev server returned **HTTP 200**
+  (17,968 modules compiled, zero module/syntax/render error) — confirming
+  `MetaMeRuntimeClient.tsx`'s surgical edits (new drawer state, the reconciled Message/People
+  buttons in both mobile and desktop Share-menu variants, the `RuntimeQubeTalkDrawer` mount, the
+  new `User` icon import) integrate cleanly into an already-massive (~6,300+ line) component. Not
+  verified: an authenticated session actually opening the drawer and exercising People/
+  Conversations interactively — same honest limitation as aigentMe's own build-verification note.
+
+### Known limitations — Runtime fan-out
+
+1. **Deep-link menu-action path not reconciled** — `coerceRuntimeIntent`'s `"share-message"`/
+   `"share-invite"` string mapping (used for parent-iframe `postMessage`-driven deep links into
+   the Share menu) still produces chat-prompt text rather than opening the workbench directly;
+   only the primary visible button click path was reconciled this pass.
+2. **Relationship-history depth in Runtime's Person view** — same limitation as aigentMe's own
+   Known Limitations #2; `listParticipantsLinkedToContactPerson` still returns a count/summary,
+   not full open-loop/commitment threading.
+3. **Groups / Needs Me / Waiting / Agent Managed / Publishing / Engagement** — not built in
+   Runtime this pass, matching the mandatory-scope-only approach used for aigentMe.
+4. **ContactGroup, Companion Ambient projection, Cartridge Contextual projection** — unchanged
+   from the prior closeout's own Known Limitations; still not started.

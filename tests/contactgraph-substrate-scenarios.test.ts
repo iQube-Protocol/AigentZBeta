@@ -431,3 +431,86 @@ describe('QubeTalk bridge — Person-view cross-reference (aigentMe §12)', () =
     expect(notOwned.ok).toBe(false);
   });
 });
+
+describe('aigentMe <-> Runtime surface continuity (Runtime fan-out)', () => {
+  it('a mutation made via the "runtime" requesting surface is immediately visible to the "aigentme" requesting surface, and vice versa — no sync layer, because there is one ContactGraph', async () => {
+    const person = await createContactPerson(OWNER, { displayName: 'Sarah Chen' });
+    if (!person.ok) return;
+    const professional = await createContactPersona(OWNER, person.value.id, { label: 'Professional' });
+    if (!professional.ok) return;
+    const telegram = await addContactEndpoint(OWNER, professional.value.id, { platform: 'telegram', identifier: '@sarahc' });
+    if (!telegram.ok) return;
+
+    // aigentMe's PeopleLayout requests a projection.
+    const aigentmeView = await requestContactGraphProjection(OWNER_PERSONA, {
+      capability: 'contacts',
+      projection: 'full',
+      scope: { contactPersonIds: 'all' },
+      requestingSurface: 'aigentme',
+    });
+    expect(aigentmeView.ok).toBe(true);
+    if (!aigentmeView.ok) return;
+    expect(aigentmeView.value.people).toHaveLength(1);
+    expect(aigentmeView.value.people[0].contactPersonId).toBe(person.value.id);
+    expect(aigentmeView.value.people[0].endpointCount).toBe(1);
+
+    // metaMe Runtime's RuntimeQubeTalkDrawer requests the SAME data — same
+    // contactPersonId, same endpointCount, no separate Runtime-side store.
+    const runtimeView = await requestContactGraphProjection(OWNER_PERSONA, {
+      capability: 'contacts',
+      projection: 'full',
+      scope: { contactPersonIds: 'all' },
+      requestingSurface: 'metame-runtime',
+    });
+    expect(runtimeView.ok).toBe(true);
+    if (!runtimeView.ok) return;
+    expect(runtimeView.value.people).toEqual(aigentmeView.value.people); // byte-identical
+
+    // A handle added FROM Runtime (a second endpoint under the same persona)...
+    const addedFromRuntime = await addContactEndpoint(OWNER, professional.value.id, { platform: 'linkedin', identifier: '/in/sarahchen' });
+    expect(addedFromRuntime.ok).toBe(true);
+
+    // ...is visible from aigentMe's own next read, with no synchronization
+    // step of any kind — both surfaces called the same service function
+    // against the same tables.
+    const aigentmeAfter = await requestContactGraphProjection(OWNER_PERSONA, {
+      capability: 'contacts',
+      projection: 'full',
+      scope: { contactPersonIds: 'all' },
+      requestingSurface: 'aigentme',
+    });
+    expect(aigentmeAfter.ok).toBe(true);
+    if (!aigentmeAfter.ok) return;
+    expect(aigentmeAfter.value.people[0].endpointCount).toBe(2);
+
+    // No duplicate ContactPerson was created by switching surfaces.
+    const all = await listContactPersons(OWNER);
+    expect(all.ok && all.value.length).toBe(1);
+  });
+
+  it('reassigning an endpoint via one surface is reflected identically when read via the other', async () => {
+    const person = await createContactPerson(OWNER, { displayName: 'John Doe' });
+    if (!person.ok) return;
+    const professional = await createContactPersona(OWNER, person.value.id, { label: 'Professional' });
+    const personal = await createContactPersona(OWNER, person.value.id, { label: 'Personal' });
+    if (!professional.ok || !personal.ok) return;
+    const handle = await addContactEndpoint(OWNER, professional.value.id, { platform: 'telegram', identifier: '@johnd' });
+    if (!handle.ok) return;
+
+    // Reassign as if from the Runtime workbench (richer UI, same service call).
+    const reassigned = await reassignContactEndpoint(OWNER, handle.value.id, personal.value.id, OWNER_PERSONA, 'moved from Runtime');
+    expect(reassigned.ok).toBe(true);
+
+    // aigentMe's compact view reads the SAME endpoint, in its new context,
+    // with history preserved — proving Runtime never forked a second
+    // endpoint/participant record.
+    const proEndpoints = await listContactEndpoints(OWNER, professional.value.id);
+    expect(proEndpoints.ok && proEndpoints.value).toHaveLength(0);
+    const personalEndpoints = await listContactEndpoints(OWNER, personal.value.id);
+    expect(personalEndpoints.ok && personalEndpoints.value).toHaveLength(1);
+    if (personalEndpoints.ok) {
+      expect(personalEndpoints.value[0].id).toBe(handle.value.id); // same row
+      expect(personalEndpoints.value[0].linkHistory.some((e) => e.reason === 'moved from Runtime')).toBe(true);
+    }
+  });
+});
