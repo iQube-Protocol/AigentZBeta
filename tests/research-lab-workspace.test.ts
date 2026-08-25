@@ -29,6 +29,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { execSync } from 'child_process';
 import {
   satisfiesParticipationGate,
   tabPassesAccessGates,
@@ -40,6 +41,7 @@ import { DOMAIN_ROLES, DOMAIN_STEWARD_ROLES } from '../services/passport/partici
 import {
   RESEARCH_WORKSPACES,
   RESEARCH_WORKSPACE_LAYERS,
+  RESEARCH_ROLES_BY_TYPE,
   ASSIGNABLE_RESEARCH_WORKSPACES,
   listResearchWorkspaces,
   researchWorkspaceSeries,
@@ -54,6 +56,7 @@ import {
   researchWorkspaceLinks,
   researchWorkspaceInstitutions,
 } from '../services/research/researchWorkspace';
+import { IAN_BOUNDARY_RESEARCH_JOURNEY } from '../services/journey/ianBoundaryResearchJourney';
 import {
   experimentWorkspaceFromResearch,
   workspaceReferenceIssues,
@@ -999,5 +1002,109 @@ describe('canary R10 — Workspace restored to top level, mirrored in IRL OS, wi
     // Laboratory sidebar's own collapsed rendering, not a fresh invention.
     expect(src).toMatch(/ChevronRight className="h-3\.5 w-3\.5"/);
     expect(src).toMatch(/ChevronLeft className="h-3\.5 w-3\.5"/);
+  });
+});
+
+// ─── Canary R11 — OCSGA Boundary Research is issuable through the EXISTING
+//     invitation process, with no new mechanism (2026-08-25) ────────────────
+//
+// Requirement: "OCSGA Boundary Research" is a standard Research Lab scope a
+// Steward can select on the Access & Invitations page, exactly like every
+// other experiment/workspace already listed there — reusing R5's own
+// mechanism, never a parallel one.
+
+describe('canary R11 — OCSGA Boundary Research reuses the standard invitation path', () => {
+  it('exists exactly once in RESEARCH_WORKSPACES, as a research-programme (no fabricated experiment id)', () => {
+    const matches = RESEARCH_WORKSPACES.filter((w) => w.id === 'ocsga-boundary-research');
+    expect(matches.length, '"ocsga-boundary-research" must be registered exactly once').toBe(1);
+    const ws = matches[0];
+    expect(ws.workspaceType).toBe('research-programme');
+    // No EXPERIMENT_REGISTRY entry is named — the collaboration is not yet a
+    // formally constituted experiment (CLAUDE.md "No Guessing or
+    // Hallucinating"): fabricating an experimentId here would misrepresent it.
+    expect(ws.experimentId).toBeUndefined();
+    expect(researchWorkspaceLabel(ws)).toBe('OCSGA Boundary Research');
+  });
+
+  it('appears automatically in ASSIGNABLE_RESEARCH_WORKSPACES — no special-case code required', () => {
+    const entry = ASSIGNABLE_RESEARCH_WORKSPACES.find((w) => w.id === 'ocsga-boundary-research');
+    expect(entry, 'OCSGA is not in the derived invitation-scope catalogue').toBeTruthy();
+    expect(entry!.label).toBe('OCSGA Boundary Research');
+  });
+
+  it('is reachable by the steward route\'s ACTUAL composed catalogue — the same derivation the route imports, not a re-implementation', async () => {
+    // Mirrors app/api/steward/participation/route.ts's own
+    // `SCOPE_CATALOGUES['research-lab']` composition exactly (asserted
+    // verbatim by canary R5's "COMPOSED with the experiment catalogue"
+    // check) so this exercises the real data the route serves without
+    // needing to mock getActivePersona/Supabase for an HTTP-level test.
+    const { ASSIGNABLE_EXPERIMENTS } = await import('../services/passport/participationAccess');
+    const composed = [...ASSIGNABLE_EXPERIMENTS, ...ASSIGNABLE_RESEARCH_WORKSPACES];
+    expect(composed.map((s) => s.id)).toContain('ocsga-boundary-research');
+  });
+
+  it('research-participant is a real, already-issuable research-lab role for the OCSGA scope', () => {
+    const ws = RESEARCH_WORKSPACES.find((w) => w.id === 'ocsga-boundary-research')!;
+    // The exact role/scope identifier a steward issues Ian's invitation with:
+    // domain 'research-lab', role 'research-participant', scope
+    // 'ocsga-boundary-research' — no role was minted for this workspace.
+    const admitted = RESEARCH_ROLES_BY_TYPE[ws.workspaceType];
+    expect(admitted).toContain('research-participant');
+    expect(DOMAIN_ROLES['research-lab']).toContain('research-participant');
+  });
+
+  it('no new invitation-issuance API route was created for this', () => {
+    // Structural, grep-based — mirrors this session's own architectural-
+    // invariant test pattern (e.g. canary R5's route-composition check
+    // above). The steward invitation surface stays exactly the three routes
+    // that existed before this workspace was registered.
+    const files = execSync("find app/api/steward -type f -name 'route.ts' | sort", {
+      cwd: process.cwd(),
+      encoding: 'utf8',
+    })
+      .trim()
+      .split('\n')
+      .filter(Boolean);
+    expect(files.sort()).toEqual(
+      [
+        'app/api/steward/participation/invitations/route.ts',
+        'app/api/steward/participation/results/route.ts',
+        'app/api/steward/participation/route.ts',
+      ].sort(),
+    );
+    // And no OCSGA/Ian-specific route directory exists anywhere under app/api.
+    const ocsgaRoutes = execSync(
+      "find app/api -type d \\( -iname '*ocsga*' -o -iname '*boundary-research*' \\) 2>/dev/null || true",
+      { cwd: process.cwd(), encoding: 'utf8' },
+    ).trim();
+    expect(ocsgaRoutes, 'a dedicated OCSGA route directory was created — this must reuse the standard invitation path').toBe('');
+  });
+
+  it('resolves to the EXISTING ian-boundary-research journey id — never a duplicate — and the workspace→journey seam is honestly named as absent', () => {
+    // The Ian Boundary Research journey IS the OCSGA collaboration journey
+    // (see services/journey/ianBoundaryResearchJourney.ts's own "OCSGA EARLY
+    // INVITATION ENTRY" material and app/api/journey/ian/state/route.ts's
+    // header, both dated 2026-08-25). Its id is asserted here so a future
+    // change cannot silently rename it without this canary noticing.
+    expect(IAN_BOUNDARY_RESEARCH_JOURNEY.id).toBe('ian-boundary-research');
+
+    // NAMED GAP, not papered over: `ResearchWorkspace` declares no
+    // `journeyId` field, and no generic workspace→journey resolver exists
+    // anywhere in the codebase (audited: no `journeyId` property on the
+    // registry type, no `resolveJourneyForWorkspace`-shaped helper). Per
+    // CLAUDE.md's "No Guessing" discipline, the OCSGA workspace registered
+    // above therefore does NOT claim a `journeyId` — asserted here as an
+    // explicit absence so a future one-off Ian/OCSGA hardcode in the
+    // invitation UI trips this canary instead of shipping unnoticed. The
+    // smallest honest seam (not implemented here, per this task's own
+    // instruction not to build a parallel Ian-specific path): an optional
+    // `journeyId?: string` on `ResearchWorkspace`, resolved through the same
+    // `inherited()` helper this file already uses for owner/links/
+    // institutions, letting 'ocsga-boundary-research' point at
+    // IAN_BOUNDARY_RESEARCH_JOURNEY.id without inventing a second mechanism.
+    const ws = RESEARCH_WORKSPACES.find((w) => w.id === 'ocsga-boundary-research')!;
+    expect((ws as Record<string, unknown>).journeyId, 'OCSGA workspace should not fabricate a journeyId until the field exists on the type').toBeUndefined();
+    const src = stripComments(readSource('services/research/researchWorkspace.ts'));
+    expect(src, 'a journeyId field was added without updating this canary\'s documented gap').not.toMatch(/journeyId/);
   });
 });

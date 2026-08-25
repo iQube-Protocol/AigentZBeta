@@ -779,6 +779,8 @@ const WORKSPACE_TYPE_ICON: Record<WorkspaceType, React.ComponentType<{ className
  * `field.reasoning` / `field.knowledge` / `field.consequence` /
  * `field.intelligence`), the platform's own "bright, maximally separable
  * hues" set, already curated there for distinguishing categorical sectors.
+ * `field.order` (emerald) is added the same way (2026-08-25, for the OCSGA
+ * section below) — same interpretation file, same provenance, not invented.
  * This surface is not representation-adopted (no `RepresentationProvider` /
  * `var(--rep-*)` here), so the hex values are read directly as a scoped
  * exception to the slate house style (CLAUDE.md "Canonical Surface Styling")
@@ -793,16 +795,18 @@ const FIELD_ACCENT = {
   intelligence: "#38BDF8", // field.intelligence — sky
   knowledge: "#C084FC", // field.knowledge — purple
   consequence: "#FBBF24", // field.consequence — amber
+  order: "#34D399", // field.order — emerald
 } as const;
 
 /** One accent per left-nav section, so a programme's Command Center and its
  *  Overview subsections carry a hue tied to which section it belongs to —
- *  Autonomi/Lehigh/MFE/CS Capstone each read as a distinct place. */
+ *  Autonomi/Lehigh/MFE/CS Capstone/OCSGA each read as a distinct place. */
 const NAV_SECTION_ACCENT: Record<ResearchWorkspaceNavSection, string> = {
   autonomi: FIELD_ACCENT.reasoning,
   lehigh: FIELD_ACCENT.knowledge,
   "mfe-capstone": FIELD_ACCENT.consequence,
   "cs-capstone": FIELD_ACCENT.intelligence,
+  ocsga: FIELD_ACCENT.order,
 };
 
 const TITLE_OVERRIDE_STORAGE_KEY = "research_workspace_title_overrides_v1";

@@ -80,15 +80,23 @@ export type ResearchWorkspaceType = Extract<
  * Autonomi programme separately reviews), but the operator named it as
  * belonging in the Autonomi section, so it sits there ungrouped rather than
  * invented as a nested child it structurally is not.
+ *
+ * 'ocsga' ADDED (2026-08-25) for the OCSGA Boundary Research collaboration —
+ * its own section rather than folded into 'autonomi' or 'lehigh': it is
+ * neither an Autonomi review child nor a Lehigh capstone, so it is a fifth
+ * institution-scoped root, the same shape 'lehigh' itself is (its own
+ * section, a single root workspace, no forced nesting under an unrelated
+ * partner's section).
  */
-export type ResearchWorkspaceNavSection = 'autonomi' | 'lehigh' | 'mfe-capstone' | 'cs-capstone';
+export type ResearchWorkspaceNavSection = 'autonomi' | 'lehigh' | 'mfe-capstone' | 'cs-capstone' | 'ocsga';
 
-/** The four sections, in left-nav display order. */
+/** The five sections, in left-nav display order. */
 export const RESEARCH_NAV_SECTIONS: { id: ResearchWorkspaceNavSection; label: string }[] = [
   { id: 'autonomi', label: 'Autonomi' },
   { id: 'lehigh', label: 'Lehigh' },
   { id: 'mfe-capstone', label: 'MFE Capstone' },
   { id: 'cs-capstone', label: 'CS Capstone' },
+  { id: 'ocsga', label: 'OCSGA' },
 ];
 
 export interface ResearchWorkspace {
@@ -504,6 +512,84 @@ export const RESEARCH_WORKSPACES: ResearchWorkspace[] = [
       'Constitutional runtime capability artefacts under the CS capstone brief.',
     lifecycleTemplateId: 'capstone',
     currentStage: 'Brief',
+  },
+
+  // ── OCSGA Boundary Research (2026-08-25) ─────────────────────────────────
+  //
+  // Registers the OCSGA collaboration as a standard, steward-issuable Research
+  // Lab scope — the SAME mechanism as every workspace above, so it is
+  // reachable from the existing Access & Invitations page with no new
+  // invitation path. This is deliberately a ROOT `research-programme`, not an
+  // `experiment` workspace: the collaboration is currently at architecture
+  // exchange / boundary-research preparation, with no registered
+  // EXPERIMENT_REGISTRY entry to scope an `experiment` workspace to (unlike
+  // the Autonomi programme's EXP-P1/P2/P3 children). Inventing an experiment
+  // id here to fit the `experiment` shape would be exactly the fabrication
+  // CLAUDE.md's "No Guessing or Hallucinating" rule forbids — a formally
+  // constituted OCSGA experiment, if and when one is registered in
+  // EXPERIMENT_REGISTRY, gets its own child workspace the same way EXP-P1
+  // does under Autonomi, without renaming or restructuring this entry.
+  //
+  // `currentStage: 'Concept'` is the honest nearest fit inside the
+  // `research-experiment` lifecycle template's FIXED stage vocabulary
+  // (`services/experiments/workspaceLifecycle.ts` — Concept, Protocol,
+  // Review, Preregistration, Freeze, Task Construction, Run, Adjudication,
+  // Interpretation, Publication, Replication; enforced verbatim by
+  // `tests/research-workspace-spec.test.ts`'s "every workspace's stage is a
+  // real member of its own template" canary). "Architecture Exchange" is not
+  // a member of that vocabulary and is not invented as one here — it is
+  // carried instead in `description`, where free text is honest. `Concept`
+  // is the same least-advanced stage `autonomi-review-exp-p3` (also
+  // pre-protocol) already uses.
+  {
+    id: 'ocsga-boundary-research',
+    workspaceType: 'research-programme',
+    navSection: 'ocsga',
+    title: 'OCSGA Boundary Research',
+    description:
+      'Independent architecture exchange, boundary comparison and subsequent experimental design between OCSGA and Constitutional Computing / IRL.',
+    institutionRefs: ['OCSGA', 'Invariant Research Laboratory'],
+    lifecycleTemplateId: 'research-experiment',
+    currentStage: 'Concept',
+    // LAYER OWNERSHIP MIRRORS THE RATIFIED HORIZEN ASSIGNMENTS, the same as
+    // every other programme-level workspace above (VP1, Autonomi, Lehigh) —
+    // NOT separately operator-ratified for this specific collaboration.
+    // Recorded as pending rather than asserted as settled, the same
+    // discipline VP1's own entry states above.
+    ownerAgentId: 'aigent-z',
+    layerOwners: {
+      operations: 'aigent-z',
+      knowledge: 'aigent-kn0w1',
+      relationship: 'aigent-marketa',
+      governance: 'metame-guardian',
+    },
+    links: [
+      {
+        id: 'irl-protocols',
+        label: 'Protocols & Articles',
+        description: 'Pre-registration protocols, experiment designs, evaluation frameworks',
+        codexSlug: 'irl-cartridge',
+        tab: 'irl-protocols',
+        area: 'overview',
+      },
+      {
+        id: 'irl-exchange',
+        label: 'Exchange',
+        description:
+          'Reciprocal Artifact Exchange — bilateral, receipted exchange of independently frozen research artifacts (the concrete OCSGA collaboration surface, PRD-IRL-AX-001)',
+        codexSlug: 'irl-cartridge',
+        tab: 'irl-exchange',
+        area: 'operate',
+      },
+      {
+        id: 'irl-records',
+        label: 'Records & Findings',
+        description: 'The constitutional record — every increment, finding, and session record',
+        codexSlug: 'irl-cartridge',
+        tab: 'irl-records',
+        area: 'evidence',
+      },
+    ],
   },
 ];
 
