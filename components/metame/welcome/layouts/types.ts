@@ -35,7 +35,9 @@ export type RightPaneLayoutId =
   | "specialists"
   | "moneypenny-focus"
   | "venture-report-brief"
-  | "venture-reintroduction-brief";
+  | "venture-reintroduction-brief"
+  | "people"
+  | "conversations";
 
 /**
  * Compose handler shapes — each onCreate matches the corresponding

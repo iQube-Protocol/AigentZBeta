@@ -43,12 +43,17 @@ import {
   confirmContactEndpoint,
   rejectContactEndpoint,
   resolveEndpointForOwner,
+  setPreferredContactEndpoint,
 } from '@/services/contactGraph/contactEndpoints';
 import {
   projectPersonaContact,
   reconcileConfirmedPersonaContacts,
 } from '@/services/contactGraph/reconciliation';
-import { resolveContactPersonForInboundEndpoint } from '@/services/contactGraph/qubetalkBridge';
+import {
+  resolveContactPersonForInboundEndpoint,
+  listParticipantsLinkedToContactPerson,
+  linkParticipantToContactPerson,
+} from '@/services/contactGraph/qubetalkBridge';
 import { requestContactGraphProjection } from '@/services/contactGraph/projection';
 
 const OWNER = 'owner-auth-profile-1';
@@ -342,5 +347,87 @@ describe('Contained capability projection — reuses the shared seam (C13)', () 
     if (!other.ok) return;
     expect(other.value.people).toHaveLength(0);
     expect(other.value.denied.some((d) => d.reason === 'not_owned' && d.contactPersonIds.includes('not-owned-id'))).toBe(true);
+  });
+});
+
+describe('Preferred endpoint — scoped per persona/context', () => {
+  it('marking one endpoint preferred clears any other preferred endpoint under the SAME context only', async () => {
+    const person = await createContactPerson(OWNER, { displayName: 'John Doe' });
+    if (!person.ok) return;
+    const professional = await createContactPersona(OWNER, person.value.id, { label: 'Professional' });
+    const personal = await createContactPersona(OWNER, person.value.id, { label: 'Personal' });
+    if (!professional.ok || !personal.ok) return;
+
+    const email = await addContactEndpoint(OWNER, professional.value.id, { platform: 'email', identifier: 'john@acme.com' });
+    const linkedin = await addContactEndpoint(OWNER, professional.value.id, { platform: 'linkedin', identifier: '/in/johndoe' });
+    const whatsapp = await addContactEndpoint(OWNER, personal.value.id, { platform: 'whatsapp', identifier: '+441234567890' });
+    if (!email.ok || !linkedin.ok || !whatsapp.ok) return;
+
+    const preferredEmail = await setPreferredContactEndpoint(OWNER, email.value.id);
+    expect(preferredEmail.ok).toBe(true);
+    if (preferredEmail.ok) expect(preferredEmail.value.isPreferred).toBe(true);
+
+    // Marking LinkedIn preferred within the SAME context clears email.
+    const preferredLinkedin = await setPreferredContactEndpoint(OWNER, linkedin.value.id);
+    expect(preferredLinkedin.ok).toBe(true);
+    if (preferredLinkedin.ok) expect(preferredLinkedin.value.isPreferred).toBe(true);
+    const proEndpoints = await listContactEndpoints(OWNER, professional.value.id);
+    expect(proEndpoints.ok && proEndpoints.value.find((e) => e.id === email.value.id)?.isPreferred).toBe(false);
+
+    // The Personal context's WhatsApp is untouched by the Professional
+    // context's preferred-handle changes — scoped per persona, not global.
+    const preferredWhatsapp = await setPreferredContactEndpoint(OWNER, whatsapp.value.id);
+    expect(preferredWhatsapp.ok).toBe(true);
+    if (preferredWhatsapp.ok) expect(preferredWhatsapp.value.isPreferred).toBe(true);
+    const proAfter = await listContactEndpoints(OWNER, professional.value.id);
+    expect(proAfter.ok && proAfter.value.find((e) => e.id === linkedin.value.id)?.isPreferred).toBe(true); // untouched
+  });
+});
+
+describe('QubeTalk bridge — Person-view cross-reference (aigentMe §12)', () => {
+  function seedParticipant(overrides: Partial<Record<string, unknown>> = {}) {
+    const tables = fake.tables as FakeTables;
+    tables.qubetalk_participants ??= [];
+    const row = {
+      id: `participant-${tables.qubetalk_participants.length + 1}`,
+      owner_persona_id: OWNER_PERSONA,
+      principal_ref: null,
+      display_name: 'John (Telegram)',
+      contact_person_id: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      ...overrides,
+    };
+    tables.qubetalk_participants.push(row);
+    return row;
+  }
+
+  it('lists only the owner\'s own QubeTalk participants linked to a given ContactPerson', async () => {
+    const person = await createContactPerson(OWNER, { displayName: 'John Doe' });
+    if (!person.ok) return;
+    const other = await createContactPerson(OWNER, { displayName: 'Someone Else' });
+    if (!other.ok) return;
+
+    seedParticipant({ id: 'p-linked', contact_person_id: person.value.id });
+    seedParticipant({ id: 'p-unlinked', contact_person_id: other.value.id });
+    seedParticipant({ id: 'p-other-owner', owner_persona_id: 'a-different-persona', contact_person_id: person.value.id });
+
+    const linked = await listParticipantsLinkedToContactPerson(OWNER_PERSONA, person.value.id);
+    expect(linked.ok).toBe(true);
+    if (!linked.ok) return;
+    expect(linked.value.map((p) => p.id)).toEqual(['p-linked']); // not the other person's, not the other owner's
+  });
+
+  it('linkParticipantToContactPerson only links a participant the caller actually owns', async () => {
+    const person = await createContactPerson(OWNER, { displayName: 'John Doe' });
+    if (!person.ok) return;
+    const participant = seedParticipant();
+
+    const linked = await linkParticipantToContactPerson(OWNER_PERSONA, OWNER, participant.id, person.value.id);
+    expect(linked.ok).toBe(true);
+    if (linked.ok) expect(linked.value.contactPersonId).toBe(person.value.id);
+
+    const notOwned = await linkParticipantToContactPerson('a-different-persona', OWNER, participant.id, person.value.id);
+    expect(notOwned.ok).toBe(false);
   });
 });

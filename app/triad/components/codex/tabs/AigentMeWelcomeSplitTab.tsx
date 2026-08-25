@@ -558,7 +558,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin, ag
   // own bounded surface; the operator engages one, completes their
   // work, then moves to the next. Previous Capsules collapse into
   // the session-history strip and can be restored by click.
-  type CapsuleId = "brief" | "move-forward" | "venture-progress" | "ask-specialists" | "moneypenny-focus";
+  type CapsuleId = "brief" | "move-forward" | "venture-progress" | "ask-specialists" | "moneypenny-focus" | "people" | "conversations";
   // CANONICAL Capsule → Layout mapping. Every Capsule template owns
   // exactly one dedicated foreground layout. Activating a Capsule MUST
   // mount its layout (both states stay in lockstep) — otherwise the
@@ -577,6 +577,8 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin, ag
     "venture-progress": "venture-cockpit",
     "ask-specialists": "specialists",
     "moneypenny-focus": "moneypenny-focus",
+    "people": "people",
+    "conversations": "conversations",
   };
   const [activeCapsuleId, setActiveCapsuleId] = useState<CapsuleId | null>(null);
   const [capsuleHistory, setCapsuleHistory] = useState<CapsuleId[]>([]);
@@ -1237,6 +1239,35 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin, ag
       // activeCapsuleId. We can't call fetchSpecialistRecommendation
       // directly here because it's declared further down the component
       // body and would TDZ-error this useCallback's dep array.
+      return;
+    }
+    if (ctaId === 'people') {
+      // PeopleLayout is self-contained (fetches /api/contactgraph/people
+      // itself, same shape as QubeTalkInboxTab) — no tab-level fetcher to
+      // fire here, only the usual sibling-state clear + engage.
+      engageCapsuleAndMount('people');
+      setBrief(null);
+      setBriefError(null);
+      setBriefLoading(false);
+      setVentureProgress(null);
+      setVentureProgressError(null);
+      setVentureProgressLoading(false);
+      setMoveForwardResult(null);
+      setMoveForwardLoading(false);
+      return;
+    }
+    if (ctaId === 'conversations') {
+      // ConversationsLayout mounts the existing, self-contained
+      // QubeTalkInboxTab — same reasoning as 'people' above.
+      engageCapsuleAndMount('conversations');
+      setBrief(null);
+      setBriefError(null);
+      setBriefLoading(false);
+      setVentureProgress(null);
+      setVentureProgressError(null);
+      setVentureProgressLoading(false);
+      setMoveForwardResult(null);
+      setMoveForwardLoading(false);
       return;
     }
   }, [fetchBrief, fetchMoveForward, fetchVentureProgress, engageCapsuleAndMount]);
@@ -3059,6 +3090,26 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin, ag
         onDispatchOnSend: async (editedPrompt: string) => {
           await fetchSpecialistRecommendation(editedPrompt || undefined);
         },
+      },
+      {
+        id: 'people',
+        label: 'People',
+        prompt: 'Show me my people.',
+        skipInference: true,
+        onSelect: () => {
+          engageCapsuleAndMount('people');
+        },
+        onDispatchOnSend: async (_editedPrompt: string) => {},
+      },
+      {
+        id: 'conversations',
+        label: 'Conversations',
+        prompt: 'Show me my conversations.',
+        skipInference: true,
+        onSelect: () => {
+          engageCapsuleAndMount('conversations');
+        },
+        onDispatchOnSend: async (_editedPrompt: string) => {},
       },
     ];
   }, [serverChips, suggestedLayoutHints, suggestionLive, consumeSuggestion, fetchBrief, fetchMoveForward, fetchVentureProgress, fetchReceipts, fetchSpecialistRecommendation, engageCapsuleAndMount, implicitSpecialistQuery]);

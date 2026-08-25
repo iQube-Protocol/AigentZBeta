@@ -323,3 +323,46 @@ export async function rejectContactEndpoint(
   if (error) return { ok: false, error: error.message };
   return { ok: true, value: rowToEndpoint(data as Record<string, unknown>) };
 }
+
+/** Mark ONE endpoint as the preferred way to reach this ContactPersona
+ *  (§12: "mark preferred communication handle"). Scoped per persona/context
+ *  — clearing every OTHER endpoint under the SAME contact_persona_id first,
+ *  so "preferred" never means two conflicting handles at once for one
+ *  context (a person can still have a different preferred handle per
+ *  context, e.g. Professional vs Personal). */
+export async function setPreferredContactEndpoint(
+  ownerAuthProfileId: string,
+  endpointId: string,
+): Promise<PeerResult<ContactEndpoint>> {
+  const admin = getSupabaseServer();
+  if (!admin) return { ok: false, error: 'Supabase unavailable' };
+
+  const { data: existing, error: readError } = await admin
+    .from(CONTACT_ENDPOINTS)
+    .select('*, contact_personas!inner(owner_auth_profile_id)')
+    .eq('id', endpointId)
+    .maybeSingle();
+  if (readError) return { ok: false, error: readError.message };
+  const ownerRow = (existing as Record<string, unknown> | null)?.contact_personas as
+    | { owner_auth_profile_id?: string }
+    | undefined;
+  if (!existing || ownerRow?.owner_auth_profile_id !== ownerAuthProfileId) {
+    return { ok: false, error: 'endpoint not found', code: 'not_found' };
+  }
+  const contactPersonaId = (existing as Record<string, unknown>).contact_persona_id as string;
+
+  const { error: clearError } = await admin
+    .from(CONTACT_ENDPOINTS)
+    .update({ is_preferred: false })
+    .eq('contact_persona_id', contactPersonaId);
+  if (clearError) return { ok: false, error: clearError.message };
+
+  const { data, error } = await admin
+    .from(CONTACT_ENDPOINTS)
+    .update({ is_preferred: true })
+    .eq('id', endpointId)
+    .select('*')
+    .single();
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, value: rowToEndpoint(data as Record<string, unknown>) };
+}

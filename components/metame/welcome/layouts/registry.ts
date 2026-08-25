@@ -24,6 +24,8 @@ import { SpecialistsLayout } from "./SpecialistsLayout";
 import { MoneyPennyFocusLayout } from "./MoneyPennyFocusLayout";
 import { VentureReportBriefLayout } from "./VentureReportBriefLayout";
 import { VentureReintroductionBriefLayout } from "./VentureReintroductionBriefLayout";
+import { PeopleLayout } from "./PeopleLayout";
+import { ConversationsLayout } from "./ConversationsLayout";
 import type { RightPaneLayoutDefinition, RightPaneLayoutId } from "./types";
 
 const REGISTRY: Record<RightPaneLayoutId, RightPaneLayoutDefinition> = {
@@ -40,6 +42,8 @@ const REGISTRY: Record<RightPaneLayoutId, RightPaneLayoutDefinition> = {
   "moneypenny-focus":         MoneyPennyFocusLayout,
   "venture-report-brief":     VentureReportBriefLayout,
   "venture-reintroduction-brief": VentureReintroductionBriefLayout,
+  "people":                   PeopleLayout,
+  "conversations":            ConversationsLayout,
 };
 
 export function getLayout(id: RightPaneLayoutId | string | null | undefined): RightPaneLayoutDefinition {

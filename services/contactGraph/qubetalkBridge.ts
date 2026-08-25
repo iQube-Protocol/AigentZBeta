@@ -119,3 +119,35 @@ export async function linkParticipantEndpointToContactPersona(
   if (error) return { ok: false, error: error.message };
   return { ok: true, value: { id: String(data.id), contactPersonaId: String(data.contact_persona_id) } };
 }
+
+/** Read-only convenience lookup for aigentMe's Person view (§12): which of
+ *  the owner's OWN QubeTalk participants (their communications-membrane
+ *  directory entries) are already linked to this ContactPerson. A thin
+ *  read, not a new capability — the actual relationship/conversation data
+ *  those participants carry still flows through QubeTalk's own projection
+ *  contract (services/qubetalk/projection.ts), never duplicated here. */
+export async function listParticipantsLinkedToContactPerson(
+  ownerPersonaId: string,
+  contactPersonId: string,
+): Promise<PeerResult<QubeTalkParticipant[]>> {
+  const admin = getSupabaseServer();
+  if (!admin) return { ok: false, error: 'Supabase unavailable' };
+  const { data, error } = await admin
+    .from(PARTICIPANTS)
+    .select('*')
+    .eq('owner_persona_id', ownerPersonaId)
+    .eq('contact_person_id', contactPersonId);
+  if (error) return { ok: false, error: error.message };
+  return {
+    ok: true,
+    value: (data ?? []).map((row) => ({
+      id: String(row.id),
+      ownerPersonaId: String(row.owner_persona_id),
+      principalRef: (row.principal_ref as string | null) ?? null,
+      displayName: String(row.display_name),
+      contactPersonId: (row.contact_person_id as string | null) ?? null,
+      createdAt: String(row.created_at),
+      updatedAt: String(row.updated_at),
+    })),
+  };
+}

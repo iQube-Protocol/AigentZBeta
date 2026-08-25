@@ -117,12 +117,45 @@ brief.**
 
 ## E. aigentMe
 
-**Not built this pass.** The operator's brief names aigentMe's People/Conversations surface as
-priority step 3's UI half; this pass delivered the DATA layer that surface needs
-(ContactGraph substrate + the contained-capability projection contract) but not the aigentMe UI
-itself, consistent with treating this as a checkpointed increment rather than a single
-unreviewable diff. Continuing directly into that build next, per the operator's "do not turn
-steps 2-3 into an indefinite backlog item" instruction.
+**Built in a follow-on pass, same day.** Two new Capsules — `people` and `conversations` — added
+to aigentMe's existing Capsule↔Layout contract (`app/triad/components/codex/tabs/
+AigentMeWelcomeSplitTab.tsx`'s `CapsuleId` union + `CAPSULE_LAYOUT` map, per CLAUDE.md's own
+"aigentMe Capsule ↔ Layout Contract" section), both routed through the mandatory
+`engageCapsuleAndMount` gateway from `handleCtaClick` and the copilot quick-prompt strip — never a
+parallel activation path.
+
+- **PeopleLayout** (`components/metame/welcome/layouts/PeopleLayout.tsx`) — a self-contained
+  two-pane list/detail surface (mirrors `QubeTalkInboxTab`'s own shape rather than threading state
+  through the tab's already-large `layoutProps`). List and detail both go through new
+  `/api/contactgraph/*` routes → the ContactGraph service layer, never a direct table read. Supports:
+  add person, add persona/context, add handle, confirm/reject a handle, reassign a handle between
+  personas, mark preferred — the full §12 handle-lifecycle list except deep relationship-history
+  threading (deferred, see Known limitations).
+- **ConversationsLayout** (`components/metame/welcome/layouts/ConversationsLayout.tsx`) —
+  deliberately thin: mounts the EXISTING `QubeTalkInboxTab` (`domainFilter="aigentme"`) inside the
+  standard `LayoutShell` chrome, per that component's own "one shared store, filtered per surface"
+  discipline and CLAUDE.md's "evolve the existing QubeTalk inbox rather than replacing it
+  wholesale." No second messaging surface was built.
+- **New API surface**: `GET/POST /api/contactgraph/people`, `GET /api/contactgraph/people/
+  [personId]`, `POST /api/contactgraph/people/[personId]/personas`, `POST /api/contactgraph/
+  personas/[contactPersonaId]/endpoints`, `PATCH /api/contactgraph/endpoints/[endpointId]`
+  (action discriminator: confirm/reject/reassign/setPreferred). Every route: spine-authed
+  (`getActivePersona`), resolves `owner_auth_profile_id`, then calls the existing ContactGraph
+  service functions — no route contains its own business logic. `GET /people` lazily runs
+  `reconcileConfirmedPersonaContacts` before projecting, so the People view shows the operator's
+  real, already-saved `persona_contacts` from the very first load.
+- **New service additions** (extending, not forking, the existing files): `setPreferredContactEndpoint`
+  (`contactEndpoints.ts`, scoped per persona/context) and `listParticipantsLinkedToContactPerson`
+  (`qubetalkBridge.ts`, a thin read-only cross-reference for the Person view's Relationship section).
+
+**Entry point, honestly scoped**: both Capsules are reachable today via the client-side quick-prompt
+fallback strip (used when no server-driven `primaryCtas` are present) and via
+`engageCapsuleAndMount` from anywhere else in the tab. They are NOT yet added to the
+server-generated `primaryCtas` list (an NBE/experience-model-driven system this pass did not audit)
+— surfacing them there, or in a permanent nav row, is the §18 nav-redesign work the 2026-08-25
+closeout already recorded as deferred. "People + Conversations must be real" (§11) is satisfied —
+both are fully functional, tested surfaces — without redesigning aigentMe's primary navigation in
+the same pass that built the underlying capability.
 
 ---
 
@@ -144,16 +177,37 @@ steps 2-3 into an indefinite backlog item" instruction.
   **72/72 passed, unmodified assertions** — confirms the ContactGraph bridge wiring into
   `ingestion.ts` does not change any existing QubeTalk behavior when ContactGraph has no match
   (the universal case in these tests, which don't seed `contact_*` tables).
-- **Combined: 84/84 passed.**
-- `npx tsc --noEmit`: zero errors in every file this pass touched or added (`types/contactGraph.ts`,
-  `types/capabilityProjection.ts`, `types/qubetalk.ts`, every `services/contactGraph/*.ts` file,
-  `services/qubetalk/ingestion.ts`, `services/qubetalk/participants.ts`,
-  `tests/contactgraph-substrate-scenarios.test.ts`, `tests/_lib/fakeSupabase.ts`) — verified by
-  name-filtering the full run's error log. **679 pre-existing errors remain elsewhere**, the
-  identical count the 2026-08-25 closeout recorded, confirmed unrelated (none in a file this pass
-  touched).
-- Full repo `npx vitest run`: see run recorded alongside this closeout — no new failures beyond
-  the pre-existing baseline.
+- **Combined after the aigentMe follow-on: 87/87 passed** (3 more added: `setPreferredContactEndpoint`
+  scoped per persona/context, and `listParticipantsLinkedToContactPerson`/
+  `linkParticipantToContactPerson`'s ownership checks for the Person view's Relationship
+  cross-reference).
+- `npx tsc --noEmit`: zero errors in every file this pass touched or added, including the aigentMe
+  follow-on (`PeopleLayout.tsx`, `ConversationsLayout.tsx`, the layout `types.ts`/`registry.ts`
+  additions, every new `app/api/contactgraph/*` route, and
+  `AigentMeWelcomeSplitTab.tsx` — the latter's 16 pre-existing errors are byte-for-byte the SAME
+  errors at shifted line numbers, confirmed by diffing against the pre-change tsc log). **679
+  pre-existing errors remain elsewhere**, the identical count the 2026-08-25 closeout recorded.
+- Full repo `npx vitest run` (ContactGraph substrate pass): 442/461 files passed, the same 19
+  failing files / 48 failing tests the 2026-08-25 closeout already documented as pre-existing and
+  unrelated (`repo-weight.test.ts`'s tracked-bytes-budget check spot-verified unrelated — this
+  pass's additions are small text/TS files).
+- **UI verification**: the dev server was booted against `/triad/embed/codex/metame?tab=aigent-me`
+  (the aigentMe embed route). Next webpack-compiled the FULL page — 21,830 modules, including
+  `AigentMeWelcomeSplitTab.tsx`'s edits, `PeopleLayout.tsx`, `ConversationsLayout.tsx`, the layout
+  `registry.ts`/`types.ts` additions, and the whole `services/contactGraph/*` chain — and returned
+  **HTTP 200** with no module/syntax/render error. The only message logged
+  ("Bail out to client-side rendering: next/dynamic") is the expected, correct behavior for
+  ConversationsLayout's `dynamic(..., {ssr:false})` wrap of `QubeTalkInboxTab` — the same pattern
+  the existing Locker-tab mount already uses. `GET /api/contactgraph/people` was also hit directly:
+  its full import chain (route → ContactGraph services → `getActivePersona` → 
+  `multiEmailIdentity`) compiled and executed cleanly, failing only on `supabaseUrl is required` —
+  no live Supabase credentials exist in this sandbox, the same pre-existing environment limitation
+  the 2026-08-25 closeout recorded for the whole QubeTalk surface, not a defect in this pass's
+  code. **Not verified**: an actual authenticated session driving the People/Conversations
+  Capsules interactively (clicking the chip, adding a person, confirming a handle) — that requires
+  a live Supabase-backed persona session this sandbox does not have. Stated explicitly rather than
+  overclaiming: server-render + compile verified; interactive/data-backed behavior verified at the
+  unit-test level (87/87), not via a live click-through.
 
 ---
 
@@ -204,12 +258,23 @@ committed in the same push).
 
 ## Known limitations / explicit future work
 
-1. **aigentMe People/Conversations UI** — not built this pass (§E). Immediate next increment.
-2. **Live Gmail correspondence extraction** — schema-ready, deliberately not implemented; needs a
+1. **aigentMe People/Conversations entry point** — both Capsules are built, tested, and reachable
+   via the fallback quick-prompt strip + `engageCapsuleAndMount`, but not yet added to the
+   server-driven `primaryCtas`/experience-model chip generation, and not surfaced in a permanent
+   nav row (§18's full nav redesign, already recorded as deferred in the 2026-08-25 closeout).
+2. **Relationship-history depth in the Person view** — `listParticipantsLinkedToContactPerson`
+   surfaces only a count/summary today; deep open-loop/commitment/conversation threading into
+   PeopleLayout's Relationship section is deferred to Conversations-side work.
+3. **Live Gmail correspondence extraction** — schema-ready, deliberately not implemented; needs a
    separate, explicit OAuth-consent product decision before any header read (§D).
-3. **ContactGroup** — deferred, not built. Recorded here as the explicit fast-follow the operator's
+4. **ContactGroup** — deferred, not built. Recorded here as the explicit fast-follow the operator's
    brief requires (never silently dropped, never conflated with QubeTalk's GroupQube).
-4. **First real external transport, publishing/engagement, Companion Ambient projection, Cartridge
-   Contextual projection** — steps 4-7 of the activation sequence, not started this pass.
-5. **No live database wired** — this migration has not been applied anywhere; same standing
+5. **First real external transport, publishing/engagement, Companion Ambient projection, Cartridge
+   Contextual projection** — steps 4-7 of the activation sequence; a parallel agent is promoting
+   Discord (step 4) concurrently with this record.
+6. **No live database wired** — this migration has not been applied anywhere; same standing
    limitation the 2026-08-25 closeout recorded for the whole QubeTalk surface.
+7. **§13 natural-language acceptance** — not implemented this pass. CLAUDE.md's own instruction
+   ("do not implement fake NLP routing just to make demos pass") was followed by deferring this
+   rather than building a shortcut; it requires auditing the existing Agent intent/action
+   architecture first, which this pass did not do.
