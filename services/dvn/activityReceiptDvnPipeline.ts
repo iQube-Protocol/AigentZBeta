@@ -380,6 +380,15 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   'qubetalk_publication_withdrawn',
   'qubetalk_publication_projection_failed',
   'qubetalk_publication_projection_published',
+  // Locker / RoomQube / Share Pack (2026-08-25 Phase 1) — the "prove what
+  // was shared, with whom, under whose authority" contract (spec §4.6/
+  // §14.4) and RoomQube membership auditability (spec acceptance #31) are
+  // exactly what DVN anchoring exists for. Adding these two literals is
+  // the ONE permitted unilateral change per CLAUDE.md's DVN Pipeline
+  // Protection section — it does not touch the submission mechanism,
+  // state machine, or canister interaction below.
+  'locker_share_pack_sent',
+  'locker_roomqube_member_invited',
   'qubetalk_message_agent_sent',
   'qubetalk_group_message_agent_sent',
   'qubetalk_agent_approval_used',

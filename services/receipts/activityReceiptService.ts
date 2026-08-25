@@ -508,6 +508,20 @@ export type ActivityActionType =
   | 'qubetalk_publication_withdrawn'
   | 'qubetalk_publication_projection_failed'
   | 'qubetalk_publication_projection_published'
+  // Locker / RoomQube / Share Pack (2026-08-25 Phase 1, spec §18). New
+  // literals only — the DVN submission mechanism, state machine, and
+  // canister interaction in services/dvn/activityReceiptDvnPipeline.ts are
+  // untouched, per CLAUDE.md's DVN Pipeline Protection "one permitted
+  // unilateral change" rule.
+  | 'locker_asset_registered'
+  | 'locker_asset_version_created'
+  | 'locker_roomqube_created'
+  | 'locker_roomqube_member_invited'
+  | 'locker_roomqube_asset_added'
+  | 'locker_roomqube_conversation_opened'
+  | 'locker_share_pack_composed'
+  | 'locker_share_pack_approved'
+  | 'locker_share_pack_sent'
   | 'qubetalk_message_agent_sent'
   | 'qubetalk_group_message_agent_sent'
   | 'qubetalk_agent_approval_used'
