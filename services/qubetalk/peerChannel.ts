@@ -340,8 +340,14 @@ export async function setChannelLabel(
   return { ok: true, value: rowToChannel(data as Record<string, unknown>, myRef) };
 }
 
-/** Verify the caller is a principal of the channel; returns the channel or null. */
-async function loadOwnedChannel(admin: SupabaseClient, channelId: string, myRef: string): Promise<PeerChannel | null> {
+/**
+ * Verify the caller is a principal of the channel; returns the channel or
+ * null. Exported so `services/qubetalk/egress.ts` (the transport-promotion
+ * seam) can reuse the SAME ownership check every native call already goes
+ * through, rather than re-deriving it — a non-principal must never reach an
+ * external transport adapter for a channel they don't own.
+ */
+export async function loadOwnedChannel(admin: SupabaseClient, channelId: string, myRef: string): Promise<PeerChannel | null> {
   const { data } = await admin.from(CHANNELS).select('*').eq('id', channelId).maybeSingle();
   if (!data) return null;
   const a = String(data.principal_a_ref);
@@ -350,11 +356,35 @@ async function loadOwnedChannel(admin: SupabaseClient, channelId: string, myRef:
   return rowToChannel(data as Record<string, unknown>, myRef);
 }
 
-/** Post a typed human message to a channel the caller is a principal of. */
+/**
+ * Post a typed human message to a channel the caller is a principal of.
+ *
+ * The `transport`/`direction`/`externalMessageId`/`deliveryState`/
+ * `actingAgentRef`/`delegationGrantRef`/`consequence`/`sensitivity`/
+ * `conversationId` fields are the 2026-08-25 domain-substrate migration's
+ * additive columns on `passport_peer_messages` (types/qubetalk.ts's
+ * `QubeTalkMessageContext`). They are all OPTIONAL and, when omitted, the
+ * insert relies on the DB's own defaults — so every existing native-only
+ * call site (this function's original contract) is completely unaffected.
+ * `services/qubetalk/egress.ts` is the one caller that supplies them, for a
+ * message actually delivered through an external transport adapter.
+ */
 export async function postMessage(
   callerPersonaId: string,
   channelId: string,
-  input: { type?: string; body: string },
+  input: {
+    type?: string;
+    body: string;
+    transport?: string;
+    direction?: 'inbound' | 'outbound';
+    externalMessageId?: string | null;
+    deliveryState?: 'pending' | 'delivered' | 'failed';
+    actingAgentRef?: string | null;
+    delegationGrantRef?: string | null;
+    consequence?: 'conversational' | 'operational' | 'consequential';
+    sensitivity?: 'standard' | 'confidential' | 'restricted';
+    conversationId?: string | null;
+  },
 ): Promise<PeerResult<PeerMessage>> {
   const admin = getSupabaseServer();
   if (!admin) return { ok: false, error: 'Supabase unavailable' };
@@ -371,11 +401,18 @@ export async function postMessage(
   const body = (input.body ?? '').trim();
   if (!body) return { ok: false, error: 'message body is required', code: 'empty' };
 
-  const insert = await admin
-    .from(MESSAGES)
-    .insert({ channel_id: channelId, sender_ref: myRef, type, body })
-    .select('*')
-    .single();
+  const insertRow: Record<string, unknown> = { channel_id: channelId, sender_ref: myRef, type, body };
+  if (input.transport !== undefined) insertRow.transport = input.transport;
+  if (input.direction !== undefined) insertRow.direction = input.direction;
+  if (input.externalMessageId !== undefined) insertRow.external_message_id = input.externalMessageId;
+  if (input.deliveryState !== undefined) insertRow.delivery_state = input.deliveryState;
+  if (input.actingAgentRef !== undefined) insertRow.acting_agent_ref = input.actingAgentRef;
+  if (input.delegationGrantRef !== undefined) insertRow.delegation_grant_ref = input.delegationGrantRef;
+  if (input.consequence !== undefined) insertRow.consequence = input.consequence;
+  if (input.sensitivity !== undefined) insertRow.sensitivity = input.sensitivity;
+  if (input.conversationId !== undefined) insertRow.conversation_id = input.conversationId;
+
+  const insert = await admin.from(MESSAGES).insert(insertRow).select('*').single();
   if (insert.error) return { ok: false, error: insert.error.message };
   const row = insert.data as Record<string, unknown>;
   return {

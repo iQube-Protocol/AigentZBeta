@@ -313,6 +313,85 @@ Its own commit SHA and closeout will be appended below once it lands.
 
 ---
 
+## J. Slice 2 (partial) — Discord transport promotion (2026-08-25)
+
+Closes Known Limitation #5 above: `postDiscordMessages`/`resolveDiscordChannelFromInvite`
+(previously only catalogued as `restricted` in `transportRegistry.ts`, writing exclusively to
+System A's own store) are now wired into the domain substrate's own send path. The remaining Slice 2
+items named above (real surface consumers, continuity E2E proof, full platform capability audit,
+Share→Publishing wiring) are **not** covered by this pass — this was a narrowly-scoped, single-
+transport promotion task, not the full Slice 2.
+
+**Reuse audit for this pass:** `postDiscordMessages`/`resolveDiscordChannelFromInvite` and their
+helpers were REAL and working (§F above) but lived inline in
+`app/api/messenger/dispatch/route.ts`, coupled to System A. Extracted verbatim (no logic change) into
+`services/qubetalk/transports/discordTransport.ts` so there is exactly ONE Discord-calling code path,
+imported by both the (unchanged-behavior) System A route and the new System C egress function — never
+a second implementation. `agentPolicy.ts`'s `agentMaySend` (already built in Slice 1, documented as
+"the single permission gate every QubeTalk send path must call") is reused as-is, not re-derived.
+`peerChannel.ts`'s `postMessage`/`loadOwnedChannel` are extended (optional fields, additive), not
+forked — every existing call site is unaffected (confirmed by `tsc` + the existing 72 QubeTalk tests
+staying green, and by auditing every other call site of a function literally named `postMessage` in
+the repo — all unrelated `window.postMessage`s).
+
+**New:**
+- `services/qubetalk/transports/discordTransport.ts` — the Discord REST wrappers, relocated.
+- `services/qubetalk/egress.ts` — `sendMessageThroughTransport`, the ONE outbound send path (the §12
+  egress counterpart to `ingestion.ts`'s §11 ingress pipeline). Ownership check → capability check →
+  Agent-authority gate (BEFORE any transport call) → conversation resolution → dispatch → provenance
+  recorded on the MessageQube row regardless of outcome → receipt + event only on an actually-
+  delivered Agent-authored send. Wires `qubetalk-native` (delegating to the existing `postMessage`)
+  and `discord` through the same policy membrane, so neither path can diverge.
+- `tests/qubetalk-discord-transport-egress.test.ts` — 13 tests: unauthorized-Agent denial (never
+  reaches Discord), a permitted human send (provenance recorded), a permitted BOUNDED-Agent send
+  (delivers + writes the existing `qubetalk_message_agent_sent` receipt), a revoked grant (denied,
+  live re-check), the exact `DISCORD_BOT_TOKEN` gate preserved, a genuine Discord API failure (never
+  falsely marked delivered), a non-principal denial, an unsupported/unknown transport refusal, a
+  missing-destination refusal, the native path unaffected, and two structural "no duplicate sender"
+  checks against both call sites' source.
+
+**Extended (not forked):** `services/qubetalk/peerChannel.ts` — `loadOwnedChannel` exported (was
+private); `postMessage`'s input gains optional `transport`/`direction`/`externalMessageId`/
+`deliveryState`/`actingAgentRef`/`delegationGrantRef`/`consequence`/`sensitivity`/`conversationId`
+fields, used only by `egress.ts`. `app/api/messenger/dispatch/route.ts` — now imports the Discord
+wrappers from `discordTransport.ts` instead of defining its own copy; behavior unchanged (same bot-
+token gate, same channel/invite resolution, same chunking).
+
+**Deliberately NOT done, and why:**
+- No new HTTP route was added for this send path. `app/api/qubetalk/peer-channels/[channelId]/
+  messages/route.ts` (the existing native-send route) was read but not touched — it is very likely
+  shared surface with the concurrent aigentMe People/Conversations UI build happening on this same
+  branch in a different worktree, and this task's boundary explicitly named that risk. `egress.ts` is
+  a real, tested, callable service function; wiring an HTTP entry point to it (and to whatever UI
+  affordance picks a Discord destination id) is a clean, additive follow-up with no risk to this
+  pass's correctness.
+- No inbound Discord webhook/ingestion was built — audited and confirmed no real inbound Discord
+  capability exists anywhere in this repo (only the outbound `postDiscordMessages` and the invite→
+  channel resolver). Symmetry was deliberately not manufactured; this stays future work.
+- No ContactGraph endpoint resolution — the Discord destination channel id is caller-supplied
+  (`destination.discordChannelId`), matching how `dispatch/route.ts` has always taken it. Resolving
+  "which Discord channel does this relationship's counterparty map to" from
+  `qubetalk_participant_endpoints` is real future work but touches ContactGraph-adjacent resolution
+  this task's boundary marked out of scope.
+- `transportRegistry.ts` itself was not changed — Discord's `group.send`/`identity.lookup` were
+  already honestly `restricted` there; that classification remains accurate (sending IS now wired,
+  but still conditional on an env credential this module cannot itself confirm is provisioned).
+
+**Tests:** 13/13 new (`tests/qubetalk-discord-transport-egress.test.ts`), 72/72 pre-existing QubeTalk
+tests unchanged and still green (`qubetalk-peer-channel`, `qubetalk-communications-membrane-
+scenarios`, `qubetalk-projection-contract`, `qubetalk-confidentiality`, `activity-receipts-action-
+type-parity`), plus `persona-spine-fetch` (unaffected — no new client-side fetch was added).
+`npx tsc --noEmit`: zero errors in any file this pass touched or added; total error count (662) is at
+or below the previously-documented ~679 baseline.
+
+No live `DISCORD_BOT_TOKEN` or Discord server exists in this environment — per this repo's own
+No-Guessing rule, the Discord HTTP boundary is faked at the `fetch` level in every test, and nothing
+here claims to have exercised Discord's real API. What IS proven behaviorally: the policy gate fires
+before any network call, a failed transport call is never recorded as delivered, and provenance
+(transport, external message id, delivery state) lands on the message row exactly as designed.
+
+---
+
 ## Known limitations / explicit future work
 
 1. **§18 nav redesign** (Conversations/Needs Me/Agent Managed/Waiting/Publishing/Engagement as
@@ -328,9 +407,12 @@ Its own commit SHA and closeout will be appended below once it lands.
    new standalone conversation; it does not yet join an existing `passport_peer_channels` relationship
    even when the commenter is independently known to the owner (would require resolving the engagement
    author against BOTH the participant directory and any existing peer channel — deferred, not attempted).
-5. **Discord adapter wiring** — `postDiscordMessages`/`resolveDiscordChannelFromInvite` are real and
+5. **Discord adapter wiring** — ~~`postDiscordMessages`/`resolveDiscordChannelFromInvite` are real and
    registered honestly in the capability registry (§F). Promoting them into a live transport for the
    new domain substrate is Slice 2 (Activation) work, in progress as a fast-follow on this commit —
-   see §I.
+   see §I.~~ **Outbound send is now wired**, see §J — `services/qubetalk/egress.ts`. Still open: an
+   HTTP route to invoke it, inbound Discord ingestion (no real capability exists for this in the repo
+   yet), and resolving a relationship's Discord destination from ContactGraph endpoints instead of a
+   caller-supplied id.
 6. ~~ExperienceQube scoped-projection contract~~ — **built in this pass**, see §H. (Production
    Companion/cartridge UI consuming it is Slice 2 work.)
