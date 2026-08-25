@@ -482,7 +482,37 @@ export type ActivityActionType =
   | 'exchange_comparison_opened'
   | 'exchange_derivative_created'
   | 'exchange_withdrawn'
-  | 'exchange_access_revoked';
+  | 'exchange_access_revoked'
+  // QubeTalk Communications Membrane (2026-08-25) — the consequential acts
+  // named in domain spec §17's candidate list beyond what Phase 1's three
+  // qubetalk_artifact_* types already cover, using the spec's own literal
+  // names verbatim (message_agent_sent, not agent_message_sent — corrected
+  // 2026-08-25 against the canonical doc after an initial reconstruction
+  // drifted from it). publication_published/withdrawn = a PublicationQube
+  // projection changes public-facing state (withdrawn is a justified
+  // addition beyond §17's own candidate list — §14's publication lifecycle
+  // has an explicit 'withdrawn' state, so a receipt for it is warranted);
+  // message_agent_sent/group_message_agent_sent = an Agent sent a
+  // communication under a bounded delegation grant (never fires for a
+  // human-authored message); conversation_context_disclosure = the
+  // disclosure-policy gate (services/qubetalk/disclosurePolicy.ts) let
+  // protected context reach a wider audience than it originated in, an
+  // explicit act, never implicit; publication_projection_failed/
+  // agent_approval_used/endpoint_linked/group_federated are §17's remaining
+  // named candidates, registered even though no current code path emits them
+  // yet (a CHECK-constraint value existing ahead of use matches this
+  // migration's own established convention). All carry ONLY T2-safe
+  // references, same discipline as the existing qubetalk_artifact_* types.
+  // DVN-anchorable.
+  | 'qubetalk_publication_published'
+  | 'qubetalk_publication_withdrawn'
+  | 'qubetalk_publication_projection_failed'
+  | 'qubetalk_message_agent_sent'
+  | 'qubetalk_group_message_agent_sent'
+  | 'qubetalk_agent_approval_used'
+  | 'qubetalk_endpoint_linked'
+  | 'qubetalk_group_federated'
+  | 'qubetalk_conversation_context_disclosure';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 

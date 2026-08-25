@@ -20,6 +20,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Lock, Loader2, Upload, ShieldCheck, Eye, Download, AlertCircle, Bot, X, MapPin, FileText, ChevronDown, ChevronUp, Copy, Check, Link2, Wallet, Clock, MessageSquare, Send } from 'lucide-react';
 import { authedFetchHeaders } from '@/utils/supabaseBrowser';
+import { personaFetch } from '@/utils/personaSpine';
 import dynamic from 'next/dynamic';
 
 const WorldIdButton = dynamic(
@@ -286,7 +287,10 @@ export function LockerTab({ visibleSections = ALL_LOCKER_SECTIONS }: LockerTabPr
         fetch('/api/polity-passport/locker', authInit),
         fetch('/api/persona/sponsored-agents', authInit),
         fetch('/api/polity-passport/wallet', authInit),
-        fetch('/api/qubetalk/passport-channels', authInit),
+        // Spine endpoint (getActivePersona server-side) — authedFetchHeaders is
+        // persona-UNAWARE and forbidden here (CLAUDE.md Identity & Access
+        // Spine); personaFetch is the only correct transport.
+        personaFetch('/api/qubetalk/passport-channels', { cache: 'no-store' }),
       ]);
       if (lockerRes.status === 'fulfilled') {
         if (lockerRes.value.ok) {
@@ -591,9 +595,11 @@ export function LockerTab({ visibleSections = ALL_LOCKER_SECTIONS }: LockerTabPr
       }
 
       // Also bind the QubeTalk channel (idempotent — does nothing if one exists).
-      await fetch('/api/qubetalk/channels/bind', {
+      // Spine endpoint (getActivePersona server-side) — personaFetch only,
+      // same reasoning as the passport-channels read above.
+      await personaFetch('/api/qubetalk/channels/bind', {
         method: 'POST',
-        headers: authHdrs ?? { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ delegatedAgentRootId: grantTarget.agentRootId, delegationGrantId: data.grant.grantId }),
       }).catch(() => {});
 

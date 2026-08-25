@@ -369,6 +369,22 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   // addition only — the one change this file permits unilaterally. Payload
   // shape, state machine and hashPersonaRef untouched.)
   'exchange_crossed',
+  // QubeTalk Communications Membrane (2026-08-25) — the consequential acts
+  // §17 of the domain spec names beyond the existing qubetalk_artifact_*
+  // trio, using the spec's own literal names (corrected 2026-08-25 against
+  // the canonical doc — message_agent_sent, not agent_message_sent). Same
+  // T2-safe-reference-only discipline as the existing qubetalk_artifact_*
+  // types. (Action-type addition only — the one change this file permits
+  // unilaterally. Payload shape, state machine and hashPersonaRef untouched.)
+  'qubetalk_publication_published',
+  'qubetalk_publication_withdrawn',
+  'qubetalk_publication_projection_failed',
+  'qubetalk_message_agent_sent',
+  'qubetalk_group_message_agent_sent',
+  'qubetalk_agent_approval_used',
+  'qubetalk_endpoint_linked',
+  'qubetalk_group_federated',
+  'qubetalk_conversation_context_disclosure',
 ]);
 
 export function shouldAnchorActionType(actionType: string): boolean {

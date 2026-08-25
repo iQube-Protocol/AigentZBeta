@@ -89,6 +89,21 @@ interface SharedArtifact {
   copiedToLockerAt: string | null;
   mine: boolean;
 }
+interface RelationshipNote {
+  id: string;
+  text: string;
+  sourceMessageIds: string[];
+  createdAt: string;
+  resolvedAt?: string | null;
+}
+interface RelationshipState {
+  channelId: string;
+  openLoops: RelationshipNote[];
+  commitments: RelationshipNote[];
+  memorySummary: string | null;
+  memorySummaryUpdatedAt: string | null;
+  lastInteractionAt: string | null;
+}
 
 const REF_RE = /^([0-9a-f]{16}|prf_[0-9a-f]{8,})$/;
 
@@ -306,6 +321,7 @@ export default function QubeTalkInboxTab({ researchOnly = false, domainFilter }:
 function ChannelPane({ channelId, channel, onRenamed }: { channelId: string; channel: PeerChannel | null; onRenamed: () => void | Promise<void> }) {
   const [messages, setMessages] = useState<PeerMessage[]>([]);
   const [artifacts, setArtifacts] = useState<SharedArtifact[]>([]);
+  const [relationship, setRelationship] = useState<RelationshipState | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [body, setBody] = useState("");
@@ -336,12 +352,14 @@ function ChannelPane({ channelId, channel, onRenamed }: { channelId: string; cha
     setLoading(true);
     setError(null);
     try {
-      const [m, a] = await Promise.all([
+      const [m, a, r] = await Promise.all([
         jf<{ messages: PeerMessage[] }>(`/api/qubetalk/peer-channels/${channelId}/messages`),
         jf<{ artifacts: SharedArtifact[] }>(`/api/qubetalk/peer-channels/${channelId}/artifacts`),
+        jf<{ relationship: RelationshipState }>(`/api/qubetalk/peer-channels/${channelId}/relationship`).catch(() => null),
       ]);
       setMessages(m.messages ?? []);
       setArtifacts(a.artifacts ?? []);
+      setRelationship(r?.relationship ?? null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load channel");
     } finally {
@@ -440,6 +458,42 @@ function ChannelPane({ channelId, channel, onRenamed }: { channelId: string; cha
         </div>
       )}
       {error && <p className="text-xs text-amber-400">{error}</p>}
+
+      {/* RelationshipQube summary (§4) — a PROJECTION over this same channel,
+          never a second store. Open loops/commitments are traceable to real
+          messages; this panel never invents state the observer didn't return. */}
+      {relationship && (relationship.openLoops.length > 0 || relationship.commitments.length > 0 || relationship.memorySummary) && (
+        <div className="rounded-md border border-slate-800 bg-slate-950/40 p-2.5 text-[11px] text-slate-400">
+          {relationship.lastInteractionAt && (
+            <p className="text-slate-500">
+              Last interaction: {new Date(relationship.lastInteractionAt).toLocaleString()}
+            </p>
+          )}
+          {relationship.openLoops.filter((l) => !l.resolvedAt).length > 0 && (
+            <div className="mt-1.5">
+              <p className="font-medium text-slate-300">Open loops</p>
+              <ul className="mt-0.5 list-disc space-y-0.5 pl-4">
+                {relationship.openLoops.filter((l) => !l.resolvedAt).map((l) => (
+                  <li key={l.id}>{l.text}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {relationship.commitments.filter((c) => !c.resolvedAt).length > 0 && (
+            <div className="mt-1.5">
+              <p className="font-medium text-slate-300">Commitments</p>
+              <ul className="mt-0.5 list-disc space-y-0.5 pl-4">
+                {relationship.commitments.filter((c) => !c.resolvedAt).map((c) => (
+                  <li key={c.id}>{c.text}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {relationship.memorySummary && (
+            <p className="mt-1.5 italic text-slate-500">{relationship.memorySummary}</p>
+          )}
+        </div>
+      )}
 
       {/* Shared artifacts */}
       {artifacts.length > 0 && (
