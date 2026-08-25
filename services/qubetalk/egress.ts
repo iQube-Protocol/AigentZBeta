@@ -33,7 +33,10 @@ import { resolveConversation, touchConversationActivity } from '@/services/qubet
 import { recordInteraction } from '@/services/qubetalk/relationships';
 import { emitQubeTalkEvent } from '@/services/qubetalk/events';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
-import { postDiscordMessages } from '@/services/qubetalk/transports/discordTransport';
+import { postDiscordMessages, isDiscordSnowflake, extractDiscordInviteCode, resolveDiscordChannelFromInvite } from '@/services/qubetalk/transports/discordTransport';
+import { resolveOwnerAuthProfileId } from '@/services/contactGraph/ownerResolution';
+import { getContactEndpointById } from '@/services/contactGraph/contactEndpoints';
+import { evaluateDisclosure, type DisclosureContextItem } from '@/services/qubetalk/disclosurePolicy';
 
 export interface OutboundSendRequest {
   /** T0 — resolved by the spine at the calling route; never a raw fetch. */
@@ -44,14 +47,39 @@ export interface OutboundSendRequest {
   /** A transport id from transportRegistry.ts (e.g. 'qubetalk-native', 'discord'). */
   transport: string;
   body: string;
-  /** Transport-specific destination the adapter needs. Discord requires the
-   *  target channel id explicitly — this build does not resolve it from
-   *  ContactGraph/participant endpoints (out of scope; see closeout). */
-  destination?: { discordChannelId?: string };
+  /** Human message type (QUBETALK_HUMAN_MESSAGE_TYPES) — defaults to
+   *  'message' via postMessage's own default when omitted. */
+  type?: string;
+  /**
+   * Transport-specific destination the adapter needs. `contactEndpointId` is
+   * the PREFERRED form — a caller (composer UI) passes the id of a
+   * ContactGraph endpoint the caller (`req.callerPersonaId`) actually owns;
+   * this module resolves it server-side (ownership-checked via
+   * `getContactEndpointById`) to the transport-specific identifier, so a
+   * client can never forge a destination it doesn't hold. `discordChannelId`
+   * remains as a direct/legacy form for callers that already have a raw
+   * Discord channel id (e.g. the existing tenant-runtime dispatch route).
+   * If BOTH the resolved endpoint's identifier and an explicit
+   * `discordChannelId` are absent/unresolvable, egress returns a clear
+   * failure — it NEVER silently substitutes a different channel/endpoint.
+   */
+  destination?: { discordChannelId?: string; contactEndpointId?: string };
   /** Present only when an Agent — not the principal directly — is the actual
    *  author of this send. Gated by agentPolicy.ts's agentMaySend BEFORE the
    *  transport is ever called (P8/P9/P10). */
   actingAgentRootDid?: string | null;
+  /**
+   * Present only for an Agent-composed draft that cites specific prior
+   * context items (messages/notes) with known sensitivity/origin audience —
+   * e.g. a summary drawn from another conversation. When set (together with
+   * `actingAgentRootDid`), egress runs disclosurePolicy.ts's
+   * `evaluateDisclosure` against this channel's two-principal audience
+   * BEFORE the transport is invoked; any excluded item denies the send
+   * outright (§6/§8: "context may inform, audience constrains disclosure").
+   * Never checked for a human-authored send — the human IS the disclosure
+   * authority for their own words.
+   */
+  sourceContext?: DisclosureContextItem[];
 }
 
 export interface OutboundSendResult {
@@ -61,6 +89,47 @@ export interface OutboundSendResult {
   externalMessageId: string | null;
   /** Populated only when deliveryState === 'failed'. */
   error?: string;
+}
+
+/**
+ * Resolve a Discord send destination. PREFERS `contactEndpointId` — fetched
+ * ownership-checked (a caller can only resolve a handle THEY hold), then
+ * turned into a real Discord channel id: directly if it's already a
+ * snowflake, or by resolving an invite code through Discord's public
+ * invite endpoint otherwise. Falls back to a raw `discordChannelId` for
+ * legacy/direct callers. NEVER silently substitutes a different channel —
+ * an unresolvable endpoint is a clear failure (N-transport-substitution),
+ * not a fallback to some other destination.
+ */
+async function resolveDiscordDestination(
+  callerPersonaId: string,
+  destination: OutboundSendRequest['destination'],
+): Promise<PeerResult<string>> {
+  if (destination?.contactEndpointId) {
+    const owner = await resolveOwnerAuthProfileId(callerPersonaId);
+    if (!owner.ok) return owner;
+    const endpoint = await getContactEndpointById(owner.value, destination.contactEndpointId);
+    if (!endpoint.ok) return endpoint;
+    if (endpoint.value.platform !== 'discord') {
+      return { ok: false, error: `endpoint is a '${endpoint.value.platform}' handle, not Discord`, code: 'endpoint_platform_mismatch' };
+    }
+    const identifier = endpoint.value.normalizedIdentifier;
+    if (isDiscordSnowflake(identifier)) return { ok: true, value: identifier };
+    const inviteCode = extractDiscordInviteCode(identifier);
+    if (inviteCode) {
+      const resolved = await resolveDiscordChannelFromInvite(inviteCode);
+      if (resolved) return { ok: true, value: resolved };
+    }
+    return {
+      ok: false,
+      error: `could not resolve the Discord endpoint '${identifier}' to a real channel — it is neither a channel id nor a resolvable invite`,
+      code: 'endpoint_unresolvable',
+    };
+  }
+
+  if (destination?.discordChannelId) return { ok: true, value: destination.discordChannelId };
+
+  return { ok: false, error: 'destination.contactEndpointId or destination.discordChannelId is required to send via Discord', code: 'missing_destination' };
 }
 
 /**
@@ -110,6 +179,25 @@ export async function sendMessageThroughTransport(
         code: 'agent_not_authorized',
       };
     }
+
+    // Disclosure gate — §6/§8: context may inform, audience constrains
+    // disclosure. Only meaningful for an Agent-composed draft that names the
+    // specific context items it drew from (sourceContext); a human-authored
+    // send is never checked here (the human is their own disclosure
+    // authority). This channel's audience is exactly its two principals.
+    if (req.sourceContext && req.sourceContext.length > 0) {
+      const { excludedContext } = evaluateDisclosure({
+        availableContext: req.sourceContext,
+        destinationAudienceParticipantIds: [myRef, channel.counterpartyRef],
+      });
+      if (excludedContext.length > 0) {
+        return {
+          ok: false,
+          error: `disclosure denied — ${excludedContext.length} context item(s) are not permissible for this destination audience`,
+          code: 'disclosure_denied',
+        };
+      }
+    }
   }
 
   const conversation = await resolveConversation({ relationshipChannelId: req.channelId, topology: 'dyadic' });
@@ -117,6 +205,7 @@ export async function sendMessageThroughTransport(
 
   if (req.transport === 'qubetalk-native') {
     const sent = await postMessage(req.callerPersonaId, req.channelId, {
+      type: req.type,
       body: req.body,
       conversationId: conversation.value.id,
     });
@@ -130,10 +219,9 @@ export async function sendMessageThroughTransport(
   }
 
   if (req.transport === 'discord') {
-    const discordChannelId = req.destination?.discordChannelId;
-    if (!discordChannelId) {
-      return { ok: false, error: 'destination.discordChannelId is required to send via Discord', code: 'missing_destination' };
-    }
+    const resolvedDestination = await resolveDiscordDestination(req.callerPersonaId, req.destination);
+    if (!resolvedDestination.ok) return resolvedDestination;
+    const discordChannelId = resolvedDestination.value;
 
     // The SAME bot-token gate app/api/messenger/dispatch/route.ts has always
     // enforced — preserved exactly, not loosened or removed.
@@ -167,6 +255,7 @@ export async function sendMessageThroughTransport(
     // never silently reported as delivered (§4.5's idempotency key only
     // gets set when Discord actually returned a message id).
     const inserted = await postMessage(req.callerPersonaId, req.channelId, {
+      type: req.type,
       body: req.body,
       transport: 'discord',
       direction: 'outbound',

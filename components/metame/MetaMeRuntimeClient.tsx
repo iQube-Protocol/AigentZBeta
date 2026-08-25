@@ -550,7 +550,11 @@ function menuPromptFromActionId(actionId: string): string | null {
   // Earn sub-actions
   if (normalized === "earn-goal") return "Show me my onboarding journey goals and first tasks.";
   // Share sub-actions
-  if (normalized === "share-message") return "Send a direct message via QubeTalk.";
+  // "share-message" is deliberately NOT handled here — it is registered in
+  // DRAWER_ACTION_HANDLERS below, which dispatches straight to the real
+  // QubeTalk workbench and returns before this function would ever run for
+  // that action id. Handling it here too would resurrect the exact
+  // two-meanings-for-"Message" gap this bridge was built to close.
   if (normalized === "share-invite") return "Invite someone to a shared QubeTalk environment.";
   return null;
 }
@@ -2300,6 +2304,12 @@ export default function MetaMeRuntimeClient() {
   // unrelated, inert per-mount analytics tag.
   const [qubeTalkDrawerOpen, setQubeTalkDrawerOpen] = useState(false);
   const [qubeTalkDrawerTab, setQubeTalkDrawerTab] = useState<"people" | "conversations">("people");
+  // Content in context when Message was invoked (§9: Share -> Message,
+  // content-scoped) — reuses the SAME `active` capsule-content resolution
+  // "share"/"invite" already use below; null when Message was invoked with
+  // no specific content in context, in which case QubeTalkInboxTab simply
+  // shows its normal pending-share-free composer.
+  const [qubeTalkPendingShareArtifact, setQubeTalkPendingShareArtifact] = useState<{ artifactType: string; artifactId: string; title?: string } | null>(null);
   const [walletInitialTab, setWalletInitialTab] = useState<"wallet" | "tasks" | "rewards" | "payments" | "reputation" | "library">("wallet");
   // Shell deep-link envelope state — see MENU_ACTION handler. One-shot
   // seeds for `SmartWalletDrawer.initialAuthMode` and
@@ -2757,6 +2767,17 @@ export default function MetaMeRuntimeClient() {
   const activeCodexPanelMessageIdsRef = useRef<Set<string>>(new Set());
   const pendingRuntimeEventsRef = useRef<Array<{ type: RuntimeInboundType; payload: Record<string, unknown> }>>([]);
   const activeCapsuleId = selectedCapsuleLocal || selectedCapsuleId;
+  // QubeTalk Fast-Follow §9 — resolve "the content in context right now,"
+  // reusing the SAME logic the "share"/"invite" MENU_ACTION handlers use
+  // further below. Unlike those, Message deliberately does NOT fall back to
+  // capsuleContents[0]: an invocation with no genuinely active capsule is
+  // NOT content-scoped, and per §9 must enter normal conversation flow
+  // rather than attach an arbitrary item.
+  const resolveActiveShareArtifact = useCallback((): { artifactType: string; artifactId: string; title?: string } | null => {
+    const active = activeCapsuleId ? capsuleContents.find((c) => c.id === activeCapsuleId) : null;
+    if (!active) return null;
+    return { artifactType: active.runtimeContentKind || 'runtime-content', artifactId: active.id, title: active.title };
+  }, [activeCapsuleId, capsuleContents]);
   const relayCloseCodexToNestedFrames = useCallback(() => {
     if (typeof window === "undefined") return;
 
@@ -5022,6 +5043,25 @@ export default function MetaMeRuntimeClient() {
             if (navigator.share) { void navigator.share({ title: 'Join me on metaMe', text: 'Explore your metaMe journey', url }); }
             else { void navigator.clipboard?.writeText(url); }
           },
+          // QubeTalk Fast-Follow §10 (deep-link cleanup): a parent shell can
+          // dispatch MENU_ACTION { action_id: 'share-message' | 'share-people' }
+          // directly (bypassing the in-app Share dropdown entirely). Before
+          // this, that action_id fell through to menuPromptFromActionId and
+          // only produced a CHAT PROMPT — a second, weaker meaning for
+          // "Message" than the in-app button (which opens the real
+          // workbench). Registering both here means EVERY path that can
+          // dispatch a share-message/share-people action_id — the in-app
+          // button (see its own onClick above) and any external deep link —
+          // converges on the exact same drawer-opening call.
+          "share-message": () => {
+            setQubeTalkPendingShareArtifact(resolveActiveShareArtifact());
+            setQubeTalkDrawerTab("conversations");
+            setQubeTalkDrawerOpen(true);
+          },
+          "share-people": () => {
+            setQubeTalkDrawerTab("people");
+            setQubeTalkDrawerOpen(true);
+          },
         };
         if (menuActionId && menuActionId in DRAWER_ACTION_HANDLERS) {
           DRAWER_ACTION_HANDLERS[menuActionId]?.();
@@ -5481,7 +5521,7 @@ export default function MetaMeRuntimeClient() {
                       generic SocialSharingModal despite already saying
                       "via QubeTalk" in its prompt copy — reconciled, not
                       replaced: Invite/Refer below are untouched). */}
-                  <button type="button" onClick={() => { setQubeTalkDrawerTab("conversations"); setQubeTalkDrawerOpen(true); setShareMenuOpen(false); }}
+                  <button type="button" onClick={() => { setQubeTalkPendingShareArtifact(resolveActiveShareArtifact()); setQubeTalkDrawerTab("conversations"); setQubeTalkDrawerOpen(true); setShareMenuOpen(false); }}
                     className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
                     <Send className="h-3.5 w-3.5 text-slate-400" />Message
                   </button>
@@ -5654,7 +5694,7 @@ export default function MetaMeRuntimeClient() {
                   {/* QubeTalk Fast-Follow: "Message" now genuinely routes into
                       the QubeTalk workbench (see the mobile variant above for
                       the same reconciliation — Invite/Refer below untouched). */}
-                  <button type="button" onClick={() => { setQubeTalkDrawerTab("conversations"); setQubeTalkDrawerOpen(true); setShareMenuOpen(false); }}
+                  <button type="button" onClick={() => { setQubeTalkPendingShareArtifact(resolveActiveShareArtifact()); setQubeTalkDrawerTab("conversations"); setQubeTalkDrawerOpen(true); setShareMenuOpen(false); }}
                     className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
                     <Send className="h-3.5 w-3.5 text-slate-400" />Message
                   </button>
@@ -6382,7 +6422,13 @@ export default function MetaMeRuntimeClient() {
           Consumes the SAME ContactGraph/QubeTalk services aigentMe's
           PeopleLayout/ConversationsLayout consume — one capability, two
           presentations (never a RuntimeContacts/AigentMeContacts split). */}
-      <RuntimeQubeTalkDrawer open={qubeTalkDrawerOpen} onClose={() => setQubeTalkDrawerOpen(false)} initialTab={qubeTalkDrawerTab} />
+      <RuntimeQubeTalkDrawer
+        open={qubeTalkDrawerOpen}
+        onClose={() => setQubeTalkDrawerOpen(false)}
+        initialTab={qubeTalkDrawerTab}
+        pendingShareArtifact={qubeTalkPendingShareArtifact}
+        onShareArtifactHandled={() => setQubeTalkPendingShareArtifact(null)}
+      />
       {/* Persona picker — bottom sheet when no iqube_type specified */}
       {personaPickerOpen && (
         <>

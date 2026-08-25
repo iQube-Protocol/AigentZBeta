@@ -31,12 +31,13 @@
  * drawer files).
  */
 
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import dynamic from "next/dynamic";
-import { Check, Loader2, MessagesSquare, Plus, Star, User, Users, X, X as XIcon } from "lucide-react";
-import { useContactGraphPeople, CONTACT_PLATFORM_LABEL } from "@/components/metame/contactgraph/useContactGraphPeople";
+import { Check, Loader2, MessageCircle, MessagesSquare, Plus, Star, User, Users, X, X as XIcon } from "lucide-react";
+import { useContactGraphPeople, CONTACT_PLATFORM_LABEL, fetchJson } from "@/components/metame/contactgraph/useContactGraphPeople";
 import type { ContactEndpointPlatform } from "@/types/contactGraph";
 import { CONTACT_ENDPOINT_PLATFORMS } from "@/types/contactGraph";
+import type { PendingShareArtifact } from "@/components/composer/QubeTalkInboxTab";
 
 const QubeTalkInboxTab = dynamic(() => import("@/components/composer/QubeTalkInboxTab"), {
   ssr: false,
@@ -49,6 +50,12 @@ interface Props {
   /** Which tab to land on when the drawer opens — e.g. the Share seam
    *  opening straight into Conversations for a specific person. */
   initialTab?: "people" | "conversations";
+  /** A content item in context when the drawer was opened (Runtime's Share
+   *  menu invoked while a capsule/content item was active). Threaded to
+   *  QubeTalkInboxTab's own pending-share banner — reuses the EXISTING
+   *  shareArtifact machinery, never a second sharing mechanism (§9). */
+  pendingShareArtifact?: PendingShareArtifact | null;
+  onShareArtifactHandled?: () => void;
 }
 
 function confidenceBadgeClass(confidence: string): string {
@@ -57,7 +64,7 @@ function confidenceBadgeClass(confidence: string): string {
   return "bg-slate-800 text-slate-500";
 }
 
-function RuntimePeoplePanel() {
+function RuntimePeoplePanel({ onMessagePerson }: { onMessagePerson: (personId: string) => void }) {
   const {
     filteredPeople,
     listLoading,
@@ -88,6 +95,25 @@ function RuntimePeoplePanel() {
     setNewHandleIdentifier,
     handleAddHandle,
   } = useContactGraphPeople();
+
+  const [messaging, setMessaging] = useState(false);
+  const [messagingError, setMessagingError] = useState<string | null>(null);
+
+  const handleMessage = useCallback(async () => {
+    if (!selectedId) return;
+    setMessaging(true);
+    setMessagingError(null);
+    const result = await fetchJson<{ channel: { id: string } }>(`/api/qubetalk/people/${selectedId}/channel`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+    setMessaging(false);
+    if (result.ok) {
+      onMessagePerson(result.data.channel.id);
+    } else {
+      setMessagingError(result.error);
+    }
+  }, [selectedId, onMessagePerson]);
 
   return (
     <div className="grid h-full grid-cols-1 gap-4 md:grid-cols-[280px_1fr]">
@@ -169,11 +195,24 @@ function RuntimePeoplePanel() {
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-800">
                 <User className="h-5 w-5 text-slate-400" />
               </div>
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <div className="truncate text-base font-semibold text-slate-100">{detail.person.displayName}</div>
                 {detail.person.linkedPersonhoodRef && <div className="text-[11px] text-slate-500">Linked to a platform persona</div>}
               </div>
+              <button
+                onClick={() => void handleMessage()}
+                disabled={messaging}
+                className="flex shrink-0 items-center gap-1.5 rounded-md border border-indigo-500/40 bg-indigo-500/10 px-2.5 py-1.5 text-xs text-indigo-300 hover:bg-indigo-500/20 disabled:opacity-50"
+              >
+                {messaging ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <MessageCircle className="h-3.5 w-3.5" />}
+                Message
+              </button>
             </div>
+            {messagingError && (
+              <div className="rounded-md border border-amber-700/40 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-200">
+                {messagingError}
+              </div>
+            )}
 
             <div className="space-y-2">
               <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Personas</div>
@@ -311,8 +350,21 @@ function RuntimePeoplePanel() {
   );
 }
 
-export function RuntimeQubeTalkDrawer({ open, onClose, initialTab = "people" }: Props) {
+export function RuntimeQubeTalkDrawer({
+  open,
+  onClose,
+  initialTab = "people",
+  pendingShareArtifact,
+  onShareArtifactHandled,
+}: Props) {
   const [tab, setTab] = useState<"people" | "conversations">(initialTab);
+  // Set when the People tab's "Message" action resolves (or the operator
+  // was already mid-conversation) — handed straight to QubeTalkInboxTab so
+  // the operator lands on the right channel rather than the auto-selected
+  // first one (surface continuity: the SAME channel/conversation, not a
+  // fresh pick, per the north-star "person -> endpoint -> relationship ->
+  // conversation" chain).
+  const [focusedChannelId, setFocusedChannelId] = useState<string | null>(null);
 
   return (
     <>
@@ -353,7 +405,21 @@ export function RuntimeQubeTalkDrawer({ open, onClose, initialTab = "people" }: 
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-          {tab === "people" ? <RuntimePeoplePanel /> : <QubeTalkInboxTab domainFilter="runtime" />}
+          {tab === "people" ? (
+            <RuntimePeoplePanel
+              onMessagePerson={(channelId) => {
+                setFocusedChannelId(channelId);
+                setTab("conversations");
+              }}
+            />
+          ) : (
+            <QubeTalkInboxTab
+              domainFilter="runtime"
+              initialChannelId={focusedChannelId}
+              pendingShareArtifact={pendingShareArtifact}
+              onShareArtifactHandled={onShareArtifactHandled}
+            />
+          )}
         </div>
       </div>
     </>

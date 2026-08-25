@@ -32,7 +32,9 @@ export async function resolveContactPersonForInboundEndpoint(
   ownerAuthProfileId: string,
   platform: QubeTalkEndpointPlatform,
   endpointRef: string,
-): Promise<PeerResult<{ contactPersonId: string; contactPersonaId: string; displayName: string } | null>> {
+): Promise<
+  PeerResult<{ contactPersonId: string; contactPersonaId: string; contactEndpointId: string; displayName: string } | null>
+> {
   const resolved = await resolveEndpointForOwner(
     ownerAuthProfileId,
     platform as ContactEndpointPlatform,
@@ -59,6 +61,10 @@ export async function resolveContactPersonForInboundEndpoint(
     value: {
       contactPersonId: person.id,
       contactPersonaId: resolved.value.contactPersonaId,
+      // Exact ContactGraph endpoint row (20260930060000's refinement) —
+      // never just the persona/context container, so a caller that needs
+      // to trace back to precisely which handle matched can do so directly.
+      contactEndpointId: resolved.value.id,
       displayName: person.display_name ?? '',
     },
   };
@@ -103,21 +109,36 @@ export async function linkParticipantToContactPerson(
 
 /** Link a specific QubeTalk participant endpoint to the ContactGraph
  *  persona/context it belongs to (refinement 1: person-level continuity on
- *  the participant, persona/context-level on each endpoint). */
+ *  the participant, persona/context-level on each endpoint), and — when
+ *  known — the EXACT ContactGraph endpoint row (20260930060000's follow-on
+ *  refinement). contactEndpointId is optional: a caller may know only the
+ *  persona/context (e.g. a manual "this is under my Professional persona"
+ *  link with no specific handle yet resolved) without an exact endpoint. */
 export async function linkParticipantEndpointToContactPersona(
   endpointId: string,
   contactPersonaId: string,
-): Promise<PeerResult<{ id: string; contactPersonaId: string }>> {
+  contactEndpointId?: string,
+): Promise<PeerResult<{ id: string; contactPersonaId: string; contactEndpointId: string | null }>> {
   const admin = getSupabaseServer();
   if (!admin) return { ok: false, error: 'Supabase unavailable' };
   const { data, error } = await admin
     .from(ENDPOINTS)
-    .update({ contact_persona_id: contactPersonaId })
+    .update({
+      contact_persona_id: contactPersonaId,
+      ...(contactEndpointId ? { contact_endpoint_id: contactEndpointId } : {}),
+    })
     .eq('id', endpointId)
-    .select('id, contact_persona_id')
+    .select('id, contact_persona_id, contact_endpoint_id')
     .single();
   if (error) return { ok: false, error: error.message };
-  return { ok: true, value: { id: String(data.id), contactPersonaId: String(data.contact_persona_id) } };
+  return {
+    ok: true,
+    value: {
+      id: String(data.id),
+      contactPersonaId: String(data.contact_persona_id),
+      contactEndpointId: (data.contact_endpoint_id as string | null) ?? null,
+    },
+  };
 }
 
 /** Read-only convenience lookup for aigentMe's Person view (§12): which of

@@ -398,3 +398,225 @@ Two new tests in `tests/contactgraph-substrate-scenarios.test.ts`
    Runtime this pass, matching the mandatory-scope-only approach used for aigentMe.
 4. **ContactGroup, Companion Ambient projection, Cartridge Contextual projection** — unchanged
    from the prior closeout's own Known Limitations; still not started.
+
+---
+
+## Addendum — Closing the QubeTalk messaging loop end-to-end (Phase 6, same day)
+
+**Governing directive**: operator's "close the QubeTalk messaging loop end-to-end" brief — prove
+`person → endpoint → relationship → conversation → policy → external transport` operate as ONE
+system, not independently-implemented pieces, then move directly to Publishing + Engagement
+without another architecture review.
+
+### Seam audit — the actual gap
+
+Per the operator's framing ("audit the seam, not the architecture"), the substrate, the Discord
+transport, and the fan-out UI were all already built and independently tested. The real gap was
+one call site: `app/api/qubetalk/peer-channels/[channelId]/messages/route.ts`'s POST handler still
+called `postMessage(...)` directly, bypassing `services/qubetalk/egress.ts`'s canonical
+`sendMessageThroughTransport` entirely — meaning the one UI-facing send route never ran Agent
+policy resolution, transport selection, or provenance/receipt logic. This is the "smallest missing
+connection" the brief asked to find; no second parallel send path was introduced, and no
+architecture was redesigned. The route now calls `sendMessageThroughTransport` exclusively; GET
+(`listMessages`) is unchanged.
+
+### What was built
+
+- **`services/qubetalk/contactResolution.ts`** (new) — `resolveContactPersonForChannel(...)`
+  resolves a `passport_peer_channels` counterparty to its ContactGraph `ContactPerson` +
+  personas/endpoints, ownership-checked. Documented scope boundary in its header: this only works
+  for counterparties who are real platform personas, because `RelationshipQube` itself is
+  personhood-bound — see Known Limitations below.
+- **`services/qubetalk/egress.ts`** — extended, not forked:
+  - `OutboundSendRequest.destination` gained `contactEndpointId` alongside the existing
+    `discordChannelId`, resolved via a new `resolveDiscordDestination` helper: ownership-checked
+    endpoint lookup → snowflake-direct or invite-code resolution → a clear `endpoint_unresolvable`
+    error if neither resolves. **No silent failover** — an unresolvable endpoint fails the send,
+    never substitutes a different channel (brief requirement 4).
+  - A disclosure gate was inserted immediately after the existing Agent-authority gate: an optional
+    `sourceContext` is evaluated against the destination audience via the existing
+    `evaluateDisclosure`, and any excluded context item denies the send with `disclosure_denied`
+    **before the transport is ever touched** (brief requirement 6/9's confidentiality intersection).
+  - Fixed a `type` field that would have been silently dropped when the messages route was
+    rewritten to call egress instead of `postMessage` directly — threaded through to both the
+    native and Discord `postMessage(...)` call sites so provenance/message-kind metadata is
+    preserved identically to the pre-egress route's behavior.
+- **`services/contactGraph/contactEndpoints.ts`** — added `getContactEndpointById`, an
+  ownership-checked single-endpoint read (denormalized `owner_auth_profile_id`), reused by both the
+  new contact-resolution service and the destination resolver — no parallel endpoint-lookup query
+  written.
+- **`app/api/qubetalk/peer-channels/[channelId]/contact/route.ts`** (new) — GET, membership-checked,
+  surfaces a channel's counterparty as a ContactGraph `ContactPerson` for the composer's endpoint
+  picker.
+- **`app/api/qubetalk/people/[personId]/channel/route.ts`** (new) — POST, resolves-or-creates the
+  `passport_peer_channels` relationship for a ContactPerson that has a linked platform persona
+  (`linkedPersonhoodRef`); returns `409 not_linked_to_platform_persona` otherwise rather than
+  fabricating a relationship for an off-platform contact.
+- **`components/composer/QubeTalkInboxTab.tsx`** — extended (shared verbatim by aigentMe and
+  Runtime, no fork): a `pendingShareArtifact` prop threads Share → Message content through the
+  channel's own existing `/share` route (brief requirement 9 — never a rebuilt sharing path); a
+  transport `<select>` in the composer row is populated from the channel's Discord endpoints only
+  (other ContactEndpoint platforms are not offered — they are not wired in
+  `transportRegistry.ts` and would only ever bounce off egress's honest `transport_not_wired`
+  rejection, so the composer doesn't offer a choice that cannot succeed); an `initialChannelId` prop
+  lets a caller (Runtime's People panel) land the drawer directly on a specific conversation.
+- **`components/metame/runtime/RuntimeQubeTalkDrawer.tsx`** — `RuntimePeoplePanel` gained a
+  "Message" button that resolves-or-creates the person's channel via the new `channel` route, then
+  switches the drawer to the Conversations tab focused on that channel — proving the
+  person→relationship→conversation seam from the Runtime People surface, not just from an
+  already-existing conversation list.
+- **`components/metame/MetaMeRuntimeClient.tsx`** — three additive changes: (1) a
+  `qubeTalkPendingShareArtifact` state resolved from the active capsule's content (deliberately
+  **not** falling back to `capsuleContents[0]` the way `share`/`invite` do, matching the brief's
+  "if not content-scoped, Message simply enters normal conversation flow" requirement) and passed
+  through to the drawer from both Message button variants (mobile + desktop); (2) `"share-message"`
+  and `"share-people"` entries added to `DRAWER_ACTION_HANDLERS`, so the `MENU_ACTION` deep-link
+  path opens the SAME workbench the in-app button opens, closing the prior increment's own
+  Known-Limitation #1 ("deep-link menu-action path not reconciled") — there is now one meaning for
+  "Message," not two (brief requirement 10); (3) `Invite`/`Refer` and their existing modals remain
+  completely untouched.
+
+### Agent behavior — proof (brief requirement 6)
+
+No special Discord authority path exists: the same `AGENT_POLICY_MODES` gate egress already
+enforced for native sends applies identically to a Discord-destined send, before transport
+resolution runs. `manual` sends (no acting Agent) succeed unconditionally; `agent_drafts` mode
+denies autonomous dispatch exactly like having no policy at all — proven for both destination types
+in the new test suite.
+
+### Timeline / write-back — proof (brief requirement 7)
+
+A successful send — native or Discord — writes exactly one `passport_peer_messages` row and one
+`qubetalk_events` row. No second synthetic "sent" record is created for the Discord path; the same
+egress function and the same canonical write happen regardless of transport.
+
+### Inbound Discord (brief requirement 11)
+
+**Deliberately deferred, not fabricated.** The Discord adapter work (`3cc4dadf`) implemented
+outbound send only; no existing inbound/webhook path was found for this increment to wire up.
+Per the brief's explicit acceptance criterion ("the acceptance for this increment is real outbound
+messaging, not fabricated bidirectionality"), no inbound Discord capability was built or stubbed.
+
+### Tests
+
+New file `tests/qubetalk-messaging-loop-e2e.test.ts` — **14/14 passing**, covering the brief's
+acceptance scenarios: ContactPerson+Discord-endpoint resolution (snowflake, invite-code,
+clean-failure-on-unresolvable), conversation continuation vs. creation, a structural proof that
+`conversationIdRef` is never threaded into any QubeTalk-named call (reusing the prior addendum's
+own audit finding as a standing regression guard), Agent policy modes for both transports, the
+disclosure gate, one-canonical-record-per-send, aigentMe↔Runtime surface continuity for messages,
+and the Share→Message/deep-link convergence.
+
+Full regression suite — **116/116 passing** across
+`tests/contactgraph-substrate-scenarios.test.ts` (17),
+`tests/qubetalk-communications-membrane-scenarios.test.ts` (16),
+`tests/qubetalk-projection-contract.test.ts` (7),
+`tests/qubetalk-peer-channel.test.ts` (9),
+`tests/qubetalk-confidentiality.test.ts` (37),
+`tests/activity-receipts-action-type-parity.test.ts` (3),
+`tests/qubetalk-discord-transport-egress.test.ts` (13), and the new file (14).
+
+`npx tsc --noEmit -p tsconfig.json`: **679 errors**, byte-identical to the pre-Phase-6 baseline
+confirmed in the prior addendum — zero new errors introduced across every new/touched file.
+
+### Known limitations — messaging loop closure
+
+1. **Off-platform-only ContactGraph contacts have no RelationshipQube home.** `passport_peer_channels`
+   is personhood-bound by design — both principals are identified by Polity Public Reference. A
+   `ContactPerson` with no `linkedPersonhoodRef` (a real-world contact who isn't yet, or will never
+   be, a platform persona) cannot have a QubeTalk relationship/conversation created for them today;
+   `POST /api/qubetalk/people/[personId]/channel` returns `409 not_linked_to_platform_persona` for
+   this case rather than fabricating one. A synthetic ContactGraph-scoped public reference (same
+   sha256/16-hex shape as `personaPublicRef`) was considered as a way to let such a relationship
+   exist, but this touches identity-model territory closely enough that it was left as a flagged,
+   deferred architectural question rather than built unilaterally under "do not start another
+   architecture pass." Surfaced to the operator as a candidate architectural refinement, not
+   captured into the CFS-051 pipeline without explicit authorization.
+2. **Inbound Discord** — not built this pass; see above.
+3. **Non-Discord ContactEndpoint platforms** (email/WhatsApp/etc.) are resolvable by ContactGraph
+   but not offered in the composer's transport picker and not wired in `transportRegistry.ts` —
+   unchanged scope from the Discord-only transport work.
+4. **Groups / Needs Me / Waiting / Agent Managed / Publishing / Engagement** — still not built in
+   either surface; Publishing + Engagement is the operator's explicitly named next increment.
+5. ~~No live database wired~~ — **superseded**, see the "Live deployment repair" addendum below:
+   `20260930040000`/`20260930050000` were applied directly to the linked dev project and verified
+   live on 2026-08-25.
+
+---
+
+## Addendum — Live deployment repair + exact-endpoint bridge follow-on (same day)
+
+**Trigger**: live verification on `dev-beta.aigentz.me` surfaced `Could not find the table
+'public.contact_persons' in the schema cache` in aigentMe and a 504 loading Runtime's People/
+Conversations panels — the application commit had deployed via Amplify, but neither
+`20260930040000` (QubeTalk domain substrate) nor `20260930050000` (ContactGraph substrate) had ever
+reached the live dev Supabase project. Root cause: `amplify.yml`'s build pipeline builds and deploys
+the Next.js app only — it has never run Supabase migrations; that gap is the operator's own
+documented manual step elsewhere in this repo (the VL-CT-001 gate comment says as much), not
+something CI has ever closed. The `2026-09-30` migration-filename prefixes are a long-standing,
+repo-wide convention (57 other migrations share it) and were correctly left unrenamed.
+
+**Repair**: both migrations applied directly to the linked dev project (`bsjhfvctmduxhohtllly`) via
+the Supabase MCP connector, in dependency order, after confirming their preconditions live (the
+`personas.public_ref` unique index existed; the live `activity_receipts_action_type_check`
+constraint matched exactly the pre-state both migrations assume, so the wholesale rebuild was safe).
+Verified live: all 15 new tables, both bridge columns, the six new `passport_peer_messages`
+columns, and the rebuilt constraint — via direct SQL AND a live `GET /rest/v1/contact_persons`
+PostgREST probe after `NOTIFY pgrst, 'reload schema'` (HTTP 200), proving the schema-cache error
+itself was resolved, not just the underlying tables.
+
+**Prevention**: extended the existing `GET /api/ops/dvn/migration-ledger` diagnostic (Horizen Pilot
+Closure precedent, 2026-08-09 — reused rather than forked) with the same live-table-probe discipline
+for the QubeTalk + ContactGraph substrate. Commit `b1da3ecf`.
+
+**Contact-count discrepancy (51 vs 57)** — investigated per the operator's explicit request not to
+assume a lost-import defect. `persona_contacts` held exactly 51 `google_contacts` rows for the
+operator's persona, matching the UI. Reading `app/api/contacts/google-import/route.ts`: the response
+is `{imported, skipped, total}`, rendered as `"{imported} imported, {skipped} skipped ({total}
+total)"`; rows lacking `display_name`/`email`/`phone` are filtered before insert. The numeric match
+(51 stored = 51 successfully upserted; 57 = raw Google `total`; 6 = the filtered delta) is the
+code-evidenced explanation — not confirmed by re-running the import (no live Google OAuth context in
+this session), but not a guess either.
+
+### Exact-endpoint bridge follow-on (`20260930060000`)
+
+The original ContactGraph↔QubeTalk bridge (`20260930050000`, refinement 1) links a
+`qubetalk_participant_endpoint` to the ContactGraph CONTAINER it resolved into
+(`contact_persona_id -> contact_personas.id`) — correct for "which context/persona" but not precise
+enough to say which of that persona's endpoints it actually is. `20260930060000` adds
+`qubetalk_participant_endpoints.contact_endpoint_id -> contact_endpoints.id` alongside it (both kept,
+per the operator's explicit "keep the existing contact_persona_id if useful" — the coarser column
+still answers "which persona/context" without a join before a specific endpoint is resolved).
+
+Wired into the one real call site: `resolveContactPersonForInboundEndpoint`
+(`services/contactGraph/qubetalkBridge.ts`) now returns `contactEndpointId` alongside
+`contactPersonId`/`contactPersonaId` (the value was already available from
+`resolveEndpointForOwner`'s return — just not previously surfaced), and
+`services/qubetalk/ingestion.ts`'s inbound-endpoint-creation path persists it onto the new
+`qubetalk_participant_endpoints` row. `linkParticipantEndpointToContactPersona` gained an optional
+third `contactEndpointId` param (additive; its zero existing callers are unaffected).
+`migration-ledger` extended to probe the new column.
+
+**Not yet applied to live dev** — Supabase MCP disconnected from this session partway through Phase
+6 (confirmed via `ListConnectors`/`ToolSearch`, the same "connected but `enabledInChat: false`"
+failure mode CLAUDE.md's Session Start section documents) and did not reconnect before this
+increment closed. The migration file, service-layer wiring, and test coverage are complete and
+tsc/test-verified; applying `20260930060000` to the live dev project — and the operator's requested
+live spot-check of the lazy-reconciliation output — are the one explicitly open item carried out of
+this increment, not a silent gap. Exact SQL and verification queries were handed to the operator
+directly in-session.
+
+**Live Discord verification** — this sandbox holds no `DISCORD_BOT_TOKEN` or any live Discord
+session; confirmed `services/qubetalk/transportRegistry.ts` registers Discord as genuinely wired
+(`group.send`/`identity.lookup`: `'restricted'`, gated on `DISCORD_BOT_TOKEN`, not a stub) and the
+13/13 Discord egress tests pass against a faked HTTP boundary — that is the ceiling of what this
+session could verify. An actual live send needs to be performed by the operator through the deployed
+UI; this session can verify its result server-side (one `passport_peer_messages` row, one
+`qubetalk_events` row) once Supabase MCP is reachable again or the operator reports back.
+
+**Runtime→aigentMe live north-star** — the code path (`RuntimePeoplePanel`'s "Message" button →
+`POST /api/qubetalk/people/[personId]/channel` → same channel id opened in both
+`RuntimeQubeTalkDrawer` and `QubeTalkInboxTab` via `initialChannelId`, no sync/copy layer) is built
+and unit-tested (surface-continuity tests in `tests/contactgraph-substrate-scenarios.test.ts` and
+`tests/qubetalk-messaging-loop-e2e.test.ts`), but an authenticated, live cross-surface walkthrough
+requires the operator's own browser session — this sandbox cannot authenticate as the operator.

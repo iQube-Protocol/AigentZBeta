@@ -269,13 +269,18 @@ describe('QubeTalk bridge — reference, never a competing directory (C9/NC10)',
     const persona = await createContactPersona(OWNER, person.value.id, { label: 'General' });
     expect(persona.ok).toBe(true);
     if (!persona.ok) return;
-    await addContactEndpoint(OWNER, persona.value.id, { platform: 'email', identifier: 'jane@roe.example' });
+    const endpoint = await addContactEndpoint(OWNER, persona.value.id, { platform: 'email', identifier: 'jane@roe.example' });
+    expect(endpoint.ok).toBe(true);
+    if (!endpoint.ok) return;
 
     const known = await resolveContactPersonForInboundEndpoint(OWNER, 'email', 'jane@roe.example');
     expect(known.ok).toBe(true);
     if (known.ok) {
       expect(known.value?.contactPersonId).toBe(person.value.id);
       expect(known.value?.displayName).toBe('Jane Roe');
+      // 20260930060000 — the EXACT ContactGraph endpoint row, not just its
+      // persona/context container.
+      expect(known.value?.contactEndpointId).toBe(endpoint.value.id);
     }
 
     const unknown = await resolveContactPersonForInboundEndpoint(OWNER, 'email', 'nobody@nowhere.example');

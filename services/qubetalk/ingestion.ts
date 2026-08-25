@@ -171,7 +171,7 @@ export async function ingestCommunicationEvent(event: IngressEvent): Promise<Pee
       // resolveParticipantByEndpoint's own discipline; a ContactGraph miss
       // (or an unresolvable owner) falls back to exactly the prior
       // behavior — a brand-new unresolved participant.
-      let contactMatch: { contactPersonId: string; contactPersonaId: string; displayName: string } | null = null;
+      let contactMatch: { contactPersonId: string; contactPersonaId: string; contactEndpointId: string; displayName: string } | null = null;
       const owner = await resolveOwnerAuthProfileId(event.ownerPersonaId);
       if (owner.ok) {
         const resolved = await resolveContactPersonForInboundEndpoint(
@@ -196,6 +196,10 @@ export async function ingestCommunicationEvent(event: IngressEvent): Promise<Pee
         // but never claimed as 'verified' (that stays a deliberate act).
         confidence: contactMatch ? 'high_confidence' : 'unresolved',
         contact_persona_id: contactMatch?.contactPersonaId ?? null,
+        // Exact ContactGraph endpoint row (20260930060000) — not just the
+        // persona/context container, so this observation traces straight
+        // back to the specific handle that matched.
+        contact_endpoint_id: contactMatch?.contactEndpointId ?? null,
       });
       if (contactMatch && owner.ok) {
         const linked = await linkParticipantToContactPerson(event.ownerPersonaId, owner.value, participant.id, contactMatch.contactPersonId);

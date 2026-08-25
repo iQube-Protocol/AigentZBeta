@@ -34,6 +34,9 @@ export const dynamic = 'force-dynamic';
  *   - 20260930050000_contactgraph_substrate.sql
  *       -> contact_persons/contact_personas/contact_endpoints + the bridge
  *          columns on qubetalk_participants/qubetalk_participant_endpoints
+ *   - 20260930060000_qubetalk_contact_endpoint_exact_bridge.sql
+ *       -> qubetalk_participant_endpoints.contact_endpoint_id (exact-endpoint
+ *          follow-on refinement, additive alongside contact_persona_id)
  *   (added 2026-08-25 after this exact drift recurred for the QubeTalk +
  *   ContactGraph capability — Amplify deployed the application commit while
  *   dev's Supabase project had neither migration applied, surfacing as a
@@ -161,6 +164,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const endpointBridgeProbe = await admin.from('qubetalk_participant_endpoints').select('contact_persona_id').limit(1);
   if (endpointBridgeProbe.error && /does not exist|schema cache/i.test(endpointBridgeProbe.error.message)) {
     bridgeColumnsMissing.push('qubetalk_participant_endpoints.contact_persona_id');
+  }
+  // 20260930060000 — exact-endpoint follow-on refinement (kept alongside the
+  // coarser contact_persona_id above, never replacing it).
+  const exactEndpointBridgeProbe = await admin.from('qubetalk_participant_endpoints').select('contact_endpoint_id').limit(1);
+  if (exactEndpointBridgeProbe.error && /does not exist|schema cache/i.test(exactEndpointBridgeProbe.error.message)) {
+    bridgeColumnsMissing.push('qubetalk_participant_endpoints.contact_endpoint_id');
   }
   // MessageQube extension columns on the pre-existing passport_peer_messages
   // table (20260930040000, part 5) — the migration that is easiest to miss

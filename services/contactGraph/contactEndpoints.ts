@@ -150,6 +150,31 @@ export async function listContactEndpoints(
 }
 
 /**
+ * Fetch one endpoint by id, ownership-checked. The canonical read for
+ * "the caller picked THIS specific handle in the composer" — QubeTalk
+ * Fast-Follow's egress seam resolves `destination.contactEndpointId`
+ * through this function rather than trusting a raw platform identifier
+ * supplied directly by the client (which a caller could otherwise forge to
+ * point at a channel they don't own the endpoint for).
+ */
+export async function getContactEndpointById(
+  ownerAuthProfileId: string,
+  endpointId: string,
+): Promise<PeerResult<ContactEndpoint>> {
+  const admin = getSupabaseServer();
+  if (!admin) return { ok: false, error: 'Supabase unavailable' };
+  const { data, error } = await admin
+    .from(CONTACT_ENDPOINTS)
+    .select('*, contact_personas!inner(owner_auth_profile_id)')
+    .eq('id', endpointId)
+    .eq('contact_personas.owner_auth_profile_id', ownerAuthProfileId)
+    .maybeSingle();
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: false, error: 'endpoint not found', code: 'not_found' };
+  return { ok: true, value: rowToEndpoint(data as Record<string, unknown>) };
+}
+
+/**
  * Exact normalized-identifier match ONLY, scoped to everything the owner
  * owns (across ALL of the owner's ContactPersons/ContactPersonas) — never a
  * name-based/fuzzy match (N4/NC2). Returns `value: null` (never an error)

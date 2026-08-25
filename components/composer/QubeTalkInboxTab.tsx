@@ -104,6 +104,26 @@ interface RelationshipState {
   memorySummaryUpdatedAt: string | null;
   lastInteractionAt: string | null;
 }
+interface ContactEndpointOption {
+  id: string;
+  platform: string;
+  identifier: string;
+}
+interface ChannelContact {
+  contactPerson: { id: string; displayName: string };
+  personas: Array<{ id: string; label: string; endpoints: ContactEndpointOption[] }>;
+}
+/** A content item the operator wants to share into whichever conversation
+ *  they pick (QubeTalk Fast-Follow §9: Runtime Share -> Message, content-
+ *  scoped). Reuses the EXISTING shareArtifact machinery
+ *  (peer-channels/[channelId]/share route) — this is never a second sharing
+ *  mechanism, only a pending reference threaded down to it. */
+export interface PendingShareArtifact {
+  artifactType: string;
+  artifactId: string;
+  title?: string;
+  locationRef?: string | null;
+}
 
 const REF_RE = /^([0-9a-f]{16}|prf_[0-9a-f]{8,})$/;
 
@@ -154,13 +174,41 @@ function MyRefChip({ myRef }: { myRef: string | null }) {
  * Venture Lab's Partner Programmes surface passes 'venture-lab'); `researchOnly`
  * is kept as the pre-existing shorthand for 'research-lab' and wins when set.
  */
-export default function QubeTalkInboxTab({ researchOnly = false, domainFilter }: { researchOnly?: boolean; domainFilter?: string }) {
+export default function QubeTalkInboxTab({
+  researchOnly = false,
+  domainFilter,
+  initialChannelId,
+  pendingShareArtifact,
+  onShareArtifactHandled,
+}: {
+  researchOnly?: boolean;
+  domainFilter?: string;
+  /** External surfaces (e.g. RuntimeQubeTalkDrawer's People tab "Message"
+   *  action) can hand a resolved channel id straight in so the operator
+   *  lands directly on it rather than on the auto-selected first channel. */
+  initialChannelId?: string | null;
+  /** A content item in context when this surface was opened (e.g. Runtime's
+   *  Share menu invoked while a capsule/content item was active). Threaded
+   *  down to whichever channel the operator selects/creates. */
+  pendingShareArtifact?: PendingShareArtifact | null;
+  /** Fired once the pending item has been shared (or dismissed) so the
+   *  caller can clear its own pending state. */
+  onShareArtifactHandled?: () => void;
+}) {
   const originFilter = researchOnly ? "research-lab" : domainFilter ?? null;
   const [myRef, setMyRef] = useState<string | null>(null);
   const [allChannels, setAllChannels] = useState<PeerChannel[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(initialChannelId ?? null);
+
+  // A caller may resolve/hand in a channel id AFTER this component has
+  // already mounted (e.g. the People tab's "Message" action resolves a
+  // channel asynchronously, then switches tabs) — apply it whenever it
+  // changes, not just at mount.
+  useEffect(() => {
+    if (initialChannelId) setSelected(initialChannelId);
+  }, [initialChannelId]);
 
   const [newRef, setNewRef] = useState("");
   const [creating, setCreating] = useState(false);
@@ -304,6 +352,8 @@ export default function QubeTalkInboxTab({ researchOnly = false, domainFilter }:
               channelId={selected}
               channel={channels.find((c) => c.id === selected) ?? null}
               onRenamed={loadChannels}
+              pendingShareArtifact={pendingShareArtifact}
+              onShareArtifactHandled={onShareArtifactHandled}
             />
           ) : (
             <div className="flex h-full items-center justify-center rounded-md border border-slate-800 bg-slate-900/40 px-3 py-10 text-xs text-slate-500">
@@ -318,10 +368,23 @@ export default function QubeTalkInboxTab({ researchOnly = false, domainFilter }:
 
 // ── One channel: messages + shared artifacts ─────────────────────────────────
 
-function ChannelPane({ channelId, channel, onRenamed }: { channelId: string; channel: PeerChannel | null; onRenamed: () => void | Promise<void> }) {
+function ChannelPane({
+  channelId,
+  channel,
+  onRenamed,
+  pendingShareArtifact,
+  onShareArtifactHandled,
+}: {
+  channelId: string;
+  channel: PeerChannel | null;
+  onRenamed: () => void | Promise<void>;
+  pendingShareArtifact?: PendingShareArtifact | null;
+  onShareArtifactHandled?: () => void;
+}) {
   const [messages, setMessages] = useState<PeerMessage[]>([]);
   const [artifacts, setArtifacts] = useState<SharedArtifact[]>([]);
   const [relationship, setRelationship] = useState<RelationshipState | null>(null);
+  const [contact, setContact] = useState<ChannelContact | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [body, setBody] = useState("");
@@ -330,6 +393,14 @@ function ChannelPane({ channelId, channel, onRenamed }: { channelId: string; cha
   const [renaming, setRenaming] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
   const [savingName, setSavingName] = useState(false);
+  // "native" (default) or a ContactEndpoint id — the transport picker's
+  // selection. Resolved into transport/destination server-side by egress.ts
+  // (services/qubetalk/egress.ts) so the client never guesses a raw Discord
+  // channel id itself; it only names WHICH of the counterparty's endpoints
+  // to use (§2: "the composer should know that selecting Discord is
+  // selecting a specific handle belonging to a particular ContactPersona").
+  const [selectedEndpointId, setSelectedEndpointId] = useState<string>("native");
+  const [sharingPending, setSharingPending] = useState(false);
 
   const saveName = useCallback(async () => {
     setSavingName(true);
@@ -352,14 +423,16 @@ function ChannelPane({ channelId, channel, onRenamed }: { channelId: string; cha
     setLoading(true);
     setError(null);
     try {
-      const [m, a, r] = await Promise.all([
+      const [m, a, r, c] = await Promise.all([
         jf<{ messages: PeerMessage[] }>(`/api/qubetalk/peer-channels/${channelId}/messages`),
         jf<{ artifacts: SharedArtifact[] }>(`/api/qubetalk/peer-channels/${channelId}/artifacts`),
         jf<{ relationship: RelationshipState }>(`/api/qubetalk/peer-channels/${channelId}/relationship`).catch(() => null),
+        jf<{ contact: ChannelContact }>(`/api/qubetalk/peer-channels/${channelId}/contact`).catch(() => null),
       ]);
       setMessages(m.messages ?? []);
       setArtifacts(a.artifacts ?? []);
       setRelationship(r?.relationship ?? null);
+      setContact(c?.contact ?? null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load channel");
     } finally {
@@ -371,16 +444,36 @@ function ChannelPane({ channelId, channel, onRenamed }: { channelId: string; cha
     load();
   }, [load]);
 
+  // Every Discord endpoint the counterparty's ContactGraph entry has on
+  // file, flattened for the transport picker (native QubeTalk is always the
+  // implicit first option — never listed here). Scoped to 'discord' only —
+  // the one external transport actually wired end-to-end
+  // (services/qubetalk/transportRegistry.ts); other platforms would just
+  // bounce off egress.ts's honest 'transport_not_wired' rejection, so they
+  // are not offered as a choice rather than offered-then-always-fail.
+  const endpointOptions = useMemo(
+    () =>
+      (contact?.personas ?? []).flatMap((persona) =>
+        persona.endpoints.filter((ep) => ep.platform === "discord").map((ep) => ({ ...ep, personaLabel: persona.label })),
+      ),
+    [contact],
+  );
+
   const post = useCallback(async () => {
     const text = body.trim();
     if (!text) return;
     setSending(true);
     setError(null);
     try {
+      const chosen = selectedEndpointId !== "native" ? endpointOptions.find((e) => e.id === selectedEndpointId) : null;
       await jf(`/api/qubetalk/peer-channels/${channelId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "message", body: text }),
+        body: JSON.stringify({
+          type: "message",
+          body: text,
+          ...(chosen ? { transport: chosen.platform, destination: { contactEndpointId: chosen.id } } : {}),
+        }),
       });
       setBody("");
       await load();
@@ -389,7 +482,26 @@ function ChannelPane({ channelId, channel, onRenamed }: { channelId: string; cha
     } finally {
       setSending(false);
     }
-  }, [body, channelId, load]);
+  }, [body, channelId, load, selectedEndpointId, endpointOptions]);
+
+  const sharePending = useCallback(async () => {
+    if (!pendingShareArtifact) return;
+    setSharingPending(true);
+    setError(null);
+    try {
+      await jf(`/api/qubetalk/peer-channels/${channelId}/share`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(pendingShareArtifact),
+      });
+      onShareArtifactHandled?.();
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to share");
+    } finally {
+      setSharingPending(false);
+    }
+  }, [pendingShareArtifact, channelId, load, onShareArtifactHandled]);
 
   const act = useCallback(
     async (artifactId: string, action: "open" | "copy-to-locker") => {
@@ -579,8 +691,46 @@ function ChannelPane({ channelId, channel, onRenamed }: { channelId: string; cha
         </div>
       </div>
 
+      {/* Pending share — Runtime Share -> Message, content-scoped (§9). Reuses
+          the existing shareArtifact route; never a second sharing mechanism. */}
+      {pendingShareArtifact && (
+        <div className="flex items-center justify-between gap-2 rounded-md border border-amber-700/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+          <span className="min-w-0 truncate">
+            Share &quot;{pendingShareArtifact.title || pendingShareArtifact.artifactType}&quot; into this conversation?
+          </span>
+          <div className="flex shrink-0 items-center gap-1.5">
+            <button
+              onClick={sharePending}
+              disabled={sharingPending}
+              className="inline-flex items-center gap-1 rounded bg-amber-600/80 px-2 py-1 text-[11px] text-white hover:bg-amber-600 disabled:opacity-50"
+            >
+              {sharingPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Share2 className="h-3 w-3" />}
+              Share
+            </button>
+            <button onClick={onShareArtifactHandled} className="rounded p-1 text-amber-300/70 hover:text-amber-200">
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Composer */}
       <div className="flex items-center gap-2">
+        {endpointOptions.length > 0 && (
+          <select
+            value={selectedEndpointId}
+            onChange={(e) => setSelectedEndpointId(e.target.value)}
+            title="Send via"
+            className="shrink-0 rounded border border-slate-700 bg-slate-950/60 px-1.5 py-1.5 text-[11px] text-slate-300 focus:border-indigo-500/60 focus:outline-none"
+          >
+            <option value="native">QubeTalk</option>
+            {endpointOptions.map((ep) => (
+              <option key={ep.id} value={ep.id}>
+                Discord · {ep.personaLabel}
+              </option>
+            ))}
+          </select>
+        )}
         <input
           value={body}
           onChange={(e) => setBody(e.target.value)}
