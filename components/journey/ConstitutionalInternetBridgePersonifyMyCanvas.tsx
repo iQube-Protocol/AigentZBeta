@@ -41,13 +41,25 @@
  * is wrong: "Later" is not a page-navigation action, it is "not now" for
  * this one modal. MyCanvas/personification stays unmounted regardless
  * (`passportUsable` still gates `src`, independent of `gateOpen`).
+ *
+ * MYCANVAS ACTIVATION (item 8, semantic repair 2026-08-25) — see
+ * KnytsBridgeRemixSurface.tsx's own header for the full defect diagnosis;
+ * this surface mirrors that fix exactly. `mycanvas` is an "open" activation
+ * (data/activation-catalog.ts) that is never auto-granted on read
+ * (services/activations/spineActivations.ts). Ensure it, idempotently, via
+ * the existing `useActivations().activate(id)` before building the
+ * `tab=mycanvas` iframe src, and wait for confirmed/optimistic `active`
+ * status first — never falling back to metaMe.com for a Passport-qualified,
+ * eligible visitor.
  */
 
 import { useEffect, useState } from 'react';
+import { Loader2 } from 'lucide-react';
 import { buildCodexUrl } from '@/utils/codex-nav';
 import { CI_BRIDGE_CAMPAIGN_ID } from '@/services/journey/constitutionalInternetBridgeJourney';
 import { takeCiBridgeRemixIntent } from '@/services/journey/ciBridgeRemixIntent';
 import { ConstitutionalInternetBridgePassportGate } from '@/components/journey/ConstitutionalInternetBridgePassportGate';
+import { ActivationsProvider, useActivations } from '@/services/activations/ActivationsContext';
 
 function selectStage(stageId: string) {
   try {
@@ -63,7 +75,15 @@ interface Props {
   citizenPassportUsable?: boolean;
 }
 
-export function ConstitutionalInternetBridgePersonifyMyCanvas({ personaId, citizenPassportUsable }: Props) {
+export function ConstitutionalInternetBridgePersonifyMyCanvas(props: Props) {
+  return (
+    <ActivationsProvider personaId={props.personaId}>
+      <ConstitutionalInternetBridgePersonifyMyCanvasInner {...props} />
+    </ActivationsProvider>
+  );
+}
+
+function ConstitutionalInternetBridgePersonifyMyCanvasInner({ personaId, citizenPassportUsable }: Props) {
   const [src, setSrc] = useState<string | null>(null);
   const [publicSrc, setPublicSrc] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
@@ -72,12 +92,25 @@ export function ConstitutionalInternetBridgePersonifyMyCanvas({ personaId, citiz
 
   const passportUsable = citizenPassportUsable === true;
 
+  const { activeIds, isMutating, loading: activationsLoading, activate, error: activationError } = useActivations();
+  const mycanvasActive = activeIds.has('mycanvas');
+  const mycanvasActivating = isMutating('mycanvas');
+  const mycanvasPending = activationsLoading || mycanvasActivating || (!mycanvasActive && !activationError);
+
   // Fresh gate on every entry into the not-usable state (e.g. the visitor
   // left Personify and came back) — "Later" dismisses THIS visit, not
   // forever.
   useEffect(() => {
     if (!passportUsable) setGateOpen(true);
   }, [passportUsable]);
+
+  // Ensure the open `mycanvas` activation, idempotently, for this same
+  // active persona.
+  useEffect(() => {
+    if (!passportUsable || activationsLoading || mycanvasActive || mycanvasActivating) return;
+    void activate('mycanvas');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [passportUsable, activationsLoading, mycanvasActive, mycanvasActivating]);
 
   useEffect(() => {
     // Not usable — do NOT build/mount the myCanvas src at all (fail closed).
@@ -89,6 +122,13 @@ export function ConstitutionalInternetBridgePersonifyMyCanvas({ personaId, citiz
       return;
     }
     setPublicSrc(null);
+
+    // Wait for confirmed (or optimistic) activation before deep-linking
+    // myCanvas.
+    if (!mycanvasActive) {
+      setSrc(null);
+      return;
+    }
 
     const buildSrcForMode = (focused: boolean) => {
       const base = buildCodexUrl('metame-codex', {
@@ -112,7 +152,7 @@ export function ConstitutionalInternetBridgePersonifyMyCanvas({ personaId, citiz
     // Focused (Lite) by default; Full when expanded.
     setSrc(expanded ? buildSrcForMode(false) : buildSrcForMode(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [personaId, expanded, passportUsable]);
+  }, [personaId, expanded, passportUsable, mycanvasActive]);
 
   if (!passportUsable) {
     return (
@@ -126,6 +166,31 @@ export function ConstitutionalInternetBridgePersonifyMyCanvas({ personaId, citiz
           onProceedToPassport={() => selectStage('passport')}
           dismissLabel="Later"
         />
+      </div>
+    );
+  }
+
+  // Passport-qualified and eligible for the open myCanvas activation —
+  // never the metaMe.com fallback from here on, only a brief opening state
+  // (or an explicit retry if the activation write itself failed).
+  if (mycanvasPending) {
+    return (
+      <div className="flex h-[calc(100vh-200px)] w-full flex-col items-center justify-center gap-2 rounded-md border border-slate-800 bg-slate-950 text-sm text-slate-400">
+        <Loader2 className="h-5 w-5 animate-spin" />
+        Opening myCanvas…
+      </div>
+    );
+  }
+  if (activationError && !mycanvasActive) {
+    return (
+      <div className="flex h-[calc(100vh-200px)] w-full flex-col items-center justify-center gap-3 rounded-md border border-slate-800 bg-slate-950 text-sm text-slate-400">
+        <p>Couldn&apos;t open myCanvas.</p>
+        <button
+          onClick={() => void activate('mycanvas')}
+          className="rounded-md border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-800"
+        >
+          Retry
+        </button>
       </div>
     );
   }

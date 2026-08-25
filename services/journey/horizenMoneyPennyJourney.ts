@@ -71,6 +71,13 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
   partner: 'horizen',
   destination: 'aigentme',
   subjectRef: 'moneypenny',
+  // Journey Runtime copilot invariant (item 1, 2026-08-25) — MoneyPenny is
+  // this journey's own primary agent, and the Financial Services Bridge
+  // already mounts her as its copilot; this reference is what
+  // JourneyRunSurface now resolves that SAME identity from canonically
+  // (data/codex-configs.ts's MONEYPENNY_CARTRIDGE.copilot), rather than the
+  // page hand-copying it.
+  copilot: { cartridgeSlug: 'moneypenny' },
   stages: [
     {
       id: 'register',
@@ -237,7 +244,7 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
       id: 'passport',
       label: 'Passport',
       milestone: 'PASSPORT_ISSUED',
-      description: "The operator's own Polity Citizen Passport resolves, then sponsorship, then the agent's Polity Delegate Passport issues.",
+      description: "The operator's own Polity Citizen Passport resolves, then sponsorship, then the agent's Polity Agent Passport issues.",
       actor: 'operator',
       subjectRef: 'moneypenny',
       surfaces: [
@@ -285,7 +292,7 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
        *
        * `registryActivated = iQubeRegistryPresent ∧ sponsorBindingEstablished
        * ∧ agentPassportIssued`. Established automatically the moment
-       * Passport's own two acts (sponsorship + Delegate Passport issuance)
+       * Passport's own two acts (sponsorship + Agent Passport issuance)
        * are both observed true — see services/journey/
        * agentRegistryActivation.ts's `ensureAgentRegistryActivation`, called
        * from services/journey/agentAdmissionState.ts at that exact boundary.
@@ -350,7 +357,7 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
       completionEvidence: ['registryActivated'],
       receiptTypes: ['agent_registry_activated'],
       companion: {
-        before: 'Once sponsorship and {{agentDisplayName}}\'s Delegate Passport are both established, activation follows automatically.',
+        before: 'Once sponsorship and {{agentDisplayName}}\'s Agent Passport are both established, activation follows automatically.',
         complete: '{{agentDisplayName}} is now an accountable, active participant in the iQube Registry. No Standing has been awarded — activation establishes eligibility to participate, never accrual.',
       },
       narrator: { active: 'Activating in the Registry', consequence: 'Establishes accountable participation' },
@@ -468,7 +475,7 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
       companion: {
         before: '{{agentDisplayName}} is ready to introduce you to aigentMe, your constitutional companion.',
         complete:
-          'You have crossed the threshold. Your Polity Citizen Passport establishes your continuing constitutional personhood. aigentMe is now active as your constitutional companion. {{agentDisplayName}} has joined your agent set through a Polity Delegate Passport and may act only within the authority and mandates you have granted.',
+          'You have crossed the threshold. Your Polity Citizen Passport establishes your continuing constitutional personhood. aigentMe is now active as your constitutional companion. {{agentDisplayName}} holds a Polity Agent Passport and may act only within the authority and mandates you have granted.',
       },
       narrator: { active: 'Activating delegate', consequence: 'Agent may now act' },
     },

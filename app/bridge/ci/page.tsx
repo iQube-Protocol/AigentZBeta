@@ -39,14 +39,16 @@
  * surface currently issues such a request (none needs to: PASSPORT is a
  * proper spine stage before PERSONIFY, reached in order).
  *
- * One floating copilot (CodexCopilotLayer) is mounted once here, using the
- * existing canonical aigentMe identity (data/codex-configs.ts's
- * METAME_CODEX.copilot: agent id 'aigent-me', accent emerald) rather than
- * inventing a new "aigent-ci" identity — there is no dedicated CI copilot
- * configured anywhere in this codebase, and aigentMe is the correct
- * existing constitutional guide for this Bridge's subject matter. The new
- * PERSONIFY aigentMe embed suppresses its OWN floating copilot
- * (suppressCopilot on that iframe) so this remains the only one on screen.
+ * JOURNEY RUNTIME COPILOT INVARIANT (item 1, semantic repair 2026-08-25) —
+ * the single floating copilot is no longer mounted here by hand. It is now
+ * `JourneyCopilotHost`, mounted once from the shared `JourneyRunSurface`
+ * runner itself, resolving the SAME existing canonical aigentMe identity
+ * (data/codex-configs.ts's METAME_CODEX.copilot: agent id 'aigent-me',
+ * accent emerald) from `CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY.copilot` —
+ * never hand-copied here anymore, and never an invented "aigent-ci"
+ * identity. The PERSONIFY aigentMe embed still suppresses its OWN floating
+ * copilot (suppressCopilot on that iframe) so this remains the only one on
+ * screen.
  *
  * Bridge Admin (added 2026-08-11) mirrors KNYTS Bridge's admin panel
  * exactly — same table, same route, same KnytsBridgeAdminPanel component
@@ -60,6 +62,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Settings } from 'lucide-react';
 import { JourneyRunSurface, type JourneyRunSurfaceProps } from '@/components/journey/JourneyRunSurface';
+import { openJourneyCopilot } from '@/components/journey/JourneyCopilotHost';
 import type { JourneyRuntimeState } from '@/types/journey';
 import { CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY } from '@/services/journey/constitutionalInternetBridgeJourney';
 import { CI_BRIDGE_VIEW_CONTENT } from '@/services/journey/constitutionalInternetBridgeViewContent';
@@ -74,7 +77,6 @@ import { KnytsBridgeAdminPanel } from '@/components/journey/KnytsBridgeAdminPane
 import { PassportConnectPanel } from '@/components/companion/PassportConnectPanel';
 import { usePassportSignInHost } from '@/app/hooks/usePassportSignInHost';
 import { usePersonaSpine } from '@/utils/personaSpine';
-import { CodexCopilotLayer } from '@/app/components/codex/CodexCopilotLayer';
 import { MetaAvatarProvider } from '@/app/contexts/MetaAvatarContext';
 import { MetaAvatarHost } from '@/app/components/metaVatar/MetaAvatarHost';
 
@@ -96,12 +98,6 @@ const CI_BRIDGE_COMPONENTS: Record<string, React.ComponentType<Record<string, un
   ConstitutionalInternetBridgeChooseSurface,
 };
 
-const CI_COPILOT_QUICK_PROMPTS = [
-  'What does this mean?',
-  'Why personhood before identity?',
-  'How do I connect Claude?',
-];
-
 function selectStage(stageId: string) {
   try {
     window.dispatchEvent(new CustomEvent('journey:select-stage', { detail: { stageId } }));
@@ -112,7 +108,6 @@ function selectStage(stageId: string) {
 
 export default function ConstitutionalInternetBridgePage() {
   const [personaId, setPersonaId] = useState<string | undefined>(undefined);
-  const [copilotOpen, setCopilotOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
   // Derived exclusively from `onRuntimeStateChange` below — never as a side
   // effect of `resolveSurfaceProps` while the Passport room happens to be
@@ -155,11 +150,12 @@ export default function ConstitutionalInternetBridgePage() {
         };
       }
       if (surfaceRef.ref === 'ci-bridge-choose') {
-        // "Meet aigentMe" opens the SAME floating Copilot drawer mounted
-        // once below (targeted correction pass, 2026-08-11) — never a
+        // "Meet aigentMe" opens the SAME floating Copilot mounted once by
+        // JourneyRunSurface's JourneyCopilotHost (targeted correction pass,
+        // 2026-08-11; re-pointed at the shared host 2026-08-25) — never a
         // second embedded metaMe surface. This is the existing personaId-
         // drilling channel (resolveSurfaceProps), just one more callback.
-        return { personaId, onOpenAigentMeCopilot: () => setCopilotOpen(true) };
+        return { personaId, onOpenAigentMeCopilot: openJourneyCopilot };
       }
       if (surfaceRef.ref === 'ci-bridge-view') {
         return { personaId };
@@ -309,31 +305,6 @@ export default function ConstitutionalInternetBridgePage() {
           </div>
         )}
 
-        {/* Omnipresent aigentMe copilot — the existing canonical constitutional
-            guide identity (data/codex-configs.ts's METAME_CODEX.copilot), not
-            an invented CI-specific agent. */}
-        <CodexCopilotLayer
-          isOpen={copilotOpen}
-          onClose={() => setCopilotOpen(false)}
-          onOpen={() => setCopilotOpen(true)}
-          variant="floating"
-          accentColor="emerald"
-          agent={{ id: 'aigent-me', name: 'aigentMe' }}
-          personaId={personaId}
-          enableInferenceRendering
-          contextId="ci-bridge"
-          promptPlaceholder="Ask about the Constitutional Internet..."
-          quickPrompts={CI_COPILOT_QUICK_PROMPTS}
-          groundContext={{
-            surface: 'ci-bridge',
-            bridgeTitle: 'The Constitutional Internet Bridge',
-            stageContent: CI_BRIDGE_VIEW_CONTENT.map(block => ({
-              proposition: block.proposition,
-              excerpt: block.excerpt,
-              source: block.excerptSource,
-            })),
-          }}
-        />
       </div>
       {/* Root cause of the blank Copilot metaVatar (2026-08-11, targeted
           correction pass #98): MetaAvatarProvider above supplies context so

@@ -68,6 +68,11 @@ export const KNYTS_BRIDGE_CROSSING_JOURNEY: JourneyDefinition = {
   partner: 'knyt',
   destination: 'knyt-pulse',
   subjectRef: 'visitor',
+  // Journey Runtime copilot invariant (item 1, 2026-08-25) — the SAME
+  // agent/accentColor `/bridge/knyts` already mounted by hand
+  // (data/codex-configs.ts's KNYT_CODEX.copilot: aigent-kn0w1 / "KNYT
+  // Copilot" / amber), now resolved canonically instead of hand-copied.
+  copilot: { cartridgeSlug: 'knyt-codex' },
   stages: [
     {
       id: 'home',

@@ -120,7 +120,7 @@ export function generateAdmissionPackage(
     },
     operatorFacing: {
       sponsorshipRationale:
-        'Sponsoring this agent enables Delegate Passport issuance, bounded constitutional delegation, Standing accrual, and ' +
+        'Sponsoring this agent enables Agent Passport issuance, bounded constitutional delegation, Standing accrual, and ' +
         'governed commercial engagement through the Founder Office — all under authority you originate and may revoke at any time.',
       proposedSponsorshipLevel: sponsorshipLevel(candidate),
       constitutionalRightsAndResponsibilities: CONSTITUTIONAL_RIGHTS_AND_RESPONSIBILITIES,

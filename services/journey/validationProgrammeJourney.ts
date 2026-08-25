@@ -74,6 +74,12 @@ export const VALIDATION_PROGRAMME_JOURNEY: JourneyDefinition = {
   partner: 'autonomi',
   destination: 'experiment-progress',
   subjectRef: 'external-reviewer',
+  // Journey Runtime copilot invariant (item 1, 2026-08-25) — resolves to
+  // the existing IRL OS Guide (data/codex-configs.ts's
+  // IRL_CARTRIDGE.copilot: aigent-researcher / "IRL Guide" / violet), the
+  // same cartridge this journey's own Reviewer/Records surfaces already
+  // embed into.
+  copilot: { cartridgeSlug: 'irl-cartridge' },
   stages: [
     {
       id: 'overview',

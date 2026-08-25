@@ -95,7 +95,7 @@ const PASSPORT_TYPES: Array<{
     revocable: false,
   },
   {
-    name: 'Polity Delegate Passport',
+    name: 'Polity Agent Passport',
     forWhom: 'Agents and non-human entities',
     icon: <Bot className="h-5 w-5 text-violet-400" />,
     color: 'violet',
@@ -295,7 +295,7 @@ export function PassportDoctrineTab() {
             </p>
           </div>
           <div>
-            <p className="text-xs font-semibold text-violet-300 mb-1">Polity Delegate Passport Statuses</p>
+            <p className="text-xs font-semibold text-violet-300 mb-1">Polity Agent Passport Statuses</p>
             <div className="flex flex-wrap gap-1">
               {PARTICIPANT_STATUSES.map((s) => (
                 <span key={s} className={cls(
@@ -427,7 +427,7 @@ export function PassportDoctrineTab() {
                 citizenStatuses: CITIZEN_STATUSES,
                 participantStatuses: PARTICIPANT_STATUSES,
                 constitutionalPrinciple:
-                  'Polity Citizen Passports are irrevocable recognitions of human personhood. Polity Delegate Passports carry conditional standing.',
+                  'Polity Citizen Passports are irrevocable recognitions of human personhood. Polity Agent Passports carry conditional standing.',
               }, null, 2)],
               { type: 'application/json' },
             );

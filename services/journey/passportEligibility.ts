@@ -240,7 +240,7 @@ export const NON_BLOCKING_EVIDENCE: Record<NonBlockingExceptionCode, string> = {
     '"a migration is missing" is expressly not among them.',
   'partner-metadata-incomplete':
     "Optional partner metadata (e.g. Horizen's human-readable page URL) appears in no ratified completion condition. " +
-    'PRD-GJR-001 §7 stage 4 requires: valid operator Polity Citizen Passport ∩ sponsor binding ∩ Delegate Passport issued.',
+    'PRD-GJR-001 §7 stage 4 requires: valid operator Polity Citizen Passport ∩ sponsor binding ∩ Agent Passport issued.',
   'registration-audit-gap':
     'The Settled Fact Non-Reconsideration ruling (2026-08-03): "Evidence absence in a downstream observer is not ' +
     'evidence that a settled fact has ceased to be true."',
@@ -491,7 +491,7 @@ export function resolvePassportEligibility(input: PassportEligibilityInput): Pas
    * Eligible: the Passport ceremony itself.
    */
   const nextExecutableAct: JourneyAct = eligible
-    ? journeyAct(stageId, 'perform:passport', 'perform-ceremony', 'Continue to Passport', 'Record sponsorship and issue the Polity Delegate Passport.')
+    ? journeyAct(stageId, 'perform:passport', 'perform-ceremony', 'Continue to Passport', 'Record sponsorship and issue the Polity Agent Passport.')
     : blockingReasons[0].acts[0];
 
   return { eligible, blockingReasons, nonBlockingExceptions, nextExecutableAct };

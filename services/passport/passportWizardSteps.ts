@@ -11,9 +11,11 @@
  * exists to make possible.
  *
  * `'participant'` is the wizard's internal PassportClass value for the
- * public-facing "Polity Delegate Passport" — the internal identifier is
- * preserved (it also matches the DB/API `agent_participant` family) even
- * though the UI no longer surfaces the word "Participant".
+ * public-facing "Polity Agent Passport" (renamed from "Polity Delegate
+ * Passport", semantic repair 2026-08-25 — Passporting an agent is
+ * sponsorship, not delegation) — the internal identifier is preserved (it
+ * also matches the DB/API `agent_participant` family) even though the UI no
+ * longer surfaces the word "Participant" or "Delegate".
  */
 
 export type StepId = 'class' | 'account' | 'identity' | 'vault' | 'agent' | 'consents' | 'submit';

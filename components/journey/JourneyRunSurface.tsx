@@ -28,6 +28,7 @@ import { buildCodexUrl } from '@/utils/codex-nav';
 import { JOURNEY_SURFACES, buildEmbedSurfaceSrc, type JourneySurfaceDescriptor } from '@/services/journey/journeySurfaceRegistry';
 import { requestBridgeEmbedReturn } from '@/services/journey/bridgeEmbedNav';
 import { StageReceiptsDrawer } from '@/components/journey/StageReceiptsDrawer';
+import { JourneyCopilotHost } from '@/components/journey/JourneyCopilotHost';
 import { ActivePersonaControl } from '@/components/persona/ActivePersonaControl';
 import type { JourneyDefinition, JourneyRuntimeState, JourneyStageDefinition, JourneySurfaceRef } from '@/types/journey';
 import { overlayZClass } from '@/components/ui/overlayLayers';
@@ -1270,7 +1271,16 @@ export function JourneyRunSurface({
               const shouldFocus = !isExpanded && descriptor.focused;
               const src = buildEmbedSurfaceSrc(
                 { ...descriptor, focused: shouldFocus ? true : undefined },
-                { personaId, selectedAgentSlug },
+                {
+                  personaId,
+                  selectedAgentSlug,
+                  // Per-stage section focus (Reciprocal Artifact Exchange
+                  // focus contract, 2026-08-25) — read from THIS stage's own
+                  // surface ref, never the shared registry entry, since one
+                  // registry entry (e.g. 'irl-exchange-workspace') is reused
+                  // across several stages that each need a different value.
+                  focus: typeof surfaceRef.props?.focus === 'string' ? surfaceRef.props.focus : undefined,
+                },
                 buildCodexUrl
               );
               return (
@@ -1417,6 +1427,18 @@ export function JourneyRunSurface({
           />
         )}
       </div>
+      {/* Journey Runtime copilot invariant (item 1, 2026-08-25) — the ONE
+          shared floating copilot for the whole journey spine, independent
+          of active stage. Sits inside `content` (not appended after it) so
+          it is included in BOTH the normal-flow return and the fullscreen
+          portal below — the copilot must survive the fullscreen toggle. */}
+      <JourneyCopilotHost
+        journey={journey}
+        personaId={personaId}
+        activeStage={activeStage}
+        activeStageRuntime={activeStageRuntime}
+        selectedAgentSlug={selectedAgentSlug}
+      />
     </div>
   );
 

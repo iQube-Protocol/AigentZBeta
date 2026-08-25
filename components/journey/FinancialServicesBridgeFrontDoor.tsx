@@ -71,31 +71,25 @@
  * expand into full metaMe and reach aigentMe (or anything else) exactly as
  * today.
  *
- * FINANCIAL SERVICES MONEYPENNY COPILOT (Journey Principal Context +
- * Financial Services MoneyPenny Copilot, 2026-08-25) — the Bridge owns ONE
- * persistent floating copilot, MoneyPenny (`aigent-moneypenny` — the
- * platform's primary Constitutional Financial Services Agent, PRD-MPY-001),
- * mounted here exactly the way KNYTS/CI Bridge each mount their own single
- * floating guide (app/bridge/knyts/page.tsx). It stays mounted across every
- * stage, including Operate/aigentme, and is NEVER doubled by a copilot
- * inside the MoneyPenny Orchestration iframe: `resolveJourneyOperatorDestination`
- * is called with `suppressCopilot: true` in `navOptions`, which
- * `catalogueDestinationHelper.ts` forwards straight into `buildCodexUrl`
- * (`?copilot=off`) — the SAME mechanism KNYT's own embedded Pulse/Quests/
- * Store tabs use to defer to their host Bridge's copilot (MS-1: one
- * navigation/one conversational partner, never two). This never changes
- * with Focus vs. expanded/full metaMe presentation — the outer identity
- * (`aigent-moneypenny`) is constant; only the embed's OWN top-level chrome
- * (never this Bridge's outer copilot) toggles with that embed's focused
- * state.
+ * JOURNEY RUNTIME COPILOT INVARIANT (item 1, semantic repair 2026-08-25) —
+ * the single floating copilot is no longer mounted here by hand. It is now
+ * `JourneyCopilotHost`, mounted once from the shared `JourneyRunSurface`
+ * runner itself, resolving MoneyPenny's identity
+ * (`aigent-moneypenny` — the platform's primary Constitutional Financial
+ * Services Agent, PRD-MPY-001) from
+ * `HORIZEN_MONEYPENNY_JOURNEY.copilot` (data/codex-configs.ts's
+ * `MONEYPENNY_CARTRIDGE.copilot`) — never hand-copied here anymore. It
+ * stays mounted across every stage, including Operate/aigentme, and is
+ * still NEVER doubled by a copilot inside the MoneyPenny Orchestration
+ * iframe: `resolveJourneyOperatorDestination` is still called with
+ * `suppressCopilot: true` in `navOptions`, unchanged (MS-1).
  *
- * `MetaAvatarProvider`/`MetaAvatarHost` wrap this bare page for the same
- * reason KNYTS/CI Bridge each add their own instance (2026-08-10/11) — this
- * page sits outside both `app/(shell)/layout.tsx` and
+ * `MetaAvatarProvider`/`MetaAvatarHost` still wrap this bare page for the
+ * same reason KNYTS/CI Bridge each add their own instance (2026-08-10/11) —
+ * this page sits outside both `app/(shell)/layout.tsx` and
  * `app/(embed)/layout.tsx`, the only two places that otherwise supply the
- * context `CodexCopilotLayer`'s `useMetaAvatar()` requires. The provider is
- * a lightweight, self-contained context; mounting a second instance here is
- * safe.
+ * context `CodexCopilotLayer`'s `useMetaAvatar()` requires (still needed by
+ * `JourneyCopilotHost`, which uses that same layer).
  */
 
 import { useCallback, useEffect, useState } from 'react';
@@ -103,36 +97,23 @@ import { PilotJourneyTab } from '@/app/triad/components/codex/tabs/PilotJourneyT
 import { PassportConnectPanel } from '@/components/companion/PassportConnectPanel';
 import { usePassportSignInHost } from '@/app/hooks/usePassportSignInHost';
 import { usePersonaSpine } from '@/utils/personaSpine';
-import { CodexCopilotLayer } from '@/app/components/codex/CodexCopilotLayer';
 import { MetaAvatarProvider } from '@/app/contexts/MetaAvatarContext';
 import { MetaAvatarHost } from '@/app/components/metaVatar/MetaAvatarHost';
 import type { JourneyRuntimeState } from '@/types/journey';
 import { HORIZEN_MONEYPENNY_JOURNEY } from '@/services/journey/horizenMoneyPennyJourney';
 import { resolveJourneyOperatorDestination } from '@/services/journey/catalogueDestinationHelper';
 
-const MONEYPENNY_COPILOT_QUICK_PROMPTS = [
-  'What can MoneyPenny help me with here?',
-  'What is my Financial Services status?',
-  'What can Runtime actually do for me?',
-];
-
 export function FinancialServicesBridgeFrontDoor() {
   const [personaId, setPersonaId] = useState<string | undefined>(undefined);
-  const [copilotOpen, setCopilotOpen] = useState(false);
   usePersonaSpine();
 
   // Derived exclusively from onRuntimeStateChange — never re-read from a
   // second observer (CFS-055 coherence discipline, same as the CI bridge).
   const [citizenPassportUsable, setCitizenPassportUsable] = useState<boolean | undefined>(undefined);
-  // Current stage, for MoneyPenny's own groundContext only (informational —
-  // never a second source of stage truth; the stepper's own selection is
-  // untouched by this).
-  const [currentStageId, setCurrentStageId] = useState<string | undefined>(undefined);
 
   const handleRuntimeStateChange = useCallback((state: JourneyRuntimeState) => {
     const passportStage = state.stages.find((s) => s.stageId === 'passport');
     setCitizenPassportUsable(Boolean(passportStage?.evidencePresent.includes('operatorPolityCitizenPassportValid')));
-    setCurrentStageId(state.currentStageId);
   }, []);
 
   useEffect(() => {
@@ -224,33 +205,6 @@ export function FinancialServicesBridgeFrontDoor() {
           </div>
         </div>
       )}
-
-      {/* Omnipresent MoneyPenny copilot — the ONE conversational partner for
-          the Financial Services Bridge, across every stage including
-          Operate. The embedded MoneyPenny Orchestration iframe (above) is
-          always resolved with suppressCopilot: true so it never mounts a
-          second one (MS-1). */}
-      <CodexCopilotLayer
-        isOpen={copilotOpen}
-        onClose={() => setCopilotOpen(false)}
-        onOpen={() => setCopilotOpen(true)}
-        variant="floating"
-        accentColor="emerald"
-        agent={{ id: 'aigent-moneypenny', name: 'MoneyPenny' }}
-        personaId={personaId}
-        enableInferenceRendering
-        contextId="financial-services-bridge"
-        promptPlaceholder="Ask MoneyPenny..."
-        quickPrompts={MONEYPENNY_COPILOT_QUICK_PROMPTS}
-        groundContext={{
-          surface: 'financial-services-bridge',
-          journeyId: HORIZEN_MONEYPENNY_JOURNEY.id,
-          currentStageId: currentStageId ?? null,
-          activationMode: destination.valid ? destination.activationMode : null,
-          moneyPennyDestination: destination.valid ? destination.operatorDestination.route : null,
-          serviceModes: destination.valid ? destination.operatorDestination.serviceModes ?? [] : [],
-        }}
-      />
     </div>
     <MetaAvatarHost />
     </MetaAvatarProvider>

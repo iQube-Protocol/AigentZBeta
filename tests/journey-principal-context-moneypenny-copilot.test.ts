@@ -114,7 +114,10 @@ describe('JourneyRunSurface — Active Persona control placement', () => {
     const depsAt = code.indexOf('}, [stateUrl, personaId]);', refreshDefAt);
     expect(depsAt, 'refresh() must be memoized on [stateUrl, personaId]').toBeGreaterThan(-1);
     expect(code).toContain('personaIdHint: personaId');
-    expect(code).toContain('{ personaId, selectedAgentSlug }');
+    // Reciprocal Artifact Exchange focus contract (2026-08-25) widened this
+    // call's input object to include a per-stage `focus` value — still the
+    // ONE builder, just a multi-line object literal now.
+    expect(code).toMatch(/personaId,\s*\n\s*selectedAgentSlug,/);
   });
 });
 
@@ -134,18 +137,20 @@ describe('Existing Journey callers stay unaffected (additive default)', () => {
 });
 
 describe('Financial Services Bridge — one MoneyPenny copilot, always suppressed inside the embed', () => {
-  it('mounts exactly one CodexCopilotLayer', () => {
+  it('mounts NO CodexCopilotLayer directly — the Journey Runtime copilot invariant (item 1, 2026-08-25) owns that job now', () => {
     const code = stripComments(readSource(FS_BRIDGE_FRONT_DOOR));
     const count = (code.match(/<CodexCopilotLayer/g) ?? []).length;
-    expect(count).toBe(1);
+    expect(count).toBe(0);
   });
 
-  it('the mounted copilot identity is the static literal aigent-moneypenny — never derived from Focus/Explore state', () => {
-    const code = stripComments(readSource(FS_BRIDGE_FRONT_DOOR));
-    expect(code).toContain("agent={{ id: 'aigent-moneypenny', name: 'MoneyPenny' }}");
-    // Not a template literal / ternary — a static object literal, so no
-    // embed-focus state variable can ever change which agent this is.
-    expect(code).not.toMatch(/agent=\{\{\s*id:\s*`/);
+  it('the copilot identity resolves from the journey definition, never hand-copied here', () => {
+    const journeySrc = stripComments(readSource('services/journey/horizenMoneyPennyJourney.ts'));
+    expect(journeySrc).toMatch(/copilot:\s*\{\s*cartridgeSlug:\s*'moneypenny'\s*\}/);
+    const cartridgeSrc = stripComments(readSource('data/codex-configs.ts'));
+    const cartridgeAt = cartridgeSrc.indexOf("export const MONEYPENNY_CARTRIDGE");
+    const cartridgeEnd = cartridgeSrc.indexOf('\n};', cartridgeAt);
+    const cartridgeBlock = cartridgeSrc.slice(cartridgeAt, cartridgeEnd);
+    expect(cartridgeBlock).toContain("agent: { id: 'aigent-moneypenny', name: 'MoneyPenny' }");
   });
 
   it('imports MetaAvatarProvider/MetaAvatarHost — required by CodexCopilotLayer on a bare page', () => {

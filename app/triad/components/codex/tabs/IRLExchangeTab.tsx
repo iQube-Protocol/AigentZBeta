@@ -23,7 +23,8 @@
  * personal Space; the exchange record itself is the engagement surface.
  */
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   FileText,
@@ -37,6 +38,38 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
+
+/**
+ * Reciprocal Artifact Exchange focus contract (semantic repair, 2026-08-25).
+ *
+ * OCSGA's five Journey stages (create-deposit, freeze-attestation-ready,
+ * freeze-attestation, exchange-ready, exchange-complete) all mount this SAME
+ * component/API/actions — never five separate workflow components. Each
+ * stage passes a distinct `?focus=` value (services/journey/
+ * ianBoundaryResearchJourney.ts's per-stage `surfaces[].props.focus`,
+ * threaded through JourneyRunSurface -> buildEmbedSurfaceSrc ->
+ * CodexNavOptions.focus) naming which section of THIS canonical surface is
+ * most relevant right now.
+ *
+ * PRESENTATION ONLY: `focus` scrolls to and visually foregrounds the
+ * relevant panel(s) and de-emphasizes the rest — it never disables a
+ * button, hides an action, or changes what is authorized. A visitor who
+ * opens this tab directly (no `focus` param) sees every panel at full
+ * emphasis, exactly as before this contract existed.
+ */
+type ExchangeFocus = "artifact" | "review" | "freeze" | "instrument" | "crossing";
+
+const FOCUS_PANEL_TITLES: Record<ExchangeFocus, string[]> = {
+  artifact: ["Parties", "Deposit your artifact"],
+  review: ["Freeze Declaration"],
+  freeze: ["Freeze Declaration"],
+  instrument: ["Exchange Instrument"],
+  crossing: ["Crossing", "Exchange Receipt"],
+};
+
+function isExchangeFocus(value: string | null): value is ExchangeFocus {
+  return value === "artifact" || value === "review" || value === "freeze" || value === "instrument" || value === "crossing";
+}
 
 // ─── Types (mirror types/reciprocalExchange.ts's wire shape) ────────────────
 
@@ -128,9 +161,29 @@ const STATUS_LABEL: Record<string, string> = {
   REVOKED_ACCESS_POST_EXCHANGE: "Access revoked",
 };
 
-function Panel({ title, icon: Icon, children }: { title: string; icon: React.ElementType; children: React.ReactNode }) {
+function Panel({
+  title,
+  icon: Icon,
+  children,
+  emphasize = false,
+  dim = false,
+}: {
+  title: string;
+  icon: React.ElementType;
+  children: React.ReactNode;
+  /** Journey-focus foregrounding (2026-08-25) — presentational only, see the focus contract note above. */
+  emphasize?: boolean;
+  /** Journey-focus de-emphasis — opacity only, never removes or disables anything. */
+  dim?: boolean;
+}) {
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5" style={{ backdropFilter: "blur(16px) saturate(140%)" }}>
+    <div
+      data-panel-title={title}
+      className={`rounded-2xl border p-5 transition-opacity ${
+        emphasize ? "border-violet-500/60 bg-violet-950/20 ring-1 ring-violet-500/30" : "border-slate-800 bg-slate-900/40"
+      } ${dim ? "opacity-60" : ""}`}
+      style={{ backdropFilter: "blur(16px) saturate(140%)" }}
+    >
       <h3 className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
         <Icon className="h-3.5 w-3.5 text-violet-400" /> {title}
       </h3>
@@ -187,6 +240,38 @@ export function IRLExchangeTab() {
   const [error, setError] = useState<string | null>(null);
   const [rawInviteCode, setRawInviteCode] = useState<string | null>(null);
   const [joinCode, setJoinCode] = useState("");
+
+  // Reciprocal Artifact Exchange focus contract (2026-08-25) — see the
+  // module-level doc comment. `null` (no param, or an unrecognized value)
+  // means "no focus" — every panel renders at full emphasis, unchanged from
+  // before this contract existed.
+  const searchParams = useSearchParams();
+  const rawFocus = searchParams.get("focus");
+  const focus = isExchangeFocus(rawFocus) ? rawFocus : null;
+  const relevantTitles = useMemo(() => new Set(focus ? FOCUS_PANEL_TITLES[focus] : []), [focus]);
+  const scrolledForFocusRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!focus || !view) return;
+    const key = `${selectedId ?? ""}:${focus}`;
+    if (scrolledForFocusRef.current === key) return;
+    scrolledForFocusRef.current = key;
+    const titles = FOCUS_PANEL_TITLES[focus];
+    for (const title of titles) {
+      const el = document.querySelector(`[data-panel-title="${CSS.escape(title)}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        break;
+      }
+    }
+  }, [focus, view, selectedId]);
+
+  // Per-panel focus props — no focus active means no dimming at all (byte-
+  // for-byte the pre-focus-contract look for a visitor who opens this tab
+  // directly, e.g. from the Records & Findings tab, with no `focus` param).
+  const panelFocusProps = useCallback(
+    (title: string) => (focus ? { emphasize: relevantTitles.has(title), dim: !relevantTitles.has(title) } : {}),
+    [focus, relevantTitles],
+  );
 
   const loadList = useCallback(async () => {
     try {
@@ -294,12 +379,12 @@ export function IRLExchangeTab() {
 
         {error ? <p className="rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-[12px] text-rose-300">{error}</p> : null}
 
-        <Panel title="Purpose" icon={FileText}>
+        <Panel title="Purpose" icon={FileText} {...panelFocusProps("Purpose")}>
           <p>{exchange.purpose}</p>
           <p className="mt-1 text-[11px] text-slate-500">Permitted purpose: {exchange.permittedPurpose}</p>
         </Panel>
 
-        <Panel title="Parties" icon={Users}>
+        <Panel title="Parties" icon={Users} {...panelFocusProps("Parties")}>
           <p className="text-[13px]">
             Party A: <span className="text-slate-100">{exchange.initiatorRef}</span>
             {viewerParty === "A" ? " (you)" : ""}
@@ -334,12 +419,12 @@ export function IRLExchangeTab() {
         </div>
 
         {!yourArtifact ? (
-          <Panel title="Deposit your artifact" icon={FileText}>
+          <Panel title="Deposit your artifact" icon={FileText} {...panelFocusProps("Deposit your artifact")}>
             <DepositForm onSubmit={(fields) => act("deposit", fields)} busy={busy} />
           </Panel>
         ) : null}
 
-        <Panel title="Freeze Declaration" icon={ShieldCheck}>
+        <Panel title="Freeze Declaration" icon={ShieldCheck} {...panelFocusProps("Freeze Declaration")}>
           <p className="text-[12px] text-slate-400">
             &ldquo;I declare that this artifact represents the version independently frozen by my party for this
             exchange…&rdquo;
@@ -353,7 +438,7 @@ export function IRLExchangeTab() {
           </button>
         </Panel>
 
-        <Panel title="Exchange Instrument" icon={ClipboardCheck}>
+        <Panel title="Exchange Instrument" icon={ClipboardCheck} {...panelFocusProps("Exchange Instrument")}>
           <p className="text-[12px] text-slate-400">
             Signing acknowledges your identity, your deposited artifact and its frozen version, the agreed purpose,
             confidentiality terms, that receipt does not transfer ownership, and that later normalization is
@@ -368,7 +453,7 @@ export function IRLExchangeTab() {
           </button>
         </Panel>
 
-        <Panel title="Crossing" icon={Unlock}>
+        <Panel title="Crossing" icon={Unlock} {...panelFocusProps("Crossing")}>
           <p className="text-[12px] text-slate-400">
             {crossed
               ? "The exchange has crossed — the frozen artifacts were disclosed reciprocally."
@@ -377,7 +462,7 @@ export function IRLExchangeTab() {
         </Panel>
 
         {receipt ? (
-          <Panel title="Exchange Receipt" icon={ShieldCheck}>
+          <Panel title="Exchange Receipt" icon={ShieldCheck} {...panelFocusProps("Exchange Receipt")}>
             <p className="text-[13px] leading-relaxed text-slate-200">{receipt.humanReadableSummary}</p>
             <p className="mt-2 text-[11px] text-slate-500">Crossed at {new Date(receipt.crossedAt).toLocaleString()}</p>
             <button
@@ -390,7 +475,7 @@ export function IRLExchangeTab() {
           </Panel>
         ) : null}
 
-        <Panel title="QubeTalk" icon={MessageSquare}>
+        <Panel title="QubeTalk" icon={MessageSquare} {...panelFocusProps("QubeTalk")}>
           <p className="text-[12px] text-slate-400">
             The collaboration thread opens automatically once your counterparty joins. Find it in your QubeTalk peer
             channels.
@@ -398,7 +483,7 @@ export function IRLExchangeTab() {
         </Panel>
 
         {crossed ? (
-          <Panel title="Comparison" icon={GitBranch}>
+          <Panel title="Comparison" icon={GitBranch} {...panelFocusProps("Comparison")}>
             {comparison ? (
               <p className="text-[12px] text-slate-400">Comparison workspace open — read-only against both frozen artifacts.</p>
             ) : (
@@ -414,7 +499,7 @@ export function IRLExchangeTab() {
         ) : null}
 
         {comparison ? (
-          <Panel title="Lineage" icon={GitBranch}>
+          <Panel title="Lineage" icon={GitBranch} {...panelFocusProps("Lineage")}>
             {derivatives.length === 0 ? (
               <p className="text-[12px] text-slate-500">No derivative artifacts yet. Discovering compatibility is evidence about the systems as they are; creating compatibility is evidence about what they can become together.</p>
             ) : (

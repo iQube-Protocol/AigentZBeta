@@ -94,6 +94,8 @@ describe('routeTo is additive — generic Bureau access and other journeys keep 
     const code = stripComments(readSource(BUREAU));
     expect(code).toContain('Who is this Passport for?');
     expect(code).toContain('Polity Citizen Passport');
-    expect(code).toContain('Polity Delegate Passport');
+    // "Delegate Passport" retired from public copy (semantic repair,
+    // 2026-08-25) — the public class name is "Polity Agent Passport".
+    expect(code).toContain('Polity Agent Passport');
   });
 });

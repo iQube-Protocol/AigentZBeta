@@ -221,6 +221,29 @@ export interface JourneyStageDefinition {
   actorRole?: ActorRole;
 }
 
+/**
+ * Journey Runtime copilot invariant (item 1, semantic repair 2026-08-25).
+ *
+ * Every Journey has exactly one guide/copilot identity, resolved from the
+ * CANONICAL cartridge copilot configuration (`data/codex-configs.ts`'s
+ * `CodexConfig.copilot`) — a REFERENCE, never a hand-copied agent id/name/
+ * accentColor. `services/journey/journeyCopilotResolver.ts`'s
+ * `resolveJourneyCopilot()` is the ONE place a journey's copilot identity is
+ * actually resolved; it throws (fails visibly, never guesses) if
+ * `cartridgeSlug` doesn't resolve to a cartridge with a configured
+ * `copilot.agent`. `promptPlaceholder`/`quickPrompts` may be overridden per
+ * journey — the agent identity (id/name) and its accentColor never are,
+ * since those are what make the guide recognizable across surfaces.
+ */
+export interface JourneyCopilotReference {
+  /** The cartridge (`data/codex-configs.ts` `CodexConfig.slug`) whose canonical `copilot` config this journey's guide resolves from. */
+  cartridgeSlug: string;
+  /** Journey-specific override — the resolved agent identity/accentColor are never overridden. */
+  promptPlaceholder?: string;
+  /** Journey-specific override — the resolved agent identity/accentColor are never overridden. */
+  quickPrompts?: string[];
+}
+
 export interface JourneyDefinition {
   id: string;
   version: string;
@@ -239,6 +262,14 @@ export interface JourneyDefinition {
    * stage id.
    */
   phases?: JourneyPhase[];
+  /**
+   * The journey's copilot/guide identity — a Journey Runtime invariant
+   * (item 1, 2026-08-25). Required: `JourneyRunSurface` mounts exactly one
+   * shared floating copilot for the whole journey spine from this
+   * reference, replacing the per-page duplicate copilot mounts every
+   * journey previously had to build for itself.
+   */
+  copilot: JourneyCopilotReference;
 }
 
 export interface JourneyStageRuntimeState {

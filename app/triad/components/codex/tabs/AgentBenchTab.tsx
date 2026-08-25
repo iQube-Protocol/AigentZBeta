@@ -464,7 +464,7 @@ function RowCard({ row, action, personaId, onPrepared }: {
         <div className="pt-1 border-t border-slate-800 space-y-1.5">
           <div className="flex flex-wrap gap-1.5">
             <FactChip label="Sponsorship recorded" value={row.admission?.sponsorshipRecorded} />
-            <FactChip label="Delegate Passport issued" value={row.admission?.delegatePassportIssued} />
+            <FactChip label="Agent Passport issued" value={row.admission?.delegatePassportIssued} />
             <FactChip label="Delegation active" value={row.admission?.delegationActive} />
           </div>
           <div className="flex flex-wrap gap-2 text-[11px]">

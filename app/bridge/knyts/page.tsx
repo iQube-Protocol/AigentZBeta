@@ -34,17 +34,21 @@
  * KnytCommunityContentTab.tsx) is unchanged; only the Posit Spine's active
  * stage is now kept in step with it.
  *
- * A single floating KNYT copilot (CodexCopilotLayer, the same
- * agent/accent config the KNYT cartridge itself uses — data/codex-configs.ts
- * KNYT_CODEX.copilot) is mounted once here and stays the ONE conversational
- * partner throughout every stage (MS-1) — every embedded cartridge tab
- * (VIEW/STAND/BUY) suppresses its own via the registry's
- * `suppressFloatingCopilot`, so the visitor never sees two.
+ * JOURNEY RUNTIME COPILOT INVARIANT (item 1, semantic repair 2026-08-25) —
+ * the single floating KNYT copilot is no longer mounted here by hand. It is
+ * now `JourneyCopilotHost`, mounted once from the shared
+ * `JourneyRunSurface` runner itself, resolving the SAME agent/accent
+ * (data/codex-configs.ts KNYT_CODEX.copilot) from
+ * `KNYTS_BRIDGE_CROSSING_JOURNEY.copilot` — never hand-copied here anymore.
+ * Every embedded cartridge tab (VIEW/STAND/BUY) still suppresses its own
+ * via the registry's `suppressFloatingCopilot`, so the visitor never sees
+ * two (MS-1), exactly as before.
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { Settings } from 'lucide-react';
 import { JourneyRunSurface, type JourneyRunSurfaceProps } from '@/components/journey/JourneyRunSurface';
+import { openJourneyCopilot } from '@/components/journey/JourneyCopilotHost';
 import type { JourneyRuntimeState } from '@/types/journey';
 import { KNYTS_BRIDGE_CROSSING_JOURNEY } from '@/services/journey/knytsBridgeCrossingJourney';
 import { KnytsBridgeMediaStage } from '@/components/journey/KnytsBridgeMediaStage';
@@ -56,7 +60,6 @@ import { KnytsBridgeAdminPanel } from '@/components/journey/KnytsBridgeAdminPane
 import { PassportConnectPanel } from '@/components/companion/PassportConnectPanel';
 import { usePassportSignInHost } from '@/app/hooks/usePassportSignInHost';
 import { usePersonaSpine } from '@/utils/personaSpine';
-import { CodexCopilotLayer } from '@/app/components/codex/CodexCopilotLayer';
 import { MetaAvatarProvider } from '@/app/contexts/MetaAvatarContext';
 import { MetaAvatarHost } from '@/app/components/metaVatar/MetaAvatarHost';
 
@@ -76,12 +79,6 @@ const KNYTS_BRIDGE_COMPONENTS: Record<string, React.ComponentType<Record<string,
   KnytsBridgeRemixSurface,
   KnytsBridgeChooseSurface,
 };
-
-const KNYT_COPILOT_QUICK_PROMPTS = [
-  'What does this mean?',
-  'What should I do?',
-  'How do I write my Crossing Story?',
-];
 
 function selectStage(stageId: string) {
   try {
@@ -114,7 +111,6 @@ export function mergeCitizenPassportUsable(previous: boolean | undefined, observ
 export default function KnytsBridgePage() {
   const [personaId, setPersonaId] = useState<string | undefined>(undefined);
   const [adminOpen, setAdminOpen] = useState(false);
-  const [copilotOpen, setCopilotOpen] = useState(false);
   const spine = usePersonaSpine();
   // Authoritative runtime-state signal (2026-08-12, KNYTS↔CI parity pass;
   // re-derived CFS-055 coherence pass, same day). Previously discovered as
@@ -183,7 +179,7 @@ export default function KnytsBridgePage() {
         return { personaId, citizenPassportUsable };
       }
       if (surfaceRef.ref === 'knyts-bridge-choose') {
-        return { personaId, onOpenKnytCopilot: () => setCopilotOpen(true) };
+        return { personaId, onOpenKnytCopilot: openJourneyCopilot };
       }
       return {};
     },
@@ -302,32 +298,6 @@ export default function KnytsBridgePage() {
           </div>
         </div>
       )}
-
-      {/* Omnipresent KNYT copilot (surface reconciliation, point on the
-          floating copilot) — same agent/accent the KNYT cartridge itself
-          uses, so a visitor who later opens the cartridge directly meets
-          the same voice. */}
-      <CodexCopilotLayer
-        isOpen={copilotOpen}
-        onClose={() => setCopilotOpen(false)}
-        onOpen={() => setCopilotOpen(true)}
-        variant="floating"
-        accentColor="amber"
-        agent={{ id: 'aigent-kn0w1', name: 'KNYT Copilot' }}
-        personaId={personaId}
-        enableInferenceRendering
-        contextId="knyts-bridge"
-        promptPlaceholder="Ask about your crossing..."
-        quickPrompts={KNYT_COPILOT_QUICK_PROMPTS}
-        groundContext={{
-          surface: 'knyts-bridge',
-          bridgeTitle: 'The KNYTS Bridge — Threshold Guide',
-          stageContent: KNYTS_BRIDGE_CROSSING_JOURNEY.stages.map(stage => ({
-            stage: stage.stageId,
-            title: stage.stageName,
-          })),
-        }}
-      />
 
     </div>
     {/* Same missing-mount-gate bug identified on /bridge/ci (2026-08-11,

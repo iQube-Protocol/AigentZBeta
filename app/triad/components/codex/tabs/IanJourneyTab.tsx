@@ -9,10 +9,10 @@
  * Everything this journey shows is an EXISTING surface — see
  * services/journey/journeySurfaceRegistry.ts's "Ian Boundary Research
  * journey" section for the full reuse map (Passport application,
- * Delegation, the Reciprocal Artifact Exchange workspace, IRL Welcome/
- * Dashboard). This file owns only what is genuinely journey-specific: the
- * Orient stage's completion flag (read from the already-resolved
- * runtimeState, never re-derived) and the header label.
+ * Delegation, the Reciprocal Artifact Exchange workspace, the persona-scoped
+ * Boundary Research progress panel). This file owns only what is genuinely
+ * journey-specific: the Orient stage's completion flag (read from the
+ * already-resolved runtimeState, never re-derived) and the header label.
  *
  * This is the PARTICIPANT-facing surface — distinct from the diagnostic
  * viewer at /admin/journey/ian (components/journey/IanJourneyViewer.tsx),
@@ -25,6 +25,7 @@ import { IAN_BOUNDARY_RESEARCH_JOURNEY } from '@/services/journey/ianBoundaryRes
 import { IanOrientationPanel } from '@/components/journey/IanOrientationPanel';
 import { PassportBureauApplyTab } from './PassportBureauApplyTab';
 import { BoundedDelegationTab } from './BoundedDelegationTab';
+import { BoundaryResearchProgressPanel } from '@/components/journey/BoundaryResearchProgressPanel';
 
 interface IanJourneyTabProps {
   personaId?: string;
@@ -34,6 +35,7 @@ const JOURNEY_COMPONENTS: Record<string, React.ComponentType<Record<string, unkn
   IanOrientationPanel,
   PassportBureauApplyTab,
   BoundedDelegationTab,
+  BoundaryResearchProgressPanel,
 };
 
 const ACCENT = {

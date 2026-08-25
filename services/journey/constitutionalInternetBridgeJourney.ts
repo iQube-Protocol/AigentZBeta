@@ -165,6 +165,13 @@ export const CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY: JourneyDefinition = {
   partner: 'polity-core',
   destination: 'constitutional-internet',
   subjectRef: 'visitor',
+  // Journey Runtime copilot invariant (item 1, 2026-08-25) — the SAME
+  // agent/accentColor `/bridge/ci` already mounted by hand
+  // (data/codex-configs.ts's METAME_CODEX.copilot: aigent-me / "aigentMe" /
+  // emerald — aigentMe is the correct existing constitutional guide; there
+  // is no dedicated CI-specific copilot), now resolved canonically instead
+  // of hand-copied.
+  copilot: { cartridgeSlug: 'metame' },
   stages: [
     {
       id: 'home',

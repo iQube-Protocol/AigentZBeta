@@ -109,6 +109,17 @@ export interface CodexNavOptions {
    *   aigentMe (Delegate) — depth 1 (needs metaMe/aigentMe context to navigate)
    */
   focusedNavDepth?: number;
+  /**
+   * Presentation-only section focus within the destination tab (`?focus=`) —
+   * e.g. the Reciprocal Artifact Exchange workspace's `artifact | review |
+   * freeze | instrument | crossing` values (IRLExchangeTab, PRD-IRL-AX-001).
+   * A NAMED, TYPED string, deliberately not a generic query passthrough
+   * (same discipline as `agentSlug` above): it never authorizes or changes
+   * what actions are available — the destination component decides what, if
+   * anything, to do with it (scroll, foreground, de-emphasize). Omitted
+   * preserves every existing caller's URL byte-for-byte.
+   */
+  focus?: string;
 }
 
 /**
@@ -135,6 +146,7 @@ export function buildCodexUrl(slug: string, opts: CodexNavOptions = {}): string 
     agentSlug,
     focused,
     focusedNavDepth,
+    focus,
   } = opts;
 
   const params = new URLSearchParams();
@@ -159,6 +171,7 @@ export function buildCodexUrl(slug: string, opts: CodexNavOptions = {}): string 
   // Trimmed, non-empty only — URLSearchParams.set percent-encodes the value;
   // the receiving route is what actually validates it, via resolveRegistrableAgent.
   if (agentSlug && agentSlug.trim().length > 0) params.set("agentSlug", agentSlug.trim());
+  if (focus && focus.trim().length > 0) params.set("focus", focus.trim());
 
   if (shell === "viewer") {
     // Normalise to full codexId — viewer expects ?id=knyt-codex, not the bare slug

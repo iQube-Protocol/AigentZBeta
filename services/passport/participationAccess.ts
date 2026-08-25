@@ -476,6 +476,46 @@ export async function callerMayReadExperimentReview(
 }
 
 /**
+ * The GENERIC experiment-scope resolver (semantic repair, 2026-08-25) —
+ * a persona's active `access_grants` rows in `accessDomain`, optionally
+ * filtered to `readableRoles`, reduced to `'all'` (any qualifying grant is
+ * unrestricted) or the union of every qualifying grant's
+ * `allowed_experiments`. `readableRoles: null` means no role filter — every
+ * active grant in the domain counts, which is the correct rule for a
+ * participant-facing surface (e.g. Boundary Research/OCSGA) where the
+ * question is "what is this persona assigned to", not "may they review".
+ *
+ * ONE implementation of the access_grants.allowed_experiments scan
+ * (inv.engineering.036/037) — `getReviewReadableExperiments` below and
+ * `getBoundaryResearchReadableExperiments` (OCSGA) both consume this rather
+ * than each re-deriving the query. Extending to a new domain/role-set is a
+ * new call site here, never a new hand-rolled query.
+ */
+export async function getReadableExperimentsForRoles(
+  admin: SupabaseClient,
+  personaId: string,
+  accessDomain: string,
+  readableRoles: readonly string[] | null,
+): Promise<'all' | Set<string>> {
+  const { data, error } = await admin
+    .from('access_grants')
+    .select('role, allowed_experiments')
+    .eq('persona_id', personaId)
+    .eq('access_domain', accessDomain)
+    .eq('status', 'active');
+  if (error || !data) return new Set();
+  const union = new Set<string>();
+  for (const row of data) {
+    const role = String((row as { role: string }).role);
+    if (readableRoles && !readableRoles.includes(role)) continue;
+    const allowed = (row as { allowed_experiments?: string[] | null }).allowed_experiments;
+    if (!allowed || allowed.length === 0) return 'all';
+    for (const e of allowed) union.add(e);
+  }
+  return union;
+}
+
+/**
  * The set of experiments a persona's own review-readable grants reach —
  * `'all'` when any qualifying grant is unrestricted, otherwise the union of
  * every qualifying grant's `allowed_experiments` (empty set = no qualifying
@@ -490,22 +530,23 @@ export async function getReviewReadableExperiments(
   admin: SupabaseClient,
   personaId: string,
 ): Promise<'all' | Set<string>> {
-  const { data, error } = await admin
-    .from('access_grants')
-    .select('role, allowed_experiments')
-    .eq('persona_id', personaId)
-    .eq('access_domain', 'research-lab')
-    .eq('status', 'active');
-  if (error || !data) return new Set();
-  const union = new Set<string>();
-  for (const row of data) {
-    const role = String((row as { role: string }).role);
-    if (!REVIEW_VIEW_READABLE_ROLES.includes(role)) continue;
-    const allowed = (row as { allowed_experiments?: string[] | null }).allowed_experiments;
-    if (!allowed || allowed.length === 0) return 'all';
-    for (const e of allowed) union.add(e);
-  }
-  return union;
+  return getReadableExperimentsForRoles(admin, personaId, 'research-lab', REVIEW_VIEW_READABLE_ROLES);
+}
+
+/**
+ * OCSGA / Boundary Research's own experiment-scope reader (item 6,
+ * semantic repair 2026-08-25). A Boundary Research participant deposits and
+ * exchanges research artifacts — that is not a "review" role, so this is
+ * role-agnostic (`readableRoles: null`): ANY active `research-lab` grant
+ * counts, scoped by that grant's own `allowed_experiments`. Composes the
+ * SAME generic resolver `getReviewReadableExperiments` uses — never a
+ * second, hand-rolled OCSGA experiment list/query.
+ */
+export async function getBoundaryResearchReadableExperiments(
+  admin: SupabaseClient,
+  personaId: string,
+): Promise<'all' | Set<string>> {
+  return getReadableExperimentsForRoles(admin, personaId, 'research-lab', null);
 }
 
 export interface ExperimentReviewGrant {

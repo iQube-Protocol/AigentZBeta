@@ -35,12 +35,31 @@
  * active stage before dispatching that event), so this surface fails
  * closed itself, from the authoritative `citizenPassportUsable` signal.
  * `undefined` (not yet resolved) is treated as NOT usable.
+ *
+ * MYCANVAS ACTIVATION (item 8, semantic repair 2026-08-25) — `mycanvas` is
+ * an "open" activation-catalog entry (data/activation-catalog.ts): eligible
+ * to self-activate, but `services/activations/spineActivations.ts` never
+ * auto-grants it on a mere read. A Passport-qualified visitor who reached
+ * this far was landing on the generic `metame-web` (metaMe.com) fallback
+ * not because of a Passport problem, but because `mycanvas` had genuinely
+ * never been activated for them — `CodexPanelDynamic`'s tab gate was
+ * correctly denying a tab this surface never granted. The fix: ensure the
+ * activation via the existing, idempotent `useActivations().activate(id)`
+ * (ActivationsContext — the SAME store `ActivationsTab`/the top menu use,
+ * never a second write path) BEFORE building the `tab=mycanvas` iframe src,
+ * and wait for confirmed-or-optimistic `active` status first. `mycanvas`
+ * activation state is per-persona, not per-page, so `ActivationsProvider`
+ * is mounted locally here (personaId override — this is a bare page outside
+ * the normal shell, same reasoning as `MetaAvatarProvider` elsewhere in the
+ * Bridge pages) rather than assuming one already wraps this tree.
  */
 
 import { useEffect, useState } from 'react';
+import { Loader2 } from 'lucide-react';
 import { buildCodexUrl } from '@/utils/codex-nav';
 import { KNYTS_BRIDGE_CAMPAIGN_ID } from '@/services/journey/knytsBridgeCrossingJourney';
 import { BridgePassportGate } from '@/components/journey/BridgePassportGate';
+import { ActivationsProvider, useActivations } from '@/services/activations/ActivationsContext';
 
 function selectStage(stageId: string) {
   try {
@@ -56,7 +75,15 @@ interface Props {
   citizenPassportUsable?: boolean;
 }
 
-export function KnytsBridgeRemixSurface({ personaId, citizenPassportUsable }: Props) {
+export function KnytsBridgeRemixSurface(props: Props) {
+  return (
+    <ActivationsProvider personaId={props.personaId}>
+      <KnytsBridgeRemixSurfaceInner {...props} />
+    </ActivationsProvider>
+  );
+}
+
+function KnytsBridgeRemixSurfaceInner({ personaId, citizenPassportUsable }: Props) {
   const [src, setSrc] = useState<string | null>(null);
   const [publicSrc, setPublicSrc] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
@@ -64,9 +91,27 @@ export function KnytsBridgeRemixSurface({ personaId, citizenPassportUsable }: Pr
 
   const passportUsable = citizenPassportUsable === true;
 
+  const { activeIds, isMutating, loading: activationsLoading, activate, error: activationError } = useActivations();
+  const mycanvasActive = activeIds.has('mycanvas');
+  const mycanvasActivating = isMutating('mycanvas');
+  // "Not confirmed active yet" (MS-11: a not-yet-hydrated cache must never
+  // answer as if it were a confirmed "no") — covers the initial fetch, the
+  // ensure-activation mutation itself, and the brief gap between them.
+  const mycanvasPending = activationsLoading || mycanvasActivating || (!mycanvasActive && !activationError);
+
   useEffect(() => {
     if (!passportUsable) setGateOpen(true);
   }, [passportUsable]);
+
+  // Ensure the open `mycanvas` activation, idempotently, for this same
+  // active persona — exactly once it's known NOT already active, never on
+  // every render (activate() below is itself idempotent server-side too,
+  // but this guard also avoids a duplicate in-flight mutation).
+  useEffect(() => {
+    if (!passportUsable || activationsLoading || mycanvasActive || mycanvasActivating) return;
+    void activate('mycanvas');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [passportUsable, activationsLoading, mycanvasActive, mycanvasActivating]);
 
   useEffect(() => {
     if (!passportUsable) {
@@ -75,6 +120,14 @@ export function KnytsBridgeRemixSurface({ personaId, citizenPassportUsable }: Pr
       return;
     }
     setPublicSrc(null);
+
+    // Wait for confirmed (or optimistic) activation before deep-linking
+    // myCanvas — never mount the iframe against a tab CodexPanelDynamic will
+    // correctly filter back out because the activation hasn't landed yet.
+    if (!mycanvasActive) {
+      setSrc(null);
+      return;
+    }
 
     const pendingRemix = (() => {
       try {
@@ -104,7 +157,7 @@ export function KnytsBridgeRemixSurface({ personaId, citizenPassportUsable }: Pr
 
     // Lite: focused=true when not expanded; Full: focused=false when expanded
     setSrc(expanded ? buildSrcForMode(false) : buildSrcForMode(true));
-  }, [personaId, expanded, passportUsable]);
+  }, [personaId, expanded, passportUsable, mycanvasActive]);
 
   if (!passportUsable) {
     return (
@@ -126,6 +179,31 @@ export function KnytsBridgeRemixSurface({ personaId, citizenPassportUsable }: Pr
             'Then remix your crossing story',
           ]}
         />
+      </div>
+    );
+  }
+
+  // Passport-qualified and eligible for the open myCanvas activation —
+  // never the metaMe.com fallback from here on, only a brief opening state
+  // (or an explicit retry if the activation write itself failed).
+  if (mycanvasPending) {
+    return (
+      <div className="flex h-[calc(100vh-200px)] w-full flex-col items-center justify-center gap-2 rounded-md border border-slate-800 bg-slate-950 text-sm text-slate-400">
+        <Loader2 className="h-5 w-5 animate-spin" />
+        Opening myCanvas…
+      </div>
+    );
+  }
+  if (activationError && !mycanvasActive) {
+    return (
+      <div className="flex h-[calc(100vh-200px)] w-full flex-col items-center justify-center gap-3 rounded-md border border-slate-800 bg-slate-950 text-sm text-slate-400">
+        <p>Couldn&apos;t open myCanvas.</p>
+        <button
+          onClick={() => void activate('mycanvas')}
+          className="rounded-md border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-800"
+        >
+          Retry
+        </button>
       </div>
     );
   }

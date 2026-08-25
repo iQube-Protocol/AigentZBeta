@@ -81,7 +81,7 @@ describe('Passport wizard — canonical UI terminology', () => {
     expect(source).not.toMatch(/Participant Passport/);
   });
 
-  it('the wizard component uses the canonical "Polity Citizen Passport" / "Polity Delegate Passport" terms', async () => {
+  it('the wizard component uses the canonical "Polity Citizen Passport" / "Polity Agent Passport" terms (semantic repair, 2026-08-25 — "Delegate Passport" retired from public copy)', async () => {
     const fs = await import('fs');
     const path = await import('path');
     const source = fs.readFileSync(
@@ -89,7 +89,11 @@ describe('Passport wizard — canonical UI terminology', () => {
       'utf8',
     );
     expect(source).toMatch(/Polity Citizen Passport/);
-    expect(source).toMatch(/Polity Delegate Passport/);
+    expect(source).toMatch(/Polity Agent Passport/);
+    // "Delegate Passport" conflated Passport issuance with delegation grant
+    // issuance — the two are constitutionally distinct acts (item 4, same
+    // repair). Never reintroduce it in public copy.
+    expect(source).not.toMatch(/Polity Delegate Passport/);
   });
 
   it('the internal PassportClass identifier is preserved as "participant" (not renamed)', async () => {

@@ -338,21 +338,16 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
       'and exchange-complete. One real component; Journey Spine only labels which point in its own ' +
       'internal deposit -> freeze -> sign -> cross flow the participant is at. Never forked.',
   },
-  'boundary-research-entry-panel': {
-    kind: 'embed',
-    codexSlug: 'irl-cartridge',
-    tab: 'irl-welcome',
-    focused: true,
+  'boundary-research-progress': {
+    kind: 'component',
+    component: 'BoundaryResearchProgressPanel',
     note:
-      'research-active\'s persistent destination — the REAL IRL Welcome tab (IRLWelcomeTab), already ' +
-      'built for exactly this: "how to join, and where to go once you have."',
-  },
-  'participant-dashboard': {
-    kind: 'embed',
-    codexSlug: 'irl-cartridge',
-    tab: 'irl-dashboard',
-    focused: true,
-    note: 'research-active\'s participation-history view — the REAL IRL Dashboard tab.',
+      'research-active\'s persistent destination (item 7, semantic repair 2026-08-25) — the active ' +
+      'persona\'s own assigned experiment(s): lifecycle/progress + evidence, reusing PartnerProgrammesTab ' +
+      'exactly as the Validation Programme\'s "Experiment Progress" stage does (lockedWorkspaceId). ' +
+      'Replaces the prior generic IRL Welcome + IRL Dashboard embed, which showed platform-wide content ' +
+      'with no relation to what this persona is actually assigned to. "Explore IRL OS" remains reachable ' +
+      'from inside the new component.',
   },
 
   // ── Validation Programme journey (2026-08-01) — every entry below composes
@@ -657,7 +652,7 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
  */
 export function buildEmbedSurfaceSrc(
   descriptor: Extract<JourneySurfaceDescriptor, { kind: 'embed' }>,
-  input: { personaId?: string; selectedAgentSlug?: string },
+  input: { personaId?: string; selectedAgentSlug?: string; focus?: string },
   buildUrl: (slug: string, opts: import('@/utils/codex-nav').CodexNavOptions) => string,
 ): string {
   return buildUrl(descriptor.codexSlug, {
@@ -673,5 +668,11 @@ export function buildEmbedSurfaceSrc(
     // boundary, means neither caller has to remember to clear depth too.
     focusedNavDepth: descriptor.focused ? descriptor.focusedNavDepth : undefined,
     ...(descriptor.agentScoped && input.selectedAgentSlug ? { agentSlug: input.selectedAgentSlug } : {}),
+    // Per-stage presentation-only section focus (Reciprocal Artifact
+    // Exchange focus contract, 2026-08-25) — sourced from the calling
+    // stage's own JourneySurfaceRef.props.focus, never a registry-level
+    // field, since the SAME registry entry is shared across multiple
+    // stages that each need a different focus value.
+    focus: input.focus,
   });
 }

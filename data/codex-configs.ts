@@ -4865,6 +4865,22 @@ export const MONEYPENNY_CARTRIDGE: CodexConfig = {
     category: 'finance',
     tags: ['moneypenny', 'finance', 'trading', 'hft', 'constitutional-runtime'],
   },
+  // Journey Runtime copilot invariant (item 1, semantic repair 2026-08-25) —
+  // this cartridge previously had no `copilot` config; the Financial
+  // Services Bridge (components/journey/FinancialServicesBridgeFrontDoor.tsx)
+  // hand-duplicated this exact identity locally. Now the canonical source
+  // both that page and the Horizen/FS Journey's copilot reference resolve
+  // from.
+  copilot: {
+    accentColor: 'emerald',
+    agent: { id: 'aigent-moneypenny', name: 'MoneyPenny' },
+    promptPlaceholder: 'Ask MoneyPenny...',
+    quickPrompts: [
+      'What can MoneyPenny help me with here?',
+      'What is my Financial Services status?',
+      'What can Runtime actually do for me?',
+    ],
+  },
   tabGroups: [
     { id: 'operate',    label: 'Operate',    icon: 'Rocket',   order: 0 },
     { id: 'connect',    label: 'Connect',    icon: 'Users',    order: 1 },

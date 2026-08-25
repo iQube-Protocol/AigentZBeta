@@ -6,12 +6,23 @@
  * PRD §9: applicants choose a passport class up front —
  *   • Citizen — anonymous personhood (the original five-panel flow):
  *     account → identity → private vault → consents → submit
- *   • Participant — an agent bound to the applicant (PRD: apply for
- *     passports for agents too). The vault panel is replaced by an Agent
- *     panel that captures the agent's identity AND binds the agent to the
- *     applicant via the AgentiQ OS bounded-delegation grant (same
- *     /api/codex/chat/agentiq-os/delegation surface BoundedDelegationTab
- *     uses), then submits through /api/polity-passport/submit.
+ *   • Participant — sponsors a Polity Agent Passport for an agent bound to
+ *     the applicant. The vault panel is replaced by an Agent panel that
+ *     captures the agent's identity and establishes sponsor eligibility from
+ *     the applicant's claimed Citizen Passport, then submits through
+ *     /api/polity-passport/submit.
+ *
+ * DELEGATION IS NOT PART OF THIS CEREMONY (semantic repair, 2026-08-25).
+ * Passport issuance/sponsorship and bounded-delegation grant issuance are
+ * constitutionally distinct acts with distinct receipts (`passport_issued`
+ * vs `agent_delegated`) — this component MUST NOT create a delegation grant.
+ * Granting operational authority to an agent happens ONLY afterward, at the
+ * Journey's own dedicated delegation stage (`delegate` /
+ * `delegation-establish`), through the canonical `BoundedDelegationTab`
+ * (the same `/api/codex/chat/agentiq-os/delegation` surface). Earlier
+ * revisions of this component called that same endpoint directly from
+ * inside the Agent step — that coupling has been removed; do not reintroduce
+ * it here.
  *
  * All Bureau API calls ride the Bearer token (spine rule) via
  * authedFetchHeaders.
@@ -57,20 +68,6 @@ import {
 } from '@/services/passport/passportWizardSteps';
 import { personaFetch } from '@/utils/personaSpine';
 
-// Mirrors BoundedDelegationTab's grant vocabulary (AgentiQ OS cartridge).
-const DELEGATION_TRUST_BANDS = [
-  'L1_EXPERIMENTAL',
-  'L2_VERIFIED_COMMUNITY',
-  'L3_PRODUCTION_CANDIDATE',
-  'L4_PRODUCTION_APPROVED',
-];
-const DELEGATION_BAND_ACTIONS: Record<string, string[]> = {
-  L1_EXPERIMENTAL: ['knowledge_retrieval'],
-  L2_VERIFIED_COMMUNITY: ['knowledge_retrieval', 'draft_document'],
-  L3_PRODUCTION_CANDIDATE: ['knowledge_retrieval', 'draft_document', 'registry_submission_proposal'],
-  L4_PRODUCTION_APPROVED: ['knowledge_retrieval', 'draft_document', 'registry_submission_proposal', 'registry_publish'],
-};
-
 // Cloudflare Turnstile — rendered in the citizen submit step when the
 // site key is configured; otherwise the manual dev-token input remains.
 // The secret-side verification lives in services/passport/personhoodProof.
@@ -97,7 +94,7 @@ function getTurnstile(): TurnstileApi | null {
 }
 
 const PARTICIPANT_CONSENT_LABELS: Array<{ key: string; label: string }> = [
-  { key: 'participant_terms_accepted', label: 'I accept the Polity Delegate Passport terms on behalf of this agent.' },
+  { key: 'participant_terms_accepted', label: 'I accept the Polity Agent Passport terms on behalf of this agent.' },
   { key: 'registry_pending_record_consent', label: 'I consent to a public pending-registry record for this application.' },
   { key: 'constraints_and_obligations_accepted', label: 'I accept the participant constraints and obligations.' },
   { key: 'review_process_accepted', label: 'I accept the steward review process.' },
@@ -248,21 +245,17 @@ export function PassportBureauApplyTab({
     ).catch(() => setVspLoading(false));
   }, [step]);
 
-  // Participant — agent identity + bounded-delegation binding.
+  // Participant — agent identity.
   // `signIn` is the SAME canonical wallet authentication call
   // SmartWalletDrawer uses (services/wallet, via this shared hook) — reused
   // directly by the account step's wallet-email sign-in path below, never
   // duplicated (2026-08-12).
-  const { sessionPersonas, signIn: signInWithWalletAuth } = useSupabaseSessionPersonas();
-  const operatorPersonaId = sessionPersonas[0]?.id ?? '';
+  const { signIn: signInWithWalletAuth } = useSupabaseSessionPersonas();
   const [agentName, setAgentName] = useState(prefillAgentDisplayName ?? '');
   const [agentType, setAgentType] = useState('general');
   const [agentDescription, setAgentDescription] = useState('');
   const [agentCardUrl, setAgentCardUrl] = useState(prefillAgentCardUrl ?? '');
   const [agentCapabilities, setAgentCapabilities] = useState('');
-  const [delegationBand, setDelegationBand] = useState('L1_EXPERIMENTAL');
-  const [delegationTtl, setDelegationTtl] = useState(4);
-  const [delegationBound, setDelegationBound] = useState(false);
 
   // Agent Card source: 'genesis' (we create it) or 'url' (user pastes existing).
   // Sprint 3 adds the genesis path — the non-technical user can sponsor a new
@@ -365,7 +358,7 @@ export function PassportBureauApplyTab({
         if (!cancelled) {
           setSponsorEligibility({
             status: 'none',
-            detail: 'No Citizen Passport application yet — a Polity Delegate Passport derives its authority from a claimed Citizen Passport.',
+            detail: 'No Citizen Passport application yet — a Polity Agent Passport is sponsored from a claimed Citizen Passport.',
           });
         }
       })
@@ -429,7 +422,7 @@ export function PassportBureauApplyTab({
         (pq: { claimedAt: string | null }) => pq.claimedAt,
       );
       if (!claimed) {
-        setError('You need a claimed Polity Citizen Passport first — a Polity Delegate Passport derives its authority from one. Apply as a Citizen, then come back here.');
+        setError('You need a claimed Polity Citizen Passport first — a Polity Agent Passport is sponsored from one. Apply as a Citizen, then come back here.');
         return;
       }
       const name = agentName.trim() || 'Polity Helper';
@@ -462,7 +455,7 @@ export function PassportBureauApplyTab({
       if (data.agent.isAigentMe) setExistingAigentMe({ displayName: name });
       setNotice(
         data.agent.isAigentMe
-          ? `aigentMe Agent Card live at ${data.agent.agentCardUrl} — its Polity Delegate Passport will map to your aigentMe.`
+          ? `aigentMe Agent Card live at ${data.agent.agentCardUrl} — its Polity Agent Passport will map to your aigentMe.`
           : `Agent Card live at ${data.agent.agentCardUrl}`,
       );
     } catch (e) {
@@ -502,8 +495,8 @@ export function PassportBureauApplyTab({
       if (data.agent.isAigentMe) setExistingAigentMe({ displayName: agentName.trim() });
       setNotice(
         data.agent.isAigentMe
-          ? `aigentMe Agent Card live at ${data.agent.agentCardUrl} — submit below to issue your aigentMe its Polity Delegate Passport.`
-          : `Agent Card live at ${data.agent.agentCardUrl} — submit below to issue ${agentName.trim()} a Polity Delegate Passport.`,
+          ? `aigentMe Agent Card live at ${data.agent.agentCardUrl} — submit below to sponsor your aigentMe's Polity Agent Passport.`
+          : `Agent Card live at ${data.agent.agentCardUrl} — submit below to sponsor a Polity Agent Passport for ${agentName.trim()}.`,
       );
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Network error');
@@ -880,38 +873,6 @@ export function PassportBureauApplyTab({
     }
   }, [displayName, username]);
 
-  // Participant — bind the agent to the applicant with an AgentiQ OS
-  // bounded-delegation grant (same surface as BoundedDelegationTab).
-  const handleDelegationBind = useCallback(async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      if (!operatorPersonaId) throw new Error('No session persona available to bind against — sign in first.');
-      const res = await fetch('/api/codex/chat/agentiq-os/delegation', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          persona_id: operatorPersonaId,
-          trust_band: delegationBand,
-          selected_actions: DELEGATION_BAND_ACTIONS[delegationBand] ?? ['knowledge_retrieval'],
-          ttl_hours: delegationTtl,
-          reputation_score: sessionPersonas[0]?.reputationScore ?? 0,
-          allowed_surfaces: ['agentiq-codex'],
-          disclosure_class: 'tenant',
-          max_actions: 20,
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Delegation grant failed');
-      setDelegationBound(true);
-      setNotice(`Agent bound to you via bounded delegation (${delegationBand}, ${delegationTtl}h TTL).`);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Delegation bind failed');
-    } finally {
-      setBusy(false);
-    }
-  }, [operatorPersonaId, delegationBand, delegationTtl, sessionPersonas]);
-
   const handleSubmitParticipant = useCallback(async () => {
     setBusy(true);
     setError(null);
@@ -950,11 +911,6 @@ export function PassportBureauApplyTab({
             requested_status: 'provisional_ok',
           },
           consents,
-          references: {
-            bound_via_delegation: delegationBound
-              ? { trust_band: delegationBand, ttl_hours: delegationTtl }
-              : undefined,
-          },
         }),
       });
       const json = await res.json();
@@ -971,7 +927,7 @@ export function PassportBureauApplyTab({
     } finally {
       setBusy(false);
     }
-  }, [agentName, agentType, agentDescription, agentCardUrl, agentCapabilities, displayName, delegationBound, delegationBand, delegationTtl, loadStatus]);
+  }, [agentName, agentType, agentDescription, agentCardUrl, agentCapabilities, displayName, loadStatus]);
 
   const handleVault = useCallback(async () => {
     setBusy(true);
@@ -1093,7 +1049,7 @@ export function PassportBureauApplyTab({
   const tierBadge = step !== 'class' ? (
     <div className="ml-auto flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-0.5 text-[11px] text-emerald-300">
       <ShieldCheck className="h-3 w-3" />
-      {passportClass === 'participant' ? 'Delegate Application' : 'Citizen Application'}
+      {passportClass === 'participant' ? 'Agent Application' : 'Citizen Application'}
     </div>
   ) : null;
 
@@ -1127,11 +1083,11 @@ export function PassportBureauApplyTab({
         <ShieldCheck className="h-7 w-7 text-violet-400" />
         <div>
           <h2 className="text-lg font-semibold text-slate-100">
-            {passportClass === 'participant' ? 'Polity Delegate Passport Application' : 'Polity Citizen Passport Application'}
+            {passportClass === 'participant' ? 'Polity Agent Passport Sponsorship' : 'Polity Citizen Passport Application'}
           </h2>
           <p className="text-sm text-slate-400">
             {passportClass === 'participant'
-              ? 'A revocable authority credential for an agent, derived from an eligible Polity Citizen Passport — never an independent personhood claim.'
+              ? 'Constitutional presence for an agent, sponsored from an eligible Polity Citizen Passport — never an independent personhood claim, and never itself a grant of delegated authority.'
               : 'Continuing constitutional personhood for a human principal. Your private data stays in your custody — always.'}
           </p>
         </div>
@@ -1195,9 +1151,9 @@ export function PassportBureauApplyTab({
               className="flex flex-col items-start gap-2 rounded-xl border border-slate-700 bg-slate-800/60 p-4 text-left hover:border-violet-500/60 hover:bg-slate-800"
             >
               <Bot className="h-6 w-6 text-violet-400" />
-              <span className="text-sm font-semibold text-slate-100">Polity Delegate Passport</span>
+              <span className="text-sm font-semibold text-slate-100">Polity Agent Passport</span>
               <span className="text-xs text-slate-400">
-                A revocable authority credential for an agent you operate — derived from your Polity Citizen Passport via a bounded delegation.
+                Constitutional presence for an agent you operate — sponsored from your Polity Citizen Passport. Delegated authority is granted separately.
               </span>
             </button>
           </div>
@@ -1455,45 +1411,6 @@ export function PassportBureauApplyTab({
             placeholder="Declared capabilities, comma-separated (optional)"
             className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
           />
-          <div className="space-y-2 rounded-lg border border-slate-700/70 bg-slate-800/40 p-3">
-            <p className="text-xs font-semibold text-slate-300">
-              Bind agent to you — bounded delegation (AgentiQ OS)
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <select
-                value={delegationBand}
-                onChange={(e) => setDelegationBand(e.target.value)}
-                title="Trust band — caps what the bound agent may do under your delegation"
-                className="rounded-lg border border-slate-700 bg-slate-800 px-2 py-1.5 text-xs text-slate-100"
-              >
-                {DELEGATION_TRUST_BANDS.map((band) => (
-                  <option key={band} value={band}>{band.replace(/_/g, ' ')}</option>
-                ))}
-              </select>
-              <select
-                value={delegationTtl}
-                onChange={(e) => setDelegationTtl(Number(e.target.value))}
-                title="How long the delegation grant lives before it expires"
-                className="rounded-lg border border-slate-700 bg-slate-800 px-2 py-1.5 text-xs text-slate-100"
-              >
-                <option value={1}>1 hour</option>
-                <option value={4}>4 hours</option>
-                <option value={8}>8 hours</option>
-              </select>
-              <button
-                onClick={handleDelegationBind}
-                disabled={busy || delegationBound}
-                className="flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
-              >
-                {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Link2 className="h-3.5 w-3.5" />}
-                {delegationBound ? 'Agent bound to you' : 'Bind agent to me'}
-              </button>
-            </div>
-            <p className="text-[11px] text-slate-500">
-              Grants the agent a bounded, time-limited delegation under your persona — the same
-              grant surface as the AgentiQ OS Bounded Delegation tab.
-            </p>
-          </div>
             </>
           )}
           <button
@@ -1748,7 +1665,7 @@ export function PassportBureauApplyTab({
       {step === 'submit' && passportClass === 'participant' && (
         <div className="space-y-3 rounded-xl border border-slate-700 bg-slate-900/60 p-4">
           <p className="text-sm text-slate-300">
-            Submit the Polity Delegate Passport application for <strong>{agentName || 'your agent'}</strong>.
+            Sponsor a Polity Agent Passport for <strong>{agentName || 'your agent'}</strong>.
             A steward reviews it in the Bureau queue; you can watch status below.
           </p>
           {!allChecked && (
@@ -1764,26 +1681,13 @@ export function PassportBureauApplyTab({
               before submitting.
             </p>
           )}
-          {!delegationBound && (
-            <p className="text-xs text-amber-300">
-              Note: the agent is not yet bound to you via bounded delegation — you can still submit,
-              but binding is recommended before activation.{' '}
-              <button
-                type="button"
-                onClick={() => setStep('agent')}
-                className="underline hover:text-amber-200"
-              >
-                Go back to Step 2 to bind.
-              </button>
-            </p>
-          )}
           <button
             onClick={handleSubmitParticipant}
             disabled={busy || !allChecked || !agentName.trim() || !agentCardUrl.trim()}
             className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
           >
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            Submit the Polity Delegate Passport application for this agent
+            Sponsor a Polity Agent Passport for this agent
           </button>
         </div>
       )}
@@ -1824,11 +1728,11 @@ export function PassportBureauApplyTab({
       {citizenJustSubmitted && !continuationDismissed && (
         <div className="space-y-3 rounded-xl border border-violet-700/50 bg-violet-950/20 p-4">
           <p className="text-sm text-slate-200">
-            Do you also want to apply for a Polity Delegate Passport for an agent?
+            Do you also want to sponsor a Polity Agent Passport for an agent?
           </p>
           <p className="text-xs text-slate-400">
             Your Polity Citizen Passport application must still be approved before any linked Polity
-            Delegate Passport can be approved or activated — but you can prepare and submit both in
+            Agent Passport can be approved or activated — but you can prepare and submit both in
             one continuous journey.
           </p>
           <div className="flex gap-2">

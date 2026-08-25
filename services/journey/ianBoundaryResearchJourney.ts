@@ -56,14 +56,14 @@ const PHASE_ORIENT: JourneyPhase = {
 const PHASE_ENTER: JourneyPhase = {
   version: '1.0',
   activeSince: '2026-08-24',
-  title: 'Identity & Entry',
+  title: 'Presence & Entry',
   stageIds: ['passport', 'delegation-establish'],
   completionCondition: andCondition(
     receiptCondition('passport_issued'),
     receiptCondition('delegation_active')
   ),
   description:
-    'Establish Passport identity and optionally delegate agent authority for research access.',
+    'Establish constitutional presence via Passport, and optionally delegate agent authority for research access.',
 };
 
 const PHASE_DEPOSIT: JourneyPhase = {
@@ -120,6 +120,13 @@ export const IAN_BOUNDARY_RESEARCH_JOURNEY: JourneyDefinition = {
   destination: 'research-active',
   subjectRef: 'ian-researcher',
 
+  // Journey Runtime copilot invariant (item 1, 2026-08-25) — OCSGA resolves
+  // to the existing IRL OS Guide (data/codex-configs.ts's
+  // IRL_CARTRIDGE.copilot: aigent-researcher / "IRL Guide" / violet), the
+  // same cartridge this journey's own Reciprocal Artifact Exchange and
+  // Boundary Research progress surfaces already embed into.
+  copilot: { cartridgeSlug: 'irl-cartridge' },
+
   // New in Journey Spine: explicit phases with version + completion conditions
   phases: [PHASE_ORIENT, PHASE_ENTER, PHASE_DEPOSIT, PHASE_FREEZE_SIGN, PHASE_CROSS, PHASE_RESEARCH],
 
@@ -171,14 +178,14 @@ export const IAN_BOUNDARY_RESEARCH_JOURNEY: JourneyDefinition = {
     },
 
     // ─────────────────────────────────────────────────────────────────────
-    // PHASE 2: IDENTITY & ENTRY
+    // PHASE 2: PRESENCE & ENTRY
     // ─────────────────────────────────────────────────────────────────────
 
     {
       id: 'passport',
-      label: 'Assert Identity',
+      label: 'Establish Presence',
       description:
-        'Establish Passport identity — persistent, verifiable proof of who you are within the Boundary Research commons.',
+        'Establish constitutional presence through a Polity Citizen Passport, or sponsor a Polity Agent Passport for an agent.',
 
       actorRole: ActorRole.PRINCIPAL,
       requirement: StepRequirement.REQUIRED,
@@ -204,10 +211,11 @@ export const IAN_BOUNDARY_RESEARCH_JOURNEY: JourneyDefinition = {
       dependencies: [],
 
       companion: {
-        before: 'Your Passport establishes who you are. This identity persists across Boundary Research.',
-        complete: 'Identity established. You are now recognized in the commons.',
+        before:
+          'Human presence rests on personhood — your own Polity Citizen Passport. Agent presence rests on sponsorship — a Polity Agent Passport sponsored from a claimed Citizen Passport. Passporting itself does not grant delegated authority; that is established separately, in the next stage.',
+        complete: 'Presence established. You are now recognized as a continuing participant in the commons.',
       },
-      narrator: { active: 'Asserting identity', consequence: 'Proves persistent presence' },
+      narrator: { active: 'Establishing constitutional presence', consequence: 'Recognizes a continuing participant' },
       nextStageId: 'delegation-establish',
     },
 
@@ -270,6 +278,7 @@ export const IAN_BOUNDARY_RESEARCH_JOURNEY: JourneyDefinition = {
         {
           mode: 'component',
           ref: 'irl-exchange-workspace',
+          props: { focus: 'artifact' },
           note: 'The real Reciprocal Artifact Exchange workspace — deposit your artifact here.',
         },
       ],
@@ -308,6 +317,7 @@ export const IAN_BOUNDARY_RESEARCH_JOURNEY: JourneyDefinition = {
         {
           mode: 'component',
           ref: 'irl-exchange-workspace',
+          props: { focus: 'review' },
           note: 'Review your deposited artifact in the same Exchange workspace, ahead of freeze attestation.',
         },
       ],
@@ -352,6 +362,7 @@ export const IAN_BOUNDARY_RESEARCH_JOURNEY: JourneyDefinition = {
         {
           mode: 'component',
           ref: 'irl-exchange-workspace',
+          props: { focus: 'freeze' },
           note: 'Freeze declaration — the same Exchange workspace\'s Freeze Declaration action.',
         },
       ],
@@ -389,6 +400,7 @@ export const IAN_BOUNDARY_RESEARCH_JOURNEY: JourneyDefinition = {
         {
           mode: 'component',
           ref: 'irl-exchange-workspace',
+          props: { focus: 'instrument' },
           note: 'Exchange Instrument review and signing — the same Exchange workspace.',
         },
       ],
@@ -428,6 +440,7 @@ export const IAN_BOUNDARY_RESEARCH_JOURNEY: JourneyDefinition = {
         {
           mode: 'component',
           ref: 'irl-exchange-workspace',
+          props: { focus: 'crossing' },
           note: 'View crossing/receipt status — the same Exchange workspace.',
         },
       ],
@@ -468,13 +481,10 @@ export const IAN_BOUNDARY_RESEARCH_JOURNEY: JourneyDefinition = {
       surfaces: [
         {
           mode: 'component',
-          ref: 'boundary-research-entry-panel',
-          note: 'Boundary Research knowledge commons entry point.',
-        },
-        {
-          mode: 'component',
-          ref: 'participant-dashboard',
-          note: 'View your research participation history, access, and standing.',
+          ref: 'boundary-research-progress',
+          note:
+            'The active persona\'s own assigned experiment(s) — progress, evidence/receipts — never the ' +
+            'generic platform-wide IRL Welcome/Dashboard this replaced (item 7, semantic repair 2026-08-25).',
         },
       ],
       prerequisites: ['exchange-complete'],
