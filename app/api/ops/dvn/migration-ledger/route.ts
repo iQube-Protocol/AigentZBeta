@@ -27,6 +27,20 @@ export const dynamic = 'force-dynamic';
  *       -> registry_assets row (asset_id='aigentqube-nakamoto') — Nakamoto is
  *          the pilot's OTHER agent; confirms whether this is a
  *          MoneyPenny-specific gap or a broader deploy-time drift.
+ * *   - 20260930040000_qubetalk_communications_membrane_domain_substrate.sql
+ *       -> the 12 qubetalk_* tables + passport_peer_messages' new columns
+ *          (conversation_id, transport, direction, sensitivity, consequence,
+ *          delivery_state)
+ *   - 20260930050000_contactgraph_substrate.sql
+ *       -> contact_persons/contact_personas/contact_endpoints + the bridge
+ *          columns on qubetalk_participants/qubetalk_participant_endpoints
+ *   (added 2026-08-25 after this exact drift recurred for the QubeTalk +
+ *   ContactGraph capability — Amplify deployed the application commit while
+ *   dev's Supabase project had neither migration applied, surfacing as a
+ *   PostgREST "table not found in schema cache" error live in aigentMe/
+ *   Runtime. The standing invariant this section enforces: application
+ *   deployment is not QubeTalk deployment if the required domain schema has
+ *   not crossed with it.)
  *
  * Best-effort probe of supabase_migrations.schema_migrations (the Supabase
  * CLI's own applied-migration ledger) is attempted but never required — most
@@ -98,6 +112,67 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     schemaMigrationsError = err instanceof Error ? err.message : String(err);
   }
 
+  // ── QubeTalk Communications Membrane + ContactGraph substrate ─────────────
+  // (20260930040000 / 20260930050000, added 2026-08-25 after this exact
+  // failure mode recurred: Amplify deployed the app while dev's Supabase
+  // project had neither migration — see
+  // codexes/packs/agentiq/updates/2026-09-30_contactgraph-substrate-and-qubetalk-integration.md's
+  // "Live deployment repair" addendum. "Application deployment is not
+  // QubeTalk deployment if the required domain schema has not crossed with
+  // it" — this section is the standing check for that invariant, same
+  // discipline as the dual-leg-anchoring probe above: checked against the
+  // live tables/columns themselves, never against migration-runner
+  // bookkeeping.
+  const qubeTalkTables = [
+    'qubetalk_participants', 'qubetalk_participant_endpoints', 'qubetalk_relationship_state',
+    'qubetalk_groups', 'qubetalk_group_endpoints', 'qubetalk_group_memberships',
+    'qubetalk_conversations', 'qubetalk_publications', 'qubetalk_publication_projections',
+    'qubetalk_engagements', 'qubetalk_agent_policies', 'qubetalk_events',
+  ];
+  const contactGraphTables = ['contact_persons', 'contact_personas', 'contact_endpoints'];
+  const qubeTalkTablesPresent: string[] = [];
+  const qubeTalkTablesMissing: string[] = [];
+  for (const table of qubeTalkTables) {
+    const probe = await admin.from(table).select('id').limit(1);
+    if (probe.error && /does not exist|schema cache/i.test(probe.error.message)) {
+      qubeTalkTablesMissing.push(table);
+    } else {
+      qubeTalkTablesPresent.push(table);
+    }
+  }
+  const contactGraphTablesPresent: string[] = [];
+  const contactGraphTablesMissing: string[] = [];
+  for (const table of contactGraphTables) {
+    const probe = await admin.from(table).select('id').limit(1);
+    if (probe.error && /does not exist|schema cache/i.test(probe.error.message)) {
+      contactGraphTablesMissing.push(table);
+    } else {
+      contactGraphTablesPresent.push(table);
+    }
+  }
+  // Bridge columns (20260930050000, part 4) — QubeTalk references
+  // ContactGraph resolution; both nullable, so presence (not value) is what
+  // proves the bridge migration ran.
+  const bridgeColumnsMissing: string[] = [];
+  const participantBridgeProbe = await admin.from('qubetalk_participants').select('contact_person_id').limit(1);
+  if (participantBridgeProbe.error && /does not exist|schema cache/i.test(participantBridgeProbe.error.message)) {
+    bridgeColumnsMissing.push('qubetalk_participants.contact_person_id');
+  }
+  const endpointBridgeProbe = await admin.from('qubetalk_participant_endpoints').select('contact_persona_id').limit(1);
+  if (endpointBridgeProbe.error && /does not exist|schema cache/i.test(endpointBridgeProbe.error.message)) {
+    bridgeColumnsMissing.push('qubetalk_participant_endpoints.contact_persona_id');
+  }
+  // MessageQube extension columns on the pre-existing passport_peer_messages
+  // table (20260930040000, part 5) — the migration that is easiest to miss
+  // entirely, since passport_peer_messages itself already existed and every
+  // pre-migration query against it keeps working, masking the gap.
+  const messageQubeProbe = await admin
+    .from('passport_peer_messages')
+    .select('conversation_id, transport, direction, sensitivity, consequence, delivery_state')
+    .limit(1);
+  const messageQubeColumnsApplied = !(
+    messageQubeProbe.error && /does not exist|schema cache/i.test(messageQubeProbe.error.message)
+  );
   // Best-effort: does this project expose a raw-SQL RPC (e.g. exec_sql)? Only
   // relevant to whether the missing DDL (ALTER TABLE / CREATE INDEX in
   // 20260808010000) can be applied programmatically at all — PostgREST has no
@@ -138,6 +213,18 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         registryAssetPresent: Boolean(nakamotoAsset),
         registryAsset: nakamotoAsset,
         iqubeIdMapPresent: (idMapRows ?? []).some((r: any) => r.source_id === 'aigentqube-nakamoto'),
+      },
+      qubeTalkDomainSubstrate_20260930040000: {
+        tablesPresent: qubeTalkTablesPresent,
+        tablesMissing: qubeTalkTablesMissing,
+        messageQubeColumnsApplied,
+        fullyApplied: qubeTalkTablesMissing.length === 0 && messageQubeColumnsApplied,
+      },
+      contactGraphSubstrate_20260930050000: {
+        tablesPresent: contactGraphTablesPresent,
+        tablesMissing: contactGraphTablesMissing,
+        bridgeColumnsMissing,
+        fullyApplied: contactGraphTablesMissing.length === 0 && bridgeColumnsMissing.length === 0,
       },
       supabaseCliMigrationLedger: {
         available: schemaMigrations !== null,
