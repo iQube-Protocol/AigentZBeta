@@ -4474,3 +4474,8 @@ Top-level retrieval anchors for this pack.
 - Type: `docs`
 - Brief: [COMMIT-da92fec.md](../build_/COMMITS/COMMIT-da92fec.md)
 - Message: docs(aee): include MoneyPenny Advisor Architect Runtime in first Differ audit
+
+## Commit `f35ecb3` — 2026-08-25T11:22:43-04:00
+- Type: `push`
+- Brief: [COMMIT-f35ecb3.md](../build_/COMMITS/COMMIT-f35ecb3.md)
+- Message: Spec QubeTalk communications membrane domain model v0.2

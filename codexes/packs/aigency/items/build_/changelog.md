@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`f35ecb3`](https://github.com/iQube-Protocol/AigentZBeta/commit/f35ecb31ad40281327d74f5895677737b86cb10b) [push] Spec QubeTalk communications membrane domain model v0.2 (Kn0w1, 2026-08-25T11:22:43-04:00)
 - [`da92fec`](https://github.com/iQube-Protocol/AigentZBeta/commit/da92fec2a6e6cbf2db5caa0d71cc983c33a00935) [docs] docs(aee): include MoneyPenny Advisor Architect Runtime in first Differ audit (Kn0w1, 2026-08-24T11:17:28-04:00)
 - [`d0db72c`](https://github.com/iQube-Protocol/AigentZBeta/commit/d0db72cd4eee8dba752006bc569c00ed757bb966) [docs] docs(agentiq): specify adaptive experience engine with Differ provider seam (Kn0w1, 2026-08-24T11:01:01-04:00)
 - [`ffb64e4`](https://github.com/iQube-Protocol/AigentZBeta/commit/ffb64e438adf642673fd2597d795dc83ba52aa81) [docs] docs(agentiq): specify Journey Spine runtime evolution (Kn0w1, 2026-08-24T10:16:39-04:00)

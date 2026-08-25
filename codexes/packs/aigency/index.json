@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-24T15:19:17.217Z",
+  "last_updated": "2026-08-25T15:24:19.852Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "da92fec2a6e6cbf2db5caa0d71cc983c33a00935",
-  "latest_commit_short": "da92fec",
-  "latest_commit_title": "docs(aee): include MoneyPenny Advisor Architect Runtime in first Differ audit",
+  "latest_commit": "f35ecb31ad40281327d74f5895677737b86cb10b",
+  "latest_commit_short": "f35ecb3",
+  "latest_commit_title": "Spec QubeTalk communications membrane domain model v0.2",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "f35ecb3",
+      "full_sha": "f35ecb31ad40281327d74f5895677737b86cb10b",
+      "title": "Spec QubeTalk communications membrane domain model v0.2",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-25T11:22:43-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-f35ecb3.md"
+    },
     {
       "sha": "da92fec",
       "full_sha": "da92fec2a6e6cbf2db5caa0d71cc983c33a00935",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-10T20:03:05Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-d1ef756.md"
-    },
-    {
-      "sha": "7d0ed73",
-      "full_sha": "7d0ed7363507db181a71bb169bd32d3372b4023d",
-      "title": "trigger deploy: in-place iframe chrome toggle for KNYTS Bridge embeds",
-      "author": "Claude",
-      "timestamp": "2026-08-10T20:03:08Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-7d0ed73.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
