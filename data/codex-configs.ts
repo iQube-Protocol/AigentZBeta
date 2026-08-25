@@ -4882,7 +4882,13 @@ export const MONEYPENNY_CARTRIDGE: CodexConfig = {
     ],
   },
   tabGroups: [
-    { id: 'operate',    label: 'Operate',    icon: 'Rocket',   order: 0 },
+    // Label-only rebrand (2026-08-25, operator direction): this group is
+    // principally the HFT capability cluster (HFT Console / Portfolio /
+    // Strategies / SmartTriad) — the LABEL changes to "HFT"; the id stays
+    // 'operate' so deep links, stored tab state, bridge descriptors, tests,
+    // activation references, and Differ baselines that key on the id are
+    // unaffected.
+    { id: 'operate',    label: 'HFT',        icon: 'Rocket',   order: 0 },
     { id: 'connect',    label: 'Connect',    icon: 'Users',    order: 1 },
     { id: 'service',    label: 'Service',    icon: 'Landmark', order: 2 },
     { id: 'administer', label: 'Administer', icon: 'Settings', order: 3 },

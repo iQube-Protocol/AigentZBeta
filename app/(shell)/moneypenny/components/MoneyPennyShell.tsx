@@ -75,7 +75,7 @@ export function MoneyPennyShell({ children }: { children: React.ReactNode }) {
               <CardTitle className="flex items-center gap-2">
                 <TrendingUp className="h-6 w-6 text-emerald-400" />
                 <span className="text-emerald-400">MoneyPenny</span>
-                <span className="text-white/60">Q¢ HFT Aigent</span>
+                <span className="text-white/60">— Financial Services Runtime Agents</span>
               </CardTitle>
               <CardDescription className="text-white/60">
                 Real-time high-frequency trading agent powered by Qripto
