@@ -210,6 +210,7 @@ export default function KnytsBridgePage() {
         components={KNYTS_BRIDGE_COMPONENTS}
         resolveSurfaceProps={resolveSurfaceProps}
         onRuntimeStateChange={handleRuntimeStateChange}
+        onPersonaChange={setPersonaId}
         accent={KNYT_ACCENT}
         compact
         distinguishAvailableStages

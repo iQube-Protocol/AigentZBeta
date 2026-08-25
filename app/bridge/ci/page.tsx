@@ -197,6 +197,7 @@ export default function ConstitutionalInternetBridgePage() {
           components={CI_BRIDGE_COMPONENTS}
           resolveSurfaceProps={resolveSurfaceProps}
           onRuntimeStateChange={handleRuntimeStateChange}
+          onPersonaChange={setPersonaId}
           accent={CI_ACCENT}
           compact
           distinguishAvailableStages

@@ -57,6 +57,13 @@ interface PilotJourneyTabProps {
    * Omitted by every existing caller — no behavior change there.
    */
   foregroundSurfacesByStage?: JourneyRunSurfaceProps['foregroundSurfacesByStage'];
+  /**
+   * Journey Principal Context (2026-08-25) — passed directly through to
+   * JourneyRunSurface's own `onPersonaChange`. Omitted by every existing
+   * caller (PartnerProgrammesTab, which already receives persona updates via
+   * the surrounding cartridge's PersonaContext) — no behavior change there.
+   */
+  onPersonaChange?: JourneyRunSurfaceProps['onPersonaChange'];
 }
 
 /**
@@ -93,7 +100,7 @@ function selectStage(stageId: string) {
   }
 }
 
-function PilotJourneyTabInner({ personaId, isAdmin, onRuntimeStateChange, foregroundSurfacesByStage }: PilotJourneyTabProps) {
+function PilotJourneyTabInner({ personaId, isAdmin, onRuntimeStateChange, foregroundSurfacesByStage, onPersonaChange }: PilotJourneyTabProps) {
   // Which registrable agent the Register stage is currently sponsoring
   // (services/horizen/registrableAgents.ts, MoneyPenny is the demo default).
   // The dry-run agent is the one being exercised, so it is the one selected on
@@ -342,6 +349,7 @@ function PilotJourneyTabInner({ personaId, isAdmin, onRuntimeStateChange, foregr
       resolveSurfaceProps={resolveSurfaceProps}
       onRuntimeStateChange={onRuntimeStateChange}
       foregroundSurfacesByStage={foregroundSurfacesByStage}
+      onPersonaChange={onPersonaChange}
       headerLabel={
         <>
           <span className="shrink-0 font-semibold text-slate-100">metaMe × Horizen</span>

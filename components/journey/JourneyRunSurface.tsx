@@ -28,6 +28,7 @@ import { buildCodexUrl } from '@/utils/codex-nav';
 import { JOURNEY_SURFACES, buildEmbedSurfaceSrc, type JourneySurfaceDescriptor } from '@/services/journey/journeySurfaceRegistry';
 import { requestBridgeEmbedReturn } from '@/services/journey/bridgeEmbedNav';
 import { StageReceiptsDrawer } from '@/components/journey/StageReceiptsDrawer';
+import { ActivePersonaControl } from '@/components/persona/ActivePersonaControl';
 import type { JourneyDefinition, JourneyRuntimeState, JourneyStageDefinition, JourneySurfaceRef } from '@/types/journey';
 import { overlayZClass } from '@/components/ui/overlayLayers';
 import { readJsonOrExplain } from '@/utils/readJsonOrExplain';
@@ -347,6 +348,21 @@ export interface JourneyRunSurfaceProps {
    * is replaced.
    */
   foregroundSurfacesByStage?: Record<string, React.ReactNode>;
+  /**
+   * Journey Principal Context (2026-08-25) — fired when the shared
+   * `ActivePersonaControl` reports a persona switch from its wallet. The
+   * caller is responsible for propagating the new effective persona into
+   * whatever state feeds this component's own `personaId` prop; this file
+   * never mutates `personaId` itself, it only relays the wallet's report.
+   * Omitting this prop is safe — every current caller (Horizen, Validation
+   * Programme, Ian, KNYTS/CI, which read personaId from a stable source)
+   * keeps rendering the badge (persona switching still works via the
+   * wallet's own global broadcast, `aa-persona-change-v1`, which
+   * `usePersonaSpine`/`useActivePersona` already listen for) — this callback
+   * is an ADDITIONAL, more immediate seam for hosts that hold their own
+   * local `personaId` state with no other listener (the bare Bridge pages).
+   */
+  onPersonaChange?: (newPersonaId: string) => void;
 }
 
 const DEFAULT_ACCENT = {
@@ -373,6 +389,7 @@ export function JourneyRunSurface({
   emphasizeAvailableStage,
   onRuntimeStateChange,
   foregroundSurfacesByStage,
+  onPersonaChange,
 }: JourneyRunSurfaceProps) {
   const [runtimeState, setRuntimeState] = useState<JourneyRuntimeState | null>(null);
   /**
@@ -809,6 +826,23 @@ export function JourneyRunSurface({
    */
   const headerActions = (
     <div className="ml-auto flex shrink-0 items-center gap-2">
+      {/*
+        Journey Principal Context (2026-08-25) — WHO is acting, immediately
+        LEFT of Refresh: `Active Persona -> Refresh/State -> Evidence ->
+        Full screen`. This reuses the SAME resolver (useActivePersona) and
+        the SAME wallet (SmartWalletDrawer) the cartridge shell's own
+        "Welcome, {persona}" badge uses (CodexPanelDynamic) — never a second
+        persona resolver or a second wallet. Copy reads "Acting as", never
+        "Principal": the active persona is always a displayable fact, but
+        "Principal" is an authority relationship only an authoritative
+        Journey/authority projection may state.
+      */}
+      <ActivePersonaControl
+        personaId={personaId}
+        cartridgeSlug={journey.id}
+        onPersonaChange={onPersonaChange}
+        compact={compact}
+      />
       <button
         onClick={() => void refresh()}
         title="Refresh state"
@@ -1352,13 +1386,17 @@ export function JourneyRunSurface({
                 </div>
               );
             }
+            // Unreachable: the five `kind` branches above are exhaustive over
+            // JourneySurfaceDescriptor, so `descriptor` narrows to `never`
+            // here. Kept as a type-safe fallback rather than removed, so a
+            // future sixth `kind` added to the union without a matching
+            // branch here still renders something instead of nothing.
             return (
               <div key={i} className="rounded-md border border-slate-800 bg-slate-950/40 p-3 text-xs text-slate-400">
-                {descriptor.note}
+                {(descriptor as { note?: string }).note}
               </div>
             );
           }))}
-          )}
         </div>
         {/* Suppressed where the stage's own surface already shows its
             receipts (see JourneyStageDefinition.receiptsSurfacedNatively) —
