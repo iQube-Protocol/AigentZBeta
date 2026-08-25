@@ -44,6 +44,18 @@ function parseEmbed(cols: string): string | null {
   return m ? m[1] : null;
 }
 
+/** The FK column (on the SOURCE table) each embeddable table is joined on.
+ *  Doesn't follow one universal naming rule across this repo's tables
+ *  (`qubetalk_participants` joins via `participant_id`, not
+ *  `qubetalk_participant_id`), so this is an explicit map rather than a
+ *  derived convention — extend it when a new single-level `!inner` embed
+ *  shape is exercised by a test. */
+const EMBED_FK_COLUMN: Record<string, string> = {
+  qubetalk_participants: 'participant_id',
+  contact_personas: 'contact_persona_id',
+  contact_persons: 'contact_person_id',
+};
+
 function makeBuilder(tables: FakeTables, table: string) {
   const filters: Filter[] = [];
   let orFilters: Filter[] | null = null;
@@ -62,9 +74,11 @@ function makeBuilder(tables: FakeTables, table: string) {
   function embedded(): FakeRow[] {
     if (!embedTable) return rows();
     const joined = tables[embedTable] ?? [];
+    const fkColumn = EMBED_FK_COLUMN[embedTable];
+    expect(fkColumn, `fakeSupabase embed: no FK column registered for "${embedTable}" in EMBED_FK_COLUMN`).toBeDefined();
     const out: FakeRow[] = [];
     for (const row of rows()) {
-      const match = joined.find((j) => j.id === row.participant_id);
+      const match = joined.find((j) => j.id === row[fkColumn]);
       if (!match) continue; // !inner — drop unmatched
       out.push({ ...row, [embedTable]: match });
     }

@@ -19,6 +19,8 @@
  * the migration's own header comment for the reasoning).
  */
 
+import { CAPABILITY_PROJECTION_PROFILES, type CapabilityProjectionProfile } from '@/types/capabilityProjection';
+
 // ─── ParticipantQube (§3) ──────────────────────────────────────────────────
 
 export const QUBETALK_ENDPOINT_PLATFORMS = [
@@ -46,6 +48,11 @@ export interface QubeTalkParticipant {
    *  this is a foreign key to personas.public_ref, nothing is minted here. */
   principalRef: string | null;
   displayName: string;
+  /** ContactGraph reference (fast-follow, ContactGraph + aigentMe First
+   *  Deployment) — set when this participant has been resolved against the
+   *  owner's ContactGraph. QubeTalk REFERENCES this resolution; it does not
+   *  maintain a competing one (C9/NC10). Null until resolved. */
+  contactPersonId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -58,6 +65,10 @@ export interface QubeTalkParticipantEndpoint {
   confidence: QubeTalkEndpointConfidence;
   confirmedByPersonaId: string | null;
   confirmedAt: string | null;
+  /** Which ContactGraph persona/context this specific endpoint belongs to
+   *  (e.g. this WhatsApp number is the "Personal" context) — fast-follow
+   *  bridge field. Null until resolved. */
+  contactPersonaId: string | null;
   createdAt: string;
 }
 
@@ -325,8 +336,11 @@ export interface QubeTalkTransportDescriptor {
 // RelationshipQube/ConversationQube rows; a projection only bounds which of
 // them are visible, never rewrites their identity.
 
-export const QUBETALK_PROJECTION_PROFILES = ['full', 'ambient', 'contextual'] as const;
-export type QubeTalkProjectionProfile = (typeof QUBETALK_PROJECTION_PROFILES)[number];
+/** Same values as CAPABILITY_PROJECTION_PROFILES — kept as its own exported
+ *  name so existing QubeTalk callers are unaffected by the ContactGraph
+ *  fast-follow's extraction of the shared capability-projection seam. */
+export const QUBETALK_PROJECTION_PROFILES = CAPABILITY_PROJECTION_PROFILES;
+export type QubeTalkProjectionProfile = CapabilityProjectionProfile;
 
 /**
  * What the requesting surface is asking to see. `'all'` for

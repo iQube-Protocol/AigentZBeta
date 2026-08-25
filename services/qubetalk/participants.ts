@@ -31,6 +31,7 @@ function rowToParticipant(row: Record<string, unknown>): QubeTalkParticipant {
     ownerPersonaId: String(row.owner_persona_id),
     principalRef: (row.principal_ref as string | null) ?? null,
     displayName: String(row.display_name),
+    contactPersonId: (row.contact_person_id as string | null) ?? null,
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at),
   };
@@ -45,6 +46,7 @@ function rowToEndpoint(row: Record<string, unknown>): QubeTalkParticipantEndpoin
     confidence: row.confidence as QubeTalkEndpointConfidence,
     confirmedByPersonaId: (row.confirmed_by_persona_id as string | null) ?? null,
     confirmedAt: (row.confirmed_at as string | null) ?? null,
+    contactPersonaId: (row.contact_persona_id as string | null) ?? null,
     createdAt: String(row.created_at),
   };
 }

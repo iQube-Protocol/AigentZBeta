@@ -26,6 +26,8 @@
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import type { PeerResult } from '@/services/qubetalk/peerChannel';
 import { resolveParticipantByEndpoint, createParticipant } from '@/services/qubetalk/participants';
+import { resolveOwnerAuthProfileId } from '@/services/contactGraph/ownerResolution';
+import { resolveContactPersonForInboundEndpoint, linkParticipantToContactPerson } from '@/services/contactGraph/qubetalkBridge';
 import { resolveConversation, touchConversationActivity } from '@/services/qubetalk/conversations';
 import { recordInteraction } from '@/services/qubetalk/relationships';
 import { snapshotGroupAudience } from '@/services/qubetalk/groups';
@@ -136,7 +138,7 @@ export async function ingestCommunicationEvent(event: IngressEvent): Promise<Pee
         ok: true,
         value: {
           duplicate: true,
-          participant: { id: '', ownerPersonaId: event.ownerPersonaId, principalRef: null, displayName: '', createdAt: '', updatedAt: '' },
+          participant: { id: '', ownerPersonaId: event.ownerPersonaId, principalRef: null, displayName: '', contactPersonId: null, createdAt: '', updatedAt: '' },
           conversation: { id: '', relationshipChannelId: null, groupId: null, topology: 'dyadic', title: null, createdAt: '', lastActivityAt: '' },
           audienceSnapshot: null,
           sensitivity: 'standard',
@@ -161,17 +163,44 @@ export async function ingestCommunicationEvent(event: IngressEvent): Promise<Pee
     if (byEndpoint.value) {
       participant = byEndpoint.value;
     } else {
-      // No match — a genuinely new, UNRESOLVED correspondent (§3/Scenario 4).
-      // Never guessed into an existing participant.
-      const created = await createParticipant(event.ownerPersonaId, { displayName: event.senderEndpoint.displayName });
+      // No match in QubeTalk's own directory yet. Before creating a blank
+      // unresolved participant, ask ContactGraph — the platform-wide
+      // contact-resolution capability QubeTalk REFERENCES, never forks
+      // (C9/NC10) — whether this exact handle is already known (e.g.
+      // imported from Google Contacts). Exact-match only, same as
+      // resolveParticipantByEndpoint's own discipline; a ContactGraph miss
+      // (or an unresolvable owner) falls back to exactly the prior
+      // behavior — a brand-new unresolved participant.
+      let contactMatch: { contactPersonId: string; contactPersonaId: string; displayName: string } | null = null;
+      const owner = await resolveOwnerAuthProfileId(event.ownerPersonaId);
+      if (owner.ok) {
+        const resolved = await resolveContactPersonForInboundEndpoint(
+          owner.value,
+          event.senderEndpoint.platform,
+          event.senderEndpoint.endpointRef,
+        );
+        if (resolved.ok) contactMatch = resolved.value;
+      }
+
+      const created = await createParticipant(event.ownerPersonaId, {
+        displayName: contactMatch?.displayName || event.senderEndpoint.displayName,
+      });
       if (!created.ok) return created;
       participant = created.value;
       await admin.from('qubetalk_participant_endpoints').insert({
         participant_id: participant.id,
         platform: event.senderEndpoint.platform,
         endpoint_ref: event.senderEndpoint.endpointRef,
-        confidence: 'unresolved',
+        // A ContactGraph match is real, if not owner-confirmed-within-
+        // QubeTalk, evidence — stronger than a bare unresolved observation
+        // but never claimed as 'verified' (that stays a deliberate act).
+        confidence: contactMatch ? 'high_confidence' : 'unresolved',
+        contact_persona_id: contactMatch?.contactPersonaId ?? null,
       });
+      if (contactMatch && owner.ok) {
+        const linked = await linkParticipantToContactPerson(event.ownerPersonaId, owner.value, participant.id, contactMatch.contactPersonId);
+        if (linked.ok) participant = linked.value;
+      }
     }
   }
 
