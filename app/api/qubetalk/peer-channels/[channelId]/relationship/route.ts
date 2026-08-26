@@ -36,7 +36,7 @@ export async function GET(
     return NextResponse.json({ ok: false, error: 'channel not found' }, { status: 404, headers: NO_STORE });
   }
 
-  const state = await getOrCreateRelationshipState(channelId);
+  const state = await getOrCreateRelationshipState({ kind: 'platform_peer_channel', channelId });
   if (!state.ok) {
     const status = state.code === 'not_found' ? 404 : 500;
     return NextResponse.json({ ok: false, error: state.error }, { status, headers: NO_STORE });

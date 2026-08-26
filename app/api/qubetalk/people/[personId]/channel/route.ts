@@ -1,25 +1,28 @@
 /**
  * POST /api/qubetalk/people/[personId]/channel — "Message" from the People
  * view (QubeTalk Fast-Follow: closing the messaging loop). Resolves-or-
- * creates the RelationshipQube (`passport_peer_channels`) for a
- * ContactGraph person, so the People tab's "Message" action can hand the
- * operator straight into the Conversations tab already on the right
- * channel.
+ * creates a relationship anchor for a ContactGraph person, so the People
+ * tab's "Message" action can hand the operator straight into a relationship
+ * already open with that contact.
  *
- * SCOPE BOUNDARY (documented honestly, not silently papered over):
- * `passport_peer_channels` is personhood-bound by construction — both
- * principals are identified by a real Polity Public Reference
- * (peerChannel.ts's own header). This route therefore only works for a
- * ContactPerson already linked to a real platform persona
- * (`linkedPersonhoodRef` set — e.g. via ContactGraph's own confirmation
- * flow, or a prior QubeTalk-side resolution). A purely off-platform
- * ContactGraph contact (no platform persona at all) has no RelationshipQube
- * to create yet — that is a genuine, separate architectural question
- * (extending the relationship model to cover off-platform contacts),
- * raised to the operator as a candidate architectural refinement rather
- * than solved unilaterally here, per this increment's explicit "do not
- * start another architecture pass" instruction. This route returns a clear,
- * honest 409 in that case — never a silently-wrong channel.
+ * TWO possible anchor kinds (P0.5, operator-ruled architecture):
+ *   - `platform_peer_channel` — the ContactPerson is already linked to a
+ *     real platform persona (`linkedPersonhoodRef` set). This resolves-or-
+ *     creates the EXISTING `passport_peer_channels` row via
+ *     `createOrGetChannel` (unchanged from before this increment).
+ *   - `offplatform_contact` — the ContactPerson has NO linked platform
+ *     persona. `passport_peer_channels` is personhood-bound by construction
+ *     (both principals are identified by a real Polity Public Reference) and
+ *     structurally cannot represent this case, so this resolves-or-creates
+ *     the sibling `qubetalk_offplatform_relationships` row instead
+ *     (services/qubetalk/offplatformRelationships.ts) — never a synthetic
+ *     Polity Public Reference invented for an off-platform contact.
+ *
+ * The response's `channel.kind` field tells the caller honestly which
+ * anchor it got — a consumer that only knows how to render a
+ * `platform_peer_channel` (e.g. QubeTalkInboxTab, which reads/writes
+ * `passport_peer_channels` rows via `/api/qubetalk/peer-channels/*`) MUST
+ * check this before assuming the returned id is a valid peer-channel id.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -28,6 +31,7 @@ import { getActivePersona } from '@/services/identity/getActivePersona';
 import { resolveOwnerAuthProfileId } from '@/services/contactGraph/ownerResolution';
 import { getContactPerson } from '@/services/contactGraph/contactPersons';
 import { createOrGetChannel } from '@/services/qubetalk/peerChannel';
+import { resolveOrCreateOffplatformRelationship } from '@/services/qubetalk/offplatformRelationships';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,17 +55,18 @@ export async function POST(
   }
 
   if (!person.value.linkedPersonhoodRef) {
+    const offplatform = await resolveOrCreateOffplatformRelationship(owner.value, person.value.id);
+    if (!offplatform.ok) return NextResponse.json({ ok: false, error: offplatform.error, code: offplatform.code }, { status: 500, headers: NO_STORE });
     return NextResponse.json(
-      {
-        ok: false,
-        error: 'This contact is not linked to a platform persona yet, so QubeTalk cannot open a relationship for them.',
-        code: 'not_linked_to_platform_persona',
-      },
-      { status: 409, headers: NO_STORE },
+      { ok: true, channel: { kind: 'offplatform_contact' as const, ...offplatform.value } },
+      { headers: NO_STORE },
     );
   }
 
   const channel = await createOrGetChannel(persona.personaId, person.value.linkedPersonhoodRef);
   if (!channel.ok) return NextResponse.json({ ok: false, error: channel.error, code: channel.code }, { status: 500, headers: NO_STORE });
-  return NextResponse.json({ ok: true, channel: channel.value }, { headers: NO_STORE });
+  return NextResponse.json(
+    { ok: true, channel: { kind: 'platform_peer_channel' as const, ...channel.value } },
+    { headers: NO_STORE },
+  );
 }

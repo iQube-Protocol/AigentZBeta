@@ -185,7 +185,7 @@ export async function requestProjection(
   const relationships: QubeTalkProjectionRelationshipSummary[] = [];
   for (const channelId of granted.relationshipChannelIds) {
     const channel = channelById.get(channelId);
-    const state = await getOrCreateRelationshipState(channelId);
+    const state = await getOrCreateRelationshipState({ kind: 'platform_peer_channel', channelId });
     const conversations = await listConversationsForRelationship(channelId);
     relationships.push({
       channelId,

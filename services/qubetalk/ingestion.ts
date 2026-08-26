@@ -139,7 +139,7 @@ export async function ingestCommunicationEvent(event: IngressEvent): Promise<Pee
         value: {
           duplicate: true,
           participant: { id: '', ownerPersonaId: event.ownerPersonaId, principalRef: null, displayName: '', contactPersonId: null, createdAt: '', updatedAt: '' },
-          conversation: { id: '', relationshipChannelId: null, groupId: null, topology: 'dyadic', title: null, originEngagementId: null, createdAt: '', lastActivityAt: '' },
+          conversation: { id: '', relationshipChannelId: null, offplatformRelationshipId: null, groupId: null, topology: 'dyadic', title: null, originEngagementId: null, createdAt: '', lastActivityAt: '' },
           audienceSnapshot: null,
           sensitivity: 'standard',
           injectionRisk: false,
@@ -213,7 +213,7 @@ export async function ingestCommunicationEvent(event: IngressEvent): Promise<Pee
   //         from peerChannel.ts; a future external adapter would resolve
   //         these here from the endpoint/group evidence instead). ─────────
   const hasKnownRelationship = Boolean(event.relationshipChannelId);
-  if (event.relationshipChannelId) await recordInteraction(event.relationshipChannelId);
+  if (event.relationshipChannelId) await recordInteraction({ kind: 'platform_peer_channel', channelId: event.relationshipChannelId });
 
   let audienceSnapshot: QubeTalkAudienceSnapshot | null = null;
   if (event.groupId) {
