@@ -133,6 +133,23 @@ export interface ContactEndpoint {
 export const PERSONA_CONTACT_PROMOTION_STATES = ['candidate', 'confirmed'] as const;
 export type PersonaContactPromotionState = (typeof PERSONA_CONTACT_PROMOTION_STATES)[number];
 
+/** projection_state on persona_contacts (additive column, distinct from
+ *  promotion_state above) — tracks whether THIS row has actually been
+ *  projected into ContactGraph, independent of whether it was ever eligible
+ *  to be. Set by two different actors, never in conflict (see the migration
+ *  header, 20260930110000_persona_contacts_projection_state.sql):
+ *   - 'pending' / 'ineligible' are purely structural and set by a DB
+ *     trigger from the row's own email/phone columns — a row with no
+ *     endpoint-bearing field can never be projected as-is.
+ *   - 'projected' / 'ambiguous' require cross-table resolution only the
+ *     application layer can do (services/contactGraph/reconciliation.ts) —
+ *     the trigger never sets either.
+ *  reconcileConfirmedPersonaContacts filters to 'pending' only, so
+ *  'ineligible' rows are never attempted and 'ambiguous' rows are never
+ *  silently retried (they wait for explicit human/aigentMe-assisted review). */
+export const PERSONA_CONTACT_PROJECTION_STATES = ['pending', 'projected', 'ineligible', 'ambiguous'] as const;
+export type PersonaContactProjectionState = (typeof PERSONA_CONTACT_PROJECTION_STATES)[number];
+
 // ─── Surface-independent capability projection ──────────────────────────────
 //
 // ContactGraph is a contained capability just as QubeTalk is (C13) — it must

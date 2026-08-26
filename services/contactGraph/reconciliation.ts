@@ -41,6 +41,14 @@ import { addContactEndpoint, resolveEndpointForOwner } from '@/services/contactG
 const PERSONA_CONTACTS = 'persona_contacts';
 const DEFAULT_CONTEXT_LABEL = 'General';
 
+/** Bounds for reconcileConfirmedPersonaContacts's page size — large enough
+ *  that a single-persona backlog drains in a handful of calls, small enough
+ *  that one GET never blocks on an unbounded scan (see the route header at
+ *  app/api/contactgraph/people/route.ts for why an unbounded per-request
+ *  scan stopped being safe past ~1,200 rows/persona). */
+const DEFAULT_RECONCILE_PAGE_SIZE = 200;
+const MAX_RECONCILE_PAGE_SIZE = 500;
+
 interface PersonaContactRow {
   id: string;
   persona_id: string;
@@ -54,8 +62,19 @@ interface PersonaContactRow {
   phone_2: string | null;
   source: string;
   promotion_state: string;
+  projection_state: string;
   promoted_contact_person_id: string | null;
 }
+
+/**
+ * The outcome of projecting one `persona_contacts` row. `contactPersonId` is
+ * present ONLY on the 'projected' branch — a caller cannot mistake an
+ * ambiguous result for a resolved one by accident (no shared nullable field
+ * that means two different things).
+ */
+export type ProjectPersonaContactOutcome =
+  | { outcome: 'projected'; contactPersonId: string; created: boolean }
+  | { outcome: 'ambiguous'; candidateContactPersonIds: string[] };
 
 function candidateEndpoints(row: PersonaContactRow): Array<{ platform: ContactEndpointPlatform; identifier: string }> {
   const out: Array<{ platform: ContactEndpointPlatform; identifier: string }> = [];
@@ -85,12 +104,21 @@ function sourceAndConfidence(personaContactSource: string): { source: ContactEnd
   return { source, confidence: 'high_confidence' };
 }
 
+/**
+ * Collects EVERY distinct existing ContactPerson that any of this row's
+ * candidate endpoints exact-matches — never just the first hit. Two
+ * candidate endpoints on the SAME row resolving to two DIFFERENT existing
+ * ContactPersons is a genuine identity conflict (the live data found exactly
+ * one such row) and must never be silently resolved by picking whichever
+ * endpoint happened to be checked first.
+ */
 async function findExistingContactPersonId(
   ownerAuthProfileId: string,
   endpoints: Array<{ platform: ContactEndpointPlatform; identifier: string }>,
-): Promise<PeerResult<string | null>> {
+): Promise<PeerResult<string[]>> {
   const admin = getSupabaseServer();
   if (!admin) return { ok: false, error: 'Supabase unavailable' };
+  const distinct = new Set<string>();
   for (const endpoint of endpoints) {
     const resolved = await resolveEndpointForOwner(ownerAuthProfileId, endpoint.platform, endpoint.identifier);
     if (!resolved.ok) return resolved;
@@ -101,10 +129,10 @@ async function findExistingContactPersonId(
         .eq('id', resolved.value.contactPersonaId)
         .maybeSingle();
       if (error) return { ok: false, error: error.message };
-      if (data?.contact_person_id) return { ok: true, value: String(data.contact_person_id) };
+      if (data?.contact_person_id) distinct.add(String(data.contact_person_id));
     }
   }
-  return { ok: true, value: null };
+  return { ok: true, value: Array.from(distinct) };
 }
 
 /**
@@ -115,7 +143,7 @@ async function findExistingContactPersonId(
 export async function projectPersonaContact(
   ownerAuthProfileId: string,
   personaContactId: string,
-): Promise<PeerResult<{ contactPersonId: string; created: boolean }>> {
+): Promise<PeerResult<ProjectPersonaContactOutcome>> {
   const admin = getSupabaseServer();
   if (!admin) return { ok: false, error: 'Supabase unavailable' };
 
@@ -129,20 +157,33 @@ export async function projectPersonaContact(
   const row = rowData as PersonaContactRow;
 
   if (row.promoted_contact_person_id) {
-    return { ok: true, value: { contactPersonId: row.promoted_contact_person_id, created: false } };
+    return { ok: true, value: { outcome: 'projected', contactPersonId: row.promoted_contact_person_id, created: false } };
   }
   if (row.promotion_state !== 'confirmed') {
     return { ok: false, error: 'persona contact is not confirmed (candidate rows require explicit promotion)', code: 'not_confirmed' };
   }
 
   const endpoints = candidateEndpoints(row);
-  const existingId = await findExistingContactPersonId(ownerAuthProfileId, endpoints);
-  if (!existingId.ok) return existingId;
+  const existingIds = await findExistingContactPersonId(ownerAuthProfileId, endpoints);
+  if (!existingIds.ok) return existingIds;
+
+  if (existingIds.value.length > 1) {
+    // Two-or-more candidate endpoints on this row resolve to DIFFERENT
+    // existing ContactPersons — a genuine identity conflict. Never guess:
+    // flag for explicit human/aigentMe-assisted review and stop, without
+    // creating a new ContactPerson or picking one of the conflicting ones.
+    const { error: ambiguousUpdateError } = await admin
+      .from(PERSONA_CONTACTS)
+      .update({ projection_state: 'ambiguous' })
+      .eq('id', personaContactId);
+    if (ambiguousUpdateError) return { ok: false, error: ambiguousUpdateError.message };
+    return { ok: true, value: { outcome: 'ambiguous', candidateContactPersonIds: existingIds.value } };
+  }
 
   let contactPersonId: string;
   let created = false;
-  if (existingId.value) {
-    contactPersonId = existingId.value;
+  if (existingIds.value.length === 1) {
+    contactPersonId = existingIds.value[0];
   } else {
     const displayName =
       row.display_name || [row.first_name, row.last_name].filter(Boolean).join(' ') || 'Unknown contact';
@@ -172,43 +213,79 @@ export async function projectPersonaContact(
     if (!added.ok) return added;
   }
 
+  // Same update as promoted_contact_person_id — projection_state is set to
+  // 'projected' here, by the application layer, never by the trigger (see
+  // the migration header).
   const { error: updateError } = await admin
     .from(PERSONA_CONTACTS)
-    .update({ promoted_contact_person_id: contactPersonId })
+    .update({ promoted_contact_person_id: contactPersonId, projection_state: 'projected' })
     .eq('id', personaContactId);
   if (updateError) return { ok: false, error: updateError.message };
 
-  return { ok: true, value: { contactPersonId, created } };
+  return { ok: true, value: { outcome: 'projected', contactPersonId, created } };
 }
 
 /**
- * Batch-project every confirmed, not-yet-projected `persona_contacts` row
- * for one persona. Used as a one-time/on-demand backfill — never run
- * automatically against a candidate row (NC3).
+ * Batch-project confirmed, not-yet-projected `persona_contacts` rows for one
+ * persona — one bounded PAGE at a time (never run automatically against a
+ * candidate row — NC3).
+ *
+ * Endpoint-aware: filters to `projection_state = 'pending'` (set by the
+ * 20260930110000 migration's trigger/backfill), so 'ineligible' rows
+ * (endpoint-less — 778 observed live) are never attempted, and 'ambiguous'
+ * rows (candidate endpoints resolving to more than one existing
+ * ContactPerson) are never silently retried by a batch job — both are
+ * excluded by the query itself rather than discovered by a failed/ambiguous
+ * `projectPersonaContact` call on every run.
+ *
+ * Resumable via keyset pagination on `id` (UUIDs sort deterministically,
+ * even though not chronologically — the guarantee needed here is "every
+ * pending row is visited exactly once across repeated calls", not temporal
+ * order): pass the previous call's `nextCursor` to continue where it left
+ * off. `nextCursor === null` means this page was the last one.
  */
 export async function reconcileConfirmedPersonaContacts(
   ownerAuthProfileId: string,
   personaId: string,
-): Promise<PeerResult<{ projected: number; skipped: number }>> {
+  options?: { limit?: number; cursor?: string },
+): Promise<PeerResult<{ projected: number; skipped: number; ambiguous: number; nextCursor: string | null }>> {
   const admin = getSupabaseServer();
   if (!admin) return { ok: false, error: 'Supabase unavailable' };
 
-  const { data, error } = await admin
+  const limit = Math.min(Math.max(options?.limit ?? DEFAULT_RECONCILE_PAGE_SIZE, 1), MAX_RECONCILE_PAGE_SIZE);
+
+  let query = admin
     .from(PERSONA_CONTACTS)
     .select('id')
     .eq('persona_id', personaId)
     .eq('promotion_state', 'confirmed')
-    .is('promoted_contact_person_id', null);
+    .eq('projection_state', 'pending');
+  if (options?.cursor) {
+    query = query.gt('id', options.cursor);
+  }
+  const { data, error } = await query.order('id', { ascending: true }).limit(limit);
   if (error) return { ok: false, error: error.message };
+
+  const rows = (data ?? []) as Array<{ id: string }>;
 
   let projected = 0;
   let skipped = 0;
-  for (const row of data ?? []) {
-    const result = await projectPersonaContact(ownerAuthProfileId, String((row as { id: string }).id));
-    if (result.ok) projected += 1;
+  let ambiguous = 0;
+  let lastId: string | null = null;
+  for (const row of rows) {
+    const id = String(row.id);
+    lastId = id;
+    const result = await projectPersonaContact(ownerAuthProfileId, id);
+    if (result.ok && result.value.outcome === 'projected') projected += 1;
+    else if (result.ok && result.value.outcome === 'ambiguous') ambiguous += 1;
     else skipped += 1;
   }
-  return { ok: true, value: { projected, skipped } };
+
+  // A full page might not be the last one — a follow-up call with lastId as
+  // the cursor is needed to find out. A short page (fewer rows than asked
+  // for) definitively is the last page.
+  const nextCursor = rows.length === limit ? lastId : null;
+  return { ok: true, value: { projected, skipped, ambiguous, nextCursor } };
 }
 
 export interface PersonaContactImportSourceStats {
@@ -298,7 +375,7 @@ export async function summarizePersonaContactImports(
 export async function promotePersonaContactCandidate(
   ownerAuthProfileId: string,
   personaContactId: string,
-): Promise<PeerResult<{ contactPersonId: string; created: boolean }>> {
+): Promise<PeerResult<ProjectPersonaContactOutcome>> {
   const admin = getSupabaseServer();
   if (!admin) return { ok: false, error: 'Supabase unavailable' };
   const { error } = await admin

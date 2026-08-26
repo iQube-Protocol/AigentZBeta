@@ -6,13 +6,26 @@
  * (services/contactGraph/projection.ts, capability:'contacts') — never a
  * direct read of contact_persons/contact_personas/contact_endpoints.
  *
- * Before projecting, GET lazily reconciles any newly-confirmed
+ * Before projecting, GET lazily reconciles a bounded PAGE of newly-confirmed
  * persona_contacts rows that have not yet been projected into ContactGraph
- * (reconcileConfirmedPersonaContacts is idempotent — it only touches rows
- * with promoted_contact_person_id IS NULL, so repeated calls are cheap).
+ * (reconcileConfirmedPersonaContacts is idempotent and endpoint-aware — it
+ * only touches rows with projection_state = 'pending', so repeated calls are
+ * cheap and never re-attempt rows already known 'ineligible'/'ambiguous').
  * This is what makes aigentMe's People view show REAL data (the operator's
  * existing saved contacts) from the first load, without requiring a
  * separate manual backfill step.
+ *
+ * The call is intentionally bounded (a fixed page size, no cursor threaded
+ * through this route) rather than either the old unbounded full-backlog scan
+ * or dropping reconciliation from this route entirely: because a projected
+ * row's projection_state flips to 'projected' and stops matching the
+ * 'pending' filter, each subsequent GET naturally reconciles the NEXT page
+ * of the backlog — the projection_state column itself is the resume point,
+ * with no cursor to persist across requests. For a persona with a large
+ * backlog (1,200+ rows observed live), the People view still shows whatever
+ * has been projected so far immediately, and catches up incrementally over
+ * a handful of page loads rather than blocking one request on the whole
+ * backlog.
  *
  * Auth: spine (getActivePersona) — the resolved caller IS the owning
  * principal; ownership is further resolved to owner_auth_profile_id
@@ -39,9 +52,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const owner = await resolveOwnerAuthProfileId(persona.personaId);
   if (!owner.ok) return NextResponse.json({ ok: false, error: owner.error }, { status: 500, headers: NO_STORE });
 
-  // Lazy backfill — best-effort; a failure here must not block the read
-  // (the read still returns whatever ContactGraph already has).
-  await reconcileConfirmedPersonaContacts(owner.value, persona.personaId);
+  // Lazy backfill — bounded to one page per request; best-effort, a failure
+  // here must not block the read (the read still returns whatever
+  // ContactGraph already has). See the header above for why no cursor needs
+  // to be threaded through this route.
+  await reconcileConfirmedPersonaContacts(owner.value, persona.personaId, { limit: 200 });
 
   const result = await requestContactGraphProjection(persona.personaId, {
     capability: 'contacts',
