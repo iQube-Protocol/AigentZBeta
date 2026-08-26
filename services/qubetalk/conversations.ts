@@ -14,10 +14,20 @@
  */
 
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
-import type { QubeTalkConversation, QubeTalkConversationTopology } from '@/types/qubetalk';
+import type { QubeTalkConversation, QubeTalkConversationTopology, QubeTalkRelationshipAnchor } from '@/types/qubetalk';
 import type { PeerResult } from '@/services/qubetalk/peerChannel';
+import { anchorValue } from '@/services/qubetalk/relationshipAnchor';
 
 const CONVERSATIONS = 'qubetalk_conversations';
+
+/** Which qubetalk_conversations column an anchor maps to — built on the SAME
+ *  shared anchorValue() branch relationships.ts's anchorColumn() uses; only
+ *  the column NAMES differ between the two tables
+ *  (relationship_channel_id here vs channel_id on qubetalk_relationship_state). */
+function conversationAnchorColumn(anchor: QubeTalkRelationshipAnchor): { column: 'relationship_channel_id' | 'offplatform_relationship_id'; value: string } {
+  const { kind, value } = anchorValue(anchor);
+  return { column: kind === 'peer-channel' ? 'relationship_channel_id' : 'offplatform_relationship_id', value };
+}
 
 function rowToConversation(row: Record<string, unknown>): QubeTalkConversation {
   return {
@@ -88,7 +98,10 @@ export async function getConversation(conversationId: string): Promise<PeerResul
  */
 export async function resolveConversation(input: {
   explicitConversationId?: string | null;
-  relationshipChannelId?: string | null;
+  /** Either anchor kind (P0.5 widening) — replaces the old
+   *  `relationshipChannelId?` param. Omit entirely for a conversation with
+   *  no relationship anchor at all (e.g. group/broadcast topologies). */
+  anchor?: QubeTalkRelationshipAnchor | null;
   groupId?: string | null;
   topology: QubeTalkConversationTopology;
 }): Promise<PeerResult<QubeTalkConversation>> {
@@ -100,9 +113,13 @@ export async function resolveConversation(input: {
   if (!admin) return { ok: false, error: 'Supabase unavailable' };
 
   let query = admin.from(CONVERSATIONS).select('*').is('title', null);
-  query = input.relationshipChannelId
-    ? query.eq('relationship_channel_id', input.relationshipChannelId)
-    : query.is('relationship_channel_id', null);
+  if (input.anchor) {
+    const { column, value } = conversationAnchorColumn(input.anchor);
+    const otherColumn = column === 'relationship_channel_id' ? 'offplatform_relationship_id' : 'relationship_channel_id';
+    query = query.eq(column, value).is(otherColumn, null);
+  } else {
+    query = query.is('relationship_channel_id', null).is('offplatform_relationship_id', null);
+  }
   query = input.groupId ? query.eq('group_id', input.groupId) : query.is('group_id', null);
 
   const { data: existing, error: readError } = await query.limit(1).maybeSingle();
@@ -110,7 +127,8 @@ export async function resolveConversation(input: {
   if (existing) return { ok: true, value: rowToConversation(existing as Record<string, unknown>) };
 
   return createConversation({
-    relationshipChannelId: input.relationshipChannelId ?? null,
+    relationshipChannelId: input.anchor?.kind === 'peer-channel' ? input.anchor.channelId : null,
+    offplatformRelationshipId: input.anchor?.kind === 'off-platform' ? input.anchor.relationshipId : null,
     groupId: input.groupId ?? null,
     topology: input.topology,
     title: null,
@@ -129,12 +147,16 @@ export async function touchConversationActivity(conversationId: string): Promise
 }
 
 /** Used by the projection contract (services/qubetalk/projection.ts) to
- *  build a relationship/group summary's conversationIds list — reads only,
- *  never resolves/creates (that stays resolveConversation's job). */
-export async function listConversationsForRelationship(relationshipChannelId: string): Promise<PeerResult<string[]>> {
+ *  build a relationship summary's conversationIds list — reads only, never
+ *  resolves/creates (that stays resolveConversation's job). ONE call shape
+ *  for EITHER anchor kind (P0.5 widening) — replaces the old
+ *  `listConversationsForRelationship(channelId)`, which only ever queried
+ *  `relationship_channel_id`. */
+export async function listConversationsForAnchor(anchor: QubeTalkRelationshipAnchor): Promise<PeerResult<string[]>> {
   const admin = getSupabaseServer();
   if (!admin) return { ok: false, error: 'Supabase unavailable' };
-  const { data, error } = await admin.from(CONVERSATIONS).select('id').eq('relationship_channel_id', relationshipChannelId);
+  const { column, value } = conversationAnchorColumn(anchor);
+  const { data, error } = await admin.from(CONVERSATIONS).select('id').eq(column, value);
   if (error) return { ok: false, error: error.message };
   return { ok: true, value: (data ?? []).map((r) => String((r as Record<string, unknown>).id)) };
 }

@@ -38,6 +38,26 @@ export const QUBETALK_HUMAN_MESSAGE_TYPES = [
 ] as const;
 export type QubeTalkHumanMessageType = (typeof QUBETALK_HUMAN_MESSAGE_TYPES)[number];
 
+/**
+ * Shared human-message validation — the type allowlist + non-empty-body
+ * check every send path (native `postMessage` here, and the off-platform
+ * `postOffplatformMessage` in offplatformRelationships.ts) needs identically.
+ * Factored out so the two send paths validate the SAME way rather than
+ * hand-copying the same two checks with a chance to drift.
+ */
+export function validateHumanMessage(
+  type: string | undefined,
+  body: string,
+): { ok: true; value: { type: QubeTalkHumanMessageType; body: string } } | { ok: false; error: string; code: string } {
+  const resolvedType = (type ?? 'message') as string;
+  if (!QUBETALK_HUMAN_MESSAGE_TYPES.includes(resolvedType as QubeTalkHumanMessageType)) {
+    return { ok: false, error: `type '${resolvedType}' is not permitted in Phase 1 (human types only)`, code: 'bad_type' };
+  }
+  const trimmedBody = (body ?? '').trim();
+  if (!trimmedBody) return { ok: false, error: 'message body is required', code: 'empty' };
+  return { ok: true, value: { type: resolvedType as QubeTalkHumanMessageType, body: trimmedBody } };
+}
+
 export interface PeerChannel {
   id: string;
   principalARef: string;
@@ -394,12 +414,9 @@ export async function postMessage(
   if (!channel) return { ok: false, error: 'channel not found or caller is not a principal', code: 'not_found' };
   if (channel.status !== 'active') return { ok: false, error: 'channel is revoked', code: 'revoked' };
 
-  const type = (input.type ?? 'message') as string;
-  if (!QUBETALK_HUMAN_MESSAGE_TYPES.includes(type as QubeTalkHumanMessageType)) {
-    return { ok: false, error: `type '${type}' is not permitted in Phase 1 (human types only)`, code: 'bad_type' };
-  }
-  const body = (input.body ?? '').trim();
-  if (!body) return { ok: false, error: 'message body is required', code: 'empty' };
+  const validated = validateHumanMessage(input.type, input.body);
+  if (!validated.ok) return validated;
+  const { type, body } = validated.value;
 
   const insertRow: Record<string, unknown> = { channel_id: channelId, sender_ref: myRef, type, body };
   if (input.transport !== undefined) insertRow.transport = input.transport;

@@ -114,7 +114,29 @@ export interface QubeTalkRelationshipNote {
  *  must always be able to tell which kind a given relationship-state or
  *  conversation row is. Exactly one of the two anchor id fields is set,
  *  matching whichever kind this is. */
-export type QubeTalkRelationshipAnchorKind = 'platform_peer_channel' | 'offplatform_contact';
+export type QubeTalkRelationshipAnchorKind = 'peer-channel' | 'off-platform';
+
+/**
+ * The ONE relationship-anchor descriptor every RelationshipQube/
+ * ConversationQube function accepts (operator ruling, P0.5 widening,
+ * 2026-08-26) — ONE service model, TWO anchor kinds, never a second
+ * "offplatform-shaped" parameter pair threaded by hand alongside this one.
+ * Canonical home: previously declared locally in
+ * services/qubetalk/relationships.ts as `RelationshipAnchor`; promoted here
+ * so conversations.ts/projection.ts/routes/UI all consume the exact same
+ * type rather than a hand-copied duplicate.
+ *
+ * Resolving an 'off-platform' anchor ALSO requires the caller's resolved
+ * `ownerAuthProfileId` (a separate parameter on every function that accepts
+ * this anchor, not folded into the anchor itself — the anchor names WHICH
+ * relationship, ownership is a property of who is asking) — see
+ * services/qubetalk/relationships.ts's `getOrCreateRelationshipState` for the
+ * DB-scoped ownership check this enables. Never resolve an owner-scoped
+ * relationship by UUID alone.
+ */
+export type QubeTalkRelationshipAnchor =
+  | { kind: 'peer-channel'; channelId: string }
+  | { kind: 'off-platform'; relationshipId: string };
 
 export interface QubeTalkRelationshipState {
   /** The row's own id — the real primary key (P0.5: channel_id can no

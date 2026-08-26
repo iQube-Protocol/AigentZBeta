@@ -68,6 +68,131 @@ function confidenceBadgeClass(confidence: string): string {
   return "bg-slate-800 text-slate-500";
 }
 
+interface OffplatformMessageRow {
+  id: string;
+  senderRef: string;
+  type: string;
+  body: string;
+  transport: string;
+  deliveryState: "pending" | "delivered" | "failed";
+  createdAt: string;
+  mine: boolean;
+  error?: string;
+}
+
+/**
+ * The actual off-platform message thread — a minimal, functional compose +
+ * list surface (QubeTalk P0.5 widening) for a ContactGraph contact with no
+ * linked platform persona yet. QubeTalkInboxTab is deeply hard-wired to
+ * `passport_peer_channels` ids across every one of its panel fetches
+ * (messages/artifacts/relationship/contact/share); parametrizing all of that
+ * by anchor kind is a substantially larger rebuild than this pass, so this
+ * mounts inline here instead — reusing the SAME
+ * services/qubetalk/offplatformRelationships.ts send/read path
+ * (`/api/qubetalk/offplatform-relationships/[relationshipId]/messages`) a
+ * future full QubeTalkInboxTab integration would call too. The operator's
+ * bar for this pass was "actually send and see messages, not a dead-end" —
+ * this meets it without forking a second inbox architecture.
+ */
+function OffplatformThread({ relationshipId }: { relationshipId: string }) {
+  const [messages, setMessages] = useState<OffplatformMessageRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [body, setBody] = useState("");
+  const [sending, setSending] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const result = await fetchJson<{ messages: OffplatformMessageRow[] }>(
+      `/api/qubetalk/offplatform-relationships/${relationshipId}/messages`,
+    );
+    setLoading(false);
+    if (result.ok) setMessages(result.data.messages ?? []);
+    else setError(result.error);
+  }, [relationshipId]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const post = useCallback(async () => {
+    const text = body.trim();
+    if (!text) return;
+    setSending(true);
+    setError(null);
+    const result = await fetchJson<{ message: OffplatformMessageRow }>(
+      `/api/qubetalk/offplatform-relationships/${relationshipId}/messages`,
+      { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "message", body: text }) },
+    );
+    setSending(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setBody("");
+    await load();
+  }, [body, relationshipId, load]);
+
+  return (
+    <div className="space-y-2 rounded-md border border-slate-800 bg-slate-950/50 p-3">
+      <p className="text-[11px] text-slate-500">
+        This contact isn&apos;t linked to a platform persona yet — messages are recorded here and (when a reachable
+        handle is on file) sent through an external transport. This relationship carries its own history forward if
+        the contact later links a persona.
+      </p>
+      {loading && (
+        <div className="flex items-center gap-2 py-2 text-xs text-slate-400">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading…
+        </div>
+      )}
+      {error && <p className="text-xs text-amber-400">{error}</p>}
+      <div className="max-h-48 space-y-1.5 overflow-y-auto">
+        {!loading && messages.length === 0 && <p className="text-xs text-slate-600">No messages yet.</p>}
+        {messages.map((m) => (
+          <div
+            key={m.id}
+            className={`max-w-[85%] rounded-md px-3 py-1.5 text-xs ${
+              m.mine
+                ? "ml-auto border border-indigo-500/40 bg-indigo-500/10 text-slate-100"
+                : "border border-slate-800 bg-slate-900/60 text-slate-300"
+            }`}
+          >
+            {m.body}
+            <div className="mt-0.5 flex items-center gap-1.5 text-[9px] text-slate-600">
+              <span>{new Date(m.createdAt).toLocaleString()}</span>
+              {m.mine && m.deliveryState !== "delivered" && (
+                <span className={m.deliveryState === "failed" ? "text-rose-400" : "text-amber-400"}>
+                  · {m.deliveryState}
+                </span>
+              )}
+            </div>
+            {m.mine && m.deliveryState === "failed" && m.error && (
+              <div className="mt-0.5 text-[9px] text-rose-400">{m.error}</div>
+            )}
+          </div>
+        ))}
+      </div>
+      <div className="flex items-center gap-2">
+        <input
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && void post()}
+          placeholder="Write a message…"
+          className="flex-1 rounded border border-slate-700 bg-slate-950/60 px-2 py-1.5 text-xs text-slate-200 outline-none placeholder:text-slate-600"
+        />
+        <button
+          onClick={() => void post()}
+          disabled={sending || !body.trim()}
+          className="inline-flex items-center gap-1.5 rounded-md bg-indigo-700 px-3 py-1.5 text-xs text-white hover:bg-indigo-600 disabled:opacity-50"
+        >
+          {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <MessageCircle className="h-3.5 w-3.5" />}
+          Send
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function RuntimePeoplePanel({ onMessagePerson }: { onMessagePerson: (personId: string) => void }) {
   const {
     filteredPeople,
@@ -102,11 +227,19 @@ function RuntimePeoplePanel({ onMessagePerson }: { onMessagePerson: (personId: s
 
   const [messaging, setMessaging] = useState(false);
   const [messagingError, setMessagingError] = useState<string | null>(null);
+  // Set when the selected person's relationship resolves to the
+  // off-platform sibling anchor (no linked platform persona yet) — the
+  // Conversations tab (QubeTalkInboxTab) only knows how to render a
+  // `passport_peer_channels` row, so this is rendered as a real, functional
+  // inline compose surface (OffplatformThread below) rather than navigating
+  // to a surface that would 404 every panel fetch, or a dead-end message.
+  const [offplatformRelationshipId, setOffplatformRelationshipId] = useState<string | null>(null);
 
   const handleMessage = useCallback(async () => {
     if (!selectedId) return;
     setMessaging(true);
     setMessagingError(null);
+    setOffplatformRelationshipId(null);
     const result = await fetchJson<{ channel: { id: string; kind?: "platform_peer_channel" | "offplatform_contact" } }>(
       `/api/qubetalk/people/${selectedId}/channel`,
       { method: "POST", headers: { "Content-Type": "application/json" } },
@@ -116,17 +249,24 @@ function RuntimePeoplePanel({ onMessagePerson }: { onMessagePerson: (personId: s
       setMessagingError(result.error);
       return;
     }
-    // The Conversations tab (QubeTalkInboxTab) only knows how to render a
-    // `passport_peer_channels` row — an `offplatform_contact` id is not one,
-    // so navigating there would silently 404 every panel fetch. Until that
-    // surface gets its own off-platform relationship view (named follow-up,
-    // P0.5), surface a clear message instead of a broken navigation.
     if (result.data.channel.kind === "offplatform_contact") {
-      setMessagingError("Relationship saved. This contact isn't linked to a platform persona yet, so a full conversation view isn't available for them yet.");
+      setOffplatformRelationshipId(result.data.channel.id);
       return;
     }
     onMessagePerson(result.data.channel.id);
   }, [selectedId, onMessagePerson]);
+
+  // A person switch clears the off-platform thread — it belongs to whichever
+  // person's "Message" action opened it, never carried over to the next
+  // selection.
+  const handleSelectPerson = useCallback(
+    (personId: string) => {
+      setOffplatformRelationshipId(null);
+      setMessagingError(null);
+      setSelectedId(personId);
+    },
+    [setSelectedId],
+  );
 
   return (
     <div className="grid h-full grid-cols-1 gap-4 md:grid-cols-[280px_1fr]">
@@ -151,7 +291,7 @@ function RuntimePeoplePanel({ onMessagePerson }: { onMessagePerson: (personId: s
           {filteredPeople.map((p) => (
             <button
               key={p.contactPersonId}
-              onClick={() => setSelectedId(p.contactPersonId)}
+              onClick={() => handleSelectPerson(p.contactPersonId)}
               className={`w-full rounded-md border px-3 py-2 text-left text-xs transition-colors ${
                 selectedId === p.contactPersonId
                   ? "border-indigo-500/50 bg-indigo-500/10 text-slate-100"
@@ -350,11 +490,15 @@ function RuntimePeoplePanel({ onMessagePerson }: { onMessagePerson: (personId: s
 
             <div className="space-y-1.5">
               <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Relationship</div>
-              <div className="rounded-md border border-slate-800 bg-slate-950/50 p-3 text-xs text-slate-500">
-                {detail.linkedQubeTalkParticipants.length > 0
-                  ? `${detail.linkedQubeTalkParticipants.length} linked QubeTalk conversation participant${detail.linkedQubeTalkParticipants.length === 1 ? "" : "s"}. Open the Conversations tab to see relationship history, open loops, and shared context.`
-                  : "No QubeTalk conversations linked to this person yet."}
-              </div>
+              {offplatformRelationshipId ? (
+                <OffplatformThread relationshipId={offplatformRelationshipId} />
+              ) : (
+                <div className="rounded-md border border-slate-800 bg-slate-950/50 p-3 text-xs text-slate-500">
+                  {detail.linkedQubeTalkParticipants.length > 0
+                    ? `${detail.linkedQubeTalkParticipants.length} linked QubeTalk conversation participant${detail.linkedQubeTalkParticipants.length === 1 ? "" : "s"}. Open the Conversations tab to see relationship history, open loops, and shared context.`
+                    : "No QubeTalk conversations linked to this person yet."}
+                </div>
+              )}
             </div>
           </div>
         )}

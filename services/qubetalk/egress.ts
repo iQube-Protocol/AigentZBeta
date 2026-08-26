@@ -33,7 +33,7 @@ import { resolveConversation, touchConversationActivity } from '@/services/qubet
 import { recordInteraction } from '@/services/qubetalk/relationships';
 import { emitQubeTalkEvent } from '@/services/qubetalk/events';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
-import { postDiscordMessages, resolveDiscordChannelReference } from '@/services/qubetalk/transports/discordTransport';
+import { resolveDiscordChannelReference, sendDiscordContent } from '@/services/qubetalk/transports/discordTransport';
 import { resolveOwnerAuthProfileId } from '@/services/contactGraph/ownerResolution';
 import { getContactEndpointById } from '@/services/contactGraph/contactEndpoints';
 import { evaluateDisclosure, type DisclosureContextItem } from '@/services/qubetalk/disclosurePolicy';
@@ -196,7 +196,7 @@ export async function sendMessageThroughTransport(
     }
   }
 
-  const conversation = await resolveConversation({ relationshipChannelId: req.channelId, topology: 'dyadic' });
+  const conversation = await resolveConversation({ anchor: { kind: 'peer-channel', channelId: req.channelId }, topology: 'dyadic' });
   if (!conversation.ok) return conversation;
 
   if (req.transport === 'qubetalk-native') {
@@ -207,7 +207,7 @@ export async function sendMessageThroughTransport(
     });
     if (!sent.ok) return sent;
     await touchConversationActivity(conversation.value.id);
-    await recordInteraction({ kind: 'platform_peer_channel', channelId: req.channelId });
+    await recordInteraction({ kind: 'peer-channel', channelId: req.channelId });
     return {
       ok: true,
       value: { messageId: sent.value.id, transport: 'qubetalk-native', deliveryState: 'delivered', externalMessageId: null },
@@ -220,31 +220,14 @@ export async function sendMessageThroughTransport(
     const discordChannelId = resolvedDestination.value;
 
     // The SAME bot-token gate app/api/messenger/dispatch/route.ts has always
-    // enforced — preserved exactly, not loosened or removed.
-    const botToken = (process.env.DISCORD_BOT_TOKEN || '').trim();
-    let deliveryState: 'delivered' | 'failed' = 'failed';
-    let externalMessageId: string | null = null;
-    let sendError: string | undefined;
-
-    if (!botToken) {
-      sendError = 'Missing DISCORD_BOT_TOKEN. Configure it to enable live Discord dispatch.';
-    } else {
-      try {
-        const posted = await postDiscordMessages({
-          channelId: discordChannelId,
-          botToken,
-          content: req.body,
-        });
-        if (posted.messageIds.length > 0) {
-          deliveryState = 'delivered';
-          externalMessageId = posted.messageIds[0];
-        } else {
-          sendError = 'Discord accepted no message content (empty after trim)';
-        }
-      } catch (err) {
-        sendError = err instanceof Error ? err.message : 'Discord send failed';
-      }
-    }
+    // enforced — preserved exactly (now via discordTransport.ts's shared
+    // sendDiscordContent, the same wrapper offplatformRelationships.ts's
+    // postOffplatformMessage uses, so both send paths apply the gate and
+    // the "attempt, then record the REAL outcome" discipline identically).
+    const outcome = await sendDiscordContent(discordChannelId, req.body);
+    const deliveryState = outcome.deliveryState;
+    const externalMessageId = outcome.externalMessageId;
+    const sendError = outcome.error;
 
     // Record the REAL outcome on the message row regardless of success or
     // failure — a failed send is still persisted, honestly marked 'failed',
@@ -271,7 +254,7 @@ export async function sendMessageThroughTransport(
     }
 
     await touchConversationActivity(conversation.value.id);
-    await recordInteraction({ kind: 'platform_peer_channel', channelId: req.channelId });
+    await recordInteraction({ kind: 'peer-channel', channelId: req.channelId });
 
     if (req.actingAgentRootDid) {
       await createActivityReceipt({

@@ -213,7 +213,7 @@ export async function ingestCommunicationEvent(event: IngressEvent): Promise<Pee
   //         from peerChannel.ts; a future external adapter would resolve
   //         these here from the endpoint/group evidence instead). ─────────
   const hasKnownRelationship = Boolean(event.relationshipChannelId);
-  if (event.relationshipChannelId) await recordInteraction({ kind: 'platform_peer_channel', channelId: event.relationshipChannelId });
+  if (event.relationshipChannelId) await recordInteraction({ kind: 'peer-channel', channelId: event.relationshipChannelId });
 
   let audienceSnapshot: QubeTalkAudienceSnapshot | null = null;
   if (event.groupId) {
@@ -225,7 +225,7 @@ export async function ingestCommunicationEvent(event: IngressEvent): Promise<Pee
   const topology: QubeTalkConversationTopology = event.groupId ? 'group' : 'dyadic';
   const conversationResult = await resolveConversation({
     explicitConversationId: event.explicitConversationId ?? null,
-    relationshipChannelId: event.relationshipChannelId ?? null,
+    anchor: event.relationshipChannelId ? { kind: 'peer-channel', channelId: event.relationshipChannelId } : null,
     groupId: event.groupId ?? null,
     topology,
   });
