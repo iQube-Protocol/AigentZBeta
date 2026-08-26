@@ -54,11 +54,33 @@
  * is refused outright — the caller supplies T2-safe references
  * (`personaPublicRef`), the same exposure class the freeze ceremony package's
  * `operatorRef`/`reviewerRef` already carry.
+ *
+ * ── The default `crystalId` names the CURRENT generation, not a fixed slot ──
+ *
+ * Operator ruling, 2026-08-27, "Crystal v1/v2 lineage collision": this route
+ * used to default an unsupplied `crystalId` to the LITERAL, hardcoded string
+ * `${experimentId}/crystal-vP1` — for GET, provision, AND freeze alike. That
+ * meant every act this route ever performed for an experiment addressed the
+ * exact same object id, so once vP1 froze, provisioning a successor could
+ * never target a new artifact: it re-resolved to vP1, saw `lifecycle:
+ * 'frozen'`, and was refused outright (see the 409 below) — there was no
+ * mechanism to construct a v2 candidate at all, let alone a bug in reading
+ * one. The default now resolves through `currentCrystalArtifactId`
+ * (services/research/artifacts.ts), which walks the already-provisioned
+ * `crystal-vP<N>` generations and returns the active (non-frozen) one, or the
+ * next unused generation once every existing one is frozen. A caller that
+ * supplies its own `crystalId` (e.g. to read a specific historical
+ * generation) is never overridden — this only changes the DEFAULT.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
-import { freezeArtifact, getArtifactById, upsertArtifact } from '@/services/research/artifacts';
+import {
+  currentCrystalArtifactId,
+  freezeArtifact,
+  getArtifactById,
+  upsertArtifact,
+} from '@/services/research/artifacts';
 import { crystalDomainForExperiment } from '@/services/research/crystalDomains';
 import { runCrystalStatisticsReport } from '@/services/research/crystalStatistics';
 
@@ -117,7 +139,7 @@ export async function GET(
     return NextResponse.json({ requestSucceeded: false, error: 'Steward access required' }, { status: 403 });
   }
   const { experimentId } = await params;
-  const crystalId = req.nextUrl.searchParams.get('crystalId') || `${experimentId}/crystal-vP1`;
+  const crystalId = req.nextUrl.searchParams.get('crystalId') || (await currentCrystalArtifactId(experimentId));
   const artifact = await getArtifactById(crystalId).catch(() => null);
   return NextResponse.json(
     { requestSucceeded: true, artifact },
@@ -158,7 +180,7 @@ export async function POST(
     );
   }
 
-  const crystalId = asString(body.crystalId) || `${experimentId}/crystal-vP1`;
+  const crystalId = asString(body.crystalId) || (await currentCrystalArtifactId(experimentId));
 
   // ── provision ────────────────────────────────────────────────────────────
   if (action === 'provision') {

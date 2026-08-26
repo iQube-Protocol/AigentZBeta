@@ -277,7 +277,16 @@ export interface Track2ProgrammeSignals {
   readiness: CrystalReadinessReport;
   /** The lifecycle ladder, already derived elsewhere. Consumed, not recomputed. */
   lifecycle: CrystalLifecycle;
-  /** The persisted crystal-version artifact, or null when none exists. */
+  /**
+   * The ACTIVE crystal-version artifact — resolved via
+   * `getCurrentCrystalArtifact` (services/research/artifacts.ts), never the
+   * plain first-match `getArtifact` lookup. `null` when nothing has been
+   * provisioned for the current generation, INCLUDING when every prior
+   * generation is already frozen (operator ruling, 2026-08-27, "Crystal
+   * v1/v2 lineage collision": a frozen predecessor must never satisfy a
+   * successor's Freeze stage, so this field is never a frozen predecessor's
+   * artifact once a successor generation is implied).
+   */
   artifact: { id: string; lifecycle: string } | null;
   /** Whether the independent pre-freeze review may open — from crystalReviewStageStatus. */
   independentReviewRequestOpen: boolean;

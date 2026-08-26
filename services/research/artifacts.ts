@@ -86,6 +86,76 @@ export async function getArtifactById(id: string): Promise<FrozenArtifact | null
   return row ? fromRow(row) : null;
 }
 
+/** `EXP-P1/crystal-vP3` -> 3. Non-matching ids (a caller-chosen id that
+ *  doesn't follow the vP<N> convention) are simply excluded from generation
+ *  arithmetic — they are neither the active candidate nor counted toward the
+ *  next generation number. */
+const CRYSTAL_VERSION_ID_PATTERN = /\/crystal-vP(\d+)$/;
+
+/**
+ * The `crystal-version` artifact id for the CURRENT (active) candidate —
+ * never an already-frozen predecessor (operator ruling, 2026-08-27, "Crystal
+ * v1/v2 lineage collision": *"A frozen predecessor Crystal must never satisfy
+ * the freeze state of a successor Crystal candidate."*).
+ *
+ * `getArtifact(experimentId, 'crystal-version')`'s first-match `.find()` (and
+ * the freeze route's own former hardcoded `${experimentId}/crystal-vP1`
+ * default) could not distinguish "the vP1 artifact, now frozen and immutable
+ * historical evidence" from "the crystal Track 2 is currently constituting" —
+ * both were literally the same object id, so a frozen predecessor's
+ * `lifecycle: 'frozen'` was read straight into the successor's Freeze-stage
+ * status. This function is the one place that resolves which generation is
+ * "current," from the artifact rows that already exist — no new table, no new
+ * stored version counter (inv.engineering.036).
+ *
+ * Walks every `crystal-version` artifact already provisioned for this
+ * experiment, ordered by the generation number embedded in its own id
+ * (`crystal-vP<N>`, the SAME convention `crystalFreezeCeremony.ts`'s id
+ * doc-comment already named but no lookup ever read). Returns:
+ *
+ *   - the highest-numbered generation that is NOT frozen — the in-progress
+ *     candidate, so repeated calls (provisioning, reading state) stay
+ *     idempotent and never mint a new generation just for being asked again;
+ *   - otherwise (every existing generation is frozen, or none has ever been
+ *     provisioned) the NEXT unused generation — `crystal-vP1` when nothing
+ *     has ever been provisioned, `crystal-vP2` once vP1 alone is frozen, and
+ *     so on.
+ *
+ * Every reader of "is the crystal-version artifact frozen" for DISPLAY, and
+ * every writer that PROVISIONS or FREEZES a new one, must resolve through
+ * this — never `getArtifact(experimentId, 'crystal-version')`, which cannot
+ * tell an active candidate from a frozen predecessor.
+ */
+export async function currentCrystalArtifactId(experimentId: string): Promise<string> {
+  const all = await listArtifacts(experimentId);
+  const versions = all
+    .filter((a) => a.kind === 'crystal-version')
+    .map((a) => {
+      const m = a.id.match(CRYSTAL_VERSION_ID_PATTERN);
+      return m ? { artifact: a, generation: Number(m[1]) } : null;
+    })
+    .filter((v): v is { artifact: FrozenArtifact; generation: number } => v !== null)
+    .sort((a, b) => a.generation - b.generation);
+
+  const activeCandidate = [...versions].reverse().find((v) => v.artifact.lifecycle !== 'frozen');
+  if (activeCandidate) return activeCandidate.artifact.id;
+
+  const highestGeneration = versions.length > 0 ? versions[versions.length - 1].generation : 0;
+  return `${experimentId}/crystal-vP${highestGeneration + 1}`;
+}
+
+/**
+ * The `crystal-version` artifact currently under construction — `null` when
+ * it has never been provisioned (nothing to read yet, not an error) or when
+ * every existing generation is already frozen and no successor has been
+ * provisioned. Never returns an already-frozen artifact; see
+ * `currentCrystalArtifactId`.
+ */
+export async function getCurrentCrystalArtifact(experimentId: string): Promise<FrozenArtifact | null> {
+  const id = await currentCrystalArtifactId(experimentId);
+  return getArtifactById(id);
+}
+
 /** Create or update an artifact at `draft`/`validated` — freely editable
  * pre-freeze (IRL-016 §3: everything unsigned remains mutable). Never call
  * this to move an artifact TO `frozen` — use freezeArtifact, which enforces

@@ -155,12 +155,24 @@ interface CohortMemberRef {
  * ideal? Those are not the same question."). Mirrors
  * services/research/crystalReadiness.ts's CrystalReadinessCheck.
  */
+/** Mirrors services/research/crystalInstrumentSuite.ts's CheckRemediationClass. */
+type CheckRemediationClass = "operator-cleanup" | "additional-acquisition-required" | "governance-decision-required";
+
 interface ReadinessCheck {
   name: string;
   passed: boolean;
   detail: string;
   remedy: string | null;
   tier: "scientific-readiness" | "scientific-maturity";
+  /** What kind of remediation this check needs, and the real Track 2 stage
+   *  whose EXISTING control resolves it — server-derived, carried verbatim
+   *  (operator ruling, 2026-08-27, "Crystal v1/v2 lineage collision", item 4:
+   *  replace the generic "scroll to Stage 9" Resolve button with a real
+   *  destination per check). */
+  remediationClass?: CheckRemediationClass;
+  remediationStageAnchor?: string | null;
+  /** Only present on the duplicate-detection check. */
+  duplicatePairs?: Array<{ aId: string; bId: string }>;
 }
 
 interface ReadinessMaturitySummary {
@@ -494,26 +506,58 @@ export function Track2ProgrammePanel({
               const earlierAllPass = earlier.every((s) => PASSES.has(s.status));
               const tailRemaining = tail.filter((s) => s.status !== "complete");
               if (!earlierAllPass || tailRemaining.length === 0) return null;
+              // Everything below derives a HONEST classification of what remains,
+              // never a time estimate (operator ruling, 2026-08-27, "Crystal v1/v2
+              // lineage collision", item 6: "'<3 minutes' is plainly false for
+              // this state... replace with a derived classification"). The
+              // classification comes verbatim off each failing check's own
+              // server-computed `remediationClass` — never re-derived here.
+              const REMEDIATION_CLASS_RANK: Record<CheckRemediationClass, number> = {
+                "operator-cleanup": 0,
+                "additional-acquisition-required": 1,
+                "governance-decision-required": 2,
+              };
+              const REMEDIATION_CLASS_LABEL: Record<CheckRemediationClass, string> = {
+                "operator-cleanup": "operator cleanup",
+                "additional-acquisition-required": "additional acquisition required",
+                "governance-decision-required": "governance decision required",
+              };
+              // ONLY scientific-readiness (freeze-gating) checks count as
+              // blockers here (item 5: a `scientific-maturity` finding —
+              // structural-diversity, graph-connectivity — is an informational
+              // observation, not a freeze blocker, and must never be counted
+              // among "what remains before Freeze"; each already has its own
+              // real remediation queue rendered inline at Stage 9).
+              const runReadinessFailingChecks: ReadinessCheck[] =
+                readiness ? readiness.checks.filter((c) => c.tier === "scientific-readiness" && !c.passed) : [];
+              const worstRemediationClass = runReadinessFailingChecks.reduce<CheckRemediationClass | null>(
+                (worst, c) => {
+                  const cls = c.remediationClass ?? "governance-decision-required";
+                  return worst === null || REMEDIATION_CLASS_RANK[cls] > REMEDIATION_CLASS_RANK[worst] ? cls : worst;
+                },
+                null,
+              );
+              const statusLabel =
+                worstRemediationClass !== null
+                  ? REMEDIATION_CLASS_LABEL[worstRemediationClass]
+                  : "operator action — no scientific work outstanding";
               return (
                 <div className="mb-3 rounded-lg border border-emerald-700/40 bg-emerald-950/20 p-2.5 text-[11px]">
                   <div className="mb-1.5 flex items-center justify-between">
                     <span className="font-medium text-emerald-200">Finish Crystal — remaining work</span>
-                    <span className="text-emerald-300/70">
-                      estimated completion: {tailRemaining.length <= 2 ? "< 3 minutes" : "a few minutes"}
-                    </span>
+                    <span className="text-emerald-300/70">status: {statusLabel}</span>
                   </div>
                   <ul className="space-y-0.5">
                     {tail.map((s) => {
-                      const scrollTo = () =>
-                        document.getElementById(`track2-stage-${s.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+                      const scrollToAnchor = (anchorId: string) =>
+                        document.getElementById(`track2-stage-${anchorId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
                       // Run Readiness gets its OWN failing checks named here (operator
                       // direction, 2026-08-05: "Run Readiness / 7/9 passed / Structural
-                      // diversity [Resolve] / Graph connectivity [Resolve]") — [Resolve]
-                      // scrolls to Stage 9, where the actual affordance lives; it is not a
-                      // second control, just a pointer to the one true place. Includes BOTH
-                      // tiers — a maturity finding is still worth resolving, it just no
-                      // longer withholds this stage's own completion.
-                      const failingChecks = s.id === "run-readiness" && readiness ? readiness.checks.filter((c) => !c.passed) : [];
+                      // diversity [Resolve] / Graph connectivity [Resolve]"). ONLY
+                      // scientific-readiness checks appear (item 5) — a maturity
+                      // finding is still worth resolving, but it no longer inflates
+                      // this list with a failure that was never a blocker.
+                      const failingChecks = s.id === "run-readiness" ? runReadinessFailingChecks : [];
                       const readinessTierTotal = readiness ? readiness.checks.filter((c) => c.tier === "scientific-readiness").length : 0;
                       const readinessTierPassed = readiness
                         ? readiness.checks.filter((c) => c.tier === "scientific-readiness" && c.passed).length
@@ -524,7 +568,7 @@ export function Track2ProgrammePanel({
                             href={`#track2-stage-${s.id}`}
                             onClick={(e) => {
                               e.preventDefault();
-                              scrollTo();
+                              scrollToAnchor(s.id);
                             }}
                             className="flex items-center gap-1.5 text-slate-200 hover:text-white"
                           >
@@ -543,14 +587,35 @@ export function Track2ProgrammePanel({
                           </a>
                           {failingChecks.length > 0 && (
                             <ul className="ml-4 mt-0.5 space-y-0.5">
-                              {failingChecks.map((c) => (
-                                <li key={c.name} className="flex items-center justify-between text-slate-400">
-                                  <span>{c.name}</span>
-                                  <button type="button" onClick={scrollTo} className="text-emerald-300 underline decoration-emerald-700 hover:text-emerald-200">
-                                    Resolve
-                                  </button>
-                                </li>
-                              ))}
+                              {failingChecks.map((c) => {
+                                // THE DESTINATION IS CHECK-SPECIFIC (item 4): each
+                                // check's own `remediationStageAnchor` names the
+                                // real, already-built control that resolves IT —
+                                // never a blanket scroll back to Stage 9. Only
+                                // duplicate-detection legitimately anchors to
+                                // run-readiness itself (its queue renders inline
+                                // there); every other failing scientific-readiness
+                                // check anchors elsewhere.
+                                const destAnchor = c.remediationStageAnchor ?? "run-readiness";
+                                const label =
+                                  destAnchor === "run-readiness"
+                                    ? "Resolve"
+                                    : c.remediationClass === "additional-acquisition-required"
+                                      ? "Go acquire →"
+                                      : "Go resolve →";
+                                return (
+                                  <li key={c.name} className="flex items-center justify-between text-slate-400">
+                                    <span>{c.name}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => scrollToAnchor(destAnchor)}
+                                      className="text-emerald-300 underline decoration-emerald-700 hover:text-emerald-200"
+                                    >
+                                      {label}
+                                    </button>
+                                  </li>
+                                );
+                              })}
                             </ul>
                           )}
                         </li>
@@ -799,6 +864,19 @@ export function Track2ProgrammePanel({
                                   <li key={c.name} className={c.passed ? "text-emerald-300" : "text-amber-200"}>
                                     {c.passed ? "✓" : "○"} {c.name}
                                     <span className="ml-1.5 text-slate-500">{c.detail}</span>
+                                    {/* duplicate-detection's remediation is EXECUTABLE, not
+                                        prose (item 4, operator ruling 2026-08-27): the exact
+                                        near-duplicate pairs are already ON this check
+                                        (readiness engine computed them) — this queue acts on
+                                        them via the existing mergeInvariants primitive, never
+                                        a second dedup implementation. */}
+                                    {!c.passed && c.name === "duplicate-detection" && (
+                                      <DuplicateInvariantQueue
+                                        experimentId={experimentId}
+                                        pairs={c.duplicatePairs ?? []}
+                                        onDone={() => void reloadAndAdvance()}
+                                      />
+                                    )}
                                   </li>
                                 ))}
                             </ul>
@@ -839,15 +917,27 @@ export function Track2ProgrammePanel({
                         </div>
                       )}
                       {s.id === "run-readiness" && (
-                        <button
-                          type="button"
-                          onClick={() => void reloadAndAdvance()}
-                          disabled={loading}
-                          className="mt-2 flex items-center gap-1.5 rounded border border-slate-800 bg-slate-900/60 px-2.5 py-1 text-slate-300 disabled:opacity-50"
-                        >
-                          {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
-                          Run Readiness
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => void reloadAndAdvance()}
+                            disabled={loading}
+                            className="mt-2 flex items-center gap-1.5 rounded border border-slate-800 bg-slate-900/60 px-2.5 py-1 text-slate-300 disabled:opacity-50"
+                          >
+                            {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                            Refresh readiness
+                          </button>
+                          {/* Item 7 (operator ruling, 2026-08-27): this button
+                              RE-READS the live corpus — it does not change the
+                              corpus. Renamed from "Run Readiness" because that
+                              name implied an action that could resolve a
+                              failing check; repeatedly pressing it recomputes
+                              the SAME failing checks against unchanged inputs. */}
+                          <div className="mt-1 text-[10px] text-slate-600">
+                            Recomputes the checks above from the corpus as it stands right now — it does not change the
+                            corpus. Use each check&apos;s own remediation above to actually resolve a failure.
+                          </div>
+                        </>
                       )}
                       {s.id === "prepare-independent-review" && s.status === "partially-complete" && (
                         <ReviewPackageControl
@@ -5087,6 +5177,119 @@ function DiversityCandidateQueue({ experimentId, onDone }: { experimentId: strin
           <span className="font-medium text-slate-200">Corpus Scout</span> tab and acquire material for domain{" "}
           <span className="font-mono text-slate-300">financial-risk-value-systems</span> aimed at the missing shapes (any of: constraint, law,
           definition, principle, heuristic, epistemic — other than &apos;{dominantShape}&apos;).
+        </div>
+      )}
+      {err && <div className="rounded border border-rose-500/30 bg-rose-500/10 p-1.5 text-rose-200">{err}</div>}
+    </div>
+  );
+}
+
+/**
+ * Stage 9 — `duplicate-detection` remediation (operator ruling, 2026-08-27,
+ * "Crystal v1/v2 lineage collision", item 4: "duplicate detection →
+ * duplicate-pair adjudication queue"). The pairs are a PROP, not a fetch —
+ * the readiness engine already computed the exact near-duplicate pairs
+ * (`services/research/crystalReadiness.ts`'s `duplicatePairs`) and this
+ * queue only ever acts on what that engine named. Each pair offers "keep A" /
+ * "keep B", which merges the OTHER invariant into the kept survivor via the
+ * existing `mergeInvariants` primitive (unions contexts/edges, marks the
+ * merged row `superseded`) — never a second, independently-judged dedup path.
+ */
+function DuplicateInvariantQueue({
+  experimentId,
+  pairs,
+  onDone,
+}: {
+  experimentId: string;
+  pairs: Array<{ aId: string; bId: string }>;
+  onDone: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [resolvedKeys, setResolvedKeys] = useState<Set<string>>(new Set());
+  const [busyKey, setBusyKey] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  const pairKey = (aId: string, bId: string) => [aId, bId].sort().join('~');
+  const remaining = pairs.filter((p) => !resolvedKeys.has(pairKey(p.aId, p.bId)));
+
+  const merge = useCallback(
+    async (survivorId: string, mergedId: string, key: string) => {
+      setBusyKey(key);
+      setErr(null);
+      try {
+        const res = await personaFetch(`/api/research/track2/${encodeURIComponent(experimentId)}/duplicate-pairs/merge`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ survivorId, mergedId }),
+        });
+        const d = await res.json().catch(() => null);
+        if (!d?.ok) throw new Error(d?.error || `merge refused (HTTP ${res.status})`);
+        setResolvedKeys((prev) => new Set(prev).add(key));
+        onDone();
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : "merge failed");
+      } finally {
+        setBusyKey(null);
+      }
+    },
+    [experimentId, onDone],
+  );
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="mt-1.5 rounded border border-slate-700 bg-slate-800/60 px-2.5 py-1 text-[11px] font-medium text-slate-100 hover:bg-slate-700/60"
+      >
+        Adjudicate {pairs.length} duplicate pair{pairs.length === 1 ? "" : "s"}
+      </button>
+    );
+  }
+
+  return (
+    <div className="mt-1.5 space-y-2 rounded border border-slate-800 bg-slate-900/40 p-2 text-[11px]">
+      <div className="flex items-center justify-between text-slate-400">
+        <span>{remaining.length} pair(s) awaiting a decision</span>
+        <button type="button" onClick={() => setOpen(false)} className="text-slate-500 hover:text-slate-300">
+          close
+        </button>
+      </div>
+      {remaining.map((p) => {
+        const key = pairKey(p.aId, p.bId);
+        return (
+          <div key={key} className="rounded border border-slate-800 bg-slate-950/60 p-2">
+            <div className="mb-1 flex items-center gap-1.5 font-mono text-[10px] text-slate-400">
+              <span className="text-slate-300">{p.aId}</span>
+              <span className="text-slate-600">~</span>
+              <span className="text-slate-300">{p.bId}</span>
+            </div>
+            <div className="flex gap-1.5">
+              <button
+                type="button"
+                onClick={() => void merge(p.aId, p.bId, key)}
+                disabled={busyKey === key}
+                className="flex items-center gap-1 rounded border border-emerald-800 bg-emerald-900/30 px-2 py-0.5 font-medium text-emerald-200 disabled:opacity-50"
+              >
+                {busyKey === key ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+                Keep {p.aId}
+              </button>
+              <button
+                type="button"
+                onClick={() => void merge(p.bId, p.aId, key)}
+                disabled={busyKey === key}
+                className="flex items-center gap-1 rounded border border-emerald-800 bg-emerald-900/30 px-2 py-0.5 font-medium text-emerald-200 disabled:opacity-50"
+              >
+                {busyKey === key ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+                Keep {p.bId}
+              </button>
+            </div>
+          </div>
+        );
+      })}
+      {remaining.length === 0 && (
+        <div className="rounded border border-slate-800 bg-slate-950/40 p-2 text-slate-400">
+          Every pair from this reading has been resolved. Refresh readiness to confirm none remain.
         </div>
       )}
       {err && <div className="rounded border border-rose-500/30 bg-rose-500/10 p-1.5 text-rose-200">{err}</div>}
