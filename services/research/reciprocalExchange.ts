@@ -57,6 +57,7 @@ import {
   type ReciprocalExchangeRecord,
   type ComparisonClassification,
   type CompatibilityKind,
+  type EvidenceOriginChannel,
   isLegalExchangeTransition,
   hasCrossed,
   assertNoIsolationClaim,
@@ -129,6 +130,7 @@ function rowToArtifact(r: Record<string, unknown>): ExchangeArtifactRecord {
     supersedesArtifactId: (r.supersedes_artifact_id as string | null) ?? null,
     depositedAt: String(r.deposited_at),
     depositReceiptId: (r.deposit_receipt_id as string | null) ?? null,
+    originChannel: (r.origin_channel as ExchangeArtifactRecord['originChannel'] | null) ?? 'native-ui',
   };
 }
 
@@ -143,6 +145,7 @@ function rowToAttestation(r: Record<string, unknown>): ExchangeAttestationRecord
     statementText: String(r.statement_text),
     attestedAt: String(r.attested_at),
     receiptId: (r.receipt_id as string | null) ?? null,
+    originChannel: (r.origin_channel as ExchangeAttestationRecord['originChannel'] | null) ?? 'native-ui',
   };
 }
 
@@ -464,6 +467,9 @@ export interface DepositArtifactInput {
   confidentialityClass?: string;
   ownershipDeclaration: string;
   rightsForExchange: string;
+  /** Surface Independence, 2026-08-26 — defaults to 'native-ui', preserving
+   *  every existing caller unchanged. Only an MCP write tool passes 'mcp'. */
+  originChannel?: EvidenceOriginChannel;
 }
 
 export async function depositArtifact(
@@ -510,6 +516,7 @@ export async function depositArtifact(
       ownership_declaration: input.ownershipDeclaration.trim(),
       rights_for_exchange: input.rightsForExchange.trim(),
       supersedes_artifact_id: existing?.id ?? null,
+      origin_channel: input.originChannel ?? 'native-ui',
     })
     .select('*')
     .single();
@@ -538,7 +545,7 @@ export async function depositArtifact(
 
 export async function declareFreeze(
   admin: SupabaseClient,
-  input: { exchangeId: string; personaId: string; actorType: ActorType },
+  input: { exchangeId: string; personaId: string; actorType: ActorType; originChannel?: EvidenceOriginChannel },
 ): Promise<{ ok: true; attestation: ExchangeAttestationRecord } | { ok: false; error: string }> {
   if (input.actorType !== 'principal') {
     return { ok: false, error: 'freeze-declaration-requires-principal' };
@@ -565,6 +572,7 @@ export async function declareFreeze(
       artifact_version: artifact.version,
       actor_type: 'principal',
       statement_text: FREEZE_DECLARATION_TEXT,
+      origin_channel: input.originChannel ?? 'native-ui',
     })
     .select('*')
     .single();
@@ -588,7 +596,7 @@ export async function declareFreeze(
 
 export async function signInstrument(
   admin: SupabaseClient,
-  input: { exchangeId: string; personaId: string; actorType: ActorType },
+  input: { exchangeId: string; personaId: string; actorType: ActorType; originChannel?: EvidenceOriginChannel },
 ): Promise<{ ok: true; attestation: ExchangeAttestationRecord; exchange: ReciprocalExchangeRecord } | { ok: false; error: string }> {
   if (input.actorType !== 'principal') {
     return { ok: false, error: 'instrument-signature-requires-principal' };
@@ -626,6 +634,7 @@ export async function signInstrument(
       artifact_version: artifact.version,
       actor_type: 'principal',
       statement_text: statementText,
+      origin_channel: input.originChannel ?? 'native-ui',
     })
     .select('*')
     .single();

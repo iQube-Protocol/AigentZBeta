@@ -22,6 +22,18 @@ import { crossingReceipt, welcomePayload, WELCOME_MESSAGE } from './welcome';
 import type { IrlAdapter } from './irlAdapter';
 import type { CompanionInstallBrief } from '../companion/extensionArtifact';
 import { supportedBridgeIds, type NavigatorState } from './constitutionalNavigator';
+import {
+  fingerprintExchangeArtifact,
+  type DepositArtifactMcpArgs,
+  type DeclareArtifactFreezeMcpArgs,
+  type SignExchangeInstrumentMcpArgs,
+  type EstablishDelegationMcpArgs,
+  type getExchangeStateForMcp,
+  type depositExchangeArtifactViaMcp,
+  type declareArtifactFreezeViaMcp,
+  type signExchangeInstrumentViaMcp,
+  type establishDelegationViaMcp,
+} from './mcpConstitutionalActs';
 
 // ── Context injected by the route (keeps this module I/O-light + testable) ──
 
@@ -70,6 +82,24 @@ export interface GatewayContext {
    * — see `supportedBridgeIds()` for what's wired.
    */
   resolveNavigatorState?: (opts?: { bridge?: string }) => Promise<NavigatorState | null>;
+  /**
+   * MCP-completable constitutional rituals for the OCSGA / Boundary
+   * Research Journey Spine (Surface Independence, 2026-08-26) — injected by
+   * the route (needs the service-role Supabase client + the resolved
+   * session), each bound to services/threshold/mcpConstitutionalActs.ts's
+   * corresponding function. Every one of these calls the SAME canonical
+   * service (services/research/reciprocalExchange.ts,
+   * services/delegation/delegationGrantStore.ts) the native UI calls —
+   * this context only carries the T0<->T2-resolved binding, never a
+   * parallel implementation. Absent when no session is resolved.
+   */
+  mcpActs?: {
+    getExchangeState: () => ReturnType<typeof getExchangeStateForMcp>;
+    depositArtifact: (args: DepositArtifactMcpArgs) => ReturnType<typeof depositExchangeArtifactViaMcp>;
+    declareFreeze: (args: DeclareArtifactFreezeMcpArgs) => ReturnType<typeof declareArtifactFreezeViaMcp>;
+    signInstrument: (args: SignExchangeInstrumentMcpArgs) => ReturnType<typeof signExchangeInstrumentViaMcp>;
+    establishDelegation: (args: EstablishDelegationMcpArgs) => ReturnType<typeof establishDelegationViaMcp>;
+  };
 }
 
 // ── Catalogue ───────────────────────────────────────────────────────────────
@@ -137,6 +167,100 @@ export function listTools() {
       inputSchema: {
         type: 'object',
         properties: { bridge: { type: 'string', description: 'Which bridge/journey to resolve against (currently: "ocsga"). Defaults to the session\'s initiating service.' } },
+        additionalProperties: false,
+      },
+    },
+    // ── OCSGA / Boundary Research MCP-completable rituals (Surface Independence, 2026-08-26) ──
+    // Every tool below writes to the EXACT SAME canonical service a native
+    // IRL OS surface writes to — never a parallel evidence store. Each
+    // requires the `research.exchange.write` (or `delegation.grant`)
+    // capability from an incremental `irl` crossing, and each REQUIRES
+    // `declarationConfirmed: true` — you must show your principal the exact
+    // declaration text and obtain their explicit assent before calling.
+    // Native IRL OS surfaces remain fully valid alternatives; these tools
+    // only remove the requirement to navigate there when this MCP session
+    // can lawfully complete the same stage.
+    {
+      name: 'get_exchange_state',
+      description:
+        "Read your principal's current Reciprocal Artifact Exchange state (OCSGA Boundary Research): whether they have deposited an artifact, whether it is freeze-declared, whether it is signed, and the same for the counterparty (subject to disclosure policy). Read-only. Requires an authenticated session with research.read.",
+      inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+    },
+    {
+      name: 'deposit_exchange_artifact',
+      description:
+        "Deposit (or replace) your principal's research artifact into their active Reciprocal Artifact Exchange — the SAME act the native Exchange workspace's deposit form performs. Requires explicit declaration/consent BEFORE calling (declarationConfirmed: true) and the research.exchange.write capability. Compute contentHash first with fingerprint_exchange_artifact.",
+      inputSchema: {
+        type: 'object',
+        properties: {
+          declarationConfirmed: { type: 'boolean', description: 'Must be true. Set only after showing your principal what is about to be deposited and obtaining explicit assent.' },
+          title: { type: 'string' },
+          artifactClass: { type: 'string' },
+          description: { type: 'string' },
+          sourceType: { type: 'string', enum: ['upload', 'repository-commit', 'immutable-reference', 'manifest'] },
+          sourceReference: { type: 'string', description: 'Repo-relative path, storage path, CID, or manifest URI — never a mutable branch URL for a repository-commit artifact.' },
+          contentHash: { type: 'string', description: 'sha256 hex — get this from fingerprint_exchange_artifact.' },
+          repositoryCommit: { type: 'string', description: 'Required when sourceType is repository-commit — the pinned commit SHA.' },
+          storageReference: { type: 'string' },
+          mimeType: { type: 'string' },
+          ownershipDeclaration: { type: 'string', description: "Your principal's statement of ownership/authorship over this artifact." },
+          rightsForExchange: { type: 'string', description: 'What rights your principal grants the counterparty for this exchange.' },
+        },
+        required: ['declarationConfirmed', 'title', 'artifactClass', 'sourceType', 'sourceReference', 'contentHash', 'ownershipDeclaration', 'rightsForExchange'],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'fingerprint_exchange_artifact',
+      description:
+        'Compute the canonical sha256 fingerprint for artifact content, deterministically — the SAME algorithm the platform uses everywhere else. Pure/stateless: no write, no principal resolution required. Pass exactly one of content (utf8 text) or contentBase64 (binary). Use the result as contentHash for deposit_exchange_artifact.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          content: { type: 'string', description: 'UTF-8 text content to fingerprint.' },
+          contentBase64: { type: 'string', description: 'Base64-encoded binary content to fingerprint.' },
+        },
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'declare_artifact_freeze',
+      description:
+        "Declare your principal's deposited artifact frozen — the SAME act as the native Exchange workspace's Freeze Declaration button, writing the SAME attestation record (there is exactly one canonical freeze act in this platform; this both declares AND attests it — see get_navigator_state's note on this journey). Requires explicit declaration/consent (declarationConfirmed: true) and the research.exchange.write capability. Requires an artifact already deposited.",
+      inputSchema: {
+        type: 'object',
+        properties: {
+          declarationConfirmed: { type: 'boolean', description: 'Must be true. Set only after presenting the exact freeze-declaration text to your principal and obtaining explicit assent.' },
+        },
+        required: ['declarationConfirmed'],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'sign_exchange_instrument',
+      description:
+        "Sign the reciprocal Exchange Instrument on your principal's behalf — the constitutional act that commits them to the crossing. Writes an authenticated-principal MCP attestation to the SAME exchange_attestations table a native browser signature would write to (labelled origin_channel='mcp', never represented as a wallet signature) — it satisfies this stage on equal terms with native signing. Requires explicit declaration/consent (declarationConfirmed: true), the research.exchange.write capability, and that the freeze was already declared. Requires an authenticated session.",
+      inputSchema: {
+        type: 'object',
+        properties: {
+          declarationConfirmed: { type: 'boolean', description: 'Must be true. Set only after presenting the exact Exchange Instrument clauses to your principal and obtaining explicit assent to each.' },
+        },
+        required: ['declarationConfirmed'],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'establish_delegation',
+      description:
+        "Establish bounded delegation from your principal to an agent, directly through this MCP session — no browser visit required. Grants the SAFE FLOOR only (L1_EXPERIMENTAL trust band, knowledge_retrieval-class actions, capped TTL); for a broader grant your principal must use the native Delegate surface. Writes to the SAME delegation_grants ledger the native ceremony writes to. Requires explicit declaration/consent (declarationConfirmed: true) and the delegation.grant capability.",
+      inputSchema: {
+        type: 'object',
+        properties: {
+          declarationConfirmed: { type: 'boolean', description: 'Must be true. Set only after explaining exactly what bounded authority is being delegated and obtaining explicit assent.' },
+          agentRootDid: { type: 'string', description: "The delegate agent's root DID." },
+          purpose: { type: 'string', description: 'Why this delegation is being granted (e.g. "assist with Boundary Research artifact review").' },
+        },
+        required: ['declarationConfirmed', 'agentRootDid', 'purpose'],
         additionalProperties: false,
       },
     },
@@ -283,6 +407,12 @@ export const HANDSHAKE_TOOLS = new Set([
   'authenticate_principal',
   'get_crossing_status',
   'get_navigator_state',
+  'get_exchange_state',
+  'deposit_exchange_artifact',
+  'fingerprint_exchange_artifact',
+  'declare_artifact_freeze',
+  'sign_exchange_instrument',
+  'establish_delegation',
   'get_passport_status',
   'create_or_link_agent_card',
   'request_agent_passport',
@@ -306,6 +436,12 @@ export const HANDSHAKE_TOOLS = new Set([
 const AUTHENTICATED_TOOLS = new Set([
   'get_crossing_status',
   'get_navigator_state',
+  'get_exchange_state',
+  'deposit_exchange_artifact',
+  'fingerprint_exchange_artifact',
+  'declare_artifact_freeze',
+  'sign_exchange_instrument',
+  'establish_delegation',
   'request_service_capabilities',
   'propose_delegation',
   'get_companion_install',
@@ -456,6 +592,75 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
         note:
           'This is a NAVIGATOR over the journey, not the journey itself — it never advances or authorizes anything. `nextAct` (when present) names the single next stage and who performs it (PRINCIPAL/DELEGATE/EITHER); a constitutional act (Passport, delegation, freeze, signature) is always the principal\'s own — you may explain and prepare it, never perform it.',
       });
+    }
+
+    // ── OCSGA / Boundary Research MCP-completable rituals (Surface Independence, 2026-08-26) ──
+    if (name === 'get_exchange_state') {
+      if (!ctx.mcpActs) return { ...text('The exchange surface is unavailable on this gateway.'), isError: true };
+      const result = await ctx.mcpActs.getExchangeState();
+      if (!result.ok) return { ...text(result.error), isError: true };
+      return text(result);
+    }
+
+    if (name === 'fingerprint_exchange_artifact') {
+      const result = fingerprintExchangeArtifact({
+        content: typeof args.content === 'string' ? args.content : undefined,
+        contentBase64: typeof args.contentBase64 === 'string' ? args.contentBase64 : undefined,
+      });
+      if (!result.ok) return { ...text(result.error), isError: true };
+      return text(result);
+    }
+
+    if (name === 'deposit_exchange_artifact' || name === 'declare_artifact_freeze' || name === 'sign_exchange_instrument' || name === 'establish_delegation') {
+      if (!hasScope(s, 'research.exchange.write') && !(name === 'establish_delegation' && hasScope(s, 'delegation.grant'))) {
+        return {
+          ...text(
+            `This action needs the ${name === 'establish_delegation' ? 'delegation.grant' : 'research.exchange.write'} capability, which a base crossing does not grant. Enter the Researcher journey and authorize the IRL delegation first (request_service_capabilities("irl")). Only the human authorizes.`,
+          ),
+          isError: true,
+        };
+      }
+      if (!ctx.mcpActs) return { ...text('The exchange/delegation write surface is unavailable on this gateway.'), isError: true };
+
+      if (name === 'deposit_exchange_artifact') {
+        const result = await ctx.mcpActs.depositArtifact({
+          declarationConfirmed: args.declarationConfirmed === true,
+          title: String(args.title ?? ''),
+          artifactClass: String(args.artifactClass ?? ''),
+          description: typeof args.description === 'string' ? args.description : undefined,
+          sourceType: args.sourceType as DepositArtifactMcpArgs['sourceType'],
+          sourceReference: String(args.sourceReference ?? ''),
+          contentHash: String(args.contentHash ?? ''),
+          repositoryCommit: typeof args.repositoryCommit === 'string' ? args.repositoryCommit : undefined,
+          storageReference: typeof args.storageReference === 'string' ? args.storageReference : undefined,
+          mimeType: typeof args.mimeType === 'string' ? args.mimeType : undefined,
+          ownershipDeclaration: String(args.ownershipDeclaration ?? ''),
+          rightsForExchange: String(args.rightsForExchange ?? ''),
+        });
+        if (!result.ok) return { ...text(result.error), isError: true };
+        return text(result);
+      }
+
+      if (name === 'declare_artifact_freeze') {
+        const result = await ctx.mcpActs.declareFreeze({ declarationConfirmed: args.declarationConfirmed === true });
+        if (!result.ok) return { ...text(result.error), isError: true };
+        return text(result);
+      }
+
+      if (name === 'sign_exchange_instrument') {
+        const result = await ctx.mcpActs.signInstrument({ declarationConfirmed: args.declarationConfirmed === true });
+        if (!result.ok) return { ...text(result.error), isError: true };
+        return text(result);
+      }
+
+      // establish_delegation
+      const result = await ctx.mcpActs.establishDelegation({
+        declarationConfirmed: args.declarationConfirmed === true,
+        agentRootDid: String(args.agentRootDid ?? ''),
+        purpose: String(args.purpose ?? ''),
+      });
+      if (!result.ok) return { ...text(result.error), isError: true };
+      return text(result);
     }
 
     if (name === 'request_service_capabilities') {

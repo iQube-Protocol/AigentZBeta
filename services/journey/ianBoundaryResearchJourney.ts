@@ -245,6 +245,13 @@ export const IAN_BOUNDARY_RESEARCH_JOURNEY: JourneyDefinition = {
       receiptTypes: ['delegation_active', 'delegation_skipped'],
       satisfactionCondition: receiptCondition('delegation_active'),
 
+      // Surface Independence (2026-08-26): this optional stage is
+      // MCP-completable — services/threshold/mcpConstitutionalActs.ts's
+      // establishDelegationViaMcp writes to the SAME delegation_grants
+      // ledger the native Delegate surface writes to.
+      completionChannels: ['native-ui', 'mcp'],
+      originRequirements: { explicitPrincipalConsent: true, boundedAuthorityRequired: true },
+
       companion: {
         before:
           'You can delegate research authority to an agent to help navigate Boundary Research. ' +
@@ -292,6 +299,15 @@ export const IAN_BOUNDARY_RESEARCH_JOURNEY: JourneyDefinition = {
         receiptCondition('content_deposited')
       ),
 
+      // Surface Independence (2026-08-26): MCP-completable — services/
+      // threshold/mcpConstitutionalActs.ts's depositExchangeArtifactViaMcp
+      // calls the SAME depositArtifact() the native Exchange workspace
+      // calls; the resulting deposit is indistinguishable to the resolver
+      // above (getExchangeView().yourArtifact !== null) regardless of
+      // origin channel.
+      completionChannels: ['native-ui', 'mcp'],
+      originRequirements: { explicitPrincipalConsent: true, boundedAuthorityRequired: true },
+
       companion: {
         before:
           'Your research contribution becomes an iQube — a durable, verifiable asset in Boundary Research.',
@@ -327,6 +343,14 @@ export const IAN_BOUNDARY_RESEARCH_JOURNEY: JourneyDefinition = {
       completionEvidence: ['attestationReadyAcknowledged'],
       receiptTypes: ['attestation_ready_acknowledged'],
       satisfactionCondition: receiptCondition('attestation_ready_acknowledged'),
+
+      // Surface Independence (2026-08-26): this stage's own evidence
+      // (services/journey/ianJourneyState.ts) derives from the SAME
+      // `yourDeposited` fact as create-deposit, not a separate ceremony —
+      // it resolves automatically once deposit completes on either
+      // channel. No dedicated MCP tool is needed; declared here only for
+      // an honest, complete channel map across the journey.
+      completionChannels: ['native-ui', 'mcp'],
 
       // New: CONDITIONAL requirement — depends on prior stage state
       // This stage is REQUIRED if artifact was just created, but could be OPTIONAL
@@ -376,6 +400,15 @@ export const IAN_BOUNDARY_RESEARCH_JOURNEY: JourneyDefinition = {
         receiptCondition('freeze_signatures_collected')
       ),
 
+      // Surface Independence (2026-08-26): MCP-completable — services/
+      // threshold/mcpConstitutionalActs.ts's declareArtifactFreezeViaMcp
+      // calls the SAME declareFreeze() the native Exchange workspace's
+      // Freeze Declaration action calls (one canonical function covers both
+      // the declaration and its attestation — see that module's own
+      // comment on why no second function exists).
+      completionChannels: ['native-ui', 'mcp'],
+      originRequirements: { explicitPrincipalConsent: true, boundedAuthorityRequired: true },
+
       companion: {
         before: 'Multisig attestation freezes your artifact as tamper-evident evidence.',
         complete: 'Artifact is frozen and multisig-attested. Ready for exchange.',
@@ -410,6 +443,18 @@ export const IAN_BOUNDARY_RESEARCH_JOURNEY: JourneyDefinition = {
       completionEvidence: ['exchangeInstrumentSigned'],
       receiptTypes: ['exchange_instrument_signed'],
       satisfactionCondition: receiptCondition('exchange_instrument_signed'),
+
+      // Surface Independence (2026-08-26): MCP-completable — services/
+      // threshold/mcpConstitutionalActs.ts's signExchangeInstrumentViaMcp
+      // calls the SAME signInstrument() the native Exchange workspace
+      // calls, writing to the SAME exchange_attestations table. The
+      // resulting row carries origin_channel='mcp' rather than a fabricated
+      // wallet-signature claim (types/reciprocalExchange.ts) — an
+      // authenticated-principal MCP attestation satisfies this stage on
+      // equal terms with a native browser signature; recomputeExchangeState
+      // treats both identically when deriving READY_TO_SIGN -> EXCHANGED.
+      completionChannels: ['native-ui', 'mcp'],
+      originRequirements: { explicitPrincipalConsent: true, boundedAuthorityRequired: true },
 
       companion: {
         before:
@@ -452,6 +497,15 @@ export const IAN_BOUNDARY_RESEARCH_JOURNEY: JourneyDefinition = {
 
       // Constraint 5: "Boundary Research becomes ACTIVE when reciprocal exchange completes"
       satisfactionCondition: receiptCondition('reciprocal_exchange_completed'),
+
+      // Section 3F, 2026-08-26 directive: reciprocal crossing is
+      // SYSTEM-DERIVED ONLY. No native-UI click and no MCP call may
+      // self-declare this stage complete — recomputeExchangeState
+      // (services/research/reciprocalExchange.ts) is the ONLY place that
+      // advances an exchange to EXCHANGED, once both parties' frozen
+      // artifact + attestation + signature conditions are independently
+      // true. Neither channel above assembles or asserts this fact.
+      completionChannels: ['system'],
 
       companion: {
         before: 'Awaiting reciprocal exchange completion.',

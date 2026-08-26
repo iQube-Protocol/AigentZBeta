@@ -49,9 +49,9 @@ export const THRESHOLD_SERVICES: ThresholdService[] = [
     title: 'Invariant Research Lab (IRL)',
     role: 'service',
     status: 'active',
-    requiredCapabilities: ['research.read', 'research.submit', 'qubetalk.send'],
+    requiredCapabilities: ['research.read', 'research.submit', 'qubetalk.send', 'research.exchange.write', 'delegation.grant'],
     summary:
-      'Join as an external reviewer or participant: read shared research artifacts, run assigned experiments, submit receipted results, and exchange over QubeTalk.',
+      'Join as an external reviewer or participant: read shared research artifacts, run assigned experiments, submit receipted results, exchange over QubeTalk, and — for a Reciprocal Artifact Exchange (e.g. OCSGA Boundary Research) — deposit/freeze/sign your side of the exchange and establish bounded delegation directly through this MCP session, with no separate browser visit required (Surface Independence, 2026-08-26).',
   },
   {
     id: 'devon',

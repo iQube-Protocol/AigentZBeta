@@ -219,6 +219,54 @@ export interface JourneyStageDefinition {
    * Distinguishes principal, delegate, either, system, counterparty.
    */
   actorRole?: ActorRole;
+
+  // SURFACE INDEPENDENCE — below this line (backward compatible; optional fields)
+  /**
+   * Surface Independence of Constitutional Acts (operator directive,
+   * 2026-08-26): which channel(s) may ORIGINATE the evidence that satisfies
+   * this stage. Absence (undefined) preserves existing behaviour exactly —
+   * every existing journey definition that omits this field is a native-UI-
+   * only stage, unchanged.
+   *
+   * This is an ORIGINATION contract only, never a resolution one:
+   * `resolveJourneyState` stays channel-blind (SPEC-JS-001 §9) and reads
+   * ONLY the authoritative platform state, regardless of which channel wrote
+   * it. Declaring 'mcp' here means an MCP tool is PERMITTED to invoke the
+   * same canonical service a native surface would; it never lets the MCP
+   * layer mark a stage complete by assertion. The evidence must still land
+   * in the exact same authoritative record either surface writes to — see
+   * services/threshold/mcpConstitutionalActs.ts for the OCSGA acceptance
+   * case wiring this first.
+   */
+  completionChannels?: Array<'native-ui' | 'mcp' | 'agent' | 'system'>;
+  /**
+   * Origination requirements for a channel declared MCP/agent-eligible above
+   * — the evidentiary floor an out-of-band origination must still clear.
+   * Deliberately minimal: this is NOT a second authorization framework. It
+   * names what an MCP-originating write tool must have obtained BEFORE it
+   * may call the same canonical service a native surface calls — never a
+   * substitute for that canonical service's own checks (actorType==='principal',
+   * membership, exchange status, etc.), which remain the real enforcement and
+   * run unchanged regardless of origin channel.
+   */
+  originRequirements?: {
+    /** The stage requires an explicit, non-inferred consent action from the
+     *  principal — never inferred from conversational prose (constitutional
+     *  invariant 4, 2026-08-26 directive). */
+    explicitPrincipalConsent?: boolean;
+    /** Reserved for a future channel that can produce a real cryptographic
+     *  principal signature over the declaration (unused by the OCSGA MCP
+     *  pilot, which uses authenticated-principal attestation instead — see
+     *  the origin-channel labelling in types/reciprocalExchange.ts). */
+    principalSignatureRequired?: boolean;
+    /** Bounded-authority MCP tools must resolve real, scoped, delegated
+     *  authority (the T0<->T2 session seam) before writing — never a
+     *  client-asserted identity. */
+    boundedAuthorityRequired?: boolean;
+    /** Receipt/act types the authoritative write must produce for THIS
+     *  stage's evidence to be honestly satisfied, regardless of channel. */
+    requiredReceiptTypes?: string[];
+  };
 }
 
 /**

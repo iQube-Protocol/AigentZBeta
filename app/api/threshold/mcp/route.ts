@@ -28,6 +28,13 @@ import { buildCompanionInstallBrief } from '@/services/companion/extensionArtifa
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { resolveConstitutionalNavigatorState } from '@/services/threshold/constitutionalNavigator';
 import {
+  getExchangeStateForMcp,
+  depositExchangeArtifactViaMcp,
+  declareArtifactFreezeViaMcp,
+  signExchangeInstrumentViaMcp,
+  establishDelegationViaMcp,
+} from '@/services/threshold/mcpConstitutionalActs';
+import {
   executeThresholdContentUpload,
   THRESHOLD_UPLOAD_ROLES,
   decodeBase64Strict,
@@ -231,6 +238,35 @@ export async function POST(request: NextRequest) {
           const admin = getSupabaseServer();
           if (!admin) return null;
           return resolveConstitutionalNavigatorState(admin, session, opts);
+        }
+      : undefined,
+    mcpActs: session
+      ? {
+          getExchangeState: () => {
+            const admin = getSupabaseServer();
+            if (!admin) return Promise.resolve({ ok: false as const, error: 'Platform database is unavailable.' });
+            return getExchangeStateForMcp(admin, session);
+          },
+          depositArtifact: (args) => {
+            const admin = getSupabaseServer();
+            if (!admin) return Promise.resolve({ ok: false as const, error: 'Platform database is unavailable.' });
+            return depositExchangeArtifactViaMcp(admin, session, args);
+          },
+          declareFreeze: (args) => {
+            const admin = getSupabaseServer();
+            if (!admin) return Promise.resolve({ ok: false as const, error: 'Platform database is unavailable.' });
+            return declareArtifactFreezeViaMcp(admin, session, args);
+          },
+          signInstrument: (args) => {
+            const admin = getSupabaseServer();
+            if (!admin) return Promise.resolve({ ok: false as const, error: 'Platform database is unavailable.' });
+            return signExchangeInstrumentViaMcp(admin, session, args);
+          },
+          establishDelegation: (args) => {
+            const admin = getSupabaseServer();
+            if (!admin) return Promise.resolve({ ok: false as const, error: 'Platform database is unavailable.' });
+            return establishDelegationViaMcp(admin, session, args);
+          },
         }
       : undefined,
   };

@@ -181,7 +181,11 @@ describe('Authenticated dispatch (Increment 3)', () => {
     principalPublicRef: 'ppr_t2commitment',
     agentAlias: 'companion_t2alias',
     agreementId: 'agr-1',
-    scope: ['research.read', 'research.submit', 'qubetalk.send'],
+    // Full IRL scope (2026-08-26: research.exchange.write + delegation.grant
+    // added for the OCSGA MCP-completable rituals) — this fixture represents
+    // a session fully authorized for the irl service, so it must hold every
+    // capability that service now requires, not just the original three.
+    scope: ['research.read', 'research.submit', 'qubetalk.send', 'research.exchange.write', 'delegation.grant'],
     initiatingService: 'irl',
     expiresAt: null,
     serviceAgreements: {},

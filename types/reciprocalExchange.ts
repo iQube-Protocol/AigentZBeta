@@ -157,6 +157,18 @@ export type ArtifactSourceType = (typeof ARTIFACT_SOURCE_TYPES)[number];
  *  every downstream table joins on. */
 export type PartySlot = 'A' | 'B';
 
+/**
+ * Which interaction channel originated a piece of evidence (Surface
+ * Independence of Constitutional Acts, 2026-08-26). Additive, honesty-only —
+ * it never changes what counts as valid evidence (the SAME canonical
+ * service writes both), only how the record labels its own provenance.
+ * 'native-ui' is the default for every row written before this field
+ * existed and for every native-surface write going forward; 'mcp' marks a
+ * write an authenticated MCP tool originated on the principal's behalf. See
+ * services/threshold/mcpConstitutionalActs.ts.
+ */
+export type EvidenceOriginChannel = 'native-ui' | 'mcp';
+
 export interface ExchangeArtifactRecord {
   id: string;
   exchangeId: string;
@@ -177,6 +189,7 @@ export interface ExchangeArtifactRecord {
   supersedesArtifactId: string | null;
   depositedAt: string;
   depositReceiptId: string | null;
+  originChannel: EvidenceOriginChannel;
 }
 
 // ─── Attestation model (PRD §8–9, §17) ───────────────────────────────────────
@@ -209,6 +222,7 @@ export interface ExchangeAttestationRecord {
   statementText: string;
   attestedAt: string;
   receiptId: string | null;
+  originChannel: EvidenceOriginChannel;
 }
 
 // ─── The canonical freeze declaration + instrument text (PRD §8, §9) ────────
