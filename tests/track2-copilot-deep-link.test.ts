@@ -130,8 +130,10 @@ describe('Research Copilot — the pending decision survives navigate-away-and-b
     expect(setIdx).toBeGreaterThan(-1);
     expect(dispatchIdx).toBeGreaterThan(-1);
     expect(setIdx).toBeLessThan(dispatchIdx);
-    // Consumes the deep-link's own fields — never a hand-built literal.
-    expect(fnBody).toMatch(/deepLink\.experimentId, deepLink\.stageId/);
+    // Passes the COMPLETE deep-link object (2026-08-27 fix) — never a
+    // hand-picked subset of its fields that a downstream consumer would
+    // then have to reconstruct the rest from.
+    expect(fnBody).toMatch(/setPendingTrack2Stage\(deepLink\);/);
     expect(fnBody).toMatch(/tab: deepLink\.surfaceRef\.cartridgeTab/);
   });
 
@@ -168,20 +170,69 @@ describe('InvariantExperimentLab — consumes the deep-link intent on the FIRST 
     expect(src).toMatch(/const \[tab, setTab\] = useState<LabTab>\(\(\) => \(initialTrack2Intent \? "track2" : "bundle"\)\);/);
   });
 
-  it('passes initialStageId through to Track2ProgrammePanel — never reconstructs a destination itself', () => {
+  it('passes the deep-link\'s OWN experimentId and anchorId through to Track2ProgrammePanel — never a hardcoded experimentId or a reconstructed anchor', () => {
     const src = stripComments(readSource(LAB));
     const renderIdx = src.indexOf('tab === "track2"');
     expect(renderIdx).toBeGreaterThan(-1);
     const renderBlock = src.slice(renderIdx, renderIdx + 300);
-    expect(renderBlock).toMatch(/initialStageId=\{initialTrack2Intent\?\.stageId\}/);
+    // 2026-08-27 review finding: this previously hardcoded experimentId="EXP-P1"
+    // and passed only a stage id for the panel to rebuild an anchor from.
+    expect(renderBlock).toMatch(/experimentId=\{initialTrack2Intent\?\.experimentId \?\? "EXP-P1"\}/);
+    expect(renderBlock).toMatch(/initialAnchorId=\{initialTrack2Intent\?\.surfaceRef\.anchorId\}/);
+    expect(renderBlock).not.toMatch(/experimentId="EXP-P1"/);
+  });
+});
+
+describe('scoped Track 2 access — the Austin/external-review workstream (2026-08-27 review finding)', () => {
+  it('track2 is mapped to EXP-P1 in ITEM_EXPERIMENT — an EXP-P1-scoped reviewer must see the tab', () => {
+    const src = stripComments(readSource(LAB));
+    const mapStart = src.indexOf('const ITEM_EXPERIMENT');
+    const mapEnd = src.indexOf('};', mapStart);
+    const mapBody = src.slice(mapStart, mapEnd);
+    expect(mapBody).toMatch(/track2:\s*"EXP-P1"/);
+  });
+
+  it('expIdForTab("track2") resolves to EXP-P1 — the actual function the scoped-access filter calls', async () => {
+    const mod = await import('@/components/composer/InvariantExperimentLab');
+    expect(mod.expIdForTab('track2')).toBe('EXP-P1');
+  });
+
+  it('a reviewer scoped to a DIFFERENT experiment does not resolve track2 to their own scope — denial canary', async () => {
+    const mod = await import('@/components/composer/InvariantExperimentLab');
+    const trackTwoExp = mod.expIdForTab('track2');
+    const otherReviewerScope = new Set(['EXP-004']);
+    expect(otherReviewerScope.has(trackTwoExp as string)).toBe(false);
+  });
+
+  it('two tabs sharing one experiment id (vp1 + track2, both EXP-P1) never duplicate a scope in the invitation grouping (regression: adding track2 broke groupAssignableScopesBySeries)', async () => {
+    const { deriveExperimentSeriesGroups, groupAssignableScopesBySeries } = await import(
+      '@/services/research/experimentSeriesGroups'
+    );
+    const groups = deriveExperimentSeriesGroups();
+    const validationProgramme = groups.find((g) => g.title === 'Validation Programme');
+    expect(validationProgramme).toBeDefined();
+    // EXP-P1 appears exactly once in the group's own id list — deduped —
+    // even though two tabs (vp1, track2) both resolve to it.
+    expect(validationProgramme!.experimentIds.filter((id) => id === 'EXP-P1').length).toBe(1);
+
+    const scopes = [
+      { id: 'EXP-P1', label: 'EXP-P1' },
+      { id: 'EXP-001', label: 'EXP-001' },
+    ];
+    const bucketed = groupAssignableScopesBySeries(scopes);
+    // No scope is duplicated across (or within) buckets.
+    expect(bucketed.flatMap((g) => g.scopes).length).toBe(scopes.length);
   });
 });
 
 describe('Track2ProgrammePanel — no visual regression to Discover Sources on a fresh mount', () => {
-  it('accepts an initialStageId prop, falling back to programme.currentStageId — never hardcoded to the first stage', () => {
+  it('accepts an initialAnchorId prop and consumes it VERBATIM — never reconstructs track2-stage-${stageId} from a bare stage id', () => {
     const src = stripComments(readSource(PANEL));
-    expect(src).toMatch(/initialStageId\?: string/);
-    expect(src).toMatch(/scrollToStage\(initialStageId \?\? programme\.currentStageId\)/);
+    expect(src).toMatch(/initialAnchorId\?: string/);
+    expect(src).toMatch(/scrollToAnchorId\(initialAnchorId \?\? `track2-stage-\$\{programme\.currentStageId\}`\)/);
+    // 2026-08-27 review finding: this signature must be GONE — it named the
+    // silent reconstruction the fix removed.
+    expect(src).not.toMatch(/initialStageId/);
   });
 
   it('scrolls exactly ONCE on initial load — a ref guard, so it never fights reloadAndAdvance on later reloads', () => {
@@ -192,10 +243,23 @@ describe('Track2ProgrammePanel — no visual regression to Discover Sources on a
     expect(src.slice(effectIdx, effectIdx + 200)).toMatch(/didInitialScroll\.current = true;/);
   });
 
-  it('reloadAndAdvance and the initial-mount scroll share ONE scrollToStage helper — no drifted second scroll implementation', () => {
+  it('scrollToStage (this panel\'s own internal convention) is built ON TOP of the single scrollToAnchorId primitive, not a second DOM implementation', () => {
     const src = stripComments(readSource(PANEL));
+    expect((src.match(/const scrollToAnchorId = useCallback/g) ?? []).length).toBe(1);
     expect((src.match(/const scrollToStage = useCallback/g) ?? []).length).toBe(1);
-    expect((src.match(/scrollToStage\(/g) ?? []).length).toBeGreaterThanOrEqual(2);
+    const stageFnStart = src.indexOf('const scrollToStage = useCallback');
+    const stageFnBody = src.slice(stageFnStart, stageFnStart + 200);
+    expect(stageFnBody).toMatch(/scrollToAnchorId\(`track2-stage-\$\{stageId\}`\)/);
+    // scrollToAnchorId's OWN body is the only place THIS panel's deep-link/
+    // current-stage scroll mechanics live — its own requestAnimationFrame +
+    // getElementById + scrollIntoView appear exactly once, inside it (the
+    // panel has other, unrelated scrollIntoView call sites elsewhere, e.g.
+    // failing-check "Resolve" links — those are a different concern and are
+    // untouched by this fix).
+    const anchorFnStart = src.indexOf('const scrollToAnchorId = useCallback');
+    const anchorFnEnd = src.indexOf('}, []);', anchorFnStart);
+    const anchorFnBody = src.slice(anchorFnStart, anchorFnEnd);
+    expect((anchorFnBody.match(/scrollIntoView/g) ?? []).length).toBe(1);
   });
 
   it('the DOM anchor convention (track2-stage-${id}) is unchanged — the deep-link contract\'s anchorId still matches it', () => {

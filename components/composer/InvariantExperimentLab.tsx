@@ -194,6 +194,12 @@ const ITEM_EXPERIMENT: Partial<Record<LabTab, string>> = {
   irv: "IRV-001",
   ipv: "IPV-001",
   vp1: "EXP-P1",
+  // Added 2026-08-27 (review finding): without an entry here, the scoped-
+  // access filter (`sections` useMemo below) treats `track2` as carrying NO
+  // experiment id and drops it for every non-admin caller, including a
+  // reviewer explicitly granted EXP-P1 access — the exact Austin/external-
+  // review workstream this tab exists to serve.
+  track2: "EXP-P1",
   // The harnesses behind these two implement the RENUMBERED designs (2026-07-27).
   // A P-slot must never be bound to a legacy harness: the designation moved, the
   // implementation did not.
@@ -297,13 +303,17 @@ export default function InvariantExperimentLab({ density }: { density?: "narrow"
   // they never see the request-publish control.
   const canRequestPublish = Boolean(accessInfo && !accessInfo.isAdmin);
   /**
-   * CANONICAL DEEP-LINK CONSUMPTION (2026-08-26) — a lazy `useState`
-   * initializer runs synchronously during this component's FIRST render,
-   * before any effect and before the "keep tab within visible items" effect
-   * below could ever override it. `consumePendingTrack2Stage()` is called
-   * exactly ONCE (its own one-shot contract) and the result is reused for
-   * both the default tab and the stage the panel should open on — never
-   * called twice, which would silently lose the stage id to the second call.
+   * CANONICAL DEEP-LINK CONSUMPTION (2026-08-26, corrected 2026-08-27) — a
+   * lazy `useState` initializer runs synchronously during this component's
+   * FIRST render, before any effect and before the "keep tab within visible
+   * items" effect below could ever override it. `consumePendingTrack2Stage()`
+   * is called exactly ONCE (its own one-shot contract) and the FULL
+   * `Track2DeepLink` it returns is reused for the default tab, the
+   * experiment id and the anchor id the panel should open on — never called
+   * twice (which would silently lose the deep-link to the second call), and
+   * never narrowed to a subset of its fields (the 2026-08-27 review finding:
+   * `experimentId`/`anchorId` were previously DISCARDED here and
+   * reconstructed downstream instead of consumed).
    */
   const [initialTrack2Intent] = useState(() => consumePendingTrack2Stage());
   const [tab, setTab] = useState<LabTab>(() => (initialTrack2Intent ? "track2" : "bundle"));
@@ -503,8 +513,8 @@ export default function InvariantExperimentLab({ density }: { density?: "narrow"
         {tab === "independent-review" && <IndependentReviewPanel />}
         {tab === "track2" && (
           <Track2ProgrammePanel
-            experimentId="EXP-P1"
-            initialStageId={initialTrack2Intent?.stageId}
+            experimentId={initialTrack2Intent?.experimentId ?? "EXP-P1"}
+            initialAnchorId={initialTrack2Intent?.surfaceRef.anchorId}
           />
         )}
       </div>

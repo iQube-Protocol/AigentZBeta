@@ -29,12 +29,19 @@ export interface ExperimentSeriesGroup {
 export function deriveExperimentSeriesGroups(): ExperimentSeriesGroup[] {
   const groups: ExperimentSeriesGroup[] = [];
   for (const section of SECTIONS) {
-    const experimentIds: string[] = [];
+    // DEDUPED by experiment id (2026-08-27 fix): more than one Lab TAB can
+    // legitimately surface the SAME experiment — e.g. `vp1` (the historical
+    // Validation Programme view) and `track2` (the guided Track 2 programme)
+    // both map to EXP-P1 via `expIdForTab`. A section's membership in a
+    // series is about which EXPERIMENTS it covers, not how many tabs cover
+    // them; counting a tab twice duplicated the scope in every consumer
+    // (e.g. groupAssignableScopesBySeries) that assumed one entry per id.
+    const experimentIds = new Set<string>();
     for (const item of section.items) {
       const expId = expIdForTab(item.id);
-      if (expId) experimentIds.push(expId);
+      if (expId) experimentIds.add(expId);
     }
-    if (experimentIds.length > 0) groups.push({ title: section.title, experimentIds });
+    if (experimentIds.size > 0) groups.push({ title: section.title, experimentIds: [...experimentIds] });
   }
   return groups;
 }

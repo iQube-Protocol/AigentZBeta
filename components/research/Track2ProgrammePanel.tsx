@@ -245,20 +245,30 @@ const STATUS_LABEL: Record<Stage["status"], string> = {
 
 export function Track2ProgrammePanel({
   experimentId = "EXP-P1",
-  initialStageId,
+  initialAnchorId,
 }: {
   experimentId?: string;
   /**
-   * CANONICAL DEEP-LINK CONSUMPTION (2026-08-26) — when a caller (the
-   * Research Copilot's CTA, via InvariantExperimentLab's own consumption of
-   * track2DeepLinkIntent.ts) opens this panel FOR a specific stage, scroll
-   * there on the initial load rather than leaving the operator at the top of
-   * the list. Falls back to `programme.currentStageId` (the programme's own
-   * "you are here") when omitted, so a plain, non-deep-linked open of this
+   * CANONICAL DEEP-LINK CONSUMPTION (2026-08-26, corrected 2026-08-27) —
+   * when a caller (the Research Copilot's CTA, via InvariantExperimentLab's
+   * own consumption of track2DeepLinkIntent.ts) opens this panel FOR a
+   * specific stage, scroll there on the initial load rather than leaving the
+   * operator at the top of the list.
+   *
+   * Takes the deep-link's OWN `surfaceRef.anchorId` verbatim — never
+   * reconstructed here as `track2-stage-${stageId}`. Before this fix, the
+   * panel silently rebuilt the anchor from a bare stage id, which happened
+   * to work only because this panel's own convention and the deep-link's
+   * convention were identical strings; the contract's whole point is that a
+   * consumer must not have to know that, or keep it in sync by hand.
+   *
+   * Falls back to `track2-stage-${programme.currentStageId}` (the panel's
+   * OWN internal anchor convention — see `scrollToStage` below) only when no
+   * deep-link was supplied at all, so a plain, non-deep-linked open of this
    * tab ALSO lands on the live stage instead of visually "regressing" to
    * Discover Sources — the same fix serves both entry paths.
    */
-  initialStageId?: string;
+  initialAnchorId?: string;
 }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -303,15 +313,25 @@ export function Track2ProgrammePanel({
    */
   const [expandedStageIds, setExpandedStageIds] = useState<Set<string>>(new Set());
 
-  /** Shared with `reloadAndAdvance` below and the initial-mount deep-link
-   *  scroll — the ONE place this panel scrolls to a stage anchor, so the two
-   *  call sites can never drift onto different geometry. */
-  const scrollToStage = useCallback((stageId: string) => {
+  /** The ONE place this panel scrolls to a DOM node by id — every scroll
+   *  call site (below, and the initial deep-link scroll) goes through this,
+   *  so there is exactly one scroll implementation to drift. */
+  const scrollToAnchorId = useCallback((anchorId: string) => {
     if (typeof document === "undefined") return;
     requestAnimationFrame(() => {
-      document.getElementById(`track2-stage-${stageId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+      document.getElementById(anchorId)?.scrollIntoView({ behavior: "smooth", block: "center" });
     });
   }, []);
+
+  /** This panel's OWN internal anchor convention (`track2-stage-${id}`) —
+   *  used for its self-driven post-action navigation (`reloadAndAdvance`),
+   *  where there is no externally supplied deep-link to consume. This is
+   *  NOT part of the canonical deep-link contract; it is this component's
+   *  private concern, and it owns the convention it reconstructs from. */
+  const scrollToStage = useCallback(
+    (stageId: string) => scrollToAnchorId(`track2-stage-${stageId}`),
+    [scrollToAnchorId],
+  );
 
   const load = useCallback(async (): Promise<Programme | null> => {
     setLoading(true);
@@ -364,16 +384,18 @@ export function Track2ProgrammePanel({
   }, [load, scrollToStage]);
 
   /**
-   * VISUAL-REGRESSION FIX (2026-08-26): on the INITIAL load only, scroll to
-   * `initialStageId` (an explicit deep-link) or, absent one,
-   * `programme.currentStageId` (the programme's own "you are here"). Without
-   * this, every fresh mount of this panel rendered all eleven stages from
-   * Stage 1 with no scroll — a persona returning to a pending Stage 5 saw the
-   * viewport land on "Discover Sources" even though nothing about the
-   * underlying data had regressed (Stage 1 was, correctly, still COMPLETE).
-   * Guarded to run once: subsequent reloads (act completions) are handled by
-   * `reloadAndAdvance` above, which must not be overridden by this effect
-   * re-firing on every `programme` update.
+   * VISUAL-REGRESSION FIX (2026-08-26, corrected 2026-08-27): on the INITIAL
+   * load only, scroll to `initialAnchorId` — the deep-link's OWN
+   * `surfaceRef.anchorId`, consumed verbatim, never reconstructed — or,
+   * absent one, this panel's own `track2-stage-${currentStageId}` anchor
+   * (the programme's own "you are here"). Without this, every fresh mount of
+   * this panel rendered all eleven stages from Stage 1 with no scroll — a
+   * persona returning to a pending Stage 5 saw the viewport land on
+   * "Discover Sources" even though nothing about the underlying data had
+   * regressed (Stage 1 was, correctly, still COMPLETE). Guarded to run once:
+   * subsequent reloads (act completions) are handled by `reloadAndAdvance`
+   * above, which must not be overridden by this effect re-firing on every
+   * `programme` update.
    */
   const didInitialScroll = useRef(false);
   useEffect(() => {
@@ -383,8 +405,8 @@ export function Track2ProgrammePanel({
   useEffect(() => {
     if (didInitialScroll.current || !programme) return;
     didInitialScroll.current = true;
-    scrollToStage(initialStageId ?? programme.currentStageId);
-  }, [programme, initialStageId, scrollToStage]);
+    scrollToAnchorId(initialAnchorId ?? `track2-stage-${programme.currentStageId}`);
+  }, [programme, initialAnchorId, scrollToAnchorId]);
 
   return (
     <div className="space-y-4">

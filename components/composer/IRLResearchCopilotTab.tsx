@@ -1205,7 +1205,7 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
    */
   const goToTrack2Stage = useCallback((deepLink: Track2DeepLink) => {
     observe(surfacePromptSelectedEvent(SURFACE, `run hand-off: opened ${deepLink.stageLabel} directly (Track 2 deep-link)`));
-    setPendingTrack2Stage(deepLink.experimentId, deepLink.stageId);
+    setPendingTrack2Stage(deepLink);
     try {
       window.dispatchEvent(new CustomEvent('codex:navigate-tab', { detail: { tab: deepLink.surfaceRef.cartridgeTab } }));
     } catch { /* non-fatal — the honest pointer text still names the stage */ }

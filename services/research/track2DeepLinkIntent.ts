@@ -1,7 +1,8 @@
 /**
  * track2DeepLinkIntent.ts — the client-side "consume once" relay for a Track
  * 2 deep-link (operator directive, 2026-08-26, "Research Copilot → Track 2
- * handoff").
+ * handoff"; corrected 2026-08-27 per review: the relay now carries the
+ * COMPLETE `Track2DeepLink`, not a hand-picked subset of its fields).
  *
  * WHY THIS EXISTS: navigating from the Research Copilot to the Experiment
  * Lab is a CARTRIDGE-TAB switch (`window.dispatchEvent(new CustomEvent(
@@ -20,32 +21,34 @@
  * risk a STALE deep-link firing on a later, unrelated visit to the same tab.
  * `consumePendingTrack2Stage` clears it on read for exactly that reason.
  *
- * This is transport plumbing only. The canonical deep-link CONTRACT itself —
- * programme/experiment/stage/surface — is `Track2DeepLink`
- * (services/research/track2Programme.ts), constructed once, server-side, and
- * carried through this mailbox unmodified. Nothing here reconstructs or
- * guesses a destination.
+ * THE FULL CONTRACT, END TO END (2026-08-27 fix): this mailbox previously
+ * carried only `{experimentId, stageId}`, which meant every consumer had to
+ * RECONSTRUCT what it needed from those two fields — `InvariantExperimentLab`
+ * hardcoded `experimentId="EXP-P1"` on the panel instead of reading the
+ * deep-link's own `experimentId`, and `Track2ProgrammePanel` rebuilt the DOM
+ * anchor as `track2-stage-${stageId}` instead of using the deep-link's own
+ * `surfaceRef.anchorId` — both silent reconstructions of exactly the kind
+ * the canonical-deep-link contract exists to forbid ("do not reconstruct a
+ * generic destination client-side"). This mailbox now carries the ENTIRE
+ * `Track2DeepLink` verbatim; every consumer reads its fields directly and
+ * reconstructs nothing.
  */
 
-import type { Track2StageId } from '@/services/research/track2Programme';
+import type { Track2DeepLink } from '@/services/research/track2Programme';
 
-export interface PendingTrack2StageIntent {
-  experimentId: string;
-  stageId: Track2StageId;
-}
-
-let pending: PendingTrack2StageIntent | null = null;
+let pending: Track2DeepLink | null = null;
 
 /** Called by the sender (e.g. Research Copilot's CTA) synchronously, before
- *  or alongside dispatching the `codex:navigate-tab` event. */
-export function setPendingTrack2Stage(experimentId: string, stageId: Track2StageId): void {
-  pending = { experimentId, stageId };
+ *  or alongside dispatching the `codex:navigate-tab` event. Stores the
+ *  COMPLETE deep-link — never a subset a consumer would have to rebuild. */
+export function setPendingTrack2Stage(deepLink: Track2DeepLink): void {
+  pending = deepLink;
 }
 
 /** Called by the receiver (`InvariantExperimentLab`'s mount effect) exactly
  *  once per intended navigation. Clears the mailbox on read, so a later,
  *  unrelated mount of the same component never replays a stale deep-link. */
-export function consumePendingTrack2Stage(): PendingTrack2StageIntent | null {
+export function consumePendingTrack2Stage(): Track2DeepLink | null {
   const value = pending;
   pending = null;
   return value;
