@@ -37,7 +37,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { resolveOwnerAuthProfileId } from '@/services/contactGraph/ownerResolution';
-import { reconcileConfirmedPersonaContacts } from '@/services/contactGraph/reconciliation';
+import { reconcileConfirmedPersonaContacts, summarizePersonaContactImports } from '@/services/contactGraph/reconciliation';
 import { requestContactGraphProjection } from '@/services/contactGraph/projection';
 import { createContactPerson } from '@/services/contactGraph/contactPersons';
 
@@ -65,7 +65,30 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     requestingSurface: 'aigentme',
   });
   if (!result.ok) return NextResponse.json({ ok: false, error: result.error }, { status: 500, headers: NO_STORE });
-  return NextResponse.json({ ok: true, people: result.value.people }, { headers: NO_STORE });
+
+  // Import counts describe the address-book substrate; graphPeople describes
+  // canonical reconciled ContactPersons. Keep both in one response so every
+  // People surface presents the same truthful state without forking queries.
+  const imports = await summarizePersonaContactImports(persona.personaId);
+  const stats = imports.ok
+    ? {
+        graphPeople: result.value.people.length,
+        importedRecords: imports.value.importedRecords,
+        confirmedRecords: imports.value.confirmedRecords,
+        projectedRecords: imports.value.projectedRecords,
+        importedBySource: imports.value.bySource,
+      }
+    : null;
+
+  return NextResponse.json(
+    {
+      ok: true,
+      people: result.value.people,
+      stats,
+      ...(imports.ok ? {} : { statsError: imports.error }),
+    },
+    { headers: NO_STORE },
+  );
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {

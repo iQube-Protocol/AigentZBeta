@@ -24,6 +24,12 @@ import { MicButton } from "@/components/ui/MicButton";
 import { UploadAttachmentPicker } from "@/components/metame/uploads/UploadAttachmentPicker";
 import { transformEmailDictation } from "@/hooks/useSpeechRecognition";
 
+interface RecipientCandidate {
+  contactId: string;
+  displayName: string | null;
+  email: string;
+}
+
 interface Props {
   open: boolean;
   onClose: () => void;
@@ -57,6 +63,10 @@ interface Props {
     bodyText: string;
     rationale: string;
     source: 'llm' | 'template';
+    /** Returned when the contact store contains multiple plausible
+     *  recipients. The composer must ask the operator instead of
+     *  silently dropping the resolution or guessing an address. */
+    recipientAmbiguity?: RecipientCandidate[];
   }>;
   theme?: "light" | "dark";
   /**
@@ -109,6 +119,7 @@ export function ComposeGmailDraftModal({
   const [aiRationale, setAiRationale] = useState<string | null>(null);
   const [aiSource, setAiSource] = useState<'llm' | 'template' | null>(null);
   const [to, setTo] = useState("");
+  const [recipientAmbiguity, setRecipientAmbiguity] = useState<RecipientCandidate[]>([]);
   const [subject, setSubject] = useState("");
   const [bodyText, setBodyText] = useState("");
   const [attachmentUploadIds, setAttachmentUploadIds] = useState<string[]>(
@@ -135,6 +146,7 @@ export function ComposeGmailDraftModal({
     try {
       const draft = await onDraftWithAigentMe(trimmed);
       setTo(draft.to ?? "");
+      setRecipientAmbiguity(Array.isArray(draft.recipientAmbiguity) ? draft.recipientAmbiguity : []);
       setCc(draft.cc ?? "");
       setBcc(draft.bcc ?? "");
       setSubject(draft.subject ?? "");
@@ -231,6 +243,7 @@ export function ComposeGmailDraftModal({
       setAiRationale(null);
       setAiSource(null);
       setTo("");
+      setRecipientAmbiguity([]);
       setSubject("");
       setBodyText("");
       setCc("");
@@ -242,7 +255,7 @@ export function ComposeGmailDraftModal({
     } finally {
       setSubmitting(false);
     }
-  }, [to, subject, bodyText, cc, bcc, onCreate, onClose]);
+  }, [to, subject, bodyText, cc, bcc, attachmentUploadIds, onCreate, onClose]);
 
   if (!inline && !open) return null;
 
@@ -353,6 +366,34 @@ export function ComposeGmailDraftModal({
               autoFocus
             />
           </label>
+          {recipientAmbiguity.length > 0 && !to.trim() && (
+            <div className={`rounded border px-3 py-2 ${
+              isDark ? 'border-amber-700/70 bg-amber-950/30' : 'border-amber-300 bg-amber-50'
+            }`}>
+              <p className={`text-xs font-medium ${labelClass}`}>
+                More than one matching contact was found. Choose the address to use:
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {recipientAmbiguity.map((candidate) => (
+                  <button
+                    key={candidate.contactId}
+                    type="button"
+                    onClick={() => {
+                      setTo(candidate.email);
+                      setRecipientAmbiguity([]);
+                    }}
+                    className={`rounded border px-2.5 py-1.5 text-xs ${
+                      isDark
+                        ? 'border-amber-700 text-amber-100 hover:bg-amber-900/40'
+                        : 'border-amber-300 text-amber-900 hover:bg-amber-100'
+                    }`}
+                  >
+                    {candidate.displayName ? `${candidate.displayName} — ` : ''}{candidate.email}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
               <span className={`block text-xs mb-1 ${labelClass}`}>Cc (optional)</span>

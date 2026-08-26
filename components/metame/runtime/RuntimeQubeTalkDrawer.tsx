@@ -35,6 +35,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { Check, Loader2, Megaphone, MessageCircle, MessagesSquare, Plus, Radio, Star, User, Users, X, X as XIcon } from "lucide-react";
 import { useContactGraphPeople, CONTACT_PLATFORM_LABEL, fetchJson } from "@/components/metame/contactgraph/useContactGraphPeople";
+import { ContactGraphStatsStrip } from "@/components/metame/contactgraph/ContactGraphStatsStrip";
 import type { ContactEndpointPlatform } from "@/types/contactGraph";
 import { CONTACT_ENDPOINT_PLATFORMS } from "@/types/contactGraph";
 import type { PendingShareArtifact } from "@/components/composer/QubeTalkInboxTab";
@@ -196,6 +197,7 @@ function OffplatformThread({ relationshipId }: { relationshipId: string }) {
 function RuntimePeoplePanel({ onMessagePerson }: { onMessagePerson: (personId: string) => void }) {
   const {
     filteredPeople,
+    stats,
     listLoading,
     listError,
     query,
@@ -272,6 +274,7 @@ function RuntimePeoplePanel({ onMessagePerson }: { onMessagePerson: (personId: s
     <div className="grid h-full grid-cols-1 gap-4 md:grid-cols-[280px_1fr]">
       {/* People list */}
       <div className="space-y-2 md:border-r md:border-slate-800 md:pr-4">
+        <ContactGraphStatsStrip stats={stats} theme="dark" />
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}

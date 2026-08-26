@@ -40,6 +40,11 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-08-26_cs-capstone-state-of-estate.md",
+        "updates/2026-08-26_cs-capstone-constitutional-agent-brief.md",
+        "updates/2026-08-26_venture-lab-canon-june-august-evolution.md",
+        "updates/2026-08-26_vl-inv-001-irg-circular-development-proposed-invariants.md",
+        "updates/2026-08-26_venture-lab-internal-report-june-august.md",
         "updates/2026-08-26_crystal-vp1-review-cycle-1-instrument-remediation.md",
         "updates/2026-08-26_p05-offplatform-relationships-and-contactgraph-endpoint-hardening.md",
         "updates/2026-09-30_contactgraph-substrate-and-qubetalk-integration.md",
@@ -581,7 +586,7 @@
     {
       "id": "col_network_economics",
       "title": "Network Economics",
-      "description": "Canonical reference for what it costs to run the AgentiQ network \u2014 anchor + cross-chain cost model, K/T policy, calibration knobs, and cost-per-receipt projections at mainnet cutover.",
+      "description": "Canonical reference for what it costs to run the AgentiQ network — anchor + cross-chain cost model, K/T policy, calibration knobs, and cost-per-receipt projections at mainnet cutover.",
       "items": [
         "items/AGENTIQ_NETWORK_COSTS.md"
       ]
@@ -589,7 +594,7 @@
     {
       "id": "col_intent_chains",
       "title": "Intent Chains",
-      "description": "Spec + reference for the metaMe/aigentMe intent-chain orchestrator \u2014 turns CTAs into stateful multi-step workflows with DVN-receipt-anchored provenance. Draft spec awaiting operator confirmation before build.",
+      "description": "Spec + reference for the metaMe/aigentMe intent-chain orchestrator — turns CTAs into stateful multi-step workflows with DVN-receipt-anchored provenance. Draft spec awaiting operator confirmation before build.",
       "items": [
         "items/AGENTIQ_INTENT_CHAINS_SPEC.md"
       ]
