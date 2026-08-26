@@ -15,7 +15,12 @@ import {
   PROTOCOL_FREEZE_ARTIFACT_KINDS,
   type FrozenArtifactKind,
 } from '../types/research';
-import { currentCrystalArtifactId, deriveProtocolRatified, getCurrentCrystalArtifact } from '../services/research/artifacts';
+import {
+  currentCrystalArtifactId,
+  deriveProtocolRatified,
+  getCurrentCrystalArtifact,
+  latestFrozenCrystalArtifact,
+} from '../services/research/artifacts';
 
 const mockListResearchObjects = vi.fn();
 vi.mock('@/services/research/lifecycle', () => ({
@@ -142,5 +147,48 @@ describe('currentCrystalArtifactId — the crystal-version lineage resolver', ()
     // EXP-P2 has no rows of its own in the fixture above, so it must resolve
     // its own generation 1 — never see EXP-P1's frozen vP1.
     expect(await currentCrystalArtifactId('EXP-P2')).toBe('EXP-P2/crystal-vP1');
+  });
+});
+
+/**
+ * latestFrozenCrystalArtifact — the complement resolver for callers that
+ * deliberately want a FROZEN generation to review (observer-round
+ * assignment, independent review), never the in-progress candidate. Same
+ * lineage-collision risk as currentCrystalArtifactId, same fix: derive from
+ * the vP<N> generation number, never from list order / first match.
+ */
+describe('latestFrozenCrystalArtifact — the frozen-generation resolver for review surfaces', () => {
+  it('returns null when nothing has ever been frozen', async () => {
+    mockListResearchObjects.mockResolvedValue({ ok: true, objects: [] });
+    expect(await latestFrozenCrystalArtifact('EXP-P1')).toBeNull();
+  });
+
+  it('returns null when the only generation exists but is not yet frozen', async () => {
+    mockListResearchObjects.mockResolvedValue({ ok: true, objects: [crystalRow('EXP-P1/crystal-vP1', 'validated')] });
+    expect(await latestFrozenCrystalArtifact('EXP-P1')).toBeNull();
+  });
+
+  it('returns the frozen vP1 once it is the only frozen generation', async () => {
+    mockListResearchObjects.mockResolvedValue({ ok: true, objects: [crystalRow('EXP-P1/crystal-vP1', 'frozen')] });
+    const artifact = await latestFrozenCrystalArtifact('EXP-P1');
+    expect(artifact?.id).toBe('EXP-P1/crystal-vP1');
+  });
+
+  it('THE CORE INVARIANT: once vP2 is ALSO frozen, returns vP2 — never stalls on vP1 (first-match order would have returned vP1 forever)', async () => {
+    mockListResearchObjects.mockResolvedValue({
+      ok: true,
+      objects: [crystalRow('EXP-P1/crystal-vP1', 'frozen'), crystalRow('EXP-P1/crystal-vP2', 'frozen')],
+    });
+    const artifact = await latestFrozenCrystalArtifact('EXP-P1');
+    expect(artifact?.id).toBe('EXP-P1/crystal-vP2');
+  });
+
+  it('skips an in-progress vP2 and still returns the frozen vP1 — only a FROZEN generation is ever returned', async () => {
+    mockListResearchObjects.mockResolvedValue({
+      ok: true,
+      objects: [crystalRow('EXP-P1/crystal-vP1', 'frozen'), crystalRow('EXP-P1/crystal-vP2', 'validated')],
+    });
+    const artifact = await latestFrozenCrystalArtifact('EXP-P1');
+    expect(artifact?.id).toBe('EXP-P1/crystal-vP1');
   });
 });

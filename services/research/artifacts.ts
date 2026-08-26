@@ -156,6 +156,32 @@ export async function getCurrentCrystalArtifact(experimentId: string): Promise<F
   return getArtifactById(id);
 }
 
+/**
+ * The MOST RECENTLY FROZEN `crystal-version` generation — `null` when none
+ * has ever been frozen. The complement of `getCurrentCrystalArtifact`: some
+ * callers (observer-round assignment, independent review) deliberately want
+ * a FROZEN artifact to review, never the in-progress candidate — but they
+ * share the exact same lineage-collision risk `currentCrystalArtifactId`
+ * closes, because `getArtifact`'s first-match `.find()` returns whichever
+ * generation the underlying list happens to order first (oldest `updated_at`
+ * — `listResearchObjects` orders ascending), not the LATEST frozen one. Once
+ * a successor generation is itself frozen, a first-match caller would keep
+ * reviewing the predecessor forever. Ordered by the same `vP<N>` generation
+ * number `currentCrystalArtifactId` reads, never by timestamp.
+ */
+export async function latestFrozenCrystalArtifact(experimentId: string): Promise<FrozenArtifact | null> {
+  const all = await listArtifacts(experimentId);
+  const frozenVersions = all
+    .filter((a) => a.kind === 'crystal-version' && a.lifecycle === 'frozen')
+    .map((a) => {
+      const m = a.id.match(CRYSTAL_VERSION_ID_PATTERN);
+      return m ? { artifact: a, generation: Number(m[1]) } : null;
+    })
+    .filter((v): v is { artifact: FrozenArtifact; generation: number } => v !== null)
+    .sort((a, b) => a.generation - b.generation);
+  return frozenVersions.length > 0 ? frozenVersions[frozenVersions.length - 1].artifact : null;
+}
+
 /** Create or update an artifact at `draft`/`validated` — freely editable
  * pre-freeze (IRL-016 §3: everything unsigned remains mutable). Never call
  * this to move an artifact TO `frozen` — use freezeArtifact, which enforces
