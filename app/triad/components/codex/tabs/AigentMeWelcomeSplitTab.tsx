@@ -1663,7 +1663,16 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin, ag
       const body = await res.json().catch(() => ({}));
       throw new Error(body?.detail || body?.error || `draft-email failed (${res.status})`);
     }
-    return (await res.json()) as { to: string; cc: string; bcc: string; subject: string; bodyText: string; rationale: string; source: 'llm' | 'template' };
+    return (await res.json()) as {
+      to: string;
+      cc: string;
+      bcc: string;
+      subject: string;
+      bodyText: string;
+      rationale: string;
+      source: 'llm' | 'template';
+      recipientAmbiguity?: Array<{ contactId: string; displayName: string | null; email: string }>;
+    };
   }, [personaId, buildRelatedArtifactsPayload]);
 
   const handleComposeGmailDraft = useCallback(async (input: { to: string; subject: string; bodyText: string; cc?: string; bcc?: string; attachmentUploadIds?: string[] }) => {
