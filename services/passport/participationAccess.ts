@@ -311,22 +311,47 @@ export const ASSIGNABLE_EXPERIMENTS: { id: string; label: string }[] = EXPERIMEN
 export async function getGrantedExperiments(
   admin: SupabaseClient,
   personaId: string,
-): Promise<{ hasGrant: boolean; allowed: 'all' | Set<string> }> {
+): Promise<{ hasGrant: boolean; allowed: 'all' | Set<string>; scopes?: { experiments: Set<string>; workspaces: Set<string> } }> {
   const { data, error } = await admin
     .from('access_grants')
     .select('allowed_experiments')
     .eq('persona_id', personaId)
     .eq('access_domain', 'research-lab')
     .eq('status', 'active');
-  if (error || !data || data.length === 0) return { hasGrant: false, allowed: new Set() };
-  const union = new Set<string>();
+  if (error || !data || data.length === 0) return { hasGrant: false, allowed: new Set(), scopes: { experiments: new Set(), workspaces: new Set() } };
+
+  const experiments = new Set<string>();
+  const workspaces = new Set<string>();
   let anyUnrestricted = false;
+
+  // Import here to avoid circular dependencies
+  const { RESEARCH_WORKSPACES } = await import('@/services/research/researchWorkspace');
+  const experimentIds = new Set(EXPERIMENT_REGISTRY.map(e => e.id));
+  const workspaceIds = new Set(RESEARCH_WORKSPACES.map(w => w.id));
+
   for (const row of data) {
     const list = (row as { allowed_experiments?: string[] | null }).allowed_experiments;
-    if (!list || list.length === 0) anyUnrestricted = true;
-    else for (const e of list) union.add(e);
+    if (!list || list.length === 0) {
+      anyUnrestricted = true;
+    } else {
+      for (const scope of list) {
+        // Resolve each scope by registry membership: experiments first, then workspaces
+        if (experimentIds.has(scope)) {
+          experiments.add(scope);
+        } else if (workspaceIds.has(scope)) {
+          workspaces.add(scope);
+        } else {
+          // Scope found in neither registry — fail closed
+          console.warn(`[Research Lab] Unknown scope '${scope}' in access grant for persona ${personaId}`);
+        }
+      }
+    }
   }
-  return { hasGrant: true, allowed: anyUnrestricted ? 'all' : union };
+
+  // For backwards compatibility, the primary union includes both experiments and workspace refs
+  // Callers that care about the distinction use the scopes field
+  const union = new Set([...experiments, ...workspaces]);
+  return { hasGrant: true, allowed: anyUnrestricted ? 'all' : union, scopes: { experiments, workspaces } };
 }
 
 /**

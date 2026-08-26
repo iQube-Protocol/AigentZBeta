@@ -35,6 +35,7 @@ export async function GET(req: NextRequest) {
 
   let access: 'all' | 'scoped' | 'none' = 'none';
   let allowed: string[] = [];
+  let allowedExperiments: string[] = [];
   if (isAdmin) {
     access = 'all';
   } else {
@@ -58,6 +59,9 @@ export async function GET(req: NextRequest) {
         else {
           access = 'scoped';
           allowed = Array.from(granted.allowed);
+          // Track experiments separately for the Lab component to filter correctly
+          // Workspace scopes should not appear in the experiments list
+          allowedExperiments = granted.scopes ? Array.from(granted.scopes.experiments) : allowed;
         }
       }
     }
@@ -69,6 +73,7 @@ export async function GET(req: NextRequest) {
       isAdmin,
       access,
       allowed,
+      allowedExperiments,
       assignable: ASSIGNABLE_EXPERIMENTS,
       cap: Number.isFinite(quota.cap) ? quota.cap : null,
       used: quota.used,

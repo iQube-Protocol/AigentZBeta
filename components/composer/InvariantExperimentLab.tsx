@@ -238,6 +238,7 @@ interface AccessInfo {
   isAdmin: boolean;
   access: "all" | "scoped" | "none";
   allowed: string[];
+  allowedExperiments?: string[];  // Only experiment ids; workspaces filtered out
 }
 
 export default function InvariantExperimentLab({ density }: { density?: "narrow" | "wide" } = {}) {
@@ -249,10 +250,18 @@ export default function InvariantExperimentLab({ density }: { density?: "narrow"
       try {
         const res = await personaFetch("/api/experiments/access", { cache: "no-store" });
         const d = await res.json();
-        if (d?.ok) setAccessInfo({ isAdmin: Boolean(d.isAdmin), access: d.access, allowed: d.allowed ?? [] });
-        else setAccessInfo({ isAdmin: false, access: "none", allowed: [] });
+        if (d?.ok) {
+          setAccessInfo({
+            isAdmin: Boolean(d.isAdmin),
+            access: d.access,
+            allowed: d.allowed ?? [],
+            allowedExperiments: d.allowedExperiments ?? d.allowed ?? [],  // Fall back to `allowed` if separate list not provided
+          });
+        } else {
+          setAccessInfo({ isAdmin: false, access: "none", allowed: [], allowedExperiments: [] });
+        }
       } catch {
-        setAccessInfo({ isAdmin: false, access: "none", allowed: [] });
+        setAccessInfo({ isAdmin: false, access: "none", allowed: [], allowedExperiments: [] });
       }
     })();
   }, []);
@@ -263,7 +272,8 @@ export default function InvariantExperimentLab({ density }: { density?: "narrow"
   const sections = useMemo(() => {
     if (!accessInfo) return SECTIONS; // optimistic until access resolves
     if (accessInfo.isAdmin) return SECTIONS;
-    const allowSet = new Set(accessInfo.allowed);
+    // Use allowedExperiments (workspace scopes filtered out) for experiment filtering
+    const allowSet = new Set(accessInfo.allowedExperiments ?? accessInfo.allowed);
     const out: typeof SECTIONS = [];
     for (const section of SECTIONS) {
       // Keep only items that map to an assignable experiment. Items with no
