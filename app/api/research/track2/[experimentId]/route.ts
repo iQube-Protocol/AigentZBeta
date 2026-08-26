@@ -60,6 +60,11 @@ export async function GET(
     {
       requestSucceeded: true,
       programme: state.programme,
+      /** The outstanding human/governance gate, if any — re-derived from
+       *  `programme` on this SAME read (2026-08-26 deep-link fix), so a
+       *  plain mount/refresh observes it exactly like a POST .../advance
+       *  response would, never only after a run. */
+      pendingDecision: state.pendingDecision,
       acquisitionDomain: state.acquisitionDomain,
       lifecycle: state.lifecycle,
       reviewStage: state.reviewStage,

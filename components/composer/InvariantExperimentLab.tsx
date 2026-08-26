@@ -47,6 +47,7 @@ import InvariantDiscoveryTab from "./InvariantDiscoveryTab";
 import QubeTalkInboxTab from "./QubeTalkInboxTab";
 import IndependentReviewPanel from "./IndependentReviewPanel";
 import { Track2ProgrammePanel } from "@/components/research/Track2ProgrammePanel";
+import { consumePendingTrack2Stage } from "@/services/research/track2DeepLinkIntent";
 
 /** Known tab ids plus dynamic `reg:<EXPERIMENT_ID>` entries from the registry
  *  completeness guard (any registered experiment not hand-mounted below is
@@ -295,7 +296,17 @@ export default function InvariantExperimentLab({ density }: { density?: "narrow"
   // publication (steward-approved). Admins publish straight to the canon, so
   // they never see the request-publish control.
   const canRequestPublish = Boolean(accessInfo && !accessInfo.isAdmin);
-  const [tab, setTab] = useState<LabTab>("bundle");
+  /**
+   * CANONICAL DEEP-LINK CONSUMPTION (2026-08-26) — a lazy `useState`
+   * initializer runs synchronously during this component's FIRST render,
+   * before any effect and before the "keep tab within visible items" effect
+   * below could ever override it. `consumePendingTrack2Stage()` is called
+   * exactly ONCE (its own one-shot contract) and the result is reused for
+   * both the default tab and the stage the panel should open on — never
+   * called twice, which would silently lose the stage id to the second call.
+   */
+  const [initialTrack2Intent] = useState(() => consumePendingTrack2Stage());
+  const [tab, setTab] = useState<LabTab>(() => (initialTrack2Intent ? "track2" : "bundle"));
 
   // Keep the selected tab within the visible set (a scoped reviewer's default
   // may be filtered out).
@@ -490,7 +501,12 @@ export default function InvariantExperimentLab({ density }: { density?: "narrow"
         {tab === "discovery" && <InvariantDiscoveryTab />}
         {tab === "qubetalk" && <QubeTalkInboxTab researchOnly />}
         {tab === "independent-review" && <IndependentReviewPanel />}
-        {tab === "track2" && <Track2ProgrammePanel experimentId="EXP-P1" />}
+        {tab === "track2" && (
+          <Track2ProgrammePanel
+            experimentId="EXP-P1"
+            initialStageId={initialTrack2Intent?.stageId}
+          />
+        )}
       </div>
     </div>
   );

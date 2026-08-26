@@ -72,12 +72,13 @@ import { personaFetch } from "@/utils/personaSpine";
 // bundling, so no server module reaches the client — and the alternative (a
 // hand-copied interface here) would be a second shape that agrees with the
 // server's only until one of them is edited (`inv.engineering.036`/`037`).
-import type { ProgrammeRunResult } from "@/services/research/researchProgrammeOrchestrator";
+import type { ProgrammeRunResult, PendingGovernanceDecision } from "@/services/research/researchProgrammeOrchestrator";
 // The SAME read-only projection Track2ProgrammePanel itself reads
 // (GET /api/research/track2/[experimentId] -> loadTrack2ProgrammeState) —
 // reused here so the objective's state is visible on OPEN, before the
 // operator has run anything, rather than only after a POST /advance.
-import type { Track2Programme } from "@/services/research/track2Programme";
+import type { Track2Programme, Track2DeepLink } from "@/services/research/track2Programme";
+import { setPendingTrack2Stage } from "@/services/research/track2DeepLinkIntent";
 import type {
   ExperimentLifecycleState,
   ResearchExperiment,
@@ -579,10 +580,12 @@ function ObjectiveCard({
   objective,
   run,
   programmePreview,
+  pendingDecisionPreview,
   running,
   error,
   onRun,
   onOpenDetail,
+  onOpenStage,
 }: {
   objective: ResearchObjective;
   run: ProgrammeRunResult | null;
@@ -591,15 +594,33 @@ function ObjectiveCard({
    *  until you need me". Once a run completes, `run.programme` (re-read
    *  after the last act — the fresher truth) takes over. */
   programmePreview: Track2Programme | null;
+  /** The SAME durability treatment as `programmePreview`, for the pending
+   *  decision (2026-08-26): recomputed on every mount/refresh from the SAME
+   *  authoritative read, so a pending human judgment survives navigate-away-
+   *  and-back instead of only existing inside the ephemeral `run` state. */
+  pendingDecisionPreview: PendingGovernanceDecision | null;
   running: boolean;
   error: string | null;
   onRun: () => void;
   onOpenDetail: () => void;
+  /** Canonical deep-link navigation (2026-08-26) — opens the EXACT stage a
+   *  pending decision names. See track2Programme.ts's `Track2DeepLink`. */
+  onOpenStage: (deepLink: Track2DeepLink) => void;
 }) {
   const gate = run?.measurementLayerGate ?? null;
-  const stop = run?.stopReason ?? null;
-  const decision = run?.pendingDecision ?? null;
   const programme = run?.programme ?? programmePreview;
+  /**
+   * RECONCILIATION INVARIANT: a pending human gate remains the next act
+   * until a receipt resolves it — recomputed from authoritative state on
+   * EVERY render (mount, remount, post-run), never only while `run` (the
+   * ephemeral POST result) happens to still be in memory. `run.pendingDecision`
+   * is preferred when a run just completed (the freshest read); otherwise the
+   * mount-time preview — itself re-derived from the SAME `firstPendingDecision`
+   * function the run's own loop uses — takes over. Both can never disagree
+   * about WHETHER a gate is pending (inv.engineering.036/037); this is a
+   * freshness preference, not two competing derivations.
+   */
+  const decision = run?.pendingDecision ?? pendingDecisionPreview;
 
   return (
     <div className="rounded-xl border border-sky-800/50 bg-sky-950/20 p-4 space-y-3">
@@ -690,6 +711,41 @@ function ObjectiveCard({
         </div>
       )}
 
+      {/* THE CONSOLIDATED DECISION — the one thing the operator is asked for.
+          RECONCILIATION INVARIANT (2026-08-26): rendered from `decision`
+          alone — present whenever an unblocked, non-complete, human-gated
+          stage exists in the AUTHORITATIVE state, whether that came from a
+          fresh run or from the mount-time preview. Deliberately OUTSIDE
+          `{run && (...)}` below: before this fix, this card only existed
+          while `run` (the ephemeral POST result) was still in memory, so
+          navigating away and back made it vanish even though the underlying
+          gate was still genuinely open — the operator saw only the compact
+          dot-strip above, not the actionable judgment. It now survives
+          navigate-away-and-back exactly like the dot-strip already did. */}
+      {decision && (
+        <div className="rounded border border-violet-500/40 bg-violet-500/10 px-2 py-2 space-y-1">
+          <div className="text-[10px] uppercase tracking-wide text-violet-300 font-semibold">
+            {decision.authority === "governance" ? "Your constitutional act" : "Your judgment"} — {decision.stageLabel}
+          </div>
+          <div className="text-[11px] text-slate-200">{decision.detail}</div>
+          <div className="text-[10px] text-slate-400">Performed by: {decision.actor}</div>
+          {decision.remedies.map((r, i) => (
+            <div key={i} className="text-[10px] text-slate-300 flex gap-1.5">
+              <span className="text-slate-500 shrink-0">·</span>
+              <span className="break-words">{r}</span>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={() => onOpenStage(decision.deepLink)}
+            className="mt-1 inline-flex items-center gap-1 rounded border border-violet-500/40 bg-violet-500/15 px-2 py-1 text-[10px] font-semibold text-violet-100 hover:bg-violet-500/25 transition"
+          >
+            <ArrowRight className="h-3 w-3" />
+            Open {decision.stageLabel}
+          </button>
+        </div>
+      )}
+
       {run && (
         <div className="space-y-2.5">
           {/* The one line that says what happened. Never describes a partial run
@@ -757,31 +813,6 @@ function ObjectiveCard({
                   )}
                 </div>
               ))}
-            </div>
-          )}
-
-          {/* THE CONSOLIDATED DECISION — the one thing the operator is asked for. */}
-          {decision && stop && (stop.kind === "awaiting-governance" || stop.kind === "awaiting-human-judgment") && (
-            <div className="rounded border border-violet-500/40 bg-violet-500/10 px-2 py-2 space-y-1">
-              <div className="text-[10px] uppercase tracking-wide text-violet-300 font-semibold">
-                {decision.authority === "governance" ? "Your constitutional act" : "Your judgment"} — {decision.stageLabel}
-              </div>
-              <div className="text-[11px] text-slate-200">{decision.detail}</div>
-              <div className="text-[10px] text-slate-400">Performed by: {decision.actor}</div>
-              {decision.remedies.map((r, i) => (
-                <div key={i} className="text-[10px] text-slate-300 flex gap-1.5">
-                  <span className="text-slate-500 shrink-0">·</span>
-                  <span className="break-words">{r}</span>
-                </div>
-              ))}
-              <button
-                type="button"
-                onClick={onOpenDetail}
-                className="mt-1 inline-flex items-center gap-1 rounded border border-violet-500/40 bg-violet-500/15 px-2 py-1 text-[10px] font-semibold text-violet-100 hover:bg-violet-500/25 transition"
-              >
-                <ArrowRight className="h-3 w-3" />
-                Open {decision.stageLabel} in the Experiment Lab
-              </button>
             </div>
           )}
 
@@ -916,6 +947,12 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
   // Distinct from `programmeRun` above: this never runs anything, so it is
   // safe to fetch on mount alongside overview/results, unlike the run itself.
   const [programmePreview, setProgrammePreview] = useState<Track2Programme | null>(null);
+  // The outstanding human/governance gate, re-derived on the SAME read as
+  // `programmePreview` above (2026-08-26 deep-link + durability fix). This is
+  // what makes the pending judgment survive navigate-away-and-back: it is
+  // recomputed from authoritative Track 2 state on every mount/refresh, never
+  // held only in the ephemeral `programmeRun` (POST-only) state below.
+  const [pendingDecisionPreview, setPendingDecisionPreview] = useState<PendingGovernanceDecision | null>(null);
 
   // ── C3 Feedback Coordinator (mirrors DevCommandCenterTab.autoPrompt): on a
   // stage-ADVANCING approval, mint ONE `[observed]` auto-turn so the copilot
@@ -1065,9 +1102,21 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
           cache: "no-store",
           ...(personaId ? { personaIdHint: personaId } : {}),
         });
-        const data = (await res.json().catch(() => null)) as { requestSucceeded?: boolean; programme?: Track2Programme } | null;
+        const data = (await res.json().catch(() => null)) as {
+          requestSucceeded?: boolean;
+          programme?: Track2Programme;
+          pendingDecision?: PendingGovernanceDecision | null;
+        } | null;
         if (res.ok && data?.requestSucceeded && data.programme) {
           setProgrammePreview(data.programme);
+          // Unlike the programme dot-strip above, `pendingDecision` MUST be
+          // allowed to become null here — that is exactly how a resolved
+          // judgment (a receipt landed) stops being presented as "next"
+          // (reconciliation invariant: a pending gate remains the next act
+          // only until a receipt resolves it, never longer, never a stale
+          // ghost). Recomputed from the SAME authoritative read as the
+          // programme itself — never from a locally-cached decision.
+          setPendingDecisionPreview(data.pendingDecision ?? null);
         }
         // A failed preview never blocks the rest of refresh, and never clears
         // an already-loaded preview — an honest "could not confirm just now"
@@ -1140,6 +1189,26 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
     try {
       window.dispatchEvent(new CustomEvent('codex:navigate-tab', { detail: { tab: 'irl-experiment-lab' } }));
     } catch { /* non-fatal — the honest pointer text still names the tab */ }
+  }, [observe]);
+
+  /**
+   * CANONICAL DEEP-LINK NAVIGATION (2026-08-26) — opens the EXACT Track 2
+   * stage a pending decision names, never the generic Experiment Lab.
+   * Consumes `deepLink` verbatim (programme/experiment/stage/surfaceRef,
+   * resolved server-side by `firstPendingDecision` /
+   * `buildTrack2DeepLink`) — this function reconstructs nothing.
+   *
+   * `setPendingTrack2Stage` is called SYNCHRONOUSLY, before the
+   * `codex:navigate-tab` dispatch that switches the cartridge tab and mounts
+   * `InvariantExperimentLab` — see track2DeepLinkIntent.ts for why the intent
+   * must be written before, not after, that mount.
+   */
+  const goToTrack2Stage = useCallback((deepLink: Track2DeepLink) => {
+    observe(surfacePromptSelectedEvent(SURFACE, `run hand-off: opened ${deepLink.stageLabel} directly (Track 2 deep-link)`));
+    setPendingTrack2Stage(deepLink.experimentId, deepLink.stageId);
+    try {
+      window.dispatchEvent(new CustomEvent('codex:navigate-tab', { detail: { tab: deepLink.surfaceRef.cartridgeTab } }));
+    } catch { /* non-fatal — the honest pointer text still names the stage */ }
   }, [observe]);
 
   /**
@@ -1343,10 +1412,12 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
               objective={objective}
               run={programmeRun}
               programmePreview={programmePreview}
+              pendingDecisionPreview={pendingDecisionPreview}
               running={programmeRunning}
               error={programmeError}
               onRun={() => void runProgramme(objective.experimentId)}
               onOpenDetail={goToExperimentLab}
+              onOpenStage={goToTrack2Stage}
             />
           ))}
 

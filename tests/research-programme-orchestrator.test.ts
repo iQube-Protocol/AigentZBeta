@@ -101,6 +101,7 @@ import {
   PROGRAMME_ACT_KINDS,
   advanceResearchProgramme,
   evaluateMeasurementLayerGate,
+  firstPendingDecision,
   isHumanGatedStage,
   loadTrack2ProgrammeState,
   resolveMeasurementLayerReadiness,
@@ -466,6 +467,86 @@ describe('the loop stops at a human gate and names the awaiting decision', () =>
     });
     const result = await run();
     expect(result.acts.some((a) => a.actKind === 'validate-cohort')).toBe(true);
+  });
+});
+
+// ── CANONICAL DEEP-LINK CONTRACT (2026-08-26 Research Copilot → Track 2 fix) ─
+//
+// Reconciliation invariants under test:
+//   - CTA destinations must deep-link to the precise stage, never a generic
+//     Experiment page.
+//   - population counts and stage state must agree (the deep-link and the
+//     programme it names come from the SAME read, never a second query).
+//   - a pending human gate remains the next act until a receipt resolves it
+//     (`loadTrack2ProgrammeState` — a plain GET/mount read, no acts executed —
+//     already carries the pending decision, not only a POST /advance result).
+
+describe('the canonical Track 2 deep-link (2026-08-26)', () => {
+  it('every pending decision carries a deep-link naming the exact programme, experiment, stage and surface', async () => {
+    seedSubstrate({ cohort: cohort({ unvalidated: 0, unvalidatedRecords: [] }) });
+    const result = await run();
+    const decision = result.pendingDecision;
+    expect(decision, 'a human gate is expected in this fixture').not.toBeNull();
+    const deepLink = decision!.deepLink;
+    expect(deepLink.programmeId).toBe('track-2');
+    expect(deepLink.experimentId).toBe(EXPERIMENT);
+    expect(deepLink.stageId).toBe(decision!.stageId);
+    expect(deepLink.stageLabel).toBe(decision!.stageLabel);
+    // The EXACT surface — never a generic Experiment Lab reference.
+    expect(deepLink.surfaceRef.cartridgeTab).toBe('irl-experiment-lab');
+    expect(deepLink.surfaceRef.labTab).toBe('track2');
+    expect(deepLink.surfaceRef.anchorId).toBe(`track2-stage-${decision!.stageId}`);
+  });
+
+  it('firstPendingDecision and loadTrack2ProgrammeState never disagree — one derivation, not two', async () => {
+    seedSubstrate({ cohort: cohort({ unvalidated: 0, unvalidatedRecords: [] }) });
+    const state = await loadTrack2ProgrammeState({ experimentId: EXPERIMENT });
+    if ('error' in state) throw new Error(state.error);
+    // Population counts and stage state must agree: the pending decision on
+    // this read is computed from THIS SAME `programme`, not a separate query
+    // that could disagree with it (inv.engineering.036/037).
+    expect(state.pendingDecision).toEqual(firstPendingDecision(state.programme));
+  });
+
+  it('a plain GET read (no acts executed) already carries the pending decision — a mount/refresh needs no run', async () => {
+    seedSubstrate({ cohort: cohort({ unvalidated: 0, unvalidatedRecords: [] }) });
+    const state = await loadTrack2ProgrammeState({ experimentId: EXPERIMENT });
+    if ('error' in state) throw new Error(state.error);
+    expect(state.pendingDecision).not.toBeNull();
+    expect(state.pendingDecision?.deepLink).toBeDefined();
+  });
+
+  it('the GET route surfaces pendingDecision in its response — the durability seam the Copilot preview reads', () => {
+    const src = stripComments(readSource('app/api/research/track2/[experimentId]/route.ts'));
+    expect(src).toMatch(/pendingDecision:\s*state\.pendingDecision/);
+  });
+
+  it('a resolved gate reports pendingDecision: null — the decision does not outlive the receipt that resolves it', () => {
+    // Direct unit test of firstPendingDecision (pure): once every stage's own
+    // status is 'complete', no candidate remains and the function reports
+    // null — the pending-judgment card the Copilot renders from this value
+    // must disappear once the underlying evidence says the act is done,
+    // never linger as a stale ghost from an earlier read.
+    const base = buildTrack2Programme({
+      experimentId: EXPERIMENT,
+      crystalDomain: 'financial-risk-value-systems',
+      signals: {
+        candidateSources: { total: 2, pendingReview: 0, admitted: 2 },
+        discoveryCandidates: { total: 3, awaitingReview: 0, promoted: 3 },
+        promotedCohort: cohort({ unvalidated: 0, unvalidatedRecords: [], excluded: [] }),
+        readiness: readiness({ ok: true }),
+        lifecycle: { stageId: 'DOMAIN_RATIFIED' } as never,
+        artifact: null,
+        independentReviewRequestOpen: false,
+      },
+    });
+    // Force every stage complete — a synthetic "fully resolved" projection,
+    // never asserting the real fixture reaches this by other means.
+    const allComplete = {
+      ...base,
+      stages: base.stages.map((s) => ({ ...s, status: 'complete' as const })),
+    };
+    expect(firstPendingDecision(allComplete)).toBeNull();
   });
 });
 

@@ -32,7 +32,7 @@
  * operator was shown — never one this component recomputed.
  */
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, CheckCircle2, Circle, Loader2, Lock, RefreshCw, ShieldAlert } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
 import { PROVENANCE_CLASSES } from "@/services/corpusScout/types";
@@ -243,7 +243,23 @@ const STATUS_LABEL: Record<Stage["status"], string> = {
   unknown: "not observable from here",
 };
 
-export function Track2ProgrammePanel({ experimentId = "EXP-P1" }: { experimentId?: string }) {
+export function Track2ProgrammePanel({
+  experimentId = "EXP-P1",
+  initialStageId,
+}: {
+  experimentId?: string;
+  /**
+   * CANONICAL DEEP-LINK CONSUMPTION (2026-08-26) — when a caller (the
+   * Research Copilot's CTA, via InvariantExperimentLab's own consumption of
+   * track2DeepLinkIntent.ts) opens this panel FOR a specific stage, scroll
+   * there on the initial load rather than leaving the operator at the top of
+   * the list. Falls back to `programme.currentStageId` (the programme's own
+   * "you are here") when omitted, so a plain, non-deep-linked open of this
+   * tab ALSO lands on the live stage instead of visually "regressing" to
+   * Discover Sources — the same fix serves both entry paths.
+   */
+  initialStageId?: string;
+}) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [programme, setProgramme] = useState<Programme | null>(null);
@@ -286,6 +302,16 @@ export function Track2ProgrammePanel({ experimentId = "EXP-P1" }: { experimentId
    * reload — this is presentation only, never a second authority on status.
    */
   const [expandedStageIds, setExpandedStageIds] = useState<Set<string>>(new Set());
+
+  /** Shared with `reloadAndAdvance` below and the initial-mount deep-link
+   *  scroll — the ONE place this panel scrolls to a stage anchor, so the two
+   *  call sites can never drift onto different geometry. */
+  const scrollToStage = useCallback((stageId: string) => {
+    if (typeof document === "undefined") return;
+    requestAnimationFrame(() => {
+      document.getElementById(`track2-stage-${stageId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  }, []);
 
   const load = useCallback(async (): Promise<Programme | null> => {
     setLoading(true);
@@ -332,17 +358,33 @@ export function Track2ProgrammePanel({ experimentId = "EXP-P1" }: { experimentId
       copy.delete(next.id);
       return copy;
     });
-    if (typeof document === "undefined") return;
-    // Deferred one frame — the DOM node for `next` only exists after THIS
-    // render commits the freshly-fetched programme.
-    requestAnimationFrame(() => {
-      document.getElementById(`track2-stage-${next.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
-    });
-  }, [load]);
+    // Deferred one frame (inside scrollToStage) — the DOM node for `next`
+    // only exists after THIS render commits the freshly-fetched programme.
+    scrollToStage(next.id);
+  }, [load, scrollToStage]);
 
+  /**
+   * VISUAL-REGRESSION FIX (2026-08-26): on the INITIAL load only, scroll to
+   * `initialStageId` (an explicit deep-link) or, absent one,
+   * `programme.currentStageId` (the programme's own "you are here"). Without
+   * this, every fresh mount of this panel rendered all eleven stages from
+   * Stage 1 with no scroll — a persona returning to a pending Stage 5 saw the
+   * viewport land on "Discover Sources" even though nothing about the
+   * underlying data had regressed (Stage 1 was, correctly, still COMPLETE).
+   * Guarded to run once: subsequent reloads (act completions) are handled by
+   * `reloadAndAdvance` above, which must not be overridden by this effect
+   * re-firing on every `programme` update.
+   */
+  const didInitialScroll = useRef(false);
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (didInitialScroll.current || !programme) return;
+    didInitialScroll.current = true;
+    scrollToStage(initialStageId ?? programme.currentStageId);
+  }, [programme, initialStageId, scrollToStage]);
 
   return (
     <div className="space-y-4">

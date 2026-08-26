@@ -88,6 +88,57 @@ export type Track2StageStatus =
   | 'blocked'
   | 'unknown';
 
+/**
+ * THE CANONICAL DEEP-LINK CONTRACT for a Track 2 stage (operator directive,
+ * 2026-08-26 — "Research Copilot → Track 2 handoff"). A stage's `surface`
+ * field above is deliberately PROSE ("a repo path or a named panel, never a
+ * guessed URL") — it is for a human to read, not for a client to parse into
+ * a navigable target. This is the structured counterpart: every field a
+ * caller needs to open the EXACT stage directly, resolved HERE (server-side,
+ * from the same registry that names the surface), never reconstructed by a
+ * consuming UI from a label or a guess.
+ *
+ * `cartridgeTab` and `labTab` name real, existing tab ids
+ * (`data/codex-configs.ts`'s `irl-experiment-lab`, `InvariantExperimentLab`'s
+ * own `"track2"` LabTab) — composition, never a new route. `anchorId` matches
+ * `Track2ProgrammePanel.tsx`'s own `track2-stage-${id}` DOM id verbatim, so a
+ * consumer never has to know or reconstruct that convention either.
+ */
+export interface Track2DeepLink {
+  /** The programme this stage belongs to — always 'track-2' today; named
+   *  explicitly (not inferred) so a future second programme cannot collide. */
+  programmeId: 'track-2';
+  experimentId: string;
+  stageId: Track2StageId;
+  stageLabel: string;
+  surfaceRef: {
+    /** The cartridge-level tab id (`data/codex-configs.ts`) — what
+     *  `codex:navigate-tab`'s `detail.tab` must carry. */
+    cartridgeTab: 'irl-experiment-lab';
+    /** `InvariantExperimentLab`'s own internal sub-tab id. */
+    labTab: 'track2';
+    /** The exact DOM anchor `Track2ProgrammePanel` renders for this stage. */
+    anchorId: string;
+  };
+}
+
+/** The ONE place a Track 2 deep-link is constructed — never hand-built at a
+ *  call site (that would be exactly the "reconstruct a generic URL
+ *  client-side" pattern this contract exists to prevent). */
+export function buildTrack2DeepLink(experimentId: string, stageId: Track2StageId, stageLabel: string): Track2DeepLink {
+  return {
+    programmeId: 'track-2',
+    experimentId,
+    stageId,
+    stageLabel,
+    surfaceRef: {
+      cartridgeTab: 'irl-experiment-lab',
+      labTab: 'track2',
+      anchorId: `track2-stage-${stageId}`,
+    },
+  };
+}
+
 export interface Track2Stage {
   id: Track2StageId;
   ordinal: number;

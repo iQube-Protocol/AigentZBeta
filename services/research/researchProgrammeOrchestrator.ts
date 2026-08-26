@@ -117,6 +117,8 @@ import { writeLifecycleReceipt } from '@/services/research/lifecycle';
 import { reconcilePromotedCohort, type ReconciledPromotedCohort } from '@/services/research/populationReconciliation';
 import {
   buildTrack2Programme,
+  buildTrack2DeepLink,
+  type Track2DeepLink,
   type Track2Programme,
   type Track2Stage,
   type Track2StageId,
@@ -346,6 +348,15 @@ export interface Track2ProgrammeState {
   };
   /** Which signals could not be read at all — named, never silently zeroed. */
   unreadableSignals: string[];
+  /**
+   * THE OUTSTANDING HUMAN/GOVERNANCE GATE, if any — recomputed from
+   * `programme` on every read via `firstPendingDecision` (2026-08-26).
+   * `null` means every unblocked stage is either complete or machine-runnable
+   * right now; it does NOT mean the programme is finished. A caller must
+   * treat this as authoritative on every read, including a plain GET/mount —
+   * never only after a `POST .../advance` run.
+   */
+  pendingDecision: PendingGovernanceDecision | null;
 }
 
 /**
@@ -457,6 +468,7 @@ export async function loadTrack2ProgrammeState(input: {
     cohort,
     signalCounts: { candidateSources, discoveryCandidates },
     unreadableSignals,
+    pendingDecision: firstPendingDecision(programme),
   };
 }
 
@@ -678,8 +690,13 @@ export interface PendingGovernanceDecision {
   actor: string;
   /** The stage's own capability, verbatim — never a second wording of it. */
   capability: string;
-  /** Where the operator performs it, from the stage's own `surface`. */
+  /** Where the operator performs it, from the stage's own `surface` —
+   *  PROSE, for a human to read. Never parsed into a navigable target. */
   surface: string;
+  /** The canonical, resolvable navigation target for THIS act (2026-08-26
+   *  deep-link contract) — what a caller must consume verbatim to open the
+   *  exact stage. See track2Programme.ts's `Track2DeepLink` doc comment. */
+  deepLink: Track2DeepLink;
   /** The stage's own remedies, verbatim. Empty when the stage has none. */
   remedies: string[];
   detail: string;
@@ -1049,10 +1066,22 @@ function offerableStage(programme: Track2Programme, actKind: ProgrammeActKind): 
   return stage;
 }
 
-/** The first stage the operator must act on — the consolidated decision. Ordered
- *  by ordinal, so it is the EARLIEST outstanding one rather than an arbitrary
- *  pick. */
-function firstPendingDecision(programme: Track2Programme): PendingGovernanceDecision | null {
+/**
+ * THE FIRST STAGE THE OPERATOR MUST ACT ON — the consolidated decision.
+ * Ordered by ordinal, so it is the EARLIEST outstanding one rather than an
+ * arbitrary pick.
+ *
+ * EXPORTED (2026-08-26 deep-link fix) so `loadTrack2ProgrammeState` — the ONE
+ * loader both the read-only GET route and the advance loop already share —
+ * can compute the SAME pending decision on a plain read, not only mid-loop.
+ * Before this, `pendingDecision` existed ONLY on a `POST .../advance`
+ * response; a GET-only caller (a mount/remount, a page refresh) had no way to
+ * observe an outstanding human gate at all. Reusing this exact function
+ * rather than a second derivation is what guarantees the GET-time preview and
+ * the POST-time run can never disagree about what is pending
+ * (`inv.engineering.036`/`037`).
+ */
+export function firstPendingDecision(programme: Track2Programme): PendingGovernanceDecision | null {
   const candidates = programme.stages
     .filter((s) => programme.unblockedStageIds.includes(s.id))
     .filter((s) => s.status !== 'complete' && s.status !== 'unknown')
@@ -1067,6 +1096,7 @@ function firstPendingDecision(programme: Track2Programme): PendingGovernanceDeci
     actor: stage.actor,
     capability: stage.capability,
     surface: stage.surface,
+    deepLink: buildTrack2DeepLink(programme.experimentId, stage.id, stage.label),
     remedies: stage.remedies,
     detail: stage.detail,
   };
@@ -1214,7 +1244,7 @@ export async function advanceResearchProgramme(input: {
         };
         break;
       }
-      const pending = firstPendingDecision(current.programme);
+      const pending = current.pendingDecision;
       if (pending) {
         stopReason =
           pending.authority === 'governance'
@@ -1280,7 +1310,7 @@ export async function advanceResearchProgramme(input: {
   const pendingDecision =
     stopReason?.kind === 'awaiting-governance' || stopReason?.kind === 'awaiting-human-judgment'
       ? stopReason.decision
-      : firstPendingDecision(finalState.programme);
+      : finalState.pendingDecision;
 
   const criticalPath = buildCriticalPath({
     stageLabel: pendingDecision?.stageLabel ?? finalState.programme.currentStageId,
