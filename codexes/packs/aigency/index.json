@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-26T07:07:08.053Z",
+  "last_updated": "2026-08-26T07:25:41.916Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "4c8c259c2689d80dbef390e77dd3605ca69921a2",
-  "latest_commit_short": "4c8c259",
-  "latest_commit_title": "fix(agentme): preserve attachments and resolve contact ambiguity",
+  "latest_commit": "90d7ed99e75182c5b9385641220904fab7a35eeb",
+  "latest_commit_short": "90d7ed9",
+  "latest_commit_title": "Show ContactGraph state and import-source counts in People (#99)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "90d7ed9",
+      "full_sha": "90d7ed99e75182c5b9385641220904fab7a35eeb",
+      "title": "Show ContactGraph state and import-source counts in People (#99)",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-26T03:24:14-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-90d7ed9.md"
+    },
     {
       "sha": "4c8c259",
       "full_sha": "4c8c259c2689d80dbef390e77dd3605ca69921a2",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-10T22:50:19Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-a37a29e.md"
-    },
-    {
-      "sha": "f65634b",
-      "full_sha": "f65634b26660b5f876d2f400ef1de351c7ced62a",
-      "title": "trigger deploy: focusedNavDepth depth-aware chrome suppression",
-      "author": "Claude",
-      "timestamp": "2026-08-10T22:50:38Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-f65634b.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

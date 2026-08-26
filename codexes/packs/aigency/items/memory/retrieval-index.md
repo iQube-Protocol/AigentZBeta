@@ -4484,3 +4484,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-4c8c259.md](../build_/COMMITS/COMMIT-4c8c259.md)
 - Message: fix(agentme): preserve attachments and resolve contact ambiguity
+
+## Commit `90d7ed9` — 2026-08-26T03:24:14-04:00
+- Type: `push`
+- Brief: [COMMIT-90d7ed9.md](../build_/COMMITS/COMMIT-90d7ed9.md)
+- Message: Show ContactGraph state and import-source counts in People (#99)
