@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-25T15:24:19.852Z",
+  "last_updated": "2026-08-26T07:07:08.053Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "f35ecb31ad40281327d74f5895677737b86cb10b",
-  "latest_commit_short": "f35ecb3",
-  "latest_commit_title": "Spec QubeTalk communications membrane domain model v0.2",
+  "latest_commit": "4c8c259c2689d80dbef390e77dd3605ca69921a2",
+  "latest_commit_short": "4c8c259",
+  "latest_commit_title": "fix(agentme): preserve attachments and resolve contact ambiguity",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "4c8c259",
+      "full_sha": "4c8c259c2689d80dbef390e77dd3605ca69921a2",
+      "title": "fix(agentme): preserve attachments and resolve contact ambiguity",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-26T03:05:42-04:00",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-4c8c259.md"
+    },
     {
       "sha": "f35ecb3",
       "full_sha": "f35ecb31ad40281327d74f5895677737b86cb10b",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-10T22:50:38Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-f65634b.md"
-    },
-    {
-      "sha": "d1ef756",
-      "full_sha": "d1ef7562b741a5be55f6887a63b2aa6e51d530a5",
-      "title": "implement in-place iframe chrome toggle for guided journey embeds",
-      "author": "Claude",
-      "timestamp": "2026-08-10T20:03:05Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-d1ef756.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

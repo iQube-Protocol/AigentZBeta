@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`4c8c259`](https://github.com/iQube-Protocol/AigentZBeta/commit/4c8c259c2689d80dbef390e77dd3605ca69921a2) [fix] fix(agentme): preserve attachments and resolve contact ambiguity (Kn0w1, 2026-08-26T03:05:42-04:00)
 - [`f35ecb3`](https://github.com/iQube-Protocol/AigentZBeta/commit/f35ecb31ad40281327d74f5895677737b86cb10b) [push] Spec QubeTalk communications membrane domain model v0.2 (Kn0w1, 2026-08-25T11:22:43-04:00)
 - [`da92fec`](https://github.com/iQube-Protocol/AigentZBeta/commit/da92fec2a6e6cbf2db5caa0d71cc983c33a00935) [docs] docs(aee): include MoneyPenny Advisor Architect Runtime in first Differ audit (Kn0w1, 2026-08-24T11:17:28-04:00)
 - [`d0db72c`](https://github.com/iQube-Protocol/AigentZBeta/commit/d0db72cd4eee8dba752006bc569c00ed757bb966) [docs] docs(agentiq): specify adaptive experience engine with Differ provider seam (Kn0w1, 2026-08-24T11:01:01-04:00)

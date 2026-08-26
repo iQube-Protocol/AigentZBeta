@@ -4479,3 +4479,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-f35ecb3.md](../build_/COMMITS/COMMIT-f35ecb3.md)
 - Message: Spec QubeTalk communications membrane domain model v0.2
+
+## Commit `4c8c259` — 2026-08-26T03:05:42-04:00
+- Type: `fix`
+- Brief: [COMMIT-4c8c259.md](../build_/COMMITS/COMMIT-4c8c259.md)
+- Message: fix(agentme): preserve attachments and resolve contact ambiguity
