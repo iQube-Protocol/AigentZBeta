@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`dc83c33`](https://github.com/iQube-Protocol/AigentZBeta/commit/dc83c33d511c8b645057c8910c35875556c68b25) [fix] fix: resolve Research Lab scopes by registry membership, not column name (Claude, 2026-08-26T14:07:52Z)
 - [`90d7ed9`](https://github.com/iQube-Protocol/AigentZBeta/commit/90d7ed99e75182c5b9385641220904fab7a35eeb) [push] Show ContactGraph state and import-source counts in People (#99) (Kn0w1, 2026-08-26T03:24:14-04:00)
 - [`4c8c259`](https://github.com/iQube-Protocol/AigentZBeta/commit/4c8c259c2689d80dbef390e77dd3605ca69921a2) [fix] fix(agentme): preserve attachments and resolve contact ambiguity (Kn0w1, 2026-08-26T03:05:42-04:00)
 - [`f35ecb3`](https://github.com/iQube-Protocol/AigentZBeta/commit/f35ecb31ad40281327d74f5895677737b86cb10b) [push] Spec QubeTalk communications membrane domain model v0.2 (Kn0w1, 2026-08-25T11:22:43-04:00)
