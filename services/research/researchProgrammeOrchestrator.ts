@@ -1,0 +1,1446 @@
+/**
+ * THE RESEARCH PROGRAMME ORCHESTRATOR — Track 2's advance-until-human-gate loop
+ * (operator ruling, 2026-08-26).
+ *
+ *   > "Identify the next safe executable acts, execute existing capabilities
+ *   >  through a bounded server-side advance-until-human-gate loop, isolate
+ *   >  record-local exceptions, and stop only for explicit constitutional
+ *   >  authority or genuine global integrity failure."
+ *
+ *   > "The operator should interact only with consolidated governance decisions
+ *   >  and the final freeze; all scientific and clerical work that can be safely
+ *   >  automated should proceed automatically and be receipted."
+ *
+ * ── What this module is, and is emphatically not ────────────────────────────
+ *
+ * It is GLUE, in exactly the register `services/financialServices/
+ * serviceRequestOrchestrator.ts` established: it sequences a lifecycle by
+ * calling ONLY existing, frozen modules, and it computes no readiness,
+ * eligibility, population, isolation, lifecycle or authority decision of its
+ * own.
+ *
+ *   projection      services/research/track2Programme.ts   (`unblockedStageIds`)
+ *   isolation       services/research/exceptionIsolation.ts (`summarizeIsolation`)
+ *   cohort          services/research/populationReconciliation.ts
+ *   readiness       services/research/crystalReadiness.ts   (read, never re-tiered)
+ *   lifecycle       services/research/crystalDomains.ts
+ *   extraction      services/invariants/discoveryEngine.ts  (`runConstitutionalDiscovery`)
+ *   validation      services/invariants/lifecycle.ts        (`validateInvariant`)
+ *   receipts        services/research/lifecycle.ts          (`writeLifecycleReceipt`)
+ *
+ * **It stores no stage state.** `track2Programme.ts`'s header forbids a stored
+ * `currentStage`, and that prohibition binds a loop over the projection exactly
+ * as it binds the projection itself: this loop keeps NO cursor. After every act
+ * it RE-READS the programme from the substrate and asks again which stages are
+ * unblocked. That is what makes it an *advance-until* loop rather than a fixed
+ * script, and it is why acting through any underlying surface mid-run is
+ * reflected immediately instead of being overwritten.
+ *
+ * ── THE BOUNDARY THAT WAS NOT MOVED ─────────────────────────────────────────
+ *
+ * `IRLResearchCopilotTab`'s `RunStageCard` states: *"Running is EXECUTED in
+ * metaMe IRL (the EXP-001…005 runner tabs) — not here. Execution stays in the
+ * lab; the copilot never runs an experiment."* **That boundary is intact.** An
+ * EXPERIMENT RUN and a TRACK 2 PROGRAMME ACT are different objects: this module
+ * runs programme acts (extraction over admitted evidence, the validation gate
+ * over the promoted cohort) and never invokes an experiment runner. Nothing here
+ * publishes a canonical result, and nothing here advances an experiment
+ * lifecycle.
+ *
+ * ── THE FREEZE IS THE HARD STOP ─────────────────────────────────────────────
+ *
+ * EXP-P1's Crystal vP1 IS FROZEN — it was reviewed as a frozen, hash-verified
+ * package, and the operator has refused to modify the frozen artifact: its hash
+ * and the readiness results that admitted it stand exactly as reviewed. The
+ * remediation lineage is:
+ *
+ *   prior crystal frozen → external review → instrument remediation →
+ *   retrospective falsification of the prior crystal → corpus/extraction
+ *   remediation → successor candidate → corrected readiness → successor freeze
+ *   → independent re-review
+ *
+ * **This orchestrator drives the MIDDLE of that chain and must never touch
+ * either end.** It never calls `freezeArtifact`, never posts
+ * `action: 'freeze'`, and never provisions a crystal-version artifact. The
+ * freeze route's own words — *"There is deliberately no single call that does
+ * both"* — are a statement about the operator's two acts, not an invitation for
+ * a third party to perform either. `tests/research-programme-orchestrator.test.ts`
+ * greps this module and fails the build if a freeze action value, the freeze
+ * route path, or `freezeArtifact` ever appears in it.
+ *
+ * ── TWO SHORTCUTS THE OPERATOR EXPLICITLY REFUSED (2026-08-26) ──────────────
+ *
+ *   > "We will not manually rewrite the 15 statements into stronger invariants.
+ *   >  That would contaminate the experiment."
+ *
+ *   > "We will not silently narrow the 15-namespace boundary simply to fit the
+ *   >  material we happened to acquire."
+ *
+ * Both are exactly what an over-eager automation reaches for, so both are
+ * structural here rather than advisory. The act catalogue (`PROGRAMME_ACT_KINDS`)
+ * is a CLOSED union of two acts, neither of which can author, edit or re-tag an
+ * invariant statement, and neither of which can alter a ratified namespace
+ * boundary. Narrowing the boundary is a separate governance decision: if a
+ * remediation instrument ever concludes the boundary is too broad, that reaches
+ * the operator as a governance stop, never as an applied act. The canary asserts
+ * this module imports no statement-mutating or domain-mutating capability.
+ *
+ * Server-side only.
+ */
+
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+import { listCandidateSources } from '@/services/corpusScout/provenance';
+import { listCandidates, runConstitutionalDiscovery } from '@/services/invariants/discoveryEngine';
+import { validateInvariant } from '@/services/invariants';
+import { getArtifact } from '@/services/research/artifacts';
+import {
+  crystalDeclarationHash,
+  crystalDomainForExperiment,
+  crystalLifecycleStage,
+  crystalReviewStageStatus,
+  domainAcceptsAssignment,
+  type CrystalDomainDeclaration,
+  type CrystalLifecycle,
+} from '@/services/research/crystalDomains';
+import { runCrystalReadinessReport, type CrystalReadinessReport } from '@/services/research/crystalReadiness';
+import {
+  buildCriticalPath,
+  summarizeIsolation,
+  type CriticalPath,
+  type DispositionAssignment,
+  type GlobalStop,
+  type IsolationException,
+  type IsolationSummary,
+  type PopulationDisclosure,
+} from '@/services/research/exceptionIsolation';
+import { writeLifecycleReceipt } from '@/services/research/lifecycle';
+import { reconcilePromotedCohort, type ReconciledPromotedCohort } from '@/services/research/populationReconciliation';
+import {
+  buildTrack2Programme,
+  type Track2Programme,
+  type Track2Stage,
+  type Track2StageId,
+} from '@/services/research/track2Programme';
+import {
+  BOUND_CRYSTAL_REMEDIATION_PROFILES,
+  remediationProfileBindingState,
+  type CrystalRemediationProfile,
+  type RemediationProfileBinding,
+} from '@/types/crystalRemediation';
+
+/** The acquisition domain upstream of the crystal — the SAME default the Track 2
+ *  GET route declared, kept here because the shared signal loader below is now
+ *  the one place that reads it. Never guessed from the crystal domain (they are
+ *  different namespaces). */
+export const DEFAULT_ACQUISITION_DOMAIN = 'financial-services';
+
+// ── THE REMEDIATION PROFILE — CONSUMED AS CONFIGURATION, NEVER INTERPRETED ──
+
+/**
+ * THE SHARED OBJECT, and who owns it.
+ *
+ * `CrystalRemediationProfile` (`types/crystalRemediation.ts`) is the ONE
+ * versioned object both tracks converge on (operator ruling, 2026-08-26):
+ *
+ *   > "I'd also have both tracks converge on one versioned
+ *   >  `CrystalRemediationProfile` object so the orchestrator never reads loose
+ *   >  reviewer prose or infers thresholds itself… Once that object is frozen,
+ *   >  the orchestrator can safely consume it as configuration rather than
+ *   >  interpretation."
+ *
+ * **That type is DEFINED BY TRACK 2 and imported here — this module does not
+ * define a second one.** It carries the bound source refs, the check mappings,
+ * the task-derived population formula, the boundary requirement and the
+ * instrument suite identity, plus the profile version and its binding state.
+ * It lives in `types/` so neither track has to import the other's service to
+ * read a shape.
+ *
+ * ── What this module does with it, exactly ──────────────────────────────────
+ *
+ * It reads ONE fact: is the profile `bound`? And it reads that fact through
+ * Track 2's own derivation, `remediationProfileBindingState`, which recomputes
+ * the binding from the profile's contents rather than trusting a stored claim.
+ * The binding state already encodes both preconditions the sequencing gate
+ * needs — a complete, executable profile AND a retrospective that reproduced
+ * the reviewer's objections — so this module re-derives neither.
+ *
+ * **It never parses reviewer prose. It never infers a threshold. It never
+ * evaluates the population derivation.** `TaskDerivedPopulationFormula` carries
+ * the arithmetic and Track 2's evaluated `minimumCollectionSize`; recomputing it
+ * here would make this module a second implementation of an instrument Track 2
+ * owns, and the two would disagree the first time the evaluation slice changed.
+ * Track 2 owns `crystalReadiness.ts` and every `crystal*` instrument module;
+ * this module must not modify any of them.
+ *
+ * ── No profile is bound ─────────────────────────────────────────────────────
+ *
+ * `BOUND_CRYSTAL_REMEDIATION_PROFILES` is empty, and that emptiness is a real
+ * read rather than a placeholder: no authoritative review artifact has been
+ * ingested, because a review pasted into a conversation has no locator and no
+ * content hash and therefore cannot be re-read or verified. So the gate below
+ * is closed. Nothing in this module names a reviewer, a review number or a
+ * finding — one named review must be REPRESENTABLE, never PRIVILEGED.
+ */
+
+// ── THE MEASUREMENT-LAYER GATE — the objective may not outrun the instruments ─
+
+/**
+ * THE HARD SEQUENCING GATE (operator ruling, 2026-08-26).
+ *
+ *   > "Do not let the orchestrator outrun the hardened measurement layer. Track
+ *   >  1 may build and test its control loop, but the prepare-crystal-v2
+ *   >  objective should stop before new extraction or crystal construction until
+ *   >  Track 2 has produced a versioned remediation profile whose gates are
+ *   >  executable and the vP1 retrospective test has passed."
+ *
+ * The required chain, verbatim:
+ *
+ *   orchestrator ready → hardened instruments ready → retrospective vP1
+ *   falsification passes → remediation profile bound/frozen → v2 autonomous
+ *   execution unlocked
+ *
+ *   > "That prevents automation from outrunning epistemic assurance."
+ *
+ * ── A DIFFERENT KIND OF STOP ───────────────────────────────────────────────
+ *
+ * This is deliberately NOT folded into the governance stop. A governance stop
+ * awaits an operator DECISION; this one awaits an ENGINEERING DELIVERABLE. The
+ * operator can do nothing about it by deciding, so presenting it as a decision
+ * would be the "exception terminates in navigation" defect wearing a
+ * constitutional face. It gets its own member of the stop-reason union
+ * (`blocked-on-measurement-layer`) and names what is outstanding.
+ *
+ * ── FAIL FAITHFUL ──────────────────────────────────────────────────────────
+ *
+ * `null` means the substrate could not be read, and an unreadable precondition
+ * is NOT a satisfied one — the discipline
+ * `services/journey/nextConstitutionalAct.ts` states as *"a `null` fact never
+ * collapses to `false`"*, applied in the only direction that is safe here: a
+ * fact we cannot read can never open the gate. The gate is closed by absence,
+ * by unreadability, and by any binding state other than `bound`. It opens on
+ * nothing else.
+ *
+ * ── The inverted sense of the retrospective, restated ───────────────────────
+ *
+ * The retrospective PASSES when the hardened instruments **REJECT** the frozen
+ * artifact the reviewer rejected. Track 2's type names the field
+ * `reproducedReviewerObjections` rather than `ok` for exactly this reason, and
+ * nothing here renames it — a gate that read that field as "the crystal is
+ * fine" would invert the entire sequencing rule.
+ */
+export interface MeasurementLayerReadiness {
+  /** The profile governing this experiment, or `null` when none is ingested /
+   *  the substrate could not be read. */
+  profile: CrystalRemediationProfile | null;
+  /**
+   * `false` means the profile substrate could not be read AT ALL — different
+   * from "read successfully, and there is none". Both close the gate; only one
+   * is a defect to chase.
+   */
+  profileReadable: boolean;
+}
+
+export interface MeasurementLayerGate {
+  satisfied: boolean;
+  /** Track 2's own binding state, verbatim. `null` when nothing was read. */
+  binding: RemediationProfileBinding | null;
+  /** Every reason the profile is not bound, from Track 2's derivation. */
+  gaps: readonly string[];
+  /** The profile version the gate read, or `null`. Carried so a run report says
+   *  WHICH configuration it was gated by. */
+  profileVersion: string | null;
+  detail: string;
+}
+
+/**
+ * Pure. The gate is Track 2's binding derivation and nothing else — this
+ * function adds no judgment of its own, which is the point: a second opinion
+ * about whether a profile is bound is a second gate.
+ */
+export function evaluateMeasurementLayerGate(readiness: MeasurementLayerReadiness): MeasurementLayerGate {
+  if (!readiness.profileReadable) {
+    return {
+      satisfied: false,
+      binding: null,
+      gaps: ['the remediation-profile substrate could not be read — unreadable is not satisfied'],
+      profileVersion: null,
+      detail:
+        'new acquisition, extraction and crystal construction are blocked: the remediation-profile substrate ' +
+        'could not be read, and an unreadable precondition is never a satisfied one',
+    };
+  }
+  const profile = readiness.profile;
+  if (!profile) {
+    return {
+      satisfied: false,
+      binding: 'unbound-no-artifact',
+      gaps: [
+        'no CrystalRemediationProfile is bound for this experiment — no authoritative review artifact has ' +
+          'been ingested, and a review pasted into a conversation is not an artifact (it has no locator and ' +
+          'no content hash, so it cannot be re-read or verified)',
+      ],
+      profileVersion: null,
+      detail:
+        'new acquisition, extraction and crystal construction are blocked until a versioned ' +
+        'CrystalRemediationProfile is bound and its retrospective has reproduced the reviewer’s objections',
+    };
+  }
+  // DERIVED, never read off `profile.binding` — a profile must not be able to
+  // claim `bound` while carrying a gap.
+  const derived = remediationProfileBindingState(profile);
+  const satisfied = derived.binding === 'bound';
+  return {
+    satisfied,
+    binding: derived.binding,
+    gaps: derived.bindingGaps,
+    profileVersion: profile.profileVersion,
+    detail: satisfied
+      ? `the measurement layer is hardened and demonstrated under bound profile '${profile.profileVersion}' — ` +
+        'v2 acquisition and extraction may proceed'
+      : `new acquisition, extraction and crystal construction are blocked — profile ` +
+        `'${profile.profileVersion}' is '${derived.binding}': ${derived.bindingGaps.join(' · ')}`,
+  };
+}
+
+/**
+ * THE ONE WIRING POINT for the profile read.
+ *
+ * Reads Track 2's own registry (`BOUND_CRYSTAL_REMEDIATION_PROFILES`) and
+ * selects the profile governing this experiment. The registry is a module
+ * constant, so the read always succeeds — `profileReadable` is `true` and an
+ * empty registry honestly means "no profile is bound" rather than "we could not
+ * tell". Both close the gate; distinguishing them is what lets a reader tell a
+ * missing artifact from a broken reader.
+ *
+ * When Track 2 moves the registry behind a store, ONLY this function body
+ * changes. No caller changes, no gate logic changes, and the canary asserting
+ * that an acquisition-class act cannot run behind a closed gate keeps holding
+ * either way.
+ */
+export async function resolveMeasurementLayerReadiness(
+  experimentId: string,
+): Promise<MeasurementLayerReadiness> {
+  const profile =
+    BOUND_CRYSTAL_REMEDIATION_PROFILES.find((p) => p.experimentId === experimentId) ?? null;
+  return { profile, profileReadable: true };
+}
+
+// ── THE SHARED SIGNAL COMPOSITION — one loader, two callers ─────────────────
+
+export interface Track2ProgrammeState {
+  experimentId: string;
+  acquisitionDomain: string;
+  declaration: CrystalDomainDeclaration;
+  declarationHash: string;
+  programme: Track2Programme;
+  readiness: CrystalReadinessReport;
+  lifecycle: CrystalLifecycle;
+  reviewStage: ReturnType<typeof crystalReviewStageStatus>;
+  /** Stages 5–7's population, as resolved for this read. `null` = unreadable. */
+  cohort: ReconciledPromotedCohort | null;
+  /** The raw signal counts, carried so the population disclosure is built from
+   *  the SAME read the programme was built from rather than a second query. */
+  signalCounts: {
+    candidateSources: { total: number; pendingReview: number; admitted: number } | null;
+    discoveryCandidates: { total: number; awaitingReview: number; promoted: number } | null;
+  };
+  /** Which signals could not be read at all — named, never silently zeroed. */
+  unreadableSignals: string[];
+}
+
+/**
+ * COMPOSE THE TRACK 2 SIGNALS AND BUILD THE PROGRAMME — the ONE loader.
+ *
+ * This composition previously lived inline in `GET /api/research/track2/
+ * [experimentId]`. The orchestrator needs the identical composition on every
+ * loop iteration, and a second copy would be the stale one the first time a
+ * signal changes (`inv.engineering.036`/`037`). So the route now calls THIS
+ * function, and so does the loop — one read model, one set of fail-soft rules,
+ * and the loop can never disagree with the surface the operator is looking at.
+ *
+ * Fail-soft is preserved exactly: an unreadable upstream signal becomes `null`,
+ * which the programme renders as `unknown` — never `complete`, never `blocked`.
+ * `unreadableSignals` names each one, because a count of zero derived from an
+ * unreadable substrate and a count of zero that is genuinely zero are different
+ * facts.
+ */
+export async function loadTrack2ProgrammeState(input: {
+  experimentId: string;
+  acquisitionDomain?: string;
+}): Promise<Track2ProgrammeState | { error: string; status: 404 }> {
+  const declaration = crystalDomainForExperiment(input.experimentId);
+  if (!declaration) {
+    return {
+      error: `no crystal domain is declared for experiment '${input.experimentId}'`,
+      status: 404,
+    };
+  }
+  const acquisitionDomain = input.acquisitionDomain?.trim() || DEFAULT_ACQUISITION_DOMAIN;
+
+  const admin = getSupabaseServer();
+  const readiness = await runCrystalReadinessReport({
+    experimentId: input.experimentId,
+    crystalDomain: declaration.domain,
+  });
+
+  // Best-effort, fail-soft. `null` becomes `unknown`, never `complete`.
+  const [sources, candidates, artifact] = await Promise.all([
+    admin ? listCandidateSources(admin, { campaignDomain: acquisitionDomain }).catch(() => null) : null,
+    admin ? listCandidates(admin, acquisitionDomain).catch(() => null) : null,
+    getArtifact(input.experimentId, 'crystal-version').catch(() => null),
+  ]);
+
+  const unreadableSignals: string[] = [];
+  if (!admin) unreadableSignals.push('supabase (no server client) — candidate sources and discovery candidates');
+  if (admin && !sources) unreadableSignals.push('corpus_candidate_sources');
+  if (admin && !candidates) unreadableSignals.push('discovery_candidates');
+
+  const candidateSources = sources
+    ? {
+        total: sources.length,
+        pendingReview: sources.filter((s) => s.reviewWorkflowStatus === 'pending_review').length,
+        admitted: sources.filter((s) => Boolean(s.evidenceRowId)).length,
+      }
+    : null;
+
+  const discoveryCandidates = candidates
+    ? {
+        total: candidates.length,
+        awaitingReview: candidates.filter((c) => c.status === 'candidate').length,
+        promoted: candidates.filter((c) => c.status === 'promoted').length,
+      }
+    : null;
+
+  // Stages 5–7 read STAGE 4's OWN OUTPUT, resolved from the same `candidates`
+  // array Stage 4 is counted from — so the two cannot be about different sets.
+  const cohort = candidates
+    ? await reconcilePromotedCohort(candidates.filter((c) => c.status === 'promoted')).catch(() => null)
+    : null;
+  if (candidates && !cohort) unreadableSignals.push('promoted cohort (reconcilePromotedCohort)');
+
+  const lifecycle = crystalLifecycleStage({
+    domainRatified: declaration.ratification === 'ratified',
+    invariantCount: readiness.invariantCount,
+    readinessOk: readiness.ok,
+    // Read off the persisted artifact — never inferred from readiness.
+    frozen: artifact?.lifecycle === 'frozen',
+  });
+
+  const reviewStage = crystalReviewStageStatus({
+    invariantCount: readiness.invariantCount,
+    readinessOk: readiness.ok,
+  });
+
+  const programme = buildTrack2Programme({
+    experimentId: input.experimentId,
+    crystalDomain: declaration.domain,
+    signals: {
+      candidateSources,
+      discoveryCandidates,
+      promotedCohort: cohort,
+      readiness,
+      lifecycle,
+      artifact: artifact ? { id: artifact.id, lifecycle: artifact.lifecycle } : null,
+      independentReviewRequestOpen: reviewStage.independentReviewRequestOpen,
+    },
+  });
+
+  return {
+    experimentId: input.experimentId,
+    acquisitionDomain,
+    declaration,
+    declarationHash: crystalDeclarationHash(declaration),
+    programme,
+    readiness,
+    lifecycle,
+    reviewStage,
+    cohort,
+    signalCounts: { candidateSources, discoveryCandidates },
+    unreadableSignals,
+  };
+}
+
+// ── HUMAN GATES — three independent signals, none of them guessed ───────────
+
+/**
+ * THE STAGES THE OPERATOR MUST PERFORM — recorded from an existing operator
+ * ruling, not inferred.
+ *
+ * ── Why this is a named set and not a derivation ────────────────────────────
+ *
+ * The obvious derivation is `Track2Stage.actor`: Stage 2's actor reads
+ * *"Steward — approval is never automatic (PRD-ICA-001 §6/§11)"*, which a string
+ * test catches. But Stage 4 (`review-and-promote`) and Stage 8
+ * (`assign-to-crystal`) carry the BARE actor `'Steward'` — the same bare string
+ * Stage 6 (`validate`) carries, and Stage 6 is machine-runnable. So the actor
+ * string does not separate them, and inventing a rule that appears to would be a
+ * guess dressed as a derivation.
+ *
+ * What DOES separate them is already recorded in this repository, verbatim, as
+ * an operator ruling — `tests/track2-steward-workflow.test.ts`'s own header:
+ *
+ *   > "no automatic admission · no automatic promotion · no automatic validation
+ *   >  no automatic assignment · no automatic freeze · every governance act
+ *   >  explicit, receipted and attributable"
+ *
+ * Stages 5 and 7 are here for a second recorded reason: their own routes say the
+ * work is per-record HUMAN CONTENT.
+ * `POST …/validate-all`'s header contrasts itself against them —
+ * *"Unlike Stage 5's classification (a per-record human judgment: which
+ * evidence-provenance class, cited from which sources) and Stage 7's
+ * relationships (a per-record human claim: which other invariant, related
+ * how)… those two stay per-record queues for exactly that reason."*
+ *
+ * ── How "no automatic validation" and an automatic validate act coexist ────
+ *
+ * They coexist because the operator's act is what authorises the run. Pressing
+ * *Run until you need me* is one explicit, receipted, attributable steward act,
+ * and `validateInvariant` carries no per-record human content —
+ * `POST …/validate-all` already exists on exactly that reasoning. Admission,
+ * promotion, classification, relationship claims, assignment rationales and the
+ * freeze signature all DO carry per-record or per-act human content, so no
+ * blanket authorisation can stand in for them.
+ *
+ * ── Additions ──────────────────────────────────────────────────────────────
+ *
+ * A NEW stage does not need to be added here to be safe: `isHumanGatedStage`
+ * ORs this set with `workKind === 'governance'` and with a generic actor-string
+ * test, so a stage that declares its own human authority is gated whether or not
+ * anyone remembers to extend the set. The set exists for the three stages whose
+ * gate is recorded in a ruling rather than in their own text.
+ */
+export const HUMAN_GATED_STAGE_IDS: ReadonlySet<Track2StageId> = new Set<Track2StageId>([
+  'review-and-admit',
+  'review-and-promote',
+  'classify-provenance',
+  'add-relationships',
+  'assign-to-crystal',
+  'prepare-independent-review',
+  'freeze',
+]);
+
+/**
+ * A stage whose own `actor` text DECLARES a human authority. Belt-and-braces
+ * beside `HUMAN_GATED_STAGE_IDS`: a stage added later that says so in its own
+ * words is gated without anyone editing the set above.
+ *
+ * These are substrings of `actor` strings that EXIST in `track2Programme.ts`
+ * today — *"approval is never automatic"*, *"by their own act"*, *"is refused"*
+ * — plus the two phrasings the same author would plainly use next. No phrase
+ * here is a guess about a stage's meaning: each one is read as "this stage says
+ * a human decides", which is precisely what it says.
+ */
+const HUMAN_AUTHORITY_ACTOR_PHRASES: readonly string[] = [
+  'never automatic',
+  'by their own act',
+  'is refused',
+  'human act',
+  'explicit steward',
+];
+
+export function declaresHumanAuthority(actor: string): boolean {
+  const lowered = actor.toLowerCase();
+  return HUMAN_AUTHORITY_ACTOR_PHRASES.some((phrase) => lowered.includes(phrase));
+}
+
+/** The three signals, ORed. `workKind === 'governance'` is the operator's own
+ *  scientific/governance split; the other two catch a scientific stage whose
+ *  work is nonetheless a human decision. */
+export function isHumanGatedStage(stage: Track2Stage): boolean {
+  return (
+    stage.workKind === 'governance' ||
+    HUMAN_GATED_STAGE_IDS.has(stage.id) ||
+    declaresHumanAuthority(stage.actor)
+  );
+}
+
+// ── THE ACT CATALOGUE — a CLOSED union of machine-runnable acts ─────────────
+
+/**
+ * Every act this loop can perform. CLOSED, and deliberately short.
+ *
+ * An act qualifies only when the capability behind it is machine-run over a
+ * server-resolved population with NO per-record human content — the same test
+ * `POST …/validate-all` applied to itself.
+ *
+ * ── TWO STAGES DELIBERATELY EXCLUDED, with reasons ─────────────────────────
+ *
+ * `discover-sources` (Stage 1, `runDiscoveryForDomain`) is machine-run, and is
+ * still excluded, for two reasons that are facts rather than preferences:
+ *   1. `IsolationStage` — the ONE shared exception vocabulary — has no
+ *      `discover-sources` member, so a discovery exception has nowhere to live
+ *      in the shared model. Widening that union is a change to the vocabulary
+ *      every stage shares and belongs in its own deliberate act, not as a
+ *      side effect of adding a loop.
+ *   2. It issues sequential external HTTP requests to every ratified
+ *      institution in the domain — unbounded wall-clock against third-party
+ *      sites inside one request, which is the one shape a bounded loop cannot
+ *      bound.
+ *
+ * `add-relationships` SUGGESTION (`suggestRelationships`) is read-only and
+ * therefore safe, and is still excluded from THIS commit: it is a per-invariant
+ * inference call over the orphan set, so its cost scales with the cohort rather
+ * than with the act, and preparing recommendations is a distinct surface
+ * (a recommendation queue) rather than an advance of the programme. Named here
+ * so its absence is a recorded decision rather than an oversight.
+ */
+export type ProgrammeActKind = 'extract-candidates' | 'validate-cohort';
+
+export const PROGRAMME_ACT_KINDS: readonly ProgrammeActKind[] = ['extract-candidates', 'validate-cohort'];
+
+/** Which stage each act advances. The stage's OWN `capability` string is carried
+ *  into the outcome verbatim, so the run reports the capability the projection
+ *  declares rather than a second mapping's idea of it. */
+export const ACT_STAGE: Record<ProgrammeActKind, Track2StageId> = {
+  'extract-candidates': 'extract-candidates',
+  'validate-cohort': 'validate',
+};
+
+/**
+ * WHICH ACTS THE MEASUREMENT-LAYER GATE BLOCKS.
+ *
+ *   `v2-acquisition`        performs NEW corpus acquisition, extraction or
+ *                           crystal construction — i.e. it contributes material
+ *                           to a SUCCESSOR crystal. Blocked until the
+ *                           measurement layer is hardened AND demonstrated.
+ *   `pre-remediation-safe`  operates only over material that already exists and
+ *                           contributes nothing new to a successor crystal.
+ *                           Runs whatever the gate says.
+ *
+ * `validate-cohort` is `pre-remediation-safe` on a specific reading, stated so
+ * it can be argued with: it applies the validation gate to invariants that were
+ * ALREADY promoted, it adds nothing to the corpus, and it cannot admit anything
+ * to a crystal (assignment is Stage 8, and Stage 8 is human-gated). Recording a
+ * validation outcome against an existing record is not construction of a second
+ * crystal, so blocking it would stop safe work for no epistemic gain — which is
+ * the "constitutional control immobilises the safe remainder" defect this
+ * codebase has already paid for once.
+ *
+ * `extract-candidates` is `v2-acquisition` unambiguously: it produces the
+ * candidate cohort a successor crystal would be built from. That is precisely
+ * the act the sequencing gate exists to withhold.
+ */
+export type ProgrammeActClass = 'v2-acquisition' | 'pre-remediation-safe';
+
+export const ACT_CLASS: Record<ProgrammeActKind, ProgrammeActClass> = {
+  'extract-candidates': 'v2-acquisition',
+  'validate-cohort': 'pre-remediation-safe',
+};
+
+/**
+ * THE ACT BUDGET — the loop's hard ceiling, in the same register as
+ * `ABSORBED_BATCH_LIMIT`.
+ *
+ * Two independent bounds hold simultaneously, and either alone terminates the
+ * loop:
+ *   1. this budget, and
+ *   2. **each act kind executes AT MOST ONCE per run.**
+ *
+ * (2) is what makes a no-op act safe. The loop re-reads the projection after
+ * every act; an act that left its stage unchanged would otherwise be selected
+ * again forever. With (2), an act that did not advance its stage simply is not
+ * offered again, and the run terminates with `no-executable-act-remains` — the
+ * honest outcome — instead of spinning to the budget.
+ */
+export const MAX_ACTS_PER_RUN = 8;
+
+/**
+ * THE PER-ACT RECORD CEILING — batching, absorbed.
+ *
+ * A capacity limit BATCHES, it never truncates
+ * (`CI-2026-08-03-CAPACITY-LIMIT-BATCHES-NOT-TRUNCATES-001`), so an act holding
+ * more records than this processes the first slice — deterministically, sorted
+ * by record id, the discipline `partitionForExecution` already applies — and
+ * NAMES every deferred record on the outcome. Deferred is not excluded and is
+ * never silently dropped (`CI-2026-08-03-EXCLUSION-VISIBLE-NOT-DISCARDED-001`).
+ */
+export const MAX_RECORDS_PER_ACT = 25;
+
+/**
+ * THE WALL-CLOCK BUDGET, in milliseconds. Checked BEFORE an act starts, never
+ * mid-act — a half-executed capability is exactly the partial state this bound
+ * exists to avoid. A run that stops here is `partial`, and says so.
+ */
+export const DEFAULT_TIME_BUDGET_MS = 45_000;
+
+// ── THE RUN'S OWN VOCABULARY ────────────────────────────────────────────────
+
+/** The consolidated decision waiting for the operator — the ONLY thing the
+ *  Copilot asks them to look at when the loop stops at a gate. */
+export interface PendingGovernanceDecision {
+  stageId: Track2StageId;
+  stageLabel: string;
+  /** `governance` = the operator's own constitutional act. `human-judgment` =
+   *  scientific work carrying per-record human content. Different authorities,
+   *  never conflated. */
+  authority: 'governance' | 'human-judgment';
+  /** Who performs it, from the stage's own `actor` field, verbatim. */
+  actor: string;
+  /** The stage's own capability, verbatim — never a second wording of it. */
+  capability: string;
+  /** Where the operator performs it, from the stage's own `surface`. */
+  surface: string;
+  /** The stage's own remedies, verbatim. Empty when the stage has none. */
+  remedies: string[];
+  detail: string;
+}
+
+/**
+ * WHY THE LOOP STOPPED. A discriminated union, so a surface cannot render
+ * "stopped" without saying which of these it was.
+ */
+export type ProgrammeRunStopReason =
+  /** A `workKind === 'governance'` stage is next: the operator's own act. */
+  | { kind: 'awaiting-governance'; decision: PendingGovernanceDecision }
+  /** A scientific stage is next whose work carries per-record human content. */
+  | { kind: 'awaiting-human-judgment'; decision: PendingGovernanceDecision }
+  /**
+   * THE SEQUENCING GATE. An acquisition-class act is unblocked BY THE PROGRAMME
+   * but withheld because the measurement layer is not yet hardened AND
+   * demonstrated. Distinct from the two stops above on purpose: this one awaits
+   * an ENGINEERING DELIVERABLE, not an operator decision — the operator cannot
+   * clear it by deciding anything, so presenting it as a decision would send
+   * them looking for an act that does not exist.
+   */
+  | {
+      kind: 'blocked-on-measurement-layer';
+      gate: MeasurementLayerGate;
+      /** The acts that were offerable and were withheld, named. */
+      withheldActs: ProgrammeActKind[];
+      detail: string;
+    }
+  /** One of the five enumerated batch-integrity failures. Never an exception count. */
+  | { kind: 'global-integrity-failure'; globalStop: GlobalStop }
+  /** Nothing machine-runnable is unblocked — including "the crystal is frozen". */
+  | { kind: 'no-executable-act-remains'; detail: string }
+  /** `MAX_ACTS_PER_RUN` reached with work still available. */
+  | { kind: 'act-budget-exhausted'; budget: number; detail: string }
+  /** The wall-clock budget was reached before the next act could start. */
+  | { kind: 'time-budget-exhausted'; elapsedMs: number; budgetMs: number; detail: string }
+  /** The projection itself could not be read. Never collapsed to "nothing to do". */
+  | { kind: 'programme-unreadable'; detail: string };
+
+export interface ProgrammeActOutcome {
+  actKind: ProgrammeActKind;
+  stageId: Track2StageId;
+  /** The stage's own `capability` string, verbatim. */
+  capability: string;
+  /** Did the CAPABILITY run? Not whether every record passed. */
+  ok: boolean;
+  attempted: number;
+  succeeded: number;
+  failed: number;
+  /** Records this act was responsible for but did not reach, NAMED. */
+  deferredRecordIds: string[];
+  /** Per-record dispositions, folded into the run's isolation summary. */
+  assignments: DispositionAssignment[];
+  /** A batch-integrity failure observed BY this act. */
+  globalStop: GlobalStop | null;
+  detail: string;
+}
+
+export interface ProgrammeRunResult {
+  experimentId: string;
+  crystalDomain: string;
+  acquisitionDomain: string;
+  /**
+   * THE ACTS' OUTCOME — never the PROGRAMME's. Named `actExecution` precisely
+   * so `complete` cannot be misread as "the programme is complete": it means
+   * "every act this run attempted succeeded", and a run that stopped partway is
+   * `partial`. Same vocabulary and same property as
+   * `AbsorbedExecutionSummary.outcome`.
+   */
+  actExecution: 'complete' | 'partial' | 'failed' | 'not-started';
+  actsAttempted: number;
+  actsSucceeded: number;
+  actsFailed: number;
+  acts: ProgrammeActOutcome[];
+  /** `actsSucceeded + actsFailed === actsAttempted`, and nothing else. */
+  reconciles: boolean;
+  /** THE SEQUENCING GATE'S STATE — present in EVERY result, satisfied or not, so
+   *  a run report always discloses whether acquisition-class work was permitted. */
+  measurementLayerGate: MeasurementLayerGate;
+  stopReason: ProgrammeRunStopReason;
+  /** The consolidated decision awaiting the operator, when that is why it stopped. */
+  pendingDecision: PendingGovernanceDecision | null;
+  /** Record-local exceptions accumulated across the whole run. Never halts it. */
+  isolation: IsolationSummary;
+  criticalPath: CriticalPath;
+  /** THE COUNTERWEIGHT — present in every result, always. */
+  population: PopulationDisclosure;
+  /** Signals that could not be read, so a zero is never mistaken for a fact. */
+  populationUnreadable: string[];
+  /** The programme AS RE-READ after the last act — the surface's new truth. */
+  programme: Track2Programme;
+  /** The ONE run-level receipt. */
+  receipt: { ok: boolean; receiptId: string | null };
+  /** The shortcuts this run structurally cannot take, stated. */
+  guardrails: readonly string[];
+  headline: string;
+}
+
+/**
+ * The refusals carried INTO the result, so the operator reading a run report can
+ * see what the automation is forbidden to do rather than having to trust it.
+ * Operator wording, 2026-08-26.
+ */
+export const ORCHESTRATOR_GUARDRAILS: readonly string[] = [
+  'Never authors, edits or re-tags an invariant statement — rewriting statements into stronger invariants would contaminate the experiment. Remediation re-runs discovery and extraction; it does not improve rows in place.',
+  'Never narrows a ratified namespace boundary. Narrowing the boundary to fit the material that happened to be acquired is a separate governance decision, surfaced as a stop and never applied.',
+  'Never freezes, and never provisions a crystal-version artifact. The freeze is the operator’s own act, and frozen Crystal vP1 is not modified by anything here.',
+  'Never runs an experiment. Experiment runs stay in metaMe IRL; this loop performs Track 2 programme acts only.',
+];
+
+// ── EXCEPTION CONSTRUCTION — the shared shape, filled honestly ──────────────
+
+/**
+ * A record-local exception from an act. Every `blocks*` flag is FALSE by
+ * construction, which is the whole ruling: *"Constitutional control constrains
+ * the unsafe act; it does not immobilize the safe remainder."* `blocksFreeze`
+ * is never asserted here — `computeFreezeBlocking` derives it from the crystal
+ * that actually remains, and this module does not pre-empt that.
+ */
+function actException(input: {
+  recordId: string;
+  recordLabel: string;
+  cause: string;
+  stage: IsolationException['stage'];
+  causeGroup: IsolationException['causeGroup'];
+  recommendedAction: string;
+  acts: IsolationException['acts'];
+}): IsolationException {
+  return {
+    scope: 'invariant',
+    recordId: input.recordId,
+    recordLabel: input.recordLabel,
+    cause: input.cause,
+    causeGroup: input.causeGroup,
+    disposition: 'exception',
+    stage: input.stage,
+    blocksCurrentStage: false,
+    blocksCrystalAssignment: false,
+    blocksReadiness: false,
+    blocksFreeze: false,
+    consequence:
+      'Does not block the rest of this run. Stays outside the crystal until resolved, and is disclosed in the population.',
+    recommendedAction: input.recommendedAction,
+    acts: input.acts,
+    deferrableUntil: null,
+  };
+}
+
+// ── THE ACTS ────────────────────────────────────────────────────────────────
+
+/**
+ * STAGE 3 — extraction over the ADMITTED evidence.
+ *
+ * Delegates wholly to `runConstitutionalDiscovery`, which already owns its own
+ * context budget AND already reports the evidence rows it could not read as
+ * typed `IsolationException`s (exception-isolation ruling §7). Those arrive
+ * pre-shaped, so they are folded in verbatim rather than re-described — the
+ * capability's own account of its exclusions is the authoritative one.
+ */
+async function runExtractAct(
+  state: Track2ProgrammeState,
+  stage: Track2Stage,
+): Promise<ProgrammeActOutcome> {
+  const base = {
+    actKind: 'extract-candidates' as const,
+    stageId: stage.id,
+    capability: stage.capability,
+    deferredRecordIds: [] as string[],
+    globalStop: null as GlobalStop | null,
+  };
+  const admin = getSupabaseServer();
+  if (!admin) {
+    return {
+      ...base,
+      ok: false,
+      attempted: 0,
+      succeeded: 0,
+      failed: 0,
+      assignments: [],
+      detail: 'extraction could not run — no server database client',
+    };
+  }
+  const result = await runConstitutionalDiscovery(admin, state.acquisitionDomain).catch((err: unknown) => ({
+    ok: false as const,
+    error: err instanceof Error ? err.message : String(err),
+  }));
+
+  if (!result.ok) {
+    return {
+      ...base,
+      ok: false,
+      attempted: 0,
+      succeeded: 0,
+      failed: 0,
+      assignments: [],
+      detail: `extraction did not run: ${result.error}`,
+    };
+  }
+
+  const assignments: DispositionAssignment[] = [
+    ...result.candidates.map((c) => ({ recordId: c.id, disposition: 'ready' as const })),
+    // The capability's OWN exclusions, carried through unchanged.
+    ...result.excludedEvidence.map((e) => ({
+      recordId: e.recordId,
+      disposition: 'exception' as const,
+      exception: e,
+    })),
+  ];
+
+  return {
+    ...base,
+    ok: true,
+    attempted: result.candidates.length + result.excludedEvidence.length,
+    succeeded: result.candidates.length,
+    failed: result.excludedEvidence.length,
+    assignments,
+    detail:
+      `${result.candidates.length} candidate(s) extracted from the admitted evidence` +
+      (result.excludedEvidence.length > 0
+        ? `; ${result.excludedEvidence.length} evidence row(s) did not fit this pass's context budget and are named as exceptions`
+        : ''),
+  };
+}
+
+/**
+ * STAGE 6 — the validation gate over the promoted cohort.
+ *
+ * Calls the SAME `validateInvariant` that `POST /api/invariants/[id]/advance`
+ * and `POST …/validate-all` call, over the SAME server-resolved cohort
+ * (`cohort.unvalidatedRecords`) — never a caller-supplied id list, so nothing
+ * outside this crystal's cohort can be validated.
+ *
+ * PER RECORD, INDEPENDENTLY. A throw or a failed verdict on one invariant never
+ * withholds the outcome already produced for another: acceptance criterion #1
+ * applied inside a single act.
+ */
+async function runValidateAct(
+  state: Track2ProgrammeState,
+  stage: Track2Stage,
+  personaId: string,
+): Promise<ProgrammeActOutcome> {
+  const base = {
+    actKind: 'validate-cohort' as const,
+    stageId: stage.id,
+    capability: stage.capability,
+    globalStop: null as GlobalStop | null,
+  };
+  const cohort = state.cohort;
+  if (!cohort) {
+    return {
+      ...base,
+      ok: false,
+      attempted: 0,
+      succeeded: 0,
+      failed: 0,
+      deferredRecordIds: [],
+      assignments: [],
+      detail: 'the promoted cohort could not be read — validation did not run, and nothing is assumed about it',
+    };
+  }
+
+  // Deterministic slice: sorted by id BEFORE packing, the same discipline
+  // `partitionForExecution` applies, so a re-run reconciles against this one.
+  const ordered = [...cohort.unvalidatedRecords].sort((a, b) => a.id.localeCompare(b.id));
+  const targets = ordered.slice(0, MAX_RECORDS_PER_ACT);
+  const deferredRecordIds = ordered.slice(MAX_RECORDS_PER_ACT).map((r) => r.id);
+
+  const assignments: DispositionAssignment[] = [];
+  let succeeded = 0;
+  let failed = 0;
+
+  for (const target of targets) {
+    try {
+      const { verdict } = await validateInvariant(target.id, { personaId });
+      if (verdict.ok) {
+        succeeded += 1;
+        assignments.push({ recordId: target.id, disposition: 'ready' });
+        continue;
+      }
+      failed += 1;
+      const failing = verdict.checks.filter((c) => !c.passed);
+      assignments.push({
+        recordId: target.id,
+        disposition: 'exception',
+        exception: actException({
+          recordId: target.id,
+          recordLabel: target.label,
+          stage: 'validate',
+          causeGroup: 'validation-check-failed',
+          cause:
+            `the validation gate did not pass: ` +
+            failing.map((c) => `${c.name}${c.detail ? ` (${c.detail})` : ''}`).join('; '),
+          recommendedAction:
+            'Resolve the failing check on this record, then re-run the validation gate. The orchestrator does not edit statements or provenance.',
+          acts: [
+            {
+              actId: `revalidate:${target.id}`,
+              kind: 're-check',
+              label: 'Re-run the validation gate',
+              target: target.id,
+              detail: "POST /api/invariants/[id]/advance { action: 'validate' }",
+            },
+          ],
+        }),
+      });
+    } catch (err) {
+      failed += 1;
+      const message = err instanceof Error ? err.message : String(err);
+      assignments.push({
+        recordId: target.id,
+        disposition: 'exception',
+        exception: actException({
+          recordId: target.id,
+          recordLabel: target.label,
+          stage: 'validate',
+          causeGroup: 'validation-check-failed',
+          cause: `the validation gate could not be applied: ${message}`,
+          recommendedAction:
+            'Open this record and apply the validation gate directly; the reason it could not be applied is stated above.',
+          acts: [
+            {
+              actId: `open-invariant:${target.id}`,
+              kind: 'open-stage',
+              label: 'Open this invariant',
+              target: target.id,
+              detail: 'Invariant Registry — invariant detail',
+            },
+          ],
+        }),
+      });
+    }
+  }
+
+  return {
+    ...base,
+    ok: true,
+    attempted: targets.length,
+    succeeded,
+    failed,
+    deferredRecordIds,
+    assignments,
+    detail:
+      `${succeeded} of ${targets.length} cohort member(s) passed the validation gate` +
+      (failed > 0 ? `; ${failed} did not and are named as exceptions` : '') +
+      (deferredRecordIds.length > 0
+        ? `; ${deferredRecordIds.length} member(s) were NOT reached in this act (per-act ceiling ${MAX_RECORDS_PER_ACT}) and are named`
+        : ''),
+  };
+}
+
+// ── THE LOOP ────────────────────────────────────────────────────────────────
+
+/** The stage a projection offers for a given act, or null when the act is not
+ *  currently offerable. Reads `unblockedStageIds` — never `ordinal >
+ *  current.ordinal`, which the projection's own doc comment forbids. */
+function offerableStage(programme: Track2Programme, actKind: ProgrammeActKind): Track2Stage | null {
+  const stageId = ACT_STAGE[actKind];
+  if (!programme.unblockedStageIds.includes(stageId)) return null;
+  const stage = programme.stages.find((s) => s.id === stageId);
+  if (!stage) return null;
+  if (stage.status === 'complete') return null;
+  // An `unknown` status means the signal could not be READ. Acting on a stage
+  // whose state is unreadable would be acting on a guess.
+  if (stage.status === 'unknown') return null;
+  if (isHumanGatedStage(stage)) return null;
+  return stage;
+}
+
+/** The first stage the operator must act on — the consolidated decision. Ordered
+ *  by ordinal, so it is the EARLIEST outstanding one rather than an arbitrary
+ *  pick. */
+function firstPendingDecision(programme: Track2Programme): PendingGovernanceDecision | null {
+  const candidates = programme.stages
+    .filter((s) => programme.unblockedStageIds.includes(s.id))
+    .filter((s) => s.status !== 'complete' && s.status !== 'unknown')
+    .filter((s) => isHumanGatedStage(s))
+    .sort((a, b) => a.ordinal - b.ordinal);
+  const stage = candidates[0];
+  if (!stage) return null;
+  return {
+    stageId: stage.id,
+    stageLabel: stage.label,
+    authority: stage.workKind === 'governance' ? 'governance' : 'human-judgment',
+    actor: stage.actor,
+    capability: stage.capability,
+    surface: stage.surface,
+    remedies: stage.remedies,
+    detail: stage.detail,
+  };
+}
+
+/**
+ * ADVANCE THE PROGRAMME UNTIL A HUMAN IS GENUINELY NEEDED.
+ *
+ * The loop, in full:
+ *
+ *   1. Read the projection (`loadTrack2ProgrammeState`).
+ *   2. A `GlobalStop` observed by any act ⇒ stop. Nothing else stops the run:
+ *      no quantity of record-local exceptions ever does (acceptance criterion #1).
+ *   3. The next offerable machine act, from `unblockedStageIds`. None ⇒ stop
+ *      with the pending human decision if there is one, else
+ *      `no-executable-act-remains`.
+ *   4. Execute it. Accumulate its per-record dispositions.
+ *   5. **Re-read the projection** and go to 2. No cursor is advanced, and no
+ *      stage state is stored.
+ *
+ * Bounded three ways: the act budget, one-execution-per-act-kind, and the
+ * wall-clock budget checked before each act starts.
+ */
+export async function advanceResearchProgramme(input: {
+  experimentId: string;
+  personaId: string;
+  acquisitionDomain?: string;
+  /** Defaults to `MAX_ACTS_PER_RUN`; clamped to it so a caller cannot widen it. */
+  maxActs?: number;
+  timeBudgetMs?: number;
+  /** Injectable clock, so the bound is testable without a real wall clock. */
+  now?: () => number;
+  /**
+   * Injectable measurement-layer read, so the sequencing gate is testable
+   * without Track 2's store. Defaults to `resolveMeasurementLayerReadiness`,
+   * which fails closed. A caller CANNOT widen the gate by supplying a satisfied
+   * readiness in production: the route passes nothing, and the gate is evaluated
+   * from the profile's own predicates rather than from a boolean the caller
+   * asserts.
+   */
+  resolveMeasurementLayer?: () => Promise<MeasurementLayerReadiness>;
+}): Promise<ProgrammeRunResult | { error: string; status: 404 }> {
+  const clock = input.now ?? (() => Date.now());
+  const startedAt = clock();
+  const timeBudgetMs = Math.max(1, Math.min(input.timeBudgetMs ?? DEFAULT_TIME_BUDGET_MS, DEFAULT_TIME_BUDGET_MS));
+  const budget = Math.max(1, Math.min(input.maxActs ?? MAX_ACTS_PER_RUN, MAX_ACTS_PER_RUN));
+
+  let state = await loadTrack2ProgrammeState({
+    experimentId: input.experimentId,
+    acquisitionDomain: input.acquisitionDomain,
+  });
+  if ('error' in state) return state;
+  // Narrowed once, so the loop below reads a `Track2ProgrammeState` rather than
+  // re-asserting the narrowing at every use.
+  let current: Track2ProgrammeState = state;
+
+  // THE SEQUENCING GATE, read ONCE per run and BEFORE any act. Reading it once
+  // is deliberate: a gate that could flip mid-run would let a run be partly
+  // authorised, and "which half of this run was permitted?" is not a question a
+  // receipt should ever have to answer.
+  const measurementLayerGate = evaluateMeasurementLayerGate(
+    await (input.resolveMeasurementLayer
+      ? input.resolveMeasurementLayer()
+      : resolveMeasurementLayerReadiness(input.experimentId)
+    ).catch(
+      // An unreadable measurement layer is a CLOSED gate, never an open one.
+      () => ({ profile: null, profileReadable: false }) as MeasurementLayerReadiness,
+    ),
+  );
+
+  const acts: ProgrammeActOutcome[] = [];
+  const assignments: DispositionAssignment[] = [];
+  const executed = new Set<ProgrammeActKind>();
+  let stopReason: ProgrammeRunStopReason | null = null;
+
+  /*
+   * THE ONE GLOBAL STOP THIS LOOP CAN OBSERVE.
+   *
+   * `GlobalStopReason` is a CLOSED five-value union and nothing here adds a
+   * sixth. Of the five, exactly one is a fact about the request that this loop
+   * is in a position to observe: the governing domain declaration being absent
+   * or unratified. `POST …/crystal/[id]/assign` already treats it as a global
+   * stop for the same reason its own canary states — *"an unratified boundary is
+   * a GLOBAL stop, not N per-record refusals"*: evaluating it per record would
+   * report N identical refusals for one fact about the domain.
+   *
+   * The other four are not observable here and are therefore not asserted:
+   * `steward-identity-unresolved` is refused upstream by the route's persona
+   * gate, and `wrong-acquisition-domain`, `wrong-corpus-target` and
+   * `recommendation-set-changed` are facts about a DISPLAYED batch that the
+   * operator is confirming — this loop displays no batch and confirms none.
+   * Claiming one of them here would be an assertion about a comparison that was
+   * never made.
+   */
+  let globalStop: GlobalStop | null = domainAcceptsAssignment(current.declaration)
+    ? null
+    : {
+        reason: 'governing-declaration-absent',
+        detail:
+          `domain '${current.declaration.domain}' is '${current.declaration.ratification}' — no act may proceed ` +
+          'against an unratified boundary, and this is one fact about the domain rather than one refusal per record',
+      };
+
+  while (stopReason === null) {
+    // A genuine batch-integrity failure — one of the five enumerated reasons —
+    // is the ONLY thing besides exhaustion or a gate that halts the run.
+    if (globalStop) {
+      stopReason = { kind: 'global-integrity-failure', globalStop };
+      break;
+    }
+    if (acts.length >= budget) {
+      stopReason = {
+        kind: 'act-budget-exhausted',
+        budget,
+        detail:
+          `the run reached its ceiling of ${budget} act(s) with work still available. Nothing was left ` +
+          'half-executed: the budget is checked between acts, never inside one.',
+      };
+      break;
+    }
+
+    // Everything the projection offers that this run has not already executed.
+    const offerable = PROGRAMME_ACT_KINDS.filter(
+      (kind) => !executed.has(kind) && offerableStage(current.programme, kind) !== null,
+    );
+    // THE GATE, applied. An acquisition-class act is WITHHELD, not skipped:
+    // withheld acts are named on the stop reason so the run says what it did not
+    // do and why (`CI-2026-08-03-EXCLUSION-VISIBLE-NOT-DISCARDED-001` applied to
+    // acts rather than records).
+    const withheldActs = measurementLayerGate.satisfied
+      ? []
+      : offerable.filter((kind) => ACT_CLASS[kind] === 'v2-acquisition');
+    const permitted = offerable.filter((kind) => !withheldActs.includes(kind));
+
+    const nextKind = permitted[0];
+    if (!nextKind) {
+      if (withheldActs.length > 0) {
+        stopReason = {
+          kind: 'blocked-on-measurement-layer',
+          gate: measurementLayerGate,
+          withheldActs,
+          detail:
+            `${withheldActs.length} acquisition-class act(s) are unblocked by the programme but withheld: ` +
+            `${withheldActs.join(', ')}. ${measurementLayerGate.detail}`,
+        };
+        break;
+      }
+      const pending = firstPendingDecision(current.programme);
+      if (pending) {
+        stopReason =
+          pending.authority === 'governance'
+            ? { kind: 'awaiting-governance', decision: pending }
+            : { kind: 'awaiting-human-judgment', decision: pending };
+      } else {
+        stopReason = {
+          kind: 'no-executable-act-remains',
+          detail: current.programme.stages.every((s) => s.status === 'complete')
+            ? 'every Track 2 stage is complete'
+            : `no machine-runnable act is unblocked — the programme is at '${current.programme.currentStageId}'`,
+        };
+      }
+      break;
+    }
+
+    const elapsed = clock() - startedAt;
+    if (elapsed >= timeBudgetMs) {
+      stopReason = {
+        kind: 'time-budget-exhausted',
+        elapsedMs: elapsed,
+        budgetMs: timeBudgetMs,
+        detail:
+          `the wall-clock budget was reached before the '${nextKind}' act could start. It was NOT begun, so ` +
+          'nothing is half-applied; re-running continues from here.',
+      };
+      break;
+    }
+
+    const stage = offerableStage(current.programme, nextKind) as Track2Stage;
+    executed.add(nextKind);
+    const outcome =
+      nextKind === 'extract-candidates'
+        ? await runExtractAct(current, stage)
+        : await runValidateAct(current, stage, input.personaId);
+    acts.push(outcome);
+    assignments.push(...outcome.assignments);
+    if (outcome.globalStop) globalStop = outcome.globalStop;
+
+    // RE-READ, never advance a cursor. The projection is the source of truth for
+    // what is unblocked, and it may have changed in ways this act did not intend.
+    const reread = await loadTrack2ProgrammeState({
+      experimentId: input.experimentId,
+      acquisitionDomain: input.acquisitionDomain,
+    });
+    if ('error' in reread) {
+      stopReason = {
+        kind: 'programme-unreadable',
+        detail: `the programme could not be re-read after the '${nextKind}' act: ${reread.error}`,
+      };
+      break;
+    }
+    current = reread;
+  }
+
+  const finalState = current;
+  const isolation = summarizeIsolation(assignments, globalStop, 'record');
+  const actsSucceeded = acts.filter((a) => a.ok).length;
+  const actsFailed = acts.length - actsSucceeded;
+  const actExecution: ProgrammeRunResult['actExecution'] =
+    acts.length === 0 ? 'not-started' : actsFailed === 0 ? 'complete' : actsSucceeded === 0 ? 'failed' : 'partial';
+
+  const pendingDecision =
+    stopReason?.kind === 'awaiting-governance' || stopReason?.kind === 'awaiting-human-judgment'
+      ? stopReason.decision
+      : firstPendingDecision(finalState.programme);
+
+  const criticalPath = buildCriticalPath({
+    stageLabel: pendingDecision?.stageLabel ?? finalState.programme.currentStageId,
+    actVerb: 'Advance',
+    noun: 'record',
+    counts: isolation.counts,
+    freezeBlockers: 0,
+  });
+
+  const population = buildRunPopulation(finalState, assignments, isolation);
+  const headline = renderRunHeadline({
+    actExecution,
+    acts,
+    stopReason: stopReason as ProgrammeRunStopReason,
+    isolation,
+  });
+  const gateNote = measurementLayerGate.satisfied
+    ? ''
+    : ` Sequencing gate CLOSED — ${measurementLayerGate.detail}`;
+
+  // THE ONE RUN-LEVEL RECEIPT. Rides the SAME `research_lifecycle_transition`
+  // action type every research approval rides — `writeLifecycleReceipt`'s own
+  // header: "NEVER FORK THIS". A second action type for an orchestrated run
+  // would be a second receipt path for the same class of event.
+  // `invariantSeedIds: []` is the established value at every non-experiment
+  // call site (assign, bulk-review, observer-review); inventing seed ids here
+  // would be a guess.
+  const receipt = await writeLifecycleReceipt({
+    personaId: input.personaId,
+    summary:
+      `Research programme run over ${finalState.experimentId} (${finalState.declaration.domain}): ` +
+      `${acts.length} act(s) attempted, ${actsSucceeded} succeeded, ${actsFailed} failed [${actExecution}]. ` +
+      `Stopped: ${stopReason?.kind ?? 'unknown'}` +
+      (pendingDecision ? ` at '${pendingDecision.stageId}' (${pendingDecision.authority})` : '') +
+      `. Exceptions isolated: ${isolation.counts.exceptions}; refused: ${isolation.counts.refused}. ` +
+      `Sequencing gate: ${measurementLayerGate.satisfied ? `open under profile '${measurementLayerGate.profileVersion}'` : 'CLOSED (acquisition-class acts withheld)'}. ` +
+      `Population — ${renderPopulationLine(population)}. No freeze, no statement edit, no boundary change.`,
+    invariantSeedIds: [],
+  }).catch(() => ({ ok: false, receiptId: null }));
+
+  return {
+    experimentId: finalState.experimentId,
+    crystalDomain: finalState.declaration.domain,
+    acquisitionDomain: finalState.acquisitionDomain,
+    actExecution,
+    actsAttempted: acts.length,
+    actsSucceeded,
+    actsFailed,
+    acts,
+    reconciles: actsSucceeded + actsFailed === acts.length,
+    measurementLayerGate,
+    stopReason: stopReason as ProgrammeRunStopReason,
+    pendingDecision,
+    isolation,
+    criticalPath,
+    population,
+    populationUnreadable: finalState.unreadableSignals,
+    programme: finalState.programme,
+    receipt,
+    guardrails: ORCHESTRATOR_GUARDRAILS,
+    headline: `${headline}${gateNote}`,
+  };
+}
+
+// ── POPULATION DISCLOSURE — the counterweight, in every result ──────────────
+
+/**
+ * THE EIGHT FIELDS, from the SAME read the programme was built from.
+ *
+ *   > "isolating exceptions must not allow the system to quietly reduce the
+ *   >  corpus until readiness passes."
+ *
+ * A signal that could not be read contributes 0 AND is named in
+ * `populationUnreadable`, because a zero derived from an unreadable substrate
+ * and a genuine zero are different facts and this shape cannot express the
+ * difference on its own.
+ */
+function buildRunPopulation(
+  state: Track2ProgrammeState,
+  assignments: readonly DispositionAssignment[],
+  isolation: IsolationSummary,
+): PopulationDisclosure {
+  const sources = state.signalCounts.candidateSources;
+  const candidates = state.signalCounts.discoveryCandidates;
+  const cohort = state.cohort;
+  return {
+    discovered: sources?.total ?? 0,
+    admitted: sources?.admitted ?? 0,
+    candidatesExtracted: candidates?.total ?? 0,
+    validated: cohort ? cohort.invariantIds.length - cohort.unvalidated : 0,
+    assignedToCrystal: state.readiness.invariantCount,
+    excludedWithWarnings: assignments.filter((a) => a.disposition === 'ready-with-warning').length,
+    exceptions: isolation.counts.exceptions,
+    refused: isolation.counts.refused,
+  };
+}
+
+/** One line, for the receipt. Mirrors `renderPopulationDisclosure`'s field order
+ *  without importing a second renderer for a receipt-length string. */
+function renderPopulationLine(p: PopulationDisclosure): string {
+  return (
+    `discovered ${p.discovered}, admitted ${p.admitted}, extracted ${p.candidatesExtracted}, ` +
+    `validated ${p.validated}, assigned ${p.assignedToCrystal}, warnings ${p.excludedWithWarnings}, ` +
+    `exceptions ${p.exceptions}, refused ${p.refused}`
+  );
+}
+
+/**
+ * ONE line stating what happened, in the operator's register — and it can never
+ * describe a partial run as complete. `actExecution` is derived from whether
+ * every attempted act succeeded, and the headline names the stop reason in every
+ * branch, so "stopped" is never reported without why.
+ */
+function renderRunHeadline(input: {
+  actExecution: ProgrammeRunResult['actExecution'];
+  acts: readonly ProgrammeActOutcome[];
+  stopReason: ProgrammeRunStopReason;
+  isolation: IsolationSummary;
+}): string {
+  const { actExecution, acts, stopReason, isolation } = input;
+  const ran =
+    actExecution === 'not-started'
+      ? 'No act was executed'
+      : actExecution === 'complete'
+        ? `${acts.length} act(s) executed, all succeeded`
+        : actExecution === 'failed'
+          ? `${acts.length} act(s) attempted, NONE succeeded`
+          : `PARTIAL — ${acts.filter((a) => a.ok).length} of ${acts.length} act(s) succeeded`;
+
+  const why = (() => {
+    switch (stopReason.kind) {
+      case 'awaiting-governance':
+        return `Stopped for your act: ${stopReason.decision.stageLabel} — ${stopReason.decision.actor}.`;
+      case 'awaiting-human-judgment':
+        return `Stopped for your judgment: ${stopReason.decision.stageLabel} — ${stopReason.decision.actor}.`;
+      case 'blocked-on-measurement-layer':
+        return (
+          `Stopped BEFORE new extraction or crystal construction: the measurement layer is not yet hardened ` +
+          `and demonstrated, so ${stopReason.withheldActs.join(', ')} was withheld. This is an engineering ` +
+          `precondition, not a decision for you — ` +
+          stopReason.gate.gaps.join('; ') +
+          '.'
+        );
+      case 'global-integrity-failure':
+        return `Stopped on a batch-integrity failure: ${stopReason.globalStop.reason} — ${stopReason.globalStop.detail}.`;
+      case 'no-executable-act-remains':
+        return `Nothing further can be automated — ${stopReason.detail}.`;
+      case 'act-budget-exhausted':
+        return `Stopped at the ${stopReason.budget}-act ceiling with work still available — re-run to continue.`;
+      case 'time-budget-exhausted':
+        return `Stopped at the time budget (${stopReason.elapsedMs}ms of ${stopReason.budgetMs}ms) before the next act began — re-run to continue.`;
+      case 'programme-unreadable':
+        return `Stopped because the programme could not be re-read: ${stopReason.detail}.`;
+    }
+  })();
+
+  const isolated =
+    isolation.counts.exceptions + isolation.counts.refused > 0
+      ? ` ${isolation.counts.exceptions} record(s) isolated as exceptions${isolation.counts.refused > 0 ? `, ${isolation.counts.refused} refused` : ''} — they did not hold the run back.`
+      : '';
+
+  return `${ran}. ${why}${isolated}`;
+}

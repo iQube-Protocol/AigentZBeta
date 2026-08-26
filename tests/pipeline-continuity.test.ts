@@ -176,26 +176,44 @@ describe('every stage declares the population it is reasoning about', () => {
     }
   });
 
-  it('the route resolves the cohort from Stage 4’s output, not by domain query', () => {
-    // A DECLARATION IS ONLY WORTH WHAT THE SUBSTRATE READ BEHIND IT IS. The
-    // stage says `current-crystal`; this asserts the composing route actually
-    // reads that population. The pre-fix line was
-    // `listInvariants({ domain: acquisitionDomain, limit: 500 })`.
+  it('the composition resolves the cohort from Stage 4’s output, not by domain query', () => {
+    /*
+     * A DECLARATION IS ONLY WORTH WHAT THE SUBSTRATE READ BEHIND IT IS. The
+     * stage says `current-crystal`; this asserts the code that actually composes
+     * the signals reads that population. The pre-fix line was
+     * `listInvariants({ domain: acquisitionDomain, limit: 500 })`.
+     *
+     * CANARY SUBJECT MOVED, NOT WEAKENED (2026-08-26,
+     * `CI-2026-08-03-CANARY-SUBJECT-SELECTION-001`): the composition moved from
+     * the route into `loadTrack2ProgrammeState`
+     * (services/research/researchProgrammeOrchestrator.ts), so the orchestrator's
+     * advance-until-gate loop and the route share ONE read model. Every
+     * assertion is unchanged; both files are now checked, so neither the route
+     * nor the composer can reintroduce the domain query.
+     */
+    const strip = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
     const route = readFileSync(
       join(__dirname, '..', 'app', 'api', 'research', 'track2', '[experimentId]', 'route.ts'),
       'utf8',
     );
-    // Comments are stripped: the route DOCUMENTS the query it replaced, and
-    // the record of a removed defect must not read as the defect.
-    const code = route.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
-    expect(code, 'the Track 2 route must not resolve a stage population by domain query').not.toMatch(
-      /listInvariants\(/,
+    const composer = readFileSync(
+      join(__dirname, '..', 'services', 'research', 'researchProgrammeOrchestrator.ts'),
+      'utf8',
     );
-    // The resolution itself moved into a dedicated service module
+    // Comments are stripped: both files DOCUMENT the query they replaced, and
+    // the record of a removed defect must not read as the defect.
+    for (const [label, src] of [['route', route], ['composer', composer]] as const) {
+      expect(strip(src), `the Track 2 ${label} must not resolve a stage population by domain query`).not.toMatch(
+        /listInvariants\(/,
+      );
+    }
+    // The resolution itself lives in a dedicated service module
     // (services/research/populationReconciliation.ts, 2026-08-04) so the
-    // Population Reconciliation Board could share it — the route now only
-    // delegates. Same substrate, same rule, no domain query either place.
-    expect(route).toMatch(/reconcilePromotedCohort/);
+    // Population Reconciliation Board can share it — the composer delegates.
+    // Same substrate, same rule, no domain query in any of the three.
+    expect(composer).toMatch(/reconcilePromotedCohort/);
+    // And the route delegates rather than keeping a second composition.
+    expect(strip(route)).toMatch(/loadTrack2ProgrammeState/);
     const service = readFileSync(
       join(__dirname, '..', 'services', 'research', 'populationReconciliation.ts'),
       'utf8',

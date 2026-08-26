@@ -42,10 +42,15 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, ArrowRight, CheckCircle, ChevronDown, ClipboardCheck, FlaskConical, Landmark, Loader2, Play, RefreshCw, ScrollText } from "lucide-react";
+import { AlertTriangle, ArrowRight, CheckCircle, ChevronDown, ClipboardCheck, FlaskConical, Landmark, Loader2, Lock, Play, RefreshCw, ScrollText, ShieldCheck, Target } from "lucide-react";
 import { SmartTriadCopilotLayer, type CopilotStageProposal } from "@/components/smarttriad/copilot/SmartTriadCopilotLayer";
 import { experimentGet } from "./experimentStepFetch";
 import { personaFetch } from "@/utils/personaSpine";
+// TYPE-ONLY import from the server orchestrator. `import type` is erased before
+// bundling, so no server module reaches the client — and the alternative (a
+// hand-copied interface here) would be a second shape that agrees with the
+// server's only until one of them is edited (`inv.engineering.036`/`037`).
+import type { ProgrammeRunResult } from "@/services/research/researchProgrammeOrchestrator";
 import type {
   ExperimentLifecycleState,
   ResearchExperiment,
@@ -484,6 +489,290 @@ function RunStageCard({ experimentId, lifecycle, onGoToLab }: { experimentId: st
   );
 }
 
+// ─── OBJECTIVES — the copilot as the orchestration head ─────────────────────
+
+/**
+ * An OBJECTIVE is a named goal the copilot can drive end-to-end, with ONE
+ * control. It is deliberately not a framework: there is exactly one member, and
+ * a generic objectives engine built for one member would be the speculative
+ * abstraction CLAUDE.md's change-sizing rule forbids. When a second objective
+ * exists, THAT is when the shape earns generalisation.
+ */
+interface ResearchObjective {
+  id: "prepare-crystal-v2";
+  label: string;
+  /** What the objective is, in the operator's register. */
+  description: string;
+  /** The experiment the objective is scoped to. Read from the surface that
+   *  already mounts it — `InvariantExperimentLab` mounts
+   *  `<Track2ProgrammePanel experimentId="EXP-P1" />` — never guessed. */
+  experimentId: string;
+}
+
+const RESEARCH_OBJECTIVES: readonly ResearchObjective[] = [
+  {
+    id: "prepare-crystal-v2",
+    label: "Prepare Crystal v2",
+    description:
+      "Drive the Track 2 programme toward a successor crystal: run every scientific and clerical act that can " +
+      "safely proceed, isolate anomalous records locally, and stop at the first decision that is genuinely yours.",
+    experimentId: "EXP-P1",
+  },
+];
+
+/** One labelled count, for the population disclosure strip. */
+function PopCell({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded border border-slate-800 bg-slate-900/50 px-1.5 py-1">
+      <div className="text-[9px] uppercase tracking-wide text-slate-500">{label}</div>
+      <div className="text-[11px] font-semibold text-slate-200">{value}</div>
+    </div>
+  );
+}
+
+/**
+ * THE OBJECTIVE CARD — one control, and the consolidated account of what it did.
+ *
+ * ── What this deliberately does NOT do ─────────────────────────────────────
+ *
+ * It does not re-render Track 2's detail. `components/research/
+ * Track2ProgrammePanel.tsx` is the detailed surface and remains so; forking its
+ * rendering here would be a second Track 2 UI (`inv.engineering.036`/`037`) and
+ * the two would disagree the first time either changed. The card shows the RUN —
+ * what advanced, what was withheld, what is now the operator's — and deep-links
+ * to the Panel via the existing `codex:navigate-tab` seam for everything else.
+ *
+ * It also renders no per-act approve/dismiss cards. The operator's mandate is to
+ * see *consolidated governance decisions and the final freeze*; surfacing every
+ * machine act as something to confirm would reinstate exactly the interaction
+ * cost the objective exists to remove. (The separate aigentZ proposal flow above
+ * is untouched — it serves a different purpose.)
+ */
+function ObjectiveCard({
+  objective,
+  run,
+  running,
+  error,
+  onRun,
+  onOpenDetail,
+}: {
+  objective: ResearchObjective;
+  run: ProgrammeRunResult | null;
+  running: boolean;
+  error: string | null;
+  onRun: () => void;
+  onOpenDetail: () => void;
+}) {
+  const gate = run?.measurementLayerGate ?? null;
+  const stop = run?.stopReason ?? null;
+  const decision = run?.pendingDecision ?? null;
+
+  return (
+    <div className="rounded-xl border border-sky-800/50 bg-sky-950/20 p-4 space-y-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-start gap-2 min-w-0">
+          <Target className="h-4 w-4 text-sky-300 shrink-0 mt-0.5" />
+          <div className="min-w-0">
+            <h4 className="text-xs font-semibold text-slate-100">
+              Objective · {objective.label}
+              <span className="ml-1.5 font-mono text-[10px] text-slate-400">{objective.experimentId}</span>
+            </h4>
+            <p className="text-[10px] text-slate-400 mt-0.5">{objective.description}</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onRun}
+          disabled={running}
+          className="shrink-0 inline-flex items-center gap-1.5 rounded border border-sky-500/40 bg-sky-500/15 px-2.5 py-1.5 text-[11px] font-semibold text-sky-100 hover:bg-sky-500/25 hover:text-white transition disabled:opacity-50"
+        >
+          {running ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}
+          {running ? "Running…" : "Run until you need me"}
+        </button>
+      </div>
+
+      {error && (
+        <div className="rounded border border-rose-500/40 bg-rose-500/10 px-2 py-1.5 text-[10px] text-rose-300">
+          The run could not be started — {error}. Nothing was executed.
+        </div>
+      )}
+
+      {run && (
+        <div className="space-y-2.5">
+          {/* The one line that says what happened. Never describes a partial run
+              as complete — `actExecution` is derived server-side. */}
+          <div
+            className={`rounded border px-2 py-1.5 text-[11px] ${
+              run.actExecution === "partial" || run.actExecution === "failed"
+                ? "border-amber-500/40 bg-amber-500/10 text-amber-200"
+                : "border-slate-700 bg-slate-900/50 text-slate-200"
+            }`}
+          >
+            {run.headline}
+          </div>
+
+          {/* THE SEQUENCING GATE — always shown, open or closed, so a run report
+              never conceals whether acquisition-class work was permitted. */}
+          {gate && (
+            <div
+              className={`rounded border px-2 py-1.5 space-y-1 ${
+                gate.satisfied
+                  ? "border-emerald-700/50 bg-emerald-950/20"
+                  : "border-slate-700 bg-slate-900/50"
+              }`}
+            >
+              <div className="flex items-center gap-1.5">
+                {gate.satisfied ? (
+                  <ShieldCheck className="h-3 w-3 text-emerald-300" />
+                ) : (
+                  <Lock className="h-3 w-3 text-slate-400" />
+                )}
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-300">
+                  Measurement layer {gate.satisfied ? "hardened" : "not yet hardened"}
+                  {gate.binding ? ` · ${gate.binding}` : ""}
+                </span>
+              </div>
+              {gate.satisfied ? (
+                <div className="text-[10px] text-slate-400 break-words">{gate.detail}</div>
+              ) : (
+                gate.gaps.map((g, i) => (
+                  <div key={i} className="flex gap-1.5 text-[10px]">
+                    <span className="text-slate-500">○</span>
+                    <span className="text-slate-400 break-words">{g}</span>
+                  </div>
+                ))
+              )}
+              {!gate.satisfied && (
+                <p className="text-[10px] text-slate-500">
+                  New extraction and crystal construction stay withheld until both hold. This is an engineering
+                  precondition, not a decision for you.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Acts executed — the capability each one called, verbatim. */}
+          {run.acts.length > 0 && (
+            <div className="space-y-1">
+              {run.acts.map((a) => (
+                <div key={a.actKind} className="flex flex-wrap items-center gap-1.5 text-[10px]">
+                  <span className={a.ok ? "text-emerald-400" : "text-rose-400"}>{a.ok ? "✓" : "✕"}</span>
+                  <span className="font-mono text-slate-300">{a.actKind}</span>
+                  <span className="text-slate-400 break-words flex-1 min-w-0">{a.detail}</span>
+                  {a.deferredRecordIds.length > 0 && (
+                    <span className="text-amber-400/80">{a.deferredRecordIds.length} not reached</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* THE CONSOLIDATED DECISION — the one thing the operator is asked for. */}
+          {decision && stop && (stop.kind === "awaiting-governance" || stop.kind === "awaiting-human-judgment") && (
+            <div className="rounded border border-violet-500/40 bg-violet-500/10 px-2 py-2 space-y-1">
+              <div className="text-[10px] uppercase tracking-wide text-violet-300 font-semibold">
+                {decision.authority === "governance" ? "Your constitutional act" : "Your judgment"} — {decision.stageLabel}
+              </div>
+              <div className="text-[11px] text-slate-200">{decision.detail}</div>
+              <div className="text-[10px] text-slate-400">Performed by: {decision.actor}</div>
+              {decision.remedies.map((r, i) => (
+                <div key={i} className="text-[10px] text-slate-300 flex gap-1.5">
+                  <span className="text-slate-500 shrink-0">·</span>
+                  <span className="break-words">{r}</span>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={onOpenDetail}
+                className="mt-1 inline-flex items-center gap-1 rounded border border-violet-500/40 bg-violet-500/15 px-2 py-1 text-[10px] font-semibold text-violet-100 hover:bg-violet-500/25 transition"
+              >
+                <ArrowRight className="h-3 w-3" />
+                Open {decision.stageLabel} in the Experiment Lab
+              </button>
+            </div>
+          )}
+
+          {/* THE COUNTERWEIGHT — the full population, always, so isolation can
+              never quietly narrow the corpus until readiness passes. */}
+          <div>
+            <div className="text-[9px] uppercase tracking-wide text-slate-500 mb-1">Population (disclosed)</div>
+            <div className="grid grid-cols-4 gap-1">
+              <PopCell label="Discovered" value={run.population.discovered} />
+              <PopCell label="Admitted" value={run.population.admitted} />
+              <PopCell label="Extracted" value={run.population.candidatesExtracted} />
+              <PopCell label="Validated" value={run.population.validated} />
+              <PopCell label="Assigned" value={run.population.assignedToCrystal} />
+              <PopCell label="Warnings" value={run.population.excludedWithWarnings} />
+              <PopCell label="Exceptions" value={run.population.exceptions} />
+              <PopCell label="Refused" value={run.population.refused} />
+            </div>
+            {run.populationUnreadable.length > 0 && (
+              <p className="text-[10px] text-amber-400/80 mt-1">
+                Unreadable signal(s): {run.populationUnreadable.join("; ")} — a zero above may be an absence of
+                data rather than a fact.
+              </p>
+            )}
+          </div>
+
+          {/* Isolated records — visible, never discarded, and never a blocker. */}
+          {run.isolation.exceptions.length > 0 && (
+            <div className="space-y-1">
+              <div className="text-[9px] uppercase tracking-wide text-slate-500">
+                Isolated locally ({run.isolation.exceptions.length}) — the run continued over the safe remainder
+              </div>
+              {run.isolation.exceptions.slice(0, 5).map((e) => (
+                <div key={e.recordId} className="text-[10px] text-slate-400 break-words">
+                  <span className="font-mono text-slate-500">{e.causeGroup}</span> · {e.recordLabel} — {e.cause}
+                </div>
+              ))}
+              {run.isolation.exceptions.length > 5 && (
+                <button
+                  type="button"
+                  onClick={onOpenDetail}
+                  className="text-[10px] text-sky-300/80 hover:text-sky-200 transition"
+                >
+                  {run.isolation.exceptions.length - 5} more on the Track 2 exceptions surface →
+                </button>
+              )}
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center gap-2 text-[10px] text-slate-500">
+            <span>{run.criticalPath.milestoneImpact}</span>
+            {run.receipt.receiptId ? (
+              <span className="text-emerald-400/80">receipted ✓ {run.receipt.receiptId.slice(0, 8)}</span>
+            ) : (
+              <span className="text-amber-400/80">run receipt not written — the acts above still happened</span>
+            )}
+          </div>
+
+          {/* What the automation structurally cannot do, stated rather than trusted. */}
+          <details className="text-[10px] text-slate-500">
+            <summary className="cursor-pointer hover:text-slate-300 transition">
+              What this run could not do ({run.guardrails.length})
+            </summary>
+            <ul className="mt-1 space-y-0.5">
+              {run.guardrails.map((g, i) => (
+                <li key={i} className="flex gap-1.5">
+                  <span className="shrink-0">·</span>
+                  <span className="break-words">{g}</span>
+                </li>
+              ))}
+            </ul>
+          </details>
+        </div>
+      )}
+
+      {!run && !error && (
+        <p className="text-[10px] text-slate-500">
+          Not run yet. One click performs every act that can safely proceed and stops at the first decision that
+          is genuinely yours — the freeze is always yours, and is never performed here.
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotTabProps) {
   const [overview, setOverview] = useState<OverviewEntry[] | null>(null);
   const [artifactProduction, setArtifactProduction] = useState<ArtifactProductionView | null>(null);
@@ -519,6 +808,14 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
   // Null ⇒ the most-recently-touched working experiment (or none ⇒ Design). An
   // approval that creates/advances an experiment sets it active.
   const [activeExperimentId, setActiveExperimentId] = useState<string | null>(null);
+
+  // ── OBJECTIVE: Prepare Crystal v2 — the orchestration head's own state.
+  // ONE run at a time, and the result of the LAST run. No polling and no
+  // auto-invocation: the run is an explicit steward act, so nothing here may
+  // start one on mount or on a state change.
+  const [programmeRun, setProgrammeRun] = useState<ProgrammeRunResult | null>(null);
+  const [programmeRunning, setProgrammeRunning] = useState(false);
+  const [programmeError, setProgrammeError] = useState<string | null>(null);
 
   // ── C3 Feedback Coordinator (mirrors DevCommandCenterTab.autoPrompt): on a
   // stage-ADVANCING approval, mint ONE `[observed]` auto-turn so the copilot
@@ -722,6 +1019,53 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
     } catch { /* non-fatal — the honest pointer text still names the tab */ }
   }, [observe]);
 
+  /**
+   * "RUN UNTIL YOU NEED ME" — the objective's single control.
+   *
+   * MUST ride `personaFetch`: the advance route resolves the caller through the
+   * spine, and raw `fetch` (or `authedFetchHeaders`) either 401s or silently
+   * resolves the WRONG persona. `personaIdHint` is passed because this surface
+   * has the active personaId to hand, so every read and write on it resolves the
+   * same identity (CLAUDE.md, Identity & Access Spine).
+   *
+   * `experimentGet`'s wrapper is not reused here: it requires `ok === true` AND
+   * throws on a non-2xx, which would discard the server's own honest account of
+   * a partial run. A partial run is a RESULT, not an error.
+   */
+  const runProgramme = useCallback(async (experimentId: string) => {
+    setProgrammeRunning(true);
+    setProgrammeError(null);
+    observe(surfacePromptSelectedEvent(SURFACE, `objective run started: prepare-crystal-v2 (${experimentId})`));
+    try {
+      const res = await personaFetch(
+        `/api/research/programme/${encodeURIComponent(experimentId)}/advance`,
+        { method: "POST", cache: "no-store", ...(personaId ? { personaIdHint: personaId } : {}) },
+      );
+      const text = await res.text();
+      let data: Record<string, unknown> | null = null;
+      if (text.trim().length > 0) {
+        try { data = JSON.parse(text) as Record<string, unknown>; } catch { /* handled below */ }
+      }
+      if (!res.ok || !data || data.ok !== true) {
+        const message =
+          (data && typeof data.error === "string" && data.error) ||
+          (text.trim().length === 0 ? `HTTP ${res.status} with empty body` : `HTTP ${res.status}`);
+        setProgrammeError(message);
+        setProgrammeRunning(false);
+        return;
+      }
+      const run = data.run as ProgrammeRunResult;
+      setProgrammeRun(run);
+      observe(surfacePromptSelectedEvent(SURFACE, `objective run finished: ${run.headline}`));
+      // The programme moved, so the observed lab state is now stale. Refresh
+      // rather than patch — the substrate is the authority, not this component.
+      void refresh();
+    } catch (err) {
+      setProgrammeError(err instanceof Error ? err.message : "the run could not be started");
+    }
+    setProgrammeRunning(false);
+  }, [observe, personaId, refresh]);
+
   // ── C3 research ICE loop — the pool of experiments the loop can scope to.
   // Working objects (approved/persisted copilot proposals) override overview
   // (registry-derived) entries on id collision — BUT never downward. The
@@ -867,6 +1211,21 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto px-1 pb-4 space-y-3">
+          {/* THE ORCHESTRATION HEAD — the objective and its single control. The
+              detailed Track 2 surface stays in the Experiment Lab
+              (Track2ProgrammePanel); this card shows the RUN and deep-links there. */}
+          {RESEARCH_OBJECTIVES.map((objective) => (
+            <ObjectiveCard
+              key={objective.id}
+              objective={objective}
+              run={programmeRun}
+              running={programmeRunning}
+              error={programmeError}
+              onRun={() => void runProgramme(objective.experimentId)}
+              onOpenDetail={goToExperimentLab}
+            />
+          ))}
+
           {/* C3 — the research ICE loop for the ACTIVE experiment. The stage is
               DERIVED from the experiment's lifecycle (design → protocol → run →
               analyze → publish). The Run stage hands off to the Experiment Lab —

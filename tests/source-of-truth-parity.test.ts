@@ -1818,6 +1818,19 @@ describe('Track 2 operator seams (2026-08-02)', () => {
   const ASSIGN_ROUTE = 'app/api/research/crystal/[experimentId]/assign/route.ts';
   const PROGRAMME = 'services/research/track2Programme.ts';
   const PROGRAMME_ROUTE = 'app/api/research/track2/[experimentId]/route.ts';
+  /**
+   * CANARY SUBJECT MOVED, NOT WEAKENED (2026-08-26,
+   * `CI-2026-08-03-CANARY-SUBJECT-SELECTION-001`).
+   *
+   * The Track 2 signal composition moved out of `PROGRAMME_ROUTE` into
+   * `loadTrack2ProgrammeState`, because the Research Programme Orchestrator's
+   * advance-until-gate loop needs the IDENTICAL composition on every iteration
+   * and a second copy would have been the stale one. Every assertion below is
+   * unchanged — it is now made against the module that actually owns the
+   * composition, plus a new assertion that the route DELEGATES rather than
+   * growing a second one.
+   */
+  const PROGRAMME_COMPOSER = 'services/research/researchProgrammeOrchestrator.ts';
 
   it('the edges route calls addEdge and restates none of its rules', () => {
     // addEdge owns the CFS-003 §3 cycle guard and the CFS-003a §2.6
@@ -1922,9 +1935,9 @@ describe('Track 2 operator seams (2026-08-02)', () => {
     expect(src).not.toMatch(/export async function buildTrack2Programme/);
   });
 
-  it('the programme route reads the same lifecycle and readiness the crystal route does', () => {
+  it('the programme composition reads the same lifecycle and readiness the crystal route does', () => {
     // Two surfaces describing one programme must not compute it two ways.
-    const src = stripComments(readSource(PROGRAMME_ROUTE));
+    const src = stripComments(readSource(PROGRAMME_COMPOSER));
     expect(src).toContain('runCrystalReadinessReport(');
     expect(src).toContain('crystalLifecycleStage(');
     expect(src).toContain('crystalReviewStageStatus(');
@@ -1932,6 +1945,25 @@ describe('Track 2 operator seams (2026-08-02)', () => {
     const at = src.indexOf('crystalLifecycleStage({');
     const call = src.slice(at, at + 400);
     expect(call).toMatch(/frozen:\s*artifact\?\.lifecycle === 'frozen'/);
+  });
+
+  it('the programme route DELEGATES the composition and never grows a second one', () => {
+    // The other half of the move: one composition, two callers. A route that
+    // reassembled the signals itself would be the second copy this test exists
+    // to prevent (inv.engineering.036/037).
+    const src = stripComments(readSource(PROGRAMME_ROUTE));
+    expect(src).toContain('loadTrack2ProgrammeState');
+    for (const composed of [
+      'buildTrack2Programme',
+      'runCrystalReadinessReport(',
+      'crystalLifecycleStage(',
+      'crystalReviewStageStatus(',
+      'reconcilePromotedCohort',
+      'listCandidateSources',
+      'listCandidates',
+    ]) {
+      expect(src, `the route must delegate '${composed}', not call it`).not.toContain(composed);
+    }
   });
 
   it('every readiness check that can fail carries a remedy field', () => {

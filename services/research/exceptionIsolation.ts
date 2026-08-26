@@ -163,7 +163,21 @@ export type ExceptionCauseGroup =
   | 'low-confidence-classification'
   | 'provenance-conflict'
   | 'licence-access'
-  | 'out-of-domain';
+  | 'out-of-domain'
+  /**
+   * ADDED 2026-08-26, by the route this type's own comment prescribes ("A stage
+   * needing a genuinely new cause adds it HERE, so the surface never meets a
+   * group it cannot render").
+   *
+   * The validation gate (`validateInvariant`) returns a per-check verdict, and a
+   * record that fails `consistency`, `groundedness` or `canonical_form` is an
+   * exception whose cause is the failing CHECK — not a duplicate, not unreadable
+   * content, and not a provenance CONFLICT (a missing provenance is an absence,
+   * and forcing it into `provenance-conflict` would report an absence as a
+   * disagreement). Every group above was a wrong home, so this is a named
+   * addition rather than the nearest fit.
+   */
+  | 'validation-check-failed';
 
 export const EXCEPTION_CAUSE_GROUPS: readonly ExceptionCauseGroup[] = [
   'exact-duplicate',
@@ -173,6 +187,7 @@ export const EXCEPTION_CAUSE_GROUPS: readonly ExceptionCauseGroup[] = [
   'provenance-conflict',
   'licence-access',
   'out-of-domain',
+  'validation-check-failed',
 ];
 
 export const EXCEPTION_CAUSE_LABEL: Record<ExceptionCauseGroup, string> = {
@@ -183,6 +198,7 @@ export const EXCEPTION_CAUSE_LABEL: Record<ExceptionCauseGroup, string> = {
   'provenance-conflict': 'Provenance conflict',
   'licence-access': 'Licence / access issue',
   'out-of-domain': 'Out of domain',
+  'validation-check-failed': 'Validation check failed',
 };
 
 /**
