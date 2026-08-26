@@ -17,31 +17,28 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { buildFreezeCeremonyPackage } from '../services/research/crystalFreezeCeremony';
 import { composeCrystalFreezeRecommendation } from '../services/research/crystalFreezeRecommendation';
+import { assessInferentialCapacity } from '../services/research/crystalSemanticStructure';
+import { deriveCrystalPopulationRequirement } from '../services/research/crystalPopulationRequirement';
+import { CRYSTAL_READINESS_CHECK_CONTRACT } from '../services/research/crystalInstrumentSuite';
+import { INVARIANT_NAMESPACES } from '@/types/invariants';
 import type { CrystalReadinessReport } from '../services/research/crystalReadiness';
 import type { CrystalStatisticsReport } from '../services/research/crystalStatistics';
 
 const MATURITY_TIER_CHECK_NAMES = new Set(['structural-diversity', 'graph-connectivity']);
 
+/**
+ * The check list and tiers are READ FROM THE EXECUTABLE CONTRACT rather than
+ * hand-copied (updated 2026-08-26, IRL Review #001) — a hand-copied list goes
+ * stale the moment the contract gains a check, and the staleness is invisible:
+ * the fixture claims a fully-green report that is silently missing a gate.
+ */
 function passingReadiness(): CrystalReadinessReport {
-  const names = [
-    'selection-space',
-    'derivation-headroom',
-    'structural-diversity',
-    'duplicate-detection',
-    'provenance-eligibility',
-    'lifecycle-validation-integrity',
-    'relationship-density',
-    'graph-connectivity',
-    'orphan-detection',
-  ];
-  const checks = names.map((name) => ({
-    name,
+  const checks = CRYSTAL_READINESS_CHECK_CONTRACT.map((entry) => ({
+    name: entry.name,
     passed: true,
-    detail: `${name} ok`,
+    detail: `${entry.name} ok`,
     remedy: null,
-    tier: (MATURITY_TIER_CHECK_NAMES.has(name) ? 'scientific-maturity' : 'scientific-readiness') as
-      | 'scientific-maturity'
-      | 'scientific-readiness',
+    tier: entry.tier,
   }));
   const maturityChecks = checks.filter((c) => c.tier === 'scientific-maturity');
   return {
@@ -58,6 +55,19 @@ function passingReadiness(): CrystalReadinessReport {
     populations: { A: 12, B: 0, C: 0, unclassified: 0, ablationCount: 12 },
     derivationEligibleFraction: 0.4,
     duplicatePairCount: 0,
+    duplicates: {
+      lexicalPairCount: 0, semanticPairCount: 0, unionPairCount: 0,
+      semanticOnlyPairCount: 0, distinctStatementEstimate: 12, semanticPairs: [],
+    },
+    inferentialCapacity: assessInferentialCapacity([]),
+    coverage: {
+      boundaryNamespaceCount: INVARIANT_NAMESPACES.length,
+      representedNamespaceCount: INVARIANT_NAMESPACES.length,
+      ratio: 1,
+      representedNamespaces: [...INVARIANT_NAMESPACES],
+      missingNamespaces: [],
+    },
+    populationRequirement: deriveCrystalPopulationRequirement(),
     graph: { relationshipCount: 9, relationshipDensity: 0.25, componentCount: 1, largestComponentSize: 12, connectivityRatio: 1, orphanCount: 0, orphanFraction: 0 },
   };
 }
@@ -78,8 +88,13 @@ function statsFor(readiness: CrystalReadinessReport): CrystalStatisticsReport {
     compositionDensity: readiness.graph.relationshipDensity,
     semanticDiversity: 1.5,
     namespaceDistributionEntropy: 1.5,
-    coverageEstimate: { boundaryNamespaceCount: 15, representedNamespaceCount: 4, ratio: 0.267 },
-    derivationHeadroom: readiness.derivationEligibleFraction,
+    coverageEstimate: {
+      boundaryNamespaceCount: readiness.coverage.boundaryNamespaceCount,
+      representedNamespaceCount: readiness.coverage.representedNamespaceCount,
+      ratio: readiness.coverage.ratio,
+    },
+    derivationHeadroom: readiness.inferentialCapacity.inferentialCapacityFraction,
+    labelDiversityFraction: readiness.derivationEligibleFraction,
     sliceRatio: 0.4,
     selectionEntropy: 1.5,
     duplicateRatio: 0,

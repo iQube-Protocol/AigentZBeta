@@ -52,7 +52,10 @@ import { composeCrystalFreezeRecommendation } from '@/services/research/crystalF
 import { buildTrack2Programme } from '@/services/research/track2Programme';
 import { runCrystalReadinessReport } from '@/services/research/crystalReadiness';
 import { runCrystalStatisticsReport } from '@/services/research/crystalStatistics';
+import { INVARIANT_NAMESPACES } from '@/types/invariants';
 import type { InvariantEdgeRecord, InvariantRecord, InvariantSemanticType } from '@/types/invariants';
+import { deriveCrystalPopulationRequirement } from '@/services/research/crystalPopulationRequirement';
+import { crystalReadinessCheckNames } from '@/services/research/crystalInstrumentSuite';
 
 vi.mock('@/services/invariants/store', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/services/invariants/store')>();
@@ -67,13 +70,35 @@ vi.mock('@/services/invariants/store', async (importOriginal) => {
 const SANDBOX_DOMAIN = 'sandbox-freeze-rehearsal';
 
 /**
- * Fourteen rows. The size is MECHANICAL, not chosen for realism: the
- * selection-space check needs ⌊0.4 × N⌋ ≥ 5, which first holds at N = 13, and
- * 14 leaves the arithmetic un-borderline. Nothing here claims 14 is a target
- * crystal size — EXP-P1's size falls out of the frozen task set and the ⊆40%
- * guard, never from a number anyone picked.
+ * ── FIXTURE SIZE AND SHAPE — REBUILT 2026-08-26 (IRL Review #001) ──────────
+ *
+ * This fixture used to be FOURTEEN rows, sized to clear the old
+ * `selection-space` bar of "⌊0.4 × N⌋ ≥ 5". That bar was criterion drift against
+ * the frozen §3.6 collection-size guard, and it is gone: the requirement is now
+ * DERIVED (`required evaluation slice ÷ 0.40 = minimum collection size`).
+ *
+ * The fixture therefore had to grow, and the growth is MECHANICAL, not chosen:
+ * `deriveCrystalPopulationRequirement()` is consulted for the floor, and the
+ * fixture is built to it. Nothing here claims a target crystal size — if the
+ * finalized task set demands a larger slice, this fixture must grow again, and
+ * the assertion below reads the requirement rather than a literal so it will
+ * say so.
+ *
+ * Three shape requirements the hardened gates impose, and how each is met:
+ *
+ *   - `derivation-headroom` now measures INFERENTIAL CAPACITY, so the fixture
+ *     carries a causal chain whose conjunctions genuinely entail unstated
+ *     conclusions (`CHAIN_STATEMENTS`). Bare "X is essential for Y" rows would
+ *     not do, which is the point of the whole remediation.
+ *   - `boundary-coverage` requires every declared namespace to be represented,
+ *     so rows cycle through `INVARIANT_NAMESPACES`.
+ *   - `duplicate-detection` now includes a SEMANTIC pass, so every statement
+ *     below is distinct in predicate-argument form, not merely in wording.
+ *
+ * The base fourteen statements are unchanged, and the sandbox rule above still
+ * governs: these are shaped rows that exercise arithmetic, never invariants.
  */
-const STATEMENTS: Array<[string, InvariantSemanticType]> = [
+const BASE_STATEMENTS: Array<[string, InvariantSemanticType]> = [
   ['A capital buffer must exceed expected loss whenever the loss distribution is fat-tailed', 'constraint'],
   ['If collateral is rehypothecated then the effective leverage of the chain exceeds its nominal leverage', 'law'],
   ['Liquidity is the capacity to transact at a price without moving that price materially', 'definition'],
@@ -90,13 +115,62 @@ const STATEMENTS: Array<[string, InvariantSemanticType]> = [
   ['Given a run dynamic the first mover advantage grows with the discount on forced sales', 'law'],
 ];
 
+/**
+ * A CAUSAL CHAIN. Each link's consequent is the next link's antecedent, and the
+ * outer terms of any two adjacent links are disjoint — so every adjacent pair's
+ * conjunction entails a conclusion neither states, which is §6(d)'s actual
+ * requirement and what `derivation-headroom` now measures. Sixteen links yield
+ * fifteen chains, against the twelve the registered derivation-task count
+ * demands.
+ */
+const CHAIN_TOKENS = [
+  ['aldrin', 'ridge'], ['bertol', 'shelf'], ['cavell', 'bluff'], ['durand', 'basin'],
+  ['everly', 'crest'], ['forsyth', 'trough'], ['gaskell', 'spur'], ['halvard', 'delta'],
+  ['ingram', 'moraine'], ['jarrow', 'cirque'], ['kelvin', 'esker'], ['lindorm', 'drumlin'],
+  ['marlowe', 'kettle'], ['nordahl', 'arete'], ['osgood', 'couloir'], ['pemberly', 'massif'],
+  ['quenton', 'plateau'],
+] as const;
+
+const CHAIN_STATEMENTS: Array<[string, InvariantSemanticType]> = CHAIN_TOKENS.slice(0, -1).map(
+  ([tok, noun], i) => {
+    const [nextTok, nextNoun] = CHAIN_TOKENS[i + 1];
+    return [
+      `${tok.charAt(0).toUpperCase()}${tok.slice(1)} ${noun} causes ${nextTok} ${nextNoun}.`,
+      'law',
+    ] as [string, InvariantSemanticType];
+  },
+);
+
+/**
+ * FILLER that deliberately asserts NO relation. It exists to carry the
+ * population up to the derived floor without inflating the inferential-capacity
+ * figure — a fixture that met the size requirement by adding more chain links
+ * would prove nothing about the capacity gate, because capacity is a fraction.
+ */
+const FILLER_STATEMENTS: Array<[string, InvariantSemanticType]> = Array.from(
+  { length: 30 },
+  (_, i) =>
+    [
+      `The sandbox-${String(i).padStart(2, '0')} register enumerates entry vareen-${String(i).padStart(2, '0')} verbatim.`,
+      (['definition', 'principle', 'constraint', 'law'] as InvariantSemanticType[])[i % 4],
+    ] as [string, InvariantSemanticType],
+);
+
+const STATEMENTS: Array<[string, InvariantSemanticType]> = [
+  ...BASE_STATEMENTS,
+  ...CHAIN_STATEMENTS,
+  ...FILLER_STATEMENTS,
+];
+
 function row(index: number, overrides: Partial<InvariantRecord> = {}): InvariantRecord {
   const [statement, semanticType] = STATEMENTS[index];
   return {
     id: `sbx-${String(index).padStart(2, '0')}`,
     seedId: null,
     statement,
-    namespace: index % 3 === 0 ? 'finance' : index % 3 === 1 ? 'epistemology' : 'cybernetics',
+    // Cycles the DECLARED boundary so `boundary-coverage` is satisfied by
+    // representation rather than by narrowing the boundary.
+    namespace: INVARIANT_NAMESPACES[index % INVARIANT_NAMESPACES.length],
     ontologyClassId: null,
     semanticType,
     status: 'validated',
@@ -145,8 +219,17 @@ function edge(from: string, to: string): InvariantEdgeRecord {
 }
 
 const CRYSTAL = STATEMENTS.map((_, i) => row(i));
-/** A chain over every member: 13 edges, no orphans, one component. */
-const EDGES = CRYSTAL.slice(1).map((r, i) => edge(CRYSTAL[i].id, r.id));
+/**
+ * A path over every member PLUS a skip edge — no orphans, one component, and
+ * enough edges to clear the relationship-density floor at this population.
+ * A bare path over N members has N-1 edges, which dilutes below the density
+ * floor as N grows; the skip edge keeps the density arithmetic honest without
+ * inventing a relationship type.
+ */
+const EDGES = [
+  ...CRYSTAL.slice(1).map((r, i) => edge(CRYSTAL[i].id, r.id)),
+  ...CRYSTAL.slice(2).map((r, i) => edge(CRYSTAL[i].id, r.id)),
+];
 
 function mountCrystal(invariants: InvariantRecord[] = CRYSTAL, edges: InvariantEdgeRecord[] = EDGES) {
   vi.mocked(listInvariants).mockResolvedValue(invariants);
@@ -161,7 +244,7 @@ beforeEach(() => {
 // ── 1. Readiness over a populated crystal ───────────────────────────────────
 
 describe('rehearsal — readiness over a populated crystal', () => {
-  it('all nine checks pass, and the report says so mechanically', async () => {
+  it('every check passes, and the report says so mechanically', async () => {
     mountCrystal();
     const report = await runCrystalReadinessReport({
       experimentId: 'SANDBOX',
@@ -170,34 +253,64 @@ describe('rehearsal — readiness over a populated crystal', () => {
     const failing = report.checks.filter((c) => !c.passed).map((c) => `${c.name}: ${c.detail}`);
     expect(failing, 'a populated, well-formed crystal must clear every check').toEqual([]);
     expect(report.ok).toBe(true);
-    expect(report.checks).toHaveLength(9);
-    expect(report.invariantCount).toBe(14);
-    expect(report.eligibleCount).toBe(14);
-    expect(report.populations).toEqual({ A: 14, B: 0, C: 0, unclassified: 0, ablationCount: 14 });
+    // Read from the executable contract rather than a literal count — the
+    // hand-written `9` here went stale the moment `boundary-coverage` landed.
+    expect(report.checks).toHaveLength(crystalReadinessCheckNames().length);
+    expect(report.invariantCount).toBe(CRYSTAL.length);
+    expect(report.eligibleCount).toBe(CRYSTAL.length);
+    expect(report.populations).toEqual({
+      A: CRYSTAL.length, B: 0, C: 0, unclassified: 0, ablationCount: CRYSTAL.length,
+    });
   });
 
-  it('the ⊆40% Arm C slice is a genuine proper subset at meaningful size', async () => {
+  it('the ⊆40% Arm C slice meets the §3.6-DERIVED demand and stays a proper subset', async () => {
     mountCrystal();
     const report = await runCrystalReadinessReport({ experimentId: 'SANDBOX', crystalDomain: SANDBOX_DOMAIN });
-    const slice = Math.floor(report.invariantCount * 0.4);
-    expect(slice).toBeGreaterThanOrEqual(5);
+    const requirement = deriveCrystalPopulationRequirement();
+    const slice = Math.floor(report.invariantCount * requirement.sliceFractionOfCrystal);
+    // The assertion reads the DERIVED requirement, never a literal: if the task
+    // design changes, this test tells the truth about the new floor instead of
+    // silently certifying the old one.
+    expect(slice).toBeGreaterThanOrEqual(requirement.requiredEvaluationSliceSize as number);
     expect(slice).toBeLessThan(report.invariantCount);
+    expect(report.invariantCount).toBeGreaterThanOrEqual(requirement.minimumCollectionSize as number);
+  });
+
+  it('carries genuine inferential capacity, not merely relational-looking labels', async () => {
+    mountCrystal();
+    const report = await runCrystalReadinessReport({ experimentId: 'SANDBOX', crystalDomain: SANDBOX_DOMAIN });
+    const requirement = deriveCrystalPopulationRequirement();
+    expect(report.inferentialCapacity.entailmentChainCount).toBeGreaterThanOrEqual(
+      requirement.requiredEntailmentChains as number,
+    );
+    expect(report.inferentialCapacity.inferentialCapacityFraction).toBeGreaterThanOrEqual(
+      requirement.requiredInferentialCapacityFraction as number,
+    );
+    expect(report.checks.find((c) => c.name === 'derivation-headroom')?.passed).toBe(true);
+  });
+
+  it('represents every declared namespace — coverage satisfied by corpus, not by narrowing', async () => {
+    mountCrystal();
+    const report = await runCrystalReadinessReport({ experimentId: 'SANDBOX', crystalDomain: SANDBOX_DOMAIN });
+    expect(report.coverage.missingNamespaces).toEqual([]);
+    expect(report.coverage.representedNamespaceCount).toBe(INVARIANT_NAMESPACES.length);
+    expect(report.checks.find((c) => c.name === 'boundary-coverage')?.passed).toBe(true);
   });
 
   it('one unclassified member fails provenance-eligibility — never silently admitted', async () => {
     // The fail-closed rule at the point that matters: a record with no recorded
     // evidence provenance is in NO population, and one of them blocks the whole
     // crystal rather than being averaged away.
-    mountCrystal([...CRYSTAL.slice(0, 13), row(13, { provenance: { source: 'sandbox' } })]);
+    mountCrystal([...CRYSTAL.slice(0, -1), row(CRYSTAL.length - 1, { provenance: { source: 'sandbox' } })]);
     const report = await runCrystalReadinessReport({ experimentId: 'SANDBOX', crystalDomain: SANDBOX_DOMAIN });
     expect(report.ok).toBe(false);
     expect(report.checks.find((c) => c.name === 'provenance-eligibility')?.passed).toBe(false);
     expect(report.populations.unclassified).toBe(1);
-    expect(report.eligibleCount).toBe(13);
+    expect(report.eligibleCount).toBe(CRYSTAL.length - 1);
   });
 
   it('a zero-validation member fails lifecycle integrity — no bulk-authored filler', async () => {
-    mountCrystal([...CRYSTAL.slice(0, 13), row(13, { timesValidated: 0 })]);
+    mountCrystal([...CRYSTAL.slice(0, -1), row(CRYSTAL.length - 1, { timesValidated: 0 })]);
     const report = await runCrystalReadinessReport({ experimentId: 'SANDBOX', crystalDomain: SANDBOX_DOMAIN });
     expect(report.checks.find((c) => c.name === 'lifecycle-validation-integrity')?.passed).toBe(false);
     expect(report.ok).toBe(false);
@@ -219,11 +332,15 @@ describe('rehearsal — statistics and the content commitment', () => {
     mountCrystal();
     const stats = await runCrystalStatisticsReport({ experimentId: 'SANDBOX', crystalDomain: SANDBOX_DOMAIN });
     expect(stats.ok).toBe(true);
-    expect(stats.invariantCount).toBe(14);
-    // 4 distinct `source` labels + 14 distinct evidence ids.
-    expect(stats.sourceCount).toBe(18);
-    expect(stats.externalSources.length).toBe(18);
-    expect(stats.relationshipCount).toBe(13);
+    expect(stats.invariantCount).toBe(CRYSTAL.length);
+    // 4 distinct `source` labels + one distinct evidence id per member.
+    // Derived from the fixture rather than hardcoded, so growing the fixture to
+    // meet a derived population floor does not require editing an unrelated
+    // arithmetic assertion (which is how the old literal 18 became wrong).
+    const expectedSources = 4 + CRYSTAL.length;
+    expect(stats.sourceCount).toBe(expectedSources);
+    expect(stats.externalSources.length).toBe(expectedSources);
+    expect(stats.relationshipCount).toBe(EDGES.length);
     expect(stats.averageValidationDepth).toBeGreaterThan(0);
     expect(stats.semanticDiversity).toBeGreaterThan(0);
     expect(stats.substrateError).toBeNull();
@@ -305,9 +422,9 @@ describe('rehearsal — the freeze ceremony package', () => {
   });
 
   it('a single failing check flips eligibility while the package still builds', async () => {
-    mountCrystal([...CRYSTAL.slice(0, 13), row(13, { timesValidated: 0 })]);
+    mountCrystal([...CRYSTAL.slice(0, -1), row(CRYSTAL.length - 1, { timesValidated: 0 })]);
     const readiness = await runCrystalReadinessReport({ experimentId: 'SANDBOX', crystalDomain: SANDBOX_DOMAIN });
-    mountCrystal([...CRYSTAL.slice(0, 13), row(13, { timesValidated: 0 })]);
+    mountCrystal([...CRYSTAL.slice(0, -1), row(CRYSTAL.length - 1, { timesValidated: 0 })]);
     const statistics = await runCrystalStatisticsReport({ experimentId: 'SANDBOX', crystalDomain: SANDBOX_DOMAIN });
     const built = buildFreezeCeremonyPackage({ ...ratification, readiness, statistics });
     expect(built.ok).toBe(true);
@@ -397,7 +514,7 @@ describe('rehearsal — the lifecycle ladder over a real object', () => {
   });
 
   it('a populated, FAILING crystal is the team’s to diagnose, not a reviewer’s to assess', async () => {
-    mountCrystal([...CRYSTAL.slice(0, 13), row(13, { timesValidated: 0 })]);
+    mountCrystal([...CRYSTAL.slice(0, -1), row(CRYSTAL.length - 1, { timesValidated: 0 })]);
     const readiness = await runCrystalReadinessReport({ experimentId: 'SANDBOX', crystalDomain: SANDBOX_DOMAIN });
     const stage = crystalLifecycleStage({
       domainRatified: true,
@@ -558,7 +675,7 @@ describe('rehearsal — every failing check says what fixes it', () => {
     // And it says why the orphans are there, so this does not read as a defect.
     expect(orphan.remedy).toMatch(/expected work, not a\s+defect/i);
 
-    mountCrystal([...CRYSTAL.slice(0, 13), row(13, { timesValidated: 0 })]);
+    mountCrystal([...CRYSTAL.slice(0, -1), row(CRYSTAL.length - 1, { timesValidated: 0 })]);
     const zeroVal = (await runCrystalReadinessReport({ experimentId: 'SANDBOX', crystalDomain: SANDBOX_DOMAIN }))
       .checks.find((c) => c.name === 'lifecycle-validation-integrity')!;
     expect(zeroVal.remedy).toContain('/api/invariants/<id>/advance');

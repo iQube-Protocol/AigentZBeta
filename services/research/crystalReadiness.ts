@@ -54,6 +54,65 @@ import {
   type IsolationException,
   type PopulationDisclosure,
 } from '@/services/research/exceptionIsolation';
+/**
+ * ── IRL REVIEW #001 — REMEDIATION CYCLE 1 (2026-08-26) ────────────────────
+ *
+ * An external reviewer returned `changes_requested` on the FROZEN Crystal vP1.
+ * The freeze machinery worked: the hash verified. What failed is this file. The
+ * readiness gates certified a substrate that did not possess the properties the
+ * gates purported to establish — they scored LABELS and LEXICAL DISTANCE rather
+ * than content, and one of them had drifted below a frozen constraint.
+ *
+ * Four defects, and where each is now measured:
+ *
+ *   1. DUPLICATES. `findNearDuplicatePairs` compared word sets, so paraphrase
+ *      pairs a human catches on first read passed. Now the union of that
+ *      lexical pass and `findSemanticDuplicatePairs`, which compares
+ *      direction-canonicalised predicate-argument FORMS
+ *      (crystalSemanticStructure.ts). Same check name — `duplicate-detection`.
+ *   2. STATEMENT QUALITY / DERIVATION HEADROOM. `looksDerivationEligible`
+ *      tested `semanticType ∈ {constraint, law}` or a connective word, while
+ *      the check's own label claimed to assess whether the collection is "not
+ *      only atomic assertions". Now `assessInferentialCapacity` measures
+ *      whether CONJUNCTIONS entail unstated conclusions (§6(d)'s actual
+ *      requirement) and classifies each member against the operator's seven
+ *      relational structures. The old label-diversity figure is retained,
+ *      reported, and explicitly re-labelled as a proxy that no longer gates.
+ *      Same check name — `derivation-headroom`.
+ *   3. SIZE. `minMeaningfulSliceSize ?? 5` was criterion drift against the
+ *      frozen §3.6 guard, which had already ruled an 18-invariant collection
+ *      insufficient with worked arithmetic. Now derived:
+ *      `required evaluation slice ÷ 0.40 = minimum collection size`
+ *      (crystalPopulationRequirement.ts). Same check name — `selection-space`.
+ *   4. COVERAGE. Namespace coverage was computed in crystalStatistics.ts and
+ *      disclosed by crystalFreezeRecommendation.ts as "not itself a gate".
+ *      At 2/15 the reviewer could not author tasks at all. Now a first-class
+ *      gate — the ONE genuinely new check name, `boundary-coverage`, which
+ *      requires a CFS-054 §2.5 amendment (drafted for the operator, never
+ *      self-ratified).
+ *
+ * Three of the four are IMPLEMENTATION CORRECTIONS behind already-pinned check
+ * names, not new gates: they are what those gates always claimed to be doing.
+ *
+ * WHAT IS DELIBERATELY UNCHANGED: frozen vP1, byte for byte, including its hash
+ * AND the readiness results that let it through. Those results remain the record
+ * of what the old instruments said. Nothing here re-scores history, and no
+ * invariant statement text was authored, rewritten or re-tagged — that would
+ * contaminate the experiment. The ratified namespace boundary is not narrowed;
+ * `boundary-coverage` REPORTS against it and never adjusts it.
+ */
+import {
+  assessInferentialCapacity,
+  findSemanticDuplicatePairs,
+  type InferentialCapacityAssessment,
+  type SemanticDuplicatePair,
+} from '@/services/research/crystalSemanticStructure';
+import {
+  deriveCrystalPopulationRequirement,
+  type CrystalPopulationRequirement,
+} from '@/services/research/crystalPopulationRequirement';
+import { tierForCheck, type CrystalReadinessTier } from '@/services/research/crystalInstrumentSuite';
+import { INVARIANT_NAMESPACES } from '@/types/invariants';
 
 /** Heuristic-only statement-shape signal for "this looks relational or
  * conditional, not a bare atomic assertion" — see looksDerivationEligible. */
@@ -72,15 +131,48 @@ export interface CrystalReadinessInput {
    * result is EXPECTED right now and must be reported honestly, never
    * treated as a bug in this function. */
   crystalDomain?: string;
-  /** Arm C's fixed slice must remain a genuine, non-trivial proper subset —
-   * this is the floor on `floor(0.4 * N)` below which a subset can't be
-   * called "meaningful" (EXP-P1 README §3). Illustrative default only
-   * (PRD-EPI-001 §0.5) — never a hard requirement. */
+  /**
+   * RETIRED AS A GATE (IRL Review #001, 2026-08-26). This was
+   * `?? 5` — "a slice of ≥5 is meaningful" — a number that appears in no
+   * registered constraint and that passed collections the frozen §3.6 guard
+   * had already rejected with worked arithmetic. `selection-space` now gates on
+   * the DERIVED requirement (`crystalPopulationRequirement.ts`).
+   *
+   * The parameter is retained because it is part of this module's published
+   * input shape, and it is still REPORTED in the check's detail for continuity
+   * with historical reports — but supplying it can no longer weaken or
+   * strengthen the gate. There is deliberately no fallback path to it: when the
+   * derived requirement is unavailable the check reports insufficient-input and
+   * fails closed, because a silent fallback is how the original drift survived.
+   */
   minMeaningfulSliceSize?: number;
-  /** Minimum fraction of the collection that must show derivation-eligible
-   * (relational/conditional/compositional) shape — CRYSTAL-ENLARGEMENT_plan.md
-   * §3 condition d. Illustrative default only. */
+  /**
+   * RETIRED AS A GATE (IRL Review #001, 2026-08-26). The fraction it bounded is
+   * a LABEL-DIVERSITY proxy (`semanticType` class or a connective word), which
+   * the reviewer correctly identified as scoring labels rather than content.
+   * `derivation-headroom` now gates on inferential capacity — see
+   * `CrystalReadinessReport.inferentialCapacity`. Still reported, explicitly as
+   * a proxy, so the distinction the reviewer drew stays visible in the payload.
+   */
   minDerivationEligibleFraction?: number;
+  /**
+   * The FINALIZED task set, when one exists. The §3.6 population requirement
+   * derives from it in preference to the registered minimum design — so the
+   * floor rises mechanically with the real design rather than needing a code
+   * change. Absent, every derived figure is labelled a floor.
+   */
+  taskSet?: readonly import('@/services/research/taskCoverage').TaskDefinition[];
+  /**
+   * The DECLARED namespace boundary `boundary-coverage` measures against.
+   * Defaults to the ratified `INVARIANT_NAMESPACES` ontology — the same list
+   * `crystalStatistics.coverageEstimate` already used, so the two surfaces
+   * cannot describe different boundaries.
+   *
+   * A caller may pass a NARROWER list only to inspect a hypothetical; doing so
+   * never constitutes narrowing the ratified boundary, which is a governance
+   * act performed elsewhere or not at all.
+   */
+  declaredNamespaceBoundary?: readonly string[];
   /** Above this fraction, one semantic_type "shape" is considered to be
    * monopolizing the collection — README §3.1's "duplicate-shape ratio
    * exceeds a documented threshold". Illustrative default only. */
@@ -144,7 +236,7 @@ export interface CrystalReadinessInput {
  * hard gate, that is an EXPLICIT experiment policy to add on top of this
  * report — never an intrinsic property of the crystal itself.
  */
-export type CrystalReadinessTier = 'scientific-readiness' | 'scientific-maturity';
+export type { CrystalReadinessTier };
 
 export interface CrystalReadinessCheck {
   name: string;
@@ -209,15 +301,64 @@ export interface CrystalReadinessReport {
     unclassified: number;
     ablationCount: number;
   };
-  /** Fraction of the collection classified derivation-eligible by the
-   * heuristic proxy (check #2) — exposed numerically so a consumer (e.g.
-   * crystalStatistics.ts's "derivation headroom" figure) reads the SAME
-   * computed value the check itself gated on, rather than re-deriving it. */
+  /**
+   * LABEL-DIVERSITY PROXY, not capacity (renamed in meaning, kept in name for
+   * consumer continuity — IRL Review #001). The fraction of members whose
+   * `semanticType` sits in a relational-leaning class OR whose text carries a
+   * logical connective. This is the figure the pre-remediation
+   * `derivation-headroom` check gated on, and the reviewer's point is precisely
+   * that it is not evidence of inferential capacity. It is retained and
+   * reported so the two can be COMPARED — a high proxy beside a near-zero
+   * capacity is the exact signature of the vP1 defect.
+   */
   derivationEligibleFraction: number;
-  /** Near-duplicate pair count from check #4 (findNearDuplicatePairs),
-   * exposed numerically for the same reason — one authoritative computation,
-   * reused by crystalStatistics.ts's duplicate-ratio figure. */
+  /**
+   * The gating duplicate count: the UNION of lexical and semantic pairs. The
+   * name is unchanged (crystalStatistics.ts's duplicate-ratio reads it), the
+   * measurement is strictly stronger. Per-mechanism counts: `duplicates`.
+   */
   duplicatePairCount: number;
+  /**
+   * Duplicate detection, per mechanism, so a reader can see WHICH pass found a
+   * pair — and in particular how many pairs only the semantic pass could see.
+   * `distinctStatementEstimate` is the number of equivalence classes under the
+   * union relation (union-find over the pair graph, reusing the same
+   * `connectedComponents` primitive the graph checks use): the answer to "how
+   * many distinct statements does this collection really contain?".
+   */
+  duplicates: {
+    lexicalPairCount: number;
+    semanticPairCount: number;
+    unionPairCount: number;
+    /** Pairs the semantic pass found that the lexical pass did not. */
+    semanticOnlyPairCount: number;
+    distinctStatementEstimate: number;
+    semanticPairs: SemanticDuplicatePair[];
+  };
+  /**
+   * Whether the collection's CONJUNCTIONS can entail unstated conclusions —
+   * §6(d)'s actual requirement, and what `derivation-headroom` now gates on.
+   */
+  inferentialCapacity: InferentialCapacityAssessment;
+  /**
+   * Namespace coverage against the DECLARED boundary — computed here, once, and
+   * read by `crystalStatistics.coverageEstimate` rather than re-derived there
+   * (inv.engineering.036). REPORTING plus gating (`boundary-coverage`); it never
+   * adjusts the boundary.
+   */
+  coverage: {
+    boundaryNamespaceCount: number;
+    representedNamespaceCount: number;
+    ratio: number;
+    representedNamespaces: string[];
+    missingNamespaces: string[];
+  };
+  /**
+   * The §3.6-derived population requirement `selection-space` gated on —
+   * carried on the report so a consumer reads the SAME derivation the check
+   * used, including its auditable arithmetic lines.
+   */
+  populationRequirement: CrystalPopulationRequirement;
   /** Structural graph facts computed once and reused across the three
    * graph-shaped checks (relationship-density, graph-connectivity,
    * orphan-detection) — reported here too so a caller doesn't have to
@@ -326,6 +467,34 @@ function looksDerivationEligible(inv: InvariantRecord): boolean {
 }
 
 /**
+ * The analysis fields for a report that could not read the substrate. Reported
+ * absent-as-zero with an explicitly empty assessment rather than omitted, so a
+ * consumer's field access never throws — but nothing here may read as a
+ * finding: an infrastructure fault tells us nothing about the collection.
+ */
+function degradedAnalysisFields() {
+  return {
+    duplicates: {
+      lexicalPairCount: 0,
+      semanticPairCount: 0,
+      unionPairCount: 0,
+      semanticOnlyPairCount: 0,
+      distinctStatementEstimate: 0,
+      semanticPairs: [] as SemanticDuplicatePair[],
+    },
+    inferentialCapacity: assessInferentialCapacity([]),
+    coverage: {
+      boundaryNamespaceCount: 0,
+      representedNamespaceCount: 0,
+      ratio: 0,
+      representedNamespaces: [] as string[],
+      missingNamespaces: [] as string[],
+    },
+    populationRequirement: deriveCrystalPopulationRequirement(),
+  };
+}
+
+/**
  * Intra-crystal edges only: both endpoints must be members of the domain's
  * own invariant set. An edge reaching OUTSIDE the crystal says nothing about
  * whether the crystal is internally related — counting it would let a single
@@ -426,8 +595,12 @@ export async function runCrystalReadinessReport(
   // domain still wins, so ad-hoc inspection of any domain is unaffected.
   const crystalDomain =
     input.crystalDomain ?? crystalDomainForExperiment(input.experimentId)?.domain ?? 'constitutional-reasoning';
-  const minMeaningfulSliceSize = input.minMeaningfulSliceSize ?? 5;
-  const minDerivationEligibleFraction = input.minDerivationEligibleFraction ?? 0.2;
+  // Both retired as gates (IRL Review #001) — see their doc comments. Read
+  // only to be REPORTED, never to decide a check. `?? null` rather than a
+  // numeric default on purpose: there is no longer any number for the gate to
+  // fall back to.
+  const reportedLegacySliceFloor = input.minMeaningfulSliceSize ?? null;
+  const reportedLegacyDerivationFloor = input.minDerivationEligibleFraction ?? null;
   const maxDominantShapeFraction = input.maxDominantShapeFraction ?? 0.8;
   const duplicateSimilarityThreshold = input.duplicateSimilarityThreshold ?? 0.85;
   const fetchLimit = input.fetchLimit ?? 500;
@@ -450,6 +623,7 @@ export async function runCrystalReadinessReport(
       populations: { A: 0, B: 0, C: 0, unclassified: 0, ablationCount: 0 },
       derivationEligibleFraction: 0,
       duplicatePairCount: 0,
+      ...degradedAnalysisFields(),
       graph: {
         relationshipCount: 0,
         relationshipDensity: 0,
@@ -494,51 +668,151 @@ export async function runCrystalReadinessReport(
     `extract candidates, validate them through the receipted lifecycle, and assign the eligible ones to the ` +
     `ratified domain. Scientific work; no governance act and no code change moves it.`;
 
-  // 1. Selection space — Arm C's fixed slice must remain a genuine ⊆40%
-  // proper subset at meaningful size (EXP-P1 README §3).
-  const sliceCap = Math.floor(invariantCount * 0.4);
+  // ── 1. SELECTION SPACE — now §3.6-DERIVED (IRL Review #001, finding 3) ────
+  //
+  // The gate was `sliceCap >= 5`. The frozen §3.6 guard had already ruled, with
+  // worked arithmetic, that an 18-invariant collection (slice cap 7) was
+  // "plainly insufficient to ground 24 tasks incl. 12 derivation items". A bar
+  // of 5 therefore passed collections the protocol had already rejected. The
+  // arithmetic is now derived and PRINTED, both operands and their sources
+  // named, so a reader can audit the division without reading code.
+  const populationRequirement = deriveCrystalPopulationRequirement(
+    input.taskSet && input.taskSet.length > 0 ? { tasks: input.taskSet } : {},
+  );
+  const sliceFraction = populationRequirement.sliceFractionOfCrystal;
+  const sliceCap = Math.floor(invariantCount * sliceFraction);
+  const requiredSlice = populationRequirement.requiredEvaluationSliceSize;
+  const minimumCollection = populationRequirement.minimumCollectionSize;
+  const requirementDerivable = populationRequirement.derivable && requiredSlice !== null;
   const selectionSpaceOk =
-    invariantCount > 0 && sliceCap >= minMeaningfulSliceSize && sliceCap < invariantCount;
+    requirementDerivable &&
+    invariantCount > 0 &&
+    sliceCap >= (requiredSlice as number) &&
+    sliceCap < invariantCount;
+  const legacyFloorNote =
+    reportedLegacySliceFloor === null
+      ? ''
+      : ` (caller supplied the RETIRED minMeaningfulSliceSize=${reportedLegacySliceFloor}; it is reported ` +
+        `here and does not affect this gate)`;
   checks.push({
     name: 'selection-space',
-    tier: 'scientific-readiness',
+    tier: tierForCheck('selection-space'),
     passed: selectionSpaceOk,
-    detail:
-      invariantCount === 0
-        ? `no invariants found in domain '${crystalDomain}' — no ⊆40% subset choice is possible`
-        : `⌊0.4 × ${invariantCount}⌋ = ${sliceCap} available for a fixed Arm C slice ` +
-          `(need ≥ ${minMeaningfulSliceSize} to be meaningful, and < ${invariantCount} to remain a proper subset)`,
+    detail: !requirementDerivable
+      ? `INSUFFICIENT INPUT — the §3.6 population requirement is not derivable: ` +
+        `${populationRequirement.insufficientInputs.join('; ') || 'no derivation was produced'}. ` +
+        `Reported as unknown and failed closed; this check does NOT fall back to a default slice floor.` +
+        legacyFloorNote
+      : invariantCount === 0
+        ? `no invariants found in domain '${crystalDomain}' — no ⊆${(sliceFraction * 100).toFixed(0)}% subset ` +
+          `choice is possible. Derived requirement: ${requiredSlice} ÷ ${sliceFraction.toFixed(2)} = ` +
+          `${minimumCollection} minimum collection size.`
+        : `⌊${sliceFraction.toFixed(2)} × ${invariantCount}⌋ = ${sliceCap} usable statement(s) available for the ` +
+          `fixed Arm C slice. DERIVED REQUIREMENT (${populationRequirement.sliceDemandBasis}): required ` +
+          `evaluation slice = ${requiredSlice} ⇒ minimum collection size = ${requiredSlice} ÷ ` +
+          `${sliceFraction.toFixed(2)} = ${minimumCollection}. This collection holds ${invariantCount}` +
+          (invariantCount < (minimumCollection as number)
+            ? `, short of ${minimumCollection} by ${(minimumCollection as number) - invariantCount}`
+            : `, at or above ${minimumCollection}`) +
+          `; the slice must also remain a proper subset (${sliceCap} < ${invariantCount}). ` +
+          `${populationRequirement.crossCheckAgainstSection6} Derivation: ` +
+          populationRequirement.derivation.join(' | ') +
+          legacyFloorNote,
     remedy: selectionSpaceOk
       ? null
-      : invariantCount === 0
-        ? EMPTY_DOMAIN_REMEDY
-        : `Grow the collection. At ${invariantCount} invariants the ⊆40% guard caps the Arm C slice at ` +
-          `${sliceCap}, below the ${minMeaningfulSliceSize} a meaningful subset needs. Continue Track 2 accrual — ` +
-          `the size falls out of the frozen task set and this guard, never from a chosen number, and no invariant ` +
-          `is authored to reach one. Scientific work.`,
+      : !requirementDerivable
+        ? `Register the missing task-design input, then re-run. The population requirement derives from the ` +
+          `frozen ⊆${(sliceFraction * 100).toFixed(0)}% guard and the task set; with neither a finalized task ` +
+          `set nor the registered minimum design readable, no honest requirement exists and this check must ` +
+          `report unknown rather than invent one. Do NOT reintroduce a default slice floor.`
+        : invariantCount === 0
+          ? EMPTY_DOMAIN_REMEDY
+          : `Grow the collection to at least ${minimumCollection}. At ${invariantCount} invariants the ` +
+            `⊆${(sliceFraction * 100).toFixed(0)}% guard caps the Arm C slice at ${sliceCap}, below the ` +
+            `${requiredSlice} usable statements the task design demands. The floor is DERIVED — it rises ` +
+            `mechanically if the finalized task set demands a larger slice, and no invariant is authored to ` +
+            `reach it. Continue Track 2 accrual. Scientific work.`,
   });
 
-  // 2. Derivation headroom (heuristic — see looksDerivationEligible's docs).
+  // ── 2. DERIVATION HEADROOM — now INFERENTIAL CAPACITY (finding 2) ─────────
+  //
+  // The gate was `≥20% of members have semanticType ∈ {constraint, law} or a
+  // connective word`. The check's own label claimed "the collection is not only
+  // atomic assertions"; the measurement could not distinguish label diversity
+  // from inferential capacity, which is exactly the reviewer's closing flag.
+  //
+  // It now gates on §6(d)'s actual requirement — invariants "whose CONJUNCTIONS
+  // entail unstated conclusions" — via `assessInferentialCapacity`. The old
+  // proxy is still computed and REPORTED beside the real figure, because a high
+  // proxy next to a near-zero capacity is the signature of the vP1 defect and a
+  // reader should be able to see it.
   const derivationEligible = invariants.filter(looksDerivationEligible);
   const derivationFraction = invariantCount > 0 ? derivationEligible.length / invariantCount : 0;
-  const derivationOk = invariantCount > 0 && derivationFraction >= minDerivationEligibleFraction;
+  const capacity = assessInferentialCapacity(
+    invariants.map((inv) => ({ id: inv.id, statement: inv.statement })),
+  );
+  const requiredChains = populationRequirement.requiredEntailmentChains;
+  const requiredCapacityFraction = populationRequirement.requiredInferentialCapacityFraction;
+  const capacityRequirementDerivable =
+    populationRequirement.derivable && requiredChains !== null && requiredCapacityFraction !== null;
+  const derivationOk =
+    capacityRequirementDerivable &&
+    invariantCount > 0 &&
+    capacity.entailmentChainCount >= (requiredChains as number) &&
+    capacity.inferentialCapacityFraction >= (requiredCapacityFraction as number);
+  const structuresLine =
+    `structures present: ${capacity.structuresPresent.length > 0 ? capacity.structuresPresent.join(', ') : 'NONE'}` +
+    `; absent: ${capacity.structuresAbsent.length > 0 ? capacity.structuresAbsent.join(', ') : 'none'}`;
+  const legacyProxyNote =
+    reportedLegacyDerivationFloor === null
+      ? ''
+      : ` (caller supplied the RETIRED minDerivationEligibleFraction=${reportedLegacyDerivationFloor}; reported, ` +
+        `not applied)`;
   checks.push({
     name: 'derivation-headroom',
-    tier: 'scientific-readiness',
+    tier: tierForCheck('derivation-headroom'),
     passed: derivationOk,
     remedy: derivationOk
       ? null
       : invariantCount === 0
         ? EMPTY_DOMAIN_REMEDY
-        : `Acquire relational and conditional structure, not more facts. The 12 derivation tasks need invariants ` +
-          `whose CONJUNCTIONS entail unstated conclusions; a collection of isolated atomic assertions gives the ` +
-          `generative-sufficiency probe nothing to measure. Target sources accordingly in Track 2 — this is not ` +
-          `fixed by re-tagging existing rows. Scientific work.`,
-    detail:
-      `${derivationEligible.length}/${invariantCount} invariants show relational/conditional/compositional ` +
-      `shape by a HEURISTIC proxy (semanticType ∈ {constraint, law}, or a logical-connective statement pattern) ` +
-      `— ${(derivationFraction * 100).toFixed(1)}%, need ≥ ${(minDerivationEligibleFraction * 100).toFixed(0)}%. ` +
-      `This is not a formal entailment check.`,
+        : !capacityRequirementDerivable
+          ? `Register the missing task-design input, then re-run — the chain demand derives from the derivation-task ` +
+            `count and cannot be assumed. This check reports unknown rather than substituting a fraction.`
+          : `Acquire relational structure, not more facts. This collection carries ` +
+            `${capacity.relationalMemberCount}/${invariantCount} member(s) asserting ANY of the seven relational ` +
+            `structures (causal, conditional, propagation, constraint, threshold, trade-off, quantitative) and ` +
+            `${capacity.entailmentChainCount} conjunction(s) that entail an unstated conclusion, against the ` +
+            `${requiredChains} the derivation tasks demand. ` +
+            (capacity.bareNecessityCount > 0
+              ? `${capacity.bareNecessityCount} member(s) are bare necessity/dependency generalities ("X is ` +
+                `essential for Y") — they assert that something matters without saying by what mechanism, in ` +
+                `which direction it propagates, under what condition it triggers, or across what magnitude. ` +
+                `Their conjunctions entail only type-preserving transitivity ` +
+                `(${capacity.degenerateNecessityChainCount} such chain(s), counted and EXCLUDED). `
+              : '') +
+            `Target sources that state propagation mechanics, conditional dependencies and quantitative ` +
+            `constraints. This is NOT fixed by re-tagging existing rows, and it is NOT fixed by rewriting ` +
+            `statement text — authoring stronger invariants to pass this gate would contaminate the experiment. ` +
+            `Scientific work.`,
+    detail: !capacityRequirementDerivable
+      ? `INSUFFICIENT INPUT — the derived entailment-chain demand is unavailable: ` +
+        `${populationRequirement.insufficientInputs.join('; ') || 'no derivation was produced'}. Failed closed.` +
+        legacyProxyNote
+      : `INFERENTIAL CAPACITY (what this check now measures): ` +
+        `${capacity.entailmentChainCount} conjunction(s) entail an unstated conclusion, need ≥ ${requiredChains}; ` +
+        `${capacity.inferentiallyCapableCount}/${invariantCount} member(s) participate in one ` +
+        `(${(capacity.inferentialCapacityFraction * 100).toFixed(1)}%, need ≥ ` +
+        `${((requiredCapacityFraction as number) * 100).toFixed(1)}%). ` +
+        `${capacity.relationalMemberCount}/${invariantCount} assert ≥1 of the seven relational structures; ` +
+        `${structuresLine}. ${capacity.bareNecessityCount} bare necessity/dependency generality(ies); ` +
+        `${capacity.unparsedCount} statement(s) matched no relation lexeme; ` +
+        `${capacity.degenerateNecessityChainCount} degenerate necessity-transitivity chain(s) excluded. ` +
+        `LABEL-DIVERSITY PROXY, for comparison only and no longer gating: ${derivationEligible.length}/` +
+        `${invariantCount} (${(derivationFraction * 100).toFixed(1)}%) by semanticType ∈ {constraint, law} or a ` +
+        `connective word — the measure the reviewer identified as scoring labels rather than content. ` +
+        `MECHANISM: ${capacity.mechanism}` +
+        legacyProxyNote,
   });
 
   // 3. Structural diversity — spans multiple semantic_types, not N
@@ -551,7 +825,7 @@ export async function runCrystalReadinessReport(
     invariantCount > 0 && distinctShapes >= 2 && dominantShapeFraction <= maxDominantShapeFraction;
   checks.push({
     name: 'structural-diversity',
-    tier: 'scientific-maturity',
+    tier: tierForCheck('structural-diversity'),
     passed: diversityOk,
     remedy: diversityOk
       ? null
@@ -570,11 +844,35 @@ export async function runCrystalReadinessReport(
       `> ${(maxDominantShapeFraction * 100).toFixed(0)}%)`,
   });
 
-  // 4. Duplicate detection (heuristic — see findNearDuplicatePairs's docs).
-  const duplicatePairs = findNearDuplicatePairs(invariants, duplicateSimilarityThreshold);
+  // ── 4. DUPLICATE DETECTION — lexical ∪ SEMANTIC (finding 1) ───────────────
+  //
+  // The gate was word-set Jaccard alone, which structurally cannot see
+  // "Liquidity is essential for market stability" ≡ "Market stability depends
+  // on adequate liquidity" — the two share almost no words. The semantic pass
+  // compares direction-canonicalised predicate-argument forms and does. The
+  // gate is the UNION, so nothing the lexical pass caught is lost, and
+  // `distinctStatementEstimate` answers the reviewer's actual question: how
+  // many distinct statements does this collection really contain?
+  const lexicalPairs = findNearDuplicatePairs(invariants, duplicateSimilarityThreshold);
+  const semanticPairs = findSemanticDuplicatePairs(
+    invariants.map((inv) => ({ id: inv.id, statement: inv.statement })),
+  );
+  const pairKey = (a: string, b: string) => [a, b].sort().join('~');
+  const lexicalKeys = new Set(lexicalPairs.map(([a, b]) => pairKey(a, b)));
+  const unionMap = new Map<string, [string, string]>();
+  for (const [a, b] of lexicalPairs) unionMap.set(pairKey(a, b), [a, b]);
+  for (const p of semanticPairs) unionMap.set(pairKey(p.aId, p.bId), [p.aId, p.bId]);
+  const duplicatePairs = [...unionMap.values()];
+  const semanticOnlyPairCount = semanticPairs.filter(
+    (p) => !lexicalKeys.has(pairKey(p.aId, p.bId)),
+  ).length;
+  const distinctStatementEstimate =
+    invariantCount > 0
+      ? connectedComponents(invariants.map((inv) => inv.id), duplicatePairs).length
+      : 0;
   checks.push({
     name: 'duplicate-detection',
-    tier: 'scientific-readiness',
+    tier: tierForCheck('duplicate-detection'),
     // FAIL-CLOSED FIX 2026-07-26: this was `duplicatePairs.length === 0`, which
     // reports passed:true on an EMPTY collection — "no duplicates found" is
     // vacuously true when there is nothing to compare. Every sibling check
@@ -588,9 +886,17 @@ export async function runCrystalReadinessReport(
         ? `no invariants found in domain '${crystalDomain}' — duplicate detection has nothing to compare, ` +
           `which is not evidence of readiness`
         : duplicatePairs.length === 0
-          ? 'no near-duplicate statements found at the configured similarity threshold (lexical heuristic only)'
-          : `${duplicatePairs.length} near-duplicate statement pair(s) found (e.g. ${duplicatePairs[0][0]} ~ ` +
-            `${duplicatePairs[0][1]}) — unresolved duplicates fail this check`,
+          ? `no near-duplicate statements found by EITHER mechanism: lexical word-set similarity at ` +
+            `${duplicateSimilarityThreshold}, or semantic predicate-argument form comparison ` +
+            `(direction-canonicalised). ${distinctStatementEstimate}/${invariantCount} statements are distinct.`
+          : `${duplicatePairs.length} near-duplicate pair(s) — ${lexicalPairs.length} lexical, ` +
+            `${semanticPairs.length} semantic, of which ${semanticOnlyPairCount} were invisible to the lexical ` +
+            `pass. DISTINCT-STATEMENT ESTIMATE: ${distinctStatementEstimate} of ${invariantCount} nominal ` +
+            `members (equivalence classes under the union relation). ` +
+            (semanticPairs.length > 0
+              ? `e.g. ${semanticPairs[0].aId} ~ ${semanticPairs[0].bId}: ${semanticPairs[0].detail}. `
+              : `e.g. ${duplicatePairs[0][0]} ~ ${duplicatePairs[0][1]}. `) +
+            `Unresolved duplicates fail this check.`,
     remedy:
       invariantCount > 0 && duplicatePairs.length === 0
         ? null
@@ -598,9 +904,11 @@ export async function runCrystalReadinessReport(
           ? EMPTY_DOMAIN_REMEDY
           : `Resolve each of the ${duplicatePairs.length} pair(s): merge the duplicate into a survivor ` +
             `(mergeInvariants unions their contexts and marks the merged row 'superseded'), or record a ` +
-            `'supersedes' relationship if one genuinely replaces the other. Do NOT raise the similarity ` +
-            `threshold — this is a lexical heuristic, so a flagged pair a steward judges distinct is a finding ` +
-            `to record, not a setting to change. Steward work.`,
+            `'supersedes' relationship if one genuinely replaces the other. Do NOT raise either threshold — ` +
+            `both passes are heuristics, so a flagged pair a steward judges distinct is a finding to record, ` +
+            `not a setting to change. Note the count that matters is the DISTINCT-STATEMENT estimate ` +
+            `(${distinctStatementEstimate}), not the nominal ${invariantCount}: every downstream size ` +
+            `requirement is against distinct statements. Steward work.`,
   });
 
   // 5. Provenance eligibility — Population A only (§2a as refined 2026-07-27).
@@ -615,7 +923,7 @@ export async function runCrystalReadinessReport(
   const ineligibleForCrystal = invariantCount - eligibleCount;
   checks.push({
     name: 'provenance-eligibility',
-    tier: 'scientific-readiness',
+    tier: tierForCheck('provenance-eligibility'),
     passed: invariantCount > 0 && eligibleCount === invariantCount,
     remedy:
       invariantCount > 0 && eligibleCount === invariantCount
@@ -652,7 +960,7 @@ export async function runCrystalReadinessReport(
   const zeroValidated = invariants.filter((inv) => inv.timesValidated <= 0);
   checks.push({
     name: 'lifecycle-validation-integrity',
-    tier: 'scientific-readiness',
+    tier: tierForCheck('lifecycle-validation-integrity'),
     passed: invariantCount > 0 && zeroValidated.length === 0,
     detail:
       invariantCount > 0 && zeroValidated.length === 0
@@ -709,7 +1017,7 @@ export async function runCrystalReadinessReport(
   const EDGE_ROUTE = 'POST /api/invariants/<id>/edges { toInvariantId, relation, rationale, evidenceRefs }';
   checks.push({
     name: 'relationship-density',
-    tier: 'scientific-readiness',
+    tier: tierForCheck('relationship-density'),
     passed: densityOk,
     remedy: densityOk
       ? null
@@ -739,7 +1047,7 @@ export async function runCrystalReadinessReport(
   const connectivityOk = invariantCount > 1 && connectivityRatio >= minConnectivityRatio;
   checks.push({
     name: 'graph-connectivity',
-    tier: 'scientific-maturity',
+    tier: tierForCheck('graph-connectivity'),
     passed: connectivityOk,
     remedy: connectivityOk
       ? null
@@ -764,7 +1072,7 @@ export async function runCrystalReadinessReport(
   const orphansOk = invariantCount > 0 && orphanFraction <= maxOrphanFraction;
   checks.push({
     name: 'orphan-detection',
-    tier: 'scientific-readiness',
+    tier: tierForCheck('orphan-detection'),
     passed: orphansOk,
     remedy: orphansOk
       ? null
@@ -782,6 +1090,73 @@ export async function runCrystalReadinessReport(
           `(${(orphanFraction * 100).toFixed(1)}%), need ≤ ${(maxOrphanFraction * 100).toFixed(0)}%` +
           (orphans.length > 0 ? ` — e.g. ${orphans[0].id}` : '') +
           edgeFetchSuffix,
+  });
+
+  // ── 10. BOUNDARY COVERAGE — the one new check name (finding 4) ────────────
+  //
+  // WHY IT IS A GATE, AND WHY IT IS `scientific-readiness`.
+  //
+  // Coverage was already computed (crystalStatistics.coverageEstimate) and
+  // already disclosed (crystalFreezeRecommendation: "not itself a gate, but a
+  // scope fact the operator should see"). Disclosure was not enough: at 2 of 15
+  // declared namespaces the independent reviewer could not author the task set
+  // at all — "without either broad failure or contamination". A crystal that
+  // cannot support task authorship against ITS OWN DECLARED BOUNDARY fails a
+  // pre-registered protocol condition (§5.1: IRL provides the domain corpus
+  // boundary, the reviewer authors tasks against it; §5.4: every task must be
+  // answerable from the material). That is not a maturity aspiration, which is
+  // why it sits in the gating tier and not beside structural-diversity.
+  //
+  // WHY THE REQUIREMENT IS FULL REPRESENTATION AND NOT SOME RATIO. No ratio
+  // threshold is derivable from any registered constraint, and inventing one
+  // would repeat the `?? 5` defect. What IS derivable: any boundary namespace
+  // with zero members is a region the reviewer may author into and that nothing
+  // grounds. So the requirement is a CONSISTENCY requirement between two
+  // declared things, with no chosen number in it.
+  //
+  // THE REMEDY IS CORPUS EXTENSION, NEVER BOUNDARY NARROWING. Coverage can be
+  // made to pass arithmetically either way, and the second way is a governance
+  // act — the operator has ruled it "will be surfaced as a separate governance
+  // decision rather than an implementation shortcut". This check therefore
+  // REPORTS against the declared boundary and never adjusts it; the remedy text
+  // says so explicitly so a reader under delivery pressure cannot mistake the
+  // shortcut for a fix.
+  const declaredBoundary = input.declaredNamespaceBoundary ?? INVARIANT_NAMESPACES;
+  const representedNamespaces = new Set(invariants.map((inv) => inv.namespace));
+  const missingNamespaces = declaredBoundary.filter((ns) => !representedNamespaces.has(ns as never));
+  const representedInBoundary = declaredBoundary.filter((ns) => representedNamespaces.has(ns as never));
+  const coverageRatio =
+    declaredBoundary.length > 0 ? representedInBoundary.length / declaredBoundary.length : 0;
+  const coverageOk = invariantCount > 0 && declaredBoundary.length > 0 && missingNamespaces.length === 0;
+  checks.push({
+    name: 'boundary-coverage',
+    tier: tierForCheck('boundary-coverage'),
+    passed: coverageOk,
+    detail:
+      invariantCount === 0
+        ? `no invariants found in domain '${crystalDomain}' — 0/${declaredBoundary.length} declared namespaces ` +
+          `represented; coverage has nothing to measure, which is not evidence of readiness`
+        : `${representedInBoundary.length}/${declaredBoundary.length} declared namespaces represented ` +
+          `(${(coverageRatio * 100).toFixed(1)}%)` +
+          (missingNamespaces.length > 0
+            ? ` — unrepresented: ${missingNamespaces.join(', ')}. A reviewer authoring tasks against the ` +
+              `declared boundary (§5.1) may author into any of these, and nothing in the crystal grounds ` +
+              `them (§5.4).`
+            : ` — every declared namespace is represented.`) +
+          (input.declaredNamespaceBoundary
+            ? ` Measured against a CALLER-SUPPLIED boundary, not the ratified ontology — an inspection, not a ` +
+              `narrowing of the ratified boundary.`
+            : ` Measured against the ratified INVARIANT_NAMESPACES ontology (types/invariants.ts).`),
+    remedy: coverageOk
+      ? null
+      : invariantCount === 0
+        ? EMPTY_DOMAIN_REMEDY
+        : `Extend the corpus into the ${missingNamespaces.length} unrepresented namespace(s): ` +
+          `${missingNamespaces.join(', ')}. Continue Track 2 acquisition targeted at those regions. ` +
+          `DO NOT narrow the declared boundary to fit the material that happens to have been acquired — ` +
+          `that would make this check pass without changing anything about what the crystal can ground, and ` +
+          `narrowing a ratified boundary is a SEPARATE GOVERNANCE DECISION that must be surfaced as one, ` +
+          `never taken as an implementation shortcut. Scientific work.`,
   });
 
   // READY FOR FREEZE never depends on a `scientific-maturity` check (operator
@@ -849,6 +1224,23 @@ export async function runCrystalReadinessReport(
     },
     derivationEligibleFraction: derivationFraction,
     duplicatePairCount: duplicatePairs.length,
+    duplicates: {
+      lexicalPairCount: lexicalPairs.length,
+      semanticPairCount: semanticPairs.length,
+      unionPairCount: duplicatePairs.length,
+      semanticOnlyPairCount,
+      distinctStatementEstimate,
+      semanticPairs,
+    },
+    inferentialCapacity: capacity,
+    coverage: {
+      boundaryNamespaceCount: declaredBoundary.length,
+      representedNamespaceCount: representedInBoundary.length,
+      ratio: coverageRatio,
+      representedNamespaces: [...representedNamespaces].sort(),
+      missingNamespaces: [...missingNamespaces],
+    },
+    populationRequirement,
     graph: {
       relationshipCount,
       relationshipDensity,

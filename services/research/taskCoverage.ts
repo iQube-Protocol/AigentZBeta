@@ -60,6 +60,21 @@ export interface TaskDefinition {
   expectedAnswer: string;
 }
 
+/**
+ * The premise-composition primitive, in ONE place.
+ *
+ * Recall tasks need ≥1 grounding invariant; derivation tasks need ≥2, because a
+ * derivation requires composing premises (PRD-EPI-001 §3.2's "multi-invariant
+ * entailment path"). Exported 2026-08-26 so
+ * `crystalPopulationRequirement.ts`'s §3.6 derivation READS this rule rather
+ * than restating it — a second copy of it would be exactly the parallel
+ * source-of-truth defect `inv.engineering.036/037` forbids. `runTaskCoverageReport`
+ * below consumes the same function, so the two can never disagree.
+ */
+export function minimumPremisesForTaskKind(kind: TaskKind): number {
+  return kind === 'derivation' ? 2 : 1;
+}
+
 export interface TaskCoverageResult {
   taskId: string;
   covered: boolean;
@@ -154,7 +169,7 @@ export async function runTaskCoverageReport(
 
   const taskResults: TaskCoverageResult[] = tasks.map((task) => {
     const missingInvariantIds = task.requiredInvariantIds.filter((id) => !memberIds.has(id));
-    const minPremises = task.kind === 'derivation' ? 2 : 1;
+    const minPremises = minimumPremisesForTaskKind(task.kind);
     const covered = missingInvariantIds.length === 0 && task.requiredInvariantIds.length >= minPremises;
     return { taskId: task.id, covered, missingInvariantIds };
   });

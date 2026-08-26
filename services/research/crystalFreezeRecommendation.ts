@@ -122,15 +122,20 @@ export function composeCrystalFreezeRecommendation(
   statistics: CrystalStatisticsReport,
 ): CrystalFreezeRecommendation {
   const named = [
-    ['selection-space', 'sufficient-coverage', 'Sufficient coverage — a genuine, meaningful Arm C slice exists'],
-    ['derivation-headroom', 'derivational-headroom-satisfied', 'Derivational headroom satisfied — the collection is not only atomic assertions'],
+    ['selection-space', 'sufficient-coverage', 'Sufficient population — the ⊆40% Arm C slice meets the §3.6-derived evaluation-slice demand'],
+    ['derivation-headroom', 'derivational-headroom-satisfied', 'Derivational headroom satisfied — conjunctions entail unstated conclusions, not merely relational-looking labels'],
     ['structural-diversity', 'structural-diversity-satisfied', 'Structural diversity satisfied — multiple semantic-type shapes present'],
-    ['duplicate-detection', 'no-duplicate-inflation', 'No duplicate inflation — no unresolved near-duplicate statements'],
+    ['duplicate-detection', 'no-duplicate-inflation', 'No duplicate inflation — no unresolved near-duplicate statements, lexical or semantic'],
     ['provenance-eligibility', 'provenance-verified', 'Provenance verified — every invariant carries an external evidence basis (Population A)'],
     ['lifecycle-validation-integrity', 'lifecycle-validated', 'Lifecycle/validation integrity — no zero-validation filler entries'],
     ['relationship-density', 'relationship-density-satisfied', 'Relationship density satisfied — the collection is graph-related, not a bag of statements'],
     ['graph-connectivity', 'graph-connectivity-satisfied', 'Graph connectivity satisfied — not fragmented into many disjoint clusters'],
     ['orphan-detection', 'no-excess-orphans', 'No excess orphans — few or no invariants carry zero relationships'],
+    // Added by IRL Review #001 remediation cycle 1 (2026-08-26). CFS-054 §2.5
+    // pins nine check names; this is the tenth, and the amendment that makes the
+    // constitutional contract match the executable one is drafted for operator
+    // ratification (see the closeout doc) — never self-ratified here.
+    ['boundary-coverage', 'boundary-coverage-satisfied', 'Boundary coverage satisfied — every declared namespace is represented, so tasks can be authored against the boundary'],
   ] as const;
 
   const rationale: FreezeRationaleItem[] = named.map(([checkName, id, label]) => {
@@ -179,20 +184,43 @@ export function composeCrystalFreezeRecommendation(
   if (statistics.duplicateRatio > 0) {
     remainingRisks.push(
       `Non-zero duplicate ratio (${(statistics.duplicateRatio * 100).toFixed(2)}%) even though the gating ` +
-        `duplicate-detection check passed at the configured threshold — a heuristic lexical measure, not a ` +
-        'semantic dedup guarantee.',
+        `duplicate-detection check passed at the configured thresholds. As of IRL Review #001 the gate is the ` +
+        `UNION of a lexical word-set pass and a semantic predicate-argument-form pass ` +
+        `(${readiness.duplicates.lexicalPairCount} lexical, ${readiness.duplicates.semanticPairCount} semantic, ` +
+        `${readiness.duplicates.semanticOnlyPairCount} semantic-only); distinct-statement estimate ` +
+        `${readiness.duplicates.distinctStatementEstimate}/${readiness.invariantCount}. Both passes remain ` +
+        `heuristics — the semantic one compares parsed relation forms, not meanings, and cannot see a duplicate ` +
+        `expressed in different concept vocabulary.`,
     );
   }
-  if (statistics.coverageEstimate.ratio < 1) {
+  // Coverage IS a gate as of IRL Review #001 (`boundary-coverage`), so it no
+  // longer belongs here as advisory prose — a fact that gates and is also
+  // disclosed as "not a gate" is the same fact contradicting itself. What
+  // remains a disclosed risk is the part the gate cannot reach.
+  if (readiness.coverage.missingNamespaces.length > 0) {
     remainingRisks.push(
-      `Domain coverage is ${(statistics.coverageEstimate.ratio * 100).toFixed(1)}% of the ratified namespace ` +
-        `boundary (${statistics.coverageEstimate.representedNamespaceCount}/${statistics.coverageEstimate.boundaryNamespaceCount}) ` +
-        '— not itself a gate, but a scope fact the operator should see before ratifying a domain boundary.',
+      `Boundary coverage is ${(readiness.coverage.ratio * 100).toFixed(1)}% of the declared namespace boundary ` +
+        `(${readiness.coverage.representedNamespaceCount}/${readiness.coverage.boundaryNamespaceCount}); ` +
+        `unrepresented: ${readiness.coverage.missingNamespaces.join(', ')}. This now GATES via ` +
+        `'boundary-coverage'. The only sanctioned remedy is corpus extension — narrowing the declared boundary ` +
+        `would make the gate pass without changing what the crystal can ground, and is a separate governance ` +
+        `decision that must be surfaced as one.`,
     );
   }
   remainingRisks.push(
-    'Duplicate and derivation-eligibility detection are lexical/statement-shape heuristics (documented limits in ' +
-      'crystalReadiness.ts) — neither is a formal semantic-entailment check.',
+    'Duplicate detection and derivation headroom are STRUCTURAL heuristics (documented limits in ' +
+      'crystalSemanticStructure.ts): statements are reduced to (determinant, relationClass, dependent) by lexeme ' +
+      'match, so a relation carried by an unlisted lexeme parses as unrecognised, and a duplicate expressed in ' +
+      'different concept vocabulary is not detected. An "entailment chain" establishes that a conjunction has ' +
+      'somewhere to go, not that the conclusion is true — it is not a formal entailment proof.',
+  );
+  remainingRisks.push(
+    `Population requirement (${readiness.populationRequirement.sliceDemandBasis}): required evaluation slice ` +
+      `${readiness.populationRequirement.requiredEvaluationSliceSize ?? 'unknown'} ÷ ` +
+      `${readiness.populationRequirement.sliceFractionOfCrystal.toFixed(2)} = minimum collection size ` +
+      `${readiness.populationRequirement.minimumCollectionSize ?? 'unknown'}. Derived from the frozen §3.6 guard ` +
+      `and the task design, never from a chosen target; it rises mechanically if the finalized task set demands ` +
+      `a larger slice.`,
   );
   remainingRisks.push(
     'Relationship/connectivity checks read only recorded invariant_edges rows — a corpus with real but ' +

@@ -815,6 +815,20 @@ export const PRE_REGISTERED_READINESS_CHECKS: readonly string[] = [
   'graph-connectivity',
   'orphan-detection',
   'duplicate-detection',
+  // Added 2026-08-26 (IRL Review #001, remediation cycle 1). `boundary-coverage`
+  // is a `scientific-readiness`-tier gate in `crystalReadiness.ts`, so omitting
+  // it here would mean an in-scope exception did NOT block a freeze when the
+  // ONLY failing gate was boundary coverage — the two lists would silently
+  // disagree about what "the crystal is passing" means.
+  //
+  // This list is a hand-maintained MIRROR of the executable contract
+  // (`crystalInstrumentSuite.ts::CRYSTAL_READINESS_CHECK_CONTRACT`), deliberately
+  // not an import: deriving it would pull the whole instrument suite (and its
+  // substrate-touching dependencies) into this module for a list of strings.
+  // Per this repo's source-of-truth rule, a mirror that cannot be derived gets a
+  // PARITY CANARY instead — `tests/source-of-truth-parity.test.ts` fails the
+  // build if this list and the contract's names ever diverge.
+  'boundary-coverage',
 ];
 
 /** The minimum a caller must tell `computeFreezeBlocking` about the crystal

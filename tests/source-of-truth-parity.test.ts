@@ -237,6 +237,17 @@ import { readSource, stripComments } from './_lib/sourceAuthority';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { EXPERIMENT_REGISTRY, SERIES_REGISTRY } from '../types/research';
+import {
+  ARM_C_SLICE_FRACTION_OF_CRYSTAL,
+  REGISTERED_MINIMUM_TASK_DESIGN,
+  deriveCrystalPopulationRequirement,
+} from '../services/research/crystalPopulationRequirement';
+import {
+  CRYSTAL_READINESS_CHECK_CONTRACT,
+  checksRequiringCFS054Amendment,
+  crystalReadinessCheckNames,
+} from '../services/research/crystalInstrumentSuite';
+import { PRE_REGISTERED_READINESS_CHECKS } from '../services/research/exceptionIsolation';
 import { CAPABILITY_COMPLETION_SCHEMA_VERSION } from '../types/capabilityCompletion';
 import { ASSIGNABLE_EXPERIMENTS } from '../services/passport/participationAccess';
 import { FINANCIAL_DOMAINS } from '../services/constitutional/financialIntelligenceExecutor';
@@ -2104,5 +2115,95 @@ describe('Corpus Scout admission recommendation — aggregates existing lineage,
     );
     expect(manualBranch.length).toBeGreaterThan(100);
     expect(manualBranch).not.toMatch(/<BulkAdmissionControl/);
+  });
+});
+
+// ── Crystal readiness instrument suite (IRL Review #001, 2026-08-26) ─────────
+
+describe('crystal readiness instruments — the hardened contract and its mirrors', () => {
+  const README_PATH = join(
+    process.cwd(),
+    'codexes/packs/irl/foundation/experiments/exp-p1-representation-runtime-gauntlet/README.md',
+  );
+  const CFS054_PATH = join(process.cwd(), 'codexes/packs/irl/foundation/CFS-054_crystal-freeze-specification.md');
+
+  it('REGISTERED_MINIMUM_TASK_DESIGN matches the frozen EXP-P1 README §5.2', () => {
+    // The §3.6 population derivation multiplies through these numbers, so a
+    // drift here silently moves a freeze gate. The README is the frozen source;
+    // this constant is a mirror, and a mirror of a markdown source that cannot
+    // be imported gets a parity canary rather than trust.
+    const readme = readFileSync(README_PATH, 'utf8');
+    expect(readme).toContain(`minimum **${REGISTERED_MINIMUM_TASK_DESIGN.totalTasks} tasks**`);
+    expect(readme).toContain(`${REGISTERED_MINIMUM_TASK_DESIGN.recallTasks} **recall**`);
+    expect(readme).toContain(`${REGISTERED_MINIMUM_TASK_DESIGN.derivationTasks} **derivation**`);
+    expect(REGISTERED_MINIMUM_TASK_DESIGN.recallTasks + REGISTERED_MINIMUM_TASK_DESIGN.derivationTasks).toBe(
+      REGISTERED_MINIMUM_TASK_DESIGN.totalTasks,
+    );
+  });
+
+  it('the ⊆40% slice guard matches the frozen README §6, and is the only constant in the formula', () => {
+    const readme = readFileSync(README_PATH, 'utf8');
+    expect(readme).toContain(`⊆ ${ARM_C_SLICE_FRACTION_OF_CRYSTAL * 100}%`);
+    // And the derived floor is a QUOTIENT, not a stored target: change the task
+    // design and it moves without a code edit.
+    const requirement = deriveCrystalPopulationRequirement();
+    expect(requirement.minimumCollectionSize).toBe(
+      Math.ceil((requirement.requiredEvaluationSliceSize as number) / ARM_C_SLICE_FRACTION_OF_CRYSTAL),
+    );
+  });
+
+  it('PRE_REGISTERED_READINESS_CHECKS mirrors the executable check contract EXACTLY', () => {
+    // Two homes for one list. `exceptionIsolation.ts` deliberately does not
+    // import the instrument suite (it would pull substrate-touching deps in for
+    // a list of strings), so the mirror is canaried instead. Drift means an
+    // in-scope exception stops blocking a freeze when a real gate is failing.
+    expect([...PRE_REGISTERED_READINESS_CHECKS].sort()).toEqual([...crystalReadinessCheckNames()].sort());
+  });
+
+  it('CFS-054 §2.5 pins nine names; the executable contract emits ten — flagged, not silently diverged', () => {
+    // The governance obligation, asserted rather than left in prose. THREE of
+    // the four Review #001 findings landed as implementation corrections behind
+    // already-pinned check names and need no amendment; `boundary-coverage` is
+    // a new first-class name and does. This canary fails if a future agent adds
+    // another unpinned check without recording the same obligation.
+    expect(checksRequiringCFS054Amendment()).toEqual(['boundary-coverage']);
+
+    const cfs054 = readFileSync(CFS054_PATH, 'utf8');
+    const pinned = CRYSTAL_READINESS_CHECK_CONTRACT.filter((c) => c.pinnedByCFS054).map((c) => c.name);
+    for (const name of pinned) {
+      expect(cfs054, `CFS-054 §2.5 must name the pinned check '${name}'`).toContain(`\`${name}\``);
+    }
+    // And the unpinned ones must NOT yet appear as ratified checks there —
+    // if one does, the amendment has landed and its contract entry must be
+    // updated to `pinnedByCFS054: true` rather than left lying.
+    for (const name of checksRequiringCFS054Amendment()) {
+      expect(
+        cfs054.includes(`\`${name}\``),
+        `'${name}' appears in CFS-054 — flip its contract entry to pinnedByCFS054: true`,
+      ).toBe(false);
+    }
+  });
+
+  it('crystalStatistics READS coverage from readiness rather than re-deriving it', () => {
+    // The figure that GATES (`boundary-coverage`) and the figure that DISPLAYS
+    // (`coverageEstimate`) must be one computation. Before Review #001 they
+    // were two, and only the displayed one existed.
+    const src = stripComments(readSource('services/research/crystalStatistics.ts'));
+    expect(src).toContain('readiness.coverage');
+    expect(src).not.toMatch(/representedNamespaces\s*=\s*new Set\(/);
+  });
+
+  it('the population requirement REUSES taskCoverage\'s premise primitive', () => {
+    const src = stripComments(readSource('services/research/crystalPopulationRequirement.ts'));
+    expect(src).toContain('minimumPremisesForTaskKind');
+    // A restated ternary would be a second home for the rule.
+    expect(src).not.toMatch(/kind\s*===\s*'derivation'\s*\?\s*2\s*:\s*1/);
+  });
+
+  it('no readiness gate falls back to the retired numeric floors', () => {
+    const src = stripComments(readSource('services/research/crystalReadiness.ts'));
+    // The exact drift this remediation removed: `?? 5` and `?? 0.2` as gates.
+    expect(src).not.toMatch(/minMeaningfulSliceSize\s*\?\?\s*\d/);
+    expect(src).not.toMatch(/minDerivationEligibleFraction\s*\?\?\s*[\d.]/);
   });
 });

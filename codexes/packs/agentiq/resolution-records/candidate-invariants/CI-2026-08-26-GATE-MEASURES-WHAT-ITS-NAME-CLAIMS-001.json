@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-26-GATE-MEASURES-WHAT-ITS-NAME-CLAIMS-001",
+  "statement": "A gate's name is a claim about what it establishes, and a gate that measures a cheaper proxy than its name asserts is a defect even while every individual line of it is correct and honestly documented. Where a proxy is the only available measurement, the gate must (a) be named for the proxy rather than for the property, or (b) report BOTH the proxy and the property it stands in for, in the result itself — never only in a source comment, because a disclosure that travels with the source and not with the result is invisible to every reader of a passing report.",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "irl",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "classification": "A NAMING-AND-DISCLOSURE discipline for evaluative code, distinct from the ordinary 'document your heuristics' advice. The pre-remediation instruments documented every limit precisely and in the right place, and it did not help: the limits were beside the implementations while the consumers read reports. What was missing was not candour but LOCATION — the honest caveat has to be in the artifact the decision is made from.",
+  "scope": "local",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/crystal-instrument-remediation.test.ts",
+      "assertion": "`derivation-headroom`'s detail string must contain both 'INFERENTIAL CAPACITY (what this check now measures)' and the retired figure under the explicit label 'LABEL-DIVERSITY PROXY ... no longer gating', and `duplicate-detection`'s detail must report per-mechanism counts plus the DISTINCT-STATEMENT ESTIMATE. A change that drops either disclosure from the RESULT (as opposed to from a comment) fails.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "services/research/crystalReadiness.ts — `derivation-headroom` and `duplicate-detection`",
+      "defect": "Both checks carried accurate doc comments naming their own limits ('This is not a formal entailment check'; 'a heuristic lexical measure, not a semantic dedup guarantee'), and both were nonetheless trusted for the property their names asserted. crystalFreezeRecommendation.ts even re-disclosed the limits as advisory risks — and the freeze proceeded, because the disclosure sat beside a green check rather than inside it.",
+      "resolutionId": "RES-2026-08-26-CRYSTAL-INSTRUMENT-MEASUREMENT-LAYER-001",
+      "evidence": [
+        "services/research/crystalReadiness.ts",
+        "services/research/crystalFreezeRecommendation.ts",
+        "tests/crystal-instrument-remediation.test.ts"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-08-26-CRYSTAL-INSTRUMENT-MEASUREMENT-LAYER-001"
+  ],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "Related but distinct from MS-7 ('an inert mechanism is a defect'): there the mechanism could never fire; here it fires correctly and answers a narrower question than its name.",
+    "The corollary that made the remediation tractable: because the instruments HAD documented their limits truthfully, an external reviewer could read the code and identify exactly which gates to distrust. Candour did not prevent the defect, but it is what made the defect catchable — so the remediation preserved the same candour rather than replacing it with confidence.",
+    "SCOPE DELIBERATELY RECORDED AS `local`, not cross-capability, even though the rule reads as a general one. The validator's nudge is correct: generality is a claim earned by RECURRENCE across capabilities, and this candidate has one recorded occurrence. Widen the scope when a second, genuinely different capability records an occurrence — never because the sentence sounds general."
+  ]
+}

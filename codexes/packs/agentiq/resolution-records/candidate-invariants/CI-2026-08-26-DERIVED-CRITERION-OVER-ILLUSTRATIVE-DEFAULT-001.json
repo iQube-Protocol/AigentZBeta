@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-26-DERIVED-CRITERION-OVER-ILLUSTRATIVE-DEFAULT-001",
+  "statement": "When a constraint has been FROZEN with its own derivation, a gate on that constraint must DERIVE its criterion from the frozen inputs and show the arithmetic in its result — never carry an independent 'illustrative default' alongside it. An illustrative default beside a frozen constraint is not a placeholder; it is the operative criterion, and it will drift below the constraint in the permissive direction without any error anywhere. Where a required input is unavailable, the gate must report insufficient-input / unknown and fail closed, never fall back to the default.",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "irl",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "classification": "A CRITERION-DRIFT guard. The failure is not that a default existed but that nothing in code connected it to the frozen constraint it stood in for, so the two could disagree indefinitely. The remedy is structural — a derivation function whose operands each name their source — rather than a stricter number.",
+  "scope": "local",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/source-of-truth-parity.test.ts",
+      "assertion": "The readiness module must contain no `minMeaningfulSliceSize ?? <number>` and no `minDerivationEligibleFraction ?? <number>` fallback; REGISTERED_MINIMUM_TASK_DESIGN must match the frozen README §5.2 text; the ⊆40% guard must match README §6; and minimumCollectionSize must equal ceil(requiredEvaluationSliceSize ÷ sliceFraction) rather than a stored value. Plus, in tests/crystal-instrument-remediation.test.ts, an under-specified task set must yield derivable:false with null figures rather than a default.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "services/research/crystalReadiness.ts — the `selection-space` check",
+      "defect": "`minMeaningfulSliceSize ?? 5` gated the check while EXP-P1 README §6 had already ruled, with worked arithmetic, that an 18-invariant collection (slice cap 7) was 'plainly insufficient to ground 24 tasks incl. 12 derivation items'. The gate passed a 15-invariant collection (slice cap 6) that the frozen protocol rejected.",
+      "resolutionId": "RES-2026-08-26-CRYSTAL-INSTRUMENT-MEASUREMENT-LAYER-001",
+      "evidence": [
+        "services/research/crystalPopulationRequirement.ts",
+        "services/research/crystalReadiness.ts",
+        "tests/crystal-instrument-remediation.test.ts",
+        "tests/source-of-truth-parity.test.ts"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-08-26-CRYSTAL-INSTRUMENT-MEASUREMENT-LAYER-001"
+  ],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "The second-order guard this cycle also needed: an external reviewer's illustrative figures are NOT a replacement criterion either. Replacing an unsourced 5 with an unsourced 20 would have reproduced the defect with better provenance-by-association. The derivation is what is encoded; the fact that it lands inside the reviewer's illustrative range is corroboration, and is reported as such.",
+    "Complements CI-2026-08-03-NO-SILENT-POPULATION-SHRINK-001 and CI-2026-08-03-READINESS-SCOPED-TO-OBJECT-001, which govern WHAT a readiness check assesses. This one governs where its BAR comes from.",
+    "SCOPE DELIBERATELY RECORDED AS `local`, not cross-capability, even though the rule reads as a general one. The validator's nudge is correct: generality is a claim earned by RECURRENCE across capabilities, and this candidate has one recorded occurrence. Widen the scope when a second, genuinely different capability records an occurrence — never because the sentence sounds general."
+  ]
+}

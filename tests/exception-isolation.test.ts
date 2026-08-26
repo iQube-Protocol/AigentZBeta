@@ -43,6 +43,8 @@ import {
   type RecordDisposition,
 } from '@/services/research/exceptionIsolation';
 import { buildCohortAuthorization, computeCohortHash } from '@/services/research/cohortAuthorization';
+import { assessInferentialCapacity } from '@/services/research/crystalSemanticStructure';
+import { deriveCrystalPopulationRequirement } from '@/services/research/crystalPopulationRequirement';
 import { buildFreezeCeremonyPackage } from '@/services/research/crystalFreezeCeremony';
 import {
   composeAdmissionRecommendation,
@@ -215,10 +217,18 @@ describe('blocksFreeze is computed from the remaining crystal, never asserted pe
     expect(computeFreezeBlocking([lying], passingCrystal)[0].blocksFreeze).toBe(false);
   });
 
-  it('the nine pre-registered criteria are the readiness engine\'s own check names', () => {
+  it('the pre-registered criteria are the readiness engine\'s own check names', () => {
     // Mutation: invent or rename a criterion here → it silently stops matching
     // any check the engine emits, and every exception reads "does not block".
+    //
+    // UPDATED 2026-08-26 (IRL Review #001): `boundary-coverage` joined the list.
+    // It is a `scientific-readiness`-tier gate, so leaving it out would have
+    // meant an in-scope exception did not block a freeze when boundary coverage
+    // was the only failing gate. The literal is retained here as the explicit
+    // pin; `tests/source-of-truth-parity.test.ts` additionally fails the build
+    // if this list ever diverges from the executable check contract.
     expect([...PRE_REGISTERED_READINESS_CHECKS].sort()).toEqual([
+      'boundary-coverage',
       'derivation-headroom',
       'duplicate-detection',
       'graph-connectivity',
@@ -523,6 +533,21 @@ describe('the freeze package preserves the acquisition and exclusion history', (
     populations: { A: 26, B: 0, C: 0, unclassified: 0, ablationCount: 26 },
     derivationEligibleFraction: 0.5,
     duplicatePairCount: 0,
+    // Added 2026-08-26 (IRL Review #001): the readiness report now carries
+    // per-mechanism duplicate counts, an inferential-capacity assessment,
+    // namespace coverage, and the §3.6-derived population requirement — and
+    // `composeCrystalFreezeRecommendation` READS them, so a stub without them
+    // throws rather than exercising the disclosure logic under test here.
+    duplicates: {
+      lexicalPairCount: 0, semanticPairCount: 0, unionPairCount: 0,
+      semanticOnlyPairCount: 0, distinctStatementEstimate: 26, semanticPairs: [],
+    },
+    inferentialCapacity: assessInferentialCapacity([]),
+    coverage: {
+      boundaryNamespaceCount: 15, representedNamespaceCount: 15, ratio: 1,
+      representedNamespaces: [], missingNamespaces: [],
+    },
+    populationRequirement: deriveCrystalPopulationRequirement(),
     graph: {
       relationshipCount: 40, relationshipDensity: 0.12, componentCount: 1,
       largestComponentSize: 26, connectivityRatio: 1, orphanCount: 0, orphanFraction: 0,
@@ -548,6 +573,7 @@ describe('the freeze package preserves the acquisition and exclusion history', (
     namespaceDistributionEntropy: 1.1,
     coverageEstimate: { boundaryNamespaceCount: 4, representedNamespaceCount: 4, ratio: 1 },
     derivationHeadroom: 0.5,
+    labelDiversityFraction: 0.5,
     sliceRatio: 0.4,
     selectionEntropy: 1.1,
     duplicateRatio: 0,

@@ -10,7 +10,9 @@
 import { describe, it, expect, vi } from 'vitest';
 import { runCrystalReadinessReport, connectedComponents } from '../services/research/crystalReadiness';
 import { listInvariants, listEdgesForInvariants } from '@/services/invariants/store';
-import type { InvariantEdgeRecord } from '@/types/invariants';
+import { INVARIANT_NAMESPACES, type InvariantEdgeRecord } from '@/types/invariants';
+import { deriveCrystalPopulationRequirement } from '@/services/research/crystalPopulationRequirement';
+import { CRYSTAL_READINESS_CHECK_CONTRACT } from '@/services/research/crystalInstrumentSuite';
 
 // Pass through to the real store by default, so the tests below still exercise
 // the genuine substrate path. One test overrides it for a single call to make
@@ -278,54 +280,98 @@ describe('PRD-EPI-001 §3.1 — Crystal Intrinsic Readiness Report', () => {
 });
 
 describe('scientific-readiness vs scientific-maturity tiers (2026-08-05 operator ruling) — "Can this crystal be frozen?" and "Is it scientifically ideal?" are not the same question', () => {
-  // 15 invariants, one semantic_type (fails structural-diversity), split into
-  // 3 disjoint 5-node clusters, each internally dense (fails graph-connectivity:
-  // largest component is 5/15 = 33% < the 60% floor) — but relationship-density
-  // and orphan-detection (separate, NON-maturity checks) both pass, because
-  // each cluster is densely connected internally and nobody is unconnected.
-  const TOPICS = [
-    'Settlement instructions require dual authorization before execution.',
-    'Insurance claims must reference a valid policy identifier.',
-    'Credit exposure limits are reviewed on a quarterly basis.',
-    'Treasury operations record every wire transfer independently.',
-    'Compliance officers verify sanctions screening before onboarding.',
-    'Custody accounts segregate client assets from house assets.',
-    'Liquidity buffers are maintained above the regulatory minimum.',
-    'Trade confirmations are reconciled within one business day.',
-    'Audit trails capture every configuration change permanently.',
-    'Risk committees approve any material exposure increase.',
-    'Reconciliation breaks are escalated after two business days.',
-    'Collateral valuations are refreshed at the end of each day.',
-    'Counterparty limits are enforced before trade execution.',
-    'Regulatory reports are filed before the monthly deadline.',
-    'Data retention policies preserve records for seven years.',
-  ];
+  /**
+   * ── FIXTURE REBUILT 2026-08-26 (IRL Review #001, remediation cycle 1) ─────
+   *
+   * The RULING under test is unchanged and is the reason this block exists: a
+   * crystal blocked ONLY by `scientific-maturity` findings is still freezable.
+   *
+   * The FIXTURE had to change, because the old one was fifteen one-shape
+   * "X must Y" statements — precisely the shape an external reviewer rejected,
+   * and which the hardened gates now correctly refuse on three separate counts
+   * (population size, inferential capacity, boundary coverage). Asserting
+   * `ok === true` over it would have meant asserting that the defect is
+   * acceptable, which is the "canary encodes the defect" failure mode.
+   *
+   * So the fixture is rebuilt to fail ONLY the two maturity checks, on purpose:
+   *
+   *   - ONE semanticType across all members            → structural-diversity FAILS
+   *   - four disjoint internally-dense clusters        → graph-connectivity FAILS
+   *   - population at/above the §3.6-derived floor     → selection-space passes
+   *   - a causal chain carrying real entailment        → derivation-headroom passes
+   *   - every declared namespace represented           → boundary-coverage passes
+   *   - distinct predicate-argument forms throughout   → duplicate-detection passes
+   *   - dense clusters, no isolated members            → density/orphans pass
+   *
+   * Every size below is READ from the derived requirement, never written as a
+   * literal, so if the task design changes this fixture reports the new floor
+   * instead of silently certifying the old one.
+   */
+  const requirement = deriveCrystalPopulationRequirement();
+  const CLUSTER_COUNT = 4;
+  const CLUSTER_SIZE = Math.ceil((requirement.minimumCollectionSize as number) / CLUSTER_COUNT);
+  const POPULATION = CLUSTER_SIZE * CLUSTER_COUNT;
 
-  function monocultureInv(id: string, statement: string): Awaited<ReturnType<typeof listInvariants>>[number] {
+  /** Sixteen causal links ⇒ fifteen entailment chains, against the twelve the
+   *  registered derivation-task count demands. Each link's consequent is the
+   *  next link's antecedent; adjacent outer terms are disjoint, so every
+   *  adjacent conjunction entails something neither premise states. */
+  const CHAIN_TERMS = [
+    ['aldrin', 'ridge'], ['bertol', 'shelf'], ['cavell', 'bluff'], ['durand', 'basin'],
+    ['everly', 'crest'], ['forsyth', 'trough'], ['gaskell', 'spur'], ['halvard', 'delta'],
+    ['ingram', 'moraine'], ['jarrow', 'cirque'], ['kelvin', 'esker'], ['lindorm', 'drumlin'],
+    ['marlowe', 'kettle'], ['nordahl', 'arete'], ['osgood', 'couloir'], ['pemberly', 'massif'],
+    ['quenton', 'plateau'],
+  ] as const;
+
+  const STATEMENTS: string[] = Array.from({ length: POPULATION }, (_, i) => {
+    if (i < CHAIN_TERMS.length - 1) {
+      const [a, b] = CHAIN_TERMS[i];
+      const [c, d] = CHAIN_TERMS[i + 1];
+      return `${a.charAt(0).toUpperCase()}${a.slice(1)} ${b} causes ${c} ${d}.`;
+    }
+    // Filler that asserts NO relation — it carries the population to the
+    // derived floor without inflating the capacity FRACTION, which is what
+    // adding more chain links would have done.
+    const n = String(i).padStart(2, '0');
+    return `The tierfix-${n} register enumerates entry vareen-${n} verbatim.`;
+  });
+
+  function monocultureInv(id: string, statement: string, index: number): Awaited<ReturnType<typeof listInvariants>>[number] {
     return {
       id,
       statement,
+      // ONE shape across the whole collection — this is what makes
+      // structural-diversity fail, and it is the point of the fixture.
       semanticType: 'constraint',
+      namespace: INVARIANT_NAMESPACES[index % INVARIANT_NAMESPACES.length],
       timesValidated: 3,
       provenance: { provenanceClass: 'external-established' },
     } as unknown as Awaited<ReturnType<typeof listInvariants>>[number];
   }
 
+  /** A path plus a skip edge inside one cluster: dense enough to clear the
+   *  density floor, and confined to the cluster so connectivity still fails. */
   function denseClusterEdges(ids: string[]): InvariantEdgeRecord[] {
-    const [a, b, c, d, e] = ids;
-    return [edge(a, b), edge(b, c), edge(c, d), edge(d, e), edge(a, e), edge(b, d)];
+    return [
+      ...ids.slice(1).map((id, i) => edge(ids[i], id)),
+      ...ids.slice(2).map((id, i) => edge(ids[i], id)),
+    ];
+  }
+
+  function mountTierFixture() {
+    const ids = Array.from({ length: POPULATION }, (_, i) => `tf-${String(i).padStart(2, '0')}`);
+    const invariants = ids.map((id, i) => monocultureInv(id, STATEMENTS[i], i));
+    const clusters = Array.from({ length: CLUSTER_COUNT }, (_, c) =>
+      ids.slice(c * CLUSTER_SIZE, (c + 1) * CLUSTER_SIZE),
+    );
+    vi.mocked(listInvariants).mockResolvedValueOnce(invariants);
+    vi.mocked(listEdgesForInvariants).mockResolvedValueOnce(clusters.flatMap(denseClusterEdges));
+    return { ids, clusters };
   }
 
   it('ok stays TRUE — freezable — even though structural-diversity and graph-connectivity both fail; maturity band is bronze', async () => {
-    const clusters = [TOPICS.slice(0, 5), TOPICS.slice(5, 10), TOPICS.slice(10, 15)].map((topics, ci) =>
-      topics.map((t, i) => `c${ci}-${i}`),
-    );
-    const allIds = clusters.flat();
-    const invariants = allIds.map((id, i) => monocultureInv(id, TOPICS[i]));
-    const edges = clusters.flatMap(denseClusterEdges);
-
-    vi.mocked(listInvariants).mockResolvedValueOnce(invariants);
-    vi.mocked(listEdgesForInvariants).mockResolvedValueOnce(edges);
+    const { clusters } = mountTierFixture();
     const report = await runCrystalReadinessReport({ experimentId: 'EXP-P1', crystalDomain: 'd' });
 
     const diversity = report.checks.find((c) => c.name === 'structural-diversity');
@@ -334,11 +380,17 @@ describe('scientific-readiness vs scientific-maturity tiers (2026-08-05 operator
     expect(diversity?.tier).toBe('scientific-maturity');
     expect(connectivity?.passed).toBe(false);
     expect(connectivity?.tier).toBe('scientific-maturity');
+    expect(report.graph.componentCount).toBe(clusters.length);
 
-    // Every OTHER check — the actual hard gate — passes.
-    const readinessTierChecks = report.checks.filter((c) => c.tier === 'scientific-readiness');
-    expect(readinessTierChecks.every((c) => c.passed)).toBe(true);
-    expect(readinessTierChecks).toHaveLength(7);
+    // Every OTHER check — the actual hard gate — passes. Listed by name in the
+    // failure message so a regression says WHICH gate broke, not just "false".
+    const failingReadiness = report.checks
+      .filter((c) => c.tier === 'scientific-readiness' && !c.passed)
+      .map((c) => `${c.name}: ${c.detail}`);
+    expect(failingReadiness).toEqual([]);
+    expect(report.checks.filter((c) => c.tier === 'scientific-readiness')).toHaveLength(
+      CRYSTAL_READINESS_CHECK_CONTRACT.filter((c) => c.tier === 'scientific-readiness').length,
+    );
 
     // The whole point of the ruling: a crystal blocked ONLY by maturity
     // findings is still freezable.
@@ -349,18 +401,29 @@ describe('scientific-readiness vs scientific-maturity tiers (2026-08-05 operator
   });
 
   it('never lets a genuine scientific-readiness failure hide behind a passing maturity tier', async () => {
-    // A small crystal where duplicate-detection (scientific-readiness) fails
-    // — ok must be false regardless of what the maturity tier reports, and
-    // regardless of any OTHER check that happens to also fail alongside it.
-    const ids = ['d1', 'd2', 'd3', 'd4', 'd5'];
-    const dupStatement = 'Settlement instructions require dual authorization before execution.';
-    const invariants = ids.map((id, i) =>
-      monocultureInv(id, i < 2 ? dupStatement : TOPICS[i]),
+    // The same fixture with ONE statement duplicated in predicate-argument form
+    // — duplicate-detection is scientific-readiness, so `ok` must be false
+    // regardless of what the maturity tier reports.
+    const ids = Array.from({ length: POPULATION }, (_, i) => `tfd-${String(i).padStart(2, '0')}`);
+    const invariants = ids.map((id, i) => monocultureInv(id, STATEMENTS[i], i));
+    // A semantic paraphrase of the first chain link, with the direction
+    // inverted — invisible to a word-set comparison, caught by the form pass.
+    const [a, b] = CHAIN_TERMS[0];
+    const [c, d] = CHAIN_TERMS[1];
+    invariants[invariants.length - 1] = monocultureInv(
+      ids[ids.length - 1],
+      `${c.charAt(0).toUpperCase()}${c.slice(1)} ${d} is caused by ${a} ${b}.`,
+      invariants.length - 1,
+    );
+    const clusters = Array.from({ length: CLUSTER_COUNT }, (_, ci) =>
+      ids.slice(ci * CLUSTER_SIZE, (ci + 1) * CLUSTER_SIZE),
     );
     vi.mocked(listInvariants).mockResolvedValueOnce(invariants);
-    vi.mocked(listEdgesForInvariants).mockResolvedValueOnce(denseClusterEdges(ids));
+    vi.mocked(listEdgesForInvariants).mockResolvedValueOnce(clusters.flatMap(denseClusterEdges));
+
     const report = await runCrystalReadinessReport({ experimentId: 'EXP-P1', crystalDomain: 'd' });
     expect(report.checks.find((c) => c.name === 'duplicate-detection')?.passed).toBe(false);
+    expect(report.duplicates.semanticOnlyPairCount).toBeGreaterThan(0);
     expect(report.ok).toBe(false);
   });
 });

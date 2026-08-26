@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-26-UNASSESSABLE-IS-NOT-REPRODUCED-001",
+  "statement": "A gate whose satisfied condition is a REJECTION must distinguish 'the instrument rejected the subject' from 'the instrument could not assess the subject', and must treat the second as not-satisfied. Where every check fails closed on an empty or unreadable input, a naive 'all checks failed, therefore the defect was detected' reading lets an infrastructure fault certify the very thing it prevented from being measured. Such a gate must also be named for its inverted sense (never `ok`), because a boolean called `ok` will be read as 'all good' by every consumer regardless of what it means.",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": null,
+  "projections": {
+    "targets": ["irl", "constitutional-computing"],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "classification": "A THREE-VALUED-LOGIC guard applied to a falsification gate. Sibling of CI-2026-08-22-THREE-VALUED-NEGATION-COLLAPSE-001 (which governs collapsing undefined into false in an eligibility decision) and of MS-11 (a cache may not answer authoritatively before it is hydrated). The distinguishing feature here is that the gate's PASS is a negative finding, which inverts the usual fail-closed intuition: the safe default is 'not reproduced', and reaching it via 'nothing could be measured' must be visible.",
+  "scope": "local",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/crystal-instrument-remediation.test.ts",
+      "assertion": "`composeCrystalRetrospectiveFalsification` reports reproducedReviewerObjections:false with every concern 'unknown' on an EMPTY domain and on an UNREADABLE substrate — even though readiness.ok is false and every check failed in both cases — and also on an unverified freeze commitment. Separately, the verdict object must carry no own property named `ok`.",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "services/research/crystalInstrumentFalsification.ts",
+      "defect": "Designed-in rather than discovered: the retrospective harness gates whether a second crystal may be constructed, and its pass condition is that the hardened instruments REJECT the frozen artifact. Since every readiness check fails closed on an empty domain, the most natural implementation ('all four concerns' checks failed ⇒ reproduced') would have reported the remediation validated whenever the substrate was unreachable. The guard is the `substrateUnreadable || nothingToAssess ⇒ 'unknown'` branch and the blocking-gap list.",
+      "resolutionId": "RES-2026-08-26-CRYSTAL-INSTRUMENT-MEASUREMENT-LAYER-001",
+      "evidence": [
+        "services/research/crystalInstrumentFalsification.ts",
+        "types/crystalRemediation.ts",
+        "tests/crystal-instrument-remediation.test.ts"
+      ]
+    }
+  ],
+  "derivedFrom": ["RES-2026-08-26-CRYSTAL-INSTRUMENT-MEASUREMENT-LAYER-001"],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "`verifiedFailingBeforeFix: false` is recorded honestly: this canary was written alongside the mechanism it guards, not against an observed failure. The defect it prevents is real and was reasoned about before the code existed, but it was never shipped, so the canary must not claim to have reproduced it.",
+    "The verdict is additionally anchored to the freeze commitment (CI-2026-08-09-HASH-VERIFIED-FROZEN-PROJECTION-001): a report claiming to describe a frozen artifact must recompute the pinned commitment and compare, and an unverified comparison is another 'could not assess' case rather than a pass."
+  ]
+}

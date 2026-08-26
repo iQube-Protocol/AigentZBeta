@@ -87,7 +87,20 @@ export interface CrystalStatisticsReport {
     representedNamespaceCount: number;
     ratio: number;
   };
+  /**
+   * INFERENTIAL CAPACITY — the fraction of members participating in a
+   * conjunction that entails an unstated conclusion.
+   *
+   * Until IRL Review #001 (2026-08-26) this field carried
+   * `readiness.derivationEligibleFraction`, a LABEL-DIVERSITY proxy
+   * (`semanticType` class or a connective word). The reviewer's point was that
+   * the two are not the same measure, so the birth certificate now reports the
+   * real one here and the proxy separately below. A reader comparing them sees
+   * the vP1 signature directly: a healthy proxy beside a near-zero capacity.
+   */
   derivationHeadroom: number;
+  /** The retired proxy, retained for comparison and explicitly labelled. */
+  labelDiversityFraction: number;
   sliceRatio: number;
   /** Selection entropy over the domain's own composition — the namespace
    * Shannon entropy, restated under the operator's requested field name so
@@ -217,12 +230,22 @@ export async function runCrystalStatisticsReport(
   const duplicateRatio =
     maxPossiblePairs > 0 ? readiness.duplicatePairCount / maxPossiblePairs : 0;
 
-  const representedNamespaces = new Set(invariants.map((inv) => inv.namespace));
-  const boundaryNamespaceCount = INVARIANT_NAMESPACES.length;
-  const coverageRatio =
-    boundaryNamespaceCount > 0 ? representedNamespaces.size / boundaryNamespaceCount : 0;
+  // Coverage is COMPUTED ONCE, in crystalReadiness.ts, because as of IRL Review
+  // #001 it also GATES there (`boundary-coverage`). Re-deriving it here would
+  // put the same fact in two places, and the one that gates and the one that is
+  // displayed could then disagree — the `inv.engineering.036/037` defect. Read,
+  // don't re-derive. (`INVARIANT_NAMESPACES` remains imported below only as the
+  // honest fallback for a degraded report, where readiness produced no coverage
+  // block at all.)
+  const coverage = readiness.coverage;
+  const boundaryNamespaceCount =
+    coverage.boundaryNamespaceCount > 0 ? coverage.boundaryNamespaceCount : INVARIANT_NAMESPACES.length;
+  const coverageRatio = coverage.ratio;
 
-  const sliceRatio = invariantCount > 0 ? Math.floor(invariantCount * 0.4) / invariantCount : 0;
+  const sliceRatio =
+    invariantCount > 0
+      ? Math.floor(invariantCount * readiness.populationRequirement.sliceFractionOfCrystal) / invariantCount
+      : 0;
 
   // Deterministic content commitment. Sorted by id so member ORDER never
   // affects the hash — only membership and content do. Provenance is
@@ -258,10 +281,11 @@ export async function runCrystalStatisticsReport(
     namespaceDistributionEntropy: namespaceEntropy,
     coverageEstimate: {
       boundaryNamespaceCount,
-      representedNamespaceCount: representedNamespaces.size,
+      representedNamespaceCount: coverage.representedNamespaceCount,
       ratio: coverageRatio,
     },
-    derivationHeadroom: readiness.derivationEligibleFraction,
+    derivationHeadroom: readiness.inferentialCapacity.inferentialCapacityFraction,
+    labelDiversityFraction: readiness.derivationEligibleFraction,
     sliceRatio,
     selectionEntropy: namespaceEntropy,
     duplicateRatio,

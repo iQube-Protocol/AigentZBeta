@@ -22,29 +22,28 @@ import { readSource, stripComments } from './_lib/sourceAuthority';
 import { composeCrystalFreezeRecommendation } from '../services/research/crystalFreezeRecommendation';
 import type { CrystalReadinessReport } from '../services/research/crystalReadiness';
 import type { CrystalStatisticsReport } from '../services/research/crystalStatistics';
+import { assessInferentialCapacity } from '../services/research/crystalSemanticStructure';
+import { deriveCrystalPopulationRequirement } from '../services/research/crystalPopulationRequirement';
+import { CRYSTAL_READINESS_CHECK_CONTRACT } from '../services/research/crystalInstrumentSuite';
+import { INVARIANT_NAMESPACES } from '@/types/invariants';
 
-const MATURITY_TIER_CHECK_NAMES = new Set(['structural-diversity', 'graph-connectivity']);
-
+/**
+ * The check list and the tier of each entry are READ FROM THE EXECUTABLE
+ * CONTRACT rather than hand-copied here (updated 2026-08-26, IRL Review #001).
+ * The hand-copied version went stale the moment `boundary-coverage` was added:
+ * this fixture claimed a fully-green readiness report that was missing a
+ * gating check, and `composeCrystalFreezeRecommendation` correctly reported the
+ * absent check as unsatisfied. A fixture that has to be edited whenever the
+ * contract changes is the same source-of-truth defect the production code was
+ * just corrected for.
+ */
 function passingReadiness(): CrystalReadinessReport {
-  const names = [
-    'selection-space',
-    'derivation-headroom',
-    'structural-diversity',
-    'duplicate-detection',
-    'provenance-eligibility',
-    'lifecycle-validation-integrity',
-    'relationship-density',
-    'graph-connectivity',
-    'orphan-detection',
-  ];
-  const checks = names.map((name) => ({
-    name,
+  const checks = CRYSTAL_READINESS_CHECK_CONTRACT.map((entry) => ({
+    name: entry.name,
     passed: true,
-    detail: `${name} ok`,
+    detail: `${entry.name} ok`,
     remedy: null,
-    tier: (MATURITY_TIER_CHECK_NAMES.has(name) ? 'scientific-maturity' : 'scientific-readiness') as
-      | 'scientific-maturity'
-      | 'scientific-readiness',
+    tier: entry.tier,
   }));
   const maturityChecks = checks.filter((c) => c.tier === 'scientific-maturity');
   return {
@@ -64,6 +63,23 @@ function passingReadiness(): CrystalReadinessReport {
     populations: { A: 10, B: 0, C: 0, unclassified: 0, ablationCount: 10 },
     derivationEligibleFraction: 0.4,
     duplicatePairCount: 0,
+    duplicates: {
+      lexicalPairCount: 0,
+      semanticPairCount: 0,
+      unionPairCount: 0,
+      semanticOnlyPairCount: 0,
+      distinctStatementEstimate: 10,
+      semanticPairs: [],
+    },
+    inferentialCapacity: assessInferentialCapacity([]),
+    coverage: {
+      boundaryNamespaceCount: INVARIANT_NAMESPACES.length,
+      representedNamespaceCount: INVARIANT_NAMESPACES.length,
+      ratio: 1,
+      representedNamespaces: [...INVARIANT_NAMESPACES],
+      missingNamespaces: [],
+    },
+    populationRequirement: deriveCrystalPopulationRequirement(),
     graph: {
       relationshipCount: 8,
       relationshipDensity: 0.3,
@@ -92,8 +108,13 @@ function statsFor(readiness: CrystalReadinessReport, overrides: Partial<CrystalS
     compositionDensity: readiness.graph.relationshipDensity,
     semanticDiversity: 1.2,
     namespaceDistributionEntropy: 1.2,
-    coverageEstimate: { boundaryNamespaceCount: 15, representedNamespaceCount: 3, ratio: 0.2 },
-    derivationHeadroom: readiness.derivationEligibleFraction,
+    coverageEstimate: {
+      boundaryNamespaceCount: readiness.coverage.boundaryNamespaceCount,
+      representedNamespaceCount: readiness.coverage.representedNamespaceCount,
+      ratio: readiness.coverage.ratio,
+    },
+    derivationHeadroom: readiness.inferentialCapacity.inferentialCapacityFraction,
+    labelDiversityFraction: readiness.derivationEligibleFraction,
     sliceRatio: 0.4,
     selectionEntropy: 1.2,
     duplicateRatio: 0,
