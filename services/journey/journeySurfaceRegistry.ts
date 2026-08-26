@@ -135,6 +135,40 @@ export type JourneySurfaceDescriptor =
       rootTab?: string;
       /** Label for the embedded-return toolbar button, e.g. "Back to Quests". */
       returnLabel?: string;
+      /**
+       * Expanded-projection cartridge (FS Bridge Explore-metaMe parity,
+       * 2026-08-26). Every other `focused: true` descriptor today already
+       * points `codexSlug` at the destination's OWN canonical cartridge
+       * (KNYT Pulse/Quests/Store all point at `knyt-codex` itself), so
+       * clearing `focused` on `openLabel` click just lifts that same
+       * cartridge's chrome suppression — `codexSlug`/`tab` never need to
+       * change. `moneypenny-orchestration-focused` is different: its
+       * `codexSlug`/`tab` point at a MIRROR of MoneyPenny's Orchestration
+       * panel living inside `metame-codex`, not at MoneyPenny's own
+       * cartridge (`moneypenny-codex`, `data/codex-configs.ts`'s
+       * `MONEYPENNY_CARTRIDGE` — the one with the real Operate/Connect/
+       * Service/Administer nav). Expanding that mirror can only ever
+       * reveal `metame-codex`'s OWN top-level chrome, never MoneyPenny's.
+       * `expandedCodexSlug` lets a descriptor opt into swapping the
+       * destination cartridge itself on expand, instead of just lifting
+       * chrome suppression on the one it already has. Kept as a general,
+       * reusable field on the shared type — not a MoneyPenny-only branch
+       * in JourneyRunSurface — for the next descriptor that mirrors a
+       * foreign cartridge's tab the same way. Only meaningful alongside
+       * `focused: true`; falls back to `codexSlug` when unset.
+       */
+      expandedCodexSlug?: string;
+      /**
+       * Default tab to land on inside `expandedCodexSlug` (FS Bridge
+       * Explore-metaMe parity, 2026-08-26) — e.g. MoneyPenny's expanded
+       * view still opens on Orchestration (`service-orchestration`,
+       * `MONEYPENNY_CARTRIDGE`'s own tab of that name) rather than falling
+       * through to the cartridge's natural first tab (HFT Console), while
+       * now exposing the REAL Operate/Connect/Service/Administer nav to
+       * navigate away from it. Only meaningful alongside
+       * `expandedCodexSlug`; falls back to `tab` when unset.
+       */
+      expandedTab?: string;
       note: string;
     }
   | {
@@ -335,6 +369,22 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
     focusedNavDepth: 0,
     openLabel: 'Explore metaMe ↗',
     breadcrumb: 'Financial Services — Operate → MoneyPenny Orchestration',
+    // Explore-metaMe expand parity (operator decision, 2026-08-26 —
+    // supersedes the 2026-08-24 "Orchestration is deliberately the ONLY
+    // mirrored panel" pinning for THIS path specifically). Clicking
+    // `openLabel` above no longer just lifts metame-codex's own chrome off
+    // the mirror tab; it swaps the destination to MoneyPenny's real
+    // cartridge (`data/codex-configs.ts`'s `MONEYPENNY_CARTRIDGE`, id
+    // 'moneypenny-codex') so the operator reaches the full Operate(HFT)/
+    // Connect/Service/Administer nav — landing on the same Orchestration
+    // panel (`service-orchestration`) rather than the cartridge's natural
+    // first tab. metame-codex's OWN 'metame-moneypenny-orchestration' tab
+    // entry stays pinned exactly as it was for every other path into it —
+    // this only changes what THIS descriptor's expand affordance targets.
+    // Parity with MONEYPENNY_CARTRIDGE kept by a canary in
+    // tests/fs-operate-embed-viewport-parity.test.ts.
+    expandedCodexSlug: 'moneypenny-codex',
+    expandedTab: 'service-orchestration',
     note:
       'FS Operate viewport + Focus/Full parity correction (2026-08-25) — the SAME MoneyPenny ' +
       'Orchestration tab (metame-codex/moneypenny-orchestration) `resolveJourneyOperatorDestination` ' +
@@ -351,7 +401,9 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
       'this entry only owns HOW that destination is presented once chosen. codexSlug/tab intentionally ' +
       "mirror ACTIVATION_CATALOG's 'moneypenny' entry (cartridgeRef/tabSlug) — kept in parity by a " +
       'canary in tests/fs-operate-embed-viewport-parity.test.ts rather than derived at runtime, matching ' +
-      'every other static registry entry\'s convention.',
+      "every other static registry entry's convention. 2026-08-26: expandedCodexSlug/expandedTab now " +
+      'point the Explore-metaMe EXPANDED state at the real moneypenny-codex cartridge instead — see ' +
+      "those fields' own doc comments above.",
   },
   'founder-office': {
     kind: 'embed',
@@ -703,8 +755,21 @@ export function buildEmbedSurfaceSrc(
   input: { personaId?: string; selectedAgentSlug?: string; focus?: string },
   buildUrl: (slug: string, opts: import('@/utils/codex-nav').CodexNavOptions) => string,
 ): string {
-  return buildUrl(descriptor.codexSlug, {
-    tab: descriptor.tab,
+  // Expanded-cartridge projection (FS Bridge Explore-metaMe parity,
+  // 2026-08-26) — `descriptor.focused` arriving here is ALREADY the
+  // caller's post-toggle value (JourneyRunSurface spreads
+  // `{ ...descriptor, focused: shouldFocus ? true : undefined }` before
+  // calling this function, exactly like the `focusedNavDepth` gating just
+  // below reads it). That is the ONE signal distinguishing Focus view from
+  // an Explore-metaMe-style expand — reused here rather than adding a
+  // second flag. A descriptor with no `expandedCodexSlug` (every focused
+  // descriptor except moneypenny-orchestration-focused, today) is
+  // untouched: `codexSlug`/`tab` resolve exactly as before in both states.
+  const isExpandedProjection = !descriptor.focused && !!descriptor.expandedCodexSlug;
+  const codexSlug = (isExpandedProjection && descriptor.expandedCodexSlug) || descriptor.codexSlug;
+  const tab = isExpandedProjection ? (descriptor.expandedTab ?? descriptor.tab) : descriptor.tab;
+  return buildUrl(codexSlug, {
+    tab,
     personaId: input.personaId,
     shell: 'embed',
     suppressCopilot: descriptor.suppressFloatingCopilot,
