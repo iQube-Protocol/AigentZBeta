@@ -857,6 +857,52 @@ describe('the Research Copilot is the orchestration head, not a second Track 2 U
   });
 });
 
+// ── VISIBLE ON OPEN, NOT ONLY AFTER A RUN (2026-08-26 reconciliation) ──────
+//
+// Acceptance-gap closure: the operator could not see the objective's state
+// without clicking "Run until you need me" first — the run result's own
+// `programme` field (Track 2, re-read after the last act) was fetched and
+// then never rendered at all. Closed by reading the SAME read-only
+// projection Track2ProgrammePanel itself reads (GET /api/research/track2/
+// [experimentId]) on mount, alongside overview/results — never a run.
+
+describe('the objective is visible on open, before any run', () => {
+  const TAB = 'components/composer/IRLResearchCopilotTab.tsx';
+
+  it('loads the read-only Track 2 preview inside refresh() (mount-safe: no acts, no POST /advance)', () => {
+    const src = stripComments(readSource(TAB));
+    expect(src).toMatch(/personaFetch\(`\/api\/research\/track2\/\$\{encodeURIComponent\(objective\.experimentId\)\}`/);
+    expect(src).toMatch(/setProgrammePreview\(data\.programme\)/);
+    // The preview call must live inside refresh(), not runProgramme() — it is
+    // read-only and therefore safe on mount; the run itself never is.
+    const refreshStart = src.indexOf('const refresh = useCallback');
+    const refreshEnd = src.indexOf('const openedRef = useRef(false);');
+    expect(refreshStart).toBeGreaterThan(-1);
+    expect(refreshEnd).toBeGreaterThan(refreshStart);
+    const refreshBody = src.slice(refreshStart, refreshEnd);
+    expect(refreshBody).toMatch(/setProgrammePreview\(data\.programme\)/);
+  });
+
+  it('the ObjectiveCard renders the Track 2 block from run.programme OR the mount-time preview — never gated on `run` alone', () => {
+    const src = stripComments(readSource(TAB));
+    expect(src).toMatch(/const programme = run\?\.programme \?\? programmePreview;/);
+    expect(src).toMatch(/\{programme && \(/);
+    expect(src).toMatch(/Track 2 — you are here/);
+    expect(src).toMatch(/Inspect Track 2/);
+    expect(src).toMatch(/Next executable act/);
+  });
+
+  it("never fabricates a separate IDE 2.0 or Crystal v2 status field or a nonexistent navigation target — both route through the SAME Track 2 inspect link", () => {
+    const src = stripComments(readSource(TAB));
+    // No invented field names for a status the data model does not carry.
+    expect(src).not.toMatch(/ideStatus|ide2Status|currentCrystal|targetCrystal/);
+    // Exactly one deep-link affordance out of the Track 2 block — onOpenDetail,
+    // the same seam every other deep link in this card already uses.
+    const trackTwoBlockStart = src.indexOf('Track 2 — you are here');
+    expect(trackTwoBlockStart).toBeGreaterThan(-1);
+  });
+});
+
 // ── THE REMEDIATION-PROFILE SEAM STAYS EMPTY AND GENERIC ───────────────────
 
 describe('the remediation profile is a generic shape with no ingested content', () => {
