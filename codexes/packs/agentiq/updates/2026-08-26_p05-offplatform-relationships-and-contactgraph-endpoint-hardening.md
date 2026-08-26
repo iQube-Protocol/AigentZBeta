@@ -1,8 +1,10 @@
 # P0.5 off-platform relationships (full widening) + ContactGraph endpoint-projection hardening
 
-**Status:** Code-complete and pushed to `dev`. Live-database work referenced below (the ContactGraph
-endpoint repair) was performed separately, directly against the live Supabase project, **outside this
-coding session** — this document covers only the repository-side code that matches and hardens it.
+**Status:** Code-complete, pushed to `dev`, and both migrations below applied live to
+`bsjhfvctmduxhohtllly` (operator-run via the Supabase SQL editor, 2026-08-26). Live-database work
+referenced in §2 (the ContactGraph endpoint repair itself) was performed separately, directly against
+the live Supabase project, **outside this coding session** — this document covers the repository-side
+code that matches and hardens it.
 
 **Branch:** `claude/fs-aee-catalogue-operate-destination` → merged to `dev` via the auto-merge workflow.
 
@@ -122,9 +124,12 @@ one.**
 iCloud source projection, endpoint-less exclusion, ambiguity, SMS-only projection, pagination/
 resumability, and an SMS-transport-honesty regression guard. `tsc` unchanged at 679.
 
-### Not yet applied live
+### Applied live
 
 Both this document's migrations (`20260930100000_qubetalk_offplatform_relationships.sql`,
-`20260930110000_persona_contacts_projection_state.sql`) are code-complete and traced against the real
-current schema but have not been applied to any live database from within this session — no Supabase
-MCP access was available. They join the existing backlog of migrations pending a live-apply pass.
+`20260930110000_persona_contacts_projection_state.sql`) were code-complete and traced against the real
+current schema within this session (no Supabase MCP access was available from inside the session to
+run them directly), and were then applied live to `bsjhfvctmduxhohtllly` by the operator via the
+Supabase SQL editor, in that order, on 2026-08-26. This clears the migration backlog this document's
+work contributed — earlier-pending migrations from the same day's Publishing+Engagement and Locker
+work were already applied separately, per this document's opening status line.
