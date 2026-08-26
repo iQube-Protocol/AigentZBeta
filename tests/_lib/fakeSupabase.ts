@@ -33,7 +33,7 @@ export function fakeUuid(): string {
 
 interface Filter {
   col: string;
-  op: 'eq' | 'is' | 'in';
+  op: 'eq' | 'is' | 'in' | 'gt';
   val: unknown;
 }
 
@@ -95,6 +95,7 @@ function makeBuilder(tables: FakeTables, table: string) {
     }
     if (f.op === 'is') return actual === null || actual === undefined;
     if (f.op === 'in') return Array.isArray(f.val) && f.val.includes(actual);
+    if (f.op === 'gt') return typeof actual === 'string' && typeof f.val === 'string' && actual > f.val;
     return actual === f.val;
   }
 
@@ -175,6 +176,10 @@ function makeBuilder(tables: FakeTables, table: string) {
     },
     in: (col: string, vals: unknown[]) => {
       filters.push({ col, op: 'in', val: vals });
+      return builder;
+    },
+    gt: (col: string, val: unknown) => {
+      filters.push({ col, op: 'gt', val });
       return builder;
     },
     /** Models Postgrest's `.or("col1.eq.val1,col2.eq.val2")` — comma-separated

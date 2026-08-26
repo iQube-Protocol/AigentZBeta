@@ -55,6 +55,7 @@ import {
   linkParticipantToContactPerson,
 } from '@/services/contactGraph/qubetalkBridge';
 import { requestContactGraphProjection } from '@/services/contactGraph/projection';
+import { transportHasCapability } from '@/services/qubetalk/transportRegistry';
 
 const OWNER = 'owner-auth-profile-1';
 const OWNER_PERSONA = 'owner-persona-1';
@@ -182,6 +183,7 @@ describe('Reconciliation — conservative backfill (refinement 3)', () => {
       phone_2: null,
       source: 'google_contacts',
       promotion_state: 'confirmed',
+      projection_state: 'pending',
       promoted_contact_person_id: null,
       ...overrides,
     };
@@ -193,18 +195,38 @@ describe('Reconciliation — conservative backfill (refinement 3)', () => {
     const row = seedPersonaContact();
     const first = await projectPersonaContact(OWNER, row.id);
     expect(first.ok).toBe(true);
-    if (!first.ok) return;
+    if (!first.ok || first.value.outcome !== 'projected') return;
     expect(first.value.created).toBe(true);
 
     const second = await projectPersonaContact(OWNER, row.id);
     expect(second.ok).toBe(true);
-    if (second.ok) {
+    if (second.ok && second.value.outcome === 'projected') {
       expect(second.value.contactPersonId).toBe(first.value.contactPersonId);
       expect(second.value.created).toBe(false); // idempotent — no duplicate
+    } else {
+      expect.fail('expected a projected outcome on re-run');
     }
 
     const all = await listContactPersons(OWNER);
     expect(all.ok && all.value.length).toBe(1);
+  });
+
+  it('projects an iCloud-sourced row, exercising the icloud source/confidence branch', async () => {
+    const row = seedPersonaContact({ source: 'icloud', email: 'icloud-contact@example.com' });
+    const result = await projectPersonaContact(OWNER, row.id);
+    expect(result.ok).toBe(true);
+    if (!result.ok || result.value.outcome !== 'projected') return;
+    expect(result.value.created).toBe(true);
+
+    const personas = await listContactPersonas(OWNER, result.value.contactPersonId);
+    expect(personas.ok).toBe(true);
+    if (!personas.ok) return;
+    const endpoints = await listContactEndpoints(OWNER, personas.value[0].id);
+    expect(endpoints.ok).toBe(true);
+    if (endpoints.ok) {
+      expect(endpoints.value[0].source).toBe('icloud');
+      expect(endpoints.value[0].confidence).toBe('high_confidence');
+    }
   });
 
   it('refuses to project a candidate (unpromoted) row', async () => {
@@ -223,7 +245,9 @@ describe('Reconciliation — conservative backfill (refinement 3)', () => {
     const resultA = await projectPersonaContact(OWNER, rowA.id);
     const resultB = await projectPersonaContact(OWNER, rowB.id);
     expect(resultA.ok && resultB.ok).toBe(true);
-    if (!resultA.ok || !resultB.ok) return;
+    if (!resultA.ok || !resultB.ok || resultA.value.outcome !== 'projected' || resultB.value.outcome !== 'projected') {
+      throw new Error('expected both rows to project');
+    }
     expect(resultB.value.contactPersonId).toBe(resultA.value.contactPersonId); // same exact email -> same person
     expect(resultB.value.created).toBe(false);
 
@@ -238,11 +262,36 @@ describe('Reconciliation — conservative backfill (refinement 3)', () => {
     const resultA = await projectPersonaContact(OWNER, rowA.id);
     const resultB = await projectPersonaContact(OWNER, rowB.id);
     expect(resultA.ok && resultB.ok).toBe(true);
-    if (!resultA.ok || !resultB.ok) return;
+    if (!resultA.ok || !resultB.ok || resultA.value.outcome !== 'projected' || resultB.value.outcome !== 'projected') {
+      throw new Error('expected both rows to project');
+    }
     expect(resultB.value.contactPersonId).not.toBe(resultA.value.contactPersonId); // NOT merged despite identical name
 
     const all = await listContactPersons(OWNER);
     expect(all.ok && all.value.length).toBe(2);
+  });
+
+  it('NEVER merges by name — same displayName, no shared endpoint, no name-based matching path exists', async () => {
+    // Regression guard for the exact-match-only discipline: two rows with
+    // IDENTICAL display names and completely disjoint endpoints must produce
+    // two distinct ContactPersons with no cross-linking of any kind, proving
+    // findExistingContactPersonId never consults display_name/first_name/
+    // last_name at all.
+    const rowA = seedPersonaContact({ id: 'pc-name-a', display_name: 'Alex Kim', email: 'alex.kim.work@example.com' });
+    const rowB = seedPersonaContact({ id: 'pc-name-b', display_name: 'Alex Kim', phone: '+15551234567', email: null });
+
+    const resultA = await projectPersonaContact(OWNER, rowA.id);
+    const resultB = await projectPersonaContact(OWNER, rowB.id);
+    expect(resultA.ok && resultB.ok).toBe(true);
+    if (!resultA.ok || !resultB.ok || resultA.value.outcome !== 'projected' || resultB.value.outcome !== 'projected') {
+      throw new Error('expected both rows to project');
+    }
+    expect(resultB.value.created).toBe(true); // a fresh ContactPerson, not a name match onto A's
+    expect(resultB.value.contactPersonId).not.toBe(resultA.value.contactPersonId);
+
+    const all = await listContactPersons(OWNER);
+    expect(all.ok && all.value.length).toBe(2);
+    if (all.ok) expect(all.value.every((p) => p.displayName === 'Alex Kim')).toBe(true); // both kept their own name
   });
 
   it('batch-reconciles only confirmed, not-yet-projected rows for a persona', async () => {
@@ -255,9 +304,146 @@ describe('Reconciliation — conservative backfill (refinement 3)', () => {
     if (result.ok) {
       expect(result.value.projected).toBe(2); // pc-1, pc-2 only
       expect(result.value.skipped).toBe(0);
+      expect(result.value.ambiguous).toBe(0);
+      expect(result.value.nextCursor).toBeNull(); // short page — definitively the last page
     }
     const all = await listContactPersons(OWNER);
     expect(all.ok && all.value.length).toBe(2);
+  });
+
+  it('endpoint-aware: a row already classified "ineligible" (endpoint-less) is never attempted by the batch reconciler', async () => {
+    seedPersonaContact({ id: 'pc-eligible', email: 'has-endpoint@example.com' });
+    // Simulates what the migration's trigger would set for a row with no
+    // email/email_2/email_3/phone/phone_2 at all — the fake harness doesn't
+    // run real Postgres triggers, so the service-layer filter is what's
+    // under test here, not the trigger itself.
+    seedPersonaContact({
+      id: 'pc-endpointless',
+      email: null,
+      email_2: null,
+      email_3: null,
+      phone: null,
+      phone_2: null,
+      projection_state: 'ineligible',
+    });
+
+    const result = await reconcileConfirmedPersonaContacts(OWNER, OWNER_PERSONA);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.projected).toBe(1); // only pc-eligible
+      expect(result.value.skipped).toBe(0);
+    }
+    // The endpoint-less row was never touched — no ContactPerson attempt,
+    // and it keeps its ineligible classification untouched.
+    const tables = fake.tables as FakeTables;
+    const row = (tables.persona_contacts ?? []).find((r) => r.id === 'pc-endpointless');
+    expect(row?.projection_state).toBe('ineligible');
+    expect(row?.promoted_contact_person_id).toBeNull();
+
+    const all = await listContactPersons(OWNER);
+    expect(all.ok && all.value.length).toBe(1); // only from pc-eligible
+  });
+
+  it('an ambiguous row (candidate endpoints resolving to two different existing ContactPersons) is never merged, is flagged, and is never auto-retried', async () => {
+    // Two existing ContactPersons, each with a DIFFERENT endpoint.
+    const personA = await createContactPerson(OWNER, { displayName: 'Existing A' });
+    const personB = await createContactPerson(OWNER, { displayName: 'Existing B' });
+    expect(personA.ok && personB.ok).toBe(true);
+    if (!personA.ok || !personB.ok) return;
+    const personaA = await createContactPersona(OWNER, personA.value.id, { label: 'General' });
+    const personaB = await createContactPersona(OWNER, personB.value.id, { label: 'General' });
+    expect(personaA.ok && personaB.ok).toBe(true);
+    if (!personaA.ok || !personaB.ok) return;
+    await addContactEndpoint(OWNER, personaA.value.id, { platform: 'email', identifier: 'a-side@example.com' });
+    await addContactEndpoint(OWNER, personaB.value.id, { platform: 'email', identifier: 'b-side@example.com' });
+
+    // A persona_contacts row whose candidate endpoints match BOTH.
+    const ambiguousRow = seedPersonaContact({
+      id: 'pc-ambiguous',
+      email: 'a-side@example.com',
+      email_2: 'b-side@example.com',
+    });
+
+    const result = await projectPersonaContact(OWNER, ambiguousRow.id);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.outcome).toBe('ambiguous');
+    if (result.value.outcome === 'ambiguous') {
+      expect(result.value.candidateContactPersonIds.sort()).toEqual([personA.value.id, personB.value.id].sort());
+    }
+
+    // Not merged into either existing person, and no new person created.
+    const all = await listContactPersons(OWNER);
+    expect(all.ok && all.value.length).toBe(2); // still just personA, personB
+
+    const tables = fake.tables as FakeTables;
+    const row = (tables.persona_contacts ?? []).find((r) => r.id === 'pc-ambiguous');
+    expect(row?.projection_state).toBe('ambiguous');
+    expect(row?.promoted_contact_person_id).toBeNull();
+
+    // The batch reconciler must never auto-retry an ambiguous row.
+    const batch = await reconcileConfirmedPersonaContacts(OWNER, OWNER_PERSONA);
+    expect(batch.ok).toBe(true);
+    if (batch.ok) {
+      expect(batch.value.projected).toBe(0);
+      expect(batch.value.ambiguous).toBe(0); // not even attempted — excluded by the query filter
+    }
+  });
+
+  it('a phone-only row (no email) projects into a contact_endpoints row with platform "sms"', async () => {
+    const row = seedPersonaContact({
+      id: 'pc-phone-only',
+      email: null,
+      email_2: null,
+      email_3: null,
+      phone: '+15559876543',
+      phone_2: null,
+    });
+    const result = await projectPersonaContact(OWNER, row.id);
+    expect(result.ok).toBe(true);
+    if (!result.ok || result.value.outcome !== 'projected') return;
+
+    const personas = await listContactPersonas(OWNER, result.value.contactPersonId);
+    expect(personas.ok).toBe(true);
+    if (!personas.ok) return;
+    const endpoints = await listContactEndpoints(OWNER, personas.value[0].id);
+    expect(endpoints.ok).toBe(true);
+    if (endpoints.ok) {
+      expect(endpoints.value).toHaveLength(1);
+      expect(endpoints.value[0].platform).toBe('sms');
+      expect(endpoints.value[0].identifier).toBe('+15559876543');
+    }
+  });
+
+  it('pagination: a small limit returns a nextCursor, and resuming from it processes every row exactly once', async () => {
+    seedPersonaContact({ id: 'pc-page-1', email: 'page1@example.com' });
+    seedPersonaContact({ id: 'pc-page-2', email: 'page2@example.com' });
+    seedPersonaContact({ id: 'pc-page-3', email: 'page3@example.com' });
+    seedPersonaContact({ id: 'pc-page-4', email: 'page4@example.com' });
+    seedPersonaContact({ id: 'pc-page-5', email: 'page5@example.com' });
+
+    let totalProjected = 0;
+    let cursor: string | null = null;
+    let pages = 0;
+    do {
+      const page: Awaited<ReturnType<typeof reconcileConfirmedPersonaContacts>> = await reconcileConfirmedPersonaContacts(
+        OWNER,
+        OWNER_PERSONA,
+        { limit: 2, cursor: cursor ?? undefined },
+      );
+      expect(page.ok).toBe(true);
+      if (!page.ok) return;
+      totalProjected += page.value.projected;
+      cursor = page.value.nextCursor;
+      pages += 1;
+      expect(pages).toBeLessThan(10); // guard against an infinite loop on a bug
+    } while (cursor !== null);
+
+    expect(totalProjected).toBe(5); // every row processed exactly once across pages
+    expect(pages).toBeGreaterThan(1); // actually paginated, not one big page
+
+    const all = await listContactPersons(OWNER);
+    expect(all.ok && all.value.length).toBe(5); // no row skipped, none double-processed
   });
 });
 
@@ -517,5 +703,21 @@ describe('aigentMe <-> Runtime surface continuity (Runtime fan-out)', () => {
       expect(personalEndpoints.value[0].id).toBe(handle.value.id); // same row
       expect(personalEndpoints.value[0].linkHistory.some((e) => e.reason === 'moved from Runtime')).toBe(true);
     }
+  });
+});
+
+describe('Transport honesty — SMS delivery is provably still unavailable (regression guard)', () => {
+  it('transportHasCapability("sms", "dm.send"/"group.send") reports "unsupported", never "supported"', () => {
+    // ContactGraph now models phone numbers as first-class 'sms' endpoints
+    // (candidateEndpoints in reconciliation.ts), but modeling a reachable
+    // handle is a different question from being able to actually DELIVER to
+    // it. This is a regression guard, not new functionality: QubeTalk's own
+    // transport registry (services/qubetalk/transportRegistry.ts) already
+    // marks every 'sms' capability 'unsupported' via the deferred() helper —
+    // this test just proves that holds end-to-end from ContactGraph's own
+    // vantage point, so a future change to either module can't silently
+    // start claiming SMS delivery works when no transport exists for it.
+    expect(transportHasCapability('sms', 'dm.send')).toBe('unsupported');
+    expect(transportHasCapability('sms', 'group.send')).toBe('unsupported');
   });
 });
