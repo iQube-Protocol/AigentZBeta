@@ -46,7 +46,7 @@ import { personaPublicRef } from '@/services/identity/personaReferences';
 import { listChannelsForCaller } from '@/services/qubetalk/peerChannel';
 import { getOrCreateRelationshipState } from '@/services/qubetalk/relationships';
 import { listGroupsCreatedBy, getGroup } from '@/services/qubetalk/groups';
-import { listConversationsForRelationship, listConversationsForGroup } from '@/services/qubetalk/conversations';
+import { listConversationsForAnchor, listConversationsForGroup } from '@/services/qubetalk/conversations';
 import { resolveEffectiveAgentPolicy } from '@/services/qubetalk/agentPolicy';
 import type {
   QubeTalkProjectionRequest,
@@ -185,8 +185,8 @@ export async function requestProjection(
   const relationships: QubeTalkProjectionRelationshipSummary[] = [];
   for (const channelId of granted.relationshipChannelIds) {
     const channel = channelById.get(channelId);
-    const state = await getOrCreateRelationshipState({ kind: 'platform_peer_channel', channelId });
-    const conversations = await listConversationsForRelationship(channelId);
+    const state = await getOrCreateRelationshipState({ kind: 'peer-channel', channelId });
+    const conversations = await listConversationsForAnchor({ kind: 'peer-channel', channelId });
     relationships.push({
       channelId,
       counterpartyDisplayLabel: channel?.counterpartyLabel ?? channel?.counterpartyRef ?? channelId,

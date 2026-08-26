@@ -147,3 +147,32 @@ export async function postDiscordMessages(params: {
   }
   return { messageIds };
 }
+
+/**
+ * Convenience wrapper every Discord-sending caller needs identically: apply
+ * the `DISCORD_BOT_TOKEN` gate, call `postDiscordMessages`, and turn a
+ * missing token or a thrown API error into an honest `deliveryState:
+ * 'failed'` outcome rather than a raised exception — the "attempt, then
+ * record the REAL outcome" discipline `services/qubetalk/egress.ts` and
+ * `services/qubetalk/offplatformRelationships.ts`'s `postOffplatformMessage`
+ * both need. Factored here (not duplicated in each caller) because this
+ * module is the designated single Discord-calling code path.
+ */
+export async function sendDiscordContent(
+  discordChannelId: string,
+  content: string,
+): Promise<{ deliveryState: 'delivered' | 'failed'; externalMessageId: string | null; error?: string }> {
+  const botToken = (process.env.DISCORD_BOT_TOKEN || '').trim();
+  if (!botToken) {
+    return { deliveryState: 'failed', externalMessageId: null, error: 'Missing DISCORD_BOT_TOKEN. Configure it to enable live Discord dispatch.' };
+  }
+  try {
+    const posted = await postDiscordMessages({ channelId: discordChannelId, botToken, content });
+    if (posted.messageIds.length > 0) {
+      return { deliveryState: 'delivered', externalMessageId: posted.messageIds[0] };
+    }
+    return { deliveryState: 'failed', externalMessageId: null, error: 'Discord accepted no message content (empty after trim)' };
+  } catch (err) {
+    return { deliveryState: 'failed', externalMessageId: null, error: err instanceof Error ? err.message : 'Discord send failed' };
+  }
+}
