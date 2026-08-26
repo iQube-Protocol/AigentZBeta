@@ -22,6 +22,7 @@ import React from "react";
 import { User, Users, Plus, Check, X as XIcon, Star, Loader2 } from "lucide-react";
 import { LayoutShell } from "./LayoutShell";
 import { useContactGraphPeople, CONTACT_PLATFORM_LABEL } from "@/components/metame/contactgraph/useContactGraphPeople";
+import { ContactGraphStatsStrip } from "@/components/metame/contactgraph/ContactGraphStatsStrip";
 import type { RightPaneLayoutDefinition, RightPaneLayoutProps } from "./types";
 import type { ContactEndpointPlatform } from "@/types/contactGraph";
 import { CONTACT_ENDPOINT_PLATFORMS } from "@/types/contactGraph";
@@ -32,6 +33,7 @@ function PeopleLayoutComponent(props: RightPaneLayoutProps) {
 
   const {
     filteredPeople,
+    stats,
     listLoading,
     listError,
     query,
@@ -80,6 +82,7 @@ function PeopleLayoutComponent(props: RightPaneLayoutProps) {
     <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(200px,280px)_1fr]">
       {/* People list */}
       <div className="space-y-2">
+        <ContactGraphStatsStrip stats={stats} theme={theme} />
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}

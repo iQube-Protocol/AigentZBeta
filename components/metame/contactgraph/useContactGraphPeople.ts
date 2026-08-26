@@ -42,6 +42,21 @@ export async function fetchJson<T>(
   }
 }
 
+export interface ContactGraphImportSourceStats {
+  source: string;
+  importedRecords: number;
+  confirmedRecords: number;
+  projectedRecords: number;
+}
+
+export interface ContactGraphPeopleStats {
+  graphPeople: number;
+  importedRecords: number;
+  confirmedRecords: number;
+  projectedRecords: number;
+  importedBySource: ContactGraphImportSourceStats[];
+}
+
 export type PersonaWithEndpoints = ContactPersona & { endpoints: ContactEndpoint[] };
 
 export interface PersonDetail {
@@ -64,6 +79,7 @@ export const CONTACT_PLATFORM_LABEL: Record<ContactEndpointPlatform, string> = {
 
 export function useContactGraphPeople() {
   const [people, setPeople] = useState<ContactGraphProjectionPersonSummary[]>([]);
+  const [stats, setStats] = useState<ContactGraphPeopleStats | null>(null);
   const [listLoading, setListLoading] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -85,9 +101,16 @@ export function useContactGraphPeople() {
   const loadPeople = useCallback(async () => {
     setListLoading(true);
     setListError(null);
-    const result = await fetchJson<{ people: ContactGraphProjectionPersonSummary[] }>("/api/contactgraph/people");
-    if (result.ok) setPeople(result.data.people);
-    else setListError(result.error);
+    const result = await fetchJson<{
+      people: ContactGraphProjectionPersonSummary[];
+      stats: ContactGraphPeopleStats | null;
+    }>("/api/contactgraph/people");
+    if (result.ok) {
+      setPeople(result.data.people);
+      setStats(result.data.stats ?? null);
+    } else {
+      setListError(result.error);
+    }
     setListLoading(false);
   }, []);
 
@@ -188,6 +211,7 @@ export function useContactGraphPeople() {
   return {
     // list
     people,
+    stats,
     filteredPeople,
     listLoading,
     listError,
