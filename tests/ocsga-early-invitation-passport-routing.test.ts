@@ -37,6 +37,13 @@ import { join } from 'node:path';
 const ORIENT_PANEL = 'components/journey/IanOrientationPanel.tsx';
 const IAN_JOURNEY_TAB = 'app/triad/components/codex/tabs/IanJourneyTab.tsx';
 const IAN_STATE_ROUTE = 'app/api/journey/ian/state/route.ts';
+// The evidence-assembly logic these canaries check moved here 2026-08-26 —
+// extracted from IAN_STATE_ROUTE into its own callable service so the
+// Threshold MCP gateway can compose the SAME function instead of a second
+// copy (services/threshold/constitutionalNavigator.ts). The route itself
+// stays the thin wrapper; see tests/threshold-constitutional-navigator.test.ts
+// for the extraction's own canary.
+const IAN_JOURNEY_STATE_SERVICE = 'services/journey/ianJourneyState.ts';
 const IRL_EXCHANGE_TAB = 'app/triad/components/codex/tabs/IRLExchangeTab.tsx';
 const RECIPROCAL_EXCHANGE_SERVICE = 'services/research/reciprocalExchange.ts';
 const PASSPORT_BUREAU_APPLY_TAB = 'app/triad/components/codex/tabs/PassportBureauApplyTab.tsx';
@@ -149,14 +156,14 @@ describe('canary 3 — valid invite + existing Citizen Passport → no duplicate
 });
 
 describe('canary 4 — invite never satisfies passportIssued', () => {
-  it("the Ian state route's passport stage evidence derives ONLY from the passport_issued receipt, never from activeExchangeId/citizenPassportUsable", () => {
-    const code = stripComments(readSource(IAN_STATE_ROUTE));
+  it("the Ian journey state service's passport stage evidence derives ONLY from the passport_issued receipt, never from activeExchangeId/citizenPassportUsable", () => {
+    const code = stripComments(readSource(IAN_JOURNEY_STATE_SERVICE));
     const passportLineAt = code.indexOf("passport: { passport_issued: hasReceiptType('passport_issued') }");
     expect(passportLineAt).toBeGreaterThan(-1);
   });
 
   it('citizenPassportUsable is computed from the canonical Citizen Passport read, never from the exchange/invite lookup', () => {
-    const code = stripComments(readSource(IAN_STATE_ROUTE));
+    const code = stripComments(readSource(IAN_JOURNEY_STATE_SERVICE));
     const inviteBlockAt = code.indexOf('const mine = await listMyExchanges(admin, personaId);');
     const citizenAt = code.indexOf('loadUsableCitizenPassportForAuthProfile(admin, authProfileId)');
     expect(inviteBlockAt).toBeGreaterThan(-1);
@@ -167,14 +174,14 @@ describe('canary 4 — invite never satisfies passportIssued', () => {
 
 describe('canary 5 — invite never satisfies delegation or any reciprocal-artifact evidence on its own', () => {
   it('delegation_active is computed independently of activeExchangeId/joinExchange', () => {
-    const code = stripComments(readSource(IAN_STATE_ROUTE));
+    const code = stripComments(readSource(IAN_JOURNEY_STATE_SERVICE));
     expect(code).toContain("const delegationActive = await hasActiveDelegation(personaId).catch(() => false);");
     // hasActiveDelegation is never passed exchangeId/activeExchangeId.
     expect(code).not.toMatch(/hasActiveDelegation\(personaId,\s*activeExchangeId/);
   });
 
   it('deposit/freeze/sign/cross evidence derive from the REAL artifact/exchange-status view, not merely from having an associated exchange', () => {
-    const code = stripComments(readSource(IAN_STATE_ROUTE));
+    const code = stripComments(readSource(IAN_JOURNEY_STATE_SERVICE));
     expect(code).toContain('yourDeposited = view.view.yourArtifact !== null;');
     expect(code).toContain('yourFrozen = Boolean(view.view.yourArtifact?.frozen);');
     expect(code).toContain('yourSigned = Boolean(view.view.yourArtifact?.signed);');

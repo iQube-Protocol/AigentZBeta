@@ -25,6 +25,8 @@ import { resolveInvitation } from '@/services/threshold/resolveInvitation';
 import { resolveBearer, createUpgradeHandshake, hasScope } from '@/services/threshold/gatewaySession';
 import { makeIrlAdapter } from '@/services/threshold/irlAdapter';
 import { buildCompanionInstallBrief } from '@/services/companion/extensionArtifact';
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+import { resolveConstitutionalNavigatorState } from '@/services/threshold/constitutionalNavigator';
 import {
   executeThresholdContentUpload,
   THRESHOLD_UPLOAD_ROLES,
@@ -222,6 +224,13 @@ export async function POST(request: NextRequest) {
           const hs = await createUpgradeHandshake({ parentSessionId: session.id, service, requestedScope: missing });
           if (!hs) return null;
           return { authorizeUrl: `${origin}/threshold/enter-service#code=${encodeURIComponent(hs.handshakeCode)}` };
+        }
+      : undefined,
+    resolveNavigatorState: session
+      ? async (opts) => {
+          const admin = getSupabaseServer();
+          if (!admin) return null;
+          return resolveConstitutionalNavigatorState(admin, session, opts);
         }
       : undefined,
   };
