@@ -207,7 +207,7 @@ export async function sendMessageThroughTransport(
     });
     if (!sent.ok) return sent;
     await touchConversationActivity(conversation.value.id);
-    await recordInteraction(req.channelId);
+    await recordInteraction({ kind: 'platform_peer_channel', channelId: req.channelId });
     return {
       ok: true,
       value: { messageId: sent.value.id, transport: 'qubetalk-native', deliveryState: 'delivered', externalMessageId: null },
@@ -271,7 +271,7 @@ export async function sendMessageThroughTransport(
     }
 
     await touchConversationActivity(conversation.value.id);
-    await recordInteraction(req.channelId);
+    await recordInteraction({ kind: 'platform_peer_channel', channelId: req.channelId });
 
     if (req.actingAgentRootDid) {
       await createActivityReceipt({

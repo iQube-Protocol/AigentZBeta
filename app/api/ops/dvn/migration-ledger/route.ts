@@ -131,6 +131,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     'qubetalk_groups', 'qubetalk_group_endpoints', 'qubetalk_group_memberships',
     'qubetalk_conversations', 'qubetalk_publications', 'qubetalk_publication_projections',
     'qubetalk_engagements', 'qubetalk_agent_policies', 'qubetalk_events',
+    // P0.5 — off-platform relationship sibling anchor (20260930100000).
+    'qubetalk_offplatform_relationships',
   ];
   const contactGraphTables = ['contact_persons', 'contact_personas', 'contact_endpoints'];
   const qubeTalkTablesPresent: string[] = [];

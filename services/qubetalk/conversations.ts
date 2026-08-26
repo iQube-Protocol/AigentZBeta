@@ -23,6 +23,7 @@ function rowToConversation(row: Record<string, unknown>): QubeTalkConversation {
   return {
     id: String(row.id),
     relationshipChannelId: (row.relationship_channel_id as string | null) ?? null,
+    offplatformRelationshipId: (row.offplatform_relationship_id as string | null) ?? null,
     groupId: (row.group_id as string | null) ?? null,
     topology: row.topology as QubeTalkConversationTopology,
     title: (row.title as string | null) ?? null,
@@ -34,6 +35,11 @@ function rowToConversation(row: Record<string, unknown>): QubeTalkConversation {
 
 export async function createConversation(input: {
   relationshipChannelId?: string | null;
+  /** Anchor a conversation to a qubetalk_offplatform_relationships row
+   *  instead (P0.5) — a conversation should set this OR
+   *  relationshipChannelId, never both (service-layer discipline; no DB
+   *  CHECK — see the 20260930100000 migration's own comment). */
+  offplatformRelationshipId?: string | null;
   groupId?: string | null;
   topology: QubeTalkConversationTopology;
   title?: string | null;
@@ -50,6 +56,7 @@ export async function createConversation(input: {
     .from(CONVERSATIONS)
     .insert({
       relationship_channel_id: input.relationshipChannelId ?? null,
+      offplatform_relationship_id: input.offplatformRelationshipId ?? null,
       group_id: input.groupId ?? null,
       topology: input.topology,
       title: input.title ?? null,

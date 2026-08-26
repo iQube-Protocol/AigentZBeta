@@ -109,16 +109,25 @@ function RuntimePeoplePanel({ onMessagePerson }: { onMessagePerson: (personId: s
     if (!selectedId) return;
     setMessaging(true);
     setMessagingError(null);
-    const result = await fetchJson<{ channel: { id: string } }>(`/api/qubetalk/people/${selectedId}/channel`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-    });
+    const result = await fetchJson<{ channel: { id: string; kind?: "platform_peer_channel" | "offplatform_contact" } }>(
+      `/api/qubetalk/people/${selectedId}/channel`,
+      { method: "POST", headers: { "Content-Type": "application/json" } },
+    );
     setMessaging(false);
-    if (result.ok) {
-      onMessagePerson(result.data.channel.id);
-    } else {
+    if (!result.ok) {
       setMessagingError(result.error);
+      return;
     }
+    // The Conversations tab (QubeTalkInboxTab) only knows how to render a
+    // `passport_peer_channels` row — an `offplatform_contact` id is not one,
+    // so navigating there would silently 404 every panel fetch. Until that
+    // surface gets its own off-platform relationship view (named follow-up,
+    // P0.5), surface a clear message instead of a broken navigation.
+    if (result.data.channel.kind === "offplatform_contact") {
+      setMessagingError("Relationship saved. This contact isn't linked to a platform persona yet, so a full conversation view isn't available for them yet.");
+      return;
+    }
+    onMessagePerson(result.data.channel.id);
   }, [selectedId, onMessagePerson]);
 
   return (

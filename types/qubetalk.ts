@@ -72,6 +72,31 @@ export interface QubeTalkParticipantEndpoint {
   createdAt: string;
 }
 
+// ─── Off-platform relationship sibling anchor (P0.5) ───────────────────────
+//
+// The sibling relationship object for a ContactGraph ContactPerson with NO
+// linked platform persona (linked_personhood_ref IS NULL) — passport_peer_
+// channels is personhood-bound by construction and structurally cannot
+// represent this case. NEVER a discriminator bolted onto
+// passport_peer_channels (operator ruling) — a genuinely separate anchor
+// table, exposed through the SAME RelationshipQube service/interface as the
+// platform-peer-channel case (services/qubetalk/relationships.ts).
+
+export interface QubeTalkOffplatformRelationship {
+  id: string;
+  /** T0 — matches contact_persons.owner_auth_profile_id's own scoping. */
+  ownerAuthProfileId: string;
+  contactPersonId: string;
+  status: 'active' | 'revoked';
+  /** Set once this off-platform relationship is later linked to a real
+   *  passport_peer_channels row (the ContactPerson gained a linked persona
+   *  and the two sides opened a real peer channel). Promotion never
+   *  rewrites existing qubetalk_relationship_state/qubetalk_conversations
+   *  rows — they keep anchoring on THIS id unchanged. */
+  promotedToChannelId: string | null;
+  createdAt: string;
+}
+
 // ─── RelationshipQube (§4) ─────────────────────────────────────────────────
 
 /** A single open loop / commitment entry inside relationship state. Always
@@ -84,10 +109,25 @@ export interface QubeTalkRelationshipNote {
   resolvedAt?: string | null;
 }
 
+/** Which sibling anchor kind a RelationshipQube row projects over — the
+ *  structural-distinctness requirement (operator ruling, P0.5): a caller
+ *  must always be able to tell which kind a given relationship-state or
+ *  conversation row is. Exactly one of the two anchor id fields is set,
+ *  matching whichever kind this is. */
+export type QubeTalkRelationshipAnchorKind = 'platform_peer_channel' | 'offplatform_contact';
+
 export interface QubeTalkRelationshipState {
-  /** The EXISTING passport_peer_channels.id this state projects over — the
-   *  relationship anchor. Not a new relationship id. */
-  channelId: string;
+  /** The row's own id — the real primary key (P0.5: channel_id can no
+   *  longer serve as the PK once the anchor is polymorphic). */
+  id: string;
+  anchorKind: QubeTalkRelationshipAnchorKind;
+  /** The EXISTING passport_peer_channels.id this state projects over when
+   *  anchorKind === 'platform_peer_channel'; null otherwise. Not a new
+   *  relationship id. */
+  channelId: string | null;
+  /** The qubetalk_offplatform_relationships.id this state projects over
+   *  when anchorKind === 'offplatform_contact'; null otherwise (P0.5). */
+  offplatformRelationshipId: string | null;
   openLoops: QubeTalkRelationshipNote[];
   commitments: QubeTalkRelationshipNote[];
   memorySummary: string | null;
@@ -143,6 +183,12 @@ export type QubeTalkConversationTopology = (typeof QUBETALK_CONVERSATION_TOPOLOG
 export interface QubeTalkConversation {
   id: string;
   relationshipChannelId: string | null;
+  /** The qubetalk_offplatform_relationships.id this conversation is
+   *  anchored to (P0.5) — set only for a conversation with a ContactGraph
+   *  contact who has no linked platform persona yet. A conversation never
+   *  sets both this and relationshipChannelId (service-layer discipline;
+   *  no DB CHECK — see the 20260930100000 migration's own comment). */
+  offplatformRelationshipId: string | null;
   groupId: string | null;
   topology: QubeTalkConversationTopology;
   title: string | null;
