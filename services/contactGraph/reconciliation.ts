@@ -211,6 +211,83 @@ export async function reconcileConfirmedPersonaContacts(
   return { ok: true, value: { projected, skipped } };
 }
 
+export interface PersonaContactImportSourceStats {
+  source: string;
+  importedRecords: number;
+  confirmedRecords: number;
+  projectedRecords: number;
+}
+
+export interface PersonaContactImportStats {
+  importedRecords: number;
+  confirmedRecords: number;
+  projectedRecords: number;
+  bySource: PersonaContactImportSourceStats[];
+}
+
+/**
+ * Summarise the address-book substrate without confusing import rows with
+ * canonical ContactGraph people. Pagination is deliberate: Supabase/PostgREST
+ * may cap a response at 1,000 rows, while a real iCloud import can exceed it.
+ * The service-role client is still persona-scoped by the explicit persona_id
+ * filter; no cross-persona aggregate can leak into the People projection.
+ */
+export async function summarizePersonaContactImports(
+  personaId: string,
+): Promise<PeerResult<PersonaContactImportStats>> {
+  const admin = getSupabaseServer();
+  if (!admin) return { ok: false, error: 'Supabase unavailable' };
+
+  const pageSize = 1000;
+  let offset = 0;
+  const sourceMap = new Map<string, PersonaContactImportSourceStats>();
+
+  while (true) {
+    const { data, error } = await admin
+      .from(PERSONA_CONTACTS)
+      .select('source, promotion_state, promoted_contact_person_id')
+      .eq('persona_id', personaId)
+      .range(offset, offset + pageSize - 1);
+    if (error) return { ok: false, error: error.message };
+
+    const rows = data ?? [];
+    for (const raw of rows) {
+      const row = raw as {
+        source: string | null;
+        promotion_state: string | null;
+        promoted_contact_person_id: string | null;
+      };
+      const source = row.source?.trim() || 'unknown';
+      const current = sourceMap.get(source) ?? {
+        source,
+        importedRecords: 0,
+        confirmedRecords: 0,
+        projectedRecords: 0,
+      };
+      current.importedRecords += 1;
+      if (row.promotion_state === 'confirmed') current.confirmedRecords += 1;
+      if (row.promoted_contact_person_id) current.projectedRecords += 1;
+      sourceMap.set(source, current);
+    }
+
+    if (rows.length < pageSize) break;
+    offset += pageSize;
+  }
+
+  const bySource = [...sourceMap.values()].sort(
+    (a, b) => b.importedRecords - a.importedRecords || a.source.localeCompare(b.source),
+  );
+  return {
+    ok: true,
+    value: {
+      importedRecords: bySource.reduce((sum, item) => sum + item.importedRecords, 0),
+      confirmedRecords: bySource.reduce((sum, item) => sum + item.confirmedRecords, 0),
+      projectedRecords: bySource.reduce((sum, item) => sum + item.projectedRecords, 0),
+      bySource,
+    },
+  };
+}
+
 /**
  * Promote a Gmail-correspondence (or any other) candidate row to a saved
  * contact — the ONLY path that flips promotion_state to 'confirmed' and
