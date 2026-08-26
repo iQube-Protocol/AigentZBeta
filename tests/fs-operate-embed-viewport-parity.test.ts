@@ -41,8 +41,10 @@
 
 import { describe, it, expect } from 'vitest';
 import { readSource, stripComments } from './_lib/sourceAuthority';
-import { JOURNEY_SURFACES } from '@/services/journey/journeySurfaceRegistry';
+import { JOURNEY_SURFACES, buildEmbedSurfaceSrc } from '@/services/journey/journeySurfaceRegistry';
 import { resolveOperatorDestination } from '@/services/journey/catalogueDestinationHelper';
+import { buildCodexUrl } from '@/utils/codex-nav';
+import { MONEYPENNY_CARTRIDGE } from '@/data/codex-configs';
 
 const FS_BRIDGE_FRONT_DOOR = 'components/journey/FinancialServicesBridgeFrontDoor.tsx';
 const JOURNEY_RUN_SURFACE = 'components/journey/JourneyRunSurface.tsx';
@@ -81,6 +83,96 @@ describe("registry entry 'moneypenny-orchestration-focused'", () => {
     if (!catalogue.valid) return;
     expect(catalogue.destination.cartridgeRef).toBe(descriptor.codexSlug);
     expect(catalogue.destination.tabSlug).toBe(descriptor.tab);
+  });
+});
+
+/**
+ * Explore-metaMe expand parity (operator decision, 2026-08-26) — supersedes
+ * the 2026-08-24 "Orchestration is the ONLY mirrored panel" pinning for the
+ * FS Bridge's own Explore-metaMe expand affordance specifically. Covers both
+ * required contexts: the focused/default state (unchanged) and the expanded
+ * state (now the real MONEYPENNY_CARTRIDGE, not the metame-codex mirror).
+ */
+describe("registry entry 'moneypenny-orchestration-focused' — expandedCodexSlug/expandedTab", () => {
+  const descriptor = JOURNEY_SURFACES['moneypenny-orchestration-focused'];
+
+  it('declares an expandedCodexSlug/expandedTab pointing at the real MoneyPenny cartridge, not the metame-codex mirror', () => {
+    if (descriptor.kind !== 'embed') return;
+    expect(descriptor.expandedCodexSlug).toBe('moneypenny-codex');
+    expect(descriptor.expandedTab).toBe('service-orchestration');
+  });
+
+  it('parity: expandedCodexSlug matches MONEYPENNY_CARTRIDGE.id, expandedTab is a real tab slug on it', () => {
+    if (descriptor.kind !== 'embed') return;
+    expect(descriptor.expandedCodexSlug).toBe(MONEYPENNY_CARTRIDGE.id);
+    const tab = MONEYPENNY_CARTRIDGE.tabs.find((t) => t.slug === descriptor.expandedTab);
+    expect(tab, `expandedTab '${descriptor.expandedTab}' must be a real MONEYPENNY_CARTRIDGE tab`).toBeTruthy();
+    // Landing tab stays Orchestration, not the cartridge's natural first tab
+    // (HFT Console) — expansion must not change WHERE the operator lands,
+    // only what nav becomes reachable from there.
+    expect(tab?.config.component).toBe('MoneyPennyPanelTab');
+    expect((tab?.config.props as { panel?: string } | undefined)?.panel).toBe('service-orchestration');
+  });
+
+  it('MONEYPENNY_CARTRIDGE exposes the real Operate(HFT)/Connect/Service/Administer tabGroups the expand affordance reveals', () => {
+    const groupIds = (MONEYPENNY_CARTRIDGE.tabGroups ?? []).map((g) => g.id);
+    expect(groupIds).toEqual(['operate', 'connect', 'service', 'administer']);
+  });
+
+  it('does NOT alter metame-codex\'s own "metame-moneypenny-orchestration" tab entry — that pinning stays intact for every other path into it', () => {
+    const code = stripComments(readSource('data/codex-configs.ts'));
+    const entryAt = code.indexOf("id: 'metame-moneypenny-orchestration'");
+    expect(entryAt).toBeGreaterThan(-1);
+    const entryEnd = code.indexOf('\n    },', entryAt);
+    const entryBody = code.slice(entryAt, entryEnd);
+    expect(entryBody).toContain("props: { panel: 'service-orchestration' }");
+  });
+});
+
+describe('buildEmbedSurfaceSrc — Focus view (default) vs Explore-metaMe expand, driven by the SAME `focused` signal', () => {
+  const descriptor = JOURNEY_SURFACES['moneypenny-orchestration-focused'];
+  if (descriptor.kind !== 'embed') throw new Error('expected an embed descriptor');
+
+  it('Focus view (focused: true, the un-toggled default) still targets metame-codex/moneypenny-orchestration with chrome suppressed', () => {
+    const src = buildEmbedSurfaceSrc(
+      { ...descriptor, focused: true },
+      { personaId: 'persona-1' },
+      buildCodexUrl,
+    );
+    expect(src).toContain('/triad/embed/codex/metame-codex');
+    expect(src).toContain('tab=moneypenny-orchestration');
+    expect(src).toContain('chrome=focused');
+    expect(src).toContain('depth=0');
+    expect(src).not.toContain('moneypenny-codex');
+  });
+
+  it('Explore-metaMe expand (focused cleared — the exact override JourneyRunSurface applies on openLabel click) targets the real moneypenny-codex cartridge, landing on service-orchestration, with no chrome suppression', () => {
+    const src = buildEmbedSurfaceSrc(
+      { ...descriptor, focused: undefined },
+      { personaId: 'persona-1' },
+      buildCodexUrl,
+    );
+    expect(src).toContain('/triad/embed/codex/moneypenny-codex');
+    expect(src).toContain('tab=service-orchestration');
+    expect(src).not.toContain('chrome=focused');
+    expect(src).not.toContain('depth=');
+    expect(src).not.toContain('metame-codex');
+  });
+
+  it('a focused descriptor with NO expandedCodexSlug (e.g. KNYT Pulse) is unaffected — expand just lifts its own chrome, codexSlug/tab never change', () => {
+    const knytPulse = Object.values(JOURNEY_SURFACES).find(
+      (d): d is Extract<typeof d, { kind: 'embed' }> =>
+        d.kind === 'embed' && d.codexSlug === 'knyt-codex' && d.tab === 'pulse',
+    );
+    expect(knytPulse, 'expected a knyt-codex/pulse focused descriptor to exist as the comparison case').toBeTruthy();
+    if (!knytPulse) return;
+    expect(knytPulse.expandedCodexSlug).toBeUndefined();
+    const focusedSrc = buildEmbedSurfaceSrc({ ...knytPulse, focused: true }, {}, buildCodexUrl);
+    const expandedSrc = buildEmbedSurfaceSrc({ ...knytPulse, focused: undefined }, {}, buildCodexUrl);
+    expect(focusedSrc).toContain('/triad/embed/codex/knyt-codex');
+    expect(expandedSrc).toContain('/triad/embed/codex/knyt-codex');
+    expect(focusedSrc).toContain('tab=pulse');
+    expect(expandedSrc).toContain('tab=pulse');
   });
 });
 
