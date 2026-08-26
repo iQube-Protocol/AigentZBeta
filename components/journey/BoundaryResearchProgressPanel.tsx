@@ -58,9 +58,18 @@ export function BoundaryResearchProgressPanel({ personaId, isAdmin }: BoundaryRe
       .map((w) => ({ id: w.id, label: researchWorkspaceLabel(w) }));
   }, [access, isAdmin]);
 
+  // Access-boundary correction (2026-08-26): this label has always said
+  // "Explore IRL OS" but the href pointed at `irl-cartridge` — metaMe IRL, the
+  // internal admin laboratory — not IRL OS. External IRL participation is
+  // always mediated through IRL OS; metaMe IRL is strictly admin-gated (see
+  // IRL_CARTRIDGE's tabs in data/codex-configs.ts). Corrected to the actual
+  // IRL OS cartridge, landing on its own Workspace tab (irl-os-workspace —
+  // the SAME buildResearchWorkspaceTab surface this panel's PartnerProgrammesTab
+  // instances render, just unlocked to the participant's full scoped list
+  // rather than pinned to one workspace).
   const exploreIrlOsLink = (
     <a
-      href={buildCodexUrl('irl-cartridge', { tab: 'irl-welcome', personaId })}
+      href={buildCodexUrl('irl-os-cartridge', { tab: 'irl-os-workspace', personaId })}
       className="inline-flex items-center gap-1.5 text-[12px] text-violet-300 hover:text-violet-200"
     >
       Explore IRL OS <ExternalLink className="h-3 w-3" />

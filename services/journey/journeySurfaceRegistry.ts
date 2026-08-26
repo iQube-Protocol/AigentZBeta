@@ -432,11 +432,30 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
     codexSlug: 'irl-cartridge',
     tab: 'irl-exchange',
     focused: true,
+    openLabel: 'Explore IRL OS ↗',
+    // Access-boundary correction (2026-08-26): External IRL participation is
+    // always mediated through IRL OS; metaMe IRL is the internal comprehensive
+    // laboratory and is strictly admin-gated (see IRL_CARTRIDGE's tabs in
+    // data/codex-configs.ts). Before this fix, expanding this focused embed's
+    // "Open full view" affordance (`buildEmbedSurfaceSrc`'s `isExpandedProjection`
+    // path — the SAME mechanism `moneypenny-orchestration-focused` established
+    // the same day) lifted metame-irl-cartridge's OWN chrome — dropping an
+    // external OCSGA participant (e.g. Ian) into the internal lab shell. The
+    // focused embed itself is UNCHANGED (codexSlug/tab still point at
+    // irl-cartridge's irl-exchange tab, which is deliberately NOT admin-gated —
+    // see that tab's own comment in data/codex-configs.ts): only the EXPANDED
+    // destination now differs, landing on IRL OS's own Workspace tab
+    // (irl-os-workspace — the SAME buildResearchWorkspaceTab surface, gated by
+    // participationDomain: 'research-lab', not adminOnly) rather than metaMe
+    // IRL.
+    expandedCodexSlug: 'irl-os-cartridge',
+    expandedTab: 'irl-os-workspace',
     note:
       'The REAL Reciprocal Artifact Exchange workspace (IRLExchangeTab, PRD-IRL-AX-001) — reused ' +
       'verbatim across create-deposit, freeze-attestation-ready, freeze-attestation, exchange-ready ' +
       'and exchange-complete. One real component; Journey Spine only labels which point in its own ' +
-      'internal deposit -> freeze -> sign -> cross flow the participant is at. Never forked.',
+      'internal deposit -> freeze -> sign -> cross flow the participant is at. Never forked. Full-view ' +
+      'expansion targets IRL OS, never metaMe IRL — see expandedCodexSlug/expandedTab above.',
   },
   'boundary-research-progress': {
     kind: 'component',

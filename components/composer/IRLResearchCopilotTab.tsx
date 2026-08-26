@@ -43,6 +43,28 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, ArrowRight, CheckCircle, ChevronDown, ClipboardCheck, FlaskConical, Landmark, Loader2, Lock, Play, RefreshCw, ScrollText, ShieldCheck, Target } from "lucide-react";
+// Track 2 stage-status vocabulary, MIRRORED (not imported) from
+// components/research/Track2ProgrammePanel.tsx's own STATUS_LABEL — that
+// module exports only the Panel component, not its internals, and this is a
+// presentation-only compact projection (a colored dot strip) of the SAME
+// canonical Track2StageStatus union (services/research/track2Programme.ts),
+// never a second derivation of stage status itself (inv.engineering.036/037).
+const TRACK2_STATUS_LABEL: Record<string, string> = {
+  complete: "complete",
+  "partially-complete": "partially complete — eligible records processed",
+  "in-progress": "in progress",
+  "not-started": "not started",
+  blocked: "blocked — no valid subset can proceed",
+  unknown: "not observable from here",
+};
+const TRACK2_STATUS_DOT: Record<string, string> = {
+  complete: "bg-emerald-400",
+  "partially-complete": "bg-emerald-400/50",
+  "in-progress": "bg-amber-300",
+  "not-started": "bg-slate-600",
+  blocked: "bg-rose-400",
+  unknown: "bg-slate-500",
+};
 import { SmartTriadCopilotLayer, type CopilotStageProposal } from "@/components/smarttriad/copilot/SmartTriadCopilotLayer";
 import { experimentGet } from "./experimentStepFetch";
 import { personaFetch } from "@/utils/personaSpine";
@@ -51,6 +73,11 @@ import { personaFetch } from "@/utils/personaSpine";
 // hand-copied interface here) would be a second shape that agrees with the
 // server's only until one of them is edited (`inv.engineering.036`/`037`).
 import type { ProgrammeRunResult } from "@/services/research/researchProgrammeOrchestrator";
+// The SAME read-only projection Track2ProgrammePanel itself reads
+// (GET /api/research/track2/[experimentId] -> loadTrack2ProgrammeState) —
+// reused here so the objective's state is visible on OPEN, before the
+// operator has run anything, rather than only after a POST /advance.
+import type { Track2Programme } from "@/services/research/track2Programme";
 import type {
   ExperimentLifecycleState,
   ResearchExperiment,
@@ -551,6 +578,7 @@ function PopCell({ label, value }: { label: string; value: number }) {
 function ObjectiveCard({
   objective,
   run,
+  programmePreview,
   running,
   error,
   onRun,
@@ -558,6 +586,11 @@ function ObjectiveCard({
 }: {
   objective: ResearchObjective;
   run: ProgrammeRunResult | null;
+  /** The SAME read-only Track2Programme projection, loaded on mount (before
+   *  any run) so "where are we" is visible on open, not only after "Run
+   *  until you need me". Once a run completes, `run.programme` (re-read
+   *  after the last act — the fresher truth) takes over. */
+  programmePreview: Track2Programme | null;
   running: boolean;
   error: string | null;
   onRun: () => void;
@@ -566,6 +599,7 @@ function ObjectiveCard({
   const gate = run?.measurementLayerGate ?? null;
   const stop = run?.stopReason ?? null;
   const decision = run?.pendingDecision ?? null;
+  const programme = run?.programme ?? programmePreview;
 
   return (
     <div className="rounded-xl border border-sky-800/50 bg-sky-950/20 p-4 space-y-3">
@@ -594,6 +628,65 @@ function ObjectiveCard({
       {error && (
         <div className="rounded border border-rose-500/40 bg-rose-500/10 px-2 py-1.5 text-[10px] text-rose-300">
           The run could not be started — {error}. Nothing was executed.
+        </div>
+      )}
+
+      {/* TRACK 2 — you are here. Real, live data (the SAME read-only projection
+          Track2ProgrammePanel itself reads) that was previously visible only
+          AFTER a run, and even then was fetched but never rendered (2026-08-26
+          reconciliation: the operator could not see Track 2 state from the
+          Copilot at all and had to operate its stage UI directly, which is
+          exactly what this objective exists to eliminate). Renders as soon as
+          the mount-time preview loads — before the first "Run until you need
+          me" — then upgrades to `run.programme` (re-read after the last act)
+          once a run completes. A compact PROJECTION of the same eleven-stage
+          programme Track2ProgrammePanel renders in full — never a second
+          implementation of stage derivation (inv.engineering.036/037).
+          "IDE 2.0" (invariant discovery / reasoning-bearing structure) and
+          "Crystal v2" (the compiled candidate + readiness + freeze prep) are
+          not separate data models — they are what stages 3-6 and 8-11
+          respectively DO; the dot strip below already covers both, so no
+          fabricated status field or nonexistent navigation target is added
+          for either. */}
+      {programme && (
+        <div className="rounded border border-slate-700 bg-slate-900/40 px-2 py-2 space-y-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">
+              Track 2 — you are here
+            </span>
+            <button
+              type="button"
+              onClick={onOpenDetail}
+              className="text-[10px] text-sky-300/80 hover:text-sky-200 transition inline-flex items-center gap-1"
+            >
+              Inspect Track 2 <ArrowRight className="h-2.5 w-2.5" />
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {programme.stages.map((s) => (
+              <span
+                key={s.id}
+                title={`${s.label} — ${TRACK2_STATUS_LABEL[s.status] ?? s.status}`}
+                className={`inline-flex h-2 w-2 rounded-full ${TRACK2_STATUS_DOT[s.status] ?? "bg-slate-600"} ${
+                  s.id === programme.currentStageId ? "ring-2 ring-sky-400/60 ring-offset-1 ring-offset-slate-900" : ""
+                }`}
+              />
+            ))}
+          </div>
+          <div className="text-[10px] text-slate-300">
+            {programme.stages.find((s) => s.id === programme.currentStageId)?.label ?? programme.currentStageId}
+          </div>
+          {programme.nextActions.length > 0 && (
+            <div className="space-y-0.5">
+              <div className="text-[9px] uppercase tracking-wide text-slate-500">Next executable act(s)</div>
+              {programme.nextActions.slice(0, 2).map((a, i) => (
+                <div key={i} className="flex gap-1.5 text-[10px] text-slate-400">
+                  <span className="text-slate-500 shrink-0">→</span>
+                  <span className="break-words">{a}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -765,8 +858,9 @@ function ObjectiveCard({
 
       {!run && !error && (
         <p className="text-[10px] text-slate-500">
-          Not run yet. One click performs every act that can safely proceed and stops at the first decision that
-          is genuinely yours — the freeze is always yours, and is never performed here.
+          {programme
+            ? "Not run yet — the state above is current. One click performs every act that can safely proceed and stops at the first decision that is genuinely yours — the freeze is always yours, and is never performed here."
+            : "Not run yet. One click performs every act that can safely proceed and stops at the first decision that is genuinely yours — the freeze is always yours, and is never performed here."}
         </p>
       )}
     </div>
@@ -816,6 +910,12 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
   const [programmeRun, setProgrammeRun] = useState<ProgrammeRunResult | null>(null);
   const [programmeRunning, setProgrammeRunning] = useState(false);
   const [programmeError, setProgrammeError] = useState<string | null>(null);
+  // Read-only Track 2 state preview — loaded on mount/refresh (GET, no acts
+  // executed) so the objective's "where are we" is visible on OPEN, not only
+  // after the first "Run until you need me" (2026-08-26 reconciliation).
+  // Distinct from `programmeRun` above: this never runs anything, so it is
+  // safe to fetch on mount alongside overview/results, unlike the run itself.
+  const [programmePreview, setProgrammePreview] = useState<Track2Programme | null>(null);
 
   // ── C3 Feedback Coordinator (mirrors DevCommandCenterTab.autoPrompt): on a
   // stage-ADVANCING approval, mint ONE `[observed]` auto-turn so the copilot
@@ -953,6 +1053,29 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
     } catch (err) {
       setResultsError(err instanceof Error ? err.message : "results unavailable");
     }
+    // Objective: Prepare Crystal v2 — the read-only Track 2 preview, one call
+    // per registered objective's experimentId. `experimentGet` is not reused
+    // here: this route answers `{ requestSucceeded, programme }`, not the
+    // `{ ok }` shape `experimentGet` expects (services/research/track2Programme.ts's
+    // own contract, GET /api/research/track2/[experimentId]) — never runs
+    // anything, so it is safe alongside the other read-only calls above.
+    for (const objective of RESEARCH_OBJECTIVES) {
+      try {
+        const res = await personaFetch(`/api/research/track2/${encodeURIComponent(objective.experimentId)}`, {
+          cache: "no-store",
+          ...(personaId ? { personaIdHint: personaId } : {}),
+        });
+        const data = (await res.json().catch(() => null)) as { requestSucceeded?: boolean; programme?: Track2Programme } | null;
+        if (res.ok && data?.requestSucceeded && data.programme) {
+          setProgrammePreview(data.programme);
+        }
+        // A failed preview never blocks the rest of refresh, and never clears
+        // an already-loaded preview — an honest "could not confirm just now"
+        // is preferable to the card flickering back to "not observed".
+      } catch {
+        /* preview is best-effort; the objective card degrades to "not run yet" */
+      }
+    }
     // C2.2 — hydrate the working panel from the persisted lab record so a
     // refresh no longer loses approved objects. Persisted wins on id
     // collision; an in-flight save is never clobbered by hydration.
@@ -975,7 +1098,7 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
     }
     setRefreshing(false);
     observe(surfaceDataRefreshedEvent(SURFACE, `${expCount} experiments · ${resultCount} canonical results`));
-  }, [observe]);
+  }, [observe, personaId]);
 
   const openedRef = useRef(false);
   useEffect(() => {
@@ -1219,6 +1342,7 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
               key={objective.id}
               objective={objective}
               run={programmeRun}
+              programmePreview={programmePreview}
               running={programmeRunning}
               error={programmeError}
               onRun={() => void runProgramme(objective.experimentId)}

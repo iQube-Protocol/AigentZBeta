@@ -563,13 +563,37 @@ export const RESEARCH_WORKSPACES: ResearchWorkspace[] = [
       relationship: 'aigent-marketa',
       governance: 'metame-guardian',
     },
+    // Access-boundary correction (2026-08-26): External IRL participation is
+    // always mediated through IRL OS; metaMe IRL is strictly admin-gated. The
+    // Protocols link below was pointing OCSGA's own participant (Ian) at a
+    // metaMe IRL tab (irl-protocols), now admin-only — a non-admin following
+    // it would hit metaMe IRL's fallback/empty state. Repointed at its IRL OS
+    // mirror (irl-os-protocols — same content, participant-facing cartridge,
+    // confirmed enabled and ungated in data/codex-configs.ts).
+    //
+    // Records & Findings is DELIBERATELY DROPPED, not repointed: IRL OS's own
+    // mirror (irl-os-records) is `enabled: false` with its own comment —
+    // "INTERNAL — the constitutional record lives in the metaMe IRL edition
+    // only" — a pre-existing design decision, not a gap this pass invented.
+    // Pointing Ian at it would mean either a disabled/hidden IRL OS tab or
+    // (before this pass) an inadvertent peek into an internal-only surface
+    // via the workspace link, which the metaMe IRL adminOnly fix now
+    // correctly closes. Neither destination is safe to keep; an honest
+    // absence is correct until an operator decides Records should have a
+    // real participant-facing home.
+    //
+    // The Exchange link stays UNCHANGED: it is the concrete OCSGA
+    // collaboration surface itself (irl-cartridge's irl-exchange tab is
+    // deliberately NOT admin-gated — see its own comment in
+    // data/codex-configs.ts), and there is no IRL OS equivalent to reroute it
+    // to.
     links: [
       {
         id: 'irl-protocols',
         label: 'Protocols & Articles',
         description: 'Pre-registration protocols, experiment designs, evaluation frameworks',
-        codexSlug: 'irl-cartridge',
-        tab: 'irl-protocols',
+        codexSlug: 'irl-os-cartridge',
+        tab: 'irl-os-protocols',
         area: 'overview',
       },
       {
@@ -580,14 +604,6 @@ export const RESEARCH_WORKSPACES: ResearchWorkspace[] = [
         codexSlug: 'irl-cartridge',
         tab: 'irl-exchange',
         area: 'operate',
-      },
-      {
-        id: 'irl-records',
-        label: 'Records & Findings',
-        description: 'The constitutional record — every increment, finding, and session record',
-        codexSlug: 'irl-cartridge',
-        tab: 'irl-records',
-        area: 'evidence',
       },
     ],
   },
