@@ -40,6 +40,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-08-26_p05-offplatform-relationships-and-contactgraph-endpoint-hardening.md",
         "updates/2026-09-30_contactgraph-substrate-and-qubetalk-integration.md",
         "updates/2026-08-25_locker-roomqube-sharepacks-phase1.md",
         "updates/2026-08-25_qubetalk-communications-membrane-expansion-build.md",
