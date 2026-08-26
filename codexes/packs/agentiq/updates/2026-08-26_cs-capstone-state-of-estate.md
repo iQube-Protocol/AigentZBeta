@@ -48,8 +48,8 @@ The Polity Passport then separated **personhood** from **identity**. Identities 
 
 - **DevOn / Constitutional Development:** registry-aware development, invariant discovery, gap analysis, bounded execution and consequence evidence.
 - **Financial Services Runtime:** admitted financial agents and agentic services, including the Horizen proving work.
-- **Invariant Research Lab:** the governed environment for research programmes, experiments, capstones, review, evidence and the Commons.
-- **Four bridges:** Constitutional Internet, KNYTS, Financial Services/Horizen and OCSGA.
+- **Invariant Research Lab:** the governed environment for research programmes, experiments, capstones, review, evidence and the Commons. Open the [IRL OS Experiments](https://dev-beta.aigentz.me/triad/embed/codex/irl-os-cartridge?tab=irl-os-experiment-lab) runner for the Foundational Series, or enter the [IRL OS Workspace](https://dev-beta.aigentz.me/triad/embed/codex/irl-os-cartridge?tab=irl-os-workspace) and select **CS Capstone** in the left navigation to reach the Lehigh cohort and its Software Build, Agent Integration and Constitutional Runtime projects.
+- **Four live bridges:** [Constitutional Internet](https://dev-beta.aigentz.me/bridge/ci), [KNYTS](https://dev-beta.aigentz.me/bridge/knyts), [Financial Services/Horizen](https://dev-beta.aigentz.me/bridge/financial-services) and [OCSGA](https://dev-beta.aigentz.me/bridge/ocsga).
 - **Economic and chain rails:** Base-oriented iQube infrastructure, QriptoCENT and Bitcent.
 - **Personhood and participation:** Polity Passport, bounded delegation, contribution receipts and Standing.
 
@@ -102,4 +102,3 @@ One implementation boundary remains open: admitted research-contribution signals
 - [Contribution admission and the Slice C boundary](https://github.com/iQube-Protocol/AigentZBeta/blob/dev/services/research/studentContribution.ts)
 - [Shared Standing admission gate](https://github.com/iQube-Protocol/AigentZBeta/blob/dev/services/venture/trading/standingAdmission.ts)
 - [June–August Venture Lab internal report](./2026-08-26_venture-lab-internal-report-june-august.md)
-
