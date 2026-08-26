@@ -132,10 +132,13 @@ describe('research-active reuses PartnerProgrammesTab — never a forked Boundar
     expect(src).not.toMatch(/lockedWorkspaceId=\{['"`]/); // never a hardcoded literal id
   });
 
-  it('keeps "Explore IRL OS" as the explicit route into the larger body of work', () => {
+  it('keeps "Explore IRL OS" as the explicit route into the larger body of work, and actually routes to IRL OS (access-boundary correction, 2026-08-26 -- see tests/irl-os-access-boundary.test.ts)', () => {
     const src = stripComments(readSource('components/journey/BoundaryResearchProgressPanel.tsx'));
     expect(src).toContain('Explore IRL OS');
-    expect(src).toContain("buildCodexUrl('irl-cartridge', { tab: 'irl-welcome'");
+    expect(src).toContain("buildCodexUrl('irl-os-cartridge', { tab: 'irl-os-workspace'");
+    // The label always said IRL OS; the href used to say otherwise
+    // (irl-cartridge -- metaMe IRL, the internal admin lab). Never again.
+    expect(src).not.toContain("'irl-cartridge'");
   });
 
   it('renders a designed empty state for zero assigned experiments, never a silent fallback', () => {

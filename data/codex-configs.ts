@@ -5931,6 +5931,10 @@ export const IRL_CARTRIDGE: CodexConfig = {
       label: 'Welcome',
       slug: 'irl-welcome',
       enabled: true,
+      // Access-boundary correction (2026-08-26): metaMe IRL is strictly
+      // admin-gated — external IRL participation is always mediated through
+      // IRL OS (irl-os-cartridge's own irl-os-welcome).
+      adminOnly: true,
       group: 'institution',
       order: -1,
       type: 'static',
@@ -5960,6 +5964,8 @@ export const IRL_CARTRIDGE: CodexConfig = {
       label: 'Dashboard',
       slug: 'irl-dashboard',
       enabled: true,
+      // Access-boundary correction (2026-08-26): metaMe IRL strictly admin-gated.
+      adminOnly: true,
       group: 'institution',
       order: 0,
       type: 'static',
@@ -5971,6 +5977,8 @@ export const IRL_CARTRIDGE: CodexConfig = {
       label: 'Research Copilot',
       slug: 'irl-research-copilot',
       enabled: true,
+      // Access-boundary correction (2026-08-26): metaMe IRL strictly admin-gated.
+      adminOnly: true,
       group: 'institution',
       order: 0.5,
       type: 'static',
@@ -5987,6 +5995,8 @@ export const IRL_CARTRIDGE: CodexConfig = {
       label: 'Charter',
       slug: 'irl-charter',
       enabled: true,
+      // Access-boundary correction (2026-08-26): metaMe IRL strictly admin-gated.
+      adminOnly: true,
       group: 'institution',
       order: 1,
       type: 'static',
@@ -6002,6 +6012,8 @@ export const IRL_CARTRIDGE: CodexConfig = {
       label: 'Layer I — Invariant Intelligence',
       slug: 'layer-i',
       enabled: true,
+      // Access-boundary correction (2026-08-26): metaMe IRL strictly admin-gated.
+      adminOnly: true,
       group: 'research',
       order: 0,
       type: 'static',
@@ -6016,6 +6028,8 @@ export const IRL_CARTRIDGE: CodexConfig = {
       label: 'Layer II — Constitutional Computing',
       slug: 'layer-ii',
       enabled: true,
+      // Access-boundary correction (2026-08-26): metaMe IRL strictly admin-gated.
+      adminOnly: true,
       group: 'research',
       order: 1,
       type: 'static',
@@ -6030,6 +6044,8 @@ export const IRL_CARTRIDGE: CodexConfig = {
       label: 'Layer III — Constitutional Cybernetics',
       slug: 'layer-iii',
       enabled: true,
+      // Access-boundary correction (2026-08-26): metaMe IRL strictly admin-gated.
+      adminOnly: true,
       group: 'research',
       order: 2,
       type: 'static',
@@ -6057,6 +6073,9 @@ export const IRL_CARTRIDGE: CodexConfig = {
       label: 'Protocols & Articles',
       slug: 'irl-protocols',
       enabled: true,
+      // Access-boundary correction (2026-08-26): metaMe IRL strictly
+      // admin-gated — external participants use IRL OS's irl-os-protocols.
+      adminOnly: true,
       group: 'laboratory',
       order: 1,
       type: 'static',
@@ -6071,6 +6090,8 @@ export const IRL_CARTRIDGE: CodexConfig = {
       label: 'Invariant Field',
       slug: 'irl-invariant-field',
       enabled: true,
+      // Access-boundary correction (2026-08-26): metaMe IRL strictly admin-gated.
+      adminOnly: true,
       group: 'laboratory',
       order: 3,
       type: 'static',
@@ -6138,6 +6159,8 @@ export const IRL_CARTRIDGE: CodexConfig = {
       label: 'Invariant Registry',
       slug: 'irl-invariant-registry',
       enabled: true,
+      // Access-boundary correction (2026-08-26): metaMe IRL strictly admin-gated.
+      adminOnly: true,
       group: 'laboratory',
       order: 2,
       type: 'static',
@@ -6149,6 +6172,8 @@ export const IRL_CARTRIDGE: CodexConfig = {
       label: 'Glossary & Ontology',
       slug: 'irl-glossary',
       enabled: true,
+      // Access-boundary correction (2026-08-26): metaMe IRL strictly admin-gated.
+      adminOnly: true,
       group: 'research',
       order: 3,
       type: 'static',
@@ -6164,6 +6189,9 @@ export const IRL_CARTRIDGE: CodexConfig = {
       label: 'Records & Findings',
       slug: 'irl-records',
       enabled: true,
+      // Access-boundary correction (2026-08-26): metaMe IRL strictly
+      // admin-gated — external participants use IRL OS's irl-os-records.
+      adminOnly: true,
       group: 'publications',
       order: 0,
       type: 'static',
@@ -6180,6 +6208,8 @@ export const IRL_CARTRIDGE: CodexConfig = {
       label: 'Reports',
       slug: 'irl-reports',
       enabled: true,
+      // Access-boundary correction (2026-08-26): metaMe IRL strictly admin-gated.
+      adminOnly: true,
       group: 'publications',
       order: 1,
       type: 'static',
@@ -6192,6 +6222,8 @@ export const IRL_CARTRIDGE: CodexConfig = {
       label: 'Research Programmes',
       slug: 'irl-programmes',
       enabled: true,
+      // Access-boundary correction (2026-08-26): metaMe IRL strictly admin-gated.
+      adminOnly: true,
       group: 'institution',
       order: 2,
       type: 'static',
@@ -6210,6 +6242,15 @@ export const IRL_CARTRIDGE: CodexConfig = {
       label: 'Overview',
       slug: 'irl-participation-overview',
       enabled: true,
+      // NOT admin-gated (access-boundary correction, 2026-08-26 — corrected
+      // after tests/lab-tab-restructure-and-locker-ux.test.ts caught the
+      // regression): the whole 'participation' group, like irl-workspace,
+      // is SHARED infrastructure a delegated steward and ordinary
+      // research-lab participants reach directly in metaMe IRL — a
+      // pre-existing, tested surface this pass does not redesign. IRL OS's
+      // own Participation group (irl-os-participation-overview and
+      // siblings) remains the parallel EXTERNAL entrance for the same
+      // audience.
       group: 'participation',
       order: 0,
       type: 'static',
@@ -6224,6 +6265,9 @@ export const IRL_CARTRIDGE: CodexConfig = {
       label: 'Apply',
       slug: 'irl-passport-apply',
       enabled: true,
+      // NOT admin-gated — see irl-participation-overview's comment above:
+      // the whole 'participation' group is pre-existing shared
+      // infrastructure, not redesigned by this pass.
       group: 'participation',
       order: 1,
       type: 'static',
@@ -6235,6 +6279,7 @@ export const IRL_CARTRIDGE: CodexConfig = {
       label: 'Delegation',
       slug: 'irl-passport-delegation',
       enabled: true,
+      // NOT admin-gated — see irl-participation-overview's comment above.
       group: 'participation',
       order: 2,
       type: 'static',
@@ -6256,6 +6301,7 @@ export const IRL_CARTRIDGE: CodexConfig = {
       label: 'Locker',
       slug: 'irl-passport-locker',
       enabled: true,
+      // NOT admin-gated — see irl-participation-overview's comment above.
       group: 'participation',
       order: 3,
       type: 'static',
@@ -6269,6 +6315,7 @@ export const IRL_CARTRIDGE: CodexConfig = {
       label: 'Standing',
       slug: 'irl-participation-standing',
       enabled: true,
+      // NOT admin-gated — see irl-participation-overview's comment above.
       group: 'participation',
       order: 5,
       type: 'static',
@@ -6295,6 +6342,22 @@ export const IRL_CARTRIDGE: CodexConfig = {
     // immediately after Participation — see the long comment on `tabGroups`
     // for the full correction history. Built by `buildResearchWorkspaceTab`
     // so this cartridge and IRL OS share one definition, never two.
+    // NOT admin-gated (access-boundary correction, 2026-08-26 — corrected
+    // after tests/research-workspace-spec.test.ts and
+    // tests/research-lab-workspace.test.ts caught the regression): unlike
+    // every OTHER tab in this cartridge, irl-workspace is SHARED
+    // infrastructure — the canonical Workspace entrance for every
+    // research-lab role across every research programme (Autonomi
+    // reviewers, capstone faculty leads/students, institutional observers,
+    // principal investigators, OCSGA), gated per-role by its own
+    // participationDomain/participationRoles (SPEC-IRL-WORKSPACE-001),
+    // NOT by adminOnly. It predates and extends beyond OCSGA; gating it
+    // admin-only here would have silently locked out every one of those
+    // pre-existing, tested external-participant flows, which is the
+    // opposite of the invariant this pass exists to enforce. IRL OS's own
+    // irl-os-workspace (same builder, same participationDomain gate) is the
+    // parallel EXTERNAL entrance point for the same audience — this one
+    // stays reachable too, exactly as it always was.
     buildResearchWorkspaceTab('irl-workspace'),
   ],
 };
