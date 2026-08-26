@@ -8,7 +8,29 @@
  *  - list_services returns the registry without leaking identifiers.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+
+// gateway.ts now transitively imports services/identity/constitutionalContext.ts
+// (via services/threshold/constitutionalNavigator.ts, added 2026-08-26 for
+// get_navigator_state) — that module's own import of getActivePersona.ts pulls
+// in services/wallet/multiEmailIdentity.ts, which calls `createClient(...)` at
+// MODULE-EVALUATION time and throws when Supabase env vars are unset (this
+// test file's environment). Mocked here rather than env-stubbed, matching the
+// SAME precedent tests/homecoming-phase-ii-wpa3-response-identity.test.ts
+// already uses for the identical chain — this file exercises the gateway's
+// tool surface/dispatch/T2-safety, not real DB-backed constitutional-context
+// resolution (that belongs to tests/threshold-constitutional-navigator.test.ts).
+vi.mock('@/services/identity/constitutionalContext', () => ({
+  resolveConstitutionalContextForPersona: vi.fn(async () => ({
+    citizen: { personId: null },
+    passport: { passportId: null, grade: null },
+    persona: { personaId: null, displayLabel: null },
+    boundAgents: [],
+    assignedAgents: [],
+    currentAigentMe: null,
+  })),
+}));
+
 import { buildThresholdLink, verifyThresholdLink, THRESHOLD_LINK_SCHEMA } from '../services/threshold/thresholdLink';
 import { listTools, listPrompts, callTool, type GatewayContext } from '../services/threshold/gateway';
 import { serviceRegistrySnapshot, getService, grantableCapabilities, CONSTITUTIONAL_ROOT_CAPABILITIES } from '../services/threshold/serviceRegistry';

@@ -21,6 +21,7 @@ import { hasScope, type ScopedSession } from './gatewaySession';
 import { crossingReceipt, welcomePayload, WELCOME_MESSAGE } from './welcome';
 import type { IrlAdapter } from './irlAdapter';
 import type { CompanionInstallBrief } from '../companion/extensionArtifact';
+import { supportedBridgeIds, type NavigatorState } from './constitutionalNavigator';
 
 // ── Context injected by the route (keeps this module I/O-light + testable) ──
 
@@ -59,6 +60,16 @@ export interface GatewayContext {
    *  route because it reads the checked-in extension source from disk; the
    *  gateway module itself stays I/O-light and unit-testable. */
   companionInstall?: () => CompanionInstallBrief;
+  /**
+   * The composed constitutional-navigator state (2026-08-26) — Passport,
+   * sponsorship/delegation, CAS + Reciprocal Exchange grants, and the
+   * caller's journey stage, unioned per services/threshold/
+   * constitutionalNavigator.ts. Injected by the route (needs the
+   * service-role Supabase client and the resolved session) so this module
+   * stays I/O-light. `opts.bridge` selects which journey to compose against
+   * — see `supportedBridgeIds()` for what's wired.
+   */
+  resolveNavigatorState?: (opts?: { bridge?: string }) => Promise<NavigatorState | null>;
 }
 
 // ── Catalogue ───────────────────────────────────────────────────────────────
@@ -118,6 +129,16 @@ export function listTools() {
       description:
         'After the crossing, report the current session: whether it is active, the exact capability scope the principal authorized, and which services are now reachable vs still need more scope. Requires an authenticated session (present your bearer). Reveals only the T2 principal/agent references — never persona identifiers.',
       inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+    },
+    {
+      name: 'get_navigator_state',
+      description:
+        'The constitutional navigator: answers "what should my principal do next" for a specific bridge/programme, composed from their REAL current state — Passport (usable/not-usable), agent sponsorship + bounded delegation, research-lab and Reciprocal Artifact Exchange grants, and their exact position in that journey (current stage, what evidence is still missing, and why the next stage matters, in the journey\'s own words). This is a NAVIGATOR over the existing journey — it never advances or mutates anything; it only reads and explains. Only ONE bridge is wired in this increment: "ocsga" (the Boundary Research / Reciprocal Artifact Exchange crossing). Omit `bridge` to use the session\'s own initiating service. Requires an authenticated session.',
+      inputSchema: {
+        type: 'object',
+        properties: { bridge: { type: 'string', description: 'Which bridge/journey to resolve against (currently: "ocsga"). Defaults to the session\'s initiating service.' } },
+        additionalProperties: false,
+      },
     },
     {
       name: 'request_service_capabilities',
@@ -261,6 +282,7 @@ export const HANDSHAKE_TOOLS = new Set([
   'begin_handshake',
   'authenticate_principal',
   'get_crossing_status',
+  'get_navigator_state',
   'get_passport_status',
   'create_or_link_agent_card',
   'request_agent_passport',
@@ -283,6 +305,7 @@ export const HANDSHAKE_TOOLS = new Set([
  *  fallback. The remaining HANDSHAKE_TOOLS land in later increments. */
 const AUTHENTICATED_TOOLS = new Set([
   'get_crossing_status',
+  'get_navigator_state',
   'request_service_capabilities',
   'propose_delegation',
   'get_companion_install',
@@ -416,6 +439,22 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
         note:
           'Eligible ≠ authorized. A service under `eligible` is discoverable and you may request entry, but your agent holds NO operational authority within it until an incremental crossing completes — call request_service_capabilities("<id>") and your principal authorizes in the browser. Only services under `authorized` can be operated now. (Journey eligibility is discovery; operational authority is a separate, human-authorized grant.)',
         expiresAt: s.expiresAt,
+      });
+    }
+
+    if (name === 'get_navigator_state') {
+      if (!ctx.resolveNavigatorState) return { ...text('The constitutional navigator is unavailable on this gateway.'), isError: true };
+      const bridge = typeof args.bridge === 'string' && args.bridge.trim() ? args.bridge.trim() : undefined;
+      const state = await ctx.resolveNavigatorState({ bridge });
+      if (!state) return { ...text('The navigator could not resolve state right now (the platform database is unavailable). Nothing below is derivable — try again shortly.'), isError: true };
+      if (!state.resolvable) {
+        return { ...text(`Could not resolve your principal's constitutional state: ${state.reason}`), isError: true };
+      }
+      return text({
+        ...state,
+        supportedBridges: supportedBridgeIds(),
+        note:
+          'This is a NAVIGATOR over the journey, not the journey itself — it never advances or authorizes anything. `nextAct` (when present) names the single next stage and who performs it (PRINCIPAL/DELEGATE/EITHER); a constitutional act (Passport, delegation, freeze, signature) is always the principal\'s own — you may explain and prepare it, never perform it.',
       });
     }
 

@@ -171,6 +171,26 @@ export async function resolveConstitutionalContext(
 ): Promise<ConstitutionalContext> {
   const persona = await getActivePersona(request);
   if (!persona?.personaId) return emptyConstitutionalContext();
+  return resolveConstitutionalContextForPersona(persona.personaId, persona.authProfileId, persona.fioHandle ?? null);
+}
+
+/**
+ * The SAME resolution `resolveConstitutionalContext` performs, taking an
+ * ALREADY-RESOLVED (personaId, authProfileId) directly rather than reading them
+ * from a browser `NextRequest`/cookie session (extracted 2026-08-26 so the
+ * Threshold MCP gateway — which resolves identity from a bearer token via
+ * `resolvePersonaIdByPublicRef`, never a browser session — can compose the
+ * SAME sponsorship/delegation roster instead of re-deriving it). Every line
+ * below this point was already personaId/authProfileId-scoped; only the
+ * `getActivePersona(request)` step above is browser-specific, so this split is
+ * a pure extraction with no behaviour change for existing callers.
+ */
+export async function resolveConstitutionalContextForPersona(
+  personaId: string,
+  authProfileId: string,
+  fioHandle?: string | null,
+): Promise<ConstitutionalContext> {
+  const persona = { personaId, authProfileId, fioHandle: fioHandle ?? null };
 
   const admin = getSupabaseServer();
   if (!admin) {
