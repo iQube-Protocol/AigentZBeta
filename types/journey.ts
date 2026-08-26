@@ -367,6 +367,21 @@ export interface JourneyRuntimeState {
    * OCSGA journey route.
    */
   citizenPassportUsable?: boolean;
+  /**
+   * OCSGA structural admission fix (2026-08-26) — whether this participant's
+   * Reciprocal Artifact Exchange membership was recognized/provisioned via
+   * an active `research-lab` CAS grant scoped to the OCSGA workspace (as
+   * opposed to a manually-entered `rax-` invitation code, or not admitted
+   * at all). Distinct from `activeExchangeId` (which only says an exchange
+   * IS associated, not how): this tells a surface like
+   * `IanOrientationPanel` whether it may honestly say "your Research Lab
+   * grant admitted you" instead of implying the participant typed an
+   * invitation code. `undefined`/absent means not evaluated (no persona, or
+   * a journey that hasn't wired this check) — never coerced to `false`.
+   * Currently populated only by app/api/journey/ian/state/route.ts, via
+   * services/journey/boundaryResearchExchangeAdmission.ts.
+   */
+  ocsgaGrantAdmitted?: boolean;
 }
 
 export interface CompanionJourneyContext {

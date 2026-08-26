@@ -75,6 +75,11 @@ import { assembleInteractionContext } from '@/services/journey/interactionContex
 import { IAN_BOUNDARY_RESEARCH_JOURNEY } from '@/services/journey/ianBoundaryResearchJourney';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { fetchIanAuthoritativePlatformState } from '@/services/journey/ianJourneyState';
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+import {
+  ensureBoundaryResearchExchangeMembership,
+  OCSGA_BOUNDARY_RESEARCH_WORKSPACE_ID,
+} from '@/services/journey/boundaryResearchExchangeAdmission';
 
 export const dynamic = 'force-dynamic';
 
@@ -85,6 +90,31 @@ export async function GET(request: NextRequest) {
     const persona = await getActivePersona(request).catch(() => null);
     const personaId = persona?.personaId ?? null;
     const authProfileId = persona?.authProfileId ?? null;
+
+    // ADMISSION BOUNDARY (2026-08-26 structural fix) — runs BEFORE evidence
+    // assembly, never inside it. A persona holding a usable Passport and an
+    // active research-lab grant scoped to OCSGA is entitled to Reciprocal
+    // Artifact Exchange membership; this ensures that membership exists
+    // (idempotent — a no-op once provisioned) so the read below observes it
+    // like any other authoritative fact. ianJourneyState/resolveJourneyState
+    // remain pure readers; this is the one place a CAS grant is translated
+    // into RAX membership. Best-effort: a failure here degrades to the
+    // pre-fix behavior (activeExchangeId stays null) rather than failing the
+    // whole read — surfaced as an honest evidence gap, never silently eaten.
+    const admissionGaps: string[] = [];
+    let ocsgaGrantAdmitted: boolean | undefined;
+    const admin = getSupabaseServer();
+    if (admin && personaId) {
+      const ensured = await ensureBoundaryResearchExchangeMembership(admin, {
+        personaId,
+        authProfileId,
+        workspaceId: OCSGA_BOUNDARY_RESEARCH_WORKSPACE_ID,
+      });
+      ocsgaGrantAdmitted = ensured.ok;
+      if (!ensured.ok && ensured.reason === 'error') {
+        admissionGaps.push(`OCSGA exchange admission check failed: ${ensured.error}`);
+      }
+    }
 
     const { state: authState, evidenceGaps, activeExchangeId, citizenPassportUsable } = await fetchIanAuthoritativePlatformState(
       personaId,
@@ -112,7 +142,13 @@ export async function GET(request: NextRequest) {
     // JourneyRunSurface's `json.state` unwrap and reach resolveSurfaceProps
     // via runtimeState — kept ALSO at the top level below for backward
     // compatibility with any existing consumer reading them there.
-    const responseState: JourneyRuntimeState = { ...journeyState, interactionContext, activeExchangeId, citizenPassportUsable };
+    const responseState: JourneyRuntimeState = {
+      ...journeyState,
+      interactionContext,
+      activeExchangeId,
+      citizenPassportUsable,
+      ocsgaGrantAdmitted,
+    };
 
     // Wrapped under `state` — the shape components/journey/JourneyRunSurface.tsx
     // expects from every journey state route (`json.state as JourneyRuntimeState`).
@@ -122,7 +158,7 @@ export async function GET(request: NextRequest) {
       personaAuthenticated: Boolean(personaId),
       activeExchangeId,
       citizenPassportUsable,
-      evidenceGaps,
+      evidenceGaps: [...admissionGaps, ...evidenceGaps],
     });
   } catch (err) {
     console.error('[ian-journey-state]', err);

@@ -253,9 +253,13 @@ describe('the invitation reference is a first-class, documented Journey Spine ex
 
   it('both fields are folded into responseState so they survive the JourneyRunSurface json.state unwrap', () => {
     const code = stripComments(readSource(IAN_STATE_ROUTE));
-    expect(code).toContain(
-      'const responseState: JourneyRuntimeState = { ...journeyState, interactionContext, activeExchangeId, citizenPassportUsable };',
-    );
+    const declIdx = code.indexOf('const responseState: JourneyRuntimeState = {');
+    expect(declIdx).toBeGreaterThan(-1);
+    const closeIdx = code.indexOf('};', declIdx);
+    const responseStateLiteral = code.slice(declIdx, closeIdx + 2);
+    for (const field of ['...journeyState', 'interactionContext', 'activeExchangeId', 'citizenPassportUsable']) {
+      expect(responseStateLiteral).toContain(field);
+    }
   });
 });
 

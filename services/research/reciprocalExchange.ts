@@ -1249,3 +1249,26 @@ export async function listMyExchanges(
   if (error) return { ok: false, error: isMissingTable(error) ? MIGRATION_HINT : error.message };
   return { ok: true, exchanges: (data ?? []).map((r) => rowToExchange(r as Record<string, unknown>)) };
 }
+
+/**
+ * Every exchange tagged to a given workspace/programme via `parentExperimentId`
+ * (services/journey/boundaryResearchExchangeAdmission.ts's discovery key for
+ * "the canonical exchange(s) for this Research Lab workspace") — oldest
+ * first, so a caller picking "the" canonical one picks deterministically.
+ * `parent_experiment_id` is a free-text field already used for
+ * EXPERIMENT_REGISTRY ids elsewhere in this file; a research-workspace id
+ * (e.g. 'ocsga-boundary-research') is the same kind of stable text key, not
+ * a new column or a second tagging mechanism.
+ */
+export async function listExchangesByParentExperiment(
+  admin: SupabaseClient,
+  parentExperimentId: string,
+): Promise<{ ok: true; exchanges: ReciprocalExchangeRecord[] } | { ok: false; error: string }> {
+  const { data, error } = await admin
+    .from(T_EXCHANGES)
+    .select('*')
+    .eq('parent_experiment_id', parentExperimentId)
+    .order('created_at', { ascending: true });
+  if (error) return { ok: false, error: isMissingTable(error) ? MIGRATION_HINT : error.message };
+  return { ok: true, exchanges: (data ?? []).map((r) => rowToExchange(r as Record<string, unknown>)) };
+}

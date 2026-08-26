@@ -72,9 +72,20 @@ interface IanOrientationPanelProps {
    *  with (either party), resolved server-side — see the module doc comment.
    *  `null`/`undefined` means no invitation has been associated yet. */
   activeExchangeId?: string | null;
+  /**
+   * OCSGA structural admission fix (2026-08-26) — true when `activeExchangeId`
+   * was recognized/provisioned from this persona's own active Research Lab
+   * grant (services/journey/boundaryResearchExchangeAdmission.ts), rather
+   * than a manually-entered `rax-` code. Resolved server-side, never
+   * re-derived here — governs COPY ONLY; the invitation-code box is already
+   * correctly suppressed by `activeExchangeId` alone (see `inviteSection`
+   * below), so a grant-admitted participant never sees or is asked for a
+   * separate `rax-` invitation either way.
+   */
+  ocsgaGrantAdmitted?: boolean;
 }
 
-export function IanOrientationPanel({ personaId, complete, requestStateRefresh, activeExchangeId }: IanOrientationPanelProps) {
+export function IanOrientationPanel({ personaId, complete, requestStateRefresh, activeExchangeId, ocsgaGrantAdmitted }: IanOrientationPanelProps) {
   const [acknowledging, setAcknowledging] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pendingAfterSignIn, setPendingAfterSignIn] = useState(false);
@@ -191,11 +202,12 @@ export function IanOrientationPanel({ personaId, complete, requestStateRefresh, 
     <div className="rounded-md border border-slate-800 bg-slate-950/40 p-3 text-xs text-slate-400">
       <div className="flex items-center gap-1.5">
         <Link2 className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
-        <span className="text-emerald-300">Invitation associated</span>
+        <span className="text-emerald-300">{ocsgaGrantAdmitted ? 'Research Lab grant recognized' : 'Invitation associated'}</span>
       </div>
       <p className="mt-1 opacity-80">
-        You&apos;re associated with a collaboration invitation. This is admission context only — it does not
-        establish personhood or issue a Passport; that happens separately, next.
+        {ocsgaGrantAdmitted
+          ? "Your active OCSGA Research Lab grant admits you to this collaboration — no separate invitation code is needed. This is admission context only — it does not establish personhood or issue a Passport; that happens separately, next."
+          : "You're associated with a collaboration invitation. This is admission context only — it does not establish personhood or issue a Passport; that happens separately, next."}
       </p>
     </div>
   ) : (

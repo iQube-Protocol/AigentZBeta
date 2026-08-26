@@ -57,6 +57,9 @@ function IanJourneyTabInner({ personaId }: IanJourneyTabProps) {
           // OCSGA early invitation entry (2026-08-25) — already-resolved by
           // the observer (/api/journey/ian/state), never re-derived here.
           activeExchangeId: runtimeState?.activeExchangeId ?? null,
+          // OCSGA structural admission fix (2026-08-26) — same discipline:
+          // already-resolved by the observer, never re-derived here.
+          ocsgaGrantAdmitted: runtimeState?.ocsgaGrantAdmitted ?? false,
         };
       }
       if (surfaceRef.ref === 'venture-participate-apply') {

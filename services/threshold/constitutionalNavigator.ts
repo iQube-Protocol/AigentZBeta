@@ -65,12 +65,16 @@ import type { AuthoritativePlatformState } from '@/services/journey/resolveJourn
 import { ActorRole, type JourneyDefinition } from '@/types/journey';
 import { IAN_BOUNDARY_RESEARCH_JOURNEY } from '@/services/journey/ianBoundaryResearchJourney';
 import { fetchIanAuthoritativePlatformState } from '@/services/journey/ianJourneyState';
+import {
+  ensureBoundaryResearchExchangeMembership,
+  OCSGA_BOUNDARY_RESEARCH_WORKSPACE_ID,
+} from '@/services/journey/boundaryResearchExchangeAdmission';
 
 // ── Per-bridge journey adapter — the ONLY place a new bridge gets added ────
 
 interface JourneyAdapter {
   journey: JourneyDefinition;
-  fetchState: (personaId: string, authProfileId: string | null) => Promise<AuthoritativePlatformState>;
+  fetchState: (admin: SupabaseClient, personaId: string, authProfileId: string | null) => Promise<AuthoritativePlatformState>;
 }
 
 /**
@@ -86,7 +90,17 @@ interface JourneyAdapter {
 const JOURNEY_ADAPTERS: Record<string, JourneyAdapter> = {
   ocsga: {
     journey: IAN_BOUNDARY_RESEARCH_JOURNEY,
-    fetchState: async (personaId, authProfileId) => {
+    fetchState: async (admin, personaId, authProfileId) => {
+      // Same admission boundary the /bridge/ocsga route runs (2026-08-26
+      // structural fix) — an MCP-originated read must observe the SAME
+      // RAX membership a browser read would, never a second, disagreeing
+      // truth (Surface Independence). Best-effort: a failure here degrades
+      // to the pre-fix read, never throws.
+      await ensureBoundaryResearchExchangeMembership(admin, {
+        personaId,
+        authProfileId,
+        workspaceId: OCSGA_BOUNDARY_RESEARCH_WORKSPACE_ID,
+      }).catch(() => null);
       const result = await fetchIanAuthoritativePlatformState(personaId, authProfileId);
       return result.state;
     },
@@ -264,7 +278,7 @@ export async function resolveConstitutionalNavigatorState(
       `No journey adapter is wired for bridge '${bridge}' yet — journey/nextAct stay null rather than guessed. See supportedBridgeIds() for what is covered.`,
     );
   } else {
-    const authState = await adapter.fetchState(personaId, authProfileId);
+    const authState = await adapter.fetchState(admin, personaId, authProfileId);
     const runtime = resolveJourneyState(adapter.journey, authState);
     const currentStageDef = adapter.journey.stages.find((s) => s.id === runtime.currentStageId) ?? null;
     const currentStageRuntime = runtime.stages.find((s) => s.stageId === runtime.currentStageId) ?? null;
