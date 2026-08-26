@@ -4489,3 +4489,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-90d7ed9.md](../build_/COMMITS/COMMIT-90d7ed9.md)
 - Message: Show ContactGraph state and import-source counts in People (#99)
+
+## Commit `dc83c33` — 2026-08-26T14:07:52Z
+- Type: `fix`
+- Brief: [COMMIT-dc83c33.md](../build_/COMMITS/COMMIT-dc83c33.md)
+- Message: fix: resolve Research Lab scopes by registry membership, not column name

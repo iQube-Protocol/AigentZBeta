@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-26T07:25:41.916Z",
+  "last_updated": "2026-08-26T14:10:33.942Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "90d7ed99e75182c5b9385641220904fab7a35eeb",
-  "latest_commit_short": "90d7ed9",
-  "latest_commit_title": "Show ContactGraph state and import-source counts in People (#99)",
+  "latest_commit": "dc83c33d511c8b645057c8910c35875556c68b25",
+  "latest_commit_short": "dc83c33",
+  "latest_commit_title": "fix: resolve Research Lab scopes by registry membership, not column name",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "dc83c33",
+      "full_sha": "dc83c33d511c8b645057c8910c35875556c68b25",
+      "title": "fix: resolve Research Lab scopes by registry membership, not column name",
+      "author": "Claude",
+      "timestamp": "2026-08-26T14:07:52Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-dc83c33.md"
+    },
     {
       "sha": "90d7ed9",
       "full_sha": "90d7ed99e75182c5b9385641220904fab7a35eeb",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-11T00:39:17Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-5c6cbed.md"
-    },
-    {
-      "sha": "a37a29e",
-      "full_sha": "a37a29edbc6ef846a4be576104cb65ed2cbf87ba",
-      "title": "Implement focusedNavDepth support for depth-aware chrome suppression",
-      "author": "Claude",
-      "timestamp": "2026-08-10T22:50:19Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-a37a29e.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
