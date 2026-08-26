@@ -223,7 +223,7 @@ export function ComposeMarketaEmailModal({ open, onClose, onCreate, onDraftWithA
     } finally {
       setSubmitting(false);
     }
-  }, [to, subject, bodyText, cc, bcc, fromName, onCreate, onClose]);
+  }, [to, subject, bodyText, cc, bcc, fromName, campaignId, cohortId, attachmentUploadIds, onCreate, onClose]);
 
   if (!inline && !open) return null;
 
