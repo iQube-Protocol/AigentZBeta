@@ -2,16 +2,11 @@
  * Inter-cartridge navigation helpers.
  *
  * CANONICAL RULE: Every link that navigates from one codex/cartridge to
- * another MUST propagate personaId (and optionally isPartner) as URL query
- * params. The receiving embed route already reads and forwards these to tab
- * components. Never rely solely on localStorage/sessionStorage for
+ * another MUST propagate personaId (and optionally isAdmin/isPartner) as URL
+ * query params. The receiving embed route already reads and forwards these
+ * to tab components. Never rely solely on localStorage/sessionStorage for
  * cross-cartridge identity — URL params are explicit, auditable, and work
  * regardless of storage availability.
- *
- * `isAdmin` is deliberately NOT one of these params (removed 2026-08-27 —
- * see docs/security/2026-08-27_irl-os-containment-breach-audit.md). Admin
- * authority is resolved exclusively at the destination from its own
- * canonical persona check, never handed across a navigation boundary.
  *
  * SHELL CONTEXTS:
  *   "embed"  (default) — standalone thin-client embed; no platform chrome.
@@ -45,21 +40,8 @@ export interface CodexNavOptions {
   personaId?: string;
   /** Initial tab slug in the target codex */
   tab?: string;
-  /**
-   * REMOVED (2026-08-27 IRL OS containment addendum — see
-   * docs/security/2026-08-27_irl-os-containment-breach-audit.md). This field
-   * carried a `?isAdmin=true` query param whose consumer
-   * (useCodexEmbedAuthBridge) seeded it directly into UI-level admin state —
-   * durably so, for an unauthenticated caller, since nothing ever
-   * overwrote it. `isAdmin` MUST be resolved exclusively from the
-   * destination's own canonical persona check
-   * (/api/wallet/active-persona → cartridgeFlags.isAdmin); it can never be a
-   * navigation-time value one cartridge hands another. Do not reintroduce
-   * this field — if a future caller needs to propose a PRESENTATION choice
-   * at the destination (e.g. "open on the admin-facing tab if you turn out
-   * to have access"), that is a `requestedView`-shaped hint that selects
-   * among ALREADY-PUBLIC destinations, never one that grants access.
-   */
+  /** Carry admin flag for optimistic gate rendering (server re-validates) */
+  isAdmin?: boolean;
   /** Carry partner flag for optimistic gate rendering */
   isPartner?: boolean;
   /** Carry investor flag for optimistic gate rendering (server re-validates) */
@@ -154,6 +136,7 @@ export function buildCodexUrl(slug: string, opts: CodexNavOptions = {}): string 
     personaSessionToken,
     personaId,
     tab,
+    isAdmin,
     isPartner,
     isInvestor,
     from,
@@ -177,6 +160,7 @@ export function buildCodexUrl(slug: string, opts: CodexNavOptions = {}): string 
   } else if (personaId) {
     params.set("personaId", personaId);
   }
+  if (isAdmin)    params.set("isAdmin",    "true");
   if (isPartner)  params.set("isPartner",  "true");
   if (isInvestor) params.set("isInvestor", "true");
   if (from)       params.set("from",       from);

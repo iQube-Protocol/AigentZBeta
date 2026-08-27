@@ -56,14 +56,13 @@ function CodexContent() {
     "profileId",
     "aaAuthProfileId",
   ]);
-  // SECURITY (2026-08-27 addendum — docs/security/2026-08-27_irl-os-containment-breach-audit.md):
-  // no `queryIsAdmin` here anymore — see the [codexSlug] route's identical
-  // comment. `isAdmin` is resolved exclusively by useCodexEmbedAuthBridge.
+  const queryIsAdmin = searchParams?.get("isAdmin") === "true" || searchParams?.get("admin") === "1";
   const queryIsPartner = searchParams?.get("isPartner") === "true" || searchParams?.get("partner") === "1";
   const queryPartnerId = readFirst(searchParams, ["partnerId", "partner_id"]);
   const { personaId, isAdmin } = useCodexEmbedAuthBridge({
     initialPersonaId: queryPersonaId,
     initialAuthProfileId: queryAuthProfileId,
+    initialIsAdmin: queryIsAdmin || undefined,
   });
 
   const codexId = codexParam

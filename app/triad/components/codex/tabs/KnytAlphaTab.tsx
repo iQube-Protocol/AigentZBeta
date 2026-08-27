@@ -467,10 +467,7 @@ export function KnytAlphaTab({ personaId, isAdmin, shell }: KnytAlphaTabProps = 
           </div>
           <div className="flex items-center gap-2">
             <a
-              // isAdmin deliberately not forwarded (2026-08-27 containment
-              // addendum) — the destination resolves its own admin state
-              // canonically; see useCodexEmbedAuthBridge's doc comment.
-              href={buildCodexUrl("alpha-knyt", { tab: "alpha-programme", personaId, shell, from: "knyt", fromTab: "knyt-alpha" })}
+              href={buildCodexUrl("alpha-knyt", { tab: "alpha-programme", personaId, isAdmin, shell, from: "knyt", fromTab: "knyt-alpha" })}
               className="flex items-center gap-1 rounded-md border border-amber-700/30 bg-amber-900/15 backdrop-blur-sm px-2.5 py-1 text-[11px] text-amber-400/80 hover:text-amber-300 hover:bg-amber-900/25 transition-colors"
               title="Back to α Programme"
             >

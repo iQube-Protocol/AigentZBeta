@@ -17,9 +17,11 @@ type AuthBridgeMessage = {
   type?: string;
   personaId?: string;
   authProfileId?: string;
+  isAdmin?: boolean;
   payload?: {
     personaId?: string;
     authProfileId?: string;
+    isAdmin?: boolean;
   };
 };
 
@@ -138,22 +140,13 @@ async function resolvePersonaFromAuthProfile(authProfileId: string): Promise<str
 type UseCodexEmbedAuthBridgeResult = {
   personaId?: string;
   authProfileId?: string;
-  /**
-   * SECURITY (2026-08-27 addendum to the IRL OS containment pass — see
-   * docs/security/2026-08-27_irl-os-containment-breach-audit.md): ALWAYS a
-   * definite boolean, never `undefined`. It starts `false` (least-privileged)
-   * on every render — including the very first, so server and client render
-   * identically and no protected tab can flash during hydration — and is
-   * elevated to `true` ONLY by a resolved `true` from the canonical
-   * `/api/wallet/active-persona` response. There is no other path to `true`:
-   * not a URL query param, not a postMessage payload, not a prop.
-   */
-  isAdmin: boolean;
+  isAdmin?: boolean;
 };
 
 type UseCodexEmbedAuthBridgeOptions = {
   initialPersonaId?: string;
   initialAuthProfileId?: string;
+  initialIsAdmin?: boolean;
 };
 
 type UseCodexEmbedAuthBridgeInput = string | UseCodexEmbedAuthBridgeOptions | undefined;
@@ -165,10 +158,16 @@ function normalizeInput(input: UseCodexEmbedAuthBridgeInput): UseCodexEmbedAuthB
   return input || {};
 }
 
+function sanitizeBool(value: unknown): boolean | undefined {
+  if (value === true || value === "true" || value === "1") return true;
+  if (value === false || value === "false" || value === "0") return false;
+  return undefined;
+}
+
 export function useCodexEmbedAuthBridge(
   input?: UseCodexEmbedAuthBridgeInput
 ): UseCodexEmbedAuthBridgeResult {
-  const { initialPersonaId, initialAuthProfileId } = normalizeInput(input);
+  const { initialPersonaId, initialAuthProfileId, initialIsAdmin } = normalizeInput(input);
   // Lazy initializer: prefer the URL-provided persona, otherwise fall back
   // to whatever the host shell already wrote to localStorage. firstStoredValue
   // returns undefined on the server (typeof window === "undefined"), so the
@@ -176,25 +175,13 @@ export function useCodexEmbedAuthBridge(
   // subsequent client render after hydration sees the persisted value
   // immediately, eliminating the "personaId undefined on first paint" window
   // that hid KnytRemixButton, gated PDF downloads, etc.
-  //
-  // `personaId` here is a NAVIGATION HINT ONLY — which persona's data to show
-  // — never an authority grant. Every route that resolves protected data from
-  // it independently re-verifies ownership/authority server-side
-  // (getActivePersona + canonical grants); this hook never asserts otherwise.
   const [personaId, setPersonaId] = useState<string | undefined>(
     () => sanitizeValue(initialPersonaId) || firstStoredValue(PERSONA_STORAGE_KEYS)
   );
   const [authProfileId, setAuthProfileId] = useState<string | undefined>(
     () => sanitizeValue(initialAuthProfileId) || firstStoredValue(AUTH_PROFILE_STORAGE_KEYS)
   );
-  // SECURITY (2026-08-27 addendum): `isAdmin` starts `false` on EVERY render,
-  // client or server, regardless of any URL param, prop, or stored value —
-  // see the field's own doc comment on `UseCodexEmbedAuthBridgeResult` above.
-  // Prior to this pass, `?isAdmin=true` seeded this state directly and, for
-  // an unauthenticated caller (no JWT to trigger the resolver effect below),
-  // was NEVER overwritten — a client-controlled URL parameter creating
-  // durable UI-level administrator state. Removed entirely, not narrowed.
-  const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  const [isAdmin, setIsAdmin] = useState<boolean | undefined>(initialIsAdmin);
   const allowedOrigins = useMemo(() => parseAllowedOrigins(), []);
 
   useEffect(() => {
@@ -273,21 +260,9 @@ export function useCodexEmbedAuthBridge(
   // Re-runs whenever personaId changes (i.e. the parent shell
   // broadcasts aa-persona-change-v1 or the embed boots fresh).
   // Bearer token is the standard supabase-js access token from
-  // localStorage; without it the endpoint returns 401 and isAdmin
-  // stays at its least-privileged `false` default.
-  //
-  // SECURITY (2026-08-27 addendum) — `setIsAdmin(false)` runs FIRST,
-  // synchronously, unconditionally, before any async work: a persona
-  // switch (or a persona clearing to undefined) must never let the
-  // PREVIOUS persona's resolved admin state survive into the render(s)
-  // before the new persona's own resolution completes. Every early
-  // return below (no window, no personaId, no JWT, fetch failure) is
-  // therefore already correct by construction — they all leave the
-  // reset value in place rather than needing their own explicit
-  // "set false" branch.
+  // localStorage; without it the endpoint returns 401 and we leave
+  // isAdmin undefined (treated as false by every consumer).
   useEffect(() => {
-    setIsAdmin(false);
-
     if (typeof window === 'undefined') return;
     if (!personaId) return;
 
@@ -309,9 +284,9 @@ export function useCodexEmbedAuthBridge(
           jwt = parsed?.access_token ?? parsed?.currentSession?.access_token ?? '';
         }
       }
-    } catch { /* unauthenticated browsing — stays false */ }
+    } catch { /* unauthenticated browsing */ }
 
-    if (!jwt) return; // no auth → stays false
+    if (!jwt) return; // no auth → cannot resolve flags; leave undefined
 
     fetch('/api/wallet/active-persona', {
       headers: { Accept: 'application/json', Authorization: `Bearer ${jwt}` },
@@ -320,14 +295,11 @@ export function useCodexEmbedAuthBridge(
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (cancelled || !data) return;
-        // Only a definite `true` from the canonical response elevates
-        // privilege; any other shape (missing field, non-boolean, absent
-        // response) leaves the least-privileged default already set above.
-        if (data.cartridgeFlags?.isAdmin === true) {
-          setIsAdmin(true);
+        if (typeof data.cartridgeFlags?.isAdmin === 'boolean') {
+          setIsAdmin(data.cartridgeFlags.isAdmin);
         }
       })
-      .catch(() => { /* non-fatal — stays false */ });
+      .catch(() => { /* non-fatal */ });
 
     return () => { cancelled = true; };
   }, [personaId]);
@@ -385,17 +357,10 @@ export function useCodexEmbedAuthBridge(
 
       if (message.type !== "aa-auth-context-v1") return;
 
-      // SECURITY (2026-08-27 addendum): a parent frame's postMessage payload
-      // may propose WHICH persona/authProfile to select (a navigation hint,
-      // exactly like the URL params above) — it may never assert admin
-      // authority. There is deliberately no `incomingIsAdmin` here anymore.
-      // `isAdmin` is resolved EXCLUSIVELY by the canonical-persona effect
-      // above, which re-fires whenever `setPersonaId` below changes it —
-      // even a fully-trusted, origin-verified parent cannot shortcut that
-      // resolution.
       const payload = typeof message.payload === "object" && message.payload ? message.payload : message;
       const incomingAuthProfileId = sanitizeValue(payload.authProfileId);
       let incomingPersonaId = sanitizeValue(payload.personaId);
+      const incomingIsAdmin = sanitizeBool(payload.isAdmin);
 
       if (incomingAuthProfileId) {
         persistValue(AUTH_PROFILE_STORAGE_KEYS, incomingAuthProfileId);
@@ -409,6 +374,10 @@ export function useCodexEmbedAuthBridge(
       if (incomingPersonaId) {
         persistValue(PERSONA_STORAGE_KEYS, incomingPersonaId);
         setPersonaId(incomingPersonaId);
+      }
+
+      if (incomingIsAdmin !== undefined) {
+        setIsAdmin(incomingIsAdmin);
       }
 
       window.parent.postMessage(

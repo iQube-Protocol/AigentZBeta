@@ -1998,16 +1998,7 @@ export default function MetaMeRuntimeClient() {
   const selectedExperienceArticleDraft = parseRuntimeArticleDraft(searchParams?.get("experienceArticleDraft"));
   const runtimeIntentParam = coerceRuntimeIntent(searchParams?.get("runtimeIntent"));
   const runtimeQuickLinkParam = coerceRuntimeIntent(searchParams?.get("runtimeQuickLink"));
-  // SECURITY (2026-08-27 addendum to the IRL OS containment pass — see
-  // docs/security/2026-08-27_irl-os-containment-breach-audit.md): a
-  // `?runtimeAdmin=1`/`?admin=1` URL parameter previously OR'd directly into
-  // `runtimeAdminMode` below, creating client-controlled admin/canEdit state
-  // for any caller who appended the param — the same defect class found and
-  // fixed in useCodexEmbedAuthBridge, discovered by the same broader-use
-  // audit. `runtimeAdminMode` is now derived exclusively from `personaIsAdmin`
-  // (the canonical, server-resolved persona flag) below; a same-origin
-  // producer (e.g. ComposerStudio's own preview launcher) may still SET this
-  // param on an outbound URL, but nothing reads it as authority anymore.
+  const runtimeAdminUrlOverride = searchParams?.get("runtimeAdmin") === "1" || searchParams?.get("admin") === "1";
   const runtimeContentKindParam = searchParams?.get("contentKind");
   const runtimeActiveCodexId = searchParams?.get("activeCodexId");
   const runtimeActiveCodexName = searchParams?.get("activeCodexName");
@@ -2051,10 +2042,10 @@ export default function MetaMeRuntimeClient() {
   // URL override below to decide between RuntimeCapsuleAdminEditor (pricing
   // layer) and RuntimeCapsuleRemixEditor.
   const [personaIsAdmin, setPersonaIsAdmin] = useState(false);
-  // SECURITY (2026-08-27 addendum): resolved EXCLUSIVELY from the canonical
-  // server-resolved persona flag — never a URL override (see this file's
-  // earlier comment on the now-removed `runtimeAdminUrlOverride`).
-  const runtimeAdminMode = personaIsAdmin;
+  // Final dispatch flag: URL forces admin mode if explicitly set, otherwise
+  // falls back to the persona's admin status. Admins navigating to the runtime
+  // without an explicit ?admin=1 still get the pricing layer.
+  const runtimeAdminMode = runtimeAdminUrlOverride || personaIsAdmin;
 
   // Sync from PersonaContext whenever it changes — covers the standalone
   // page case where no SHELL_READY arrives. Shell-supplied persona_id

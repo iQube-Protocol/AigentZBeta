@@ -607,22 +607,11 @@ function AccentDot({ color }: { color: string | null | undefined }) {
   return <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />;
 }
 
-/**
- * SECURITY (2026-08-27 addendum to the IRL OS containment pass — see
- * docs/security/2026-08-27_irl-os-containment-breach-audit.md): `isAdmin` is
- * deliberately NOT propagated into the generated href — a query-derived
- * `?isAdmin=true` used to seed real UI-level admin state at the destination
- * (useCodexEmbedAuthBridge). The destination now resolves its OWN admin
- * status exclusively from its own canonical persona check; forwarding this
- * caller's value would be, at best, a stale/misleading duplicate of that
- * resolution, and at worst the exact authority-confusion primitive this
- * pass removed. `personaId` remains — a navigation hint only (which
- * persona's data to show), never itself authority-bearing.
- */
-function DeepLinkCard({ link, personaId }: { link: PartnerWorkspaceLink; personaId?: string }) {
+function DeepLinkCard({ link, personaId, isAdmin }: { link: PartnerWorkspaceLink; personaId?: string; isAdmin?: boolean }) {
   const href = buildCodexUrl(link.codexSlug, {
     tab: link.tab,
     personaId,
+    isAdmin,
     from: "alpha-knyt",
     fromTab: "partner-programmes",
   });
@@ -759,8 +748,7 @@ function AreaLinks({
   return (
     <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
       {links.map((l) => (
-        // isAdmin deliberately not forwarded — see DeepLinkCard's own doc comment.
-        <DeepLinkCard key={l.id} link={l} personaId={personaId} />
+        <DeepLinkCard key={l.id} link={l} personaId={personaId} isAdmin={isAdmin} />
       ))}
     </div>
   );

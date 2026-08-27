@@ -51,11 +51,7 @@ const DEFAULT_LINKS: QuickLink[] = [
   { id: "agentiq-alpha",    label: "AgentiQ · Alpha Program", hint: "Build plan + golden path",       slug: "aigentiq",             tab: "alpha-program" },
   { id: "venture-lab",      label: "Venture Lab α",           hint: "AgentiQ Lab workstream",         slug: "alpha-knyt",           tab: "alpha-programme" },
   { id: "agentiq-os",       label: "AgentiQ OS",              hint: "Developer cartridge",            slug: "agentiq-os-cartridge", tab: "os-readme" },
-  // 2026-08-27 containment: irl-os-charter is disabled pending Phase 2
-  // public-classification (docs/security/2026-08-27_irl-os-containment-breach-audit.md).
-  // Repointed at the always-enabled Welcome tab so this deep link never
-  // dangles onto a hidden tab.
-  { id: "irl-os",           label: "IRL OS",                  hint: "Open research institute",        slug: "irl-os-cartridge",     tab: "irl-os-welcome" },
+  { id: "irl-os",           label: "IRL OS",                  hint: "Open research institute",        slug: "irl-os-cartridge",     tab: "irl-os-charter" },
 ];
 
 export function QuickLinksCard({
@@ -88,13 +84,10 @@ export function QuickLinksCard({
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
         {items.map((link) => {
-          // isAdmin deliberately not forwarded (2026-08-27 containment
-          // addendum) — every destination this card can reach, IRL OS
-          // included, resolves its own admin state canonically via
-          // useCodexEmbedAuthBridge; see that hook's doc comment.
           const href = buildCodexUrl(link.slug, {
             tab: link.tab,
             personaId,
+            isAdmin,
             isPartner,
             from: fromSlug,
             fromTab,

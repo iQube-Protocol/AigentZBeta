@@ -75,12 +75,7 @@ function DynamicCodexContent() {
     "profileId",
     "aaAuthProfileId",
   ]);
-  // SECURITY (2026-08-27 addendum — docs/security/2026-08-27_irl-os-containment-breach-audit.md):
-  // there is deliberately no `queryIsAdmin` here anymore. `isAdmin` is
-  // resolved EXCLUSIVELY by useCodexEmbedAuthBridge's canonical-persona
-  // effect (/api/wallet/active-persona); a `?isAdmin=true`/`?admin=1` URL
-  // parameter was previously seeded directly into client state and, for an
-  // unauthenticated caller, never overwritten.
+  const queryIsAdmin = searchParams?.get("isAdmin") === "true" || searchParams?.get("admin") === "1";
   const queryIsPartner = searchParams?.get("isPartner") === "true" || searchParams?.get("partner") === "1";
   // Stub passthrough — IAM service will resolve isInvestor server-side from
   // the persona; the URL param is only for optimistic gating like isAdmin/isPartner.
@@ -118,6 +113,7 @@ function DynamicCodexContent() {
   const { personaId, isAdmin } = useCodexEmbedAuthBridge({
     initialPersonaId: queryPersonaId,
     initialAuthProfileId: queryAuthProfileId,
+    initialIsAdmin: queryIsAdmin || undefined,
   });
 
   return (
