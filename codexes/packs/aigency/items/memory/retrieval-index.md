@@ -4519,3 +4519,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-decbc07.md](../build_/COMMITS/COMMIT-decbc07.md)
 - Message: Revert "close IRL OS confidentiality breach: private-cartridge deep links + unauthenticated document routes + query-derived admin authority removed [merge sec/irl-os-containment-2026-08-27]"
+
+## Commit `4380978` — 2026-08-27T09:37:14Z
+- Type: `push`
+- Brief: [COMMIT-4380978.md](../build_/COMMITS/COMMIT-4380978.md)
+- Message: Restore metaMe IRL admin access, IRL OS Participation Overview, and IRL OS Workspace (scoped restoration)

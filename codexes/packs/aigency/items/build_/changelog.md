@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`4380978`](https://github.com/iQube-Protocol/AigentZBeta/commit/438097845545d071caf79227eba0494115b2b484) [push] Restore metaMe IRL admin access, IRL OS Participation Overview, and IRL OS Workspace (scoped restoration) (Claude, 2026-08-27T09:37:14Z)
 - [`decbc07`](https://github.com/iQube-Protocol/AigentZBeta/commit/decbc07c8234961827ee04b046c5d1edc7415228) [push] Revert "close IRL OS confidentiality breach: private-cartridge deep links + unauthenticated document routes + query-derived admin authority removed [merge sec/irl-os-containment-2026-08-27]" (Claude, 2026-08-27T09:02:18Z)
 - [`c05c2c3`](https://github.com/iQube-Protocol/AigentZBeta/commit/c05c2c347206a129a53f8d31bb88fa6d9ea457c6) [push] SECURITY: contain IRL OS -> metaMe IRL boundary breach (Phase 1) (Claude, 2026-08-27T07:42:09Z)
 - [`569d3ea`](https://github.com/iQube-Protocol/AigentZBeta/commit/569d3ea485d7800b3ea333db3f020f2a67cb938e) [push] SECURITY ADDENDUM: remove query-derived administrator authority (IRL OS containment) (Claude, 2026-08-27T08:14:58Z)
