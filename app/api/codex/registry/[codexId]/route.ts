@@ -73,6 +73,10 @@ function mergeStaticAndDbTabs(staticTabs: RegistryTab[], dbTabs: RegistryTab[]):
 
 export const dynamic = 'force-dynamic';
 
+// SECURITY (2026-08-27 hotfix — no-store): a gated static cartridge's
+// response varies by caller identity for the SAME URL.
+const NO_STORE_HEADERS = { 'Cache-Control': 'no-store' } as const;
+
 interface RouteContext {
   params: Promise<{ codexId: string }>;
 }
@@ -122,6 +126,38 @@ async function personalConfigVisibleToCaller(
     return { visible: false, callerPersonaId };
   } catch {
     return { visible: false, callerPersonaId: null }; // fail-closed
+  }
+}
+
+/**
+ * SECURITY (2026-08-27 IRL OS containment addendum — see
+ * docs/security/2026-08-27_irl-os-containment-breach-audit.md). A STATIC
+ * (CODEX_DEFINITIONS-sourced) cartridge's own `permissions.view` was never
+ * enforced by this route — `resolveCodex()`'s result was returned to any
+ * caller unconditionally. This is the confirmed root cause of `irl-cartridge`
+ * (metaMe IRL, "strictly admin-gated" per this whole audit) serving its full
+ * 26-tab structure — every admin-only tab's id/label/description/document
+ * path, e.g. Charter, Protocols, EXP-P1 Readiness, Corpus Scout, Experiment
+ * Registry, Records — to an unauthenticated caller.
+ *
+ * `view: ['*']` (every other cartridge today) stays fully public, unchanged.
+ * Any OTHER explicit `view` list requires canonical `cartridgeFlags.isAdmin`
+ * — this cartridge's only intended viewer per its own `permissions.admin`.
+ * A more granular per-role check is not implemented here: no static
+ * cartridge in CODEX_DEFINITIONS currently declares a `view` list naming
+ * anything other than admin roles, so this is not a narrowing of any
+ * existing legitimate access. Fails closed (404, not 403 — consistent with
+ * `personalConfigVisibleToCaller` above) on any resolution error.
+ */
+async function staticCodexVisibleToCaller(request: NextRequest, codex: CodexConfig): Promise<boolean> {
+  const view = codex.permissions?.view;
+  if (!view || view.includes('*')) return true;
+  try {
+    const { getActivePersona } = await import('@/services/identity/getActivePersona');
+    const persona = await getActivePersona(request);
+    return Boolean(persona?.cartridgeFlags?.isAdmin);
+  } catch {
+    return false; // fail-closed
   }
 }
 
@@ -311,10 +347,20 @@ export async function GET(request: NextRequest, props: RouteContext) {
           error: 'Codex not found'
         }, { status: 404 });
       }
+      if (!(await staticCodexVisibleToCaller(request, codex))) {
+        return NextResponse.json<CodexRegistryResponse>({
+          success: false,
+          error: 'Codex not found'
+        }, { status: 404, headers: NO_STORE_HEADERS });
+      }
+      // SECURITY (2026-08-27 hotfix): a gated static cartridge's response
+      // varies by caller identity for the SAME URL — never cacheable by URL
+      // alone (`force-dynamic` above already stops Next's own route cache;
+      // this covers any downstream CDN/browser cache the same way).
       return NextResponse.json<CodexRegistryResponse<CodexConfig>>({
         success: true,
         data: isKnytCodex ? withKnytStaticTabs(codex) : codex
-      });
+      }, { headers: codex.permissions?.view?.includes('*') ? undefined : NO_STORE_HEADERS });
     }
 
     const supabase = createServerClient();
@@ -343,10 +389,16 @@ export async function GET(request: NextRequest, props: RouteContext) {
     if (configError || !config) {
       const fallbackCodex = await resolveCodex(codexId);
       if (fallbackCodex) {
+        if (!(await staticCodexVisibleToCaller(request, fallbackCodex))) {
+          return NextResponse.json<CodexRegistryResponse>({
+            success: false,
+            error: 'Codex not found'
+          }, { status: 404, headers: NO_STORE_HEADERS });
+        }
         return NextResponse.json<CodexRegistryResponse<CodexConfig>>({
           success: true,
           data: fallbackCodex,
-        });
+        }, { headers: fallbackCodex.permissions?.view?.includes('*') ? undefined : NO_STORE_HEADERS });
       }
       return NextResponse.json<CodexRegistryResponse>({
         success: false,

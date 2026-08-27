@@ -38,6 +38,27 @@
  * `isAdmin` query/prop, which this route never reads. Do not widen this
  * allowlist without an explicit operator public-classification decision;
  * see the audit doc's Phase 2 section for the pending classification work.
+ *
+ * SECURITY/FUNCTIONAL ADDENDUM (2026-08-27, discovered during Phase 1
+ * deployment verification): `AgentiqCartridgeTab` (the client this route
+ * serves) ALWAYS fetches `collections.json` first — to find the named
+ * collection, then resolve `defaultPath` within it — even when the caller
+ * already has a specific `defaultPath` and needs nothing else from the
+ * index. Blocking `collections.json` outright (the naive extension of the
+ * default-deny rule above) broke the ONE surface this pass explicitly
+ * intended to keep public: Participation Overview. Widening the allowlist
+ * to include the REAL `collections.json` is not an option — the operator's
+ * own verification pass confirmed it lists `IRL-015_partner-cover-letter.md`
+ * and `IRL-012_austin-feedback-integration.md` by filename, i.e. it is
+ * itself confidential metadata, not an index that happens to gate safely.
+ * `servePublicRedactedIrlCollections()` is the resolution: for a non-admin
+ * caller, `collections.json` is never denied outright and never served
+ * verbatim — it is read once (admin-equivalent internal access) and
+ * re-emitted with every collection's `items` array filtered down to
+ * `IRL_PUBLIC_PACK_PATHS` only, and `description` fields dropped (they name
+ * internal CFS/EXP/PRD ids in prose, not just paths). The client's existing
+ * `collections.find(...).items` / `.title` logic works unmodified against
+ * this redacted shape — no change to the shared client component.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -56,6 +77,60 @@ const ADMIN_GATED_PACK_PATHS: Array<{ packId: string; pathPrefix: string }> = [
 const IRL_PUBLIC_PACK_PATHS: string[] = [
   "foundation/PARTICIPATION_overview.md",
 ];
+
+const IRL_COLLECTIONS_PATH = "collections.json";
+
+/**
+ * Redacted `collections.json` for a non-admin caller on the `irl` pack —
+ * see the file-header addendum comment. Filters every collection's `items`
+ * to the public allowlist only, and drops `description` fields (the real
+ * ones name internal CFS/EXP/IRL/PRD ids in prose). A collection whose
+ * filtered `items` ends up empty is kept (with an empty array), never
+ * dropped — dropping it would make `AgentiqCartridgeTab`'s
+ * `collections.find((col) => col.id === collectionId)` fail for a caller
+ * requesting that collection's own allowlisted document, which is exactly
+ * the regression this function exists to fix.
+ */
+async function servePublicRedactedIrlCollections(): Promise<NextResponse> {
+  try {
+    const raw = await corpusReadPackFile("irl", IRL_COLLECTIONS_PATH);
+    if (raw === null) {
+      return NextResponse.json({ ok: false, error: "File not found." }, { status: 404 });
+    }
+    const real = JSON.parse(raw) as {
+      collections?: Array<{ id: string; title: string; items?: string[] }>;
+    };
+    const redactedCollections = (real.collections ?? []).map((col) => ({
+      id: col.id,
+      title: col.title,
+      items: (col.items ?? []).filter((item) => IRL_PUBLIC_PACK_PATHS.includes(item)),
+    }));
+    return NextResponse.json(
+      {
+        ok: true,
+        format: "json",
+        path: IRL_COLLECTIONS_PATH,
+        data: { collections: redactedCollections },
+      },
+      { headers: NO_STORE_HEADERS },
+    );
+  } catch (error) {
+    return NextResponse.json(
+      { ok: false, error: "File not found.", details: String(error) },
+      { status: 404, headers: NO_STORE_HEADERS },
+    );
+  }
+}
+
+// SECURITY (2026-08-27 hotfix — no-store): this route's response now varies
+// by caller identity (admin vs non-admin) for the SAME URL on the `irl`
+// pack — `force-dynamic` keeps Next.js's own Full Route/Data Cache from
+// ever serving one caller's response to another; `Cache-Control: no-store`
+// on the caller-dependent responses below covers any downstream CDN/browser
+// cache the same way. Prevents exactly the cache-mixing class of bug this
+// route's admin/non-admin branching would otherwise be exposed to.
+export const dynamic = "force-dynamic";
+const NO_STORE_HEADERS = { "Cache-Control": "no-store" } as const;
 
 function isValidPackId(packId: string): boolean {
   return /^[a-z0-9-]+$/i.test(packId);
@@ -112,7 +187,16 @@ export async function GET(request: NextRequest, context: { params: Promise<{ pac
   if (requiresAdmin) {
     const persona = await getActivePersona(request).catch(() => null);
     if (!persona?.cartridgeFlags?.isAdmin) {
-      return NextResponse.json({ ok: false, error: "Admin required." }, { status: 403 });
+      // collections.json on the irl pack: redact and serve rather than deny
+      // outright — see the file-header addendum comment and
+      // servePublicRedactedIrlCollections's own doc comment.
+      if (packId === "irl" && safePath === IRL_COLLECTIONS_PATH) {
+        return servePublicRedactedIrlCollections();
+      }
+      return NextResponse.json(
+        { ok: false, error: "Admin required." },
+        { status: 403, headers: packId === "irl" ? NO_STORE_HEADERS : undefined },
+      );
     }
   }
 
@@ -121,25 +205,30 @@ export async function GET(request: NextRequest, context: { params: Promise<{ pac
     // (hydrated from the remote blob) in the SSR Lambda where the pack files are
     // no longer bundled. A missing file surfaces as the same 404 as before.
     const raw = await corpusReadPackFile(packId, safePath);
+    // irl-pack responses vary by caller identity (admin-only content falls
+    // through to here only for an authenticated admin) — never cacheable by
+    // URL alone. Every other pack's content is caller-independent, so its
+    // existing cacheability is left untouched.
+    const headers = packId === "irl" ? NO_STORE_HEADERS : undefined;
     if (raw === null) {
-      return NextResponse.json({ ok: false, error: "File not found." }, { status: 404 });
+      return NextResponse.json({ ok: false, error: "File not found." }, { status: 404, headers });
     }
     if (safePath.endsWith(".json")) {
       try {
         const data = JSON.parse(raw);
-        return NextResponse.json({ ok: true, format: "json", path: safePath, data });
+        return NextResponse.json({ ok: true, format: "json", path: safePath, data }, { headers });
       } catch (error) {
         return NextResponse.json(
           { ok: false, error: "Invalid JSON file.", details: String(error) },
-          { status: 500 }
+          { status: 500, headers }
         );
       }
     }
-    return NextResponse.json({ ok: true, format: "markdown", path: safePath, content: raw });
+    return NextResponse.json({ ok: true, format: "markdown", path: safePath, content: raw }, { headers });
   } catch (error) {
     return NextResponse.json(
       { ok: false, error: "File not found.", details: String(error) },
-      { status: 404 }
+      { status: 404, headers: packId === "irl" ? NO_STORE_HEADERS : undefined }
     );
   }
 }

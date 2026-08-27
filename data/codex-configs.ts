@@ -6360,6 +6360,23 @@ export const IRL_CARTRIDGE: CodexConfig = {
     // stays reachable too, exactly as it always was.
     buildResearchWorkspaceTab('irl-workspace'),
   ],
+  // SECURITY (2026-08-27 IRL OS containment addendum — see
+  // docs/security/2026-08-27_irl-os-containment-breach-audit.md): explicit,
+  // enforced view restriction. metaMe IRL is "strictly admin-gated" per this
+  // whole audit's own hard invariant, but until this pass NOTHING actually
+  // read `permissions.view` — it is a pre-existing field on `CodexConfig`
+  // that was pure decoration everywhere. `/api/codex/registry/[codexId]`
+  // was found serving this cartridge's FULL tab structure (26 tabs,
+  // including admin-only ids/labels/descriptions/document paths for
+  // Charter, Protocols, EXP-P1 Readiness, Corpus Scout, Experiment
+  // Registry, Records) to any unauthenticated caller with zero gate. This
+  // field is now enforced by that route (staticCodexVisibleToCaller) —
+  // never `['*']` for this cartridge.
+  permissions: {
+    view: ['admin'],
+    edit: ['admin', 'aigent-z'],
+    admin: ['admin'],
+  },
 };
 
 /**
