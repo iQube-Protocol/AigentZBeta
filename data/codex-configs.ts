@@ -83,7 +83,21 @@ function workspaceSlugSuffix(fullSlug: string): string {
   return fullSlug.replace(/^irl-workspace-/, '');
 }
 
+/**
+ * SECURITY (2026-08-27 IRL OS scoped restoration): the IRL OS mount
+ * (`idPrefix` starting `irl-os-`) is a PUBLIC host — its Workspace tab must
+ * never hand a viewer (even one holding a genuine research-lab grant for
+ * whichever workspace they're scoped to) a navigable DeepLinkCard into the
+ * private `irl-cartridge`. `forbiddenCodexSlugs` is a render-boundary guard
+ * (PartnerProgrammesTab.tsx) — it does not touch researchWorkspace.ts's
+ * shared link data, so the identical workspace mounted inside the PRIVATE
+ * `irl-cartridge`'s own Workspace tab (idPrefix `irl-workspace`) keeps its
+ * legitimate `irl-cartridge` self-links unchanged. See the prop's own doc
+ * comment on PartnerProgrammesTabProps and the containment audit's Residual
+ * Risk 1 (docs/security/2026-08-27_irl-os-containment-breach-audit.md).
+ */
 function buildResearchWorkspaceTab(idPrefix: string) {
+  const forbiddenCodexSlugs = idPrefix.startsWith('irl-os-') ? ['irl-cartridge'] : undefined;
   return {
     id: idPrefix,
     label: 'Workspace',
@@ -95,7 +109,7 @@ function buildResearchWorkspaceTab(idPrefix: string) {
     participationDomain: 'research-lab',
     config: {
       component: 'PartnerProgrammesTab',
-      props: { initialSurface: 'overview', workspaceDomain: 'research' },
+      props: { initialSurface: 'overview', workspaceDomain: 'research', forbiddenCodexSlugs },
     },
     metadata: {
       icon: 'LayoutGrid',
@@ -116,7 +130,7 @@ function buildResearchWorkspaceTab(idPrefix: string) {
           participationRoles: [...view.roles],
           config: {
             component: 'PartnerProgrammesTab',
-            props: { initialSurface: view.id, workspaceDomain: 'research' },
+            props: { initialSurface: view.id, workspaceDomain: 'research', forbiddenCodexSlugs },
           },
           metadata: { icon: view.icon, description: view.description, color: 'violet' },
         }),
@@ -136,7 +150,7 @@ function buildResearchWorkspaceTab(idPrefix: string) {
         type: 'static' as const,
         config: {
           component: 'PartnerProgrammesTab',
-          props: { initialSurface: RESEARCH_WORKSPACE_ADMIN_VIEW.id, workspaceDomain: 'research' },
+          props: { initialSurface: RESEARCH_WORKSPACE_ADMIN_VIEW.id, workspaceDomain: 'research', forbiddenCodexSlugs },
         },
         metadata: {
           icon: RESEARCH_WORKSPACE_ADMIN_VIEW.icon,
@@ -6467,11 +6481,20 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
       config: { component: 'IRLDashboardTab', props: { publicMode: true } },
       metadata: { icon: 'Landmark', description: 'Mission, published Foundational Validation Series results, and the live research-object lifecycle (read-only, public)', color: 'violet' },
     },
+    // CONTAINED 2026-08-27 (docs/security/2026-08-27_irl-os-containment-breach-audit.md):
+    // disabled, not removed. This tab's content is served via
+    // /api/codex/packs/irl/file, which (before this same containment pass)
+    // had NO access control for the `irl` pack — the full internal Charter
+    // document tree was readable by any caller. The route is now
+    // default-deny for the `irl` pack; this tab stays hidden until an
+    // operator authors a deliberate, explicitly-public Genesis/overview
+    // excerpt for Phase 2 ("Do not infer that a document is public because
+    // it lives under ... Charter ... Public visibility must be explicit").
     {
       id: 'irl-os-charter',
       label: 'Charter',
       slug: 'irl-os-charter',
-      enabled: true,
+      enabled: false,
       group: 'institution',
       order: 1,
       type: 'static',
@@ -6481,11 +6504,14 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
       },
       metadata: { icon: 'Scale', description: 'CFS-019 — the IRL constitution: layers, object model, lifecycles, migration, phases' },
     },
+    // CONTAINED 2026-08-27 — same rationale as irl-os-charter above: served
+    // via the now-default-deny /api/codex/packs/irl/file route, and not
+    // explicitly classified public. Disabled pending Phase 2 classification.
     {
       id: 'irl-os-layer-i',
       label: 'Layer I — Invariant Intelligence',
       slug: 'irl-os-layer-i',
-      enabled: true,
+      enabled: false,
       group: 'research',
       order: 0,
       type: 'static',
@@ -6499,7 +6525,7 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
       id: 'irl-os-layer-ii',
       label: 'Layer II — Constitutional Computing',
       slug: 'irl-os-layer-ii',
-      enabled: true,
+      enabled: false,
       group: 'research',
       order: 1,
       type: 'static',
@@ -6513,7 +6539,7 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
       id: 'irl-os-layer-iii',
       label: 'Layer III — Constitutional Cybernetics',
       slug: 'irl-os-layer-iii',
-      enabled: true,
+      enabled: false,
       group: 'research',
       order: 2,
       type: 'static',
@@ -6534,10 +6560,15 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
       // services/journey/validationProgrammeJourney.ts's own header for the
       // full composition and services/passport/participationAccess.ts's
       // `callerMayReadExperimentReview` for the scoped read check.
+      // CONTAINED 2026-08-27 (docs/security/2026-08-27_irl-os-containment-breach-audit.md):
+      // ValidationProgrammeJourneyTab mounts PartnerProgrammesTab (the
+      // confirmed irl-cartridge deep-link vector, see irl-os-workspace's
+      // comment above) plus IndependentReviewPanel/LockerTab. Disabled
+      // pending Phase 2 verified reviewer-invitation scoping.
       id: 'irl-os-validation-programme',
       label: 'Validation Programme',
       slug: 'irl-os-validation-programme',
-      enabled: true,
+      enabled: false,
       group: 'validation-programme',
       order: 0,
       type: 'static',
@@ -6555,10 +6586,16 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
       // (admin OR research-entitled OR an active research-lab access grant).
       // This is where an onboarded reviewer independently reproduces the
       // Foundational Series: EXP-001–005 + Results/Report outputs.
+      // CONTAINED 2026-08-27 (docs/security/2026-08-27_irl-os-containment-breach-audit.md):
+      // this tab's own access route (/api/experiments/access) IS
+      // server-resolved correctly (verified — canonical persona/grants, not
+      // client params), but the operator's access policy requires
+      // invitation/cohort scoping beyond paid/admin, which is unverified for
+      // this surface. Disabled pending Phase 2 scope verification.
       id: 'irl-os-experiment-lab',
       label: 'Experiments',
       slug: 'irl-os-experiment-lab',
-      enabled: true,
+      enabled: false,
       group: 'laboratory',
       order: 0,
       type: 'static',
@@ -6603,10 +6640,13 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
     },
     // ── Constitutional Evaluation — the external-researcher front door ──
     {
+      // CONTAINED 2026-08-27 (docs/security/2026-08-27_irl-os-containment-breach-audit.md):
+      // served via the now-default-deny /api/codex/packs/irl/file route and
+      // not explicitly classified public. Disabled pending Phase 2.
       id: 'irl-os-evaluation',
       label: 'Constitutional Evaluation',
       slug: 'irl-os-evaluation',
-      enabled: true,
+      enabled: false,
       group: 'laboratory',
       order: 1,
       type: 'static',
@@ -6622,10 +6662,15 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
       },
     },
     {
+      // CONTAINED 2026-08-27 (docs/security/2026-08-27_irl-os-containment-breach-audit.md):
+      // col_experiments (experiment designs/protocols/methods/PRDs) served
+      // via the now-default-deny /api/codex/packs/irl/file route. Directive
+      // requires this stay hidden "unless canonical scope enforcement
+      // already exists and is verified" — it did not; disabled.
       id: 'irl-os-protocols',
       label: 'Protocols & Articles',
       slug: 'irl-os-protocols',
-      enabled: true,
+      enabled: false,
       group: 'laboratory',
       order: 0,
       type: 'static',
@@ -6665,11 +6710,14 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
       config: { component: 'InvariantRegistryTab', props: { publicMode: true } },
       metadata: { icon: 'BookMarked', description: 'Browse the live constitutional substrate — namespaces, status, Standing, Reach (read-only, public)', color: 'violet' },
     },
+    // CONTAINED 2026-08-27 (docs/security/2026-08-27_irl-os-containment-breach-audit.md):
+    // served via the now-default-deny /api/codex/packs/irl/file route and
+    // not explicitly classified public. Disabled pending Phase 2.
     {
       id: 'irl-os-glossary',
       label: 'Glossary & Ontology',
       slug: 'irl-os-glossary',
-      enabled: true,
+      enabled: false,
       group: 'research',
       order: 3,
       type: 'static',
@@ -6715,10 +6763,14 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
     {
       // Research Programmes live under Institution — the programme is part of
       // "who we are" (five-space IA, 2026-07-18).
+      // CONTAINED 2026-08-27 (docs/security/2026-08-27_irl-os-containment-breach-audit.md):
+      // "if no public projection exists now, hide this tab temporarily"
+      // (directive). Served via the now-default-deny /api/codex/packs/irl/file
+      // route; disabled pending a Phase 2 deliberately-authored public summary.
       id: 'irl-os-programmes',
       label: 'Research Programmes',
       slug: 'irl-os-programmes',
-      enabled: true,
+      enabled: false,
       group: 'institution',
       order: 2,
       type: 'static',
@@ -6813,9 +6865,43 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
       },
     },
     // ── Workspace (SPEC-IRL-WORKSPACE-001) — added 2026-07-29 ───────
-    // Its OWN top-level group (`workspace`, see `tabGroups` above). Built by
-    // the SAME `buildResearchWorkspaceTab` the internal IRL cartridge uses —
-    // one definition, two mounts, never a hand-copied second implementation.
+    // CONTAINED 2026-08-27, RESTORED 2026-08-27 (scoped restoration — see
+    // docs/security/2026-08-27_irl-os-containment-breach-audit.md and its
+    // Residual Risk 1). Original defect: `RESEARCH_WORKSPACES` (services/
+    // research/researchWorkspace.ts) hardcodes `codexSlug: 'irl-cartridge'`
+    // on the Protocols & Articles / EXP-P1 Readiness / Experiments / Reports
+    // / Records & Findings / Independent Review / Observer Review links
+    // every research-programme workspace carries, and `PartnerProgrammesTab`'s
+    // `DeepLinkCard` builds those into live hrefs straight into the PRIVATE
+    // `irl-cartridge`. Because this Workspace tab shares the SAME
+    // `buildResearchWorkspaceTab` builder (and therefore the same
+    // `PartnerProgrammesTab` mount) as the internal IRL cartridge's own
+    // Workspace tab, any IRL OS visitor who reached a workspace with ANY
+    // research-lab access grant saw these `irl-cartridge` deep links
+    // rendered directly in the public cartridge.
+    //
+    // Fix (render-boundary guard, not a data rewrite): `buildResearchWorkspaceTab`
+    // now passes `forbiddenCodexSlugs: ['irl-cartridge']` into every
+    // `PartnerProgrammesTab` mount whose `idPrefix` starts `irl-os-`.
+    // `AreaLinks` (PartnerProgrammesTab.tsx) drops any DeepLinkCard whose
+    // `codexSlug` is on that list — for THIS mount only, the same
+    // established "this mount only" contract `hiddenLinkIds` already used.
+    // The internal `irl-cartridge` Workspace tab (`idPrefix: 'irl-workspace'`)
+    // is untouched and keeps its legitimate self-links.
+    //
+    // Access model unchanged and already correct (verified, not modified):
+    // `grantedScopes`/`scopesGrantedIn` (participation access) still cohort-
+    // isolates WHICH workspace(s) a caller may even see (MS-9 — a control
+    // that cannot act must not render) — a public/ungranted visitor lands on
+    // the honest, generic `unscopedHint`/`emptyRegistry` empty state (no
+    // workspace names, no programme content), never a workspace list or its
+    // links. A canonical admin sees the full workspace picker as before,
+    // minus any `irl-cartridge` link (they have direct access to metaMe IRL
+    // itself for that). An invitation/cohort-scoped non-admin participant
+    // (Autonomi reviewer, Lehigh capstone, OCSGA, VP1) still opens exactly
+    // their own granted workspace, with every non-`irl-cartridge` link intact
+    // and every `irl-cartridge` link silently omitted rather than rendered
+    // broken or redirecting into the private cartridge.
     buildResearchWorkspaceTab('irl-os-workspace'),
   ],
   permissions: {

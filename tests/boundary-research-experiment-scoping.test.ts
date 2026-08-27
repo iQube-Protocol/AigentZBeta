@@ -132,7 +132,7 @@ describe('research-active reuses PartnerProgrammesTab — never a forked Boundar
     expect(src).not.toMatch(/lockedWorkspaceId=\{['"`]/); // never a hardcoded literal id
   });
 
-  it('keeps "Explore IRL OS" as the explicit route into the larger body of work, and actually routes to IRL OS (access-boundary correction, 2026-08-26 -- see tests/irl-os-access-boundary.test.ts)', () => {
+  it('keeps "Explore IRL OS" as the explicit route into the larger body of work, and actually routes to IRL OS (access-boundary correction, 2026-08-26; restored to irl-os-workspace 2026-08-27 once that surface had a render-boundary guard -- see docs/security/2026-08-27_irl-os-containment-breach-audit.md)', () => {
     const src = stripComments(readSource('components/journey/BoundaryResearchProgressPanel.tsx'));
     expect(src).toContain('Explore IRL OS');
     expect(src).toContain("buildCodexUrl('irl-os-cartridge', { tab: 'irl-os-workspace'");

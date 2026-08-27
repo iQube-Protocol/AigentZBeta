@@ -444,10 +444,18 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
     // focused embed itself is UNCHANGED (codexSlug/tab still point at
     // irl-cartridge's irl-exchange tab, which is deliberately NOT admin-gated —
     // see that tab's own comment in data/codex-configs.ts): only the EXPANDED
-    // destination now differs, landing on IRL OS's own Workspace tab
-    // (irl-os-workspace — the SAME buildResearchWorkspaceTab surface, gated by
-    // participationDomain: 'research-lab', not adminOnly) rather than metaMe
-    // IRL.
+    // destination now differs, landing on IRL OS.
+    //
+    // CONTAINED 2026-08-27, RESTORED 2026-08-27 (docs/security/2026-08-27_irl-os-containment-breach-audit.md):
+    // irl-os-workspace was `enabled: false` during containment — it shared
+    // PartnerProgrammesTab/DeepLinkCard rendering with metaMe IRL's own
+    // Workspace tab, which constructed live irl-cartridge deep links
+    // directly in the public cartridge, so this affordance was repointed at
+    // the always-enabled Welcome tab. irl-os-workspace is now restored with
+    // a render-boundary guard (`forbiddenCodexSlugs` — data/codex-configs.ts's
+    // `buildResearchWorkspaceTab`) that drops any irl-cartridge DeepLinkCard
+    // for THIS mount, so it is safe to point back at the real Workspace
+    // destination.
     expandedCodexSlug: 'irl-os-cartridge',
     expandedTab: 'irl-os-workspace',
     note:

@@ -397,10 +397,11 @@ export function AlphaProgrammeTab({ personaId, isAdmin, shell }: AlphaProgrammeT
     if (ws.id === "knyt-wheel") {
       return {
         ...ws,
+        // isAdmin deliberately not forwarded (2026-08-27 containment
+        // addendum) — see useCodexEmbedAuthBridge's doc comment.
         link: buildCodexUrl("knyt-codex", {
           tab: "knyt-alpha",
           personaId,
-          isAdmin,
           shell,
           from: "alpha-knyt",
           fromTab: "alpha-programme",

@@ -25,7 +25,13 @@ export const dynamic = 'force-dynamic';
 export async function GET(req: NextRequest) {
   const persona = await getActivePersona(req);
   if (!persona?.personaId) {
-    return NextResponse.json({ ok: true, isAdmin: false, access: 'none', allowed: [], assignable: ASSIGNABLE_EXPERIMENTS });
+    // SECURITY (2026-08-27 IRL OS containment — see
+    // docs/security/2026-08-27_irl-os-containment-breach-audit.md): an
+    // unauthenticated caller must not receive the full experiment catalogue
+    // (ids + labels for EVERY registered experiment, including confidential
+    // Autonomi/Lehigh/OCSGA workspace-scoped experiments) as an existence
+    // signal. `assignable` is empty here; the caller has no access to list.
+    return NextResponse.json({ ok: true, isAdmin: false, access: 'none', allowed: [], assignable: [] });
   }
   const admin = getSupabaseServer();
   if (!admin) return NextResponse.json({ ok: false, error: 'Service unavailable' }, { status: 500 });
@@ -67,6 +73,17 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // SECURITY (2026-08-27 IRL OS containment): `assignable` must never carry
+  // more than this caller may actually see. Admin/'all' access legitimately
+  // sees the full catalogue; a 'scoped' or 'none' caller must see only their
+  // own allowed set — otherwise every other experiment's id+label (including
+  // confidential Autonomi/Lehigh/OCSGA workspace-scoped entries) leaks as an
+  // existence signal to a caller who was denied everything else about it.
+  const assignable =
+    isAdmin || access === 'all'
+      ? ASSIGNABLE_EXPERIMENTS
+      : ASSIGNABLE_EXPERIMENTS.filter((e) => allowedExperiments.includes(e.id));
+
   return NextResponse.json(
     {
       ok: true,
@@ -74,7 +91,7 @@ export async function GET(req: NextRequest) {
       access,
       allowed,
       allowedExperiments,
-      assignable: ASSIGNABLE_EXPERIMENTS,
+      assignable,
       cap: Number.isFinite(quota.cap) ? quota.cap : null,
       used: quota.used,
       remaining: Number.isFinite(quota.remaining) ? quota.remaining : null,
