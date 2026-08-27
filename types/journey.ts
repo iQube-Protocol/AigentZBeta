@@ -368,6 +368,17 @@ export interface JourneyRuntimeState {
    */
   citizenPassportUsable?: boolean;
   /**
+   * OCSGA Presence recognition fix (2026-08-27) — the recognized Citizen
+   * Passport's class and T2-safe public reference (services/identity/
+   * passportPrincipal.ts's `personaPublicRef` — NEVER the raw Passport
+   * UUID), populated only when `citizenPassportUsable` is true. Lets a
+   * recognized-state UI (PassportBureauApplyTab's "you already hold a
+   * Passport" banner) name WHAT was recognized instead of a bare boolean.
+   * `null` when no usable Citizen Passport was found.
+   */
+  citizenPassportClass?: string | null;
+  citizenPassportRef?: string | null;
+  /**
    * OCSGA structural admission fix (2026-08-26) — whether this participant's
    * Reciprocal Artifact Exchange membership was recognized/provisioned via
    * an active `research-lab` CAS grant scoped to the OCSGA workspace (as
