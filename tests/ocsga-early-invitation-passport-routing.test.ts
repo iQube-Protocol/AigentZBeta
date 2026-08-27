@@ -113,12 +113,28 @@ describe('canary 1 — no invite: Orient and Establish Presence are unchanged, i
   });
 });
 
+/**
+ * Shared slice helper — the `venture-participate-apply` branch's return
+ * statement grew a multi-field object (OCSGA Presence recognition fix,
+ * 2026-08-27: initialUsablePassport/initialPassportClass/initialPassportRef
+ * alongside routeTo) so canaries anchor on the branch's LAST field
+ * (`initialPassportRef`) through its closing `};` rather than the old
+ * single-field `return { routeTo };` literal, which no longer exists.
+ */
+function ventureParticipateApplyBlock(code: string): string {
+  const at = code.indexOf("if (surfaceRef.ref === 'venture-participate-apply')");
+  const anchor = 'initialPassportRef: runtimeState?.citizenPassportRef ?? null,';
+  const anchorAt = code.indexOf(anchor, at);
+  const closeAt = code.indexOf('};', anchorAt);
+  return code.slice(at, closeAt + 2);
+}
+
 describe('canary 2 — valid invite + no Citizen Passport → Establish Presence routes directly to citizen', () => {
   it('routeTo resolves to \'citizen\' exactly when hasInvite is true and hasCitizenPassport is false', () => {
     const code = stripComments(readSource(IAN_JOURNEY_TAB));
     const at = code.indexOf("if (surfaceRef.ref === 'venture-participate-apply')");
     expect(at).toBeGreaterThan(-1);
-    const block = code.slice(at, code.indexOf('return { routeTo };', at) + 'return { routeTo };'.length);
+    const block = ventureParticipateApplyBlock(code);
     expect(block).toContain("const hasInvite = Boolean(runtimeState?.activeExchangeId);");
     expect(block).toContain('const hasCitizenPassport = runtimeState?.citizenPassportUsable === true;');
     expect(block).toContain("hasInvite && !hasCitizenPassport ? ('citizen' as const) : undefined");
@@ -126,8 +142,7 @@ describe('canary 2 — valid invite + no Citizen Passport → Establish Presence
 
   it('routeTo never resolves to \'delegate\'/agent sponsorship from an invitation alone', () => {
     const code = stripComments(readSource(IAN_JOURNEY_TAB));
-    const at = code.indexOf("if (surfaceRef.ref === 'venture-participate-apply')");
-    const block = code.slice(at, code.indexOf('return { routeTo };', at) + 20);
+    const block = ventureParticipateApplyBlock(code);
     expect(block).not.toMatch(/'delegate'/);
   });
 
@@ -140,8 +155,7 @@ describe('canary 2 — valid invite + no Citizen Passport → Establish Presence
 describe('canary 3 — valid invite + existing Citizen Passport → no duplicate application', () => {
   it('routeTo is left undefined (not overridden) once citizenPassportUsable is true, deferring to the existing observer truth', () => {
     const code = stripComments(readSource(IAN_JOURNEY_TAB));
-    const at = code.indexOf("if (surfaceRef.ref === 'venture-participate-apply')");
-    const block = code.slice(at, code.indexOf('return { routeTo };', at) + 'return { routeTo };'.length);
+    const block = ventureParticipateApplyBlock(code);
     // The ternary's else-branch (hasCitizenPassport === true) resolves to
     // undefined — no second branch anywhere overrides it back to a class.
     expect(block).toMatch(/hasInvite && !hasCitizenPassport \? \('citizen' as const\) : undefined;/);
@@ -155,11 +169,24 @@ describe('canary 3 — valid invite + existing Citizen Passport → no duplicate
   });
 });
 
-describe('canary 4 — invite never satisfies passportIssued', () => {
-  it("the Ian journey state service's passport stage evidence derives ONLY from the passport_issued receipt, never from activeExchangeId/citizenPassportUsable", () => {
+describe('canary 4 — invite never satisfies passportIssued (updated 2026-08-27 for the OCSGA Presence recognition fix — see the shape-fidelity describe block below for why)', () => {
+  it("the Ian journey state service's passport stage evidence derives from the passport_issued receipt OR citizenPassportUsable — NEVER from activeExchangeId/an invite", () => {
     const code = stripComments(readSource(IAN_JOURNEY_STATE_SERVICE));
-    const passportLineAt = code.indexOf("passport: { passport_issued: hasReceiptType('passport_issued') }");
+    // The receipt-only line was replaced 2026-08-27 (root-caused from a live
+    // "Acting as Aigent Z" audit — receipt-only evidence never recognizes a
+    // principal's Citizen Passport claimed under a DIFFERENT persona, e.g. an
+    // agent persona acting for its sponsoring human). citizenPassportUsable is
+    // already resolved principal-first (authProfileId, never persona-upward —
+    // RES-2026-08-15-PASSPORT-PRINCIPAL-FIRST-SUPERSESSION-001), so OR-ing it
+    // in widens the evidence source, not the identifier direction.
+    const passportLineAt = code.indexOf(
+      "passport: { passport_issued: hasReceiptType('passport_issued') || citizenPassportUsable }",
+    );
     expect(passportLineAt).toBeGreaterThan(-1);
+    // The invariant this canary actually protects — an invite/activeExchangeId
+    // must never satisfy Presence — still holds: neither disjunct references it.
+    const passportLine = code.slice(passportLineAt, code.indexOf('\n', passportLineAt));
+    expect(passportLine).not.toMatch(/activeExchangeId/);
   });
 
   it('citizenPassportUsable is computed from the canonical Citizen Passport read, never from the exchange/invite lookup', () => {
@@ -260,6 +287,73 @@ describe('the invitation reference is a first-class, documented Journey Spine ex
     for (const field of ['...journeyState', 'interactionContext', 'activeExchangeId', 'citizenPassportUsable']) {
       expect(responseStateLiteral).toContain(field);
     }
+  });
+});
+
+describe('OCSGA Presence recognition fix (2026-08-27) — the ACTUAL failing shape: an agent persona (e.g. Aigent Z) acting for a principal who already claimed a Citizen Passport under a DIFFERENT persona', () => {
+  it('the passport stage is satisfied by citizenPassportUsable even when NO passport_issued receipt exists for the active persona — the exact "Acting as Aigent Z" shape, never a simplified persona-owns-its-own-Passport fixture', () => {
+    const code = stripComments(readSource(IAN_JOURNEY_STATE_SERVICE));
+    // hasReceiptType('passport_issued') is scoped to the ACTIVE personaId
+    // (listActivityReceiptsForPersona(personaId, ...)) — false for an agent
+    // persona whose principal claimed their Passport under their OWN persona.
+    // citizenPassportUsable is scoped to authProfileId (every persona the
+    // caller's auth account owns) — true for that same shape. The OR must be
+    // present so Presence recognizes the LATTER even when the FORMER is false.
+    expect(code).toContain("hasReceiptType('passport_issued') || citizenPassportUsable");
+    expect(code).toContain('loadUsableCitizenPassportForAuthProfile(admin, authProfileId)');
+  });
+
+  it('citizenPassportClass/citizenPassportRef are exposed for the recognized-state UI, sourced from the SAME authProfileId-scoped credential, never the raw Passport UUID', () => {
+    const code = stripComments(readSource(IAN_JOURNEY_STATE_SERVICE));
+    expect(code).toContain('citizenPassportClass = credential.passport.passportClass;');
+    expect(code).toContain('citizenPassportRef = credential.passport.personaPublicRef ?? null;');
+    expect(code).not.toMatch(/citizenPassportRef\s*=\s*credential\.passport\.passportId/);
+  });
+
+  it('personaPublicRef is selected as a T2-safe reference on PassportSnapshot, documented as never the raw UUID', () => {
+    const code = stripComments(readSource('services/identity/passportPrincipal.ts'));
+    expect(code).toContain('personaPublicRef?: string | null;');
+    expect(code).toContain("'passport_class, citizen_status, participant_status, passport_grade, revoked, expires_at, persona_public_ref'");
+    expect(code).not.toMatch(/personaPublicRef:\s*\(row\.passport_id/);
+  });
+
+  it('IanJourneyTab threads the recognized fields into PassportBureauApplyTab as initialUsablePassport/initialPassportClass/initialPassportRef — never re-deriving them client-side', () => {
+    const code = stripComments(readSource(IAN_JOURNEY_TAB));
+    const at = code.indexOf("if (surfaceRef.ref === 'venture-participate-apply')");
+    const block = code.slice(at, code.indexOf('return {', code.indexOf('return {', at) + 1) + 400);
+    expect(code).toContain('initialUsablePassport: hasCitizenPassport,');
+    expect(code).toContain('initialPassportClass: runtimeState?.citizenPassportClass ?? null,');
+    expect(code).toContain('initialPassportRef: runtimeState?.citizenPassportRef ?? null,');
+    void block;
+  });
+
+  it('PassportBureauApplyTab seeds its recognized-state short-circuit from initialUsablePassport — so the class-selection wizard never re-renders for an already-recognized caller, without requiring the wizard\'s OWN internal Bureau-account sign-in sub-step', () => {
+    const code = stripComments(readSource(PASSPORT_BUREAU_APPLY_TAB));
+    expect(code).toContain('initialUsablePassport?: boolean;');
+    expect(code).toContain('useState(Boolean(initialUsablePassport))');
+    // The recognized-state early return happens BEFORE the class-picker
+    // step-strip JSX renders — confirmed by textual order in the component
+    // (an early `return` in a function component short-circuits everything
+    // after it, so this ordering is what makes the short-circuit real).
+    const shortCircuitAt = code.indexOf('if (existingUsablePassport) {');
+    const stepStripRenderAt = code.indexOf('{steps.map((s, i) => (');
+    expect(shortCircuitAt).toBeGreaterThan(-1);
+    expect(stepStripRenderAt).toBeGreaterThan(-1);
+    expect(shortCircuitAt).toBeLessThan(stepStripRenderAt);
+  });
+
+  it('the recognized banner names the Passport class and a safe reference — never the raw UUID', () => {
+    const code = stripComments(readSource(PASSPORT_BUREAU_APPLY_TAB));
+    expect(code).toContain('You already hold a Polity Citizen Passport');
+    expect(code).toContain('recognizedPassportClass === \'citizen\' ? \'Polity Citizen Passport\' : recognizedPassportClass');
+    expect(code).not.toMatch(/recognizedPassportRef.*passport_id/);
+  });
+
+  it('delegation is never treated as presence — the passport stage fact is independent of hasActiveDelegation (CI-2026-08-15-PRESENCE-LADDER-NOT-AGENCY-001: presence and agency are disjoint mechanisms)', () => {
+    const code = stripComments(readSource(IAN_JOURNEY_STATE_SERVICE));
+    const passportLineAt = code.indexOf('passport: { passport_issued:');
+    const passportLine = code.slice(passportLineAt, code.indexOf('\n', passportLineAt));
+    expect(passportLine).not.toMatch(/delegationActive/);
   });
 });
 

@@ -87,7 +87,27 @@ function IanJourneyTabInner({ personaId }: IanJourneyTabProps) {
         const hasInvite = Boolean(runtimeState?.activeExchangeId);
         const hasCitizenPassport = runtimeState?.citizenPassportUsable === true;
         const routeTo = hasInvite && !hasCitizenPassport ? ('citizen' as const) : undefined;
-        return { routeTo };
+        /*
+         * OCSGA Presence recognition fix (2026-08-27) — when the caller
+         * already holds a usable Citizen Passport, PassportBureauApplyTab
+         * must show the recognized state IMMEDIATELY, sourced from THIS
+         * already-resolved server truth. Its own internal "already hold a
+         * Passport" short-circuit (existingUsablePassport) only fires after
+         * a Bureau-account sign-in inside the wizard's own Account step — a
+         * sub-system unrelated to the platform session an already-
+         * authenticated OCSGA participant (e.g. "Acting as Aigent Z") is
+         * using, so that internal check never runs for this caller and the
+         * class-selection screen rendered instead (the defect this closes).
+         * Seeding it here does not replace that internal check — it only
+         * seeds the SAME state variable's initial value, so either source
+         * of confirmation shows the identical recognized banner.
+         */
+        return {
+          routeTo,
+          initialUsablePassport: hasCitizenPassport,
+          initialPassportClass: runtimeState?.citizenPassportClass ?? null,
+          initialPassportRef: runtimeState?.citizenPassportRef ?? null,
+        };
       }
       return {};
     },

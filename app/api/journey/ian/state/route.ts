@@ -116,10 +116,14 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const { state: authState, evidenceGaps, activeExchangeId, citizenPassportUsable } = await fetchIanAuthoritativePlatformState(
-      personaId,
-      authProfileId,
-    );
+    const {
+      state: authState,
+      evidenceGaps,
+      activeExchangeId,
+      citizenPassportUsable,
+      citizenPassportClass,
+      citizenPassportRef,
+    } = await fetchIanAuthoritativePlatformState(personaId, authProfileId);
 
     const journeyState: JourneyRuntimeState = resolveJourneyState(IAN_BOUNDARY_RESEARCH_JOURNEY, authState);
 
@@ -147,6 +151,8 @@ export async function GET(request: NextRequest) {
       interactionContext,
       activeExchangeId,
       citizenPassportUsable,
+      citizenPassportClass,
+      citizenPassportRef,
       ocsgaGrantAdmitted,
     };
 
@@ -158,6 +164,8 @@ export async function GET(request: NextRequest) {
       personaAuthenticated: Boolean(personaId),
       activeExchangeId,
       citizenPassportUsable,
+      citizenPassportClass,
+      citizenPassportRef,
       evidenceGaps: [...admissionGaps, ...evidenceGaps],
     });
   } catch (err) {

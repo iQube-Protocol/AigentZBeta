@@ -62,6 +62,15 @@ export interface PassportSnapshot {
   passportGrade: string | null;
   revoked: boolean;
   expiresAt: string | null;
+  /**
+   * T2-safe "Polity Public Reference" (CLAUDE.md's Identity & Access Spine —
+   * three-level persona reference model, level 2) — safe to render in a
+   * recognized-state UI summary. `undefined` where the builder never
+   * selected the column (only `loadUsableCitizenPassportForAuthProfile`
+   * does, today); `null` where the row genuinely carries none. NEVER the
+   * raw Passport UUID (`passport_id`) — that stays server-internal.
+   */
+  personaPublicRef?: string | null;
 }
 
 /**
@@ -679,7 +688,7 @@ export async function loadUsableCitizenPassportForAuthProfile(
 
   const { data: rows, error } = await supabase
     .from('polity_passport_records')
-    .select('passport_class, citizen_status, participant_status, passport_grade, revoked, expires_at')
+    .select('passport_class, citizen_status, participant_status, passport_grade, revoked, expires_at, persona_public_ref')
     .in('persona_id', personaIds)
     .eq('passport_class', 'citizen')
     .order('created_at', { ascending: false })
@@ -694,6 +703,7 @@ export async function loadUsableCitizenPassportForAuthProfile(
     passportGrade: (row.passport_grade as string) ?? null,
     revoked: Boolean(row.revoked),
     expiresAt: (row.expires_at as string) ?? null,
+    personaPublicRef: (row.persona_public_ref as string) ?? null,
   }));
   // Same discipline as the kybe path: a USABLE row wins over an unusable one.
   const usable = snapshots.find((p) => isPassportUsable(p));
