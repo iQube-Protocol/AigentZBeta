@@ -30,9 +30,9 @@ const FROZEN_ARTIFACT = {
   signedBy: ['operator-ref'],
 };
 
-const mockGetArtifact = vi.fn();
+const mockLatestFrozenCrystalArtifact = vi.fn();
 vi.mock('@/services/research/artifacts', () => ({
-  getArtifact: (...args: unknown[]) => mockGetArtifact(...args),
+  latestFrozenCrystalArtifact: (...args: unknown[]) => mockLatestFrozenCrystalArtifact(...args),
 }));
 
 const mockWriteLifecycleReceipt = vi.fn();
@@ -78,8 +78,8 @@ vi.mock('@/services/research/observerReviewStore', async () => {
 
 beforeEach(() => {
   roundsById.clear();
-  mockGetArtifact.mockReset();
-  mockGetArtifact.mockResolvedValue(FROZEN_ARTIFACT);
+  mockLatestFrozenCrystalArtifact.mockReset();
+  mockLatestFrozenCrystalArtifact.mockResolvedValue(FROZEN_ARTIFACT);
   mockWriteLifecycleReceipt.mockReset();
   mockWriteLifecycleReceipt.mockResolvedValue({ ok: true, receiptId: 'r1' });
   mockGetObserverRound.mockClear();
@@ -101,6 +101,16 @@ describe('assignObserverRound — the ONE shared assignment implementation', () 
     expect(result.round.roundPolicy).toBe('all-assigned'); // pinned, not the unset default
     expect(result.round.assignedObserverRefs).toHaveLength(2);
     expect(mockWriteLifecycleReceipt).toHaveBeenCalledTimes(1);
+  });
+
+  it('resolves the artifact to review via latestFrozenCrystalArtifact — never a first-match lookup that could stall on a superseded generation (operator ruling, 2026-08-27, "Crystal v1/v2 lineage collision", item 2)', async () => {
+    const { assignObserverRound } = await import('@/services/research/observerRoundAssignment');
+    await assignObserverRound({} as any, {
+      experimentId: 'EXP-P1',
+      observerRefs: ['avi-ref', 'austin-ref'],
+      createdAt: '2026-08-09T21:00:00.000Z',
+    });
+    expect(mockLatestFrozenCrystalArtifact).toHaveBeenCalledWith('EXP-P1');
   });
 
   it('deduplicates and SORTS observerRefs before hashing — the same cohort in a different discovery order reproduces the SAME packageHash', async () => {
@@ -177,8 +187,8 @@ describe('assignObserverRound — the ONE shared assignment implementation', () 
     expect(result.error).toMatch(/pinned to 'all-assigned'/);
   });
 
-  it('refuses when the artifact is not frozen', async () => {
-    mockGetArtifact.mockResolvedValue({ ...FROZEN_ARTIFACT, lifecycle: 'draft' });
+  it('refuses when nothing is frozen yet (2026-08-27: latestFrozenCrystalArtifact never returns a non-frozen artifact — that IS the "not frozen" signal now)', async () => {
+    mockLatestFrozenCrystalArtifact.mockResolvedValue(null);
     const { assignObserverRound } = await import('@/services/research/observerRoundAssignment');
     const result = await assignObserverRound({} as any, {
       experimentId: 'EXP-P1',
@@ -188,7 +198,7 @@ describe('assignObserverRound — the ONE shared assignment implementation', () 
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.status).toBe(409);
-    expect(result.error).toMatch(/not 'frozen'/);
+    expect(result.error).toMatch(/frozen/);
   });
 
   it('skips the lifecycle receipt (never fabricates an actor) when no actorPersonaId is supplied — the cron/system-triggered path', async () => {

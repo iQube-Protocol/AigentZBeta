@@ -111,7 +111,14 @@ import {
   deriveCrystalPopulationRequirement,
   type CrystalPopulationRequirement,
 } from '@/services/research/crystalPopulationRequirement';
-import { tierForCheck, type CrystalReadinessTier } from '@/services/research/crystalInstrumentSuite';
+import {
+  remediationClassForCheck,
+  remediationStageAnchorForCheck,
+  tierForCheck,
+  type CheckRemediationClass,
+  type CrystalReadinessTier,
+  type Track2StageIdForRemediation,
+} from '@/services/research/crystalInstrumentSuite';
 import { INVARIANT_NAMESPACES } from '@/types/invariants';
 
 /** Heuristic-only statement-shape signal for "this looks relational or
@@ -262,6 +269,28 @@ export interface CrystalReadinessCheck {
    * never describe different situations (inv.engineering.036).
    */
   remedy: string | null;
+  /**
+   * WHAT KIND of remediation, and WHERE — the summary-level routing the
+   * operator asked to replace a generic "scroll to Stage 9" with (operator
+   * ruling, 2026-08-27, "Crystal v1/v2 lineage collision", item 4). Sourced
+   * from `crystalInstrumentSuite.ts`'s single check contract
+   * (inv.engineering.036) — never a second, independently-maintained mapping.
+   * Populated for every check, pass or fail, by a single enrichment pass at
+   * the end of `runCrystalReadinessReport` — never at each individual
+   * `checks.push` site, so there is exactly one place that can disagree with
+   * `crystalInstrumentSuite.ts`'s contract. Declared optional only because
+   * TypeScript cannot see that enrichment from each push-site's literal; both
+   * fields are unconditionally present on every check this module returns.
+   */
+  remediationClass?: CheckRemediationClass;
+  remediationStageAnchor?: Track2StageIdForRemediation | null;
+  /**
+   * Only populated on the `duplicate-detection` check — the exact
+   * near-duplicate invariant id pairs the count in `detail` refers to, so a
+   * real adjudication queue can act on them instead of only reporting a
+   * number. `undefined` on every other check.
+   */
+  duplicatePairs?: Array<{ aId: string; bId: string }>;
 }
 
 /** Bronze/Silver/Gold — how many `scientific-maturity` checks currently pass.
@@ -909,6 +938,7 @@ export async function runCrystalReadinessReport(
             `not a setting to change. Note the count that matters is the DISTINCT-STATEMENT estimate ` +
             `(${distinctStatementEstimate}), not the nominal ${invariantCount}: every downstream size ` +
             `requirement is against distinct statements. Steward work.`,
+    duplicatePairs: duplicatePairs.map(([aId, bId]) => ({ aId, bId })),
   });
 
   // 5. Provenance eligibility — Population A only (§2a as refined 2026-07-27).
@@ -1158,6 +1188,14 @@ export async function runCrystalReadinessReport(
           `narrowing a ratified boundary is a SEPARATE GOVERNANCE DECISION that must be surfaced as one, ` +
           `never taken as an implementation shortcut. Scientific work.`,
   });
+
+  // Single enrichment pass — see CrystalReadinessCheck.remediationClass's doc
+  // comment. Sourced from crystalInstrumentSuite.ts's one check contract
+  // (inv.engineering.036), never a second mapping maintained here.
+  for (const c of checks) {
+    c.remediationClass = remediationClassForCheck(c.name);
+    c.remediationStageAnchor = remediationStageAnchorForCheck(c.name);
+  }
 
   // READY FOR FREEZE never depends on a `scientific-maturity` check (operator
   // ruling, 2026-08-05) — see CrystalReadinessCheck's doc comment.

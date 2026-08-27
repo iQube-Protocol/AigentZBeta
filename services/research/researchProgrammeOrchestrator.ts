@@ -92,7 +92,7 @@ import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { listCandidateSources } from '@/services/corpusScout/provenance';
 import { listCandidates, runConstitutionalDiscovery } from '@/services/invariants/discoveryEngine';
 import { validateInvariant } from '@/services/invariants';
-import { getArtifact } from '@/services/research/artifacts';
+import { getCurrentCrystalArtifact } from '@/services/research/artifacts';
 import {
   crystalDeclarationHash,
   crystalDomainForExperiment,
@@ -398,7 +398,13 @@ export async function loadTrack2ProgrammeState(input: {
   const [sources, candidates, artifact] = await Promise.all([
     admin ? listCandidateSources(admin, { campaignDomain: acquisitionDomain }).catch(() => null) : null,
     admin ? listCandidates(admin, acquisitionDomain).catch(() => null) : null,
-    getArtifact(input.experimentId, 'crystal-version').catch(() => null),
+    // Lineage-safe (operator ruling 2026-08-27, "Crystal v1/v2 lineage
+    // collision"): NEVER the plain first-match `getArtifact` lookup, which
+    // cannot tell a frozen predecessor from the active successor candidate —
+    // see currentCrystalArtifactId's doc comment. Still a pure read; this
+    // module's freeze-canary is untouched (it forbids upsertArtifact/
+    // freezeArtifact/action:'freeze', none of which this calls).
+    getCurrentCrystalArtifact(input.experimentId).catch(() => null),
   ]);
 
   const unreadableSignals: string[] = [];

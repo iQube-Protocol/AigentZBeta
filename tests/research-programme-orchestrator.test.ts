@@ -59,9 +59,9 @@ vi.mock('@/services/invariants', () => ({
   validateInvariant: (...args: unknown[]) => mockValidateInvariant(...args),
 }));
 
-const mockGetArtifact = vi.fn();
+const mockGetCurrentCrystalArtifact = vi.fn();
 vi.mock('@/services/research/artifacts', () => ({
-  getArtifact: (...args: unknown[]) => mockGetArtifact(...args),
+  getCurrentCrystalArtifact: (...args: unknown[]) => mockGetCurrentCrystalArtifact(...args),
 }));
 
 const mockRunCrystalReadinessReport = vi.fn();
@@ -185,7 +185,7 @@ function seedSubstrate(over?: {
   );
   mockReconcilePromotedCohort.mockResolvedValue(resolvedCohort);
   mockRunCrystalReadinessReport.mockResolvedValue(over?.readiness ?? readiness());
-  mockGetArtifact.mockResolvedValue(null);
+  mockGetCurrentCrystalArtifact.mockResolvedValue(null);
   mockWriteLifecycleReceipt.mockResolvedValue({ ok: true, receiptId: 'receipt-abcdef01' });
 }
 
@@ -547,6 +547,62 @@ describe('the canonical Track 2 deep-link (2026-08-26)', () => {
       stages: base.stages.map((s) => ({ ...s, status: 'complete' as const })),
     };
     expect(firstPendingDecision(allComplete)).toBeNull();
+  });
+});
+
+// ── THE CRYSTAL LINEAGE INVARIANT (operator ruling, 2026-08-27) ────────────
+//
+// "A frozen predecessor Crystal must never satisfy the freeze state of a
+// successor Crystal candidate." Before this fix, `loadTrack2ProgrammeState`
+// read the crystal-version artifact via `getArtifact(experimentId,
+// 'crystal-version')` — a first-match lookup that could not tell a frozen
+// vP1 apart from an active vP2 candidate, because both were, in practice,
+// literally the same object id (`${experimentId}/crystal-vP1`, hardcoded
+// everywhere the freeze route defaulted it). The fix is `getCurrentCrystal
+// Artifact`, mocked here as `mockGetCurrentCrystalArtifact` — these tests pin
+// the ORCHESTRATOR-facing half of the fix: whatever that resolver reports is
+// exactly what Stage 11 ("Freeze") derives its status from, and nothing here
+// re-derives lineage a second time.
+
+describe('the crystal lineage invariant — a frozen predecessor never satisfies a successor’s Freeze stage', () => {
+  it('Freeze reads NOT complete when the lineage resolver reports no active candidate (the frozen-predecessor-with-no-successor-provisioned case)', async () => {
+    seedSubstrate({ cohort: cohort({ unvalidated: 0, unvalidatedRecords: [] }) });
+    // This is exactly what getCurrentCrystalArtifact returns once the ONLY
+    // existing generation is frozen and no successor has been provisioned —
+    // never the frozen artifact itself (see prd-epi-001-artifact-model.test.ts).
+    mockGetCurrentCrystalArtifact.mockResolvedValue(null);
+    const state = await loadTrack2ProgrammeState({ experimentId: EXPERIMENT });
+    if ('error' in state) throw new Error(state.error);
+    const freezeStage = state.programme.stages.find((s) => s.id === 'freeze');
+    expect(freezeStage?.status).not.toBe('complete');
+    expect(freezeStage?.detail).toBe('no crystal-version artifact has been provisioned');
+  });
+
+  it('Freeze reads complete only when the CURRENT (active) generation itself is frozen', async () => {
+    seedSubstrate({ cohort: cohort({ unvalidated: 0, unvalidatedRecords: [] }) });
+    mockGetCurrentCrystalArtifact.mockResolvedValue({ id: 'EXP-P1/crystal-vP2', lifecycle: 'frozen' });
+    const state = await loadTrack2ProgrammeState({ experimentId: EXPERIMENT });
+    if ('error' in state) throw new Error(state.error);
+    const freezeStage = state.programme.stages.find((s) => s.id === 'freeze');
+    expect(freezeStage?.status).toBe('complete');
+  });
+
+  it('an in-progress (validated, not yet frozen) successor reads in-progress/blocked, never complete', async () => {
+    seedSubstrate({ cohort: cohort({ unvalidated: 0, unvalidatedRecords: [] }) });
+    mockGetCurrentCrystalArtifact.mockResolvedValue({ id: 'EXP-P1/crystal-vP2', lifecycle: 'validated' });
+    const state = await loadTrack2ProgrammeState({ experimentId: EXPERIMENT });
+    if ('error' in state) throw new Error(state.error);
+    const freezeStage = state.programme.stages.find((s) => s.id === 'freeze');
+    expect(freezeStage?.status).not.toBe('complete');
+  });
+
+  it('the orchestrator resolves the crystal-version signal through getCurrentCrystalArtifact, never the first-match getArtifact lookup (source canary)', () => {
+    const src = stripComments(readSource(ORCHESTRATOR));
+    expect(
+      src,
+      'a bare getArtifact(...) call for crystal-version reintroduces the lineage collision this fix closes',
+    ).not.toMatch(/getArtifact\(/);
+    expect(src).toMatch(/getCurrentCrystalArtifact\(/);
   });
 });
 

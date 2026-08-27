@@ -22,10 +22,15 @@ vi.mock('@/services/identity/getActivePersona', () => ({
 const mockFreezeArtifact = vi.fn();
 const mockGetArtifactById = vi.fn();
 const mockUpsertArtifact = vi.fn();
+// Defaults to vP1 — matching this suite's prior fixed-id behavior — so every
+// existing test below (none of which cares about lineage) is unaffected.
+// Tests that DO care about generation resolution override this per-case.
+const mockCurrentCrystalArtifactId = vi.fn().mockResolvedValue('EXP-P1/crystal-vP1');
 vi.mock('@/services/research/artifacts', () => ({
   freezeArtifact: (...args: any[]) => mockFreezeArtifact(...args),
   getArtifactById: (...args: any[]) => mockGetArtifactById(...args),
   upsertArtifact: (...args: any[]) => mockUpsertArtifact(...args),
+  currentCrystalArtifactId: (...args: any[]) => mockCurrentCrystalArtifactId(...args),
 }));
 
 const mockRunCrystalStatisticsReport = vi.fn();
@@ -66,6 +71,8 @@ beforeEach(() => {
   mockFreezeArtifact.mockResolvedValue({ ok: true, receiptId: 'receipt-1' });
   mockGetArtifactById.mockReset();
   mockUpsertArtifact.mockReset();
+  mockCurrentCrystalArtifactId.mockReset();
+  mockCurrentCrystalArtifactId.mockResolvedValue('EXP-P1/crystal-vP1');
   mockRunCrystalStatisticsReport.mockReset();
   mockRunCrystalStatisticsReport.mockResolvedValue({ frozenHash: 'hash-abc', invariantCount: 12, substrateError: null });
 });
@@ -162,5 +169,59 @@ describe('GET freeze — read-only artifact lookup (2026-08-05, "freeze is a one
     expect(res.status).toBe(200);
     expect(body.requestSucceeded).toBe(true);
     expect(body.artifact).toBeNull();
+  });
+
+  it('resolves the LINEAGE-AWARE default id, never a hardcoded vP1, once a successor generation is active (2026-08-27, "Crystal v1/v2 lineage collision")', async () => {
+    // currentCrystalArtifactId is the single authority for "which generation
+    // is current" — this route must defer to it rather than hardcoding
+    // `${experimentId}/crystal-vP1`, which is exactly the defect that let a
+    // frozen vP1 satisfy vP2's Freeze stage.
+    mockCurrentCrystalArtifactId.mockResolvedValue('EXP-P1/crystal-vP2');
+    mockGetArtifactById.mockResolvedValue(null);
+    const res = await GET(makeGetRequest(), { params: params('EXP-P1') });
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.requestSucceeded).toBe(true);
+    expect(body.artifact).toBeNull();
+    expect(mockGetArtifactById).toHaveBeenCalledWith('EXP-P1/crystal-vP2');
+  });
+
+  it('an explicitly supplied crystalId always overrides the lineage-aware default', async () => {
+    mockCurrentCrystalArtifactId.mockResolvedValue('EXP-P1/crystal-vP2');
+    mockGetArtifactById.mockResolvedValue(null);
+    const res = await GET(makeGetRequest({ crystalId: 'EXP-P1/crystal-vP1' }), { params: params('EXP-P1') });
+    expect(res.status).toBe(200);
+    expect(mockGetArtifactById).toHaveBeenCalledWith('EXP-P1/crystal-vP1');
+    expect(mockCurrentCrystalArtifactId).not.toHaveBeenCalled();
+  });
+});
+
+describe('POST provision — targets the current (successor) generation, never a frozen predecessor', () => {
+  it('provisions the successor generation id once currentCrystalArtifactId reports it as current', async () => {
+    mockCurrentCrystalArtifactId.mockResolvedValue('EXP-P1/crystal-vP2');
+    mockGetArtifactById.mockResolvedValue(null); // vP2 not yet provisioned
+    mockUpsertArtifact.mockResolvedValue({ ok: true });
+    const res = await POST(makeRequest({ action: 'provision' }), { params: params('EXP-P1') });
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.crystalId).toBe('EXP-P1/crystal-vP2');
+    expect(mockUpsertArtifact).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'EXP-P1/crystal-vP2', kind: 'crystal-version' }),
+    );
+  });
+
+  it('refuses to reset an already-frozen generation, and never silently falls back to it', async () => {
+    // A caller that explicitly names the frozen predecessor still gets the
+    // existing one-time-freeze refusal — this is unchanged, deliberate
+    // behavior; only the DEFAULT id changed.
+    mockGetArtifactById.mockResolvedValue({ id: 'EXP-P1/crystal-vP1', lifecycle: 'frozen' });
+    const res = await POST(
+      makeRequest({ action: 'provision', crystalId: 'EXP-P1/crystal-vP1' }),
+      { params: params('EXP-P1') },
+    );
+    const body = await res.json();
+    expect(res.status).toBe(409);
+    expect(body.requestSucceeded).toBe(false);
+    expect(mockCurrentCrystalArtifactId).not.toHaveBeenCalled();
   });
 });

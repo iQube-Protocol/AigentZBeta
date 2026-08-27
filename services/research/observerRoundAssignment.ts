@@ -15,7 +15,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { getArtifact } from './artifacts';
+import { latestFrozenCrystalArtifact } from './artifacts';
 import { writeLifecycleReceipt } from './lifecycle';
 import { buildObserverReviewPackage, pinnedObserverRoundPolicy, type ObserverRoundPolicy } from './crystalObserverReview';
 import { observerRoundId, getObserverRound, upsertObserverRound, type ObserverReviewRoundRecord } from './observerReviewStore';
@@ -67,15 +67,18 @@ export async function assignObserverRound(
   const requestedPolicy: ObserverRoundPolicy = input.requestedRoundPolicy === 'any-assigned' ? 'any-assigned' : 'all-assigned';
   const roundPolicy: ObserverRoundPolicy = pinned ?? requestedPolicy;
 
-  const artifact = await getArtifact(input.experimentId, 'crystal-version').catch(() => null);
+  // Lineage-safe (operator ruling 2026-08-27, "Crystal v1/v2 lineage
+  // collision", item 2: "resolve... assignment, review... against that same
+  // Crystal identity"): the plain first-match getArtifact lookup would keep
+  // returning whichever generation the list happens to order first (oldest
+  // updated_at) once more than one generation exists — observers would be
+  // assigned against a stale predecessor forever after a successor froze.
+  const artifact = await latestFrozenCrystalArtifact(input.experimentId).catch(() => null);
   if (!artifact) {
-    return { ok: false, status: 409, error: `No crystal-version artifact exists yet for ${input.experimentId}` };
-  }
-  if (artifact.lifecycle !== 'frozen') {
     return {
       ok: false,
       status: 409,
-      error: `artifact '${artifact.id}' is '${artifact.lifecycle}', not 'frozen' — assign an Observer Review round only after the crystal is frozen`,
+      error: `No frozen crystal-version artifact exists yet for ${input.experimentId} — assign an Observer Review round only after the crystal is frozen`,
     };
   }
 
