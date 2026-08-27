@@ -4504,3 +4504,13 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-e8f6696.md](../build_/COMMITS/COMMIT-e8f6696.md)
 - Message: Stage 9 duplicate-pair queue: server-derived recommendations, complete receipting, authoritative advance
+
+## Commit `569d3ea` — 2026-08-27T08:14:58Z
+- Type: `push`
+- Brief: [COMMIT-569d3ea.md](../build_/COMMITS/COMMIT-569d3ea.md)
+- Message: SECURITY ADDENDUM: remove query-derived administrator authority (IRL OS containment)
+
+## Commit `c05c2c3` — 2026-08-27T07:42:09Z
+- Type: `push`
+- Brief: [COMMIT-c05c2c3.md](../build_/COMMITS/COMMIT-c05c2c3.md)
+- Message: SECURITY: contain IRL OS -> metaMe IRL boundary breach (Phase 1)

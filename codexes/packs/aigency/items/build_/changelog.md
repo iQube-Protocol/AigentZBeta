@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`c05c2c3`](https://github.com/iQube-Protocol/AigentZBeta/commit/c05c2c347206a129a53f8d31bb88fa6d9ea457c6) [push] SECURITY: contain IRL OS -> metaMe IRL boundary breach (Phase 1) (Claude, 2026-08-27T07:42:09Z)
+- [`569d3ea`](https://github.com/iQube-Protocol/AigentZBeta/commit/569d3ea485d7800b3ea333db3f020f2a67cb938e) [push] SECURITY ADDENDUM: remove query-derived administrator authority (IRL OS containment) (Claude, 2026-08-27T08:14:58Z)
 - [`e8f6696`](https://github.com/iQube-Protocol/AigentZBeta/commit/e8f669600ee34615cd1e1a3052b8e3f072af98a7) [push] Stage 9 duplicate-pair queue: server-derived recommendations, complete receipting, authoritative advance (Claude, 2026-08-27T02:49:02Z)
 - [`31ff00c`](https://github.com/iQube-Protocol/AigentZBeta/commit/31ff00c6ac2b2daf0aa7616991e5f603206a6392) [push] Close UI acceptance gap: genuine component tests for the duplicate-pair queue (Claude, 2026-08-27T03:08:54Z)
 - [`dc83c33`](https://github.com/iQube-Protocol/AigentZBeta/commit/dc83c33d511c8b645057c8910c35875556c68b25) [fix] fix: resolve Research Lab scopes by registry membership, not column name (Claude, 2026-08-26T14:07:52Z)

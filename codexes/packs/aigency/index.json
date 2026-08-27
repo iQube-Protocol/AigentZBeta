@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-27T06:11:07.152Z",
+  "last_updated": "2026-08-27T08:17:31.915Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "e8f669600ee34615cd1e1a3052b8e3f072af98a7",
-  "latest_commit_short": "e8f6696",
-  "latest_commit_title": "Stage 9 duplicate-pair queue: server-derived recommendations, complete receipting, authoritative advance",
+  "latest_commit": "c05c2c347206a129a53f8d31bb88fa6d9ea457c6",
+  "latest_commit_short": "c05c2c3",
+  "latest_commit_title": "SECURITY: contain IRL OS -> metaMe IRL boundary breach (Phase 1)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "c05c2c3",
+      "full_sha": "c05c2c347206a129a53f8d31bb88fa6d9ea457c6",
+      "title": "SECURITY: contain IRL OS -> metaMe IRL boundary breach (Phase 1)",
+      "author": "Claude",
+      "timestamp": "2026-08-27T07:42:09Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-c05c2c3.md"
+    },
+    {
+      "sha": "569d3ea",
+      "full_sha": "569d3ea485d7800b3ea333db3f020f2a67cb938e",
+      "title": "SECURITY ADDENDUM: remove query-derived administrator authority (IRL OS containment)",
+      "author": "Claude",
+      "timestamp": "2026-08-27T08:14:58Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-569d3ea.md"
+    },
     {
       "sha": "e8f6696",
       "full_sha": "e8f669600ee34615cd1e1a3052b8e3f072af98a7",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-08-10T23:09:04-04:00",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-6070ce9.md"
-    },
-    {
-      "sha": "07c03f6",
-      "full_sha": "07c03f645e5a6a92873a52b4bd33fa2d06e723b8",
-      "title": "Register Constitutional Internet canonical plate records in Polity Core",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-10T23:04:53-04:00",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-07c03f6.md"
-    },
-    {
-      "sha": "bf2a980",
-      "full_sha": "bf2a98062739f84c696f29ce9da412161503bbb0",
-      "title": "Remove RegisterCeremonyReplay surface from Register stage UI",
-      "author": "Claude",
-      "timestamp": "2026-08-11T02:38:35Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-bf2a980.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
