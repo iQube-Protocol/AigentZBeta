@@ -10,9 +10,22 @@
  *
  *   curl -O https://<host>/api/public/irl/doc?path=foundation/experiments/exp-p1-representation-runtime-gauntlet/README.md
  *
- * Scope discipline: the irl pack ONLY (the published open corpus), .md/.json
- * only, path-traversal hardened — same sanitization as the pack-file route.
- * T2-safe by construction: the irl pack contains no persona data.
+ * SECURITY (2026-08-27 IRL OS containment — see
+ * docs/security/2026-08-27_irl-os-containment-breach-audit.md): this route's
+ * original "T2-safe by construction: the irl pack contains no persona data"
+ * premise conflated persona-identifier safety with confidentiality — the
+ * `irl` pack's `col_foundation`/`col_experiments` collections carry the
+ * laboratory's confidential research IP (internal charter canon, research
+ * roadmaps, experiment protocols/methods/PRDs, EXP-P1 readiness material),
+ * not just "the published open corpus" this route was documented as scoping
+ * to. This was a second, unauthenticated, bulk-download-friendly path to the
+ * same confidential material `/api/codex/packs/irl/file` was independently
+ * found leaking. Both routes now share ONE explicit allowlist
+ * (`IRL_PUBLIC_DOC_PATHS`) — the few `irl`-pack paths a genuinely public,
+ * persona-free reviewer download is intended for. Every other path 404s
+ * (never a metadata-revealing 403, since this route never resolves a
+ * persona at all — an authenticated admin who needs a gated document uses
+ * the cartridge UI / the gated pack-file route instead, which does).
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -22,6 +35,15 @@ import { corpusReadPackFile } from '@/services/knowledge/packCorpusStore';
 export const dynamic = 'force-dynamic';
 
 const PACK_ID = 'irl';
+
+/**
+ * Default-deny allowlist (2026-08-27 containment) — mirrors
+ * IRL_PUBLIC_PACK_PATHS in app/api/codex/packs/[packId]/file/route.ts. Do
+ * not widen without an explicit operator public-classification decision.
+ */
+const IRL_PUBLIC_DOC_PATHS: string[] = [
+  'foundation/PARTICIPATION_overview.md',
+];
 
 function sanitizePath(filePath: string): string | null {
   if (path.isAbsolute(filePath)) return null;
@@ -47,6 +69,12 @@ export async function GET(request: NextRequest) {
   }
   if (!safePath.endsWith('.md') && !safePath.endsWith('.json')) {
     return NextResponse.json({ ok: false, error: 'Unsupported file type (.md/.json only).' }, { status: 400 });
+  }
+
+  if (!IRL_PUBLIC_DOC_PATHS.includes(safePath)) {
+    // Neutral 404 — never signals whether the path exists (containment
+    // directive: "return no ... existence signals on denial").
+    return NextResponse.json({ ok: false, error: 'File not found.' }, { status: 404 });
   }
 
   // Read through the pack-corpus seam (local FS in dev; the remote in-memory
