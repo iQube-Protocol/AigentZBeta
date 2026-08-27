@@ -171,8 +171,31 @@ interface ReadinessCheck {
    *  destination per check). */
   remediationClass?: CheckRemediationClass;
   remediationStageAnchor?: string | null;
-  /** Only present on the duplicate-detection check. */
-  duplicatePairs?: Array<{ aId: string; bId: string }>;
+  /** Only present on the duplicate-detection check. Mirrors
+   *  services/research/crystalReadiness.ts's `DuplicatePairView` (2026-08-27
+   *  "final corrections": full statements + a server-derived recommendation,
+   *  never re-derived client-side). */
+  duplicatePairs?: DuplicatePairView[];
+}
+
+interface DuplicateRecommendationReason {
+  criterion: string;
+  detail: string;
+}
+
+interface DuplicateSurvivalRecommendation {
+  recommendedId: string;
+  otherId: string;
+  confidence: "high" | "medium" | "low";
+  reasons: DuplicateRecommendationReason[];
+}
+
+interface DuplicatePairView {
+  aId: string;
+  bId: string;
+  aStatement: string;
+  bStatement: string;
+  recommendation: DuplicateSurvivalRecommendation | null;
 }
 
 interface ReadinessMaturitySummary {
@@ -345,7 +368,15 @@ export function Track2ProgrammePanel({
     [scrollToAnchorId],
   );
 
-  const load = useCallback(async (): Promise<Programme | null> => {
+  /**
+   * Returns BOTH the freshly-fetched programme and readiness, not just the
+   * programme — so a caller that needs the just-read `duplicatePairs` (or
+   * any other readiness field) never has to read the pre-reload React state,
+   * which would still be one action stale in the same tick this resolves
+   * (2026-08-27 "final corrections": the authoritative refresh sequence
+   * cannot rely on local state authority).
+   */
+  const load = useCallback(async (): Promise<{ programme: Programme; readiness: ReadinessReport | null } | null> => {
     setLoading(true);
     setError(null);
     try {
@@ -357,10 +388,11 @@ export function Track2ProgrammePanel({
         throw new Error(d?.error || `the Track 2 programme could not be read (HTTP ${res.status})`);
       }
       const p = d.programme as Programme;
+      const r = (d.readiness as ReadinessReport) ?? null;
       setProgramme(p);
       setAcquisitionDomain(typeof d.acquisitionDomain === "string" ? d.acquisitionDomain : null);
-      setReadiness((d.readiness as ReadinessReport) ?? null);
-      return p;
+      setReadiness(r);
+      return { programme: p, readiness: r };
     } catch (e) {
       setError(e instanceof Error ? e.message : "the Track 2 programme could not be read");
       return null;
@@ -378,9 +410,9 @@ export function Track2ProgrammePanel({
    * one action stale.
    */
   const reloadAndAdvance = useCallback(async () => {
-    const p = await load();
-    if (!p) return;
-    const next = p.stages.find((s) => s.status !== "complete");
+    const fresh = await load();
+    if (!fresh) return;
+    const next = fresh.programme.stages.find((s) => s.status !== "complete");
     if (!next) return;
     // A freshly-completed stage collapses again on its own next reload
     // (removing it from the manually-expanded set), so finishing Stage 5
@@ -394,6 +426,58 @@ export function Track2ProgrammePanel({
     // only exists after THIS render commits the freshly-fetched programme.
     scrollToStage(next.id);
   }, [load, scrollToStage]);
+
+  /**
+   * AUTHORITATIVE REFRESH SEQUENCE for the duplicate-pair adjudication queue
+   * ONLY (operator ruling, 2026-08-27, "final corrections") — never reused
+   * generically, because no other Stage 9 remediation queue has a downstream
+   * canonical-advance step. Runs strictly sequentially, awaiting each step:
+   *
+   *   1. Re-read the SAME authoritative Track 2 GET this panel uses
+   *      everywhere else (`load()`), and inspect ITS OWN freshly-returned
+   *      `duplicate-detection` check — never a locally-tracked "resolved"
+   *      set.
+   *   2. If that reading still names outstanding pairs, stop here. The
+   *      parent re-render supplies `DuplicateInvariantQueue` its updated
+   *      `pairs` prop from the same `readiness` state `load()` just set —
+   *      there is nothing else for this handler to do.
+   *   3. Only when that SAME reading confirms zero pairs remain, POST the
+   *      canonical orchestrator entry point
+   *      (`/api/research/programme/[experimentId]/advance` — operator
+   *      ruling, 2026-08-26 — never a second, parallel progression
+   *      mechanism).
+   *   4. Re-read the authoritative Track 2 GET again (`load()`), so this
+   *      panel's own state is back in sync with what the orchestrator just
+   *      did — exactly like a plain mount/refresh would observe it.
+   *   5. Scroll using the ADVANCE RESPONSE's OWN
+   *      `run.pendingDecision.deepLink.surfaceRef.anchorId`, consumed
+   *      verbatim — never `deepLink.anchorId` (not the established type) and
+   *      never reconstructed from a stage id.
+   */
+  const settleDuplicateQueue = useCallback(async () => {
+    const afterMerge = await load();
+    if (!afterMerge) return;
+    const remaining =
+      afterMerge.readiness?.checks.find((c) => c.name === "duplicate-detection")?.duplicatePairs ?? [];
+    if (remaining.length > 0) return; // stay in the queue; the fresh `pairs` prop already reflects this reading
+
+    try {
+      const res = await personaFetch(`/api/research/programme/${encodeURIComponent(experimentId)}/advance`, {
+        method: "POST",
+        cache: "no-store",
+      });
+      const d = await res.json().catch(() => null);
+      if (!d?.ok) throw new Error(d?.error || `advance refused (HTTP ${res.status})`);
+      const run = d.run as { pendingDecision?: { deepLink?: { surfaceRef?: { anchorId?: string } } } | null };
+
+      await load(); // authoritative re-sync AFTER advance, before scrolling
+
+      const anchorId = run?.pendingDecision?.deepLink?.surfaceRef?.anchorId;
+      if (anchorId) scrollToAnchorId(anchorId);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "the research programme could not be advanced past the duplicate-pair queue");
+    }
+  }, [experimentId, load, scrollToAnchorId]);
 
   /**
    * VISUAL-REGRESSION FIX (2026-08-26, corrected 2026-08-27): on the INITIAL
@@ -874,7 +958,7 @@ export function Track2ProgrammePanel({
                                       <DuplicateInvariantQueue
                                         experimentId={experimentId}
                                         pairs={c.duplicatePairs ?? []}
-                                        onDone={() => void reloadAndAdvance()}
+                                        onDone={settleDuplicateQueue}
                                       />
                                     )}
                                   </li>
@@ -5187,13 +5271,28 @@ function DiversityCandidateQueue({ experimentId, onDone }: { experimentId: strin
 /**
  * Stage 9 — `duplicate-detection` remediation (operator ruling, 2026-08-27,
  * "Crystal v1/v2 lineage collision", item 4: "duplicate detection →
- * duplicate-pair adjudication queue"). The pairs are a PROP, not a fetch —
- * the readiness engine already computed the exact near-duplicate pairs
- * (`services/research/crystalReadiness.ts`'s `duplicatePairs`) and this
- * queue only ever acts on what that engine named. Each pair offers "keep A" /
- * "keep B", which merges the OTHER invariant into the kept survivor via the
- * existing `mergeInvariants` primitive (unions contexts/edges, marks the
- * merged row `superseded`) — never a second, independently-judged dedup path.
+ * duplicate-pair adjudication queue"; corrected 2026-08-27, "final
+ * corrections" pass). The pairs are a PROP, not a fetch — the readiness
+ * engine already computed the exact near-duplicate pairs, each already
+ * carrying both full statements and a server-derived survivor recommendation
+ * (`services/research/crystalReadiness.ts`'s `DuplicatePairView`, via
+ * `services/research/invariantDuplicateRecommendation.ts`) — this queue only
+ * ever acts on and displays what that engine named, rendering ONE pair at a
+ * time (the head of `pairs`).
+ *
+ * NO LOCAL RESOLUTION STATE: this component does not track which pairs it
+ * has already resolved. `onDone` is the panel's authoritative refresh
+ * sequence (`settleDuplicateQueue`) — it re-reads Track 2 state fresh and
+ * only then hands this component its next `pairs` prop, so what remains is
+ * always read off the server, never inferred locally.
+ *
+ * Each pair offers "keep A" / "keep B", which merges the OTHER invariant
+ * into the kept survivor via the existing `mergeInvariants` primitive
+ * (unions contexts/edges, marks the merged row `superseded`) — never a
+ * second, independently-judged dedup path. The recommended side is
+ * highlighted; keeping the OTHER side is a full override, not a disabled
+ * choice — the server independently derives whether the steward followed
+ * the recommendation, so the client never has to gate the button.
  */
 function DuplicateInvariantQueue({
   experimentId,
@@ -5201,38 +5300,44 @@ function DuplicateInvariantQueue({
   onDone,
 }: {
   experimentId: string;
-  pairs: Array<{ aId: string; bId: string }>;
-  onDone: () => void;
+  pairs: DuplicatePairView[];
+  onDone: () => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
-  const [resolvedKeys, setResolvedKeys] = useState<Set<string>>(new Set());
-  const [busyKey, setBusyKey] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [overrideReason, setOverrideReason] = useState("");
 
-  const pairKey = (aId: string, bId: string) => [aId, bId].sort().join('~');
-  const remaining = pairs.filter((p) => !resolvedKeys.has(pairKey(p.aId, p.bId)));
+  const current = pairs[0] ?? null;
 
   const merge = useCallback(
-    async (survivorId: string, mergedId: string, key: string) => {
-      setBusyKey(key);
+    async (survivorId: string, mergedId: string) => {
+      setBusy(true);
       setErr(null);
       try {
         const res = await personaFetch(`/api/research/track2/${encodeURIComponent(experimentId)}/duplicate-pairs/merge`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ survivorId, mergedId }),
+          body: JSON.stringify({
+            survivorId,
+            mergedId,
+            operatorOverrideReason: overrideReason.trim() || null,
+          }),
         });
         const d = await res.json().catch(() => null);
         if (!d?.ok) throw new Error(d?.error || `merge refused (HTTP ${res.status})`);
-        setResolvedKeys((prev) => new Set(prev).add(key));
-        onDone();
+        setOverrideReason("");
+        // AUTHORITATIVE refresh sequence lives in the parent — this
+        // component stays busy until it fully resolves (readiness re-read,
+        // and the canonical advance + re-sync when the queue is empty).
+        await onDone();
       } catch (e) {
         setErr(e instanceof Error ? e.message : "merge failed");
       } finally {
-        setBusyKey(null);
+        setBusy(false);
       }
     },
-    [experimentId, onDone],
+    [experimentId, overrideReason, onDone],
   );
 
   if (!open) {
@@ -5247,51 +5352,94 @@ function DuplicateInvariantQueue({
     );
   }
 
+  if (!current) {
+    return (
+      <div className="mt-1.5 space-y-2 rounded border border-slate-800 bg-slate-900/40 p-2 text-[11px]">
+        <div className="flex items-center justify-between text-slate-400">
+          <span>Every pair from this reading has been resolved.</span>
+          <button type="button" onClick={() => setOpen(false)} className="text-slate-500 hover:text-slate-300">
+            close
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const rec = current.recommendation;
+  const recommendsA = rec?.recommendedId === current.aId;
+  const recommendsB = rec?.recommendedId === current.bId;
+  const CONFIDENCE_STYLE: Record<DuplicateSurvivalRecommendation["confidence"], string> = {
+    high: "border-emerald-800/60 bg-emerald-950/20 text-emerald-200",
+    medium: "border-amber-800/60 bg-amber-950/20 text-amber-200",
+    low: "border-slate-700 bg-slate-800/40 text-slate-300",
+  };
+
   return (
     <div className="mt-1.5 space-y-2 rounded border border-slate-800 bg-slate-900/40 p-2 text-[11px]">
       <div className="flex items-center justify-between text-slate-400">
-        <span>{remaining.length} pair(s) awaiting a decision</span>
+        <span>{pairs.length} pair(s) awaiting a decision</span>
         <button type="button" onClick={() => setOpen(false)} className="text-slate-500 hover:text-slate-300">
           close
         </button>
       </div>
-      {remaining.map((p) => {
-        const key = pairKey(p.aId, p.bId);
-        return (
-          <div key={key} className="rounded border border-slate-800 bg-slate-950/60 p-2">
-            <div className="mb-1 flex items-center gap-1.5 font-mono text-[10px] text-slate-400">
-              <span className="text-slate-300">{p.aId}</span>
-              <span className="text-slate-600">~</span>
-              <span className="text-slate-300">{p.bId}</span>
+      <div className="space-y-1.5 rounded border border-slate-800 bg-slate-950/60 p-2">
+        {rec && (
+          <div className={`rounded border px-1.5 py-1 ${CONFIDENCE_STYLE[rec.confidence]}`}>
+            <div className="font-medium">
+              Recommendation: keep {rec.recommendedId} — {rec.confidence} confidence
             </div>
-            <div className="flex gap-1.5">
-              <button
-                type="button"
-                onClick={() => void merge(p.aId, p.bId, key)}
-                disabled={busyKey === key}
-                className="flex items-center gap-1 rounded border border-emerald-800 bg-emerald-900/30 px-2 py-0.5 font-medium text-emerald-200 disabled:opacity-50"
-              >
-                {busyKey === key ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
-                Keep {p.aId}
-              </button>
-              <button
-                type="button"
-                onClick={() => void merge(p.bId, p.aId, key)}
-                disabled={busyKey === key}
-                className="flex items-center gap-1 rounded border border-emerald-800 bg-emerald-900/30 px-2 py-0.5 font-medium text-emerald-200 disabled:opacity-50"
-              >
-                {busyKey === key ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
-                Keep {p.bId}
-              </button>
-            </div>
+            {rec.reasons.map((r, i) => (
+              <div key={i} className="mt-0.5 text-slate-400">
+                {r.criterion}: {r.detail}
+              </div>
+            ))}
           </div>
-        );
-      })}
-      {remaining.length === 0 && (
-        <div className="rounded border border-slate-800 bg-slate-950/40 p-2 text-slate-400">
-          Every pair from this reading has been resolved. Refresh readiness to confirm none remain.
+        )}
+        <div className={`rounded border p-1.5 ${recommendsA ? "border-emerald-800/60 bg-emerald-950/10" : "border-slate-800"}`}>
+          <div className="font-mono text-[10px] text-slate-400">
+            {current.aId}
+            {recommendsA ? " — recommended survivor" : ""}
+          </div>
+          <div className="mt-0.5 text-slate-200">{current.aStatement}</div>
         </div>
-      )}
+        <div className={`rounded border p-1.5 ${recommendsB ? "border-emerald-800/60 bg-emerald-950/10" : "border-slate-800"}`}>
+          <div className="font-mono text-[10px] text-slate-400">
+            {current.bId}
+            {recommendsB ? " — recommended survivor" : ""}
+          </div>
+          <div className="mt-0.5 text-slate-200">{current.bStatement}</div>
+        </div>
+        <div className="flex gap-1.5">
+          <button
+            type="button"
+            onClick={() => void merge(current.aId, current.bId)}
+            disabled={busy}
+            className="flex items-center gap-1 rounded border border-emerald-800 bg-emerald-900/30 px-2 py-0.5 font-medium text-emerald-200 disabled:opacity-50"
+          >
+            {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+            Keep {current.aId}
+            {recommendsA ? " (recommended)" : ""}
+          </button>
+          <button
+            type="button"
+            onClick={() => void merge(current.bId, current.aId)}
+            disabled={busy}
+            className="flex items-center gap-1 rounded border border-emerald-800 bg-emerald-900/30 px-2 py-0.5 font-medium text-emerald-200 disabled:opacity-50"
+          >
+            {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+            Keep {current.bId}
+            {recommendsB ? " (recommended)" : ""}
+          </button>
+        </div>
+        <input
+          type="text"
+          value={overrideReason}
+          onChange={(e) => setOverrideReason(e.target.value)}
+          disabled={busy}
+          placeholder="Optional note for this decision (e.g. why you're overriding the recommendation)"
+          className="w-full rounded border border-slate-700 bg-slate-950/60 px-1.5 py-1 text-slate-200 placeholder:text-slate-600 disabled:opacity-50"
+        />
+      </div>
       {err && <div className="rounded border border-rose-500/30 bg-rose-500/10 p-1.5 text-rose-200">{err}</div>}
     </div>
   );

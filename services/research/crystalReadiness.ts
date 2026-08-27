@@ -27,6 +27,10 @@
 import { listInvariants, listEdgesForInvariants } from '@/services/invariants/store';
 import { crystalDomainForExperiment } from '@/services/research/crystalDomains';
 import type { InvariantRecord } from '@/types/invariants';
+import {
+  recommendDuplicateSurvivor,
+  type DuplicateSurvivalRecommendation,
+} from '@/services/research/invariantDuplicateRecommendation';
 
 /**
  * PRD-EPI-001 §9 / CRYSTAL-ENLARGEMENT_plan.md §2a as REFINED by the operator
@@ -290,7 +294,26 @@ export interface CrystalReadinessCheck {
    * real adjudication queue can act on them instead of only reporting a
    * number. `undefined` on every other check.
    */
-  duplicatePairs?: Array<{ aId: string; bId: string }>;
+  duplicatePairs?: DuplicatePairView[];
+}
+
+/**
+ * One near-duplicate pair, enriched with the full statement text and a
+ * server-derived survivor recommendation (operator ruling, 2026-08-27,
+ * "final corrections" — a real adjudication queue must show what a steward
+ * is actually deciding between, not two bare ids). Computed HERE, in the
+ * same read that found the pair, so the recommendation a steward sees can
+ * never disagree with the readiness state it was derived from.
+ * `recommendation` is `null` only in the defensive case where one of the two
+ * ids could not be resolved back to a full record on this same read — which
+ * should not occur, since both ids come from `invariants` itself.
+ */
+export interface DuplicatePairView {
+  aId: string;
+  bId: string;
+  aStatement: string;
+  bStatement: string;
+  recommendation: DuplicateSurvivalRecommendation | null;
 }
 
 /** Bronze/Silver/Gold — how many `scientific-maturity` checks currently pass.
@@ -873,6 +896,30 @@ export async function runCrystalReadinessReport(
       `> ${(maxDominantShapeFraction * 100).toFixed(0)}%)`,
   });
 
+  // ── INTRA-CRYSTAL EDGE FETCH — hoisted ahead of duplicate-detection ───────
+  //
+  // Originally computed only for checks #7-9 (relationship-density /
+  // graph-connectivity / orphan-detection). Hoisted here (2026-08-27, "final
+  // corrections") so duplicate-detection's survivor recommendation can reuse
+  // the SAME `degree` map for its "live relationship count" criterion — one
+  // edge fetch for the whole report, never a second query scoped to just the
+  // duplicate-pair ids (inv.engineering.036/037). Fail-closed semantics are
+  // unchanged: an unreachable edge substrate reports as zero relationships
+  // everywhere that reads `degree`, never a crash.
+  let intraPairs: Array<[string, string]> = [];
+  let degree = new Map<string, number>(invariants.map((inv) => [inv.id, 0]));
+  let edgeFetchError: string | null = null;
+  try {
+    const fetched = await fetchIntraCrystalEdges(invariants);
+    intraPairs = fetched.pairs;
+    degree = fetched.degree;
+  } catch (error) {
+    edgeFetchError = error instanceof Error ? error.message : String(error);
+  }
+  const edgeFetchSuffix = edgeFetchError
+    ? ` (edge substrate unreachable: ${edgeFetchError} — reported as zero relationships, not skipped)`
+    : '';
+
   // ── 4. DUPLICATE DETECTION — lexical ∪ SEMANTIC (finding 1) ───────────────
   //
   // The gate was word-set Jaccard alone, which structurally cannot see
@@ -899,6 +946,36 @@ export async function runCrystalReadinessReport(
     invariantCount > 0
       ? connectedComponents(invariants.map((inv) => inv.id), duplicatePairs).length
       : 0;
+
+  // Enrich each pair with full statement text and a server-derived survivor
+  // recommendation — computed HERE, in the same read that found the pair, so
+  // a steward's adjudication queue can never disagree with the readiness
+  // state it was derived from (operator ruling, 2026-08-27, "final
+  // corrections"). "Live relationship count" reuses the SAME intra-crystal
+  // `degree` map checks #7-9 use below — never a second, independently
+  // fetched edge count for the same invariants.
+  const invariantById = new Map(invariants.map((inv) => [inv.id, inv]));
+  const enrichedDuplicatePairs: DuplicatePairView[] = duplicatePairs.map(([aId, bId]) => {
+    const aInv = invariantById.get(aId);
+    const bInv = invariantById.get(bId);
+    if (!aInv || !bInv) {
+      // Defensive only — both ids come from `invariants` itself, so this
+      // should be unreachable. Fail soft: a readiness READ must never crash
+      // the whole report over one pair.
+      return { aId, bId, aStatement: aInv?.statement ?? '', bStatement: bInv?.statement ?? '', recommendation: null };
+    }
+    return {
+      aId,
+      bId,
+      aStatement: aInv.statement,
+      bStatement: bInv.statement,
+      recommendation: recommendDuplicateSurvivor(aInv, bInv, {
+        a: degree.get(aId) ?? 0,
+        b: degree.get(bId) ?? 0,
+      }),
+    };
+  });
+
   checks.push({
     name: 'duplicate-detection',
     tier: tierForCheck('duplicate-detection'),
@@ -938,7 +1015,7 @@ export async function runCrystalReadinessReport(
             `not a setting to change. Note the count that matters is the DISTINCT-STATEMENT estimate ` +
             `(${distinctStatementEstimate}), not the nominal ${invariantCount}: every downstream size ` +
             `requirement is against distinct statements. Steward work.`,
-    duplicatePairs: duplicatePairs.map(([aId, bId]) => ({ aId, bId })),
+    duplicatePairs: enrichedDuplicatePairs,
   });
 
   // 5. Provenance eligibility — Population A only (§2a as refined 2026-07-27).
@@ -1012,32 +1089,17 @@ export async function runCrystalReadinessReport(
 
   // 7–9. Relationship density / graph connectivity / orphan detection —
   // Workstream 2's graph-structural checks (PRD-EPI-001 §3.1). All three
-  // read the SAME intra-crystal edge fetch so they can never disagree about
-  // which edges exist; each fails closed on invariantCount <= 1 (a graph of
-  // zero or one node has no density/connectivity/orphan question to answer,
-  // and reporting "passed" for "nothing to check" is the exact vacuous-pass
-  // defect the duplicate-detection fix above already corrected once).
+  // read the SAME intra-crystal edge fetch (`intraPairs`/`degree`, hoisted
+  // above duplicate-detection — see that comment) so they can never disagree
+  // about which edges exist; each fails closed on invariantCount <= 1 (a
+  // graph of zero or one node has no density/connectivity/orphan question to
+  // answer, and reporting "passed" for "nothing to check" is the exact
+  // vacuous-pass defect the duplicate-detection fix above already corrected
+  // once).
   const minRelationshipDensity = input.minRelationshipDensity ?? 0.05;
   const minConnectivityRatio = input.minConnectivityRatio ?? 0.6;
   const maxOrphanFraction = input.maxOrphanFraction ?? 0.1;
 
-  let intraPairs: Array<[string, string]> = [];
-  let degree = new Map<string, number>(invariants.map((inv) => [inv.id, 0]));
-  let edgeFetchError: string | null = null;
-  try {
-    const fetched = await fetchIntraCrystalEdges(invariants);
-    intraPairs = fetched.pairs;
-    degree = fetched.degree;
-  } catch (error) {
-    // Fail closed, same discipline as the top-level invariant-fetch guard:
-    // an unreachable edge substrate reports as zero relationships (every
-    // graph check below then honestly fails) rather than throwing out of
-    // the whole report or silently skipping the three graph checks.
-    edgeFetchError = error instanceof Error ? error.message : String(error);
-  }
-  const edgeFetchSuffix = edgeFetchError
-    ? ` (edge substrate unreachable: ${edgeFetchError} — reported as zero relationships, not skipped)`
-    : '';
   const relationshipCount = intraPairs.length;
   const maxPossiblePairs = invariantCount > 1 ? (invariantCount * (invariantCount - 1)) / 2 : 0;
   const relationshipDensity = maxPossiblePairs > 0 ? relationshipCount / maxPossiblePairs : 0;

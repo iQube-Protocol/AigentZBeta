@@ -398,6 +398,16 @@ export async function mergeInvariants(
   survivorId: string,
   mergedIds: string[],
   actor: { personaId: string; sessionId?: string },
+  /**
+   * Server-derived decision context for the merge receipt — e.g. the
+   * duplicate-pair adjudication queue's recorded recommendation, whether the
+   * steward followed it, and any operator override rationale (operator
+   * ruling, 2026-08-27). Optional and caller-defined: this function does not
+   * interpret it, only forwards it verbatim to `actionInput` on the
+   * `invariant_superseded` receipt. `undefined`/`null` preserves the prior
+   * behaviour of an empty `actionInput`.
+   */
+  decisionContext?: Record<string, unknown> | null,
 ): Promise<InvariantRecord> {
   const survivor = await getInvariantById(survivorId);
   if (!survivor) throw new Error('survivor invariant not found');
@@ -452,6 +462,7 @@ export async function mergeInvariants(
       actionType: 'invariant_superseded',
       summary: `Invariant merged into ${survivorId}: ${merged.statement}`,
       activeCartridge: 'agentiq',
+      actionInput: decisionContext ?? null,
     }).catch((err) => console.error('[invariants] merge receipt failed', err));
   }
 
