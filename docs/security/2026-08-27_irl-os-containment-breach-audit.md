@@ -1,12 +1,197 @@
 # IRL OS → metaMe IRL Boundary Breach — Containment Audit
 
-**Status:** Phase 1 containment implemented and tested. Phase 2 (scoped restoration) not started.
+**Status:** Phase 1 containment implemented and tested. Addendum (query-derived administrator authority
+removal) implemented and tested. Phase 2 (scoped restoration) not started.
 **Severity:** CRITICAL — confidential research IP exposure + client-controlled authority signal.
 **Branch:** `sec/irl-os-containment-2026-08-27` (based on `origin/dev`, no OCSGA/Crystal/Differ commits).
 **Reported:** operator, with screenshots showing IRL OS Workspace cards linking directly into `irl-cartridge`
 with `personaId=`/`isAdmin=`/`from=`/`fromTab=` query parameters, and internal documents (a draft partner
 letter, internal reports) rendering in the public cartridge.
 **Owner:** Claude Code (this session), operator review pending.
+**Operator disposition (2026-08-27):** Phase 1 approved, including the temporary interruption of the
+Autonomi/Austin direct-document reviewer flow (Residual Risk item 0 below) — confidentiality takes
+priority; that flow is restored via canonical scoped grants in Phase 2. The addendum below was then
+required before an emergency merge is authorized.
+
+---
+
+## ADDENDUM (2026-08-27) — query-derived administrator authority removed
+
+**Trigger:** the operator's Phase 1 approval flagged that `?isAdmin=true` "sets client state permanently
+for unauthenticated visitors and satisfies client-side tab gates" (confirmed finding, Root Cause 3 below)
+as unacceptable even though the Phase 1 server-side fixes already prevent the presently-observed document
+reads through it. A client-controlled parameter must never create even UI-level administrator state.
+
+### What was removed
+
+**`app/(embed)/triad/embed/codex/_lib/useCodexEmbedAuthBridge.ts`** — the shared hook every codex/cartridge
+embed route uses to resolve `personaId`/`authProfileId`/`isAdmin`:
+
+- `initialIsAdmin` removed from the hook's options type entirely — there is no longer any parameter through
+  which a caller can seed admin state.
+- `isAdmin` state now **always** initializes to `useState<boolean>(false)` — a plain literal, not a lazy
+  initializer reading the URL/localStorage/a prop. Server and first-client render are therefore identical
+  by construction; no protected tab can flash during hydration.
+- The canonical-persona resolver effect now opens with `setIsAdmin(false)` as its **first, unconditional
+  statement**, before any async work — a persona switch (or a persona clearing to `undefined`) discards
+  any prior admin state immediately, before the new persona's own resolution completes. Every early-return
+  path (no window, no personaId, no JWT, fetch failure, fetch rejection) leaves that reset value in place;
+  none of them need their own "set false" branch.
+- The **only** remaining path to `isAdmin === true` is `data.cartridgeFlags?.isAdmin === true` from a
+  successful, JWT-authenticated fetch to `/api/wallet/active-persona` — the canonical server-side resolver
+  (`services/identity/getActivePersona.ts`). No URL parameter, prop, or postMessage payload can reach it.
+- The postMessage handler (`aa-auth-context-v1`) no longer reads `payload.isAdmin` / `incomingIsAdmin` at
+  all — a trusted, origin-verified parent frame may still propose which `personaId`/`authProfileId` to
+  select (a navigation hint, exactly like the URL params), but can never assert admin authority. The
+  now-unused `sanitizeBool` helper (its only caller) was removed.
+- The exported result type's `isAdmin` field changed from `boolean | undefined` to a definite `boolean`.
+
+**Callers updated to match** (`app/(embed)/triad/embed/codex/[codexSlug]/page.tsx`,
+`app/(embed)/triad/embed/codex/page.tsx`) — the `queryIsAdmin = searchParams?.get("isAdmin") === "true" ||
+searchParams?.get("admin") === "1"` derivation and its `initialIsAdmin` forwarding are both removed. The
+third real caller, `app/(embed)/triad/embed/companion/page.tsx`, never read or forwarded `isAdmin` and
+needed no change.
+
+**`utils/codex-nav.ts` (`buildCodexUrl`/`CodexNavOptions`)** — the canonical cross-cartridge navigation
+helper documented in CLAUDE.md's "Inter-Cartridge Navigation" rule. `isAdmin` removed from the options
+type, the destructure, and the query-string serialization — centrally, not just at each call site, so a
+future caller cannot silently reintroduce the parameter (and if one tries via an object literal, it now
+fails to compile — TypeScript's excess-property check on `CodexNavOptions` is the backstop). Every real
+call site that passed `isAdmin` was updated to stop:
+
+- `app/triad/components/codex/tabs/PartnerProgrammesTab.tsx` (`DeepLinkCard`, the confirmed Phase 1
+  `irl-cartridge` deep-link vector) — `isAdmin` no longer forwarded into the generated href or accepted as
+  a prop; `AreaLinks` no longer passes it through.
+- `components/metame/cards/QuickLinksCard.tsx` — the general cross-cartridge quick-links card (reaches
+  IRL OS among many other cartridges).
+- `app/triad/components/codex/tabs/KnytAlphaTab.tsx`, `app/triad/components/codex/tabs/AlphaProgrammeTab.tsx`
+  — Venture Lab α surfaces using the same pattern; fixed for consistency (the underlying hook fix already
+  neutralized these, but leaving the producer in place would be exactly the "future vulnerability whenever
+  a new route trusts the UI gate" primitive the operator's directive warned against).
+
+### Broader-use audit (required by the directive) — two more independent instances found and fixed
+
+`useCodexEmbedAuthBridge` has exactly three real callers (enumerated by grepping every reference, then
+isolating actual call sites from doc-comment mentions): the two embed pages above and the companion embed
+page. None of the three needed anything beyond the hook fix itself — no legitimate authenticated-embed flow
+depended on the query-derived path (the canonical resolver was always the intended source of truth per the
+hook's own pre-existing doc comments; the defect was that the URL-seeded value was never overwritten for an
+unauthenticated caller, not that optimistic seeding was the design goal).
+
+The broader search (`searchParams?.get("isAdmin")`, `?admin=`, `?runtimeAdmin=` across the whole codebase)
+found **two independent instances of the same defect class**, unrelated to `useCodexEmbedAuthBridge`:
+
+1. **`components/metame/MetaMeRuntimeClient.tsx`** — `runtimeAdminMode = runtimeAdminUrlOverride ||
+   personaIsAdmin`, where `runtimeAdminUrlOverride = searchParams?.get("runtimeAdmin") === "1" ||
+   searchParams?.get("admin") === "1"`. Gated `canEdit`, admin-only receipt/regenerate links, and
+   open-in-new-window behavior in the metaMe runtime shell. Fixed: `runtimeAdminMode = personaIsAdmin`
+   (the pre-existing canonical server-resolved flag) — the URL override removed entirely.
+2. **`components/composer/ComposerExperienceViewer.tsx`** — `canEdit = adminUrlOverride || isAdmin ||
+   !isConsumerSurface`, where `adminUrlOverride = searchParams?.get("admin") === "1" ||
+   searchParams?.get("runtimeAdmin") === "1"`. This one is more severe in kind than the codex-embed
+   defect: it granted **Studio EDIT authority** (not just tab visibility) to any caller who appended the
+   param. Fixed: `canEdit = isAdmin || !isConsumerSurface` — the URL override removed entirely; `isAdmin`
+   here was already correctly resolved via `personaFetch("/api/wallet/active-persona")`.
+
+Per the directive's decision rule ("replace legitimate flows with canonical server/session authority rather
+than preserving the query escape hatch... prefer eliminating it centrally"): both fixes were surgical
+one-line removals restoring the already-correct canonical value as the sole source — no legitimate flow
+was broken, because both files already computed the correct canonical flag and were simply OR-ing an
+unnecessary, unauthenticated override on top of it. The `ComposerStudio.tsx` producer that still *sets*
+`?runtimeAdmin=1` on an outbound preview link was left as-is: it is the general (non-IRL-OS-specific)
+Composer preview-launch flow, an admin's own authenticated client setting a parameter that, after this
+fix, no consumer trusts as authority — dead weight, not a residual risk, and out of scope for this
+emergency patch.
+
+### What server-side data-read exploit this closes (confirming the operator's finding)
+
+The operator's finding was verified precisely: `?isAdmin=true` **did** set real, durable UI-level admin
+state for an unauthenticated caller (no JWT → the canonical resolver effect never overwrote the
+URL-seeded value). Combined with `services/passport/participationTabGate.ts`'s
+`tabPassesAccessGates` — a client-side-only gate (`if (tab.adminOnly && !isAdmin) return false`) — this
+meant an admin-gated tab's UI would render for a spoofed caller. Whether that ever produced a **data**
+leak depended entirely on whether the tab's own content-fetch independently re-verified authority
+server-side. Phase 1 already closed the two confirmed unauthenticated document routes
+(`/api/codex/packs/[packId]/file`, `/api/public/irl/doc`) that made this exploitable for content; every
+other server route this pass independently checked (`/api/venture/workspace/[id]`,
+`/api/experiments/access`, `/api/research/readiness/[id]`, `/api/corpus-scout/candidates`) was already
+correctly resolving `isAdmin` server-side and ignoring the client value. This addendum closes the
+remaining **misleading-UI / future-regression** exposure named in the operator's directive: even with
+every currently-known data route now safe, the client-level admin state itself was a durable, spoofable
+signal other code could come to trust later — removed at the root rather than left in place as a latent
+primitive.
+
+### Tests
+
+`tests/irl-os-query-derived-authority-removal.test.ts` — 29 new structural/source-authority canaries
+(same convention as the rest of `tests/` — no `@testing-library/react` in this codebase; behaviour is
+proven from the hook's own control flow via `readSource`/`stripComments`/`importAuthority`). Covers:
+no `initialIsAdmin` field anywhere in the hook; no `isAdmin` in the postMessage message type; `isAdmin`
+seeded only by a literal `useState<boolean>(false)`; the only `setIsAdmin(true)` call site is gated on a
+strict `=== true` check against the canonical response; the resolver effect resets to `false` as its
+first statement and re-fires on every `personaId` change; a failed/no-auth fetch never sets `isAdmin`;
+the result type is a definite `boolean`; neither embed page reads `isAdmin`/`admin` from `searchParams`
+or forwards `initialIsAdmin`; `CodexNavOptions` no longer declares `isAdmin`; no `buildCodexUrl(...)`
+call site in the four fixed files passes `isAdmin`; the two independently-found `MetaMeRuntimeClient`/
+`ComposerExperienceViewer` instances are fixed; the postMessage origin-allowlist check still gates
+identity selection; the hydration-safety property (plain-literal, non-lazy initializer); disabled IRL OS
+tab components are never eagerly imported by the registry; `AgentiqCartridgeTab` has no static import
+path into `codexes/packs/` (the structural guarantee that confidential document bodies cannot reach the
+public client bundle, in place of grepping for a specific secret string — see the note on that choice
+in the test file itself); both document routes read through `corpusReadPackFile`, confirming no third,
+unaudited reader of the `irl` pack corpus exists.
+
+Also required two follow-on test fixes for assertions that had gone stale from the operator-approved
+Phase 1 disposition itself (disabling `irl-os-workspace`/`irl-os-validation-programme`/`irl-os-protocols`)
+— not introduced by this addendum, but only surfaced when the FULL suite (not just the 299/407 originally
+related tests) was run per the operator's explicit instruction:
+
+- `tests/irl-os-access-boundary.test.ts` — two assertions updated: the "Explore IRL OS" / OCSGA Full View
+  parity checks now expect `irl-os-welcome` (not the disabled `irl-os-workspace`); the participant-tab-set
+  check no longer expects `irl-os-workspace`/`irl-os-protocols` in the enabled list; the parity check was
+  also **strengthened** to additionally assert the `expandedTab` target is `enabled: true`, so a future
+  regression back into "points at a disabled tab" is caught structurally, not just by the specific literal.
+- `tests/boundary-research-experiment-scoping.test.ts` — one assertion updated to the same `irl-os-welcome`
+  target.
+- `tests/validation-programme-journey.test.ts` — one assertion updated: `irl-os-validation-programme`'s
+  `enabled` is now asserted `false`, with a comment naming the Phase 1 rationale and the Phase 2
+  restoration condition.
+
+**A second dangling-link instance was found and fixed during this pass**, not caught in the original Phase
+1 diff: `services/journey/journeySurfaceRegistry.ts`'s `irl-exchange-workspace` descriptor's
+`expandedTab` (the OCSGA Bridge's "Open full view" affordance) also pointed at the now-disabled
+`irl-os-workspace` — repointed to `irl-os-welcome`, mirroring the `QuickLinksCard`/
+`BoundaryResearchProgressPanel` fixes from Phase 1.
+
+### Verification
+
+- **407 tests pass** across the 16 directly-related test files (up from 299 in the Phase 1 report — the
+  29 new addendum canaries plus the 2 stale-assertion fixes surfaced above).
+- **Full repository suite, compared against the exact `origin/dev` baseline** (methodology: `git stash`
+  the addendum, then `git checkout origin/dev -- .` and delete the two Phase-1-only new files so the
+  working tree is byte-identical to `origin/dev`, run `npm test -- --run`; restore; run the same command
+  again on the full addendum state): **baseline 21 failed files / 49 failed tests / 8074 passed / 2
+  skipped (8125 total)** vs **addendum 21 failed files / 49 failed tests / 8120 passed / 2 skipped (8171
+  total)**. The failing-file sets are **byte-identical** (`diff` confirms) — every one of the 21 is a
+  pre-existing, unrelated baseline failure (journey-admission-spine, phase-a-baseline-canaries,
+  pulse-transparency, repo-weight budget, register-ceremony, etc. — none touch IRL OS, the auth bridge,
+  or codex navigation). The +46 passed-test delta is exactly the two new test files' combined size
+  (17 + 29). **Zero regressions, zero new failures.**
+- **TypeScript, same methodology**: baseline `origin/dev` — **689 errors**. Addendum — **689 errors**.
+  Identical count; spot-checked that every error in a file this addendum touched
+  (`components/metame/MetaMeRuntimeClient.tsx`) is the same pre-existing error at the same relative
+  position (line numbers shift by the size of an added comment block; error content is unchanged). Zero
+  new TypeScript errors.
+
+### Residual note
+
+A restoration-procedure mistake during this verification pass (using `git checkout .` after a `git
+checkout origin/dev -- .` baseline snapshot, which restores from the now-origin/dev-content INDEX rather
+than from HEAD) transiently reverted the Phase 1 changes in six files back to their pre-Phase-1 state in
+the local working tree. This was caught immediately by the full-suite diff (one test failure appeared that
+should have been impossible given the already-fixed source) and corrected via `git checkout HEAD --
+<files>` before anything was committed or pushed — recorded here for the record, not because it reached
+any pushed or committed state.
 
 ---
 

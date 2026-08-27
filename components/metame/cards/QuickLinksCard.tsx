@@ -88,10 +88,13 @@ export function QuickLinksCard({
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
         {items.map((link) => {
+          // isAdmin deliberately not forwarded (2026-08-27 containment
+          // addendum) — every destination this card can reach, IRL OS
+          // included, resolves its own admin state canonically via
+          // useCodexEmbedAuthBridge; see that hook's doc comment.
           const href = buildCodexUrl(link.slug, {
             tab: link.tab,
             personaId,
-            isAdmin,
             isPartner,
             from: fromSlug,
             fromTab,

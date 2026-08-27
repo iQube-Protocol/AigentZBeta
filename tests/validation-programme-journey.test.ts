@@ -315,12 +315,18 @@ describe('State route — real state resolution, no fabrication', () => {
   });
 });
 
-describe('IRL OS — the Validation Programme tab is registered and reachable', () => {
+describe('IRL OS — the Validation Programme tab is registered (currently disabled -- containment)', () => {
   it('a tab exists in its own first-class top-level group pointing at ValidationProgrammeJourneyTab', () => {
     const tab = IRL_OS_CARTRIDGE.tabs.find((t) => t.id === 'irl-os-validation-programme');
     expect(tab).toBeTruthy();
     expect(tab?.group).toBe('validation-programme');
-    expect(tab?.enabled).toBe(true);
+    // CONTAINED 2026-08-27 (docs/security/2026-08-27_irl-os-containment-breach-audit.md,
+    // operator-approved Phase 1 disposition): disabled, not removed --
+    // ValidationProgrammeJourneyTab mounts PartnerProgrammesTab, which
+    // constructed live irl-cartridge deep links (personaId/isAdmin as query
+    // params) directly in the public cartridge. Restore to `true` in Phase 2
+    // once verified reviewer-invitation scoping exists for this surface.
+    expect(tab?.enabled).toBe(false);
     expect((tab?.config as { component?: string } | undefined)?.component).toBe('ValidationProgrammeJourneyTab');
   });
 

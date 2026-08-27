@@ -49,8 +49,16 @@ export const ComposerExperienceViewer = ({ experienceId }: { experienceId: strin
   const [packetRetryKey, setPacketRetryKey] = useState(0);
   const isEmbeddedPreview = searchParams?.get("embed") === "1";
   const fromRuntime = searchParams?.get("from") === "runtime";
-  const adminUrlOverride =
-    searchParams?.get("admin") === "1" || searchParams?.get("runtimeAdmin") === "1";
+  // SECURITY (2026-08-27 addendum to the IRL OS containment pass — see
+  // docs/security/2026-08-27_irl-os-containment-breach-audit.md): there is
+  // deliberately no `adminUrlOverride` here anymore. A `?admin=1`/
+  // `?runtimeAdmin=1` URL parameter previously OR'd directly into `canEdit`
+  // below, granting Studio EDIT authority to any caller who appended the
+  // param — the same defect class found and fixed in
+  // useCodexEmbedAuthBridge and MetaMeRuntimeClient, discovered by the same
+  // broader-use audit. `canEdit` is now derived exclusively from `isAdmin`
+  // (the canonical, server-resolved persona flag, already fetched below via
+  // /api/wallet/active-persona) and `!isConsumerSurface`.
   const [showPacket, setShowPacket] = useState(false);
   // Admin is a PERSONA attribute resolved server-side by the identity spine —
   // never email-gated. personaFetch attaches the Supabase Bearer token; the
@@ -98,7 +106,7 @@ export const ComposerExperienceViewer = ({ experienceId }: { experienceId: strin
     adminFlags.isAdmin ||
     (experienceCartridge ? adminFlags.adminCartridges.includes(experienceCartridge) : false);
   const isConsumerSurface = isEmbeddedPreview || fromRuntime;
-  const canEdit = adminUrlOverride || isAdmin || !isConsumerSurface;
+  const canEdit = isAdmin || !isConsumerSurface;
 
   useEffect(() => {
     let active = true;
