@@ -4494,3 +4494,13 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-dc83c33.md](../build_/COMMITS/COMMIT-dc83c33.md)
 - Message: fix: resolve Research Lab scopes by registry membership, not column name
+
+## Commit `31ff00c` — 2026-08-27T03:08:54Z
+- Type: `push`
+- Brief: [COMMIT-31ff00c.md](../build_/COMMITS/COMMIT-31ff00c.md)
+- Message: Close UI acceptance gap: genuine component tests for the duplicate-pair queue
+
+## Commit `e8f6696` — 2026-08-27T02:49:02Z
+- Type: `push`
+- Brief: [COMMIT-e8f6696.md](../build_/COMMITS/COMMIT-e8f6696.md)
+- Message: Stage 9 duplicate-pair queue: server-derived recommendations, complete receipting, authoritative advance

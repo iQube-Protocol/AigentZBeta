@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-26T14:10:33.942Z",
+  "last_updated": "2026-08-27T06:11:07.152Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "dc83c33d511c8b645057c8910c35875556c68b25",
-  "latest_commit_short": "dc83c33",
-  "latest_commit_title": "fix: resolve Research Lab scopes by registry membership, not column name",
+  "latest_commit": "e8f669600ee34615cd1e1a3052b8e3f072af98a7",
+  "latest_commit_short": "e8f6696",
+  "latest_commit_title": "Stage 9 duplicate-pair queue: server-derived recommendations, complete receipting, authoritative advance",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "e8f6696",
+      "full_sha": "e8f669600ee34615cd1e1a3052b8e3f072af98a7",
+      "title": "Stage 9 duplicate-pair queue: server-derived recommendations, complete receipting, authoritative advance",
+      "author": "Claude",
+      "timestamp": "2026-08-27T02:49:02Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-e8f6696.md"
+    },
+    {
+      "sha": "31ff00c",
+      "full_sha": "31ff00c6ac2b2daf0aa7616991e5f603206a6392",
+      "title": "Close UI acceptance gap: genuine component tests for the duplicate-pair queue",
+      "author": "Claude",
+      "timestamp": "2026-08-27T03:08:54Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-31ff00c.md"
+    },
     {
       "sha": "dc83c33",
       "full_sha": "dc83c33d511c8b645057c8910c35875556c68b25",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-08-11T02:38:35Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-bf2a980.md"
-    },
-    {
-      "sha": "5f20157",
-      "full_sha": "5f201570c46b6f84f9e92a4fa45924b469abb28b",
-      "title": "Re-home Ingest surface under Activate; remove Ingest consequence-fork prong",
-      "author": "Claude",
-      "timestamp": "2026-08-11T01:43:35Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-5f20157.md"
-    },
-    {
-      "sha": "5c6cbed",
-      "full_sha": "5c6cbed79772dcda914a40bdd6776cb13e57d6e2",
-      "title": "Add Activate as a derived registry-activation stage between Passport and Delegate",
-      "author": "Claude",
-      "timestamp": "2026-08-11T00:39:17Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-5c6cbed.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

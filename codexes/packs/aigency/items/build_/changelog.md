@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`e8f6696`](https://github.com/iQube-Protocol/AigentZBeta/commit/e8f669600ee34615cd1e1a3052b8e3f072af98a7) [push] Stage 9 duplicate-pair queue: server-derived recommendations, complete receipting, authoritative advance (Claude, 2026-08-27T02:49:02Z)
+- [`31ff00c`](https://github.com/iQube-Protocol/AigentZBeta/commit/31ff00c6ac2b2daf0aa7616991e5f603206a6392) [push] Close UI acceptance gap: genuine component tests for the duplicate-pair queue (Claude, 2026-08-27T03:08:54Z)
 - [`dc83c33`](https://github.com/iQube-Protocol/AigentZBeta/commit/dc83c33d511c8b645057c8910c35875556c68b25) [fix] fix: resolve Research Lab scopes by registry membership, not column name (Claude, 2026-08-26T14:07:52Z)
 - [`90d7ed9`](https://github.com/iQube-Protocol/AigentZBeta/commit/90d7ed99e75182c5b9385641220904fab7a35eeb) [push] Show ContactGraph state and import-source counts in People (#99) (Kn0w1, 2026-08-26T03:24:14-04:00)
 - [`4c8c259`](https://github.com/iQube-Protocol/AigentZBeta/commit/4c8c259c2689d80dbef390e77dd3605ca69921a2) [fix] fix(agentme): preserve attachments and resolve contact ambiguity (Kn0w1, 2026-08-26T03:05:42-04:00)
