@@ -4514,3 +4514,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-c05c2c3.md](../build_/COMMITS/COMMIT-c05c2c3.md)
 - Message: SECURITY: contain IRL OS -> metaMe IRL boundary breach (Phase 1)
+
+## Commit `decbc07` — 2026-08-27T09:02:18Z
+- Type: `push`
+- Brief: [COMMIT-decbc07.md](../build_/COMMITS/COMMIT-decbc07.md)
+- Message: Revert "close IRL OS confidentiality breach: private-cartridge deep links + unauthenticated document routes + query-derived admin authority removed [merge sec/irl-os-containment-2026-08-27]"

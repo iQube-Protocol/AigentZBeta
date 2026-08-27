@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-27T08:17:31.915Z",
+  "last_updated": "2026-08-27T09:04:27.151Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "c05c2c347206a129a53f8d31bb88fa6d9ea457c6",
-  "latest_commit_short": "c05c2c3",
-  "latest_commit_title": "SECURITY: contain IRL OS -> metaMe IRL boundary breach (Phase 1)",
+  "latest_commit": "decbc07c8234961827ee04b046c5d1edc7415228",
+  "latest_commit_short": "decbc07",
+  "latest_commit_title": "Revert \"close IRL OS confidentiality breach: private-cartridge deep links + unauthenticated document routes + query-derived admin authority removed [merge sec/irl-os-containment-2026-08-27]\"",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "decbc07",
+      "full_sha": "decbc07c8234961827ee04b046c5d1edc7415228",
+      "title": "Revert \"close IRL OS confidentiality breach: private-cartridge deep links + unauthenticated document routes + query-derived admin authority removed [merge sec/irl-os-containment-2026-08-27]\"",
+      "author": "Claude",
+      "timestamp": "2026-08-27T09:02:18Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-decbc07.md"
+    },
     {
       "sha": "c05c2c3",
       "full_sha": "c05c2c347206a129a53f8d31bb88fa6d9ea457c6",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-11T20:49:07Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-937b6d8.md"
-    },
-    {
-      "sha": "6070ce9",
-      "full_sha": "6070ce9c90180792b1f72c9d3a0be691b0a524ae",
-      "title": "Register Constitutional Bearing plates in Polity Core",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-10T23:09:04-04:00",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-6070ce9.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
