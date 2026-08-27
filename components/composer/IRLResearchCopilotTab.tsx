@@ -79,6 +79,7 @@ import type { ProgrammeRunResult, PendingGovernanceDecision } from "@/services/r
 // operator has run anything, rather than only after a POST /advance.
 import type { Track2Programme, Track2DeepLink } from "@/services/research/track2Programme";
 import { setPendingTrack2Stage } from "@/services/research/track2DeepLinkIntent";
+import { proceedToTrack2Stage } from "@/services/research/track2ProceedNavigation";
 import type {
   ExperimentLifecycleState,
   ResearchExperiment,
@@ -585,7 +586,9 @@ function ObjectiveCard({
   error,
   onRun,
   onOpenDetail,
-  onOpenStage,
+  onProceed,
+  proceeding,
+  proceedError,
 }: {
   objective: ResearchObjective;
   run: ProgrammeRunResult | null;
@@ -603,9 +606,20 @@ function ObjectiveCard({
   error: string | null;
   onRun: () => void;
   onOpenDetail: () => void;
-  /** Canonical deep-link navigation (2026-08-26) — opens the EXACT stage a
-   *  pending decision names. See track2Programme.ts's `Track2DeepLink`. */
-  onOpenStage: (deepLink: Track2DeepLink) => void;
+  /**
+   * THE PROCEED SEQUENCE (2026-08-27 fix) — awaits a fresh `/advance` +
+   * authoritative Track 2 read, THEN opens whatever stage that fresh read
+   * names. Never navigates using `decision.deepLink` straight off this
+   * card's own (possibly stale) props — see `track2ProceedNavigation.ts`'s
+   * header for the exact staleness this closes.
+   */
+  onProceed: (decision: PendingGovernanceDecision) => void;
+  /** True while a Proceed sequence (advance + refresh) is in flight for
+   *  THIS card's decision. */
+  proceeding: boolean;
+  /** Set when the advance or the post-advance refresh failed — the card
+   *  shows this INSTEAD of navigating on stale state, with a Retry. */
+  proceedError: string | null;
 }) {
   const gate = run?.measurementLayerGate ?? null;
   const programme = run?.programme ?? programmePreview;
@@ -737,12 +751,29 @@ function ObjectiveCard({
           ))}
           <button
             type="button"
-            onClick={() => onOpenStage(decision.deepLink)}
-            className="mt-1 inline-flex items-center gap-1 rounded border border-violet-500/40 bg-violet-500/15 px-2 py-1 text-[10px] font-semibold text-violet-100 hover:bg-violet-500/25 transition"
+            onClick={() => onProceed(decision)}
+            disabled={proceeding}
+            className="mt-1 inline-flex items-center gap-1 rounded border border-violet-500/40 bg-violet-500/15 px-2 py-1 text-[10px] font-semibold text-violet-100 hover:bg-violet-500/25 transition disabled:opacity-50"
           >
-            <ArrowRight className="h-3 w-3" />
-            Open {decision.stageLabel}
+            {proceeding ? <Loader2 className="h-3 w-3 animate-spin" /> : <ArrowRight className="h-3 w-3" />}
+            {proceeding ? "Confirming current state…" : `Open ${decision.stageLabel}`}
           </button>
+          {/* SYNC ERROR — never navigate on stale state (2026-08-27 fix,
+              required contract item 8): if advance or the post-advance
+              Track 2 read failed, say so and offer Retry instead of opening
+              whatever was last rendered. */}
+          {proceedError && (
+            <div className="mt-1 rounded border border-rose-500/40 bg-rose-500/10 px-2 py-1.5 text-[10px] text-rose-300">
+              Could not confirm the current Track 2 state before opening it — {proceedError}.
+              <button
+                type="button"
+                onClick={() => onProceed(decision)}
+                className="ml-1.5 underline decoration-rose-700 hover:text-rose-100"
+              >
+                Retry
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -941,6 +972,15 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
   const [programmeRun, setProgrammeRun] = useState<ProgrammeRunResult | null>(null);
   const [programmeRunning, setProgrammeRunning] = useState(false);
   const [programmeError, setProgrammeError] = useState<string | null>(null);
+  // ── THE PROCEED SEQUENCE (2026-08-27 fix) — separate from `programmeRunning`/
+  // `programmeError` above: those track "Run until you need me" (the
+  // objective's own act-execution loop); these track the pending-decision
+  // CTA's own advance-then-refresh-then-navigate sequence
+  // (`services/research/track2ProceedNavigation.ts`). Conflating the two
+  // would make the Run button spin while the operator is only confirming
+  // where to navigate, or vice versa.
+  const [proceeding, setProceeding] = useState(false);
+  const [proceedError, setProceedError] = useState<string | null>(null);
   // Read-only Track 2 state preview — loaded on mount/refresh (GET, no acts
   // executed) so the objective's "where are we" is visible on OPEN, not only
   // after the first "Run until you need me" (2026-08-26 reconciliation).
@@ -1258,6 +1298,62 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
     setProgrammeRunning(false);
   }, [observe, personaId, refresh]);
 
+  /**
+   * THE PENDING-DECISION CTA's PROCEED SEQUENCE (2026-08-27 fix) —
+   * `services/research/track2ProceedNavigation.ts`'s `proceedToTrack2Stage`
+   * driven with real IO. Awaits a fresh `/advance` and a fresh authoritative
+   * Track 2 GET BEFORE navigating, so the stage that opens is never the one
+   * `decision` happened to name at click time — see that module's header for
+   * the exact staleness this closes. Reuses `goToTrack2Stage`/
+   * `goToExperimentLab` verbatim as the navigate/navigateGeneric
+   * dependencies — this adds no second navigation mechanism.
+   */
+  const proceedToDecision = useCallback(async (decision: PendingGovernanceDecision) => {
+    const experimentIdForDecision = decision.deepLink.experimentId;
+    setProceeding(true);
+    setProceedError(null);
+    const outcome = await proceedToTrack2Stage({
+      advance: async () => {
+        const res = await personaFetch(
+          `/api/research/programme/${encodeURIComponent(experimentIdForDecision)}/advance`,
+          { method: "POST", cache: "no-store", ...(personaId ? { personaIdHint: personaId } : {}) },
+        );
+        const data = await res.json().catch(() => null) as { ok?: boolean; error?: string; run?: ProgrammeRunResult } | null;
+        if (!res.ok || !data || data.ok !== true) {
+          throw new Error((data && typeof data.error === "string" && data.error) || `HTTP ${res.status}`);
+        }
+        if (data.run) {
+          setProgrammeRun(data.run);
+          observe(surfacePromptSelectedEvent(SURFACE, `objective run finished: ${data.run.headline}`));
+        }
+      },
+      readPendingDeepLink: async () => {
+        const res = await personaFetch(`/api/research/track2/${encodeURIComponent(experimentIdForDecision)}`, {
+          cache: "no-store",
+          ...(personaId ? { personaIdHint: personaId } : {}),
+        });
+        const data = await res.json().catch(() => null) as {
+          requestSucceeded?: boolean;
+          programme?: Track2Programme;
+          pendingDecision?: PendingGovernanceDecision | null;
+        } | null;
+        if (!res.ok || !data?.requestSucceeded) return undefined;
+        // Fold the fresh read into the SAME preview state `refresh()` writes
+        // — so the mini "you are here" panel and the decision card agree
+        // with whatever this sequence just navigated on, rather than
+        // reverting to whatever was there before the click.
+        setProgrammePreview(data.programme ?? null);
+        setPendingDecisionPreview(data.pendingDecision ?? null);
+        return data.pendingDecision?.deepLink ?? null;
+      },
+      navigate: goToTrack2Stage,
+      navigateGeneric: goToExperimentLab,
+    });
+    if (outcome.kind === 'advance-failed') setProceedError(outcome.error);
+    else if (outcome.kind === 'refresh-failed') setProceedError('the current Track 2 state could not be confirmed');
+    setProceeding(false);
+  }, [observe, personaId, goToTrack2Stage, goToExperimentLab]);
+
   // ── C3 research ICE loop — the pool of experiments the loop can scope to.
   // Working objects (approved/persisted copilot proposals) override overview
   // (registry-derived) entries on id collision — BUT never downward. The
@@ -1417,7 +1513,9 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
               error={programmeError}
               onRun={() => void runProgramme(objective.experimentId)}
               onOpenDetail={goToExperimentLab}
-              onOpenStage={goToTrack2Stage}
+              onProceed={(decision) => void proceedToDecision(decision)}
+              proceeding={proceeding}
+              proceedError={proceedError}
             />
           ))}
 

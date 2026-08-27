@@ -107,17 +107,56 @@ describe('Research Copilot — the pending decision survives navigate-away-and-b
     expect(src).toMatch(/const decision = run\?\.pendingDecision \?\? pendingDecisionPreview;/);
   });
 
-  it('the pending-decision CTA consumes decision.deepLink verbatim via onOpenStage — never the generic onOpenDetail', () => {
+  it('the pending-decision CTA proceeds via onProceed(decision) — never a direct onOpenStage(decision.deepLink)', () => {
+    // 2026-08-27 continuation fix: the CTA no longer navigates using
+    // decision.deepLink straight off this card's own (possibly stale) props.
+    // It hands the WHOLE decision to onProceed, which re-verifies freshness
+    // (advance + a fresh Track 2 GET) before opening anything — see
+    // services/research/track2ProceedNavigation.ts.
     const src = stripComments(readSource(COPILOT));
     const decisionBlockStart = src.indexOf('{decision && (');
     const decisionBlockEnd = src.indexOf('{run && (', decisionBlockStart);
     const decisionBlock = src.slice(decisionBlockStart, decisionBlockEnd);
-    expect(decisionBlock).toMatch(/onClick=\{\(\) => onOpenStage\(decision\.deepLink\)\}/);
+    expect(decisionBlock).toMatch(/onClick=\{\(\) => onProceed\(decision\)\}/);
+    expect(decisionBlock).not.toMatch(/onOpenStage\(decision\.deepLink\)/);
     expect(decisionBlock).not.toMatch(/onOpenDetail/);
     // The old generic wording is gone — this CTA no longer claims a
     // destination it cannot guarantee ("in the Experiment Lab" named the
     // cartridge tab, not the stage).
     expect(decisionBlock).not.toMatch(/in the Experiment Lab/);
+  });
+
+  it('the pending-decision CTA never navigates on a failed proceed sequence — it shows the error and a Retry instead', () => {
+    const src = stripComments(readSource(COPILOT));
+    const decisionBlockStart = src.indexOf('{decision && (');
+    const decisionBlockEnd = src.indexOf('{run && (', decisionBlockStart);
+    const decisionBlock = src.slice(decisionBlockStart, decisionBlockEnd);
+    expect(decisionBlock).toMatch(/proceedError/);
+    expect(decisionBlock).toMatch(/Retry/);
+    // The Retry control re-runs the SAME proceed sequence — never a bare
+    // "dismiss" that leaves the operator with no way forward.
+    expect(decisionBlock).toMatch(/onClick=\{\(\) => onProceed\(decision\)\}[\s\S]*Retry/);
+  });
+
+  it('proceedToDecision awaits /advance before reading Track 2, and reads Track 2 before navigating — never navigates on advance/refresh failure', () => {
+    const src = stripComments(readSource(COPILOT));
+    const fnStart = src.indexOf('const proceedToDecision = useCallback');
+    const fnEnd = src.indexOf('}, [observe, personaId, goToTrack2Stage, goToExperimentLab]);', fnStart);
+    expect(fnStart).toBeGreaterThan(-1);
+    expect(fnEnd).toBeGreaterThan(fnStart);
+    const fnBody = src.slice(fnStart, fnEnd);
+    // Uses the pure, unit-tested sequence — never a hand-rolled reimplementation.
+    expect(fnBody).toMatch(/proceedToTrack2Stage\(\{/);
+    // advance is awaited (it is itself an async arrow function passed as a dep,
+    // and outcome is awaited before any setState that could drive navigation).
+    expect(fnBody).toMatch(/const outcome = await proceedToTrack2Stage/);
+    // navigate/navigateGeneric are wired to the EXISTING primitives — no
+    // second navigation mechanism introduced.
+    expect(fnBody).toMatch(/navigate: goToTrack2Stage,/);
+    expect(fnBody).toMatch(/navigateGeneric: goToExperimentLab,/);
+    // A failed advance or a failed refresh sets an error, never silently proceeds.
+    expect(fnBody).toMatch(/outcome\.kind === 'advance-failed'/);
+    expect(fnBody).toMatch(/outcome\.kind === 'refresh-failed'/);
   });
 
   it('goToTrack2Stage writes the deep-link intent BEFORE dispatching the navigation event', () => {
@@ -144,10 +183,12 @@ describe('Research Copilot — the pending decision survives navigate-away-and-b
     expect(src).toMatch(/onOpenDetail=\{goToExperimentLab\}/);
   });
 
-  it('the ObjectiveCard render call site threads both the preview and the deep-link handler', () => {
+  it('the ObjectiveCard render call site threads both the preview and the proceed sequence', () => {
     const src = stripComments(readSource(COPILOT));
     expect(src).toMatch(/pendingDecisionPreview=\{pendingDecisionPreview\}/);
-    expect(src).toMatch(/onOpenStage=\{goToTrack2Stage\}/);
+    expect(src).toMatch(/onProceed=\{\(decision\) => void proceedToDecision\(decision\)\}/);
+    expect(src).toMatch(/proceeding=\{proceeding\}/);
+    expect(src).toMatch(/proceedError=\{proceedError\}/);
   });
 
   it('the mount effect still calls refresh() unconditionally — returning from the Lab observes fresh authoritative state', () => {
