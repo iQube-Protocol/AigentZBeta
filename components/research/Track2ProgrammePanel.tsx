@@ -35,6 +35,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, CheckCircle2, Circle, Loader2, Lock, RefreshCw, ShieldAlert } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
+import { settleTrack2DuplicateQueue } from "@/services/research/track2DuplicateQueueSettle";
 import { PROVENANCE_CLASSES } from "@/services/corpusScout/types";
 import { INVARIANT_EDGE_TYPES } from "@/types/invariants";
 import { findDuplicateCandidates, type DuplicateGroup } from "@/services/corpusScout/intelligence";
@@ -178,19 +179,19 @@ interface ReadinessCheck {
   duplicatePairs?: DuplicatePairView[];
 }
 
-interface DuplicateRecommendationReason {
+export interface DuplicateRecommendationReason {
   criterion: string;
   detail: string;
 }
 
-interface DuplicateSurvivalRecommendation {
+export interface DuplicateSurvivalRecommendation {
   recommendedId: string;
   otherId: string;
   confidence: "high" | "medium" | "low";
   reasons: DuplicateRecommendationReason[];
 }
 
-interface DuplicatePairView {
+export interface DuplicatePairView {
   aId: string;
   bId: string;
   aStatement: string;
@@ -429,54 +430,42 @@ export function Track2ProgrammePanel({
 
   /**
    * AUTHORITATIVE REFRESH SEQUENCE for the duplicate-pair adjudication queue
-   * ONLY (operator ruling, 2026-08-27, "final corrections") — never reused
-   * generically, because no other Stage 9 remediation queue has a downstream
-   * canonical-advance step. Runs strictly sequentially, awaiting each step:
-   *
-   *   1. Re-read the SAME authoritative Track 2 GET this panel uses
-   *      everywhere else (`load()`), and inspect ITS OWN freshly-returned
-   *      `duplicate-detection` check — never a locally-tracked "resolved"
-   *      set.
-   *   2. If that reading still names outstanding pairs, stop here. The
-   *      parent re-render supplies `DuplicateInvariantQueue` its updated
-   *      `pairs` prop from the same `readiness` state `load()` just set —
-   *      there is nothing else for this handler to do.
-   *   3. Only when that SAME reading confirms zero pairs remain, POST the
-   *      canonical orchestrator entry point
-   *      (`/api/research/programme/[experimentId]/advance` — operator
-   *      ruling, 2026-08-26 — never a second, parallel progression
-   *      mechanism).
-   *   4. Re-read the authoritative Track 2 GET again (`load()`), so this
-   *      panel's own state is back in sync with what the orchestrator just
-   *      did — exactly like a plain mount/refresh would observe it.
-   *   5. Scroll using the ADVANCE RESPONSE's OWN
-   *      `run.pendingDecision.deepLink.surfaceRef.anchorId`, consumed
-   *      verbatim — never `deepLink.anchorId` (not the established type) and
-   *      never reconstructed from a stage id.
+   * ONLY (operator ruling, 2026-08-27, "final corrections"; sequencing
+   * extracted to a pure, independently-unit-tested function 2026-08-27, "UI
+   * acceptance gap" pass — see `settleTrack2DuplicateQueue`'s doc comment
+   * for the exact five-step contract this wires real IO into). Never reused
+   * generically: no other Stage 9 remediation queue has a downstream
+   * canonical-advance step.
    */
   const settleDuplicateQueue = useCallback(async () => {
-    const afterMerge = await load();
-    if (!afterMerge) return;
-    const remaining =
-      afterMerge.readiness?.checks.find((c) => c.name === "duplicate-detection")?.duplicatePairs ?? [];
-    if (remaining.length > 0) return; // stay in the queue; the fresh `pairs` prop already reflects this reading
-
-    try {
-      const res = await personaFetch(`/api/research/programme/${encodeURIComponent(experimentId)}/advance`, {
-        method: "POST",
-        cache: "no-store",
-      });
-      const d = await res.json().catch(() => null);
-      if (!d?.ok) throw new Error(d?.error || `advance refused (HTTP ${res.status})`);
-      const run = d.run as { pendingDecision?: { deepLink?: { surfaceRef?: { anchorId?: string } } } | null };
-
-      await load(); // authoritative re-sync AFTER advance, before scrolling
-
-      const anchorId = run?.pendingDecision?.deepLink?.surfaceRef?.anchorId;
-      if (anchorId) scrollToAnchorId(anchorId);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "the research programme could not be advanced past the duplicate-pair queue");
+    const outcome = await settleTrack2DuplicateQueue({
+      readDuplicatePairCount: async () => {
+        const fresh = await load();
+        if (!fresh) return null;
+        return fresh.readiness?.checks.find((c) => c.name === "duplicate-detection")?.duplicatePairs?.length ?? 0;
+      },
+      advance: async () => {
+        const res = await personaFetch(`/api/research/programme/${encodeURIComponent(experimentId)}/advance`, {
+          method: "POST",
+          cache: "no-store",
+        });
+        const d = await res.json().catch(() => null);
+        if (!d?.ok) throw new Error(d?.error || `advance refused (HTTP ${res.status})`);
+        const run = d.run as { pendingDecision?: { deepLink?: { surfaceRef?: { anchorId?: string } } } | null };
+        return { anchorId: run?.pendingDecision?.deepLink?.surfaceRef?.anchorId ?? null };
+      },
+      resync: async () => {
+        await load();
+      },
+      scrollToAnchorId,
+    });
+    if (outcome.kind === "advance-failed") {
+      setError(outcome.error);
     }
+    // "read-failed" and "pairs-remain" need no further action here — `load()`
+    // already updated `readiness`/`programme` (or `error`) state as a side
+    // effect, and `DuplicateInvariantQueue`'s next render reads the fresh
+    // `pairs` prop straight from that same state.
   }, [experimentId, load, scrollToAnchorId]);
 
   /**
@@ -5272,29 +5261,43 @@ function DiversityCandidateQueue({ experimentId, onDone }: { experimentId: strin
  * Stage 9 — `duplicate-detection` remediation (operator ruling, 2026-08-27,
  * "Crystal v1/v2 lineage collision", item 4: "duplicate detection →
  * duplicate-pair adjudication queue"; corrected 2026-08-27, "final
- * corrections" pass). The pairs are a PROP, not a fetch — the readiness
- * engine already computed the exact near-duplicate pairs, each already
- * carrying both full statements and a server-derived survivor recommendation
+ * corrections" pass; UI acceptance gap closed 2026-08-27). The pairs are a
+ * PROP, not a fetch — the readiness engine already computed the exact
+ * near-duplicate pairs, each already carrying both full statements and a
+ * server-derived survivor recommendation
  * (`services/research/crystalReadiness.ts`'s `DuplicatePairView`, via
  * `services/research/invariantDuplicateRecommendation.ts`) — this queue only
  * ever acts on and displays what that engine named, rendering ONE pair at a
  * time (the head of `pairs`).
  *
  * NO LOCAL RESOLUTION STATE: this component does not track which pairs it
- * has already resolved. `onDone` is the panel's authoritative refresh
- * sequence (`settleDuplicateQueue`) — it re-reads Track 2 state fresh and
- * only then hands this component its next `pairs` prop, so what remains is
- * always read off the server, never inferred locally.
+ * has already resolved — `current` is derived from `pairs[0]` on every
+ * render, nothing else. `onDone` is the panel's authoritative refresh
+ * sequence (`settleDuplicateQueue` → `settleTrack2DuplicateQueue`) — it
+ * re-reads Track 2 state fresh and only then hands this component its next
+ * `pairs` prop, so what remains is always read off the server, including
+ * across a remount (a fresh `pairs` prop always wins over anything this
+ * component rendered before).
  *
- * Each pair offers "keep A" / "keep B", which merges the OTHER invariant
- * into the kept survivor via the existing `mergeInvariants` primitive
- * (unions contexts/edges, marks the merged row `superseded`) — never a
- * second, independently-judged dedup path. The recommended side is
- * highlighted; keeping the OTHER side is a full override, not a disabled
- * choice — the server independently derives whether the steward followed
- * the recommendation, so the client never has to gate the button.
+ * Each pair offers "keep recommended candidate" / "keep alternative
+ * candidate", which merges the OTHER invariant into the kept survivor via
+ * the existing `mergeInvariants` primitive (unions contexts/edges, marks the
+ * merged row `superseded`) — never a second, independently-judged dedup
+ * path. The recommended side carries the ONE visible "Recommended" badge;
+ * keeping the alternative is a full override, not a disabled choice — the
+ * server independently derives whether the steward followed the
+ * recommendation, so the client never has to gate the button. The
+ * recommendation's reasoning sits behind a native `<details>/<summary>`
+ * disclosure — genuinely keyboard-operable and screen-reader-announced with
+ * no hand-rolled ARIA, and collapsed by default so it never reads as dense,
+ * always-on diagnostic text.
+ *
+ * A stale-pair 409 from the merge route re-runs the SAME authoritative
+ * `onDone` refresh a successful merge would — the state changed elsewhere,
+ * so the honest response is a fresh read, never a locally patched retry of
+ * the same stale pair.
  */
-function DuplicateInvariantQueue({
+export function DuplicateInvariantQueue({
   experimentId,
   pairs,
   onDone,
@@ -5312,6 +5315,7 @@ function DuplicateInvariantQueue({
 
   const merge = useCallback(
     async (survivorId: string, mergedId: string) => {
+      if (busy) return; // duplicate-click guard — a second call while one is in flight is a no-op
       setBusy(true);
       setErr(null);
       try {
@@ -5325,7 +5329,20 @@ function DuplicateInvariantQueue({
           }),
         });
         const d = await res.json().catch(() => null);
-        if (!d?.ok) throw new Error(d?.error || `merge refused (HTTP ${res.status})`);
+        if (!d?.ok) {
+          setErr(d?.error || `merge refused (HTTP ${res.status})`);
+          if (res.status === 409) {
+            // STALE PAIR: the underlying state changed elsewhere. Re-sync
+            // from the SAME authoritative sequence a successful merge would
+            // trigger — never a locally patched retry of a pair the server
+            // no longer recognises. `settleTrack2DuplicateQueue` itself
+            // decides whether pairs remain or the queue is now empty; this
+            // component has no opinion on that.
+            setOverrideReason("");
+            await onDone();
+          }
+          return;
+        }
         setOverrideReason("");
         // AUTHORITATIVE refresh sequence lives in the parent — this
         // component stays busy until it fully resolves (readiness re-read,
@@ -5337,7 +5354,7 @@ function DuplicateInvariantQueue({
         setBusy(false);
       }
     },
-    [experimentId, overrideReason, onDone],
+    [experimentId, overrideReason, onDone, busy],
   );
 
   if (!open) {
@@ -5374,6 +5391,32 @@ function DuplicateInvariantQueue({
     low: "border-slate-700 bg-slate-800/40 text-slate-300",
   };
 
+  const candidates: Array<{
+    id: string;
+    statement: string;
+    isRecommended: boolean;
+    survivorId: string;
+    mergedId: string;
+    buttonLabel: string;
+  }> = [
+    {
+      id: current.aId,
+      statement: current.aStatement,
+      isRecommended: recommendsA,
+      survivorId: current.aId,
+      mergedId: current.bId,
+      buttonLabel: !rec ? "Keep this candidate" : recommendsA ? "Keep recommended candidate" : "Keep alternative candidate",
+    },
+    {
+      id: current.bId,
+      statement: current.bStatement,
+      isRecommended: recommendsB,
+      survivorId: current.bId,
+      mergedId: current.aId,
+      buttonLabel: !rec ? "Keep this candidate" : recommendsB ? "Keep recommended candidate" : "Keep alternative candidate",
+    },
+  ];
+
   return (
     <div className="mt-1.5 space-y-2 rounded border border-slate-800 bg-slate-900/40 p-2 text-[11px]">
       <div className="flex items-center justify-between text-slate-400">
@@ -5386,50 +5429,60 @@ function DuplicateInvariantQueue({
         {rec && (
           <div className={`rounded border px-1.5 py-1 ${CONFIDENCE_STYLE[rec.confidence]}`}>
             <div className="font-medium">
-              Recommendation: keep {rec.recommendedId} — {rec.confidence} confidence
+              Recommendation: keep {recommendsA ? current.aId : current.bId} — {rec.confidence} confidence
+              {rec.confidence === "low" ? " (candidates equivalent on available evidence)" : ""}
             </div>
-            {rec.reasons.map((r, i) => (
-              <div key={i} className="mt-0.5 text-slate-400">
-                {r.criterion}: {r.detail}
+            {/* Native <details>/<summary> — genuinely keyboard-operable
+                (Enter/Space toggles, focusable by default) and announced by
+                screen readers via built-in disclosure semantics, with NO
+                hand-rolled ARIA. Collapsed by default so the reasoning never
+                reads as dense, always-on diagnostic text (operator finding,
+                2026-08-27, "UI acceptance gap"). */}
+            <details className="mt-1">
+              <summary className="cursor-pointer select-none text-slate-400 hover:text-slate-200 focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-1 focus-visible:outline-slate-400">
+                Why this recommendation?
+              </summary>
+              <div className="mt-1 space-y-0.5 pl-2">
+                {rec.reasons.map((r, i) => (
+                  <div key={i} className="text-slate-400">
+                    <span className="font-mono text-[10px] text-slate-500">{r.criterion}</span>: {r.detail}
+                  </div>
+                ))}
               </div>
-            ))}
+            </details>
           </div>
         )}
-        <div className={`rounded border p-1.5 ${recommendsA ? "border-emerald-800/60 bg-emerald-950/10" : "border-slate-800"}`}>
-          <div className="font-mono text-[10px] text-slate-400">
-            {current.aId}
-            {recommendsA ? " — recommended survivor" : ""}
+        {candidates.map((c) => (
+          <div
+            key={c.id}
+            className={`rounded border p-1.5 ${c.isRecommended ? "border-emerald-800/60 bg-emerald-950/10" : "border-slate-800"}`}
+          >
+            {c.isRecommended && (
+              <span className="mb-0.5 inline-block rounded bg-emerald-900/50 px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-300">
+                Recommended
+              </span>
+            )}
+            {/* The full statement is the PRIMARY, prominent text; the id is
+                secondary metadata rendered smaller and muted below it
+                (operator finding, 2026-08-27, "UI acceptance gap": a steward
+                adjudicates on the STATEMENT, not on a UUID). */}
+            <div className="text-slate-200">{c.statement}</div>
+            <div className="mt-0.5 font-mono text-[10px] text-slate-500">{c.id}</div>
           </div>
-          <div className="mt-0.5 text-slate-200">{current.aStatement}</div>
-        </div>
-        <div className={`rounded border p-1.5 ${recommendsB ? "border-emerald-800/60 bg-emerald-950/10" : "border-slate-800"}`}>
-          <div className="font-mono text-[10px] text-slate-400">
-            {current.bId}
-            {recommendsB ? " — recommended survivor" : ""}
-          </div>
-          <div className="mt-0.5 text-slate-200">{current.bStatement}</div>
-        </div>
+        ))}
         <div className="flex gap-1.5">
-          <button
-            type="button"
-            onClick={() => void merge(current.aId, current.bId)}
-            disabled={busy}
-            className="flex items-center gap-1 rounded border border-emerald-800 bg-emerald-900/30 px-2 py-0.5 font-medium text-emerald-200 disabled:opacity-50"
-          >
-            {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
-            Keep {current.aId}
-            {recommendsA ? " (recommended)" : ""}
-          </button>
-          <button
-            type="button"
-            onClick={() => void merge(current.bId, current.aId)}
-            disabled={busy}
-            className="flex items-center gap-1 rounded border border-emerald-800 bg-emerald-900/30 px-2 py-0.5 font-medium text-emerald-200 disabled:opacity-50"
-          >
-            {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
-            Keep {current.bId}
-            {recommendsB ? " (recommended)" : ""}
-          </button>
+          {candidates.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => void merge(c.survivorId, c.mergedId)}
+              disabled={busy}
+              className="flex items-center gap-1 rounded border border-emerald-800 bg-emerald-900/30 px-2 py-0.5 font-medium text-emerald-200 disabled:opacity-50"
+            >
+              {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+              {c.buttonLabel}
+            </button>
+          ))}
         </div>
         <input
           type="text"
