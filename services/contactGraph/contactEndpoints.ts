@@ -131,6 +131,38 @@ export async function addContactEndpoint(
   return { ok: true, value: rowToEndpoint(data as Record<string, unknown>) };
 }
 
+/**
+ * BATCHED read for a whole projection page — the People 504 fix
+ * (2026-08-27), paired with `listContactPersonasForOwner`. `listContactEndpoints`
+ * above does one ownership-check query PLUS one list query PER
+ * ContactPersona; a projection fanning out over every persona of every
+ * ContactPerson (see services/contactGraph/projection.ts) turned that into
+ * thousands of sequential round trips for a persona with a large address
+ * book, and was the dominant contributor to a live GET
+ * /api/contactgraph/people 504. Ownership is enforced in the SAME single
+ * query via the `contact_personas` join (mirrors `ownsContactPersona`'s
+ * own filter) — no per-id ownership check needed, and no N+1. Returns ALL
+ * endpoints across every requested ContactPersona in one round trip;
+ * callers group by `contactPersonaId` in memory. `contactPersonaIds` MUST
+ * already be ownership-filtered (e.g. via `listContactPersonasForOwner`).
+ */
+export async function listContactEndpointsForPersonas(
+  ownerAuthProfileId: string,
+  contactPersonaIds: string[],
+): Promise<PeerResult<ContactEndpoint[]>> {
+  const admin = getSupabaseServer();
+  if (!admin) return { ok: false, error: 'Supabase unavailable' };
+  if (contactPersonaIds.length === 0) return { ok: true, value: [] };
+  const { data, error } = await admin
+    .from(CONTACT_ENDPOINTS)
+    .select('*, contact_personas!inner(owner_auth_profile_id)')
+    .in('contact_persona_id', contactPersonaIds)
+    .eq('contact_personas.owner_auth_profile_id', ownerAuthProfileId)
+    .order('created_at', { ascending: true });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, value: (data ?? []).map((r) => rowToEndpoint(r as Record<string, unknown>)) };
+}
+
 export async function listContactEndpoints(
   ownerAuthProfileId: string,
   contactPersonaId: string,

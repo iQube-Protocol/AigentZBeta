@@ -2280,18 +2280,35 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin, ag
         const toMatch = resolvedPrompt.match(/\bto\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/);
         if (toMatch) searchName = toMatch[1];
       }
-      let resolvedTo = searchName;
+      /*
+       * Recipient safety fix (2026-08-27) — a bare display name is NOT a
+       * resolved recipient, and picking `limit=1`'s single hit unconditionally
+       * discards genuine ambiguity (two "Abi"s) as silently as it discarded a
+       * zero-match failure (falling back to the raw name string as `to`,
+       * which the Gmail composer would then treat as a literal recipient
+       * address). Bump the bound so ambiguity is actually detectable, then
+       * apply the SAME never-guess discipline services/contacts/
+       * resolveRecipient.ts already established: exactly one plausible match
+       * with a real email is safe to prefill; zero or 2+ matches is genuine
+       * ambiguity/no-evidence, so `to` stays EMPTY rather than guessed — the
+       * operator fills or confirms it in the composer, which is honest,
+       * versus a value that LOOKS resolved but is either a bare name or a
+       * silently-picked guess.
+       */
+      let resolvedTo = '';
       if (searchName) {
         try {
           const res = await personaFetch(
-            `/api/contacts?q=${encodeURIComponent(searchName)}&limit=1`,
+            `/api/contacts?q=${encodeURIComponent(searchName)}&limit=5`,
           );
           if (res.ok) {
             const data = await res.json() as { contacts?: Array<{ email?: string; display_name?: string }> };
-            const hit = data.contacts?.[0];
-            if (hit?.email) resolvedTo = hit.email;
+            const withEmail = (data.contacts ?? []).filter(
+              (c): c is { email: string; display_name?: string } => typeof c.email === 'string' && c.email.trim().length > 0,
+            );
+            if (withEmail.length === 1) resolvedTo = withEmail[0].email;
           }
-        } catch { /* soft-fail — name stays as To value */ }
+        } catch { /* soft-fail — recipient stays unresolved, never guessed */ }
       }
       setComposerPrefill({
         to: resolvedTo,
