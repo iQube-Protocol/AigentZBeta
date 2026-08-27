@@ -446,17 +446,18 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
     // see that tab's own comment in data/codex-configs.ts): only the EXPANDED
     // destination now differs, landing on IRL OS.
     //
-    // CONTAINED 2026-08-27 (docs/security/2026-08-27_irl-os-containment-breach-audit.md,
-    // operator-approved Phase 1 disposition): irl-os-workspace is now
-    // `enabled: false` — it shared PartnerProgrammesTab/DeepLinkCard
-    // rendering with metaMe IRL's own Workspace tab, which constructed live
-    // irl-cartridge deep links (personaId/isAdmin as query params) directly
-    // in the public cartridge. Repointed at the always-enabled Welcome tab
-    // so this affordance never dangles onto a hidden tab. Restore to a
-    // scoped Workspace destination in Phase 2 once that surface has an IRL
-    // OS-native, public-safe projection.
+    // CONTAINED 2026-08-27, RESTORED 2026-08-27 (docs/security/2026-08-27_irl-os-containment-breach-audit.md):
+    // irl-os-workspace was `enabled: false` during containment — it shared
+    // PartnerProgrammesTab/DeepLinkCard rendering with metaMe IRL's own
+    // Workspace tab, which constructed live irl-cartridge deep links
+    // directly in the public cartridge, so this affordance was repointed at
+    // the always-enabled Welcome tab. irl-os-workspace is now restored with
+    // a render-boundary guard (`forbiddenCodexSlugs` — data/codex-configs.ts's
+    // `buildResearchWorkspaceTab`) that drops any irl-cartridge DeepLinkCard
+    // for THIS mount, so it is safe to point back at the real Workspace
+    // destination.
     expandedCodexSlug: 'irl-os-cartridge',
-    expandedTab: 'irl-os-welcome',
+    expandedTab: 'irl-os-workspace',
     note:
       'The REAL Reciprocal Artifact Exchange workspace (IRLExchangeTab, PRD-IRL-AX-001) — reused ' +
       'verbatim across create-deposit, freeze-attestation-ready, freeze-attestation, exchange-ready ' +

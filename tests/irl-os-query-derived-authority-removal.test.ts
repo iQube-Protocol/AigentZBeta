@@ -244,7 +244,11 @@ describe('Known-confidential content cannot reach the public client bundle', () 
     // inside this repository to prove.
     const code = stripComments(readSource('app/triad/components/codex/tabs/AgentiqCartridgeTab.tsx'));
     expect(code).not.toMatch(/from\s+["']@?\/?codexes\/packs\//);
-    expect(code).toMatch(/fetch\(`\/api\/codex\/packs\/\$\{packId\}\/file/);
+    // personaFetch (utils/personaSpine) is the canonical authenticated
+    // fetch wrapper (2026-08-27 scoped restoration) — still a runtime call,
+    // never a static import; matches either the bare or persona-authenticated
+    // form so this canary does not regress when the caller attaches auth.
+    expect(code).toMatch(/(?:persona)?[Ff]etch\(`\/api\/codex\/packs\/\$\{packId\}\/file/);
   });
 
   it('the packs/file route and the public/irl/doc route are the ONLY server-side readers of codexes/packs/irl — no third unaudited reader exists', () => {

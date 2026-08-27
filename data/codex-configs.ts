@@ -83,7 +83,21 @@ function workspaceSlugSuffix(fullSlug: string): string {
   return fullSlug.replace(/^irl-workspace-/, '');
 }
 
+/**
+ * SECURITY (2026-08-27 IRL OS scoped restoration): the IRL OS mount
+ * (`idPrefix` starting `irl-os-`) is a PUBLIC host — its Workspace tab must
+ * never hand a viewer (even one holding a genuine research-lab grant for
+ * whichever workspace they're scoped to) a navigable DeepLinkCard into the
+ * private `irl-cartridge`. `forbiddenCodexSlugs` is a render-boundary guard
+ * (PartnerProgrammesTab.tsx) — it does not touch researchWorkspace.ts's
+ * shared link data, so the identical workspace mounted inside the PRIVATE
+ * `irl-cartridge`'s own Workspace tab (idPrefix `irl-workspace`) keeps its
+ * legitimate `irl-cartridge` self-links unchanged. See the prop's own doc
+ * comment on PartnerProgrammesTabProps and the containment audit's Residual
+ * Risk 1 (docs/security/2026-08-27_irl-os-containment-breach-audit.md).
+ */
 function buildResearchWorkspaceTab(idPrefix: string) {
+  const forbiddenCodexSlugs = idPrefix.startsWith('irl-os-') ? ['irl-cartridge'] : undefined;
   return {
     id: idPrefix,
     label: 'Workspace',
@@ -95,7 +109,7 @@ function buildResearchWorkspaceTab(idPrefix: string) {
     participationDomain: 'research-lab',
     config: {
       component: 'PartnerProgrammesTab',
-      props: { initialSurface: 'overview', workspaceDomain: 'research' },
+      props: { initialSurface: 'overview', workspaceDomain: 'research', forbiddenCodexSlugs },
     },
     metadata: {
       icon: 'LayoutGrid',
@@ -116,7 +130,7 @@ function buildResearchWorkspaceTab(idPrefix: string) {
           participationRoles: [...view.roles],
           config: {
             component: 'PartnerProgrammesTab',
-            props: { initialSurface: view.id, workspaceDomain: 'research' },
+            props: { initialSurface: view.id, workspaceDomain: 'research', forbiddenCodexSlugs },
           },
           metadata: { icon: view.icon, description: view.description, color: 'violet' },
         }),
@@ -136,7 +150,7 @@ function buildResearchWorkspaceTab(idPrefix: string) {
         type: 'static' as const,
         config: {
           component: 'PartnerProgrammesTab',
-          props: { initialSurface: RESEARCH_WORKSPACE_ADMIN_VIEW.id, workspaceDomain: 'research' },
+          props: { initialSurface: RESEARCH_WORKSPACE_ADMIN_VIEW.id, workspaceDomain: 'research', forbiddenCodexSlugs },
         },
         metadata: {
           icon: RESEARCH_WORKSPACE_ADMIN_VIEW.icon,
@@ -6851,25 +6865,44 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
       },
     },
     // ── Workspace (SPEC-IRL-WORKSPACE-001) — added 2026-07-29 ───────
-    // CONTAINED 2026-08-27 (see
-    // docs/security/2026-08-27_irl-os-containment-breach-audit.md): this tab
-    // is DISABLED, not removed, pending a Phase 2 IRL OS-native projection.
-    // `RESEARCH_WORKSPACES` (services/research/researchWorkspace.ts) hardcodes
-    // `codexSlug: 'irl-cartridge'` on the Protocols & Articles / EXP-P1
-    // Readiness / Experiments / Reports / Records & Findings / Independent
-    // Review / Observer Review links every research-programme workspace
-    // carries, and `PartnerProgrammesTab`'s `DeepLinkCard` builds those into
-    // live hrefs — `personaId`/`isAdmin` included as query params — straight
-    // into the PRIVATE `irl-cartridge`. Because this Workspace tab shares the
-    // SAME `buildResearchWorkspaceTab` builder (and therefore the same
+    // CONTAINED 2026-08-27, RESTORED 2026-08-27 (scoped restoration — see
+    // docs/security/2026-08-27_irl-os-containment-breach-audit.md and its
+    // Residual Risk 1). Original defect: `RESEARCH_WORKSPACES` (services/
+    // research/researchWorkspace.ts) hardcodes `codexSlug: 'irl-cartridge'`
+    // on the Protocols & Articles / EXP-P1 Readiness / Experiments / Reports
+    // / Records & Findings / Independent Review / Observer Review links
+    // every research-programme workspace carries, and `PartnerProgrammesTab`'s
+    // `DeepLinkCard` builds those into live hrefs straight into the PRIVATE
+    // `irl-cartridge`. Because this Workspace tab shares the SAME
+    // `buildResearchWorkspaceTab` builder (and therefore the same
     // `PartnerProgrammesTab` mount) as the internal IRL cartridge's own
     // Workspace tab, any IRL OS visitor who reached a workspace with ANY
     // research-lab access grant saw these `irl-cartridge` deep links
-    // rendered directly in the public cartridge — the confirmed root cause
-    // of the breach. Disabled here until `RESEARCH_WORKSPACES`' links carry a
-    // public/gated destination that never resolves into `irl-cartridge` for
-    // an IRL OS caller (Phase 2).
-    { ...buildResearchWorkspaceTab('irl-os-workspace'), enabled: false },
+    // rendered directly in the public cartridge.
+    //
+    // Fix (render-boundary guard, not a data rewrite): `buildResearchWorkspaceTab`
+    // now passes `forbiddenCodexSlugs: ['irl-cartridge']` into every
+    // `PartnerProgrammesTab` mount whose `idPrefix` starts `irl-os-`.
+    // `AreaLinks` (PartnerProgrammesTab.tsx) drops any DeepLinkCard whose
+    // `codexSlug` is on that list — for THIS mount only, the same
+    // established "this mount only" contract `hiddenLinkIds` already used.
+    // The internal `irl-cartridge` Workspace tab (`idPrefix: 'irl-workspace'`)
+    // is untouched and keeps its legitimate self-links.
+    //
+    // Access model unchanged and already correct (verified, not modified):
+    // `grantedScopes`/`scopesGrantedIn` (participation access) still cohort-
+    // isolates WHICH workspace(s) a caller may even see (MS-9 — a control
+    // that cannot act must not render) — a public/ungranted visitor lands on
+    // the honest, generic `unscopedHint`/`emptyRegistry` empty state (no
+    // workspace names, no programme content), never a workspace list or its
+    // links. A canonical admin sees the full workspace picker as before,
+    // minus any `irl-cartridge` link (they have direct access to metaMe IRL
+    // itself for that). An invitation/cohort-scoped non-admin participant
+    // (Autonomi reviewer, Lehigh capstone, OCSGA, VP1) still opens exactly
+    // their own granted workspace, with every non-`irl-cartridge` link intact
+    // and every `irl-cartridge` link silently omitted rather than rendered
+    // broken or redirecting into the private cartridge.
+    buildResearchWorkspaceTab('irl-os-workspace'),
   ],
   permissions: {
     view: ['*'],

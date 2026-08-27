@@ -11,6 +11,7 @@ import { AlertCircle, ArrowDownUp, CheckCircle2, ChevronLeft, ChevronRight, File
 import { getCachedOrFetch } from "../cache";
 import { CopilotInferenceBodyRenderer } from "@/app/components/codex/CopilotInferenceBodyRenderer";
 import { CodexCopilotLayer, type CopilotMessage } from "@/app/components/codex/CodexCopilotLayer";
+import { personaFetch } from "@/utils/personaSpine";
 
 interface CollectionEntry {
   id: string;
@@ -135,7 +136,18 @@ export function AgentiqCartridgeTab({ packId, collectionId, defaultPath, editabl
         const collections = await getCachedOrFetch<CollectionEntry[]>(
           `codex:pack:${packId}:collections`,
           async () => {
-            const response = await fetch(`/api/codex/packs/${packId}/file?path=collections.json`);
+            // SECURITY (2026-08-27 IRL OS scoped restoration): this route now
+            // requires canonical server-resolved admin for gated packs (the
+            // `irl` pack's default-deny — see app/api/codex/packs/[packId]/
+            // file/route.ts). A plain `fetch()` never carried the caller's
+            // identity, so this call 403'd for EVERY caller including a
+            // genuinely authenticated admin — the confirmed root cause of the
+            // "Failed to load collections for irl" regression across metaMe
+            // IRL. `personaFetch` attaches the caller's Bearer token when one
+            // exists (per CLAUDE.md's "Client-side spine fetches" rule) and
+            // is a no-op passthrough for an anonymous caller — every other
+            // (ungated) pack this component renders is unaffected either way.
+            const response = await personaFetch(`/api/codex/packs/${packId}/file?path=collections.json`);
             if (!response.ok) {
               throw new Error(`Failed to load collections for ${packId}`);
             }
@@ -155,7 +167,23 @@ export function AgentiqCartridgeTab({ packId, collectionId, defaultPath, editabl
           setActivePath(defaultPath ?? candidates[0] ?? null);
         }
       } catch (err) {
-        if (isMounted) {
+        // SECURITY (2026-08-27 IRL OS scoped restoration): a caller who is
+        // NOT authorized to see the full collection listing (e.g. a public
+        // IRL OS visitor against the gated `irl` pack) must not be hard-
+        // blocked from reading the one document this mount was explicitly
+        // given as `defaultPath` — that document's own admin/allowlist gate
+        // is enforced independently, server-side, by the SAME route the
+        // content-loading effect below calls. Synthesizing a single-item
+        // collection here does not widen access: it only lets the content
+        // effect attempt the read it would have attempted anyway, instead of
+        // failing before ever trying. No collection titles, item lists, or
+        // document bodies from the real (denied) collections.json reach this
+        // branch — `match` below is fabricated from the prop the caller
+        // (data/codex-configs.ts) already declared, not from server data.
+        if (isMounted && defaultPath) {
+          setCollection({ id: collectionId, title: titleCase(collectionId), items: [defaultPath] });
+          setActivePath(defaultPath);
+        } else if (isMounted) {
           setError(err instanceof Error ? err.message : "Failed to load collection.");
         }
       } finally {
@@ -180,7 +208,8 @@ export function AgentiqCartridgeTab({ packId, collectionId, defaultPath, editabl
         const payload = await getCachedOrFetch<FileResponse>(
           `codex:pack:${packId}:file:${activePath}`,
           async () => {
-            const response = await fetch(`/api/codex/packs/${packId}/file?path=${encoded}`);
+            // See the collections-fetch comment above — same route, same fix.
+            const response = await personaFetch(`/api/codex/packs/${packId}/file?path=${encoded}`);
             if (!response.ok) {
               throw new Error(`Failed to load ${activePath}`);
             }

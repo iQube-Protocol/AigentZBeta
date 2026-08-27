@@ -20,6 +20,14 @@
  * rendering alias, or authority bridge into private metaMe IRL. No IRL OS
  * surface may link to, embed, mount, redirect to, or reconstruct a
  * destination in `irl-cartridge`.
+ *
+ * UPDATE 2026-08-27 (scoped restoration): `irl-os-workspace` was disabled by
+ * the original containment pass above and is RESTORED here with a
+ * render-boundary guard instead — `forbiddenCodexSlugs: ['irl-cartridge']`
+ * on every `PartnerProgrammesTab` mount under it (`buildResearchWorkspaceTab`
+ * in data/codex-configs.ts) drops any DeepLinkCard resolving to the private
+ * cartridge, for that mount only. The hard invariant above still holds: it
+ * is enforced at the render boundary now instead of by disabling the tab.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -40,7 +48,15 @@ function collectDestinationStrings(tabs: unknown): string[] {
     const obj = node as Record<string, unknown>;
     if (typeof obj.slug === 'string') out.push(obj.slug);
     if (obj.config && typeof obj.config === 'object') {
-      out.push(JSON.stringify((obj.config as Record<string, unknown>).props ?? {}));
+      const props = { ...(((obj.config as Record<string, unknown>).props as Record<string, unknown>) ?? {}) };
+      // SECURITY (2026-08-27 scoped restoration): `forbiddenCodexSlugs` is a
+      // DENYLIST that legitimately names 'irl-cartridge' as a value this
+      // mount must never resolve to (the render-boundary guard restoring
+      // irl-os-workspace) -- that is the fix, not a destination. Excluded
+      // from this destination scan; its presence is verified positively by
+      // the dedicated describe block below instead.
+      delete props.forbiddenCodexSlugs;
+      out.push(JSON.stringify(props));
     }
     if (Array.isArray(obj.subTabs)) obj.subTabs.forEach(walk);
   };
@@ -55,11 +71,38 @@ describe('IRL OS cartridge — no irl-cartridge destination anywhere in its tab 
     expect(offenders, `Found irl-cartridge destination(s): ${JSON.stringify(offenders)}`).toHaveLength(0);
   });
 
-  it('the FULL serialized cartridge definition contains no "irl-cartridge" substring', () => {
+  it('the FULL serialized cartridge definition contains no "irl-cartridge" as a slug/codexSlug/tab destination', () => {
     // Belt-and-braces: catches anything the structural walk above might miss
-    // (e.g. a destination string nested somewhere unexpected).
+    // (e.g. a destination string nested somewhere unexpected). Matches
+    // destination-shaped key:value pairs only -- `forbiddenCodexSlugs`
+    // (2026-08-27 scoped restoration) legitimately embeds "irl-cartridge" as
+    // a DENYLISTED value on the restored irl-os-workspace tab, verified
+    // positively below; a blanket substring check would false-positive on
+    // exactly the fix this file otherwise enforces.
     const serialized = JSON.stringify(IRL_OS_CARTRIDGE);
-    expect(serialized).not.toContain('irl-cartridge');
+    expect(serialized).not.toMatch(/"(?:slug|codexSlug|tab)":"irl-cartridge"/);
+  });
+
+  it('the ONLY place "irl-cartridge" appears in the serialized cartridge is the forbiddenCodexSlugs denylist', () => {
+    const serialized = JSON.stringify(IRL_OS_CARTRIDGE);
+    const occurrences = serialized.match(/"irl-cartridge"/g) ?? [];
+    const denylistOccurrences = serialized.match(/"forbiddenCodexSlugs":\["irl-cartridge"\]/g) ?? [];
+    expect(occurrences.length).toBeGreaterThan(0);
+    expect(occurrences.length).toBe(denylistOccurrences.length);
+  });
+});
+
+describe('IRL OS cartridge — irl-os-workspace restored with a render-boundary guard (2026-08-27)', () => {
+  it('irl-os-workspace and every subTab forbid the irl-cartridge codexSlug', () => {
+    const tab = IRL_OS_CARTRIDGE.tabs.find((t) => (t as { id?: string }).id === 'irl-os-workspace') as
+      | { config?: { props?: { forbiddenCodexSlugs?: string[] } }; subTabs?: Array<{ id: string; config?: { props?: { forbiddenCodexSlugs?: string[] } } }>; enabled?: boolean }
+      | undefined;
+    expect(tab, 'irl-os-workspace must be present').toBeDefined();
+    expect(tab?.enabled).toBe(true);
+    expect(tab?.config?.props?.forbiddenCodexSlugs).toEqual(['irl-cartridge']);
+    for (const sub of tab?.subTabs ?? []) {
+      expect(sub.config?.props?.forbiddenCodexSlugs, `${sub.id} must also forbid irl-cartridge`).toEqual(['irl-cartridge']);
+    }
   });
 });
 
@@ -70,10 +113,10 @@ describe('IRL OS cartridge — the confirmed breach vector stays disabled', () =
       | undefined;
   }
 
-  it('irl-os-workspace (buildResearchWorkspaceTab — the DeepLinkCard/irl-cartridge vector) is disabled', () => {
+  it('irl-os-workspace (buildResearchWorkspaceTab — the former DeepLinkCard/irl-cartridge vector) is RESTORED, enabled, with the irl-cartridge codexSlug guarded off (2026-08-27 scoped restoration)', () => {
     const tab = findTab('irl-os-workspace');
-    expect(tab, 'irl-os-workspace tab must still be present (disabled), not silently removed').toBeDefined();
-    expect(tab?.enabled).toBe(false);
+    expect(tab, 'irl-os-workspace tab must be present').toBeDefined();
+    expect(tab?.enabled).toBe(true);
   });
 
   it('irl-os-validation-programme (mounts the same PartnerProgrammesTab family) is disabled', () => {
@@ -145,9 +188,9 @@ describe('Source-level canary — no IRL OS-owned source file hardcodes irl-cart
     },
   );
 
-  it('BoundaryResearchProgressPanel "Explore IRL OS" link no longer targets the disabled irl-os-workspace tab', () => {
+  it('BoundaryResearchProgressPanel "Explore IRL OS" link targets the now-restored, guarded irl-os-workspace tab (2026-08-27 scoped restoration)', () => {
     const code = readSource('components/journey/BoundaryResearchProgressPanel.tsx');
-    expect(code).not.toMatch(/tab:\s*['"]irl-os-workspace['"]/);
+    expect(code).toMatch(/tab:\s*['"]irl-os-workspace['"]/);
   });
 });
 

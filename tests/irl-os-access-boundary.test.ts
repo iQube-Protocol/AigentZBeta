@@ -1,6 +1,22 @@
 /**
  * IRL OS / metaMe IRL access-boundary correction (2026-08-26).
  *
+ * UPDATE 2026-08-27 (scoped restoration, see
+ * docs/security/2026-08-27_irl-os-containment-breach-audit.md): the
+ * 2026-08-27 emergency containment pass temporarily disabled
+ * `irl-os-workspace` (it shared PartnerProgrammesTab/DeepLinkCard rendering
+ * with metaMe IRL's own Workspace tab, constructing live `irl-cartridge`
+ * deep links directly in the public cartridge) and repointed the
+ * `irl-exchange-workspace` Full View / `BoundaryResearchProgressPanel`
+ * "Explore IRL OS" affordances at `irl-os-welcome` instead, so they would
+ * not dangle onto a hidden tab. `irl-os-workspace` is now RESTORED with a
+ * render-boundary guard (`forbiddenCodexSlugs` on every PartnerProgrammesTab
+ * mount under it — see `buildResearchWorkspaceTab` in data/codex-configs.ts)
+ * that drops any DeepLinkCard resolving to `irl-cartridge`, for that mount
+ * only. Both affordances below are repointed back at `irl-os-workspace`. The
+ * rest of this file's original 2026-08-26 access-boundary correction is
+ * otherwise unchanged and still governs.
+ *
  * CANONICAL INVARIANT (operator ruling, 2026-08-26): "IRL OS is the
  * participation boundary; metaMe IRL is the administrative laboratory."
  * Generalized: external IRL participant -> IRL OS; admin/internal lab
@@ -137,12 +153,13 @@ describe('1. OCSGA Bridge Full View resolves to IRL OS', () => {
   it('declares expandedCodexSlug/expandedTab pointing at IRL OS, never metaMe IRL', () => {
     if (descriptor.kind !== 'embed') return;
     expect(descriptor.expandedCodexSlug).toBe('irl-os-cartridge');
-    // CONTAINED 2026-08-27 (docs/security/2026-08-27_irl-os-containment-breach-audit.md,
-    // operator-approved Phase 1 disposition): repointed from the now-disabled
-    // irl-os-workspace (which shared PartnerProgrammesTab/DeepLinkCard
-    // rendering with metaMe IRL's own Workspace tab) to the always-enabled
-    // Welcome tab, so this affordance never dangles onto a hidden tab.
-    expect(descriptor.expandedTab).toBe('irl-os-welcome');
+    // CONTAINED 2026-08-27, RESTORED 2026-08-27 (docs/security/2026-08-27_irl-os-containment-breach-audit.md):
+    // irl-os-workspace was temporarily repointed to the always-enabled
+    // Welcome tab while disabled. It is now restored with a render-boundary
+    // guard (forbiddenCodexSlugs -- see PartnerProgrammesTabProps) that
+    // drops any irl-cartridge DeepLinkCard for this mount, so this
+    // affordance is repointed back at the real Workspace destination.
+    expect(descriptor.expandedTab).toBe('irl-os-workspace');
   });
 
   it('parity: expandedCodexSlug matches IRL_OS_CARTRIDGE.id, expandedTab is a real, non-admin-gated, ENABLED tab on it', () => {
@@ -166,11 +183,11 @@ describe('1. OCSGA Bridge Full View resolves to IRL OS', () => {
     expect(src).not.toContain('irl-os-cartridge');
   });
 
-  it('buildEmbedSurfaceSrc: Full View (focused cleared -- the exact override JourneyRunSurface applies on openLabel click) targets irl-os-cartridge/irl-os-welcome, never irl-cartridge', () => {
+  it('buildEmbedSurfaceSrc: Full View (focused cleared -- the exact override JourneyRunSurface applies on openLabel click) targets irl-os-cartridge/irl-os-workspace, never irl-cartridge', () => {
     if (descriptor.kind !== 'embed') return;
     const src = buildEmbedSurfaceSrc({ ...descriptor, focused: undefined }, { personaId: 'persona-1' }, buildCodexUrl);
     expect(src).toContain('/triad/embed/codex/irl-os-cartridge');
-    expect(src).toContain('tab=irl-os-welcome');
+    expect(src).toContain('tab=irl-os-workspace');
     expect(src).not.toContain('/codex/irl-cartridge');
   });
 });
@@ -198,16 +215,21 @@ describe('2. External research invitation grants do not authorize metaMe IRL int
     const enabled = getEnabledTabs(IRL_OS_CARTRIDGE, false, false, false, new Set(), undefined, RESEARCH_LAB_GRANT);
     const ids = enabled.map((t) => t.id);
     expect(ids).toContain('irl-os-welcome');
-    // CONTAINED 2026-08-27 (docs/security/2026-08-27_irl-os-containment-breach-audit.md,
-    // operator-approved Phase 1 disposition): irl-os-workspace and
-    // irl-os-protocols are now `enabled: false` -- irl-os-workspace shared
+    // CONTAINED 2026-08-27, RESTORED 2026-08-27 (docs/security/2026-08-27_irl-os-containment-breach-audit.md):
+    // irl-os-workspace was `enabled: false` during containment -- it shared
     // PartnerProgrammesTab/DeepLinkCard rendering with metaMe IRL's own
     // Workspace tab, which constructed live irl-cartridge deep links
-    // (personaId/isAdmin as query params) directly in the public
-    // cartridge; irl-os-protocols served col_experiments via a route that
-    // (before the same pass) had no access control for the irl pack. Both
-    // are disabled, not removed, pending a Phase 2 IRL OS-native projection.
-    expect(ids).not.toContain('irl-os-workspace');
+    // directly in the public cartridge. It is now restored: every
+    // PartnerProgrammesTab mount under this tab passes
+    // `forbiddenCodexSlugs: ['irl-cartridge']`, which drops any DeepLinkCard
+    // resolving to the private cartridge, for this mount only -- the
+    // workspace's own link data (services/research/researchWorkspace.ts) is
+    // untouched, and a research-lab grant reaches its own scoped workspace
+    // exactly as it does inside metaMe IRL, minus the private-cartridge
+    // links. irl-os-protocols stays disabled -- it served col_experiments
+    // via a route that (before the same pass) had no access control for the
+    // irl pack, and no public-safe projection has been authored for it yet.
+    expect(ids).toContain('irl-os-workspace');
     expect(ids).not.toContain('irl-os-protocols');
     // irl-os-records is `enabled: false` by pre-existing design ("the
     // constitutional record lives in the metaMe IRL edition only") -- not
@@ -256,19 +278,41 @@ describe('4. Admin access to metaMe IRL remains intact', () => {
 });
 
 describe('5. Existing IRL OS participation flows remain unchanged', () => {
-  it("IRL_OS_CARTRIDGE's call to buildResearchWorkspaceTab is untouched -- irl-os-workspace and its subTabs are NOT adminOnly", () => {
+  it("IRL_OS_CARTRIDGE's irl-os-workspace and its subTabs are NOT adminOnly (access model unchanged by the 2026-08-27 restoration)", () => {
     const workspaceTab = IRL_OS_CARTRIDGE.tabs.find((t) => t.id === 'irl-os-workspace');
     expect(workspaceTab).toBeTruthy();
     expect(workspaceTab?.adminOnly).toBeFalsy();
+    expect(workspaceTab?.enabled).toBe(true);
     for (const sub of workspaceTab?.subTabs ?? []) {
       if (/administer|administration/i.test(sub.label)) continue; // TIER 0 stays admin-only in both
       expect(sub.adminOnly, `IRL OS workspace subTab '${sub.id}' must stay reachable`).toBeFalsy();
     }
   });
 
+  it('irl-os-workspace and every one of its subTabs forbid the irl-cartridge codexSlug (the render-boundary guard restoring this tab)', () => {
+    const workspaceTab = IRL_OS_CARTRIDGE.tabs.find((t) => t.id === 'irl-os-workspace') as
+      | { config?: { props?: { forbiddenCodexSlugs?: string[] } }; subTabs?: Array<{ id: string; config?: { props?: { forbiddenCodexSlugs?: string[] } } }> }
+      | undefined;
+    expect(workspaceTab).toBeTruthy();
+    expect(workspaceTab?.config?.props?.forbiddenCodexSlugs).toEqual(['irl-cartridge']);
+    for (const sub of workspaceTab?.subTabs ?? []) {
+      expect(
+        sub.config?.props?.forbiddenCodexSlugs,
+        `subTab '${sub.id}' must also forbid the irl-cartridge codexSlug`,
+      ).toEqual(['irl-cartridge']);
+    }
+    // The private cartridge's own Workspace mount must NOT carry this guard
+    // -- its irl-cartridge self-links (e.g. the Exchange link) are correct.
+    const privateWorkspaceTab = IRL_CARTRIDGE.tabs.find((t) => t.id === 'irl-workspace') as
+      | { config?: { props?: { forbiddenCodexSlugs?: string[] } } }
+      | undefined;
+    expect(privateWorkspaceTab?.config?.props?.forbiddenCodexSlugs).toBeUndefined();
+  });
+
   it('the participant-facing IRL OS tabs stay ungated', () => {
     for (const id of [
       'irl-os-welcome',
+      'irl-os-workspace',
       'irl-os-protocols',
       'irl-os-participation-overview',
       'irl-os-passport-apply',
@@ -369,9 +413,9 @@ describe('ocsga-boundary-research workspace links -- Protocols points at IRL OS,
 describe('BoundaryResearchProgressPanel -- "Explore IRL OS" now actually links to IRL OS', () => {
   const SOURCE = 'components/journey/BoundaryResearchProgressPanel.tsx';
 
-  it('buildCodexUrl targets irl-os-cartridge / irl-os-welcome (repointed 2026-08-27 off the now-disabled irl-os-workspace)', () => {
+  it('buildCodexUrl targets irl-os-cartridge / irl-os-workspace (restored 2026-08-27 once the render-boundary guard closed the irl-cartridge leak)', () => {
     const code = stripComments(readSource(SOURCE));
-    expect(code).toContain("buildCodexUrl('irl-os-cartridge', { tab: 'irl-os-welcome', personaId })");
+    expect(code).toContain("buildCodexUrl('irl-os-cartridge', { tab: 'irl-os-workspace', personaId })");
   });
 
   it('no remaining reference to irl-cartridge anywhere in this file (source code, not comments)', () => {

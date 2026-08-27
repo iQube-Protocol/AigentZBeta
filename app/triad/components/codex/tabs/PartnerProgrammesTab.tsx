@@ -362,6 +362,26 @@ interface PartnerProgrammesTabProps {
    * point 6: "remove: Records & Findings" from this rendering only).
    */
   hiddenLinkIds?: string[];
+  /**
+   * SECURITY (2026-08-27 IRL OS scoped restoration): codexSlug values a
+   * workspace's DeepLinkCards must never resolve to FROM THIS MOUNT — the
+   * workspace's own `links` array (services/research/researchWorkspace.ts)
+   * is untouched (same "this mount only" contract as `hiddenLinkIds`), so
+   * the identical workspace mounted elsewhere (e.g. inside the private
+   * `irl-cartridge`'s own Workspace tab, where an `irl-cartridge` self-link
+   * is correct) is unaffected. IRL OS (`irl-os-cartridge`) passes
+   * `['irl-cartridge']` here for every surface it mounts this component
+   * with: a caller who holds a genuine research-lab grant for a workspace
+   * (Autonomi review, Lehigh capstone, OCSGA, VP1 — `grantedScopes` above
+   * already cohort-isolates WHICH workspace they can even open) must still
+   * never be handed a navigable link INTO the private cartridge merely
+   * because they reached that workspace through the public host. This is
+   * the host-awareness guard the original containment audit named as the
+   * structurally sound fix (docs/security/2026-08-27_irl-os-containment-breach-audit.md,
+   * Residual Risk 1, option b) — enforced at the render boundary rather
+   * than by rewriting the shared workspace link data.
+   */
+  forbiddenCodexSlugs?: string[];
 }
 
 // ─── The two Labs, as configuration rather than branches ─────────────────────
@@ -746,6 +766,7 @@ function AreaLinks({
   personaId,
   isAdmin,
   hiddenLinkIds,
+  forbiddenCodexSlugs,
 }: {
   ws: { links: PartnerWorkspaceLink[] };
   area: PartnerWorkspaceLink["area"];
@@ -753,8 +774,12 @@ function AreaLinks({
   isAdmin?: boolean;
   /** Link ids to omit from THIS mount only — the workspace's own link list is untouched. */
   hiddenLinkIds?: string[];
+  /** codexSlug values to omit from THIS mount only — see the prop's doc comment on PartnerProgrammesTabProps. */
+  forbiddenCodexSlugs?: string[];
 }) {
-  const links = ws.links.filter((l) => l.area === area && !hiddenLinkIds?.includes(l.id));
+  const links = ws.links.filter(
+    (l) => l.area === area && !hiddenLinkIds?.includes(l.id) && !forbiddenCodexSlugs?.includes(l.codexSlug),
+  );
   if (links.length === 0) return null;
   return (
     <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -1485,7 +1510,7 @@ function EvidenceChainPanel({
   );
 }
 
-export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, workspaceDomain, workspaceVisibility, lockedWorkspaceId, hiddenLinkIds }: PartnerProgrammesTabProps) {
+export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, workspaceDomain, workspaceVisibility, lockedWorkspaceId, hiddenLinkIds, forbiddenCodexSlugs }: PartnerProgrammesTabProps) {
   const kind = asWorkspaceKind(workspaceDomain);
   const visibility = asVisibility(workspaceVisibility);
   const copy = KIND_COPY[kind];
@@ -1791,7 +1816,7 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
               </div>
             </div>
           )}
-          <AreaLinks ws={ws} area="overview" personaId={personaId} isAdmin={isAdmin} />
+          <AreaLinks ws={ws} area="overview" personaId={personaId} isAdmin={isAdmin} forbiddenCodexSlugs={forbiddenCodexSlugs} />
         </div>
       )}
 
@@ -1898,7 +1923,7 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
                 ))}
             </div>
           </div>
-          <AreaLinks ws={ws} area="operate" personaId={personaId} isAdmin={isAdmin} />
+          <AreaLinks ws={ws} area="operate" personaId={personaId} isAdmin={isAdmin} forbiddenCodexSlugs={forbiddenCodexSlugs} />
         </div>
       )}
 
@@ -1921,7 +1946,7 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
             personaId={personaId}
             differentiatorStatement={ws.differentiatorStatement}
           />
-          <AreaLinks ws={ws} area="evidence" personaId={personaId} isAdmin={isAdmin} hiddenLinkIds={hiddenLinkIds} />
+          <AreaLinks ws={ws} area="evidence" personaId={personaId} isAdmin={isAdmin} hiddenLinkIds={hiddenLinkIds} forbiddenCodexSlugs={forbiddenCodexSlugs} />
         </div>
       )}
 
@@ -1935,7 +1960,7 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
               surfaces below — this workspace links, it does not fork them.
             </p>
           </div>
-          <AreaLinks ws={ws} area="communicate" personaId={personaId} isAdmin={isAdmin} />
+          <AreaLinks ws={ws} area="communicate" personaId={personaId} isAdmin={isAdmin} forbiddenCodexSlugs={forbiddenCodexSlugs} />
         </div>
       )}
 
@@ -1958,7 +1983,7 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
               Reviewers never write to source assets, and review is evidence — not ratification.
             </p>
           </div>
-          <AreaLinks ws={ws} area="operate" personaId={personaId} isAdmin={isAdmin} />
+          <AreaLinks ws={ws} area="operate" personaId={personaId} isAdmin={isAdmin} forbiddenCodexSlugs={forbiddenCodexSlugs} />
         </div>
       )}
 
@@ -1978,7 +2003,7 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
               where this programme&apos;s materials live today.
             </p>
           </div>
-          <AreaLinks ws={ws} area="operate" personaId={personaId} isAdmin={isAdmin} />
+          <AreaLinks ws={ws} area="operate" personaId={personaId} isAdmin={isAdmin} forbiddenCodexSlugs={forbiddenCodexSlugs} />
         </div>
       )}
 
