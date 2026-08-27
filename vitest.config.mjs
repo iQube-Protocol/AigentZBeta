@@ -41,7 +41,12 @@ export default defineConfig({
     // were drowning 16 real unit failures, so the suite could not distinguish
     // "the code is broken" from "the test environment is absent". A test is
     // moved because it crosses a boundary, NEVER because it currently fails.
-    include: ["tests/**/*.test.ts"],
+    // `.tsx` added 2026-08-27 for genuine component-level tests (React
+    // Testing Library) — the default `environment` here stays "node" for
+    // every existing `.test.ts` file; a `.test.tsx` file opts into DOM
+    // rendering itself via a per-file `// @vitest-environment jsdom` pragma,
+    // so this widening changes nothing about how the other ~8000 tests run.
+    include: ["tests/**/*.test.ts", "tests/**/*.test.tsx"],
     exclude: ["**/node_modules/**", "**/*.integration.test.ts"],
     // Guarantees globalThis.crypto on Node 18, where WebCrypto is not yet a
     // default global. Without it the self-custody vault tests fail purely on
