@@ -6,14 +6,14 @@
  * requests a handoff and navigates the user here.
  *
  * On mount: redeems the handoff via `POST
- * /api/financial-services/handoffs/[handoffId]/redeem` (a spine endpoint —
- * `personaFetch` per CLAUDE.md's Identity & Access Spine rule, never raw
- * `fetch`). That single call performs everything spec'd for this stage:
- * validates + atomically consumes the handoff, re-resolves the principal and
- * current authority, confirms the action is still eligible, and resolves the
- * destination through the existing catalogue/journey machinery
- * (`resolveJourneyOperatorDestination`) — see
- * `services/handoffs/nativeActionHandoff.ts`.
+ * /api/adaptive/financial-services/handoffs/[handoffId]/redeem` (a spine
+ * endpoint — `personaFetch` per CLAUDE.md's Identity & Access Spine rule,
+ * never raw `fetch`). That single call performs everything spec'd for this
+ * stage: validates + atomically consumes the handoff, re-resolves the
+ * principal and current authority, confirms the capability is still
+ * eligible, and resolves the destination through the existing catalogue/
+ * journey machinery (`resolveJourneyOperatorDestination`) — see
+ * `services/adaptive/nativeHandoff.ts`.
  *
  * This component NEVER executes the underlying MoneyPenny act itself. It
  * only (a) embeds the EXACT, unmodified, already-registered MoneyPenny
@@ -37,8 +37,7 @@ interface RedeemSuccess {
   ok: true;
   journeyId: string;
   stageId: string | null;
-  actionRef: string;
-  capabilityRef: string;
+  capabilityId: string;
   nativeSurfaceRef: string;
   route: string | null;
   returnUrl: string;
@@ -75,7 +74,7 @@ export function FinancialServicesHandoffLanding({ handoffId }: { handoffId: stri
     let cancelled = false;
     (async () => {
       try {
-        const res = await personaFetch(`/api/financial-services/handoffs/${encodeURIComponent(handoffId)}/redeem`, {
+        const res = await personaFetch(`/api/adaptive/financial-services/handoffs/${encodeURIComponent(handoffId)}/redeem`, {
           method: 'POST',
         });
         const data = (await res.json().catch(() => null)) as RedeemResponse | null;
@@ -122,7 +121,7 @@ export function FinancialServicesHandoffLanding({ handoffId }: { handoffId: stri
   return (
     <div className="flex h-screen flex-col bg-slate-950">
       <div className="flex items-center justify-between border-b border-slate-800 bg-slate-900/40 px-4 py-2.5">
-        <span className="text-xs text-slate-400">MoneyPenny — {result.capabilityRef}</span>
+        <span className="text-xs text-slate-400">MoneyPenny — {result.capabilityId}</span>
         <div className="flex items-center gap-2">
           <a
             href={callbackUrl(result.returnUrl, handoffId, 'cancelled')}

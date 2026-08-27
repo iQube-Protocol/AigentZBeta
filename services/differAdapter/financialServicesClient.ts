@@ -1,24 +1,39 @@
 /**
- * financialServicesClient.ts — the Differ × Financial Services Bridge pilot,
- * part 6/7: the adapter Differ's OWN codebase imports.
+ * financialServicesClient.ts — the checked-in EXAMPLE consumer Differ's own
+ * codebase would import (operator ruling, 2026-08-27, Differ FS pilot
+ * reconciliation — retyped against AEE's `ExperienceProjection`, transport
+ * deliberately left unresolved).
  *
- * This module is deliberately self-contained (no `@/...` internal repo
- * imports, no dependency on this codebase's own modules) — it is the
- * CHECKED-IN EXAMPLE CONSUMER for an external integration whose codebase is
- * not present in this repo/session, per the operator's instruction: "If the
- * Differ codebase is not present in this repo/session, produce a checked-in
- * interface/example consumer rather than inventing an inaccessible
- * integration." Differ copies this file (or the two wire contracts it
- * documents) into its own codebase; it is not imported by anything else in
- * THIS repo.
+ * Deliberately self-contained (no `@/...` internal repo imports) — Differ
+ * copies this file (or the wire contracts it documents) into its own
+ * codebase; nothing else in THIS repo imports it.
+ *
+ * ── STATUS: NOT YET USABLE (Q7 unresolved) ──────────────────────────────
+ *
+ * `metaMeOrigin`/`fetchFinancialServicesProjection` etc. below describe the
+ * SHAPE of the contract, not a working integration. The server-side route
+ * they call answers 503 to every request today
+ * (services/adaptive/externalIntegrationRegistry.ts's `differ-fs-pilot`
+ * entry is `enabled: false`) because how Differ actually authenticates as
+ * an approved integration is not yet known — the Phase-0 audit found Differ
+ * is a hosting/observation platform, not a conventional API/SDK caller, so
+ * a browser running inside Differ's hosting might reuse the SAME
+ * authenticated user session (`transportMode: 'hosted-browser'`) rather
+ * than this file's shared-secret-header model. DO NOT configure a shared
+ * secret for this client, and do not treat `integrationApiKey` below as the
+ * settled architecture — it is a placeholder for the
+ * `transportMode: 'server-integration'` case ONLY, kept unimplemented
+ * (never sent) until an operator confirms which transport mode is real.
  *
  * Hard rules this adapter enforces on Differ's behalf (never violate these
  * when extending this file):
- *   1. Fetch and validate `schemaVersion` before rendering anything.
- *   2. Render ONLY services/actions present in the projection's own
- *      `nextActions` — never construct a capability/route/surface locally.
- *   3. Request a handoff ONLY for an `actionRef` already present in the
- *      last-fetched `nextActions`.
+ *   1. Fetch and validate the response shape before rendering anything.
+ *   2. Render ONLY capabilities present in the projection's own `surfaces`/
+ *      `primaryAction`/`secondaryActions` — never construct a capability/
+ *      route/surface locally.
+ *   3. Request a handoff ONLY for a `capabilityId` already present in the
+ *      last-fetched projection, and only when it was marked
+ *      `handoffOffered: true`.
  *   4. Navigate to the metaMe URL the handoff endpoint returns — never build
  *      or guess a metaMe URL directly.
  *   5. On return from metaMe, REFETCH the projection. The `outcome` query
@@ -26,72 +41,70 @@
  *      completion — it is read only to decide WHEN to refetch, never to set
  *      any local "completed" flag.
  *   6. Keep NO authoritative local journey cursor. Every render derives
- *      directly from the most recently fetched `FinancialServicesProjection`
- *      — there is no separate "what stage is the user on" variable this
- *      module maintains between fetches.
+ *      directly from the most recently fetched projection — there is no
+ *      separate "what stage is the user on" variable this module maintains
+ *      between fetches.
  */
 
-// ── Wire types — mirror app/api/public/financial-services/projection/route.ts
-//    and app/api/financial-services/handoffs/route.ts's JSON contracts
-//    exactly. Kept local (not imported) because this file ships into a
-//    codebase that does not have this repo's `@/types` available. ─────────
+// ── Wire types — mirror app/api/adaptive/financial-services/projection/route.ts
+//    and app/api/adaptive/financial-services/handoffs/route.ts's JSON
+//    contracts exactly. Kept local (not imported) because this file ships
+//    into a codebase that does not have this repo's `@/types` available. ──
 
-export type FinancialServiceStageStatus = 'complete' | 'ready' | 'blocked' | 'unknown';
+export type ExperienceProjectionLevel = 0 | 1 | 2 | 3;
 
-export interface FinancialServicesProjectionStage {
-  id: string;
+export interface ExperienceProjectionActionRef {
+  capabilityId: string;
   label: string;
-  status: FinancialServiceStageStatus;
-  explanation: string;
+  surfaceRef?: string;
+  /** True = requesting a handoff for this action is valid; false/absent =
+   *  this action, if offered at all, is a direct native-render/execute the
+   *  metaMe host itself handles — never something Differ requests a
+   *  handoff for. */
+  handoffOffered?: boolean;
 }
 
-export type FinancialServiceProviderMode = 'ADVISOR' | 'ARCHITECT' | 'RUNTIME';
-
-export interface FinancialServicesProjectionService {
-  serviceRef: string;
-  label: string;
-  provider: 'moneypenny';
-  mode: FinancialServiceProviderMode;
-  availability: 'available' | 'unavailable' | 'unknown';
+export interface ExperienceProjectionSurface {
+  capabilityId: string;
+  surfaceType: 'component' | 'modal' | 'route' | 'cartridge-tab' | 'embed' | 'companion-action';
+  hostRef?: string;
+  emphasis?: 'primary' | 'secondary' | 'suppressed';
+  handoffOffered?: boolean;
 }
 
-export interface FinancialServicesProjectionNextAction {
-  actionRef: string;
-  label: string;
-  capabilityRef: string;
-  nativeSurfaceRef: string;
-  handoffEligible: boolean;
-}
-
-export interface FinancialServicesProjection {
-  schemaVersion: string;
+export interface FinancialServicesExperienceProjection {
   projectionId: string;
-  generatedAt: string;
-  expiresAt: string;
-  journey: {
-    id: string;
-    currentStageId: string | null;
-    stages: FinancialServicesProjectionStage[];
-  };
-  services: FinancialServicesProjectionService[];
-  nextActions: FinancialServicesProjectionNextAction[];
+  provider: string;
+  level: ExperienceProjectionLevel;
+  journeyRef: string | null;
+  primaryAction: ExperienceProjectionActionRef | null;
+  secondaryActions: ExperienceProjectionActionRef[];
+  layout: { mode: 'linear' | 'dag' | 'graph'; density: 'compact' | 'normal' | 'detailed' };
+  surfaces: ExperienceProjectionSurface[];
+  fallback: boolean;
+  expiresAt: string | null;
 }
-
-export const EXPECTED_PROJECTION_SCHEMA_VERSION = 'fs-differ-projection/v1';
 
 export interface FinancialServicesClientConfig {
   /** metaMe origin, e.g. 'https://dev-beta.aigentz.me'. Differ supplies this — never hardcoded here. */
   metaMeOrigin: string;
-  /** Differ's integration key, sent as `x-differ-integration-key`. Server-side secret — never bundled into a browser build. */
-  integrationApiKey: string;
+  /**
+   * UNRESOLVED (Q7) — see this file's header. Left as an optional field so
+   * the wire shape is documented, but this client NEVER sends it as a
+   * header today; there is no settled transport to send it over.
+   */
+  integrationApiKey?: string;
   /**
    * The T1 persona session token metaMe issued when it linked the user out
    * to Differ (the same `?pst=` mechanism `utils/codex-nav.ts::buildCodexUrl`
    * uses for every other cross-surface identity propagation in this
-   * codebase). Differ forwards it verbatim — it never inspects, decodes, or
-   * derives a personaId from it.
+   * codebase) — relevant ONLY under `transportMode: 'hosted-browser'`,
+   * where the SAME authenticated session Differ hosts already carries this.
+   * Under `transportMode: 'server-integration'` a different mechanism would
+   * be needed; under `'unresolved'` (today's actual state), neither path is
+   * live.
    */
-  personaSessionToken: string;
+  personaSessionToken?: string;
 }
 
 export class FinancialServicesClientError extends Error {
@@ -103,38 +116,27 @@ export class FinancialServicesClientError extends Error {
 
 async function authedFetch(config: FinancialServicesClientConfig, path: string, init: RequestInit = {}): Promise<Response> {
   const url = new URL(path, config.metaMeOrigin);
-  url.searchParams.set('pst', config.personaSessionToken);
-  return fetch(url.toString(), {
-    ...init,
-    headers: {
-      ...(init.headers ?? {}),
-      'x-differ-integration-key': config.integrationApiKey,
-      'x-persona-session-token': config.personaSessionToken,
-      'Content-Type': 'application/json',
-    },
-    cache: 'no-store',
-  });
+  const headers: Record<string, string> = { 'Content-Type': 'application/json', ...(init.headers as Record<string, string> | undefined) };
+  // Deliberately NOT attaching any integrationApiKey/pst header here — see
+  // this file's header. When Q7 is resolved, the correct attachment (or
+  // "use the ambient session cookie because this code runs inside Differ's
+  // hosted browser") gets added here, never assumed in advance.
+  return fetch(url.toString(), { ...init, headers, cache: 'no-store' });
 }
 
-/**
- * Fetch and validate the projection. Rejects if `schemaVersion` does not
- * match — a version mismatch is a contract change Differ must not silently
- * render around.
- */
+/** Fetch and validate the projection shape. */
 export async function fetchFinancialServicesProjection(
   config: FinancialServicesClientConfig,
-): Promise<FinancialServicesProjection> {
-  const res = await authedFetch(config, '/api/public/financial-services/projection');
-  const body = (await res.json().catch(() => null)) as ({ ok: boolean; error?: string } & Partial<FinancialServicesProjection>) | null;
+): Promise<FinancialServicesExperienceProjection> {
+  const res = await authedFetch(config, '/api/adaptive/financial-services/projection');
+  const body = (await res.json().catch(() => null)) as ({ ok: boolean; error?: string } & Partial<FinancialServicesExperienceProjection>) | null;
   if (!res.ok || !body?.ok) {
     throw new FinancialServicesClientError(body?.error ?? `Projection fetch failed (HTTP ${res.status})`, res.status);
   }
-  if (body.schemaVersion !== EXPECTED_PROJECTION_SCHEMA_VERSION) {
-    throw new FinancialServicesClientError(
-      `Unexpected projection schemaVersion '${body.schemaVersion}' (expected '${EXPECTED_PROJECTION_SCHEMA_VERSION}'). Do not render — the contract may have changed.`,
-    );
+  if (!body.projectionId || !body.layout || !Array.isArray(body.surfaces)) {
+    throw new FinancialServicesClientError('Projection response is missing required fields — do not render an incomplete shape.');
   }
-  return body as FinancialServicesProjection;
+  return body as FinancialServicesExperienceProjection;
 }
 
 export interface RequestedHandoff {
@@ -143,28 +145,29 @@ export interface RequestedHandoff {
 }
 
 /**
- * Request a handoff for `actionRef`. `actionRef` MUST be one already present
- * in `projection.nextActions` with `handoffEligible: true` — this function
- * enforces that locally (never sends a request for an action Differ itself
- * did not just observe as eligible) in addition to metaMe's own server-side
- * recheck.
+ * Request a handoff for `capabilityId`. `capabilityId` MUST be one already
+ * present in `projection.surfaces` (or `primaryAction`/`secondaryActions`)
+ * with `handoffOffered: true` — this function enforces that locally, in
+ * addition to metaMe's own server-side recheck.
  */
 export async function requestNativeActionHandoff(
   config: FinancialServicesClientConfig,
-  projection: FinancialServicesProjection,
-  actionRef: string,
+  projection: FinancialServicesExperienceProjection,
+  capabilityId: string,
   returnUrl: string,
 ): Promise<RequestedHandoff> {
-  const eligible = projection.nextActions.find((a) => a.actionRef === actionRef && a.handoffEligible);
-  if (!eligible) {
+  const offeredAsSurface = projection.surfaces.some((s) => s.capabilityId === capabilityId && s.handoffOffered);
+  const offeredAsPrimary = projection.primaryAction?.capabilityId === capabilityId && projection.primaryAction.handoffOffered;
+  const offeredAsSecondary = projection.secondaryActions.some((a) => a.capabilityId === capabilityId && a.handoffOffered);
+  if (!offeredAsSurface && !offeredAsPrimary && !offeredAsSecondary) {
     throw new FinancialServicesClientError(
-      `'${actionRef}' is not a handoff-eligible action in the last-fetched projection — refetch before requesting a handoff.`,
+      `'${capabilityId}' is not a handoff-offered capability in the last-fetched projection — refetch before requesting a handoff.`,
     );
   }
 
-  const res = await authedFetch(config, '/api/financial-services/handoffs', {
+  const res = await authedFetch(config, '/api/adaptive/financial-services/handoffs', {
     method: 'POST',
-    body: JSON.stringify({ actionRef, returnUrl, projectionId: projection.projectionId }),
+    body: JSON.stringify({ capabilityId, returnUrl }),
   });
   const body = (await res.json().catch(() => null)) as { ok: boolean; error?: string; reason?: string; handoffId?: string; expiresAt?: string } | null;
   if (!res.ok || !body?.ok || !body.handoffId || !body.expiresAt) {
@@ -173,10 +176,7 @@ export async function requestNativeActionHandoff(
   return { handoffId: body.handoffId, expiresAt: body.expiresAt };
 }
 
-/**
- * The exact URL Differ should navigate the browser to for a requested
- * handoff. Differ never builds a metaMe URL any other way.
- */
+/** The exact URL Differ should navigate the browser to for a requested handoff. */
 export function buildNativeHandoffUrl(config: FinancialServicesClientConfig, handoffId: string): string {
   return new URL(`/handoff/financial-services/${encodeURIComponent(handoffId)}`, config.metaMeOrigin).toString();
 }
@@ -185,7 +185,7 @@ export function buildNativeHandoffUrl(config: FinancialServicesClientConfig, han
  * The completion callback contract metaMe's landing page appends to
  * `returnUrl`. THIS IS NOT COMPLETION EVIDENCE — `outcome` is read only to
  * decide whether/when to refetch the projection below; Differ's UI must
- * never flip a stage to "complete" from this value alone.
+ * never flip a capability to "complete" from this value alone.
  */
 export interface NativeActionCallback {
   handoffId: string;
@@ -201,17 +201,13 @@ export function parseNativeActionCallback(returnUrlSearchParams: URLSearchParams
 
 /**
  * The ONLY thing that may advance Differ's UI: a freshly refetched
- * projection, compared against the one that prompted the handoff. Returns
- * whether canonical state actually changed — Differ renders from
- * `refreshed` either way, but this flag is a convenience for "did anything
- * happen" UI (a toast, a highlight), never a substitute for re-deriving the
- * UI from `refreshed` itself.
+ * projection, compared against the one that prompted the handoff.
  */
 export async function refetchAfterReturn(
   config: FinancialServicesClientConfig,
-  priorProjection: FinancialServicesProjection,
-): Promise<{ refreshed: FinancialServicesProjection; changed: boolean }> {
+  priorProjection: FinancialServicesExperienceProjection,
+): Promise<{ refreshed: FinancialServicesExperienceProjection; changed: boolean }> {
   const refreshed = await fetchFinancialServicesProjection(config);
-  const changed = JSON.stringify(refreshed.journey.stages) !== JSON.stringify(priorProjection.journey.stages);
+  const changed = JSON.stringify(refreshed.surfaces) !== JSON.stringify(priorProjection.surfaces);
   return { refreshed, changed };
 }

@@ -63,6 +63,18 @@ export function buildNativeProjection(input: ProviderProjectionRequest): Experie
   const primary = orderedActionable[0];
   const secondary = orderedActionable.slice(1);
 
+  // `handoffOffered` mirrors each capability's own
+  // `disposition.nativeHandoffAllowed` (operator ruling, 2026-08-27) —
+  // marking a surface/action as handoff-offered whenever its disposition
+  // permits one, regardless of whether direct render is ALSO allowed (e.g.
+  // Architect's preview: render:true AND a handoff to the full artifact are
+  // both legitimate at once). projectionValidator.ts's checks 6-7 are the
+  // enforcement point that actually requires this for a NATIVE_ONLY
+  // capability to be offerable at all — but those checks are scoped to
+  // non-native provider output (see that file's header), so this native
+  // provider setting the flag is about DOWNSTREAM handoff-issuance callers
+  // (services/adaptive/nativeHandoff.ts::isCapabilityHandoffEligible)
+  // reading it correctly, not about passing validation itself.
   const surfaces = [
     ...orderedActionable.map((ref) => ({
       capabilityId: ref.capabilityId,
@@ -72,12 +84,14 @@ export function buildNativeProjection(input: ProviderProjectionRequest): Experie
         ref.capabilityId === primary?.capabilityId
           ? ('primary' as const)
           : ('secondary' as const),
+      handoffOffered: ref.disposition.nativeHandoffAllowed,
     })),
     ...blocked.map((ref) => ({
       capabilityId: ref.capabilityId,
       surfaceType: ref.surfaceTypes[0] ?? ('component' as const),
       hostRef: ref.hostRefs?.native,
       emphasis: 'suppressed' as const,
+      handoffOffered: ref.disposition.nativeHandoffAllowed,
     })),
   ];
 
@@ -91,12 +105,18 @@ export function buildNativeProjection(input: ProviderProjectionRequest): Experie
       ? { summary: `Selected "${primary.label}" as the primary ready action.`, signalsUsed: [] }
       : { summary: 'No ready capability found; presenting available options in declared order.', signalsUsed: [] },
     primaryAction: primary
-      ? { capabilityId: primary.capabilityId, label: primary.label, surfaceRef: primary.hostRefs?.native }
+      ? {
+          capabilityId: primary.capabilityId,
+          label: primary.label,
+          surfaceRef: primary.hostRefs?.native,
+          handoffOffered: primary.disposition.nativeHandoffAllowed,
+        }
       : undefined,
     secondaryActions: secondary.map((ref) => ({
       capabilityId: ref.capabilityId,
       label: ref.label,
       surfaceRef: ref.hostRefs?.native,
+      handoffOffered: ref.disposition.nativeHandoffAllowed,
     })),
     layout: { mode: 'linear', density: 'normal' },
     surfaces,

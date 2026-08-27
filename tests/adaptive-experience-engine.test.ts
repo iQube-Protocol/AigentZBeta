@@ -43,8 +43,20 @@ function baseContext(overrides: Partial<AdaptiveInteractionContext> = {}): Adapt
       blockedStageIds: ['b'],
     },
     capabilityRefs: [
-      { capabilityId: 'a', label: 'Stage A', surfaceTypes: ['component'], hostRefs: { native: 'a-panel' } },
-      { capabilityId: 'b', label: 'Stage B', surfaceTypes: ['component'], hostRefs: { native: 'b-panel' } },
+      {
+        capabilityId: 'a',
+        label: 'Stage A',
+        surfaceTypes: ['component'],
+        hostRefs: { native: 'a-panel' },
+        disposition: { externalRenderAllowed: true, externalExecuteAllowed: false, nativeHandoffAllowed: true },
+      },
+      {
+        capabilityId: 'b',
+        label: 'Stage B',
+        surfaceTypes: ['component'],
+        hostRefs: { native: 'b-panel' },
+        disposition: { externalRenderAllowed: true, externalExecuteAllowed: false, nativeHandoffAllowed: true },
+      },
     ],
     host: { hostId: 'metame-native', surfaceTypesSupported: ['component'] },
     disclosurePolicy: { fieldClassification: {}, enforced: true },

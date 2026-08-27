@@ -25,6 +25,19 @@
  *      type, checked here defensively anyway);
  *   5. projection schema is structurally valid (level/layout/surfaces present).
  *
+ * Checks 6-7 (operator ruling, 2026-08-27, Differ FS pilot reconciliation):
+ * enforce `CapabilityProjectionRef.disposition` — the three independent
+ * permissions (externalRenderAllowed / externalExecuteAllowed /
+ * nativeHandoffAllowed). Correcting the earlier "NATIVE_ONLY = never
+ * offerable" conflation: a NATIVE_ONLY capability (render:false,
+ * execute:false) may still be legitimately offered — but ONLY as a
+ * `handoffOffered: true` entry, and ONLY when its own disposition explicitly
+ * permits `nativeHandoffAllowed`. A capability's disposition is looked up
+ * once per validation via `capabilityDisposition` and defaults to the most
+ * restrictive shape (nothing allowed) when a referenced capability carries no
+ * disposition at all — fail closed, never silently permissive, mirroring
+ * `tierForCheck`'s "unregistered gates" discipline elsewhere in this repo.
+ *
  * Checks NOT implemented in this pass (named honestly, not silently
  * skipped): disclosure-policy field-level redaction verification and
  * host-renderer surface-support negotiation — both require a real second
@@ -33,10 +46,26 @@
  */
 
 import type {
+  AdaptiveCapabilityDisposition,
   AdaptiveInteractionContext,
+  CapabilityProjectionRef,
   ExperienceProjection,
+  ProjectionActionRef,
   ProjectionValidationResult,
 } from '@/types/adaptiveExperience';
+
+const NOTHING_ALLOWED: AdaptiveCapabilityDisposition = {
+  externalRenderAllowed: false,
+  externalExecuteAllowed: false,
+  nativeHandoffAllowed: false,
+};
+
+function capabilityDisposition(
+  capabilityId: string,
+  byId: Map<string, CapabilityProjectionRef>,
+): AdaptiveCapabilityDisposition {
+  return byId.get(capabilityId)?.disposition ?? NOTHING_ALLOWED;
+}
 
 export function validateProjection(
   projection: ExperienceProjection,
@@ -44,6 +73,7 @@ export function validateProjection(
 ): ProjectionValidationResult {
   const violations: string[] = [];
 
+  const capabilitiesById = new Map(context.capabilityRefs.map((c) => [c.capabilityId, c] as const));
   const knownCapabilityIds = new Set(context.capabilityRefs.map((c) => c.capabilityId));
   const blockedIds = new Set(context.journey?.blockedStageIds ?? []);
   const sensitiveIds = new Set(
@@ -109,6 +139,52 @@ export function validateProjection(
       `companionCue intent "${projection.companionCue.intent}" would delegate a sovereign act by presentation — not permitted`,
     );
   }
+
+  // Checks 6-7 apply only to a projection an EXTERNAL provider produced.
+  // `disposition.externalRenderAllowed`/`externalExecuteAllowed` govern
+  // crossing the provider boundary — the native provider crosses no
+  // boundary at all (the platform itself IS the host for `provider:
+  // 'native'`), so gating it here would risk rejecting the deterministic
+  // fallback SPEC-AEE-001 §16 requires to ALWAYS succeed. A native
+  // projection selecting a NATIVE_ONLY capability is native custody by
+  // construction, not an external-render violation.
+  const isExternalProviderOutput = projection.provider !== 'native';
+
+  // Check 6 — a capability whose disposition forbids external render must
+  // not appear as a directly rendered surface. Offering it via a NATIVE
+  // HANDOFF is explicitly fine (that is the mechanism's entire purpose) —
+  // but ONLY when the surface is marked `handoffOffered: true` AND the
+  // capability's own disposition permits `nativeHandoffAllowed`.
+  if (isExternalProviderOutput) {
+    for (const surface of projection.surfaces) {
+      const disposition = capabilityDisposition(surface.capabilityId, capabilitiesById);
+      if (disposition.externalRenderAllowed) continue;
+      if (surface.handoffOffered && disposition.nativeHandoffAllowed) continue;
+      violations.push(
+        `surface "${surface.capabilityId}" has externalRenderAllowed: false and is not a permitted ` +
+          `nativeHandoffAllowed handoff offer (handoffOffered: ${Boolean(surface.handoffOffered)}, ` +
+          `nativeHandoffAllowed: ${disposition.nativeHandoffAllowed}) — it must not render externally.`,
+      );
+    }
+  }
+
+  // Check 7 — same rule for primaryAction/secondaryActions, using
+  // externalExecuteAllowed (offering an action IS offering it as directly
+  // actionable, which is the "execute" side of the disposition, distinct
+  // from merely rendering a surface).
+  const checkAction = (action: ProjectionActionRef | undefined, label: string) => {
+    if (!isExternalProviderOutput || !action) return;
+    const disposition = capabilityDisposition(action.capabilityId, capabilitiesById);
+    if (disposition.externalExecuteAllowed) return;
+    if (action.handoffOffered && disposition.nativeHandoffAllowed) return;
+    violations.push(
+      `${label} "${action.capabilityId}" has externalExecuteAllowed: false and is not a permitted ` +
+        `nativeHandoffAllowed handoff offer (handoffOffered: ${Boolean(action.handoffOffered)}, ` +
+        `nativeHandoffAllowed: ${disposition.nativeHandoffAllowed}) — it must not be offered as directly actionable.`,
+    );
+  };
+  checkAction(projection.primaryAction, 'primaryAction');
+  for (const action of projection.secondaryActions ?? []) checkAction(action, 'secondaryAction');
 
   // Check 5 — projection schema is structurally valid.
   if (![0, 1, 2, 3].includes(projection.level)) {

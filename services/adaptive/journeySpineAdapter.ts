@@ -81,6 +81,18 @@ export function buildCapabilityRefsFromJourney(
     const isSensitiveByDefault = stage.actorRole === 'principal' || stage.actor === 'operator' || stage.surfaces.length === 0;
     const sensitive = nonSensitiveStageIds.has(stage.id) ? false : isSensitiveByDefault;
 
+    // Conservative generic-journey default (operator ruling, 2026-08-27):
+    // a sensitive stage renders/executes nowhere but native, but IS reachable
+    // through a native handoff — that is the entire point of the handoff
+    // mechanism, not a contradiction of NATIVE_ONLY. A caller with real,
+    // audited residency data for a specific application (e.g. the Financial
+    // Services manifest) should prefer that data over this generic default —
+    // see services/adaptive/externalExperienceProjection.ts, which merges
+    // ApplicationProjectionManifest dispositions in where they exist.
+    const disposition = sensitive
+      ? { externalRenderAllowed: false, externalExecuteAllowed: false, nativeHandoffAllowed: true }
+      : { externalRenderAllowed: true, externalExecuteAllowed: false, nativeHandoffAllowed: true };
+
     return {
       capabilityId: stage.id,
       label: stage.label,
@@ -92,6 +104,7 @@ export function buildCapabilityRefsFromJourney(
       actor: stage.actor,
       requiredState: stage.completionEvidence,
       sensitive,
+      disposition,
     };
   });
 }

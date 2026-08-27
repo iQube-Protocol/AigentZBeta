@@ -67,6 +67,41 @@ export interface ProjectionConstraint {
 }
 
 /**
+ * The three independent permissions a capability carries across the provider
+ * boundary (operator ruling, 2026-08-27, correcting the Differ FS pilot
+ * reconciliation): *"`NATIVE_ONLY` must not mean 'not handoff-eligible.' A
+ * native handoff is precisely how an externally presented experience reaches
+ * a `NATIVE_ONLY` capability without rendering or executing it externally."*
+ *
+ * These are DELIBERATELY independent — no combination is derived from
+ * another:
+ *   - `externalRenderAllowed: false, nativeHandoffAllowed: true` is the
+ *     NORMAL shape for a `NATIVE_ONLY` capability (e.g. Architect's full
+ *     artifact, or in principle Runtime execution under the general AEE
+ *     model) — never presented externally, always reachable through a
+ *     single-use handoff into native custody.
+ *   - `externalExecuteAllowed` is near-always false in Phase A/2A/2B (AEE
+ *     never executes anything itself — see ExperienceProjection's own "not
+ *     executable application code" rule); it exists as a distinct field so a
+ *     future phase that DOES let a provider trigger a bounded, non-
+ *     consequential act (if one is ever ratified) has somewhere to declare
+ *     it, without overloading `externalRenderAllowed`.
+ *   - Whether a PARTICULAR external integration (e.g. this pilot's Differ
+ *     registration) may actually REACH a nativeHandoffAllowed capability is a
+ *     SEPARATE, narrower decision — the integration's own
+ *     `allowedCapabilities` allowlist (services/adaptive/
+ *     externalIntegrationRegistry.ts). A capability being
+ *     `nativeHandoffAllowed: true` in the manifest is necessary but never
+ *     sufficient; the integration allowlist is what actually excludes
+ *     Runtime from THIS pilot, not a manifest-level universal ban.
+ */
+export interface AdaptiveCapabilityDisposition {
+  externalRenderAllowed: boolean;
+  externalExecuteAllowed: boolean;
+  nativeHandoffAllowed: boolean;
+}
+
+/**
  * A capability's safe projection descriptor (SPEC-AEE-001 §7). The provider
  * selects among declared capabilities; it never generates callable
  * authority-bearing endpoints. surfaceTypes/hostRefs mirror
@@ -82,8 +117,16 @@ export interface CapabilityProjectionRef {
   actor?: string;
   requiredState?: string[];
   presentationPolicy?: string[];
-  /** True = this capability's execution surface must never render through a non-native provider. */
+  /** True = this capability's execution surface must never render through a non-native provider.
+   *  Governs postflight check 3 (must not silently vanish from a non-empty
+   *  projection) — a DIFFERENT concern from `disposition`, which governs
+   *  whether it may render/execute/handoff at all (checks 6-7). */
   sensitive?: boolean;
+  /** The three-permission disposition above. Required — a capability with no
+   *  declared disposition fails closed (see projectionValidator.ts's
+   *  `capabilityDisposition` helper) rather than silently defaulting to
+   *  permissive. */
+  disposition: AdaptiveCapabilityDisposition;
 }
 
 /**
@@ -164,6 +207,12 @@ export interface ProjectionActionRef {
   capabilityId: string;
   label: string;
   surfaceRef?: string;
+  /** True = this action is offered as a NATIVE HANDOFF destination, not a
+   *  direct external render/execute — the provider presents "do this," the
+   *  user is then routed into native custody for it. Only valid when the
+   *  referenced capability's `disposition.nativeHandoffAllowed` is true
+   *  (enforced by projectionValidator.ts's check 7). */
+  handoffOffered?: boolean;
 }
 
 export interface ProjectionRationale {
@@ -176,6 +225,8 @@ export interface ProjectedSurface {
   surfaceType: 'component' | 'modal' | 'route' | 'cartridge-tab' | 'embed' | 'companion-action';
   hostRef?: string;
   emphasis?: 'primary' | 'secondary' | 'suppressed';
+  /** See ProjectionActionRef.handoffOffered — same meaning, surface form. */
+  handoffOffered?: boolean;
 }
 
 export interface ProjectionLayout {
