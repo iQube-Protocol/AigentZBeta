@@ -4524,3 +4524,23 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-4380978.md](../build_/COMMITS/COMMIT-4380978.md)
 - Message: Restore metaMe IRL admin access, IRL OS Participation Overview, and IRL OS Workspace (scoped restoration)
+
+## Commit `e84c019` — 2026-08-27T13:12:20Z
+- Type: `push`
+- Brief: [COMMIT-e84c019.md](../build_/COMMITS/COMMIT-e84c019.md)
+- Message: consolidate the three acquisition-required Freeze blockers into one brief
+
+## Commit `458e486` — 2026-08-27T13:11:57Z
+- Type: `fix`
+- Brief: [COMMIT-458e486.md](../build_/COMMITS/COMMIT-458e486.md)
+- Message: fix Track 2 Proceed navigation racing ahead of authoritative refresh
+
+## Commit `96e22fd` — 2026-08-27T09:44:24Z
+- Type: `fix`
+- Brief: [COMMIT-96e22fd.md](../build_/COMMITS/COMMIT-96e22fd.md)
+- Message: Fix People 504 (ContactGraph N+1 projection) and unsafe Gmail-composer resolution claims
+
+## Commit `4b931ae` — 2026-08-27T09:43:52Z
+- Type: `fix`
+- Brief: [COMMIT-4b931ae.md](../build_/COMMITS/COMMIT-4b931ae.md)
+- Message: Fix OCSGA Presence stage to recognize a principal's Citizen Passport for an agent-persona caller

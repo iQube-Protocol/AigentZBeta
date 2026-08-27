@@ -1,4 +1,8 @@
 # Build — Changelog
+- [`4b931ae`](https://github.com/iQube-Protocol/AigentZBeta/commit/4b931ae89bf71d49425265a0ad354243791552a8) [fix] Fix OCSGA Presence stage to recognize a principal's Citizen Passport for an agent-persona caller (Claude, 2026-08-27T09:43:52Z)
+- [`96e22fd`](https://github.com/iQube-Protocol/AigentZBeta/commit/96e22fd662dc9888240a45154ef6337aa88f4a94) [fix] Fix People 504 (ContactGraph N+1 projection) and unsafe Gmail-composer resolution claims (Claude, 2026-08-27T09:44:24Z)
+- [`458e486`](https://github.com/iQube-Protocol/AigentZBeta/commit/458e48619df67f546460a9ab35a293327c8e3eb4) [fix] fix Track 2 Proceed navigation racing ahead of authoritative refresh (Claude, 2026-08-27T13:11:57Z)
+- [`e84c019`](https://github.com/iQube-Protocol/AigentZBeta/commit/e84c019863a58a11b4b5cb15ac13f2f967953c6a) [push] consolidate the three acquisition-required Freeze blockers into one brief (Claude, 2026-08-27T13:12:20Z)
 - [`4380978`](https://github.com/iQube-Protocol/AigentZBeta/commit/438097845545d071caf79227eba0494115b2b484) [push] Restore metaMe IRL admin access, IRL OS Participation Overview, and IRL OS Workspace (scoped restoration) (Claude, 2026-08-27T09:37:14Z)
 - [`decbc07`](https://github.com/iQube-Protocol/AigentZBeta/commit/decbc07c8234961827ee04b046c5d1edc7415228) [push] Revert "close IRL OS confidentiality breach: private-cartridge deep links + unauthenticated document routes + query-derived admin authority removed [merge sec/irl-os-containment-2026-08-27]" (Claude, 2026-08-27T09:02:18Z)
 - [`c05c2c3`](https://github.com/iQube-Protocol/AigentZBeta/commit/c05c2c347206a129a53f8d31bb88fa6d9ea457c6) [push] SECURITY: contain IRL OS -> metaMe IRL boundary breach (Phase 1) (Claude, 2026-08-27T07:42:09Z)

@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-27T12:09:54.686Z",
+  "last_updated": "2026-08-27T13:57:03.018Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "438097845545d071caf79227eba0494115b2b484",
-  "latest_commit_short": "4380978",
-  "latest_commit_title": "Restore metaMe IRL admin access, IRL OS Participation Overview, and IRL OS Workspace (scoped restoration)",
+  "latest_commit": "4b931ae89bf71d49425265a0ad354243791552a8",
+  "latest_commit_short": "4b931ae",
+  "latest_commit_title": "Fix OCSGA Presence stage to recognize a principal's Citizen Passport for an agent-persona caller",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,42 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "4b931ae",
+      "full_sha": "4b931ae89bf71d49425265a0ad354243791552a8",
+      "title": "Fix OCSGA Presence stage to recognize a principal's Citizen Passport for an agent-persona caller",
+      "author": "Claude",
+      "timestamp": "2026-08-27T09:43:52Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-4b931ae.md"
+    },
+    {
+      "sha": "96e22fd",
+      "full_sha": "96e22fd662dc9888240a45154ef6337aa88f4a94",
+      "title": "Fix People 504 (ContactGraph N+1 projection) and unsafe Gmail-composer resolution claims",
+      "author": "Claude",
+      "timestamp": "2026-08-27T09:44:24Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-96e22fd.md"
+    },
+    {
+      "sha": "458e486",
+      "full_sha": "458e48619df67f546460a9ab35a293327c8e3eb4",
+      "title": "fix Track 2 Proceed navigation racing ahead of authoritative refresh",
+      "author": "Claude",
+      "timestamp": "2026-08-27T13:11:57Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-458e486.md"
+    },
+    {
+      "sha": "e84c019",
+      "full_sha": "e84c019863a58a11b4b5cb15ac13f2f967953c6a",
+      "title": "consolidate the three acquisition-required Freeze blockers into one brief",
+      "author": "Claude",
+      "timestamp": "2026-08-27T13:12:20Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-e84c019.md"
+    },
     {
       "sha": "4380978",
       "full_sha": "438097845545d071caf79227eba0494115b2b484",
@@ -1216,42 +1252,6 @@
       "timestamp": "2026-08-11T22:31:37Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-019eb69.md"
-    },
-    {
-      "sha": "6e2a68b",
-      "full_sha": "6e2a68ba69bedb55032b79dc9c99c79975fc7c81",
-      "title": "complete phase 1: remove artifact class selector, simplify to series picker",
-      "author": "Claude",
-      "timestamp": "2026-08-11T22:35:32Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-6e2a68b.md"
-    },
-    {
-      "sha": "b8e75f8",
-      "full_sha": "b8e75f81939e7d320505467fe63519938e056cd6",
-      "title": "add back button to Horizen MoneyPenny journey in PilotJourneyTab",
-      "author": "Claude",
-      "timestamp": "2026-08-11T20:51:03Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-b8e75f8.md"
-    },
-    {
-      "sha": "d737498",
-      "full_sha": "d737498f0e586a7f7ba89388bf440c984de728d8",
-      "title": "add artifact class (canonical/operational) toggle to qriptopian upload modal",
-      "author": "Claude",
-      "timestamp": "2026-08-11T20:41:43Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-d737498.md"
-    },
-    {
-      "sha": "7716251",
-      "full_sha": "7716251ff997535f05742532a595b2160f5e784f",
-      "title": "improve artifact URL copy affordance in upload modal + redirect Claude Code button to code interface",
-      "author": "Claude",
-      "timestamp": "2026-08-11T20:43:21Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-7716251.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
