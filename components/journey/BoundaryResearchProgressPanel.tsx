@@ -62,14 +62,18 @@ export function BoundaryResearchProgressPanel({ personaId, isAdmin }: BoundaryRe
   // "Explore IRL OS" but the href pointed at `irl-cartridge` — metaMe IRL, the
   // internal admin laboratory — not IRL OS. External IRL participation is
   // always mediated through IRL OS; metaMe IRL is strictly admin-gated (see
-  // IRL_CARTRIDGE's tabs in data/codex-configs.ts). Corrected to the actual
-  // IRL OS cartridge, landing on its own Workspace tab (irl-os-workspace —
-  // the SAME buildResearchWorkspaceTab surface this panel's PartnerProgrammesTab
-  // instances render, just unlocked to the participant's full scoped list
-  // rather than pinned to one workspace).
+  // IRL_CARTRIDGE's tabs in data/codex-configs.ts).
+  //
+  // CONTAINED 2026-08-27 (docs/security/2026-08-27_irl-os-containment-breach-audit.md):
+  // the irl-os-workspace tab this repointed to is now disabled (it shared
+  // the same PartnerProgrammesTab/DeepLinkCard machinery that was
+  // constructing `irl-cartridge` destinations elsewhere) — repointed again,
+  // to the always-enabled Welcome tab, so this link never dangles onto a
+  // hidden tab. Restore to a scoped Workspace destination in Phase 2 once
+  // that surface has an IRL OS-native, public-safe projection.
   const exploreIrlOsLink = (
     <a
-      href={buildCodexUrl('irl-os-cartridge', { tab: 'irl-os-workspace', personaId })}
+      href={buildCodexUrl('irl-os-cartridge', { tab: 'irl-os-welcome', personaId })}
       className="inline-flex items-center gap-1.5 text-[12px] text-violet-300 hover:text-violet-200"
     >
       Explore IRL OS <ExternalLink className="h-3 w-3" />

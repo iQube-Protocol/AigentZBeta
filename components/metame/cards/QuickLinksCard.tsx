@@ -51,7 +51,11 @@ const DEFAULT_LINKS: QuickLink[] = [
   { id: "agentiq-alpha",    label: "AgentiQ · Alpha Program", hint: "Build plan + golden path",       slug: "aigentiq",             tab: "alpha-program" },
   { id: "venture-lab",      label: "Venture Lab α",           hint: "AgentiQ Lab workstream",         slug: "alpha-knyt",           tab: "alpha-programme" },
   { id: "agentiq-os",       label: "AgentiQ OS",              hint: "Developer cartridge",            slug: "agentiq-os-cartridge", tab: "os-readme" },
-  { id: "irl-os",           label: "IRL OS",                  hint: "Open research institute",        slug: "irl-os-cartridge",     tab: "irl-os-charter" },
+  // 2026-08-27 containment: irl-os-charter is disabled pending Phase 2
+  // public-classification (docs/security/2026-08-27_irl-os-containment-breach-audit.md).
+  // Repointed at the always-enabled Welcome tab so this deep link never
+  // dangles onto a hidden tab.
+  { id: "irl-os",           label: "IRL OS",                  hint: "Open research institute",        slug: "irl-os-cartridge",     tab: "irl-os-welcome" },
 ];
 
 export function QuickLinksCard({
