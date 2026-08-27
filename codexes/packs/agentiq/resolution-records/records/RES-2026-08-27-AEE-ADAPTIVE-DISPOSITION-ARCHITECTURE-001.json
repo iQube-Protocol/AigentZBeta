@@ -1,0 +1,90 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-08-27",
+  "resolutionId": "RES-2026-08-27-AEE-ADAPTIVE-DISPOSITION-ARCHITECTURE-001",
+  "capability": "adaptive-experience-engine-differ-integration",
+  "milestone": "Phase 0 Audit: Financial Services Pilot → AEE Reconciliation",
+  "problem": "A parallel Differ Financial Services integration pilot was discovered during attempted merge to dev. The pilot implemented a separate projection topology, external rendering coordination, and native handoff mechanism outside the existing Adaptive Experience Engine (SPEC-AEE-001/001A, ratified 2026-08-24). The architecture violated CLAUDE.md's core principle ('extend, don't duplicate') and created maintenance risk: two independent systems claiming authority over the same capability set, with inconsistent disposition models and provider interfaces.",
+  "observedFailure": [
+    "A separate `FinancialServicesObserver` topology built external projection logic that duplicated SPEC-AEE-001's `AdaptiveExperienceProvider` interface without extending it.",
+    "Disposition model in the pilot used a binary `NATIVE_ONLY` flag that conflated three independent concerns: whether a capability could be rendered externally, whether it could be executed externally, and whether it could be reached via a native handoff.",
+    "`NATIVE_ONLY` was interpreted as 'not handoff-eligible', which is incorrect: a native handoff is precisely the mechanism to expose a `NATIVE_ONLY` (render:false, execute:false) capability to an external experience without violating residency.",
+    "Native handoff implementation in the pilot (`services/handoffs/nativeActionHandoff.ts`) was Financial Services-specific with hardcoded journey references, despite being a provider-neutral capability.",
+    "Projection endpoint returned unfiltered responses, showing Runtime services as handoff-offered even for integrations (Differ pilot) that policy explicitly excludes them.",
+    "A genuinely novel and reusable capability—persisted-ratchet observation (reading already-determined stage completion without re-running journey resolution)—was trapped in the pilot's domain-specific code rather than composed into the generic AEE model.",
+    "Integration authentication model was undefined and left to be guessed when Differ's real hosting/session/transport mechanics were unknown; architecture included a placeholder API key field with no clear contract for when/how it would be used."
+  ],
+  "rootCauses": [
+    "The pilot was built and advanced to `review/` without reading or referencing the canonical SPEC-AEE-001 spec and implementation that had already been merged to dev. The reuse audit required by CLAUDE.md's core principle was skipped.",
+    "A binary property (`NATIVE_ONLY`) was used to gate three independent decisions, conflating 'can this capability be rendered externally?' with 'can this capability be handed off natively?'. These are orthogonal: a capability may be unreachable externally (render:false, execute:false) and still legitimately offered via a native handoff.",
+    "The notion that 'unknown transport should be guessed' drove authentication/API-key decisions without waiting for Differ's actual hosting model to be established. A fail-closed posture ('if we don't know how Differ works, don't integrate yet') was not applied.",
+    "Capability filtering was deferred to handoff-issuance time rather than being applied to the projection response itself, so policy exclusions (like 'Runtime is out of scope for this pilot') were not enforced at the source."
+  ],
+  "resolution": [
+    "Absorbed the persisted-ratchet observation pattern (`observePersistedJourneyContext()` in `services/adaptive/persistedJourneyObservation.ts`) as a provider-neutral, read-only composition seam into the AEE model. This reading pattern is now available to any provider or integration that needs to understand current journey state without re-resolving.",
+    "Replaced the binary `NATIVE_ONLY` property with a three-property `AdaptiveCapabilityDisposition` object in `CapabilityProjectionRef`: `externalRenderAllowed`, `externalExecuteAllowed`, and `nativeHandoffAllowed`, each independent. This correctly models the fact that a capability can be unreachable externally but still legitimately offered via a native handoff.",
+    "Implemented `AdaptiveCapabilityDisposition` throughout the existing AEE model: `journeySpineAdapter.ts` now computes dispositions based on stage actor role and surface residency; `projectionValidator.ts` checks 6-7 enforce dispositions for external-provider output only (native provider is exempted to preserve SPEC-AEE-001 §16's fail-closed guarantee).",
+    "Moved native handoff into provider-neutral form (`services/adaptive/nativeHandoff.ts`) with a dependency-injected `recheckEligible` callback so Financial Services re-eligibility logic stays scoped to the integration layer, not the generic handoff mechanism.",
+    "Created `ExternalExperienceIntegration` registry (`services/adaptive/externalIntegrationRegistry.ts`) to gate which providers, journeys, and capabilities are allowed per integration, with explicit `enabled: false` and empty allowlists for the Differ pilot. This closes the returnUrl open-redirect gap and enforces policy at projection time, not at handoff redemption.",
+    "Implemented `filterProjectionForIntegration()` to strip capabilities from the projection response when they fall outside the integration's allowlist, preventing 'shown then denied' failure modes and making policy enforcement auditable in the response payload.",
+    "Refactored external projection into `buildExternalExperienceProjection()` (`services/adaptive/externalExperienceProjection.ts`), which composes persisted-ratchet observation + application-manifest disposition overrides + integration filtering, returning a single canonical projection source instead of a separate observer.",
+    "Left Differ authentication/transport unimplemented with explicit fail-closed checks: the projection endpoint checks `resolveExternalExperienceIntegration('differ-fs-pilot')?.enabled` (always false until Differ answers Q7) and the `differAdapter` client is retyped but transport-unimplemented. No assumptions are made about Differ's session/hosting/origin mechanics; that remains a separate, explicit Q7 question for Differ to answer before activation."
+  ],
+  "rejectedApproaches": [
+    "Patching the pilot in place: the duplicate architecture creates ongoing maintenance debt; reuse into AEE is the correct posture.",
+    "Keeping the binary `NATIVE_ONLY` property and adding a separate handoff-eligibility check beside it: the three properties are genuinely independent and deserve explicit representation.",
+    "Guessing at Differ's authentication model before it's established: this drives the placeholder API key and unresolved transport questions. The correct approach is to leave the integration disabled and undeployed until Differ clarifies.",
+    "Deferring integration filtering to handoff redemption: this allows unfiltered projections to leak policy-excluded capabilities. Filtering must happen at projection time.",
+    "Keeping native handoff Financial Services-specific: the pattern is provider-neutral and belongs in the AEE core, available to any future integration.",
+    "Inlining the persisted-ratchet observation in the pilot's domain-specific observer: this genuinely novel capability belongs in the AEE core model, available generically."
+  ],
+  "candidateInvariants": [
+    "CI-2026-08-27-ADAPTIVE-CAPABILITY-DISPOSITION-001",
+    "CI-2026-08-27-NATIVE-HANDOFF-BOUNDARY-001",
+    "CI-2026-08-27-PROJECTION-CONFIRMED-COMPLETION-001",
+    "CI-2026-08-27-UNKNOWN-TRANSPORT-FAILS-CLOSED-001"
+  ],
+  "canaries": [
+    "tests/adaptive-persisted-journey-observation.test.ts",
+    "tests/adaptive-projection-disposition.test.ts",
+    "tests/adaptive-external-integration-registry.test.ts",
+    "tests/adaptive-native-handoff.test.ts",
+    "tests/adaptive-external-experience-projection.test.ts",
+    "tests/adaptive-experience-engine.test.ts"
+  ],
+  "scope": "adaptive-experience-engine",
+  "status": "candidate",
+  "trigger": "reusable-pattern-established",
+  "evidence": {
+    "commits": [
+      "a2b354b4e412b57c35c27a829b78bcd2dc194b32"
+    ],
+    "tests": [
+      "tests/adaptive-persisted-journey-observation.test.ts",
+      "tests/adaptive-projection-disposition.test.ts",
+      "tests/adaptive-external-integration-registry.test.ts",
+      "tests/adaptive-native-handoff.test.ts",
+      "tests/adaptive-external-experience-projection.test.ts",
+      "tests/adaptive-experience-engine.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "codexes/packs/agentiq/updates/2026-08-27_aee-disposition-architecture-reconciliation.md"
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-08-24_spec-adaptive-experience-engine-differ-provider.md",
+    "codexes/packs/agentiq/updates/2026-08-24_spec-adaptive-experience-engine-phase2-differ-hosting-and-fs-audit.md",
+    "codexes/packs/agentiq/updates/2026-08-24_aee-differ-phase0-audit-financial-services.md"
+  ],
+  "projections": {
+    "targets": [
+      "adaptive-experience-engine",
+      "financial-services-integration",
+      "external-provider-architecture"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "architectural"
+  }
+}

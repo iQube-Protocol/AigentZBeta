@@ -1,0 +1,51 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-27-ADAPTIVE-CAPABILITY-DISPOSITION-001",
+  "statement": "External renderability, external executability and native-handoff eligibility are independent constitutional properties. A capability may be unreachable externally (externalRenderAllowed: false, externalExecuteAllowed: false) and still legitimately offered to an external experience via a native handoff (nativeHandoffAllowed: true). These three properties must be represented independently in every capability descriptor, and validation must check them independently.",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "adaptive-experience-engine",
+      "external-provider-architecture",
+      "financial-services-integration"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "structural"
+  },
+  "classification": "A THREE-PROPERTY MODEL for capability residency and accessibility, replacing a conflated binary. The discovery came from the pilot's incorrect assumption that NATIVE_ONLY (render:false, execute:false) meant 'not handoff-eligible'. In fact, native handoff is the legitimate mechanism to expose a capability with those restrictions to an external consumer without violating residency constraints.",
+  "scope": "local",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/adaptive-projection-disposition.test.ts",
+      "assertion": "Check 6 ('surface must be either externalRenderAllowed OR a permitted nativeHandoff') and Check 7 (same for actions) must both pass for NATIVE_ONLY capabilities (render:false, execute:false) when nativeHandoffAllowed:true and handoffOffered:true. A surface with all three properties false must be rejected. Checks must apply ONLY to external-provider output (projection.provider !== 'native'); native provider output must never be rejected by disposition checks to preserve SPEC-AEE-001 §16 fail-closed guarantee.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "types/adaptiveExperience.ts — AdaptiveCapabilityDisposition type; services/adaptive/projectionValidator.ts — checks 6-7; services/adaptive/journeySpineAdapter.ts — buildCapabilityRefsFromJourney",
+      "defect": "Original pilot used binary NATIVE_ONLY flag which was interpreted as 'render nowhere but native', conflating three independent decisions. This led to handoff-ineligibility being assumed for NATIVE_ONLY capabilities, which is incorrect because native handoff is precisely the mechanism to expose such capabilities without violating residency.",
+      "resolutionId": "RES-2026-08-27-AEE-ADAPTIVE-DISPOSITION-ARCHITECTURE-001",
+      "evidence": [
+        "types/adaptiveExperience.ts",
+        "services/adaptive/projectionValidator.ts",
+        "services/adaptive/journeySpineAdapter.ts",
+        "tests/adaptive-projection-disposition.test.ts"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-08-27-AEE-ADAPTIVE-DISPOSITION-ARCHITECTURE-001"
+  ],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "This is the foundational corrective to the pilot's architecture. All other disposition-related findings flow from this one independent property model.",
+    "The SCOPE is deliberately RECORDED AS LOCAL, not cross-architecture. Generality is earned by recurrence; one documented occurrence is not enough to claim this applies universally. Widen the scope when a second, genuinely different system/capability documents an occurrence.",
+    "The scope 'local' does NOT diminish the importance. This is a core part of AEE's architecture going forward; the local scope reflects evidentiary rigor, not significance."
+  ]
+}

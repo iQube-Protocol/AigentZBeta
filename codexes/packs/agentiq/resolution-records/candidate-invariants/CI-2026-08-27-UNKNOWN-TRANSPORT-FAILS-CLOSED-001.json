@@ -1,0 +1,58 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-27-UNKNOWN-TRANSPORT-FAILS-CLOSED-001",
+  "statement": "No external-integration authentication or authority model may be inferred before the provider's real transport and hosting mechanics are established. When a provider's session model, origin isolation, and authentication contract are unknown, the integration must remain disabled (enabled: false) and all authority/authentication decisions must be deferred. Code may be prepared for the eventual integration, but it must fail explicitly closed rather than make assumptions about how authentication will work or who may access what.",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "external-provider-architecture",
+      "financial-services-integration",
+      "authentication-model"
+    ],
+    "researchRequired": true,
+    "ratificationRequired": false,
+    "track": "structural"
+  },
+  "classification": "A FAIL-CLOSED DISCIPLINE for integrations with unknown transport/hosting. The pilot included a placeholder `DIFFER_INTEGRATION_API_KEY` and a `transportMode: 'unresolved'` field. When Differ's session model is unknown (hosted-browser reusing existing session? server-integration? dedicated origin?), guessing at authentication invites security gaps. The resolution leaves the integration disabled and the transport unimplemented, with explicit Q7 questions deferred to Differ until the real mechanics are established.",
+  "scope": "local",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/adaptive-external-integration-registry.test.ts",
+      "assertion": "The Differ FS pilot integration fixture must have `enabled: false` and `allowedJourneys` / `allowedCapabilities` / `allowedReturnOrigins` must all be empty arrays. Tests must verify that `isJourneyAllowedForIntegration()`, `isCapabilityAllowedForIntegration()`, and `isReturnUrlAllowedForIntegration()` all return false when called against a disabled integration, regardless of the parameters. A projection request for a disabled integration must return empty/null, never a filtered version with placeholder assumptions.",
+      "verifiedFailingBeforeFix": false
+    },
+    {
+      "path": "tests/adaptive-external-experience-projection.test.ts",
+      "assertion": "The projection route's permission check must NOT reference `DIFFER_INTEGRATION_API_KEY` or any unauthenticated transport assumption. The route must call `resolveExternalExperienceIntegration('differ-fs-pilot')?.enabled` and return 403/disabled response if false. No API key field may be sent in headers or checked server-side until the real Differ integration is enabled and its authentication contract is established.",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "services/adaptive/externalIntegrationRegistry.ts — DIFFER_FINANCIAL_SERVICES_INTEGRATION constant (enabled: false); app/api/adaptive/financial-services/projection/route.ts — enabled check before building projection",
+      "defect": "The original pilot included a placeholder `DIFFER_INTEGRATION_API_KEY` environment variable and an undefined `transportMode`, suggesting that authentication would be guessed/improvised before Differ's real hosting model was known. The current resolution leaves the integration disabled and explicitly defers the transport/auth questions to Q7 (Differ's response about how it actually works).",
+      "resolutionId": "RES-2026-08-27-AEE-ADAPTIVE-DISPOSITION-ARCHITECTURE-001",
+      "evidence": [
+        "services/adaptive/externalIntegrationRegistry.ts",
+        "app/api/adaptive/financial-services/projection/route.ts",
+        "services/differAdapter/financialServicesClient.ts",
+        "tests/adaptive-external-integration-registry.test.ts",
+        "tests/adaptive-external-experience-projection.test.ts"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-08-27-AEE-ADAPTIVE-DISPOSITION-ARCHITECTURE-001"
+  ],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "This is fundamentally a SECURITY posture: guessing at authentication models before the provider's real mechanics are known is how gaps are introduced. Fail-closed is not pessimism; it is discipline.",
+    "The scope is LOCAL to the Differ integration. Widen when other integrations with unknown transport are added and this pattern is validated across them.",
+    "Q7 questions deferred from this resolution (what is Differ's real session model? how does it authenticate? what are the origin/CORS constraints? how does it handle principal re-identification?) must be resolved BEFORE enabling the integration.",
+    "`researchRequired: true` because Differ's real transport model is a factual question we don't yet know, not a design decision we're deferring."
+  ]
+}

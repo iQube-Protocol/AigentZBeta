@@ -1,0 +1,56 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-27-NATIVE-HANDOFF-BOUNDARY-001",
+  "statement": "An external experience may initiate navigation to an explicitly permitted native capability but may neither inherit nor exercise that capability's authority. A native handoff is a navigation mechanism only: it establishes that a specific surface is reachable from an external context and that navigation to it is permitted, but it does not grant the external experience any authority to act on behalf of the principal or to represent the capability as directly executable. Redemption must re-check eligibility against a fresh projection and must not treat callback/navigation receipt as completion evidence.",
+  "family": "constitutional",
+  "governingPrinciple": false,
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "external-provider-architecture",
+      "financial-services-integration",
+      "authority-boundaries"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "classification": "A BOUNDARY-PRESERVATION rule for external integrations. It enforces that native handoff is strictly a navigation mechanic, not an authority delegation. An external experience (Differ) may offer a capability to a principal (\"Click here to review your pension options\") but cannot act ON that capability or inherit the principal's authority over it. The resolution required this to be explicit in the native handoff implementation, not implicit in policy.",
+  "scope": "local",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/adaptive-native-handoff.test.ts",
+      "assertion": "Handoff redemption must call the injected `recheckEligible` callback and reject if the callback returns false, even if the handoff token is valid and the principal is correct. Redemption result must be NAVIGATION ONLY (redirects to `nativeSurfaceRef`, no `executed` or `outcome` field). If a principal navigates to a capability they've become ineligible for (e.g. due to a changed compliance status since handoff issuance), the handoff must fail redemption. The callback must be called at redemption time, not at issuance time, to catch time-dependent eligibility changes.",
+      "verifiedFailingBeforeFix": true
+    },
+    {
+      "path": "tests/adaptive-external-experience-projection.test.ts",
+      "assertion": "The `/api/adaptive/financial-services/projection` response must not contain any field that implies 'completed' or 'executed' status. Surfaces and actions must carry only `capabilityId`, `label`, `surfaceRef`, and `handoffOffered`. The projection must be refreshable without side effects (pure GET, `Cache-Control: no-store`). A handoff redemption that navigates the principal to a surface is NOT evidence that the capability completed; only a fresh projection read AFTER navigation may advance external state.",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "services/adaptive/nativeHandoff.ts — redeemNativeActionHandoff(); services/adaptive/externalExperienceProjection.ts — buildExternalExperienceProjection(); app/api/adaptive/financial-services/handoffs/[handoffId]/redeem/route.ts",
+      "defect": "A native handoff must preserve the boundary between 'external experience is aware this capability exists and can navigate to it' and 'external experience has authority to act on it'. Redemption re-checks eligibility (via injected callback) to catch eligibility changes since issuance. Navigation to a surface is not completion; only a subsequent refresh of the projection from the native provider can establish what actually happened.",
+      "resolutionId": "RES-2026-08-27-AEE-ADAPTIVE-DISPOSITION-ARCHITECTURE-001",
+      "evidence": [
+        "services/adaptive/nativeHandoff.ts",
+        "services/adaptive/externalExperienceProjection.ts",
+        "app/api/adaptive/financial-services/handoffs/[handoffId]/redeem/route.ts",
+        "tests/adaptive-native-handoff.test.ts"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-08-27-AEE-ADAPTIVE-DISPOSITION-ARCHITECTURE-001"
+  ],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "The dependency-injected `recheckEligible` callback keeps the native handoff service provider-neutral while allowing Financial Services to re-run its own eligibility checks at redemption time. This pattern is reusable for any future integration.",
+    "Scope is LOCAL because this is documented from the Financial Services / Differ integration context. Generality should be validated against a second integration before claiming cross-system applicability.",
+    "The `ratificationRequired: true` reflects that this touches authority boundaries, which are constitutional concerns requiring operator review. No agent self-ratifies this."
+  ]
+}

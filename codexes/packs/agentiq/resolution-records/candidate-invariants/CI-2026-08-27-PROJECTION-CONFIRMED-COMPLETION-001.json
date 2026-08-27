@@ -1,0 +1,51 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-27-PROJECTION-CONFIRMED-COMPLETION-001",
+  "statement": "An external experience advances only from a refreshed canonical projection; callbacks and navigation outcomes are not completion evidence. When a principal navigates away from an external surface via a native handoff, the external experience cannot know whether the action succeeded, was declined, or changed state. Advancement of the external experience (e.g., marking a capability complete, transitioning to the next stage) must depend on a fresh projection read from the native provider AFTER the navigation, not on the callback or navigation receipt itself.",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "external-provider-architecture",
+      "financial-services-integration",
+      "projection-contract"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "structural"
+  },
+  "classification": "A COMPLETION SEMANTICS rule for external integrations. It addresses the problem that a callback from an external surface can lie, be delayed, or be interrupted. The only authoritative source of completion is the native provider's own projection, read after the action. This keeps the external experience honest: it can show optimistic results to the principal, but it must verify via a fresh projection before asserting completion to downstream systems.",
+  "scope": "local",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/adaptive-external-experience-projection.test.ts",
+      "assertion": "The projection route must return `Cache-Control: no-store` (no caching). The response must not contain any `completed`, `executed`, `outcome`, or `status` fields that imply finality. A native handoff redemption route returns NAVIGATION ONLY (a redirect or modal target URL), not a completion assertion. The projection response is a pure READ of current state; there must be no `_version`, `_timestamp`, or other fields that would let an external experience treat a specific projection snapshot as 'proven complete'.",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "services/adaptive/externalExperienceProjection.ts — buildExternalExperienceProjection(); app/api/adaptive/financial-services/projection/route.ts; app/api/adaptive/financial-services/handoffs/[handoffId]/redeem/route.ts",
+      "defect": "The original pilot's projection endpoint could have been interpreted as a cached, versioned artifact that an external experience could treat as a completion assertion. The current resolution makes the projection purely read-only with no-cache semantics, and separates handoff redemption (navigation only) from completion assertion (refresh the projection).",
+      "resolutionId": "RES-2026-08-27-AEE-ADAPTIVE-DISPOSITION-ARCHITECTURE-001",
+      "evidence": [
+        "services/adaptive/externalExperienceProjection.ts",
+        "app/api/adaptive/financial-services/projection/route.ts",
+        "app/api/adaptive/financial-services/handoffs/[handoffId]/redeem/route.ts",
+        "tests/adaptive-external-experience-projection.test.ts"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-08-27-AEE-ADAPTIVE-DISPOSITION-ARCHITECTURE-001"
+  ],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "This is distinct from MS-7 (an inert mechanism is a defect). MS-7 is about mechanisms that never fire; this is about trusting what a callback claims when the source of truth (the projection) is the only reliable arbiter.",
+    "The scope is LOCAL because this emerges from the Differ integration specifically. Generality across all external providers should be validated before claiming broader applicability.",
+    "The corollary: the external experience can perform OPTIMISTIC updates ('Showing you completed...' with a visual pending state), but it must not communicate that status downstream until a projection refresh confirms it."
+  ]
+}
