@@ -3,9 +3,7 @@
     {
       "id": "col_start_here",
       "title": "Start Here",
-      "items": [
-        "items/start-here.md"
-      ]
+      "items": ["items/start-here.md"]
     },
     {
       "id": "col_docs_kb",
@@ -25,16 +23,12 @@
     {
       "id": "col_delegation",
       "title": "Delegation",
-      "items": [
-        "items/bounded-delegation.md"
-      ]
+      "items": ["items/bounded-delegation.md"]
     },
     {
       "id": "col_sdk_api",
       "title": "SDK / API",
-      "items": [
-        "items/sdk-quickstart.md"
-      ]
+      "items": ["items/sdk-quickstart.md"]
     },
     {
       "id": "col_reference",
@@ -47,23 +41,17 @@
     {
       "id": "col_smarttriad",
       "title": "SmartTriad",
-      "items": [
-        "items/smarttriad.md"
-      ]
+      "items": ["items/smarttriad.md"]
     },
     {
       "id": "col_liquid_ui",
       "title": "Liquid UI",
-      "items": [
-        "items/liquid-ui.md"
-      ]
+      "items": ["items/liquid-ui.md"]
     },
     {
       "id": "col_codex",
       "title": "AgentiQ OS Codex",
-      "items": [
-        "items/agentiq-os-codex.md"
-      ]
+      "items": ["items/agentiq-os-codex.md"]
     }
   ]
 }
