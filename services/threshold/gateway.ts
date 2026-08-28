@@ -28,11 +28,13 @@ import {
   type DeclareArtifactFreezeMcpArgs,
   type SignExchangeInstrumentMcpArgs,
   type EstablishDelegationMcpArgs,
+  type ConfirmOperatorAssistedArtifactMcpArgs,
   type getExchangeStateForMcp,
   type depositExchangeArtifactViaMcp,
   type declareArtifactFreezeViaMcp,
   type signExchangeInstrumentViaMcp,
   type establishDelegationViaMcp,
+  type confirmOperatorAssistedArtifactViaMcp,
 } from './mcpConstitutionalActs';
 
 // ── Context injected by the route (keeps this module I/O-light + testable) ──
@@ -99,6 +101,13 @@ export interface GatewayContext {
     declareFreeze: (args: DeclareArtifactFreezeMcpArgs) => ReturnType<typeof declareArtifactFreezeViaMcp>;
     signInstrument: (args: SignExchangeInstrumentMcpArgs) => ReturnType<typeof signExchangeInstrumentViaMcp>;
     establishDelegation: (args: EstablishDelegationMcpArgs) => ReturnType<typeof establishDelegationViaMcp>;
+    /** Journey Spine channel convergence (2026-08-28) — adopts a
+     *  custodially-registered (operator-assisted) artifact as the bound
+     *  principal's own attested evidence. Confirmation-only: never performed
+     *  by an operator, never inferred from conversation. */
+    confirmOperatorAssistedArtifact: (
+      args: ConfirmOperatorAssistedArtifactMcpArgs,
+    ) => ReturnType<typeof confirmOperatorAssistedArtifactViaMcp>;
   };
 }
 
@@ -183,7 +192,7 @@ export function listTools() {
     {
       name: 'get_exchange_state',
       description:
-        "Read your principal's current Reciprocal Artifact Exchange state (OCSGA Boundary Research): whether they have deposited an artifact, whether it is freeze-declared, whether it is signed, and the same for the counterparty (subject to disclosure policy). Read-only. Requires an authenticated session with research.read.",
+        "Read your principal's current Reciprocal Artifact Exchange state (OCSGA Boundary Research): whether they have deposited an artifact (and, if it was registered on their behalf by an operator, whether it is still pending their own confirmation — pendingPrincipalAttestation), whether it is freeze-declared, whether it is signed, and the same for the counterparty (subject to disclosure policy). ALSO returns the canonical freezeDeclarationText and exchangeInstrumentClauses — the exact text to present your principal BEFORE calling declare_artifact_freeze or sign_exchange_instrument (never paraphrase or assume this text). Read-only. Requires an authenticated session with research.read.",
       inputSchema: { type: 'object', properties: {}, additionalProperties: false },
     },
     {
@@ -207,6 +216,19 @@ export function listTools() {
           rightsForExchange: { type: 'string', description: 'What rights your principal grants the counterparty for this exchange.' },
         },
         required: ['declarationConfirmed', 'title', 'artifactClass', 'sourceType', 'sourceReference', 'contentHash', 'ownershipDeclaration', 'rightsForExchange'],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'confirm_operator_assisted_artifact',
+      description:
+        "Adopt, as your principal's OWN attested evidence, a research artifact that an authorized operator custodially registered on their behalf (used when your principal could not themselves reach a deposit surface). This is your principal's own constitutional act — it never runs on any operator's or agent's say-so alone. The artifact's content/fingerprint is untouched; only the pending-confirmation flag clears. Until confirmed (by this tool or the native Exchange workspace), the artifact CANNOT be frozen or signed by any caller, including the registering operator. Requires explicit declaration/consent (declarationConfirmed: true) and the research.exchange.write capability. A no-op (still ok:true) if nothing is pending.",
+      inputSchema: {
+        type: 'object',
+        properties: {
+          declarationConfirmed: { type: 'boolean', description: 'Must be true. Set only after showing your principal exactly which artifact was registered on their behalf (title, fingerprint, who registered it and on what authority) and obtaining their explicit assent to adopt it as their own.' },
+        },
+        required: ['declarationConfirmed'],
         additionalProperties: false,
       },
     },
@@ -409,6 +431,7 @@ export const HANDSHAKE_TOOLS = new Set([
   'get_navigator_state',
   'get_exchange_state',
   'deposit_exchange_artifact',
+  'confirm_operator_assisted_artifact',
   'fingerprint_exchange_artifact',
   'declare_artifact_freeze',
   'sign_exchange_instrument',
@@ -438,6 +461,7 @@ const AUTHENTICATED_TOOLS = new Set([
   'get_navigator_state',
   'get_exchange_state',
   'deposit_exchange_artifact',
+  'confirm_operator_assisted_artifact',
   'fingerprint_exchange_artifact',
   'declare_artifact_freeze',
   'sign_exchange_instrument',
@@ -611,7 +635,13 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
       return text(result);
     }
 
-    if (name === 'deposit_exchange_artifact' || name === 'declare_artifact_freeze' || name === 'sign_exchange_instrument' || name === 'establish_delegation') {
+    if (
+      name === 'deposit_exchange_artifact' ||
+      name === 'confirm_operator_assisted_artifact' ||
+      name === 'declare_artifact_freeze' ||
+      name === 'sign_exchange_instrument' ||
+      name === 'establish_delegation'
+    ) {
       if (!hasScope(s, 'research.exchange.write') && !(name === 'establish_delegation' && hasScope(s, 'delegation.grant'))) {
         return {
           ...text(
@@ -637,6 +667,12 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
           ownershipDeclaration: String(args.ownershipDeclaration ?? ''),
           rightsForExchange: String(args.rightsForExchange ?? ''),
         });
+        if (!result.ok) return { ...text(result.error), isError: true };
+        return text(result);
+      }
+
+      if (name === 'confirm_operator_assisted_artifact') {
+        const result = await ctx.mcpActs.confirmOperatorAssistedArtifact({ declarationConfirmed: args.declarationConfirmed === true });
         if (!result.ok) return { ...text(result.error), isError: true };
         return text(result);
       }
