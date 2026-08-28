@@ -4584,3 +4584,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-53ba2bd.md](../build_/COMMITS/COMMIT-53ba2bd.md)
 - Message: Canonize MFE pillars as Risk, Value, Price (#103)
+
+## Commit `a9df145` — 2026-08-28T15:55:53-04:00
+- Type: `push`
+- Brief: [COMMIT-a9df145.md](../build_/COMMITS/COMMIT-a9df145.md)
+- Message: Pin public CFS whitepaper in AgentiQ OS corpus (#104)

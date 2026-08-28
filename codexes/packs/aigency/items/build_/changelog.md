@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`a9df145`](https://github.com/iQube-Protocol/AigentZBeta/commit/a9df145d2252d1cc240dde8aea063a09429a2f8f) [push] Pin public CFS whitepaper in AgentiQ OS corpus (#104) (Kn0w1, 2026-08-28T15:55:53-04:00)
 - [`53ba2bd`](https://github.com/iQube-Protocol/AigentZBeta/commit/53ba2bd1dbc96b24b90f37c60bbcc653c1968078) [push] Canonize MFE pillars as Risk, Value, Price (#103) (Kn0w1, 2026-08-28T15:47:49-04:00)
 - [`21f2952`](https://github.com/iQube-Protocol/AigentZBeta/commit/21f295258aed3b906248603353a714a7b68e2702) [fix] Correct MFE capstone pillars to Risk Management, Pricing and Value (Kn0w1, 2026-08-28T15:16:12-04:00)
 - [`5540135`](https://github.com/iQube-Protocol/AigentZBeta/commit/55401351764aa19c8d698215f3cb7aaffc755ce6) [push] Publish constitutional financial services whitepaper and MFE estate briefing (Kn0w1, 2026-08-28T14:24:25-04:00)

@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-28T19:49:32.899Z",
+  "last_updated": "2026-08-28T19:57:47.202Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "53ba2bd1dbc96b24b90f37c60bbcc653c1968078",
-  "latest_commit_short": "53ba2bd",
-  "latest_commit_title": "Canonize MFE pillars as Risk, Value, Price (#103)",
+  "latest_commit": "a9df145d2252d1cc240dde8aea063a09429a2f8f",
+  "latest_commit_short": "a9df145",
+  "latest_commit_title": "Pin public CFS whitepaper in AgentiQ OS corpus (#104)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "a9df145",
+      "full_sha": "a9df145d2252d1cc240dde8aea063a09429a2f8f",
+      "title": "Pin public CFS whitepaper in AgentiQ OS corpus (#104)",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-28T15:55:53-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-a9df145.md"
+    },
     {
       "sha": "53ba2bd",
       "full_sha": "53ba2bd1dbc96b24b90f37c60bbcc653c1968078",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-12T13:03:08-04:00",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-a238834.md"
-    },
-    {
-      "sha": "be46bc6",
-      "full_sha": "be46bc68150c07f10af193ad1dad577bdad9eccc",
-      "title": "test(irl): cover IDE v2 risk-field primitives",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-12T13:03:24-04:00",
-      "type": "test",
-      "brief": "items/build_/COMMITS/COMMIT-be46bc6.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
