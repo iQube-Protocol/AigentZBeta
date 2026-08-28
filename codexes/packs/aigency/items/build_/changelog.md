@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`1ffcad4`](https://github.com/iQube-Protocol/AigentZBeta/commit/1ffcad44b9b0ea6bda0bdca8236c2065be2f14c8) [push] record the channel-independence constitutional invariants ratified from OCSGA/Copilot convergence evidence (Claude, 2026-08-28T13:43:42Z)
 - [`50d3d6e`](https://github.com/iQube-Protocol/AigentZBeta/commit/50d3d6e32ea39e349fe1ea18f0e587ae1361772c) [feat] Add operator-assisted custodial artifact registration for RAX exchanges (Claude, 2026-08-28T12:21:36Z)
 - [`33fed9b`](https://github.com/iQube-Protocol/AigentZBeta/commit/33fed9bb6b2b42a13a9d66f39ac8a534304973bd) [feat] add confirm-artifact MCP tool and thread agent identity onto exchange receipts (Claude, 2026-08-28T13:07:20Z)
 - [`4b931ae`](https://github.com/iQube-Protocol/AigentZBeta/commit/4b931ae89bf71d49425265a0ad354243791552a8) [fix] Fix OCSGA Presence stage to recognize a principal's Citizen Passport for an agent-persona caller (Claude, 2026-08-27T09:43:52Z)

@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-28T13:35:12.688Z",
+  "last_updated": "2026-08-28T13:45:39.744Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "50d3d6e32ea39e349fe1ea18f0e587ae1361772c",
-  "latest_commit_short": "50d3d6e",
-  "latest_commit_title": "Add operator-assisted custodial artifact registration for RAX exchanges",
+  "latest_commit": "1ffcad44b9b0ea6bda0bdca8236c2065be2f14c8",
+  "latest_commit_short": "1ffcad4",
+  "latest_commit_title": "record the channel-independence constitutional invariants ratified from OCSGA/Copilot convergence evidence",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "1ffcad4",
+      "full_sha": "1ffcad44b9b0ea6bda0bdca8236c2065be2f14c8",
+      "title": "record the channel-independence constitutional invariants ratified from OCSGA/Copilot convergence evidence",
+      "author": "Claude",
+      "timestamp": "2026-08-28T13:43:42Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-1ffcad4.md"
+    },
     {
       "sha": "50d3d6e",
       "full_sha": "50d3d6e32ea39e349fe1ea18f0e587ae1361772c",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-11T23:40:14Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-581418d.md"
-    },
-    {
-      "sha": "ecbdd8b",
-      "full_sha": "ecbdd8bd27d1c62aa280ac695cb67622987ae5a9",
-      "title": "phase 4.1: consolidate choose ctAs into destination cards",
-      "author": "Claude",
-      "timestamp": "2026-08-11T22:48:22Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-ecbdd8b.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
