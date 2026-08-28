@@ -17,7 +17,7 @@ This model brings together four complementary capabilities:
 - **Constitutional authority:** personhood, sponsorship, delegation, policy, expiry, revocation, and standing govern who or what may act.
 - **Vela confidential execution:** sensitive financial intent, data, strategy, and computation can be handled within a protected layer rather than exposed to every participant or system.
 - **Pulse and P&L transparency:** transactions, operational state, and financial results can produce permissioned, verifiable evidence rather than relying on unexamined claims or unrestricted access to raw records.
-- **Risk-routed execution:** value, risk, price sensitivity, privacy, reversibility, and market impact determine whether an action can proceed automatically, requires human approval, must be executed inside a trusted execution environment, or must be held or denied.
+- **Risk-routed execution:** risk, value, price, privacy, reversibility, and market impact determine whether an action can proceed automatically, requires human approval, must be executed inside a trusted execution environment, or must be held or denied.
 
 The advanced end state is a consequence-aware financial service in which the route to execution is itself governed. A low-value, reversible payment may proceed through ordinary bounded automation. A high-value, privacy-sensitive, price-sensitive, or strategically consequential transaction may be automatically routed to a trusted execution environment (TEE), with attestation and stronger approval requirements. Unknown, prohibited, or insufficiently evidenced actions fail closed.
 
@@ -141,13 +141,23 @@ Pulse and P&L therefore provide two related forms of transparency:
 
 The advanced service does not send every transaction through the same approval or execution path. It evaluates the consequences of the proposed action and selects a route consistent with constitutional policy.
 
+### Risk, Value, Price
+
+The ordering is constitutional: **Risk → Value → Price**.
+
+- **Risk** defines what exposure, uncertainty or consequence must be borne, contained or transferred.
+- **Value** defines the benefit sought, created, preserved or realised.
+- **Price** is established by balancing risk and value. It is not an independent truth, a synonym for nominal amount, or a substitute for either of the first two judgements.
+
+This relationship applies both to market price formation and to constitutional route selection. A price is acceptable only in relation to the value sought and the risk assumed; changes in either should be capable of changing the acceptable price or execution route.
+
 ### Routing factors
 
 A routing decision may consider:
 
-- **Value:** absolute amount and amount relative to available capital, budget, or delegated limit.
 - **Risk:** credit, liquidity, market, operational, model, counterparty, legal, and reputational exposure.
-- **Price:** price tolerance, volatility, spread, slippage, market impact, valuation uncertainty, and deviation from an approved bound.
+- **Value:** intended and realised benefit, absolute amount, and amount relative to available capital, budget, or delegated limit.
+- **Price:** the exchange term produced by balancing risk and value, including tolerance, volatility, spread, slippage, market impact, valuation uncertainty, and deviation from an approved bound.
 - **Privacy:** sensitivity of the transaction, strategy, counterparties, and supporting data.
 - **Reversibility:** whether the action can be cancelled, recalled, disputed, or economically unwound.
 - **Time:** urgency, market window, expiry, and the cost of delay.
@@ -155,7 +165,7 @@ A routing decision may consider:
 - **Evidence quality:** whether the required identity, policy, pricing, and settlement proofs are available.
 - **System uncertainty:** confidence in the model, data, and route selection itself.
 
-Price should not be treated as a single trigger. A small transaction in an illiquid market may create more market impact than a larger transaction in a deep market. Routing should evaluate both nominal value and consequence.
+Price should not be treated as a single trigger. A small transaction in an illiquid market may create more market impact than a larger transaction in a deep market. Routing should evaluate the value sought, the risk borne, and the price formed by balancing them—not nominal amount alone.
 
 ### Illustrative routing classes
 
@@ -190,7 +200,7 @@ An illustrative transaction follows this sequence:
 2. **Presence:** The system resolves the constitutional participant and the active Passport.
 3. **Authority:** It resolves the applicable delegation, scope, expiry, and limits.
 4. **Proposal:** MoneyPenny constructs a proposal without treating the proposal as permission to execute.
-5. **Classification:** The risk router evaluates value, risk, price, privacy, reversibility, and evidence.
+5. **Classification:** The risk router evaluates risk, value, price, privacy, reversibility, and evidence, with price derived from the balance between risk and value.
 6. **Route:** The transaction is assigned to bounded automation, supervision, confidential TEE execution, or hold/deny.
 7. **Execution:** The selected environment performs only the authorised act.
 8. **Settlement:** The external payment or market outcome is observed and reconciled. Q¢ may serve as a denomination and settlement primitive in its supported Base or Bitcoin forms; it is not an equity or governance token.
