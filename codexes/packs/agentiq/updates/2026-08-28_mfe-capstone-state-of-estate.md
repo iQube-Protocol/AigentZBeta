@@ -1,7 +1,7 @@
 # MFE Capstone — State of the Estate
 
 **Artifact:** MFE-CAPSTONE-ESTATE-2026-08-28  
-**Audience:** Lehigh Master of Financial Engineering capstone students — Risk Management, Pricing and Financial Systems  
+**Audience:** Lehigh Master of Financial Engineering capstone students — Risk Management, Pricing and Value  
 **Status:** STUDENT BRIEFING / EVIDENCE-BACKED  
 **As-of:** 28 August 2026  
 **Comparison window:** 31 May–28 August 2026
@@ -122,7 +122,7 @@ The repository already registers the **MFE Capstone — Master of Financial Engi
 
 1. **Risk Management** — risk research and risk-management artefacts.
 2. **Pricing** — pricing research and pricing artefacts.
-3. **Financial Systems** — financial-system design and system artefacts.
+3. **Value** — value definition, measurement, realisation and evidence artefacts.
 
 All three begin at the shared **Brief** stage and use the common capstone lifecycle:
 
@@ -136,9 +136,9 @@ Develop an interpretable transaction-routing model covering value, tail risk, li
 
 Develop price-quality and execution tests covering quote staleness, spreads, volatility, liquidity, slippage, valuation uncertainty and market impact. Connect price confidence to route selection and operator escalation. Demonstrate why nominal value alone is insufficient.
 
-### Financial Systems project
+### Value project
 
-Design the control and evidence architecture connecting authority, transaction state, Vela/TEE execution, settlement, Pulse, P&L, receipts and reconciliation. Define how the system fails closed when a session, price, proof, attestation or provider response is missing or contradictory.
+Define and test how the system recognises, measures and preserves value. Connect intended value to realised outcome, risk-adjusted return, time-to-value, cost, repair risk, Pulse, P&L and evidence. Distinguish nominal transaction value from consequential benefit, and specify how a verified value claim enters the constitutional record.
 
 ## Suggested shared deliverables
 
@@ -157,7 +157,7 @@ Each team should produce testable artefacts rather than only a narrative report:
 
 ## Submit through the IRL OS Workspace
 
-Enter the **IRL OS Workspace** and select **MFE Capstone** in the left navigation. The cohort and its Risk Management, Pricing and Financial Systems projects are already registered there.
+Enter the **IRL OS Workspace** and select **MFE Capstone** in the left navigation. The cohort and its Risk Management, Pricing and Value projects are already registered there.
 
 - [IRL OS Workspace](https://dev-beta.aigentz.me/triad/embed/codex/irl-os-cartridge?tab=irl-os-workspace)
 - [Workspace Overview](https://dev-beta.aigentz.me/triad/embed/codex/irl-os-cartridge?tab=irl-os-workspace-overview)
@@ -205,6 +205,6 @@ One implementation boundary remains open: admitted research-contribution signals
 
 ## Closing perspective
 
-The programme has moved from a financial-agency proposition to a testable constitutional-financial-services architecture. Your task is not to rebuild the platform. It is to make one consequential part of its financial logic more rigorous, measurable and safe: risk, pricing or financial-system control.
+The programme has moved from a financial-agency proposition to a testable constitutional-financial-services architecture. Your task is not to rebuild the platform. It is to make one consequential part of its financial logic more rigorous, measurable and safe: risk management, pricing or value.
 
-The objective is financial service that can operate at machine speed without abandoning human authority, confidentiality, verifiability or consequence.
+The objective is financial service that can operate at machine speed without abandoning human authority, confidentiality, verifiability, value or consequence.
