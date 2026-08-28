@@ -74,6 +74,19 @@ vi.mock('@/services/research/reciprocalExchange', () => ({
 vi.mock('@/services/journey/ianJourneyState', () => ({
   fetchIanAuthoritativePlatformState: mockFetchIanAuthoritativePlatformState,
 }));
+// services/journey/boundaryResearchExchangeAdmission.ts (imported below via
+// constitutionalNavigator.ts, real/unmocked — ensureBoundaryResearchExchange
+// Membership itself is exercised for real by this file's own tests) picked
+// up a SIBLING export (2026-08-28's operator-assisted admission wrapper)
+// that imports services/access/requireCartridgeAdmin, whose OTHER export
+// (requireCartridgeAdmin) drags in services/identity/getActivePersona ->
+// services/wallet/multiEmailIdentity, which creates a Supabase client at
+// MODULE-EVALUATION time and throws without real env vars — same failure
+// class this file's own vi.mock('@/services/identity/constitutionalContext')
+// above already exists to prevent. Mocking this one module short-circuits
+// that new edge without touching ensureBoundaryResearchExchangeMembership,
+// which stays real and unmocked for this file's own assertions.
+vi.mock('@/services/access/requireCartridgeAdmin', () => ({ isCartridgeAdmin: vi.fn() }));
 
 import { resolveConstitutionalNavigatorState, supportedBridgeIds } from '@/services/threshold/constitutionalNavigator';
 import type { ScopedSession } from '@/services/threshold/gatewaySession';

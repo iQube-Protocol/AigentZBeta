@@ -11,7 +11,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { readSource, stripComments } from './_lib/sourceAuthority';
+import { readSource, stripComments, importAuthority } from './_lib/sourceAuthority';
 
 // ── Unit-level: services/journey/boundaryResearchExchangeAdmission.ts ──────
 
@@ -25,6 +25,7 @@ const {
   mockJoinExchange,
   mockResolveMembership,
   mockGetResearchWorkspace,
+  mockIsCartridgeAdmin,
 } = vi.hoisted(() => ({
   mockGetBoundaryResearchReadableExperiments: vi.fn(),
   mockLoadUsableCitizenPassportForAuthProfile: vi.fn(),
@@ -35,6 +36,7 @@ const {
   mockJoinExchange: vi.fn(),
   mockResolveMembership: vi.fn(),
   mockGetResearchWorkspace: vi.fn(),
+  mockIsCartridgeAdmin: vi.fn(),
 }));
 
 vi.mock('@/services/passport/participationAccess', () => ({
@@ -54,11 +56,36 @@ vi.mock('@/services/research/reciprocalExchange', () => ({
   joinExchange: mockJoinExchange,
   resolveMembership: mockResolveMembership,
 }));
+// isCartridgeAdmin is a pure predicate (services/access/requireCartridgeAdmin.ts)
+// but that module's SIBLING export requireCartridgeAdmin imports
+// services/identity/getActivePersona.ts, which reaches a module-top-level
+// `createClient(...)` call requiring live SUPABASE_URL env — exactly the
+// external-service dependency this repo's unit-test suite must run without
+// (vitest.config.mjs's own stated contract). Mocking the whole module keeps
+// this file's zero-external-dependency guarantee; isCartridgeAdmin's OWN
+// logic (isAdmin || adminCartridges.includes(slug)) is covered independently
+// by tests/require-cartridge-admin.test.ts — this file only needs to prove
+// the operator-assisted wrapper CALLS it correctly, not re-verify its body.
+vi.mock('@/services/access/requireCartridgeAdmin', () => ({
+  isCartridgeAdmin: mockIsCartridgeAdmin,
+}));
 
 import {
   ensureBoundaryResearchExchangeMembership,
+  ensureBoundaryResearchExchangeMembershipOperatorAssisted,
   OCSGA_BOUNDARY_RESEARCH_WORKSPACE_ID,
 } from '@/services/journey/boundaryResearchExchangeAdmission';
+import type { ActivePersonaContext } from '@/types/access';
+
+const makeOperatorContext = (over?: Partial<ActivePersonaContext>): ActivePersonaContext => ({
+  personaId: 'operator-persona-uuid',
+  authProfileId: 'operator-auth-profile-uuid',
+  identifiability: 'semi_anonymous',
+  cartridgeFlags: { isAdmin: false, isPartner: false, adminCartridges: [] },
+  cohortMemberships: [],
+  source: 'session-cookie',
+  ...over,
+} as ActivePersonaContext);
 
 const NOOP_ADMIN = {} as never;
 const PERSONA_ID = '29d22f83-a3cc-49d9-90be-a39391e9d8ae'; // Ian's real persona, from the live audit
@@ -101,6 +128,11 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockLoadUsableCitizenPassportForAuthProfile.mockResolvedValue({ ok: true, passport: { revoked: false } });
   mockIsPassportUsable.mockReturnValue(true);
+  // Fail-closed default — every test that needs operator authorization sets
+  // this explicitly; the plain ensureBoundaryResearchExchangeMembership
+  // canaries above never call isCartridgeAdmin at all, so this default never
+  // affects them.
+  mockIsCartridgeAdmin.mockReturnValue(false);
   mockGetResearchWorkspace.mockReturnValue({ id: OCSGA_BOUNDARY_RESEARCH_WORKSPACE_ID, title: 'OCSGA Boundary Research', description: 'desc' });
   mockListExchangesByParentExperiment.mockResolvedValue({ ok: true, exchanges: [] });
   mockResolveMembership.mockImplementation((ex: { initiatorPersonaId: string; counterpartyPersonaId: string | null }, personaId: string) => {
@@ -274,6 +306,193 @@ describe('wiring the previously-dead scope resolver into production', () => {
       workspaceId: OCSGA_BOUNDARY_RESEARCH_WORKSPACE_ID,
     });
     expect(mockGetBoundaryResearchReadableExperiments).toHaveBeenCalledWith(NOOP_ADMIN, PERSONA_ID);
+  });
+});
+
+// ── Operator-assisted admission wrapper (2026-08-28) — required tests 1 & 2,
+//    plus the operator-authorization gate itself. Reuses EVERY existing mock
+//    and helper above: the wrapper calls the REAL, unmocked
+//    ensureBoundaryResearchExchangeMembership, so these tests exercise the
+//    exact same Passport/grant machinery the canaries above already cover —
+//    only the operator-authorization gate on top is new. ────────────────────
+
+describe('ensureBoundaryResearchExchangeMembershipOperatorAssisted — operator authorization gate', () => {
+  it('refuses an operator with no admin scope on irl-cartridge, BEFORE any Passport/grant check runs', async () => {
+    mockIsCartridgeAdmin.mockReturnValue(false);
+    const nonAdminOperator = makeOperatorContext();
+    const result = await ensureBoundaryResearchExchangeMembershipOperatorAssisted(NOOP_ADMIN, {
+      operatorContext: nonAdminOperator,
+      targetPersonaId: PERSONA_ID,
+      targetAuthProfileId: AUTH_PROFILE_ID,
+      workspaceId: OCSGA_BOUNDARY_RESEARCH_WORKSPACE_ID,
+    });
+    expect(result).toEqual({ ok: false, reason: 'operator-authorization-required' });
+    expect(mockLoadUsableCitizenPassportForAuthProfile).not.toHaveBeenCalled();
+    expect(mockGetBoundaryResearchReadableExperiments).not.toHaveBeenCalled();
+  });
+
+  it('calls the SAME isCartridgeAdmin predicate every other admin surface uses, scoped to \'irl-cartridge\' — no parallel admin check', async () => {
+    mockIsCartridgeAdmin.mockReturnValue(true);
+    mockGetBoundaryResearchReadableExperiments.mockResolvedValue(new Set([OCSGA_BOUNDARY_RESEARCH_WORKSPACE_ID]));
+    mockCreateExchange.mockResolvedValue({ ok: true, exchange: fakeExchange({ id: 'new-exchange', initiatorPersonaId: PERSONA_ID }) });
+    const operatorCtx = makeOperatorContext();
+
+    const result = await ensureBoundaryResearchExchangeMembershipOperatorAssisted(NOOP_ADMIN, {
+      operatorContext: operatorCtx,
+      targetPersonaId: PERSONA_ID,
+      targetAuthProfileId: AUTH_PROFILE_ID,
+      workspaceId: OCSGA_BOUNDARY_RESEARCH_WORKSPACE_ID,
+    });
+    expect(result.ok).toBe(true);
+    expect(mockIsCartridgeAdmin).toHaveBeenCalledWith(operatorCtx, 'irl-cartridge');
+  });
+
+  it('an operator whose admin scope does not authorize this cartridge is refused (isCartridgeAdmin returns false)', async () => {
+    mockIsCartridgeAdmin.mockReturnValue(false);
+    const wrongCartridgeAdmin = makeOperatorContext({
+      cartridgeFlags: { isAdmin: false, isPartner: false, adminCartridges: ['knyt-codex'] },
+    });
+    const result = await ensureBoundaryResearchExchangeMembershipOperatorAssisted(NOOP_ADMIN, {
+      operatorContext: wrongCartridgeAdmin,
+      targetPersonaId: PERSONA_ID,
+      targetAuthProfileId: AUTH_PROFILE_ID,
+      workspaceId: OCSGA_BOUNDARY_RESEARCH_WORKSPACE_ID,
+    });
+    expect(result).toEqual({ ok: false, reason: 'operator-authorization-required' });
+  });
+});
+
+describe('required test 1 — ineligible operator-assisted bind rejected (operator IS authorized, TARGET is not)', () => {
+  const AUTHORIZED_OPERATOR = makeOperatorContext({ cartridgeFlags: { isAdmin: true, isPartner: false, adminCartridges: [] } });
+
+  it('target has no usable Passport → passport-unusable, same reason code as the direct path', async () => {
+    mockIsCartridgeAdmin.mockReturnValue(true);
+    mockIsPassportUsable.mockReturnValue(false);
+    const result = await ensureBoundaryResearchExchangeMembershipOperatorAssisted(NOOP_ADMIN, {
+      operatorContext: AUTHORIZED_OPERATOR,
+      targetPersonaId: PERSONA_ID,
+      targetAuthProfileId: AUTH_PROFILE_ID,
+      workspaceId: OCSGA_BOUNDARY_RESEARCH_WORKSPACE_ID,
+    });
+    expect(result).toEqual({ ok: false, reason: 'passport-unusable' });
+    expect(mockGetBoundaryResearchReadableExperiments).not.toHaveBeenCalled();
+    expect(mockCreateExchange).not.toHaveBeenCalled();
+  });
+
+  it('target has no research-lab grant reaching this workspace → not-admitted, same reason code', async () => {
+    mockIsCartridgeAdmin.mockReturnValue(true);
+    mockGetBoundaryResearchReadableExperiments.mockResolvedValue(new Set(['EXP-001']));
+    const result = await ensureBoundaryResearchExchangeMembershipOperatorAssisted(NOOP_ADMIN, {
+      operatorContext: AUTHORIZED_OPERATOR,
+      targetPersonaId: PERSONA_ID,
+      targetAuthProfileId: AUTH_PROFILE_ID,
+      workspaceId: OCSGA_BOUNDARY_RESEARCH_WORKSPACE_ID,
+    });
+    expect(result).toEqual({ ok: false, reason: 'not-admitted' });
+    expect(mockCreateExchange).not.toHaveBeenCalled();
+  });
+
+  it('a chat-asserted-style personaId with genuinely no Passport/grant on file is rejected — never a fabricated pass', async () => {
+    mockIsCartridgeAdmin.mockReturnValue(true);
+    mockIsPassportUsable.mockReturnValue(false);
+    const result = await ensureBoundaryResearchExchangeMembershipOperatorAssisted(NOOP_ADMIN, {
+      operatorContext: AUTHORIZED_OPERATOR,
+      targetPersonaId: 'persona-fabricated-not-in-db',
+      targetAuthProfileId: 'auth-profile-fabricated-not-in-db',
+      workspaceId: OCSGA_BOUNDARY_RESEARCH_WORKSPACE_ID,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe('passport-unusable');
+  });
+});
+
+describe('required test 2 — eligible bind is idempotent through the operator-assisted path', () => {
+  it('calling twice for an already-bound target returns the SAME exchange, never a duplicate', async () => {
+    mockIsCartridgeAdmin.mockReturnValue(true);
+    const AUTHORIZED_OPERATOR = makeOperatorContext({ cartridgeFlags: { isAdmin: true, isPartner: false, adminCartridges: [] } });
+    mockGetBoundaryResearchReadableExperiments.mockResolvedValue(new Set([OCSGA_BOUNDARY_RESEARCH_WORKSPACE_ID]));
+    mockListExchangesByParentExperiment.mockResolvedValue({
+      ok: true,
+      exchanges: [fakeExchange({ id: 'existing-exchange', initiatorPersonaId: 'other-persona', counterpartyPersonaId: PERSONA_ID })],
+    });
+
+    const first = await ensureBoundaryResearchExchangeMembershipOperatorAssisted(NOOP_ADMIN, {
+      operatorContext: AUTHORIZED_OPERATOR,
+      targetPersonaId: PERSONA_ID,
+      targetAuthProfileId: AUTH_PROFILE_ID,
+      workspaceId: OCSGA_BOUNDARY_RESEARCH_WORKSPACE_ID,
+    });
+    const second = await ensureBoundaryResearchExchangeMembershipOperatorAssisted(NOOP_ADMIN, {
+      operatorContext: AUTHORIZED_OPERATOR,
+      targetPersonaId: PERSONA_ID,
+      targetAuthProfileId: AUTH_PROFILE_ID,
+      workspaceId: OCSGA_BOUNDARY_RESEARCH_WORKSPACE_ID,
+    });
+
+    expect(first).toEqual({ ok: true, exchangeId: 'existing-exchange', created: false, role: 'counterparty' });
+    expect(second).toEqual(first);
+    expect(mockCreateExchange).not.toHaveBeenCalled();
+    expect(mockInviteCounterparty).not.toHaveBeenCalled();
+    expect(mockJoinExchange).not.toHaveBeenCalled();
+  });
+
+  it('binds via the EXISTING inviteCounterparty + joinExchange primitives, server-side, when a canonical exchange is joinable', async () => {
+    mockIsCartridgeAdmin.mockReturnValue(true);
+    const AUTHORIZED_OPERATOR = makeOperatorContext({ cartridgeFlags: { isAdmin: true, isPartner: false, adminCartridges: [] } });
+    mockGetBoundaryResearchReadableExperiments.mockResolvedValue(new Set([OCSGA_BOUNDARY_RESEARCH_WORKSPACE_ID]));
+    const joinable = fakeExchange({ id: 'joinable-exchange', initiatorPersonaId: 'ci-irl-side', status: 'A_DEPOSITED', counterpartyPersonaId: null });
+    mockListExchangesByParentExperiment.mockResolvedValue({ ok: true, exchanges: [joinable] });
+    mockInviteCounterparty.mockResolvedValue({ ok: true, rawCode: 'rax-operator-assisted-serverside-only' });
+    mockJoinExchange.mockResolvedValue({ ok: true, exchange: { ...joinable, counterpartyPersonaId: PERSONA_ID, status: 'B_JOINED' } });
+
+    const result = await ensureBoundaryResearchExchangeMembershipOperatorAssisted(NOOP_ADMIN, {
+      operatorContext: AUTHORIZED_OPERATOR,
+      targetPersonaId: PERSONA_ID,
+      targetAuthProfileId: AUTH_PROFILE_ID,
+      workspaceId: OCSGA_BOUNDARY_RESEARCH_WORKSPACE_ID,
+    });
+
+    expect(result).toEqual({ ok: true, exchangeId: 'joinable-exchange', created: false, role: 'counterparty' });
+    expect(mockInviteCounterparty).toHaveBeenCalledWith(NOOP_ADMIN, { exchangeId: 'joinable-exchange', personaId: 'ci-irl-side' });
+    expect(mockJoinExchange).toHaveBeenCalledWith(NOOP_ADMIN, { exchangeId: 'joinable-exchange', rawCode: 'rax-operator-assisted-serverside-only', personaId: PERSONA_ID });
+    expect(mockCreateExchange).not.toHaveBeenCalled();
+  });
+});
+
+// ── Structural canary: the operator-assisted wrapper WRAPS — it never
+//    reimplements inviteCounterparty/joinExchange, and never even imports
+//    them directly (only ensureBoundaryResearchExchangeMembership, in the
+//    SAME file, imports and calls them). ────────────────────────────────────
+
+describe('structural canary — the operator-assisted wrapper delegates, never reimplements', () => {
+  const FILE = 'services/journey/boundaryResearchExchangeAdmission.ts';
+
+  it('the file imports inviteCounterparty/joinExchange exactly once, from services/research/reciprocalExchange', () => {
+    const src = readSource(FILE);
+    const authority = importAuthority(src);
+    const recExchangeImport = authority.records.find((r) => r.specifier === '@/services/research/reciprocalExchange');
+    expect(recExchangeImport).toBeTruthy();
+    expect(recExchangeImport!.names).toContain('inviteCounterparty');
+    expect(recExchangeImport!.names).toContain('joinExchange');
+  });
+
+  it("the operator-assisted wrapper's OWN function body calls ensureBoundaryResearchExchangeMembership and never calls inviteCounterparty/joinExchange directly", () => {
+    const code = stripComments(readSource(FILE));
+    const wrapperStart = code.indexOf('export async function ensureBoundaryResearchExchangeMembershipOperatorAssisted(');
+    expect(wrapperStart).toBeGreaterThan(-1);
+    const wrapperBody = code.slice(wrapperStart);
+    expect(wrapperBody).toContain('ensureBoundaryResearchExchangeMembership(admin');
+    expect(wrapperBody).not.toMatch(/\binviteCounterparty\s*\(/);
+    expect(wrapperBody).not.toMatch(/\bjoinExchange\s*\(/);
+  });
+
+  it('the operator-assisted wrapper reuses isCartridgeAdmin — no parallel admin predicate is defined in this file', () => {
+    const code = stripComments(readSource(FILE));
+    const authority = importAuthority(code);
+    const accessImport = authority.records.find((r) => r.specifier === '@/services/access/requireCartridgeAdmin');
+    expect(accessImport?.names).toContain('isCartridgeAdmin');
+    // No local re-declaration of an admin predicate under a similar name.
+    expect(code).not.toMatch(/function\s+isCartridgeAdmin\s*\(/);
   });
 });
 

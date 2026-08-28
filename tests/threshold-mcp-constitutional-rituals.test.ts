@@ -94,6 +94,15 @@ vi.mock('@/services/identity/constitutionalContext', () => ({
     currentAigentMe: null,
   })),
 }));
+// Same chain, a SECOND edge (2026-08-28): gateway.ts (dynamically imported
+// by this file's own "gateway.ts — MCP ritual tools wiring" tests) ->
+// constitutionalNavigator.ts -> boundaryResearchExchangeAdmission.ts, which
+// now also imports services/access/requireCartridgeAdmin.ts for its
+// operator-assisted admission wrapper. That module's OTHER export
+// (requireCartridgeAdmin) imports getActivePersona.ts -> multiEmailIdentity.ts
+// — the identical module-evaluation-time createClient() failure the mock
+// above already exists to prevent for the first edge.
+vi.mock('@/services/access/requireCartridgeAdmin', () => ({ isCartridgeAdmin: vi.fn() }));
 
 import {
   getExchangeStateForMcp,
