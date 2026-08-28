@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`21f2952`](https://github.com/iQube-Protocol/AigentZBeta/commit/21f295258aed3b906248603353a714a7b68e2702) [fix] Correct MFE capstone pillars to Risk Management, Pricing and Value (Kn0w1, 2026-08-28T15:16:12-04:00)
 - [`5540135`](https://github.com/iQube-Protocol/AigentZBeta/commit/55401351764aa19c8d698215f3cb7aaffc755ce6) [push] Publish constitutional financial services whitepaper and MFE estate briefing (Kn0w1, 2026-08-28T14:24:25-04:00)
 - [`b9667e0`](https://github.com/iQube-Protocol/AigentZBeta/commit/b9667e0d267372c0ec3bfeb7cf16f83e432e1229) [feat] feat: add operator-assisted artifact registration schema and service functions (Claude, 2026-08-28T14:55:02Z)
 - [`a2347b0`](https://github.com/iQube-Protocol/AigentZBeta/commit/a2347b0429638318b9f8ad2f99fa3513ea6716e8) [feat] feat: implement operator-assisted artifact confirmation MCP tool, admin route, and comprehensive test suite (Claude, 2026-08-28T14:57:07Z)

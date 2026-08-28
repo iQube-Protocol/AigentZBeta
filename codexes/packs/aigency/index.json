@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-28T18:26:07.319Z",
+  "last_updated": "2026-08-28T19:17:54.608Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "55401351764aa19c8d698215f3cb7aaffc755ce6",
-  "latest_commit_short": "5540135",
-  "latest_commit_title": "Publish constitutional financial services whitepaper and MFE estate briefing",
+  "latest_commit": "21f295258aed3b906248603353a714a7b68e2702",
+  "latest_commit_short": "21f2952",
+  "latest_commit_title": "Correct MFE capstone pillars to Risk Management, Pricing and Value",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "21f2952",
+      "full_sha": "21f295258aed3b906248603353a714a7b68e2702",
+      "title": "Correct MFE capstone pillars to Risk Management, Pricing and Value",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-28T15:16:12-04:00",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-21f2952.md"
+    },
     {
       "sha": "5540135",
       "full_sha": "55401351764aa19c8d698215f3cb7aaffc755ce6",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-12T13:04:29-04:00",
       "type": "docs",
       "brief": "items/build_/COMMITS/COMMIT-94b3469.md"
-    },
-    {
-      "sha": "2b00476",
-      "full_sha": "2b00476526c84dbf74db8ba1be33ba2067f00c55",
-      "title": "add diagnostic logging for copilot empty response trace",
-      "author": "Claude",
-      "timestamp": "2026-08-12T02:06:58Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-2b00476.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

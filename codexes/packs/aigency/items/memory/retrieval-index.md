@@ -4574,3 +4574,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-5540135.md](../build_/COMMITS/COMMIT-5540135.md)
 - Message: Publish constitutional financial services whitepaper and MFE estate briefing
+
+## Commit `21f2952` — 2026-08-28T15:16:12-04:00
+- Type: `fix`
+- Brief: [COMMIT-21f2952.md](../build_/COMMITS/COMMIT-21f2952.md)
+- Message: Correct MFE capstone pillars to Risk Management, Pricing and Value
