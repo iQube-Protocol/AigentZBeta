@@ -1,7 +1,7 @@
 # MFE Capstone — State of the Estate
 
 **Artifact:** MFE-CAPSTONE-ESTATE-2026-08-28  
-**Audience:** Lehigh Master of Financial Engineering capstone students — Risk Management, Pricing and Value  
+**Audience:** Lehigh Master of Financial Engineering capstone students — Risk, Value and Price  
 **Status:** STUDENT BRIEFING / EVIDENCE-BACKED  
 **As-of:** 28 August 2026  
 **Comparison window:** 31 May–28 August 2026
@@ -111,7 +111,7 @@ Crystal vP2 is focused on financial-risk and value systems. It provides a govern
 | Pulse state model | Explicitly modelled; additional live integrations and reconciliation rehearsals remain. |
 | P&L proof path | Pilot-ready architecture; proof definitions, data lineage and reporting policy require further validation. |
 | Vela confidential layer | Confidential consequence path demonstrated; production hosting and attestation mechanics remain to be proven. |
-| Risk/price/value router | Advanced target architecture requiring quantitative calibration and simulation. |
+| Risk/value/price router | Advanced target architecture requiring quantitative calibration and simulation. |
 | TEE execution | Governed end-state route; live execution, attestation and fail-closed tests remain open work. |
 | Crystal vP2 | Active financial-risk/value research programme. |
 | Multi-agent runtime | Programme objective: additional agents enter only through constitutional admission and bounded authority. |
@@ -120,25 +120,27 @@ Crystal vP2 is focused on financial-risk and value systems. It provides a govern
 
 The repository already registers the **MFE Capstone — Master of Financial Engineering** cohort and three student-project workspaces:
 
-1. **Risk Management** — risk research and risk-management artefacts.
-2. **Pricing** — pricing research and pricing artefacts.
-3. **Value** — value definition, measurement, realisation and evidence artefacts.
+1. **Risk** — the exposure, uncertainty and consequence that must be borne, contained or transferred.
+2. **Value** — the benefit sought, created, preserved or realised.
+3. **Price** — the exchange term established by balancing risk and value.
+
+This ordering is constitutional rather than cosmetic: **Risk → Value → Price**. Risk defines what must be borne or contained; value defines the benefit sought or realised; price is established by balancing risk and value.
 
 All three begin at the shared **Brief** stage and use the common capstone lifecycle:
 
 `Brief → Research Plan → Source/Data Review → Build or Analysis → Review → Revision → Submission → Demonstration → Archive/Commons`
 
-### Risk Management project
+### Risk project
 
-Develop an interpretable transaction-routing model covering value, tail risk, liquidity, counterparty exposure, operational failure, model uncertainty, reversibility and delegated limits. Test normal, stressed and prohibited cases. The objective is not a universal risk score; it is a defensible policy for deciding what may automate, what must be supervised, what belongs in a TEE, and what must stop.
-
-### Pricing project
-
-Develop price-quality and execution tests covering quote staleness, spreads, volatility, liquidity, slippage, valuation uncertainty and market impact. Connect price confidence to route selection and operator escalation. Demonstrate why nominal value alone is insufficient.
+Develop an interpretable transaction-routing model covering exposure, tail risk, liquidity, counterparty risk, operational failure, model uncertainty, reversibility and delegated limits. Test normal, stressed and prohibited cases. The objective is not a universal risk score; it is a defensible account of what risk must be borne, contained or transferred, and a policy for deciding what may automate, what must be supervised, what belongs in a TEE, and what must stop.
 
 ### Value project
 
 Define and test how the system recognises, measures and preserves value. Connect intended value to realised outcome, risk-adjusted return, time-to-value, cost, repair risk, Pulse, P&L and evidence. Distinguish nominal transaction value from consequential benefit, and specify how a verified value claim enters the constitutional record.
+
+### Price project
+
+Develop price-formation and execution tests in which price is established by balancing risk and value. Cover quote staleness, spreads, volatility, liquidity, slippage, valuation uncertainty and market impact; then connect those conditions to the value sought and the risk borne. Connect price confidence to route selection and operator escalation, and demonstrate why nominal transaction size or a quoted price alone is insufficient.
 
 ## Suggested shared deliverables
 
@@ -157,7 +159,7 @@ Each team should produce testable artefacts rather than only a narrative report:
 
 ## Submit through the IRL OS Workspace
 
-Enter the **IRL OS Workspace** and select **MFE Capstone** in the left navigation. The cohort and its Risk Management, Pricing and Value projects are already registered there.
+Enter the **IRL OS Workspace** and select **MFE Capstone** in the left navigation. The cohort and its Risk, Value and Price projects are already registered there.
 
 - [IRL OS Workspace](https://dev-beta.aigentz.me/triad/embed/codex/irl-os-cartridge?tab=irl-os-workspace)
 - [Workspace Overview](https://dev-beta.aigentz.me/triad/embed/codex/irl-os-cartridge?tab=irl-os-workspace-overview)
@@ -205,6 +207,6 @@ One implementation boundary remains open: admitted research-contribution signals
 
 ## Closing perspective
 
-The programme has moved from a financial-agency proposition to a testable constitutional-financial-services architecture. Your task is not to rebuild the platform. It is to make one consequential part of its financial logic more rigorous, measurable and safe: risk management, pricing or value.
+The programme has moved from a financial-agency proposition to a testable constitutional-financial-services architecture. Your task is not to rebuild the platform. It is to make one consequential part of its financial logic more rigorous, measurable and safe: risk, value or price.
 
 The objective is financial service that can operate at machine speed without abandoning human authority, confidentiality, verifiability, value or consequence.
