@@ -18,6 +18,7 @@
 
 import { describe, it, expect } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { createHash } from 'crypto';
 
 import {
   createExchange,
@@ -35,7 +36,10 @@ import {
   getExchangeView,
   listMyExchanges,
   resolveMembership,
+  registerArtifactOperatorAssisted,
+  confirmOperatorAssistedArtifact,
 } from '@/services/research/reciprocalExchange';
+import { fingerprintExchangeArtifact } from '@/services/threshold/mcpConstitutionalActs';
 import {
   assertNoIsolationClaim,
   IsolationClaimViolation,
@@ -655,5 +659,441 @@ describe('listMyExchanges', () => {
     const asB = await listMyExchanges(admin, PARTY_B);
     expect(asA.ok && asA.exchanges.some((e) => e.id === exchangeId)).toBe(true);
     expect(asB.ok && asB.exchanges.some((e) => e.id === exchangeId)).toBe(true);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Operator-assisted custodial artifact registration (2026-08-28).
+//
+// Exercises registerArtifactOperatorAssisted + confirmOperatorAssistedArtifact
+// against the SAME FakeDb/fakeAdmin harness above, and against a REAL
+// exchange whose Party A has ALREADY deposited via the ordinary
+// depositArtifact path — mirroring the live exchange
+// 0b4134a6-6246-48a8-98f6-e3a22fcd18b3 shape this primitive is built for
+// (Party A deposited, Party B unbound/then bound, never a fresh exchange
+// per call), per the task's own instruction to test against realistic
+// exchange states.
+// ─────────────────────────────────────────────────────────────────────────
+
+const OPERATOR = 'operator-33333333-3333-3333-3333-333333333333';
+
+/** Party A deposited (ordinary path), Party B invited+joined but has NOT
+ *  deposited yet — the exact shape of the live OCSGA exchange this
+ *  primitive targets. */
+async function exchangeWithABoundBUnbound(admin: SupabaseClient) {
+  const exchange = await makeExchange(admin);
+  const depositA = await depositFor(admin, exchange.id, PARTY_A, 'ci-irl-baseline', 'a'.repeat(64));
+  if (!depositA.ok) throw new Error('fixture: A deposit failed');
+  const invited = await inviteCounterparty(admin, { exchangeId: exchange.id, personaId: PARTY_A });
+  if (!invited.ok) throw new Error('fixture: invite failed');
+  const joined = await joinExchange(admin, { exchangeId: exchange.id, rawCode: invited.rawCode, personaId: PARTY_B });
+  if (!joined.ok) throw new Error('fixture: join failed');
+  return exchange.id;
+}
+
+const OPERATOR_ASSISTED_HASH = 'b'.repeat(64);
+
+async function registerForB(admin: SupabaseClient, exchangeId: string, overrides: Partial<Parameters<typeof registerArtifactOperatorAssisted>[1]> = {}) {
+  return registerArtifactOperatorAssisted(admin, {
+    exchangeId,
+    boundPrincipalPersonaId: PARTY_B,
+    registeringOperatorPersonaId: OPERATOR,
+    authorityBasis: "principal's explicit written authorization, out-of-band, 2026-08-28",
+    title: 'OCSGA Constitutional Master v1.3',
+    artifactClass: 'constitutional-framework-document',
+    sourceType: 'upload',
+    sourceReference: 'operator-custody/OCSGA_Constitutional_Master_v1.3.docx',
+    contentHash: OPERATOR_ASSISTED_HASH,
+    ownershipDeclaration: `${PARTY_B} retains ownership`,
+    rightsForExchange: 'reciprocal comparison only',
+    ...overrides,
+  });
+}
+
+describe('registerArtifactOperatorAssisted — required test 3: cannot overwrite Party A', () => {
+  it('refuses to register against a party slot that already has a deposited artifact', async () => {
+    const db = new FakeDb();
+    const admin = fakeAdmin(db);
+    const exchangeId = await exchangeWithABoundBUnbound(admin);
+
+    const attempt = await registerArtifactOperatorAssisted(admin, {
+      exchangeId,
+      boundPrincipalPersonaId: PARTY_A, // A already deposited via the ordinary path
+      registeringOperatorPersonaId: OPERATOR,
+      authorityBasis: 'attempted operator overwrite',
+      title: 'Attempted overwrite',
+      artifactClass: 'x',
+      sourceType: 'upload',
+      sourceReference: 'x',
+      contentHash: 'c'.repeat(64),
+      ownershipDeclaration: 'x',
+      rightsForExchange: 'x',
+    });
+
+    expect(attempt.ok).toBe(false);
+    if (!attempt.ok) expect(attempt.error).toMatch(/already has a deposited artifact|already-has-a-deposited-artifact/);
+
+    // Party A's original artifact is completely untouched.
+    const view = await getExchangeView(admin, { exchangeId, personaId: PARTY_A });
+    expect(view.ok).toBe(true);
+    if (view.ok) {
+      expect(view.view.yourArtifact?.contentHash).toBe('a'.repeat(64));
+      expect(view.view.yourArtifact?.version).toBe(1);
+    }
+  });
+
+  it('an empty/joinable B slot with no deposit yet MAY receive an operator-assisted registration', async () => {
+    const db = new FakeDb();
+    const admin = fakeAdmin(db);
+    const exchangeId = await exchangeWithABoundBUnbound(admin);
+    const result = await registerForB(admin, exchangeId);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.artifact.party).toBe('B');
+      expect(result.artifact.version).toBe(1);
+    }
+  });
+});
+
+describe('registerArtifactOperatorAssisted — required test 4: attribution correctness', () => {
+  it('records bound principal, registering operator, and Party A as three distinct identities', async () => {
+    const db = new FakeDb();
+    const admin = fakeAdmin(db);
+    const exchangeId = await exchangeWithABoundBUnbound(admin);
+    const result = await registerForB(admin, exchangeId);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    expect(result.artifact.registeringOperatorPersonaId).toBe(OPERATOR);
+    expect(result.artifact.party).toBe('B');
+    expect(result.artifact.pendingPrincipalAttestation).toBe(true);
+    expect(result.artifact.originChannel).toBe('operator-assisted');
+    expect(result.artifact.authorityBasis).toContain('explicit written authorization');
+
+    // Three distinct identities: bound principal (B), registering operator,
+    // and Party A's own principal.
+    expect(new Set([PARTY_B, OPERATOR, PARTY_A]).size).toBe(3);
+    expect(result.artifact.registeringOperatorPersonaId).not.toBe(PARTY_B);
+    expect(result.artifact.registeringOperatorPersonaId).not.toBe(PARTY_A);
+
+    // A normal, principal-performed deposit never carries these fields.
+    const viewA = await getExchangeView(admin, { exchangeId, personaId: PARTY_A });
+    expect(viewA.ok).toBe(true);
+  });
+
+  it('refuses when the registering operator and bound principal are the same identity', async () => {
+    const db = new FakeDb();
+    const admin = fakeAdmin(db);
+    const exchangeId = await exchangeWithABoundBUnbound(admin);
+    const result = await registerForB(admin, exchangeId, { registeringOperatorPersonaId: PARTY_B });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toBe('registering-operator-must-differ-from-bound-principal');
+  });
+
+  it('refuses when the bound principal is not actually a party on this exchange', async () => {
+    const db = new FakeDb();
+    const admin = fakeAdmin(db);
+    const exchangeId = await exchangeWithABoundBUnbound(admin);
+    const result = await registerForB(admin, exchangeId, { boundPrincipalPersonaId: 'persona-never-joined' });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toBe('not-a-party');
+  });
+});
+
+describe('required test 5: operator cannot clear pendingPrincipalAttestation', () => {
+  it('the registering operator calling confirm is rejected — resolves to no party, not to B', async () => {
+    const db = new FakeDb();
+    const admin = fakeAdmin(db);
+    const exchangeId = await exchangeWithABoundBUnbound(admin);
+    await registerForB(admin, exchangeId);
+
+    const attempt = await confirmOperatorAssistedArtifact(admin, { exchangeId, personaId: OPERATOR });
+    expect(attempt.ok).toBe(false);
+    if (!attempt.ok) expect(attempt.error).toBe('not-a-party');
+
+    // Still pending — confirmed by re-reading B's own artifact.
+    const view = await getExchangeView(admin, { exchangeId, personaId: PARTY_B });
+    expect(view.ok).toBe(true);
+    if (view.ok) expect(view.view.yourArtifact?.pendingPrincipalAttestation).toBe(true);
+  });
+
+  it('Party A (the counterparty, not the bound principal) also cannot clear B\'s pending flag', async () => {
+    const db = new FakeDb();
+    const admin = fakeAdmin(db);
+    const exchangeId = await exchangeWithABoundBUnbound(admin);
+    await registerForB(admin, exchangeId);
+
+    // A resolves to party 'A', so confirm only ever touches A's OWN artifact
+    // (which is not pending) — it can never reach B's pending row.
+    const attempt = await confirmOperatorAssistedArtifact(admin, { exchangeId, personaId: PARTY_A });
+    expect(attempt.ok).toBe(true); // idempotent no-op on A's own (non-pending) artifact
+    if (attempt.ok) expect(attempt.artifact.party).toBe('A');
+
+    const view = await getExchangeView(admin, { exchangeId, personaId: PARTY_B });
+    expect(view.ok).toBe(true);
+    if (view.ok) expect(view.view.yourArtifact?.pendingPrincipalAttestation).toBe(true);
+  });
+});
+
+describe('required test 6: declareFreeze/signInstrument rejected while pending — Party A unaffected', () => {
+  it('B cannot declare freeze on the pending operator-registered artifact', async () => {
+    const db = new FakeDb();
+    const admin = fakeAdmin(db);
+    const exchangeId = await exchangeWithABoundBUnbound(admin);
+    await registerForB(admin, exchangeId);
+
+    const freeze = await declareFreeze(admin, { exchangeId, personaId: PARTY_B, actorType: 'principal' });
+    expect(freeze.ok).toBe(false);
+    if (!freeze.ok) expect(freeze.error).toMatch(/artifact-pending-principal-attestation/);
+  });
+
+  it('B cannot sign the instrument on the pending operator-registered artifact (ordinary path — blocked upstream at declareFreeze, so the exchange never reaches a signable status while pending)', async () => {
+    const db = new FakeDb();
+    const admin = fakeAdmin(db);
+    const exchangeId = await exchangeWithABoundBUnbound(admin);
+    await registerForB(admin, exchangeId);
+
+    const sign = await signInstrument(admin, { exchangeId, personaId: PARTY_B, actorType: 'principal' });
+    expect(sign.ok).toBe(false);
+    // The exchange itself never reached READY_TO_SIGN (B's freeze was
+    // already refused above), so this is the exchange-status gate, not yet
+    // signInstrument's OWN pending-artifact guard — that guard is proven
+    // reachable independently by the defense-in-depth test below.
+    if (!sign.ok) expect(sign.error).toMatch(/cannot sign while exchange is/);
+  });
+
+  it("signInstrument carries its OWN pending-artifact guard, independent of declareFreeze ever having run (defense in depth — proven by forcing the exchange into a signable status without going through declareFreeze)", async () => {
+    const db = new FakeDb();
+    const admin = fakeAdmin(db);
+    const exchangeId = await exchangeWithABoundBUnbound(admin);
+    await registerForB(admin, exchangeId);
+    await declareFreeze(admin, { exchangeId, personaId: PARTY_A, actorType: 'principal' });
+
+    // Simulate a freeze attestation existing for B's PENDING artifact via a
+    // path other than declareFreeze (which already refuses this — see the
+    // test above) and force the exchange into a signable status. This
+    // isolates signInstrument's own independent pending-guard rather than
+    // relying solely on declareFreeze having been the only gate reached.
+    db.tables['exchange_attestations'] = db.tables['exchange_attestations'] ?? [];
+    db.tables['exchange_attestations'].push({
+      id: 'manual-b-freeze-bypassing-declareFreeze',
+      exchange_id: exchangeId,
+      party: 'B',
+      act_type: 'freeze_declaration',
+      artifact_version: 1,
+      actor_type: 'principal',
+      statement_text: 'x',
+      attested_at: new Date().toISOString(),
+      receipt_id: null,
+      origin_channel: 'native-ui',
+    });
+    const exchangeRow = db.tables['reciprocal_exchanges'].find((r) => r.id === exchangeId);
+    if (exchangeRow) exchangeRow.status = 'READY_TO_SIGN';
+
+    const sign = await signInstrument(admin, { exchangeId, personaId: PARTY_B, actorType: 'principal' });
+    expect(sign.ok).toBe(false);
+    if (!sign.ok) expect(sign.error).toMatch(/artifact-pending-principal-attestation/);
+  });
+
+  it("the pending flag on B's artifact never blocks Party A's OWN freeze declaration — unaffected", async () => {
+    const db = new FakeDb();
+    const admin = fakeAdmin(db);
+    const exchangeId = await exchangeWithABoundBUnbound(admin);
+    await registerForB(admin, exchangeId);
+
+    const freezeA = await declareFreeze(admin, { exchangeId, personaId: PARTY_A, actorType: 'principal' });
+    expect(freezeA.ok).toBe(true);
+  });
+
+  it('the registering operator (not a party) cannot freeze or sign the artifact either', async () => {
+    const db = new FakeDb();
+    const admin = fakeAdmin(db);
+    const exchangeId = await exchangeWithABoundBUnbound(admin);
+    await registerForB(admin, exchangeId);
+
+    const freeze = await declareFreeze(admin, { exchangeId, personaId: OPERATOR, actorType: 'principal' });
+    expect(freeze.ok).toBe(false);
+    if (!freeze.ok) expect(freeze.error).toBe('not-a-party');
+  });
+});
+
+describe('required test 7: authenticated Party B adoption clears pending', () => {
+  it('B confirming clears pendingPrincipalAttestation, and only for the exact bound party', async () => {
+    const db = new FakeDb();
+    const admin = fakeAdmin(db);
+    const exchangeId = await exchangeWithABoundBUnbound(admin);
+    await registerForB(admin, exchangeId);
+
+    const confirmed = await confirmOperatorAssistedArtifact(admin, { exchangeId, personaId: PARTY_B });
+    expect(confirmed.ok).toBe(true);
+    if (confirmed.ok) {
+      expect(confirmed.artifact.pendingPrincipalAttestation).toBe(false);
+      expect(confirmed.artifact.party).toBe('B');
+    }
+
+    const view = await getExchangeView(admin, { exchangeId, personaId: PARTY_B });
+    expect(view.ok).toBe(true);
+    if (view.ok) expect(view.view.yourArtifact?.pendingPrincipalAttestation).toBe(false);
+  });
+
+  it('confirming twice is idempotent — no error, no duplicate write', async () => {
+    const db = new FakeDb();
+    const admin = fakeAdmin(db);
+    const exchangeId = await exchangeWithABoundBUnbound(admin);
+    await registerForB(admin, exchangeId);
+    await confirmOperatorAssistedArtifact(admin, { exchangeId, personaId: PARTY_B });
+    const again = await confirmOperatorAssistedArtifact(admin, { exchangeId, personaId: PARTY_B });
+    expect(again.ok).toBe(true);
+    if (again.ok) expect(again.artifact.pendingPrincipalAttestation).toBe(false);
+  });
+});
+
+describe('required test 8: after confirmation, freeze/sign proceed through the UNMODIFIED canonical primitives', () => {
+  it('B can declare freeze and sign the instrument once confirmed, and the exchange crosses normally', async () => {
+    const db = new FakeDb();
+    const admin = fakeAdmin(db);
+    const exchangeId = await exchangeWithABoundBUnbound(admin);
+    await registerForB(admin, exchangeId);
+    await confirmOperatorAssistedArtifact(admin, { exchangeId, personaId: PARTY_B });
+
+    const freezeA = await declareFreeze(admin, { exchangeId, personaId: PARTY_A, actorType: 'principal' });
+    expect(freezeA.ok).toBe(true);
+    const freezeB = await declareFreeze(admin, { exchangeId, personaId: PARTY_B, actorType: 'principal' });
+    expect(freezeB.ok).toBe(true);
+
+    const signA = await signInstrument(admin, { exchangeId, personaId: PARTY_A, actorType: 'principal' });
+    expect(signA.ok).toBe(true);
+    const signB = await signInstrument(admin, { exchangeId, personaId: PARTY_B, actorType: 'principal' });
+    expect(signB.ok).toBe(true);
+    if (signB.ok) expect(signB.exchange.status).toBe('EXCHANGED');
+
+    const view = await getExchangeView(admin, { exchangeId, personaId: PARTY_A });
+    expect(view.ok).toBe(true);
+    if (view.ok) expect(view.view.receipt).not.toBeNull();
+  });
+});
+
+describe('required test 9: hash remains unchanged end-to-end (registration → confirmation → freeze)', () => {
+  it('content_hash read back after registration, confirmation, and freeze is byte-identical throughout', async () => {
+    const db = new FakeDb();
+    const admin = fakeAdmin(db);
+    const exchangeId = await exchangeWithABoundBUnbound(admin);
+    const registered = await registerForB(admin, exchangeId);
+    expect(registered.ok).toBe(true);
+    if (!registered.ok) return;
+    expect(registered.artifact.contentHash).toBe(OPERATOR_ASSISTED_HASH);
+
+    const viewAfterRegister = await getExchangeView(admin, { exchangeId, personaId: PARTY_B });
+    expect(viewAfterRegister.ok).toBe(true);
+    if (viewAfterRegister.ok) expect(viewAfterRegister.view.yourArtifact?.contentHash).toBe(OPERATOR_ASSISTED_HASH);
+
+    const confirmed = await confirmOperatorAssistedArtifact(admin, { exchangeId, personaId: PARTY_B });
+    expect(confirmed.ok).toBe(true);
+    if (confirmed.ok) expect(confirmed.artifact.contentHash).toBe(OPERATOR_ASSISTED_HASH);
+
+    await declareFreeze(admin, { exchangeId, personaId: PARTY_A, actorType: 'principal' });
+    const freezeB = await declareFreeze(admin, { exchangeId, personaId: PARTY_B, actorType: 'principal' });
+    expect(freezeB.ok).toBe(true);
+
+    const viewAfterFreeze = await getExchangeView(admin, { exchangeId, personaId: PARTY_B });
+    expect(viewAfterFreeze.ok).toBe(true);
+    if (viewAfterFreeze.ok) expect(viewAfterFreeze.view.yourArtifact?.contentHash).toBe(OPERATOR_ASSISTED_HASH);
+  });
+});
+
+describe('read visibility while pending — required §5: "MAY be visible/usable for read purposes"', () => {
+  it('a pending operator-registered artifact is metadata-visible to the bound principal immediately', async () => {
+    const db = new FakeDb();
+    const admin = fakeAdmin(db);
+    const exchangeId = await exchangeWithABoundBUnbound(admin);
+    await registerForB(admin, exchangeId);
+
+    const view = await getExchangeView(admin, { exchangeId, personaId: PARTY_B });
+    expect(view.ok).toBe(true);
+    if (view.ok) {
+      expect(view.view.yourArtifact).not.toBeNull();
+      expect(view.view.yourArtifact?.contentHash).toBe(OPERATOR_ASSISTED_HASH);
+      expect(view.view.yourArtifact?.frozen).toBe(false);
+      expect(view.view.yourArtifact?.signed).toBe(false);
+      expect(view.view.yourArtifact?.pendingPrincipalAttestation).toBe(true);
+    }
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Hash-algorithm integrity (required "Hash integrity test"). Proves the
+// FINGERPRINTING PATH a caller actually uses — the SAME
+// fingerprintExchangeArtifact helper the MCP deposit tool already calls
+// (services/threshold/mcpConstitutionalActs.ts) — reproduces plain
+// crypto.createHash('sha256').update(bytes).digest('hex') exactly, for
+// deterministic fixture bytes this test controls. This proves the
+// ALGORITHM is correct; it does NOT and cannot prove the real
+// OCSGA_Constitutional_Master_v1.3.docx's specific
+// 9f33939112351d811337475c3ed4ebcb78bb993d066232ab06d187098f7c1331 value,
+// since that file is not available in this worktree — see the final report.
+// ─────────────────────────────────────────────────────────────────────────
+
+describe('fingerprinting path — algorithm correctness (not the real file\'s specific hash)', () => {
+  it('fingerprintExchangeArtifact(contentBase64) matches an independently-computed sha256 hex digest', () => {
+    const fixtureBytes = Buffer.from('OCSGA operator-assisted registration fixture — deterministic test bytes, not the real artifact.', 'utf8');
+    const expected = createHash('sha256').update(fixtureBytes).digest('hex');
+
+    const result = fingerprintExchangeArtifact({ contentBase64: fixtureBytes.toString('base64') });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.contentHash).toBe(expected);
+  });
+
+  it('the same bytes always produce the same fingerprint (deterministic, idempotent re-tagging)', () => {
+    const fixtureBytes = Buffer.from('deterministic-fixture-v2', 'utf8');
+    const first = fingerprintExchangeArtifact({ contentBase64: fixtureBytes.toString('base64') });
+    const second = fingerprintExchangeArtifact({ contentBase64: fixtureBytes.toString('base64') });
+    expect(first.ok && second.ok && first.contentHash === second.contentHash).toBe(true);
+  });
+
+  it('a single flipped byte produces a completely different fingerprint (one-way, content-sensitive)', () => {
+    const a = Buffer.from('OCSGA_Constitutional_Master_v1.3-fixture-A', 'utf8');
+    const b = Buffer.from('OCSGA_Constitutional_Master_v1.3-fixture-B', 'utf8');
+    const ha = fingerprintExchangeArtifact({ contentBase64: a.toString('base64') });
+    const hb = fingerprintExchangeArtifact({ contentBase64: b.toString('base64') });
+    expect(ha.ok && hb.ok && ha.contentHash !== hb.contentHash).toBe(true);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Structural canary — depositArtifact() itself carries no behavioral change
+// from this work. Rather than a live `git diff origin/dev` (fragile once
+// this branch's own history becomes "origin/dev"), this snapshots the exact
+// function body as a content hash captured at the time this capability was
+// added — any future edit to depositArtifact's OWN body changes this hash
+// and must update the snapshot deliberately, the same discipline a git-diff
+// check would enforce, but without a live git dependency in the test run.
+// ─────────────────────────────────────────────────────────────────────────
+
+describe('structural canary — depositArtifact is unmodified by operator-assisted registration', () => {
+  it('the depositArtifact function body is byte-identical to its pre-existing form', () => {
+    const fs = require('node:fs') as typeof import('node:fs');
+    const path = require('node:path') as typeof import('node:path');
+    const src = fs.readFileSync(path.join(process.cwd(), 'services/research/reciprocalExchange.ts'), 'utf8');
+    const start = src.indexOf('export async function depositArtifact(');
+    const end = src.indexOf('\n// ─── 3b. Operator-assisted custodial registration');
+    expect(start).toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(start);
+    const body = src.slice(start, end);
+    const bodyHash = createHash('sha256').update(body).digest('hex');
+    // Baseline (b50cd79e...) captured on origin/dev (2026-08-28), BEFORE the
+    // operator-assisted registration work — that work touched zero lines
+    // inside depositArtifact's own body, which this canary proved.
+    //
+    // DELIBERATELY UPDATED (2026-08-28, journey-spine-channel-convergence):
+    // depositArtifact's createActivityReceipt call now also passes
+    // `agentsInvoked: input.agentRef ? [input.agentRef] : []` — the same
+    // "third identity" (T2-safe delegated-agent reference, distinct from
+    // personaId/originChannel) every other exchange-mutating function in
+    // this file now threads through for MCP-originated writes (see
+    // DepositArtifactInput.agentRef's own doc comment). `agentRef` is
+    // undefined for every native-ui caller, so this is additive and
+    // behavior-preserving for the existing route — recomputed via the exact
+    // same slice/hash this test itself performs, not guessed.
+    expect(bodyHash).toBe('701ee886a6ad8fdca7c2dbe2422f078bd646b163981763c163f6437c72d15a26');
   });
 });

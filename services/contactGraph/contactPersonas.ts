@@ -70,6 +70,40 @@ export async function listContactPersonas(
 }
 
 /**
+ * BATCHED read for a whole projection page — the People 504 fix
+ * (2026-08-27). `listContactPersonas` above does one ownership-check query
+ * PLUS one list query PER ContactPerson; a projection over a persona's
+ * entire address book (hundreds to 1,200+ ContactPersons observed live —
+ * see app/api/contactgraph/people/route.ts's own header) turned that into
+ * hundreds of sequential round trips and was the dominant contributor to a
+ * live 504 on GET /api/contactgraph/people. `contact_personas` already
+ * carries `owner_auth_profile_id` denormalized (this file's own header) so
+ * ownership is enforced in the SAME single query — no separate per-id
+ * ownership check needed, and no N+1. Returns ALL personas across every
+ * requested ContactPerson in one round trip; callers group by
+ * `contactPersonId` in memory. `contactPersonIds` is caller-supplied and
+ * MUST already be ownership-filtered (e.g. via `listContactPersons`) —
+ * this function does not re-derive which ids the owner owns, only enforces
+ * that none of the returned rows belong to anyone else.
+ */
+export async function listContactPersonasForOwner(
+  ownerAuthProfileId: string,
+  contactPersonIds: string[],
+): Promise<PeerResult<ContactPersona[]>> {
+  const admin = getSupabaseServer();
+  if (!admin) return { ok: false, error: 'Supabase unavailable' };
+  if (contactPersonIds.length === 0) return { ok: true, value: [] };
+  const { data, error } = await admin
+    .from(CONTACT_PERSONAS)
+    .select('*')
+    .in('contact_person_id', contactPersonIds)
+    .eq('owner_auth_profile_id', ownerAuthProfileId)
+    .order('label', { ascending: true });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, value: (data ?? []).map((r) => rowToContactPersona(r as Record<string, unknown>)) };
+}
+
+/**
  * Get-or-create a ContactPersona by label under a ContactPerson — idempotent
  * so repeated resolution (e.g. from the reconciliation projector) never
  * creates duplicate contexts for the same person.

@@ -43,11 +43,13 @@ import {
   depositArtifact,
   declareFreeze,
   signInstrument,
+  confirmOperatorAssistedArtifact,
   getExchangeView,
   listMyExchanges,
   type DepositArtifactInput,
 } from '@/services/research/reciprocalExchange';
 import { persistDelegationGrant } from '@/services/delegation/delegationGrantStore';
+import { FREEZE_DECLARATION_TEXT, EXCHANGE_INSTRUMENT_CLAUSES } from '@/types/reciprocalExchange';
 import { emitOrchestrationEvent } from '@/services/orchestration/orchestrationEvents';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 import type { AgentRoleId, HandoffPayload, PolicyEnvelope } from '@/types/orchestration';
@@ -108,6 +110,17 @@ function requireExplicitConsent(args: Record<string, unknown>): { ok: true } | {
 
 // ── 1. Read: the exchange's current evidence state (no writes) ────────────
 
+/**
+ * Read-only. Also carries the CANONICAL declaration/instrument text
+ * (services/research/reciprocalExchange.ts's FREEZE_DECLARATION_TEXT /
+ * EXCHANGE_INSTRUMENT_CLAUSES — the exact same constants the native Exchange
+ * workspace renders) on every response, so a calling agent always has the
+ * REAL text on hand to present before calling declare_artifact_freeze or
+ * sign_exchange_instrument — never a paraphrase, never invented, never
+ * "assumed known" from training data. This is the explicit-consent
+ * prerequisite made checkable: an agent that never called this tool has no
+ * source for what it is about to ask the principal to confirm.
+ */
 export async function getExchangeStateForMcp(admin: SupabaseClient, session: ScopedSession) {
   const principal = await resolveMcpPrincipal(admin, session);
   if (!principal.ok) return principal;
@@ -115,7 +128,13 @@ export async function getExchangeStateForMcp(admin: SupabaseClient, session: Sco
   if (!active.ok) return active;
   const view = await getExchangeView(admin, { exchangeId: active.exchangeId, personaId: principal.personaId });
   if (!view.ok) return { ok: false as const, error: view.error };
-  return { ok: true as const, exchangeId: active.exchangeId, view: view.view };
+  return {
+    ok: true as const,
+    exchangeId: active.exchangeId,
+    view: view.view,
+    freezeDeclarationText: FREEZE_DECLARATION_TEXT,
+    exchangeInstrumentClauses: EXCHANGE_INSTRUMENT_CLAUSES,
+  };
 }
 
 // ── 2. Section 3A — artifact submission (deposit) ──────────────────────────
@@ -168,9 +187,53 @@ export async function depositExchangeArtifactViaMcp(admin: SupabaseClient, sessi
     ownershipDeclaration: args.ownershipDeclaration,
     rightsForExchange: args.rightsForExchange,
     originChannel: 'mcp',
+    agentRef: session.agentAlias,
   });
   if (!result.ok) return { ok: false as const, error: result.error };
   return { ok: true as const, exchangeId: active.exchangeId, artifact: result.artifact, replaced: result.replaced };
+}
+
+// ── 2b. Confirmation of an operator-assisted custodial registration ───────
+//
+// SCOPE BOUNDARY (read before touching): operator-assisted registration
+// (services/research/reciprocalExchange.ts's registerArtifactOperatorAssisted)
+// solves custody ONLY — an authorized operator entering an artifact for a
+// principal who could not themselves reach a deposit surface. Confirmation
+// is the principal's OWN constitutional act of adopting that custodial entry
+// as their own attested evidence, and — exactly like every other function in
+// this file — is never inferred, never performed by an operator, and never
+// completed by this tool without `declarationConfirmed: true`. This function
+// calls the UNMODIFIED confirmOperatorAssistedArtifact() directly; it adds
+// no logic of its own beyond the same four gates every sibling function
+// here applies (stage eligibility, explicit consent, T0<->T2 principal
+// resolution, active-exchange resolution).
+
+export interface ConfirmOperatorAssistedArtifactMcpArgs {
+  declarationConfirmed: boolean;
+}
+
+export async function confirmOperatorAssistedArtifactViaMcp(
+  admin: SupabaseClient,
+  session: ScopedSession,
+  args: ConfirmOperatorAssistedArtifactMcpArgs,
+) {
+  const eligible = requireMcpEligibleStage('create-deposit');
+  if (!eligible.ok) return eligible;
+  const consent = requireExplicitConsent(args as unknown as Record<string, unknown>);
+  if (!consent.ok) return consent;
+
+  const principal = await resolveMcpPrincipal(admin, session);
+  if (!principal.ok) return principal;
+  const active = await resolveActiveExchangeId(admin, principal.personaId);
+  if (!active.ok) return active;
+
+  const result = await confirmOperatorAssistedArtifact(admin, {
+    exchangeId: active.exchangeId,
+    personaId: principal.personaId,
+    agentRef: session.agentAlias,
+  });
+  if (!result.ok) return { ok: false as const, error: result.error };
+  return { ok: true as const, exchangeId: active.exchangeId, artifact: result.artifact };
 }
 
 // ── 3. Section 3C — deterministic fingerprint (pure, no writes, no I/O) ────
@@ -215,6 +278,7 @@ export async function declareArtifactFreezeViaMcp(admin: SupabaseClient, session
     personaId: principal.personaId,
     actorType: 'principal',
     originChannel: 'mcp',
+    agentRef: session.agentAlias,
   });
   if (!result.ok) return { ok: false as const, error: result.error };
   return { ok: true as const, exchangeId: active.exchangeId, attestation: result.attestation };
@@ -253,6 +317,7 @@ export async function signExchangeInstrumentViaMcp(admin: SupabaseClient, sessio
     personaId: principal.personaId,
     actorType: 'principal',
     originChannel: 'mcp',
+    agentRef: session.agentAlias,
   });
   if (!result.ok) return { ok: false as const, error: result.error };
   return {

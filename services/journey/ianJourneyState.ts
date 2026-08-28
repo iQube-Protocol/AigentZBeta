@@ -36,6 +36,16 @@ export interface IanAuthoritativeStateResult {
    * types/journey.ts's `citizenPassportUsable` doc comment).
    */
   citizenPassportUsable: boolean;
+  /**
+   * OCSGA Presence recognition fix (2026-08-27) — the recognized Passport's
+   * class and T2-safe public reference, threaded through ONLY when
+   * `citizenPassportUsable` is true, so a recognized-state UI (e.g.
+   * PassportBureauApplyTab's "you already hold a Passport" banner) can name
+   * WHAT was recognized without re-deriving it and without ever exposing the
+   * raw Passport UUID. `null` when no usable Citizen Passport was found.
+   */
+  citizenPassportClass: string | null;
+  citizenPassportRef: string | null;
 }
 
 export async function fetchIanAuthoritativePlatformState(
@@ -53,6 +63,8 @@ export async function fetchIanAuthoritativePlatformState(
       evidenceGaps,
       activeExchangeId: null,
       citizenPassportUsable: false,
+      citizenPassportClass: null,
+      citizenPassportRef: null,
     };
   }
 
@@ -71,6 +83,8 @@ export async function fetchIanAuthoritativePlatformState(
   let crossed = false;
   let activeExchangeId: string | null = null;
   let citizenPassportUsable = false;
+  let citizenPassportClass: string | null = null;
+  let citizenPassportRef: string | null = null;
 
   const admin = getSupabaseServer();
   if (!admin) {
@@ -112,13 +126,49 @@ export async function fetchIanAuthoritativePlatformState(
     if (authProfileId) {
       const credential = await loadUsableCitizenPassportForAuthProfile(admin, authProfileId);
       citizenPassportUsable = credential.ok && isPassportUsable(credential.passport);
+      if (citizenPassportUsable && credential.ok) {
+        citizenPassportClass = credential.passport.passportClass;
+        citizenPassportRef = credential.passport.personaPublicRef ?? null;
+      }
     }
   }
 
+  /*
+   * OCSGA Presence recognition fix (2026-08-27, root-caused from a live
+   * "Acting as Aigent Z" audit — see codexes/packs/agentiq/updates for the
+   * full trace). `hasReceiptType('passport_issued')` is scoped to THIS
+   * `personaId` alone: it is true only for the persona that itself claimed a
+   * Passport. A Passport belongs to personhood, a level BENEATH persona
+   * (services/identity/passportPrincipal.ts's header) — when the ACTIVE
+   * persona is an agent persona (e.g. Aigent Z) acting for a human principal
+   * who already claimed a Citizen Passport under their OWN persona, that
+   * receipt was written for the human's persona, never Aigent Z's, so the
+   * receipt-only check reported "not yet established" for a genuinely
+   * established Presence and re-offered the class-selection wizard from
+   * scratch (the defect this fix closes).
+   *
+   * `citizenPassportUsable` is already resolved the CORRECT way — by
+   * authProfileId, walking every persona the caller's auth account owns
+   * (services/identity/passportPrincipal.ts's `loadUsableCitizenPassportForAuthProfile`,
+   * the same principal-first direction RES-2026-08-15-PASSPORT-PRINCIPAL-
+   * FIRST-SUPERSESSION-001 established: never persona-upward, never a second
+   * per-persona requirement). OR-ing it in here means Presence is satisfied
+   * by EITHER evidence — the direct receipt (the common case: a human
+   * claiming their own Passport under their own persona) OR the
+   * authProfile-wide Citizen Passport fact (the agent-acting-for-principal
+   * case) — never by an invite alone (canary 4 below still holds:
+   * `activeExchangeId`/`listMyExchanges` are never consulted here).
+   *
+   * This does NOT invent a second Citizen Passport for the agent persona,
+   * and does NOT treat delegation as presence (CI-2026-08-15-PRESENCE-
+   * LADDER-NOT-AGENCY-001) — it resolves the SAME Passport the principal
+   * already claimed, through the principal's own owner chain, exactly as
+   * CLAUDE.md's Identity & Access Spine requires.
+   */
   const state: JourneyAuthState = {
     stages: {
       orient: { orientation_ritual_completed: hasReceiptType('orientation_ritual_completed') },
-      passport: { passport_issued: hasReceiptType('passport_issued') },
+      passport: { passport_issued: hasReceiptType('passport_issued') || citizenPassportUsable },
       'delegation-establish': { delegation_active: delegationActive },
       'create-deposit': { iqube_created: yourDeposited, content_deposited: yourDeposited },
       'freeze-attestation-ready': { attestation_ready_acknowledged: yourDeposited },
@@ -133,5 +183,5 @@ export async function fetchIanAuthoritativePlatformState(
     },
   };
 
-  return { state, evidenceGaps, activeExchangeId, citizenPassportUsable };
+  return { state, evidenceGaps, activeExchangeId, citizenPassportUsable, citizenPassportClass, citizenPassportRef };
 }

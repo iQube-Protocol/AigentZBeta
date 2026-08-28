@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-28-MEET-PRINCIPALS-WHERE-THEY-ARE-001",
+  "statement": "A principal's inability to reach one authorized interface must never block a constitutional act available through another authorized interface. Where a principal has a genuine authorized delegated-agent relationship (e.g. a Copilot session admitted via MCP), that channel is a first-class way to exercise the SAME constitutional acts native UI exercises -- not a lesser or provisional one -- provided the same evidentiary burden (explicit consent, verified eligibility, canonical write) is met.",
+  "family": "constitutional",
+  "governingPrinciple": false,
+  "parentCandidateId": "CI-2026-08-28-CONSTITUTIONAL-STATE-IS-INTERFACE-SOVEREIGN-001",
+  "projections": {
+    "targets": ["constitutional-computing", "irl"],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "classification": "Reframes 'interface unavailable' from a blocker into a routing question: which authorized channel is reachable, not whether the constitutional act can happen at all. Distinguishes CUSTODY (an operator may register an artifact on a principal's explicit, out-of-band authorization, pending that principal's own later attestation) from CONSTITUTIONAL ACTS proper (confirm, freeze, sign -- which a delegated agent may transmit but never infer), per CI-2026-08-28-CHANNEL-INDEPENDENT-PROVENANCE-PRESERVING-001.",
+  "scope": "cross-capability",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/boundary-research-exchange-admission.test.ts",
+      "assertion": "ensureBoundaryResearchExchangeMembershipOperatorAssisted() admits a verified-eligible principal to the same exchange membership their own self-service path would produce, and refuses an ineligible one with the same reason codes the self-service path already returns -- proving the operator-assisted route is equivalent, not a separate weaker admission.",
+      "verifiedFailingBeforeFix": false
+    },
+    {
+      "path": "tests/journey-spine-channel-convergence.test.ts",
+      "assertion": "Delegation established via the MCP-path function is immediately reflected as delegationEstablished:true by the Journey Spine resolver's own read -- proving Copilot-mediated delegation is not a second-tier act awaiting bridge confirmation.",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "services/journey/boundaryResearchExchangeAdmission.ts, services/research/reciprocalExchange.ts",
+      "defect": "Ian's own bridge crossing was blocked by a separate, unrelated defect (/bridge/ocsga reload loop), and the exchange model had no way to distinguish 'the principal cannot reach this interface right now' from 'the principal has not authorized this act' -- both read, structurally, as simply blocked.",
+      "resolutionId": "RES-2026-08-28-RAX-OPERATOR-ASSISTED-CHANNEL-CONVERGENCE-001",
+      "evidence": [
+        "services/journey/boundaryResearchExchangeAdmission.ts",
+        "services/research/reciprocalExchange.ts",
+        "tests/boundary-research-exchange-admission.test.ts"
+      ]
+    }
+  ],
+  "derivedFrom": ["RES-2026-08-28-RAX-OPERATOR-ASSISTED-CHANNEL-CONVERGENCE-001"],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "The operator directed this be treated as ratified doctrine effective 2026-08-28. Recorded at 'candidate' per this repo's consistent convention -- see the governing principle's own note for the ratifiedSource update path.",
+    "This does NOT license an operator or agent to perform an act ON a principal's behalf merely because the principal is unreachable -- see CI-2026-08-28-CHANNEL-INDEPENDENT-PROVENANCE-PRESERVING-001 for the custody/consent boundary this principle does not erase."
+  ]
+}

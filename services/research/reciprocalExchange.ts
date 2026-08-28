@@ -131,6 +131,9 @@ function rowToArtifact(r: Record<string, unknown>): ExchangeArtifactRecord {
     depositedAt: String(r.deposited_at),
     depositReceiptId: (r.deposit_receipt_id as string | null) ?? null,
     originChannel: (r.origin_channel as ExchangeArtifactRecord['originChannel'] | null) ?? 'native-ui',
+    registeringOperatorPersonaId: (r.registering_operator_persona_id as string | null) ?? null,
+    authorityBasis: (r.authority_basis as string | null) ?? null,
+    pendingPrincipalAttestation: Boolean(r.pending_principal_attestation),
   };
 }
 
@@ -470,6 +473,15 @@ export interface DepositArtifactInput {
   /** Surface Independence, 2026-08-26 — defaults to 'native-ui', preserving
    *  every existing caller unchanged. Only an MCP write tool passes 'mcp'. */
   originChannel?: EvidenceOriginChannel;
+  /** Journey Spine channel convergence, 2026-08-28 — the THIRD identity on
+   *  an MCP-originated write: a T2-safe delegated-agent reference (e.g. a
+   *  Threshold `ScopedSession.agentAlias` like 'companion_xyz'), distinct
+   *  from `personaId` (the principal whose authority this is) and from
+   *  `originChannel` (the channel itself). Undefined for every native-ui
+   *  caller — threaded only into the activity receipt's existing
+   *  `agentsInvoked` field (services/receipts/activityReceiptService.ts),
+   *  never a new identifier column or a second identity mechanism. */
+  agentRef?: string;
 }
 
 export async function depositArtifact(
@@ -531,6 +543,7 @@ export async function depositArtifact(
       `Artifact ${existing ? 'replaced' : 'deposited'} [exchange=${input.exchangeId}] party=${party} ` +
       `title="${artifact.title}" v${artifact.version} fingerprint=${artifact.contentHash?.slice(0, 16)}`,
     contextShared: ['exchange_id', 'artifact_class', 'version', 'content_hash'],
+    agentsInvoked: input.agentRef ? [input.agentRef] : [],
   }).catch(() => null);
 
   if (receipt?.id) {
@@ -541,11 +554,227 @@ export async function depositArtifact(
   return { ok: true, artifact, replaced: Boolean(existing) };
 }
 
+// ─── 3b. Operator-assisted custodial registration ─────────────────────────
+//
+// A SEPARATE primitive from depositArtifact — custodial registration, not
+// principal impersonation. Used when the bound principal has explicitly
+// authorized, out-of-band, an operator to enter their artifact on their
+// behalf because they cannot themselves reach a deposit surface (e.g. a
+// client-side bug blocking their own bridge crossing). The artifact is
+// visible/usable immediately (comparison, disclosure) but is BLOCKED from
+// freeze/signature until the bound principal confirms it themselves via
+// confirmOperatorAssistedArtifact — see that function and the
+// pendingPrincipalAttestation checks added to declareFreeze/signInstrument
+// above. depositArtifact itself is untouched by this addition.
+
+export interface RegisterArtifactOperatorAssistedInput {
+  exchangeId: string;
+  /** The persona this artifact is attributed to. MUST already be a bound
+   *  party on this exchange (A or B) — resolved via resolveMembership, NEVER
+   *  taken as a caller-supplied slot letter, so an operator cannot attribute
+   *  an artifact to an unbound/arbitrary persona. */
+  boundPrincipalPersonaId: string;
+  /** Who is actually performing this write. MUST differ from
+   *  boundPrincipalPersonaId (checked below) — the whole point of this
+   *  primitive is that these are two different identities. Callers resolve
+   *  this from the identity spine (the operator's own personaId), never from
+   *  client input. */
+  registeringOperatorPersonaId: string;
+  /** The stated grounds for operator-assisted registration (e.g. "principal's
+   *  explicit written authorization, out-of-band, <date/reference>").
+   *  Recorded verbatim — never inferred, never defaulted. */
+  authorityBasis: string;
+  title: string;
+  artifactClass: string;
+  description?: string;
+  sourceType: ArtifactSourceType;
+  sourceReference: string;
+  contentHash: string;
+  repositoryCommit?: string;
+  storageReference?: string;
+  mimeType?: string;
+  confidentialityClass?: string;
+  ownershipDeclaration: string;
+  rightsForExchange: string;
+}
+
+export async function registerArtifactOperatorAssisted(
+  admin: SupabaseClient,
+  input: RegisterArtifactOperatorAssistedInput,
+): Promise<{ ok: true; artifact: ExchangeArtifactRecord } | { ok: false; error: string }> {
+  if (!input.registeringOperatorPersonaId.trim()) return { ok: false, error: 'registeringOperatorPersonaId required' };
+  if (!input.authorityBasis.trim()) return { ok: false, error: 'authorityBasis required' };
+  if (input.registeringOperatorPersonaId === input.boundPrincipalPersonaId) {
+    return { ok: false, error: 'registering-operator-must-differ-from-bound-principal' };
+  }
+
+  const loaded = await loadExchange(admin, input.exchangeId);
+  if (!loaded.ok) return { ok: false, error: loaded.error };
+  const { exchange } = loaded;
+
+  // The party slot is DERIVED from the bound principal's existing
+  // membership on this exchange — never a caller-supplied 'A'/'B'. A persona
+  // who is not already a party (e.g. not yet joined as counterparty) cannot
+  // receive an operator-assisted registration; bind membership first (see
+  // services/journey/boundaryResearchExchangeAdmission.ts's operator-assisted
+  // admission wrapper).
+  const party = resolveMembership(exchange, input.boundPrincipalPersonaId);
+  if (!party) return { ok: false, error: 'not-a-party' };
+
+  if (hasCrossed(exchange.status)) {
+    return { ok: false, error: 'cannot register an artifact after the exchange has crossed' };
+  }
+  if (['DECLINED', 'WITHDRAWN_PRE_EXCHANGE', 'DISPUTED'].includes(exchange.status)) {
+    return { ok: false, error: `exchange is ${exchange.status} — no further deposits accepted` };
+  }
+
+  // Custodial registration is a FIRST-DEPOSIT-ONLY act — never a replacement
+  // of an already-deposited artifact, for EITHER party. This is what makes
+  // "cannot overwrite Party A" (or any party that has already deposited)
+  // true in general, not a hardcoded A-only rule.
+  const existing = await currentArtifact(admin, input.exchangeId, party);
+  if (existing) {
+    return {
+      ok: false,
+      error:
+        'party-already-has-a-deposited-artifact — operator-assisted registration is a first-deposit-only ' +
+        'custodial act, never a replacement of an existing deposit',
+    };
+  }
+
+  if (!input.title.trim() || !input.sourceReference.trim() || !input.contentHash.trim()) {
+    return { ok: false, error: 'title, sourceReference and contentHash are required' };
+  }
+  if (input.sourceType === 'repository-commit' && !input.repositoryCommit?.trim()) {
+    return { ok: false, error: 'repositoryCommit is required for a repository-commit artifact — never a mutable branch URL' };
+  }
+
+  const { data, error } = await admin
+    .from(T_ARTIFACTS)
+    .insert({
+      exchange_id: input.exchangeId,
+      party,
+      title: input.title.trim(),
+      artifact_class: input.artifactClass.trim(),
+      description: input.description?.trim() || null,
+      version: 1,
+      source_type: input.sourceType,
+      source_reference: input.sourceReference.trim(),
+      content_hash: input.contentHash.trim(),
+      repository_commit: input.repositoryCommit?.trim() || null,
+      storage_reference: input.storageReference?.trim() || null,
+      mime_type: input.mimeType?.trim() || null,
+      ...(input.confidentialityClass ? { confidentiality_class: input.confidentialityClass } : {}),
+      ownership_declaration: input.ownershipDeclaration.trim(),
+      rights_for_exchange: input.rightsForExchange.trim(),
+      supersedes_artifact_id: null,
+      origin_channel: 'operator-assisted',
+      registering_operator_persona_id: input.registeringOperatorPersonaId,
+      authority_basis: input.authorityBasis.trim(),
+      pending_principal_attestation: true,
+    })
+    .select('*')
+    .single();
+  if (error || !data) {
+    return { ok: false, error: isMissingTable(error) ? MIGRATION_HINT : error?.message ?? 'operator-assisted registration failed' };
+  }
+  const artifact = rowToArtifact(data as Record<string, unknown>);
+
+  const receipt = await createActivityReceipt({
+    personaId: input.registeringOperatorPersonaId,
+    activeCartridge: 'irl',
+    actionType: 'exchange_artifact_registered_operator_assisted',
+    summary:
+      `Artifact registered operator-assisted [exchange=${input.exchangeId}] party=${party} ` +
+      `bound-principal=${personaPublicRef(input.boundPrincipalPersonaId)} operator=${personaPublicRef(input.registeringOperatorPersonaId)} ` +
+      `title="${artifact.title}" v1 fingerprint=${artifact.contentHash?.slice(0, 16)} — pending principal attestation`,
+    contextShared: ['exchange_id', 'artifact_class', 'content_hash', 'authority_basis'],
+  }).catch(() => null);
+
+  if (receipt?.id) {
+    await admin.from(T_ARTIFACTS).update({ deposit_receipt_id: receipt.id }).eq('id', artifact.id);
+  }
+
+  await recomputeExchangeState(admin, input.exchangeId);
+  return { ok: true, artifact };
+}
+
+/**
+ * The ONLY way `pendingPrincipalAttestation` ever clears. Callable ONLY by
+ * the exact bound Party B (or A) principal the pending artifact is
+ * attributed to — never by the registering operator, never by the
+ * counterparty, never by an admin. Enforced structurally, not by a role
+ * check: `party` is derived from `resolveMembership(exchange, personaId)`
+ * for the CALLER, and the artifact looked up is that SAME party's current
+ * artifact — so a caller who resolves to a different party (or to no party
+ * at all) can only ever reach their OWN slot's artifact, never someone
+ * else's pending one. Identical access-control shape to depositArtifact/
+ * declareFreeze/signInstrument above.
+ *
+ * Touches ONLY the pending flag — `content_hash` (and every other
+ * evidentiary field) is left byte-for-byte unchanged, so a later
+ * freeze/signature operates on the exact fingerprint that was registered.
+ */
+export async function confirmOperatorAssistedArtifact(
+  admin: SupabaseClient,
+  input: {
+    exchangeId: string;
+    personaId: string;
+    /** See DepositArtifactInput.agentRef — same third-identity pattern, for
+     *  a confirmation transmitted through an authenticated delegated agent
+     *  (e.g. Copilot via MCP) on the bound principal's own explicit say-so. */
+    agentRef?: string;
+  },
+): Promise<{ ok: true; artifact: ExchangeArtifactRecord } | { ok: false; error: string }> {
+  const loaded = await loadExchange(admin, input.exchangeId);
+  if (!loaded.ok) return { ok: false, error: loaded.error };
+  const { exchange } = loaded;
+  const party = resolveMembership(exchange, input.personaId);
+  if (!party) return { ok: false, error: 'not-a-party' };
+
+  const artifact = await currentArtifact(admin, input.exchangeId, party);
+  if (!artifact) return { ok: false, error: 'no artifact on record for this party' };
+  if (!artifact.pendingPrincipalAttestation) {
+    // Idempotent no-op — nothing pending to confirm (never registered
+    // operator-assisted, or already confirmed).
+    return { ok: true, artifact };
+  }
+
+  const { data, error } = await admin
+    .from(T_ARTIFACTS)
+    .update({ pending_principal_attestation: false })
+    .eq('id', artifact.id)
+    .select('*')
+    .single();
+  if (error || !data) return { ok: false, error: error?.message ?? 'confirmation failed' };
+  const confirmed = rowToArtifact(data as Record<string, unknown>);
+
+  await createActivityReceipt({
+    personaId: input.personaId,
+    activeCartridge: 'irl',
+    actionType: 'exchange_operator_assisted_artifact_confirmed',
+    summary:
+      `Operator-assisted artifact registration confirmed by bound principal [exchange=${input.exchangeId}] party=${party} ` +
+      `title="${confirmed.title}" v${confirmed.version} fingerprint=${confirmed.contentHash?.slice(0, 16)} — hash unchanged`,
+    contextShared: ['exchange_id', 'artifact_version', 'content_hash'],
+    agentsInvoked: input.agentRef ? [input.agentRef] : [],
+  }).catch(() => null);
+
+  return { ok: true, artifact: confirmed };
+}
+
 // ─── 4. Freeze declaration ────────────────────────────────────────────────
 
 export async function declareFreeze(
   admin: SupabaseClient,
-  input: { exchangeId: string; personaId: string; actorType: ActorType; originChannel?: EvidenceOriginChannel },
+  input: {
+    exchangeId: string;
+    personaId: string;
+    actorType: ActorType;
+    originChannel?: EvidenceOriginChannel;
+    /** See DepositArtifactInput.agentRef — same third-identity pattern. */
+    agentRef?: string;
+  },
 ): Promise<{ ok: true; attestation: ExchangeAttestationRecord } | { ok: false; error: string }> {
   if (input.actorType !== 'principal') {
     return { ok: false, error: 'freeze-declaration-requires-principal' };
@@ -559,6 +788,15 @@ export async function declareFreeze(
 
   const artifact = await currentArtifact(admin, input.exchangeId, party);
   if (!artifact) return { ok: false, error: 'deposit an artifact before declaring its freeze' };
+  if (artifact.pendingPrincipalAttestation) {
+    return {
+      ok: false,
+      error:
+        'artifact-pending-principal-attestation — this artifact was registered operator-assisted and is not yet ' +
+        'confirmed by the bound principal (see confirmOperatorAssistedArtifact); it cannot be frozen until then, ' +
+        'by any caller including the registering operator',
+    };
+  }
 
   const existingCurrent = await currentAttestation(admin, input.exchangeId, party, 'freeze_declaration', artifact.version);
   if (existingCurrent) return { ok: true, attestation: existingCurrent };
@@ -585,6 +823,7 @@ export async function declareFreeze(
     actionType: 'exchange_freeze_declared',
     summary: `Freeze declared [exchange=${input.exchangeId}] party=${party} artifact-version=${artifact.version} — "${FREEZE_DECLARATION_TEXT}"`,
     contextShared: ['exchange_id', 'artifact_version'],
+    agentsInvoked: input.agentRef ? [input.agentRef] : [],
   }).catch(() => null);
   if (receipt?.id) await admin.from(T_ATTESTATIONS).update({ receipt_id: receipt.id }).eq('id', attestation.id);
 
@@ -596,7 +835,14 @@ export async function declareFreeze(
 
 export async function signInstrument(
   admin: SupabaseClient,
-  input: { exchangeId: string; personaId: string; actorType: ActorType; originChannel?: EvidenceOriginChannel },
+  input: {
+    exchangeId: string;
+    personaId: string;
+    actorType: ActorType;
+    originChannel?: EvidenceOriginChannel;
+    /** See DepositArtifactInput.agentRef — same third-identity pattern. */
+    agentRef?: string;
+  },
 ): Promise<{ ok: true; attestation: ExchangeAttestationRecord; exchange: ReciprocalExchangeRecord } | { ok: false; error: string }> {
   if (input.actorType !== 'principal') {
     return { ok: false, error: 'instrument-signature-requires-principal' };
@@ -613,6 +859,15 @@ export async function signInstrument(
 
   const artifact = await currentArtifact(admin, input.exchangeId, party);
   if (!artifact) return { ok: false, error: 'no artifact on record for this party' };
+  if (artifact.pendingPrincipalAttestation) {
+    return {
+      ok: false,
+      error:
+        'artifact-pending-principal-attestation — this artifact was registered operator-assisted and is not yet ' +
+        'confirmed by the bound principal (see confirmOperatorAssistedArtifact); it cannot be signed until then, ' +
+        'by any caller including the registering operator',
+    };
+  }
   const freeze = await currentAttestation(admin, input.exchangeId, party, 'freeze_declaration', artifact.version);
   if (!freeze) return { ok: false, error: 'declare the freeze before signing the Exchange Instrument' };
 
@@ -647,6 +902,7 @@ export async function signInstrument(
     actionType: 'exchange_instrument_signed',
     summary: `Exchange Instrument signed [exchange=${input.exchangeId}] party=${party} artifact-version=${artifact.version}`,
     contextShared: ['exchange_id', 'artifact_version'],
+    agentsInvoked: input.agentRef ? [input.agentRef] : [],
   }).catch(() => null);
   if (receipt?.id) await admin.from(T_ATTESTATIONS).update({ receipt_id: receipt.id }).eq('id', attestation.id);
 
@@ -1076,6 +1332,11 @@ export interface ExchangeArtifactView {
   signed: boolean;
   locked: boolean;
   lockedReason: string | null;
+  /** True while this artifact was registered operator-assisted and the bound
+   *  principal has not yet confirmed it (confirmOperatorAssistedArtifact).
+   *  Read-visibility is unaffected by this flag — only freeze/signature are
+   *  gated on it (services/research/reciprocalExchange.ts). */
+  pendingPrincipalAttestation: boolean;
 }
 
 export interface ExchangeView {
@@ -1115,6 +1376,7 @@ function toArtifactView(
       signed,
       locked: true,
       lockedReason,
+      pendingPrincipalAttestation: artifact.pendingPrincipalAttestation,
     };
   }
   return {
@@ -1132,6 +1394,7 @@ function toArtifactView(
     signed,
     locked: false,
     lockedReason: null,
+    pendingPrincipalAttestation: artifact.pendingPrincipalAttestation,
   };
 }
 

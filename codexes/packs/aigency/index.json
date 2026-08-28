@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-27T08:17:31.915Z",
+  "last_updated": "2026-08-28T13:45:39.744Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "c05c2c347206a129a53f8d31bb88fa6d9ea457c6",
-  "latest_commit_short": "c05c2c3",
-  "latest_commit_title": "SECURITY: contain IRL OS -> metaMe IRL boundary breach (Phase 1)",
+  "latest_commit": "1ffcad44b9b0ea6bda0bdca8236c2065be2f14c8",
+  "latest_commit_short": "1ffcad4",
+  "latest_commit_title": "record the channel-independence constitutional invariants ratified from OCSGA/Copilot convergence evidence",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,87 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "1ffcad4",
+      "full_sha": "1ffcad44b9b0ea6bda0bdca8236c2065be2f14c8",
+      "title": "record the channel-independence constitutional invariants ratified from OCSGA/Copilot convergence evidence",
+      "author": "Claude",
+      "timestamp": "2026-08-28T13:43:42Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-1ffcad4.md"
+    },
+    {
+      "sha": "50d3d6e",
+      "full_sha": "50d3d6e32ea39e349fe1ea18f0e587ae1361772c",
+      "title": "Add operator-assisted custodial artifact registration for RAX exchanges",
+      "author": "Claude",
+      "timestamp": "2026-08-28T12:21:36Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-50d3d6e.md"
+    },
+    {
+      "sha": "33fed9b",
+      "full_sha": "33fed9bb6b2b42a13a9d66f39ac8a534304973bd",
+      "title": "add confirm-artifact MCP tool and thread agent identity onto exchange receipts",
+      "author": "Claude",
+      "timestamp": "2026-08-28T13:07:20Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-33fed9b.md"
+    },
+    {
+      "sha": "4b931ae",
+      "full_sha": "4b931ae89bf71d49425265a0ad354243791552a8",
+      "title": "Fix OCSGA Presence stage to recognize a principal's Citizen Passport for an agent-persona caller",
+      "author": "Claude",
+      "timestamp": "2026-08-27T09:43:52Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-4b931ae.md"
+    },
+    {
+      "sha": "96e22fd",
+      "full_sha": "96e22fd662dc9888240a45154ef6337aa88f4a94",
+      "title": "Fix People 504 (ContactGraph N+1 projection) and unsafe Gmail-composer resolution claims",
+      "author": "Claude",
+      "timestamp": "2026-08-27T09:44:24Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-96e22fd.md"
+    },
+    {
+      "sha": "458e486",
+      "full_sha": "458e48619df67f546460a9ab35a293327c8e3eb4",
+      "title": "fix Track 2 Proceed navigation racing ahead of authoritative refresh",
+      "author": "Claude",
+      "timestamp": "2026-08-27T13:11:57Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-458e486.md"
+    },
+    {
+      "sha": "e84c019",
+      "full_sha": "e84c019863a58a11b4b5cb15ac13f2f967953c6a",
+      "title": "consolidate the three acquisition-required Freeze blockers into one brief",
+      "author": "Claude",
+      "timestamp": "2026-08-27T13:12:20Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-e84c019.md"
+    },
+    {
+      "sha": "4380978",
+      "full_sha": "438097845545d071caf79227eba0494115b2b484",
+      "title": "Restore metaMe IRL admin access, IRL OS Participation Overview, and IRL OS Workspace (scoped restoration)",
+      "author": "Claude",
+      "timestamp": "2026-08-27T09:37:14Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-4380978.md"
+    },
+    {
+      "sha": "decbc07",
+      "full_sha": "decbc07c8234961827ee04b046c5d1edc7415228",
+      "title": "Revert \"close IRL OS confidentiality breach: private-cartridge deep links + unauthenticated document routes + query-derived admin authority removed [merge sec/irl-os-containment-2026-08-27]\"",
+      "author": "Claude",
+      "timestamp": "2026-08-27T09:02:18Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-decbc07.md"
+    },
     {
       "sha": "c05c2c3",
       "full_sha": "c05c2c347206a129a53f8d31bb88fa6d9ea457c6",
@@ -1171,87 +1252,6 @@
       "timestamp": "2026-08-11T23:40:14Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-581418d.md"
-    },
-    {
-      "sha": "ecbdd8b",
-      "full_sha": "ecbdd8bd27d1c62aa280ac695cb67622987ae5a9",
-      "title": "phase 4.1: consolidate choose ctAs into destination cards",
-      "author": "Claude",
-      "timestamp": "2026-08-11T22:48:22Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-ecbdd8b.md"
-    },
-    {
-      "sha": "407b215",
-      "full_sha": "407b21532fc1549d060145330f702bba223d6ae3",
-      "title": "complete phases 4.3 & fix: passport gate modal + qripto accept pattern",
-      "author": "Claude",
-      "timestamp": "2026-08-11T22:53:09Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-407b215.md"
-    },
-    {
-      "sha": "019eb69",
-      "full_sha": "019eb6904b156a1ca5516f7e7bf8fa53bea67155",
-      "title": "data model fix: remove invalid asset kinds, add series_scope, extend series picker for canonical content",
-      "author": "Claude",
-      "timestamp": "2026-08-11T22:31:37Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-019eb69.md"
-    },
-    {
-      "sha": "6e2a68b",
-      "full_sha": "6e2a68ba69bedb55032b79dc9c99c79975fc7c81",
-      "title": "complete phase 1: remove artifact class selector, simplify to series picker",
-      "author": "Claude",
-      "timestamp": "2026-08-11T22:35:32Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-6e2a68b.md"
-    },
-    {
-      "sha": "b8e75f8",
-      "full_sha": "b8e75f81939e7d320505467fe63519938e056cd6",
-      "title": "add back button to Horizen MoneyPenny journey in PilotJourneyTab",
-      "author": "Claude",
-      "timestamp": "2026-08-11T20:51:03Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-b8e75f8.md"
-    },
-    {
-      "sha": "d737498",
-      "full_sha": "d737498f0e586a7f7ba89388bf440c984de728d8",
-      "title": "add artifact class (canonical/operational) toggle to qriptopian upload modal",
-      "author": "Claude",
-      "timestamp": "2026-08-11T20:41:43Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-d737498.md"
-    },
-    {
-      "sha": "7716251",
-      "full_sha": "7716251ff997535f05742532a595b2160f5e784f",
-      "title": "improve artifact URL copy affordance in upload modal + redirect Claude Code button to code interface",
-      "author": "Claude",
-      "timestamp": "2026-08-11T20:43:21Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-7716251.md"
-    },
-    {
-      "sha": "937b6d8",
-      "full_sha": "937b6d832e22fce22e150afb9e4c59b2e37558a8",
-      "title": "add back button to threshold guides + wire groundContext to bridge copilots",
-      "author": "Claude",
-      "timestamp": "2026-08-11T20:49:07Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-937b6d8.md"
-    },
-    {
-      "sha": "6070ce9",
-      "full_sha": "6070ce9c90180792b1f72c9d3a0be691b0a524ae",
-      "title": "Register Constitutional Bearing plates in Polity Core",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-10T23:09:04-04:00",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-6070ce9.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

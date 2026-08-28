@@ -4514,3 +4514,48 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-c05c2c3.md](../build_/COMMITS/COMMIT-c05c2c3.md)
 - Message: SECURITY: contain IRL OS -> metaMe IRL boundary breach (Phase 1)
+
+## Commit `decbc07` — 2026-08-27T09:02:18Z
+- Type: `push`
+- Brief: [COMMIT-decbc07.md](../build_/COMMITS/COMMIT-decbc07.md)
+- Message: Revert "close IRL OS confidentiality breach: private-cartridge deep links + unauthenticated document routes + query-derived admin authority removed [merge sec/irl-os-containment-2026-08-27]"
+
+## Commit `4380978` — 2026-08-27T09:37:14Z
+- Type: `push`
+- Brief: [COMMIT-4380978.md](../build_/COMMITS/COMMIT-4380978.md)
+- Message: Restore metaMe IRL admin access, IRL OS Participation Overview, and IRL OS Workspace (scoped restoration)
+
+## Commit `e84c019` — 2026-08-27T13:12:20Z
+- Type: `push`
+- Brief: [COMMIT-e84c019.md](../build_/COMMITS/COMMIT-e84c019.md)
+- Message: consolidate the three acquisition-required Freeze blockers into one brief
+
+## Commit `458e486` — 2026-08-27T13:11:57Z
+- Type: `fix`
+- Brief: [COMMIT-458e486.md](../build_/COMMITS/COMMIT-458e486.md)
+- Message: fix Track 2 Proceed navigation racing ahead of authoritative refresh
+
+## Commit `96e22fd` — 2026-08-27T09:44:24Z
+- Type: `fix`
+- Brief: [COMMIT-96e22fd.md](../build_/COMMITS/COMMIT-96e22fd.md)
+- Message: Fix People 504 (ContactGraph N+1 projection) and unsafe Gmail-composer resolution claims
+
+## Commit `4b931ae` — 2026-08-27T09:43:52Z
+- Type: `fix`
+- Brief: [COMMIT-4b931ae.md](../build_/COMMITS/COMMIT-4b931ae.md)
+- Message: Fix OCSGA Presence stage to recognize a principal's Citizen Passport for an agent-persona caller
+
+## Commit `33fed9b` — 2026-08-28T13:07:20Z
+- Type: `feat`
+- Brief: [COMMIT-33fed9b.md](../build_/COMMITS/COMMIT-33fed9b.md)
+- Message: add confirm-artifact MCP tool and thread agent identity onto exchange receipts
+
+## Commit `50d3d6e` — 2026-08-28T12:21:36Z
+- Type: `feat`
+- Brief: [COMMIT-50d3d6e.md](../build_/COMMITS/COMMIT-50d3d6e.md)
+- Message: Add operator-assisted custodial artifact registration for RAX exchanges
+
+## Commit `1ffcad4` — 2026-08-28T13:43:42Z
+- Type: `push`
+- Brief: [COMMIT-1ffcad4.md](../build_/COMMITS/COMMIT-1ffcad4.md)
+- Message: record the channel-independence constitutional invariants ratified from OCSGA/Copilot convergence evidence

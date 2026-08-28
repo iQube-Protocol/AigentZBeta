@@ -166,8 +166,20 @@ export type PartySlot = 'A' | 'B';
  * existed and for every native-surface write going forward; 'mcp' marks a
  * write an authenticated MCP tool originated on the principal's behalf. See
  * services/threshold/mcpConstitutionalActs.ts.
+ *
+ * 'operator-assisted' (2026-08-28, operator-authorized custodial
+ * registration) marks a row an OPERATOR wrote on a principal's behalf, under
+ * explicit out-of-band authorization, when the principal could not perform
+ * the write themselves through any UI. This is NEVER conflated with
+ * 'native-ui'/'mcp' — those both mean the PRINCIPAL performed the act
+ * (directly or via an authenticated agent acting for them in real time);
+ * 'operator-assisted' means someone else custodially entered evidence
+ * attributed to the principal, which is exactly why every such artifact
+ * carries `pendingPrincipalAttestation: true` until the bound principal
+ * confirms it themselves — see registerArtifactOperatorAssisted /
+ * confirmOperatorAssistedArtifact in services/research/reciprocalExchange.ts.
  */
-export type EvidenceOriginChannel = 'native-ui' | 'mcp';
+export type EvidenceOriginChannel = 'native-ui' | 'mcp' | 'operator-assisted';
 
 export interface ExchangeArtifactRecord {
   id: string;
@@ -190,6 +202,28 @@ export interface ExchangeArtifactRecord {
   depositedAt: string;
   depositReceiptId: string | null;
   originChannel: EvidenceOriginChannel;
+  /**
+   * Operator-assisted custodial registration (2026-08-28) — three SEPARATE
+   * fields, deliberately never folded into `ownershipDeclaration` prose:
+   *
+   *   - `registeringOperatorPersonaId`: who actually performed this write.
+   *     Null for every normal (principal-performed) deposit. When set, it is
+   *     GUARANTEED to differ from the artifact's own bound principal — see
+   *     registerArtifactOperatorAssisted's own check.
+   *   - `authorityBasis`: the stated grounds for the operator-assisted write
+   *     (e.g. "principal's explicit written authorization, out-of-band,
+   *     <ref>"), recorded verbatim, never inferred or defaulted.
+   *   - `pendingPrincipalAttestation`: true from the moment of operator
+   *     registration until the bound principal themselves confirms it via
+   *     confirmOperatorAssistedArtifact. THE LOAD-BEARING INVARIANT: while
+   *     true, `declareFreeze`/`signInstrument` refuse this artifact for
+   *     EVERY caller, including the registering operator — custodial
+   *     registration is never principal attestation. False for every
+   *     normal deposit (default) and forever false again once confirmed.
+   */
+  registeringOperatorPersonaId: string | null;
+  authorityBasis: string | null;
+  pendingPrincipalAttestation: boolean;
 }
 
 // ─── Attestation model (PRD §8–9, §17) ───────────────────────────────────────

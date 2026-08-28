@@ -211,6 +211,28 @@ interface PassportBureauApplyTabProps {
    * access, Horizen's PilotJourneyTab) is unaffected.
    */
   onUsablePassportDetected?: () => void;
+  /**
+   * OCSGA Presence recognition fix (2026-08-27) — when the enclosing Journey
+   * observer has ALREADY resolved (server-side, via
+   * services/identity/passportPrincipal.ts's `loadUsableCitizenPassportForAuthProfile`,
+   * authProfileId-scoped — never persona-upward) that the caller holds a
+   * usable Citizen Passport, seed the SAME recognized-state short-circuit
+   * this component's own Account-step sign-in check
+   * (`/api/passport/usable-status`) sets via `existingUsablePassport`. Without
+   * this, an already-platform-authenticated caller who never goes through
+   * this wizard's OWN internal Bureau-account sign-in sub-step (e.g. an agent
+   * persona like Aigent Z acting for a principal who claimed their Citizen
+   * Passport under their own persona) never triggers that internal check, so
+   * the raw class-selection screen rendered instead of the recognized state —
+   * the exact defect this prop closes. Optional: every caller that doesn't
+   * pass it (standalone Bureau access, Horizen's PilotJourneyTab) is
+   * unaffected — `existingUsablePassport` simply starts `false`, as before.
+   */
+  initialUsablePassport?: boolean;
+  /** Recognized Passport class to display in the banner (never required). */
+  initialPassportClass?: string | null;
+  /** T2-safe recognized Passport reference to display (never the raw UUID). */
+  initialPassportRef?: string | null;
 }
 
 export function PassportBureauApplyTab({
@@ -219,6 +241,9 @@ export function PassportBureauApplyTab({
   prefillAgentDisplayName,
   routeTo,
   onUsablePassportDetected,
+  initialUsablePassport,
+  initialPassportClass,
+  initialPassportRef,
 }: PassportBureauApplyTabProps = {}) {
   const subHeaderSlotEl = useContext(SubHeaderSlotContext);
   const [step, setStep] = useState<StepId>('class');
@@ -562,8 +587,20 @@ export function PassportBureauApplyTab({
   /** Set right after a successful Account-step sign-in (Bureau OR wallet)
    *  when /api/passport/usable-status reports the now-authenticated caller
    *  already holds a usable Citizen Passport — short-circuits the wizard
-   *  instead of re-running personhood binding / vault / consents / submit. */
-  const [existingUsablePassport, setExistingUsablePassport] = useState(false);
+   *  instead of re-running personhood binding / vault / consents / submit.
+   *  Seeded from `initialUsablePassport` (OCSGA Presence recognition fix,
+   *  2026-08-27) so an enclosing Journey observer's ALREADY-resolved
+   *  server-side fact shows this same recognized state immediately, without
+   *  requiring the caller to go through this wizard's own internal
+   *  Bureau-account sign-in sub-step first. */
+  const [existingUsablePassport, setExistingUsablePassport] = useState(Boolean(initialUsablePassport));
+  /** Recognized Passport class/ref to display in the banner — seeded from
+   *  props (server-resolved) and never re-derived client-side; this
+   *  component's own internal Bureau-account detection path does not (yet)
+   *  resolve class/ref, so these stay whatever the enclosing Journey passed
+   *  in — `null` when unset, never fabricated. */
+  const [recognizedPassportClass] = useState<string | null>(initialPassportClass ?? null);
+  const [recognizedPassportRef] = useState<string | null>(initialPassportRef ?? null);
 
   // Step 2 — identity
   const [displayName, setDisplayName] = useState('');
@@ -1070,6 +1107,12 @@ export function PassportBureauApplyTab({
               Your constitutional presence is already established for this account — there is nothing
               further to apply for.
             </p>
+            {(recognizedPassportClass || recognizedPassportRef) && (
+              <p className="mt-1 text-xs text-slate-500">
+                {recognizedPassportClass === 'citizen' ? 'Polity Citizen Passport' : recognizedPassportClass}
+                {recognizedPassportRef ? ` — ref ${recognizedPassportRef}` : ''}
+              </p>
+            )}
           </div>
         </div>
       </div>

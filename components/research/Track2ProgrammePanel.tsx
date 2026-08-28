@@ -213,6 +213,14 @@ interface ReadinessReport {
   /** Informational only — never gates anything. */
   maturity: ReadinessMaturitySummary;
   invariantCount: number;
+  /** Mirrors services/research/crystalPopulationRequirement.ts's
+   *  CrystalPopulationRequirement — only the field the combined acquisition
+   *  plan's summary copy needs (2026-08-27 fix), so the "Crystal needs N
+   *  additional distinct invariants" figure is read off the SAME state
+   *  already in memory rather than a second round-trip just to render a
+   *  button's blurb. Optional: older cached shapes without it degrade to
+   *  "unknown" rather than a guessed number. */
+  populationRequirement?: { minimumCollectionSize: number | null };
 }
 
 /** Stages 5-7's named worklists (al, 2026-08-04 steward-workflow ruling) — replaces "N have no provenance" with a queue of the exact N. */
@@ -669,12 +677,29 @@ export function Track2ProgrammePanel({
                                 // run-readiness itself (its queue renders inline
                                 // there); every other failing scientific-readiness
                                 // check anchors elsewhere.
-                                const destAnchor = c.remediationStageAnchor ?? "run-readiness";
+                                //
+                                // ACQUISITION-CLASS CHECKS ARE THE ONE EXCEPTION
+                                // (Defect 2, 2026-08-27 fix): the three
+                                // `additional-acquisition-required` checks
+                                // (selection-space, derivation-headroom,
+                                // boundary-coverage) all previously routed to
+                                // `discover-sources` — a bare scroll with no
+                                // targeting context, audited in
+                                // services/research/crystalAcquisitionBrief.ts's
+                                // header. All three now route to `run-readiness`
+                                // instead, where the ONE combined acquisition
+                                // plan (`CrystalAcquisitionPlan`) renders — never
+                                // three separate destinations for what is one
+                                // coordinated objective.
+                                const isAcquisitionClass = c.remediationClass === "additional-acquisition-required";
+                                const destAnchor = isAcquisitionClass
+                                  ? "run-readiness"
+                                  : (c.remediationStageAnchor ?? "run-readiness");
                                 const label =
-                                  destAnchor === "run-readiness"
-                                    ? "Resolve"
-                                    : c.remediationClass === "additional-acquisition-required"
-                                      ? "Go acquire →"
+                                  isAcquisitionClass
+                                    ? "Open acquisition plan →"
+                                    : destAnchor === "run-readiness"
+                                      ? "Resolve"
                                       : "Go resolve →";
                                 return (
                                   <li key={c.name} className="flex items-center justify-between text-slate-400">
@@ -954,6 +979,18 @@ export function Track2ProgrammePanel({
                                 ))}
                             </ul>
                           </div>
+                          {/* THE COMBINED ACQUISITION PLAN (Defect 2, 2026-08-27 fix) — ONE
+                              consolidated action for the three additional-acquisition-required
+                              freeze blockers, replacing the old per-check "Go acquire →" links
+                              (which only scrolled here with no targeting context — see
+                              services/research/crystalAcquisitionBrief.ts's header for the audit).
+                              Rendered once, only while at least one of the three targeted checks
+                              is still failing. */}
+                          {readiness.checks.some(
+                            (c) =>
+                              !c.passed &&
+                              ["selection-space", "derivation-headroom", "boundary-coverage"].includes(c.name),
+                          ) && <CrystalAcquisitionPlan experimentId={experimentId} onDone={() => void reloadAndAdvance()} />}
                           <div>
                             <div className="mb-0.5 font-medium text-slate-300">
                               Scientific Maturity — informational, does not block Freeze
@@ -5131,6 +5168,276 @@ function RelationshipQueue({
   );
 }
 
+/** Mirrors services/research/crystalAcquisitionBrief.ts's
+ *  CrystalAcquisitionCompletionCriterion — same convention this file already
+ *  uses for ReadinessCheck/ReadinessReport above: a slim client-side mirror,
+ *  never a service import into a "use client" component. */
+interface AcquisitionCompletionCriterion {
+  checkName: string;
+  currentMeasure: string;
+  requiredMeasure: string;
+  remedy: string | null;
+  satisfied: boolean;
+}
+
+/** Mirrors services/research/crystalAcquisitionBrief.ts's CrystalAcquisitionBrief. */
+interface AcquisitionBrief {
+  experimentId: string;
+  crystalGeneration: string;
+  domain: string;
+  requiredNetNewDistinctMembers: number;
+  currentDistinctMemberCount: number;
+  minimumCollectionSize: number;
+  representedNamespaces: string[];
+  missingNamespaces: string[];
+  boundaryNamespaceCount: number;
+  requiredEntailmentChains: number;
+  currentEntailmentChainCount: number;
+  entailmentChainDeficit: number;
+  requiredRelationalMembersInSlice: number;
+  currentRelationalMemberCount: number;
+  deficientRelationalStructures: string[];
+  sourceAdmissibilityConstraints: string[];
+  alreadyAdmittedInvariantIds: string[];
+  structuralDiversityOpportunity: { included: boolean; detail: string } | null;
+  completionCriteria: AcquisitionCompletionCriterion[];
+  generatedAt: string;
+}
+
+/**
+ * THE COMBINED ACQUISITION PLAN (Defect 2, 2026-08-27 "Crystal freeze-gating
+ * continuation" review pass) — replaces the three independent "Go acquire →"
+ * links (which only ever scrolled to Stage 1 with no targeting context —
+ * see `services/research/crystalAcquisitionBrief.ts`'s header for the full
+ * audit) with ONE server-derived, coordinated corpus-enlargement objective.
+ *
+ * ── Governance pattern, matched from the EXISTING Corpus Scout flow ────────
+ *
+ * `components/corpusScout/DomainConstitutionPanel.tsx`'s `runDomainDiscovery`
+ * is the precedent: ONE explicit steward click directly triggers
+ * `POST /api/corpus-scout/institution-discovery/domain` — no separate confirm
+ * modal. "Approve & start acquisition" below reuses that SAME route, matching
+ * that SAME pattern — this is not a new governance mechanism.
+ *
+ * ── The one honest capability gap (reported, not silently worked around) ───
+ *
+ * `runDiscoveryForDomain`/`runDiscoveryForInstitution`
+ * (`services/corpusScout/discoveryOrchestrator.ts`) accept only a `domain`
+ * string — there is no parameter to target specific missing namespaces or
+ * relational structures within a domain crawl. The brief's `missingNamespaces`/
+ * `deficientRelationalStructures` are shown to the operator as the PRIORITY
+ * for this acquisition round, but the automated crawl itself remains
+ * domain-wide and uniform, exactly as it is everywhere else this route is
+ * used today. Closing that gap would mean changing how each ratified
+ * institution is queried — external-HTTP crawl logic this review pass does
+ * not touch.
+ */
+function CrystalAcquisitionPlan({ experimentId, onDone }: { experimentId: string; onDone: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [brief, setBrief] = useState<AcquisitionBrief | null>(null);
+  const [includeDiversity, setIncludeDiversity] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [approving, setApproving] = useState(false);
+  const [approvalResult, setApprovalResult] = useState<string | null>(null);
+
+  const loadBrief = useCallback(
+    async (withDiversity: boolean) => {
+      setLoading(true);
+      setErr(null);
+      try {
+        const res = await personaFetch(
+          `/api/research/crystal/${encodeURIComponent(experimentId)}/acquisition-brief${withDiversity ? "?includeStructuralDiversity=true" : ""}`,
+          { cache: "no-store" },
+        );
+        const d = await res.json().catch(() => null);
+        if (!d?.requestSucceeded) throw new Error(d?.error || `could not build the acquisition brief (HTTP ${res.status})`);
+        if (!d.applies) {
+          setBrief(null);
+          setErr(d.note ?? "no combined acquisition plan applies right now — the three targeted checks already pass");
+          return;
+        }
+        setBrief(d.brief as AcquisitionBrief);
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : "acquisition brief unavailable");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [experimentId],
+  );
+
+  const openPlan = useCallback(() => {
+    setOpen(true);
+    void loadBrief(includeDiversity);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const toggleDiversity = useCallback(() => {
+    const next = !includeDiversity;
+    setIncludeDiversity(next);
+    void loadBrief(next);
+  }, [includeDiversity, loadBrief]);
+
+  const approve = useCallback(async () => {
+    if (!brief) return;
+    setApproving(true);
+    setApprovalResult(null);
+    setErr(null);
+    try {
+      // THE CANONICAL, ALREADY-SHIPPED Corpus Scout automation entry point —
+      // never a forked acquisition pipeline. Same route, same request shape,
+      // same single-click governance pattern as DomainConstitutionPanel's
+      // runDomainDiscovery.
+      const res = await personaFetch("/api/corpus-scout/institution-discovery/domain", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ domain: brief.domain }),
+      });
+      const d = await res.json().catch(() => null);
+      if (!res.ok || !d?.ok) throw new Error(d?.error || `domain discovery refused (HTTP ${res.status})`);
+      setApprovalResult(
+        `${d.institutionsAttempted} institution(s) attempted — ${d.totalSubmitted} candidate(s) submitted from ` +
+          `${d.totalFound} found. Continue with Extract/Validate ("Run until you need me" in the Research Copilot, ` +
+          `or the stage controls below) to bring admitted material through the canonical pipeline into the crystal.`,
+      );
+      onDone();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "acquisition automation failed");
+    } finally {
+      setApproving(false);
+    }
+  }, [brief, onDone]);
+
+  if (!open) {
+    return (
+      <div className="mt-2 rounded border border-emerald-700/40 bg-emerald-950/20 p-2.5 text-[11px]">
+        <div className="mb-1 flex items-center justify-between">
+          <span className="font-semibold text-emerald-200">Build targeted acquisition plan</span>
+        </div>
+        <p className="mb-1.5 text-slate-300">
+          One coordinated acquisition objective for all three outstanding Freeze blockers — never three separate
+          runs that could acquire redundant material.
+        </p>
+        <button
+          type="button"
+          onClick={openPlan}
+          title="Recommended over three separate acquisition runs: the missing namespaces and relational structures overlap, so one targeted pass can simultaneously close all three deficits without redundant acquisition."
+          className="rounded border border-emerald-700 bg-emerald-900/30 px-2.5 py-1 font-medium text-emerald-200 hover:bg-emerald-900/50"
+        >
+          Build targeted acquisition plan
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-2 space-y-2 rounded border border-emerald-700/40 bg-emerald-950/20 p-2.5 text-[11px]">
+      <div className="flex items-center justify-between">
+        <span className="font-semibold text-emerald-200">Targeted acquisition plan</span>
+        <button type="button" onClick={() => setOpen(false)} className="text-slate-500 hover:text-slate-300">
+          Close (collapses only — resolves nothing)
+        </button>
+      </div>
+
+      {loading && (
+        <div className="flex items-center gap-1.5 text-slate-400">
+          <Loader2 className="h-3 w-3 animate-spin" /> deriving the combined brief from current readiness…
+        </div>
+      )}
+
+      {!loading && err && <div className="rounded border border-rose-500/30 bg-rose-500/10 p-1.5 text-rose-200">{err}</div>}
+
+      {!loading && brief && (
+        <div className="space-y-2">
+          <div className="text-slate-300">
+            Crystal needs <span className="font-semibold text-emerald-200">{brief.requiredNetNewDistinctMembers}</span>{" "}
+            additional distinct invariants ({brief.currentDistinctMemberCount}/{brief.minimumCollectionSize}).
+            Acquisition will target the missing namespaces and relational structures so one research pass can
+            address all three remaining Freeze blockers.
+          </div>
+
+          <div className="rounded border border-slate-800 bg-slate-950/40 p-2 space-y-1.5">
+            <div className="font-medium text-slate-300">What's missing, and why it blocks Freeze</div>
+            {brief.completionCriteria.map((c) => (
+              <div key={c.checkName} className="border-b border-slate-900 pb-1 last:border-0 last:pb-0">
+                <div className="flex items-center justify-between text-slate-200">
+                  <span>{c.checkName}</span>
+                  <span className="text-slate-500">
+                    {c.currentMeasure} → {c.requiredMeasure}
+                  </span>
+                </div>
+                {c.remedy && <div className="mt-0.5 text-slate-500">{c.remedy}</div>}
+              </div>
+            ))}
+          </div>
+
+          <div className="rounded border border-slate-800 bg-slate-950/40 p-2 space-y-1">
+            <div className="font-medium text-slate-300">Proposed source/search strategy</div>
+            <div className="text-slate-400">
+              Missing namespaces ({brief.missingNamespaces.length}/{brief.boundaryNamespaceCount}):{" "}
+              {brief.missingNamespaces.length > 0 ? brief.missingNamespaces.join(", ") : "none"}
+            </div>
+            <div className="text-slate-400">
+              Deficient relational structures ({brief.deficientRelationalStructures.length}):{" "}
+              {brief.deficientRelationalStructures.length > 0 ? brief.deficientRelationalStructures.join(", ") : "none"} —
+              prioritise statements expressing explicit mechanisms (causal, conditional, propagation, threshold,
+              trade-off, quantitative, constraint).
+            </div>
+            <div className="text-slate-400">
+              Entailment-chain target: {brief.currentEntailmentChainCount}/{brief.requiredEntailmentChains}{" "}
+              (deficit {brief.entailmentChainDeficit}) — premise/conclusion structures capable of forming genuine
+              entailment chains.
+            </div>
+            <div className="text-slate-400">
+              {brief.alreadyAdmittedInvariantIds.length} already-admitted invariant(s) excluded from reacquisition —
+              distinct, non-duplicate material only.
+            </div>
+          </div>
+
+          <div className="rounded border border-slate-800 bg-slate-950/40 p-2 space-y-1">
+            <div className="font-medium text-slate-300">Admissibility constraints</div>
+            {brief.sourceAdmissibilityConstraints.map((c, i) => (
+              <div key={i} className="text-slate-400">
+                · {c}
+              </div>
+            ))}
+          </div>
+
+          {/* Optional maturity opportunity — informational only, never counted
+              among completionCriteria above (structural-diversity is not a
+              Freeze blocker). Explicit opt-in, per the operator's requirement
+              that it never ride along un-asked-for. */}
+          <label className="flex items-center gap-1.5 text-slate-400">
+            <input type="checkbox" checked={includeDiversity} onChange={toggleDiversity} className="accent-emerald-600" />
+            Include semantic-shape diversity (optional maturity improvement — not a Freeze blocker)
+          </label>
+          {includeDiversity && brief.structuralDiversityOpportunity && (
+            <div className="text-slate-500">{brief.structuralDiversityOpportunity.detail}</div>
+          )}
+
+          {!approvalResult && (
+            <button
+              type="button"
+              onClick={() => void approve()}
+              disabled={approving}
+              className="flex items-center gap-1.5 rounded border border-emerald-700 bg-emerald-900/30 px-2.5 py-1 font-medium text-emerald-200 disabled:opacity-50"
+            >
+              {approving ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+              Approve & start acquisition
+            </button>
+          )}
+          {approvalResult && (
+            <div className="rounded border border-emerald-700/50 bg-emerald-950/30 p-1.5 text-emerald-200">
+              {approvalResult}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /**
  * Stage 9 — "Find diversity candidates" (operator direction, 2026-08-05):
  * the structural-diversity remediation. Fetches unpromoted candidates whose
@@ -5214,8 +5521,19 @@ function DiversityCandidateQueue({ experimentId, onDone }: { experimentId: strin
             ? "scanning extracted candidates for a distinct shape…"
             : `${candidates.length} candidate(s) with a shape distinct from '${dominantShape}' (${scanned} scanned)`}
         </span>
-        <button type="button" onClick={() => setOpen(false)} className="text-slate-500 hover:text-slate-300">
-          close
+        {/* Optional maturity improvement — collapse-only Close (2026-08-27
+            fix). structural-diversity never blocks Freeze; the operator
+            asked that this be stated in the copy itself, never implied by
+            the control's mere presence. Close does exactly one thing:
+            collapses this disclosure — it never resolves, advances, or
+            dismisses the underlying finding. */}
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          title="Collapses this panel only — does not resolve or advance anything"
+          className="text-slate-500 hover:text-slate-300"
+        >
+          Close (collapses only — resolves nothing)
         </button>
       </div>
       {loading && (
@@ -5246,10 +5564,16 @@ function DiversityCandidateQueue({ experimentId, onDone }: { experimentId: strin
         ))}
       {!loading && candidates.length === 0 && (
         <div className="rounded border border-slate-800 bg-slate-950/40 p-2 text-slate-400">
-          No extracted candidate scanned ({scanned}) resolves to a shape distinct from &apos;{dominantShape}&apos;. Open the{" "}
-          <span className="font-medium text-slate-200">Corpus Scout</span> tab and acquire material for domain{" "}
-          <span className="font-mono text-slate-300">financial-risk-value-systems</span> aimed at the missing shapes (any of: constraint, law,
-          definition, principle, heuristic, epistemic — other than &apos;{dominantShape}&apos;).
+          {/* 2026-08-27 fix — exact required copy: a zero-candidate diversity
+              result must say plainly that Freeze is unaffected, and offer the
+              combined acquisition brief as the next real place this signal
+              can be acted on, rather than a bare dead end. */}
+          No suitable candidate exists in the current extracted pool ({scanned} scanned). This does not block Freeze.
+          Include semantic-shape diversity in the next acquisition brief if desired — the combined acquisition plan
+          above (when Freeze blockers are outstanding) can carry it alongside the collection-size, namespace and
+          relational-structure targets. Otherwise, open the <span className="font-medium text-slate-200">Corpus Scout</span> tab
+          directly and acquire material for domain <span className="font-mono text-slate-300">financial-risk-value-systems</span> aimed
+          at the missing shapes (any of: constraint, law, definition, principle, heuristic, epistemic — other than &apos;{dominantShape}&apos;).
         </div>
       )}
       {err && <div className="rounded border border-rose-500/30 bg-rose-500/10 p-1.5 text-rose-200">{err}</div>}
