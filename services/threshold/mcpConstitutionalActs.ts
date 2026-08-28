@@ -265,6 +265,55 @@ export async function signExchangeInstrumentViaMcp(admin: SupabaseClient, sessio
   };
 }
 
+// ── 5a. Operator-assisted artifact confirmation ───────────────────────────
+//
+// Principal confirms an artifact registered on their behalf by an admin.
+// Clears pending_principal_attestation flag, enabling freeze/sign to proceed.
+// Follows the same surface-independence, explicit-consent, canonical-service
+// pattern as freeze/sign above: originChannel='mcp', authenticated principal,
+// no forced navigation, exact same service function as native UI would call.
+
+export interface ConfirmOperatorAssistedArtifactMcpArgs {
+  declarationConfirmed: boolean;
+  artifactId: string;
+}
+
+export async function confirmOperatorAssistedArtifactViaMcp(
+  admin: SupabaseClient,
+  session: ScopedSession,
+  args: ConfirmOperatorAssistedArtifactMcpArgs,
+) {
+  const eligible = requireMcpEligibleStage('artifact-confirmation');
+  if (!eligible.ok) return eligible;
+  const consent = requireExplicitConsent(args as unknown as Record<string, unknown>);
+  if (!consent.ok) return consent;
+
+  if (!args.artifactId?.trim()) {
+    return { ok: false as const, error: 'artifactId is required' };
+  }
+
+  const principal = await resolveMcpPrincipal(admin, session);
+  if (!principal.ok) return principal;
+  const active = await resolveActiveExchangeId(admin, principal.personaId);
+  if (!active.ok) return active;
+
+  const { confirmOperatorAssistedArtifact } = await import('../research/reciprocalExchange');
+  const result = await confirmOperatorAssistedArtifact(admin, {
+    exchangeId: active.exchangeId,
+    artifactId: args.artifactId,
+    confirmingPersonaId: principal.personaId,
+    sourceChannel: 'mcp',
+  });
+
+  if (!result.ok) return { ok: false as const, error: result.error ?? result.reason };
+  return {
+    ok: true as const,
+    exchangeId: active.exchangeId,
+    artifact: result.artifact,
+    originChannelNote: "Operator-assisted artifact confirmed via MCP. pending_principal_attestation flag cleared; freeze/sign may now proceed.",
+  };
+}
+
 // ── 6. Section 5 — bounded delegation, established directly through MCP ───
 //
 // Reuses the SAME durable primitive the native Delegate ceremony writes to
