@@ -4559,3 +4559,13 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-1ffcad4.md](../build_/COMMITS/COMMIT-1ffcad4.md)
 - Message: record the channel-independence constitutional invariants ratified from OCSGA/Copilot convergence evidence
+
+## Commit `a2347b0` — 2026-08-28T14:57:07Z
+- Type: `feat`
+- Brief: [COMMIT-a2347b0.md](../build_/COMMITS/COMMIT-a2347b0.md)
+- Message: feat: implement operator-assisted artifact confirmation MCP tool, admin route, and comprehensive test suite
+
+## Commit `b9667e0` — 2026-08-28T14:55:02Z
+- Type: `feat`
+- Brief: [COMMIT-b9667e0.md](../build_/COMMITS/COMMIT-b9667e0.md)
+- Message: feat: add operator-assisted artifact registration schema and service functions

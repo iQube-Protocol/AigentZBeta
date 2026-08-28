@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`b9667e0`](https://github.com/iQube-Protocol/AigentZBeta/commit/b9667e0d267372c0ec3bfeb7cf16f83e432e1229) [feat] feat: add operator-assisted artifact registration schema and service functions (Claude, 2026-08-28T14:55:02Z)
+- [`a2347b0`](https://github.com/iQube-Protocol/AigentZBeta/commit/a2347b0429638318b9f8ad2f99fa3513ea6716e8) [feat] feat: implement operator-assisted artifact confirmation MCP tool, admin route, and comprehensive test suite (Claude, 2026-08-28T14:57:07Z)
 - [`1ffcad4`](https://github.com/iQube-Protocol/AigentZBeta/commit/1ffcad44b9b0ea6bda0bdca8236c2065be2f14c8) [push] record the channel-independence constitutional invariants ratified from OCSGA/Copilot convergence evidence (Claude, 2026-08-28T13:43:42Z)
 - [`50d3d6e`](https://github.com/iQube-Protocol/AigentZBeta/commit/50d3d6e32ea39e349fe1ea18f0e587ae1361772c) [feat] Add operator-assisted custodial artifact registration for RAX exchanges (Claude, 2026-08-28T12:21:36Z)
 - [`33fed9b`](https://github.com/iQube-Protocol/AigentZBeta/commit/33fed9bb6b2b42a13a9d66f39ac8a534304973bd) [feat] add confirm-artifact MCP tool and thread agent identity onto exchange receipts (Claude, 2026-08-28T13:07:20Z)

@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-28T13:45:39.744Z",
+  "last_updated": "2026-08-28T14:59:14.490Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "1ffcad44b9b0ea6bda0bdca8236c2065be2f14c8",
-  "latest_commit_short": "1ffcad4",
-  "latest_commit_title": "record the channel-independence constitutional invariants ratified from OCSGA/Copilot convergence evidence",
+  "latest_commit": "b9667e0d267372c0ec3bfeb7cf16f83e432e1229",
+  "latest_commit_short": "b9667e0",
+  "latest_commit_title": "feat: add operator-assisted artifact registration schema and service functions",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "b9667e0",
+      "full_sha": "b9667e0d267372c0ec3bfeb7cf16f83e432e1229",
+      "title": "feat: add operator-assisted artifact registration schema and service functions",
+      "author": "Claude",
+      "timestamp": "2026-08-28T14:55:02Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-b9667e0.md"
+    },
+    {
+      "sha": "a2347b0",
+      "full_sha": "a2347b0429638318b9f8ad2f99fa3513ea6716e8",
+      "title": "feat: implement operator-assisted artifact confirmation MCP tool, admin route, and comprehensive test suite",
+      "author": "Claude",
+      "timestamp": "2026-08-28T14:57:07Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-a2347b0.md"
+    },
     {
       "sha": "1ffcad4",
       "full_sha": "1ffcad44b9b0ea6bda0bdca8236c2065be2f14c8",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-08-12T02:07:12Z",
       "type": "chore",
       "brief": "items/build_/COMMITS/COMMIT-dcb6ade.md"
-    },
-    {
-      "sha": "8b8f24f",
-      "full_sha": "8b8f24f3c074baf4251c3e690b95dae8298ced1d",
-      "title": "canon: add machine-readable bounded-order invariant",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-11T21:03:01-04:00",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-8b8f24f.md"
-    },
-    {
-      "sha": "581418d",
-      "full_sha": "581418d8e1048a41432b785b892a3db08c8f076c",
-      "title": "trigger deploy: CI Bridge final correction pass (passport gate + choose consolidation)",
-      "author": "Claude",
-      "timestamp": "2026-08-11T23:40:14Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-581418d.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
