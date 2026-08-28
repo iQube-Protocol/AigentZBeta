@@ -437,7 +437,7 @@ export const RESEARCH_WORKSPACES: ResearchWorkspace[] = [
     navSection: 'mfe-capstone',
     title: 'MFE Capstone — Master of Financial Engineering',
     description:
-      'Risk-management, pricing and value research artefacts.',
+      'Risk, value and price research artefacts.',
     lifecycleTemplateId: 'capstone',
     currentStage: 'Brief',
   },
@@ -445,19 +445,9 @@ export const RESEARCH_WORKSPACES: ResearchWorkspace[] = [
     id: 'lehigh-mfe-risk-management',
     workspaceType: 'student-project',
     parentId: 'lehigh-mfe-capstone',
-    title: 'MFE Capstone — Risk Management',
+    title: 'MFE Capstone — Risk',
     description:
-      'Risk research and risk-management artefacts under the MFE capstone brief.',
-    lifecycleTemplateId: 'capstone',
-    currentStage: 'Brief',
-  },
-  {
-    id: 'lehigh-mfe-pricing',
-    workspaceType: 'student-project',
-    parentId: 'lehigh-mfe-capstone',
-    title: 'MFE Capstone — Pricing',
-    description:
-      'Pricing research and pricing artefacts under the MFE capstone brief.',
+      'Risk definition, measurement and management artefacts under the MFE capstone brief.',
     lifecycleTemplateId: 'capstone',
     currentStage: 'Brief',
   },
@@ -470,6 +460,18 @@ export const RESEARCH_WORKSPACES: ResearchWorkspace[] = [
     title: 'MFE Capstone — Value',
     description:
       'Value definition, measurement, realisation and evidence artefacts under the MFE capstone brief.',
+    lifecycleTemplateId: 'capstone',
+    currentStage: 'Brief',
+  },
+  {
+    // Stable legacy id retained so existing invitations and stored workspace scopes
+    // continue to resolve after the operator renamed this pillar from Pricing to Price.
+    id: 'lehigh-mfe-pricing',
+    workspaceType: 'student-project',
+    parentId: 'lehigh-mfe-capstone',
+    title: 'MFE Capstone — Price',
+    description:
+      'Price formation artefacts grounded in the balancing of risk and value under the MFE capstone brief.',
     lifecycleTemplateId: 'capstone',
     currentStage: 'Brief',
   },
