@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-28T14:59:14.490Z",
+  "last_updated": "2026-08-28T18:26:07.319Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "b9667e0d267372c0ec3bfeb7cf16f83e432e1229",
-  "latest_commit_short": "b9667e0",
-  "latest_commit_title": "feat: add operator-assisted artifact registration schema and service functions",
+  "latest_commit": "55401351764aa19c8d698215f3cb7aaffc755ce6",
+  "latest_commit_short": "5540135",
+  "latest_commit_title": "Publish constitutional financial services whitepaper and MFE estate briefing",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "5540135",
+      "full_sha": "55401351764aa19c8d698215f3cb7aaffc755ce6",
+      "title": "Publish constitutional financial services whitepaper and MFE estate briefing",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-28T14:24:25-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-5540135.md"
+    },
     {
       "sha": "b9667e0",
       "full_sha": "b9667e0d267372c0ec3bfeb7cf16f83e432e1229",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-12T02:06:58Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-2b00476.md"
-    },
-    {
-      "sha": "dcb6ade",
-      "full_sha": "dcb6ade5e62527d5114f919e28f9319fe61f6b4e",
-      "title": "update copilot fallback message to explicit failure state",
-      "author": "Claude",
-      "timestamp": "2026-08-12T02:07:12Z",
-      "type": "chore",
-      "brief": "items/build_/COMMITS/COMMIT-dcb6ade.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

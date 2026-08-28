@@ -4569,3 +4569,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-b9667e0.md](../build_/COMMITS/COMMIT-b9667e0.md)
 - Message: feat: add operator-assisted artifact registration schema and service functions
+
+## Commit `5540135` — 2026-08-28T14:24:25-04:00
+- Type: `push`
+- Brief: [COMMIT-5540135.md](../build_/COMMITS/COMMIT-5540135.md)
+- Message: Publish constitutional financial services whitepaper and MFE estate briefing
