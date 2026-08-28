@@ -30,6 +30,7 @@ import { resolveConstitutionalNavigatorState } from '@/services/threshold/consti
 import {
   getExchangeStateForMcp,
   depositExchangeArtifactViaMcp,
+  confirmOperatorAssistedArtifactViaMcp,
   declareArtifactFreezeViaMcp,
   signExchangeInstrumentViaMcp,
   establishDelegationViaMcp,
@@ -251,6 +252,11 @@ export async function POST(request: NextRequest) {
             const admin = getSupabaseServer();
             if (!admin) return Promise.resolve({ ok: false as const, error: 'Platform database is unavailable.' });
             return depositExchangeArtifactViaMcp(admin, session, args);
+          },
+          confirmOperatorAssistedArtifact: (args) => {
+            const admin = getSupabaseServer();
+            if (!admin) return Promise.resolve({ ok: false as const, error: 'Platform database is unavailable.' });
+            return confirmOperatorAssistedArtifactViaMcp(admin, session, args);
           },
           declareFreeze: (args) => {
             const admin = getSupabaseServer();

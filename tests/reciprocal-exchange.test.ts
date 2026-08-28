@@ -1080,10 +1080,20 @@ describe('structural canary — depositArtifact is unmodified by operator-assist
     expect(end).toBeGreaterThan(start);
     const body = src.slice(start, end);
     const bodyHash = createHash('sha256').update(body).digest('hex');
-    // Captured from the depositArtifact function as it exists on origin/dev
-    // (2026-08-28), BEFORE this capability's changes — verified via
-    // `git diff origin/dev -- services/research/reciprocalExchange.ts`
-    // showing zero lines changed inside this function's own body.
-    expect(bodyHash).toBe('b50cd79e4292cf0a10dbc807374af94863e9ddfbe7cc6bf1632cd3e7bb48846f');
+    // Baseline (b50cd79e...) captured on origin/dev (2026-08-28), BEFORE the
+    // operator-assisted registration work — that work touched zero lines
+    // inside depositArtifact's own body, which this canary proved.
+    //
+    // DELIBERATELY UPDATED (2026-08-28, journey-spine-channel-convergence):
+    // depositArtifact's createActivityReceipt call now also passes
+    // `agentsInvoked: input.agentRef ? [input.agentRef] : []` — the same
+    // "third identity" (T2-safe delegated-agent reference, distinct from
+    // personaId/originChannel) every other exchange-mutating function in
+    // this file now threads through for MCP-originated writes (see
+    // DepositArtifactInput.agentRef's own doc comment). `agentRef` is
+    // undefined for every native-ui caller, so this is additive and
+    // behavior-preserving for the existing route — recomputed via the exact
+    // same slice/hash this test itself performs, not guessed.
+    expect(bodyHash).toBe('701ee886a6ad8fdca7c2dbe2422f078bd646b163981763c163f6437c72d15a26');
   });
 });

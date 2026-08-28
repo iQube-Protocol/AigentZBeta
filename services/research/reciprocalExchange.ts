@@ -473,6 +473,15 @@ export interface DepositArtifactInput {
   /** Surface Independence, 2026-08-26 — defaults to 'native-ui', preserving
    *  every existing caller unchanged. Only an MCP write tool passes 'mcp'. */
   originChannel?: EvidenceOriginChannel;
+  /** Journey Spine channel convergence, 2026-08-28 — the THIRD identity on
+   *  an MCP-originated write: a T2-safe delegated-agent reference (e.g. a
+   *  Threshold `ScopedSession.agentAlias` like 'companion_xyz'), distinct
+   *  from `personaId` (the principal whose authority this is) and from
+   *  `originChannel` (the channel itself). Undefined for every native-ui
+   *  caller — threaded only into the activity receipt's existing
+   *  `agentsInvoked` field (services/receipts/activityReceiptService.ts),
+   *  never a new identifier column or a second identity mechanism. */
+  agentRef?: string;
 }
 
 export async function depositArtifact(
@@ -534,6 +543,7 @@ export async function depositArtifact(
       `Artifact ${existing ? 'replaced' : 'deposited'} [exchange=${input.exchangeId}] party=${party} ` +
       `title="${artifact.title}" v${artifact.version} fingerprint=${artifact.contentHash?.slice(0, 16)}`,
     contextShared: ['exchange_id', 'artifact_class', 'version', 'content_hash'],
+    agentsInvoked: input.agentRef ? [input.agentRef] : [],
   }).catch(() => null);
 
   if (receipt?.id) {
@@ -707,7 +717,14 @@ export async function registerArtifactOperatorAssisted(
  */
 export async function confirmOperatorAssistedArtifact(
   admin: SupabaseClient,
-  input: { exchangeId: string; personaId: string },
+  input: {
+    exchangeId: string;
+    personaId: string;
+    /** See DepositArtifactInput.agentRef — same third-identity pattern, for
+     *  a confirmation transmitted through an authenticated delegated agent
+     *  (e.g. Copilot via MCP) on the bound principal's own explicit say-so. */
+    agentRef?: string;
+  },
 ): Promise<{ ok: true; artifact: ExchangeArtifactRecord } | { ok: false; error: string }> {
   const loaded = await loadExchange(admin, input.exchangeId);
   if (!loaded.ok) return { ok: false, error: loaded.error };
@@ -740,6 +757,7 @@ export async function confirmOperatorAssistedArtifact(
       `Operator-assisted artifact registration confirmed by bound principal [exchange=${input.exchangeId}] party=${party} ` +
       `title="${confirmed.title}" v${confirmed.version} fingerprint=${confirmed.contentHash?.slice(0, 16)} — hash unchanged`,
     contextShared: ['exchange_id', 'artifact_version', 'content_hash'],
+    agentsInvoked: input.agentRef ? [input.agentRef] : [],
   }).catch(() => null);
 
   return { ok: true, artifact: confirmed };
@@ -749,7 +767,14 @@ export async function confirmOperatorAssistedArtifact(
 
 export async function declareFreeze(
   admin: SupabaseClient,
-  input: { exchangeId: string; personaId: string; actorType: ActorType; originChannel?: EvidenceOriginChannel },
+  input: {
+    exchangeId: string;
+    personaId: string;
+    actorType: ActorType;
+    originChannel?: EvidenceOriginChannel;
+    /** See DepositArtifactInput.agentRef — same third-identity pattern. */
+    agentRef?: string;
+  },
 ): Promise<{ ok: true; attestation: ExchangeAttestationRecord } | { ok: false; error: string }> {
   if (input.actorType !== 'principal') {
     return { ok: false, error: 'freeze-declaration-requires-principal' };
@@ -798,6 +823,7 @@ export async function declareFreeze(
     actionType: 'exchange_freeze_declared',
     summary: `Freeze declared [exchange=${input.exchangeId}] party=${party} artifact-version=${artifact.version} — "${FREEZE_DECLARATION_TEXT}"`,
     contextShared: ['exchange_id', 'artifact_version'],
+    agentsInvoked: input.agentRef ? [input.agentRef] : [],
   }).catch(() => null);
   if (receipt?.id) await admin.from(T_ATTESTATIONS).update({ receipt_id: receipt.id }).eq('id', attestation.id);
 
@@ -809,7 +835,14 @@ export async function declareFreeze(
 
 export async function signInstrument(
   admin: SupabaseClient,
-  input: { exchangeId: string; personaId: string; actorType: ActorType; originChannel?: EvidenceOriginChannel },
+  input: {
+    exchangeId: string;
+    personaId: string;
+    actorType: ActorType;
+    originChannel?: EvidenceOriginChannel;
+    /** See DepositArtifactInput.agentRef — same third-identity pattern. */
+    agentRef?: string;
+  },
 ): Promise<{ ok: true; attestation: ExchangeAttestationRecord; exchange: ReciprocalExchangeRecord } | { ok: false; error: string }> {
   if (input.actorType !== 'principal') {
     return { ok: false, error: 'instrument-signature-requires-principal' };
@@ -869,6 +902,7 @@ export async function signInstrument(
     actionType: 'exchange_instrument_signed',
     summary: `Exchange Instrument signed [exchange=${input.exchangeId}] party=${party} artifact-version=${artifact.version}`,
     contextShared: ['exchange_id', 'artifact_version'],
+    agentsInvoked: input.agentRef ? [input.agentRef] : [],
   }).catch(() => null);
   if (receipt?.id) await admin.from(T_ATTESTATIONS).update({ receipt_id: receipt.id }).eq('id', attestation.id);
 
