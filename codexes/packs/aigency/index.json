@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-27T13:57:03.018Z",
+  "last_updated": "2026-08-28T13:35:12.688Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "4b931ae89bf71d49425265a0ad354243791552a8",
-  "latest_commit_short": "4b931ae",
-  "latest_commit_title": "Fix OCSGA Presence stage to recognize a principal's Citizen Passport for an agent-persona caller",
+  "latest_commit": "50d3d6e32ea39e349fe1ea18f0e587ae1361772c",
+  "latest_commit_short": "50d3d6e",
+  "latest_commit_title": "Add operator-assisted custodial artifact registration for RAX exchanges",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "50d3d6e",
+      "full_sha": "50d3d6e32ea39e349fe1ea18f0e587ae1361772c",
+      "title": "Add operator-assisted custodial artifact registration for RAX exchanges",
+      "author": "Claude",
+      "timestamp": "2026-08-28T12:21:36Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-50d3d6e.md"
+    },
+    {
+      "sha": "33fed9b",
+      "full_sha": "33fed9bb6b2b42a13a9d66f39ac8a534304973bd",
+      "title": "add confirm-artifact MCP tool and thread agent identity onto exchange receipts",
+      "author": "Claude",
+      "timestamp": "2026-08-28T13:07:20Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-33fed9b.md"
+    },
     {
       "sha": "4b931ae",
       "full_sha": "4b931ae89bf71d49425265a0ad354243791552a8",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-08-11T22:48:22Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-ecbdd8b.md"
-    },
-    {
-      "sha": "407b215",
-      "full_sha": "407b21532fc1549d060145330f702bba223d6ae3",
-      "title": "complete phases 4.3 & fix: passport gate modal + qripto accept pattern",
-      "author": "Claude",
-      "timestamp": "2026-08-11T22:53:09Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-407b215.md"
-    },
-    {
-      "sha": "019eb69",
-      "full_sha": "019eb6904b156a1ca5516f7e7bf8fa53bea67155",
-      "title": "data model fix: remove invalid asset kinds, add series_scope, extend series picker for canonical content",
-      "author": "Claude",
-      "timestamp": "2026-08-11T22:31:37Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-019eb69.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

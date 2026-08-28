@@ -4544,3 +4544,13 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-4b931ae.md](../build_/COMMITS/COMMIT-4b931ae.md)
 - Message: Fix OCSGA Presence stage to recognize a principal's Citizen Passport for an agent-persona caller
+
+## Commit `33fed9b` — 2026-08-28T13:07:20Z
+- Type: `feat`
+- Brief: [COMMIT-33fed9b.md](../build_/COMMITS/COMMIT-33fed9b.md)
+- Message: add confirm-artifact MCP tool and thread agent identity onto exchange receipts
+
+## Commit `50d3d6e` — 2026-08-28T12:21:36Z
+- Type: `feat`
+- Brief: [COMMIT-50d3d6e.md](../build_/COMMITS/COMMIT-50d3d6e.md)
+- Message: Add operator-assisted custodial artifact registration for RAX exchanges

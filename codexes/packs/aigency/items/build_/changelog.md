@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`50d3d6e`](https://github.com/iQube-Protocol/AigentZBeta/commit/50d3d6e32ea39e349fe1ea18f0e587ae1361772c) [feat] Add operator-assisted custodial artifact registration for RAX exchanges (Claude, 2026-08-28T12:21:36Z)
+- [`33fed9b`](https://github.com/iQube-Protocol/AigentZBeta/commit/33fed9bb6b2b42a13a9d66f39ac8a534304973bd) [feat] add confirm-artifact MCP tool and thread agent identity onto exchange receipts (Claude, 2026-08-28T13:07:20Z)
 - [`4b931ae`](https://github.com/iQube-Protocol/AigentZBeta/commit/4b931ae89bf71d49425265a0ad354243791552a8) [fix] Fix OCSGA Presence stage to recognize a principal's Citizen Passport for an agent-persona caller (Claude, 2026-08-27T09:43:52Z)
 - [`96e22fd`](https://github.com/iQube-Protocol/AigentZBeta/commit/96e22fd662dc9888240a45154ef6337aa88f4a94) [fix] Fix People 504 (ContactGraph N+1 projection) and unsafe Gmail-composer resolution claims (Claude, 2026-08-27T09:44:24Z)
 - [`458e486`](https://github.com/iQube-Protocol/AigentZBeta/commit/458e48619df67f546460a9ab35a293327c8e3eb4) [fix] fix Track 2 Proceed navigation racing ahead of authoritative refresh (Claude, 2026-08-27T13:11:57Z)
