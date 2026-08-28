@@ -63,9 +63,14 @@ describe('AgentiQ OS Constitutional Financial Services corpus registration', () 
       enabled: true,
       group: 'memory',
     });
-    expect(docsTabs[0]?.adminOnly).toBeFalsy();
-    expect(docsTabs[0]?.participationDomain).toBeUndefined();
-    expect(docsTabs[0]?.participationRoles).toBeUndefined();
+    const publicGate = docsTabs[0] as typeof docsTabs[number] & {
+      adminOnly?: boolean;
+      participationDomain?: string;
+      participationRoles?: string[];
+    };
+    expect(publicGate.adminOnly).toBeFalsy();
+    expect(publicGate.participationDomain).toBeUndefined();
+    expect(publicGate.participationRoles).toBeUndefined();
     expect(
       AGENTIQ_OS_CARTRIDGE.tabs.some(
         (tab) => tab.label === 'Constitutional Financial Services',
