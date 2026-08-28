@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-28T19:17:54.608Z",
+  "last_updated": "2026-08-28T19:49:32.899Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "21f295258aed3b906248603353a714a7b68e2702",
-  "latest_commit_short": "21f2952",
-  "latest_commit_title": "Correct MFE capstone pillars to Risk Management, Pricing and Value",
+  "latest_commit": "53ba2bd1dbc96b24b90f37c60bbcc653c1968078",
+  "latest_commit_short": "53ba2bd",
+  "latest_commit_title": "Canonize MFE pillars as Risk, Value, Price (#103)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "53ba2bd",
+      "full_sha": "53ba2bd1dbc96b24b90f37c60bbcc653c1968078",
+      "title": "Canonize MFE pillars as Risk, Value, Price (#103)",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-28T15:47:49-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-53ba2bd.md"
+    },
     {
       "sha": "21f2952",
       "full_sha": "21f295258aed3b906248603353a714a7b68e2702",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-12T13:03:24-04:00",
       "type": "test",
       "brief": "items/build_/COMMITS/COMMIT-be46bc6.md"
-    },
-    {
-      "sha": "94b3469",
-      "full_sha": "94b3469169fa1e90311a8275c122248338a1d50e",
-      "title": "docs(irl): ground IDE v2 and Crystal vP2 in Lehigh risk research",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-12T13:04:29-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-94b3469.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

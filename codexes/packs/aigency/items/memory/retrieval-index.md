@@ -4579,3 +4579,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-21f2952.md](../build_/COMMITS/COMMIT-21f2952.md)
 - Message: Correct MFE capstone pillars to Risk Management, Pricing and Value
+
+## Commit `53ba2bd` — 2026-08-28T15:47:49-04:00
+- Type: `push`
+- Brief: [COMMIT-53ba2bd.md](../build_/COMMITS/COMMIT-53ba2bd.md)
+- Message: Canonize MFE pillars as Risk, Value, Price (#103)
