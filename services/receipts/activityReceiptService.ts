@@ -483,6 +483,14 @@ export type ActivityActionType =
   | 'exchange_derivative_created'
   | 'exchange_withdrawn'
   | 'exchange_access_revoked'
+  // Operator-assisted custodial artifact registration (2026-08-28) — an
+  // operator entered an artifact on a bound principal's behalf under
+  // explicit out-of-band authorization (registerArtifactOperatorAssisted),
+  // and the bound principal's own later confirmation of it
+  // (confirmOperatorAssistedArtifact). Both local provenance, same as the
+  // other exchange_* entries above.
+  | 'exchange_artifact_registered_operator_assisted'
+  | 'exchange_operator_assisted_artifact_confirmed'
   // QubeTalk Communications Membrane (2026-08-25) — the consequential acts
   // named in domain spec §17's candidate list beyond what Phase 1's three
   // qubetalk_artifact_* types already cover, using the spec's own literal

@@ -57,6 +57,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { getBoundaryResearchReadableExperiments } from '@/services/passport/participationAccess';
 import { isPassportUsable, loadUsableCitizenPassportForAuthProfile } from '@/services/identity/passportPrincipal';
 import { getResearchWorkspace } from '@/services/research/researchWorkspace';
+import { isCartridgeAdmin } from '@/services/access/requireCartridgeAdmin';
 import {
   createExchange,
   inviteCounterparty,
@@ -65,6 +66,7 @@ import {
   resolveMembership,
 } from '@/services/research/reciprocalExchange';
 import type { ReciprocalExchangeRecord } from '@/types/reciprocalExchange';
+import type { ActivePersonaContext } from '@/types/access';
 
 /** The one workspace this admission boundary is wired for today — Ian's
  *  OCSGA / Boundary Research collaboration (services/research/
@@ -178,4 +180,72 @@ export async function ensureBoundaryResearchExchangeMembership(
   });
   if (!created.ok) return { ok: false, reason: 'error', error: created.error };
   return { ok: true, exchangeId: created.exchange.id, created: true, role: 'initiator' };
+}
+
+// ─── Operator-assisted admission — a THIN wrapper, not a parallel gate ─────
+
+export type EnsureBoundaryResearchExchangeMembershipOperatorAssistedResult =
+  | EnsureBoundaryResearchExchangeMembershipResult
+  | { ok: false; reason: 'operator-authorization-required' };
+
+/**
+ * Operator-assisted RAX admission — for the case a target principal cannot
+ * themselves reach the normal bridge-crossing UI (e.g. a client-side bug
+ * blocking their own admission flow) but has provided explicit out-of-band
+ * authorization for an operator to perform the admission for them.
+ *
+ * THIS IS A WRAPPER, NOT A PARALLEL RESOLVER. It adds exactly one thing on
+ * top of `ensureBoundaryResearchExchangeMembership`: an operator-authorization
+ * gate. Every eligibility check — Passport usability, research-lab grant
+ * scope, idempotent re-entry, join-vs-create — is performed by CALLING that
+ * function, never by re-deriving any part of it here.
+ *
+ * ── CALLER CONTRACT — READ BEFORE CALLING (this is what makes "impossible to
+ *    call correctly with a chat-asserted identifier" true) ─────────────────
+ *
+ * `targetPersonaId`/`targetAuthProfileId` MUST be resolved from a genuine,
+ * server-side database lookup for the SPECIFIC human this admission is for
+ * (e.g. an admin lookup route querying `personas`/`auth_profiles` by a
+ * verifiable handle — email, existing persona record — never an id typed or
+ * asserted in a prompt/chat transcript). This function does not, and
+ * structurally cannot, prove the caller supplied a REAL id by inspecting the
+ * id alone — a string is a string. What it DOES guarantee, unconditionally,
+ * is that whatever id is supplied is re-verified FOR REAL against the
+ * database via `ensureBoundaryResearchExchangeMembership`'s own Passport +
+ * research-lab-grant-scope checks, every single call. A fabricated
+ * personaId with no genuine usable Passport and active OCSGA-scoped grant on
+ * file is refused here exactly as it would be refused at the ordinary
+ * bridge — operator assistance changes WHO performs the admission, never
+ * WHAT is verified before it succeeds. This is the caller-contract
+ * enforcement mechanism, not a comment-only convention: there is no
+ * `verified: true` boolean anywhere in this input type for a caller to set
+ * without having actually looked anything up.
+ *
+ * ── OPERATOR AUTHORIZATION ──────────────────────────────────────────────
+ *
+ * `operatorContext` must be the OPERATOR's own resolved identity-spine
+ * context (from `getActivePersona`), and must carry cartridge-admin scope on
+ * `'irl-cartridge'` (services/research/researchWorkspace.ts's canonical
+ * cartridge slug for this workspace) — global `isAdmin` also qualifies, via
+ * the SAME `isCartridgeAdmin` predicate every other per-cartridge admin
+ * surface in this codebase uses (services/access/requireCartridgeAdmin.ts).
+ * No parallel admin check is introduced here.
+ */
+export async function ensureBoundaryResearchExchangeMembershipOperatorAssisted(
+  admin: SupabaseClient,
+  input: {
+    operatorContext: ActivePersonaContext;
+    targetPersonaId: string | null;
+    targetAuthProfileId: string | null;
+    workspaceId: string;
+  },
+): Promise<EnsureBoundaryResearchExchangeMembershipOperatorAssistedResult> {
+  if (!isCartridgeAdmin(input.operatorContext, 'irl-cartridge')) {
+    return { ok: false, reason: 'operator-authorization-required' };
+  }
+  return ensureBoundaryResearchExchangeMembership(admin, {
+    personaId: input.targetPersonaId,
+    authProfileId: input.targetAuthProfileId,
+    workspaceId: input.workspaceId,
+  });
 }
