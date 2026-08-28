@@ -132,6 +132,21 @@ const MFE_COHORT = 'lehigh-mfe-capstone';
 const CS_PROJECT = 'lehigh-cs-software-build';
 const OTHER_CS_PROJECT = 'lehigh-cs-agent-integration';
 
+describe('MFE capstone pillar canon', () => {
+  it('exposes exactly Risk Management, Pricing and Value', () => {
+    const pillars = RESEARCH_WORKSPACES
+      .filter((workspace) => workspace.parentId === MFE_COHORT)
+      .map((workspace) => workspace.title);
+
+    expect(pillars).toEqual([
+      'MFE Capstone — Risk Management',
+      'MFE Capstone — Pricing',
+      'MFE Capstone — Value',
+    ]);
+    expect(pillars).not.toContain('MFE Capstone — Financial Systems');
+  });
+});
+
 // ═══════════════════════════════════════════════════════════════════════════
 // AC-1/2/3 — one engine, configuration-driven, Venture Lab unchanged
 // ═══════════════════════════════════════════════════════════════════════════
