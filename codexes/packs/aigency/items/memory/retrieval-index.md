@@ -4604,3 +4604,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-a7362d0.md](../build_/COMMITS/COMMIT-a7362d0.md)
 - Message: Fix Communications People: independent scroll pane + 1,000-person ceiling
+
+## Commit `b0d0aeb` — 2026-08-29T13:14:58Z
+- Type: `fix`
+- Brief: [COMMIT-b0d0aeb.md](../build_/COMMITS/COMMIT-b0d0aeb.md)
+- Message: Fix OCSGA Bridge projection: Ian's exchange no longer hidden behind the delegation shell

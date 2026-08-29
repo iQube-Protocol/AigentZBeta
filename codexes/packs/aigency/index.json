@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-29T04:42:55.118Z",
+  "last_updated": "2026-08-29T13:32:54.193Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "a7362d08b2d2961603e95255329d94c9a5cf4578",
-  "latest_commit_short": "a7362d0",
-  "latest_commit_title": "Fix Communications People: independent scroll pane + 1,000-person ceiling",
+  "latest_commit": "b0d0aebdac5ded9b7ac6bff5a9a340b5cb35a15a",
+  "latest_commit_short": "b0d0aeb",
+  "latest_commit_title": "Fix OCSGA Bridge projection: Ian's exchange no longer hidden behind the delegation shell",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "b0d0aeb",
+      "full_sha": "b0d0aebdac5ded9b7ac6bff5a9a340b5cb35a15a",
+      "title": "Fix OCSGA Bridge projection: Ian's exchange no longer hidden behind the delegation shell",
+      "author": "Claude",
+      "timestamp": "2026-08-29T13:14:58Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-b0d0aeb.md"
+    },
     {
       "sha": "a7362d0",
       "full_sha": "a7362d08b2d2961603e95255329d94c9a5cf4578",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-14T03:46:46Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-0132bdb.md"
-    },
-    {
-      "sha": "1c05d36",
-      "full_sha": "1c05d3608f270228c9dd5d0ea03100d51f236cb6",
-      "title": "record moneypenny dress rehearsal closure — all stages stable, ready to move to know1",
-      "author": "Claude",
-      "timestamp": "2026-08-12T19:39:35Z",
-      "type": "refactor",
-      "brief": "items/build_/COMMITS/COMMIT-1c05d36.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
