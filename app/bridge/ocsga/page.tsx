@@ -44,6 +44,7 @@ import { PassportConnectPanel } from '@/components/companion/PassportConnectPane
 import { usePassportSignInHost } from '@/app/hooks/usePassportSignInHost';
 import { MetaAvatarProvider } from '@/app/contexts/MetaAvatarContext';
 import { MetaAvatarHost } from '@/app/components/metaVatar/MetaAvatarHost';
+import { logRuntimeEvent } from '@/utils/runtimeSessionDiagnostics';
 
 export default function OcsgaJourneyPage() {
   const [personaId, setPersonaId] = useState<string | undefined>(undefined);
@@ -55,6 +56,13 @@ export default function OcsgaJourneyPage() {
     } catch {
       /* storage unavailable — stays signed-out */
     }
+  }, []);
+
+  useEffect(() => {
+    logRuntimeEvent('bridge/ocsga:mount');
+    return () => {
+      logRuntimeEvent('bridge/ocsga:unmount');
+    };
   }, []);
 
   useEffect(() => {
@@ -76,6 +84,7 @@ export default function OcsgaJourneyPage() {
               world="application"
               embedded
               onConnected={() => {
+                logRuntimeEvent('bridge/ocsga:PassportConnect:onConnected');
                 readStoredPersonaId();
                 completeSignIn();
               }}

@@ -73,14 +73,14 @@ describe('JourneyRunSurface.refresh() — out-of-order response guard', () => {
   it('every refresh() call is sequence-numbered and a stale response is discarded before it can overwrite state', () => {
     const code = stripComments(readSource(JOURNEY_RUN_SURFACE));
     expect(code).toContain('const refreshSeqRef = useRef(0);');
-    const refreshAt = code.indexOf('const refresh = useCallback(async () => {');
+    const refreshAt = code.indexOf('const refresh = useCallback(async (');
     expect(refreshAt, 'expected the refresh() definition').toBeGreaterThan(-1);
     const refreshEnd = code.indexOf('[stateUrl, personaId]);', refreshAt);
     const refreshBody = code.slice(refreshAt, refreshEnd);
     expect(refreshBody).toContain('const seq = ++refreshSeqRef.current;');
     // The success path must check staleness BEFORE applying setRuntimeState.
     const setRuntimeAt = refreshBody.indexOf('setRuntimeState(');
-    const staleCheckAt = refreshBody.indexOf('if (seq !== refreshSeqRef.current) return;');
+    const staleCheckAt = refreshBody.indexOf('if (seq !== refreshSeqRef.current)');
     expect(staleCheckAt, 'expected a staleness check in the success path').toBeGreaterThan(-1);
     expect(staleCheckAt).toBeLessThan(setRuntimeAt);
   });

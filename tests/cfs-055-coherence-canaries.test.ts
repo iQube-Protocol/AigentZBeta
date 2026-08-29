@@ -170,7 +170,7 @@ describe('7. All surfaces representing the same predicate derive from the same c
       'pnlEvidence',
       'ratifySubPredicates',
       'registerCeremony',
-      'requestStateRefresh: () => void refresh()',
+      'requestStateRefresh: () => void refresh(',
     ]) {
       expect(call, `${field} missing from the ONE resolveSurfaceProps call`).toContain(field);
     }

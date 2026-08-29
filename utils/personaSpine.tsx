@@ -33,6 +33,7 @@ import {
   getSupabaseBrowserClient,
 } from '@/utils/supabaseBrowser';
 import { isMetameOriginAllowed } from '@/utils/metameOriginAllowlist';
+import { logRuntimeEvent, runtimeDiagnosticNow } from '@/utils/runtimeSessionDiagnostics';
 import {
   METAME_EVENTS,
   METAME_DEPRECATED_ALIASES,
@@ -134,7 +135,14 @@ function notify() {
 }
 
 function setStore(patch: Partial<InternalState>) {
+  const previousStatus = store.status;
   store = { ...store, ...patch };
+  if (patch.status !== undefined && patch.status !== previousStatus) {
+    logRuntimeEvent('personaSpine:status-transition', {
+      from: previousStatus,
+      to: patch.status,
+    });
+  }
   notify();
 }
 
@@ -181,11 +189,14 @@ function scheduleRefresh(expiresAtIso: string | null | undefined) {
 async function doFetch(opts?: { silent?: boolean; hint?: string }): Promise<void> {
   // Single-flight: if a fetch is in progress, reuse its promise.
   if (store.inflight) {
+    logRuntimeEvent('personaSpine:doFetch:dedup', { silent: opts?.silent });
     return store.inflight;
   }
 
   const hint = opts?.hint ?? store.lastHint;
   const silent = !!opts?.silent;
+  const startedAt = runtimeDiagnosticNow();
+  logRuntimeEvent('personaSpine:doFetch:start', { silent, hint });
 
   const nextStatus: PersonaSpineStatus =
     silent && store.status === 'ready' ? 'refreshing' : 'loading';
@@ -212,6 +223,10 @@ async function doFetch(opts?: { silent?: boolean; hint?: string }): Promise<void
 
       if (res.status === 401) {
         setStore({ status: 'unauthenticated', surface: null, error: null });
+        logRuntimeEvent('personaSpine:doFetch:end', {
+          elapsedMs: runtimeDiagnosticNow() - startedAt,
+          outcome: 'unauthenticated',
+        });
         return;
       }
 
@@ -221,15 +236,29 @@ async function doFetch(opts?: { silent?: boolean; hint?: string }): Promise<void
           ? body.error
           : `active-persona failed (${res.status})`;
         setStore({ status: 'error', error: msg });
+        logRuntimeEvent('personaSpine:doFetch:end', {
+          elapsedMs: runtimeDiagnosticNow() - startedAt,
+          outcome: 'error',
+          httpStatus: res.status,
+        });
         return;
       }
 
       const surface = (await res.json()) as ActivePersonaSurface;
       setStore({ status: 'ready', surface, error: null });
       scheduleRefresh(surface.sessionExpiresAt);
+      logRuntimeEvent('personaSpine:doFetch:end', {
+        elapsedMs: runtimeDiagnosticNow() - startedAt,
+        outcome: 'ready',
+      });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       setStore({ status: 'error', error: msg });
+      logRuntimeEvent('personaSpine:doFetch:end', {
+        elapsedMs: runtimeDiagnosticNow() - startedAt,
+        outcome: 'exception',
+        message: msg,
+      });
     } finally {
       setStore({ inflight: null });
     }
@@ -287,6 +316,7 @@ function wireInvalidationTriggers() {
     const data = event.data as { type?: unknown } | null | undefined;
     if (!data || typeof data !== 'object') return;
     if (!isPersonaInvalidationMessage(data.type)) return;
+    logRuntimeEvent('personaSpine:postMessage-invalidation', { messageType: String(data.type), source: 'postMessage' });
     if (data.type === PERSONA_REVOKED_EVENT) {
       setStore({ status: 'unauthenticated', surface: null, error: null, lastHint: undefined });
       return;
@@ -298,6 +328,7 @@ function wireInvalidationTriggers() {
   try {
     const supabase = getSupabaseBrowserClient();
     supabase.auth.onAuthStateChange((event) => {
+      logRuntimeEvent('personaSpine:onAuthStateChange', { authEvent: event });
       if (event === 'SIGNED_OUT') {
         if (refreshTimer) {
           clearTimeout(refreshTimer);
@@ -315,6 +346,7 @@ function wireInvalidationTriggers() {
         return;
       }
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        logRuntimeEvent('personaSpine:refetch-triggered', { source: `auth-event:${event}` });
         void doFetch();
       }
     });

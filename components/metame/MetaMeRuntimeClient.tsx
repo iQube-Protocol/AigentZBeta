@@ -12,6 +12,7 @@ import {
   type ShellInboundMessage,
 } from "@metame/iframe-bridge";
 import { CodexCopilotLayer, type CopilotMessage } from "@/app/components/codex/CodexCopilotLayer";
+import { logRuntimeEvent } from "@/utils/runtimeSessionDiagnostics";
 // Dynamic import — keeps SmartWalletDrawer (large component pulling LibraryShelf,
 // PurchaseFlow, SmartTriadProvider, etc.) out of the runtime's main chunk. Static
 // imports of this component into the deep runtime chain have triggered chunk-load
@@ -2203,6 +2204,7 @@ export default function MetaMeRuntimeClient() {
       }
     }
 
+    logRuntimeEvent("MetaMeRuntimeClient:aigentMe-init", { ctxPersonaId, ctxHydrated });
     void resolvePersona();
 
     // Watch for auth state changes (sign in / sign out) and re-resolve.
@@ -2214,6 +2216,7 @@ export default function MetaMeRuntimeClient() {
         if (cancelled) return;
         const supabase = createClient(url, anonKey);
         unsub = supabase.auth.onAuthStateChange((event) => {
+          logRuntimeEvent("MetaMeRuntimeClient:onAuthStateChange", { authEvent: event });
           if (event === "SIGNED_OUT") {
             // Clear local component state but DO NOT remove the
             // localStorage currentPersonaId. Supabase emits SIGNED_OUT
@@ -2234,6 +2237,7 @@ export default function MetaMeRuntimeClient() {
             setActivePersonaId(null);
             // Intentionally NOT calling localStorage.removeItem here.
           } else if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
+            logRuntimeEvent("MetaMeRuntimeClient:aigentMe-reinit", { source: `auth-event:${event}` });
             void resolvePersona();
           }
         });

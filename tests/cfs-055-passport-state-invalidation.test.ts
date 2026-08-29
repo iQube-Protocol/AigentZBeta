@@ -129,14 +129,18 @@ describe('STRUCTURAL — the invalidation path exists end-to-end, with no local 
     const idx = code.indexOf('previousPersonaSpineStatusRef.current = personaSpineStatus');
     expect(idx, 'transition effect not found').toBeGreaterThan(-1);
     const block = code.slice(Math.max(0, idx - 700), idx);
-    expect(block).toContain('void refresh();');
+    // Diagnostic labelling (Bug B instrumentation, 2026-08-29) added an
+    // optional `source` argument to refresh() purely for observability —
+    // it is still the SAME function, called from the SAME transition
+    // effect; the call shape below is what changed, not the mechanism.
+    expect(block).toMatch(/void refresh\(('personaSpine-auth-transition')?\);/);
     // Never a setInterval/setTimeout polling loop for this mechanism.
     expect(code).not.toMatch(/setInterval\(/);
   });
 
   it('4. The Bureau-witnessed detection reaches the SAME refresh() via requestStateRefresh, never a second fetch mechanism', () => {
     const code = stripComments(readSource(JOURNEY_RUN_SURFACE));
-    expect(code).toContain('requestStateRefresh: () => void refresh()');
+    expect(code).toMatch(/requestStateRefresh: \(\) => void refresh\(('surface-requestStateRefresh')?\)/);
   });
 
   it('4+10. onUsablePassportDetected carries NO boolean/state payload — it can only ask, never assert truth', () => {

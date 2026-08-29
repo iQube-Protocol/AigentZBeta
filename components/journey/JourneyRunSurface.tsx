@@ -33,6 +33,7 @@ import { ActivePersonaControl } from '@/components/persona/ActivePersonaControl'
 import type { JourneyDefinition, JourneyRuntimeState, JourneyStageDefinition, JourneySurfaceRef } from '@/types/journey';
 import { overlayZClass } from '@/components/ui/overlayLayers';
 import { readJsonOrExplain } from '@/utils/readJsonOrExplain';
+import { logRuntimeEvent, runtimeDiagnosticNow } from '@/utils/runtimeSessionDiagnostics';
 
 /**
  * One status row above the stepper, crossfading between whichever of
@@ -511,8 +512,10 @@ export function JourneyRunSurface({
    */
   const refreshSeqRef = useRef(0);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (source?: string) => {
     const seq = ++refreshSeqRef.current;
+    const startedAt = runtimeDiagnosticNow();
+    logRuntimeEvent('JourneyRunSurface:refresh:start', { source: source ?? 'unspecified', journeyId: journey.id, seq });
     setLoading(true);
     setError(null);
     try {
@@ -525,15 +528,30 @@ export function JourneyRunSurface({
       const res = await personaFetch(stateUrl, { cache: 'no-store', personaIdHint: personaId });
       if (!res.ok) throw new Error(`Journey state request failed (${res.status})`);
       const json = await readJsonOrExplain(res, 'journey/state');
-      if (seq !== refreshSeqRef.current) return; // superseded by a newer refresh — discard
+      if (seq !== refreshSeqRef.current) {
+        logRuntimeEvent('JourneyRunSurface:refresh:superseded', { seq, elapsedMs: runtimeDiagnosticNow() - startedAt });
+        return; // superseded by a newer refresh — discard
+      }
       setRuntimeState(json.state as JourneyRuntimeState);
       setConsequenceFork((json.consequenceFork as typeof consequenceFork) ?? null);
       setPnlEvidence((json.pnlEvidence as typeof pnlEvidence) ?? null);
       setRatifySubPredicates((json.ratifySubPredicates as typeof ratifySubPredicates) ?? null);
       setRegisterCeremony((json.registerCeremony as typeof registerCeremony) ?? null);
+      logRuntimeEvent('JourneyRunSurface:refresh:end', {
+        seq,
+        elapsedMs: runtimeDiagnosticNow() - startedAt,
+        outcome: 'ok',
+        currentStageId: (json.state as JourneyRuntimeState | undefined)?.currentStageId,
+      });
     } catch (err) {
       if (seq !== refreshSeqRef.current) return;
       setError(err instanceof Error ? err.message : 'Failed to load journey state');
+      logRuntimeEvent('JourneyRunSurface:refresh:end', {
+        seq,
+        elapsedMs: runtimeDiagnosticNow() - startedAt,
+        outcome: 'error',
+        message: err instanceof Error ? err.message : String(err),
+      });
     } finally {
       if (seq === refreshSeqRef.current) setLoading(false);
     }
@@ -600,7 +618,15 @@ export function JourneyRunSurface({
   }, []);
 
   useEffect(() => {
-    void refresh();
+    logRuntimeEvent('JourneyRunSurface:mount', { journeyId: journey.id, stateUrl });
+    return () => {
+      logRuntimeEvent('JourneyRunSurface:unmount', { journeyId: journey.id, stateUrl });
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    void refresh('mount-or-refresh-identity-change');
   }, [refresh]);
 
   /**
@@ -645,8 +671,16 @@ export function JourneyRunSurface({
       const cameFromAuthenticated = isAuthenticated(previous);
       const nowAuthenticated = isAuthenticated(personaSpineStatus);
       const nowUnauthenticated = personaSpineStatus === 'unauthenticated';
+      logRuntimeEvent('JourneyRunSurface:personaSpineStatus-observed', {
+        from: previous,
+        to: personaSpineStatus,
+      });
       if ((cameFromUnauthenticated && nowAuthenticated) || (cameFromAuthenticated && nowUnauthenticated)) {
-        void refresh();
+        logRuntimeEvent('JourneyRunSurface:refresh-triggered-by-personaSpine-transition', {
+          from: previous,
+          to: personaSpineStatus,
+        });
+        void refresh('personaSpine-auth-transition');
       }
     }
     previousPersonaSpineStatusRef.current = personaSpineStatus;
@@ -854,7 +888,7 @@ export function JourneyRunSurface({
         compact={compact}
       />
       <button
-        onClick={() => void refresh()}
+        onClick={() => void refresh('manual-refresh-button')}
         title="Refresh state"
         className={`flex items-center gap-1.5 rounded-md border border-slate-800 bg-slate-900/40 text-slate-300 hover:bg-slate-800/60 ${compact ? 'p-1.5' : 'px-2.5 py-1.5 text-xs'}`}
       >
@@ -985,7 +1019,7 @@ export function JourneyRunSurface({
           <div className="mt-2 flex items-center gap-3">
             <button
               type="button"
-              onClick={() => void refresh()}
+              onClick={() => void refresh('manual-refresh-button-fullscreen')}
               className="rounded border border-amber-800/60 bg-amber-950/30 px-2 py-1 text-[11px] text-amber-100 hover:bg-amber-950/50"
             >
               Refresh status
@@ -1396,7 +1430,7 @@ export function JourneyRunSurface({
                   pnlEvidence,
                   ratifySubPredicates,
                   registerCeremony,
-                  requestStateRefresh: () => void refresh(),
+                  requestStateRefresh: () => void refresh('surface-requestStateRefresh'),
                 }) ?? {};
               return (
                 /*
