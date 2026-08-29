@@ -166,9 +166,11 @@ vi.mock('@/app/api/_lib/supabaseServer', () => ({
 
 const mockCreateActivityReceipt = vi.fn(async (input: Record<string, unknown>) => ({ id: 'receipt-1', ...input }));
 const mockListActivityReceiptsForPersona = vi.fn(async () => [] as unknown[]);
+const mockListActivityReceiptsForPersonas = vi.fn(async () => [] as unknown[]);
 vi.mock('@/services/receipts/activityReceiptService', () => ({
   createActivityReceipt: (...args: unknown[]) => mockCreateActivityReceipt(...args),
   listActivityReceiptsForPersona: (...args: unknown[]) => mockListActivityReceiptsForPersona(...args),
+  listActivityReceiptsForPersonas: (...args: unknown[]) => mockListActivityReceiptsForPersonas(...args),
 }));
 
 function makeRequest() {
@@ -183,6 +185,7 @@ beforeEach(() => {
   mockGetActivePersona.mockReset();
   mockCreateActivityReceipt.mockClear();
   mockListActivityReceiptsForPersona.mockReset().mockResolvedValue([]);
+  mockListActivityReceiptsForPersonas.mockReset().mockResolvedValue([]);
   fakeAdminForRoute = makeFakeAdmin(baseTables());
 });
 
@@ -259,5 +262,152 @@ describe('POST /api/journey/ian/orient/acknowledge — principal-identity enforc
     expect(res.status).toBe(200);
     expect(json.ok).toBe(true);
     expect(mockCreateActivityReceipt).not.toHaveBeenCalled();
+  });
+});
+
+// ─── resolveOrientationEvidence — the READ-side half of the 2026-08-29 fix.
+//     Proves a bare persona-scoped receipt can no longer shadow Orient
+//     COMPLETE unless its OWNING persona passes the exact same canonical
+//     gate the write route enforces (2026-08-29, "smallest constitutionally
+//     correct repair to the Orientation read path"). ───────────────────────
+
+function receiptEntry(id: string, personaId: string, createdAt = '2026-08-20T00:00:00Z') {
+  return {
+    record: {
+      id,
+      sessionId: null,
+      intentId: null,
+      activeCartridge: 'irl-cartridge',
+      actionType: 'orientation_ritual_completed' as const,
+      summary: '',
+      agentsInvoked: [],
+      toolsUsed: [],
+      iqubesUsed: [],
+      invariantsUsed: [],
+      contextShared: [],
+      artifactsCreated: [],
+      approvalsGranted: [],
+      policyEnvelopeId: null,
+      receiptStatus: 'local' as const,
+      dvnReceiptId: null,
+      commitmentHash: null,
+      posStatus: null,
+      dvnStatus: null,
+      btcAnchorTxid: null,
+      btcBatchRoot: null,
+      specialistResponse: null,
+      actionConnectorId: null,
+      actionConnectorLabel: null,
+      actionInput: null,
+      createdAt,
+    },
+    personaId,
+  };
+}
+
+describe('resolveOrientationEvidence — principal-aware Orientation read path', () => {
+  it('an orientation receipt owned by the exchange-bound principal → Orientation COMPLETE, regardless of which sibling persona is currently active', async () => {
+    mockListActivityReceiptsForPersonas.mockResolvedValue([receiptEntry('receipt-principal-1', IAN_PRINCIPAL)]);
+    const { resolveOrientationEvidence } = await import('@/services/journey/ianJourneyState');
+    const admin = makeFakeAdmin(baseTables());
+    // Active persona is Ian's aigentMe agent — the exact live shape of the
+    // defect (browser's currentPersonaId still points at aigentMe).
+    const result = await resolveOrientationEvidence(admin, { personaId: IAN_AIGENTME, authProfileId: AUTH_PROFILE });
+    expect(result.complete).toBe(true);
+    expect(result.receiptId).toBe('receipt-principal-1');
+  });
+
+  it("a receipt owned only by Ian's aigentMe persona (same auth profile, exchange bound to Ian's principal) → NOT COMPLETE", async () => {
+    mockListActivityReceiptsForPersonas.mockResolvedValue([receiptEntry('receipt-aigentme-1', IAN_AIGENTME)]);
+    const { resolveOrientationEvidence } = await import('@/services/journey/ianJourneyState');
+    const admin = makeFakeAdmin(baseTables());
+    const result = await resolveOrientationEvidence(admin, { personaId: IAN_AIGENTME, authProfileId: AUTH_PROFILE });
+    expect(result.complete).toBe(false);
+    expect(result.receiptId).toBeNull();
+  });
+
+  it('a receipt owned by an unrelated sibling persona (same auth profile, not the bound exchange party) → NOT COMPLETE', async () => {
+    mockListActivityReceiptsForPersonas.mockResolvedValue([
+      receiptEntry('receipt-sibling-1', SIBLING_PERSONAQUBE_NOT_BOUND),
+    ]);
+    const { resolveOrientationEvidence } = await import('@/services/journey/ianJourneyState');
+    const admin = makeFakeAdmin(baseTables());
+    const result = await resolveOrientationEvidence(admin, {
+      personaId: SIBLING_PERSONAQUBE_NOT_BOUND,
+      authProfileId: AUTH_PROFILE,
+    });
+    expect(result.complete).toBe(false);
+    expect(result.receiptId).toBeNull();
+  });
+
+  it('no orientation receipt for any sibling persona → NOT COMPLETE', async () => {
+    mockListActivityReceiptsForPersonas.mockResolvedValue([]);
+    const { resolveOrientationEvidence } = await import('@/services/journey/ianJourneyState');
+    const admin = makeFakeAdmin(baseTables());
+    const result = await resolveOrientationEvidence(admin, { personaId: IAN_PRINCIPAL, authProfileId: AUTH_PROFILE });
+    expect(result.complete).toBe(false);
+    expect(result.receiptId).toBeNull();
+  });
+
+  it('the malformed historical aigentMe receipt is read (evaluated) but never mutated — no create/update/delete call of any kind', async () => {
+    mockListActivityReceiptsForPersonas.mockResolvedValue([receiptEntry('receipt-aigentme-historical', IAN_AIGENTME)]);
+    const { resolveOrientationEvidence } = await import('@/services/journey/ianJourneyState');
+    const admin = makeFakeAdmin(baseTables());
+    const result = await resolveOrientationEvidence(admin, { personaId: IAN_AIGENTME, authProfileId: AUTH_PROFILE });
+    expect(result.complete).toBe(false);
+    // The receipt itself is untouched: resolveOrientationEvidence has no
+    // write path at all — it never calls createActivityReceipt, and the
+    // historical row is simply excluded from evidence, never deleted,
+    // rewritten, reassigned, or superseded.
+    expect(mockCreateActivityReceipt).not.toHaveBeenCalled();
+  });
+
+  it('read and write resolve principal eligibility consistently: a write the route refuses produces no evidence the read path accepts, and a write the route permits is read back COMPLETE', async () => {
+    const { POST } = await import('@/app/api/journey/ian/orient/acknowledge/route');
+    const { resolveOrientationEvidence } = await import('@/services/journey/ianJourneyState');
+
+    // 1. aigentMe attempts to acknowledge — the write gate refuses, no
+    //    receipt is written.
+    mockGetActivePersona.mockResolvedValue({ personaId: IAN_AIGENTME, authProfileId: AUTH_PROFILE });
+    const refused = await POST(makeRequest());
+    expect(refused.status).toBe(403);
+    expect(mockCreateActivityReceipt).not.toHaveBeenCalled();
+
+    // Read path sees no receipts at all (nothing was written) — honestly
+    // incomplete, exactly matching the write path's refusal.
+    mockListActivityReceiptsForPersonas.mockResolvedValue([]);
+    const admin = makeFakeAdmin(baseTables());
+    const afterRefusal = await resolveOrientationEvidence(admin, { personaId: IAN_AIGENTME, authProfileId: AUTH_PROFILE });
+    expect(afterRefusal.complete).toBe(false);
+
+    // 2. Ian's principal persona acknowledges — the write gate permits it,
+    //    writing exactly one receipt under his own personaId.
+    mockGetActivePersona.mockResolvedValue({ personaId: IAN_PRINCIPAL, authProfileId: AUTH_PROFILE });
+    const permitted = await POST(makeRequest());
+    expect(permitted.status).toBe(200);
+    expect(mockCreateActivityReceipt).toHaveBeenCalledTimes(1);
+    const written = mockCreateActivityReceipt.mock.calls[0][0] as Record<string, unknown>;
+    expect(written.personaId).toBe(IAN_PRINCIPAL);
+
+    // Read path now sees exactly that receipt and resolves COMPLETE.
+    mockListActivityReceiptsForPersonas.mockResolvedValue([receiptEntry('receipt-1', IAN_PRINCIPAL)]);
+    const afterAcknowledge = await resolveOrientationEvidence(admin, { personaId: IAN_PRINCIPAL, authProfileId: AUTH_PROFILE });
+    expect(afterAcknowledge.complete).toBe(true);
+    expect(afterAcknowledge.receiptId).toBe('receipt-1');
+  });
+
+  it('fails closed (incomplete, never trusted) with no database client available', async () => {
+    const { resolveOrientationEvidence } = await import('@/services/journey/ianJourneyState');
+    const result = await resolveOrientationEvidence(null, { personaId: IAN_PRINCIPAL, authProfileId: AUTH_PROFILE });
+    expect(result.complete).toBe(false);
+    expect(result.receiptId).toBeNull();
+  });
+
+  it('fails closed (incomplete) when authProfileId is not yet resolved', async () => {
+    const { resolveOrientationEvidence } = await import('@/services/journey/ianJourneyState');
+    const admin = makeFakeAdmin(baseTables());
+    const result = await resolveOrientationEvidence(admin, { personaId: IAN_PRINCIPAL, authProfileId: null });
+    expect(result.complete).toBe(false);
+    expect(result.receiptId).toBeNull();
   });
 });

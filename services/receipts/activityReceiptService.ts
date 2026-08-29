@@ -871,6 +871,63 @@ export async function listActivityReceiptsForPersona(
 }
 
 /**
+ * List receipts across MULTIPLE personas (`.in('persona_id', ...)`), each
+ * paired with its OWN owning `personaId` — for a caller that must evaluate
+ * which SPECIFIC sibling persona a receipt belongs to before trusting it as
+ * evidence (e.g. `services/journey/ianJourneyState.ts`'s principal-aware
+ * orientation resolution, 2026-08-29), never for widening "does persona X
+ * have evidence" into "does ANY persona under this auth profile have
+ * evidence" without a further eligibility check on each result.
+ *
+ * `{ record, personaId }` — the SAME pairing shape as
+ * `findLocalReceiptsPendingDvnAnchor`/`findReceiptsByIds` above, for the
+ * same reason: `rowToRecord`/`ActivityReceiptRecord` deliberately never
+ * carries `persona_id` (it is T0; see this file's header) even though a
+ * multi-persona reader needs it, so it is returned alongside the record
+ * rather than folded into it. A separate function rather than a variant of
+ * `listActivityReceiptsForPersona` for the same reason
+ * `listActivityReceiptsForAgent` is separate (see its own comment above):
+ * that function's scope is fixed to exactly one persona by construction.
+ */
+export interface ReceiptWithPersonaId {
+  record: ActivityReceiptRecord;
+  personaId: string;
+}
+
+export async function listActivityReceiptsForPersonas(
+  personaIds: string[],
+  options?: ListReceiptsOptions,
+): Promise<ReceiptWithPersonaId[]> {
+  if (!personaIds || personaIds.length === 0) return [];
+  const limit = Math.min(Math.max(options?.limit ?? 20, 1), 100);
+
+  const admin = getAdminClient();
+  let q = admin
+    .from('activity_receipts')
+    .select('*')
+    .in('persona_id', personaIds);
+
+  if (options?.cartridge) q = q.eq('active_cartridge', options.cartridge);
+  if (options?.actionTypes && options.actionTypes.length > 0) {
+    q = q.in('action_type', options.actionTypes);
+  }
+  if (options?.agentsInvoked && options.agentsInvoked.length > 0) {
+    q = q.contains('agents_invoked', options.agentsInvoked);
+  }
+  if (options?.ids && options.ids.length > 0) {
+    q = q.in('id', options.ids);
+  }
+
+  const { data, error } = await q.order('created_at', { ascending: false }).limit(limit);
+  if (error) {
+    if (isMissingTable(error)) return [];
+    throw new Error(`listActivityReceiptsForPersonas failed: ${error.message}`);
+  }
+  if (!data) return [];
+  return (data as DbRow[]).map((row) => ({ record: rowToRecord(row), personaId: row.persona_id }));
+}
+
+/**
  * List receipts naming this AGENT as a subject (`agents_invoked` containment)
  * — no `persona_id` scope at all, unlike `listActivityReceiptsForPersona`.
  *
