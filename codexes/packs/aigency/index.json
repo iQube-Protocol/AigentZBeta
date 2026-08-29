@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-29T02:43:22.391Z",
+  "last_updated": "2026-08-29T03:44:39.671Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "d133b9bd6e7f37964e08b6260b4913cf482a990d",
-  "latest_commit_short": "d133b9b",
-  "latest_commit_title": "Fix duplicate operator-assisted RAX implementations and broken registration route",
+  "latest_commit": "4ae4830217024b6a7286dbd40e5c19526151c003",
+  "latest_commit_short": "4ae4830",
+  "latest_commit_title": "Fix ContactGraph People \"Bad Request\" — chunk unbounded .in() filters",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "4ae4830",
+      "full_sha": "4ae4830217024b6a7286dbd40e5c19526151c003",
+      "title": "Fix ContactGraph People \"Bad Request\" — chunk unbounded .in() filters",
+      "author": "Claude",
+      "timestamp": "2026-08-29T03:41:21Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-4ae4830.md"
+    },
     {
       "sha": "d133b9b",
       "full_sha": "d133b9bd6e7f37964e08b6260b4913cf482a990d",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-12T19:10:10Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-c931c79.md"
-    },
-    {
-      "sha": "fe16064",
-      "full_sha": "fe160647f3f9d28345d77fd4ac72d73195a74136",
-      "title": "feat(invariants): add consequence calibration primitives",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-12T13:09:38-04:00",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-fe16064.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

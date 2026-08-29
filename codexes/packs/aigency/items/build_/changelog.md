@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`4ae4830`](https://github.com/iQube-Protocol/AigentZBeta/commit/4ae4830217024b6a7286dbd40e5c19526151c003) [fix] Fix ContactGraph People "Bad Request" — chunk unbounded .in() filters (Claude, 2026-08-29T03:41:21Z)
 - [`d133b9b`](https://github.com/iQube-Protocol/AigentZBeta/commit/d133b9bd6e7f37964e08b6260b4913cf482a990d) [fix] Fix duplicate operator-assisted RAX implementations and broken registration route (Claude, 2026-08-29T02:37:47Z)
 - [`a9df145`](https://github.com/iQube-Protocol/AigentZBeta/commit/a9df145d2252d1cc240dde8aea063a09429a2f8f) [push] Pin public CFS whitepaper in AgentiQ OS corpus (#104) (Kn0w1, 2026-08-28T15:55:53-04:00)
 - [`53ba2bd`](https://github.com/iQube-Protocol/AigentZBeta/commit/53ba2bd1dbc96b24b90f37c60bbcc653c1968078) [push] Canonize MFE pillars as Risk, Value, Price (#103) (Kn0w1, 2026-08-28T15:47:49-04:00)

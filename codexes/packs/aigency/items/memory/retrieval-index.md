@@ -4594,3 +4594,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-d133b9b.md](../build_/COMMITS/COMMIT-d133b9b.md)
 - Message: Fix duplicate operator-assisted RAX implementations and broken registration route
+
+## Commit `4ae4830` — 2026-08-29T03:41:21Z
+- Type: `fix`
+- Brief: [COMMIT-4ae4830.md](../build_/COMMITS/COMMIT-4ae4830.md)
+- Message: Fix ContactGraph People "Bad Request" — chunk unbounded .in() filters
