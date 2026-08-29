@@ -53,6 +53,7 @@ import {
   type WalletChain,
 } from '@/services/identity/walletAliasService';
 import { verifyWorldIdProof, type WorldIdProofPayload } from '@/services/passport/personhoodProof';
+import { getMergedLinkedAuthProfileIds } from '@/services/wallet/multiEmailIdentity';
 
 /** T2-safe passport facts — the same field discipline as passportCredential.ts. */
 export interface PassportSnapshot {
@@ -661,16 +662,35 @@ export async function loadUsablePassportByKybe(
  * with several personas therefore got two answers to one question, on one
  * screen. A credential belongs to the HOLDER, not to whichever persona happens
  * to be selected when the question is asked.
+ *
+ * MERGED AUTH PROFILES (2026-08-29, OCSGA Presence projection defect). "The
+ * holder" is the same personhood across every auth profile they have
+ * consolidated via multi-email merge (`crm_auth_profile_links`,
+ * `relationship_mode: 'merged'`), not just the one auth profile the current
+ * session happens to have resolved. `getActivePersona.ts`'s OWN persona
+ * enumeration (`listOwnedPersonas`) already walks
+ * `getMergedLinkedAuthProfileIds` for exactly this reason; this function did
+ * not, which meant a Passport (or any other credential reached through this
+ * shared scope) issued to a persona under a MERGED sibling auth profile read
+ * as absent here even though the caller's own session already recognizes
+ * that persona as owned. Reusing the SAME merge resolver `getActivePersona.ts`
+ * already calls (inv.engineering.036/037) — never a second, independently
+ * derived notion of "the holder's" profiles. `.catch(() => [])` matches that
+ * call site's own fail-open-to-no-merge posture: a merge-lookup failure
+ * narrows back to the single-profile behavior this function already had,
+ * never a hard failure.
  */
 export async function listOwnedPersonaIds(
   supabase: NonNullable<ReturnType<typeof getSupabaseServer>>,
   authProfileId: string,
 ): Promise<{ ok: true; personaIds: string[] } | { ok: false; reason: PrincipalFailure }> {
   if (!authProfileId) return { ok: false, reason: 'principal_unprovisioned' };
+  const linkedAuthProfileIds = await getMergedLinkedAuthProfileIds(authProfileId).catch(() => [] as string[]);
+  const visibleAuthProfileIds = Array.from(new Set([authProfileId, ...linkedAuthProfileIds]));
   const { data, error } = await supabase
     .from('personas')
     .select('id')
-    .eq('auth_profile_id', authProfileId)
+    .in('auth_profile_id', visibleAuthProfileIds)
     .eq('status', 'active');
   if (error) return { ok: false, reason: 'unavailable' };
   const personaIds = (data ?? []).map((r) => (r as { id?: string }).id).filter((v): v is string => Boolean(v));

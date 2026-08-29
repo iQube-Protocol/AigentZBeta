@@ -465,8 +465,14 @@ describe('the principal Passport check can never be satisfied by an agent record
      * where it lives.
      */
     const fn = principalSrc.slice(principalSrc.indexOf('export async function listOwnedPersonaIds'));
-    // Keyed on the auth profile the server derived from the Bearer token.
-    expect(fn).toMatch(/\.eq\('auth_profile_id',\s*authProfileId\)/);
+    // Keyed on the auth profile the server derived from the Bearer token —
+    // widened (2026-08-29, OCSGA Presence projection fix) to also include
+    // every auth profile MERGED to it (getMergedLinkedAuthProfileIds), so a
+    // credential issued under a linked profile for the SAME holder is still
+    // recognized. Still server-derived only: the merge resolver takes no
+    // caller input beyond the already-authenticated authProfileId.
+    expect(fn).toMatch(/\.in\('auth_profile_id',\s*visibleAuthProfileIds\)/);
+    expect(fn).toMatch(/getMergedLinkedAuthProfileIds\(authProfileId\)/);
     expect(fn, 'a caller-supplied personaId must never key this lookup').not.toMatch(/personaIdHint|body\.personaId/);
   });
 
