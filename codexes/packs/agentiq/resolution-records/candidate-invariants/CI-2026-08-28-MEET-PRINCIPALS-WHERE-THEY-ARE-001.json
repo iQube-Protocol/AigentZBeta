@@ -43,6 +43,7 @@
   "supersededBy": null,
   "notes": [
     "The operator directed this be treated as ratified doctrine effective 2026-08-28. Recorded at 'candidate' per this repo's consistent convention -- see the governing principle's own note for the ratifiedSource update path.",
-    "This does NOT license an operator or agent to perform an act ON a principal's behalf merely because the principal is unreachable -- see CI-2026-08-28-CHANNEL-INDEPENDENT-PROVENANCE-PRESERVING-001 for the custody/consent boundary this principle does not erase."
+    "This does NOT license an operator or agent to perform an act ON a principal's behalf merely because the principal is unreachable -- see CI-2026-08-28-CHANNEL-INDEPENDENT-PROVENANCE-PRESERVING-001 for the custody/consent boundary this principle does not erase.",
+    "2026-08-29: the operator's ratification directive committed this candidate's governing doctrine as canon at inv.constitutional.363 (the Channel Rule) and inv.constitutional.369 (Principal-Only Constitutional Acts) in codexes/packs/irl/foundation/appendix-a_canonical-invariants.md -- a direct operator act with no accumulated-evidence gate. This candidate remains 'candidate' here: only one occurrence is recorded, and this pipeline's ladder discipline (services/invariants/resolutionRecords.ts) blocks 'validated'-or-above on fewer than two occurrences regardless of the canon ratification."
   ]
 }

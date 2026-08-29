@@ -38,6 +38,7 @@
   "supersededBy": null,
   "notes": [
     "The operator directed this be treated as ratified doctrine effective 2026-08-28. Recorded at 'candidate' per this repo's consistent convention -- see the governing principle's own note for the ratifiedSource update path.",
-    "verifiedFailingBeforeFix is honestly false here for the same reason it is in CI-2026-08-26-UNASSESSABLE-IS-NOT-REPRODUCED-001's own note: the canary was written alongside the property it guards, having found it already true, not against an observed duplication defect."
+    "verifiedFailingBeforeFix is honestly false here for the same reason it is in CI-2026-08-26-UNASSESSABLE-IS-NOT-REPRODUCED-001's own note: the canary was written alongside the property it guards, having found it already true, not against an observed duplication defect.",
+    "2026-08-29: the operator's ratification directive committed this candidate's governing doctrine as canon, cross-referenced from inv.constitutional.369 (Principal-Only Constitutional Acts) and the CS-001 duplicate-capability lineage in codexes/packs/irl/foundation/appendix-a_canonical-invariants.md -- a direct operator act with no accumulated-evidence gate. This candidate remains 'candidate' here: only one occurrence is recorded, and this pipeline's ladder discipline (services/invariants/resolutionRecords.ts) blocks 'validated'-or-above on fewer than two occurrences regardless of the canon ratification."
   ]
 }

@@ -38,6 +38,7 @@
   "supersededBy": null,
   "notes": [
     "The operator directed this be treated as ratified doctrine effective 2026-08-28. Recorded at 'candidate' per this repo's consistent convention -- see the governing principle's own note for the ratifiedSource update path.",
-    "verifiedFailingBeforeFix:true here (unlike its siblings) because this one WAS a real, confirmed gap in already-shipped code (agentRef was genuinely absent from all four receipt call sites before this resolution), not a property found already holding."
+    "verifiedFailingBeforeFix:true here (unlike its siblings) because this one WAS a real, confirmed gap in already-shipped code (agentRef was genuinely absent from all four receipt call sites before this resolution), not a property found already holding.",
+    "2026-08-29: the operator explicitly named this 'the already-ratified evidentiary invariant' when directing the Principal-Only Constitutional Acts family, and its governing statement was committed as ratified canon at inv.constitutional.369 (Principal-Only Constitutional Acts) in codexes/packs/irl/foundation/appendix-a_canonical-invariants.md -- the operator's direct ratification act, which carries no accumulated-evidence gate. This candidate stays at 'candidate' in the resolution-records pipeline: only one occurrence is recorded here, and this pipeline's own ladder discipline (services/invariants/resolutionRecords.ts) blocks 'validated'-or-above on fewer than two occurrences regardless of the canon ratification. It also grounds the Ian orientation defect's exact shape: personaId alone (25ebf4ca, the aigentMe agent's own persona row) was trusted as if it were sufficient, conflating actor with principal -- precisely what this invariant forbids."
   ]
 }

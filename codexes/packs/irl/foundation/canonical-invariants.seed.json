@@ -5925,6 +5925,165 @@
           "ratified": true
         }
       }
+    },
+    {
+      "id": "inv.constitutional.361",
+      "namespace": "constitutional",
+      "semantic_type": "law",
+      "statement": "Implementation Singularity — constitutional primitives require implementation singularity as well as state singularity. A constitutional system is not singular merely because multiple interfaces converge on one canonical state: for every constitutional primitive there must also be one canonical implementation path through which that state transition is evaluated and effected. Different interfaces, agents, channels, APIs, bridges, operator tools, or administrative surfaces may invoke the same primitive, but they must ultimately resolve to the same constitutional service, authorization logic, state machine, evidentiary rules, consequence logic, and receipt semantics. A second implementation of the same primitive is not merely an alternative interface — it is a second constitutional authority surface, and therefore a source of divergence.",
+      "status": "canonical",
+      "contexts": [
+        "constitutional-computing",
+        "implementation-integrity",
+        "ocsga"
+      ],
+      "provenance": {
+        "source": "OCSGA Boundary Research stabilisation, appendix-a §Additions 2026-08-29 (operator-ratified 2026-08-29)",
+        "canonical_basis": {
+          "source": "CI-2026-08-28-CONSTITUTIONAL-STATE-IS-INTERFACE-SOVEREIGN-001",
+          "ratified": true
+        }
+      }
+    },
+    {
+      "id": "inv.engineering.362",
+      "namespace": "engineering",
+      "semantic_type": "law",
+      "statement": "The Canonical Transition Rule — every constitutional state transition MUST resolve through a uniquely identifiable, versioned, auditable canonical primitive.",
+      "status": "canonical",
+      "contexts": [
+        "constitutional-computing",
+        "implementation-integrity"
+      ],
+      "provenance": {
+        "source": "Corollary of inv.constitutional.361 (operator-ratified 2026-08-29)"
+      }
+    },
+    {
+      "id": "inv.engineering.363",
+      "namespace": "engineering",
+      "semantic_type": "law",
+      "statement": "The Channel Rule — multiple channels MAY invoke the same primitive; no channel may independently implement its transition semantics.",
+      "status": "canonical",
+      "contexts": [
+        "constitutional-computing",
+        "implementation-integrity"
+      ],
+      "provenance": {
+        "source": "Corollary of inv.constitutional.361 (operator-ratified 2026-08-29)",
+        "canonical_basis": {
+          "source": "CI-2026-08-28-MEET-PRINCIPALS-WHERE-THEY-ARE-001",
+          "ratified": true
+        }
+      }
+    },
+    {
+      "id": "inv.engineering.364",
+      "namespace": "engineering",
+      "semantic_type": "law",
+      "statement": "Transition Attribution — every realized constitutional transition MUST be attributable to the canonical primitive version and implementation that produced it.",
+      "status": "canonical",
+      "contexts": [
+        "constitutional-computing",
+        "implementation-integrity",
+        "evidence"
+      ],
+      "provenance": {
+        "source": "Corollary of inv.constitutional.361; extends inv.engineering.040 (operator-ratified 2026-08-29)"
+      }
+    },
+    {
+      "id": "inv.constitutional.365",
+      "namespace": "constitutional",
+      "semantic_type": "law",
+      "statement": "Projection Plurality / Transition Singularity — projection plurality is permitted; transition plurality is not. Many surfaces may render a constitutional state however their context requires; only one implementation may ever decide how that state is allowed to change.",
+      "status": "canonical",
+      "contexts": [
+        "constitutional-computing",
+        "implementation-integrity",
+        "state-coherence"
+      ],
+      "provenance": {
+        "source": "Extends inv.engineering.255 (One Predicate, One Projection, CFS-055 §11) from projection to transition (operator-ratified 2026-08-29)"
+      }
+    },
+    {
+      "id": "inv.engineering.366",
+      "namespace": "engineering",
+      "semantic_type": "law",
+      "statement": "Implementation Divergence — divergent implementations of the same constitutional act constitute a constitutional defect and MUST fail closed until singularity is restored.",
+      "status": "canonical",
+      "contexts": [
+        "constitutional-computing",
+        "implementation-integrity",
+        "fail-closed"
+      ],
+      "provenance": {
+        "source": "Corollary of inv.constitutional.361 (operator-ratified 2026-08-29)"
+      }
+    },
+    {
+      "id": "inv.constitutional.367",
+      "namespace": "constitutional",
+      "semantic_type": "principle",
+      "statement": "Runtime Ownership — the runtime owns both constitutional state and the canonical means by which constitutional state may change.",
+      "status": "canonical",
+      "contexts": [
+        "constitutional-computing",
+        "implementation-integrity"
+      ],
+      "provenance": {
+        "source": "Generalises inv.constitutional.361 (operator-ratified 2026-08-29)"
+      }
+    },
+    {
+      "id": "inv.constitutional.368",
+      "namespace": "constitutional",
+      "semantic_type": "principle",
+      "statement": "The Execution Maxim — many channels may invoke. One constitutional primitive decides. One canonical state records.",
+      "status": "canonical",
+      "contexts": [
+        "constitutional-computing",
+        "implementation-integrity"
+      ],
+      "provenance": {
+        "source": "Compressed maxim form of inv.constitutional.361–367 (operator-ratified 2026-08-29)"
+      }
+    },
+    {
+      "id": "inv.constitutional.369",
+      "namespace": "constitutional",
+      "semantic_type": "law",
+      "statement": "Principal-Only Constitutional Acts — a principal-only constitutional act MUST be anchored to the principal's personhood and enforced through an authorized principal identity at the execution boundary. The constitutional subject is the personhood; the active persona/identity is only the operational means through which that person exercises the act. Delegated-agent identity is insufficient unless the act is explicitly delegable. This binds to personhood, never to a specific persona id: identity/persona may rotate, recover, or change while personhood remains the constitutional subject. Composes with the distinct-evidentiary-identities invariant: who is constitutionally affected is the principal/personhood; who performed the act is the actor; under what authority is the delegation/mandate; where it occurred is the interaction channel; what proves it is the receipt/evidence — never collapsed into a single personaId equality check.",
+      "status": "canonical",
+      "contexts": [
+        "constitutional-computing",
+        "identity",
+        "personhood",
+        "ocsga"
+      ],
+      "provenance": {
+        "source": "OCSGA Ian orientation defect, appendix-a §Additions 2026-08-29 (operator-ratified 2026-08-29)",
+        "canonical_basis": {
+          "source": "CI-2026-08-28-PRINCIPAL-AGENT-CHANNEL-ARE-DISTINCT-IDENTITIES-001",
+          "ratified": true
+        }
+      }
+    },
+    {
+      "id": "inv.engineering.370",
+      "namespace": "engineering",
+      "semantic_type": "definition",
+      "statement": "The Principal-Only Execution Model — the machine-readable shape a Constitutional Transition Primitive uses to declare a principal-only act: subject_requirement: PERSONHOOD, actor_requirement: AUTHORIZED_PRINCIPAL_IDENTITY, delegability: false. A delegable act instead declares actor_requirement: [AUTHORIZED_PRINCIPAL_IDENTITY, AUTHORIZED_DELEGATE], delegability: true, and a delegation.required_scope.",
+      "status": "canonical",
+      "contexts": [
+        "constitutional-computing",
+        "identity",
+        "ctp"
+      ],
+      "provenance": {
+        "source": "Reusable declaration inv.constitutional.369 requires; first consumer is the future CTP-001 primitive registry (operator-ratified 2026-08-29)"
+      }
     }
   ]
 }
