@@ -678,18 +678,37 @@ describe('the sequencing gate cannot be bypassed', () => {
     expect(result.measurementLayerGate.satisfied).toBe(false);
   });
 
-  it('the default resolver fails CLOSED over Track 2’s empty registry', async () => {
+  it('the default resolver fails CLOSED for an experiment with no registered profile', async () => {
     // The registry is a module constant, so the read SUCCEEDS and the honest
     // answer is "no profile is bound" rather than "we could not tell". Both
     // close the gate; distinguishing them is what separates a missing artifact
-    // from a broken reader.
-    const readinessState = await resolveMeasurementLayerReadiness(EXPERIMENT);
+    // from a broken reader. Uses a genuinely unregistered id — EXP-P1 itself
+    // now carries a real (still-unbound) profile, see the test below.
+    const readinessState = await resolveMeasurementLayerReadiness('EXP-NEVER-REGISTERED');
     expect(readinessState.profile).toBeNull();
     expect(readinessState.profileReadable).toBe(true);
     const gate = evaluateMeasurementLayerGate(readinessState);
     expect(gate.satisfied).toBe(false);
     expect(gate.binding).toBe('unbound-no-artifact');
     expect(gate.gaps.join(' ')).toMatch(/not an artifact/);
+  });
+
+  it('EXP-P1’s ingested v1 profile is source-complete but still fails CLOSED — the retrospective has not been run', async () => {
+    // 2026-08-29 — the EXP-P1 remediation profile was authored from real,
+    // hash-verifiable source refs (IRL Review #001, the resolution record,
+    // the frozen EXP-P1 README), but `retrospective: null` because computing
+    // it needs a live read of the frozen Crystal vP1 artifact this authoring
+    // pass had no database access to perform. The gate must stay closed on
+    // exactly that missing fact — never on an incomplete profile shape.
+    const readinessState = await resolveMeasurementLayerReadiness(EXPERIMENT);
+    expect(readinessState.profileReadable).toBe(true);
+    expect(readinessState.profile).not.toBeNull();
+    expect(readinessState.profile?.retrospective).toBeNull();
+    const gate = evaluateMeasurementLayerGate(readinessState);
+    expect(gate.satisfied).toBe(false);
+    expect(gate.binding).toBe('unbound-retrospective-not-reproduced');
+    expect(gate.gaps.join(' ')).toMatch(/retrospective falsification against the frozen crystal has not been run/);
+    expect(gate.profileVersion).toBe('exp-p1-remediation-2026-08-29.v1');
   });
 
   it('an UNREADABLE substrate also fails closed, and says it is unreadable', () => {
@@ -1106,10 +1125,19 @@ describe('the remediation profile is a generic shape with no ingested content', 
     }
   });
 
-  it('no profile is bound, so the orchestrator is gated by a real empty read', () => {
-    // The honest state until an authoritative artifact with a re-readable
-    // locator is ingested.
-    expect(BOUND_CRYSTAL_REMEDIATION_PROFILES).toHaveLength(0);
+  it('EXP-P1 has a real ingested profile, and it is still not bound', () => {
+    // 2026-08-29 — no longer an empty registry: EXP-P1's v1 profile is
+    // ingested from real, hash-verifiable source refs. The honest state is
+    // now "ingested but not yet bound" rather than "nothing ingested at
+    // all" — a stronger, more specific truth, and the sequencing gate stays
+    // closed under both.
+    expect(BOUND_CRYSTAL_REMEDIATION_PROFILES).toHaveLength(1);
+    const profile = BOUND_CRYSTAL_REMEDIATION_PROFILES[0];
+    expect(profile.experimentId).toBe('EXP-P1');
+    expect(profile.binding).not.toBe('bound');
+    expect(profile.retrospective).toBeNull();
+    expect(profile.sourceRefs.length).toBeGreaterThan(0);
+    expect(profile.sourceRefs.every((r) => typeof r.contentHash === 'string' && r.contentHash.length > 0)).toBe(true);
   });
 
   it('the boundary requirement cannot express a narrowing', () => {

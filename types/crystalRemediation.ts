@@ -226,14 +226,223 @@ export interface CrystalRemediationProfile {
 }
 
 /**
- * THE INGESTED PROFILES — **EMPTY, DELIBERATELY.** See the file header.
+ * EXP-P1 REMEDIATION PROFILE — v1, authored 2026-08-29.
  *
- * A consumer reading this list and finding it empty has learned the truth: no
- * remediation profile is bound, so no v2 extraction act is licensed. That is
- * the fail-closed state, and it is correct until an authoritative review
- * artifact with a re-readable `sourceRef` is ingested.
+ * The first profile instance this file has ever carried. It is authored from
+ * three re-readable, hash-verifiable repo artifacts (never from prose pasted
+ * into a chat):
+ *
+ *   - IRL Review #001 (Austin) — the independent reviewer's four findings on
+ *     frozen Crystal vP1, quoted verbatim, and the operator's accepted
+ *     response.
+ *   - RES-2026-08-26-CRYSTAL-INSTRUMENT-MEASUREMENT-LAYER-001 — the
+ *     structured resolution record (observedFailure / rootCauses /
+ *     resolution / rejectedApproaches).
+ *   - The frozen EXP-P1 protocol README (§3.6/§6 collection-size guard, §5.2
+ *     task design, §4 selection procedure, §5.1/§5.4 boundary-authorship
+ *     requirements).
+ *
+ * `contentHash` on each ref is a real sha256 of that file's bytes at
+ * authoring time (git commit `938a49309`), independently reproducible with
+ * `sha256sum <locator>`. `instrumentSuite` is the real,
+ * `crystalInstrumentSuiteIdentity()`-computed identity of the v2.0.0 suite at
+ * that same commit (not re-derived here, to keep this file import-free —
+ * see the header). `populationFormula` is the real output of
+ * `deriveCrystalPopulationRequirement({})` (registered-minimum-task-design
+ * basis — no finalized task set exists yet, so every figure is a FLOOR).
+ * Neither figure is hand-computed; both were run and copied verbatim.
+ *
+ * ── `retrospective: null` — NOT YET RUN, honestly ─────────────────────────
+ *
+ * Computing `CrystalRetrospectiveFalsification` requires a LIVE read of the
+ * frozen Crystal vP1 artifact and its invariant rows
+ * (`runCrystalReadinessReport` + `buildFrozenCrystalManifest`), which this
+ * authoring pass had no live database access to perform. This is why
+ * `remediationProfileBindingState` below still reports
+ * `'unbound-retrospective-not-reproduced'` for this profile — correctly: the
+ * sequencing gate remains CLOSED until the retrospective is actually run.
+ *
+ * To complete binding: call
+ * `GET /api/research/crystal/EXP-P1/instrument-falsification` (steward or
+ * admin auth) and, if and only if the response's
+ * `retrospective.reproducedReviewerObjections === true`, replace this
+ * profile's `retrospective: null` with that exact response's `retrospective`
+ * object, verbatim. Never assert a verdict that has not been observed —
+ * `CI-2026-08-26-UNASSESSABLE-IS-NOT-REPRODUCED-001`.
  */
-export const BOUND_CRYSTAL_REMEDIATION_PROFILES: readonly CrystalRemediationProfile[] = [];
+const EXP_P1_REMEDIATION_PROFILE_CONTENT: Omit<CrystalRemediationProfile, 'binding' | 'bindingGaps'> = {
+  profileVersion: 'exp-p1-remediation-2026-08-29.v1',
+  experimentId: 'EXP-P1',
+  sourceRefs: [
+    {
+      refId: 'IRL-REVIEW-001',
+      locator:
+        'codexes/packs/agentiq/updates/2026-08-26_crystal-vp1-review-cycle-1-instrument-remediation.md',
+      contentHash: 'e0ca4b11c93b61e61e78687d80f1ab1f55014487f095cca864bff6d0582f1904',
+      kind: 'external-review',
+      note:
+        "Austin's independent review of frozen Crystal vP1 (changes_requested) — the four findings, " +
+        "quoted verbatim, and the operator's accepted response.",
+    },
+    {
+      refId: 'RES-2026-08-26-CRYSTAL-INSTRUMENT-MEASUREMENT-LAYER-001',
+      locator:
+        'codexes/packs/agentiq/resolution-records/records/' +
+        'RES-2026-08-26-CRYSTAL-INSTRUMENT-MEASUREMENT-LAYER-001.json',
+      contentHash: '57b43d2fce6480fc970e5b6a53f95b79c43b43e9a111a8831459017572f4df5f',
+      kind: 'operator-ruling',
+      note:
+        'The structured resolution record: observedFailure / rootCauses / resolution / ' +
+        'rejectedApproaches for remediation cycle 1.',
+    },
+    {
+      refId: 'EXP-P1-README',
+      locator:
+        'codexes/packs/irl/foundation/experiments/exp-p1-representation-runtime-gauntlet/README.md',
+      contentHash: '5c3f6f072fb80cd42f820f839f411b3a0721b5ebf13d60c1a118c534d25af453',
+      kind: 'protocol-section',
+      note:
+        'The frozen EXP-P1 protocol — §3.6/§6 collection-size guard, §5.2 task design, §4 ' +
+        'Blinding/selection procedure, §5.1/§5.4 task-authorship-against-boundary requirements.',
+    },
+  ],
+  checkMappings: [
+    {
+      findingId: 'AUSTIN-R001-F1-DUPLICATES',
+      label:
+        'Near-identical statement pairs (1/3, 2/8, 5/10, 4/7) with inverted dependency direction ' +
+        'scored near-zero lexical similarity and passed',
+      bearsOnChecks: ['duplicate-detection'],
+      instrument: 'services/research/crystalSemanticStructure.ts',
+      executable: true,
+      gap: null,
+    },
+    {
+      findingId: 'AUSTIN-R001-F2-STATEMENT-QUALITY',
+      label:
+        'All 15 statements are bare "X is essential for Y" generalities carrying none of the seven ' +
+        'relational structures (causal, conditional, propagation, constraint, threshold, trade-off, ' +
+        'quantitative); conjunctions entail nothing unstated',
+      bearsOnChecks: ['derivation-headroom'],
+      instrument: 'services/research/crystalSemanticStructure.ts',
+      executable: true,
+      gap: null,
+    },
+    {
+      findingId: 'AUSTIN-R001-F3-SIZE',
+      label:
+        'Collection size fails the frozen §3.6 collection-size guard against the registered task ' +
+        'design; the prior "slice ≥ 5" bar was criterion drift against that frozen constraint',
+      bearsOnChecks: ['selection-space'],
+      instrument: 'services/research/crystalPopulationRequirement.ts',
+      executable: true,
+      gap: null,
+    },
+    {
+      findingId: 'AUSTIN-R001-F4-COVERAGE',
+      label:
+        'Crystal spans 2 of 15 ratified boundary namespaces — a reviewer cannot author tasks against ' +
+        'the declared boundary without broad failure or contamination',
+      bearsOnChecks: ['boundary-coverage'],
+      instrument: 'services/research/crystalStatistics.ts',
+      executable: true,
+      gap: null,
+    },
+  ],
+  // Real output of deriveCrystalPopulationRequirement({}) — services/research/
+  // crystalPopulationRequirement.ts — run and copied verbatim, not hand-derived.
+  populationFormula: {
+    sliceFractionOfCrystal: 0.4,
+    sliceGuardSourceRef:
+      'codexes/packs/irl/foundation/experiments/exp-p1-representation-runtime-gauntlet/README.md §6 ' +
+      '(Collection-size guard + enlargement discipline, locked at freeze)',
+    sliceDemandBasis: 'registered-minimum-task-design',
+    requiredEvaluationSliceSize: 24,
+    minimumCollectionSize: 60,
+    derivationLines: [
+      'task design: 24 tasks MINIMUM (12 recall + 12 derivation) — codexes/packs/irl/foundation/' +
+        'experiments/exp-p1-representation-runtime-gauntlet/README.md §5.2 (Task Set — size and ' +
+        'composition, minimum). No finalized task set was supplied, so every figure below is a FLOOR ' +
+        'derived from the registered minimum, never a target.',
+      'premise demand per task: recall ≥ 1, derivation ≥ 2 — services/research/taskCoverage.ts::' +
+        'minimumPremisesForTaskKind ("a derivation requires composing premises"), reused not restated',
+      'NON-DEGENERACY (the one formalising step — challenge this one): §6 requires the fixed slice to ' +
+        'leave Arm B\'s live selection with discriminatory power ("else Arm C ≈ Arm B degenerately"), ' +
+        'and §4\'s Blinding note classifies each task selection-neutral/selection-sensitive by ' +
+        'MECHANICAL SET COMPARISON of B\'s selected slice against C\'s fixed slice. Two tasks with ' +
+        'identical grounding sets are one task repeated for that classifier. So each task needs its ' +
+        'own usable grounding statement inside the fixed slice ⇒ required evaluation slice ≥ 24.',
+      '⊆40% collection-size guard — codexes/packs/irl/foundation/experiments/' +
+        'exp-p1-representation-runtime-gauntlet/README.md §6 (Collection-size guard + enlargement ' +
+        'discipline, locked at freeze) ⇒ minimum collection size = required evaluation slice ÷ 0.40 = ' +
+        '24 ÷ 0.40 = 60',
+      'derivation-task entailment demand: one distinct multi-premise chain per derivation task ⇒ 12 ' +
+        'chain(s) whose conjunctions entail unstated conclusions (README §5.2 + §6(d))',
+      'relationally-composable floor: 12 DISTINCT premise pairs need a pool of k with C(k,2) ≥ 12 ⇒ ' +
+        'k ≥ 6 relationally-structured member(s) inside the slice (combinatorial floor, not a chosen ' +
+        'number)',
+      'the fixed slice is constructed by the standard domain procedure applied to the DOMAIN, not to ' +
+        'the tasks (README §4), so the crystal cannot be relied on to concentrate its relational ' +
+        'members inside the slice; the crystal-level fraction must carry the requirement in ' +
+        'expectation ⇒ 6 ÷ 24 = 0.250',
+      'CROSS-CHECK: CONSISTENT with §6\'s own worked illustration: at 18 invariants the guard caps the ' +
+        'slice at 7, which §6 calls "plainly insufficient to ground 24 tasks incl. 12 derivation ' +
+        'items" — and 7 < 24, so this derivation also rejects it.',
+    ],
+    insufficientInputs: [],
+  },
+  boundaryRequirement: {
+    boundarySourceRef: 'types/invariants.ts — INVARIANT_NAMESPACES (the ratified 15-namespace invariant ontology)',
+    declaredNamespaces: [
+      'constitutional', 'reasoning', 'engineering', 'experience', 'capability', 'style', 'narrative',
+      'sovereignty', 'cybernetics', 'interaction', 'epistemology', 'representation', 'polity',
+      'finance', 'commercialisation',
+    ],
+    requiredRepresentedNamespaceCount: 15,
+    remedy: 'extend-corpus',
+    mayNarrowBoundary: false,
+  },
+  // Real output of crystalInstrumentSuiteIdentity() — services/research/
+  // crystalInstrumentSuite.ts — run and copied verbatim at authoring time
+  // (git commit 938a49309). Not imported (this file stays import-free — see
+  // header); re-run the function and compare if suite drift is suspected.
+  instrumentSuite: {
+    suiteVersion: '2.0.0',
+    contractFingerprint: '9579131e04b1c3c293dd73bec360da68b0169b8021cc78e6542e45018837c8b3',
+    modules: [
+      'services/research/crystalReadiness.ts',
+      'services/research/crystalSemanticStructure.ts',
+      'services/research/crystalPopulationRequirement.ts',
+      'services/research/crystalStatistics.ts',
+      'services/research/crystalInstrumentFalsification.ts',
+    ],
+  },
+  retrospective: null,
+};
+
+const EXP_P1_REMEDIATION_PROFILE_BINDING = remediationProfileBindingState(EXP_P1_REMEDIATION_PROFILE_CONTENT);
+
+const EXP_P1_REMEDIATION_PROFILE_V1: CrystalRemediationProfile = {
+  ...EXP_P1_REMEDIATION_PROFILE_CONTENT,
+  binding: EXP_P1_REMEDIATION_PROFILE_BINDING.binding,
+  bindingGaps: EXP_P1_REMEDIATION_PROFILE_BINDING.bindingGaps,
+};
+
+/**
+ * THE INGESTED PROFILES.
+ *
+ * Carries the EXP-P1 v1 profile above — ingested (real, hash-verifiable
+ * source refs exist), but NOT bound (the retrospective has not been run; see
+ * that profile's own doc comment for the exact completion step). A consumer
+ * reading `evaluateMeasurementLayerGate` today therefore sees
+ * `binding: 'unbound-retrospective-not-reproduced'`, not
+ * `'unbound-no-artifact'` — a real, more specific state than before this
+ * profile existed, and the sequencing gate stays correctly CLOSED either
+ * way. Every consumer must still fail closed on anything short of `'bound'`.
+ */
+export const BOUND_CRYSTAL_REMEDIATION_PROFILES: readonly CrystalRemediationProfile[] = [
+  EXP_P1_REMEDIATION_PROFILE_V1,
+];
 
 /**
  * Resolve a profile's binding state from its own contents — a DERIVATION, never

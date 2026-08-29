@@ -542,8 +542,21 @@ describe('the retrospective falsification harness — a release gate with an INV
 });
 
 describe('CrystalRemediationProfile — the shared configuration object', () => {
-  it('ships EMPTY, so every consumer fails closed until an authoritative artifact exists', () => {
-    expect(BOUND_CRYSTAL_REMEDIATION_PROFILES).toEqual([]);
+  it('EXP-P1 carries a real ingested profile (2026-08-29), and every consumer still fails closed because it is not yet bound', () => {
+    // No longer the empty-registry state this canary originally asserted:
+    // EXP-P1's v1 profile is ingested from real, hash-verifiable source refs
+    // (IRL Review #001, the resolution record, the frozen README). It is
+    // deliberately still NOT bound — `retrospective: null`, because
+    // computing it needs a live read of the frozen artifact this profile's
+    // authoring pass had no database access to perform. Fail-closed still
+    // holds: `remediationProfileBindingState` derives, never trusts, so a
+    // stored `binding` of anything but `'bound'` still gates every consumer.
+    expect(BOUND_CRYSTAL_REMEDIATION_PROFILES).toHaveLength(1);
+    const profile = BOUND_CRYSTAL_REMEDIATION_PROFILES[0];
+    expect(profile.experimentId).toBe('EXP-P1');
+    expect(profile.retrospective).toBeNull();
+    expect(profile.binding).not.toBe('bound');
+    expect(remediationProfileBindingState(profile).binding).toBe(profile.binding);
   });
 
   it('refuses to bind without a source ref — a chat paste is not an artifact', () => {
