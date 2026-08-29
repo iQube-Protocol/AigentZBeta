@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-29T18:08:16.915Z",
+  "last_updated": "2026-08-29T20:48:06.802Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "135ef2a55c6b7a61955548155685a6dd5cdf7430",
-  "latest_commit_short": "135ef2a",
-  "latest_commit_title": "Fix Establish Presence evidence resolution: recognize a Passport held under a merged auth profile",
+  "latest_commit": "bbaa8f3aba2b4e19354592b8f8311dfadba2eda2",
+  "latest_commit_short": "bbaa8f3",
+  "latest_commit_title": "Author EXP-P1 CrystalRemediationProfile v1 from Review #001 + frozen protocol",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "bbaa8f3",
+      "full_sha": "bbaa8f3aba2b4e19354592b8f8311dfadba2eda2",
+      "title": "Author EXP-P1 CrystalRemediationProfile v1 from Review #001 + frozen protocol",
+      "author": "Claude",
+      "timestamp": "2026-08-29T20:45:32Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-bbaa8f3.md"
+    },
     {
       "sha": "135ef2a",
       "full_sha": "135ef2a55c6b7a61955548155685a6dd5cdf7430",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-16T12:51:51-04:00",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-8b9c6cb.md"
-    },
-    {
-      "sha": "2e5b4c0",
-      "full_sha": "2e5b4c0285b3fd5a5efa527085175801db027471",
-      "title": "docs: canonize domain runtime orchestrator model",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-15T15:36:29-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-2e5b4c0.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

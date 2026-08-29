@@ -4629,3 +4629,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-135ef2a.md](../build_/COMMITS/COMMIT-135ef2a.md)
 - Message: Fix Establish Presence evidence resolution: recognize a Passport held under a merged auth profile
+
+## Commit `bbaa8f3` — 2026-08-29T20:45:32Z
+- Type: `push`
+- Brief: [COMMIT-bbaa8f3.md](../build_/COMMITS/COMMIT-bbaa8f3.md)
+- Message: Author EXP-P1 CrystalRemediationProfile v1 from Review #001 + frozen protocol
