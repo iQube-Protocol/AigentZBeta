@@ -88,11 +88,21 @@ interface IanOrientationPanelProps {
 export function IanOrientationPanel({ personaId, complete, requestStateRefresh, activeExchangeId, ocsgaGrantAdmitted }: IanOrientationPanelProps) {
   const [acknowledging, setAcknowledging] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /**
+   * Principal-identity enforcement (2026-08-29) — `principal-required` is a
+   * DISTINCT refusal reason from a transient/network error: nothing failed,
+   * the acting persona is simply not the one constitutionally allowed to
+   * perform this act. Tracked separately so the UI can point at the fix
+   * (switch persona) rather than offering a generic "try again", and so it
+   * never reads as if the acknowledgment attempt itself malfunctioned.
+   */
+  const [principalRequired, setPrincipalRequired] = useState(false);
   const [pendingAfterSignIn, setPendingAfterSignIn] = useState(false);
 
   const acknowledge = useCallback(async () => {
     setAcknowledging(true);
     setError(null);
+    setPrincipalRequired(false);
     try {
       const res = await personaFetch('/api/journey/ian/orient/acknowledge', {
         method: 'POST',
@@ -100,7 +110,13 @@ export function IanOrientationPanel({ personaId, complete, requestStateRefresh, 
         personaIdHint: personaId,
       });
       const json = await readJsonOrExplain(res, 'ian/orient/acknowledge');
-      if (!res.ok || !json.ok) throw new Error(typeof json?.error === 'string' ? json.error : `Request failed (${res.status})`);
+      if (!res.ok || !json.ok) {
+        // Prefer the server's human-readable `message` (present for
+        // principal-required refusals) over the short `error` code.
+        const humanMessage = typeof json?.message === 'string' ? json.message : null;
+        if (json?.error === 'principal-required') setPrincipalRequired(true);
+        throw new Error(humanMessage ?? (typeof json?.error === 'string' ? json.error : `Request failed (${res.status})`));
+      }
       requestStateRefresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not record your acknowledgment.');
@@ -291,7 +307,13 @@ export function IanOrientationPanel({ personaId, complete, requestStateRefresh, 
           No sign-in host answered — reload this page and try again.
         </p>
       )}
-      {error && <p className="text-xs text-rose-400">{error}</p>}
+      {error && principalRequired ? (
+        <p className="rounded-md border border-amber-800/60 bg-amber-950/20 px-3 py-2 text-xs text-amber-200">
+          {error} Use the persona control in the header above (&ldquo;Acting as&rdquo;) to switch.
+        </p>
+      ) : error ? (
+        <p className="text-xs text-rose-400">{error}</p>
+      ) : null}
       {inviteSection}
     </div>
   );

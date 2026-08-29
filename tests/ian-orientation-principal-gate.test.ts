@@ -1,0 +1,263 @@
+/**
+ * Principal-identity enforcement for Ian's orientation acknowledgment
+ * (2026-08-29 — "harden principal-only orientation before asking Ian to
+ * acknowledge"). Reproduces the exact live defect and proves the fix:
+ *
+ *   app/api/journey/ian/orient/acknowledge/route.ts used to write
+ *   `orientation_ritual_completed` under whichever persona getActivePersona()
+ *   returned, with no check that this persona could constitutionally be a
+ *   principal. Live inspection found Ian's real receipt attributed to his
+ *   own bound aigentMe agent persona (personas.type='AigentMe'), not his
+ *   human "Ian Andrew McCoy" persona (personas.type='PersonaQube').
+ *
+ * Two layers of proof:
+ *   1. UNIT — services/journey/ianJourneyState.ts's
+ *      resolveOrientationPrincipalGate, driven directly against a small fake
+ *      Supabase client (personas + reciprocal_exchanges tables only).
+ *   2. ROUTE — the real acknowledge route POST handler, proving a refusal
+ *      writes NO receipt (createActivityReceipt is never called), and a
+ *      genuine principal's acknowledgment still writes exactly one.
+ */
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+// ─── A tiny fake Supabase client — exactly the four query shapes
+//     resolveOrientationPrincipalGate issues, nothing more. ─────────────────
+
+type Row = Record<string, unknown>;
+
+function makeFakeAdmin(tables: { personas: Row[]; reciprocal_exchanges: Row[] }) {
+  function builder(table: 'personas' | 'reciprocal_exchanges') {
+    const filters: Array<(r: Row) => boolean> = [];
+    let limitN: number | null = null;
+
+    const api = {
+      select() {
+        return api;
+      },
+      eq(col: string, val: unknown) {
+        filters.push((r) => r[col] === val);
+        return api;
+      },
+      or(expr: string) {
+        // e.g. "initiator_persona_id.in.(a,b),counterparty_persona_id.in.(a,b)"
+        const clauses = expr.match(/[^,]+\.in\.\([^)]*\)/g) ?? [];
+        const preds = clauses.map((clause) => {
+          const m = clause.match(/^(\w+)\.in\.\(([^)]*)\)$/);
+          if (!m) return () => false;
+          const [, col, list] = m;
+          const values = list.split(',').filter(Boolean);
+          return (r: Row) => values.includes(String(r[col]));
+        });
+        filters.push((r) => preds.some((p) => p(r)));
+        return api;
+      },
+      order() {
+        return api;
+      },
+      limit(n: number) {
+        limitN = n;
+        return api;
+      },
+      async maybeSingle() {
+        const result = tables[table].filter((r) => filters.every((f) => f(r)));
+        return { data: result[0] ?? null, error: null };
+      },
+      then(resolve: (v: { data: Row[]; error: null }) => unknown, reject: (e: unknown) => unknown) {
+        let result = tables[table].filter((r) => filters.every((f) => f(r)));
+        if (limitN !== null) result = result.slice(0, limitN);
+        return Promise.resolve({ data: result, error: null }).then(resolve, reject);
+      },
+    };
+    return api;
+  }
+  return { from: (table: string) => builder(table as 'personas' | 'reciprocal_exchanges') } as never;
+}
+
+const AUTH_PROFILE = 'auth-profile-ian';
+const IAN_PRINCIPAL = 'persona-ian-principal';
+const IAN_AIGENTME = 'persona-ian-aigentme';
+const SIBLING_PERSONAQUBE_NOT_BOUND = 'persona-ian-sibling-personaqube';
+const OTHER_AUTH_PROFILE = 'auth-profile-other';
+const UNRELATED_AGENT_TYPE_PERSONA = 'persona-unrelated-agent-type';
+
+function baseTables(): { personas: Row[]; reciprocal_exchanges: Row[] } {
+  return {
+    personas: [
+      { id: IAN_PRINCIPAL, auth_profile_id: AUTH_PROFILE, type: 'PersonaQube', display_name: 'Ian Andrew McCoy' },
+      { id: IAN_AIGENTME, auth_profile_id: AUTH_PROFILE, type: 'AigentMe', display_name: 'aigentMe' },
+      { id: SIBLING_PERSONAQUBE_NOT_BOUND, auth_profile_id: AUTH_PROFILE, type: 'PersonaQube', display_name: 'Ian (second persona)' },
+      { id: UNRELATED_AGENT_TYPE_PERSONA, auth_profile_id: OTHER_AUTH_PROFILE, type: 'AgentDelegate', display_name: 'Some Delegate' },
+    ],
+    reciprocal_exchanges: [
+      { initiator_persona_id: 'persona-party-a', counterparty_persona_id: IAN_PRINCIPAL, created_at: '2026-08-24' },
+    ],
+  };
+}
+
+describe('resolveOrientationPrincipalGate — unit level', () => {
+  it('Ian principal (bound exchange party, PersonaQube type) — permitted', async () => {
+    const { resolveOrientationPrincipalGate } = await import('@/services/journey/ianJourneyState');
+    const admin = makeFakeAdmin(baseTables());
+    const result = await resolveOrientationPrincipalGate(admin, { personaId: IAN_PRINCIPAL, authProfileId: AUTH_PROFILE });
+    expect(result.ok).toBe(true);
+  });
+
+  it("Ian's aigentMe persona (AigentMe type, sibling to the bound exchange party) — refused as wrong-principal, names Ian", async () => {
+    const { resolveOrientationPrincipalGate } = await import('@/services/journey/ianJourneyState');
+    const admin = makeFakeAdmin(baseTables());
+    const result = await resolveOrientationPrincipalGate(admin, { personaId: IAN_AIGENTME, authProfileId: AUTH_PROFILE });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason).toBe('wrong-principal');
+      if (result.reason === 'wrong-principal') {
+        expect(result.expectedPersonaId).toBe(IAN_PRINCIPAL);
+        expect(result.expectedDisplayName).toBe('Ian Andrew McCoy');
+      }
+    }
+  });
+
+  it('a sibling PersonaQube persona under the SAME auth profile that is NOT the bound exchange party — refused as wrong-principal (unrelated persona, case 1)', async () => {
+    const { resolveOrientationPrincipalGate } = await import('@/services/journey/ianJourneyState');
+    const admin = makeFakeAdmin(baseTables());
+    const result = await resolveOrientationPrincipalGate(admin, {
+      personaId: SIBLING_PERSONAQUBE_NOT_BOUND,
+      authProfileId: AUTH_PROFILE,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe('wrong-principal');
+  });
+
+  it('an agent-type persona under a completely unrelated auth profile with no exchange bound at all — refused as not-principal-type (unrelated persona, case 2)', async () => {
+    const { resolveOrientationPrincipalGate } = await import('@/services/journey/ianJourneyState');
+    const admin = makeFakeAdmin(baseTables());
+    const result = await resolveOrientationPrincipalGate(admin, {
+      personaId: UNRELATED_AGENT_TYPE_PERSONA,
+      authProfileId: OTHER_AUTH_PROFILE,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe('not-principal-type');
+  });
+
+  it('a fresh PersonaQube persona with no exchange bound anywhere yet is permitted — orientation is not retroactively blocked for a genuine new participant', async () => {
+    const { resolveOrientationPrincipalGate } = await import('@/services/journey/ianJourneyState');
+    const tables = baseTables();
+    tables.personas.push({ id: 'persona-fresh-visitor', auth_profile_id: 'auth-profile-fresh', type: 'PersonaQube', display_name: 'Fresh Visitor' });
+    const admin = makeFakeAdmin(tables);
+    const result = await resolveOrientationPrincipalGate(admin, {
+      personaId: 'persona-fresh-visitor',
+      authProfileId: 'auth-profile-fresh',
+    });
+    expect(result.ok).toBe(true);
+  });
+});
+
+// ─── Route-level: proves a refusal writes NO receipt, and a genuine
+//     principal's acknowledgment still writes exactly one. ────────────────
+
+const mockGetActivePersona = vi.fn();
+vi.mock('@/services/identity/getActivePersona', () => ({
+  getActivePersona: (req: unknown) => mockGetActivePersona(req),
+}));
+
+let fakeAdminForRoute: ReturnType<typeof makeFakeAdmin> | null = null;
+vi.mock('@/app/api/_lib/supabaseServer', () => ({
+  getSupabaseServer: () => fakeAdminForRoute,
+}));
+
+const mockCreateActivityReceipt = vi.fn(async (input: Record<string, unknown>) => ({ id: 'receipt-1', ...input }));
+const mockListActivityReceiptsForPersona = vi.fn(async () => [] as unknown[]);
+vi.mock('@/services/receipts/activityReceiptService', () => ({
+  createActivityReceipt: (...args: unknown[]) => mockCreateActivityReceipt(...args),
+  listActivityReceiptsForPersona: (...args: unknown[]) => mockListActivityReceiptsForPersona(...args),
+}));
+
+function makeRequest() {
+  return new (require('next/server').NextRequest)('https://dev-beta.aigentz.me/api/journey/ian/orient/acknowledge', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: '{}',
+  });
+}
+
+beforeEach(() => {
+  mockGetActivePersona.mockReset();
+  mockCreateActivityReceipt.mockClear();
+  mockListActivityReceiptsForPersona.mockReset().mockResolvedValue([]);
+  fakeAdminForRoute = makeFakeAdmin(baseTables());
+});
+
+describe('POST /api/journey/ian/orient/acknowledge — principal-identity enforcement, route level', () => {
+  it('Ian principal → 200, receipt written exactly once, under his own personaId, no manufactured agentsInvoked', async () => {
+    mockGetActivePersona.mockResolvedValue({ personaId: IAN_PRINCIPAL, authProfileId: AUTH_PROFILE });
+    const { POST } = await import('@/app/api/journey/ian/orient/acknowledge/route');
+    const res = await POST(makeRequest());
+    const json = await res.json();
+    expect(res.status).toBe(200);
+    expect(json).toMatchObject({ ok: true, orientationComplete: true });
+    expect(mockCreateActivityReceipt).toHaveBeenCalledTimes(1);
+    const receiptInput = mockCreateActivityReceipt.mock.calls[0][0] as Record<string, unknown>;
+    expect(receiptInput.personaId).toBe(IAN_PRINCIPAL);
+    expect(receiptInput.actionType).toBe('orientation_ritual_completed');
+    expect(receiptInput.agentsInvoked).toEqual([]);
+  });
+
+  it("Ian's aigentMe persona → 403 principal-required naming Ian, and writes NO receipt", async () => {
+    mockGetActivePersona.mockResolvedValue({ personaId: IAN_AIGENTME, authProfileId: AUTH_PROFILE });
+    const { POST } = await import('@/app/api/journey/ian/orient/acknowledge/route');
+    const res = await POST(makeRequest());
+    const json = await res.json();
+    expect(res.status).toBe(403);
+    expect(json.ok).toBe(false);
+    expect(json.error).toBe('principal-required');
+    expect(json.reason).toBe('wrong-principal');
+    expect(json.message).toMatch(/Ian Andrew McCoy/);
+    expect(json.message).toMatch(/personally/);
+    expect(mockCreateActivityReceipt).not.toHaveBeenCalled();
+  });
+
+  it('an unrelated persona (sibling PersonaQube, not the bound party) → 403, writes NO receipt', async () => {
+    mockGetActivePersona.mockResolvedValue({ personaId: SIBLING_PERSONAQUBE_NOT_BOUND, authProfileId: AUTH_PROFILE });
+    const { POST } = await import('@/app/api/journey/ian/orient/acknowledge/route');
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(403);
+    expect(mockCreateActivityReceipt).not.toHaveBeenCalled();
+  });
+
+  it('an unrelated agent-type persona under a different auth profile with nothing bound → 403 not-principal-type, writes NO receipt', async () => {
+    mockGetActivePersona.mockResolvedValue({ personaId: UNRELATED_AGENT_TYPE_PERSONA, authProfileId: OTHER_AUTH_PROFILE });
+    const { POST } = await import('@/app/api/journey/ian/orient/acknowledge/route');
+    const res = await POST(makeRequest());
+    const json = await res.json();
+    expect(res.status).toBe(403);
+    expect(json.reason).toBe('not-principal-type');
+    expect(mockCreateActivityReceipt).not.toHaveBeenCalled();
+  });
+
+  it('unauthenticated → 401, writes NO receipt', async () => {
+    mockGetActivePersona.mockResolvedValue(null);
+    const { POST } = await import('@/app/api/journey/ian/orient/acknowledge/route');
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(401);
+    expect(mockCreateActivityReceipt).not.toHaveBeenCalled();
+  });
+
+  it('fails CLOSED (503), not open, when the principal cannot be verified at all (no database client) — writes NO receipt', async () => {
+    fakeAdminForRoute = null;
+    mockGetActivePersona.mockResolvedValue({ personaId: IAN_PRINCIPAL, authProfileId: AUTH_PROFILE });
+    const { POST } = await import('@/app/api/journey/ian/orient/acknowledge/route');
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(503);
+    expect(mockCreateActivityReceipt).not.toHaveBeenCalled();
+  });
+
+  it('is idempotent for the genuine principal: a second acknowledgment does not write a second receipt', async () => {
+    mockGetActivePersona.mockResolvedValue({ personaId: IAN_PRINCIPAL, authProfileId: AUTH_PROFILE });
+    mockListActivityReceiptsForPersona.mockResolvedValue([{ id: 'already-there' }]);
+    const { POST } = await import('@/app/api/journey/ian/orient/acknowledge/route');
+    const res = await POST(makeRequest());
+    const json = await res.json();
+    expect(res.status).toBe(200);
+    expect(json.ok).toBe(true);
+    expect(mockCreateActivityReceipt).not.toHaveBeenCalled();
+  });
+});

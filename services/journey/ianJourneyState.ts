@@ -15,6 +15,7 @@
  * Ian's journey evidence.
  */
 
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AuthoritativePlatformState as JourneyAuthState } from '@/services/journey/resolveJourneyState';
 import { listActivityReceiptsForPersona } from '@/services/receipts/activityReceiptService';
 import { hasActiveDelegation } from '@/services/delegation/delegationGrantStore';
@@ -46,6 +47,114 @@ export interface IanAuthoritativeStateResult {
    */
   citizenPassportClass: string | null;
   citizenPassportRef: string | null;
+}
+
+/**
+ * Principal-identity enforcement for the orientation ritual (2026-08-29,
+ * "harden principal-only orientation before asking Ian to acknowledge").
+ *
+ * ROOT CAUSE THIS CLOSES: `app/api/journey/ian/orient/acknowledge/route.ts`
+ * previously wrote `orientation_ritual_completed` under WHICHEVER persona
+ * `getActivePersona(request)` returned, with no check that this persona was
+ * actually capable of being a constitutional principal. Live inspection
+ * (Bug C investigation) found Ian's own orientation receipt attributed to
+ * `25ebf4ca…` — his bound aigentMe agent's OWN persona row
+ * (`personas.type = 'AigentMe'`), not his human "Ian Andrew McCoy" persona
+ * (`personas.type = 'PersonaQube'`) — because that agent persona happened
+ * to be the browser's active persona at the moment he clicked Acknowledge.
+ * Orientation is constitutionally principal-only (SPEC-JS-001 §14.4 Phase A
+ * never offers it as delegable; delegation is introduced only from Phase B,
+ * scoped to artifact handling) — this is a principal-IDENTITY enforcement
+ * defect, not an evidence-resolution question, so the fix lives here, at
+ * the write path, not in resolveJourneyState.ts or ianJourneyState's own
+ * evidence assembly above.
+ *
+ * Two independent, fail-closed checks, evaluated in order of specificity:
+ *
+ * 1. WRONG PRINCIPAL — if this auth profile already has a persona bound as
+ *    a party (initiator or counterparty) on a Reciprocal Artifact Exchange,
+ *    THAT persona is the canonical principal for this journey/exchange, and
+ *    the acting persona must be exactly it. Catches a sibling persona under
+ *    the SAME auth profile (the agent's own persona row included) acting in
+ *    place of the one the exchange is actually bound to — the exact defect
+ *    that produced Ian's misattributed receipt.
+ * 2. NOT A PRINCIPAL-TYPE PERSONA — before any exchange exists to bind a
+ *    specific principal (a fresh, pre-invitation visitor), the acting
+ *    persona's own `personas.type` must be `'PersonaQube'` (the canonical
+ *    human/citizen persona type — see types/persona.ts) — never `'AigentMe'`,
+ *    `'AgentDelegate'`, or any other agent-kind type. An agent-kind persona
+ *    can never be a constitutional principal, exchange-bound or not.
+ *
+ * NEVER silently substitutes the principal, NEVER manufactures delegated
+ * provenance (no `agentsInvoked` entry is invented here — see the route:
+ * a refused attempt writes nothing at all), and NEVER touches the old
+ * misattributed receipt — confirming/repairing/copying it is out of scope
+ * for this identity-enforcement fix.
+ */
+export type OrientationPrincipalGateResult =
+  | { ok: true }
+  | { ok: false; reason: 'wrong-principal'; expectedPersonaId: string; expectedDisplayName: string | null }
+  | { ok: false; reason: 'not-principal-type' };
+
+export async function resolveOrientationPrincipalGate(
+  admin: SupabaseClient,
+  input: { personaId: string; authProfileId: string },
+): Promise<OrientationPrincipalGateResult> {
+  // 1. Every persona this auth profile owns — the search space for "is a
+  //    SIBLING of the acting persona already the exchange's bound principal".
+  const { data: siblingRows } = await admin
+    .from('personas')
+    .select('id')
+    .eq('auth_profile_id', input.authProfileId);
+  const siblingIds = (siblingRows ?? [])
+    .map((r) => (r as { id?: unknown }).id)
+    .filter((id): id is string => typeof id === 'string');
+
+  if (siblingIds.length > 0) {
+    const idList = siblingIds.join(',');
+    const { data: exchangeRows } = await admin
+      .from('reciprocal_exchanges')
+      .select('initiator_persona_id, counterparty_persona_id')
+      .or(`initiator_persona_id.in.(${idList}),counterparty_persona_id.in.(${idList})`)
+      .order('created_at', { ascending: false })
+      .limit(1);
+    const exchange = (exchangeRows ?? [])[0] as
+      | { initiator_persona_id: string | null; counterparty_persona_id: string | null }
+      | undefined;
+    if (exchange) {
+      const expectedPersonaId =
+        [exchange.initiator_persona_id, exchange.counterparty_persona_id].find(
+          (id): id is string => typeof id === 'string' && siblingIds.includes(id),
+        ) ?? null;
+      if (expectedPersonaId && expectedPersonaId !== input.personaId) {
+        const { data: expectedRow } = await admin
+          .from('personas')
+          .select('display_name')
+          .eq('id', expectedPersonaId)
+          .maybeSingle();
+        return {
+          ok: false,
+          reason: 'wrong-principal',
+          expectedPersonaId,
+          expectedDisplayName: (expectedRow as { display_name?: string | null } | null)?.display_name ?? null,
+        };
+      }
+    }
+  }
+
+  // 2. No exchange-bound principal to compare against yet — the acting
+  //    persona itself must still be a principal-capable (PersonaQube) type.
+  const { data: actingRow } = await admin
+    .from('personas')
+    .select('type')
+    .eq('id', input.personaId)
+    .maybeSingle();
+  const actingType = (actingRow as { type?: string | null } | null)?.type ?? null;
+  if (actingType !== 'PersonaQube') {
+    return { ok: false, reason: 'not-principal-type' };
+  }
+
+  return { ok: true };
 }
 
 export async function fetchIanAuthoritativePlatformState(
