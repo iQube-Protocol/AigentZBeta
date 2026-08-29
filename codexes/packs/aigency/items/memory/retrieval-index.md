@@ -4624,3 +4624,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-2a742dd.md](../build_/COMMITS/COMMIT-2a742dd.md)
 - Message: Harden Orientation READ path: principal-aware evidence resolution
+
+## Commit `135ef2a` — 2026-08-29T18:05:53Z
+- Type: `fix`
+- Brief: [COMMIT-135ef2a.md](../build_/COMMITS/COMMIT-135ef2a.md)
+- Message: Fix Establish Presence evidence resolution: recognize a Passport held under a merged auth profile

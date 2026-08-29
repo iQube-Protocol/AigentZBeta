@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-29T17:44:37.471Z",
+  "last_updated": "2026-08-29T18:08:16.915Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "2a742dd150d683a23c1dc8189f2d2e2fc9c485b6",
-  "latest_commit_short": "2a742dd",
-  "latest_commit_title": "Harden Orientation READ path: principal-aware evidence resolution",
+  "latest_commit": "135ef2a55c6b7a61955548155685a6dd5cdf7430",
+  "latest_commit_short": "135ef2a",
+  "latest_commit_title": "Fix Establish Presence evidence resolution: recognize a Passport held under a merged auth profile",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "135ef2a",
+      "full_sha": "135ef2a55c6b7a61955548155685a6dd5cdf7430",
+      "title": "Fix Establish Presence evidence resolution: recognize a Passport held under a merged auth profile",
+      "author": "Claude",
+      "timestamp": "2026-08-29T18:05:53Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-135ef2a.md"
+    },
     {
       "sha": "2a742dd",
       "full_sha": "2a742dd150d683a23c1dc8189f2d2e2fc9c485b6",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-15T15:36:29-04:00",
       "type": "docs",
       "brief": "items/build_/COMMITS/COMMIT-2e5b4c0.md"
-    },
-    {
-      "sha": "5b77bdf",
-      "full_sha": "5b77bdfccf8ba090fef5fe89e1201adb22c1f5aa",
-      "title": "groom knyts-bridge: remove duplicate passport gate (A1), auto-advance passport room (A2), embed article-zero templates (A3)",
-      "author": "Claude",
-      "timestamp": "2026-08-14T02:18:05Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-5b77bdf.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
