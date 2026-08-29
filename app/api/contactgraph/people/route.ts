@@ -38,12 +38,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { resolveOwnerAuthProfileId } from '@/services/contactGraph/ownerResolution';
 import { reconcileConfirmedPersonaContacts, summarizePersonaContactImports } from '@/services/contactGraph/reconciliation';
-import { requestContactGraphProjection } from '@/services/contactGraph/projection';
+import { requestContactGraphPeoplePage } from '@/services/contactGraph/projection';
 import { createContactPerson } from '@/services/contactGraph/contactPersons';
 
 export const dynamic = 'force-dynamic';
 
 const NO_STORE = { 'Cache-Control': 'no-store' } as const;
+
+// Page size bounds for the People list. DEFAULT keeps a single request
+// small and fast; MAX stops a caller-supplied ?limit= from reintroducing an
+// unbounded/near-unbounded read.
+const DEFAULT_PAGE_SIZE = 100;
+const MAX_PAGE_SIZE = 200;
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const persona = await getActivePersona(req);
@@ -58,21 +64,24 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // to be threaded through this route.
   await reconcileConfirmedPersonaContacts(owner.value, persona.personaId, { limit: 200 });
 
-  const result = await requestContactGraphProjection(persona.personaId, {
-    capability: 'contacts',
-    projection: 'full',
-    scope: { contactPersonIds: 'all' },
-    requestingSurface: 'aigentme',
-  });
+  const rawLimit = Number(req.nextUrl.searchParams.get('limit'));
+  const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(Math.floor(rawLimit), MAX_PAGE_SIZE) : DEFAULT_PAGE_SIZE;
+  const rawOffset = Number(req.nextUrl.searchParams.get('offset'));
+  const offset = Number.isFinite(rawOffset) && rawOffset > 0 ? Math.floor(rawOffset) : 0;
+  const search = req.nextUrl.searchParams.get('search')?.trim() || undefined;
+
+  const result = await requestContactGraphPeoplePage(owner.value, { limit, offset, search });
   if (!result.ok) return NextResponse.json({ ok: false, error: result.error }, { status: 500, headers: NO_STORE });
 
   // Import counts describe the address-book substrate; graphPeople describes
-  // canonical reconciled ContactPersons. Keep both in one response so every
-  // People surface presents the same truthful state without forking queries.
+  // the CANONICAL total reconciled ContactPerson count (a real `count:
+  // 'exact'` query — never the number of rows this response happens to
+  // carry). Keep both in one response so every People surface presents the
+  // same truthful state without forking queries.
   const imports = await summarizePersonaContactImports(persona.personaId);
   const stats = imports.ok
     ? {
-        graphPeople: result.value.people.length,
+        graphPeople: result.value.totalCount,
         importedRecords: imports.value.importedRecords,
         confirmedRecords: imports.value.confirmedRecords,
         projectedRecords: imports.value.projectedRecords,
@@ -84,6 +93,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     {
       ok: true,
       people: result.value.people,
+      totalCount: result.value.totalCount,
+      hasMore: result.value.hasMore,
       stats,
       ...(imports.ok ? {} : { statsError: imports.error }),
     },

@@ -18,7 +18,7 @@
  * on next read — there is one ContactGraph, not two.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { personaFetch } from "@/utils/personaSpine";
 import type {
   ContactEndpoint,
@@ -77,12 +77,27 @@ export const CONTACT_PLATFORM_LABEL: Record<ContactEndpointPlatform, string> = {
   sms: "SMS",
 };
 
+/** Page size for the People list — kept small so a single request stays
+ *  fast regardless of address-book size; more pages load on demand via
+ *  loadMore(). */
+const PAGE_SIZE = 100;
+/** How long to wait after the last keystroke before the search term hits
+ *  the server — avoids firing a request per character typed. */
+const SEARCH_DEBOUNCE_MS = 300;
+
 export function useContactGraphPeople() {
   const [people, setPeople] = useState<ContactGraphProjectionPersonSummary[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
   const [stats, setStats] = useState<ContactGraphPeopleStats | null>(null);
   const [listLoading, setListLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  // The term actually sent to the server — debounced off `query` so typing
+  // doesn't fire a request per keystroke. Search runs server-side over the
+  // FULL ContactGraph, never just the currently loaded page.
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [creatingPerson, setCreatingPerson] = useState(false);
   const [newPersonName, setNewPersonName] = useState("");
 
@@ -98,21 +113,54 @@ export function useContactGraphPeople() {
   const [newHandlePlatform, setNewHandlePlatform] = useState<ContactEndpointPlatform>("email");
   const [newHandleIdentifier, setNewHandleIdentifier] = useState("");
 
-  const loadPeople = useCallback(async () => {
-    setListLoading(true);
-    setListError(null);
-    const result = await fetchJson<{
-      people: ContactGraphProjectionPersonSummary[];
-      stats: ContactGraphPeopleStats | null;
-    }>("/api/contactgraph/people");
+type PeoplePageResponse = {
+    people: ContactGraphProjectionPersonSummary[];
+    totalCount: number;
+    hasMore: boolean;
+    stats: ContactGraphPeopleStats | null;
+  };
+
+  const fetchPeoplePage = useCallback(async (offset: number, search: string) => {
+    const params = new URLSearchParams({ limit: String(PAGE_SIZE), offset: String(offset) });
+    if (search) params.set("search", search);
+    return fetchJson<PeoplePageResponse>(`/api/contactgraph/people?${params.toString()}`);
+  }, []);
+
+  // Reset to page 1 for the given search term — used both for the initial
+  // load and every time the (debounced) search term changes, since search
+  // runs server-side over the FULL ContactGraph rather than filtering
+  // whatever page happens to be loaded.
+  const loadPeople = useCallback(
+    async (search = debouncedQuery) => {
+      setListLoading(true);
+      setListError(null);
+      const result = await fetchPeoplePage(0, search);
+      if (result.ok) {
+        setPeople(result.data.people);
+        setTotalCount(result.data.totalCount);
+        setHasMore(result.data.hasMore);
+        setStats(result.data.stats ?? null);
+      } else {
+        setListError(result.error);
+      }
+      setListLoading(false);
+    },
+    [debouncedQuery, fetchPeoplePage],
+  );
+
+  const loadMore = useCallback(async () => {
+    if (loadingMore || listLoading || !hasMore) return;
+    setLoadingMore(true);
+    const result = await fetchPeoplePage(people.length, debouncedQuery);
     if (result.ok) {
-      setPeople(result.data.people);
-      setStats(result.data.stats ?? null);
+      setPeople((prev) => [...prev, ...result.data.people]);
+      setTotalCount(result.data.totalCount);
+      setHasMore(result.data.hasMore);
     } else {
       setListError(result.error);
     }
-    setListLoading(false);
-  }, []);
+    setLoadingMore(false);
+  }, [loadingMore, listLoading, hasMore, people.length, debouncedQuery, fetchPeoplePage]);
 
   const loadDetail = useCallback(async (personId: string) => {
     setDetailLoading(true);
@@ -123,20 +171,29 @@ export function useContactGraphPeople() {
     setDetailLoading(false);
   }, []);
 
+  // Debounce query -> debouncedQuery. Resets on every keystroke; only the
+  // value settled on for SEARCH_DEBOUNCE_MS actually triggers a server call.
   useEffect(() => {
-    void loadPeople();
-  }, [loadPeople]);
+    const timer = setTimeout(() => setDebouncedQuery(query.trim()), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  // Initial load, and every time the settled search term changes — always
+  // resets to page 1 (a new search invalidates whatever pages were loaded
+  // for the previous term/browse view).
+  useEffect(() => {
+    void loadPeople(debouncedQuery);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedQuery]);
 
   useEffect(() => {
     if (selectedId) void loadDetail(selectedId);
     else setDetail(null);
   }, [selectedId, loadDetail]);
 
-  const filteredPeople = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return people;
-    return people.filter((p) => p.displayName.toLowerCase().includes(q));
-  }, [people, query]);
+  // The server already applies search (debouncedQuery) — `people` IS the
+  // filtered result. Kept as `filteredPeople` for existing consumers.
+  const filteredPeople = people;
 
   const handleCreatePerson = useCallback(async () => {
     const displayName = newPersonName.trim();
@@ -211,6 +268,10 @@ export function useContactGraphPeople() {
   return {
     // list
     people,
+    totalCount,
+    hasMore,
+    loadingMore,
+    loadMore,
     stats,
     filteredPeople,
     listLoading,

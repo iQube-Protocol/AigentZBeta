@@ -33,6 +33,9 @@ function PeopleLayoutComponent(props: RightPaneLayoutProps) {
 
   const {
     filteredPeople,
+    hasMore,
+    loadingMore,
+    loadMore,
     stats,
     listLoading,
     listError,
@@ -114,6 +117,21 @@ function PeopleLayoutComponent(props: RightPaneLayoutProps) {
               )}
             </button>
           ))}
+          {!listLoading && hasMore && (
+            <button
+              onClick={() => void loadMore()}
+              disabled={loadingMore}
+              className={`flex w-full items-center justify-center gap-2 rounded-md border px-2 py-2 text-[11px] disabled:opacity-50 ${cardClass} ${mutedClass}`}
+            >
+              {loadingMore ? (
+                <>
+                  <Loader2 className="h-3 w-3 animate-spin" /> Loading more…
+                </>
+              ) : (
+                "Load more"
+              )}
+            </button>
+          )}
         </div>
         <div className={`flex items-center gap-1.5 rounded-md border px-2 py-1.5 ${cardClass}`}>
           <input

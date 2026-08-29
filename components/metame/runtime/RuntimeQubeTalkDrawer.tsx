@@ -197,6 +197,9 @@ function OffplatformThread({ relationshipId }: { relationshipId: string }) {
 function RuntimePeoplePanel({ onMessagePerson }: { onMessagePerson: (personId: string) => void }) {
   const {
     filteredPeople,
+    hasMore,
+    loadingMore,
+    loadMore,
     stats,
     listLoading,
     listError,
@@ -270,10 +273,27 @@ function RuntimePeoplePanel({ onMessagePerson }: { onMessagePerson: (personId: s
     [setSelectedId],
   );
 
+  // Fires loadMore() once the list is scrolled within ~120px of its own
+  // bottom — this column owns its own scroll region (see the className
+  // comment below), so this never touches the detail pane's scroll or the
+  // drawer's own scroll position.
+  const handleListScroll = useCallback(
+    (e: React.UIEvent<HTMLDivElement>) => {
+      const el = e.currentTarget;
+      if (el.scrollHeight - el.scrollTop - el.clientHeight < 120) void loadMore();
+    },
+    [loadMore],
+  );
+
   return (
-    <div className="grid h-full grid-cols-1 gap-4 md:grid-cols-[280px_1fr]">
-      {/* People list */}
-      <div className="space-y-2 md:border-r md:border-slate-800 md:pr-4">
+    <div className="grid h-full min-h-0 grid-cols-1 gap-4 md:grid-cols-[280px_1fr]">
+      {/* People list — owns its OWN scroll region. `min-h-0` overrides the
+          grid item's default min-height:auto, which otherwise lets this
+          column's content grow past the grid row instead of clipping —
+          without it `overflow-y-auto` never activates and the ancestor
+          drawer wrapper (min-h-0 flex-1 overflow-y-auto) becomes the only
+          scroll owner, dragging the detail pane along with the list. */}
+      <div className="min-h-0 space-y-2 overflow-y-auto md:border-r md:border-slate-800 md:pr-4" onScroll={handleListScroll}>
         <ContactGraphStatsStrip stats={stats} theme="dark" />
         <input
           value={query}
@@ -312,6 +332,21 @@ function RuntimePeoplePanel({ onMessagePerson }: { onMessagePerson: (personId: s
               {p.personaLabels.length > 0 && <div className="mt-1 truncate text-[10px] text-slate-500">{p.personaLabels.join(" · ")}</div>}
             </button>
           ))}
+          {!listLoading && hasMore && (
+            <button
+              onClick={() => void loadMore()}
+              disabled={loadingMore}
+              className="flex w-full items-center justify-center gap-2 rounded-md border border-slate-800 bg-slate-900/40 px-2 py-2 text-[11px] text-slate-400 hover:bg-slate-800/60 disabled:opacity-50"
+            >
+              {loadingMore ? (
+                <>
+                  <Loader2 className="h-3 w-3 animate-spin" /> Loading more…
+                </>
+              ) : (
+                "Load more"
+              )}
+            </button>
+          )}
         </div>
         <div className="flex items-center gap-1.5 rounded-md border border-slate-800 bg-slate-950/50 px-2 py-1.5">
           <input
@@ -332,8 +367,12 @@ function RuntimePeoplePanel({ onMessagePerson }: { onMessagePerson: (personId: s
         </div>
       </div>
 
-      {/* Person detail — Runtime has room for the full picture (§12): person, personas, handles, relationship */}
-      <div className="overflow-y-auto">
+      {/* Person detail — Runtime has room for the full picture (§12): person, personas, handles, relationship.
+          Same min-h-0 requirement as the list column — stays fixed/visible
+          and scrolls ONLY its own content, independent of the list's
+          scroll position, regardless of which contact (including one far
+          below the fold) is selected. */}
+      <div className="min-h-0 overflow-y-auto">
         {!selectedId && (
           <div className="flex h-full min-h-[280px] items-center justify-center rounded-md border border-slate-800 bg-slate-950/50 px-3 py-10 text-sm text-slate-500">
             Select a person to inspect their full person / persona / handle / relationship picture.
