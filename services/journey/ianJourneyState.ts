@@ -78,6 +78,7 @@ export async function fetchIanAuthoritativePlatformState(
   const delegationActive = await hasActiveDelegation(personaId).catch(() => false);
 
   let yourDeposited = false;
+  let yourPendingPrincipalAttestation = false;
   let yourFrozen = false;
   let yourSigned = false;
   let crossed = false;
@@ -112,6 +113,7 @@ export async function fetchIanAuthoritativePlatformState(
         evidenceGaps.push(`getExchangeView failed: ${view.error}`);
       } else {
         yourDeposited = view.view.yourArtifact !== null;
+        yourPendingPrincipalAttestation = Boolean(view.view.yourArtifact?.pendingPrincipalAttestation);
         yourFrozen = Boolean(view.view.yourArtifact?.frozen);
         yourSigned = Boolean(view.view.yourArtifact?.signed);
         crossed = hasCrossed(view.view.exchange.status);
@@ -171,7 +173,22 @@ export async function fetchIanAuthoritativePlatformState(
       passport: { passport_issued: hasReceiptType('passport_issued') || citizenPassportUsable },
       'delegation-establish': { delegation_active: delegationActive },
       'create-deposit': { iqube_created: yourDeposited, content_deposited: yourDeposited },
-      'freeze-attestation-ready': { attestation_ready_acknowledged: yourDeposited },
+      /*
+       * OCSGA Bridge projection fix (2026-08-29). This previously read
+       * `attestation_ready_acknowledged: yourDeposited` — treating "an
+       * artifact exists" as equivalent to "ready for freeze attestation",
+       * with no regard for whether the artifact was operator-registered on
+       * the principal's behalf and still awaits their own confirmation
+       * (confirmOperatorAssistedArtifact, services/research/
+       * reciprocalExchange.ts — the ONLY way pendingPrincipalAttestation
+       * ever clears). For Ian's OCSGA exchange the v1.3 artifact was
+       * registered operator-assisted; this treated him as already past the
+       * confirmation step he had never taken. Deposited-and-not-pending
+       * mirrors the ordinary (non-operator-assisted) deposit path exactly,
+       * since a self-deposited artifact is never pending — this changes
+       * nothing for that path.
+       */
+      'freeze-attestation-ready': { attestation_ready_acknowledged: yourDeposited && !yourPendingPrincipalAttestation },
       'freeze-attestation': { artifact_freeze_initiated: yourFrozen, freeze_signatures_collected: yourFrozen },
       'exchange-ready': { exchange_instrument_signed: yourSigned },
       'exchange-complete': { reciprocal_exchange_completed: crossed },

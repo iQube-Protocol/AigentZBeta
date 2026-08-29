@@ -16,8 +16,15 @@
  * delegated Agent is the currently-assigned actor: the ritual requires the
  * PRINCIPAL's own attestation.
  *
- * Actions: invite | deposit | freeze | sign | acknowledge | withdraw |
- *          revoke | open-comparison | add-derivative
+ * Actions: invite | deposit | confirm | freeze | sign | acknowledge |
+ *          withdraw | revoke | open-comparison | add-derivative
+ *
+ * `confirm` (OCSGA Bridge projection fix, 2026-08-29) is the bound
+ * principal's own acceptance of an artifact an operator registered on their
+ * behalf (registerArtifactOperatorAssisted) — the ONLY thing that clears
+ * `pendingPrincipalAttestation`, via confirmOperatorAssistedArtifact. Never
+ * reimplemented here: this case is a thin dispatch onto that same canonical
+ * service `freeze`/`sign` already gate on.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -27,6 +34,7 @@ import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import {
   inviteCounterparty,
   depositArtifact,
+  confirmOperatorAssistedArtifact,
   declareFreeze,
   signInstrument,
   acknowledgeReceipt,
@@ -114,6 +122,15 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ exchangeId
         confidentialityClass: d.confidentialityClass,
         ownershipDeclaration: d.ownershipDeclaration,
         rightsForExchange: d.rightsForExchange,
+      });
+      return NextResponse.json(result, { status: result.ok ? 200 : 400, headers: noStore });
+    }
+
+    case 'confirm': {
+      const result = await confirmOperatorAssistedArtifact(admin, {
+        exchangeId,
+        personaId,
+        agentRef: cc.currentAigentMe ?? undefined,
       });
       return NextResponse.json(result, { status: result.ok ? 200 : 400, headers: noStore });
     }
