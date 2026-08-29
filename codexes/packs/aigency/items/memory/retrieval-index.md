@@ -4589,3 +4589,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-a9df145.md](../build_/COMMITS/COMMIT-a9df145.md)
 - Message: Pin public CFS whitepaper in AgentiQ OS corpus (#104)
+
+## Commit `d133b9b` — 2026-08-29T02:37:47Z
+- Type: `fix`
+- Brief: [COMMIT-d133b9b.md](../build_/COMMITS/COMMIT-d133b9b.md)
+- Message: Fix duplicate operator-assisted RAX implementations and broken registration route
