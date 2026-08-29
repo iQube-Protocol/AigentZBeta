@@ -76,3 +76,49 @@ describe('resolveJourneyState — optional prerequisite never blocks (JS-LAW-002
     expect(createDeposit?.state).toBe('READY');
   });
 });
+
+describe('resolveJourneyState — currentStageId fallback skips a skipped OPTIONAL stage (JS-LAW-002, OCSGA Bridge projection fix 2026-08-29)', () => {
+  /*
+   * OCSGA Bridge live defect: Ian deposited his artifact (create-deposit
+   * COMPLETE) but never delegated (delegation-establish stays READY/never
+   * COMPLETE, by design — it is optional). The naive "first stage that isn't
+   * COMPLETE" fallback picked delegation-establish purely because it sits
+   * earlier in stage array order than the real current stage
+   * (freeze-attestation-ready) — even though the resolver's own
+   * prerequisites/priorStagesAllComplete logic already treats that same
+   * optional stage as non-blocking. /bridge/ocsga rendered the generic
+   * BoundedDelegationTab shell instead of Ian's Reciprocal Artifact Exchange
+   * workspace as a direct consequence.
+   */
+  it('currentStageId is the first REQUIRED incomplete stage, never a skipped optional one that merely sits earlier in array order', () => {
+    const state = resolveJourneyState(
+      IAN_BOUNDARY_RESEARCH_JOURNEY,
+      baseAuthState({
+        'create-deposit': { iqube_created: true, content_deposited: true },
+        'freeze-attestation-ready': {}, // not yet acknowledged — the real current stage
+      }),
+    );
+    const delegation = state.stages.find((s) => s.stageId === 'delegation-establish');
+    const createDeposit = state.stages.find((s) => s.stageId === 'create-deposit');
+    expect(delegation?.state).not.toBe('COMPLETE');
+    expect(createDeposit?.state).toBe('COMPLETE');
+    expect(state.currentStageId).toBe('freeze-attestation-ready');
+    expect(state.currentStageId).not.toBe('delegation-establish');
+  });
+
+  it('once freeze-attestation-ready is genuinely satisfied, currentStageId advances to freeze-attestation — still never delegation-establish', () => {
+    const state = resolveJourneyState(
+      IAN_BOUNDARY_RESEARCH_JOURNEY,
+      baseAuthState({
+        'create-deposit': { iqube_created: true, content_deposited: true },
+        'freeze-attestation-ready': { attestation_ready_acknowledged: true },
+      }),
+    );
+    expect(state.currentStageId).toBe('freeze-attestation');
+  });
+
+  it('with no deposit evidence at all, currentStageId is create-deposit itself — never delegation-establish, its skipped optional prerequisite', () => {
+    const state = resolveJourneyState(IAN_BOUNDARY_RESEARCH_JOURNEY, baseAuthState());
+    expect(state.currentStageId).toBe('create-deposit');
+  });
+});

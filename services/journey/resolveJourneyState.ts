@@ -245,7 +245,26 @@ export function resolveJourneyState(
 
   const complete = stageStates.length > 0 && stageStates.every((s) => s.state === 'COMPLETE');
   if (!complete) {
-    const firstIncomplete = stageStates.find((s) => s.state !== 'COMPLETE');
+    /*
+     * JS-LAW-002, applied to the final currentStageId fallback (OCSGA Bridge
+     * projection fix, 2026-08-29). A naive "first stage that isn't COMPLETE"
+     * search picks up a skipped OPTIONAL stage (e.g. delegation-establish)
+     * purely because it sits earlier in array order than the real current
+     * REQUIRED stage — even though the loop above already treats that same
+     * optional stage as non-blocking for prerequisites and priorStagesAllComplete.
+     * That mismatch made the projection report the optional stage as
+     * "current" while every required stage past it (deposit, freeze, sign)
+     * had already progressed further — for Ian's OCSGA exchange this
+     * rendered the generic delegation shell instead of the Reciprocal
+     * Artifact Exchange workspace he actually needed. Skipping optional,
+     * not-completed stages here mirrors the exemption already applied to
+     * `prerequisitesMet`/`priorStagesAllComplete` above — never a new rule.
+     */
+    const firstIncomplete = stageStates.find((s) => {
+      if (s.state === 'COMPLETE') return false;
+      const stageDefinition = journeyDefinition.stages.find((st) => st.id === s.stageId);
+      return stageDefinition?.requirement !== 'optional';
+    });
     if (firstIncomplete) currentStageId = firstIncomplete.stageId;
   }
 

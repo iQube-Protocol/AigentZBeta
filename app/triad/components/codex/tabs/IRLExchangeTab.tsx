@@ -96,6 +96,17 @@ interface ArtifactView {
   signed: boolean;
   locked: boolean;
   lockedReason: string | null;
+  /**
+   * OCSGA Bridge projection fix (2026-08-29) — true while this artifact was
+   * registered operator-assisted and the bound principal has not yet
+   * confirmed it (confirmOperatorAssistedArtifact,
+   * services/research/reciprocalExchange.ts). Mirrors
+   * ExchangeArtifactView.pendingPrincipalAttestation server-side exactly —
+   * never re-derived client-side. Deliberately omits WHO registered it
+   * (registeringOperatorPersonaId is a T0 identifier, CLAUDE.md's Identity &
+   * Access Spine — server-internal only, never serialised to the client).
+   */
+  pendingPrincipalAttestation: boolean;
 }
 
 interface ExchangeReceiptView {
@@ -219,6 +230,12 @@ function ArtifactCard({ label, artifact }: { label: string; artifact: ArtifactVi
         {artifact.artifactClass} · v{artifact.version} · {artifact.frozen ? "frozen" : "not yet frozen"} ·{" "}
         {artifact.signed ? "signed" : "not yet signed"}
       </p>
+      {artifact.pendingPrincipalAttestation ? (
+        <p className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-[11px] text-amber-200">
+          Registered on your behalf by an operator, on your authorization — awaiting your confirmation below before
+          it can be frozen or signed.
+        </p>
+      ) : null}
       {artifact.locked ? (
         <p className="mt-2 text-[11px] text-amber-300/90">{artifact.lockedReason}</p>
       ) : (
@@ -425,17 +442,36 @@ export function IRLExchangeTab() {
         ) : null}
 
         <Panel title="Freeze Declaration" icon={ShieldCheck} {...panelFocusProps("Freeze Declaration")}>
-          <p className="text-[12px] text-slate-400">
-            &ldquo;I declare that this artifact represents the version independently frozen by my party for this
-            exchange…&rdquo;
-          </p>
-          <button
-            disabled={busy || !yourArtifact || yourArtifact.frozen}
-            onClick={() => act("freeze")}
-            className="mt-3 rounded-lg border border-violet-500/40 bg-violet-500/15 px-3 py-1.5 text-[12px] font-medium text-violet-100 hover:bg-violet-500/25 disabled:opacity-40"
-          >
-            {yourArtifact?.frozen ? "Freeze declared" : "Declare freeze"}
-          </button>
+          {yourArtifact?.pendingPrincipalAttestation ? (
+            <>
+              <p className="text-[12px] text-slate-300">
+                This artifact was registered on your behalf by an operator, on your authorization. Confirm it is the
+                artifact you intended before it can be frozen or signed — this does not change its content or
+                fingerprint, only your own acknowledgment of it.
+              </p>
+              <button
+                disabled={busy}
+                onClick={() => act("confirm")}
+                className="mt-3 rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-3 py-1.5 text-[12px] font-medium text-emerald-100 hover:bg-emerald-500/25 disabled:opacity-40"
+              >
+                Confirm this artifact
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="text-[12px] text-slate-400">
+                &ldquo;I declare that this artifact represents the version independently frozen by my party for this
+                exchange…&rdquo;
+              </p>
+              <button
+                disabled={busy || !yourArtifact || yourArtifact.frozen}
+                onClick={() => act("freeze")}
+                className="mt-3 rounded-lg border border-violet-500/40 bg-violet-500/15 px-3 py-1.5 text-[12px] font-medium text-violet-100 hover:bg-violet-500/25 disabled:opacity-40"
+              >
+                {yourArtifact?.frozen ? "Freeze declared" : "Declare freeze"}
+              </button>
+            </>
+          )}
         </Panel>
 
         <Panel title="Exchange Instrument" icon={ClipboardCheck} {...panelFocusProps("Exchange Instrument")}>
