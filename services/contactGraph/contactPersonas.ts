@@ -15,6 +15,21 @@ import { getContactPerson } from '@/services/contactGraph/contactPersons';
 
 const CONTACT_PERSONAS = 'contact_personas';
 
+// PostgREST builds `.in()` into a query-string filter — an owner with a
+// large address book (1,200+ ContactPersons observed live) produces an IN
+// list long enough to exceed the upstream URL-length limit, surfacing as a
+// bare "Bad Request" (regression introduced by the 2026-08-27 "People 504
+// fix" batching, which removed the old per-id loop but left the single
+// batched .in() call unbounded). Chunking keeps each request small while
+// still being O(ids / CHUNK_SIZE) round trips, not O(ids).
+const IN_FILTER_CHUNK_SIZE = 100;
+
+function chunkIds(ids: string[], size = IN_FILTER_CHUNK_SIZE): string[][] {
+  const chunks: string[][] = [];
+  for (let i = 0; i < ids.length; i += size) chunks.push(ids.slice(i, i + size));
+  return chunks;
+}
+
 function rowToContactPersona(row: Record<string, unknown>): ContactPersona {
   return {
     id: String(row.id),
@@ -93,14 +108,23 @@ export async function listContactPersonasForOwner(
   const admin = getSupabaseServer();
   if (!admin) return { ok: false, error: 'Supabase unavailable' };
   if (contactPersonIds.length === 0) return { ok: true, value: [] };
-  const { data, error } = await admin
-    .from(CONTACT_PERSONAS)
-    .select('*')
-    .in('contact_person_id', contactPersonIds)
-    .eq('owner_auth_profile_id', ownerAuthProfileId)
-    .order('label', { ascending: true });
-  if (error) return { ok: false, error: error.message };
-  return { ok: true, value: (data ?? []).map((r) => rowToContactPersona(r as Record<string, unknown>)) };
+
+  const rows: Record<string, unknown>[] = [];
+  for (const idsChunk of chunkIds(contactPersonIds)) {
+    const { data, error } = await admin
+      .from(CONTACT_PERSONAS)
+      .select('*')
+      .in('contact_person_id', idsChunk)
+      .eq('owner_auth_profile_id', ownerAuthProfileId)
+      .order('label', { ascending: true });
+    if (error) return { ok: false, error: error.message };
+    rows.push(...(data ?? []));
+  }
+  // Each chunk is ordered independently — merge-sort by label so the
+  // combined result still honours the documented "ordered by label"
+  // contract, exactly as the single unchunked query did.
+  rows.sort((a, b) => String(a.label).localeCompare(String(b.label)));
+  return { ok: true, value: rows.map((r) => rowToContactPersona(r)) };
 }
 
 /**

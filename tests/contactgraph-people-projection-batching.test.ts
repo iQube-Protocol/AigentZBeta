@@ -27,6 +27,18 @@
  * + listContactPersonasForOwner + listContactEndpointsForPersonas), regardless
  * of how many ContactPersons/ContactPersonas the owner has — no dependency on
  * address-book size.
+ *
+ * AMENDMENT (2026-08-29): the batched-into-ONE-query fix above traded the 504
+ * for a NEW failure — PostgREST builds `.in()` into a query-string filter, and
+ * a single unbounded `.in()` over an owner's full 1,200+-row address book
+ * produces a filter long enough to exceed the upstream URL-length limit,
+ * surfacing as a bare "Bad Request". Both functions now CHUNK their `.in()`
+ * calls (IN_FILTER_CHUNK_SIZE ids per request) and merge-sort the results —
+ * still O(ids / chunkSize) round trips, not O(ids), and never a single
+ * request whose filter can grow unboundedly with address-book size. This is
+ * a bounded PAGE loop, not a reintroduction of the per-ROW loop the fix above
+ * removed — the assertions below were updated to tell the two apart rather
+ * than treating "any `for` loop" as the anti-pattern.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -73,29 +85,50 @@ describe('People 504 fix — the N+1 loop is gone, replaced by batched reads', (
     expect((code.match(/listContactEndpointsForPersonas\(/g) ?? []).length).toBe(1);
   });
 
-  it('listContactPersonasForOwner does ONE query with `.in(...)` + an owner filter — never a per-id ownership check', () => {
+  it('listContactPersonasForOwner does bounded `.in(...)` chunk queries + an owner filter — never a per-id ownership check', () => {
     const code = stripComments(readSource(CONTACT_PERSONAS));
     const fnAt = code.indexOf('export async function listContactPersonasForOwner(');
     expect(fnAt).toBeGreaterThan(-1);
     const nextFnAt = code.indexOf('\nexport async function', fnAt + 10);
     const fnBody = code.slice(fnAt, nextFnAt > -1 ? nextFnAt : fnAt + 2000);
-    expect(fnBody).toContain(".in('contact_person_id', contactPersonIds)");
+    // The filter operates on a CHUNK of ids, never the raw unbounded array
+    // directly — that's what keeps each request's URL length bounded
+    // regardless of address-book size (see the 2026-08-29 amendment above).
+    expect(fnBody).toContain(".in('contact_person_id', idsChunk)");
+    expect(fnBody).not.toContain(".in('contact_person_id', contactPersonIds)");
     expect(fnBody).toContain(".eq('owner_auth_profile_id', ownerAuthProfileId)");
+    // The only loop present iterates CHUNKS (a bounded page count), never
+    // one iteration per row — that distinction, not "any for loop", is what
+    // separates this from the per-row anti-pattern the 504 fix removed.
+    expect(fnBody).toMatch(/for \(const idsChunk of chunkIds\(contactPersonIds\)\) \{/);
     // No nested getContactPerson/ownership-check call inside — the query
     // itself enforces ownership via the eq() filter.
     expect(fnBody).not.toMatch(/getContactPerson\(/);
   });
 
-  it('listContactEndpointsForPersonas does ONE query with `.in(...)` + the SAME ownership-join pattern ownsContactPersona uses — never a per-id loop', () => {
+  it('listContactEndpointsForPersonas does bounded `.in(...)` chunk queries + the SAME ownership-join pattern ownsContactPersona uses — never a per-id loop', () => {
     const code = stripComments(readSource(CONTACT_ENDPOINTS));
     const fnAt = code.indexOf('export async function listContactEndpointsForPersonas(');
     expect(fnAt).toBeGreaterThan(-1);
     const nextFnAt = code.indexOf('\nexport async function', fnAt + 10);
     const fnBody = code.slice(fnAt, nextFnAt > -1 ? nextFnAt : fnAt + 2000);
-    expect(fnBody).toContain(".in('contact_persona_id', contactPersonaIds)");
+    expect(fnBody).toContain(".in('contact_persona_id', idsChunk)");
+    expect(fnBody).not.toContain(".in('contact_persona_id', contactPersonaIds)");
     expect(fnBody).toContain("contact_personas!inner(owner_auth_profile_id)");
     expect(fnBody).toContain(".eq('contact_personas.owner_auth_profile_id', ownerAuthProfileId)");
-    expect(fnBody).not.toMatch(/for\s*\(/);
+    expect(fnBody).toMatch(/for \(const idsChunk of chunkIds\(contactPersonaIds\)\) \{/);
+  });
+
+  it('both chunk helpers bound each request to a small, fixed page size — never unbounded, never per-row (size 1)', () => {
+    const personasCode = stripComments(readSource(CONTACT_PERSONAS));
+    const endpointsCode = stripComments(readSource(CONTACT_ENDPOINTS));
+    for (const code of [personasCode, endpointsCode]) {
+      const match = code.match(/IN_FILTER_CHUNK_SIZE = (\d+);/);
+      expect(match).not.toBeNull();
+      const size = Number(match?.[1]);
+      expect(size).toBeGreaterThan(1); // never degrades back to a per-row loop
+      expect(size).toBeLessThanOrEqual(500); // stays comfortably inside any realistic URL-length limit
+    }
   });
 
   it('an empty id list short-circuits to a zero-query result rather than an empty/invalid `.in()` call', () => {
