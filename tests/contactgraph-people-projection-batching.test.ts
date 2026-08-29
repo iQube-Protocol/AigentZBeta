@@ -76,13 +76,23 @@ describe('People 504 fix — the N+1 loop is gone, replaced by batched reads', (
     expect(loopBody).not.toMatch(/await\s/);
   });
 
-  it('personas and endpoints are each fetched in exactly ONE batched call for the whole page', () => {
+  it('requestContactGraphProjection fetches personas and endpoints in exactly ONE batched call for the whole page', () => {
+    // Scoped to THIS function's own body — requestContactGraphPeoplePage
+    // (added 2026-08-29 for the paginated People-list read) legitimately
+    // calls the SAME batched helpers once each for its own page, which is a
+    // second real call site, not a reintroduced per-id loop. See that
+    // function's own describe block below for its equivalent assertion.
     const code = stripComments(readSource(PROJECTION));
-    expect(code).toContain('const personasResult = await listContactPersonasForOwner(owner.value, grantedIds);');
-    expect(code).toContain('const endpointsResult = await listContactEndpointsForPersonas(owner.value, allPersonaIds);');
-    // Only ONE call site for each — not still present in a per-id loop too.
-    expect((code.match(/listContactPersonasForOwner\(/g) ?? []).length).toBe(1);
-    expect((code.match(/listContactEndpointsForPersonas\(/g) ?? []).length).toBe(1);
+    const fnAt = code.indexOf('export async function requestContactGraphProjection(');
+    expect(fnAt).toBeGreaterThan(-1);
+    const nextFnAt = code.indexOf('\nexport ', fnAt + 10);
+    const fnBody = code.slice(fnAt, nextFnAt > -1 ? nextFnAt : fnAt + 4000);
+    expect(fnBody).toContain('const personasResult = await listContactPersonasForOwner(owner.value, grantedIds);');
+    expect(fnBody).toContain('const endpointsResult = await listContactEndpointsForPersonas(owner.value, allPersonaIds);');
+    // Only ONE call site for each WITHIN this function — not still present
+    // in a per-id loop too.
+    expect((fnBody.match(/listContactPersonasForOwner\(/g) ?? []).length).toBe(1);
+    expect((fnBody.match(/listContactEndpointsForPersonas\(/g) ?? []).length).toBe(1);
   });
 
   it('listContactPersonasForOwner does bounded `.in(...)` chunk queries + an owner filter — never a per-id ownership check', () => {
@@ -157,9 +167,14 @@ describe('the People read stays a bounded, side-effect-free PROJECTION — recon
     expect(code).toContain('reconcileConfirmedPersonaContacts(owner.value, persona.personaId, { limit: 200 });');
   });
 
-  it('the route requests the full owner-scoped projection exactly once per GET — no duplicate/parallel projection call added by this fix', () => {
+  it('the route requests exactly one page per GET — no duplicate/parallel read added by this fix', () => {
+    // 2026-08-29: the route now calls the paginated requestContactGraphPeoplePage
+    // (see the "1,000-person ceiling" describe block below) rather than the
+    // full unbounded requestContactGraphProjection — this asserts the NEW
+    // call site is singular, the same guarantee the old assertion made.
     const code = stripComments(readSource(PEOPLE_ROUTE));
-    expect((code.match(/requestContactGraphProjection\(/g) ?? []).length).toBe(1);
+    expect((code.match(/requestContactGraphPeoplePage\(/g) ?? []).length).toBe(1);
+    expect(code).not.toMatch(/requestContactGraphProjection\(/);
   });
 });
 

@@ -16,9 +16,25 @@ describe('ContactGraph People statistics', () => {
 
   it('keeps imported records distinct from canonical graph people', () => {
     const route = source('app/api/contactgraph/people/route.ts');
-    expect(route).toContain('graphPeople: result.value.people.length');
+    // 2026-08-29: graphPeople previously read `result.value.people.length` —
+    // the count of rows THIS response happened to carry, which PostgREST's
+    // default row cap silently truncated at 1,000 for any larger address
+    // book (the "1,000 graph people" ceiling). It must be a real exact
+    // count, never rows-returned, even though the two happen to be equal
+    // for a small address book.
+    expect(route).toContain('graphPeople: result.value.totalCount');
+    expect(route).not.toContain('graphPeople: result.value.people.length');
     expect(route).toContain('importedRecords: imports.value.importedRecords');
     expect(route).toContain('importedBySource: imports.value.bySource');
+  });
+
+  it('the graphPeople total comes from a real exact-count query, not a fetched-rows length', () => {
+    const projection = source('services/contactGraph/projection.ts');
+    const fnAt = projection.indexOf('export async function requestContactGraphPeoplePage(');
+    expect(fnAt).toBeGreaterThan(-1);
+    const fnBody = projection.slice(fnAt, fnAt + 3000);
+    expect(fnBody).toContain("{ count: 'exact', head: true }");
+    expect(fnBody).toContain('const totalCount = count ?? 0;');
   });
 
   it('uses one shared statistics projection in Agent Me and Runtime People surfaces', () => {
