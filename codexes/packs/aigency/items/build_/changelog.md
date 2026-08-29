@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`c6f70de`](https://github.com/iQube-Protocol/AigentZBeta/commit/c6f70de7796fcaa54f93a0fbc11f2cc80979f9cb) [feat] Add gated runtime session diagnostics for the cross-runtime ~3s reset investigation (Bug B) (Claude, 2026-08-29T14:20:07Z)
+- [`bbfa9d4`](https://github.com/iQube-Protocol/AigentZBeta/commit/bbfa9d475bc5b4826aee8f49cca9139c8649367d) [push] Harden principal-only orientation: fail closed on the wrong acting persona (Claude, 2026-08-29T14:42:50Z)
 - [`b0d0aeb`](https://github.com/iQube-Protocol/AigentZBeta/commit/b0d0aebdac5ded9b7ac6bff5a9a340b5cb35a15a) [fix] Fix OCSGA Bridge projection: Ian's exchange no longer hidden behind the delegation shell (Claude, 2026-08-29T13:14:58Z)
 - [`a7362d0`](https://github.com/iQube-Protocol/AigentZBeta/commit/a7362d08b2d2961603e95255329d94c9a5cf4578) [fix] Fix Communications People: independent scroll pane + 1,000-person ceiling (Claude, 2026-08-29T04:34:44Z)
 - [`4ae4830`](https://github.com/iQube-Protocol/AigentZBeta/commit/4ae4830217024b6a7286dbd40e5c19526151c003) [fix] Fix ContactGraph People "Bad Request" — chunk unbounded .in() filters (Claude, 2026-08-29T03:41:21Z)

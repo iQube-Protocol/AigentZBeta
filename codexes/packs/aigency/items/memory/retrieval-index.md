@@ -4609,3 +4609,13 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-b0d0aeb.md](../build_/COMMITS/COMMIT-b0d0aeb.md)
 - Message: Fix OCSGA Bridge projection: Ian's exchange no longer hidden behind the delegation shell
+
+## Commit `bbfa9d4` — 2026-08-29T14:42:50Z
+- Type: `push`
+- Brief: [COMMIT-bbfa9d4.md](../build_/COMMITS/COMMIT-bbfa9d4.md)
+- Message: Harden principal-only orientation: fail closed on the wrong acting persona
+
+## Commit `c6f70de` — 2026-08-29T14:20:07Z
+- Type: `feat`
+- Brief: [COMMIT-c6f70de.md](../build_/COMMITS/COMMIT-c6f70de.md)
+- Message: Add gated runtime session diagnostics for the cross-runtime ~3s reset investigation (Bug B)

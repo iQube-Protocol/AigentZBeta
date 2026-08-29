@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-29T13:32:54.193Z",
+  "last_updated": "2026-08-29T14:45:15.723Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "b0d0aebdac5ded9b7ac6bff5a9a340b5cb35a15a",
-  "latest_commit_short": "b0d0aeb",
-  "latest_commit_title": "Fix OCSGA Bridge projection: Ian's exchange no longer hidden behind the delegation shell",
+  "latest_commit": "c6f70de7796fcaa54f93a0fbc11f2cc80979f9cb",
+  "latest_commit_short": "c6f70de",
+  "latest_commit_title": "Add gated runtime session diagnostics for the cross-runtime ~3s reset investigation (Bug B)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "c6f70de",
+      "full_sha": "c6f70de7796fcaa54f93a0fbc11f2cc80979f9cb",
+      "title": "Add gated runtime session diagnostics for the cross-runtime ~3s reset investigation (Bug B)",
+      "author": "Claude",
+      "timestamp": "2026-08-29T14:20:07Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-c6f70de.md"
+    },
+    {
+      "sha": "bbfa9d4",
+      "full_sha": "bbfa9d475bc5b4826aee8f49cca9139c8649367d",
+      "title": "Harden principal-only orientation: fail closed on the wrong acting persona",
+      "author": "Claude",
+      "timestamp": "2026-08-29T14:42:50Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-bbfa9d4.md"
+    },
     {
       "sha": "b0d0aeb",
       "full_sha": "b0d0aebdac5ded9b7ac6bff5a9a340b5cb35a15a",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-08-14T02:19:53Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-2941362.md"
-    },
-    {
-      "sha": "bff416b",
-      "full_sha": "bff416b853ac17de98defd4c3d5636c037615e62",
-      "title": "Revert \"groom bridges: header stage numbers (A4), auto-advance passport room (A2), article-zero templates (A3), pdf border styling (A6), duplicate passport gate removal (A1)\"",
-      "author": "Claude",
-      "timestamp": "2026-08-14T02:40:53Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-bff416b.md"
-    },
-    {
-      "sha": "0132bdb",
-      "full_sha": "0132bdbf95c5cbbabcb883b2aa4f0075a9bc032e",
-      "title": "soft-launch grooming pass: Constitutional Internet Bridge + KNYTS Bridge refinements",
-      "author": "Claude",
-      "timestamp": "2026-08-14T03:46:46Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-0132bdb.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
