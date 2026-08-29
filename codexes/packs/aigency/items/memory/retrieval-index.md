@@ -4619,3 +4619,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-c6f70de.md](../build_/COMMITS/COMMIT-c6f70de.md)
 - Message: Add gated runtime session diagnostics for the cross-runtime ~3s reset investigation (Bug B)
+
+## Commit `2a742dd` — 2026-08-29T17:42:01Z
+- Type: `push`
+- Brief: [COMMIT-2a742dd.md](../build_/COMMITS/COMMIT-2a742dd.md)
+- Message: Harden Orientation READ path: principal-aware evidence resolution

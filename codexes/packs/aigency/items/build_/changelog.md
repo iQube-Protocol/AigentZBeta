@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`2a742dd`](https://github.com/iQube-Protocol/AigentZBeta/commit/2a742dd150d683a23c1dc8189f2d2e2fc9c485b6) [push] Harden Orientation READ path: principal-aware evidence resolution (Claude, 2026-08-29T17:42:01Z)
 - [`c6f70de`](https://github.com/iQube-Protocol/AigentZBeta/commit/c6f70de7796fcaa54f93a0fbc11f2cc80979f9cb) [feat] Add gated runtime session diagnostics for the cross-runtime ~3s reset investigation (Bug B) (Claude, 2026-08-29T14:20:07Z)
 - [`bbfa9d4`](https://github.com/iQube-Protocol/AigentZBeta/commit/bbfa9d475bc5b4826aee8f49cca9139c8649367d) [push] Harden principal-only orientation: fail closed on the wrong acting persona (Claude, 2026-08-29T14:42:50Z)
 - [`b0d0aeb`](https://github.com/iQube-Protocol/AigentZBeta/commit/b0d0aebdac5ded9b7ac6bff5a9a340b5cb35a15a) [fix] Fix OCSGA Bridge projection: Ian's exchange no longer hidden behind the delegation shell (Claude, 2026-08-29T13:14:58Z)

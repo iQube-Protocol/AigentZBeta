@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-29T14:45:15.723Z",
+  "last_updated": "2026-08-29T17:44:37.471Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "c6f70de7796fcaa54f93a0fbc11f2cc80979f9cb",
-  "latest_commit_short": "c6f70de",
-  "latest_commit_title": "Add gated runtime session diagnostics for the cross-runtime ~3s reset investigation (Bug B)",
+  "latest_commit": "2a742dd150d683a23c1dc8189f2d2e2fc9c485b6",
+  "latest_commit_short": "2a742dd",
+  "latest_commit_title": "Harden Orientation READ path: principal-aware evidence resolution",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "2a742dd",
+      "full_sha": "2a742dd150d683a23c1dc8189f2d2e2fc9c485b6",
+      "title": "Harden Orientation READ path: principal-aware evidence resolution",
+      "author": "Claude",
+      "timestamp": "2026-08-29T17:42:01Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-2a742dd.md"
+    },
     {
       "sha": "c6f70de",
       "full_sha": "c6f70de7796fcaa54f93a0fbc11f2cc80979f9cb",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-14T02:18:05Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-5b77bdf.md"
-    },
-    {
-      "sha": "2941362",
-      "full_sha": "29413627bbf9399cde4bc8e79ced80e9ae484f67",
-      "title": "groom bridges: header stage numbers (A4), auto-advance passport room (A2), article-zero templates (A3), pdf border styling (A6), duplicate passport gate removal (A1)",
-      "author": "Claude",
-      "timestamp": "2026-08-14T02:19:53Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-2941362.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
