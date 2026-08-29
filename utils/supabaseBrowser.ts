@@ -7,6 +7,7 @@
  * AbortError races caused by concurrent instances sharing the same storage key.
  */
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { logRuntimeEvent, runtimeDiagnosticNow } from '@/utils/runtimeSessionDiagnostics';
 
 let _client: SupabaseClient | null = null;
 
@@ -41,27 +42,71 @@ const GET_SESSION_TIMEOUT_MS = 3000;
 
 export async function getSupabaseAccessToken(): Promise<string> {
   if (typeof window === 'undefined') return '';
+  const startedAt = runtimeDiagnosticNow();
+  logRuntimeEvent('getSupabaseAccessToken:start');
   try {
+    let timedOut = false;
     const session = await Promise.race([
-      getSupabaseBrowserClient().auth.getSession().then((r) => r.data?.session ?? null),
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), GET_SESSION_TIMEOUT_MS)),
+      getSupabaseBrowserClient()
+        .auth.getSession()
+        .then((r) => {
+          logRuntimeEvent('getSession:end', {
+            elapsedMs: runtimeDiagnosticNow() - startedAt,
+            timedOut,
+            hasSession: Boolean(r.data?.session),
+          });
+          return r.data?.session ?? null;
+        }),
+      new Promise<null>((resolve) =>
+        setTimeout(() => {
+          timedOut = true;
+          logRuntimeEvent('getSession:timeout', {
+            elapsedMs: runtimeDiagnosticNow() - startedAt,
+            timeoutMs: GET_SESSION_TIMEOUT_MS,
+          });
+          resolve(null);
+        }, GET_SESSION_TIMEOUT_MS),
+      ),
     ]);
     const token = session?.access_token;
-    if (token) return token;
-  } catch {
+    if (token) {
+      logRuntimeEvent('getSupabaseAccessToken:end', {
+        elapsedMs: runtimeDiagnosticNow() - startedAt,
+        source: 'session',
+        timedOut,
+      });
+      return token;
+    }
+  } catch (err) {
+    logRuntimeEvent('getSupabaseAccessToken:error', {
+      elapsedMs: runtimeDiagnosticNow() - startedAt,
+      message: err instanceof Error ? err.message : String(err),
+    });
     /* fall through to localStorage scan */
   }
   try {
     const k = Object.keys(window.localStorage).find(
       (x) => x.startsWith('sb-') && x.endsWith('-auth-token'),
     );
-    if (!k) return '';
+    if (!k) {
+      logRuntimeEvent('getSupabaseAccessToken:end', {
+        elapsedMs: runtimeDiagnosticNow() - startedAt,
+        source: 'localStorage-fallback-empty',
+      });
+      return '';
+    }
     const raw = window.localStorage.getItem(k);
     if (!raw) return '';
     const parsed = JSON.parse(raw) as
       | { access_token?: string; currentSession?: { access_token?: string } }
       | null;
-    return parsed?.access_token ?? parsed?.currentSession?.access_token ?? '';
+    const fallbackToken = parsed?.access_token ?? parsed?.currentSession?.access_token ?? '';
+    logRuntimeEvent('getSupabaseAccessToken:end', {
+      elapsedMs: runtimeDiagnosticNow() - startedAt,
+      source: 'localStorage-fallback',
+      hasToken: Boolean(fallbackToken),
+    });
+    return fallbackToken;
   } catch {
     return '';
   }

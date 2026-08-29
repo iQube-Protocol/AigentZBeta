@@ -306,6 +306,7 @@ import { getSupabaseBrowserClient } from "@/utils/supabaseBrowser";
 import { personaFetch } from "@/utils/personaSpine";
 import { WorldIdButton, type WorldIdProofBundle } from "@/components/passport/WorldIdButton";
 import { openInSidePanelHostWindow } from "@/services/companion/sidePanelTabBridge";
+import { logRuntimeEvent } from "@/utils/runtimeSessionDiagnostics";
 import {
   listLocalWalletProfiles,
   getPreselectedLocalWalletProfile,
@@ -737,6 +738,7 @@ export function PassportConnectPanel({
       grant: { tokenHash: string; passport: PassportFacts },
       transactionToken: string | null,
     ) => {
+      logRuntimeEvent("PassportConnectPanel:completeSessionFromGrant:start", { world, hasTransactionToken: Boolean(transactionToken) });
       // Exchange for the Companion's OWN session (this iframe's storage
       // partition). Supabase owns single-use and expiry; we never hand-roll.
       //
@@ -1284,6 +1286,7 @@ export function PassportConnectPanel({
               expiresAt: null,
             };
             setState({ kind: "connected", passport: emptyFacts });
+            logRuntimeEvent("PassportConnectPanel:onConnected", { source: "username-password" });
             onConnected?.(emptyFacts);
           }}
         />

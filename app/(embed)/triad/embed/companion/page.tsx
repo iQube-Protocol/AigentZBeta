@@ -76,6 +76,7 @@ import dynamic from "next/dynamic";
 
 import { useCodexEmbedAuthBridge } from "../codex/_lib/useCodexEmbedAuthBridge";
 import { resolveCompanionContext } from "@/services/companion/runtime";
+import { logRuntimeEvent } from "@/utils/runtimeSessionDiagnostics";
 import {
   parseCompanionSurfaceKind,
   type CompanionRuntimeContext,
@@ -568,7 +569,10 @@ function CompanionShell() {
       // on this page resolves — the auth bridge, the spine reads, the copilot.
       // A reload is the honest way to let all of them re-resolve at once; a
       // partial refresh would leave some surfaces reading the old absence.
-      onConnected={() => window.location.reload()}
+      onConnected={() => {
+        logRuntimeEvent("embed/companion:window.location.reload", { source: "PassportConnect:onConnected" });
+        window.location.reload();
+      }}
     />
   );
 

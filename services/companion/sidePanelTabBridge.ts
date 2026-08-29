@@ -52,6 +52,8 @@
  * `window.open` behaviour, unchanged from before this fix.
  */
 
+import { logRuntimeEvent } from "@/utils/runtimeSessionDiagnostics";
+
 export const OPEN_TAB_REQUEST = "metame-companion:open-tab";
 export const OPEN_TAB_DONE = "metame-companion:open-tab-done";
 
@@ -81,6 +83,7 @@ export function openInSidePanelHostWindow(url: string): Promise<boolean> {
   if (typeof window === "undefined" || window.parent === window) {
     return Promise.resolve(false);
   }
+  logRuntimeEvent("sidePanelTabBridge:openInSidePanelHostWindow:request", { url });
 
   const absoluteUrl = (() => {
     try {
