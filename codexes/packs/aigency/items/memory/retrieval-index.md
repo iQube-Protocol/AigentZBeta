@@ -4599,3 +4599,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-4ae4830.md](../build_/COMMITS/COMMIT-4ae4830.md)
 - Message: Fix ContactGraph People "Bad Request" — chunk unbounded .in() filters
+
+## Commit `a7362d0` — 2026-08-29T04:34:44Z
+- Type: `fix`
+- Brief: [COMMIT-a7362d0.md](../build_/COMMITS/COMMIT-a7362d0.md)
+- Message: Fix Communications People: independent scroll pane + 1,000-person ceiling

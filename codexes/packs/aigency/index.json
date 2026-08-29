@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-29T03:44:39.671Z",
+  "last_updated": "2026-08-29T04:42:55.118Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "4ae4830217024b6a7286dbd40e5c19526151c003",
-  "latest_commit_short": "4ae4830",
-  "latest_commit_title": "Fix ContactGraph People \"Bad Request\" — chunk unbounded .in() filters",
+  "latest_commit": "a7362d08b2d2961603e95255329d94c9a5cf4578",
+  "latest_commit_short": "a7362d0",
+  "latest_commit_title": "Fix Communications People: independent scroll pane + 1,000-person ceiling",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "a7362d0",
+      "full_sha": "a7362d08b2d2961603e95255329d94c9a5cf4578",
+      "title": "Fix Communications People: independent scroll pane + 1,000-person ceiling",
+      "author": "Claude",
+      "timestamp": "2026-08-29T04:34:44Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-a7362d0.md"
+    },
     {
       "sha": "4ae4830",
       "full_sha": "4ae4830217024b6a7286dbd40e5c19526151c003",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-12T19:39:35Z",
       "type": "refactor",
       "brief": "items/build_/COMMITS/COMMIT-1c05d36.md"
-    },
-    {
-      "sha": "c931c79",
-      "full_sha": "c931c795660567f50a3d8b26a7243f68e21195ab",
-      "title": "trigger deploy: Delegate stage reconciliation",
-      "author": "Claude",
-      "timestamp": "2026-08-12T19:10:10Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-c931c79.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
