@@ -17,7 +17,10 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AuthoritativePlatformState as JourneyAuthState } from '@/services/journey/resolveJourneyState';
-import { listActivityReceiptsForPersona } from '@/services/receipts/activityReceiptService';
+import {
+  listActivityReceiptsForPersona,
+  listActivityReceiptsForPersonas,
+} from '@/services/receipts/activityReceiptService';
 import { hasActiveDelegation } from '@/services/delegation/delegationGrantStore';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { listMyExchanges, getExchangeView } from '@/services/research/reciprocalExchange';
@@ -90,6 +93,27 @@ export interface IanAuthoritativeStateResult {
  * a refused attempt writes nothing at all), and NEVER touches the old
  * misattributed receipt — confirming/repairing/copying it is out of scope
  * for this identity-enforcement fix.
+ *
+ * CANONICAL RULE, TWO CALL SITES (2026-08-29, Implementation Singularity —
+ * inv.constitutional.361/362, appendix-a_canonical-invariants.md). This is
+ * the ONE function that decides "does personaId count as the constitutional
+ * principal for this authProfileId's journey" — never re-derived elsewhere:
+ *
+ *   - WRITE: app/api/journey/ian/orient/acknowledge/route.ts calls this with
+ *     the ACTING persona, before writing a new receipt.
+ *   - READ: resolveOrientationEvidence (below) calls this with the persona
+ *     OWNING an existing orientation_ritual_completed receipt, before
+ *     trusting that receipt as evidence the journey's Orient stage is
+ *     satisfied. Closes the gap where a bare persona-scoped
+ *     `hasReceiptType` read let Ian's constitutionally invalid,
+ *     aigentMe-attributed receipt mark Orient COMPLETE — which shadowed the
+ *     Orientation UI (including the write gate above) from ever being
+ *     reachable, for whichever persona his browser had active.
+ *
+ * Read and write may reach different verdicts (a receipt can exist under a
+ * persona that would currently be refused at write time), but both ask this
+ * SAME function the SAME question. Never fork a second, slightly different
+ * definition of who counts as principal.
  */
 export type OrientationPrincipalGateResult =
   | { ok: true }
@@ -157,6 +181,86 @@ export async function resolveOrientationPrincipalGate(
   return { ok: true };
 }
 
+export interface OrientationEvidenceResult {
+  complete: boolean;
+  /** The specific receipt id that satisfied evidence, or null if none did. */
+  receiptId: string | null;
+}
+
+/**
+ * Principal-aware Orientation evidence resolution — the READ-side half of
+ * the 2026-08-29 fix (`resolveOrientationPrincipalGate` above is the WRITE
+ * side; see that function's own doc comment for why these must ask the
+ * same question).
+ *
+ * ROOT CAUSE THIS CLOSES: the prior read was a bare
+ * `hasReceiptType('orientation_ritual_completed')` scoped only to whichever
+ * persona the caller's browser currently has active — no principal-type or
+ * exchange-binding check at all. Ian's real, constitutionally invalid
+ * aigentMe-attributed receipt therefore satisfied Orient for that exact
+ * persona, which shadowed the Orientation/Acknowledge UI from ever
+ * rendering (the resolver believed Orient was already complete), making the
+ * hardened write gate unreachable in practice.
+ *
+ * This widens the SEARCH (every persona under the same auth profile may
+ * hold the deciding receipt — a receipt is persona-scoped, and the valid
+ * one may not belong to whichever persona happens to be active right now)
+ * but never widens WHO COUNTS (each candidate receipt's owning persona is
+ * still run through the exact same `resolveOrientationPrincipalGate` the
+ * write path uses — an agent-kind sibling's own receipt is refused exactly
+ * as it would be refused at write time).
+ *
+ * Never deletes, rewrites, or reassigns any receipt — a persona whose
+ * receipt fails the gate simply does not count as evidence; the row is
+ * untouched.
+ */
+export async function resolveOrientationEvidence(
+  admin: SupabaseClient | null,
+  input: { personaId: string; authProfileId: string | null },
+): Promise<OrientationEvidenceResult> {
+  if (!admin) {
+    // No DB — cannot verify principal attribution, so a bare unverifiable
+    // receipt must not be trusted. Honestly incomplete, never fabricated.
+    return { complete: false, receiptId: null };
+  }
+  if (!input.authProfileId) {
+    // No auth profile resolved yet — cannot determine siblings or run the
+    // canonical gate (which requires one). Same fail-closed posture.
+    return { complete: false, receiptId: null };
+  }
+
+  // Every persona under this auth profile is a candidate — the receipt
+  // that decides Orient may belong to a sibling other than whichever
+  // persona is currently active.
+  const { data: siblingRows } = await admin
+    .from('personas')
+    .select('id')
+    .eq('auth_profile_id', input.authProfileId);
+  const siblingIds = (siblingRows ?? [])
+    .map((r) => (r as { id?: unknown }).id)
+    .filter((id): id is string => typeof id === 'string');
+  const candidatePersonaIds = siblingIds.length > 0 ? siblingIds : [input.personaId];
+
+  const receipts = await listActivityReceiptsForPersonas(candidatePersonaIds, {
+    actionTypes: ['orientation_ritual_completed'],
+    limit: 20,
+  });
+  if (receipts.length === 0) return { complete: false, receiptId: null };
+
+  // Newest first (listActivityReceiptsForPersonas orders by created_at
+  // descending) — the first receipt whose OWNING persona passes the
+  // canonical principal gate is the evidence. A receipt whose persona
+  // fails (delegated agent, unrelated sibling) is skipped, never repaired.
+  for (const { record, personaId: receiptPersonaId } of receipts) {
+    const gate = await resolveOrientationPrincipalGate(admin, {
+      personaId: receiptPersonaId,
+      authProfileId: input.authProfileId,
+    });
+    if (gate.ok) return { complete: true, receiptId: record.id };
+  }
+  return { complete: false, receiptId: null };
+}
+
 export async function fetchIanAuthoritativePlatformState(
   personaId: string | null,
   authProfileId: string | null,
@@ -177,8 +281,11 @@ export async function fetchIanAuthoritativePlatformState(
     };
   }
 
+  // passport_issued stays a bare active-persona-scoped read (Presence
+  // evidence semantics are explicitly out of scope for this fix — see
+  // codexes/packs/agentiq/updates/2026-08-29_ocsga-orientation-read-path-principal-gate.md).
   const receipts = await listActivityReceiptsForPersona(personaId, {
-    actionTypes: ['orientation_ritual_completed', 'passport_issued'],
+    actionTypes: ['passport_issued'],
     limit: 20,
   });
   const hasReceiptType = (type: string) => receipts.some((r) => r.actionType === type);
@@ -197,6 +304,11 @@ export async function fetchIanAuthoritativePlatformState(
   let citizenPassportRef: string | null = null;
 
   const admin = getSupabaseServer();
+
+  // Orient evidence — principal-aware (2026-08-29). Resolved regardless of
+  // whether `admin` is available; resolveOrientationEvidence itself fails
+  // closed (incomplete, never fabricated) when it is not.
+  const orientationEvidence = await resolveOrientationEvidence(admin, { personaId, authProfileId });
   if (!admin) {
     evidenceGaps.push(
       'Supabase server client unavailable — cannot resolve Reciprocal Artifact Exchange state; deposit/freeze/sign/cross stages read as not-yet-established, not fabricated.',
@@ -278,7 +390,7 @@ export async function fetchIanAuthoritativePlatformState(
    */
   const state: JourneyAuthState = {
     stages: {
-      orient: { orientation_ritual_completed: hasReceiptType('orientation_ritual_completed') },
+      orient: { orientation_ritual_completed: orientationEvidence.complete },
       passport: { passport_issued: hasReceiptType('passport_issued') || citizenPassportUsable },
       'delegation-establish': { delegation_active: delegationActive },
       'create-deposit': { iqube_created: yourDeposited, content_deposited: yourDeposited },
@@ -304,7 +416,11 @@ export async function fetchIanAuthoritativePlatformState(
       'research-active': { boundary_research_access_active: crossed },
     },
     receiptRefs: {
-      orientation_ritual_completed: receiptIdsFor('orientation_ritual_completed'),
+      // The single receipt that satisfied the canonical principal gate —
+      // never every persona-scoped receipt that merely exists (a refused
+      // sibling/agent receipt is not evidence and must not be cited as if
+      // it were).
+      orientation_ritual_completed: orientationEvidence.receiptId ? [orientationEvidence.receiptId] : [],
       passport_issued: receiptIdsFor('passport_issued'),
     },
   };
