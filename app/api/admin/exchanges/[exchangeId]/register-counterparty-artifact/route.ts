@@ -1,7 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import { createHash } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import { getCallerIdentityContext } from '@/services/identity/getActivePersona';
+import { getActivePersona } from '@/services/identity/getActivePersona';
+import { isCartridgeAdmin } from '@/services/access/requireCartridgeAdmin';
 import { registerArtifactOperatorAssisted } from '@/services/research/reciprocalExchange';
 
 const OCSGA_V13_FINGERPRINT = '9f33939112351d811337475c3ed4ebcb78bb993d066232ab06d187098f7c1331';
@@ -58,15 +59,15 @@ export async function POST(
       { auth: { persistSession: false } },
     );
 
-    const caller = await getCallerIdentityContext(req, admin);
-    if (!caller.ok) {
+    const caller = await getActivePersona(req);
+    if (!caller) {
       return NextResponse.json(
         { ok: false, error: 'authentication failed' },
         { status: 401 },
       );
     }
 
-    if (!caller.isAdmin) {
+    if (!isCartridgeAdmin(caller, 'irl-cartridge')) {
       return NextResponse.json(
         { ok: false, error: 'admin access required' },
         { status: 403 },
@@ -88,76 +89,53 @@ export async function POST(
       );
     }
 
-    // Verify principal has active Passport and research-lab grant
+    // Resolve target — confirm the persona genuinely exists. Passport
+    // usability and research-lab grant scope are NOT re-checked here: they
+    // are the canonical service's own job, enforced structurally by
+    // registerArtifactOperatorAssisted's resolveMembership invariant below
+    // (a principal can only be bound to Party B via
+    // services/journey/boundaryResearchExchangeAdmission.ts's admission
+    // flow, which already verified Passport + grant before binding). This
+    // route does not reconstruct that doctrine with its own table queries.
     const { data: personaRow, error: personaError } = await admin
       .from('personas')
-      .select('id, persona_label')
+      .select('id')
       .eq('id', boundPrincipalId)
       .maybeSingle();
 
-    if (personaError || !personaRow) {
+    if (personaError) {
+      return NextResponse.json({ ok: false, error: personaError.message }, { status: 500 });
+    }
+    if (!personaRow) {
       return NextResponse.json(
         { ok: false, error: 'principal persona not found' },
         { status: 404 },
       );
     }
 
-    // Verify active Passport
-    const { data: passportRow, error: passportError } = await admin
-      .from('passports')
-      .select('id, passport_status, revoked_at')
-      .eq('persona_id', boundPrincipalId)
-      .eq('passport_status', 'ACTIVE')
-      .is('revoked_at', null)
-      .maybeSingle();
-
-    if (passportError || !passportRow) {
-      return NextResponse.json(
-        { ok: false, error: 'principal lacks active verified Passport' },
-        { status: 403 },
-      );
-    }
-
-    // Verify active research-lab grant
-    const { data: grantRows, error: grantError } = await admin
-      .from('capability_grants')
-      .select('id, capability_class, grant_status, expires_at')
-      .eq('persona_id', boundPrincipalId)
-      .eq('capability_class', 'research-lab')
-      .eq('grant_status', 'active');
-
-    if (grantError || !grantRows || grantRows.length === 0) {
-      return NextResponse.json(
-        { ok: false, error: 'principal lacks active research-lab grant' },
-        { status: 403 },
-      );
-    }
-
-    // Verify grant has not expired
-    const now = new Date();
-    const validGrant = grantRows.find((g) => !g.expires_at || new Date(g.expires_at) > now);
-    if (!validGrant) {
-      return NextResponse.json(
-        { ok: false, error: 'principal research-lab grant has expired' },
-        { status: 403 },
-      );
-    }
-
-    // Register artifact via canonical service
+    // Register artifact via canonical service. boundPrincipalPersonaId is
+    // re-verified for real inside the service — it refuses 'not-a-party' if
+    // this persona is not the exchange's currently bound Party B.
     const result = await registerArtifactOperatorAssisted(admin, {
       exchangeId,
-      partySlot: 'B',
-      artifactHash: contentHash,
-      mimeType,
-      boundPrincipalId,
+      boundPrincipalPersonaId: boundPrincipalId,
       registeringOperatorPersonaId: caller.personaId,
       authorityBasis: authorityBasis || 'operator-assisted registration under research-lab grant',
-      originChannel: 'operator-assisted',
+      title: 'OCSGA v1.3 — Operator-Registered Boundary Research Artifact',
+      artifactClass: 'operator-registered-deposit',
+      sourceType: 'immutable-reference',
+      sourceReference: 'operator-assisted-registration',
+      contentHash,
+      mimeType,
+      ownershipDeclaration:
+        'Registered via operator-assisted workflow under boundary research exchange admission protocol.',
+      rightsForExchange:
+        'Authorized under active research-lab grant and verified Passport, confirmed via canonical exchange membership.',
     });
 
     if (!result.ok) {
       return NextResponse.json(
-        { ok: false, error: result.error ?? result.reason },
+        { ok: false, error: result.error },
         { status: 400 },
       );
     }
