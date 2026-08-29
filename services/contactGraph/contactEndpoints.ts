@@ -27,6 +27,17 @@ import { getContactPerson } from '@/services/contactGraph/contactPersons';
 const CONTACT_ENDPOINTS = 'contact_endpoints';
 const CONTACT_PERSONAS = 'contact_personas';
 
+// See services/contactGraph/contactPersonas.ts's chunkIds for why: a large
+// address book's .in() list can exceed the upstream URL-length limit and
+// surface as a bare "Bad Request".
+const IN_FILTER_CHUNK_SIZE = 100;
+
+function chunkIds(ids: string[], size = IN_FILTER_CHUNK_SIZE): string[][] {
+  const chunks: string[][] = [];
+  for (let i = 0; i < ids.length; i += size) chunks.push(ids.slice(i, i + size));
+  return chunks;
+}
+
 /** Deterministic, platform-aware normalization — used for exact-match
  *  resolution only. Never used to infer identity across platforms. */
 export function normalizeEndpointIdentifier(platform: ContactEndpointPlatform, identifier: string): string {
@@ -153,14 +164,22 @@ export async function listContactEndpointsForPersonas(
   const admin = getSupabaseServer();
   if (!admin) return { ok: false, error: 'Supabase unavailable' };
   if (contactPersonaIds.length === 0) return { ok: true, value: [] };
-  const { data, error } = await admin
-    .from(CONTACT_ENDPOINTS)
-    .select('*, contact_personas!inner(owner_auth_profile_id)')
-    .in('contact_persona_id', contactPersonaIds)
-    .eq('contact_personas.owner_auth_profile_id', ownerAuthProfileId)
-    .order('created_at', { ascending: true });
-  if (error) return { ok: false, error: error.message };
-  return { ok: true, value: (data ?? []).map((r) => rowToEndpoint(r as Record<string, unknown>)) };
+
+  const rows: Record<string, unknown>[] = [];
+  for (const idsChunk of chunkIds(contactPersonaIds)) {
+    const { data, error } = await admin
+      .from(CONTACT_ENDPOINTS)
+      .select('*, contact_personas!inner(owner_auth_profile_id)')
+      .in('contact_persona_id', idsChunk)
+      .eq('contact_personas.owner_auth_profile_id', ownerAuthProfileId)
+      .order('created_at', { ascending: true });
+    if (error) return { ok: false, error: error.message };
+    rows.push(...(data ?? []));
+  }
+  // Merge-sort by created_at so the combined result still honours the
+  // documented ordering, exactly as the single unchunked query did.
+  rows.sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
+  return { ok: true, value: rows.map((r) => rowToEndpoint(r)) };
 }
 
 export async function listContactEndpoints(
