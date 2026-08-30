@@ -4664,3 +4664,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-6013623.md](../build_/COMMITS/COMMIT-6013623.md)
 - Message: fix Track 2 v2 state machine: frozen-generation scoping, false provenance gate, same-tab deep-link, acquisition bridge
+
+## Commit `ccebd69` — 2026-08-30T10:05:56Z
+- Type: `fix`
+- Brief: [COMMIT-ccebd69.md](../build_/COMMITS/COMMIT-ccebd69.md)
+- Message: fix Stage 3→4 handoff gap: scope extracted-candidate counts to the successor cohort

@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-30T08:59:57.728Z",
+  "last_updated": "2026-08-30T10:08:06.605Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "601362375317bc8b109d887a753c09a0eb41bb7a",
-  "latest_commit_short": "6013623",
-  "latest_commit_title": "fix Track 2 v2 state machine: frozen-generation scoping, false provenance gate, same-tab deep-link, acquisition bridge",
+  "latest_commit": "ccebd69fa0aaa1b0d709fe266929e5562345b488",
+  "latest_commit_short": "ccebd69",
+  "latest_commit_title": "fix Stage 3→4 handoff gap: scope extracted-candidate counts to the successor cohort",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "ccebd69",
+      "full_sha": "ccebd69fa0aaa1b0d709fe266929e5562345b488",
+      "title": "fix Stage 3→4 handoff gap: scope extracted-candidate counts to the successor cohort",
+      "author": "Claude",
+      "timestamp": "2026-08-30T10:05:56Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-ccebd69.md"
+    },
     {
       "sha": "6013623",
       "full_sha": "601362375317bc8b109d887a753c09a0eb41bb7a",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-16T16:19:19-04:00",
       "type": "docs",
       "brief": "items/build_/COMMITS/COMMIT-bcaaedc.md"
-    },
-    {
-      "sha": "8e09a0f",
-      "full_sha": "8e09a0fd5753be998ad7a96282720dd9a96f0cdc",
-      "title": "docs: add Homecoming Phase II activation implementation pack",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-16T15:45:36-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-8e09a0f.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
