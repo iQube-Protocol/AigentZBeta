@@ -166,6 +166,89 @@ describe('buildFrozenCrystalManifest — hash-verified against the persisted fre
     expect(serialized).not.toContain('commit-def');
   });
 
+  it('recovers domain membership regardless of CURRENT status — a member merged as a duplicate (status: superseded) since freeze is NOT excluded from frozen-membership recovery (EXP-P1 retrospective artifact-recovery fix, 2026-08-30)', async () => {
+    const { listInvariants } = await import('@/services/invariants/store');
+    const { commit } = await import('@/services/research/review/deterministic');
+    const { readEvidenceProvenance } = await import('@/services/research/experimentalPopulations');
+    const { crystalDomainForExperiment } = await import('@/services/research/crystalDomains');
+    const { buildFrozenCrystalManifest } = await import('@/services/research/crystalFrozenManifest');
+
+    const SUPERSEDED_MEMBER = {
+      ...FIXTURE_INVARIANTS[0],
+      id: 'inv-003',
+      statement: 'Duplicate of inv-001, merged away as a duplicate after this crystal froze.',
+      status: 'superseded',
+    };
+    const corpus = [...FIXTURE_INVARIANTS, SUPERSEDED_MEMBER];
+    const crystalDomain = crystalDomainForExperiment('EXP-P1')?.domain ?? 'constitutional-reasoning';
+    const membersForHash = [...corpus]
+      .map((inv) => ({
+        id: inv.id,
+        statement: inv.statement,
+        namespace: inv.namespace,
+        semanticType: inv.semanticType,
+        status: inv.status,
+        evidenceProvenance: readEvidenceProvenance(inv.provenance),
+        provenance: inv.provenance,
+      }))
+      .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+    const frozenHash = commit({ crystalDomain, invariantCount: corpus.length, members: membersForHash });
+
+    vi.mocked(listInvariants).mockResolvedValueOnce(corpus as never);
+    // listInvariants' mock call history accumulates across this whole test
+    // file (no per-test reset) — snapshot the count first so we can identify
+    // THIS invocation's own first call, not some earlier test's.
+    const callsBefore = vi.mocked(listInvariants).mock.calls.length;
+
+    const manifest = await buildFrozenCrystalManifest({
+      experimentId: 'EXP-P1',
+      observedAt: OBSERVED_AT,
+      artifact: { id: 'EXP-P1/crystal-vP1', contentHash: frozenHash, commitmentHash: frozenHash, frozenAt: '2026-01-03T00:00:00.000Z', signedBy: ['operator-ref'], receiptId: null },
+    });
+
+    // Pins the fix: the manifest's OWN membership-recovery query (the first
+    // listInvariants call it makes, before the knownLimitations computation
+    // below invokes the readiness/statistics reports' own separately-filtered
+    // queries) must never carry a status filter — membership is a durable
+    // fact of `invariant_contexts`, independent of a member's current,
+    // mutable `status`.
+    expect(vi.mocked(listInvariants).mock.calls[callsBefore]?.[0]).not.toHaveProperty('status');
+    expect(manifest.verifiedAgainstFreeze).toBe(true);
+    expect(manifest.memberCount).toBe(3);
+    expect(manifest.members).toHaveLength(3);
+    expect(manifest.members!.map((m) => m.frozenRecord.id)).toContain('inv-003');
+    expect(manifest.members!.find((m) => m.frozenRecord.id === 'inv-003')?.frozenRecord.statusAtFreeze).toBe(
+      'superseded',
+    );
+  });
+
+  it('when verification fails, names status-drifted members as a DIAGNOSTIC (never a claim about their status at the freeze instant) rather than an opaque mismatch', async () => {
+    const { listInvariants } = await import('@/services/invariants/store');
+    const { buildFrozenCrystalManifest } = await import('@/services/research/crystalFrozenManifest');
+
+    const SUPERSEDED_MEMBER = { ...FIXTURE_INVARIANTS[0], id: 'inv-003', status: 'superseded' };
+    vi.mocked(listInvariants).mockResolvedValueOnce([...FIXTURE_INVARIANTS, SUPERSEDED_MEMBER] as never);
+
+    const manifest = await buildFrozenCrystalManifest({
+      experimentId: 'EXP-P1',
+      observedAt: OBSERVED_AT,
+      artifact: {
+        id: 'EXP-P1/crystal-vP1',
+        contentHash: 'a'.repeat(64),
+        commitmentHash: 'a'.repeat(64),
+        frozenAt: '2026-01-03T00:00:00.000Z',
+        signedBy: ['operator-ref'],
+        receiptId: null,
+      },
+    });
+
+    expect(manifest.verifiedAgainstFreeze).toBe(false);
+    expect(manifest.memberCount).toBe(3);
+    expect(manifest.verificationDetail).toMatch(/non-freeze-eligible status/);
+    expect(manifest.verificationDetail).toMatch(/superseded/);
+    expect(manifest.verificationDetail).toMatch(/not independently recorded anywhere durable/);
+  });
+
   it('honestly discloses that freeze-ceremony fields (rationale, population, exclusions) were never persisted, rather than recomputing them as if they were', async () => {
     const { runCrystalStatisticsReport } = await import('@/services/research/crystalStatistics');
     const { buildFrozenCrystalManifest } = await import('@/services/research/crystalFrozenManifest');
