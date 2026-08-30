@@ -629,6 +629,149 @@ describe('the frozen-generation boundary — a frozen predecessor’s own promot
   });
 });
 
+// ── THE STAGE 3 → STAGE 4 HANDOFF GAP (2026-08-30 fix) ──────────────────────
+//
+// The frozen-generation boundary above only narrowed Stage 4's own `promoted`
+// count — Stage 3's `total` (and Stage 4's `awaitingReview`) still read the
+// SAME raw, all-time `discovery_candidates` rows, so a live report could show
+// "17 extracted" alongside a correctly-narrowed "0 promoted, 0 awaiting
+// review" with the 17 never accounted for anywhere. Traced: a candidate that
+// never resolved to an invariant (`status: 'candidate'` or `'rejected'` with
+// no `promotedInvariantId`) has no invariant id to check against the frozen
+// manifest, so the only available boundary is creation time relative to the
+// freeze — extracted-but-never-promoted material from BEFORE the freeze
+// belongs to that construction cycle, not v2's, even though it was never
+// promoted into it. These tests pin: (1) such a pre-freeze orphan candidate
+// is excluded from Stage 3's `total` and Stage 4's `awaitingReview` the same
+// way a resolved vP1 promotion is excluded from Stage 4's `promoted`; (2) a
+// genuinely new (post-freeze) candidate is NOT excluded; (3) the accounting
+// invariant `total === awaitingReview + promoted + rejected` holds by
+// construction once all three are exposed.
+
+describe('the Stage 3 → Stage 4 handoff gap — extracted candidates may never vanish before Stage 4', () => {
+  const FROZEN_AT = '2026-01-01T00:00:00.000Z';
+
+  function seedFrozenPredecessor() {
+    mockLatestFrozenCrystalArtifact.mockResolvedValue({
+      id: 'EXP-P1/crystal-vP1',
+      lifecycle: 'frozen',
+      contentHash: 'h',
+      commitmentHash: 'h',
+      frozenAt: FROZEN_AT,
+      signedBy: ['operator-ref'],
+      receiptId: null,
+    });
+    mockBuildFrozenCrystalManifest.mockResolvedValue({ recoveredInvariants: [{ id: 'inv-1' }] });
+  }
+
+  it('a pre-freeze orphan candidate (never promoted, never rejected) is excluded from Stage 3’s total AND Stage 4’s awaitingReview — the exact 17-vs-0/0 gap', async () => {
+    seedSubstrate({
+      candidates: [
+        // Historical: extracted before the freeze, never promoted or
+        // rejected — sat inert in the table ever since. This is the shape
+        // that produced "17 extracted / 0 promoted, 0 awaiting review".
+        { id: 'cand-old', status: 'candidate', promotedInvariantId: null, createdAt: '2025-12-01T00:00:00.000Z' },
+      ],
+    });
+    seedFrozenPredecessor();
+
+    const state = await loadTrack2ProgrammeState({ experimentId: EXPERIMENT });
+    if ('error' in state) throw new Error(state.error);
+
+    // Stage 3 and Stage 4 must agree: NEITHER counts the historical orphan.
+    expect(state.signalCounts.discoveryCandidates?.total).toBe(0);
+    expect(state.signalCounts.discoveryCandidates?.awaitingReview).toBe(0);
+    const extractStage = state.programme.stages.find((s) => s.id === 'extract-candidates')!;
+    expect(extractStage.status).toBe('not-started');
+    expect(extractStage.detail).toMatch(/^0 candidate\(s\) extracted/);
+  });
+
+  it('a genuinely new (post-freeze) candidate IS counted — the fix never suppresses real v2 work', async () => {
+    seedSubstrate({
+      candidates: [
+        { id: 'cand-new', status: 'candidate', promotedInvariantId: null, createdAt: '2026-02-01T00:00:00.000Z' },
+      ],
+    });
+    seedFrozenPredecessor();
+
+    const state = await loadTrack2ProgrammeState({ experimentId: EXPERIMENT });
+    if ('error' in state) throw new Error(state.error);
+
+    expect(state.signalCounts.discoveryCandidates?.total).toBe(1);
+    expect(state.signalCounts.discoveryCandidates?.awaitingReview).toBe(1);
+    const extractStage = state.programme.stages.find((s) => s.id === 'extract-candidates')!;
+    expect(extractStage.status).toBe('complete');
+  });
+
+  it('the accounting invariant holds: total === awaitingReview + promoted + rejected, over a mixed successor-scoped set', async () => {
+    seedSubstrate({
+      candidates: [
+        // pre-freeze orphans — excluded entirely, never counted anywhere
+        { id: 'cand-old-1', status: 'candidate', promotedInvariantId: null, createdAt: '2025-12-01T00:00:00.000Z' },
+        { id: 'cand-old-2', status: 'rejected', promotedInvariantId: null, createdAt: '2025-12-02T00:00:00.000Z' },
+        // vP1 residue — resolved, but into the frozen manifest — excluded
+        { id: 'cand-vp1', status: 'promoted', promotedInvariantId: 'inv-1', createdAt: '2025-12-15T00:00:00.000Z' },
+        // genuine v2 material — all three dispositions represented
+        { id: 'cand-v2-awaiting', status: 'candidate', promotedInvariantId: null, createdAt: '2026-02-01T00:00:00.000Z' },
+        { id: 'cand-v2-promoted', status: 'promoted', promotedInvariantId: 'inv-new', createdAt: '2026-02-02T00:00:00.000Z' },
+        { id: 'cand-v2-rejected', status: 'rejected', promotedInvariantId: null, createdAt: '2026-02-03T00:00:00.000Z' },
+      ],
+    });
+    seedFrozenPredecessor();
+
+    const state = await loadTrack2ProgrammeState({ experimentId: EXPERIMENT });
+    if ('error' in state) throw new Error(state.error);
+
+    const dc = state.signalCounts.discoveryCandidates!;
+    expect(dc.total).toBe(3); // only the three genuine v2 rows
+    expect(dc.awaitingReview).toBe(1);
+    expect(dc.promoted).toBe(1);
+    expect(dc.rejected).toBe(1);
+    expect(dc.awaitingReview + dc.promoted + (dc.rejected ?? 0)).toBe(dc.total);
+
+    const extractStage = state.programme.stages.find((s) => s.id === 'extract-candidates')!;
+    expect(extractStage.detail).toMatch(/3 candidate\(s\) extracted — 1 awaiting review, 1 promoted, 1 explicitly rejected/);
+  });
+
+  it('when no frozen predecessor exists, a pre-freeze-looking candidate is still counted (nothing to distinguish against)', async () => {
+    seedSubstrate({
+      candidates: [
+        { id: 'cand-old', status: 'candidate', promotedInvariantId: null, createdAt: '2020-01-01T00:00:00.000Z' },
+      ],
+    });
+    mockLatestFrozenCrystalArtifact.mockResolvedValue(null);
+
+    const state = await loadTrack2ProgrammeState({ experimentId: EXPERIMENT });
+    if ('error' in state) throw new Error(state.error);
+
+    expect(state.signalCounts.discoveryCandidates?.total).toBe(1);
+    expect(state.signalCounts.discoveryCandidates?.awaitingReview).toBe(1);
+  });
+
+  it('an unreadable freeze timestamp never excludes on its own — fail-open, never a silent disappearance', async () => {
+    seedSubstrate({
+      candidates: [
+        { id: 'cand-old', status: 'candidate', promotedInvariantId: null, createdAt: '2020-01-01T00:00:00.000Z' },
+      ],
+    });
+    mockLatestFrozenCrystalArtifact.mockResolvedValue({
+      id: 'EXP-P1/crystal-vP1',
+      lifecycle: 'frozen',
+      contentHash: 'h',
+      commitmentHash: 'h',
+      frozenAt: null,
+      signedBy: ['operator-ref'],
+      receiptId: null,
+    });
+    mockBuildFrozenCrystalManifest.mockResolvedValue({ recoveredInvariants: [] });
+
+    const state = await loadTrack2ProgrammeState({ experimentId: EXPERIMENT });
+    if ('error' in state) throw new Error(state.error);
+
+    expect(state.signalCounts.discoveryCandidates?.total).toBe(1);
+  });
+});
+
 // ── "CLASSIFY PROVENANCE" MANUFACTURING A FALSE HUMAN GATE (2026-08-30 fix) ─
 //
 // `partially-complete` legitimately covers two different situations

@@ -269,8 +269,18 @@ export interface PopulationReconciliationView {
 export interface Track2ProgrammeSignals {
   /** Corpus Scout candidate sources, by review workflow status. Null = unreadable. */
   candidateSources: { total: number; pendingReview: number; admitted: number } | null;
-  /** Discovery candidates for the acquisition domain. Null = unreadable. */
-  discoveryCandidates: { total: number; awaitingReview: number; promoted: number } | null;
+  /**
+   * Discovery candidates for the acquisition domain. Null = unreadable.
+   * `rejected` (2026-08-30, "Stage 3→4 handoff accounting" fix) is OPTIONAL
+   * and additive — every existing producer of this shape is untouched — but
+   * every field here, when all four are supplied by the SAME caller-side
+   * filter over one candidate set, is exhaustive over `CandidateRow['status']`
+   * (`'candidate' | 'promoted' | 'rejected'`), so `total === awaitingReview +
+   * promoted + rejected` holds by construction: no candidate can be counted
+   * in `total` while being invisible to the other three. A caller that omits
+   * `rejected` is simply not disclosing it, never implying it is zero.
+   */
+  discoveryCandidates: { total: number; awaitingReview: number; promoted: number; rejected?: number } | null;
   /** Stages 5–7's population, inherited from Stage 4. Null = unreadable. */
   promotedCohort: PromotedCohort | null;
   /** The crystal readiness report over the DECLARED domain. */
@@ -636,7 +646,16 @@ export function buildTrack2Programme(input: {
       detail:
         s.discoveryCandidates === null
           ? 'discovery substrate could not be read — status unknown, not assumed'
-          : `${s.discoveryCandidates.total} candidate(s) extracted`,
+          : // The accounting invariant (2026-08-30, "Stage 3→4 handoff gap" fix):
+            // `total` is now the SAME successor-scoped set Stage 4 counts from
+            // (never a raw all-time count that could disagree with it), so
+            // naming the breakdown here whenever it is known is what lets a
+            // reader verify no candidate disappeared between this stage and
+            // the next — never just a bare, unaccountable total.
+            `${s.discoveryCandidates.total} candidate(s) extracted` +
+            (s.discoveryCandidates.rejected !== undefined
+              ? ` — ${s.discoveryCandidates.awaitingReview} awaiting review, ${s.discoveryCandidates.promoted} promoted, ${s.discoveryCandidates.rejected} explicitly rejected`
+              : ''),
       remedies: [],
     },
     {
@@ -664,7 +683,10 @@ export function buildTrack2Programme(input: {
       detail:
         s.discoveryCandidates === null
           ? 'unreadable'
-          : `${s.discoveryCandidates.promoted} promoted · ${s.discoveryCandidates.awaitingReview} awaiting review`,
+          : `${s.discoveryCandidates.promoted} promoted · ${s.discoveryCandidates.awaitingReview} awaiting review` +
+            (s.discoveryCandidates.rejected !== undefined && s.discoveryCandidates.rejected > 0
+              ? ` · ${s.discoveryCandidates.rejected} explicitly rejected`
+              : ''),
       remedies: [],
     },
     {
