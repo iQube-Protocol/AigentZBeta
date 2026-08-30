@@ -176,7 +176,8 @@ describe('GET instrument-falsification — retrospective assesses the RECOVERED 
     expect(body.frozenArtifact.verifiedAgainstFreeze).toBe(false);
     expect(body.retrospective.verifiedAgainstFreeze).toBe(false);
     expect(body.retrospective.reproducedReviewerObjections).toBe(false);
-    expect(body.retrospective.blockingGaps.join(' ')).toContain('did NOT verify against the freeze commitment');
+    expect(body.retrospective.substrateAdmissibility.admissible).toBe(false);
+    expect(body.retrospective.blockingGaps.join(' ')).toContain('retrospective substrate is inadmissible');
     // remediation profile stays unbound — nothing about this fix binds it.
     expect(body.remediationProfile.bound).toBe(false);
   });
