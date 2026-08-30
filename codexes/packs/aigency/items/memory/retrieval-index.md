@@ -4644,3 +4644,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-447396c.md](../build_/COMMITS/COMMIT-447396c.md)
 - Message: Fix EXP-P1 retrospective dataflow: assess the recovered frozen population
+
+## Commit `b8d7236` — 2026-08-30T01:59:30Z
+- Type: `feat`
+- Brief: [COMMIT-b8d7236.md](../build_/COMMITS/COMMIT-b8d7236.md)
+- Message: Add narrowly-versioned legacy freeze verification (byte-exact | scientific-content-verified | unverified)

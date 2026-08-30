@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-30T00:58:14.948Z",
+  "last_updated": "2026-08-30T02:01:48.336Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "447396c25ffdd5b75fe958b84c88739719cbf0fb",
-  "latest_commit_short": "447396c",
-  "latest_commit_title": "Fix EXP-P1 retrospective dataflow: assess the recovered frozen population",
+  "latest_commit": "b8d7236ac720d7b04354de9d7822538eeb10662d",
+  "latest_commit_short": "b8d7236",
+  "latest_commit_title": "Add narrowly-versioned legacy freeze verification (byte-exact | scientific-content-verified | unverified)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "b8d7236",
+      "full_sha": "b8d7236ac720d7b04354de9d7822538eeb10662d",
+      "title": "Add narrowly-versioned legacy freeze verification (byte-exact | scientific-content-verified | unverified)",
+      "author": "Claude",
+      "timestamp": "2026-08-30T01:59:30Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-b8d7236.md"
+    },
     {
       "sha": "447396c",
       "full_sha": "447396c25ffdd5b75fe958b84c88739719cbf0fb",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-16T13:26:40-04:00",
       "type": "docs",
       "brief": "items/build_/COMMITS/COMMIT-b78f40e.md"
-    },
-    {
-      "sha": "0c26f22",
-      "full_sha": "0c26f22e2a41db5fc674eb164e51f92ce8e194e9",
-      "title": "spec(knyt): define DevOn bounded implementation for campaign activation",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-16T13:20:08-04:00",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-0c26f22.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
