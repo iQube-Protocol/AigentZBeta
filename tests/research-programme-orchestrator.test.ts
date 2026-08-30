@@ -671,8 +671,11 @@ describe('the sequencing gate cannot be bypassed', () => {
      * default the gate to satisfied.
      */
     // Stage 3 not-started ⇒ extraction is offerable; Stage 6 has nothing to do.
+    // Force the gate closed explicitly (no registered profile) — EXP-P1's own
+    // registered profile is bound as of 2026-08-30, so this test's CLOSED
+    // premise is supplied here rather than relied on implicitly.
     seedSubstrate({ candidates: [], cohort: cohort({ invariantIds: [], unvalidatedRecords: [] }) });
-    const result = await run();
+    const result = await run({ resolveMeasurementLayer: async () => ({ profile: null, profileReadable: true }) });
     expect(result.acts.some((a) => a.actKind === 'extract-candidates'), 'extraction ran behind a closed gate').toBe(false);
     expect(mockRunConstitutionalDiscovery).not.toHaveBeenCalled();
     expect(result.measurementLayerGate.satisfied).toBe(false);
@@ -693,22 +696,49 @@ describe('the sequencing gate cannot be bypassed', () => {
     expect(gate.gaps.join(' ')).toMatch(/not an artifact/);
   });
 
-  it('EXP-P1’s ingested v1 profile is source-complete but still fails CLOSED — the retrospective has not been run', async () => {
+  it('EXP-P1’s ingested v1 profile is source-complete AND bound (2026-08-30) — the gate opens through the unmodified derivation', async () => {
     // 2026-08-29 — the EXP-P1 remediation profile was authored from real,
     // hash-verifiable source refs (IRL Review #001, the resolution record,
-    // the frozen EXP-P1 README), but `retrospective: null` because computing
-    // it needs a live read of the frozen Crystal vP1 artifact this authoring
-    // pass had no database access to perform. The gate must stay closed on
-    // exactly that missing fact — never on an incomplete profile shape.
+    // the frozen EXP-P1 README). 2026-08-30 — a real, observed canonical
+    // retrospective (reproducedReviewerObjections: true, admitted via the
+    // legacy-substrate governance ruling; verifiedAgainstFreeze stays false)
+    // was copied into `retrospective` verbatim. This test proves the gate
+    // opens through resolveMeasurementLayerReadiness/evaluateMeasurementLayerGate
+    // completely UNMODIFIED by that population — no gate-logic change was
+    // needed or made.
     const readinessState = await resolveMeasurementLayerReadiness(EXPERIMENT);
     expect(readinessState.profileReadable).toBe(true);
     expect(readinessState.profile).not.toBeNull();
-    expect(readinessState.profile?.retrospective).toBeNull();
+    expect(readinessState.profile?.retrospective?.reproducedReviewerObjections).toBe(true);
+    expect(readinessState.profile?.retrospective?.verifiedAgainstFreeze).toBe(false);
     const gate = evaluateMeasurementLayerGate(readinessState);
-    expect(gate.satisfied).toBe(false);
-    expect(gate.binding).toBe('unbound-retrospective-not-reproduced');
-    expect(gate.gaps.join(' ')).toMatch(/retrospective falsification against the frozen crystal has not been run/);
+    expect(gate.satisfied).toBe(true);
+    expect(gate.binding).toBe('bound');
+    expect(gate.gaps).toEqual([]);
     expect(gate.profileVersion).toBe('exp-p1-remediation-2026-08-29.v1');
+  });
+
+  it('removing the REAL EXP-P1 retrospective returns the gate to fail-closed — proving the open state above is a consequence of that field, not a stored assertion elsewhere', async () => {
+    const readinessState = await resolveMeasurementLayerReadiness(EXPERIMENT);
+    const realProfile = readinessState.profile as CrystalRemediationProfile;
+    const corrupted = evaluateMeasurementLayerGate({
+      profile: { ...realProfile, retrospective: null },
+      profileReadable: true,
+    });
+    expect(corrupted.satisfied).toBe(false);
+    expect(corrupted.binding).toBe('unbound-retrospective-not-reproduced');
+    expect(corrupted.gaps.join(' ')).toMatch(/retrospective falsification against the frozen crystal has not been run/);
+  });
+
+  it('corrupting the REAL EXP-P1 retrospective to reproducedReviewerObjections: false returns the gate to fail-closed', async () => {
+    const readinessState = await resolveMeasurementLayerReadiness(EXPERIMENT);
+    const realProfile = readinessState.profile as CrystalRemediationProfile;
+    const corrupted = evaluateMeasurementLayerGate({
+      profile: { ...realProfile, retrospective: { ...realProfile.retrospective!, reproducedReviewerObjections: false } },
+      profileReadable: true,
+    });
+    expect(corrupted.satisfied).toBe(false);
+    expect(corrupted.binding).toBe('unbound-retrospective-not-reproduced');
   });
 
   it('an UNREADABLE substrate also fails closed, and says it is unreadable', () => {
@@ -785,8 +815,11 @@ describe('the sequencing gate cannot be bypassed', () => {
   });
 
   it('a withheld act is NAMED, and the stop is its own kind — not a governance stop', async () => {
+    // Forced closed explicitly — EXP-P1's own registered profile is bound as
+    // of 2026-08-30, so this test's CLOSED premise is supplied here rather
+    // than relied on implicitly.
     seedSubstrate({ candidates: [], cohort: cohort({ invariantIds: [], unvalidatedRecords: [] }) });
-    const result = await run();
+    const result = await run({ resolveMeasurementLayer: async () => ({ profile: null, profileReadable: true }) });
     if (result.stopReason.kind === 'blocked-on-measurement-layer') {
       expect(result.stopReason.withheldActs).toContain('extract-candidates');
       expect(result.stopReason.gate.satisfied).toBe(false);
@@ -1125,17 +1158,17 @@ describe('the remediation profile is a generic shape with no ingested content', 
     }
   });
 
-  it('EXP-P1 has a real ingested profile, and it is still not bound', () => {
+  it('EXP-P1 has a real ingested profile, bound as of 2026-08-30', () => {
     // 2026-08-29 — no longer an empty registry: EXP-P1's v1 profile is
-    // ingested from real, hash-verifiable source refs. The honest state is
-    // now "ingested but not yet bound" rather than "nothing ingested at
-    // all" — a stronger, more specific truth, and the sequencing gate stays
-    // closed under both.
+    // ingested from real, hash-verifiable source refs. 2026-08-30 — a real,
+    // observed canonical retrospective was copied in, and the UNMODIFIED
+    // `remediationProfileBindingState` derivation independently reaches
+    // 'bound' from those contents.
     expect(BOUND_CRYSTAL_REMEDIATION_PROFILES).toHaveLength(1);
     const profile = BOUND_CRYSTAL_REMEDIATION_PROFILES[0];
     expect(profile.experimentId).toBe('EXP-P1');
-    expect(profile.binding).not.toBe('bound');
-    expect(profile.retrospective).toBeNull();
+    expect(profile.binding).toBe('bound');
+    expect(profile.retrospective).not.toBeNull();
     expect(profile.sourceRefs.length).toBeGreaterThan(0);
     expect(profile.sourceRefs.every((r) => typeof r.contentHash === 'string' && r.contentHash.length > 0)).toBe(true);
   });

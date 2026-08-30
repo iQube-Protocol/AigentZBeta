@@ -234,17 +234,21 @@ export async function GET(
       lifecycle: artifact?.lifecycle ?? null,
       verifiedAgainstFreeze,
       verificationDetail: manifestVerificationDetail,
-      // Disclosure only (2026-08-30) — see the field's own doc comment on
-      // FrozenCrystalManifest. Does NOT feed reproducedReviewerObjections,
-      // readinessRejectsFrozenCrystal, or remediation-profile binding above;
-      // whether 'scientific-content-verified' should ever be admissible for
-      // gating purposes is a separate governance decision, not made here.
+      // Never redefines verifiedAgainstFreeze above, which stays the strict
+      // byte-exact answer. For the ONE (experimentId, artifactId) pair a
+      // ratified governance ruling names (2026-08-30 —
+      // crystalRetrospectiveSubstrateAdmissibility.ts), this evidence CAN
+      // license retrospective.substrateAdmissibility and, through it,
+      // reproducedReviewerObjections — see retrospective.substrateAdmissibility
+      // for whether that happened on this call. Never a substitute for
+      // byte-exact verification on its own.
       legacyContentVerification,
     },
     readOnlyNote:
       'This route writes nothing. It does not re-score, backfill or correct the historical readiness results ' +
       'that permitted the freeze — those remain the record of what the pre-remediation instruments said. ' +
-      'frozenArtifact.legacyContentVerification is disclosure-only and does not affect retrospective.reproducedReviewerObjections ' +
-      'or remediationProfile.bound.',
+      'frozenArtifact.legacyContentVerification does not alter verifiedAgainstFreeze. For specifically ratified ' +
+      'legacy artifacts, it may contribute to retrospective.substrateAdmissibility under an explicit governing ' +
+      'ruling — see retrospective.substrateAdmissibility.governingRuling for whether that applied on this call.',
   });
 }

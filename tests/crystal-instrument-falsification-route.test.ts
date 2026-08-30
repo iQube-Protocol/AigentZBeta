@@ -175,11 +175,18 @@ describe('GET instrument-falsification — retrospective assesses the RECOVERED 
 
     expect(body.frozenArtifact.verifiedAgainstFreeze).toBe(false);
     expect(body.retrospective.verifiedAgainstFreeze).toBe(false);
+    // THIS mocked call's own retrospective still fails to reproduce — its
+    // manifest supplies no legacyContentVerification, so its substrate is
+    // inadmissible regardless of the stored profile's own state.
     expect(body.retrospective.reproducedReviewerObjections).toBe(false);
     expect(body.retrospective.substrateAdmissibility.admissible).toBe(false);
     expect(body.retrospective.blockingGaps.join(' ')).toContain('retrospective substrate is inadmissible');
-    // remediation profile stays unbound — nothing about this fix binds it.
-    expect(body.remediationProfile.bound).toBe(false);
+    // remediationProfile.bound reflects the STORED registry profile (bound
+    // 2026-08-30 via a real, separately-observed canonical retrospective) —
+    // independent of and unaffected by what THIS call's own mocked manifest
+    // computes. Binding is a stored fact of the registry, never recomputed
+    // live from each request's retrospective.
+    expect(body.remediationProfile.bound).toBe(true);
   });
 
   it('falls back to a live query only when there is NO frozen artifact at all', async () => {

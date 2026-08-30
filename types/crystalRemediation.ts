@@ -165,6 +165,59 @@ export interface InstrumentSuiteIdentity {
 }
 
 /**
+ * ONE concern's verdict, carried on the ref so the evidentiary basis for
+ * `reproducedReviewerObjections` is auditable from the STORED profile alone,
+ * never only from a route response that can move on. Mirrors
+ * `RemediatedConcernResult` (services/research/crystalInstrumentFalsification.ts)
+ * field-for-field — duplicated here rather than imported, preserving this
+ * file's deliberate import-free boundary (see header).
+ */
+export interface RetrospectiveConcernRef {
+  concernId: string;
+  bearsOnCheck: string;
+  rejected: boolean | 'unknown';
+  /** The instrument's measurement, verbatim from the check's own detail. */
+  instrumentFinding: string;
+}
+
+/**
+ * The retrospective substrate's admissibility, carried on the ref so the
+ * governing rule/version is visible in the STORED evidence, never merely
+ * implied by `reproducedReviewerObjections` alone (2026-08-30 governance
+ * ruling on retrospective substrate admissibility — services/research/
+ * crystalRetrospectiveSubstrateAdmissibility.ts). Duplicated here, not
+ * imported, for the same reason as `RetrospectiveConcernRef` above.
+ */
+export interface RetrospectiveSubstrateAdmissibilityRef {
+  admissible: boolean;
+  basis: 'byte-exact' | 'legacy-scientific-content' | 'inadmissible';
+  /** null when the substrate is byte-exact (no ruling needed) or inadmissible
+   *  (no ruling applied). Both id AND version, so a reader can tell which
+   *  EXACT ruling licensed this — never a bare boolean. */
+  governingRulingId: string | null;
+  governingRulingVersion: string | null;
+  reason: string;
+}
+
+/**
+ * The legacy freeze-verification evidence this retrospective's substrate
+ * admissibility was decided against — required to be present whenever
+ * `substrateAdmissibility.basis === 'legacy-scientific-content'`, so the
+ * evidence a legacy ruling admitted travels WITH the verdict it licensed,
+ * never only in a route response. Mirrors the scientifically-relevant
+ * subset of `LegacyFreezeVerificationEvidence` (services/research/
+ * crystalLegacyContentVerification.ts).
+ */
+export interface RetrospectiveLegacyContentVerificationRef {
+  state: 'unverified' | 'scientific-content-verified' | 'byte-exact';
+  frozenAt: string;
+  memberCount: number;
+  materialFieldsChecked: readonly string[];
+  immaterialDriftFields: readonly string[];
+  blockingGaps: readonly string[];
+}
+
+/**
  * THE RETROSPECTIVE FALSIFICATION VERDICT — read in the same breath as the
  * profile's binding state, because the verdict is what licenses the binding.
  *
@@ -173,6 +226,15 @@ export interface InstrumentSuiteIdentity {
  * artifact the independent reviewer rejected. A result of "the frozen crystal
  * still passes readiness" is a FAILURE of the remediation, not a success. The
  * field is therefore named `reproducedReviewerObjections` and never `ok`.
+ *
+ * The fields below `computedAt` were added 2026-08-30 (EXP-P1 legacy-substrate
+ * binding) — all OPTIONAL, so a ref predating this extension remains a valid
+ * value of this type. `remediationProfileBindingState` reads only
+ * `reproducedReviewerObjections`; nothing below gates anything. They exist so
+ * a reader of the STORED profile — not just a caller of the live route — can
+ * see invariant/statement counts, every concern's own finding, and (when the
+ * legacy path licensed the verdict) exactly which ruling and evidence did so,
+ * without the schema silently dropping that provenance.
  */
 export interface RetrospectiveFalsificationRef {
   /** TRUE ⇒ the hardened gates reject the artifact the reviewer rejected. */
@@ -185,6 +247,19 @@ export interface RetrospectiveFalsificationRef {
   crystalContentHash: string | null;
   verifiedAgainstFreeze: boolean | null;
   computedAt: string;
+  /** Which instrument suite produced this verdict — compare against this
+   *  profile's OWN `instrumentSuite` field to detect staleness. */
+  instrumentSuiteVersion?: string;
+  instrumentContractFingerprint?: string;
+  invariantCount?: number;
+  distinctStatementEstimate?: number;
+  /** Whether readiness as a whole refused the frozen artifact. */
+  readinessRejectsFrozenCrystal?: boolean;
+  blockingGaps?: readonly string[];
+  concerns?: readonly RetrospectiveConcernRef[];
+  substrateAdmissibility?: RetrospectiveSubstrateAdmissibilityRef;
+  /** Present iff `substrateAdmissibility.basis === 'legacy-scientific-content'`. */
+  legacyContentVerification?: RetrospectiveLegacyContentVerificationRef | null;
 }
 
 /**
@@ -218,7 +293,7 @@ export interface CrystalRemediationProfile {
   boundaryRequirement: BoundaryCoverageRequirement;
   /** (5) Which instrument suite produced/validated this profile. */
   instrumentSuite: InstrumentSuiteIdentity;
-  /** The retrospective verdict that licenses binding. null = not yet run. */
+  /** The retrospective verdict that licenses binding. null = not yet run/observed. */
   retrospective: RetrospectiveFalsificationRef | null;
   binding: RemediationProfileBinding;
   /** Every reason the profile is not bound, named. Empty iff bound. */
@@ -252,23 +327,30 @@ export interface CrystalRemediationProfile {
  * basis — no finalized task set exists yet, so every figure is a FLOOR).
  * Neither figure is hand-computed; both were run and copied verbatim.
  *
- * ── `retrospective: null` — NOT YET RUN, honestly ─────────────────────────
+ * ── `retrospective` — POPULATED 2026-08-30, via the legacy-substrate path ──
  *
- * Computing `CrystalRetrospectiveFalsification` requires a LIVE read of the
- * frozen Crystal vP1 artifact and its invariant rows
- * (`runCrystalReadinessReport` + `buildFrozenCrystalManifest`), which this
- * authoring pass had no live database access to perform. This is why
- * `remediationProfileBindingState` below still reports
- * `'unbound-retrospective-not-reproduced'` for this profile — correctly: the
- * sequencing gate remains CLOSED until the retrospective is actually run.
+ * `verifiedAgainstFreeze` is, and remains, `false` for frozen vP1 — the hash
+ * commits to `status`, which is known to have changed for 4 members later
+ * merged as duplicates, and no historical status snapshot was ever persisted
+ * (see services/research/crystalFrozenManifest.ts /
+ * crystalLegacyContentVerification.ts). Byte-exact verification was therefore
+ * never going to succeed for this artifact.
  *
- * To complete binding: call
- * `GET /api/research/crystal/EXP-P1/instrument-falsification` (steward or
- * admin auth) and, if and only if the response's
- * `retrospective.reproducedReviewerObjections === true`, replace this
- * profile's `retrospective: null` with that exact response's `retrospective`
- * object, verbatim. Never assert a verdict that has not been observed —
- * `CI-2026-08-26-UNASSESSABLE-IS-NOT-REPRODUCED-001`.
+ * What DID succeed: a live audit (2026-08-30) established that all 15
+ * recovered members carry no seed-ingest evidence and no post-freeze
+ * provenance reclassification — `legacyContentVerification.state ===
+ * 'scientific-content-verified'`. A named operator governance ruling
+ * (`GOV-2026-08-30-EXP-P1-VP1-LEGACY-SUBSTRATE-001`, services/research/
+ * crystalRetrospectiveSubstrateAdmissibility.ts) admits THAT specific
+ * evidence, for THIS specific artifact only, as the retrospective substrate.
+ * Rerun against it, the canonical endpoint reported
+ * `reproducedReviewerObjections: true` with zero blocking gaps — copied in
+ * below (see the retrospective field's own comment for exactly which values
+ * are the operator's literal reported figures versus this file's own
+ * already-verified constants versus the two fields honestly reconstructed
+ * rather than byte-copied). Never assert a verdict that has not been
+ * observed — `CI-2026-08-26-UNASSESSABLE-IS-NOT-REPRODUCED-001` — this one
+ * was.
  */
 const EXP_P1_REMEDIATION_PROFILE_CONTENT: Omit<CrystalRemediationProfile, 'binding' | 'bindingGaps'> = {
   profileVersion: 'exp-p1-remediation-2026-08-29.v1',
@@ -417,7 +499,95 @@ const EXP_P1_REMEDIATION_PROFILE_CONTENT: Omit<CrystalRemediationProfile, 'bindi
       'services/research/crystalInstrumentFalsification.ts',
     ],
   },
-  retrospective: null,
+  // ── RETROSPECTIVE — populated 2026-08-30 from the canonical endpoint's
+  // reported result, after: (a) buildFrozenCrystalManifest recovered the
+  // exact frozen 15-member vP1 population via durable domain-context
+  // membership; (b) the live Supabase audit confirmed 15/15 members carry no
+  // seed-ingest evidence (seed_id/seeded_from/seed_version all null) and no
+  // post-freeze provenance reclassification; (c) the 2026-08-30 governance
+  // ruling (GOV-2026-08-30-EXP-P1-VP1-LEGACY-SUBSTRATE-001) admitted that
+  // evidence as the retrospective substrate; (d) the canonical endpoint,
+  // rerun against that admissible substrate, reported
+  // reproducedReviewerObjections: true.
+  //
+  // PROVENANCE OF EACH VALUE BELOW — most are the operator's literal reported
+  // figures or values this repository's own code independently computes and
+  // controls (never guessed). TWO fields are explicitly RECONSTRUCTED rather
+  // than a byte-copy of the live endpoint's own generated JSON, because the
+  // operator's report was a structured summary, not the raw response body:
+  //   - `computedAt` is the timestamp this profile was populated, not
+  //     necessarily identical to the live retrospective's own computedAt
+  //     (which was not quoted verbatim). Nothing in remediationProfileBindingState
+  //     or evaluateMeasurementLayerGate reads this field.
+  //   - each concern's `instrumentFinding` is the operator's own reported
+  //     summary phrase (verbatim from their report), not the composer's
+  //     internally-generated detail string. Nothing gates on this text; it is
+  //     evidentiary prose only.
+  // Everything else — reproducedReviewerObjections, verifiedAgainstFreeze,
+  // readinessRejectsFrozenCrystal, blockingGaps, invariantCount,
+  // distinctStatementEstimate, every concern's rejected boolean, the frozen
+  // contentHash, the governing ruling id, and the instrument-suite identity —
+  // is either the operator's literal reported value or this file's own
+  // already-verified constant (instrumentSuite above; the ruling in
+  // services/research/crystalRetrospectiveSubstrateAdmissibility.ts).
+  retrospective: {
+    reproducedReviewerObjections: true,
+    verdictRoute: '/api/research/crystal/EXP-P1/instrument-falsification',
+    crystalContentHash: '290e1e4c038f5827d5a21974e9c91144d8d6e8133ed15e5a7024cc16b6928201',
+    verifiedAgainstFreeze: false,
+    computedAt: '2026-08-30T00:00:00.000Z',
+    instrumentSuiteVersion: '2.0.0',
+    instrumentContractFingerprint: '9579131e04b1c3c293dd73bec360da68b0169b8021cc78e6542e45018837c8b3',
+    invariantCount: 15,
+    distinctStatementEstimate: 11,
+    readinessRejectsFrozenCrystal: true,
+    blockingGaps: [],
+    concerns: [
+      {
+        concernId: 'duplication',
+        bearsOnCheck: 'duplicate-detection',
+        rejected: true,
+        instrumentFinding: '4 semantic near-duplicate pairs; distinct estimate 11/15',
+      },
+      {
+        concernId: 'relational-structure',
+        bearsOnCheck: 'derivation-headroom',
+        rejected: true,
+        instrumentFinding: '0/15 and 0 entailing conjunctions',
+      },
+      {
+        concernId: 'population-size',
+        bearsOnCheck: 'selection-space',
+        rejected: true,
+        instrumentFinding: '15 vs protocol-derived minimum 60',
+      },
+      {
+        concernId: 'boundary-coverage',
+        bearsOnCheck: 'boundary-coverage',
+        rejected: true,
+        instrumentFinding: '2/15',
+      },
+    ],
+    substrateAdmissibility: {
+      admissible: true,
+      basis: 'legacy-scientific-content',
+      governingRulingId: 'GOV-2026-08-30-EXP-P1-VP1-LEGACY-SUBSTRATE-001',
+      governingRulingVersion: '1.0.0',
+      reason:
+        'Operator governance ruling, 2026-08-30: for EXP-P1 / crystal-vP1 specifically, ' +
+        'scientific-content-verified is admissible as the historical substrate for the Austin Review #001 ' +
+        'retrospective, on the legacy verification evidence returned by the canonical endpoint. This is NOT ' +
+        'a reinterpretation of verifiedAgainstFreeze, which remains false for this artifact.',
+    },
+    legacyContentVerification: {
+      state: 'scientific-content-verified',
+      frozenAt: '2026-08-05T21:39:57.033Z',
+      memberCount: 15,
+      materialFieldsChecked: ['id', 'statement', 'namespace', 'semanticType', 'evidenceProvenance', 'provenance'],
+      immaterialDriftFields: ['status'],
+      blockingGaps: [],
+    },
+  },
 };
 
 const EXP_P1_REMEDIATION_PROFILE_BINDING = remediationProfileBindingState(EXP_P1_REMEDIATION_PROFILE_CONTENT);
@@ -432,13 +602,14 @@ const EXP_P1_REMEDIATION_PROFILE_V1: CrystalRemediationProfile = {
  * THE INGESTED PROFILES.
  *
  * Carries the EXP-P1 v1 profile above — ingested (real, hash-verifiable
- * source refs exist), but NOT bound (the retrospective has not been run; see
- * that profile's own doc comment for the exact completion step). A consumer
- * reading `evaluateMeasurementLayerGate` today therefore sees
- * `binding: 'unbound-retrospective-not-reproduced'`, not
- * `'unbound-no-artifact'` — a real, more specific state than before this
- * profile existed, and the sequencing gate stays correctly CLOSED either
- * way. Every consumer must still fail closed on anything short of `'bound'`.
+ * source refs exist) AND, as of 2026-08-30, bound: the retrospective is
+ * populated with a real, observed `reproducedReviewerObjections: true`
+ * verdict (see that profile's own `retrospective` field comment for exactly
+ * what licensed it — the legacy-substrate governance ruling, never a
+ * reinterpretation of `verifiedAgainstFreeze`, which stays `false`).
+ * `binding`/`bindingGaps` above are DERIVED from the profile's own contents
+ * by `remediationProfileBindingState`, unmodified by this change — this
+ * constant is not hand-set to `'bound'` anywhere in this file.
  */
 export const BOUND_CRYSTAL_REMEDIATION_PROFILES: readonly CrystalRemediationProfile[] = [
   EXP_P1_REMEDIATION_PROFILE_V1,
