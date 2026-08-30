@@ -35,6 +35,7 @@ import {
   type signExchangeInstrumentViaMcp,
   type establishDelegationViaMcp,
   type confirmOperatorAssistedArtifactViaMcp,
+  type resolveExchangeWriteAuthority,
 } from './mcpConstitutionalActs';
 
 // ── Context injected by the route (keeps this module I/O-light + testable) ──
@@ -108,6 +109,17 @@ export interface GatewayContext {
     confirmOperatorAssistedArtifact: (
       args: ConfirmOperatorAssistedArtifactMcpArgs,
     ) => ReturnType<typeof confirmOperatorAssistedArtifactViaMcp>;
+    /**
+     * Canonical exchange-write authority probe (2026-08-30, "MCP channel
+     * equivalence" repair) — read-only, no side effects. Lets the dispatch
+     * gate below authorize deposit/confirm/freeze/sign from REAL exchange
+     * participation (Passport + a genuinely bound party on an existing
+     * Reciprocal Artifact Exchange) when the session's OAuth-crossing scope
+     * alone (`research.exchange.write`) was never separately granted — the
+     * SAME resolver every write function already runs internally, so there
+     * is exactly one place this authority is decided.
+     */
+    resolveExchangeAuthority: () => ReturnType<typeof resolveExchangeWriteAuthority>;
   };
 }
 
@@ -642,10 +654,36 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
       name === 'sign_exchange_instrument' ||
       name === 'establish_delegation'
     ) {
-      if (!hasScope(s, 'research.exchange.write') && !(name === 'establish_delegation' && hasScope(s, 'delegation.grant'))) {
+      const establishingDelegation = name === 'establish_delegation';
+      let authorized = hasScope(s, 'research.exchange.write') || (establishingDelegation && hasScope(s, 'delegation.grant'));
+      let exchangeAuthorityError: string | null = null;
+      // Canonical-authority fallback (2026-08-30, "MCP channel equivalence"
+      // repair) — does NOT apply to establish_delegation, which grants NEW
+      // authority to a third-party agent and keeps its existing
+      // delegation.grant-only gate untouched. For the four exchange-act
+      // tools, a session-scope OAuth grant (the generic "enter the irl
+      // service" incremental crossing, PRD-THR-001 §9.3) is not the ONLY way
+      // to establish write authority for THIS exchange: a principal who is
+      // already a genuinely bound exchange party — the exact same check
+      // every write function below already performs internally via
+      // resolveExchangeWriteAuthority — needs no redundant second human
+      // ceremony to act on their own exchange. This still fails CLOSED: an
+      // unrelated principal, or one with no bound exchange, gets refused
+      // with the SAME specific reason the write itself would give.
+      if (!authorized && !establishingDelegation && ctx.mcpActs) {
+        const authority = await ctx.mcpActs.resolveExchangeAuthority();
+        if (authority.ok) {
+          authorized = true;
+        } else {
+          exchangeAuthorityError = authority.error;
+        }
+      }
+      if (!authorized) {
         return {
           ...text(
-            `This action needs the ${name === 'establish_delegation' ? 'delegation.grant' : 'research.exchange.write'} capability, which a base crossing does not grant. Enter the Researcher journey and authorize the IRL delegation first (request_service_capabilities("irl")). Only the human authorizes.`,
+            establishingDelegation
+              ? 'This action needs the delegation.grant capability, which a base crossing does not grant. Enter the Researcher journey and authorize the IRL delegation first (request_service_capabilities("irl")). Only the human authorizes.'
+              : `This action needs either established Reciprocal Artifact Exchange participation or the research.exchange.write capability from an incremental IRL crossing. ${exchangeAuthorityError ?? 'Enter the Researcher journey and authorize the IRL delegation first (request_service_capabilities("irl")).'}`,
           ),
           isError: true,
         };

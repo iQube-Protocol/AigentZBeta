@@ -115,6 +115,7 @@ import {
   declareArtifactFreezeViaMcp,
   signExchangeInstrumentViaMcp,
   establishDelegationViaMcp,
+  resolveExchangeWriteAuthority,
 } from '@/services/threshold/mcpConstitutionalActs';
 import { IAN_BOUNDARY_RESEARCH_JOURNEY } from '@/services/journey/ianBoundaryResearchJourney';
 import type { ScopedSession } from '@/services/threshold/gatewaySession';
@@ -567,7 +568,7 @@ describe('channel equivalence — MCP resolves Ian\'s principal identically to t
     expect(mockSignInstrument).not.toHaveBeenCalled();
   });
 
-  it('9c. the gateway session-scope gate still refuses a session that was never authorized for research.exchange.write, independent of identity resolution', async () => {
+  it('9c. without a session-scope grant AND without mcpActs wired (surface unavailable), the gateway still refuses honestly — never silently proceeds', async () => {
     const { callTool } = await import('@/services/threshold/gateway');
     const res = await callTool(
       'sign_exchange_instrument',
@@ -576,10 +577,166 @@ describe('channel equivalence — MCP resolves Ian\'s principal identically to t
         origin: 'https://example.test',
         gatewayUrl: 'https://example.test/api/threshold/mcp',
         session: delegatedSession({ scope: ['research.read'] }), // no research.exchange.write
+        // no mcpActs -> the canonical-authority fallback cannot even be attempted
       },
     );
     expect(res.isError).toBe(true);
     expect(String(res.content[0].text)).toMatch(/research\.exchange\.write/);
     expect(mockSignInstrument).not.toHaveBeenCalled();
+  });
+});
+
+// ── GATEWAY AUTHORIZATION GATE — canonical-authority fallback (2026-08-30) ──
+//
+// Live MCP acceptance (operator-reported) showed declare_artifact_freeze
+// refused with "needs the research.exchange.write capability... Enter the
+// Researcher journey and authorize the IRL delegation first" even though the
+// caller was an established Passport holder, a genuinely bound exchange
+// party, with valid delegation already established through the native/bridge
+// journey. Root cause: gateway.ts's dispatch gated deposit/confirm/freeze/
+// sign on `hasScope(session, 'research.exchange.write')` ALONE — a scope
+// minted only by a SEPARATE, generic "enter the irl service" incremental
+// OAuth crossing (PRD-THR-001 §9.3), with no path to reflect authority
+// already established elsewhere. The bridge route (app/api/research/
+// exchanges/[exchangeId]/actions/route.ts) has no equivalent session-scope
+// concept at all — so this was a real channel-inequivalence defect, not a
+// security feature. This suite exercises the REAL gateway.callTool dispatch
+// (not the mcpConstitutionalActs functions directly) with a REAL ctx.mcpActs
+// wired the same way app/api/threshold/mcp/route.ts wires it in production —
+// including the new resolveExchangeAuthority probe — so the gate itself, not
+// just the underlying resolver, is proven fixed.
+
+function wireMcpActs(session: ScopedSession) {
+  return {
+    getExchangeState: () => getExchangeStateForMcp(NOOP_ADMIN, session),
+    depositArtifact: (args: Parameters<typeof depositExchangeArtifactViaMcp>[2]) => depositExchangeArtifactViaMcp(NOOP_ADMIN, session, args),
+    confirmOperatorAssistedArtifact: (args: Parameters<typeof confirmOperatorAssistedArtifactViaMcp>[2]) =>
+      confirmOperatorAssistedArtifactViaMcp(NOOP_ADMIN, session, args),
+    declareFreeze: (args: Parameters<typeof declareArtifactFreezeViaMcp>[2]) => declareArtifactFreezeViaMcp(NOOP_ADMIN, session, args),
+    signInstrument: (args: Parameters<typeof signExchangeInstrumentViaMcp>[2]) => signExchangeInstrumentViaMcp(NOOP_ADMIN, session, args),
+    establishDelegation: (args: Parameters<typeof establishDelegationViaMcp>[2]) => establishDelegationViaMcp(NOOP_ADMIN, session, args),
+    resolveExchangeAuthority: () => resolveExchangeWriteAuthority(NOOP_ADMIN, session),
+  };
+}
+
+describe('gateway.ts — canonical-authority fallback for exchange writes (no redundant IRL-service ceremony)', () => {
+  beforeEach(() => {
+    mockConfirmOperatorAssistedArtifact.mockResolvedValue({ ok: true, artifact: { id: 'artifact-1' } });
+    mockDeclareFreeze.mockResolvedValue({ ok: true, attestation: { id: 'attestation-freeze-1' } });
+    mockSignInstrument.mockResolvedValue({ ok: true, attestation: { id: 'attestation-sign-1' }, exchange: { status: 'EXCHANGED' } });
+  });
+
+  it('Party A (no separate delegation, acting on their own exchange) can freeze via MCP with NO research.exchange.write scope — established exchange participation is sufficient', async () => {
+    const { callTool } = await import('@/services/threshold/gateway');
+    const session = fakeSession({ scope: ['research.read'] }); // no research.exchange.write, no delegation.grant
+    const res = await callTool('declare_artifact_freeze', { declarationConfirmed: true }, {
+      origin: 'https://example.test',
+      gatewayUrl: 'https://example.test/api/threshold/mcp',
+      session,
+      mcpActs: wireMcpActs(session),
+    });
+    expect(res.isError).toBeFalsy();
+    expect(mockDeclareFreeze).toHaveBeenCalledTimes(1);
+    expect(mockDeclareFreeze.mock.calls[0][1]).toMatchObject({ personaId: FAKE_PERSONA_ID });
+  });
+
+  it('Party B acting through a delegated aigentMe can confirm/freeze/sign via MCP with NO research.exchange.write scope — no second Researcher-journey ceremony required', async () => {
+    const { callTool } = await import('@/services/threshold/gateway');
+    const session = delegatedSession({ scope: ['research.read'] }); // no research.exchange.write
+    const ctx = {
+      origin: 'https://example.test',
+      gatewayUrl: 'https://example.test/api/threshold/mcp',
+      session,
+      mcpActs: wireMcpActs(session),
+    };
+
+    const confirmRes = await callTool('confirm_operator_assisted_artifact', { declarationConfirmed: true }, ctx);
+    expect(confirmRes.isError).toBeFalsy();
+    const freezeRes = await callTool('declare_artifact_freeze', { declarationConfirmed: true }, ctx);
+    expect(freezeRes.isError).toBeFalsy();
+    const signRes = await callTool('sign_exchange_instrument', { declarationConfirmed: true }, ctx);
+    expect(signRes.isError).toBeFalsy();
+
+    expect(mockConfirmOperatorAssistedArtifact).toHaveBeenCalledTimes(1);
+    expect(mockDeclareFreeze).toHaveBeenCalledTimes(1);
+    expect(mockSignInstrument).toHaveBeenCalledTimes(1);
+
+    // Provenance stays separated through the gateway dispatch, not just the
+    // underlying resolver: principal = Ian (FAKE_PERSONA_ID), actor = his
+    // delegated aigentMe (session.agentAlias) — never collapsed together.
+    expect(mockConfirmOperatorAssistedArtifact.mock.calls[0][1]).toMatchObject({ personaId: FAKE_PERSONA_ID, agentRef: 'ian-aigentme-delegate' });
+    expect(mockDeclareFreeze.mock.calls[0][1]).toMatchObject({ personaId: FAKE_PERSONA_ID, agentRef: 'ian-aigentme-delegate' });
+    expect(mockSignInstrument.mock.calls[0][1]).toMatchObject({ personaId: FAKE_PERSONA_ID, agentRef: 'ian-aigentme-delegate' });
+  });
+
+  it('an UNRELATED principal (resolves to no real persona) still fails closed through the gateway gate, even with mcpActs wired', async () => {
+    const { callTool } = await import('@/services/threshold/gateway');
+    mockResolvePersonaIdByPublicRef.mockResolvedValueOnce(null);
+    const session = fakeSession({ scope: ['research.read'] });
+    const res = await callTool('declare_artifact_freeze', { declarationConfirmed: true }, {
+      origin: 'https://example.test',
+      gatewayUrl: 'https://example.test/api/threshold/mcp',
+      session,
+      mcpActs: wireMcpActs(session),
+    });
+    expect(res.isError).toBe(true);
+    expect(mockDeclareFreeze).not.toHaveBeenCalled();
+  });
+
+  it('a session with NO bound exchange still fails closed through the gateway gate, even with mcpActs wired', async () => {
+    const { callTool } = await import('@/services/threshold/gateway');
+    mockListMyExchanges.mockResolvedValueOnce({ ok: true, exchanges: [] });
+    const session = fakeSession({ scope: ['research.read'] });
+    const res = await callTool('sign_exchange_instrument', { declarationConfirmed: true }, {
+      origin: 'https://example.test',
+      gatewayUrl: 'https://example.test/api/threshold/mcp',
+      session,
+      mcpActs: wireMcpActs(session),
+    });
+    expect(res.isError).toBe(true);
+    expect(String(res.content[0].text)).toMatch(/No Reciprocal Artifact Exchange exists/);
+    expect(mockSignInstrument).not.toHaveBeenCalled();
+  });
+
+  it('a session that DOES hold research.exchange.write still works unchanged (back-compat: the fast path is untouched, no extra DB probe needed)', async () => {
+    const { callTool } = await import('@/services/threshold/gateway');
+    const session = fakeSession({ scope: ['research.read', 'research.exchange.write'] });
+    const resolveSpy = vi.fn(() => resolveExchangeWriteAuthority(NOOP_ADMIN, session));
+    const res = await callTool('declare_artifact_freeze', { declarationConfirmed: true }, {
+      origin: 'https://example.test',
+      gatewayUrl: 'https://example.test/api/threshold/mcp',
+      session,
+      mcpActs: { ...wireMcpActs(session), resolveExchangeAuthority: resolveSpy },
+    });
+    expect(res.isError).toBeFalsy();
+    expect(mockDeclareFreeze).toHaveBeenCalledTimes(1);
+    // The scope grant alone is sufficient — the canonical-authority probe is
+    // never even invoked when the fast path already authorizes.
+    expect(resolveSpy).not.toHaveBeenCalled();
+  });
+
+  it('establish_delegation keeps its OWN delegation.grant-only gate — the canonical-authority fallback never applies to it (it grants NEW authority to a third party, not authority over an existing exchange)', async () => {
+    const { callTool } = await import('@/services/threshold/gateway');
+    const session = fakeSession({ scope: ['research.read'] }); // no delegation.grant, no research.exchange.write
+    const res = await callTool(
+      'establish_delegation',
+      { declarationConfirmed: true, agentRootDid: 'did:example:agent', purpose: 'test' },
+      {
+        origin: 'https://example.test',
+        gatewayUrl: 'https://example.test/api/threshold/mcp',
+        session,
+        mcpActs: wireMcpActs(session),
+      },
+    );
+    expect(res.isError).toBe(true);
+    expect(String(res.content[0].text)).toMatch(/delegation\.grant/);
+  });
+
+  it('bridge route equivalence (source canary): the bridge has NO session-scope/capability concept at all, so a genuinely bound exchange participant was never gated there — MCP now matches that outcome instead of imposing an extra ceremony the bridge never required', () => {
+    const fs = require('fs') as typeof import('fs');
+    const bridgeSrc = fs.readFileSync(`${process.cwd()}/app/api/research/exchanges/[exchangeId]/actions/route.ts`, 'utf8');
+    expect(bridgeSrc).not.toMatch(/research\.exchange\.write/);
+    expect(bridgeSrc).not.toMatch(/hasScope\(/);
+    expect(bridgeSrc).not.toMatch(/ScopedSession/);
   });
 });
