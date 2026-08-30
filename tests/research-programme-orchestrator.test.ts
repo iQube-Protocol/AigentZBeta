@@ -1326,6 +1326,94 @@ describe('the run is bounded three ways', () => {
   });
 });
 
+// ── THE EMPTY-504 REPAIR (2026-08-30) ───────────────────────────────────────
+//
+// `POST .../advance` was observed returning an empty HTTP 504 — the platform
+// killing the connection before any JSON body could be written — even for a
+// state with ZERO offerable acts (e.g. "Discover Sources" pending). The prior
+// budget check ran only after an act was already selected, so a state whose
+// composition alone (readiness + candidate/source/artifact reads + frozen-
+// manifest verification + cohort reconciliation) consumed the whole budget
+// never had a chance to be caught: the loop's first (and only) iteration
+// resolves `pendingDecision` and returns before ever checking elapsed time.
+// These prove the two-part fix: a top-of-loop check that catches a slow
+// state load even with nothing to execute, and a hard backstop race around
+// the one-time composition for the case where it doesn't even finish.
+describe('the empty-504 repair — a slow state composition still returns a structured result', () => {
+  it('a state composition that alone consumes the budget still returns the FULL structured run — programme, population, diagnostics — with zero acts attempted, never a bare stop', async () => {
+    let t = 0;
+    // The fake clock advances on every timer checkpoint state composition
+    // itself makes (readiness, the rest of the composition, the outer
+    // wrapper) — by the time the loop's own first check runs, several of
+    // those ticks have already elapsed, exceeding a small budget WITHOUT any
+    // act ever being selected.
+    const result = await run({ timeBudgetMs: 50, now: () => (t += 100) });
+    expect(result.actsAttempted).toBe(0);
+    expect(result.stopReason.kind).toBe('time-budget-exhausted');
+    // The rich shape survives — this is what "must always return a
+    // structured programme result" requires: not just a stop reason, but
+    // every field a normal run carries.
+    expect(result.programme).toBeDefined();
+    expect(result.population).toBeDefined();
+    expect(result.isolation).toBeDefined();
+    expect(result.measurementLayerGate).toBeDefined();
+    expect(result.guardrails.length).toBeGreaterThan(0);
+    expect(typeof result.headline).toBe('string');
+    expect(result.diagnostics.timings.length).toBeGreaterThan(0);
+  });
+
+  it('diagnostics.timings names every phase the operator asked to instrument, present on every run', async () => {
+    const result = await run();
+    const phases = result.diagnostics.timings.map((entry) => entry.phase);
+    expect(phases).toContain('programme-state-load');
+    expect(phases).toContain('readiness');
+    expect(phases).toContain('programme-state-derivation');
+    expect(phases).toContain('measurement-layer-resolution');
+    expect(result.diagnostics.totalElapsedMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it('diagnostics.timings names each executed act by kind, and the final re-read', async () => {
+    seedSubstrate({ cohort: cohort({ invariantIds: ['inv-1'], unvalidatedRecords: [member('inv-1')] }) });
+    const result = await run();
+    const phases = result.diagnostics.timings.map((entry) => entry.phase);
+    expect(phases.some((p) => p.startsWith('act:'))).toBe(true);
+    expect(phases).toContain('final-state-recomputation');
+  });
+
+  it('a state composition that exceeds the HARD backstop deadline returns a structured 503 — never nothing, never a throw', async () => {
+    // A pathologically slow readiness read, real wall-clock delay well past
+    // a deliberately tiny deadline — proves the race itself, not just the
+    // loop's own per-iteration check (which never runs at all here, since
+    // the state never finishes composing).
+    mockRunCrystalReadinessReport.mockImplementation(
+      () => new Promise((resolve) => setTimeout(() => resolve(readiness()), 50)),
+    );
+    const result = await advanceResearchProgramme({
+      experimentId: EXPERIMENT,
+      personaId: PERSONA,
+      stateCompositionDeadlineMs: 5,
+    });
+    expect('error' in result).toBe(true);
+    if ('error' in result) {
+      expect(result.status).toBe(503);
+      expect(result.error).toMatch(/safety budget/);
+    }
+  });
+
+  it('the hard backstop deadline cannot be widened by a caller past STATE_COMPOSITION_DEADLINE_MS', async () => {
+    const src = stripComments(readSource(ORCHESTRATOR));
+    expect(src).toMatch(/Math\.min\(input\.stateCompositionDeadlineMs \?\? STATE_COMPOSITION_DEADLINE_MS, STATE_COMPOSITION_DEADLINE_MS\)/);
+  });
+
+  it('the internal time budget leaves real margin below this repo\'s own documented ~30s hosting ceiling (app/api/dev-command-center/validate|remediate/route.ts)', async () => {
+    const { DEFAULT_TIME_BUDGET_MS, STATE_COMPOSITION_DEADLINE_MS } = await import(
+      '@/services/research/researchProgrammeOrchestrator'
+    );
+    expect(DEFAULT_TIME_BUDGET_MS).toBeLessThanOrEqual(25_000);
+    expect(STATE_COMPOSITION_DEADLINE_MS).toBeLessThan(DEFAULT_TIME_BUDGET_MS);
+  });
+});
+
 // ── POPULATION DISCLOSURE — THE COUNTERWEIGHT ──────────────────────────────
 
 describe('population disclosure is present in every result', () => {

@@ -589,6 +589,10 @@ function ObjectiveCard({
   onProceed,
   proceeding,
   proceedError,
+  onApproveAcquisition,
+  acquisitionRunning,
+  acquisitionError,
+  acquisitionStatus,
 }: {
   objective: ResearchObjective;
   run: ProgrammeRunResult | null;
@@ -620,6 +624,18 @@ function ObjectiveCard({
   /** Set when the advance or the post-advance refresh failed — the card
    *  shows this INSTEAD of navigating on stale state, with a Retry. */
   proceedError: string | null;
+  /**
+   * "APPROVE TARGETED ACQUISITION" (2026-08-30) — the ONE Copilot
+   * authorization that replaces manually operating Corpus Scout when the
+   * `discover-sources` stop carries a `decision.acquisitionBrief`. Drives
+   * approve → bounded run-step loop → continue the programme; never a bare
+   * navigation. `onOpenDiscoverSources` stays available as the demoted
+   * inspection/deep-link secondary action (`onProceed`, unchanged).
+   */
+  onApproveAcquisition: (decision: PendingGovernanceDecision) => void;
+  acquisitionRunning: boolean;
+  acquisitionError: string | null;
+  acquisitionStatus: string | null;
 }) {
   const gate = run?.measurementLayerGate ?? null;
   const programme = run?.programme ?? programmePreview;
@@ -736,7 +752,87 @@ function ObjectiveCard({
           gate was still genuinely open — the operator saw only the compact
           dot-strip above, not the actionable judgment. It now survives
           navigate-away-and-back exactly like the dot-strip already did. */}
-      {decision && (
+      {decision && decision.acquisitionBrief && (
+        /* TARGETED ACQUISITION — the `discover-sources` stop rendered as a
+           precise Copilot authorization (2026-08-30), not a navigation
+           exercise. "Approve targeted acquisition" is the PRIMARY control;
+           "Open Discover Sources" survives as a demoted secondary
+           inspection/deep-link only. The plan shown is EXACTLY the brief
+           the orchestrator already computed — never a second wording. */
+        <div className="rounded border border-violet-500/40 bg-violet-500/10 px-2 py-2 space-y-1.5">
+          <div className="text-[10px] uppercase tracking-wide text-violet-300 font-semibold">
+            Your judgment — {decision.stageLabel}
+          </div>
+          <div className="text-[11px] text-slate-200">
+            Crystal v2 needs additional external evidence.
+          </div>
+          <div className="text-[10px] text-slate-300 space-y-0.5">
+            <div>
+              Target: ≥{decision.acquisitionBrief.requiredNetNewDistinctMembers} additional distinct member(s),
+              subject to actual readiness · {decision.acquisitionBrief.missingNamespaces.length} currently
+              unrepresented namespace(s)
+              {decision.acquisitionBrief.missingNamespaces.length > 0
+                ? `: ${decision.acquisitionBrief.missingNamespaces.join(", ")}`
+                : ""}
+            </div>
+            {decision.acquisitionBrief.deficientRelationalStructures.length > 0 && (
+              <div>
+                Structure sought: {decision.acquisitionBrief.deficientRelationalStructures.join(", ")}
+              </div>
+            )}
+            <div>
+              Search boundary: ratified institutions/sources only
+              {decision.acquisitionBrief.sourceAdmissibilityConstraints.length > 0
+                ? ` · ${decision.acquisitionBrief.sourceAdmissibilityConstraints.join(", ")}`
+                : ""}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => onApproveAcquisition(decision)}
+            disabled={acquisitionRunning}
+            className="mt-1 inline-flex items-center gap-1 rounded border border-violet-500/40 bg-violet-500/25 px-2 py-1 text-[10px] font-semibold text-violet-50 hover:bg-violet-500/35 transition disabled:opacity-50"
+          >
+            {acquisitionRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : <ShieldCheck className="h-3 w-3" />}
+            {acquisitionRunning ? (acquisitionStatus ?? "Working…") : "Approve targeted acquisition"}
+          </button>
+          {acquisitionError && (
+            <div className="mt-1 rounded border border-rose-500/40 bg-rose-500/10 px-2 py-1.5 text-[10px] text-rose-300">
+              {acquisitionError}
+              <button
+                type="button"
+                onClick={() => onApproveAcquisition(decision)}
+                className="ml-1.5 underline decoration-rose-700 hover:text-rose-100"
+              >
+                Retry
+              </button>
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => onProceed(decision)}
+            disabled={proceeding || acquisitionRunning}
+            className="mt-0.5 inline-flex items-center gap-1 text-[10px] text-violet-300/70 hover:text-violet-200 transition disabled:opacity-50"
+          >
+            {proceeding ? <Loader2 className="h-3 w-3 animate-spin" /> : <ArrowRight className="h-3 w-3" />}
+            {proceeding ? "Confirming current state…" : "Open Discover Sources (inspect only)"}
+          </button>
+          {proceedError && (
+            <div className="mt-1 rounded border border-rose-500/40 bg-rose-500/10 px-2 py-1.5 text-[10px] text-rose-300">
+              Could not confirm the current Track 2 state before opening it — {proceedError}.
+              <button
+                type="button"
+                onClick={() => onProceed(decision)}
+                className="ml-1.5 underline decoration-rose-700 hover:text-rose-100"
+              >
+                Retry
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {decision && !decision.acquisitionBrief && (
         <div className="rounded border border-violet-500/40 bg-violet-500/10 px-2 py-2 space-y-1">
           <div className="text-[10px] uppercase tracking-wide text-violet-300 font-semibold">
             {decision.authority === "governance" ? "Your constitutional act" : "Your judgment"} — {decision.stageLabel}
@@ -993,6 +1089,14 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
   // recomputed from authoritative Track 2 state on every mount/refresh, never
   // held only in the ephemeral `programmeRun` (POST-only) state below.
   const [pendingDecisionPreview, setPendingDecisionPreview] = useState<PendingGovernanceDecision | null>(null);
+  // ── "APPROVE TARGETED ACQUISITION" (2026-08-30) — separate from
+  // `proceeding`/`proceedError` (the generic "Open <stage>" navigation
+  // sequence): this tracks the approve → bounded run-step loop → continue
+  // programme sequence, which performs real writes and real acquisition
+  // acts, never just a navigation confirmation.
+  const [acquisitionRunning, setAcquisitionRunning] = useState(false);
+  const [acquisitionError, setAcquisitionError] = useState<string | null>(null);
+  const [acquisitionStatus, setAcquisitionStatus] = useState<string | null>(null);
 
   // ── C3 Feedback Coordinator (mirrors DevCommandCenterTab.autoPrompt): on a
   // stage-ADVANCING approval, mint ONE `[observed]` auto-turn so the copilot
@@ -1299,6 +1403,100 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
   }, [observe, personaId, refresh]);
 
   /**
+   * "APPROVE TARGETED ACQUISITION" (2026-08-30, operator directive: "turn
+   * Discover Sources into a precise Copilot authorization, not another
+   * navigation exercise"). ONE steward click drives the whole authorized
+   * sequence:
+   *
+   *   1. POST .../acquisition/approve — the ONE human act. Refused server-side
+   *      (409) if nothing currently requires acquisition; that refusal
+   *      surfaces here as an honest error, never silently swallowed.
+   *   2. POST .../acquisition/run-step, repeated — EACH call is bounded to one
+   *      ratified+verified institution (`runOneAcquisitionStep`), never an
+   *      unbounded sweep. Stops the moment the server reports `done: true`
+   *      (readiness satisfied OR every ratified institution attempted) —
+   *      this loop is driven by the SERVER's own signal, never by assuming
+   *      the brief's deficit count is a fixed quota. `MAX_CLIENT_STEPS` is a
+   *      client-side backstop only, in case that signal is ever wrong; it is
+   *      not the authority on when to stop.
+   *   3. `runProgramme(experimentId)` — the SAME "Run until you need me" the
+   *      objective's own button calls, so the programme continues with
+   *      extract-candidates/validate-cohort over whatever was just admitted,
+   *      and readiness is re-derived fresh rather than assumed satisfied.
+   *
+   * Never navigates to another page as its primary action (operator
+   * requirement) — "Open Discover Sources" remains available separately,
+   * unchanged, as `onProceed`/`proceedToDecision` already provide.
+   */
+  const MAX_CLIENT_ACQUISITION_STEPS = 40;
+  const approveTargetedAcquisition = useCallback(async (decision: PendingGovernanceDecision) => {
+    const experimentIdForDecision = decision.deepLink.experimentId;
+    setAcquisitionRunning(true);
+    setAcquisitionError(null);
+    setAcquisitionStatus("Approving targeted acquisition…");
+    observe(surfacePromptSelectedEvent(SURFACE, `targeted acquisition approval requested (${experimentIdForDecision})`));
+    try {
+      const approveRes = await personaFetch(
+        `/api/research/programme/${encodeURIComponent(experimentIdForDecision)}/acquisition/approve`,
+        {
+          method: "POST",
+          cache: "no-store",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+          ...(personaId ? { personaIdHint: personaId } : {}),
+        },
+      );
+      const approveData = await approveRes.json().catch(() => null) as { ok?: boolean; error?: string } | null;
+      if (!approveRes.ok || !approveData || approveData.ok !== true) {
+        throw new Error((approveData && typeof approveData.error === "string" && approveData.error) || `HTTP ${approveRes.status}`);
+      }
+      observe(surfacePromptSelectedEvent(SURFACE, `targeted acquisition approved (${experimentIdForDecision})`));
+
+      for (let i = 0; i < MAX_CLIENT_ACQUISITION_STEPS; i++) {
+        const stepRes = await personaFetch(
+          `/api/research/programme/${encodeURIComponent(experimentIdForDecision)}/acquisition/run-step`,
+          {
+            method: "POST",
+            cache: "no-store",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({}),
+            ...(personaId ? { personaIdHint: personaId } : {}),
+          },
+        );
+        const stepData = await stepRes.json().catch(() => null) as {
+          ok?: boolean;
+          error?: string;
+          institution?: { institutionName: string } | null;
+          exhausted?: boolean;
+          readinessSatisfied?: boolean;
+          done?: boolean;
+        } | null;
+        if (!stepRes.ok || !stepData || stepData.ok !== true) {
+          throw new Error((stepData && typeof stepData.error === "string" && stepData.error) || `HTTP ${stepRes.status}`);
+        }
+        setAcquisitionStatus(
+          stepData.institution
+            ? `Discovering via ${stepData.institution.institutionName}…`
+            : "No further ratified institution to attempt…",
+        );
+        observe(surfacePromptSelectedEvent(
+          SURFACE,
+          `acquisition step: ${stepData.institution?.institutionName ?? "none"} — exhausted=${stepData.exhausted}, readinessSatisfied=${stepData.readinessSatisfied}`,
+        ));
+        if (stepData.done) break;
+      }
+
+      setAcquisitionStatus("Continuing the programme…");
+      await runProgramme(experimentIdForDecision);
+      setAcquisitionStatus(null);
+    } catch (err) {
+      setAcquisitionError(err instanceof Error ? err.message : "targeted acquisition failed");
+      setAcquisitionStatus(null);
+    }
+    setAcquisitionRunning(false);
+  }, [observe, personaId, runProgramme]);
+
+  /**
    * THE PENDING-DECISION CTA's PROCEED SEQUENCE (2026-08-27 fix) —
    * `services/research/track2ProceedNavigation.ts`'s `proceedToTrack2Stage`
    * driven with real IO. Awaits a fresh `/advance` and a fresh authoritative
@@ -1516,6 +1714,10 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
               onProceed={(decision) => void proceedToDecision(decision)}
               proceeding={proceeding}
               proceedError={proceedError}
+              onApproveAcquisition={(decision) => void approveTargetedAcquisition(decision)}
+              acquisitionRunning={acquisitionRunning}
+              acquisitionError={acquisitionError}
+              acquisitionStatus={acquisitionStatus}
             />
           ))}
 

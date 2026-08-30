@@ -38,13 +38,22 @@ import { getActivePersona } from '@/services/identity/getActivePersona';
 import { advanceResearchProgramme } from '@/services/research/researchProgrammeOrchestrator';
 
 export const dynamic = 'force-dynamic';
+// Honored where the platform allows; the call is sized for ~30s regardless
+// (same discipline as app/api/dev-command-center/validate|remediate/route.ts)
+// — the orchestrator's own internal budgets (DEFAULT_TIME_BUDGET_MS,
+// STATE_COMPOSITION_DEADLINE_MS) are what actually bound this request, and
+// they leave real margin under that ~30s real ceiling. See the 2026-08-30
+// "empty 504" repair in researchProgrammeOrchestrator.ts for why 60s of
+// DECLARED budget was never the safe number to design against.
 export const maxDuration = 60;
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ experimentId: string }> },
 ) {
+  const authStartedAt = Date.now();
   const persona = await getActivePersona(req);
+  const authMs = Date.now() - authStartedAt;
   if (!persona?.personaId) {
     return NextResponse.json({ ok: false, error: 'Not authenticated' }, { status: 401 });
   }
@@ -57,14 +66,24 @@ export async function POST(
     experimentId,
     personaId: persona.personaId,
     acquisitionDomain: req.nextUrl.searchParams.get('acquisitionDomain') ?? undefined,
-    // No `maxActs`, no `timeBudgetMs`, no `resolveMeasurementLayer`: a client
-    // must not be able to widen the act budget or open the sequencing gate. The
-    // orchestrator clamps both bounds to its own ceilings and reads the gate
-    // fail-closed, so omitting them here is the only correct call.
+    // No `maxActs`, no `timeBudgetMs`, no `stateCompositionDeadlineMs`, no
+    // `resolveMeasurementLayer`: a client must not be able to widen any
+    // safety bound or open the sequencing gate. The orchestrator clamps
+    // every bound to its own ceilings and reads the gate fail-closed, so
+    // omitting them here is the only correct call.
   });
   if ('error' in result) {
+    // eslint-disable-next-line no-console
+    console.error(
+      `[advance route] experiment '${experimentId}': authMs=${authMs}, result=error(${result.status}): ${result.error}`,
+    );
     return NextResponse.json({ ok: false, error: result.error }, { status: result.status });
   }
 
+  // eslint-disable-next-line no-console
+  console.info(
+    `[advance route] experiment '${experimentId}': authMs=${authMs}, totalElapsedMs=${result.diagnostics.totalElapsedMs}, ` +
+      `stopReason=${result.stopReason.kind}, actsAttempted=${result.actsAttempted}, timings=${JSON.stringify(result.diagnostics.timings)}`,
+  );
   return NextResponse.json({ ok: true, run: result }, { headers: { 'Cache-Control': 'no-store' } });
 }

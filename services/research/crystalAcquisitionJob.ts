@@ -1,0 +1,229 @@
+/**
+ * Crystal v2 targeted acquisition — the durable "has a steward authorized
+ * this" fact, and the ONE bounded step a Copilot-driven acquisition run
+ * performs per invocation (operator directive, 2026-08-30, "turn Discover
+ * Sources into a precise Copilot authorization, not another navigation
+ * exercise").
+ *
+ * ── WHY THIS IS SEPARATE FROM `researchProgrammeOrchestrator.ts`'S LOOP ────
+ *
+ * That module's own header already recorded, before this file existed, why
+ * `discover-sources` stays OUT of the closed `PROGRAMME_ACT_KINDS` catalogue:
+ * it issues sequential external HTTP requests to ratified institutions —
+ * "unbounded wall-clock against third-party sites inside one request, which
+ * is the one shape a bounded loop cannot bound" — and belongs in "its own
+ * deliberate act, not as a side effect of adding a loop." This module IS
+ * that deliberate act: it never joins `PROGRAMME_ACT_KINDS`, never touches
+ * `IsolationStage`, and never runs inside `advanceResearchProgramme`'s own
+ * while-loop. It is driven by the CLIENT the same way "Run until you need
+ * me" already is (services/research/researchProgrammeOrchestrator.ts's own
+ * consumer, `IRLResearchCopilotTab.tsx`, already calls `/advance` repeatedly
+ * until a stop) — each call here processes AT MOST ONE ratified+verified
+ * institution, bounded exactly like `MAX_RECORDS_PER_ACT` bounds a record
+ * batch: sorted deterministically, one unit of work, nothing left half-done.
+ *
+ * ── THE DURABLE FACT, NOT A CACHED DECISION ────────────────────────────────
+ *
+ * Per this repo's own established discipline (services/research/
+ * track2Programme.ts, services/threshold/constitutionalNavigator.ts —
+ * "never persist a derived decision; persist the underlying facts and let
+ * the decision re-derive"), `crystal_acquisition_approvals` stores ONLY the
+ * fact that a steward approved targeted acquisition, and a snapshot of what
+ * was targeted at that moment for the receipt's own record. Whether
+ * acquisition is STILL needed is always re-derived fresh from live readiness
+ * (`acquisitionBriefApplies`), never read off this table.
+ */
+
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { getDomainConstitution } from '@/services/corpusScout/domainConstitution';
+import { canRunInstitutionDiscovery } from '@/services/corpusScout/registryVerification';
+import { runDiscoveryForInstitution, type InstitutionDiscoveryRunResult } from '@/services/corpusScout/discoveryOrchestrator';
+import { listCandidateSources } from '@/services/corpusScout/provenance';
+import { writeLifecycleReceipt } from '@/services/research/lifecycle';
+import type { CrystalAcquisitionBrief } from '@/services/research/crystalAcquisitionBrief';
+
+const TABLE = 'crystal_acquisition_approvals';
+
+export interface AcquisitionApprovalRow {
+  id: string;
+  experimentId: string;
+  acquisitionDomain: string;
+  crystalDomain: string;
+  status: 'approved' | 'completed' | 'superseded';
+  targetSnapshot: {
+    requiredNetNewDistinctMembers: number;
+    missingNamespaces: readonly string[];
+    deficientRelationalStructures: readonly string[];
+    sourceAdmissibilityConstraints: readonly string[];
+  };
+  approvedByPersonaId: string;
+  approvedAt: string;
+  completedAt: string | null;
+  receiptId: string | null;
+}
+
+function rowToApproval(r: Record<string, unknown>): AcquisitionApprovalRow {
+  return {
+    id: String(r.id),
+    experimentId: String(r.experiment_id),
+    acquisitionDomain: String(r.acquisition_domain),
+    crystalDomain: String(r.crystal_domain),
+    status: r.status as AcquisitionApprovalRow['status'],
+    targetSnapshot: r.target_snapshot as AcquisitionApprovalRow['targetSnapshot'],
+    approvedByPersonaId: String(r.approved_by_persona_id),
+    approvedAt: String(r.approved_at),
+    completedAt: (r.completed_at as string | null) ?? null,
+    receiptId: (r.receipt_id as string | null) ?? null,
+  };
+}
+
+/** The one active (status='approved') approval for this experiment+domain, or
+ *  `null` when none exists — the fact every gate/CTA reads. Never more than
+ *  one row is 'approved' at a time for the same pair (enforced in
+ *  `approveAcquisitionJob`, not by a DB constraint, mirroring this codebase's
+ *  existing convention for similar single-active-row invariants). */
+export async function getActiveAcquisitionApproval(
+  admin: SupabaseClient,
+  experimentId: string,
+  acquisitionDomain: string,
+): Promise<AcquisitionApprovalRow | null> {
+  const { data, error } = await admin
+    .from(TABLE)
+    .select('*')
+    .eq('experiment_id', experimentId)
+    .eq('acquisition_domain', acquisitionDomain)
+    .eq('status', 'approved')
+    .order('approved_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error || !data) return null;
+  return rowToApproval(data as Record<string, unknown>);
+}
+
+/**
+ * THE HUMAN ACT — a steward approves the targeted acquisition plan the brief
+ * already computed. Supersedes any prior 'approved' row for the same
+ * experiment+domain first (never two simultaneously active), then inserts
+ * the new one and receipts it through the SAME `writeLifecycleReceipt` every
+ * other governed Track 2 act rides — never a second receipt path.
+ */
+export async function approveAcquisitionJob(
+  admin: SupabaseClient,
+  input: {
+    experimentId: string;
+    acquisitionDomain: string;
+    crystalDomain: string;
+    approvedByPersonaId: string;
+    brief: CrystalAcquisitionBrief;
+  },
+): Promise<{ ok: true; approval: AcquisitionApprovalRow } | { ok: false; error: string }> {
+  await admin
+    .from(TABLE)
+    .update({ status: 'superseded' })
+    .eq('experiment_id', input.experimentId)
+    .eq('acquisition_domain', input.acquisitionDomain)
+    .eq('status', 'approved');
+
+  const targetSnapshot = {
+    requiredNetNewDistinctMembers: input.brief.requiredNetNewDistinctMembers,
+    missingNamespaces: input.brief.missingNamespaces,
+    deficientRelationalStructures: input.brief.deficientRelationalStructures,
+    sourceAdmissibilityConstraints: input.brief.sourceAdmissibilityConstraints,
+  };
+
+  const { data, error } = await admin
+    .from(TABLE)
+    .insert({
+      experiment_id: input.experimentId,
+      acquisition_domain: input.acquisitionDomain,
+      crystal_domain: input.crystalDomain,
+      status: 'approved',
+      target_snapshot: targetSnapshot,
+      approved_by_persona_id: input.approvedByPersonaId,
+    })
+    .select('*')
+    .single();
+  if (error || !data) return { ok: false, error: error?.message ?? 'approval could not be written' };
+
+  const receipt = await writeLifecycleReceipt({
+    personaId: input.approvedByPersonaId,
+    summary:
+      `Targeted acquisition approved for experiment ${input.experimentId} (${input.crystalDomain}): ` +
+      `${targetSnapshot.requiredNetNewDistinctMembers} additional distinct member(s), ` +
+      `${targetSnapshot.missingNamespaces.length} namespace(s) unrepresented ` +
+      `(${targetSnapshot.missingNamespaces.join(', ') || 'none named'}). Ratified institutions only, ` +
+      `domain '${input.acquisitionDomain}'. No source added, no statement authored, no boundary changed by ` +
+      'this act — it authorizes bounded discovery to run.',
+    invariantSeedIds: [],
+  }).catch(() => ({ ok: false, receiptId: null }));
+
+  if (receipt.receiptId) {
+    await admin.from(TABLE).update({ receipt_id: receipt.receiptId }).eq('id', data.id);
+  }
+
+  return { ok: true, approval: rowToApproval({ ...(data as Record<string, unknown>), receipt_id: receipt.receiptId }) };
+}
+
+/** Marks the approval 'completed' — called once readiness no longer needs
+ *  acquisition (`!acquisitionBriefApplies(freshReadiness)`) or every ratified
+ *  institution has been attempted. Idempotent: a caller that completes an
+ *  already-completed/superseded row is a no-op, never an error. */
+export async function completeAcquisitionJob(admin: SupabaseClient, approvalId: string): Promise<void> {
+  await admin
+    .from(TABLE)
+    .update({ status: 'completed', completed_at: new Date().toISOString() })
+    .eq('id', approvalId)
+    .eq('status', 'approved');
+}
+
+export interface AcquisitionStepResult {
+  ok: true;
+  /** `null` when every ratified+verified institution in the domain already
+   *  has at least one candidate source on record — there is nothing left
+   *  this job can discover, distinct from a genuine per-institution failure. */
+  institution: { pillarKey: string; institutionName: string } | null;
+  discovery: InstitutionDiscoveryRunResult | null;
+  /** True when no ratified+verified institution remains unattempted — the
+   *  caller should stop calling this step and re-check readiness. */
+  exhausted: boolean;
+}
+
+/**
+ * THE ONE BOUNDED STEP. Picks the FIRST ratified+verified institution (sorted
+ * by name — `getDomainConstitution`'s own deterministic order) that has no
+ * candidate source on record yet for this domain, and runs discovery for
+ * THAT institution alone — never more than one, never the whole-domain
+ * sequential sweep `runDiscoveryForDomain` performs. A caller drives this
+ * repeatedly (mirroring "Run until you need me") until `exhausted: true`.
+ */
+export async function runOneAcquisitionStep(
+  admin: SupabaseClient,
+  acquisitionDomain: string,
+): Promise<AcquisitionStepResult> {
+  const [constitution, existingSources] = await Promise.all([
+    getDomainConstitution(admin, acquisitionDomain),
+    listCandidateSources(admin, { campaignDomain: acquisitionDomain }).catch(() => []),
+  ]);
+  const attemptedIssuers = new Set(
+    existingSources.map((s) => s.issuer).filter((issuer): issuer is string => Boolean(issuer)),
+  );
+  const eligible = constitution.institutions.filter(
+    (i) => canRunInstitutionDiscovery(i).allowed && !attemptedIssuers.has(i.institutionName),
+  );
+  const next = eligible[0];
+  if (!next) {
+    return { ok: true, institution: null, discovery: null, exhausted: true };
+  }
+  const discovery = await runDiscoveryForInstitution(admin, {
+    domain: acquisitionDomain,
+    pillarKey: next.pillarKey,
+    institutionName: next.institutionName,
+  });
+  const remaining = eligible.length - 1;
+  return {
+    ok: true,
+    institution: { pillarKey: next.pillarKey, institutionName: next.institutionName },
+    discovery,
+    exhausted: remaining <= 0,
+  };
+}
