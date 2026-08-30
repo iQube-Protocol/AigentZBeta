@@ -57,6 +57,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 import { personaPublicRef } from '@/services/identity/personaReferences';
 import { createOrGetChannel } from '@/services/qubetalk/peerChannel';
+import { listOwnedPersonaIds } from '@/services/identity/passportPrincipal';
 import {
   type ExchangeStatus,
   type PartySlot,
@@ -292,7 +293,7 @@ export type ExchangeActingPrincipalResult =
  */
 export async function resolveExchangeActingPrincipal(
   admin: SupabaseClient,
-  input: { exchangeId: string; activePersonaId: string; authProfileId: string },
+  input: { exchangeId: string; activePersonaId: string; authProfileId: string | null },
 ): Promise<ExchangeActingPrincipalResult> {
   const loaded = await loadExchange(admin, input.exchangeId);
   if (!loaded.ok) return { ok: false, error: 'not-a-party' };
@@ -302,14 +303,20 @@ export async function resolveExchangeActingPrincipal(
     ? input.activePersonaId
     : null;
 
-  if (!resolvedPersonaId) {
-    const { data: siblingRows } = await admin
-      .from('personas')
-      .select('id')
-      .eq('auth_profile_id', input.authProfileId);
-    const siblingIds = (siblingRows ?? [])
-      .map((r) => (r as { id?: unknown }).id)
-      .filter((id): id is string => typeof id === 'string');
+  if (!resolvedPersonaId && input.authProfileId) {
+    // Merge-aware (2026-08-30, "MCP navigator discovery" repair): the SAME
+    // roster Passport/bound-agent discovery already use (services/identity/
+    // passportPrincipal.ts's listOwnedPersonaIds, which unions in
+    // getMergedLinkedAuthProfileIds), not a raw same-auth_profile_id-only
+    // sibling query. A bound party under a MERGED sibling auth profile is
+    // resolvable exactly as their Passport already is — fails open to the
+    // single-profile roster on a merge-lookup failure, never to nothing.
+    // Skipped entirely (never attempted) when no authProfileId resolved —
+    // the direct match above is still tried regardless, so an unresolved
+    // auth profile only narrows away the SIBLING widening, never the base
+    // "is this exact persona itself the bound party" check.
+    const owned = await listOwnedPersonaIds(admin, input.authProfileId);
+    const siblingIds = owned.ok ? owned.personaIds : [];
     resolvedPersonaId = siblingIds.find((id) => resolveMembership(exchange, id) !== null) ?? null;
   }
 
@@ -1595,14 +1602,27 @@ export async function getExchangeView(
   return { ok: true, view };
 }
 
+/**
+ * Accepts either a single personaId (every existing call site, unchanged) or
+ * an ARRAY of persona ids (2026-08-30, "merged auth profile exchange
+ * discovery" repair) — the caller's own merge-aware owned-persona-id roster
+ * (services/identity/passportPrincipal.ts's `listOwnedPersonaIds`, the SAME
+ * resolver Passport/bound-agent discovery already use), so a bound party
+ * under a MERGED sibling auth profile is discoverable exactly as their
+ * Passport and agent roster already are. Never a second, independently
+ * derived notion of "the holder's" personas — reuse only.
+ */
 export async function listMyExchanges(
   admin: SupabaseClient,
-  personaId: string,
+  personaId: string | string[],
 ): Promise<{ ok: true; exchanges: ReciprocalExchangeRecord[] } | { ok: false; error: string }> {
+  const ids = Array.isArray(personaId) ? personaId : [personaId];
+  if (ids.length === 0) return { ok: true, exchanges: [] };
+  const orClause = ids.flatMap((id) => [`initiator_persona_id.eq.${id}`, `counterparty_persona_id.eq.${id}`]).join(',');
   const { data, error } = await admin
     .from(T_EXCHANGES)
     .select('*')
-    .or(`initiator_persona_id.eq.${personaId},counterparty_persona_id.eq.${personaId}`)
+    .or(orClause)
     .order('created_at', { ascending: false });
   if (error) return { ok: false, error: isMissingTable(error) ? MIGRATION_HINT : error.message };
   return { ok: true, exchanges: (data ?? []).map((r) => rowToExchange(r as Record<string, unknown>)) };

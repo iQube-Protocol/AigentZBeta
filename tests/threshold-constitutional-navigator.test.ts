@@ -37,6 +37,7 @@ const {
   mockResolveOwnerAuthProfileId,
   mockLoadUsableCitizenPassportForAuthProfile,
   mockIsPassportUsable,
+  mockListOwnedPersonaIds,
   mockResolveConstitutionalContextForPersona,
   mockGetGrantedExperiments,
   mockListMyExchanges,
@@ -46,6 +47,11 @@ const {
   mockResolveOwnerAuthProfileId: vi.fn(),
   mockLoadUsableCitizenPassportForAuthProfile: vi.fn(),
   mockIsPassportUsable: vi.fn(),
+  // Defaults to a lookup failure so every call site's own fallback
+  // (owned?.ok ? owned.personaIds : [personaId]) narrows back to exactly
+  // [personaId] — matching pre-fix single-persona behavior for every
+  // existing test unless a test explicitly stubs a merge case.
+  mockListOwnedPersonaIds: vi.fn(async () => ({ ok: false as const, reason: 'unavailable' as const })),
   mockResolveConstitutionalContextForPersona: vi.fn(),
   mockGetGrantedExperiments: vi.fn(),
   mockListMyExchanges: vi.fn(),
@@ -61,6 +67,7 @@ vi.mock('@/services/contactGraph/ownerResolution', () => ({
 vi.mock('@/services/identity/passportPrincipal', () => ({
   loadUsableCitizenPassportForAuthProfile: mockLoadUsableCitizenPassportForAuthProfile,
   isPassportUsable: mockIsPassportUsable,
+  listOwnedPersonaIds: mockListOwnedPersonaIds,
 }));
 vi.mock('@/services/identity/constitutionalContext', () => ({
   resolveConstitutionalContextForPersona: mockResolveConstitutionalContextForPersona,
@@ -162,7 +169,7 @@ describe('resolveConstitutionalNavigatorState — the T0->T2 reverse-lookup seam
     expect(mockResolveOwnerAuthProfileId).toHaveBeenCalledWith(FAKE_PERSONA_ID);
     expect(mockLoadUsableCitizenPassportForAuthProfile).toHaveBeenCalledWith(NOOP_ADMIN, FAKE_AUTH_PROFILE_ID);
     expect(mockGetGrantedExperiments).toHaveBeenCalledWith(NOOP_ADMIN, FAKE_PERSONA_ID);
-    expect(mockListMyExchanges).toHaveBeenCalledWith(NOOP_ADMIN, FAKE_PERSONA_ID);
+    expect(mockListMyExchanges).toHaveBeenCalledWith(NOOP_ADMIN, [FAKE_PERSONA_ID]);
     expect(mockFetchIanAuthoritativePlatformState).toHaveBeenCalledWith(FAKE_PERSONA_ID, FAKE_AUTH_PROFILE_ID);
     expect(state.resolvable).toBe(true);
   });
@@ -230,6 +237,32 @@ describe('resolveConstitutionalNavigatorState — composition, not re-derivation
     const state = await resolveConstitutionalNavigatorState(NOOP_ADMIN, fakeSession(), { bridge: 'ocsga' });
     expect(state.grants.reciprocalExchange.hasActiveExchange).toBe(true);
     expect(state.grants.reciprocalExchange.status).toBe('B_JOINED');
+  });
+
+  it('MERGED auth-profile discovery (2026-08-30 live-reported defect): hasActiveExchange resolves true even though the exchange is bound to a MERGED SIBLING of the session\'s own resolved persona, never the raw personaId alone', async () => {
+    // The session's own resolved persona (FAKE_PERSONA_ID) is NOT itself a
+    // party — listMyExchanges only returns a hit when queried with the
+    // merge-widened roster, proving hasActiveExchange is NOT silently true
+    // by coincidence.
+    mockListOwnedPersonaIds.mockResolvedValue({ ok: true, personaIds: [FAKE_PERSONA_ID, 'persona-ian-merged-sibling'] });
+    mockListMyExchanges.mockImplementation(async (_admin: unknown, personaIdOrIds: string | string[]) => {
+      const ids = Array.isArray(personaIdOrIds) ? personaIdOrIds : [personaIdOrIds];
+      if (!ids.includes('persona-ian-merged-sibling')) return { ok: true, exchanges: [] };
+      return { ok: true, exchanges: [{ id: 'exchange-1', status: 'B_DEPOSITED' }] };
+    });
+    const state = await resolveConstitutionalNavigatorState(NOOP_ADMIN, fakeSession(), { bridge: 'ocsga' });
+    expect(mockListOwnedPersonaIds).toHaveBeenCalledWith(NOOP_ADMIN, FAKE_AUTH_PROFILE_ID);
+    expect(mockListMyExchanges).toHaveBeenCalledWith(NOOP_ADMIN, [FAKE_PERSONA_ID, 'persona-ian-merged-sibling']);
+    expect(state.grants.reciprocalExchange.hasActiveExchange).toBe(true);
+    expect(state.grants.reciprocalExchange.status).toBe('B_DEPOSITED');
+  });
+
+  it('an unrelated principal with NO merge link (listOwnedPersonaIds resolves only itself) still reads hasActiveExchange:false — merge-awareness never fabricates a hit', async () => {
+    mockListOwnedPersonaIds.mockResolvedValue({ ok: true, personaIds: [FAKE_PERSONA_ID] });
+    mockListMyExchanges.mockResolvedValue({ ok: true, exchanges: [] });
+    const state = await resolveConstitutionalNavigatorState(NOOP_ADMIN, fakeSession(), { bridge: 'ocsga' });
+    expect(state.grants.reciprocalExchange.hasActiveExchange).toBe(false);
+    expect(state.grants.reciprocalExchange.status).toBe(null);
   });
 
   it('a resolver failure is reported as an honest evidenceGap, never silently swallowed into a false negative', async () => {
