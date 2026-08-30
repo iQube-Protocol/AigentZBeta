@@ -94,12 +94,19 @@ describe('Research Copilot — the pending decision survives navigate-away-and-b
   it('the decision card is rendered OUTSIDE {run && (...)} — it must not require the ephemeral run result to exist', () => {
     const src = stripComments(readSource(COPILOT));
     const runBlockStart = src.indexOf('{run && (');
-    const decisionBlockStart = src.indexOf('{decision && (');
+    // 2026-08-30 (targeted acquisition): the single `{decision && (` block
+    // split into two siblings — `{decision && decision.acquisitionBrief && (`
+    // (the `discover-sources` acquisition authorization) and
+    // `{decision && !decision.acquisitionBrief && (` (every other pending
+    // decision, unchanged) — both still driven by the SAME `decision` value,
+    // both still siblings of, and preceding, `{run && (...)}`.
+    const decisionBlockStart = src.indexOf('{decision &&');
     expect(runBlockStart).toBeGreaterThan(-1);
     expect(decisionBlockStart).toBeGreaterThan(-1);
-    // The decision block must appear BEFORE {run && (...)} in source order —
-    // i.e. it is a sibling, not nested inside it.
+    // The decision block(s) must appear BEFORE {run && (...)} in source order —
+    // i.e. they are siblings, not nested inside it.
     expect(decisionBlockStart).toBeLessThan(runBlockStart);
+    expect(src.indexOf('{decision && !decision.acquisitionBrief')).toBeLessThan(runBlockStart);
   });
 
   it('decision merges run.pendingDecision with the durable preview — freshest read wins, neither is the sole source', () => {
@@ -114,7 +121,11 @@ describe('Research Copilot — the pending decision survives navigate-away-and-b
     // (advance + a fresh Track 2 GET) before opening anything — see
     // services/research/track2ProceedNavigation.ts.
     const src = stripComments(readSource(COPILOT));
-    const decisionBlockStart = src.indexOf('{decision && (');
+    // Spans BOTH decision siblings (the acquisition block and the generic
+    // block, 2026-08-30) up to {run && (...)} — onProceed(decision) is the
+    // secondary/demoted control in the acquisition block and the primary
+    // control in the generic block; either way it is never onOpenStage.
+    const decisionBlockStart = src.indexOf('{decision &&');
     const decisionBlockEnd = src.indexOf('{run && (', decisionBlockStart);
     const decisionBlock = src.slice(decisionBlockStart, decisionBlockEnd);
     expect(decisionBlock).toMatch(/onClick=\{\(\) => onProceed\(decision\)\}/);
@@ -128,7 +139,7 @@ describe('Research Copilot — the pending decision survives navigate-away-and-b
 
   it('the pending-decision CTA never navigates on a failed proceed sequence — it shows the error and a Retry instead', () => {
     const src = stripComments(readSource(COPILOT));
-    const decisionBlockStart = src.indexOf('{decision && (');
+    const decisionBlockStart = src.indexOf('{decision &&');
     const decisionBlockEnd = src.indexOf('{run && (', decisionBlockStart);
     const decisionBlock = src.slice(decisionBlockStart, decisionBlockEnd);
     expect(decisionBlock).toMatch(/proceedError/);

@@ -98,7 +98,11 @@ import {
   latestFrozenCrystalArtifact,
 } from '@/services/research/artifacts';
 import { buildFrozenCrystalManifest } from '@/services/research/crystalFrozenManifest';
-import { acquisitionBriefApplies, buildCrystalAcquisitionBrief } from '@/services/research/crystalAcquisitionBrief';
+import {
+  acquisitionBriefApplies,
+  buildCrystalAcquisitionBrief,
+  type CrystalAcquisitionBrief,
+} from '@/services/research/crystalAcquisitionBrief';
 import {
   crystalDeclarationHash,
   crystalDomainForExperiment,
@@ -384,6 +388,13 @@ export interface Track2ProgrammeState {
 export async function loadTrack2ProgrammeState(input: {
   experimentId: string;
   acquisitionDomain?: string;
+  /** Optional instrumentation sink (2026-08-30, "empty 504" repair) — when
+   *  supplied, `readiness` is timed SEPARATELY from the rest of this
+   *  function's own composition work, per the operator's explicit request to
+   *  distinguish those two phases. Omitted entirely by the plain GET route,
+   *  which has no timing budget to protect and no diagnostics contract to
+   *  extend — this stays additive, never a second read model. */
+  timer?: PhaseTimer;
 }): Promise<Track2ProgrammeState | { error: string; status: 404 }> {
   const declaration = crystalDomainForExperiment(input.experimentId);
   if (!declaration) {
@@ -395,10 +406,19 @@ export async function loadTrack2ProgrammeState(input: {
   const acquisitionDomain = input.acquisitionDomain?.trim() || DEFAULT_ACQUISITION_DOMAIN;
 
   const admin = getSupabaseServer();
-  const readiness = await runCrystalReadinessReport({
-    experimentId: input.experimentId,
-    crystalDomain: declaration.domain,
-  });
+  const readiness = input.timer
+    ? await input.timer.time('readiness', () =>
+        runCrystalReadinessReport({ experimentId: input.experimentId, crystalDomain: declaration.domain }),
+      )
+    : await runCrystalReadinessReport({
+        experimentId: input.experimentId,
+        crystalDomain: declaration.domain,
+      });
+  // Marks the start of "programme-state derivation" (everything in this
+  // function OTHER than readiness, timed separately above) — recorded at the
+  // function's return points below, since the branching between here and
+  // there is awkward to wrap in one closure.
+  const restStart = input.timer?.now() ?? 0;
 
   // Best-effort, fail-soft. `null` becomes `unknown`, never `complete`.
   const [sources, candidates, artifact, frozenPredecessor] = await Promise.all([
@@ -554,6 +574,8 @@ export async function loadTrack2ProgrammeState(input: {
   const pendingDecision =
     firstPendingDecision(programme) ??
     (await buildAcquisitionPendingDecision({ programme, declaration, readiness, artifact }));
+
+  if (input.timer) input.timer.record('programme-state-derivation', input.timer.now() - restStart);
 
   return {
     experimentId: input.experimentId,
@@ -768,11 +790,84 @@ export const MAX_ACTS_PER_RUN = 8;
 export const MAX_RECORDS_PER_ACT = 25;
 
 /**
- * THE WALL-CLOCK BUDGET, in milliseconds. Checked BEFORE an act starts, never
- * mid-act — a half-executed capability is exactly the partial state this bound
- * exists to avoid. A run that stops here is `partial`, and says so.
+ * THE WALL-CLOCK BUDGET, in milliseconds. Checked at the TOP of every loop
+ * iteration — before the global-stop check, before the act-budget check,
+ * before act selection, and before an act starts — never mid-act, and never
+ * only after an act has already been chosen. A half-executed capability is
+ * exactly the partial state this bound exists to avoid. A run that stops
+ * here is `partial`, and says so.
+ *
+ * SIZED FOR THE REAL HOSTING CEILING, NOT THE DECLARED ONE (2026-08-30,
+ * "empty 504" repair). The route declares `maxDuration = 60`, but this
+ * repo's own established convention (`app/api/dev-command-center/validate/
+ * route.ts`, `remediate/route.ts`) already documents that a declared
+ * `maxDuration` is "honored where the platform allows" and every such route
+ * is "sized for ~30s regardless." This budget follows the SAME discipline:
+ * 45s left only ~15s of margin under a ~30s real ceiling — comfortably
+ * enough for the platform to kill the connection mid-response, producing an
+ * EMPTY body (the reported 504), never a JSON error the client can render.
+ * 20s leaves real margin for JSON serialisation and network flush after the
+ * budget check fires clean.
  */
-export const DEFAULT_TIME_BUDGET_MS = 45_000;
+export const DEFAULT_TIME_BUDGET_MS = 20_000;
+
+/**
+ * THE HARD BACKSTOP for the ONE-TIME state composition that happens BEFORE
+ * the loop can even check `DEFAULT_TIME_BUDGET_MS` — `loadTrack2ProgrammeState`
+ * (readiness + candidate/source/artifact reads + frozen-manifest verification
+ * + cohort reconciliation) and the measurement-layer gate resolution. This is
+ * the ONLY place a slow run can produce zero acts and still exceed a real
+ * hosting ceiling: a state with no offerable act (e.g. "Discover Sources"
+ * pending) resolves its stop reason on the FIRST loop check, so the loop's
+ * own per-iteration budget check never gets a chance to fire — the risk is
+ * entirely upstream of it. Racing the initial composition against this
+ * deadline, separately from the loop's own budget, means a pathologically
+ * slow read still yields a clean, structured response instead of the
+ * platform killing the connection first. Smaller than `DEFAULT_TIME_BUDGET_MS`
+ * on purpose: bailing here should happen well before the run's own soft
+ * budget would have been exhausted by this one call alone.
+ */
+export const STATE_COMPOSITION_DEADLINE_MS = 15_000;
+
+// ── DIAGNOSTIC TIMING — instrumented, never guessed (2026-08-30) ───────────
+
+/** One named phase's wall-clock duration, in the order it was recorded. */
+export interface PhaseTiming {
+  phase: string;
+  ms: number;
+}
+
+/** Records phase durations in call order. Never thrown away: a stop that
+ *  fires mid-composition still carries every phase that completed before it,
+ *  so a slow run is diagnosable from its own response, not just from logs. */
+class PhaseTimer {
+  private readonly entries: PhaseTiming[] = [];
+  constructor(private readonly clock: () => number) {}
+
+  async time<T>(phase: string, fn: () => Promise<T>): Promise<T> {
+    const start = this.clock();
+    try {
+      return await fn();
+    } finally {
+      this.entries.push({ phase, ms: this.clock() - start });
+    }
+  }
+
+  record(phase: string, ms: number): void {
+    this.entries.push({ phase, ms });
+  }
+
+  /** The raw clock reading, for a caller that must bracket a span the
+   *  control flow makes awkward to wrap in a single closure (e.g. a phase
+   *  spanning several early-return branches). */
+  now(): number {
+    return this.clock();
+  }
+
+  snapshot(): PhaseTiming[] {
+    return [...this.entries];
+  }
+}
 
 // ── THE RUN'S OWN VOCABULARY ────────────────────────────────────────────────
 
@@ -799,6 +894,16 @@ export interface PendingGovernanceDecision {
   /** The stage's own remedies, verbatim. Empty when the stage has none. */
   remedies: string[];
   detail: string;
+  /**
+   * The already-computed targeted acquisition plan (2026-08-30, "turn Discover
+   * Sources into a precise Copilot authorization"), present ONLY when this
+   * decision is the `discover-sources` stop `buildAcquisitionPendingDecision`
+   * built — every other stage's decision leaves this `undefined`. Lets a
+   * consumer render the exact plan (deficit counts, missing namespaces,
+   * admissibility constraints) inline, without a second fetch of
+   * `GET .../acquisition-brief`.
+   */
+  acquisitionBrief?: CrystalAcquisitionBrief;
 }
 
 /**
@@ -893,6 +998,16 @@ export interface ProgrammeRunResult {
   /** The shortcuts this run structurally cannot take, stated. */
   guardrails: readonly string[];
   headline: string;
+  /**
+   * PHASE TIMING — present in EVERY result (2026-08-30, "empty 504" repair).
+   * Every named phase the operator asked to instrument — programme-state
+   * derivation, readiness (timed separately from the rest of state
+   * composition), measurement-layer resolution, each executed act, and the
+   * final re-read — in call order, so a slow run is diagnosable from its own
+   * response, never only from server logs. `totalElapsedMs` is the SAME
+   * wall-clock this run's own time-budget check reads.
+   */
+  diagnostics: { timings: PhaseTiming[]; totalElapsedMs: number };
 }
 
 /**
@@ -1295,6 +1410,7 @@ export async function buildAcquisitionPendingDecision(input: {
     surface: stage.surface,
     deepLink: buildTrack2DeepLink(input.programme.experimentId, stage.id, stage.label),
     remedies,
+    acquisitionBrief: brief,
     detail:
       `The targeted acquisition plan is not yet satisfied — ${outstanding.map((c) => c.checkName).join(', ')}. ` +
       (brief.missingNamespaces.length > 0
@@ -1329,6 +1445,11 @@ export async function advanceResearchProgramme(input: {
   /** Defaults to `MAX_ACTS_PER_RUN`; clamped to it so a caller cannot widen it. */
   maxActs?: number;
   timeBudgetMs?: number;
+  /** Clamped to `STATE_COMPOSITION_DEADLINE_MS`, same discipline as
+   *  `timeBudgetMs` — a caller can only ever NARROW this, never widen it.
+   *  Exists so the race itself is testable without a real 15s wait; the
+   *  route passes nothing. */
+  stateCompositionDeadlineMs?: number;
   /** Injectable clock, so the bound is testable without a real wall clock. */
   now?: () => number;
   /**
@@ -1340,16 +1461,69 @@ export async function advanceResearchProgramme(input: {
    * asserts.
    */
   resolveMeasurementLayer?: () => Promise<MeasurementLayerReadiness>;
-}): Promise<ProgrammeRunResult | { error: string; status: 404 }> {
+}): Promise<ProgrammeRunResult | { error: string; status: 404 | 503 }> {
   const clock = input.now ?? (() => Date.now());
   const startedAt = clock();
   const timeBudgetMs = Math.max(1, Math.min(input.timeBudgetMs ?? DEFAULT_TIME_BUDGET_MS, DEFAULT_TIME_BUDGET_MS));
   const budget = Math.max(1, Math.min(input.maxActs ?? MAX_ACTS_PER_RUN, MAX_ACTS_PER_RUN));
+  const timer = new PhaseTimer(clock);
 
-  let state = await loadTrack2ProgrammeState({
-    experimentId: input.experimentId,
-    acquisitionDomain: input.acquisitionDomain,
-  });
+  // THE HARD BACKSTOP (2026-08-30, "empty 504" repair) — races the ONE-TIME
+  // state composition against STATE_COMPOSITION_DEADLINE_MS, separately from
+  // the loop's own per-iteration budget below. This is the ONLY call that can
+  // produce an empty-504 with ZERO acts attempted: a state with nothing
+  // offerable (e.g. "Discover Sources" pending) resolves its stop reason on
+  // the loop's FIRST check, so the loop's own budget guard never gets a
+  // chance to fire — the risk here is entirely upstream of the loop. Losing
+  // the race still returns a clean, structured `{error, status}` body (never
+  // nothing); the orphaned read is left to finish or be recycled with the
+  // Lambda, and its outcome is logged (not awaited) purely for forensic
+  // diagnosis of which phase was actually slow.
+  const stateCompositionDeadlineMs = Math.max(
+    1,
+    Math.min(input.stateCompositionDeadlineMs ?? STATE_COMPOSITION_DEADLINE_MS, STATE_COMPOSITION_DEADLINE_MS),
+  );
+  const statePromise = timer.time('programme-state-load', () =>
+    loadTrack2ProgrammeState({ experimentId: input.experimentId, acquisitionDomain: input.acquisitionDomain, timer }),
+  );
+  const stateOrTimeout = await Promise.race([
+    statePromise,
+    new Promise<'timeout'>((resolve) => setTimeout(() => resolve('timeout'), stateCompositionDeadlineMs)),
+  ]);
+  if (stateOrTimeout === 'timeout') {
+    // eslint-disable-next-line no-console
+    console.error(
+      `[research-programme-orchestrator] state composition exceeded its ${stateCompositionDeadlineMs}ms deadline ` +
+        `for experiment '${input.experimentId}' — returning a clean stop rather than letting the request die. ` +
+        'Re-run once the underlying read completes; nothing was written.',
+    );
+    // Forensic only, never awaited: when the orphaned read eventually settles,
+    // log what it found and how long each phase actually took, so the NEXT
+    // invocation is not the first data point about where time went.
+    statePromise
+      .then((late) =>
+        // eslint-disable-next-line no-console
+        console.error(
+          `[research-programme-orchestrator] the timed-out state read for '${input.experimentId}' later ` +
+            `${'error' in late ? `failed: ${late.error}` : 'completed'}. Phase timings: ` +
+            JSON.stringify(timer.snapshot()),
+        ),
+      )
+      .catch((err: unknown) =>
+        // eslint-disable-next-line no-console
+        console.error(
+          `[research-programme-orchestrator] the timed-out state read for '${input.experimentId}' later threw: ` +
+            `${err instanceof Error ? err.message : String(err)}`,
+        ),
+      );
+    return {
+      error:
+        `programme state composition exceeded its ${stateCompositionDeadlineMs}ms safety budget for ` +
+        `experiment '${input.experimentId}'. Nothing was written and no act was attempted — re-run.`,
+      status: 503,
+    };
+  }
+  const state = stateOrTimeout;
   if ('error' in state) return state;
   // Narrowed once, so the loop below reads a `Track2ProgrammeState` rather than
   // re-asserting the narrowing at every use.
@@ -1360,12 +1534,14 @@ export async function advanceResearchProgramme(input: {
   // authorised, and "which half of this run was permitted?" is not a question a
   // receipt should ever have to answer.
   const measurementLayerGate = evaluateMeasurementLayerGate(
-    await (input.resolveMeasurementLayer
-      ? input.resolveMeasurementLayer()
-      : resolveMeasurementLayerReadiness(input.experimentId)
-    ).catch(
-      // An unreadable measurement layer is a CLOSED gate, never an open one.
-      () => ({ profile: null, profileReadable: false }) as MeasurementLayerReadiness,
+    await timer.time('measurement-layer-resolution', () =>
+      (input.resolveMeasurementLayer
+        ? input.resolveMeasurementLayer()
+        : resolveMeasurementLayerReadiness(input.experimentId)
+      ).catch(
+        // An unreadable measurement layer is a CLOSED gate, never an open one.
+        () => ({ profile: null, profileReadable: false }) as MeasurementLayerReadiness,
+      ),
     ),
   );
 
@@ -1403,6 +1579,26 @@ export async function advanceResearchProgramme(input: {
       };
 
   while (stopReason === null) {
+    // THE WALL-CLOCK CHECK, at the TOP of every iteration — before the
+    // global-stop check, the act-budget check, and act selection, not only
+    // after a next act is already chosen (2026-08-30, "empty 504" repair).
+    // This is what makes a slow STATE LOAD alone (not just a slow act)
+    // observable to the loop: the very first iteration checks elapsed time
+    // before doing anything else, so even a run with zero offerable acts
+    // reports cleanly if composing the state already consumed the budget.
+    const elapsedAtTop = clock() - startedAt;
+    if (elapsedAtTop >= timeBudgetMs) {
+      stopReason = {
+        kind: 'time-budget-exhausted',
+        elapsedMs: elapsedAtTop,
+        budgetMs: timeBudgetMs,
+        detail:
+          'the wall-clock budget was reached before this iteration\'s next act could be selected and started. ' +
+          'It was NOT begun, so nothing is half-applied; re-running continues from here.',
+      };
+      break;
+    }
+
     // A genuine batch-integrity failure — one of the five enumerated reasons —
     // is the ONLY thing besides exhaustion or a gate that halts the run.
     if (globalStop) {
@@ -1463,35 +1659,22 @@ export async function advanceResearchProgramme(input: {
       break;
     }
 
-    const elapsed = clock() - startedAt;
-    if (elapsed >= timeBudgetMs) {
-      stopReason = {
-        kind: 'time-budget-exhausted',
-        elapsedMs: elapsed,
-        budgetMs: timeBudgetMs,
-        detail:
-          `the wall-clock budget was reached before the '${nextKind}' act could start. It was NOT begun, so ` +
-          'nothing is half-applied; re-running continues from here.',
-      };
-      break;
-    }
-
     const stage = offerableStage(current.programme, nextKind) as Track2Stage;
     executed.add(nextKind);
-    const outcome =
+    const outcome = await timer.time(`act:${nextKind}`, () =>
       nextKind === 'extract-candidates'
-        ? await runExtractAct(current, stage)
-        : await runValidateAct(current, stage, input.personaId);
+        ? runExtractAct(current, stage)
+        : runValidateAct(current, stage, input.personaId),
+    );
     acts.push(outcome);
     assignments.push(...outcome.assignments);
     if (outcome.globalStop) globalStop = outcome.globalStop;
 
     // RE-READ, never advance a cursor. The projection is the source of truth for
     // what is unblocked, and it may have changed in ways this act did not intend.
-    const reread = await loadTrack2ProgrammeState({
-      experimentId: input.experimentId,
-      acquisitionDomain: input.acquisitionDomain,
-    });
+    const reread = await timer.time('final-state-recomputation', () =>
+      loadTrack2ProgrammeState({ experimentId: input.experimentId, acquisitionDomain: input.acquisitionDomain }),
+    );
     if ('error' in reread) {
       stopReason = {
         kind: 'programme-unreadable',
@@ -1574,6 +1757,7 @@ export async function advanceResearchProgramme(input: {
     receipt,
     guardrails: ORCHESTRATOR_GUARDRAILS,
     headline: `${headline}${gateNote}`,
+    diagnostics: { timings: timer.snapshot(), totalElapsedMs: clock() - startedAt },
   };
 }
 
