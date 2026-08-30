@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-29T20:48:06.802Z",
+  "last_updated": "2026-08-30T00:13:41.729Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "bbaa8f3aba2b4e19354592b8f8311dfadba2eda2",
-  "latest_commit_short": "bbaa8f3",
-  "latest_commit_title": "Author EXP-P1 CrystalRemediationProfile v1 from Review #001 + frozen protocol",
+  "latest_commit": "d96a897ebf5d886e9c66a05b2a87cc41bd9a9682",
+  "latest_commit_short": "d96a897",
+  "latest_commit_title": "Fix EXP-P1 frozen crystal membership recovery: drop status filter",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "d96a897",
+      "full_sha": "d96a897ebf5d886e9c66a05b2a87cc41bd9a9682",
+      "title": "Fix EXP-P1 frozen crystal membership recovery: drop status filter",
+      "author": "Claude",
+      "timestamp": "2026-08-30T00:11:24Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-d96a897.md"
+    },
     {
       "sha": "bbaa8f3",
       "full_sha": "bbaa8f3aba2b4e19354592b8f8311dfadba2eda2",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-16T13:09:43-04:00",
       "type": "docs",
       "brief": "items/build_/COMMITS/COMMIT-c1ee041.md"
-    },
-    {
-      "sha": "8b9c6cb",
-      "full_sha": "8b9c6cbc3c688952341e6466c0e3991294c86d05",
-      "title": "canon: ratify personhood identity standing reputation ontology",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-16T12:51:51-04:00",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-8b9c6cb.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

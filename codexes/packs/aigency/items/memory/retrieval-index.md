@@ -4634,3 +4634,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-bbaa8f3.md](../build_/COMMITS/COMMIT-bbaa8f3.md)
 - Message: Author EXP-P1 CrystalRemediationProfile v1 from Review #001 + frozen protocol
+
+## Commit `d96a897` — 2026-08-30T00:11:24Z
+- Type: `fix`
+- Brief: [COMMIT-d96a897.md](../build_/COMMITS/COMMIT-d96a897.md)
+- Message: Fix EXP-P1 frozen crystal membership recovery: drop status filter
