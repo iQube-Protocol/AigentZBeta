@@ -92,7 +92,13 @@ import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { listCandidateSources } from '@/services/corpusScout/provenance';
 import { listCandidates, runConstitutionalDiscovery } from '@/services/invariants/discoveryEngine';
 import { validateInvariant } from '@/services/invariants';
-import { getCurrentCrystalArtifact } from '@/services/research/artifacts';
+import {
+  currentCrystalArtifactId,
+  getCurrentCrystalArtifact,
+  latestFrozenCrystalArtifact,
+} from '@/services/research/artifacts';
+import { buildFrozenCrystalManifest } from '@/services/research/crystalFrozenManifest';
+import { acquisitionBriefApplies, buildCrystalAcquisitionBrief } from '@/services/research/crystalAcquisitionBrief';
 import {
   crystalDeclarationHash,
   crystalDomainForExperiment,
@@ -395,7 +401,7 @@ export async function loadTrack2ProgrammeState(input: {
   });
 
   // Best-effort, fail-soft. `null` becomes `unknown`, never `complete`.
-  const [sources, candidates, artifact] = await Promise.all([
+  const [sources, candidates, artifact, frozenPredecessor] = await Promise.all([
     admin ? listCandidateSources(admin, { campaignDomain: acquisitionDomain }).catch(() => null) : null,
     admin ? listCandidates(admin, acquisitionDomain).catch(() => null) : null,
     // Lineage-safe (operator ruling 2026-08-27, "Crystal v1/v2 lineage
@@ -405,6 +411,10 @@ export async function loadTrack2ProgrammeState(input: {
     // module's freeze-canary is untouched (it forbids upsertArtifact/
     // freezeArtifact/action:'freeze', none of which this calls).
     getCurrentCrystalArtifact(input.experimentId).catch(() => null),
+    // The FROZEN predecessor generation, if one exists — the complement of
+    // the read above, resolved through the SAME lineage-safe lookup
+    // (`latestFrozenCrystalArtifact`, never `getArtifact`'s first-match).
+    latestFrozenCrystalArtifact(input.experimentId).catch(() => null),
   ]);
 
   const unreadableSignals: string[] = [];
@@ -420,20 +430,62 @@ export async function loadTrack2ProgrammeState(input: {
       }
     : null;
 
+  /**
+   * THE FROZEN-GENERATION BOUNDARY (2026-08-30, "Track 2 successor-crystal
+   * identity" fix) — a promoted candidate whose resolved invariant is ALREADY
+   * a member of the frozen predecessor's manifest is vP1's own historical
+   * promotion, not v2 construction work. `discovery_candidates` carries no
+   * generation field of its own (there is no such column, and none is added
+   * here — see the module header for why this reads the frozen manifest
+   * instead of tagging rows), so this is the one place both Stage 4's own
+   * `promoted` count and Stages 5-7's cohort are narrowed to the SAME v2-only
+   * set — narrowing one without the other would break the Stage 4→5 handover
+   * identity (`declaredOut === received + excluded`) that
+   * `track2Programme.ts` already enforces. Reading `recoveredInvariants`
+   * (never `members`, which is `null` on a hash mismatch) is deliberate: this
+   * boundary needs frozen DOMAIN MEMBERSHIP, not byte-exact verification —
+   * the same distinction the instrument-falsification route already draws.
+   * Vp1's rows in `discovery_candidates` are read, not deleted or relabeled;
+   * this only changes which of them Track 2 treats as available v2 material.
+   */
+  let frozenGenerationMemberIds: Set<string> | null = null;
+  if (frozenPredecessor) {
+    const manifest = await buildFrozenCrystalManifest({
+      experimentId: input.experimentId,
+      artifact: frozenPredecessor,
+      observedAt: new Date().toISOString(),
+    }).catch(() => null);
+    if (manifest) frozenGenerationMemberIds = new Set(manifest.recoveredInvariants.map((r) => r.id));
+  }
+  if (frozenPredecessor && !frozenGenerationMemberIds) {
+    unreadableSignals.push('frozen predecessor crystal manifest (frozen-generation boundary)');
+  }
+
+  const promotedForConstruction = candidates
+    ? candidates.filter(
+        (c) =>
+          c.status === 'promoted' &&
+          !(frozenGenerationMemberIds && c.promotedInvariantId && frozenGenerationMemberIds.has(c.promotedInvariantId)),
+      )
+    : null;
+
   const discoveryCandidates = candidates
     ? {
         total: candidates.length,
         awaitingReview: candidates.filter((c) => c.status === 'candidate').length,
-        promoted: candidates.filter((c) => c.status === 'promoted').length,
+        promoted: promotedForConstruction?.length ?? 0,
       }
     : null;
 
-  // Stages 5–7 read STAGE 4's OWN OUTPUT, resolved from the same `candidates`
-  // array Stage 4 is counted from — so the two cannot be about different sets.
-  const cohort = candidates
-    ? await reconcilePromotedCohort(candidates.filter((c) => c.status === 'promoted')).catch(() => null)
+  // Stages 5–7 read STAGE 4's OWN OUTPUT, resolved from the SAME
+  // `promotedForConstruction` set Stage 4's own `promoted` count above is
+  // counted from — so the two cannot be about different sets, and neither
+  // can ever include a candidate already resolved into the frozen
+  // predecessor's own manifest.
+  const cohort = promotedForConstruction
+    ? await reconcilePromotedCohort(promotedForConstruction).catch(() => null)
     : null;
-  if (candidates && !cohort) unreadableSignals.push('promoted cohort (reconcilePromotedCohort)');
+  if (promotedForConstruction && !cohort) unreadableSignals.push('promoted cohort (reconcilePromotedCohort)');
 
   const lifecycle = crystalLifecycleStage({
     domainRatified: declaration.ratification === 'ratified',
@@ -462,6 +514,10 @@ export async function loadTrack2ProgrammeState(input: {
     },
   });
 
+  const pendingDecision =
+    firstPendingDecision(programme) ??
+    (await buildAcquisitionPendingDecision({ programme, declaration, readiness, artifact }));
+
   return {
     experimentId: input.experimentId,
     acquisitionDomain,
@@ -474,7 +530,7 @@ export async function loadTrack2ProgrammeState(input: {
     cohort,
     signalCounts: { candidateSources, discoveryCandidates },
     unreadableSignals,
-    pendingDecision: firstPendingDecision(programme),
+    pendingDecision,
   };
 }
 
@@ -1091,6 +1147,23 @@ export function firstPendingDecision(programme: Track2Programme): PendingGoverna
   const candidates = programme.stages
     .filter((s) => programme.unblockedStageIds.includes(s.id))
     .filter((s) => s.status !== 'complete' && s.status !== 'unknown')
+    /*
+     * A `partially-complete` stage carrying NO remedies has nothing left to
+     * ask the operator to DO (2026-08-30, "Classify Provenance manufactures a
+     * false human gate" fix). `partially-complete` legitimately means "every
+     * eligible member was processed; the remainder is explicitly excluded and
+     * inert" (exception-isolation ruling §6) as often as it means "real
+     * outstanding work remains" (e.g. Stage 2 with sources still awaiting
+     * review) — the two are told apart by `remedies`, which `track2Programme.ts`
+     * already leaves empty exactly when a stage's own scientific criterion is
+     * satisfied and only historical exclusions remain (see `classifyOutcome`/
+     * `validateOutcome`). This does NOT touch `stage.status` itself — that
+     * derivation, and the `partially-complete` value it can produce, is
+     * untouched and remains ratified (CI-2026-08-03-BOUNDED-PROCESSOR-PARTIAL-
+     * COMPLETION-001) — it only stops an already-resolved bookkeeping fact
+     * from being presented as a live governance/human-judgment gate.
+     */
+    .filter((s) => !(s.status === 'partially-complete' && s.remedies.length === 0))
     .filter((s) => isHumanGatedStage(s))
     .sort((a, b) => a.ordinal - b.ordinal);
   const stage = candidates[0];
@@ -1105,6 +1178,92 @@ export function firstPendingDecision(programme: Track2Programme): PendingGoverna
     deepLink: buildTrack2DeepLink(programme.experimentId, stage.id, stage.label),
     remedies: stage.remedies,
     detail: stage.detail,
+  };
+}
+
+/**
+ * THE ACQUISITION BRIDGE (2026-08-30, "acquisition dead end" fix).
+ *
+ * `crystalAcquisitionBrief.ts` computes a precise, targeted acquisition plan
+ * from readiness's own deficits (net-new members required, missing
+ * namespaces, deficient relational structures) — but it is pure reporting
+ * with no consumer: nothing ever turned it into a CTA. Stage 1
+ * (`discover-sources`) is deliberately excluded from both the automatic act
+ * catalogue (unbounded external HTTP — see `PROGRAMME_ACT_KINDS`'s own header)
+ * and `HUMAN_GATED_STAGE_IDS` (it is a per-stage-completion signal, "does any
+ * source material exist", not "does ENOUGH exist for what v2 needs" — a
+ * question Stage 1's own status can never express). So when the brief applies
+ * and nothing else is pending, the operator was left with a targeted plan and
+ * no button.
+ *
+ * This function is the SMALLEST bridge: it never runs discovery itself
+ * (`runDiscoveryForDomain` stays manual-only, exactly as it is today — no
+ * ratified source list is widened, no unbounded HTTP is triggered
+ * automatically), it only turns an applicable brief into ONE correctly-named,
+ * correctly-routed `PendingGovernanceDecision` — pointing at Stage 1's own
+ * existing surface (Corpus Scout tab) via the SAME deep-link contract every
+ * other stage's decision uses, carrying the brief's own concrete deficits as
+ * `remedies` — so the loop stops at one real acquisition authorization
+ * instead of silently reporting nothing left to do.
+ */
+export async function buildAcquisitionPendingDecision(input: {
+  programme: Track2Programme;
+  declaration: CrystalDomainDeclaration;
+  readiness: CrystalReadinessReport;
+  /** The active crystal-version artifact, from the SAME read
+   *  `loadTrack2ProgrammeState` already made — never re-fetched here. `null`
+   *  means nothing is provisioned yet, and the next unused generation id is
+   *  resolved lazily below, only once every earlier early-return has passed. */
+  artifact: { id: string; lifecycle: string } | null;
+}): Promise<PendingGovernanceDecision | null> {
+  if (!acquisitionBriefApplies(input.readiness)) return null;
+  const stage = input.programme.stages.find((s) => s.id === 'discover-sources');
+  if (!stage) return null;
+  // Stage 1 must genuinely be next — never surfaced ahead of an earlier,
+  // still-outstanding stage (e.g. sources awaiting review at Stage 2 would
+  // already have been named by `firstPendingDecision`; this is a fallback,
+  // never a competing gate).
+  if (!input.programme.unblockedStageIds.includes('discover-sources')) return null;
+
+  const crystalGeneration =
+    input.artifact?.id ?? (await currentCrystalArtifactId(input.programme.experimentId).catch(() => input.programme.experimentId));
+
+  const brief = buildCrystalAcquisitionBrief({
+    experimentId: input.programme.experimentId,
+    crystalGeneration,
+    domain: input.declaration,
+    report: input.readiness,
+    // Informational dedup list only (crystalAcquisitionBrief.ts's own doc
+    // comment) — not read by any of the brief's required-count derivations,
+    // so an empty list here never affects `requiredNetNewDistinctMembers`,
+    // `missingNamespaces` or any other targeted-plan figure.
+    admittedInvariantIds: [],
+  });
+
+  // Named per the EXACT failing readiness check, never a single hardcoded
+  // figure — `requiredNetNewDistinctMembers` can be 0 while boundary-coverage
+  // or derivation-headroom is still what makes `acquisitionBriefApplies` true,
+  // and a remedy list that only ever cited the raw count would misreport that
+  // case as "0 needed" while still blocking.
+  const outstanding = brief.completionCriteria.filter((c) => !c.satisfied);
+  const remedies = outstanding.map((c) => c.remedy ?? `${c.checkName}: ${c.currentMeasure} of ${c.requiredMeasure}`);
+
+  return {
+    stageId: stage.id,
+    stageLabel: stage.label,
+    authority: 'human-judgment',
+    actor:
+      'Steward — bounded, ratified-institution discovery is a deliberate act, never automatic (unbounded external HTTP).',
+    capability: stage.capability,
+    surface: stage.surface,
+    deepLink: buildTrack2DeepLink(input.programme.experimentId, stage.id, stage.label),
+    remedies,
+    detail:
+      `The targeted acquisition plan is not yet satisfied — ${outstanding.map((c) => c.checkName).join(', ')}. ` +
+      (brief.missingNamespaces.length > 0
+        ? `${brief.missingNamespaces.length} namespace(s) unrepresented: ${brief.missingNamespaces.join(', ')}. `
+        : '') +
+      'Run Discover Sources for the missing material, then Extract Candidates.',
   };
 }
 

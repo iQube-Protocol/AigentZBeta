@@ -198,12 +198,20 @@ describe('Research Copilot — the pending decision survives navigate-away-and-b
 });
 
 describe('InvariantExperimentLab — consumes the deep-link intent on the FIRST render, before any effect', () => {
-  it('reads consumePendingTrack2Stage via a lazy useState initializer, called exactly once', () => {
+  it('reads consumePendingTrack2Stage via a lazy useState initializer, called exactly once at mount', () => {
     const src = stripComments(readSource(LAB));
     expect(src).toMatch(/const \[initialTrack2Intent\] = useState\(\(\) => consumePendingTrack2Stage\(\)\);/);
-    // Exactly one call site — a second call would consume (and lose) the
-    // intent before the first read could use it.
-    expect((src.match(/consumePendingTrack2Stage\(\)/g) ?? []).length).toBe(1);
+    // TWO call sites (2026-08-30 same-tab re-navigation fix): the lazy
+    // initializer above (the FIRST-mount consumption, unchanged) and one
+    // inside a `codex:navigate-tab` listener effect — the SAME-tab case,
+    // where `codex:navigate-tab` no-ops (the destination tab is already
+    // active, so this component never remounts) and the mailbox must
+    // therefore be re-consumed by an already-mounted listener instead. Each
+    // call site consumes (and clears) the mailbox exactly once per
+    // navigation — never both for the SAME intent, since the listener only
+    // fires on a live dispatch, after the initial mount's own read already
+    // happened.
+    expect((src.match(/consumePendingTrack2Stage\(\)/g) ?? []).length).toBe(2);
   });
 
   it('defaults the tab to "track2" when a deep-link intent is present, "bundle" otherwise — never fights the deep-link', () => {
@@ -218,9 +226,17 @@ describe('InvariantExperimentLab — consumes the deep-link intent on the FIRST 
     const renderBlock = src.slice(renderIdx, renderIdx + 300);
     // 2026-08-27 review finding: this previously hardcoded experimentId="EXP-P1"
     // and passed only a stage id for the panel to rebuild an anchor from.
-    expect(renderBlock).toMatch(/experimentId=\{initialTrack2Intent\?\.experimentId \?\? "EXP-P1"\}/);
-    expect(renderBlock).toMatch(/initialAnchorId=\{initialTrack2Intent\?\.surfaceRef\.anchorId\}/);
+    // 2026-08-30 (same-tab re-navigation fix): the panel now reads the LIVE
+    // `track2Intent` state (updated by the same-tab listener above), not the
+    // frozen `initialTrack2Intent` — still never hardcoded, still the
+    // deep-link's own fields verbatim.
+    expect(renderBlock).toMatch(/experimentId=\{track2Intent\?\.experimentId \?\? "EXP-P1"\}/);
+    expect(renderBlock).toMatch(/initialAnchorId=\{track2Intent\?\.surfaceRef\.anchorId\}/);
     expect(renderBlock).not.toMatch(/experimentId="EXP-P1"/);
+    // Keyed on the anchor so re-opening the SAME tab for a DIFFERENT stage
+    // (already viewing Track 2) remounts the panel and re-scrolls, rather
+    // than silently keeping the previous stage's scroll position.
+    expect(renderBlock).toMatch(/key=\{track2Intent\?\.surfaceRef\.anchorId \?\? "track2-default"\}/);
   });
 });
 
