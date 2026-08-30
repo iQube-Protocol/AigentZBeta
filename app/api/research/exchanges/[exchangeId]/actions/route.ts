@@ -8,13 +8,18 @@
  * per verb, which would be twelve nearly-identical thin wrappers around the
  * same membership/authorization check.
  *
- * actorType (principal vs delegated agent) is resolved SERVER-SIDE via
- * resolveConstitutionalContext — the same primitive
- * services/delegation/delegationAuthorityGate.ts uses to distinguish a
- * delegated Agent's action from the human default identity — and is NEVER
- * accepted from the request body. `freeze` and `sign` refuse when a
- * delegated Agent is the currently-assigned actor: the ritual requires the
- * PRINCIPAL's own attestation.
+ * personaId AND actorType (principal vs delegated agent) are resolved
+ * SERVER-SIDE via resolveExchangeActingPrincipal (2026-08-30, "OCSGA
+ * completion path" fix — services/research/reciprocalExchange.ts) — never
+ * accepted from the request body, and never merely the caller's ambient
+ * "active persona" (whatever a session/localStorage happens to have
+ * mounted). That resolver reaches directly for the exchange's own bound
+ * party under the caller's auth profile — Ian's already-established
+ * Passport-backed principal — so aigentMe may remain the active assisting
+ * context without blocking a principal-only act performed on the bound
+ * principal's behalf. `freeze` and `sign` still refuse when the RESOLVED
+ * party is not of principal type: the ritual requires the PRINCIPAL's own
+ * attestation, never an agent's in its place.
  *
  * Actions: invite | deposit | confirm | freeze | sign | acknowledge |
  *          withdraw | revoke | open-comparison | add-derivative
@@ -29,7 +34,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
-import { resolveConstitutionalContext } from '@/services/identity/constitutionalContext';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import {
   inviteCounterparty,
@@ -43,8 +47,9 @@ import {
   openComparison,
   createDerivative,
   getExchangeView,
+  resolveExchangeActingPrincipal,
 } from '@/services/research/reciprocalExchange';
-import type { ActorType, ArtifactSourceType, ComparisonClassification, CompatibilityKind } from '@/types/reciprocalExchange';
+import type { ArtifactSourceType, ComparisonClassification, CompatibilityKind } from '@/types/reciprocalExchange';
 import { publicOrigin } from '@/utils/publicOrigin';
 
 export const runtime = 'nodejs';
@@ -60,13 +65,22 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ exchangeId
   const admin = getSupabaseServer();
   if (!admin) return NextResponse.json({ ok: false, error: 'Service unavailable' }, { status: 503, headers: noStore });
   const { exchangeId } = await ctx.params;
-  const personaId = persona.personaId;
 
-  // Resolved ONCE, server-side, never from client input. A non-null
-  // currentAigentMe means a delegated Agent is presently acting for this
-  // persona — see the module doc comment.
-  const cc = await resolveConstitutionalContext(req);
-  const actorType: ActorType = cc.currentAigentMe ? 'delegated_agent' : 'principal';
+  // Resolved ONCE, server-side, never from client input and never merely the
+  // caller's ambient "active persona" — see the module doc comment and
+  // resolveExchangeActingPrincipal's own doc comment (services/research/
+  // reciprocalExchange.ts) for why this replaced resolveConstitutionalContext's
+  // currentAigentMe check.
+  const resolved = await resolveExchangeActingPrincipal(admin, {
+    exchangeId,
+    activePersonaId: persona.personaId,
+    authProfileId: persona.authProfileId,
+  });
+  if (!resolved.ok) {
+    return NextResponse.json({ ok: false, error: resolved.error }, { status: 403, headers: noStore });
+  }
+  const personaId = resolved.personaId;
+  const actorType = resolved.actorType;
 
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
   const action = String(body.action ?? '');
@@ -127,11 +141,11 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ exchangeId
     }
 
     case 'confirm': {
-      const result = await confirmOperatorAssistedArtifact(admin, {
-        exchangeId,
-        personaId,
-        agentRef: cc.currentAigentMe ?? undefined,
-      });
+      // No agentRef: a direct bridge/UI POST is never "transmitted through"
+      // an agent (contrast the MCP path, services/threshold/
+      // mcpConstitutionalActs.ts, which legitimately sets agentRef to the
+      // real acting agent session's own alias).
+      const result = await confirmOperatorAssistedArtifact(admin, { exchangeId, personaId });
       return NextResponse.json(result, { status: result.ok ? 200 : 400, headers: noStore });
     }
 

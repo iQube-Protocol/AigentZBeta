@@ -19,13 +19,27 @@
  *
  * ── PRINCIPAL VS DELEGATED AGENT ─────────────────────────────────────────
  *
- * `actorType` is never trusted from client input — callers (API routes)
- * resolve it via `resolveConstitutionalContext(req)` (the SAME primitive
- * `services/delegation/delegationAuthorityGate.ts` uses to distinguish a
- * delegated Agent's action from the human default identity) and pass the
- * resolved value in. `freezeDeclaration` and `signInstrument` refuse
- * `actorType === 'delegated_agent'` — the ritual requires the PRINCIPAL's
- * own attestation, and an agent's action must never stand in for it.
+ * `actorType` is never trusted from client input. `declareFreeze` and
+ * `signInstrument` refuse `actorType === 'delegated_agent'` — the ritual
+ * requires the PRINCIPAL's own attestation, and an agent's action must never
+ * stand in for it.
+ *
+ * `actorType` — and, since 2026-08-30, the acting `personaId` itself — are
+ * resolved via `resolveExchangeActingPrincipal` (below), never via
+ * `resolveConstitutionalContext(req)`'s `currentAigentMe` field. That field
+ * answers "does this persona have an aigentMe assistant assigned to it" —
+ * true for essentially every onboarded persona — which is a different
+ * question from "is the persona MAKING this call itself an agent standing in
+ * for its principal". Using it as the freeze/sign gate meant a principal who
+ * had — as every principal does — an aigentMe assigned was refused as a
+ * "delegated agent" simply for having one, regardless of who was actually
+ * acting. See `resolveExchangeActingPrincipal`'s own doc comment for the
+ * corrected resolution, which additionally lets a caller whose active
+ * session persona is their aigentMe assistant still exercise their OWN
+ * already-established exchange principal without switching personas —
+ * "aigentMe may remain the active assisting context" (operator directive,
+ * 2026-08-30) — because the principal used is resolved from the exchange's
+ * own bound party, never from the caller's ambient "active persona".
  *
  * ── THE ISOLATION-CLAIM GUARD ─────────────────────────────────────────────
  *
@@ -229,6 +243,87 @@ export function resolveMembership(exchange: ReciprocalExchangeRecord, personaId:
   if (exchange.initiatorPersonaId === personaId) return 'A';
   if (exchange.counterpartyPersonaId === personaId) return 'B';
   return null;
+}
+
+export type ExchangeActingPrincipalResult =
+  | { ok: true; personaId: string; actorType: ActorType }
+  | { ok: false; error: 'not-a-party' };
+
+/**
+ * THE PRINCIPAL-ONLY EXCHANGE-ACT RESOLVER (2026-08-30, "OCSGA completion
+ * path" fix) — the ONE place `personaId` and `actorType` are decided for
+ * confirm/freeze/sign/withdraw/revoke, replacing the flawed
+ * `resolveConstitutionalContext(req).currentAigentMe` check (see this
+ * module's own header for why that check was wrong). Mirrors the sibling-
+ * lookup `resolveOrientationPrincipalGate` (services/journey/
+ * ianJourneyState.ts) already established and proved for orientation
+ * acknowledgement — same "is a sibling persona under this auth profile
+ * already the bound principal" question, scoped here to ONE specific
+ * exchange rather than "the most recent exchange any sibling is bound to",
+ * because a caller could in principle be bound to more than one exchange
+ * under different sibling personas.
+ *
+ * Ian is already established as the Passport-backed principal and party on
+ * his exchange. This resolver's whole purpose is to reach that established
+ * fact directly, from the exchange's own bound-party columns, rather than
+ * requiring the caller's ambient "active persona" (whatever the browser
+ * session/localStorage happens to have mounted — aigentMe or otherwise) to
+ * already equal it:
+ *
+ *   1. The ACTIVE persona is itself a party on this exchange → use it. The
+ *      common case, unchanged from before this fix.
+ *   2. Otherwise, a SIBLING persona (same auth profile) is a party on this
+ *      exchange → use that sibling. This is what lets aigentMe remain the
+ *      active assisting context while Ian's own already-bound principal
+ *      persona is what actually performs the act — no persona switch, no
+ *      new proof-of-holder step, no re-verification ceremony.
+ *   3. Neither → `not-a-party`, unchanged existing refusal.
+ *
+ * `actorType` is then derived from the RESOLVED persona's own `personas.type`
+ * — `'principal'` only for the canonical human/citizen type (`PersonaQube`);
+ * an agent-kind persona (`AigentMe`, `AgentDelegate`) can never itself be a
+ * constitutional principal, even if it were somehow the exchange's own bound
+ * party. This is the same type check `resolveOrientationPrincipalGate` uses,
+ * applied to whichever persona this resolution actually settles on.
+ *
+ * Read-only. Decides WHO is acting; never itself confirms, freezes, signs,
+ * withdraws, or revokes anything — those stay exactly the existing canonical
+ * primitives below, unmodified.
+ */
+export async function resolveExchangeActingPrincipal(
+  admin: SupabaseClient,
+  input: { exchangeId: string; activePersonaId: string; authProfileId: string },
+): Promise<ExchangeActingPrincipalResult> {
+  const loaded = await loadExchange(admin, input.exchangeId);
+  if (!loaded.ok) return { ok: false, error: 'not-a-party' };
+  const { exchange } = loaded;
+
+  let resolvedPersonaId: string | null = resolveMembership(exchange, input.activePersonaId)
+    ? input.activePersonaId
+    : null;
+
+  if (!resolvedPersonaId) {
+    const { data: siblingRows } = await admin
+      .from('personas')
+      .select('id')
+      .eq('auth_profile_id', input.authProfileId);
+    const siblingIds = (siblingRows ?? [])
+      .map((r) => (r as { id?: unknown }).id)
+      .filter((id): id is string => typeof id === 'string');
+    resolvedPersonaId = siblingIds.find((id) => resolveMembership(exchange, id) !== null) ?? null;
+  }
+
+  if (!resolvedPersonaId) return { ok: false, error: 'not-a-party' };
+
+  const { data: personaRow } = await admin
+    .from('personas')
+    .select('type')
+    .eq('id', resolvedPersonaId)
+    .maybeSingle();
+  const personaType = (personaRow as { type?: string | null } | null)?.type ?? null;
+  const actorType: ActorType = personaType === 'PersonaQube' ? 'principal' : 'delegated_agent';
+
+  return { ok: true, personaId: resolvedPersonaId, actorType };
 }
 
 async function currentArtifact(
