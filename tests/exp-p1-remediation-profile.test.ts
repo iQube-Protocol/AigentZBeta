@@ -1,15 +1,20 @@
 /**
  * EXP-P1 CrystalRemediationProfile v1 — authored 2026-08-29 from the
  * authoritative IRL Review #001 (Austin) material and the frozen EXP-P1
- * protocol. Proves the profile is well-formed, internally consistent with
- * the live instrument suite / population-formula functions it was derived
- * from, and — critically — still correctly UNBOUND pending the live
- * retrospective run (see types/crystalRemediation.ts's own doc comment on
- * `EXP_P1_REMEDIATION_PROFILE_CONTENT` for the exact completion step).
+ * protocol; BOUND 2026-08-30 from a real, observed canonical retrospective
+ * (reproducedReviewerObjections: true, admitted via the legacy-substrate
+ * governance ruling — verifiedAgainstFreeze stays false). Proves the profile
+ * is well-formed, internally consistent with the live instrument suite /
+ * population-formula functions it was derived from, and that
+ * `remediationProfileBindingState` independently DERIVES `'bound'` from
+ * those contents (see types/crystalRemediation.ts's own doc comment on
+ * `EXP_P1_REMEDIATION_PROFILE_CONTENT` for exactly which values are the
+ * operator's literal reported figures versus this file's own already-
+ * verified constants).
  *
- * Does NOT attempt to run the retrospective itself (requires a live read of
- * the frozen Crystal vP1 artifact via Supabase) — that is deliberately out
- * of scope for a hermetic test and is the one remaining live step.
+ * Does NOT re-run the retrospective itself (that requires a live read of the
+ * frozen Crystal vP1 artifact via Supabase) — the stored, already-observed
+ * result is what this file exercises.
  */
 import { describe, it, expect } from 'vitest';
 import { createHash } from 'node:crypto';
@@ -44,17 +49,29 @@ describe('EXP-P1 CrystalRemediationProfile v1', () => {
     expect(BOUND_CRYSTAL_REMEDIATION_PROFILES.filter((p) => p.experimentId === 'EXP-P1')).toHaveLength(1);
   });
 
-  it('is still correctly UNBOUND — the retrospective has not been run, and the profile does not claim otherwise', () => {
-    expect(profile!.retrospective).toBeNull();
+  it('is BOUND (2026-08-30) — a real, observed retrospective is stored, and the derivation reaches bound independently of it', () => {
+    expect(profile!.retrospective).not.toBeNull();
+    expect(profile!.retrospective?.reproducedReviewerObjections).toBe(true);
+    expect(profile!.retrospective?.verifiedAgainstFreeze).toBe(false);
+    expect(profile!.retrospective?.substrateAdmissibility?.basis).toBe('legacy-scientific-content');
     const derived = remediationProfileBindingState(profile!);
-    expect(derived.binding).toBe('unbound-retrospective-not-reproduced');
-    expect(derived.bindingGaps).toEqual([
-      'the retrospective falsification against the frozen crystal has not been run',
-    ]);
+    expect(derived.binding).toBe('bound');
+    expect(derived.bindingGaps).toEqual([]);
     // The profile's OWN stored binding/bindingGaps must agree with the
     // derivation — never a stored assertion the derivation disagrees with.
     expect(profile!.binding).toBe(derived.binding);
     expect(profile!.bindingGaps).toEqual(derived.bindingGaps);
+  });
+
+  it('removing or corrupting the stored retrospective returns the derivation to fail-closed', () => {
+    const corruptedByRemoval = remediationProfileBindingState({ ...profile!, retrospective: null });
+    expect(corruptedByRemoval.binding).toBe('unbound-retrospective-not-reproduced');
+
+    const corruptedByFlip = remediationProfileBindingState({
+      ...profile!,
+      retrospective: { ...profile!.retrospective!, reproducedReviewerObjections: false },
+    });
+    expect(corruptedByFlip.binding).toBe('unbound-retrospective-not-reproduced');
   });
 
   it('is NOT source-incomplete — the gate is closed on the retrospective alone, not on any other gap', () => {

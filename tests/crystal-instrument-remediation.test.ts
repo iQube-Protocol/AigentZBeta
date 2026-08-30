@@ -636,20 +636,26 @@ describe('the retrospective falsification harness — a release gate with an INV
 });
 
 describe('CrystalRemediationProfile — the shared configuration object', () => {
-  it('EXP-P1 carries a real ingested profile (2026-08-29), and every consumer still fails closed because it is not yet bound', () => {
-    // No longer the empty-registry state this canary originally asserted:
+  it('EXP-P1 carries a real ingested profile (2026-08-29), bound as of 2026-08-30 by a real, observed canonical retrospective', () => {
     // EXP-P1's v1 profile is ingested from real, hash-verifiable source refs
-    // (IRL Review #001, the resolution record, the frozen README). It is
-    // deliberately still NOT bound — `retrospective: null`, because
-    // computing it needs a live read of the frozen artifact this profile's
-    // authoring pass had no database access to perform. Fail-closed still
-    // holds: `remediationProfileBindingState` derives, never trusts, so a
-    // stored `binding` of anything but `'bound'` still gates every consumer.
+    // (IRL Review #001, the resolution record, the frozen README), and its
+    // `retrospective` is a real, observed canonical result
+    // (reproducedReviewerObjections: true, admitted via the 2026-08-30
+    // legacy-substrate governance ruling — verifiedAgainstFreeze stays
+    // false). Fail-closed discipline is unweakened:
+    // `remediationProfileBindingState` still DERIVES from the profile's own
+    // contents rather than trusting a stored assertion — this test proves
+    // that derivation independently reaches 'bound' from those contents,
+    // never that 'bound' was merely written down.
     expect(BOUND_CRYSTAL_REMEDIATION_PROFILES).toHaveLength(1);
     const profile = BOUND_CRYSTAL_REMEDIATION_PROFILES[0];
     expect(profile.experimentId).toBe('EXP-P1');
-    expect(profile.retrospective).toBeNull();
-    expect(profile.binding).not.toBe('bound');
+    expect(profile.retrospective).not.toBeNull();
+    expect(profile.retrospective?.reproducedReviewerObjections).toBe(true);
+    expect(profile.retrospective?.verifiedAgainstFreeze).toBe(false);
+    expect(profile.retrospective?.substrateAdmissibility?.basis).toBe('legacy-scientific-content');
+    expect(profile.binding).toBe('bound');
+    expect(profile.bindingGaps).toEqual([]);
     expect(remediationProfileBindingState(profile).binding).toBe(profile.binding);
   });
 
