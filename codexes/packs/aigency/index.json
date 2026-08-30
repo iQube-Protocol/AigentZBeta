@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-30T14:03:35.529Z",
+  "last_updated": "2026-08-30T16:01:37.448Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "1d885ae175a8e4a3bfaf1c05580b39e089568fca",
-  "latest_commit_short": "1d885ae",
-  "latest_commit_title": "Add MCP channel-equivalence acceptance tests for OCSGA delegated completion",
+  "latest_commit": "c08f31279af555959b16bdadfc25b175d087d969",
+  "latest_commit_short": "c08f312",
+  "latest_commit_title": "Fix MCP exchange-write gate to accept canonical exchange authority, not only IRL-service scope",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "c08f312",
+      "full_sha": "c08f31279af555959b16bdadfc25b175d087d969",
+      "title": "Fix MCP exchange-write gate to accept canonical exchange authority, not only IRL-service scope",
+      "author": "Claude",
+      "timestamp": "2026-08-30T15:59:05Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-c08f312.md"
+    },
     {
       "sha": "1d885ae",
       "full_sha": "1d885ae175a8e4a3bfaf1c05580b39e089568fca",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-16T20:44:25Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-b0396c4.md"
-    },
-    {
-      "sha": "431283a",
-      "full_sha": "431283a9feb4e5d5eb2864b5f6c01e0909e95397",
-      "title": "Homecoming Phase II handover: finalize resume-here pointer for session handoff (Gate 0 + WP-A done, WP-B not started)",
-      "author": "Claude",
-      "timestamp": "2026-08-16T20:47:59Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-431283a.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

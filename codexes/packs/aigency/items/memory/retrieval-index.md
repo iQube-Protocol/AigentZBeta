@@ -4679,3 +4679,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-1d885ae.md](../build_/COMMITS/COMMIT-1d885ae.md)
 - Message: Add MCP channel-equivalence acceptance tests for OCSGA delegated completion
+
+## Commit `c08f312` — 2026-08-30T15:59:05Z
+- Type: `fix`
+- Brief: [COMMIT-c08f312.md](../build_/COMMITS/COMMIT-c08f312.md)
+- Message: Fix MCP exchange-write gate to accept canonical exchange authority, not only IRL-service scope
