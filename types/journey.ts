@@ -438,8 +438,22 @@ export type CompanionJourneyIntent =
 
 /**
  * Actor role semantics — distinguishes principal, delegate, and system actors.
- * Used to enforce actor-specific constraints (e.g., principal-required signatures).
- * See SPEC-JS-001 §14.2 and CLAUDE.md "Artifact Deposit Actor" constraint.
+ * PURELY DESCRIPTIVE: a display/documentation label a stage carries, never
+ * itself a runtime gate — resolveJourneyState never reads it
+ * (tests/threshold-mcp-constitutional-rituals.test.ts's own canary asserts
+ * this). Any actual authorization for a specific act lives in that act's own
+ * canonical service function (e.g. services/research/reciprocalExchange.ts),
+ * never here.
+ *
+ * See SPEC-JS-001 §14.2. Corrected 2026-08-30: this previously also cited a
+ * CLAUDE.md "Artifact Deposit Actor" constraint — no such numbered
+ * constraint exists in CLAUDE.md, and the citation was found dangling by a
+ * constitutional audit (codexes/packs/agentiq/updates/2026-08-30_ocsga-
+ * delegated-completion-and-ctp-001-delegability-correction.md). Delegability
+ * is explicit authority, not an exception to constitutional action —
+ * non-delegability requires an explicit constitutional basis (a ratified
+ * invariant, PRD, or spec text), never an assumption encoded only as a
+ * comment.
  */
 export enum ActorRole {
   PRINCIPAL = 'principal',
@@ -479,7 +493,9 @@ export enum StepState {
 /**
  * Generic condition expression for satisfaction/dependency evaluation.
  * Maps to authoritative state sources; does not manufacture authorization.
- * Adapter pattern (SPEC-JS-001 §1, CLAUDE.md constraint 1).
+ * Adapter pattern (SPEC-JS-001 §1). Corrected 2026-08-30: the "CLAUDE.md
+ * constraint 1" this used to also cite does not exist — see ActorRole's own
+ * doc comment above for the same correction and its source.
  *
  * Examples:
  *   { type: 'settled-fact', value: 'is_registered' }

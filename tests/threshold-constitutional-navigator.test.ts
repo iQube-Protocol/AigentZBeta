@@ -249,7 +249,13 @@ describe('resolveConstitutionalNavigatorState — journey composition (ocsga)', 
     // orient+passport+delegation are satisfied by the fixture; deposit is not.
     expect(state.journey?.currentStageId).toBe('create-deposit');
     expect(state.nextAct?.stageId).toBe('create-deposit');
-    expect(state.nextAct?.actor).toBe('principal');
+    // Corrected 2026-08-30 (OCSGA delegability correction): create-deposit's
+    // actorRole was ActorRole.PRINCIPAL on a since-falsified assumption —
+    // depositArtifact() has no actorType check and is already
+    // unconditionally delegable. This label is purely descriptive
+    // (resolveJourneyState never reads it), so the fix is just naming it
+    // accurately: 'either'.
+    expect(state.nextAct?.actor).toBe('either');
     expect(typeof state.nextAct?.because).toBe('string');
     expect(state.nextAct?.because.length).toBeGreaterThan(0);
   });
