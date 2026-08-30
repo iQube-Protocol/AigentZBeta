@@ -4699,3 +4699,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-56b0748.md](../build_/COMMITS/COMMIT-56b0748.md)
 - Message: turn Review & Promote into a real Copilot decision surface, not prose
+
+## Commit `aec0d2d` — 2026-08-30T22:56:36Z
+- Type: `push`
+- Brief: [COMMIT-aec0d2d.md](../build_/COMMITS/COMMIT-aec0d2d.md)
+- Message: generalize the pending-decision filter: actionable, not just remedies

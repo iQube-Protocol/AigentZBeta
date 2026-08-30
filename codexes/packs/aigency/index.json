@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-30T22:46:34.747Z",
+  "last_updated": "2026-08-30T22:58:49.544Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "56b074876dfe1e3f6f15e458613c8a05c0cc30f7",
-  "latest_commit_short": "56b0748",
-  "latest_commit_title": "turn Review & Promote into a real Copilot decision surface, not prose",
+  "latest_commit": "aec0d2d6f42df9391efb3b543317ced763014cc2",
+  "latest_commit_short": "aec0d2d",
+  "latest_commit_title": "generalize the pending-decision filter: actionable, not just remedies",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "aec0d2d",
+      "full_sha": "aec0d2d6f42df9391efb3b543317ced763014cc2",
+      "title": "generalize the pending-decision filter: actionable, not just remedies",
+      "author": "Claude",
+      "timestamp": "2026-08-30T22:56:36Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-aec0d2d.md"
+    },
     {
       "sha": "56b0748",
       "full_sha": "56b074876dfe1e3f6f15e458613c8a05c0cc30f7",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-16T20:08:21Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-dab0fb4.md"
-    },
-    {
-      "sha": "947ad4d",
-      "full_sha": "947ad4dce08abc0ca5f15484db35687ac55481a9",
-      "title": "Homecoming Phase II: Gate A0 audit + three-axis WP-A model amendment",
-      "author": "Claude",
-      "timestamp": "2026-08-16T20:23:01Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-947ad4d.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
