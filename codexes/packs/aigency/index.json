@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-30T16:01:37.448Z",
+  "last_updated": "2026-08-30T21:19:27.668Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "c08f31279af555959b16bdadfc25b175d087d969",
-  "latest_commit_short": "c08f312",
-  "latest_commit_title": "Fix MCP exchange-write gate to accept canonical exchange authority, not only IRL-service scope",
+  "latest_commit": "82dcf7d8c6fdce892cbf8e2c4f6b7cb6982a0ef7",
+  "latest_commit_short": "82dcf7d",
+  "latest_commit_title": "Fix exchange/orientation/delegation discovery to be merge-aware, like Passport",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "82dcf7d",
+      "full_sha": "82dcf7d8c6fdce892cbf8e2c4f6b7cb6982a0ef7",
+      "title": "Fix exchange/orientation/delegation discovery to be merge-aware, like Passport",
+      "author": "Claude",
+      "timestamp": "2026-08-30T21:16:07Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-82dcf7d.md"
+    },
     {
       "sha": "c08f312",
       "full_sha": "c08f31279af555959b16bdadfc25b175d087d969",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-16T20:28:06Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-f49451b.md"
-    },
-    {
-      "sha": "b0396c4",
-      "full_sha": "b0396c49ef98d43c386fddfa6c98a9023d7d580f",
-      "title": "Homecoming Phase II WP-A Increment 2: aigentMe-role runtime resolution end-to-end",
-      "author": "Claude",
-      "timestamp": "2026-08-16T20:44:25Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-b0396c4.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

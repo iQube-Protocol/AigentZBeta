@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`82dcf7d`](https://github.com/iQube-Protocol/AigentZBeta/commit/82dcf7d8c6fdce892cbf8e2c4f6b7cb6982a0ef7) [fix] Fix exchange/orientation/delegation discovery to be merge-aware, like Passport (Claude, 2026-08-30T21:16:07Z)
 - [`c08f312`](https://github.com/iQube-Protocol/AigentZBeta/commit/c08f31279af555959b16bdadfc25b175d087d969) [fix] Fix MCP exchange-write gate to accept canonical exchange authority, not only IRL-service scope (Claude, 2026-08-30T15:59:05Z)
 - [`1d885ae`](https://github.com/iQube-Protocol/AigentZBeta/commit/1d885ae175a8e4a3bfaf1c05580b39e089568fca) [feat] Add MCP channel-equivalence acceptance tests for OCSGA delegated completion (Claude, 2026-08-30T14:01:17Z)
 - [`a68e67f`](https://github.com/iQube-Protocol/AigentZBeta/commit/a68e67f20f6f0b55e7e02a3d9e9d7f5a729a4a6c) [fix] correct stale principal-only doctrine: OCSGA acts are delegable, CTP-001 amended before it hardens (Claude, 2026-08-30T13:21:40Z)

@@ -4684,3 +4684,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-c08f312.md](../build_/COMMITS/COMMIT-c08f312.md)
 - Message: Fix MCP exchange-write gate to accept canonical exchange authority, not only IRL-service scope
+
+## Commit `82dcf7d` — 2026-08-30T21:16:07Z
+- Type: `fix`
+- Brief: [COMMIT-82dcf7d.md](../build_/COMMITS/COMMIT-82dcf7d.md)
+- Message: Fix exchange/orientation/delegation discovery to be merge-aware, like Passport
