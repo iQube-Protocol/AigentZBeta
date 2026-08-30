@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`a68e67f`](https://github.com/iQube-Protocol/AigentZBeta/commit/a68e67f20f6f0b55e7e02a3d9e9d7f5a729a4a6c) [fix] correct stale principal-only doctrine: OCSGA acts are delegable, CTP-001 amended before it hardens (Claude, 2026-08-30T13:21:40Z)
 - [`ccebd69`](https://github.com/iQube-Protocol/AigentZBeta/commit/ccebd69fa0aaa1b0d709fe266929e5562345b488) [fix] fix Stage 3→4 handoff gap: scope extracted-candidate counts to the successor cohort (Claude, 2026-08-30T10:05:56Z)
 - [`6013623`](https://github.com/iQube-Protocol/AigentZBeta/commit/601362375317bc8b109d887a753c09a0eb41bb7a) [fix] fix Track 2 v2 state machine: frozen-generation scoping, false provenance gate, same-tab deep-link, acquisition bridge (Claude, 2026-08-30T08:57:46Z)
 - [`fc30d22`](https://github.com/iQube-Protocol/AigentZBeta/commit/fc30d229f0054fe865375fc13d4a8060988279a4) [push] Bind EXP-P1 remediation profile: populate the canonical retrospective (Claude, 2026-08-30T03:15:24Z)

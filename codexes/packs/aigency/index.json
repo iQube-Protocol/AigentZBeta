@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-30T10:08:06.605Z",
+  "last_updated": "2026-08-30T13:26:04.601Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "ccebd69fa0aaa1b0d709fe266929e5562345b488",
-  "latest_commit_short": "ccebd69",
-  "latest_commit_title": "fix Stage 3→4 handoff gap: scope extracted-candidate counts to the successor cohort",
+  "latest_commit": "a68e67f20f6f0b55e7e02a3d9e9d7f5a729a4a6c",
+  "latest_commit_short": "a68e67f",
+  "latest_commit_title": "correct stale principal-only doctrine: OCSGA acts are delegable, CTP-001 amended before it hardens",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "a68e67f",
+      "full_sha": "a68e67f20f6f0b55e7e02a3d9e9d7f5a729a4a6c",
+      "title": "correct stale principal-only doctrine: OCSGA acts are delegable, CTP-001 amended before it hardens",
+      "author": "Claude",
+      "timestamp": "2026-08-30T13:21:40Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-a68e67f.md"
+    },
     {
       "sha": "ccebd69",
       "full_sha": "ccebd69fa0aaa1b0d709fe266929e5562345b488",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-16T16:49:37-04:00",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-b0e4a2f.md"
-    },
-    {
-      "sha": "bcaaedc",
-      "full_sha": "bcaaedc9053eaaf055c1c4a7ba56ff5d5a56f17b",
-      "title": "docs: separate active persona, Agent Me agent, and delegated authority",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-16T16:19:19-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-bcaaedc.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

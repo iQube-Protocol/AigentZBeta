@@ -4669,3 +4669,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-ccebd69.md](../build_/COMMITS/COMMIT-ccebd69.md)
 - Message: fix Stage 3→4 handoff gap: scope extracted-candidate counts to the successor cohort
+
+## Commit `a68e67f` — 2026-08-30T13:21:40Z
+- Type: `fix`
+- Brief: [COMMIT-a68e67f.md](../build_/COMMITS/COMMIT-a68e67f.md)
+- Message: correct stale principal-only doctrine: OCSGA acts are delegable, CTP-001 amended before it hardens
