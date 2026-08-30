@@ -4674,3 +4674,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-a68e67f.md](../build_/COMMITS/COMMIT-a68e67f.md)
 - Message: correct stale principal-only doctrine: OCSGA acts are delegable, CTP-001 amended before it hardens
+
+## Commit `1d885ae` — 2026-08-30T14:01:17Z
+- Type: `feat`
+- Brief: [COMMIT-1d885ae.md](../build_/COMMITS/COMMIT-1d885ae.md)
+- Message: Add MCP channel-equivalence acceptance tests for OCSGA delegated completion

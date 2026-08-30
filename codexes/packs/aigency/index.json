@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-30T13:26:04.601Z",
+  "last_updated": "2026-08-30T14:03:35.529Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "a68e67f20f6f0b55e7e02a3d9e9d7f5a729a4a6c",
-  "latest_commit_short": "a68e67f",
-  "latest_commit_title": "correct stale principal-only doctrine: OCSGA acts are delegable, CTP-001 amended before it hardens",
+  "latest_commit": "1d885ae175a8e4a3bfaf1c05580b39e089568fca",
+  "latest_commit_short": "1d885ae",
+  "latest_commit_title": "Add MCP channel-equivalence acceptance tests for OCSGA delegated completion",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "1d885ae",
+      "full_sha": "1d885ae175a8e4a3bfaf1c05580b39e089568fca",
+      "title": "Add MCP channel-equivalence acceptance tests for OCSGA delegated completion",
+      "author": "Claude",
+      "timestamp": "2026-08-30T14:01:17Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-1d885ae.md"
+    },
     {
       "sha": "a68e67f",
       "full_sha": "a68e67f20f6f0b55e7e02a3d9e9d7f5a729a4a6c",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-16T20:47:59Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-431283a.md"
-    },
-    {
-      "sha": "b0e4a2f",
-      "full_sha": "b0e4a2fc6eebffd56d5ab2c6b88b7b39b377886a",
-      "title": "research: seed OCSGA context erosion experiments and invariants",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-16T16:49:37-04:00",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-b0e4a2f.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
