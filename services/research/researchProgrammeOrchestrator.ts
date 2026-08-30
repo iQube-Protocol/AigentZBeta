@@ -926,6 +926,17 @@ export interface PendingGovernanceDecision {
   remedies: string[];
   detail: string;
   /**
+   * A REAL, EXISTING decision/action surface is available for this stop
+   * RIGHT NOW (2026-08-30, "prepare-independent-review is invisible in the
+   * Copilot" fix) — carried verbatim from `Track2Stage.actionable` (see that
+   * field's own doc comment for the full distinction from `remedies`).
+   * `remedies` may legitimately be empty while this is `true` — the review
+   * itself is the act, not a repair for something broken. `false` for every
+   * stage that never declared it, so an older consumer reading only
+   * `remedies`/`detail` sees no change in behavior.
+   */
+  actionable: boolean;
+  /**
    * The already-computed targeted acquisition plan (2026-08-30, "turn Discover
    * Sources into a precise Copilot authorization"), present ONLY when this
    * decision is the `discover-sources` stop `buildAcquisitionPendingDecision`
@@ -1512,22 +1523,35 @@ export function firstPendingDecision(programme: Track2Programme): PendingGoverna
     .filter((s) => programme.unblockedStageIds.includes(s.id))
     .filter((s) => s.status !== 'complete' && s.status !== 'unknown')
     /*
-     * A `partially-complete` stage carrying NO remedies has nothing left to
-     * ask the operator to DO (2026-08-30, "Classify Provenance manufactures a
-     * false human gate" fix). `partially-complete` legitimately means "every
+     * A `partially-complete` stage carrying NO remedies AND NO actionable
+     * control has nothing left to ask the operator to DO (2026-08-30,
+     * "Classify Provenance manufactures a false human gate" fix, GENERALIZED
+     * 2026-08-30 by the "prepare-independent-review is invisible in the
+     * Copilot" follow-up). `partially-complete` legitimately means "every
      * eligible member was processed; the remainder is explicitly excluded and
      * inert" (exception-isolation ruling §6) as often as it means "real
      * outstanding work remains" (e.g. Stage 2 with sources still awaiting
-     * review) — the two are told apart by `remedies`, which `track2Programme.ts`
-     * already leaves empty exactly when a stage's own scientific criterion is
-     * satisfied and only historical exclusions remain (see `classifyOutcome`/
-     * `validateOutcome`). This does NOT touch `stage.status` itself — that
-     * derivation, and the `partially-complete` value it can produce, is
-     * untouched and remains ratified (CI-2026-08-03-BOUNDED-PROCESSOR-PARTIAL-
-     * COMPLETION-001) — it only stops an already-resolved bookkeeping fact
-     * from being presented as a live governance/human-judgment gate.
+     * review, or Stage 10 with the independent review request genuinely
+     * open) — telling the two apart is NOT "does `remedies` happen to be
+     * non-empty": `remedies` names REMEDIATION PROSE for a gap, and a stage
+     * can have a real, existing action surface with nothing to "fix" at all
+     * (Stage 10 — the review itself is the act; `checkFreezeGate` never
+     * requires it and there is no failing check to remediate). So the
+     * generic rule is `remedies.length > 0 || stage.actionable === true` —
+     * `track2Programme.ts`'s own `actionable` field declares, from the
+     * stage's own observed state, "a real decision/action surface is
+     * available now," exactly parallel to how it already declares `status`/
+     * `detail`/`remedies`. This is deliberately NOT a stage-id check: a
+     * consumer here must never special-case a name to recover a distinction
+     * the stage itself is better positioned to declare. This does NOT touch
+     * `stage.status` itself — that derivation, and the `partially-complete`
+     * value it can produce, is untouched and remains ratified
+     * (CI-2026-08-03-BOUNDED-PROCESSOR-PARTIAL-COMPLETION-001) — it only
+     * stops an already-resolved bookkeeping fact from being presented as a
+     * live governance/human-judgment gate, and now also stops a genuinely
+     * actionable one from being wrongly presented as resolved.
      */
-    .filter((s) => !(s.status === 'partially-complete' && s.remedies.length === 0))
+    .filter((s) => !(s.status === 'partially-complete' && s.remedies.length === 0 && s.actionable !== true))
     .filter((s) => isHumanGatedStage(s))
     .sort((a, b) => a.ordinal - b.ordinal);
   const stage = candidates[0];
@@ -1542,6 +1566,11 @@ export function firstPendingDecision(programme: Track2Programme): PendingGoverna
     deepLink: buildTrack2DeepLink(programme.experimentId, stage.id, stage.label),
     remedies: stage.remedies,
     detail: stage.detail,
+    // Carried verbatim from the stage's own declaration — never re-derived
+    // here (the SAME discipline `remedies`/`detail` already follow). `false`
+    // when the stage never set it, so an older stage's decision reads
+    // exactly as it always has.
+    actionable: stage.actionable === true,
   };
 }
 
@@ -1622,6 +1651,9 @@ export async function buildAcquisitionPendingDecision(input: {
     surface: stage.surface,
     deepLink: buildTrack2DeepLink(input.programme.experimentId, stage.id, stage.label),
     remedies,
+    // A real, existing control (Approve targeted acquisition) is available
+    // right now — this decision is never presented merely from remedy text.
+    actionable: true,
     acquisitionBrief: brief,
     detail:
       `The targeted acquisition plan is not yet satisfied — ${outstanding.map((c) => c.checkName).join(', ')}. ` +

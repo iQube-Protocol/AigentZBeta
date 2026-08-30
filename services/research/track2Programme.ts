@@ -176,6 +176,24 @@ export interface Track2Stage {
    * verbatim where they apply — never a second wording of them.
    */
   remedies: string[];
+  /**
+   * A REAL, EXISTING decision/action surface is available RIGHT NOW for this
+   * stage (2026-08-30, "prepare-independent-review is invisible in the
+   * Copilot" fix) — distinct from `remedies`, which names REMEDIATION PROSE
+   * for an outstanding gap. A stage can be actionable with NO remedy text at
+   * all: `prepare-independent-review` has nothing to "fix" when
+   * `independentReviewRequestOpen` is true — the review itself is the act,
+   * not a repair. Conversely a stage can have remedies with nothing to click
+   * yet (a readiness gap named in prose, no control exists for "go pass
+   * readiness"). Never set from a stage-id check — a consumer (`firstPending
+   * Decision`) must not special-case a name to recover this distinction;
+   * each stage declares it directly, from its own observed state, the same
+   * way it declares `status`/`detail`/`remedies`. Omitted (`undefined`) is
+   * exactly `false` — the default for every stage that hasn't reasoned about
+   * this yet, so adding the field never silently makes an old stage
+   * actionable it never claimed to be.
+   */
+  actionable?: boolean;
 }
 
 /**
@@ -845,6 +863,13 @@ export function buildTrack2Programme(input: {
         : populated
           ? ['Complete the failing readiness checks first. Sending a failing crystal to an external reviewer spends their independence diagnosing our checks.']
           : [],
+      // ACTIONABLE (2026-08-30): the review is the act itself, not a repair —
+      // there is nothing to "fix" when `independentReviewRequestOpen` is
+      // true, only a real, existing control (`ReviewPackageControl`) to open
+      // and use. `false` in the other two branches: `blocked` has a real
+      // remedy already (non-empty, so it already surfaces without this
+      // flag), and `not-started` genuinely has nothing to do yet.
+      actionable: s.independentReviewRequestOpen === true,
     },
     {
       id: 'freeze',
