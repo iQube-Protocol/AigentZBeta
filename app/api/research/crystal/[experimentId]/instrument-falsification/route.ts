@@ -15,6 +15,24 @@
  * instruments REJECT the frozen artifact — the SUCCESSFUL outcome. There is no
  * `ok` field on the retrospective, deliberately.
  *
+ * ── RETROSPECTIVE SUBSTRATE ADMISSIBILITY (2026-08-30 governance ruling) ────
+ *
+ * `reproducedReviewerObjections` requires FOUR things, all visible on
+ * `retrospective`: (1) `substrateAdmissibility.admissible` — the population
+ * scored is either byte-exact (`verifiedAgainstFreeze === true`) or, for the
+ * ONE artifact a ratified governance ruling names (EXP-P1 / crystal-vP1),
+ * `legacy-scientific-content` (services/research/
+ * crystalRetrospectiveSubstrateAdmissibility.ts — never a blanket policy: a
+ * different experiment/artifact reaching the identical
+ * `legacyContentVerification.state` is NOT automatically admissible); (2) all
+ * four mapped concerns independently rejected; (3)
+ * `instrumentSuiteMatchesProfile === true` — the CURRENT instrument-suite
+ * identity matches the remediation profile's own recorded one, so a stale
+ * profile can never license a gate the instruments have since moved past; (4)
+ * `blockingGaps.length === 0`. `verifiedAgainstFreeze` is NEVER redefined by
+ * any of this — it stays the strict byte-exact answer, disclosed verbatim on
+ * both `retrospective` and `frozenArtifact`.
+ *
  * ── STRICTLY READ-ONLY ───────────────────────────────────────────────────
  *
  * No write of any kind: no receipt, no artifact mutation, no lifecycle
@@ -39,6 +57,8 @@
  *     instrumentSuite: { suiteVersion, contractFingerprint, modules },
  *     retrospective: {                 // CrystalRetrospectiveFalsification
  *       reproducedReviewerObjections: boolean,   // ← THE GATE
+ *       substrateAdmissibility: { admissible, basis, governingRuling, reason },
+ *       instrumentSuiteMatchesProfile: boolean | null,
  *       concerns: [ { concernId, bearsOnCheck, rejected, … } ],
  *       readinessRejectsFrozenCrystal: boolean,
  *       crystalContentHash, verifiedAgainstFreeze,
@@ -170,17 +190,10 @@ export async function GET(
     ...(recoveredPopulation ? { invariants: recoveredPopulation } : {}),
   });
 
-  const retrospective = composeCrystalRetrospectiveFalsification({
-    experimentId,
-    crystalDomain,
-    readiness,
-    crystalContentHash,
-    verifiedAgainstFreeze,
-  });
-
-  // The profile is read in the SAME response as the verdict, so a consumer makes
-  // one coherent read rather than correlating two surfaces. It is empty by
-  // design until an authoritative review artifact exists.
+  // The profile is resolved BEFORE the retrospective verdict so its recorded
+  // instrument-suite identity can be compared against the CURRENT one inside
+  // composeCrystalRetrospectiveFalsification — condition 3 of the gate
+  // (2026-08-30 governance ruling on retrospective substrate admissibility).
   const stored = BOUND_CRYSTAL_REMEDIATION_PROFILES.find((p) => p.experimentId === experimentId) ?? null;
   const bindingState = stored
     ? remediationProfileBindingState(stored)
@@ -192,6 +205,17 @@ export async function GET(
             'it cannot be verified or re-read). Consumers must fail closed.',
         ],
       };
+
+  const retrospective = composeCrystalRetrospectiveFalsification({
+    experimentId,
+    crystalDomain,
+    readiness,
+    crystalContentHash,
+    verifiedAgainstFreeze,
+    artifactId: artifact?.id ?? null,
+    legacyContentVerification,
+    remediationProfileInstrumentSuite: stored?.instrumentSuite ?? null,
+  });
 
   return NextResponse.json({
     ok: true,

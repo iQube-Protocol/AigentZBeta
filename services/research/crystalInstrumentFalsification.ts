@@ -61,6 +61,12 @@ import {
   CRYSTAL_INSTRUMENT_SUITE_VERSION,
   crystalInstrumentSuiteFingerprint,
 } from '@/services/research/crystalInstrumentSuite';
+import {
+  deriveRetrospectiveSubstrateAdmissibility,
+  type RetrospectiveSubstrateAdmissibility,
+} from '@/services/research/crystalRetrospectiveSubstrateAdmissibility';
+import type { LegacyFreezeVerificationEvidence } from '@/services/research/crystalLegacyContentVerification';
+import type { InstrumentSuiteIdentity } from '@/types/crystalRemediation';
 
 /**
  * The four concerns remediation cycle 1 hardened. These are the INSTRUMENTS'
@@ -109,11 +115,31 @@ export interface CrystalRetrospectiveFalsification {
    *  and says so. */
   crystalContentHash: string | null;
   verifiedAgainstFreeze: boolean | null;
+  /**
+   * Whether the population this verdict was computed over is admissible as
+   * the retrospective substrate — either byte-exact (`verifiedAgainstFreeze
+   * === true`) or, for the one artifact a ratified governance ruling names,
+   * `legacy-scientific-content` (services/research/
+   * crystalRetrospectiveSubstrateAdmissibility.ts). The governing ruling, when
+   * one applies, is carried on `governingRuling` so it is VISIBLE in this
+   * evidence, never merely implied by a boolean.
+   */
+  substrateAdmissibility: RetrospectiveSubstrateAdmissibility;
+  /**
+   * Whether the CURRENT instrument-suite identity matches the remediation
+   * profile the caller supplied for comparison. `null` ⇒ no profile was
+   * supplied to compare against, which blocks `reproducedReviewerObjections`
+   * exactly as a `false` match does — there is nothing permissive about an
+   * absent comparison.
+   */
+  instrumentSuiteMatchesProfile: boolean | null;
   invariantCount: number;
   distinctStatementEstimate: number;
   /**
-   * THE GATE. True iff every one of the four remediated concerns is REJECTED by
-   * its hardened instrument. Named for what it means, never `ok`.
+   * THE GATE. True iff the retrospective substrate is admissible, every one
+   * of the four remediated concerns is REJECTED by its hardened instrument,
+   * the instrument-suite identity matches the remediation profile, and no
+   * blocking gap remains. Named for what it means, never `ok`.
    */
   reproducedReviewerObjections: boolean;
   concerns: RemediatedConcernResult[];
@@ -133,6 +159,19 @@ export interface ComposeRetrospectiveInput {
   /** From `buildFrozenCrystalManifest` — null when no frozen artifact exists. */
   crystalContentHash: string | null;
   verifiedAgainstFreeze: boolean | null;
+  /** From `buildFrozenCrystalManifest.artifactId` — null when no frozen
+   *  artifact exists. Required (with `legacyContentVerification`) for a
+   *  legacy-substrate ruling to be considered; omitted callers fall through
+   *  to admissible-only-when-byte-exact, unchanged from prior behaviour. */
+  artifactId?: string | null;
+  /** From `buildFrozenCrystalManifest.legacyContentVerification`. */
+  legacyContentVerification?: LegacyFreezeVerificationEvidence | null;
+  /** The remediation profile's OWN recorded instrument-suite identity — the
+   *  caller reads this from the SAME profile the verdict may go on to bind
+   *  (never re-derived here). `null`/omitted ⇒ no profile was supplied to
+   *  compare against, which blocks `reproducedReviewerObjections` exactly as
+   *  a mismatch does. */
+  remediationProfileInstrumentSuite?: InstrumentSuiteIdentity | null;
   /** Injectable for determinism in tests; defaults to now. */
   computedAt?: string;
 }
@@ -247,15 +286,34 @@ export function composeCrystalRetrospectiveFalsification(
         'rather than on findings — this is not a reproduction of anything',
     );
   }
+  const substrateAdmissibility = deriveRetrospectiveSubstrateAdmissibility({
+    experimentId: input.experimentId,
+    artifactId: input.artifactId ?? null,
+    verifiedAgainstFreeze: input.verifiedAgainstFreeze,
+    legacyContentVerification: input.legacyContentVerification ?? null,
+  });
   if (input.crystalContentHash === null) {
     blockingGaps.push(
       'no frozen crystal content hash was supplied, so this verdict cannot claim to be about the FROZEN ' +
         'artifact (it describes whatever the live query returned)',
     );
-  } else if (input.verifiedAgainstFreeze !== true) {
+  } else if (!substrateAdmissibility.admissible) {
+    blockingGaps.push(`retrospective substrate is inadmissible (${substrateAdmissibility.basis}): ${substrateAdmissibility.reason}`);
+  }
+
+  const instrumentSuiteMatchesProfile: boolean | null = input.remediationProfileInstrumentSuite
+    ? input.remediationProfileInstrumentSuite.suiteVersion === CRYSTAL_INSTRUMENT_SUITE_VERSION &&
+      input.remediationProfileInstrumentSuite.contractFingerprint === crystalInstrumentSuiteFingerprint()
+    : null;
+  if (instrumentSuiteMatchesProfile !== true) {
     blockingGaps.push(
-      'the live re-query did NOT verify against the freeze commitment, so the assessed rows are not provably ' +
-        'the frozen set — refuse the verdict rather than substitute current state for the frozen fact',
+      instrumentSuiteMatchesProfile === null
+        ? 'no remediation profile was supplied to compare the current instrument-suite identity against'
+        : `the current instrument-suite identity (${CRYSTAL_INSTRUMENT_SUITE_VERSION} / ` +
+          `${crystalInstrumentSuiteFingerprint()}) does not match the remediation profile's recorded ` +
+          `identity (${input.remediationProfileInstrumentSuite!.suiteVersion} / ` +
+          `${input.remediationProfileInstrumentSuite!.contractFingerprint}) — the profile is stale relative ` +
+          'to the instruments that would license it',
     );
   }
   for (const c of concerns) {
@@ -280,6 +338,8 @@ export function composeCrystalRetrospectiveFalsification(
     computedAt,
     crystalContentHash: input.crystalContentHash,
     verifiedAgainstFreeze: input.verifiedAgainstFreeze,
+    substrateAdmissibility,
+    instrumentSuiteMatchesProfile,
     invariantCount: readiness.invariantCount,
     distinctStatementEstimate: readiness.duplicates.distinctStatementEstimate,
     reproducedReviewerObjections,

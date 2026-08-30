@@ -45,6 +45,7 @@ import {
   CRYSTAL_READINESS_CHECK_CONTRACT,
   checksRequiringCFS054Amendment,
   crystalInstrumentSuiteFingerprint,
+  crystalInstrumentSuiteIdentity,
   crystalReadinessCheckNames,
 } from '../services/research/crystalInstrumentSuite';
 import { composeCrystalRetrospectiveFalsification } from '../services/research/crystalInstrumentFalsification';
@@ -463,9 +464,17 @@ describe('the retrospective falsification harness — a release gate with an INV
       readiness,
       crystalContentHash: 'deadbeef',
       verifiedAgainstFreeze: true,
+      // A byte-exact substrate needs no legacy ruling, but condition 3 (the
+      // instrument-suite match) applies unconditionally — supply the REAL
+      // current identity, matching what a real caller would read off the
+      // profile it intends to bind.
+      remediationProfileInstrumentSuite: crystalInstrumentSuiteIdentity(),
       computedAt: '2026-08-26T00:00:00.000Z',
     });
     expect(verdict.reproducedReviewerObjections).toBe(true);
+    expect(verdict.substrateAdmissibility.admissible).toBe(true);
+    expect(verdict.substrateAdmissibility.basis).toBe('byte-exact');
+    expect(verdict.instrumentSuiteMatchesProfile).toBe(true);
     expect(verdict.readinessRejectsFrozenCrystal).toBe(true);
     expect(verdict.blockingGaps).toEqual([]);
     expect(verdict.concerns.map((c) => c.concernId).sort()).toEqual([
@@ -490,7 +499,8 @@ describe('the retrospective falsification harness — a release gate with an INV
       computedAt: '2026-08-26T00:00:00.000Z',
     });
     expect(verdict.reproducedReviewerObjections).toBe(false);
-    expect(verdict.blockingGaps.join(' ')).toContain('did NOT verify against the freeze commitment');
+    expect(verdict.substrateAdmissibility.admissible).toBe(false);
+    expect(verdict.blockingGaps.join(' ')).toContain('retrospective substrate is inadmissible');
   });
 
   it('does NOT pass on an EMPTY domain — an infrastructure state must never license the gate', async () => {
@@ -538,6 +548,90 @@ describe('the retrospective falsification harness — a release gate with an INV
     });
     expect(Object.prototype.hasOwnProperty.call(verdict, 'ok')).toBe(false);
     expect(Object.prototype.hasOwnProperty.call(verdict, 'reproducedReviewerObjections')).toBe(true);
+  });
+
+  // ── Retrospective substrate admissibility (2026-08-30 governance ruling) ──
+  const LEGACY_EVIDENCE = {
+    state: 'scientific-content-verified' as const,
+    byteExact: false,
+    frozenAt: '2026-08-05T21:39:57.033Z',
+    memberCount: 15,
+    materialFieldsChecked: ['id', 'statement', 'namespace', 'semanticType', 'evidenceProvenance', 'provenance'],
+    immaterialDriftFields: ['status'] as readonly string[],
+    blockingGaps: [] as string[],
+    reason: 'clean legacy evidence',
+    unresolvedRisk: 'residual risk note',
+  };
+
+  it('5. legacy-admissible substrate PASSES only when all four concerns independently reproduce — one concern clearing the bar blocks it, even with a matching instrument suite', async () => {
+    // Boundary-coverage alone is made to PASS (single-namespace boundary, same
+    // pattern the boundary-coverage describe block already uses) while the
+    // other three concerns still fail on the vP1-shaped fixture — isolating
+    // "not all four rejected" from every other gate.
+    vi.mocked(listInvariants).mockResolvedValueOnce(VP1_SHAPED.map((r) => row(r.id, r.statement, { namespace: 'finance', semanticType: r.semanticType ?? undefined })));
+    vi.mocked(listEdgesForInvariants).mockResolvedValueOnce([]);
+    const readiness = await runCrystalReadinessReport({
+      experimentId: 'EXP-P1',
+      crystalDomain: 'd',
+      declaredNamespaceBoundary: ['finance'],
+    });
+    expect(readiness.checks.find((c) => c.name === 'boundary-coverage')?.passed).toBe(true);
+
+    const verdict = composeCrystalRetrospectiveFalsification({
+      experimentId: 'EXP-P1',
+      crystalDomain: 'd',
+      readiness,
+      crystalContentHash: 'frozen-hash-abc',
+      verifiedAgainstFreeze: false,
+      artifactId: 'EXP-P1/crystal-vP1',
+      legacyContentVerification: LEGACY_EVIDENCE,
+      remediationProfileInstrumentSuite: crystalInstrumentSuiteIdentity(),
+    });
+    expect(verdict.substrateAdmissibility.admissible).toBe(true);
+    expect(verdict.instrumentSuiteMatchesProfile).toBe(true);
+    expect(verdict.concerns.find((c) => c.concernId === 'boundary-coverage')?.rejected).toBe(false);
+    expect(verdict.reproducedReviewerObjections).toBe(false);
+    expect(verdict.blockingGaps.join(' ')).toContain("concern 'boundary-coverage' is NOT reproduced");
+  });
+
+  it('6. instrument-suite mismatch fails closed — admissible substrate, all four concerns reproduced, but a stale profile identity blocks it', async () => {
+    const readiness = await vp1Readiness();
+    const verdict = composeCrystalRetrospectiveFalsification({
+      experimentId: 'EXP-P1',
+      crystalDomain: 'd',
+      readiness,
+      crystalContentHash: 'deadbeef',
+      verifiedAgainstFreeze: true,
+      remediationProfileInstrumentSuite: {
+        suiteVersion: '1.0.0',
+        contractFingerprint: 'stale-fingerprint-from-a-superseded-suite',
+        modules: [],
+      },
+    });
+    expect(verdict.concerns.every((c) => c.rejected === true)).toBe(true);
+    expect(verdict.instrumentSuiteMatchesProfile).toBe(false);
+    expect(verdict.reproducedReviewerObjections).toBe(false);
+    expect(verdict.blockingGaps.join(' ')).toContain('does not match the remediation profile');
+  });
+
+  it('7. the EXP-P1 vP1 legacy pattern PASSES end-to-end while verifiedAgainstFreeze stays false', async () => {
+    const readiness = await vp1Readiness();
+    const verdict = composeCrystalRetrospectiveFalsification({
+      experimentId: 'EXP-P1',
+      crystalDomain: 'd',
+      readiness,
+      crystalContentHash: 'frozen-hash-abc',
+      verifiedAgainstFreeze: false,
+      artifactId: 'EXP-P1/crystal-vP1',
+      legacyContentVerification: LEGACY_EVIDENCE,
+      remediationProfileInstrumentSuite: crystalInstrumentSuiteIdentity(),
+      computedAt: '2026-08-30T00:00:00.000Z',
+    });
+    expect(verdict.reproducedReviewerObjections).toBe(true);
+    expect(verdict.verifiedAgainstFreeze).toBe(false);
+    expect(verdict.substrateAdmissibility.basis).toBe('legacy-scientific-content');
+    expect(verdict.substrateAdmissibility.governingRuling?.artifactId).toBe('EXP-P1/crystal-vP1');
+    expect(verdict.blockingGaps).toEqual([]);
   });
 });
 
@@ -626,5 +720,125 @@ describe('CrystalRemediationProfile — the shared configuration object', () => 
     });
     expect(state.binding).toBe('unbound-retrospective-not-reproduced');
     expect(state.bindingGaps.join(' ')).toContain('failure of the remediation');
+  });
+
+  it('8. profile binding changes ONLY as a consequence of a valid canonical retrospective — a REAL composer-produced verdict, not a hand-authored boolean, drives it end-to-end', async () => {
+    const PROFILE_SHELL_EXCEPT_RETROSPECTIVE = {
+      sourceRefs: [
+        { refId: 'r1', locator: 'codexes/…/review-001.md', contentHash: 'abc', kind: 'external-review' as const, note: null },
+      ],
+      checkMappings: [
+        {
+          findingId: 'f1',
+          label: 'duplicates',
+          bearsOnChecks: ['duplicate-detection'],
+          instrument: 'services/research/crystalSemanticStructure.ts',
+          executable: true,
+          gap: null,
+        },
+      ],
+      populationFormula: {
+        sliceFractionOfCrystal: 0.4,
+        sliceGuardSourceRef: 'x',
+        sliceDemandBasis: 'registered-minimum-task-design' as const,
+        requiredEvaluationSliceSize: 24,
+        minimumCollectionSize: 60,
+        derivationLines: [],
+        insufficientInputs: [],
+      },
+      boundaryRequirement: {
+        boundarySourceRef: 'types/invariants.ts',
+        declaredNamespaces: [...INVARIANT_NAMESPACES],
+        requiredRepresentedNamespaceCount: INVARIANT_NAMESPACES.length,
+        remedy: 'extend-corpus' as const,
+        mayNarrowBoundary: false as const,
+      },
+    };
+
+    // A REAL retrospective, legacy-admissible, matching instrument suite —
+    // the exact shape a caller would copy verbatim from the canonical
+    // endpoint's response into EXP_P1_REMEDIATION_PROFILE_V1.retrospective.
+    vi.mocked(listInvariants).mockResolvedValueOnce(
+      VP1_SHAPED.map((r, i) => row(r.id, r.statement, { namespace: i % 2 === 0 ? 'finance' : 'reasoning', semanticType: r.semanticType ?? undefined })),
+    );
+    vi.mocked(listEdgesForInvariants).mockResolvedValueOnce([]);
+    const readiness = await runCrystalReadinessReport({ experimentId: 'EXP-P1', crystalDomain: 'd' });
+    const verdict = composeCrystalRetrospectiveFalsification({
+      experimentId: 'EXP-P1',
+      crystalDomain: 'd',
+      readiness,
+      crystalContentHash: 'frozen-hash-abc',
+      verifiedAgainstFreeze: false,
+      artifactId: 'EXP-P1/crystal-vP1',
+      legacyContentVerification: {
+        state: 'scientific-content-verified',
+        byteExact: false,
+        frozenAt: '2026-08-05T21:39:57.033Z',
+        memberCount: 15,
+        materialFieldsChecked: ['id', 'statement', 'namespace', 'semanticType', 'evidenceProvenance', 'provenance'],
+        immaterialDriftFields: ['status'],
+        blockingGaps: [],
+        reason: 'clean legacy evidence',
+        unresolvedRisk: 'residual risk note',
+      },
+      remediationProfileInstrumentSuite: crystalInstrumentSuiteIdentity(),
+      computedAt: '2026-08-30T00:00:00.000Z',
+    });
+    expect(verdict.reproducedReviewerObjections).toBe(true); // the passing precondition for this test
+
+    const bound = remediationProfileBindingState({
+      ...PROFILE_SHELL_EXCEPT_RETROSPECTIVE,
+      retrospective: {
+        reproducedReviewerObjections: verdict.reproducedReviewerObjections,
+        verdictRoute: '/api/research/crystal/EXP-P1/instrument-falsification',
+        crystalContentHash: verdict.crystalContentHash,
+        verifiedAgainstFreeze: verdict.verifiedAgainstFreeze,
+        computedAt: verdict.computedAt,
+      },
+    });
+    expect(bound.binding).toBe('bound');
+    expect(bound.bindingGaps).toEqual([]);
+
+    // The negative half of the same proof: an otherwise-identical verdict
+    // that FAILED (here, via a mismatched instrument suite) must NOT bind —
+    // binding tracks the verdict, never a separate assumption.
+    vi.mocked(listInvariants).mockResolvedValueOnce(
+      VP1_SHAPED.map((r, i) => row(r.id, r.statement, { namespace: i % 2 === 0 ? 'finance' : 'reasoning', semanticType: r.semanticType ?? undefined })),
+    );
+    vi.mocked(listEdgesForInvariants).mockResolvedValueOnce([]);
+    const readiness2 = await runCrystalReadinessReport({ experimentId: 'EXP-P1', crystalDomain: 'd' });
+    const failedVerdict = composeCrystalRetrospectiveFalsification({
+      experimentId: 'EXP-P1',
+      crystalDomain: 'd',
+      readiness: readiness2,
+      crystalContentHash: 'frozen-hash-abc',
+      verifiedAgainstFreeze: false,
+      artifactId: 'EXP-P1/crystal-vP1',
+      legacyContentVerification: {
+        state: 'scientific-content-verified',
+        byteExact: false,
+        frozenAt: '2026-08-05T21:39:57.033Z',
+        memberCount: 15,
+        materialFieldsChecked: [],
+        immaterialDriftFields: ['status'],
+        blockingGaps: [],
+        reason: 'clean legacy evidence',
+        unresolvedRisk: 'residual risk note',
+      },
+      remediationProfileInstrumentSuite: { suiteVersion: '1.0.0', contractFingerprint: 'stale', modules: [] },
+      computedAt: '2026-08-30T00:00:00.000Z',
+    });
+    expect(failedVerdict.reproducedReviewerObjections).toBe(false);
+    const notBound = remediationProfileBindingState({
+      ...PROFILE_SHELL_EXCEPT_RETROSPECTIVE,
+      retrospective: {
+        reproducedReviewerObjections: failedVerdict.reproducedReviewerObjections,
+        verdictRoute: '/api/research/crystal/EXP-P1/instrument-falsification',
+        crystalContentHash: failedVerdict.crystalContentHash,
+        verifiedAgainstFreeze: failedVerdict.verifiedAgainstFreeze,
+        computedAt: failedVerdict.computedAt,
+      },
+    });
+    expect(notBound.binding).toBe('unbound-retrospective-not-reproduced');
   });
 });
