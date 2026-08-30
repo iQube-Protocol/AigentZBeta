@@ -83,6 +83,7 @@ import {
   BOUND_CRYSTAL_REMEDIATION_PROFILES,
   remediationProfileBindingState,
 } from '@/types/crystalRemediation';
+import type { InvariantRecord } from '@/types/invariants';
 
 export const dynamic = 'force-dynamic';
 
@@ -121,6 +122,12 @@ export async function GET(
   let crystalContentHash: string | null = null;
   let verifiedAgainstFreeze: boolean | null = null;
   let manifestVerificationDetail: string | null = null;
+  // The population the retrospective's four hardened instruments assess.
+  // `null` ⇒ fall through to this route's own prior behaviour (an independent
+  // `runCrystalReadinessReport` call against the LIVE domain) — the only case
+  // that applies to is "no frozen artifact exists at all", where there is no
+  // recovered population to assess in the first place.
+  let recoveredPopulation: InvariantRecord[] | null = null;
   if (artifact && artifact.lifecycle === 'frozen') {
     const manifest = await buildFrozenCrystalManifest({
       experimentId,
@@ -134,10 +141,26 @@ export async function GET(
       crystalContentHash = manifest.frozenContentHash || null;
       verifiedAgainstFreeze = manifest.verifiedAgainstFreeze;
       manifestVerificationDetail = manifest.verificationDetail;
+      // Assess EXACTLY the population the manifest recovered from domain
+      // membership — including members now `superseded` — never a second,
+      // independently-filtered re-query of today's validated|canonical
+      // corpus (2026-08-30, EXP-P1 retrospective dataflow fix). This is
+      // unconditional on `verifiedAgainstFreeze`: the hash-verification gate
+      // (condition 9 below) is enforced separately, by
+      // `composeCrystalRetrospectiveFalsification` reading
+      // `verifiedAgainstFreeze` itself — it is NOT re-implemented here by
+      // withholding the population.
+      if (manifest.recoveredInvariants.length > 0) {
+        recoveredPopulation = manifest.recoveredInvariants;
+      }
     }
   }
 
-  const readiness = await runCrystalReadinessReport({ experimentId, crystalDomain });
+  const readiness = await runCrystalReadinessReport({
+    experimentId,
+    crystalDomain,
+    ...(recoveredPopulation ? { invariants: recoveredPopulation } : {}),
+  });
 
   const retrospective = composeCrystalRetrospectiveFalsification({
     experimentId,
