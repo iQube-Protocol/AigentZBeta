@@ -65,7 +65,11 @@ import { readEvidenceProvenance } from '@/services/research/experimentalPopulati
 import { composeCrystalFreezeRecommendation } from '@/services/research/crystalFreezeRecommendation';
 import { runCrystalReadinessReport } from '@/services/research/crystalReadiness';
 import { runCrystalStatisticsReport } from '@/services/research/crystalStatistics';
-import { commit } from '@/services/research/review/deterministic';
+import { computeCrystalContentHash } from '@/services/research/crystalContentProjection';
+import {
+  deriveLegacyFreezeVerification,
+  type LegacyFreezeVerificationEvidence,
+} from '@/services/research/crystalLegacyContentVerification';
 import type { InvariantRecord } from '@/types/invariants';
 import type { FrozenArtifact } from '@/types/research';
 
@@ -140,6 +144,13 @@ export interface FrozenCrystalManifest {
    * read was attempted (missing contentHash) or it failed (readError).
    */
   recoveredInvariants: InvariantRecord[];
+  /**
+   * A narrowly-versioned, DERIVED legacy classification — see
+   * crystalLegacyContentVerification.ts. Never redefines or weakens
+   * `verifiedAgainstFreeze` above, which stays the strict byte-exact answer;
+   * this is a separate, strictly weaker claim computed alongside it.
+   */
+  legacyContentVerification: LegacyFreezeVerificationEvidence;
   /**
    * A SEPARATE derived-analysis class, distinct from both `members` classes
    * above: relationships are neither a frozen fact nor a per-member current
@@ -253,6 +264,17 @@ export async function buildFrozenCrystalManifest(
       memberCount: 0,
       members: null,
       recoveredInvariants: [],
+      legacyContentVerification: {
+        state: 'unverified',
+        byteExact: false,
+        frozenAt: base.frozenAt,
+        memberCount: 0,
+        materialFieldsChecked: [],
+        immaterialDriftFields: [],
+        blockingGaps: ['artifact carries no contentHash — there is nothing for a legacy verification to be about'],
+        reason: 'no contentHash exists on this artifact',
+        unresolvedRisk: '',
+      },
       derivedTopology: null,
       knownLimitations: [],
     };
@@ -295,25 +317,25 @@ export async function buildFrozenCrystalManifest(
       memberCount: 0,
       members: null,
       recoveredInvariants: [],
+      legacyContentVerification: deriveLegacyFreezeVerification({
+        verifiedAgainstFreeze: false,
+        frozenAt: base.frozenAt,
+        invariants: [],
+        membershipReadFailed: true,
+      }),
       derivedTopology: null,
       knownLimitations: [],
     };
   }
 
-  // The EXACT same projection crystalStatistics.ts hashes — never a second,
-  // independently-shaped commitment (inv.engineering.036).
-  const sortedForHash = [...invariants]
-    .map((inv) => ({
-      id: inv.id,
-      statement: inv.statement,
-      namespace: inv.namespace,
-      semanticType: inv.semanticType,
-      status: inv.status,
-      evidenceProvenance: readEvidenceProvenance(inv.provenance),
-      provenance: inv.provenance,
-    }))
-    .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
-  const recomputedLiveHash = commit({ crystalDomain, invariantCount: invariants.length, members: sortedForHash });
+  // The ONE shared projection (services/research/crystalContentProjection.ts)
+  // crystalStatistics.ts also hashes — never a second, independently-shaped
+  // commitment (inv.engineering.036).
+  const recomputedLiveHash = computeCrystalContentHash({
+    crystalDomain,
+    invariantCount: invariants.length,
+    invariants,
+  });
 
   const verifiedAgainstFreeze = recomputedLiveHash === input.artifact.contentHash;
 
@@ -370,6 +392,12 @@ export async function buildFrozenCrystalManifest(
       memberCount: invariants.length,
       members: null,
       recoveredInvariants: invariants,
+      legacyContentVerification: deriveLegacyFreezeVerification({
+        verifiedAgainstFreeze: false,
+        frozenAt: base.frozenAt,
+        invariants,
+        membershipReadFailed: false,
+      }),
       derivedTopology: null,
       knownLimitations,
     };
@@ -398,6 +426,12 @@ export async function buildFrozenCrystalManifest(
     memberCount: invariants.length,
     members: invariants.map((inv) => toManifestMember(inv, input.observedAt)),
     recoveredInvariants: invariants,
+    legacyContentVerification: deriveLegacyFreezeVerification({
+      verifiedAgainstFreeze: true,
+      frozenAt: base.frozenAt,
+      invariants,
+      membershipReadFailed: false,
+    }),
     derivedTopology,
     knownLimitations,
   };

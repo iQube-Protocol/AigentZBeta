@@ -84,6 +84,7 @@ import {
   remediationProfileBindingState,
 } from '@/types/crystalRemediation';
 import type { InvariantRecord } from '@/types/invariants';
+import type { LegacyFreezeVerificationEvidence } from '@/services/research/crystalLegacyContentVerification';
 
 export const dynamic = 'force-dynamic';
 
@@ -122,6 +123,12 @@ export async function GET(
   let crystalContentHash: string | null = null;
   let verifiedAgainstFreeze: boolean | null = null;
   let manifestVerificationDetail: string | null = null;
+  // Disclosure only (2026-08-30) — a narrowly-versioned, DERIVED legacy
+  // classification alongside verifiedAgainstFreeze, never a substitute for
+  // it. Does NOT feed composeCrystalRetrospectiveFalsification,
+  // reproducedReviewerObjections, or remediation-profile binding — that
+  // wiring is a deliberately separate, not-yet-made governance decision.
+  let legacyContentVerification: LegacyFreezeVerificationEvidence | null = null;
   // The population the retrospective's four hardened instruments assess.
   // `null` ⇒ fall through to this route's own prior behaviour (an independent
   // `runCrystalReadinessReport` call against the LIVE domain) — the only case
@@ -141,6 +148,7 @@ export async function GET(
       crystalContentHash = manifest.frozenContentHash || null;
       verifiedAgainstFreeze = manifest.verifiedAgainstFreeze;
       manifestVerificationDetail = manifest.verificationDetail;
+      legacyContentVerification = manifest.legacyContentVerification;
       // Assess EXACTLY the population the manifest recovered from domain
       // membership — including members now `superseded` — never a second,
       // independently-filtered re-query of today's validated|canonical
@@ -202,9 +210,17 @@ export async function GET(
       lifecycle: artifact?.lifecycle ?? null,
       verifiedAgainstFreeze,
       verificationDetail: manifestVerificationDetail,
+      // Disclosure only (2026-08-30) — see the field's own doc comment on
+      // FrozenCrystalManifest. Does NOT feed reproducedReviewerObjections,
+      // readinessRejectsFrozenCrystal, or remediation-profile binding above;
+      // whether 'scientific-content-verified' should ever be admissible for
+      // gating purposes is a separate governance decision, not made here.
+      legacyContentVerification,
     },
     readOnlyNote:
       'This route writes nothing. It does not re-score, backfill or correct the historical readiness results ' +
-      'that permitted the freeze — those remain the record of what the pre-remediation instruments said.',
+      'that permitted the freeze — those remain the record of what the pre-remediation instruments said. ' +
+      'frozenArtifact.legacyContentVerification is disclosure-only and does not affect retrospective.reproducedReviewerObjections ' +
+      'or remediationProfile.bound.',
   });
 }
