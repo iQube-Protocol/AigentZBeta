@@ -208,6 +208,79 @@ describe('Research Copilot — the pending decision survives navigate-away-and-b
   });
 });
 
+// ── REVIEW & PROMOTE — a real decision surface, not a description
+// (2026-08-30) ───────────────────────────────────────────────────────────────
+//
+// Mirrors the "Approve targeted acquisition" pattern already proven for
+// `discover-sources`: the review card renders directly inside the Copilot,
+// keyed on `decision.reviewQueue`, and calls the EXISTING canonical
+// promotion/rejection route — never a second implementation.
+
+describe('Research Copilot — Review & Promote renders as one bounded card per candidate', () => {
+  it('the reviewQueue block is a sibling of, and precedes, {run && (...)}', () => {
+    const src = stripComments(readSource(COPILOT));
+    const runBlockStart = src.indexOf('{run && (');
+    const reviewBlockStart = src.indexOf('decision.reviewQueue && decision.reviewQueue.length > 0 && (');
+    expect(runBlockStart).toBeGreaterThan(-1);
+    expect(reviewBlockStart).toBeGreaterThan(-1);
+    expect(reviewBlockStart).toBeLessThan(runBlockStart);
+  });
+
+  it('the generic decision block never ALSO renders while a reviewQueue is present — no double-render', () => {
+    const src = stripComments(readSource(COPILOT));
+    expect(src).toMatch(/\{decision && !decision\.acquisitionBrief && !\(decision\.reviewQueue && decision\.reviewQueue\.length > 0\) && \(/);
+  });
+
+  it('Promote/Reject call the EXISTING canonical route — POST /api/invariants/discovery with action + candidateId — never a second promotion/rejection implementation', () => {
+    const src = stripComments(readSource(COPILOT));
+    const fnStart = src.indexOf('const submitReviewDecision = useCallback');
+    const fnEnd = src.indexOf('}, [observe, personaId, runProgramme]);', fnStart);
+    expect(fnStart).toBeGreaterThan(-1);
+    expect(fnEnd).toBeGreaterThan(fnStart);
+    const fnBody = src.slice(fnStart, fnEnd);
+    expect(fnBody).toMatch(/"\/api\/invariants\/discovery"/);
+    expect(fnBody).toMatch(/body: JSON\.stringify\(\{ action, candidateId \}\)/);
+    // No OTHER route string appears in this function — the whole disposition
+    // rides one call.
+    expect((fnBody.match(/personaFetch\(/g) ?? []).length).toBe(2); // the disposition POST + the fresh Track2 GET
+  });
+
+  it('the two buttons pass the literal actions "promote"/"reject" — never a third disposition value invented client-side', () => {
+    const src = stripComments(readSource(COPILOT));
+    expect(src).toMatch(/onReviewDecision\(decision, c\.candidateId, "promote"\)/);
+    expect(src).toMatch(/onReviewDecision\(decision, c\.candidateId, "reject"\)/);
+  });
+
+  it('"Exception / Inspect" performs no write — it reuses onProceed (navigation only), never the review-decision route', () => {
+    const src = stripComments(readSource(COPILOT));
+    const reviewBlockStart = src.indexOf("decision.reviewQueue && decision.reviewQueue.length > 0 && (");
+    const reviewBlockEnd = src.indexOf('{decision && !decision.acquisitionBrief', reviewBlockStart);
+    const reviewBlock = src.slice(reviewBlockStart, reviewBlockEnd);
+    expect(reviewBlock).toMatch(/Exception \/ Inspect/);
+    expect(reviewBlock).toMatch(/onClick=\{\(\) => onProceed\(decision\)\}/);
+  });
+
+  it('after a disposition, a fresh Track2 read decides whether to auto-continue — never a client-side decrement standing in for server truth', () => {
+    const src = stripComments(readSource(COPILOT));
+    const fnStart = src.indexOf('const submitReviewDecision = useCallback');
+    const fnEnd = src.indexOf('}, [observe, personaId, runProgramme]);', fnStart);
+    const fnBody = src.slice(fnStart, fnEnd);
+    expect(fnBody).toMatch(/setProgrammePreview\(trackData\.programme \?\? null\)/);
+    expect(fnBody).toMatch(/setPendingDecisionPreview\(trackData\.pendingDecision \?\? null\)/);
+    // The continue condition reads the FRESH server response, not a locally
+    // decremented count.
+    expect(fnBody).toMatch(/trackData\.pendingDecision\?\.stageId === "review-and-promote"/);
+    expect(fnBody).toMatch(/await runProgramme\(experimentIdForDecision\);/);
+  });
+
+  it('the ObjectiveCard render call site threads the review-decision handler and its busy/error state', () => {
+    const src = stripComments(readSource(COPILOT));
+    expect(src).toMatch(/onReviewDecision=\{\(decision, candidateId, action\) => void submitReviewDecision\(decision, candidateId, action\)\}/);
+    expect(src).toMatch(/reviewBusyId=\{reviewBusyId\}/);
+    expect(src).toMatch(/reviewError=\{reviewError\}/);
+  });
+});
+
 describe('InvariantExperimentLab — consumes the deep-link intent on the FIRST render, before any effect', () => {
   it('reads consumePendingTrack2Stage via a lazy useState initializer, called exactly once at mount', () => {
     const src = stripComments(readSource(LAB));
