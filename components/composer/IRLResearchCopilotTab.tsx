@@ -593,6 +593,9 @@ function ObjectiveCard({
   acquisitionRunning,
   acquisitionError,
   acquisitionStatus,
+  onReviewDecision,
+  reviewBusyId,
+  reviewError,
 }: {
   objective: ResearchObjective;
   run: ProgrammeRunResult | null;
@@ -636,6 +639,19 @@ function ObjectiveCard({
   acquisitionRunning: boolean;
   acquisitionError: string | null;
   acquisitionStatus: string | null;
+  /**
+   * REVIEW & PROMOTE (2026-08-30) — a per-candidate steward disposition,
+   * calling the EXISTING canonical `promoteCandidate`/`rejectCandidate` path
+   * (`POST /api/invariants/discovery`) directly — no new promotion or
+   * rejection implementation. `action: 'inspect'` performs no write; it is
+   * the demoted navigation-only affordance (`onProceed`, reused).
+   */
+  onReviewDecision: (decision: PendingGovernanceDecision, candidateId: string, action: 'promote' | 'reject') => void;
+  /** The candidateId currently in flight, or `null` — disables every OTHER
+   *  candidate's buttons too (one disposition at a time keeps the queue
+   *  count and the server in lockstep). */
+  reviewBusyId: string | null;
+  reviewError: string | null;
 }) {
   const gate = run?.measurementLayerGate ?? null;
   const programme = run?.programme ?? programmePreview;
@@ -832,7 +848,106 @@ function ObjectiveCard({
         </div>
       )}
 
-      {decision && !decision.acquisitionBrief && (
+      {/* REVIEW & PROMOTE — the `review-and-promote` stop rendered as one
+          bounded review card per candidate (2026-08-30), not a navigation
+          exercise. Each candidate's Promote/Reject calls the EXISTING
+          canonical `promoteCandidate`/`rejectCandidate` path directly
+          (`POST /api/invariants/discovery`) — no new promotion logic. The
+          machine's `recommendation` is advisory only; both buttons stay
+          enabled regardless of what it says. */}
+      {decision && decision.reviewQueue && decision.reviewQueue.length > 0 && (
+        <div className="rounded border border-violet-500/40 bg-violet-500/10 px-2 py-2 space-y-2">
+          <div className="text-[10px] uppercase tracking-wide text-violet-300 font-semibold">
+            Your judgment — {decision.stageLabel} · {decision.reviewQueue.length} awaiting
+          </div>
+          {reviewError && (
+            <div className="rounded border border-rose-500/40 bg-rose-500/10 px-2 py-1.5 text-[10px] text-rose-300">
+              {reviewError}
+            </div>
+          )}
+          <div className="space-y-2">
+            {decision.reviewQueue.map((c) => {
+              const busy = reviewBusyId === c.candidateId;
+              const anyBusy = reviewBusyId !== null;
+              const recColor =
+                c.recommendation.action === "promote"
+                  ? "text-emerald-300"
+                  : c.recommendation.action === "reject"
+                    ? "text-rose-300"
+                    : "text-amber-300";
+              return (
+                <div key={c.candidateId} className="rounded border border-slate-700 bg-slate-900/50 p-2 space-y-1">
+                  <div className="text-[11px] text-slate-100 break-words">{c.statement}</div>
+                  <div className="text-[10px] text-slate-400 break-words">
+                    Namespace: <span className="font-mono">{c.proposedNamespace}</span>
+                    {c.subDomain ? ` · ${c.domain}/${c.subDomain}` : ` · ${c.domain}`}
+                    {" · "}
+                    {c.discoveryClass}
+                    {c.abstractionLevel ? ` · ${c.abstractionLevel}` : ""}
+                    {c.classification ? ` · classified: ${c.classification}` : ""}
+                  </div>
+                  {c.evidence.length > 0 && (
+                    <div className="space-y-0.5">
+                      {c.evidence.slice(0, 2).map((e) => (
+                        <div key={e.id} className="text-[10px] text-slate-400 break-words">
+                          <span className="text-slate-500">{e.sourceKind}</span> · {e.title}
+                          {e.sourceRef ? ` (${e.sourceRef})` : ""}
+                          {e.excerpt ? <span className="block text-slate-500 italic">“{e.excerpt.slice(0, 160)}{e.excerpt.length > 160 ? "…" : ""}”</span> : null}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="text-[10px] text-slate-400">
+                    Confidence: {Math.round(c.confidence * 100)}%
+                    {c.convergence ? ` · ${c.convergence.supportCount} converging source(s) (${c.convergence.tier})` : ""}
+                    {c.recurrence ? ` · ${c.recurrence.recurrenceCount} domain(s) (${c.recurrence.tier})` : ""}
+                  </div>
+                  {c.duplicateWarning && (
+                    <div className="text-[10px] text-amber-400/90">
+                      ⚠ {c.duplicateWarning.exact ? "Exact duplicate" : `${Math.round(c.duplicateWarning.similarity * 100)}% overlap`} of
+                      an existing invariant: “{c.duplicateWarning.existingStatement.slice(0, 120)}
+                      {c.duplicateWarning.existingStatement.length > 120 ? "…" : ""}”
+                    </div>
+                  )}
+                  <div className={`text-[10px] ${recColor}`}>
+                    Recommendation: {c.recommendation.action} — {c.recommendation.reason}
+                  </div>
+                  <div className="flex items-center gap-1.5 pt-0.5">
+                    <button
+                      type="button"
+                      onClick={() => onReviewDecision(decision, c.candidateId, "promote")}
+                      disabled={anyBusy}
+                      className="inline-flex items-center gap-1 rounded border border-emerald-500/40 bg-emerald-500/15 px-2 py-1 text-[10px] font-semibold text-emerald-100 hover:bg-emerald-500/25 transition disabled:opacity-50"
+                    >
+                      {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle className="h-3 w-3" />}
+                      Promote
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onReviewDecision(decision, c.candidateId, "reject")}
+                      disabled={anyBusy}
+                      className="inline-flex items-center gap-1 rounded border border-rose-500/40 bg-rose-500/15 px-2 py-1 text-[10px] font-semibold text-rose-100 hover:bg-rose-500/25 transition disabled:opacity-50"
+                    >
+                      {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+                      Reject
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onProceed(decision)}
+                      disabled={anyBusy || proceeding}
+                      className="inline-flex items-center gap-1 rounded border border-slate-600 px-2 py-1 text-[10px] text-slate-300 hover:text-slate-100 transition disabled:opacity-50"
+                    >
+                      Exception / Inspect
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {decision && !decision.acquisitionBrief && !(decision.reviewQueue && decision.reviewQueue.length > 0) && (
         <div className="rounded border border-violet-500/40 bg-violet-500/10 px-2 py-2 space-y-1">
           <div className="text-[10px] uppercase tracking-wide text-violet-300 font-semibold">
             {decision.authority === "governance" ? "Your constitutional act" : "Your judgment"} — {decision.stageLabel}
@@ -1097,6 +1212,12 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
   const [acquisitionRunning, setAcquisitionRunning] = useState(false);
   const [acquisitionError, setAcquisitionError] = useState<string | null>(null);
   const [acquisitionStatus, setAcquisitionStatus] = useState<string | null>(null);
+  // ── REVIEW & PROMOTE (2026-08-30) — per-candidate disposition state.
+  // `reviewBusyId` is the candidateId currently in flight (or null); every
+  // OTHER candidate's buttons disable too while one is in flight, so the
+  // server-derived queue count and the UI never race.
+  const [reviewBusyId, setReviewBusyId] = useState<string | null>(null);
+  const [reviewError, setReviewError] = useState<string | null>(null);
 
   // ── C3 Feedback Coordinator (mirrors DevCommandCenterTab.autoPrompt): on a
   // stage-ADVANCING approval, mint ONE `[observed]` auto-turn so the copilot
@@ -1497,6 +1618,77 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
   }, [observe, personaId, runProgramme]);
 
   /**
+   * REVIEW & PROMOTE — one steward disposition per click (2026-08-30,
+   * "Review & Promote is a description, not a decision surface" fix).
+   *
+   *   1. POST /api/invariants/discovery { action, candidateId } — the EXACT
+   *      canonical route `InvariantDiscoveryTab.tsx` itself calls for
+   *      promote/reject (`promoteCandidate`/`rejectCandidate` server-side).
+   *      No second promotion or rejection implementation.
+   *   2. A fresh, direct GET /api/research/track2/[experimentId] — mirrors
+   *      `proceedToDecision`'s own `readPendingDeepLink` step exactly, so
+   *      this reads the SAME authoritative projection every other durable
+   *      preview on this card reads, never a second derivation. The queue
+   *      count this returns is what "2 awaiting → 1 → 0" is — recomputed
+   *      fresh from `discovery_candidates`, never decremented client-side.
+   *   3. When the fresh read shows NO further review-and-promote queue (all
+   *      resolved, or the stage moved on) — automatically continue via the
+   *      SAME `runProgramme` "Run until you need me" already uses. The
+   *      operator never has to navigate back and manually restart it.
+   */
+  const submitReviewDecision = useCallback(async (
+    decision: PendingGovernanceDecision,
+    candidateId: string,
+    action: "promote" | "reject",
+  ) => {
+    const experimentIdForDecision = decision.deepLink.experimentId;
+    setReviewBusyId(candidateId);
+    setReviewError(null);
+    try {
+      const res = await personaFetch("/api/invariants/discovery", {
+        method: "POST",
+        cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, candidateId }),
+        ...(personaId ? { personaIdHint: personaId } : {}),
+      });
+      const data = await res.json().catch(() => null) as { ok?: boolean; error?: string } | null;
+      if (!res.ok || !data || data.ok !== true) {
+        throw new Error((data && typeof data.error === "string" && data.error) || `HTTP ${res.status}`);
+      }
+      observe(surfacePromptSelectedEvent(SURFACE, `review-and-promote: ${action} candidate ${candidateId}`));
+
+      const trackRes = await personaFetch(`/api/research/track2/${encodeURIComponent(experimentIdForDecision)}`, {
+        cache: "no-store",
+        ...(personaId ? { personaIdHint: personaId } : {}),
+      });
+      const trackData = await trackRes.json().catch(() => null) as {
+        requestSucceeded?: boolean;
+        programme?: Track2Programme;
+        pendingDecision?: PendingGovernanceDecision | null;
+      } | null;
+      if (trackRes.ok && trackData?.requestSucceeded) {
+        setProgrammePreview(trackData.programme ?? null);
+        setPendingDecisionPreview(trackData.pendingDecision ?? null);
+        const stillPending =
+          trackData.pendingDecision?.stageId === "review-and-promote" &&
+          (trackData.pendingDecision?.reviewQueue?.length ?? 0) > 0;
+        if (!stillPending) {
+          // All resolved (or the stage moved on) — resume automatically,
+          // exactly the acceptance criterion: the operator never has to
+          // navigate back and manually restart the programme.
+          await runProgramme(experimentIdForDecision);
+        }
+      } else {
+        setReviewError("the review decision was recorded, but the current Track 2 state could not be confirmed");
+      }
+    } catch (err) {
+      setReviewError(err instanceof Error ? err.message : `${action} failed`);
+    }
+    setReviewBusyId(null);
+  }, [observe, personaId, runProgramme]);
+
+  /**
    * THE PENDING-DECISION CTA's PROCEED SEQUENCE (2026-08-27 fix) —
    * `services/research/track2ProceedNavigation.ts`'s `proceedToTrack2Stage`
    * driven with real IO. Awaits a fresh `/advance` and a fresh authoritative
@@ -1718,6 +1910,9 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
               acquisitionRunning={acquisitionRunning}
               acquisitionError={acquisitionError}
               acquisitionStatus={acquisitionStatus}
+              onReviewDecision={(decision, candidateId, action) => void submitReviewDecision(decision, candidateId, action)}
+              reviewBusyId={reviewBusyId}
+              reviewError={reviewError}
             />
           ))}
 

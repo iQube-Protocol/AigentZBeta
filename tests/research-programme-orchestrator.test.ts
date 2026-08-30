@@ -49,9 +49,21 @@ vi.mock('@/services/corpusScout/provenance', () => ({
 
 const mockListCandidates = vi.fn();
 const mockRunConstitutionalDiscovery = vi.fn();
+const mockListEvidence = vi.fn().mockResolvedValue([]);
 vi.mock('@/services/invariants/discoveryEngine', () => ({
   listCandidates: (...args: unknown[]) => mockListCandidates(...args),
   runConstitutionalDiscovery: (...args: unknown[]) => mockRunConstitutionalDiscovery(...args),
+  listEvidence: (...args: unknown[]) => mockListEvidence(...args),
+}));
+
+// findDuplicates backs the review-queue's pre-flight duplicate warning
+// (2026-08-30) — every failure mode is already absorbed by the orchestrator's
+// own `.catch(() => [])`, so an empty default is sufficient for every
+// PRE-EXISTING test in this file; the new "review & promote queue" describe
+// block below overrides it per case.
+const mockFindDuplicates = vi.fn().mockResolvedValue([]);
+vi.mock('@/services/invariants/comparison', () => ({
+  findDuplicates: (...args: unknown[]) => mockFindDuplicates(...args),
 }));
 
 const mockValidateInvariant = vi.fn();
@@ -190,9 +202,37 @@ function seedSubstrate(over?: {
   // is the projection working correctly, and would make every downstream
   // assertion here a test of the fixture rather than of the loop.
   const resolvedCohort = over?.cohort ?? cohort();
+  const rawCandidates: Array<Record<string, unknown>> =
+    (over?.candidates as Array<Record<string, unknown>> | undefined) ??
+    resolvedCohort.invariantIds.map((id) => ({ id: `cand-${id}`, status: 'promoted' }));
+  // Every fixture above supplies only the fields THIS suite's own assertions
+  // read (id, status, promotedInvariantId, createdAt) — never the full
+  // CandidateRow shape. The review-and-promote queue (2026-08-30) reads
+  // every OTHER field too (domain, statement, evidenceIds, confidence, …),
+  // so a bare fixture object would crash it for any `status: 'candidate'`
+  // row. Defaults are merged in HERE, in the one place every test's
+  // candidates pass through, rather than editing every literal above —
+  // real per-test values always win (spread last).
   mockListCandidates.mockResolvedValue(
-    over?.candidates ??
-      resolvedCohort.invariantIds.map((id) => ({ id: `cand-${id}`, status: 'promoted' })),
+    rawCandidates.map((c) => ({
+      domain: 'financial-services',
+      subDomain: null,
+      scopeLevel: 'domain',
+      abstractionLevel: null,
+      discoveryClass: 'structural',
+      statement: `stub statement for ${c.id}`,
+      rationale: '',
+      evidenceIds: [],
+      confidence: 0.5,
+      promotedInvariantId: null,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      stage: 'constitutional',
+      classification: null,
+      coverage: null,
+      compression: null,
+      crystalExclusion: null,
+      ...c,
+    })),
   );
   mockReconcilePromotedCohort.mockResolvedValue(resolvedCohort);
   mockRunCrystalReadinessReport.mockResolvedValue(over?.readiness ?? readiness());
@@ -282,6 +322,8 @@ beforeEach(() => {
   mockDomainAcceptsAssignment.mockReturnValue(true);
   mockValidateInvariant.mockResolvedValue({ invariant: {}, verdict: { ok: true, checks: [] } });
   mockRunConstitutionalDiscovery.mockResolvedValue({ ok: true, candidates: [], excludedEvidence: [] });
+  mockListEvidence.mockResolvedValue([]);
+  mockFindDuplicates.mockResolvedValue([]);
 });
 
 // ── ACCEPTANCE CRITERION #1 — the single most important assertion here ──────
@@ -947,6 +989,155 @@ describe('the acquisition bridge — a targeted plan becomes one real, correctly
     if (result.stopReason.kind === 'awaiting-human-judgment') {
       expect(result.stopReason.decision.stageId).toBe('discover-sources');
     }
+  });
+});
+
+// ── THE REVIEW & PROMOTE QUEUE (2026-08-30, "Review & Promote is a
+// description, not a decision surface" fix) ─────────────────────────────────
+//
+// The Research Copilot must render the ACTUAL successor-scoped candidates
+// awaiting review inline, not merely a capability string. Every field on
+// `reviewQueue` is read from data `loadTrack2ProgrammeState` already fetches
+// for Stage 3/4's own counts (`successorScopedCandidates`), plus two already-
+// reused instruments (`listEvidence`, `findDuplicates`) — these tests pin
+// that no second candidate query is introduced and that the queue is scoped,
+// resolved and disposed exactly as the operator specified.
+
+describe('the review & promote queue — successor candidates rendered as a real decision surface', () => {
+  const AWAITING_CANDIDATE = {
+    id: 'cand-awaiting-1',
+    status: 'candidate' as const,
+    promotedInvariantId: null,
+    createdAt: '2026-08-01T00:00:00.000Z',
+    domain: 'financial-services',
+    subDomain: null,
+    statement: 'Statement under review A',
+    rationale: 'Extracted from source X',
+    evidenceIds: ['ev-1'],
+    confidence: 0.82,
+    convergence: { supportCount: 3, frameworks: ['FATF', 'BIS'], tier: 'broad' as const },
+    recurrence: undefined,
+    classification: 'novel' as const,
+    discoveryClass: 'structural' as const,
+    abstractionLevel: 'L2' as const,
+    scopeLevel: 'domain' as const,
+  };
+
+  it('the pending decision for review-and-promote carries the exact awaiting candidates, and only those', async () => {
+    seedSubstrate({
+      candidates: [
+        AWAITING_CANDIDATE,
+        { id: 'cand-promoted-1', status: 'promoted', promotedInvariantId: 'inv-1', createdAt: '2026-07-01T00:00:00.000Z' },
+        { id: 'cand-rejected-1', status: 'rejected', promotedInvariantId: null, createdAt: '2026-07-02T00:00:00.000Z' },
+      ],
+    });
+    mockListEvidence.mockResolvedValue([
+      { id: 'ev-1', domain: 'financial-services', subDomain: null, title: 'BIS Working Paper', sourceKind: 'academic-literature', content: 'A'.repeat(500), sourceRef: 'https://bis.org/wp1', createdAt: '2026-06-01T00:00:00.000Z' },
+    ]);
+    mockFindDuplicates.mockResolvedValue([]);
+
+    const state = await loadTrack2ProgrammeState({ experimentId: EXPERIMENT });
+    if ('error' in state) throw new Error('unexpected error result');
+    expect(state.pendingDecision?.stageId).toBe('review-and-promote');
+    expect(state.pendingDecision?.reviewQueue).toHaveLength(1);
+    const entry = state.pendingDecision!.reviewQueue![0];
+    expect(entry.candidateId).toBe('cand-awaiting-1');
+    expect(entry.statement).toBe('Statement under review A');
+    expect(entry.proposedNamespace).toBeTruthy();
+    expect(entry.confidence).toBe(0.82);
+    expect(entry.convergence?.supportCount).toBe(3);
+    // Evidence is RESOLVED (joined by id) — never the raw evidenceIds passed through.
+    expect(entry.evidence).toHaveLength(1);
+    expect(entry.evidence[0].title).toBe('BIS Working Paper');
+    expect(entry.evidence[0].excerpt.length).toBeLessThanOrEqual(400);
+    // The promoted and rejected rows never appear — only `status: 'candidate'`.
+    expect(state.pendingDecision!.reviewQueue!.map((e) => e.candidateId)).not.toContain('cand-promoted-1');
+    expect(state.pendingDecision!.reviewQueue!.map((e) => e.candidateId)).not.toContain('cand-rejected-1');
+  });
+
+  it('never queries listCandidates a second time — the queue is built from the SAME successor-scoped array Stage 3/4 counted from', async () => {
+    seedSubstrate({ candidates: [AWAITING_CANDIDATE] });
+    await loadTrack2ProgrammeState({ experimentId: EXPERIMENT });
+    expect(mockListCandidates).toHaveBeenCalledTimes(1);
+  });
+
+  it('an exact duplicate surfaces as a duplicate warning, and the recommendation is "reject"', async () => {
+    seedSubstrate({ candidates: [AWAITING_CANDIDATE] });
+    mockFindDuplicates.mockResolvedValue([
+      { invariant: { id: 'inv-existing-1', statement: 'Statement under review A' }, similarity: 1, exact: true },
+    ]);
+    const state = await loadTrack2ProgrammeState({ experimentId: EXPERIMENT });
+    if ('error' in state) throw new Error('unexpected error result');
+    const entry = state.pendingDecision!.reviewQueue![0];
+    expect(entry.duplicateWarning?.exact).toBe(true);
+    expect(entry.duplicateWarning?.existingInvariantId).toBe('inv-existing-1');
+    expect(entry.recommendation.action).toBe('reject');
+  });
+
+  it('high confidence with converging sources and no duplicate recommends "promote"', async () => {
+    seedSubstrate({ candidates: [{ ...AWAITING_CANDIDATE, confidence: 0.9 }] });
+    mockFindDuplicates.mockResolvedValue([]);
+    const state = await loadTrack2ProgrammeState({ experimentId: EXPERIMENT });
+    if ('error' in state) throw new Error('unexpected error result');
+    expect(state.pendingDecision!.reviewQueue![0].recommendation.action).toBe('promote');
+  });
+
+  it('low confidence recommends "inspect", never a blocking verdict — both buttons remain the operator’s own call', async () => {
+    seedSubstrate({ candidates: [{ ...AWAITING_CANDIDATE, confidence: 0.1, convergence: { supportCount: 0, frameworks: [], tier: 'single' } }] });
+    mockFindDuplicates.mockResolvedValue([]);
+    const state = await loadTrack2ProgrammeState({ experimentId: EXPERIMENT });
+    if ('error' in state) throw new Error('unexpected error result');
+    expect(state.pendingDecision!.reviewQueue![0].recommendation.action).toBe('inspect');
+  });
+
+  it('reviewQueue is absent (undefined) when no candidate is awaiting review — never an empty-but-present array masking a resolved queue', async () => {
+    seedSubstrate({
+      candidates: [
+        { id: 'cand-promoted-only', status: 'promoted', promotedInvariantId: 'inv-1', createdAt: '2026-07-01T00:00:00.000Z' },
+      ],
+    });
+    const state = await loadTrack2ProgrammeState({ experimentId: EXPERIMENT });
+    if ('error' in state) throw new Error('unexpected error result');
+    // review-and-promote is 'complete' here (promoted>0, awaitingReview=0), so
+    // it is not even the pending decision — but the invariant under test is
+    // narrower and holds regardless of which stage IS pending:
+    expect(state.pendingDecision?.reviewQueue).toBeUndefined();
+  });
+
+  it('reviewQueue is absent on every OTHER stage’s pending decision (acquisitionBrief’s own stage, for instance)', async () => {
+    seedSubstrate({
+      candidates: [],
+      readiness: readiness({
+        invariantCount: 11,
+        checks: [{ name: 'selection-space', tier: 'scientific-readiness', passed: false, detail: '', remedy: 'grow the collection' } as never],
+        populationRequirement: {
+          derivable: true, insufficientInputs: [], sliceFractionOfCrystal: 0.4, sliceGuardSourceRef: 'ref',
+          sliceDemandBasis: 'registered-minimum-task-design', requiredEvaluationSliceSize: 24, minimumCollectionSize: 60,
+          requiredEntailmentChains: 12, requiredRelationalMembersInSlice: 24,
+        } as never,
+        inferentialCapacity: {
+          assessedCount: 11, relationalMemberCount: 0, relationalMemberFraction: 0, bareNecessityCount: 0, unparsedCount: 0,
+          entailmentChains: [], entailmentChainCount: 0, inferentiallyCapableCount: 0, inferentialCapacityFraction: 0,
+          degenerateNecessityChainCount: 0, structuresPresent: [], structuresAbsent: ['causal', 'conditional'],
+        } as never,
+        coverage: { boundaryNamespaceCount: 15, representedNamespaceCount: 2, ratio: 2 / 15, representedNamespaces: ['ns-a'], missingNamespaces: ['ns-c'] },
+      }),
+    });
+    mockCurrentCrystalArtifactId.mockResolvedValue(`${EXPERIMENT}/crystal-vP2`);
+    const state = await loadTrack2ProgrammeState({ experimentId: EXPERIMENT });
+    if ('error' in state) throw new Error('unexpected error result');
+    expect(state.pendingDecision?.stageId).toBe('discover-sources');
+    expect(state.pendingDecision?.acquisitionBrief).toBeDefined();
+    expect(state.pendingDecision?.reviewQueue).toBeUndefined();
+  });
+
+  it('a listEvidence failure degrades to an empty evidence list — never throws, never drops the candidate from the queue', async () => {
+    seedSubstrate({ candidates: [AWAITING_CANDIDATE] });
+    mockListEvidence.mockRejectedValue(new Error('db down'));
+    const state = await loadTrack2ProgrammeState({ experimentId: EXPERIMENT });
+    if ('error' in state) throw new Error('unexpected error result');
+    expect(state.pendingDecision!.reviewQueue).toHaveLength(1);
+    expect(state.pendingDecision!.reviewQueue![0].evidence).toEqual([]);
   });
 });
 

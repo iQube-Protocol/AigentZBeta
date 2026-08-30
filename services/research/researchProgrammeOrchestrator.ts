@@ -88,9 +88,24 @@
  * Server-side only.
  */
 
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { listCandidateSources } from '@/services/corpusScout/provenance';
-import { listCandidates, runConstitutionalDiscovery } from '@/services/invariants/discoveryEngine';
+import {
+  listCandidates,
+  listEvidence,
+  runConstitutionalDiscovery,
+  type CandidateRow,
+  type EvidenceRow,
+  type DiscoveryClass,
+  type AbstractionLevel,
+  type DiscoveryScopeLevel,
+  type CompareClassification,
+  type ConvergenceInfo,
+  type RecurrenceInfo,
+} from '@/services/invariants/discoveryEngine';
+import { findDuplicates } from '@/services/invariants/comparison';
+import { discoveryNamespace } from '@/services/invariants/discoveryDomains';
 import { validateInvariant } from '@/services/invariants';
 import {
   currentCrystalArtifactId,
@@ -571,9 +586,25 @@ export async function loadTrack2ProgrammeState(input: {
     },
   });
 
-  const pendingDecision =
+  let pendingDecision =
     firstPendingDecision(programme) ??
     (await buildAcquisitionPendingDecision({ programme, declaration, readiness, artifact }));
+
+  // THE REVIEW & PROMOTE QUEUE (2026-08-30) — enriches the SAME decision
+  // object `firstPendingDecision` already returns for this stage (Stage 4 is
+  // unconditionally human-gated via `HUMAN_GATED_STAGE_IDS`, so it is never
+  // the `buildAcquisitionPendingDecision` fallback path). Reuses
+  // `successorScopedCandidates`, computed above for Stage 3/4's own counts —
+  // never a second candidate query, and never a candidate outside that
+  // successor-scoped set (the vP1/historical exclusion this stage's counts
+  // already enforce carries through unchanged).
+  if (pendingDecision?.stageId === 'review-and-promote' && successorScopedCandidates) {
+    const awaitingCandidates = successorScopedCandidates.filter((c) => c.status === 'candidate');
+    if (awaitingCandidates.length > 0) {
+      const reviewQueue = await buildReviewAndPromoteQueue(admin, awaitingCandidates);
+      pendingDecision = { ...pendingDecision, reviewQueue };
+    }
+  }
 
   if (input.timer) input.timer.record('programme-state-derivation', input.timer.now() - restStart);
 
@@ -904,6 +935,187 @@ export interface PendingGovernanceDecision {
    * `GET .../acquisition-brief`.
    */
   acquisitionBrief?: CrystalAcquisitionBrief;
+  /**
+   * THE ACTUAL SUCCESSOR CANDIDATES awaiting judgment (2026-08-30, "Review &
+   * Promote is a description, not a decision surface" fix), present ONLY
+   * when this decision is the `review-and-promote` stop AND at least one
+   * successor-scoped candidate is `status: 'candidate'`. Mirrors
+   * `acquisitionBrief` exactly: every field here is READ from data that
+   * already exists (the SAME `successorScopedCandidates` array Stage 3/4's
+   * own counts are derived from — `inv.engineering.036`/`037`, never a
+   * second candidate query), so a caller can render one bounded review card
+   * per candidate without a second fetch. `undefined` on every other stage's
+   * decision, and on this stage too once nothing is awaiting review.
+   */
+  reviewQueue?: ReviewPromoteCandidateEntry[];
+}
+
+/** One evidence row resolved for a review card — an EXCERPT (never the full
+ *  body), joined from `candidate.evidenceIds` against the SAME
+ *  `listEvidence` read path Stage 1's own evidence list uses. */
+export interface ReviewPromoteEvidenceRef {
+  id: string;
+  title: string;
+  sourceKind: string;
+  sourceRef: string | null;
+  excerpt: string;
+}
+
+/** The SAME per-statement check `promoteCandidate` itself runs before
+ *  writing (`services/invariants/comparison.ts::findDuplicates`) — surfaced
+ *  here as a PRE-FLIGHT warning so a steward sees it before deciding, never
+ *  a second, independently-tuned duplicate heuristic that could disagree
+ *  with what promotion itself will do. */
+export interface ReviewPromoteDuplicateWarning {
+  exact: boolean;
+  similarity: number;
+  existingInvariantId: string;
+  existingStatement: string;
+}
+
+/**
+ * ONE CANDIDATE'S REVIEW CARD — every field is READ off the existing
+ * `CandidateRow` (already fetched by `listCandidates` for Stage 3/4's own
+ * counts) or derived from an existing, already-reused instrument
+ * (`findDuplicates`, `listEvidence`). Nothing here is a new classification —
+ * `recommendation` is a deterministic, transparent read of signals that
+ * already exist (confidence, convergence, the duplicate check), offered as
+ * an ADVISORY ONLY: the Steward retains the promotion decision regardless of
+ * what this names.
+ */
+export interface ReviewPromoteCandidateEntry {
+  candidateId: string;
+  statement: string;
+  rationale: string;
+  domain: string;
+  subDomain: string | null;
+  /** `discoveryNamespace(candidate.domain)` — the SAME derivation
+   *  `promoteCandidate` itself uses to resolve the namespace it writes to. */
+  proposedNamespace: string;
+  discoveryClass: DiscoveryClass;
+  abstractionLevel: AbstractionLevel | null;
+  scopeLevel: DiscoveryScopeLevel;
+  /** The provenance/evidence classification Compare already assigned, when
+   *  this candidate went through that stage — `null` for a direct-extraction
+   *  candidate that never did. */
+  classification: CompareClassification | null;
+  confidence: number;
+  convergence: ConvergenceInfo | null;
+  recurrence: RecurrenceInfo | null;
+  evidence: ReviewPromoteEvidenceRef[];
+  duplicateWarning: ReviewPromoteDuplicateWarning | null;
+  /** ADVISORY ONLY — never authoritative, never blocks either button. */
+  recommendation: { action: 'promote' | 'reject' | 'inspect'; reason: string };
+}
+
+/**
+ * THE ADVISORY RECOMMENDATION — a deterministic read of signals that already
+ * exist on the candidate (confidence, convergence) plus the pre-flight
+ * duplicate check, never a new scoring model. Named `recommendation` rather
+ * than `verdict`/`decision` deliberately: the Steward retains the promotion
+ * decision regardless of what this reads.
+ */
+function deriveReviewRecommendation(
+  candidate: Pick<CandidateRow, 'confidence' | 'convergence'>,
+  duplicate: ReviewPromoteDuplicateWarning | null,
+): { action: 'promote' | 'reject' | 'inspect'; reason: string } {
+  if (duplicate?.exact) {
+    return {
+      action: 'reject',
+      reason: `Exact match to an already-admitted invariant (${duplicate.existingInvariantId.slice(0, 8)}…) — promoting would duplicate it.`,
+    };
+  }
+  if (duplicate && duplicate.similarity >= 0.85) {
+    return {
+      action: 'inspect',
+      reason: `${Math.round(duplicate.similarity * 100)}% textual overlap with an existing invariant — inspect before deciding.`,
+    };
+  }
+  const supportCount = candidate.convergence?.supportCount ?? 0;
+  if (candidate.confidence >= 0.7 && supportCount >= 2) {
+    return {
+      action: 'promote',
+      reason: `${Math.round(candidate.confidence * 100)}% extraction confidence with ${supportCount} converging source(s), no duplicate found.`,
+    };
+  }
+  if (candidate.confidence < 0.35) {
+    return {
+      action: 'inspect',
+      reason: `Low extraction confidence (${Math.round(candidate.confidence * 100)}%) — verify against the source before deciding.`,
+    };
+  }
+  return { action: 'inspect', reason: 'No strong signal either way — review the evidence before deciding.' };
+}
+
+/**
+ * BUILD THE REVIEW & PROMOTE QUEUE — every field READ from the SAME
+ * `successorScopedCandidates` array `loadTrack2ProgrammeState` already
+ * computed for Stage 3/4's own counts (never a second candidate query), plus
+ * two existing, already-reused instruments (`listEvidence`, `findDuplicates`)
+ * — no new promotion, rejection, or duplicate-detection logic. `admin: null`
+ * (no server client) yields an empty queue rather than throwing — the
+ * calling stage's own `unreadableSignals` entry already names that failure.
+ */
+async function buildReviewAndPromoteQueue(
+  admin: SupabaseClient | null,
+  awaitingCandidates: readonly CandidateRow[],
+): Promise<ReviewPromoteCandidateEntry[]> {
+  if (!admin || awaitingCandidates.length === 0) return [];
+
+  const domains = Array.from(new Set(awaitingCandidates.map((c) => c.domain)));
+  const evidenceByDomain = new Map<string, EvidenceRow[]>();
+  await Promise.all(
+    domains.map(async (d) => {
+      evidenceByDomain.set(d, await listEvidence(admin, d).catch(() => []));
+    }),
+  );
+
+  return Promise.all(
+    awaitingCandidates.map(async (c) => {
+      const evidenceRows = evidenceByDomain.get(c.domain) ?? [];
+      const evidence: ReviewPromoteEvidenceRef[] = c.evidenceIds
+        .map((id) => evidenceRows.find((e) => e.id === id))
+        .filter((e): e is EvidenceRow => Boolean(e))
+        .map((e) => ({
+          id: e.id,
+          title: e.title,
+          sourceKind: e.sourceKind,
+          sourceRef: e.sourceRef,
+          excerpt: e.content.slice(0, 400),
+        }));
+
+      const namespace = discoveryNamespace(c.domain);
+      const dupes = await findDuplicates(c.statement, { namespace, threshold: 0.75 }).catch(() => []);
+      const top = dupes[0] ?? null;
+      const duplicateWarning: ReviewPromoteDuplicateWarning | null = top
+        ? {
+            exact: top.exact,
+            similarity: top.similarity,
+            existingInvariantId: top.invariant.id,
+            existingStatement: top.invariant.statement,
+          }
+        : null;
+
+      return {
+        candidateId: c.id,
+        statement: c.statement,
+        rationale: c.rationale,
+        domain: c.domain,
+        subDomain: c.subDomain,
+        proposedNamespace: namespace,
+        discoveryClass: c.discoveryClass,
+        abstractionLevel: c.abstractionLevel,
+        scopeLevel: c.scopeLevel,
+        classification: c.classification,
+        confidence: c.confidence,
+        convergence: c.convergence ?? null,
+        recurrence: c.recurrence ?? null,
+        evidence,
+        duplicateWarning,
+        recommendation: deriveReviewRecommendation(c, duplicateWarning),
+      };
+    }),
+  );
 }
 
 /**
