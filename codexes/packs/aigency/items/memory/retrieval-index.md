@@ -4694,3 +4694,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-82f6308.md](../build_/COMMITS/COMMIT-82f6308.md)
 - Message: fix empty-504 on /advance and turn Discover Sources into a Copilot approval
+
+## Commit `56b0748` — 2026-08-30T22:44:19Z
+- Type: `push`
+- Brief: [COMMIT-56b0748.md](../build_/COMMITS/COMMIT-56b0748.md)
+- Message: turn Review & Promote into a real Copilot decision surface, not prose

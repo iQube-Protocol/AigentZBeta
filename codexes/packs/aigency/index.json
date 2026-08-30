@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-30T22:00:09.976Z",
+  "last_updated": "2026-08-30T22:46:34.747Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "82f6308b4a5fa66dd896bec04c30aa4767597df1",
-  "latest_commit_short": "82f6308",
-  "latest_commit_title": "fix empty-504 on /advance and turn Discover Sources into a Copilot approval",
+  "latest_commit": "56b074876dfe1e3f6f15e458613c8a05c0cc30f7",
+  "latest_commit_short": "56b0748",
+  "latest_commit_title": "turn Review & Promote into a real Copilot decision surface, not prose",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "56b0748",
+      "full_sha": "56b074876dfe1e3f6f15e458613c8a05c0cc30f7",
+      "title": "turn Review & Promote into a real Copilot decision surface, not prose",
+      "author": "Claude",
+      "timestamp": "2026-08-30T22:44:19Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-56b0748.md"
+    },
     {
       "sha": "82f6308",
       "full_sha": "82f6308b4a5fa66dd896bec04c30aa4767597df1",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-16T20:23:01Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-947ad4d.md"
-    },
-    {
-      "sha": "01debe3",
-      "full_sha": "01debe39ed8a8b37f1ff753e631ac522c43b09b5",
-      "title": "Homecoming Phase II WP-A Increment 1: wire Aletheon into the specialist-consult seam",
-      "author": "Claude",
-      "timestamp": "2026-08-16T20:27:46Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-01debe3.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
