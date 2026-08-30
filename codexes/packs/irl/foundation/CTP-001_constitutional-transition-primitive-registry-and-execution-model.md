@@ -108,6 +108,27 @@ That distinction lives inside the primitive, never inside whichever UI happens t
 
 The logical CTP record, approximately:
 
+> **Amended 2026-08-30** — this record's `actor`/`delegability`/`control` fields
+> below originally illustrated `ctp.exchange.artifact.confirm` as
+> non-delegable (`AUTHORIZED_PRINCIPAL_IDENTITY` only, `delegability: false`,
+> `actor_is_principal_identity`). A constitutional audit (occasioned by
+> Ian's OCSGA completion path — see `codexes/packs/agentiq/updates/
+> 2026-08-30_ocsga-delegated-completion-and-ctp-001-delegability-correction.md`)
+> found NO ratified invariant, PRD, or spec text anywhere in this repo that
+> declares `confirm` (or `freeze`/`sign`) constitutionally non-delegable —
+> this record was itself the only place the claim existed, and it was never
+> more than an illustrative charter example, not a ratified rule. Corrected
+> below, before this charter becomes active implementation, per the
+> operator's direction: *"amend the charter while it is still chartered
+> than let that example harden into implementation."* The governing rule is
+> now stated once, generally, rather than illustrated by a since-falsified
+> example: **delegability is explicit authority, not an exception to
+> constitutional action — non-delegability requires an explicit
+> constitutional basis.** `inv.constitutional.369` still applies in full: an
+> agent acting under a valid delegation grant must still be correctly
+> attributed (principal ≠ actor, both recorded), never conflated with the
+> principal itself acting.
+
 ```yaml
 primitive_id: ctp.exchange.artifact.confirm
 version: 1.0.0
@@ -116,13 +137,20 @@ domain:
   name: reciprocal-artifact-exchange
   constitution: OCSGA / IRL
 description:
-  "Principal confirms an operator-assisted artifact as their own submitted artifact."
+  "The bound principal — directly, or an authorized delegate acting within
+   an active delegation grant covering this act — confirms an
+   operator-assisted artifact as the principal's own submitted artifact."
 subject:
   requirement: PERSONHOOD
   resolution: exchange.party_principal
 actor:
-  requirement: AUTHORIZED_PRINCIPAL_IDENTITY
-  delegability: false
+  requirement:
+    - AUTHORIZED_PRINCIPAL_IDENTITY
+    - AUTHORIZED_DELEGATE
+  delegability: true
+  delegation:
+    required_scope:
+      - exchange.artifact.confirm
 authority:
   required_basis:
     - exchange_party_membership
@@ -133,7 +161,7 @@ control:
   constraints:
     - artifact_pending_principal_attestation
     - actor_matches_subject_personhood
-    - actor_is_principal_identity
+    - actor_is_principal_identity_or_authorized_delegate
 state:
   allowed_from:
     - B_DEPOSITED

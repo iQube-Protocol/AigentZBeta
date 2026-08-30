@@ -276,7 +276,15 @@ export const IAN_BOUNDARY_RESEARCH_JOURNEY: JourneyDefinition = {
         'Create and deposit an iQube artifact (a research contribution, data asset, or knowledge record). ' +
         'Artifact creation establishes you as an eligible Boundary Research participant.',
 
-      actorRole: ActorRole.PRINCIPAL, // ← Only PRINCIPAL can deposit; delegation may assist but cannot sign
+      // Corrected 2026-08-30: this previously read "Only PRINCIPAL can
+      // deposit; delegation may assist but cannot sign" — but
+      // depositArtifact() (services/research/reciprocalExchange.ts) has no
+      // actorType check at all and is already unconditionally delegable,
+      // matching PRD-IRL-AX-001 §5's explicit allowance for delegated
+      // assistance. No ratified rule ever made deposit non-delegable; see
+      // codexes/packs/agentiq/updates/2026-08-30_ocsga-delegated-completion-
+      // and-ctp-001-delegability-correction.md.
+      actorRole: ActorRole.EITHER,
       requirement: StepRequirement.REQUIRED,
 
       actor: 'operator',
@@ -377,7 +385,19 @@ export const IAN_BOUNDARY_RESEARCH_JOURNEY: JourneyDefinition = {
         'Apply multisig freeze attestation to the iQube artifact. ' +
         'Freeze establishes the artifact as immutable evidence for the crossing.',
 
-      actorRole: ActorRole.PRINCIPAL, // ← Freeze attestation is principal-only per constraint 2
+      // Corrected 2026-08-30: this previously read `ActorRole.PRINCIPAL` with
+      // a comment citing "constraint 2" — a citation to a numbered
+      // constraint list that does not exist in CLAUDE.md. A constitutional
+      // audit (codexes/packs/agentiq/updates/2026-08-30_ocsga-delegated-
+      // completion-and-ctp-001-delegability-correction.md) found no ratified
+      // rule making freeze non-delegable. Delegability is explicit authority,
+      // not an exception to constitutional action — non-delegability
+      // requires an explicit constitutional basis, which none of these RAX
+      // acts have. An authorized delegate acting within an active delegation
+      // grant may perform this act on the principal's behalf; provenance
+      // (principal vs. delegated actor) is still recorded distinctly by the
+      // canonical declareFreeze() receipt, unmodified by this correction.
+      actorRole: ActorRole.EITHER,
       requirement: StepRequirement.REQUIRED,
 
       actor: 'operator',
@@ -424,7 +444,12 @@ export const IAN_BOUNDARY_RESEARCH_JOURNEY: JourneyDefinition = {
         'Sign the reciprocal exchange instrument. This is the constitutional act that commits you ' +
         'to the crossing and activates Boundary Research access.',
 
-      actorRole: ActorRole.PRINCIPAL, // ← Only PRINCIPAL can sign the exchange instrument per constraint 2
+      // Corrected 2026-08-30 — same correction as the freeze-attestation
+      // stage above: no ratified rule makes signing the exchange instrument
+      // non-delegable; the "constraint 2" this used to cite does not exist
+      // in CLAUDE.md. signInstrument() still records principal vs. delegated
+      // actor distinctly; unmodified by this correction.
+      actorRole: ActorRole.EITHER,
       requirement: StepRequirement.REQUIRED,
 
       actor: 'operator',
