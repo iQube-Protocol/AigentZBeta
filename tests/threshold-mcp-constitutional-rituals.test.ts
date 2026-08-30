@@ -35,6 +35,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const {
   mockResolvePersonaIdByPublicRef,
   mockDepositArtifact,
+  mockConfirmOperatorAssistedArtifact,
   mockDeclareFreeze,
   mockSignInstrument,
   mockGetExchangeView,
@@ -45,6 +46,7 @@ const {
 } = vi.hoisted(() => ({
   mockResolvePersonaIdByPublicRef: vi.fn(),
   mockDepositArtifact: vi.fn(),
+  mockConfirmOperatorAssistedArtifact: vi.fn(),
   mockDeclareFreeze: vi.fn(),
   mockSignInstrument: vi.fn(),
   mockGetExchangeView: vi.fn(),
@@ -64,6 +66,7 @@ vi.mock('@/services/research/reciprocalExchange', async () => {
   return {
     ...actual,
     depositArtifact: mockDepositArtifact,
+    confirmOperatorAssistedArtifact: mockConfirmOperatorAssistedArtifact,
     declareFreeze: mockDeclareFreeze,
     signInstrument: mockSignInstrument,
     getExchangeView: mockGetExchangeView,
@@ -107,6 +110,7 @@ vi.mock('@/services/access/requireCartridgeAdmin', () => ({ isCartridgeAdmin: vi
 import {
   getExchangeStateForMcp,
   depositExchangeArtifactViaMcp,
+  confirmOperatorAssistedArtifactViaMcp,
   fingerprintExchangeArtifact,
   declareArtifactFreezeViaMcp,
   signExchangeInstrumentViaMcp,
@@ -410,5 +414,172 @@ describe('gateway.ts — MCP ritual tools wiring', () => {
     });
     expect(res.isError).toBe(true);
     expect(String(res.content[0].text)).toMatch(/Constitutional Handshake/);
+  });
+});
+
+// ── CHANNEL EQUIVALENCE — MCP vs. bridge, delegated execution (2026-08-30) ──
+//
+// Ian's exchange completion path (confirm/freeze/sign) was fixed on the
+// bridge channel (resolveExchangeActingPrincipal, services/research/
+// reciprocalExchange.ts) to stop conflating "this principal has an aigentMe
+// assistant assigned" with "the caller is an agent standing in for its
+// principal". This suite proves the MCP channel was never susceptible to
+// that same defect and resolves identity equivalently, because it was
+// architecturally built differently from the start: resolveMcpPrincipal
+// resolves personaId directly from the SESSION's own principalPublicRef
+// (never from resolveConstitutionalContext().currentAigentMe, and this file
+// never imports that function at all — see the source canary below), and
+// the delegated actor is threaded through a SEPARATE field
+// (session.agentAlias -> agentRef) rather than by switching which persona
+// is treated as "active". There is no "active persona" concept here to
+// switch in the first place — the session itself is scoped to the
+// principal for its entire lifetime.
+
+function delegatedSession(overrides: Partial<ScopedSession> = {}): ScopedSession {
+  // Ian's session: principalPublicRef resolves to HIS OWN persona
+  // (mockResolvePersonaIdByPublicRef -> FAKE_PERSONA_ID in beforeEach),
+  // agentAlias names his delegated aigentMe. The two are independent
+  // fields — changing one never changes how the other resolves.
+  return fakeSession({ agentAlias: 'ian-aigentme-delegate', ...overrides });
+}
+
+describe('channel equivalence — MCP resolves Ian\'s principal identically to the bridge, with aigentMe recorded as delegated actor', () => {
+  beforeEach(() => {
+    mockConfirmOperatorAssistedArtifact.mockResolvedValue({ ok: true, artifact: { id: 'artifact-1' } });
+    mockDeclareFreeze.mockResolvedValue({ ok: true, attestation: { id: 'attestation-freeze-1' } });
+    mockSignInstrument.mockResolvedValue({
+      ok: true,
+      attestation: { id: 'attestation-sign-1' },
+      exchange: { status: 'EXCHANGED' },
+    });
+  });
+
+  it('1. Ian\'s delegated aigentMe can confirm the existing Party B artifact via MCP', async () => {
+    const result = await confirmOperatorAssistedArtifactViaMcp(NOOP_ADMIN, delegatedSession(), { declarationConfirmed: true });
+    expect(result.ok).toBe(true);
+    expect(mockConfirmOperatorAssistedArtifact).toHaveBeenCalledTimes(1);
+  });
+
+  it('2. the same delegated session can freeze/attest', async () => {
+    const result = await declareArtifactFreezeViaMcp(NOOP_ADMIN, delegatedSession(), { declarationConfirmed: true });
+    expect(result.ok).toBe(true);
+    expect(mockDeclareFreeze).toHaveBeenCalledTimes(1);
+  });
+
+  it('3. the same delegated session can sign', async () => {
+    const result = await signExchangeInstrumentViaMcp(NOOP_ADMIN, delegatedSession(), { declarationConfirmed: true });
+    expect(result.ok).toBe(true);
+    expect(mockSignInstrument).toHaveBeenCalledTimes(1);
+  });
+
+  it('4. signing reports the exchange status transition (completion is automatic — recomputeExchangeState is internal to signInstrument, never a separate MCP act; no complete_exchange tool exists, per the "no MCP entry" test above)', async () => {
+    const result = await signExchangeInstrumentViaMcp(NOOP_ADMIN, delegatedSession(), { declarationConfirmed: true });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.exchangeStatus).toBe('EXCHANGED');
+  });
+
+  it('5. PRINCIPAL remains Ian in provenance — personaId passed to confirm/freeze/sign is resolved from principalPublicRef alone, never from agentAlias', async () => {
+    await confirmOperatorAssistedArtifactViaMcp(NOOP_ADMIN, delegatedSession(), { declarationConfirmed: true });
+    await declareArtifactFreezeViaMcp(NOOP_ADMIN, delegatedSession(), { declarationConfirmed: true });
+    await signExchangeInstrumentViaMcp(NOOP_ADMIN, delegatedSession(), { declarationConfirmed: true });
+
+    expect(mockConfirmOperatorAssistedArtifact.mock.calls[0][1]).toMatchObject({ personaId: FAKE_PERSONA_ID });
+    expect(mockDeclareFreeze.mock.calls[0][1]).toMatchObject({ personaId: FAKE_PERSONA_ID });
+    expect(mockSignInstrument.mock.calls[0][1]).toMatchObject({ personaId: FAKE_PERSONA_ID });
+  });
+
+  it('6. the ACTOR is recorded as aigentMe — agentRef carries session.agentAlias on every write, distinct from personaId', async () => {
+    await confirmOperatorAssistedArtifactViaMcp(NOOP_ADMIN, delegatedSession(), { declarationConfirmed: true });
+    await declareArtifactFreezeViaMcp(NOOP_ADMIN, delegatedSession(), { declarationConfirmed: true });
+    await signExchangeInstrumentViaMcp(NOOP_ADMIN, delegatedSession(), { declarationConfirmed: true });
+
+    expect(mockConfirmOperatorAssistedArtifact.mock.calls[0][1]).toMatchObject({ agentRef: 'ian-aigentme-delegate' });
+    expect(mockDeclareFreeze.mock.calls[0][1]).toMatchObject({ agentRef: 'ian-aigentme-delegate' });
+    expect(mockSignInstrument.mock.calls[0][1]).toMatchObject({ agentRef: 'ian-aigentme-delegate' });
+  });
+
+  it('7. no persona-switch requirement — personaId resolution is IDENTICAL regardless of what agentAlias names; there is no "active persona" being compared against anything', async () => {
+    await declareArtifactFreezeViaMcp(NOOP_ADMIN, delegatedSession({ agentAlias: 'a-completely-different-agent-alias' }), {
+      declarationConfirmed: true,
+    });
+    // Still resolves to Ian's own persona (mockResolvePersonaIdByPublicRef
+    // depends only on principalPublicRef, which delegatedSession() never
+    // overrides) — proving agentAlias has zero influence on WHO the act is
+    // attributed to.
+    expect(mockDeclareFreeze.mock.calls[0][1]).toMatchObject({ personaId: FAKE_PERSONA_ID, actorType: 'principal' });
+    // resolvePersonaIdByPublicRef is called with principalPublicRef alone —
+    // never with agentAlias, never with any browser/localStorage-sourced
+    // value.
+    expect(mockResolvePersonaIdByPublicRef).toHaveBeenCalledWith(expect.anything(), 'abcdef0123456789');
+  });
+
+  it('8a. MCP and the bridge invoke the exact same canonical primitives — source canary, never a fork', () => {
+    const fs = require('fs') as typeof import('fs');
+    const mcpSrc = fs.readFileSync(`${process.cwd()}/services/threshold/mcpConstitutionalActs.ts`, 'utf8');
+    const bridgeSrc = fs.readFileSync(
+      `${process.cwd()}/app/api/research/exchanges/[exchangeId]/actions/route.ts`,
+      'utf8',
+    );
+    for (const fn of ['confirmOperatorAssistedArtifact', 'declareFreeze', 'signInstrument']) {
+      expect(mcpSrc, `MCP path must import ${fn} from the canonical service`).toMatch(
+        new RegExp(`import\\s*\\{[^}]*\\b${fn}\\b[^}]*\\}\\s*from\\s*['"]@/services/research/reciprocalExchange['"]`),
+      );
+      expect(bridgeSrc, `bridge path must import ${fn} from the canonical service`).toMatch(
+        new RegExp(`import\\s*\\{[^}]*\\b${fn}\\b[^}]*\\}\\s*from\\s*['"]@/services/research/reciprocalExchange['"]`),
+      );
+    }
+  });
+
+  it('8b. neither channel re-derives actorType from resolveConstitutionalContext/currentAigentMe — the exact defect class fixed on the bridge cannot recur on either path (source canary)', () => {
+    const fs = require('fs') as typeof import('fs');
+    // Strip `//` line comments before matching: the bridge route legitimately
+    // *mentions* currentAigentMe/resolveConstitutionalContext in a doc comment
+    // explaining what resolveExchangeActingPrincipal replaced (see route.ts's
+    // module-level comment above its call) — that historical reference is not
+    // a live usage and must not fail this canary. Only actual code (a
+    // property access or a call) should trip it.
+    const stripLineComments = (src: string) =>
+      src
+        .split('\n')
+        .map((line) => line.replace(/\/\/.*$/, ''))
+        .join('\n');
+    const mcpSrc = stripLineComments(fs.readFileSync(`${process.cwd()}/services/threshold/mcpConstitutionalActs.ts`, 'utf8'));
+    const bridgeSrc = stripLineComments(
+      fs.readFileSync(`${process.cwd()}/app/api/research/exchanges/[exchangeId]/actions/route.ts`, 'utf8'),
+    );
+    expect(mcpSrc).not.toMatch(/currentAigentMe/);
+    expect(bridgeSrc).not.toMatch(/currentAigentMe/);
+    expect(mcpSrc).not.toMatch(/resolveConstitutionalContext\(/);
+    expect(bridgeSrc).not.toMatch(/resolveConstitutionalContext\(/);
+  });
+
+  it('9a. an unrelated caller whose principalPublicRef resolves to no real persona fails closed, never silently proceeds', async () => {
+    mockResolvePersonaIdByPublicRef.mockResolvedValueOnce(null);
+    const result = await declareArtifactFreezeViaMcp(NOOP_ADMIN, delegatedSession(), { declarationConfirmed: true });
+    expect(result.ok).toBe(false);
+    expect(mockDeclareFreeze).not.toHaveBeenCalled();
+  });
+
+  it('9b. a real persona with no active exchange fails closed, never guesses one', async () => {
+    mockListMyExchanges.mockResolvedValueOnce({ ok: true, exchanges: [] });
+    const result = await signExchangeInstrumentViaMcp(NOOP_ADMIN, delegatedSession(), { declarationConfirmed: true });
+    expect(result.ok).toBe(false);
+    expect(mockSignInstrument).not.toHaveBeenCalled();
+  });
+
+  it('9c. the gateway session-scope gate still refuses a session that was never authorized for research.exchange.write, independent of identity resolution', async () => {
+    const { callTool } = await import('@/services/threshold/gateway');
+    const res = await callTool(
+      'sign_exchange_instrument',
+      { declarationConfirmed: true },
+      {
+        origin: 'https://example.test',
+        gatewayUrl: 'https://example.test/api/threshold/mcp',
+        session: delegatedSession({ scope: ['research.read'] }), // no research.exchange.write
+      },
+    );
+    expect(res.isError).toBe(true);
+    expect(String(res.content[0].text)).toMatch(/research\.exchange\.write/);
+    expect(mockSignInstrument).not.toHaveBeenCalled();
   });
 });
