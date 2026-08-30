@@ -242,12 +242,28 @@ export async function buildFrozenCrystalManifest(
     };
   }
 
+  // NO status filter here (bug fixed 2026-08-30, EXP-P1 retrospective
+  // artifact-recovery defect). Domain membership (`invariant_contexts`) is
+  // independent of, and more durable than, a member's current `status` —
+  // `mergeInvariants()` flips a merged duplicate's status to `superseded` but
+  // never removes its domain-context row. A `status: ['validated',
+  // 'canonical']` filter here silently drops any member that has since been
+  // merged/deprecated/reclassified, which is exactly how vP1's frozen
+  // 15-member crystal was misread as an 11-member live corpus: 4 members were
+  // reviewed and frozen while `validated`, then later merged as duplicates —
+  // the SAME status transition Austin's duplication objection was about — and
+  // a status-filtered re-query silently excluded precisely the members most
+  // relevant to that objection. Frozen-time MEMBERSHIP is recovered here;
+  // whether recomputing the hash from members' CURRENT field values
+  // (including current status, still hash-covered below, unchanged) equals
+  // the frozen commitment is a separate, honestly-reported question — see the
+  // mismatch branch below for why status drift alone can defeat hash equality
+  // even once membership is exactly recovered.
   let invariants: InvariantRecord[] = [];
   let readError: string | null = null;
   try {
     invariants = await listInvariants({
       domain: crystalDomain,
-      status: ['validated', 'canonical'],
       limit: input.fetchLimit ?? 500,
     });
   } catch (e) {
@@ -302,6 +318,28 @@ export async function buildFrozenCrystalManifest(
   }
 
   if (!verifiedAgainstFreeze) {
+    // Diagnostic only — never gates or substitutes for the hash check above.
+    // A member whose CURRENT status is neither 'validated' nor 'canonical'
+    // could not have been part of a freeze-eligible corpus AS THAT STATUS —
+    // freezing (crystalStatistics.ts) only ever draws from
+    // validated/canonical rows — so such a member has necessarily
+    // transitioned (e.g. merged as a duplicate) since some earlier point.
+    // Whether that point was BEFORE or AFTER this specific freeze is not
+    // itself recoverable from this alone; named here only so a reader can
+    // distinguish "membership genuinely differs" from "membership recovered
+    // correctly, but a recovered member's current status cannot be proven
+    // equal to its status at the freeze instant" — no durable historical
+    // status ledger exists to settle the latter, and none is fabricated here.
+    const statusDrifted = invariants.filter((inv) => inv.status !== 'validated' && inv.status !== 'canonical');
+    const statusNote =
+      statusDrifted.length > 0
+        ? ` ${statusDrifted.length} of ${invariants.length} recovered member(s) now carry a non-freeze-eligible ` +
+          `status (${[...new Set(statusDrifted.map((inv) => inv.status))].join(', ')}) — e.g. merged as a duplicate ` +
+          'since freeze. Their statement/namespace/semanticType/provenance are unaffected by such a transition, but ' +
+          'their exact status AT THE FREEZE INSTANT is not independently recorded anywhere durable, so byte-exact ' +
+          'hash equality cannot be established for them from persisted evidence even though their domain ' +
+          'membership is confirmed.'
+        : '';
     return {
       ...base,
       verifiedAgainstFreeze: false,
@@ -309,7 +347,8 @@ export async function buildFrozenCrystalManifest(
         `the live domain corpus (${invariants.length} member(s)) does NOT reproduce the frozen contentHash — the ` +
         'corpus has moved since this crystal froze (an invariant was edited, added, reclassified, or removed ' +
         "within this domain). Member detail is withheld rather than served from a corpus that is no longer " +
-        'provably the one this artifact committed to.',
+        'provably the one this artifact committed to.' +
+        statusNote,
       recomputedLiveHash,
       memberCount: invariants.length,
       members: null,
