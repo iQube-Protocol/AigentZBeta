@@ -872,6 +872,151 @@ describe('firstPendingDecision does not manufacture a gate from an already-resol
   });
 });
 
+// ── THE GENERIC "ACTIONABLE" RULE (2026-08-30, "prepare-independent-review is
+// invisible in the Copilot" fix) ────────────────────────────────────────────
+//
+// `remedies.length === 0` is REMEDIATION PROSE being absent, not proof that
+// nothing is left for the operator to do — a stage can have a real, existing
+// action surface with no repair to name (the act itself IS the decision).
+// `Track2Stage.actionable` is the stage's OWN declaration of that, read
+// verbatim — `firstPendingDecision` must never special-case a stage id to
+// recover this distinction. These tests prove the MECHANISM is generic
+// (a synthetic stage, not `prepare-independent-review` itself), then confirm
+// the real Stage 10 fix end-to-end, then confirm no already-actionable stage
+// changed behavior.
+
+describe('the generic actionable rule — a partially-complete stage with empty remedies can still be pending, IF it declares a real action surface', () => {
+  it('THE MECHANISM, proven on a SYNTHETIC stage — never a stage-id special case', () => {
+    // `classify-provenance` is reused here only as a valid Track2StageId
+    // value — its REAL derivation (tested above) never sets `actionable`,
+    // and continues not to. This object is hand-built, not read from
+    // `buildTrack2Programme`, specifically so this test cannot be satisfied
+    // by any stage-name-specific logic in the projection itself.
+    const stage = {
+      id: 'classify-provenance',
+      ordinal: 5,
+      label: 'Synthetic Actionable Stage',
+      does: 'test fixture only',
+      capability: 'test capability',
+      surface: 'test surface',
+      workKind: 'scientific',
+      actor: 'Steward',
+      population: { consumes: 'x', produces: 'x', source: 'x' },
+      status: 'partially-complete',
+      detail: 'a real action surface is available; there is nothing to remediate',
+      remedies: [],
+      actionable: true,
+    };
+    const programme = {
+      experimentId: EXPERIMENT,
+      crystalDomain: 'financial-risk-value-systems',
+      stages: [stage],
+      currentStageId: stage.id,
+      unblockedStageIds: [stage.id],
+    } as unknown as Track2Programme;
+
+    const decision = firstPendingDecision(programme);
+    expect(decision).not.toBeNull();
+    expect(decision?.stageId).toBe('classify-provenance');
+    expect(decision?.remedies).toEqual([]);
+    expect(decision?.actionable).toBe(true);
+  });
+
+  it('the SAME synthetic stage WITHOUT actionable is correctly excluded — proves the flag, not the stage id, decides it', () => {
+    const stage = {
+      id: 'classify-provenance',
+      ordinal: 5,
+      label: 'Synthetic Non-Actionable Stage',
+      does: 'test fixture only',
+      capability: 'test capability',
+      surface: 'test surface',
+      workKind: 'scientific',
+      actor: 'Steward',
+      population: { consumes: 'x', produces: 'x', source: 'x' },
+      status: 'partially-complete',
+      detail: 'nothing left to do',
+      remedies: [],
+      // actionable omitted — the pre-existing default behavior.
+    };
+    const programme = {
+      experimentId: EXPERIMENT,
+      crystalDomain: 'financial-risk-value-systems',
+      stages: [stage],
+      currentStageId: stage.id,
+      unblockedStageIds: [stage.id],
+    } as unknown as Track2Programme;
+
+    expect(firstPendingDecision(programme)).toBeNull();
+  });
+
+  it('THE REAL FIX, end-to-end: prepare-independent-review becomes the pending decision when the review request is open, with empty remedies', () => {
+    const programme = buildTrack2Programme({
+      experimentId: EXPERIMENT,
+      crystalDomain: 'financial-risk-value-systems',
+      signals: {
+        candidateSources: { total: 2, pendingReview: 0, admitted: 2 },
+        discoveryCandidates: { total: 15, awaitingReview: 0, promoted: 15 },
+        promotedCohort: cohort({
+          invariantIds: Array.from({ length: 15 }, (_, i) => `inv-${i}`),
+          unclassified: 0,
+          unvalidated: 0,
+          unvalidatedRecords: [],
+        }),
+        readiness: readiness({ ok: true, invariantCount: 60 }),
+        lifecycle: { stageId: 'READY_FOR_FREEZE' } as never,
+        artifact: null,
+        independentReviewRequestOpen: true,
+      },
+    });
+    const stage10 = programme.stages.find((s) => s.id === 'prepare-independent-review')!;
+    expect(stage10.status).toBe('partially-complete');
+    expect(stage10.remedies).toEqual([]);
+    expect(stage10.actionable).toBe(true);
+
+    const decision = firstPendingDecision(programme);
+    expect(decision?.stageId).toBe('prepare-independent-review');
+    expect(decision?.actionable).toBe(true);
+    expect(decision?.remedies).toEqual([]);
+    // Its own real surface/capability, verbatim — this is what the Copilot's
+    // "Open <stage>" deep-link and Track2ProgrammePanel's ReviewPackageControl
+    // both already key off; nothing here re-derives that.
+    expect(decision?.surface).toBe('Independent Review panel');
+  });
+
+  it('prepare-independent-review is NOT actionable, and NOT the pending decision, when the review request is closed — no behavior change outside the open-request case', () => {
+    const programme = buildTrack2Programme({
+      experimentId: EXPERIMENT,
+      crystalDomain: 'financial-risk-value-systems',
+      signals: {
+        candidateSources: { total: 2, pendingReview: 0, admitted: 2 },
+        discoveryCandidates: { total: 15, awaitingReview: 0, promoted: 15 },
+        promotedCohort: cohort({
+          invariantIds: Array.from({ length: 15 }, (_, i) => `inv-${i}`),
+          unclassified: 0,
+          unvalidated: 0,
+          unvalidatedRecords: [],
+        }),
+        readiness: readiness({ ok: false, invariantCount: 11 }),
+        lifecycle: { stageId: 'DOMAIN_RATIFIED' } as never,
+        artifact: null,
+        independentReviewRequestOpen: false,
+      },
+    });
+    const stage10 = programme.stages.find((s) => s.id === 'prepare-independent-review')!;
+    expect(stage10.actionable).not.toBe(true);
+    expect(firstPendingDecision(programme)?.stageId).not.toBe('prepare-independent-review');
+  });
+
+  it('freeze remains separately gated — the orchestrator still holds no path to the freeze act, regardless of this fix', () => {
+    // Source-authority canary, mirroring the existing freeze-immunity test:
+    // this fix touches firstPendingDecision's FILTER only, never the act
+    // catalogue or any freeze-adjacent capability.
+    const src = stripComments(readSource(ORCHESTRATOR));
+    expect(src).not.toMatch(/freezeArtifact/);
+    expect(src).not.toMatch(/action:\s*['"]freeze['"]/);
+  });
+});
+
 // ── THE ACQUISITION BRIDGE (2026-08-30, "acquisition dead end" fix) ─────────
 //
 // The targeted acquisition plan (`crystalAcquisitionBrief.ts`) was pure
