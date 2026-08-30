@@ -60,8 +60,17 @@ vi.mock('@/services/invariants', () => ({
 }));
 
 const mockGetCurrentCrystalArtifact = vi.fn();
+const mockLatestFrozenCrystalArtifact = vi.fn();
+const mockCurrentCrystalArtifactId = vi.fn();
 vi.mock('@/services/research/artifacts', () => ({
   getCurrentCrystalArtifact: (...args: unknown[]) => mockGetCurrentCrystalArtifact(...args),
+  latestFrozenCrystalArtifact: (...args: unknown[]) => mockLatestFrozenCrystalArtifact(...args),
+  currentCrystalArtifactId: (...args: unknown[]) => mockCurrentCrystalArtifactId(...args),
+}));
+
+const mockBuildFrozenCrystalManifest = vi.fn();
+vi.mock('@/services/research/crystalFrozenManifest', () => ({
+  buildFrozenCrystalManifest: (...args: unknown[]) => mockBuildFrozenCrystalManifest(...args),
 }));
 
 const mockRunCrystalReadinessReport = vi.fn();
@@ -100,6 +109,7 @@ import {
   MAX_RECORDS_PER_ACT,
   PROGRAMME_ACT_KINDS,
   advanceResearchProgramme,
+  buildAcquisitionPendingDecision,
   evaluateMeasurementLayerGate,
   firstPendingDecision,
   isHumanGatedStage,
@@ -109,6 +119,7 @@ import {
   type ProgrammeRunResult,
 } from '@/services/research/researchProgrammeOrchestrator';
 import { buildTrack2Programme } from '@/services/research/track2Programme';
+import { crystalDomainForExperiment } from '@/services/research/crystalDomains';
 import { BOUND_CRYSTAL_REMEDIATION_PROFILES } from '@/types/crystalRemediation';
 
 // ── Fixtures ───────────────────────────────────────────────────────────────
@@ -186,6 +197,11 @@ function seedSubstrate(over?: {
   mockReconcilePromotedCohort.mockResolvedValue(resolvedCohort);
   mockRunCrystalReadinessReport.mockResolvedValue(over?.readiness ?? readiness());
   mockGetCurrentCrystalArtifact.mockResolvedValue(null);
+  // No frozen predecessor by default — every existing fixture's promoted
+  // candidates are therefore never excluded as "already vP1", preserving
+  // prior behaviour exactly (2026-08-30 frozen-generation-boundary fix).
+  mockLatestFrozenCrystalArtifact.mockResolvedValue(null);
+  mockCurrentCrystalArtifactId.mockResolvedValue(`${EXPERIMENT}/crystal-vP1`);
   mockWriteLifecycleReceipt.mockResolvedValue({ ok: true, receiptId: 'receipt-abcdef01' });
 }
 
@@ -547,6 +563,247 @@ describe('the canonical Track 2 deep-link (2026-08-26)', () => {
       stages: base.stages.map((s) => ({ ...s, status: 'complete' as const })),
     };
     expect(firstPendingDecision(allComplete)).toBeNull();
+  });
+});
+
+// ── THE FROZEN-GENERATION BOUNDARY (2026-08-30, "Track 2 successor-crystal
+// identity" fix) — Track 2 has no data-model concept of a construction cohort
+// distinct from the frozen vP1 population: `discovery_candidates` carries no
+// generation field. These tests pin the fix at `loadTrack2ProgrammeState`:
+// a promoted candidate already resolved into the FROZEN predecessor's
+// manifest is vP1's own historical promotion, not v2 construction work, and
+// must be excluded from BOTH Stage 4's own `promoted` count and the Stage
+// 5-7 cohort — narrowing only one side would break the Stage 4→5 handover
+// identity `track2Programme.ts` already enforces.
+
+describe('the frozen-generation boundary — a frozen predecessor’s own promotions are never v2 construction work', () => {
+  it('excludes a promoted candidate already resolved into the frozen manifest from the cohort AND from Stage 4’s promoted count', async () => {
+    seedSubstrate({
+      candidates: [
+        { id: 'cand-1', status: 'promoted', promotedInvariantId: 'inv-1' }, // vP1 residue
+        { id: 'cand-2', status: 'promoted', promotedInvariantId: 'inv-2' }, // vP1 residue
+        { id: 'cand-new', status: 'promoted', promotedInvariantId: 'inv-new' }, // genuine v2 promotion
+      ],
+    });
+    mockLatestFrozenCrystalArtifact.mockResolvedValue({
+      id: 'EXP-P1/crystal-vP1',
+      lifecycle: 'frozen',
+      contentHash: 'h',
+      commitmentHash: 'h',
+      frozenAt: '2026-01-01T00:00:00.000Z',
+      signedBy: ['operator-ref'],
+      receiptId: null,
+    });
+    mockBuildFrozenCrystalManifest.mockResolvedValue({
+      recoveredInvariants: [{ id: 'inv-1' }, { id: 'inv-2' }],
+    });
+
+    const state = await loadTrack2ProgrammeState({ experimentId: EXPERIMENT });
+    if ('error' in state) throw new Error(state.error);
+
+    expect(state.signalCounts.discoveryCandidates?.promoted).toBe(1);
+    expect(mockReconcilePromotedCohort).toHaveBeenCalledTimes(1);
+    const passed = mockReconcilePromotedCohort.mock.calls[0][0] as Array<{ id: string }>;
+    expect(passed.map((c) => c.id)).toEqual(['cand-new']);
+  });
+
+  it('when no frozen predecessor exists, every promoted candidate is available for construction (unchanged behaviour)', async () => {
+    seedSubstrate({
+      candidates: [{ id: 'cand-1', status: 'promoted', promotedInvariantId: 'inv-1' }],
+    });
+    mockLatestFrozenCrystalArtifact.mockResolvedValue(null);
+
+    const state = await loadTrack2ProgrammeState({ experimentId: EXPERIMENT });
+    if ('error' in state) throw new Error(state.error);
+
+    expect(state.signalCounts.discoveryCandidates?.promoted).toBe(1);
+    const passed = mockReconcilePromotedCohort.mock.calls[0][0] as Array<{ id: string }>;
+    expect(passed.map((c) => c.id)).toEqual(['cand-1']);
+  });
+
+  it('vP1’s rows are read, never deleted or relabeled — the fixture’s candidate rows are untouched by this loader (source canary)', () => {
+    const src = stripComments(readSource(ORCHESTRATOR));
+    expect(src, 'the frozen-generation boundary must not write anything').not.toMatch(
+      /(update|delete|upsert).{0,40}discovery_candidates/i,
+    );
+  });
+});
+
+// ── "CLASSIFY PROVENANCE" MANUFACTURING A FALSE HUMAN GATE (2026-08-30 fix) ─
+//
+// `partially-complete` legitimately covers two different situations
+// (exception-isolation ruling §6): real outstanding work (Stage 2, sources
+// still awaiting review) and an already-resolved historical exclusion with
+// nothing left to do (Stage 5/6, once every eligible member is classified/
+// validated and the remainder is explicitly excluded). `stage.remedies` tells
+// them apart — these tests pin that `firstPendingDecision` reads it.
+
+describe('firstPendingDecision does not manufacture a gate from an already-resolved exclusion', () => {
+  it('a partially-complete Stage 5 with ONLY historical exclusions (empty remedies) is never the pending decision', () => {
+    const programme = buildTrack2Programme({
+      experimentId: EXPERIMENT,
+      crystalDomain: 'financial-risk-value-systems',
+      signals: {
+        candidateSources: { total: 2, pendingReview: 0, admitted: 2 },
+        discoveryCandidates: { total: 17, awaitingReview: 0, promoted: 17 },
+        promotedCohort: cohort({
+          invariantIds: Array.from({ length: 15 }, (_, i) => `inv-${i}`),
+          unclassified: 0,
+          unvalidated: 0,
+          unvalidatedRecords: [],
+          excluded: [
+            { recordId: 'cand-a', reason: 'promoted with no recorded promoted_invariant_id' },
+            { recordId: 'cand-b', reason: 'promoted invariant id does not resolve to an invariant row' },
+          ],
+        }),
+        readiness: readiness({ ok: false, invariantCount: 11 }),
+        lifecycle: { stageId: 'DOMAIN_RATIFIED' } as never,
+        artifact: null,
+        independentReviewRequestOpen: false,
+      },
+    });
+    const classify = programme.stages.find((s) => s.id === 'classify-provenance')!;
+    // The ratified status derivation is UNCHANGED — still partially-complete.
+    expect(classify.status).toBe('partially-complete');
+    expect(classify.remedies).toEqual([]);
+    // But it must never be presented as the operator's pending judgment.
+    const decision = firstPendingDecision(programme);
+    expect(decision?.stageId).not.toBe('classify-provenance');
+  });
+
+  it('a genuinely partially-complete stage (Stage 2, sources still awaiting review) still surfaces as pending', async () => {
+    seedSubstrate({
+      sources: [
+        { reviewWorkflowStatus: 'approved_for_ingestion', evidenceRowId: 'ev-1' },
+        { reviewWorkflowStatus: 'pending_review', evidenceRowId: null },
+      ],
+    });
+    const state = await loadTrack2ProgrammeState({ experimentId: EXPERIMENT });
+    if ('error' in state) throw new Error(state.error);
+    const stage2 = state.programme.stages.find((s) => s.id === 'review-and-admit')!;
+    expect(stage2.status).toBe('partially-complete');
+    expect(stage2.remedies.length).toBeGreaterThan(0);
+    expect(state.pendingDecision?.stageId).toBe('review-and-admit');
+  });
+});
+
+// ── THE ACQUISITION BRIDGE (2026-08-30, "acquisition dead end" fix) ─────────
+//
+// The targeted acquisition plan (`crystalAcquisitionBrief.ts`) was pure
+// reporting with no consumer — Stage 1 is deliberately excluded from both the
+// automatic act catalogue (unbounded external HTTP) and the human-gated set
+// (its own status can't express "not ENOUGH material exists"). These tests
+// pin `buildAcquisitionPendingDecision` as the bridge: it never runs
+// discovery itself, it only turns an applicable brief into one correctly
+// named, correctly routed pending decision.
+
+describe('the acquisition bridge — a targeted plan becomes one real, correctly-labeled pending decision', () => {
+  function readinessNeedingAcquisition(): CrystalReadinessReport {
+    return readiness({
+      invariantCount: 11,
+      checks: [
+        { name: 'selection-space', tier: 'scientific-readiness', passed: false, detail: '', remedy: 'grow the collection' } as never,
+      ],
+      populationRequirement: {
+        derivable: true,
+        insufficientInputs: [],
+        sliceFractionOfCrystal: 0.4,
+        sliceGuardSourceRef: 'ref',
+        sliceDemandBasis: 'registered-minimum-task-design',
+        requiredEvaluationSliceSize: 24,
+        minimumCollectionSize: 60,
+        requiredEntailmentChains: 12,
+        requiredRelationalMembersInSlice: 24,
+      } as never,
+      inferentialCapacity: {
+        assessedCount: 11,
+        relationalMemberCount: 0,
+        relationalMemberFraction: 0,
+        bareNecessityCount: 0,
+        unparsedCount: 0,
+        entailmentChains: [],
+        entailmentChainCount: 0,
+        inferentiallyCapableCount: 0,
+        inferentialCapacityFraction: 0,
+        degenerateNecessityChainCount: 0,
+        structuresPresent: [],
+        structuresAbsent: ['causal', 'conditional'],
+      } as never,
+      coverage: {
+        boundaryNamespaceCount: 15,
+        representedNamespaceCount: 2,
+        ratio: 2 / 15,
+        representedNamespaces: ['ns-a', 'ns-b'],
+        missingNamespaces: ['ns-c', 'ns-d'],
+      },
+    });
+  }
+
+  it('returns null when the brief does not apply (every acquisition-gating check passes)', async () => {
+    const programme = buildTrack2Programme({
+      experimentId: EXPERIMENT,
+      crystalDomain: 'financial-risk-value-systems',
+      signals: {
+        candidateSources: { total: 2, pendingReview: 0, admitted: 2 },
+        discoveryCandidates: { total: 0, awaitingReview: 0, promoted: 0 },
+        promotedCohort: cohort({ invariantIds: [], unvalidatedRecords: [] }),
+        readiness: readiness({ ok: true, checks: [] }),
+        lifecycle: { stageId: 'DOMAIN_RATIFIED' } as never,
+        artifact: null,
+        independentReviewRequestOpen: false,
+      },
+    });
+    const declaration = crystalDomainForExperiment(EXPERIMENT)!;
+    const decision = await buildAcquisitionPendingDecision({
+      programme,
+      declaration,
+      readiness: readiness({ ok: true, checks: [] }),
+      artifact: null,
+    });
+    expect(decision).toBeNull();
+  });
+
+  it('names Stage 1 (Discover Sources) — never Classify Provenance — with the brief’s own deficits as remedies', async () => {
+    const programme = buildTrack2Programme({
+      experimentId: EXPERIMENT,
+      crystalDomain: 'financial-risk-value-systems',
+      signals: {
+        candidateSources: { total: 2, pendingReview: 0, admitted: 2 },
+        discoveryCandidates: { total: 0, awaitingReview: 0, promoted: 0 },
+        promotedCohort: cohort({ invariantIds: [], unvalidatedRecords: [] }),
+        readiness: readinessNeedingAcquisition(),
+        lifecycle: { stageId: 'DOMAIN_RATIFIED' } as never,
+        artifact: null,
+        independentReviewRequestOpen: false,
+      },
+    });
+    const declaration = crystalDomainForExperiment(EXPERIMENT)!;
+    const decision = await buildAcquisitionPendingDecision({
+      programme,
+      declaration,
+      readiness: readinessNeedingAcquisition(),
+      artifact: null,
+    });
+    expect(decision).not.toBeNull();
+    expect(decision?.stageId).toBe('discover-sources');
+    expect(decision?.stageLabel).not.toMatch(/classify provenance/i);
+    expect(decision?.remedies.length).toBeGreaterThan(0);
+    expect(decision?.remedies.join(' ')).toMatch(/grow the collection/);
+    // Never executes discovery itself — it names a capability, it does not call one.
+    expect(mockRunConstitutionalDiscovery).not.toHaveBeenCalled();
+  });
+
+  it('a full run stops at the acquisition decision instead of reporting nothing left to do', async () => {
+    seedSubstrate({
+      candidates: [],
+      readiness: readinessNeedingAcquisition(),
+    });
+    mockCurrentCrystalArtifactId.mockResolvedValue(`${EXPERIMENT}/crystal-vP2`);
+    const result = await run();
+    expect(result.stopReason.kind).toBe('awaiting-human-judgment');
+    if (result.stopReason.kind === 'awaiting-human-judgment') {
+      expect(result.stopReason.decision.stageId).toBe('discover-sources');
+    }
   });
 });
 

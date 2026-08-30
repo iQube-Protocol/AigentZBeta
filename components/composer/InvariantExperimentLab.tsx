@@ -48,6 +48,7 @@ import QubeTalkInboxTab from "./QubeTalkInboxTab";
 import IndependentReviewPanel from "./IndependentReviewPanel";
 import { Track2ProgrammePanel } from "@/components/research/Track2ProgrammePanel";
 import { consumePendingTrack2Stage } from "@/services/research/track2DeepLinkIntent";
+import type { Track2DeepLink } from "@/services/research/track2Programme";
 
 /** Known tab ids plus dynamic `reg:<EXPERIMENT_ID>` entries from the registry
  *  completeness guard (any registered experiment not hand-mounted below is
@@ -316,7 +317,39 @@ export default function InvariantExperimentLab({ density }: { density?: "narrow"
    * reconstructed downstream instead of consumed).
    */
   const [initialTrack2Intent] = useState(() => consumePendingTrack2Stage());
+  const [track2Intent, setTrack2Intent] = useState<Track2DeepLink | null>(initialTrack2Intent);
   const [tab, setTab] = useState<LabTab>(() => (initialTrack2Intent ? "track2" : "bundle"));
+
+  /**
+   * SAME-TAB RE-NAVIGATION (2026-08-30, "Copilot routes to EXP-001" fix).
+   *
+   * `consumePendingTrack2Stage()` above is a ONE-SHOT read that only ever
+   * fires at this component's own first mount. `codex:navigate-tab` is a
+   * documented no-op when the destination cartridge tab is ALREADY the
+   * active one (`CodexPanelDynamic.tsx`'s `target !== activeTabSlug` guard),
+   * which means this component is never remounted for a second Copilot
+   * "Open {stage}" click made while the Experiment Lab tab is already open —
+   * the freshly-written mailbox intent was silently dropped, and the lab
+   * kept showing whatever `tab` it settled on at its FIRST mount (defaulting
+   * to `"bundle"` → EXP-001, a wholly unrelated experiment). This listener
+   * closes that gap: while already mounted, it reacts to the SAME
+   * `codex:navigate-tab` dispatch `goToTrack2Stage` fires (synchronously
+   * after writing the mailbox), re-consumes the mailbox, and applies the
+   * deep-link itself — no remount required. The cross-tab case is untouched
+   * and keeps working exactly as before via the lazy `useState` above.
+   */
+  useEffect(() => {
+    const onNavigate = (e: Event) => {
+      const raw = (e as CustomEvent<{ tab?: string }>).detail?.tab;
+      if (raw !== "irl-experiment-lab") return;
+      const deepLink = consumePendingTrack2Stage();
+      if (!deepLink) return; // already consumed by the initial-mount read, or no intent was ever written
+      setTrack2Intent(deepLink);
+      setTab("track2");
+    };
+    window.addEventListener("codex:navigate-tab", onNavigate);
+    return () => window.removeEventListener("codex:navigate-tab", onNavigate);
+  }, []);
 
   // Keep the selected tab within the visible set (a scoped reviewer's default
   // may be filtered out).
@@ -513,8 +546,9 @@ export default function InvariantExperimentLab({ density }: { density?: "narrow"
         {tab === "independent-review" && <IndependentReviewPanel />}
         {tab === "track2" && (
           <Track2ProgrammePanel
-            experimentId={initialTrack2Intent?.experimentId ?? "EXP-P1"}
-            initialAnchorId={initialTrack2Intent?.surfaceRef.anchorId}
+            key={track2Intent?.surfaceRef.anchorId ?? "track2-default"}
+            experimentId={track2Intent?.experimentId ?? "EXP-P1"}
+            initialAnchorId={track2Intent?.surfaceRef.anchorId}
           />
         )}
       </div>
