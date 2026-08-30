@@ -195,6 +195,29 @@ export interface CrystalReadinessInput {
    * hard-caps at 500 server-side regardless of what's requested here). */
   fetchLimit?: number;
   /**
+   * RETROSPECTIVE-ONLY POPULATION OVERRIDE (EXP-P1 frozen-crystal dataflow
+   * fix, 2026-08-30). When supplied, this EXACT list is assessed and
+   * `listInvariants` is never called — every check below (duplicate
+   * detection, inferential capacity, selection-space, boundary-coverage, the
+   * graph checks, provenance-eligibility) runs completely unchanged, over
+   * whatever population it is given. Supplying a population changes WHAT is
+   * measured, never HOW — no check, threshold, mapping, or gate is touched by
+   * this parameter's existence.
+   *
+   * Intended for exactly one caller: the frozen-crystal retrospective route
+   * (`instrument-falsification/route.ts`), which must assess the
+   * domain-membership recovered by `buildFrozenCrystalManifest` — including
+   * members whose CURRENT status has since drifted (e.g. superseded via
+   * duplicate-merge) — rather than this function's own live
+   * `status: ['validated', 'canonical']` query, which would silently
+   * substitute today's corpus for the historical one under retrospect.
+   *
+   * Every LIVE/current-state caller (the freeze route, freeze-preview,
+   * dashboards) omits this and is completely unaffected: absent, this
+   * function's own domain query runs exactly as before.
+   */
+  invariants?: InvariantRecord[];
+  /**
    * Minimum standard graph density (unique undirected intra-crystal pairs ÷
    * N(N-1)/2) required to call the collection "related" rather than a bag of
    * unconnected statements — PRD-EPI-001 §3.1's "relationship density" check.
@@ -659,11 +682,15 @@ export async function runCrystalReadinessReport(
 
   let invariants: InvariantRecord[];
   try {
-    invariants = await listInvariants({
+    // A supplied population (retrospective callers only — see the field's own
+    // doc comment) is used VERBATIM; `listInvariants` is never called in that
+    // case, so no independent, differently-filtered query can silently
+    // substitute a different population for the one the caller recovered.
+    invariants = input.invariants ?? (await listInvariants({
       domain: crystalDomain,
       status: ['validated', 'canonical'],
       limit: fetchLimit,
-    });
+    }));
   } catch (error) {
     return {
       ok: false,

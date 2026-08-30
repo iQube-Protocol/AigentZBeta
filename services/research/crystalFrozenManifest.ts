@@ -126,6 +126,21 @@ export interface FrozenCrystalManifest {
    *  set is the whole point of the verification gate. */
   members: FrozenCrystalManifestMember[] | null;
   /**
+   * The domain-membership recovery this module performs BEFORE the hash
+   * check gates anything — unconditionally populated whenever a domain read
+   * succeeded, regardless of `verifiedAgainstFreeze` (2026-08-30, EXP-P1
+   * retrospective dataflow fix). This is NOT `members`: it carries raw
+   * `InvariantRecord`s, is never split into frozenRecord/currentSupplementary,
+   * and is never itself proof of anything frozen — it is the same recovered
+   * population `recomputedLiveHash` was computed over. Exists so a caller that
+   * needs to ASSESS the recovered population (e.g. the retrospective
+   * falsification harness) can do so over the SAME rows this module already
+   * fetched, rather than issuing its own independent, differently-filtered
+   * query — the exact dataflow split this fix closes. Empty when no domain
+   * read was attempted (missing contentHash) or it failed (readError).
+   */
+  recoveredInvariants: InvariantRecord[];
+  /**
    * A SEPARATE derived-analysis class, distinct from both `members` classes
    * above: relationships are neither a frozen fact nor a per-member current
    * observation, they are a computation OVER the verified frozen member set.
@@ -237,6 +252,7 @@ export async function buildFrozenCrystalManifest(
       recomputedLiveHash: '',
       memberCount: 0,
       members: null,
+      recoveredInvariants: [],
       derivedTopology: null,
       knownLimitations: [],
     };
@@ -278,6 +294,7 @@ export async function buildFrozenCrystalManifest(
       recomputedLiveHash: '',
       memberCount: 0,
       members: null,
+      recoveredInvariants: [],
       derivedTopology: null,
       knownLimitations: [],
     };
@@ -352,6 +369,7 @@ export async function buildFrozenCrystalManifest(
       recomputedLiveHash,
       memberCount: invariants.length,
       members: null,
+      recoveredInvariants: invariants,
       derivedTopology: null,
       knownLimitations,
     };
@@ -379,6 +397,7 @@ export async function buildFrozenCrystalManifest(
     recomputedLiveHash,
     memberCount: invariants.length,
     members: invariants.map((inv) => toManifestMember(inv, input.observedAt)),
+    recoveredInvariants: invariants,
     derivedTopology,
     knownLimitations,
   };
