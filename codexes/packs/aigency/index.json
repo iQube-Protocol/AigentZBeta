@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-30T21:19:27.668Z",
+  "last_updated": "2026-08-30T22:00:09.976Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "82dcf7d8c6fdce892cbf8e2c4f6b7cb6982a0ef7",
-  "latest_commit_short": "82dcf7d",
-  "latest_commit_title": "Fix exchange/orientation/delegation discovery to be merge-aware, like Passport",
+  "latest_commit": "82f6308b4a5fa66dd896bec04c30aa4767597df1",
+  "latest_commit_short": "82f6308",
+  "latest_commit_title": "fix empty-504 on /advance and turn Discover Sources into a Copilot approval",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "82f6308",
+      "full_sha": "82f6308b4a5fa66dd896bec04c30aa4767597df1",
+      "title": "fix empty-504 on /advance and turn Discover Sources into a Copilot approval",
+      "author": "Claude",
+      "timestamp": "2026-08-30T21:57:56Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-82f6308.md"
+    },
     {
       "sha": "82dcf7d",
       "full_sha": "82dcf7d8c6fdce892cbf8e2c4f6b7cb6982a0ef7",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-16T20:27:46Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-01debe3.md"
-    },
-    {
-      "sha": "f49451b",
-      "full_sha": "f49451bb897a77f678ee9809c432a4c55923fd67",
-      "title": "Homecoming Phase II handover: mark WP-A Increment 1 done, Increment 2 still open",
-      "author": "Claude",
-      "timestamp": "2026-08-16T20:28:06Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-f49451b.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

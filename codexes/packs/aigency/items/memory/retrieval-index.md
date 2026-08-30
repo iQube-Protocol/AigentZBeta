@@ -4689,3 +4689,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-82dcf7d.md](../build_/COMMITS/COMMIT-82dcf7d.md)
 - Message: Fix exchange/orientation/delegation discovery to be merge-aware, like Passport
+
+## Commit `82f6308` — 2026-08-30T21:57:56Z
+- Type: `fix`
+- Brief: [COMMIT-82f6308.md](../build_/COMMITS/COMMIT-82f6308.md)
+- Message: fix empty-504 on /advance and turn Discover Sources into a Copilot approval
