@@ -461,19 +461,56 @@ export async function loadTrack2ProgrammeState(input: {
     unreadableSignals.push('frozen predecessor crystal manifest (frozen-generation boundary)');
   }
 
-  const promotedForConstruction = candidates
-    ? candidates.filter(
-        (c) =>
-          c.status === 'promoted' &&
-          !(frozenGenerationMemberIds && c.promotedInvariantId && frozenGenerationMemberIds.has(c.promotedInvariantId)),
-      )
+  /**
+   * THE SUCCESSOR-SCOPE PREDICATE (2026-08-30, "Stage 3→4 handoff gap" fix) —
+   * extended from the frozen-generation boundary above, which only ever
+   * narrowed Stage 4's own `promoted` count. That left Stage 3's `total`
+   * (and Stage 4's `awaitingReview`) reading the SAME raw, all-time
+   * `discovery_candidates` rows for the domain — so a live report could show
+   * "17 extracted" while correctly showing "0 promoted, 0 awaiting review",
+   * with the 17 never accounted for anywhere. Tracing them: `discovery_
+   * candidates` carries no generation field, so a candidate's scope is
+   * derived exactly as the frozen-generation boundary already does for a
+   * RESOLVED (promoted) row — is its invariant a frozen vP1 member? — and,
+   * for a row that never resolved to an invariant (`status: 'candidate'` or
+   * `'rejected'` with no `promotedInvariantId`), by creation time relative to
+   * the freeze: a candidate extracted before vP1 froze belongs to that
+   * construction cycle even if it was never promoted, and must not be
+   * silently inherited as v2 supply (the same discipline the operator named
+   * for Stage 1/2's raw source-corpus totals — reuse must be an explicit
+   * successor-processing act, never accidental inheritance).
+   *
+   * This is the ONE predicate Stage 3's `total`, Stage 4's `awaitingReview`
+   * AND Stage 4's `promoted` are all narrowed through — so a candidate
+   * cannot appear in Stage 3's count while being invisible to Stage 4's, the
+   * exact accounting gap this fix closes. No row is deleted, relabeled, or
+   * promoted by this predicate; it is read-only, exactly like the frozen-
+   * generation boundary it extends.
+   */
+  function isSuccessorScopedCandidate(c: { status: string; promotedInvariantId: string | null; createdAt: string }): boolean {
+    if (!frozenPredecessor) return true; // nothing to distinguish against
+    if (c.promotedInvariantId) {
+      return !(frozenGenerationMemberIds && frozenGenerationMemberIds.has(c.promotedInvariantId));
+    }
+    if (!frozenPredecessor.frozenAt) return true; // can't compare — never exclude on an unreadable boundary
+    return c.createdAt >= frozenPredecessor.frozenAt;
+  }
+
+  const successorScopedCandidates = candidates ? candidates.filter(isSuccessorScopedCandidate) : null;
+  const promotedForConstruction = successorScopedCandidates
+    ? successorScopedCandidates.filter((c) => c.status === 'promoted')
     : null;
 
-  const discoveryCandidates = candidates
+  const discoveryCandidates = successorScopedCandidates
     ? {
-        total: candidates.length,
-        awaitingReview: candidates.filter((c) => c.status === 'candidate').length,
+        total: successorScopedCandidates.length,
+        awaitingReview: successorScopedCandidates.filter((c) => c.status === 'candidate').length,
         promoted: promotedForConstruction?.length ?? 0,
+        // Exhaustive over CandidateRow['status'] ('candidate' | 'promoted' |
+        // 'rejected'), all four counted from this SAME successor-scoped
+        // array — so `total === awaitingReview + promoted + rejected`
+        // holds by construction and Stage 3/4's own detail text can name it.
+        rejected: successorScopedCandidates.filter((c) => c.status === 'rejected').length,
       }
     : null;
 
