@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`447396c`](https://github.com/iQube-Protocol/AigentZBeta/commit/447396c25ffdd5b75fe958b84c88739719cbf0fb) [fix] Fix EXP-P1 retrospective dataflow: assess the recovered frozen population (Claude, 2026-08-30T00:55:31Z)
 - [`d96a897`](https://github.com/iQube-Protocol/AigentZBeta/commit/d96a897ebf5d886e9c66a05b2a87cc41bd9a9682) [fix] Fix EXP-P1 frozen crystal membership recovery: drop status filter (Claude, 2026-08-30T00:11:24Z)
 - [`bbaa8f3`](https://github.com/iQube-Protocol/AigentZBeta/commit/bbaa8f3aba2b4e19354592b8f8311dfadba2eda2) [push] Author EXP-P1 CrystalRemediationProfile v1 from Review #001 + frozen protocol (Claude, 2026-08-29T20:45:32Z)
 - [`135ef2a`](https://github.com/iQube-Protocol/AigentZBeta/commit/135ef2a55c6b7a61955548155685a6dd5cdf7430) [fix] Fix Establish Presence evidence resolution: recognize a Passport held under a merged auth profile (Claude, 2026-08-29T18:05:53Z)

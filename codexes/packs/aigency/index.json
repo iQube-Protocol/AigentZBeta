@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-30T00:13:41.729Z",
+  "last_updated": "2026-08-30T00:58:14.948Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "d96a897ebf5d886e9c66a05b2a87cc41bd9a9682",
-  "latest_commit_short": "d96a897",
-  "latest_commit_title": "Fix EXP-P1 frozen crystal membership recovery: drop status filter",
+  "latest_commit": "447396c25ffdd5b75fe958b84c88739719cbf0fb",
+  "latest_commit_short": "447396c",
+  "latest_commit_title": "Fix EXP-P1 retrospective dataflow: assess the recovered frozen population",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "447396c",
+      "full_sha": "447396c25ffdd5b75fe958b84c88739719cbf0fb",
+      "title": "Fix EXP-P1 retrospective dataflow: assess the recovered frozen population",
+      "author": "Claude",
+      "timestamp": "2026-08-30T00:55:31Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-447396c.md"
+    },
     {
       "sha": "d96a897",
       "full_sha": "d96a897ebf5d886e9c66a05b2a87cc41bd9a9682",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-16T13:20:08-04:00",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-0c26f22.md"
-    },
-    {
-      "sha": "c1ee041",
-      "full_sha": "c1ee0414c11a47ec0763df0aa8c468289362c763",
-      "title": "docs(knyt): codify bridge standing reputation rewards activation",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-16T13:09:43-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-c1ee041.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

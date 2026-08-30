@@ -4639,3 +4639,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-d96a897.md](../build_/COMMITS/COMMIT-d96a897.md)
 - Message: Fix EXP-P1 frozen crystal membership recovery: drop status filter
+
+## Commit `447396c` — 2026-08-30T00:55:31Z
+- Type: `fix`
+- Brief: [COMMIT-447396c.md](../build_/COMMITS/COMMIT-447396c.md)
+- Message: Fix EXP-P1 retrospective dataflow: assess the recovered frozen population
