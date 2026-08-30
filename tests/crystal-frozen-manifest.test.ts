@@ -249,6 +249,35 @@ describe('buildFrozenCrystalManifest — hash-verified against the persisted fre
     expect(manifest.verificationDetail).toMatch(/not independently recorded anywhere durable/);
   });
 
+  it('legacyContentVerification is wired end-to-end: the EXP-P1 legacy pattern (clean seed/provenance evidence, only a status-drifted member) reports scientific-content-verified while verifiedAgainstFreeze stays false', async () => {
+    const { listInvariants } = await import('@/services/invariants/store');
+    const { buildFrozenCrystalManifest } = await import('@/services/research/crystalFrozenManifest');
+
+    const SUPERSEDED_MEMBER = { ...FIXTURE_INVARIANTS[0], id: 'inv-003', status: 'superseded' };
+    vi.mocked(listInvariants).mockResolvedValueOnce([...FIXTURE_INVARIANTS, SUPERSEDED_MEMBER] as never);
+
+    const manifest = await buildFrozenCrystalManifest({
+      experimentId: 'EXP-P1',
+      observedAt: OBSERVED_AT,
+      artifact: {
+        id: 'EXP-P1/crystal-vP1',
+        contentHash: 'a'.repeat(64),
+        commitmentHash: 'a'.repeat(64),
+        frozenAt: '2026-01-03T00:00:00.000Z',
+        signedBy: ['operator-ref'],
+        receiptId: null,
+      },
+    });
+
+    expect(manifest.verifiedAgainstFreeze).toBe(false);
+    expect(manifest.legacyContentVerification.byteExact).toBe(false);
+    expect(manifest.legacyContentVerification.state).toBe('scientific-content-verified');
+    expect(manifest.legacyContentVerification.immaterialDriftFields).toEqual(['status']);
+    expect(manifest.legacyContentVerification.frozenAt).toBe('2026-01-03T00:00:00.000Z');
+    expect(manifest.legacyContentVerification.memberCount).toBe(3);
+    expect(manifest.legacyContentVerification.blockingGaps).toEqual([]);
+  });
+
   it('honestly discloses that freeze-ceremony fields (rationale, population, exclusions) were never persisted, rather than recomputing them as if they were', async () => {
     const { runCrystalStatisticsReport } = await import('@/services/research/crystalStatistics');
     const { buildFrozenCrystalManifest } = await import('@/services/research/crystalFrozenManifest');

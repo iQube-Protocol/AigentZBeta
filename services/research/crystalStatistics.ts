@@ -24,8 +24,7 @@
 import { listInvariants } from '@/services/invariants/store';
 import { crystalDomainForExperiment } from '@/services/research/crystalDomains';
 import { runCrystalReadinessReport, type CrystalReadinessReport } from '@/services/research/crystalReadiness';
-import { readEvidenceProvenance } from '@/services/research/experimentalPopulations';
-import { commit } from '@/services/research/review/deterministic';
+import { computeCrystalContentHash } from '@/services/research/crystalContentProjection';
 import { INVARIANT_NAMESPACES } from '@/types/invariants';
 import type { InvariantRecord } from '@/types/invariants';
 
@@ -247,22 +246,10 @@ export async function runCrystalStatisticsReport(
       ? Math.floor(invariantCount * readiness.populationRequirement.sliceFractionOfCrystal) / invariantCount
       : 0;
 
-  // Deterministic content commitment. Sorted by id so member ORDER never
-  // affects the hash — only membership and content do. Provenance is
-  // canonicalized via `commit`'s own canonicalJson, so key order inside a
-  // provenance bag cannot change the hash either.
-  const sortedForHash = [...invariants]
-    .map((inv) => ({
-      id: inv.id,
-      statement: inv.statement,
-      namespace: inv.namespace,
-      semanticType: inv.semanticType,
-      status: inv.status,
-      evidenceProvenance: readEvidenceProvenance(inv.provenance),
-      provenance: inv.provenance,
-    }))
-    .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
-  const frozenHash = commit({ crystalDomain, invariantCount, members: sortedForHash });
+  // Deterministic content commitment — the ONE shared projection
+  // (services/research/crystalContentProjection.ts), never a second,
+  // independently-typed commitment shape (inv.engineering.036).
+  const frozenHash = computeCrystalContentHash({ crystalDomain, invariantCount, invariants });
 
   return {
     ok: readiness.ok,
