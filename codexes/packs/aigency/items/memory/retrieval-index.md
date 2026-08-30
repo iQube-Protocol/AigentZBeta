@@ -4659,3 +4659,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-fc30d22.md](../build_/COMMITS/COMMIT-fc30d22.md)
 - Message: Bind EXP-P1 remediation profile: populate the canonical retrospective
+
+## Commit `6013623` — 2026-08-30T08:57:46Z
+- Type: `fix`
+- Brief: [COMMIT-6013623.md](../build_/COMMITS/COMMIT-6013623.md)
+- Message: fix Track 2 v2 state machine: frozen-generation scoping, false provenance gate, same-tab deep-link, acquisition bridge

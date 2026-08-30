@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-30T03:17:54.145Z",
+  "last_updated": "2026-08-30T08:59:57.728Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "fc30d229f0054fe865375fc13d4a8060988279a4",
-  "latest_commit_short": "fc30d22",
-  "latest_commit_title": "Bind EXP-P1 remediation profile: populate the canonical retrospective",
+  "latest_commit": "601362375317bc8b109d887a753c09a0eb41bb7a",
+  "latest_commit_short": "6013623",
+  "latest_commit_title": "fix Track 2 v2 state machine: frozen-generation scoping, false provenance gate, same-tab deep-link, acquisition bridge",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "6013623",
+      "full_sha": "601362375317bc8b109d887a753c09a0eb41bb7a",
+      "title": "fix Track 2 v2 state machine: frozen-generation scoping, false provenance gate, same-tab deep-link, acquisition bridge",
+      "author": "Claude",
+      "timestamp": "2026-08-30T08:57:46Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-6013623.md"
+    },
     {
       "sha": "fc30d22",
       "full_sha": "fc30d229f0054fe865375fc13d4a8060988279a4",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-16T15:45:36-04:00",
       "type": "docs",
       "brief": "items/build_/COMMITS/COMMIT-8e09a0f.md"
-    },
-    {
-      "sha": "3d0dd87",
-      "full_sha": "3d0dd87d0085f5d0d55acc8341a9e892510e07e7",
-      "title": "docs: close Homecoming Phase I and define manual execution policy",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-16T15:31:08-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-3d0dd87.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
