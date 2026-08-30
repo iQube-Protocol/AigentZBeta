@@ -80,6 +80,47 @@ async function resolveActiveExchangeId(admin: SupabaseClient, personaId: string)
   return { ok: true, exchangeId: mine.exchanges[0].id };
 }
 
+/**
+ * THE canonical exchange-write authority resolver (2026-08-30, "MCP channel
+ * equivalence" repair) — used BOTH by gateway.ts's dispatch gate and by every
+ * write function below, so there is exactly one place this is decided.
+ *
+ * Root cause this replaces: gateway.ts previously gated deposit/confirm/
+ * freeze/sign on `hasScope(session, 'research.exchange.write')` ALONE — a
+ * capability that is only ever minted by a SEPARATE, generic incremental
+ * OAuth-style "enter the irl service" crossing (services/threshold/
+ * serviceRegistry.ts, gatewaySession.ts's applyUpgrade). That ceremony was
+ * designed for a principal entering IRL for the FIRST time (PRD-THR-001
+ * §9.3's "Austin" example) — it has no path to reflect a principal who
+ * already established real Reciprocal Artifact Exchange participation +
+ * delegation through the native/bridge journey. The result: a fully
+ * establishe­d exchange participant was refused confirm/freeze/sign on MCP
+ * alone, with no equivalent gate on the bridge route (app/api/research/
+ * exchanges/[exchangeId]/actions/route.ts has no session-scope concept at
+ * all) — a real channel-inequivalence defect, not a security feature.
+ *
+ * This resolver IS the fix: it re-derives write authority directly from
+ * canonical state — the SAME resolveMcpPrincipal + resolveActiveExchangeId
+ * chain every write function already ran internally — so "already a
+ * genuinely bound exchange party" is itself sufficient, with no redundant
+ * second human ceremony. It fails CLOSED exactly as those two functions
+ * already do: an unresolvable principal or a principal with no bound
+ * exchange is refused with the same specific reason. It grants nothing
+ * beyond what the canonical service's own per-action checks (membership,
+ * exchange status, freeze-before-sign, pendingPrincipalAttestation, etc.)
+ * still separately enforce inside deposit/confirm/freeze/sign themselves.
+ */
+export async function resolveExchangeWriteAuthority(
+  admin: SupabaseClient,
+  session: ScopedSession,
+): Promise<{ ok: true; personaId: string; exchangeId: string } | { ok: false; error: string }> {
+  const principal = await resolveMcpPrincipal(admin, session);
+  if (!principal.ok) return principal;
+  const active = await resolveActiveExchangeId(admin, principal.personaId);
+  if (!active.ok) return active;
+  return { ok: true, personaId: principal.personaId, exchangeId: active.exchangeId };
+}
+
 /** Stage eligibility gate (invariant 2/3): refuses BEFORE calling the
  *  canonical service if the journey definition itself does not declare
  *  this stage MCP-eligible. Reads types/journey.ts's `completionChannels`
@@ -160,10 +201,8 @@ export async function depositExchangeArtifactViaMcp(admin: SupabaseClient, sessi
   const consent = requireExplicitConsent(args as unknown as Record<string, unknown>);
   if (!consent.ok) return consent;
 
-  const principal = await resolveMcpPrincipal(admin, session);
-  if (!principal.ok) return principal;
-  const active = await resolveActiveExchangeId(admin, principal.personaId);
-  if (!active.ok) return active;
+  const authority = await resolveExchangeWriteAuthority(admin, session);
+  if (!authority.ok) return authority;
 
   if (!args.title?.trim() || !args.artifactClass?.trim() || !args.sourceReference?.trim() || !args.contentHash?.trim()) {
     return { ok: false as const, error: 'title, artifactClass, sourceReference and contentHash are all required.' };
@@ -173,8 +212,8 @@ export async function depositExchangeArtifactViaMcp(admin: SupabaseClient, sessi
   }
 
   const result = await depositArtifact(admin, {
-    exchangeId: active.exchangeId,
-    personaId: principal.personaId,
+    exchangeId: authority.exchangeId,
+    personaId: authority.personaId,
     title: args.title,
     artifactClass: args.artifactClass,
     description: args.description,
@@ -190,7 +229,7 @@ export async function depositExchangeArtifactViaMcp(admin: SupabaseClient, sessi
     agentRef: session.agentAlias,
   });
   if (!result.ok) return { ok: false as const, error: result.error };
-  return { ok: true as const, exchangeId: active.exchangeId, artifact: result.artifact, replaced: result.replaced };
+  return { ok: true as const, exchangeId: authority.exchangeId, artifact: result.artifact, replaced: result.replaced };
 }
 
 // ── 2b. Confirmation of an operator-assisted custodial registration ───────
@@ -222,18 +261,16 @@ export async function confirmOperatorAssistedArtifactViaMcp(
   const consent = requireExplicitConsent(args as unknown as Record<string, unknown>);
   if (!consent.ok) return consent;
 
-  const principal = await resolveMcpPrincipal(admin, session);
-  if (!principal.ok) return principal;
-  const active = await resolveActiveExchangeId(admin, principal.personaId);
-  if (!active.ok) return active;
+  const authority = await resolveExchangeWriteAuthority(admin, session);
+  if (!authority.ok) return authority;
 
   const result = await confirmOperatorAssistedArtifact(admin, {
-    exchangeId: active.exchangeId,
-    personaId: principal.personaId,
+    exchangeId: authority.exchangeId,
+    personaId: authority.personaId,
     agentRef: session.agentAlias,
   });
   if (!result.ok) return { ok: false as const, error: result.error };
-  return { ok: true as const, exchangeId: active.exchangeId, artifact: result.artifact };
+  return { ok: true as const, exchangeId: authority.exchangeId, artifact: result.artifact };
 }
 
 // ── 3. Section 3C — deterministic fingerprint (pure, no writes, no I/O) ────
@@ -268,20 +305,18 @@ export async function declareArtifactFreezeViaMcp(admin: SupabaseClient, session
   const consent = requireExplicitConsent(args as unknown as Record<string, unknown>);
   if (!consent.ok) return consent;
 
-  const principal = await resolveMcpPrincipal(admin, session);
-  if (!principal.ok) return principal;
-  const active = await resolveActiveExchangeId(admin, principal.personaId);
-  if (!active.ok) return active;
+  const authority = await resolveExchangeWriteAuthority(admin, session);
+  if (!authority.ok) return authority;
 
   const result = await declareFreeze(admin, {
-    exchangeId: active.exchangeId,
-    personaId: principal.personaId,
+    exchangeId: authority.exchangeId,
+    personaId: authority.personaId,
     actorType: 'principal',
     originChannel: 'mcp',
     agentRef: session.agentAlias,
   });
   if (!result.ok) return { ok: false as const, error: result.error };
-  return { ok: true as const, exchangeId: active.exchangeId, attestation: result.attestation };
+  return { ok: true as const, exchangeId: authority.exchangeId, attestation: result.attestation };
 }
 
 // ── 5. Section 3E — exchange instrument signing ───────────────────────────
@@ -307,14 +342,12 @@ export async function signExchangeInstrumentViaMcp(admin: SupabaseClient, sessio
   const consent = requireExplicitConsent(args as unknown as Record<string, unknown>);
   if (!consent.ok) return consent;
 
-  const principal = await resolveMcpPrincipal(admin, session);
-  if (!principal.ok) return principal;
-  const active = await resolveActiveExchangeId(admin, principal.personaId);
-  if (!active.ok) return active;
+  const authority = await resolveExchangeWriteAuthority(admin, session);
+  if (!authority.ok) return authority;
 
   const result = await signInstrument(admin, {
-    exchangeId: active.exchangeId,
-    personaId: principal.personaId,
+    exchangeId: authority.exchangeId,
+    personaId: authority.personaId,
     actorType: 'principal',
     originChannel: 'mcp',
     agentRef: session.agentAlias,
@@ -322,7 +355,7 @@ export async function signExchangeInstrumentViaMcp(admin: SupabaseClient, sessio
   if (!result.ok) return { ok: false as const, error: result.error };
   return {
     ok: true as const,
-    exchangeId: active.exchangeId,
+    exchangeId: authority.exchangeId,
     attestation: result.attestation,
     exchangeStatus: result.exchange.status,
     originChannelNote:

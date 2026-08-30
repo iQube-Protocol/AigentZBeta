@@ -34,6 +34,7 @@ import {
   declareArtifactFreezeViaMcp,
   signExchangeInstrumentViaMcp,
   establishDelegationViaMcp,
+  resolveExchangeWriteAuthority,
 } from '@/services/threshold/mcpConstitutionalActs';
 import {
   executeThresholdContentUpload,
@@ -272,6 +273,11 @@ export async function POST(request: NextRequest) {
             const admin = getSupabaseServer();
             if (!admin) return Promise.resolve({ ok: false as const, error: 'Platform database is unavailable.' });
             return establishDelegationViaMcp(admin, session, args);
+          },
+          resolveExchangeAuthority: () => {
+            const admin = getSupabaseServer();
+            if (!admin) return Promise.resolve({ ok: false as const, error: 'Platform database is unavailable.' });
+            return resolveExchangeWriteAuthority(admin, session);
           },
         }
       : undefined,
