@@ -56,7 +56,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ScopedSession } from '@/services/threshold/gatewaySession';
 import { resolvePersonaIdByPublicRef } from '@/services/identity/personaReferences';
 import { resolveOwnerAuthProfileId } from '@/services/contactGraph/ownerResolution';
-import { isPassportUsable, loadUsableCitizenPassportForAuthProfile } from '@/services/identity/passportPrincipal';
+import { isPassportUsable, loadUsableCitizenPassportForAuthProfile, listOwnedPersonaIds } from '@/services/identity/passportPrincipal';
 import { resolveConstitutionalContextForPersona } from '@/services/identity/constitutionalContext';
 import { getGrantedExperiments } from '@/services/passport/participationAccess';
 import { listMyExchanges } from '@/services/research/reciprocalExchange';
@@ -257,7 +257,18 @@ export async function resolveConstitutionalNavigatorState(
         : [];
   if (!grantedExperiments) evidenceGaps.push('CAS research-lab grant read failed — reported as no grant rather than guessed.');
 
-  const exchanges = await listMyExchanges(admin, personaId).catch(() => null);
+  // Merge-aware discovery (2026-08-30, "MCP navigator discovery" repair) —
+  // the SAME roster Passport resolution above already used
+  // (listUsableCitizenPassportForAuthProfile -> listOwnedPersonaIds), so a
+  // bound exchange party under a MERGED sibling auth profile is discoverable
+  // exactly as their Passport already is. Falls back to [personaId] alone
+  // when the roster cannot resolve — never widens incorrectly.
+  let ownedPersonaIds: string[] = [personaId];
+  if (authProfileId) {
+    const owned = await listOwnedPersonaIds(admin, authProfileId).catch(() => null);
+    if (owned?.ok) ownedPersonaIds = owned.personaIds;
+  }
+  const exchanges = await listMyExchanges(admin, ownedPersonaIds).catch(() => null);
   let hasActiveExchange = false;
   let exchangeStatus: string | null = null;
   if (exchanges?.ok) {

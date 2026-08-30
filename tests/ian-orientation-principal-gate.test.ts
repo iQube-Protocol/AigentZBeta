@@ -38,6 +38,10 @@ function makeFakeAdmin(tables: { personas: Row[]; reciprocal_exchanges: Row[] })
         filters.push((r) => r[col] === val);
         return api;
       },
+      in(col: string, vals: unknown[]) {
+        filters.push((r) => vals.includes(r[col]));
+        return api;
+      },
       or(expr: string) {
         // e.g. "initiator_persona_id.in.(a,b),counterparty_persona_id.in.(a,b)"
         const clauses = expr.match(/[^,]+\.in\.\([^)]*\)/g) ?? [];
@@ -83,10 +87,10 @@ const UNRELATED_AGENT_TYPE_PERSONA = 'persona-unrelated-agent-type';
 function baseTables(): { personas: Row[]; reciprocal_exchanges: Row[] } {
   return {
     personas: [
-      { id: IAN_PRINCIPAL, auth_profile_id: AUTH_PROFILE, type: 'PersonaQube', display_name: 'Ian Andrew McCoy' },
-      { id: IAN_AIGENTME, auth_profile_id: AUTH_PROFILE, type: 'AigentMe', display_name: 'aigentMe' },
-      { id: SIBLING_PERSONAQUBE_NOT_BOUND, auth_profile_id: AUTH_PROFILE, type: 'PersonaQube', display_name: 'Ian (second persona)' },
-      { id: UNRELATED_AGENT_TYPE_PERSONA, auth_profile_id: OTHER_AUTH_PROFILE, type: 'AgentDelegate', display_name: 'Some Delegate' },
+      { id: IAN_PRINCIPAL, auth_profile_id: AUTH_PROFILE, type: 'PersonaQube', display_name: 'Ian Andrew McCoy', status: 'active' },
+      { id: IAN_AIGENTME, auth_profile_id: AUTH_PROFILE, type: 'AigentMe', display_name: 'aigentMe', status: 'active' },
+      { id: SIBLING_PERSONAQUBE_NOT_BOUND, auth_profile_id: AUTH_PROFILE, type: 'PersonaQube', display_name: 'Ian (second persona)', status: 'active' },
+      { id: UNRELATED_AGENT_TYPE_PERSONA, auth_profile_id: OTHER_AUTH_PROFILE, type: 'AgentDelegate', display_name: 'Some Delegate', status: 'active' },
     ],
     reciprocal_exchanges: [
       { initiator_persona_id: 'persona-party-a', counterparty_persona_id: IAN_PRINCIPAL, created_at: '2026-08-24' },

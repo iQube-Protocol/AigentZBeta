@@ -46,8 +46,10 @@ import {
   confirmOperatorAssistedArtifact,
   getExchangeView,
   listMyExchanges,
+  resolveExchangeActingPrincipal,
   type DepositArtifactInput,
 } from '@/services/research/reciprocalExchange';
+import { listOwnedPersonaIds } from '@/services/identity/passportPrincipal';
 import { persistDelegationGrant } from '@/services/delegation/delegationGrantStore';
 import { FREEZE_DECLARATION_TEXT, EXCHANGE_INSTRUMENT_CLAUSES } from '@/types/reciprocalExchange';
 import { emitOrchestrationEvent } from '@/services/orchestration/orchestrationEvents';
@@ -57,22 +59,43 @@ import { IAN_BOUNDARY_RESEARCH_JOURNEY } from '@/services/journey/ianBoundaryRes
 
 // ── Shared principal resolution — the SAME T0<->T2 seam constitutionalNavigator.ts uses ──
 
-type PrincipalResolution = { ok: true; personaId: string } | { ok: false; error: string };
+type PrincipalResolution =
+  | { ok: true; personaId: string; authProfileId: string | null }
+  | { ok: false; error: string };
 
 async function resolveMcpPrincipal(admin: SupabaseClient, session: ScopedSession): Promise<PrincipalResolution> {
   const personaId = await resolvePersonaIdByPublicRef(admin, session.principalPublicRef);
   if (!personaId) {
     return { ok: false, error: 'Could not resolve the session principal to a real persona. Nothing can be written until this resolves.' };
   }
-  return { ok: true, personaId };
+  const authProfileResult = await resolveOwnerAuthProfileId(personaId);
+  return { ok: true, personaId, authProfileId: authProfileResult.ok ? authProfileResult.value : null };
 }
 
-/** The one active OCSGA exchange this principal participates in — the SAME
- *  resolution services/journey/ianJourneyState.ts and constitutionalNavigator.ts
- *  already use. A client-supplied exchangeId is never trusted as authority;
- *  this always re-derives it server-side from real membership. */
-async function resolveActiveExchangeId(admin: SupabaseClient, personaId: string): Promise<{ ok: true; exchangeId: string } | { ok: false; error: string }> {
-  const mine = await listMyExchanges(admin, personaId);
+/** Merge-aware owned-persona-id roster for this principal (2026-08-30, "MCP
+ *  navigator discovery" repair) — the SAME roster Passport/bound-agent
+ *  discovery already use (services/identity/passportPrincipal.ts's
+ *  listOwnedPersonaIds, which unions in getMergedLinkedAuthProfileIds).
+ *  Falls back to [personaId] alone when it cannot resolve — never widens
+ *  incorrectly, never throws. */
+async function resolveOwnedPersonaIds(admin: SupabaseClient, personaId: string, authProfileId: string | null): Promise<string[]> {
+  if (!authProfileId) return [personaId];
+  const owned = await listOwnedPersonaIds(admin, authProfileId).catch(() => null);
+  return owned?.ok ? owned.personaIds : [personaId];
+}
+
+/** The one active OCSGA exchange this principal (or a MERGED sibling of
+ *  theirs) participates in — the SAME resolution services/journey/
+ *  ianJourneyState.ts and constitutionalNavigator.ts already use. A
+ *  client-supplied exchangeId is never trusted as authority; this always
+ *  re-derives it server-side from real membership. */
+async function resolveActiveExchangeId(
+  admin: SupabaseClient,
+  personaId: string,
+  authProfileId: string | null,
+): Promise<{ ok: true; exchangeId: string } | { ok: false; error: string }> {
+  const ownedPersonaIds = await resolveOwnedPersonaIds(admin, personaId, authProfileId);
+  const mine = await listMyExchanges(admin, ownedPersonaIds);
   if (!mine.ok) return { ok: false, error: `Could not read this principal's Reciprocal Artifact Exchange membership: ${mine.error}` };
   if (mine.exchanges.length === 0) {
     return { ok: false, error: 'No Reciprocal Artifact Exchange exists for this principal yet — nothing to deposit into, freeze, or sign.' };
@@ -109,6 +132,20 @@ async function resolveActiveExchangeId(admin: SupabaseClient, personaId: string)
  * beyond what the canonical service's own per-action checks (membership,
  * exchange status, freeze-before-sign, pendingPrincipalAttestation, etc.)
  * still separately enforce inside deposit/confirm/freeze/sign themselves.
+ *
+ * MERGED-PROFILE ACTING-PARTY RESOLUTION (2026-08-30, "MCP navigator
+ * discovery" repair). `resolveActiveExchangeId` may discover an exchange via
+ * a MERGED SIBLING of the session's own resolved persona (exactly like
+ * Passport resolution already does) — the exchange's bound party is then
+ * that sibling, not necessarily `principal.personaId` itself. Every
+ * downstream canonical call (getExchangeView, depositArtifact, declareFreeze,
+ * signInstrument, confirmOperatorAssistedArtifact) resolves membership via an
+ * EXACT personaId match (resolveMembership) — passing the session's raw
+ * resolved persona when a sibling is the true bound party would refuse as
+ * 'not-a-party' even though the exchange was correctly found. So the
+ * personaId this function returns is the ACTUAL bound-party persona
+ * (resolveExchangeActingPrincipal, the same resolver the bridge route
+ * already uses), never the bare session-resolved principal.
  */
 export async function resolveExchangeWriteAuthority(
   admin: SupabaseClient,
@@ -116,9 +153,17 @@ export async function resolveExchangeWriteAuthority(
 ): Promise<{ ok: true; personaId: string; exchangeId: string } | { ok: false; error: string }> {
   const principal = await resolveMcpPrincipal(admin, session);
   if (!principal.ok) return principal;
-  const active = await resolveActiveExchangeId(admin, principal.personaId);
+  const active = await resolveActiveExchangeId(admin, principal.personaId, principal.authProfileId);
   if (!active.ok) return active;
-  return { ok: true, personaId: principal.personaId, exchangeId: active.exchangeId };
+  const acting = await resolveExchangeActingPrincipal(admin, {
+    exchangeId: active.exchangeId,
+    activePersonaId: principal.personaId,
+    authProfileId: principal.authProfileId,
+  });
+  if (!acting.ok) {
+    return { ok: false, error: 'Could not resolve which bound party this session corresponds to on the discovered exchange.' };
+  }
+  return { ok: true, personaId: acting.personaId, exchangeId: active.exchangeId };
 }
 
 /** Stage eligibility gate (invariant 2/3): refuses BEFORE calling the
@@ -163,15 +208,20 @@ function requireExplicitConsent(args: Record<string, unknown>): { ok: true } | {
  * source for what it is about to ask the principal to confirm.
  */
 export async function getExchangeStateForMcp(admin: SupabaseClient, session: ScopedSession) {
-  const principal = await resolveMcpPrincipal(admin, session);
-  if (!principal.ok) return principal;
-  const active = await resolveActiveExchangeId(admin, principal.personaId);
-  if (!active.ok) return active;
-  const view = await getExchangeView(admin, { exchangeId: active.exchangeId, personaId: principal.personaId });
+  // Reuses the SAME authority resolver every write below calls — never a
+  // second, independently derived principal+exchange resolution. This also
+  // means a read benefits from the merge-aware acting-party resolution
+  // (resolveExchangeWriteAuthority's own doc comment) exactly as every write
+  // does: the exchange may be bound to a MERGED sibling of this session's
+  // resolved persona, and getExchangeView's viewerParty must resolve against
+  // that exact bound persona, never the bare session-resolved one.
+  const authority = await resolveExchangeWriteAuthority(admin, session);
+  if (!authority.ok) return authority;
+  const view = await getExchangeView(admin, { exchangeId: authority.exchangeId, personaId: authority.personaId });
   if (!view.ok) return { ok: false as const, error: view.error };
   return {
     ok: true as const,
-    exchangeId: active.exchangeId,
+    exchangeId: authority.exchangeId,
     view: view.view,
     freezeDeclarationText: FREEZE_DECLARATION_TEXT,
     exchangeInstrumentClauses: EXCHANGE_INSTRUMENT_CLAUSES,

@@ -191,7 +191,7 @@ describe('canary 4 — invite never satisfies passportIssued (updated 2026-08-27
 
   it('citizenPassportUsable is computed from the canonical Citizen Passport read, never from the exchange/invite lookup', () => {
     const code = stripComments(readSource(IAN_JOURNEY_STATE_SERVICE));
-    const inviteBlockAt = code.indexOf('const mine = await listMyExchanges(admin, personaId);');
+    const inviteBlockAt = code.indexOf('const mine = await listMyExchanges(admin, ownedPersonaIds);');
     const citizenAt = code.indexOf('loadUsableCitizenPassportForAuthProfile(admin, authProfileId)');
     expect(inviteBlockAt).toBeGreaterThan(-1);
     expect(citizenAt).toBeGreaterThan(inviteBlockAt); // computed separately, after/outside the exchange lookup
@@ -202,9 +202,15 @@ describe('canary 4 — invite never satisfies passportIssued (updated 2026-08-27
 describe('canary 5 — invite never satisfies delegation or any reciprocal-artifact evidence on its own', () => {
   it('delegation_active is computed independently of activeExchangeId/joinExchange', () => {
     const code = stripComments(readSource(IAN_JOURNEY_STATE_SERVICE));
-    expect(code).toContain("const delegationActive = await hasActiveDelegation(personaId).catch(() => false);");
+    // 2026-08-30 merge-aware widening: delegationActive now checks
+    // hasActiveDelegation across every owned/merged persona id (the same
+    // roster Passport resolution already uses), not just the bare
+    // personaId — still computed BEFORE and independently of exchange
+    // discovery below, never derived from activeExchangeId/joinExchange.
+    expect(code).toMatch(/hasActiveDelegation\(id\)\.catch\(\(\)\s*=>\s*false\)/);
+    expect(code).toContain('ownedPersonaIds.map((id: string) => hasActiveDelegation(id)');
     // hasActiveDelegation is never passed exchangeId/activeExchangeId.
-    expect(code).not.toMatch(/hasActiveDelegation\(personaId,\s*activeExchangeId/);
+    expect(code).not.toMatch(/hasActiveDelegation\([^)]*activeExchangeId/);
   });
 
   it('deposit/freeze/sign/cross evidence derive from the REAL artifact/exchange-status view, not merely from having an associated exchange', () => {

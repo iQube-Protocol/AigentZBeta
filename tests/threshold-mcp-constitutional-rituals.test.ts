@@ -40,6 +40,7 @@ const {
   mockSignInstrument,
   mockGetExchangeView,
   mockListMyExchanges,
+  mockResolveExchangeActingPrincipal,
   mockPersistDelegationGrant,
   mockEmitOrchestrationEvent,
   mockCreateActivityReceipt,
@@ -51,6 +52,17 @@ const {
   mockSignInstrument: vi.fn(),
   mockGetExchangeView: vi.fn(),
   mockListMyExchanges: vi.fn(),
+  // Default: the resolved principal IS the exchange's bound party directly
+  // (no merge/sibling case) — the sibling/merge-aware resolution itself is
+  // covered separately by tests/ocsga-exchange-principal-gate.test.ts and
+  // tests/ocsga-bridge-projection-fix.test.ts. This file exercises identity
+  // (principal vs delegated actor) via session.principalPublicRef/agentAlias,
+  // not exchange-party sibling resolution.
+  mockResolveExchangeActingPrincipal: vi.fn(async (_admin: unknown, args: { activePersonaId: string }) => ({
+    ok: true as const,
+    personaId: args.activePersonaId,
+    actorType: 'principal' as const,
+  })),
   mockPersistDelegationGrant: vi.fn(),
   mockEmitOrchestrationEvent: vi.fn(),
   mockCreateActivityReceipt: vi.fn(),
@@ -71,6 +83,7 @@ vi.mock('@/services/research/reciprocalExchange', async () => {
     signInstrument: mockSignInstrument,
     getExchangeView: mockGetExchangeView,
     listMyExchanges: mockListMyExchanges,
+    resolveExchangeActingPrincipal: mockResolveExchangeActingPrincipal,
   };
 });
 vi.mock('@/services/delegation/delegationGrantStore', () => ({
@@ -738,5 +751,48 @@ describe('gateway.ts — canonical-authority fallback for exchange writes (no re
     expect(bridgeSrc).not.toMatch(/research\.exchange\.write/);
     expect(bridgeSrc).not.toMatch(/hasScope\(/);
     expect(bridgeSrc).not.toMatch(/ScopedSession/);
+  });
+});
+
+// ── MERGED auth-profile discovery via get_exchange_state (2026-08-30 ──────
+// live-reported defect). get_navigator_state's hasActiveExchange:false and
+// get_exchange_state's "No Reciprocal Artifact Exchange exists" both trace
+// to the SAME root cause: exchange discovery and the acting-party resolution
+// used only the session's own resolved persona, never a merge-linked
+// sibling. This proves getExchangeStateForMcp — via resolveExchangeWriteAuthority
+// — substitutes the ACTUAL bound-party personaId (resolveExchangeActingPrincipal's
+// resolution) into getExchangeView, never the bare session-resolved principal,
+// so a session that crossed under a different linked auth profile than its
+// real bound party still resolves viewer/artifact/pendingPrincipalAttestation
+// correctly.
+describe('getExchangeStateForMcp — merged auth-profile acting-party substitution (2026-08-30 live-reported defect)', () => {
+  it('resolves the exchange view using the ACTING bound-party personaId, not the bare session-resolved principal, when resolveExchangeActingPrincipal finds a merged sibling', async () => {
+    const BOUND_PARTY_PERSONA_ID = 'persona-ian-email-bound-principal';
+    mockListMyExchanges.mockResolvedValueOnce({ ok: true, exchanges: [{ id: FAKE_EXCHANGE_ID, status: 'B_DEPOSITED' }] });
+    mockResolveExchangeActingPrincipal.mockResolvedValueOnce({ ok: true, personaId: BOUND_PARTY_PERSONA_ID, actorType: 'principal' });
+    mockGetExchangeView.mockResolvedValueOnce({
+      ok: true,
+      view: {
+        viewerParty: 'B',
+        yourArtifact: { id: 'artifact-1', title: 'OCSGA v1.3', pendingPrincipalAttestation: true, frozen: false, signed: false },
+        counterpartyArtifact: null,
+        exchange: { status: 'B_DEPOSITED' },
+      },
+    });
+
+    const result = await getExchangeStateForMcp(NOOP_ADMIN, delegatedSession());
+    expect(result.ok).toBe(true);
+
+    // getExchangeView must be called with the RESOLVED bound-party persona —
+    // never FAKE_PERSONA_ID (the session's own raw resolved principal) —
+    // when the two diverge.
+    expect(mockGetExchangeView.mock.calls[0][1]).toMatchObject({
+      exchangeId: FAKE_EXCHANGE_ID,
+      personaId: BOUND_PARTY_PERSONA_ID,
+    });
+    if (result.ok) {
+      expect(result.view.viewerParty).toBe('B');
+      expect(result.view.yourArtifact?.pendingPrincipalAttestation).toBe(true);
+    }
   });
 });

@@ -23,9 +23,9 @@ import {
 } from '@/services/receipts/activityReceiptService';
 import { hasActiveDelegation } from '@/services/delegation/delegationGrantStore';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
-import { listMyExchanges, getExchangeView } from '@/services/research/reciprocalExchange';
+import { listMyExchanges, getExchangeView, resolveExchangeActingPrincipal } from '@/services/research/reciprocalExchange';
 import { hasCrossed } from '@/types/reciprocalExchange';
-import { isPassportUsable, loadUsableCitizenPassportForAuthProfile } from '@/services/identity/passportPrincipal';
+import { isPassportUsable, loadUsableCitizenPassportForAuthProfile, listOwnedPersonaIds } from '@/services/identity/passportPrincipal';
 
 export interface IanAuthoritativeStateResult {
   state: JourneyAuthState;
@@ -124,15 +124,17 @@ export async function resolveOrientationPrincipalGate(
   admin: SupabaseClient,
   input: { personaId: string; authProfileId: string },
 ): Promise<OrientationPrincipalGateResult> {
-  // 1. Every persona this auth profile owns — the search space for "is a
-  //    SIBLING of the acting persona already the exchange's bound principal".
-  const { data: siblingRows } = await admin
-    .from('personas')
-    .select('id')
-    .eq('auth_profile_id', input.authProfileId);
-  const siblingIds = (siblingRows ?? [])
-    .map((r) => (r as { id?: unknown }).id)
-    .filter((id): id is string => typeof id === 'string');
+  // 1. Every persona this HOLDER owns — the search space for "is a SIBLING
+  //    of the acting persona already the exchange's bound principal".
+  //    Merge-aware (2026-08-30, "MCP navigator discovery" repair): the SAME
+  //    roster Passport/bound-agent discovery already use
+  //    (services/identity/passportPrincipal.ts's listOwnedPersonaIds, which
+  //    unions in getMergedLinkedAuthProfileIds) — a raw same-auth_profile_id
+  //    query alone misses a sibling under a MERGED auth profile, exactly the
+  //    gap that let Passport resolve as usable while this gate still saw no
+  //    sibling at all.
+  const owned = await listOwnedPersonaIds(admin, input.authProfileId);
+  const siblingIds = owned.ok ? owned.personaIds : [];
 
   if (siblingIds.length > 0) {
     const idList = siblingIds.join(',');
@@ -229,16 +231,12 @@ export async function resolveOrientationEvidence(
     return { complete: false, receiptId: null };
   }
 
-  // Every persona under this auth profile is a candidate — the receipt
-  // that decides Orient may belong to a sibling other than whichever
-  // persona is currently active.
-  const { data: siblingRows } = await admin
-    .from('personas')
-    .select('id')
-    .eq('auth_profile_id', input.authProfileId);
-  const siblingIds = (siblingRows ?? [])
-    .map((r) => (r as { id?: unknown }).id)
-    .filter((id): id is string => typeof id === 'string');
+  // Every persona this HOLDER owns is a candidate — the receipt that decides
+  // Orient may belong to a sibling other than whichever persona is currently
+  // active. Merge-aware (2026-08-30) — same roster as
+  // resolveOrientationPrincipalGate above; see its comment for why.
+  const owned = await listOwnedPersonaIds(admin, input.authProfileId);
+  const siblingIds = owned.ok ? owned.personaIds : [];
   const candidatePersonaIds = siblingIds.length > 0 ? siblingIds : [input.personaId];
 
   const receipts = await listActivityReceiptsForPersonas(candidatePersonaIds, {
@@ -291,8 +289,6 @@ export async function fetchIanAuthoritativePlatformState(
   const hasReceiptType = (type: string) => receipts.some((r) => r.actionType === type);
   const receiptIdsFor = (type: string) => receipts.filter((r) => r.actionType === type).map((r) => r.id);
 
-  const delegationActive = await hasActiveDelegation(personaId).catch(() => false);
-
   let yourDeposited = false;
   let yourPendingPrincipalAttestation = false;
   let yourFrozen = false;
@@ -305,6 +301,24 @@ export async function fetchIanAuthoritativePlatformState(
 
   const admin = getSupabaseServer();
 
+  // Merge-aware owned-persona-id roster (2026-08-30, "MCP navigator
+  // discovery" repair) — the SAME roster Passport/bound-agent discovery
+  // already use (services/identity/passportPrincipal.ts's
+  // listOwnedPersonaIds). Resolved ONCE here and reused for both delegation
+  // and exchange discovery below, rather than two independently narrower
+  // checks. Falls back to [personaId] alone when it cannot resolve (no
+  // admin, no authProfileId, or the lookup itself fails) — never widens
+  // incorrectly, never throws.
+  let ownedPersonaIds: string[] = [personaId];
+  if (admin && authProfileId) {
+    const owned = await listOwnedPersonaIds(admin, authProfileId).catch(() => null);
+    if (owned?.ok) ownedPersonaIds = owned.personaIds;
+  }
+
+  const delegationActive = (
+    await Promise.all(ownedPersonaIds.map((id: string) => hasActiveDelegation(id).catch(() => false)))
+  ).some(Boolean);
+
   // Orient evidence — principal-aware (2026-08-29). Resolved regardless of
   // whether `admin` is available; resolveOrientationEvidence itself fails
   // closed (incomplete, never fabricated) when it is not.
@@ -314,7 +328,7 @@ export async function fetchIanAuthoritativePlatformState(
       'Supabase server client unavailable — cannot resolve Reciprocal Artifact Exchange state; deposit/freeze/sign/cross stages read as not-yet-established, not fabricated.',
     );
   } else {
-    const mine = await listMyExchanges(admin, personaId);
+    const mine = await listMyExchanges(admin, ownedPersonaIds);
     if (!mine.ok) {
       evidenceGaps.push(`listMyExchanges failed: ${mine.error}`);
     } else if (mine.exchanges.length === 0) {
@@ -329,15 +343,27 @@ export async function fetchIanAuthoritativePlatformState(
       }
       const exchange = mine.exchanges[0];
       activeExchangeId = exchange.id;
-      const view = await getExchangeView(admin, { exchangeId: exchange.id, personaId });
-      if (!view.ok) {
-        evidenceGaps.push(`getExchangeView failed: ${view.error}`);
+      // The exchange was discovered via the merge-aware roster above, so the
+      // party bound to it may be a SIBLING of `personaId`, not `personaId`
+      // itself — resolve the exact bound-party personaId (the same
+      // resolver the bridge route already uses) before reading its view;
+      // getExchangeView's own resolveMembership check requires an exact
+      // match, so passing the wrong sibling here would refuse as
+      // 'not-a-party' even though the exchange was correctly found.
+      const acting = await resolveExchangeActingPrincipal(admin, { exchangeId: exchange.id, activePersonaId: personaId, authProfileId });
+      if (!acting.ok) {
+        evidenceGaps.push('Could not resolve which bound party this persona corresponds to on the discovered exchange.');
       } else {
-        yourDeposited = view.view.yourArtifact !== null;
-        yourPendingPrincipalAttestation = Boolean(view.view.yourArtifact?.pendingPrincipalAttestation);
-        yourFrozen = Boolean(view.view.yourArtifact?.frozen);
-        yourSigned = Boolean(view.view.yourArtifact?.signed);
-        crossed = hasCrossed(view.view.exchange.status);
+        const view = await getExchangeView(admin, { exchangeId: exchange.id, personaId: acting.personaId });
+        if (!view.ok) {
+          evidenceGaps.push(`getExchangeView failed: ${view.error}`);
+        } else {
+          yourDeposited = view.view.yourArtifact !== null;
+          yourPendingPrincipalAttestation = Boolean(view.view.yourArtifact?.pendingPrincipalAttestation);
+          yourFrozen = Boolean(view.view.yourArtifact?.frozen);
+          yourSigned = Boolean(view.view.yourArtifact?.signed);
+          crossed = hasCrossed(view.view.exchange.status);
+        }
       }
     }
 
