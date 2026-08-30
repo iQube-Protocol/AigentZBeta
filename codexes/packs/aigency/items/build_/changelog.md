@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`339310d`](https://github.com/iQube-Protocol/AigentZBeta/commit/339310d0e336a0595068100e08238f6460052a02) [feat] Add retrospective substrate admissibility (governance ruling 2026-08-30) (Claude, 2026-08-30T02:42:02Z)
 - [`b8d7236`](https://github.com/iQube-Protocol/AigentZBeta/commit/b8d7236ac720d7b04354de9d7822538eeb10662d) [feat] Add narrowly-versioned legacy freeze verification (byte-exact | scientific-content-verified | unverified) (Claude, 2026-08-30T01:59:30Z)
 - [`447396c`](https://github.com/iQube-Protocol/AigentZBeta/commit/447396c25ffdd5b75fe958b84c88739719cbf0fb) [fix] Fix EXP-P1 retrospective dataflow: assess the recovered frozen population (Claude, 2026-08-30T00:55:31Z)
 - [`d96a897`](https://github.com/iQube-Protocol/AigentZBeta/commit/d96a897ebf5d886e9c66a05b2a87cc41bd9a9682) [fix] Fix EXP-P1 frozen crystal membership recovery: drop status filter (Claude, 2026-08-30T00:11:24Z)

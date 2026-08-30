@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-30T02:01:48.336Z",
+  "last_updated": "2026-08-30T02:44:28.453Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "b8d7236ac720d7b04354de9d7822538eeb10662d",
-  "latest_commit_short": "b8d7236",
-  "latest_commit_title": "Add narrowly-versioned legacy freeze verification (byte-exact | scientific-content-verified | unverified)",
+  "latest_commit": "339310d0e336a0595068100e08238f6460052a02",
+  "latest_commit_short": "339310d",
+  "latest_commit_title": "Add retrospective substrate admissibility (governance ruling 2026-08-30)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "339310d",
+      "full_sha": "339310d0e336a0595068100e08238f6460052a02",
+      "title": "Add retrospective substrate admissibility (governance ruling 2026-08-30)",
+      "author": "Claude",
+      "timestamp": "2026-08-30T02:42:02Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-339310d.md"
+    },
     {
       "sha": "b8d7236",
       "full_sha": "b8d7236ac720d7b04354de9d7822538eeb10662d",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-16T14:06:01-04:00",
       "type": "docs",
       "brief": "items/build_/COMMITS/COMMIT-2636e9b.md"
-    },
-    {
-      "sha": "b78f40e",
-      "full_sha": "b78f40edd12229553bb9db2f56e85759ac73b5dd",
-      "title": "docs(knyt): add Claude Code campaign implementation specification for KNYTS Bridge activation",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-16T13:26:40-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-b78f40e.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

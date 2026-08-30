@@ -4649,3 +4649,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-b8d7236.md](../build_/COMMITS/COMMIT-b8d7236.md)
 - Message: Add narrowly-versioned legacy freeze verification (byte-exact | scientific-content-verified | unverified)
+
+## Commit `339310d` — 2026-08-30T02:42:02Z
+- Type: `feat`
+- Brief: [COMMIT-339310d.md](../build_/COMMITS/COMMIT-339310d.md)
+- Message: Add retrospective substrate admissibility (governance ruling 2026-08-30)
