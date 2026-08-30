@@ -4654,3 +4654,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-339310d.md](../build_/COMMITS/COMMIT-339310d.md)
 - Message: Add retrospective substrate admissibility (governance ruling 2026-08-30)
+
+## Commit `fc30d22` — 2026-08-30T03:15:24Z
+- Type: `push`
+- Brief: [COMMIT-fc30d22.md](../build_/COMMITS/COMMIT-fc30d22.md)
+- Message: Bind EXP-P1 remediation profile: populate the canonical retrospective

@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-30T02:44:28.453Z",
+  "last_updated": "2026-08-30T03:17:54.145Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "339310d0e336a0595068100e08238f6460052a02",
-  "latest_commit_short": "339310d",
-  "latest_commit_title": "Add retrospective substrate admissibility (governance ruling 2026-08-30)",
+  "latest_commit": "fc30d229f0054fe865375fc13d4a8060988279a4",
+  "latest_commit_short": "fc30d22",
+  "latest_commit_title": "Bind EXP-P1 remediation profile: populate the canonical retrospective",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "fc30d22",
+      "full_sha": "fc30d229f0054fe865375fc13d4a8060988279a4",
+      "title": "Bind EXP-P1 remediation profile: populate the canonical retrospective",
+      "author": "Claude",
+      "timestamp": "2026-08-30T03:15:24Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-fc30d22.md"
+    },
     {
       "sha": "339310d",
       "full_sha": "339310d0e336a0595068100e08238f6460052a02",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-16T15:31:08-04:00",
       "type": "docs",
       "brief": "items/build_/COMMITS/COMMIT-3d0dd87.md"
-    },
-    {
-      "sha": "2636e9b",
-      "full_sha": "2636e9bf5e6000928e52bdd40acd3829aa3d6088",
-      "title": "docs: extend OCSGA dossier with structural invariance research",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-16T14:06:01-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-2636e9b.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
