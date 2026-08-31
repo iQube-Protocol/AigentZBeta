@@ -119,6 +119,7 @@ function programme(over: Partial<Track2ProgrammeSignals> = {}) {
   return buildTrack2Programme({
     experimentId: 'EXP-P1',
     crystalDomain: 'financial-risk-value-systems',
+    acquisitionDomain: 'financial-services',
     signals: {
       candidateSources: { total: 35, pendingReview: 33, admitted: 2 },
       discoveryCandidates: { total: 17, awaitingReview: 0, promoted: 17 },
@@ -127,6 +128,7 @@ function programme(over: Partial<Track2ProgrammeSignals> = {}) {
       lifecycle: lifecycle(),
       artifact: null,
       independentReviewRequestOpen: false,
+      acquisitionSourceUniverse: null,
       ...over,
     },
   });

@@ -318,6 +318,18 @@ export interface Track2ProgrammeSignals {
   artifact: { id: string; lifecycle: string } | null;
   /** Whether the independent pre-freeze review may open — from crystalReviewStageStatus. */
   independentReviewRequestOpen: boolean;
+  /**
+   * The acquisition domain's ratified/verified institution counts
+   * (2026-08-31, "targeted-acquisition domain/source-universe handoff"
+   * repair) — services/corpusScout/domainConstitution.ts's
+   * `summarizeAcquisitionSourceUniverse`, read over the SAME acquisition
+   * domain Stage 2/the Copilot/run-step already resolve. Null = unreadable
+   * (never assumed empty). Lets Stage 1 distinguish "nothing ratified yet"
+   * from "ratified but none verified" — a targeted-acquisition approval can
+   * be genuinely active while this is the latter, which is NOT the same
+   * fact as "acquisition never started".
+   */
+  acquisitionSourceUniverse: { ratifiedInstitutionCount: number; eligibleInstitutionCount: number } | null;
 }
 
 export interface Track2Programme {
@@ -432,9 +444,15 @@ function remediesFor(stageId: Track2StageId, readiness: CrystalReadinessReport):
 export function buildTrack2Programme(input: {
   experimentId: string;
   crystalDomain: string;
+  /** THE canonical acquisition domain — the SAME value Stage 2/the Copilot/
+   *  run-step already resolve (2026-08-31 domain/source-universe handoff
+   *  repair). Named on every Stage 1 detail/remedy string that references
+   *  "the acquisition domain", so a reader never has to guess which domain
+   *  a stage means. */
+  acquisitionDomain: string;
   signals: Track2ProgrammeSignals;
 }): Track2Programme {
-  const { signals: s } = input;
+  const { signals: s, acquisitionDomain } = input;
   const populated = s.readiness.invariantCount > 0;
 
   // ── THE STAGE 4 → STAGE 5 HANDOVER, computed once ─────────────────────────
@@ -576,6 +594,88 @@ export function buildTrack2Programme(input: {
               : [],
         });
 
+  /**
+   * STAGE 1's OUTCOME (2026-08-31, "targeted-acquisition domain/source-
+   * universe handoff" repair) — distinguishes THREE genuinely different
+   * reasons `candidateSources.total` can be zero, rather than collapsing
+   * them all into 'not-started':
+   *
+   *   unreadable constitution        → 'unknown' (never guessed)
+   *   nothing ratified yet           → 'not-started' — the ORIGINAL remedy
+   *                                     ("ratify the pillars") is correct here
+   *   ratified but NONE verified     → 'blocked' — a targeted-acquisition
+   *                                     approval can be genuinely active
+   *                                     while this holds; SPEC-CIR-001 §9's
+   *                                     verification gate is what is
+   *                                     missing, not ratification, and
+   *                                     re-ratifying already-ratified
+   *                                     pillars would not help
+   *   ratified + verified, unrun     → 'not-started', accurately: ready to
+   *                                     run, nothing has yet
+   *
+   * All read over `acquisitionDomain` — the SAME value Stage 2's
+   * CorpusReviewQueue, the Research Copilot's approve/run-step, and this
+   * stage's own `candidateSources` signal already share. One canonical
+   * domain resolution; this stage never re-derives or re-guesses it.
+   */
+  const discoverSourcesOutcome: StageOutcome =
+    s.candidateSources === null
+      ? {
+          status: 'unknown',
+          detail: 'candidate-source substrate could not be read — status unknown, not assumed',
+          remedies: [],
+        }
+      : s.candidateSources.total > 0
+        ? {
+            status: 'complete',
+            detail: `${s.candidateSources.total} candidate source(s) discovered`,
+            remedies: [],
+          }
+        : s.acquisitionSourceUniverse === null
+          ? {
+              status: 'unknown',
+              detail:
+                `0 candidate source(s) discovered, and the acquisition domain '${acquisitionDomain}' constitution ` +
+                'could not be read to determine why — status unknown, not assumed',
+              remedies: [],
+            }
+          : s.acquisitionSourceUniverse.ratifiedInstitutionCount === 0
+            ? {
+                status: 'not-started',
+                detail:
+                  `0 candidate source(s) discovered — no institution is yet ratified for acquisition domain ` +
+                  `'${acquisitionDomain}'`,
+                remedies: ['Ratify the domain constitution pillars first, then run discovery for the domain.'],
+              }
+            : s.acquisitionSourceUniverse.eligibleInstitutionCount === 0
+              ? {
+                  // DISTINCT from 'not-started': acquisition may already be
+                  // APPROVED (crystal_acquisition_approvals can hold an
+                  // active row) while this holds — the source universe is
+                  // unavailable, not "never started". See
+                  // services/corpusScout/domainConstitution.ts's
+                  // `summarizeAcquisitionSourceUniverse` for the full
+                  // SPEC-CIR-001 §9 provenance of this gate.
+                  status: 'blocked',
+                  detail:
+                    `${s.acquisitionSourceUniverse.ratifiedInstitutionCount} institution(s) are ratified for ` +
+                    `acquisition domain '${acquisitionDomain}', but NONE have completed verification — the ` +
+                    'discovery gate requires both ratification AND verification (SPEC-CIR-001 §9); this is the ' +
+                    'acquisition source universe being unavailable, not acquisition never having started',
+                  remedies: [
+                    `Run institution verification for '${acquisitionDomain}' (POST ` +
+                      '/api/corpus-scout/institution-verification) before discovery can proceed. The institutions ' +
+                      'are already ratified — re-ratifying them will not help; verification is the outstanding gate.',
+                  ],
+                }
+              : {
+                  status: 'not-started',
+                  detail:
+                    `0 candidate source(s) discovered — ${s.acquisitionSourceUniverse.eligibleInstitutionCount} ` +
+                    `ratified and verified institution(s) are ready for acquisition domain '${acquisitionDomain}'`,
+                  remedies: [],
+                };
+
   const stages: Track2Stage[] = [
     {
       id: 'discover-sources',
@@ -594,16 +694,9 @@ export function buildTrack2Programme(input: {
         produces: 'admitted-corpus',
         source: 'corpus_candidate_sources WHERE campaign_domain = <acquisitionDomain> — the head of the pipeline writes into this corpus',
       },
-      status:
-        s.candidateSources === null ? 'unknown' : s.candidateSources.total > 0 ? 'complete' : 'not-started',
-      detail:
-        s.candidateSources === null
-          ? 'candidate-source substrate could not be read — status unknown, not assumed'
-          : `${s.candidateSources.total} candidate source(s) discovered`,
-      remedies:
-        s.candidateSources?.total === 0
-          ? ['Ratify the domain constitution pillars first, then run discovery for the domain.']
-          : [],
+      status: discoverSourcesOutcome.status,
+      detail: discoverSourcesOutcome.detail,
+      remedies: discoverSourcesOutcome.remedies,
     },
     {
       id: 'review-and-admit',

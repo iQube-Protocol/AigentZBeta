@@ -357,6 +357,7 @@ describe('Track 2 programme surface — the guided view', () => {
     const programme = buildTrack2Programme({
       experimentId: 'EXP-P1',
       crystalDomain: 'financial-risk-value-systems',
+      acquisitionDomain: 'financial-services',
       signals: {
         candidateSources: { total: 47, pendingReview: 41, admitted: 0 },
         discoveryCandidates: { total: 0, awaitingReview: 0, promoted: 0 },
@@ -370,6 +371,7 @@ describe('Track 2 programme surface — the guided view', () => {
         lifecycle: { stageId: 'CANDIDATE_NOT_CONSTITUTED', whatIsMissing: 'no corpus' } as never,
         artifact: null,
         independentReviewRequestOpen: false,
+        acquisitionSourceUniverse: null,
       },
     });
     expect(programme.currentStageId).toBe('review-and-admit');

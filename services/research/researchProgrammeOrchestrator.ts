@@ -91,6 +91,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { listCandidateSources } from '@/services/corpusScout/provenance';
+import { summarizeAcquisitionSourceUniverse } from '@/services/corpusScout/domainConstitution';
 import {
   listCandidates,
   listEvidence,
@@ -438,7 +439,7 @@ export async function loadTrack2ProgrammeState(input: {
   const restStart = input.timer?.now() ?? 0;
 
   // Best-effort, fail-soft. `null` becomes `unknown`, never `complete`.
-  const [sources, candidates, artifact, frozenContext] = await Promise.all([
+  const [sources, candidates, artifact, frozenContext, acquisitionSourceUniverse] = await Promise.all([
     admin ? listCandidateSources(admin, { campaignDomain: acquisitionDomain }).catch(() => null) : null,
     admin ? listCandidates(admin, acquisitionDomain).catch(() => null) : null,
     // Lineage-safe (operator ruling 2026-08-27, "Crystal v1/v2 lineage
@@ -454,12 +455,22 @@ export async function loadTrack2ProgrammeState(input: {
     // "successor cohort vs successor Crystal" operator ruling). Moved here
     // verbatim from this module's own inline block; behaviour unchanged.
     resolveFrozenPredecessorContext(input.experimentId),
+    // The acquisition domain's ratified/verified institution counts
+    // (2026-08-31, "targeted-acquisition domain/source-universe handoff"
+    // repair) — lets Stage 1's own derivation distinguish "nothing ratified
+    // yet" from "ratified but unverified" (a valid targeted-acquisition
+    // approval can exist while this is empty) rather than collapsing both
+    // into a generic "not started". Read over the SAME `acquisitionDomain`
+    // every other acquisition surface (Stage 2, the Copilot, run-step)
+    // already resolves — one canonical domain, never a second guess.
+    admin ? summarizeAcquisitionSourceUniverse(admin, acquisitionDomain).catch(() => null) : null,
   ]);
 
   const unreadableSignals: string[] = [];
   if (!admin) unreadableSignals.push('supabase (no server client) — candidate sources and discovery candidates');
   if (admin && !sources) unreadableSignals.push('corpus_candidate_sources');
   if (admin && !candidates) unreadableSignals.push('discovery_candidates');
+  if (admin && !acquisitionSourceUniverse) unreadableSignals.push('corpus_institutional_registry (acquisition source universe)');
   if (frozenContext.frozenPredecessor && !frozenContext.frozenGenerationMemberIds) {
     unreadableSignals.push('frozen predecessor crystal manifest (frozen-generation boundary)');
   }
@@ -542,6 +553,7 @@ export async function loadTrack2ProgrammeState(input: {
   const programme = buildTrack2Programme({
     experimentId: input.experimentId,
     crystalDomain: declaration.domain,
+    acquisitionDomain,
     signals: {
       candidateSources,
       discoveryCandidates,
@@ -550,6 +562,7 @@ export async function loadTrack2ProgrammeState(input: {
       lifecycle,
       artifact: artifact ? { id: artifact.id, lifecycle: artifact.lifecycle } : null,
       independentReviewRequestOpen: reviewStage.independentReviewRequestOpen,
+      acquisitionSourceUniverse,
     },
   });
 
