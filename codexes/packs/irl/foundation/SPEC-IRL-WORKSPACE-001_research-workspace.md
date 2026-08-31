@@ -81,8 +81,10 @@ Research Programme ├── Experiment ├── Cohort └── Student Proje
 
 Autonomi: Programme → EXP-P1, EXP-P2, EXP-P3.
 
-Lehigh: Programmes → FE Capstone (Risk Management, Pricing, Financial Systems) + CS Capstone
+Lehigh: Programmes → MFE Capstone (Risk, Value, Price) + CS Capstone
 (Software Build, Agent Integration, Constitutional Runtime).
+
+The MFE ordering is constitutional, not cosmetic: **price is established by balancing risk and value**.
 
 ## 7 — The eight views
 

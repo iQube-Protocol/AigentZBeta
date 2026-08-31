@@ -4559,3 +4559,158 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-1ffcad4.md](../build_/COMMITS/COMMIT-1ffcad4.md)
 - Message: record the channel-independence constitutional invariants ratified from OCSGA/Copilot convergence evidence
+
+## Commit `a2347b0` — 2026-08-28T14:57:07Z
+- Type: `feat`
+- Brief: [COMMIT-a2347b0.md](../build_/COMMITS/COMMIT-a2347b0.md)
+- Message: feat: implement operator-assisted artifact confirmation MCP tool, admin route, and comprehensive test suite
+
+## Commit `b9667e0` — 2026-08-28T14:55:02Z
+- Type: `feat`
+- Brief: [COMMIT-b9667e0.md](../build_/COMMITS/COMMIT-b9667e0.md)
+- Message: feat: add operator-assisted artifact registration schema and service functions
+
+## Commit `5540135` — 2026-08-28T14:24:25-04:00
+- Type: `push`
+- Brief: [COMMIT-5540135.md](../build_/COMMITS/COMMIT-5540135.md)
+- Message: Publish constitutional financial services whitepaper and MFE estate briefing
+
+## Commit `21f2952` — 2026-08-28T15:16:12-04:00
+- Type: `fix`
+- Brief: [COMMIT-21f2952.md](../build_/COMMITS/COMMIT-21f2952.md)
+- Message: Correct MFE capstone pillars to Risk Management, Pricing and Value
+
+## Commit `53ba2bd` — 2026-08-28T15:47:49-04:00
+- Type: `push`
+- Brief: [COMMIT-53ba2bd.md](../build_/COMMITS/COMMIT-53ba2bd.md)
+- Message: Canonize MFE pillars as Risk, Value, Price (#103)
+
+## Commit `a9df145` — 2026-08-28T15:55:53-04:00
+- Type: `push`
+- Brief: [COMMIT-a9df145.md](../build_/COMMITS/COMMIT-a9df145.md)
+- Message: Pin public CFS whitepaper in AgentiQ OS corpus (#104)
+
+## Commit `d133b9b` — 2026-08-29T02:37:47Z
+- Type: `fix`
+- Brief: [COMMIT-d133b9b.md](../build_/COMMITS/COMMIT-d133b9b.md)
+- Message: Fix duplicate operator-assisted RAX implementations and broken registration route
+
+## Commit `4ae4830` — 2026-08-29T03:41:21Z
+- Type: `fix`
+- Brief: [COMMIT-4ae4830.md](../build_/COMMITS/COMMIT-4ae4830.md)
+- Message: Fix ContactGraph People "Bad Request" — chunk unbounded .in() filters
+
+## Commit `a7362d0` — 2026-08-29T04:34:44Z
+- Type: `fix`
+- Brief: [COMMIT-a7362d0.md](../build_/COMMITS/COMMIT-a7362d0.md)
+- Message: Fix Communications People: independent scroll pane + 1,000-person ceiling
+
+## Commit `b0d0aeb` — 2026-08-29T13:14:58Z
+- Type: `fix`
+- Brief: [COMMIT-b0d0aeb.md](../build_/COMMITS/COMMIT-b0d0aeb.md)
+- Message: Fix OCSGA Bridge projection: Ian's exchange no longer hidden behind the delegation shell
+
+## Commit `bbfa9d4` — 2026-08-29T14:42:50Z
+- Type: `push`
+- Brief: [COMMIT-bbfa9d4.md](../build_/COMMITS/COMMIT-bbfa9d4.md)
+- Message: Harden principal-only orientation: fail closed on the wrong acting persona
+
+## Commit `c6f70de` — 2026-08-29T14:20:07Z
+- Type: `feat`
+- Brief: [COMMIT-c6f70de.md](../build_/COMMITS/COMMIT-c6f70de.md)
+- Message: Add gated runtime session diagnostics for the cross-runtime ~3s reset investigation (Bug B)
+
+## Commit `2a742dd` — 2026-08-29T17:42:01Z
+- Type: `push`
+- Brief: [COMMIT-2a742dd.md](../build_/COMMITS/COMMIT-2a742dd.md)
+- Message: Harden Orientation READ path: principal-aware evidence resolution
+
+## Commit `135ef2a` — 2026-08-29T18:05:53Z
+- Type: `fix`
+- Brief: [COMMIT-135ef2a.md](../build_/COMMITS/COMMIT-135ef2a.md)
+- Message: Fix Establish Presence evidence resolution: recognize a Passport held under a merged auth profile
+
+## Commit `bbaa8f3` — 2026-08-29T20:45:32Z
+- Type: `push`
+- Brief: [COMMIT-bbaa8f3.md](../build_/COMMITS/COMMIT-bbaa8f3.md)
+- Message: Author EXP-P1 CrystalRemediationProfile v1 from Review #001 + frozen protocol
+
+## Commit `d96a897` — 2026-08-30T00:11:24Z
+- Type: `fix`
+- Brief: [COMMIT-d96a897.md](../build_/COMMITS/COMMIT-d96a897.md)
+- Message: Fix EXP-P1 frozen crystal membership recovery: drop status filter
+
+## Commit `447396c` — 2026-08-30T00:55:31Z
+- Type: `fix`
+- Brief: [COMMIT-447396c.md](../build_/COMMITS/COMMIT-447396c.md)
+- Message: Fix EXP-P1 retrospective dataflow: assess the recovered frozen population
+
+## Commit `b8d7236` — 2026-08-30T01:59:30Z
+- Type: `feat`
+- Brief: [COMMIT-b8d7236.md](../build_/COMMITS/COMMIT-b8d7236.md)
+- Message: Add narrowly-versioned legacy freeze verification (byte-exact | scientific-content-verified | unverified)
+
+## Commit `339310d` — 2026-08-30T02:42:02Z
+- Type: `feat`
+- Brief: [COMMIT-339310d.md](../build_/COMMITS/COMMIT-339310d.md)
+- Message: Add retrospective substrate admissibility (governance ruling 2026-08-30)
+
+## Commit `fc30d22` — 2026-08-30T03:15:24Z
+- Type: `push`
+- Brief: [COMMIT-fc30d22.md](../build_/COMMITS/COMMIT-fc30d22.md)
+- Message: Bind EXP-P1 remediation profile: populate the canonical retrospective
+
+## Commit `6013623` — 2026-08-30T08:57:46Z
+- Type: `fix`
+- Brief: [COMMIT-6013623.md](../build_/COMMITS/COMMIT-6013623.md)
+- Message: fix Track 2 v2 state machine: frozen-generation scoping, false provenance gate, same-tab deep-link, acquisition bridge
+
+## Commit `ccebd69` — 2026-08-30T10:05:56Z
+- Type: `fix`
+- Brief: [COMMIT-ccebd69.md](../build_/COMMITS/COMMIT-ccebd69.md)
+- Message: fix Stage 3→4 handoff gap: scope extracted-candidate counts to the successor cohort
+
+## Commit `a68e67f` — 2026-08-30T13:21:40Z
+- Type: `fix`
+- Brief: [COMMIT-a68e67f.md](../build_/COMMITS/COMMIT-a68e67f.md)
+- Message: correct stale principal-only doctrine: OCSGA acts are delegable, CTP-001 amended before it hardens
+
+## Commit `1d885ae` — 2026-08-30T14:01:17Z
+- Type: `feat`
+- Brief: [COMMIT-1d885ae.md](../build_/COMMITS/COMMIT-1d885ae.md)
+- Message: Add MCP channel-equivalence acceptance tests for OCSGA delegated completion
+
+## Commit `c08f312` — 2026-08-30T15:59:05Z
+- Type: `fix`
+- Brief: [COMMIT-c08f312.md](../build_/COMMITS/COMMIT-c08f312.md)
+- Message: Fix MCP exchange-write gate to accept canonical exchange authority, not only IRL-service scope
+
+## Commit `82dcf7d` — 2026-08-30T21:16:07Z
+- Type: `fix`
+- Brief: [COMMIT-82dcf7d.md](../build_/COMMITS/COMMIT-82dcf7d.md)
+- Message: Fix exchange/orientation/delegation discovery to be merge-aware, like Passport
+
+## Commit `82f6308` — 2026-08-30T21:57:56Z
+- Type: `fix`
+- Brief: [COMMIT-82f6308.md](../build_/COMMITS/COMMIT-82f6308.md)
+- Message: fix empty-504 on /advance and turn Discover Sources into a Copilot approval
+
+## Commit `56b0748` — 2026-08-30T22:44:19Z
+- Type: `push`
+- Brief: [COMMIT-56b0748.md](../build_/COMMITS/COMMIT-56b0748.md)
+- Message: turn Review & Promote into a real Copilot decision surface, not prose
+
+## Commit `aec0d2d` — 2026-08-30T22:56:36Z
+- Type: `push`
+- Brief: [COMMIT-aec0d2d.md](../build_/COMMITS/COMMIT-aec0d2d.md)
+- Message: generalize the pending-decision filter: actionable, not just remedies
+
+## Commit `d1f2ba0` — 2026-08-31T00:00:46Z
+- Type: `push`
+- Brief: [COMMIT-d1f2ba0.md](../build_/COMMITS/COMMIT-d1f2ba0.md)
+- Message: close Classify Provenance omission defect: machine recommendation != steward decision
+
+## Commit `5e26748` — 2026-08-31T00:13:27Z
+- Type: `fix`
+- Brief: [COMMIT-5e26748.md](../build_/COMMITS/COMMIT-5e26748.md)
+- Message: repair-classify-provenance-record.ts: load .env.local like its sibling scripts

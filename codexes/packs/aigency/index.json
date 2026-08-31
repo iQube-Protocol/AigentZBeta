@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-28T13:45:39.744Z",
+  "last_updated": "2026-08-31T00:15:32.045Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "1ffcad44b9b0ea6bda0bdca8236c2065be2f14c8",
-  "latest_commit_short": "1ffcad4",
-  "latest_commit_title": "record the channel-independence constitutional invariants ratified from OCSGA/Copilot convergence evidence",
+  "latest_commit": "5e26748d729d049a3022ec10153086df26b6d921",
+  "latest_commit_short": "5e26748",
+  "latest_commit_title": "repair-classify-provenance-record.ts: load .env.local like its sibling scripts",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,285 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "5e26748",
+      "full_sha": "5e26748d729d049a3022ec10153086df26b6d921",
+      "title": "repair-classify-provenance-record.ts: load .env.local like its sibling scripts",
+      "author": "Claude",
+      "timestamp": "2026-08-31T00:13:27Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-5e26748.md"
+    },
+    {
+      "sha": "d1f2ba0",
+      "full_sha": "d1f2ba082264c38fc0fb27889bb3a656358aeeda",
+      "title": "close Classify Provenance omission defect: machine recommendation != steward decision",
+      "author": "Claude",
+      "timestamp": "2026-08-31T00:00:46Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-d1f2ba0.md"
+    },
+    {
+      "sha": "aec0d2d",
+      "full_sha": "aec0d2d6f42df9391efb3b543317ced763014cc2",
+      "title": "generalize the pending-decision filter: actionable, not just remedies",
+      "author": "Claude",
+      "timestamp": "2026-08-30T22:56:36Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-aec0d2d.md"
+    },
+    {
+      "sha": "56b0748",
+      "full_sha": "56b074876dfe1e3f6f15e458613c8a05c0cc30f7",
+      "title": "turn Review & Promote into a real Copilot decision surface, not prose",
+      "author": "Claude",
+      "timestamp": "2026-08-30T22:44:19Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-56b0748.md"
+    },
+    {
+      "sha": "82f6308",
+      "full_sha": "82f6308b4a5fa66dd896bec04c30aa4767597df1",
+      "title": "fix empty-504 on /advance and turn Discover Sources into a Copilot approval",
+      "author": "Claude",
+      "timestamp": "2026-08-30T21:57:56Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-82f6308.md"
+    },
+    {
+      "sha": "82dcf7d",
+      "full_sha": "82dcf7d8c6fdce892cbf8e2c4f6b7cb6982a0ef7",
+      "title": "Fix exchange/orientation/delegation discovery to be merge-aware, like Passport",
+      "author": "Claude",
+      "timestamp": "2026-08-30T21:16:07Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-82dcf7d.md"
+    },
+    {
+      "sha": "c08f312",
+      "full_sha": "c08f31279af555959b16bdadfc25b175d087d969",
+      "title": "Fix MCP exchange-write gate to accept canonical exchange authority, not only IRL-service scope",
+      "author": "Claude",
+      "timestamp": "2026-08-30T15:59:05Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-c08f312.md"
+    },
+    {
+      "sha": "1d885ae",
+      "full_sha": "1d885ae175a8e4a3bfaf1c05580b39e089568fca",
+      "title": "Add MCP channel-equivalence acceptance tests for OCSGA delegated completion",
+      "author": "Claude",
+      "timestamp": "2026-08-30T14:01:17Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-1d885ae.md"
+    },
+    {
+      "sha": "a68e67f",
+      "full_sha": "a68e67f20f6f0b55e7e02a3d9e9d7f5a729a4a6c",
+      "title": "correct stale principal-only doctrine: OCSGA acts are delegable, CTP-001 amended before it hardens",
+      "author": "Claude",
+      "timestamp": "2026-08-30T13:21:40Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-a68e67f.md"
+    },
+    {
+      "sha": "ccebd69",
+      "full_sha": "ccebd69fa0aaa1b0d709fe266929e5562345b488",
+      "title": "fix Stage 3→4 handoff gap: scope extracted-candidate counts to the successor cohort",
+      "author": "Claude",
+      "timestamp": "2026-08-30T10:05:56Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-ccebd69.md"
+    },
+    {
+      "sha": "6013623",
+      "full_sha": "601362375317bc8b109d887a753c09a0eb41bb7a",
+      "title": "fix Track 2 v2 state machine: frozen-generation scoping, false provenance gate, same-tab deep-link, acquisition bridge",
+      "author": "Claude",
+      "timestamp": "2026-08-30T08:57:46Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-6013623.md"
+    },
+    {
+      "sha": "fc30d22",
+      "full_sha": "fc30d229f0054fe865375fc13d4a8060988279a4",
+      "title": "Bind EXP-P1 remediation profile: populate the canonical retrospective",
+      "author": "Claude",
+      "timestamp": "2026-08-30T03:15:24Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-fc30d22.md"
+    },
+    {
+      "sha": "339310d",
+      "full_sha": "339310d0e336a0595068100e08238f6460052a02",
+      "title": "Add retrospective substrate admissibility (governance ruling 2026-08-30)",
+      "author": "Claude",
+      "timestamp": "2026-08-30T02:42:02Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-339310d.md"
+    },
+    {
+      "sha": "b8d7236",
+      "full_sha": "b8d7236ac720d7b04354de9d7822538eeb10662d",
+      "title": "Add narrowly-versioned legacy freeze verification (byte-exact | scientific-content-verified | unverified)",
+      "author": "Claude",
+      "timestamp": "2026-08-30T01:59:30Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-b8d7236.md"
+    },
+    {
+      "sha": "447396c",
+      "full_sha": "447396c25ffdd5b75fe958b84c88739719cbf0fb",
+      "title": "Fix EXP-P1 retrospective dataflow: assess the recovered frozen population",
+      "author": "Claude",
+      "timestamp": "2026-08-30T00:55:31Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-447396c.md"
+    },
+    {
+      "sha": "d96a897",
+      "full_sha": "d96a897ebf5d886e9c66a05b2a87cc41bd9a9682",
+      "title": "Fix EXP-P1 frozen crystal membership recovery: drop status filter",
+      "author": "Claude",
+      "timestamp": "2026-08-30T00:11:24Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-d96a897.md"
+    },
+    {
+      "sha": "bbaa8f3",
+      "full_sha": "bbaa8f3aba2b4e19354592b8f8311dfadba2eda2",
+      "title": "Author EXP-P1 CrystalRemediationProfile v1 from Review #001 + frozen protocol",
+      "author": "Claude",
+      "timestamp": "2026-08-29T20:45:32Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-bbaa8f3.md"
+    },
+    {
+      "sha": "135ef2a",
+      "full_sha": "135ef2a55c6b7a61955548155685a6dd5cdf7430",
+      "title": "Fix Establish Presence evidence resolution: recognize a Passport held under a merged auth profile",
+      "author": "Claude",
+      "timestamp": "2026-08-29T18:05:53Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-135ef2a.md"
+    },
+    {
+      "sha": "2a742dd",
+      "full_sha": "2a742dd150d683a23c1dc8189f2d2e2fc9c485b6",
+      "title": "Harden Orientation READ path: principal-aware evidence resolution",
+      "author": "Claude",
+      "timestamp": "2026-08-29T17:42:01Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-2a742dd.md"
+    },
+    {
+      "sha": "c6f70de",
+      "full_sha": "c6f70de7796fcaa54f93a0fbc11f2cc80979f9cb",
+      "title": "Add gated runtime session diagnostics for the cross-runtime ~3s reset investigation (Bug B)",
+      "author": "Claude",
+      "timestamp": "2026-08-29T14:20:07Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-c6f70de.md"
+    },
+    {
+      "sha": "bbfa9d4",
+      "full_sha": "bbfa9d475bc5b4826aee8f49cca9139c8649367d",
+      "title": "Harden principal-only orientation: fail closed on the wrong acting persona",
+      "author": "Claude",
+      "timestamp": "2026-08-29T14:42:50Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-bbfa9d4.md"
+    },
+    {
+      "sha": "b0d0aeb",
+      "full_sha": "b0d0aebdac5ded9b7ac6bff5a9a340b5cb35a15a",
+      "title": "Fix OCSGA Bridge projection: Ian's exchange no longer hidden behind the delegation shell",
+      "author": "Claude",
+      "timestamp": "2026-08-29T13:14:58Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-b0d0aeb.md"
+    },
+    {
+      "sha": "a7362d0",
+      "full_sha": "a7362d08b2d2961603e95255329d94c9a5cf4578",
+      "title": "Fix Communications People: independent scroll pane + 1,000-person ceiling",
+      "author": "Claude",
+      "timestamp": "2026-08-29T04:34:44Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-a7362d0.md"
+    },
+    {
+      "sha": "4ae4830",
+      "full_sha": "4ae4830217024b6a7286dbd40e5c19526151c003",
+      "title": "Fix ContactGraph People \"Bad Request\" — chunk unbounded .in() filters",
+      "author": "Claude",
+      "timestamp": "2026-08-29T03:41:21Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-4ae4830.md"
+    },
+    {
+      "sha": "d133b9b",
+      "full_sha": "d133b9bd6e7f37964e08b6260b4913cf482a990d",
+      "title": "Fix duplicate operator-assisted RAX implementations and broken registration route",
+      "author": "Claude",
+      "timestamp": "2026-08-29T02:37:47Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-d133b9b.md"
+    },
+    {
+      "sha": "a9df145",
+      "full_sha": "a9df145d2252d1cc240dde8aea063a09429a2f8f",
+      "title": "Pin public CFS whitepaper in AgentiQ OS corpus (#104)",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-28T15:55:53-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-a9df145.md"
+    },
+    {
+      "sha": "53ba2bd",
+      "full_sha": "53ba2bd1dbc96b24b90f37c60bbcc653c1968078",
+      "title": "Canonize MFE pillars as Risk, Value, Price (#103)",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-28T15:47:49-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-53ba2bd.md"
+    },
+    {
+      "sha": "21f2952",
+      "full_sha": "21f295258aed3b906248603353a714a7b68e2702",
+      "title": "Correct MFE capstone pillars to Risk Management, Pricing and Value",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-28T15:16:12-04:00",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-21f2952.md"
+    },
+    {
+      "sha": "5540135",
+      "full_sha": "55401351764aa19c8d698215f3cb7aaffc755ce6",
+      "title": "Publish constitutional financial services whitepaper and MFE estate briefing",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-28T14:24:25-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-5540135.md"
+    },
+    {
+      "sha": "b9667e0",
+      "full_sha": "b9667e0d267372c0ec3bfeb7cf16f83e432e1229",
+      "title": "feat: add operator-assisted artifact registration schema and service functions",
+      "author": "Claude",
+      "timestamp": "2026-08-28T14:55:02Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-b9667e0.md"
+    },
+    {
+      "sha": "a2347b0",
+      "full_sha": "a2347b0429638318b9f8ad2f99fa3513ea6716e8",
+      "title": "feat: implement operator-assisted artifact confirmation MCP tool, admin route, and comprehensive test suite",
+      "author": "Claude",
+      "timestamp": "2026-08-28T14:57:07Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-a2347b0.md"
+    },
     {
       "sha": "1ffcad4",
       "full_sha": "1ffcad44b9b0ea6bda0bdca8236c2065be2f14c8",
@@ -973,285 +1252,6 @@
       "timestamp": "2026-08-16T17:23:23-04:00",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-269bf79.md"
-    },
-    {
-      "sha": "31d532e",
-      "full_sha": "31d532e40620f40a267139b483be68f779e65541",
-      "title": "Homecoming Phase II Gate 0: fix Kickstarter CTA navigation + CI copy",
-      "author": "Claude",
-      "timestamp": "2026-08-16T20:06:07Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-31d532e.md"
-    },
-    {
-      "sha": "dab0fb4",
-      "full_sha": "dab0fb407661200d4ac776e07e4f086d7a509fe3",
-      "title": "Homecoming Phase II: handover doc for WP-A/WP-B audit + implementation plan",
-      "author": "Claude",
-      "timestamp": "2026-08-16T20:08:21Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-dab0fb4.md"
-    },
-    {
-      "sha": "947ad4d",
-      "full_sha": "947ad4dce08abc0ca5f15484db35687ac55481a9",
-      "title": "Homecoming Phase II: Gate A0 audit + three-axis WP-A model amendment",
-      "author": "Claude",
-      "timestamp": "2026-08-16T20:23:01Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-947ad4d.md"
-    },
-    {
-      "sha": "01debe3",
-      "full_sha": "01debe39ed8a8b37f1ff753e631ac522c43b09b5",
-      "title": "Homecoming Phase II WP-A Increment 1: wire Aletheon into the specialist-consult seam",
-      "author": "Claude",
-      "timestamp": "2026-08-16T20:27:46Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-01debe3.md"
-    },
-    {
-      "sha": "f49451b",
-      "full_sha": "f49451bb897a77f678ee9809c432a4c55923fd67",
-      "title": "Homecoming Phase II handover: mark WP-A Increment 1 done, Increment 2 still open",
-      "author": "Claude",
-      "timestamp": "2026-08-16T20:28:06Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-f49451b.md"
-    },
-    {
-      "sha": "b0396c4",
-      "full_sha": "b0396c49ef98d43c386fddfa6c98a9023d7d580f",
-      "title": "Homecoming Phase II WP-A Increment 2: aigentMe-role runtime resolution end-to-end",
-      "author": "Claude",
-      "timestamp": "2026-08-16T20:44:25Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-b0396c4.md"
-    },
-    {
-      "sha": "431283a",
-      "full_sha": "431283a9feb4e5d5eb2864b5f6c01e0909e95397",
-      "title": "Homecoming Phase II handover: finalize resume-here pointer for session handoff (Gate 0 + WP-A done, WP-B not started)",
-      "author": "Claude",
-      "timestamp": "2026-08-16T20:47:59Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-431283a.md"
-    },
-    {
-      "sha": "b0e4a2f",
-      "full_sha": "b0e4a2fc6eebffd56d5ab2c6b88b7b39b377886a",
-      "title": "research: seed OCSGA context erosion experiments and invariants",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-16T16:49:37-04:00",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-b0e4a2f.md"
-    },
-    {
-      "sha": "bcaaedc",
-      "full_sha": "bcaaedc9053eaaf055c1c4a7ba56ff5d5a56f17b",
-      "title": "docs: separate active persona, Agent Me agent, and delegated authority",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-16T16:19:19-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-bcaaedc.md"
-    },
-    {
-      "sha": "8e09a0f",
-      "full_sha": "8e09a0fd5753be998ad7a96282720dd9a96f0cdc",
-      "title": "docs: add Homecoming Phase II activation implementation pack",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-16T15:45:36-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-8e09a0f.md"
-    },
-    {
-      "sha": "3d0dd87",
-      "full_sha": "3d0dd87d0085f5d0d55acc8341a9e892510e07e7",
-      "title": "docs: close Homecoming Phase I and define manual execution policy",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-16T15:31:08-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-3d0dd87.md"
-    },
-    {
-      "sha": "2636e9b",
-      "full_sha": "2636e9bf5e6000928e52bdd40acd3829aa3d6088",
-      "title": "docs: extend OCSGA dossier with structural invariance research",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-16T14:06:01-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-2636e9b.md"
-    },
-    {
-      "sha": "b78f40e",
-      "full_sha": "b78f40edd12229553bb9db2f56e85759ac73b5dd",
-      "title": "docs(knyt): add Claude Code campaign implementation specification for KNYTS Bridge activation",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-16T13:26:40-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-b78f40e.md"
-    },
-    {
-      "sha": "0c26f22",
-      "full_sha": "0c26f22e2a41db5fc674eb164e51f92ce8e194e9",
-      "title": "spec(knyt): define DevOn bounded implementation for campaign activation",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-16T13:20:08-04:00",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-0c26f22.md"
-    },
-    {
-      "sha": "c1ee041",
-      "full_sha": "c1ee0414c11a47ec0763df0aa8c468289362c763",
-      "title": "docs(knyt): codify bridge standing reputation rewards activation",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-16T13:09:43-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-c1ee041.md"
-    },
-    {
-      "sha": "8b9c6cb",
-      "full_sha": "8b9c6cbc3c688952341e6466c0e3991294c86d05",
-      "title": "canon: ratify personhood identity standing reputation ontology",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-16T12:51:51-04:00",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-8b9c6cb.md"
-    },
-    {
-      "sha": "2e5b4c0",
-      "full_sha": "2e5b4c0285b3fd5a5efa527085175801db027471",
-      "title": "docs: canonize domain runtime orchestrator model",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-15T15:36:29-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-2e5b4c0.md"
-    },
-    {
-      "sha": "5b77bdf",
-      "full_sha": "5b77bdfccf8ba090fef5fe89e1201adb22c1f5aa",
-      "title": "groom knyts-bridge: remove duplicate passport gate (A1), auto-advance passport room (A2), embed article-zero templates (A3)",
-      "author": "Claude",
-      "timestamp": "2026-08-14T02:18:05Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-5b77bdf.md"
-    },
-    {
-      "sha": "2941362",
-      "full_sha": "29413627bbf9399cde4bc8e79ced80e9ae484f67",
-      "title": "groom bridges: header stage numbers (A4), auto-advance passport room (A2), article-zero templates (A3), pdf border styling (A6), duplicate passport gate removal (A1)",
-      "author": "Claude",
-      "timestamp": "2026-08-14T02:19:53Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-2941362.md"
-    },
-    {
-      "sha": "bff416b",
-      "full_sha": "bff416b853ac17de98defd4c3d5636c037615e62",
-      "title": "Revert \"groom bridges: header stage numbers (A4), auto-advance passport room (A2), article-zero templates (A3), pdf border styling (A6), duplicate passport gate removal (A1)\"",
-      "author": "Claude",
-      "timestamp": "2026-08-14T02:40:53Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-bff416b.md"
-    },
-    {
-      "sha": "0132bdb",
-      "full_sha": "0132bdbf95c5cbbabcb883b2aa4f0075a9bc032e",
-      "title": "soft-launch grooming pass: Constitutional Internet Bridge + KNYTS Bridge refinements",
-      "author": "Claude",
-      "timestamp": "2026-08-14T03:46:46Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-0132bdb.md"
-    },
-    {
-      "sha": "1c05d36",
-      "full_sha": "1c05d3608f270228c9dd5d0ea03100d51f236cb6",
-      "title": "record moneypenny dress rehearsal closure — all stages stable, ready to move to know1",
-      "author": "Claude",
-      "timestamp": "2026-08-12T19:39:35Z",
-      "type": "refactor",
-      "brief": "items/build_/COMMITS/COMMIT-1c05d36.md"
-    },
-    {
-      "sha": "c931c79",
-      "full_sha": "c931c795660567f50a3d8b26a7243f68e21195ab",
-      "title": "trigger deploy: Delegate stage reconciliation",
-      "author": "Claude",
-      "timestamp": "2026-08-12T19:10:10Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-c931c79.md"
-    },
-    {
-      "sha": "fe16064",
-      "full_sha": "fe160647f3f9d28345d77fd4ac72d73195a74136",
-      "title": "feat(invariants): add consequence calibration primitives",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-12T13:09:38-04:00",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-fe16064.md"
-    },
-    {
-      "sha": "a238834",
-      "full_sha": "a238834861e84c36af5f3b99ccc744d97a1f1beb",
-      "title": "feat(irl): add risk-field primitives for IDE v2",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-12T13:03:08-04:00",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-a238834.md"
-    },
-    {
-      "sha": "be46bc6",
-      "full_sha": "be46bc68150c07f10af193ad1dad577bdad9eccc",
-      "title": "test(irl): cover IDE v2 risk-field primitives",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-12T13:03:24-04:00",
-      "type": "test",
-      "brief": "items/build_/COMMITS/COMMIT-be46bc6.md"
-    },
-    {
-      "sha": "94b3469",
-      "full_sha": "94b3469169fa1e90311a8275c122248338a1d50e",
-      "title": "docs(irl): ground IDE v2 and Crystal vP2 in Lehigh risk research",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-12T13:04:29-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-94b3469.md"
-    },
-    {
-      "sha": "2b00476",
-      "full_sha": "2b00476526c84dbf74db8ba1be33ba2067f00c55",
-      "title": "add diagnostic logging for copilot empty response trace",
-      "author": "Claude",
-      "timestamp": "2026-08-12T02:06:58Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-2b00476.md"
-    },
-    {
-      "sha": "dcb6ade",
-      "full_sha": "dcb6ade5e62527d5114f919e28f9319fe61f6b4e",
-      "title": "update copilot fallback message to explicit failure state",
-      "author": "Claude",
-      "timestamp": "2026-08-12T02:07:12Z",
-      "type": "chore",
-      "brief": "items/build_/COMMITS/COMMIT-dcb6ade.md"
-    },
-    {
-      "sha": "8b8f24f",
-      "full_sha": "8b8f24f3c074baf4251c3e690b95dae8298ced1d",
-      "title": "canon: add machine-readable bounded-order invariant",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-11T21:03:01-04:00",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-8b8f24f.md"
-    },
-    {
-      "sha": "581418d",
-      "full_sha": "581418d8e1048a41432b785b892a3db08c8f076c",
-      "title": "trigger deploy: CI Bridge final correction pass (passport gate + choose consolidation)",
-      "author": "Claude",
-      "timestamp": "2026-08-11T23:40:14Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-581418d.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

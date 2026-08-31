@@ -132,6 +132,27 @@ const MFE_COHORT = 'lehigh-mfe-capstone';
 const CS_PROJECT = 'lehigh-cs-software-build';
 const OTHER_CS_PROJECT = 'lehigh-cs-agent-integration';
 
+describe('MFE capstone pillar canon', () => {
+  it('exposes exactly Risk, Value and Price in constitutional order', () => {
+    const workspaces = RESEARCH_WORKSPACES.filter(
+      (workspace) => workspace.parentId === MFE_COHORT,
+    );
+    const pillars = workspaces.map((workspace) => workspace.title);
+
+    expect(pillars).toEqual([
+      'MFE Capstone — Risk',
+      'MFE Capstone — Value',
+      'MFE Capstone — Price',
+    ]);
+    expect(pillars).not.toContain('MFE Capstone — Financial Systems');
+    expect(pillars).not.toContain('MFE Capstone — Risk Management');
+    expect(pillars).not.toContain('MFE Capstone — Pricing');
+    expect(
+      workspaces.find((workspace) => workspace.title === 'MFE Capstone — Price')?.description,
+    ).toContain('balancing of risk and value');
+  });
+});
+
 // ═══════════════════════════════════════════════════════════════════════════
 // AC-1/2/3 — one engine, configuration-driven, Venture Lab unchanged
 // ═══════════════════════════════════════════════════════════════════════════
