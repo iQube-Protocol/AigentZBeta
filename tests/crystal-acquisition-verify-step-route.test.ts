@@ -1,9 +1,19 @@
 /**
  * POST /api/research/programme/[experimentId]/acquisition/verify-step —
  * HTTP-level tests (2026-08-31, "targeted-acquisition ratified-but-
- * unverified dead end" repair). Every collaborator is mocked;
- * `crystalDomainForExperiment` is left REAL, mirroring
- * crystal-acquisition-run-step-route.test.ts's own convention.
+ * unverified dead end" repair, then "verification wall-clock granularity"
+ * repair). Every collaborator is mocked; `crystalDomainForExperiment` is
+ * left REAL, mirroring crystal-acquisition-run-step-route.test.ts's own
+ * convention.
+ *
+ * Mocks `runOneInstitutionVerificationStep` at the `{ institution, step,
+ * exhausted }` boundary — its own phase-selection logic is pinned in
+ * tests/crystal-acquisition-job.test.ts, and the underlying bounded
+ * primitive's phase-by-phase/deadline-race behavior is pinned in
+ * tests/corpus-scout-verification-step.test.ts. This level pins ONLY the
+ * route's OWN concern: auth, the active-approval requirement, and mapping
+ * `step` onto the HTTP response the operator's ask specified (`status`,
+ * `institution`, `outcome`, `diagnostics`, `nextAction`).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { NextRequest } from 'next/server';
@@ -33,6 +43,11 @@ function makeRequest(body: unknown): NextRequest {
 
 const params = (experimentId: string) => Promise.resolve({ experimentId });
 
+const IN_PROGRESS_STEP = {
+  ok: true, status: 'in-progress', domain: 'financial-services', pillarKey: 'p', institutionName: 'BIS',
+  diagnostics: { institutionName: 'BIS', phase: 'fetch-document', cursor: 2, elapsedMs: 4200, externalCallsAttempted: 1 },
+};
+
 beforeEach(() => {
   mockGetActivePersona.mockReset();
   mockGetActivePersona.mockResolvedValue({ personaId: 'persona-1', cartridgeFlags: { isAdmin: true } });
@@ -42,10 +57,7 @@ beforeEach(() => {
   mockGetActiveAcquisitionApproval.mockResolvedValue({ id: 'approval-1', status: 'approved' });
   mockRunOneInstitutionVerificationStep.mockReset();
   mockRunOneInstitutionVerificationStep.mockResolvedValue({
-    ok: true,
-    institution: { pillarKey: 'p', institutionName: 'Institution 1' },
-    result: { ok: true, domain: 'financial-services', pillarKey: 'p', institutionName: 'Institution 1', outcome: { status: 'verified' } },
-    exhausted: false,
+    ok: true, institution: { pillarKey: 'p', institutionName: 'BIS' }, step: IN_PROGRESS_STEP, exhausted: false,
   });
 });
 
@@ -84,44 +96,86 @@ describe('POST acquisition/verify-step — domain resolution', () => {
   });
 });
 
-describe('POST acquisition/verify-step — the bounded step', () => {
-  it('runs exactly one verification step and reports done:false while institutions remain in "proposed"', async () => {
+describe('POST acquisition/verify-step — the bounded phase-step (2026-08-31 wall-clock granularity repair)', () => {
+  it('THE LIVE FIX: an in-progress phase (the BIS 504 case) returns a structured response, never an empty 504 — status/institution/diagnostics all present', async () => {
     const res = await POST(makeRequest({}), { params: params('EXP-P1') });
     const body = await res.json();
     expect(res.status).toBe(200);
     expect(body.ok).toBe(true);
-    expect(body.institution).toEqual({ pillarKey: 'p', institutionName: 'Institution 1' });
-    expect(body.exhausted).toBe(false);
+    expect(body.status).toBe('in-progress');
+    expect(body.institution).toEqual({ pillarKey: 'p', institutionName: 'BIS' });
+    expect(body.outcome).toBeNull();
+    // The exact diagnostics shape the operator asked for.
+    expect(body.diagnostics).toEqual({
+      institutionName: 'BIS', phase: 'fetch-document', cursor: 2, elapsedMs: 4200, externalCallsAttempted: 1,
+    });
+    expect(body.nextAction).toBe('continue-verification');
     expect(body.done).toBe(false);
-    expect(mockRunOneInstitutionVerificationStep).toHaveBeenCalledTimes(1);
+    // The domain is not exhausted just because ONE institution's phase
+    // advanced — 18 others may still need work.
+    expect(body.exhausted).toBe(false);
   });
 
-  it('reports done:true once no ratified institution remains in "proposed" — THE LIVE CASE, after all 19 have had their one pass', async () => {
+  it('a terminal outcome (verified) is reported with the outcome populated, status distinct from "in-progress"', async () => {
     mockRunOneInstitutionVerificationStep.mockResolvedValue({
-      ok: true, institution: null, result: null, exhausted: true,
+      ok: true,
+      institution: { pillarKey: 'p', institutionName: 'BIS' },
+      step: {
+        ok: true, status: 'verified', domain: 'financial-services', pillarKey: 'p', institutionName: 'BIS',
+        outcome: { status: 'verified', resolvedUrl: 'https://bis.org', checkedAt: '2026-08-31T00:00:00Z', candidatesFound: 3, documentsInspected: 2, qualifyingDocuments: [{ documentUrl: 'https://bis.org/doc.pdf', contentHash: 'h', mimeType: 'application/pdf', fileSizeBytes: 100, pageCount: 5, substantiveTextCharacters: 900, blankPageRatio: 0 }], standard: 'CQS', detail: 'verified' },
+        diagnostics: { institutionName: 'BIS', phase: 'fetch-document', cursor: 1, elapsedMs: 3000, externalCallsAttempted: 1 },
+      },
+      exhausted: false,
     });
     const res = await POST(makeRequest({}), { params: params('EXP-P1') });
     const body = await res.json();
-    expect(body.institution).toBeNull();
-    expect(body.exhausted).toBe(true);
-    expect(body.done).toBe(true);
+    expect(body.status).toBe('verified');
+    expect(body.outcome.status).toBe('verified');
+    expect(body.outcome.qualifyingDocuments).toHaveLength(1);
   });
 
-  // ── EXCEPTION ISOLATION — a per-institution failure surfaces in the
-  // response (never thrown), and does not prevent the route from being
-  // callable again for the next institution.
-  it('a failed/insufficient verification outcome is reported honestly, not as an HTTP error', async () => {
+  it('a failed/insufficient TERMINAL outcome is reported honestly, not as an HTTP error — exception isolation, never thrown', async () => {
     mockRunOneInstitutionVerificationStep.mockResolvedValue({
       ok: true,
       institution: { pillarKey: 'p', institutionName: 'Failing Institution' },
-      result: { ok: true, domain: 'financial-services', pillarKey: 'p', institutionName: 'Failing Institution', outcome: { status: 'verification_failed' } },
+      step: {
+        ok: true, status: 'verification_failed', domain: 'financial-services', pillarKey: 'p', institutionName: 'Failing Institution',
+        outcome: { status: 'verification_failed', resolvedUrl: null, checkedAt: '2026-08-31T00:00:00Z', candidatesFound: 0, documentsInspected: 0, qualifyingDocuments: [], standard: 'CQS', detail: 'seed URL did not resolve: unknown' },
+        diagnostics: { institutionName: 'Failing Institution', phase: 'resolve-seed', cursor: 0, elapsedMs: 500, externalCallsAttempted: 1 },
+      },
       exhausted: false,
     });
     const res = await POST(makeRequest({}), { params: params('EXP-P1') });
     const body = await res.json();
     expect(res.status).toBe(200);
     expect(body.ok).toBe(true);
-    expect(body.result.outcome.status).toBe('verification_failed');
+    expect(body.status).toBe('verification_failed');
+    expect(body.outcome.status).toBe('verification_failed');
+  });
+
+  it('reports done:true, exhausted:true only once NO institution has any outstanding verification work', async () => {
+    mockRunOneInstitutionVerificationStep.mockResolvedValue({ ok: true, institution: null, step: null, exhausted: true });
+    const res = await POST(makeRequest({}), { params: params('EXP-P1') });
+    const body = await res.json();
+    expect(body.status).toBe('exhausted');
+    expect(body.institution).toBeNull();
+    expect(body.exhausted).toBe(true);
+    expect(body.done).toBe(true);
+    expect(body.nextAction).toBe('none');
+  });
+
+  it('a structured per-institution failure from the bounded step (e.g. malformed checkpoint) surfaces as a 500 with the error, never a thrown exception', async () => {
+    mockRunOneInstitutionVerificationStep.mockResolvedValue({
+      ok: true,
+      institution: { pillarKey: 'p', institutionName: 'BIS' },
+      step: { ok: false, domain: 'financial-services', pillarKey: 'p', institutionName: 'BIS', error: 'cannot start verification from \'deprecated\' — re-open the entry first' },
+      exhausted: false,
+    });
+    const res = await POST(makeRequest({}), { params: params('EXP-P1') });
+    const body = await res.json();
+    expect(res.status).toBe(500);
+    expect(body.ok).toBe(false);
+    expect(body.error).toMatch(/deprecated/);
   });
 });
 

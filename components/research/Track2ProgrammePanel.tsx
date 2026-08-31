@@ -5640,9 +5640,16 @@ function InstitutionVerificationAction({
   const [status, setStatus] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
-  // Same client-side backstop bound as the acquisition plan's own — the
-  // server's own `done` signal is the authority on when to stop.
-  const MAX_LAB_VERIFICATION_STEPS = 40;
+  // 2026-08-31 "verification wall-clock granularity" repair: each
+  // verify-step call now performs EXACTLY ONE bounded phase (resolve-seed /
+  // discover-candidates / fetch-document[cursor]) for one institution,
+  // never the whole institution in one call (that was the live 504 for
+  // BIS). One institution can legitimately take several `in-progress`
+  // calls before reaching a terminal outcome, so this bound is much larger
+  // than the discovery loop's own — the server's own `done` signal is
+  // still the authority on when to stop, this is only the backstop.
+  const MAX_LAB_VERIFICATION_STEPS = 400;
+  const MAX_LAB_DISCOVERY_STEPS = 40;
   const run = useCallback(async () => {
     setRunning(true);
     setErr(null);
@@ -5657,17 +5664,24 @@ function InstitutionVerificationAction({
         );
         const stepData = await stepRes.json().catch(() => null) as {
           ok?: boolean; error?: string;
+          status?: string;
           institution?: { institutionName: string } | null;
-          result?: { outcome?: { status?: string } | null } | null;
-          exhausted?: boolean; done?: boolean;
+          diagnostics?: { phase?: string; cursor?: number } | null;
+          done?: boolean;
         } | null;
         if (!stepRes.ok || !stepData || stepData.ok !== true) {
           throw new Error((stepData && typeof stepData.error === "string" && stepData.error) || `verification step refused (HTTP ${stepRes.status})`);
         }
         if (stepData.institution) {
-          attempted += 1;
-          if (stepData.result?.outcome?.status === "verified") verifiedCount += 1;
-          setStatus(`Verified ${stepData.institution.institutionName} — ${stepData.result?.outcome?.status ?? "checked"}…`);
+          const terminal = stepData.status !== "in-progress";
+          if (terminal) {
+            attempted += 1;
+            if (stepData.status === "verified") verifiedCount += 1;
+          }
+          setStatus(
+            `${stepData.institution.institutionName} — ${stepData.diagnostics?.phase ?? stepData.status}` +
+              `${typeof stepData.diagnostics?.cursor === "number" ? ` (${stepData.diagnostics.cursor})` : ""}…`,
+          );
         }
         if (stepData.done) break;
       }
@@ -5677,7 +5691,7 @@ function InstitutionVerificationAction({
       // discovery implementation.
       setStatus("Checking for eligible institutions…");
       let discoveryDone = false;
-      for (let i = 0; i < MAX_LAB_VERIFICATION_STEPS; i++) {
+      for (let i = 0; i < MAX_LAB_DISCOVERY_STEPS; i++) {
         const stepRes = await personaFetch(
           `/api/research/programme/${encodeURIComponent(experimentId)}/acquisition/run-step`,
           { method: "POST", cache: "no-store", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) },
@@ -5696,7 +5710,7 @@ function InstitutionVerificationAction({
         `${attempted} institution(s) verified this round, ${verifiedCount} now eligible. ` +
           (discoveryDone
             ? 'Continue with Extract/Validate ("Run until you need me" in the Research Copilot, or the stage controls below).'
-            : `Discovery stopped after ${MAX_LAB_VERIFICATION_STEPS} step(s) as a client-side backstop — re-run to continue.`),
+            : `Discovery stopped after ${MAX_LAB_DISCOVERY_STEPS} step(s) as a client-side backstop — re-run to continue.`),
       );
       onDone();
     } catch (e) {

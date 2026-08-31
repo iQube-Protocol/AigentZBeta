@@ -38,8 +38,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { getDomainConstitution } from '@/services/corpusScout/domainConstitution';
 import {
   canRunInstitutionDiscovery,
-  verifyInstitutionEntry,
-  type VerifyEntryResult,
+  runVerificationStep,
+  type VerificationStepResult,
 } from '@/services/corpusScout/registryVerification';
 import { runDiscoveryForInstitution, type InstitutionDiscoveryRunResult } from '@/services/corpusScout/discoveryOrchestrator';
 import { listCandidateSources } from '@/services/corpusScout/provenance';
@@ -334,46 +334,54 @@ export async function runOneAcquisitionStep(
 
 export interface InstitutionVerificationStepResult {
   ok: true;
-  /** `null` when no ratified institution in the domain is still in its
-   *  first-pass ('proposed') state — there is nothing left for this step to
-   *  verify automatically. */
+  /** `null` when no ratified institution in the domain has any outstanding
+   *  verification work (never started, or in-flight) — there is nothing
+   *  left for this step to verify automatically. */
   institution: { pillarKey: string; institutionName: string } | null;
-  result: VerifyEntryResult | null;
-  /** True when no ratified institution remains in 'proposed' — the caller
-   *  should stop calling this step and re-check eligibility. */
+  step: VerificationStepResult | null;
+  /** True when no ratified institution has any outstanding verification
+   *  work AT THE START of this call. Distinct from `step.status ===
+   *  'in-progress'` (2026-08-31 wall-clock granularity repair): ONE
+   *  institution's verification can now take MANY calls (phase by phase),
+   *  so this being `false` does NOT mean this call finished anything — it
+   *  only means there was real work to attempt. The caller keeps calling
+   *  until this becomes `true`. */
   exhausted: boolean;
 }
 
 /**
- * THE ONE BOUNDED VERIFICATION STEP. Picks the FIRST ratified institution
- * (sorted by name — `getDomainConstitution`'s own deterministic order)
- * whose `verificationStatus` is still `'proposed'`, and runs
- * `verifyInstitutionEntry` for THAT institution alone — never more than
- * one, never the whole-domain sweep `verifyDomainRegistry` performs. A
- * caller drives this repeatedly until `exhausted: true`.
+ * THE ONE BOUNDED VERIFICATION STEP. Picks the institution `runVerificationStep`
+ * should work on next — an institution ALREADY mid-verification (resuming
+ * its persisted phase/cursor) takes priority over starting a fresh one, so
+ * no institution's progress is abandoned while another is worked — and
+ * performs EXACTLY ONE bounded phase for it via `runVerificationStep`
+ * (services/corpusScout/registryVerification.ts), never the whole-entry
+ * one-shot `verifyInstitutionEntry` and never the whole-domain sweep
+ * `verifyDomainRegistry` performs. A caller drives this repeatedly until
+ * `exhausted: true`.
  */
 export async function runOneInstitutionVerificationStep(
   admin: SupabaseClient,
   acquisitionDomain: string,
 ): Promise<InstitutionVerificationStepResult> {
   const constitution = await getDomainConstitution(admin, acquisitionDomain);
-  const unverified = constitution.institutions.filter(
-    (i) => i.status === 'ratified' && i.verificationStatus === 'proposed',
+  const eligible = constitution.institutions.filter(
+    (i) => i.status === 'ratified' && (i.verificationStatus === 'proposed' || i.verificationStatus === 'pending_verification'),
   );
-  const next = unverified[0];
+  // Resume an in-flight institution before starting a fresh one.
+  const next = eligible.find((i) => i.verificationStatus === 'pending_verification') ?? eligible[0];
   if (!next) {
-    return { ok: true, institution: null, result: null, exhausted: true };
+    return { ok: true, institution: null, step: null, exhausted: true };
   }
-  const result = await verifyInstitutionEntry(admin, {
+  const step = await runVerificationStep(admin, {
     domain: acquisitionDomain,
     pillarKey: next.pillarKey,
     institutionName: next.institutionName,
   });
-  const remaining = unverified.length - 1;
   return {
     ok: true,
     institution: { pillarKey: next.pillarKey, institutionName: next.institutionName },
-    result,
-    exhausted: remaining <= 0,
+    step,
+    exhausted: false,
   };
 }
