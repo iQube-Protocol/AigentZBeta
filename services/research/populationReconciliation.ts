@@ -136,18 +136,32 @@ function baseRecord(c: CandidateRow): Omit<UnaccountedPromotionRecord, 'defect' 
  * match, it does not attach one — attaching is `repairPromotedCandidate
  * InvariantLink`'s job, invoked only on an explicit operator act.
  *
- * `adjudicationContext` (optional, 2026-08-31 Stage 7 fix) — when supplied,
- * `orphanRecords`/`graph.orphanCount` fold in
- * services/research/crystalRelationshipAdjudication.ts's still-valid
- * 'no-defensible-edge' verdicts: a member with zero edges but a valid
- * adjudication is a REVIEWED orphan and is removed from both. Omitted by
- * every caller that does not drive Stage 7's own pending/complete
- * derivation (suggest-relationships, validate-all, and every existing test)
- * — for them this function's edge-only behaviour is unchanged.
+ * `adjudicationContext` (optional, 2026-08-31 Stage 7 fix, EXTENDED
+ * 2026-08-31 per the "successor cohort vs successor Crystal" operator
+ * ruling) — when supplied:
+ *
+ *   - `orphanRecords`/`graph.orphanCount` fold in services/research/
+ *     crystalRelationshipAdjudication.ts's still-valid 'no-defensible-edge'
+ *     verdicts: a member with zero edges but a valid adjudication is a
+ *     REVIEWED orphan and is removed from both.
+ *   - `inheritedMemberIds` (optional within this context) widens which
+ *     invariant an edge's OTHER endpoint may legitimately be: a successor
+ *     member's edge to an INHERITED predecessor member counts exactly like
+ *     an edge to another successor member — Crystal v2 is inherited
+ *     substrate PLUS the current successor cohort, not the cohort alone.
+ *     Degree/orphan detection still only asks the question of THIS
+ *     function's own resolved `records` (the successor cohort) — inherited
+ *     members are never added as new records, only as legitimate edge
+ *     targets. Omitted/empty ⇒ intra-successor-cohort-only, today's
+ *     behaviour for a first-generation crystal with no frozen predecessor.
+ *
+ * Omitted entirely by every caller that does not drive Stage 7's own
+ * pending/complete derivation (every existing test) — for them this
+ * function's edge-only behaviour is unchanged.
  */
 export async function reconcilePromotedCohort(
   promoted: CandidateRow[],
-  adjudicationContext?: { admin: SupabaseClient; experimentId: string },
+  adjudicationContext?: { admin: SupabaseClient; experimentId: string; inheritedMemberIds?: Set<string> },
 ): Promise<ReconciledPromotedCohort> {
   const excluded: { recordId: string; reason: string }[] = [];
   const unaccountedRecords: UnaccountedPromotionRecord[] = [];
@@ -222,19 +236,34 @@ export async function reconcilePromotedCohort(
 
   let graph: ReconciledPromotedCohort['graph'] = null;
   let orphanRecords: CohortMemberRef[] = [];
+  // The target-Crystal membership universe (operator ruling, 2026-08-31):
+  // successor cohort members ∪ inherited predecessor members. Computed once,
+  // reused by BOTH the edge-counting block below and the adjudication-
+  // fingerprint fold after it, so the two can never disagree about what
+  // "this Crystal" means.
+  const targetUniverseMemberIds = new Set([
+    ...records.map((r) => r.id),
+    ...(adjudicationContext?.inheritedMemberIds ?? []),
+  ]);
   if (records.length > 0) {
     try {
       const { listEdgesForInvariants } = await import('@/services/invariants/store');
       const memberIds = new Set(records.map((r) => r.id));
+      // Fetch is still anchored on THIS cohort's own member ids — an edge
+      // whose OTHER endpoint is inherited/out-of-Crystal is still returned
+      // (the query is "touches any of memberIds"), it is the `intra` filter
+      // below that decides whether it counts.
       const edges = await listEdgesForInvariants([...memberIds], 'both');
-      const intra = edges.filter((e) => memberIds.has(e.fromInvariantId) && memberIds.has(e.toInvariantId));
+      const intra = edges.filter(
+        (e) => targetUniverseMemberIds.has(e.fromInvariantId) && targetUniverseMemberIds.has(e.toInvariantId),
+      );
       const degree = new Set<string>();
       for (const e of intra) {
         degree.add(e.fromInvariantId);
         degree.add(e.toInvariantId);
       }
-      graph = { relationshipCount: intra.length, orphanCount: records.length - degree.size };
       orphanRecords = records.filter((r) => !degree.has(r.id)).map((r) => ({ id: r.id, label: labelFor(r.statement), statement: r.statement }));
+      graph = { relationshipCount: intra.length, orphanCount: orphanRecords.length };
     } catch {
       graph = null; // unread ⇒ `unknown`, never "no relationships"
     }
@@ -246,13 +275,17 @@ export async function reconcilePromotedCohort(
   // orphan satisfies Stage 7 exactly like an admitted edge does, and must
   // not be counted as pending relationship derivation. See this function's
   // own header and services/research/crystalRelationshipAdjudication.ts.
+  // `cohortMemberIds` here is the SAME target-Crystal universe the edge
+  // count above used — an adjudication's fingerprint reopens if either the
+  // successor cohort OR the inherited substrate it was judged against
+  // changes, never just the former.
   if (adjudicationContext && graph && orphanRecords.length > 0) {
     const { getValidNoDefensibleEdgeInvariantIds } = await import(
       '@/services/research/crystalRelationshipAdjudication'
     );
     const adjudicated = await getValidNoDefensibleEdgeInvariantIds(adjudicationContext.admin, {
       experimentId: adjudicationContext.experimentId,
-      cohortMemberIds: records.map((r) => r.id),
+      cohortMemberIds: [...targetUniverseMemberIds],
     }).catch(() => new Set<string>());
     if (adjudicated.size > 0) {
       const stillOrphan = orphanRecords.filter((o) => !adjudicated.has(o.id));

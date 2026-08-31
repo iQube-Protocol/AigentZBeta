@@ -562,13 +562,16 @@ export function buildTrack2Programme(input: {
       : {
           status: cohort!.graph.orphanCount === 0 ? 'complete' : 'in-progress',
           detail:
-            `${cohort!.graph.relationshipCount} relationship(s) among the ${cohortSize} member(s) of the ` +
-            `current crystal; ${cohort!.graph.orphanCount} carry none${excludedNote}`,
+            `${cohort!.graph.relationshipCount} relationship(s) recorded by the ${cohortSize} successor member(s) — ` +
+            `to each other or to the inherited Crystal-v2 substrate; ${cohort!.graph.orphanCount} remain unresolved` +
+            `${excludedNote}`,
           remedies:
             cohort!.graph.orphanCount > 0
               ? [
-                  `${cohort!.graph.orphanCount} member(s) of the current crystal carry no relationship to another ` +
-                    'member. Acquisition creates no edges, so these arrive as orphans by default — expected work, not a fault.',
+                  `${cohort!.graph.orphanCount} member(s) carry neither an admitted relationship (to another successor ` +
+                    'member OR an inherited Crystal-v2 member) nor a governed no-defensible-edge adjudication. ' +
+                    'Acquisition creates no edges, so these arrive unresolved by default — expected work, not a fault. ' +
+                    'A member may legitimately resolve with zero relationships via adjudication.',
                 ]
               : [],
         });
