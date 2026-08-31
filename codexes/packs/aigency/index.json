@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-31T05:55:45.848Z",
+  "last_updated": "2026-08-31T14:42:36.102Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "0c8e13479425eca1383419158f2a0d9db3196013",
-  "latest_commit_short": "0c8e134",
-  "latest_commit_title": "Distinguish acquisition-blocked from not-started in Track 2 Stage 1 [merge review/irl-scoped-restoration-2026-08-27]",
+  "latest_commit": "40632eea3552a020947e940bba06cc93d49c7898",
+  "latest_commit_short": "40632ee",
+  "latest_commit_title": "Fix targeted-acquisition dead end: consume approval judgement once [merge review/irl-scoped-restoration-2026-08-27]",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "40632ee",
+      "full_sha": "40632eea3552a020947e940bba06cc93d49c7898",
+      "title": "Fix targeted-acquisition dead end: consume approval judgement once [merge review/irl-scoped-restoration-2026-08-27]",
+      "author": "Claude",
+      "timestamp": "2026-08-31T13:31:35Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-40632ee.md"
+    },
     {
       "sha": "0c8e134",
       "full_sha": "0c8e13479425eca1383419158f2a0d9db3196013",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-17T18:14:31Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-f27d179.md"
-    },
-    {
-      "sha": "04d4df7",
-      "full_sha": "04d4df7da20c7e4e71fdc7fba92f67a0bb975353",
-      "title": "gate-d: add evidence assembly service for venture reports",
-      "author": "Claude",
-      "timestamp": "2026-08-17T18:07:02Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-04d4df7.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

@@ -4734,3 +4734,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-0c8e134.md](../build_/COMMITS/COMMIT-0c8e134.md)
 - Message: Distinguish acquisition-blocked from not-started in Track 2 Stage 1 [merge review/irl-scoped-restoration-2026-08-27]
+
+## Commit `40632ee` — 2026-08-31T13:31:35Z
+- Type: `fix`
+- Brief: [COMMIT-40632ee.md](../build_/COMMITS/COMMIT-40632ee.md)
+- Message: Fix targeted-acquisition dead end: consume approval judgement once [merge review/irl-scoped-restoration-2026-08-27]
