@@ -1,6 +1,6 @@
 {
-  "version": "0.1.4",
-  "generated_at": "2026-08-31T17:14:00Z",
+  "version": "0.1.5",
+  "generated_at": "2026-08-31T17:16:00Z",
   "repo": "AigentZBeta",
   "entries": [
     {
@@ -132,6 +132,26 @@
       "tags": ["aee", "financial-services", "metaknyt", "knights-bridge", "progressive-financial-sovereignty", "progressive-creative-sovereignty", "financial-literacy", "learning"],
       "owners": ["Aigent Z", "Aigent C"],
       "last_updated": "2026-08-31T17:14:00Z"
+    },
+    {
+      "id": "aee-aigentme-companion-amendment-2026-08-31",
+      "path": "codexes/packs/agentiq/updates/2026-08-31_aee-aigentme-estate-wide-constitutional-companion-amendment.md",
+      "type": "architecture-amendment",
+      "title": "AEE-001D — aigentMe Estate-Wide Constitutional Companion Amendment",
+      "summary": "Estate-wide invariant: aigentMe remains the person's primary constitutional companion at every expertise level; AEE determines NBE, aigentMe orchestrates it across domains; the companion role may be delegated to another eligible agent under bounded authority and disclosure.",
+      "tags": ["aee", "aigentme", "constitutional-companion", "next-best-experience", "journey-spine", "bounded-delegation", "personhood", "cross-domain"],
+      "owners": ["Aigent Z", "Aigent C"],
+      "last_updated": "2026-08-31T17:16:00Z"
+    },
+    {
+      "id": "aee-knights-bridge-progressive-sovereignty-2026-08-31",
+      "path": "codexes/packs/agentiq/updates/2026-08-31_aee-kb-knights-bridge-progressive-sovereignty-experience-architecture.md",
+      "type": "architecture",
+      "title": "AEE-KB-001 — Knights Bridge: Progressive Sovereignty Experience Architecture",
+      "summary": "Paper III: metaKnyt / Knights Bridge as the adaptive zero-to-expert application of AEE, combining Progressive Creative Sovereignty and Progressive Financial Sovereignty over one professional-grade capability substrate, with aigentMe cross-Bridge NBE orchestration and delegable companion role.",
+      "tags": ["aee", "metaknyt", "knights-bridge", "progressive-sovereignty", "progressive-financial-sovereignty", "progressive-creative-sovereignty", "financial-services-learning", "experience-altitude", "aigentme", "next-best-experience"],
+      "owners": ["Aigent Z", "Aigent C"],
+      "last_updated": "2026-08-31T17:16:00Z"
     }
   ]
 }
