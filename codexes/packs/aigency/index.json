@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-31T00:03:06.276Z",
+  "last_updated": "2026-08-31T00:15:32.045Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "d1f2ba082264c38fc0fb27889bb3a656358aeeda",
-  "latest_commit_short": "d1f2ba0",
-  "latest_commit_title": "close Classify Provenance omission defect: machine recommendation != steward decision",
+  "latest_commit": "5e26748d729d049a3022ec10153086df26b6d921",
+  "latest_commit_short": "5e26748",
+  "latest_commit_title": "repair-classify-provenance-record.ts: load .env.local like its sibling scripts",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "5e26748",
+      "full_sha": "5e26748d729d049a3022ec10153086df26b6d921",
+      "title": "repair-classify-provenance-record.ts: load .env.local like its sibling scripts",
+      "author": "Claude",
+      "timestamp": "2026-08-31T00:13:27Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-5e26748.md"
+    },
     {
       "sha": "d1f2ba0",
       "full_sha": "d1f2ba082264c38fc0fb27889bb3a656358aeeda",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-16T17:23:23-04:00",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-269bf79.md"
-    },
-    {
-      "sha": "31d532e",
-      "full_sha": "31d532e40620f40a267139b483be68f779e65541",
-      "title": "Homecoming Phase II Gate 0: fix Kickstarter CTA navigation + CI copy",
-      "author": "Claude",
-      "timestamp": "2026-08-16T20:06:07Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-31d532e.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

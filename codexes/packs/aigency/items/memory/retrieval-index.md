@@ -4709,3 +4709,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-d1f2ba0.md](../build_/COMMITS/COMMIT-d1f2ba0.md)
 - Message: close Classify Provenance omission defect: machine recommendation != steward decision
+
+## Commit `5e26748` — 2026-08-31T00:13:27Z
+- Type: `fix`
+- Brief: [COMMIT-5e26748.md](../build_/COMMITS/COMMIT-5e26748.md)
+- Message: repair-classify-provenance-record.ts: load .env.local like its sibling scripts
