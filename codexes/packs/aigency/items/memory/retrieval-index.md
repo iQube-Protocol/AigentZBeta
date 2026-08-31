@@ -4779,3 +4779,8 @@ Top-level retrieval anchors for this pack.
 - Type: `docs`
 - Brief: [COMMIT-6fbccf8.md](../build_/COMMITS/COMMIT-6fbccf8.md)
 - Message: docs(agentiq): register AEE-XP-001 execution build spec
+
+## Commit `f2e2c63` — 2026-08-31T17:07:13-04:00
+- Type: `push`
+- Brief: [COMMIT-f2e2c63.md](../build_/COMMITS/COMMIT-f2e2c63.md)
+- Message: agentiq index: register required CTP delivery amendment

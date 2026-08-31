@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-31T20:14:38.432Z",
+  "last_updated": "2026-08-31T21:09:00.403Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "6fbccf8e77ed2c913603c116d59b7ef2de0fe9ba",
-  "latest_commit_short": "6fbccf8",
-  "latest_commit_title": "docs(agentiq): register AEE-XP-001 execution build spec",
+  "latest_commit": "f2e2c63b1174e94e7f1b7df4edc25291a87628ed",
+  "latest_commit_short": "f2e2c63",
+  "latest_commit_title": "agentiq index: register required CTP delivery amendment",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "f2e2c63",
+      "full_sha": "f2e2c63b1174e94e7f1b7df4edc25291a87628ed",
+      "title": "agentiq index: register required CTP delivery amendment",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-31T17:07:13-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-f2e2c63.md"
+    },
     {
       "sha": "6fbccf8",
       "full_sha": "6fbccf8e77ed2c913603c116d59b7ef2de0fe9ba",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-20T08:59:09-04:00",
       "type": "docs",
       "brief": "items/build_/COMMITS/COMMIT-cb894a4.md"
-    },
-    {
-      "sha": "2b2e2f0",
-      "full_sha": "2b2e2f0f6f5e1b4c4657d7ecff39efd09f5c8b63",
-      "title": "docs(irl): map Ian authority-permission seam to Authority-Control-Mandate trinity",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-20T08:23:53-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-2b2e2f0.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
