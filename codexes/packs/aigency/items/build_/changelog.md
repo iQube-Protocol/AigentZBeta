@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`8360afc`](https://github.com/iQube-Protocol/AigentZBeta/commit/8360afc64a3e09ba2cf05e1d2c5197f83fadc84c) [push] Execute institution verification as a bounded machine act, not a dead end [merge review/irl-scoped-restoration-2026-08-27] (Claude, 2026-08-31T15:19:06Z)
 - [`40632ee`](https://github.com/iQube-Protocol/AigentZBeta/commit/40632eea3552a020947e940bba06cc93d49c7898) [fix] Fix targeted-acquisition dead end: consume approval judgement once [merge review/irl-scoped-restoration-2026-08-27] (Claude, 2026-08-31T13:31:35Z)
 - [`0c8e134`](https://github.com/iQube-Protocol/AigentZBeta/commit/0c8e13479425eca1383419158f2a0d9db3196013) [push] Distinguish acquisition-blocked from not-started in Track 2 Stage 1 [merge review/irl-scoped-restoration-2026-08-27] (Claude, 2026-08-31T05:53:17Z)
 - [`5023a42`](https://github.com/iQube-Protocol/AigentZBeta/commit/5023a42a971b1e63ada7d55f636e8797d2a1ed8c) [fix] Fix Research Copilot targeted-acquisition approval timeout (Claude, 2026-08-31T03:48:19Z)

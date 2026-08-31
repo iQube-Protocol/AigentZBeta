@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-31T14:42:36.102Z",
+  "last_updated": "2026-08-31T15:21:22.577Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "40632eea3552a020947e940bba06cc93d49c7898",
-  "latest_commit_short": "40632ee",
-  "latest_commit_title": "Fix targeted-acquisition dead end: consume approval judgement once [merge review/irl-scoped-restoration-2026-08-27]",
+  "latest_commit": "8360afc64a3e09ba2cf05e1d2c5197f83fadc84c",
+  "latest_commit_short": "8360afc",
+  "latest_commit_title": "Execute institution verification as a bounded machine act, not a dead end [merge review/irl-scoped-restoration-2026-08-27]",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "8360afc",
+      "full_sha": "8360afc64a3e09ba2cf05e1d2c5197f83fadc84c",
+      "title": "Execute institution verification as a bounded machine act, not a dead end [merge review/irl-scoped-restoration-2026-08-27]",
+      "author": "Claude",
+      "timestamp": "2026-08-31T15:19:06Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-8360afc.md"
+    },
     {
       "sha": "40632ee",
       "full_sha": "40632eea3552a020947e940bba06cc93d49c7898",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-17T18:21:51Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-ca6f576.md"
-    },
-    {
-      "sha": "f27d179",
-      "full_sha": "f27d17988fdeabf3672781c0e61295f454261dd9",
-      "title": "gate-e: add reintroduction-specific evidence gathering and narrative gap analysis",
-      "author": "Claude",
-      "timestamp": "2026-08-17T18:14:31Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-f27d179.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

@@ -4739,3 +4739,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-40632ee.md](../build_/COMMITS/COMMIT-40632ee.md)
 - Message: Fix targeted-acquisition dead end: consume approval judgement once [merge review/irl-scoped-restoration-2026-08-27]
+
+## Commit `8360afc` — 2026-08-31T15:19:06Z
+- Type: `push`
+- Brief: [COMMIT-8360afc.md](../build_/COMMITS/COMMIT-8360afc.md)
+- Message: Execute institution verification as a bounded machine act, not a dead end [merge review/irl-scoped-restoration-2026-08-27]
