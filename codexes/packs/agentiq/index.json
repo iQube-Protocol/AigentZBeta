@@ -1,6 +1,6 @@
 {
-  "version": "0.1.3",
-  "generated_at": "2026-08-31T16:00:00Z",
+  "version": "0.1.4",
+  "generated_at": "2026-08-31T17:14:00Z",
   "repo": "AigentZBeta",
   "entries": [
     {
@@ -122,6 +122,16 @@
       "tags": ["aee", "financial-services", "moneypenny", "journey-spine", "experience-model", "experience-matrix", "differ", "copilotkit", "wallet", "dvn", "irl", "devon", "constitutional-computing"],
       "owners": ["Aigent Z", "Aigent C"],
       "last_updated": "2026-08-31T16:00:00Z"
+    },
+    {
+      "id": "aee-fs-progressive-financial-sovereignty-correction-2026-08-31",
+      "path": "codexes/packs/agentiq/updates/2026-08-31_aee-fs-paper3-scope-correction-metaknyt-progressive-financial-sovereignty.md",
+      "type": "architecture-amendment",
+      "title": "AEE-FS-001C — Paper III Scope Correction: metaKnyt + Progressive Financial Sovereignty",
+      "summary": "Canonical correction: metaKnyt spelling; Progressive Financial Sovereignty as sibling umbrella to Progressive Creative Sovereignty; Financial Services Learning as the broad capability with crypto, digital assets, trading and other specialist disciplines beneath it.",
+      "tags": ["aee", "financial-services", "metaknyt", "knights-bridge", "progressive-financial-sovereignty", "progressive-creative-sovereignty", "financial-literacy", "learning"],
+      "owners": ["Aigent Z", "Aigent C"],
+      "last_updated": "2026-08-31T17:14:00Z"
     }
   ]
 }
