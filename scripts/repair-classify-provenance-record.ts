@@ -49,8 +49,35 @@
  * "suggest-classification" action if you intend to use this disposition).
  */
 
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { applyProvenanceReclassification, readEvidenceProvenance, readReclassifications } from '@/services/research/experimentalPopulations';
 import { getInvariantById, updateInvariant } from '@/services/invariants/store';
+
+const REPO = join(dirname(fileURLToPath(import.meta.url)), '..');
+
+/** Same inline .env.local/.env.local.temp loader scripts/publish-independence-
+ *  review.ts and scripts/run-independence-review.ts already use — mirrored,
+ *  not reinvented. A standalone script never gets Next.js's own automatic
+ *  .env.local loading (that only happens inside the Next dev/build/start
+ *  process), so without this, `getSupabaseServer()` sees an empty
+ *  `process.env` even when `.env.local` has real credentials on disk. */
+function loadLocalEnv(): void {
+  for (const name of ['.env.local', '.env.local.temp']) {
+    const path = join(REPO, name);
+    if (!existsSync(path)) continue;
+    for (const raw of readFileSync(path, 'utf-8').split('\n')) {
+      const line = raw.trim();
+      if (!line || line.startsWith('#')) continue;
+      const eq = line.indexOf('=');
+      if (eq < 1) continue;
+      const k = line.slice(0, eq).trim();
+      if (process.env[k]) continue;
+      process.env[k] = line.slice(eq + 1).trim().replace(/^["']|["']$/g, '');
+    }
+  }
+}
 
 function parseArgs() {
   const args = process.argv.slice(2);
@@ -72,6 +99,7 @@ function parseArgs() {
 }
 
 async function main() {
+  loadLocalEnv();
   const args = parseArgs();
   if (!args.invariantId || !args.to || !args.rationale || args.evidenceRefs.length === 0) {
     console.error(
