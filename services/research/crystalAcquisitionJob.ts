@@ -56,6 +56,13 @@ export interface AcquisitionApprovalRow {
     deficientRelationalStructures: readonly string[];
     sourceAdmissibilityConstraints: readonly string[];
   };
+  /** The durable identity beyond experiment+domain (2026-08-31 state-machine
+   *  repair): the crystal generation this approval targeted, and a content
+   *  hash of the brief (`hashAcquisitionBrief`). A row predating this fix
+   *  carries `''` for both — never a false match against a freshly computed
+   *  hash (see the migration's own backfill note). */
+  crystalGeneration: string;
+  briefHash: string;
   approvedByPersonaId: string;
   approvedAt: string;
   completedAt: string | null;
@@ -70,6 +77,8 @@ function rowToApproval(r: Record<string, unknown>): AcquisitionApprovalRow {
     crystalDomain: String(r.crystal_domain),
     status: r.status as AcquisitionApprovalRow['status'],
     targetSnapshot: r.target_snapshot as AcquisitionApprovalRow['targetSnapshot'],
+    crystalGeneration: String(r.crystal_generation ?? ''),
+    briefHash: String(r.brief_hash ?? ''),
     approvedByPersonaId: String(r.approved_by_persona_id),
     approvedAt: String(r.approved_at),
     completedAt: (r.completed_at as string | null) ?? null,
@@ -115,6 +124,13 @@ export async function approveAcquisitionJob(
     crystalDomain: string;
     approvedByPersonaId: string;
     brief: CrystalAcquisitionBrief;
+    /** hashAcquisitionBrief(brief) — computed by the caller (the route
+     *  already needs it for the idempotency check before deciding to call
+     *  this at all) rather than re-derived here, so the hash the route
+     *  compared against is EXACTLY the hash persisted (inv.engineering.036/
+     *  037: never a second, possibly-diverging computation of the same
+     *  value). */
+    briefHash: string;
   },
 ): Promise<{ ok: true; approval: AcquisitionApprovalRow } | { ok: false; error: string }> {
   await admin
@@ -139,6 +155,8 @@ export async function approveAcquisitionJob(
       crystal_domain: input.crystalDomain,
       status: 'approved',
       target_snapshot: targetSnapshot,
+      crystal_generation: input.brief.crystalGeneration,
+      brief_hash: input.briefHash,
       approved_by_persona_id: input.approvedByPersonaId,
     })
     .select('*')
@@ -186,6 +204,32 @@ export interface AcquisitionStepResult {
   /** True when no ratified+verified institution remains unattempted — the
    *  caller should stop calling this step and re-check readiness. */
   exhausted: boolean;
+  /**
+   * How many ratified+verified institutions in the domain remained
+   * UNATTEMPTED at the start of this call (already-attempted ones, tracked
+   * via existing candidate sources, excluded). Informational only — this
+   * can legitimately reach 0 through a completed multi-call round, so it is
+   * NOT the signal that distinguishes a blocked source universe (see
+   * `ratifiedVerifiedInstitutionCount` below).
+   */
+  eligibleInstitutionCountAtStart: number;
+  /**
+   * How many institutions in the domain are ratified+verified AT ALL
+   * (2026-08-31 state-machine repair), regardless of whether they have
+   * already been attempted. THIS is the signal that tells "governance gap"
+   * apart from "legitimately worked through everything available":
+   *   - `exhausted && ratifiedVerifiedInstitutionCount === 0` — the source
+   *     universe had NOTHING eligible from the very first call in this
+   *     approval's lifetime; no institution was ever attempted. A
+   *     governance/verification gap, never a completed round.
+   *   - `exhausted && ratifiedVerifiedInstitutionCount > 0` — every eligible
+   *     institution WAS genuinely attempted (this call or an earlier one in
+   *     the same round); a real completed round.
+   * The caller (the run-step route) uses this, never
+   * `eligibleInstitutionCountAtStart`, to decide whether marking the
+   * approval 'completed' is honest.
+   */
+  ratifiedVerifiedInstitutionCount: number;
 }
 
 /**
@@ -207,12 +251,21 @@ export async function runOneAcquisitionStep(
   const attemptedIssuers = new Set(
     existingSources.map((s) => s.issuer).filter((issuer): issuer is string => Boolean(issuer)),
   );
-  const eligible = constitution.institutions.filter(
-    (i) => canRunInstitutionDiscovery(i).allowed && !attemptedIssuers.has(i.institutionName),
-  );
+  // Computed BEFORE excluding already-attempted institutions — this is
+  // "does the domain have anything ratified+verified at all", never
+  // narrowed by what a prior call in this same round already attempted
+  // (2026-08-31 state-machine repair; see `ratifiedVerifiedInstitutionCount`'s
+  // own doc comment for why this must be a separate count from `eligible`).
+  const ratifiedVerified = constitution.institutions.filter((i) => canRunInstitutionDiscovery(i).allowed);
+  const ratifiedVerifiedInstitutionCount = ratifiedVerified.length;
+  const eligible = ratifiedVerified.filter((i) => !attemptedIssuers.has(i.institutionName));
+  const eligibleInstitutionCountAtStart = eligible.length;
   const next = eligible[0];
   if (!next) {
-    return { ok: true, institution: null, discovery: null, exhausted: true };
+    return {
+      ok: true, institution: null, discovery: null, exhausted: true,
+      eligibleInstitutionCountAtStart, ratifiedVerifiedInstitutionCount,
+    };
   }
   const discovery = await runDiscoveryForInstitution(admin, {
     domain: acquisitionDomain,
@@ -225,5 +278,7 @@ export async function runOneAcquisitionStep(
     institution: { pillarKey: next.pillarKey, institutionName: next.institutionName },
     discovery,
     exhausted: remaining <= 0,
+    eligibleInstitutionCountAtStart,
+    ratifiedVerifiedInstitutionCount,
   };
 }

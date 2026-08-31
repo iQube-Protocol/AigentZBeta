@@ -95,8 +95,39 @@ export async function POST(
     scope: 'acquisition-gate',
   });
   const readinessSatisfied = !acquisitionBriefApplies(freshReadiness);
+  // THE PREMATURE-COMPLETION FIX (2026-08-31, "targeted-acquisition
+  // state-machine" repair). `step.exhausted` is true in TWO genuinely
+  // different situations, and only one of them is a completed round:
+  //   - the domain HAS ratified+verified institutions and every one of them
+  //     WAS attempted (this call or an earlier one this round) —
+  //     `ratifiedVerifiedInstitutionCount > 0` — a real round happened.
+  //   - the domain has NOTHING ratified+verified at all —
+  //     `ratifiedVerifiedInstitutionCount === 0` — no institution was ever
+  //     attempted, so nothing was "completed"; the approval is blocked on a
+  //     governance/verification gap, not fulfilled. Marking it 'completed'
+  //     here (the pre-fix behaviour) destroyed the durable record that a
+  //     steward had authorized this acquisition, and the NEXT read of Track 2
+  //     state re-offered "Approve targeted acquisition" from scratch — the
+  //     exact "approval remains outstanding after clicking Approve" defect.
+  // Deliberately NOT `eligibleInstitutionCountAtStart` (the unattempted-
+  // remaining count) — that reaches 0 through a LEGITIMATE completed round
+  // too (every institution attempted across one or more calls), which must
+  // still complete the approval normally.
+  // The approval row is left 'approved' (never silently discarded) so a
+  // later re-read still finds it and can route to the correct next decision
+  // (`buildAcquisitionPendingDecision`'s blocked-source-universe branch)
+  // instead of re-asking.
+  const sourceUniverseBlocked = !readinessSatisfied && step.exhausted && step.ratifiedVerifiedInstitutionCount === 0;
+  // `done` is loop-control ONLY (tells the caller to stop calling this
+  // route) — it stays true on exhaustion exactly as before, blocked or not,
+  // so a blocked round still stops after one call rather than spinning the
+  // client's retry loop up to its bound for no reason. Completion of the
+  // APPROVAL ROW is the separate decision below, and is the one that must
+  // never fire on a blocked round.
   const done = readinessSatisfied || step.exhausted;
-  if (done) await completeAcquisitionJob(admin, approval.id);
+  if (readinessSatisfied || (step.exhausted && !sourceUniverseBlocked)) {
+    await completeAcquisitionJob(admin, approval.id);
+  }
 
   return NextResponse.json(
     {
@@ -105,6 +136,7 @@ export async function POST(
       discovery: step.discovery,
       exhausted: step.exhausted,
       readinessSatisfied,
+      sourceUniverseBlocked,
       done,
       invariantCount: freshReadiness.invariantCount,
     },

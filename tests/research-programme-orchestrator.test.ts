@@ -37,7 +37,7 @@ const ORCHESTRATOR = 'services/research/researchProgrammeOrchestrator.ts';
 // The orchestrator only needs a TRUTHY client (every substrate read below is
 // itself mocked), and the shared fake is what supplies one — a hand-rolled
 // `{}` here would be a second fake coexisting with `tests/_lib/fakeSupabase.ts`.
-const { admin: fakeAdmin } = createFakeSupabase();
+const { admin: fakeAdmin, tables: fakeTables } = createFakeSupabase();
 vi.mock('@/app/api/_lib/supabaseServer', () => ({
   getSupabaseServer: () => fakeAdmin,
 }));
@@ -142,6 +142,12 @@ import {
 import { buildTrack2Programme } from '@/services/research/track2Programme';
 import { crystalDomainForExperiment } from '@/services/research/crystalDomains';
 import { BOUND_CRYSTAL_REMEDIATION_PROFILES } from '@/types/crystalRemediation';
+// crystalAcquisitionJob is NOT mocked in this file — its two durable-fact
+// functions run REAL against the shared fakeAdmin/fakeTables, so the
+// acceptance test below exercises the actual approval substrate, not a
+// stand-in for it.
+import { getActiveAcquisitionApproval, approveAcquisitionJob } from '@/services/research/crystalAcquisitionJob';
+import { buildCrystalAcquisitionBrief, hashAcquisitionBrief } from '@/services/research/crystalAcquisitionBrief';
 
 // ── Fixtures ───────────────────────────────────────────────────────────────
 
@@ -698,6 +704,288 @@ describe('the acquisition domain is resolved once and never diverges across coll
       expect.objectContaining({ campaignDomain: 'yet-another-probe-domain' }),
     );
     expect(mockListCandidates).toHaveBeenCalledWith(expect.anything(), 'yet-another-probe-domain');
+  });
+});
+
+// ── THE TARGETED-ACQUISITION STATE MACHINE — A HUMAN JUDGEMENT IS CONSUMED
+// ONCE (2026-08-31, "targeted-acquisition domain/source-universe handoff"
+// state-machine repair) ───────────────────────────────────────────────────
+//
+// Live incident: the Copilot correctly derived the targeted-acquisition
+// requirement and offered "Approve targeted acquisition". The steward
+// clicked it. Nothing observably changed — the SAME approval card remained
+// outstanding. Two compounding defects, both fixed here and pinned by this
+// acceptance test:
+//
+//   1. `run-step` was marking the durable approval 'completed' the instant
+//      ZERO institutions were eligible (ratified+verified) — destroying the
+//      record that a steward had authorized acquisition, before anything
+//      was ever attempted. Unit-level coverage:
+//      tests/crystal-acquisition-job.test.ts (runOneAcquisitionStep),
+//      tests/crystal-acquisition-run-step-route.test.ts (the route).
+//   2. `buildAcquisitionPendingDecision` never consulted the approval
+//      substrate at all — it re-derived "does acquisition still apply"
+//      purely from readiness, so even a SURVIVING approval record was
+//      invisible to it, and it re-offered the identical "Approve targeted
+//      acquisition" card on every read. THIS is what the tests below pin.
+//
+// Double-click/idempotency at the HTTP layer (approving an unchanged brief
+// twice never writes a second row) is pinned in
+// tests/crystal-acquisition-approve-route.test.ts's "idempotent
+// re-approval" describe block — not duplicated here.
+describe('the targeted-acquisition state machine — a human judgement is consumed once (2026-08-31 acceptance test)', () => {
+  const ACQ_DOMAIN = 'financial-services';
+
+  // Mirrors the live EXP-P1 brief shape: a real net-new-member deficit,
+  // missing namespaces, and a relational-structure deficit — Population A
+  // only, exactly what the operator's own live evidence described.
+  function acquisitionNeededReadiness(): CrystalReadinessReport {
+    return readiness({
+      invariantCount: 11,
+      checks: [
+        { name: 'selection-space', tier: 'scientific-readiness', passed: false, detail: '', remedy: 'grow the collection' } as never,
+      ],
+      populationRequirement: {
+        derivable: true,
+        insufficientInputs: [],
+        sliceFractionOfCrystal: 0.4,
+        sliceGuardSourceRef: 'ref',
+        sliceDemandBasis: 'registered-minimum-task-design',
+        requiredEvaluationSliceSize: 24,
+        minimumCollectionSize: 60,
+        requiredEntailmentChains: 12,
+        requiredRelationalMembersInSlice: 24,
+      } as never,
+      inferentialCapacity: {
+        assessedCount: 11,
+        relationalMemberCount: 0,
+        relationalMemberFraction: 0,
+        bareNecessityCount: 0,
+        unparsedCount: 0,
+        entailmentChains: [],
+        entailmentChainCount: 0,
+        inferentiallyCapableCount: 0,
+        inferentialCapacityFraction: 0,
+        degenerateNecessityChainCount: 0,
+        structuresPresent: [],
+        structuresAbsent: ['causal', 'conditional'],
+      } as never,
+      coverage: {
+        boundaryNamespaceCount: 13,
+        representedNamespaceCount: 2,
+        ratio: 2 / 13,
+        representedNamespaces: ['ns-a', 'ns-b'],
+        missingNamespaces: ['ns-c', 'ns-d'],
+      },
+    });
+  }
+
+  function acquisitionProgramme() {
+    return buildTrack2Programme({
+      experimentId: EXPERIMENT,
+      crystalDomain: 'financial-risk-value-systems',
+      acquisitionDomain: ACQ_DOMAIN,
+      signals: {
+        candidateSources: { total: 0, pendingReview: 0, admitted: 0 },
+        discoveryCandidates: { total: 0, awaitingReview: 0, promoted: 0 },
+        promotedCohort: cohort({ invariantIds: [], unvalidatedRecords: [] }),
+        readiness: acquisitionNeededReadiness(),
+        lifecycle: { stageId: 'DOMAIN_RATIFIED' } as never,
+        artifact: null,
+        independentReviewRequestOpen: false,
+        // Stage 1's OWN derivation (track2Programme.ts) reads this — kept
+        // deliberately DIFFERENT from the value passed to
+        // buildAcquisitionPendingDecision in each test below, so each test's
+        // own acquisitionSourceUniverse argument (the value under test) is
+        // what actually drives the assertions, never this fixture default.
+        acquisitionSourceUniverse: { ratifiedInstitutionCount: 0, eligibleInstitutionCount: 0 },
+      },
+    });
+  }
+
+  const declaration = () => crystalDomainForExperiment(EXPERIMENT)!;
+
+  beforeEach(() => {
+    // A fresh substrate per test — reassigning the SAME shared `fakeTables`
+    // object (never a new fake admin) so `getActiveAcquisitionApproval` /
+    // `approveAcquisitionJob` in this describe block read/write the exact
+    // table the rest of this file's fakeAdmin already points at.
+    fakeTables.crystal_acquisition_approvals = [];
+  });
+
+  it('step 1-2: readiness produces the targeted brief, and the Copilot exposes ONE approval ask — no active approval exists yet', async () => {
+    const decision = await buildAcquisitionPendingDecision({
+      programme: acquisitionProgramme(),
+      declaration: declaration(),
+      readiness: acquisitionNeededReadiness(),
+      artifact: null,
+      admin: fakeAdmin as never,
+      acquisitionDomain: ACQ_DOMAIN,
+      acquisitionSourceUniverse: { ratifiedInstitutionCount: 0, eligibleInstitutionCount: 0 },
+    });
+    expect(decision).not.toBeNull();
+    expect(decision?.acquisitionBrief).toBeDefined();
+    expect(decision?.stageId).toBe('discover-sources');
+  });
+
+  it('step 3-4: approving writes ONE durable approval row — getActiveAcquisitionApproval finds it afterward', async () => {
+    expect(await getActiveAcquisitionApproval(fakeAdmin as never, EXPERIMENT, ACQ_DOMAIN)).toBeNull();
+
+    const report = acquisitionNeededReadiness();
+    const brief = buildCrystalAcquisitionBrief({
+      experimentId: EXPERIMENT,
+      crystalGeneration: 'EXP-P1/crystal-v2',
+      domain: declaration(),
+      report,
+      admittedInvariantIds: [],
+    });
+    const result = await approveAcquisitionJob(fakeAdmin as never, {
+      experimentId: EXPERIMENT,
+      acquisitionDomain: ACQ_DOMAIN,
+      crystalDomain: declaration().domain,
+      approvedByPersonaId: PERSONA,
+      brief,
+      briefHash: hashAcquisitionBrief(brief),
+    });
+    expect(result.ok).toBe(true);
+
+    const active = await getActiveAcquisitionApproval(fakeAdmin as never, EXPERIMENT, ACQ_DOMAIN);
+    expect(active).not.toBeNull();
+    expect(active?.status).toBe('approved');
+  });
+
+  it('steps 5-7: recomputing programme state from substrate — the SAME approval judgement does NOT reappear; Copilot stops at an explicit source-universe gate instead (zero ratified institutions)', async () => {
+    const report = acquisitionNeededReadiness();
+    const brief = buildCrystalAcquisitionBrief({
+      experimentId: EXPERIMENT, crystalGeneration: 'EXP-P1/crystal-v2', domain: declaration(), report, admittedInvariantIds: [],
+    });
+    await approveAcquisitionJob(fakeAdmin as never, {
+      experimentId: EXPERIMENT, acquisitionDomain: ACQ_DOMAIN, crystalDomain: declaration().domain,
+      approvedByPersonaId: PERSONA, brief, briefHash: hashAcquisitionBrief(brief),
+    });
+
+    // The exact live evidence: zero ratified institutions for the domain.
+    const decision = await buildAcquisitionPendingDecision({
+      programme: acquisitionProgramme(),
+      declaration: declaration(),
+      readiness: report,
+      artifact: null,
+      admin: fakeAdmin as never,
+      acquisitionDomain: ACQ_DOMAIN,
+      acquisitionSourceUniverse: { ratifiedInstitutionCount: 0, eligibleInstitutionCount: 0 },
+    });
+
+    expect(decision).not.toBeNull();
+    // NEVER the re-ask: no acquisitionBrief means the UI's "Approve targeted
+    // acquisition" button does not render (IRLResearchCopilotTab.tsx's own
+    // render gate is `decision && decision.acquisitionBrief`).
+    expect(decision?.acquisitionBrief).toBeUndefined();
+    expect(decision?.authority).toBe('governance');
+    // TARGETED_ACQUISITION_APPROVED -> BLOCKED_SOURCE_UNIVERSE_UNCONSTITUTED,
+    // never DISCOVER_SOURCES_NOT_STARTED, never "approve again".
+    expect(decision?.detail).toMatch(/was approved for domain/i);
+    expect(decision?.detail).toMatch(/no institution is\s+yet ratified/i);
+    expect(decision?.remedies.join(' ')).toMatch(/ratify a domain constitution/i);
+    expect(decision?.remedies.join(' ')).not.toMatch(/approve targeted acquisition/i);
+  });
+
+  it('the ratified-but-unverified variant of the same gate names verification, never re-ratification or re-approval', async () => {
+    const report = acquisitionNeededReadiness();
+    const brief = buildCrystalAcquisitionBrief({
+      experimentId: EXPERIMENT, crystalGeneration: 'EXP-P1/crystal-v2', domain: declaration(), report, admittedInvariantIds: [],
+    });
+    await approveAcquisitionJob(fakeAdmin as never, {
+      experimentId: EXPERIMENT, acquisitionDomain: ACQ_DOMAIN, crystalDomain: declaration().domain,
+      approvedByPersonaId: PERSONA, brief, briefHash: hashAcquisitionBrief(brief),
+    });
+
+    const decision = await buildAcquisitionPendingDecision({
+      programme: acquisitionProgramme(),
+      declaration: declaration(),
+      readiness: report,
+      artifact: null,
+      admin: fakeAdmin as never,
+      acquisitionDomain: ACQ_DOMAIN,
+      acquisitionSourceUniverse: { ratifiedInstitutionCount: 9, eligibleInstitutionCount: 0 },
+    });
+
+    expect(decision?.acquisitionBrief).toBeUndefined();
+    expect(decision?.detail).toMatch(/9 institution\(s\) are ratified/);
+    expect(decision?.detail).toMatch(/NONE have completed verification/);
+    expect(decision?.remedies.join(' ')).toMatch(/institution verification/i);
+    expect(decision?.remedies.join(' ')).not.toMatch(/ratify a domain constitution/i);
+  });
+
+  it('step 9: once the gate is satisfied (eligible institutions exist), no NEW judgement is asked for — the existing approval is already executable', async () => {
+    const report = acquisitionNeededReadiness();
+    const brief = buildCrystalAcquisitionBrief({
+      experimentId: EXPERIMENT, crystalGeneration: 'EXP-P1/crystal-v2', domain: declaration(), report, admittedInvariantIds: [],
+    });
+    await approveAcquisitionJob(fakeAdmin as never, {
+      experimentId: EXPERIMENT, acquisitionDomain: ACQ_DOMAIN, crystalDomain: declaration().domain,
+      approvedByPersonaId: PERSONA, brief, briefHash: hashAcquisitionBrief(brief),
+    });
+
+    const decision = await buildAcquisitionPendingDecision({
+      programme: acquisitionProgramme(),
+      declaration: declaration(),
+      readiness: report,
+      artifact: null,
+      admin: fakeAdmin as never,
+      acquisitionDomain: ACQ_DOMAIN,
+      acquisitionSourceUniverse: { ratifiedInstitutionCount: 2, eligibleInstitutionCount: 2 },
+    });
+    // No SECOND "Approve" ask is manufactured — the existing approval
+    // already authorizes execution; nothing new is pending.
+    expect(decision).toBeNull();
+  });
+
+  it('step 10: refresh/reload — recomputing from the SAME substrate twice returns an identical decision', async () => {
+    const report = acquisitionNeededReadiness();
+    const brief = buildCrystalAcquisitionBrief({
+      experimentId: EXPERIMENT, crystalGeneration: 'EXP-P1/crystal-v2', domain: declaration(), report, admittedInvariantIds: [],
+    });
+    await approveAcquisitionJob(fakeAdmin as never, {
+      experimentId: EXPERIMENT, acquisitionDomain: ACQ_DOMAIN, crystalDomain: declaration().domain,
+      approvedByPersonaId: PERSONA, brief, briefHash: hashAcquisitionBrief(brief),
+    });
+
+    const input = {
+      programme: acquisitionProgramme(),
+      declaration: declaration(),
+      readiness: report,
+      artifact: null,
+      admin: fakeAdmin as never,
+      acquisitionDomain: ACQ_DOMAIN,
+      acquisitionSourceUniverse: { ratifiedInstitutionCount: 0, eligibleInstitutionCount: 0 },
+    };
+    const first = await buildAcquisitionPendingDecision(input);
+    const second = await buildAcquisitionPendingDecision(input);
+    expect(second).toEqual(first);
+  });
+
+  it('domain parity: the blocked decision names the EXACT acquisitionDomain passed in, never the crystal domain', async () => {
+    const report = acquisitionNeededReadiness();
+    const brief = buildCrystalAcquisitionBrief({
+      experimentId: EXPERIMENT, crystalGeneration: 'EXP-P1/crystal-v2', domain: declaration(), report, admittedInvariantIds: [],
+    });
+    const distinctiveDomain = 'a-distinctive-acquisition-domain';
+    await approveAcquisitionJob(fakeAdmin as never, {
+      experimentId: EXPERIMENT, acquisitionDomain: distinctiveDomain, crystalDomain: declaration().domain,
+      approvedByPersonaId: PERSONA, brief, briefHash: hashAcquisitionBrief(brief),
+    });
+
+    const decision = await buildAcquisitionPendingDecision({
+      programme: acquisitionProgramme(),
+      declaration: declaration(),
+      readiness: report,
+      artifact: null,
+      admin: fakeAdmin as never,
+      acquisitionDomain: distinctiveDomain,
+      acquisitionSourceUniverse: { ratifiedInstitutionCount: 0, eligibleInstitutionCount: 0 },
+    });
+    expect(decision?.detail).toContain(distinctiveDomain);
+    expect(decision?.detail).not.toContain('financial-risk-value-systems');
   });
 });
 

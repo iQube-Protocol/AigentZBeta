@@ -163,6 +163,7 @@ describe('approveAcquisitionJob', () => {
       crystalDomain: 'financial-risk-value-systems',
       approvedByPersonaId: 'persona-1',
       brief: BRIEF,
+      briefHash: 'hash-abc123',
     });
 
     expect(result.ok).toBe(true);
@@ -180,6 +181,10 @@ describe('approveAcquisitionJob', () => {
       experiment_id: 'EXP-P1',
       status: 'approved',
       target_snapshot: expect.objectContaining({ requiredNetNewDistinctMembers: 49 }),
+      // The durable identity (2026-08-31) — persisted verbatim, never
+      // re-derived at write time.
+      crystal_generation: BRIEF.crystalGeneration,
+      brief_hash: 'hash-abc123',
     });
 
     expect(mWriteLifecycleReceipt).toHaveBeenCalledWith(expect.objectContaining({
@@ -199,6 +204,7 @@ describe('approveAcquisitionJob', () => {
       crystalDomain: 'financial-risk-value-systems',
       approvedByPersonaId: 'persona-1',
       brief: BRIEF,
+      briefHash: 'hash-abc123',
     });
     expect(result.ok).toBe(false);
     if (result.ok) throw new Error('unreachable');
@@ -226,6 +232,7 @@ describe('approveAcquisitionJob', () => {
       crystalDomain: 'financial-risk-value-systems',
       approvedByPersonaId: 'persona-1',
       brief: BRIEF,
+      briefHash: 'hash-abc123',
     });
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error('unreachable');
@@ -266,6 +273,8 @@ describe('runOneAcquisitionStep', () => {
 
     expect(result.exhausted).toBe(false);
     expect(result.institution).toEqual({ pillarKey: 'partnerships', institutionName: 'NBER' });
+    expect(result.ratifiedVerifiedInstitutionCount).toBe(2);
+    expect(result.eligibleInstitutionCountAtStart).toBe(2);
     expect(mRunDiscovery).toHaveBeenCalledWith(admin, {
       domain: 'financial-risk-value-systems', pillarKey: 'partnerships', institutionName: 'NBER',
     });
@@ -304,7 +313,7 @@ describe('runOneAcquisitionStep', () => {
     expect(mRunDiscovery).toHaveBeenCalledTimes(1);
   });
 
-  it('reports exhausted:true and institution:null when nothing is eligible', async () => {
+  it('reports exhausted:true and institution:null when every ratified+verified institution already has a candidate source — a LEGITIMATE completed round, ratifiedVerifiedInstitutionCount > 0', async () => {
     mGetDomainConstitution.mockResolvedValue({
       domain: 'financial-risk-value-systems', definition: null, pillars: [], dependencies: [],
       institutions: [NBER, IMF], diversity: [], acquisitionSeeds: [],
@@ -319,6 +328,28 @@ describe('runOneAcquisitionStep', () => {
     expect(result.institution).toBeNull();
     expect(result.discovery).toBeNull();
     expect(mRunDiscovery).not.toHaveBeenCalled();
+    // 2026-08-31 state-machine repair: the domain DID have institutions
+    // eligible (both, at some point) — this is a real completed round, never
+    // to be confused with "the domain never had anything eligible" below.
+    expect(result.eligibleInstitutionCountAtStart).toBe(0);
+    expect(result.ratifiedVerifiedInstitutionCount).toBe(2);
+  });
+
+  it('reports ratifiedVerifiedInstitutionCount: 0 when the domain has NOTHING ratified+verified at all — the genuine source-universe-blocked shape (2026-08-31)', async () => {
+    mGetDomainConstitution.mockResolvedValue({
+      domain: 'financial-risk-value-systems', definition: null, pillars: [], dependencies: [],
+      institutions: [UNVERIFIED], diversity: [], acquisitionSeeds: [],
+    } as never);
+    mListCandidateSources.mockResolvedValue([]);
+    mCanRun.mockReturnValue({ allowed: false }); // nothing passes the ratified+verified gate
+
+    const admin = {} as unknown as SupabaseClient;
+    const result = await runOneAcquisitionStep(admin, 'financial-risk-value-systems');
+
+    expect(result.exhausted).toBe(true);
+    expect(result.institution).toBeNull();
+    expect(result.eligibleInstitutionCountAtStart).toBe(0);
+    expect(result.ratifiedVerifiedInstitutionCount).toBe(0);
   });
 
   it('a listCandidateSources failure degrades to treating nothing as already attempted (never throws)', async () => {

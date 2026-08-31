@@ -61,6 +61,8 @@ beforeEach(() => {
     institution: { pillarKey: 'partnerships', institutionName: 'NBER' },
     discovery: { ok: true, pagesFetched: 1, candidates: [] },
     exhausted: false,
+    eligibleInstitutionCountAtStart: 1,
+    ratifiedVerifiedInstitutionCount: 2,
   });
   mockCompleteAcquisitionJob.mockReset();
   mockCompleteAcquisitionJob.mockResolvedValue(undefined);
@@ -125,13 +127,62 @@ describe('POST acquisition/run-step — the bounded step + re-derived readiness'
     expect(mockCompleteAcquisitionJob).toHaveBeenCalledWith(expect.anything(), 'approval-1');
   });
 
-  it('marks the approval completed and reports done:true once every ratified institution is exhausted, even if readiness is still unsatisfied', async () => {
+  it('marks the approval completed and reports done:true once every ratified+verified institution is GENUINELY exhausted (real attempts were made), even if readiness is still unsatisfied', async () => {
     mockAcquisitionBriefApplies.mockReturnValue(true);
-    mockRunOneAcquisitionStep.mockResolvedValue({ ok: true, institution: null, discovery: null, exhausted: true });
+    // ratifiedVerifiedInstitutionCount > 0 (something WAS eligible in this
+    // domain), eligibleInstitutionCountAtStart === 0 (all of it already
+    // attempted, this call or an earlier one) — a real, completed round,
+    // distinct from the "nothing was EVER eligible" case below. This is the
+    // exact shape a legitimate multi-call round ends on, and must NOT be
+    // misread as blocked.
+    mockRunOneAcquisitionStep.mockResolvedValue({
+      ok: true, institution: null, discovery: null, exhausted: true,
+      eligibleInstitutionCountAtStart: 0, ratifiedVerifiedInstitutionCount: 2,
+    });
     const res = await POST(makeRequest({}), { params: params('EXP-P1') });
     const body = await res.json();
     expect(body.exhausted).toBe(true);
     expect(body.readinessSatisfied).toBe(false);
+    expect(body.done).toBe(true);
+    expect(body.sourceUniverseBlocked).toBe(false);
+    expect(mockCompleteAcquisitionJob).toHaveBeenCalledWith(expect.anything(), 'approval-1');
+  });
+
+  // ── THE PREMATURE-COMPLETION FIX (2026-08-31, "targeted-acquisition
+  // state-machine" repair) — the live defect: an approval click followed by
+  // a run-step call where the domain has ZERO ratified+verified institutions
+  // AT ALL was marking the approval 'completed' on the very first call,
+  // before anything was ever attempted. That destroyed the durable record
+  // that a steward had authorized acquisition, and the next read re-offered
+  // "Approve targeted acquisition" from scratch — the reported "approval
+  // remains outstanding after clicking Approve" defect.
+  it('does NOT mark the approval completed when the domain has NOTHING ratified+verified at all (source universe blocked) — the durable approval record survives', async () => {
+    mockAcquisitionBriefApplies.mockReturnValue(true); // readiness still needs acquisition
+    mockRunOneAcquisitionStep.mockResolvedValue({
+      ok: true, institution: null, discovery: null, exhausted: true,
+      eligibleInstitutionCountAtStart: 0, ratifiedVerifiedInstitutionCount: 0,
+    });
+    const res = await POST(makeRequest({}), { params: params('EXP-P1') });
+    const body = await res.json();
+    expect(body.exhausted).toBe(true);
+    expect(body.readinessSatisfied).toBe(false);
+    expect(body.sourceUniverseBlocked).toBe(true);
+    // Loop-control still stops the caller from spinning (done:true) —
+    // blocked is a terminal state for THIS call, just not a completed one.
+    expect(body.done).toBe(true);
+    expect(mockCompleteAcquisitionJob).not.toHaveBeenCalled();
+  });
+
+  it('a genuinely satisfied readiness still completes the approval even when the domain has nothing ratified+verified at all', async () => {
+    mockAcquisitionBriefApplies.mockReturnValue(false); // readiness NOW satisfied
+    mockRunOneAcquisitionStep.mockResolvedValue({
+      ok: true, institution: null, discovery: null, exhausted: true,
+      eligibleInstitutionCountAtStart: 0, ratifiedVerifiedInstitutionCount: 0,
+    });
+    const res = await POST(makeRequest({}), { params: params('EXP-P1') });
+    const body = await res.json();
+    expect(body.readinessSatisfied).toBe(true);
+    expect(body.sourceUniverseBlocked).toBe(false);
     expect(body.done).toBe(true);
     expect(mockCompleteAcquisitionJob).toHaveBeenCalledWith(expect.anything(), 'approval-1');
   });

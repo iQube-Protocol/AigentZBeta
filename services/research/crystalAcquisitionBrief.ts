@@ -33,6 +33,7 @@
  * caller (the API route) does the fetching.
  */
 
+import { createHash } from 'crypto';
 import type { CrystalReadinessReport } from '@/services/research/crystalReadiness';
 import type { CrystalDomainDeclaration } from '@/services/research/crystalDomains';
 import type { RelationalStructure } from '@/services/research/crystalSemanticStructure';
@@ -248,3 +249,39 @@ export function acquisitionBriefApplies(report: CrystalReadinessReport): boolean
 }
 
 export { FREEZE_BLOCKING_ACQUISITION_CHECK_NAMES };
+
+/**
+ * THE APPROVAL'S DURABLE IDENTITY (2026-08-31, "approve targeted acquisition
+ * can never re-ask after a judgement is consumed" repair, operator
+ * requirement: "a durable identity such as experimentId + crystalVersion/
+ * successor + acquisitionBriefHash").
+ *
+ * A one-way, deterministic digest of exactly the fields that define WHAT was
+ * targeted — never `generatedAt`/`readinessReportRef.generatedAt` (those are
+ * provenance timestamps, not target content; hashing them would make every
+ * brief unique regardless of whether the target actually changed, defeating
+ * the whole point of the hash). Two briefs for the SAME crystal generation
+ * with the SAME deficits hash identically, so a steward re-approving an
+ * UNCHANGED plan is recognised as the exact same judgement already made —
+ * never a coincidence match, never a re-derivation of what "changed" means
+ * (this IS that definition). Not a security boundary — a stable content
+ * fingerprint, mirroring the T2-safe-commitment PATTERN this codebase uses
+ * elsewhere for stable references, not its threat model.
+ */
+export function hashAcquisitionBrief(brief: CrystalAcquisitionBrief): string {
+  const canonical = JSON.stringify({
+    experimentId: brief.experimentId,
+    crystalGeneration: brief.crystalGeneration,
+    domain: brief.domain,
+    requiredNetNewDistinctMembers: brief.requiredNetNewDistinctMembers,
+    minimumCollectionSize: brief.minimumCollectionSize,
+    missingNamespaces: [...brief.missingNamespaces].sort(),
+    boundaryNamespaceCount: brief.boundaryNamespaceCount,
+    requiredEntailmentChains: brief.requiredEntailmentChains,
+    entailmentChainDeficit: brief.entailmentChainDeficit,
+    requiredRelationalMembersInSlice: brief.requiredRelationalMembersInSlice,
+    deficientRelationalStructures: [...brief.deficientRelationalStructures].sort(),
+    sourceAdmissibilityConstraints: [...brief.sourceAdmissibilityConstraints].sort(),
+  });
+  return createHash('sha256').update(canonical).digest('hex').slice(0, 32);
+}

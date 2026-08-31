@@ -121,6 +121,7 @@ import {
   buildCrystalAcquisitionBrief,
   type CrystalAcquisitionBrief,
 } from '@/services/research/crystalAcquisitionBrief';
+import { getActiveAcquisitionApproval } from '@/services/research/crystalAcquisitionJob';
 import {
   crystalDeclarationHash,
   crystalDomainForExperiment,
@@ -568,7 +569,15 @@ export async function loadTrack2ProgrammeState(input: {
 
   let pendingDecision =
     firstPendingDecision(programme) ??
-    (await buildAcquisitionPendingDecision({ programme, declaration, readiness, artifact }));
+    (await buildAcquisitionPendingDecision({
+      programme,
+      declaration,
+      readiness,
+      artifact,
+      admin: admin ?? null,
+      acquisitionDomain,
+      acquisitionSourceUniverse,
+    }));
 
   // THE REVIEW & PROMOTE QUEUE (2026-08-30) — enriches the SAME decision
   // object `firstPendingDecision` already returns for this stage (Stage 4 is
@@ -1588,6 +1597,18 @@ export async function buildAcquisitionPendingDecision(input: {
    *  means nothing is provisioned yet, and the next unused generation id is
    *  resolved lazily below, only once every earlier early-return has passed. */
   artifact: { id: string; lifecycle: string } | null;
+  /** Server admin client + the SAME resolved `acquisitionDomain` every other
+   *  acquisition surface reads (2026-08-31, "targeted-acquisition
+   *  state-machine" repair) — used to consult the durable approval fact
+   *  before ever offering "Approve targeted acquisition" again. `admin: null`
+   *  degrades to the pre-fix behaviour (always offer the ask) rather than
+   *  throwing — this function's own existing contract is fail-soft. */
+  admin: SupabaseClient | null;
+  acquisitionDomain: string;
+  /** The SAME signal `loadTrack2ProgrammeState` already computed for Stage
+   *  1's own derivation (`summarizeAcquisitionSourceUniverse`) — never a
+   *  second query for the identical fact (inv.engineering.036/037). */
+  acquisitionSourceUniverse: { ratifiedInstitutionCount: number; eligibleInstitutionCount: number } | null;
 }): Promise<PendingGovernanceDecision | null> {
   if (!acquisitionBriefApplies(input.readiness)) return null;
   const stage = input.programme.stages.find((s) => s.id === 'discover-sources');
@@ -1597,6 +1618,81 @@ export async function buildAcquisitionPendingDecision(input: {
   // already have been named by `firstPendingDecision`; this is a fallback,
   // never a competing gate).
   if (!input.programme.unblockedStageIds.includes('discover-sources')) return null;
+
+  // ── THE HUMAN JUDGEMENT IS CONSUMED ONCE (2026-08-31 state-machine repair,
+  // the operator's canonical rule: "After it is constitutionally recorded,
+  // the system must advance to the consequence of that judgement, even when
+  // that consequence is another blocked gate.") — an ACTIVE approval already
+  // exists means a steward already made this decision. This function must
+  // NEVER manufacture a second "Approve targeted acquisition" ask for it;
+  // it routes to the actual consequence instead. ────────────────────────────
+  const activeApproval = input.admin
+    ? await getActiveAcquisitionApproval(input.admin, input.programme.experimentId, input.acquisitionDomain).catch(() => null)
+    : null;
+
+  if (activeApproval) {
+    // The source-universe signal itself is unreadable — never guess a
+    // reason; report the failure honestly rather than assuming blocked OR
+    // executable.
+    if (input.acquisitionSourceUniverse === null) {
+      return {
+        stageId: stage.id,
+        stageLabel: stage.label,
+        authority: 'governance',
+        actor: 'Steward',
+        capability: stage.capability,
+        surface: stage.surface,
+        deepLink: buildTrack2DeepLink(input.programme.experimentId, stage.id, stage.label),
+        remedies: [],
+        actionable: false,
+        detail:
+          `Targeted acquisition was already approved for domain '${input.acquisitionDomain}' — the same ` +
+          'judgement is not being re-asked. The acquisition source universe could not be read to determine ' +
+          'what happens next — status unknown, not assumed.',
+      };
+    }
+    // Zero ratified+verified institutions: nothing is executable, and
+    // nothing about clicking "Approve" again would change that — the
+    // approval already exists and is not the blocker. This is
+    // TARGETED_ACQUISITION_APPROVED -> BLOCKED_SOURCE_UNIVERSE_UNCONSTITUTED,
+    // never DISCOVER_SOURCES_NOT_STARTED and never a second approval ask.
+    if (input.acquisitionSourceUniverse.eligibleInstitutionCount === 0) {
+      const { ratifiedInstitutionCount } = input.acquisitionSourceUniverse;
+      const detail =
+        ratifiedInstitutionCount === 0
+          ? `Targeted acquisition was approved for domain '${input.acquisitionDomain}', but no institution is ` +
+            'yet ratified for that domain — the source universe is not constituted. This is a separate, ' +
+            'already-authorized decision from institution ratification; re-approving acquisition will not help.'
+          : `Targeted acquisition was approved for domain '${input.acquisitionDomain}' — ${ratifiedInstitutionCount} ` +
+            'institution(s) are ratified, but NONE have completed verification (SPEC-CIR-001 §9). The source ' +
+            'universe is constituted but not yet usable. Re-approving acquisition will not help; the ' +
+            'institutions are already ratified.';
+      const remedies =
+        ratifiedInstitutionCount === 0
+          ? [`Ratify a domain constitution and at least one institution for '${input.acquisitionDomain}' before acquisition can run.`]
+          : [`Run institution verification for '${input.acquisitionDomain}' (POST /api/corpus-scout/institution-verification) — the institutions are already ratified.`];
+      return {
+        stageId: stage.id,
+        stageLabel: stage.label,
+        authority: 'governance',
+        actor: 'Steward',
+        capability: stage.capability,
+        surface: stage.surface,
+        deepLink: buildTrack2DeepLink(input.programme.experimentId, stage.id, stage.label),
+        remedies,
+        actionable: false,
+        detail,
+      };
+    }
+    // Eligible institutions exist and an approval is already active — the
+    // approval is executable, not a new judgement to ask for. Falls through
+    // to `null`: no NEW human decision is pending here (the existing
+    // approval already authorizes `run-step`/`advance` to continue; a
+    // reload before a round finishes shows no acquisition card rather than
+    // a duplicate ask, which is the honest reflection of "already decided,
+    // still executing").
+    return null;
+  }
 
   const crystalGeneration =
     input.artifact?.id ?? (await currentCrystalArtifactId(input.programme.experimentId).catch(() => input.programme.experimentId));
