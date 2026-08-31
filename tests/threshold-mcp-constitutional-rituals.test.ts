@@ -41,6 +41,9 @@ const {
   mockGetExchangeView,
   mockListMyExchanges,
   mockResolveExchangeActingPrincipal,
+  mockLoadExchange,
+  mockResolveMembership,
+  mockCurrentArtifact,
   mockPersistDelegationGrant,
   mockEmitOrchestrationEvent,
   mockCreateActivityReceipt,
@@ -52,6 +55,21 @@ const {
   mockSignInstrument: vi.fn(),
   mockGetExchangeView: vi.fn(),
   mockListMyExchanges: vi.fn(),
+  // ctp.exchange.artifact.confirm's own prior-state read (2026-08-31, "CTP
+  // foundation") — confirmOperatorAssistedArtifactViaMcp now dispatches
+  // through constitutionalRuntime.execute, whose bound primitive
+  // (services/ctp/primitives/exchangeArtifactConfirm.ts) calls these SAME
+  // reciprocalExchange.ts exports for its readPriorState step, before ever
+  // reaching mockConfirmOperatorAssistedArtifact. Mocked out here (rather
+  // than left as `...actual`) because this file's `admin` fixtures are not
+  // real Supabase clients — the real loadExchange/currentArtifact would
+  // throw on them exactly as confirmOperatorAssistedArtifact itself would
+  // if it weren't already mocked. Defaulted to a confirmable artifact so
+  // every existing confirm test reaches the mocked implementation exactly
+  // as it did before this dispatch existed.
+  mockLoadExchange: vi.fn(async () => ({ ok: true as const, exchange: { id: 'exchange-fixture' } })),
+  mockResolveMembership: vi.fn(() => 'B' as const),
+  mockCurrentArtifact: vi.fn(async () => ({ id: 'artifact-fixture', pendingPrincipalAttestation: true, version: 1 })),
   // Default: the resolved principal IS the exchange's bound party directly
   // (no merge/sibling case) — the sibling/merge-aware resolution itself is
   // covered separately by tests/ocsga-exchange-principal-gate.test.ts and
@@ -84,6 +102,9 @@ vi.mock('@/services/research/reciprocalExchange', async () => {
     getExchangeView: mockGetExchangeView,
     listMyExchanges: mockListMyExchanges,
     resolveExchangeActingPrincipal: mockResolveExchangeActingPrincipal,
+    loadExchange: mockLoadExchange,
+    resolveMembership: mockResolveMembership,
+    currentArtifact: mockCurrentArtifact,
   };
 });
 vi.mock('@/services/delegation/delegationGrantStore', () => ({
@@ -135,7 +156,12 @@ import type { ScopedSession } from '@/services/threshold/gatewaySession';
 
 const FAKE_PERSONA_ID = '11111111-1111-1111-1111-111111111111';
 const FAKE_EXCHANGE_ID = 'exchange-1';
-const NOOP_ADMIN = {} as never;
+// A minimal `.from().insert()` stub (2026-08-31 addition) — the
+// Constitutional Runtime's own evidence writer (services/ctp/evidence.ts)
+// calls `admin.from(...)` directly and is not itself mocked (evidence
+// persistence is exercised for real in tests/ctp-constitutional-runtime.
+// test.ts); this stub only needs to not throw.
+const NOOP_ADMIN = { from: () => ({ insert: async () => ({ error: null }) }) } as never;
 
 function fakeSession(overrides: Partial<ScopedSession> = {}): ScopedSession {
   return {
@@ -534,7 +560,9 @@ describe('channel equivalence — MCP resolves Ian\'s principal identically to t
       `${process.cwd()}/app/api/research/exchanges/[exchangeId]/actions/route.ts`,
       'utf8',
     );
-    for (const fn of ['confirmOperatorAssistedArtifact', 'declareFreeze', 'signInstrument']) {
+    // declareFreeze/signInstrument are UNCHANGED — both channels still
+    // import them directly from the canonical service.
+    for (const fn of ['declareFreeze', 'signInstrument']) {
       expect(mcpSrc, `MCP path must import ${fn} from the canonical service`).toMatch(
         new RegExp(`import\\s*\\{[^}]*\\b${fn}\\b[^}]*\\}\\s*from\\s*['"]@/services/research/reciprocalExchange['"]`),
       );
@@ -542,6 +570,24 @@ describe('channel equivalence — MCP resolves Ian\'s principal identically to t
         new RegExp(`import\\s*\\{[^}]*\\b${fn}\\b[^}]*\\}\\s*from\\s*['"]@/services/research/reciprocalExchange['"]`),
       );
     }
+    // confirmOperatorAssistedArtifact moved one layer down (2026-08-31, "CTP
+    // foundation"): NEITHER channel imports it directly any more — both
+    // dispatch through constitutionalRuntime.execute('ctp.exchange.artifact.
+    // confirm', ...), and services/ctp/primitives/exchangeArtifactConfirm.ts
+    // is the ONE remaining importer, binding the SAME canonical function.
+    // "Never a fork" now means: both channels invoke the identical
+    // primitiveId through the identical runtime seam — checked directly.
+    for (const src of [mcpSrc, bridgeSrc]) {
+      expect(src).not.toMatch(
+        /import\s*\{[^}]*\bconfirmOperatorAssistedArtifact\b[^}]*\}\s*from\s*['"]@\/services\/research\/reciprocalExchange['"]/,
+      );
+      expect(src).toMatch(/from ['"]@\/services\/ctp\/constitutionalRuntime['"]/);
+      expect(src).toMatch(/'ctp\.exchange\.artifact\.confirm'/);
+    }
+    const primitiveSrc = fs.readFileSync(`${process.cwd()}/services/ctp/primitives/exchangeArtifactConfirm.ts`, 'utf8');
+    expect(primitiveSrc).toMatch(
+      /import\s*\{[^}]*\bconfirmOperatorAssistedArtifact\b[^}]*\}\s*from\s*['"]@\/services\/research\/reciprocalExchange['"]/,
+    );
   });
 
   it('8b. neither channel re-derives actorType from resolveConstitutionalContext/currentAigentMe — the exact defect class fixed on the bridge cannot recur on either path (source canary)', () => {
