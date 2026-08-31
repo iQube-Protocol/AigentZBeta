@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-30T22:58:49.544Z",
+  "last_updated": "2026-08-31T00:03:06.276Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "aec0d2d6f42df9391efb3b543317ced763014cc2",
-  "latest_commit_short": "aec0d2d",
-  "latest_commit_title": "generalize the pending-decision filter: actionable, not just remedies",
+  "latest_commit": "d1f2ba082264c38fc0fb27889bb3a656358aeeda",
+  "latest_commit_short": "d1f2ba0",
+  "latest_commit_title": "close Classify Provenance omission defect: machine recommendation != steward decision",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "d1f2ba0",
+      "full_sha": "d1f2ba082264c38fc0fb27889bb3a656358aeeda",
+      "title": "close Classify Provenance omission defect: machine recommendation != steward decision",
+      "author": "Claude",
+      "timestamp": "2026-08-31T00:00:46Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-d1f2ba0.md"
+    },
     {
       "sha": "aec0d2d",
       "full_sha": "aec0d2d6f42df9391efb3b543317ced763014cc2",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-16T20:06:07Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-31d532e.md"
-    },
-    {
-      "sha": "dab0fb4",
-      "full_sha": "dab0fb407661200d4ac776e07e4f086d7a509fe3",
-      "title": "Homecoming Phase II: handover doc for WP-A/WP-B audit + implementation plan",
-      "author": "Claude",
-      "timestamp": "2026-08-16T20:08:21Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-dab0fb4.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

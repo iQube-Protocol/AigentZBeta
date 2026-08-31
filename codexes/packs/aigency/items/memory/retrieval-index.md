@@ -4704,3 +4704,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-aec0d2d.md](../build_/COMMITS/COMMIT-aec0d2d.md)
 - Message: generalize the pending-decision filter: actionable, not just remedies
+
+## Commit `d1f2ba0` — 2026-08-31T00:00:46Z
+- Type: `push`
+- Brief: [COMMIT-d1f2ba0.md](../build_/COMMITS/COMMIT-d1f2ba0.md)
+- Message: close Classify Provenance omission defect: machine recommendation != steward decision
