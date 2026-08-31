@@ -948,6 +948,25 @@ export interface PendingGovernanceDecision {
    * decision, and on this stage too once nothing is awaiting review.
    */
   reviewQueue?: ReviewPromoteCandidateEntry[];
+  /**
+   * A deterministic, bounded, already-Steward-authorised machine act is
+   * outstanding and directly executable from THIS decision (2026-08-31,
+   * "targeted-acquisition ratified-but-unverified dead end" repair) —
+   * present ONLY when the `discover-sources` stop is blocked on ratified
+   * institutions that have never completed verification. Distinct from
+   * `acquisitionBrief` (which asks for a HUMAN approval) and from
+   * `reviewQueue` (per-record human judgment): this is the "Run until you
+   * need me" case — the constitutional rule that a deterministic, bounded,
+   * already-authorised act must be EXECUTED, never presented as a dead end
+   * whose only CTA is "Open Discover Sources". A consumer renders a "Run
+   * institution verification" control that drives
+   * `POST .../acquisition/verify-step` repeatedly (mirroring how
+   * `acquisitionBrief`'s own control drives `.../acquisition/run-step`),
+   * never a second verification implementation
+   * (`services/corpusScout/registryVerification.ts::verifyInstitutionEntry`
+   * is the sole implementation, reused verbatim by both).
+   */
+  verificationTarget?: { acquisitionDomain: string; ratifiedInstitutionCount: number };
 }
 
 /** One evidence row resolved for a review card — an EXCERPT (never the full
@@ -1658,30 +1677,56 @@ export async function buildAcquisitionPendingDecision(input: {
     // never DISCOVER_SOURCES_NOT_STARTED and never a second approval ask.
     if (input.acquisitionSourceUniverse.eligibleInstitutionCount === 0) {
       const { ratifiedInstitutionCount } = input.acquisitionSourceUniverse;
-      const detail =
-        ratifiedInstitutionCount === 0
-          ? `Targeted acquisition was approved for domain '${input.acquisitionDomain}', but no institution is ` +
+      // Nothing ratified at all — a genuine governance act (ratifying a
+      // domain constitution / an institution) is the outstanding decision.
+      // No bounded machine act exists to execute here — this branch stays
+      // diagnostic-only, `actionable: false`, exactly as before.
+      if (ratifiedInstitutionCount === 0) {
+        return {
+          stageId: stage.id,
+          stageLabel: stage.label,
+          authority: 'governance',
+          actor: 'Steward',
+          capability: stage.capability,
+          surface: stage.surface,
+          deepLink: buildTrack2DeepLink(input.programme.experimentId, stage.id, stage.label),
+          remedies: [
+            `Ratify a domain constitution and at least one institution for '${input.acquisitionDomain}' before acquisition can run.`,
+          ],
+          actionable: false,
+          detail:
+            `Targeted acquisition was approved for domain '${input.acquisitionDomain}', but no institution is ` +
             'yet ratified for that domain — the source universe is not constituted. This is a separate, ' +
-            'already-authorized decision from institution ratification; re-approving acquisition will not help.'
-          : `Targeted acquisition was approved for domain '${input.acquisitionDomain}' — ${ratifiedInstitutionCount} ` +
-            'institution(s) are ratified, but NONE have completed verification (SPEC-CIR-001 §9). The source ' +
-            'universe is constituted but not yet usable. Re-approving acquisition will not help; the ' +
-            'institutions are already ratified.';
-      const remedies =
-        ratifiedInstitutionCount === 0
-          ? [`Ratify a domain constitution and at least one institution for '${input.acquisitionDomain}' before acquisition can run.`]
-          : [`Run institution verification for '${input.acquisitionDomain}' (POST /api/corpus-scout/institution-verification) — the institutions are already ratified.`];
+            'already-authorized decision from institution ratification; re-approving acquisition will not help.',
+        };
+      }
+      // Ratified but unverified (the live EXP-P1 case: 19 ratified, 0
+      // verified). Verification is a DETERMINISTIC, BOUNDED, already-
+      // Steward-authorised machine act (traced from
+      // registryVerification.ts::verifyInstitutionEntry before this branch
+      // was written — no human judgement decides its outcome) — the
+      // constitutional rule is that such an act is EXECUTED by "Run until
+      // you need me", never left as a diagnostic dead end whose only CTA is
+      // "Open Discover Sources". `actionable: true` + `verificationTarget`
+      // give the Copilot/Track 2 panel a REAL control that runs it.
       return {
         stageId: stage.id,
         stageLabel: stage.label,
         authority: 'governance',
-        actor: 'Steward',
+        actor:
+          'Steward-authorised machine act — bounded, one institution per call, deterministic; no separate ' +
+          'approval beyond the acquisition already granted.',
         capability: stage.capability,
         surface: stage.surface,
         deepLink: buildTrack2DeepLink(input.programme.experimentId, stage.id, stage.label),
-        remedies,
-        actionable: false,
-        detail,
+        remedies: [],
+        actionable: true,
+        detail:
+          `Targeted acquisition was approved for domain '${input.acquisitionDomain}' — ${ratifiedInstitutionCount} ` +
+          'institution(s) are ratified, but NONE have completed verification (SPEC-CIR-001 §9). Institution ' +
+          'verification is a bounded machine act, not a new judgement — run it to make eligible institutions ' +
+          'available for discovery.',
+        verificationTarget: { acquisitionDomain: input.acquisitionDomain, ratifiedInstitutionCount },
       };
     }
     // Eligible institutions exist and an approval is already active — the

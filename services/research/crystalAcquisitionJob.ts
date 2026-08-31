@@ -36,7 +36,11 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getDomainConstitution } from '@/services/corpusScout/domainConstitution';
-import { canRunInstitutionDiscovery } from '@/services/corpusScout/registryVerification';
+import {
+  canRunInstitutionDiscovery,
+  verifyInstitutionEntry,
+  type VerifyEntryResult,
+} from '@/services/corpusScout/registryVerification';
 import { runDiscoveryForInstitution, type InstitutionDiscoveryRunResult } from '@/services/corpusScout/discoveryOrchestrator';
 import { listCandidateSources } from '@/services/corpusScout/provenance';
 import { writeLifecycleReceipt } from '@/services/research/lifecycle';
@@ -280,5 +284,96 @@ export async function runOneAcquisitionStep(
     exhausted: remaining <= 0,
     eligibleInstitutionCountAtStart,
     ratifiedVerifiedInstitutionCount,
+  };
+}
+
+// ── INSTITUTION VERIFICATION — the SAME bounded-step shape as acquisition
+// (2026-08-31, "targeted-acquisition ratified-but-unverified dead end"
+// repair) ────────────────────────────────────────────────────────────────
+//
+// Traced from `services/corpusScout/registryVerification.ts` before writing
+// this: `verifyInstitutionEntry` is a DETERMINISTIC, BOUNDED machine act —
+// resolve the seed URL, discover document candidates, retrieve and inspect
+// up to `MAX_DOCUMENTS_TO_INSPECT` (5) of them, record the outcome. No human
+// interpretation decides the outcome; it is mechanically derived from HTTP
+// responses and content inspection. It is gated by the SAME Steward
+// (`isAdmin`) authority already driving every Track 2 acquisition route —
+// no separate approval or judgement is required to run it. It is NOT a
+// scientific/governance decision in the sense the orchestrator's own human
+// gates exist for.
+//
+// It IS, however, EXTERNAL HTTP against a real institution's homepage —
+// exactly the property that keeps `discover-sources` out of
+// `PROGRAMME_ACT_KINDS` (per this file's own header). `verifyDomainRegistry`
+// compounds that by looping ALL registry rows inside ONE request
+// (`maxDuration: 300` on its route) — the same unbounded-sweep shape
+// `runDiscoveryForDomain` has, which is why acquisition was never wired to
+// that whole-domain sweep either. So verification gets the IDENTICAL
+// treatment as acquisition: a bounded, ONE-institution-per-call step,
+// reusing `verifyInstitutionEntry` verbatim (never a second verification
+// implementation), driven repeatedly by the client exactly like
+// `runOneAcquisitionStep` already is.
+//
+// SCOPE, deliberately narrow: only `verification_status === 'proposed'`
+// (never yet submitted) institutions are picked. This is what makes the
+// step safe to auto-drive without an infinite-retry risk on a persistently
+// dead URL: each ratified institution gets EXACTLY ONE automatic pass.
+// Whatever that pass produces — `verified`, `verification_failed`,
+// `insufficient_corpus`, `temporarily_unavailable`, `redirect_changed` — is
+// a durable, isolated, per-institution fact on the registry row; a failing
+// institution does not block the next one, and does not get silently
+// retried forever within the same bounded run (exception isolation). A
+// STALE already-attempted entry (failed/insufficient/temporarily-unavailable)
+// is a deliberate RE-verification a steward triggers separately
+// (`POST /api/corpus-scout/institution-verification`), never something
+// "Run until you need me" re-attempts on its own — the same distinction
+// this codebase already draws between a bounded machine pass and a steward
+// re-run. `redirect_changed` and `deprecated` are excluded from auto-run
+// entirely: both are the ONE place this mechanism genuinely returns to a
+// human (the code's own comment: "a steward must re-confirm the entry").
+
+export interface InstitutionVerificationStepResult {
+  ok: true;
+  /** `null` when no ratified institution in the domain is still in its
+   *  first-pass ('proposed') state — there is nothing left for this step to
+   *  verify automatically. */
+  institution: { pillarKey: string; institutionName: string } | null;
+  result: VerifyEntryResult | null;
+  /** True when no ratified institution remains in 'proposed' — the caller
+   *  should stop calling this step and re-check eligibility. */
+  exhausted: boolean;
+}
+
+/**
+ * THE ONE BOUNDED VERIFICATION STEP. Picks the FIRST ratified institution
+ * (sorted by name — `getDomainConstitution`'s own deterministic order)
+ * whose `verificationStatus` is still `'proposed'`, and runs
+ * `verifyInstitutionEntry` for THAT institution alone — never more than
+ * one, never the whole-domain sweep `verifyDomainRegistry` performs. A
+ * caller drives this repeatedly until `exhausted: true`.
+ */
+export async function runOneInstitutionVerificationStep(
+  admin: SupabaseClient,
+  acquisitionDomain: string,
+): Promise<InstitutionVerificationStepResult> {
+  const constitution = await getDomainConstitution(admin, acquisitionDomain);
+  const unverified = constitution.institutions.filter(
+    (i) => i.status === 'ratified' && i.verificationStatus === 'proposed',
+  );
+  const next = unverified[0];
+  if (!next) {
+    return { ok: true, institution: null, result: null, exhausted: true };
+  }
+  const result = await verifyInstitutionEntry(admin, {
+    domain: acquisitionDomain,
+    pillarKey: next.pillarKey,
+    institutionName: next.institutionName,
+  });
+  const remaining = unverified.length - 1;
+  return {
+    ok: true,
+    institution: { pillarKey: next.pillarKey, institutionName: next.institutionName },
+    result,
+    exhausted: remaining <= 0,
   };
 }

@@ -143,6 +143,18 @@ interface PopulationReconciliationView {
   unaccountedRecords: UnaccountedPromotionRecord[];
 }
 
+/** The pending-decision fields THIS panel needs (2026-08-31, "targeted-
+ *  acquisition ratified-but-unverified dead end" repair) — a narrow local
+ *  mirror of `PendingGovernanceDecision`
+ *  (services/research/researchProgrammeOrchestrator.ts), the SAME object
+ *  the Research Copilot reads, so both surfaces derive the identical next
+ *  action for a blocked `discover-sources` stop rather than two
+ *  independent diagnoses. */
+interface PendingDecisionView {
+  stageId: string;
+  verificationTarget?: { acquisitionDomain: string; ratifiedInstitutionCount: number };
+}
+
 interface CohortMemberRef {
   id: string;
   label: string;
@@ -324,6 +336,11 @@ export function Track2ProgrammePanel({
    * so it must come from the server's answer — never be inferred here.
    */
   const [acquisitionDomain, setAcquisitionDomain] = useState<string | null>(null);
+  /** The SAME pending decision the Research Copilot reads (2026-08-31) —
+   *  used here ONLY to expose the ratified-but-unverified verification
+   *  action on Stage 1, so both surfaces derive the identical next act
+   *  rather than this panel independently re-diagnosing the stop. */
+  const [pendingDecision, setPendingDecision] = useState<PendingDecisionView | null>(null);
   /** The full nine-check readiness breakdown (operator direction, 2026-08-05: show the current state up front, not only after a click). */
   const [readiness, setReadiness] = useState<ReadinessReport | null>(null);
   /*
@@ -401,6 +418,7 @@ export function Track2ProgrammePanel({
       setProgramme(p);
       setAcquisitionDomain(typeof d.acquisitionDomain === "string" ? d.acquisitionDomain : null);
       setReadiness(r);
+      setPendingDecision((d.pendingDecision as PendingDecisionView | null) ?? null);
       return { programme: p, readiness: r };
     } catch (e) {
       setError(e instanceof Error ? e.message : "the Track 2 programme could not be read");
@@ -856,6 +874,19 @@ export function Track2ProgrammePanel({
                           </ul>
                         )
                       )}
+                      {/* Stage 1's OWN card — the same rule as the readiness
+                          checklist's copy above: when verification is the
+                          named blocker, this stage exposes the actual next
+                          operation, not merely `s.detail`/`s.remedies` text
+                          (2026-08-31, "targeted-acquisition ratified-but-
+                          unverified dead end" repair). */}
+                      {s.id === "discover-sources" && pendingDecision?.stageId === "discover-sources" && pendingDecision.verificationTarget && (
+                        <InstitutionVerificationAction
+                          experimentId={experimentId}
+                          target={pendingDecision.verificationTarget}
+                          onDone={() => void reloadAndAdvance()}
+                        />
+                      )}
                       {s.id === "classify-provenance" && pendingReconciliation && programme.reconciliation && (
                         <PopulationReconciliationBoard
                           experimentId={experimentId}
@@ -991,6 +1022,22 @@ export function Track2ProgrammePanel({
                               !c.passed &&
                               ["selection-space", "derivation-headroom", "boundary-coverage"].includes(c.name),
                           ) && <CrystalAcquisitionPlan experimentId={experimentId} onDone={() => void reloadAndAdvance()} />}
+                          {/* INSTITUTION VERIFICATION — the SAME next-action
+                              signal the Research Copilot reads
+                              (2026-08-31, "targeted-acquisition ratified-
+                              but-unverified dead end" repair). Rendered
+                              ONLY when the shared pending-decision already
+                              names verification as the blocker, so this
+                              panel never independently re-diagnoses "Open
+                              Discover Sources" as the CTA for a gate that
+                              actually has a real, executable act. */}
+                          {pendingDecision?.stageId === "discover-sources" && pendingDecision.verificationTarget && (
+                            <InstitutionVerificationAction
+                              experimentId={experimentId}
+                              target={pendingDecision.verificationTarget}
+                              onDone={() => void reloadAndAdvance()}
+                            />
+                          )}
                           <div>
                             <div className="mb-0.5 font-medium text-slate-300">
                               Scientific Maturity — informational, does not block Freeze
@@ -5560,6 +5607,130 @@ function CrystalAcquisitionPlan({ experimentId, onDone }: { experimentId: string
               {approvalResult}
             </div>
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * INSTITUTION VERIFICATION ACTION (2026-08-31, "targeted-acquisition
+ * ratified-but-unverified dead end" repair) — the manual Track 2 surface's
+ * control for the SAME `decision.verificationTarget` the Research Copilot
+ * exposes, so both surfaces derive and execute the identical next act.
+ * Institution verification is a deterministic, bounded, already-Steward-
+ * authorised machine act (traced from `services/corpusScout/
+ * registryVerification.ts::verifyInstitutionEntry` — no human judgement
+ * decides its outcome), so this is a real "Run" control, never a bare link
+ * to explanatory text. Drives `POST .../acquisition/verify-step` bounded to
+ * one ratified institution per call, then the SAME
+ * `POST .../acquisition/run-step` discovery loop `CrystalAcquisitionPlan`
+ * already drives — no second verification or discovery implementation.
+ */
+function InstitutionVerificationAction({
+  experimentId,
+  target,
+  onDone,
+}: {
+  experimentId: string;
+  target: { acquisitionDomain: string; ratifiedInstitutionCount: number };
+  onDone: () => void;
+}) {
+  const [running, setRunning] = useState(false);
+  const [status, setStatus] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  // Same client-side backstop bound as the acquisition plan's own — the
+  // server's own `done` signal is the authority on when to stop.
+  const MAX_LAB_VERIFICATION_STEPS = 40;
+  const run = useCallback(async () => {
+    setRunning(true);
+    setErr(null);
+    setStatus("Verifying ratified institutions…");
+    try {
+      let verifiedCount = 0;
+      let attempted = 0;
+      for (let i = 0; i < MAX_LAB_VERIFICATION_STEPS; i++) {
+        const stepRes = await personaFetch(
+          `/api/research/programme/${encodeURIComponent(experimentId)}/acquisition/verify-step`,
+          { method: "POST", cache: "no-store", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) },
+        );
+        const stepData = await stepRes.json().catch(() => null) as {
+          ok?: boolean; error?: string;
+          institution?: { institutionName: string } | null;
+          result?: { outcome?: { status?: string } | null } | null;
+          exhausted?: boolean; done?: boolean;
+        } | null;
+        if (!stepRes.ok || !stepData || stepData.ok !== true) {
+          throw new Error((stepData && typeof stepData.error === "string" && stepData.error) || `verification step refused (HTTP ${stepRes.status})`);
+        }
+        if (stepData.institution) {
+          attempted += 1;
+          if (stepData.result?.outcome?.status === "verified") verifiedCount += 1;
+          setStatus(`Verified ${stepData.institution.institutionName} — ${stepData.result?.outcome?.status ?? "checked"}…`);
+        }
+        if (stepData.done) break;
+      }
+
+      // Continue into discovery for whatever became eligible — the SAME
+      // bounded run-step loop the acquisition plan drives, never a second
+      // discovery implementation.
+      setStatus("Checking for eligible institutions…");
+      let discoveryDone = false;
+      for (let i = 0; i < MAX_LAB_VERIFICATION_STEPS; i++) {
+        const stepRes = await personaFetch(
+          `/api/research/programme/${encodeURIComponent(experimentId)}/acquisition/run-step`,
+          { method: "POST", cache: "no-store", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) },
+        );
+        const stepData = await stepRes.json().catch(() => null) as {
+          ok?: boolean; error?: string; institution?: { institutionName: string } | null; done?: boolean;
+        } | null;
+        if (!stepRes.ok || !stepData || stepData.ok !== true) {
+          throw new Error((stepData && typeof stepData.error === "string" && stepData.error) || `acquisition step refused (HTTP ${stepRes.status})`);
+        }
+        discoveryDone = Boolean(stepData.done);
+        if (discoveryDone) break;
+      }
+
+      setStatus(
+        `${attempted} institution(s) verified this round, ${verifiedCount} now eligible. ` +
+          (discoveryDone
+            ? 'Continue with Extract/Validate ("Run until you need me" in the Research Copilot, or the stage controls below).'
+            : `Discovery stopped after ${MAX_LAB_VERIFICATION_STEPS} step(s) as a client-side backstop — re-run to continue.`),
+      );
+      onDone();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "institution verification failed");
+    } finally {
+      setRunning(false);
+    }
+  }, [experimentId, onDone]);
+
+  return (
+    <div className="mt-2 space-y-1.5 rounded border border-violet-700/40 bg-violet-950/20 p-2.5 text-[11px]">
+      <div className="font-semibold text-violet-200">Institution verification outstanding</div>
+      <p className="text-slate-300">
+        Targeted acquisition is already approved for domain <span className="font-mono">{target.acquisitionDomain}</span> —{" "}
+        {target.ratifiedInstitutionCount} institution(s) are ratified, but none have completed verification
+        (SPEC-CIR-001 §9). This is a bounded machine act, not a new judgement.
+      </p>
+      <button
+        type="button"
+        onClick={() => void run()}
+        disabled={running}
+        className="rounded border border-violet-700 bg-violet-900/30 px-2.5 py-1 font-medium text-violet-200 hover:bg-violet-900/50 disabled:opacity-50"
+      >
+        {running ? "Verifying…" : "Run institution verification"}
+      </button>
+      {status && !err && (
+        <div className="rounded border border-violet-700/50 bg-violet-950/30 p-1.5 text-violet-200">{status}</div>
+      )}
+      {err && (
+        <div className="rounded border border-rose-500/40 bg-rose-500/10 p-1.5 text-rose-300">
+          {err}{" "}
+          <button type="button" onClick={() => void run()} className="ml-1.5 underline decoration-rose-700 hover:text-rose-100">
+            Retry
+          </button>
         </div>
       )}
     </div>

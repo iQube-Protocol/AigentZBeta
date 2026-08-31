@@ -228,7 +228,10 @@ describe('Research Copilot — Review & Promote renders as one bounded card per 
 
   it('the generic decision block never ALSO renders while a reviewQueue is present — no double-render', () => {
     const src = stripComments(readSource(COPILOT));
-    expect(src).toMatch(/\{decision && !decision\.acquisitionBrief && !\(decision\.reviewQueue && decision\.reviewQueue\.length > 0\) && \(/);
+    // 2026-08-31 addition: also excludes a `verificationTarget` decision
+    // (the "Run institution verification" control gets its own dedicated
+    // block, same principle — never a double-render).
+    expect(src).toMatch(/\{decision && !decision\.acquisitionBrief && !decision\.verificationTarget && !\(decision\.reviewQueue && decision\.reviewQueue\.length > 0\) && \(/);
   });
 
   it('Promote/Reject call the EXISTING canonical route — POST /api/invariants/discovery with action + candidateId — never a second promotion/rejection implementation', () => {

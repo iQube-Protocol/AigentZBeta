@@ -889,7 +889,14 @@ describe('the targeted-acquisition state machine — a human judgement is consum
     expect(decision?.remedies.join(' ')).not.toMatch(/approve targeted acquisition/i);
   });
 
-  it('the ratified-but-unverified variant of the same gate names verification, never re-ratification or re-approval', async () => {
+  it('the ratified-but-unverified variant of the same gate is an EXECUTABLE act — never a diagnostic dead end (2026-08-31 "institution verification is a bounded machine act" repair)', async () => {
+    // THE LIVE EXP-P1 CASE: 19 ratified financial-services institutions, 0
+    // verified. Traced from services/corpusScout/registryVerification.ts
+    // before this fix: verifyInstitutionEntry is deterministic and bounded
+    // (no human judgement decides its outcome) — the constitutional rule is
+    // that such an act is EXECUTED by "Run until you need me", never left
+    // as a diagnostic-only dead end whose only CTA is "Open Discover
+    // Sources".
     const report = acquisitionNeededReadiness();
     const brief = buildCrystalAcquisitionBrief({
       experimentId: EXPERIMENT, crystalGeneration: 'EXP-P1/crystal-v2', domain: declaration(), report, admittedInvariantIds: [],
@@ -906,14 +913,43 @@ describe('the targeted-acquisition state machine — a human judgement is consum
       artifact: null,
       admin: fakeAdmin as never,
       acquisitionDomain: ACQ_DOMAIN,
-      acquisitionSourceUniverse: { ratifiedInstitutionCount: 9, eligibleInstitutionCount: 0 },
+      acquisitionSourceUniverse: { ratifiedInstitutionCount: 19, eligibleInstitutionCount: 0 },
     });
 
     expect(decision?.acquisitionBrief).toBeUndefined();
-    expect(decision?.detail).toMatch(/9 institution\(s\) are ratified/);
+    expect(decision?.detail).toMatch(/19 institution\(s\) are ratified/);
     expect(decision?.detail).toMatch(/NONE have completed verification/);
-    expect(decision?.remedies.join(' ')).toMatch(/institution verification/i);
-    expect(decision?.remedies.join(' ')).not.toMatch(/ratify a domain constitution/i);
+    // NEVER a diagnostic-only dead end: this decision carries a REAL,
+    // directly executable act — the Copilot/Track 2 panel render a "Run
+    // institution verification" control from these two fields, never
+    // "Open Discover Sources" as the primary CTA for a verification gate.
+    expect(decision?.actionable).toBe(true);
+    expect(decision?.verificationTarget).toEqual({ acquisitionDomain: ACQ_DOMAIN, ratifiedInstitutionCount: 19 });
+  });
+
+  it('the zero-ratified variant remains diagnostic-only — no bounded machine act exists to execute; ratification itself is the outstanding governance decision', async () => {
+    const report = acquisitionNeededReadiness();
+    const brief = buildCrystalAcquisitionBrief({
+      experimentId: EXPERIMENT, crystalGeneration: 'EXP-P1/crystal-v2', domain: declaration(), report, admittedInvariantIds: [],
+    });
+    await approveAcquisitionJob(fakeAdmin as never, {
+      experimentId: EXPERIMENT, acquisitionDomain: ACQ_DOMAIN, crystalDomain: declaration().domain,
+      approvedByPersonaId: PERSONA, brief, briefHash: hashAcquisitionBrief(brief),
+    });
+
+    const decision = await buildAcquisitionPendingDecision({
+      programme: acquisitionProgramme(),
+      declaration: declaration(),
+      readiness: report,
+      artifact: null,
+      admin: fakeAdmin as never,
+      acquisitionDomain: ACQ_DOMAIN,
+      acquisitionSourceUniverse: { ratifiedInstitutionCount: 0, eligibleInstitutionCount: 0 },
+    });
+
+    expect(decision?.actionable).toBe(false);
+    expect(decision?.verificationTarget).toBeUndefined();
+    expect(decision?.remedies.join(' ')).toMatch(/ratify a domain constitution/i);
   });
 
   it('step 9: once the gate is satisfied (eligible institutions exist), no NEW judgement is asked for — the existing approval is already executable', async () => {
