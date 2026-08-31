@@ -596,6 +596,10 @@ function ObjectiveCard({
   onReviewDecision,
   reviewBusyId,
   reviewError,
+  onRunVerification,
+  verificationRunning,
+  verificationError,
+  verificationStatus,
 }: {
   objective: ResearchObjective;
   run: ProgrammeRunResult | null;
@@ -652,6 +656,20 @@ function ObjectiveCard({
    *  count and the server in lockstep). */
   reviewBusyId: string | null;
   reviewError: string | null;
+  /**
+   * "RUN INSTITUTION VERIFICATION" (2026-08-31, "targeted-acquisition
+   * ratified-but-unverified dead end" repair) — the Copilot control for a
+   * `decision.verificationTarget`: a deterministic, bounded, already-
+   * Steward-authorised machine act (no new approval — the acquisition is
+   * already granted). Drives the bounded verify-step loop, then continues
+   * into discovery run-step + the programme in the SAME click where
+   * eligible institutions resulted, mirroring `onApproveAcquisition`'s own
+   * shape exactly but without a fresh approval call.
+   */
+  onRunVerification: (decision: PendingGovernanceDecision) => void;
+  verificationRunning: boolean;
+  verificationError: string | null;
+  verificationStatus: string | null;
 }) {
   const gate = run?.measurementLayerGate ?? null;
   const programme = run?.programme ?? programmePreview;
@@ -947,7 +965,44 @@ function ObjectiveCard({
         </div>
       )}
 
-      {decision && !decision.acquisitionBrief && !(decision.reviewQueue && decision.reviewQueue.length > 0) && (
+      {/* RUN INSTITUTION VERIFICATION — the `discover-sources` stop when
+          acquisition is already approved but blocked on ratified-but-
+          unverified institutions (2026-08-31). A deterministic, bounded,
+          already-Steward-authorised machine act: the control below runs it
+          directly rather than merely explaining it. "Open Discover Sources"
+          is deliberately NOT the primary control here — a verification gate
+          gets an executable act, never a diagnostic-only dead end. */}
+      {decision && decision.verificationTarget && (
+        <div className="rounded border border-violet-500/40 bg-violet-500/10 px-2 py-2 space-y-1.5">
+          <div className="text-[10px] uppercase tracking-wide text-violet-300 font-semibold">
+            Your constitutional act — {decision.stageLabel}
+          </div>
+          <div className="text-[11px] text-slate-200">{decision.detail}</div>
+          <button
+            type="button"
+            onClick={() => onRunVerification(decision)}
+            disabled={verificationRunning}
+            className="mt-1 inline-flex items-center gap-1 rounded border border-violet-500/40 bg-violet-500/25 px-2 py-1 text-[10px] font-semibold text-violet-50 hover:bg-violet-500/35 transition disabled:opacity-50"
+          >
+            {verificationRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : <ShieldCheck className="h-3 w-3" />}
+            {verificationRunning ? (verificationStatus ?? "Working…") : "Run institution verification"}
+          </button>
+          {verificationError && (
+            <div className="mt-1 rounded border border-rose-500/40 bg-rose-500/10 px-2 py-1.5 text-[10px] text-rose-300">
+              {verificationError}
+              <button
+                type="button"
+                onClick={() => onRunVerification(decision)}
+                className="ml-1.5 underline decoration-rose-700 hover:text-rose-100"
+              >
+                Retry
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {decision && !decision.acquisitionBrief && !decision.verificationTarget && !(decision.reviewQueue && decision.reviewQueue.length > 0) && (
         <div className="rounded border border-violet-500/40 bg-violet-500/10 px-2 py-2 space-y-1">
           <div className="text-[10px] uppercase tracking-wide text-violet-300 font-semibold">
             {decision.authority === "governance" ? "Your constitutional act" : "Your judgment"} — {decision.stageLabel}
@@ -1212,6 +1267,11 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
   const [acquisitionRunning, setAcquisitionRunning] = useState(false);
   const [acquisitionError, setAcquisitionError] = useState<string | null>(null);
   const [acquisitionStatus, setAcquisitionStatus] = useState<string | null>(null);
+  // ── RUN INSTITUTION VERIFICATION (2026-08-31) — the SAME shape as the
+  // acquisition trio above, for the bounded verify-step loop.
+  const [verificationRunning, setVerificationRunning] = useState(false);
+  const [verificationError, setVerificationError] = useState<string | null>(null);
+  const [verificationStatus, setVerificationStatus] = useState<string | null>(null);
   // ── REVIEW & PROMOTE (2026-08-30) — per-candidate disposition state.
   // `reviewBusyId` is the candidateId currently in flight (or null); every
   // OTHER candidate's buttons disable too while one is in flight, so the
@@ -1550,6 +1610,51 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
    * unchanged, as `onProceed`/`proceedToDecision` already provide.
    */
   const MAX_CLIENT_ACQUISITION_STEPS = 40;
+
+  /**
+   * THE BOUNDED DISCOVERY LOOP — extracted (2026-08-31) so
+   * `approveTargetedAcquisition` and `runInstitutionVerification` share the
+   * exact same client-side driving logic for
+   * `POST .../acquisition/run-step` rather than two copies. Driven by the
+   * server's own `done` signal, never by assuming a fixed institution
+   * count; `MAX_CLIENT_ACQUISITION_STEPS` is a client-side backstop only.
+   */
+  const runDiscoverySteps = useCallback(async (experimentIdForDecision: string, setStatus: (s: string) => void) => {
+    for (let i = 0; i < MAX_CLIENT_ACQUISITION_STEPS; i++) {
+      const stepRes = await personaFetch(
+        `/api/research/programme/${encodeURIComponent(experimentIdForDecision)}/acquisition/run-step`,
+        {
+          method: "POST",
+          cache: "no-store",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+          ...(personaId ? { personaIdHint: personaId } : {}),
+        },
+      );
+      const stepData = await stepRes.json().catch(() => null) as {
+        ok?: boolean;
+        error?: string;
+        institution?: { institutionName: string } | null;
+        exhausted?: boolean;
+        readinessSatisfied?: boolean;
+        done?: boolean;
+      } | null;
+      if (!stepRes.ok || !stepData || stepData.ok !== true) {
+        throw new Error((stepData && typeof stepData.error === "string" && stepData.error) || `HTTP ${stepRes.status}`);
+      }
+      setStatus(
+        stepData.institution
+          ? `Discovering via ${stepData.institution.institutionName}…`
+          : "No further ratified institution to attempt…",
+      );
+      observe(surfacePromptSelectedEvent(
+        SURFACE,
+        `acquisition step: ${stepData.institution?.institutionName ?? "none"} — exhausted=${stepData.exhausted}, readinessSatisfied=${stepData.readinessSatisfied}`,
+      ));
+      if (stepData.done) break;
+    }
+  }, [observe, personaId]);
+
   const approveTargetedAcquisition = useCallback(async (decision: PendingGovernanceDecision) => {
     const experimentIdForDecision = decision.deepLink.experimentId;
     setAcquisitionRunning(true);
@@ -1573,9 +1678,51 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
       }
       observe(surfacePromptSelectedEvent(SURFACE, `targeted acquisition approved (${experimentIdForDecision})`));
 
-      for (let i = 0; i < MAX_CLIENT_ACQUISITION_STEPS; i++) {
+      await runDiscoverySteps(experimentIdForDecision, setAcquisitionStatus);
+
+      setAcquisitionStatus("Continuing the programme…");
+      await runProgramme(experimentIdForDecision);
+      setAcquisitionStatus(null);
+    } catch (err) {
+      setAcquisitionError(err instanceof Error ? err.message : "targeted acquisition failed");
+      setAcquisitionStatus(null);
+    }
+    setAcquisitionRunning(false);
+  }, [observe, personaId, runProgramme, runDiscoverySteps]);
+
+  /**
+   * "RUN INSTITUTION VERIFICATION" (2026-08-31, "targeted-acquisition
+   * ratified-but-unverified dead end" repair). Traced from
+   * `services/corpusScout/registryVerification.ts` before this was written:
+   * `verifyInstitutionEntry` is a deterministic, bounded, already-Steward-
+   * authorised machine act (no human judgement decides its outcome) — the
+   * constitutional rule is that such an act is EXECUTED by "Run until you
+   * need me", never left as a diagnostic-only dead end. No fresh approval is
+   * requested here — `decision.verificationTarget` only appears when an
+   * approval is ALREADY active, so this click drives:
+   *
+   *   1. POST .../acquisition/verify-step, repeated — EACH call verifies
+   *      exactly one ratified institution still in its first-pass state
+   *      (`runOneInstitutionVerificationStep`), never the whole-domain
+   *      sweep. Stops on the server's own `done: true`.
+   *   2. `runDiscoverySteps` — the SAME bounded discovery loop
+   *      `approveTargetedAcquisition` uses (no second implementation) —
+   *      recomputing eligibility fresh; if verification made ≥1 institution
+   *      eligible, discovery proceeds for it in this SAME bounded run.
+   *   3. `runProgramme` — continues the programme exactly like the
+   *      acquisition flow's own final step.
+   */
+  const MAX_CLIENT_VERIFICATION_STEPS = 40;
+  const runInstitutionVerification = useCallback(async (decision: PendingGovernanceDecision) => {
+    const experimentIdForDecision = decision.deepLink.experimentId;
+    setVerificationRunning(true);
+    setVerificationError(null);
+    setVerificationStatus("Verifying ratified institutions…");
+    observe(surfacePromptSelectedEvent(SURFACE, `institution verification requested (${experimentIdForDecision})`));
+    try {
+      for (let i = 0; i < MAX_CLIENT_VERIFICATION_STEPS; i++) {
         const stepRes = await personaFetch(
-          `/api/research/programme/${encodeURIComponent(experimentIdForDecision)}/acquisition/run-step`,
+          `/api/research/programme/${encodeURIComponent(experimentIdForDecision)}/acquisition/verify-step`,
           {
             method: "POST",
             cache: "no-store",
@@ -1588,34 +1735,37 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
           ok?: boolean;
           error?: string;
           institution?: { institutionName: string } | null;
+          result?: { outcome?: { status?: string } | null } | null;
           exhausted?: boolean;
-          readinessSatisfied?: boolean;
           done?: boolean;
         } | null;
         if (!stepRes.ok || !stepData || stepData.ok !== true) {
           throw new Error((stepData && typeof stepData.error === "string" && stepData.error) || `HTTP ${stepRes.status}`);
         }
-        setAcquisitionStatus(
+        setVerificationStatus(
           stepData.institution
-            ? `Discovering via ${stepData.institution.institutionName}…`
-            : "No further ratified institution to attempt…",
+            ? `Verified ${stepData.institution.institutionName} — ${stepData.result?.outcome?.status ?? "checked"}…`
+            : "No further ratified institution to verify…",
         );
         observe(surfacePromptSelectedEvent(
           SURFACE,
-          `acquisition step: ${stepData.institution?.institutionName ?? "none"} — exhausted=${stepData.exhausted}, readinessSatisfied=${stepData.readinessSatisfied}`,
+          `verification step: ${stepData.institution?.institutionName ?? "none"} — status=${stepData.result?.outcome?.status ?? "n/a"}, exhausted=${stepData.exhausted}`,
         ));
         if (stepData.done) break;
       }
 
-      setAcquisitionStatus("Continuing the programme…");
+      setVerificationStatus("Checking for eligible institutions…");
+      await runDiscoverySteps(experimentIdForDecision, setVerificationStatus);
+
+      setVerificationStatus("Continuing the programme…");
       await runProgramme(experimentIdForDecision);
-      setAcquisitionStatus(null);
+      setVerificationStatus(null);
     } catch (err) {
-      setAcquisitionError(err instanceof Error ? err.message : "targeted acquisition failed");
-      setAcquisitionStatus(null);
+      setVerificationError(err instanceof Error ? err.message : "institution verification failed");
+      setVerificationStatus(null);
     }
-    setAcquisitionRunning(false);
-  }, [observe, personaId, runProgramme]);
+    setVerificationRunning(false);
+  }, [observe, personaId, runProgramme, runDiscoverySteps]);
 
   /**
    * REVIEW & PROMOTE — one steward disposition per click (2026-08-30,
@@ -1913,6 +2063,10 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
               onReviewDecision={(decision, candidateId, action) => void submitReviewDecision(decision, candidateId, action)}
               reviewBusyId={reviewBusyId}
               reviewError={reviewError}
+              onRunVerification={(decision) => void runInstitutionVerification(decision)}
+              verificationRunning={verificationRunning}
+              verificationError={verificationError}
+              verificationStatus={verificationStatus}
             />
           ))}
 
