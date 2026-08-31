@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`5023a42`](https://github.com/iQube-Protocol/AigentZBeta/commit/5023a42a971b1e63ada7d55f636e8797d2a1ed8c) [fix] Fix Research Copilot targeted-acquisition approval timeout (Claude, 2026-08-31T03:48:19Z)
 - [`436f4f1`](https://github.com/iQube-Protocol/AigentZBeta/commit/436f4f1310f8df15711f3260c3043803c819fef7) [fix] Fix Track 2 Stage 7: relate to the target Crystal, adjudicate the successor cohort (Claude, 2026-08-31T02:55:32Z)
 - [`db332a4`](https://github.com/iQube-Protocol/AigentZBeta/commit/db332a45978669f93de16b7d54cdcd422b8292ce) [fix] Fix Track 2 Stage 7: a crystal member may legitimately have zero relationships (Claude, 2026-08-31T02:08:44Z)
 - [`5e26748`](https://github.com/iQube-Protocol/AigentZBeta/commit/5e26748d729d049a3022ec10153086df26b6d921) [fix] repair-classify-provenance-record.ts: load .env.local like its sibling scripts (Claude, 2026-08-31T00:13:27Z)

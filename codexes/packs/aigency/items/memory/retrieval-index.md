@@ -4724,3 +4724,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-436f4f1.md](../build_/COMMITS/COMMIT-436f4f1.md)
 - Message: Fix Track 2 Stage 7: relate to the target Crystal, adjudicate the successor cohort
+
+## Commit `5023a42` — 2026-08-31T03:48:19Z
+- Type: `fix`
+- Brief: [COMMIT-5023a42.md](../build_/COMMITS/COMMIT-5023a42.md)
+- Message: Fix Research Copilot targeted-acquisition approval timeout

@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-31T02:57:39.078Z",
+  "last_updated": "2026-08-31T03:50:42.412Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "436f4f1310f8df15711f3260c3043803c819fef7",
-  "latest_commit_short": "436f4f1",
-  "latest_commit_title": "Fix Track 2 Stage 7: relate to the target Crystal, adjudicate the successor cohort",
+  "latest_commit": "5023a42a971b1e63ada7d55f636e8797d2a1ed8c",
+  "latest_commit_short": "5023a42",
+  "latest_commit_title": "Fix Research Copilot targeted-acquisition approval timeout",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "5023a42",
+      "full_sha": "5023a42a971b1e63ada7d55f636e8797d2a1ed8c",
+      "title": "Fix Research Copilot targeted-acquisition approval timeout",
+      "author": "Claude",
+      "timestamp": "2026-08-31T03:48:19Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-5023a42.md"
+    },
     {
       "sha": "436f4f1",
       "full_sha": "436f4f1310f8df15711f3260c3043803c819fef7",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-17T18:02:31Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-de5aee7.md"
-    },
-    {
-      "sha": "480cfb9",
-      "full_sha": "480cfb99d223aa459d8991def7129d5afc81fee7",
-      "title": "chore: load prospective evolution rule into Claude sessions",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-16T18:17:24-04:00",
-      "type": "chore",
-      "brief": "items/build_/COMMITS/COMMIT-480cfb9.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
