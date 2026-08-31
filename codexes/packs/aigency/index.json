@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-31T02:11:08.871Z",
+  "last_updated": "2026-08-31T02:57:39.078Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "db332a45978669f93de16b7d54cdcd422b8292ce",
-  "latest_commit_short": "db332a4",
-  "latest_commit_title": "Fix Track 2 Stage 7: a crystal member may legitimately have zero relationships",
+  "latest_commit": "436f4f1310f8df15711f3260c3043803c819fef7",
+  "latest_commit_short": "436f4f1",
+  "latest_commit_title": "Fix Track 2 Stage 7: relate to the target Crystal, adjudicate the successor cohort",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "436f4f1",
+      "full_sha": "436f4f1310f8df15711f3260c3043803c819fef7",
+      "title": "Fix Track 2 Stage 7: relate to the target Crystal, adjudicate the successor cohort",
+      "author": "Claude",
+      "timestamp": "2026-08-31T02:55:32Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-436f4f1.md"
+    },
     {
       "sha": "db332a4",
       "full_sha": "db332a45978669f93de16b7d54cdcd422b8292ce",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-16T18:17:24-04:00",
       "type": "chore",
       "brief": "items/build_/COMMITS/COMMIT-480cfb9.md"
-    },
-    {
-      "sha": "28c77db",
-      "full_sha": "28c77dba2bf62afb796068a63ec905ba8fb5ce1b",
-      "title": "docs: define four-lane prospective evolution roadmaps",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-16T18:06:19-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-28c77db.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

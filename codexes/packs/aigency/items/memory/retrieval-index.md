@@ -4719,3 +4719,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-db332a4.md](../build_/COMMITS/COMMIT-db332a4.md)
 - Message: Fix Track 2 Stage 7: a crystal member may legitimately have zero relationships
+
+## Commit `436f4f1` — 2026-08-31T02:55:32Z
+- Type: `fix`
+- Brief: [COMMIT-436f4f1.md](../build_/COMMITS/COMMIT-436f4f1.md)
+- Message: Fix Track 2 Stage 7: relate to the target Crystal, adjudicate the successor cohort
