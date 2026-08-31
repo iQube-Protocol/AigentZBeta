@@ -43,12 +43,13 @@ import {
   depositArtifact,
   declareFreeze,
   signInstrument,
-  confirmOperatorAssistedArtifact,
   getExchangeView,
   listMyExchanges,
   resolveExchangeActingPrincipal,
   type DepositArtifactInput,
 } from '@/services/research/reciprocalExchange';
+import { constitutionalRuntime } from '@/services/ctp/constitutionalRuntime';
+import '@/services/ctp/primitives/exchangeArtifactConfirm';
 import { listOwnedPersonaIds } from '@/services/identity/passportPrincipal';
 import { persistDelegationGrant } from '@/services/delegation/delegationGrantStore';
 import { FREEZE_DECLARATION_TEXT, EXCHANGE_INSTRUMENT_CLAUSES } from '@/types/reciprocalExchange';
@@ -291,11 +292,18 @@ export async function depositExchangeArtifactViaMcp(admin: SupabaseClient, sessi
 // is the principal's OWN constitutional act of adopting that custodial entry
 // as their own attested evidence, and — exactly like every other function in
 // this file — is never inferred, never performed by an operator, and never
-// completed by this tool without `declarationConfirmed: true`. This function
-// calls the UNMODIFIED confirmOperatorAssistedArtifact() directly; it adds
-// no logic of its own beyond the same four gates every sibling function
-// here applies (stage eligibility, explicit consent, T0<->T2 principal
-// resolution, active-exchange resolution).
+// completed by this tool without `declarationConfirmed: true`. As of
+// 2026-08-31 ("CTP foundation" — ctp.exchange.artifact.confirm, the first
+// migrated OCSGA primitive) this function calls constitutionalRuntime.execute
+// rather than confirmOperatorAssistedArtifact() directly — the SAME
+// UNMODIFIED canonical implementation still runs (services/ctp/primitives/
+// exchangeArtifactConfirm.ts binds it), now through the ONE constitutional
+// invocation seam the web route (app/api/research/exchanges/[exchangeId]/
+// actions/route.ts's 'confirm' case) also goes through — the cross-channel
+// equivalence proof CTP-001A requires. It adds no logic of its own beyond
+// the same four gates every sibling function here applies (stage
+// eligibility, explicit consent, T0<->T2 principal resolution, active-
+// exchange resolution).
 
 export interface ConfirmOperatorAssistedArtifactMcpArgs {
   declarationConfirmed: boolean;
@@ -314,13 +322,25 @@ export async function confirmOperatorAssistedArtifactViaMcp(
   const authority = await resolveExchangeWriteAuthority(admin, session);
   if (!authority.ok) return authority;
 
-  const result = await confirmOperatorAssistedArtifact(admin, {
-    exchangeId: authority.exchangeId,
-    personaId: authority.personaId,
-    agentRef: session.agentAlias,
-  });
-  if (!result.ok) return { ok: false as const, error: result.error };
-  return { ok: true as const, exchangeId: authority.exchangeId, artifact: result.artifact };
+  // The RAW caller-asserted principal (not authority.personaId, the
+  // already-resolved bound party) — the primitive's own resolveParticipants
+  // performs that resolution itself, exactly like the web channel.
+  const principal = await resolveMcpPrincipal(admin, session);
+  if (!principal.ok) return principal;
+
+  const outcome = await constitutionalRuntime.execute(
+    admin,
+    'ctp.exchange.artifact.confirm',
+    {
+      channel: 'mcp',
+      channelSessionRef: session.agentAlias ?? null,
+      callerPersonaId: principal.personaId,
+      callerAuthProfileId: principal.authProfileId,
+    },
+    { exchangeId: authority.exchangeId, agentRef: session.agentAlias },
+  );
+  if (!outcome.ok) return { ok: false as const, error: outcome.refusal.reason };
+  return { ok: true as const, exchangeId: authority.exchangeId, artifact: outcome.result };
 }
 
 // ── 3. Section 3C — deterministic fingerprint (pure, no writes, no I/O) ────

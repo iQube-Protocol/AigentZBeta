@@ -333,7 +333,14 @@ export async function resolveExchangeActingPrincipal(
   return { ok: true, personaId: resolvedPersonaId, actorType };
 }
 
-async function currentArtifact(
+/**
+ * EXPORTED (2026-08-31, CTP foundation — "bind, don't rewrite") so
+ * services/ctp/primitives/exchangeArtifactConfirm.ts can read the SAME
+ * per-party current-artifact snapshot this module's own functions already
+ * use as `ctp.exchange.artifact.confirm`'s prior-state read — never a
+ * second, independently-derived query. Behaviour unchanged; visibility only.
+ */
+export async function currentArtifact(
   admin: SupabaseClient,
   exchangeId: string,
   party: PartySlot,

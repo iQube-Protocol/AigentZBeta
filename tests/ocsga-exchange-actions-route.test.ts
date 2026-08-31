@@ -25,7 +25,17 @@ vi.mock('@/services/identity/getActivePersona', () => ({
   getActivePersona: (req: unknown) => mockGetActivePersona(req),
 }));
 
-const fakeAdminForRoute = {} as never;
+// A minimal `.from().insert()` stub (2026-08-31 addition) — every OTHER
+// reciprocalExchange.ts function this route calls is mocked out above, so
+// `admin` was never actually invoked before the 'confirm' action started
+// dispatching through the Constitutional Runtime, whose OWN evidence writer
+// (services/ctp/evidence.ts) calls `admin.from(...)` directly and is NOT
+// mocked (evidence persistence is exactly what's under test elsewhere —
+// tests/ctp-constitutional-runtime.test.ts). This stub only needs to not
+// throw; the write's outcome is irrelevant to every test in this file.
+const fakeAdminForRoute = {
+  from: () => ({ insert: async () => ({ error: null }) }),
+} as never;
 vi.mock('@/app/api/_lib/supabaseServer', () => ({
   getSupabaseServer: () => fakeAdminForRoute,
 }));
@@ -42,6 +52,17 @@ const mockRevokeAccessPostExchange = vi.fn();
 const mockOpenComparison = vi.fn();
 const mockCreateDerivative = vi.fn();
 const mockGetExchangeView = vi.fn();
+// The three additional exports `ctp.exchange.artifact.confirm`
+// (services/ctp/primitives/exchangeArtifactConfirm.ts) reads for its own
+// prior-state resolution (2026-08-31, "CTP foundation") — the 'confirm'
+// action now dispatches through constitutionalRuntime.execute, which calls
+// this primitive, which calls these SAME reciprocalExchange.ts exports the
+// module already uses elsewhere (never a second, independently-derived
+// resolution). Defaulted in beforeEach to a state where confirm succeeds,
+// mirroring mockConfirmOperatorAssistedArtifact's own default.
+const mockLoadExchange = vi.fn();
+const mockResolveMembership = vi.fn();
+const mockCurrentArtifact = vi.fn();
 
 vi.mock('@/services/research/reciprocalExchange', () => ({
   resolveExchangeActingPrincipal: (...args: unknown[]) => mockResolveExchangeActingPrincipal(...args),
@@ -56,6 +77,9 @@ vi.mock('@/services/research/reciprocalExchange', () => ({
   openComparison: (...args: unknown[]) => mockOpenComparison(...args),
   createDerivative: (...args: unknown[]) => mockCreateDerivative(...args),
   getExchangeView: (...args: unknown[]) => mockGetExchangeView(...args),
+  loadExchange: (...args: unknown[]) => mockLoadExchange(...args),
+  resolveMembership: (...args: unknown[]) => mockResolveMembership(...args),
+  currentArtifact: (...args: unknown[]) => mockCurrentArtifact(...args),
 }));
 
 function makeActionRequest(action: string, extra: Record<string, unknown> = {}) {
@@ -77,6 +101,13 @@ beforeEach(() => {
   mockDeclareFreeze.mockReset().mockResolvedValue({ ok: true, attestation: {} });
   mockSignInstrument.mockReset().mockResolvedValue({ ok: true, attestation: {}, exchange: {} });
   mockConfirmOperatorAssistedArtifact.mockReset().mockResolvedValue({ ok: true, artifact: {} });
+  // ctp.exchange.artifact.confirm's own prior-state read — defaulted to a
+  // confirmable artifact so the 'confirm' tests below reach
+  // confirmOperatorAssistedArtifact exactly as they did before the CTP
+  // dispatch existed.
+  mockLoadExchange.mockReset().mockResolvedValue({ ok: true, exchange: { id: EXCHANGE_ID } });
+  mockResolveMembership.mockReset().mockReturnValue('B');
+  mockCurrentArtifact.mockReset().mockResolvedValue({ id: 'artifact-1', pendingPrincipalAttestation: true, version: 1 });
 });
 
 describe('POST /api/research/exchanges/[exchangeId]/actions — principal resolution, route level', () => {

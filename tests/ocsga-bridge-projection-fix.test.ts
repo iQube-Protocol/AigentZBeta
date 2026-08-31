@@ -402,16 +402,35 @@ describe('end-to-end: the resolved currentStageId and its rendered surface (root
 });
 
 describe('gap #3 — the confirm action route wires the canonical service, never a reimplementation', () => {
-  it('the actions route imports confirmOperatorAssistedArtifact from the canonical reciprocalExchange service', () => {
+  // 2026-08-31 update ("CTP foundation"): the route no longer imports or
+  // calls confirmOperatorAssistedArtifact directly — it dispatches through
+  // constitutionalRuntime.execute('ctp.exchange.artifact.confirm', ...),
+  // and THAT primitive (services/ctp/primitives/exchangeArtifactConfirm.ts)
+  // is the one remaining place confirmOperatorAssistedArtifact is called.
+  // The underlying implementation is UNCHANGED — this still pins "never a
+  // reimplementation," one layer further down (see
+  // tests/ctp-channel-singularity.test.ts for the full singularity proof).
+  it('the actions route imports constitutionalRuntime and the primitive registration side-effect, never confirmOperatorAssistedArtifact directly', () => {
     const src = readSource('app/api/research/exchanges/[exchangeId]/actions/route.ts');
+    const graph = importAuthority(src);
+    const reciprocalExchangeRecord = graph.records.find((r) => r.specifier === '@/services/research/reciprocalExchange');
+    expect(reciprocalExchangeRecord?.names).not.toContain('confirmOperatorAssistedArtifact');
+    const runtimeRecord = graph.records.find((r) => r.specifier === '@/services/ctp/constitutionalRuntime');
+    expect(runtimeRecord?.names).toContain('constitutionalRuntime');
+    expect(graph.records.some((r) => r.specifier === '@/services/ctp/primitives/exchangeArtifactConfirm')).toBe(true);
+  });
+
+  it("the route's switch statement dispatches a 'confirm' case through constitutionalRuntime.execute", () => {
+    const src = readSource('app/api/research/exchanges/[exchangeId]/actions/route.ts');
+    expect(src).toMatch(/case 'confirm':/);
+    expect(src).toMatch(/constitutionalRuntime\.execute\(admin, 'ctp\.exchange\.artifact\.confirm'/);
+  });
+
+  it('the primitive itself binds the canonical confirmOperatorAssistedArtifact — the implementation is unchanged, only the invocation seam moved', () => {
+    const src = readSource('services/ctp/primitives/exchangeArtifactConfirm.ts');
     const graph = importAuthority(src);
     const record = graph.records.find((r) => r.specifier === '@/services/research/reciprocalExchange');
     expect(record?.names).toContain('confirmOperatorAssistedArtifact');
-  });
-
-  it("the route's switch statement dispatches a 'confirm' case to that function", () => {
-    const src = readSource('app/api/research/exchanges/[exchangeId]/actions/route.ts');
-    expect(src).toMatch(/case 'confirm':/);
     expect(src).toMatch(/confirmOperatorAssistedArtifact\(admin,/);
   });
 });

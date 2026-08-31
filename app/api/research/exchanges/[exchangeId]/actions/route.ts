@@ -27,9 +27,15 @@
  * `confirm` (OCSGA Bridge projection fix, 2026-08-29) is the bound
  * principal's own acceptance of an artifact an operator registered on their
  * behalf (registerArtifactOperatorAssisted) — the ONLY thing that clears
- * `pendingPrincipalAttestation`, via confirmOperatorAssistedArtifact. Never
- * reimplemented here: this case is a thin dispatch onto that same canonical
- * service `freeze`/`sign` already gate on.
+ * `pendingPrincipalAttestation`. As of 2026-08-31 ("CTP foundation" —
+ * `ctp.exchange.artifact.confirm`, the first migrated OCSGA primitive) this
+ * action is dispatched through `constitutionalRuntime.execute` rather than
+ * calling `confirmOperatorAssistedArtifact` directly — the SAME canonical
+ * implementation still runs (services/ctp/primitives/exchangeArtifactConfirm.ts
+ * binds it, never reproduces it), now through the ONE constitutional
+ * invocation seam every permitted channel shares. Every other action here
+ * is UNCHANGED — this is a bounded first slice, not an estate-wide
+ * migration (CTP-001A §2, "not a big-bang refactor").
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -38,7 +44,6 @@ import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import {
   inviteCounterparty,
   depositArtifact,
-  confirmOperatorAssistedArtifact,
   declareFreeze,
   signInstrument,
   acknowledgeReceipt,
@@ -51,6 +56,8 @@ import {
 } from '@/services/research/reciprocalExchange';
 import type { ArtifactSourceType, ComparisonClassification, CompatibilityKind } from '@/types/reciprocalExchange';
 import { publicOrigin } from '@/utils/publicOrigin';
+import { constitutionalRuntime } from '@/services/ctp/constitutionalRuntime';
+import '@/services/ctp/primitives/exchangeArtifactConfirm';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -141,12 +148,28 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ exchangeId
     }
 
     case 'confirm': {
-      // No agentRef: a direct bridge/UI POST is never "transmitted through"
-      // an agent (contrast the MCP path, services/threshold/
+      // Dispatched through the Constitutional Runtime (2026-08-31, "CTP
+      // foundation") — `ctp.exchange.artifact.confirm` binds the SAME
+      // `confirmOperatorAssistedArtifact` this route called directly before
+      // this change; nothing about the underlying transition is different.
+      // `ctx.callerPersonaId` is the RAW caller-asserted persona (not this
+      // route's own already-resolved `personaId`) because the primitive's
+      // own `resolveParticipants` performs that exact resolution itself —
+      // passing the pre-resolved value here would resolve it twice for no
+      // benefit. No agentRef: a direct bridge/UI POST is never "transmitted
+      // through" an agent (contrast the MCP path, services/threshold/
       // mcpConstitutionalActs.ts, which legitimately sets agentRef to the
       // real acting agent session's own alias).
-      const result = await confirmOperatorAssistedArtifact(admin, { exchangeId, personaId });
-      return NextResponse.json(result, { status: result.ok ? 200 : 400, headers: noStore });
+      const outcome = await constitutionalRuntime.execute(admin, 'ctp.exchange.artifact.confirm', {
+        channel: 'web',
+        channelSessionRef: null,
+        callerPersonaId: persona.personaId,
+        callerAuthProfileId: persona.authProfileId ?? null,
+      }, { exchangeId });
+      if (!outcome.ok) {
+        return NextResponse.json({ ok: false, error: outcome.refusal.reason }, { status: 400, headers: noStore });
+      }
+      return NextResponse.json({ ok: true, artifact: outcome.result }, { status: 200, headers: noStore });
     }
 
     case 'freeze': {

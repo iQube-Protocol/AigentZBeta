@@ -448,11 +448,21 @@ describe('MCP delegation -> Journey Spine resolver convergence', () => {
 // ─────────────────────────────────────────────────────────────────────────
 
 describe('confirm_operator_assisted_artifact — calls the UNMODIFIED canonical function', () => {
-  it('structural: mcpConstitutionalActs.ts imports confirmOperatorAssistedArtifact from the canonical service, never a reimplementation', () => {
+  // 2026-08-31 update ("CTP foundation"): mcpConstitutionalActs.ts no longer
+  // imports confirmOperatorAssistedArtifact directly — it dispatches through
+  // constitutionalRuntime.execute('ctp.exchange.artifact.confirm', ...),
+  // whose bound primitive (services/ctp/primitives/exchangeArtifactConfirm.ts)
+  // is the ONE remaining caller of the unmodified canonical function. See
+  // tests/ctp-channel-singularity.test.ts for the full cross-channel
+  // singularity proof this is a slice of.
+  it('structural: mcpConstitutionalActs.ts imports constitutionalRuntime and the primitive registration side-effect, never confirmOperatorAssistedArtifact directly', () => {
     const src = readSource('services/threshold/mcpConstitutionalActs.ts');
     const graph = importAuthority(src);
-    const record = graph.records.find((r) => r.specifier === '@/services/research/reciprocalExchange');
-    expect(record?.names).toContain('confirmOperatorAssistedArtifact');
+    const reciprocalExchangeRecord = graph.records.find((r) => r.specifier === '@/services/research/reciprocalExchange');
+    expect(reciprocalExchangeRecord?.names).not.toContain('confirmOperatorAssistedArtifact');
+    const runtimeRecord = graph.records.find((r) => r.specifier === '@/services/ctp/constitutionalRuntime');
+    expect(runtimeRecord?.names).toContain('constitutionalRuntime');
+    expect(graph.records.some((r) => r.specifier === '@/services/ctp/primitives/exchangeArtifactConfirm')).toBe(true);
   });
 
   it('behavioral: confirmOperatorAssistedArtifactViaMcp resolves the principal + active exchange and adopts a pending operator-assisted artifact', async () => {
