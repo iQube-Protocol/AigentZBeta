@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-31T17:17:43.509Z",
+  "last_updated": "2026-08-31T18:00:26.979Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "646e61cf58306f51fbed119438e14889b44e25c7",
-  "latest_commit_short": "646e61c",
-  "latest_commit_title": "docs: index Progressive Financial Sovereignty scope correction",
+  "latest_commit": "d614547797860479e59cfe544e87bf10383d86c8",
+  "latest_commit_short": "d614547",
+  "latest_commit_title": "docs(agentiq): index aigentMe companion amendment and Knights Bridge paper",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "d614547",
+      "full_sha": "d614547797860479e59cfe544e87bf10383d86c8",
+      "title": "docs(agentiq): index aigentMe companion amendment and Knights Bridge paper",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-31T13:58:41-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-d614547.md"
+    },
     {
       "sha": "646e61c",
       "full_sha": "646e61cf58306f51fbed119438e14889b44e25c7",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-20T02:46:56-04:00",
       "type": "docs",
       "brief": "items/build_/COMMITS/COMMIT-74a537d.md"
-    },
-    {
-      "sha": "a238fdf",
-      "full_sha": "a238fdffe4636fbd594f7649c55cfafd75b4b7c0",
-      "title": "docs(irl): add consequential capability invariants and perturbation experiment",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-20T02:43:07-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-a238fdf.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

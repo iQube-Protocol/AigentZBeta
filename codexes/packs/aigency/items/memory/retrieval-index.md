@@ -4764,3 +4764,8 @@ Top-level retrieval anchors for this pack.
 - Type: `docs`
 - Brief: [COMMIT-646e61c.md](../build_/COMMITS/COMMIT-646e61c.md)
 - Message: docs: index Progressive Financial Sovereignty scope correction
+
+## Commit `d614547` — 2026-08-31T13:58:41-04:00
+- Type: `docs`
+- Brief: [COMMIT-d614547.md](../build_/COMMITS/COMMIT-d614547.md)
+- Message: docs(agentiq): index aigentMe companion amendment and Knights Bridge paper
