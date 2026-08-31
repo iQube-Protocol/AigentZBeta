@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-31T18:00:26.979Z",
+  "last_updated": "2026-08-31T18:10:24.441Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "d614547797860479e59cfe544e87bf10383d86c8",
-  "latest_commit_short": "d614547",
-  "latest_commit_title": "docs(agentiq): index aigentMe companion amendment and Knights Bridge paper",
+  "latest_commit": "11761485e5c81dfbca5f85ecb3dcd9abb5f56639",
+  "latest_commit_short": "1176148",
+  "latest_commit_title": "Run Review & Admit preparation automatically; stop offering fake admit/reject for duplicates [merge review/irl-scoped-restoration-2026-08-27]",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "1176148",
+      "full_sha": "11761485e5c81dfbca5f85ecb3dcd9abb5f56639",
+      "title": "Run Review & Admit preparation automatically; stop offering fake admit/reject for duplicates [merge review/irl-scoped-restoration-2026-08-27]",
+      "author": "Claude",
+      "timestamp": "2026-08-31T18:08:16Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-1176148.md"
+    },
     {
       "sha": "d614547",
       "full_sha": "d614547797860479e59cfe544e87bf10383d86c8",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-20T03:04:03-04:00",
       "type": "docs",
       "brief": "items/build_/COMMITS/COMMIT-1154ac9.md"
-    },
-    {
-      "sha": "74a537d",
-      "full_sha": "74a537de7205fb121797c3d9439d6befc4a069f5",
-      "title": "docs(irl): canonize The Crucible as pre-canon research and development substrate",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-20T02:46:56-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-74a537d.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

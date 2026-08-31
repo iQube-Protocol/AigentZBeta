@@ -4769,3 +4769,8 @@ Top-level retrieval anchors for this pack.
 - Type: `docs`
 - Brief: [COMMIT-d614547.md](../build_/COMMITS/COMMIT-d614547.md)
 - Message: docs(agentiq): index aigentMe companion amendment and Knights Bridge paper
+
+## Commit `1176148` — 2026-08-31T18:08:16Z
+- Type: `push`
+- Brief: [COMMIT-1176148.md](../build_/COMMITS/COMMIT-1176148.md)
+- Message: Run Review & Admit preparation automatically; stop offering fake admit/reject for duplicates [merge review/irl-scoped-restoration-2026-08-27]
