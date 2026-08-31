@@ -4729,3 +4729,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-5023a42.md](../build_/COMMITS/COMMIT-5023a42.md)
 - Message: Fix Research Copilot targeted-acquisition approval timeout
+
+## Commit `0c8e134` — 2026-08-31T05:53:17Z
+- Type: `push`
+- Brief: [COMMIT-0c8e134.md](../build_/COMMITS/COMMIT-0c8e134.md)
+- Message: Distinguish acquisition-blocked from not-started in Track 2 Stage 1 [merge review/irl-scoped-restoration-2026-08-27]

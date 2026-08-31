@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-31T03:50:42.412Z",
+  "last_updated": "2026-08-31T05:55:45.848Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "5023a42a971b1e63ada7d55f636e8797d2a1ed8c",
-  "latest_commit_short": "5023a42",
-  "latest_commit_title": "Fix Research Copilot targeted-acquisition approval timeout",
+  "latest_commit": "0c8e13479425eca1383419158f2a0d9db3196013",
+  "latest_commit_short": "0c8e134",
+  "latest_commit_title": "Distinguish acquisition-blocked from not-started in Track 2 Stage 1 [merge review/irl-scoped-restoration-2026-08-27]",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "0c8e134",
+      "full_sha": "0c8e13479425eca1383419158f2a0d9db3196013",
+      "title": "Distinguish acquisition-blocked from not-started in Track 2 Stage 1 [merge review/irl-scoped-restoration-2026-08-27]",
+      "author": "Claude",
+      "timestamp": "2026-08-31T05:53:17Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-0c8e134.md"
+    },
     {
       "sha": "5023a42",
       "full_sha": "5023a42a971b1e63ada7d55f636e8797d2a1ed8c",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-17T18:07:02Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-04d4df7.md"
-    },
-    {
-      "sha": "de5aee7",
-      "full_sha": "de5aee773d3b205514824f508b0c4f1e39a8baf5",
-      "title": "gate-c: add VentureReportBriefLayout + VentureReintroductionBriefLayout + deliberation routing",
-      "author": "Claude",
-      "timestamp": "2026-08-17T18:02:31Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-de5aee7.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
