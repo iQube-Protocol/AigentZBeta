@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-31T16:53:35.817Z",
+  "last_updated": "2026-08-31T17:17:43.509Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "b5060274d8132b71e11f3dab1b554d360ff81d43",
-  "latest_commit_short": "b506027",
-  "latest_commit_title": "docs(agentiq): index AEE Financial Services reference architecture",
+  "latest_commit": "646e61cf58306f51fbed119438e14889b44e25c7",
+  "latest_commit_short": "646e61c",
+  "latest_commit_title": "docs: index Progressive Financial Sovereignty scope correction",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "646e61c",
+      "full_sha": "646e61cf58306f51fbed119438e14889b44e25c7",
+      "title": "docs: index Progressive Financial Sovereignty scope correction",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-31T13:15:49-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-646e61c.md"
+    },
     {
       "sha": "b506027",
       "full_sha": "b5060274d8132b71e11f3dab1b554d360ff81d43",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-20T02:43:07-04:00",
       "type": "docs",
       "brief": "items/build_/COMMITS/COMMIT-a238fdf.md"
-    },
-    {
-      "sha": "757a08c",
-      "full_sha": "757a08c84a6b962afd11b14213a96e51949b9d00",
-      "title": "docs(irl): add capability-authority-legitimacy-accountability candidate",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-20T02:15:59-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-757a08c.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

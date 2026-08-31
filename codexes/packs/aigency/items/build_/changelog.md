@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`646e61c`](https://github.com/iQube-Protocol/AigentZBeta/commit/646e61cf58306f51fbed119438e14889b44e25c7) [docs] docs: index Progressive Financial Sovereignty scope correction (Kn0w1, 2026-08-31T13:15:49-04:00)
 - [`b506027`](https://github.com/iQube-Protocol/AigentZBeta/commit/b5060274d8132b71e11f3dab1b554d360ff81d43) [docs] docs(agentiq): index AEE Financial Services reference architecture (Kn0w1, 2026-08-31T12:51:48-04:00)
 - [`0adafc1`](https://github.com/iQube-Protocol/AigentZBeta/commit/0adafc1fc2934bb0f85a5c4b7952b613cc6662b3) [docs] docs(agentiq): index canonical AEE architecture direction (Kn0w1, 2026-08-31T12:43:52-04:00)
 - [`efc9cf9`](https://github.com/iQube-Protocol/AigentZBeta/commit/efc9cf9935d3eeaf1929eaab2ce9d212907c6dfc) [fix] Fix verification wall-clock granularity: one external op per request [merge review/irl-scoped-restoration-2026-08-27] (Claude, 2026-08-31T16:27:36Z)
