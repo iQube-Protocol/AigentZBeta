@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`efc9cf9`](https://github.com/iQube-Protocol/AigentZBeta/commit/efc9cf9935d3eeaf1929eaab2ce9d212907c6dfc) [fix] Fix verification wall-clock granularity: one external op per request [merge review/irl-scoped-restoration-2026-08-27] (Claude, 2026-08-31T16:27:36Z)
 - [`8360afc`](https://github.com/iQube-Protocol/AigentZBeta/commit/8360afc64a3e09ba2cf05e1d2c5197f83fadc84c) [push] Execute institution verification as a bounded machine act, not a dead end [merge review/irl-scoped-restoration-2026-08-27] (Claude, 2026-08-31T15:19:06Z)
 - [`40632ee`](https://github.com/iQube-Protocol/AigentZBeta/commit/40632eea3552a020947e940bba06cc93d49c7898) [fix] Fix targeted-acquisition dead end: consume approval judgement once [merge review/irl-scoped-restoration-2026-08-27] (Claude, 2026-08-31T13:31:35Z)
 - [`0c8e134`](https://github.com/iQube-Protocol/AigentZBeta/commit/0c8e13479425eca1383419158f2a0d9db3196013) [push] Distinguish acquisition-blocked from not-started in Track 2 Stage 1 [merge review/irl-scoped-restoration-2026-08-27] (Claude, 2026-08-31T05:53:17Z)

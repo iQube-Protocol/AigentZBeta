@@ -4744,3 +4744,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-8360afc.md](../build_/COMMITS/COMMIT-8360afc.md)
 - Message: Execute institution verification as a bounded machine act, not a dead end [merge review/irl-scoped-restoration-2026-08-27]
+
+## Commit `efc9cf9` — 2026-08-31T16:27:36Z
+- Type: `fix`
+- Brief: [COMMIT-efc9cf9.md](../build_/COMMITS/COMMIT-efc9cf9.md)
+- Message: Fix verification wall-clock granularity: one external op per request [merge review/irl-scoped-restoration-2026-08-27]

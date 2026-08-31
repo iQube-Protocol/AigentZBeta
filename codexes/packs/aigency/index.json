@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-31T15:21:22.577Z",
+  "last_updated": "2026-08-31T16:33:44.381Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "8360afc64a3e09ba2cf05e1d2c5197f83fadc84c",
-  "latest_commit_short": "8360afc",
-  "latest_commit_title": "Execute institution verification as a bounded machine act, not a dead end [merge review/irl-scoped-restoration-2026-08-27]",
+  "latest_commit": "efc9cf9935d3eeaf1929eaab2ce9d212907c6dfc",
+  "latest_commit_short": "efc9cf9",
+  "latest_commit_title": "Fix verification wall-clock granularity: one external op per request [merge review/irl-scoped-restoration-2026-08-27]",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "efc9cf9",
+      "full_sha": "efc9cf9935d3eeaf1929eaab2ce9d212907c6dfc",
+      "title": "Fix verification wall-clock granularity: one external op per request [merge review/irl-scoped-restoration-2026-08-27]",
+      "author": "Claude",
+      "timestamp": "2026-08-31T16:27:36Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-efc9cf9.md"
+    },
     {
       "sha": "8360afc",
       "full_sha": "8360afc64a3e09ba2cf05e1d2c5197f83fadc84c",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-17T18:25:13Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-0fc6dca.md"
-    },
-    {
-      "sha": "ca6f576",
-      "full_sha": "ca6f57699866910fed74bc2e115a7fc12e4782d8",
-      "title": "Gate F: wire deliberation intent detection into chat route",
-      "author": "Claude",
-      "timestamp": "2026-08-17T18:21:51Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-ca6f576.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
