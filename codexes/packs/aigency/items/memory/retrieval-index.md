@@ -4749,3 +4749,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-efc9cf9.md](../build_/COMMITS/COMMIT-efc9cf9.md)
 - Message: Fix verification wall-clock granularity: one external op per request [merge review/irl-scoped-restoration-2026-08-27]
+
+## Commit `0adafc1` — 2026-08-31T12:43:52-04:00
+- Type: `docs`
+- Brief: [COMMIT-0adafc1.md](../build_/COMMITS/COMMIT-0adafc1.md)
+- Message: docs(agentiq): index canonical AEE architecture direction
