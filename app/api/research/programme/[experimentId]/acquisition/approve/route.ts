@@ -3,24 +3,31 @@
  * Copilot decision "Approve targeted acquisition" performs (operator
  * directive, 2026-08-30).
  *
- * Composes the SAME reads `GET .../acquisition-brief` already does
- * (`runCrystalReadinessReport` + `listInvariants` + `currentCrystalArtifactId`
- * into `buildCrystalAcquisitionBrief`) so the approved target is the exact
- * plan the operator was shown, refuses when nothing is actually failing
- * (`acquisitionBriefApplies`), and writes the ONE durable fact
- * (`services/research/crystalAcquisitionJob.ts::approveAcquisitionJob`) that
- * authorizes `POST .../acquisition/run-step` to proceed. Creates or writes
- * nothing else: no source is added, no statement is authored, no boundary
- * changes.
+ * Composes its preconditions through `composeAcquisitionPreconditions`
+ * (services/research/crystalAcquisitionPrecondition.ts, 2026-08-31 timeout
+ * repair) — a BOUNDED projection of the same reads `GET .../acquisition-brief`
+ * uses, raced against `STATE_COMPOSITION_DEADLINE_MS` so a pathologically
+ * slow read fails CLOSED with a clean, retryable 503 rather than hanging —
+ * so the approved target is the exact plan the operator was shown, refuses
+ * when nothing is actually failing (`acquisitionBriefApplies`), and writes
+ * the ONE durable fact (`services/research/crystalAcquisitionJob.ts::
+ * approveAcquisitionJob`) that authorizes `POST .../acquisition/run-step` to
+ * proceed. Creates or writes nothing else: no source is added, no statement
+ * is authored, no boundary changes.
+ *
+ * THE SAME route the Laboratory's "Approve & start acquisition" control
+ * (components/research/Track2ProgrammePanel.tsx's `CrystalAcquisitionPlan`)
+ * calls — one canonical approval service for both surfaces, never a
+ * lower-level route (e.g. the raw corpus-scout institution-discovery
+ * endpoint) capable of bypassing this route's own constitutional
+ * preconditions.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { crystalDomainForExperiment } from '@/services/research/crystalDomains';
-import { runCrystalReadinessReport } from '@/services/research/crystalReadiness';
-import { currentCrystalArtifactId } from '@/services/research/artifacts';
-import { listInvariants } from '@/services/invariants/store';
+import { composeAcquisitionPreconditions } from '@/services/research/crystalAcquisitionPrecondition';
 import { buildCrystalAcquisitionBrief, acquisitionBriefApplies } from '@/services/research/crystalAcquisitionBrief';
 import { approveAcquisitionJob, getActiveAcquisitionApproval } from '@/services/research/crystalAcquisitionJob';
 import { DEFAULT_ACQUISITION_DOMAIN } from '@/services/research/researchProgrammeOrchestrator';
@@ -54,11 +61,23 @@ export async function POST(
   const body = (await req.json().catch(() => ({}))) as { acquisitionDomain?: string };
   const acquisitionDomain = body.acquisitionDomain?.trim() || DEFAULT_ACQUISITION_DOMAIN;
 
-  const [report, crystalGeneration, admitted] = await Promise.all([
-    runCrystalReadinessReport({ experimentId, crystalDomain: declaration.domain }),
-    currentCrystalArtifactId(experimentId),
-    listInvariants({ domain: declaration.domain, status: ['validated', 'canonical'], limit: 500 }).catch(() => []),
-  ]);
+  const preconditions = await composeAcquisitionPreconditions({
+    experimentId,
+    crystalDomain: declaration.domain,
+  });
+  if (!preconditions.ok) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          `Precondition check exceeded its ${preconditions.deadlineMs}ms safety budget before the approval could ` +
+          'be safely written — nothing was written. Please retry.',
+        retryable: true,
+      },
+      { status: 503 },
+    );
+  }
+  const { report, crystalGeneration, admitted } = preconditions;
 
   if (!acquisitionBriefApplies(report)) {
     return NextResponse.json(

@@ -244,6 +244,41 @@ export interface CrystalReadinessInput {
   exclusions?: readonly IsolationException[];
   /** The full population behind this crystal, for the same disclosure. */
   population?: PopulationDisclosure;
+  /**
+   * BOUNDED ACQUISITION-PRECONDITION PROJECTION (2026-08-31, "targeted-
+   * acquisition approval timeout" repair). Defaults to `'full'` — every
+   * existing caller (the freeze route, freeze-preview, dashboards,
+   * instrument-falsification) is completely unaffected.
+   *
+   * `'acquisition-gate'` skips exactly two computations that no acquisition-
+   * approval decision (`acquisitionBriefApplies`/`buildCrystalAcquisitionBrief`
+   * — see crystalAcquisitionBrief.ts's own header: "every figure is read,
+   * never recomputed") ever reads:
+   *
+   *   - the intra-crystal edge fetch + the three graph-shaped checks
+   *     (relationship-density, graph-connectivity, orphan-detection) that
+   *     depend on it — an I/O read plus O(n) graph analysis;
+   *   - duplicate-detection's lexical ∪ semantic pass — TWO O(n²) pairwise
+   *     comparisons over the domain corpus, the single most expensive
+   *     computation this function performs, and the dominant reason a
+   *     recomposition at Crystal v2's now-larger corpus size (inherited
+   *     predecessor + successor material) can exceed a 15s request budget.
+   *
+   * Every check `acquisitionBriefApplies` actually inspects — selection-
+   * space, derivation-headroom, boundary-coverage — and every field
+   * `buildCrystalAcquisitionBrief` reads off the report (`invariantCount`,
+   * `populationRequirement`, `inferentialCapacity`, `coverage`) is computed
+   * IDENTICALLY in both scopes, by the SAME code, never a second derivation.
+   * `derivation-headroom`'s own O(n²) inferential-capacity assessment is
+   * unavoidable in EITHER scope — it is the check itself, not incidental fat.
+   *
+   * `duplicates`/`duplicatePairCount`/`graph` on the returned report are
+   * zeroed placeholders in `'acquisition-gate'` scope — never a guessed or
+   * partially-computed value — and `report.scope` names which mode produced
+   * the report, so nothing downstream can mistake a bounded projection for
+   * the full picture.
+   */
+  scope?: 'full' | 'acquisition-gate';
 }
 
 /**
@@ -351,6 +386,15 @@ export interface CrystalMaturitySummary {
 }
 
 export interface CrystalReadinessReport {
+  /**
+   * Which projection produced this report — `'full'` unless the caller
+   * requested `input.scope === 'acquisition-gate'`. Named on the report
+   * itself (2026-08-31) so nothing downstream can mistake a bounded
+   * acquisition-precondition projection for the full ten-check picture:
+   * `ok` on an `'acquisition-gate'` report reflects only the checks this
+   * scope actually evaluated, never a claim about freeze-readiness.
+   */
+  scope: 'full' | 'acquisition-gate';
   /**
    * READY FOR FREEZE — true iff every `scientific-readiness`-tier check
    * passes. NEVER depends on a `scientific-maturity` check (operator ruling,
@@ -679,6 +723,7 @@ export async function runCrystalReadinessReport(
   const maxDominantShapeFraction = input.maxDominantShapeFraction ?? 0.8;
   const duplicateSimilarityThreshold = input.duplicateSimilarityThreshold ?? 0.85;
   const fetchLimit = input.fetchLimit ?? 500;
+  const scope = input.scope ?? 'full';
 
   let invariants: InvariantRecord[];
   try {
@@ -693,6 +738,7 @@ export async function runCrystalReadinessReport(
     }));
   } catch (error) {
     return {
+      scope,
       ok: false,
       // An infrastructure fault tells us nothing about exclusions either —
       // reported absent rather than as an empty (and therefore reassuring) list.
@@ -936,12 +982,20 @@ export async function runCrystalReadinessReport(
   let intraPairs: Array<[string, string]> = [];
   let degree = new Map<string, number>(invariants.map((inv) => [inv.id, 0]));
   let edgeFetchError: string | null = null;
-  try {
-    const fetched = await fetchIntraCrystalEdges(invariants);
-    intraPairs = fetched.pairs;
-    degree = fetched.degree;
-  } catch (error) {
-    edgeFetchError = error instanceof Error ? error.message : String(error);
+  // Skipped entirely in 'acquisition-gate' scope (2026-08-31, "targeted-
+  // acquisition approval timeout" repair) — this read, and the three checks
+  // that depend on it below, are irrelevant to
+  // acquisitionBriefApplies/buildCrystalAcquisitionBrief. `intraPairs`/
+  // `degree` keep their safe all-zero defaults above; nothing reads them as
+  // if they were genuinely computed in this scope.
+  if (scope === 'full') {
+    try {
+      const fetched = await fetchIntraCrystalEdges(invariants);
+      intraPairs = fetched.pairs;
+      degree = fetched.degree;
+    } catch (error) {
+      edgeFetchError = error instanceof Error ? error.message : String(error);
+    }
   }
   const edgeFetchSuffix = edgeFetchError
     ? ` (edge substrate unreachable: ${edgeFetchError} — reported as zero relationships, not skipped)`
@@ -956,94 +1010,109 @@ export async function runCrystalReadinessReport(
   // gate is the UNION, so nothing the lexical pass caught is lost, and
   // `distinctStatementEstimate` answers the reviewer's actual question: how
   // many distinct statements does this collection really contain?
-  const lexicalPairs = findNearDuplicatePairs(invariants, duplicateSimilarityThreshold);
-  const semanticPairs = findSemanticDuplicatePairs(
-    invariants.map((inv) => ({ id: inv.id, statement: inv.statement })),
-  );
-  const pairKey = (a: string, b: string) => [a, b].sort().join('~');
-  const lexicalKeys = new Set(lexicalPairs.map(([a, b]) => pairKey(a, b)));
-  const unionMap = new Map<string, [string, string]>();
-  for (const [a, b] of lexicalPairs) unionMap.set(pairKey(a, b), [a, b]);
-  for (const p of semanticPairs) unionMap.set(pairKey(p.aId, p.bId), [p.aId, p.bId]);
-  const duplicatePairs = [...unionMap.values()];
-  const semanticOnlyPairCount = semanticPairs.filter(
-    (p) => !lexicalKeys.has(pairKey(p.aId, p.bId)),
-  ).length;
-  const distinctStatementEstimate =
-    invariantCount > 0
-      ? connectedComponents(invariants.map((inv) => inv.id), duplicatePairs).length
-      : 0;
+  // Both O(n²) passes below — findNearDuplicatePairs (lexical) and
+  // findSemanticDuplicatePairs — are the single most expensive computation
+  // this function performs, and irrelevant to acquisitionBriefApplies/
+  // buildCrystalAcquisitionBrief. Skipped entirely in 'acquisition-gate'
+  // scope (2026-08-31, "targeted-acquisition approval timeout" repair); the
+  // `let` defaults below keep `report.duplicates`/`duplicatePairCount`
+  // honest zeros, never a guessed or partial value, and no
+  // 'duplicate-detection' check is pushed in this scope.
+  let lexicalPairs: ReturnType<typeof findNearDuplicatePairs> = [];
+  let semanticPairs: ReturnType<typeof findSemanticDuplicatePairs> = [];
+  let duplicatePairs: Array<[string, string]> = [];
+  let semanticOnlyPairCount = 0;
+  let distinctStatementEstimate = 0;
+  if (scope === 'full') {
+    lexicalPairs = findNearDuplicatePairs(invariants, duplicateSimilarityThreshold);
+    semanticPairs = findSemanticDuplicatePairs(
+      invariants.map((inv) => ({ id: inv.id, statement: inv.statement })),
+    );
+    const pairKey = (a: string, b: string) => [a, b].sort().join('~');
+    const lexicalKeys = new Set(lexicalPairs.map(([a, b]) => pairKey(a, b)));
+    const unionMap = new Map<string, [string, string]>();
+    for (const [a, b] of lexicalPairs) unionMap.set(pairKey(a, b), [a, b]);
+    for (const p of semanticPairs) unionMap.set(pairKey(p.aId, p.bId), [p.aId, p.bId]);
+    duplicatePairs = [...unionMap.values()];
+    semanticOnlyPairCount = semanticPairs.filter(
+      (p) => !lexicalKeys.has(pairKey(p.aId, p.bId)),
+    ).length;
+    distinctStatementEstimate =
+      invariantCount > 0
+        ? connectedComponents(invariants.map((inv) => inv.id), duplicatePairs).length
+        : 0;
 
-  // Enrich each pair with full statement text and a server-derived survivor
-  // recommendation — computed HERE, in the same read that found the pair, so
-  // a steward's adjudication queue can never disagree with the readiness
-  // state it was derived from (operator ruling, 2026-08-27, "final
-  // corrections"). "Live relationship count" reuses the SAME intra-crystal
-  // `degree` map checks #7-9 use below — never a second, independently
-  // fetched edge count for the same invariants.
-  const invariantById = new Map(invariants.map((inv) => [inv.id, inv]));
-  const enrichedDuplicatePairs: DuplicatePairView[] = duplicatePairs.map(([aId, bId]) => {
-    const aInv = invariantById.get(aId);
-    const bInv = invariantById.get(bId);
-    if (!aInv || !bInv) {
-      // Defensive only — both ids come from `invariants` itself, so this
-      // should be unreachable. Fail soft: a readiness READ must never crash
-      // the whole report over one pair.
-      return { aId, bId, aStatement: aInv?.statement ?? '', bStatement: bInv?.statement ?? '', recommendation: null };
-    }
-    return {
-      aId,
-      bId,
-      aStatement: aInv.statement,
-      bStatement: bInv.statement,
-      recommendation: recommendDuplicateSurvivor(aInv, bInv, {
-        a: degree.get(aId) ?? 0,
-        b: degree.get(bId) ?? 0,
-      }),
-    };
-  });
+    // Enrich each pair with full statement text and a server-derived survivor
+    // recommendation — computed HERE, in the same read that found the pair, so
+    // a steward's adjudication queue can never disagree with the readiness
+    // state it was derived from (operator ruling, 2026-08-27, "final
+    // corrections"). "Live relationship count" reuses the SAME intra-crystal
+    // `degree` map checks #7-9 use below — never a second, independently
+    // fetched edge count for the same invariants.
+    const invariantById = new Map(invariants.map((inv) => [inv.id, inv]));
+    const enrichedDuplicatePairs: DuplicatePairView[] = duplicatePairs.map(([aId, bId]) => {
+      const aInv = invariantById.get(aId);
+      const bInv = invariantById.get(bId);
+      if (!aInv || !bInv) {
+        // Defensive only — both ids come from `invariants` itself, so this
+        // should be unreachable. Fail soft: a readiness READ must never crash
+        // the whole report over one pair.
+        return { aId, bId, aStatement: aInv?.statement ?? '', bStatement: bInv?.statement ?? '', recommendation: null };
+      }
+      return {
+        aId,
+        bId,
+        aStatement: aInv.statement,
+        bStatement: bInv.statement,
+        recommendation: recommendDuplicateSurvivor(aInv, bInv, {
+          a: degree.get(aId) ?? 0,
+          b: degree.get(bId) ?? 0,
+        }),
+      };
+    });
 
-  checks.push({
-    name: 'duplicate-detection',
-    tier: tierForCheck('duplicate-detection'),
-    // FAIL-CLOSED FIX 2026-07-26: this was `duplicatePairs.length === 0`, which
-    // reports passed:true on an EMPTY collection — "no duplicates found" is
-    // vacuously true when there is nothing to compare. Every sibling check
-    // here already guards with `invariantCount > 0`; this one did not, so a
-    // readiness report on a domain with zero invariants carried one green
-    // check. That is precisely the silent-readiness failure the report exists
-    // to prevent.
-    passed: invariantCount > 0 && duplicatePairs.length === 0,
-    detail:
-      invariantCount === 0
-        ? `no invariants found in domain '${crystalDomain}' — duplicate detection has nothing to compare, ` +
-          `which is not evidence of readiness`
-        : duplicatePairs.length === 0
-          ? `no near-duplicate statements found by EITHER mechanism: lexical word-set similarity at ` +
-            `${duplicateSimilarityThreshold}, or semantic predicate-argument form comparison ` +
-            `(direction-canonicalised). ${distinctStatementEstimate}/${invariantCount} statements are distinct.`
-          : `${duplicatePairs.length} near-duplicate pair(s) — ${lexicalPairs.length} lexical, ` +
-            `${semanticPairs.length} semantic, of which ${semanticOnlyPairCount} were invisible to the lexical ` +
-            `pass. DISTINCT-STATEMENT ESTIMATE: ${distinctStatementEstimate} of ${invariantCount} nominal ` +
-            `members (equivalence classes under the union relation). ` +
-            (semanticPairs.length > 0
-              ? `e.g. ${semanticPairs[0].aId} ~ ${semanticPairs[0].bId}: ${semanticPairs[0].detail}. `
-              : `e.g. ${duplicatePairs[0][0]} ~ ${duplicatePairs[0][1]}. `) +
-            `Unresolved duplicates fail this check.`,
-    remedy:
-      invariantCount > 0 && duplicatePairs.length === 0
-        ? null
-        : invariantCount === 0
-          ? EMPTY_DOMAIN_REMEDY
-          : `Resolve each of the ${duplicatePairs.length} pair(s): merge the duplicate into a survivor ` +
-            `(mergeInvariants unions their contexts and marks the merged row 'superseded'), or record a ` +
-            `'supersedes' relationship if one genuinely replaces the other. Do NOT raise either threshold — ` +
-            `both passes are heuristics, so a flagged pair a steward judges distinct is a finding to record, ` +
-            `not a setting to change. Note the count that matters is the DISTINCT-STATEMENT estimate ` +
-            `(${distinctStatementEstimate}), not the nominal ${invariantCount}: every downstream size ` +
-            `requirement is against distinct statements. Steward work.`,
-    duplicatePairs: enrichedDuplicatePairs,
-  });
+    checks.push({
+      name: 'duplicate-detection',
+      tier: tierForCheck('duplicate-detection'),
+      // FAIL-CLOSED FIX 2026-07-26: this was `duplicatePairs.length === 0`, which
+      // reports passed:true on an EMPTY collection — "no duplicates found" is
+      // vacuously true when there is nothing to compare. Every sibling check
+      // here already guards with `invariantCount > 0`; this one did not, so a
+      // readiness report on a domain with zero invariants carried one green
+      // check. That is precisely the silent-readiness failure the report exists
+      // to prevent.
+      passed: invariantCount > 0 && duplicatePairs.length === 0,
+      detail:
+        invariantCount === 0
+          ? `no invariants found in domain '${crystalDomain}' — duplicate detection has nothing to compare, ` +
+            `which is not evidence of readiness`
+          : duplicatePairs.length === 0
+            ? `no near-duplicate statements found by EITHER mechanism: lexical word-set similarity at ` +
+              `${duplicateSimilarityThreshold}, or semantic predicate-argument form comparison ` +
+              `(direction-canonicalised). ${distinctStatementEstimate}/${invariantCount} statements are distinct.`
+            : `${duplicatePairs.length} near-duplicate pair(s) — ${lexicalPairs.length} lexical, ` +
+              `${semanticPairs.length} semantic, of which ${semanticOnlyPairCount} were invisible to the lexical ` +
+              `pass. DISTINCT-STATEMENT ESTIMATE: ${distinctStatementEstimate} of ${invariantCount} nominal ` +
+              `members (equivalence classes under the union relation). ` +
+              (semanticPairs.length > 0
+                ? `e.g. ${semanticPairs[0].aId} ~ ${semanticPairs[0].bId}: ${semanticPairs[0].detail}. `
+                : `e.g. ${duplicatePairs[0][0]} ~ ${duplicatePairs[0][1]}. `) +
+              `Unresolved duplicates fail this check.`,
+      remedy:
+        invariantCount > 0 && duplicatePairs.length === 0
+          ? null
+          : invariantCount === 0
+            ? EMPTY_DOMAIN_REMEDY
+            : `Resolve each of the ${duplicatePairs.length} pair(s): merge the duplicate into a survivor ` +
+              `(mergeInvariants unions their contexts and marks the merged row 'superseded'), or record a ` +
+              `'supersedes' relationship if one genuinely replaces the other. Do NOT raise either threshold — ` +
+              `both passes are heuristics, so a flagged pair a steward judges distinct is a finding to record, ` +
+              `not a setting to change. Note the count that matters is the DISTINCT-STATEMENT estimate ` +
+              `(${distinctStatementEstimate}), not the nominal ${invariantCount}: every downstream size ` +
+              `requirement is against distinct statements. Steward work.`,
+      duplicatePairs: enrichedDuplicatePairs,
+    });
+  }
 
   // 5. Provenance eligibility — Population A only (§2a as refined 2026-07-27).
   //    Membership is decided by EVIDENCE provenance alone. An invariant the IDE
@@ -1123,93 +1192,109 @@ export async function runCrystalReadinessReport(
   // answer, and reporting "passed" for "nothing to check" is the exact
   // vacuous-pass defect the duplicate-detection fix above already corrected
   // once).
-  const minRelationshipDensity = input.minRelationshipDensity ?? 0.05;
-  const minConnectivityRatio = input.minConnectivityRatio ?? 0.6;
-  const maxOrphanFraction = input.maxOrphanFraction ?? 0.1;
+  // All three graph-shaped checks below depend on the intra-crystal edge
+  // fetch above, which is itself skipped in 'acquisition-gate' scope — so
+  // the checks are skipped WITH it (2026-08-31, "targeted-acquisition
+  // approval timeout" repair). None of the three feed
+  // acquisitionBriefApplies/buildCrystalAcquisitionBrief. `let` defaults
+  // keep `report.graph` honest zeros in this scope, never a value computed
+  // from an edge set this scope deliberately never fetched.
+  let relationshipCount = 0;
+  let relationshipDensity = 0;
+  let componentSizes: number[] = [];
+  let largestComponent = 0;
+  let connectivityRatio = 0;
+  let orphans: InvariantRecord[] = [];
+  let orphanFraction = 0;
+  if (scope === 'full') {
+    const minRelationshipDensity = input.minRelationshipDensity ?? 0.05;
+    const minConnectivityRatio = input.minConnectivityRatio ?? 0.6;
+    const maxOrphanFraction = input.maxOrphanFraction ?? 0.1;
 
-  const relationshipCount = intraPairs.length;
-  const maxPossiblePairs = invariantCount > 1 ? (invariantCount * (invariantCount - 1)) / 2 : 0;
-  const relationshipDensity = maxPossiblePairs > 0 ? relationshipCount / maxPossiblePairs : 0;
+    relationshipCount = intraPairs.length;
+    const maxPossiblePairs = invariantCount > 1 ? (invariantCount * (invariantCount - 1)) / 2 : 0;
+    relationshipDensity = maxPossiblePairs > 0 ? relationshipCount / maxPossiblePairs : 0;
 
-  const densityOk = invariantCount > 1 && relationshipDensity >= minRelationshipDensity;
-  const edgesShortOf = Math.max(0, Math.ceil(minRelationshipDensity * maxPossiblePairs) - relationshipCount);
-  const EDGE_ROUTE = 'POST /api/invariants/<id>/edges { toInvariantId, relation, rationale, evidenceRefs }';
-  checks.push({
-    name: 'relationship-density',
-    tier: tierForCheck('relationship-density'),
-    passed: densityOk,
-    remedy: densityOk
-      ? null
-      : invariantCount <= 1
-        ? EMPTY_DOMAIN_REMEDY
-        : `Record the relationships that already hold between these statements: ${EDGE_ROUTE}. About ` +
-          `${edgesShortOf} more intra-crystal edge(s) would reach the threshold — but record only relationships ` +
-          `that are genuinely there. This check under-reports a corpus with real-but-unannotated structure; it ` +
-          `does not over-report, so the fix is annotation, never invention. Steward work.`,
-    detail:
-      invariantCount <= 1
-        ? `${invariantCount} invariant(s) in domain '${crystalDomain}' — density over a graph of ≤1 node is undefined, ` +
-          `which is not evidence of relatedness`
-        : `${relationshipCount} intra-crystal relationship(s) over ${invariantCount} invariants — density ` +
-          `${relationshipDensity.toFixed(3)} (${(relationshipDensity * 100).toFixed(1)}% of ${maxPossiblePairs} possible ` +
-          `undirected pairs), need ≥ ${minRelationshipDensity.toFixed(3)}. Counts only edges where BOTH endpoints are ` +
-          `in this crystal — an edge reaching outside it says nothing about whether the crystal is internally related.` +
-          edgeFetchSuffix,
-  });
+    const densityOk = invariantCount > 1 && relationshipDensity >= minRelationshipDensity;
+    const edgesShortOf = Math.max(0, Math.ceil(minRelationshipDensity * maxPossiblePairs) - relationshipCount);
+    const EDGE_ROUTE = 'POST /api/invariants/<id>/edges { toInvariantId, relation, rationale, evidenceRefs }';
+    checks.push({
+      name: 'relationship-density',
+      tier: tierForCheck('relationship-density'),
+      passed: densityOk,
+      remedy: densityOk
+        ? null
+        : invariantCount <= 1
+          ? EMPTY_DOMAIN_REMEDY
+          : `Record the relationships that already hold between these statements: ${EDGE_ROUTE}. About ` +
+            `${edgesShortOf} more intra-crystal edge(s) would reach the threshold — but record only relationships ` +
+            `that are genuinely there. This check under-reports a corpus with real-but-unannotated structure; it ` +
+            `does not over-report, so the fix is annotation, never invention. Steward work.`,
+      detail:
+        invariantCount <= 1
+          ? `${invariantCount} invariant(s) in domain '${crystalDomain}' — density over a graph of ≤1 node is undefined, ` +
+            `which is not evidence of relatedness`
+          : `${relationshipCount} intra-crystal relationship(s) over ${invariantCount} invariants — density ` +
+            `${relationshipDensity.toFixed(3)} (${(relationshipDensity * 100).toFixed(1)}% of ${maxPossiblePairs} possible ` +
+            `undirected pairs), need ≥ ${minRelationshipDensity.toFixed(3)}. Counts only edges where BOTH endpoints are ` +
+            `in this crystal — an edge reaching outside it says nothing about whether the crystal is internally related.` +
+            edgeFetchSuffix,
+    });
 
-  const componentSizes = connectedComponentSizes(
-    invariants.map((inv) => inv.id),
-    intraPairs,
-  );
-  const largestComponent = componentSizes.length > 0 ? Math.max(...componentSizes) : 0;
-  const connectivityRatio = invariantCount > 0 ? largestComponent / invariantCount : 0;
-  const connectivityOk = invariantCount > 1 && connectivityRatio >= minConnectivityRatio;
-  checks.push({
-    name: 'graph-connectivity',
-    tier: tierForCheck('graph-connectivity'),
-    passed: connectivityOk,
-    remedy: connectivityOk
-      ? null
-      : invariantCount <= 1
-        ? EMPTY_DOMAIN_REMEDY
-        : `The collection is in ${componentSizes.length} disjoint cluster(s); the largest holds ` +
-          `${largestComponent}/${invariantCount}. Relate the smaller clusters to the main one where a real ` +
-          `relationship exists: ${EDGE_ROUTE}. If no genuine relationship links a cluster, that is a finding ` +
-          `about the domain's coherence — report it; do not bridge it with an invented edge. Steward work.`,
-    detail:
-      invariantCount <= 1
-        ? `${invariantCount} invariant(s) — connectivity is undefined below 2 nodes`
-        : `${componentSizes.length} connected component(s) over ${invariantCount} invariants; the largest holds ` +
-          `${largestComponent} (${(connectivityRatio * 100).toFixed(1)}%), need ≥ ${(minConnectivityRatio * 100).toFixed(0)}% ` +
-          `in one component — a crystal fragmented into many small disjoint clusters cannot support the ` +
-          `cross-invariant derivation chains the graph-structured retrieval is meant to test` +
-          edgeFetchSuffix,
-  });
+    componentSizes = connectedComponentSizes(
+      invariants.map((inv) => inv.id),
+      intraPairs,
+    );
+    largestComponent = componentSizes.length > 0 ? Math.max(...componentSizes) : 0;
+    connectivityRatio = invariantCount > 0 ? largestComponent / invariantCount : 0;
+    const connectivityOk = invariantCount > 1 && connectivityRatio >= minConnectivityRatio;
+    checks.push({
+      name: 'graph-connectivity',
+      tier: tierForCheck('graph-connectivity'),
+      passed: connectivityOk,
+      remedy: connectivityOk
+        ? null
+        : invariantCount <= 1
+          ? EMPTY_DOMAIN_REMEDY
+          : `The collection is in ${componentSizes.length} disjoint cluster(s); the largest holds ` +
+            `${largestComponent}/${invariantCount}. Relate the smaller clusters to the main one where a real ` +
+            `relationship exists: ${EDGE_ROUTE}. If no genuine relationship links a cluster, that is a finding ` +
+            `about the domain's coherence — report it; do not bridge it with an invented edge. Steward work.`,
+      detail:
+        invariantCount <= 1
+          ? `${invariantCount} invariant(s) — connectivity is undefined below 2 nodes`
+          : `${componentSizes.length} connected component(s) over ${invariantCount} invariants; the largest holds ` +
+            `${largestComponent} (${(connectivityRatio * 100).toFixed(1)}%), need ≥ ${(minConnectivityRatio * 100).toFixed(0)}% ` +
+            `in one component — a crystal fragmented into many small disjoint clusters cannot support the ` +
+            `cross-invariant derivation chains the graph-structured retrieval is meant to test` +
+            edgeFetchSuffix,
+    });
 
-  const orphans = invariants.filter((inv) => (degree.get(inv.id) ?? 0) === 0);
-  const orphanFraction = invariantCount > 0 ? orphans.length / invariantCount : 1;
-  const orphansOk = invariantCount > 0 && orphanFraction <= maxOrphanFraction;
-  checks.push({
-    name: 'orphan-detection',
-    tier: tierForCheck('orphan-detection'),
-    passed: orphansOk,
-    remedy: orphansOk
-      ? null
-      : invariantCount === 0
-        ? EMPTY_DOMAIN_REMEDY
-        : `${orphans.length} member(s) carry no intra-crystal relationship at all` +
-          (orphans.length > 0 ? ` (e.g. ${orphans[0].id})` : '') +
-          `. Record at least one real relationship for each: ${EDGE_ROUTE}. Independently discovered invariants ` +
-          `arrive as orphans by default — nothing in acquisition creates edges — so this is expected work, not a ` +
-          `defect. Steward work.`,
-    detail:
-      invariantCount === 0
-        ? `no invariants found in domain '${crystalDomain}' — orphan detection has nothing to compare`
-        : `${orphans.length}/${invariantCount} invariant(s) carry ZERO intra-crystal relationships ` +
-          `(${(orphanFraction * 100).toFixed(1)}%), need ≤ ${(maxOrphanFraction * 100).toFixed(0)}%` +
-          (orphans.length > 0 ? ` — e.g. ${orphans[0].id}` : '') +
-          edgeFetchSuffix,
-  });
+    orphans = invariants.filter((inv) => (degree.get(inv.id) ?? 0) === 0);
+    orphanFraction = invariantCount > 0 ? orphans.length / invariantCount : 1;
+    const orphansOk = invariantCount > 0 && orphanFraction <= maxOrphanFraction;
+    checks.push({
+      name: 'orphan-detection',
+      tier: tierForCheck('orphan-detection'),
+      passed: orphansOk,
+      remedy: orphansOk
+        ? null
+        : invariantCount === 0
+          ? EMPTY_DOMAIN_REMEDY
+          : `${orphans.length} member(s) carry no intra-crystal relationship at all` +
+            (orphans.length > 0 ? ` (e.g. ${orphans[0].id})` : '') +
+            `. Record at least one real relationship for each: ${EDGE_ROUTE}. Independently discovered invariants ` +
+            `arrive as orphans by default — nothing in acquisition creates edges — so this is expected work, not a ` +
+            `defect. Steward work.`,
+      detail:
+        invariantCount === 0
+          ? `no invariants found in domain '${crystalDomain}' — orphan detection has nothing to compare`
+          : `${orphans.length}/${invariantCount} invariant(s) carry ZERO intra-crystal relationships ` +
+            `(${(orphanFraction * 100).toFixed(1)}%), need ≤ ${(maxOrphanFraction * 100).toFixed(0)}%` +
+            (orphans.length > 0 ? ` — e.g. ${orphans[0].id}` : '') +
+            edgeFetchSuffix,
+    });
+  }
 
   // ── 10. BOUNDARY COVERAGE — the one new check name (finding 4) ────────────
   //
@@ -1336,6 +1421,7 @@ export async function runCrystalReadinessReport(
     : null;
 
   return {
+    scope,
     ok,
     checks,
     maturity,

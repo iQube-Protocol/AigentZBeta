@@ -83,7 +83,17 @@ export async function POST(
 
   const step = await runOneAcquisitionStep(admin, acquisitionDomain);
 
-  const freshReadiness = await runCrystalReadinessReport({ experimentId, crystalDomain: declaration.domain });
+  // Bounded scope (2026-08-31, "targeted-acquisition approval timeout"
+  // repair) — acquisitionBriefApplies below reads only selection-space/
+  // derivation-headroom/boundary-coverage; see crystalReadiness.ts's own
+  // 'acquisition-gate' doc comment for the full justification. Same fix as
+  // the approve route, applied here for the same reason: this call re-runs
+  // on every step of the SAME acquisition round.
+  const freshReadiness = await runCrystalReadinessReport({
+    experimentId,
+    crystalDomain: declaration.domain,
+    scope: 'acquisition-gate',
+  });
   const readinessSatisfied = !acquisitionBriefApplies(freshReadiness);
   const done = readinessSatisfied || step.exhausted;
   if (done) await completeAcquisitionJob(admin, approval.id);

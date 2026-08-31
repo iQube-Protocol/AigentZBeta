@@ -5290,25 +5290,38 @@ interface AcquisitionBrief {
  * see `services/research/crystalAcquisitionBrief.ts`'s header for the full
  * audit) with ONE server-derived, coordinated corpus-enlargement objective.
  *
- * ── Governance pattern, matched from the EXISTING Corpus Scout flow ────────
+ * ── "Approve & start acquisition" is THE SAME canonical pipeline the
+ *    Research Copilot's "Approve targeted acquisition" uses (corrected
+ *    2026-08-31, cross-surface parity fix) ─────────────────────────────────
  *
- * `components/corpusScout/DomainConstitutionPanel.tsx`'s `runDomainDiscovery`
- * is the precedent: ONE explicit steward click directly triggers
- * `POST /api/corpus-scout/institution-discovery/domain` — no separate confirm
- * modal. "Approve & start acquisition" below reuses that SAME route, matching
- * that SAME pattern — this is not a new governance mechanism.
+ * `POST /api/research/programme/[experimentId]/acquisition/approve`, then
+ * `POST .../acquisition/run-step` repeated until the server reports
+ * `done: true` — the IDENTICAL two routes `components/composer/
+ * IRLResearchCopilotTab.tsx`'s `approveTargetedAcquisition` drives. This
+ * button PREVIOUSLY called `POST /api/corpus-scout/institution-discovery/
+ * domain` directly (the raw Corpus Scout crawl trigger,
+ * `components/corpusScout/DomainConstitutionPanel.tsx`'s own precedent) —
+ * that route has no `acquisitionBriefApplies` precondition check, writes no
+ * `crystal_acquisition_approvals` fact, and is not gated behind the Copilot's
+ * own safety semantics at all. A steward clicking THIS button could
+ * therefore bypass every constitutional precondition the Copilot's button
+ * enforces — the exact "lower-level route capable of bypassing a Copilot
+ * safety failure" gap an operator audit surfaced. Fixed by routing through
+ * the SAME approval pipeline; the raw institution-discovery route remains
+ * exactly where it always was, as the general-purpose Corpus Scout crawl
+ * trigger, still called by `DomainConstitutionPanel.tsx` for THAT unrelated
+ * purpose.
  *
  * ── The one honest capability gap (reported, not silently worked around) ───
  *
- * `runDiscoveryForDomain`/`runDiscoveryForInstitution`
- * (`services/corpusScout/discoveryOrchestrator.ts`) accept only a `domain`
- * string — there is no parameter to target specific missing namespaces or
- * relational structures within a domain crawl. The brief's `missingNamespaces`/
+ * `runDiscoveryForInstitution` (`services/corpusScout/discoveryOrchestrator.ts`,
+ * reached via `runOneAcquisitionStep`) accepts only a `domain` string — there
+ * is no parameter to target specific missing namespaces or relational
+ * structures within a domain crawl. The brief's `missingNamespaces`/
  * `deficientRelationalStructures` are shown to the operator as the PRIORITY
  * for this acquisition round, but the automated crawl itself remains
- * domain-wide and uniform, exactly as it is everywhere else this route is
- * used today. Closing that gap would mean changing how each ratified
- * institution is queried — external-HTTP crawl logic this review pass does
+ * domain-wide and uniform. Closing that gap would mean changing how each
+ * ratified institution is queried — external-HTTP crawl logic this fix does
  * not touch.
  */
 function CrystalAcquisitionPlan({ experimentId, onDone }: { experimentId: string; onDone: () => void }) {
@@ -5358,35 +5371,71 @@ function CrystalAcquisitionPlan({ experimentId, onDone }: { experimentId: string
     void loadBrief(next);
   }, [includeDiversity, loadBrief]);
 
+  // Same client-side backstop bound as the Research Copilot's own
+  // MAX_CLIENT_ACQUISITION_STEPS — the server's own `done` signal is the
+  // authority on when to stop; this only guards against that signal ever
+  // being wrong.
+  const MAX_LAB_ACQUISITION_STEPS = 40;
   const approve = useCallback(async () => {
     if (!brief) return;
     setApproving(true);
     setApprovalResult(null);
     setErr(null);
     try {
-      // THE CANONICAL, ALREADY-SHIPPED Corpus Scout automation entry point —
-      // never a forked acquisition pipeline. Same route, same request shape,
-      // same single-click governance pattern as DomainConstitutionPanel's
-      // runDomainDiscovery.
-      const res = await personaFetch("/api/corpus-scout/institution-discovery/domain", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ domain: brief.domain }),
-      });
-      const d = await res.json().catch(() => null);
-      if (!res.ok || !d?.ok) throw new Error(d?.error || `domain discovery refused (HTTP ${res.status})`);
+      // THE CANONICAL approval pipeline — the SAME route the Research
+      // Copilot's "Approve targeted acquisition" calls (2026-08-31 parity
+      // fix). Never the raw corpus-scout institution-discovery route
+      // directly: that path has no acquisitionBriefApplies precondition and
+      // writes no crystal_acquisition_approvals fact.
+      const approveRes = await personaFetch(
+        `/api/research/programme/${encodeURIComponent(experimentId)}/acquisition/approve`,
+        { method: "POST", cache: "no-store", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) },
+      );
+      const approveData = await approveRes.json().catch(() => null) as { ok?: boolean; error?: string } | null;
+      if (!approveRes.ok || !approveData || approveData.ok !== true) {
+        throw new Error((approveData && typeof approveData.error === "string" && approveData.error) || `approval refused (HTTP ${approveRes.status})`);
+      }
+
+      // Bounded per-call institution discovery — the SAME
+      // POST .../acquisition/run-step the Copilot drives repeatedly until
+      // the server reports done:true.
+      let institutionsAttempted = 0;
+      let done = false;
+      for (let i = 0; i < MAX_LAB_ACQUISITION_STEPS; i++) {
+        const stepRes = await personaFetch(
+          `/api/research/programme/${encodeURIComponent(experimentId)}/acquisition/run-step`,
+          { method: "POST", cache: "no-store", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) },
+        );
+        const stepData = await stepRes.json().catch(() => null) as {
+          ok?: boolean; error?: string; institution?: { institutionName: string } | null; done?: boolean;
+        } | null;
+        if (!stepRes.ok || !stepData || stepData.ok !== true) {
+          throw new Error((stepData && typeof stepData.error === "string" && stepData.error) || `acquisition step refused (HTTP ${stepRes.status})`);
+        }
+        if (stepData.institution) institutionsAttempted += 1;
+        done = Boolean(stepData.done);
+        if (done) break;
+      }
+
+      // Deliberately never phrased as "N found" — that legacy institution-
+      // discovery wording (this surface's OWN prior text) could read as "the
+      // approved acquisition produced zero results" when institutionsAttempted
+      // is 0, conflating a per-round institution count with the durable
+      // crystal_acquisition_approvals fact this action actually wrote.
       setApprovalResult(
-        `${d.institutionsAttempted} institution(s) attempted — ${d.totalSubmitted} candidate(s) submitted from ` +
-          `${d.totalFound} found. Continue with Extract/Validate ("Run until you need me" in the Research Copilot, ` +
-          `or the stage controls below) to bring admitted material through the canonical pipeline into the crystal.`,
+        `Targeted acquisition approved — ${institutionsAttempted} ratified institution(s) attempted this round. ` +
+          (done
+            ? 'Continue with Extract/Validate ("Run until you need me" in the Research Copilot, or the stage ' +
+              'controls below) to bring admitted material through the canonical pipeline into the crystal.'
+            : `Stopped after ${MAX_LAB_ACQUISITION_STEPS} step(s) as a client-side backstop — re-open this plan to continue.`),
       );
       onDone();
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "acquisition automation failed");
+      setErr(e instanceof Error ? e.message : "acquisition approval failed");
     } finally {
       setApproving(false);
     }
-  }, [brief, onDone]);
+  }, [brief, experimentId, onDone]);
 
   if (!open) {
     return (
