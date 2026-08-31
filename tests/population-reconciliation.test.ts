@@ -334,3 +334,116 @@ describe('reconcilePromotedCohort — Stage 7 reviewed-orphan adjudication (adju
     });
   });
 });
+
+/**
+ * The target-Crystal membership universe (operator ruling, 2026-08-31,
+ * "successor cohort vs successor Crystal are not the same thing" — the live
+ * Record 3 incident): a new successor member's edge to an INHERITED
+ * predecessor member counts toward Stage 7 exactly like an edge to another
+ * successor member. An edge to an arbitrary OTHER invariant — neither a
+ * successor member nor inherited — must not.
+ */
+describe('reconcilePromotedCohort — target-Crystal membership universe (inheritedMemberIds)', () => {
+  const fakeAdmin = {} as any;
+
+  it('new→new: an edge between two successor members counts (unaffected by inheritedMemberIds)', async () => {
+    const promoted = [
+      candidate({ id: 'c1', promotedInvariantId: 'inv-new-1' }),
+      candidate({ id: 'c2', promotedInvariantId: 'inv-new-2' }),
+    ];
+    mockGetInvariantsByIds.mockResolvedValue([invariant('inv-new-1'), invariant('inv-new-2')]);
+    mockListEdgesForInvariants.mockResolvedValue([{ fromInvariantId: 'inv-new-1', toInvariantId: 'inv-new-2' }]);
+
+    const cohort = await reconcilePromotedCohort(promoted, {
+      admin: fakeAdmin,
+      experimentId: 'EXP-P1',
+      inheritedMemberIds: new Set(['inv-inherited-1']),
+    });
+    expect(cohort.orphanRecords).toEqual([]);
+    expect(cohort.graph).toEqual({ relationshipCount: 1, orphanCount: 0 });
+  });
+
+  it('new→inherited: an edge from a successor member to an inherited predecessor member counts — the Record 3 fix', async () => {
+    const promoted = [candidate({ id: 'c3', promotedInvariantId: 'inv-record-3' })];
+    mockGetInvariantsByIds.mockResolvedValue([invariant('inv-record-3')]);
+    // The accepted supports edge: Record 3 (successor) -> inherited member,
+    // exactly the live 8e13b697...->b94c323e... shape.
+    mockListEdgesForInvariants.mockResolvedValue([
+      { fromInvariantId: 'inv-record-3', toInvariantId: 'inv-inherited-risk-mgmt' },
+    ]);
+
+    const cohort = await reconcilePromotedCohort(promoted, {
+      admin: fakeAdmin,
+      experimentId: 'EXP-P1',
+      inheritedMemberIds: new Set(['inv-inherited-risk-mgmt']),
+    });
+    expect(cohort.orphanRecords).toEqual([]);
+    expect(cohort.graph).toEqual({ relationshipCount: 1, orphanCount: 0 });
+  });
+
+  it('new→arbitrary out-of-Crystal invariant does NOT count — neither a successor member nor inherited', async () => {
+    const promoted = [candidate({ id: 'c1', promotedInvariantId: 'inv-new-1' })];
+    mockGetInvariantsByIds.mockResolvedValue([invariant('inv-new-1')]);
+    // Edge target is some OTHER promoted invariant elsewhere in the
+    // acquisition domain — not in inheritedMemberIds, not a successor member.
+    mockListEdgesForInvariants.mockResolvedValue([
+      { fromInvariantId: 'inv-new-1', toInvariantId: 'inv-arbitrary-elsewhere' },
+    ]);
+
+    const cohort = await reconcilePromotedCohort(promoted, {
+      admin: fakeAdmin,
+      experimentId: 'EXP-P1',
+      inheritedMemberIds: new Set(['inv-inherited-1']), // does not include inv-arbitrary-elsewhere
+    });
+    expect(cohort.orphanRecords.map((r) => r.id)).toEqual(['inv-new-1']);
+    expect(cohort.graph).toEqual({ relationshipCount: 0, orphanCount: 1 });
+  });
+
+  it('no edge is manufactured to satisfy the stage — an out-of-Crystal edge remains a real graph fact, just uncounted', async () => {
+    const promoted = [candidate({ id: 'c1', promotedInvariantId: 'inv-new-1' })];
+    mockGetInvariantsByIds.mockResolvedValue([invariant('inv-new-1')]);
+    mockListEdgesForInvariants.mockResolvedValue([
+      { fromInvariantId: 'inv-new-1', toInvariantId: 'inv-arbitrary-elsewhere' },
+    ]);
+    const cohort = await reconcilePromotedCohort(promoted, {
+      admin: fakeAdmin,
+      experimentId: 'EXP-P1',
+      inheritedMemberIds: new Set(),
+    });
+    // relationshipCount reflects only qualifying (in-universe) edges — the
+    // out-of-Crystal edge is neither counted NOR is a replacement edge ever
+    // written (this function only ever reads invariant_edges).
+    expect(cohort.graph).toEqual({ relationshipCount: 0, orphanCount: 1 });
+  });
+
+  it('the no-defensible-edge adjudication fingerprint is keyed on the FULL target-Crystal universe, not the successor cohort alone', async () => {
+    const promoted = [
+      candidate({ id: 'c1', promotedInvariantId: 'inv-new-1' }),
+      candidate({ id: 'c2', promotedInvariantId: 'inv-new-2' }),
+    ];
+    mockGetInvariantsByIds.mockResolvedValue([invariant('inv-new-1'), invariant('inv-new-2')]);
+
+    await reconcilePromotedCohort(promoted, {
+      admin: fakeAdmin,
+      experimentId: 'EXP-P1',
+      inheritedMemberIds: new Set(['inv-inherited-1']),
+    });
+    expect(mockGetValidNoDefensibleEdgeInvariantIds).toHaveBeenCalledWith(fakeAdmin, {
+      experimentId: 'EXP-P1',
+      cohortMemberIds: expect.arrayContaining(['inv-new-1', 'inv-new-2', 'inv-inherited-1']),
+    });
+    const call = mockGetValidNoDefensibleEdgeInvariantIds.mock.calls.at(-1)![1];
+    expect(call.cohortMemberIds).toHaveLength(3);
+  });
+
+  it('no frozen predecessor / no inheritedMemberIds supplied — falls back to intra-successor-cohort-only, today\'s behaviour', async () => {
+    const promoted = [candidate({ id: 'c1', promotedInvariantId: 'inv-new-1' })];
+    mockGetInvariantsByIds.mockResolvedValue([invariant('inv-new-1')]);
+    mockListEdgesForInvariants.mockResolvedValue([
+      { fromInvariantId: 'inv-new-1', toInvariantId: 'inv-would-be-inherited-if-declared' },
+    ]);
+    // adjudicationContext supplied but inheritedMemberIds omitted entirely.
+    const cohort = await reconcilePromotedCohort(promoted, { admin: fakeAdmin, experimentId: 'EXP-P1' });
+    expect(cohort.orphanRecords.map((r) => r.id)).toEqual(['inv-new-1']);
+  });
+});

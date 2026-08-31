@@ -14,9 +14,17 @@ vi.mock('@/services/identity/getActivePersona', () => ({
   getActivePersona: (req: unknown) => mockGetActivePersona(req),
 }));
 
-const mockListCandidates = vi.fn();
-vi.mock('@/services/invariants/discoveryEngine', () => ({
-  listCandidates: (...args: any[]) => mockListCandidates(...args),
+const mockResolveSuccessorConstructionCohort = vi.fn();
+vi.mock('@/services/research/crystalCohortMembership', () => ({
+  resolveSuccessorConstructionCohort: (...args: any[]) => mockResolveSuccessorConstructionCohort(...args),
+  // Real implementation — pure union logic, no reason to fake it.
+  resolveTargetCrystalMembershipUniverse: (
+    context: { frozenGenerationMemberIds: Set<string> | null },
+    successorMemberIds: string[],
+  ) => {
+    const inheritedMemberIds = context.frozenGenerationMemberIds ?? new Set<string>();
+    return { memberIds: new Set([...inheritedMemberIds, ...successorMemberIds]), inheritedMemberIds, inheritedMembers: [] };
+  },
 }));
 
 const mockReconcilePromotedCohort = vi.fn();
@@ -47,8 +55,12 @@ const params = Promise.resolve({ experimentId: 'EXP-P1' });
 beforeEach(() => {
   mockGetActivePersona.mockReset();
   mockGetActivePersona.mockResolvedValue({ personaId: 'persona-steward', cartridgeFlags: { isAdmin: true } });
-  mockListCandidates.mockReset();
-  mockListCandidates.mockResolvedValue([{ id: 'c1', status: 'promoted' }]);
+  mockResolveSuccessorConstructionCohort.mockReset();
+  mockResolveSuccessorConstructionCohort.mockResolvedValue({
+    context: { frozenPredecessor: null, frozenGenerationMemberIds: null, frozenGenerationMembers: null },
+    successorScopedCandidates: [{ id: 'c1', status: 'promoted' }],
+    promotedForConstruction: [{ id: 'c1', status: 'promoted' }],
+  });
   mockReconcilePromotedCohort.mockReset();
   mockReconcilePromotedCohort.mockResolvedValue({ invariantIds: ['inv-1', 'inv-2'] });
   mockRecordNoDefensibleEdgeAdjudication.mockReset();
@@ -125,5 +137,38 @@ describe('POST relationship-adjudication — records the fact, never an edge', (
     expect(res.status).toBe(500);
     expect(body.ok).toBe(false);
     expect(body.error).toBe('insert failed');
+  });
+
+  it('THE FIX — the fingerprint (cohortMemberIds) includes the inherited predecessor members too, not just the successor cohort', async () => {
+    mockResolveSuccessorConstructionCohort.mockResolvedValue({
+      context: {
+        frozenPredecessor: { id: 'art-1' },
+        frozenGenerationMemberIds: new Set(['inv-inherited-1']),
+        frozenGenerationMembers: [],
+      },
+      successorScopedCandidates: [{ id: 'c1', status: 'promoted' }],
+      promotedForConstruction: [{ id: 'c1', status: 'promoted' }],
+    });
+    await POST(makeRequest({ invariantId: 'inv-1' }), { params });
+    const call = mockRecordNoDefensibleEdgeAdjudication.mock.calls.at(-1)![1];
+    expect(new Set(call.cohortMemberIds)).toEqual(new Set(['inv-1', 'inv-2', 'inv-inherited-1']));
+  });
+
+  it('membership validation still checks the SUCCESSOR cohort only — only new members are adjudicated, never an inherited one', async () => {
+    // cohort.invariantIds (from reconcilePromotedCohort) never includes
+    // inherited ids — this proves the 409 gate reads that, not the wider
+    // target-Crystal universe.
+    mockResolveSuccessorConstructionCohort.mockResolvedValue({
+      context: {
+        frozenPredecessor: { id: 'art-1' },
+        frozenGenerationMemberIds: new Set(['inv-inherited-1']),
+        frozenGenerationMembers: [],
+      },
+      successorScopedCandidates: [{ id: 'c1', status: 'promoted' }],
+      promotedForConstruction: [{ id: 'c1', status: 'promoted' }],
+    });
+    const res = await POST(makeRequest({ invariantId: 'inv-inherited-1' }), { params });
+    expect(res.status).toBe(409);
+    expect(mockRecordNoDefensibleEdgeAdjudication).not.toHaveBeenCalled();
   });
 });

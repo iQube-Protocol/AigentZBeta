@@ -19,14 +19,14 @@ vi.mock('@/services/invariants', () => ({
   validateInvariant: (...args: any[]) => mockValidateInvariant(...args),
 }));
 
-const mockListCandidates = vi.fn();
-vi.mock('@/services/invariants/discoveryEngine', () => ({
-  listCandidates: (...args: any[]) => mockListCandidates(...args),
-}));
-
 const mockReconcilePromotedCohort = vi.fn();
 vi.mock('@/services/research/populationReconciliation', () => ({
   reconcilePromotedCohort: (...args: any[]) => mockReconcilePromotedCohort(...args),
+}));
+
+const mockResolveSuccessorConstructionCohort = vi.fn();
+vi.mock('@/services/research/crystalCohortMembership', () => ({
+  resolveSuccessorConstructionCohort: (...args: any[]) => mockResolveSuccessorConstructionCohort(...args),
 }));
 
 vi.mock('@/app/api/_lib/supabaseServer', () => ({
@@ -45,8 +45,12 @@ beforeEach(() => {
   mockGetActivePersona.mockReset();
   mockGetActivePersona.mockResolvedValue({ personaId: 'persona-steward', cartridgeFlags: { isAdmin: true } });
   mockValidateInvariant.mockReset();
-  mockListCandidates.mockReset();
-  mockListCandidates.mockResolvedValue([{ id: 'c1', status: 'promoted' }]);
+  mockResolveSuccessorConstructionCohort.mockReset();
+  mockResolveSuccessorConstructionCohort.mockResolvedValue({
+    context: { frozenPredecessor: null, frozenGenerationMemberIds: null, frozenGenerationMembers: null },
+    successorScopedCandidates: [{ id: 'c1', status: 'promoted' }],
+    promotedForConstruction: [{ id: 'c1', status: 'promoted' }],
+  });
   mockReconcilePromotedCohort.mockReset();
 });
 
@@ -66,6 +70,40 @@ describe('POST validate-all — auth', () => {
   it('refuses an unknown experiment', async () => {
     const res = await POST(makeRequest(), { params: Promise.resolve({ experimentId: 'not-real' }) });
     expect(res.status).toBe(404);
+  });
+});
+
+describe('POST validate-all — successor-scoped cohort resolution (2026-08-31 fix)', () => {
+  it('resolves its batch through the SHARED successor-scoping resolver, never a raw unscoped candidate list', async () => {
+    mockReconcilePromotedCohort.mockResolvedValue({ unvalidatedRecords: [] });
+    await POST(makeRequest(), { params });
+    expect(mockResolveSuccessorConstructionCohort).toHaveBeenCalledWith(expect.anything(), 'EXP-P1', 'financial-services');
+    expect(mockReconcilePromotedCohort).toHaveBeenCalledWith([{ id: 'c1', status: 'promoted' }]);
+  });
+
+  it('never validates a frozen predecessor candidate — the resolver already excluded it before this route ever sees it', async () => {
+    // The resolver itself is mocked here to only ever hand back v2-scoped
+    // candidates (its own unit tests in crystal-cohort-membership.test.ts
+    // prove the exclusion logic) — this test proves the ROUTE consumes
+    // exactly what the resolver returns, adding no candidates of its own.
+    mockResolveSuccessorConstructionCohort.mockResolvedValue({
+      context: { frozenPredecessor: { id: 'art-1' }, frozenGenerationMemberIds: new Set(['inv-inherited-1']), frozenGenerationMembers: [] },
+      successorScopedCandidates: [{ id: 'c-new-only', status: 'promoted' }],
+      promotedForConstruction: [{ id: 'c-new-only', status: 'promoted' }],
+    });
+    mockReconcilePromotedCohort.mockResolvedValue({ unvalidatedRecords: [] });
+    await POST(makeRequest(), { params });
+    expect(mockReconcilePromotedCohort).toHaveBeenCalledWith([{ id: 'c-new-only', status: 'promoted' }]);
+  });
+
+  it('surfaces a cohort read failure as a 502', async () => {
+    mockResolveSuccessorConstructionCohort.mockResolvedValue({
+      context: { frozenPredecessor: null, frozenGenerationMemberIds: null, frozenGenerationMembers: null },
+      successorScopedCandidates: null,
+      promotedForConstruction: null,
+    });
+    const res = await POST(makeRequest(), { params });
+    expect(res.status).toBe(502);
   });
 });
 

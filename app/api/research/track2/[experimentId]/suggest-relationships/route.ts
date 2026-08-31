@@ -4,10 +4,23 @@
  * me the three strongest relationships.' The steward's role becomes
  * constitutional approval, not manual graph construction.").
  *
- * Resolves the current cohort server-side (the SAME `reconcilePromotedCohort`
- * every other Track 2 route reads — never a client-supplied member list, so
- * a caller cannot inject a candidate pool from outside this crystal) and
- * delegates ranking/relation-type/rationale generation to
+ * Resolves the current SUCCESSOR cohort server-side through the ONE shared
+ * resolver (`resolveSuccessorConstructionCohort`, 2026-08-31 — never a
+ * client-supplied member list, so a caller cannot inject a candidate pool
+ * from outside this crystal) and offers a candidate pool spanning the
+ * target-Crystal membership universe: other successor cohort members AND
+ * the inherited predecessor's own members. Per the operator's ruling
+ * ("successor cohort vs successor Crystal are not the same thing"), a new
+ * member relating BACKWARD into inherited Crystal structure is scientifically
+ * valid and must be offerable — but this route must never again offer an
+ * arbitrary OTHER promoted invariant elsewhere in the acquisition domain,
+ * which the unscoped `reconcilePromotedCohort(candidates.filter(...))` call
+ * this replaces used to admit (the live root cause of the 2026-08-31 Record
+ * 3 incident: a `supports` edge was correctly accepted to a genuine inherited
+ * member, but the route offering it had no way to distinguish that from an
+ * out-of-Crystal invariant).
+ *
+ * Delegates ranking/relation-type/rationale generation to
  * `services/invariants/relationshipSuggestion.ts`. This route writes
  * nothing — it is read-only advice; the steward's Accept still goes through
  * the EXISTING `POST /api/invariants/[id]/edges`.
@@ -16,9 +29,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { crystalDomainForExperiment } from '@/services/research/crystalDomains';
-import { listCandidates } from '@/services/invariants/discoveryEngine';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { reconcilePromotedCohort } from '@/services/research/populationReconciliation';
+import { resolveSuccessorConstructionCohort } from '@/services/research/crystalCohortMembership';
 import { getInvariantById } from '@/services/invariants';
 import { suggestRelationships } from '@/services/invariants/relationshipSuggestion';
 
@@ -66,27 +79,33 @@ export async function POST(
 
   const acquisitionDomain =
     req.nextUrl.searchParams.get('acquisitionDomain')?.trim() || DEFAULT_ACQUISITION_DOMAIN;
-  const [candidates, candidateInvariant] = await Promise.all([
-    listCandidates(admin, acquisitionDomain).catch(() => null),
+  const [resolution, candidateInvariant] = await Promise.all([
+    resolveSuccessorConstructionCohort(admin, experimentId, acquisitionDomain),
     getInvariantById(invariantId).catch(() => null),
   ]);
-  if (!candidates) {
+  if (!resolution.promotedForConstruction) {
     return NextResponse.json({ ok: false, error: 'the promoted cohort could not be read' }, { status: 502 });
   }
   if (!candidateInvariant) {
     return NextResponse.json({ ok: false, error: `invariant '${invariantId}' not found` }, { status: 404 });
   }
-  const cohort = await reconcilePromotedCohort(candidates.filter((c) => c.status === 'promoted'));
+  const cohort = await reconcilePromotedCohort(resolution.promotedForConstruction);
   if (!cohort.invariantIds.includes(invariantId)) {
     return NextResponse.json(
-      { ok: false, error: `'${invariantId}' is not a member of the current crystal's promoted cohort` },
+      { ok: false, error: `'${invariantId}' is not a member of the current successor construction cohort` },
       { status: 409 },
     );
   }
 
+  // The target-Crystal membership universe (operator ruling, 2026-08-31):
+  // other successor cohort members AND inherited predecessor members — see
+  // this route's own header for why an arbitrary out-of-Crystal invariant
+  // must never appear here.
+  const candidatePool = [...cohort.members, ...(resolution.context.frozenGenerationMembers ?? [])];
+
   const result = await suggestRelationships(
     { id: invariantId, statement: candidateInvariant.statement },
-    cohort.members,
+    candidatePool,
   );
   if (!result.ok) {
     return NextResponse.json({ ok: false, error: result.error }, { status: 502 });

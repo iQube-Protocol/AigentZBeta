@@ -21,17 +21,22 @@
  * writes nothing itself: `validateInvariant` performs the check, the
  * transition, and its own DVN-anchored receipt.
  *
- * The batch is resolved SERVER-SIDE from the current cohort
- * (`reconcilePromotedCohort`), never taken from the client as an id list —
- * a client could otherwise validate invariants outside this crystal's cohort.
+ * The batch is resolved SERVER-SIDE from the current SUCCESSOR cohort —
+ * through the ONE shared resolver, `resolveSuccessorConstructionCohort`
+ * (2026-08-31 fix) — never taken from the client as an id list, and never
+ * the raw unscoped `reconcilePromotedCohort(candidates.filter(...))` this
+ * replaces: validation in THIS pass applies to the new construction cohort,
+ * not to every historic promoted candidate in the acquisition domain
+ * (which would silently re-run the gate over the frozen predecessor's own,
+ * already-validated members).
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { crystalDomainForExperiment } from '@/services/research/crystalDomains';
-import { listCandidates } from '@/services/invariants/discoveryEngine';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { reconcilePromotedCohort } from '@/services/research/populationReconciliation';
+import { resolveSuccessorConstructionCohort } from '@/services/research/crystalCohortMembership';
 import { validateInvariant } from '@/services/invariants';
 
 export const dynamic = 'force-dynamic';
@@ -75,11 +80,11 @@ export async function POST(
 
   const acquisitionDomain =
     req.nextUrl.searchParams.get('acquisitionDomain')?.trim() || DEFAULT_ACQUISITION_DOMAIN;
-  const candidates = await listCandidates(admin, acquisitionDomain).catch(() => null);
-  if (!candidates) {
+  const resolution = await resolveSuccessorConstructionCohort(admin, experimentId, acquisitionDomain);
+  if (!resolution.promotedForConstruction) {
     return NextResponse.json({ ok: false, error: 'the promoted cohort could not be read' }, { status: 502 });
   }
-  const cohort = await reconcilePromotedCohort(candidates.filter((c) => c.status === 'promoted'));
+  const cohort = await reconcilePromotedCohort(resolution.promotedForConstruction);
   const targets = cohort.unvalidatedRecords;
   if (targets.length === 0) {
     return NextResponse.json({ ok: true, outcomes: [], summary: 'nothing to validate — every cohort member already carries a validation' });

@@ -110,9 +110,11 @@ import { validateInvariant } from '@/services/invariants';
 import {
   currentCrystalArtifactId,
   getCurrentCrystalArtifact,
-  latestFrozenCrystalArtifact,
 } from '@/services/research/artifacts';
-import { buildFrozenCrystalManifest } from '@/services/research/crystalFrozenManifest';
+import {
+  resolveFrozenPredecessorContext,
+  isSuccessorScopedCandidate,
+} from '@/services/research/crystalCohortMembership';
 import {
   acquisitionBriefApplies,
   buildCrystalAcquisitionBrief,
@@ -436,7 +438,7 @@ export async function loadTrack2ProgrammeState(input: {
   const restStart = input.timer?.now() ?? 0;
 
   // Best-effort, fail-soft. `null` becomes `unknown`, never `complete`.
-  const [sources, candidates, artifact, frozenPredecessor] = await Promise.all([
+  const [sources, candidates, artifact, frozenContext] = await Promise.all([
     admin ? listCandidateSources(admin, { campaignDomain: acquisitionDomain }).catch(() => null) : null,
     admin ? listCandidates(admin, acquisitionDomain).catch(() => null) : null,
     // Lineage-safe (operator ruling 2026-08-27, "Crystal v1/v2 lineage
@@ -446,16 +448,21 @@ export async function loadTrack2ProgrammeState(input: {
     // module's freeze-canary is untouched (it forbids upsertArtifact/
     // freezeArtifact/action:'freeze', none of which this calls).
     getCurrentCrystalArtifact(input.experimentId).catch(() => null),
-    // The FROZEN predecessor generation, if one exists — the complement of
-    // the read above, resolved through the SAME lineage-safe lookup
-    // (`latestFrozenCrystalArtifact`, never `getArtifact`'s first-match).
-    latestFrozenCrystalArtifact(input.experimentId).catch(() => null),
+    // The frozen predecessor generation + its domain-recovered manifest, if
+    // one exists — services/research/crystalCohortMembership.ts, the ONE
+    // shared resolver every cohort-consuming route now uses (2026-08-31,
+    // "successor cohort vs successor Crystal" operator ruling). Moved here
+    // verbatim from this module's own inline block; behaviour unchanged.
+    resolveFrozenPredecessorContext(input.experimentId),
   ]);
 
   const unreadableSignals: string[] = [];
   if (!admin) unreadableSignals.push('supabase (no server client) — candidate sources and discovery candidates');
   if (admin && !sources) unreadableSignals.push('corpus_candidate_sources');
   if (admin && !candidates) unreadableSignals.push('discovery_candidates');
+  if (frozenContext.frozenPredecessor && !frozenContext.frozenGenerationMemberIds) {
+    unreadableSignals.push('frozen predecessor crystal manifest (frozen-generation boundary)');
+  }
 
   const candidateSources = sources
     ? {
@@ -466,72 +473,17 @@ export async function loadTrack2ProgrammeState(input: {
     : null;
 
   /**
-   * THE FROZEN-GENERATION BOUNDARY (2026-08-30, "Track 2 successor-crystal
-   * identity" fix) — a promoted candidate whose resolved invariant is ALREADY
-   * a member of the frozen predecessor's manifest is vP1's own historical
-   * promotion, not v2 construction work. `discovery_candidates` carries no
-   * generation field of its own (there is no such column, and none is added
-   * here — see the module header for why this reads the frozen manifest
-   * instead of tagging rows), so this is the one place both Stage 4's own
-   * `promoted` count and Stages 5-7's cohort are narrowed to the SAME v2-only
-   * set — narrowing one without the other would break the Stage 4→5 handover
-   * identity (`declaredOut === received + excluded`) that
-   * `track2Programme.ts` already enforces. Reading `recoveredInvariants`
-   * (never `members`, which is `null` on a hash mismatch) is deliberate: this
-   * boundary needs frozen DOMAIN MEMBERSHIP, not byte-exact verification —
-   * the same distinction the instrument-falsification route already draws.
-   * Vp1's rows in `discovery_candidates` are read, not deleted or relabeled;
-   * this only changes which of them Track 2 treats as available v2 material.
+   * THE SUCCESSOR-SCOPE PREDICATE (2026-08-30, "Stage 3→4 handoff gap" fix;
+   * moved into services/research/crystalCohortMembership.ts 2026-08-31 so
+   * every cohort-consuming route shares it) — this is the ONE predicate
+   * Stage 3's `total`, Stage 4's `awaitingReview` AND Stage 4's `promoted`
+   * are all narrowed through — so a candidate cannot appear in Stage 3's
+   * count while being invisible to Stage 4's. No row is deleted, relabeled,
+   * or promoted by it; it is read-only.
    */
-  let frozenGenerationMemberIds: Set<string> | null = null;
-  if (frozenPredecessor) {
-    const manifest = await buildFrozenCrystalManifest({
-      experimentId: input.experimentId,
-      artifact: frozenPredecessor,
-      observedAt: new Date().toISOString(),
-    }).catch(() => null);
-    if (manifest) frozenGenerationMemberIds = new Set(manifest.recoveredInvariants.map((r) => r.id));
-  }
-  if (frozenPredecessor && !frozenGenerationMemberIds) {
-    unreadableSignals.push('frozen predecessor crystal manifest (frozen-generation boundary)');
-  }
-
-  /**
-   * THE SUCCESSOR-SCOPE PREDICATE (2026-08-30, "Stage 3→4 handoff gap" fix) —
-   * extended from the frozen-generation boundary above, which only ever
-   * narrowed Stage 4's own `promoted` count. That left Stage 3's `total`
-   * (and Stage 4's `awaitingReview`) reading the SAME raw, all-time
-   * `discovery_candidates` rows for the domain — so a live report could show
-   * "17 extracted" while correctly showing "0 promoted, 0 awaiting review",
-   * with the 17 never accounted for anywhere. Tracing them: `discovery_
-   * candidates` carries no generation field, so a candidate's scope is
-   * derived exactly as the frozen-generation boundary already does for a
-   * RESOLVED (promoted) row — is its invariant a frozen vP1 member? — and,
-   * for a row that never resolved to an invariant (`status: 'candidate'` or
-   * `'rejected'` with no `promotedInvariantId`), by creation time relative to
-   * the freeze: a candidate extracted before vP1 froze belongs to that
-   * construction cycle even if it was never promoted, and must not be
-   * silently inherited as v2 supply (the same discipline the operator named
-   * for Stage 1/2's raw source-corpus totals — reuse must be an explicit
-   * successor-processing act, never accidental inheritance).
-   *
-   * This is the ONE predicate Stage 3's `total`, Stage 4's `awaitingReview`
-   * AND Stage 4's `promoted` are all narrowed through — so a candidate
-   * cannot appear in Stage 3's count while being invisible to Stage 4's, the
-   * exact accounting gap this fix closes. No row is deleted, relabeled, or
-   * promoted by this predicate; it is read-only, exactly like the frozen-
-   * generation boundary it extends.
-   */
-  function isSuccessorScopedCandidate(c: { status: string; promotedInvariantId: string | null; createdAt: string }): boolean {
-    if (!frozenPredecessor) return true; // nothing to distinguish against
-    if (c.promotedInvariantId) {
-      return !(frozenGenerationMemberIds && frozenGenerationMemberIds.has(c.promotedInvariantId));
-    }
-    if (!frozenPredecessor.frozenAt) return true; // can't compare — never exclude on an unreadable boundary
-    return c.createdAt >= frozenPredecessor.frozenAt;
-  }
-
-  const successorScopedCandidates = candidates ? candidates.filter(isSuccessorScopedCandidate) : null;
+  const successorScopedCandidates = candidates
+    ? candidates.filter((c) => isSuccessorScopedCandidate(c, frozenContext))
+    : null;
   const promotedForConstruction = successorScopedCandidates
     ? successorScopedCandidates.filter((c) => c.status === 'promoted')
     : null;
@@ -557,7 +509,19 @@ export async function loadTrack2ProgrammeState(input: {
   const cohort = promotedForConstruction
     ? await reconcilePromotedCohort(
         promotedForConstruction,
-        admin ? { admin, experimentId: input.experimentId } : undefined,
+        admin
+          ? {
+              admin,
+              experimentId: input.experimentId,
+              // The target-Crystal membership universe's inherited half
+              // (operator ruling, 2026-08-31): a successor member's edge to
+              // one of these counts toward Stage 7 exactly like an edge to
+              // another successor member. `undefined` when there is no
+              // frozen predecessor or its manifest is unreadable — falls
+              // back to intra-successor-cohort-only, never silently widens.
+              inheritedMemberIds: frozenContext.frozenGenerationMemberIds ?? undefined,
+            }
+          : undefined,
       ).catch(() => null)
     : null;
   if (promotedForConstruction && !cohort) unreadableSignals.push('promoted cohort (reconcilePromotedCohort)');
