@@ -28,7 +28,7 @@ import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { crystalDomainForExperiment } from '@/services/research/crystalDomains';
 import { composeAcquisitionPreconditions } from '@/services/research/crystalAcquisitionPrecondition';
-import { buildCrystalAcquisitionBrief, acquisitionBriefApplies } from '@/services/research/crystalAcquisitionBrief';
+import { buildCrystalAcquisitionBrief, acquisitionBriefApplies, hashAcquisitionBrief } from '@/services/research/crystalAcquisitionBrief';
 import { approveAcquisitionJob, getActiveAcquisitionApproval } from '@/services/research/crystalAcquisitionJob';
 import { DEFAULT_ACQUISITION_DOMAIN } from '@/services/research/researchProgrammeOrchestrator';
 
@@ -91,14 +91,6 @@ export async function POST(
     );
   }
 
-  const existing = await getActiveAcquisitionApproval(admin, experimentId, acquisitionDomain);
-  if (existing) {
-    return NextResponse.json(
-      { ok: true, alreadyApproved: true, approval: existing },
-      { headers: { 'Cache-Control': 'no-store' } },
-    );
-  }
-
   const brief = buildCrystalAcquisitionBrief({
     experimentId,
     crystalGeneration,
@@ -106,6 +98,25 @@ export async function POST(
     report,
     admittedInvariantIds: admitted.map((i) => i.id),
   });
+  const briefHash = hashAcquisitionBrief(brief);
+
+  // THE DURABLE-IDENTITY CHECK (2026-08-31, "targeted-acquisition
+  // state-machine" repair, operator requirement: "a durable identity such as
+  // experimentId + crystalVersion/successor + acquisitionBriefHash"). An
+  // active approval for the SAME crystal generation and the SAME brief
+  // content is the exact same human judgement already made — short-circuit,
+  // never a second row/receipt (double-click/idempotency). An active
+  // approval whose generation or content DIFFERS means readiness moved on
+  // since that approval (a materially different plan) — this click is a
+  // genuinely NEW judgement, so it proceeds to supersede + insert below,
+  // never silently reuses the stale row.
+  const existing = await getActiveAcquisitionApproval(admin, experimentId, acquisitionDomain);
+  if (existing && existing.crystalGeneration === crystalGeneration && existing.briefHash === briefHash) {
+    return NextResponse.json(
+      { ok: true, alreadyApproved: true, approval: existing },
+      { headers: { 'Cache-Control': 'no-store' } },
+    );
+  }
 
   const result = await approveAcquisitionJob(admin, {
     experimentId,
@@ -113,6 +124,7 @@ export async function POST(
     crystalDomain: declaration.domain,
     approvedByPersonaId: persona.personaId,
     brief,
+    briefHash,
   });
   if (!result.ok) {
     return NextResponse.json({ ok: false, error: result.error }, { status: 500 });

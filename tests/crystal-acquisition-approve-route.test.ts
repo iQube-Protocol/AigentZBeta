@@ -26,9 +26,11 @@ vi.mock('@/services/research/crystalAcquisitionPrecondition', () => ({
 
 const mockAcquisitionBriefApplies = vi.fn();
 const mockBuildCrystalAcquisitionBrief = vi.fn();
+const mockHashAcquisitionBrief = vi.fn();
 vi.mock('@/services/research/crystalAcquisitionBrief', () => ({
   acquisitionBriefApplies: (...args: any[]) => mockAcquisitionBriefApplies(...args),
   buildCrystalAcquisitionBrief: (...args: any[]) => mockBuildCrystalAcquisitionBrief(...args),
+  hashAcquisitionBrief: (...args: any[]) => mockHashAcquisitionBrief(...args),
 }));
 
 const mockApproveAcquisitionJob = vi.fn();
@@ -63,9 +65,11 @@ beforeEach(() => {
   mockAcquisitionBriefApplies.mockReturnValue(true);
   mockBuildCrystalAcquisitionBrief.mockReset();
   mockBuildCrystalAcquisitionBrief.mockReturnValue({
-    experimentId: 'EXP-P1', requiredNetNewDistinctMembers: 49, missingNamespaces: ['causal'],
+    experimentId: 'EXP-P1', crystalGeneration: 'EXP-P1/crystal-v2', requiredNetNewDistinctMembers: 49, missingNamespaces: ['causal'],
     deficientRelationalStructures: ['causal'], sourceAdmissibilityConstraints: ['ratified institutions/sources only'],
   });
+  mockHashAcquisitionBrief.mockReset();
+  mockHashAcquisitionBrief.mockReturnValue('brief-hash-fixed');
   mockApproveAcquisitionJob.mockReset();
   mockApproveAcquisitionJob.mockResolvedValue({ ok: true, approval: { id: 'approval-1', status: 'approved' } });
   mockGetActiveAcquisitionApproval.mockReset();
@@ -130,8 +134,11 @@ describe('POST acquisition/approve — precondition timeout (fail-closed)', () =
 });
 
 describe('POST acquisition/approve — idempotent re-approval', () => {
-  it('returns the existing active approval without writing a new one', async () => {
-    mockGetActiveAcquisitionApproval.mockResolvedValue({ id: 'existing-approval', status: 'approved' });
+  it('returns the existing active approval without writing a new one, when the brief is UNCHANGED (same crystal generation + brief hash)', async () => {
+    mockGetActiveAcquisitionApproval.mockResolvedValue({
+      id: 'existing-approval', status: 'approved',
+      crystalGeneration: 'EXP-P1/crystal-v2', briefHash: 'brief-hash-fixed',
+    });
     const res = await POST(makeRequest({}), { params: params('EXP-P1') });
     const body = await res.json();
     expect(res.status).toBe(200);
@@ -139,6 +146,37 @@ describe('POST acquisition/approve — idempotent re-approval', () => {
     expect(body.alreadyApproved).toBe(true);
     expect(body.approval.id).toBe('existing-approval');
     expect(mockApproveAcquisitionJob).not.toHaveBeenCalled();
+  });
+
+  // 2026-08-31 durable-identity repair: an active approval for a DIFFERENT
+  // crystal generation or a materially different brief is NOT the same
+  // judgement — the operator's own rule ("must never be requested again
+  // UNLESS the acquisition brief materially changes") cuts both ways. A
+  // changed brief legitimately proceeds to a fresh approval.
+  it('proceeds to a NEW approval when an active row exists but the brief hash differs (materially changed target)', async () => {
+    mockGetActiveAcquisitionApproval.mockResolvedValue({
+      id: 'stale-approval', status: 'approved',
+      crystalGeneration: 'EXP-P1/crystal-v2', briefHash: 'a-different-earlier-hash',
+    });
+    const res = await POST(makeRequest({}), { params: params('EXP-P1') });
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.ok).toBe(true);
+    expect(body.alreadyApproved).toBe(false);
+    expect(mockApproveAcquisitionJob).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      briefHash: 'brief-hash-fixed',
+    }));
+  });
+
+  it('proceeds to a NEW approval when an active row exists but the crystal generation differs', async () => {
+    mockGetActiveAcquisitionApproval.mockResolvedValue({
+      id: 'stale-approval', status: 'approved',
+      crystalGeneration: 'EXP-P1/crystal-v1', briefHash: 'brief-hash-fixed',
+    });
+    const res = await POST(makeRequest({}), { params: params('EXP-P1') });
+    const body = await res.json();
+    expect(body.alreadyApproved).toBe(false);
+    expect(mockApproveAcquisitionJob).toHaveBeenCalled();
   });
 });
 
