@@ -92,6 +92,9 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { listCandidateSources } from '@/services/corpusScout/provenance';
 import { summarizeAcquisitionSourceUniverse } from '@/services/corpusScout/domainConstitution';
+import { prepareAdmissionRecommendations } from '@/services/corpusScout/admissionPreparation';
+import type { AdmissionRecommendation } from '@/services/corpusScout/admissionRecommendation';
+import type { DuplicateResolutionPlan } from '@/services/corpusScout/duplicateResolution';
 import {
   listCandidates,
   listEvidence,
@@ -595,6 +598,30 @@ export async function loadTrack2ProgrammeState(input: {
     }
   }
 
+  // THE ADMISSION QUEUE (2026-08-31, "Review & Admit machine-preparation"
+  // repair) — the SAME pattern as the review-and-promote block immediately
+  // above, one stage earlier. Runs the EXISTING "Prepare recommendations"
+  // computation (`prepareAdmissionRecommendations`, shared verbatim with
+  // `GET /api/corpus-scout/candidates/prepare-recommendations` —
+  // inv.engineering.036/037) automatically on every read, so "Run until you
+  // need me" reaching Stage 2 asks about a PREPARED cohort rather than
+  // presenting 18 raw, unprocessed sources with no CTA beyond "go operate
+  // Corpus Scout yourself". Read-only: nothing is admitted or resolved here.
+  // A failure preparing recommendations must never hide the stop itself —
+  // caught and left `undefined`, exactly like `unreadableSignals` elsewhere
+  // in this function; the operator still sees the raw counts.
+  if (pendingDecision?.stageId === 'review-and-admit' && admin && candidateSources && candidateSources.pendingReview > 0) {
+    const prepared = await prepareAdmissionRecommendations(admin, acquisitionDomain).catch(() => null);
+    if (prepared) {
+      pendingDecision = {
+        ...pendingDecision,
+        admissionQueue: prepared.recommendations,
+        duplicateResolutions: prepared.duplicateResolutions,
+        admissionDomain: acquisitionDomain,
+      };
+    }
+  }
+
   if (input.timer) input.timer.record('programme-state-derivation', input.timer.now() - restStart);
 
   return {
@@ -967,6 +994,38 @@ export interface PendingGovernanceDecision {
    * is the sole implementation, reused verbatim by both).
    */
   verificationTarget?: { acquisitionDomain: string; ratifiedInstitutionCount: number };
+  /**
+   * THE PREPARED ADMISSION QUEUE (2026-08-31, "Review & Admit machine-
+   * preparation" repair) — present ONLY when this decision is the
+   * `review-and-admit` stop AND at least one source is `pending_review`.
+   * Mirrors `reviewQueue` exactly: every entry is a machine RECOMMENDATION
+   * (`services/corpusScout/admissionRecommendation.ts::composeAdmissionRecommendation`,
+   * the SAME computation "Prepare recommendations" already used, now run
+   * automatically rather than only on a manual click) — never an automatic
+   * admission. The Steward still ratifies through the existing `bulk-review`
+   * route; this field only means "Run until you need me" performed the
+   * preparation before presenting the stop, so the operator is asked about
+   * PREPARED cohorts rather than 18 raw, unprocessed rows.
+   */
+  admissionQueue?: AdmissionRecommendation[];
+  /**
+   * Exact-duplicate groups among the sources above, each carrying a
+   * `composeDuplicateResolution` plan. A group whose `kind` is
+   * `'recommended-resolution-available'` is deterministic — no per-source
+   * human judgement about WHICH document this is exists to make, only WHICH
+   * COPY is canonical, and the signals already separate them. A consumer
+   * renders a "Resolve deterministic duplicates" control that drives
+   * `POST /api/corpus-scout/candidates/resolve-duplicates` (the EXISTING
+   * route, non-dry-run) — never a second duplicate-resolution write path.
+   */
+  duplicateResolutions?: DuplicateResolutionPlan[];
+  /**
+   * The `campaignDomain` value `admissionQueue`/`duplicateResolutions` were
+   * computed over — carried explicitly (mirroring `verificationTarget`'s own
+   * `acquisitionDomain` field) so a client driving `resolve-duplicates` does
+   * not have to re-derive or guess it. Present whenever `admissionQueue` is.
+   */
+  admissionDomain?: string;
 }
 
 /** One evidence row resolved for a review card — an EXCERPT (never the full

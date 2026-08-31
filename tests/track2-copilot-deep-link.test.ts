@@ -231,7 +231,13 @@ describe('Research Copilot — Review & Promote renders as one bounded card per 
     // 2026-08-31 addition: also excludes a `verificationTarget` decision
     // (the "Run institution verification" control gets its own dedicated
     // block, same principle — never a double-render).
-    expect(src).toMatch(/\{decision && !decision\.acquisitionBrief && !decision\.verificationTarget && !\(decision\.reviewQueue && decision\.reviewQueue\.length > 0\) && \(/);
+    // 2026-08-31 "Review & Admit machine-preparation" repair: also excludes
+    // an `admissionQueue` decision (the "Prepared — Review & Admit" cohort
+    // summary gets its own dedicated block, same principle). `admissionQueue`
+    // is read from a precomputed local (`decision?.admissionQueue ?? null`),
+    // never `decision.admissionQueue` directly, to avoid a TS closure-
+    // narrowing pitfall — so this exclusion reads the local, not the property.
+    expect(src).toMatch(/\{decision && !decision\.acquisitionBrief && !decision\.verificationTarget && !\(decision\.reviewQueue && decision\.reviewQueue\.length > 0\) && !\(admissionQueue && admissionQueue\.length > 0\) && \(/);
   });
 
   it('Promote/Reject call the EXISTING canonical route — POST /api/invariants/discovery with action + candidateId — never a second promotion/rejection implementation', () => {

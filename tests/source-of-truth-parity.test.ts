@@ -2031,6 +2031,15 @@ describe('Corpus Scout admission recommendation — aggregates existing lineage,
   const LINEAGE = 'services/invariants/discoveryEngine.ts';
   const ROUTE = 'app/api/corpus-scout/candidates/prepare-recommendations/route.ts';
   const PANEL = 'components/research/Track2ProgrammePanel.tsx';
+  // The shared preparation computation (2026-08-31, "Review & Admit
+  // machine-preparation" repair) — extracted from this route's own body so
+  // `researchProgrammeOrchestrator.ts`'s Stage 2 pending-decision enrichment
+  // and this route call the SAME collaborators rather than two independently
+  // drifting copies (inv.engineering.036/037). The route itself now DELEGATES
+  // rather than calling `findDuplicateCandidates`/`findRegistryEntry`/
+  // `buildDomainLineageIndex`/`deriveSourceLineage` directly — those live in
+  // PREPARATION now, checked below.
+  const PREPARATION = 'services/corpusScout/admissionPreparation.ts';
 
   it('the recommendation vocabulary maps onto the ratified ReviewDecision union — it does not restate it', () => {
     // Mutation: hand-declare 'approve_exp_p1' etc. inside admissionRecommendation.ts
@@ -2046,19 +2055,32 @@ describe('Corpus Scout admission recommendation — aggregates existing lineage,
     expect(mapBlock).not.toMatch(/'manual review required':/);
   });
 
-  it('the route reuses the EXISTING duplicate detector and institutional registry lookup — it does not re-derive them', () => {
+  it('the route DELEGATES to the shared preparation function — it does not call the duplicate detector or registry lookup itself', () => {
+    // 2026-08-31 refactor: this route used to call findDuplicateCandidates/
+    // findRegistryEntry directly; it now calls `prepareAdmissionRecommendations`,
+    // which is the ONE place those collaborators are reused — checked below.
+    // A route that reintroduced a direct call here would be a SECOND
+    // computation, drifting from the orchestrator's own Stage 2 enrichment.
     const route = stripComments(readSource(ROUTE));
-    expect(route).toMatch(/from '@\/services\/corpusScout\/intelligence'/);
-    expect(route).toMatch(/findDuplicateCandidates\(/);
-    expect(route).toMatch(/from '@\/services\/corpusScout\/institutionalRegistry'/);
-    expect(route).toMatch(/findRegistryEntry\(/);
+    expect(route).toMatch(/from '@\/services\/corpusScout\/admissionPreparation'/);
+    expect(route).toMatch(/prepareAdmissionRecommendations\(/);
+    expect(route).not.toMatch(/findDuplicateCandidates\(/);
+    expect(route).not.toMatch(/findRegistryEntry\(/);
   });
 
-  it('the route reuses the lineage index built in discoveryEngine.ts — it does not re-derive the source_ref join', () => {
-    const route = stripComments(readSource(ROUTE));
-    expect(route).toMatch(/from '@\/services\/invariants\/discoveryEngine'/);
-    expect(route).toMatch(/buildDomainLineageIndex\(/);
-    expect(route).toMatch(/deriveSourceLineage\(/);
+  it('the SHARED preparation function reuses the EXISTING duplicate detector and institutional registry lookup — it does not re-derive them', () => {
+    const prep = stripComments(readSource(PREPARATION));
+    expect(prep).toMatch(/from '\.\/intelligence'/);
+    expect(prep).toMatch(/findDuplicateCandidates\(/);
+    expect(prep).toMatch(/from '\.\/institutionalRegistry'/);
+    expect(prep).toMatch(/findRegistryEntry\(/);
+  });
+
+  it('the SHARED preparation function reuses the lineage index built in discoveryEngine.ts — it does not re-derive the source_ref join', () => {
+    const prep = stripComments(readSource(PREPARATION));
+    expect(prep).toMatch(/from '@\/services\/invariants\/discoveryEngine'/);
+    expect(prep).toMatch(/buildDomainLineageIndex\(/);
+    expect(prep).toMatch(/deriveSourceLineage\(/);
     // And the join itself lives in exactly one place.
     const lineage = stripComments(readSource(LINEAGE));
     expect(lineage).toMatch(/export async function buildDomainLineageIndex/);
@@ -2070,8 +2092,8 @@ describe('Corpus Scout admission recommendation — aggregates existing lineage,
     // any future decided source) must never be shown as overridable by a
     // recommendation. Filtering to pending_review at the READ is what makes
     // that structural rather than a UI convention that could be bypassed.
-    const route = stripComments(readSource(ROUTE));
-    expect(route).toMatch(/reviewWorkflowStatus:\s*'pending_review'/);
+    const prep = stripComments(readSource(PREPARATION));
+    expect(prep).toMatch(/reviewWorkflowStatus:\s*'pending_review'/);
   });
 
   it('the route performs no write — no updateCandidateReview, no applyCandidateReviewDecision, no ingestApprovedSource', () => {

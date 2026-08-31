@@ -1584,6 +1584,10 @@ function CorpusReviewQueue({
       setIsolation(null);
       setPopulation(null);
       setCriticalPath(null);
+      // A retryable, pre-reload preparation error must not survive a reload
+      // it never saw — otherwise the auto-prepare effect below would treat a
+      // stale failure as still current and never re-attempt for a fresh queue.
+      setRecsErr(null);
     } catch (e) {
       // Unreadable is not empty. An empty list here would read as "nothing to
       // review" on the one surface whose job is to show what is.
@@ -1644,6 +1648,26 @@ function CorpusReviewQueue({
       setRecsLoading(false);
     }
   }, [acquisitionDomain]);
+
+  /*
+   * AUTO-PREPARE (2026-08-31, "Review & Admit machine-preparation" repair).
+   *
+   * Before this, "Prepare recommendations" ran ONLY on an explicit steward
+   * click — so the default view of this queue was 18 raw cards with the raw
+   * admit/reject dropdown, and the cohort/duplicate-resolution UI (built and
+   * fully governed since 2026-08-03) was invisible unless the steward found
+   * and pressed the button first. Runs once per fresh queue load: the moment
+   * `rows` is populated and no prepare attempt is in flight or already
+   * failed, the SAME `prepareRecommendations` the manual button calls fires
+   * automatically — never a second computation, and never a write (the
+   * route it calls is read-only). "Refresh recommendations" stays available
+   * for a steward who wants to re-run it after deciding some sources by hand.
+   */
+  useEffect(() => {
+    if (rows && rows.length > 0 && recommendations === null && recsErr === null && !recsLoading) {
+      void prepareRecommendations();
+    }
+  }, [rows, recommendations, recsErr, recsLoading, prepareRecommendations]);
 
   /*
    * THE WHOLE CANON, AS A FILE (operator, 2026-08-02).
@@ -3558,68 +3582,93 @@ function CandidateReviewCard({
         </div>
       )}
 
-      <div className="mt-2 space-y-1.5">
-        {/* Said once, plainly, rather than rendered as five empty rows.
-            A steward is entitled to know the difference between "this document
-            has no jurisdiction" and "we never extract jurisdiction". */}
-        <p className="text-[10px] leading-relaxed text-slate-600">
-          Corpus Scout does not yet capture regulation or programme, document type, jurisdiction, or its own
-          reason for believing this source is relevant. Those are absent from every row, not just this one —
-          judge from the title, the issuer and the extracted text.
-        </p>
-        <select
-          value={decision}
-          onChange={(e) => setDecision(e.target.value)}
-          className="w-full rounded border border-slate-800 bg-slate-950 px-2 py-1 text-[11px] text-slate-200"
-        >
-          <option value="">— choose a decision —</option>
-          {DECISIONS.map((d) => (
-            <option key={d.value} value={d.value}>
-              {d.label}
-            </option>
-          ))}
-        </select>
-        {chosen && <div className="text-[10px] text-slate-400">{chosen.consequence}</div>}
-        {requiresProvenanceClass && (
+      {isDuplicate ? (
+        /*
+         * A DUPLICATE IS NOT AN ADMISSIBILITY JUDGMENT (2026-08-31, "Review &
+         * Admit machine-preparation" repair). Before this, a source already
+         * known to be an exact duplicate (the amber notice above) was still
+         * offered the SAME 7-option admit/reject dropdown as every other
+         * source — so a steward resolving it would have had to pick something
+         * like "Reject — low substance" or "Admit — reference only", a
+         * FABRICATED reason that misrepresents why the source left the queue.
+         * `mark_duplicate` is not in `DECISIONS` at all (it is a per-group,
+         * per-alias act — see `duplicateResolution.ts`), so this card cannot
+         * offer a correct choice here even if it tried. The correct
+         * instrument is the Duplicate Resolution board above ("Prepare
+         * recommendations"), which already computes WHICH copy is canonical
+         * from real quality signals and records the alias via the SAME
+         * `mark_duplicate` decision — never a second resolution path.
+         */
+        <div className="mt-2 rounded border border-amber-500/30 bg-amber-500/10 p-2 text-[11px] text-amber-100">
+          This source is part of an exact-duplicate group. Admitting or rejecting it here would record a
+          fabricated reason — duplication is a provenance fact, not an admissibility judgment. Resolve it from
+          the Duplicate Resolution board above (click &ldquo;Prepare recommendations&rdquo; if it is not showing),
+          which preserves both records and points this one at its canonical copy.
+        </div>
+      ) : (
+        <div className="mt-2 space-y-1.5">
+          {/* Said once, plainly, rather than rendered as five empty rows.
+              A steward is entitled to know the difference between "this document
+              has no jurisdiction" and "we never extract jurisdiction". */}
+          <p className="text-[10px] leading-relaxed text-slate-600">
+            Corpus Scout does not yet capture regulation or programme, document type, jurisdiction, or its own
+            reason for believing this source is relevant. Those are absent from every row, not just this one —
+            judge from the title, the issuer and the extracted text.
+          </p>
           <select
-            value={provenanceClass}
-            onChange={(e) => setProvenanceClass(e.target.value)}
+            value={decision}
+            onChange={(e) => setDecision(e.target.value)}
             className="w-full rounded border border-slate-800 bg-slate-950 px-2 py-1 text-[11px] text-slate-200"
           >
-            <option value="">— provenance class (required — the Ingestion Broker refuses without one) —</option>
-            {PROVENANCE_CLASSES.map((p) => (
-              <option key={p} value={p}>{p}</option>
+            <option value="">— choose a decision —</option>
+            {DECISIONS.map((d) => (
+              <option key={d.value} value={d.value}>
+                {d.label}
+              </option>
             ))}
           </select>
-        )}
-        <textarea
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          rows={2}
-          placeholder="rationale (required — recorded on the source as the reviewer's note)"
-          className="w-full rounded border border-slate-800 bg-slate-950 px-2 py-1 text-[11px] text-slate-200 placeholder:text-slate-600"
-        />
-        <div className="flex flex-wrap items-center gap-1.5">
-          <button
-            onClick={() => void submit()}
-            disabled={busy || !chosen || !notes.trim() || (requiresProvenanceClass && !provenanceClass)}
-            className={`rounded border px-2.5 py-1 text-[11px] disabled:opacity-50 ${
-              chosen?.kind === "reject"
-                ? "border-rose-800 bg-rose-900/30 text-rose-200"
-                : "border-emerald-800 bg-emerald-900/30 text-emerald-200"
-            }`}
-          >
-            {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : "Record decision"}
-          </button>
-          <span className="text-[10px] text-slate-500">
-            Leave pending — take no action. There is no ratified `deferred` status; a source with no decision
-            stays in this queue, which is what deferring means here.
-          </span>
+          {chosen && <div className="text-[10px] text-slate-400">{chosen.consequence}</div>}
+          {requiresProvenanceClass && (
+            <select
+              value={provenanceClass}
+              onChange={(e) => setProvenanceClass(e.target.value)}
+              className="w-full rounded border border-slate-800 bg-slate-950 px-2 py-1 text-[11px] text-slate-200"
+            >
+              <option value="">— provenance class (required — the Ingestion Broker refuses without one) —</option>
+              {PROVENANCE_CLASSES.map((p) => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
+          )}
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={2}
+            placeholder="rationale (required — recorded on the source as the reviewer's note)"
+            className="w-full rounded border border-slate-800 bg-slate-950 px-2 py-1 text-[11px] text-slate-200 placeholder:text-slate-600"
+          />
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              onClick={() => void submit()}
+              disabled={busy || !chosen || !notes.trim() || (requiresProvenanceClass && !provenanceClass)}
+              className={`rounded border px-2.5 py-1 text-[11px] disabled:opacity-50 ${
+                chosen?.kind === "reject"
+                  ? "border-rose-800 bg-rose-900/30 text-rose-200"
+                  : "border-emerald-800 bg-emerald-900/30 text-emerald-200"
+              }`}
+            >
+              {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : "Record decision"}
+            </button>
+            <span className="text-[10px] text-slate-500">
+              Leave pending — take no action. There is no ratified `deferred` status; a source with no decision
+              stays in this queue, which is what deferring means here.
+            </span>
+          </div>
+          {err && (
+            <div className="rounded border border-rose-500/30 bg-rose-500/10 p-1.5 text-rose-200">{err}</div>
+          )}
         </div>
-        {err && (
-          <div className="rounded border border-rose-500/30 bg-rose-500/10 p-1.5 text-rose-200">{err}</div>
-        )}
-      </div>
+      )}
     </div>
   );
 }

@@ -24,19 +24,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { listCandidateSources } from '@/services/corpusScout/provenance';
-import { findDuplicateCandidates } from '@/services/corpusScout/intelligence';
+import { prepareAdmissionRecommendations } from '@/services/corpusScout/admissionPreparation';
 import {
-  composeDuplicateResolution,
-  dryRunDuplicateResolution,
-} from '@/services/corpusScout/duplicateResolution';
-import { findRegistryEntry } from '@/services/corpusScout/institutionalRegistry';
-import {
-  composeAdmissionRecommendation,
   CONFIDENCE_AUTO_INCLUDE_THRESHOLD,
   CONFIDENCE_MANUAL_REVIEW_THRESHOLD,
-  type SourceQualitySignals,
 } from '@/services/corpusScout/admissionRecommendation';
-import { buildDomainLineageIndex, deriveSourceLineage } from '@/services/invariants/discoveryEngine';
 import {
   buildCriticalPath,
   renderPopulationDisclosure,
@@ -57,77 +49,22 @@ export async function GET(req: NextRequest) {
   const campaignDomain = new URL(req.url).searchParams.get('campaignDomain')?.trim();
   if (!campaignDomain) return NextResponse.json({ ok: false, error: 'campaignDomain is required' }, { status: 400 });
 
-  let pending: Awaited<ReturnType<typeof listCandidateSources>>;
+  let prepared: Awaited<ReturnType<typeof prepareAdmissionRecommendations>>;
   try {
     // pending_review ONLY — an already-decided source (including the three
     // manually admitted before this feature existed) is never recommended.
-    pending = await listCandidateSources(admin, { campaignDomain, reviewWorkflowStatus: 'pending_review' });
+    // Shared with `researchProgrammeOrchestrator.ts`'s Stage 2 pending-decision
+    // enrichment — one computation, never two (inv.engineering.036/037).
+    prepared = await prepareAdmissionRecommendations(admin, campaignDomain);
   } catch (e) {
-    return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : 'the pending queue could not be read' }, { status: 500 });
+    return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : 'recommendations could not be prepared' }, { status: 500 });
   }
 
-  if (pending.length === 0) {
+  if (prepared.recommendations.length === 0) {
     return NextResponse.json({ ok: true, campaignDomain, generatedAt: new Date().toISOString(), recommendations: [] });
   }
 
-  // Duplicate groups over the SAME batch being prepared — the existing
-  // detector, not re-derived (inv.engineering.037).
-  const duplicateGroups = findDuplicateCandidates(
-    pending.map((r) => ({
-      sourceId: r.sourceId,
-      artifactHash: r.artifactHash,
-      normalizedTextHash: r.normalizedTextHash,
-      canonicalUrl: r.canonicalUrl,
-    })),
-  );
-  const duplicateSourceIds = new Set(duplicateGroups.flatMap((g) => g.sourceIds));
-
-  /*
-   * THE SMALLEST SAFE ACT FOR EACH DUPLICATE GROUP (operator ruling, 2026-08-03).
-   *
-   *   > "An exception surface is incomplete unless it offers the next safe act
-   *   >  in context."
-   *
-   * Derived SERVER-SIDE so the panel renders a recommendation rather than
-   * computing one — and so the plan the operator sees is the same plan the
-   * executor acts on. `composeDuplicateResolution` writes nothing.
-   */
-  const duplicateResolutions = duplicateGroups.map((group) =>
-    composeDuplicateResolution({ group, rows: pending }),
-  );
-
-  let lineageIndex: Awaited<ReturnType<typeof buildDomainLineageIndex>>;
-  try {
-    lineageIndex = await buildDomainLineageIndex(admin, campaignDomain);
-  } catch (e) {
-    return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : 'the corpus lineage could not be read' }, { status: 500 });
-  }
-
-  const recommendations = pending.map((row) => {
-    const lineage = deriveSourceLineage(row.canonicalUrl, lineageIndex);
-    const institutionalTier =
-      row.issuer && row.campaignSubDomain
-        ? (findRegistryEntry(row.campaignDomain, row.campaignSubDomain, row.issuer)?.tier ?? null)
-        : null;
-    const signals: SourceQualitySignals = {
-      sourceId: row.sourceId,
-      campaignDomain: row.campaignDomain,
-      campaignSubDomain: row.campaignSubDomain,
-      issuer: row.issuer,
-      title: row.title,
-      canonicalUrl: row.canonicalUrl,
-      publicationDate: row.publicationDate,
-      authors: row.authors,
-      extractionStatus: row.extractionStatus,
-      artifactHash: row.artifactHash,
-      extractionWarnings: row.extractionWarnings,
-      structuralTags: row.structuralTags,
-      licenseStatus: row.licenseStatus,
-      isDuplicate: duplicateSourceIds.has(row.sourceId),
-      institutionalTier,
-    };
-    return composeAdmissionRecommendation({ source: signals, lineage });
-  });
+  const { recommendations, duplicateGroups, duplicateResolutions, duplicateDryRun } = prepared;
 
   // ── The executable batch, computed SERVER-SIDE from the shared model ──────
   //
@@ -166,7 +103,7 @@ export async function GET(req: NextRequest) {
     allInDomain = [];
   }
   const population: PopulationDisclosure = {
-    discovered: allInDomain.length || pending.length,
+    discovered: allInDomain.length || recommendations.length,
     admitted: allInDomain.filter((s) => Boolean(s.evidenceRowId)).length,
     excludedWithWarnings: summary.counts.readyWithWarning,
     exceptions: summary.counts.exceptions,
@@ -190,7 +127,7 @@ export async function GET(req: NextRequest) {
       },
       duplicateGroups,
       duplicateResolutions,
-      duplicateDryRun: dryRunDuplicateResolution(duplicateResolutions),
+      duplicateDryRun,
       recommendations,
       summary,
       population,
