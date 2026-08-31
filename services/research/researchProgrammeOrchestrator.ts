@@ -555,7 +555,10 @@ export async function loadTrack2ProgrammeState(input: {
   // can ever include a candidate already resolved into the frozen
   // predecessor's own manifest.
   const cohort = promotedForConstruction
-    ? await reconcilePromotedCohort(promotedForConstruction).catch(() => null)
+    ? await reconcilePromotedCohort(
+        promotedForConstruction,
+        admin ? { admin, experimentId: input.experimentId } : undefined,
+      ).catch(() => null)
     : null;
   if (promotedForConstruction && !cohort) unreadableSignals.push('promoted cohort (reconcilePromotedCohort)');
 

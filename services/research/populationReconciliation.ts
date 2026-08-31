@@ -32,6 +32,7 @@
  * navigation instruction.
  */
 
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { getInvariantsByIds } from '@/services/invariants/store';
 import { discoveryNamespace } from '@/services/invariants/discoveryDomains';
 import { findDuplicates } from '@/services/invariants/comparison';
@@ -134,8 +135,20 @@ function baseRecord(c: CandidateRow): Omit<UnaccountedPromotionRecord, 'defect' 
  * deterministic-repair check (`findDuplicates`) only looks for an exact
  * match, it does not attach one — attaching is `repairPromotedCandidate
  * InvariantLink`'s job, invoked only on an explicit operator act.
+ *
+ * `adjudicationContext` (optional, 2026-08-31 Stage 7 fix) — when supplied,
+ * `orphanRecords`/`graph.orphanCount` fold in
+ * services/research/crystalRelationshipAdjudication.ts's still-valid
+ * 'no-defensible-edge' verdicts: a member with zero edges but a valid
+ * adjudication is a REVIEWED orphan and is removed from both. Omitted by
+ * every caller that does not drive Stage 7's own pending/complete
+ * derivation (suggest-relationships, validate-all, and every existing test)
+ * — for them this function's edge-only behaviour is unchanged.
  */
-export async function reconcilePromotedCohort(promoted: CandidateRow[]): Promise<ReconciledPromotedCohort> {
+export async function reconcilePromotedCohort(
+  promoted: CandidateRow[],
+  adjudicationContext?: { admin: SupabaseClient; experimentId: string },
+): Promise<ReconciledPromotedCohort> {
   const excluded: { recordId: string; reason: string }[] = [];
   const unaccountedRecords: UnaccountedPromotionRecord[] = [];
 
@@ -227,6 +240,26 @@ export async function reconcilePromotedCohort(promoted: CandidateRow[]): Promise
     }
   } else if (idsToResolve.length === 0 && withoutId.length === 0) {
     graph = { relationshipCount: 0, orphanCount: 0 };
+  }
+
+  // Fold in still-valid 'no-defensible-edge' adjudications — a REVIEWED
+  // orphan satisfies Stage 7 exactly like an admitted edge does, and must
+  // not be counted as pending relationship derivation. See this function's
+  // own header and services/research/crystalRelationshipAdjudication.ts.
+  if (adjudicationContext && graph && orphanRecords.length > 0) {
+    const { getValidNoDefensibleEdgeInvariantIds } = await import(
+      '@/services/research/crystalRelationshipAdjudication'
+    );
+    const adjudicated = await getValidNoDefensibleEdgeInvariantIds(adjudicationContext.admin, {
+      experimentId: adjudicationContext.experimentId,
+      cohortMemberIds: records.map((r) => r.id),
+    }).catch(() => new Set<string>());
+    if (adjudicated.size > 0) {
+      const stillOrphan = orphanRecords.filter((o) => !adjudicated.has(o.id));
+      const resolvedByAdjudication = orphanRecords.length - stillOrphan.length;
+      orphanRecords = stillOrphan;
+      graph = { relationshipCount: graph.relationshipCount, orphanCount: graph.orphanCount - resolvedByAdjudication };
+    }
   }
 
   const { readEvidenceProvenance } = await import('@/services/research/experimentalPopulations');
