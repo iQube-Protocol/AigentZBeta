@@ -4754,3 +4754,8 @@ Top-level retrieval anchors for this pack.
 - Type: `docs`
 - Brief: [COMMIT-0adafc1.md](../build_/COMMITS/COMMIT-0adafc1.md)
 - Message: docs(agentiq): index canonical AEE architecture direction
+
+## Commit `b506027` — 2026-08-31T12:51:48-04:00
+- Type: `docs`
+- Brief: [COMMIT-b506027.md](../build_/COMMITS/COMMIT-b506027.md)
+- Message: docs(agentiq): index AEE Financial Services reference architecture
