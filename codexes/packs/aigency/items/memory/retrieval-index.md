@@ -4714,3 +4714,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-5e26748.md](../build_/COMMITS/COMMIT-5e26748.md)
 - Message: repair-classify-provenance-record.ts: load .env.local like its sibling scripts
+
+## Commit `db332a4` — 2026-08-31T02:08:44Z
+- Type: `fix`
+- Brief: [COMMIT-db332a4.md](../build_/COMMITS/COMMIT-db332a4.md)
+- Message: Fix Track 2 Stage 7: a crystal member may legitimately have zero relationships

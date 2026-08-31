@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-31T00:15:32.045Z",
+  "last_updated": "2026-08-31T02:11:08.871Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "5e26748d729d049a3022ec10153086df26b6d921",
-  "latest_commit_short": "5e26748",
-  "latest_commit_title": "repair-classify-provenance-record.ts: load .env.local like its sibling scripts",
+  "latest_commit": "db332a45978669f93de16b7d54cdcd422b8292ce",
+  "latest_commit_short": "db332a4",
+  "latest_commit_title": "Fix Track 2 Stage 7: a crystal member may legitimately have zero relationships",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "db332a4",
+      "full_sha": "db332a45978669f93de16b7d54cdcd422b8292ce",
+      "title": "Fix Track 2 Stage 7: a crystal member may legitimately have zero relationships",
+      "author": "Claude",
+      "timestamp": "2026-08-31T02:08:44Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-db332a4.md"
+    },
     {
       "sha": "5e26748",
       "full_sha": "5e26748d729d049a3022ec10153086df26b6d921",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-16T18:06:19-04:00",
       "type": "docs",
       "brief": "items/build_/COMMITS/COMMIT-28c77db.md"
-    },
-    {
-      "sha": "269bf79",
-      "full_sha": "269bf79c3392bed0b854188f957b5d415cac37b4",
-      "title": "research: add authority provenance candidate invariants",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-16T17:23:23-04:00",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-269bf79.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

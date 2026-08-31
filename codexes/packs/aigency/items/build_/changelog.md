@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`db332a4`](https://github.com/iQube-Protocol/AigentZBeta/commit/db332a45978669f93de16b7d54cdcd422b8292ce) [fix] Fix Track 2 Stage 7: a crystal member may legitimately have zero relationships (Claude, 2026-08-31T02:08:44Z)
 - [`5e26748`](https://github.com/iQube-Protocol/AigentZBeta/commit/5e26748d729d049a3022ec10153086df26b6d921) [fix] repair-classify-provenance-record.ts: load .env.local like its sibling scripts (Claude, 2026-08-31T00:13:27Z)
 - [`d1f2ba0`](https://github.com/iQube-Protocol/AigentZBeta/commit/d1f2ba082264c38fc0fb27889bb3a656358aeeda) [push] close Classify Provenance omission defect: machine recommendation != steward decision (Claude, 2026-08-31T00:00:46Z)
 - [`aec0d2d`](https://github.com/iQube-Protocol/AigentZBeta/commit/aec0d2d6f42df9391efb3b543317ced763014cc2) [push] generalize the pending-decision filter: actionable, not just remedies (Claude, 2026-08-30T22:56:36Z)
