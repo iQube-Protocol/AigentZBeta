@@ -47,6 +47,15 @@ vi.mock('@/services/corpusScout/provenance', () => ({
   listCandidateSources: (...args: unknown[]) => mockListCandidateSources(...args),
 }));
 
+// summarizeAcquisitionSourceUniverse (2026-08-31 domain/source-universe
+// handoff repair) — the only export of this module the orchestrator uses
+// (crystalAcquisitionJob.ts's separate `getDomainConstitution` import is a
+// different call site, unaffected by this mock).
+const mockSummarizeAcquisitionSourceUniverse = vi.fn();
+vi.mock('@/services/corpusScout/domainConstitution', () => ({
+  summarizeAcquisitionSourceUniverse: (...args: unknown[]) => mockSummarizeAcquisitionSourceUniverse(...args),
+}));
+
 const mockListCandidates = vi.fn();
 const mockRunConstitutionalDiscovery = vi.fn();
 const mockListEvidence = vi.fn().mockResolvedValue([]);
@@ -324,6 +333,7 @@ beforeEach(() => {
   mockRunConstitutionalDiscovery.mockResolvedValue({ ok: true, candidates: [], excludedEvidence: [] });
   mockListEvidence.mockResolvedValue([]);
   mockFindDuplicates.mockResolvedValue([]);
+  mockSummarizeAcquisitionSourceUniverse.mockResolvedValue({ ratifiedInstitutionCount: 0, eligibleInstitutionCount: 0 });
 });
 
 // ── ACCEPTANCE CRITERION #1 — the single most important assertion here ──────
@@ -605,6 +615,89 @@ describe('the canonical Track 2 deep-link (2026-08-26)', () => {
       stages: base.stages.map((s) => ({ ...s, status: 'complete' as const })),
     };
     expect(firstPendingDecision(allComplete)).toBeNull();
+  });
+});
+
+// ── THE ACQUISITION-DOMAIN/SOURCE-UNIVERSE HANDOFF (2026-08-31) — domain
+// parity across the whole read path. The live incident: a targeted-
+// acquisition approval succeeded for the ACQUISITION domain, but Stage 1
+// (`listCandidateSources`), Stage 2/3 (`listCandidates`) and the new
+// source-universe signal (`summarizeAcquisitionSourceUniverse`) must all be
+// queried against the EXACT SAME domain string — never a domain resolved
+// three different ways that happen to usually agree. `acquisitionDomain` is
+// resolved ONCE in `loadTrack2ProgrammeState` (never re-derived from the
+// CRYSTAL domain, which is a deliberately different namespace) and is the
+// single value every collaborator below must receive.
+describe('the acquisition domain is resolved once and never diverges across collaborators', () => {
+  it('listCandidateSources, listCandidates, and summarizeAcquisitionSourceUniverse are all called with the IDENTICAL domain string', async () => {
+    const state = await loadTrack2ProgrammeState({ experimentId: EXPERIMENT, acquisitionDomain: 'a-probe-domain' });
+    if ('error' in state) throw new Error(state.error);
+
+    expect(mockListCandidateSources).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ campaignDomain: 'a-probe-domain' }),
+    );
+    expect(mockListCandidates).toHaveBeenCalledWith(expect.anything(), 'a-probe-domain');
+    expect(mockSummarizeAcquisitionSourceUniverse).toHaveBeenCalledWith(expect.anything(), 'a-probe-domain');
+
+    // And the value returned to every reader (Stage 1, Stage 2, the Copilot)
+    // is the SAME string — never silently substituted or defaulted after the
+    // fact.
+    expect(state.acquisitionDomain).toBe('a-probe-domain');
+  });
+
+  it('with no explicit override, every collaborator resolves the SAME default — never one falling back independently while another does not', async () => {
+    const state = await loadTrack2ProgrammeState({ experimentId: EXPERIMENT });
+    if ('error' in state) throw new Error(state.error);
+
+    const [, sourcesDomainArg] = mockListCandidateSources.mock.calls[0] as [unknown, { campaignDomain: string }];
+    const [, candidatesDomainArg] = mockListCandidates.mock.calls[0] as [unknown, string];
+    const [, universeDomainArg] = mockSummarizeAcquisitionSourceUniverse.mock.calls[0] as [unknown, string];
+
+    expect(sourcesDomainArg.campaignDomain).toBe(state.acquisitionDomain);
+    expect(candidatesDomainArg).toBe(state.acquisitionDomain);
+    expect(universeDomainArg).toBe(state.acquisitionDomain);
+    // The default is a real acquisition domain, and it is NEVER the crystal
+    // domain — the two are deliberately different namespaces.
+    expect(state.acquisitionDomain).not.toBe(crystalDomainForExperiment(EXPERIMENT));
+  });
+
+  it('the acquisition domain fed into buildTrack2Programme (Stage 1 text) is the SAME value returned as state.acquisitionDomain — one resolution, not two', async () => {
+    // Live incident shape: 9 ratified, 0 verified for the resolved domain.
+    mockSummarizeAcquisitionSourceUniverse.mockResolvedValue({ ratifiedInstitutionCount: 9, eligibleInstitutionCount: 0 });
+    mockListCandidateSources.mockResolvedValue([]); // Stage 1 sees zero discovered sources
+    const state = await loadTrack2ProgrammeState({ experimentId: EXPERIMENT, acquisitionDomain: 'another-probe-domain' });
+    if ('error' in state) throw new Error(state.error);
+
+    const stage1 = state.programme.stages.find((s) => s.id === 'discover-sources')!;
+    // Stage 1's own detail text names the EXACT domain that was resolved and
+    // returned — never the crystal domain, never a hardcoded literal that
+    // could silently drift from the resolved value.
+    expect(stage1.detail).toContain('another-probe-domain');
+    expect(state.acquisitionDomain).toBe('another-probe-domain');
+    expect(stage1.status).toBe('blocked');
+  });
+
+  it('runOneAcquisitionStep\'s discovery act reads state.acquisitionDomain — the same resolved value, not a re-derivation', async () => {
+    mockRunConstitutionalDiscovery.mockResolvedValue({ ok: true, candidates: [], excludedEvidence: [] });
+    await advanceResearchProgramme({
+      experimentId: EXPERIMENT,
+      personaId: PERSONA,
+      acquisitionDomain: 'yet-another-probe-domain',
+      resolveMeasurementLayer: async () => openGate(),
+    });
+    if (mockRunConstitutionalDiscovery.mock.calls.length > 0) {
+      const [, domainArg] = mockRunConstitutionalDiscovery.mock.calls[0] as [unknown, string];
+      expect(domainArg).toBe('yet-another-probe-domain');
+    }
+    // Whether or not the discovery act itself ran this round, the sources
+    // and candidates reads that gate every other stage must have agreed on
+    // the same probe domain.
+    expect(mockListCandidateSources).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ campaignDomain: 'yet-another-probe-domain' }),
+    );
+    expect(mockListCandidates).toHaveBeenCalledWith(expect.anything(), 'yet-another-probe-domain');
   });
 });
 

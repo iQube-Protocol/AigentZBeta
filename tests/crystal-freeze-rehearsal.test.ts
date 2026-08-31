@@ -729,6 +729,7 @@ describe('rehearsal — the Track 2 programme reads the substrate, it does not o
     return buildTrack2Programme({
       experimentId: 'SANDBOX',
       crystalDomain: SANDBOX_DOMAIN,
+      acquisitionDomain: SANDBOX_DOMAIN,
       signals: {
         candidateSources: { total: 4, pendingReview: 0, admitted: 4 },
         discoveryCandidates: { total: 20, awaitingReview: 0, promoted: 14 },
@@ -747,6 +748,7 @@ describe('rehearsal — the Track 2 programme reads the substrate, it does not o
         lifecycle,
         artifact: null,
         independentReviewRequestOpen: readiness.ok,
+        acquisitionSourceUniverse: null,
         ...overrides,
       },
     });

@@ -34,7 +34,7 @@ import {
   type DiversityInput,
   type SourceTier,
 } from './institutionalRegistry';
-import { isVerificationStatus, type VerificationStatus } from './registryVerification';
+import { canRunInstitutionDiscovery, isVerificationStatus, type VerificationStatus } from './registryVerification';
 
 type Result<T> = { ok: true } & T | { ok: false; error: string };
 
@@ -485,4 +485,59 @@ export async function ratifyInstitutionEntry(
  *  constitutional obligation. */
 export function ratifiedPillarKeys(pillars: readonly CoveragePillarRow[]): string[] {
   return pillars.filter((p) => p.status === 'ratified').map((p) => p.pillarKey);
+}
+
+/**
+ * THE ACQUISITION SOURCE UNIVERSE, summarized (2026-08-31, "targeted-
+ * acquisition domain/source-universe handoff" repair — Track 2 Stage 1
+ * derivation-fidelity fix).
+ *
+ * `runOneAcquisitionStep` (services/research/crystalAcquisitionJob.ts) can
+ * only ever attempt an institution that is BOTH ratified AND verified
+ * (`canRunInstitutionDiscovery` — SPEC-CIR-001 §9). An acquisition domain can
+ * therefore be in three genuinely different states Track 2 Stage 1's own
+ * derivation must distinguish, rather than collapsing all three into a
+ * generic "not started":
+ *
+ *   ratifiedInstitutionCount === 0            → nothing ratified yet
+ *   ratifiedInstitutionCount > 0, eligible = 0 → ratified, but UNVERIFIED —
+ *                                                 the gate is working, not a
+ *                                                 regression (2026-08-28
+ *                                                 corpus_registry_verification
+ *                                                 migration's own words)
+ *   eligibleInstitutionCount > 0                → ready to discover
+ *
+ * A single, minimal, read-only query — deliberately NOT the full
+ * `getDomainConstitution` (which also fetches pillars/dependencies/seeds and
+ * opportunistically BACKFILLS a missing `seed_url`, a write this read-only
+ * diagnostic signal must never trigger on every Track 2 state composition).
+ * Reuses `canRunInstitutionDiscovery` verbatim — never a second,
+ * independently-derived eligibility rule (inv.engineering.036).
+ */
+export interface AcquisitionSourceUniverseSummary {
+  ratifiedInstitutionCount: number;
+  /** Ratified AND verified — the exact set `runOneAcquisitionStep` may attempt. */
+  eligibleInstitutionCount: number;
+}
+
+export async function summarizeAcquisitionSourceUniverse(
+  admin: SupabaseClient,
+  domain: string,
+): Promise<AcquisitionSourceUniverseSummary | null> {
+  const { data, error } = await admin
+    .from('corpus_institutional_registry')
+    .select('status, verification_status')
+    .eq('domain', domain);
+  if (error || !data) return null;
+
+  const rows = data as { status: string; verification_status: string | null }[];
+  const ratified = rows.filter((r) => r.status === 'ratified');
+  const eligible = ratified.filter(
+    (r) =>
+      canRunInstitutionDiscovery({
+        status: r.status,
+        verificationStatus: isVerificationStatus(r.verification_status) ? r.verification_status : null,
+      }).allowed,
+  );
+  return { ratifiedInstitutionCount: ratified.length, eligibleInstitutionCount: eligible.length };
 }
