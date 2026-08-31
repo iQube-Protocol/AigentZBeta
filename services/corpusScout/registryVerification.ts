@@ -43,7 +43,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { followRedirects, retrieveArtifact, sniffMagicBytes, TRANSIENT_HTTP_STATUSES } from './retrieval';
-import { runInstitutionDiscovery } from './institutionNavigator';
+import { runInstitutionDiscovery, type DocumentCandidate } from './institutionNavigator';
 import { inspectArtifact } from './inspection';
 import { CORPUS_QUALIFICATION_STANDARD_STATEMENT } from './corpusQualificationStandard';
 import { resolveCanonicalHomepage } from './canonicalInstitutionHomepages';
@@ -199,43 +199,33 @@ function hostOf(url: string): string | null {
   try { return new URL(url).host.toLowerCase(); } catch { return null; }
 }
 
-/**
- * Run the four conjuncts against one institution's seed URL. Never throws;
- * every failure path returns a structured outcome with an honest status,
- * mirroring `retrieval.ts`'s ethos (PRD-ICA-001 §12).
- *
- * The order matters and is not arbitrary: resolve first (a dead URL is not an
- * insufficient corpus, it is a failure), then discover (a reachable
- * institution with no publications is insufficient, not failed), then inspect
- * (candidates that all fall below the standard are insufficient too). Each
- * status names a different remediation, which is the point of having eight of
- * them rather than a boolean.
- */
-export async function runVerification(
-  seedUrl: string,
-  deps: VerificationDeps = REAL_DEPS,
-): Promise<VerificationOutcome> {
-  const base = {
-    checkedAt: new Date().toISOString(),
-    candidatesFound: 0,
-    documentsInspected: 0,
-    qualifyingDocuments: [] as QualifyingDocument[],
-    standard: CORPUS_QUALIFICATION_STANDARD_STATEMENT,
-  };
+// ── THE THREE PHASES — the SAME decision logic as before, factored into
+// independently-callable units (2026-08-31, "verification wall-clock
+// granularity" repair). `runVerification` below composes these into the
+// original one-shot behavior UNCHANGED; `runVerificationStep` (below)
+// composes the SAME three functions into a resumable, one-phase-per-call
+// primitive. Neither reimplements the decision logic — this is the ONE
+// authoritative place the four-conjunct evaluation lives (inv.engineering.
+// 036/037): only the I/O progression around it differs between callers. ──
 
+type ResolveSeedResult =
+  | { terminal: true; status: VerificationStatus; resolvedUrl: string | null; detail: string }
+  | { terminal: false; resolvedUrl: string };
+
+/** Conjunct 1 — does the institution URL resolve? Exactly the original
+ *  step 1 body, unchanged. */
+async function resolveSeedPhase(seedUrl: string, deps: VerificationDeps): Promise<ResolveSeedResult> {
   const trimmed = seedUrl.trim();
   if (!trimmed) {
-    return { ...base, status: 'verification_failed', resolvedUrl: null, detail: 'no seed URL to verify' };
+    return { terminal: true, status: 'verification_failed', resolvedUrl: null, detail: 'no seed URL to verify' };
   }
-
-  // 1 — does the institution URL resolve?
   const resolved = await deps.followRedirects(trimmed, { accept: 'text/html,*/*' });
   if (!resolved.ok) {
     const status: VerificationStatus =
       resolved.failureClass === 'timeout' ? 'temporarily_unavailable'
       : resolved.failureClass === 'redirect-loop' ? 'redirect_changed'
       : 'verification_failed';
-    return { ...base, status, resolvedUrl: resolved.finalUrl ?? null, detail: `seed URL did not resolve: ${resolved.failureClass}` };
+    return { terminal: true, status, resolvedUrl: resolved.finalUrl ?? null, detail: `seed URL did not resolve: ${resolved.failureClass}` };
   }
   const resolvedUrl = resolved.finalUrl;
   if (!resolved.response.ok) {
@@ -252,7 +242,7 @@ export async function runVerification(
       ? 'temporarily_unavailable'
       : 'verification_failed';
     return {
-      ...base, status, resolvedUrl,
+      terminal: true, status, resolvedUrl,
       detail: `seed URL returned HTTP ${resolved.response.status}${status === 'temporarily_unavailable' ? ' (transient — retries exhausted)' : ''}`,
     };
   }
@@ -262,40 +252,55 @@ export async function runVerification(
   // failure, so it goes back to the steward rather than being auto-accepted.
   if (hostOf(resolvedUrl) !== hostOf(trimmed)) {
     return {
-      ...base, status: 'redirect_changed', resolvedUrl,
+      terminal: true, status: 'redirect_changed', resolvedUrl,
       detail: `seed URL now redirects off-host: ${hostOf(trimmed)} → ${hostOf(resolvedUrl)} — a steward must re-confirm the entry`,
     };
   }
+  return { terminal: false, resolvedUrl };
+}
 
-  // 2 — are document candidates discovered? (Agent B/C, unchanged.)
+type DiscoverCandidatesResult =
+  | { terminal: true; status: VerificationStatus; detail: string; candidatesFound: number }
+  | { terminal: false; candidates: DocumentCandidate[]; candidatesFound: number };
+
+/** Conjunct 2 — are document candidates discovered? Exactly the original
+ *  step 2 body, unchanged (Agent B/C, `institutionNavigator.ts`). */
+async function discoverCandidatesPhase(resolvedUrl: string, deps: VerificationDeps): Promise<DiscoverCandidatesResult> {
   const discovery = await deps.runInstitutionDiscovery(resolvedUrl);
   if (!discovery.ok) {
     const status: VerificationStatus = discovery.failureClass === 'timeout' ? 'temporarily_unavailable' : 'verification_failed';
-    return { ...base, status, resolvedUrl, detail: `institution navigation failed: ${discovery.error ?? discovery.failureClass}` };
+    return { terminal: true, status, detail: `institution navigation failed: ${discovery.error ?? discovery.failureClass}`, candidatesFound: 0 };
   }
   const candidatesFound = discovery.candidates.length;
   if (candidatesFound === 0) {
     return {
-      ...base, status: 'insufficient_corpus', resolvedUrl, candidatesFound,
+      terminal: true, status: 'insufficient_corpus', candidatesFound,
       detail: 'the institution URL resolves but no document candidates were discovered — reachable is not the same as acquirable',
     };
   }
+  return { terminal: false, candidates: discovery.candidates, candidatesFound };
+}
 
-  // 3 + 4 — does at least one document pass the standard, with its bytes and
-  // inspection result recorded?
-  const qualifyingDocuments: QualifyingDocument[] = [];
-  let documentsInspected = 0;
-  for (const candidate of discovery.candidates.slice(0, MAX_DOCUMENTS_TO_INSPECT)) {
-    const retrieval = await deps.retrieveArtifact(candidate.documentUrl, candidate.discoveryUrl);
-    documentsInspected += 1;
-    if (!retrieval.ok || !retrieval.bytes || !retrieval.artifactHash) continue;
+/** Conjuncts 3+4, for ONE candidate document — exactly the original loop
+ *  body's per-iteration work, unchanged. The caller owns the loop/cursor
+ *  (`runVerification` iterates in-process; `runVerificationStep` persists
+ *  the cursor between calls) — this function is the single per-document
+ *  unit both share. */
+async function inspectCandidatePhase(
+  candidate: DocumentCandidate,
+  deps: VerificationDeps,
+): Promise<{ qualifies: true; document: QualifyingDocument } | { qualifies: false }> {
+  const retrieval = await deps.retrieveArtifact(candidate.documentUrl, candidate.discoveryUrl);
+  if (!retrieval.ok || !retrieval.bytes || !retrieval.artifactHash) return { qualifies: false };
 
-    const sniffed = sniffMagicBytes(retrieval.bytes);
-    const mimeType = sniffed.isPdf ? 'application/pdf' : (retrieval.contentType ?? 'text/html');
-    const inspection = await deps.inspectArtifact(retrieval.bytes, mimeType);
-    if (!inspection.ok || !inspection.passesContentPresenceCheck) continue;
+  const sniffed = sniffMagicBytes(retrieval.bytes);
+  const mimeType = sniffed.isPdf ? 'application/pdf' : (retrieval.contentType ?? 'text/html');
+  const inspection = await deps.inspectArtifact(retrieval.bytes, mimeType);
+  if (!inspection.ok || !inspection.passesContentPresenceCheck) return { qualifies: false };
 
-    qualifyingDocuments.push({
+  return {
+    qualifies: true,
+    document: {
       documentUrl: candidate.documentUrl,
       contentHash: retrieval.artifactHash,
       mimeType,
@@ -303,13 +308,70 @@ export async function runVerification(
       pageCount: inspection.pageCount,
       substantiveTextCharacters: inspection.substantiveTextCharacters,
       blankPageRatio: inspection.blankPageRatio,
-    });
-    break; // one qualifying document is the bar; verification is not acquisition
+    },
+  };
+}
+
+/**
+ * Run the four conjuncts against one institution's seed URL, ALL IN ONE
+ * CALL — the original one-shot contract, unchanged, for callers that
+ * genuinely want a single synchronous result (the single-entry admin route,
+ * the whole-domain sweep). Never throws; every failure path returns a
+ * structured outcome with an honest status, mirroring `retrieval.ts`'s
+ * ethos (PRD-ICA-001 §12).
+ *
+ * ⚠ THIS FUNCTION HOLDS ONE REQUEST OPEN ACROSS UP TO SEVEN EXTERNAL
+ * OPERATIONS (resolve, discover, up to five document fetch+inspects) — the
+ * exact shape that produced a live HTTP 504 on `verify-step` (2026-08-31).
+ * `runVerificationStep` below is the BOUNDED, resumable alternative the
+ * Copilot/Track 2 acquisition loop actually calls; this function remains
+ * for the two call sites that are not driven through that bounded loop and
+ * are documented as accepting the risk (the operator-run whole-domain sweep
+ * is explicitly "the call the operator runs on the deployed app", never
+ * the Copilot's own bounded loop).
+ *
+ * The order matters and is not arbitrary: resolve first (a dead URL is not an
+ * insufficient corpus, it is a failure), then discover (a reachable
+ * institution with no publications is insufficient, not failed), then inspect
+ * (candidates that all fall below the standard are insufficient too). Each
+ * status names a different remediation, which is the point of having eight of
+ * them rather than a boolean.
+ */
+export async function runVerification(
+  seedUrl: string,
+  deps: VerificationDeps = REAL_DEPS,
+): Promise<VerificationOutcome> {
+  const base = {
+    checkedAt: new Date().toISOString(),
+    standard: CORPUS_QUALIFICATION_STANDARD_STATEMENT,
+  };
+
+  const resolvePhase = await resolveSeedPhase(seedUrl, deps);
+  if (resolvePhase.terminal) {
+    return { ...base, status: resolvePhase.status, resolvedUrl: resolvePhase.resolvedUrl, detail: resolvePhase.detail, candidatesFound: 0, documentsInspected: 0, qualifyingDocuments: [] };
+  }
+  const { resolvedUrl } = resolvePhase;
+
+  const discoverPhase = await discoverCandidatesPhase(resolvedUrl, deps);
+  if (discoverPhase.terminal) {
+    return { ...base, status: discoverPhase.status, resolvedUrl, detail: discoverPhase.detail, candidatesFound: discoverPhase.candidatesFound, documentsInspected: 0, qualifyingDocuments: [] };
+  }
+  const { candidates, candidatesFound } = discoverPhase;
+
+  const qualifyingDocuments: QualifyingDocument[] = [];
+  let documentsInspected = 0;
+  for (const candidate of candidates.slice(0, MAX_DOCUMENTS_TO_INSPECT)) {
+    const result = await inspectCandidatePhase(candidate, deps);
+    documentsInspected += 1;
+    if (result.qualifies) {
+      qualifyingDocuments.push(result.document);
+      break; // one qualifying document is the bar; verification is not acquisition
+    }
   }
 
   if (qualifyingDocuments.length === 0) {
     return {
-      ...base, status: 'insufficient_corpus', resolvedUrl, candidatesFound, documentsInspected,
+      ...base, status: 'insufficient_corpus', resolvedUrl, candidatesFound, documentsInspected, qualifyingDocuments,
       detail: `${documentsInspected} candidate document(s) inspected, none passed the Corpus Qualification Standard`,
     };
   }
@@ -367,6 +429,11 @@ export async function applyVerificationOutcome(
         documentsInspected: outcome.documentsInspected,
         qualifyingDocuments: outcome.qualifyingDocuments,
       },
+      // A terminal outcome means no run is in flight any more, regardless of
+      // whether it arrived via the one-shot `runVerification` or the
+      // resumable `runVerificationStep` below — the checkpoint is scratch
+      // state for an IN-FLIGHT run only, never left dangling once one exists.
+      verification_progress: null,
       updated_at: new Date().toISOString(),
     })
     .eq('domain', key.domain)
@@ -374,6 +441,266 @@ export async function applyVerificationOutcome(
     .eq('institution_name', key.institutionName);
   if (error) return { ok: false, error: error.message };
   return { ok: true };
+}
+
+// ── THE RESUMABLE, BOUNDED STEP (2026-08-31, "verification wall-clock
+// granularity" repair) ──────────────────────────────────────────────────
+//
+// `verifyInstitutionEntry`/`runVerification` chain up to seven external
+// operations (resolve, discover, up to five fetch+inspects) in one call —
+// exactly the shape that produced a live HTTP 504 on `verify-step` for BIS.
+// `runVerificationStep` performs EXACTLY ONE of those operations per call,
+// racing it against `VERIFICATION_STEP_DEADLINE_MS` (comfortably below the
+// hosting request ceiling — the same `Promise.race` discipline
+// `crystalAcquisitionPrecondition.ts`'s "empty 504" repair established:
+// never await the losing side, log it forensically, return a clean
+// structured result instead of hanging). Progress (phase, cursor, evidence
+// accumulated so far) is persisted on the registry row's
+// `verification_progress` column between calls — the SAME `pending_
+// verification` row every other verification path already writes, not a
+// second store — so a caller drives this repeatedly, exactly mirroring how
+// `runOneAcquisitionStep`/`.../acquisition/run-step` is already driven.
+//
+// Reuses `resolveSeedPhase`/`discoverCandidatesPhase`/`inspectCandidatePhase`
+// verbatim — the SAME decision logic `runVerification` composes, never a
+// second, independently-derived evaluation (inv.engineering.036/037).
+
+const TABLE = 'corpus_institutional_registry';
+
+/** Comfortably below the hosting request ceiling that produced the live
+ *  504 (this route's own `maxDuration` budget is far larger, but the
+ *  observed failure was an upstream/proxy timeout, not the Lambda's own
+ *  configured ceiling) — matches `retrieval.ts`'s own single-attempt
+ *  `TIMEOUT_MS`, so a normal, healthy external call already fits inside one
+ *  race without ever needing a second attempt. */
+export const VERIFICATION_STEP_DEADLINE_MS = 20_000;
+
+export type VerificationPhase = 'resolve-seed' | 'discover-candidates' | 'fetch-document';
+
+/** The durable, resumable checkpoint persisted in `verification_progress`.
+ *  Scratch state for an IN-FLIGHT run only — cleared the moment a terminal
+ *  outcome is applied (`applyVerificationOutcome`, above). */
+export interface VerificationProgress {
+  phase: VerificationPhase;
+  seedUrl: string;
+  resolvedUrl: string | null;
+  /** Populated once `discover-candidates` completes; capped at
+   *  `MAX_DOCUMENTS_TO_INSPECT` the same way the one-shot loop already
+   *  slices its candidate list — never re-sliced per step. */
+  candidates: DocumentCandidate[] | null;
+  candidateIndex: number;
+  candidatesFound: number;
+  documentsInspected: number;
+  startedAt: string;
+}
+
+function isVerificationProgress(v: unknown): v is VerificationProgress {
+  if (!v || typeof v !== 'object') return false;
+  const p = v as Record<string, unknown>;
+  return (
+    (p.phase === 'resolve-seed' || p.phase === 'discover-candidates' || p.phase === 'fetch-document') &&
+    typeof p.seedUrl === 'string' &&
+    (p.resolvedUrl === null || typeof p.resolvedUrl === 'string') &&
+    (p.candidates === null || Array.isArray(p.candidates)) &&
+    typeof p.candidateIndex === 'number' &&
+    typeof p.candidatesFound === 'number' &&
+    typeof p.documentsInspected === 'number' &&
+    typeof p.startedAt === 'string'
+  );
+}
+
+export interface VerificationStepDiagnostics {
+  institutionName: string;
+  phase: VerificationPhase;
+  /** The document-candidate cursor — `0` for `resolve-seed`/
+   *  `discover-candidates`, the index into `candidates` for
+   *  `fetch-document`. */
+  cursor: number;
+  elapsedMs: number;
+  /** Always 0 or 1 — this step performs AT MOST one external network
+   *  operation. 0 only when the row could not be read at all (no external
+   *  work was ever attempted). */
+  externalCallsAttempted: number;
+}
+
+export type VerificationStepResult =
+  | { ok: true; status: 'in-progress'; domain: string; pillarKey: string; institutionName: string; diagnostics: VerificationStepDiagnostics }
+  | { ok: true; status: VerificationStatus; domain: string; pillarKey: string; institutionName: string; outcome: VerificationOutcome; diagnostics: VerificationStepDiagnostics }
+  | { ok: false; domain: string; pillarKey: string; institutionName: string; error: string };
+
+type PhaseWorkResult =
+  | { terminal: true; status: VerificationStatus; detail: string; documentsInspected: number; qualifyingDocuments: QualifyingDocument[] }
+  | { terminal: false; next: Partial<VerificationProgress> };
+
+/** Dispatches to the ONE bounded external operation `progress.phase` names.
+ *  Never a loop over multiple operations — that is precisely the property
+ *  that makes each call boundable. */
+async function runOnePhase(progress: VerificationProgress, deps: VerificationDeps): Promise<PhaseWorkResult> {
+  switch (progress.phase) {
+    case 'resolve-seed': {
+      const r = await resolveSeedPhase(progress.seedUrl, deps);
+      if (r.terminal) return { terminal: true, status: r.status, detail: r.detail, documentsInspected: 0, qualifyingDocuments: [] };
+      return { terminal: false, next: { phase: 'discover-candidates', resolvedUrl: r.resolvedUrl } };
+    }
+    case 'discover-candidates': {
+      // Guarded defensively (never reachable via the normal phase sequence,
+      // which always sets resolvedUrl before advancing here) — fails
+      // closed rather than crashing on a malformed/tampered checkpoint.
+      if (!progress.resolvedUrl) {
+        return { terminal: true, status: 'verification_failed', detail: 'internal: discover-candidates reached with no resolved URL', documentsInspected: 0, qualifyingDocuments: [] };
+      }
+      const r = await discoverCandidatesPhase(progress.resolvedUrl, deps);
+      if (r.terminal) return { terminal: true, status: r.status, detail: r.detail, documentsInspected: 0, qualifyingDocuments: [] };
+      return {
+        terminal: false,
+        next: { phase: 'fetch-document', candidates: r.candidates.slice(0, MAX_DOCUMENTS_TO_INSPECT), candidatesFound: r.candidatesFound, candidateIndex: 0 },
+      };
+    }
+    case 'fetch-document': {
+      const candidates = progress.candidates ?? [];
+      const idx = progress.candidateIndex;
+      if (idx >= candidates.length) {
+        return {
+          terminal: true, status: 'insufficient_corpus', documentsInspected: progress.documentsInspected, qualifyingDocuments: [],
+          detail: `${progress.documentsInspected} candidate document(s) inspected, none passed the Corpus Qualification Standard`,
+        };
+      }
+      const result = await inspectCandidatePhase(candidates[idx], deps);
+      const documentsInspected = progress.documentsInspected + 1;
+      if (result.qualifies) {
+        return {
+          terminal: true, status: 'verified', documentsInspected, qualifyingDocuments: [result.document],
+          detail: 'all four conjuncts satisfied — resolved, candidate(s) discovered, one qualifying document recorded with content hash',
+        };
+      }
+      // Not the LAST candidate yet — advance the cursor and continue on the
+      // NEXT call. The last candidate's failure is handled by the
+      // `idx >= candidates.length` branch above on the call AFTER this one,
+      // so `documentsInspected`'s final value always matches how many were
+      // actually attempted (same accounting the one-shot loop produces).
+      return { terminal: false, next: { phase: 'fetch-document', candidateIndex: idx + 1, documentsInspected } };
+    }
+  }
+}
+
+/**
+ * THE ONE BOUNDED VERIFICATION STEP a Copilot/Track 2 acquisition loop
+ * actually drives. Performs EXACTLY the phase named by the institution's
+ * persisted `verification_progress` (starting a fresh run at `resolve-seed`
+ * if none exists), races that ONE external operation against `deadlineMs`,
+ * persists the resulting progress (or applies the terminal outcome), and
+ * returns a structured result — `status: 'in-progress'` with the SAME
+ * phase/cursor unchanged if the deadline won the race (never an empty 504;
+ * the orphaned call is left to finish or be recycled with the Lambda,
+ * logged forensically, never awaited — the established
+ * `crystalAcquisitionPrecondition.ts` discipline).
+ */
+export async function runVerificationStep(
+  admin: SupabaseClient,
+  key: { domain: string; pillarKey: string; institutionName: string },
+  deps: VerificationDeps = REAL_DEPS,
+  deadlineMs: number = VERIFICATION_STEP_DEADLINE_MS,
+): Promise<VerificationStepResult> {
+  const { domain, pillarKey, institutionName } = key;
+  const stepStartedAt = Date.now();
+
+  const { data, error } = await admin
+    .from(TABLE)
+    .select('seed_url, verification_status, verification_progress')
+    .eq('domain', domain).eq('pillar_key', pillarKey).eq('institution_name', institutionName)
+    .maybeSingle();
+  if (error || !data) {
+    return { ok: false, domain, pillarKey, institutionName, error: error?.message ?? `no institution '${institutionName}' found for pillar '${pillarKey}' in '${domain}'` };
+  }
+
+  const current: VerificationStatus = isVerificationStatus(data.verification_status) ? data.verification_status : 'proposed';
+  let progress = isVerificationProgress(data.verification_progress) ? data.verification_progress : null;
+
+  if (!progress) {
+    if (!isVerificationTransitionAllowed(current, 'pending_verification')) {
+      return { ok: false, domain, pillarKey, institutionName, error: `cannot start verification from '${current}' — re-open the entry first` };
+    }
+    // Same seed-URL backfill `verifyInstitutionEntry` already performs — the
+    // SAME curated source of truth, resolved and persisted once, here at
+    // the start of a fresh run only (never re-resolved mid-run).
+    let seedUrl = (data.seed_url as string | null)?.trim() ?? '';
+    if (!seedUrl) {
+      const resolved = resolveCanonicalHomepage(institutionName);
+      if (resolved) {
+        seedUrl = resolved;
+        await admin
+          .from(TABLE)
+          .update({ seed_url: resolved, updated_at: new Date().toISOString() })
+          .eq('domain', domain).eq('pillar_key', pillarKey).eq('institution_name', institutionName);
+      }
+    }
+    progress = {
+      phase: 'resolve-seed', seedUrl, resolvedUrl: null, candidates: null,
+      candidateIndex: 0, candidatesFound: 0, documentsInspected: 0,
+      startedAt: new Date().toISOString(),
+    };
+    await admin
+      .from(TABLE)
+      .update({ verification_status: 'pending_verification', verification_progress: progress, updated_at: new Date().toISOString() })
+      .eq('domain', domain).eq('pillar_key', pillarKey).eq('institution_name', institutionName);
+  }
+
+  const activeProgress = progress;
+  const workPromise = runOnePhase(activeProgress, deps);
+  const raced = await Promise.race([
+    workPromise.then((value) => ({ raced: 'completed' as const, value })),
+    new Promise<{ raced: 'timeout' }>((resolve) => setTimeout(() => resolve({ raced: 'timeout' }), deadlineMs)),
+  ]);
+  const elapsedMs = Date.now() - stepStartedAt;
+  const diagnostics: VerificationStepDiagnostics = {
+    institutionName, phase: activeProgress.phase, cursor: activeProgress.candidateIndex, elapsedMs, externalCallsAttempted: 1,
+  };
+
+  if (raced.raced === 'timeout') {
+    // eslint-disable-next-line no-console
+    console.error(
+      `[registry-verification] step for '${institutionName}' (phase '${activeProgress.phase}', cursor ${activeProgress.candidateIndex}) ` +
+        `exceeded its ${deadlineMs}ms budget — returning in-progress at the SAME phase/cursor; nothing was written this call. ` +
+        'Re-call to retry.',
+    );
+    // Forensic only, never awaited — the orphaned call is left to finish or
+    // be recycled with the Lambda; its eventual outcome is logged purely
+    // for diagnosis of which external operation was actually slow.
+    workPromise
+      .then((late) =>
+        // eslint-disable-next-line no-console
+        console.error(`[registry-verification] the timed-out step for '${institutionName}' later completed: ${late.terminal ? late.status : 'advanced to ' + late.next.phase}.`),
+      )
+      .catch((err: unknown) =>
+        // eslint-disable-next-line no-console
+        console.error(`[registry-verification] the timed-out step for '${institutionName}' later threw: ${err instanceof Error ? err.message : String(err)}`),
+      );
+    return { ok: true, status: 'in-progress', domain, pillarKey, institutionName, diagnostics };
+  }
+
+  const result = raced.value;
+  if (result.terminal) {
+    const outcome: VerificationOutcome = {
+      status: result.status,
+      resolvedUrl: activeProgress.resolvedUrl,
+      checkedAt: new Date().toISOString(),
+      candidatesFound: activeProgress.candidatesFound,
+      documentsInspected: result.documentsInspected,
+      qualifyingDocuments: result.qualifyingDocuments,
+      standard: CORPUS_QUALIFICATION_STANDARD_STATEMENT,
+      detail: result.detail,
+    };
+    const applied = await applyVerificationOutcome(admin, key, 'pending_verification', outcome);
+    if (!applied.ok) return { ok: false, domain, pillarKey, institutionName, error: applied.error };
+    return { ok: true, status: outcome.status, domain, pillarKey, institutionName, outcome, diagnostics };
+  }
+
+  const nextProgress: VerificationProgress = { ...activeProgress, ...result.next };
+  await admin
+    .from(TABLE)
+    .update({ verification_progress: nextProgress, updated_at: new Date().toISOString() })
+    .eq('domain', domain).eq('pillar_key', pillarKey).eq('institution_name', institutionName);
+  return { ok: true, status: 'in-progress', domain, pillarKey, institutionName, diagnostics };
 }
 
 /**

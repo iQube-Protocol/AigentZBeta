@@ -18,7 +18,7 @@ vi.mock('@/services/corpusScout/domainConstitution', () => ({
 }));
 vi.mock('@/services/corpusScout/registryVerification', () => ({
   canRunInstitutionDiscovery: vi.fn(),
-  verifyInstitutionEntry: vi.fn(),
+  runVerificationStep: vi.fn(),
 }));
 vi.mock('@/services/corpusScout/discoveryOrchestrator', () => ({
   runDiscoveryForInstitution: vi.fn(),
@@ -31,7 +31,7 @@ vi.mock('@/services/research/lifecycle', () => ({
 }));
 
 import { getDomainConstitution } from '@/services/corpusScout/domainConstitution';
-import { canRunInstitutionDiscovery, verifyInstitutionEntry } from '@/services/corpusScout/registryVerification';
+import { canRunInstitutionDiscovery, runVerificationStep } from '@/services/corpusScout/registryVerification';
 import { runDiscoveryForInstitution } from '@/services/corpusScout/discoveryOrchestrator';
 import { listCandidateSources } from '@/services/corpusScout/provenance';
 import { writeLifecycleReceipt } from '@/services/research/lifecycle';
@@ -46,7 +46,7 @@ import type { CrystalAcquisitionBrief } from '@/services/research/crystalAcquisi
 
 const mGetDomainConstitution = vi.mocked(getDomainConstitution);
 const mCanRun = vi.mocked(canRunInstitutionDiscovery);
-const mVerifyInstitutionEntry = vi.mocked(verifyInstitutionEntry);
+const mRunVerificationStep = vi.mocked(runVerificationStep);
 const mRunDiscovery = vi.mocked(runDiscoveryForInstitution);
 const mListCandidateSources = vi.mocked(listCandidateSources);
 const mWriteLifecycleReceipt = vi.mocked(writeLifecycleReceipt);
@@ -109,7 +109,7 @@ const BRIEF: CrystalAcquisitionBrief = {
 beforeEach(() => {
   mGetDomainConstitution.mockReset();
   mCanRun.mockReset();
-  mVerifyInstitutionEntry.mockReset();
+  mRunVerificationStep.mockReset();
   mRunDiscovery.mockReset();
   mListCandidateSources.mockReset();
   mWriteLifecycleReceipt.mockReset();
@@ -372,11 +372,18 @@ describe('runOneAcquisitionStep', () => {
 });
 
 // ── INSTITUTION VERIFICATION (2026-08-31, "targeted-acquisition ratified-
-// but-unverified dead end" repair) — the SAME bounded-step shape as
-// acquisition, reusing `verifyInstitutionEntry` verbatim (never a second
-// implementation). Pins the exact live EXP-P1 case: 19 ratified
-// `financial-services` institutions, all still in 'proposed' (never
-// submitted for verification).
+// but-unverified dead end" repair, then "verification wall-clock
+// granularity" repair) — this level mocks `runVerificationStep`
+// (the resumable, one-phase-per-call primitive in
+// services/corpusScout/registryVerification.ts) and pins ONLY
+// `runOneInstitutionVerificationStep`'s OWN concern: selecting which
+// institution to work on next (resuming an in-flight one before starting a
+// fresh one) and calling the primitive for it alone. The primitive's own
+// phase-by-phase behavior (resolve-seed / discover-candidates /
+// fetch-document, the internal deadline race) is pinned separately in
+// tests/corpus-scout-verification-step.test.ts. Pins the exact live EXP-P1
+// case: 19 ratified `financial-services` institutions, all still in
+// 'proposed' (never submitted for verification).
 
 function institution(name: string, verificationStatus: string) {
   return { pillarKey: 'p', institutionName: name, status: 'ratified', verificationStatus };
@@ -385,28 +392,43 @@ function institution(name: string, verificationStatus: string) {
 /** The exact live shape: 19 ratified institutions, all 'proposed'. */
 const NINETEEN_UNVERIFIED = Array.from({ length: 19 }, (_, i) => institution(`Institution ${i + 1}`, 'proposed'));
 
-describe('runOneInstitutionVerificationStep', () => {
-  it('THE LIVE CASE — 19 ratified/0 verified: picks the FIRST institution (by name) still in "proposed"', async () => {
+function inProgressStep(institutionName: string, phase: string) {
+  return {
+    ok: true, status: 'in-progress', domain: 'financial-services', pillarKey: 'p', institutionName,
+    diagnostics: { institutionName, phase, cursor: 0, elapsedMs: 100, externalCallsAttempted: 1 },
+  } as never;
+}
+
+function terminalStep(institutionName: string, status: string) {
+  return {
+    ok: true, status, domain: 'financial-services', pillarKey: 'p', institutionName,
+    outcome: { status, resolvedUrl: 'https://example.org', checkedAt: '2026-08-31T00:00:00Z', candidatesFound: 1, documentsInspected: 1, qualifyingDocuments: [], standard: 'stub', detail: 'stub' },
+    diagnostics: { institutionName, phase: 'fetch-document', cursor: 0, elapsedMs: 100, externalCallsAttempted: 1 },
+  } as never;
+}
+
+describe('runOneInstitutionVerificationStep — 2026-08-31 wall-clock granularity repair: ONE bounded phase per call, not the whole institution', () => {
+  it('THE LIVE CASE — 19 ratified/0 verified: picks the FIRST institution (by name) still in "proposed" and calls runVerificationStep for it alone', async () => {
     mGetDomainConstitution.mockResolvedValue({
       domain: 'financial-services', definition: null, pillars: [], dependencies: [],
       institutions: NINETEEN_UNVERIFIED, diversity: [], acquisitionSeeds: [],
     } as never);
-    mVerifyInstitutionEntry.mockResolvedValue({
-      ok: true, domain: 'financial-services', pillarKey: 'p', institutionName: 'Institution 1',
-      seedUrl: 'https://example.org', outcome: { status: 'verified' } as never,
-    });
+    mRunVerificationStep.mockResolvedValue(inProgressStep('Institution 1', 'resolve-seed'));
 
     const admin = {} as unknown as SupabaseClient;
     const result = await runOneInstitutionVerificationStep(admin, 'financial-services');
 
     expect(result.institution).toEqual({ pillarKey: 'p', institutionName: 'Institution 1' });
-    expect(result.exhausted).toBe(false); // 18 more remain in 'proposed'
-    expect(mVerifyInstitutionEntry).toHaveBeenCalledWith(admin, {
+    // Distinct from the old contract: `exhausted` is about whether there
+    // was ANY eligible work to attempt, never about this ONE call finishing
+    // the institution — that can now take many calls.
+    expect(result.exhausted).toBe(false);
+    expect(mRunVerificationStep).toHaveBeenCalledWith(admin, {
       domain: 'financial-services', pillarKey: 'p', institutionName: 'Institution 1',
     });
   });
 
-  it('reports exhausted:true, institution:null when no ratified institution remains in "proposed"', async () => {
+  it('reports exhausted:true, institution:null when no ratified institution has any outstanding verification work', async () => {
     mGetDomainConstitution.mockResolvedValue({
       domain: 'financial-services', definition: null, pillars: [], dependencies: [],
       institutions: [institution('A', 'verified'), institution('B', 'verification_failed')],
@@ -417,45 +439,67 @@ describe('runOneInstitutionVerificationStep', () => {
     const result = await runOneInstitutionVerificationStep(admin, 'financial-services');
 
     expect(result.institution).toBeNull();
-    expect(result.result).toBeNull();
+    expect(result.step).toBeNull();
     expect(result.exhausted).toBe(true);
-    expect(mVerifyInstitutionEntry).not.toHaveBeenCalled();
+    expect(mRunVerificationStep).not.toHaveBeenCalled();
   });
 
-  it('exhausted becomes true on the LAST proposed institution — the one-pass-per-institution bound', async () => {
+  // ── THE WALL-CLOCK GRANULARITY FIX ITSELF — a single call never performs
+  // more than ONE bounded phase; the caller must call again to advance.
+  it('a single call performs exactly one phase (in-progress) — the caller must call again to advance past resolve-seed', async () => {
     mGetDomainConstitution.mockResolvedValue({
       domain: 'financial-services', definition: null, pillars: [], dependencies: [],
-      institutions: [institution('Only One', 'proposed')], diversity: [], acquisitionSeeds: [],
+      institutions: [institution('BIS', 'proposed')], diversity: [], acquisitionSeeds: [],
     } as never);
-    mVerifyInstitutionEntry.mockResolvedValue({
-      ok: true, domain: 'financial-services', pillarKey: 'p', institutionName: 'Only One',
-      seedUrl: 'https://example.org', outcome: { status: 'insufficient_corpus' } as never,
-    });
+    mRunVerificationStep.mockResolvedValue(inProgressStep('BIS', 'resolve-seed'));
 
     const admin = {} as unknown as SupabaseClient;
     const result = await runOneInstitutionVerificationStep(admin, 'financial-services');
-    expect(result.exhausted).toBe(true);
+    expect(result.step?.ok).toBe(true);
+    if (result.step?.ok) expect(result.step.status).toBe('in-progress');
+    // Exactly one call to the bounded primitive — never a loop that drives
+    // it to completion inside this one function call.
+    expect(mRunVerificationStep).toHaveBeenCalledTimes(1);
   });
 
-  // ── EXCEPTION ISOLATION — one institution's failure never strands the
-  // others; a failed/insufficient outcome is a durable per-institution fact
-  // (recorded by `verifyInstitutionEntry` on the registry row itself), and
-  // this bounded step neither throws on it nor retries it within the same
-  // pass (it moves out of 'proposed' regardless of outcome).
-  it('a failed/insufficient verification outcome does not throw, and the step still reports exhausted honestly for what remains', async () => {
+  // ── RESUME PRIORITY — an institution already mid-verification
+  // (`pending_verification`, resuming its persisted phase/cursor) is picked
+  // BEFORE starting a fresh 'proposed' one, so no institution's progress is
+  // ever abandoned while another is worked.
+  it('resumes an institution already in "pending_verification" before starting a fresh "proposed" one', async () => {
+    mGetDomainConstitution.mockResolvedValue({
+      domain: 'financial-services', definition: null, pillars: [], dependencies: [],
+      institutions: [institution('Alpha (fresh)', 'proposed'), institution('BIS (in flight)', 'pending_verification')],
+      diversity: [], acquisitionSeeds: [],
+    } as never);
+    mRunVerificationStep.mockResolvedValue(inProgressStep('BIS (in flight)', 'fetch-document'));
+
+    const admin = {} as unknown as SupabaseClient;
+    const result = await runOneInstitutionVerificationStep(admin, 'financial-services');
+    expect(result.institution?.institutionName).toBe('BIS (in flight)');
+    expect(mRunVerificationStep).toHaveBeenCalledWith(admin, {
+      domain: 'financial-services', pillarKey: 'p', institutionName: 'BIS (in flight)',
+    });
+  });
+
+  // ── EXCEPTION ISOLATION — one institution's terminal failure never
+  // strands the others; a failed/insufficient outcome is a durable
+  // per-institution fact (recorded by `runVerificationStep` on the
+  // registry row itself), and this bounded step neither throws on it nor
+  // retries it within the same pass.
+  it('a failed/insufficient TERMINAL outcome does not throw, and is reported honestly', async () => {
     mGetDomainConstitution.mockResolvedValue({
       domain: 'financial-services', definition: null, pillars: [], dependencies: [],
       institutions: [institution('Failing Institution', 'proposed')], diversity: [], acquisitionSeeds: [],
     } as never);
-    mVerifyInstitutionEntry.mockResolvedValue({
-      ok: true, domain: 'financial-services', pillarKey: 'p', institutionName: 'Failing Institution',
-      seedUrl: 'https://example.org', outcome: { status: 'verification_failed' } as never,
-    });
+    mRunVerificationStep.mockResolvedValue(terminalStep('Failing Institution', 'verification_failed'));
 
     const admin = {} as unknown as SupabaseClient;
     const result = await runOneInstitutionVerificationStep(admin, 'financial-services');
-    expect(result.result?.outcome?.status).toBe('verification_failed');
-    expect(result.exhausted).toBe(true);
+    expect(result.step?.ok).toBe(true);
+    if (result.step?.ok && result.step.status !== 'in-progress') {
+      expect(result.step.outcome.status).toBe('verification_failed');
+    }
   });
 
   it('never verifies a "redirect_changed" or "deprecated" entry automatically — those return to a steward, never an auto-run', async () => {
@@ -469,7 +513,7 @@ describe('runOneInstitutionVerificationStep', () => {
     const result = await runOneInstitutionVerificationStep(admin, 'financial-services');
     expect(result.institution).toBeNull();
     expect(result.exhausted).toBe(true);
-    expect(mVerifyInstitutionEntry).not.toHaveBeenCalled();
+    expect(mRunVerificationStep).not.toHaveBeenCalled();
   });
 
   it('sorted deterministically by institution name — the same order getDomainConstitution already guarantees', async () => {
@@ -478,10 +522,7 @@ describe('runOneInstitutionVerificationStep', () => {
       institutions: [institution('Zeta Institute', 'proposed'), institution('Alpha Institute', 'proposed')],
       diversity: [], acquisitionSeeds: [],
     } as never);
-    mVerifyInstitutionEntry.mockResolvedValue({
-      ok: true, domain: 'financial-services', pillarKey: 'p', institutionName: 'Zeta Institute',
-      seedUrl: 'https://example.org', outcome: { status: 'verified' } as never,
-    });
+    mRunVerificationStep.mockResolvedValue(inProgressStep('Zeta Institute', 'resolve-seed'));
 
     const admin = {} as unknown as SupabaseClient;
     const result = await runOneInstitutionVerificationStep(admin, 'financial-services');
@@ -501,6 +542,6 @@ describe('runOneInstitutionVerificationStep', () => {
     const result = await runOneInstitutionVerificationStep(admin, 'financial-services');
     expect(result.institution).toBeNull();
     expect(result.exhausted).toBe(true);
-    expect(mVerifyInstitutionEntry).not.toHaveBeenCalled();
+    expect(mRunVerificationStep).not.toHaveBeenCalled();
   });
 });

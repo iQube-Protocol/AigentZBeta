@@ -1,29 +1,44 @@
 /**
  * POST /api/research/programme/[experimentId]/acquisition/verify-step — the
- * ONE bounded institution-verification step a Copilot-driven acquisition run
- * performs per call (2026-08-31, "targeted-acquisition ratified-but-
- * unverified dead end" repair). Requires an ACTIVE approval
+ * ONE bounded institution-verification PHASE a Copilot-driven acquisition
+ * run performs per call (2026-08-31, "targeted-acquisition ratified-but-
+ * unverified dead end" repair, then the follow-on "verification wall-clock
+ * granularity" repair). Requires an ACTIVE approval
  * (`POST .../acquisition/approve`), exactly like `.../acquisition/run-step`
  * — this route can never be reached without the one human authorization
  * that already covers the whole bounded acquisition sequence.
  *
- * Bounded to EXACTLY ONE ratified institution per call, and only one still
- * in its first-pass 'proposed' verification state
- * (`services/research/crystalAcquisitionJob.ts::runOneInstitutionVerificationStep`)
- * — never the whole-domain sequential sweep
- * `POST /api/corpus-scout/institution-verification/domain` performs, which
- * is unbounded wall-clock against up to nineteen third-party sites in one
- * request. Reuses `verifyInstitutionEntry` verbatim (the same service that
- * route calls) — no second verification implementation.
+ * ── WHY "one institution per call" WAS NOT ENOUGH ──────────────────────────
  *
- * A caller (the Research Copilot, or the Track 2 panel) drives this
- * repeatedly until `exhausted: true`, exactly mirroring how
- * `.../acquisition/run-step` is already driven. This is a deterministic,
- * bounded, already-Steward-authorised machine act — traced from
- * `registryVerification.ts` before this route was written: no human
- * judgement decides a verification OUTCOME (it is mechanically derived from
- * HTTP responses and content inspection), so it does not need its own
- * separate approval gate beyond the admin auth already required here.
+ * `verifyInstitutionEntry` chains THREE external-HTTP-heavy operations in
+ * one call — resolve the seed URL, discover document candidates (itself up
+ * to six sequential page fetches), then fetch+inspect up to five candidate
+ * documents. Any one of those can independently stall, and the live
+ * evidence was a real HTTP 504 on this exact route (BIS, after the
+ * "ratified-but-unverified" fix shipped in 8360afc64: "Discovering via
+ * BIS…" then the request died). Bounding to one INSTITUTION per call did
+ * not bound the WALL-CLOCK of that institution's own request.
+ *
+ * `runOneInstitutionVerificationStep` (`crystalAcquisitionJob.ts`) now
+ * calls `runVerificationStep` (`services/corpusScout/registryVerification.ts`)
+ * — the resumable primitive that performs EXACTLY ONE bounded external
+ * operation (resolve-seed / discover-candidates / fetch-document[cursor])
+ * per call, racing it against `VERIFICATION_STEP_DEADLINE_MS` (comfortably
+ * below the hosting request ceiling) and persisting phase/cursor progress
+ * on the registry row between calls. A losing race returns `status:
+ * 'in-progress'` with the SAME phase/cursor — never an empty 504 — so a
+ * caller drives this repeatedly, exactly mirroring how
+ * `.../acquisition/run-step` is already driven.
+ *
+ * No second verification implementation: `runVerificationStep` composes the
+ * SAME `resolveSeedPhase`/`discoverCandidatesPhase`/`inspectCandidatePhase`
+ * functions the one-shot `runVerification` (still used by the single-entry
+ * admin route and the whole-domain sweep) composes.
+ *
+ * This is a deterministic, bounded, already-Steward-authorised machine act
+ * — traced from `registryVerification.ts` before it was written: no human
+ * judgement decides a verification OUTCOME, so it needs no separate
+ * approval gate beyond the admin auth already required here.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -37,10 +52,11 @@ import {
 import { DEFAULT_ACQUISITION_DOMAIN } from '@/services/research/researchProgrammeOrchestrator';
 
 export const dynamic = 'force-dynamic';
-// One institution's seed-resolve + document-discovery + up-to-five-document
-// retrieval/inspection pass — bounded, but real external HTTP, so this
-// stays generous the same way the acquisition run-step route already is.
-export const maxDuration = 120;
+// Generous relative to VERIFICATION_STEP_DEADLINE_MS (20s) — this is a
+// backstop for the route/framework overhead around the race, never the
+// mechanism that bounds the external work itself (that is the internal
+// race in runVerificationStep).
+export const maxDuration = 60;
 
 export async function POST(
   req: NextRequest,
@@ -82,19 +98,43 @@ export async function POST(
     );
   }
 
-  const step = await runOneInstitutionVerificationStep(admin, acquisitionDomain);
+  const outer = await runOneInstitutionVerificationStep(admin, acquisitionDomain);
 
+  if (!outer.institution || !outer.step) {
+    // Nothing eligible at all — the loop-control `done` signal, unrelated
+    // to any single request's wall-clock.
+    return NextResponse.json(
+      { ok: true, status: 'exhausted', institution: null, outcome: null, diagnostics: null, exhausted: true, nextAction: 'none', done: true },
+      { headers: { 'Cache-Control': 'no-store' } },
+    );
+  }
+
+  const step = outer.step;
+  if (!step.ok) {
+    // A structured, honest per-institution failure (e.g. a malformed
+    // checkpoint or an unreadable row) — never a thrown exception, and
+    // never treated as "nothing left to verify".
+    return NextResponse.json(
+      { ok: false, error: step.error, institution: outer.institution },
+      { status: 500, headers: { 'Cache-Control': 'no-store' } },
+    );
+  }
+
+  const terminal = step.status !== 'in-progress';
   return NextResponse.json(
     {
       ok: true,
-      institution: step.institution,
-      result: step.result,
-      exhausted: step.exhausted,
-      // Loop-control, mirroring run-step's own `done` — the caller stops
-      // calling this route once every ratified institution has had its one
-      // automatic first pass. Never a claim about acquisition readiness;
-      // that is `run-step`'s own `readinessSatisfied`/`done`, untouched.
-      done: step.exhausted,
+      status: step.status,
+      institution: outer.institution,
+      outcome: terminal ? step.outcome : null,
+      diagnostics: step.diagnostics,
+      // Loop-control: the caller stops calling this route once every
+      // ratified institution has reached a terminal verification status.
+      // NEVER equivalent to `terminal` above — one institution finishing
+      // does not mean the domain is exhausted; there may be 18 more.
+      exhausted: false,
+      nextAction: 'continue-verification',
+      done: false,
     },
     { headers: { 'Cache-Control': 'no-store' } },
   );

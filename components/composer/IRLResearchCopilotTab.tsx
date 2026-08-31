@@ -1701,10 +1701,20 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
    * requested here — `decision.verificationTarget` only appears when an
    * approval is ALREADY active, so this click drives:
    *
-   *   1. POST .../acquisition/verify-step, repeated — EACH call verifies
-   *      exactly one ratified institution still in its first-pass state
-   *      (`runOneInstitutionVerificationStep`), never the whole-domain
-   *      sweep. Stops on the server's own `done: true`.
+   *   1. POST .../acquisition/verify-step, repeated — EACH call performs
+   *      EXACTLY ONE bounded phase (resolve-seed / discover-candidates /
+   *      fetch-document[cursor]) for one institution
+   *      (`runOneInstitutionVerificationStep` -> `runVerificationStep`,
+   *      2026-08-31 "verification wall-clock granularity" repair — a live
+   *      HTTP 504 on this exact route for BIS proved one-institution-per-
+   *      call was not bounded enough, since one institution alone can chain
+   *      resolve + discover + up to five document fetches). A `status:
+   *      'in-progress'` response is a NORMAL step, not an error — the loop
+   *      just calls again; nineteen institutions now legitimately take many
+   *      more (individually fast) round-trips than before, hence the much
+   *      larger client-side backstop below. Stops on the server's own
+   *      `done: true` (nothing left with any outstanding verification
+   *      work), never on a fixed institution count.
    *   2. `runDiscoverySteps` — the SAME bounded discovery loop
    *      `approveTargetedAcquisition` uses (no second implementation) —
    *      recomputing eligibility fresh; if verification made ≥1 institution
@@ -1712,7 +1722,7 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
    *   3. `runProgramme` — continues the programme exactly like the
    *      acquisition flow's own final step.
    */
-  const MAX_CLIENT_VERIFICATION_STEPS = 40;
+  const MAX_CLIENT_VERIFICATION_STEPS = 400;
   const runInstitutionVerification = useCallback(async (decision: PendingGovernanceDecision) => {
     const experimentIdForDecision = decision.deepLink.experimentId;
     setVerificationRunning(true);
@@ -1734,9 +1744,9 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
         const stepData = await stepRes.json().catch(() => null) as {
           ok?: boolean;
           error?: string;
+          status?: string;
           institution?: { institutionName: string } | null;
-          result?: { outcome?: { status?: string } | null } | null;
-          exhausted?: boolean;
+          diagnostics?: { phase?: string; cursor?: number } | null;
           done?: boolean;
         } | null;
         if (!stepRes.ok || !stepData || stepData.ok !== true) {
@@ -1744,12 +1754,12 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
         }
         setVerificationStatus(
           stepData.institution
-            ? `Verified ${stepData.institution.institutionName} — ${stepData.result?.outcome?.status ?? "checked"}…`
+            ? `Verifying ${stepData.institution.institutionName} — ${stepData.diagnostics?.phase ?? stepData.status}${typeof stepData.diagnostics?.cursor === "number" ? ` (${stepData.diagnostics.cursor})` : ""}…`
             : "No further ratified institution to verify…",
         );
         observe(surfacePromptSelectedEvent(
           SURFACE,
-          `verification step: ${stepData.institution?.institutionName ?? "none"} — status=${stepData.result?.outcome?.status ?? "n/a"}, exhausted=${stepData.exhausted}`,
+          `verification step: ${stepData.institution?.institutionName ?? "none"} — status=${stepData.status}, phase=${stepData.diagnostics?.phase ?? "n/a"}`,
         ));
         if (stepData.done) break;
       }
