@@ -59,10 +59,21 @@ vi.mock('@/services/corpusScout/domainConstitution', () => ({
 const mockListCandidates = vi.fn();
 const mockRunConstitutionalDiscovery = vi.fn();
 const mockListEvidence = vi.fn().mockResolvedValue([]);
+// buildDomainLineageIndex / deriveSourceLineage back the ADMISSION QUEUE
+// enrichment (2026-08-31, "Review & Admit machine-preparation" repair) —
+// `prepareAdmissionRecommendations` (services/corpusScout/admissionPreparation.ts)
+// calls the SAME two functions the pre-existing review-and-promote queue's own
+// lineage lookups use elsewhere in this codebase. Defaulted to a no-lineage
+// result so every PRE-EXISTING fixture in this file (which never seeds
+// lineage) gets the same behaviour as before this enrichment existed.
+const mockBuildDomainLineageIndex = vi.fn().mockResolvedValue({});
+const mockDeriveSourceLineage = vi.fn().mockReturnValue([]);
 vi.mock('@/services/invariants/discoveryEngine', () => ({
   listCandidates: (...args: unknown[]) => mockListCandidates(...args),
   runConstitutionalDiscovery: (...args: unknown[]) => mockRunConstitutionalDiscovery(...args),
   listEvidence: (...args: unknown[]) => mockListEvidence(...args),
+  buildDomainLineageIndex: (...args: unknown[]) => mockBuildDomainLineageIndex(...args),
+  deriveSourceLineage: (...args: unknown[]) => mockDeriveSourceLineage(...args),
 }));
 
 // findDuplicates backs the review-queue's pre-flight duplicate warning
@@ -1700,6 +1711,132 @@ describe('the review & promote queue — successor candidates rendered as a real
     if ('error' in state) throw new Error('unexpected error result');
     expect(state.pendingDecision!.reviewQueue).toHaveLength(1);
     expect(state.pendingDecision!.reviewQueue![0].evidence).toEqual([]);
+  });
+});
+
+// ── THE ADMISSION QUEUE — Stage 2 machine preparation, run automatically ────
+//
+// "Review & Admit machine-preparation" repair (2026-08-31): before this,
+// `loadTrack2ProgrammeState` never ran `prepareAdmissionRecommendations` at
+// all — a steward reaching Stage 2 through the Copilot saw only raw
+// admitted/pendingReview COUNTS, with no cohort, no duplicate signal and no
+// CTA beyond "go open Corpus Scout yourself". This mirrors the review-and-
+// promote queue block immediately above, one stage earlier: the SAME
+// preparation "Prepare recommendations" already computed now runs on every
+// read, so the Copilot's `pendingDecision` for Stage 2 is a PREPARED cohort,
+// never 18 raw rows.
+
+function pendingSourceRow(overrides: Record<string, unknown> = {}) {
+  return {
+    sourceId: 'SRC-a',
+    campaignDomain: 'financial-services',
+    campaignSubDomain: 'banking',
+    title: 'BIS Working Paper No. 999',
+    issuer: 'BIS',
+    canonicalUrl: 'https://bis.org/wp999.pdf',
+    artifactHash: 'a'.repeat(64),
+    normalizedTextHash: 'text-a',
+    publicationDate: '2026-01-01',
+    authors: ['BIS'],
+    extractionStatus: 'ok' as const,
+    extractionWarnings: [] as string[],
+    structuralTags: [] as string[],
+    licenseStatus: 'unknown',
+    reviewWorkflowStatus: 'pending_review' as const,
+    evidenceRowId: null,
+    duplicateOfSourceId: null,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    ...overrides,
+  };
+}
+
+describe('the admission queue — Stage 2 sources rendered as a real, prepared decision surface (2026-08-31)', () => {
+  it('the pending decision for review-and-admit carries a machine recommendation per pending source, and an admissionDomain', async () => {
+    seedSubstrate({
+      sources: [pendingSourceRow({ sourceId: 'SRC-only' })],
+    });
+    const state = await loadTrack2ProgrammeState({ experimentId: EXPERIMENT });
+    if ('error' in state) throw new Error('unexpected error result');
+    expect(state.pendingDecision?.stageId).toBe('review-and-admit');
+    expect(state.pendingDecision?.admissionQueue).toHaveLength(1);
+    const entry = state.pendingDecision!.admissionQueue![0];
+    expect(entry.sourceId).toBe('SRC-only');
+    // A real recommendation, not a placeholder — it carries a class and a
+    // stated rationale, computed by the SAME composeAdmissionRecommendation
+    // "Prepare recommendations" already used.
+    expect(entry.admissionClass).toBeTruthy();
+    expect(entry.rationale.length).toBeGreaterThan(0);
+    expect(state.pendingDecision?.admissionDomain).toBe('financial-services');
+  });
+
+  it('an exact-duplicate pair surfaces a deterministic duplicateResolutions plan — never silently dropped', async () => {
+    seedSubstrate({
+      sources: [
+        // Richer metadata (a page count the other copy lacks) is what
+        // `scoreCopy` actually separates on — two otherwise-identical copies
+        // with NO quality difference are correctly `genuine-judgment-required`
+        // (pinned separately below), so this fixture gives the copies a real,
+        // scoreable difference.
+        pendingSourceRow({ sourceId: 'SRC-dup-1', artifactHash: 'd'.repeat(64), canonicalUrl: 'https://bis.org/dup-1.pdf', normalizedTextHash: 'dup-text-1', pageCount: 42 }),
+        pendingSourceRow({ sourceId: 'SRC-dup-2', artifactHash: 'd'.repeat(64), canonicalUrl: 'https://bis.org/dup-2.pdf', normalizedTextHash: 'dup-text-2', pageCount: null }),
+      ],
+    });
+    const state = await loadTrack2ProgrammeState({ experimentId: EXPERIMENT });
+    if ('error' in state) throw new Error('unexpected error result');
+    expect(state.pendingDecision?.duplicateResolutions).toHaveLength(1);
+    const plan = state.pendingDecision!.duplicateResolutions![0];
+    expect(new Set([plan.canonicalSourceId, ...plan.aliasSourceIds])).toEqual(new Set(['SRC-dup-1', 'SRC-dup-2']));
+    // Both sources are still ADMISSION-QUEUE entries too — a duplicate group
+    // is prepared alongside the recommendation queue, never instead of it.
+    expect(state.pendingDecision?.admissionQueue).toHaveLength(2);
+  });
+
+  it('admissionQueue and admissionDomain are absent when nothing is pending_review — never an empty-but-present array masking a resolved queue', async () => {
+    seedSubstrate({
+      sources: [{ reviewWorkflowStatus: 'approved_exp_p1', evidenceRowId: 'ev-1' }],
+    });
+    const state = await loadTrack2ProgrammeState({ experimentId: EXPERIMENT });
+    if ('error' in state) throw new Error('unexpected error result');
+    expect(state.pendingDecision?.admissionQueue).toBeUndefined();
+    expect(state.pendingDecision?.admissionDomain).toBeUndefined();
+  });
+
+  it('admissionQueue is absent on every OTHER stage’s pending decision (acquisitionBrief’s own stage, for instance)', async () => {
+    seedSubstrate({
+      sources: [],
+      candidates: [],
+      readiness: readiness({
+        invariantCount: 11,
+        checks: [{ name: 'selection-space', tier: 'scientific-readiness', passed: false, detail: '', remedy: 'grow the collection' } as never],
+        populationRequirement: {
+          derivable: true, insufficientInputs: [], sliceFractionOfCrystal: 0.4, sliceGuardSourceRef: 'ref',
+          sliceDemandBasis: 'registered-minimum-task-design', requiredEvaluationSliceSize: 24, minimumCollectionSize: 60,
+          requiredEntailmentChains: 12, requiredRelationalMembersInSlice: 24,
+        } as never,
+        inferentialCapacity: {
+          assessedCount: 11, relationalMemberCount: 0, relationalMemberFraction: 0, bareNecessityCount: 0, unparsedCount: 0,
+          entailmentChains: [], entailmentChainCount: 0, inferentiallyCapableCount: 0, inferentialCapacityFraction: 0,
+          degenerateNecessityChainCount: 0, structuresPresent: [], structuresAbsent: ['causal', 'conditional'],
+        } as never,
+        coverage: { boundaryNamespaceCount: 15, representedNamespaceCount: 2, ratio: 2 / 15, representedNamespaces: ['ns-a'], missingNamespaces: ['ns-c'] },
+      }),
+    });
+    mockCurrentCrystalArtifactId.mockResolvedValue(`${EXPERIMENT}/crystal-vP2`);
+    const state = await loadTrack2ProgrammeState({ experimentId: EXPERIMENT });
+    if ('error' in state) throw new Error('unexpected error result');
+    expect(state.pendingDecision?.stageId).toBe('discover-sources');
+    expect(state.pendingDecision?.acquisitionBrief).toBeDefined();
+    expect(state.pendingDecision?.admissionQueue).toBeUndefined();
+  });
+
+  it('a preparation failure (the lineage read throws) never hides the stop itself — the raw counts still surface, admissionQueue simply stays absent', async () => {
+    seedSubstrate({ sources: [pendingSourceRow({ sourceId: 'SRC-only' })] });
+    mockBuildDomainLineageIndex.mockRejectedValueOnce(new Error('lineage substrate down'));
+    const state = await loadTrack2ProgrammeState({ experimentId: EXPERIMENT });
+    if ('error' in state) throw new Error('unexpected error result');
+    expect(state.pendingDecision?.stageId).toBe('review-and-admit');
+    expect(state.pendingDecision?.detail).toContain('awaiting review');
+    expect(state.pendingDecision?.admissionQueue).toBeUndefined();
   });
 });
 

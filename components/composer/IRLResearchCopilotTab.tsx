@@ -600,6 +600,10 @@ function ObjectiveCard({
   verificationRunning,
   verificationError,
   verificationStatus,
+  onResolveDuplicates,
+  admissionRunning,
+  admissionError,
+  admissionStatus,
 }: {
   objective: ResearchObjective;
   run: ProgrammeRunResult | null;
@@ -670,6 +674,17 @@ function ObjectiveCard({
   verificationRunning: boolean;
   verificationError: string | null;
   verificationStatus: string | null;
+  /**
+   * "RESOLVE DETERMINISTIC DUPLICATES" (2026-08-31, "Review & Admit
+   * machine-preparation" repair) — the control for
+   * `decision.duplicateResolutions`. Resolves every exact-duplicate group
+   * whose quality signals already separate the copies, through the EXISTING
+   * `resolve-duplicates` route — no new write path.
+   */
+  onResolveDuplicates: (decision: PendingGovernanceDecision) => void;
+  admissionRunning: boolean;
+  admissionError: string | null;
+  admissionStatus: string | null;
 }) {
   const gate = run?.measurementLayerGate ?? null;
   const programme = run?.programme ?? programmePreview;
@@ -685,6 +700,21 @@ function ObjectiveCard({
    * freshness preference, not two competing derivations.
    */
   const decision = run?.pendingDecision ?? pendingDecisionPreview;
+
+  // ADMISSION QUEUE COHORT SUMMARY (2026-08-31) — computed here, as plain
+  // sequential locals rather than inside the JSX below, so the values stay
+  // simply typed (never re-reading a possibly-`undefined` property through a
+  // nested closure).
+  const admissionQueue = decision?.admissionQueue ?? null;
+  const admissionByClass = new Map<string, number>();
+  if (admissionQueue) {
+    for (const r of admissionQueue) admissionByClass.set(r.admissionClass, (admissionByClass.get(r.admissionClass) ?? 0) + 1);
+  }
+  const admissionManualReviewCount = admissionByClass.get("manual review required") ?? 0;
+  const resolvableDuplicateGroups = (decision?.duplicateResolutions ?? []).filter(
+    (p) => p.kind === "recommended-resolution-available",
+  );
+  const resolvableDuplicateAliasCount = resolvableDuplicateGroups.reduce((n, p) => n + p.aliasSourceIds.length, 0);
 
   return (
     <div className="rounded-xl border border-sky-800/50 bg-sky-950/20 p-4 space-y-3">
@@ -1002,7 +1032,83 @@ function ObjectiveCard({
         </div>
       )}
 
-      {decision && !decision.acquisitionBrief && !decision.verificationTarget && !(decision.reviewQueue && decision.reviewQueue.length > 0) && (
+      {/* THE ADMISSION QUEUE — the `review-and-admit` stop rendered as a
+          PREPARED cohort summary (2026-08-31, "Review & Admit
+          machine-preparation" repair), never 18 raw, unprocessed rows with
+          no CTA. `decision.admissionQueue` is the SAME
+          `composeAdmissionRecommendation` computation "Prepare
+          recommendations" already used, now run automatically by
+          `loadTrack2ProgrammeState` on every read. Deterministic duplicates
+          get an EXECUTABLE control here (no per-source human content); the
+          rest (admission-class ratification, genuinely ambiguous
+          duplicates) stays exactly where its full detail already lives —
+          `RecommendationCohorts`/`DuplicateResolutionBoard` in the
+          Experiment Lab's Corpus Scout queue — reached via "Open Review &
+          Admit" below. This card summarizes; it does not re-implement that
+          UI. */}
+      {decision && admissionQueue && admissionQueue.length > 0 && (
+        <div className="rounded border border-violet-500/40 bg-violet-500/10 px-2 py-2 space-y-1.5">
+          <div className="text-[10px] uppercase tracking-wide text-violet-300 font-semibold">
+            Prepared — {decision.stageLabel} · {admissionQueue.length} source(s)
+          </div>
+          <div className="space-y-0.5">
+            {[...admissionByClass.entries()].map(([cls, n]) => (
+              <div key={cls} className="text-[10px] text-slate-300 flex gap-1.5">
+                <span className="text-slate-500 shrink-0">·</span>
+                <span>
+                  {n} recommended → <span className={cls === "manual review required" ? "text-amber-300" : "text-emerald-300"}>{cls}</span>
+                </span>
+              </div>
+            ))}
+            {resolvableDuplicateAliasCount > 0 && (
+              <div className="text-[10px] text-slate-300 flex gap-1.5">
+                <span className="text-slate-500 shrink-0">·</span>
+                <span>{resolvableDuplicateAliasCount} exact-duplicate alias(es) resolvable now — the signals already separate the copies</span>
+              </div>
+            )}
+          </div>
+          {resolvableDuplicateAliasCount > 0 && (
+            <button
+              type="button"
+              onClick={() => onResolveDuplicates(decision)}
+              disabled={admissionRunning}
+              className="mt-1 inline-flex items-center gap-1 rounded border border-violet-500/40 bg-violet-500/25 px-2 py-1 text-[10px] font-semibold text-violet-50 hover:bg-violet-500/35 transition disabled:opacity-50"
+            >
+              {admissionRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : <ShieldCheck className="h-3 w-3" />}
+              {admissionRunning ? (admissionStatus ?? "Working…") : `Resolve ${resolvableDuplicateAliasCount} deterministic duplicate(s)`}
+            </button>
+          )}
+          {admissionError && (
+            <div className="mt-1 rounded border border-rose-500/40 bg-rose-500/10 px-2 py-1.5 text-[10px] text-rose-300">
+              {admissionError}
+              <button
+                type="button"
+                onClick={() => onResolveDuplicates(decision)}
+                className="ml-1.5 underline decoration-rose-700 hover:text-rose-100"
+              >
+                Retry
+              </button>
+            </div>
+          )}
+          <div className="text-[10px] text-slate-400">
+            {admissionManualReviewCount > 0
+              ? `${admissionManualReviewCount} of ${admissionQueue.length} need individual inspection — the rest carry a machine recommendation.`
+              : "Every source carries a machine recommendation."}{" "}
+            Ratify a cohort or inspect individually in Review &amp; Admit.
+          </div>
+          <button
+            type="button"
+            onClick={() => onProceed(decision)}
+            disabled={proceeding || admissionRunning}
+            className="mt-0.5 inline-flex items-center gap-1 text-[10px] text-violet-300/70 hover:text-violet-200 transition disabled:opacity-50"
+          >
+            {proceeding ? <Loader2 className="h-3 w-3 animate-spin" /> : <ArrowRight className="h-3 w-3" />}
+            {proceeding ? "Confirming current state…" : "Open Review & Admit"}
+          </button>
+        </div>
+      )}
+
+      {decision && !decision.acquisitionBrief && !decision.verificationTarget && !(decision.reviewQueue && decision.reviewQueue.length > 0) && !(admissionQueue && admissionQueue.length > 0) && (
         <div className="rounded border border-violet-500/40 bg-violet-500/10 px-2 py-2 space-y-1">
           <div className="text-[10px] uppercase tracking-wide text-violet-300 font-semibold">
             {decision.authority === "governance" ? "Your constitutional act" : "Your judgment"} — {decision.stageLabel}
@@ -1278,6 +1384,13 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
   // server-derived queue count and the UI never race.
   const [reviewBusyId, setReviewBusyId] = useState<string | null>(null);
   const [reviewError, setReviewError] = useState<string | null>(null);
+  // ── RESOLVE DETERMINISTIC DUPLICATES (2026-08-31, "Review & Admit
+  // machine-preparation" repair) — the SAME shape as the verification trio
+  // above, for the bounded (single-call, no external HTTP) duplicate-
+  // resolution write.
+  const [admissionRunning, setAdmissionRunning] = useState(false);
+  const [admissionError, setAdmissionError] = useState<string | null>(null);
+  const [admissionStatus, setAdmissionStatus] = useState<string | null>(null);
 
   // ── C3 Feedback Coordinator (mirrors DevCommandCenterTab.autoPrompt): on a
   // stage-ADVANCING approval, mint ONE `[observed]` auto-turn so the copilot
@@ -1778,6 +1891,53 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
   }, [observe, personaId, runProgramme, runDiscoverySteps]);
 
   /**
+   * "RESOLVE DETERMINISTIC DUPLICATES" (2026-08-31, "Review & Admit
+   * machine-preparation" repair) — the Copilot control for
+   * `decision.duplicateResolutions`: exact-duplicate groups whose quality
+   * signals already separate the copies (`kind:
+   * 'recommended-resolution-available'`), so no per-source human judgement
+   * about WHICH document this is exists to make. Drives the EXISTING
+   * `POST /api/corpus-scout/candidates/resolve-duplicates` (non-dry-run, no
+   * `groupKeys` filter — resolves every deterministic group in one call) —
+   * never a second duplicate-resolution write path. One bounded write, then
+   * `runProgramme` re-reads the authoritative state so the card reflects
+   * what remains (which may now be nothing, or only genuinely ambiguous
+   * groups and/or admission recommendations still awaiting ratification).
+   */
+  const resolveDeterministicDuplicates = useCallback(async (decision: PendingGovernanceDecision) => {
+    const experimentIdForDecision = decision.deepLink.experimentId;
+    const campaignDomain = decision.admissionDomain;
+    if (!campaignDomain) {
+      setAdmissionError("no acquisition domain was carried on this decision — cannot resolve duplicates");
+      return;
+    }
+    setAdmissionRunning(true);
+    setAdmissionError(null);
+    setAdmissionStatus("Resolving deterministic duplicates…");
+    observe(surfacePromptSelectedEvent(SURFACE, `resolve deterministic duplicates requested (${experimentIdForDecision})`));
+    try {
+      const res = await personaFetch(`/api/corpus-scout/candidates/resolve-duplicates`, {
+        method: "POST",
+        cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ campaignDomain, dryRun: false }),
+        ...(personaId ? { personaIdHint: personaId } : {}),
+      });
+      const data = await res.json().catch(() => null) as { ok?: boolean; error?: string; resolved?: number } | null;
+      if (!res.ok || !data || data.ok !== true) {
+        throw new Error((data && typeof data.error === "string" && data.error) || `HTTP ${res.status}`);
+      }
+      setAdmissionStatus(`Resolved ${data.resolved ?? 0} duplicate alias(es) — continuing the programme…`);
+      await runProgramme(experimentIdForDecision);
+      setAdmissionStatus(null);
+    } catch (err) {
+      setAdmissionError(err instanceof Error ? err.message : "duplicate resolution failed");
+      setAdmissionStatus(null);
+    }
+    setAdmissionRunning(false);
+  }, [observe, personaId, runProgramme]);
+
+  /**
    * REVIEW & PROMOTE — one steward disposition per click (2026-08-30,
    * "Review & Promote is a description, not a decision surface" fix).
    *
@@ -2077,6 +2237,10 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
               verificationRunning={verificationRunning}
               verificationError={verificationError}
               verificationStatus={verificationStatus}
+              onResolveDuplicates={(decision) => void resolveDeterministicDuplicates(decision)}
+              admissionRunning={admissionRunning}
+              admissionError={admissionError}
+              admissionStatus={admissionStatus}
             />
           ))}
 
