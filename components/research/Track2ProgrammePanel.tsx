@@ -4874,6 +4874,7 @@ function RelationshipQueue({
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [done, setDone] = useState(0);
+  const [adjudicating, setAdjudicating] = useState(false);
   const [batch, setBatch] = useState<{ running: boolean; progress: number; total: number; summary: string | null }>({
     running: false,
     progress: 0,
@@ -4984,6 +4985,37 @@ function RelationshipQueue({
     () => void writeEdge({ toInvariantId, relation, rationale: rationale.trim() }),
     [writeEdge, toInvariantId, relation, rationale],
   );
+
+  // THE STEWARD ACT for "a crystal member may legitimately have zero
+  // relationships" (operator report, 2026-08-31). Records the durable fact
+  // that this member's relationship candidates were reviewed and none
+  // warranted admission — never a fabricated edge, never a client-only
+  // dismiss. See app/api/research/track2/[experimentId]/
+  // relationship-adjudication/route.ts and services/research/
+  // crystalRelationshipAdjudication.ts.
+  const confirmNoDefensibleEdge = useCallback(async () => {
+    if (!current) return;
+    setAdjudicating(true);
+    setErr(null);
+    try {
+      const reviewedCandidateIds = suggestions.map((s) => `${s.relatedInvariantId}:${s.relationType}`);
+      const res = await personaFetch(
+        `/api/research/track2/${encodeURIComponent(experimentId)}/relationship-adjudication`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ invariantId: current.id, reviewedCandidateIds }),
+        },
+      );
+      const d = await res.json().catch(() => null);
+      if (!d?.ok) throw new Error(d?.error || `adjudication refused (HTTP ${res.status})`);
+      advance();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "adjudication failed");
+    } finally {
+      setAdjudicating(false);
+    }
+  }, [current, suggestions, experimentId, advance]);
 
   const acceptAllHighConfidence = useCallback(async () => {
     setBatch({ running: true, progress: 0, total: queue.length, summary: null });
@@ -5138,7 +5170,22 @@ function RelationshipQueue({
           )}
 
           {!loadingSuggestions && visibleSuggestions.length === 0 && !manualOpen && (
-            <div className="text-slate-500">no suggestion cleared review for this member.</div>
+            <div className="space-y-1.5">
+              <div className="text-slate-500">no suggestion cleared review for this member.</div>
+              <button
+                type="button"
+                onClick={() => void confirmNoDefensibleEdge()}
+                disabled={adjudicating}
+                className="flex items-center gap-1 rounded border border-slate-700 bg-slate-800/60 px-2.5 py-1 font-medium text-slate-100 disabled:opacity-50 hover:bg-slate-700/60"
+              >
+                {adjudicating ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+                Confirm — No Defensible Relationship
+              </button>
+              <div className="text-slate-600">
+                Records that this member's candidates were reviewed and none warranted admission — a
+                zero-relationship member is a legitimate scientific outcome, not left pending.
+              </div>
+            </div>
           )}
 
           {!manualOpen ? (

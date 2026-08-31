@@ -23,9 +23,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { CandidateRow } from '@/services/invariants/discoveryEngine';
 
 const mockGetInvariantsByIds = vi.fn();
+const mockListEdgesForInvariants = vi.fn();
 vi.mock('@/services/invariants/store', () => ({
   getInvariantsByIds: (...args: any[]) => mockGetInvariantsByIds(...args),
-  listEdgesForInvariants: vi.fn(async () => []),
+  listEdgesForInvariants: (...args: any[]) => mockListEdgesForInvariants(...args),
 }));
 
 const mockFindDuplicates = vi.fn();
@@ -35,6 +36,11 @@ vi.mock('@/services/invariants/comparison', () => ({
 
 vi.mock('@/services/research/experimentalPopulations', () => ({
   readEvidenceProvenance: () => null,
+}));
+
+const mockGetValidNoDefensibleEdgeInvariantIds = vi.fn();
+vi.mock('@/services/research/crystalRelationshipAdjudication', () => ({
+  getValidNoDefensibleEdgeInvariantIds: (...args: any[]) => mockGetValidNoDefensibleEdgeInvariantIds(...args),
 }));
 
 import { reconcilePromotedCohort } from '@/services/research/populationReconciliation';
@@ -71,6 +77,10 @@ beforeEach(() => {
   mockGetInvariantsByIds.mockReset();
   mockFindDuplicates.mockReset();
   mockFindDuplicates.mockResolvedValue([]); // default: no deterministic match
+  mockListEdgesForInvariants.mockReset();
+  mockListEdgesForInvariants.mockResolvedValue([]); // default: no edges — every member an orphan
+  mockGetValidNoDefensibleEdgeInvariantIds.mockReset();
+  mockGetValidNoDefensibleEdgeInvariantIds.mockResolvedValue(new Set());
 });
 
 describe('reconcilePromotedCohort — the clean cases', () => {
@@ -227,5 +237,100 @@ describe('CohortMemberRef carries the real statement, not just the truncated lab
     expect(member!.statement).toBe(longStatement);
     expect(member!.label.length).toBeLessThan(longStatement.length);
     expect(member!.label).not.toBe(member!.statement);
+  });
+});
+
+/**
+ * Stage 7 three-state orphan derivation (operator report, 2026-08-31):
+ * a crystal member may legitimately have zero relationships. `orphanRecords`/
+ * `graph.orphanCount` must distinguish (1) unreviewed orphan, (2) reviewed
+ * orphan / no defensible edge, and (3) related member — only (1) is pending.
+ * Exercised ONLY via the optional `adjudicationContext` parameter; every test
+ * above (which never passes it) proves the edge-only behaviour is unchanged
+ * for every caller that does not opt in.
+ */
+describe('reconcilePromotedCohort — Stage 7 reviewed-orphan adjudication (adjudicationContext)', () => {
+  const fakeAdmin = {} as any;
+
+  it('without adjudicationContext, a zero-edge member is an orphan exactly as before — no behaviour change for other callers', async () => {
+    const promoted = [candidate({ id: 'c1', promotedInvariantId: 'inv-1' })];
+    mockGetInvariantsByIds.mockResolvedValue([invariant('inv-1')]);
+    const cohort = await reconcilePromotedCohort(promoted);
+    expect(cohort.graph).toEqual({ relationshipCount: 0, orphanCount: 1 });
+    expect(cohort.orphanRecords.map((r) => r.id)).toEqual(['inv-1']);
+    expect(mockGetValidNoDefensibleEdgeInvariantIds).not.toHaveBeenCalled();
+  });
+
+  it('case 1 — unreviewed orphan: no edge, no adjudication → still pending', async () => {
+    const promoted = [candidate({ id: 'c1', promotedInvariantId: 'inv-1' })];
+    mockGetInvariantsByIds.mockResolvedValue([invariant('inv-1')]);
+    mockGetValidNoDefensibleEdgeInvariantIds.mockResolvedValue(new Set()); // nothing adjudicated
+
+    const cohort = await reconcilePromotedCohort(promoted, { admin: fakeAdmin, experimentId: 'EXP-P1' });
+    expect(cohort.orphanRecords.map((r) => r.id)).toEqual(['inv-1']);
+    expect(cohort.graph).toEqual({ relationshipCount: 0, orphanCount: 1 });
+  });
+
+  it('case 2 — reviewed orphan: no edge, but a valid no-defensible-edge adjudication → resolved, no edge fabricated', async () => {
+    const promoted = [candidate({ id: 'c1', promotedInvariantId: 'inv-1' })];
+    mockGetInvariantsByIds.mockResolvedValue([invariant('inv-1')]);
+    mockGetValidNoDefensibleEdgeInvariantIds.mockResolvedValue(new Set(['inv-1']));
+
+    const cohort = await reconcilePromotedCohort(promoted, { admin: fakeAdmin, experimentId: 'EXP-P1' });
+    expect(cohort.orphanRecords).toEqual([]);
+    // orphanCount drops to 0; relationshipCount stays 0 — resolved by
+    // adjudication, never by inventing an edge.
+    expect(cohort.graph).toEqual({ relationshipCount: 0, orphanCount: 0 });
+  });
+
+  it('case 3 — related member: an admitted edge resolves the member regardless of adjudication state', async () => {
+    const promoted = [
+      candidate({ id: 'c1', promotedInvariantId: 'inv-1' }),
+      candidate({ id: 'c2', promotedInvariantId: 'inv-2' }),
+    ];
+    mockGetInvariantsByIds.mockResolvedValue([invariant('inv-1'), invariant('inv-2')]);
+    mockListEdgesForInvariants.mockResolvedValue([{ fromInvariantId: 'inv-1', toInvariantId: 'inv-2' }]);
+    mockGetValidNoDefensibleEdgeInvariantIds.mockResolvedValue(new Set()); // no adjudication needed
+
+    const cohort = await reconcilePromotedCohort(promoted, { admin: fakeAdmin, experimentId: 'EXP-P1' });
+    expect(cohort.orphanRecords).toEqual([]);
+    expect(cohort.graph).toEqual({ relationshipCount: 1, orphanCount: 0 });
+  });
+
+  it('Stage 7 can complete with zero accepted relationships when every cohort member is a legitimately-adjudicated reviewed orphan', async () => {
+    const promoted = [
+      candidate({ id: 'c1', promotedInvariantId: 'inv-1' }),
+      candidate({ id: 'c2', promotedInvariantId: 'inv-2' }),
+    ];
+    mockGetInvariantsByIds.mockResolvedValue([invariant('inv-1'), invariant('inv-2')]);
+    mockGetValidNoDefensibleEdgeInvariantIds.mockResolvedValue(new Set(['inv-1', 'inv-2']));
+
+    const cohort = await reconcilePromotedCohort(promoted, { admin: fakeAdmin, experimentId: 'EXP-P1' });
+    expect(cohort.orphanRecords).toEqual([]);
+    expect(cohort.graph).toEqual({ relationshipCount: 0, orphanCount: 0 });
+  });
+
+  it('an adjudication-log read failure fails CLOSED — the member stays pending, never silently resolved', async () => {
+    const promoted = [candidate({ id: 'c1', promotedInvariantId: 'inv-1' })];
+    mockGetInvariantsByIds.mockResolvedValue([invariant('inv-1')]);
+    mockGetValidNoDefensibleEdgeInvariantIds.mockRejectedValue(new Error('db down'));
+
+    const cohort = await reconcilePromotedCohort(promoted, { admin: fakeAdmin, experimentId: 'EXP-P1' });
+    expect(cohort.orphanRecords.map((r) => r.id)).toEqual(['inv-1']);
+    expect(cohort.graph).toEqual({ relationshipCount: 0, orphanCount: 1 });
+  });
+
+  it('passes the FULL current cohort member ids to the adjudication read, scoped to this experiment', async () => {
+    const promoted = [
+      candidate({ id: 'c1', promotedInvariantId: 'inv-1' }),
+      candidate({ id: 'c2', promotedInvariantId: 'inv-2' }),
+    ];
+    mockGetInvariantsByIds.mockResolvedValue([invariant('inv-1'), invariant('inv-2')]);
+
+    await reconcilePromotedCohort(promoted, { admin: fakeAdmin, experimentId: 'EXP-P1' });
+    expect(mockGetValidNoDefensibleEdgeInvariantIds).toHaveBeenCalledWith(fakeAdmin, {
+      experimentId: 'EXP-P1',
+      cohortMemberIds: ['inv-1', 'inv-2'],
+    });
   });
 });
