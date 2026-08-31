@@ -1,6 +1,6 @@
 {
-  "version": "0.1.6",
-  "generated_at": "2026-08-31T19:25:00Z",
+  "version": "0.1.7",
+  "generated_at": "2026-08-31T21:04:00Z",
   "repo": "AigentZBeta",
   "entries": [
     {
@@ -158,10 +158,20 @@
       "path": "codexes/packs/agentiq/updates/2026-08-31_aee-xp-three-paper-execution-build-spec.md",
       "type": "build-spec",
       "title": "AEE-XP-001 — Three-Paper Execution Build Specification",
-      "summary": "Implementation-grade programme turning the AEE trilogy into one executable system: CI/KNYTS Progressive Sovereignty on-ramps, shared Financial Services spine, AEE/NBE convergence, authoritative-state adapters, aigentMe orchestration, reusable ExperienceHandoff, IRL and DevOn branch/resume paths, and AR/CPS, DCIR, CTP and DVN alignment.",
+      "summary": "Implementation-grade programme turning the AEE trilogy into one executable system: CI/KNYTS Progressive Sovereignty on-ramps, shared Financial Services spine, AEE/NBE convergence, authoritative-state adapters, aigentMe orchestration, reusable ExperienceHandoff, IRL and DevOn branch/resume paths, AR/CPS + DCIR alignment, and mandatory CTP delivery under AEE-XP-001A.",
       "tags": ["aee", "build-spec", "financial-services", "progressive-sovereignty", "knyts-bridge", "constitutional-internet", "aigentme", "journey-spine", "nbe", "experience-handoff", "irl", "research", "devon", "artifact-runtime", "dcir", "ctp", "dvn"],
       "owners": ["Aigent Z", "Aigent C"],
-      "last_updated": "2026-08-31T19:25:00Z"
+      "last_updated": "2026-08-31T21:04:00Z"
+    },
+    {
+      "id": "aee-xp-ctp-required-delivery-amendment-2026-08-31",
+      "path": "codexes/packs/agentiq/updates/2026-08-31_aee-xp-ctp-required-delivery-amendment.md",
+      "type": "build-spec-amendment",
+      "title": "AEE-XP-001A — CTP Required Delivery Amendment",
+      "summary": "Mandatory AEE-XP delivery: working CTP registry/resolver, Constitutional Runtime execute seam, normalized transition/refusal evidence, implementation singularity and cross-channel equivalence, OCSGA-first migration, consequential Financial Services capstone adoption, and DevOn enforcement.",
+      "tags": ["aee", "build-spec", "ctp", "constitutional-runtime", "implementation-singularity", "ocsga", "financial-services", "devon", "dvn", "receipts", "constitutional-computing"],
+      "owners": ["Aigent Z", "Aigent C"],
+      "last_updated": "2026-08-31T21:04:00Z"
     }
   ]
 }
