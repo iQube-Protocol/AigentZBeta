@@ -4784,3 +4784,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-f2e2c63.md](../build_/COMMITS/COMMIT-f2e2c63.md)
 - Message: agentiq index: register required CTP delivery amendment
+
+## Commit `c05f9c0` — 2026-08-31T21:53:14Z
+- Type: `push`
+- Brief: [COMMIT-c05f9c0.md](../build_/COMMITS/COMMIT-c05f9c0.md)
+- Message: Deliver CTP foundation: constitutional runtime + first migrated OCSGA primitive [merge review/irl-scoped-restoration-2026-08-27]

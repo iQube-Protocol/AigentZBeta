@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`c05f9c0`](https://github.com/iQube-Protocol/AigentZBeta/commit/c05f9c041ea5e8696faa4a2115b5fb2f817fe83c) [push] Deliver CTP foundation: constitutional runtime + first migrated OCSGA primitive [merge review/irl-scoped-restoration-2026-08-27] (Claude, 2026-08-31T21:53:14Z)
 - [`f2e2c63`](https://github.com/iQube-Protocol/AigentZBeta/commit/f2e2c63b1174e94e7f1b7df4edc25291a87628ed) [push] agentiq index: register required CTP delivery amendment (Kn0w1, 2026-08-31T17:07:13-04:00)
 - [`6fbccf8`](https://github.com/iQube-Protocol/AigentZBeta/commit/6fbccf8e77ed2c913603c116d59b7ef2de0fe9ba) [docs] docs(agentiq): register AEE-XP-001 execution build spec (Kn0w1, 2026-08-31T16:12:52-04:00)
 - [`1176148`](https://github.com/iQube-Protocol/AigentZBeta/commit/11761485e5c81dfbca5f85ecb3dcd9abb5f56639) [push] Run Review & Admit preparation automatically; stop offering fake admit/reject for duplicates [merge review/irl-scoped-restoration-2026-08-27] (Claude, 2026-08-31T18:08:16Z)
