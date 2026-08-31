@@ -877,3 +877,79 @@ describe('Track 2 Stage 8 — assignment is derived, never pasted', () => {
     expect(src).toMatch(/!rationale\.trim\(\) \|\|/);
   });
 });
+
+// ── CLASSIFY PROVENANCE — machine recommendation ≠ steward decision
+// (2026-08-30 incident) ──────────────────────────────────────────────────────
+//
+// A steward clicked through Classify Provenance for 3 newly-promoted
+// invariants. The first record never had a class explicitly selected or
+// reviewed — yet the write succeeded and Track 2 marked the stage complete.
+// Root cause: `ClassificationQueue`'s per-record "✓ Accept" and batch
+// "Accept All High-Confidence" controls submitted the machine's own
+// `suggestedClass` directly, bypassing the guarded `<select>`/`to` state and
+// its `disabled={!to || ...}` check entirely — and nothing server-side
+// distinguished that from a genuine steward selection. These canaries pin
+// the UI side of the repair (server-side coverage lives in
+// tests/evidence-provenance-populations.test.ts, describe('the constitutional
+// act — classDisposition is declared, never inferred')).
+
+describe('Classify Provenance — every submission declares WHICH explicit steward act produced the class', () => {
+  it('the manual "Classify & next" path declares classDisposition: operator-selected', () => {
+    const src = stripComments(readSource(PANEL));
+    const fnStart = src.indexOf('const classifyAndNext = useCallback');
+    const fnEnd = src.indexOf('[submit, to, evidenceRefs, rationale]', fnStart);
+    expect(fnStart).toBeGreaterThan(-1);
+    const fnBody = src.slice(fnStart, fnEnd);
+    expect(fnBody).toMatch(/classDisposition:\s*"operator-selected"/);
+  });
+
+  it('the per-record "✓ Accept" path declares recommendation-accepted AND carries the full accepted recommendation', () => {
+    const src = stripComments(readSource(PANEL));
+    const fnStart = src.indexOf('const acceptSuggestion = useCallback');
+    const fnEnd = src.indexOf('[classSuggestion, submit]', fnStart);
+    expect(fnStart).toBeGreaterThan(-1);
+    const fnBody = src.slice(fnStart, fnEnd);
+    expect(fnBody).toMatch(/classDisposition:\s*"recommendation-accepted"/);
+    // The EXACT card the steward saw — never a re-derived or partial value.
+    expect(fnBody).toMatch(/acceptedRecommendation:\s*classSuggestion/);
+  });
+
+  it('"Accept All High-Confidence" ALSO declares recommendation-accepted per-record — a batch click is not exempt from the rule', () => {
+    // This is the control the operator specifically flagged: a click on it is
+    // a real steward act, but confidence alone must never be what completes
+    // the classification. Each record it clears still states, and the server
+    // still independently verifies, the exact recommendation it accepted.
+    const src = stripComments(readSource(PANEL));
+    const fnStart = src.indexOf('const acceptAllHighConfidence = useCallback');
+    const fnEnd = src.indexOf('[queue, fetchSuggestion, onDone]', fnStart);
+    expect(fnStart).toBeGreaterThan(-1);
+    const fnBody = src.slice(fnStart, fnEnd);
+    expect(fnBody).toMatch(/classDisposition:\s*"recommendation-accepted"/);
+    expect(fnBody).toMatch(/acceptedRecommendation:\s*s\b/);
+  });
+
+  it('every submit() call site in this queue declares a classDisposition — none can silently omit it', () => {
+    const src = stripComments(readSource(PANEL));
+    const fnStart = src.indexOf('function ClassificationQueue(');
+    const fnEnd = src.indexOf('\nfunction ', fnStart + 1);
+    const fnBody = src.slice(fnStart, fnEnd > -1 ? fnEnd : undefined);
+    // Every call that posts `action: "classify"` (the guarded submit() plus
+    // the standalone batch fetch inside acceptAllHighConfidence) carries the
+    // literal string "classDisposition" — three occurrences: the type
+    // declaration on submit's own args, and the two direct POST bodies
+    // (submit's own body, and the batch's per-record body).
+    const classifyPosts = (fnBody.match(/action:\s*"classify"/g) ?? []).length;
+    const dispositionMentions = (fnBody.match(/classDisposition/g) ?? []).length;
+    expect(classifyPosts).toBeGreaterThan(0);
+    expect(dispositionMentions).toBeGreaterThanOrEqual(classifyPosts + 1); // +1 for submit()'s own arg type
+  });
+
+  it('the OTHER classify surface (InvariantDiscoveryTab, manual-only, no suggestion pre-select) also declares operator-selected', () => {
+    const src = stripComments(readSource('components/composer/InvariantDiscoveryTab.tsx'));
+    const fnStart = src.indexOf('const classify = useCallback');
+    const fnEnd = src.indexOf('[classifyFor, post, load]', fnStart);
+    expect(fnStart).toBeGreaterThan(-1);
+    const fnBody = src.slice(fnStart, fnEnd);
+    expect(fnBody).toMatch(/classDisposition:\s*"operator-selected"/);
+  });
+});

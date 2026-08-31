@@ -271,6 +271,33 @@ export function partitionByPopulation<T>(
  * arrive with the evidence that justifies it and leave a trace — not be a
  * field someone edited.
  */
+/**
+ * THE CONSTITUTIONAL ACT ITSELF — never inferred, never defaulted (2026-08-30,
+ * "Classify Provenance completed by omission" incident: a promoted invariant's
+ * evidence-provenance class landed via a one-click batch/"Accept" control with
+ * NO steward selection or review ever recorded, and Track 2 counted it as
+ * validly classified anyway). Every `ProvenanceReclassification` MUST declare
+ * exactly which explicit steward act produced `to`:
+ *
+ *   'operator-selected'       the steward picked `to` from the ratified class
+ *                             list themselves — the manual dropdown/form.
+ *   'recommendation-accepted' the steward explicitly endorsed the machine's
+ *                             OWN suggestion for `to` via a dedicated Accept
+ *                             act — never inferred from confidence alone (a
+ *                             batch "Accept All High-Confidence" control is
+ *                             still ONE deliberate steward click; each record
+ *                             it clears must still carry this same
+ *                             declaration, verified against the ACCEPTED
+ *                             recommendation it names — see
+ *                             `acceptedRecommendation` below).
+ *
+ * There is no third, default, or omitted value. `applyProvenanceReclassification`
+ * refuses any event whose `classDisposition` is not one of these two — the
+ * machine's recommendation is never, by itself, a steward decision.
+ */
+export type ClassDisposition = 'operator-selected' | 'recommendation-accepted';
+export const CLASS_DISPOSITIONS: readonly ClassDisposition[] = ['operator-selected', 'recommendation-accepted'];
+
 export interface ProvenanceReclassification {
   from: ProvenanceClass | null;
   to: ProvenanceClass;
@@ -303,6 +330,33 @@ export interface ProvenanceReclassification {
   fieldOrigin?: {
     evidenceRefs: 'suggested' | 'edited' | 'operator';
     rationale: 'suggested' | 'edited' | 'operator';
+  };
+  /**
+   * WHICH explicit act produced `to` — see {@link ClassDisposition}. REQUIRED
+   * (never optional, unlike `fieldOrigin` above): the class itself is "the
+   * constitutional act" every comment in this module already calls it, so it
+   * gets the strictest treatment in the bag, not the same optional/best-effort
+   * annotation `evidenceRefs`/`rationale` carry.
+   */
+  classDisposition: ClassDisposition;
+  /**
+   * REQUIRED when `classDisposition === 'recommendation-accepted'`, absent
+   * otherwise. The EXACT recommendation the steward endorsed — never
+   * re-derived from a second, independent model call at write time (that
+   * would risk refusing a legitimate accept on ordinary model non-determinism,
+   * and adds an unnecessary inference call to a write path). Validated
+   * structurally instead: `suggestedClass` must equal `to`, `reason` must be
+   * non-blank, `confidence` must be a finite 0-100 — i.e. the caller must
+   * produce a genuine, internally-consistent recommendation object, not merely
+   * flip a disposition flag. This is also the durable audit record of exactly
+   * what was accepted and at what confidence.
+   */
+  acceptedRecommendation?: {
+    suggestedClass: string;
+    confidence: number;
+    primarySource: string | null;
+    supportingSources: string[];
+    reason: string;
   };
 }
 
@@ -354,6 +408,33 @@ export function applyProvenanceReclassification(
   if (!(PROVENANCE_CLASSES as readonly string[]).includes(event.to)) {
     return { ok: false, error: `'${event.to}' is not a ratified evidence-provenance class` };
   }
+  // THE CONSTITUTIONAL ACT, DECLARED — never inferred, never defaulted
+  // (2026-08-30 incident). No caller — the guarded manual form, the
+  // per-record Accept, the batch Accept-All, or a raw API call — can write a
+  // class without stating which explicit steward act produced it.
+  if (!CLASS_DISPOSITIONS.includes(event.classDisposition)) {
+    return {
+      ok: false,
+      error:
+        "a provenance reclassification must declare classDisposition ('operator-selected' or " +
+        "'recommendation-accepted') — the evidence-provenance class is the constitutional act and must never " +
+        'be completed by omission or inferred assent',
+    };
+  }
+  if (event.classDisposition === 'recommendation-accepted') {
+    const rec = event.acceptedRecommendation;
+    const reason = typeof rec?.reason === 'string' ? rec.reason.trim() : '';
+    const confidence = typeof rec?.confidence === 'number' ? rec.confidence : NaN;
+    if (!rec || rec.suggestedClass !== event.to || !reason || !Number.isFinite(confidence) || confidence < 0 || confidence > 100) {
+      return {
+        ok: false,
+        error:
+          "classDisposition 'recommendation-accepted' requires the accepted recommendation itself " +
+          '(acceptedRecommendation.suggestedClass matching `to`, a non-blank reason, and a 0-100 confidence) — ' +
+          'a machine recommendation may never be accepted blind, and confidence alone is never sufficient',
+      };
+    }
+  }
   if (!Array.isArray(event.evidenceRefs) || event.evidenceRefs.filter((r) => typeof r === 'string' && r.trim()).length === 0) {
     return {
       ok: false,
@@ -384,12 +465,31 @@ export function applyProvenanceReclassification(
     };
   }
   const from = readEvidenceProvenance(provenance);
+  const prior = readReclassifications(provenance);
   if (from === event.to) {
-    return { ok: false, error: `already classified '${event.to}' — nothing to reclassify` };
+    // GRANDFATHERED REPAIR (2026-08-30 incident) — a same-value "reclassification"
+    // is ordinarily a no-op the log must never pollute (recording an event for
+    // nothing that happened). But a record whose CURRENT class was written
+    // before `classDisposition` existed — or, per this incident, written by a
+    // path that bypassed it — carries no valid governance for the value it
+    // already holds. That is exactly the state this fix must be able to
+    // REPAIR through this SAME canonical function, never a direct edit: one
+    // re-affirmation to the identical class, this time with a real
+    // `classDisposition`, is permitted precisely because the active
+    // classification has never been governed. Once repaired, the newly
+    // appended entry IS governed, so a further same-value attempt is refused
+    // exactly as before — this is a one-time door, not a standing exception.
+    // No prior reclassification EVENT at all (a bag with `provenanceClass`
+    // set some other way) is treated as already-settled, same as before this
+    // fix — the repair door opens ONLY for a record that genuinely went
+    // through this function once already and got no valid disposition
+    // recorded, never for an arbitrary externally-set value.
+    const latest = prior[prior.length - 1] as Partial<ProvenanceReclassification> | undefined;
+    const alreadyGoverned = prior.length === 0 || CLASS_DISPOSITIONS.includes(latest?.classDisposition as ClassDisposition);
+    if (alreadyGoverned) {
+      return { ok: false, error: `already classified '${event.to}' — nothing to reclassify` };
+    }
   }
-  const prior = Array.isArray(provenance?.[RECLASSIFICATION_LOG_KEY])
-    ? (provenance![RECLASSIFICATION_LOG_KEY] as unknown[])
-    : [];
   const record: ProvenanceReclassification = { ...event, from };
   return {
     ok: true,

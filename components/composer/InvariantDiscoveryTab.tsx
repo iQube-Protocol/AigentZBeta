@@ -476,6 +476,9 @@ export default function InvariantDiscoveryTab() {
         to: classifyFor.to,
         evidenceRefs: refs,
         rationale: classifyFor.rationale,
+        // This form never pre-selects a class (see the `<select>` above) —
+        // every submission through it is the steward's own manual pick.
+        classDisposition: "operator-selected",
       },
       `classify-${classifyFor.invariantId}`,
       { silent: true },

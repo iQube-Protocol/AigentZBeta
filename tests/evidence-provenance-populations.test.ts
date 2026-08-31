@@ -301,7 +301,7 @@ describe('provenance reclassification', () => {
     // a field edit becomes indistinguishable from corpus acquisition.
     const r = applyProvenanceReclassification(
       { provenanceClass: 'platform-derived' },
-      { to: 'external-established', evidenceRefs: [], rationale: 'because', at: '2026-08-01T00:00:00Z', actor: 'a' },
+      { to: 'external-established', evidenceRefs: [], rationale: 'because', at: '2026-08-01T00:00:00Z', actor: 'a', classDisposition: 'operator-selected' },
     );
     expect(r.ok).toBe(false);
     expect(r.ok === false && r.error).toMatch(/evidenceRef/);
@@ -310,7 +310,7 @@ describe('provenance reclassification', () => {
   it('REFUSES a class change with blank-string evidence refs', () => {
     const r = applyProvenanceReclassification(
       { provenanceClass: 'platform-derived' },
-      { to: 'external-established', evidenceRefs: ['  ', ''], rationale: 'x', at: 'now', actor: 'a' },
+      { to: 'external-established', evidenceRefs: ['  ', ''], rationale: 'x', at: 'now', actor: 'a', classDisposition: 'operator-selected' },
     );
     expect(r.ok).toBe(false);
   });
@@ -326,6 +326,7 @@ describe('provenance reclassification', () => {
         rationale: 'it recurs',
         at: 'now',
         actor: 'a',
+        classDisposition: 'operator-selected',
       },
     );
     expect(r.ok).toBe(false);
@@ -341,6 +342,7 @@ describe('provenance reclassification', () => {
         rationale: 'independently re-derived from the acquired external corpus',
         at: '2026-09-01T00:00:00Z',
         actor: 'corpus-scout',
+        classDisposition: 'operator-selected',
       },
     );
     expect(r.ok).toBe(true);
@@ -357,7 +359,7 @@ describe('provenance reclassification', () => {
     // Mutation: overwrite instead of append (or drop `from`) → fails.
     const first = applyProvenanceReclassification(
       { provenanceClass: 'platform-hypothesized' },
-      { to: 'platform-derived', evidenceRefs: ['services/x.ts'], rationale: 'artefact evidence found', at: 't1', actor: 'a' },
+      { to: 'platform-derived', evidenceRefs: ['services/x.ts'], rationale: 'artefact evidence found', at: 't1', actor: 'a', classDisposition: 'operator-selected' },
     );
     expect(first.ok).toBe(true);
     if (!first.ok) return;
@@ -367,6 +369,7 @@ describe('provenance reclassification', () => {
       rationale: 'external corpus landed',
       at: 't2',
       actor: 'b',
+      classDisposition: 'operator-selected',
     });
     expect(second.ok).toBe(true);
     if (!second.ok) return;
@@ -379,9 +382,12 @@ describe('provenance reclassification', () => {
   });
 
   it('REFUSES a no-op reclassification', () => {
+    // No prior reclassification log entry at all — treated as already-settled
+    // (2026-08-30: the grandfathered repair door opens only for a record with
+    // a REAL prior event lacking valid governance, never a bare fixture).
     const r = applyProvenanceReclassification(
       { provenanceClass: 'platform-derived' },
-      { to: 'platform-derived', evidenceRefs: ['x'], rationale: 'y', at: 't', actor: 'a' },
+      { to: 'platform-derived', evidenceRefs: ['x'], rationale: 'y', at: 't', actor: 'a', classDisposition: 'operator-selected' },
     );
     expect(r.ok).toBe(false);
   });
@@ -389,7 +395,7 @@ describe('provenance reclassification', () => {
   it('REFUSES an unratified target class', () => {
     const r = applyProvenanceReclassification(
       {},
-      { to: 'external-vibes' as never, evidenceRefs: externalEvidence, rationale: 'y', at: 't', actor: 'a' },
+      { to: 'external-vibes' as never, evidenceRefs: externalEvidence, rationale: 'y', at: 't', actor: 'a', classDisposition: 'operator-selected' },
     );
     expect(r.ok).toBe(false);
   });
@@ -402,9 +408,249 @@ describe('provenance reclassification', () => {
       rationale: 'y',
       at: 't',
       actor: 'a',
+      classDisposition: 'operator-selected',
     });
     expect(input.provenanceClass).toBe('platform-derived');
     expect(readReclassifications(input)).toEqual([]);
+  });
+});
+
+// ── 5b · THE CONSTITUTIONAL ACT — classDisposition is declared, never
+// inferred (2026-08-30 incident: a promoted invariant's evidence-provenance
+// class landed via a one-click Accept/Accept-All control with NO steward
+// selection or review ever recorded, and Track 2 counted it as validly
+// classified anyway). Server-side enforcement is the load-bearing half of
+// the repair — "must not be merely a disabled-button UI guard" — so these
+// tests call `applyProvenanceReclassification` directly, never through a
+// mocked route. UI-side coverage lives in tests/track2-steward-workflow.test.ts.
+
+describe('the constitutional act — classDisposition is declared, never inferred', () => {
+  const goodEvidence = ['https://www.bis.org/cpmi/publ/d216.htm'];
+  const goodRationale = 'Steward inspected the acquired CPMI document.';
+  const suggestion = {
+    suggestedClass: 'external-established' as const,
+    confidence: 92,
+    primarySource: 'https://www.bis.org/cpmi/publ/d216.htm',
+    supportingSources: [],
+    reason: 'A BIS CPMI publication states this directly.',
+  };
+
+  it('REFUSES a classify with NO classDisposition at all — the exact incident shape: a real ratified `to` value with nothing declaring how it was chosen', () => {
+    const r = applyProvenanceReclassification(
+      { discoveryProvenance: 'ide' },
+      {
+        to: 'external-established',
+        evidenceRefs: goodEvidence,
+        rationale: goodRationale,
+        at: '2026-08-30T00:00:00Z',
+        actor: 'steward-commitment',
+      } as never, // classDisposition omitted — simulating a pre-fix / bypassing caller
+    );
+    expect(r.ok).toBe(false);
+    expect(r.ok === false && r.error).toMatch(/classDisposition/);
+    expect(r.ok === false && r.error).toMatch(/never be completed by omission/);
+  });
+
+  it('REFUSES an unrecognised classDisposition value — no default, no silent coercion', () => {
+    const r = applyProvenanceReclassification(
+      { discoveryProvenance: 'ide' },
+      {
+        to: 'external-established',
+        evidenceRefs: goodEvidence,
+        rationale: goodRationale,
+        at: '2026-08-30T00:00:00Z',
+        actor: 'steward-commitment',
+        classDisposition: 'auto-accepted' as never,
+      },
+    );
+    expect(r.ok).toBe(false);
+    expect(r.ok === false && r.error).toMatch(/classDisposition/);
+  });
+
+  it('REFUSES "recommendation-accepted" with NO accepted recommendation supplied — a machine recommendation may never be accepted blind', () => {
+    const r = applyProvenanceReclassification(
+      { discoveryProvenance: 'ide' },
+      {
+        to: 'external-established',
+        evidenceRefs: goodEvidence,
+        rationale: goodRationale,
+        at: '2026-08-30T00:00:00Z',
+        actor: 'steward-commitment',
+        classDisposition: 'recommendation-accepted',
+        // acceptedRecommendation omitted
+      },
+    );
+    expect(r.ok).toBe(false);
+    expect(r.ok === false && r.error).toMatch(/accepted recommendation itself/);
+  });
+
+  it('REFUSES "recommendation-accepted" whose acceptedRecommendation.suggestedClass does not match `to` — confidence/label mismatch is never trusted', () => {
+    const r = applyProvenanceReclassification(
+      { discoveryProvenance: 'ide' },
+      {
+        to: 'external-established',
+        evidenceRefs: goodEvidence,
+        rationale: goodRationale,
+        at: '2026-08-30T00:00:00Z',
+        actor: 'steward-commitment',
+        classDisposition: 'recommendation-accepted',
+        acceptedRecommendation: { ...suggestion, suggestedClass: 'platform-derived' },
+      },
+    );
+    expect(r.ok).toBe(false);
+    expect(r.ok === false && r.error).toMatch(/requires the accepted recommendation itself/);
+  });
+
+  it('REFUSES "recommendation-accepted" with a blank reason or a non-finite confidence — merely being >95% confidence is never sufficient on its own', () => {
+    const blankReason = applyProvenanceReclassification(
+      { discoveryProvenance: 'ide' },
+      {
+        to: 'external-established', evidenceRefs: goodEvidence, rationale: goodRationale,
+        at: 't', actor: 'a', classDisposition: 'recommendation-accepted',
+        acceptedRecommendation: { ...suggestion, reason: '' },
+      },
+    );
+    expect(blankReason.ok).toBe(false);
+
+    const badConfidence = applyProvenanceReclassification(
+      { discoveryProvenance: 'ide' },
+      {
+        to: 'external-established', evidenceRefs: goodEvidence, rationale: goodRationale,
+        at: 't', actor: 'a', classDisposition: 'recommendation-accepted',
+        acceptedRecommendation: { ...suggestion, confidence: Number.NaN },
+      },
+    );
+    expect(badConfidence.ok).toBe(false);
+  });
+
+  it('SUCCEEDS with an explicit manual selection (classDisposition: operator-selected)', () => {
+    const r = applyProvenanceReclassification(
+      { discoveryProvenance: 'ide' },
+      {
+        to: 'external-established',
+        evidenceRefs: goodEvidence,
+        rationale: goodRationale,
+        at: '2026-08-30T00:00:00Z',
+        actor: 'steward-commitment',
+        classDisposition: 'operator-selected',
+      },
+    );
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.to).toBe('external-established');
+    expect(readEvidenceProvenance(r.provenance)).toBe('external-established');
+  });
+
+  it('SUCCEEDS with an explicit acceptance of a recommendation, and RECORDS the steward act (classDisposition + the exact accepted recommendation, durably)', () => {
+    const r = applyProvenanceReclassification(
+      { discoveryProvenance: 'ide' },
+      {
+        to: 'external-established',
+        evidenceRefs: goodEvidence,
+        rationale: goodRationale,
+        at: '2026-08-30T00:00:00Z',
+        actor: 'steward-commitment',
+        classDisposition: 'recommendation-accepted',
+        acceptedRecommendation: suggestion,
+      },
+    );
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const log = readReclassifications(r.provenance);
+    expect(log).toHaveLength(1);
+    expect(log[0].classDisposition).toBe('recommendation-accepted');
+    expect(log[0].acceptedRecommendation).toEqual(suggestion);
+  });
+
+  it('Track 2 cannot count a member as validly classified from a REFUSED write — the class is never touched when classDisposition is missing/invalid', () => {
+    // This is the write-gate proof of the Track 2 acceptance criterion: since
+    // `provenanceClass` (what `readEvidenceProvenance`/`cohort.unclassified`
+    // read) is set ONLY by a successful `applyProvenanceReclassification`
+    // call, a refused write leaves the bag — and therefore the Track 2
+    // completion count — completely unchanged. No second, read-time gate is
+    // needed or added; this proves the invariant holds by construction of
+    // the ONE write path.
+    const before = { discoveryProvenance: 'ide' };
+    expect(readEvidenceProvenance(before)).toBeNull();
+    const refused = applyProvenanceReclassification(before, {
+      to: 'external-established',
+      evidenceRefs: goodEvidence,
+      rationale: goodRationale,
+      at: 't',
+      actor: 'a',
+    } as never); // no classDisposition — the exact incident shape
+    expect(refused.ok).toBe(false);
+    // The input bag is untouched (applyProvenanceReclassification never
+    // mutates its input) and still reads unclassified.
+    expect(readEvidenceProvenance(before)).toBeNull();
+  });
+
+  it('REPAIR PATH: a record whose CURRENT class was written before classDisposition existed (or bypassed it) may be re-affirmed to the SAME class through this canonical function — never a direct edit — recording a real disposition this time', () => {
+    // Simulates exactly the incident's Record 1: a prior log entry with no
+    // `classDisposition` at all (the shape every pre-fix write produced).
+    const legacyProvenance = {
+      discoveryProvenance: 'ide',
+      provenanceClass: 'external-established',
+      provenanceReclassifications: [
+        {
+          from: null,
+          to: 'external-established',
+          evidenceRefs: goodEvidence,
+          rationale: 'accepted via the pre-fix Accept control',
+          at: '2026-08-29T00:00:00Z',
+          actor: 'steward-commitment',
+          // classDisposition: absent — the exact defect shape
+        },
+      ],
+    };
+    expect(readEvidenceProvenance(legacyProvenance)).toBe('external-established');
+
+    const repaired = applyProvenanceReclassification(legacyProvenance, {
+      to: 'external-established', // SAME class — confirmed correct by the evidence
+      evidenceRefs: goodEvidence,
+      rationale: 'Steward re-inspected the CPMI document and explicitly affirms this classification.',
+      at: '2026-08-30T00:00:00Z',
+      actor: 'steward-commitment',
+      classDisposition: 'operator-selected',
+    });
+    expect(repaired.ok).toBe(true);
+    if (!repaired.ok) return;
+    const log = readReclassifications(repaired.provenance);
+    expect(log).toHaveLength(2);
+    expect(log[1].classDisposition).toBe('operator-selected');
+    // Track 2 still reads it as classified — the repair doesn't regress the
+    // count, it just makes the classification GOVERNED.
+    expect(readEvidenceProvenance(repaired.provenance)).toBe('external-established');
+
+    // ONE-TIME DOOR: a further same-value attempt is now refused, exactly
+    // like any other governed record — the repair is not a standing exception.
+    const secondAttempt = applyProvenanceReclassification(repaired.provenance, {
+      to: 'external-established',
+      evidenceRefs: goodEvidence,
+      rationale: 'trying again',
+      at: '2026-08-30T01:00:00Z',
+      actor: 'steward-commitment',
+      classDisposition: 'operator-selected',
+    });
+    expect(secondAttempt.ok).toBe(false);
+    expect(secondAttempt.ok === false && secondAttempt.error).toMatch(/nothing to reclassify/);
+  });
+
+  it('a genuinely already-governed record (this fix\'s own writes) is NOT reopened by the repair door — the grandfather clause is one-time, not standing', () => {
+    const first = applyProvenanceReclassification(
+      { discoveryProvenance: 'ide' },
+      {
+        to: 'external-established', evidenceRefs: goodEvidence, rationale: goodRationale,
+        at: 't1', actor: 'a', classDisposition: 'operator-selected',
+      },
+    );
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+    const again = applyProvenanceReclassification(first.provenance, {
+      to: 'external-established', evidenceRefs: goodEvidence, rationale: 'still the same',
+      at: 't2', actor: 'a', classDisposition: 'operator-selected',
+    });
+    expect(again.ok).toBe(false);
   });
 });
 
@@ -726,6 +972,7 @@ describe('the prohibition GATE — it refuses, and it says why', () => {
       rationale: 'Steward inspected the acquired CPMI document; the statement is compressed from it.',
       at: '2026-07-28T00:00:00.000Z',
       actor: 'steward-commitment',
+      classDisposition: 'operator-selected',
     });
     expect(result.ok).toBe(true);
     const after = (result as { provenance: Record<string, unknown> }).provenance;
@@ -943,6 +1190,7 @@ describe('classification suggestion — every emitted value comes from a stored 
         rationale: s.suggestedRationale,
         at: '2026-07-28T00:00:00Z',
         actor: 'steward-commitment',
+        classDisposition: 'operator-selected',
       },
     );
     expect(r.ok).toBe(false);
@@ -1127,6 +1375,7 @@ describe('fieldOrigin — the log distinguishes a reviewed citation from an acce
         at: '2026-07-28T00:00:00Z',
         actor: 'steward-commitment',
         fieldOrigin: { evidenceRefs: 'suggested', rationale: 'edited' },
+        classDisposition: 'operator-selected',
       },
     );
     expect(r.ok).toBe(true);
@@ -1136,6 +1385,7 @@ describe('fieldOrigin — the log distinguishes a reviewed citation from an acce
     const refused = applyProvenanceReclassification({ discoveryProvenance: 'ide' }, {
       to: 'external-empirical', evidenceRefs: [], rationale: 'x', at: 'now', actor: 'a',
       fieldOrigin: { evidenceRefs: 'suggested', rationale: 'suggested' },
+      classDisposition: 'operator-selected',
     });
     expect(refused.ok).toBe(false);
   });

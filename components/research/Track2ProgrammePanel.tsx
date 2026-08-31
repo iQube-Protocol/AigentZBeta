@@ -4406,7 +4406,17 @@ function ClassificationQueue({ queue, onDone }: { queue: { id: string; label: st
   }, [queue, loadCurrent]);
 
   const submit = useCallback(
-    async (args: { to: string; evidenceRefs: string[]; rationale: string }) => {
+    async (args: {
+      to: string;
+      evidenceRefs: string[];
+      rationale: string;
+      // THE CONSTITUTIONAL ACT, DECLARED (2026-08-30, "Classify Provenance
+      // completed by omission" incident) — every caller of `submit` states
+      // which explicit steward act produced `to`; there is no default here
+      // either, matching the server's own refusal.
+      classDisposition: "operator-selected" | "recommendation-accepted";
+      acceptedRecommendation?: ProvenanceClassSuggestionView;
+    }) => {
       if (!current) return;
       setBusy(true);
       setErr(null);
@@ -4443,6 +4453,12 @@ function ClassificationQueue({ queue, onDone }: { queue: { id: string; label: st
       to: classSuggestion.suggestedClass,
       evidenceRefs: [classSuggestion.primarySource, ...classSuggestion.supportingSources].filter((v): v is string => Boolean(v)),
       rationale: classSuggestion.reason,
+      // A dedicated, per-record Accept on a card that named its own
+      // confidence/reason/sources — the reviewed act, never inferred from
+      // confidence alone. The server independently verifies this matches
+      // `classSuggestion` verbatim.
+      classDisposition: "recommendation-accepted",
+      acceptedRecommendation: classSuggestion,
     });
   }, [classSuggestion, submit]);
 
@@ -4455,7 +4471,16 @@ function ClassificationQueue({ queue, onDone }: { queue: { id: string; label: st
   }, [classSuggestion]);
 
   const classifyAndNext = useCallback(
-    () => void submit({ to, evidenceRefs: evidenceRefs.split("\n").map((s) => s.trim()).filter(Boolean), rationale }),
+    () =>
+      void submit({
+        to,
+        evidenceRefs: evidenceRefs.split("\n").map((s) => s.trim()).filter(Boolean),
+        rationale,
+        // The steward used the manual form — whether `to` happens to equal
+        // a pre-filled suggestion (via Edit) or was typed from scratch, this
+        // is the guarded dropdown path (disabled until `to` is set).
+        classDisposition: "operator-selected",
+      }),
     [submit, to, evidenceRefs, rationale],
   );
 
@@ -4482,6 +4507,13 @@ function ClassificationQueue({ queue, onDone }: { queue: { id: string; label: st
             to: s.suggestedClass,
             evidenceRefs: [s.primarySource, ...s.supportingSources].filter(Boolean),
             rationale: s.reason,
+            // ONE deliberate steward click authorizes this batch — but
+            // confidence alone is never sufficient on its own (2026-08-30
+            // incident): each record still declares, and the server still
+            // independently verifies, the EXACT recommendation it clears
+            // against, per-record.
+            classDisposition: "recommendation-accepted",
+            acceptedRecommendation: s,
           }),
         });
         const body = await res.json().catch(() => null);

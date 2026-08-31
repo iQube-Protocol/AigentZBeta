@@ -173,6 +173,11 @@ export async function POST(req: NextRequest) {
     to?: string;
     rationale?: string;
     evidenceRefs?: unknown;
+    // Declared (2026-08-30 incident) alongside the other classify fields —
+    // never a defaulted/inferred value; applyProvenanceReclassification
+    // refuses anything but one of the two ratified dispositions.
+    classDisposition?: string;
+    acceptedRecommendation?: unknown;
   };
   const domain = body.domain?.trim() || DEFAULT_DOMAIN;
   const subDomain = body.subDomain?.trim() || null;
@@ -308,6 +313,26 @@ export async function POST(req: NextRequest) {
       const evidenceRefs = Array.isArray(body.evidenceRefs)
         ? (body.evidenceRefs as unknown[]).filter((r): r is string => typeof r === 'string' && r.trim().length > 0)
         : [];
+      // THE CONSTITUTIONAL ACT, DECLARED (2026-08-30, "Classify Provenance
+      // completed by omission" incident). No default, no inference from a
+      // client-omitted field — `applyProvenanceReclassification` itself
+      // refuses anything but one of the two ratified dispositions, so an
+      // absent/garbled value here is passed through UNCHANGED and lets that
+      // ONE authoritative refusal speak, rather than this route guessing or
+      // silently defaulting on its behalf.
+      const classDisposition = typeof body.classDisposition === 'string' ? body.classDisposition : '';
+      const acceptedRecommendationRaw = body.acceptedRecommendation as Record<string, unknown> | undefined;
+      const acceptedRecommendation = acceptedRecommendationRaw
+        ? {
+            suggestedClass: typeof acceptedRecommendationRaw.suggestedClass === 'string' ? acceptedRecommendationRaw.suggestedClass : '',
+            confidence: typeof acceptedRecommendationRaw.confidence === 'number' ? acceptedRecommendationRaw.confidence : NaN,
+            primarySource: typeof acceptedRecommendationRaw.primarySource === 'string' ? acceptedRecommendationRaw.primarySource : null,
+            supportingSources: Array.isArray(acceptedRecommendationRaw.supportingSources)
+              ? (acceptedRecommendationRaw.supportingSources as unknown[]).filter((s): s is string => typeof s === 'string')
+              : [],
+            reason: typeof acceptedRecommendationRaw.reason === 'string' ? acceptedRecommendationRaw.reason : '',
+          }
+        : undefined;
       if (!invariantId) {
         return NextResponse.json({ ok: false, error: 'invariantId required' }, { status: 400 });
       }
@@ -339,6 +364,8 @@ export async function POST(req: NextRequest) {
         evidenceRefs,
         rationale,
         fieldOrigin,
+        classDisposition: classDisposition as Parameters<typeof applyProvenanceReclassification>[1]['classDisposition'],
+        ...(acceptedRecommendation ? { acceptedRecommendation } : {}),
         // WHO attested it. `actor` is documented as "a T2-safe commitment or
         // an agent id, NEVER a raw T0 id" — and this bag is durable, widely
         // read invariant provenance, so the raw personaId must not go in it.
