@@ -1,6 +1,6 @@
 {
-  "version": "0.1.1",
-  "generated_at": "2026-01-09T05:30:36Z",
+  "version": "0.1.2",
+  "generated_at": "2026-08-31T15:56:00Z",
   "repo": "AigentZBeta",
   "entries": [
     {
@@ -102,6 +102,16 @@
       "tags": ["pr-brief", "update", "agentiq"],
       "owners": ["Aigent C"],
       "last_updated": "2026-01-09T04:16:23Z"
+    },
+    {
+      "id": "aee-architectural-framework-2026-08-31",
+      "path": "codexes/packs/agentiq/updates/2026-08-31_aee-architectural-framework-and-operating-model.md",
+      "type": "architecture",
+      "title": "AEE-001B — Adaptive Experience Engine: Architectural Framework & Operating Model",
+      "summary": "Canonical estate-wide AEE direction: person-centred continuity, Journey/Experience/AEE/AgentiQ separation, fixed-to-adaptive rendering modes, provider boundaries, feedback loop, CTP relationship, and Financial Services reference vertical.",
+      "tags": ["aee", "adaptive-experience", "architecture", "experience-model", "experience-matrix", "journey-spine", "copilotkit", "differ", "financial-services", "constitutional-computing"],
+      "owners": ["Aigent Z", "Aigent C"],
+      "last_updated": "2026-08-31T15:56:00Z"
     }
   ]
 }
