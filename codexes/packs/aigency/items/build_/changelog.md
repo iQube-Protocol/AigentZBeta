@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`6fbccf8`](https://github.com/iQube-Protocol/AigentZBeta/commit/6fbccf8e77ed2c913603c116d59b7ef2de0fe9ba) [docs] docs(agentiq): register AEE-XP-001 execution build spec (Kn0w1, 2026-08-31T16:12:52-04:00)
 - [`1176148`](https://github.com/iQube-Protocol/AigentZBeta/commit/11761485e5c81dfbca5f85ecb3dcd9abb5f56639) [push] Run Review & Admit preparation automatically; stop offering fake admit/reject for duplicates [merge review/irl-scoped-restoration-2026-08-27] (Claude, 2026-08-31T18:08:16Z)
 - [`d614547`](https://github.com/iQube-Protocol/AigentZBeta/commit/d614547797860479e59cfe544e87bf10383d86c8) [docs] docs(agentiq): index aigentMe companion amendment and Knights Bridge paper (Kn0w1, 2026-08-31T13:58:41-04:00)
 - [`646e61c`](https://github.com/iQube-Protocol/AigentZBeta/commit/646e61cf58306f51fbed119438e14889b44e25c7) [docs] docs: index Progressive Financial Sovereignty scope correction (Kn0w1, 2026-08-31T13:15:49-04:00)

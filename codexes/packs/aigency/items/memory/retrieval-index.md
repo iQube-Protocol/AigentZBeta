@@ -4774,3 +4774,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-1176148.md](../build_/COMMITS/COMMIT-1176148.md)
 - Message: Run Review & Admit preparation automatically; stop offering fake admit/reject for duplicates [merge review/irl-scoped-restoration-2026-08-27]
+
+## Commit `6fbccf8` — 2026-08-31T16:12:52-04:00
+- Type: `docs`
+- Brief: [COMMIT-6fbccf8.md](../build_/COMMITS/COMMIT-6fbccf8.md)
+- Message: docs(agentiq): register AEE-XP-001 execution build spec

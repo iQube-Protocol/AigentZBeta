@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-31T18:10:24.441Z",
+  "last_updated": "2026-08-31T20:14:38.432Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "11761485e5c81dfbca5f85ecb3dcd9abb5f56639",
-  "latest_commit_short": "1176148",
-  "latest_commit_title": "Run Review & Admit preparation automatically; stop offering fake admit/reject for duplicates [merge review/irl-scoped-restoration-2026-08-27]",
+  "latest_commit": "6fbccf8e77ed2c913603c116d59b7ef2de0fe9ba",
+  "latest_commit_short": "6fbccf8",
+  "latest_commit_title": "docs(agentiq): register AEE-XP-001 execution build spec",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "6fbccf8",
+      "full_sha": "6fbccf8e77ed2c913603c116d59b7ef2de0fe9ba",
+      "title": "docs(agentiq): register AEE-XP-001 execution build spec",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-31T16:12:52-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-6fbccf8.md"
+    },
     {
       "sha": "1176148",
       "full_sha": "11761485e5c81dfbca5f85ecb3dcd9abb5f56639",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-20T08:23:53-04:00",
       "type": "docs",
       "brief": "items/build_/COMMITS/COMMIT-2b2e2f0.md"
-    },
-    {
-      "sha": "1154ac9",
-      "full_sha": "1154ac92fddbd0cf5e2acceee8cf9e8e61fdb8ec",
-      "title": "docs(irl): open Crucible robotics and embodied systems dossier",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-20T03:04:03-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-1154ac9.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
