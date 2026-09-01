@@ -136,15 +136,26 @@ describe('correction 1 (continued) — the full Personify -> Qriptopian Pulse ->
 });
 
 describe('correction 2 — CI Bridge Admin video-slot check', () => {
-  it('the editorial-config route accepts ci-home/ci-orient/ci-view-<blockId>, derived from CI_BRIDGE_VIEW_CONTENT', async () => {
-    const src = stripComments(readSource('app/api/journey/knyts-bridge/editorial-config/route.ts'));
-    expect(src).toMatch(/CI_BRIDGE_VIEW_CONTENT/);
-    expect(src).toMatch(/'ci-home'/);
-    expect(src).toMatch(/'ci-orient'/);
-    expect(src).toMatch(/ci-view-\$\{block\.id\}/);
+  it('the editorial-config route accepts ci-home/ci-orient/ci-view-<blockId>, via the shared KNYTS_BRIDGE_ALLOWED_SECTIONS allow-list (moved 2026-09-01 so the placements route can reuse it — see knytsBridgeEditorialConfig.ts)', async () => {
+    const routeSrc = stripComments(readSource('app/api/journey/knyts-bridge/editorial-config/route.ts'));
+    expect(routeSrc).toMatch(/import \{[\s\S]*KNYTS_BRIDGE_ALLOWED_SECTIONS[\s\S]*\} from '@\/services\/journey\/knytsBridgeEditorialConfig'/);
+    expect(routeSrc).toMatch(/KNYTS_BRIDGE_ALLOWED_SECTIONS\.has\(section\)/);
+
+    const configSrc = stripComments(readSource('services/journey/knytsBridgeEditorialConfig.ts'));
+    expect(configSrc).toMatch(/CI_BRIDGE_VIEW_CONTENT/);
+    expect(configSrc).toMatch(/'ci-home'/);
+    expect(configSrc).toMatch(/'ci-orient'/);
+    expect(configSrc).toMatch(/ci-view-\$\{block\.id\}/);
+
+    const { KNYTS_BRIDGE_ALLOWED_SECTIONS } = await import('@/services/journey/knytsBridgeEditorialConfig');
+    expect(KNYTS_BRIDGE_ALLOWED_SECTIONS.has('ci-home')).toBe(true);
+    expect(KNYTS_BRIDGE_ALLOWED_SECTIONS.has('ci-orient')).toBe(true);
 
     const { CI_BRIDGE_VIEW_CONTENT } = await import('@/services/journey/constitutionalInternetBridgeViewContent');
     expect(CI_BRIDGE_VIEW_CONTENT.length).toBeGreaterThan(0);
+    for (const block of CI_BRIDGE_VIEW_CONTENT) {
+      expect(KNYTS_BRIDGE_ALLOWED_SECTIONS.has(`ci-view-${block.id}`)).toBe(true);
+    }
   });
 
   it('KNYTS_BRIDGE_SECTION_DEFAULTS carries real fallback copy for ci-home and ci-orient', async () => {

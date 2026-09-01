@@ -16,6 +16,25 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { CI_BRIDGE_VIEW_CONTENT } from '@/services/journey/constitutionalInternetBridgeViewContent';
+
+/**
+ * The one authoritative section allow-list (moved here from
+ * editorial-config/route.ts, 2026-09-01, so the new placements route can
+ * reuse it without importing a Next.js route file — inv.engineering.036/037,
+ * never a second hand-copied list). `ci-view-*` keys derive from
+ * CI_BRIDGE_VIEW_CONTENT so a vignette addition/removal can never drift
+ * this list out of sync.
+ */
+export const KNYTS_BRIDGE_ALLOWED_SECTIONS = new Set<string>([
+  'home',
+  'orient',
+  'choose',
+  'ci-home',
+  'ci-orient',
+  'ci-passport-established',
+  ...CI_BRIDGE_VIEW_CONTENT.map((block) => `ci-view-${block.id}`),
+]);
 
 export interface KnytsBridgeEditorialSection {
   section: string;

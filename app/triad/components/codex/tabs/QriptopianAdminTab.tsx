@@ -5,6 +5,8 @@ import { CodexUploadModal } from '@/app/(shell)/admin/codex/components/CodexUplo
 import { StoreSkusPanel } from '@/app/triad/components/codex/admin/StoreSkusPanel';
 import { KnytsBridgeAdminPanel } from '@/components/journey/KnytsBridgeAdminPanel';
 import { CI_BRIDGE_VIEW_CONTENT } from '@/services/journey/constitutionalInternetBridgeViewContent';
+import { personaFetch } from '@/utils/personaSpine';
+import type { BridgeContentPlacement, PlacementSlot } from '@/services/journey/bridgeContentPlacements';
 import {
   Activity,
   AlertCircle,
@@ -2100,6 +2102,141 @@ function bridgeSections(bridge: BridgeKey): string[] {
   return ['ci-home', 'ci-orient', 'ci-passport-established', ...CI_BRIDGE_VIEW_CONTENT.map((b) => `ci-view-${b.id}`)];
 }
 
+/**
+ * PlacementAssetsPanel — the A2 asset picker/preview/publish loop for one
+ * section, sitting alongside (never inside) KnytsBridgeAdminPanel's existing
+ * copy/URL fields. Backed entirely by the new
+ * /api/journey/knyts-bridge/placements route + bridgeContentPlacements.ts —
+ * publish writes into the SAME knyts_bridge_editorial_config row the plain
+ * text fields above already edit, so both stay a single source of truth.
+ *
+ * First-slice scope: assigning a draft takes an already-uploaded asset's
+ * delivery URL (pasted in) rather than embedding a full upload form inline —
+ * the existing SmartTriad Codex Manager / CodexUploadModal on this same tab
+ * is the real upload surface; this panel's job is placement, preview and
+ * publish over an asset that already exists. Direct in-panel upload is a
+ * natural A2 follow-up, not claimed here.
+ */
+function PlacementAssetsPanel({ section, personaId }: { section: string; personaId?: string }) {
+  const [placements, setPlacements] = useState<Record<PlacementSlot, BridgeContentPlacement | null> | null>(null);
+  const [drafts, setDrafts] = useState<Record<PlacementSlot, string>>({ video: '', poster: '' });
+  const [busy, setBusy] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await personaFetch(`/api/journey/knyts-bridge/placements?section=${encodeURIComponent(section)}`, {
+        personaIdHint: personaId,
+      });
+      const json = await res.json();
+      if (json.ok) setPlacements(json.placements);
+    } catch {
+      /* leave placements null — panel shows its own empty state, never a fabricated one */
+    }
+  }, [section, personaId]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const handleAssign = async (slot: PlacementSlot) => {
+    const assetUrl = drafts[slot].trim();
+    if (!assetUrl) return;
+    setBusy(`${slot}:assign`);
+    setNotice(null);
+    try {
+      const res = await personaFetch('/api/journey/knyts-bridge/placements', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        personaIdHint: personaId,
+        body: JSON.stringify({ section, slot, action: 'assign', assetUrl }),
+      });
+      const json = await res.json();
+      if (!json.ok) { setNotice(json.error || 'Assign failed'); return; }
+      await load();
+      setNotice(`${slot} draft assigned.`);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handlePublish = async (slot: PlacementSlot) => {
+    setBusy(`${slot}:publish`);
+    setNotice(null);
+    try {
+      const res = await personaFetch('/api/journey/knyts-bridge/placements', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        personaIdHint: personaId,
+        body: JSON.stringify({ section, slot, action: 'publish' }),
+      });
+      const json = await res.json();
+      if (!json.ok) { setNotice(json.error || 'Publish failed'); return; }
+      await load();
+      setNotice(`${slot} published (revision ${json.placement?.revision ?? '?'}).`);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <div className="border-t border-white/10 p-4">
+      <h3 className="mb-2 text-sm font-semibold text-slate-200">Assets — draft &amp; publish</h3>
+      {(['video', 'poster'] as const).map((slot) => {
+        const placement = placements?.[slot] ?? null;
+        return (
+          <div key={slot} className="mb-4 rounded-lg border border-slate-800 bg-slate-900/40 p-3">
+            <p className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400">{slot}</p>
+            <p className="mb-2 text-xs text-slate-500">
+              Published: {placement?.publishedAssetUrl ? (
+                <span className="text-slate-300">{placement.publishedAssetUrl} (rev {placement.revision})</span>
+              ) : (
+                <span className="italic">none yet</span>
+              )}
+            </p>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Paste an already-uploaded asset URL"
+                value={drafts[slot]}
+                onChange={(e) => setDrafts((d) => ({ ...d, [slot]: e.target.value }))}
+                className="flex-1 rounded-md border border-slate-800 bg-slate-900/60 px-2 py-1 text-xs text-slate-100"
+              />
+              <button
+                type="button"
+                onClick={() => void handleAssign(slot)}
+                disabled={busy === `${slot}:assign`}
+                className="rounded-md bg-slate-700 px-2 py-1 text-xs font-medium text-white hover:bg-slate-600 disabled:opacity-50"
+              >
+                Assign draft
+              </button>
+            </div>
+            {placement?.draftAssetUrl && (
+              <div className="mt-2">
+                <p className="mb-1 text-xs text-slate-500">Draft preview:</p>
+                {slot === 'poster' ? (
+                  <img src={placement.draftAssetUrl} alt="Draft poster preview" className="max-h-32 rounded-md border border-slate-800" />
+                ) : (
+                  <video src={placement.draftAssetUrl} controls className="max-h-32 rounded-md border border-slate-800" />
+                )}
+                <button
+                  type="button"
+                  onClick={() => void handlePublish(slot)}
+                  disabled={busy === `${slot}:publish`}
+                  className="mt-2 rounded-md bg-teal-600 px-3 py-1 text-xs font-semibold text-white hover:bg-teal-500 disabled:opacity-50"
+                >
+                  {busy === `${slot}:publish` ? 'Publishing…' : 'Publish draft'}
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      })}
+      {notice && <p className="text-xs text-slate-400">{notice}</p>}
+    </div>
+  );
+}
+
 function BridgesManager({ personaId }: { personaId?: string }) {
   const [bridge, setBridge] = useState<BridgeKey>('ci');
 
@@ -2130,7 +2267,10 @@ function BridgesManager({ personaId }: { personaId?: string }) {
       </div>
       <div className="divide-y divide-white/10 rounded-xl border border-white/10 bg-slate-900/40">
         {bridgeSections(bridge).map((section) => (
-          <KnytsBridgeAdminPanel key={`${bridge}:${section}`} section={section} personaId={personaId} bridgeLabel={BRIDGE_LABELS[bridge]} />
+          <div key={`${bridge}:${section}`}>
+            <KnytsBridgeAdminPanel section={section} personaId={personaId} bridgeLabel={BRIDGE_LABELS[bridge]} />
+            <PlacementAssetsPanel section={section} personaId={personaId} />
+          </div>
         ))}
       </div>
     </div>
