@@ -159,3 +159,48 @@ export async function hasQualifyingExperienceInteraction(
   }
   return requiredCapabilityIds.every((id) => observedCapabilityIds.has(id));
 }
+
+export interface ObservedExperienceInteraction {
+  stageId: string;
+  interactionKind: string | null;
+  capabilityId: string | null;
+  observedAt: string;
+}
+
+/**
+ * Structured read (AEE-XP-001 §6 XP-1 follow-up — ExperienceIntentProjection
+ * activation, 2026-09-01): every real `experience_interaction_observed`
+ * receipt for this persona within ONE journey, as structured records — not
+ * a boolean. This is what `services/adaptive/experienceIntentAssembly.ts`
+ * uses to populate `observedBehavior`; `hasObservedExperienceInteraction`/
+ * `hasQualifyingExperienceInteraction` above remain the boolean gates
+ * Journey stage evidence reads use — this is a DIFFERENT consumer (AEE
+ * presentation context), not a replacement for either.
+ */
+export async function listObservedExperienceInteractions(
+  personaId: string | null | undefined,
+  journeyId: string,
+): Promise<ObservedExperienceInteraction[]> {
+  if (!personaId) return [];
+  const journeyPrefix = `${journeyId}:`;
+  const receipts = await listActivityReceiptsForPersona(personaId, {
+    actionTypes: ['experience_interaction_observed'],
+    limit: 200,
+  });
+  const results: ObservedExperienceInteraction[] = [];
+  for (const r of receipts) {
+    const actionInput = r.actionInput as Record<string, unknown> | null;
+    const experienceRef = actionInput?.experienceRef;
+    if (typeof experienceRef !== 'string' || !experienceRef.startsWith(journeyPrefix)) continue;
+    const stageId = experienceRef.slice(journeyPrefix.length);
+    const interactionKind = actionInput?.interactionKind;
+    const capabilityId = actionInput?.capabilityId;
+    results.push({
+      stageId,
+      interactionKind: typeof interactionKind === 'string' ? interactionKind : null,
+      capabilityId: typeof capabilityId === 'string' ? capabilityId : null,
+      observedAt: r.createdAt,
+    });
+  }
+  return results;
+}
