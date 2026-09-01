@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-01T11:20:52.871Z",
+  "last_updated": "2026-09-01T11:33:33.179Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "6cb8ef7e5c77dc73abf0913704952b41455a3046",
-  "latest_commit_short": "6cb8ef7",
-  "latest_commit_title": "Cap the Journey stage carousel at 8 visible stages, not viewport width",
+  "latest_commit": "1bac437a69f14ce3681bf76d84bc9902d65e3136",
+  "latest_commit_short": "1bac437",
+  "latest_commit_title": "Adaptive Financial Services entry CTA on KNYTS/CI, retire pilot framing [merge review/irl-scoped-restoration-2026-08-27]",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "1bac437",
+      "full_sha": "1bac437a69f14ce3681bf76d84bc9902d65e3136",
+      "title": "Adaptive Financial Services entry CTA on KNYTS/CI, retire pilot framing [merge review/irl-scoped-restoration-2026-08-27]",
+      "author": "Claude",
+      "timestamp": "2026-09-01T11:31:23Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-1bac437.md"
+    },
     {
       "sha": "6cb8ef7",
       "full_sha": "6cb8ef7e5c77dc73abf0913704952b41455a3046",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-21T13:35:15-04:00",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-fff9c67.md"
-    },
-    {
-      "sha": "a33205e",
-      "full_sha": "a33205e4bad63587e1f10c27440e2ae8cb119893",
-      "title": "repair mcp gateway upload endpoint routing to canonical /api/content/assets/upload",
-      "author": "Claude",
-      "timestamp": "2026-08-22T01:55:26Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-a33205e.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

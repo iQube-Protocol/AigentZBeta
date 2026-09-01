@@ -4869,3 +4869,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-6cb8ef7.md](../build_/COMMITS/COMMIT-6cb8ef7.md)
 - Message: Cap the Journey stage carousel at 8 visible stages, not viewport width
+
+## Commit `1bac437` — 2026-09-01T11:31:23Z
+- Type: `push`
+- Brief: [COMMIT-1bac437.md](../build_/COMMITS/COMMIT-1bac437.md)
+- Message: Adaptive Financial Services entry CTA on KNYTS/CI, retire pilot framing [merge review/irl-scoped-restoration-2026-08-27]

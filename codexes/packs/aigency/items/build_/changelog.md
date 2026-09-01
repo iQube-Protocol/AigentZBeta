@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`1bac437`](https://github.com/iQube-Protocol/AigentZBeta/commit/1bac437a69f14ce3681bf76d84bc9902d65e3136) [push] Adaptive Financial Services entry CTA on KNYTS/CI, retire pilot framing [merge review/irl-scoped-restoration-2026-08-27] (Claude, 2026-09-01T11:31:23Z)
 - [`6cb8ef7`](https://github.com/iQube-Protocol/AigentZBeta/commit/6cb8ef7e5c77dc73abf0913704952b41455a3046) [push] Cap the Journey stage carousel at 8 visible stages, not viewport width (Claude, 2026-09-01T11:18:13Z)
 - [`44a1b3f`](https://github.com/iQube-Protocol/AigentZBeta/commit/44a1b3fdcd386934fa5543ff92c675b8e9c9d539) [fix] Fix Buffer client-bundle defect breaking live FS crossing + cap stage carousel at 8 [merge review/irl-scoped-restoration-2026-08-27] (Claude, 2026-09-01T11:18:24Z)
 - [`19553af`](https://github.com/iQube-Protocol/AigentZBeta/commit/19553af9778657152e2bb5c5a49fa4da2d3d8302) [push] Activate generic experience-evidence loop; FS DISCOVER first proof [merge review/irl-scoped-restoration-2026-08-27] (Claude, 2026-09-01T10:30:13Z)
