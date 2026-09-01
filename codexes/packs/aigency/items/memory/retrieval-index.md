@@ -4804,3 +4804,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-36be380.md](../build_/COMMITS/COMMIT-36be380.md)
 - Message: Close XP-5: wire the canonical aigentMe companion into the live Journey copilot mount [merge review/irl-scoped-restoration-2026-08-27]
+
+## Commit `64cb67a` — 2026-09-01T06:18:22Z
+- Type: `fix`
+- Brief: [COMMIT-64cb67a.md](../build_/COMMITS/COMMIT-64cb67a.md)
+- Message: Urgent: fix authorization defect in USDC->QC wallet conversion [merge review/irl-scoped-restoration-2026-08-27]

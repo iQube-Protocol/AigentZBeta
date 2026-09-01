@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-01T06:04:10.995Z",
+  "last_updated": "2026-09-01T06:20:22.503Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "36be3807b262c582e8ce624eacfbea01c40e835a",
-  "latest_commit_short": "36be380",
-  "latest_commit_title": "Close XP-5: wire the canonical aigentMe companion into the live Journey copilot mount [merge review/irl-scoped-restoration-2026-08-27]",
+  "latest_commit": "64cb67a31955c1ff942e21843293387c23b9fba1",
+  "latest_commit_short": "64cb67a",
+  "latest_commit_title": "Urgent: fix authorization defect in USDC->QC wallet conversion [merge review/irl-scoped-restoration-2026-08-27]",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "64cb67a",
+      "full_sha": "64cb67a31955c1ff942e21843293387c23b9fba1",
+      "title": "Urgent: fix authorization defect in USDC->QC wallet conversion [merge review/irl-scoped-restoration-2026-08-27]",
+      "author": "Claude",
+      "timestamp": "2026-09-01T06:18:22Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-64cb67a.md"
+    },
     {
       "sha": "36be380",
       "full_sha": "36be3807b262c582e8ce624eacfbea01c40e835a",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-21T08:51:28-04:00",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-f0b9642.md"
-    },
-    {
-      "sha": "49a4c74",
-      "full_sha": "49a4c74afeaea4340afc085655aa4620c1eb5bba",
-      "title": "feat(qriptopian): add Essays codex tab",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-21T08:47:08-04:00",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-49a4c74.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
