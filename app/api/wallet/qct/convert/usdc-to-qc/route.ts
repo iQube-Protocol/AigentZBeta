@@ -1,6 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getActivePersona } from '@/services/identity/getActivePersona';
 import { creditWalletAsset, debitWalletAsset, type WalletAssetCode } from '@/services/wallet/qctLedgerService';
 import type { QriptoDenomination } from '@/services/qriptocent/settlement/types';
+
+/**
+ * Authorization repair (2026-09-01, urgent — CLAUDE.md "Identity & Access
+ * Spine"): this route previously took the wallet subject as a body-supplied
+ * `personaId` with NO authentication check at all — any caller could debit/
+ * credit ANY persona's wallet by passing that persona's id. The wallet
+ * subject now resolves EXCLUSIVELY from the authenticated caller's session
+ * via the existing canonical identity spine (`getActivePersona` — the SAME
+ * resolver every other spine-gated route uses; no new resolver invented).
+ * A body-supplied `personaId` is no longer read for ANY purpose — see the
+ * removed destructuring below. `getActivePersona`'s own existing source
+ * chain (session token / `x-persona-id` header / `?personaId=` URL param /
+ * default) already validates that any explicitly-selected persona is
+ * OWNED by the caller before returning it, so the existing multi-persona
+ * selection mechanism is preserved exactly, just no longer bypassable via
+ * the request body.
+ */
 
 export const runtime = 'nodejs';
 
@@ -18,12 +36,19 @@ const DESTINATION_ASSET: Record<QriptoDenomination, WalletAssetCode> = {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json().catch(() => ({}));
-    const { personaId, usdcAmount, destination } = body || {};
-
-    if (!personaId || typeof personaId !== 'string') {
-      return NextResponse.json({ ok: false, error: 'personaId required' }, { status: 400 });
+    // Authoritative wallet subject — resolved server-side ONLY. A body-
+    // supplied `personaId` is never read (see file header).
+    const persona = await getActivePersona(request);
+    if (!persona?.personaId) {
+      return NextResponse.json(
+        { ok: false, error: 'Authentication required — no active persona resolved for this caller.' },
+        { status: 401 },
+      );
     }
+    const personaId = persona.personaId;
+
+    const body = await request.json().catch(() => ({}));
+    const { usdcAmount, destination } = body || {};
 
     const usdc = Number(usdcAmount);
     if (!Number.isFinite(usdc) || usdc <= 0) {
