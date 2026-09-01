@@ -28,6 +28,7 @@ import { resolvePrimaryCompanionForJourney } from '@/services/journey/primaryCom
 import { parseActivatedBranchesParam } from '@/services/journey/journeyBranchActivation';
 import { computeJourneyAeeOutcome } from '@/services/adaptive/journeyAeeOrchestrator';
 import { hasDiscoveredFinancialSovereignty, hasLearnedFinancialSovereignty, hasExploredFinancialSovereignty } from '@/services/journey/financialSovereigntyEvidence';
+import { assembleExperienceIntentProjection } from '@/services/adaptive/experienceIntentAssembly';
 
 export const dynamic = 'force-dynamic';
 
@@ -146,12 +147,22 @@ async function getImpl(req: NextRequest) {
   // existing deterministic native rendering, unaffected.
   let aee: Awaited<ReturnType<typeof computeJourneyAeeOutcome>> | null = null;
   try {
+    // AEE-XP-001 §6 XP-1 follow-up (2026-09-01) — activate
+    // ExperienceIntentProjection end-to-end. Same fall-open discipline as
+    // the outer try: an assembly failure here must not block the response
+    // any more than an AEE failure does, so it is inside this same guard.
+    const experience = await assembleExperienceIntentProjection({
+      personaId: persona?.personaId ?? null,
+      journeyId: KNYTS_BRIDGE_CROSSING_JOURNEY.id,
+      runtimeState,
+    });
     aee = await computeJourneyAeeOutcome({
       journeyDefinition: KNYTS_BRIDGE_CROSSING_JOURNEY,
       runtimeState,
       hostId: 'knyts-bridge',
       participantRef: persona?.personaId ?? 'anonymous',
       generatedAt: new Date().toISOString(),
+      experience,
     });
   } catch {
     aee = null; // fall-open — never blocks the response

@@ -29,6 +29,7 @@ import { resolvePrimaryCompanionForJourney } from '@/services/journey/primaryCom
 import { parseActivatedBranchesParam } from '@/services/journey/journeyBranchActivation';
 import { computeJourneyAeeOutcome } from '@/services/adaptive/journeyAeeOrchestrator';
 import { hasDiscoveredFinancialSovereignty, hasLearnedFinancialSovereignty, hasExploredFinancialSovereignty } from '@/services/journey/financialSovereigntyEvidence';
+import { assembleExperienceIntentProjection } from '@/services/adaptive/experienceIntentAssembly';
 
 export const dynamic = 'force-dynamic';
 
@@ -144,12 +145,20 @@ async function getImpl(req: NextRequest) {
   // contract — no CI-specific AEE logic.
   let aee: Awaited<ReturnType<typeof computeJourneyAeeOutcome>> | null = null;
   try {
+    // AEE-XP-001 §6 XP-1 follow-up (2026-09-01) — see knyts-bridge/state's
+    // identical comment. Same assembler, no CI-specific experience model.
+    const experience = await assembleExperienceIntentProjection({
+      personaId: persona?.personaId ?? null,
+      journeyId: CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY.id,
+      runtimeState,
+    });
     aee = await computeJourneyAeeOutcome({
       journeyDefinition: CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY,
       runtimeState,
       hostId: 'constitutional-internet-bridge',
       participantRef: persona?.personaId ?? 'anonymous',
       generatedAt: new Date().toISOString(),
+      experience,
     });
   } catch {
     aee = null; // fall-open — never blocks the response

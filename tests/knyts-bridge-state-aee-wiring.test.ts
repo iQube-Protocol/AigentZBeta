@@ -21,11 +21,26 @@ describe('KNYTS bridge state route — AEE wiring is additive and fail-open', ()
   });
 
   it('computes the AEE outcome inside a try/catch that falls open to null — never blocks the response', () => {
-    const tryIdx = src.indexOf('try {\n    aee = await computeJourneyAeeOutcome');
+    const anchorIdx = src.indexOf('let aee: Awaited<ReturnType<typeof computeJourneyAeeOutcome>> | null = null;');
+    expect(anchorIdx).toBeGreaterThan(-1);
+    const tryIdx = src.indexOf('try {', anchorIdx);
+    const catchIdx = src.indexOf('} catch {', tryIdx);
     expect(tryIdx).toBeGreaterThan(-1);
-    const block = src.slice(tryIdx, tryIdx + 400);
-    expect(block).toMatch(/catch\s*\{/);
+    expect(catchIdx).toBeGreaterThan(tryIdx);
+    const block = src.slice(tryIdx, catchIdx + 200);
+    expect(block).toMatch(/aee = await computeJourneyAeeOutcome/);
     expect(block).toMatch(/aee = null/);
+  });
+
+  it('assembles ExperienceIntentProjection inside the SAME fail-open try block — an assembly failure falls open exactly like an AEE failure', () => {
+    const anchorIdx = src.indexOf('let aee: Awaited<ReturnType<typeof computeJourneyAeeOutcome>> | null = null;');
+    const tryIdx = src.indexOf('try {', anchorIdx);
+    const catchIdx = src.indexOf('} catch {', tryIdx);
+    expect(tryIdx).toBeGreaterThan(-1);
+    expect(catchIdx).toBeGreaterThan(tryIdx);
+    const block = src.slice(tryIdx, catchIdx);
+    expect(block).toMatch(/const experience = await assembleExperienceIntentProjection\(\{/);
+    expect(block).toMatch(/experience,/);
   });
 
   it('the JSON response still returns state/personaAuthenticated unchanged, plus the new additive aee key', () => {
