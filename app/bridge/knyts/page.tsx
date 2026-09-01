@@ -51,6 +51,7 @@ import { JourneyRunSurface, type JourneyRunSurfaceProps } from '@/components/jou
 import { openJourneyCopilot } from '@/components/journey/JourneyCopilotHost';
 import type { JourneyRuntimeState } from '@/types/journey';
 import { KNYTS_BRIDGE_CROSSING_JOURNEY } from '@/services/journey/knytsBridgeCrossingJourney';
+import { resolveFinancialServicesEntryPresentation } from '@/services/journey/financialServicesEntryPresentation';
 import { KnytsBridgeMediaStage } from '@/components/journey/KnytsBridgeMediaStage';
 import { KnytsBridgeOrientIntro } from '@/components/journey/KnytsBridgeOrientIntro';
 import { KnytsBridgePassportRoom } from '@/components/journey/KnytsBridgePassportRoom';
@@ -129,10 +130,18 @@ export default function KnytsBridgePage() {
   // that function's own header for why a merge, not a plain assignment.
   const [citizenPassportUsable, setCitizenPassportUsable] = useState<boolean | undefined>(undefined);
 
+  // Bridge CHOOSE CTA refinement (2026-09-01) — the SAME shared, evidence-
+  // derived presentation ConstitutionalInternetBridgeChooseSurface's page
+  // resolves, never a local heuristic. See financialServicesEntryPresentation.ts.
+  const [financialServicesEntryPresentation, setFinancialServicesEntryPresentation] = useState(
+    resolveFinancialServicesEntryPresentation(undefined),
+  );
+
   const handleRuntimeStateChange = useCallback((state: JourneyRuntimeState) => {
     const passportStage = state.stages.find((s) => s.stageId === 'passport');
     const observedNow = Boolean(passportStage?.evidencePresent.includes('citizenPassportUsable'));
     setCitizenPassportUsable((prev) => mergeCitizenPassportUsable(prev, observedNow));
+    setFinancialServicesEntryPresentation(resolveFinancialServicesEntryPresentation(state));
   }, []);
 
   // Same pinned-persona read every top-level surface uses as its baseline
@@ -183,7 +192,7 @@ export default function KnytsBridgePage() {
         return { personaId, citizenPassportUsable };
       }
       if (surfaceRef.ref === 'knyts-bridge-choose') {
-        return { personaId, onOpenKnytCopilot: openJourneyCopilot };
+        return { personaId, onOpenKnytCopilot: openJourneyCopilot, financialServicesEntryPresentation };
       }
       if (surfaceRef.ref === 'knyts-bridge-fs-discover') {
         return { stageKey: 'discover', accent: 'amber', nextStageId: 'fs-learn', journeyId: 'knyts-bridge-crossing', personaId };
@@ -202,7 +211,7 @@ export default function KnytsBridgePage() {
       }
       return {};
     },
-    [personaId, citizenPassportUsable],
+    [personaId, citizenPassportUsable, financialServicesEntryPresentation],
   );
 
   return (

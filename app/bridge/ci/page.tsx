@@ -65,6 +65,7 @@ import { JourneyRunSurface, type JourneyRunSurfaceProps } from '@/components/jou
 import { openJourneyCopilot } from '@/components/journey/JourneyCopilotHost';
 import type { JourneyRuntimeState } from '@/types/journey';
 import { CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY } from '@/services/journey/constitutionalInternetBridgeJourney';
+import { resolveFinancialServicesEntryPresentation } from '@/services/journey/financialServicesEntryPresentation';
 import { CI_BRIDGE_VIEW_CONTENT } from '@/services/journey/constitutionalInternetBridgeViewContent';
 import { ConstitutionalInternetBridgeMediaStage } from '@/components/journey/ConstitutionalInternetBridgeMediaStage';
 import { ConstitutionalInternetBridgeViewSequence } from '@/components/journey/ConstitutionalInternetBridgeViewSequence';
@@ -120,9 +121,17 @@ export default function ConstitutionalInternetBridgePage() {
   const [citizenPassportUsable, setCitizenPassportUsable] = useState<boolean | undefined>(undefined);
   const spine = usePersonaSpine();
 
+  // Bridge CHOOSE CTA refinement (2026-09-01) — the SAME shared, evidence-
+  // derived presentation the KNYTS Bridge page resolves, never a local
+  // heuristic. See financialServicesEntryPresentation.ts.
+  const [financialServicesEntryPresentation, setFinancialServicesEntryPresentation] = useState(
+    resolveFinancialServicesEntryPresentation(undefined),
+  );
+
   const handleRuntimeStateChange = useCallback((state: JourneyRuntimeState) => {
     const passportStage = state.stages.find((s) => s.stageId === 'passport');
     setCitizenPassportUsable(Boolean(passportStage?.evidencePresent.includes('citizenPassportUsable')));
+    setFinancialServicesEntryPresentation(resolveFinancialServicesEntryPresentation(state));
   }, []);
 
   useEffect(() => {
@@ -159,7 +168,7 @@ export default function ConstitutionalInternetBridgePage() {
         // 2026-08-11; re-pointed at the shared host 2026-08-25) — never a
         // second embedded metaMe surface. This is the existing personaId-
         // drilling channel (resolveSurfaceProps), just one more callback.
-        return { personaId, onOpenAigentMeCopilot: openJourneyCopilot };
+        return { personaId, onOpenAigentMeCopilot: openJourneyCopilot, financialServicesEntryPresentation };
       }
       if (surfaceRef.ref === 'ci-bridge-view') {
         return { personaId };
@@ -193,7 +202,7 @@ export default function ConstitutionalInternetBridgePage() {
       }
       return {};
     },
-    [personaId, citizenPassportUsable],
+    [personaId, citizenPassportUsable, financialServicesEntryPresentation],
   );
 
   return (

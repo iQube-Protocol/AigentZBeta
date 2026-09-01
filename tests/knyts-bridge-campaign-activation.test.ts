@@ -293,10 +293,10 @@ describe('Operator metrics route — admin-gated, same gate as the existing Cros
 describe('CHOOSE surface — existing five destinations regress cleanly, sixth becomes campaign pre-registration', () => {
   const SRC = stripComments(readSource('components/journey/KnytsBridgeChooseSurface.tsx'));
 
-  it('the Store, CI, CFS Pilot, Ask Kn0w1 and Share destinations are all still present, unchanged', () => {
+  it('the Store, CI, Financial Services entry, Ask Kn0w1 and Share destinations are all still present, unchanged', () => {
     expect(SRC).toContain('Explore the KNYT Store');
     expect(SRC).toContain('Learn about the Constitutional Internet');
-    expect(SRC).toContain('Apply to join the Constitutional Financial Services Pilot');
+    expect(SRC).toContain('label={financialServicesEntryPresentation.label}');
     expect(SRC).toContain('Ask Kn0w1');
     expect(SRC).toContain('Share the Bridge');
   });

@@ -31,10 +31,13 @@
  *   3. "Learn about the Constitutional Internet" — switches the left pane to
  *      an embedded /bridge/ci (the sibling bridge, same reciprocal pattern
  *      CI's own "Explore the Mythos" card uses for /bridge/knyts).
- *   4. "Apply to join the Constitutional Financial Services Pilot" — crosses
- *      into the real Financial Sovereignty on-ramp (fs-discover ... fs-cross,
- *      AEE-XP-001 §4.2/§15 Phase 1 item 5), with a mailto still available as
- *      the small inline secondary CTA for a visitor who'd rather just email.
+ *   4. The Financial Services entry card — activates the real Financial
+ *      Sovereignty on-ramp (fs-discover ... fs-cross, AEE-XP-001 §4.2/§15
+ *      Phase 1 item 5). Label/intent adapt to authoritative Journey evidence
+ *      via financialServicesEntryPresentation.ts (2026-09-01 refinement,
+ *      "the destination remains stable; the invitation adapts") — the old
+ *      "Apply to join the Constitutional Financial Services Pilot" framing
+ *      and its mailto secondary are gone; this is no longer an application.
  *   5. "Ask Kn0w1" — opens the page-level KNYT CodexCopilotLayer via
  *      `onOpenKnytCopilot` (unchanged; never mounts a second copilot).
  *   6. "Share the Bridge & Earn $KNYT" — the existing SocialSharingModal,
@@ -94,12 +97,13 @@
  * URL in a new tab synchronously, (3) fires the same background telemetry,
  * and (4) flips `kickstarterOpened` so the badge appears. The card no
  * longer carries its own `active`/highlighted styling — it is an outbound
- * action alongside Ask Kn0w1/Share/CFS Pilot, not a fourth contextual
- * destination competing with Store/CI for the single `leftView` slot.
+ * action alongside Ask Kn0w1/Share/the Financial Services entry card, not a
+ * fourth contextual destination competing with Store/CI for the single
+ * `leftView` slot.
  *
  * The same pass fixed a second, independent bug: the CI (and Store) chip
- * stayed visually "active" after Ask Kn0w1 / Share / the CFS Pilot mailto
- * were clicked, because none of those three non-contextual actions ever
+ * stayed visually "active" after Ask Kn0w1 / Share / the Financial Services
+ * entry card were clicked, because none of those three non-contextual actions ever
  * touched `leftView` — the CI/Store chips correctly derive their own
  * `active` from `leftView`, but nothing cleared it back to `'video'` when
  * the visitor's intent moved to a non-contextual action. Each of those
@@ -116,6 +120,10 @@ import { SocialSharingModal } from '@/packages/smarttriad/src/SocialSharingModal
 import { KNYTS_BRIDGE_CAMPAIGN_ID, KNYTS_BRIDGE_CROSSING_JOURNEY } from '@/services/journey/knytsBridgeCrossingJourney';
 import { getKnytsBridgeKickstarterUrl } from '@/services/journey/knytsBridgeCampaignConfig';
 import { activateJourneyBranch } from '@/services/journey/journeyBranchActivation';
+import {
+  resolveFinancialServicesEntryPresentation,
+  type FinancialServicesEntryPresentation,
+} from '@/services/journey/financialServicesEntryPresentation';
 import { FullscreenableFrame } from '@/components/journey/FullscreenableFrame';
 import { BridgeReserveInterestCard } from '@/components/journey/BridgeReserveInterestCard';
 import {
@@ -132,6 +140,12 @@ interface KnytsBridgeChooseSurfaceProps {
   personaId?: string;
   /** Opens the page-level KNYT CodexCopilotLayer — never a second, surface-local copilot instance. */
   onOpenKnytCopilot?: () => void;
+  /** The evidence-derived Financial Services entry presentation (2026-09-01
+   *  Bridge refinement) — resolved once, in the page, from the SAME shared
+   *  rule ConstitutionalInternetBridgeChooseSurface consumes. Optional only
+   *  so this component degrades to the first-time presentation if a future
+   *  caller forgets to thread it, rather than throwing. */
+  financialServicesEntryPresentation?: FinancialServicesEntryPresentation;
 }
 
 /** Main click sets the contextual left view; an optional mailto CTA is an
@@ -231,7 +245,11 @@ function KickstarterFollowCard({
   );
 }
 
-export function KnytsBridgeChooseSurface({ personaId, onOpenKnytCopilot }: KnytsBridgeChooseSurfaceProps) {
+export function KnytsBridgeChooseSurface({
+  personaId,
+  onOpenKnytCopilot,
+  financialServicesEntryPresentation = resolveFinancialServicesEntryPresentation(undefined),
+}: KnytsBridgeChooseSurfaceProps) {
   const [leftView, setLeftView] = useState<LeftView>('video');
   // Single-purpose flag — controls ONLY the "Open Kickstarter in new tab"
   // badge overlaid on the video. Never a left-pane content discriminator
@@ -354,31 +372,31 @@ export function KnytsBridgeChooseSurface({ personaId, onOpenKnytCopilot }: Knyts
           onClick={() => setLeftView('ci')}
         />
 
-        {/* AEE-XP-001 §4.2/§4 Main Spine (2026-09-01 correction): this card
-            IS the Financial Sovereignty branch trigger — a declared
-            JOIN_FINANCIAL_SERVICES intent that activates the dormant branch
-            (fs-discover → ... → fs-cross → ExperienceHandoff → /bridge/fs),
-            revealing it in-place in the stepper (services/journey/
-            journeyBranchActivation.ts), instead of dead-ending in a mailto.
-            The mailto stays available as the small inline secondary CTA
-            (DestinationCard's existing stopPropagation-guarded pattern, same
-            as every other card here) for a visitor who would rather just
-            email interest directly — no interest-tracking regresses, since
-            the mailto path is unchanged, and it is no longer the ONLY path. */}
+        {/* AEE-XP-001 §4.2/§4 Main Spine, adaptive-invitation refinement
+            (2026-09-01): this card IS the Financial Sovereignty branch
+            trigger — the SAME activateJourneyBranch call regardless of which
+            label/intent is showing (fs-discover → ... → fs-cross →
+            ExperienceHandoff → /bridge/fs, services/journey/
+            journeyBranchActivation.ts). "The destination remains stable; the
+            invitation adapts" — financialServicesEntryPresentation (resolved
+            from authoritative Journey evidence in the page, never a local
+            heuristic here) supplies both the label and the intent string;
+            this card renders whichever it says. The old "Apply to join the
+            Pilot" application-framing and its mailto secondary are gone —
+            no direct /bridge/fs shortcut, CROSS remains the deliberate
+            boundary after DISCOVER → LEARN → EXPLORE → PREPARE. */}
         <DestinationCard
           icon={<Handshake className="h-4 w-4 text-amber-300" />}
-          label="Apply to join the Constitutional Financial Services Pilot"
+          label={financialServicesEntryPresentation.label}
           onClick={() => {
             setLeftView('video');
             activateJourneyBranch(
               KNYTS_BRIDGE_CROSSING_JOURNEY.id,
               'financial-services',
-              'JOIN_FINANCIAL_SERVICES',
+              financialServicesEntryPresentation.intent,
               'fs-discover',
             );
           }}
-          mailtoSubject="Constitutional Financial Services Pilot — interest"
-          mailtoLabel="Email instead"
         />
 
         {/* Ask Kn0w1 — opens the page-level KNYT CodexCopilotLayer (the ONE

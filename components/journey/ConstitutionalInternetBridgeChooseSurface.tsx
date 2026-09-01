@@ -53,6 +53,10 @@ import { buildCodexUrl } from '@/utils/codex-nav';
 import { canonicalPlateImage } from '@/services/artifact/canonicalPlateImages';
 import { CI_BRIDGE_CAMPAIGN_ID, CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY } from '@/services/journey/constitutionalInternetBridgeJourney';
 import { activateJourneyBranch } from '@/services/journey/journeyBranchActivation';
+import {
+  resolveFinancialServicesEntryPresentation,
+  type FinancialServicesEntryPresentation,
+} from '@/services/journey/financialServicesEntryPresentation';
 import { ArtifactMattedFrame } from '@/components/journey/ArtifactMattedFrame';
 import { FullscreenableFrame } from '@/components/journey/FullscreenableFrame';
 import { BridgeReserveInterestCard } from '@/components/journey/BridgeReserveInterestCard';
@@ -69,6 +73,12 @@ interface ConstitutionalInternetBridgeChooseSurfaceProps {
    *  switches the left explainer; only the drawer-open side effect is
    *  skipped) so this component never hard-depends on the page wiring it. */
   onOpenAigentMeCopilot?: () => void;
+  /** The evidence-derived Financial Services entry presentation (2026-09-01
+   *  Bridge refinement) — resolved once, in the page, from the SAME shared
+   *  rule KnytsBridgeChooseSurface consumes. Optional only so this component
+   *  degrades to the first-time presentation if a future caller forgets to
+   *  thread it, rather than throwing. */
+  financialServicesEntryPresentation?: FinancialServicesEntryPresentation;
 }
 
 function DestinationCard({
@@ -148,7 +158,11 @@ interface CanonicalAsset {
   cid?: string;
 }
 
-export function ConstitutionalInternetBridgeChooseSurface({ personaId, onOpenAigentMeCopilot }: ConstitutionalInternetBridgeChooseSurfaceProps) {
+export function ConstitutionalInternetBridgeChooseSurface({
+  personaId,
+  onOpenAigentMeCopilot,
+  financialServicesEntryPresentation = resolveFinancialServicesEntryPresentation(undefined),
+}: ConstitutionalInternetBridgeChooseSurfaceProps) {
   const [shareOpen, setShareOpen] = useState(false);
   const [leftView, setLeftView] = useState<LeftView>('book');
   const [canonicalAssets, setCanonicalAssets] = useState<Record<string, CanonicalAsset | null>>({
@@ -355,22 +369,26 @@ export function ConstitutionalInternetBridgeChooseSurface({ personaId, onOpenAig
           mailtoLabel="Email us to join"
         />
 
-        {/* AEE-XP-001 §4.2/§4 Main Spine (2026-09-01 correction) — the CI
-            on-ramp into Financial Services, same branch-trigger grammar as
-            KnytsBridgeChooseSurface.tsx's CFS Pilot card: activates the
-            dormant Financial Sovereignty branch (fs-discover → ... →
-            fs-cross → ExperienceHandoff → /bridge/fs), revealing it in-place
-            in the stepper (services/journey/journeyBranchActivation.ts).
-            CI had no Financial Services entry point at all before this —
-            this card is new, not a rewire of an existing mailto. */}
+        {/* AEE-XP-001 §4.2/§4 Main Spine, adaptive-invitation refinement
+            (2026-09-01) — the CI on-ramp into Financial Services, same
+            branch-trigger grammar and same shared presentation resolver as
+            KnytsBridgeChooseSurface.tsx's Financial Services entry card:
+            activates the dormant Financial Sovereignty branch (fs-discover
+            → ... → fs-cross → ExperienceHandoff → /bridge/fs), revealing it
+            in-place in the stepper (services/journey/
+            journeyBranchActivation.ts). "The destination remains stable;
+            the invitation adapts" — financialServicesEntryPresentation
+            (resolved from authoritative Journey evidence in the page, never
+            a local heuristic here) supplies both the label and the intent
+            string. */}
         <DestinationCard
           icon={<Landmark className="h-4 w-4 text-indigo-300" />}
-          label="Join Financial Services"
+          label={financialServicesEntryPresentation.label}
           onClick={() =>
             activateJourneyBranch(
               CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY.id,
               'financial-services',
-              'JOIN_FINANCIAL_SERVICES',
+              financialServicesEntryPresentation.intent,
               'fs-discover',
             )
           }

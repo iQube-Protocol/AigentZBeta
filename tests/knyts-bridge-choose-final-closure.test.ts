@@ -15,7 +15,8 @@
  * Fix 2 — exactly one contextual destination chip (Store/CI) may be active
  * at a time, derived from the single `leftView` state. Every action that
  * conceptually leaves the contextual selection (Follow Kickstarter, Ask
- * Kn0w1, Share, the CFS Pilot mailto) must clear it back to `'video'`.
+ * Kn0w1, Share, the Financial Services entry card) must clear it back to
+ * `'video'`.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -138,23 +139,26 @@ describe('Fix 2 — exactly one contextual destination chip is ever active', () 
     expect(block).toContain('setShareOpen(true)');
   });
 
-  it('CI active -> click the CFS Pilot card: onClick clears leftView to video AND activates the dormant Financial Sovereignty branch (AEE-XP-001 §4, Main Spine 2026-09-01 correction)', () => {
-    const idx = SRC.indexOf('label="Apply to join the Constitutional Financial Services Pilot"');
+  it('CI active -> click the Financial Services entry card: onClick clears leftView to video AND activates the dormant Financial Sovereignty branch (AEE-XP-001 §4, Main Spine 2026-09-01 correction)', () => {
+    const idx = SRC.indexOf('label={financialServicesEntryPresentation.label}');
     const onClickIdx = SRC.indexOf('onClick={() => {', idx);
     const block = SRC.slice(onClickIdx, idx + 400);
     expect(block).toContain("setLeftView('video')");
     expect(block).toContain('activateJourneyBranch(');
     expect(block).toContain('KNYTS_BRIDGE_CROSSING_JOURNEY.id');
     expect(block).toContain("'financial-services'");
-    expect(block).toContain("'JOIN_FINANCIAL_SERVICES'");
+    expect(block).toContain('financialServicesEntryPresentation.intent');
     expect(block).toContain("'fs-discover'");
   });
 
-  it('the CFS Pilot card still offers an inline mailto as a secondary CTA — DestinationCard\'s existing stopPropagation-guarded pattern, never a second bespoke anchor', () => {
-    const idx = SRC.indexOf('label="Apply to join the Constitutional Financial Services Pilot"');
-    const block = SRC.slice(idx, idx + 600);
-    expect(block).toContain('mailtoSubject="Constitutional Financial Services Pilot — interest"');
-    expect(block).toContain('mailtoLabel="Email instead"');
+  it('the Financial Services entry card no longer offers a mailto secondary — the application/pilot framing is gone (2026-09-01 Bridge refinement)', () => {
+    const idx = SRC.indexOf('label={financialServicesEntryPresentation.label}');
+    expect(idx).toBeGreaterThan(-1);
+    const block = SRC.slice(idx, idx + 400);
+    expect(block).not.toContain('mailtoSubject');
+    expect(block).not.toContain('mailtoLabel');
+    expect(SRC).not.toContain('Apply to join the Constitutional Financial Services Pilot');
+    expect(SRC).not.toContain('Email instead');
   });
 
   it('DestinationCard accepts and forwards a mailto extra — the anchor stops propagation so it never also fires the card\'s onClick', () => {
