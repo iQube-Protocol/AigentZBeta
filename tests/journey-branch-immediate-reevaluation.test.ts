@@ -65,8 +65,9 @@ describe.each(BRIDGES)(
   });
 
   it('2-7: selecting JOIN_FINANCIAL_SERVICES reveals the branch, triggers immediate re-evaluation, and returns fs-discover — without touching the source journey or marking anything complete', async () => {
-    // 2. User selects JOIN_FINANCIAL_SERVICES — the exact call the CFS Pilot
-    //    / "Join Financial Services" cards make.
+    // 2. User selects JOIN_FINANCIAL_SERVICES — one of the two intents the
+    //    shared Financial Services entry card can send (returning-visitor
+    //    presentation; see financialServicesEntryPresentation.ts).
     let capturedTrigger: JourneyReEvaluationTrigger | undefined;
     const onSelect = (e: Event) => {
       capturedTrigger = (e as CustomEvent<{ trigger?: JourneyReEvaluationTrigger }>).detail?.trigger;

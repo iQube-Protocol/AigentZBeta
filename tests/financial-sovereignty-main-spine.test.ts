@@ -126,14 +126,14 @@ describe('JourneyRunSurface — dormant-branch stepper filtering (AEE-XP-001 §4
 describe('ConstitutionalInternetBridgeChooseSurface — new Financial Services branch trigger (CI had none before)', () => {
   const src = stripComments(readSource('components/journey/ConstitutionalInternetBridgeChooseSurface.tsx'));
 
-  it('has a "Join Financial Services" card that activates the financial-services branch at fs-discover', () => {
-    const idx = src.indexOf('label="Join Financial Services"');
+  it('has an adaptive Financial Services entry card (2026-09-01 refinement) that activates the financial-services branch at fs-discover with the resolved presentation\'s intent', () => {
+    const idx = src.indexOf('label={financialServicesEntryPresentation.label}');
     expect(idx).toBeGreaterThan(-1);
     const block = src.slice(idx, idx + 400);
     expect(block).toContain('activateJourneyBranch(');
     expect(block).toContain('CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY.id');
     expect(block).toContain("'financial-services'");
-    expect(block).toContain("'JOIN_FINANCIAL_SERVICES'");
+    expect(block).toContain('financialServicesEntryPresentation.intent');
     expect(block).toContain("'fs-discover'");
   });
 });
