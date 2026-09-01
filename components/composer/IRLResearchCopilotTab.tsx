@@ -789,7 +789,35 @@ function ObjectiveCard({
             ))}
           </div>
           <div className="text-[10px] text-slate-300">
-            {programme.stages.find((s) => s.id === programme.currentStageId)?.label ?? programme.currentStageId}
+            {/*
+             * PREFER THE PENDING DECISION'S STAGE, NEVER THE RAW
+             * `currentStageId` SCALAR, FOR THIS HEADLINE
+             * (RES-2026-09-01-TRACK2-FAIL-SOFT-SWALLOWED-001, §13's
+             * architectural rule: distinguish the pending human decision
+             * from the earliest-incomplete-stage bookkeeping value —
+             * do not force both into one scalar's label).
+             *
+             * `programme.currentStageId` is `track2Programme.ts`'s "the
+             * lowest-ordinal stage that is not complete" — it is NOT "the
+             * stage the operator should look at". Stage 1 (Discover
+             * Sources) is `not-started` whenever no NEW source was
+             * discovered in the current acquisition round, even while
+             * Stage 2 genuinely holds 18 sources awaiting a human
+             * decision and Stages 3-8 are complete — so a headline built
+             * from `currentStageId` alone reverts to "Discover Sources"
+             * the instant Stage 1 isn't literally `complete`, regardless
+             * of how much real, pending work sits downstream.
+             *
+             * `decision` (`pendingDecision`) is already the correct
+             * signal for this: `firstPendingDecision` deliberately
+             * excludes Stage 1 unless a real acquisition brief applies,
+             * and names the actual human-gated stage — exactly "Review &
+             * Admit — 18 source(s)" when that is the state. Falls back to
+             * `currentStageId`'s label only when there is genuinely no
+             * pending decision (every unblocked stage is complete, or the
+             * only outstanding stage is machine-runnable).
+             */}
+            {decision?.stageLabel ?? programme.stages.find((s) => s.id === programme.currentStageId)?.label ?? programme.currentStageId}
           </div>
           {programme.nextActions.length > 0 && (
             <div className="space-y-0.5">
@@ -1544,8 +1572,27 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
           requestSucceeded?: boolean;
           programme?: Track2Programme;
           pendingDecision?: PendingGovernanceDecision | null;
+          unreadableSignals?: string[];
         } | null;
-        if (res.ok && data?.requestSucceeded && data.programme) {
+        // A GOOD FETCH CARRYING AN HONEST "I COULD NOT READ THIS" ANSWER IS
+        // THE SAME CASE AS A FAILED FETCH (RES-2026-09-01-TRACK2-FAIL-SOFT-
+        // SWALLOWED-001, applying the existing "never clear an already-loaded
+        // preview" discipline below to a SECOND way a read can degrade). A
+        // transient `corpus_candidate_sources`/`discovery_candidates` read
+        // failure now correctly surfaces as `unreadableSignals` (never as a
+        // false empty cohort — see `listCandidateSources`), but the pending
+        // decision it feeds (e.g. "Review & Admit — 18 source(s)") would
+        // still wrongly vanish for the duration of that failure if this
+        // preview blindly adopted every 200 OK. A pending human judgment does
+        // not evaporate on refresh merely because the NEXT read of it was
+        // temporarily unreadable — so a read naming one of the signals this
+        // preview depends on is treated exactly like a failed fetch: skipped,
+        // never adopted, never clearing what is already shown.
+        const unreadable = data?.unreadableSignals ?? [];
+        const affectsThisPreview = unreadable.some(
+          (s) => s.includes("corpus_candidate_sources") || s.includes("discovery_candidates") || s.includes("promoted cohort"),
+        );
+        if (res.ok && data?.requestSucceeded && data.programme && !affectsThisPreview) {
           setProgrammePreview(data.programme);
           // Unlike the programme dot-strip above, `pendingDecision` MUST be
           // allowed to become null here — that is exactly how a resolved

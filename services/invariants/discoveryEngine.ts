@@ -775,7 +775,13 @@ export async function listCandidates(admin: SupabaseClient, domain: string, subD
   // Domain baseline view = sub_domain IS NULL; a sub-domain view = that sub-domain only.
   query = subDomain ? query.eq('sub_domain', subDomain) : query.is('sub_domain', null);
   const { data, error } = await query.order('created_at', { ascending: false });
-  if (error) return [];
+  // THROW, never swallow to `[]` — same fix, same reason, as
+  // services/corpusScout/provenance.ts's `listCandidateSources`
+  // (RES-2026-09-01-TRACK2-FAIL-SOFT-SWALLOWED-001): every caller that reads
+  // Track 2 state through `loadTrack2ProgrammeState` already wraps this call
+  // in `.catch(() => null)` expecting a genuine failure to surface as
+  // `unknown`, never as a confident empty cohort.
+  if (error) throw new Error(`discovery_candidates query failed: ${error.message}`);
   const rows = (data ?? []).map(toCandidateRow);
   const evidence = await listDomainEvidence(admin, domain, subDomain);
   return enrichSignals(rows, evidence);
