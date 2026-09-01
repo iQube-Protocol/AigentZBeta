@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`36be380`](https://github.com/iQube-Protocol/AigentZBeta/commit/36be3807b262c582e8ce624eacfbea01c40e835a) [feat] Close XP-5: wire the canonical aigentMe companion into the live Journey copilot mount [merge review/irl-scoped-restoration-2026-08-27] (Claude, 2026-09-01T06:01:46Z)
 - [`7a2cfda`](https://github.com/iQube-Protocol/AigentZBeta/commit/7a2cfda4c3e5ba3ad4e3276636b4ae4590e58533) [push] Connect KNYTS/CI to Financial Services via a Progressive Financial Sovereignty on-ramp (AEE-XP-001 Phase 1) [merge review/irl-scoped-restoration-2026-08-27] (Claude, 2026-09-01T02:49:20Z)
 - [`754866c`](https://github.com/iQube-Protocol/AigentZBeta/commit/754866c0d36952ca59a06de712288d8020f130bf) [feat] Add CTP-001A Phase 1 live acceptance script for Aletheon/Mansa Meta (Claude, 2026-09-01T01:43:08Z)
 - [`c05f9c0`](https://github.com/iQube-Protocol/AigentZBeta/commit/c05f9c041ea5e8696faa4a2115b5fb2f817fe83c) [push] Deliver CTP foundation: constitutional runtime + first migrated OCSGA primitive [merge review/irl-scoped-restoration-2026-08-27] (Claude, 2026-08-31T21:53:14Z)

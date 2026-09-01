@@ -4799,3 +4799,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-7a2cfda.md](../build_/COMMITS/COMMIT-7a2cfda.md)
 - Message: Connect KNYTS/CI to Financial Services via a Progressive Financial Sovereignty on-ramp (AEE-XP-001 Phase 1) [merge review/irl-scoped-restoration-2026-08-27]
+
+## Commit `36be380` — 2026-09-01T06:01:46Z
+- Type: `feat`
+- Brief: [COMMIT-36be380.md](../build_/COMMITS/COMMIT-36be380.md)
+- Message: Close XP-5: wire the canonical aigentMe companion into the live Journey copilot mount [merge review/irl-scoped-restoration-2026-08-27]
