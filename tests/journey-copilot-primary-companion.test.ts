@@ -18,6 +18,9 @@ vi.mock('@/services/agents/aigentMeRoleResolution', () => ({
 
 import { resolveAigentMeIdentity } from '@/services/agents/aigentMeRoleResolution';
 import { resolveJourneyCopilot, resolvePrimaryCompanionForJourney } from '@/services/journey/journeyCopilotResolver';
+import { KNYTS_BRIDGE_CROSSING_JOURNEY } from '@/services/journey/knytsBridgeCrossingJourney';
+import { CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY } from '@/services/journey/constitutionalInternetBridgeJourney';
+import { HORIZEN_MONEYPENNY_JOURNEY } from '@/services/journey/horizenMoneyPennyJourney';
 
 const mockResolveAigentMeIdentity = vi.mocked(resolveAigentMeIdentity);
 
@@ -78,4 +81,51 @@ describe('resolvePrimaryCompanionForJourney', () => {
       resolveJourneyCopilot({ ...CI_JOURNEY, copilot: { cartridgeSlug: 'no-such-cartridge' } }),
     ).toThrow();
   });
+});
+
+describe('resolvePrimaryCompanionForJourney — real KNYTS/CI/FS journey integration (AEE-XP-001 §10/XP-5)', () => {
+  beforeEach(() => {
+    mockResolveAigentMeIdentity.mockReset();
+  });
+
+  const REAL_JOURNEYS = [
+    ['KNYTS Bridge', KNYTS_BRIDGE_CROSSING_JOURNEY],
+    ['Constitutional Internet Bridge', CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY],
+    ['Horizen MoneyPenny (Financial Services Bridge)', HORIZEN_MONEYPENNY_JOURNEY],
+  ] as const;
+
+  it.each(REAL_JOURNEYS)(
+    '%s: shows the canonical assigned aigentMe occupant when resolveAigentMeIdentity resolves a real assignment',
+    async (_label, journey) => {
+      mockResolveAigentMeIdentity.mockResolvedValue({
+        personaKey: 'aigent-aletheon',
+        specialistId: null,
+        displayLabel: 'Aletheon',
+        agentRootId: 'agent-root-real-assignment',
+      });
+      const staticDefault = resolveJourneyCopilot(journey);
+      const resolved = await resolvePrimaryCompanionForJourney(fakeRequest(), journey);
+      expect(resolved.agent).toEqual({ id: 'aigent-aletheon', name: 'Aletheon' });
+      // The journey's own accent/prompt/quickPrompts never change — only WHO
+      // is shown as speaking changes (specialist agents remain distinct).
+      expect(resolved.accentColor).toBe(staticDefault.accentColor);
+      expect(resolved.promptPlaceholder).toBe(staticDefault.promptPlaceholder);
+      expect(resolved.quickPrompts).toBe(staticDefault.quickPrompts);
+    },
+  );
+
+  it.each(REAL_JOURNEYS)(
+    '%s: remains UNCHANGED (the journey\'s own static specialist copilot) when no real assignment resolves',
+    async (_label, journey) => {
+      mockResolveAigentMeIdentity.mockResolvedValue({
+        personaKey: 'aigent-me',
+        specialistId: null,
+        displayLabel: 'aigentMe',
+        agentRootId: null,
+      });
+      const staticDefault = resolveJourneyCopilot(journey);
+      const resolved = await resolvePrimaryCompanionForJourney(fakeRequest(), journey);
+      expect(resolved).toEqual(staticDefault);
+    },
+  );
 });

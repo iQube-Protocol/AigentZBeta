@@ -57,6 +57,20 @@ export interface JourneyCopilotHostProps {
   activeStage: JourneyStageDefinition;
   activeStageRuntime?: JourneyStageRuntimeState;
   selectedAgentSlug?: string;
+  /**
+   * AEE-XP-001 §10/XP-5 (2026-09-01) — the canonical companion role occupant
+   * for this caller, resolved SERVER-SIDE (this component stays a plain
+   * client component — no NextRequest, no server role-resolution here) by
+   * the journey's own `state` route via `resolvePrimaryCompanionForJourney`
+   * and projected down as ordinary runtime data through
+   * `JourneyRunSurface` -> here. Substitutes ONLY the agent identity/name;
+   * `resolveJourneyCopilot(journey)` below still supplies accent/prompt/
+   * quickPrompts unchanged — this is never a second companion-state system,
+   * just a data override on the ONE existing resolver's output. Absent/null
+   * (no request context wired it, or no real assignment resolved) falls
+   * open to the journey's existing static copilot, unchanged.
+   */
+  resolvedCompanionAgent?: { id: string; name: string } | null;
 }
 
 export function JourneyCopilotHost({
@@ -65,9 +79,11 @@ export function JourneyCopilotHost({
   activeStage,
   activeStageRuntime,
   selectedAgentSlug,
+  resolvedCompanionAgent,
 }: JourneyCopilotHostProps) {
   const [isOpen, setIsOpen] = useState(false);
   const resolved = resolveJourneyCopilot(journey);
+  const agent = resolvedCompanionAgent ?? resolved.agent;
 
   useEffect(() => {
     const onOpenRequest = () => setIsOpen(true);
@@ -93,7 +109,7 @@ export function JourneyCopilotHost({
       onClose={() => setIsOpen(false)}
       variant="floating"
       accentColor={resolved.accentColor}
-      agent={resolved.agent}
+      agent={agent}
       personaId={personaId}
       enableInferenceRendering
       contextId={`journey-${journey.id}`}

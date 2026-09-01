@@ -25,6 +25,7 @@ import {
   CI_BRIDGE_CAMPAIGN_ID,
   CI_BRIDGE_EXTERNAL_AGENT_EVENT_TYPE,
 } from '@/services/journey/constitutionalInternetBridgeJourney';
+import { resolvePrimaryCompanionForJourney } from '@/services/journey/journeyCopilotResolver';
 
 export const dynamic = 'force-dynamic';
 
@@ -116,6 +117,11 @@ async function getImpl(req: NextRequest) {
   };
 
   const runtimeState = resolveJourneyState(CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY, platformState);
+
+  // AEE-XP-001 §10/XP-5 — see knyts-bridge/state's identical comment.
+  runtimeState.resolvedCompanionAgent = (
+    await resolvePrimaryCompanionForJourney(req, CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY)
+  ).agent;
 
   return NextResponse.json({ ok: true, state: runtimeState, personaAuthenticated });
 }

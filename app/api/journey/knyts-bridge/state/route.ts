@@ -24,6 +24,7 @@ import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { loadUsableCitizenPassportForAuthProfile } from '@/services/identity/passportPrincipal';
 import { resolveJourneyState, type AuthoritativePlatformState } from '@/services/journey/resolveJourneyState';
 import { KNYTS_BRIDGE_CROSSING_JOURNEY, KNYTS_BRIDGE_CAMPAIGN_ID } from '@/services/journey/knytsBridgeCrossingJourney';
+import { resolvePrimaryCompanionForJourney } from '@/services/journey/journeyCopilotResolver';
 
 export const dynamic = 'force-dynamic';
 
@@ -112,6 +113,12 @@ async function getImpl(req: NextRequest) {
   };
 
   const runtimeState = resolveJourneyState(KNYTS_BRIDGE_CROSSING_JOURNEY, platformState);
+
+  // AEE-XP-001 §10/XP-5 — this route is the nearest existing authoritative
+  // (request-bearing) boundary for this journey; project the resolved
+  // companion identity as runtime data on the SAME response the client
+  // already fetches, never a second endpoint/state system.
+  runtimeState.resolvedCompanionAgent = (await resolvePrimaryCompanionForJourney(req, KNYTS_BRIDGE_CROSSING_JOURNEY)).agent;
 
   return NextResponse.json({ ok: true, state: runtimeState, personaAuthenticated });
 }

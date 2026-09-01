@@ -393,6 +393,21 @@ export interface JourneyRuntimeState {
    * services/journey/boundaryResearchExchangeAdmission.ts.
    */
   ocsgaGrantAdmitted?: boolean;
+  /**
+   * AEE-XP-001 §10/XP-5 (2026-09-01) — the canonical companion role occupant
+   * for THIS caller, resolved server-side by `resolvePrimaryCompanionForJourney`
+   * (services/journey/journeyCopilotResolver.ts) from the real
+   * `resolveAigentMeIdentity` persona-assignment spine — never guessed from
+   * surface-local configuration. Carries ONLY the agent identity (id/name);
+   * accent/prompt/quickPrompts always stay whatever the journey's static
+   * `resolveJourneyCopilot(journey)` already resolves, so a route setting
+   * this can never drift the journey's visual identity, only who is shown as
+   * speaking. Populated by every journey `state` route that has a request
+   * context to resolve from; `JourneyCopilotHost` falls open to the static
+   * default when this is absent/null (no assignment resolved, or the calling
+   * route hasn't wired this yet — both are honest "nothing to override").
+   */
+  resolvedCompanionAgent?: { id: string; name: string } | null;
 }
 
 export interface CompanionJourneyContext {
