@@ -84,11 +84,18 @@ const JOURNEY_CONNECTOR_CLASS = 'h-px flex-1 min-w-[40px]';
  * stage, and "inspect the full Journey by scrolling" all keep working
  * unchanged); only the RAIL's own width is forced wider than the viewport
  * once there is more than a screenful to show, so the browser's own
- * `overflow-x-auto` does the rest. Eight matches the density the carousel
- * was originally introduced for (the eight-stage Horizen Journey,
- * 2026-08-02 above) — reused, not reinvented.
+ * `overflow-x-auto` does the rest.
+ *
+ * Seven (operator correction, 2026-09-01, same day): both KNYTS and CI's
+ * ambient pre-FS spine is exactly seven stages
+ * (home/view/orient/passport/[remix|personify]/stand/choose) — the cap is
+ * set to match that exactly, so the default resting view ends at CHOOSE,
+ * never bleeding into fs-discover (the FS branch's own first stage) before
+ * the visitor has actually activated the branch. The eight-stage Horizen
+ * Journey that originally motivated this carousel is unaffected either way
+ * (8 > 7 still forces the same real overflow it always needed).
  */
-const MAX_VISIBLE_SPINE_STAGES = 8;
+const MAX_VISIBLE_SPINE_STAGES = 7;
 
 /**
  * A server-derived signal name, made readable — MECHANICALLY.

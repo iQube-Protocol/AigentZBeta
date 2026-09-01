@@ -7,12 +7,16 @@
  * twelve stages, which fit uncompressed on a desktop screen, so the
  * carousel never engaged and all twelve rendered compressed into one strip.
  *
- * The fix: MAX_VISIBLE_SPINE_STAGES = 8 (reusing the density the carousel
- * was originally introduced for, the eight-stage Horizen Journey) and a
- * minimum width on the strip's INNER content, proportional to
- * visibleStageUnitCount/8, so the browser's own overflow-x-auto on the
- * OUTER scroll container actually engages once a journey exceeds the cap.
- * No virtualization — every stage stays mounted in the same rail.
+ * The fix: MAX_VISIBLE_SPINE_STAGES (a minimum width on the strip's INNER
+ * content, proportional to visibleStageUnitCount/cap, so the browser's own
+ * overflow-x-auto on the OUTER scroll container actually engages once a
+ * journey exceeds the cap). No virtualization — every stage stays mounted
+ * in the same rail.
+ *
+ * Set to 7 (operator correction, same day): both KNYTS and CI's ambient
+ * pre-FS spine is exactly seven stages, so the default resting view ends
+ * at CHOOSE — never bleeding into fs-discover before the branch is
+ * actually activated.
  */
 import { describe, it, expect } from 'vitest';
 import { readSource, stripComments } from './_lib/sourceAuthority';
@@ -22,8 +26,8 @@ import { CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY } from '@/services/journey/const
 describe('MAX_VISIBLE_SPINE_STAGES — the carousel capacity cap', () => {
   const src = stripComments(readSource('components/journey/JourneyRunSurface.tsx'));
 
-  it('is declared as exactly 8 — reusing the density the carousel was introduced for, never reinvented', () => {
-    expect(src).toMatch(/const MAX_VISIBLE_SPINE_STAGES = 8;/);
+  it('is declared as exactly 7 — matching both bridges\' seven-stage ambient pre-FS spine, so CHOOSE is the last stage visible by default', () => {
+    expect(src).toMatch(/const MAX_VISIBLE_SPINE_STAGES = 7;/);
   });
 
   it('visibleStageUnitCount counts spine stages plus one unit for the fork (if present), never per-prong', () => {
@@ -70,13 +74,13 @@ describe.each([
 ])('%s — the FS branch actually exceeds the carousel cap (proves the fix is load-bearing, not decorative)', (_label, journey) => {
   it('total non-fork stage count exceeds MAX_VISIBLE_SPINE_STAGES once the FS branch is counted', () => {
     const spineStageCount = journey.stages.filter((s) => !s.forkPosition).length;
-    expect(spineStageCount).toBeGreaterThan(8);
+    expect(spineStageCount).toBeGreaterThan(7);
   });
 
-  it('the pre-FS stage count (everything before fs-discover) is AT OR UNDER the cap — original density for the ambient stepper is preserved', () => {
+  it('the pre-FS stage count (everything before fs-discover) is EXACTLY the cap (7) — CHOOSE is the last stage visible by default, never bleeding into fs-discover pre-activation', () => {
     const fsDiscoverIndex = journey.stages.findIndex((s) => s.id === 'fs-discover');
     expect(fsDiscoverIndex).toBeGreaterThan(-1);
     const ambientStageCount = journey.stages.slice(0, fsDiscoverIndex).filter((s) => !s.forkPosition).length;
-    expect(ambientStageCount).toBeLessThanOrEqual(8);
+    expect(ambientStageCount).toBe(7);
   });
 });
