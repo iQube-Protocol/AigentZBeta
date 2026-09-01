@@ -4914,3 +4914,33 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-0e293fe.md](../build_/COMMITS/COMMIT-0e293fe.md)
 - Message: Add stale-cohort protection, scoped population labels, Copilot cohort admission
+
+## Commit `01b493d` — 2026-09-01T16:04:29Z
+- Type: `push`
+- Brief: [COMMIT-01b493d.md](../build_/COMMITS/COMMIT-01b493d.md)
+- Message: Merge MoneyPenny MPY2-1+MPY2-2: capability rail + Financial Profile
+
+## Commit `8e19382` — 2026-09-01T15:52:16Z
+- Type: `feat`
+- Brief: [COMMIT-8e19382.md](../build_/COMMITS/COMMIT-8e19382.md)
+- Message: Add MPY2-2 Financial Profile: bank-statement aggregates + candidate envelope
+
+## Commit `ae78135` — 2026-09-01T11:01:57Z
+- Type: `fix`
+- Brief: [COMMIT-ae78135.md](../build_/COMMITS/COMMIT-ae78135.md)
+- Message: Label simulated MoneyPenny data honestly and fix slate house style
+
+## Commit `e3ba888` — 2026-09-01T11:01:51Z
+- Type: `feat`
+- Brief: [COMMIT-e3ba888.md](../build_/COMMITS/COMMIT-e3ba888.md)
+- Message: Add MoneyPenny capability-led navigation rail and overview panel
+
+## Commit `6c7f3ee` — 2026-09-01T11:01:40Z
+- Type: `feat`
+- Brief: [COMMIT-6c7f3ee.md](../build_/COMMITS/COMMIT-6c7f3ee.md)
+- Message: Add MPY2-0 MoneyPenny donor harvest audit and register updates docs
+
+## Commit `d7d7761` — 2026-09-01T05:51:31-04:00
+- Type: `chore`
+- Brief: [COMMIT-d7d7761.md](../build_/COMMITS/COMMIT-d7d7761.md)
+- Message: spec: define MoneyPenny cartridge capability harvest upgrade

@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-01T15:27:48.794Z",
+  "last_updated": "2026-09-01T16:06:28.016Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "0e293fe3fb334dc9209fa02f3e1a2ec5019148eb",
-  "latest_commit_short": "0e293fe",
-  "latest_commit_title": "Add stale-cohort protection, scoped population labels, Copilot cohort admission",
+  "latest_commit": "d7d7761a20f50a8ee42051317cfe61f1d7746c92",
+  "latest_commit_short": "d7d7761",
+  "latest_commit_title": "spec: define MoneyPenny cartridge capability harvest upgrade",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,60 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "d7d7761",
+      "full_sha": "d7d7761a20f50a8ee42051317cfe61f1d7746c92",
+      "title": "spec: define MoneyPenny cartridge capability harvest upgrade",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-01T05:51:31-04:00",
+      "type": "chore",
+      "brief": "items/build_/COMMITS/COMMIT-d7d7761.md"
+    },
+    {
+      "sha": "6c7f3ee",
+      "full_sha": "6c7f3ee4d050a8843ab042a5b9e21af94085551d",
+      "title": "Add MPY2-0 MoneyPenny donor harvest audit and register updates docs",
+      "author": "Claude",
+      "timestamp": "2026-09-01T11:01:40Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-6c7f3ee.md"
+    },
+    {
+      "sha": "e3ba888",
+      "full_sha": "e3ba888f7a5bafb71776f18d1652daf4524f44e8",
+      "title": "Add MoneyPenny capability-led navigation rail and overview panel",
+      "author": "Claude",
+      "timestamp": "2026-09-01T11:01:51Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-e3ba888.md"
+    },
+    {
+      "sha": "ae78135",
+      "full_sha": "ae7813502ecf20a9811f7e7d393a129d422dffd7",
+      "title": "Label simulated MoneyPenny data honestly and fix slate house style",
+      "author": "Claude",
+      "timestamp": "2026-09-01T11:01:57Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-ae78135.md"
+    },
+    {
+      "sha": "8e19382",
+      "full_sha": "8e193820dc585dc3536f4aff901a223ecefe41a3",
+      "title": "Add MPY2-2 Financial Profile: bank-statement aggregates + candidate envelope",
+      "author": "Claude",
+      "timestamp": "2026-09-01T15:52:16Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-8e19382.md"
+    },
+    {
+      "sha": "01b493d",
+      "full_sha": "01b493d288b0f1f322c73a2160293a36cbdab353",
+      "title": "Merge MoneyPenny MPY2-1+MPY2-2: capability rail + Financial Profile",
+      "author": "Claude",
+      "timestamp": "2026-09-01T16:04:29Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-01b493d.md"
+    },
     {
       "sha": "0e293fe",
       "full_sha": "0e293fe3fb334dc9209fa02f3e1a2ec5019148eb",
@@ -1198,60 +1252,6 @@
       "timestamp": "2026-08-23T14:02:51-04:00",
       "type": "docs",
       "brief": "items/build_/COMMITS/COMMIT-bd84582.md"
-    },
-    {
-      "sha": "dc1e30d",
-      "full_sha": "dc1e30d5083a09fe44101236f63db63adae60721",
-      "title": "docs(irl): distinguish discovered from created compatibility",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-23T14:00:53-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-dc1e30d.md"
-    },
-    {
-      "sha": "2dff69a",
-      "full_sha": "2dff69a1e23f409ae67f2e66c3802d02acf7fb66",
-      "title": "docs(irl): add OCSGA boundary-map discipline to Crucible",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-22T07:43:17-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-2dff69a.md"
-    },
-    {
-      "sha": "a971e16",
-      "full_sha": "a971e161fe689f0c721dd2e28595f969c550f613",
-      "title": "update smoke test expected asset ids after Qriptopian cover re-upload",
-      "author": "Claude",
-      "timestamp": "2026-08-22T09:38:21Z",
-      "type": "chore",
-      "brief": "items/build_/COMMITS/COMMIT-a971e16.md"
-    },
-    {
-      "sha": "221a5ec",
-      "full_sha": "221a5ec8000fababf180aa7d7c1d61da3524aa15",
-      "title": "fix upload-asset route silently dropping isShareable on individual-form-fields path",
-      "author": "Claude",
-      "timestamp": "2026-08-22T09:22:17Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-221a5ec.md"
-    },
-    {
-      "sha": "ec76551",
-      "full_sha": "ec7655149bb2c238b3c1726793f712ec95ba6b9c",
-      "title": "deploy: isShareable upload-asset fix (Qriptopian re-upload prerequisite)",
-      "author": "Claude",
-      "timestamp": "2026-08-22T09:22:21Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-ec76551.md"
-    },
-    {
-      "sha": "767ee6a",
-      "full_sha": "767ee6a160a9d1157fa3911293e24fe367edaa65",
-      "title": "fix Qriptopian essay cover corruption at its two real root causes",
-      "author": "Claude",
-      "timestamp": "2026-08-22T08:50:37Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-767ee6a.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

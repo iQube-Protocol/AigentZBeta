@@ -1,4 +1,10 @@
 # Build — Changelog
+- [`d7d7761`](https://github.com/iQube-Protocol/AigentZBeta/commit/d7d7761a20f50a8ee42051317cfe61f1d7746c92) [chore] spec: define MoneyPenny cartridge capability harvest upgrade (Kn0w1, 2026-09-01T05:51:31-04:00)
+- [`6c7f3ee`](https://github.com/iQube-Protocol/AigentZBeta/commit/6c7f3ee4d050a8843ab042a5b9e21af94085551d) [feat] Add MPY2-0 MoneyPenny donor harvest audit and register updates docs (Claude, 2026-09-01T11:01:40Z)
+- [`e3ba888`](https://github.com/iQube-Protocol/AigentZBeta/commit/e3ba888f7a5bafb71776f18d1652daf4524f44e8) [feat] Add MoneyPenny capability-led navigation rail and overview panel (Claude, 2026-09-01T11:01:51Z)
+- [`ae78135`](https://github.com/iQube-Protocol/AigentZBeta/commit/ae7813502ecf20a9811f7e7d393a129d422dffd7) [fix] Label simulated MoneyPenny data honestly and fix slate house style (Claude, 2026-09-01T11:01:57Z)
+- [`8e19382`](https://github.com/iQube-Protocol/AigentZBeta/commit/8e193820dc585dc3536f4aff901a223ecefe41a3) [feat] Add MPY2-2 Financial Profile: bank-statement aggregates + candidate envelope (Claude, 2026-09-01T15:52:16Z)
+- [`01b493d`](https://github.com/iQube-Protocol/AigentZBeta/commit/01b493d288b0f1f322c73a2160293a36cbdab353) [push] Merge MoneyPenny MPY2-1+MPY2-2: capability rail + Financial Profile (Claude, 2026-09-01T16:04:29Z)
 - [`0e293fe`](https://github.com/iQube-Protocol/AigentZBeta/commit/0e293fe3fb334dc9209fa02f3e1a2ec5019148eb) [feat] Add stale-cohort protection, scoped population labels, Copilot cohort admission (Claude, 2026-09-01T15:24:27Z)
 - [`c45d510`](https://github.com/iQube-Protocol/AigentZBeta/commit/c45d510ac07e88c182c98b6be07600700f20ddef) [push] Distinguish unreadable matrix reads from genuine defaults in experienceMatrixDeriver (Claude, 2026-09-01T13:02:03Z)
 - [`0dd00db`](https://github.com/iQube-Protocol/AigentZBeta/commit/0dd00dbf2716589f12dbbf6603a36f11e44c6ff5) [feat] Add ExperiencePrescription assembler bridging Experience Matrix/Guide into AEE (Claude, 2026-09-01T13:02:14Z)
