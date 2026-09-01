@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`0e293fe`](https://github.com/iQube-Protocol/AigentZBeta/commit/0e293fe3fb334dc9209fa02f3e1a2ec5019148eb) [feat] Add stale-cohort protection, scoped population labels, Copilot cohort admission (Claude, 2026-09-01T15:24:27Z)
 - [`c45d510`](https://github.com/iQube-Protocol/AigentZBeta/commit/c45d510ac07e88c182c98b6be07600700f20ddef) [push] Distinguish unreadable matrix reads from genuine defaults in experienceMatrixDeriver (Claude, 2026-09-01T13:02:03Z)
 - [`0dd00db`](https://github.com/iQube-Protocol/AigentZBeta/commit/0dd00dbf2716589f12dbbf6603a36f11e44c6ff5) [feat] Add ExperiencePrescription assembler bridging Experience Matrix/Guide into AEE (Claude, 2026-09-01T13:02:14Z)
 - [`5d62e58`](https://github.com/iQube-Protocol/AigentZBeta/commit/5d62e582dbdff44bdcf7a4e81349363fa214386b) [push] LEARN/EXPLORE: kind-discriminated FS evidence, not a bare Continue click (Claude, 2026-09-01T11:04:59Z)

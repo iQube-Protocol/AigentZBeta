@@ -4909,3 +4909,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-c45d510.md](../build_/COMMITS/COMMIT-c45d510.md)
 - Message: Distinguish unreadable matrix reads from genuine defaults in experienceMatrixDeriver
+
+## Commit `0e293fe` — 2026-09-01T15:24:27Z
+- Type: `feat`
+- Brief: [COMMIT-0e293fe.md](../build_/COMMITS/COMMIT-0e293fe.md)
+- Message: Add stale-cohort protection, scoped population labels, Copilot cohort admission

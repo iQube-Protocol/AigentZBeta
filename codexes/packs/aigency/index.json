@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-01T15:04:02.233Z",
+  "last_updated": "2026-09-01T15:27:48.794Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "c45d510ac07e88c182c98b6be07600700f20ddef",
-  "latest_commit_short": "c45d510",
-  "latest_commit_title": "Distinguish unreadable matrix reads from genuine defaults in experienceMatrixDeriver",
+  "latest_commit": "0e293fe3fb334dc9209fa02f3e1a2ec5019148eb",
+  "latest_commit_short": "0e293fe",
+  "latest_commit_title": "Add stale-cohort protection, scoped population labels, Copilot cohort admission",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "0e293fe",
+      "full_sha": "0e293fe3fb334dc9209fa02f3e1a2ec5019148eb",
+      "title": "Add stale-cohort protection, scoped population labels, Copilot cohort admission",
+      "author": "Claude",
+      "timestamp": "2026-09-01T15:24:27Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-0e293fe.md"
+    },
     {
       "sha": "c45d510",
       "full_sha": "c45d510ac07e88c182c98b6be07600700f20ddef",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-22T08:50:37Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-767ee6a.md"
-    },
-    {
-      "sha": "6b90297",
-      "full_sha": "6b902970355507f2309818879dc8d78c53f71e78",
-      "title": "deploy: Qriptopian essay cover corruption fix (upload base64 validation + display-side derivative validation)",
-      "author": "Claude",
-      "timestamp": "2026-08-22T08:50:51Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-6b90297.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
