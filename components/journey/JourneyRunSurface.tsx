@@ -1492,6 +1492,7 @@ export function JourneyRunSurface({
         activeStage={activeStage}
         activeStageRuntime={activeStageRuntime}
         selectedAgentSlug={selectedAgentSlug}
+        resolvedCompanionAgent={runtimeState?.resolvedCompanionAgent}
       />
     </div>
   );

@@ -2,21 +2,38 @@
  * experienceHandoffService — creates and decodes `ExperienceHandoff` tokens
  * (types/experienceHandoff.ts; AEE-XP-001 §5).
  *
+ * TERMINOLOGY, precisely (2026-09-01 correction): this is a VALIDATED,
+ * NON-AUTHORITATIVE URL token — base64url-encoded JSON, shape-checked and
+ * expiry-checked on decode. It is deliberately NOT cryptographically signed
+ * or HMAC'd, and callers must not read it as tamper-evident (a base64url
+ * blob is trivially editable by whoever holds the URL). That is fine, not a
+ * gap to close later: the token carries no credential and grants no
+ * authority — it is continuity/context only, and the receiving journey's
+ * own canonical state owners (Passport, Standing, delegation) are what
+ * actually gate anything consequential, never this token. Adding signing
+ * here would be security theatre over a value that authorizes nothing; do
+ * not add it merely for appearance.
+ *
  * Deliberately NOT a new persistence engine (AEE-XP-001 §1.3, "no
  * global-state monolith" / "do not create a new generic observation
- * ledger"). A handoff is a short-lived, non-authoritative continuity pointer
- * — it carries no credential and grants no authority, so a plain
- * base64url-encoded JSON token passed as a URL parameter is sufficient and
- * honestly scoped: the receiving journey's own canonical state owners
- * (Passport, Standing, delegation) are what actually gate anything
- * consequential, never this token. Encoding it this way also satisfies the
- * spec's own "must be surface/provider neutral... usable by web, native,
- * MCP, agent and external-harness interactions" requirement for free, since
- * it needs no server-side lookup service tied to one admin client.
+ * ledger") — a plain URL parameter needs no server-side lookup service tied
+ * to one admin client, which also satisfies the spec's own "must be
+ * surface/provider neutral... usable by web, native, MCP, agent and
+ * external-harness interactions" requirement for free.
  *
- * `decodeExperienceHandoff` never throws — a malformed/expired/tampered
- * token decodes to `null`, and every caller treats `null` exactly like "no
- * handoff was supplied" (never a fabricated default).
+ * `decodeExperienceHandoff` never throws — a malformed, shape-invalid, or
+ * expired token decodes to `null`, and every caller treats `null` exactly
+ * like "no handoff was supplied" (never a fabricated default).
+ *
+ * FUTURE CONSUMERS, required discipline: `returnJourneyId`/`targetJourneyId`
+ * are caller-supplied strings from an unsigned token — any future "resume
+ * the source journey" consumer MUST resolve them by looking up the id
+ * against the actual Journey registry (the same way `JOURNEY_SURFACES`/each
+ * journey's own definition is the source of truth today) and refuse an
+ * id that doesn't resolve to a real, registered journey. Never treat the
+ * value as, or use it to construct, a raw URL/redirect target directly —
+ * that would let an unsigned token steer navigation to an arbitrary
+ * destination.
  */
 
 import type { ExperienceHandoff } from '@/types/experienceHandoff';

@@ -35,6 +35,7 @@ import {
   consequenceProngCopy,
 } from '@/services/journey/consequenceForkProjection';
 import { HORIZEN_MONEYPENNY_JOURNEY } from '@/services/journey/horizenMoneyPennyJourney';
+import { resolvePrimaryCompanionForJourney } from '@/services/journey/journeyCopilotResolver';
 import { resolveRequestOrigin } from '@/app/api/agents/_lib/requestOrigin';
 import { resolveRegistrableAgent, DEFAULT_REGISTRABLE_AGENT_SLUG } from '@/services/horizen/registrableAgents';
 import { resolveAgentRegistrationState } from '@/services/horizen/agentRegistrationBinding';
@@ -1461,6 +1462,8 @@ async function resolveState(req: NextRequest) {
       // Substitute the resolved agent's slug so the response reflects the
       // actual agent being queried, not the static journey definition.
       subjectRef: agent.slug,
+      // AEE-XP-001 §10/XP-5 — see knyts-bridge/state's identical comment.
+      resolvedCompanionAgent: (await resolvePrimaryCompanionForJourney(req, HORIZEN_MONEYPENNY_JOURNEY)).agent,
     },
     // THREE AXES, reported separately so no consumer can collapse them.
     axes,
