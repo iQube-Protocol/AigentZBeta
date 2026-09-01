@@ -430,6 +430,40 @@ export interface JourneyRuntimeState {
    * route hasn't wired this yet — both are honest "nothing to override").
    */
   resolvedCompanionAgent?: { id: string; name: string } | null;
+
+  /**
+   * XP-1 Experience Control Plane convergence (AEE-XP-001 §6, 2026-09-01) —
+   * which dormant branches (`JourneyStageDefinition.activationBranch`) are
+   * activated for THIS resolution, and the intent declared when each was
+   * activated. Caller-supplied to `resolveJourneyState` (never invented by
+   * the resolver itself) — the caller is a real client gesture relayed
+   * honestly (e.g. a request query param reflecting
+   * `services/journey/journeyBranchActivation.ts`'s sessionStorage flag),
+   * never a server-side guess. `undefined`/absent means no caller supplied
+   * any — every branch stays dormant, exactly as before this field existed.
+   */
+  activatedBranches?: Record<string, string>;
+  /**
+   * XP-1 (AEE-XP-001 §6) — the DAG-correct set of stage ids that are
+   * currently reachable (prerequisites + dependencies satisfied, not yet
+   * COMPLETE, and — if branch-gated — that branch is activated) in the
+   * journey's OWN declared stage order. Deliberately independent of the
+   * legacy `stages[].state === 'READY'` computation above, which is a
+   * linear "every prior stage complete" heuristic that several existing
+   * non-linear journeys (KNYTS/CI Bridge) already navigate around via
+   * direct stage selection rather than relying on — see
+   * `computeJourneyReachability` in resolveJourneyState.ts for why a
+   * second, additive notion of reachability was introduced rather than
+   * changing the first. Always populated by `resolveJourneyState`.
+   */
+  reachableStageIds?: string[];
+  /**
+   * The first id in `reachableStageIds`, in the journey's declared stage
+   * order — the canonical "what's next" signal AEE reads (Journey Spine
+   * remains the owner of this fact; AEE only consumes it). `null` when
+   * nothing is currently reachable.
+   */
+  nextReachableStageId?: string | null;
 }
 
 export interface CompanionJourneyContext {

@@ -25,6 +25,8 @@ import { loadUsableCitizenPassportForAuthProfile } from '@/services/identity/pas
 import { resolveJourneyState, type AuthoritativePlatformState } from '@/services/journey/resolveJourneyState';
 import { KNYTS_BRIDGE_CROSSING_JOURNEY, KNYTS_BRIDGE_CAMPAIGN_ID } from '@/services/journey/knytsBridgeCrossingJourney';
 import { resolvePrimaryCompanionForJourney } from '@/services/journey/journeyCopilotResolver';
+import { parseActivatedBranchesParam } from '@/services/journey/journeyBranchActivation';
+import { computeJourneyAeeOutcome } from '@/services/adaptive/journeyAeeOrchestrator';
 
 export const dynamic = 'force-dynamic';
 
@@ -112,7 +114,8 @@ async function getImpl(req: NextRequest) {
     },
   };
 
-  const runtimeState = resolveJourneyState(KNYTS_BRIDGE_CROSSING_JOURNEY, platformState);
+  const activatedBranches = parseActivatedBranchesParam(req.nextUrl.searchParams.get('activatedBranches'));
+  const runtimeState = resolveJourneyState(KNYTS_BRIDGE_CROSSING_JOURNEY, platformState, activatedBranches);
 
   // AEE-XP-001 §10/XP-5 — this route is the nearest existing authoritative
   // (request-bearing) boundary for this journey; project the resolved
@@ -120,5 +123,24 @@ async function getImpl(req: NextRequest) {
   // already fetches, never a second endpoint/state system.
   runtimeState.resolvedCompanionAgent = (await resolvePrimaryCompanionForJourney(req, KNYTS_BRIDGE_CROSSING_JOURNEY)).agent;
 
-  return NextResponse.json({ ok: true, state: runtimeState, personaAuthenticated });
+  // XP-1 (AEE-XP-001 §6) — the first LIVE HTTP-reachable caller of
+  // services/adaptive/*. Additive: `aee` is a new top-level response key,
+  // never a change to `state`'s own shape, and its computation can never
+  // fail the request — a thrown/rejected outcome here is exactly case E
+  // (AEE-XP-001 §5): the client already has `state` to fall back to its
+  // existing deterministic native rendering, unaffected.
+  let aee: Awaited<ReturnType<typeof computeJourneyAeeOutcome>> | null = null;
+  try {
+    aee = await computeJourneyAeeOutcome({
+      journeyDefinition: KNYTS_BRIDGE_CROSSING_JOURNEY,
+      runtimeState,
+      hostId: 'knyts-bridge',
+      participantRef: persona?.personaId ?? 'anonymous',
+      generatedAt: new Date().toISOString(),
+    });
+  } catch {
+    aee = null; // fall-open — never blocks the response
+  }
+
+  return NextResponse.json({ ok: true, state: runtimeState, personaAuthenticated, aee });
 }

@@ -8,6 +8,25 @@
  * Emits a 'nbe_recommendation' telemetry event on every computed plan.
  *
  * Phase 1 — KNYT Sprint 1
+ *
+ * XP-1 CONVERGENCE STATUS (AEE-XP-001 §6, 2026-09-01): this route is now a
+ * CANDIDATE/FALLBACK/COMPATIBILITY source, never an independent decision
+ * authority, for any journey that has adopted the Journey Spine + AEE loop
+ * (`services/adaptive/journeyAeeOrchestrator.ts` — the KNYTS/CI Financial
+ * Sovereignty branch is the first). Canonical semantics: AEE determines the
+ * Next Best Experience; this route's own depth-ladder ranking MAY contribute
+ * a candidate into that determination via the orchestrator's
+ * `legacyCandidateStageId` seam — it never decides unilaterally for an
+ * AEE-adopted journey.
+ *
+ * This route is UNCHANGED and remains the live, independent decision path
+ * for every KNYT persona-stage/depth-ladder caller that has not adopted the
+ * Journey Spine model (`journey_states`/`experience_matrices`/`nbe_plans` —
+ * a different vocabulary from `JourneyDefinition` stage ids, with no
+ * natural 1:1 mapping to migrate). Nothing here is deleted, and
+ * `nbe_plans` persistence is preserved exactly as-is — a real integration
+ * mapping a specific KNYT depth-ladder recommendation onto a specific
+ * Journey Spine stage id is future work, not assumed by this comment.
  */
 
 import { NextRequest, NextResponse } from 'next/server';

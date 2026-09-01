@@ -64,7 +64,18 @@ export function buildJourneyProjectionContext(
     currentStageId: journeyState.currentStageId,
     targetStageId: journeyState.targetStageId,
     completedStageIds: interactionContext.completedStageIds,
-    readyStageIds: interactionContext.readyStageIds,
+    /*
+     * XP-1 (AEE-XP-001 §6) — prefer `journeyState.reachableStageIds`
+     * (resolveJourneyState.ts's DAG-correct, branch-aware reachability) when
+     * present; fall back to the legacy `interactionContext.readyStageIds`
+     * otherwise. This function has zero callers besides its own test today
+     * (Phase 0 audit), so preferring the new field changes no live
+     * behavior — it only means the FIRST real caller (the AEE orchestrator)
+     * gets the correct signal rather than the legacy linear one, which
+     * several non-linear journeys (KNYTS/CI Bridge) already navigate around
+     * rather than rely on.
+     */
+    readyStageIds: journeyState.reachableStageIds ?? interactionContext.readyStageIds,
     optionalStageIds: interactionContext.optionalStageIds,
     waitingStageIds: interactionContext.waitingStageIds,
     blockedStageIds: interactionContext.blockedStageIds,

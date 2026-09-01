@@ -27,7 +27,7 @@ import { personaFetch, usePersonaSpine } from '@/utils/personaSpine';
 import { buildCodexUrl } from '@/utils/codex-nav';
 import { JOURNEY_SURFACES, buildEmbedSurfaceSrc, type JourneySurfaceDescriptor } from '@/services/journey/journeySurfaceRegistry';
 import { requestBridgeEmbedReturn } from '@/services/journey/bridgeEmbedNav';
-import { isJourneyBranchActivated } from '@/services/journey/journeyBranchActivation';
+import { isJourneyBranchActivated, serializeActivatedBranchesForJourney } from '@/services/journey/journeyBranchActivation';
 import { StageReceiptsDrawer } from '@/components/journey/StageReceiptsDrawer';
 import { JourneyCopilotHost } from '@/components/journey/JourneyCopilotHost';
 import { ActivePersonaControl } from '@/components/persona/ActivePersonaControl';
@@ -526,7 +526,20 @@ export function JourneyRunSurface({
       // CLAUDE.md's spine rule documents). personaFetch is the one client
       // transport that attaches it, hinted with this journey's own persona
       // when known.
-      const res = await personaFetch(stateUrl, { cache: 'no-store', personaIdHint: personaId });
+      //
+      // XP-1 (AEE-XP-001 §6) — relay any currently-activated dormant branch
+      // (services/journey/journeyBranchActivation.ts's sessionStorage flag)
+      // onto the request so the state route can fold it into
+      // `resolveJourneyState`'s `activatedBranches` honestly (a real client
+      // gesture, never server-guessed). Read fresh on every fetch — a stage
+      // reveals to the visitor from client state alone (no round-trip
+      // needed for that), but the AEE-scoped reachability/projection this
+      // response may carry needs the server to know the same fact.
+      const activatedBranchesParam = serializeActivatedBranchesForJourney(journey);
+      const fetchUrl = activatedBranchesParam
+        ? `${stateUrl}${stateUrl.includes('?') ? '&' : '?'}activatedBranches=${encodeURIComponent(activatedBranchesParam)}`
+        : stateUrl;
+      const res = await personaFetch(fetchUrl, { cache: 'no-store', personaIdHint: personaId });
       if (!res.ok) throw new Error(`Journey state request failed (${res.status})`);
       const json = await readJsonOrExplain(res, 'journey/state');
       if (seq !== refreshSeqRef.current) {
