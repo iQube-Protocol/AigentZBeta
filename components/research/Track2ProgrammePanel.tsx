@@ -62,6 +62,7 @@ import {
   DECLARED_POPULATION_LABEL,
   EXCEPTION_CAUSE_LABEL,
   groupExceptionsByCause,
+  populationScopeLabel,
   signalForDisposition,
   type DeclaredPopulation,
   type IsolationException,
@@ -2669,7 +2670,7 @@ function ExecutableBatchSummary({
       {/* THE POPULATION, ALWAYS. Never only what advanced. */}
       {population && (
         <div className="mt-1.5 rounded border border-slate-800 bg-slate-900/40 p-1.5 text-[10px] text-slate-400">
-          <span className="text-slate-500">Full population — </span>
+          <span className="text-slate-500">{populationScopeLabel(population.scope)} </span>
           Discovered: {population.discovered} / Admitted: {population.admitted} / Candidates extracted:{" "}
           {population.candidatesExtracted} / Validated: {population.validated} / Assigned to crystal:{" "}
           {population.assignedToCrystal} / Excluded with warnings: {population.excludedWithWarnings} / Exceptions:{" "}

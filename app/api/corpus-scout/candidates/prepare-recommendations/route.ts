@@ -35,6 +35,8 @@ import {
   summarizeIsolation,
   type PopulationDisclosure,
 } from '@/services/research/exceptionIsolation';
+import { eligibleAdmissionCohortIds, resolvableDuplicateAliasIds } from '@/services/corpusScout/admissionPreparation';
+import { computeCohortHash } from '@/services/research/cohortAuthorization';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -110,10 +112,12 @@ export async function GET(req: NextRequest) {
     refused: summary.counts.refused,
     // Downstream of this stage and NOT readable from here. Reported as 0
     // rather than guessed — the freeze package, which sees the whole
-    // pipeline, is where all eight counts are real.
+    // pipeline, is where all eight counts are real. `scope` says so
+    // explicitly (2026-09-01) so no renderer calls this "Full population".
     candidatesExtracted: 0,
     validated: 0,
     assignedToCrystal: 0,
+    scope: 'current-acquisition-round',
   };
 
   return NextResponse.json(
@@ -130,6 +134,13 @@ export async function GET(req: NextRequest) {
       duplicateDryRun,
       recommendations,
       summary,
+      // STALE-COHORT PROTECTION (2026-09-01) — the SAME hashes
+      // `researchProgrammeOrchestrator.ts`'s pendingDecision enrichment
+      // computes over this identical `prepareAdmissionRecommendations`
+      // output. A manual "Prepare recommendations" caller gets the same
+      // commitment a Copilot-driven one does — one definition, one hash.
+      admissionCohortHash: computeCohortHash(eligibleAdmissionCohortIds(recommendations)),
+      duplicateCohortHash: computeCohortHash(resolvableDuplicateAliasIds(duplicateResolutions)),
       population,
       populationDisclosure: renderPopulationDisclosure(population),
       criticalPath: buildCriticalPath({

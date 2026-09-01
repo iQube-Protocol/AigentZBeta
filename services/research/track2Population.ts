@@ -137,6 +137,12 @@ export async function resolveTrack2Population(
       excludedWithWarnings,
       exceptions,
       refused,
+      // All eight fields above are real, cumulative reads across the whole
+      // acquisition + crystal domain (2026-09-01 scope disclosure) — the ONE
+      // computation entitled to the "Full population" framing; every Stage 2
+      // Corpus Scout route's own population object is scoped narrower and
+      // says so via `'current-acquisition-round'`.
+      scope: 'cumulative-programme',
     },
     unreadable,
     assignedInvariantIds,

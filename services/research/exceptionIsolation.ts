@@ -400,6 +400,28 @@ export interface PopulationDisclosure {
   excludedWithWarnings: number;
   exceptions: number;
   refused: number;
+  /**
+   * SCOPE DISCLOSURE (2026-09-01) — which of the two genuinely different
+   * computations this disclosure came from, so no surface can render it under
+   * a name ("Full population") that overstates what it covers:
+   *
+   *   'current-acquisition-round' — `candidatesExtracted`/`validated`/
+   *     `assignedToCrystal` are structurally 0 here, honestly, because this
+   *     stage (Stage 2 Corpus Scout review) cannot read downstream pipeline
+   *     state — see `prepare-recommendations`/`resolve-duplicates` routes'
+   *     own doc comments. `discovered`/`admitted`/`excludedWithWarnings`/
+   *     `exceptions`/`refused` ARE real, scoped to this acquisition domain.
+   *   'cumulative-programme' — every one of the eight fields is real, read
+   *     across the whole acquisition + crystal domain
+   *     (`services/research/track2Population.ts::resolveTrack2Population`,
+   *     the freeze package's own view).
+   *
+   * Optional so every existing caller that predates this field (and every
+   * caller for whom the distinction genuinely does not apply) is unaffected;
+   * a renderer that cares distinguishes the two explicitly rather than
+   * defaulting to "Full population" for both.
+   */
+  scope?: 'current-acquisition-round' | 'cumulative-programme';
 }
 
 /** The operator's own rendering, so every surface states the population the
@@ -411,6 +433,15 @@ export function renderPopulationDisclosure(p: PopulationDisclosure): string {
     `Assigned to crystal: ${p.assignedToCrystal} / Excluded with warnings: ${p.excludedWithWarnings} / ` +
     `Exceptions: ${p.exceptions} / Refused: ${p.refused}`
   );
+}
+
+/** The scope-aware heading a surface should render ABOVE
+ *  `renderPopulationDisclosure`'s line — replaces any hardcoded "Full
+ *  population —" label, which is accurate only for `'cumulative-programme'`. */
+export function populationScopeLabel(scope: PopulationDisclosure['scope']): string {
+  if (scope === 'cumulative-programme') return 'Cumulative EXP-P1 / Crystal v2 —';
+  if (scope === 'current-acquisition-round') return 'Current acquisition round —';
+  return 'Population —';
 }
 
 // ── PIPELINE CONTINUITY — the declared subject of every stage (ruling 2026-08-03) ──

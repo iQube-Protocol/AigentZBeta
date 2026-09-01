@@ -108,6 +108,8 @@ import {
   surfaceDataRefreshedEvent,
   surfacePromptSelectedEvent,
 } from "@/services/dcir/eventStream";
+import { PROVENANCE_CLASSES, type ProvenanceClass } from "@/services/corpusScout/types";
+import { partitionForExecution } from "@/services/corpusScout/executionAbsorption";
 import { useDcirSeam } from "@/services/dcir/useDcirSeam";
 
 const SURFACE = "irl-research";
@@ -604,6 +606,15 @@ function ObjectiveCard({
   admissionRunning,
   admissionError,
   admissionStatus,
+  onAdmitEligible,
+  admitRunning,
+  admitError,
+  admitStatus,
+  admitProgress,
+  admitProvenanceClass,
+  onAdmitProvenanceClassChange,
+  admitRationale,
+  onAdmitRationaleChange,
 }: {
   objective: ResearchObjective;
   run: ProgrammeRunResult | null;
@@ -685,6 +696,23 @@ function ObjectiveCard({
   admissionRunning: boolean;
   admissionError: string | null;
   admissionStatus: string | null;
+  /**
+   * "ADMIT ELIGIBLE SOURCES" (2026-09-01) — the cohort-level ratification
+   * control for `decision.admissionQueue`'s eligible subset (`ready` /
+   * `ready-with-warning`). One steward judgement (`admitProvenanceClass` +
+   * `admitRationale`) covers the whole prepared cohort; the handler groups by
+   * `reviewDecision` and drives bounded `bulk-review` batches through the
+   * EXISTING route — never a second admission write path.
+   */
+  onAdmitEligible: (decision: PendingGovernanceDecision) => void;
+  admitRunning: boolean;
+  admitError: string | null;
+  admitStatus: string | null;
+  admitProgress: { current: number; total: number } | null;
+  admitProvenanceClass: ProvenanceClass | "";
+  onAdmitProvenanceClassChange: (v: ProvenanceClass | "") => void;
+  admitRationale: string;
+  onAdmitRationaleChange: (v: string) => void;
 }) {
   const gate = run?.measurementLayerGate ?? null;
   const programme = run?.programme ?? programmePreview;
@@ -715,6 +743,12 @@ function ObjectiveCard({
     (p) => p.kind === "recommended-resolution-available",
   );
   const resolvableDuplicateAliasCount = resolvableDuplicateGroups.reduce((n, p) => n + p.aliasSourceIds.length, 0);
+  // THE ELIGIBLE COHORT (2026-09-01) — every source `onAdmitEligible` would
+  // cover. Mirrors `eligibleAdmissionCohortIds` (admissionPreparation.ts)
+  // exactly (ready | ready-with-warning) — never a second filter definition.
+  const eligibleAdmissionCount = (admissionQueue ?? []).filter(
+    (r) => r.disposition === "ready" || r.disposition === "ready-with-warning",
+  ).length;
 
   return (
     <div className="rounded-xl border border-sky-800/50 bg-sky-950/20 p-4 space-y-3">
@@ -1093,13 +1127,77 @@ function ObjectiveCard({
           <div className="text-[10px] text-slate-400">
             {admissionManualReviewCount > 0
               ? `${admissionManualReviewCount} of ${admissionQueue.length} need individual inspection — the rest carry a machine recommendation.`
-              : "Every source carries a machine recommendation."}{" "}
-            Ratify a cohort or inspect individually in Review &amp; Admit.
+              : "Every source carries a machine recommendation."}
+          </div>
+
+          {/* ADMIT ELIGIBLE SOURCES (2026-09-01) — the cohort-level
+              ratification act: one steward judgement (provenance class +
+              rationale) covers the whole eligible cohort; the handler
+              batches through the EXISTING bulk-review route and continues
+              the programme when done. The 6 manual-review exceptions above
+              are never part of this cohort — `eligibleAdmissionCount`
+              excludes them by construction. */}
+          {eligibleAdmissionCount > 0 && (
+            <div className="rounded border border-emerald-700/40 bg-emerald-500/5 p-1.5 space-y-1">
+              <div className="text-[10px] text-emerald-200 font-medium">
+                Admit {eligibleAdmissionCount} eligible source{eligibleAdmissionCount === 1 ? "" : "s"}
+              </div>
+              <div className="flex gap-1.5">
+                <select
+                  value={admitProvenanceClass}
+                  onChange={(e) => onAdmitProvenanceClassChange(e.target.value as ProvenanceClass | "")}
+                  disabled={admitRunning}
+                  className="flex-1 rounded border border-slate-700 bg-slate-900 px-1.5 py-1 text-[10px] text-slate-200 disabled:opacity-50"
+                >
+                  <option value="">Evidence provenance…</option>
+                  {PROVENANCE_CLASSES.map((pc) => (
+                    <option key={pc} value={pc}>{pc}</option>
+                  ))}
+                </select>
+              </div>
+              <input
+                type="text"
+                value={admitRationale}
+                onChange={(e) => onAdmitRationaleChange(e.target.value)}
+                disabled={admitRunning}
+                placeholder="Rationale — recorded on every source admitted"
+                className="w-full rounded border border-slate-700 bg-slate-900 px-1.5 py-1 text-[10px] text-slate-200 placeholder:text-slate-600 disabled:opacity-50"
+              />
+              <button
+                type="button"
+                onClick={() => onAdmitEligible(decision)}
+                disabled={admitRunning || !admitProvenanceClass || !admitRationale.trim()}
+                className="inline-flex items-center gap-1 rounded border border-emerald-500/40 bg-emerald-500/20 px-2 py-1 text-[10px] font-semibold text-emerald-50 hover:bg-emerald-500/30 transition disabled:opacity-50"
+              >
+                {admitRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : <ShieldCheck className="h-3 w-3" />}
+                {admitRunning
+                  ? admitProgress
+                    ? `${admitStatus ?? "Admitting…"} (${admitProgress.current}/${admitProgress.total})`
+                    : (admitStatus ?? "Admitting…")
+                  : `Admit ${eligibleAdmissionCount} eligible source${eligibleAdmissionCount === 1 ? "" : "s"}`}
+              </button>
+              {admitError && (
+                <div className="rounded border border-rose-500/40 bg-rose-500/10 px-2 py-1.5 text-[10px] text-rose-300">
+                  {admitError}
+                  <button
+                    type="button"
+                    onClick={() => onAdmitEligible(decision)}
+                    className="ml-1.5 underline decoration-rose-700 hover:text-rose-100"
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="text-[10px] text-slate-400">
+            Inspect individually, or override a machine recommendation, in Review &amp; Admit.
           </div>
           <button
             type="button"
             onClick={() => onProceed(decision)}
-            disabled={proceeding || admissionRunning}
+            disabled={proceeding || admissionRunning || admitRunning}
             className="mt-0.5 inline-flex items-center gap-1 text-[10px] text-violet-300/70 hover:text-violet-200 transition disabled:opacity-50"
           >
             {proceeding ? <Loader2 className="h-3 w-3 animate-spin" /> : <ArrowRight className="h-3 w-3" />}
@@ -1391,6 +1489,19 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
   const [admissionRunning, setAdmissionRunning] = useState(false);
   const [admissionError, setAdmissionError] = useState<string | null>(null);
   const [admissionStatus, setAdmissionStatus] = useState<string | null>(null);
+  // ── ADMIT ELIGIBLE SOURCES (2026-09-01) — the ONE cohort-level ratification
+  // act (`onAdmitEligible` below), separate from `admissionRunning` (the
+  // duplicate-resolution trio above) so the two controls never disable each
+  // other. `admitProvenanceClass`/`admitRationale` are the ONE steward
+  // judgement the whole eligible cohort shares — required before the button
+  // enables, mirroring `BulkAdmissionControl`'s own `requiresProvenanceClass`
+  // gate (Track2ProgrammePanel.tsx), never guessed or defaulted.
+  const [admitRunning, setAdmitRunning] = useState(false);
+  const [admitError, setAdmitError] = useState<string | null>(null);
+  const [admitStatus, setAdmitStatus] = useState<string | null>(null);
+  const [admitProgress, setAdmitProgress] = useState<{ current: number; total: number } | null>(null);
+  const [admitProvenanceClass, setAdmitProvenanceClass] = useState<ProvenanceClass | "">("");
+  const [admitRationale, setAdmitRationale] = useState("");
 
   // ── C3 Feedback Coordinator (mirrors DevCommandCenterTab.autoPrompt): on a
   // stage-ADVANCING approval, mint ONE `[observed]` auto-turn so the copilot
@@ -1938,6 +2049,147 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
   }, [observe, personaId, runProgramme]);
 
   /**
+   * "ADMIT ELIGIBLE SOURCES" (2026-09-01) — the cohort-level ratification act
+   * requirement #3 asks for: the Steward approves the WHOLE machine-prepared
+   * eligible cohort (`disposition: 'ready' | 'ready-with-warning'`) as ONE
+   * judgement (one `provenanceClass` + one rationale), and this drives the
+   * bounded execution to completion rather than deep-linking into Review &
+   * Admit for 59 individual decisions.
+   *
+   * Reuses, never reimplements:
+   *   - `admissionQueue`'s own `reviewDecision` per source (already computed
+   *     by `composeAdmissionRecommendation` — never re-derived here). The
+   *     eligible cohort is grouped by this value because
+   *     `POST /api/corpus-scout/candidates/bulk-review` requires ONE shared
+   *     decision per call ("every source in the batch is admitted under the
+   *     SAME evidence-provenance class" — the route's own rule, unchanged).
+   *   - `partitionForExecution` (`executionAbsorption.ts`) for the ≤25-source
+   *     batching within each group — the SAME client-side absorption
+   *     `BulkAdmissionControl` uses, not a second batching scheme.
+   *   - `decision.admissionCohortHash` — echoed back as `expectedCohortHash`
+   *     so the route refuses (fails closed) if the corpus moved since this
+   *     cohort was prepared, rather than silently admitting a stale set.
+   *   - `runProgramme` — the SAME "Run until you need me" continuation
+   *     `resolveDeterministicDuplicates` above already uses, so Track 2 auto-
+   *     advances past Stage 2 once nothing eligible remains.
+   *
+   * Isolation: groups are attempted INDEPENDENTLY — a failure partway through
+   * one admissionClass group (e.g. 'general finance') never withholds
+   * another ('EXP-P1 evidence') that has nothing to do with it. Within one
+   * group, a batch failure stops THAT group (mirroring
+   * `BulkAdmissionControl`'s own stop-on-first-failure — a partially-applied
+   * group must never be reported as fully admitted). The 6 manual-review
+   * exceptions are never included in any group — `disposition` already
+   * excludes them upstream in `admissionQueue` itself.
+   */
+  const admitEligibleCohort = useCallback(async (decision: PendingGovernanceDecision) => {
+    const campaignDomain = decision.admissionDomain;
+    const queue = decision.admissionQueue ?? [];
+    if (!campaignDomain) {
+      setAdmitError("no acquisition domain was carried on this decision — cannot admit");
+      return;
+    }
+    if (!admitProvenanceClass) {
+      setAdmitError("choose an evidence provenance class before admitting — every source in this cohort is admitted under it");
+      return;
+    }
+    if (!admitRationale.trim()) {
+      setAdmitError("a rationale is required — it is recorded on every source admitted");
+      return;
+    }
+
+    const eligible = queue.filter((r) => r.disposition === "ready" || r.disposition === "ready-with-warning");
+    const groups = new Map<string, string[]>();
+    for (const r of eligible) {
+      if (!r.reviewDecision) continue; // Cannot occur for an eligible disposition, but never assumed.
+      groups.set(r.reviewDecision, [...(groups.get(r.reviewDecision) ?? []), r.sourceId]);
+    }
+    if (groups.size === 0) {
+      setAdmitError("no eligible source carries an admission decision — nothing to admit");
+      return;
+    }
+
+    const groupPlans = [...groups.entries()].map(([reviewDecision, sourceIds]) => ({
+      reviewDecision,
+      batches: partitionForExecution(sourceIds),
+    }));
+    const totalBatches = groupPlans.reduce((n, g) => n + g.batches.length, 0);
+
+    setAdmitRunning(true);
+    setAdmitError(null);
+    setAdmitStatus("Admitting eligible cohort…");
+    setAdmitProgress({ current: 0, total: totalBatches });
+    observe(surfacePromptSelectedEvent(SURFACE, `admit eligible cohort requested (${eligible.length} source(s), ${groupPlans.length} class(es))`));
+
+    let batchesDone = 0;
+    let admitted = 0;
+    let staleCohort = false;
+    const groupFailures: string[] = [];
+
+    try {
+      for (const group of groupPlans) {
+        if (staleCohort) break;
+        for (const batch of group.batches) {
+          const res = await personaFetch(`/api/corpus-scout/candidates/bulk-review`, {
+            method: "POST",
+            cache: "no-store",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              sourceIds: batch.sourceIds,
+              decision: group.reviewDecision,
+              notes: admitRationale.trim(),
+              provenanceClass: admitProvenanceClass,
+              dryRun: false,
+              campaignDomain,
+              expectedCohortHash: decision.admissionCohortHash,
+            }),
+            ...(personaId ? { personaIdHint: personaId } : {}),
+          });
+          const data = await res.json().catch(() => null) as {
+            ok?: boolean; error?: string; detail?: string; written?: number;
+          } | null;
+          batchesDone += 1;
+          setAdmitProgress({ current: batchesDone, total: totalBatches });
+          if (!res.ok || !data || data.ok !== true) {
+            if (data?.error === "recommendation-set-changed") {
+              // THE PREPARED COHORT MOVED — fail closed on the WHOLE act, not
+              // just this batch. A partial admission under a stale premise is
+              // exactly the defect stale-cohort protection exists to prevent.
+              staleCohort = true;
+              setAdmitError(
+                (data.detail as string | undefined) ??
+                  "The prepared cohort has changed since it was shown. Refresh recommendations and reconfirm.",
+              );
+              break;
+            }
+            groupFailures.push(
+              `${group.reviewDecision}: ${(data && typeof data.error === "string" && data.error) || `HTTP ${res.status}`}`,
+            );
+            break; // Stop THIS group; other groups still proceed.
+          }
+          admitted += data.written ?? 0;
+        }
+      }
+
+      if (admitted > 0) {
+        setAdmitStatus(
+          `Admitted ${admitted} source(s)` +
+            (groupFailures.length > 0 ? ` — ${groupFailures.length} class(es) stopped early: ${groupFailures.join("; ")}` : "") +
+            " — continuing the programme…",
+        );
+        await runProgramme(decision.deepLink.experimentId);
+      } else if (!staleCohort) {
+        setAdmitError(groupFailures.join("; ") || "nothing was admitted");
+      }
+      if (admitted > 0 && groupFailures.length === 0 && !staleCohort) setAdmitStatus(null);
+    } catch (err) {
+      setAdmitError(err instanceof Error ? err.message : "cohort admission failed");
+    }
+    setAdmitProgress(null);
+    setAdmitRunning(false);
+  }, [observe, personaId, runProgramme, admitProvenanceClass, admitRationale]);
+
+  /**
    * REVIEW & PROMOTE — one steward disposition per click (2026-08-30,
    * "Review & Promote is a description, not a decision surface" fix).
    *
@@ -2241,6 +2493,15 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
               admissionRunning={admissionRunning}
               admissionError={admissionError}
               admissionStatus={admissionStatus}
+              onAdmitEligible={(decision) => void admitEligibleCohort(decision)}
+              admitRunning={admitRunning}
+              admitError={admitError}
+              admitStatus={admitStatus}
+              admitProgress={admitProgress}
+              admitProvenanceClass={admitProvenanceClass}
+              onAdmitProvenanceClassChange={setAdmitProvenanceClass}
+              admitRationale={admitRationale}
+              onAdmitRationaleChange={setAdmitRationale}
             />
           ))}
 
