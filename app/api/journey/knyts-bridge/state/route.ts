@@ -29,6 +29,8 @@ import { parseActivatedBranchesParam } from '@/services/journey/journeyBranchAct
 import { computeJourneyAeeOutcome } from '@/services/adaptive/journeyAeeOrchestrator';
 import { hasDiscoveredFinancialSovereignty, hasLearnedFinancialSovereignty, hasExploredFinancialSovereignty } from '@/services/journey/financialSovereigntyEvidence';
 import { assembleExperienceIntentProjection } from '@/services/adaptive/experienceIntentAssembly';
+import { deriveMatrixCalibration } from '@/services/strategy/experienceMatrixDeriver';
+import { assembleExperiencePrescription } from '@/services/adaptive/experiencePrescriptionAssembly';
 
 export const dynamic = 'force-dynamic';
 
@@ -146,6 +148,7 @@ async function getImpl(req: NextRequest) {
   // (AEE-XP-001 §5): the client already has `state` to fall back to its
   // existing deterministic native rendering, unaffected.
   let aee: Awaited<ReturnType<typeof computeJourneyAeeOutcome>> | null = null;
+  let prescription: ReturnType<typeof assembleExperiencePrescription> = null;
   try {
     // AEE-XP-001 §6 XP-1 follow-up (2026-09-01) — activate
     // ExperienceIntentProjection end-to-end. Same fall-open discipline as
@@ -164,9 +167,29 @@ async function getImpl(req: NextRequest) {
       generatedAt: new Date().toISOString(),
       experience,
     });
+
+    // AEE-XP-001 §11 XP-2 (2026-09-01) — Experience Architecture →
+    // ExperiencePrescription → AEE Projection convergence. The Experience
+    // Matrix/Guide's contribution (HOW richly to present the stage AEE just
+    // recommended) — read via the SAME uncertainty-safe deriver every other
+    // matrix surface uses (services/strategy/experienceMatrixDeriver.ts),
+    // never a second calibration source. `matrixCalibration` stays null for
+    // a signed-out caller (no persona to calibrate), which the assembler
+    // treats identically to "uncertain: false" — a genuinely-absent context,
+    // not a failed read.
+    const admin = getSupabaseServer();
+    const matrixCalibration =
+      persona?.personaId && admin ? await deriveMatrixCalibration(admin, persona.personaId) : null;
+    prescription = assembleExperiencePrescription({
+      journeyDefinition: KNYTS_BRIDGE_CROSSING_JOURNEY,
+      aee,
+      matrixCalibration,
+      surfaceTemplate: 'liquidui:knyts-bridge-fs-v1',
+    });
   } catch {
     aee = null; // fall-open — never blocks the response
+    prescription = null;
   }
 
-  return NextResponse.json({ ok: true, state: runtimeState, personaAuthenticated, aee });
+  return NextResponse.json({ ok: true, state: runtimeState, personaAuthenticated, aee, prescription });
 }

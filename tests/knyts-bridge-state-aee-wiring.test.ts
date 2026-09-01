@@ -43,7 +43,29 @@ describe('KNYTS bridge state route — AEE wiring is additive and fail-open', ()
     expect(block).toMatch(/experience,/);
   });
 
-  it('the JSON response still returns state/personaAuthenticated unchanged, plus the new additive aee key', () => {
-    expect(src).toMatch(/NextResponse\.json\(\{\s*ok:\s*true,\s*state:\s*runtimeState,\s*personaAuthenticated,\s*aee\s*\}\)/);
+  it('the JSON response still returns state/personaAuthenticated unchanged, plus the additive aee and prescription keys', () => {
+    expect(src).toMatch(
+      /NextResponse\.json\(\{\s*ok:\s*true,\s*state:\s*runtimeState,\s*personaAuthenticated,\s*aee,\s*prescription\s*\}\)/,
+    );
+  });
+
+  it('AEE-XP-001 §11 XP-2: assembles the ExperiencePrescription inside the SAME fail-open try block, via the uncertainty-safe matrix deriver — never a second calibration source', () => {
+    const anchorIdx = src.indexOf('let aee: Awaited<ReturnType<typeof computeJourneyAeeOutcome>> | null = null;');
+    const tryIdx = src.indexOf('try {', anchorIdx);
+    const catchIdx = src.indexOf('} catch {', tryIdx);
+    const block = src.slice(tryIdx, catchIdx);
+    expect(block).toMatch(/const matrixCalibration =\s*\n?\s*persona\?\.personaId && admin \? await deriveMatrixCalibration\(admin, persona\.personaId\) : null;/);
+    expect(block).toMatch(/prescription = assembleExperiencePrescription\(\{/);
+    expect(src).toMatch(/from '@\/services\/strategy\/experienceMatrixDeriver'/);
+    expect(src).toMatch(/from '@\/services\/adaptive\/experiencePrescriptionAssembly'/);
+  });
+
+  it('the catch clause resets both aee and prescription to null — a prescription failure can never leave a stale prescription while aee is null', () => {
+    const anchorIdx = src.indexOf('let aee: Awaited<ReturnType<typeof computeJourneyAeeOutcome>> | null = null;');
+    const catchIdx = src.indexOf('} catch {', anchorIdx);
+    const catchBlockEnd = src.indexOf('}', catchIdx + 10);
+    const catchBlock = src.slice(catchIdx, catchBlockEnd + 1);
+    expect(catchBlock).toMatch(/aee = null;/);
+    expect(catchBlock).toMatch(/prescription = null;/);
   });
 });
