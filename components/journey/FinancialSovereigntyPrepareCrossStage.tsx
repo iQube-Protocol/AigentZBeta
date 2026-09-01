@@ -22,6 +22,7 @@ import { useEffect, useState } from 'react';
 import { listRegistrableAgents } from '@/services/horizen/registrableAgents';
 import { createExperienceHandoff, encodeExperienceHandoff } from '@/services/journey/experienceHandoffService';
 import { getJourneyBranchIntent } from '@/services/journey/journeyBranchActivation';
+import { WALLET_CONVERSION_CAPABILITY_ID } from '@/services/financialServices/walletConversionCapability';
 import type { BridgeAccent } from '@/components/journey/BridgeMediaStage';
 
 const FINANCIAL_SERVICES_BRANCH = 'financial-services';
@@ -121,6 +122,12 @@ export function FinancialSovereigntyPrepareCrossStage({
       intent:
         getJourneyBranchIntent(sourceJourneyId, FINANCIAL_SERVICES_BRANCH) ?? DEFAULT_FINANCIAL_SERVICES_INTENT,
       agentCandidateRef: selected ?? undefined,
+      // AEE-Next (2026-09-01) — capability READINESS carried across the
+      // crossing, never an exercise of it: the real, registered CTP
+      // primitive id, so the receiving journey can make the wallet-
+      // conversion capability discoverable once the crossing completes.
+      // This call performs no conversion and writes no ctp_transition_evidence.
+      capabilityFocus: [WALLET_CONVERSION_CAPABILITY_ID],
       // The FS Bridge is a full persistent, copilot-enabled journey (its own
       // JourneyCopilotHost mount, multi-stage register→claim/orient/passport
       // →activate→delegate→operate spine) — the deepest tier of the

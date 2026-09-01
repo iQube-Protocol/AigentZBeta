@@ -126,6 +126,7 @@ import { resolveJourneyOperatorDestination } from '@/services/journey/catalogueD
 import { decodeExperienceHandoff } from '@/services/journey/experienceHandoffService';
 import { setSelectedPilotAgentSlug } from '@/services/journey/selectedPilotAgent';
 import { resolveRegistrableAgent } from '@/services/horizen/registrableAgents';
+import { WALLET_CONVERSION_CAPABILITY_ID } from '@/services/financialServices/walletConversionCapability';
 
 /** Sessionstorage key holding the return context from an incoming
  *  ExperienceHandoff — read by a future "return to <source>" affordance.
@@ -133,6 +134,19 @@ import { resolveRegistrableAgent } from '@/services/horizen/registrableAgents';
  *  state; it only pre-selects an agent CANDIDATE and remembers where to
  *  resume (AEE-XP-001 §4.3, §5). */
 export const FS_BRIDGE_RETURN_CONTEXT_KEY = 'fsHandoffReturnContext';
+
+/**
+ * AEE-Next (2026-09-01) — set ONLY when the incoming handoff's
+ * `capabilityFocus` names the real wallet-conversion primitive id
+ * (WALLET_CONVERSION_CAPABILITY_ID). Records READINESS only — this journey
+ * still resolves whether the capability is actually reachable (Passport,
+ * delegation, wallet state) entirely from its own canonical state, exactly
+ * as before; this flag never grants, executes, or implies a conversion.
+ * The real conversion surface remains the SAME `SmartWalletDrawer` every
+ * other MoneyPenny surface already uses (CLAUDE.md "Wallet-Over-Cartridge
+ * Overlay") — this journey adds no second wallet UI.
+ */
+export const FS_BRIDGE_WALLET_CAPABILITY_KEY = 'fsHandoffWalletConversionCapabilityAvailable';
 
 function selectStage(stageId: string) {
   try {
@@ -186,6 +200,9 @@ export function FinancialServicesBridgeFrontDoor() {
           FS_BRIDGE_RETURN_CONTEXT_KEY,
           JSON.stringify({ returnJourneyId: handoff.returnJourneyId, returnStageId: handoff.returnStageId ?? null }),
         );
+      }
+      if (Array.isArray(handoff.capabilityFocus) && handoff.capabilityFocus.includes(WALLET_CONVERSION_CAPABILITY_ID)) {
+        window.sessionStorage.setItem(FS_BRIDGE_WALLET_CAPABILITY_KEY, 'true');
       }
       selectStage('register');
     } catch {

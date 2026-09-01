@@ -61,6 +61,7 @@ import type { JourneyAeeOutcome } from '@/services/adaptive/journeyAeeOrchestrat
 import type { ExperiencePrescription } from '@/types/experienceRenderer';
 import type { ExperienceDepth } from '@/types/orchestration';
 import type { PersonaMatrixCalibration } from '@/services/strategy/experienceMatrixDeriver';
+import { WALLET_CONVERSION_CAPABILITY_ID } from '@/services/financialServices/walletConversionCapability';
 
 export interface AssembleExperiencePrescriptionInput {
   journeyDefinition: JourneyDefinition;
@@ -177,6 +178,14 @@ export function assembleExperiencePrescription(
       matrixSource: matrixCalibration?.source ?? null,
       matrixUncertain: uncertain,
       ...(unreadableSources && unreadableSources.length > 0 ? { matrixUnreadableSources: unreadableSources } : {}),
+      // AEE-Next (2026-09-01) — capability READINESS, not exercise. At
+      // fs-cross, AEE projects that the real wallet-conversion capability
+      // WILL become available once the crossing completes — it never
+      // implies a conversion happened, and this module performs no I/O.
+      // The same id also rides the ExperienceHandoff created at Cross
+      // (FinancialSovereigntyPrepareCrossStage.tsx) — one constant, never
+      // two hand-copied literals.
+      ...(stage.id === 'fs-cross' ? { capabilityFocus: [WALLET_CONVERSION_CAPABILITY_ID] } : {}),
     },
   };
 
