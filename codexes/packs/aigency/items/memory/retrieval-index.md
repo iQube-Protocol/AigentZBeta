@@ -4824,3 +4824,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-8f0f4d6.md](../build_/COMMITS/COMMIT-8f0f4d6.md)
 - Message: Add live acceptance verification script for ctp.wallet.asset.convert (steps 2-8)
+
+## Commit `64db930` — 2026-09-01T07:20:29Z
+- Type: `push`
+- Brief: [COMMIT-64db930.md](../build_/COMMITS/COMMIT-64db930.md)
+- Message: Fill AEE-XP-001 §5 handoff field gaps: recommendedExperienceAltitude [merge review/irl-scoped-restoration-2026-08-27]

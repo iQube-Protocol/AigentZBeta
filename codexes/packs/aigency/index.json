@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-01T07:10:31.547Z",
+  "last_updated": "2026-09-01T07:22:33.798Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "8f0f4d67f9e393b28e8f6832049af62482eeed46",
-  "latest_commit_short": "8f0f4d6",
-  "latest_commit_title": "Add live acceptance verification script for ctp.wallet.asset.convert (steps 2-8)",
+  "latest_commit": "64db9301042dd2e9b0d49806dee9670b0e0d6121",
+  "latest_commit_short": "64db930",
+  "latest_commit_title": "Fill AEE-XP-001 §5 handoff field gaps: recommendedExperienceAltitude [merge review/irl-scoped-restoration-2026-08-27]",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "64db930",
+      "full_sha": "64db9301042dd2e9b0d49806dee9670b0e0d6121",
+      "title": "Fill AEE-XP-001 §5 handoff field gaps: recommendedExperienceAltitude [merge review/irl-scoped-restoration-2026-08-27]",
+      "author": "Claude",
+      "timestamp": "2026-09-01T07:20:29Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-64db930.md"
+    },
     {
       "sha": "8f0f4d6",
       "full_sha": "8f0f4d67f9e393b28e8f6832049af62482eeed46",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-21T14:51:10-04:00",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-b4b8496.md"
-    },
-    {
-      "sha": "747b993",
-      "full_sha": "747b993ca1132523c402f0577988475fa4a9c9fa",
-      "title": "docs(content): define reusable asset upload tool contract",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-21T11:33:45-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-747b993.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
