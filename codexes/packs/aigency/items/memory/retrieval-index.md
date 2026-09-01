@@ -4714,3 +4714,83 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-5e26748.md](../build_/COMMITS/COMMIT-5e26748.md)
 - Message: repair-classify-provenance-record.ts: load .env.local like its sibling scripts
+
+## Commit `db332a4` — 2026-08-31T02:08:44Z
+- Type: `fix`
+- Brief: [COMMIT-db332a4.md](../build_/COMMITS/COMMIT-db332a4.md)
+- Message: Fix Track 2 Stage 7: a crystal member may legitimately have zero relationships
+
+## Commit `436f4f1` — 2026-08-31T02:55:32Z
+- Type: `fix`
+- Brief: [COMMIT-436f4f1.md](../build_/COMMITS/COMMIT-436f4f1.md)
+- Message: Fix Track 2 Stage 7: relate to the target Crystal, adjudicate the successor cohort
+
+## Commit `5023a42` — 2026-08-31T03:48:19Z
+- Type: `fix`
+- Brief: [COMMIT-5023a42.md](../build_/COMMITS/COMMIT-5023a42.md)
+- Message: Fix Research Copilot targeted-acquisition approval timeout
+
+## Commit `0c8e134` — 2026-08-31T05:53:17Z
+- Type: `push`
+- Brief: [COMMIT-0c8e134.md](../build_/COMMITS/COMMIT-0c8e134.md)
+- Message: Distinguish acquisition-blocked from not-started in Track 2 Stage 1 [merge review/irl-scoped-restoration-2026-08-27]
+
+## Commit `40632ee` — 2026-08-31T13:31:35Z
+- Type: `fix`
+- Brief: [COMMIT-40632ee.md](../build_/COMMITS/COMMIT-40632ee.md)
+- Message: Fix targeted-acquisition dead end: consume approval judgement once [merge review/irl-scoped-restoration-2026-08-27]
+
+## Commit `8360afc` — 2026-08-31T15:19:06Z
+- Type: `push`
+- Brief: [COMMIT-8360afc.md](../build_/COMMITS/COMMIT-8360afc.md)
+- Message: Execute institution verification as a bounded machine act, not a dead end [merge review/irl-scoped-restoration-2026-08-27]
+
+## Commit `efc9cf9` — 2026-08-31T16:27:36Z
+- Type: `fix`
+- Brief: [COMMIT-efc9cf9.md](../build_/COMMITS/COMMIT-efc9cf9.md)
+- Message: Fix verification wall-clock granularity: one external op per request [merge review/irl-scoped-restoration-2026-08-27]
+
+## Commit `0adafc1` — 2026-08-31T12:43:52-04:00
+- Type: `docs`
+- Brief: [COMMIT-0adafc1.md](../build_/COMMITS/COMMIT-0adafc1.md)
+- Message: docs(agentiq): index canonical AEE architecture direction
+
+## Commit `b506027` — 2026-08-31T12:51:48-04:00
+- Type: `docs`
+- Brief: [COMMIT-b506027.md](../build_/COMMITS/COMMIT-b506027.md)
+- Message: docs(agentiq): index AEE Financial Services reference architecture
+
+## Commit `646e61c` — 2026-08-31T13:15:49-04:00
+- Type: `docs`
+- Brief: [COMMIT-646e61c.md](../build_/COMMITS/COMMIT-646e61c.md)
+- Message: docs: index Progressive Financial Sovereignty scope correction
+
+## Commit `d614547` — 2026-08-31T13:58:41-04:00
+- Type: `docs`
+- Brief: [COMMIT-d614547.md](../build_/COMMITS/COMMIT-d614547.md)
+- Message: docs(agentiq): index aigentMe companion amendment and Knights Bridge paper
+
+## Commit `1176148` — 2026-08-31T18:08:16Z
+- Type: `push`
+- Brief: [COMMIT-1176148.md](../build_/COMMITS/COMMIT-1176148.md)
+- Message: Run Review & Admit preparation automatically; stop offering fake admit/reject for duplicates [merge review/irl-scoped-restoration-2026-08-27]
+
+## Commit `6fbccf8` — 2026-08-31T16:12:52-04:00
+- Type: `docs`
+- Brief: [COMMIT-6fbccf8.md](../build_/COMMITS/COMMIT-6fbccf8.md)
+- Message: docs(agentiq): register AEE-XP-001 execution build spec
+
+## Commit `f2e2c63` — 2026-08-31T17:07:13-04:00
+- Type: `push`
+- Brief: [COMMIT-f2e2c63.md](../build_/COMMITS/COMMIT-f2e2c63.md)
+- Message: agentiq index: register required CTP delivery amendment
+
+## Commit `c05f9c0` — 2026-08-31T21:53:14Z
+- Type: `push`
+- Brief: [COMMIT-c05f9c0.md](../build_/COMMITS/COMMIT-c05f9c0.md)
+- Message: Deliver CTP foundation: constitutional runtime + first migrated OCSGA primitive [merge review/irl-scoped-restoration-2026-08-27]
+
+## Commit `754866c` — 2026-09-01T01:43:08Z
+- Type: `feat`
+- Brief: [COMMIT-754866c.md](../build_/COMMITS/COMMIT-754866c.md)
+- Message: Add CTP-001A Phase 1 live acceptance script for Aletheon/Mansa Meta

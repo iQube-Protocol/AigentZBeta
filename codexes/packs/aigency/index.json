@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-31T00:15:32.045Z",
+  "last_updated": "2026-09-01T01:46:04.715Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "5e26748d729d049a3022ec10153086df26b6d921",
-  "latest_commit_short": "5e26748",
-  "latest_commit_title": "repair-classify-provenance-record.ts: load .env.local like its sibling scripts",
+  "latest_commit": "754866c0d36952ca59a06de712288d8020f130bf",
+  "latest_commit_short": "754866c",
+  "latest_commit_title": "Add CTP-001A Phase 1 live acceptance script for Aletheon/Mansa Meta",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,150 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "754866c",
+      "full_sha": "754866c0d36952ca59a06de712288d8020f130bf",
+      "title": "Add CTP-001A Phase 1 live acceptance script for Aletheon/Mansa Meta",
+      "author": "Claude",
+      "timestamp": "2026-09-01T01:43:08Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-754866c.md"
+    },
+    {
+      "sha": "c05f9c0",
+      "full_sha": "c05f9c041ea5e8696faa4a2115b5fb2f817fe83c",
+      "title": "Deliver CTP foundation: constitutional runtime + first migrated OCSGA primitive [merge review/irl-scoped-restoration-2026-08-27]",
+      "author": "Claude",
+      "timestamp": "2026-08-31T21:53:14Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-c05f9c0.md"
+    },
+    {
+      "sha": "f2e2c63",
+      "full_sha": "f2e2c63b1174e94e7f1b7df4edc25291a87628ed",
+      "title": "agentiq index: register required CTP delivery amendment",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-31T17:07:13-04:00",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-f2e2c63.md"
+    },
+    {
+      "sha": "6fbccf8",
+      "full_sha": "6fbccf8e77ed2c913603c116d59b7ef2de0fe9ba",
+      "title": "docs(agentiq): register AEE-XP-001 execution build spec",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-31T16:12:52-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-6fbccf8.md"
+    },
+    {
+      "sha": "1176148",
+      "full_sha": "11761485e5c81dfbca5f85ecb3dcd9abb5f56639",
+      "title": "Run Review & Admit preparation automatically; stop offering fake admit/reject for duplicates [merge review/irl-scoped-restoration-2026-08-27]",
+      "author": "Claude",
+      "timestamp": "2026-08-31T18:08:16Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-1176148.md"
+    },
+    {
+      "sha": "d614547",
+      "full_sha": "d614547797860479e59cfe544e87bf10383d86c8",
+      "title": "docs(agentiq): index aigentMe companion amendment and Knights Bridge paper",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-31T13:58:41-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-d614547.md"
+    },
+    {
+      "sha": "646e61c",
+      "full_sha": "646e61cf58306f51fbed119438e14889b44e25c7",
+      "title": "docs: index Progressive Financial Sovereignty scope correction",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-31T13:15:49-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-646e61c.md"
+    },
+    {
+      "sha": "b506027",
+      "full_sha": "b5060274d8132b71e11f3dab1b554d360ff81d43",
+      "title": "docs(agentiq): index AEE Financial Services reference architecture",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-31T12:51:48-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-b506027.md"
+    },
+    {
+      "sha": "0adafc1",
+      "full_sha": "0adafc1fc2934bb0f85a5c4b7952b613cc6662b3",
+      "title": "docs(agentiq): index canonical AEE architecture direction",
+      "author": "Kn0w1",
+      "timestamp": "2026-08-31T12:43:52-04:00",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-0adafc1.md"
+    },
+    {
+      "sha": "efc9cf9",
+      "full_sha": "efc9cf9935d3eeaf1929eaab2ce9d212907c6dfc",
+      "title": "Fix verification wall-clock granularity: one external op per request [merge review/irl-scoped-restoration-2026-08-27]",
+      "author": "Claude",
+      "timestamp": "2026-08-31T16:27:36Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-efc9cf9.md"
+    },
+    {
+      "sha": "8360afc",
+      "full_sha": "8360afc64a3e09ba2cf05e1d2c5197f83fadc84c",
+      "title": "Execute institution verification as a bounded machine act, not a dead end [merge review/irl-scoped-restoration-2026-08-27]",
+      "author": "Claude",
+      "timestamp": "2026-08-31T15:19:06Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-8360afc.md"
+    },
+    {
+      "sha": "40632ee",
+      "full_sha": "40632eea3552a020947e940bba06cc93d49c7898",
+      "title": "Fix targeted-acquisition dead end: consume approval judgement once [merge review/irl-scoped-restoration-2026-08-27]",
+      "author": "Claude",
+      "timestamp": "2026-08-31T13:31:35Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-40632ee.md"
+    },
+    {
+      "sha": "0c8e134",
+      "full_sha": "0c8e13479425eca1383419158f2a0d9db3196013",
+      "title": "Distinguish acquisition-blocked from not-started in Track 2 Stage 1 [merge review/irl-scoped-restoration-2026-08-27]",
+      "author": "Claude",
+      "timestamp": "2026-08-31T05:53:17Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-0c8e134.md"
+    },
+    {
+      "sha": "5023a42",
+      "full_sha": "5023a42a971b1e63ada7d55f636e8797d2a1ed8c",
+      "title": "Fix Research Copilot targeted-acquisition approval timeout",
+      "author": "Claude",
+      "timestamp": "2026-08-31T03:48:19Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-5023a42.md"
+    },
+    {
+      "sha": "436f4f1",
+      "full_sha": "436f4f1310f8df15711f3260c3043803c819fef7",
+      "title": "Fix Track 2 Stage 7: relate to the target Crystal, adjudicate the successor cohort",
+      "author": "Claude",
+      "timestamp": "2026-08-31T02:55:32Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-436f4f1.md"
+    },
+    {
+      "sha": "db332a4",
+      "full_sha": "db332a45978669f93de16b7d54cdcd422b8292ce",
+      "title": "Fix Track 2 Stage 7: a crystal member may legitimately have zero relationships",
+      "author": "Claude",
+      "timestamp": "2026-08-31T02:08:44Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-db332a4.md"
+    },
     {
       "sha": "5e26748",
       "full_sha": "5e26748d729d049a3022ec10153086df26b6d921",
@@ -1108,150 +1252,6 @@
       "timestamp": "2026-08-20T11:48:29-04:00",
       "type": "docs",
       "brief": "items/build_/COMMITS/COMMIT-2dffdf2.md"
-    },
-    {
-      "sha": "d4dba30",
-      "full_sha": "d4dba3048771e659ff0bb1077a51f104a85e06da",
-      "title": "docs(irl): add robotics industry perspective invariants from S2G/Formic transcript",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-20T10:50:54-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-d4dba30.md"
-    },
-    {
-      "sha": "cb894a4",
-      "full_sha": "cb894a4207c2eb00ab6a0e01d7f48d6edcb09f5c",
-      "title": "docs(irl): compress capability candidate around trust",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-20T08:59:09-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-cb894a4.md"
-    },
-    {
-      "sha": "2b2e2f0",
-      "full_sha": "2b2e2f0f6f5e1b4c4657d7ecff39efd09f5c8b63",
-      "title": "docs(irl): map Ian authority-permission seam to Authority-Control-Mandate trinity",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-20T08:23:53-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-2b2e2f0.md"
-    },
-    {
-      "sha": "1154ac9",
-      "full_sha": "1154ac92fddbd0cf5e2acceee8cf9e8e61fdb8ec",
-      "title": "docs(irl): open Crucible robotics and embodied systems dossier",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-20T03:04:03-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-1154ac9.md"
-    },
-    {
-      "sha": "74a537d",
-      "full_sha": "74a537de7205fb121797c3d9439d6befc4a069f5",
-      "title": "docs(irl): canonize The Crucible as pre-canon research and development substrate",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-20T02:46:56-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-74a537d.md"
-    },
-    {
-      "sha": "a238fdf",
-      "full_sha": "a238fdffe4636fbd594f7649c55cfafd75b4b7c0",
-      "title": "docs(irl): add consequential capability invariants and perturbation experiment",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-20T02:43:07-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-a238fdf.md"
-    },
-    {
-      "sha": "757a08c",
-      "full_sha": "757a08c84a6b962afd11b14213a96e51949b9d00",
-      "title": "docs(irl): add capability-authority-legitimacy-accountability candidate",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-20T02:15:59-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-757a08c.md"
-    },
-    {
-      "sha": "bb8ee19",
-      "full_sha": "bb8ee19701098dc82028cf2cd262eb92db0c6a6c",
-      "title": "docs(irl): capture OCSGA open-agentic-network invariants and experiment programme",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-20T02:00:20-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-bb8ee19.md"
-    },
-    {
-      "sha": "0fc6dca",
-      "full_sha": "0fc6dcaa11c5da994df264c018a899fad322e8a5",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-08-17T18:25:13Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-0fc6dca.md"
-    },
-    {
-      "sha": "ca6f576",
-      "full_sha": "ca6f57699866910fed74bc2e115a7fc12e4782d8",
-      "title": "Gate F: wire deliberation intent detection into chat route",
-      "author": "Claude",
-      "timestamp": "2026-08-17T18:21:51Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-ca6f576.md"
-    },
-    {
-      "sha": "f27d179",
-      "full_sha": "f27d17988fdeabf3672781c0e61295f454261dd9",
-      "title": "gate-e: add reintroduction-specific evidence gathering and narrative gap analysis",
-      "author": "Claude",
-      "timestamp": "2026-08-17T18:14:31Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-f27d179.md"
-    },
-    {
-      "sha": "04d4df7",
-      "full_sha": "04d4df7da20c7e4e71fdc7fba92f67a0bb975353",
-      "title": "gate-d: add evidence assembly service for venture reports",
-      "author": "Claude",
-      "timestamp": "2026-08-17T18:07:02Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-04d4df7.md"
-    },
-    {
-      "sha": "de5aee7",
-      "full_sha": "de5aee773d3b205514824f508b0c4f1e39a8baf5",
-      "title": "gate-c: add VentureReportBriefLayout + VentureReintroductionBriefLayout + deliberation routing",
-      "author": "Claude",
-      "timestamp": "2026-08-17T18:02:31Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-de5aee7.md"
-    },
-    {
-      "sha": "480cfb9",
-      "full_sha": "480cfb99d223aa459d8991def7129d5afc81fee7",
-      "title": "chore: load prospective evolution rule into Claude sessions",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-16T18:17:24-04:00",
-      "type": "chore",
-      "brief": "items/build_/COMMITS/COMMIT-480cfb9.md"
-    },
-    {
-      "sha": "28c77db",
-      "full_sha": "28c77dba2bf62afb796068a63ec905ba8fb5ce1b",
-      "title": "docs: define four-lane prospective evolution roadmaps",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-16T18:06:19-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-28c77db.md"
-    },
-    {
-      "sha": "269bf79",
-      "full_sha": "269bf79c3392bed0b854188f957b5d415cac37b4",
-      "title": "research: add authority provenance candidate invariants",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-16T17:23:23-04:00",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-269bf79.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
