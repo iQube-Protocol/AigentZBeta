@@ -3,6 +3,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { CodexUploadModal } from '@/app/(shell)/admin/codex/components/CodexUploadModal';
 import { StoreSkusPanel } from '@/app/triad/components/codex/admin/StoreSkusPanel';
+import { KnytsBridgeAdminPanel } from '@/components/journey/KnytsBridgeAdminPanel';
+import { CI_BRIDGE_VIEW_CONTENT } from '@/services/journey/constitutionalInternetBridgeViewContent';
 import {
   Activity,
   AlertCircle,
@@ -65,7 +67,8 @@ type AdminView =
   | { kind: 'editor'; id: string | null; section: string }
   | { kind: 'codex' }
   | { kind: 'import' }
-  | { kind: 'embed-health' };
+  | { kind: 'embed-health' }
+  | { kind: 'bridges' };
 
 interface Props {
   isAdmin?: boolean;
@@ -102,6 +105,7 @@ const DASHBOARD_SECTIONS = [
   { key: 'staybull',     title: 'StayBull',                 description: 'Market updates',                       icon: TrendingUp,  section: 'staybull'    },
   { key: 'codex',        title: 'SmartTriad Codex Manager', description: 'Episodes, covers, Autonomys uploads',  icon: Layers,      section: null },
   { key: 'embed-health', title: 'Embed Health Check',        description: 'Test iframe compatibility',            icon: Activity,    section: null },
+  { key: 'bridges',      title: 'Bridges',                   description: 'CI/KNYTS bridge editorial copy & media', icon: Share2,     section: null },
 ];
 
 // ── Modality chips ────────────────────────────────────────────────────────────
@@ -2071,6 +2075,68 @@ function EmbedHealthCheck() {
   );
 }
 
+// ── Bridges (QRP-BRIDGE-ADMIN A0/A1 first slice, 2026-09-01) ────────────────────
+
+/**
+ * Native Bridges sub-view — CI/KNYTS editorial parity with the existing
+ * page-local modals in app/bridge/ci/page.tsx and app/bridge/knyts/page.tsx.
+ * Reuses `KnytsBridgeAdminPanel` and `knyts_bridge_editorial_config` (via
+ * the existing GET/PUT /api/journey/knyts-bridge/editorial-config route)
+ * completely unchanged — no new table, no new route, no forked editor. The
+ * section list for each bridge is copied verbatim from the two existing
+ * modal mounts so this native tab is a rehost, not a reimplementation.
+ * Publication is immediate (Save & publish), matching the existing
+ * behavior exactly — this slice migrates the editing surface only.
+ */
+type BridgeKey = 'ci' | 'knyts';
+
+const BRIDGE_LABELS: Record<BridgeKey, string> = {
+  ci: 'Constitutional Internet Bridge',
+  knyts: 'KNYTS Bridge',
+};
+
+function bridgeSections(bridge: BridgeKey): string[] {
+  if (bridge === 'knyts') return ['home', 'orient', 'choose'];
+  return ['ci-home', 'ci-orient', 'ci-passport-established', ...CI_BRIDGE_VIEW_CONTENT.map((b) => `ci-view-${b.id}`)];
+}
+
+function BridgesManager({ personaId }: { personaId?: string }) {
+  const [bridge, setBridge] = useState<BridgeKey>('ci');
+
+  return (
+    <div className="p-4">
+      <div className="mb-4">
+        <h2 className="text-lg font-bold text-white">Bridges</h2>
+        <p className="text-xs text-slate-400">
+          Editorial copy and media for the CI/KNYTS Financial Sovereignty bridges — the same
+          knyts_bridge_editorial_config table and PUT route the previous page-local modals used.
+        </p>
+      </div>
+      <div className="mb-4 flex gap-2">
+        {(['ci', 'knyts'] as const).map((key) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setBridge(key)}
+            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+              bridge === key
+                ? 'bg-teal-600 text-white'
+                : 'border border-slate-700 text-slate-300 hover:border-slate-500 hover:text-white'
+            }`}
+          >
+            {BRIDGE_LABELS[key]}
+          </button>
+        ))}
+      </div>
+      <div className="divide-y divide-white/10 rounded-xl border border-white/10 bg-slate-900/40">
+        {bridgeSections(bridge).map((section) => (
+          <KnytsBridgeAdminPanel key={`${bridge}:${section}`} section={section} personaId={personaId} bridgeLabel={BRIDGE_LABELS[bridge]} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Root tab ──────────────────────────────────────────────────────────────────
 
 export function QriptopianAdminTab({ isAdmin, theme, personaId }: Props) {
@@ -2085,6 +2151,8 @@ export function QriptopianAdminTab({ isAdmin, theme, personaId }: Props) {
       setView({ kind: 'import' });
     } else if (key === 'embed-health') {
       setView({ kind: 'embed-health' });
+    } else if (key === 'bridges') {
+      setView({ kind: 'bridges' });
     }
   };
 
@@ -2108,6 +2176,7 @@ export function QriptopianAdminTab({ isAdmin, theme, personaId }: Props) {
     : view.kind === 'codex' ? 'SmartTriad Codex Manager'
     : view.kind === 'import' ? 'Bulk Import'
     : view.kind === 'embed-health' ? 'Embed Health Check'
+    : view.kind === 'bridges' ? 'Bridges'
     : null;
 
   return (
@@ -2153,6 +2222,7 @@ export function QriptopianAdminTab({ isAdmin, theme, personaId }: Props) {
         {view.kind === 'codex' && <CodexManager />}
         {view.kind === 'import' && <BulkImporter />}
         {view.kind === 'embed-health' && <EmbedHealthCheck />}
+        {view.kind === 'bridges' && <BridgesManager personaId={personaId} />}
       </div>
     </div>
   );
