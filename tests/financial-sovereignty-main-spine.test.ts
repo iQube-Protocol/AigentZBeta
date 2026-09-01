@@ -39,11 +39,21 @@ describe.each([
     expect(byId.get('fs-cross')?.nextStageId).toBeUndefined();
   });
 
-  it('every FS stage is gate-less (empty prerequisites + completionEvidence) — an honest informational/handoff segment, never fabricated evidence', () => {
+  it('every FS stage has empty prerequisites; every stage except fs-discover stays gate-less on completionEvidence', () => {
+    // AEE-XP-001 §10/XP-6 (2026-09-01) EXCEPTION: fs-discover is the first
+    // live proof of the generic experience-evidence loop
+    // (services/journey/experienceObservationPromotion.ts) — its
+    // completionEvidence is real, sourced from an actual observed
+    // interaction, never fabricated. LEARN/EXPLORE/PREPARE/CROSS remain
+    // gate-less this pass — mechanically identical follow-ups, not yet wired.
     for (const id of FS_STAGE_IDS) {
       const stage = journey.stages.find((s) => s.id === id)!;
       expect(stage.prerequisites).toEqual([]);
-      expect(stage.completionEvidence).toEqual([]);
+      if (id === 'fs-discover') {
+        expect(stage.completionEvidence).toEqual(['discoverExperienceObserved']);
+      } else {
+        expect(stage.completionEvidence).toEqual([]);
+      }
     }
   });
 

@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-01T01:46:04.715Z",
+  "last_updated": "2026-09-01T10:32:38.955Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "754866c0d36952ca59a06de712288d8020f130bf",
-  "latest_commit_short": "754866c",
-  "latest_commit_title": "Add CTP-001A Phase 1 live acceptance script for Aletheon/Mansa Meta",
+  "latest_commit": "19553af9778657152e2bb5c5a49fa4da2d3d8302",
+  "latest_commit_short": "19553af",
+  "latest_commit_title": "Activate generic experience-evidence loop; FS DISCOVER first proof [merge review/irl-scoped-restoration-2026-08-27]",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,123 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "19553af",
+      "full_sha": "19553af9778657152e2bb5c5a49fa4da2d3d8302",
+      "title": "Activate generic experience-evidence loop; FS DISCOVER first proof [merge review/irl-scoped-restoration-2026-08-27]",
+      "author": "Claude",
+      "timestamp": "2026-09-01T10:30:13Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-19553af.md"
+    },
+    {
+      "sha": "cfd0ac9",
+      "full_sha": "cfd0ac9c48f666a7f75f8d4b9fd7c7a65340b80e",
+      "title": "Fix build-breaking node:crypto leak into client bundles (15 failed deploys) [merge review/irl-scoped-restoration-2026-08-27]",
+      "author": "Claude",
+      "timestamp": "2026-09-01T09:22:20Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-cfd0ac9.md"
+    },
+    {
+      "sha": "70fdc87",
+      "full_sha": "70fdc87d7fe3f64f2ada313ece1c9e49dc34ddb6",
+      "title": "CI AEE parity: identical wiring to KNYTS, no CI-specific logic [merge review/irl-scoped-restoration-2026-08-27]",
+      "author": "Claude",
+      "timestamp": "2026-09-01T08:31:00Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-70fdc87.md"
+    },
+    {
+      "sha": "e21460f",
+      "full_sha": "e21460f8396559d38cc88c58092a90b27873f215",
+      "title": "XP-1 follow-up: branch activation triggers immediate re-evaluation [merge review/irl-scoped-restoration-2026-08-27]",
+      "author": "Claude",
+      "timestamp": "2026-09-01T08:21:52Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-e21460f.md"
+    },
+    {
+      "sha": "25797da",
+      "full_sha": "25797da80a88bde16f7930e9d0e5799580bd63d5",
+      "title": "XP-1: first live AEE convergence loop, wired against the FS branch [merge review/irl-scoped-restoration-2026-08-27]",
+      "author": "Claude",
+      "timestamp": "2026-09-01T07:58:51Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-25797da.md"
+    },
+    {
+      "sha": "15a3ba5",
+      "full_sha": "15a3ba5cc18032c15e2c5e4dcc56057ba7791787",
+      "title": "Rework Financial Sovereignty as a dormant branch off CHOOSE (AEE-XP-001 §4) [merge review/irl-scoped-restoration-2026-08-27]",
+      "author": "Claude",
+      "timestamp": "2026-09-01T07:36:55Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-15a3ba5.md"
+    },
+    {
+      "sha": "64db930",
+      "full_sha": "64db9301042dd2e9b0d49806dee9670b0e0d6121",
+      "title": "Fill AEE-XP-001 §5 handoff field gaps: recommendedExperienceAltitude [merge review/irl-scoped-restoration-2026-08-27]",
+      "author": "Claude",
+      "timestamp": "2026-09-01T07:20:29Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-64db930.md"
+    },
+    {
+      "sha": "8f0f4d6",
+      "full_sha": "8f0f4d67f9e393b28e8f6832049af62482eeed46",
+      "title": "Add live acceptance verification script for ctp.wallet.asset.convert (steps 2-8)",
+      "author": "Claude",
+      "timestamp": "2026-09-01T07:08:19Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-8f0f4d6.md"
+    },
+    {
+      "sha": "5c0ac8a",
+      "full_sha": "5c0ac8a9bff20a225e7955270ef64e4c3462cd7c",
+      "title": "CTP Slice C: atomic wallet conversion (Part B) + ctp.wallet.asset.convert (Part C)",
+      "author": "Claude",
+      "timestamp": "2026-09-01T06:32:31Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-5c0ac8a.md"
+    },
+    {
+      "sha": "fb6bee8",
+      "full_sha": "fb6bee88d5ac30aae070b2e65f7860969cf5f769",
+      "title": "Persist the approved wallet ledger ownership-scoped RLS repair [merge review/irl-scoped-restoration-2026-08-27]",
+      "author": "Claude",
+      "timestamp": "2026-09-01T07:04:17Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-fb6bee8.md"
+    },
+    {
+      "sha": "64cb67a",
+      "full_sha": "64cb67a31955c1ff942e21843293387c23b9fba1",
+      "title": "Urgent: fix authorization defect in USDC->QC wallet conversion [merge review/irl-scoped-restoration-2026-08-27]",
+      "author": "Claude",
+      "timestamp": "2026-09-01T06:18:22Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-64cb67a.md"
+    },
+    {
+      "sha": "36be380",
+      "full_sha": "36be3807b262c582e8ce624eacfbea01c40e835a",
+      "title": "Close XP-5: wire the canonical aigentMe companion into the live Journey copilot mount [merge review/irl-scoped-restoration-2026-08-27]",
+      "author": "Claude",
+      "timestamp": "2026-09-01T06:01:46Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-36be380.md"
+    },
+    {
+      "sha": "7a2cfda",
+      "full_sha": "7a2cfda4c3e5ba3ad4e3276636b4ae4590e58533",
+      "title": "Connect KNYTS/CI to Financial Services via a Progressive Financial Sovereignty on-ramp (AEE-XP-001 Phase 1) [merge review/irl-scoped-restoration-2026-08-27]",
+      "author": "Claude",
+      "timestamp": "2026-09-01T02:49:20Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-7a2cfda.md"
+    },
     {
       "sha": "754866c",
       "full_sha": "754866c0d36952ca59a06de712288d8020f130bf",
@@ -1135,123 +1252,6 @@
       "timestamp": "2026-08-21T19:50:11-04:00",
       "type": "docs",
       "brief": "items/build_/COMMITS/COMMIT-fbfeb52.md"
-    },
-    {
-      "sha": "23fe1c6",
-      "full_sha": "23fe1c6098966d3bf102b326fb3aa0cfa5a8dcff",
-      "title": "docs(irl): distinguish Authority governance from state Authorization",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-21T19:46:31-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-23fe1c6.md"
-    },
-    {
-      "sha": "8be978f",
-      "full_sha": "8be978f9ca79436bfc0e8cd585962ddffea4da88",
-      "title": "feat(qriptopian): expose public commentary source index",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-21T16:59:12-04:00",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-8be978f.md"
-    },
-    {
-      "sha": "7fcb58e",
-      "full_sha": "7fcb58e24212da3609a98036701032dce9c8eb50",
-      "title": "Fix public article image delivery via durable media cache",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-21T16:48:32-04:00",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-7fcb58e.md"
-    },
-    {
-      "sha": "80e49da",
-      "full_sha": "80e49da62c5421548702da1dda13a391ddd73b97",
-      "title": "Harden canonical media delivery for Safari and range requests",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-21T16:21:33-04:00",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-80e49da.md"
-    },
-    {
-      "sha": "0c4a0af",
-      "full_sha": "0c4a0af42fde7988ea5fae55bcff7b2bc18f5a9e",
-      "title": "Serve canonical Autonomys media assets for public content",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-21T15:58:36-04:00",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-0c4a0af.md"
-    },
-    {
-      "sha": "b4b8496",
-      "full_sha": "b4b8496cda3eac8b6b60a696452e46c41acb323f",
-      "title": "Allow non-episode publication cover uploads",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-21T14:51:10-04:00",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-b4b8496.md"
-    },
-    {
-      "sha": "747b993",
-      "full_sha": "747b993ca1132523c402f0577988475fa4a9c9fa",
-      "title": "docs(content): define reusable asset upload tool contract",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-21T11:33:45-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-747b993.md"
-    },
-    {
-      "sha": "eb07ba0",
-      "full_sha": "eb07ba068e6b4a64fcb699fabf39b5c561989ad8",
-      "title": "feat(qriptopian): link Threshold machine-readable editions",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-21T10:49:25-04:00",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-eb07ba0.md"
-    },
-    {
-      "sha": "1cc7702",
-      "full_sha": "1cc770242574c852a95d6cbd71629a14cf7bf099",
-      "title": "feat(qriptopian): present Threshold as Essays series",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-21T08:59:02-04:00",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-1cc7702.md"
-    },
-    {
-      "sha": "f0b9642",
-      "full_sha": "f0b9642ac2576af6d69f961af0f311a8ea33461b",
-      "title": "fix(qriptopian): keep Essays projection hook-safe",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-21T08:51:28-04:00",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-f0b9642.md"
-    },
-    {
-      "sha": "49a4c74",
-      "full_sha": "49a4c74afeaea4340afc085655aa4620c1eb5bba",
-      "title": "feat(qriptopian): add Essays codex tab",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-21T08:47:08-04:00",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-49a4c74.md"
-    },
-    {
-      "sha": "10606ab",
-      "full_sha": "10606ab4d55c10ae51a5a0eb25c56087d148eb4b",
-      "title": "docs(irl): deepen Trusted Intelligence as human-synthetic consequence-aware cybernetics",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-20T13:45:37-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-10606ab.md"
-    },
-    {
-      "sha": "2dffdf2",
-      "full_sha": "2dffdf2db727203a06302e06b5c2ef29cf13f818",
-      "title": "docs(irl): add Trusted Intelligence and Trusted Automation to Crucible",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-20T11:48:29-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-2dffdf2.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

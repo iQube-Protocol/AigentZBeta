@@ -4794,3 +4794,68 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-754866c.md](../build_/COMMITS/COMMIT-754866c.md)
 - Message: Add CTP-001A Phase 1 live acceptance script for Aletheon/Mansa Meta
+
+## Commit `7a2cfda` — 2026-09-01T02:49:20Z
+- Type: `push`
+- Brief: [COMMIT-7a2cfda.md](../build_/COMMITS/COMMIT-7a2cfda.md)
+- Message: Connect KNYTS/CI to Financial Services via a Progressive Financial Sovereignty on-ramp (AEE-XP-001 Phase 1) [merge review/irl-scoped-restoration-2026-08-27]
+
+## Commit `36be380` — 2026-09-01T06:01:46Z
+- Type: `feat`
+- Brief: [COMMIT-36be380.md](../build_/COMMITS/COMMIT-36be380.md)
+- Message: Close XP-5: wire the canonical aigentMe companion into the live Journey copilot mount [merge review/irl-scoped-restoration-2026-08-27]
+
+## Commit `64cb67a` — 2026-09-01T06:18:22Z
+- Type: `fix`
+- Brief: [COMMIT-64cb67a.md](../build_/COMMITS/COMMIT-64cb67a.md)
+- Message: Urgent: fix authorization defect in USDC->QC wallet conversion [merge review/irl-scoped-restoration-2026-08-27]
+
+## Commit `fb6bee8` — 2026-09-01T07:04:17Z
+- Type: `fix`
+- Brief: [COMMIT-fb6bee8.md](../build_/COMMITS/COMMIT-fb6bee8.md)
+- Message: Persist the approved wallet ledger ownership-scoped RLS repair [merge review/irl-scoped-restoration-2026-08-27]
+
+## Commit `5c0ac8a` — 2026-09-01T06:32:31Z
+- Type: `push`
+- Brief: [COMMIT-5c0ac8a.md](../build_/COMMITS/COMMIT-5c0ac8a.md)
+- Message: CTP Slice C: atomic wallet conversion (Part B) + ctp.wallet.asset.convert (Part C)
+
+## Commit `8f0f4d6` — 2026-09-01T07:08:19Z
+- Type: `feat`
+- Brief: [COMMIT-8f0f4d6.md](../build_/COMMITS/COMMIT-8f0f4d6.md)
+- Message: Add live acceptance verification script for ctp.wallet.asset.convert (steps 2-8)
+
+## Commit `64db930` — 2026-09-01T07:20:29Z
+- Type: `push`
+- Brief: [COMMIT-64db930.md](../build_/COMMITS/COMMIT-64db930.md)
+- Message: Fill AEE-XP-001 §5 handoff field gaps: recommendedExperienceAltitude [merge review/irl-scoped-restoration-2026-08-27]
+
+## Commit `15a3ba5` — 2026-09-01T07:36:55Z
+- Type: `push`
+- Brief: [COMMIT-15a3ba5.md](../build_/COMMITS/COMMIT-15a3ba5.md)
+- Message: Rework Financial Sovereignty as a dormant branch off CHOOSE (AEE-XP-001 §4) [merge review/irl-scoped-restoration-2026-08-27]
+
+## Commit `25797da` — 2026-09-01T07:58:51Z
+- Type: `push`
+- Brief: [COMMIT-25797da.md](../build_/COMMITS/COMMIT-25797da.md)
+- Message: XP-1: first live AEE convergence loop, wired against the FS branch [merge review/irl-scoped-restoration-2026-08-27]
+
+## Commit `e21460f` — 2026-09-01T08:21:52Z
+- Type: `push`
+- Brief: [COMMIT-e21460f.md](../build_/COMMITS/COMMIT-e21460f.md)
+- Message: XP-1 follow-up: branch activation triggers immediate re-evaluation [merge review/irl-scoped-restoration-2026-08-27]
+
+## Commit `70fdc87` — 2026-09-01T08:31:00Z
+- Type: `push`
+- Brief: [COMMIT-70fdc87.md](../build_/COMMITS/COMMIT-70fdc87.md)
+- Message: CI AEE parity: identical wiring to KNYTS, no CI-specific logic [merge review/irl-scoped-restoration-2026-08-27]
+
+## Commit `cfd0ac9` — 2026-09-01T09:22:20Z
+- Type: `fix`
+- Brief: [COMMIT-cfd0ac9.md](../build_/COMMITS/COMMIT-cfd0ac9.md)
+- Message: Fix build-breaking node:crypto leak into client bundles (15 failed deploys) [merge review/irl-scoped-restoration-2026-08-27]
+
+## Commit `19553af` — 2026-09-01T10:30:13Z
+- Type: `push`
+- Brief: [COMMIT-19553af.md](../build_/COMMITS/COMMIT-19553af.md)
+- Message: Activate generic experience-evidence loop; FS DISCOVER first proof [merge review/irl-scoped-restoration-2026-08-27]
