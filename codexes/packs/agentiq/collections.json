@@ -40,6 +40,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-09-01_aee-xp-session-handoff.md",
         "updates/2026-08-31_track2-crystal-v2-copilot-decision-surfaces-handoff.md",
         "updates/2026-08-30_ocsga-delegated-completion-and-ctp-001-delegability-correction.md",
         "updates/2026-08-29_ocsga-implementation-singularity-and-principal-only-acts.md",
