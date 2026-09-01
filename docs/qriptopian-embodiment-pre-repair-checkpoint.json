@@ -1,0 +1,102 @@
+{
+  "deploymentCommit": "efdc7cc2b58ddc4ee761315c65f2f06e5a497f1a",
+  "protected": [
+    {
+      "population": "polity-assets",
+      "n": 8,
+      "fingerprint": "6b549c02cf1b0df52f1ea4aa082d29fc"
+    },
+    {
+      "population": "threshold-005-content",
+      "n": 1,
+      "fingerprint": "7e70c08268deb3df50b39354b31df215"
+    },
+    {
+      "population": "threshold-005-cover",
+      "n": 1,
+      "fingerprint": "e6e41db59b44bfcc4247f2b80c3bbd9e"
+    }
+  ],
+  "targets": [
+    {
+      "id": "2e964bcf-13ea-4300-9fd9-7923cee80355",
+      "title": "Paper II — Rights, Constraints, and Obligations",
+      "series_scope": "papers/polity",
+      "auto_drive_cid": "https://dev-beta.aigentz.me/api/content/media/2e964bcf-13ea-4300-9fd9-7923cee80355?name=/papers-polity_20260831010202.pdf",
+      "created_at": "2026-08-30 23:11:57.49791+00",
+      "unchanged_fields_hash": "40476e7a126f5035557b5decb9843080"
+    },
+    {
+      "id": "52370b24-467e-4ee4-8f02-64b09fd00b04",
+      "title": "Paper I — The Invitation to Non-Human Intelligence",
+      "series_scope": "papers/polity",
+      "auto_drive_cid": "https://dev-beta.aigentz.me/api/content/media/52370b24-467e-4ee4-8f02-64b09fd00b04?name=/papers-polity_20260831010101.pdf",
+      "created_at": "2026-08-30 23:11:51.470591+00",
+      "unchanged_fields_hash": "a6e8b917303880b3174ea0412d20559b"
+    },
+    {
+      "id": "552b4ad1-09d6-411d-9712-21af61350c57",
+      "title": "Paper IV — Governed Presence",
+      "series_scope": "papers/polity",
+      "auto_drive_cid": "https://dev-beta.aigentz.me/api/qriptopian/essay-cover/552b4ad1-09d6-411d-9712-21af61350c57?name=/papers-polity_20260831010404.png",
+      "created_at": "2026-08-30 23:10:04.86186+00",
+      "unchanged_fields_hash": "45bce1bf6f9dba3d5b5e3bc13b204a78"
+    },
+    {
+      "id": "5f6120da-a92e-4fee-b3ca-2180048d1e28",
+      "title": "Paper V — The Accession Protocol",
+      "series_scope": "papers/polity",
+      "auto_drive_cid": "https://dev-beta.aigentz.me/api/qriptopian/essay-cover/5f6120da-a92e-4fee-b3ca-2180048d1e28?name=/papers-polity_20260831010505.png",
+      "created_at": "2026-08-30 23:10:11.298322+00",
+      "unchanged_fields_hash": "4f02c0afedc60702c34460003cc25caf"
+    },
+    {
+      "id": "66d98179-9040-40aa-89aa-45328c2b58c7",
+      "title": "Paper II — Rights, Constraints, and Obligations",
+      "series_scope": "papers/polity",
+      "auto_drive_cid": "https://dev-beta.aigentz.me/api/qriptopian/essay-cover/66d98179-9040-40aa-89aa-45328c2b58c7?name=/papers-polity_20260831010202.png",
+      "created_at": "2026-08-30 23:09:43.272496+00",
+      "unchanged_fields_hash": "9d6392580426a7901ab7d654b04da903"
+    },
+    {
+      "id": "9370e7ce-28e0-4257-ba3f-4919e6293ffb",
+      "title": "Paper I — The Invitation to Non-Human Intelligence",
+      "series_scope": "papers/polity",
+      "auto_drive_cid": "https://dev-beta.aigentz.me/api/qriptopian/essay-cover/9370e7ce-28e0-4257-ba3f-4919e6293ffb?name=/papers-polity_20260831010101.png",
+      "created_at": "2026-08-30 23:09:22.613312+00",
+      "unchanged_fields_hash": "33a2ffc93740c69bdfe7df38046854be"
+    },
+    {
+      "id": "94738475-7072-4b7c-951c-bdfeb6e3e6aa",
+      "title": "Paper III — The Polity Passport System",
+      "series_scope": "papers/polity",
+      "auto_drive_cid": "https://dev-beta.aigentz.me/api/content/media/94738475-7072-4b7c-951c-bdfeb6e3e6aa?name=/papers-polity_20260831010303.pdf",
+      "created_at": "2026-08-30 23:12:03.808899+00",
+      "unchanged_fields_hash": "cc03e0dc0270ab31114a94e9408ce4d0"
+    },
+    {
+      "id": "ccd624cb-50c1-41bb-a486-18757ea82445",
+      "title": "Paper IV — Governed Presence",
+      "series_scope": "papers/polity",
+      "auto_drive_cid": "https://dev-beta.aigentz.me/api/content/media/ccd624cb-50c1-41bb-a486-18757ea82445?name=/papers-polity_20260831010404.pdf",
+      "created_at": "2026-08-30 23:12:19.232551+00",
+      "unchanged_fields_hash": "834b42779112afdd1d990b9a48ff890c"
+    },
+    {
+      "id": "dbd21d56-1e34-405c-adef-7f88df9baa21",
+      "title": "Paper III — The Polity Passport System",
+      "series_scope": "papers/polity",
+      "auto_drive_cid": "https://dev-beta.aigentz.me/api/qriptopian/essay-cover/dbd21d56-1e34-405c-adef-7f88df9baa21?name=/papers-polity_20260831010303.png",
+      "created_at": "2026-08-30 23:09:50.678494+00",
+      "unchanged_fields_hash": "01663e1c6e1b638c46daca381a6c938c"
+    },
+    {
+      "id": "e5d48b5b-3af3-4078-b235-4831cd7c2ed3",
+      "title": "Paper V — The Accession Protocol",
+      "series_scope": "papers/polity",
+      "auto_drive_cid": "https://dev-beta.aigentz.me/api/content/media/e5d48b5b-3af3-4078-b235-4831cd7c2ed3?name=/papers-polity_20260831010505.pdf",
+      "created_at": "2026-08-30 23:12:27.259125+00",
+      "unchanged_fields_hash": "a3b7a9987fb8fdb85e52d9cabdbe778e"
+    }
+  ]
+}
