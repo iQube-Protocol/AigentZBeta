@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-01T16:06:28.016Z",
+  "last_updated": "2026-09-01T16:46:15.644Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "d7d7761a20f50a8ee42051317cfe61f1d7746c92",
-  "latest_commit_short": "d7d7761",
-  "latest_commit_title": "spec: define MoneyPenny cartridge capability harvest upgrade",
+  "latest_commit": "9dda3984505ed2dec52e271cd947626a95d31991",
+  "latest_commit_short": "9dda398",
+  "latest_commit_title": "Add MoneyPenny MPY2-3 Risk Envelope: risk factors + limits from Financial Profile",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "9dda398",
+      "full_sha": "9dda3984505ed2dec52e271cd947626a95d31991",
+      "title": "Add MoneyPenny MPY2-3 Risk Envelope: risk factors + limits from Financial Profile",
+      "author": "Claude",
+      "timestamp": "2026-09-01T16:44:11Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-9dda398.md"
+    },
     {
       "sha": "d7d7761",
       "full_sha": "d7d7761a20f50a8ee42051317cfe61f1d7746c92",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-23T14:23:59-04:00",
       "type": "docs",
       "brief": "items/build_/COMMITS/COMMIT-d5dbd90.md"
-    },
-    {
-      "sha": "bd84582",
-      "full_sha": "bd84582d9ad48a3b257c9f651a8cbf7f1ac9eeb6",
-      "title": "docs(irl): freeze CI and IRL native architecture baseline for OCSGA comparison",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-23T14:02:51-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-bd84582.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

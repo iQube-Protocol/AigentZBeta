@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`9dda398`](https://github.com/iQube-Protocol/AigentZBeta/commit/9dda3984505ed2dec52e271cd947626a95d31991) [feat] Add MoneyPenny MPY2-3 Risk Envelope: risk factors + limits from Financial Profile (Claude, 2026-09-01T16:44:11Z)
 - [`d7d7761`](https://github.com/iQube-Protocol/AigentZBeta/commit/d7d7761a20f50a8ee42051317cfe61f1d7746c92) [chore] spec: define MoneyPenny cartridge capability harvest upgrade (Kn0w1, 2026-09-01T05:51:31-04:00)
 - [`6c7f3ee`](https://github.com/iQube-Protocol/AigentZBeta/commit/6c7f3ee4d050a8843ab042a5b9e21af94085551d) [feat] Add MPY2-0 MoneyPenny donor harvest audit and register updates docs (Claude, 2026-09-01T11:01:40Z)
 - [`e3ba888`](https://github.com/iQube-Protocol/AigentZBeta/commit/e3ba888f7a5bafb71776f18d1652daf4524f44e8) [feat] Add MoneyPenny capability-led navigation rail and overview panel (Claude, 2026-09-01T11:01:51Z)

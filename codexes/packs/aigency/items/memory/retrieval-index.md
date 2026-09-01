@@ -4944,3 +4944,8 @@ Top-level retrieval anchors for this pack.
 - Type: `chore`
 - Brief: [COMMIT-d7d7761.md](../build_/COMMITS/COMMIT-d7d7761.md)
 - Message: spec: define MoneyPenny cartridge capability harvest upgrade
+
+## Commit `9dda398` — 2026-09-01T16:44:11Z
+- Type: `feat`
+- Brief: [COMMIT-9dda398.md](../build_/COMMITS/COMMIT-9dda398.md)
+- Message: Add MoneyPenny MPY2-3 Risk Envelope: risk factors + limits from Financial Profile
