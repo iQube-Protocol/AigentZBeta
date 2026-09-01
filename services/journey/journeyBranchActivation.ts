@@ -32,6 +32,18 @@ function branchIntentKey(journeyId: string, branch: string): string {
  * the branch's entry stage — the "Apply to join Financial Services" style
  * affordance's one call. Non-fatal if `sessionStorage`/`window` are
  * unavailable (SSR, storage disabled): the stage selection still fires.
+ *
+ * Immediate re-evaluation (XP-1 follow-up, 2026-09-01): the dispatched
+ * `journey:select-stage` event's detail carries `trigger: 'branch-intent-
+ * change'` — the SAME event `selectStage` already dispatches elsewhere in
+ * this codebase (no second event bus), just with one more field.
+ * `JourneyRunSurface`'s existing listener reads it and, via the real typed
+ * `shouldReEvaluateAeeProjection` (services/adaptive/journeyAeeOrchestrator.ts
+ * — the ONE place `JourneyReEvaluationTrigger` is defined; not re-declared
+ * or duplicated here to avoid Journey Spine depending on the AEE module),
+ * decides whether to refetch authoritative state. This module stays
+ * dependency-clean: it emits the trigger NAME as a plain string literal,
+ * never imports the AEE module itself.
  */
 export function activateJourneyBranch(
   journeyId: string,
@@ -46,7 +58,11 @@ export function activateJourneyBranch(
     /* non-fatal — the branch simply won't persist across a reload this visit */
   }
   try {
-    window.dispatchEvent(new CustomEvent('journey:select-stage', { detail: { stageId: entryStageId } }));
+    window.dispatchEvent(
+      new CustomEvent('journey:select-stage', {
+        detail: { stageId: entryStageId, trigger: 'branch-intent-change' },
+      }),
+    );
   } catch {
     /* non-fatal */
   }
