@@ -31,7 +31,7 @@ describe.each(STATE_ROUTES)('%s state route resolves and projects the companion 
   const src = stripComments(readSource(path));
 
   it('imports resolvePrimaryCompanionForJourney — the ONE existing resolver, never a second implementation', () => {
-    expect(src).toMatch(/import\s*\{\s*resolvePrimaryCompanionForJourney\s*\}\s*from\s*['"]@\/services\/journey\/journeyCopilotResolver['"]/);
+    expect(src).toMatch(/import\s*\{\s*resolvePrimaryCompanionForJourney\s*\}\s*from\s*['"]@\/services\/journey\/primaryCompanionResolver['"]/);
   });
 
   it(`calls it with the real request and ${journeyConst}, and sets resolvedCompanionAgent on the returned state`, () => {
@@ -70,5 +70,37 @@ describe('JourneyCopilotHost substitutes ONLY the agent identity — accent/prom
     expect(src).not.toMatch(/NextRequest/);
     expect(src).not.toMatch(/resolveAigentMeIdentity/);
     expect(src).not.toMatch(/resolvePrimaryCompanionForJourney/);
+  });
+});
+
+/*
+ * 2026-09-01 INCIDENT CANARY — 15 consecutive Amplify deploys failed with
+ * `UnhandledSchemeError: Reading from "node:crypto" is not handled by
+ * plugins` because `resolvePrimaryCompanionForJourney` (which statically
+ * imports `resolveAigentMeIdentity` -> ... -> Node's `crypto` module) lived
+ * in journeyCopilotResolver.ts — the SAME FILE `JourneyCopilotHost.tsx` (a
+ * `'use client'` component) imports `resolveJourneyCopilot` from.
+ *
+ * The direct-import checks above (asserting JourneyCopilotHost.tsx's OWN
+ * source never mentions `resolveAigentMeIdentity`) were NOT sufficient to
+ * catch this — the leak was transitive, through the shared module's full
+ * static import graph, which webpack must resolve for the client bundle
+ * the moment ANY export is imported, whether or not it's ever called. The
+ * real guard is on the shared file itself: it must carry NO server-only
+ * import, ever, because a client component depends on it.
+ */
+describe('journeyCopilotResolver.ts stays CLIENT-BUNDLE-SAFE — no transitive server-only import, ever', () => {
+  const src = stripComments(readSource('services/journey/journeyCopilotResolver.ts'));
+
+  it('never imports next/server, resolveAigentMeIdentity, or anything from primaryCompanionResolver.ts', () => {
+    expect(src).not.toMatch(/from\s*['"]next\/server['"]/);
+    expect(src).not.toMatch(/NextRequest/);
+    expect(src).not.toMatch(/resolveAigentMeIdentity/);
+    expect(src).not.toMatch(/from\s*['"]@\/services\/journey\/primaryCompanionResolver['"]/);
+  });
+
+  it('only exports the pure, synchronous resolveJourneyCopilot (plus its return type) — resolvePrimaryCompanionForJourney lives elsewhere', () => {
+    expect(src).toMatch(/export function resolveJourneyCopilot\(/);
+    expect(src).not.toMatch(/export (async )?function resolvePrimaryCompanionForJourney/);
   });
 });

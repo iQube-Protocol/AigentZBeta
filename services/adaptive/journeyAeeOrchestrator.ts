@@ -115,30 +115,16 @@ export interface JourneyAeeOutcome {
 const CROSS_ACTION_PATTERN = /^cross-to-/;
 
 /**
- * Re-evaluation trigger contract (AEE-XP-001 §6 requirement 6) — the
- * CONTRACT for this slice, deliberately not a new observation database.
- * Any of these facts changing invalidates a previously-computed
- * `JourneyAeeOutcome`; the correct response is simply to call
- * `computeJourneyAeeOutcome` again with fresh inputs — there is no cached
- * projection to invalidate in-place because this module holds no state of
- * its own. Consequential OBSERVATION (recording that a trigger fired, for
- * copilot narration) remains DCIR-owned (services/dcir/*) — this type only
- * names what a DCIR-observed change should cause a caller to do.
+ * Re-exported for server-side callers that want everything from one import
+ * — the real definitions live in journeyReEvaluationTrigger.ts (2026-09-01
+ * incident fix), a zero-dependency file, because `JourneyRunSurface.tsx` (a
+ * `'use client'` component) needs `shouldReEvaluateAeeProjection` without
+ * pulling this file's `crypto`-touching dependency chain
+ * (journeySpineAdapter.ts / nativeProvider.ts) into the browser bundle. A
+ * client component MUST import the trigger contract from
+ * journeyReEvaluationTrigger.ts directly, never from here.
  */
-export type JourneyReEvaluationTrigger =
-  | 'journey-state-change'
-  | 'branch-intent-change'
-  | 'stage-satisfaction-evidence-change'
-  | 'exqube-experience-evidence-change'
-  | 'authority-standing-change';
-
-/** Every trigger in the contract warrants recomputation — no trigger is
- *  ever debounced/ignored here. Named as a function (not a boolean
- *  constant) so a future trigger-specific policy has one call site to
- *  extend, without callers needing to know the current answer is trivial. */
-export function shouldReEvaluateAeeProjection(_trigger: JourneyReEvaluationTrigger): boolean {
-  return true;
-}
+export { shouldReEvaluateAeeProjection, type JourneyReEvaluationTrigger } from '@/services/adaptive/journeyReEvaluationTrigger';
 
 function dispositionFor(targetStageId: string | null, journey: JourneyDefinition): 'act' | 'ask' | 'wait' {
   if (!targetStageId) return 'wait';

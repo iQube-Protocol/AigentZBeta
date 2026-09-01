@@ -22,7 +22,7 @@ import { KNYTS_BRIDGE_CROSSING_JOURNEY } from '@/services/journey/knytsBridgeCro
 import { CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY } from '@/services/journey/constitutionalInternetBridgeJourney';
 import { computeJourneyAeeOutcome } from '@/services/adaptive/journeyAeeOrchestrator';
 import type { JourneyDefinition } from '@/types/journey';
-import { shouldReEvaluateAeeProjection, type JourneyReEvaluationTrigger } from '@/services/adaptive/journeyAeeOrchestrator';
+import { shouldReEvaluateAeeProjection, type JourneyReEvaluationTrigger } from '@/services/adaptive/journeyReEvaluationTrigger';
 import {
   activateJourneyBranch,
   isJourneyBranchActivated,
@@ -124,7 +124,7 @@ describe('JourneyRunSurface — the immediate-refetch wiring exists structurally
   const src = stripComments(readSource('components/journey/JourneyRunSurface.tsx'));
 
   it('the journey:select-stage listener reads detail.trigger and calls refresh via shouldReEvaluateAeeProjection — the SAME event, no second bus', () => {
-    expect(src).toMatch(/from '@\/services\/adaptive\/journeyAeeOrchestrator'/);
+    expect(src).toMatch(/from '@\/services\/adaptive\/journeyReEvaluationTrigger'/);
     const idx = src.indexOf("window.addEventListener('journey:select-stage', onSelect)");
     expect(idx).toBeGreaterThan(-1);
     const before = src.slice(Math.max(0, idx - 700), idx);
@@ -139,5 +139,27 @@ describe('JourneyRunSurface — the immediate-refetch wiring exists structurally
     // Exactly one distinct dispatched event name, and it's the pre-existing one.
     expect(new Set(eventNames)).toEqual(new Set(['journey:select-stage']));
     expect(activationSrc).toMatch(/trigger:\s*'branch-intent-change'/);
+  });
+
+  /*
+   * 2026-09-01 INCIDENT CANARY (second instance of the same defect class as
+   * journeyCopilotResolver.ts's — see
+   * tests/journey-copilot-assigned-companion-wiring.test.ts): this
+   * component MUST NOT import journeyAeeOrchestrator.ts directly —
+   * that file transitively imports journeySpineAdapter.ts/nativeProvider.ts,
+   * both of which import Node's `crypto`, which breaks every build touching
+   * a page that mounts JourneyRunSurface (15 consecutive failed Amplify
+   * deploys). The trigger contract must come from the zero-dependency
+   * journeyReEvaluationTrigger.ts only.
+   */
+  it('never imports journeyAeeOrchestrator.ts directly — that file transitively imports Node crypto via journeySpineAdapter.ts/nativeProvider.ts', () => {
+    expect(src).not.toMatch(/from '@\/services\/adaptive\/journeyAeeOrchestrator'/);
+  });
+});
+
+describe('journeyReEvaluationTrigger.ts stays CLIENT-BUNDLE-SAFE — zero dependencies, ever', () => {
+  it('imports nothing — a client component depends on it', () => {
+    const src = stripComments(readSource('services/adaptive/journeyReEvaluationTrigger.ts'));
+    expect(src).not.toMatch(/^import /m);
   });
 });

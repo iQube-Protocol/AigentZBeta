@@ -28,7 +28,7 @@ import { buildCodexUrl } from '@/utils/codex-nav';
 import { JOURNEY_SURFACES, buildEmbedSurfaceSrc, type JourneySurfaceDescriptor } from '@/services/journey/journeySurfaceRegistry';
 import { requestBridgeEmbedReturn } from '@/services/journey/bridgeEmbedNav';
 import { isJourneyBranchActivated, serializeActivatedBranchesForJourney } from '@/services/journey/journeyBranchActivation';
-import { shouldReEvaluateAeeProjection, type JourneyReEvaluationTrigger } from '@/services/adaptive/journeyAeeOrchestrator';
+import { shouldReEvaluateAeeProjection, type JourneyReEvaluationTrigger } from '@/services/adaptive/journeyReEvaluationTrigger';
 import { StageReceiptsDrawer } from '@/components/journey/StageReceiptsDrawer';
 import { JourneyCopilotHost } from '@/components/journey/JourneyCopilotHost';
 import { ActivePersonaControl } from '@/components/persona/ActivePersonaControl';

@@ -24,7 +24,7 @@ import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { loadUsableCitizenPassportForAuthProfile } from '@/services/identity/passportPrincipal';
 import { resolveJourneyState, type AuthoritativePlatformState } from '@/services/journey/resolveJourneyState';
 import { KNYTS_BRIDGE_CROSSING_JOURNEY, KNYTS_BRIDGE_CAMPAIGN_ID } from '@/services/journey/knytsBridgeCrossingJourney';
-import { resolvePrimaryCompanionForJourney } from '@/services/journey/journeyCopilotResolver';
+import { resolvePrimaryCompanionForJourney } from '@/services/journey/primaryCompanionResolver';
 import { parseActivatedBranchesParam } from '@/services/journey/journeyBranchActivation';
 import { computeJourneyAeeOutcome } from '@/services/adaptive/journeyAeeOrchestrator';
 

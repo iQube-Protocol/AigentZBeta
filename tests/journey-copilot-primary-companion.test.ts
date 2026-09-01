@@ -1,5 +1,5 @@
 /**
- * resolvePrimaryCompanionForJourney (services/journey/journeyCopilotResolver.ts)
+ * resolvePrimaryCompanionForJourney (services/journey/primaryCompanionResolver.ts)
  * — AEE-XP-001 §10/XP-5 additive resolver (2026-09-01): "the current role
  * occupant is resolved from canonical persona assignment, never guessed from
  * surface-local configuration." Pins that it (1) never touches
@@ -17,7 +17,8 @@ vi.mock('@/services/agents/aigentMeRoleResolution', () => ({
 }));
 
 import { resolveAigentMeIdentity } from '@/services/agents/aigentMeRoleResolution';
-import { resolveJourneyCopilot, resolvePrimaryCompanionForJourney } from '@/services/journey/journeyCopilotResolver';
+import { resolveJourneyCopilot } from '@/services/journey/journeyCopilotResolver';
+import { resolvePrimaryCompanionForJourney } from '@/services/journey/primaryCompanionResolver';
 import { KNYTS_BRIDGE_CROSSING_JOURNEY } from '@/services/journey/knytsBridgeCrossingJourney';
 import { CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY } from '@/services/journey/constitutionalInternetBridgeJourney';
 import { HORIZEN_MONEYPENNY_JOURNEY } from '@/services/journey/horizenMoneyPennyJourney';
