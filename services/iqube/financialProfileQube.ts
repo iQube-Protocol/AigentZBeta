@@ -92,10 +92,72 @@ export interface FinancialProfileEnvelope {
   strategyConstraints: string[];
 }
 
+/**
+ * SPEC-MPY-002 MPY2-3 (2026-09-01) — the Risk Envelope. Distinct from
+ * `FinancialProfileEnvelope` above (MPY2-2's cheap inline heuristic,
+ * unchanged, still shown on the Financial Profile panel): this is the
+ * named-risk-factor assessment plus the refined limit set MoneyPenny's
+ * Risk & Limits capability derives FROM the same aggregates — never a
+ * second copy of the raw statement, never a second financial-state model.
+ * See services/financialServices/riskEnvelope.ts for the derivation.
+ */
+export type RiskCategory = 'liquidity' | 'concentration' | 'volatility' | 'commitment-coverage';
+export type RiskSeverity = 'low' | 'moderate' | 'elevated' | 'high';
+
+export interface RiskFactor {
+  category: RiskCategory;
+  severity: RiskSeverity;
+  rationale: string;
+  /** Which aggregate field(s) this factor was derived from — the "why do
+   *  you say that" trail, never an unexplained score. */
+  derivedFrom: string;
+}
+
+export interface RiskAssessment {
+  factors: RiskFactor[];
+  /** A risk category the assessor could not evaluate because the
+   *  underlying aggregate is null/absent (e.g. no liquidity risk factor
+   *  when `liquidityBufferDays` is null) — reported explicitly, never
+   *  silently dropped and never defaulted to 'low'. */
+  unassessed: Array<{ category: RiskCategory; reason: string }>;
+}
+
+export interface ConcentrationLimit {
+  category: string;
+  /** Maximum recommended share of monthly expenditure for this category. */
+  limitShare: number;
+  rationale: string;
+}
+
+export interface RiskLimits {
+  /** The refined successor to FinancialProfileEnvelope's flat multiplier —
+   *  each figure here cites the risk factor(s) that produced it. */
+  positionNotionalLimit: number;
+  lossRiskBudget: number;
+  drawdownLimit: number;
+  liquidityReserve: number;
+  concentrationLimits: ConcentrationLimit[];
+  /**
+   * ALWAYS 'PROPOSAL' — reuses `types/financialServices.ts`'s existing
+   * `FinancialServiceConsequenceClass` vocabulary rather than inventing a
+   * parallel one (the same three-rung Advisor/Architect/Runtime axis every
+   * other MoneyPenny service already declares itself against). A Risk
+   * Envelope is Architect-tier: it proposes limits, it never enforces them.
+   * Real enforcement of any limit against a real order requires an
+   * authorized agreement through the EXISTING Runtime/
+   * services/constitutional/constitutionalAgreement.ts gate (the canonical
+   * authority/delegation/CTP path) — this qube grants none of that itself.
+   */
+  serviceClass: 'PROPOSAL';
+  rationale: string[];
+}
+
 /** Private payload — server-side only. T0. */
 export interface FinancialProfileQubeBlak {
   aggregates?: FinancialProfileAggregates;
   envelope?: FinancialProfileEnvelope;
+  riskAssessment?: RiskAssessment;
+  riskLimits?: RiskLimits;
   sourceUploadIds?: string[];
   /** Which statement periods contributed, in the aggregator's own labels
    *  (e.g. '2026-07') — for the owner's own review, never asserted as

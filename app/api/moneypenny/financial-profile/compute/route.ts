@@ -12,6 +12,11 @@
  *     derivation (income/expenditure/surplus/volatility/liquidity/
  *     concentration + candidate envelope). This route only assembles its
  *     input and persists its output.
+ *   - services/financialServices/riskEnvelope.ts (MPY2-3, 2026-09-01) — the
+ *     Risk Envelope assessment/limits, derived from the SAME aggregates in
+ *     the SAME compute pass (no extra I/O, no second "did you remember to
+ *     recompute" surface). Persisted alongside `aggregates`/`envelope` in
+ *     the same qube upsert.
  *   - services/iqube/financialProfileQube.ts — the ONE canonical writer.
  *
  * The raw statement text/rows are read here ONLY to feed the pure
@@ -23,6 +28,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getPersonaUploadService } from '@/services/uploads/supabaseUploadAdapter';
 import { computeFinancialProfile, type StatementSourceRows } from '@/services/financialServices/financialProfileAggregation';
+import { assessRisk, deriveRiskLimits } from '@/services/financialServices/riskEnvelope';
 import { upsertFinancialProfileQube } from '@/services/iqube/financialProfileQube';
 
 export const dynamic = 'force-dynamic';
@@ -60,12 +66,20 @@ export async function POST(req: NextRequest) {
 
   const result = computeFinancialProfile(sources);
 
+  // MPY2-3 — Risk Envelope, derived from the SAME aggregates, in the same
+  // pass. Only meaningful when aggregates exist; a failed/empty compute
+  // carries no risk assessment (never a fabricated one over absent data).
+  const riskAssessment = result.aggregates ? assessRisk(result.aggregates) : undefined;
+  const riskLimits = result.aggregates && riskAssessment ? (deriveRiskLimits(result.aggregates, riskAssessment) ?? undefined) : undefined;
+
   const record = await upsertFinancialProfileQube(persona.personaId, {
     sourceUploadCount: uploads.length,
     unreadableUploadCount: result.unreadableUploadIds.length,
     blak: {
       ...(result.aggregates ? { aggregates: result.aggregates } : {}),
       ...(result.envelope ? { envelope: result.envelope } : {}),
+      ...(riskAssessment ? { riskAssessment } : {}),
+      ...(riskLimits ? { riskLimits } : {}),
       sourceUploadIds: result.readableUploadIds,
       ...(result.computedFromMonths ? { computedFromMonths: result.computedFromMonths } : {}),
     },
@@ -79,6 +93,8 @@ export async function POST(req: NextRequest) {
     meta: record.meta,
     aggregates: record.blak.aggregates ?? null,
     envelope: record.blak.envelope ?? null,
+    riskAssessment: record.blak.riskAssessment ?? null,
+    riskLimits: record.blak.riskLimits ?? null,
     computedFromMonths: record.blak.computedFromMonths ?? [],
     readableUploadCount: result.readableUploadIds.length,
     unreadableUploadCount: result.unreadableUploadIds.length,
