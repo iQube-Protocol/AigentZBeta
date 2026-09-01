@@ -19,7 +19,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { resolveJourneyState, type AuthoritativePlatformState } from '@/services/journey/resolveJourneyState';
 import { KNYTS_BRIDGE_CROSSING_JOURNEY } from '@/services/journey/knytsBridgeCrossingJourney';
+import { CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY } from '@/services/journey/constitutionalInternetBridgeJourney';
 import { computeJourneyAeeOutcome } from '@/services/adaptive/journeyAeeOrchestrator';
+import type { JourneyDefinition } from '@/types/journey';
 import { shouldReEvaluateAeeProjection, type JourneyReEvaluationTrigger } from '@/services/adaptive/journeyAeeOrchestrator';
 import {
   activateJourneyBranch,
@@ -40,10 +42,26 @@ beforeEach(() => {
   window.sessionStorage.clear();
 });
 
-describe('End-to-end: branch click -> immediate re-evaluation -> correct AEE recommendation', () => {
+const BRIDGES: Array<[string, JourneyDefinition, string]> = [
+  ['KNYTS Bridge', KNYTS_BRIDGE_CROSSING_JOURNEY, 'knyts-bridge'],
+  ['Constitutional Internet Bridge', CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY, 'constitutional-internet-bridge'],
+];
+
+/*
+ * CI parity (2026-09-01): the SAME describe.each block below proves the
+ * full 7-point sequence on BOTH bridges. This is deliberate — the client
+ * wiring (activateJourneyBranch, JourneyRunSurface's listener) is already
+ * journey-agnostic (JourneyRunSurface is reused by both app/bridge/knyts
+ * and app/bridge/ci), so proving it once per journey with IDENTICAL test
+ * logic is what "reuse the exact KNYTS pattern, no CI-specific logic"
+ * actually means — not a hand-written CI copy that could drift.
+ */
+describe.each(BRIDGES)(
+  '%s — end-to-end: branch click -> immediate re-evaluation -> correct AEE recommendation',
+  (_label, journey, hostId) => {
   it('1. starts at CHOOSE with the FS branch dormant', () => {
-    const fsDiscover = KNYTS_BRIDGE_CROSSING_JOURNEY.stages.find((s) => s.id === 'fs-discover')!;
-    expect(isStageVisible(KNYTS_BRIDGE_CROSSING_JOURNEY.id, fsDiscover)).toBe(false);
+    const fsDiscover = journey.stages.find((s) => s.id === 'fs-discover')!;
+    expect(isStageVisible(journey.id, fsDiscover)).toBe(false);
   });
 
   it('2-7: selecting JOIN_FINANCIAL_SERVICES reveals the branch, triggers immediate re-evaluation, and returns fs-discover — without touching the source journey or marking anything complete', async () => {
@@ -54,12 +72,12 @@ describe('End-to-end: branch click -> immediate re-evaluation -> correct AEE rec
       capturedTrigger = (e as CustomEvent<{ trigger?: JourneyReEvaluationTrigger }>).detail?.trigger;
     };
     window.addEventListener('journey:select-stage', onSelect);
-    activateJourneyBranch(KNYTS_BRIDGE_CROSSING_JOURNEY.id, 'financial-services', 'JOIN_FINANCIAL_SERVICES', 'fs-discover');
+    activateJourneyBranch(journey.id, 'financial-services', 'JOIN_FINANCIAL_SERVICES', 'fs-discover');
     window.removeEventListener('journey:select-stage', onSelect);
 
     // 3. Branch becomes visible.
-    const fsDiscover = KNYTS_BRIDGE_CROSSING_JOURNEY.stages.find((s) => s.id === 'fs-discover')!;
-    expect(isStageVisible(KNYTS_BRIDGE_CROSSING_JOURNEY.id, fsDiscover)).toBe(true);
+    const fsDiscover = journey.stages.find((s) => s.id === 'fs-discover')!;
+    expect(isStageVisible(journey.id, fsDiscover)).toBe(true);
 
     // 4. The dispatched event invokes the EXISTING typed re-evaluation
     //    trigger (no second event bus) — and it says yes, refetch.
@@ -70,14 +88,14 @@ describe('End-to-end: branch click -> immediate re-evaluation -> correct AEE rec
     // does — serialize the now-activated branch onto the state request,
     // parse it server-side, resolve, and compute the AEE outcome. Real
     // functions, same sequence, no mocked fetch needed to prove this.
-    const activatedBranchesParam = serializeActivatedBranchesForJourney(KNYTS_BRIDGE_CROSSING_JOURNEY);
+    const activatedBranchesParam = serializeActivatedBranchesForJourney(journey);
     expect(activatedBranchesParam).toBe('financial-services:JOIN_FINANCIAL_SERVICES');
     const activatedBranches = parseActivatedBranchesParam(activatedBranchesParam);
-    const runtimeState = resolveJourneyState(KNYTS_BRIDGE_CROSSING_JOURNEY, EMPTY_STATE, activatedBranches);
+    const runtimeState = resolveJourneyState(journey, EMPTY_STATE, activatedBranches);
     const aee = await computeJourneyAeeOutcome({
-      journeyDefinition: KNYTS_BRIDGE_CROSSING_JOURNEY,
+      journeyDefinition: journey,
       runtimeState,
-      hostId: 'knyts-bridge',
+      hostId,
       participantRef: 'test-visitor',
       generatedAt: '2026-09-01T00:00:00.000Z',
     });
@@ -93,14 +111,14 @@ describe('End-to-end: branch click -> immediate re-evaluation -> correct AEE rec
 
     // 6. Current JourneyRun remains the SAME source journey — the refetch
     //    re-resolves the same journeyId, never redirects/switches journeys.
-    expect(runtimeState.journeyId).toBe(KNYTS_BRIDGE_CROSSING_JOURNEY.id);
-    expect(runtimeState.journeyId).toBe('knyts-bridge-crossing');
+    expect(runtimeState.journeyId).toBe(journey.id);
 
     // 7. No stage is marked complete by the refetch itself — zero evidence
     //    was supplied, so nothing legitimately completed.
     expect(runtimeState.stages.every((s) => s.state !== 'COMPLETE')).toBe(true);
   });
-});
+  },
+);
 
 describe('JourneyRunSurface — the immediate-refetch wiring exists structurally', () => {
   const src = stripComments(readSource('components/journey/JourneyRunSurface.tsx'));
