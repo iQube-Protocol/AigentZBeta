@@ -4874,3 +4874,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-1bac437.md](../build_/COMMITS/COMMIT-1bac437.md)
 - Message: Adaptive Financial Services entry CTA on KNYTS/CI, retire pilot framing [merge review/irl-scoped-restoration-2026-08-27]
+
+## Commit `3a4b251` — 2026-09-01T11:21:53Z
+- Type: `fix`
+- Brief: [COMMIT-3a4b251.md](../build_/COMMITS/COMMIT-3a4b251.md)
+- Message: Fix Track 2 EXP-P1 state oscillation: stop swallowing substrate errors as empty [merge fix/track2-crystal-state-projection]

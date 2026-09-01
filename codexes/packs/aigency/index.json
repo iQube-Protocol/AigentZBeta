@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-01T11:33:33.179Z",
+  "last_updated": "2026-09-01T11:43:09.727Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "1bac437a69f14ce3681bf76d84bc9902d65e3136",
-  "latest_commit_short": "1bac437",
-  "latest_commit_title": "Adaptive Financial Services entry CTA on KNYTS/CI, retire pilot framing [merge review/irl-scoped-restoration-2026-08-27]",
+  "latest_commit": "3a4b2516a5422e561b78fe41d861ae65540fbbd2",
+  "latest_commit_short": "3a4b251",
+  "latest_commit_title": "Fix Track 2 EXP-P1 state oscillation: stop swallowing substrate errors as empty [merge fix/track2-crystal-state-projection]",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "3a4b251",
+      "full_sha": "3a4b2516a5422e561b78fe41d861ae65540fbbd2",
+      "title": "Fix Track 2 EXP-P1 state oscillation: stop swallowing substrate errors as empty [merge fix/track2-crystal-state-projection]",
+      "author": "Claude",
+      "timestamp": "2026-09-01T11:21:53Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-3a4b251.md"
+    },
     {
       "sha": "1bac437",
       "full_sha": "1bac437a69f14ce3681bf76d84bc9902d65e3136",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-21T22:57:58-04:00",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-fe1272a.md"
-    },
-    {
-      "sha": "fff9c67",
-      "full_sha": "fff9c67e2b222dfab5409c9f7e431f1199e03d36",
-      "title": "Allow generic non-episode cover assets",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-21T13:35:15-04:00",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-fff9c67.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
