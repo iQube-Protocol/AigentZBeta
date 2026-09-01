@@ -55,6 +55,24 @@
  * Spine's own `completionEvidence` — the client gate is a UX convenience,
  * never the actual authority (same discipline as every other evidenced
  * stage in this codebase).
+ *
+ * AEE-Next (2026-09-01) — EXPLORE's four service cards above are still
+ * describe-only (open the card, no live call — `serviceCatalog` entries
+ * carry no bounded, no-input, side-effect-free live action to trigger
+ * safely from a passive click). This adds ONE additional, genuinely live
+ * action alongside them: "Try it — Compute your Financial Profile" calls
+ * the real `POST /api/moneypenny/financial-profile/compute` (MPY2-2/3,
+ * already deployed) and records its REAL result — not a click, an actual
+ * outcome — as `outcome` on the SAME `experience_interaction_observed`
+ * receipt (see `experienceObservationPromotion.ts`'s new `outcome` field).
+ * This is what turns EXPLORE's evidence from "engaged with the idea of a
+ * capability" into "observed the consequence of actually using one," which
+ * `experienceIntentAssembly.ts`'s `observedBehavior` already carries into
+ * the next AEE pass — no further wiring needed for the loop to close.
+ * Deliberately NOT wired to Architect/Runtime (those require either a real
+ * text intent or real financial consequence — out of scope for a passive
+ * EXPLORE click); Financial Profile compute needs no input and is already
+ * honest about its own absence of data (`no-financial-documents`).
  */
 
 import { useCallback, useMemo, useState } from 'react';
@@ -63,6 +81,7 @@ import { listFinancialServiceDefinitions } from '@/services/financialServices/se
 import { useDcirSeam } from '@/services/dcir/useDcirSeam';
 import { aigentMeCapsuleEngagedEvent } from '@/services/dcir/eventStream';
 import { personaFetch } from '@/utils/personaSpine';
+import { personaFetchDeadline } from '@/utils/personaSpine';
 
 /**
  * LEARN's qualifying concept set — mirrors the Advisor/Architect/Runtime
@@ -106,12 +125,13 @@ function observeExperienceInteraction(
   personaIdHint?: string,
   interactionKind?: string,
   capabilityId?: string,
+  outcome?: Record<string, unknown> | null,
 ) {
   try {
     void personaFetch('/api/journey/experience-observation', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ journeyId, stageId, surfaceRef, interactionKind, capabilityId }),
+      body: JSON.stringify({ journeyId, stageId, surfaceRef, interactionKind, capabilityId, outcome }),
       personaIdHint,
     }).catch(() => {
       /* non-fatal — fall-open, see header comment */
@@ -120,6 +140,13 @@ function observeExperienceInteraction(
     /* non-fatal */
   }
 }
+
+/** AEE-Next (2026-09-01) — the one live capability EXPLORE actually
+ *  triggers. See file header. Distinct id from `serviceCatalog`'s four
+ *  entries (never collides with a real `FinancialServiceDefinition.id`). */
+const LIVE_TRY_CAPABILITY_ID = 'financial-profile-live';
+
+type TryFinancialProfileStatus = 'idle' | 'loading' | 'produced' | 'no-data' | 'error';
 
 const COPY: Record<FinancialSovereigntyIntroStageKey, { eyebrow: string; headline: string; paragraphs: string[] }> = {
   discover: {
@@ -184,6 +211,8 @@ export function FinancialSovereigntyIntroStage({
   // durable receipts on its own next fetch (see header comment).
   const [acknowledgedConcepts, setAcknowledgedConcepts] = useState<Set<string>>(new Set());
   const [interactedCapabilities, setInteractedCapabilities] = useState<Set<string>>(new Set());
+  const [tryStatus, setTryStatus] = useState<TryFinancialProfileStatus>('idle');
+  const [tryDetail, setTryDetail] = useState<string | null>(null);
 
   const handleConceptAcknowledge = useCallback(
     (conceptId: string) => {
@@ -220,6 +249,72 @@ export function FinancialSovereigntyIntroStage({
     },
     [observe, stageId, journeyId, personaId],
   );
+
+  /**
+   * AEE-Next (2026-09-01) — the one live action EXPLORE can trigger. Calls
+   * the REAL, already-deployed Financial Profile compute route (no input
+   * required, no LLM call, deterministic) and records its REAL result as
+   * `outcome` on the observation receipt — never a fabricated success. A
+   * persona with no uploaded statements gets an honest 'no-data' result,
+   * not a fake one.
+   */
+  const handleTryFinancialProfile = useCallback(async () => {
+    setTryStatus('loading');
+    setTryDetail(null);
+    setInteractedCapabilities((prev) => (prev.has(LIVE_TRY_CAPABILITY_ID) ? prev : new Set(prev).add(LIVE_TRY_CAPABILITY_ID)));
+    observe(aigentMeCapsuleEngagedEvent(`${stageId}:${LIVE_TRY_CAPABILITY_ID}`));
+
+    let outcome: Record<string, unknown>;
+    try {
+      const res = await personaFetchDeadline(
+        '/api/moneypenny/financial-profile/compute',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          personaIdHint: personaId ?? undefined,
+        },
+        20000,
+      );
+      const json = await res.json().catch(() => ({}) as Record<string, unknown>);
+      if (json?.ok) {
+        setTryStatus('produced');
+        setTryDetail(
+          `Computed from ${json.readableUploadCount ?? 0} statement(s)` +
+            (json.riskAssessment ? ' — risk factors assessed.' : '.'),
+        );
+        outcome = {
+          status: 'produced',
+          readableUploadCount: json.readableUploadCount ?? null,
+          unreadableUploadCount: json.unreadableUploadCount ?? null,
+          hasRiskAssessment: Boolean(json.riskAssessment),
+        };
+      } else if (json?.error === 'no-financial-documents') {
+        setTryStatus('no-data');
+        setTryDetail(json.detail ?? 'No bank statements uploaded yet.');
+        outcome = { status: 'no-data', reason: json.error };
+      } else {
+        setTryStatus('error');
+        setTryDetail('The compute call did not complete.');
+        outcome = { status: 'failed', reason: typeof json?.error === 'string' ? json.error : 'unknown' };
+      }
+    } catch {
+      setTryStatus('error');
+      setTryDetail('The compute call did not complete.');
+      outcome = { status: 'failed', reason: 'network-or-runtime-error' };
+    }
+
+    if (journeyId) {
+      observeExperienceInteraction(
+        journeyId,
+        stageId,
+        `financial-sovereignty-intro:explore:${LIVE_TRY_CAPABILITY_ID}`,
+        personaId ?? undefined,
+        EXPLORE_INTERACTION_KIND,
+        LIVE_TRY_CAPABILITY_ID,
+        outcome,
+      );
+    }
+  }, [observe, stageId, journeyId, personaId]);
 
   const learnSatisfied = useMemo(
     () => LEARN_CONCEPTS.every((c) => acknowledgedConcepts.has(c.id)),
@@ -299,6 +394,26 @@ export function FinancialSovereigntyIntroStage({
                 </button>
               );
             })}
+            <button
+              type="button"
+              onClick={handleTryFinancialProfile}
+              disabled={tryStatus === 'loading'}
+              aria-pressed={interactedCapabilities.has(LIVE_TRY_CAPABILITY_ID)}
+              className={`w-full rounded-lg border px-4 py-3 text-left text-sm transition disabled:opacity-60 ${
+                interactedCapabilities.has(LIVE_TRY_CAPABILITY_ID)
+                  ? 'border-emerald-500/40 bg-emerald-500/10 text-slate-100'
+                  : 'border-white/10 bg-white/[0.03] text-slate-300 hover:border-white/20'
+              }`}
+            >
+              <span className="font-semibold">
+                {interactedCapabilities.has(LIVE_TRY_CAPABILITY_ID) ? '✓ ' : ''}Try it — Compute your Financial Profile
+              </span>
+              <span className="mt-1 block text-slate-400">
+                {tryStatus === 'loading'
+                  ? 'Computing…'
+                  : tryDetail ?? 'A real, live call — not a preview. Uses your uploaded bank statements, if any.'}
+              </span>
+            </button>
           </div>
         )}
       </BridgeMediaStage>

@@ -54,6 +54,14 @@ async function postImpl(req: NextRequest) {
   const surfaceRef = typeof body?.surfaceRef === 'string' ? body.surfaceRef : null;
   const interactionKind = typeof body?.interactionKind === 'string' ? body.interactionKind : undefined;
   const capabilityId = typeof body?.capabilityId === 'string' ? body.capabilityId : undefined;
+  // AEE-Next (2026-09-01) — the real outcome of an action actually taken
+  // under this interaction (e.g. a MoneyPenny compute result), never a
+  // client-asserted "success" — the caller passes through exactly what the
+  // real action itself returned. Omitted for a plain engagement observation.
+  const outcome =
+    body?.outcome && typeof body.outcome === 'object' && !Array.isArray(body.outcome)
+      ? (body.outcome as Record<string, unknown>)
+      : undefined;
 
   if (!journeyId || !stageId) {
     return NextResponse.json(
@@ -69,6 +77,7 @@ async function postImpl(req: NextRequest) {
     surfaceRef,
     interactionKind,
     capabilityId,
+    outcome,
   });
 
   return NextResponse.json({ ok: true });

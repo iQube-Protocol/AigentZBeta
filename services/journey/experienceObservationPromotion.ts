@@ -64,6 +64,18 @@ export interface PromoteExperienceObservationInput {
    *  FS learning-concept id ('advisor'/'architect'/'runtime') or a real
    *  `FinancialServiceDefinition.id` — never a free-text label. */
   capabilityId?: string;
+  /**
+   * AEE-Next (2026-09-01) — the CONSEQUENCE of a real action taken under
+   * this interaction, when the caller actually invoked a live capability
+   * rather than merely viewing it (e.g. MoneyPenny Financial Profile
+   * compute). Distinct from `interactionKind`/`capabilityId` (WHAT was
+   * interacted with) — this is WHAT HAPPENED as a result, reported exactly
+   * as the real action returned it. `null`/omitted for a plain engagement
+   * observation (the existing DISCOVER/LEARN/EXPLORE bar) — never
+   * fabricated to fill the shape. Free-form JSON (mirrors `actionInput`'s
+   * own discipline): the caller's real action result, verbatim.
+   */
+  outcome?: Record<string, unknown> | null;
 }
 
 /**
@@ -88,6 +100,7 @@ export async function promoteExperienceObservation(
       surfaceRef: input.surfaceRef ?? null,
       interactionKind: input.interactionKind ?? null,
       capabilityId: input.capabilityId ?? null,
+      outcome: input.outcome ?? null,
       // Explicit provenance tag (AEE-XP-001A invariant) — this is OBSERVED
       // behavior, never promoted to 'declared' by this or any other path.
       provenance: 'observed',
@@ -164,6 +177,9 @@ export interface ObservedExperienceInteraction {
   stageId: string;
   interactionKind: string | null;
   capabilityId: string | null;
+  /** AEE-Next (2026-09-01) — the real outcome of the action taken, when one
+   *  was taken. `null` for a plain engagement observation. */
+  outcome: Record<string, unknown> | null;
   observedAt: string;
 }
 
@@ -195,10 +211,12 @@ export async function listObservedExperienceInteractions(
     const stageId = experienceRef.slice(journeyPrefix.length);
     const interactionKind = actionInput?.interactionKind;
     const capabilityId = actionInput?.capabilityId;
+    const outcome = actionInput?.outcome;
     results.push({
       stageId,
       interactionKind: typeof interactionKind === 'string' ? interactionKind : null,
       capabilityId: typeof capabilityId === 'string' ? capabilityId : null,
+      outcome: outcome && typeof outcome === 'object' ? (outcome as Record<string, unknown>) : null,
       observedAt: r.createdAt,
     });
   }
