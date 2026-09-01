@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-01T20:07:23.716Z",
+  "last_updated": "2026-09-01T23:11:00.631Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "a0e8fe4527a1c37f959349ec5f42a67646cf7475",
-  "latest_commit_short": "a0e8fe4",
-  "latest_commit_title": "Project wallet-conversion capability READINESS at fs-cross, never exercise [merge spec/moneypenny-mpy2-3]",
+  "latest_commit": "5695beecb71a407d456acac11edb3dd9e18c81b1",
+  "latest_commit_short": "5695bee",
+  "latest_commit_title": "Add native Bridges tab to Qriptopian Admin — CI/KNYTS editorial parity [merge spec/moneypenny-mpy2-3]",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "5695bee",
+      "full_sha": "5695beecb71a407d456acac11edb3dd9e18c81b1",
+      "title": "Add native Bridges tab to Qriptopian Admin — CI/KNYTS editorial parity [merge spec/moneypenny-mpy2-3]",
+      "author": "Claude",
+      "timestamp": "2026-09-01T23:08:43Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-5695bee.md"
+    },
     {
       "sha": "a0e8fe4",
       "full_sha": "a0e8fe4527a1c37f959349ec5f42a67646cf7475",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-24T11:01:01-04:00",
       "type": "docs",
       "brief": "items/build_/COMMITS/COMMIT-d0db72c.md"
-    },
-    {
-      "sha": "ffb64e4",
-      "full_sha": "ffb64e438adf642673fd2597d795dc83ba52aa81",
-      "title": "docs(agentiq): specify Journey Spine runtime evolution",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-24T10:16:39-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-ffb64e4.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

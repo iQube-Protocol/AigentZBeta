@@ -4959,3 +4959,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-a0e8fe4.md](../build_/COMMITS/COMMIT-a0e8fe4.md)
 - Message: Project wallet-conversion capability READINESS at fs-cross, never exercise [merge spec/moneypenny-mpy2-3]
+
+## Commit `5695bee` — 2026-09-01T23:08:43Z
+- Type: `feat`
+- Brief: [COMMIT-5695bee.md](../build_/COMMITS/COMMIT-5695bee.md)
+- Message: Add native Bridges tab to Qriptopian Admin — CI/KNYTS editorial parity [merge spec/moneypenny-mpy2-3]

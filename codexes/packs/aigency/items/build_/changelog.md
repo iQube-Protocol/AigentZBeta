@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`5695bee`](https://github.com/iQube-Protocol/AigentZBeta/commit/5695beecb71a407d456acac11edb3dd9e18c81b1) [feat] Add native Bridges tab to Qriptopian Admin — CI/KNYTS editorial parity [merge spec/moneypenny-mpy2-3] (Claude, 2026-09-01T23:08:43Z)
 - [`a0e8fe4`](https://github.com/iQube-Protocol/AigentZBeta/commit/a0e8fe4527a1c37f959349ec5f42a67646cf7475) [push] Project wallet-conversion capability READINESS at fs-cross, never exercise [merge spec/moneypenny-mpy2-3] (Claude, 2026-09-01T20:05:30Z)
 - [`a2f5942`](https://github.com/iQube-Protocol/AigentZBeta/commit/a2f5942c2aa6f764b503d195133ae30c9b368003) [feat] Wire EXPLORE to a real MoneyPenny action: observed consequence, not just engagement [merge spec/moneypenny-mpy2-3] (Claude, 2026-09-01T17:05:56Z)
 - [`9dda398`](https://github.com/iQube-Protocol/AigentZBeta/commit/9dda3984505ed2dec52e271cd947626a95d31991) [feat] Add MoneyPenny MPY2-3 Risk Envelope: risk factors + limits from Financial Profile (Claude, 2026-09-01T16:44:11Z)
