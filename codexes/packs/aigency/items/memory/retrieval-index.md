@@ -4899,3 +4899,13 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-5d62e58.md](../build_/COMMITS/COMMIT-5d62e58.md)
 - Message: LEARN/EXPLORE: kind-discriminated FS evidence, not a bare Continue click
+
+## Commit `0dd00db` — 2026-09-01T13:02:14Z
+- Type: `feat`
+- Brief: [COMMIT-0dd00db.md](../build_/COMMITS/COMMIT-0dd00db.md)
+- Message: Add ExperiencePrescription assembler bridging Experience Matrix/Guide into AEE
+
+## Commit `c45d510` — 2026-09-01T13:02:03Z
+- Type: `push`
+- Brief: [COMMIT-c45d510.md](../build_/COMMITS/COMMIT-c45d510.md)
+- Message: Distinguish unreadable matrix reads from genuine defaults in experienceMatrixDeriver

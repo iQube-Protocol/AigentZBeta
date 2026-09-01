@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`c45d510`](https://github.com/iQube-Protocol/AigentZBeta/commit/c45d510ac07e88c182c98b6be07600700f20ddef) [push] Distinguish unreadable matrix reads from genuine defaults in experienceMatrixDeriver (Claude, 2026-09-01T13:02:03Z)
+- [`0dd00db`](https://github.com/iQube-Protocol/AigentZBeta/commit/0dd00dbf2716589f12dbbf6603a36f11e44c6ff5) [feat] Add ExperiencePrescription assembler bridging Experience Matrix/Guide into AEE (Claude, 2026-09-01T13:02:14Z)
 - [`5d62e58`](https://github.com/iQube-Protocol/AigentZBeta/commit/5d62e582dbdff44bdcf7a4e81349363fa214386b) [push] LEARN/EXPLORE: kind-discriminated FS evidence, not a bare Continue click (Claude, 2026-09-01T11:04:59Z)
 - [`3ecf5e8`](https://github.com/iQube-Protocol/AigentZBeta/commit/3ecf5e858dc44a6cad2b2e31408596e474cebe9e) [push] Lower carousel cap to 7 — last pre-FS stage visible by default is Choose (Claude, 2026-09-01T12:04:53Z)
 - [`c330c32`](https://github.com/iQube-Protocol/AigentZBeta/commit/c330c32ab204572490d14f49f7a7632242ae8a69) [push] Activate ExperienceIntentProjection end-to-end + FS LEARN/EXPLORE evidence [merge review/irl-scoped-restoration-2026-08-27] (Claude, 2026-09-01T12:05:08Z)

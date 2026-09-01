@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-01T12:14:19.681Z",
+  "last_updated": "2026-09-01T15:04:02.233Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "5d62e582dbdff44bdcf7a4e81349363fa214386b",
-  "latest_commit_short": "5d62e58",
-  "latest_commit_title": "LEARN/EXPLORE: kind-discriminated FS evidence, not a bare Continue click",
+  "latest_commit": "c45d510ac07e88c182c98b6be07600700f20ddef",
+  "latest_commit_short": "c45d510",
+  "latest_commit_title": "Distinguish unreadable matrix reads from genuine defaults in experienceMatrixDeriver",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "c45d510",
+      "full_sha": "c45d510ac07e88c182c98b6be07600700f20ddef",
+      "title": "Distinguish unreadable matrix reads from genuine defaults in experienceMatrixDeriver",
+      "author": "Claude",
+      "timestamp": "2026-09-01T13:02:03Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-c45d510.md"
+    },
+    {
+      "sha": "0dd00db",
+      "full_sha": "0dd00dbf2716589f12dbbf6603a36f11e44c6ff5",
+      "title": "Add ExperiencePrescription assembler bridging Experience Matrix/Guide into AEE",
+      "author": "Claude",
+      "timestamp": "2026-09-01T13:02:14Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-0dd00db.md"
+    },
     {
       "sha": "5d62e58",
       "full_sha": "5d62e582dbdff44bdcf7a4e81349363fa214386b",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-08-22T08:50:51Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-6b90297.md"
-    },
-    {
-      "sha": "a0b1b55",
-      "full_sha": "a0b1b55bc5d6a25f4c074ae49c57789aa3dfb342",
-      "title": "Register Constitutional Media essay assets",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-22T03:36:39-04:00",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-a0b1b55.md"
-    },
-    {
-      "sha": "3bb95b2",
-      "full_sha": "3bb95b2f7e4226bfd5da55da87201f2f7516c3ec",
-      "title": "Route Qriptopian covers through durable derivatives",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-22T03:20:04-04:00",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-3bb95b2.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
