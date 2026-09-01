@@ -30,6 +30,8 @@ export async function GET(req: NextRequest) {
       meta: { hasProfile: false, lastComputedAt: null, sourceUploadCount: 0, unreadableUploadCount: 0 },
       aggregates: null,
       envelope: null,
+      riskAssessment: null,
+      riskLimits: null,
       computedFromMonths: [],
     });
   }
@@ -39,6 +41,10 @@ export async function GET(req: NextRequest) {
     meta: record.meta,
     aggregates: record.blak.aggregates ?? null,
     envelope: record.blak.envelope ?? null,
+    // MPY2-3 — Risk Envelope. Same owner-self-view discipline as
+    // aggregates/envelope above.
+    riskAssessment: record.blak.riskAssessment ?? null,
+    riskLimits: record.blak.riskLimits ?? null,
     computedFromMonths: record.blak.computedFromMonths ?? [],
   });
 }

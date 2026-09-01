@@ -56,7 +56,7 @@ export const MONEYPENNY_CAPABILITY_GROUPS: MoneyPennyCapabilityGroup[] = [
     label: "Design",
     items: [
       { id: "strategy-lab", label: "Strategy Lab", description: "Describe, structure, compare and ratify candidate strategies (Architect proposal, not executable authority).", panel: "strategies", mode: "ARCHITECT" },
-      { id: "risk-envelope", label: "Risk & Limits", description: "Propose a risk envelope — position/notional caps, drawdown, concentration (SPEC-MPY-002 §8) — not yet built.", panel: null, mode: "ARCHITECT" },
+      { id: "risk-envelope", label: "Risk & Limits", description: "Risk factors and recommended limits derived from your Financial Profile — position/notional caps, drawdown, concentration (SPEC-MPY-002 §8, MPY2-3).", panel: "risk-envelope", mode: "ARCHITECT" },
       { id: "scenario-backtest", label: "Scenario / Backtest", description: "Stress-test a candidate strategy before ratification — not yet built; the donor's random-number backtester is explicitly excluded (SPEC-MPY-002 §6).", panel: null, mode: "ARCHITECT" },
     ],
   },

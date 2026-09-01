@@ -4958,6 +4958,19 @@ export const MONEYPENNY_CARTRIDGE: CodexConfig = {
       config: { component: 'MoneyPennyPanelTab', props: { panel: 'financial-profile' } },
       metadata: { icon: 'FileText', description: 'Bank-statement-derived aggregates and a candidate risk envelope', color: 'emerald' },
     },
+    // SPEC-MPY-002 (2026-09-01) MPY2-3 — Design / Risk & Limits.
+    {
+      id: 'moneypenny-risk-envelope',
+      label: 'Risk & Limits',
+      slug: 'risk-envelope',
+      enabled: true,
+      adminOnly: false,
+      group: 'operate',
+      order: 0.6,
+      type: 'static',
+      config: { component: 'MoneyPennyPanelTab', props: { panel: 'risk-envelope' } },
+      metadata: { icon: 'ShieldAlert', description: 'Risk factors and recommended limits derived from the Financial Profile', color: 'emerald' },
+    },
     {
       id: 'moneypenny-portfolio',
       label: 'Portfolio',

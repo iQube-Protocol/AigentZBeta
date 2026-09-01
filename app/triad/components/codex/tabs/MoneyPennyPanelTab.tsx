@@ -33,6 +33,7 @@ import { RuntimePanel } from "@/app/(shell)/moneypenny/components/RuntimePanel";
 import { ServiceOrchestrationPanel } from "@/app/(shell)/moneypenny/components/ServiceOrchestrationPanel";
 import { MoneyPennyOverviewPanel } from "@/app/(shell)/moneypenny/components/MoneyPennyOverviewPanel";
 import { FinancialProfilePanel } from "@/app/(shell)/moneypenny/components/FinancialProfilePanel";
+import { RiskEnvelopePanel } from "@/app/(shell)/moneypenny/components/RiskEnvelopePanel";
 import { MoneyPennyShell } from "@/app/(shell)/moneypenny/components/MoneyPennyShell";
 
 export type MoneyPennyPanelKey =
@@ -49,7 +50,9 @@ export type MoneyPennyPanelKey =
   | "runtime"
   | "service-orchestration"
   // SPEC-MPY-002 MPY2-2 (2026-09-01) — Understand / Financial Profile.
-  | "financial-profile";
+  | "financial-profile"
+  // SPEC-MPY-002 MPY2-3 (2026-09-01) — Design / Risk & Limits.
+  | "risk-envelope";
 
 const PANELS: Record<MoneyPennyPanelKey, React.ComponentType> = {
   overview: MoneyPennyOverviewPanel,
@@ -65,6 +68,7 @@ const PANELS: Record<MoneyPennyPanelKey, React.ComponentType> = {
   runtime: RuntimePanel,
   "service-orchestration": ServiceOrchestrationPanel,
   "financial-profile": FinancialProfilePanel,
+  "risk-envelope": RiskEnvelopePanel,
 };
 
 export interface MoneyPennyPanelTabProps {
