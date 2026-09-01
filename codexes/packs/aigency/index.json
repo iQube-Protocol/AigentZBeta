@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-01T08:33:03.298Z",
+  "last_updated": "2026-09-01T09:24:28.954Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "70fdc87d7fe3f64f2ada313ece1c9e49dc34ddb6",
-  "latest_commit_short": "70fdc87",
-  "latest_commit_title": "CI AEE parity: identical wiring to KNYTS, no CI-specific logic [merge review/irl-scoped-restoration-2026-08-27]",
+  "latest_commit": "cfd0ac9c48f666a7f75f8d4b9fd7c7a65340b80e",
+  "latest_commit_short": "cfd0ac9",
+  "latest_commit_title": "Fix build-breaking node:crypto leak into client bundles (15 failed deploys) [merge review/irl-scoped-restoration-2026-08-27]",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "cfd0ac9",
+      "full_sha": "cfd0ac9c48f666a7f75f8d4b9fd7c7a65340b80e",
+      "title": "Fix build-breaking node:crypto leak into client bundles (15 failed deploys) [merge review/irl-scoped-restoration-2026-08-27]",
+      "author": "Claude",
+      "timestamp": "2026-09-01T09:22:20Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-cfd0ac9.md"
+    },
     {
       "sha": "70fdc87",
       "full_sha": "70fdc87d7fe3f64f2ada313ece1c9e49dc34ddb6",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-21T19:46:31-04:00",
       "type": "docs",
       "brief": "items/build_/COMMITS/COMMIT-23fe1c6.md"
-    },
-    {
-      "sha": "8be978f",
-      "full_sha": "8be978f9ca79436bfc0e8cd585962ddffea4da88",
-      "title": "feat(qriptopian): expose public commentary source index",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-21T16:59:12-04:00",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-8be978f.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

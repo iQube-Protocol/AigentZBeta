@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`cfd0ac9`](https://github.com/iQube-Protocol/AigentZBeta/commit/cfd0ac9c48f666a7f75f8d4b9fd7c7a65340b80e) [fix] Fix build-breaking node:crypto leak into client bundles (15 failed deploys) [merge review/irl-scoped-restoration-2026-08-27] (Claude, 2026-09-01T09:22:20Z)
 - [`70fdc87`](https://github.com/iQube-Protocol/AigentZBeta/commit/70fdc87d7fe3f64f2ada313ece1c9e49dc34ddb6) [push] CI AEE parity: identical wiring to KNYTS, no CI-specific logic [merge review/irl-scoped-restoration-2026-08-27] (Claude, 2026-09-01T08:31:00Z)
 - [`e21460f`](https://github.com/iQube-Protocol/AigentZBeta/commit/e21460f8396559d38cc88c58092a90b27873f215) [push] XP-1 follow-up: branch activation triggers immediate re-evaluation [merge review/irl-scoped-restoration-2026-08-27] (Claude, 2026-09-01T08:21:52Z)
 - [`25797da`](https://github.com/iQube-Protocol/AigentZBeta/commit/25797da80a88bde16f7930e9d0e5799580bd63d5) [push] XP-1: first live AEE convergence loop, wired against the FS branch [merge review/irl-scoped-restoration-2026-08-27] (Claude, 2026-09-01T07:58:51Z)

@@ -4849,3 +4849,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-70fdc87.md](../build_/COMMITS/COMMIT-70fdc87.md)
 - Message: CI AEE parity: identical wiring to KNYTS, no CI-specific logic [merge review/irl-scoped-restoration-2026-08-27]
+
+## Commit `cfd0ac9` — 2026-09-01T09:22:20Z
+- Type: `fix`
+- Brief: [COMMIT-cfd0ac9.md](../build_/COMMITS/COMMIT-cfd0ac9.md)
+- Message: Fix build-breaking node:crypto leak into client bundles (15 failed deploys) [merge review/irl-scoped-restoration-2026-08-27]
