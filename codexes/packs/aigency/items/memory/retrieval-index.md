@@ -4954,3 +4954,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-a2f5942.md](../build_/COMMITS/COMMIT-a2f5942.md)
 - Message: Wire EXPLORE to a real MoneyPenny action: observed consequence, not just engagement [merge spec/moneypenny-mpy2-3]
+
+## Commit `a0e8fe4` — 2026-09-01T20:05:30Z
+- Type: `push`
+- Brief: [COMMIT-a0e8fe4.md](../build_/COMMITS/COMMIT-a0e8fe4.md)
+- Message: Project wallet-conversion capability READINESS at fs-cross, never exercise [merge spec/moneypenny-mpy2-3]

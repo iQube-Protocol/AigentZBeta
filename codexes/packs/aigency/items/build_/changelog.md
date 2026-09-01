@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`a0e8fe4`](https://github.com/iQube-Protocol/AigentZBeta/commit/a0e8fe4527a1c37f959349ec5f42a67646cf7475) [push] Project wallet-conversion capability READINESS at fs-cross, never exercise [merge spec/moneypenny-mpy2-3] (Claude, 2026-09-01T20:05:30Z)
 - [`a2f5942`](https://github.com/iQube-Protocol/AigentZBeta/commit/a2f5942c2aa6f764b503d195133ae30c9b368003) [feat] Wire EXPLORE to a real MoneyPenny action: observed consequence, not just engagement [merge spec/moneypenny-mpy2-3] (Claude, 2026-09-01T17:05:56Z)
 - [`9dda398`](https://github.com/iQube-Protocol/AigentZBeta/commit/9dda3984505ed2dec52e271cd947626a95d31991) [feat] Add MoneyPenny MPY2-3 Risk Envelope: risk factors + limits from Financial Profile (Claude, 2026-09-01T16:44:11Z)
 - [`d7d7761`](https://github.com/iQube-Protocol/AigentZBeta/commit/d7d7761a20f50a8ee42051317cfe61f1d7746c92) [chore] spec: define MoneyPenny cartridge capability harvest upgrade (Kn0w1, 2026-09-01T05:51:31-04:00)
