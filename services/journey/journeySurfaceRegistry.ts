@@ -650,6 +650,34 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
       "to leave the guide. Depth 1 retains the Store's own navigation strip (Episodes|KNYT Cards|Bundles|" +
       'Investor KNYT) which is required for the destination to remain functionally navigable.',
   },
+  // ── Financial Sovereignty segment (AEE-XP-001 §4.2) — reuses the SAME
+  // bridge-neutral FinancialSovereigntyIntroStage/FinancialSovereigntyPrepareCrossStage
+  // components the CI Bridge section below uses, amber preset here.
+  'knyts-bridge-fs-discover': {
+    kind: 'component',
+    component: 'FinancialSovereigntyIntroStage',
+    note: 'FinancialSovereigntyIntroStage(stageKey="discover", accent="amber") — reuses BridgeMediaStage; props threaded by the page resolveSurfaceProps keyed on this ref.',
+  },
+  'knyts-bridge-fs-learn': {
+    kind: 'component',
+    component: 'FinancialSovereigntyIntroStage',
+    note: 'FinancialSovereigntyIntroStage(stageKey="learn", accent="amber") — reuses BridgeMediaStage.',
+  },
+  'knyts-bridge-fs-explore': {
+    kind: 'component',
+    component: 'FinancialSovereigntyIntroStage',
+    note: 'FinancialSovereigntyIntroStage(stageKey="explore", accent="amber") — projects the real serviceCatalog.',
+  },
+  'knyts-bridge-fs-prepare': {
+    kind: 'component',
+    component: 'FinancialSovereigntyPrepareCrossStage',
+    note: 'FinancialSovereigntyPrepareCrossStage(mode="prepare", accent="amber") — agent-candidate picker; props threaded by the page resolveSurfaceProps keyed on this ref.',
+  },
+  'knyts-bridge-fs-cross': {
+    kind: 'component',
+    component: 'FinancialSovereigntyPrepareCrossStage',
+    note: 'FinancialSovereigntyPrepareCrossStage(mode="cross", accent="amber") — builds the ExperienceHandoff and navigates to /bridge/fs.',
+  },
   'knyts-bridge-choose': {
     kind: 'component',
     component: 'KnytsBridgeChooseSurface',
@@ -755,6 +783,33 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
       'disposition receipts and the canonical Standing score (services/standing/standingScore.ts). ' +
       'Deliberately does NOT repeat the KNYTS Bridge STAND panel\'s mislabeling of engagement counters ' +
       'as "Standing" — see services/journey/constitutionalInternetBridgeStand.ts\'s header.',
+  },
+  // ── Financial Sovereignty segment (AEE-XP-001 §4.2) — reuses the SAME
+  // bridge-neutral components the KNYTS Bridge section above uses, indigo preset here.
+  'ci-bridge-fs-discover': {
+    kind: 'component',
+    component: 'FinancialSovereigntyIntroStage',
+    note: 'FinancialSovereigntyIntroStage(stageKey="discover", accent="indigo") — reuses BridgeMediaStage.',
+  },
+  'ci-bridge-fs-learn': {
+    kind: 'component',
+    component: 'FinancialSovereigntyIntroStage',
+    note: 'FinancialSovereigntyIntroStage(stageKey="learn", accent="indigo") — reuses BridgeMediaStage.',
+  },
+  'ci-bridge-fs-explore': {
+    kind: 'component',
+    component: 'FinancialSovereigntyIntroStage',
+    note: 'FinancialSovereigntyIntroStage(stageKey="explore", accent="indigo") — projects the real serviceCatalog.',
+  },
+  'ci-bridge-fs-prepare': {
+    kind: 'component',
+    component: 'FinancialSovereigntyPrepareCrossStage',
+    note: 'FinancialSovereigntyPrepareCrossStage(mode="prepare", accent="indigo") — agent-candidate picker.',
+  },
+  'ci-bridge-fs-cross': {
+    kind: 'component',
+    component: 'FinancialSovereigntyPrepareCrossStage',
+    note: 'FinancialSovereigntyPrepareCrossStage(mode="cross", accent="indigo") — builds the ExperienceHandoff and navigates to /bridge/fs.',
   },
   'ci-bridge-choose': {
     kind: 'component',

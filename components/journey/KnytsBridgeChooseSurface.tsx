@@ -31,8 +31,10 @@
  *   3. "Learn about the Constitutional Internet" — switches the left pane to
  *      an embedded /bridge/ci (the sibling bridge, same reciprocal pattern
  *      CI's own "Explore the Mythos" card uses for /bridge/knyts).
- *   4. "Apply to join the Constitutional Financial Services Pilot" — mailto
- *      interest action (unchanged; no separate Pilot codex/tab yet).
+ *   4. "Apply to join the Constitutional Financial Services Pilot" — crosses
+ *      into the real Financial Sovereignty on-ramp (fs-discover ... fs-cross,
+ *      AEE-XP-001 §4.2/§15 Phase 1 item 5), with a mailto still available as
+ *      the small inline secondary CTA for a visitor who'd rather just email.
  *   5. "Ask Kn0w1" — opens the page-level KNYT CodexCopilotLayer via
  *      `onOpenKnytCopilot` (unchanged; never mounts a second copilot).
  *   6. "Share the Bridge & Earn $KNYT" — the existing SocialSharingModal,
@@ -228,32 +230,12 @@ function KickstarterFollowCard({
   );
 }
 
-/** A pure interest action with no contextual left view of its own — Reserve
- *  and the CFS Pilot are link-only, so a plain mailto anchor is correct
- *  (nothing to guard propagation against). `onClick` is optional so this
- *  stays reusable for any future non-contextual mailto that has no
- *  `leftView` to clear. */
-function MailtoCard({
-  icon,
-  label,
-  mailtoSubject,
-  onClick,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  mailtoSubject: string;
-  onClick?: () => void;
-}) {
-  return (
-    <a
-      href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(mailtoSubject)}`}
-      onClick={onClick}
-      className="flex items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-900/40 px-4 py-3.5 transition hover:border-amber-400/30"
-    >
-      <span className="flex items-center gap-2 text-sm font-semibold text-white">{icon} {label}</span>
-      <ArrowRight className="h-4 w-4 shrink-0 text-slate-400" />
-    </a>
-  );
+function selectStage(stageId: string) {
+  try {
+    window.dispatchEvent(new CustomEvent('journey:select-stage', { detail: { stageId } }));
+  } catch {
+    /* non-fatal */
+  }
 }
 
 export function KnytsBridgeChooseSurface({ personaId, onOpenKnytCopilot }: KnytsBridgeChooseSurfaceProps) {
@@ -379,11 +361,24 @@ export function KnytsBridgeChooseSurface({ personaId, onOpenKnytCopilot }: Knyts
           onClick={() => setLeftView('ci')}
         />
 
-        <MailtoCard
+        {/* AEE-XP-001 §4.2/§15 Phase 1 item 5: this card's primary action
+            now crosses into the real Financial Sovereignty on-ramp (fs-discover
+            → ... → fs-cross → ExperienceHandoff → /bridge/fs) instead of
+            dead-ending in a mailto. The mailto stays available as the small
+            inline secondary CTA (DestinationCard's existing stopPropagation-
+            guarded pattern, same as every other card here) for a visitor who
+            would rather just email interest directly — no interest-tracking
+            regresses, since the mailto path is unchanged, and it is no longer
+            the ONLY path. */}
+        <DestinationCard
           icon={<Handshake className="h-4 w-4 text-amber-300" />}
           label="Apply to join the Constitutional Financial Services Pilot"
+          onClick={() => {
+            setLeftView('video');
+            selectStage('fs-discover');
+          }}
           mailtoSubject="Constitutional Financial Services Pilot — interest"
-          onClick={() => setLeftView('video')}
+          mailtoLabel="Email instead"
         />
 
         {/* Ask Kn0w1 — opens the page-level KNYT CodexCopilotLayer (the ONE

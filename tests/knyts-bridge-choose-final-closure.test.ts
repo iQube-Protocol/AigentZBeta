@@ -138,16 +138,26 @@ describe('Fix 2 — exactly one contextual destination chip is ever active', () 
     expect(block).toContain('setShareOpen(true)');
   });
 
-  it('CI active -> click the CFS Pilot mailto: MailtoCard\'s onClick clears leftView to video', () => {
+  it('CI active -> click the CFS Pilot card: onClick clears leftView to video AND crosses into the FS on-ramp (AEE-XP-001 §4.2/§15 Phase 1 item 5)', () => {
     const idx = SRC.indexOf('label="Apply to join the Constitutional Financial Services Pilot"');
-    const block = SRC.slice(idx, idx + 250);
-    expect(block).toContain("onClick={() => setLeftView('video')}");
+    const onClickIdx = SRC.indexOf('onClick={() => {', idx);
+    const block = SRC.slice(onClickIdx, idx + 400);
+    expect(block).toContain("setLeftView('video')");
+    expect(block).toContain("selectStage('fs-discover')");
   });
 
-  it('MailtoCard accepts and forwards an onClick prop — the anchor itself fires it, no propagation guard needed (single clickable surface)', () => {
-    const idx = SRC.indexOf('function MailtoCard(');
-    const block = SRC.slice(idx, idx + 600);
-    expect(block).toContain('onClick?: () => void');
-    expect(block).toMatch(/<a[\s\S]*onClick={onClick}/);
+  it('the CFS Pilot card still offers an inline mailto as a secondary CTA — DestinationCard\'s existing stopPropagation-guarded pattern, never a second bespoke anchor', () => {
+    const idx = SRC.indexOf('label="Apply to join the Constitutional Financial Services Pilot"');
+    const block = SRC.slice(idx, idx + 400);
+    expect(block).toContain('mailtoSubject="Constitutional Financial Services Pilot — interest"');
+    expect(block).toContain('mailtoLabel="Email instead"');
+  });
+
+  it('DestinationCard accepts and forwards a mailto extra — the anchor stops propagation so it never also fires the card\'s onClick', () => {
+    const idx = SRC.indexOf('function DestinationCard(');
+    const block = SRC.slice(idx, idx + 900);
+    expect(block).toContain('mailtoSubject?: string');
+    expect(block).toContain('mailtoLabel?: string');
+    expect(block).toMatch(/<a[\s\S]*onClick={\(e\) => e\.stopPropagation\(\)}/);
   });
 });
