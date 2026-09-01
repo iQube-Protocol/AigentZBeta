@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`5c0ac8a`](https://github.com/iQube-Protocol/AigentZBeta/commit/5c0ac8a9bff20a225e7955270ef64e4c3462cd7c) [push] CTP Slice C: atomic wallet conversion (Part B) + ctp.wallet.asset.convert (Part C) (Claude, 2026-09-01T06:32:31Z)
+- [`fb6bee8`](https://github.com/iQube-Protocol/AigentZBeta/commit/fb6bee88d5ac30aae070b2e65f7860969cf5f769) [fix] Persist the approved wallet ledger ownership-scoped RLS repair [merge review/irl-scoped-restoration-2026-08-27] (Claude, 2026-09-01T07:04:17Z)
 - [`64cb67a`](https://github.com/iQube-Protocol/AigentZBeta/commit/64cb67a31955c1ff942e21843293387c23b9fba1) [fix] Urgent: fix authorization defect in USDC->QC wallet conversion [merge review/irl-scoped-restoration-2026-08-27] (Claude, 2026-09-01T06:18:22Z)
 - [`36be380`](https://github.com/iQube-Protocol/AigentZBeta/commit/36be3807b262c582e8ce624eacfbea01c40e835a) [feat] Close XP-5: wire the canonical aigentMe companion into the live Journey copilot mount [merge review/irl-scoped-restoration-2026-08-27] (Claude, 2026-09-01T06:01:46Z)
 - [`7a2cfda`](https://github.com/iQube-Protocol/AigentZBeta/commit/7a2cfda4c3e5ba3ad4e3276636b4ae4590e58533) [push] Connect KNYTS/CI to Financial Services via a Progressive Financial Sovereignty on-ramp (AEE-XP-001 Phase 1) [merge review/irl-scoped-restoration-2026-08-27] (Claude, 2026-09-01T02:49:20Z)

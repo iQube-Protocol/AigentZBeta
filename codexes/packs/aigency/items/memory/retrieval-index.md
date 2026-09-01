@@ -4809,3 +4809,13 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-64cb67a.md](../build_/COMMITS/COMMIT-64cb67a.md)
 - Message: Urgent: fix authorization defect in USDC->QC wallet conversion [merge review/irl-scoped-restoration-2026-08-27]
+
+## Commit `fb6bee8` — 2026-09-01T07:04:17Z
+- Type: `fix`
+- Brief: [COMMIT-fb6bee8.md](../build_/COMMITS/COMMIT-fb6bee8.md)
+- Message: Persist the approved wallet ledger ownership-scoped RLS repair [merge review/irl-scoped-restoration-2026-08-27]
+
+## Commit `5c0ac8a` — 2026-09-01T06:32:31Z
+- Type: `push`
+- Brief: [COMMIT-5c0ac8a.md](../build_/COMMITS/COMMIT-5c0ac8a.md)
+- Message: CTP Slice C: atomic wallet conversion (Part B) + ctp.wallet.asset.convert (Part C)

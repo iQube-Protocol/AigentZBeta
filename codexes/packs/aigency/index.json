@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-01T06:20:22.503Z",
+  "last_updated": "2026-09-01T07:07:03.944Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "64cb67a31955c1ff942e21843293387c23b9fba1",
-  "latest_commit_short": "64cb67a",
-  "latest_commit_title": "Urgent: fix authorization defect in USDC->QC wallet conversion [merge review/irl-scoped-restoration-2026-08-27]",
+  "latest_commit": "5c0ac8a9bff20a225e7955270ef64e4c3462cd7c",
+  "latest_commit_short": "5c0ac8a",
+  "latest_commit_title": "CTP Slice C: atomic wallet conversion (Part B) + ctp.wallet.asset.convert (Part C)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "5c0ac8a",
+      "full_sha": "5c0ac8a9bff20a225e7955270ef64e4c3462cd7c",
+      "title": "CTP Slice C: atomic wallet conversion (Part B) + ctp.wallet.asset.convert (Part C)",
+      "author": "Claude",
+      "timestamp": "2026-09-01T06:32:31Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-5c0ac8a.md"
+    },
+    {
+      "sha": "fb6bee8",
+      "full_sha": "fb6bee88d5ac30aae070b2e65f7860969cf5f769",
+      "title": "Persist the approved wallet ledger ownership-scoped RLS repair [merge review/irl-scoped-restoration-2026-08-27]",
+      "author": "Claude",
+      "timestamp": "2026-09-01T07:04:17Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-fb6bee8.md"
+    },
     {
       "sha": "64cb67a",
       "full_sha": "64cb67a31955c1ff942e21843293387c23b9fba1",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-08-21T10:49:25-04:00",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-eb07ba0.md"
-    },
-    {
-      "sha": "1cc7702",
-      "full_sha": "1cc770242574c852a95d6cbd71629a14cf7bf099",
-      "title": "feat(qriptopian): present Threshold as Essays series",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-21T08:59:02-04:00",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-1cc7702.md"
-    },
-    {
-      "sha": "f0b9642",
-      "full_sha": "f0b9642ac2576af6d69f961af0f311a8ea33461b",
-      "title": "fix(qriptopian): keep Essays projection hook-safe",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-21T08:51:28-04:00",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-f0b9642.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
