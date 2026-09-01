@@ -4794,3 +4794,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-754866c.md](../build_/COMMITS/COMMIT-754866c.md)
 - Message: Add CTP-001A Phase 1 live acceptance script for Aletheon/Mansa Meta
+
+## Commit `7a2cfda` — 2026-09-01T02:49:20Z
+- Type: `push`
+- Brief: [COMMIT-7a2cfda.md](../build_/COMMITS/COMMIT-7a2cfda.md)
+- Message: Connect KNYTS/CI to Financial Services via a Progressive Financial Sovereignty on-ramp (AEE-XP-001 Phase 1) [merge review/irl-scoped-restoration-2026-08-27]
