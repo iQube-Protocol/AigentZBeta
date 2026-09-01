@@ -113,6 +113,19 @@ export function FinancialSovereigntyPrepareCrossStage({
       targetSurfaceRef: 'register-agent-panel',
       intent: 'financial-services-registration',
       agentCandidateRef: selected ?? undefined,
+      // The FS Bridge is a full persistent, copilot-enabled journey (its own
+      // JourneyCopilotHost mount, multi-stage register→claim/orient/passport
+      // →activate→delegate→operate spine) — the deepest tier of the
+      // canonical depth ladder (DEPTH_LADDER in
+      // services/invariants/nodes/journeyProgression.ts: pill < capsule <
+      // mini_runtime < codex). Not a guess: this is the same vocabulary
+      // applied to a destination whose own nature (persistent, copilot-
+      // enabled) is exactly what that ladder's "codex" tier defines.
+      recommendedExperienceAltitude: 'codex',
+      // No experienceEvidenceRefs: every fs-* on-ramp stage's
+      // completionEvidence is intentionally empty (gate-less segment — see
+      // this journey's own header comment), so there is no real evidence to
+      // reference yet. Left unset rather than fabricated.
       returnJourneyId: sourceJourneyId,
       returnStageId: returnStageId ?? sourceStageId,
       rationale: 'Progressive Financial Sovereignty on-ramp handoff (AEE-XP-001 §5).',

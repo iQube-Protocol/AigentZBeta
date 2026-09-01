@@ -10,6 +10,7 @@ import { describe, it, expect } from 'vitest';
 import { KNYTS_BRIDGE_CROSSING_JOURNEY } from '@/services/journey/knytsBridgeCrossingJourney';
 import { CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY } from '@/services/journey/constitutionalInternetBridgeJourney';
 import type { JourneyDefinition } from '@/types/journey';
+import { readSource, stripComments } from './_lib/sourceAuthority';
 
 const FS_STAGE_IDS = ['fs-discover', 'fs-learn', 'fs-explore', 'fs-prepare', 'fs-cross'];
 
@@ -54,5 +55,28 @@ describe.each([
   it('no stage id is duplicated by adding the FS segment', () => {
     const ids = journey.stages.map((s) => s.id);
     expect(new Set(ids).size).toBe(ids.length);
+  });
+});
+
+describe('FinancialSovereigntyPrepareCrossStage — CROSS handoff field population (AEE-XP-001 §5)', () => {
+  const src = stripComments(readSource('components/journey/FinancialSovereigntyPrepareCrossStage.tsx'));
+  const handoffCallStart = src.indexOf('createExperienceHandoff({');
+  const handoffCallBody = src.slice(handoffCallStart, src.indexOf('});', handoffCallStart));
+
+  it('populates recommendedExperienceAltitude with the canonical depth-ladder "codex" tier — the FS Bridge is a full persistent, copilot-enabled journey', () => {
+    expect(handoffCallStart).toBeGreaterThan(-1);
+    expect(handoffCallBody).toMatch(/recommendedExperienceAltitude:\s*'codex'/);
+  });
+
+  it('does NOT fabricate experienceEvidenceRefs — every fs-* stage has empty completionEvidence, so there is nothing real to reference', () => {
+    expect(handoffCallBody).not.toMatch(/experienceEvidenceRefs\s*:/);
+  });
+
+  it('still preserves source journey, source stage, financial intent, and return/resume context (AEE-XP-001 §5 preservation requirement)', () => {
+    expect(handoffCallBody).toMatch(/sourceJourneyId/);
+    expect(handoffCallBody).toMatch(/sourceStageId/);
+    expect(handoffCallBody).toMatch(/intent:\s*'financial-services-registration'/);
+    expect(handoffCallBody).toMatch(/returnJourneyId:\s*sourceJourneyId/);
+    expect(handoffCallBody).toMatch(/returnStageId:\s*returnStageId/);
   });
 });
