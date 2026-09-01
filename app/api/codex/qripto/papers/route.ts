@@ -7,13 +7,13 @@
  *
  * Lists Qriptopian content uploaded via the codex manager and groups it by
  * series scope (papers/protocols, papers/polity, magazines/2, …). The series
- * scope is parsed from the storage filename prefix because we don't yet have
- * a dedicated `series_scope` column on `codex_media_assets` (backlog ref:
- * codexes/packs/agentiq/updates/2026-05-27_qripto-cover-upload-and-wip-contentqube-backlog.md).
+ * scope comes from `series_scope`, with filename parsing retained for legacy
+ * manual uploads. Storage identity is never rewritten to encode taxonomy:
+ * public storage URLs pass through; Autonomys CIDs use the canonical delivery
+ * routes, which retrieve/decrypt the original asset.
  *
- * Covers are matched 1:N within a scope — the most recent cover in the
- * same series scope applies to all papers in that scope until explicit
- * pairing is added.
+ * Covers are matched by title stem within each scope, retaining the legacy
+ * number/time fallback used by manual uploads.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -35,6 +35,7 @@ type AssetRow = {
   cover_thumb_url: string | null;
   created_at: string | null;
   series_scope: string | null;
+  is_shareable: boolean | null;
 };
 
 type PaperCard = {
@@ -54,6 +55,7 @@ type PaperCard = {
 const SCOPE_LABELS: Record<string, string> = {
   'papers/protocols':              'Protocols',
   'papers/polity':                 'The Polity',
+  'papers/embodiment':             'Embodiment',
   'papers/coyn-thesis':            'COYN Thesis',
   'papers/experience-sovereignty': 'Experience Sovereignty',
   'papers/polity-plutocracy':      'The Polity and the Plutocracy',
@@ -72,6 +74,7 @@ const SCOPE_DISPLAY_ORDER: string[] = [
   'papers/experience-sovereignty',
   'papers/coyn-thesis',
   'papers/polity',
+  'papers/embodiment',
   'papers/protocols',
   'papers/polity-plutocracy',
   'magazines/0',
@@ -109,6 +112,31 @@ function parseScopeFromUrl(url: string | null): string | null {
   return `${match[1].toLowerCase()}/${match[2].toLowerCase()}`;
 }
 
+function resolvePaperScope(row: AssetRow): string | null {
+  // An explicit non-public/unknown scope must not fall back into a public
+  // series merely because its old filename happens to match.
+  if (row.series_scope) {
+    return /^(papers|magazines)\/[a-z0-9-]+$/.test(row.series_scope)
+      ? row.series_scope
+      : null;
+  }
+  return parseScopeFromUrl(row.auto_drive_cid);
+}
+
+function assetDeliveryUrl(row: AssetRow): string | null {
+  if (row.is_shareable === false) return null;
+  const source = row.auto_drive_cid;
+  if (!source) return null;
+  // Original manually-uploaded Polity PDFs/covers already have public URLs.
+  if (/^https?:\/\//i.test(source)) return source;
+  // New MCP uploads retain their encrypted source CID. Never expose a raw
+  // CID as an <img>/PDF URL, or replace it with its own delivery endpoint.
+  if (!/^b[a-z2-7]+$/.test(source) || row.is_shareable !== true) return null;
+  return (row.mime_type || '').startsWith('image/')
+    ? `/api/qriptopian/essay-cover/${encodeURIComponent(row.id)}`
+    : `/api/content/media/${encodeURIComponent(row.id)}`;
+}
+
 export async function GET(req: NextRequest) {
   try {
     const url = new URL(req.url);
@@ -125,7 +153,7 @@ export async function GET(req: NextRequest) {
 
     const { data, error } = await supabase
       .from('codex_media_assets')
-      .select('id, title, supabase_title, asset_kind, mime_type, auto_drive_cid, cover_thumb_url, created_at, series_scope')
+      .select('id, title, supabase_title, asset_kind, mime_type, auto_drive_cid, cover_thumb_url, created_at, series_scope, is_shareable')
       .eq('series', 'qriptopian')
       .eq('status', 'active')
       .order('created_at', { ascending: false });
@@ -143,7 +171,7 @@ export async function GET(req: NextRequest) {
     // populated on write, not just an accident of the papers/magazines
     // regex not matching a canonical filename prefix).
     const rows = ((data || []) as AssetRow[]).filter(
-      (row) => !(row.series_scope && row.series_scope.startsWith('canonical/')),
+      (row) => row.is_shareable !== false && !(row.series_scope && row.series_scope.startsWith('canonical/')),
     );
 
     // Bucket rows by scope, separating covers from papers. Group-filter
@@ -156,7 +184,7 @@ export async function GET(req: NextRequest) {
     // the unparseable count so the admin can flag it.
     let unparseableCount = 0;
     for (const row of rows) {
-      const scope = parseScopeFromUrl(row.auto_drive_cid);
+      const scope = resolvePaperScope(row);
       if (!scope) { unparseableCount += 1; continue; }
       if (!scope.startsWith(`${group}/`)) continue;
       if (scopeFilter && scope !== scopeFilter) continue;
@@ -197,7 +225,7 @@ export async function GET(req: NextRequest) {
             scopeLabel: SCOPE_LABELS[scope] || scope,
             role,
             assetKind: row.asset_kind,
-            storageUrl: row.auto_drive_cid,
+            storageUrl: assetDeliveryUrl(row) || '',
             coverThumbUrl: row.cover_thumb_url,
             mimeType: row.mime_type || 'application/octet-stream',
             uploadedAt: row.created_at,
@@ -269,7 +297,7 @@ export async function GET(req: NextRequest) {
       }
 
       for (const row of bucket.papers) {
-        const storageUrl = row.auto_drive_cid;
+        const storageUrl = assetDeliveryUrl(row);
         if (!storageUrl) continue;
         const paperTitle = row.supabase_title || row.title || 'Untitled';
         const paperStem = titleStem(paperTitle);
@@ -290,7 +318,9 @@ export async function GET(req: NextRequest) {
           )[0] ?? null;
         }
 
-        const coverUrl = matchedCover?.cover_thumb_url || matchedCover?.auto_drive_cid || null;
+        const coverUrl = matchedCover
+          ? matchedCover.cover_thumb_url || assetDeliveryUrl(matchedCover)
+          : null;
         const coverMime = matchedCover?.mime_type || null;
         papers.push({
           id: row.id,

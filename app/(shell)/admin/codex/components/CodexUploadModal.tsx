@@ -104,6 +104,7 @@ type QriptoPapersMagazinesGroup = 'papers' | 'magazines' | 'canonical';
 const QRIPTO_SERIES: { value: string; label: string; group: QriptoPapersMagazinesGroup; seriesScope?: string }[] = [
   { value: 'papers/protocols',                  label: 'Papers · Protocols',                       group: 'papers' },
   { value: 'papers/polity',                     label: 'Papers · The Polity',                      group: 'papers' },
+  { value: 'papers/embodiment',                 label: 'Papers · Embodiment',                      group: 'papers' },
   { value: 'papers/coyn-thesis',                label: 'Papers · COYN Thesis',                     group: 'papers' },
   { value: 'papers/experience-sovereignty',     label: 'Papers · Experience Sovereignty',          group: 'papers' },
   { value: 'papers/polity-plutocracy',          label: 'Papers · The Polity and the Plutocracy',   group: 'papers' },
