@@ -250,6 +250,15 @@ export const KNYTS_BRIDGE_CROSSING_JOURNEY: JourneyDefinition = {
     //    never invented at runtime; gate-less (empty prerequisites/
     //    completionEvidence) like HOME/VIEW/ORIENT/CHOOSE — an informational +
     //    handoff segment, not a tracked constitutional admission ladder.
+    //
+    //    EXCEPTION (AEE-XP-001 §10/XP-6, 2026-09-01): `fs-discover` is the
+    //    first live proof of the generic experience-evidence loop — its
+    //    `completionEvidence` is real, sourced from an actual observed
+    //    interaction (services/journey/experienceObservationPromotion.ts),
+    //    read into AuthoritativePlatformState by
+    //    app/api/journey/knyts-bridge/state/route.ts. LEARN/EXPLORE remain
+    //    gate-less this pass — mechanically identical follow-ups, not yet
+    //    wired.
     {
       id: 'fs-discover',
       label: 'Discover',
@@ -259,7 +268,7 @@ export const KNYTS_BRIDGE_CROSSING_JOURNEY: JourneyDefinition = {
       surfaces: [{ mode: 'component', ref: 'knyts-bridge-fs-discover', note: 'FinancialSovereigntyIntroStage (discover) — amber preset.' }],
       prerequisites: [],
       permittedActions: [],
-      completionEvidence: [],
+      completionEvidence: ['discoverExperienceObserved'],
       receiptTypes: [],
       receiptsSurfacedNatively: true,
       companion: { before: 'Your agents can act with your authority — bounded, evidenced, reversible.', complete: '' },

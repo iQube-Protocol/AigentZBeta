@@ -186,13 +186,13 @@ export default function KnytsBridgePage() {
         return { personaId, onOpenKnytCopilot: openJourneyCopilot };
       }
       if (surfaceRef.ref === 'knyts-bridge-fs-discover') {
-        return { stageKey: 'discover', accent: 'amber', nextStageId: 'fs-learn' };
+        return { stageKey: 'discover', accent: 'amber', nextStageId: 'fs-learn', journeyId: 'knyts-bridge-crossing', personaId };
       }
       if (surfaceRef.ref === 'knyts-bridge-fs-learn') {
-        return { stageKey: 'learn', accent: 'amber', nextStageId: 'fs-explore' };
+        return { stageKey: 'learn', accent: 'amber', nextStageId: 'fs-explore', journeyId: 'knyts-bridge-crossing', personaId };
       }
       if (surfaceRef.ref === 'knyts-bridge-fs-explore') {
-        return { stageKey: 'explore', accent: 'amber', nextStageId: 'fs-prepare' };
+        return { stageKey: 'explore', accent: 'amber', nextStageId: 'fs-prepare', journeyId: 'knyts-bridge-crossing', personaId };
       }
       if (surfaceRef.ref === 'knyts-bridge-fs-prepare') {
         return { mode: 'prepare', accent: 'amber', sourceJourneyId: 'knyts-bridge-crossing', sourceStageId: 'fs-prepare', nextStageId: 'fs-cross' };
