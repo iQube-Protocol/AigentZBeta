@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`6cb8ef7`](https://github.com/iQube-Protocol/AigentZBeta/commit/6cb8ef7e5c77dc73abf0913704952b41455a3046) [push] Cap the Journey stage carousel at 8 visible stages, not viewport width (Claude, 2026-09-01T11:18:13Z)
+- [`44a1b3f`](https://github.com/iQube-Protocol/AigentZBeta/commit/44a1b3fdcd386934fa5543ff92c675b8e9c9d539) [fix] Fix Buffer client-bundle defect breaking live FS crossing + cap stage carousel at 8 [merge review/irl-scoped-restoration-2026-08-27] (Claude, 2026-09-01T11:18:24Z)
 - [`19553af`](https://github.com/iQube-Protocol/AigentZBeta/commit/19553af9778657152e2bb5c5a49fa4da2d3d8302) [push] Activate generic experience-evidence loop; FS DISCOVER first proof [merge review/irl-scoped-restoration-2026-08-27] (Claude, 2026-09-01T10:30:13Z)
 - [`cfd0ac9`](https://github.com/iQube-Protocol/AigentZBeta/commit/cfd0ac9c48f666a7f75f8d4b9fd7c7a65340b80e) [fix] Fix build-breaking node:crypto leak into client bundles (15 failed deploys) [merge review/irl-scoped-restoration-2026-08-27] (Claude, 2026-09-01T09:22:20Z)
 - [`70fdc87`](https://github.com/iQube-Protocol/AigentZBeta/commit/70fdc87d7fe3f64f2ada313ece1c9e49dc34ddb6) [push] CI AEE parity: identical wiring to KNYTS, no CI-specific logic [merge review/irl-scoped-restoration-2026-08-27] (Claude, 2026-09-01T08:31:00Z)

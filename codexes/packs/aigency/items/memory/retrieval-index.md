@@ -4859,3 +4859,13 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-19553af.md](../build_/COMMITS/COMMIT-19553af.md)
 - Message: Activate generic experience-evidence loop; FS DISCOVER first proof [merge review/irl-scoped-restoration-2026-08-27]
+
+## Commit `44a1b3f` — 2026-09-01T11:18:24Z
+- Type: `fix`
+- Brief: [COMMIT-44a1b3f.md](../build_/COMMITS/COMMIT-44a1b3f.md)
+- Message: Fix Buffer client-bundle defect breaking live FS crossing + cap stage carousel at 8 [merge review/irl-scoped-restoration-2026-08-27]
+
+## Commit `6cb8ef7` — 2026-09-01T11:18:13Z
+- Type: `push`
+- Brief: [COMMIT-6cb8ef7.md](../build_/COMMITS/COMMIT-6cb8ef7.md)
+- Message: Cap the Journey stage carousel at 8 visible stages, not viewport width
