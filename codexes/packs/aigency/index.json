@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-01T12:04:35.397Z",
+  "last_updated": "2026-09-01T12:14:19.681Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "efdc7cc2b58ddc4ee761315c65f2f06e5a497f1a",
-  "latest_commit_short": "efdc7cc",
-  "latest_commit_title": "fix(qriptopian): deploy separate Embodiment series and canonical media delivery",
+  "latest_commit": "5d62e582dbdff44bdcf7a4e81349363fa214386b",
+  "latest_commit_short": "5d62e58",
+  "latest_commit_title": "LEARN/EXPLORE: kind-discriminated FS evidence, not a bare Continue click",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,33 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "5d62e58",
+      "full_sha": "5d62e582dbdff44bdcf7a4e81349363fa214386b",
+      "title": "LEARN/EXPLORE: kind-discriminated FS evidence, not a bare Continue click",
+      "author": "Claude",
+      "timestamp": "2026-09-01T11:04:59Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-5d62e58.md"
+    },
+    {
+      "sha": "3ecf5e8",
+      "full_sha": "3ecf5e858dc44a6cad2b2e31408596e474cebe9e",
+      "title": "Lower carousel cap to 7 — last pre-FS stage visible by default is Choose",
+      "author": "Claude",
+      "timestamp": "2026-09-01T12:04:53Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-3ecf5e8.md"
+    },
+    {
+      "sha": "c330c32",
+      "full_sha": "c330c32ab204572490d14f49f7a7632242ae8a69",
+      "title": "Activate ExperienceIntentProjection end-to-end + FS LEARN/EXPLORE evidence [merge review/irl-scoped-restoration-2026-08-27]",
+      "author": "Claude",
+      "timestamp": "2026-09-01T12:05:08Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-c330c32.md"
+    },
     {
       "sha": "efdc7cc",
       "full_sha": "efdc7cc2b58ddc4ee761315c65f2f06e5a497f1a",
@@ -1225,33 +1252,6 @@
       "timestamp": "2026-08-22T03:20:04-04:00",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-3bb95b2.md"
-    },
-    {
-      "sha": "116a1e0",
-      "full_sha": "116a1e05718d005554d6f4829fba644f39df73ad",
-      "title": "Derive Qriptopian essay thumbnails from canonical cover assets",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-22T02:55:08-04:00",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-116a1e0.md"
-    },
-    {
-      "sha": "ce40c2e",
-      "full_sha": "ce40c2ecc2ad789181d5aebe5ac136b476d243e1",
-      "title": "Add Threshold upload path canaries",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-22T02:41:11-04:00",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-ce40c2e.md"
-    },
-    {
-      "sha": "695e250",
-      "full_sha": "695e2507eeda05c70d7e86faa558b767097bdea0",
-      "title": "Codify Threshold bearer authorization invariant",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-21T23:25:05-04:00",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-695e250.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

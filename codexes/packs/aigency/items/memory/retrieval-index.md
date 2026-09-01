@@ -4884,3 +4884,18 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-efdc7cc.md](../build_/COMMITS/COMMIT-efdc7cc.md)
 - Message: fix(qriptopian): deploy separate Embodiment series and canonical media delivery
+
+## Commit `c330c32` — 2026-09-01T12:05:08Z
+- Type: `push`
+- Brief: [COMMIT-c330c32.md](../build_/COMMITS/COMMIT-c330c32.md)
+- Message: Activate ExperienceIntentProjection end-to-end + FS LEARN/EXPLORE evidence [merge review/irl-scoped-restoration-2026-08-27]
+
+## Commit `3ecf5e8` — 2026-09-01T12:04:53Z
+- Type: `push`
+- Brief: [COMMIT-3ecf5e8.md](../build_/COMMITS/COMMIT-3ecf5e8.md)
+- Message: Lower carousel cap to 7 — last pre-FS stage visible by default is Choose
+
+## Commit `5d62e58` — 2026-09-01T11:04:59Z
+- Type: `push`
+- Brief: [COMMIT-5d62e58.md](../build_/COMMITS/COMMIT-5d62e58.md)
+- Message: LEARN/EXPLORE: kind-discriminated FS evidence, not a bare Continue click

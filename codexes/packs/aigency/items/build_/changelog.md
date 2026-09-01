@@ -1,4 +1,7 @@
 # Build — Changelog
+- [`5d62e58`](https://github.com/iQube-Protocol/AigentZBeta/commit/5d62e582dbdff44bdcf7a4e81349363fa214386b) [push] LEARN/EXPLORE: kind-discriminated FS evidence, not a bare Continue click (Claude, 2026-09-01T11:04:59Z)
+- [`3ecf5e8`](https://github.com/iQube-Protocol/AigentZBeta/commit/3ecf5e858dc44a6cad2b2e31408596e474cebe9e) [push] Lower carousel cap to 7 — last pre-FS stage visible by default is Choose (Claude, 2026-09-01T12:04:53Z)
+- [`c330c32`](https://github.com/iQube-Protocol/AigentZBeta/commit/c330c32ab204572490d14f49f7a7632242ae8a69) [push] Activate ExperienceIntentProjection end-to-end + FS LEARN/EXPLORE evidence [merge review/irl-scoped-restoration-2026-08-27] (Claude, 2026-09-01T12:05:08Z)
 - [`efdc7cc`](https://github.com/iQube-Protocol/AigentZBeta/commit/efdc7cc2b58ddc4ee761315c65f2f06e5a497f1a) [fix] fix(qriptopian): deploy separate Embodiment series and canonical media delivery (Kn0w1, 2026-09-01T08:02:49-04:00)
 - [`3a4b251`](https://github.com/iQube-Protocol/AigentZBeta/commit/3a4b2516a5422e561b78fe41d861ae65540fbbd2) [fix] Fix Track 2 EXP-P1 state oscillation: stop swallowing substrate errors as empty [merge fix/track2-crystal-state-projection] (Claude, 2026-09-01T11:21:53Z)
 - [`1bac437`](https://github.com/iQube-Protocol/AigentZBeta/commit/1bac437a69f14ce3681bf76d84bc9902d65e3136) [push] Adaptive Financial Services entry CTA on KNYTS/CI, retire pilot framing [merge review/irl-scoped-restoration-2026-08-27] (Claude, 2026-09-01T11:31:23Z)
