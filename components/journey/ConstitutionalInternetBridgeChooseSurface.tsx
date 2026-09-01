@@ -47,11 +47,12 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { BookMarked, Compass, Handshake, Mail, Share2, Sparkles, ArrowRight } from 'lucide-react';
+import { BookMarked, Compass, Handshake, Mail, Share2, Sparkles, ArrowRight, Landmark } from 'lucide-react';
 import { SocialSharingModal } from '@/packages/smarttriad/src/SocialSharingModal';
 import { buildCodexUrl } from '@/utils/codex-nav';
 import { canonicalPlateImage } from '@/services/artifact/canonicalPlateImages';
-import { CI_BRIDGE_CAMPAIGN_ID } from '@/services/journey/constitutionalInternetBridgeJourney';
+import { CI_BRIDGE_CAMPAIGN_ID, CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY } from '@/services/journey/constitutionalInternetBridgeJourney';
+import { activateJourneyBranch } from '@/services/journey/journeyBranchActivation';
 import { ArtifactMattedFrame } from '@/components/journey/ArtifactMattedFrame';
 import { FullscreenableFrame } from '@/components/journey/FullscreenableFrame';
 import { BridgeReserveInterestCard } from '@/components/journey/BridgeReserveInterestCard';
@@ -352,6 +353,27 @@ export function ConstitutionalInternetBridgeChooseSurface({ personaId, onOpenAig
           onClick={() => setLeftView('irl')}
           mailtoSubject="Constitutional Internet — research field"
           mailtoLabel="Email us to join"
+        />
+
+        {/* AEE-XP-001 §4.2/§4 Main Spine (2026-09-01 correction) — the CI
+            on-ramp into Financial Services, same branch-trigger grammar as
+            KnytsBridgeChooseSurface.tsx's CFS Pilot card: activates the
+            dormant Financial Sovereignty branch (fs-discover → ... →
+            fs-cross → ExperienceHandoff → /bridge/fs), revealing it in-place
+            in the stepper (services/journey/journeyBranchActivation.ts).
+            CI had no Financial Services entry point at all before this —
+            this card is new, not a rewire of an existing mailto. */}
+        <DestinationCard
+          icon={<Landmark className="h-4 w-4 text-indigo-300" />}
+          label="Join Financial Services"
+          onClick={() =>
+            activateJourneyBranch(
+              CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY.id,
+              'financial-services',
+              'JOIN_FINANCIAL_SERVICES',
+              'fs-discover',
+            )
+          }
         />
 
         <DestinationCard

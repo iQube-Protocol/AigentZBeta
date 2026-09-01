@@ -14,7 +14,7 @@ import { describe, it, expect } from 'vitest';
 import { resolveJourneyState, type AuthoritativePlatformState } from '@/services/journey/resolveJourneyState';
 import { CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY } from '@/services/journey/constitutionalInternetBridgeJourney';
 
-const OPEN_NARRATIVE_STAGES = ['home', 'view', 'orient', 'fs-discover', 'fs-learn', 'fs-explore', 'fs-prepare', 'fs-cross', 'choose'];
+const OPEN_NARRATIVE_STAGES = ['home', 'view', 'orient', 'choose', 'fs-discover', 'fs-learn', 'fs-explore', 'fs-prepare', 'fs-cross'];
 const TRACKED_STAGES = ['passport', 'personify', 'stand'];
 
 function stateFor(overrides: Partial<{
@@ -32,7 +32,7 @@ function stateFor(overrides: Partial<{
 }
 
 describe('CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY — twelve real spine nodes (seven original + AEE-XP-001 Financial Sovereignty segment)', () => {
-  it('has exactly twelve stages, in the public order: home, view, orient, passport, personify, stand, fs-discover..fs-cross, choose', () => {
+  it('has exactly twelve stages, in the public order: home, view, orient, passport, personify, stand, choose, fs-discover..fs-cross (AEE-XP-001 §4, Main Spine 2026-09-01 correction: the FS segment is a branch AFTER Choose, not before it)', () => {
     expect(CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY.stages.map((s) => s.id)).toEqual([
       'home',
       'view',
@@ -40,12 +40,12 @@ describe('CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY — twelve real spine nodes (se
       'passport',
       'personify',
       'stand',
+      'choose',
       'fs-discover',
       'fs-learn',
       'fs-explore',
       'fs-prepare',
       'fs-cross',
-      'choose',
     ]);
   });
 

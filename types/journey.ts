@@ -193,6 +193,28 @@ export interface JourneyStageDefinition {
    */
   forkPosition?: 'upper' | 'middle' | 'lower';
 
+  /**
+   * Dormant branch activation (AEE-XP-001 §4, Main Spine correction,
+   * 2026-09-01) — presentation-only, exactly like `forkPosition` above: which
+   * named branch this stage belongs to. A stage carrying this field is
+   * STRUCTURALLY present in the typed `JourneyDefinition`/DAG (stable stage
+   * id, satisfaction conditions and receipt semantics, same as any other
+   * stage — never dynamically invented at runtime) but is DRAWN in
+   * `JourneyRunSurface`'s spine stepper only once that branch has been
+   * activated (`services/journey/journeyBranchActivation.ts`). A stage
+   * without this field is always drawn (unchanged default — every existing
+   * journey is unaffected).
+   *
+   * This never gates STATE: `resolveJourneyState`'s prerequisites/
+   * completionEvidence/dependencies logic is completely untouched by this
+   * field, exactly as `forkPosition`'s own doc comment establishes for
+   * render-position. It only decides whether the stage's node is DRAWN in
+   * the stepper before its branch has been declared/entered — a person who
+   * already knows the stage's id (deep link, resumed session) is never
+   * blocked from it; only the ambient stepper listing is suppressed.
+   */
+  activationBranch?: string;
+
   // JOURNEY SPINE EXTENSIONS — below this line (backward compatible; optional fields)
   /**
    * Step requirement classification (SPEC-JS-001 §6, JS-LAW-002).

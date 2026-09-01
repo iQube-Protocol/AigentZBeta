@@ -113,8 +113,9 @@ import React, { useEffect, useState } from 'react';
 import { Mail, Sparkles, ArrowRight, Handshake, Compass, MessageCircle, Share2, Rocket, ExternalLink } from 'lucide-react';
 import { buildCodexUrl } from '@/utils/codex-nav';
 import { SocialSharingModal } from '@/packages/smarttriad/src/SocialSharingModal';
-import { KNYTS_BRIDGE_CAMPAIGN_ID } from '@/services/journey/knytsBridgeCrossingJourney';
+import { KNYTS_BRIDGE_CAMPAIGN_ID, KNYTS_BRIDGE_CROSSING_JOURNEY } from '@/services/journey/knytsBridgeCrossingJourney';
 import { getKnytsBridgeKickstarterUrl } from '@/services/journey/knytsBridgeCampaignConfig';
+import { activateJourneyBranch } from '@/services/journey/journeyBranchActivation';
 import { FullscreenableFrame } from '@/components/journey/FullscreenableFrame';
 import { BridgeReserveInterestCard } from '@/components/journey/BridgeReserveInterestCard';
 import {
@@ -228,14 +229,6 @@ function KickstarterFollowCard({
       </span>
     </button>
   );
-}
-
-function selectStage(stageId: string) {
-  try {
-    window.dispatchEvent(new CustomEvent('journey:select-stage', { detail: { stageId } }));
-  } catch {
-    /* non-fatal */
-  }
 }
 
 export function KnytsBridgeChooseSurface({ personaId, onOpenKnytCopilot }: KnytsBridgeChooseSurfaceProps) {
@@ -361,21 +354,28 @@ export function KnytsBridgeChooseSurface({ personaId, onOpenKnytCopilot }: Knyts
           onClick={() => setLeftView('ci')}
         />
 
-        {/* AEE-XP-001 §4.2/§15 Phase 1 item 5: this card's primary action
-            now crosses into the real Financial Sovereignty on-ramp (fs-discover
-            → ... → fs-cross → ExperienceHandoff → /bridge/fs) instead of
-            dead-ending in a mailto. The mailto stays available as the small
-            inline secondary CTA (DestinationCard's existing stopPropagation-
-            guarded pattern, same as every other card here) for a visitor who
-            would rather just email interest directly — no interest-tracking
-            regresses, since the mailto path is unchanged, and it is no longer
-            the ONLY path. */}
+        {/* AEE-XP-001 §4.2/§4 Main Spine (2026-09-01 correction): this card
+            IS the Financial Sovereignty branch trigger — a declared
+            JOIN_FINANCIAL_SERVICES intent that activates the dormant branch
+            (fs-discover → ... → fs-cross → ExperienceHandoff → /bridge/fs),
+            revealing it in-place in the stepper (services/journey/
+            journeyBranchActivation.ts), instead of dead-ending in a mailto.
+            The mailto stays available as the small inline secondary CTA
+            (DestinationCard's existing stopPropagation-guarded pattern, same
+            as every other card here) for a visitor who would rather just
+            email interest directly — no interest-tracking regresses, since
+            the mailto path is unchanged, and it is no longer the ONLY path. */}
         <DestinationCard
           icon={<Handshake className="h-4 w-4 text-amber-300" />}
           label="Apply to join the Constitutional Financial Services Pilot"
           onClick={() => {
             setLeftView('video');
-            selectStage('fs-discover');
+            activateJourneyBranch(
+              KNYTS_BRIDGE_CROSSING_JOURNEY.id,
+              'financial-services',
+              'JOIN_FINANCIAL_SERVICES',
+              'fs-discover',
+            );
           }}
           mailtoSubject="Constitutional Financial Services Pilot — interest"
           mailtoLabel="Email instead"

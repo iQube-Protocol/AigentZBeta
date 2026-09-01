@@ -138,17 +138,21 @@ describe('Fix 2 — exactly one contextual destination chip is ever active', () 
     expect(block).toContain('setShareOpen(true)');
   });
 
-  it('CI active -> click the CFS Pilot card: onClick clears leftView to video AND crosses into the FS on-ramp (AEE-XP-001 §4.2/§15 Phase 1 item 5)', () => {
+  it('CI active -> click the CFS Pilot card: onClick clears leftView to video AND activates the dormant Financial Sovereignty branch (AEE-XP-001 §4, Main Spine 2026-09-01 correction)', () => {
     const idx = SRC.indexOf('label="Apply to join the Constitutional Financial Services Pilot"');
     const onClickIdx = SRC.indexOf('onClick={() => {', idx);
     const block = SRC.slice(onClickIdx, idx + 400);
     expect(block).toContain("setLeftView('video')");
-    expect(block).toContain("selectStage('fs-discover')");
+    expect(block).toContain('activateJourneyBranch(');
+    expect(block).toContain('KNYTS_BRIDGE_CROSSING_JOURNEY.id');
+    expect(block).toContain("'financial-services'");
+    expect(block).toContain("'JOIN_FINANCIAL_SERVICES'");
+    expect(block).toContain("'fs-discover'");
   });
 
   it('the CFS Pilot card still offers an inline mailto as a secondary CTA — DestinationCard\'s existing stopPropagation-guarded pattern, never a second bespoke anchor', () => {
     const idx = SRC.indexOf('label="Apply to join the Constitutional Financial Services Pilot"');
-    const block = SRC.slice(idx, idx + 400);
+    const block = SRC.slice(idx, idx + 600);
     expect(block).toContain('mailtoSubject="Constitutional Financial Services Pilot — interest"');
     expect(block).toContain('mailtoLabel="Email instead"');
   });
