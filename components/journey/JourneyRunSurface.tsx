@@ -67,6 +67,30 @@ import { logRuntimeEvent, runtimeDiagnosticNow } from '@/utils/runtimeSessionDia
 const JOURNEY_CONNECTOR_CLASS = 'h-px flex-1 min-w-[40px]';
 
 /**
+ * Carousel capacity contract (2026-09-01 correction). The strip has always
+ * been `overflow-x-auto` (2026-08-02, above), but overflow was purely
+ * content-width-driven: `flex-1` connectors happily stretch to fill any
+ * viewport, so a journey whose stage COUNT fits a wide desktop screen never
+ * actually overflows — no arrows, no scroll affordance, the strip just
+ * grows to show everything at once. The AEE-XP-001 Financial Sovereignty
+ * branch made this visible: KNYTS/CI journeys can reach twelve stages, and
+ * at desktop width all twelve rendered compressed into one strip instead of
+ * engaging the carousel.
+ *
+ * The fix is a MINIMUM width on the strip's inner content, expressed as a
+ * multiple of the viewport once stage count exceeds this cap — never a
+ * maximum, never virtualization. Every stage stays mounted in the same
+ * rail (continuous swipe/arrow navigation, `scrollIntoView` on the active
+ * stage, and "inspect the full Journey by scrolling" all keep working
+ * unchanged); only the RAIL's own width is forced wider than the viewport
+ * once there is more than a screenful to show, so the browser's own
+ * `overflow-x-auto` does the rest. Eight matches the density the carousel
+ * was originally introduced for (the eight-stage Horizen Journey,
+ * 2026-08-02 above) — reused, not reinvented.
+ */
+const MAX_VISIBLE_SPINE_STAGES = 8;
+
+/**
  * A server-derived signal name, made readable — MECHANICALLY.
  *
  * `principalRegistrationMandateSigned` → "Principal registration mandate
@@ -823,6 +847,10 @@ export function JourneyRunSurface({
     !s.activationBranch || isJourneyBranchActivated(journey.id, s.activationBranch);
   const spineStages = journey.stages.filter((s) => !s.forkPosition && isStageVisible(s));
   const forkStages = journey.stages.filter((s) => s.forkPosition && isStageVisible(s));
+  // The fork renders as one fixed-size unit (its own box, not per-prong), so
+  // it counts as one visible unit toward the carousel cap alongside the
+  // spine stages — see MAX_VISIBLE_SPINE_STAGES's own doc comment.
+  const visibleStageUnitCount = spineStages.length + (forkStages.length ? 1 : 0);
   /*
    * Activate Consolidation (2026-08-11) — 'middle' dropped from the
    * RENDERED rows. A stage may still carry `forkPosition: 'middle'` in its
@@ -1113,8 +1141,22 @@ export function JourneyRunSurface({
         <div
           ref={stripRef}
           onScroll={measureOverflow}
-          className="flex w-full items-center overflow-x-auto scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="w-full overflow-x-auto scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
+          {/* Inner content row — carries the flex layout AND, past the
+              capacity cap, a minimum width expressed as a multiple of the
+              scroll viewport's own width, so the browser's overflow-x-auto
+              on the PARENT actually engages instead of letting flex-1
+              connectors stretch to fill any screen. See
+              MAX_VISIBLE_SPINE_STAGES's doc comment above. */}
+          <div
+            className="flex items-center"
+            style={
+              visibleStageUnitCount > MAX_VISIBLE_SPINE_STAGES
+                ? { minWidth: `${(visibleStageUnitCount / MAX_VISIBLE_SPINE_STAGES) * 100}%` }
+                : undefined
+            }
+          >
           {spineStages.map((stage, i) => {
             const stageState = runtimeState?.stages.find((s) => s.stageId === stage.id)?.state ?? 'NOT_STARTED';
             const isDone = stageState === 'COMPLETE';
@@ -1334,6 +1376,7 @@ export function JourneyRunSurface({
               </React.Fragment>
             );
           })()}
+          </div>
         </div>
       </div>
 
