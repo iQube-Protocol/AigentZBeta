@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-01T07:22:33.798Z",
+  "last_updated": "2026-09-01T07:38:43.534Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "64db9301042dd2e9b0d49806dee9670b0e0d6121",
-  "latest_commit_short": "64db930",
-  "latest_commit_title": "Fill AEE-XP-001 §5 handoff field gaps: recommendedExperienceAltitude [merge review/irl-scoped-restoration-2026-08-27]",
+  "latest_commit": "15a3ba5cc18032c15e2c5e4dcc56057ba7791787",
+  "latest_commit_short": "15a3ba5",
+  "latest_commit_title": "Rework Financial Sovereignty as a dormant branch off CHOOSE (AEE-XP-001 §4) [merge review/irl-scoped-restoration-2026-08-27]",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "15a3ba5",
+      "full_sha": "15a3ba5cc18032c15e2c5e4dcc56057ba7791787",
+      "title": "Rework Financial Sovereignty as a dormant branch off CHOOSE (AEE-XP-001 §4) [merge review/irl-scoped-restoration-2026-08-27]",
+      "author": "Claude",
+      "timestamp": "2026-09-01T07:36:55Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-15a3ba5.md"
+    },
     {
       "sha": "64db930",
       "full_sha": "64db9301042dd2e9b0d49806dee9670b0e0d6121",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-21T15:58:36-04:00",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-0c4a0af.md"
-    },
-    {
-      "sha": "b4b8496",
-      "full_sha": "b4b8496cda3eac8b6b60a696452e46c41acb323f",
-      "title": "Allow non-episode publication cover uploads",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-21T14:51:10-04:00",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-b4b8496.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

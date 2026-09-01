@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`15a3ba5`](https://github.com/iQube-Protocol/AigentZBeta/commit/15a3ba5cc18032c15e2c5e4dcc56057ba7791787) [push] Rework Financial Sovereignty as a dormant branch off CHOOSE (AEE-XP-001 §4) [merge review/irl-scoped-restoration-2026-08-27] (Claude, 2026-09-01T07:36:55Z)
 - [`64db930`](https://github.com/iQube-Protocol/AigentZBeta/commit/64db9301042dd2e9b0d49806dee9670b0e0d6121) [push] Fill AEE-XP-001 §5 handoff field gaps: recommendedExperienceAltitude [merge review/irl-scoped-restoration-2026-08-27] (Claude, 2026-09-01T07:20:29Z)
 - [`8f0f4d6`](https://github.com/iQube-Protocol/AigentZBeta/commit/8f0f4d67f9e393b28e8f6832049af62482eeed46) [feat] Add live acceptance verification script for ctp.wallet.asset.convert (steps 2-8) (Claude, 2026-09-01T07:08:19Z)
 - [`5c0ac8a`](https://github.com/iQube-Protocol/AigentZBeta/commit/5c0ac8a9bff20a225e7955270ef64e4c3462cd7c) [push] CTP Slice C: atomic wallet conversion (Part B) + ctp.wallet.asset.convert (Part C) (Claude, 2026-09-01T06:32:31Z)

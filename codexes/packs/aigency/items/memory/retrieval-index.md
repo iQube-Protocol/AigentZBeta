@@ -4829,3 +4829,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-64db930.md](../build_/COMMITS/COMMIT-64db930.md)
 - Message: Fill AEE-XP-001 §5 handoff field gaps: recommendedExperienceAltitude [merge review/irl-scoped-restoration-2026-08-27]
+
+## Commit `15a3ba5` — 2026-09-01T07:36:55Z
+- Type: `push`
+- Brief: [COMMIT-15a3ba5.md](../build_/COMMITS/COMMIT-15a3ba5.md)
+- Message: Rework Financial Sovereignty as a dormant branch off CHOOSE (AEE-XP-001 §4) [merge review/irl-scoped-restoration-2026-08-27]
