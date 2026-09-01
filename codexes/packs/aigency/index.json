@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-01T16:46:15.644Z",
+  "last_updated": "2026-09-01T17:07:51.521Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "9dda3984505ed2dec52e271cd947626a95d31991",
-  "latest_commit_short": "9dda398",
-  "latest_commit_title": "Add MoneyPenny MPY2-3 Risk Envelope: risk factors + limits from Financial Profile",
+  "latest_commit": "a2f5942c2aa6f764b503d195133ae30c9b368003",
+  "latest_commit_short": "a2f5942",
+  "latest_commit_title": "Wire EXPLORE to a real MoneyPenny action: observed consequence, not just engagement [merge spec/moneypenny-mpy2-3]",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "a2f5942",
+      "full_sha": "a2f5942c2aa6f764b503d195133ae30c9b368003",
+      "title": "Wire EXPLORE to a real MoneyPenny action: observed consequence, not just engagement [merge spec/moneypenny-mpy2-3]",
+      "author": "Claude",
+      "timestamp": "2026-09-01T17:05:56Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-a2f5942.md"
+    },
     {
       "sha": "9dda398",
       "full_sha": "9dda3984505ed2dec52e271cd947626a95d31991",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-23T15:19:30-04:00",
       "type": "docs",
       "brief": "items/build_/COMMITS/COMMIT-0e514ca.md"
-    },
-    {
-      "sha": "d5dbd90",
-      "full_sha": "d5dbd9080476a338964d1ff9999d4d1ae75ce0be",
-      "title": "docs(agentiq): register CI/IRL baseline as Experiment Architect resource",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-23T14:23:59-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-d5dbd90.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

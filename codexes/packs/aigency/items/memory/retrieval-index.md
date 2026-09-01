@@ -4949,3 +4949,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-9dda398.md](../build_/COMMITS/COMMIT-9dda398.md)
 - Message: Add MoneyPenny MPY2-3 Risk Envelope: risk factors + limits from Financial Profile
+
+## Commit `a2f5942` — 2026-09-01T17:05:56Z
+- Type: `feat`
+- Brief: [COMMIT-a2f5942.md](../build_/COMMITS/COMMIT-a2f5942.md)
+- Message: Wire EXPLORE to a real MoneyPenny action: observed consequence, not just engagement [merge spec/moneypenny-mpy2-3]
