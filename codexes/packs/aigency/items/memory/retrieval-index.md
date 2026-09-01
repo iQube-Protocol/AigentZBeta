@@ -4789,3 +4789,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-c05f9c0.md](../build_/COMMITS/COMMIT-c05f9c0.md)
 - Message: Deliver CTP foundation: constitutional runtime + first migrated OCSGA primitive [merge review/irl-scoped-restoration-2026-08-27]
+
+## Commit `754866c` — 2026-09-01T01:43:08Z
+- Type: `feat`
+- Brief: [COMMIT-754866c.md](../build_/COMMITS/COMMIT-754866c.md)
+- Message: Add CTP-001A Phase 1 live acceptance script for Aletheon/Mansa Meta
