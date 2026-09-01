@@ -19,6 +19,8 @@ import { Badge } from "@/components/ui/badge";
 import { TrendingUp } from "lucide-react";
 
 import { useMoneyPennyClient } from "../hooks/useMoneyPennyClient";
+import { MoneyPennyCapabilityRail } from "./MoneyPennyCapabilityRail";
+import type { MoneyPennyPanelKey } from "@/app/triad/components/codex/tabs/MoneyPennyPanelTab";
 
 function getStatusColor(status: string) {
   switch (status) {
@@ -33,7 +35,14 @@ function getStatusColor(status: string) {
   }
 }
 
-export function MoneyPennyShell({ children }: { children: React.ReactNode }) {
+export interface MoneyPennyShellProps {
+  children: React.ReactNode;
+  /** The panel currently dispatched by MoneyPennyPanelTab — threaded down so
+   *  the capability rail can highlight the active destination. */
+  activePanel?: MoneyPennyPanelKey;
+}
+
+export function MoneyPennyShell({ children, activePanel }: MoneyPennyShellProps) {
   const [isConnected, setIsConnected] = useState(false);
   const [systemStatus, setSystemStatus] = useState({
     quotes: "offline",
@@ -49,11 +58,25 @@ export function MoneyPennyShell({ children }: { children: React.ReactNode }) {
       try {
         if (moneyPennyClient) {
           const healthCheck = await moneyPennyClient.healthCheck();
+          // Every field here — including `redis`/`core` — is itself a
+          // stubbed value inside `MoneyPennyClient.healthCheck()` today
+          // ("simplified for now" / "Will be implemented" per its own
+          // comments), not a live monitoring signal. Derive ALL four rows
+          // from that same (currently fake) source rather than hardcoding
+          // two of them to "online" unconditionally, which claimed X402/FIO
+          // were live even when core/quotes reported degraded — the
+          // SPEC-MPY-002 §7 truthfulness rule applies to status chrome too,
+          // not only trading data. See the MPY2-0 donor harvest audit for
+          // the tracked gap: a real health-check backend does not exist yet.
           setSystemStatus({
-            quotes: healthCheck.services.redis ? "online" : "offline",
+            // `quotes` (not the previous, nonexistent `redis` key — the
+            // healthCheck's own `services` map has no `redis` field, so
+            // this row always rendered "offline" regardless of the real
+            // stub value) is the correct key on MoneyPennyClient.healthCheck().
+            quotes: healthCheck.services.quotes ? "online" : "offline",
             execution: healthCheck.services.core ? "online" : "offline",
-            settlements: "online", // Mock for now
-            fio: "online", // Mock for now
+            settlements: healthCheck.services.x402 ? "online" : "offline",
+            fio: healthCheck.services.fio ? "online" : "offline",
           });
           setIsConnected(true);
         }
@@ -68,16 +91,16 @@ export function MoneyPennyShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="h-full w-full p-6 space-y-6 bg-slate-950">
-      <Card className="backdrop-blur-xl bg-white/5 ring-1 ring-white/10 border-0">
+      <Card className="border-slate-800 bg-slate-900/40 backdrop-blur-xl">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="flex items-center gap-2">
                 <TrendingUp className="h-6 w-6 text-emerald-400" />
                 <span className="text-emerald-400">MoneyPenny</span>
-                <span className="text-white/60">— Financial Services Runtime Agents</span>
+                <span className="text-slate-400">— Financial Services Runtime Agents</span>
               </CardTitle>
-              <CardDescription className="text-white/60">
+              <CardDescription className="text-slate-400">
                 Real-time high-frequency trading agent powered by Qripto
               </CardDescription>
             </div>
@@ -85,19 +108,19 @@ export function MoneyPennyShell({ children }: { children: React.ReactNode }) {
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-1">
                   <div className={`w-2 h-2 rounded-full ${getStatusColor(systemStatus.quotes)}`} />
-                  <span className="text-xs text-white/60">Quotes</span>
+                  <span className="text-xs text-slate-400">Quotes</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <div className={`w-2 h-2 rounded-full ${getStatusColor(systemStatus.execution)}`} />
-                  <span className="text-xs text-white/60">Execution</span>
+                  <span className="text-xs text-slate-400">Execution</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <div className={`w-2 h-2 rounded-full ${getStatusColor(systemStatus.settlements)}`} />
-                  <span className="text-xs text-white/60">X402</span>
+                  <span className="text-xs text-slate-400">X402</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <div className={`w-2 h-2 rounded-full ${getStatusColor(systemStatus.fio)}`} />
-                  <span className="text-xs text-white/60">FIO</span>
+                  <span className="text-xs text-slate-400">FIO</span>
                 </div>
               </div>
               <Badge
@@ -111,7 +134,10 @@ export function MoneyPennyShell({ children }: { children: React.ReactNode }) {
         </CardHeader>
       </Card>
 
-      <div className="space-y-4">{children}</div>
+      <div className="flex items-start gap-4">
+        <MoneyPennyCapabilityRail activePanel={activePanel} />
+        <div className="min-w-0 flex-1 space-y-4">{children}</div>
+      </div>
     </div>
   );
 }

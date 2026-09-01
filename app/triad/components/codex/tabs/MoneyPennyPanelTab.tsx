@@ -31,9 +31,11 @@ import { CRMIntegration } from "@/app/(shell)/moneypenny/components/CRMIntegrati
 import { ArchitectPanel } from "@/app/(shell)/moneypenny/components/ArchitectPanel";
 import { RuntimePanel } from "@/app/(shell)/moneypenny/components/RuntimePanel";
 import { ServiceOrchestrationPanel } from "@/app/(shell)/moneypenny/components/ServiceOrchestrationPanel";
+import { MoneyPennyOverviewPanel } from "@/app/(shell)/moneypenny/components/MoneyPennyOverviewPanel";
 import { MoneyPennyShell } from "@/app/(shell)/moneypenny/components/MoneyPennyShell";
 
 export type MoneyPennyPanelKey =
+  | "overview"
   | "hft-console"
   | "chat"
   | "portfolio"
@@ -47,6 +49,7 @@ export type MoneyPennyPanelKey =
   | "service-orchestration";
 
 const PANELS: Record<MoneyPennyPanelKey, React.ComponentType> = {
+  overview: MoneyPennyOverviewPanel,
   "hft-console": HFTConsole,
   chat: MoneyPennyChat,
   portfolio: PortfolioAnalytics,
@@ -68,13 +71,13 @@ export function MoneyPennyPanelTab({ panel }: MoneyPennyPanelTabProps) {
   const Panel = PANELS[panel];
   if (!Panel) {
     return (
-      <MoneyPennyShell>
+      <MoneyPennyShell activePanel={panel}>
         <div className="text-sm text-rose-400">Unknown MoneyPenny panel: {panel}</div>
       </MoneyPennyShell>
     );
   }
   return (
-    <MoneyPennyShell>
+    <MoneyPennyShell activePanel={panel}>
       <Panel />
     </MoneyPennyShell>
   );

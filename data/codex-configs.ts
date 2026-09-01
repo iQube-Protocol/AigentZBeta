@@ -4908,6 +4908,28 @@ export const MONEYPENNY_CARTRIDGE: CodexConfig = {
     { id: 'administer', label: 'Administer', icon: 'Settings', order: 3 },
   ],
   tabs: [
+    // SPEC-MPY-002 (2026-09-01) MPY2-1 — the capability-led landing hub
+    // ("OVERVIEW" in the spec's §2.1 capability axis). Added as a TAB, not a
+    // new tabGroup: `tabGroups` below is deliberately left untouched
+    // (pinned exactly by tests/fs-operate-embed-viewport-parity.test.ts's
+    // groupIds canary) — the Understand/Design/Markets/Operate/Monitor
+    // capability grouping lives one level down, inside this tab and the
+    // MoneyPennyCapabilityRail every panel renders alongside its content
+    // (app/(shell)/moneypenny/components/moneypennyCapabilities.ts).
+    // order: -1 so it renders first without renumbering the existing HFT
+    // Console/Portfolio/Strategies/SmartTriad siblings.
+    {
+      id: 'moneypenny-overview',
+      label: 'Overview',
+      slug: 'overview',
+      enabled: true,
+      adminOnly: false,
+      group: 'operate',
+      order: -1,
+      type: 'static',
+      config: { component: 'MoneyPennyPanelTab', props: { panel: 'overview' } },
+      metadata: { icon: 'LayoutGrid', description: 'Capability overview — Understand, Design, Markets, Operate, Monitor', color: 'emerald' },
+    },
     {
       id: 'moneypenny-hft-console',
       label: 'HFT Console',
