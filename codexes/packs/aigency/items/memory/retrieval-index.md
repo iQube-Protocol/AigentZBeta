@@ -4839,3 +4839,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-25797da.md](../build_/COMMITS/COMMIT-25797da.md)
 - Message: XP-1: first live AEE convergence loop, wired against the FS branch [merge review/irl-scoped-restoration-2026-08-27]
+
+## Commit `e21460f` — 2026-09-01T08:21:52Z
+- Type: `push`
+- Brief: [COMMIT-e21460f.md](../build_/COMMITS/COMMIT-e21460f.md)
+- Message: XP-1 follow-up: branch activation triggers immediate re-evaluation [merge review/irl-scoped-restoration-2026-08-27]
