@@ -21,7 +21,14 @@
 import { useEffect, useState } from 'react';
 import { listRegistrableAgents } from '@/services/horizen/registrableAgents';
 import { createExperienceHandoff, encodeExperienceHandoff } from '@/services/journey/experienceHandoffService';
+import { getJourneyBranchIntent } from '@/services/journey/journeyBranchActivation';
 import type { BridgeAccent } from '@/components/journey/BridgeMediaStage';
+
+const FINANCIAL_SERVICES_BRANCH = 'financial-services';
+/** Fallback ONLY for a direct deep link into the branch that skipped the
+ *  Choose trigger (so no intent was ever declared) — never fabricates a
+ *  different intent than what was actually declared when one exists. */
+const DEFAULT_FINANCIAL_SERVICES_INTENT = 'JOIN_FINANCIAL_SERVICES';
 
 const SESSION_KEY_PREFIX = 'fsHandoffAgentCandidate:';
 
@@ -111,7 +118,8 @@ export function FinancialSovereigntyPrepareCrossStage({
       sourceStageId,
       targetJourneyId: 'horizen-moneypenny',
       targetSurfaceRef: 'register-agent-panel',
-      intent: 'financial-services-registration',
+      intent:
+        getJourneyBranchIntent(sourceJourneyId, FINANCIAL_SERVICES_BRANCH) ?? DEFAULT_FINANCIAL_SERVICES_INTENT,
       agentCandidateRef: selected ?? undefined,
       // The FS Bridge is a full persistent, copilot-enabled journey (its own
       // JourneyCopilotHost mount, multi-stage register→claim/orient/passport

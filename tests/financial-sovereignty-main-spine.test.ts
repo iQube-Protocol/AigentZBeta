@@ -47,9 +47,16 @@ describe.each([
     }
   });
 
-  it('the CHOOSE stage still exists, after the FS segment', () => {
+  it('the FS segment is a branch AFTER CHOOSE, not before it (AEE-XP-001 §4, Main Spine 2026-09-01 correction: canonical order CHOOSE → DISCOVER → LEARN → EXPLORE → PREPARE → CROSS)', () => {
     const chooseIndex = stageIndex(journey, 'choose');
-    expect(chooseIndex).toBeGreaterThan(stageIndex(journey, 'fs-cross'));
+    expect(chooseIndex).toBeLessThan(stageIndex(journey, 'fs-discover'));
+  });
+
+  it('every FS stage carries activationBranch — dormant until the branch is activated, never permanently visible in the stepper', () => {
+    for (const id of FS_STAGE_IDS) {
+      const stage = journey.stages.find((s) => s.id === id)!;
+      expect(stage.activationBranch).toBe('financial-services');
+    }
   });
 
   it('no stage id is duplicated by adding the FS segment', () => {
@@ -75,8 +82,48 @@ describe('FinancialSovereigntyPrepareCrossStage — CROSS handoff field populati
   it('still preserves source journey, source stage, financial intent, and return/resume context (AEE-XP-001 §5 preservation requirement)', () => {
     expect(handoffCallBody).toMatch(/sourceJourneyId/);
     expect(handoffCallBody).toMatch(/sourceStageId/);
-    expect(handoffCallBody).toMatch(/intent:\s*'financial-services-registration'/);
+    // intent carries the ACTUAL declared branch-activation intent
+    // (LEARN_FINANCIAL_SERVICES / JOIN_FINANCIAL_SERVICES), read from
+    // getJourneyBranchIntent — never a fixed generic label.
+    expect(handoffCallBody).toMatch(/intent:\s*\n?\s*getJourneyBranchIntent\(sourceJourneyId, FINANCIAL_SERVICES_BRANCH\)/);
     expect(handoffCallBody).toMatch(/returnJourneyId:\s*sourceJourneyId/);
     expect(handoffCallBody).toMatch(/returnStageId:\s*returnStageId/);
+  });
+
+  it('falls back to JOIN_FINANCIAL_SERVICES only when no intent was ever declared (a direct deep link that skipped the Choose trigger) — never fabricates a different declared intent', () => {
+    expect(src).toMatch(/getJourneyBranchIntent\(sourceJourneyId, FINANCIAL_SERVICES_BRANCH\) \?\? DEFAULT_FINANCIAL_SERVICES_INTENT/);
+    expect(src).toMatch(/DEFAULT_FINANCIAL_SERVICES_INTENT = 'JOIN_FINANCIAL_SERVICES'/);
+  });
+});
+
+describe('JourneyRunSurface — dormant-branch stepper filtering (AEE-XP-001 §4, Main Spine 2026-09-01 correction)', () => {
+  const src = stripComments(readSource('components/journey/JourneyRunSurface.tsx'));
+
+  it('imports isJourneyBranchActivated and gates BOTH spineStages and forkStages through it', () => {
+    expect(src).toMatch(/from '@\/services\/journey\/journeyBranchActivation'/);
+    expect(src).toMatch(/isJourneyBranchActivated\(journey\.id, s\.activationBranch\)/);
+    const spineLine = src.match(/const spineStages = journey\.stages\.filter\([^;]+;/)?.[0] ?? '';
+    const forkLine = src.match(/const forkStages = journey\.stages\.filter\([^;]+;/)?.[0] ?? '';
+    expect(spineLine).toMatch(/isStageVisible/);
+    expect(forkLine).toMatch(/isStageVisible/);
+  });
+
+  it('a stage with no activationBranch is always visible — the filter is purely additive', () => {
+    expect(src).toMatch(/!s\.activationBranch \|\| isJourneyBranchActivated/);
+  });
+});
+
+describe('ConstitutionalInternetBridgeChooseSurface — new Financial Services branch trigger (CI had none before)', () => {
+  const src = stripComments(readSource('components/journey/ConstitutionalInternetBridgeChooseSurface.tsx'));
+
+  it('has a "Join Financial Services" card that activates the financial-services branch at fs-discover', () => {
+    const idx = src.indexOf('label="Join Financial Services"');
+    expect(idx).toBeGreaterThan(-1);
+    const block = src.slice(idx, idx + 400);
+    expect(block).toContain('activateJourneyBranch(');
+    expect(block).toContain('CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY.id');
+    expect(block).toContain("'financial-services'");
+    expect(block).toContain("'JOIN_FINANCIAL_SERVICES'");
+    expect(block).toContain("'fs-discover'");
   });
 });

@@ -77,7 +77,7 @@ describe('CI Bridge — Threshold Guide architecture canary', () => {
     }
   });
 
-  it('the twelve public stages map onto exactly the twelve CI registry surfaces (PERSONIFY\'s surfaces[0] is now its primary myCanvas surface; AEE-XP-001 Financial Sovereignty segment added before CHOOSE)', () => {
+  it('the twelve public stages map onto exactly the twelve CI registry surfaces (PERSONIFY\'s surfaces[0] is now its primary myCanvas surface; AEE-XP-001 §4 Financial Sovereignty branch added AFTER CHOOSE, Main Spine 2026-09-01 correction)', () => {
     const expectedRefs = [
       'ci-bridge-home',
       'ci-bridge-view',
@@ -85,12 +85,12 @@ describe('CI Bridge — Threshold Guide architecture canary', () => {
       'ci-bridge-passport-room',
       'ci-bridge-personify-mycanvas',
       'ci-bridge-stand',
+      'ci-bridge-choose',
       'ci-bridge-fs-discover',
       'ci-bridge-fs-learn',
       'ci-bridge-fs-explore',
       'ci-bridge-fs-prepare',
       'ci-bridge-fs-cross',
-      'ci-bridge-choose',
     ];
     const actualRefs = CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY.stages.map((s) => s.surfaces[0]?.ref);
     expect(actualRefs).toEqual(expectedRefs);

@@ -27,6 +27,7 @@ import { personaFetch, usePersonaSpine } from '@/utils/personaSpine';
 import { buildCodexUrl } from '@/utils/codex-nav';
 import { JOURNEY_SURFACES, buildEmbedSurfaceSrc, type JourneySurfaceDescriptor } from '@/services/journey/journeySurfaceRegistry';
 import { requestBridgeEmbedReturn } from '@/services/journey/bridgeEmbedNav';
+import { isJourneyBranchActivated } from '@/services/journey/journeyBranchActivation';
 import { StageReceiptsDrawer } from '@/components/journey/StageReceiptsDrawer';
 import { JourneyCopilotHost } from '@/components/journey/JourneyCopilotHost';
 import { ActivePersonaControl } from '@/components/persona/ActivePersonaControl';
@@ -776,8 +777,22 @@ export function JourneyRunSurface({
    * additive. Gating is untouched: `forkPosition` decides WHERE a stage's
    * node is drawn, never whether it is reachable or complete.
    */
-  const spineStages = journey.stages.filter((s) => !s.forkPosition);
-  const forkStages = journey.stages.filter((s) => s.forkPosition);
+  /*
+   * DORMANT BRANCH VISIBILITY (AEE-XP-001 §4, Main Spine — 2026-09-01
+   * correction) — a stage carrying `activationBranch` (types/journey.ts) is
+   * drawn in the spine only once that branch has been activated for this
+   * journey/visit (services/journey/journeyBranchActivation.ts). Recomputed
+   * on every render off `activeStageId` so the SAME click that activates a
+   * branch (via `activateJourneyBranch`, which both writes the flag AND
+   * dispatches `journey:select-stage`) reveals it in the very same paint —
+   * "the stepper should already extend in-place so the journey visibly
+   * grows," not on a subsequent refresh. Purely additive: a stage without
+   * `activationBranch` is always drawn, exactly as before this field existed.
+   */
+  const isStageVisible = (s: JourneyStageDefinition) =>
+    !s.activationBranch || isJourneyBranchActivated(journey.id, s.activationBranch);
+  const spineStages = journey.stages.filter((s) => !s.forkPosition && isStageVisible(s));
+  const forkStages = journey.stages.filter((s) => s.forkPosition && isStageVisible(s));
   /*
    * Activate Consolidation (2026-08-11) — 'middle' dropped from the
    * RENDERED rows. A stage may still carry `forkPosition: 'middle'` in its
