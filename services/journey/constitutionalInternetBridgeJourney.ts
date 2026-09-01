@@ -395,8 +395,12 @@ export const CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY: JourneyDefinition = {
     //    interaction (services/journey/experienceObservationPromotion.ts),
     //    read into AuthoritativePlatformState by
     //    app/api/journey/constitutional-internet-bridge/state/route.ts.
-    //    LEARN/EXPLORE remain gate-less this pass — mechanically identical
-    //    follow-ups, not yet wired.
+    //    LEARN/EXPLORE now also carry real `completionEvidence` (2026-09-01
+    //    follow-up), but a STRONGER, kind-discriminated bar than DISCOVER's
+    //    plain presence check — see `hasQualifyingExperienceInteraction`
+    //    and FinancialSovereigntyIntroStage.tsx's header comment: LEARN
+    //    requires all three FS concept cards acknowledged, EXPLORE requires
+    //    at least one real MoneyPenny capability interacted with.
     {
       id: 'fs-discover',
       label: 'Discover',
@@ -422,7 +426,7 @@ export const CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY: JourneyDefinition = {
       surfaces: [{ mode: 'component', ref: 'ci-bridge-fs-learn', note: 'FinancialSovereigntyIntroStage (learn) — indigo preset.' }],
       prerequisites: [],
       permittedActions: [],
-      completionEvidence: [],
+      completionEvidence: ['learnExperienceQualified'],
       receiptTypes: [],
       receiptsSurfacedNatively: true,
       companion: { before: 'What a Financial Services agent actually does — and what it never does without you.', complete: '' },
@@ -438,7 +442,7 @@ export const CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY: JourneyDefinition = {
       surfaces: [{ mode: 'component', ref: 'ci-bridge-fs-explore', note: 'FinancialSovereigntyIntroStage (explore) — indigo preset; projects the real serviceCatalog.' }],
       prerequisites: [],
       permittedActions: [],
-      completionEvidence: [],
+      completionEvidence: ['exploreCapabilityInteracted'],
       receiptTypes: [],
       receiptsSurfacedNatively: true,
       companion: { before: 'The Financial Services you can reach once your agent is registered.', complete: '' },

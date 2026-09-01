@@ -96,12 +96,20 @@ export interface BridgeMediaStageProps {
   highlightLine?: string;
   primaryCtaLabel: string;
   onPrimaryCta: () => void;
+  /** Generic gate for a caller requiring some other interaction (e.g. a
+   *  qualifying concept/capability acknowledgment) before the primary CTA
+   *  may fire — never Bridge/FS-specific, just a plain disabled affordance. */
+  primaryCtaDisabled?: boolean;
   secondaryCtaLabel?: string;
   onSecondaryCta?: () => void;
   accent?: BridgeAccent;
   videoUrl?: string;
   posterUrl?: string;
   layout?: BridgeMediaStageLayout;
+  /** Optional extra interactive content rendered below the paragraphs/
+   *  highlight line and above the CTAs — e.g. a caller's own concept-card
+   *  or capability-chip list. Generic slot, not owned by any one caller. */
+  children?: React.ReactNode;
 }
 
 export function BridgeMediaStage({
@@ -111,12 +119,14 @@ export function BridgeMediaStage({
   highlightLine,
   primaryCtaLabel,
   onPrimaryCta,
+  primaryCtaDisabled = false,
   secondaryCtaLabel,
   onSecondaryCta,
   accent = 'amber',
   videoUrl,
   posterUrl,
   layout = 'standard',
+  children,
 }: BridgeMediaStageProps) {
   const classes = ACCENT_CLASSES[accent];
   const [isPlaying, setIsPlaying] = useState(false);
@@ -147,7 +157,8 @@ export function BridgeMediaStage({
         <button
           type="button"
           onClick={onPrimaryCta}
-          className={`inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition ${classes.button}`}
+          disabled={primaryCtaDisabled}
+          className={`inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition ${classes.button} ${primaryCtaDisabled ? 'cursor-not-allowed opacity-40' : ''}`}
         >
           {primaryCtaLabel}
           <ArrowRight className="h-4 w-4" />
@@ -197,6 +208,7 @@ export function BridgeMediaStage({
                   </p>
                 ))}
                 {highlightLine && <p className={`mt-1.5 text-sm font-semibold ${classes.highlight}`}>{highlightLine}</p>}
+                {children && <div className="pointer-events-auto mt-3">{children}</div>}
                 <div className="mt-4">{ctas}</div>
               </div>
             </div>
@@ -221,6 +233,7 @@ export function BridgeMediaStage({
             {highlightLine && <p className={`mt-2 text-sm font-semibold ${classes.highlight}`}>{highlightLine}</p>}
           </div>
         )}
+        {children && <div className="mx-auto mt-4 max-w-[65ch]">{children}</div>}
         <div className="mt-6 flex items-center justify-center gap-3">{ctas}</div>
       </div>
     );
@@ -242,11 +255,13 @@ export function BridgeMediaStage({
       {highlightLine && (
         <p className={`mt-4 text-sm font-semibold ${classes.highlight}`}>{highlightLine}</p>
       )}
+      {children && <div className="mt-5 text-left">{children}</div>}
       <div className="mt-7 flex items-center justify-center gap-3">
         <button
           type="button"
           onClick={onPrimaryCta}
-          className={`inline-flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold transition ${classes.button}`}
+          disabled={primaryCtaDisabled}
+          className={`inline-flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold transition ${classes.button} ${primaryCtaDisabled ? 'cursor-not-allowed opacity-40' : ''}`}
         >
           {primaryCtaLabel}
           <ArrowRight className="h-4 w-4" />
