@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { TrendingUp, TrendingDown, Activity, DollarSign, Zap, Play, Pause } from "lucide-react";
+import { SimulationNotice } from "./SimulationNotice";
 
 interface QuoteData {
   chain: string;
@@ -44,7 +45,12 @@ export function HFTConsole() {
   const [pnl, setPnl] = useState<PnLData | null>(null);
   const [totalPnL, setTotalPnL] = useState(0);
 
-  // Mock data generation
+  // Mock data generation — quotes/executions/P&L below are a client-side
+  // random-number generator, not a real market-data or execution feed.
+  // SPEC-MPY-002 §7/§9 truthfulness rule: labelled via <SimulationNotice>
+  // in the render below rather than presented as live. Replacing this with
+  // a real market-data provider is tracked as an open MPY2-4 work package
+  // in the MPY2-0 donor harvest audit — not done in this tranche.
   useEffect(() => {
     if (!isStreaming) return;
 
@@ -100,8 +106,10 @@ export function HFTConsole() {
 
   return (
     <div className="space-y-6">
+      <SimulationNotice label="Quotes, executions and P&L below are randomly generated — not a live market feed" />
+
       {/* Control Panel */}
-      <Card className="backdrop-blur-xl bg-white/5 ring-1 ring-white/10 border-0">
+      <Card className="border-slate-800 bg-slate-900/40 backdrop-blur-xl">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
@@ -109,12 +117,12 @@ export function HFTConsole() {
                 <Activity className="h-5 w-5 text-emerald-400" />
                 HFT Console
               </CardTitle>
-              <CardDescription className="text-white/60">
+              <CardDescription className="text-slate-400">
                 Real-time quote discovery and execution
               </CardDescription>
             </div>
             <div className="flex items-center gap-4">
-              <Badge variant={isStreaming ? "default" : "secondary"} className={isStreaming ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-white/10 text-white/60 border-white/20"}>
+              <Badge variant={isStreaming ? "default" : "secondary"} className={isStreaming ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-slate-800/60 text-slate-400 border-slate-700"}>
                 {isStreaming ? "Live" : "Stopped"}
               </Badge>
               <Button
@@ -142,7 +150,7 @@ export function HFTConsole() {
 
       {/* P&L Overview */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="backdrop-blur-xl bg-white/5 ring-1 ring-white/10 border-0">
+        <Card className="border-slate-800 bg-slate-900/40 backdrop-blur-xl">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg flex items-center gap-2">
               <DollarSign className="h-4 w-4 text-emerald-400" />
@@ -153,13 +161,13 @@ export function HFTConsole() {
             <div className={`text-2xl font-bold ${getEdgeColor(totalPnL)}`}>
               {totalPnL.toFixed(2)} bps
             </div>
-            <p className="text-xs text-white/60 mt-1">
+            <p className="text-xs text-slate-400 mt-1">
               Capture basis points
             </p>
           </CardContent>
         </Card>
 
-        <Card className="backdrop-blur-xl bg-white/5 ring-1 ring-white/10 border-0">
+        <Card className="border-slate-800 bg-slate-900/40 backdrop-blur-xl">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg flex items-center gap-2">
               <Zap className="h-4 w-4 text-purple-400" />
@@ -167,16 +175,16 @@ export function HFTConsole() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-white">
+            <div className="text-2xl font-bold text-slate-100">
               ${pnl?.turnover_usd.toFixed(2) || '0.00'}
             </div>
-            <p className="text-xs text-white/60 mt-1">
+            <p className="text-xs text-slate-400 mt-1">
               Total volume
             </p>
           </CardContent>
         </Card>
 
-        <Card className="backdrop-blur-xl bg-white/5 ring-1 ring-white/10 border-0">
+        <Card className="border-slate-800 bg-slate-900/40 backdrop-blur-xl">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg flex items-center gap-2">
               <Activity className="h-4 w-4 text-blue-400" />
@@ -184,10 +192,10 @@ export function HFTConsole() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-white">
+            <div className="text-2xl font-bold text-slate-100">
               {executions.length}
             </div>
-            <p className="text-xs text-white/60 mt-1">
+            <p className="text-xs text-slate-400 mt-1">
               Total trades
             </p>
           </CardContent>
@@ -197,34 +205,34 @@ export function HFTConsole() {
       {/* Quotes and Executions */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Live Quotes */}
-        <Card className="backdrop-blur-xl bg-white/5 ring-1 ring-white/10 border-0">
+        <Card className="border-slate-800 bg-slate-900/40 backdrop-blur-xl">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5 text-emerald-400" />
               Live Quotes
             </CardTitle>
-            <CardDescription className="text-white/60">
+            <CardDescription className="text-slate-400">
               Real-time quote discovery across chains
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-2 max-h-64 overflow-y-auto">
               {quotes.length === 0 ? (
-                <p className="text-center text-white/60 py-8">
+                <p className="text-center text-slate-400 py-8">
                   No quotes available. Start streaming to see data.
                 </p>
               ) : (
                 quotes.map((quote, index) => (
-                  <div key={index} className="flex items-center justify-between p-2 rounded-lg bg-white/5 border border-white/10">
+                  <div key={index} className="flex items-center justify-between p-2 rounded-lg bg-slate-900/40 border border-slate-800">
                     <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="bg-white/10 text-white/60 border-white/20">{quote.chain}</Badge>
-                      <span className="text-sm text-white/80">{quote.qty_qc.toFixed(0)} Q¢</span>
+                      <Badge variant="outline" className="bg-slate-800/60 text-slate-400 border-slate-700">{quote.chain}</Badge>
+                      <span className="text-sm text-slate-300">{quote.qty_qc.toFixed(0)} Q¢</span>
                     </div>
                     <div className="text-right">
                       <div className={`font-mono text-sm ${getEdgeColor(quote.edge_bps)}`}>
                         {quote.edge_bps > 0 ? '+' : ''}{quote.edge_bps.toFixed(1)} bps
                       </div>
-                      <div className="text-xs text-white/60">
+                      <div className="text-xs text-slate-400">
                         ${quote.price_usdc.toFixed(6)}
                       </div>
                     </div>
@@ -236,37 +244,37 @@ export function HFTConsole() {
         </Card>
 
         {/* Recent Executions */}
-        <Card className="backdrop-blur-xl bg-white/5 ring-1 ring-white/10 border-0">
+        <Card className="border-slate-800 bg-slate-900/40 backdrop-blur-xl">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Activity className="h-5 w-5 text-purple-400" />
               Recent Executions
             </CardTitle>
-            <CardDescription className="text-white/60">
+            <CardDescription className="text-slate-400">
               Latest trade executions and fills
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-2 max-h-64 overflow-y-auto">
               {executions.length === 0 ? (
-                <p className="text-center text-white/60 py-8">
+                <p className="text-center text-slate-400 py-8">
                   No executions yet. Start streaming to see trades.
                 </p>
               ) : (
                 executions.map((exec, index) => (
-                  <div key={index} className="flex items-center justify-between p-2 rounded-lg bg-white/5 border border-white/10">
+                  <div key={index} className="flex items-center justify-between p-2 rounded-lg bg-slate-900/40 border border-slate-800">
                     <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="bg-white/10 text-white/60 border-white/20">{exec.chain}</Badge>
+                      <Badge variant="outline" className="bg-slate-800/60 text-slate-400 border-slate-700">{exec.chain}</Badge>
                       <Badge variant={exec.side === 'BUY' ? 'default' : 'destructive'} className={exec.side === 'BUY' ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-red-500/20 text-red-400 border-red-500/30"}>
                         {exec.side}
                       </Badge>
-                      <span className="text-sm text-white/80">{exec.qty_filled.toFixed(0)} Q¢</span>
+                      <span className="text-sm text-slate-300">{exec.qty_filled.toFixed(0)} Q¢</span>
                     </div>
                     <div className="text-right">
                       <div className={`font-mono text-sm ${getEdgeColor(exec.capture_bps)}`}>
                         {exec.capture_bps > 0 ? '+' : ''}{exec.capture_bps.toFixed(1)} bps
                       </div>
-                      <div className="text-xs text-white/60">
+                      <div className="text-xs text-slate-400">
                         ${exec.avg_price.toFixed(6)}
                       </div>
                     </div>
