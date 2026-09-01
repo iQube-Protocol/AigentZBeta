@@ -40,6 +40,8 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-09-01_mpy2-0-donor-harvest-audit.md",
+        "updates/2026-09-01_spec-moneypenny-cartridge-capability-harvest-upgrade.md",
         "updates/2026-08-30_ocsga-delegated-completion-and-ctp-001-delegability-correction.md",
         "updates/2026-08-29_ocsga-implementation-singularity-and-principal-only-acts.md",
         "updates/2026-08-28_mfe-capstone-state-of-estate.md",
