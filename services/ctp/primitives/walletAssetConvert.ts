@@ -67,7 +67,11 @@ interface WalletAssetConvertState {
   baseQcBalance: number;
 }
 
-const PRIMITIVE_ID = 'ctp.wallet.asset.convert';
+// Exported (AEE-Next, 2026-09-01) so the FS journey's ExperienceHandoff/
+// ExperiencePrescription capability-availability projection at `fs-cross`
+// can cite the REAL primitive id — never a second, hand-copied string that
+// could drift from this one (inv.engineering.036/037).
+export const PRIMITIVE_ID = 'ctp.wallet.asset.convert';
 const VERSION = '1.0.0';
 const IMPLEMENTATION_REF = 'services/wallet/qctLedgerService.ts#convertWalletAsset';
 const SOURCE_TAG = 'usdc_to_qct_conversion';
