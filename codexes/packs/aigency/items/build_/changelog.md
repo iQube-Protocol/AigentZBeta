@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`70fdc87`](https://github.com/iQube-Protocol/AigentZBeta/commit/70fdc87d7fe3f64f2ada313ece1c9e49dc34ddb6) [push] CI AEE parity: identical wiring to KNYTS, no CI-specific logic [merge review/irl-scoped-restoration-2026-08-27] (Claude, 2026-09-01T08:31:00Z)
 - [`e21460f`](https://github.com/iQube-Protocol/AigentZBeta/commit/e21460f8396559d38cc88c58092a90b27873f215) [push] XP-1 follow-up: branch activation triggers immediate re-evaluation [merge review/irl-scoped-restoration-2026-08-27] (Claude, 2026-09-01T08:21:52Z)
 - [`25797da`](https://github.com/iQube-Protocol/AigentZBeta/commit/25797da80a88bde16f7930e9d0e5799580bd63d5) [push] XP-1: first live AEE convergence loop, wired against the FS branch [merge review/irl-scoped-restoration-2026-08-27] (Claude, 2026-09-01T07:58:51Z)
 - [`15a3ba5`](https://github.com/iQube-Protocol/AigentZBeta/commit/15a3ba5cc18032c15e2c5e4dcc56057ba7791787) [push] Rework Financial Sovereignty as a dormant branch off CHOOSE (AEE-XP-001 §4) [merge review/irl-scoped-restoration-2026-08-27] (Claude, 2026-09-01T07:36:55Z)

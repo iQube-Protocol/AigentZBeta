@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-01T08:24:02.385Z",
+  "last_updated": "2026-09-01T08:33:03.298Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "e21460f8396559d38cc88c58092a90b27873f215",
-  "latest_commit_short": "e21460f",
-  "latest_commit_title": "XP-1 follow-up: branch activation triggers immediate re-evaluation [merge review/irl-scoped-restoration-2026-08-27]",
+  "latest_commit": "70fdc87d7fe3f64f2ada313ece1c9e49dc34ddb6",
+  "latest_commit_short": "70fdc87",
+  "latest_commit_title": "CI AEE parity: identical wiring to KNYTS, no CI-specific logic [merge review/irl-scoped-restoration-2026-08-27]",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "70fdc87",
+      "full_sha": "70fdc87d7fe3f64f2ada313ece1c9e49dc34ddb6",
+      "title": "CI AEE parity: identical wiring to KNYTS, no CI-specific logic [merge review/irl-scoped-restoration-2026-08-27]",
+      "author": "Claude",
+      "timestamp": "2026-09-01T08:31:00Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-70fdc87.md"
+    },
     {
       "sha": "e21460f",
       "full_sha": "e21460f8396559d38cc88c58092a90b27873f215",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-21T16:59:12-04:00",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-8be978f.md"
-    },
-    {
-      "sha": "7fcb58e",
-      "full_sha": "7fcb58e24212da3609a98036701032dce9c8eb50",
-      "title": "Fix public article image delivery via durable media cache",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-21T16:48:32-04:00",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-7fcb58e.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

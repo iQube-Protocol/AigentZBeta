@@ -4844,3 +4844,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-e21460f.md](../build_/COMMITS/COMMIT-e21460f.md)
 - Message: XP-1 follow-up: branch activation triggers immediate re-evaluation [merge review/irl-scoped-restoration-2026-08-27]
+
+## Commit `70fdc87` — 2026-09-01T08:31:00Z
+- Type: `push`
+- Brief: [COMMIT-70fdc87.md](../build_/COMMITS/COMMIT-70fdc87.md)
+- Message: CI AEE parity: identical wiring to KNYTS, no CI-specific logic [merge review/irl-scoped-restoration-2026-08-27]
