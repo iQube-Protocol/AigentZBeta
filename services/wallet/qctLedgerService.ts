@@ -109,6 +109,90 @@ export async function creditWalletAsset(
   return { success: true, newBalance, txId };
 }
 
+export interface ConvertWalletAssetResult {
+  success: boolean;
+  error?: string;
+  /** Set only on 'INSUFFICIENT_FUNDS' — lets callers return 400 rather than 500. */
+  insufficientFunds?: boolean;
+  debitTxId?: string;
+  creditTxId?: string;
+  priorSourceBalance?: number;
+  resultingSourceBalance?: number;
+  priorDestinationBalance?: number;
+  resultingDestinationBalance?: number;
+}
+
+/**
+ * Canonical, ATOMIC two-asset conversion (2026-09-01, CTP Slice C
+ * prerequisite — Part B). Binds the single Postgres function
+ * `convert_wallet_asset` (supabase/migrations/20260930150000_wallet_atomic_convert.sql)
+ * — lock both balance rows in a fixed order, validate sufficiency under
+ * lock, debit, credit, insert BOTH wallet_transactions rows, and return the
+ * committed resulting balances, all inside ONE database transaction. Any
+ * failure anywhere aborts the whole thing; there is no compensating-
+ * transaction/rollback logic here or anywhere else — the database performs
+ * the rollback.
+ *
+ * Replaces the previous debitWalletAsset -> creditWalletAsset composition
+ * for any NEW caller. `debitWalletAsset`/`creditWalletAsset` above are
+ * PRESERVED, unmodified, for their existing non-conversion callers (e.g. a
+ * single-asset credit with no paired debit) — this function is additive,
+ * not a replacement for every use of the ledger.
+ */
+export async function convertWalletAsset(input: {
+  personaId: string;
+  sourceAsset: WalletAssetCode;
+  destinationAsset: WalletAssetCode;
+  sourceAmount: number;
+  destinationAmount: number;
+  source: string;
+  metadata?: Record<string, any>;
+}): Promise<ConvertWalletAssetResult> {
+  const { personaId, sourceAsset, destinationAsset, sourceAmount, destinationAmount, source, metadata } = input;
+  if (sourceAmount <= 0 || destinationAmount <= 0) {
+    return { success: false, error: 'Amounts must be positive' };
+  }
+
+  const supabase = getSupabaseClient();
+  const debitTxId = makeTxId(sourceAsset.toLowerCase());
+  const creditTxId = makeTxId(destinationAsset.toLowerCase());
+
+  const { data, error } = await supabase.rpc('convert_wallet_asset', {
+    p_persona_id: personaId,
+    p_source_asset: sourceAsset,
+    p_destination_asset: destinationAsset,
+    p_source_amount: round8(sourceAmount),
+    p_destination_amount: round8(destinationAmount),
+    p_source: source,
+    p_metadata: metadata ?? null,
+    p_debit_tx_id: debitTxId,
+    p_credit_tx_id: creditTxId,
+  });
+
+  if (error) {
+    const message = error.message || 'Conversion failed';
+    if (message.includes('INSUFFICIENT_FUNDS')) {
+      return { success: false, error: message, insufficientFunds: true };
+    }
+    return { success: false, error: message };
+  }
+
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) {
+    return { success: false, error: 'convert_wallet_asset returned no result row' };
+  }
+
+  return {
+    success: true,
+    debitTxId: row.debit_tx_id,
+    creditTxId: row.credit_tx_id,
+    priorSourceBalance: parseFloat(row.prior_source_balance),
+    resultingSourceBalance: parseFloat(row.resulting_source_balance),
+    priorDestinationBalance: parseFloat(row.prior_destination_balance),
+    resultingDestinationBalance: parseFloat(row.resulting_destination_balance),
+  };
+}
+
 export async function debitWalletAsset(
   personaId: string,
   assetCode: WalletAssetCode,
