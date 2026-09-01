@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`8f0f4d6`](https://github.com/iQube-Protocol/AigentZBeta/commit/8f0f4d67f9e393b28e8f6832049af62482eeed46) [feat] Add live acceptance verification script for ctp.wallet.asset.convert (steps 2-8) (Claude, 2026-09-01T07:08:19Z)
 - [`5c0ac8a`](https://github.com/iQube-Protocol/AigentZBeta/commit/5c0ac8a9bff20a225e7955270ef64e4c3462cd7c) [push] CTP Slice C: atomic wallet conversion (Part B) + ctp.wallet.asset.convert (Part C) (Claude, 2026-09-01T06:32:31Z)
 - [`fb6bee8`](https://github.com/iQube-Protocol/AigentZBeta/commit/fb6bee88d5ac30aae070b2e65f7860969cf5f769) [fix] Persist the approved wallet ledger ownership-scoped RLS repair [merge review/irl-scoped-restoration-2026-08-27] (Claude, 2026-09-01T07:04:17Z)
 - [`64cb67a`](https://github.com/iQube-Protocol/AigentZBeta/commit/64cb67a31955c1ff942e21843293387c23b9fba1) [fix] Urgent: fix authorization defect in USDC->QC wallet conversion [merge review/irl-scoped-restoration-2026-08-27] (Claude, 2026-09-01T06:18:22Z)

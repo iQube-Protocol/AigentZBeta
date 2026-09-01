@@ -4819,3 +4819,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-5c0ac8a.md](../build_/COMMITS/COMMIT-5c0ac8a.md)
 - Message: CTP Slice C: atomic wallet conversion (Part B) + ctp.wallet.asset.convert (Part C)
+
+## Commit `8f0f4d6` — 2026-09-01T07:08:19Z
+- Type: `feat`
+- Brief: [COMMIT-8f0f4d6.md](../build_/COMMITS/COMMIT-8f0f4d6.md)
+- Message: Add live acceptance verification script for ctp.wallet.asset.convert (steps 2-8)

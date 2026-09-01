@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-01T07:07:03.944Z",
+  "last_updated": "2026-09-01T07:10:31.547Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "5c0ac8a9bff20a225e7955270ef64e4c3462cd7c",
-  "latest_commit_short": "5c0ac8a",
-  "latest_commit_title": "CTP Slice C: atomic wallet conversion (Part B) + ctp.wallet.asset.convert (Part C)",
+  "latest_commit": "8f0f4d67f9e393b28e8f6832049af62482eeed46",
+  "latest_commit_short": "8f0f4d6",
+  "latest_commit_title": "Add live acceptance verification script for ctp.wallet.asset.convert (steps 2-8)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "8f0f4d6",
+      "full_sha": "8f0f4d67f9e393b28e8f6832049af62482eeed46",
+      "title": "Add live acceptance verification script for ctp.wallet.asset.convert (steps 2-8)",
+      "author": "Claude",
+      "timestamp": "2026-09-01T07:08:19Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-8f0f4d6.md"
+    },
     {
       "sha": "5c0ac8a",
       "full_sha": "5c0ac8a9bff20a225e7955270ef64e4c3462cd7c",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-21T11:33:45-04:00",
       "type": "docs",
       "brief": "items/build_/COMMITS/COMMIT-747b993.md"
-    },
-    {
-      "sha": "eb07ba0",
-      "full_sha": "eb07ba068e6b4a64fcb699fabf39b5c561989ad8",
-      "title": "feat(qriptopian): link Threshold machine-readable editions",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-21T10:49:25-04:00",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-eb07ba0.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
