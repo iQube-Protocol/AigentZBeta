@@ -388,6 +388,15 @@ export const CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY: JourneyDefinition = {
     //    Services card calls `activateJourneyBranch(...)` (services/journey/
     //    journeyBranchActivation.ts). Stable stage ids; gate-less like
     //    HOME/VIEW/ORIENT/CHOOSE.
+    //
+    //    EXCEPTION (AEE-XP-001 §10/XP-6, 2026-09-01): `fs-discover` is the
+    //    first live proof of the generic experience-evidence loop — its
+    //    `completionEvidence` is real, sourced from an actual observed
+    //    interaction (services/journey/experienceObservationPromotion.ts),
+    //    read into AuthoritativePlatformState by
+    //    app/api/journey/constitutional-internet-bridge/state/route.ts.
+    //    LEARN/EXPLORE remain gate-less this pass — mechanically identical
+    //    follow-ups, not yet wired.
     {
       id: 'fs-discover',
       label: 'Discover',
@@ -397,7 +406,7 @@ export const CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY: JourneyDefinition = {
       surfaces: [{ mode: 'component', ref: 'ci-bridge-fs-discover', note: 'FinancialSovereigntyIntroStage (discover) — indigo preset.' }],
       prerequisites: [],
       permittedActions: [],
-      completionEvidence: [],
+      completionEvidence: ['discoverExperienceObserved'],
       receiptTypes: [],
       receiptsSurfacedNatively: true,
       companion: { before: 'Your agents can act with your authority — bounded, evidenced, reversible.', complete: '' },

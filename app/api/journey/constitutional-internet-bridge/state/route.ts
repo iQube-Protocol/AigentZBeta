@@ -28,6 +28,7 @@ import {
 import { resolvePrimaryCompanionForJourney } from '@/services/journey/primaryCompanionResolver';
 import { parseActivatedBranchesParam } from '@/services/journey/journeyBranchActivation';
 import { computeJourneyAeeOutcome } from '@/services/adaptive/journeyAeeOrchestrator';
+import { hasObservedExperienceInteraction } from '@/services/journey/experienceObservationPromotion';
 
 export const dynamic = 'force-dynamic';
 
@@ -110,11 +111,20 @@ async function getImpl(req: NextRequest) {
     }
   }
 
+  // AEE-XP-001 §10/XP-6 — see knyts-bridge/state's identical comment. Same
+  // generic promotion seam, same read, no CI-specific logic.
+  const discoverExperienceObserved = await hasObservedExperienceInteraction(
+    persona?.personaId ?? null,
+    CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY.id,
+    'fs-discover',
+  );
+
   const platformState: AuthoritativePlatformState = {
     stages: {
       passport: { citizenPassportUsable },
       personify: { agentRelationshipStarted: dispositionRecorded || externalAgentConnected },
       stand: { constitutionalEventRecorded },
+      'fs-discover': { discoverExperienceObserved },
     },
   };
 

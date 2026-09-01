@@ -50,11 +50,19 @@ describe('CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY — twelve real spine nodes (se
   });
 
   it('open narrative stages (home/view/orient/choose) carry no prerequisites and no completion evidence', () => {
+    // AEE-XP-001 §10/XP-6 (2026-09-01) EXCEPTION: fs-discover is the first
+    // live proof of the generic experience-evidence loop and carries real
+    // completionEvidence — see tests/experience-observation-promotion-loop.test.ts
+    // and tests/financial-sovereignty-main-spine.test.ts.
     for (const id of OPEN_NARRATIVE_STAGES) {
       const stage = CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY.stages.find((s) => s.id === id);
       expect(stage, `stage '${id}' missing`).toBeTruthy();
       expect(stage!.prerequisites).toEqual([]);
-      expect(stage!.completionEvidence).toEqual([]);
+      if (id === 'fs-discover') {
+        expect(stage!.completionEvidence).toEqual(['discoverExperienceObserved']);
+      } else {
+        expect(stage!.completionEvidence).toEqual([]);
+      }
     }
   });
 

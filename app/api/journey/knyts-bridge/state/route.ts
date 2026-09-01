@@ -27,6 +27,7 @@ import { KNYTS_BRIDGE_CROSSING_JOURNEY, KNYTS_BRIDGE_CAMPAIGN_ID } from '@/servi
 import { resolvePrimaryCompanionForJourney } from '@/services/journey/primaryCompanionResolver';
 import { parseActivatedBranchesParam } from '@/services/journey/journeyBranchActivation';
 import { computeJourneyAeeOutcome } from '@/services/adaptive/journeyAeeOrchestrator';
+import { hasObservedExperienceInteraction } from '@/services/journey/experienceObservationPromotion';
 
 export const dynamic = 'force-dynamic';
 
@@ -106,11 +107,22 @@ async function getImpl(req: NextRequest) {
     }
   }
 
+  // AEE-XP-001 §10/XP-6 — the generic experience-observation promotion
+  // seam's first live read. A pure fact lookup (never a write); `fs-discover`
+  // is the only stage whose `completionEvidence` currently consumes it (see
+  // knytsBridgeCrossingJourney.ts's own comment on that stage).
+  const discoverExperienceObserved = await hasObservedExperienceInteraction(
+    persona?.personaId ?? null,
+    KNYTS_BRIDGE_CROSSING_JOURNEY.id,
+    'fs-discover',
+  );
+
   const platformState: AuthoritativePlatformState = {
     stages: {
       passport: { citizenPassportUsable },
       remix: { crossingPublished },
       stand: { crossingHasConsequence },
+      'fs-discover': { discoverExperienceObserved },
     },
   };
 

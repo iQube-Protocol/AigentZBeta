@@ -535,7 +535,21 @@ export type ActivityActionType =
   | 'qubetalk_agent_approval_used'
   | 'qubetalk_endpoint_linked'
   | 'qubetalk_group_federated'
-  | 'qubetalk_conversation_context_disclosure';
+  | 'qubetalk_conversation_context_disclosure'
+  // AEE-XP-001 §10/XP-6 (2026-09-01) — the ONE generic experience-observation
+  // promotion type. Discriminated by `actionInput.experienceRef`
+  // (`${journeyId}:${stageId}`), never a stage-specific literal
+  // (`fs_discover_acknowledged` etc. was explicitly rejected — see
+  // services/journey/experienceObservationPromotion.ts's header). Every
+  // future Journey stage that needs "the person actually interacted with
+  // this experience" evidence reuses this SAME literal with a different
+  // experienceRef — do not add a second one.
+  //
+  // Deliberately NOT in ANCHORABLE_ACTION_TYPES
+  // (services/dvn/activityReceiptDvnPipeline.ts) — an observed interaction
+  // is evidence of engagement, not a constitutional/consequential act, and
+  // stays local per that file's own "low-value events stay local" rule.
+  | 'experience_interaction_observed';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 

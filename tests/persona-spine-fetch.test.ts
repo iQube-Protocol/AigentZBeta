@@ -69,6 +69,11 @@ const SPINE_ENDPOINT_PREFIXES = [
   // in the header, because the header's own display never goes through this
   // transport at all.
   '/api/codex/chat/agentiq-os/delegation',
+  // Added 2026-09-01 (AEE-XP-001 §10/XP-6, generic experience-observation
+  // promotion). POST-only, resolves the caller directly through
+  // getActivePersona — the write is attributed to the caller's own persona,
+  // never a passed-in personaId.
+  '/api/journey/experience-observation',
 ] as const;
 
 /**
@@ -86,6 +91,7 @@ const PREFIX_ROUTE_PROOF: Record<string, string> = {
   '/api/marketa/qubetalk': 'app/api/marketa/qubetalk/route.ts',
   '/api/research/review': 'app/api/research/review/route.ts',
   '/api/codex/chat/agentiq-os/delegation': 'app/api/codex/chat/agentiq-os/delegation/route.ts',
+  '/api/journey/experience-observation': 'app/api/journey/experience-observation/route.ts',
 };
 
 /** route file → the gate module it delegates caller resolution to. */
