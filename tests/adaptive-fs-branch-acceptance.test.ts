@@ -10,13 +10,19 @@
  * (services/adaptive/journeyAeeOrchestrator.ts), the first live caller of
  * services/adaptive/* (Phase 0 audit found zero outside its own test).
  *
- * Case A is proven against the REAL, deployed KNYTS Bridge journey
- * (services/journey/knytsBridgeCrossingJourney.ts) — it needs no evidence
- * source, since "first relevant FS stage is DISCOVER" holds the moment the
- * branch activates with zero prior evidence, and DISCOVER/LEARN/EXPLORE/
- * PREPARE on the live FS branch are all independently declared with empty
- * `prerequisites` (an honest, gate-less on-ramp — AEE-XP-001 §4 Main Spine
- * correction's own header) — array order alone makes DISCOVER first.
+ * Case A is proven against BOTH real, deployed bridge journeys — KNYTS
+ * (services/journey/knytsBridgeCrossingJourney.ts) and CI (services/journey/
+ * constitutionalInternetBridgeJourney.ts) — via ONE parametrized `describe.each`
+ * exercising the exact same assertions against the exact same orchestrator
+ * call. CI parity (2026-09-01) is deliberately proven this way rather than
+ * a second, hand-written test block: identical test logic run twice is what
+ * "no CI-specific AEE logic" actually demonstrates, not a copy that could
+ * silently drift from KNYTS's. It needs no evidence source, since "first
+ * relevant FS stage is DISCOVER" holds the moment the branch activates with
+ * zero prior evidence, and DISCOVER/LEARN/EXPLORE/PREPARE on both live FS
+ * branches are all independently declared with empty `prerequisites` (an
+ * honest, gate-less on-ramp — AEE-XP-001 §4 Main Spine correction's own
+ * header) — array order alone makes DISCOVER first on either bridge.
  *
  * Cases B/C/D need REAL prerequisite-gated satisfaction to prove — the
  * live FS branch stages deliberately declare NO completionEvidence (there
@@ -25,12 +31,18 @@
  * journey). Proving "Discover satisfied -> LEARN is next" therefore uses a
  * FIXTURE journey with the same activationBranch/prerequisite grammar the
  * real FS branch already uses, so the MECHANISM is proven for real, without
- * fabricating evidence sources the live journey doesn't have. See this
+ * fabricating evidence sources the live journey doesn't have. The mechanism
+ * is journey-agnostic by construction (the orchestrator takes any
+ * `JourneyDefinition`), so one fixture proof covers both bridges — see this
  * file's own report to the operator for the exact gap this leaves open.
+ *
+ * Case E is likewise parametrized over both bridges — the SAME native
+ * fallback path, same orchestrator, same provider contract either way.
  */
 import { describe, it, expect } from 'vitest';
 import { resolveJourneyState, type AuthoritativePlatformState } from '@/services/journey/resolveJourneyState';
 import { KNYTS_BRIDGE_CROSSING_JOURNEY } from '@/services/journey/knytsBridgeCrossingJourney';
+import { CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY } from '@/services/journey/constitutionalInternetBridgeJourney';
 import { computeJourneyAeeOutcome } from '@/services/adaptive/journeyAeeOrchestrator';
 import type { JourneyDefinition } from '@/types/journey';
 import type { AdaptiveExperienceProvider, ExperienceProjection } from '@/types/adaptiveExperience';
@@ -39,37 +51,45 @@ import { readSource, importAuthority } from './_lib/sourceAuthority';
 const NOW = '2026-09-01T00:00:00.000Z';
 const EMPTY_STATE: AuthoritativePlatformState = { stages: {} };
 
-describe('Case A — JOIN_FINANCIAL_SERVICES declared, no prior evidence -> first relevant FS stage is DISCOVER', () => {
-  it('on the real, deployed KNYTS Bridge journey', async () => {
-    const runtimeState = resolveJourneyState(KNYTS_BRIDGE_CROSSING_JOURNEY, EMPTY_STATE, {
-      'financial-services': 'JOIN_FINANCIAL_SERVICES',
-    });
-    const outcome = await computeJourneyAeeOutcome({
-      journeyDefinition: KNYTS_BRIDGE_CROSSING_JOURNEY,
-      runtimeState,
-      hostId: 'knyts-bridge',
-      participantRef: 'test-visitor',
-      generatedAt: NOW,
-    });
-    expect(outcome.nbe.targetStageId).toBe('fs-discover');
-    expect(outcome.nbe.source).toBe('aee');
-    expect(outcome.nbe.disposition).toBe('act');
-    expect(outcome.crossingRecommended).toBe(false);
-    expect(outcome.projection.fellBackToNative).toBe(false);
-  });
+const BRIDGES: Array<[string, JourneyDefinition, string]> = [
+  ['KNYTS Bridge', KNYTS_BRIDGE_CROSSING_JOURNEY, 'knyts-bridge'],
+  ['Constitutional Internet Bridge', CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY, 'constitutional-internet-bridge'],
+];
 
-  it('with NO branch declared at all, DISCOVER is never offered (still dormant)', async () => {
-    const runtimeState = resolveJourneyState(KNYTS_BRIDGE_CROSSING_JOURNEY, EMPTY_STATE);
-    const outcome = await computeJourneyAeeOutcome({
-      journeyDefinition: KNYTS_BRIDGE_CROSSING_JOURNEY,
-      runtimeState,
-      hostId: 'knyts-bridge',
-      participantRef: 'test-visitor',
-      generatedAt: NOW,
+describe.each(BRIDGES)(
+  'Case A — %s: JOIN_FINANCIAL_SERVICES declared, no prior evidence -> first relevant FS stage is DISCOVER',
+  (_label, journey, hostId) => {
+    it('on the real, deployed journey', async () => {
+      const runtimeState = resolveJourneyState(journey, EMPTY_STATE, {
+        'financial-services': 'JOIN_FINANCIAL_SERVICES',
+      });
+      const outcome = await computeJourneyAeeOutcome({
+        journeyDefinition: journey,
+        runtimeState,
+        hostId,
+        participantRef: 'test-visitor',
+        generatedAt: NOW,
+      });
+      expect(outcome.nbe.targetStageId).toBe('fs-discover');
+      expect(outcome.nbe.source).toBe('aee');
+      expect(outcome.nbe.disposition).toBe('act');
+      expect(outcome.crossingRecommended).toBe(false);
+      expect(outcome.projection.fellBackToNative).toBe(false);
     });
-    expect(outcome.nbe.targetStageId).not.toBe('fs-discover');
-  });
-});
+
+    it('with NO branch declared at all, DISCOVER is never offered (still dormant)', async () => {
+      const runtimeState = resolveJourneyState(journey, EMPTY_STATE);
+      const outcome = await computeJourneyAeeOutcome({
+        journeyDefinition: journey,
+        runtimeState,
+        hostId,
+        participantRef: 'test-visitor',
+        generatedAt: NOW,
+      });
+      expect(outcome.nbe.targetStageId).not.toBe('fs-discover');
+    });
+  },
+);
 
 // ── Fixture journey for B/C/D — same grammar as the real FS branch, but
 //    WITH real completionEvidence, so genuine prerequisite-gated
@@ -165,7 +185,9 @@ describe('Case D — PREPARE satisfied with a valid agent candidate -> CROSS (ex
   });
 });
 
-describe('Case E — no AEE/provider result or invalid projection -> existing deterministic native behavior continues', () => {
+describe.each(BRIDGES)(
+  'Case E — %s: no AEE/provider result or invalid projection -> existing deterministic native behavior continues',
+  (_label, journey, hostId) => {
   const throwingProvider: AdaptiveExperienceProvider = {
     id: 'broken-throws',
     async capabilities() {
@@ -202,13 +224,13 @@ describe('Case E — no AEE/provider result or invalid projection -> existing de
   };
 
   it('a throwing provider falls back to native — same correct DISCOVER recommendation as case A', async () => {
-    const runtimeState = resolveJourneyState(KNYTS_BRIDGE_CROSSING_JOURNEY, EMPTY_STATE, {
+    const runtimeState = resolveJourneyState(journey, EMPTY_STATE, {
       'financial-services': 'JOIN_FINANCIAL_SERVICES',
     });
     const outcome = await computeJourneyAeeOutcome({
-      journeyDefinition: KNYTS_BRIDGE_CROSSING_JOURNEY,
+      journeyDefinition: journey,
       runtimeState,
-      hostId: 'knyts-bridge',
+      hostId,
       participantRef: 'test-visitor',
       generatedAt: NOW,
       provider: throwingProvider,
@@ -219,13 +241,13 @@ describe('Case E — no AEE/provider result or invalid projection -> existing de
   });
 
   it('a provider returning a postflight-invalid projection (fabricated capability) falls back to native', async () => {
-    const runtimeState = resolveJourneyState(KNYTS_BRIDGE_CROSSING_JOURNEY, EMPTY_STATE, {
+    const runtimeState = resolveJourneyState(journey, EMPTY_STATE, {
       'financial-services': 'JOIN_FINANCIAL_SERVICES',
     });
     const outcome = await computeJourneyAeeOutcome({
-      journeyDefinition: KNYTS_BRIDGE_CROSSING_JOURNEY,
+      journeyDefinition: journey,
       runtimeState,
-      hostId: 'knyts-bridge',
+      hostId,
       participantRef: 'test-visitor',
       generatedAt: NOW,
       provider: invalidProvider,
@@ -233,7 +255,8 @@ describe('Case E — no AEE/provider result or invalid projection -> existing de
     expect(outcome.projection.fellBackToNative).toBe(true);
     expect(outcome.nbe.targetStageId).toBe('fs-discover');
   });
-});
+  },
+);
 
 describe('AEE never marks a stage complete — structurally, not by convention', () => {
   it('journeyAeeOrchestrator.ts imports no mutation/persistence function and no Supabase client', () => {

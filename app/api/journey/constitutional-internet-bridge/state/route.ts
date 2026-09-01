@@ -26,6 +26,8 @@ import {
   CI_BRIDGE_EXTERNAL_AGENT_EVENT_TYPE,
 } from '@/services/journey/constitutionalInternetBridgeJourney';
 import { resolvePrimaryCompanionForJourney } from '@/services/journey/journeyCopilotResolver';
+import { parseActivatedBranchesParam } from '@/services/journey/journeyBranchActivation';
+import { computeJourneyAeeOutcome } from '@/services/adaptive/journeyAeeOrchestrator';
 
 export const dynamic = 'force-dynamic';
 
@@ -116,12 +118,30 @@ async function getImpl(req: NextRequest) {
     },
   };
 
-  const runtimeState = resolveJourneyState(CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY, platformState);
+  const activatedBranches = parseActivatedBranchesParam(req.nextUrl.searchParams.get('activatedBranches'));
+  const runtimeState = resolveJourneyState(CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY, platformState, activatedBranches);
 
   // AEE-XP-001 §10/XP-5 — see knyts-bridge/state's identical comment.
   runtimeState.resolvedCompanionAgent = (
     await resolvePrimaryCompanionForJourney(req, CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY)
   ).agent;
 
-  return NextResponse.json({ ok: true, state: runtimeState, personaAuthenticated });
+  // XP-1 (AEE-XP-001 §6) — identical wiring to knyts-bridge/state's own
+  // comment: additive `aee` key, never able to fail the request. Same
+  // orchestrator, same AdaptiveInteractionContext path, same projection
+  // contract — no CI-specific AEE logic.
+  let aee: Awaited<ReturnType<typeof computeJourneyAeeOutcome>> | null = null;
+  try {
+    aee = await computeJourneyAeeOutcome({
+      journeyDefinition: CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY,
+      runtimeState,
+      hostId: 'constitutional-internet-bridge',
+      participantRef: persona?.personaId ?? 'anonymous',
+      generatedAt: new Date().toISOString(),
+    });
+  } catch {
+    aee = null; // fall-open — never blocks the response
+  }
+
+  return NextResponse.json({ ok: true, state: runtimeState, personaAuthenticated, aee });
 }
