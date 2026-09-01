@@ -74,6 +74,8 @@ import { ConstitutionalInternetBridgePersonifyMyCanvas } from '@/components/jour
 import { ConstitutionalInternetBridgeStandPanel } from '@/components/journey/ConstitutionalInternetBridgeStandPanel';
 import { ConstitutionalInternetBridgeChooseSurface } from '@/components/journey/ConstitutionalInternetBridgeChooseSurface';
 import { KnytsBridgeAdminPanel } from '@/components/journey/KnytsBridgeAdminPanel';
+import { FinancialSovereigntyIntroStage } from '@/components/journey/FinancialSovereigntyIntroStage';
+import { FinancialSovereigntyPrepareCrossStage } from '@/components/journey/FinancialSovereigntyPrepareCrossStage';
 import { PassportConnectPanel } from '@/components/companion/PassportConnectPanel';
 import { usePassportSignInHost } from '@/app/hooks/usePassportSignInHost';
 import { usePersonaSpine } from '@/utils/personaSpine';
@@ -96,6 +98,8 @@ const CI_BRIDGE_COMPONENTS: Record<string, React.ComponentType<Record<string, un
   ConstitutionalInternetBridgePersonifyMyCanvas,
   ConstitutionalInternetBridgeStandPanel,
   ConstitutionalInternetBridgeChooseSurface,
+  FinancialSovereigntyIntroStage: FinancialSovereigntyIntroStage as unknown as React.ComponentType<Record<string, unknown>>,
+  FinancialSovereigntyPrepareCrossStage: FinancialSovereigntyPrepareCrossStage as unknown as React.ComponentType<Record<string, unknown>>,
 };
 
 function selectStage(stageId: string) {
@@ -159,6 +163,21 @@ export default function ConstitutionalInternetBridgePage() {
       }
       if (surfaceRef.ref === 'ci-bridge-view') {
         return { personaId };
+      }
+      if (surfaceRef.ref === 'ci-bridge-fs-discover') {
+        return { stageKey: 'discover', accent: 'indigo', nextStageId: 'fs-learn' };
+      }
+      if (surfaceRef.ref === 'ci-bridge-fs-learn') {
+        return { stageKey: 'learn', accent: 'indigo', nextStageId: 'fs-explore' };
+      }
+      if (surfaceRef.ref === 'ci-bridge-fs-explore') {
+        return { stageKey: 'explore', accent: 'indigo', nextStageId: 'fs-prepare' };
+      }
+      if (surfaceRef.ref === 'ci-bridge-fs-prepare') {
+        return { mode: 'prepare', accent: 'indigo', sourceJourneyId: 'constitutional-internet-bridge', sourceStageId: 'fs-prepare', nextStageId: 'fs-cross' };
+      }
+      if (surfaceRef.ref === 'ci-bridge-fs-cross') {
+        return { mode: 'cross', accent: 'indigo', sourceJourneyId: 'constitutional-internet-bridge', sourceStageId: 'fs-cross', returnStageId: 'choose' };
       }
       if (
         // Fixed 2026-08-12 (forensic correction pass) — Personify and Stand

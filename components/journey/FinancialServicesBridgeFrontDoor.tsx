@@ -123,6 +123,24 @@ import { MetaAvatarHost } from '@/app/components/metaVatar/MetaAvatarHost';
 import type { JourneyRuntimeState } from '@/types/journey';
 import { HORIZEN_MONEYPENNY_JOURNEY } from '@/services/journey/horizenMoneyPennyJourney';
 import { resolveJourneyOperatorDestination } from '@/services/journey/catalogueDestinationHelper';
+import { decodeExperienceHandoff } from '@/services/journey/experienceHandoffService';
+import { setSelectedPilotAgentSlug } from '@/services/journey/selectedPilotAgent';
+import { resolveRegistrableAgent } from '@/services/horizen/registrableAgents';
+
+/** Sessionstorage key holding the return context from an incoming
+ *  ExperienceHandoff — read by a future "return to <source>" affordance.
+ *  Consuming the handoff never fabricates registration/Passport/delegation
+ *  state; it only pre-selects an agent CANDIDATE and remembers where to
+ *  resume (AEE-XP-001 §4.3, §5). */
+export const FS_BRIDGE_RETURN_CONTEXT_KEY = 'fsHandoffReturnContext';
+
+function selectStage(stageId: string) {
+  try {
+    window.dispatchEvent(new CustomEvent('journey:select-stage', { detail: { stageId } }));
+  } catch {
+    /* non-fatal */
+  }
+}
 
 export function FinancialServicesBridgeFrontDoor() {
   const [personaId, setPersonaId] = useState<string | undefined>(undefined);
@@ -143,6 +161,35 @@ export function FinancialServicesBridgeFrontDoor() {
       if (stored) setPersonaId(stored);
     } catch {
       /* storage unavailable — stays signed-out */
+    }
+  }, []);
+
+  // AEE-XP-001 §4.3/§15 Phase 1 item 6 — consume an incoming ExperienceHandoff
+  // from a KNYTS/CI Financial Sovereignty crossing. This ONLY pre-selects an
+  // agent CANDIDATE (via the SAME shared selectedPilotAgent mechanism every
+  // Horizen surface already reads — services/journey/selectedPilotAgent.ts)
+  // and remembers return context for a future "return to <source>"
+  // affordance; it never sets Passport, delegation, or registration state —
+  // this journey resolves all of that itself, from its own canonical state,
+  // exactly as before.
+  useEffect(() => {
+    try {
+      const token = new URL(window.location.href).searchParams.get('handoff');
+      if (!token) return;
+      const handoff = decodeExperienceHandoff(token);
+      if (!handoff) return;
+      if (handoff.agentCandidateRef && resolveRegistrableAgent(handoff.agentCandidateRef)) {
+        setSelectedPilotAgentSlug(handoff.agentCandidateRef);
+      }
+      if (handoff.returnJourneyId) {
+        window.sessionStorage.setItem(
+          FS_BRIDGE_RETURN_CONTEXT_KEY,
+          JSON.stringify({ returnJourneyId: handoff.returnJourneyId, returnStageId: handoff.returnStageId ?? null }),
+        );
+      }
+      selectStage('register');
+    } catch {
+      /* malformed/absent handoff — proceeds exactly as a direct visit would */
     }
   }, []);
 
