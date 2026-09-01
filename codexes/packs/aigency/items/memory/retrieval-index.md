@@ -4834,3 +4834,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-15a3ba5.md](../build_/COMMITS/COMMIT-15a3ba5.md)
 - Message: Rework Financial Sovereignty as a dormant branch off CHOOSE (AEE-XP-001 §4) [merge review/irl-scoped-restoration-2026-08-27]
+
+## Commit `25797da` — 2026-09-01T07:58:51Z
+- Type: `push`
+- Brief: [COMMIT-25797da.md](../build_/COMMITS/COMMIT-25797da.md)
+- Message: XP-1: first live AEE convergence loop, wired against the FS branch [merge review/irl-scoped-restoration-2026-08-27]

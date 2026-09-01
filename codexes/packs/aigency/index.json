@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-01T07:38:43.534Z",
+  "last_updated": "2026-09-01T08:01:29.598Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "15a3ba5cc18032c15e2c5e4dcc56057ba7791787",
-  "latest_commit_short": "15a3ba5",
-  "latest_commit_title": "Rework Financial Sovereignty as a dormant branch off CHOOSE (AEE-XP-001 §4) [merge review/irl-scoped-restoration-2026-08-27]",
+  "latest_commit": "25797da80a88bde16f7930e9d0e5799580bd63d5",
+  "latest_commit_short": "25797da",
+  "latest_commit_title": "XP-1: first live AEE convergence loop, wired against the FS branch [merge review/irl-scoped-restoration-2026-08-27]",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "25797da",
+      "full_sha": "25797da80a88bde16f7930e9d0e5799580bd63d5",
+      "title": "XP-1: first live AEE convergence loop, wired against the FS branch [merge review/irl-scoped-restoration-2026-08-27]",
+      "author": "Claude",
+      "timestamp": "2026-09-01T07:58:51Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-25797da.md"
+    },
     {
       "sha": "15a3ba5",
       "full_sha": "15a3ba5cc18032c15e2c5e4dcc56057ba7791787",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-21T16:21:33-04:00",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-80e49da.md"
-    },
-    {
-      "sha": "0c4a0af",
-      "full_sha": "0c4a0af42fde7988ea5fae55bcff7b2bc18f5a9e",
-      "title": "Serve canonical Autonomys media assets for public content",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-21T15:58:36-04:00",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-0c4a0af.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
