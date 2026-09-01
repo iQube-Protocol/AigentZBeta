@@ -34,6 +34,23 @@
  * value as, or use it to construct, a raw URL/redirect target directly —
  * that would let an unsigned token steer navigation to an arbitrary
  * destination.
+ *
+ * CLIENT-BUNDLE SAFETY (2026-09-01 correction — the same defect class that
+ * broke this repo's build twice before, see journeyAeeOrchestrator.ts's own
+ * header): both live callers of this module
+ * (FinancialSovereigntyPrepareCrossStage.tsx, FinancialServicesBridgeFrontDoor.tsx)
+ * are `'use client'`. The original encode/decode used `Buffer.from(...)` —
+ * a Node global with no browser equivalent and no polyfill configured in
+ * this repo's next.config.js (grep confirms `Buffer.from` appears nowhere
+ * else outside `app/api/**` server routes). That silently threw
+ * `ReferenceError: Buffer is not defined` in the actual browser: Cross's
+ * onClick handler failed before its `window.location.href` navigation line
+ * ever ran, and `/bridge/fs`'s decode effect failed silently into its own
+ * catch block, treating every real handoff as if it were absent. Replaced
+ * with `btoa`/`atob` + `TextEncoder`/`TextDecoder` — standard Web APIs,
+ * global in both the browser and Node 18+ (this repo already targets Node
+ * 20 — see CLAUDE.md's pdfjs-dist note), so no import, no polyfill, no
+ * server/client split needed.
  */
 
 import type { ExperienceHandoff } from '@/types/experienceHandoff';
@@ -41,12 +58,20 @@ import type { ExperienceHandoff } from '@/types/experienceHandoff';
 const REQUIRED_FIELDS: Array<keyof ExperienceHandoff> = ['handoffId', 'sourceJourneyId', 'targetJourneyId', 'createdAt'];
 
 function base64UrlEncode(json: string): string {
-  return Buffer.from(json, 'utf8').toString('base64url');
+  const bytes = new TextEncoder().encode(json);
+  let binary = '';
+  for (const b of bytes) binary += String.fromCharCode(b);
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
 function base64UrlDecode(token: string): string | null {
   try {
-    return Buffer.from(token, 'base64url').toString('utf8');
+    let base64 = token.replace(/-/g, '+').replace(/_/g, '/');
+    while (base64.length % 4 !== 0) base64 += '=';
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return new TextDecoder().decode(bytes);
   } catch {
     return null;
   }
