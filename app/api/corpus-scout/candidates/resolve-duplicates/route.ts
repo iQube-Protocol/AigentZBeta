@@ -41,9 +41,10 @@ import {
   renderDuplicateDryRun,
   type DuplicateResolutionPlan,
 } from '@/services/corpusScout/duplicateResolution';
-import { buildCohortAuthorization } from '@/services/research/cohortAuthorization';
+import { buildCohortAuthorization, computeCohortHash } from '@/services/research/cohortAuthorization';
 import { writeLifecycleReceipt } from '@/services/research/lifecycle';
 import type { PopulationDisclosure } from '@/services/research/exceptionIsolation';
+import { resolvableDuplicateAliasIds } from '@/services/corpusScout/admissionPreparation';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -58,6 +59,18 @@ interface Body {
   /** Editable; defaults to the system-composed rationale per group. */
   rationale?: string;
   dryRun?: boolean;
+  /**
+   * STALE-COHORT PROTECTION (2026-09-01) — echo of `duplicateCohortHash`
+   * from the pending decision / prepare-recommendations response that showed
+   * this resolution. When present, the route recomputes the CURRENT
+   * resolvable-alias cohort before writing and refuses
+   * (`recommendation-set-changed`) if it no longer matches — the corpus
+   * moved (a source was decided, or a new duplicate appeared) between
+   * preparation and confirmation. Omit to skip the check (unchanged
+   * behaviour for callers that do not carry a prepared-cohort commitment,
+   * e.g. an operator resolving a `groupKeys`-filtered subset ad hoc).
+   */
+  expectedCohortHash?: string;
 }
 
 export async function POST(req: NextRequest) {
@@ -128,6 +141,7 @@ export async function POST(req: NextRequest) {
   });
 
   const preview = dryRunDuplicateResolution(resolved);
+  const currentCohortHash = computeCohortHash(resolvableDuplicateAliasIds(resolved));
 
   if (dryRun) {
     return NextResponse.json({
@@ -136,7 +150,28 @@ export async function POST(req: NextRequest) {
       plans: resolved,
       preview,
       previewLines: renderDuplicateDryRun(preview),
+      cohortHash: currentCohortHash,
     });
+  }
+
+  // STALE-COHORT PROTECTION (2026-09-01) — see the `expectedCohortHash`
+  // field's own doc comment on `Body`. Checked ONLY on the write path: a
+  // stale preview is merely uninformative, but a stale WRITE would resolve
+  // aliases the steward never actually confirmed. Fails closed — nothing is
+  // written when the cohort has moved.
+  if (body.expectedCohortHash && body.expectedCohortHash !== currentCohortHash) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: 'recommendation-set-changed',
+        detail:
+          'The prepared duplicate-resolution cohort no longer matches what was shown — a source may have been ' +
+          'decided, or a new duplicate group may have appeared, since preparation. Refresh recommendations and ' +
+          'reconfirm before resolving.',
+        currentCohortHash,
+      },
+      { status: 409 },
+    );
   }
 
   // ── EXECUTE ───────────────────────────────────────────────────────────────
@@ -186,6 +221,7 @@ export async function POST(req: NextRequest) {
     excludedWithWarnings: 0,
     exceptions: written.length,
     refused: 0,
+    scope: 'current-acquisition-round',
   };
 
   const authorization = buildCohortAuthorization({

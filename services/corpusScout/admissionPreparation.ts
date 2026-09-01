@@ -48,6 +48,35 @@ export interface AdmissionPreparation {
 }
 
 /**
+ * THE ONE DEFINITION of "the eligible cohort" — every recommendation whose
+ * disposition is executable now (`ready` or `ready-with-warning`), never
+ * `exception`/`refused`. Consumed by every caller that needs to know which
+ * source ids a cohort-level admission act would cover — the Copilot's
+ * admission-queue summary, the cohort-staleness check in `bulk-review`, and
+ * any future surface — so none of them re-derives the filter independently
+ * (inv.engineering.036/037).
+ */
+export function eligibleAdmissionCohortIds(recommendations: readonly AdmissionRecommendation[]): string[] {
+  return recommendations
+    .filter((r) => r.disposition === 'ready' || r.disposition === 'ready-with-warning')
+    .map((r) => r.sourceId);
+}
+
+/**
+ * THE ONE DEFINITION of "the resolvable duplicate cohort" — every alias id
+ * across duplicate-resolution plans that already carry a deterministic
+ * recommendation (`kind: 'recommended-resolution-available'`). A group stuck
+ * at `genuine-judgment-required` contributes no alias ids — resolving it is
+ * exactly the per-source steward judgment `resolve-duplicates` never
+ * automates.
+ */
+export function resolvableDuplicateAliasIds(duplicateResolutions: readonly DuplicateResolutionPlan[]): string[] {
+  return duplicateResolutions
+    .filter((p) => p.kind === 'recommended-resolution-available')
+    .flatMap((p) => p.aliasSourceIds);
+}
+
+/**
  * Compute the machine preparation pass for every `pending_review` source in
  * `campaignDomain` — read-only, writes nothing (same contract as
  * `composeAdmissionRecommendation`/`composeDuplicateResolution` themselves).

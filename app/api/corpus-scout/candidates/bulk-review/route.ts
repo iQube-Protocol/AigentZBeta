@@ -50,6 +50,8 @@ import {
 import { isProvenanceClass } from '@/services/corpusScout/types';
 import { writeLifecycleReceipt } from '@/services/research/lifecycle';
 import { personaPublicRef } from '@/services/identity/personaReferences';
+import { prepareAdmissionRecommendations, eligibleAdmissionCohortIds } from '@/services/corpusScout/admissionPreparation';
+import { computeCohortHash } from '@/services/research/cohortAuthorization';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -83,6 +85,26 @@ export async function POST(req: NextRequest) {
     notes?: string;
     provenanceClass?: string;
     dryRun?: boolean;
+    /**
+     * STALE-COHORT PROTECTION (2026-09-01) — the acquisition domain the
+     * caller's `sourceIds` were prepared against, required alongside
+     * `expectedCohortHash` to re-verify. Unrelated to `provenanceClass`
+     * (the evidence-integrity axis); this is which corpus the eligible-
+     * cohort recomputation reads.
+     */
+    campaignDomain?: string;
+    /**
+     * Echo of `admissionCohortHash` from the pending decision / prepare-
+     * recommendations response that showed this cohort. When present
+     * (alongside `campaignDomain`), the route recomputes the CURRENT
+     * eligible cohort for that domain and refuses
+     * (`recommendation-set-changed`) if it no longer matches — the corpus
+     * moved since preparation. Omit to skip the check (unchanged behaviour
+     * for every existing caller — a manual per-source decision, a targeted
+     * rejection, or `BulkAdmissionControl`'s own hand-selected batch carry
+     * no prepared-cohort commitment to verify against).
+     */
+    expectedCohortHash?: string;
   };
 
   const sourceIds = Array.isArray(body.sourceIds)
@@ -148,6 +170,45 @@ export async function POST(req: NextRequest) {
       { ok: false, error: 'a rationale (notes) is required to record a bulk decision — it is written onto every source in the batch' },
       { status: 400 },
     );
+  }
+
+  // STALE-COHORT PROTECTION (2026-09-01) — see `expectedCohortHash`'s own
+  // doc comment above. Checked ONLY on the write path, same posture as
+  // `resolve-duplicates`: a stale dry-run preview is merely uninformative, a
+  // stale WRITE would admit a cohort the steward never actually confirmed.
+  // Recomputes the CURRENT eligible cohort for `campaignDomain` — never
+  // trusts the caller's own `sourceIds` as proof nothing changed, since a
+  // stale caller is exactly the one whose `sourceIds` are wrong.
+  if (!dryRun && body.expectedCohortHash) {
+    const campaignDomain = typeof body.campaignDomain === 'string' ? body.campaignDomain.trim() : '';
+    if (!campaignDomain) {
+      return NextResponse.json(
+        { ok: false, error: 'campaignDomain is required alongside expectedCohortHash to re-verify the prepared cohort' },
+        { status: 400 },
+      );
+    }
+    const fresh = await prepareAdmissionRecommendations(admin, campaignDomain).catch(() => null);
+    if (!fresh) {
+      return NextResponse.json(
+        { ok: false, error: 'could not re-verify the prepared cohort — the recommendation set could not be recomputed just now' },
+        { status: 503 },
+      );
+    }
+    const currentCohortHash = computeCohortHash(eligibleAdmissionCohortIds(fresh.recommendations));
+    if (currentCohortHash !== body.expectedCohortHash) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: 'recommendation-set-changed',
+          detail:
+            'The prepared eligible cohort no longer matches what was shown — a source may have been decided, ' +
+            'discovered, or its recommendation changed since preparation. Refresh recommendations and reconfirm ' +
+            'before admitting.',
+          currentCohortHash,
+        },
+        { status: 409 },
+      );
+    }
   }
 
   const outcomes: BulkOutcome[] = [];

@@ -92,7 +92,12 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { listCandidateSources } from '@/services/corpusScout/provenance';
 import { summarizeAcquisitionSourceUniverse } from '@/services/corpusScout/domainConstitution';
-import { prepareAdmissionRecommendations } from '@/services/corpusScout/admissionPreparation';
+import {
+  prepareAdmissionRecommendations,
+  eligibleAdmissionCohortIds,
+  resolvableDuplicateAliasIds,
+} from '@/services/corpusScout/admissionPreparation';
+import { computeCohortHash } from '@/services/research/cohortAuthorization';
 import type { AdmissionRecommendation } from '@/services/corpusScout/admissionRecommendation';
 import type { DuplicateResolutionPlan } from '@/services/corpusScout/duplicateResolution';
 import {
@@ -618,6 +623,10 @@ export async function loadTrack2ProgrammeState(input: {
         admissionQueue: prepared.recommendations,
         duplicateResolutions: prepared.duplicateResolutions,
         admissionDomain: acquisitionDomain,
+        // Stale-cohort protection (2026-09-01) — see the field's own doc
+        // comment on PendingGovernanceDecision.
+        admissionCohortHash: computeCohortHash(eligibleAdmissionCohortIds(prepared.recommendations)),
+        duplicateCohortHash: computeCohortHash(resolvableDuplicateAliasIds(prepared.duplicateResolutions)),
       };
     }
   }
@@ -1026,6 +1035,25 @@ export interface PendingGovernanceDecision {
    * not have to re-derive or guess it. Present whenever `admissionQueue` is.
    */
   admissionDomain?: string;
+  /**
+   * STALE-COHORT PROTECTION (2026-09-01) — `computeCohortHash` over
+   * `eligibleAdmissionCohortIds(admissionQueue)`, the exact set a cohort
+   * "Admit eligible sources" act would cover. A client that ratifies a
+   * cohort MUST echo this back as `expectedCohortHash` on
+   * `POST /api/corpus-scout/candidates/bulk-review`; the route recomputes it
+   * fresh at write time and refuses (`recommendation-set-changed`) if the
+   * corpus moved since this was shown — the `GlobalStopReason` named in
+   * `exceptionIsolation.ts` but never asserted anywhere until now. Present
+   * whenever `admissionQueue` is (may be the hash of an empty cohort).
+   */
+  admissionCohortHash?: string;
+  /**
+   * The SAME protection, over `resolvableDuplicateAliasIds(duplicateResolutions)`
+   * — echoed back as `expectedCohortHash` on
+   * `POST /api/corpus-scout/candidates/resolve-duplicates`. Present whenever
+   * `duplicateResolutions` is.
+   */
+  duplicateCohortHash?: string;
 }
 
 /** One evidence row resolved for a review card — an EXCERPT (never the full
