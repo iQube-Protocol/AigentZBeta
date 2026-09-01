@@ -4854,3 +4854,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-cfd0ac9.md](../build_/COMMITS/COMMIT-cfd0ac9.md)
 - Message: Fix build-breaking node:crypto leak into client bundles (15 failed deploys) [merge review/irl-scoped-restoration-2026-08-27]
+
+## Commit `19553af` — 2026-09-01T10:30:13Z
+- Type: `push`
+- Brief: [COMMIT-19553af.md](../build_/COMMITS/COMMIT-19553af.md)
+- Message: Activate generic experience-evidence loop; FS DISCOVER first proof [merge review/irl-scoped-restoration-2026-08-27]

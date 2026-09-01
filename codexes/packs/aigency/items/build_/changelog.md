@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`19553af`](https://github.com/iQube-Protocol/AigentZBeta/commit/19553af9778657152e2bb5c5a49fa4da2d3d8302) [push] Activate generic experience-evidence loop; FS DISCOVER first proof [merge review/irl-scoped-restoration-2026-08-27] (Claude, 2026-09-01T10:30:13Z)
 - [`cfd0ac9`](https://github.com/iQube-Protocol/AigentZBeta/commit/cfd0ac9c48f666a7f75f8d4b9fd7c7a65340b80e) [fix] Fix build-breaking node:crypto leak into client bundles (15 failed deploys) [merge review/irl-scoped-restoration-2026-08-27] (Claude, 2026-09-01T09:22:20Z)
 - [`70fdc87`](https://github.com/iQube-Protocol/AigentZBeta/commit/70fdc87d7fe3f64f2ada313ece1c9e49dc34ddb6) [push] CI AEE parity: identical wiring to KNYTS, no CI-specific logic [merge review/irl-scoped-restoration-2026-08-27] (Claude, 2026-09-01T08:31:00Z)
 - [`e21460f`](https://github.com/iQube-Protocol/AigentZBeta/commit/e21460f8396559d38cc88c58092a90b27873f215) [push] XP-1 follow-up: branch activation triggers immediate re-evaluation [merge review/irl-scoped-restoration-2026-08-27] (Claude, 2026-09-01T08:21:52Z)
