@@ -28,6 +28,7 @@ import { buildCodexUrl } from '@/utils/codex-nav';
 import { JOURNEY_SURFACES, buildEmbedSurfaceSrc, type JourneySurfaceDescriptor } from '@/services/journey/journeySurfaceRegistry';
 import { requestBridgeEmbedReturn } from '@/services/journey/bridgeEmbedNav';
 import { isJourneyBranchActivated, serializeActivatedBranchesForJourney } from '@/services/journey/journeyBranchActivation';
+import { shouldReEvaluateAeeProjection, type JourneyReEvaluationTrigger } from '@/services/adaptive/journeyAeeOrchestrator';
 import { StageReceiptsDrawer } from '@/components/journey/StageReceiptsDrawer';
 import { JourneyCopilotHost } from '@/components/journey/JourneyCopilotHost';
 import { ActivePersonaControl } from '@/components/persona/ActivePersonaControl';
@@ -703,16 +704,32 @@ export function JourneyRunSurface({
   // Companion synchronization (PRD-GJR-001 §11.5): one journey state, multiple
   // authorized renderers. Location and context only — this never completes a
   // stage (§11.7 temporary invariant).
+  //
+  // Immediate re-evaluation (XP-1 follow-up, AEE-XP-001 §6, 2026-09-01) —
+  // the SAME `journey:select-stage` event now optionally carries `trigger`
+  // (e.g. `activateJourneyBranch`'s 'branch-intent-change'). When present,
+  // `shouldReEvaluateAeeProjection` — the real typed re-evaluation contract
+  // (services/adaptive/journeyAeeOrchestrator.ts) — decides whether to
+  // refetch authoritative state via the SAME `refresh()` this component
+  // already uses for every other trigger (mount, auth transition, manual
+  // button). No second event bus, no client-side recommendation engine:
+  // this listener only decides WHETHER to ask the server again; the server
+  // (resolveJourneyState + computeJourneyAeeOutcome) still owns every
+  // actual answer.
   useEffect(() => {
     const onSelect = (e: Event) => {
-      const stageId = (e as CustomEvent<{ stageId?: string }>).detail?.stageId;
+      const detail = (e as CustomEvent<{ stageId?: string; trigger?: JourneyReEvaluationTrigger }>).detail;
+      const stageId = detail?.stageId;
       if (typeof stageId === 'string' && journey.stages.some((s) => s.id === stageId)) {
         setSelectedStageId(stageId);
+      }
+      if (detail?.trigger && shouldReEvaluateAeeProjection(detail.trigger)) {
+        void refresh(detail.trigger);
       }
     };
     window.addEventListener('journey:select-stage', onSelect);
     return () => window.removeEventListener('journey:select-stage', onSelect);
-  }, [journey]);
+  }, [journey, refresh]);
 
   const selectStage = useCallback((stageId: string) => {
     setSelectedStageId(stageId);
