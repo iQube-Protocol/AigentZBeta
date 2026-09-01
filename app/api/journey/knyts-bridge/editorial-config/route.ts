@@ -19,8 +19,8 @@ import { getCommunityContentSupabase } from '@/app/api/community-content/_lib/pe
 import {
   getKnytsBridgeEditorialSection,
   upsertKnytsBridgeEditorialSection,
+  KNYTS_BRIDGE_ALLOWED_SECTIONS,
 } from '@/services/journey/knytsBridgeEditorialConfig';
-import { CI_BRIDGE_VIEW_CONTENT } from '@/services/journey/constitutionalInternetBridgeViewContent';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,20 +40,10 @@ export const dynamic = 'force-dynamic';
  * this pass (operator instruction, 2026-08-11: reuse for speed now, don't
  * let naming cleanup expand this build).
  */
-const ALLOWED_SECTIONS = new Set([
-  'home',
-  'orient',
-  'choose',
-  'ci-home',
-  'ci-orient',
-  'ci-passport-established',
-  ...CI_BRIDGE_VIEW_CONTENT.map((block) => `ci-view-${block.id}`),
-]);
-
 export async function GET(req: NextRequest) {
   try {
     const section = req.nextUrl.searchParams.get('section')?.trim() || 'home';
-    if (!ALLOWED_SECTIONS.has(section)) {
+    if (!KNYTS_BRIDGE_ALLOWED_SECTIONS.has(section)) {
       return NextResponse.json({ ok: false, error: `Unknown section: ${section}` }, { status: 400 });
     }
     const supabase = getCommunityContentSupabase();
@@ -71,14 +61,14 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
-  const isAdmin = await requireAdminPersona(req);
-  if (!isAdmin) {
-    return NextResponse.json({ ok: false, error: 'admin required' }, { status: 403 });
-  }
   try {
+    const isAdmin = await requireAdminPersona(req);
+    if (!isAdmin) {
+      return NextResponse.json({ ok: false, error: 'admin required' }, { status: 403 });
+    }
     const body = await req.json();
     const section = typeof body?.section === 'string' ? body.section.trim() : 'home';
-    if (!ALLOWED_SECTIONS.has(section)) {
+    if (!KNYTS_BRIDGE_ALLOWED_SECTIONS.has(section)) {
       return NextResponse.json({ ok: false, error: `Unknown section: ${section}` }, { status: 400 });
     }
     const persona = await getActivePersona(req).catch(() => null);
