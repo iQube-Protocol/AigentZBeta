@@ -105,32 +105,115 @@ function satisfactionConditionMet(
 }
 
 /**
- * Evaluate a stage's dependencies (JOURNEY SPINE EXTENSION).
- * DAG-style dependency evaluation vs. linear prerequisite check.
- *
- * Returns true if all dependencies are met, false otherwise.
- * If no dependencies are provided, returns true (no dependencies).
+ * Flattens EVERY stage's evidence record into one global receipts map
+ * (a key counts as present if truthy under ANY stage) for evaluating
+ * conditions that may reference facts outside the declaring stage's own
+ * namespace — e.g. a dependency naming a settled fact/receipt another
+ * stage's evidence carries. No live journey does this yet (grep confirms
+ * every `dependencies:` declaration today is `[]`), but `dependenciesMet`
+ * below (XP-1, AEE-XP-001 §6) is the first REAL consumer, so a
+ * single-stage-scoped view would be wrong the moment one is declared.
+ */
+function toConditionEvaluatorState(
+  authoritativePlatformState: AuthoritativePlatformState,
+): ConditionEvaluatorState {
+  const conditionState: ConditionEvaluatorState = { settledFacts: {}, receiptsByType: {} };
+  for (const evidence of Object.values(authoritativePlatformState.stages)) {
+    if (!evidence) continue;
+    for (const [key, value] of Object.entries(evidence)) {
+      if (value !== undefined && value !== null && value !== false && value !== '') {
+        conditionState.receiptsByType[key] = true;
+      }
+    }
+  }
+  return conditionState;
+}
+
+/**
+ * Evaluate a stage's dependencies (JOURNEY SPINE EXTENSION, made real for
+ * XP-1 — AEE-XP-001 §6). DAG-style dependency evaluation vs. linear
+ * prerequisite check: every declared `ConditionExpression` must evaluate
+ * true against the FULL authoritative platform state (not just this
+ * stage's own evidence — a dependency may reference another stage's
+ * evidence namespace). Evaluation failure (malformed expression) is
+ * treated as not-yet-satisfied, mirroring `satisfactionConditionMet`'s own
+ * fail-closed discipline — never a blocker crash, never a fabricated pass.
  */
 function dependenciesMet(
   dependencies: ConditionExpression[] | undefined,
-  authoritableState: AuthoritativePlatformState,
-  allStageStates: JourneyStageRuntimeState[],
+  authoritativePlatformState: AuthoritativePlatformState,
 ): boolean {
   if (!dependencies || dependencies.length === 0) return true;
+  const conditionState = toConditionEvaluatorState(authoritativePlatformState);
+  return dependencies.every((dep) => {
+    try {
+      return evaluateCondition(dep, conditionState);
+    } catch (err) {
+      console.warn('dependency evaluation failed for stage:', err);
+      return false;
+    }
+  });
+}
 
-  // For now, dependencies are evaluated the same way as satisfaction conditions
-  // TODO: Once more sophisticated dependency types are needed, enhance this
-  // For the initial implementation, all dependencies are treated as conditions
-  // that must be evaluated against the collected evidence
+/**
+ * DAG-correct reachability (XP-1, AEE-XP-001 §6) — independent of the
+ * legacy linear `state==='READY'` computation above (see
+ * `JourneyRuntimeState.reachableStageIds`'s own doc comment in
+ * types/journey.ts for why). A stage is reachable when: it is not already
+ * COMPLETE; every `prerequisites` entry is COMPLETE (an `optional`
+ * prerequisite is exempt, mirroring `prerequisitesMet` above); its
+ * `dependencies` are met; and — if it declares `activationBranch` — that
+ * branch is present in `activatedBranches`. Order matches the journey's own
+ * declared stage order, so `nextStageId` (the first reachable id) is
+ * deterministic and matches "what a visitor would naturally reach next."
+ *
+ * FOCUS RULE, once any branch is activated: the reachable set narrows to
+ * ONLY that branch's own stages — the always-open ambient stages (home,
+ * view, orient, choose, ...) drop out. Without this, "home" (no
+ * prerequisites, never gates) would always sort first by declared array
+ * order and permanently outrank a just-activated branch's own first stage,
+ * which defeats the entire point of declaring an intent. A visitor who
+ * has said "I want Financial Services" is asking to be guided through
+ * THAT branch, not offered the same ambient narrative pages available
+ * before they said anything.
+ */
+export function computeJourneyReachability(
+  journeyDefinition: JourneyDefinition,
+  stageStates: JourneyStageRuntimeState[],
+  activatedBranches: Record<string, string> | undefined,
+  authoritativePlatformState: AuthoritativePlatformState,
+): { reachableStageIds: string[]; nextStageId: string | null } {
+  const stateById = new Map(stageStates.map((s) => [s.stageId, s]));
+  const anyBranchActivated = !!activatedBranches && Object.keys(activatedBranches).length > 0;
+  const reachableStageIds: string[] = [];
 
-  // This is a placeholder for more sophisticated DAG evaluation
-  // Current implementation: all dependencies must evaluate to true
-  return true; // TODO: Implement full dependency evaluation
+  for (const stage of journeyDefinition.stages) {
+    const runtime = stateById.get(stage.id);
+    if (!runtime || runtime.state === 'COMPLETE') continue;
+    if (stage.activationBranch) {
+      if (!activatedBranches?.[stage.activationBranch]) continue; // still dormant
+    } else if (anyBranchActivated) {
+      continue; // focused on the activated branch — ambient stages step aside
+    }
+
+    const prerequisitesMet = stage.prerequisites.every((prereqId) => {
+      const prereqDefinition = journeyDefinition.stages.find((s) => s.id === prereqId);
+      if (prereqDefinition?.requirement === 'optional') return true;
+      return stateById.get(prereqId)?.state === 'COMPLETE';
+    });
+    if (!prerequisitesMet) continue;
+    if (!dependenciesMet(stage.dependencies, authoritativePlatformState)) continue;
+
+    reachableStageIds.push(stage.id);
+  }
+
+  return { reachableStageIds, nextStageId: reachableStageIds[0] ?? null };
 }
 
 export function resolveJourneyState(
   journeyDefinition: JourneyDefinition,
   authoritativePlatformState: AuthoritativePlatformState,
+  activatedBranches?: Record<string, string>,
 ): JourneyRuntimeState {
   const stageStates: JourneyStageRuntimeState[] = [];
   let currentStageId = journeyDefinition.stages[0]?.id ?? '';
@@ -183,11 +266,7 @@ export function resolveJourneyState(
     });
 
     // JOURNEY SPINE EXTENSION: Evaluate dependencies alongside prerequisites
-    const dependenciesMet_ = dependenciesMet(
-      stage.dependencies,
-      authoritativePlatformState,
-      stageStates,
-    );
+    const dependenciesMet_ = dependenciesMet(stage.dependencies, authoritativePlatformState);
 
     if (isRefused) {
       state = 'REFUSED';
@@ -268,6 +347,13 @@ export function resolveJourneyState(
     if (firstIncomplete) currentStageId = firstIncomplete.stageId;
   }
 
+  const reachability = computeJourneyReachability(
+    journeyDefinition,
+    stageStates,
+    activatedBranches,
+    authoritativePlatformState,
+  );
+
   return {
     journeyId: journeyDefinition.id,
     journeyVersion: journeyDefinition.version,
@@ -275,5 +361,8 @@ export function resolveJourneyState(
     currentStageId,
     stages: stageStates,
     complete,
+    ...(activatedBranches ? { activatedBranches } : {}),
+    reachableStageIds: reachability.reachableStageIds,
+    nextReachableStageId: reachability.nextStageId,
   };
 }

@@ -69,3 +69,46 @@ export function getJourneyBranchIntent(journeyId: string, branch: string): strin
     return null;
   }
 }
+
+/**
+ * Server-safe (no `window` access) — parses the `?activatedBranches=`
+ * query param a state route reads (`branch:intent,branch2:intent2`) into
+ * the `Record<branch, intent>` shape `resolveJourneyState` accepts
+ * (types/journey.ts's `JourneyRuntimeState.activatedBranches`, XP-1
+ * AEE-XP-001 §6). This is how a real client gesture — declared via
+ * `activateJourneyBranch` above — reaches the server honestly: relayed by
+ * the client that already holds it, never re-derived or guessed
+ * server-side.
+ */
+export function parseActivatedBranchesParam(raw: string | null | undefined): Record<string, string> | undefined {
+  if (!raw) return undefined;
+  const result: Record<string, string> = {};
+  for (const pair of raw.split(',')) {
+    const [branch, intent] = pair.split(':');
+    if (branch?.trim() && intent?.trim()) result[branch.trim()] = intent.trim();
+  }
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
+/**
+ * Client-only — the inverse of `parseActivatedBranchesParam`: serializes
+ * every branch this journey declares that is CURRENTLY activated (per
+ * sessionStorage) into the query-param string a state-route fetch should
+ * append. Empty string when nothing is activated — callers should omit the
+ * param entirely rather than send `?activatedBranches=`.
+ */
+export function serializeActivatedBranchesForJourney(journey: {
+  id: string;
+  stages: Array<{ activationBranch?: string }>;
+}): string {
+  const branches = new Set(
+    journey.stages.map((s) => s.activationBranch).filter((b): b is string => Boolean(b)),
+  );
+  const pairs: string[] = [];
+  for (const branch of branches) {
+    if (!isJourneyBranchActivated(journey.id, branch)) continue;
+    const intent = getJourneyBranchIntent(journey.id, branch);
+    if (intent) pairs.push(`${branch}:${intent}`);
+  }
+  return pairs.join(',');
+}
