@@ -52,6 +52,8 @@ async function postImpl(req: NextRequest) {
   const journeyId = typeof body?.journeyId === 'string' ? body.journeyId : null;
   const stageId = typeof body?.stageId === 'string' ? body.stageId : null;
   const surfaceRef = typeof body?.surfaceRef === 'string' ? body.surfaceRef : null;
+  const interactionKind = typeof body?.interactionKind === 'string' ? body.interactionKind : undefined;
+  const capabilityId = typeof body?.capabilityId === 'string' ? body.capabilityId : undefined;
 
   if (!journeyId || !stageId) {
     return NextResponse.json(
@@ -65,6 +67,8 @@ async function postImpl(req: NextRequest) {
     journeyId,
     stageId,
     surfaceRef,
+    interactionKind,
+    capabilityId,
   });
 
   return NextResponse.json({ ok: true });

@@ -28,7 +28,7 @@ import {
 import { resolvePrimaryCompanionForJourney } from '@/services/journey/primaryCompanionResolver';
 import { parseActivatedBranchesParam } from '@/services/journey/journeyBranchActivation';
 import { computeJourneyAeeOutcome } from '@/services/adaptive/journeyAeeOrchestrator';
-import { hasObservedExperienceInteraction } from '@/services/journey/experienceObservationPromotion';
+import { hasDiscoveredFinancialSovereignty, hasLearnedFinancialSovereignty, hasExploredFinancialSovereignty } from '@/services/journey/financialSovereigntyEvidence';
 
 export const dynamic = 'force-dynamic';
 
@@ -112,12 +112,12 @@ async function getImpl(req: NextRequest) {
   }
 
   // AEE-XP-001 §10/XP-6 — see knyts-bridge/state's identical comment. Same
-  // generic promotion seam, same read, no CI-specific logic.
-  const discoverExperienceObserved = await hasObservedExperienceInteraction(
-    persona?.personaId ?? null,
-    CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY.id,
-    'fs-discover',
-  );
+  // generic promotion seam, same reads, no CI-specific logic.
+  const [discoverExperienceObserved, learnExperienceQualified, exploreCapabilityInteracted] = await Promise.all([
+    hasDiscoveredFinancialSovereignty(persona?.personaId ?? null, CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY.id),
+    hasLearnedFinancialSovereignty(persona?.personaId ?? null, CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY.id),
+    hasExploredFinancialSovereignty(persona?.personaId ?? null, CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY.id),
+  ]);
 
   const platformState: AuthoritativePlatformState = {
     stages: {
@@ -125,6 +125,8 @@ async function getImpl(req: NextRequest) {
       personify: { agentRelationshipStarted: dispositionRecorded || externalAgentConnected },
       stand: { constitutionalEventRecorded },
       'fs-discover': { discoverExperienceObserved },
+      'fs-learn': { learnExperienceQualified },
+      'fs-explore': { exploreCapabilityInteracted },
     },
   };
 

@@ -27,7 +27,7 @@ import { KNYTS_BRIDGE_CROSSING_JOURNEY, KNYTS_BRIDGE_CAMPAIGN_ID } from '@/servi
 import { resolvePrimaryCompanionForJourney } from '@/services/journey/primaryCompanionResolver';
 import { parseActivatedBranchesParam } from '@/services/journey/journeyBranchActivation';
 import { computeJourneyAeeOutcome } from '@/services/adaptive/journeyAeeOrchestrator';
-import { hasObservedExperienceInteraction } from '@/services/journey/experienceObservationPromotion';
+import { hasDiscoveredFinancialSovereignty, hasLearnedFinancialSovereignty, hasExploredFinancialSovereignty } from '@/services/journey/financialSovereigntyEvidence';
 
 export const dynamic = 'force-dynamic';
 
@@ -108,14 +108,15 @@ async function getImpl(req: NextRequest) {
   }
 
   // AEE-XP-001 §10/XP-6 — the generic experience-observation promotion
-  // seam's first live read. A pure fact lookup (never a write); `fs-discover`
-  // is the only stage whose `completionEvidence` currently consumes it (see
-  // knytsBridgeCrossingJourney.ts's own comment on that stage).
-  const discoverExperienceObserved = await hasObservedExperienceInteraction(
-    persona?.personaId ?? null,
-    KNYTS_BRIDGE_CROSSING_JOURNEY.id,
-    'fs-discover',
-  );
+  // seam's live reads. Pure fact lookups (never a write). DISCOVER stays
+  // the deliberately weak "any observed Continue" bar; LEARN/EXPLORE
+  // (2026-09-01 follow-up) require the stronger, kind-discriminated basis
+  // — see financialSovereigntyEvidence.ts's own header comment.
+  const [discoverExperienceObserved, learnExperienceQualified, exploreCapabilityInteracted] = await Promise.all([
+    hasDiscoveredFinancialSovereignty(persona?.personaId ?? null, KNYTS_BRIDGE_CROSSING_JOURNEY.id),
+    hasLearnedFinancialSovereignty(persona?.personaId ?? null, KNYTS_BRIDGE_CROSSING_JOURNEY.id),
+    hasExploredFinancialSovereignty(persona?.personaId ?? null, KNYTS_BRIDGE_CROSSING_JOURNEY.id),
+  ]);
 
   const platformState: AuthoritativePlatformState = {
     stages: {
@@ -123,6 +124,8 @@ async function getImpl(req: NextRequest) {
       remix: { crossingPublished },
       stand: { crossingHasConsequence },
       'fs-discover': { discoverExperienceObserved },
+      'fs-learn': { learnExperienceQualified },
+      'fs-explore': { exploreCapabilityInteracted },
     },
   };
 

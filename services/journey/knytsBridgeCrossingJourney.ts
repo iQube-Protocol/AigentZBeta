@@ -256,9 +256,14 @@ export const KNYTS_BRIDGE_CROSSING_JOURNEY: JourneyDefinition = {
     //    `completionEvidence` is real, sourced from an actual observed
     //    interaction (services/journey/experienceObservationPromotion.ts),
     //    read into AuthoritativePlatformState by
-    //    app/api/journey/knyts-bridge/state/route.ts. LEARN/EXPLORE remain
-    //    gate-less this pass — mechanically identical follow-ups, not yet
-    //    wired.
+    //    app/api/journey/knyts-bridge/state/route.ts. LEARN/EXPLORE now
+    //    also carry real `completionEvidence` (2026-09-01 follow-up), but a
+    //    STRONGER, kind-discriminated bar than DISCOVER's plain presence
+    //    check — see `hasQualifyingExperienceInteraction` and
+    //    FinancialSovereigntyIntroStage.tsx's header comment: LEARN
+    //    requires all three FS concept cards acknowledged, EXPLORE requires
+    //    at least one real MoneyPenny capability interacted with. A page
+    //    render or a single undifferentiated click can never satisfy either.
     {
       id: 'fs-discover',
       label: 'Discover',
@@ -284,7 +289,7 @@ export const KNYTS_BRIDGE_CROSSING_JOURNEY: JourneyDefinition = {
       surfaces: [{ mode: 'component', ref: 'knyts-bridge-fs-learn', note: 'FinancialSovereigntyIntroStage (learn) — amber preset.' }],
       prerequisites: [],
       permittedActions: [],
-      completionEvidence: [],
+      completionEvidence: ['learnExperienceQualified'],
       receiptTypes: [],
       receiptsSurfacedNatively: true,
       companion: { before: 'What a Financial Services agent actually does — and what it never does without you.', complete: '' },
@@ -300,7 +305,7 @@ export const KNYTS_BRIDGE_CROSSING_JOURNEY: JourneyDefinition = {
       surfaces: [{ mode: 'component', ref: 'knyts-bridge-fs-explore', note: 'FinancialSovereigntyIntroStage (explore) — amber preset; projects the real serviceCatalog.' }],
       prerequisites: [],
       permittedActions: [],
-      completionEvidence: [],
+      completionEvidence: ['exploreCapabilityInteracted'],
       receiptTypes: [],
       receiptsSurfacedNatively: true,
       companion: { before: 'The Financial Services you can reach once your agent is registered.', complete: '' },

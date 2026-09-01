@@ -51,6 +51,19 @@ export interface PromoteExperienceObservationInput {
   /** The journeySurfaceRegistry ref the interaction occurred on, for audit/debugging only. */
   surfaceRef?: string | null;
   summary?: string;
+  /**
+   * Discriminates WHAT KIND of interaction was observed, e.g.
+   * 'learn-concept-acknowledged' or 'moneypenny-capability-interacted' —
+   * never a new ActivityActionType, just a richer `actionInput` on the same
+   * generic literal (AEE-XP-001 §10/XP-6 follow-up, 2026-09-01: "the
+   * plumbing is mechanical; the evidence semantics are not"). Omitted for
+   * the plain "any observed interaction" bar (fs-discover's own model).
+   */
+  interactionKind?: string;
+  /** The specific concept/capability this interaction was about, e.g. an
+   *  FS learning-concept id ('advisor'/'architect'/'runtime') or a real
+   *  `FinancialServiceDefinition.id` — never a free-text label. */
+  capabilityId?: string;
 }
 
 /**
@@ -73,6 +86,8 @@ export async function promoteExperienceObservation(
       journeyId: input.journeyId,
       stageId: input.stageId,
       surfaceRef: input.surfaceRef ?? null,
+      interactionKind: input.interactionKind ?? null,
+      capabilityId: input.capabilityId ?? null,
       // Explicit provenance tag (AEE-XP-001A invariant) — this is OBSERVED
       // behavior, never promoted to 'declared' by this or any other path.
       provenance: 'observed',
@@ -102,4 +117,45 @@ export async function hasObservedExperienceInteraction(
     const actionInput = r.actionInput as Record<string, unknown> | null;
     return actionInput?.experienceRef === experienceRef;
   });
+}
+
+/**
+ * The STRONGER bar (AEE-XP-001 §10/XP-6 follow-up, 2026-09-01): satisfied
+ * only by observed interactions carrying the given `interactionKind` AND
+ * covering every id in `requiredCapabilityIds` — never by mere presence of
+ * any receipt for the stage. "Observed engagement is evidence of
+ * engagement. It is not automatically evidence of competence" — this is
+ * the read side of that rule. Used by LEARN (all three FS concept cards
+ * acknowledged) and EXPLORE (at least one real MoneyPenny capability
+ * interacted with — pass a single-element `requiredCapabilityIds` of the
+ * literal wildcard '*' to mean "any one real capability id", never "any
+ * receipt regardless of kind").
+ */
+export async function hasQualifyingExperienceInteraction(
+  personaId: string | null | undefined,
+  journeyId: string,
+  stageId: string,
+  interactionKind: string,
+  requiredCapabilityIds: readonly string[],
+): Promise<boolean> {
+  if (!personaId) return false;
+  const experienceRef = buildExperienceRef(journeyId, stageId);
+  const receipts = await listActivityReceiptsForPersona(personaId, {
+    actionTypes: ['experience_interaction_observed'],
+    limit: 200,
+  });
+  const observedCapabilityIds = new Set<string>();
+  for (const r of receipts) {
+    const actionInput = r.actionInput as Record<string, unknown> | null;
+    if (actionInput?.experienceRef !== experienceRef) continue;
+    if (actionInput?.interactionKind !== interactionKind) continue;
+    const capabilityId = actionInput?.capabilityId;
+    if (typeof capabilityId === 'string' && capabilityId.length > 0) {
+      observedCapabilityIds.add(capabilityId);
+    }
+  }
+  if (requiredCapabilityIds.length === 1 && requiredCapabilityIds[0] === '*') {
+    return observedCapabilityIds.size > 0;
+  }
+  return requiredCapabilityIds.every((id) => observedCapabilityIds.has(id));
 }
