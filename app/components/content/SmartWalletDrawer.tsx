@@ -21,6 +21,7 @@ import type { QriptoDenomination } from "@/services/qriptocent/settlement/types"
 import { useEthPrice } from "@/app/hooks/useEthPrice";
 import { useSupabaseSessionPersonas } from "@/app/hooks/useSupabaseSessionPersonas";
 import { getSupabaseBrowserClient } from "@/utils/supabaseBrowser";
+import { personaFetch } from "@/utils/personaSpine";
 import { useMetaAvatar } from "@/app/contexts/MetaAvatarContext";
 import { PassportConnectPanel, type PassportFacts } from "@/components/companion/PassportConnectPanel";
 import { PasskeyEnrolmentPanel } from "@/components/passport/PasskeyEnrolmentPanel";
@@ -2787,10 +2788,17 @@ export default function SmartWalletDrawer({
     }
 
     try {
-      const r = await fetch("/api/wallet/qct/convert/usdc-to-qc", {
+      // Authorization repair (2026-09-01): the route resolves the wallet
+      // subject server-side from the authenticated caller — a body-supplied
+      // personaId is no longer read or trusted. personaFetch attaches the
+      // Bearer token and the caller's persona SELECTION as personaIdHint
+      // (getActivePersona validates it's actually owned by this caller),
+      // the same pattern this file already uses for /api/wallet/principal/status.
+      const r = await personaFetch("/api/wallet/qct/convert/usdc-to-qc", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ personaId: effectivePersonaId, usdcAmount: n, destination: convertDestination }),
+        body: JSON.stringify({ usdcAmount: n, destination: convertDestination }),
+        personaIdHint: effectivePersonaId,
       });
 
       const j = await r.json().catch(() => ({}));
