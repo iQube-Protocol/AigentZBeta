@@ -247,7 +247,26 @@ export async function listCandidateSources(
   if (filter.campaignDomain) query = query.eq('campaign_domain', filter.campaignDomain);
   if (filter.reviewWorkflowStatus) query = query.eq('review_workflow_status', filter.reviewWorkflowStatus);
   const { data, error } = await query;
-  if (error) return [];
+  // THROW, never swallow to `[]` (RES-2026-09-01-TRACK2-FAIL-SOFT-SWALLOWED-001).
+  // A genuine query failure (a Postgres statement timeout, a dropped
+  // connection, an RLS error) and a genuinely empty corpus are DIFFERENT
+  // facts, and every caller that matters already depends on being able to
+  // tell them apart: `resolveTrack2Population` (services/research/
+  // track2Population.ts) wraps this call in its own try/catch specifically
+  // to report a field as `unreadable` rather than a false zero — "a zero
+  // that means 'unknown' is precisely the dishonesty this work exists to
+  // remove" — and `loadTrack2ProgrammeState` (services/research/
+  // researchProgrammeOrchestrator.ts) wraps every caller of this function in
+  // `.catch(() => null)` so an unreadable signal renders as the programme's
+  // own `unknown` stage status, never `not-started`/`complete`. Returning
+  // `[]` here defeated BOTH of those already-written safeguards silently: a
+  // transient read failure was indistinguishable from a genuinely empty
+  // corpus, which is exactly the "34 admitted / 18 pending" corpus reading
+  // as "0 discovered, 0 admitted" oscillation this fix closes. A caller that
+  // still wants fail-soft-to-empty behaviour on failure (e.g.
+  // crystalAcquisitionJob.ts) already writes `.catch(() => [])` explicitly
+  // at its own call site — that stays correct either way.
+  if (error) throw new Error(`corpus_candidate_sources query failed: ${error.message}`);
   return (data ?? []).map(toCandidateSourceRow).map((row) => ({
     ...row,
     normalizedTextChars: row.normalizedText.length,
