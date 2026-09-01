@@ -418,7 +418,7 @@ export interface JourneyRuntimeState {
   /**
    * AEE-XP-001 §10/XP-5 (2026-09-01) — the canonical companion role occupant
    * for THIS caller, resolved server-side by `resolvePrimaryCompanionForJourney`
-   * (services/journey/journeyCopilotResolver.ts) from the real
+   * (services/journey/primaryCompanionResolver.ts) from the real
    * `resolveAigentMeIdentity` persona-assignment spine — never guessed from
    * surface-local configuration. Carries ONLY the agent identity (id/name);
    * accent/prompt/quickPrompts always stay whatever the journey's static

@@ -25,7 +25,7 @@ import {
   CI_BRIDGE_CAMPAIGN_ID,
   CI_BRIDGE_EXTERNAL_AGENT_EVENT_TYPE,
 } from '@/services/journey/constitutionalInternetBridgeJourney';
-import { resolvePrimaryCompanionForJourney } from '@/services/journey/journeyCopilotResolver';
+import { resolvePrimaryCompanionForJourney } from '@/services/journey/primaryCompanionResolver';
 import { parseActivatedBranchesParam } from '@/services/journey/journeyBranchActivation';
 import { computeJourneyAeeOutcome } from '@/services/adaptive/journeyAeeOrchestrator';
 

@@ -35,7 +35,7 @@ import {
   consequenceProngCopy,
 } from '@/services/journey/consequenceForkProjection';
 import { HORIZEN_MONEYPENNY_JOURNEY } from '@/services/journey/horizenMoneyPennyJourney';
-import { resolvePrimaryCompanionForJourney } from '@/services/journey/journeyCopilotResolver';
+import { resolvePrimaryCompanionForJourney } from '@/services/journey/primaryCompanionResolver';
 import { resolveRequestOrigin } from '@/app/api/agents/_lib/requestOrigin';
 import { resolveRegistrableAgent, DEFAULT_REGISTRABLE_AGENT_SLUG } from '@/services/horizen/registrableAgents';
 import { resolveAgentRegistrationState } from '@/services/horizen/agentRegistrationBinding';

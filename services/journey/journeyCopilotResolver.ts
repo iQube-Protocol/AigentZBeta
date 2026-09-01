@@ -15,10 +15,8 @@
  * to a generic/placeholder agent (CLAUDE.md's No-Guessing rule).
  */
 
-import type { NextRequest } from 'next/server';
 import { getCodexBySlug } from '@/data/codex-configs';
 import type { JourneyDefinition } from '@/types/journey';
-import { resolveAigentMeIdentity, DEFAULT_AIGENT_ME_IDENTITY } from '@/services/agents/aigentMeRoleResolution';
 
 export interface ResolvedJourneyCopilot {
   agent: { id: string; name: string };
@@ -52,51 +50,22 @@ export function resolveJourneyCopilot(journey: JourneyDefinition): ResolvedJourn
 
 /**
  * `resolveJourneyCopilot` above stays a PURE, synchronous, config-only
- * resolver — every existing call site and canary that depends on that
- * (tests/*-journey-copilot*.test.ts) keeps working unchanged.
+ * resolver — CLIENT-SAFE. `JourneyCopilotHost.tsx` (a `'use client'`
+ * component) imports it directly.
  *
- * This is the ADDITIVE resolver for AEE-XP-001 §10/XP-5 ("the current role
- * occupant is resolved from canonical persona assignment, never guessed from
- * surface-local configuration"): server-side, it asks the SAME existing
- * `resolveAigentMeIdentity` every chat surface already uses (services/agents/
- * aigentMeRoleResolution.ts) which real agent is currently assigned as this
- * caller's aigentMe, and — only when that resolves to something OTHER than
- * the generic default (i.e. the citizen actually has an assignment) —
- * returns that identity as the PRIMARY companion instead of the journey's
- * static cartridge default.
- *
- * Canonical distinction preserved (spec §10): this NEVER changes which
- * SPECIALIST a journey stage foregrounds (Kn0w1 on KNYTS, MoneyPenny on
- * Financial Services) — it only changes who a journey's OWN copilot
- * identity resolves to, for the person-level orchestrator role. A caller
- * with no request context (anonymous, or a route that can't resolve one)
- * gets exactly `resolveJourneyCopilot`'s existing static behaviour — this
- * function never throws and never blocks on a missing assignment.
+ * The additive, request-aware resolver (`resolvePrimaryCompanionForJourney`,
+ * AEE-XP-001 §10/XP-5) lives in a SEPARATE file —
+ * services/journey/primaryCompanionResolver.ts — deliberately, not here.
+ * That function statically imports `resolveAigentMeIdentity`
+ * (services/agents/aigentMeRoleResolution.ts), which chains through
+ * server-only code down to Node's `crypto` module. Keeping it in THIS file
+ * previously broke every build touching the KNYTS/CI bridge pages: webpack's
+ * client bundler must statically resolve a module's full import graph the
+ * moment ANY client component imports ANYTHING from it, even an export the
+ * component never calls — so `node:crypto` ended up in the browser bundle
+ * and webpack refused it (`UnhandledSchemeError`, 15 consecutive failed
+ * deploys, 2026-09-01 incident). Never re-add a server-only import to this
+ * file — see primaryCompanionResolver.ts's own header for the fix in full,
+ * and tests/journey-copilot-assigned-companion-wiring.test.ts's
+ * "client-bundle-safe" canary that now guards this boundary.
  */
-export async function resolvePrimaryCompanionForJourney(
-  request: NextRequest,
-  journey: JourneyDefinition,
-): Promise<ResolvedJourneyCopilot> {
-  const fallback = resolveJourneyCopilot(journey);
-  try {
-    const identity = await resolveAigentMeIdentity(request);
-    if (identity.personaKey === DEFAULT_AIGENT_ME_IDENTITY.personaKey && identity.agentRootId === null) {
-      // No real assignment resolved — the citizen's canonical companion IS
-      // the generic default, so the journey's static cartridge copilot
-      // (already the generic aigentMe/specialist for this Bridge) is
-      // already correct. Nothing to override.
-      return fallback;
-    }
-    return {
-      agent: { id: identity.personaKey, name: identity.displayLabel },
-      accentColor: fallback.accentColor,
-      promptPlaceholder: fallback.promptPlaceholder,
-      quickPrompts: fallback.quickPrompts,
-    };
-  } catch {
-    // Resolution error — fail open to the existing static behaviour, never
-    // block or throw over a voice/routing choice (same discipline
-    // resolveAigentMeIdentity itself documents).
-    return fallback;
-  }
-}
