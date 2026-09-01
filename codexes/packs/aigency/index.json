@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-01T11:43:09.727Z",
+  "last_updated": "2026-09-01T12:04:35.397Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "3a4b2516a5422e561b78fe41d861ae65540fbbd2",
-  "latest_commit_short": "3a4b251",
-  "latest_commit_title": "Fix Track 2 EXP-P1 state oscillation: stop swallowing substrate errors as empty [merge fix/track2-crystal-state-projection]",
+  "latest_commit": "efdc7cc2b58ddc4ee761315c65f2f06e5a497f1a",
+  "latest_commit_short": "efdc7cc",
+  "latest_commit_title": "fix(qriptopian): deploy separate Embodiment series and canonical media delivery",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "efdc7cc",
+      "full_sha": "efdc7cc2b58ddc4ee761315c65f2f06e5a497f1a",
+      "title": "fix(qriptopian): deploy separate Embodiment series and canonical media delivery",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-01T08:02:49-04:00",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-efdc7cc.md"
+    },
     {
       "sha": "3a4b251",
       "full_sha": "3a4b2516a5422e561b78fe41d861ae65540fbbd2",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-21T23:25:05-04:00",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-695e250.md"
-    },
-    {
-      "sha": "fe1272a",
-      "full_sha": "fe1272a66780aff0233490df9d5efac8dbb929b1",
-      "title": "Fix Threshold native upload bearer authentication",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-21T22:57:58-04:00",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-fe1272a.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

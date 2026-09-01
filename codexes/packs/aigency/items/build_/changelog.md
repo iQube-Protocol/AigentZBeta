@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`efdc7cc`](https://github.com/iQube-Protocol/AigentZBeta/commit/efdc7cc2b58ddc4ee761315c65f2f06e5a497f1a) [fix] fix(qriptopian): deploy separate Embodiment series and canonical media delivery (Kn0w1, 2026-09-01T08:02:49-04:00)
 - [`3a4b251`](https://github.com/iQube-Protocol/AigentZBeta/commit/3a4b2516a5422e561b78fe41d861ae65540fbbd2) [fix] Fix Track 2 EXP-P1 state oscillation: stop swallowing substrate errors as empty [merge fix/track2-crystal-state-projection] (Claude, 2026-09-01T11:21:53Z)
 - [`1bac437`](https://github.com/iQube-Protocol/AigentZBeta/commit/1bac437a69f14ce3681bf76d84bc9902d65e3136) [push] Adaptive Financial Services entry CTA on KNYTS/CI, retire pilot framing [merge review/irl-scoped-restoration-2026-08-27] (Claude, 2026-09-01T11:31:23Z)
 - [`6cb8ef7`](https://github.com/iQube-Protocol/AigentZBeta/commit/6cb8ef7e5c77dc73abf0913704952b41455a3046) [push] Cap the Journey stage carousel at 8 visible stages, not viewport width (Claude, 2026-09-01T11:18:13Z)

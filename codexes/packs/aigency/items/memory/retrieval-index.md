@@ -4879,3 +4879,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-3a4b251.md](../build_/COMMITS/COMMIT-3a4b251.md)
 - Message: Fix Track 2 EXP-P1 state oscillation: stop swallowing substrate errors as empty [merge fix/track2-crystal-state-projection]
+
+## Commit `efdc7cc` — 2026-09-01T08:02:49-04:00
+- Type: `fix`
+- Brief: [COMMIT-efdc7cc.md](../build_/COMMITS/COMMIT-efdc7cc.md)
+- Message: fix(qriptopian): deploy separate Embodiment series and canonical media delivery
