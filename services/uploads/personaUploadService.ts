@@ -24,7 +24,7 @@
  * the service NEVER reads identity from the input payload directly.
  */
 
-export type UploadUseKind = 'context' | 'tool' | 'workbench' | 'general' | 'email_attachment' | 'iqube_payload' | 'venture_iqube' | 'standing_document';
+export type UploadUseKind = 'context' | 'tool' | 'workbench' | 'general' | 'email_attachment' | 'iqube_payload' | 'venture_iqube' | 'standing_document' | 'financial_document';
 export type UploadStatus = 'parsing' | 'ready' | 'archived' | 'failed';
 
 export interface PersonaUploadRow {

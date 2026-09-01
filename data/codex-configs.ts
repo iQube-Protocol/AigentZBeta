@@ -4942,6 +4942,22 @@ export const MONEYPENNY_CARTRIDGE: CodexConfig = {
       config: { component: 'MoneyPennyPanelTab', props: { panel: 'hft-console' } },
       metadata: { icon: 'TrendingUp', description: 'Real-time quotes and execution', color: 'emerald' },
     },
+    // SPEC-MPY-002 (2026-09-01) MPY2-2 — Understand / Financial Profile.
+    // group: 'operate' — tabGroups itself is pinned exactly by
+    // tests/fs-operate-embed-viewport-parity.test.ts (groupIds canary);
+    // this reuses the existing group, same as every sibling tab below.
+    {
+      id: 'moneypenny-financial-profile',
+      label: 'Financial Profile',
+      slug: 'financial-profile',
+      enabled: true,
+      adminOnly: false,
+      group: 'operate',
+      order: 0.5,
+      type: 'static',
+      config: { component: 'MoneyPennyPanelTab', props: { panel: 'financial-profile' } },
+      metadata: { icon: 'FileText', description: 'Bank-statement-derived aggregates and a candidate risk envelope', color: 'emerald' },
+    },
     {
       id: 'moneypenny-portfolio',
       label: 'Portfolio',
