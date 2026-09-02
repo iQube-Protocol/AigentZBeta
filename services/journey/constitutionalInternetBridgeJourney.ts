@@ -469,7 +469,7 @@ export const CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY: JourneyDefinition = {
     },
     {
       id: 'fs-operate',
-      label: 'Operate with MoneyPenny',
+      label: 'Operate',
       description: 'An enduring workspace for financial work with MoneyPenny — never forced toward advanced operations.',
       actor: 'operator',
       subjectRef: 'visitor',

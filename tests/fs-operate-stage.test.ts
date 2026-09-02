@@ -25,10 +25,9 @@ describe.each([
     expect(aigentme!.label).toBe('Operate');
   });
 
-  it('fs-operate\'s label is qualified ("Operate with MoneyPenny"), never the bare "Operate" the advanced stage uses', () => {
+  it('fs-operate\'s label is bare "Operate" (corrected 2026-09-02 after live review — the qualified label read poorly truncated in the stage stepper; the distinct stage id already prevents collision, so sharing the label with the advanced stage is fine)', () => {
     const operate = journey.stages.find((s) => s.id === 'fs-operate')!;
-    expect(operate.label).not.toBe('Operate');
-    expect(operate.label).toMatch(/Operate/);
+    expect(operate.label).toBe('Operate');
   });
 
   it('fs-operate has empty completionEvidence — deliberately, never fabricated to fill the array', () => {
@@ -57,6 +56,11 @@ describe('FinancialSovereigntyOperateStage.tsx — links to the real MoneyPenny 
 
   it('reuses BridgeMediaStage — the same generic shell every other fs-* stage uses, never a bespoke layout', () => {
     expect(src).toMatch(/import \{ BridgeMediaStage/);
+  });
+
+  it('navigates to MoneyPenny in the SAME frame — never window.open/_blank (corrected 2026-09-02: this stage already renders inside the Journey Spine\'s own iframe, so opening in a new tab was wrong)', () => {
+    expect(src).not.toMatch(/window\.open/);
+    expect(src).toMatch(/window\.location\.assign/);
   });
 });
 
