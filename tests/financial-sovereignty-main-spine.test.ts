@@ -12,7 +12,7 @@ import { CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY } from '@/services/journey/const
 import type { JourneyDefinition } from '@/types/journey';
 import { readSource, stripComments } from './_lib/sourceAuthority';
 
-const FS_STAGE_IDS = ['fs-discover', 'fs-learn', 'fs-explore', 'fs-prepare', 'fs-cross'];
+const FS_STAGE_IDS = ['fs-discover', 'fs-learn', 'fs-explore', 'fs-prepare', 'fs-operate', 'fs-cross'];
 
 function stageIndex(journey: JourneyDefinition, id: string) {
   return journey.stages.findIndex((s) => s.id === id);
@@ -30,27 +30,38 @@ describe.each([
     }
   });
 
-  it('chains nextStageId through the segment, ending at fs-cross with no nextStageId', () => {
+  it('chains nextStageId through the segment, ending at fs-cross with no nextStageId (B1 2026-09-02: now routes through fs-operate)', () => {
     const byId = new Map(journey.stages.map((s) => [s.id, s]));
     expect(byId.get('fs-discover')?.nextStageId).toBe('fs-learn');
     expect(byId.get('fs-learn')?.nextStageId).toBe('fs-explore');
     expect(byId.get('fs-explore')?.nextStageId).toBe('fs-prepare');
-    expect(byId.get('fs-prepare')?.nextStageId).toBe('fs-cross');
+    expect(byId.get('fs-prepare')?.nextStageId).toBe('fs-operate');
+    expect(byId.get('fs-operate')?.nextStageId).toBe('fs-cross');
     expect(byId.get('fs-cross')?.nextStageId).toBeUndefined();
   });
 
-  it('every FS stage has empty prerequisites; fs-discover/fs-learn/fs-explore each carry real, distinct completionEvidence; fs-prepare/fs-cross remain gate-less this pass', () => {
+  it('every FS stage has empty prerequisites; fs-discover/fs-learn/fs-explore/fs-prepare each carry real, distinct completionEvidence; fs-operate/fs-cross remain gate-less by design', () => {
     // AEE-XP-001 §10/XP-6 (2026-09-01) + follow-up: fs-discover/fs-learn/
     // fs-explore are the live proof of the generic experience-evidence loop
     // (services/journey/experienceObservationPromotion.ts +
     // financialSovereigntyEvidence.ts) — each stage's completionEvidence is
     // real, sourced from an actual observed (and, for LEARN/EXPLORE,
-    // kind-discriminated) interaction, never fabricated. fs-prepare/fs-cross
-    // remain gate-less this pass — not yet wired.
+    // kind-discriminated) interaction, never fabricated.
+    //
+    // B1 (2026-09-02, operator directive): fs-prepare's completion is now
+    // ALSO real — sourced from the persona's actual FinancialProfileQube
+    // (hasPreparedFinancialProfile), never a click/navigation event.
+    //
+    // fs-operate/fs-cross remain deliberately gate-less: Operate is a
+    // persistent destination that must never force a "done" state (bridge
+    // spec B-13's own table), and Cross's completion is Horizen's concern,
+    // not this journey's — inventing evidence for either would violate the
+    // operator's own directive against fabricating completion evidence.
     const EXPECTED: Record<string, string[]> = {
       'fs-discover': ['discoverExperienceObserved'],
       'fs-learn': ['learnExperienceQualified'],
       'fs-explore': ['exploreCapabilityInteracted'],
+      'fs-prepare': ['financialProfileReviewed'],
     };
     for (const id of FS_STAGE_IDS) {
       const stage = journey.stages.find((s) => s.id === id)!;

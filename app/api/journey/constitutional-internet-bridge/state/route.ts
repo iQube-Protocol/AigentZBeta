@@ -28,7 +28,7 @@ import {
 import { resolvePrimaryCompanionForJourney } from '@/services/journey/primaryCompanionResolver';
 import { parseActivatedBranchesParam } from '@/services/journey/journeyBranchActivation';
 import { computeJourneyAeeOutcome } from '@/services/adaptive/journeyAeeOrchestrator';
-import { hasDiscoveredFinancialSovereignty, hasLearnedFinancialSovereignty, hasExploredFinancialSovereignty } from '@/services/journey/financialSovereigntyEvidence';
+import { hasDiscoveredFinancialSovereignty, hasLearnedFinancialSovereignty, hasExploredFinancialSovereignty, hasPreparedFinancialProfile } from '@/services/journey/financialSovereigntyEvidence';
 import { assembleExperienceIntentProjection } from '@/services/adaptive/experienceIntentAssembly';
 import { deriveMatrixCalibration } from '@/services/strategy/experienceMatrixDeriver';
 import { assembleExperiencePrescription } from '@/services/adaptive/experiencePrescriptionAssembly';
@@ -116,10 +116,11 @@ async function getImpl(req: NextRequest) {
 
   // AEE-XP-001 §10/XP-6 — see knyts-bridge/state's identical comment. Same
   // generic promotion seam, same reads, no CI-specific logic.
-  const [discoverExperienceObserved, learnExperienceQualified, exploreCapabilityInteracted] = await Promise.all([
+  const [discoverExperienceObserved, learnExperienceQualified, exploreCapabilityInteracted, financialProfileReviewed] = await Promise.all([
     hasDiscoveredFinancialSovereignty(persona?.personaId ?? null, CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY.id),
     hasLearnedFinancialSovereignty(persona?.personaId ?? null, CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY.id),
     hasExploredFinancialSovereignty(persona?.personaId ?? null, CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY.id),
+    hasPreparedFinancialProfile(persona?.personaId ?? null),
   ]);
 
   const platformState: AuthoritativePlatformState = {
@@ -130,6 +131,7 @@ async function getImpl(req: NextRequest) {
       'fs-discover': { discoverExperienceObserved },
       'fs-learn': { learnExperienceQualified },
       'fs-explore': { exploreCapabilityInteracted },
+      'fs-prepare': { financialProfileReviewed },
     },
   };
 

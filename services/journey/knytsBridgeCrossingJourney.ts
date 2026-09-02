@@ -315,16 +315,43 @@ export const KNYTS_BRIDGE_CROSSING_JOURNEY: JourneyDefinition = {
     {
       id: 'fs-prepare',
       label: 'Prepare',
-      description: 'Choose/prepare an agent candidate; understand delegation and the professional crossing.',
+      description: 'Establish a reviewed financial profile; optionally choose an agent candidate to bring forward.',
       actor: 'operator',
       subjectRef: 'visitor',
       surfaces: [{ mode: 'component', ref: 'knyts-bridge-fs-prepare', note: 'FinancialSovereigntyPrepareCrossStage (prepare) — amber preset.' }],
       prerequisites: [],
       permittedActions: ['select-agent-candidate'],
+      // B1 (2026-09-02, operator directive): "Prepare completion must
+      // reflect a reviewed financial profile or supported manual
+      // preparation — not navigation." Sourced from the REAL
+      // FinancialProfileQube (financialSovereigntyEvidence.ts) — agent
+      // candidate selection above is retained as an optional advanced
+      // preference (bridge spec B-13 point 3), never completion evidence.
+      completionEvidence: ['financialProfileReviewed'],
+      receiptTypes: [],
+      receiptsSurfacedNatively: true,
+      companion: { before: 'Prepare your financial profile — statements reviewed, position understood.', complete: '' },
+      activationBranch: 'financial-services',
+      nextStageId: 'fs-operate',
+    },
+    {
+      id: 'fs-operate',
+      label: 'Operate with MoneyPenny',
+      description: 'An enduring workspace for financial work with MoneyPenny — never forced toward advanced operations.',
+      actor: 'operator',
+      subjectRef: 'visitor',
+      surfaces: [{ mode: 'component', ref: 'knyts-bridge-fs-operate', note: 'FinancialSovereigntyOperateStage — amber preset. Distinct stage identity from the advanced Horizen aigentme stage (also labeled "Operate") — never the same id, never reused/loosened evidence.' }],
+      prerequisites: [],
+      permittedActions: ['continue-to-cross'],
+      // Deliberately empty (bridge spec B-13's own table: "Operate |
+      // Persistent destination with task-level states and real outcomes |
+      // Global 'done' state that forces the person onward"). This stage is
+      // never meant to "complete" — inventing evidence here would violate
+      // the operator's own directive against fabricating it.
       completionEvidence: [],
       receiptTypes: [],
       receiptsSurfacedNatively: true,
-      companion: { before: 'Choose an agent candidate to bring with you — not a registration.', complete: '' },
+      companion: { before: 'Work with MoneyPenny — plan, learn, and review a bounded live task when a route is verified.', complete: '' },
       activationBranch: 'financial-services',
       nextStageId: 'fs-cross',
     },

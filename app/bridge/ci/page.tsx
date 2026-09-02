@@ -77,6 +77,7 @@ import { ConstitutionalInternetBridgeChooseSurface } from '@/components/journey/
 import { KnytsBridgeAdminPanel } from '@/components/journey/KnytsBridgeAdminPanel';
 import { FinancialSovereigntyIntroStage } from '@/components/journey/FinancialSovereigntyIntroStage';
 import { FinancialSovereigntyPrepareCrossStage } from '@/components/journey/FinancialSovereigntyPrepareCrossStage';
+import { FinancialSovereigntyOperateStage } from '@/components/journey/FinancialSovereigntyOperateStage';
 import { PassportConnectPanel } from '@/components/companion/PassportConnectPanel';
 import { usePassportSignInHost } from '@/app/hooks/usePassportSignInHost';
 import { usePersonaSpine } from '@/utils/personaSpine';
@@ -101,6 +102,7 @@ const CI_BRIDGE_COMPONENTS: Record<string, React.ComponentType<Record<string, un
   ConstitutionalInternetBridgeChooseSurface,
   FinancialSovereigntyIntroStage: FinancialSovereigntyIntroStage as unknown as React.ComponentType<Record<string, unknown>>,
   FinancialSovereigntyPrepareCrossStage: FinancialSovereigntyPrepareCrossStage as unknown as React.ComponentType<Record<string, unknown>>,
+  FinancialSovereigntyOperateStage: FinancialSovereigntyOperateStage as unknown as React.ComponentType<Record<string, unknown>>,
 };
 
 function selectStage(stageId: string) {
@@ -183,7 +185,10 @@ export default function ConstitutionalInternetBridgePage() {
         return { stageKey: 'explore', accent: 'indigo', nextStageId: 'fs-prepare', journeyId: 'constitutional-internet-bridge', personaId };
       }
       if (surfaceRef.ref === 'ci-bridge-fs-prepare') {
-        return { mode: 'prepare', accent: 'indigo', sourceJourneyId: 'constitutional-internet-bridge', sourceStageId: 'fs-prepare', nextStageId: 'fs-cross' };
+        return { mode: 'prepare', accent: 'indigo', sourceJourneyId: 'constitutional-internet-bridge', sourceStageId: 'fs-prepare', nextStageId: 'fs-operate' };
+      }
+      if (surfaceRef.ref === 'ci-bridge-fs-operate') {
+        return { accent: 'indigo', nextStageId: 'fs-cross', personaId };
       }
       if (surfaceRef.ref === 'ci-bridge-fs-cross') {
         return { mode: 'cross', accent: 'indigo', sourceJourneyId: 'constitutional-internet-bridge', sourceStageId: 'fs-cross', returnStageId: 'choose' };

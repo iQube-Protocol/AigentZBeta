@@ -11,6 +11,7 @@
  */
 
 import { hasObservedExperienceInteraction, hasQualifyingExperienceInteraction } from '@/services/journey/experienceObservationPromotion';
+import { getFinancialProfileQube } from '@/services/iqube/financialProfileQube';
 
 /** Mirrors the three-axis MoneyPenny provider-mode vocabulary (Advisor/
  *  Architect/Runtime) the FS spec already establishes. Stable ids, also
@@ -33,4 +34,24 @@ export function hasLearnedFinancialSovereignty(personaId: string | null | undefi
 /** EXPLORE's stronger bar — at least one real MoneyPenny capability interacted with. */
 export function hasExploredFinancialSovereignty(personaId: string | null | undefined, journeyId: string): Promise<boolean> {
   return hasQualifyingExperienceInteraction(personaId, journeyId, 'fs-explore', FS_EXPLORE_INTERACTION_KIND, ['*']);
+}
+
+/**
+ * PREPARE's bar (B1, 2026-09-02, operator directive: "Prepare completion
+ * must reflect a reviewed financial profile or supported manual
+ * preparation — not navigation"). Reads the REAL FinancialProfileQube
+ * (MPY2-2/2-3, services/iqube/financialProfileQube.ts) — never a click/
+ * navigation event. `hasProfile === true` means a profile has actually been
+ * computed from real uploaded statements; no distinct "reviewed" flag
+ * exists in the current data model, and no "supported manual preparation"
+ * path exists yet either (confirmed absent by the 2026-09-01 C0 audit) — so
+ * this is the ONLY real, honest signal available today. Selecting an agent
+ * candidate (this stage's other, retained affordance) does NOT satisfy
+ * this bar — that is an optional advanced preference per the bridge spec's
+ * own migration guidance (B-13 point 3), never financial preparation.
+ */
+export async function hasPreparedFinancialProfile(personaId: string | null | undefined): Promise<boolean> {
+  if (!personaId) return false;
+  const record = await getFinancialProfileQube(personaId);
+  return record?.meta.hasProfile === true;
 }
