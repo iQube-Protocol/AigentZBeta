@@ -1,5 +1,5 @@
 /**
- * MoneyPennyPanelTab — generic codex-tab dispatcher for MoneyPenny's ten
+ * MoneyPennyPanelTab — generic codex-tab dispatcher for MoneyPenny's
  * panels (SPEC-VLM-001 Phase 2, 2026-07-24 — CFS-050 Sovereignty
  * Navigation's second applied test case, after Venture Lab).
  *
@@ -9,13 +9,21 @@
  * instead of using the platform's shared two-level TabGroup navigation
  * (`CodexPanelDynamic.tsx` skips its own chrome whenever a cartridge has
  * ≤1 tab). `MONEYPENNY_CARTRIDGE` (`data/codex-configs.ts`) now
- * hand-authors ten real `CodexTab` entries instead — each one renders
- * through this single dispatcher rather than ten near-identical files, by
- * passing which panel to show as a `panel` prop (`config.props.panel`).
+ * hand-authors real `CodexTab` entries instead — each one renders through
+ * this single dispatcher rather than one file per panel, by passing which
+ * panel to show as a `panel` prop (`config.props.panel`).
  *
  * The existing panel components are reused unchanged — this file adds no
- * new panel logic, only the mapping from a codex tab to one of them,
- * wrapped in the shared `MoneyPennyShell` header/status chrome.
+ * new panel logic, only the mapping from a codex tab to one of them.
+ *
+ * C1 (2026-09-02): wrapped in `MoneyPennyCopilotWorkspace` (persistent
+ * copilot left, `MoneyPennyShell`'s existing rail+panel right — see that
+ * file's own header for the full rationale) INSTEAD of bare
+ * `MoneyPennyShell` directly. Since this dispatcher is the ONE place every
+ * moneypenny-codex entry point already routes through, every existing
+ * `buildCodexUrl('moneypenny', {tab})` deep link keeps resolving to the
+ * exact same panel it always did — this is the "compatibility route for
+ * current entry points": zero broken links, only the outer shell changed.
  */
 
 "use client";
@@ -34,7 +42,7 @@ import { ServiceOrchestrationPanel } from "@/app/(shell)/moneypenny/components/S
 import { MoneyPennyOverviewPanel } from "@/app/(shell)/moneypenny/components/MoneyPennyOverviewPanel";
 import { FinancialProfilePanel } from "@/app/(shell)/moneypenny/components/FinancialProfilePanel";
 import { RiskEnvelopePanel } from "@/app/(shell)/moneypenny/components/RiskEnvelopePanel";
-import { MoneyPennyShell } from "@/app/(shell)/moneypenny/components/MoneyPennyShell";
+import { MoneyPennyCopilotWorkspace } from "@/app/(shell)/moneypenny/components/MoneyPennyCopilotWorkspace";
 
 export type MoneyPennyPanelKey =
   | "overview"
@@ -79,15 +87,15 @@ export function MoneyPennyPanelTab({ panel }: MoneyPennyPanelTabProps) {
   const Panel = PANELS[panel];
   if (!Panel) {
     return (
-      <MoneyPennyShell activePanel={panel}>
+      <MoneyPennyCopilotWorkspace activePanel={panel}>
         <div className="text-sm text-rose-400">Unknown MoneyPenny panel: {panel}</div>
-      </MoneyPennyShell>
+      </MoneyPennyCopilotWorkspace>
     );
   }
   return (
-    <MoneyPennyShell activePanel={panel}>
+    <MoneyPennyCopilotWorkspace activePanel={panel}>
       <Panel />
-    </MoneyPennyShell>
+    </MoneyPennyCopilotWorkspace>
   );
 }
 
