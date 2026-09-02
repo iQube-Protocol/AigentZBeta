@@ -4944,3 +4944,53 @@ Top-level retrieval anchors for this pack.
 - Type: `chore`
 - Brief: [COMMIT-d7d7761.md](../build_/COMMITS/COMMIT-d7d7761.md)
 - Message: spec: define MoneyPenny cartridge capability harvest upgrade
+
+## Commit `9dda398` — 2026-09-01T16:44:11Z
+- Type: `feat`
+- Brief: [COMMIT-9dda398.md](../build_/COMMITS/COMMIT-9dda398.md)
+- Message: Add MoneyPenny MPY2-3 Risk Envelope: risk factors + limits from Financial Profile
+
+## Commit `a2f5942` — 2026-09-01T17:05:56Z
+- Type: `feat`
+- Brief: [COMMIT-a2f5942.md](../build_/COMMITS/COMMIT-a2f5942.md)
+- Message: Wire EXPLORE to a real MoneyPenny action: observed consequence, not just engagement [merge spec/moneypenny-mpy2-3]
+
+## Commit `a0e8fe4` — 2026-09-01T20:05:30Z
+- Type: `push`
+- Brief: [COMMIT-a0e8fe4.md](../build_/COMMITS/COMMIT-a0e8fe4.md)
+- Message: Project wallet-conversion capability READINESS at fs-cross, never exercise [merge spec/moneypenny-mpy2-3]
+
+## Commit `5695bee` — 2026-09-01T23:08:43Z
+- Type: `feat`
+- Brief: [COMMIT-5695bee.md](../build_/COMMITS/COMMIT-5695bee.md)
+- Message: Add native Bridges tab to Qriptopian Admin — CI/KNYTS editorial parity [merge spec/moneypenny-mpy2-3]
+
+## Commit `0c1fd6a` — 2026-09-02T00:45:21Z
+- Type: `push`
+- Brief: [COMMIT-0c1fd6a.md](../build_/COMMITS/COMMIT-0c1fd6a.md)
+- Message: Harden A2 publish + config-write ordering [merge spec/moneypenny-mpy2-3]
+
+## Commit `a302da9` — 2026-09-02T00:45:11Z
+- Type: `feat`
+- Brief: [COMMIT-a302da9.md](../build_/COMMITS/COMMIT-a302da9.md)
+- Message: Add fs-operate stage; wire fs-prepare to a real reviewed-profile evidence
+
+## Commit `10e5e52` — 2026-09-02T00:44:55Z
+- Type: `push`
+- Brief: [COMMIT-10e5e52.md](../build_/COMMITS/COMMIT-10e5e52.md)
+- Message: Authenticate the codex upload/register admin endpoints
+
+## Commit `0a3db3c` — 2026-09-01T23:48:14Z
+- Type: `feat`
+- Brief: [COMMIT-0a3db3c.md](../build_/COMMITS/COMMIT-0a3db3c.md)
+- Message: Add typed asset placements with draft/publish for bridge media (A2)
+
+## Commit `45e4b13` — 2026-09-02T03:22:54Z
+- Type: `feat`
+- Brief: [COMMIT-45e4b13.md](../build_/COMMITS/COMMIT-45e4b13.md)
+- Message: Add manual financial-profile entry; close MPY2-0b donor audit [merge spec/moneypenny-mpy2-3]
+
+## Commit `9b0e073` — 2026-09-02T01:15:27Z
+- Type: `feat`
+- Brief: [COMMIT-9b0e073.md](../build_/COMMITS/COMMIT-9b0e073.md)
+- Message: Add MoneyPenny002 real-source donor audit (MPY2-0b)

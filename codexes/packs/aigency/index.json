@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-01T16:06:28.016Z",
+  "last_updated": "2026-09-02T03:25:50.449Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "d7d7761a20f50a8ee42051317cfe61f1d7746c92",
-  "latest_commit_short": "d7d7761",
-  "latest_commit_title": "spec: define MoneyPenny cartridge capability harvest upgrade",
+  "latest_commit": "9b0e073190d458adafb85206ac0675c61cdd1256",
+  "latest_commit_short": "9b0e073",
+  "latest_commit_title": "Add MoneyPenny002 real-source donor audit (MPY2-0b)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,96 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "9b0e073",
+      "full_sha": "9b0e073190d458adafb85206ac0675c61cdd1256",
+      "title": "Add MoneyPenny002 real-source donor audit (MPY2-0b)",
+      "author": "Claude",
+      "timestamp": "2026-09-02T01:15:27Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-9b0e073.md"
+    },
+    {
+      "sha": "45e4b13",
+      "full_sha": "45e4b132b34dc7c8c2fd5be7eda4cd66a9a42b9d",
+      "title": "Add manual financial-profile entry; close MPY2-0b donor audit [merge spec/moneypenny-mpy2-3]",
+      "author": "Claude",
+      "timestamp": "2026-09-02T03:22:54Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-45e4b13.md"
+    },
+    {
+      "sha": "0a3db3c",
+      "full_sha": "0a3db3c3516a016f7f40eb453fd96a2153eb685a",
+      "title": "Add typed asset placements with draft/publish for bridge media (A2)",
+      "author": "Claude",
+      "timestamp": "2026-09-01T23:48:14Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-0a3db3c.md"
+    },
+    {
+      "sha": "10e5e52",
+      "full_sha": "10e5e52295b794fc7dc68889612f3fd2f67eea08",
+      "title": "Authenticate the codex upload/register admin endpoints",
+      "author": "Claude",
+      "timestamp": "2026-09-02T00:44:55Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-10e5e52.md"
+    },
+    {
+      "sha": "a302da9",
+      "full_sha": "a302da9b93b9f1c8a21d1c0714b9572c19ab1352",
+      "title": "Add fs-operate stage; wire fs-prepare to a real reviewed-profile evidence",
+      "author": "Claude",
+      "timestamp": "2026-09-02T00:45:11Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-a302da9.md"
+    },
+    {
+      "sha": "0c1fd6a",
+      "full_sha": "0c1fd6ac0561ac8f84bb4a9b64b06d41d3d65e60",
+      "title": "Harden A2 publish + config-write ordering [merge spec/moneypenny-mpy2-3]",
+      "author": "Claude",
+      "timestamp": "2026-09-02T00:45:21Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-0c1fd6a.md"
+    },
+    {
+      "sha": "5695bee",
+      "full_sha": "5695beecb71a407d456acac11edb3dd9e18c81b1",
+      "title": "Add native Bridges tab to Qriptopian Admin — CI/KNYTS editorial parity [merge spec/moneypenny-mpy2-3]",
+      "author": "Claude",
+      "timestamp": "2026-09-01T23:08:43Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-5695bee.md"
+    },
+    {
+      "sha": "a0e8fe4",
+      "full_sha": "a0e8fe4527a1c37f959349ec5f42a67646cf7475",
+      "title": "Project wallet-conversion capability READINESS at fs-cross, never exercise [merge spec/moneypenny-mpy2-3]",
+      "author": "Claude",
+      "timestamp": "2026-09-01T20:05:30Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-a0e8fe4.md"
+    },
+    {
+      "sha": "a2f5942",
+      "full_sha": "a2f5942c2aa6f764b503d195133ae30c9b368003",
+      "title": "Wire EXPLORE to a real MoneyPenny action: observed consequence, not just engagement [merge spec/moneypenny-mpy2-3]",
+      "author": "Claude",
+      "timestamp": "2026-09-01T17:05:56Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-a2f5942.md"
+    },
+    {
+      "sha": "9dda398",
+      "full_sha": "9dda3984505ed2dec52e271cd947626a95d31991",
+      "title": "Add MoneyPenny MPY2-3 Risk Envelope: risk factors + limits from Financial Profile",
+      "author": "Claude",
+      "timestamp": "2026-09-01T16:44:11Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-9dda398.md"
+    },
     {
       "sha": "d7d7761",
       "full_sha": "d7d7761a20f50a8ee42051317cfe61f1d7746c92",
@@ -1162,96 +1252,6 @@
       "timestamp": "2026-08-27T03:08:54Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-31ff00c.md"
-    },
-    {
-      "sha": "dc83c33",
-      "full_sha": "dc83c33d511c8b645057c8910c35875556c68b25",
-      "title": "fix: resolve Research Lab scopes by registry membership, not column name",
-      "author": "Claude",
-      "timestamp": "2026-08-26T14:07:52Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-dc83c33.md"
-    },
-    {
-      "sha": "90d7ed9",
-      "full_sha": "90d7ed99e75182c5b9385641220904fab7a35eeb",
-      "title": "Show ContactGraph state and import-source counts in People (#99)",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-26T03:24:14-04:00",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-90d7ed9.md"
-    },
-    {
-      "sha": "4c8c259",
-      "full_sha": "4c8c259c2689d80dbef390e77dd3605ca69921a2",
-      "title": "fix(agentme): preserve attachments and resolve contact ambiguity",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-26T03:05:42-04:00",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-4c8c259.md"
-    },
-    {
-      "sha": "f35ecb3",
-      "full_sha": "f35ecb31ad40281327d74f5895677737b86cb10b",
-      "title": "Spec QubeTalk communications membrane domain model v0.2",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-25T11:22:43-04:00",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-f35ecb3.md"
-    },
-    {
-      "sha": "da92fec",
-      "full_sha": "da92fec2a6e6cbf2db5caa0d71cc983c33a00935",
-      "title": "docs(aee): include MoneyPenny Advisor Architect Runtime in first Differ audit",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-24T11:17:28-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-da92fec.md"
-    },
-    {
-      "sha": "d0db72c",
-      "full_sha": "d0db72cd4eee8dba752006bc569c00ed757bb966",
-      "title": "docs(agentiq): specify adaptive experience engine with Differ provider seam",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-24T11:01:01-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-d0db72c.md"
-    },
-    {
-      "sha": "ffb64e4",
-      "full_sha": "ffb64e438adf642673fd2597d795dc83ba52aa81",
-      "title": "docs(agentiq): specify Journey Spine runtime evolution",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-24T10:16:39-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-ffb64e4.md"
-    },
-    {
-      "sha": "0e514ca",
-      "full_sha": "0e514ca4c5b6702d801bad3134039ff00a5f1809",
-      "title": "docs(irl): specify reciprocal artifact exchange capability",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-23T15:19:30-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-0e514ca.md"
-    },
-    {
-      "sha": "d5dbd90",
-      "full_sha": "d5dbd9080476a338964d1ff9999d4d1ae75ce0be",
-      "title": "docs(agentiq): register CI/IRL baseline as Experiment Architect resource",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-23T14:23:59-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-d5dbd90.md"
-    },
-    {
-      "sha": "bd84582",
-      "full_sha": "bd84582d9ad48a3b257c9f651a8cbf7f1ac9eeb6",
-      "title": "docs(irl): freeze CI and IRL native architecture baseline for OCSGA comparison",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-23T14:02:51-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-bd84582.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
