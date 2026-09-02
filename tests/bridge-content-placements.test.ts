@@ -117,6 +117,18 @@ describe('publishPlacement — a real publish copies draft to published and writ
       expect.anything(), 'ci-home', { posterUrl: 'https://x/p.png' }, 'persona-1',
     );
   });
+
+  it('calls upsertKnytsBridgeEditorialSection with infographicUrl for slot=infographic (2026-09-02, real live write — not bookkeeping-only)', async () => {
+    const fake = makeFakeSupabase({
+      section: 'ci-home', slot: 'infographic',
+      draft_asset_id: 'a3', draft_asset_url: 'https://x/i.svg',
+      revision: 0, status: 'draft',
+    });
+    await publishPlacement(fake as any, 'ci-home', 'infographic', 'persona-1');
+    expect(upsertKnytsBridgeEditorialSection).toHaveBeenCalledWith(
+      expect.anything(), 'ci-home', { infographicUrl: 'https://x/i.svg' }, 'persona-1',
+    );
+  });
 });
 
 describe('publishPlacement — A2 hardening (2026-09-02): ordering and concurrency', () => {

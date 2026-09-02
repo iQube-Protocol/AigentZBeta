@@ -33,11 +33,12 @@ import {
   PlacementConflictError,
   type PlacementSlot,
 } from '@/services/journey/bridgeContentPlacements';
+import { KnytsBridgeInfographicColumnMissingError } from '@/services/journey/knytsBridgeEditorialConfig';
 
 export const dynamic = 'force-dynamic';
 
 function isPlacementSlot(value: unknown): value is PlacementSlot {
-  return value === 'video' || value === 'poster';
+  return value === 'video' || value === 'poster' || value === 'infographic';
 }
 
 export async function GET(req: NextRequest) {
@@ -79,7 +80,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: `Unknown section: ${section}` }, { status: 400 });
     }
     if (!isPlacementSlot(slot)) {
-      return NextResponse.json({ ok: false, error: "slot must be 'video' or 'poster'" }, { status: 400 });
+      return NextResponse.json({ ok: false, error: "slot must be 'video', 'poster', or 'infographic'" }, { status: 400 });
     }
     if (action !== 'assign' && action !== 'publish') {
       return NextResponse.json({ ok: false, error: "action must be 'assign' or 'publish'" }, { status: 400 });
@@ -119,6 +120,9 @@ export async function POST(req: NextRequest) {
       }
       if (err instanceof PlacementConflictError) {
         return NextResponse.json({ ok: false, error: 'concurrent-edit-detected' }, { status: 409 });
+      }
+      if (err instanceof KnytsBridgeInfographicColumnMissingError) {
+        return NextResponse.json({ ok: false, error: 'infographic-publish-unavailable', detail: err.message }, { status: 503 });
       }
       throw err;
     }

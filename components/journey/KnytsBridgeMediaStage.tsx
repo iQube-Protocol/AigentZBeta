@@ -102,6 +102,7 @@ export function KnytsBridgeMediaStage({ ctaStageId, showCampaignExtras = false }
       accent="amber"
       videoUrl={config.videoUrl ?? undefined}
       posterUrl={config.posterUrl ?? undefined}
+      infographicUrl={config.infographicUrl ?? undefined}
       layout="cinematic"
     />
   );

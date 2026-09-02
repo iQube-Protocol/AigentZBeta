@@ -105,6 +105,15 @@ export interface BridgeMediaStageProps {
   accent?: BridgeAccent;
   videoUrl?: string;
   posterUrl?: string;
+  /**
+   * Optional supplementary graphic (diagram/explainer), admin-published via
+   * the Bridges admin 'infographic' slot (2026-09-02, A2 completion —
+   * knyts_bridge_editorial_config.infographic_url). Renders as a plain
+   * block image below the paragraphs/highlight line, distinct from
+   * `posterUrl` (the video's own poster frame) — absent entirely when not
+   * set, never a placeholder.
+   */
+  infographicUrl?: string;
   layout?: BridgeMediaStageLayout;
   /** Optional extra interactive content rendered below the paragraphs/
    *  highlight line and above the CTAs — e.g. a caller's own concept-card
@@ -125,6 +134,7 @@ export function BridgeMediaStage({
   accent = 'amber',
   videoUrl,
   posterUrl,
+  infographicUrl,
   layout = 'standard',
   children,
 }: BridgeMediaStageProps) {
@@ -178,6 +188,13 @@ export function BridgeMediaStage({
     if (videoUrl) {
       return (
         <div className="mx-auto max-w-6xl px-4 pt-6 pb-6">
+          {infographicUrl && (
+            <img
+              src={infographicUrl}
+              alt=""
+              className="mb-4 w-full rounded-2xl border border-white/10 object-contain"
+            />
+          )}
           <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-white/10 bg-black shadow-2xl shadow-black/50">
             {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
             <video
@@ -233,6 +250,13 @@ export function BridgeMediaStage({
             {highlightLine && <p className={`mt-2 text-sm font-semibold ${classes.highlight}`}>{highlightLine}</p>}
           </div>
         )}
+        {infographicUrl && (
+          <img
+            src={infographicUrl}
+            alt=""
+            className="mx-auto mt-5 max-w-md w-full rounded-2xl border border-white/10 object-contain"
+          />
+        )}
         {children && <div className="mx-auto mt-4 max-w-[65ch]">{children}</div>}
         <div className="mt-6 flex items-center justify-center gap-3">{ctas}</div>
       </div>
@@ -254,6 +278,9 @@ export function BridgeMediaStage({
       ))}
       {highlightLine && (
         <p className={`mt-4 text-sm font-semibold ${classes.highlight}`}>{highlightLine}</p>
+      )}
+      {infographicUrl && (
+        <img src={infographicUrl} alt="" className="mx-auto mt-5 w-full rounded-2xl border border-white/10 object-contain" />
       )}
       {children && <div className="mt-5 text-left">{children}</div>}
       <div className="mt-7 flex items-center justify-center gap-3">
