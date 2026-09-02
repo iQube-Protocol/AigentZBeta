@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-02T13:01:47.982Z",
+  "last_updated": "2026-09-02T13:16:45.081Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "3c1551d7501b0bb96581cef25bc3155a200ee260",
-  "latest_commit_short": "3c1551d",
-  "latest_commit_title": "Add canonical participant research-workspace access resolver",
+  "latest_commit": "51e9e21c00713d163e5eded8b72425378b3906a4",
+  "latest_commit_short": "51e9e21",
+  "latest_commit_title": "Import authoritative MoneyPenny three-spec handoff + reconciliation crosswalk",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,33 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "51e9e21",
+      "full_sha": "51e9e21c00713d163e5eded8b72425378b3906a4",
+      "title": "Import authoritative MoneyPenny three-spec handoff + reconciliation crosswalk",
+      "author": "Claude",
+      "timestamp": "2026-09-02T13:03:02Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-51e9e21.md"
+    },
+    {
+      "sha": "0790e69",
+      "full_sha": "0790e6957b6f0b22b51d17a364cfd4a2746c9fc9",
+      "title": "Wire MoneyPenny copilot-to-capsule loop (C-02) + corrected AC-C/B/A crosswalk",
+      "author": "Claude",
+      "timestamp": "2026-09-02T13:14:31Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-0790e69.md"
+    },
+    {
+      "sha": "fea3a52",
+      "full_sha": "fea3a52eaae2c3e46463972da7fc646a99505b14",
+      "title": "Wire MoneyPenny copilot-to-capsule loop + corrected AC crosswalk [merge spec/moneypenny-mpy2-3]",
+      "author": "Claude",
+      "timestamp": "2026-09-02T13:14:48Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-fea3a52.md"
+    },
     {
       "sha": "3c1551d",
       "full_sha": "3c1551d7501b0bb96581cef25bc3155a200ee260",
@@ -1225,33 +1252,6 @@
       "timestamp": "2026-08-28T14:55:02Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-b9667e0.md"
-    },
-    {
-      "sha": "a2347b0",
-      "full_sha": "a2347b0429638318b9f8ad2f99fa3513ea6716e8",
-      "title": "feat: implement operator-assisted artifact confirmation MCP tool, admin route, and comprehensive test suite",
-      "author": "Claude",
-      "timestamp": "2026-08-28T14:57:07Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-a2347b0.md"
-    },
-    {
-      "sha": "1ffcad4",
-      "full_sha": "1ffcad44b9b0ea6bda0bdca8236c2065be2f14c8",
-      "title": "record the channel-independence constitutional invariants ratified from OCSGA/Copilot convergence evidence",
-      "author": "Claude",
-      "timestamp": "2026-08-28T13:43:42Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-1ffcad4.md"
-    },
-    {
-      "sha": "50d3d6e",
-      "full_sha": "50d3d6e32ea39e349fe1ea18f0e587ae1361772c",
-      "title": "Add operator-assisted custodial artifact registration for RAX exchanges",
-      "author": "Claude",
-      "timestamp": "2026-08-28T12:21:36Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-50d3d6e.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

@@ -5049,3 +5049,18 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-3c1551d.md](../build_/COMMITS/COMMIT-3c1551d.md)
 - Message: Add canonical participant research-workspace access resolver
+
+## Commit `fea3a52` — 2026-09-02T13:14:48Z
+- Type: `feat`
+- Brief: [COMMIT-fea3a52.md](../build_/COMMITS/COMMIT-fea3a52.md)
+- Message: Wire MoneyPenny copilot-to-capsule loop + corrected AC crosswalk [merge spec/moneypenny-mpy2-3]
+
+## Commit `0790e69` — 2026-09-02T13:14:31Z
+- Type: `feat`
+- Brief: [COMMIT-0790e69.md](../build_/COMMITS/COMMIT-0790e69.md)
+- Message: Wire MoneyPenny copilot-to-capsule loop (C-02) + corrected AC-C/B/A crosswalk
+
+## Commit `51e9e21` — 2026-09-02T13:03:02Z
+- Type: `push`
+- Brief: [COMMIT-51e9e21.md](../build_/COMMITS/COMMIT-51e9e21.md)
+- Message: Import authoritative MoneyPenny three-spec handoff + reconciliation crosswalk

@@ -1,4 +1,7 @@
 # Build — Changelog
+- [`51e9e21`](https://github.com/iQube-Protocol/AigentZBeta/commit/51e9e21c00713d163e5eded8b72425378b3906a4) [push] Import authoritative MoneyPenny three-spec handoff + reconciliation crosswalk (Claude, 2026-09-02T13:03:02Z)
+- [`0790e69`](https://github.com/iQube-Protocol/AigentZBeta/commit/0790e6957b6f0b22b51d17a364cfd4a2746c9fc9) [feat] Wire MoneyPenny copilot-to-capsule loop (C-02) + corrected AC-C/B/A crosswalk (Claude, 2026-09-02T13:14:31Z)
+- [`fea3a52`](https://github.com/iQube-Protocol/AigentZBeta/commit/fea3a52eaae2c3e46463972da7fc646a99505b14) [feat] Wire MoneyPenny copilot-to-capsule loop + corrected AC crosswalk [merge spec/moneypenny-mpy2-3] (Claude, 2026-09-02T13:14:48Z)
 - [`3c1551d`](https://github.com/iQube-Protocol/AigentZBeta/commit/3c1551d7501b0bb96581cef25bc3155a200ee260) [feat] Add canonical participant research-workspace access resolver (Claude, 2026-09-02T12:59:22Z)
 - [`0e171da`](https://github.com/iQube-Protocol/AigentZBeta/commit/0e171da6f059d482a676883da940d577955bacb9) [push] Honor public workspace visibility and label My Experiments in IRL OS Workspace (Claude, 2026-09-02T12:59:22Z)
 - [`d158cda`](https://github.com/iQube-Protocol/AigentZBeta/commit/d158cdac69cbf63b116de03bf1a56ddc09ef1743) [feat] Add acceptance tests for IRL OS experiment membership resolver [merge feature/irl-experiment-membership-workspace] (Claude, 2026-09-02T12:59:23Z)
