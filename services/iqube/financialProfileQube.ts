@@ -257,6 +257,27 @@ function isMissingTable(error: { code?: string; message?: string } | null | unde
   return false;
 }
 
+/**
+ * Thrown by `upsertFinancialProfileQube` (2026-09-02 migration-honesty fix)
+ * when `financial_profile_qubes` does not exist yet — distinct from every
+ * other write failure so a WRITE attempt (compute/manual entry) can surface
+ * "this feature isn't set up in this environment yet" instead of a generic
+ * crash. The READ path (`getFinancialProfileQube`) keeps degrading silently
+ * to `null` on the same condition — a passive read seeing "no profile" is
+ * the same honest degrade this codebase uses everywhere else (getPlacement,
+ * getPlacementsForSection); it is an ACTIVE write that deserves a distinct,
+ * named signal, because "your action failed" and "no data exists yet" are
+ * different facts a user acting on the result needs told apart.
+ */
+export class FinancialProfileTableMissingError extends Error {
+  constructor() {
+    super(
+      'financial_profile_qubes does not exist in this environment yet — apply ' +
+        'supabase/migrations/20260930180000_financial_profile_qubes.sql before this feature can save a profile.',
+    );
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────
 // Reads.
 // ─────────────────────────────────────────────────────────────────────────
@@ -325,6 +346,7 @@ export async function upsertFinancialProfileQube(
   );
   const { data, error } = result as { data: unknown; error: { code?: string; message?: string } | null };
   if (error) {
+    if (isMissingTable(error)) throw new FinancialProfileTableMissingError();
     throw new Error(`upsertFinancialProfileQube failed: ${error.message ?? 'unknown error'}`);
   }
   return rowToRecord(data as DbRow);

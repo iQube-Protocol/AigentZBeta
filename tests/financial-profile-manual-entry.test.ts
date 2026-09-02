@@ -114,4 +114,15 @@ describe('POST /api/moneypenny/financial-profile/manual', () => {
     const body = await res.json();
     expect(body.inputSource).toBe('manual_entry');
   });
+
+  it('returns a clean 503 "financial-profile-unavailable" (never an unhandled 500) when the table does not exist yet (2026-09-02 migration-honesty fix)', async () => {
+    mockGetActivePersona.mockResolvedValue({ personaId: 'p1' });
+    const { FinancialProfileTableMissingError } = await import('@/services/iqube/financialProfileQube');
+    mockUpsertFinancialProfileQube.mockRejectedValue(new FinancialProfileTableMissingError());
+    const res = await manualPost(makeRequest({ incomeMonthly: 4000, expenditureMonthly: 2000 }));
+    expect(res.status).toBe(503);
+    const body = await res.json();
+    expect(body.ok).toBe(false);
+    expect(body.error).toBe('financial-profile-unavailable');
+  });
 });
