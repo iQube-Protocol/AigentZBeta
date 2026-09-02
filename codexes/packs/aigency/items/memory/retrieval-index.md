@@ -5094,3 +5094,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-7e7944f.md](../build_/COMMITS/COMMIT-7e7944f.md)
 - Message: Build Agent Me entry safely, rebuild B2 Prepare, close /moneypenny compat gap [merge spec/moneypenny-mpy2-3]
+
+## Commit `8678fc5` — 2026-09-02T19:18:35Z
+- Type: `feat`
+- Brief: [COMMIT-8678fc5.md](../build_/COMMITS/COMMIT-8678fc5.md)
+- Message: Close infra handoff, add MoneyPenny educational video (C-15/A3), fix Prepare empty-state gap [merge spec/moneypenny-mpy2-3]

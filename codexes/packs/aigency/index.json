@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-02T18:06:34.445Z",
+  "last_updated": "2026-09-02T19:20:54.127Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "7e7944fe9407059e2b0b51c73445e3b613509367",
-  "latest_commit_short": "7e7944f",
-  "latest_commit_title": "Build Agent Me entry safely, rebuild B2 Prepare, close /moneypenny compat gap [merge spec/moneypenny-mpy2-3]",
+  "latest_commit": "8678fc53c6dbd1ee05542c91a6a512af32f9d336",
+  "latest_commit_short": "8678fc5",
+  "latest_commit_title": "Close infra handoff, add MoneyPenny educational video (C-15/A3), fix Prepare empty-state gap [merge spec/moneypenny-mpy2-3]",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "8678fc5",
+      "full_sha": "8678fc53c6dbd1ee05542c91a6a512af32f9d336",
+      "title": "Close infra handoff, add MoneyPenny educational video (C-15/A3), fix Prepare empty-state gap [merge spec/moneypenny-mpy2-3]",
+      "author": "Claude",
+      "timestamp": "2026-09-02T19:18:35Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-8678fc5.md"
+    },
     {
       "sha": "7e7944f",
       "full_sha": "7e7944fe9407059e2b0b51c73445e3b613509367",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-29T04:34:44Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-a7362d0.md"
-    },
-    {
-      "sha": "4ae4830",
-      "full_sha": "4ae4830217024b6a7286dbd40e5c19526151c003",
-      "title": "Fix ContactGraph People \"Bad Request\" — chunk unbounded .in() filters",
-      "author": "Claude",
-      "timestamp": "2026-08-29T03:41:21Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-4ae4830.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
