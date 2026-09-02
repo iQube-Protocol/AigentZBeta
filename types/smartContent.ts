@@ -216,6 +216,12 @@ export interface MediaAsset {
 }
 
 export interface ReadModality {
+  /** Inline canonical manuscript; editions are additive, never a replacement. */
+  text?: string;
+  pdf_url?: string;
+  duration?: string;
+  defaultEdition?: string;
+  editions?: import('../services/smartcontent/readingEditions').ReadingEdition[];
   enabled: boolean;
   
   /** Panel/page assets for comics/graphic novels */

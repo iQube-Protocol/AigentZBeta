@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { getReadingEditions, resolveReadingEdition } from '@/services/smartcontent/readingEditions';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -61,6 +62,8 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     relations: semantic.relations ?? {},
     evidenceDiscipline: semantic.evidenceDiscipline ?? null,
     tags: data.tags ?? [],
+    readingEditions: getReadingEditions(read),
+    defaultReadingEdition: resolveReadingEdition(read)?.id ?? null,
     canonicalText: {
       format: 'markdown',
       text: read.text ?? '',

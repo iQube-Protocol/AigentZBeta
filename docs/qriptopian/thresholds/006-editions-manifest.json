@@ -1,0 +1,38 @@
+{
+  "schema": "qriptopian.reading-editions.v1",
+  "contentId": "00da0c1b-f518-4641-878c-a4f9432e93d2",
+  "series": "Thresholds",
+  "seriesNumber": 6,
+  "title": "From Constitutional AI to Trusted Intelligence",
+  "originalDate": "2026-08-30",
+  "defaultEdition": "reading",
+  "research": {
+    "label": "Research Edition",
+    "version": "Inspectable Academic Draft v0.3",
+    "textSource": "modalities.read.text",
+    "textSha256": "fec90f5e45894465fce58cccc0686b2e3e8b67643d99a93f325cfaa56e59326b",
+    "pdfAssetId": "630aa292-cf67-47b9-969d-688b7e4387e5",
+    "pdfSha256": "160d8c1e5197bea1266512a355bacf8c156736b8a5d13d3ad8b872e4c5dad5a6",
+    "preservation": "Existing manuscript, citation graph and PDF unchanged"
+  },
+  "reading": {
+    "label": "Reading Edition",
+    "date": "2026-09-02",
+    "manuscript": "docs/qriptopian/thresholds/006-reading-edition.md",
+    "textSha256": "cba47d66eb0430fe5bc7214f44863969a543c976b677ee8648d8a69809c15ac4",
+    "pdfAssetId": "28e9a835-65d1-4074-8c24-a16596581b7e",
+    "pdfCid": "bafkr6ifqdvdfnjazx33gofy6apmnypx67kkmkeyrljyrml3raspq2j4poq",
+    "pdfSha256": "68aeef22467817f542019d37425e1fc9655bc781d01644eae9e11f8b4aaee293",
+    "pdfPages": 17,
+    "duration": "16 min read",
+    "editorialMethod": "Prose adaptation preserving the conceptual progression and evidence-status caveats; the Research Edition remains the citation/audit reference"
+  },
+  "constraints": {
+    "onePublication": true,
+    "oneCard": true,
+    "oneCover": true,
+    "paper005Unchanged": true,
+    "researchUnchanged": true,
+    "coverSourceRepair": "Unresolved; failed reader image is hidden, no substitute artwork or validation bypass"
+  }
+}
