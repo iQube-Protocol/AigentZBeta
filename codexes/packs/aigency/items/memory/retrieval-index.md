@@ -4994,3 +4994,23 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-9b0e073.md](../build_/COMMITS/COMMIT-9b0e073.md)
 - Message: Add MoneyPenny002 real-source donor audit (MPY2-0b)
+
+## Commit `98c0e12` — 2026-09-02T06:07:58Z
+- Type: `push`
+- Brief: [COMMIT-98c0e12.md](../build_/COMMITS/COMMIT-98c0e12.md)
+- Message: Financial-profile write paths never crash on a missing table [merge spec/moneypenny-mpy2-3]
+
+## Commit `c5ea8b5` — 2026-09-02T06:07:41Z
+- Type: `push`
+- Brief: [COMMIT-c5ea8b5.md](../build_/COMMITS/COMMIT-c5ea8b5.md)
+- Message: A2 completion: infographic slot + integrated asset selection/upload
+
+## Commit `7be87d2` — 2026-09-02T06:02:24Z
+- Type: `push`
+- Brief: [COMMIT-7be87d2.md](../build_/COMMITS/COMMIT-7be87d2.md)
+- Message: Close storage/sign + assets-by-category authorization gaps
+
+## Commit `b791188` — 2026-09-02T06:01:57Z
+- Type: `fix`
+- Brief: [COMMIT-b791188.md](../build_/COMMITS/COMMIT-b791188.md)
+- Message: Correct fs-operate label to bare Operate; open MoneyPenny in the same frame

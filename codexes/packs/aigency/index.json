@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-02T03:25:50.449Z",
+  "last_updated": "2026-09-02T06:10:26.137Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "9b0e073190d458adafb85206ac0675c61cdd1256",
-  "latest_commit_short": "9b0e073",
-  "latest_commit_title": "Add MoneyPenny002 real-source donor audit (MPY2-0b)",
+  "latest_commit": "b791188d7a5e4ebfc96ca59ecec4bc422e95e889",
+  "latest_commit_short": "b791188",
+  "latest_commit_title": "Correct fs-operate label to bare Operate; open MoneyPenny in the same frame",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,42 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "b791188",
+      "full_sha": "b791188d7a5e4ebfc96ca59ecec4bc422e95e889",
+      "title": "Correct fs-operate label to bare Operate; open MoneyPenny in the same frame",
+      "author": "Claude",
+      "timestamp": "2026-09-02T06:01:57Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-b791188.md"
+    },
+    {
+      "sha": "7be87d2",
+      "full_sha": "7be87d29b503fbdc28fb59fd36f13f4f334eb79c",
+      "title": "Close storage/sign + assets-by-category authorization gaps",
+      "author": "Claude",
+      "timestamp": "2026-09-02T06:02:24Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-7be87d2.md"
+    },
+    {
+      "sha": "c5ea8b5",
+      "full_sha": "c5ea8b54b1090dce82f5b73fb6a1d92ebde57ff8",
+      "title": "A2 completion: infographic slot + integrated asset selection/upload",
+      "author": "Claude",
+      "timestamp": "2026-09-02T06:07:41Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-c5ea8b5.md"
+    },
+    {
+      "sha": "98c0e12",
+      "full_sha": "98c0e1274f95e3def631d76a42632f54c4081a15",
+      "title": "Financial-profile write paths never crash on a missing table [merge spec/moneypenny-mpy2-3]",
+      "author": "Claude",
+      "timestamp": "2026-09-02T06:07:58Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-98c0e12.md"
+    },
     {
       "sha": "9b0e073",
       "full_sha": "9b0e073190d458adafb85206ac0675c61cdd1256",
@@ -1216,42 +1252,6 @@
       "timestamp": "2026-08-27T09:02:18Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-decbc07.md"
-    },
-    {
-      "sha": "c05c2c3",
-      "full_sha": "c05c2c347206a129a53f8d31bb88fa6d9ea457c6",
-      "title": "SECURITY: contain IRL OS -> metaMe IRL boundary breach (Phase 1)",
-      "author": "Claude",
-      "timestamp": "2026-08-27T07:42:09Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-c05c2c3.md"
-    },
-    {
-      "sha": "569d3ea",
-      "full_sha": "569d3ea485d7800b3ea333db3f020f2a67cb938e",
-      "title": "SECURITY ADDENDUM: remove query-derived administrator authority (IRL OS containment)",
-      "author": "Claude",
-      "timestamp": "2026-08-27T08:14:58Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-569d3ea.md"
-    },
-    {
-      "sha": "e8f6696",
-      "full_sha": "e8f669600ee34615cd1e1a3052b8e3f072af98a7",
-      "title": "Stage 9 duplicate-pair queue: server-derived recommendations, complete receipting, authoritative advance",
-      "author": "Claude",
-      "timestamp": "2026-08-27T02:49:02Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-e8f6696.md"
-    },
-    {
-      "sha": "31ff00c",
-      "full_sha": "31ff00c6ac2b2daf0aa7616991e5f603206a6392",
-      "title": "Close UI acceptance gap: genuine component tests for the duplicate-pair queue",
-      "author": "Claude",
-      "timestamp": "2026-08-27T03:08:54Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-31ff00c.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

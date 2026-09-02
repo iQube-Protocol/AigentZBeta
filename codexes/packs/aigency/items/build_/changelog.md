@@ -1,4 +1,8 @@
 # Build — Changelog
+- [`b791188`](https://github.com/iQube-Protocol/AigentZBeta/commit/b791188d7a5e4ebfc96ca59ecec4bc422e95e889) [fix] Correct fs-operate label to bare Operate; open MoneyPenny in the same frame (Claude, 2026-09-02T06:01:57Z)
+- [`7be87d2`](https://github.com/iQube-Protocol/AigentZBeta/commit/7be87d29b503fbdc28fb59fd36f13f4f334eb79c) [push] Close storage/sign + assets-by-category authorization gaps (Claude, 2026-09-02T06:02:24Z)
+- [`c5ea8b5`](https://github.com/iQube-Protocol/AigentZBeta/commit/c5ea8b54b1090dce82f5b73fb6a1d92ebde57ff8) [push] A2 completion: infographic slot + integrated asset selection/upload (Claude, 2026-09-02T06:07:41Z)
+- [`98c0e12`](https://github.com/iQube-Protocol/AigentZBeta/commit/98c0e1274f95e3def631d76a42632f54c4081a15) [push] Financial-profile write paths never crash on a missing table [merge spec/moneypenny-mpy2-3] (Claude, 2026-09-02T06:07:58Z)
 - [`9b0e073`](https://github.com/iQube-Protocol/AigentZBeta/commit/9b0e073190d458adafb85206ac0675c61cdd1256) [feat] Add MoneyPenny002 real-source donor audit (MPY2-0b) (Claude, 2026-09-02T01:15:27Z)
 - [`45e4b13`](https://github.com/iQube-Protocol/AigentZBeta/commit/45e4b132b34dc7c8c2fd5be7eda4cd66a9a42b9d) [feat] Add manual financial-profile entry; close MPY2-0b donor audit [merge spec/moneypenny-mpy2-3] (Claude, 2026-09-02T03:22:54Z)
 - [`0a3db3c`](https://github.com/iQube-Protocol/AigentZBeta/commit/0a3db3c3516a016f7f40eb453fd96a2153eb685a) [feat] Add typed asset placements with draft/publish for bridge media (A2) (Claude, 2026-09-01T23:48:14Z)
