@@ -12,8 +12,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { TrendingUp, TrendingDown, Activity, DollarSign, Zap, Play, Pause } from "lucide-react";
+import { TrendingUp, TrendingDown, Activity, DollarSign, Zap, Play, Pause, Maximize2, Minimize2 } from "lucide-react";
 import { SimulationNotice } from "./SimulationNotice";
+import { useMoneyPennyFullScreen } from "./MoneyPennyFullScreenContext";
 
 interface QuoteData {
   chain: string;
@@ -39,6 +40,13 @@ interface PnLData {
 }
 
 export function HFTConsole() {
+  // C-01 full-screen takeover (2026-09-02): the operator's own direction
+  // that this existing disclosed simulation is "a suitable surface" for
+  // it, rather than building a new one. `agentName` is null when this
+  // component is rendered outside a real MoneyPenny workspace (the
+  // standalone `/moneypenny` route, `SmartTriadSurfaces.tsx`) — the Expand
+  // control only renders when a real workspace is actually hosting it.
+  const { isFullScreen, enterFullScreen, exitFullScreen, environment, agentName } = useMoneyPennyFullScreen();
   const [isStreaming, setIsStreaming] = useState(false);
   const [quotes, setQuotes] = useState<QuoteData[]>([]);
   const [executions, setExecutions] = useState<ExecutionData[]>([]);
@@ -122,9 +130,36 @@ export function HFTConsole() {
               </CardDescription>
             </div>
             <div className="flex items-center gap-4">
+              {agentName && (
+                <span className="text-xs text-slate-400">
+                  <span className="font-medium text-emerald-300">{agentName}</span>
+                  {' · '}
+                  <span className="capitalize">{environment}</span>
+                </span>
+              )}
               <Badge variant={isStreaming ? "default" : "secondary"} className={isStreaming ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-slate-800/60 text-slate-400 border-slate-700"}>
                 {isStreaming ? "Live" : "Stopped"}
               </Badge>
+              {agentName && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => (isFullScreen ? exitFullScreen() : enterFullScreen())}
+                  className="border-slate-700 text-slate-300 hover:bg-slate-800/60"
+                >
+                  {isFullScreen ? (
+                    <>
+                      <Minimize2 className="h-4 w-4 mr-2" />
+                      Exit full screen
+                    </>
+                  ) : (
+                    <>
+                      <Maximize2 className="h-4 w-4 mr-2" />
+                      Full screen
+                    </>
+                  )}
+                </Button>
+              )}
               <Button
                 variant={isStreaming ? "destructive" : "default"}
                 size="sm"

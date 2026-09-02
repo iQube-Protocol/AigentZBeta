@@ -135,6 +135,19 @@ interface SmartTriadCopilotLayerProps {
    */
   onRequestContext?: (sentGroundContext: Record<string, unknown> | null) => void;
   /**
+   * SC-04 — called with the SAME `currentGroundContext` snapshot, right
+   * before the assistant's reply would be appended to the visible
+   * conversation. Returning `true` withholds the reply's real content and
+   * appends a short, honest placeholder instead ("This response was
+   * generated for an earlier context and is no longer current — please
+   * re-ask.") — protecting CONVERSATION OUTPUT from a stale response, a
+   * distinct concern from `onSuggestedLayouts`/`onStageProposals`, which
+   * only gate capsule/suggestion state. Optional and purely additive;
+   * `suggested_layouts`/`stage_proposals` still fire unconditionally so a
+   * host's own staleness guard on those (if any) is unaffected.
+   */
+  shouldSuppressResponse?: (sentGroundContext: Record<string, unknown> | null) => boolean;
+  /**
    * Fired after each successful chat POST with the server-classified
    * layout suggestions for the latest turn. The parent maps each hint
    * to a left-pane chip (capsule or composer/upload/download) and
@@ -323,6 +336,7 @@ export function SmartTriadCopilotLayer({
   enableAdvancedRendering = true,
   groundContext,
   onRequestContext,
+  shouldSuppressResponse,
   onSuggestedLayouts,
   onStageProposals,
   onSuggestedDeliberation,
@@ -667,10 +681,17 @@ export function SmartTriadCopilotLayer({
       // memory so the next turn ships them back as sessionInvariants.
       sessionInvariants.ingest(data?.resolved_invariants);
 
+      // SC-04 — checked with the SAME currentGroundContext this request
+      // dispatched with, right before the reply would be appended.
+      // Protects conversation output specifically; suggestions/stage
+      // proposals below still fire so a host guard on THOSE isn't skipped.
+      const suppressed = shouldSuppressResponse?.(currentGroundContext) ?? false;
       const assistantMessage: SmartTriadMessage = {
         id: `assistant-${Date.now()}`,
         role: 'assistant',
-        content: data.response || 'No response received.',
+        content: suppressed
+          ? 'This response was generated for an earlier context and is no longer current — please re-ask.'
+          : data.response || 'No response received.',
         timestamp: new Date(),
         metadata: {
           model: data.model_used ?? selectedProvider,

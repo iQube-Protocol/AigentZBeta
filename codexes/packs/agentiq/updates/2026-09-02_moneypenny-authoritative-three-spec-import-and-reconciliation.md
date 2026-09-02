@@ -1,10 +1,13 @@
 # MoneyPenny Authoritative Three-Spec Import and Reconciliation (2026-09-02)
 
-**Status:** Import complete. Crosswalk complete (§2, revised §10, deltas in §12). Three reconciliation
+**Status:** Import complete. Crosswalk complete (§2, revised §10, deltas in §12). Four reconciliation
 passes: (1) §3 reconciled the specs' dated snapshot against prior-session work; (2) §6–§7 verified the
-C1 shell and closed the copilot-to-capsule (C-02) gap; (3) §11 closes SC-04 (task/context versioning)
-and completes the C-01/C-03 shell (pane ratio, narrow-width toggle, five-area navigation incl. Home,
-sidebar retirement) — all three passes preserved every previously-implemented feature untouched.
+C1 shell and closed the copilot-to-capsule (C-02) gap; (3) §11 closed SC-04 (task/context versioning)
+and completed the C-01/C-03 shell (pane ratio, narrow-width toggle, five-area navigation incl. Home,
+sidebar retirement); (4) §13 hardens SC-04 (monotonic generation, conversation-output protection),
+delivers the full-screen HFT takeover, and verifies entry continuity (direct/Operate confirmed;
+Agent Me confirmed absent and reported, not silently assumed; return navigation added generically) —
+all four passes preserved every previously-implemented feature untouched.
 
 ---
 
@@ -449,3 +452,137 @@ various viewport sizes match the intended 38/62 split visually.
 
 All other AC-C/AC-B/AC-A rows in §10 are unchanged by this pass — restated, not re-derived, to avoid
 implying progress this pass did not make.
+
+## 13. Third continuation (2026-09-02): SC-04 hardening, full-screen HFT takeover, entry continuity
+
+Continued without a further selection round, per the operator's instruction. Four bounded pieces:
+
+### 13a. SC-04 hardening — two real gaps found and closed
+
+Direct review of §11a's own mechanism, requested by the operator, found the version key was a bare
+(panel, personaId, environment, profileRevision) tuple compared by value equality — correct for a
+context that only ever changes monotonically forward, but silent on two real cases:
+
+1. **Two tasks on the same panel** were indistinguishable — a second question asked without
+   navigating away carried an IDENTICAL tuple to the first, so a late response to task 1 could not be
+   told apart from a fresh response to task 2.
+2. **The A → B → A problem** — leaving panel A, visiting B, and returning to A restores the ORIGINAL
+   tuple's values, so a still-in-flight response from the FIRST visit to A would incorrectly read as
+   current after the round trip.
+
+**Fix:** `services/moneypenny/contextVersioning.ts` gained a `generation: number` field — a single
+counter, monotonically bumped by the host on every context-relevant event: a new request dispatch
+(`handleRequestContext`, closing gap 1), and a panel/persona/environment/profile-revision change
+(closing gap 2, since leaving and returning to A each bump it independently). Panel/persona/
+environment/profileRevision remain in the version as human-readable provenance for WHY a generation
+changed, but `generation` alone is what guarantees uniqueness now. `MoneyPennyCopilotWorkspace.tsx`
+bumps `generationRef` in `handleRequestContext` (task identity) and in three separate `useEffect`s
+keyed on `activePanel`/`personaId`/`environment` (context identity), plus alongside the existing
+`profileRevisionRef` bump. Ordering matters and is documented in-line: the bump happens BEFORE the
+version is captured for the outgoing request, so a prompt, correct response still matches — only a
+response whose captured generation has since been superseded reads as stale.
+
+**Conversation output was NOT protected — only the suggestion banner was.** The operator's second
+finding was correct: `handleSuggestedLayouts`'s guard only gated `setSuggestedPanel`;
+`SmartTriadCopilotLayer`'s own internal message-append logic had no comparable check, so a stale
+response's TEXT would still silently appear in the visible conversation as if it answered the current
+context. Closed via one more small, additive, optional prop on the shared layer —
+`shouldSuppressResponse?: (sentGroundContext) => boolean` — called right before the assistant message
+is appended; when it returns true, the layer substitutes a short, honest placeholder ("This response
+was generated for an earlier context and is no longer current — please re-ask.") instead of the real
+content. `suggested_layouts`/`stage_proposals` still fire unconditionally afterward, so a host's
+existing guard on those (already in place) is never skipped. `MoneyPennyCopilotWorkspace.tsx`'s own
+`shouldSuppressResponse` reuses the SAME `pendingRequestVersionRef`/`computeCurrentVersionKey()`
+comparison `handleSuggestedLayouts` uses — one mechanism, two protected surfaces, not two parallel
+staleness systems. The controlled `messages`/`onMessagesChange` prop pair `SmartTriadCopilotLayer`
+already exposed was deliberately NOT adopted for this — its own code comment flags a known,
+never-exercised stale-closure bug in that specific path ("no current caller uses it"), and this
+capability didn't need it.
+
+**Tests:** `tests/moneypenny-context-versioning.test.ts` grew to 29 tests (was 20) — 3 new pure-logic
+tests directly exercising "two tasks, same panel," the A→B→A round trip, and a false-positive check
+(a genuinely single unchanged task still reads as fresh); updated wiring tests for the new
+`computeCurrentVersionKey()`/`handleRequestContext` shape; 2 new tests proving conversation-output
+protection is wired and scoped correctly (only `content` is swapped; `onSuggestedLayouts` calls are
+outside the suppression check). All pass.
+
+### 13b. Full-screen HFT trading takeover — delivered, "no surface needs one yet" retracted
+
+The prior report's "no surface needs one yet" was wrong to treat as closing the requirement — the
+operator's correction is accepted. `HFTConsole.tsx`'s existing disclosed simulation (labeled via
+`SimulationNotice`, unchanged) is reused as the takeover surface, per the operator's direction.
+
+`MoneyPennyFullScreenContext.tsx` (new) provides `{isFullScreen, enterFullScreen, exitFullScreen,
+environment, agentName}`, defaulting to a safe no-op (`agentName: null`) outside its provider — needed
+because `HFTConsole` is ALSO rendered by the untouched standalone `/moneypenny` route
+(`MoneyPennyCartridge.tsx`) and by `SmartTriadSurfaces.tsx`, neither of which gets the provider or any
+behavior change. `MoneyPennyCopilotWorkspace.tsx` provides the context and owns the takeover layout:
+entering full-screen hides the copilot pane and narrow-width toggle via the SAME className-swap
+pattern the C-01 narrow toggle already established (never unmounted — `SmartTriadCopilotLayer`'s
+conversation history and `MoneyPennyShell`'s task state survive the takeover intact) and expands the
+workspace pane to full width. A takeover bar shows the acting agent name and the SC-04 `environment`
+value (real state, not a second disconnected concept) plus an explicit exit control; Escape also
+restores the prior layout. `HFTConsole.tsx` gained a "Full screen"/"Exit full screen" button, shown
+only when `agentName` is non-null (i.e., only inside a real MoneyPenny workspace).
+
+**Tests:** `tests/moneypenny-fullscreen-takeover.test.ts` — 13 new tests, including two that verify
+the two OTHER `HFTConsole` renderers are provably unaffected (no `MoneyPennyFullScreenProvider`
+reference in either file). All pass.
+
+### 13c. Entry continuity — verified directly against code, not assumed
+
+| Entry path | Finding |
+|---|---|
+| Direct (`moneypenny-codex` tab) | Confirmed: resolves through `MoneyPennyPanelTab.tsx` → `MoneyPennyCopilotWorkspace.tsx`, the one dispatcher |
+| Intermediary Operate | Confirmed: `FinancialSovereigntyOperateStage.tsx`'s `buildCodexUrl('moneypenny', {personaId, tab:'overview'})` reaches the SAME dispatcher |
+| Agent Me | **Confirmed ABSENT.** `MoneyPennyFocusLayout.tsx` (`components/metame/welcome/layouts/`) is a completely unrelated Guided Journey Runtime "Closing Ceremony" capsule that records a disposition about whether MoneyPenny is a "focus" — it never calls `buildCodexUrl` or `tryOpenInMountedCartridge`. `AigentMeWelcomeSplitTab.tsx` (3000+ lines) contains zero `buildCodexUrl('moneypenny', ...)` calls anywhere. This is a real gap, not previously reported precisely |
+| Intermediary Prepare | **Confirmed ABSENT, and expected.** `FinancialSovereigntyPrepareCrossStage.tsx` has no MoneyPenny reference at all — it is the PRE-Bridge-spec "select an agent candidate" step the Bridge spec's own §1 explicitly critiques ("its visible Prepare step selects an agent candidate... It does not provide the substantial middle period..."). Rebuilding Prepare is Bridge Bridge B2 (Discover/Learn/Explore/Prepare), a large, not-yet-started phase — not something to retrofit a MoneyPenny link onto without that larger rebuild |
+
+**"Same workspace and financial profile, one copilot" — verified true by construction for the two
+real entries** (direct, Operate): both resolve through the identical `MoneyPennyPanelTab.tsx`
+dispatcher, and the financial-profile fetch (`/api/moneypenny/financial-profile`) is persona-scoped,
+not entry-point-scoped, so any entry reaching the same persona reaches the same profile with no
+separate data path to keep in sync.
+
+**Agent Me entry point — deliberately NOT built this pass.** `AigentMeWelcomeSplitTab.tsx` and
+`SpecialistsLayout.tsx` are both explicitly PARAMOUNT-flagged in this repo's own CLAUDE.md ("aigentMe
+Capsule ↔ Layout Contract") with three documented historical regressions from exactly this class of
+change (adding a chip/CTA without fully understanding the capsule-layout state machine — each cost
+real debugging time). Retrofitting MoneyPenny into the existing 8-specialist `SpecialistsLayout`
+roster (a different, in-app consultation architecture, not cartridge navigation) would be substantial
+new work touching `services/agents/specialistRouter.ts`, not a bounded addition. Rather than risk a
+regression in a flagged-fragile file within this same multi-slice turn, this is reported precisely as
+an open item for a dedicated, focused slice, with the exact reusable pattern documented below.
+
+**Return navigation — built generically, using the platform's own canonical mechanism.**
+`utils/codex-nav.ts`'s `from`/`fromTab` params are already documented as "Source slug — used as
+`?from=` for breadcrumb back-links" — the established, canonical mechanism (CLAUDE.md's own
+"Inter-Cartridge Navigation" section). `MoneyPennyCopilotWorkspace.tsx` now reads them via
+`useSearchParams()` and renders a real breadcrumb link (`buildCodexUrl(fromSlug, {tab: fromTab,
+personaId})`) when a caller supplies a real codex slug. `FinancialSovereigntyOperateStage.tsx` was
+deliberately NOT changed to set `from` — it is a Journey Spine STAGE, not a codex/cartridge, so it has
+no real codex slug to offer, and inventing one would violate this repo's No-Guessing rule. For that
+case (and any other entry without a real slug), a generic `window.history.back()` fallback closes
+return navigation correctly with zero source-slug knowledge required, working the same whether the
+current render is inside an embed iframe or the main shell.
+
+**For the future Agent Me entry point, when built:** add a `buildCodexUrl('moneypenny', {tab:
+'overview', personaId, from: '<agent-me-codex-slug>', fromTab: '<agent-me-tab>'})` call from wherever
+the eventual CTA lives, exactly mirroring `FinancialSovereigntyOperateStage.tsx`'s existing pattern —
+`MoneyPennyCopilotWorkspace.tsx`'s breadcrumb-link logic already added this pass will pick it up with
+no further MoneyPenny-side change needed.
+
+**Tests:** `tests/moneypenny-entry-continuity.test.ts` — 11 new tests, verifying each finding above
+directly against source (the confirmed-absent Agent Me/Prepare links, the confirmed-present
+direct/Operate dispatcher paths, the return-navigation mechanism, and that Operate does NOT set a
+fabricated `from`). All pass.
+
+### 13d. Regression, evidence discipline
+
+tsc held exactly at 677 throughout every step of this pass. Full vitest suite held exactly at 49
+failed / 17 failed files (identical pre-existing `repo-weight`/`resolution-records` failures — zero
+new failures anywhere). 85 MoneyPenny-specific tests pass across four files (context-versioning,
+copilot-workspace, fullscreen-takeover, entry-continuity) — all of it code/unit-test evidence, not
+browser acceptance. No migration was touched this pass. No environment/Supabase/connector access was
+needed or attempted for this pass's work — everything implemented was pure client-side React state,
+routing, and unit-testable logic; nothing was blocked on missing configuration or credentials.
