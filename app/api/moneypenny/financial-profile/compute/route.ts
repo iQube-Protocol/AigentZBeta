@@ -29,7 +29,7 @@ import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getPersonaUploadService } from '@/services/uploads/supabaseUploadAdapter';
 import { computeFinancialProfile, type StatementSourceRows } from '@/services/financialServices/financialProfileAggregation';
 import { assessRisk, deriveRiskLimits } from '@/services/financialServices/riskEnvelope';
-import { upsertFinancialProfileQube } from '@/services/iqube/financialProfileQube';
+import { upsertFinancialProfileQube, FinancialProfileTableMissingError } from '@/services/iqube/financialProfileQube';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -42,6 +42,7 @@ function extractCsvRows(contentJson: unknown): Array<Record<string, string>> | n
 }
 
 export async function POST(req: NextRequest) {
+  try {
   const persona = await getActivePersona(req);
   if (!persona?.personaId) {
     return NextResponse.json({ ok: false, error: 'Not authenticated' }, { status: 401 });
@@ -102,4 +103,13 @@ export async function POST(req: NextRequest) {
     unreadableUploadCount: result.unreadableUploadIds.length,
     notes: result.notes,
   });
+  } catch (err) {
+    if (err instanceof FinancialProfileTableMissingError) {
+      return NextResponse.json({ ok: false, error: 'financial-profile-unavailable', detail: err.message }, { status: 503 });
+    }
+    return NextResponse.json(
+      { ok: false, error: 'internal-error', detail: err instanceof Error ? err.message : String(err) },
+      { status: 500 },
+    );
+  }
 }
