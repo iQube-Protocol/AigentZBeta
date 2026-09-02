@@ -10,41 +10,68 @@
  * (`components/smarttriad/copilot/SmartTriadCopilotLayer.tsx`'s
  * `currentGroundContext`, echoed back through the additive `onRequestContext`
  * callback) — no longer matches the context that is CURRENT when the
- * response arrives. Three axes compose the version, matching the three
- * required test scenarios: the active panel (task), the financial-profile
- * revision (content within a task can go stale without the panel changing),
- * and the execution environment (simulation vs. live — C-11/C-12 have not
- * shipped a UI toggle yet, so `environment` is real state with a fixed
- * 'simulation' default in this slice, kept ready for that future work
- * rather than hardcoded away).
+ * response arrives.
  *
- * This is pure, dependency-free logic so it is directly unit-testable
- * without mounting React or mocking fetch — see
- * tests/moneypenny-context-versioning.test.ts.
+ * 2026-09-02 revision — a bare (panel, personaId, environment,
+ * profileRevision) TUPLE, compared by value equality, has two real defects
+ * a monotonic identifier is needed to close:
+ *
+ * 1. TWO TASKS ON THE SAME PANEL are indistinguishable by that tuple alone
+ *    — if the operator asks two different questions without navigating
+ *    away, both requests carry the identical tuple, so a late response to
+ *    the FIRST question cannot be told apart from a fresh response to the
+ *    SECOND.
+ * 2. THE A -> B -> A PROBLEM — value-equality on a tuple that can revisit
+ *    a prior state (leave panel A, visit B, return to A) makes an old,
+ *    still-in-flight response from the FIRST visit to A look identical to
+ *    the CURRENT state after returning to A, because the tuple's values
+ *    repeat. A response must never become valid again just because the
+ *    operator's context happens to cycle back to a value it already held.
+ *
+ * `generation` closes both: a single counter, monotonically incremented
+ * by the host on every context-relevant event — a new request dispatch
+ * (distinguishes same-panel tasks), a panel/persona/environment change, or
+ * a profile revision (distinguishes A -> B -> A, since leaving and
+ * returning to A each bump it, so the generation captured on the FIRST
+ * visit can never equal the CURRENT generation after a round trip). Panel/
+ * persona/environment/profileRevision are kept in the version too — not
+ * for uniqueness (generation alone already guarantees that) but as
+ * human-readable, independently-testable provenance for WHY a generation
+ * changed.
+ *
+ * Pure, dependency-free logic — directly unit-testable without mounting
+ * React or mocking fetch. See tests/moneypenny-context-versioning.test.ts.
  */
 
 export type MoneyPennyEnvironment = 'simulation' | 'live';
 
 export interface MoneyPennyContextVersion {
-  /** The active MoneyPennyPanelKey — proxy for "task" (Cartridge spec SC-04). */
-  panel: string;
-  /** The active persona — proxy for "agent." Undefined before persona resolution completes. */
-  personaId: string | undefined;
-  /** Execution environment — proxy for "environment." */
-  environment: MoneyPennyEnvironment;
   /**
-   * Monotonic counter bumped each time the financial-profile ground
-   * snapshot is successfully refetched with new data. A profile revision
-   * invalidates an in-flight request's response even when panel/persona/
-   * environment are unchanged, since the response may have reasoned over
-   * the now-superseded profile snapshot.
+   * Monotonic counter — the actual source of uniqueness/staleness. Bumped
+   * by the host on every request dispatch (task identity) and every
+   * panel/persona/environment/profile-revision change (context identity).
+   * Never decreases, never repeats a prior value.
    */
+  generation: number;
+  /** The active MoneyPennyPanelKey — proxy for "task" (Cartridge spec SC-04). Provenance only. */
+  panel: string;
+  /** The active persona — proxy for "agent." Provenance only. */
+  personaId: string | undefined;
+  /** Execution environment — proxy for "environment." Provenance only. */
+  environment: MoneyPennyEnvironment;
+  /** The financial-profile revision counter at the moment this version was computed. Provenance only. */
   profileRevision: number;
 }
 
-/** Deterministic version key — same inputs always produce the same key. */
+/**
+ * Deterministic version key. `generation` leads the key — since it is
+ * monotonic and host-managed, two DIFFERENT MoneyPennyContextVersion
+ * instances are guaranteed to produce different keys whenever anything
+ * meaningfully changed, even if panel/personaId/environment/profileRevision
+ * happen to repeat (the A -> B -> A case).
+ */
 export function computeContextVersionKey(version: MoneyPennyContextVersion): string {
-  return `${version.panel}::${version.personaId ?? ''}::${version.environment}::${version.profileRevision}`;
+  return `${version.generation}::${version.panel}::${version.personaId ?? ''}::${version.environment}::${version.profileRevision}`;
 }
 
 /**

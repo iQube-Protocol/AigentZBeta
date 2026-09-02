@@ -56,17 +56,51 @@
  * `tryOpenInMountedCartridge`, the SAME seam `MoneyPennyCapabilityRail.tsx`
  * already uses, so the codex tab framework stays the single owner of which
  * panel is active (MS-2).
+ *
+ * Full-screen trading takeover (C-01, added 2026-09-02): provides
+ * `MoneyPennyFullScreenContext` so a panel (today: `HFTConsole.tsx`'s
+ * existing disclosed simulation — reused, not replaced) can request an
+ * in-frame expansion. The copilot pane and narrow-view toggle are hidden
+ * via CSS (never unmounted, matching the SAME pattern the C-01 narrow-width
+ * toggle already established), so conversation history and task state
+ * survive the takeover; Escape or the exit control restores the prior
+ * layout exactly. Environment and acting-agent name are threaded through
+ * the context so they "remain accessible" during the takeover per C-01,
+ * not merely restored afterward.
+ *
+ * Return navigation (entry-continuity verification, 2026-09-02): every
+ * `buildCodexUrl` caller can pass `from`/`fromTab` — the platform's
+ * existing, canonical "Source slug — used as ?from= for breadcrumb
+ * back-links" mechanism (utils/codex-nav.ts's own doc comment) — and this
+ * component renders a real breadcrumb back-link from them when present.
+ * `FinancialSovereigntyOperateStage.tsx`'s existing "Open MoneyPenny" link
+ * does NOT set `from` — it is a Journey Spine STAGE, not a codex/cartridge,
+ * so it has no real codex slug to offer a breadcrumb link to (inventing
+ * one would violate this repo's No-Guessing rule). For that case, and any
+ * other entry that doesn't set `from`, a generic browser-history "Back"
+ * falls back to `window.history.back()` — correct regardless of hosting
+ * context (embed iframe or full page) with no source-slug knowledge
+ * required. Verified this turn: Agent Me currently has NO wired entry
+ * point into this workspace at all (`MoneyPennyFocusLayout.tsx` is an
+ * unrelated Guided-Journey disposition-recording ceremony capsule, not
+ * navigation) — not built in this pass; see this session's own report for
+ * why (AigentMeWelcomeSplitTab.tsx/SpecialistsLayout.tsx are both
+ * CLAUDE.md PARAMOUNT-flagged fragile files with documented regression
+ * history, not a file to extend without a dedicated, focused slice).
  */
 
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowRight } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { ArrowLeft, ArrowRight, Minimize2 } from 'lucide-react';
 import { SmartTriadCopilotLayer, type SuggestedLayoutHint } from '@/components/smarttriad/copilot/SmartTriadCopilotLayer';
 import { MoneyPennyShell } from './MoneyPennyShell';
 import { personaFetch } from '@/utils/personaSpine';
 import { tryOpenInMountedCartridge } from '@/services/cartridge/CartridgePresenceRegistry';
+import { buildCodexUrl } from '@/utils/codex-nav';
 import { MONEYPENNY_CAPABILITY_GROUPS } from './moneypennyCapabilities';
+import { MoneyPennyFullScreenProvider, type MoneyPennyFullScreenValue } from './MoneyPennyFullScreenContext';
 import {
   computeContextVersionKey,
   isResponseContextStale,
@@ -122,6 +156,12 @@ export interface MoneyPennyCopilotWorkspaceProps {
 
 export function MoneyPennyCopilotWorkspace({ activePanel, children }: MoneyPennyCopilotWorkspaceProps) {
   const [personaId, setPersonaId] = useState<string | undefined>(undefined);
+  // Return navigation (entry-continuity, 2026-09-02) — see this file's own
+  // header comment for the two supported paths (slug breadcrumb vs.
+  // generic browser-history fallback).
+  const searchParams = useSearchParams();
+  const fromSlug = searchParams.get('from');
+  const fromTab = searchParams.get('fromTab');
   const [financialProfileGround, setFinancialProfileGround] = useState<FinancialProfileGroundSnapshot | null>(null);
   const groundContextRef = useRef<Record<string, unknown> | null>(null);
   // C-02 copilot-to-capsule loop: a suggested panel from the copilot's
@@ -138,6 +178,12 @@ export function MoneyPennyCopilotWorkspace({ activePanel, children }: MoneyPenny
   // the `lg` breakpoint (see the render below) — so switching views never
   // loses conversation history or task/panel state.
   const [narrowView, setNarrowView] = useState<'conversation' | 'workspace'>('conversation');
+  // C-01 full-screen trading/analysis takeover. Both panes stay mounted —
+  // same visibility-only-toggle pattern as narrowView above — so the
+  // takeover never loses conversation history or task state, and Escape
+  // restores exactly the layout (pane ratio, narrowView) that was active
+  // before entering.
+  const [isFullScreen, setIsFullScreen] = useState(false);
 
   // SC-04 — execution environment is real state (never hardcoded), so
   // C-11/C-12's future simulation/live UI plugs directly into this same
@@ -150,6 +196,17 @@ export function MoneyPennyCopilotWorkspace({ activePanel, children }: MoneyPenny
   // refetched with new data — a profile revision invalidates an in-flight
   // request's response even when panel/persona/environment are unchanged.
   const profileRevisionRef = useRef(0);
+  // SC-04 monotonic context generation (2026-09-02 hardening). Bumped on
+  // EVERY context-relevant event — a new request dispatch, a panel change,
+  // a persona change, an environment change, a profile revision — and
+  // NEVER decreases or repeats a prior value. This is what makes two tasks
+  // on the same panel distinguishable (each dispatch gets its own
+  // generation) and what closes the A -> B -> A hole a bare value-equality
+  // tuple has (leaving A and returning to A both bump it, so a stale
+  // response captured on the FIRST visit can never match the CURRENT
+  // generation after a round trip, even though panel/persona/environment/
+  // profileRevision may otherwise read identically to before).
+  const generationRef = useRef(0);
   // The context version captured (via onRequestContext, below) for
   // whichever request is currently in flight — compared against the
   // CURRENT version when its response arrives.
@@ -159,42 +216,122 @@ export function MoneyPennyCopilotWorkspace({ activePanel, children }: MoneyPenny
     setPersonaId(readStoredPersonaId());
   }, []);
 
+  // Context-relevant changes bump the generation — see generationRef's own
+  // comment. Deliberately separate effects (not one with all three deps)
+  // so each axis's change is independently attributable if ever debugged.
+  useEffect(() => { generationRef.current += 1; }, [activePanel]);
+  useEffect(() => { generationRef.current += 1; }, [personaId]);
+  useEffect(() => { generationRef.current += 1; }, [environment]);
+
   // The operator already navigated (via the rail, a deep link, or this
   // suggestion itself) — clear any stale suggestion for the panel just left.
   useEffect(() => {
     setSuggestedPanel((prev) => (prev === activePanel ? null : prev));
   }, [activePanel]);
 
-  const handleRequestContext = useCallback((sentGroundContext: Record<string, unknown> | null) => {
-    pendingRequestVersionRef.current =
-      typeof sentGroundContext?.contextVersion === 'string' ? sentGroundContext.contextVersion : null;
-  }, []);
+  // C-01 full-screen takeover: Escape restores the earlier layout exactly
+  // (isFullScreen back to false; pane ratio, narrowView and conversation
+  // are untouched since neither pane was ever unmounted).
+  useEffect(() => {
+    if (!isFullScreen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsFullScreen(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [isFullScreen]);
 
-  const handleSuggestedLayouts = useCallback((hints: SuggestedLayoutHint[]) => {
+  const fullScreenContextValue: MoneyPennyFullScreenValue = useMemo(
+    () => ({
+      isFullScreen,
+      enterFullScreen: () => setIsFullScreen(true),
+      exitFullScreen: () => setIsFullScreen(false),
+      environment,
+      agentName: 'MoneyPenny',
+    }),
+    [isFullScreen, environment],
+  );
+
+  const handleRequestContext = useCallback(() => {
+    // SC-04 task identity — a NEW request dispatch is itself a
+    // context-relevant event: it must be distinguishable from any earlier
+    // task on the same panel, even one still in flight. Bump FIRST, then
+    // capture the fresh POST-bump generation as this request's own
+    // identity — capturing the stale PRE-bump value here would make every
+    // response look artificially stale against itself, since
+    // computeCurrentVersionKey() at response-time always reads the
+    // POST-bump generation onward. Recomputed from current closure state
+    // rather than read back from the groundContext payload, since the
+    // groundContext embedded at render time necessarily used the PRE-bump
+    // generation (render happens before any send).
+    generationRef.current += 1;
+    pendingRequestVersionRef.current = computeContextVersionKey({
+      generation: generationRef.current,
+      panel: activePanel,
+      personaId,
+      environment,
+      profileRevision: profileRevisionRef.current,
+    });
+  }, [activePanel, personaId, environment]);
+
+  /** The version key for "right now" — read fresh at call time, never memoized/stale. */
+  const computeCurrentVersionKey = useCallback((): string => {
     const currentVersion: MoneyPennyContextVersion = {
+      generation: generationRef.current,
       panel: activePanel,
       personaId,
       environment,
       profileRevision: profileRevisionRef.current,
     };
-    const currentVersionKey = computeContextVersionKey(currentVersion);
+    return computeContextVersionKey(currentVersion);
+  }, [activePanel, personaId, environment]);
+
+  // SC-04 — protects conversation output, not just the suggestion banner.
+  // Passed to SmartTriadCopilotLayer as shouldSuppressResponse: called
+  // right before it would append the assistant's reply to the visible
+  // conversation. Compares against the SAME pendingRequestVersionRef
+  // handleSuggestedLayouts uses (populated by handleRequestContext, which
+  // fires earlier in the same turn) rather than the sentGroundContext
+  // parameter — that parameter reflects the PRE-dispatch-bump generation
+  // computed at render time, one generation behind the POST-bump value
+  // this component's own ref (and every other staleness check this turn)
+  // actually uses; re-deriving from the ref keeps every check in this
+  // component consistent with itself. A stale reply's TEXT is withheld —
+  // never silently shown as if it answered the CURRENT context.
+  const shouldSuppressResponse = useCallback(() => {
+    return isResponseContextStale(pendingRequestVersionRef.current, computeCurrentVersionKey());
+  }, [computeCurrentVersionKey]);
+
+  const handleSuggestedLayouts = useCallback((hints: SuggestedLayoutHint[]) => {
     // SC-04: a response whose request context no longer matches the
     // current task/agent/environment/profile-revision is discarded
     // outright — it must not populate state or present an actionable
     // suggestion. Existing valid state (an already-shown suggestion for
     // the CURRENT context) is left untouched, never overwritten.
-    if (isResponseContextStale(pendingRequestVersionRef.current, currentVersionKey)) return;
+    if (isResponseContextStale(pendingRequestVersionRef.current, computeCurrentVersionKey())) return;
     const hit = hints.find(
       (h) => h.layoutId in SUGGESTABLE_PANEL_LABELS && h.layoutId !== activePanel,
     );
     setSuggestedPanel(hit ? (hit.layoutId as MoneyPennyPanelKey) : null);
-  }, [activePanel, personaId, environment]);
+  }, [activePanel, computeCurrentVersionKey]);
 
   const navigateToSuggestedPanel = useCallback(() => {
     if (!suggestedPanel) return;
     tryOpenInMountedCartridge({ cartridgeId: MONEYPENNY_CODEX_ID, tab: suggestedPanel });
     setSuggestedPanel(null);
   }, [suggestedPanel]);
+
+  // Return navigation — a real codex slug in ?from= gets a proper
+  // breadcrumb link (buildCodexUrl, the platform's canonical mechanism);
+  // otherwise fall back to plain browser history, which is correct
+  // regardless of hosting context and needs no source-slug knowledge.
+  const navigateBack = useCallback(() => {
+    if (fromSlug) {
+      window.location.assign(buildCodexUrl(fromSlug, { tab: fromTab ?? undefined, personaId }));
+    } else if (typeof window !== 'undefined' && window.history.length > 1) {
+      window.history.back();
+    }
+  }, [fromSlug, fromTab, personaId]);
 
   const refetchFinancialProfileGround = useCallback(async () => {
     try {
@@ -207,6 +344,7 @@ export function MoneyPennyCopilotWorkspace({ activePanel, children }: MoneyPenny
       // request's response, even when panel/persona/environment are
       // unchanged (it may have reasoned over the now-superseded snapshot).
       profileRevisionRef.current += 1;
+      generationRef.current += 1;
       setFinancialProfileGround({
         hasProfile: json.meta?.hasProfile === true,
         inputSource: (json.inputSource as FinancialProfileGroundSnapshot['inputSource']) ?? null,
@@ -238,48 +376,91 @@ export function MoneyPennyCopilotWorkspace({ activePanel, children }: MoneyPenny
     activePanel,
     // SC-04 — the version this specific request's context represents.
     // Echoed back via onRequestContext at send-time, then compared
-    // against the CURRENT version when the response arrives.
-    contextVersion: computeContextVersionKey({
-      panel: activePanel,
-      personaId,
-      environment,
-      profileRevision: profileRevisionRef.current,
-    }),
+    // against the CURRENT version when the response arrives. Read
+    // BEFORE handleRequestContext's own generation bump for this same
+    // dispatch — see that handler's comment; the two captures agree
+    // because both read groundContextRef.current, which is reassigned
+    // fresh on every render including the one following this bump.
+    contextVersion: computeCurrentVersionKey(),
     ...(activePanel === 'financial-profile' && financialProfileGround ? { financialProfile: financialProfileGround } : {}),
   };
   groundContextRef.current = groundContext;
 
+  const canNavigateBack = Boolean(fromSlug) || (typeof window !== 'undefined' && window.history.length > 1);
+
   return (
+    <MoneyPennyFullScreenProvider value={fullScreenContextValue}>
     <div className="flex h-[calc(100vh-96px)] flex-col overflow-hidden bg-slate-950">
+      {/* Return navigation (entry-continuity, 2026-09-02) — see this file's
+          header comment. Hidden during full-screen (same as the narrow
+          toggle) since the takeover bar owns that space instead. */}
+      {!isFullScreen && canNavigateBack && (
+        <div className="flex shrink-0 items-center border-b border-slate-800 bg-slate-900/40 px-3 py-1.5">
+          <button
+            type="button"
+            onClick={navigateBack}
+            className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200"
+          >
+            <ArrowLeft className="h-3 w-3" />
+            {fromSlug ? `Back to ${fromSlug}` : 'Back'}
+          </button>
+        </div>
+      )}
       {/* Narrow-width Conversation/Workspace toggle (C-01). Both panes stay
           mounted below `lg` — only visibility toggles via CSS — so
           SmartTriadCopilotLayer's conversation history and MoneyPennyShell's
-          task/panel state survive switching views, never remounted. */}
-      <div className="flex shrink-0 items-center gap-1 border-b border-slate-800 bg-slate-900/60 p-1 lg:hidden">
-        <button
-          type="button"
-          onClick={() => setNarrowView('conversation')}
-          className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-            narrowView === 'conversation' ? 'bg-emerald-500/10 text-emerald-300' : 'text-slate-400 hover:bg-slate-800/60'
-          }`}
-        >
-          Conversation
-        </button>
-        <button
-          type="button"
-          onClick={() => setNarrowView('workspace')}
-          className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-            narrowView === 'workspace' ? 'bg-emerald-500/10 text-emerald-300' : 'text-slate-400 hover:bg-slate-800/60'
-          }`}
-        >
-          Workspace
-        </button>
-      </div>
+          task/panel state survive switching views, never remounted. Hidden
+          during a full-screen takeover — narrowView itself is untouched
+          underneath, restored the instant isFullScreen goes false. */}
+      {!isFullScreen && (
+        <div className="flex shrink-0 items-center gap-1 border-b border-slate-800 bg-slate-900/60 p-1 lg:hidden">
+          <button
+            type="button"
+            onClick={() => setNarrowView('conversation')}
+            className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+              narrowView === 'conversation' ? 'bg-emerald-500/10 text-emerald-300' : 'text-slate-400 hover:bg-slate-800/60'
+            }`}
+          >
+            Conversation
+          </button>
+          <button
+            type="button"
+            onClick={() => setNarrowView('workspace')}
+            className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+              narrowView === 'workspace' ? 'bg-emerald-500/10 text-emerald-300' : 'text-slate-400 hover:bg-slate-800/60'
+            }`}
+          >
+            Workspace
+          </button>
+        </div>
+      )}
+      {/* C-01 full-screen takeover bar — operational controls, environment
+          and acting agent remain accessible per the spec, even though the
+          copilot pane itself is hidden (never unmounted) during takeover. */}
+      {isFullScreen && (
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-800 bg-slate-900/60 px-4 py-2">
+          <span className="text-sm text-slate-300">
+            <span className="font-medium text-emerald-300">{fullScreenContextValue.agentName}</span>
+            {' · '}
+            <span className="capitalize text-slate-400">{fullScreenContextValue.environment}</span>
+          </span>
+          <button
+            type="button"
+            onClick={() => setIsFullScreen(false)}
+            className="flex items-center gap-1.5 rounded-md border border-slate-700 px-2.5 py-1 text-xs text-slate-300 hover:bg-slate-800/60"
+          >
+            <Minimize2 className="h-3 w-3" />
+            Exit full screen
+          </button>
+        </div>
+      )}
       <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden lg:flex-row">
         <div
-          className={`h-full min-h-0 w-full flex-col lg:flex lg:w-[38%] ${
-            narrowView === 'conversation' ? 'flex' : 'hidden'
-          }`}
+          className={
+            isFullScreen
+              ? 'hidden'
+              : `h-full min-h-0 w-full flex-col lg:flex lg:w-[38%] ${narrowView === 'conversation' ? 'flex' : 'hidden'}`
+          }
         >
           <SmartTriadCopilotLayer
             isOpen
@@ -291,14 +472,17 @@ export function MoneyPennyCopilotWorkspace({ activePanel, children }: MoneyPenny
             groundContext={groundContext}
             quickPrompts={MONEYPENNY_QUICK_PROMPTS}
             onRequestContext={handleRequestContext}
+            shouldSuppressResponse={shouldSuppressResponse}
             onSuggestedLayouts={handleSuggestedLayouts}
             onClose={() => undefined}
           />
         </div>
         <div
-          className={`h-full min-h-0 w-full overflow-y-auto lg:block lg:w-[62%] ${
-            narrowView === 'workspace' ? 'block' : 'hidden'
-          }`}
+          className={
+            isFullScreen
+              ? 'h-full min-h-0 w-full overflow-y-auto'
+              : `h-full min-h-0 w-full overflow-y-auto lg:block lg:w-[62%] ${narrowView === 'workspace' ? 'block' : 'hidden'}`
+          }
         >
           {suggestedPanel && (
             <div className="mx-6 mt-4 flex items-center justify-between gap-3 rounded-lg border border-emerald-800/60 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200">
@@ -316,6 +500,7 @@ export function MoneyPennyCopilotWorkspace({ activePanel, children }: MoneyPenny
         </div>
       </div>
     </div>
+    </MoneyPennyFullScreenProvider>
   );
 }
 
