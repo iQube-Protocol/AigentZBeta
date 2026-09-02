@@ -383,7 +383,21 @@ export type ChipTargetId =
   | 'gap-analysis'
   | 'consequence-canvas'
   | 'validation'
-  | 'project-overview';
+  | 'project-overview'
+  // MoneyPenny financial layout identifiers (Cartridge spec C-02, SC-06:
+  // "Financial layout identifiers must extend the existing typed suggestion
+  // system"). These are the exact MoneyPennyPanelKey values the capability
+  // rail already navigates to (moneypennyCapabilities.ts) — reused here
+  // verbatim rather than inventing a parallel vocabulary.
+  | 'financial-profile'
+  | 'risk-envelope'
+  | 'hft-console'
+  | 'strategies'
+  | 'architect'
+  | 'runtime'
+  | 'smarttriad'
+  | 'service-orchestration'
+  | 'portfolio';
 
 export interface SuggestedLayoutHint {
   layoutId: ChipTargetId;
@@ -404,6 +418,8 @@ const LAYOUT_TAG_IDS: ReadonlyArray<ChipTargetId> = [
   'upload', 'download',
   'terminal', 'github', 'devtools', 'linear',
   'intent', 'context', 'gap-analysis', 'consequence-canvas', 'validation', 'project-overview',
+  'financial-profile', 'risk-envelope', 'hft-console', 'strategies',
+  'architect', 'runtime', 'smarttriad', 'service-orchestration', 'portfolio',
 ];
 
 const LAYOUT_KEYWORDS: Array<{ id: ChipTargetId; pattern: RegExp; reason: string }> = [
@@ -429,6 +445,16 @@ const LAYOUT_KEYWORDS: Array<{ id: ChipTargetId; pattern: RegExp; reason: string
   { id: 'consequence-canvas', pattern: /(consequence|what should happen|what must never|model (the )?consequences|consequence canvas|should happen|should not happen|guardrails)/i, reason: 'Operator wants to model consequences' },
   { id: 'validation',        pattern: /(validate|post-prompt validation|check (the )?build|verify (the )?(implementation|code|output)|consequence validation)/i, reason: 'Operator wants to validate against the consequence canvas' },
   { id: 'project-overview',  pattern: /(project overview|where are we|status update|dev loop status|what stage|current (stage|progress)|how far along)/i, reason: 'Operator wants a project overview' },
+  // MoneyPenny financial layout keywords (Cartridge spec C-02).
+  { id: 'financial-profile', pattern: /(financial profile|my (financial )?statements?|review my (finances|profile)|upload (a |my )?statement|my income and spending|my financial picture|prepare my profile)/i, reason: 'Operator wants to review their financial profile' },
+  { id: 'risk-envelope',     pattern: /(risk envelope|risk (and |&\s*)?limits?|position (cap|limit)|drawdown limit|how much (can|should) i (risk|trade)|trading limits?)/i, reason: 'Operator wants their risk envelope / trading limits' },
+  { id: 'hft-console',       pattern: /(market console|show me (the )?(market|quotes?)|spread|liquidity|venue comparison)/i, reason: 'Operator wants the market console' },
+  { id: 'strategies',        pattern: /(strategy lab|build a strategy|trading strategy|structure a strategy|compare strategies)/i, reason: 'Operator wants to work in the strategy lab' },
+  { id: 'architect',         pattern: /(trading intent|compose an intent|draft a trade|propose a trade)/i, reason: 'Operator wants to compose a trading intent' },
+  { id: 'runtime',           pattern: /(constitutional (service|runtime) pipeline|authoritative execution|runtime console)/i, reason: 'Operator wants the Runtime console' },
+  { id: 'smarttriad',        pattern: /(automation|automated trading|trading operations hub|smarttriad)/i, reason: 'Operator wants the trading-automation hub' },
+  { id: 'service-orchestration', pattern: /(service orchestration|oversight console|admitted agents|who('| i)s using moneypenny)/i, reason: 'Operator wants the service-orchestration oversight console' },
+  { id: 'portfolio',         pattern: /(portfolio|my (balances|holdings)|how (am i|are we) doing|performance (review|summary))/i, reason: 'Operator wants portfolio / performance analytics' },
 ];
 
 /** Detect a structured email draft in an assistant message. Returns subject + body or null. */
@@ -2728,14 +2754,17 @@ After your response, add:
       ? userContext.attachedUploadsBlock
       : '';
 
-  // Layout-suggestion control block — aigent-me only. Instructs the LLM
-  // to emit a [layout:<id>|<substance>] tag whenever it proposes a concrete
-  // action. Tags are stripped from the user-facing response before render.
+  // Layout-suggestion control block — aigent-me, aigent-z, aigent-moneypenny.
+  // Instructs the LLM to emit a [layout:<id>|<substance>] tag whenever it
+  // proposes a concrete action. Tags are stripped from the user-facing
+  // response before render.
   const layoutSuggestionsBlock =
     surfaceId === 'aigent-me'
       ? `\n\n## Right-pane chip-strip control — append a layout tag when you propose an action\n\nThe operator's left pane (where you live) has a chip strip — and the right pane has matching surfaces. When YOU propose a concrete action in your reply, append a control tag at the end of your message in this exact form:\n\n[layout:<id>|<substance>]\n\nThe tag is stripped from the chat bubble — the operator never sees it. Its only role is to make the matching chip pulse so the operator can one-click into the right-pane surface with the action substance already seeded.\n\nValid <id> values (12 total):\n- brief, decision-board, venture-cockpit, specialists  (Capsule chips, left strip)\n- gmail, event, doc, sheet, slides, marketa            (Composer chips, right strip)\n- upload, download                                     (Drawer chips, right strip)\n\n<substance> rules (NON-NEGOTIABLE):\n- ≤180 chars.\n- Describe WHAT to do, distilled from the conversation. Example: "Draft a partnership outreach to Lamina 1 framing the three-lane metaProof campaign and offering co-marketing on the KNYT Wheel launch".\n- NEVER restate the user's meta-instruction. "Ask Marketa to draft a plan" is WRONG — that's the request, not the substance. The substance is what the plan IS ABOUT.\n- NEVER use placeholder strings like "[partner name]" or "[your goal]" — if you don't have grounded content, omit the tag entirely.\n- One tag per action you propose. Maximum 2 tags per reply (the chip strip caps suggestions at 4 total; we leave headroom for the keyword classifier).\n- Tag goes at the END of your reply, on its own line.\n\nWhen NOT to emit a tag:\n- You're answering a question, not proposing an action.\n- You don't have enough conversation context to write a real substance (≥10 words of actual content).\n- The user is in mid-clarification ("yes", "ok", "go ahead") — wait until the next turn when you have something concrete to propose.`
     : surfaceId === 'aigent-z'
       ? `\n\n## Right-pane chip-strip control — append a layout tag when you suggest a dev action\n\nYou are aigentZ in the Development Command Center. The operator's left pane (your copilot) has capability quick-prompt chips, and the right pane has the Dev Command Center with capability capsules + an explore strip. When YOU propose a concrete next step, append a control tag:\n\n[layout:<id>|<substance>]\n\nThe tag is stripped from the chat bubble. Its role is to pulse the matching chip/button so the operator can one-click into the right surface.\n\nValid <id> values for dev surfaces:\n- intent, context, gap-analysis, consequence-canvas, validation, project-overview  (Capability capsules)\n- terminal, github, devtools, linear  (Explore strip tools)\n- upload, download  (Explore strip drawers)\n\n<substance> rules: same as aigent-me — ≤180 chars, describe WHAT to do, never placeholders, never meta-instructions.\n\nExamples:\n- [layout:intent|Distill the Executive Mobility Travel booking service into structured intent with users, constraints, and success criteria]\n- [layout:gap-analysis|Analyze which existing services (Passport Bureau, CRM, Marketa) can be reused for the travel workflow]\n- [layout:consequence-canvas|Model what should happen when a booking completes and what must never happen with travel data sovereignty]\n- [layout:terminal|Open a terminal to run the spine verification script against the dev environment]\n\nMaximum 2 tags per reply. Tag goes at the END of your reply.`
+    : surfaceId === 'aigent-moneypenny'
+      ? `\n\n## Right-pane capsule control — append a layout tag when you propose a concrete financial action\n\nYou are MoneyPenny. The operator's left pane (where you live) is a persistent copilot; the right pane hosts the MoneyPenny capsules (Financial Profile, Risk & Limits, Market Console, Strategy Lab, Trading Intents, Runtime, Automation, Service Orchestration, Portfolio). When YOU propose a concrete next step that has a matching capsule, append a control tag at the end of your reply:\n\n[layout:<id>|<substance>]\n\nThe tag is stripped from the chat bubble — the operator never sees it. It only surfaces a one-click suggestion to open the matching capsule; it never opens it automatically and never authorizes any action by itself.\n\nValid <id> values:\n- financial-profile     (statements, income/spending, profile readiness)\n- risk-envelope         (position/notional caps, drawdown, concentration limits)\n- hft-console           (quotes, spread, liquidity, venue comparison)\n- strategies            (structuring/comparing a candidate strategy)\n- architect             (composing a trading intent/proposal)\n- runtime               (authorized execution / the constitutional service pipeline)\n- smarttriad            (sustained/automated trading operations)\n- service-orchestration (oversight of agents consuming MoneyPenny services)\n- portfolio             (balances, holdings, performance)\n\n<substance> rules: same as aigent-me — ≤180 chars, describe WHAT to do, never placeholders, never meta-instructions, never a figure you cannot verify from the operator's actual reviewed profile.\n\nExample: [layout:financial-profile|Review last month's statement upload and confirm the recognized income/spending totals]\n\nMaximum 2 tags per reply. Tag goes at the END of your reply. Never emit a tag for a capability outside this list.`
       : '';
 
   // Platform knowledge (repo map + pack excerpts + registry/network

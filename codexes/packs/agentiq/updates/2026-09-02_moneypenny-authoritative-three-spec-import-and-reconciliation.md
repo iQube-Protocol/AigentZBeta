@@ -1,9 +1,10 @@
 # MoneyPenny Authoritative Three-Spec Import and Reconciliation (2026-09-02)
 
-**Status:** Import complete. Crosswalk complete. Baseline-reconciliation findings recorded below.
-No further implementation was performed as part of this pass — per the operator's explicit
-instruction, the specs' existence does not establish implementation or deployment, and their
-dated code baseline had to be reconciled against current source first.
+**Status:** Import complete. Crosswalk complete (§2, revised §6). Baseline reconciliation performed
+in two passes: the first (§3) reconciled the specs' dated snapshot against prior-session work; the
+second (§6, this revision) verified the C1 shell's shared-context/copilot-to-capsule/navigation
+behavior against the Cartridge spec's actual code and closed the copilot-to-capsule gap it found —
+see §7 for what shipped in this pass, preserving every previously-implemented feature untouched.
 
 ---
 
@@ -161,3 +162,159 @@ Per the operator's instruction ("Read order: cartridge, bridge, shared native ad
 three specs were read in that order — `MoneyPenny_Cartridge_Spec_v1.md` first, then
 `Financial_Services_Bridge_Spec_v1.md`, then `Qriptopian_Bridge_Admin_Spec_v1.md` — before this
 crosswalk was written.
+
+## 6. C1 verification against the actual code (this pass)
+
+Per the operator's direction to "verify shared context, copilot-to-capsule actions, navigation and
+return behavior against C1" rather than accept the shell wrap as sufficient, `MoneyPennyCopilotWorkspace.tsx`,
+`MoneyPennyPanelTab.tsx`, `MoneyPennyShell.tsx`, `MoneyPennyCapabilityRail.tsx`, and the shared
+`SmartTriadCopilotLayer.tsx`/`app/api/codex/chat/route.ts` seam were read directly. Findings, C-01/C-02
+requirement by requirement:
+
+| C-01/C-02 requirement | Finding before this pass | Status after this pass |
+|---|---|---|
+| Copilot left ~35–40%, action space right ~60–65% | Implemented as `lg:w-1/2`/`lg:w-1/2` — an even 50/50 split, not the specified ratio | **Unchanged, cosmetic gap** — not addressed this pass; tracked below |
+| "Do not retain a competing full capability sidebar" | `MoneyPennyCapabilityRail.tsx` — a 14-item, 5-group vertical nav — renders inside `MoneyPennyShell`'s right pane on every panel | **Unchanged, real gap** — this IS the "competing full capability sidebar" C-01 names. Retiring/consolidating it is C-03 (Information Architecture) work, a separate, larger slice than this pass's scope; not silently declared done |
+| Narrow-width Conversation/Workspace toggle | Layout only stacks (`flex-col lg:flex-row`) at narrow widths; no explicit toggle or return affordance | **Unchanged, gap** — not addressed this pass |
+| Full-screen takeover with reliable return | No such mechanism exists in `MoneyPennyCopilotWorkspace.tsx` or any panel | **Unchanged, gap** — no MoneyPenny panel currently needs one (no trading/analysis full-screen surface built yet), so this is currently low-consequence, but remains open |
+| C-02 copilot-to-capsule loop: "chip proposes an applicable layout/action using registered identifiers... host opens the relevant capsule" | **Confirmed absent.** `SmartTriadCopilotLayer` supports `onSuggestedLayouts`/`quickPrompts` (DevOn wires both); `MoneyPennyCopilotWorkspace` wired neither. Worse: the server-side `ChipTargetId`/`SuggestedLayoutHint` union (`app/api/codex/chat/route.ts`, `SmartTriadCopilotLayer.tsx`) had **zero MoneyPenny/financial identifiers at all** — the registered suggestion system had no vocabulary for MoneyPenny's panels, and `aigent-moneypenny` had no layout-tag control block in its system prompt (only `aigent-me`/`aigent-z` did) | **Closed this pass** — see §7 |
+| SC-04 versioned task context; late responses cannot overwrite a different task/agent/environment | No task/environment version object exists; only a flat `groundContext` | **Unchanged, gap** — no task/environment concept exists yet in MoneyPenny's C1 shell to version |
+| SC-09 copilot ownership dedup (no nested duplicate copilots) | Only one `SmartTriadCopilotLayer` is ever mounted per panel | **Satisfied, trivially** — no second copilot exists to collide with |
+| SC-10 isolation across refresh/embed/fullscreen | Refresh: panel is route-driven, survives refresh correctly. Embed (bridge): does not exist yet (Bridge B1 not built). Fullscreen: N/A (no fullscreen surface exists) | **Partially satisfied** (refresh only); embed/fullscreen not yet applicable |
+
+**What this verification does not do:** it does not claim C1 is complete. The sidebar-retention gap,
+the 35–40/60–65 ratio, the narrow-width toggle, and SC-04 task versioning remain real, named, open
+items — recorded here rather than silently marked done. Nothing previously implemented was reverted
+or restarted to perform this check.
+
+## 7. This pass's implementation — closing the C-02 copilot-to-capsule gap (no migration, bounded)
+
+The one concrete, unblocked, no-migration gap the §6 verification found — the copilot-to-capsule loop
+having no MoneyPenny vocabulary at all in the registered suggestion system — was closed this pass, by
+**extending** the existing typed system exactly as Cartridge spec C-02/SC-06 requires ("Financial
+layout identifiers must extend the existing typed suggestion system... Unknown identifiers show a
+recoverable unavailable state"), never forking a parallel one:
+
+- `app/api/codex/chat/route.ts` — added `financial-profile`, `risk-envelope`, `hft-console`,
+  `strategies`, `architect`, `runtime`, `smarttriad`, `service-orchestration`, `portfolio` to
+  `ChipTargetId`, `LAYOUT_TAG_IDS`, and `LAYOUT_KEYWORDS` (with real keyword patterns per id — these
+  are the exact `MoneyPennyPanelKey` values `moneypennyCapabilities.ts` already labels, reused
+  verbatim rather than inventing a parallel vocabulary). Added an `aigent-moneypenny` branch to the
+  `layoutSuggestionsBlock` system-prompt builder (previously only `aigent-me`/`aigent-z` had one, so
+  MoneyPenny's LLM had no instruction to ever emit a `[layout:id|substance]` tag) — the block states
+  explicitly that a tag "never authorizes any action by itself."
+- `components/smarttriad/copilot/SmartTriadCopilotLayer.tsx` — mirrored the same 9 ids onto
+  `SuggestedLayoutHint.layoutId`, kept in sync by hand with the server union (the existing,
+  pre-established pattern every other domain's ids in this file already follow).
+- `app/(shell)/moneypenny/components/MoneyPennyCopilotWorkspace.tsx` — wired `quickPrompts` (4 curated
+  financial prompts) and `onSuggestedLayouts` onto `SmartTriadCopilotLayer`. **Deliberately does NOT
+  auto-navigate on a suggestion** — per this codebase's own Companion Menu System invariant MS-5 ("a
+  deliberate act outranks an ambient observation"), a suggestion only lights a dismissible banner
+  ("MoneyPenny suggests: open Financial Profile →"); the operator's click is what navigates, via
+  `tryOpenInMountedCartridge` — the SAME seam `MoneyPennyCapabilityRail.tsx` already uses, so the
+  codex tab framework remains the single owner of "which panel is active" (MS-2 — no second, parallel
+  state authority introduced). Suggestable-panel labels are derived from `MONEYPENNY_CAPABILITY_GROUPS`
+  (the rail's own source of truth), not hand-duplicated.
+
+**Scope decision, stated explicitly:** only the 9 panels `MONEYPENNY_CAPABILITY_GROUPS` labels as
+user-facing capabilities were wired (excluding `chat`, which is the copilot itself, not a navigation
+target). `overview`, `identity`, `crm`, and `x402` are valid `MoneyPennyPanelKey`s but are not yet
+referenced by the capability-group source of truth, so they were not given layout ids or keyword
+patterns in this pass — a bounded decision, not an oversight, left open for a follow-up.
+
+**Tests:** `tests/moneypenny-copilot-workspace.test.ts` — 22 tests (13 pre-existing C1 tests, updated
+one regex to tolerate the new type-only import; 9 new tests proving the MS-5/MS-2-respecting wiring,
+the server-side registered-identifier extension, and that the moneypenny control block's own copy
+states it never authorizes an action). All pass.
+
+**Regression:** tsc held exactly at 677 (zero new errors in touched files — the 5 errors surfaced
+near the edited lines are pre-existing, unrelated `ContentDomain`/`RefObject` typing issues). Full
+vitest suite held exactly at 49 failed / 17 failed files (the same pre-existing `repo-weight` and
+`resolution-records` failures; no new failures).
+
+## 8. Infographic rendering status — restated precisely
+
+Per the operator's instruction to record this precisely: the A2 infographic publish-and-render path
+(`bridgeContentPlacements.ts`'s `publishPlacement` writing all three slots through
+`knytsBridgeEditorialConfig.ts`, `BridgeMediaStage.tsx` rendering `infographicUrl`) is **implemented
+in code and covered by tests, and is awaiting two separate, distinct things**: (1) the additive
+`infographic_url` column migration (`supabase/migrations/20260902010000_knyts_bridge_editorial_config_infographic_url.sql`)
+being applied to a live database — until then, the two-tier read/write in `knytsBridgeEditorialConfig.ts`
+degrades honestly rather than erroring, but the actual infographic will not persist/render live; and
+(2) browser acceptance — no rendered screenshot or live interaction has verified this path end-to-end.
+Neither has occurred. "Implemented" and "deployed/verified" are being reported as the separate facts
+they are, per standing instruction.
+
+## 9. Deployment status — restated precisely
+
+Commit `8cc4fce7b` (this session's A2-completion/public-exposure-fix/C1-slice push) is **pushed to
+`origin/dev`**. No Amplify build-completion signal is available to this session — there is no
+Amplify-specific GitHub check visible here, only the repo's own "Dev Integration Checks" test gate,
+which mirrors the same pre-existing 49-failure local baseline rather than reporting an Amplify build
+result. Per the operator's own precision requirement: **pushed to dev; deployment unverified.** This
+pass's new commit (§7) has not yet been pushed to dev as of this writing — see the commit/push record
+that follows this document's publication for its own hash and status, reported with the same
+precision.
+
+## 10. Corrected acceptance-criteria crosswalk (AC-C / AC-B / AC-A)
+
+This replaces the earlier, ad-hoc "A2/B1/C1/C2/C-04–C-06" self-invented labels this session used
+before the authoritative specs existed. Status vocabulary: **PASS** = code + test evidence exists,
+browser acceptance still pending (never claimed as browser-verified — that remains a separate,
+explicit open item across every criterion below); **PARTIAL** = some real evidence, concrete gap
+named; **NOT STARTED** = no code exists for this criterion yet; **BLOCKED** = code exists but a named
+external dependency (migration, pricing resolution) prevents it working live; **N/A (phase)** = the
+owning phase (Bridge B1+, Admin A1+) has not started, so the criterion cannot yet be assessed.
+
+### AC-C (Cartridge)
+
+| ID | Status | Basis |
+|---|---|---|
+| AC-C01 | PARTIAL | Direct/codex-tab entry and the dispatcher unify on one copilot (verified in code + tests). Agent Me entry and bridge entry are not verified — Bridge B1 (embed) does not exist yet |
+| AC-C02 | PARTIAL | Rail/chip → panel navigation pre-existing and working; groundContext updates on financial-profile edits (verified); the copilot-suggests-a-capsule half is now wired (§7) but not browser-verified |
+| AC-C03 | NOT STARTED | No SC-04 task/environment version object exists to guard against late-response overwrite |
+| AC-C04 | PARTIAL | Refresh preserves the active panel (route-driven, verified structurally); no full-screen takeover or narrow-width toggle exists yet |
+| AC-C05 | PASS | PDF/CSV ingestion + manual entry implemented (MPY2-2/MPY2-2c, prior session work); browser acceptance pending |
+| AC-C06 | PARTIAL | Manual-profile path exists so declining raw-document access is possible; no dedicated cross-persona-read-denial test located this pass |
+| AC-C07 | PARTIAL | Profile versioning exists (`FinancialProfileQube`); explicit dependent-proposal invalidation on correction not verified this pass |
+| AC-C08 | PARTIAL | `RiskEnvelopePanel`/`riskEnvelope.ts` (MPY2-3) derive limits from the profile, not authority, by construction; a full authority-rejection integration test across all four scopes was not run this pass |
+| AC-C09 | NOT VERIFIED | No admission/eligibility-gate audit performed against current APIs this pass (Cartridge spec's own D-05 dependency, explicitly still open) |
+| AC-C10 | PARTIAL | `HFTConsole`/quotes are explicitly randomized/simulated per the code's own comments (never presented as live) — the "honest labeling" half holds; the reproducible-scenario/backtest half (C-11) is not built |
+| AC-C11 | NOT STARTED | No live-transition/fresh-terms flow exists |
+| AC-C12 | NOT STARTED | No pending/settled/failed lifecycle presentation exists beyond intent-level records |
+| AC-C13 | BLOCKED | D-02 KNYT pricing discrepancy (0.005 vs 0.0005 ETH) confirmed still unresolved in `knytPricingService.ts` — numerical content must stay gated on this |
+| AC-C14 | N/A (phase) | Bitcent/Base Q¢ settlement work not touched this session |
+| AC-C15 | NOT STARTED | No inline conversational video message type exists in the copilot yet |
+| AC-C16 | NOT VERIFIED | No accessibility audit performed this pass |
+| AC-C17 | PARTIAL | `MoneyPennyPanelTab.tsx`'s dispatcher structurally preserves every existing panel-key deep link (verified); not a full alias/redirect audit |
+| AC-C18 | N/A (phase) | Bridge B4 Cross not built |
+| AC-C19 | NOT STARTED | No pilot session with Dele has been observed/recorded |
+| AC-C20 | PARTIAL | Infographic publish/render exists for the KNYTS bridge reader (§8); it is not yet consumed inside MoneyPenny's own copilot/capsules (C-15/C-17 native-admin-to-MoneyPenny integration not built) |
+
+### AC-B (Bridge) — mostly N/A, Bridge phase B1+ has not started this session
+
+| ID | Status | Basis |
+|---|---|---|
+| AC-B01–B04, B08–B16, B18–B19 | N/A (phase) | The three-threshold bridge journey (Discover/Learn/Explore/Prepare/Operate/Cross) has not been built against these specs; Bridge B0/B1 reconciliation itself is only partially done (§3, §6) |
+| AC-B05 | PARTIAL | Prepare's underlying financial-profile workflow (C-04–C-06) exists and is the same canonical profile MoneyPenny/Operate would reuse — the Bridge-side Prepare stage embedding it has not been built |
+| AC-B06 | PARTIAL | Manual/limited-profile support exists (MPY2-2c) |
+| AC-B17, B20 | PARTIAL | Native bridge content administration (B-17) partially implemented pre-spec (§3a) — asset picker + `makePublic` + infographic publish/render exist for KNYTS specifically, not yet the generalized bridge/journey/stage/slot registry B-17 and Admin A-04/A-05 require |
+| AC-B07, B09 | NOT VERIFIED | No test located proving educational browsing is ungated by profile upload, or that a sophisticated simulation stays clearly labeled, against these specific criteria |
+
+### AC-A (Qriptopian Bridge Admin) — Phase A0 partially done, A1+ not started
+
+| ID | Status | Basis |
+|---|---|---|
+| AC-A01, A02, A03 | NOT STARTED | No dedicated native "Bridges" sub-tab with a bridge/journey/stage/slot breadcrumb selector exists — current work is a placements panel embedded in the existing KNYTS-specific admin flow, not the Admin spec's §4 generalized selector UI |
+| AC-A04, A05 | PARTIAL | Video/poster/infographic upload+select+preview+publish exists and is covered by tests, scoped to the KNYTS bridge specifically |
+| AC-A06 | PARTIAL | Provider identity (Supabase vs Auto-Drive) preserved correctly in the register handler; no dedicated promotion/replacement-traceability test located this pass |
+| AC-A07 | NOT VERIFIED | No test proving thumbnail changes don't cross-contaminate an unrelated article cover |
+| AC-A08 | NOT STARTED | No authorized-agent placement path exists yet (Admin §8's `upload_content_asset` → bridge-placement binding is explicitly named as "proposed functionality, not a currently callable tool" by the spec itself) |
+| AC-A09, A10 | PARTIAL | `makePublic` explicit-flag fix (this session, prior turn) closes the specific "series='bridge' must not itself authorize exposure" gap the operator flagged directly; the full sweep across "all reused public mutation endpoints" the spec requires was not performed |
+| AC-A11–A20 | NOT STARTED / NOT VERIFIED | No work performed against these this session |
+
+**What changed in this correction versus the earlier informal ledger:** this session's own ad-hoc
+"A2 complete" framing is now stated precisely as PARTIAL against the authoritative Admin spec — real,
+tested, and shipped for the KNYTS-specific case, but short of the spec's generalized destination
+registry (A-04) and agent-placement binding (A-07/A08). No status above is asserted higher than the
+evidence in this document and in prior-session commits supports.
