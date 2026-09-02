@@ -5079,3 +5079,13 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-3ce33d2.md](../build_/COMMITS/COMMIT-3ce33d2.md)
 - Message: Close SC-04 task/context versioning + complete C-01/C-03 MoneyPenny shell
+
+## Commit `12b8048` — 2026-09-02T14:05:52Z
+- Type: `push`
+- Brief: [COMMIT-12b8048.md](../build_/COMMITS/COMMIT-12b8048.md)
+- Message: Harden SC-04, deliver full-screen HFT takeover, verify entry continuity [merge spec/moneypenny-mpy2-3]
+
+## Commit `d48ae5c` — 2026-09-02T14:05:39Z
+- Type: `push`
+- Brief: [COMMIT-d48ae5c.md](../build_/COMMITS/COMMIT-d48ae5c.md)
+- Message: Harden SC-04, deliver full-screen HFT takeover, verify entry continuity

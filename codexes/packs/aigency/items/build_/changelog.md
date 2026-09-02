@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`d48ae5c`](https://github.com/iQube-Protocol/AigentZBeta/commit/d48ae5c473bf0cf52b415c74b694a87fc72b430c) [push] Harden SC-04, deliver full-screen HFT takeover, verify entry continuity (Claude, 2026-09-02T14:05:39Z)
+- [`12b8048`](https://github.com/iQube-Protocol/AigentZBeta/commit/12b8048fc81984be80e1d5bbe9e7376460f25401) [push] Harden SC-04, deliver full-screen HFT takeover, verify entry continuity [merge spec/moneypenny-mpy2-3] (Claude, 2026-09-02T14:05:52Z)
 - [`3ce33d2`](https://github.com/iQube-Protocol/AigentZBeta/commit/3ce33d2e5b67cd4048ff4bbab2db94c1eaa6897b) [push] Close SC-04 task/context versioning + complete C-01/C-03 MoneyPenny shell (Claude, 2026-09-02T13:36:33Z)
 - [`fb80497`](https://github.com/iQube-Protocol/AigentZBeta/commit/fb8049782e24092c6ab74d0ee7acab174d275a5a) [push] Close SC-04 versioning + complete C-01/C-03 MoneyPenny shell [merge spec/moneypenny-mpy2-3] (Claude, 2026-09-02T13:36:47Z)
 - [`e2ac273`](https://github.com/iQube-Protocol/AigentZBeta/commit/e2ac27372238cf2fa2faa847233f2f968b12f4b2) [feat] feat(qriptopian): one-card Reading and Research editions for Thresholds 006 (Kn0w1, 2026-09-02T09:17:35-04:00)

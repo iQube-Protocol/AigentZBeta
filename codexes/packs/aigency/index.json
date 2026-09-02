@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-02T13:38:53.836Z",
+  "last_updated": "2026-09-02T14:07:50.463Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "3ce33d2e5b67cd4048ff4bbab2db94c1eaa6897b",
-  "latest_commit_short": "3ce33d2",
-  "latest_commit_title": "Close SC-04 task/context versioning + complete C-01/C-03 MoneyPenny shell",
+  "latest_commit": "d48ae5c473bf0cf52b415c74b694a87fc72b430c",
+  "latest_commit_short": "d48ae5c",
+  "latest_commit_title": "Harden SC-04, deliver full-screen HFT takeover, verify entry continuity",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "d48ae5c",
+      "full_sha": "d48ae5c473bf0cf52b415c74b694a87fc72b430c",
+      "title": "Harden SC-04, deliver full-screen HFT takeover, verify entry continuity",
+      "author": "Claude",
+      "timestamp": "2026-09-02T14:05:39Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-d48ae5c.md"
+    },
+    {
+      "sha": "12b8048",
+      "full_sha": "12b8048fc81984be80e1d5bbe9e7376460f25401",
+      "title": "Harden SC-04, deliver full-screen HFT takeover, verify entry continuity [merge spec/moneypenny-mpy2-3]",
+      "author": "Claude",
+      "timestamp": "2026-09-02T14:05:52Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-12b8048.md"
+    },
     {
       "sha": "3ce33d2",
       "full_sha": "3ce33d2e5b67cd4048ff4bbab2db94c1eaa6897b",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-08-29T02:37:47Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-d133b9b.md"
-    },
-    {
-      "sha": "a9df145",
-      "full_sha": "a9df145d2252d1cc240dde8aea063a09429a2f8f",
-      "title": "Pin public CFS whitepaper in AgentiQ OS corpus (#104)",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-28T15:55:53-04:00",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-a9df145.md"
-    },
-    {
-      "sha": "53ba2bd",
-      "full_sha": "53ba2bd1dbc96b24b90f37c60bbcc653c1968078",
-      "title": "Canonize MFE pillars as Risk, Value, Price (#103)",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-28T15:47:49-04:00",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-53ba2bd.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
