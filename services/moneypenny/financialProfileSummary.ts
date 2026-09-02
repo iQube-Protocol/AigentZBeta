@@ -25,11 +25,20 @@ export interface FinancialProfileSummary {
   availableSurplusMonthly: number | null;
   /** Which months' statements/entries the current aggregates were computed from — the coverage signal Prepare surfaces as a limitation. */
   computedFromMonths: string[];
+  /**
+   * Turn E (2026-09-02) — null until the person explicitly acknowledges
+   * reviewing THIS compute pass (POST /api/moneypenny/financial-profile/review).
+   * `hasProfile` proves data availability; `reviewedAt` is the separate,
+   * required signal that the person actually looked at it. See
+   * services/iqube/financialProfileQube.ts's FinancialProfileQubeMeta for
+   * the full discipline this mirrors.
+   */
+  reviewedAt: string | null;
 }
 
 interface FinancialProfileApiResponse {
   ok?: boolean;
-  meta?: { hasProfile?: boolean };
+  meta?: { hasProfile?: boolean; reviewedAt?: string | null };
   aggregates?: { incomeMonthly?: number; expenditureMonthly?: number; availableSurplusMonthly?: number } | null;
   inputSource?: string | null;
   computedFromMonths?: string[];
@@ -48,8 +57,24 @@ export async function fetchFinancialProfileSummary(): Promise<FinancialProfileSu
       expenditureMonthly: json.aggregates?.expenditureMonthly ?? null,
       availableSurplusMonthly: json.aggregates?.availableSurplusMonthly ?? null,
       computedFromMonths: json.computedFromMonths ?? [],
+      reviewedAt: json.meta?.reviewedAt ?? null,
     };
   } catch {
     return null;
+  }
+}
+
+/**
+ * The ONLY client-side caller of POST /api/moneypenny/financial-profile/review
+ * — an explicit, deliberate acknowledgment action (a real button click).
+ * Never call this from a mount/view effect. Returns true on success.
+ */
+export async function markFinancialProfileReviewed(): Promise<boolean> {
+  try {
+    const res = await personaFetch('/api/moneypenny/financial-profile/review', { method: 'POST' });
+    const json = (await res.json().catch(() => null)) as { ok?: boolean } | null;
+    return res.ok && json?.ok === true;
+  } catch {
+    return false;
   }
 }

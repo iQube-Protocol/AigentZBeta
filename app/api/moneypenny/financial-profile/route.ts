@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
   if (!record) {
     return NextResponse.json({
       ok: true,
-      meta: { hasProfile: false, lastComputedAt: null, sourceUploadCount: 0, unreadableUploadCount: 0 },
+      meta: { hasProfile: false, lastComputedAt: null, sourceUploadCount: 0, unreadableUploadCount: 0, reviewedAt: null },
       aggregates: null,
       envelope: null,
       riskAssessment: null,

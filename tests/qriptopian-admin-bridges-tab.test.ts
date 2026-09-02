@@ -92,3 +92,34 @@ describe('personaId threads through unchanged — no new identity resolution pat
     expect(src).not.toMatch(/getActivePersona|useActivePersona/); // this file never resolves identity itself — KnytsBridgeAdminPanel/its route do that, unchanged
   });
 });
+
+describe('MoneyPenny bridge entry (Turn E, 2026-09-02) — the admin-picker acceptance gap this pass closes', () => {
+  const src = stripComments(readSource(TAB_SRC));
+
+  it('KNYTS_BRIDGE_ALLOWED_SECTIONS already had moneypenny-financial-basics — this pass only added the admin PICKER entry point, never a second allow-list', () => {
+    const allowListSrc = stripComments(readSource('services/journey/knytsBridgeEditorialConfig.ts'));
+    expect(allowListSrc).toMatch(/'moneypenny-financial-basics',/);
+  });
+
+  it("BridgeKey includes 'moneypenny' and its section list is exactly the one MoneyPenny section", () => {
+    expect(src).toMatch(/type BridgeKey = 'ci' \| 'knyts' \| 'moneypenny';/);
+    expect(src).toMatch(/if \(bridge === 'moneypenny'\) return \['moneypenny-financial-basics'\];/);
+  });
+
+  it('the bridge picker button row includes moneypenny — an admin can actually reach this section, not just the server-side allow-list', () => {
+    expect(src).toMatch(/\['ci', 'knyts', 'moneypenny'\] as const/);
+  });
+
+  it('renders through the SAME KnytsBridgeAdminPanel + PlacementAssetsPanel pair every other section uses — no bespoke MoneyPenny admin component', () => {
+    const renderLoop = src.match(/\{bridgeSections\(bridge\)\.map\(\(section\) => \{?[\s\S]*?\}\)\}/)?.[0] ?? '';
+    expect(renderLoop).toMatch(/<KnytsBridgeAdminPanel section=\{section\} personaId=\{personaId\} bridgeLabel=\{BRIDGE_LABELS\[bridge\]\} \/>/);
+    expect(renderLoop).toMatch(/<PlacementAssetsPanel section=\{section\} personaId=\{personaId\} \/>/);
+  });
+
+  it('a starting editorial default exists for the admin edit form so it does not show HOME\'s unrelated copy on first open', () => {
+    const configSrc = stripComments(readSource('services/journey/knytsBridgeEditorialConfig.ts'));
+    const entry = configSrc.match(/'moneypenny-financial-basics': \{([\s\S]*?)\},\n\};/)?.[1] ?? '';
+    expect(entry).toMatch(/headline: 'Financial Sovereignty basics',/);
+    expect(entry).not.toMatch(/Cross the Threshold/);
+  });
+});

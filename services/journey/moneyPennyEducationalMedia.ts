@@ -46,9 +46,47 @@ export const MONEYPENNY_LEARN_SECTION = 'moneypenny-financial-basics';
  * cartridge's chat can accidentally trigger it) to short-circuit straight to
  * getMoneyPennyIntroVideoBlock() — a deterministic lookup, never an LLM-
  * authored instruction, per the Admin spec's own A-08 constraint ("related
- * chips... cannot contain arbitrary executable instructions").
+ * chips... cannot contain arbitrary executable instructions"). Kept as the
+ * exact deterministic string for repeatable testing.
  */
 export const MONEYPENNY_LEARN_VIDEO_PROMPT = 'Show me the Financial Sovereignty basics video.';
+
+/**
+ * Turn E (2026-09-02) — operator directive: "An exact-match prompt is
+ * useful for deterministic testing, but the specification does not require
+ * users to recite a magic phrase." Widens the short-circuit's TRIGGER to
+ * ordinary conversational phrasing, while keeping A-08's safety property
+ * fully intact: this is still a plain regex classifier evaluated BEFORE the
+ * LLM ever runs, on the raw user message — the LLM is never asked or
+ * trusted to decide whether/what video block to emit, so it can never
+ * fabricate a URL or be prompt-injected into emitting one. Only the
+ * TRIGGER got more natural; the RESPONSE mechanism (a deterministic lookup
+ * of the real published placement, never a fabricated URL) is unchanged.
+ *
+ * Deliberately narrow and conjunctive (topic word AND request word) rather
+ * than a single broad keyword, so an unrelated MoneyPenny message ("what's
+ * my risk envelope video call schedule") doesn't misfire — a false negative
+ * here just means the person types more plainly or uses the quick-prompt
+ * chip; a false positive would mean an unrelated question gets answered
+ * with a video instead of a real LLM response, which is the worse failure
+ * mode to avoid.
+ */
+// Self-sufficient: asking HOW two things work together already IS the
+// request — no separate request-verb needed. Tolerant of words in between
+// ("how DO agent me and moneypenny work TOGETHER?") without becoming a
+// broad/unbounded match, since "and moneypenny" and "work" are both still
+// required literals.
+const LEARN_VIDEO_HOW_THEY_WORK = /how\s+(?:\w+\s+)*?(agent\s?me|aigentme)\s+(?:\w+\s+)*?and\s+moneypenny\s+(?:\w+\s+)*?work/i;
+const LEARN_VIDEO_TOPIC = /(financial sovereignty basics|moneypenny.{0,20}(intro|introduc\w*|basics|explainer))/i;
+const LEARN_VIDEO_REQUEST = /(show|watch|play|see|view|open|explain|understand)/i;
+
+export function isMoneyPennyLearnVideoRequest(message: string): boolean {
+  const trimmed = message.trim();
+  if (!trimmed) return false;
+  if (trimmed === MONEYPENNY_LEARN_VIDEO_PROMPT) return true;
+  if (LEARN_VIDEO_HOW_THEY_WORK.test(trimmed)) return true;
+  return LEARN_VIDEO_TOPIC.test(trimmed) && LEARN_VIDEO_REQUEST.test(trimmed);
+}
 
 /** Schema marker SmartTriadInferenceRenderer.tsx detects — mirrors the A2UI
  *  fenced-JSON-block precedent (schema_version-keyed, not an info-string) so

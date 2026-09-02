@@ -27,7 +27,7 @@ describe('Prepare reuses the SAME canonical financial-profile read MoneyPenny it
   const src = stripComments(readSource(STAGE_SRC));
 
   it('imports fetchFinancialProfileSummary from the shared module, not a re-implemented fetch', () => {
-    expect(src).toMatch(/import \{ fetchFinancialProfileSummary, type FinancialProfileSummary \} from '@\/services\/moneypenny\/financialProfileSummary'/);
+    expect(src).toMatch(/import \{ fetchFinancialProfileSummary, markFinancialProfileReviewed, type FinancialProfileSummary \} from '@\/services\/moneypenny\/financialProfileSummary'/);
   });
 
   it('MoneyPennyCopilotWorkspace.tsx uses the SAME shared module — one source of truth, not two fetches', () => {

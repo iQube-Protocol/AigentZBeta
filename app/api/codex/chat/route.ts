@@ -36,7 +36,7 @@ import {
   DEFAULT_AIGENT_ME_IDENTITY,
 } from '@/services/agents/aigentMeRoleResolution';
 import { getCartridgeChatContext } from '@/services/cartridge/getChatContext';
-import { getMoneyPennyIntroVideoReply, MONEYPENNY_LEARN_VIDEO_PROMPT } from '@/services/journey/moneyPennyEducationalMedia';
+import { getMoneyPennyIntroVideoReply, isMoneyPennyLearnVideoRequest } from '@/services/journey/moneyPennyEducationalMedia';
 import { getPersonaUploadService } from '@/services/uploads/supabaseUploadAdapter';
 import { buildAigentZPlatformKnowledge } from '@/services/knowledge/aigentZPlatformKnowledge';
 import {
@@ -2922,21 +2922,26 @@ export async function POST(request: NextRequest) {
 
     // MoneyPenny Cartridge C-15 (2026-09-02) — deterministic learn-video
     // short-circuit. Scoped to groundContext.cartridge === 'moneypenny' AND
-    // an EXACT match on the fixed prompt the "Watch: Financial Sovereignty
-    // basics" quick prompt sends (never a fuzzy/LLM-interpreted match) —
-    // per the Admin spec's own A-08 constraint that a related chip "cannot
-    // contain arbitrary executable instructions." Bypasses the entire
-    // prompt-construction/LLM pipeline below: this is a deterministic
-    // lookup (getMoneyPennyIntroVideoReply reads the published bridge
-    // placement, never fabricates a URL), so nothing upstream of this
-    // point needs to run — no persona/auth resolution, no rate limiting or
-    // audit write happens anywhere in this route before this line.
+    // isMoneyPennyLearnVideoRequest(message) — a plain regex classifier
+    // evaluated on the raw message BEFORE the LLM ever runs (widened Turn E,
+    // 2026-09-02, from an exact-string match to ordinary conversational
+    // phrasing — "the specification does not require users to recite a
+    // magic phrase"). The LLM is never asked or trusted to decide whether/
+    // what video block to emit, so it can never fabricate a URL or be
+    // prompt-injected into emitting one — per the Admin spec's own A-08
+    // constraint that a related chip "cannot contain arbitrary executable
+    // instructions." Bypasses the entire prompt-construction/LLM pipeline
+    // below: this is a deterministic lookup (getMoneyPennyIntroVideoReply
+    // reads the published bridge placement, never fabricates a URL), so
+    // nothing upstream of this point needs to run — no persona/auth
+    // resolution, no rate limiting or audit write happens anywhere in this
+    // route before this line.
     if (
       groundContext &&
       typeof groundContext === 'object' &&
       (groundContext as Record<string, unknown>).cartridge === 'moneypenny' &&
       typeof message === 'string' &&
-      message.trim() === MONEYPENNY_LEARN_VIDEO_PROMPT
+      isMoneyPennyLearnVideoRequest(message)
     ) {
       const response = await getMoneyPennyIntroVideoReply(supabase);
       return NextResponse.json({ response, persona, event_meta: eventMeta });

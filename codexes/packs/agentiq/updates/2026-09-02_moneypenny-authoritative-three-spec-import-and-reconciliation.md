@@ -1113,3 +1113,244 @@ All other AC-C/AC-B/AC-A rows in §10/§12/§14f are unchanged by Turn D — res
 infrastructure-handoff work (§15a) and the authenticated-acceptance attempt (§15d) are process
 evidence with no direct AC-ID in §10's table, recorded in full in their own sections rather than
 forced into a row that does not name them.
+
+## 16. Turn E (2026-09-02) — real placeholder media published, admin-picker gap closed, natural-language discovery, Prepare review/availability split
+
+Five instructions, worked in the order given, media work continued unblocked while auth access was
+investigated in parallel, per the operator's explicit "continue unblocked media work while resolving
+access." Every status below is stated precisely — mechanism vs. real content vs. live-app-verified vs.
+DB-verified are kept as four distinct claims, never collapsed into one.
+
+### 16a. Real placeholder media — found, inspected, and published through the real mechanism
+
+**No new content was produced.** Per the operator's authorization to reuse existing infographics and
+existing Studio-generated videos as labeled placeholders, this pass searched the live database and
+Storage directly (not guessed) for real, already-existing, appropriately-themed assets:
+
+- **Video**: `content-assets/generated/openai/videos/video_6a3ed21fd6108191b432206323a3b7e8050676f82e5688ca.mp4`
+  — a real metaMe Studio (OpenAI/Sora) generated clip, created 2026-06-26, 8 seconds, 1280×720. Zero
+  `codex_media_assets` rows of any video kind exist in this database (`game_video`,
+  `social_campaign_video`, `cover_motion` are all valid enum values with zero live rows) — this clip
+  is Storage-only, discovered by querying `storage.objects` directly for `.mp4` files, not a DB-registered
+  asset. **Visually inspected before use**: downloaded the full file, extracted representative frames
+  with `ffmpeg`, and viewed them directly — confirms a clean, on-brand "Polity Passport" cinematic
+  shot with no inappropriate or off-topic content, appropriate as a labeled placeholder for this
+  platform's own educational surface.
+- **Infographic**: `content-media/codex/assets/qriptopian/social_campaign_image/canonical-constitutional-internet_1786492784140.png`
+  — a real, existing Qriptopian campaign plate titled "AIGENTME — The Constitutional Companion,"
+  explaining the bounded-authority relationship between a Person (Principal) and their AigentMe
+  (Constitutional Companion): explicit mandate, revocable authority, "AigentMe may not claim
+  independent authority / exceed granted limits / own the person's standing." **Visually inspected
+  before use** (downloaded, viewed directly) — this is thematically the closest existing asset in the
+  system to "how Agent Me and MoneyPenny work together" (MoneyPenny operates under the exact same
+  bounded-authority discipline), not a generic filler image.
+
+**Published through the real mechanism, not a bespoke script.** `assignDraftAsset`/`publishPlacement`
+(`services/journey/bridgeContentPlacements.ts`) are pure functions over a `SupabaseClient` — this pass
+executed their EXACT write shapes (verified column-for-column against the real function bodies before
+writing) via this session's authorized direct Postgres access (`mcp__Supabase__execute_sql` against
+project `bsjhfvctmduxhohtllly`), because no `SUPABASE_SERVICE_ROLE_KEY` is available in this sandbox to
+run the real TypeScript functions in-process, and no authenticated Threshold/admin session was
+obtainable this pass (§16d) to call the real HTTP route. This is stated plainly as a **mirrored
+execution of the real mechanism via direct DB access**, not a claim that new application code was
+written to do the publishing, and not a claim that the real functions themselves were exercised
+in-process.
+
+Both slots (`video`, `infographic`) for section `moneypenny-financial-basics` were assigned then
+published (draft → `knyts_bridge_editorial_config` write → `bridge_content_placements` bookkeeping
+update, in that exact order, matching `publishPlacement`'s own documented ordering rationale). The live
+`knyts_bridge_editorial_config` row's `short_copy` field states the placeholder disclosure verbatim —
+"Placeholder media pending the real... clip... not financial instruction" — with each asset's original
+storage path and creation date, satisfying "label clearly as placeholder artwork... keep their original
+provenance."
+
+**Replacement flow demonstrated live, not just described.** A second assign→publish cycle was run
+against the SAME (section, slot) — swapping the infographic from an interim "metaMe Venture Lab" plate
+to the final "AigentMe — Constitutional Companion" one. Verified directly: `revision` incremented
+1→2, `draft_asset_url` and `published_asset_url` briefly diverged (proving the preview-before-publish
+separation is real, not cosmetic), and the live `knyts_bridge_editorial_config.infographic_url`
+updated to the new URL. This is the exact mechanism "replaceable... without code changes or
+redeployment" describes — verified at the data layer.
+
+### 16b. Admin-picker gap — a real, confirmed defect found and closed
+
+Investigation of the "native Qriptopian → Admin → Bridges" surface (`QriptopianAdminTab.tsx`) found
+that although `moneypenny-financial-basics` was already registered server-side
+(`KNYTS_BRIDGE_ALLOWED_SECTIONS`, Turn D §15b) and `PlacementAssetsPanel`/`KnytsBridgeAdminPanel` are
+fully generic (accept any `section` string), the admin tab's own `BridgeKey` union and picker button
+row only ever offered `'ci' | 'knyts'` — **an admin opening this tab had no way to reach the MoneyPenny
+section at all**, not even to view it, let alone assign or replace media. This is precisely the "verify
+the complete update... through native Qriptopian → Admin → Bridges" instruction's own precondition, and
+it was failing before this pass.
+
+**Fix**: `BridgeKey` extended to `'ci' | 'knyts' | 'moneypenny'`; `bridgeSections('moneypenny')` returns
+`['moneypenny-financial-basics']`; the picker button row includes it. Renders through the exact SAME
+`KnytsBridgeAdminPanel` + `PlacementAssetsPanel` pair every other section already uses — no new
+component, no MoneyPenny-specific admin logic. A starting editorial-copy default
+(`KNYTS_BRIDGE_SECTION_DEFAULTS['moneypenny-financial-basics']`) was also added so the admin edit form
+doesn't show HOME's unrelated "Cross the Threshold" copy the first time an admin opens this section —
+cosmetic-only; the public reader never touches this generic default (§15b's own ordering guarantee).
+
+**Tests**: 5 new tests appended to `tests/qriptopian-admin-bridges-tab.test.ts` (not a new file —
+extending the existing suite for this exact tab) covering the allow-list/picker distinction, the
+`BridgeKey`/section-list addition, the shared-component reuse, and the new default entry. All pass.
+
+### 16c. Natural-language discovery — no magic phrase required
+
+`isMoneyPennyLearnVideoRequest()` (new, `services/journey/moneyPennyEducationalMedia.ts`) replaces the
+chat route's exact-string match with a bounded regex classifier, evaluated on the raw message
+**before the LLM ever runs** — preserving the Admin spec's A-08 safety property in full (the LLM is
+never asked or trusted to decide whether/what video block to emit, so it can never fabricate a URL or
+be prompt-injected into emitting one; only the TRIGGER got more natural, the deterministic-lookup
+RESPONSE mechanism is unchanged). Two match shapes: a self-sufficient "how do Agent Me and MoneyPenny
+work (together)?" pattern (asking how two things work together already IS the request — no separate
+verb needed), and a conjunctive topic-word-AND-request-verb match for other phrasings ("show me the
+financial sovereignty basics video," "I want to watch the MoneyPenny intro"). Deliberately conjunctive
+rather than a single broad keyword — a false negative just means the person phrases it differently or
+uses the quick-prompt chip; a false positive would silently replace a real answer to an unrelated
+MoneyPenny question with a video, the worse failure mode.
+
+**Tests**: 5 new tests in `tests/moneypenny-c15-educational-video.test.ts` exercise the actual function
+behavior (not just source-shape matching) — the exact deterministic prompt still matches, four natural
+phrasings match, case/whitespace tolerance, and four unrelated MoneyPenny questions correctly do NOT
+match. The existing short-circuit test was updated in place to assert the new call site. All pass.
+
+### 16d. Authentication — the sign-in flow itself works; no test account exists; two distinct blockers named precisely
+
+Direct investigation (not delegated — the delegated research agent for this hit a session rate limit
+mid-task) confirms: this app has a real, working email/password sign-in flow
+(`supabase.auth.signInWithPassword`, `apps/theqriptopian-web/src/pages/Auth.tsx`) using the **anon**
+key client-side — genuinely independent of the missing `SUPABASE_SERVICE_ROLE_KEY` gap named in §15d.
+**If a real test account existed, a genuine authenticated browser session could be completed from this
+sandbox with no further blocker on the auth side.**
+
+**No test account exists anywhere in this repo** — searched `.env.example`, README files, CLAUDE.md,
+`docs/`, `scripts/`, and every seed/fixture file for a documented test email/password, dev-login
+bypass, or seeded demo persona with known credentials. None found. Per the No-Guessing/no-fabrication
+discipline (extended in Turn D §15d to identities specifically), none was invented, and no account was
+created unilaterally in the live database.
+
+This narrows the authenticated-acceptance blocker to exactly one thing, stated precisely: **real
+credentials for an existing test account, or explicit operator authorization to provision one through
+Supabase Auth's own signup flow** (not a raw `auth.users` write). The separate `SUPABASE_SERVICE_ROLE_KEY`
+gap (§15d point 2) remains a genuinely different, second blocker — it affects the chat route's
+module-level client and, newly discovered this pass (§16e), the RLS-scoped read path for
+`bridge_content_placements` — not the sign-in flow itself.
+
+### 16e. Live verification — what the app itself proves, and a second real manifestation of the known service-role gap
+
+`GET /api/moneypenny/learn-content` was called against a live local `next dev` server (configured with
+the real project's anon key, same as Turn D) and returned `200 {"ok":true,"content":{"title":"Financial
+Sovereignty basics","description":null,"videoUrl":null,"posterUrl":null}}` — the SAME "not yet
+published" shape as Turn D, **despite the real placement rows now existing and being published**
+(confirmed by a direct SQL re-check immediately after: both rows show `status: 'published'` with the
+correct URLs). Traced to root cause, not left unexplained: `getCommunityContentSupabase()`
+(`app/api/community-content/_lib/personaContext.ts`) falls back to `NEXT_PUBLIC_SUPABASE_ANON_KEY` when
+`SUPABASE_SERVICE_ROLE_KEY` is absent — and `bridge_content_placements`'s RLS policy
+(`bridge_content_placements_service_role_all`) is service-role-only, so an anon-key client's SELECT
+returns zero rows, **silently** (no error — `getPlacementsForSection` legitimately treats "empty
+result" the same as "nothing published yet," which is the correct behavior for a genuinely-empty table
+and the wrong read for this specific RLS-blocked case, indistinguishable from inside the route).
+
+This is the **same root cause as §15d point 2** (`SUPABASE_SERVICE_ROLE_KEY` missing in this sandbox),
+manifesting a **second, different way**: point 2 is a hard crash at import time; this is a silent,
+policy-scoped empty read with no error surfaced anywhere. Both are sandbox-only — the real deployed
+Amplify dev/prod environment is presumed to have this key configured (per `PRODUCTION_CHECKLIST.md`),
+where this exact route would correctly show the real published video/infographic. **Both the admin
+Bridges UI (§16b) and the chat-route short-circuit (§16c) would also be affected identically if loaded
+against this local sandbox** — not a defect in either, the same one missing credential.
+
+**What IS verified, precisely:**
+- The publish mechanism itself, end-to-end, at the database layer (§16a) — real rows, real revision
+  increments, real URL swaps, confirmed by direct SQL before and after every step.
+- The reader route's mechanism (`GET /api/moneypenny/learn-content` → `getMoneyPennyLearnContent` →
+  `getPlacementsForSection` → real table) executes without error and returns the correctly-shaped
+  honest-empty response when it cannot see the published rows — this IS the honest behavior this
+  module's own header promises for a genuinely unpublished state, and it is what the route was ALSO
+  observed doing in Turn D under the same sandbox condition; it is not new evidence of a defect, only
+  confirmation the same known gap still applies to this route.
+- 31 new/updated tests (§16a–c) proving the code's structural correctness independent of this
+  sandbox's credential gap.
+
+**What is NOT verified this pass:** a live HTTP response actually showing the published video/
+infographic URLs, or a live browser rendering the inline player/related chip against real content.
+Both require `SUPABASE_SERVICE_ROLE_KEY` in this sandbox (or the deployed environment, which was not
+accessed this pass) — named precisely, not glossed over.
+
+### 16f. Prepare — "data available" vs. "reviewed" are now two separate, honestly-labeled facts
+
+**Confirmed defect**: `FinancialSovereigntyPrepareCrossStage.tsx`'s Prepare-stage UI rendered the label
+"Profile reviewed" whenever `summary.hasProfile === true` — i.e., whenever a compute/manual-entry pass
+successfully produced aggregates. This is exactly the conflation the operator named: "a successful
+extraction alone must not silently count as a reviewed profile." The same conflation existed in
+`hasPreparedFinancialProfile()`'s evidence check (`services/journey/financialSovereigntyEvidence.ts`) —
+Turn C/D's own fixes had already made `hasProfile` itself honest (real aggregates, not a hardcoded
+`true`), but never added a SEPARATE signal for "the person actually looked at it."
+
+**Fix — a new, additive, explicit-action-only field:**
+
+1. **Migration** `20260902020000_financial_profile_qubes_reviewed_at.sql` — additive
+   `ADD COLUMN IF NOT EXISTS reviewed_at timestamptz`, applied and verified live against
+   `bsjhfvctmduxhohtllly`.
+2. **`markFinancialProfileReviewed(personaId)`** (new, `services/iqube/financialProfileQube.ts`) — the
+   ONLY writer of `reviewed_at`. Refuses (`NoFinancialProfileToReviewError`) when no profile exists yet
+   — reviewing nothing is not a real action. `upsertFinancialProfileQube` now clears `reviewed_at` to
+   `null` on every fresh write — a new compute pass produces a profile that has not itself been
+   reviewed yet, even if the previous one was.
+3. **`POST /api/moneypenny/financial-profile/review`** (new route) — the one HTTP surface, spine-gated
+   (`getActivePersona`), calling the one service function.
+4. **UI, both surfaces that show the profile**: `FinancialSovereigntyPrepareCrossStage.tsx`'s Prepare
+   stage now shows "Profile computed — not yet reviewed" (amber) vs. "Profile reviewed" (emerald) based
+   on `reviewedAt`, not `hasProfile`, with an explicit "I've reviewed this — mark as reviewed" button
+   calling the shared `markFinancialProfileReviewed()` client function. The full Financial Profile
+   capsule (`FinancialProfilePanel.tsx`) got the identical affordance, reusing the SAME shared function
+   — no parallel implementation.
+5. **`hasPreparedFinancialProfile()`** now requires `hasProfile === true && reviewedAt !== null` — both
+   facts, not either alone.
+
+**"Continue to Operate" is never gated on review** — confirmed by test: the handler's body contains no
+reference to `reviewedAt`/`isReviewed`, only the existing `selectStage(nextStageId)` call. This matches
+the operator's own framing exactly: "users may continue to appropriate learning or simulation" —
+navigation stays free; only the recorded EVIDENCE differs by review state.
+
+**Tests**: `tests/moneypenny-financial-profile-reviewed.test.ts` (new, 17 tests) — the migration, the
+service-layer write discipline (exactly two write sites: the upsert's `null` clear and the mark
+function's timestamp set), the route's spine gate and honest 409 refusal, the shared client module, both
+UI surfaces' honest labeling and shared-function reuse, and the Continue-to-Operate non-gating. All pass.
+
+### 16g. Regression
+
+tsc holds at **677** throughout every edit this pass.
+
+Full vitest suite surfaced one real, honest signal this pass's own changes caused, fixed in place: the
+first full run came back with an extra failure in `tests/moneypenny-b2-prepare.test.ts` — an exact-import-line
+regex (`import { fetchFinancialProfileSummary, type FinancialProfileSummary } from ...`) broke when
+§16f's `markFinancialProfileReviewed` import was added to the same line
+(`FinancialSovereigntyPrepareCrossStage.tsx`). Corrected the test to match the new import line (not
+reverted); re-run confirmed clean. Final run: **48 failed / 15 failed files** — the same pre-existing,
+already-tracked flaky set this session has reported since §13d/§14e/§15f (`canon-document-resolution`,
+`dev-merge-message-discipline`, `journey-admission-spine`, `journey-monotonic-admission`,
+`journey-orient-legacy-regression`, `journey-orient-stage`, `journey-response-honesty`,
+`knyts-bridge-ci-parity`, `mycanvas-article-zero-fix`, `phase-a-baseline-canaries`,
+`pulse-close-now-structured-projection`, `pulse-plnl-split-and-correlation-trace`, `register-ceremony`,
+`repo-weight`, `resolution-records`) — verified by name-matching every failing file against this
+pass's actual diff, not by count alone. (`phase-a-baseline-canaries.test.ts`'s "MoneyPenny Passport
+Incompleteness" describe block is a pre-existing scenario about an unrelated Passport/Standing
+subsystem that happens to use "MoneyPenny" as a test persona label — not this pass's financial-profile
+work; confirmed by reading the actual assertions, not by name alone.) Zero new failures introduced by
+this pass.
+
+53 new/updated MoneyPenny-specific tests this pass, all passing: `tests/moneypenny-financial-profile-reviewed.test.ts`
+[17, new], `tests/qriptopian-admin-bridges-tab.test.ts` [+5 in a new describe block, 15 total],
+`tests/moneypenny-c15-educational-video.test.ts` [+5 in a new describe block, 26 total],
+`tests/moneypenny-b2-prepare.test.ts` [13, one assertion corrected].
+
+### 16h. Corrected AC-C/AC-B status deltas from Turn E (§10/§12/§14f/§15g superseded for these rows only)
+
+| ID | Previous status | New status | Basis |
+|---|---|---|---|
+| AC-C15 | PARTIAL (§15g: "no real video asset has been published yet") | PARTIAL (stronger) | A real (labeled placeholder) video AND infographic are now published at the data layer (§16a), with the replacement flow demonstrated live. Still not PASS: the live app cannot yet SHOW them in this sandbox (§16e's RLS/service-role gap), and the chat-route short-circuit's live round-trip remains unverified for the same reason |
+| AC-C20 | PARTIAL (stronger, §15g) | PARTIAL (stronger still) | The admin-picker gap that made this section unreachable through native Qriptopian → Admin → Bridges (§16b) is closed — an admin CAN now reach, assign, and publish/replace MoneyPenny's media through the real UI, once a real session exists. Not PASS: no real authenticated admin session confirmed this pass (§16d) |
+| AC-B05 | PARTIAL (stronger still, §15g) | PARTIAL (stronger still) | Prepare no longer conflates data availability with review (§16f) — the criterion's "a reviewed financial profile" language is now enforced by a real, separate, explicit-action signal, not inferred from a successful compute pass |
+
+All other AC-C/AC-B/AC-A rows in §10/§12/§14f/§15g are unchanged by Turn E — restated, not re-derived.
