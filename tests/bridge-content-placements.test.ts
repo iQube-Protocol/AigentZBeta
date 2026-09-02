@@ -62,6 +62,21 @@ describe('assignDraftAsset — never touches the live editorial-config row', () 
     expect(result.draftAssetUrl).toBe('https://x/y.mp4');
     expect(upsertKnytsBridgeEditorialSection).not.toHaveBeenCalled();
   });
+
+  it('throws the named "bridge-placements-table-missing" error on a 42P01 — never a raw, confusing Postgres message (2026-09-02 migration-honesty fix)', async () => {
+    const fake = {
+      from: () => ({
+        upsert: () => ({
+          select: () => ({
+            single: async () => ({ data: null, error: { code: '42P01', message: 'relation "bridge_content_placements" does not exist' } }),
+          }),
+        }),
+      }),
+    };
+    await expect(
+      assignDraftAsset(fake as any, 'ci-home', 'video', { assetId: 'a1', assetUrl: 'https://x/y.mp4' }, 'persona-1'),
+    ).rejects.toThrow('bridge-placements-table-missing');
+  });
 });
 
 describe('publishPlacement — refuses when there is no draft', () => {
@@ -158,9 +173,9 @@ describe('missing-table degradation — never a false uncertainty', () => {
     await expect(getPlacement(fake as any, 'ci-home', 'video')).resolves.toBeNull();
   });
 
-  it('getPlacementsForSection returns both slots null on a missing table', async () => {
+  it('getPlacementsForSection returns all three slots null on a missing table', async () => {
     const fake = { from: () => ({ select: () => ({ eq: async () => ({ data: null, error: { code: '42P01', message: 'relation does not exist' } }) }) }) };
-    await expect(getPlacementsForSection(fake as any, 'ci-home')).resolves.toEqual({ video: null, poster: null });
+    await expect(getPlacementsForSection(fake as any, 'ci-home')).resolves.toEqual({ video: null, poster: null, infographic: null });
   });
 });
 

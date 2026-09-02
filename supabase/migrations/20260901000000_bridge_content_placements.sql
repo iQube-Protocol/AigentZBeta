@@ -1,7 +1,14 @@
 -- 20260901000000_bridge_content_placements.sql
 --
--- QRP-BRIDGE-ADMIN A2 (2026-09-01) — typed asset placements with a real
--- draft/publish distinction for CI/KNYTS bridge media slots (video/poster).
+-- QRP-BRIDGE-ADMIN A2 (2026-09-01, extended 2026-09-02) — typed asset
+-- placements with a real draft/publish distinction for CI/KNYTS bridge
+-- media slots (video/poster/infographic). Not yet applied to any live
+-- Supabase project as of the 'infographic' slot addition, so this file is
+-- edited in place rather than a second migration — no live schema exists
+-- to migrate away from (see services/journey/bridgeContentPlacements.ts's
+-- own header for why 'infographic' publish differs from video/poster: no
+-- knyts_bridge_editorial_config column exists for it yet, so its publish
+-- step is placement bookkeeping only).
 --
 -- Deliberately does NOT touch knyts_bridge_editorial_config or any reader.
 -- That table/its GET/PUT route stay exactly as they are — the existing
@@ -31,7 +38,7 @@
 CREATE TABLE IF NOT EXISTS public.bridge_content_placements (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   section text NOT NULL,
-  slot text NOT NULL CHECK (slot IN ('video', 'poster')),
+  slot text NOT NULL CHECK (slot IN ('video', 'poster', 'infographic')),
   draft_asset_id text,
   draft_asset_url text,
   published_asset_id text,

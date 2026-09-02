@@ -170,7 +170,12 @@ export async function handleCodexStorageRegister(
   let encIv2 = '';
   let encAuthTag2 = '';
   let encKeyId2 = '';
-  const skipEncryption = series === 'qriptopian';
+  // 'bridge' (2026-09-02, QRP-BRIDGE-ADMIN A2 asset picker): CI/KNYTS bridge
+  // media (video/poster/infographic) is served directly by <video>/<img> to
+  // UNAUTHENTICATED visitors on a public marketing page — encrypting it in
+  // place would leave `storageUrl` pointing at an undecryptable blob, the
+  // same "WIP-public, served plaintext" reasoning 'qriptopian' already gets.
+  const skipEncryption = series === 'qriptopian' || series === 'bridge';
   if (isEncryptionConfigured() && !skipEncryption) {
     const out = await encryptInPlace(supabase, bucket, path, mediaId);
     encIv2 = out.iv;

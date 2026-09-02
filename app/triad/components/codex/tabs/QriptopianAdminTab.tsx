@@ -1080,7 +1080,12 @@ function CodexManager() {
     try {
       const series = activeTab === 'knyt' ? 'metaKnyts' : 'qriptopian';
       const archivedParam = showArchived ? '&includeArchived=true' : '';
-      const res = await fetch(`/api/admin/codex/assets-by-category?series=${series}&category=${category}${archivedParam}`);
+      // 2026-09-02 authorization repair: this route is now admin-gated —
+      // personaFetch attaches the Bearer token requireAdminPersona needs
+      // (CodexManager has no personaId prop of its own; personaFetch falls
+      // back to the spine's own localStorage record, per its documented
+      // contract).
+      const res = await personaFetch(`/api/admin/codex/assets-by-category?series=${series}&category=${category}${archivedParam}`);
       const json = await res.json() as { assets?: CategoryAssetRow[]; error?: string };
       if (!res.ok) throw new Error(json.error ?? 'Failed to load assets');
       setDetailRows(json.assets ?? []);
@@ -2102,26 +2107,54 @@ function bridgeSections(bridge: BridgeKey): string[] {
   return ['ci-home', 'ci-orient', 'ci-passport-established', ...CI_BRIDGE_VIEW_CONTENT.map((b) => `ci-view-${b.id}`)];
 }
 
+/** Bridge-slot -> codex asset-kind mapping (2026-09-02 A2 completion). Bridge
+ *  media reuses the EXISTING 'social_campaign_video'/'social_campaign_image'
+ *  asset kinds (the same ones CodexUploadModal.tsx's own "Infographics"
+ *  Qripto category already maps to, per its ASSET_KIND_BY_CATEGORY) rather
+ *  than inventing new kinds — poster and infographic share a kind (both are
+ *  static images) and are told apart by title/context, matching the
+ *  existing modal's own choice. */
+const BRIDGE_SLOT_ASSET_KIND: Record<PlacementSlot, string> = {
+  video: 'social_campaign_video',
+  poster: 'social_campaign_image',
+  infographic: 'social_campaign_image',
+};
+const BRIDGE_ASSET_SERIES = 'bridge';
+const BRIDGE_ASSET_ACCEPT: Record<PlacementSlot, string> = {
+  video: 'video/mp4,video/webm,video/quicktime',
+  poster: 'image/png,image/jpeg,image/webp',
+  infographic: 'image/svg+xml,image/png,image/jpeg,application/pdf',
+};
+
 /**
  * PlacementAssetsPanel — the A2 asset picker/preview/publish loop for one
  * section, sitting alongside (never inside) KnytsBridgeAdminPanel's existing
  * copy/URL fields. Backed entirely by the new
  * /api/journey/knyts-bridge/placements route + bridgeContentPlacements.ts —
  * publish writes into the SAME knyts_bridge_editorial_config row the plain
- * text fields above already edit, so both stay a single source of truth.
+ * text fields above already edit for video/poster (infographic has no live
+ * column yet — see bridgeContentPlacements.ts's own header), so both stay a
+ * single source of truth.
  *
- * First-slice scope: assigning a draft takes an already-uploaded asset's
- * delivery URL (pasted in) rather than embedding a full upload form inline —
- * the existing SmartTriad Codex Manager / CodexUploadModal on this same tab
- * is the real upload surface; this panel's job is placement, preview and
- * publish over an asset that already exists. Direct in-panel upload is a
- * natural A2 follow-up, not claimed here.
+ * A2 completion (2026-09-02): assigning a draft now supports THREE paths,
+ * never a fourth parallel upload mechanism —
+ *   1. Browse already-uploaded bridge assets via the EXISTING, now-gated
+ *      GET /api/admin/codex/assets-by-category (series='bridge').
+ *   2. Upload a new asset via the EXISTING sign -> PUT -> register pipeline
+ *      CodexUploadModal.tsx already uses (series='bridge' so it stays
+ *      genuinely public/unencrypted — see codexStorageRegisterHandler.ts).
+ *   3. Paste an already-uploaded asset's URL directly (the original
+ *      first-slice path, kept as a fallback for externally-hosted assets).
  */
 function PlacementAssetsPanel({ section, personaId }: { section: string; personaId?: string }) {
   const [placements, setPlacements] = useState<Record<PlacementSlot, BridgeContentPlacement | null> | null>(null);
-  const [drafts, setDrafts] = useState<Record<PlacementSlot, string>>({ video: '', poster: '' });
+  const [drafts, setDrafts] = useState<Record<PlacementSlot, string>>({ video: '', poster: '', infographic: '' });
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [browseSlot, setBrowseSlot] = useState<PlacementSlot | null>(null);
+  const [browseAssets, setBrowseAssets] = useState<CategoryAssetRow[] | null>(null);
+  const [browseError, setBrowseError] = useState<string | null>(null);
+  const fileInputRefs = useRef<Partial<Record<PlacementSlot, HTMLInputElement | null>>>({});
 
   const load = useCallback(async () => {
     try {
@@ -2139,8 +2172,8 @@ function PlacementAssetsPanel({ section, personaId }: { section: string; persona
     void load();
   }, [load]);
 
-  const handleAssign = async (slot: PlacementSlot) => {
-    const assetUrl = drafts[slot].trim();
+  const handleAssign = useCallback(async (slot: PlacementSlot, urlOverride?: string) => {
+    const assetUrl = (urlOverride ?? drafts[slot]).trim();
     if (!assetUrl) return;
     setBusy(`${slot}:assign`);
     setNotice(null);
@@ -2152,13 +2185,92 @@ function PlacementAssetsPanel({ section, personaId }: { section: string; persona
         body: JSON.stringify({ section, slot, action: 'assign', assetUrl }),
       });
       const json = await res.json();
-      if (!json.ok) { setNotice(json.error || 'Assign failed'); return; }
+      if (!json.ok) {
+        setNotice(
+          json.error === 'bridge-placements-unavailable'
+            ? 'Bridge asset placements are not set up in this environment yet (migration not applied).'
+            : json.error || 'Assign failed',
+        );
+        return;
+      }
       await load();
       setNotice(`${slot} draft assigned.`);
+      setBrowseSlot(null);
     } finally {
       setBusy(null);
     }
-  };
+  }, [drafts, load, personaId, section]);
+
+  const openBrowse = useCallback(async (slot: PlacementSlot) => {
+    setBrowseSlot(slot);
+    setBrowseAssets(null);
+    setBrowseError(null);
+    try {
+      const res = await personaFetch(
+        `/api/admin/codex/assets-by-category?series=${BRIDGE_ASSET_SERIES}&category=social`,
+        { personaIdHint: personaId },
+      );
+      const json = await res.json() as { assets?: CategoryAssetRow[]; error?: string };
+      if (!res.ok) throw new Error(json.error ?? 'Failed to load assets');
+      const kind = BRIDGE_SLOT_ASSET_KIND[slot];
+      setBrowseAssets((json.assets ?? []).filter((a) => a.assetKind === kind));
+    } catch (e) {
+      setBrowseError(e instanceof Error ? e.message : 'Failed to load assets');
+      setBrowseAssets([]);
+    }
+  }, [personaId]);
+
+  const handleUploadFile = useCallback(async (slot: PlacementSlot, file: File) => {
+    setBusy(`${slot}:upload`);
+    setNotice(null);
+    try {
+      const signRes = await personaFetch('/api/admin/codex/storage/sign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        personaIdHint: personaId,
+        body: JSON.stringify({
+          category: 'social',
+          series: BRIDGE_ASSET_SERIES,
+          assetKind: BRIDGE_SLOT_ASSET_KIND[slot],
+          fileName: file.name,
+          mimeType: file.type || undefined,
+        }),
+      });
+      const signJson = await signRes.json() as { signedUrl?: string; path?: string; bucket?: string; error?: string };
+      if (!signRes.ok || !signJson.signedUrl) throw new Error(signJson.error || `sign failed (${signRes.status})`);
+
+      const putRes = await fetch(signJson.signedUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': file.type || 'application/octet-stream' },
+        body: file,
+      });
+      if (!putRes.ok) throw new Error(`storage upload rejected (${putRes.status})`);
+
+      const regRes = await personaFetch('/api/admin/codex/storage/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        personaIdHint: personaId,
+        body: JSON.stringify({
+          path: signJson.path,
+          bucket: signJson.bucket,
+          category: 'social',
+          title: `${section} ${slot} — ${file.name}`,
+          series: BRIDGE_ASSET_SERIES,
+          assetKind: BRIDGE_SLOT_ASSET_KIND[slot],
+          mimeType: file.type || undefined,
+          fileSize: file.size,
+        }),
+      });
+      const regJson = await regRes.json() as { storageUrl?: string; error?: string };
+      if (!regRes.ok || !regJson.storageUrl) throw new Error(regJson.error || `register failed (${regRes.status})`);
+
+      await handleAssign(slot, regJson.storageUrl);
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : 'Upload failed');
+    } finally {
+      setBusy(null);
+    }
+  }, [handleAssign, personaId, section]);
 
   const handlePublish = async (slot: PlacementSlot) => {
     setBusy(`${slot}:publish`);
@@ -2182,22 +2294,87 @@ function PlacementAssetsPanel({ section, personaId }: { section: string; persona
   return (
     <div className="border-t border-white/10 p-4">
       <h3 className="mb-2 text-sm font-semibold text-slate-200">Assets — draft &amp; publish</h3>
-      {(['video', 'poster'] as const).map((slot) => {
+      {(['video', 'poster', 'infographic'] as const).map((slot) => {
         const placement = placements?.[slot] ?? null;
+        const isImage = slot === 'poster' || slot === 'infographic';
         return (
           <div key={slot} className="mb-4 rounded-lg border border-slate-800 bg-slate-900/40 p-3">
             <p className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400">{slot}</p>
             <p className="mb-2 text-xs text-slate-500">
               Published: {placement?.publishedAssetUrl ? (
                 <span className="text-slate-300">{placement.publishedAssetUrl} (rev {placement.revision})</span>
+              ) : slot === 'infographic' ? (
+                <span className="italic">
+                  none yet — publish records placement only, no bridge page renders an infographic yet
+                </span>
               ) : (
                 <span className="italic">none yet</span>
               )}
             </p>
+
+            <div className="mb-2 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => void openBrowse(slot)}
+                className="rounded-md border border-slate-700 px-2 py-1 text-xs font-medium text-slate-200 hover:border-slate-500"
+              >
+                Browse existing
+              </button>
+              <input
+                ref={(el) => { fileInputRefs.current[slot] = el; }}
+                type="file"
+                accept={BRIDGE_ASSET_ACCEPT[slot]}
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) void handleUploadFile(slot, file);
+                  e.target.value = '';
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRefs.current[slot]?.click()}
+                disabled={busy === `${slot}:upload`}
+                className="rounded-md border border-slate-700 px-2 py-1 text-xs font-medium text-slate-200 hover:border-slate-500 disabled:opacity-50"
+              >
+                {busy === `${slot}:upload` ? 'Uploading…' : 'Upload new'}
+              </button>
+            </div>
+
+            {browseSlot === slot && (
+              <div className="mb-2 max-h-48 overflow-y-auto rounded-md border border-slate-800 bg-slate-950/60 p-2">
+                {browseError && <p className="text-xs text-rose-400">{browseError}</p>}
+                {browseAssets === null && !browseError && <p className="text-xs text-slate-500">Loading…</p>}
+                {browseAssets?.length === 0 && !browseError && (
+                  <p className="text-xs text-slate-500">No existing {slot} assets tagged series=&quot;bridge&quot; yet — upload one.</p>
+                )}
+                <div className="grid grid-cols-3 gap-2">
+                  {browseAssets?.map((asset) => (
+                    <button
+                      key={asset.id}
+                      type="button"
+                      onClick={() => asset.cid && void handleAssign(slot, asset.cid)}
+                      disabled={!asset.cid || busy === `${slot}:assign`}
+                      className="rounded border border-slate-800 p-1 text-left hover:border-teal-600 disabled:opacity-50"
+                      title={asset.title ?? asset.id}
+                    >
+                      {asset.thumbUrl ? (
+                        <img src={asset.thumbUrl} alt="" className="mb-1 h-12 w-full rounded object-cover" />
+                      ) : null}
+                      <span className="block truncate text-[10px] text-slate-300">{asset.supabaseTitle ?? asset.title ?? asset.id}</span>
+                    </button>
+                  ))}
+                </div>
+                <button type="button" onClick={() => setBrowseSlot(null)} className="mt-1 text-[10px] text-slate-500 underline">
+                  Close
+                </button>
+              </div>
+            )}
+
             <div className="flex gap-2">
               <input
                 type="text"
-                placeholder="Paste an already-uploaded asset URL"
+                placeholder="…or paste an already-uploaded asset URL"
                 value={drafts[slot]}
                 onChange={(e) => setDrafts((d) => ({ ...d, [slot]: e.target.value }))}
                 className="flex-1 rounded-md border border-slate-800 bg-slate-900/60 px-2 py-1 text-xs text-slate-100"
@@ -2214,8 +2391,8 @@ function PlacementAssetsPanel({ section, personaId }: { section: string; persona
             {placement?.draftAssetUrl && (
               <div className="mt-2">
                 <p className="mb-1 text-xs text-slate-500">Draft preview:</p>
-                {slot === 'poster' ? (
-                  <img src={placement.draftAssetUrl} alt="Draft poster preview" className="max-h-32 rounded-md border border-slate-800" />
+                {isImage ? (
+                  <img src={placement.draftAssetUrl} alt={`Draft ${slot} preview`} className="max-h-32 rounded-md border border-slate-800" />
                 ) : (
                   <video src={placement.draftAssetUrl} controls className="max-h-32 rounded-md border border-slate-800" />
                 )}

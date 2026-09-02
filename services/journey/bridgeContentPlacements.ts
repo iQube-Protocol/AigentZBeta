@@ -22,7 +22,20 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { upsertKnytsBridgeEditorialSection } from '@/services/journey/knytsBridgeEditorialConfig';
 
-export type PlacementSlot = 'video' | 'poster';
+export type PlacementSlot = 'video' | 'poster' | 'infographic';
+
+/**
+ * Slots with a live `knyts_bridge_editorial_config` column to publish into
+ * (via the existing `upsertKnytsBridgeEditorialSection`). 'infographic' has
+ * no such column — no bridge surface renders one yet
+ * (KnytsBridgeEditorialSection carries only headline/shortCopy/videoUrl/
+ * posterUrl/campaignCta/rewardCopy). Its `publish` therefore updates ONLY
+ * this table's bookkeeping (draft->published, revision bump) — real asset
+ * placement/versioning is available for it today; live rendering is a
+ * separate, not-yet-built surface gap (never conflated as if publishing an
+ * infographic already makes it appear on a bridge page).
+ */
+const SLOTS_WITH_LIVE_CONFIG_COLUMN: ReadonlySet<PlacementSlot> = new Set(['video', 'poster']);
 
 export interface BridgeContentPlacement {
   section: string;
@@ -87,21 +100,22 @@ export async function getPlacement(
   return data ? rowToPlacement(data as Record<string, unknown>) : null;
 }
 
-/** Both slots for a section in one call — what the Bridges tab's Assets
- *  panel renders per section. */
+/** All three slots for a section in one call — what the Bridges tab's
+ *  Assets panel renders per section. */
 export async function getPlacementsForSection(
   supabase: SupabaseClient,
   section: string,
 ): Promise<Record<PlacementSlot, BridgeContentPlacement | null>> {
   const { data, error } = await supabase.from('bridge_content_placements').select('*').eq('section', section);
   if (error) {
-    if (isMissingTable(error)) return { video: null, poster: null };
+    if (isMissingTable(error)) return { video: null, poster: null, infographic: null };
     throw new Error(`bridge_content_placements read failed: ${error.message}`);
   }
   const rows = (data ?? []).map((r) => rowToPlacement(r as Record<string, unknown>));
   return {
     video: rows.find((r) => r.slot === 'video') ?? null,
     poster: rows.find((r) => r.slot === 'poster') ?? null,
+    infographic: rows.find((r) => r.slot === 'infographic') ?? null,
   };
 }
 
@@ -137,7 +151,10 @@ export async function assignDraftAsset(
     )
     .select('*')
     .single();
-  if (error) throw new Error(`bridge_content_placements assign failed: ${error.message}`);
+  if (error) {
+    if (isMissingTable(error)) throw new Error('bridge-placements-table-missing');
+    throw new Error(`bridge_content_placements assign failed: ${error.message}`);
+  }
   return rowToPlacement(data as Record<string, unknown>);
 }
 
@@ -192,12 +209,17 @@ export async function publishPlacement(
     throw new Error('no-draft-to-publish');
   }
 
-  await upsertKnytsBridgeEditorialSection(
-    supabase,
-    section,
-    slot === 'video' ? { videoUrl: existing.draftAssetUrl } : { posterUrl: existing.draftAssetUrl },
-    actor,
-  );
+  // See SLOTS_WITH_LIVE_CONFIG_COLUMN's own comment — 'infographic' has no
+  // live config column to write into yet, so this step is skipped for it,
+  // never silently pointed at the wrong field.
+  if (slot === 'video' || slot === 'poster') {
+    await upsertKnytsBridgeEditorialSection(
+      supabase,
+      section,
+      slot === 'video' ? { videoUrl: existing.draftAssetUrl } : { posterUrl: existing.draftAssetUrl },
+      actor,
+    );
+  }
 
   const { data, error } = await supabase
     .from('bridge_content_placements')
