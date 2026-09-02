@@ -6,117 +6,36 @@
  * Returns a signed upload URL the browser can PUT to directly, bypassing
  * the Lambda body-size limit entirely (handles 300-500 MB files).
  * The browser then calls /storage/register once the PUT completes.
+ *
+ * AUTHORIZATION REPAIR (2026-09-02): this route previously had NO auth
+ * check at all — the most severe of the three related routes fixed this
+ * session, since it hands out a signed Storage WRITE capability (and an
+ * `existingPath` overwrite of an arbitrary object) to any caller.
+ * CodexUploadModal.tsx already attaches a real Supabase bearer token on
+ * this exact call unconditionally — this fix makes that token do
+ * something. See services/content/codexStorageSignHandler.ts.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { requireAdminPersona } from '@/app/api/_lib/requireAdmin';
+import { handleCodexStorageSign, CodexStorageSignError } from '@/services/content/codexStorageSignHandler';
 
 export const runtime = 'nodejs';
 
-const BUCKET = 'content-media';
-
-function getExt(fileName: string, mimeType?: string): string {
-  const fromName = fileName.split('.').pop()?.toLowerCase();
-  if (fromName && fromName.length <= 5) return fromName;
-  const mimeMap: Record<string, string> = {
-    'video/mp4': 'mp4', 'video/webm': 'webm', 'video/quicktime': 'mov',
-    'application/pdf': 'pdf',
-    'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/svg+xml': 'svg',
-  };
-  return (mimeType && mimeMap[mimeType]) || 'bin';
-}
-
-function buildPath(params: {
-  category: string;
-  series: string;
-  /** Qriptopian uploads pass 'papers/protocols' / 'magazines/2' etc.
-   *  When present, replaces the epXX path segment so qripto assets are
-   *  organised by series scope rather than episode number. */
-  seriesScope?: string;
-  episodeNumber: number | null;
-  assetKind?: string;
-  contentType?: string;
-  fileName: string;
-  mimeType?: string;
-}): string {
-  const { category, series, seriesScope, episodeNumber, assetKind, contentType, fileName, mimeType } = params;
-  const ext = getExt(fileName, mimeType);
-  const ts = Date.now();
-  // Qripto: 'papers/protocols' → 'papers-protocols' (filesystem-safe).
-  // KNYT: epXX from episodeNumber (existing behaviour).
-  const scope = seriesScope
-    ? seriesScope.replace(/[^a-z0-9-]+/gi, '-').toLowerCase()
-    : (episodeNumber != null ? `ep${String(episodeNumber).padStart(2, '0')}` : 'epXX');
-
-  if (category === 'master' || category === 'still') {
-    const ct = contentType || 'episode_still';
-    return `codex/masters/${series}/${ct}/${scope}_${ts}.${ext}`;
-  }
-  if (category === 'print') {
-    return `codex/masters/${series}/episode_print/${scope}_${ts}.${ext}`;
-  }
-  const kind = assetKind || category;
-  return `codex/assets/${series}/${kind}/${scope}_${ts}.${ext}`;
-}
-
 export async function POST(req: NextRequest) {
   try {
-    // No auth check — admin codex routes are URL-protected; the codex viewer
-    // host page does not require a Supabase session. Returning 401 here just
-    // because there's no Bearer token blocks legitimate operator uploads on
-    // the dev environment. Server-side Supabase ops use the service role key.
+    const isAdmin = await requireAdminPersona(req);
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'admin required' }, { status: 403 });
+    }
 
     const body = await req.json();
-    const {
-      category, series = 'metaKnyts', seriesScope, episodeNumber = null,
-      assetKind, contentType, fileName, mimeType,
-      existingPath,
-    } = body as {
-      category: string; series?: string;
-      // Qripto-only: 'papers/protocols' / 'magazines/2' etc. Drives the
-      // path segment in buildPath when present.
-      seriesScope?: string;
-      episodeNumber?: number | null;
-      assetKind?: string; contentType?: string; fileName: string; mimeType?: string;
-      // When set, sign for THIS exact storage path (overwrite/replace). Used by
-      // the "Replace file" admin action so the public URL stays stable and no
-      // DB pointer needs updating. Caller must verify the path is owned by the
-      // asset being replaced.
-      existingPath?: string;
-    };
-
-    if (!category && !existingPath) {
-      return NextResponse.json({ error: 'Missing category or existingPath' }, { status: 400 });
+    const result = await handleCodexStorageSign(body);
+    return NextResponse.json(result);
+  } catch (error) {
+    if (error instanceof CodexStorageSignError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
     }
-    if (!existingPath && !fileName) {
-      return NextResponse.json({ error: 'Missing fileName' }, { status: 400 });
-    }
-
-    const path = existingPath
-      ? existingPath
-      : buildPath({ category, series, seriesScope, episodeNumber, assetKind, contentType, fileName, mimeType });
-
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { persistSession: false } }
-    );
-
-    const { data, error } = await supabase.storage
-      .from(BUCKET)
-      .createSignedUploadUrl(path, { upsert: true });
-
-    if (error || !data) {
-      return NextResponse.json({ error: error?.message || 'Failed to create signed URL' }, { status: 500 });
-    }
-
-    return NextResponse.json({
-      signedUrl: data.signedUrl,
-      token: data.token,
-      path,
-      bucket: BUCKET,
-    });
-  } catch (e: unknown) {
-    return NextResponse.json({ error: (e as Error)?.message || 'Sign failed' }, { status: 500 });
+    return NextResponse.json({ error: (error as Error)?.message || 'Sign failed' }, { status: 500 });
   }
 }
