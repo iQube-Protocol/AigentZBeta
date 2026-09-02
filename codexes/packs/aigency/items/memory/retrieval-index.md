@@ -4984,3 +4984,13 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-0a3db3c.md](../build_/COMMITS/COMMIT-0a3db3c.md)
 - Message: Add typed asset placements with draft/publish for bridge media (A2)
+
+## Commit `45e4b13` — 2026-09-02T03:22:54Z
+- Type: `feat`
+- Brief: [COMMIT-45e4b13.md](../build_/COMMITS/COMMIT-45e4b13.md)
+- Message: Add manual financial-profile entry; close MPY2-0b donor audit [merge spec/moneypenny-mpy2-3]
+
+## Commit `9b0e073` — 2026-09-02T01:15:27Z
+- Type: `feat`
+- Brief: [COMMIT-9b0e073.md](../build_/COMMITS/COMMIT-9b0e073.md)
+- Message: Add MoneyPenny002 real-source donor audit (MPY2-0b)

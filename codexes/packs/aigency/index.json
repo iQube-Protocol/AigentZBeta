@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-02T00:52:13.972Z",
+  "last_updated": "2026-09-02T03:25:50.449Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "0a3db3c3516a016f7f40eb453fd96a2153eb685a",
-  "latest_commit_short": "0a3db3c",
-  "latest_commit_title": "Add typed asset placements with draft/publish for bridge media (A2)",
+  "latest_commit": "9b0e073190d458adafb85206ac0675c61cdd1256",
+  "latest_commit_short": "9b0e073",
+  "latest_commit_title": "Add MoneyPenny002 real-source donor audit (MPY2-0b)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "9b0e073",
+      "full_sha": "9b0e073190d458adafb85206ac0675c61cdd1256",
+      "title": "Add MoneyPenny002 real-source donor audit (MPY2-0b)",
+      "author": "Claude",
+      "timestamp": "2026-09-02T01:15:27Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-9b0e073.md"
+    },
+    {
+      "sha": "45e4b13",
+      "full_sha": "45e4b132b34dc7c8c2fd5be7eda4cd66a9a42b9d",
+      "title": "Add manual financial-profile entry; close MPY2-0b donor audit [merge spec/moneypenny-mpy2-3]",
+      "author": "Claude",
+      "timestamp": "2026-09-02T03:22:54Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-45e4b13.md"
+    },
     {
       "sha": "0a3db3c",
       "full_sha": "0a3db3c3516a016f7f40eb453fd96a2153eb685a",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-08-27T03:08:54Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-31ff00c.md"
-    },
-    {
-      "sha": "dc83c33",
-      "full_sha": "dc83c33d511c8b645057c8910c35875556c68b25",
-      "title": "fix: resolve Research Lab scopes by registry membership, not column name",
-      "author": "Claude",
-      "timestamp": "2026-08-26T14:07:52Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-dc83c33.md"
-    },
-    {
-      "sha": "90d7ed9",
-      "full_sha": "90d7ed99e75182c5b9385641220904fab7a35eeb",
-      "title": "Show ContactGraph state and import-source counts in People (#99)",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-26T03:24:14-04:00",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-90d7ed9.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

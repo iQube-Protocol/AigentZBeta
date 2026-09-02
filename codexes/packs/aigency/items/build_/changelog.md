@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`9b0e073`](https://github.com/iQube-Protocol/AigentZBeta/commit/9b0e073190d458adafb85206ac0675c61cdd1256) [feat] Add MoneyPenny002 real-source donor audit (MPY2-0b) (Claude, 2026-09-02T01:15:27Z)
+- [`45e4b13`](https://github.com/iQube-Protocol/AigentZBeta/commit/45e4b132b34dc7c8c2fd5be7eda4cd66a9a42b9d) [feat] Add manual financial-profile entry; close MPY2-0b donor audit [merge spec/moneypenny-mpy2-3] (Claude, 2026-09-02T03:22:54Z)
 - [`0a3db3c`](https://github.com/iQube-Protocol/AigentZBeta/commit/0a3db3c3516a016f7f40eb453fd96a2153eb685a) [feat] Add typed asset placements with draft/publish for bridge media (A2) (Claude, 2026-09-01T23:48:14Z)
 - [`10e5e52`](https://github.com/iQube-Protocol/AigentZBeta/commit/10e5e52295b794fc7dc68889612f3fd2f67eea08) [push] Authenticate the codex upload/register admin endpoints (Claude, 2026-09-02T00:44:55Z)
 - [`a302da9`](https://github.com/iQube-Protocol/AigentZBeta/commit/a302da9b93b9f1c8a21d1c0714b9572c19ab1352) [feat] Add fs-operate stage; wire fs-prepare to a real reviewed-profile evidence (Claude, 2026-09-02T00:45:11Z)
