@@ -5,24 +5,45 @@
  * KNYTS/CI → Financial Services main spine (AEE-XP-001 §4.2-4.3, §5).
  * Bridge-neutral, composed by both KNYTS and CI — one implementation.
  *
- * PREPARE: the visitor picks an agent CANDIDATE from the real registrable-
- * agent catalog (`services/horizen/registrableAgents.ts` — the SAME list the
- * Financial Services Register stage itself offers) — never a registration,
- * never a delegation. The choice is held in `sessionStorage` only long
- * enough to reach CROSS on the same visit (AEE-XP-001 §4.3: "arrive with an
- * agent candidate ready to register, not with a fabricated registration").
+ * PREPARE (rebuilt 2026-09-02, Bridge spec B2 — the operator's own
+ * correction: "The legacy agent-candidate-selection step is an
+ * implementation baseline to replace or relocate — it does not satisfy
+ * the agreed Prepare experience"): the visitor reviews or establishes
+ * their financial profile through the SAME canonical manual/upload
+ * workflow the MoneyPenny cartridge's `financial-profile` panel already
+ * implements (C-04–C-06) — reusing `fetchFinancialProfileSummary()`, the
+ * SAME read `MoneyPennyCopilotWorkspace.tsx`'s groundContext uses (one
+ * canonical profile, never a copied bridge snapshot — SC-03). Its
+ * "Review my financial profile" action opens that exact panel
+ * (`buildCodexUrl('moneypenny', {tab:'financial-profile'})`); "Continue
+ * to Operate" advances via the SAME `journey:select-stage` mechanism this
+ * file already used, to `nextStageId` — already wired to `fs-operate` in
+ * both journey definitions (services/journey/constitutionalInternetBridgeJourney.ts,
+ * knytsBridgeCrossingJourney.ts), so no journey-graph change was needed
+ * here, only this stage's own content.
  *
- * CROSS: builds an `ExperienceHandoff` (types/experienceHandoff.ts) carrying
- * that candidate plus return context, and navigates to the Financial
- * Services Bridge with it encoded in the URL — no server round-trip, no new
- * persistence engine (see experienceHandoffService.ts's own header for why).
+ * The legacy agent-candidate picker is retired from Prepare's primary
+ * flow, per the Bridge spec's own B-13 migration guidance: "A previously
+ * selected agent candidate can be retained as an optional advanced
+ * preference; it cannot count as a reviewed financial profile." CROSS
+ * mode (below) already handles an absent candidate gracefully ("You can
+ * still cross without a chosen candidate") — that path is exercised now
+ * by construction, not a new case.
+ *
+ * CROSS (unchanged): builds an `ExperienceHandoff`
+ * (types/experienceHandoff.ts) carrying any still-present session
+ * candidate plus return context, and navigates to the Financial Services
+ * Bridge with it encoded in the URL — no server round-trip, no new
+ * persistence engine (see experienceHandoffService.ts's own header for
+ * why).
  */
 
 import { useEffect, useState } from 'react';
-import { listRegistrableAgents } from '@/services/horizen/registrableAgents';
 import { createExperienceHandoff, encodeExperienceHandoff } from '@/services/journey/experienceHandoffService';
 import { getJourneyBranchIntent } from '@/services/journey/journeyBranchActivation';
 import { WALLET_CONVERSION_CAPABILITY_ID } from '@/services/financialServices/walletConversionCapability';
+import { fetchFinancialProfileSummary, type FinancialProfileSummary } from '@/services/moneypenny/financialProfileSummary';
+import { buildCodexUrl } from '@/utils/codex-nav';
 import type { BridgeAccent } from '@/components/journey/BridgeMediaStage';
 
 const FINANCIAL_SERVICES_BRANCH = 'financial-services';
@@ -53,15 +74,18 @@ export function FinancialSovereigntyPrepareCrossStage({
   sourceStageId,
   nextStageId,
   returnStageId,
+  personaId,
 }: {
   mode: 'prepare' | 'cross';
   accent: BridgeAccent;
   sourceJourneyId: string;
   sourceStageId: string;
-  /** PREPARE only — the CROSS stage id to advance to once a candidate is chosen. */
+  /** PREPARE: the Operate stage id to advance to once the profile is reviewed. CROSS: unused. */
   nextStageId?: string;
   /** CROSS only — the stage to resume this journey at on return from Financial Services. */
   returnStageId?: string;
+  /** PREPARE only — resolves the profile summary and the MoneyPenny deep link. */
+  personaId?: string | null;
 }) {
   const sessionKey = `${SESSION_KEY_PREFIX}${sourceJourneyId}`;
   const [selected, setSelected] = useState<string | null>(null);
@@ -75,40 +99,8 @@ export function FinancialSovereigntyPrepareCrossStage({
   }, [sessionKey]);
 
   if (mode === 'prepare') {
-    const agents = listRegistrableAgents();
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-6 p-8 text-center">
-        <div className="max-w-xl space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Prepare</p>
-          <h2 className="text-2xl font-semibold text-white">Choose an agent candidate to bring with you.</h2>
-          <p className="text-sm text-slate-400">
-            This is a candidate, not a registration — the Financial Services Bridge registers it for real, under its
-            own authority checks.
-          </p>
-        </div>
-        <div className="flex w-full max-w-md flex-col gap-2">
-          {agents.map((agent) => (
-            <button
-              key={agent.slug}
-              type="button"
-              onClick={() => {
-                try {
-                  window.sessionStorage.setItem(sessionKey, agent.slug);
-                } catch {
-                  /* non-fatal — CROSS proceeds with no candidate */
-                }
-                setSelected(agent.slug);
-                if (nextStageId) selectStage(nextStageId);
-              }}
-              className={`rounded-xl border px-4 py-3 text-left text-sm font-semibold transition ${
-                selected === agent.slug ? ACCENT_BUTTON[accent] : 'border-slate-800 bg-slate-900/40 text-slate-200 hover:opacity-80'
-              }`}
-            >
-              {agent.displayName}
-            </button>
-          ))}
-        </div>
-      </div>
+      <PrepareFinancialProfileReview accent={accent} nextStageId={nextStageId} personaId={personaId} />
     );
   }
 
@@ -168,6 +160,122 @@ export function FinancialSovereigntyPrepareCrossStage({
       >
         Cross to Financial Services →
       </button>
+    </div>
+  );
+}
+
+/**
+ * B2 Prepare content (2026-09-02) — Bridge spec B-08: "Prepare is
+ * financial-profile setup... Bring information, review extraction,
+ * understand my position, personalize, review readiness." Reuses the
+ * SAME canonical profile `fetchFinancialProfileSummary()` reads (the
+ * exact fetch `MoneyPennyCopilotWorkspace.tsx`'s own groundContext uses)
+ * — the review evidence here IS the reviewed-profile evidence MoneyPenny
+ * itself already shows, never a second copy.
+ */
+function PrepareFinancialProfileReview({
+  accent,
+  nextStageId,
+  personaId,
+}: {
+  accent: BridgeAccent;
+  nextStageId?: string;
+  personaId?: string | null;
+}) {
+  const [summary, setSummary] = useState<FinancialProfileSummary | null | undefined>(undefined);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchFinancialProfileSummary().then((s) => {
+      if (!cancelled) setSummary(s);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const openFinancialProfile = () => {
+    const url = buildCodexUrl('moneypenny', { personaId: personaId ?? undefined, tab: 'financial-profile' });
+    window.location.assign(url);
+  };
+
+  const handleContinueToOperate = () => {
+    if (nextStageId) selectStage(nextStageId);
+  };
+
+  const loading = summary === undefined;
+  const hasProfile = summary?.hasProfile === true;
+
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-6 p-8 text-center">
+      <div className="max-w-xl space-y-2">
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Prepare</p>
+        <h2 className="text-2xl font-semibold text-white">What is my financial position, and what do I want help with?</h2>
+        <p className="text-sm text-slate-400">
+          Bring statements, or enter a limited profile manually — either way, MoneyPenny explains what is understood
+          and what is still missing. This is preparation evidence, not permission to trade.
+        </p>
+      </div>
+
+      <div className="w-full max-w-md space-y-3 rounded-xl border border-slate-800 bg-slate-900/40 p-4 text-left">
+        {loading && <p className="text-sm text-slate-400">Checking your financial profile…</p>}
+        {!loading && !hasProfile && (
+          <p className="text-sm text-slate-300">
+            No financial profile reviewed yet. Understanding coverage, corrections and limitations happens in
+            MoneyPenny's Financial Profile capsule.
+          </p>
+        )}
+        {!loading && hasProfile && (
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-emerald-300">Profile reviewed</p>
+            <p className="text-xs text-slate-400">
+              Source: {summary?.inputSource === 'manual_entry' ? 'manual entry' : 'uploaded statements'}
+              {summary?.computedFromMonths && summary.computedFromMonths.length > 0
+                ? ` · ${summary.computedFromMonths.length} month${summary.computedFromMonths.length === 1 ? '' : 's'} of coverage`
+                : ''}
+            </p>
+            {summary?.inputSource === 'manual_entry' && (
+              <p className="text-xs text-amber-300">
+                Limitation: a manually-entered profile may not reflect your full financial picture. Upload
+                statements for fuller coverage when you can.
+              </p>
+            )}
+            {(summary?.incomeMonthly != null || summary?.expenditureMonthly != null || summary?.availableSurplusMonthly != null) && (
+              <dl className="grid grid-cols-3 gap-2 pt-1 text-xs text-slate-300">
+                <div>
+                  <dt className="text-slate-500">Income/mo</dt>
+                  <dd>{summary?.incomeMonthly != null ? summary.incomeMonthly.toFixed(0) : '—'}</dd>
+                </div>
+                <div>
+                  <dt className="text-slate-500">Spend/mo</dt>
+                  <dd>{summary?.expenditureMonthly != null ? summary.expenditureMonthly.toFixed(0) : '—'}</dd>
+                </div>
+                <div>
+                  <dt className="text-slate-500">Surplus/mo</dt>
+                  <dd>{summary?.availableSurplusMonthly != null ? summary.availableSurplusMonthly.toFixed(0) : '—'}</dd>
+                </div>
+              </dl>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="flex w-full max-w-md flex-col gap-2 sm:flex-row sm:justify-center">
+        <button
+          type="button"
+          onClick={openFinancialProfile}
+          className={`rounded-xl border px-6 py-3 text-sm font-semibold transition ${ACCENT_BUTTON[accent]}`}
+        >
+          {hasProfile ? 'Review / update my financial profile →' : 'Review my financial profile →'}
+        </button>
+        <button
+          type="button"
+          onClick={handleContinueToOperate}
+          className="rounded-xl border border-slate-700 bg-slate-900/40 px-6 py-3 text-sm font-semibold text-slate-200 transition hover:opacity-80"
+        >
+          Continue to Operate
+        </button>
+      </div>
     </div>
   );
 }

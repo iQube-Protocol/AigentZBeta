@@ -1,13 +1,18 @@
 # MoneyPenny Authoritative Three-Spec Import and Reconciliation (2026-09-02)
 
-**Status:** Import complete. Crosswalk complete (§2, revised §10, deltas in §12). Four reconciliation
+**Status:** Import complete. Crosswalk complete (§2, revised §10, deltas in §12). Five reconciliation
 passes: (1) §3 reconciled the specs' dated snapshot against prior-session work; (2) §6–§7 verified the
 C1 shell and closed the copilot-to-capsule (C-02) gap; (3) §11 closed SC-04 (task/context versioning)
 and completed the C-01/C-03 shell (pane ratio, narrow-width toggle, five-area navigation incl. Home,
 sidebar retirement); (4) §13 hardens SC-04 (monotonic generation, conversation-output protection),
 delivers the full-screen HFT takeover, and verifies entry continuity (direct/Operate confirmed;
-Agent Me confirmed absent and reported, not silently assumed; return navigation added generically) —
-all four passes preserved every previously-implemented feature untouched.
+Agent Me confirmed absent and reported, not silently assumed; return navigation added generically);
+(5) §14 builds the previously-deferred Agent Me entry point through the established specialist/
+mirror-tab mechanism (not the flagged-fragile capsule-layout files), rebuilds B2 Prepare as a
+financial-profile review (retiring the legacy agent-candidate picker from Prepare), migrates the one
+real in-app link off the standalone `/moneypenny` route, and records a controlled (fixture-driven,
+non-authenticated) browser pass separately from live acceptance — all five passes preserved every
+previously-implemented feature untouched.
 
 ---
 
@@ -586,3 +591,244 @@ copilot-workspace, fullscreen-takeover, entry-continuity) — all of it code/uni
 browser acceptance. No migration was touched this pass. No environment/Supabase/connector access was
 needed or attempted for this pass's work — everything implemented was pure client-side React state,
 routing, and unit-testable logic; nothing was blocked on missing configuration or credentials.
+
+## 14. Turn C — Agent Me entry (safely), B2 Prepare rebuild, standalone-route compat mapping, controlled browser pass
+
+Five sequential instructions, executed in order, no further selection round taken. Each is reported
+against what was actually verified — code evidence, then controlled (fixture, non-authenticated)
+browser evidence, kept explicitly separate from authenticated live acceptance per the operator's
+instruction.
+
+### 14a. Agent Me entry — built through the established specialist/mirror mechanism, not the flagged-fragile files
+
+The prior pass (§13c) correctly identified the gap but declined to close it, citing this repo's own
+CLAUDE.md "aigentMe Capsule ↔ Layout Contract" PARAMOUNT section and its three documented historical
+regressions (2026-05-28 Capsule disappearance, Ask Specialists fallback, legacy NBA queued cards) —
+all three caused by touching `AigentMeWelcomeSplitTab.tsx` / the capsule-activation state machine
+without full understanding. The operator's correction this turn was not "the risk doesn't matter" —
+it was "there is already a safe path that doesn't touch those files; use it."
+
+That safe path exists in two pieces this session did not have to build:
+
+1. **`services/orchestration/specialistRecommender.ts`** already carries a full, always-available
+   MoneyPenny roster entry (`SPECIALIST_LABELS`, `SPECIALIST_DESCRIPTIONS`,
+   `SPECIALIST_ACTIVATION_GATE.moneypenny: null`) — MoneyPenny was already a first-class specialist,
+   just missing a click-through.
+2. **`data/codex-configs.ts`'s `metame-codex`** already registers a deliberate MoneyPenny mirror tab
+   (`metame-moneypenny-orchestration`, slug `moneypenny-orchestration`) explicitly documented in its
+   own comment as mirroring the real MoneyPenny console into metaMe "via the SAME
+   `MoneyPennyPanelTab` component... never a bespoke FS-only card."
+
+The fix adds one small, additive block to `components/metame/welcome/layouts/SpecialistsLayout.tsx`'s
+`FocusCard` — a leaf render component with no interaction with `activeCapsuleId`/`activeLayoutId`
+state: a "Open MoneyPenny workspace →" button, shown only for the `moneypenny` entry, that calls
+`tryOpenInMountedCartridge({cartridgeId: 'metame-codex', tab: 'moneypenny-orchestration'})` — the
+platform's own same-codex tab-switch primitive (`services/cartridge/CartridgePresenceRegistry.ts`),
+already used elsewhere in this file for a different specialist. **Zero lines changed in
+`AigentMeWelcomeSplitTab.tsx` or `MoneyPennyFocusLayout.tsx`.** No `onRequestLayout`, no
+`engageCapsule`/`setActiveLayoutId` call anywhere in the new code — none of the three historical
+failure shapes are structurally possible here, verified directly against source, not assumed.
+
+**Return context.** `MoneyPennyCopilotWorkspace.tsx` gained `getCartridge('metame-codex') !== null`
+detection: when the workspace is rendered inside the metame-codex mirror (i.e., reached via this new
+button), its back-link uses the SAME `tryOpenInMountedCartridge` primitive to switch back to the
+`aigent-me` tab (`AIGENTME_TAB_SLUG`, verified against the real `aigent-me-welcome` tab's `slug:
+'aigent-me'` in `data/codex-configs.ts`) — a real, honest round trip, checked before the existing
+`from`/`fromTab` URL-param fallback and the generic `window.history.back()` fallback, both
+preserved unchanged.
+
+**Tests:** `tests/moneypenny-agentme-entry.test.ts` — 16 new tests: the pre-existing roster/mirror-tab
+registration, the new button's presence and gating, all three historical failure shapes explicitly
+absent from the new code, the return-context round trip (exact codex+tab pair, mirror-detection
+priority ordering, honest label), and `MoneyPennyFocusLayout.tsx` confirmed byte-for-byte untouched
+(unmodified since §13c). All pass.
+
+### 14b. B2 Prepare rebuilt — financial-profile review replaces the legacy agent-candidate picker
+
+`components/journey/FinancialSovereigntyPrepareCrossStage.tsx`'s `mode === 'prepare'` branch
+previously rendered `listRegistrableAgents()` output as a "Choose an agent candidate to bring with
+you" picker — the exact pre-Bridge-spec behavior the Bridge spec's own §1 critiques, and confirmed
+absent-of-MoneyPenny in §13c's continuity audit. The operator's instruction named it precisely: "an
+implementation baseline to replace or relocate — it does not satisfy the agreed Prepare experience."
+
+The rebuild replaces it with a new `PrepareFinancialProfileReview` component:
+
+- Fetches the profile via `fetchFinancialProfileSummary()`, a **new shared module**
+  (`services/moneypenny/financialProfileSummary.ts`) extracted from
+  `MoneyPennyCopilotWorkspace.tsx`'s previously-inline fetch — SC-03 discipline ("one canonical
+  financial profile"), now literally one function both surfaces import, not two independently
+  maintained fetches. `MoneyPennyCopilotWorkspace.tsx` was refactored to consume it too, and the prior
+  turn's `tests/moneypenny-entry-continuity.test.ts` assertion that named the old inline call site was
+  updated in place to assert the shared-module import instead (its underlying claim — the fetch is
+  persona-scoped, not entry-point-scoped — still holds and is still tested, now against the shared
+  module).
+- Renders three honest states: loading, "No financial profile reviewed yet" (with a plain-language
+  explanation of where review happens), and — once a profile exists — its `inputSource`,
+  `computedFromMonths` coverage, and income/expenditure/surplus figures, with an explicit
+  "Limitation: a manually-entered profile may not reflect your full financial picture" caveat when
+  `inputSource === 'manual_entry'`. Nothing here is invented; every field maps directly to
+  `FinancialProfileSummary`, sourced from `GET /api/moneypenny/financial-profile`.
+- "Review / update my financial profile →" deep-links to MoneyPenny's real financial-profile tab via
+  `buildCodexUrl('moneypenny', {personaId, tab: 'financial-profile'})` — the platform's canonical
+  cross-surface mechanism, not a bridge-local reimplementation of the profile UI.
+- "Continue to Operate" calls the SAME `selectStage(nextStageId)` mechanism this file already used for
+  Prepare→Cross — no new navigation primitive invented. `nextStageId: 'fs-operate'` was **already**
+  wired on `fs-prepare` in both `constitutionalInternetBridgeJourney.ts` and
+  `knytsBridgeCrossingJourney.ts` before this pass (confirmed by direct source inspection, not
+  assumption) — only the stage's rendered content needed rebuilding, not the journey graph. Both
+  `app/bridge/ci/page.tsx` and `app/bridge/knyts/page.tsx` now thread `personaId` into the
+  `ci-bridge-fs-prepare`/`knyts-bridge-fs-prepare` surface props (previously only `fs-operate` and
+  later stages received it), matching the convention `FinancialSovereigntyOperateStage.tsx` already
+  established.
+- The two journey files' `fs-prepare` stage `description` strings were also corrected — they
+  previously read "...optionally choose an agent candidate to bring forward," which is what the
+  *browser evidence* in §14d caught as now-stale copy describing the removed picker. Both now read
+  "Review or establish a financial profile, and understand its limitations, before continuing to
+  Operate."
+
+**CROSS mode is completely unchanged** — it still reads the same `fsHandoffAgentCandidate:` session
+key, still has its "You can still cross without a chosen candidate — the Financial Services Bridge
+will let you pick one there" fallback copy, and still builds `agentCandidateRef: selected ??
+undefined`. Nothing currently writes to that session key (confirmed by repo-wide grep — the write
+side lived only in the now-removed Prepare picker), so Cross's own pre-existing no-candidate fallback
+is what carries visitors through; this was true before this pass's own removal of the Prepare-side
+picker and is unchanged behavior, not a new gap.
+
+**Known minor follow-up, not fixed this pass:** `fs-prepare`'s `permittedActions: ['select-agent-
+candidate']` metadata field (used for the stage's "Evidence" panel labeling) was not updated to match
+the new review-only behavior, to keep this change to the visibly-wrong string the browser pass
+actually surfaced. Left as an explicit, named item rather than silently accepted.
+
+**Tests:** `tests/moneypenny-b2-prepare.test.ts` — 13 new tests, covering: the picker's removal, the
+shared-fetch-module usage in both consuming files, the honest empty/limitation/coverage states, the
+`buildCodexUrl` deep link, `Continue to Operate` reusing `selectStage`, the journey graph's
+pre-existing `nextStageId` wiring (measured empirically at 876 characters of intervening stage
+metadata — the regex window was widened to match, not guessed), the `personaId` threading on both
+bridge pages, and Cross mode's full non-regression. All pass.
+
+### 14c. Standalone `/moneypenny` route — closed with an explicit compatibility mapping, not a removal
+
+Repo-wide search confirmed the standalone route (`app/(shell)/moneypenny/page.tsx` →
+`MoneyPennyCartridge.tsx` → `HFTConsole`, the legacy flat ten-tab cartridge) is real and user-facing —
+but through **exactly one** in-app navigational link anywhere in `app/` or `components/`:
+`app/components/wallet/MoneyPennyWalletRuntime.tsx`'s "Open full Runtime + Agreement lifecycle in
+MoneyPenny" button inside `SmartWalletDrawer`'s MoneyPenny tab. Every other match for the literal
+string was either the route's own implementation files or prose in this session's own doc comments
+and tests.
+
+**The fix:** that one link now points at `buildCodexUrl('moneypenny', {tab: 'runtime', personaId:
+personaIdHint || undefined})` — the canonical `moneypenny-codex` workspace's Runtime tab (`slug:
+'runtime'`, confirmed directly against `data/codex-configs.ts`), reusing the wallet's already-resolved
+`personaIdHint` exactly as the rest of that component already does for its own runtime calls.
+
+**Documented intentional exception:** the standalone route/page itself is **not** deleted, redirected,
+or gated. It stays reachable by direct URL — a deliberate choice, not an oversight, now stated
+explicitly in `MoneyPennyWalletRuntime.tsx`'s own header comment (which previously just said "Mode is
+ALWAYS 'shadow'" with no route-migration context) and enforced by a new test asserting
+`app/(shell)/moneypenny/page.tsx` still renders `MoneyPennyCartridge` unmodified. The one thing that
+changed is that nothing in-app links to it anymore — it is de-linked, not decommissioned.
+
+**Tests:** `tests/moneypenny-standalone-route-compat-mapping.test.ts` — 6 new tests: the hardcoded
+`href="/moneypenny"` is gone, the `buildCodexUrl` replacement is exact, `personaIdHint` still threads
+through, the standalone page is confirmed untouched, the migration + exception are documented in the
+component's own header, and a repo-wide walk of `app/` and `components/` confirms no remaining
+in-app href/`window.location`/`router.push` target for the literal `/moneypenny` route outside the
+route's own files. All pass.
+
+### 14d. Controlled browser pass — fixture-driven, explicitly separate from authenticated live acceptance
+
+Ran against the local dev server (`next dev`, confirmed compiling and serving 200s) using Playwright
+against the pre-installed Chromium, with a **fixture** `personaId` query parameter
+(`browser-pass-fixture-persona`) rather than a real signed-in Supabase session — this is controlled
+evidence, not live acceptance, and is reported as such throughout.
+
+**Journey traced, with what was and wasn't reachable stated plainly:**
+
+| Step | Result |
+|---|---|
+| Agent Me (`/triad/embed/codex/metame?tab=aigent-me`) | Rendered, but stuck on "Loading persona context…" for the fixture persona (no real `/api/wallet/active-persona` resolution without a real Bearer token) — the new "Open MoneyPenny workspace" button never mounted because `SpecialistsLayout` never got past its loading gate for this fixture. **Honest finding, not a defect in this turn's code**: the button's own gating logic is untestable without live auth; §14a's unit tests already prove the button's code path directly. |
+| MoneyPenny mirror tab, direct URL | Rendered successfully (screenshot `02b`) — confirms the destination tab itself works independent of the click path that couldn't be exercised above. |
+| Financial-profile tab, direct URL | Rendered (screenshot `03`). |
+| Bridge landing (`/bridge/ci`) | Rendered its default/entry stage (screenshot `03a`). |
+| **B2 Prepare**, via `window.dispatchEvent(new CustomEvent('journey:select-stage', {detail:{stageId:'fs-prepare'}}))` | **Rendered exactly as built** (screenshot `03b`): "What is my financial position, and what do I want help with?", the honest "No financial profile reviewed yet" state, both "Review my financial profile →" and "Continue to Operate" buttons visible. This is the app's own real navigation primitive (the same one the stage strip's onClick and the Prepare component's own button use), not a fabricated URL shape — the bridge run surface is a stateful stepper with no per-stage URL, so this was the correct, honest way to reach it. |
+| **Operate**, via clicking the real "Continue to Operate" button | **Rendered exactly as built** (screenshot `04`): "Work with MoneyPenny — for as long as you find it useful," with "Continue" and "Open MoneyPenny" actions — end-to-end confirmation that Prepare's own button reaches Operate for real, not just in unit tests. |
+| Runtime tab / full-screen surface, direct URL | Rendered (screenshot `05`). |
+| Narrow-screen switching (1280×900 → 390×844) | No crash, no overflow, on both the Runtime tab (screenshot `06`, chips and chat input remain usable) and a reload of Agent Me (screenshot `06b`). |
+| Delayed copilot response | **Did not reach the intended state after two attempts, reported honestly rather than claimed.** Attempt 1 targeted the metame-codex mirror tab (same page as the blocked Agent Me/mirror steps above) — no chat input existed for the same loading-gate reason. Attempt 2 correctly targeted `moneypenny-codex`'s Runtime tab instead (screenshot `05` confirms a real chat input exists there), with `/api/codex/chat` route interception verified against the real fetch call site (`components/smarttriad/copilot/SmartTriadCopilotLayer.tsx:659`) before rerunning — but the dev server, mid–cold-compile of `/api/copilotkit/[[...path]]` under this sandbox's resource constraints, hit a client-side React error boundary ("Something went wrong — supabaseUrl is required") before the copilot mounted, a repeat of the same missing-Supabase-credentials limitation noted below, this time surfacing as a hard crash rather than a soft 401/500. This is a genuine coverage gap in the controlled pass, caused by this sandbox's environment (no live Supabase credentials, slow cold compiles), not a claim that delayed-response handling works or doesn't; SC-04's own dedicated unit tests (§11–§13, `tests/moneypenny-context-versioning.test.ts`) already cover delayed-response staleness handling directly via `pendingRequestVersionRef`/`computeCurrentVersionKey()` and remain the authoritative evidence for that behavior. |
+| Exit full-screen / return to Agent Me | Reloaded cleanly (screenshot `08`), no error. |
+
+**Console signal, checked, not just captured:** 33 browser console errors across the whole pass — all
+either `401 Unauthorized` (spine-protected routes correctly rejecting the fixture persona's absent
+Bearer token) or `Error: supabaseUrl is required` (this sandbox's dev server has no real Supabase
+credentials configured) or their associated `Failed to load resource` lines. Zero React render
+exceptions, zero unhandled component crashes. This is exactly the expected signature of "structural
+navigation and rendering work; data-dependent behavior fails closed for lack of real auth" — not
+evidence of a defect in this turn's changes.
+
+Screenshots and the raw step-by-step report are local evidence artifacts (not committed to the repo,
+per this repo's "Dense Materials" rule — screenshots are exactly the kind of material that rule keeps
+out of git); available on request.
+
+### 14e. Regression
+
+tsc held exactly at **677** throughout every edit in this pass, including the two journey-description
+string corrections found necessary by the browser evidence in §14d.
+
+Full vitest suite surfaced a real, honest signal worth stating precisely rather than glossing over.
+The first full run after this pass's code changes came back **52 failed / 19 failed files** — two
+files above the established baseline. Both extra failures were traced to pre-existing tests that
+encoded the exact behavior this pass was explicitly instructed to retire or refactor, not to any
+unintended regression:
+
+1. `tests/financial-sovereignty-crossing-chain.test.ts` — one assertion required
+   `FinancialSovereigntyPrepareCrossStage.tsx` to import `listRegistrableAgents`, which was the OLD
+   Prepare-mode candidate picker this pass removed per the operator's explicit instruction ("an
+   implementation baseline to replace or relocate"). Investigation confirmed CROSS mode never called
+   `listRegistrableAgents` itself — it only ever reads `window.sessionStorage.getItem(sessionKey)` —
+   so retiring the picker does not touch CROSS's real contract. The assertion was corrected to assert
+   the import is gone and the sessionStorage read remains, rather than reverted to re-require the
+   retired picker.
+2. `tests/moneypenny-copilot-workspace.test.ts` — two assertions: one required the literal string
+   `personaFetch('/api/moneypenny/financial-profile'` inside `MoneyPennyCopilotWorkspace.tsx` itself,
+   which this pass intentionally replaced with the shared `fetchFinancialProfileSummary()` module
+   (SC-03, §14b) — corrected to assert the shared-module import instead, matching the pattern already
+   used in `tests/moneypenny-entry-continuity.test.ts` and `tests/moneypenny-b2-prepare.test.ts` for
+   the same extraction. The other required the exact import line
+   `import { tryOpenInMountedCartridge } from ...`, which this pass's `getCartridge` detection (§14a)
+   correctly extended to `import { tryOpenInMountedCartridge, getCartridge } from ...` on the same
+   line — corrected to match.
+
+All three were verified against the actual current source before editing (not guessed), and the full
+suite was rerun clean afterward: **49 failed / 17 failed files** — back to the exact pre-existing
+baseline (`repo-weight`/`resolution-records` and the other tracked failures from §13d, none new, none
+resolved). 9281 tests passed (up from 9278 before this pass — net of the ~35 new tests this pass added
+across `moneypenny-agentme-entry.test.ts`, `moneypenny-b2-prepare.test.ts`, and
+`moneypenny-standalone-route-compat-mapping.test.ts`, less the handful of retired/replaced assertions
+above).
+
+### 14f. Corrected AC-C/AC-B status deltas from Turn C (§10/§12 superseded for these rows only)
+
+| ID | Previous status | New status | Basis |
+|---|---|---|---|
+| AC-C01 | PARTIAL ("Agent Me entry... not verified") | PARTIAL (stronger) | Agent Me entry now exists in code (§14a, 16 passing tests) and its destination (`moneypenny-orchestration` mirror tab) and return path were confirmed to render in the §14d controlled browser pass. The click-through itself (Agent Me → button click) could not be exercised live in §14d because this sandbox's fixture persona never clears `AigentMeWelcomeSplitTab`'s own pre-existing "Loading persona context…" gate — an environment limitation of this pass's evidence, not a defect in the new code, and unrelated to the three PARAMOUNT-flagged historical regressions this addition was built to avoid |
+| AC-C02 | PARTIAL | Unchanged this pass | Not touched by Turn C's four slices |
+| AC-B05 | PARTIAL ("the Bridge-side Prepare stage embedding it has not been built") | PARTIAL (stronger) | The Bridge-side Prepare stage now exists and was confirmed rendering live in the §14d browser pass (screenshot `03b`): honest no-profile state, real deep link to the canonical financial-profile tab, real "Continue to Operate" transition (screenshot `04` confirms Operate renders after the real click). What remains open: this pass's fixture persona never had a real profile to review, so the "profile exists" rendering branch (income/expenditure/surplus/coverage display) is code-and-unit-test evidence only, not yet browser-confirmed against real data |
+| AC-B06 | PARTIAL | Unchanged this pass | Manual/limited-profile support itself (MPY2-2c) was not touched; only Prepare's consumption of it changed |
+
+All other AC-C/AC-B/AC-A rows in §10/§12 are unchanged by Turn C — restated, not re-derived, to avoid
+implying progress this pass did not make. The standalone-`/moneypenny`-route compatibility mapping
+(§14c) and the controlled browser pass itself (§14d) are process/continuity work with no direct AC-ID
+in §10's table — their evidence is recorded in full in §14c/§14d rather than forced into a row that
+does not name them.
+
+### 14g. On "report any specific PARAMOUNT instruction that genuinely prevents implementation"
+
+**None did, this pass.** The prior turn's caution about the capsule-layout PARAMOUNT section was
+correct as a reason to avoid `AigentMeWelcomeSplitTab.tsx`/`MoneyPennyFocusLayout.tsx` specifically —
+but the operator's correction was right that fragility in those two files does not equal fragility
+everywhere in the Agent Me surface. The established specialist roster and the mirror tab were both
+already deliberately built as MoneyPenny's real integration points; using them is composition, not a
+new parallel path, and it never touches the flagged files. Nothing else invoked in this pass — B2
+Prepare's rebuild, the standalone-route migration, the browser pass — engaged any other PARAMOUNT
+section in this repo's CLAUDE.md (Identifier Isolation, DVN Pipeline, Identity Spine, Gated Content,
+Access Gates) at all; none of those subsystems were touched.

@@ -185,7 +185,7 @@ export default function ConstitutionalInternetBridgePage() {
         return { stageKey: 'explore', accent: 'indigo', nextStageId: 'fs-prepare', journeyId: 'constitutional-internet-bridge', personaId };
       }
       if (surfaceRef.ref === 'ci-bridge-fs-prepare') {
-        return { mode: 'prepare', accent: 'indigo', sourceJourneyId: 'constitutional-internet-bridge', sourceStageId: 'fs-prepare', nextStageId: 'fs-operate' };
+        return { mode: 'prepare', accent: 'indigo', sourceJourneyId: 'constitutional-internet-bridge', sourceStageId: 'fs-prepare', nextStageId: 'fs-operate', personaId };
       }
       if (surfaceRef.ref === 'ci-bridge-fs-operate') {
         return { accent: 'indigo', nextStageId: 'fs-cross', personaId };

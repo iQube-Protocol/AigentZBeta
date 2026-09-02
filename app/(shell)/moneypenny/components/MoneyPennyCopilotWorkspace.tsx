@@ -96,11 +96,11 @@ import { useSearchParams } from 'next/navigation';
 import { ArrowLeft, ArrowRight, Minimize2 } from 'lucide-react';
 import { SmartTriadCopilotLayer, type SuggestedLayoutHint } from '@/components/smarttriad/copilot/SmartTriadCopilotLayer';
 import { MoneyPennyShell } from './MoneyPennyShell';
-import { personaFetch } from '@/utils/personaSpine';
-import { tryOpenInMountedCartridge } from '@/services/cartridge/CartridgePresenceRegistry';
+import { tryOpenInMountedCartridge, getCartridge } from '@/services/cartridge/CartridgePresenceRegistry';
 import { buildCodexUrl } from '@/utils/codex-nav';
 import { MONEYPENNY_CAPABILITY_GROUPS } from './moneypennyCapabilities';
 import { MoneyPennyFullScreenProvider, type MoneyPennyFullScreenValue } from './MoneyPennyFullScreenContext';
+import { fetchFinancialProfileSummary, type FinancialProfileSummary } from '@/services/moneypenny/financialProfileSummary';
 import {
   computeContextVersionKey,
   isResponseContextStale,
@@ -110,6 +110,16 @@ import {
 import type { MoneyPennyPanelKey } from '@/app/triad/components/codex/tabs/MoneyPennyPanelTab';
 
 const MONEYPENNY_CODEX_ID = 'moneypenny-codex';
+// Entry continuity (2026-09-02) — the metaMe codex's real MoneyPenny mirror
+// tab (data/codex-configs.ts's `metame-moneypenny-orchestration` config,
+// slug 'moneypenny-orchestration') and its 'aigentMe' sibling tab (slug
+// 'aigent-me'). When this workspace is reached through that mirror (from
+// SpecialistsLayout's "Open MoneyPenny workspace" button, added this pass),
+// `metame-codex` is still registered in the CartridgePresenceRegistry —
+// checked below to offer a precise, same-codex "Back to aigentMe" tab
+// switch in priority over the generic ?from=/browser-history fallback.
+const METAME_CODEX_ID = 'metame-codex';
+const AIGENTME_TAB_SLUG = 'aigent-me';
 
 /**
  * The subset of MoneyPennyPanelKey values registered as SuggestedLayoutHint
@@ -131,14 +141,6 @@ const MONEYPENNY_QUICK_PROMPTS = [
   { id: 'mpy-portfolio', label: 'Show my portfolio', prompt: 'Give me an overview of my portfolio and recent performance.' },
   { id: 'mpy-market-console', label: 'Open the market console', prompt: 'Show me quotes, spread and liquidity in the market console.' },
 ];
-
-interface FinancialProfileGroundSnapshot {
-  hasProfile: boolean;
-  inputSource: 'uploaded_statements' | 'manual_entry' | null;
-  incomeMonthly: number | null;
-  expenditureMonthly: number | null;
-  availableSurplusMonthly: number | null;
-}
 
 function readStoredPersonaId(): string | undefined {
   if (typeof window === 'undefined') return undefined;
@@ -162,7 +164,7 @@ export function MoneyPennyCopilotWorkspace({ activePanel, children }: MoneyPenny
   const searchParams = useSearchParams();
   const fromSlug = searchParams.get('from');
   const fromTab = searchParams.get('fromTab');
-  const [financialProfileGround, setFinancialProfileGround] = useState<FinancialProfileGroundSnapshot | null>(null);
+  const [financialProfileGround, setFinancialProfileGround] = useState<FinancialProfileSummary | null>(null);
   const groundContextRef = useRef<Record<string, unknown> | null>(null);
   // C-02 copilot-to-capsule loop: a suggested panel from the copilot's
   // [layout:<id>|<substance>] tag or keyword sweep. Deliberately NOT
@@ -321,12 +323,21 @@ export function MoneyPennyCopilotWorkspace({ activePanel, children }: MoneyPenny
     setSuggestedPanel(null);
   }, [suggestedPanel]);
 
-  // Return navigation — a real codex slug in ?from= gets a proper
-  // breadcrumb link (buildCodexUrl, the platform's canonical mechanism);
-  // otherwise fall back to plain browser history, which is correct
-  // regardless of hosting context and needs no source-slug knowledge.
+  // Return navigation — three paths, tried in order of precision:
+  // 1. Reached through the metame-codex MoneyPenny mirror (Agent Me's
+  //    "Open MoneyPenny workspace" button) — metame-codex is still
+  //    registered in the SAME in-page CartridgePresenceRegistry, so an
+  //    exact same-codex tab switch back to 'aigent-me' is both correct
+  //    and state-preserving (no page navigation at all).
+  // 2. A real codex slug in ?from= gets a proper breadcrumb link
+  //    (buildCodexUrl, the platform's canonical cross-codex mechanism).
+  // 3. Plain browser history — correct regardless of hosting context,
+  //    needs no source-slug knowledge.
+  const isMetameMirrorContext = typeof window !== 'undefined' && getCartridge(METAME_CODEX_ID) !== null;
   const navigateBack = useCallback(() => {
-    if (fromSlug) {
+    if (typeof window !== 'undefined' && getCartridge(METAME_CODEX_ID) !== null) {
+      tryOpenInMountedCartridge({ cartridgeId: METAME_CODEX_ID, tab: AIGENTME_TAB_SLUG });
+    } else if (fromSlug) {
       window.location.assign(buildCodexUrl(fromSlug, { tab: fromTab ?? undefined, personaId }));
     } else if (typeof window !== 'undefined' && window.history.length > 1) {
       window.history.back();
@@ -334,27 +345,14 @@ export function MoneyPennyCopilotWorkspace({ activePanel, children }: MoneyPenny
   }, [fromSlug, fromTab, personaId]);
 
   const refetchFinancialProfileGround = useCallback(async () => {
-    try {
-      const res = await personaFetch('/api/moneypenny/financial-profile', { cache: 'no-store' });
-      const json = await res.json().catch(() => null) as
-        | { ok?: boolean; meta?: { hasProfile?: boolean }; aggregates?: { incomeMonthly?: number; expenditureMonthly?: number; availableSurplusMonthly?: number } | null; inputSource?: string | null }
-        | null;
-      if (!res.ok || !json?.ok) return;
-      // SC-04 — a revision to the profile invalidates any in-flight
-      // request's response, even when panel/persona/environment are
-      // unchanged (it may have reasoned over the now-superseded snapshot).
-      profileRevisionRef.current += 1;
-      generationRef.current += 1;
-      setFinancialProfileGround({
-        hasProfile: json.meta?.hasProfile === true,
-        inputSource: (json.inputSource as FinancialProfileGroundSnapshot['inputSource']) ?? null,
-        incomeMonthly: json.aggregates?.incomeMonthly ?? null,
-        expenditureMonthly: json.aggregates?.expenditureMonthly ?? null,
-        availableSurplusMonthly: json.aggregates?.availableSurplusMonthly ?? null,
-      });
-    } catch {
-      /* non-fatal — groundContext simply omits the financial-profile snapshot */
-    }
+    const summary = await fetchFinancialProfileSummary();
+    if (!summary) return;
+    // SC-04 — a revision to the profile invalidates any in-flight
+    // request's response, even when panel/persona/environment are
+    // unchanged (it may have reasoned over the now-superseded snapshot).
+    profileRevisionRef.current += 1;
+    generationRef.current += 1;
+    setFinancialProfileGround(summary);
   }, []);
 
   useEffect(() => {
@@ -386,7 +384,8 @@ export function MoneyPennyCopilotWorkspace({ activePanel, children }: MoneyPenny
   };
   groundContextRef.current = groundContext;
 
-  const canNavigateBack = Boolean(fromSlug) || (typeof window !== 'undefined' && window.history.length > 1);
+  const canNavigateBack =
+    isMetameMirrorContext || Boolean(fromSlug) || (typeof window !== 'undefined' && window.history.length > 1);
 
   return (
     <MoneyPennyFullScreenProvider value={fullScreenContextValue}>
@@ -402,7 +401,7 @@ export function MoneyPennyCopilotWorkspace({ activePanel, children }: MoneyPenny
             className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200"
           >
             <ArrowLeft className="h-3 w-3" />
-            {fromSlug ? `Back to ${fromSlug}` : 'Back'}
+            {isMetameMirrorContext ? 'Back to aigentMe' : fromSlug ? `Back to ${fromSlug}` : 'Back'}
           </button>
         </div>
       )}

@@ -134,8 +134,9 @@ describe.each([
 describe('FinancialSovereigntyPrepareCrossStage.tsx — CROSS builds the handoff and navigates, never fabricates authority', () => {
   const src = stripComments(readSource('components/journey/FinancialSovereigntyPrepareCrossStage.tsx'));
 
-  it('PREPARE reads the SAME registrable-agent catalog the Register stage itself offers — never a second list', () => {
-    expect(src).toMatch(/import \{ listRegistrableAgents \} from '@\/services\/horizen\/registrableAgents'/);
+  it('PREPARE no longer offers its own agent-candidate catalog (retired 2026-09-02 — see tests/moneypenny-b2-prepare.test.ts); CROSS only ever READS a pre-selected value from sessionStorage, so retiring the picker does not touch CROSS\'s own contract', () => {
+    expect(src).not.toMatch(/import \{ listRegistrableAgents \} from '@\/services\/horizen\/registrableAgents'/);
+    expect(src).toMatch(/window\.sessionStorage\.getItem\(sessionKey\)/);
   });
 
   it('CROSS builds a real ExperienceHandoff and navigates to /bridge/fs with it encoded', () => {

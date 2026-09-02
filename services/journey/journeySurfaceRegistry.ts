@@ -671,7 +671,7 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
   'knyts-bridge-fs-prepare': {
     kind: 'component',
     component: 'FinancialSovereigntyPrepareCrossStage',
-    note: 'FinancialSovereigntyPrepareCrossStage(mode="prepare", accent="amber") — agent-candidate picker; props threaded by the page resolveSurfaceProps keyed on this ref.',
+    note: 'FinancialSovereigntyPrepareCrossStage(mode="prepare", accent="amber") — B2 (2026-09-02): financial-profile review via fetchFinancialProfileSummary + a deep link into MoneyPenny\'s financial-profile panel, then Continue to Operate; props threaded by the page resolveSurfaceProps keyed on this ref.',
   },
   'knyts-bridge-fs-operate': {
     kind: 'component',
@@ -809,7 +809,7 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
   'ci-bridge-fs-prepare': {
     kind: 'component',
     component: 'FinancialSovereigntyPrepareCrossStage',
-    note: 'FinancialSovereigntyPrepareCrossStage(mode="prepare", accent="indigo") — agent-candidate picker.',
+    note: 'FinancialSovereigntyPrepareCrossStage(mode="prepare", accent="indigo") — B2 (2026-09-02): financial-profile review, then Continue to Operate.',
   },
   'ci-bridge-fs-operate': {
     kind: 'component',
