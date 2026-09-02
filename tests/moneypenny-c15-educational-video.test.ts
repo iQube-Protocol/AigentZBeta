@@ -17,6 +17,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { readSource, stripComments } from './_lib/sourceAuthority';
+import { isMoneyPennyLearnVideoRequest, MONEYPENNY_LEARN_VIDEO_PROMPT } from '@/services/journey/moneyPennyEducationalMedia';
 
 describe('MoneyPenny owns exactly one section in the shared bridge editorial registry — no second content store', () => {
   it('moneypenny-financial-basics is registered in KNYTS_BRIDGE_ALLOWED_SECTIONS', () => {
@@ -64,6 +65,35 @@ describe('services/journey/moneyPennyEducationalMedia.ts — the ONE reader, nev
   });
 });
 
+describe('isMoneyPennyLearnVideoRequest — Turn E natural-language discovery, not a magic phrase (2026-09-02)', () => {
+  it('the exact deterministic prompt (for repeatable testing) still matches', () => {
+    expect(isMoneyPennyLearnVideoRequest(MONEYPENNY_LEARN_VIDEO_PROMPT)).toBe(true);
+  });
+
+  it('ordinary conversational phrasing about the video also matches', () => {
+    expect(isMoneyPennyLearnVideoRequest('Can you show me the financial sovereignty basics video?')).toBe(true);
+    expect(isMoneyPennyLearnVideoRequest('how do agent me and moneypenny work together?')).toBe(true);
+    expect(isMoneyPennyLearnVideoRequest('I want to watch the MoneyPenny intro')).toBe(true);
+    expect(isMoneyPennyLearnVideoRequest('please play the moneypenny explainer')).toBe(true);
+  });
+
+  it('is case-insensitive and tolerates leading/trailing whitespace', () => {
+    expect(isMoneyPennyLearnVideoRequest('  SHOW ME THE FINANCIAL SOVEREIGNTY BASICS VIDEO  ')).toBe(true);
+  });
+
+  it('an unrelated MoneyPenny question does NOT misfire into a video reply — conjunctive match, not a single broad keyword', () => {
+    expect(isMoneyPennyLearnVideoRequest("what's my risk envelope?")).toBe(false);
+    expect(isMoneyPennyLearnVideoRequest('review my financial profile')).toBe(false);
+    expect(isMoneyPennyLearnVideoRequest('show me my portfolio')).toBe(false); // "show" alone, no video topic
+    expect(isMoneyPennyLearnVideoRequest('moneypenny basics')).toBe(false); // topic word present but no request verb
+  });
+
+  it('empty/whitespace-only messages never match', () => {
+    expect(isMoneyPennyLearnVideoRequest('')).toBe(false);
+    expect(isMoneyPennyLearnVideoRequest('   ')).toBe(false);
+  });
+});
+
 describe('GET /api/moneypenny/learn-content — public, unauthenticated, reuses the ONE reader', () => {
   const src = stripComments(readSource('app/api/moneypenny/learn-content/route.ts'));
 
@@ -76,12 +106,12 @@ describe('GET /api/moneypenny/learn-content — public, unauthenticated, reuses 
 describe('app/api/codex/chat/route.ts — deterministic learn-video short-circuit, never an LLM-interpreted match', () => {
   const src = stripComments(readSource('app/api/codex/chat/route.ts'));
 
-  it('checks groundContext.cartridge === "moneypenny" AND an EXACT message match against the fixed prompt constant', () => {
+  it('checks groundContext.cartridge === "moneypenny" AND isMoneyPennyLearnVideoRequest(message) — a deterministic classifier, never LLM-interpreted (widened Turn E, 2026-09-02, from an exact-string match to ordinary phrasing)', () => {
     const idx = src.lastIndexOf('getMoneyPennyIntroVideoReply');
     expect(idx).toBeGreaterThan(-1);
     const around = src.slice(Math.max(0, idx - 700), idx + 100);
     expect(around).toMatch(/\(groundContext as Record<string, unknown>\)\.cartridge === 'moneypenny'/);
-    expect(around).toMatch(/message\.trim\(\) === MONEYPENNY_LEARN_VIDEO_PROMPT/);
+    expect(around).toMatch(/isMoneyPennyLearnVideoRequest\(message\)/);
   });
 
   it('short-circuit sits BEFORE the "Message is required" guard and the entire prompt-construction pipeline — no persona/auth resolution needed first', () => {

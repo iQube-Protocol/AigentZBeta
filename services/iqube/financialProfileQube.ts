@@ -42,6 +42,16 @@ export interface FinancialProfileQubeMeta {
   lastComputedAt: string | null;
   sourceUploadCount: number;
   unreadableUploadCount: number;
+  /**
+   * Turn E (2026-09-02) — NULL until the person explicitly acknowledges
+   * reviewing THIS compute pass (POST /api/moneypenny/financial-profile/review).
+   * `hasProfile` proves data availability (real aggregates exist);
+   * `reviewedAt` is the separate, required signal that the person actually
+   * looked at them — a successful extraction alone must never be read as a
+   * reviewed profile. Cleared to null on every fresh upsert (a new profile
+   * has not yet been reviewed, even if the previous one was).
+   */
+  reviewedAt: string | null;
 }
 
 export interface RecurringCommitment {
@@ -194,6 +204,7 @@ interface DbRow {
   last_computed_at: string | null;
   source_upload_count: number;
   unreadable_upload_count: number;
+  reviewed_at?: string | null;
   blak_qube: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
@@ -207,6 +218,9 @@ function rowToRecord(row: DbRow): FinancialProfileQubeRecord {
       lastComputedAt: row.last_computed_at,
       sourceUploadCount: row.source_upload_count,
       unreadableUploadCount: row.unreadable_upload_count,
+      // `?? null`: absent when the reviewed_at column hasn't been selected
+      // (e.g. an older caller/migration lag) — never fabricated as reviewed.
+      reviewedAt: row.reviewed_at ?? null,
     },
     blak: (row.blak_qube ?? {}) as FinancialProfileQubeBlak,
     createdAt: row.created_at,
@@ -347,6 +361,12 @@ export async function upsertFinancialProfileQube(
     source_upload_count: input.sourceUploadCount,
     unreadable_upload_count: input.unreadableUploadCount,
     blak_qube: input.blak,
+    // Turn E (2026-09-02): a fresh compute/manual-entry pass produces a NEW
+    // profile — even one identical in value to the last reviewed one has not
+    // itself been reviewed yet. Never carries the previous reviewed_at
+    // forward; see markFinancialProfileReviewed below for the only writer
+    // that sets it.
+    reviewed_at: null,
   };
 
   const result = await withTimeout(
@@ -357,6 +377,57 @@ export async function upsertFinancialProfileQube(
   if (error) {
     if (isMissingTable(error)) throw new FinancialProfileTableMissingError();
     throw new Error(`upsertFinancialProfileQube failed: ${error.message ?? 'unknown error'}`);
+  }
+  return rowToRecord(data as DbRow);
+}
+
+/** Thrown when a caller tries to mark a profile reviewed before real
+ *  aggregates exist — there is nothing to have reviewed. Distinct from a
+ *  missing-row case (also refused): review is only ever a statement about
+ *  an EXISTING, non-empty profile, never a way to fabricate one. */
+export class NoFinancialProfileToReviewError extends Error {
+  constructor() {
+    super('markFinancialProfileReviewed: no financial profile exists for this persona yet (has_profile is false or the row is missing) — nothing to review.');
+  }
+}
+
+/**
+ * The ONLY writer of `reviewed_at` — called ONLY from an explicit, deliberate
+ * user action (POST /api/moneypenny/financial-profile/review), never from
+ * opening/viewing a panel. Turn E (2026-09-02) operator directive: "'real
+ * aggregates exist' establishes data availability, while prepared evidence
+ * reflects the required user review. A successful extraction alone must not
+ * silently count as a reviewed profile." `has_profile` (set by
+ * upsertFinancialProfileQube) proves the data exists; this function is the
+ * separate, required signal that the person actually looked at it.
+ *
+ * Refuses (NoFinancialProfileToReviewError) when has_profile is false or the
+ * row doesn't exist — reviewing nothing is not a real action.
+ */
+export async function markFinancialProfileReviewed(personaId: string): Promise<FinancialProfileQubeRecord> {
+  if (!personaId || typeof personaId !== 'string') {
+    throw new Error('markFinancialProfileReviewed: personaId is required');
+  }
+  const admin = getAdminClient();
+
+  const existing = await getFinancialProfileQube(personaId);
+  if (!existing || !existing.meta.hasProfile) {
+    throw new NoFinancialProfileToReviewError();
+  }
+
+  const result = await withTimeout(
+    admin
+      .from('financial_profile_qubes')
+      .update({ reviewed_at: new Date().toISOString() })
+      .eq('persona_id', personaId)
+      .select('*')
+      .single(),
+    'markFinancialProfileReviewed',
+  );
+  const { data, error } = result as { data: unknown; error: { code?: string; message?: string } | null };
+  if (error) {
+    if (isMissingTable(error)) throw new FinancialProfileTableMissingError();
+    throw new Error(`markFinancialProfileReviewed failed: ${error.message ?? 'unknown error'}`);
   }
   return rowToRecord(data as DbRow);
 }

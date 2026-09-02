@@ -2095,15 +2095,24 @@ function EmbedHealthCheck() {
  * Publication is immediate (Save & publish), matching the existing
  * behavior exactly — this slice migrates the editing surface only.
  */
-type BridgeKey = 'ci' | 'knyts';
+type BridgeKey = 'ci' | 'knyts' | 'moneypenny';
 
 const BRIDGE_LABELS: Record<BridgeKey, string> = {
   ci: 'Constitutional Internet Bridge',
   knyts: 'KNYTS Bridge',
+  // MoneyPenny Cartridge C-15/A3 (2026-09-02, acceptance-gap fix) — the
+  // 'moneypenny-financial-basics' section was already live server-side
+  // (KNYTS_BRIDGE_ALLOWED_SECTIONS, moneyPennyEducationalMedia.ts) but had
+  // no entry point in this tab's own bridge picker, so an admin could never
+  // actually reach it to assign/publish/replace media without a raw API
+  // call. Reuses the SAME KnytsBridgeAdminPanel + PlacementAssetsPanel pair
+  // every other section already renders — no new component.
+  moneypenny: 'MoneyPenny (Financial Sovereignty basics)',
 };
 
 function bridgeSections(bridge: BridgeKey): string[] {
   if (bridge === 'knyts') return ['home', 'orient', 'choose'];
+  if (bridge === 'moneypenny') return ['moneypenny-financial-basics'];
   return ['ci-home', 'ci-orient', 'ci-passport-established', ...CI_BRIDGE_VIEW_CONTENT.map((b) => `ci-view-${b.id}`)];
 }
 
@@ -2425,7 +2434,7 @@ function BridgesManager({ personaId }: { personaId?: string }) {
         </p>
       </div>
       <div className="mb-4 flex gap-2">
-        {(['ci', 'knyts'] as const).map((key) => (
+        {(['ci', 'knyts', 'moneypenny'] as const).map((key) => (
           <button
             key={key}
             type="button"

@@ -38,11 +38,11 @@
  * why).
  */
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { createExperienceHandoff, encodeExperienceHandoff } from '@/services/journey/experienceHandoffService';
 import { getJourneyBranchIntent } from '@/services/journey/journeyBranchActivation';
 import { WALLET_CONVERSION_CAPABILITY_ID } from '@/services/financialServices/walletConversionCapability';
-import { fetchFinancialProfileSummary, type FinancialProfileSummary } from '@/services/moneypenny/financialProfileSummary';
+import { fetchFinancialProfileSummary, markFinancialProfileReviewed, type FinancialProfileSummary } from '@/services/moneypenny/financialProfileSummary';
 import { buildCodexUrl } from '@/utils/codex-nav';
 import type { BridgeAccent } from '@/components/journey/BridgeMediaStage';
 
@@ -183,6 +183,11 @@ function PrepareFinancialProfileReview({
   personaId?: string | null;
 }) {
   const [summary, setSummary] = useState<FinancialProfileSummary | null | undefined>(undefined);
+  const [marking, setMarking] = useState(false);
+
+  const refetch = useCallback(() => {
+    void fetchFinancialProfileSummary().then((s) => setSummary(s));
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -199,12 +204,29 @@ function PrepareFinancialProfileReview({
     window.location.assign(url);
   };
 
+  // Continue to Operate is NEVER gated on review — "users may continue to
+  // appropriate learning or simulation" regardless of whether they've
+  // reviewed their profile yet (operator directive, 2026-09-02). Only the
+  // recorded EVIDENCE (hasPreparedFinancialProfile) differs by review state.
   const handleContinueToOperate = () => {
     if (nextStageId) selectStage(nextStageId);
   };
 
+  // The ONLY caller of markFinancialProfileReviewed — a real button click,
+  // never inferred from this component mounting/fetching the summary above.
+  const handleMarkReviewed = async () => {
+    setMarking(true);
+    try {
+      const ok = await markFinancialProfileReviewed();
+      if (ok) refetch();
+    } finally {
+      setMarking(false);
+    }
+  };
+
   const loading = summary === undefined;
   const hasProfile = summary?.hasProfile === true;
+  const isReviewed = hasProfile && summary?.reviewedAt != null;
 
   return (
     <div className="flex h-full flex-col items-center justify-center gap-6 p-8 text-center">
@@ -227,7 +249,15 @@ function PrepareFinancialProfileReview({
         )}
         {!loading && hasProfile && (
           <div className="space-y-2">
-            <p className="text-sm font-medium text-emerald-300">Profile reviewed</p>
+            {/* Data-availability ("aggregates exist") and review ("the
+             * person looked at them") are two separate facts — the label
+             * below never says "reviewed" unless reviewedAt is actually
+             * set. See financialSovereigntyEvidence.ts's
+             * hasPreparedFinancialProfile for the evidence-side half of
+             * this same fix. */}
+            <p className={`text-sm font-medium ${isReviewed ? 'text-emerald-300' : 'text-amber-300'}`}>
+              {isReviewed ? 'Profile reviewed' : 'Profile computed — not yet reviewed'}
+            </p>
             <p className="text-xs text-slate-400">
               Source: {summary?.inputSource === 'manual_entry' ? 'manual entry' : 'uploaded statements'}
               {summary?.computedFromMonths && summary.computedFromMonths.length > 0
@@ -255,6 +285,16 @@ function PrepareFinancialProfileReview({
                   <dd>{summary?.availableSurplusMonthly != null ? summary.availableSurplusMonthly.toFixed(0) : '—'}</dd>
                 </div>
               </dl>
+            )}
+            {!isReviewed && (
+              <button
+                type="button"
+                onClick={() => void handleMarkReviewed()}
+                disabled={marking}
+                className="mt-2 w-full rounded-lg border border-emerald-700/50 bg-emerald-900/20 px-3 py-2 text-xs font-semibold text-emerald-300 transition hover:bg-emerald-900/40 disabled:opacity-50"
+              >
+                {marking ? 'Marking reviewed…' : "I've reviewed this — mark as reviewed"}
+              </button>
             )}
           </div>
         )}

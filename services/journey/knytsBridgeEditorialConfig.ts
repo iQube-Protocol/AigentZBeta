@@ -191,6 +191,27 @@ export const KNYTS_BRIDGE_SECTION_DEFAULTS: Record<string, KnytsBridgeEditorialS
     rewardCopy: null,
     updatedAt: null,
   },
+  // Added 2026-09-02 (Turn E, admin-picker acceptance-gap fix) — a starting
+  // default for the ADMIN edit form only (QriptopianAdminTab.tsx's Bridges
+  // tab -> MoneyPenny). Without this entry, defaultsForSection() would show
+  // HOME's "Cross the Threshold. Come home." copy as the starting point for
+  // an admin opening this section for the first time — harmless (the public
+  // reader never uses this generic default; moneyPennyEducationalMedia.ts
+  // always checks the real placement/config row first) but misleading in
+  // the editing UI itself.
+  'moneypenny-financial-basics': {
+    section: 'moneypenny-financial-basics',
+    headline: 'Financial Sovereignty basics',
+    shortCopy:
+      'A short introduction to how MoneyPenny works with you — reviewing your financial profile, ' +
+      'explaining recommendations, and never moving funds without your explicit authorization.',
+    videoUrl: null,
+    posterUrl: null,
+    infographicUrl: null,
+    campaignCta: null,
+    rewardCopy: null,
+    updatedAt: null,
+  },
 };
 
 /** @deprecated kept for callers that haven't migrated to KNYTS_BRIDGE_SECTION_DEFAULTS.home yet. */

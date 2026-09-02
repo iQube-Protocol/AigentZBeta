@@ -41,17 +41,24 @@ export function hasExploredFinancialSovereignty(personaId: string | null | undef
  * must reflect a reviewed financial profile or supported manual
  * preparation — not navigation"). Reads the REAL FinancialProfileQube
  * (MPY2-2/2-3, services/iqube/financialProfileQube.ts) — never a click/
- * navigation event. `hasProfile === true` means a profile has actually been
- * computed from real uploaded statements; no distinct "reviewed" flag
- * exists in the current data model, and no "supported manual preparation"
- * path exists yet either (confirmed absent by the 2026-09-01 C0 audit) — so
- * this is the ONLY real, honest signal available today. Selecting an agent
- * candidate (this stage's other, retained affordance) does NOT satisfy
- * this bar — that is an optional advanced preference per the bridge spec's
- * own migration guidance (B-13 point 3), never financial preparation.
+ * navigation event.
+ *
+ * Turn E (2026-09-02) correction: `hasProfile === true` alone was being read
+ * as "prepared," but it only proves a compute/manual-entry pass produced
+ * real aggregates — DATA AVAILABILITY, not that the person reviewed them.
+ * Operator directive: "'real aggregates exist' establishes data
+ * availability, while prepared evidence reflects the required user review.
+ * A successful extraction alone must not silently count as a reviewed
+ * profile." This bar now ALSO requires `reviewedAt !== null` — set only by
+ * an explicit `POST /api/moneypenny/financial-profile/review` call
+ * (markFinancialProfileReviewed), never inferred from a compute pass
+ * succeeding or from opening a panel. Selecting an agent candidate (this
+ * stage's other, retained affordance) does NOT satisfy this bar either —
+ * that is an optional advanced preference per the bridge spec's own
+ * migration guidance (B-13 point 3), never financial preparation.
  */
 export async function hasPreparedFinancialProfile(personaId: string | null | undefined): Promise<boolean> {
   if (!personaId) return false;
   const record = await getFinancialProfileQube(personaId);
-  return record?.meta.hasProfile === true;
+  return record?.meta.hasProfile === true && record?.meta.reviewedAt !== null;
 }

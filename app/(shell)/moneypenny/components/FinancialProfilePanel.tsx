@@ -22,6 +22,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { FileText, Loader2, Upload, TrendingUp, TrendingDown, AlertCircle, Info } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
+import { markFinancialProfileReviewed } from "@/services/moneypenny/financialProfileSummary";
 
 interface RecurringCommitment {
   label: string;
@@ -54,6 +55,11 @@ interface FinancialProfileMeta {
   lastComputedAt: string | null;
   sourceUploadCount: number;
   unreadableUploadCount: number;
+  /** Turn E (2026-09-02) — see services/iqube/financialProfileQube.ts's
+   *  FinancialProfileQubeMeta.reviewedAt for the full discipline: null until
+   *  an explicit "mark as reviewed" action, never inferred from viewing
+   *  this panel or from a compute pass succeeding. */
+  reviewedAt?: string | null;
 }
 interface FinancialProfileResponse {
   ok: boolean;
@@ -85,6 +91,7 @@ export function FinancialProfilePanel() {
   const [manualExpenditure, setManualExpenditure] = useState("");
   const [manualLiquidityDays, setManualLiquidityDays] = useState("");
   const [manualSubmitting, setManualSubmitting] = useState(false);
+  const [marking, setMarking] = useState(false);
 
   const loadProfile = useCallback(async () => {
     setLoading(true);
@@ -103,6 +110,18 @@ export function FinancialProfilePanel() {
 
   useEffect(() => {
     void loadProfile();
+  }, [loadProfile]);
+
+  // The ONLY caller of markFinancialProfileReviewed on this panel — a real
+  // button click, never inferred from loadProfile/mount above.
+  const handleMarkReviewed = useCallback(async () => {
+    setMarking(true);
+    try {
+      const ok = await markFinancialProfileReviewed();
+      if (ok) await loadProfile();
+    } finally {
+      setMarking(false);
+    }
   }, [loadProfile]);
 
   const handleUpload = useCallback(async (fileList: FileList | null) => {
@@ -359,6 +378,28 @@ export function FinancialProfilePanel() {
               </div>
             </div>
           </CardContent>
+          {/* Data availability ("aggregates exist" above) and review ("the
+           * person looked at them") are two separate facts — this footer
+           * never claims reviewed unless meta.reviewedAt is actually set. */}
+          <div className="border-t border-slate-800 px-4 py-3">
+            {profile?.meta.reviewedAt ? (
+              <p className="text-xs font-medium text-emerald-300">
+                Reviewed {new Date(profile.meta.reviewedAt).toLocaleString()}
+              </p>
+            ) : (
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-medium text-amber-300">Not yet reviewed</p>
+                <button
+                  type="button"
+                  onClick={() => void handleMarkReviewed()}
+                  disabled={marking}
+                  className="rounded-lg border border-emerald-700/50 bg-emerald-900/20 px-3 py-1.5 text-xs font-semibold text-emerald-300 transition hover:bg-emerald-900/40 disabled:opacity-50"
+                >
+                  {marking ? "Marking reviewed…" : "I've reviewed this — mark as reviewed"}
+                </button>
+              </div>
+            )}
+          </div>
         </Card>
       )}
 
