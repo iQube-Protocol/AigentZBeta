@@ -27,10 +27,23 @@ describe('Threshold upload path invariant', () => {
     expect(source).toContain('307');
   });
 
-  it('shared executor targets canonical Autonomys/Codex upload', () => {
+  it('shared executor calls the canonical Autonomys/Codex upload logic directly, in-process — no HTTP hop to any admin route (2026-09-02 authorization repair)', () => {
     const source = read('services/threshold/uploadContentAsset.ts');
-    expect(source).toContain('/api/admin/codex/upload-asset');
+    expect(source).toContain("import { handleCodexAssetUpload, CodexAssetUploadError } from '@/services/content/codexAssetUploadHandler'");
+    expect(source).toContain('await handleCodexAssetUpload(uploadForm)');
+    // The prior unauthenticated internal HTTP hop is gone — no fetch() to
+    // any /api/admin route anywhere in this file.
+    expect(source).not.toMatch(/fetch\(`\$\{input\.origin\}\/api\/admin/);
     expect(source).not.toContain('/api/content/assets/upload');
+  });
+
+  it('the admin upload-asset route requires an admin persona BEFORE reaching the shared upload logic (2026-09-02 authorization repair)', () => {
+    const source = read('app/api/admin/codex/upload-asset/route.ts');
+    expect(source).toContain('requireAdminPersona');
+    const atRequire = source.indexOf('requireAdminPersona(req)');
+    const atHandle = source.indexOf('handleCodexAssetUpload(formData)');
+    expect(atRequire).toBeGreaterThan(-1);
+    expect(atHandle).toBeGreaterThan(atRequire);
   });
 
   it('MCP base64 decoding keeps exact Buffer bytes instead of pooled ArrayBuffer backing storage', () => {
@@ -62,7 +75,9 @@ describe('Threshold upload path invariant', () => {
     // validity. Discovered while re-uploading corrected Qriptopian essay
     // covers: the fixed base64/image-validation path let a genuinely valid
     // image through, and THIS gap is what surfaced next.
-    const source = read('app/api/admin/codex/upload-asset/route.ts');
+    // 2026-09-02: this logic moved into codexAssetUploadHandler.ts as part
+    // of the upload-authorization repair (route now just gates + delegates).
+    const source = read('services/content/codexAssetUploadHandler.ts');
     expect(source).toContain("formData.get('isShareable')");
     expect(source).toMatch(/isShareable:\s*isShareable === 'true'/);
   });
