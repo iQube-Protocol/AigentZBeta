@@ -30,6 +30,7 @@ import {
   getPlacementsForSection,
   assignDraftAsset,
   publishPlacement,
+  PlacementConflictError,
   type PlacementSlot,
 } from '@/services/journey/bridgeContentPlacements';
 
@@ -105,6 +106,9 @@ export async function POST(req: NextRequest) {
     } catch (err) {
       if (err instanceof Error && err.message === 'no-draft-to-publish') {
         return NextResponse.json({ ok: false, error: 'no-draft-to-publish' }, { status: 409 });
+      }
+      if (err instanceof PlacementConflictError) {
+        return NextResponse.json({ ok: false, error: 'concurrent-edit-detected' }, { status: 409 });
       }
       throw err;
     }

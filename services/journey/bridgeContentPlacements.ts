@@ -145,16 +145,41 @@ export interface PublishPlacementResult {
   placement: BridgeContentPlacement;
 }
 
+/** Thrown when the placement row changed (a concurrent publish/re-assign)
+ *  between the read that started this publish and the write that would
+ *  have recorded it — never silently overwritten. See publishPlacement's
+ *  own header for why the live config write still lands even when this
+ *  bookkeeping step conflicts. */
+export class PlacementConflictError extends Error {
+  constructor(section: string, slot: PlacementSlot) {
+    super(`bridge_content_placements: concurrent edit detected for ${section}/${slot} — re-read and retry`);
+  }
+}
+
 /**
- * Publishes the current draft: copies draft -> published fields, bumps
- * revision, and writes the resolved URL into the EXISTING
+ * Publishes the current draft: writes the resolved URL into the EXISTING
  * knyts_bridge_editorial_config row via upsertKnytsBridgeEditorialSection
- * (the same function the copy/URL text-field path already uses) — so every
- * public reader sees the new asset with zero reader-side changes.
+ * (the same function the copy/URL text-field path already uses) FIRST,
+ * then records the publish (copies draft -> published fields, bumps
+ * revision) in bridge_content_placements — so every public reader sees the
+ * new asset with zero reader-side changes.
+ *
+ * Ordering is deliberate (A2 hardening, 2026-09-02): the live config write
+ * happens BEFORE the placement bookkeeping update, because the config row
+ * is what the public reader actually consumes. If the bookkeeping update
+ * fails or loses a concurrency race afterward, the live site is still
+ * correct — only the audit/draft-state bookkeeping is stale, recoverable
+ * by re-publishing the same draft (idempotent: same asset, same target
+ * fields). The reverse ordering would risk the opposite failure — the
+ * placement row claiming "published" while the live config was never
+ * actually written — which is the failure this hardening pass closes.
  *
  * Refuses (throws a named error, never a silent no-op) when there is no
  * draft to publish — an empty publish would otherwise silently blank the
- * live video/poster URL.
+ * live video/poster URL. Refuses with PlacementConflictError (never a
+ * silent overwrite) when the placement row changed between the read that
+ * started this publish and the bookkeeping write — a concurrent
+ * assign/publish on the same slot.
  */
 export async function publishPlacement(
   supabase: SupabaseClient,
@@ -166,6 +191,13 @@ export async function publishPlacement(
   if (!existing || !existing.draftAssetUrl) {
     throw new Error('no-draft-to-publish');
   }
+
+  await upsertKnytsBridgeEditorialSection(
+    supabase,
+    section,
+    slot === 'video' ? { videoUrl: existing.draftAssetUrl } : { posterUrl: existing.draftAssetUrl },
+    actor,
+  );
 
   const { data, error } = await supabase
     .from('bridge_content_placements')
@@ -179,16 +211,12 @@ export async function publishPlacement(
     })
     .eq('section', section)
     .eq('slot', slot)
-    .select('*')
-    .single();
+    .eq('revision', existing.revision) // optimistic concurrency guard
+    .select('*');
   if (error) throw new Error(`bridge_content_placements publish failed: ${error.message}`);
+  if (!data || data.length === 0) {
+    throw new PlacementConflictError(section, slot);
+  }
 
-  await upsertKnytsBridgeEditorialSection(
-    supabase,
-    section,
-    slot === 'video' ? { videoUrl: existing.draftAssetUrl } : { posterUrl: existing.draftAssetUrl },
-    actor,
-  );
-
-  return { placement: rowToPlacement(data as Record<string, unknown>) };
+  return { placement: rowToPlacement(data[0] as Record<string, unknown>) };
 }

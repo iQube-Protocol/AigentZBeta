@@ -27,7 +27,9 @@ import {
 
 /** Minimal fake Supabase query builder — just enough surface for this module's
  *  exact call shapes (.from().select().eq().eq().maybeSingle(), .upsert().select().single(),
- *  .update().eq().eq().select().single()). Records what was written for assertions. */
+ *  .update().eq().eq().eq().select('*') awaited directly — the optimistic-
+ *  concurrency publish path, 2026-09-02 hardening). Records what was
+ *  written for assertions. */
 function makeFakeSupabase(row: Record<string, unknown> | null) {
   let currentRow = row;
   const writes: Array<{ op: string; payload: unknown }> = [];
@@ -38,7 +40,10 @@ function makeFakeSupabase(row: Record<string, unknown> | null) {
     upsert: (payload: unknown) => { writes.push({ op: 'upsert', payload }); currentRow = { ...(currentRow ?? {}), ...(payload as object) }; return builder; },
     update: (payload: unknown) => { writes.push({ op: 'update', payload }); currentRow = { ...(currentRow ?? {}), ...(payload as object) }; return builder; },
     single: async () => ({ data: currentRow, error: null }),
-    then: undefined,
+    // Makes `await builder` (the bare .select('*') publish path, no
+    // .single()) resolve to a real Supabase-shaped array result.
+    then: (resolve: (v: { data: unknown; error: null }) => void) =>
+      resolve({ data: currentRow === null ? [] : [currentRow], error: null }),
   };
   // .select() alone (no .eq chain) used by getPlacementsForSection — awaited directly
   const rootBuilder = {
@@ -96,6 +101,54 @@ describe('publishPlacement — a real publish copies draft to published and writ
     expect(upsertKnytsBridgeEditorialSection).toHaveBeenCalledWith(
       expect.anything(), 'ci-home', { posterUrl: 'https://x/p.png' }, 'persona-1',
     );
+  });
+});
+
+describe('publishPlacement — A2 hardening (2026-09-02): ordering and concurrency', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('writes the live editorial-config row BEFORE the placement bookkeeping update — a bookkeeping failure never leaves the live site un-updated', async () => {
+    const fake = makeFakeSupabase({
+      section: 'ci-home', slot: 'video',
+      draft_asset_id: 'a1', draft_asset_url: 'https://x/y.mp4',
+      revision: 0, status: 'draft',
+    });
+    (upsertKnytsBridgeEditorialSection as any).mockImplementation(async () => {
+      fake._writes.push({ op: 'config-write', payload: null });
+      return { section: 'ci-home' };
+    });
+    await publishPlacement(fake as any, 'ci-home', 'video', 'persona-1');
+    expect(fake._writes.map((w) => w.op)).toEqual(['config-write', 'update']);
+  });
+
+  it('throws PlacementConflictError — never silently overwrites — when the placement row changed since it was read (revision guard matches 0 rows)', async () => {
+    const { PlacementConflictError } = await import('@/services/journey/bridgeContentPlacements');
+    const fake: any = {
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: { section: 'ci-home', slot: 'video', draft_asset_id: 'a1', draft_asset_url: 'https://x/y.mp4', revision: 0, status: 'draft' },
+                error: null,
+              }),
+            }),
+          }),
+        }),
+        update: () => ({
+          eq: () => ({
+            eq: () => ({
+              eq: () => ({
+                select: () => Promise.resolve({ data: [], error: null }), // 0 rows matched — a concurrent writer already advanced the revision
+              }),
+            }),
+          }),
+        }),
+      }),
+    };
+    await expect(publishPlacement(fake, 'ci-home', 'video', 'persona-1')).rejects.toThrow(PlacementConflictError);
+    // The live config write still happened — see this describe block's own header.
+    expect(upsertKnytsBridgeEditorialSection).toHaveBeenCalledTimes(1);
   });
 });
 
