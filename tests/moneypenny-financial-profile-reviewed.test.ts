@@ -11,8 +11,112 @@
  * it (a real button click, never a compute-pass side effect, never a
  * panel-mount/view effect).
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { readSource, stripComments } from './_lib/sourceAuthority';
+
+/**
+ * Turn F (2026-09-02) — operator directive: "Confirm that editing or
+ * replacing financial-profile data invalidates its prior review, or binds
+ * that review to the reviewed revision." Every test above this point is a
+ * source-shape assertion (regex against the file text) — real, but it
+ * proves the code READS a certain way, not that calling the real functions
+ * in sequence actually behaves that way. This block exercises
+ * upsertFinancialProfileQube / markFinancialProfileReviewed against an
+ * in-memory fake Supabase client and asserts the returned records
+ * themselves: reviewedAt goes null -> set -> null across a real
+ * compute -> review -> edit -> (refused re-review) sequence.
+ */
+function makeFakeFinancialProfileTable() {
+  const rows = new Map<string, Record<string, unknown>>();
+  const client = {
+    from: (table: string) => {
+      if (table !== 'financial_profile_qubes') throw new Error(`unexpected table: ${table}`);
+      return {
+        upsert: (row: Record<string, unknown>) => ({
+          select: () => ({
+            single: async () => {
+              const personaId = row.persona_id as string;
+              const merged = { ...rows.get(personaId), ...row };
+              rows.set(personaId, merged);
+              return { data: merged, error: null };
+            },
+          }),
+        }),
+        update: (patch: Record<string, unknown>) => ({
+          eq: (_col: string, personaId: string) => ({
+            select: () => ({
+              single: async () => {
+                const existing = rows.get(personaId);
+                if (!existing) return { data: null, error: { message: 'no row' } };
+                const merged = { ...existing, ...patch };
+                rows.set(personaId, merged);
+                return { data: merged, error: null };
+              },
+            }),
+          }),
+        }),
+        select: () => ({
+          eq: (_col: string, personaId: string) => ({
+            maybeSingle: async () => ({ data: rows.get(personaId) ?? null, error: null }),
+          }),
+        }),
+      };
+    },
+  };
+  return client;
+}
+
+describe('reviewed_at invalidation — real behavioral sequence, not just source shape', () => {
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  it('compute -> review -> edit -> reviewedAt is null again on the new revision (never carried forward)', async () => {
+    const fake = makeFakeFinancialProfileTable();
+    vi.doMock('@/app/api/_lib/supabaseServer', () => ({ getSupabaseServer: () => fake }));
+    const { upsertFinancialProfileQube, markFinancialProfileReviewed } = await import(
+      '@/services/iqube/financialProfileQube'
+    );
+
+    const personaId = 'persona-reviewed-at-test';
+    const input = {
+      sourceUploadCount: 1,
+      unreadableUploadCount: 0,
+      blak: { aggregates: { monthlyIncome: 5000 } as unknown as Record<string, unknown> },
+    } as Parameters<typeof upsertFinancialProfileQube>[1];
+
+    // 1. First compute pass — a fresh profile has never been reviewed.
+    const afterCompute = await upsertFinancialProfileQube(personaId, input);
+    expect(afterCompute.meta.hasProfile).toBe(true);
+    expect(afterCompute.meta.reviewedAt).toBeNull();
+
+    // 2. Explicit review action — the ONLY thing that sets reviewedAt.
+    const afterReview = await markFinancialProfileReviewed(personaId);
+    expect(afterReview.meta.reviewedAt).not.toBeNull();
+    const reviewedTimestamp = afterReview.meta.reviewedAt;
+
+    // 3. A second compute/manual-entry pass — new data replaces the old
+    //    revision. Per the operator's directive, this MUST invalidate the
+    //    prior review rather than silently carrying it forward.
+    const afterSecondCompute = await upsertFinancialProfileQube(personaId, {
+      ...input,
+      blak: { aggregates: { monthlyIncome: 6000 } as unknown as Record<string, unknown> },
+    });
+    expect(afterSecondCompute.meta.reviewedAt).toBeNull();
+    expect(afterSecondCompute.meta.reviewedAt).not.toBe(reviewedTimestamp);
+  });
+
+  it('markFinancialProfileReviewed refuses (NoFinancialProfileToReviewError) when no profile row exists yet — reviewing nothing is not a real action', async () => {
+    const fake = makeFakeFinancialProfileTable();
+    vi.doMock('@/app/api/_lib/supabaseServer', () => ({ getSupabaseServer: () => fake }));
+    const { markFinancialProfileReviewed, NoFinancialProfileToReviewError } = await import(
+      '@/services/iqube/financialProfileQube'
+    );
+    await expect(markFinancialProfileReviewed('persona-never-computed')).rejects.toThrow(
+      NoFinancialProfileToReviewError,
+    );
+  });
+});
 
 describe('financial_profile_qubes.reviewed_at — schema', () => {
   it('the migration adds reviewed_at as a nullable timestamptz, additive only', () => {
