@@ -74,6 +74,10 @@ describe('computeFinancialProfile — honest failure, never a guess', () => {
     expect(result.unreadableUploadIds).toEqual(['pdf-1']);
     expect(result.readableUploadIds).toEqual([]);
     expect(result.notes.join(' ')).toMatch(/no usable transaction rows/i);
+    // No `aggregates` key at all on total failure — see
+    // tests/moneypenny-empty-profile-evidence.test.ts for why this matters:
+    // upsertFinancialProfileQube's has_profile derives from this.
+    expect(result.aggregates).toBeUndefined();
   });
 
   it('a CSV with an unrecognized column shape (no date/amount-ish headers) is reported unreadable rather than guessed at', () => {

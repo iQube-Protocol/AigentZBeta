@@ -12,6 +12,7 @@ import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { Bot, User, AlertTriangle, Clock, Zap } from 'lucide-react';
 import { AgentModelSelector, type AgentOption, type ModelOption } from './AgentModelSelector';
 import type { A2UISurfacePayload } from '@/services/a2ui/types';
+import { tryOpenInMountedCartridge } from '@/services/cartridge/CartridgePresenceRegistry';
 
 // Types
 export interface SmartTriadMessage {
@@ -79,6 +80,7 @@ export function SmartTriadInferenceRenderer({
   onModelSelectorChange,
 }: SmartTriadInferenceRendererProps) {
   const a2uiPayload = useMemo(() => extractA2UIPayload(message.content), [message.content]);
+  const mediaVideoPayload = useMemo(() => extractMediaVideoPayload(message.content), [message.content]);
 
   
   // Process content through sanitization and markdown transformation
@@ -130,6 +132,7 @@ export function SmartTriadInferenceRenderer({
       {/* Processed Content */}
       <div className="smarttriad-conversational-content">
         {a2uiPayload && <A2UIPayloadPreview payload={a2uiPayload} />}
+        {mediaVideoPayload && <MediaVideoPreview payload={mediaVideoPayload} />}
         {renderContent()}
       </div>
 
@@ -190,6 +193,101 @@ function isA2UISurfacePayload(value: unknown): value is A2UISurfacePayload {
     typeof payload.session_id === "string" &&
     Array.isArray(payload.modules) &&
     !!payload.tree
+  );
+}
+
+/**
+ * Media-video fenced-block detection — MoneyPenny Cartridge C-15 (2026-09-02).
+ * Mirrors extractA2UIPayload's exact pattern (schema_version-keyed JSON,
+ * not a special info-string) so the SAME generic fence-scanning approach
+ * recognizes either payload shape. This is deliberately part of the SHARED
+ * SmartTriad renderer, not a MoneyPenny-only fork — the Cartridge spec's own
+ * instruction (C-15 §11: "the capability belongs to the common framework,
+ * not a MoneyPenny-only iframe workaround"). Any cartridge whose server
+ * route emits this schema gets the same inline-video + related-chip
+ * rendering for free.
+ */
+export interface SmartTriadMediaVideoPayload {
+  schema_version: 'smarttriad.media.video.v0';
+  url: string;
+  posterUrl: string | null;
+  title: string;
+  relatedChip: { label: string; cartridgeId: string; tab: string };
+}
+
+function isSmartTriadMediaVideoPayload(value: unknown): value is SmartTriadMediaVideoPayload {
+  if (!value || typeof value !== 'object') return false;
+  const payload = value as Partial<SmartTriadMediaVideoPayload>;
+  return (
+    payload.schema_version === 'smarttriad.media.video.v0' &&
+    typeof payload.url === 'string' &&
+    typeof payload.title === 'string' &&
+    !!payload.relatedChip &&
+    typeof payload.relatedChip.cartridgeId === 'string' &&
+    typeof payload.relatedChip.tab === 'string'
+  );
+}
+
+function extractMediaVideoPayload(content: string): SmartTriadMediaVideoPayload | null {
+  const parseCandidate = (raw: string): SmartTriadMediaVideoPayload | null => {
+    try {
+      const parsed = JSON.parse(raw);
+      return isSmartTriadMediaVideoPayload(parsed) ? parsed : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const trimmed = content.trim();
+  if (trimmed.startsWith('{') && trimmed.includes('smarttriad.media.video.v0')) {
+    const direct = parseCandidate(trimmed);
+    if (direct) return direct;
+  }
+
+  const fenceRegex = /```(?:json)?\s*([\s\S]*?)```/gi;
+  let match: RegExpExecArray | null;
+  while ((match = fenceRegex.exec(content)) !== null) {
+    const parsed = parseCandidate(match[1]);
+    if (parsed) return parsed;
+  }
+  return null;
+}
+
+/**
+ * Public/non-gated content — a plain native <video> element with browser
+ * controls, matching components/journey/BridgeMediaStage.tsx's established
+ * pattern for public bridge media (CLAUDE.md's canonical VideoPlayer
+ * component is scoped to purchased/entitled content only — see that rule's
+ * own "What is NOT gated" carve-out for free/preview content).
+ *
+ * The related chip calls tryOpenInMountedCartridge directly with the
+ * cartridgeId/tab embedded in the payload — generic, not hardcoded to
+ * MoneyPenny, so this stays reusable by any future cartridge that emits
+ * this schema. Per the Admin spec's A-08 constraint ("related chips...
+ * cannot contain arbitrary executable instructions"), this is the ONLY
+ * action a related chip can take — a deterministic navigation, never a
+ * free-form instruction.
+ */
+function MediaVideoPreview({ payload }: { payload: SmartTriadMediaVideoPayload }) {
+  return (
+    <div className="smarttriad-media-video-preview">
+      <video
+        controls
+        poster={payload.posterUrl ?? undefined}
+        src={payload.url}
+        className="smarttriad-media-video-preview-player"
+      />
+      <div className="smarttriad-media-video-preview-title">{payload.title}</div>
+      <button
+        type="button"
+        className="smarttriad-media-video-preview-chip"
+        onClick={() =>
+          tryOpenInMountedCartridge({ cartridgeId: payload.relatedChip.cartridgeId, tab: payload.relatedChip.tab })
+        }
+      >
+        {payload.relatedChip.label}
+      </button>
+    </div>
   );
 }
 

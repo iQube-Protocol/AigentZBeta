@@ -832,3 +832,284 @@ new parallel path, and it never touches the flagged files. Nothing else invoked 
 Prepare's rebuild, the standalone-route migration, the browser pass — engaged any other PARAMOUNT
 section in this repo's CLAUDE.md (Identifier Isolation, DVN Pipeline, Identity Spine, Gated Content,
 Access Gates) at all; none of those subsystems were touched.
+
+---
+
+## 15. Turn D (2026-09-02) — infrastructure handoff, C-15/A3 educational media, Prepare empty-state fix, authenticated acceptance attempt
+
+Four instructions, worked in the order given. Migration application, deployment evidence, and
+authenticated browser results are reported as three SEPARATE categories per the operator's explicit
+instruction ("cherry-picking to dev alone establishes code delivery" — none of the three substitutes
+for either of the others).
+
+### 15a. Infrastructure handoff — dev Supabase project identified, two outstanding migrations closed
+
+**Project identified**: `bsjhfvctmduxhohtllly` ("Aigent Z", us-east-2, Postgres 17, `ACTIVE_HEALTHY`)
+— the only Supabase project ref referenced anywhere in this repo's committed config, docs, or
+seeded storage URLs (`PRODUCTION_CHECKLIST.md`, `FIX_MISSING_AGENT_KEYS.md`, and live
+`content-media` bucket URLs baked into `services/polity/frameworks/*.json`). The other two projects
+visible to this session's Supabase connector (`Aigent Nakamoto`, `Aigent-Mondai`) are referenced
+**nowhere** in the repo — zero hits for either project ref — so this is not a guess but the only
+project consistent with "authorized deployment configuration," per the No-Guessing rule.
+
+**Migration audit method**: `list_migrations` only returns 25 tracked rows against 409 migration
+files in `supabase/migrations/` — a large gap. Rather than trust that undercount (this project's
+schema clearly predates consistent CLI-tracked migration history for much of its life), the audit
+queried the LIVE schema directly: `information_schema.tables`/`columns` against every `CREATE TABLE`
+target extracted from all 409 files. 400+ real tables already exist live, covering virtually every
+subsystem this repo touches — confirming the schema itself is comprehensive; only a small number of
+genuinely recent files had no live counterpart.
+
+**Two real gaps found and closed** (both confirmed via `to_regclass`/`information_schema` before AND
+after, not assumed):
+
+| Migration | Target | Status before | Action |
+|---|---|---|---|
+| `20260901000000_bridge_content_placements.sql` | `public.bridge_content_placements` table (RLS + policy + updated_at trigger) | Genuinely missing — the file's OWN header already said so ("Not yet applied to any live Supabase project"), and `to_regclass('public.bridge_content_placements')` returned `null` | Applied via `apply_migration`. Verified: table exists, RLS enabled, 1 policy, 1 trigger — exact match to the migration. A `get_advisors` security scan on the new object found one WARN (trigger function `search_path` mutable) — fixed with a follow-up `SET search_path = public` on the function (a house convention already used elsewhere, e.g. `20260930150000_wallet_atomic_convert.sql`), applied live and folded back into the repo's migration file so a fresh apply never reintroduces the warning. |
+| `20260902010000_knyts_bridge_editorial_config_infographic_url.sql` | `knyts_bridge_editorial_config.infographic_url` column | Genuinely missing — `information_schema.columns` for that table had no `infographic_url` row | Applied via `apply_migration` (additive `ADD COLUMN IF NOT EXISTS`). Verified: column exists, `text`, nullable. |
+
+Both are **directly on the critical path for 15b** — `bridge_content_placements` backs the
+`assignDraftAsset`/`publishPlacement` functions C-15's video pipeline was instructed to reuse, and
+its own API route (`app/api/journey/knyts-bridge/placements/route.ts`) had a pre-written honest
+"has not been created in this environment yet" 503 fallback for exactly this condition — confirming
+the gap was expected and anticipated by earlier work, not newly introduced.
+
+**Smoke-tested, not just schema-checked**: inserted a throwaway draft row into
+`bridge_content_placements` (`section: '__smoketest__'`), confirmed the upsert/default-value shape
+matched `bridgeContentPlacements.ts`'s expectations exactly, then deleted it — zero residue.
+
+No other migration file's target was confirmed missing within the scope actually exercised this
+pass (C-15/A3's dependency chain); the remaining ~380 unmatched-by-bookkeeping files were not
+individually schema-verified — that would be a much larger audit than this pass's scope, and nothing
+in Turn D's own work depends on them. Flagged honestly, not silently ignored.
+
+### 15b. C-15 inline educational video + A3 related chip — built, honestly scoped
+
+No spec for this existed on disk before this pass's own research turned up
+`docs/specs/moneypenny/MoneyPenny_Cartridge_Spec_v1.md` §11 (C-15) and
+`docs/specs/moneypenny/Qriptopian_Bridge_Admin_Spec_v1.md` (the A-07/A-08 agent-publication
+contract, and its delivery-table row naming "A3" as "Studio/agent placement integration... same
+stored result through native UI and authorized connector"). Read directly before implementing, per
+this repo's No-Guessing discipline — not inferred from the task description alone.
+
+**No real educational video asset exists anywhere in this system** — confirmed by direct query
+(`codex_media_assets` has zero rows with `asset_kind = 'social_campaign_video'`, any series) before
+writing a line of code. Per CLAUDE.md's No-Guessing rule, none was fabricated. The feature is built
+to genuinely support a real published video once an admin uploads one through the EXISTING
+Qriptopian Bridges admin flow (`PlacementAssetsPanel`/`assignDraftAsset`/`publishPlacement`,
+untouched) — and, until then, renders an honest "not yet published" state everywhere, verified live
+against the real database (§15d) returning exactly that state, not a fabricated video.
+
+**What was built:**
+
+1. **`moneypenny-financial-basics`** registered as MoneyPenny's one section in
+   `KNYTS_BRIDGE_ALLOWED_SECTIONS` (`services/journey/knytsBridgeEditorialConfig.ts`) — the SAME
+   shared allow-list every CI/KNYTS bridge section already uses. No second section registry.
+2. **`services/journey/moneyPennyEducationalMedia.ts`** (new) — the ONE reader. Composes the
+   EXISTING `getPlacementsForSection`/`getKnytsBridgeEditorialSection` functions; deliberately checks
+   `placements.video?.publishedAssetUrl` FIRST and only THEN trusts the editorial-config
+   headline/copy — because that config reader falls back to HOME's own mythos copy
+   ("Cross the Threshold. Come home.") when no row exists yet, which would be actively WRONG if
+   surfaced for MoneyPenny before a real publish. Exports `getMoneyPennyIntroVideoBlock` (the fenced
+   JSON payload), `getMoneyPennyLearnContent` (the structured right-pane content — reuses the SAME
+   editorial-config row, not a second content store), and `getMoneyPennyIntroVideoReply` (the full
+   chat-reply text, block-or-honest-fallback).
+3. **`SmartTriadInferenceRenderer.tsx`** (shared, extended, not forked) — a new
+   `extractMediaVideoPayload`/`MediaVideoPreview` pair, mirroring the file's own existing
+   `extractA2UIPayload`/`A2UIPayloadPreview` pattern exactly (schema-version-keyed fenced-JSON
+   detection, not a bespoke info-string). Renders a plain native `<video controls poster src>` —
+   `BridgeMediaStage.tsx`'s established pattern for PUBLIC bridge media, confirmed the correct
+   precedent (not the gated `VideoPlayer` component, which CLAUDE.md's own Gated Content section
+   scopes to purchased/entitled content only). The related chip calls
+   `tryOpenInMountedCartridge({cartridgeId: payload.relatedChip.cartridgeId, tab: payload.relatedChip.tab})`
+   — generic, reads the cartridge/tab from the payload itself rather than hardcoding
+   `moneypenny-codex`, so any future cartridge emitting this schema gets the same rendering for free
+   (the spec's own instruction: "the capability belongs to the common framework, not a
+   MoneyPenny-only iframe workaround").
+4. **Deterministic trigger, not an LLM-interpreted one** — `app/api/codex/chat/route.ts` gained one
+   new, narrowly-scoped short-circuit, inserted immediately after the request body destructure (before
+   the entire ~2800-line prompt-construction pipeline, before any persona/auth resolution — none of
+   which the route does anything with before this point that a short-circuit would silently skip).
+   Fires ONLY when `groundContext.cartridge === 'moneypenny'` AND the message is an EXACT match
+   against `MONEYPENNY_LEARN_VIDEO_PROMPT` (`'Show me the Financial Sovereignty basics video.'`) — a
+   fixed exported constant, never free text — matching the Admin spec's own A-08 constraint that "a
+   related chip... cannot contain arbitrary executable instructions." Returns the same
+   `{response, persona, event_meta}` contract shape the normal path uses; `suggested_layouts`/
+   `stage_proposals` are safely omitted (the client already treats their absence as "no suggestion,"
+   not an error).
+5. **`MONEYPENNY_QUICK_PROMPTS`** gained a "Watch: Financial Sovereignty basics" chip whose `prompt`
+   is the imported constant (never re-typed).
+6. **New `learn` `MoneyPennyPanelKey`** — the A3 related chip's destination (the structured right-pane
+   content). `MoneyPennyLearnPanel.tsx` (new) fetches the new public `GET /api/moneypenny/learn-content`
+   route (unauthenticated by design, mirroring `editorial-config`'s own public-GET posture — this is
+   free/preview content, not gated), and reuses the SAME `getMoneyPennyLearnContent` reader the video
+   block itself reads — one source, two presentations. Deliberately excluded from
+   `MoneyPennyAreaNav`'s five-area rail (mirrors the existing `crm` utility-tier exclusion) — a
+   chip-triggered capsule, not a persistent nav destination, per the spec's own "related chips open a
+   capsule" language.
+7. **`data/codex-configs.ts`** — a real `moneypenny-learn` tab entry (`slug: 'learn'`) was required for
+   `tryOpenInMountedCartridge` to resolve the new panel at all; this was caught by the live browser
+   pass in §15d (source-shape tests alone did not exercise `tryOpenInMountedCartridge`'s real
+   registration dependency) and fixed in the same pass, reusing the existing `'operate'` tabGroup —
+   `tabGroups` itself stays untouched.
+
+**Chapter-level seek chips** from the Cartridge spec's fuller C-15 vision are explicitly **not**
+built this pass — `bridge_content_placements` has no per-chapter timing field, and none was added
+(no speculative schema for data that doesn't exist yet). One video + one related chip is an honest,
+stated subset, not silently claimed as the full spec.
+
+**Tests:** `tests/moneypenny-c15-educational-video.test.ts` — 21 new tests covering every piece above
+(section registration, the honest-fallback-before-trusting-copy ordering, the schema markers, the
+short-circuit's exact condition/insertion-point/response-contract, the chip, the renderer's generic
+(non-hardcoded) chip target, the new panel key, the honest empty state, and the deliberate area-nav
+exclusion). All pass.
+
+### 15c. Prepare empty-state semantics — a real, confirmed defect found and fixed
+
+Investigation traced `hasPreparedFinancialProfile()` (`services/journey/financialSovereigntyEvidence.ts`)
+— already correctly checking `record?.meta.hasProfile === true`, not a click/navigation event — back
+to its source: `upsertFinancialProfileQube` (`services/iqube/financialProfileQube.ts`) hardcoded
+`has_profile: true` on **every** write, including a compute pass where `computeFinancialProfile`
+found every uploaded statement unreadable and returned no `aggregates` at all (confirmed directly:
+`services/financialServices/financialProfileAggregation.ts`'s all-unreadable branch returns an
+object with no `aggregates` key, not an empty one). The compute route
+(`app/api/moneypenny/financial-profile/compute/route.ts`) calls the upsert unconditionally after
+compute, with no early return on failure — so a fully-failed upload pass was silently earning
+"financial profile prepared" evidence, in direct violation of the operator's Turn D instruction.
+
+**Fix**: `has_profile: Boolean(input.blak.aggregates)` — one line, deriving the flag from whether
+real aggregates exist rather than from "a write happened." Manual entry (`/api/moneypenny/financial-profile/manual`)
+always produces a defined `aggregates` object even for income=$0/expenditure=$0 (a genuine
+self-reported figure is still a real figure) — confirmed by direct inspection of
+`computeManualFinancialProfile`, so this fix never regresses the legitimate manual-entry "prepared"
+path; it only withholds the flag on a genuinely empty upload pass.
+
+The "clear path to manual entry or supported upload" the operator asked to confirm was already built
+in Turn C's `PrepareFinancialProfileReview` component (the "Review my financial profile →" deep link
+to MoneyPenny's real financial-profile tab, which itself already has both "Upload statement" and
+"Enter estimates manually" — visually confirmed in Turn C's own browser-pass screenshot `03`) — no
+further UI change was needed for that half of the instruction.
+
+**Tests:** `tests/moneypenny-empty-profile-evidence.test.ts` — 6 new tests: the source-level fix
+itself, `hasPreparedFinancialProfile`'s real-record-read confirmed (not re-derived), the upstream
+compute path's genuine no-aggregates-on-total-failure behavior (two cases: all-unreadable, zero
+uploads), manual entry's always-defined-aggregates behavior, and confirmation the compute route still
+calls the writer unconditionally (the fix had to live in the writer, not by skipping the write — the
+route's own honest source/unreadable-count bookkeeping on a failed pass is preserved). Plus one
+assertion added to the existing `tests/moneypenny-financial-profile.test.ts` making the
+already-true-but-implicit "no aggregates key on total failure" fact explicit. All pass.
+
+### 15d. Authenticated acceptance — what is genuinely live, what remains genuinely blocked, named precisely
+
+**This session has real, working Supabase access** (`mcp__Supabase__*` tools reach project
+`bsjhfvctmduxhohtllly` directly) — a materially different starting position from Turn C's
+fixture-only pass, and used accordingly.
+
+**Real live-backend evidence obtained (not fixture, not fabricated):**
+
+- Configured this sandbox's local `next dev` server with the project's real
+  `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY` (fetched via `get_project_url`/
+  `get_publishable_keys` — publishable/anon-scoped only; written to a gitignored `.env.local`, never
+  committed). This eliminated the `Error: supabaseUrl is required` client-side crash class entirely
+  — confirmed 0 instances across every browser-pass run this turn (was present and logged 5+ times in
+  Turn C's pass under the same fixture conditions).
+- `GET /api/moneypenny/learn-content` — called directly via `curl` against the real dev server twice
+  and observed in the server's own request log a third time — returned a genuine, correct,
+  live-database-backed response: `{"ok":true,"content":{"title":"Financial Sovereignty basics",
+  "description":null,"videoUrl":null,"posterUrl":null}}`. This is the full C-15/A3 read chain (route
+  → `getMoneyPennyLearnContent` → `getPlacementsForSection` → real `bridge_content_placements` table)
+  working end-to-end against production-identical live schema — not a mock, not a fixture query
+  param.
+- The new `learn` codex tab renders correctly in the live embed shell once `data/codex-configs.ts`
+  was corrected (screenshot evidence: the "Learn" tab appears, highlighted, in the top nav alongside
+  every other real MoneyPenny tab) — a genuine, live, rendered confirmation of the fix described in
+  §15b point 7, caught BY this browser pass, not merely asserted.
+
+**What remains genuinely blocked, and precisely why:**
+
+1. **No real end-user Supabase Auth session (Bearer JWT) is obtainable in this sandbox.** Full
+   authenticated acceptance (a real signed-in persona's browser session, not a `?personaId=` fixture
+   param) requires either real user credentials (not available) or minting a session through
+   Supabase's Auth Admin API — which this session's Supabase MCP tools do not expose (only DB-level
+   `execute_sql`/`apply_migration`, not GoTrue admin operations). Writing directly into `auth.users`
+   via raw SQL was considered and explicitly **not attempted** — it would bypass GoTrue's own
+   validation on a real, shared, production-identical database to fabricate a fake account, which is
+   a materially different and much riskier act than the scoped, reversible, verified DDL this pass
+   performed elsewhere; it is not what "authorized deployment configuration access" was understood to
+   permit, and the No-Guessing/no-fabrication discipline extends to not fabricating identities. **What
+   would resolve this**: either real test-user credentials for this Supabase project, or explicit
+   operator authorization plus a proper Auth Admin API path (not raw table writes) to provision one.
+2. **`app/api/codex/chat/route.ts`'s module-level Supabase client fails to construct in this sandbox**
+   (`Error: supabaseKey is required`, thrown at import time from `createClient(NEXT_PUBLIC_SUPABASE_URL,
+   process.env.SUPABASE_SERVICE_ROLE_KEY!)`, confirmed via the full server stack trace) — because
+   `SUPABASE_SERVICE_ROLE_KEY` is not set in this sandbox. This is a **pre-existing condition of this
+   sandbox, not introduced by this pass** — it breaks the ENTIRE `/api/codex/chat` route for every
+   caller, not specifically the new short-circuit, and the failure happens before any request-handling
+   code (including the new short-circuit) ever executes. This session's Supabase MCP tools do not
+   expose the raw service-role key as plaintext (by design — only proxied, scoped tool calls), and
+   obtaining it some other way was not attempted for the same reason as point 1. **What would resolve
+   this**: `SUPABASE_SERVICE_ROLE_KEY` configured in this sandbox's environment (it IS presumably
+   configured in the real Amplify dev/prod environment, per this repo's own `PRODUCTION_CHECKLIST.md`
+   — this is specifically a sandbox-environment gap, not a deployed-environment one).
+
+Given point 2, the chat-route short-circuit's live round-trip could not be directly curl-verified
+this pass — its correctness rests on the 21 passing source-shape tests (§15b) proving the exact
+condition, insertion point, and response contract, not a live HTTP call. This is stated as a real,
+named gap, not glossed over.
+
+**Browser pass mechanics note** (for anyone re-running this): this sandbox's headless Chromium
+crashed ("Target crashed") partway through one run after several consecutive heavy sessions across
+this turn — an environment resource-flakiness issue, not a reproducible defect in the pages under
+test; the run was split into smaller passes to work around it.
+
+### 15e. Standalone `/moneypenny` route — compatibility exception, still in force, restated per instruction
+
+Unchanged since Turn C (§14c): the standalone route (`app/(shell)/moneypenny/page.tsx` →
+`MoneyPennyCartridge.tsx` → `HFTConsole`) remains a **documented, deliberate exception** — reachable
+by direct URL, no longer the target of any in-app link (`MoneyPennyWalletRuntime.tsx` migrated to
+`buildCodexUrl('moneypenny', {tab:'runtime'})`). Nothing in Turn D touched this route, its migration,
+or its test coverage (`tests/moneypenny-standalone-route-compat-mapping.test.ts`, still passing,
+unmodified). Restated here, visible in this turn's own section, per the operator's explicit
+instruction to keep it visible in the compatibility ledger rather than letting it silently age out of
+view in an earlier section.
+
+### 15f. Regression
+
+tsc held exactly at **677** throughout every edit this pass, including the migration-file header
+edits and the `data/codex-configs.ts` tab addition.
+
+Full vitest suite: **41 failed / 15 failed files** (9364 passed, 11 skipped, 9416 total). Every one of
+the 15 failing files is from the SAME pre-existing, already-tracked set this session has reported
+since §13d/§14e (`canon-document-resolution`, `dev-merge-message-discipline`,
+`journey-admission-spine`, `journey-monotonic-admission`, `journey-orient-legacy-regression`,
+`journey-orient-stage`, `journey-response-honesty`, `knyts-bridge-ci-parity`,
+`mycanvas-article-zero-fix`, `phase-a-baseline-canaries`, `pulse-close-now-structured-projection`,
+`pulse-plnl-split-and-correlation-trace`, `register-ceremony`, `repo-weight`, `resolution-records`)
+— none touch any file this pass modified. The count is lower than the previously-reported 49/17
+baseline; nothing in this pass's diff explains a reduction, so this reads as pre-existing run-to-run
+variance in that already-flaky set (e.g. `resolution-records`' doc-citation check, timing-sensitive
+suites), not a fix this pass claims credit for. Zero new failures were introduced by this pass's
+changes — verified by name-matching every failing file against this turn's actual diff, not by count
+alone.
+
+142 MoneyPenny-specific tests pass across the seven files this turn touched or added
+(`moneypenny-c15-educational-video.test.ts` [21], `moneypenny-empty-profile-evidence.test.ts` [6],
+`moneypenny-financial-profile.test.ts` [12], `moneypenny-copilot-workspace.test.ts` [32],
+`moneypenny-b2-prepare.test.ts` [13], `moneypenny-agentme-entry.test.ts` [16],
+`moneypenny-standalone-route-compat-mapping.test.ts` [6], plus the untouched
+`moneypenny-entry-continuity.test.ts` [11] and `financial-sovereignty-crossing-chain.test.ts` [25]
+re-verified clean) — all passing, re-run explicitly as part of this section, not merely inferred from
+the full-suite total.
+
+### 15g. Corrected AC-C/AC-B status deltas from Turn D (§10/§12/§14f superseded for these rows only)
+
+| ID | Previous status | New status | Basis |
+|---|---|---|---|
+| AC-C15 (referenced in §10 as part of C-10's "reproducible-scenario" gap and the C-17 native-admin-to-MoneyPenny integration §14f/§12 AC-C20 named as "not yet built") | NOT STARTED | PARTIAL | Inline educational video + related chip now exist in code (21 passing tests) and are confirmed working against the LIVE database (§15d: `/api/moneypenny/learn-content` genuinely round-trips). What remains open: no real video asset has been published yet (honest, not fabricated), the chat-route short-circuit's live round-trip is blocked on a sandbox-only missing `SUPABASE_SERVICE_ROLE_KEY` (§15d point 2), and chapter-level seek chips are an explicitly deferred subset (§15b) |
+| AC-C20 | PARTIAL ("not yet consumed inside MoneyPenny's own copilot/capsules") | PARTIAL (stronger) | The native-admin-to-MoneyPenny integration this row named as missing is now the majority of what §15b builds — the SAME `bridgeContentPlacements`/`knytsBridgeEditorialConfig` admin path now feeds MoneyPenny's copilot directly. Not marked PASS: still gated on a real published asset and the live chat short-circuit verification named above |
+| AC-B05 | PARTIAL (stronger, per §14f) | PARTIAL (stronger still) | Prepare's empty-state semantics gap (an empty/failed upload pass silently earning "prepared" evidence) is now closed and tested (§15c) — the criterion's own underlying promise ("financial-profile preparation... a reviewed financial profile... not navigation") is now enforced at the write layer, not just the read layer |
+
+All other AC-C/AC-B/AC-A rows in §10/§12/§14f are unchanged by Turn D — restated, not re-derived. The
+infrastructure-handoff work (§15a) and the authenticated-acceptance attempt (§15d) are process
+evidence with no direct AC-ID in §10's table, recorded in full in their own sections rather than
+forced into a row that does not name them.

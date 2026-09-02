@@ -131,8 +131,13 @@ export const MONEYPENNY_AREAS: MoneyPennyArea[] = [
  * "privileged administration" out of the five areas as contextual utility
  * access, not a sixth beginner journey; it is reachable as a utility link
  * instead (see MoneyPennyAreaNav.tsx), same deep link, same functionality.
+ *
+ * `learn` is likewise deliberately absent — the C-15/A3 structured
+ * right-pane content a video block's related chip opens is a chip-triggered
+ * capsule, not a persistent area-nav destination (see
+ * MoneyPennyPanelTab.tsx's own comment on the `learn` panel key).
  */
-export const MONEYPENNY_AREA_FOR_PANEL: Record<Exclude<MoneyPennyPanelKey, "crm">, MoneyPennyAreaId> = {
+export const MONEYPENNY_AREA_FOR_PANEL: Record<Exclude<MoneyPennyPanelKey, "crm" | "learn">, MoneyPennyAreaId> = {
   overview: "home",
   "financial-profile": "my-money",
   identity: "my-money",
@@ -149,7 +154,7 @@ export const MONEYPENNY_AREA_FOR_PANEL: Record<Exclude<MoneyPennyPanelKey, "crm"
 };
 
 export function areaForPanel(panel: MoneyPennyPanelKey): MoneyPennyAreaId | null {
-  if (panel === "crm") return null;
+  if (panel === "crm" || panel === "learn") return null;
   return MONEYPENNY_AREA_FOR_PANEL[panel] ?? "home";
 }
 

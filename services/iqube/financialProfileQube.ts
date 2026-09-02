@@ -333,7 +333,16 @@ export async function upsertFinancialProfileQube(
 
   const row = {
     persona_id: personaId,
-    has_profile: true,
+    // A compute/manual-entry PASS is not the same as a real profile — an
+    // upload pass where every statement was unreadable (computeFinancialProfile
+    // returns no `aggregates`) must not earn "prepared" evidence (operator
+    // directive, Turn D 2026-09-02: "an empty profile must not earn
+    // 'financial profile prepared' evidence" — hasPreparedFinancialProfile()
+    // in services/journey/financialSovereigntyEvidence.ts reads exactly this
+    // flag). Manual entry always produces aggregates (even income=0/
+    // expenditure=0 is a real self-reported figure), so this only ever
+    // withholds the flag on a genuinely empty upload pass.
+    has_profile: Boolean(input.blak.aggregates),
     last_computed_at: new Date().toISOString(),
     source_upload_count: input.sourceUploadCount,
     unreadable_upload_count: input.unreadableUploadCount,

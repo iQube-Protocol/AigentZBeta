@@ -42,6 +42,7 @@ import { ServiceOrchestrationPanel } from "@/app/(shell)/moneypenny/components/S
 import { MoneyPennyOverviewPanel } from "@/app/(shell)/moneypenny/components/MoneyPennyOverviewPanel";
 import { FinancialProfilePanel } from "@/app/(shell)/moneypenny/components/FinancialProfilePanel";
 import { RiskEnvelopePanel } from "@/app/(shell)/moneypenny/components/RiskEnvelopePanel";
+import { MoneyPennyLearnPanel } from "@/app/(shell)/moneypenny/components/MoneyPennyLearnPanel";
 import { MoneyPennyCopilotWorkspace } from "@/app/(shell)/moneypenny/components/MoneyPennyCopilotWorkspace";
 
 export type MoneyPennyPanelKey =
@@ -60,7 +61,13 @@ export type MoneyPennyPanelKey =
   // SPEC-MPY-002 MPY2-2 (2026-09-01) — Understand / Financial Profile.
   | "financial-profile"
   // SPEC-MPY-002 MPY2-3 (2026-09-01) — Design / Risk & Limits.
-  | "risk-envelope";
+  | "risk-envelope"
+  // Cartridge C-15/A3 (2026-09-02) — the structured right-pane content a
+  // video block's "related chip" opens. Reached via tryOpenInMountedCartridge
+  // only; deliberately not added to MoneyPennyAreaNav — a chip-opened
+  // capsule, not a persistent nav destination (per the Cartridge spec's own
+  // "related chips open a capsule" language, C-15 §11).
+  | "learn";
 
 const PANELS: Record<MoneyPennyPanelKey, React.ComponentType> = {
   overview: MoneyPennyOverviewPanel,
@@ -77,6 +84,7 @@ const PANELS: Record<MoneyPennyPanelKey, React.ComponentType> = {
   "service-orchestration": ServiceOrchestrationPanel,
   "financial-profile": FinancialProfilePanel,
   "risk-envelope": RiskEnvelopePanel,
+  learn: MoneyPennyLearnPanel,
 };
 
 export interface MoneyPennyPanelTabProps {

@@ -34,6 +34,12 @@ export const KNYTS_BRIDGE_ALLOWED_SECTIONS = new Set<string>([
   'ci-orient',
   'ci-passport-established',
   ...CI_BRIDGE_VIEW_CONTENT.map((block) => `ci-view-${block.id}`),
+  // MoneyPenny Cartridge C-15/C-17 (2026-09-02) — the ONE section MoneyPenny
+  // owns in this shared registry, so its inline educational video is
+  // administered through the SAME native Qriptopian Bridges admin flow
+  // every other bridge section uses (services/journey/moneyPennyEducationalMedia.ts
+  // is the only reader; no second editorial store).
+  'moneypenny-financial-basics',
 ]);
 
 export interface KnytsBridgeEditorialSection {
