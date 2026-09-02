@@ -92,3 +92,118 @@ export const MONEYPENNY_CAPABILITY_GROUPS: MoneyPennyCapabilityGroup[] = [
 export function findCapabilityItemsForPanel(panel: MoneyPennyPanelKey): MoneyPennyCapabilityItem[] {
   return MONEYPENNY_CAPABILITY_GROUPS.flatMap((g) => g.items).filter((item) => item.panel === panel);
 }
+
+/**
+ * Five-area information architecture (Cartridge spec C-03, reconciled
+ * 2026-09-02 — "Home is part of the specification"). Retires the flat
+ * 14-item capability rail (`MoneyPennyCapabilityRail.tsx`, deleted) as the
+ * primary navigation: one shared top-level menu (the 5 areas below) with
+ * contextual sub-navigation for the active area's capsules, per C-01
+ * ("do not retain a competing full capability sidebar").
+ *
+ * This is navigation ONLY. Advisor/Architect/Runtime provider mode,
+ * simulation/live execution environment, and authority stay independent
+ * dimensions (C-10) — an item's `mode` badge is carried through unchanged
+ * from MONEYPENNY_CAPABILITY_GROUPS, never redefined here, and area
+ * selection never implies or changes mode/environment/authority.
+ */
+export type MoneyPennyAreaId = "home" | "my-money" | "plan" | "markets" | "activity";
+
+export interface MoneyPennyArea {
+  id: MoneyPennyAreaId;
+  label: string;
+  /** The natural question this area answers (Cartridge spec C-03's own framing). */
+  question: string;
+}
+
+export const MONEYPENNY_AREAS: MoneyPennyArea[] = [
+  { id: "home", label: "Home", question: "Where am I? What needs attention?" },
+  { id: "my-money", label: "My Money", question: "What do I have? What is committed? What can I use?" },
+  { id: "plan", label: "Plan", question: "What am I trying to achieve? How do the assumptions change it?" },
+  { id: "markets", label: "Markets", question: "What am I considering? What are the costs and possible outcomes?" },
+  { id: "activity", label: "Activity", question: "Who did what? What happened? What should change?" },
+];
+
+/**
+ * Cartridge spec C-03's existing-surface relocation table, applied to this
+ * repo's actual MoneyPennyPanelKey set (§5, "Existing-surface relocation").
+ * `crm` is deliberately absent — C-03's own closing paragraph carves
+ * "privileged administration" out of the five areas as contextual utility
+ * access, not a sixth beginner journey; it is reachable as a utility link
+ * instead (see MoneyPennyAreaNav.tsx), same deep link, same functionality.
+ */
+export const MONEYPENNY_AREA_FOR_PANEL: Record<Exclude<MoneyPennyPanelKey, "crm">, MoneyPennyAreaId> = {
+  overview: "home",
+  "financial-profile": "my-money",
+  identity: "my-money",
+  x402: "my-money",
+  "risk-envelope": "plan",
+  "hft-console": "markets",
+  strategies: "markets",
+  architect: "markets",
+  chat: "markets",
+  portfolio: "activity",
+  smarttriad: "activity",
+  runtime: "activity",
+  "service-orchestration": "activity",
+};
+
+export function areaForPanel(panel: MoneyPennyPanelKey): MoneyPennyAreaId | null {
+  if (panel === "crm") return null;
+  return MONEYPENNY_AREA_FOR_PANEL[panel] ?? "home";
+}
+
+/**
+ * The `overview` panel has no MONEYPENNY_CAPABILITY_GROUPS entry (the old
+ * rail rendered it as a hardcoded button, not a group item) — represented
+ * here as its own item so Home has real, honest content rather than an
+ * empty area.
+ */
+export const MONEYPENNY_HOME_ITEM: MoneyPennyCapabilityItem = {
+  id: "overview",
+  label: "Overview",
+  description: "Financial brief, current journey, pending decisions and next actions.",
+  panel: "overview",
+  mode: null,
+};
+
+/**
+ * Capability items belonging to an area, DERIVED from
+ * MONEYPENNY_CAPABILITY_GROUPS (never hand-duplicated labels/descriptions/
+ * modes — single source of truth per CLAUDE.md source-of-truth parity).
+ */
+export function capabilityItemsForArea(areaId: MoneyPennyAreaId): MoneyPennyCapabilityItem[] {
+  const fromGroups = MONEYPENNY_CAPABILITY_GROUPS.flatMap((g) => g.items).filter(
+    (item) => item.panel !== null && areaForPanel(item.panel) === areaId,
+  );
+  return areaId === "home" ? [MONEYPENNY_HOME_ITEM, ...fromGroups] : fromGroups;
+}
+
+/**
+ * Panels with real capsules but no MONEYPENNY_CAPABILITY_GROUPS entry
+ * (`identity`, `x402`, plus `overview` covered by MONEYPENNY_HOME_ITEM
+ * above) — added here so their deep links/functionality remain reachable
+ * from the new area nav, not just as a raw URL. Honest minimal labels,
+ * matching this file's own "never link to a fake destination" rule.
+ */
+export const MONEYPENNY_UNGROUPED_ITEMS: MoneyPennyCapabilityItem[] = [
+  { id: "identity", label: "Identity & Wallets", description: "FIO handle and wallet addressing (SPEC-MPY-CARTRIDGE C-03: My Money connections and account settings).", panel: "identity", mode: null },
+  { id: "x402", label: "Settlement (X402)", description: "Task entry over the native X402 settlement service (SPEC-MPY-CARTRIDGE C-03: My Money task entry).", panel: "x402", mode: "RUNTIME" },
+];
+
+/** Same derivation as capabilityItemsForArea, folding in MONEYPENNY_UNGROUPED_ITEMS. */
+export function areaItems(areaId: MoneyPennyAreaId): MoneyPennyCapabilityItem[] {
+  const ungrouped = MONEYPENNY_UNGROUPED_ITEMS.filter(
+    (item) => item.panel !== null && areaForPanel(item.panel) === areaId,
+  );
+  return [...capabilityItemsForArea(areaId), ...ungrouped];
+}
+
+/** The single utility item outside the five areas (see MONEYPENNY_AREA_FOR_PANEL's own note on `crm`). */
+export const MONEYPENNY_UTILITY_ITEM: MoneyPennyCapabilityItem = {
+  id: "crm",
+  label: "Relationships (CRM)",
+  description: "Contextual relationships and privileged business/service management — utility access, not a sixth area (SPEC-MPY-CARTRIDGE C-03).",
+  panel: "crm",
+  mode: null,
+};

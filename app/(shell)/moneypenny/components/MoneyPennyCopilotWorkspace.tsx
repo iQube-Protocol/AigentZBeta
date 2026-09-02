@@ -67,6 +67,12 @@ import { MoneyPennyShell } from './MoneyPennyShell';
 import { personaFetch } from '@/utils/personaSpine';
 import { tryOpenInMountedCartridge } from '@/services/cartridge/CartridgePresenceRegistry';
 import { MONEYPENNY_CAPABILITY_GROUPS } from './moneypennyCapabilities';
+import {
+  computeContextVersionKey,
+  isResponseContextStale,
+  type MoneyPennyContextVersion,
+  type MoneyPennyEnvironment,
+} from '@/services/moneypenny/contextVersioning';
 import type { MoneyPennyPanelKey } from '@/app/triad/components/codex/tabs/MoneyPennyPanelTab';
 
 const MONEYPENNY_CODEX_ID = 'moneypenny-codex';
@@ -127,6 +133,27 @@ export function MoneyPennyCopilotWorkspace({ activePanel, children }: MoneyPenny
   // already uses, so the codex tab framework stays the single owner of
   // "which panel is active" (MS-2 — no second, parallel state authority).
   const [suggestedPanel, setSuggestedPanel] = useState<MoneyPennyPanelKey | null>(null);
+  // C-01 narrow-width Conversation/Workspace toggle. Both panes stay
+  // mounted at every width — this only controls which is VISIBLE below
+  // the `lg` breakpoint (see the render below) — so switching views never
+  // loses conversation history or task/panel state.
+  const [narrowView, setNarrowView] = useState<'conversation' | 'workspace'>('conversation');
+
+  // SC-04 — execution environment is real state (never hardcoded), so
+  // C-11/C-12's future simulation/live UI plugs directly into this same
+  // version tuple. No toggle is exposed yet: no simulation/live control
+  // exists anywhere in MoneyPenny today (C-11/C-12 NOT STARTED per the
+  // acceptance crosswalk), and building one here would be speculative,
+  // out-of-scope UI for a versioning slice. Defaults to the safe value.
+  const [environment] = useState<MoneyPennyEnvironment>('simulation');
+  // Bumped each time the financial-profile ground snapshot is successfully
+  // refetched with new data — a profile revision invalidates an in-flight
+  // request's response even when panel/persona/environment are unchanged.
+  const profileRevisionRef = useRef(0);
+  // The context version captured (via onRequestContext, below) for
+  // whichever request is currently in flight — compared against the
+  // CURRENT version when its response arrives.
+  const pendingRequestVersionRef = useRef<string | null>(null);
 
   useEffect(() => {
     setPersonaId(readStoredPersonaId());
@@ -138,12 +165,30 @@ export function MoneyPennyCopilotWorkspace({ activePanel, children }: MoneyPenny
     setSuggestedPanel((prev) => (prev === activePanel ? null : prev));
   }, [activePanel]);
 
+  const handleRequestContext = useCallback((sentGroundContext: Record<string, unknown> | null) => {
+    pendingRequestVersionRef.current =
+      typeof sentGroundContext?.contextVersion === 'string' ? sentGroundContext.contextVersion : null;
+  }, []);
+
   const handleSuggestedLayouts = useCallback((hints: SuggestedLayoutHint[]) => {
+    const currentVersion: MoneyPennyContextVersion = {
+      panel: activePanel,
+      personaId,
+      environment,
+      profileRevision: profileRevisionRef.current,
+    };
+    const currentVersionKey = computeContextVersionKey(currentVersion);
+    // SC-04: a response whose request context no longer matches the
+    // current task/agent/environment/profile-revision is discarded
+    // outright — it must not populate state or present an actionable
+    // suggestion. Existing valid state (an already-shown suggestion for
+    // the CURRENT context) is left untouched, never overwritten.
+    if (isResponseContextStale(pendingRequestVersionRef.current, currentVersionKey)) return;
     const hit = hints.find(
       (h) => h.layoutId in SUGGESTABLE_PANEL_LABELS && h.layoutId !== activePanel,
     );
     setSuggestedPanel(hit ? (hit.layoutId as MoneyPennyPanelKey) : null);
-  }, [activePanel]);
+  }, [activePanel, personaId, environment]);
 
   const navigateToSuggestedPanel = useCallback(() => {
     if (!suggestedPanel) return;
@@ -158,6 +203,10 @@ export function MoneyPennyCopilotWorkspace({ activePanel, children }: MoneyPenny
         | { ok?: boolean; meta?: { hasProfile?: boolean }; aggregates?: { incomeMonthly?: number; expenditureMonthly?: number; availableSurplusMonthly?: number } | null; inputSource?: string | null }
         | null;
       if (!res.ok || !json?.ok) return;
+      // SC-04 — a revision to the profile invalidates any in-flight
+      // request's response, even when panel/persona/environment are
+      // unchanged (it may have reasoned over the now-superseded snapshot).
+      profileRevisionRef.current += 1;
       setFinancialProfileGround({
         hasProfile: json.meta?.hasProfile === true,
         inputSource: (json.inputSource as FinancialProfileGroundSnapshot['inputSource']) ?? null,
@@ -187,40 +236,84 @@ export function MoneyPennyCopilotWorkspace({ activePanel, children }: MoneyPenny
   const groundContext: Record<string, unknown> = {
     cartridge: 'moneypenny',
     activePanel,
+    // SC-04 — the version this specific request's context represents.
+    // Echoed back via onRequestContext at send-time, then compared
+    // against the CURRENT version when the response arrives.
+    contextVersion: computeContextVersionKey({
+      panel: activePanel,
+      personaId,
+      environment,
+      profileRevision: profileRevisionRef.current,
+    }),
     ...(activePanel === 'financial-profile' && financialProfileGround ? { financialProfile: financialProfileGround } : {}),
   };
   groundContextRef.current = groundContext;
 
   return (
-    <div className="h-[calc(100vh-96px)] flex flex-col lg:flex-row gap-2 overflow-hidden bg-slate-950">
-      <div className="lg:w-1/2 w-full h-full min-h-0 flex flex-col">
-        <SmartTriadCopilotLayer
-          isOpen
-          variant="panel"
-          promptPlaceholder="Ask MoneyPenny — spending, a goal, your risk envelope…"
-          agent={{ id: 'aigent-moneypenny', name: 'MoneyPenny' }}
-          agentSubtitle="Financial Services Runtime"
-          personaId={personaId}
-          groundContext={groundContext}
-          quickPrompts={MONEYPENNY_QUICK_PROMPTS}
-          onSuggestedLayouts={handleSuggestedLayouts}
-          onClose={() => undefined}
-        />
+    <div className="flex h-[calc(100vh-96px)] flex-col overflow-hidden bg-slate-950">
+      {/* Narrow-width Conversation/Workspace toggle (C-01). Both panes stay
+          mounted below `lg` — only visibility toggles via CSS — so
+          SmartTriadCopilotLayer's conversation history and MoneyPennyShell's
+          task/panel state survive switching views, never remounted. */}
+      <div className="flex shrink-0 items-center gap-1 border-b border-slate-800 bg-slate-900/60 p-1 lg:hidden">
+        <button
+          type="button"
+          onClick={() => setNarrowView('conversation')}
+          className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+            narrowView === 'conversation' ? 'bg-emerald-500/10 text-emerald-300' : 'text-slate-400 hover:bg-slate-800/60'
+          }`}
+        >
+          Conversation
+        </button>
+        <button
+          type="button"
+          onClick={() => setNarrowView('workspace')}
+          className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+            narrowView === 'workspace' ? 'bg-emerald-500/10 text-emerald-300' : 'text-slate-400 hover:bg-slate-800/60'
+          }`}
+        >
+          Workspace
+        </button>
       </div>
-      <div className="lg:w-1/2 w-full h-full min-h-0 overflow-y-auto">
-        {suggestedPanel && (
-          <div className="mx-6 mt-4 flex items-center justify-between gap-3 rounded-lg border border-emerald-800/60 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200">
-            <span>MoneyPenny suggests: open {SUGGESTABLE_PANEL_LABELS[suggestedPanel]}</span>
-            <button
-              type="button"
-              onClick={navigateToSuggestedPanel}
-              className="flex shrink-0 items-center gap-1 rounded-md bg-emerald-500/20 px-2 py-1 text-xs font-medium text-emerald-100 hover:bg-emerald-500/30"
-            >
-              Open <ArrowRight className="h-3 w-3" />
-            </button>
-          </div>
-        )}
-        <MoneyPennyShell activePanel={activePanel}>{children}</MoneyPennyShell>
+      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden lg:flex-row">
+        <div
+          className={`h-full min-h-0 w-full flex-col lg:flex lg:w-[38%] ${
+            narrowView === 'conversation' ? 'flex' : 'hidden'
+          }`}
+        >
+          <SmartTriadCopilotLayer
+            isOpen
+            variant="panel"
+            promptPlaceholder="Ask MoneyPenny — spending, a goal, your risk envelope…"
+            agent={{ id: 'aigent-moneypenny', name: 'MoneyPenny' }}
+            agentSubtitle="Financial Services Runtime"
+            personaId={personaId}
+            groundContext={groundContext}
+            quickPrompts={MONEYPENNY_QUICK_PROMPTS}
+            onRequestContext={handleRequestContext}
+            onSuggestedLayouts={handleSuggestedLayouts}
+            onClose={() => undefined}
+          />
+        </div>
+        <div
+          className={`h-full min-h-0 w-full overflow-y-auto lg:block lg:w-[62%] ${
+            narrowView === 'workspace' ? 'block' : 'hidden'
+          }`}
+        >
+          {suggestedPanel && (
+            <div className="mx-6 mt-4 flex items-center justify-between gap-3 rounded-lg border border-emerald-800/60 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200">
+              <span>MoneyPenny suggests: open {SUGGESTABLE_PANEL_LABELS[suggestedPanel]}</span>
+              <button
+                type="button"
+                onClick={navigateToSuggestedPanel}
+                className="flex shrink-0 items-center gap-1 rounded-md bg-emerald-500/20 px-2 py-1 text-xs font-medium text-emerald-100 hover:bg-emerald-500/30"
+              >
+                Open <ArrowRight className="h-3 w-3" />
+              </button>
+            </div>
+          )}
+          <MoneyPennyShell activePanel={activePanel}>{children}</MoneyPennyShell>
+        </div>
       </div>
     </div>
   );

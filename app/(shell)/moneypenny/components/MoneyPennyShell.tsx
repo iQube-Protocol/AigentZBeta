@@ -19,7 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { TrendingUp } from "lucide-react";
 
 import { useMoneyPennyClient } from "../hooks/useMoneyPennyClient";
-import { MoneyPennyCapabilityRail } from "./MoneyPennyCapabilityRail";
+import { MoneyPennyAreaNav } from "./MoneyPennyAreaNav";
 import type { MoneyPennyPanelKey } from "@/app/triad/components/codex/tabs/MoneyPennyPanelTab";
 
 function getStatusColor(status: string) {
@@ -134,9 +134,9 @@ export function MoneyPennyShell({ children, activePanel }: MoneyPennyShellProps)
         </CardHeader>
       </Card>
 
-      <div className="flex items-start gap-4">
-        <MoneyPennyCapabilityRail activePanel={activePanel} />
-        <div className="min-w-0 flex-1 space-y-4">{children}</div>
+      <div className="min-w-0 flex-1 space-y-4">
+        <MoneyPennyAreaNav activePanel={activePanel} />
+        <div className="min-w-0">{children}</div>
       </div>
     </div>
   );
