@@ -45,8 +45,9 @@ describe('MoneyPennyCopilotWorkspace — reuses the REAL DevOn/Agent Me copilot,
     expect(src).toMatch(/activePanel === 'financial-profile' && financialProfileGround \? \{ financialProfile: financialProfileGround \} : \{\}/);
   });
 
-  it('refetches the financial-profile ground snapshot via the SAME GET route FinancialProfilePanel.tsx itself reads — no second read path', () => {
-    expect(src).toMatch(/personaFetch\('\/api\/moneypenny\/financial-profile'/);
+  it('refetches the financial-profile ground snapshot via the shared fetchFinancialProfileSummary() module (extracted 2026-09-02 for SC-03 "one canonical profile" — reused by the B2 Prepare stage too) — no second read path', () => {
+    expect(src).toMatch(/import \{ fetchFinancialProfileSummary, type FinancialProfileSummary \} from '@\/services\/moneypenny\/financialProfileSummary'/);
+    expect(src).not.toMatch(/personaFetch\('\/api\/moneypenny\/financial-profile'/);
   });
 });
 
@@ -100,7 +101,7 @@ describe('C-02 copilot-to-capsule loop (Cartridge spec reconciliation, 2026-09-0
   });
 
   it('navigates through the SAME tryOpenInMountedCartridge seam the capability rail already uses — one owner of "which panel is active" (MS-2)', () => {
-    expect(src).toMatch(/import \{ tryOpenInMountedCartridge \} from '@\/services\/cartridge\/CartridgePresenceRegistry'/);
+    expect(src).toMatch(/import \{ tryOpenInMountedCartridge, getCartridge \} from '@\/services\/cartridge\/CartridgePresenceRegistry'/);
     expect(src).toMatch(/tryOpenInMountedCartridge\(\{ cartridgeId: MONEYPENNY_CODEX_ID, tab: suggestedPanel \}\)/);
   });
 

@@ -11,13 +11,19 @@
  *    (/api/moneypenny/financial-profile), any entry reaching the same
  *    persona reaches the SAME profile by construction — verified, not
  *    duplicated.
- *  - Agent Me has NO wired entry point into this workspace.
- *    `MoneyPennyFocusLayout.tsx` (components/metame/welcome/layouts/) is
- *    an unrelated Guided Journey Runtime ceremony capsule — it records a
- *    disposition about whether MoneyPenny is a "focus," never navigates
- *    into the real cartridge. `AigentMeWelcomeSplitTab.tsx` contains zero
- *    buildCodexUrl('moneypenny', ...) calls. Not built this pass — see
- *    the reconciliation doc for why (file-risk, not scope refusal).
+ *  - Agent Me had NO wired entry point into this workspace as of this
+ *    pass. `MoneyPennyFocusLayout.tsx` (components/metame/welcome/layouts/)
+ *    is an unrelated Guided Journey Runtime ceremony capsule — it records
+ *    a disposition about whether MoneyPenny is a "focus," never navigates
+ *    into the real cartridge, and stays untouched. `AigentMeWelcomeSplitTab.tsx`
+ *    itself still contains zero buildCodexUrl('moneypenny', ...) calls —
+ *    that specific file was deliberately not edited (CLAUDE.md PARAMOUNT
+ *    fragility). A REAL entry now exists via a different, lower-risk path:
+ *    see tests/moneypenny-agentme-entry.test.ts — SpecialistsLayout.tsx's
+ *    "Open MoneyPenny workspace" button, reusing the already-registered
+ *    'moneypenny' specialist and the already-registered metame-codex
+ *    mirror tab. This file's own findings below remain accurate for the
+ *    specific files they describe.
  *  - The current "Prepare" stage (FinancialSovereigntyPrepareCrossStage.tsx)
  *    does not link to MoneyPenny at all — expected: it is the PRE-Bridge-spec
  *    agent-candidate-selection step the Bridge spec (B-08) explicitly
@@ -44,8 +50,15 @@ describe('Direct entry and Operate both resolve through the ONE dispatcher — v
   });
 
   it('the financial-profile ground fetch is persona-scoped, not entry-point-scoped — any entry reaching the same persona reaches the same profile', () => {
+    // As of the B2 Prepare rebuild (2026-09-02), the persona-scoped fetch was
+    // extracted into services/moneypenny/financialProfileSummary.ts (SC-03,
+    // one canonical read) — MoneyPennyCopilotWorkspace.tsx now imports it
+    // rather than calling personaFetch directly. See moneypenny-b2-prepare.test.ts
+    // for the shared-module coverage.
     const src = stripComments(readSource('app/(shell)/moneypenny/components/MoneyPennyCopilotWorkspace.tsx'));
-    expect(src).toMatch(/personaFetch\('\/api\/moneypenny\/financial-profile'/);
+    expect(src).toMatch(/from '@\/services\/moneypenny\/financialProfileSummary'/);
+    const sharedSrc = stripComments(readSource('services/moneypenny/financialProfileSummary.ts'));
+    expect(sharedSrc).toMatch(/personaFetch\('\/api\/moneypenny\/financial-profile'/);
   });
 });
 
@@ -62,11 +75,16 @@ describe('Agent Me entry — verified absent, not silently assumed present', () 
   });
 });
 
-describe('The current Prepare stage does not link to MoneyPenny — expected pre-Bridge-spec state, not a regression', () => {
-  it('FinancialSovereigntyPrepareCrossStage.tsx has no MoneyPenny reference', () => {
+describe('B2 Prepare (2026-09-02) now DOES link to MoneyPenny — the prior "no reference" finding is superseded, not a regression', () => {
+  // The original finding above ("no MoneyPenny reference") described the
+  // pre-Bridge-spec agent-candidate-selection Prepare step. That step was
+  // rebuilt this pass into a financial-profile review that deep-links to the
+  // real MoneyPenny financial-profile tab — see tests/moneypenny-b2-prepare.test.ts
+  // for the full coverage of that rebuild. This block only re-asserts the one
+  // fact this file's own continuity narrative depends on: the link is now real.
+  it('FinancialSovereigntyPrepareCrossStage.tsx deep-links to the real MoneyPenny financial-profile tab', () => {
     const src = stripComments(readSource('components/journey/FinancialSovereigntyPrepareCrossStage.tsx'));
-    expect(src).not.toMatch(/buildCodexUrl\(['"]moneypenny['"]/);
-    expect(src).not.toMatch(/MoneyPenny/);
+    expect(src).toMatch(/buildCodexUrl\('moneypenny', \{ personaId: personaId \?\? undefined, tab: 'financial-profile' \}\)/);
   });
 });
 

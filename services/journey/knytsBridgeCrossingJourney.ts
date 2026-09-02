@@ -315,7 +315,7 @@ export const KNYTS_BRIDGE_CROSSING_JOURNEY: JourneyDefinition = {
     {
       id: 'fs-prepare',
       label: 'Prepare',
-      description: 'Establish a reviewed financial profile; optionally choose an agent candidate to bring forward.',
+      description: 'Review or establish a financial profile, and understand its limitations, before continuing to Operate.',
       actor: 'operator',
       subjectRef: 'visitor',
       surfaces: [{ mode: 'component', ref: 'knyts-bridge-fs-prepare', note: 'FinancialSovereigntyPrepareCrossStage (prepare) — amber preset.' }],

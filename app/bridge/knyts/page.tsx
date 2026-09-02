@@ -206,7 +206,7 @@ export default function KnytsBridgePage() {
         return { stageKey: 'explore', accent: 'amber', nextStageId: 'fs-prepare', journeyId: 'knyts-bridge-crossing', personaId };
       }
       if (surfaceRef.ref === 'knyts-bridge-fs-prepare') {
-        return { mode: 'prepare', accent: 'amber', sourceJourneyId: 'knyts-bridge-crossing', sourceStageId: 'fs-prepare', nextStageId: 'fs-operate' };
+        return { mode: 'prepare', accent: 'amber', sourceJourneyId: 'knyts-bridge-crossing', sourceStageId: 'fs-prepare', nextStageId: 'fs-operate', personaId };
       }
       if (surfaceRef.ref === 'knyts-bridge-fs-operate') {
         return { accent: 'amber', nextStageId: 'fs-cross', personaId };

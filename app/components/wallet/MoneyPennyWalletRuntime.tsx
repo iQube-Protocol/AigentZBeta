@@ -20,9 +20,16 @@
  *  - Mode is ALWAYS 'shadow' — this view has no authoritative toggle and no
  *    Constitutional Agreement lifecycle UI (no Form/Accept/Authorize
  *    buttons anywhere). A human who wants an authoritative run, or who wants
- *    to form/accept/authorize MoneyPenny's agreement, opens the full
- *    MoneyPenny cartridge (`/moneypenny` → Runtime tab), which carries the
- *    complete agreement lifecycle behind a literal human "Authorize" click.
+ *    to form/accept/authorize MoneyPenny's agreement, opens the canonical
+ *    MoneyPenny workspace's Runtime capsule (`moneypenny-codex` via
+ *    `buildCodexUrl`, migrated 2026-09-02 off the standalone `/moneypenny`
+ *    route — same `RuntimePanel.tsx` component, same complete agreement
+ *    lifecycle behind a literal human "Authorize" click, now inside the
+ *    shared copilot/SC-04/area-nav shell instead of the older flat
+ *    ten-tab cartridge). See this session's entry-continuity audit for why:
+ *    the standalone route stays reachable by direct URL — deliberately
+ *    untouched, per its own file header — but is no longer the destination
+ *    of any in-app link.
  *
  * This component NEVER imports or calls the agreement-authorization server
  * action (RuntimePanel's `authorize` case), NEVER renders a Form/Accept/
@@ -42,6 +49,7 @@ import { useCallback, useState } from "react";
 import Link from "next/link";
 import { ArrowUpRight, Cpu, Loader2 } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
+import { buildCodexUrl } from "@/utils/codex-nav";
 
 interface StepTrace {
   step: number;
@@ -161,7 +169,7 @@ export function MoneyPennyWalletRuntime({ personaIdHint }: { personaIdHint?: str
       )}
 
       <Link
-        href="/moneypenny"
+        href={buildCodexUrl('moneypenny', { tab: 'runtime', personaId: personaIdHint || undefined })}
         className="mt-auto flex items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] text-white/60 hover:bg-white/10 hover:text-white/90 transition-colors"
       >
         Open full Runtime + Agreement lifecycle in MoneyPenny

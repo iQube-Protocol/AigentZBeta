@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { LayoutShell } from "./LayoutShell";
 import { accent } from "./accentTokens";
+import { tryOpenInMountedCartridge } from "@/services/cartridge/CartridgePresenceRegistry";
 import { SpecialistResponseCard } from "@/components/metame/cards/SpecialistResponseCard";
 import { PreflightByline, PreflightChip } from "@/components/metame/cards/PreflightByline";
 import { MicButton } from "@/components/ui/MicButton";
@@ -526,6 +527,32 @@ function RosterChip({
   );
 }
 
+/**
+ * MoneyPenny's real cartridge mirror inside metaMe (2026-09-02
+ * entry-continuity slice). Reuses the SAME registered destination
+ * `data/codex-configs.ts`'s `metame-codex` config already defines for
+ * exactly this purpose — "mirrors the real MoneyPenny Orchestration
+ * console into metaMe via the SAME MoneyPennyPanelTab component... never
+ * a bespoke FS-only card" — and the SAME `tryOpenInMountedCartridge` seam
+ * this session's own MoneyPennyAreaNav already uses for in-shell tab
+ * switching (never touches engageCapsuleAndMount/setActiveLayoutId or
+ * onRequestLayout — the capsule-layout state machine CLAUDE.md's
+ * "aigentMe Capsule ↔ Layout Contract" protects — so none of that
+ * contract's three documented regressions (2026-05-28 Capsule
+ * disappearance, Ask Specialists fallback, legacy NBA cards) apply to
+ * this addition: it is a same-codex TAB switch, not a capsule
+ * activation, and this Capsule ('specialists') stays engaged and mounted
+ * throughout). Deliberately NOT `MoneyPennyFocusLayout.tsx` — that is an
+ * unrelated Guided Journey Runtime disposition-recording ceremony
+ * capsule, never repurposed for navigation.
+ */
+const METAME_CODEX_ID = "metame-codex";
+const MONEYPENNY_ORCHESTRATION_TAB_SLUG = "moneypenny-orchestration";
+
+function openMoneyPennyFromAgentMe(): void {
+  tryOpenInMountedCartridge({ cartridgeId: METAME_CODEX_ID, tab: MONEYPENNY_ORCHESTRATION_TAB_SLUG });
+}
+
 function FocusCard({
   entry,
   isDark,
@@ -560,6 +587,21 @@ function FocusCard({
         </span>
       </div>
       <p className={`text-xs leading-relaxed ${mutedClass}`}>{entry.description}</p>
+      {entry.id === "moneypenny" && availability.status !== "needs-activation" && (
+        <div className="mt-2">
+          <button
+            type="button"
+            onClick={openMoneyPennyFromAgentMe}
+            className={`text-[11px] px-2.5 py-0.5 rounded-md border transition-colors ${
+              isDark
+                ? "border-emerald-500/40 text-emerald-200 hover:bg-emerald-500/10"
+                : "border-emerald-400 text-emerald-700 hover:bg-emerald-50"
+            }`}
+          >
+            Open MoneyPenny workspace →
+          </button>
+        </div>
+      )}
       {availability.status === "needs-activation" && (
         <div className="mt-2 flex items-center gap-2 flex-wrap">
           <AlertCircle className={`h-3 w-3 ${isDark ? "text-amber-300" : "text-amber-700"}`} />
