@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-02T14:07:50.463Z",
+  "last_updated": "2026-09-02T18:06:34.445Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "d48ae5c473bf0cf52b415c74b694a87fc72b430c",
-  "latest_commit_short": "d48ae5c",
-  "latest_commit_title": "Harden SC-04, deliver full-screen HFT takeover, verify entry continuity",
+  "latest_commit": "7e7944fe9407059e2b0b51c73445e3b613509367",
+  "latest_commit_short": "7e7944f",
+  "latest_commit_title": "Build Agent Me entry safely, rebuild B2 Prepare, close /moneypenny compat gap [merge spec/moneypenny-mpy2-3]",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "7e7944f",
+      "full_sha": "7e7944fe9407059e2b0b51c73445e3b613509367",
+      "title": "Build Agent Me entry safely, rebuild B2 Prepare, close /moneypenny compat gap [merge spec/moneypenny-mpy2-3]",
+      "author": "Claude",
+      "timestamp": "2026-09-02T18:03:59Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-7e7944f.md"
+    },
     {
       "sha": "d48ae5c",
       "full_sha": "d48ae5c473bf0cf52b415c74b694a87fc72b430c",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-29T03:41:21Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-4ae4830.md"
-    },
-    {
-      "sha": "d133b9b",
-      "full_sha": "d133b9bd6e7f37964e08b6260b4913cf482a990d",
-      "title": "Fix duplicate operator-assisted RAX implementations and broken registration route",
-      "author": "Claude",
-      "timestamp": "2026-08-29T02:37:47Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-d133b9b.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
