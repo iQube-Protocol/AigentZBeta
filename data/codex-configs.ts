@@ -4971,6 +4971,24 @@ export const MONEYPENNY_CARTRIDGE: CodexConfig = {
       config: { component: 'MoneyPennyPanelTab', props: { panel: 'risk-envelope' } },
       metadata: { icon: 'ShieldAlert', description: 'Risk factors and recommended limits derived from the Financial Profile', color: 'emerald' },
     },
+    // Cartridge C-15/A3 (2026-09-02) — the structured right-pane content a
+    // video block's related chip opens (tryOpenInMountedCartridge requires
+    // a registered codex tab slug to resolve — a chip-only mechanism with
+    // no config entry silently falls back to the default tab, exactly the
+    // gap this entry closes). Reuses the SAME 'operate' group as every
+    // sibling MoneyPenny tab — tabGroups itself stays untouched.
+    {
+      id: 'moneypenny-learn',
+      label: 'Learn',
+      slug: 'learn',
+      enabled: true,
+      adminOnly: false,
+      group: 'operate',
+      order: 0.65,
+      type: 'static',
+      config: { component: 'MoneyPennyPanelTab', props: { panel: 'learn' } },
+      metadata: { icon: 'BookOpen', description: 'Financial Sovereignty basics — the published educational video and its structured content', color: 'emerald' },
+    },
     {
       id: 'moneypenny-portfolio',
       label: 'Portfolio',

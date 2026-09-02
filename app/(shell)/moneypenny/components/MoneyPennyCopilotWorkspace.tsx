@@ -101,6 +101,7 @@ import { buildCodexUrl } from '@/utils/codex-nav';
 import { MONEYPENNY_CAPABILITY_GROUPS } from './moneypennyCapabilities';
 import { MoneyPennyFullScreenProvider, type MoneyPennyFullScreenValue } from './MoneyPennyFullScreenContext';
 import { fetchFinancialProfileSummary, type FinancialProfileSummary } from '@/services/moneypenny/financialProfileSummary';
+import { MONEYPENNY_LEARN_VIDEO_PROMPT } from '@/services/journey/moneyPennyEducationalMedia';
 import {
   computeContextVersionKey,
   isResponseContextStale,
@@ -140,6 +141,10 @@ const MONEYPENNY_QUICK_PROMPTS = [
   { id: 'mpy-risk-envelope', label: 'Check my risk envelope', prompt: 'What does my current risk envelope and trading limits look like?' },
   { id: 'mpy-portfolio', label: 'Show my portfolio', prompt: 'Give me an overview of my portfolio and recent performance.' },
   { id: 'mpy-market-console', label: 'Open the market console', prompt: 'Show me quotes, spread and liquidity in the market console.' },
+  // Cartridge C-15 (2026-09-02) — an EXACT, deterministic prompt the chat
+  // route short-circuits on (see app/api/codex/chat/route.ts) rather than
+  // an LLM-interpreted request, so this chip's outcome is never ambiguous.
+  { id: 'mpy-learn-video', label: 'Watch: Financial Sovereignty basics', prompt: MONEYPENNY_LEARN_VIDEO_PROMPT },
 ];
 
 function readStoredPersonaId(): string | undefined {

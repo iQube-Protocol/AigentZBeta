@@ -1,11 +1,14 @@
 -- 20260901000000_bridge_content_placements.sql
 --
--- QRP-BRIDGE-ADMIN A2 (2026-09-01, extended 2026-09-02) — typed asset
--- placements with a real draft/publish distinction for CI/KNYTS bridge
--- media slots (video/poster/infographic). Not yet applied to any live
--- Supabase project as of the 'infographic' slot addition, so this file is
--- edited in place rather than a second migration — no live schema exists
--- to migrate away from (see services/journey/bridgeContentPlacements.ts's
+-- QRP-BRIDGE-ADMIN A2 (2026-09-01, extended 2026-09-02). Applied to the
+-- dev Supabase project (bsjhfvctmduxhohtllly / "Aigent Z", the only
+-- project referenced anywhere in this repo's committed config/seeded
+-- storage URLs) on 2026-09-02 as part of closing the C-15/A3 media-work
+-- infrastructure handoff — see codexes/packs/agentiq/updates/
+-- 2026-09-02_moneypenny-authoritative-three-spec-import-and-reconciliation.md
+-- §15 for the applied-migration record. Typed asset placements with a
+-- real draft/publish distinction for CI/KNYTS bridge media slots
+-- (video/poster/infographic) (see services/journey/bridgeContentPlacements.ts's
 -- own header for why 'infographic' publish differs from video/poster: no
 -- knyts_bridge_editorial_config column exists for it yet, so its publish
 -- step is placement bookkeeping only).
@@ -67,7 +70,8 @@ BEGIN
   NEW.updated_at = now();
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql
+SET search_path = public;
 
 CREATE TRIGGER bridge_content_placements_touch_updated_at
   BEFORE UPDATE ON public.bridge_content_placements
