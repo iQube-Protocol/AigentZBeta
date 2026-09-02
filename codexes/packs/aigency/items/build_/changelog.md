@@ -1,4 +1,8 @@
 # Build — Changelog
+- [`0a3db3c`](https://github.com/iQube-Protocol/AigentZBeta/commit/0a3db3c3516a016f7f40eb453fd96a2153eb685a) [feat] Add typed asset placements with draft/publish for bridge media (A2) (Claude, 2026-09-01T23:48:14Z)
+- [`10e5e52`](https://github.com/iQube-Protocol/AigentZBeta/commit/10e5e52295b794fc7dc68889612f3fd2f67eea08) [push] Authenticate the codex upload/register admin endpoints (Claude, 2026-09-02T00:44:55Z)
+- [`a302da9`](https://github.com/iQube-Protocol/AigentZBeta/commit/a302da9b93b9f1c8a21d1c0714b9572c19ab1352) [feat] Add fs-operate stage; wire fs-prepare to a real reviewed-profile evidence (Claude, 2026-09-02T00:45:11Z)
+- [`0c1fd6a`](https://github.com/iQube-Protocol/AigentZBeta/commit/0c1fd6ac0561ac8f84bb4a9b64b06d41d3d65e60) [push] Harden A2 publish + config-write ordering [merge spec/moneypenny-mpy2-3] (Claude, 2026-09-02T00:45:21Z)
 - [`5695bee`](https://github.com/iQube-Protocol/AigentZBeta/commit/5695beecb71a407d456acac11edb3dd9e18c81b1) [feat] Add native Bridges tab to Qriptopian Admin — CI/KNYTS editorial parity [merge spec/moneypenny-mpy2-3] (Claude, 2026-09-01T23:08:43Z)
 - [`a0e8fe4`](https://github.com/iQube-Protocol/AigentZBeta/commit/a0e8fe4527a1c37f959349ec5f42a67646cf7475) [push] Project wallet-conversion capability READINESS at fs-cross, never exercise [merge spec/moneypenny-mpy2-3] (Claude, 2026-09-01T20:05:30Z)
 - [`a2f5942`](https://github.com/iQube-Protocol/AigentZBeta/commit/a2f5942c2aa6f764b503d195133ae30c9b368003) [feat] Wire EXPLORE to a real MoneyPenny action: observed consequence, not just engagement [merge spec/moneypenny-mpy2-3] (Claude, 2026-09-01T17:05:56Z)

@@ -4964,3 +4964,23 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-5695bee.md](../build_/COMMITS/COMMIT-5695bee.md)
 - Message: Add native Bridges tab to Qriptopian Admin — CI/KNYTS editorial parity [merge spec/moneypenny-mpy2-3]
+
+## Commit `0c1fd6a` — 2026-09-02T00:45:21Z
+- Type: `push`
+- Brief: [COMMIT-0c1fd6a.md](../build_/COMMITS/COMMIT-0c1fd6a.md)
+- Message: Harden A2 publish + config-write ordering [merge spec/moneypenny-mpy2-3]
+
+## Commit `a302da9` — 2026-09-02T00:45:11Z
+- Type: `feat`
+- Brief: [COMMIT-a302da9.md](../build_/COMMITS/COMMIT-a302da9.md)
+- Message: Add fs-operate stage; wire fs-prepare to a real reviewed-profile evidence
+
+## Commit `10e5e52` — 2026-09-02T00:44:55Z
+- Type: `push`
+- Brief: [COMMIT-10e5e52.md](../build_/COMMITS/COMMIT-10e5e52.md)
+- Message: Authenticate the codex upload/register admin endpoints
+
+## Commit `0a3db3c` — 2026-09-01T23:48:14Z
+- Type: `feat`
+- Brief: [COMMIT-0a3db3c.md](../build_/COMMITS/COMMIT-0a3db3c.md)
+- Message: Add typed asset placements with draft/publish for bridge media (A2)

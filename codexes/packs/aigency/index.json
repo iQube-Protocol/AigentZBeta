@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-01T23:11:00.631Z",
+  "last_updated": "2026-09-02T00:52:13.972Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "5695beecb71a407d456acac11edb3dd9e18c81b1",
-  "latest_commit_short": "5695bee",
-  "latest_commit_title": "Add native Bridges tab to Qriptopian Admin — CI/KNYTS editorial parity [merge spec/moneypenny-mpy2-3]",
+  "latest_commit": "0a3db3c3516a016f7f40eb453fd96a2153eb685a",
+  "latest_commit_short": "0a3db3c",
+  "latest_commit_title": "Add typed asset placements with draft/publish for bridge media (A2)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,42 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "0a3db3c",
+      "full_sha": "0a3db3c3516a016f7f40eb453fd96a2153eb685a",
+      "title": "Add typed asset placements with draft/publish for bridge media (A2)",
+      "author": "Claude",
+      "timestamp": "2026-09-01T23:48:14Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-0a3db3c.md"
+    },
+    {
+      "sha": "10e5e52",
+      "full_sha": "10e5e52295b794fc7dc68889612f3fd2f67eea08",
+      "title": "Authenticate the codex upload/register admin endpoints",
+      "author": "Claude",
+      "timestamp": "2026-09-02T00:44:55Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-10e5e52.md"
+    },
+    {
+      "sha": "a302da9",
+      "full_sha": "a302da9b93b9f1c8a21d1c0714b9572c19ab1352",
+      "title": "Add fs-operate stage; wire fs-prepare to a real reviewed-profile evidence",
+      "author": "Claude",
+      "timestamp": "2026-09-02T00:45:11Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-a302da9.md"
+    },
+    {
+      "sha": "0c1fd6a",
+      "full_sha": "0c1fd6ac0561ac8f84bb4a9b64b06d41d3d65e60",
+      "title": "Harden A2 publish + config-write ordering [merge spec/moneypenny-mpy2-3]",
+      "author": "Claude",
+      "timestamp": "2026-09-02T00:45:21Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-0c1fd6a.md"
+    },
     {
       "sha": "5695bee",
       "full_sha": "5695beecb71a407d456acac11edb3dd9e18c81b1",
@@ -1216,42 +1252,6 @@
       "timestamp": "2026-08-26T03:24:14-04:00",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-90d7ed9.md"
-    },
-    {
-      "sha": "4c8c259",
-      "full_sha": "4c8c259c2689d80dbef390e77dd3605ca69921a2",
-      "title": "fix(agentme): preserve attachments and resolve contact ambiguity",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-26T03:05:42-04:00",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-4c8c259.md"
-    },
-    {
-      "sha": "f35ecb3",
-      "full_sha": "f35ecb31ad40281327d74f5895677737b86cb10b",
-      "title": "Spec QubeTalk communications membrane domain model v0.2",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-25T11:22:43-04:00",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-f35ecb3.md"
-    },
-    {
-      "sha": "da92fec",
-      "full_sha": "da92fec2a6e6cbf2db5caa0d71cc983c33a00935",
-      "title": "docs(aee): include MoneyPenny Advisor Architect Runtime in first Differ audit",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-24T11:17:28-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-da92fec.md"
-    },
-    {
-      "sha": "d0db72c",
-      "full_sha": "d0db72cd4eee8dba752006bc569c00ed757bb966",
-      "title": "docs(agentiq): specify adaptive experience engine with Differ provider seam",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-24T11:01:01-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-d0db72c.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
