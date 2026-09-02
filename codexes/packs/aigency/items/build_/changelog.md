@@ -1,4 +1,7 @@
 # Build — Changelog
+- [`3c1551d`](https://github.com/iQube-Protocol/AigentZBeta/commit/3c1551d7501b0bb96581cef25bc3155a200ee260) [feat] Add canonical participant research-workspace access resolver (Claude, 2026-09-02T12:59:22Z)
+- [`0e171da`](https://github.com/iQube-Protocol/AigentZBeta/commit/0e171da6f059d482a676883da940d577955bacb9) [push] Honor public workspace visibility and label My Experiments in IRL OS Workspace (Claude, 2026-09-02T12:59:22Z)
+- [`d158cda`](https://github.com/iQube-Protocol/AigentZBeta/commit/d158cdac69cbf63b116de03bf1a56ddc09ef1743) [feat] Add acceptance tests for IRL OS experiment membership resolver [merge feature/irl-experiment-membership-workspace] (Claude, 2026-09-02T12:59:23Z)
 - [`1629ea2`](https://github.com/iQube-Protocol/AigentZBeta/commit/1629ea24486ea4fe1641515ab58115ab0594fec0) [push] Import three MoneyPenny donor repos' real docs into docs/specs/moneypenny/ (Claude, 2026-09-02T12:37:43Z)
 - [`5d4ce61`](https://github.com/iQube-Protocol/AigentZBeta/commit/5d4ce615b5cda0a7bb18d72b6b3d0f2997a70562) [push] Decouple public-exposure from series='bridge' — require an explicit signal (Claude, 2026-09-02T12:37:58Z)
 - [`9b7f469`](https://github.com/iQube-Protocol/AigentZBeta/commit/9b7f469a4f9d1caafc0e2ba0153a884f49a2a736) [push] A2 completion: infographic publishes AND renders through the real bridge reader (Claude, 2026-09-02T12:38:11Z)

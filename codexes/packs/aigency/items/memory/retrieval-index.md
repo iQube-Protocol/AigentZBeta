@@ -5034,3 +5034,18 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-1629ea2.md](../build_/COMMITS/COMMIT-1629ea2.md)
 - Message: Import three MoneyPenny donor repos' real docs into docs/specs/moneypenny/
+
+## Commit `d158cda` — 2026-09-02T12:59:23Z
+- Type: `feat`
+- Brief: [COMMIT-d158cda.md](../build_/COMMITS/COMMIT-d158cda.md)
+- Message: Add acceptance tests for IRL OS experiment membership resolver [merge feature/irl-experiment-membership-workspace]
+
+## Commit `0e171da` — 2026-09-02T12:59:22Z
+- Type: `push`
+- Brief: [COMMIT-0e171da.md](../build_/COMMITS/COMMIT-0e171da.md)
+- Message: Honor public workspace visibility and label My Experiments in IRL OS Workspace
+
+## Commit `3c1551d` — 2026-09-02T12:59:22Z
+- Type: `feat`
+- Brief: [COMMIT-3c1551d.md](../build_/COMMITS/COMMIT-3c1551d.md)
+- Message: Add canonical participant research-workspace access resolver

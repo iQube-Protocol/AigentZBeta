@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-02T12:41:15.138Z",
+  "last_updated": "2026-09-02T13:01:47.982Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "1629ea24486ea4fe1641515ab58115ab0594fec0",
-  "latest_commit_short": "1629ea2",
-  "latest_commit_title": "Import three MoneyPenny donor repos' real docs into docs/specs/moneypenny/",
+  "latest_commit": "3c1551d7501b0bb96581cef25bc3155a200ee260",
+  "latest_commit_short": "3c1551d",
+  "latest_commit_title": "Add canonical participant research-workspace access resolver",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,33 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "3c1551d",
+      "full_sha": "3c1551d7501b0bb96581cef25bc3155a200ee260",
+      "title": "Add canonical participant research-workspace access resolver",
+      "author": "Claude",
+      "timestamp": "2026-09-02T12:59:22Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-3c1551d.md"
+    },
+    {
+      "sha": "0e171da",
+      "full_sha": "0e171da6f059d482a676883da940d577955bacb9",
+      "title": "Honor public workspace visibility and label My Experiments in IRL OS Workspace",
+      "author": "Claude",
+      "timestamp": "2026-09-02T12:59:22Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-0e171da.md"
+    },
+    {
+      "sha": "d158cda",
+      "full_sha": "d158cdac69cbf63b116de03bf1a56ddc09ef1743",
+      "title": "Add acceptance tests for IRL OS experiment membership resolver [merge feature/irl-experiment-membership-workspace]",
+      "author": "Claude",
+      "timestamp": "2026-09-02T12:59:23Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-d158cda.md"
+    },
     {
       "sha": "1629ea2",
       "full_sha": "1629ea24486ea4fe1641515ab58115ab0594fec0",
@@ -1225,33 +1252,6 @@
       "timestamp": "2026-08-28T12:21:36Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-50d3d6e.md"
-    },
-    {
-      "sha": "33fed9b",
-      "full_sha": "33fed9bb6b2b42a13a9d66f39ac8a534304973bd",
-      "title": "add confirm-artifact MCP tool and thread agent identity onto exchange receipts",
-      "author": "Claude",
-      "timestamp": "2026-08-28T13:07:20Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-33fed9b.md"
-    },
-    {
-      "sha": "4b931ae",
-      "full_sha": "4b931ae89bf71d49425265a0ad354243791552a8",
-      "title": "Fix OCSGA Presence stage to recognize a principal's Citizen Passport for an agent-persona caller",
-      "author": "Claude",
-      "timestamp": "2026-08-27T09:43:52Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-4b931ae.md"
-    },
-    {
-      "sha": "96e22fd",
-      "full_sha": "96e22fd662dc9888240a45154ef6337aa88f4a94",
-      "title": "Fix People 504 (ContactGraph N+1 projection) and unsafe Gmail-composer resolution claims",
-      "author": "Claude",
-      "timestamp": "2026-08-27T09:44:24Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-96e22fd.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
