@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`2b4733d`](https://github.com/iQube-Protocol/AigentZBeta/commit/2b4733d6ca7c0833c5a90ed01cd5395cb94eab79) [feat] Publish real placeholder media, close admin-picker gap, add review/availability split [merge spec/moneypenny-mpy2-3] (Claude, 2026-09-02T23:27:25Z)
 - [`8678fc5`](https://github.com/iQube-Protocol/AigentZBeta/commit/8678fc53c6dbd1ee05542c91a6a512af32f9d336) [feat] Close infra handoff, add MoneyPenny educational video (C-15/A3), fix Prepare empty-state gap [merge spec/moneypenny-mpy2-3] (Claude, 2026-09-02T19:18:35Z)
 - [`7e7944f`](https://github.com/iQube-Protocol/AigentZBeta/commit/7e7944fe9407059e2b0b51c73445e3b613509367) [push] Build Agent Me entry safely, rebuild B2 Prepare, close /moneypenny compat gap [merge spec/moneypenny-mpy2-3] (Claude, 2026-09-02T18:03:59Z)
 - [`d48ae5c`](https://github.com/iQube-Protocol/AigentZBeta/commit/d48ae5c473bf0cf52b415c74b694a87fc72b430c) [push] Harden SC-04, deliver full-screen HFT takeover, verify entry continuity (Claude, 2026-09-02T14:05:39Z)

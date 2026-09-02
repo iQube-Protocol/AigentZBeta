@@ -5099,3 +5099,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-8678fc5.md](../build_/COMMITS/COMMIT-8678fc5.md)
 - Message: Close infra handoff, add MoneyPenny educational video (C-15/A3), fix Prepare empty-state gap [merge spec/moneypenny-mpy2-3]
+
+## Commit `2b4733d` — 2026-09-02T23:27:25Z
+- Type: `feat`
+- Brief: [COMMIT-2b4733d.md](../build_/COMMITS/COMMIT-2b4733d.md)
+- Message: Publish real placeholder media, close admin-picker gap, add review/availability split [merge spec/moneypenny-mpy2-3]
