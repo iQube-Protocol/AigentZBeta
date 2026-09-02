@@ -1,17 +1,23 @@
 'use client';
 
 /**
- * FinancialSovereigntyOperateStage — the intermediary "Operate with
- * MoneyPenny" workspace (B1, 2026-09-02).
+ * FinancialSovereigntyOperateStage — the intermediary Operate workspace
+ * (B1, 2026-09-02; label corrected to bare "Operate" same day after
+ * live review — the qualified "Operate with MoneyPenny" breadcrumb label
+ * read poorly once truncated in the stage stepper, and the distinct
+ * `fs-operate` stage id already prevents any routing/receipt collision
+ * with the advanced Horizen `aigentme` stage without needing a qualified
+ * label).
  *
  * A DISTINCT stage identity (`fs-operate`) from the advanced Horizen
  * `aigentme` stage, which ALSO carries the visible label "Operate"
  * (horizenMoneyPennyJourney.ts:415, a 2026-08-09 verb-normalization pass).
- * Per the operator's naming decision: retain both labels, qualify headings
- * where needed ("Operate with MoneyPenny" here vs. bare "Operate" on the
- * advanced admission spine), and never let either label serve as a
- * routing or receipt identifier — only the stage ids (`fs-operate` /
- * `aigentme`) and their own completionEvidence do that.
+ * Both stages share the bare label "Operate" — this is fine because
+ * neither label ever serves as a routing or receipt identifier; only the
+ * stage ids (`fs-operate` / `aigentme`) and their own completionEvidence
+ * do that. The in-stage headline/eyebrow below still say "Operate" /
+ * "Work with MoneyPenny..." so the surrounding page context always
+ * disambiguates which "Operate" a reader is looking at.
  *
  * Deliberately empty `completionEvidence` on this stage (see the journey
  * definition's own comment) — this is a persistent destination, not a
@@ -47,8 +53,12 @@ export function FinancialSovereigntyOperateStage({
 }) {
   const handleOpenMoneyPenny = useCallback(() => {
     try {
+      // Navigate in place — this stage already renders inside the Journey
+      // Spine's own iframe, so MoneyPenny opens within that same frame
+      // rather than a separate browser tab (operator correction, 2026-09-02;
+      // window.open(..., '_blank') previously popped a new tab).
       const url = buildCodexUrl('moneypenny', { personaId: personaId ?? undefined, tab: 'overview' });
-      window.open(url, '_blank', 'noopener,noreferrer');
+      window.location.assign(url);
     } catch {
       /* non-fatal — the primary Continue action still works */
     }
@@ -69,7 +79,7 @@ export function FinancialSovereigntyOperateStage({
         ]}
         primaryCtaLabel="Continue"
         onPrimaryCta={handleContinue}
-        secondaryCtaLabel="Open MoneyPenny ↗"
+        secondaryCtaLabel="Open MoneyPenny"
         onSecondaryCta={handleOpenMoneyPenny}
         accent={accent}
         layout="standard"
