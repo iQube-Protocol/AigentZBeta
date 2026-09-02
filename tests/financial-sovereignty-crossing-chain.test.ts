@@ -74,7 +74,9 @@ describe.each([
     expect(section).toMatch(new RegExp(`accent: '${accent}'`));
     expect(section).toMatch(new RegExp(`sourceJourneyId: '${journeyId}'`));
     expect(section).toMatch(/sourceStageId: 'fs-prepare'/);
-    expect(section).toMatch(/nextStageId: 'fs-cross'/);
+    // B1 (2026-09-02): fs-prepare now advances to fs-operate (the new
+    // intermediary Operate stage), never straight to fs-cross.
+    expect(section).toMatch(/nextStageId: 'fs-operate'/);
   });
 
   it('fs-cross resolves mode="cross" with the correct sourceJourneyId/sourceStageId/returnStageId', () => {
@@ -93,14 +95,22 @@ describe.each([
   ['KNYTS Bridge', KNYTS_BRIDGE_CROSSING_JOURNEY, 'knyts-bridge'],
   ['Constitutional Internet Bridge', CONSTITUTIONAL_INTERNET_BRIDGE_JOURNEY, 'ci-bridge'],
 ])('%s — journey definition + surface registry parity', (_label, journey, refPrefix) => {
-  it('fs-prepare/fs-cross stages exist, are part of the financial-services branch, and chain fs-prepare -> fs-cross', () => {
+  it('fs-prepare/fs-operate/fs-cross stages exist, are part of the financial-services branch, and chain fs-prepare -> fs-operate -> fs-cross (B1, 2026-09-02)', () => {
     const prepare = journey.stages.find((s) => s.id === 'fs-prepare');
+    const operate = journey.stages.find((s) => s.id === 'fs-operate');
     const cross = journey.stages.find((s) => s.id === 'fs-cross');
     expect(prepare, 'fs-prepare stage missing').toBeTruthy();
+    expect(operate, 'fs-operate stage missing').toBeTruthy();
     expect(cross, 'fs-cross stage missing').toBeTruthy();
     expect(prepare!.activationBranch).toBe('financial-services');
+    expect(operate!.activationBranch).toBe('financial-services');
     expect(cross!.activationBranch).toBe('financial-services');
-    expect(prepare!.nextStageId).toBe('fs-cross');
+    expect(prepare!.nextStageId).toBe('fs-operate');
+    expect(operate!.nextStageId).toBe('fs-cross');
+    // fs-operate must be a DISTINCT identity from the advanced Horizen
+    // aigentme stage (which also carries the visible label "Operate") —
+    // never the same id, per the operator's naming decision.
+    expect(operate!.id).not.toBe('aigentme');
   });
 
   it('both stages resolve to the same surface ref prefix declared in the journey (no drift between journey def and page wiring)', () => {

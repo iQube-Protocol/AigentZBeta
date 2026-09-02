@@ -60,6 +60,7 @@ import { KnytsBridgeChooseSurface } from '@/components/journey/KnytsBridgeChoose
 import { KnytsBridgeAdminPanel } from '@/components/journey/KnytsBridgeAdminPanel';
 import { FinancialSovereigntyIntroStage } from '@/components/journey/FinancialSovereigntyIntroStage';
 import { FinancialSovereigntyPrepareCrossStage } from '@/components/journey/FinancialSovereigntyPrepareCrossStage';
+import { FinancialSovereigntyOperateStage } from '@/components/journey/FinancialSovereigntyOperateStage';
 import { PassportConnectPanel } from '@/components/companion/PassportConnectPanel';
 import { usePassportSignInHost } from '@/app/hooks/usePassportSignInHost';
 import { usePersonaSpine } from '@/utils/personaSpine';
@@ -83,6 +84,7 @@ const KNYTS_BRIDGE_COMPONENTS: Record<string, React.ComponentType<Record<string,
   KnytsBridgeChooseSurface,
   FinancialSovereigntyIntroStage: FinancialSovereigntyIntroStage as unknown as React.ComponentType<Record<string, unknown>>,
   FinancialSovereigntyPrepareCrossStage: FinancialSovereigntyPrepareCrossStage as unknown as React.ComponentType<Record<string, unknown>>,
+  FinancialSovereigntyOperateStage: FinancialSovereigntyOperateStage as unknown as React.ComponentType<Record<string, unknown>>,
 };
 
 function selectStage(stageId: string) {
@@ -204,7 +206,10 @@ export default function KnytsBridgePage() {
         return { stageKey: 'explore', accent: 'amber', nextStageId: 'fs-prepare', journeyId: 'knyts-bridge-crossing', personaId };
       }
       if (surfaceRef.ref === 'knyts-bridge-fs-prepare') {
-        return { mode: 'prepare', accent: 'amber', sourceJourneyId: 'knyts-bridge-crossing', sourceStageId: 'fs-prepare', nextStageId: 'fs-cross' };
+        return { mode: 'prepare', accent: 'amber', sourceJourneyId: 'knyts-bridge-crossing', sourceStageId: 'fs-prepare', nextStageId: 'fs-operate' };
+      }
+      if (surfaceRef.ref === 'knyts-bridge-fs-operate') {
+        return { accent: 'amber', nextStageId: 'fs-cross', personaId };
       }
       if (surfaceRef.ref === 'knyts-bridge-fs-cross') {
         return { mode: 'cross', accent: 'amber', sourceJourneyId: 'knyts-bridge-crossing', sourceStageId: 'fs-cross', returnStageId: 'choose' };

@@ -27,7 +27,7 @@ import { KNYTS_BRIDGE_CROSSING_JOURNEY, KNYTS_BRIDGE_CAMPAIGN_ID } from '@/servi
 import { resolvePrimaryCompanionForJourney } from '@/services/journey/primaryCompanionResolver';
 import { parseActivatedBranchesParam } from '@/services/journey/journeyBranchActivation';
 import { computeJourneyAeeOutcome } from '@/services/adaptive/journeyAeeOrchestrator';
-import { hasDiscoveredFinancialSovereignty, hasLearnedFinancialSovereignty, hasExploredFinancialSovereignty } from '@/services/journey/financialSovereigntyEvidence';
+import { hasDiscoveredFinancialSovereignty, hasLearnedFinancialSovereignty, hasExploredFinancialSovereignty, hasPreparedFinancialProfile } from '@/services/journey/financialSovereigntyEvidence';
 import { assembleExperienceIntentProjection } from '@/services/adaptive/experienceIntentAssembly';
 import { deriveMatrixCalibration } from '@/services/strategy/experienceMatrixDeriver';
 import { assembleExperiencePrescription } from '@/services/adaptive/experiencePrescriptionAssembly';
@@ -115,10 +115,11 @@ async function getImpl(req: NextRequest) {
   // the deliberately weak "any observed Continue" bar; LEARN/EXPLORE
   // (2026-09-01 follow-up) require the stronger, kind-discriminated basis
   // — see financialSovereigntyEvidence.ts's own header comment.
-  const [discoverExperienceObserved, learnExperienceQualified, exploreCapabilityInteracted] = await Promise.all([
+  const [discoverExperienceObserved, learnExperienceQualified, exploreCapabilityInteracted, financialProfileReviewed] = await Promise.all([
     hasDiscoveredFinancialSovereignty(persona?.personaId ?? null, KNYTS_BRIDGE_CROSSING_JOURNEY.id),
     hasLearnedFinancialSovereignty(persona?.personaId ?? null, KNYTS_BRIDGE_CROSSING_JOURNEY.id),
     hasExploredFinancialSovereignty(persona?.personaId ?? null, KNYTS_BRIDGE_CROSSING_JOURNEY.id),
+    hasPreparedFinancialProfile(persona?.personaId ?? null),
   ]);
 
   const platformState: AuthoritativePlatformState = {
@@ -129,6 +130,7 @@ async function getImpl(req: NextRequest) {
       'fs-discover': { discoverExperienceObserved },
       'fs-learn': { learnExperienceQualified },
       'fs-explore': { exploreCapabilityInteracted },
+      'fs-prepare': { financialProfileReviewed },
     },
   };
 

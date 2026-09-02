@@ -673,6 +673,11 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
     component: 'FinancialSovereigntyPrepareCrossStage',
     note: 'FinancialSovereigntyPrepareCrossStage(mode="prepare", accent="amber") — agent-candidate picker; props threaded by the page resolveSurfaceProps keyed on this ref.',
   },
+  'knyts-bridge-fs-operate': {
+    kind: 'component',
+    component: 'FinancialSovereigntyOperateStage',
+    note: 'FinancialSovereigntyOperateStage(accent="amber") — B1 (2026-09-02): the intermediary "Operate with MoneyPenny" workspace, a distinct stage identity from the advanced Horizen aigentme stage (also labeled "Operate").',
+  },
   'knyts-bridge-fs-cross': {
     kind: 'component',
     component: 'FinancialSovereigntyPrepareCrossStage',
@@ -805,6 +810,11 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
     kind: 'component',
     component: 'FinancialSovereigntyPrepareCrossStage',
     note: 'FinancialSovereigntyPrepareCrossStage(mode="prepare", accent="indigo") — agent-candidate picker.',
+  },
+  'ci-bridge-fs-operate': {
+    kind: 'component',
+    component: 'FinancialSovereigntyOperateStage',
+    note: 'FinancialSovereigntyOperateStage(accent="indigo") — B1 (2026-09-02): the intermediary "Operate with MoneyPenny" workspace, a distinct stage identity from the advanced Horizen aigentme stage (also labeled "Operate").',
   },
   'ci-bridge-fs-cross': {
     kind: 'component',

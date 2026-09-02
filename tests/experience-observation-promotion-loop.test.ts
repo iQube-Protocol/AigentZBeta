@@ -190,12 +190,15 @@ describe.each([
   it('state route imports the three financialSovereigntyEvidence readers and reads them into stages[]', () => {
     const src = stripComments(readSource(routePath));
     expect(src).toMatch(
-      /import \{ hasDiscoveredFinancialSovereignty, hasLearnedFinancialSovereignty, hasExploredFinancialSovereignty \} from '@\/services\/journey\/financialSovereigntyEvidence'/,
+      /import \{ hasDiscoveredFinancialSovereignty, hasLearnedFinancialSovereignty, hasExploredFinancialSovereignty, hasPreparedFinancialProfile \} from '@\/services\/journey\/financialSovereigntyEvidence'/,
     );
     expect(src).toContain('hasDiscoveredFinancialSovereignty(persona?.personaId ?? null,');
     expect(src).toContain('hasLearnedFinancialSovereignty(persona?.personaId ?? null,');
     expect(src).toContain('hasExploredFinancialSovereignty(persona?.personaId ?? null,');
     expect(src).toContain(`${journeyConst}.id`);
+    // B1 (2026-09-02): fs-prepare's completion is now real, sourced from
+    // the persona's FinancialProfileQube — never a click/navigation event.
+    expect(src).toContain('hasPreparedFinancialProfile(persona?.personaId ?? null)');
     expect(src).toMatch(/'fs-discover':\s*\{\s*discoverExperienceObserved\s*\}/);
     expect(src).toMatch(/'fs-learn':\s*\{\s*learnExperienceQualified\s*\}/);
     expect(src).toMatch(/'fs-explore':\s*\{\s*exploreCapabilityInteracted\s*\}/);
