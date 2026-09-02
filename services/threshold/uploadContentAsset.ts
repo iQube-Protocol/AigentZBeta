@@ -1,6 +1,7 @@
 import { createHash } from 'crypto';
 import sharp from 'sharp';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+import { handleCodexAssetUpload, CodexAssetUploadError } from '@/services/content/codexAssetUploadHandler';
 
 export const THRESHOLD_UPLOAD_ROLES = new Set([
   'cover',
@@ -124,6 +125,15 @@ function publicAssetUrl(origin: string, assetId: string, cid: string, role: stri
  * Both MCP JSON-RPC and native connector uploads call this function. It never
  * re-authenticates through browser/Supabase identity. Authority is established
  * before entry by the caller via the Threshold bearer/session resolver.
+ *
+ * AUTHORIZATION REPAIR (2026-09-02): this previously made an unauthenticated
+ * internal HTTP hop to POST /api/admin/codex/upload-asset — the route now
+ * requires an admin persona, and this caller has no browser session to
+ * present. Calling handleCodexAssetUpload() directly, in-process, removes
+ * the hop entirely rather than trying to forge a credential for it: this
+ * caller's own authority was already established upstream (see this
+ * function's own doc comment above), so no HTTP boundary — authenticated or
+ * not — belongs between that authorization and this execution.
  */
 export async function executeThresholdContentUpload(input: ThresholdUploadInput): Promise<ThresholdUploadReceipt> {
   if (!THRESHOLD_UPLOAD_ROLES.has(input.role)) {
@@ -145,20 +155,13 @@ export async function executeThresholdContentUpload(input: ThresholdUploadInput)
     uploadForm.append('isShareable', 'true');
   }
 
-  const uploadResp = await fetch(`${input.origin}/api/admin/codex/upload-asset`, {
-    method: 'POST',
-    body: uploadForm,
-  });
-  const raw = await uploadResp.text();
-  if (!uploadResp.ok) {
-    throw new Error(`upstream-upload-failed:${uploadResp.status}:${raw.slice(0, 500)}`);
-  }
-
-  let uploaded: any;
+  let uploaded: Awaited<ReturnType<typeof handleCodexAssetUpload>>;
   try {
-    uploaded = JSON.parse(raw);
-  } catch {
-    throw new Error('upstream-upload-invalid-json');
+    uploaded = await handleCodexAssetUpload(uploadForm);
+  } catch (err) {
+    const status = err instanceof CodexAssetUploadError ? err.status : 500;
+    const message = err instanceof Error ? err.message : String(err);
+    throw new Error(`upstream-upload-failed:${status}:${message.slice(0, 500)}`);
   }
 
   const assetId = uploaded.id || uploaded.data?.id || null;
