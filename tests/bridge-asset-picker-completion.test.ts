@@ -13,8 +13,31 @@
  */
 import { describe, it, expect } from 'vitest';
 import { readSource, stripComments } from './_lib/sourceAuthority';
+import { shouldSkipEncryption } from '@/services/content/codexStorageRegisterHandler';
 
 const TAB_SRC = 'app/triad/components/codex/tabs/QriptopianAdminTab.tsx';
+
+describe('shouldSkipEncryption — public exposure requires an explicit signal (2026-09-02 correction)', () => {
+  it('series="bridge" ALONE (makePublic omitted) does NOT skip encryption — the exact invariant this fix exists to enforce', () => {
+    expect(shouldSkipEncryption('bridge', undefined)).toBe(false);
+  });
+
+  it('series="bridge" with makePublic explicitly false does NOT skip encryption', () => {
+    expect(shouldSkipEncryption('bridge', false)).toBe(false);
+  });
+
+  it('series="bridge" WITH makePublic: true DOES skip encryption — the deliberate bridge-picker path', () => {
+    expect(shouldSkipEncryption('bridge', true)).toBe(true);
+  });
+
+  it('any other series with makePublic: true also skips encryption — the flag, not the namespace, decides', () => {
+    expect(shouldSkipEncryption('metaKnyts', true)).toBe(true);
+  });
+
+  it('series="qriptopian" keeps its pre-existing bare-series exemption, untouched by this fix', () => {
+    expect(shouldSkipEncryption('qriptopian', undefined)).toBe(true);
+  });
+});
 
 describe('PlacementAssetsPanel — integrated asset browse/upload (A2 completion)', () => {
   const src = stripComments(readSource(TAB_SRC));
@@ -43,10 +66,25 @@ describe('PlacementAssetsPanel — integrated asset browse/upload (A2 completion
   });
 });
 
-describe('codexStorageRegisterHandler — bridge series stays genuinely public (never silently encrypted)', () => {
+describe('codexStorageRegisterHandler — public exposure requires an EXPLICIT signal, never a bare series match (corrected 2026-09-02)', () => {
   const src = stripComments(readSource('services/content/codexStorageRegisterHandler.ts'));
 
-  it('skipEncryption includes series === \'bridge\' alongside the existing \'qriptopian\' exemption', () => {
-    expect(src).toMatch(/skipEncryption = series === 'qriptopian' \|\| series === 'bridge'/);
+  it('skipEncryption is never decided by series === \'bridge\' alone — a bare namespace string must not authorize public exposure', () => {
+    expect(src).not.toMatch(/series === 'bridge'/);
+  });
+
+  it('the decision is delegated to the exported, independently-tested shouldSkipEncryption helper — not re-inlined', () => {
+    expect(src).toMatch(/const skipEncryption = shouldSkipEncryption\(series, makePublic\)/);
+  });
+});
+
+describe('PlacementAssetsPanel — sets makePublic explicitly, never relies on series alone', () => {
+  const src = stripComments(readSource('app/triad/components/codex/tabs/QriptopianAdminTab.tsx'));
+
+  it('the storage/register call includes makePublic: true', () => {
+    const at = src.indexOf("personaFetch('/api/admin/codex/storage/register'");
+    expect(at).toBeGreaterThan(-1);
+    const section = src.slice(at, at + 800);
+    expect(section).toMatch(/makePublic:\s*true/);
   });
 });
