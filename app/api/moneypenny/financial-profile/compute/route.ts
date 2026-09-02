@@ -82,6 +82,7 @@ export async function POST(req: NextRequest) {
       ...(riskLimits ? { riskLimits } : {}),
       sourceUploadIds: result.readableUploadIds,
       ...(result.computedFromMonths ? { computedFromMonths: result.computedFromMonths } : {}),
+      inputSource: 'uploaded_statements',
     },
   });
 
@@ -96,6 +97,7 @@ export async function POST(req: NextRequest) {
     riskAssessment: record.blak.riskAssessment ?? null,
     riskLimits: record.blak.riskLimits ?? null,
     computedFromMonths: record.blak.computedFromMonths ?? [],
+    inputSource: record.blak.inputSource ?? 'uploaded_statements',
     readableUploadCount: result.readableUploadIds.length,
     unreadableUploadCount: result.unreadableUploadIds.length,
     notes: result.notes,

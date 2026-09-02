@@ -199,6 +199,97 @@ const CANDIDATE_MAX_NOTIONAL_MONTHS = 3; // months of surplus
 const CANDIDATE_LOSS_RISK_BUDGET_FRACTION = 0.2; // of monthly surplus
 const LIQUIDITY_RESERVE_MONTHS = 3; // months of expenditure
 
+/**
+ * Builds the candidate envelope from already-derived income/expenditure/
+ * volatility/concentration figures — the SAME rule regardless of whether
+ * those figures came from parsed statement rows or a manual estimate
+ * (constraint 6 applies identically to both input paths; there is no
+ * second envelope policy). Never proposed when surplus is non-positive
+ * (see computeFinancialProfile's original comment, preserved here).
+ */
+function buildCandidateEnvelope(
+  aggregates: Pick<FinancialProfileAggregates, 'availableSurplusMonthly' | 'expenditureMonthly' | 'cashFlowVolatility' | 'topCategories'>,
+  notes: string[],
+): FinancialProfileEnvelope | undefined {
+  const { availableSurplusMonthly, expenditureMonthly, cashFlowVolatility, topCategories } = aggregates;
+  if (availableSurplusMonthly <= 0) {
+    notes.push('Average monthly expenditure meets or exceeds average monthly income across the observed months — no candidate trading envelope is proposed.');
+    return undefined;
+  }
+  return {
+    candidateMaxNotional: Math.round(availableSurplusMonthly * CANDIDATE_MAX_NOTIONAL_MONTHS * 100) / 100,
+    candidateLossRiskBudget: Math.round(availableSurplusMonthly * CANDIDATE_LOSS_RISK_BUDGET_FRACTION * 100) / 100,
+    liquidityReserve: Math.round(expenditureMonthly * LIQUIDITY_RESERVE_MONTHS * 100) / 100,
+    concentrationLimits: topCategories
+      .filter((c) => c.shareOfExpenditure > 0.3)
+      .map((c) => `${c.category}: currently ${(c.shareOfExpenditure * 100).toFixed(0)}% of monthly expenditure — consider a concentration limit here`),
+    strategyConstraints: [
+      'Recommendation only — review before acting; MoneyPenny holds no authority to trade on this envelope.',
+      ...(cashFlowVolatility !== null && cashFlowVolatility > 0.5 ? ['Cash flow is highly variable month to month — consider a smaller notional until more months of data are observed.'] : []),
+    ],
+  };
+}
+
+/**
+ * Manual entry — MoneyPenny MPY2-2c (2026-09-02). The person's own
+ * self-reported monthly figures, for someone who has no bank-statement
+ * export handy but can still describe their finances well enough to be
+ * "prepared" (the standing distinction between a reviewed financial
+ * profile and supported manual preparation — never navigation alone).
+ *
+ * Produces the SAME `FinancialProfileAggregates`/`FinancialProfileEnvelope`
+ * shapes `computeFinancialProfile` does — never a second financial-state
+ * model — but honestly cannot populate the fields that require
+ * transaction-level, multi-month observed data: `cashFlowVolatility` stays
+ * null (a single point estimate has no variance to measure) and
+ * `recurringCommitments`/`topCategories` stay empty (no transaction
+ * descriptions exist to group). Both are reported via `notes`, never
+ * silently left blank as if nothing was checked.
+ */
+export interface ManualFinancialProfileInput {
+  incomeMonthly: number;
+  expenditureMonthly: number;
+  /** Optional — the person's own estimate of how many days their current
+   *  balance would cover expenditure. Omitted/null when they don't know. */
+  liquidityBufferDays?: number | null;
+}
+
+export function computeManualFinancialProfile(input: ManualFinancialProfileInput): FinancialProfileComputeResult {
+  const notes: string[] = [
+    'Self-reported estimate — not derived from uploaded transaction data. Cash-flow volatility, recurring commitments, and expenditure concentration are not available from a single manual entry.',
+  ];
+
+  const incomeMonthly = Math.round(input.incomeMonthly * 100) / 100;
+  const expenditureMonthly = Math.round(input.expenditureMonthly * 100) / 100;
+  const availableSurplusMonthly = Math.round((incomeMonthly - expenditureMonthly) * 100) / 100;
+  const liquidityBufferDays =
+    typeof input.liquidityBufferDays === 'number' && Number.isFinite(input.liquidityBufferDays)
+      ? Math.round(input.liquidityBufferDays * 10) / 10
+      : null;
+
+  const aggregates: FinancialProfileAggregates = {
+    incomeMonthly,
+    expenditureMonthly,
+    availableSurplusMonthly,
+    cashFlowVolatility: null,
+    liquidityBufferDays,
+    recurringCommitments: [],
+    topCategories: [],
+  };
+
+  const envelope = buildCandidateEnvelope(aggregates, notes);
+
+  return {
+    ok: true,
+    aggregates,
+    envelope,
+    computedFromMonths: [],
+    readableUploadIds: [],
+    unreadableUploadIds: [],
+    notes,
+  };
+}
+
 export function computeFinancialProfile(sources: readonly StatementSourceRows[]): FinancialProfileComputeResult {
   const readableUploadIds: string[] = [];
   const unreadableUploadIds: string[] = [];
@@ -335,24 +426,9 @@ export function computeFinancialProfile(sources: readonly StatementSourceRows[])
   // Envelope — CANDIDATE only (constraint 6). Never proposed when surplus
   // is non-positive: a recommendation to risk money the profile shows the
   // person does not have would be exactly the "authoritative financial
-  // analysis" overreach constraint 1 forbids.
-  let envelope: FinancialProfileEnvelope | undefined;
-  if (availableSurplusMonthly > 0) {
-    envelope = {
-      candidateMaxNotional: Math.round(availableSurplusMonthly * CANDIDATE_MAX_NOTIONAL_MONTHS * 100) / 100,
-      candidateLossRiskBudget: Math.round(availableSurplusMonthly * CANDIDATE_LOSS_RISK_BUDGET_FRACTION * 100) / 100,
-      liquidityReserve: Math.round(expenditureMonthly * LIQUIDITY_RESERVE_MONTHS * 100) / 100,
-      concentrationLimits: topCategories
-        .filter((c) => c.shareOfExpenditure > 0.3)
-        .map((c) => `${c.category}: currently ${(c.shareOfExpenditure * 100).toFixed(0)}% of monthly expenditure — consider a concentration limit here`),
-      strategyConstraints: [
-        'Recommendation only — review before acting; MoneyPenny holds no authority to trade on this envelope.',
-        ...(cashFlowVolatility !== null && cashFlowVolatility > 0.5 ? ['Cash flow is highly variable month to month — consider a smaller notional until more months of data are observed.'] : []),
-      ],
-    };
-  } else {
-    notes.push('Average monthly expenditure meets or exceeds average monthly income across the observed months — no candidate trading envelope is proposed.');
-  }
+  // analysis" overreach constraint 1 forbids. Shared with the manual-entry
+  // path via buildCandidateEnvelope — one envelope policy, not two.
+  const envelope = buildCandidateEnvelope(aggregates, notes);
 
   return {
     ok: true,

@@ -33,6 +33,7 @@ export async function GET(req: NextRequest) {
       riskAssessment: null,
       riskLimits: null,
       computedFromMonths: [],
+      inputSource: null,
     });
   }
 
@@ -46,5 +47,9 @@ export async function GET(req: NextRequest) {
     riskAssessment: record.blak.riskAssessment ?? null,
     riskLimits: record.blak.riskLimits ?? null,
     computedFromMonths: record.blak.computedFromMonths ?? [],
+    // MPY2-2c — absent on rows computed before this field existed; those
+    // are all upload-derived (manual entry didn't exist yet), so the same
+    // fallback the compute route uses applies here.
+    inputSource: record.blak.aggregates ? (record.blak.inputSource ?? 'uploaded_statements') : null,
   });
 }
