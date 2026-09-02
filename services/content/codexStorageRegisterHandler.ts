@@ -26,6 +26,18 @@ const BUCKET = 'content-media';
 // headroom for the response payload.
 const INLINE_ENCRYPT_MAX_BYTES = 5 * 1024 * 1024;
 
+/**
+ * Whether a registered asset skips encryption (i.e. is stored plaintext,
+ * publicly fetchable at its storage URL). Pure and exported so this
+ * security-relevant decision is independently testable without mocking
+ * Supabase — a bare `series` string must NEVER decide this alone; only an
+ * explicit `makePublic: true` from a caller that knows the asset's real
+ * intent may, alongside the pre-existing `'qriptopian'` exemption.
+ */
+export function shouldSkipEncryption(series: string, makePublic: boolean | undefined): boolean {
+  return series === 'qriptopian' || makePublic === true;
+}
+
 export class CodexStorageRegisterError extends Error {
   constructor(
     message: string,
@@ -92,6 +104,18 @@ export interface CodexStorageRegisterInput {
   recommendedTask?: string;
   editionMax?: number;
   randomWeight?: number;
+  /**
+   * Explicit, deliberate signal (2026-09-02) that THIS asset is intended for
+   * unauthenticated public display and must be stored unencrypted — never
+   * inferred from `series` alone. `series` is a namespace/organization tag
+   * a caller can set to any string; it must never, by itself, decide
+   * whether content gets encrypted. The caller (e.g. the bridge
+   * asset-picker, which only ever registers marketing video/poster/
+   * infographic assets meant for a public page) sets this explicitly,
+   * asset-by-asset, rather than the handler assuming "series='bridge'
+   * therefore public."
+   */
+  makePublic?: boolean;
 }
 
 export async function handleCodexStorageRegister(
@@ -106,6 +130,7 @@ export async function handleCodexStorageRegister(
     mimeType, fileSize,
     displayMode, isShareable, recommendedTask,
     editionMax, randomWeight,
+    makePublic,
   } = body;
 
   if (!path || !category || !title) {
@@ -170,12 +195,7 @@ export async function handleCodexStorageRegister(
   let encIv2 = '';
   let encAuthTag2 = '';
   let encKeyId2 = '';
-  // 'bridge' (2026-09-02, QRP-BRIDGE-ADMIN A2 asset picker): CI/KNYTS bridge
-  // media (video/poster/infographic) is served directly by <video>/<img> to
-  // UNAUTHENTICATED visitors on a public marketing page — encrypting it in
-  // place would leave `storageUrl` pointing at an undecryptable blob, the
-  // same "WIP-public, served plaintext" reasoning 'qriptopian' already gets.
-  const skipEncryption = series === 'qriptopian' || series === 'bridge';
+  const skipEncryption = shouldSkipEncryption(series, makePublic);
   if (isEncryptionConfigured() && !skipEncryption) {
     const out = await encryptInPlace(supabase, bucket, path, mediaId);
     encIv2 = out.iv;
