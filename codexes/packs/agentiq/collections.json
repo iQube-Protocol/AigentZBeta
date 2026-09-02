@@ -40,6 +40,8 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-09-02_moneypenny-handoff-specs-import-and-crosswalk.md",
+        "updates/2026-09-02_a2-completion-acceptance-ledger-and-shell-audit.md",
         "updates/2026-09-02_mpy2-0b-moneypenny002-real-source-audit.md",
         "updates/2026-09-01_mpy2-0-donor-harvest-audit.md",
         "updates/2026-09-01_spec-moneypenny-cartridge-capability-harvest-upgrade.md",
