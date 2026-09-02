@@ -42,6 +42,15 @@ export interface KnytsBridgeEditorialSection {
   shortCopy: string | null;
   videoUrl: string | null;
   posterUrl: string | null;
+  /**
+   * infographic_url (2026-09-02, A2 completion — migration
+   * 20260902010000_knyts_bridge_editorial_config_infographic_url.sql). Null
+   * both when no infographic has been published AND when the column itself
+   * doesn't exist yet in this environment — see the two-tier read in
+   * getKnytsBridgeEditorialSection below, which keeps headline/copy/video/
+   * poster fully working even before that migration lands.
+   */
+  infographicUrl: string | null;
   campaignCta: string | null;
   rewardCopy: string | null;
   updatedAt: string | null;
@@ -65,6 +74,7 @@ export const KNYTS_BRIDGE_SECTION_DEFAULTS: Record<string, KnytsBridgeEditorialS
       'Discover others. Earn Standing. Win rewards.',
     videoUrl: null,
     posterUrl: null,
+    infographicUrl: null,
     campaignCta: 'Explore the crossings',
     rewardCopy: 'Every crossing builds the bridge.',
     updatedAt: null,
@@ -78,6 +88,7 @@ export const KNYTS_BRIDGE_SECTION_DEFAULTS: Record<string, KnytsBridgeEditorialS
       'Everything before it was browsing; this is the actual crossing.',
     videoUrl: null,
     posterUrl: null,
+    infographicUrl: null,
     campaignCta: 'Claim your Passport',
     rewardCopy: null,
     updatedAt: null,
@@ -95,6 +106,7 @@ export const KNYTS_BRIDGE_SECTION_DEFAULTS: Record<string, KnytsBridgeEditorialS
     shortCopy: 'Your crossing is published. Choose how to continue in the Polity.',
     videoUrl: null,
     posterUrl: null,
+    infographicUrl: null,
     campaignCta: null,
     rewardCopy: null,
     updatedAt: null,
@@ -110,6 +122,7 @@ export const KNYTS_BRIDGE_SECTION_DEFAULTS: Record<string, KnytsBridgeEditorialS
       'crossing when you are ready.',
     videoUrl: null,
     posterUrl: null,
+    infographicUrl: null,
     campaignCta: null,
     rewardCopy: null,
     updatedAt: null,
@@ -135,6 +148,7 @@ export const KNYTS_BRIDGE_SECTION_DEFAULTS: Record<string, KnytsBridgeEditorialS
       'emerging Constitutional Internet.',
     videoUrl: null,
     posterUrl: null,
+    infographicUrl: null,
     campaignCta: 'Enter',
     rewardCopy: null,
     updatedAt: null,
@@ -150,6 +164,7 @@ export const KNYTS_BRIDGE_SECTION_DEFAULTS: Record<string, KnytsBridgeEditorialS
       'what you want agents to do — and what must remain yours.',
     videoUrl: null,
     posterUrl: null,
+    infographicUrl: null,
     campaignCta: null,
     rewardCopy: null,
     updatedAt: null,
@@ -165,6 +180,7 @@ export const KNYTS_BRIDGE_SECTION_DEFAULTS: Record<string, KnytsBridgeEditorialS
       'choose — an agent can help, but only within what you decide here.',
     videoUrl: null,
     posterUrl: null,
+    infographicUrl: null,
     campaignCta: null,
     rewardCopy: null,
     updatedAt: null,
@@ -186,10 +202,28 @@ function rowToSection(row: Record<string, unknown> | null, section: string): Kny
     shortCopy: (row.short_copy as string) ?? null,
     videoUrl: (row.video_url as string) ?? null,
     posterUrl: (row.poster_url as string) ?? null,
+    // Absent on a row read via the legacy (pre-migration) column list below
+    // — `row.infographic_url` is simply undefined then, and `?? null`
+    // correctly reports "not available" rather than throwing.
+    infographicUrl: (row.infographic_url as string) ?? null,
     campaignCta: (row.campaign_cta as string) ?? null,
     rewardCopy: (row.reward_copy as string) ?? null,
     updatedAt: (row.updated_at as string) ?? null,
   };
+}
+
+const LEGACY_COLUMNS = 'section, headline, short_copy, video_url, poster_url, campaign_cta, reward_copy, updated_at';
+const FULL_COLUMNS = `section, headline, short_copy, video_url, poster_url, infographic_url, campaign_cta, reward_copy, updated_at`;
+
+/** Postgres 42703 (undefined_column) — the infographic_url migration
+ *  hasn't landed in this environment yet. Distinct from isMissingTable
+ *  (42P01): the TABLE exists and is fully live, only the new COLUMN is
+ *  absent, so every other field must keep working while this one degrades. */
+function isMissingColumn(error: { code?: string; message?: string } | null | undefined): boolean {
+  if (!error) return false;
+  if (error.code === '42703') return true;
+  if (typeof error.message === 'string' && /column .* does not exist/i.test(error.message)) return true;
+  return false;
 }
 
 /**
@@ -200,16 +234,29 @@ function rowToSection(row: Record<string, unknown> | null, section: string): Kny
  * previously meant this function returned the exact same shipped-copy
  * defaults whether the editorial_config migration had been applied or not,
  * so a 200 from the route it backs proved nothing about migration state.
+ *
+ * Two-tier read (2026-09-02, infographic_url addition): tries the FULL
+ * column list first; if that specific column doesn't exist yet
+ * (isMissingColumn), retries with the LEGACY list so headline/copy/video/
+ * poster — all already-live, already-working fields — are never taken down
+ * by a not-yet-applied migration for a field nothing else depends on.
  */
 export async function getKnytsBridgeEditorialSection(
   supabase: SupabaseClient,
   section: string,
 ): Promise<KnytsBridgeEditorialSection> {
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('knyts_bridge_editorial_config')
-    .select('section, headline, short_copy, video_url, poster_url, campaign_cta, reward_copy, updated_at')
+    .select(FULL_COLUMNS)
     .eq('section', section)
     .maybeSingle();
+  if (error && isMissingColumn(error)) {
+    ({ data, error } = await supabase
+      .from('knyts_bridge_editorial_config')
+      .select(LEGACY_COLUMNS)
+      .eq('section', section)
+      .maybeSingle());
+  }
   if (error) throw new Error(`knyts_bridge_editorial_config read failed: ${error.message}`);
   return rowToSection(data as Record<string, unknown> | null, section);
 }
@@ -219,8 +266,24 @@ export interface KnytsBridgeEditorialUpdate {
   shortCopy?: string | null;
   videoUrl?: string | null;
   posterUrl?: string | null;
+  infographicUrl?: string | null;
   campaignCta?: string | null;
   rewardCopy?: string | null;
+}
+
+/** Thrown by upsertKnytsBridgeEditorialSection when an update sets
+ *  infographicUrl but the column doesn't exist yet — distinct from every
+ *  other write failure so callers (publishPlacement) can surface an honest
+ *  "not available in this environment yet" rather than a raw Postgres
+ *  error, exactly the same discipline as FinancialProfileTableMissingError
+ *  and 'bridge-placements-table-missing'. */
+export class KnytsBridgeInfographicColumnMissingError extends Error {
+  constructor() {
+    super(
+      'knyts_bridge_editorial_config.infographic_url does not exist in this environment yet — apply ' +
+        'supabase/migrations/20260902010000_knyts_bridge_editorial_config_infographic_url.sql.',
+    );
+  }
 }
 
 export async function upsertKnytsBridgeEditorialSection(
@@ -229,24 +292,40 @@ export async function upsertKnytsBridgeEditorialSection(
   update: KnytsBridgeEditorialUpdate,
   updatedBy: string,
 ): Promise<KnytsBridgeEditorialSection> {
-  const { data, error } = await supabase
+  const setsInfographic = update.infographicUrl !== undefined;
+  const writePayload = {
+    section,
+    ...(update.headline !== undefined ? { headline: update.headline } : {}),
+    ...(update.shortCopy !== undefined ? { short_copy: update.shortCopy } : {}),
+    ...(update.videoUrl !== undefined ? { video_url: update.videoUrl } : {}),
+    ...(update.posterUrl !== undefined ? { poster_url: update.posterUrl } : {}),
+    ...(setsInfographic ? { infographic_url: update.infographicUrl } : {}),
+    ...(update.campaignCta !== undefined ? { campaign_cta: update.campaignCta } : {}),
+    ...(update.rewardCopy !== undefined ? { reward_copy: update.rewardCopy } : {}),
+    updated_by: updatedBy,
+    updated_at: new Date().toISOString(),
+  };
+
+  let { data, error } = await supabase
     .from('knyts_bridge_editorial_config')
-    .upsert(
-      {
-        section,
-        ...(update.headline !== undefined ? { headline: update.headline } : {}),
-        ...(update.shortCopy !== undefined ? { short_copy: update.shortCopy } : {}),
-        ...(update.videoUrl !== undefined ? { video_url: update.videoUrl } : {}),
-        ...(update.posterUrl !== undefined ? { poster_url: update.posterUrl } : {}),
-        ...(update.campaignCta !== undefined ? { campaign_cta: update.campaignCta } : {}),
-        ...(update.rewardCopy !== undefined ? { reward_copy: update.rewardCopy } : {}),
-        updated_by: updatedBy,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'section' },
-    )
-    .select('section, headline, short_copy, video_url, poster_url, campaign_cta, reward_copy, updated_at')
+    .upsert(writePayload, { onConflict: 'section' })
+    .select(FULL_COLUMNS)
     .single();
+
+  if (error && isMissingColumn(error)) {
+    // The write itself never touched infographic_url unless setsInfographic
+    // — a caller updating only headline/video/poster must keep working even
+    // before this migration lands, so retry with the legacy select (and, if
+    // the write payload somehow still referenced the column, the legacy
+    // upsert below strips it too).
+    if (setsInfographic) throw new KnytsBridgeInfographicColumnMissingError();
+    const { infographic_url: _drop, ...legacyPayload } = writePayload as typeof writePayload & { infographic_url?: string | null };
+    ({ data, error } = await supabase
+      .from('knyts_bridge_editorial_config')
+      .upsert(legacyPayload, { onConflict: 'section' })
+      .select(LEGACY_COLUMNS)
+      .single());
+  }
   if (error) throw new Error(error.message);
   return rowToSection(data as Record<string, unknown>, section);
 }

@@ -2132,9 +2132,9 @@ const BRIDGE_ASSET_ACCEPT: Record<PlacementSlot, string> = {
  * copy/URL fields. Backed entirely by the new
  * /api/journey/knyts-bridge/placements route + bridgeContentPlacements.ts —
  * publish writes into the SAME knyts_bridge_editorial_config row the plain
- * text fields above already edit for video/poster (infographic has no live
- * column yet — see bridgeContentPlacements.ts's own header), so both stay a
- * single source of truth.
+ * text fields above already edit, for all three slots (video/poster/
+ * infographic, the last added 2026-09-02), so both stay a single source of
+ * truth.
  *
  * A2 completion (2026-09-02): assigning a draft now supports THREE paths,
  * never a fourth parallel upload mechanism —
@@ -2259,6 +2259,8 @@ function PlacementAssetsPanel({ section, personaId }: { section: string; persona
           assetKind: BRIDGE_SLOT_ASSET_KIND[slot],
           mimeType: file.type || undefined,
           fileSize: file.size,
+          // Explicit intent signal — series='bridge' alone does not authorize public exposure (2026-09-02).
+          makePublic: true,
         }),
       });
       const regJson = await regRes.json() as { storageUrl?: string; error?: string };
@@ -2303,10 +2305,6 @@ function PlacementAssetsPanel({ section, personaId }: { section: string; persona
             <p className="mb-2 text-xs text-slate-500">
               Published: {placement?.publishedAssetUrl ? (
                 <span className="text-slate-300">{placement.publishedAssetUrl} (rev {placement.revision})</span>
-              ) : slot === 'infographic' ? (
-                <span className="italic">
-                  none yet — publish records placement only, no bridge page renders an infographic yet
-                </span>
               ) : (
                 <span className="italic">none yet</span>
               )}

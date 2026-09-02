@@ -76,6 +76,7 @@ export function ConstitutionalInternetBridgeMediaStage({ onPrimaryCta, onSeconda
       accent="indigo"
       videoUrl={config.videoUrl ?? undefined}
       posterUrl={config.posterUrl ?? undefined}
+      infographicUrl={config.infographicUrl ?? undefined}
       layout="cinematic"
     />
   );

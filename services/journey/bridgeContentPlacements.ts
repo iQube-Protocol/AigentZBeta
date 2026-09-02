@@ -1,7 +1,8 @@
 /**
- * bridgeContentPlacements — QRP-BRIDGE-ADMIN A2 (2026-09-01). A typed asset
- * reference with a real draft/publish distinction for CI/KNYTS bridge media
- * slots (video/poster), sitting ALONGSIDE the existing
+ * bridgeContentPlacements — QRP-BRIDGE-ADMIN A2 (2026-09-01, infographic
+ * slot completed 2026-09-02). A typed asset reference with a real
+ * draft/publish distinction for CI/KNYTS bridge media slots
+ * (video/poster/infographic), sitting ALONGSIDE the existing
  * knytsBridgeEditorialConfig.ts copy/URL fields — not a replacement.
  *
  * `publishPlacement` is the ONLY writer that touches
@@ -23,19 +24,6 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { upsertKnytsBridgeEditorialSection } from '@/services/journey/knytsBridgeEditorialConfig';
 
 export type PlacementSlot = 'video' | 'poster' | 'infographic';
-
-/**
- * Slots with a live `knyts_bridge_editorial_config` column to publish into
- * (via the existing `upsertKnytsBridgeEditorialSection`). 'infographic' has
- * no such column — no bridge surface renders one yet
- * (KnytsBridgeEditorialSection carries only headline/shortCopy/videoUrl/
- * posterUrl/campaignCta/rewardCopy). Its `publish` therefore updates ONLY
- * this table's bookkeeping (draft->published, revision bump) — real asset
- * placement/versioning is available for it today; live rendering is a
- * separate, not-yet-built surface gap (never conflated as if publishing an
- * infographic already makes it appear on a bridge page).
- */
-const SLOTS_WITH_LIVE_CONFIG_COLUMN: ReadonlySet<PlacementSlot> = new Set(['video', 'poster']);
 
 export interface BridgeContentPlacement {
   section: string;
@@ -209,17 +197,17 @@ export async function publishPlacement(
     throw new Error('no-draft-to-publish');
   }
 
-  // See SLOTS_WITH_LIVE_CONFIG_COLUMN's own comment — 'infographic' has no
-  // live config column to write into yet, so this step is skipped for it,
-  // never silently pointed at the wrong field.
-  if (slot === 'video' || slot === 'poster') {
-    await upsertKnytsBridgeEditorialSection(
-      supabase,
-      section,
-      slot === 'video' ? { videoUrl: existing.draftAssetUrl } : { posterUrl: existing.draftAssetUrl },
-      actor,
-    );
-  }
+  // All three slots publish through the SAME live config column
+  // (2026-09-02 — infographic_url added alongside video_url/poster_url via
+  // migration 20260902010000). A KnytsBridgeInfographicColumnMissingError
+  // here means that migration hasn't landed in this environment yet — it
+  // propagates to the caller (placements/route.ts) for an honest response,
+  // never a silent "published" that isn't actually live anywhere.
+  const fieldUpdate =
+    slot === 'video' ? { videoUrl: existing.draftAssetUrl }
+    : slot === 'poster' ? { posterUrl: existing.draftAssetUrl }
+    : { infographicUrl: existing.draftAssetUrl };
+  await upsertKnytsBridgeEditorialSection(supabase, section, fieldUpdate, actor);
 
   const { data, error } = await supabase
     .from('bridge_content_placements')
