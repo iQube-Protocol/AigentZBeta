@@ -5064,3 +5064,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-51e9e21.md](../build_/COMMITS/COMMIT-51e9e21.md)
 - Message: Import authoritative MoneyPenny three-spec handoff + reconciliation crosswalk
+
+## Commit `e2ac273` — 2026-09-02T09:17:35-04:00
+- Type: `feat`
+- Brief: [COMMIT-e2ac273.md](../build_/COMMITS/COMMIT-e2ac273.md)
+- Message: feat(qriptopian): one-card Reading and Research editions for Thresholds 006

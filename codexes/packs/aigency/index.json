@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-02T13:16:45.081Z",
+  "last_updated": "2026-09-02T13:19:19.273Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "51e9e21c00713d163e5eded8b72425378b3906a4",
-  "latest_commit_short": "51e9e21",
-  "latest_commit_title": "Import authoritative MoneyPenny three-spec handoff + reconciliation crosswalk",
+  "latest_commit": "e2ac27372238cf2fa2faa847233f2f968b12f4b2",
+  "latest_commit_short": "e2ac273",
+  "latest_commit_title": "feat(qriptopian): one-card Reading and Research editions for Thresholds 006",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "e2ac273",
+      "full_sha": "e2ac27372238cf2fa2faa847233f2f968b12f4b2",
+      "title": "feat(qriptopian): one-card Reading and Research editions for Thresholds 006",
+      "author": "Kn0w1",
+      "timestamp": "2026-09-02T09:17:35-04:00",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-e2ac273.md"
+    },
     {
       "sha": "51e9e21",
       "full_sha": "51e9e21c00713d163e5eded8b72425378b3906a4",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-28T14:24:25-04:00",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-5540135.md"
-    },
-    {
-      "sha": "b9667e0",
-      "full_sha": "b9667e0d267372c0ec3bfeb7cf16f83e432e1229",
-      "title": "feat: add operator-assisted artifact registration schema and service functions",
-      "author": "Claude",
-      "timestamp": "2026-08-28T14:55:02Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-b9667e0.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

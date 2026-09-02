@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`e2ac273`](https://github.com/iQube-Protocol/AigentZBeta/commit/e2ac27372238cf2fa2faa847233f2f968b12f4b2) [feat] feat(qriptopian): one-card Reading and Research editions for Thresholds 006 (Kn0w1, 2026-09-02T09:17:35-04:00)
 - [`51e9e21`](https://github.com/iQube-Protocol/AigentZBeta/commit/51e9e21c00713d163e5eded8b72425378b3906a4) [push] Import authoritative MoneyPenny three-spec handoff + reconciliation crosswalk (Claude, 2026-09-02T13:03:02Z)
 - [`0790e69`](https://github.com/iQube-Protocol/AigentZBeta/commit/0790e6957b6f0b22b51d17a364cfd4a2746c9fc9) [feat] Wire MoneyPenny copilot-to-capsule loop (C-02) + corrected AC-C/B/A crosswalk (Claude, 2026-09-02T13:14:31Z)
 - [`fea3a52`](https://github.com/iQube-Protocol/AigentZBeta/commit/fea3a52eaae2c3e46463972da7fc646a99505b14) [feat] Wire MoneyPenny copilot-to-capsule loop + corrected AC crosswalk [merge spec/moneypenny-mpy2-3] (Claude, 2026-09-02T13:14:48Z)
