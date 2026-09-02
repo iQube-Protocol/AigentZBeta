@@ -1,10 +1,10 @@
 # MoneyPenny Authoritative Three-Spec Import and Reconciliation (2026-09-02)
 
-**Status:** Import complete. Crosswalk complete (§2, revised §6). Baseline reconciliation performed
-in two passes: the first (§3) reconciled the specs' dated snapshot against prior-session work; the
-second (§6, this revision) verified the C1 shell's shared-context/copilot-to-capsule/navigation
-behavior against the Cartridge spec's actual code and closed the copilot-to-capsule gap it found —
-see §7 for what shipped in this pass, preserving every previously-implemented feature untouched.
+**Status:** Import complete. Crosswalk complete (§2, revised §10, deltas in §12). Three reconciliation
+passes: (1) §3 reconciled the specs' dated snapshot against prior-session work; (2) §6–§7 verified the
+C1 shell and closed the copilot-to-capsule (C-02) gap; (3) §11 closes SC-04 (task/context versioning)
+and completes the C-01/C-03 shell (pane ratio, narrow-width toggle, five-area navigation incl. Home,
+sidebar retirement) — all three passes preserved every previously-implemented feature untouched.
 
 ---
 
@@ -318,3 +318,134 @@ owning phase (Bridge B1+, Admin A1+) has not started, so the criterion cannot ye
 tested, and shipped for the KNYTS-specific case, but short of the spec's generalized destination
 registry (A-04) and agent-placement binding (A-07/A08). No status above is asserted higher than the
 evidence in this document and in prior-session commits supports.
+
+## 11. SC-04 closed + C-01/C-03 shell completed (this pass, 2026-09-02, second continuation)
+
+Two bounded, no-migration slices, continued without a selection round per the operator's instruction.
+
+### 11a. SC-04 — task/context versioning, closed using the existing shared-context infrastructure
+
+**Mechanism, not a new parallel system.** `SmartTriadCopilotLayer.tsx` already captures
+`currentGroundContext` fresh at POST time (its own pre-existing pattern, documented in its own
+comments). This pass added ONE small, additive, optional prop — `onRequestContext` — that echoes that
+exact snapshot to the host immediately before dispatch. Every existing caller (DevOn, Agent Me) that
+doesn't wire it is unaffected. `services/moneypenny/contextVersioning.ts` is the pure, directly
+unit-tested logic: `computeContextVersionKey({panel, personaId, environment, profileRevision})` and
+`isResponseContextStale(sentVersionKey, currentVersionKey)`.
+
+`MoneyPennyCopilotWorkspace.tsx` embeds the version into `groundContext.contextVersion` (so it rides
+the SAME request the copilot already sends), captures it via `onRequestContext` into a ref at
+dispatch time, and — inside `handleSuggestedLayouts` — discards ANY response whose captured version no
+longer matches the CURRENT version computed fresh at response-arrival time. A stale response is a bare
+`return`: it never calls `setSuggestedPanel`, so it can neither populate new state nor overwrite an
+existing valid suggestion for the current context. The explicit-click behavior (MS-5) and single
+navigation owner (MS-2, `tryOpenInMountedCartridge`) from the C-02 slice are untouched — the guard
+sits strictly upstream of them.
+
+Four axes compose the version, covering "task, agent, or environment" (SC-04's own wording) plus a
+fourth this session added deliberately: `panel` (task), `personaId` (agent), `environment` (execution
+environment — real state, defaulted to `'simulation'`; no simulation/live UI exists yet since C-11/C-12
+are NOT STARTED, so no toggle was built — speculative UI was deliberately avoided, but the state is
+real and ready for that future work to plug into), and `profileRevision` (a monotonic counter bumped
+on every successful financial-profile refetch — a profile revision invalidates an in-flight response
+even when panel/persona/environment are unchanged, since the response may have reasoned over the
+now-superseded snapshot).
+
+**Tests:** `tests/moneypenny-context-versioning.test.ts` — 20 tests. 12 are real, callable unit tests
+of the pure logic (not source-shape checks) directly exercising the three required scenarios: a
+delayed response after a panel change, a delayed response after a financial-profile revision, and a
+delayed response after a simulation/live environment switch — plus a persona-switch case and a
+fail-closed (null sent-version) case. 8 are source-shape tests proving the wiring (module reuse, the
+guard precedes the state write, the additive/optional nature of `onRequestContext`). All pass. tsc
+held at 677; the pre-existing 22-test `moneypenny-copilot-workspace.test.ts` suite still passes
+unmodified by this change.
+
+**Implementation evidence vs. browser acceptance, kept separate as instructed:** the guard's logic is
+proven by real unit tests calling the pure functions with concrete inputs — this is implementation
+evidence. No browser session has exercised a genuine race (typing in one panel, navigating before the
+response returns) against the live UI. That remains a separate, explicit open item.
+
+### 11b. C-03 — five-area navigation (Home / My Money / Plan / Markets / Activity), Home included
+
+**Home is in the specification and in this implementation.** The previous turn's report text omitted
+mentioning Home in one summary sentence — an error in that report's prose, not in the underlying
+Cartridge spec §5 IA table, which always listed Home first. This pass implements all five.
+
+`app/(shell)/moneypenny/components/moneypennyCapabilities.ts` gained the area registry
+(`MONEYPENNY_AREAS`, `MONEYPENNY_AREA_FOR_PANEL`, `areaForPanel`, `capabilityItemsForArea`,
+`areaItems`) — a DERIVED projection over the existing `MONEYPENNY_CAPABILITY_GROUPS` (never a
+hand-duplicated second list of labels/descriptions/modes). The Cartridge spec's own §5
+existing-surface-relocation table was applied to this repo's actual 14 `MoneyPennyPanelKey` values:
+
+| Area | Panels |
+|---|---|
+| Home | `overview` |
+| My Money | `financial-profile`, `identity`, `x402` |
+| Plan | `risk-envelope` |
+| Markets | `hft-console`, `strategies`, `architect`, `chat` |
+| Activity | `portfolio`, `smarttriad`, `runtime`, `service-orchestration` |
+| Utility (outside the five areas) | `crm` |
+
+`crm`'s placement is a deliberate, spec-grounded decision, not an omission: C-03's own closing
+paragraph carves "privileged administration" out of the five beginner areas as contextual utility
+access ("Administration is permission-gated; it is not a sixth beginner journey"). CRM is still fully
+reachable — same panel, same deep link, same functionality — via a small utility link in the new nav,
+not one of the five area tabs. `identity` and `x402` had no existing `MONEYPENNY_CAPABILITY_GROUPS`
+entry at all (a pre-existing gap, not introduced this pass) — both gained honest, minimal capability
+items (`MONEYPENNY_UNGROUPED_ITEMS`) so their deep links remain reachable from the nav, not just a raw
+URL.
+
+**The sidebar is retired, not archived.** `MoneyPennyCapabilityRail.tsx` (the flat 14-item vertical
+list C-01 explicitly names as "a competing full capability sidebar") is deleted — confirmed via
+grep that no other file imported it (two doc-comment mentions elsewhere are prose, not imports,
+left as-is since they're historical narrative). `MoneyPennyShell.tsx` now renders the new
+`MoneyPennyAreaNav.tsx` — a horizontal area strip (5 area tabs + the CRM utility link) with a
+contextual chip row for the active area's capsules — in the exact position the rail used to occupy.
+Navigation still goes through the SAME `tryOpenInMountedCartridge` seam the rail always used, so every
+existing `buildCodexUrl('moneypenny', {tab})` deep link resolves identically and every panel component
+(`MoneyPennyPanelTab.tsx`'s `PANELS` map) is completely unchanged — only how the operator reaches a
+panel changed, never what they find there.
+
+**Mode/environment/authority stay independent of navigation (C-10), verified not just asserted:** each
+capsule chip still carries its Advisor/Architect/Runtime badge, read straight from the existing
+`MoneyPennyCapabilityItem.mode` field — the area registry never redefines or overrides it, and a test
+(`tests/moneypenny-copilot-workspace.test.ts`) asserts no area-conditioned mode-override logic exists
+in `MoneyPennyAreaNav.tsx`.
+
+### 11c. C-01 — pane ratio and narrow-width toggle, in the same shell slice
+
+`MoneyPennyCopilotWorkspace.tsx`'s copilot pane is now `lg:w-[38%]` and the workspace pane
+`lg:w-[62%]` (both within the spec's 35–40% / 60–65% ranges), replacing the prior even 50/50
+`lg:w-1/2` split.
+
+Below the `lg` breakpoint, a new Conversation/Workspace toggle (two buttons, `lg:hidden`) switches
+which pane is visible. **Both panes stay mounted at every width** — only CSS visibility
+(`hidden`/`flex`/`block`, overridden unconditionally by `lg:flex`/`lg:block` at the `lg` breakpoint)
+toggles which one is shown — so `SmartTriadCopilotLayer`'s conversation history and
+`MoneyPennyShell`'s active-panel/task state are never remounted or lost when switching views, exactly
+as instructed ("preserving conversation and task state when switching views"). At `lg`+, the toggle
+itself is hidden and both panes are always visible, unchanged from before.
+
+**Tests:** extended into the same `tests/moneypenny-copilot-workspace.test.ts` file — 10 new tests
+(4 for the narrow-width toggle's mount-preservation property, 6 for the five-area nav/rail-retirement).
+Combined with the SC-04 suite, 52 MoneyPenny-specific tests pass. Full regression: tsc held exactly at
+677; full vitest suite held exactly at 49 failed / 17 failed files (the same pre-existing
+`repo-weight`/`resolution-records` failures — zero new failures anywhere in the suite).
+
+**Implementation evidence vs. browser acceptance:** the mount-preservation property is proven
+structurally (the JSX never conditionally unmounts either pane; only className strings reference
+`narrowView`) — real evidence, but not a rendered screenshot or an interactive resize/toggle session
+in a real browser. That remains separately open, as does confirming the actual rendered pane widths at
+various viewport sizes match the intended 38/62 split visually.
+
+## 12. Corrected AC-C status deltas from this pass (§10 superseded for these rows only)
+
+| ID | Previous status | New status | Basis |
+|---|---|---|---|
+| AC-C01 | PARTIAL | PARTIAL (stronger) | One shared copilot across direct/dispatcher entry still holds; the sidebar-vs-menu gap named in §6 is now closed (five-area menu replaces the competing sidebar). Agent Me and bridge entry remain unverified |
+| AC-C02 | PARTIAL | PARTIAL (stronger) | Copilot-to-capsule suggestion now additionally respects SC-04 versioning — a stale suggestion can no longer surface as actionable. Browser acceptance still pending |
+| AC-C03 | NOT STARTED | PASS (code evidence; browser acceptance pending) | SC-04's task/agent/environment versioning is now implemented and unit-tested against exactly this criterion's wording ("late responses cannot overwrite a different task, agent, or environment") |
+| AC-C04 | PARTIAL | PARTIAL (stronger) | The narrow-width Conversation/Workspace toggle now exists with state preserved across switching (structurally proven); full-screen takeover still does not exist (no MoneyPenny surface currently needs one) |
+
+All other AC-C/AC-B/AC-A rows in §10 are unchanged by this pass — restated, not re-derived, to avoid
+implying progress this pass did not make.

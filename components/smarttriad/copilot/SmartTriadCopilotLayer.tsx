@@ -121,6 +121,20 @@ interface SmartTriadCopilotLayerProps {
    */
   groundContext?: Record<string, unknown> | null;
   /**
+   * SC-04 (task/context versioning) — fired once per turn, immediately
+   * BEFORE the chat POST dispatches, with the exact `groundContext` this
+   * request will use (the same `currentGroundContext` snapshot the POST
+   * body itself sends). Optional and purely additive: existing callers
+   * that don't wire it are unaffected. A host that embeds a version marker
+   * in `groundContext` (e.g. `{ contextVersion: '...' }`) can use this hook
+   * to record "request N is in flight for version V," then compare that
+   * recorded version against the CURRENT version when `onSuggestedLayouts`
+   * fires, to detect and discard a late response whose context has since
+   * changed — the exact capability SC-04 requires, without this shared
+   * layer needing to know anything about any specific host's version shape.
+   */
+  onRequestContext?: (sentGroundContext: Record<string, unknown> | null) => void;
+  /**
    * Fired after each successful chat POST with the server-classified
    * layout suggestions for the latest turn. The parent maps each hint
    * to a left-pane chip (capsule or composer/upload/download) and
@@ -308,6 +322,7 @@ export function SmartTriadCopilotLayer({
   tenantConfig,
   enableAdvancedRendering = true,
   groundContext,
+  onRequestContext,
   onSuggestedLayouts,
   onStageProposals,
   onSuggestedDeliberation,
@@ -621,6 +636,11 @@ export function SmartTriadCopilotLayer({
       // send; without the ref we'd capture the snapshot from when the
       // chip fired, which is empty.
       const currentGroundContext = groundContextRef.current ?? null;
+      // SC-04 — hand the host the exact context this request is using,
+      // BEFORE dispatch, so it can correlate this in-flight turn's
+      // eventual response against whatever context is CURRENT when that
+      // response arrives (see onRequestContext's own doc comment above).
+      onRequestContext?.(currentGroundContext);
 
       const res = await fetch('/api/codex/chat', {
         method: 'POST',

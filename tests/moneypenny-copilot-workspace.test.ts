@@ -36,8 +36,9 @@ describe('MoneyPennyCopilotWorkspace — reuses the REAL DevOn/Agent Me copilot,
     expect(src).toMatch(/<MoneyPennyShell activePanel=\{activePanel\}>\{children\}<\/MoneyPennyShell>/);
   });
 
-  it('uses the same lg:w-1/2 / lg:w-1/2 split shell shape as DevCommandCenterTab/AigentMeWelcomeSplitTab', () => {
-    expect(src).toMatch(/lg:w-1\/2 w-full h-full min-h-0 flex flex-col/);
+  it('uses the C-01 specified pane ratio (35-40% copilot / 60-65% workspace), not an even 50/50 split', () => {
+    expect(src).toMatch(/lg:w-\[38%\]/);
+    expect(src).toMatch(/lg:w-\[62%\]/);
   });
 
   it('groundContext carries a financialProfile snapshot when the active panel is financial-profile', () => {
@@ -110,6 +111,80 @@ describe('C-02 copilot-to-capsule loop (Cartridge spec reconciliation, 2026-09-0
 
   it('clears a stale suggestion once the operator has actually navigated there', () => {
     expect(src).toMatch(/setSuggestedPanel\(\(prev\) => \(prev === activePanel \? null : prev\)\)/);
+  });
+});
+
+describe('C-01 narrow-width Conversation/Workspace toggle — preserves conversation and task state (2026-09-02)', () => {
+  const src = stripComments(readSource(WORKSPACE_SRC));
+
+  it('has an explicit narrowView state driving which pane is visible below lg', () => {
+    expect(src).toMatch(/const \[narrowView, setNarrowView\] = useState<'conversation' \| 'workspace'>\('conversation'\);/);
+  });
+
+  it('the toggle control is hidden at lg+ (lg:hidden) — desktop keeps both panes visible unconditionally', () => {
+    expect(src).toMatch(/border-b border-slate-800 bg-slate-900\/60 p-1 lg:hidden/);
+  });
+
+  it('both panes stay in the JSX tree at every width — visibility (hidden/flex/block) toggles, panes are never conditionally unmounted', () => {
+    // Neither pane's mount is gated by `narrowView &&` / `narrowView ===` ternary-with-null —
+    // only className strings reference narrowView, proving state (conversation
+    // history, task/panel state) survives switching views.
+    expect(src).not.toMatch(/\{narrowView === '(conversation|workspace)' && </);
+    expect(src).not.toMatch(/\{narrowView === '(conversation|workspace)' \? <.*> : null\}/);
+    expect(src).toMatch(/narrowView === 'conversation' \? 'flex' : 'hidden'/);
+    expect(src).toMatch(/narrowView === 'workspace' \? 'block' : 'hidden'/);
+  });
+
+  it('lg:flex / lg:block unconditionally restore both panes at the lg breakpoint, overriding the narrow-only hidden state', () => {
+    expect(src).toMatch(/lg:flex lg:w-\[38%\]/);
+    expect(src).toMatch(/lg:block lg:w-\[62%\]/);
+  });
+});
+
+describe('C-03 five-area navigation retires the 14-item capability rail (2026-09-02)', () => {
+  it('MoneyPennyCapabilityRail.tsx no longer exists', () => {
+    expect(() => readSource('app/(shell)/moneypenny/components/MoneyPennyCapabilityRail.tsx')).toThrow();
+  });
+
+  it('MoneyPennyShell.tsx renders MoneyPennyAreaNav instead — same activePanel prop, same underlying panel components', () => {
+    const src = stripComments(readSource('app/(shell)/moneypenny/components/MoneyPennyShell.tsx'));
+    expect(src).toMatch(/import \{ MoneyPennyAreaNav \} from "\.\/MoneyPennyAreaNav"/);
+    expect(src).toMatch(/<MoneyPennyAreaNav activePanel=\{activePanel\} \/>/);
+    expect(src).not.toMatch(/MoneyPennyCapabilityRail/);
+    // The panel content itself (children) is untouched — same components, same dispatcher.
+    expect(src).toMatch(/\{children\}/);
+  });
+
+  it('MoneyPennyAreaNav navigates through the SAME tryOpenInMountedCartridge seam the retired rail used — deep links unchanged', () => {
+    const src = stripComments(readSource('app/(shell)/moneypenny/components/MoneyPennyAreaNav.tsx'));
+    expect(src).toMatch(/import \{ tryOpenInMountedCartridge \} from "@\/services\/cartridge\/CartridgePresenceRegistry"/);
+    expect(src).toMatch(/tryOpenInMountedCartridge\(\{ cartridgeId: MONEYPENNY_CODEX_ID, tab: /);
+  });
+
+  it('all five areas from the Cartridge spec are present, Home included', () => {
+    const src = stripComments(readSource('app/(shell)/moneypenny/components/moneypennyCapabilities.ts'));
+    for (const area of ['home', 'my-money', 'plan', 'markets', 'activity']) {
+      expect(src, `area '${area}' missing from MONEYPENNY_AREAS`).toMatch(new RegExp(`id: "${area}"`));
+    }
+  });
+
+  it('every real MoneyPennyPanelKey is reachable from exactly one area or the utility item — none dropped', () => {
+    const src = stripComments(readSource('app/(shell)/moneypenny/components/moneypennyCapabilities.ts'));
+    const panels = ['overview', 'hft-console', 'chat', 'portfolio', 'strategies', 'x402', 'identity', 'smarttriad', 'architect', 'runtime', 'service-orchestration', 'financial-profile', 'risk-envelope'];
+    for (const panel of panels) {
+      expect(src, `panel '${panel}' missing from MONEYPENNY_AREA_FOR_PANEL`).toMatch(new RegExp(`(^|\\s)${panel === 'chat' || panel === 'x402' ? panel : `"?${panel}"?`}:\\s*"`, 'm'));
+    }
+    // crm is the deliberate utility-tier exception, not dropped — it has its own item.
+    expect(src).toMatch(/MONEYPENNY_UTILITY_ITEM/);
+    expect(src).toMatch(/panel: "crm"/);
+  });
+
+  it('mode badges (Advisor/Architect/Runtime) are carried through unchanged, never redefined by area — C-10 keeps mode independent of navigation', () => {
+    const src = stripComments(readSource('app/(shell)/moneypenny/components/MoneyPennyAreaNav.tsx'));
+    expect(src).toMatch(/MODE_BADGE_STYLE/);
+    expect(src).toMatch(/item\.mode/);
+    // No area-specific mode override logic — mode always comes from the item itself.
+    expect(src).not.toMatch(/area\.mode|areaId === .*mode/);
   });
 });
 
