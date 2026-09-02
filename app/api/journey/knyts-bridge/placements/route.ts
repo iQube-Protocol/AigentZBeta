@@ -95,8 +95,18 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: false, error: 'assetUrl is required for assign' }, { status: 400 });
       }
       const assetId = typeof body?.assetId === 'string' ? body.assetId : null;
-      const placement = await assignDraftAsset(supabase, section, slot, { assetId, assetUrl }, actor);
-      return NextResponse.json({ ok: true, placement });
+      try {
+        const placement = await assignDraftAsset(supabase, section, slot, { assetId, assetUrl }, actor);
+        return NextResponse.json({ ok: true, placement });
+      } catch (err) {
+        if (err instanceof Error && err.message === 'bridge-placements-table-missing') {
+          return NextResponse.json(
+            { ok: false, error: 'bridge-placements-unavailable', detail: 'bridge_content_placements has not been created in this environment yet.' },
+            { status: 503 },
+          );
+        }
+        throw err;
+      }
     }
 
     // action === 'publish'
