@@ -5069,3 +5069,13 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-e2ac273.md](../build_/COMMITS/COMMIT-e2ac273.md)
 - Message: feat(qriptopian): one-card Reading and Research editions for Thresholds 006
+
+## Commit `fb80497` — 2026-09-02T13:36:47Z
+- Type: `push`
+- Brief: [COMMIT-fb80497.md](../build_/COMMITS/COMMIT-fb80497.md)
+- Message: Close SC-04 versioning + complete C-01/C-03 MoneyPenny shell [merge spec/moneypenny-mpy2-3]
+
+## Commit `3ce33d2` — 2026-09-02T13:36:33Z
+- Type: `push`
+- Brief: [COMMIT-3ce33d2.md](../build_/COMMITS/COMMIT-3ce33d2.md)
+- Message: Close SC-04 task/context versioning + complete C-01/C-03 MoneyPenny shell
