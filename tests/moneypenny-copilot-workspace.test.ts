@@ -20,7 +20,7 @@ describe('MoneyPennyCopilotWorkspace — reuses the REAL DevOn/Agent Me copilot,
   const src = stripComments(readSource(WORKSPACE_SRC));
 
   it('imports SmartTriadCopilotLayer from its one canonical location', () => {
-    expect(src).toMatch(/import \{ SmartTriadCopilotLayer \} from '@\/components\/smarttriad\/copilot\/SmartTriadCopilotLayer'/);
+    expect(src).toMatch(/import \{ SmartTriadCopilotLayer[^}]*\} from '@\/components\/smarttriad\/copilot\/SmartTriadCopilotLayer'/);
   });
 
   it('never imports or mounts CodexCopilotLayer — that is the unrelated cartridge-wide floating bubble, not the split-pane pattern', () => {
@@ -80,5 +80,73 @@ describe('The standalone /moneypenny route stays untouched (out of scope for thi
   it('MoneyPennyCartridge.tsx does not import MoneyPennyCopilotWorkspace', () => {
     const src = stripComments(readSource('app/(shell)/moneypenny/components/MoneyPennyCartridge.tsx'));
     expect(src).not.toMatch(/MoneyPennyCopilotWorkspace/);
+  });
+});
+
+describe('C-02 copilot-to-capsule loop (Cartridge spec reconciliation, 2026-09-02) — chip suggests, operator clicks, tab framework navigates', () => {
+  const src = stripComments(readSource(WORKSPACE_SRC));
+
+  it('wires onSuggestedLayouts and quickPrompts onto the SAME registered suggestion system DevOn/Agent Me use — no parallel proposal channel', () => {
+    expect(src).toMatch(/onSuggestedLayouts=\{handleSuggestedLayouts\}/);
+    expect(src).toMatch(/quickPrompts=\{MONEYPENNY_QUICK_PROMPTS\}/);
+  });
+
+  it('does NOT auto-navigate on a suggested layout — Companion Menu invariant MS-5, a deliberate act outranks an ambient observation', () => {
+    // The handler only sets state; the actual navigation call must live in a
+    // separate, explicitly-invoked callback (never inside handleSuggestedLayouts).
+    const handlerBody = src.match(/const handleSuggestedLayouts = useCallback\(\(hints: SuggestedLayoutHint\[\]\) => \{([\s\S]*?)\}, \[activePanel\]\);/)?.[1] ?? '';
+    expect(handlerBody).not.toMatch(/tryOpenInMountedCartridge/);
+  });
+
+  it('navigates through the SAME tryOpenInMountedCartridge seam the capability rail already uses — one owner of "which panel is active" (MS-2)', () => {
+    expect(src).toMatch(/import \{ tryOpenInMountedCartridge \} from '@\/services\/cartridge\/CartridgePresenceRegistry'/);
+    expect(src).toMatch(/tryOpenInMountedCartridge\(\{ cartridgeId: MONEYPENNY_CODEX_ID, tab: suggestedPanel \}\)/);
+  });
+
+  it('derives suggestable panel labels from the SAME capability-group source of truth the rail uses — no hand-duplicated label list', () => {
+    expect(src).toMatch(/import \{ MONEYPENNY_CAPABILITY_GROUPS \} from '\.\/moneypennyCapabilities'/);
+    expect(src).toMatch(/MONEYPENNY_CAPABILITY_GROUPS\.flatMap/);
+  });
+
+  it('clears a stale suggestion once the operator has actually navigated there', () => {
+    expect(src).toMatch(/setSuggestedPanel\(\(prev\) => \(prev === activePanel \? null : prev\)\)/);
+  });
+});
+
+describe('C-02 server-side registered layout identifiers (app/api/codex/chat/route.ts) — financial ids extend, never fork, the existing typed suggestion system', () => {
+  const src = stripComments(readSource('app/api/codex/chat/route.ts'));
+  const FINANCIAL_IDS = [
+    'financial-profile', 'risk-envelope', 'hft-console', 'strategies',
+    'architect', 'runtime', 'smarttriad', 'service-orchestration', 'portfolio',
+  ];
+
+  it('every financial id is a member of ChipTargetId', () => {
+    const unionBlock = src.match(/export type ChipTargetId =([\s\S]*?);/)?.[1] ?? '';
+    for (const id of FINANCIAL_IDS) {
+      expect(unionBlock, `ChipTargetId missing '${id}'`).toMatch(new RegExp(`'${id}'`));
+    }
+  });
+
+  it('every financial id is registered in LAYOUT_TAG_IDS (so an LLM [layout:id] tag is honored)', () => {
+    const tagIdsBlock = src.match(/const LAYOUT_TAG_IDS: ReadonlyArray<ChipTargetId> = \[([\s\S]*?)\];/)?.[1] ?? '';
+    for (const id of FINANCIAL_IDS) {
+      expect(tagIdsBlock, `LAYOUT_TAG_IDS missing '${id}'`).toMatch(new RegExp(`'${id}'`));
+    }
+  });
+
+  it('every financial id has a keyword-sweep entry in LAYOUT_KEYWORDS (works even without an LLM tag)', () => {
+    const keywordsBlock = src.match(/const LAYOUT_KEYWORDS: Array<\{ id: ChipTargetId; pattern: RegExp; reason: string \}> = \[([\s\S]*?)\];/)?.[1] ?? '';
+    for (const id of FINANCIAL_IDS) {
+      expect(keywordsBlock, `LAYOUT_KEYWORDS missing '${id}'`).toMatch(new RegExp(`id: '${id}'`));
+    }
+  });
+
+  it('aigent-moneypenny gets its own layout-tag control block — mirrors the aigent-me/aigent-z pattern, never silently empty', () => {
+    expect(src).toMatch(/surfaceId === 'aigent-moneypenny'/);
+  });
+
+  it('the moneypenny control block never authorizes an action by itself — SC-02 (navigation/suggestion never grants authority)', () => {
+    const block = src.match(/surfaceId === 'aigent-moneypenny'\s*\n\s*\? `([\s\S]*?)`\s*\n\s*: '';/)?.[1] ?? '';
+    expect(block).toMatch(/never authorizes any action by itself/);
   });
 });

@@ -44,15 +44,53 @@
  * ten-tab interface) is NOT touched — it stays its own separate,
  * deliberately-untouched shell (per MoneyPennyShell.tsx's own header
  * comment), out of scope for this codex-tab-only slice.
+ *
+ * Copilot-to-capsule loop (C-02, added 2026-09-02 during reconciliation
+ * against the authoritative Cartridge spec — MoneyPenny_Cartridge_Spec_v1.md):
+ * `quickPrompts` + `onSuggestedLayouts` extend the SAME registered
+ * `ChipTargetId`/`SuggestedLayoutHint` system DevOn/Agent Me use
+ * (`app/api/codex/chat/route.ts`), with financial layout ids added there —
+ * never a parallel suggestion system. A suggestion only lights a banner the
+ * operator clicks (Companion Menu invariant MS-5: a deliberate act
+ * outranks an ambient observation); the click itself navigates through
+ * `tryOpenInMountedCartridge`, the SAME seam `MoneyPennyCapabilityRail.tsx`
+ * already uses, so the codex tab framework stays the single owner of which
+ * panel is active (MS-2).
  */
 
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { SmartTriadCopilotLayer } from '@/components/smarttriad/copilot/SmartTriadCopilotLayer';
+import { ArrowRight } from 'lucide-react';
+import { SmartTriadCopilotLayer, type SuggestedLayoutHint } from '@/components/smarttriad/copilot/SmartTriadCopilotLayer';
 import { MoneyPennyShell } from './MoneyPennyShell';
 import { personaFetch } from '@/utils/personaSpine';
+import { tryOpenInMountedCartridge } from '@/services/cartridge/CartridgePresenceRegistry';
+import { MONEYPENNY_CAPABILITY_GROUPS } from './moneypennyCapabilities';
 import type { MoneyPennyPanelKey } from '@/app/triad/components/codex/tabs/MoneyPennyPanelTab';
+
+const MONEYPENNY_CODEX_ID = 'moneypenny-codex';
+
+/**
+ * The subset of MoneyPennyPanelKey values registered as SuggestedLayoutHint
+ * ids (see route.ts's ChipTargetId + LAYOUT_TAG_IDS/LAYOUT_KEYWORDS, and
+ * SmartTriadCopilotLayer's SuggestedLayoutHint.layoutId). Derived from the
+ * SAME capability-group source of truth the rail uses (moneypennyCapabilities.ts)
+ * rather than hand-duplicating labels — 'chat' and null-panel items are
+ * excluded since they are not registered layout ids.
+ */
+const SUGGESTABLE_PANEL_LABELS: Partial<Record<MoneyPennyPanelKey, string>> = Object.fromEntries(
+  MONEYPENNY_CAPABILITY_GROUPS.flatMap((g) => g.items)
+    .filter((item): item is typeof item & { panel: MoneyPennyPanelKey } => item.panel !== null && item.panel !== 'chat')
+    .map((item) => [item.panel, item.label]),
+);
+
+const MONEYPENNY_QUICK_PROMPTS = [
+  { id: 'mpy-financial-profile', label: 'Review my financial profile', prompt: 'Can you help me review my financial profile — what statements or manual entry do I need?' },
+  { id: 'mpy-risk-envelope', label: 'Check my risk envelope', prompt: 'What does my current risk envelope and trading limits look like?' },
+  { id: 'mpy-portfolio', label: 'Show my portfolio', prompt: 'Give me an overview of my portfolio and recent performance.' },
+  { id: 'mpy-market-console', label: 'Open the market console', prompt: 'Show me quotes, spread and liquidity in the market console.' },
+];
 
 interface FinancialProfileGroundSnapshot {
   hasProfile: boolean;
@@ -80,10 +118,38 @@ export function MoneyPennyCopilotWorkspace({ activePanel, children }: MoneyPenny
   const [personaId, setPersonaId] = useState<string | undefined>(undefined);
   const [financialProfileGround, setFinancialProfileGround] = useState<FinancialProfileGroundSnapshot | null>(null);
   const groundContextRef = useRef<Record<string, unknown> | null>(null);
+  // C-02 copilot-to-capsule loop: a suggested panel from the copilot's
+  // [layout:<id>|<substance>] tag or keyword sweep. Deliberately NOT
+  // auto-navigated — per this codebase's own Companion Menu invariant MS-5
+  // ("a deliberate act outranks an ambient observation"), a suggestion only
+  // lights an affordance the operator clicks; navigation itself goes
+  // through the SAME tryOpenInMountedCartridge seam the capability rail
+  // already uses, so the codex tab framework stays the single owner of
+  // "which panel is active" (MS-2 — no second, parallel state authority).
+  const [suggestedPanel, setSuggestedPanel] = useState<MoneyPennyPanelKey | null>(null);
 
   useEffect(() => {
     setPersonaId(readStoredPersonaId());
   }, []);
+
+  // The operator already navigated (via the rail, a deep link, or this
+  // suggestion itself) — clear any stale suggestion for the panel just left.
+  useEffect(() => {
+    setSuggestedPanel((prev) => (prev === activePanel ? null : prev));
+  }, [activePanel]);
+
+  const handleSuggestedLayouts = useCallback((hints: SuggestedLayoutHint[]) => {
+    const hit = hints.find(
+      (h) => h.layoutId in SUGGESTABLE_PANEL_LABELS && h.layoutId !== activePanel,
+    );
+    setSuggestedPanel(hit ? (hit.layoutId as MoneyPennyPanelKey) : null);
+  }, [activePanel]);
+
+  const navigateToSuggestedPanel = useCallback(() => {
+    if (!suggestedPanel) return;
+    tryOpenInMountedCartridge({ cartridgeId: MONEYPENNY_CODEX_ID, tab: suggestedPanel });
+    setSuggestedPanel(null);
+  }, [suggestedPanel]);
 
   const refetchFinancialProfileGround = useCallback(async () => {
     try {
@@ -136,10 +202,24 @@ export function MoneyPennyCopilotWorkspace({ activePanel, children }: MoneyPenny
           agentSubtitle="Financial Services Runtime"
           personaId={personaId}
           groundContext={groundContext}
+          quickPrompts={MONEYPENNY_QUICK_PROMPTS}
+          onSuggestedLayouts={handleSuggestedLayouts}
           onClose={() => undefined}
         />
       </div>
       <div className="lg:w-1/2 w-full h-full min-h-0 overflow-y-auto">
+        {suggestedPanel && (
+          <div className="mx-6 mt-4 flex items-center justify-between gap-3 rounded-lg border border-emerald-800/60 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200">
+            <span>MoneyPenny suggests: open {SUGGESTABLE_PANEL_LABELS[suggestedPanel]}</span>
+            <button
+              type="button"
+              onClick={navigateToSuggestedPanel}
+              className="flex shrink-0 items-center gap-1 rounded-md bg-emerald-500/20 px-2 py-1 text-xs font-medium text-emerald-100 hover:bg-emerald-500/30"
+            >
+              Open <ArrowRight className="h-3 w-3" />
+            </button>
+          </div>
+        )}
         <MoneyPennyShell activePanel={activePanel}>{children}</MoneyPennyShell>
       </div>
     </div>

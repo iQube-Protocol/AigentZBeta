@@ -193,7 +193,15 @@ export type SuggestedLayoutHint = {
     | 'gmail' | 'event' | 'doc' | 'sheet' | 'slides' | 'marketa'
     | 'upload' | 'download'
     | 'terminal' | 'github' | 'devtools' | 'linear'
-    | 'intent' | 'context' | 'gap-analysis' | 'consequence-canvas' | 'validation' | 'project-overview';
+    | 'intent' | 'context' | 'gap-analysis' | 'consequence-canvas' | 'validation' | 'project-overview'
+    // MoneyPenny financial layout identifiers (Cartridge spec C-02) — the
+    // exact MoneyPennyPanelKey values the capability rail already navigates
+    // to, mirrored here so `onSuggestedLayouts` can recognize them. Kept in
+    // sync with the server-side `ChipTargetId` union in
+    // app/api/codex/chat/route.ts by hand (same pre-existing pattern every
+    // other domain's ids already follow in this file).
+    | 'financial-profile' | 'risk-envelope' | 'hft-console' | 'strategies'
+    | 'architect' | 'runtime' | 'smarttriad' | 'service-orchestration' | 'portfolio';
   reason: string;
   promptHint: string;
 };
