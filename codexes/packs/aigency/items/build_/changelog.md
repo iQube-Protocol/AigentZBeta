@@ -1,4 +1,8 @@
 # Build — Changelog
+- [`1629ea2`](https://github.com/iQube-Protocol/AigentZBeta/commit/1629ea24486ea4fe1641515ab58115ab0594fec0) [push] Import three MoneyPenny donor repos' real docs into docs/specs/moneypenny/ (Claude, 2026-09-02T12:37:43Z)
+- [`5d4ce61`](https://github.com/iQube-Protocol/AigentZBeta/commit/5d4ce615b5cda0a7bb18d72b6b3d0f2997a70562) [push] Decouple public-exposure from series='bridge' — require an explicit signal (Claude, 2026-09-02T12:37:58Z)
+- [`9b7f469`](https://github.com/iQube-Protocol/AigentZBeta/commit/9b7f469a4f9d1caafc0e2ba0153a884f49a2a736) [push] A2 completion: infographic publishes AND renders through the real bridge reader (Claude, 2026-09-02T12:38:11Z)
+- [`8cc4fce`](https://github.com/iQube-Protocol/AigentZBeta/commit/8cc4fce7be8c14034d21fc07927c7b103a9b3ffc) [push] C1: MoneyPenny copilot-left/chips-right shell [merge spec/moneypenny-mpy2-3] (Claude, 2026-09-02T12:38:27Z)
 - [`b791188`](https://github.com/iQube-Protocol/AigentZBeta/commit/b791188d7a5e4ebfc96ca59ecec4bc422e95e889) [fix] Correct fs-operate label to bare Operate; open MoneyPenny in the same frame (Claude, 2026-09-02T06:01:57Z)
 - [`7be87d2`](https://github.com/iQube-Protocol/AigentZBeta/commit/7be87d29b503fbdc28fb59fd36f13f4f334eb79c) [push] Close storage/sign + assets-by-category authorization gaps (Claude, 2026-09-02T06:02:24Z)
 - [`c5ea8b5`](https://github.com/iQube-Protocol/AigentZBeta/commit/c5ea8b54b1090dce82f5b73fb6a1d92ebde57ff8) [push] A2 completion: infographic slot + integrated asset selection/upload (Claude, 2026-09-02T06:07:41Z)

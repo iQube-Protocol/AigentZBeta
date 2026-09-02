@@ -5014,3 +5014,23 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-b791188.md](../build_/COMMITS/COMMIT-b791188.md)
 - Message: Correct fs-operate label to bare Operate; open MoneyPenny in the same frame
+
+## Commit `8cc4fce` — 2026-09-02T12:38:27Z
+- Type: `push`
+- Brief: [COMMIT-8cc4fce.md](../build_/COMMITS/COMMIT-8cc4fce.md)
+- Message: C1: MoneyPenny copilot-left/chips-right shell [merge spec/moneypenny-mpy2-3]
+
+## Commit `9b7f469` — 2026-09-02T12:38:11Z
+- Type: `push`
+- Brief: [COMMIT-9b7f469.md](../build_/COMMITS/COMMIT-9b7f469.md)
+- Message: A2 completion: infographic publishes AND renders through the real bridge reader
+
+## Commit `5d4ce61` — 2026-09-02T12:37:58Z
+- Type: `push`
+- Brief: [COMMIT-5d4ce61.md](../build_/COMMITS/COMMIT-5d4ce61.md)
+- Message: Decouple public-exposure from series='bridge' — require an explicit signal
+
+## Commit `1629ea2` — 2026-09-02T12:37:43Z
+- Type: `push`
+- Brief: [COMMIT-1629ea2.md](../build_/COMMITS/COMMIT-1629ea2.md)
+- Message: Import three MoneyPenny donor repos' real docs into docs/specs/moneypenny/

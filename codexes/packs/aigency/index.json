@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-02T06:10:26.137Z",
+  "last_updated": "2026-09-02T12:41:15.138Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "b791188d7a5e4ebfc96ca59ecec4bc422e95e889",
-  "latest_commit_short": "b791188",
-  "latest_commit_title": "Correct fs-operate label to bare Operate; open MoneyPenny in the same frame",
+  "latest_commit": "1629ea24486ea4fe1641515ab58115ab0594fec0",
+  "latest_commit_short": "1629ea2",
+  "latest_commit_title": "Import three MoneyPenny donor repos' real docs into docs/specs/moneypenny/",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,42 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "1629ea2",
+      "full_sha": "1629ea24486ea4fe1641515ab58115ab0594fec0",
+      "title": "Import three MoneyPenny donor repos' real docs into docs/specs/moneypenny/",
+      "author": "Claude",
+      "timestamp": "2026-09-02T12:37:43Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-1629ea2.md"
+    },
+    {
+      "sha": "5d4ce61",
+      "full_sha": "5d4ce615b5cda0a7bb18d72b6b3d0f2997a70562",
+      "title": "Decouple public-exposure from series='bridge' — require an explicit signal",
+      "author": "Claude",
+      "timestamp": "2026-09-02T12:37:58Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-5d4ce61.md"
+    },
+    {
+      "sha": "9b7f469",
+      "full_sha": "9b7f469a4f9d1caafc0e2ba0153a884f49a2a736",
+      "title": "A2 completion: infographic publishes AND renders through the real bridge reader",
+      "author": "Claude",
+      "timestamp": "2026-09-02T12:38:11Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-9b7f469.md"
+    },
+    {
+      "sha": "8cc4fce",
+      "full_sha": "8cc4fce7be8c14034d21fc07927c7b103a9b3ffc",
+      "title": "C1: MoneyPenny copilot-left/chips-right shell [merge spec/moneypenny-mpy2-3]",
+      "author": "Claude",
+      "timestamp": "2026-09-02T12:38:27Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-8cc4fce.md"
+    },
     {
       "sha": "b791188",
       "full_sha": "b791188d7a5e4ebfc96ca59ecec4bc422e95e889",
@@ -1216,42 +1252,6 @@
       "timestamp": "2026-08-27T09:44:24Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-96e22fd.md"
-    },
-    {
-      "sha": "458e486",
-      "full_sha": "458e48619df67f546460a9ab35a293327c8e3eb4",
-      "title": "fix Track 2 Proceed navigation racing ahead of authoritative refresh",
-      "author": "Claude",
-      "timestamp": "2026-08-27T13:11:57Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-458e486.md"
-    },
-    {
-      "sha": "e84c019",
-      "full_sha": "e84c019863a58a11b4b5cb15ac13f2f967953c6a",
-      "title": "consolidate the three acquisition-required Freeze blockers into one brief",
-      "author": "Claude",
-      "timestamp": "2026-08-27T13:12:20Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-e84c019.md"
-    },
-    {
-      "sha": "4380978",
-      "full_sha": "438097845545d071caf79227eba0494115b2b484",
-      "title": "Restore metaMe IRL admin access, IRL OS Participation Overview, and IRL OS Workspace (scoped restoration)",
-      "author": "Claude",
-      "timestamp": "2026-08-27T09:37:14Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-4380978.md"
-    },
-    {
-      "sha": "decbc07",
-      "full_sha": "decbc07c8234961827ee04b046c5d1edc7415228",
-      "title": "Revert \"close IRL OS confidentiality breach: private-cartridge deep links + unauthenticated document routes + query-derived admin authority removed [merge sec/irl-os-containment-2026-08-27]\"",
-      "author": "Claude",
-      "timestamp": "2026-08-27T09:02:18Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-decbc07.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
