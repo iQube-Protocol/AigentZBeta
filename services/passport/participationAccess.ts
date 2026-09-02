@@ -574,6 +574,91 @@ export async function getBoundaryResearchReadableExperiments(
   return getReadableExperimentsForRoles(admin, personaId, 'research-lab', null);
 }
 
+// ─── IRL OS EXPERIMENT MEMBERSHIP / WORKSPACE RESOLVER (2026-09-02) ──────────
+//
+// The canonical answer to "which research workspaces may THIS caller see" —
+// IRL OS — Experiment Membership & Artifact Workspace Restoration (operator
+// spec, 2026-09-02). Composes TWO existing sources of truth rather than
+// inventing a third:
+//
+//   1. `getBoundaryResearchReadableExperiments` (above, 2026-08-25) — the
+//      caller's own research-lab `access_grants` reach, role-agnostic. This
+//      already IS `hasActiveExperimentMembership` / `hasAcceptedInvitation`
+//      (an invitation claim writes exactly this kind of grant — see
+//      `claimAccessInvitation` below) / `hasExplicitExperimentGrant` from the
+//      spec's `canViewExperiment` formula — one mechanism, not three.
+//   2. `ResearchWorkspace.visibility` (services/research/researchWorkspace.ts,
+//      SPEC-IRL-WORKSPACE-001 §11) — the pre-existing, admin-authored
+//      `'private' | 'invited' | 'public'` posture. Declared in code (an admin
+//      act, per the spec's "a public declaration must itself be
+//      governed/admin-authorized" requirement) and defaults to `'invited'` —
+//      "Nothing becomes public by default." No workspace in the registry
+//      currently declares `'public'`; this resolver simply HONOURS the field
+//      that was already there but never read by any access decision.
+//
+// A workspace's `experimentId` (when it names exactly one EXPERIMENT_REGISTRY
+// entry, e.g. the Autonomi review workspaces) is also checked, so a grant
+// scoped to the raw experiment id (e.g. 'EXP-P1') reaches the workspace that
+// wraps it, exactly as `getGrantedExperiments`'s own workspace/experiment
+// union already assumes elsewhere.
+export type ParticipantWorkspaceAccessBasis = 'public' | 'membership' | 'admin';
+
+export interface ParticipantWorkspaceAccessEntry {
+  workspaceId: string;
+  accessBasis: ParticipantWorkspaceAccessBasis;
+}
+
+/**
+ * `canViewExperiment` from the spec, as a pure predicate over one workspace —
+ * no I/O, so it is trivially unit-testable and reusable by both the server
+ * projection below and any future caller that already has the reach set in
+ * hand (e.g. a route that resolved it for another reason).
+ */
+export function canViewResearchWorkspace(
+  ws: { id: string; experimentId?: string; visibility?: string },
+  reach: 'all' | Set<string>,
+  isAdmin: boolean,
+): ParticipantWorkspaceAccessBasis | null {
+  if (isAdmin) return 'admin';
+  if (ws.visibility === 'public') return 'public';
+  if (reach === 'all') return 'membership';
+  if (reach.has(ws.id)) return 'membership';
+  if (ws.experimentId && reach.has(ws.experimentId)) return 'membership';
+  return null;
+}
+
+/**
+ * The full participant projection: every research workspace this caller may
+ * see, and WHY (public declaration vs. their own membership vs. admin). This
+ * is the ONE server-side resolver `/api/participation/my-experiments` and the
+ * IRL OS Workspace tab both consume — never a second, independently-derived
+ * list (CLAUDE.md "Core Principle: Extend, Don't Duplicate").
+ *
+ * `personaId: null` is the anonymous/unauthenticated case — reach is always
+ * empty, so only workspaces explicitly declared `visibility: 'public'` are
+ * returned. Default deny, exactly as the spec's §13 containment requires.
+ */
+export async function getParticipantResearchWorkspaceAccess(
+  admin: SupabaseClient,
+  personaId: string | null,
+  isAdmin: boolean,
+): Promise<ParticipantWorkspaceAccessEntry[]> {
+  const { listResearchWorkspaces } = await import('@/services/research/researchWorkspace');
+  const workspaces = listResearchWorkspaces();
+  if (isAdmin) return workspaces.map((w) => ({ workspaceId: w.id, accessBasis: 'admin' as const }));
+
+  const reach: 'all' | Set<string> = personaId
+    ? await getBoundaryResearchReadableExperiments(admin, personaId)
+    : new Set<string>();
+
+  const entries: ParticipantWorkspaceAccessEntry[] = [];
+  for (const ws of workspaces) {
+    const basis = canViewResearchWorkspace(ws, reach, false);
+    if (basis) entries.push({ workspaceId: ws.id, accessBasis: basis });
+  }
+  return entries;
+}
+
 export interface ExperimentReviewGrant {
   /** The grant's own role string — one of REVIEW_VIEW_READABLE_ROLES. */
   role: string;
