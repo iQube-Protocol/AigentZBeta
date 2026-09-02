@@ -1,6 +1,9 @@
 # MPY2-0b — MoneyPenny002 Real-Source Donor Audit (closes the access gap in MPY2-0)
 
-**Status:** AUDIT OUTPUT — no implementation performed by this document
+**Status:** CLOSED (2026-09-02, operator directive: "Close MPY2-0b as documented. No donor
+transplant into the Q¢ arbitrage console."). §5 and §6 below are the reconciliation the closure
+directive additionally asked for — a reuse-candidate placement for the one real donor/adjacent
+finding, and a primitive-extension table for the six still-open gaps.
 **Date:** 2026-09-02
 **Governing spec:** `2026-09-01_spec-moneypenny-cartridge-capability-harvest-upgrade.md` (SPEC-MPY-002)
 **Supersedes the donor-blind portions of:** `2026-09-01_mpy2-0-donor-harvest-audit.md`
@@ -91,4 +94,88 @@ risk-envelope model, a real arbitrage/opportunity service beyond spot-price comp
 execution/receipt-backed evidence path. This audit's contribution is narrowing "not found in the
 inspected source" (an access limitation) to "confirmed absent in the actual source" (an evidenced
 finding) — none of these six gaps can be closed by harvesting MoneyPenny002; each remains build-fresh
-work against canonical services, per SPEC-MPY-002's own hard constraints.
+work against canonical services, per SPEC-MPY-002's own hard constraints. §6 below refines this:
+for three of the six, a real platform primitive already exists to extend — "build-fresh" does not
+mean "build from nothing" for those three.
+
+---
+
+## 5. CoinGecko as a reuse candidate for Markets — reconciled against EXISTING platform adapters
+
+Per the closure directive, the CoinGecko finding is preserved as a reuse candidate, but **it must
+not be wired as a second, independent integration.** Reading the platform's own code (not just
+MoneyPenny002's) turned up a REAL, already-shipped CoinGecko market-data adapter, unrelated to the
+donor and predating this audit:
+
+- `app/hooks/useEthPrice.ts` — client-side hook; fetches `api.coingecko.com/api/v3/simple/price`
+  for ETH, with `localStorage` caching, a `live | cached | static` source label, and honest
+  staleness detection (`STALE_AFTER_MS`, `:42-96`).
+- `services/wallet/knyt/knytPricingService.ts`'s `fetchEthPrice()`/`getKnytUsdPrice()`/
+  `getKnytUsdPriceMeta()` — the server-side sibling: the same CoinGecko endpoint, module-scope
+  caching, and a `rate/fetchedAt/stale/source` meta accessor (`:289-358`).
+
+This is the canonical shape — real fetch, explicit cache, explicit staleness, explicit
+live/cached/static provenance — that any future "explicitly identified crypto assets in Markets"
+price display must EXTEND (generalize from ETH-only to a small allow-listed asset set), never
+duplicate. Introducing MoneyPenny002's `oracle-refprice` edge function as a second CoinGecko caller
+would violate CLAUDE.md's source-of-truth-parity rule (`inv.engineering.036`/`037`: one authoritative
+location per concern) the moment a second cache/staleness policy could disagree with the first.
+`moneypennyCapabilities.ts`'s `markets` group has no dedicated "asset spot price" item today — its
+two current items are `market-console` (→ `HFTConsole.tsx`, Q¢ cross-chain quotes, per §3) and
+`opportunities` (not built, panel: null). A genuine spot-price item would be a THIRD, new capability
+entry under `markets` — not built in this pass; recorded here as the reuse path for when it is.
+
+**Spot prices must remain distinct from executable quotes, fills, and settlement evidence** (the
+directive's own instruction, and already the discipline this codebase enforces elsewhere): a
+CoinGecko-sourced number is a read-only informational fact about an external market. It must never
+be presented as, or silently backing, an executable quote (`HFTConsole.tsx`'s quotes stay
+`Math.random()`-simulated and `SimulationNotice`-labeled until a real execution venue exists), a
+fill, or `activity_receipts`/DVN settlement evidence (§6 below) — those three require a real
+execution path, which a spot-price display does not provide and must never be allowed to imply.
+
+---
+
+## 6. Six-gap primitive-extension table — what to extend before building fresh
+
+For each MPY2-0 §5 gap, the existing platform primitive (if any) that the real fix should extend,
+so "build-fresh" is scoped to the genuine delta rather than a whole new subsystem:
+
+| Gap | Existing primitive to extend | What's still missing |
+|---|---|---|
+| OCR/scanned-statement ingestion | `services/content/codexAssetUploadHandler.ts` (the upload boundary, hardened 2026-09-02) feeding `services/financialServices/financialProfileAggregation.ts`'s `computeFinancialProfile` — CSV-shaped rows already flow through this exact pipeline (MPY2-2). OCR is a new EXTRACTION STEP inserted between upload and aggregation, producing the same `Array<Record<string,string>>` row shape the aggregator already consumes — not a new upload mechanism, not a new financial-state model. | The extraction step itself: no OCR/text-layer-to-transaction-table code exists anywhere in canonical AigentZBeta or MoneyPenny002 (confirmed §1/§2). Genuinely build-fresh, but the integration point is already the right shape. |
+| Real backtest engine | `services/financialServices/riskEnvelope.ts`'s discipline (pure derivation, no I/O, no randomness, explicit `unassessed` rather than a guessed default — MPY2-3) is the METHODOLOGY shape a real backtest module must follow. `moneypennyCapabilities.ts`'s `scenario-backtest` item already reserves the UI slot (`panel: null`, explicitly noting the donor's random-number version is excluded). The canonical `StrategyBuilder.tsx`'s tab/chart/stat-card UI shape is a legitimate interaction-design reference (not computation) per §1's own note. | A real historical price series and a fee/slippage model — neither exists in canonical AigentZBeta or MoneyPenny002. The donor's arbitrage comparison ALGORITHM is explicitly NOT being transplanted here either, per the closure directive's "no donor transplant." |
+| Risk-envelope model | **Already substantially exists as a platform-native primitive** — `services/financialServices/riskEnvelope.ts` (MPY2-3) is a real, non-random derivation (`assessRisk`/`deriveRiskLimits`) from `FinancialProfileAggregates`, wired into both compute routes and `RiskEnvelopePanel.tsx`. Not donor-sourced; not something a future build must supply from scratch. | Its fidelity ceiling is gap #1 above: it derives from aggregates that (absent OCR) come only from CSV-shaped statements or, as of MPY2-2c (§ this doc's implementation slice), a manual estimate. Improving OCR/transaction-structuring directly improves this model's inputs — no structural work needed on the model itself. |
+| Arbitrage/opportunity service | `moneypennyCapabilities.ts`'s `opportunities` item already names and reserves the destination (`panel: null`, "backed by a real market-data provider — not yet built (donor's simulated scanner is explicitly excluded)"). Any real comparison logic built later should follow `riskEnvelope.ts`'s pure-derivation discipline. | A real multi-venue price feed (gap below) must exist FIRST — there is nothing to compare without one. The donor's comparison algorithm is confirmed portable-in-principle (§1) but is explicitly not being brought in under this directive's "no donor transplant" instruction; a real version would be written fresh against real feed data when one exists. |
+| Market-data adapter | **Partially exists** — `app/hooks/useEthPrice.ts` / `services/wallet/knyt/knytPricingService.ts` (§5 above) is a real, live, cached, honestly-labeled CoinGecko adapter for ETH. Extending it to a small allow-listed asset set is the reuse path for any future Markets spot-price display. | Multi-venue / DEX-level liquidity, spread, and volume data — MoneyPenny002's `oracle-dex/index.ts` is explicitly synthetic (§1) and provides nothing real to extend on that specific axis. |
+| Execution/receipt-backed evidence | **The strongest existing primitive of all six** — `services/dvn/activityReceiptDvnPipeline.ts` + the `activity_receipts` table (CLAUDE.md PARAMOUNT-protected) already provide an anchored, tamper-evident evidence model. Its ONE sanctioned unilateral extension point is adding a new entry to `ANCHORABLE_ACTION_TYPES` (currently `approval_granted`, `approval_rejected`, `artifact_sent`, `experience_model_updated`, four passport action types, and others) — e.g. a future `trading_execution_recorded` type. `moneypennyCapabilities.ts`'s `execution-insights` item already reserves the UI destination (`panel: null`). | A real execution path to emit the receipt from — MoneyPenny002's `execution-engine` fabricates every fill including a fake tx hash (§1), so there is nothing genuine to anchor yet. No new evidence SUBSYSTEM should ever be built for this gap; extend the existing DVN pipeline via its one sanctioned point once a real execution exists. |
+
+---
+
+## 7. MPY2-2c — financial-profile preparation, continued (same session, same directive)
+
+Per "continue the unblocked cartridge and bridge work... prioritize... financial-profile
+preparation," the "no manual-entry form of any kind" gap this audit's §1 confirmed in BOTH the
+donor and canonical `ProfileOverlay`/`FinancialProfilePanel` is now closed on the canonical side:
+
+- `services/financialServices/financialProfileAggregation.ts` gains `computeManualFinancialProfile`
+  — a pure function sharing the SAME `buildCandidateEnvelope` policy the upload path uses (extracted
+  from the original inline block, not duplicated), producing the SAME `FinancialProfileAggregates`/
+  `FinancialProfileEnvelope` shapes. It honestly reports what a single self-reported estimate cannot
+  supply — `cashFlowVolatility` stays `null`, `recurringCommitments`/`topCategories` stay `[]` — via
+  `notes`, never fabricated or silently blank.
+- `FinancialProfileQubeBlak.inputSource: 'uploaded_statements' | 'manual_entry'` records which path
+  produced a given compute pass; both the compute route and the new `POST
+  /api/moneypenny/financial-profile/manual` route (same auth, same risk-envelope derivation, same
+  canonical `upsertFinancialProfileQube` writer) tag their writes accordingly, and
+  `FinancialProfilePanel.tsx` renders a "Self-reported estimate" badge rather than presenting a
+  manual entry with upload-derived precision.
+- `services/journey/financialSovereigntyEvidence.ts`'s `hasPreparedFinancialProfile` needed no
+  change — it already reads `meta.hasProfile === true`, which `upsertFinancialProfileQube` sets
+  regardless of input source, so "prepared via upload OR supported manual preparation" (the standing
+  fs-prepare evidence rule) is now honestly true for either path.
+
+Tests: `tests/financial-profile-manual-entry.test.ts` (8 new tests — pure-function envelope/honesty
+behavior + route auth/validation/write-shape). Regression: tsc held at the 677 baseline; full
+`vitest run` unchanged at 49 failed / 17 failed files, none newly introduced (verified by name
+against the pre-existing failure list — all in journey/passport/pulse/repo-weight/resolution-records
+suites, none touching financial-profile or MoneyPenny).

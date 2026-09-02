@@ -61,6 +61,9 @@ interface FinancialProfileResponse {
   aggregates: FinancialProfileAggregates | null;
   envelope: FinancialProfileEnvelope | null;
   computedFromMonths: string[];
+  /** MPY2-2c — which input path produced the current aggregates. `null`
+   *  when no profile has been computed yet. */
+  inputSource?: 'uploaded_statements' | 'manual_entry' | null;
   notes?: string[];
   error?: string;
   detail?: string;
@@ -77,6 +80,11 @@ export function FinancialProfilePanel() {
   const [computing, setComputing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notes, setNotes] = useState<string[]>([]);
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualIncome, setManualIncome] = useState("");
+  const [manualExpenditure, setManualExpenditure] = useState("");
+  const [manualLiquidityDays, setManualLiquidityDays] = useState("");
+  const [manualSubmitting, setManualSubmitting] = useState(false);
 
   const loadProfile = useCallback(async () => {
     setLoading(true);
@@ -141,8 +149,43 @@ export function FinancialProfilePanel() {
     }
   }, []);
 
+  const handleManualSubmit = useCallback(async () => {
+    const income = Number(manualIncome);
+    const expenditure = Number(manualExpenditure);
+    if (!Number.isFinite(income) || income < 0 || !Number.isFinite(expenditure) || expenditure < 0) {
+      setError("Enter non-negative numbers for monthly income and expenditure.");
+      return;
+    }
+    const liquidityBufferDays =
+      manualLiquidityDays.trim() === "" ? null : Number(manualLiquidityDays);
+    if (liquidityBufferDays !== null && (!Number.isFinite(liquidityBufferDays) || liquidityBufferDays < 0)) {
+      setError("Liquidity buffer, if provided, must be a non-negative number of days.");
+      return;
+    }
+    setManualSubmitting(true);
+    setError(null);
+    setNotes([]);
+    try {
+      const res = await personaFetch("/api/moneypenny/financial-profile/manual", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ incomeMonthly: income, expenditureMonthly: expenditure, liquidityBufferDays }),
+      });
+      const json = (await res.json().catch(() => null)) as FinancialProfileResponse | null;
+      if (!res.ok || !json) throw new Error(json?.detail || json?.error || `save failed (${res.status})`);
+      setProfile(json);
+      setNotes(json.notes ?? []);
+      setManualOpen(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setManualSubmitting(false);
+    }
+  }, [manualIncome, manualExpenditure, manualLiquidityDays]);
+
   const aggregates = profile?.aggregates ?? null;
   const envelope = profile?.envelope ?? null;
+  const inputSource = profile?.inputSource ?? null;
 
   return (
     <div className="space-y-4 p-4">
@@ -199,6 +242,70 @@ export function FinancialProfilePanel() {
               ))}
             </div>
           )}
+
+          <div className="pt-1">
+            <button
+              type="button"
+              onClick={() => setManualOpen((v) => !v)}
+              className="text-xs text-slate-400 underline decoration-dotted hover:text-slate-200"
+            >
+              {manualOpen ? "Hide manual entry" : "No statement handy? Enter estimates manually"}
+            </button>
+          </div>
+
+          {manualOpen && (
+            <div className="space-y-2 rounded border border-slate-800 bg-slate-950/60 p-3">
+              <p className="text-[11px] text-slate-500">
+                A self-reported estimate — not derived from transaction data. Recurring commitments,
+                expenditure concentration and cash-flow volatility require an uploaded statement and
+                will not be available from this entry.
+              </p>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <label className="space-y-1 text-[11px] text-slate-400">
+                  Monthly income ($)
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={manualIncome}
+                    onChange={(e) => setManualIncome(e.target.value)}
+                    className="w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-sm text-slate-100"
+                  />
+                </label>
+                <label className="space-y-1 text-[11px] text-slate-400">
+                  Monthly expenditure ($)
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={manualExpenditure}
+                    onChange={(e) => setManualExpenditure(e.target.value)}
+                    className="w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-sm text-slate-100"
+                  />
+                </label>
+                <label className="space-y-1 text-[11px] text-slate-400">
+                  Liquidity buffer (days, optional)
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={manualLiquidityDays}
+                    onChange={(e) => setManualLiquidityDays(e.target.value)}
+                    className="w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-sm text-slate-100"
+                  />
+                </label>
+              </div>
+              <button
+                type="button"
+                onClick={() => void handleManualSubmit()}
+                disabled={manualSubmitting}
+                className="inline-flex items-center gap-1.5 rounded border border-emerald-500/40 bg-emerald-500/15 px-3 py-1.5 text-xs font-semibold text-emerald-100 hover:bg-emerald-500/25 transition disabled:opacity-50"
+              >
+                {manualSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <TrendingUp className="h-3.5 w-3.5" />}
+                {manualSubmitting ? "Saving…" : "Save manual estimate"}
+              </button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -213,11 +320,15 @@ export function FinancialProfilePanel() {
           <CardHeader>
             <CardTitle className="text-sm text-slate-100">
               Derived aggregates
-              {profile?.computedFromMonths && profile.computedFromMonths.length > 0 && (
+              {inputSource === "manual_entry" ? (
+                <Badge variant="outline" className="ml-2 border-amber-700 text-amber-300 text-[10px] align-middle">
+                  Self-reported estimate
+                </Badge>
+              ) : profile?.computedFromMonths && profile.computedFromMonths.length > 0 ? (
                 <span className="ml-2 text-[11px] font-normal text-slate-500">
                   from {profile.computedFromMonths.length} statement month(s): {profile.computedFromMonths.join(", ")}
                 </span>
-              )}
+              ) : null}
             </CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-3 sm:grid-cols-4">

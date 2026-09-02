@@ -163,6 +163,14 @@ export interface FinancialProfileQubeBlak {
    *  (e.g. '2026-07') — for the owner's own review, never asserted as
    *  complete coverage. */
   computedFromMonths?: string[];
+  /**
+   * MPY2-2c (2026-09-02) — which input path produced this compute pass.
+   * Absent on rows written before this field existed; callers must treat
+   * absent the same as `'uploaded_statements'` (the only path that existed
+   * then), never as unknown. Surfaced to the owner so a self-reported
+   * estimate is never mistaken for statement-derived precision.
+   */
+  inputSource?: 'uploaded_statements' | 'manual_entry';
 }
 
 export interface FinancialProfileQubeRecord {
