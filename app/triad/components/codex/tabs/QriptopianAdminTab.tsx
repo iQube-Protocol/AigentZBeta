@@ -5,6 +5,7 @@ import { CodexUploadModal } from '@/app/(shell)/admin/codex/components/CodexUplo
 import { StoreSkusPanel } from '@/app/triad/components/codex/admin/StoreSkusPanel';
 import { KnytsBridgeAdminPanel } from '@/components/journey/KnytsBridgeAdminPanel';
 import { CI_BRIDGE_VIEW_CONTENT } from '@/services/journey/constitutionalInternetBridgeViewContent';
+import { FS_STAGE_IDS, fsBridgeSectionKey, fsLearnPlateSectionKey } from '@/services/journey/knytsBridgeEditorialConfig';
 import { personaFetch } from '@/utils/personaSpine';
 import type { BridgeContentPlacement, PlacementSlot } from '@/services/journey/bridgeContentPlacements';
 import {
@@ -2111,9 +2112,28 @@ const BRIDGE_LABELS: Record<BridgeKey, string> = {
 };
 
 function bridgeSections(bridge: BridgeKey): string[] {
-  if (bridge === 'knyts') return ['home', 'orient', 'choose'];
+  // CFS content pack (2026-09-03) — the six fs-* stage placements append to
+  // both CI and KNYTS, same fsBridgeSectionKey helper every reader uses so
+  // this list can never drift from KNYTS_BRIDGE_ALLOWED_SECTIONS.
+  if (bridge === 'knyts')
+    return [
+      'home',
+      'orient',
+      'choose',
+      ...FS_STAGE_IDS.map((s) => fsBridgeSectionKey('knyts', s)),
+      fsLearnPlateSectionKey('knyts', 1),
+      fsLearnPlateSectionKey('knyts', 2),
+    ];
   if (bridge === 'moneypenny') return ['moneypenny-financial-basics'];
-  return ['ci-home', 'ci-orient', 'ci-passport-established', ...CI_BRIDGE_VIEW_CONTENT.map((b) => `ci-view-${b.id}`)];
+  return [
+    'ci-home',
+    'ci-orient',
+    'ci-passport-established',
+    ...CI_BRIDGE_VIEW_CONTENT.map((b) => `ci-view-${b.id}`),
+    ...FS_STAGE_IDS.map((s) => fsBridgeSectionKey('ci', s)),
+    fsLearnPlateSectionKey('ci', 1),
+    fsLearnPlateSectionKey('ci', 2),
+  ];
 }
 
 /** Bridge-slot -> codex asset-kind mapping (2026-09-02 A2 completion). Bridge

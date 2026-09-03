@@ -57,7 +57,7 @@ describe('services/journey/moneyPennyEducationalMedia.ts — the ONE reader, nev
 
   it('the section-specific default (added Turn E) is what makes reading editorial_config directly safe — no HOME fallback risk', () => {
     const configSrc = stripComments(readSource('services/journey/knytsBridgeEditorialConfig.ts'));
-    const entry = configSrc.match(/'moneypenny-financial-basics': \{([\s\S]*?)\},\n\};/)?.[1] ?? '';
+    const entry = configSrc.match(/'moneypenny-financial-basics': \{([\s\S]*?)\n  \},/)?.[1] ?? '';
     expect(entry).toMatch(/videoUrl: null,/);
     expect(entry).toMatch(/infographicUrl: null,/);
     expect(entry).not.toMatch(/Cross the Threshold/);

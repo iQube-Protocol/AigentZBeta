@@ -53,15 +53,15 @@ describe('bridge section lists exactly mirror the existing page-local modals —
   const ciPageSrc = stripComments(readSource('app/bridge/ci/page.tsx'));
   const knytsPageSrc = stripComments(readSource('app/bridge/knyts/page.tsx'));
 
-  it("KNYTS section list is exactly ['home', 'orient', 'choose'] — same three sections the existing knyts/page.tsx modal mounts", () => {
-    expect(src).toMatch(/return \['home', 'orient', 'choose'\]/);
+  it("KNYTS section list starts with ['home', 'orient', 'choose'] — same three sections the existing knyts/page.tsx modal mounts, before the CFS fs-* additions", () => {
+    expect(src).toMatch(/'home',\s*\n\s*'orient',\s*\n\s*'choose',/);
     for (const section of ['home', 'orient', 'choose']) {
       expect(knytsPageSrc).toMatch(new RegExp(`section="${section}"`));
     }
   });
 
   it("CI section list starts with the same three fixed sections the existing ci/page.tsx modal mounts", () => {
-    expect(src).toMatch(/'ci-home', 'ci-orient', 'ci-passport-established'/);
+    expect(src).toMatch(/'ci-home',\s*\n\s*'ci-orient',\s*\n\s*'ci-passport-established',/);
     for (const section of ['ci-home', 'ci-orient', 'ci-passport-established']) {
       expect(ciPageSrc).toMatch(new RegExp(`section="${section}"`));
     }
@@ -118,7 +118,7 @@ describe('MoneyPenny bridge entry (Turn E, 2026-09-02) — the admin-picker acce
 
   it('a starting editorial default exists for the admin edit form so it does not show HOME\'s unrelated copy on first open', () => {
     const configSrc = stripComments(readSource('services/journey/knytsBridgeEditorialConfig.ts'));
-    const entry = configSrc.match(/'moneypenny-financial-basics': \{([\s\S]*?)\},\n\};/)?.[1] ?? '';
+    const entry = configSrc.match(/'moneypenny-financial-basics': \{([\s\S]*?)\n  \},/)?.[1] ?? '';
     expect(entry).toMatch(/headline: 'Financial Sovereignty basics',/);
     expect(entry).not.toMatch(/Cross the Threshold/);
   });

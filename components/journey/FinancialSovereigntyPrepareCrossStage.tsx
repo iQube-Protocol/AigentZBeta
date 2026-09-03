@@ -48,6 +48,9 @@ import { WALLET_CONVERSION_CAPABILITY_ID } from '@/services/financialServices/wa
 import { fetchFinancialProfileSummary, markFinancialProfileReviewed, type FinancialProfileSummary } from '@/services/moneypenny/financialProfileSummary';
 import type { BridgeAccent } from '@/components/journey/BridgeMediaStage';
 import { MoneyPennyBridgeEmbed } from '@/components/journey/MoneyPennyBridgeEmbed';
+import { FS_STAGE_CONTENT, type FsBridge } from '@/services/journey/financialSovereigntyContent';
+import { useFsBridgeSection } from '@/services/journey/useFsBridgeSection';
+import { FinancialSovereigntyStageExtras } from '@/components/journey/FinancialSovereigntyStageExtras';
 
 const FINANCIAL_SERVICES_BRANCH = 'financial-services';
 /** Fallback ONLY for a direct deep link into the branch that skipped the
@@ -101,9 +104,15 @@ export function FinancialSovereigntyPrepareCrossStage({
     }
   }, [sessionKey]);
 
+  const bridge: FsBridge = accent === 'indigo' ? 'ci' : 'knyts';
+  // Called unconditionally (rules-of-hooks) even though only the 'cross'
+  // branch below renders it — PrepareFinancialProfileReview fetches its own
+  // 'prepare' section independently, so this one is Cross's.
+  const crossFsConfig = useFsBridgeSection(bridge, 'cross');
+
   if (mode === 'prepare') {
     return (
-      <PrepareFinancialProfileReview accent={accent} nextStageId={nextStageId} personaId={personaId} />
+      <PrepareFinancialProfileReview accent={accent} bridge={bridge} nextStageId={nextStageId} personaId={personaId} />
     );
   }
 
@@ -146,7 +155,7 @@ export function FinancialSovereigntyPrepareCrossStage({
   };
 
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-6 p-8 text-center">
+    <div className="flex h-full flex-col items-center justify-start overflow-y-auto gap-6 p-8 text-center">
       <div className="max-w-xl space-y-2">
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Cross</p>
         <h2 className="text-2xl font-semibold text-white">Ready for the Financial Services Bridge.</h2>
@@ -163,6 +172,13 @@ export function FinancialSovereigntyPrepareCrossStage({
       >
         Cross to Financial Services →
       </button>
+      <div className="w-full max-w-xl">
+        <FinancialSovereigntyStageExtras
+          content={FS_STAGE_CONTENT.cross}
+          bridge={bridge}
+          assets={[{ asset: FS_STAGE_CONTENT.cross.asset, infographicUrl: crossFsConfig?.infographicUrl }]}
+        />
+      </div>
     </div>
   );
 }
@@ -178,13 +194,16 @@ export function FinancialSovereigntyPrepareCrossStage({
  */
 function PrepareFinancialProfileReview({
   accent,
+  bridge,
   nextStageId,
   personaId,
 }: {
   accent: BridgeAccent;
+  bridge: FsBridge;
   nextStageId?: string;
   personaId?: string | null;
 }) {
+  const fsConfig = useFsBridgeSection(bridge, 'prepare');
   const [summary, setSummary] = useState<FinancialProfileSummary | null | undefined>(undefined);
   const [marking, setMarking] = useState(false);
   // MoneyPenny experience-coherence correction (2026-09-03) — replaces the
@@ -270,7 +289,7 @@ function PrepareFinancialProfileReview({
   }
 
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-6 p-8 text-center">
+    <div className="flex h-full flex-col items-center justify-start overflow-y-auto gap-6 p-8 text-center">
       <div className="max-w-xl space-y-2">
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Prepare</p>
         <h2 className="text-2xl font-semibold text-white">What is my financial position, and what do I want help with?</h2>
@@ -356,6 +375,14 @@ function PrepareFinancialProfileReview({
         >
           Continue to Operate
         </button>
+      </div>
+
+      <div className="w-full max-w-md">
+        <FinancialSovereigntyStageExtras
+          content={FS_STAGE_CONTENT.prepare}
+          bridge={bridge}
+          assets={[{ asset: FS_STAGE_CONTENT.prepare.asset, infographicUrl: fsConfig?.infographicUrl }]}
+        />
       </div>
     </div>
   );

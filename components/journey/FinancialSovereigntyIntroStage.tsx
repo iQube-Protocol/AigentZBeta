@@ -82,6 +82,9 @@ import { useDcirSeam } from '@/services/dcir/useDcirSeam';
 import { aigentMeCapsuleEngagedEvent } from '@/services/dcir/eventStream';
 import { personaFetch } from '@/utils/personaSpine';
 import { personaFetchDeadline } from '@/utils/personaSpine';
+import { FS_STAGE_CONTENT, FS_LEARN_PLATES, type FsBridge } from '@/services/journey/financialSovereigntyContent';
+import { useFsBridgeSection, useFsLearnPlateSection } from '@/services/journey/useFsBridgeSection';
+import { FinancialSovereigntyStageExtras } from '@/components/journey/FinancialSovereigntyStageExtras';
 
 /**
  * LEARN's qualifying concept set — mirrors the Advisor/Architect/Runtime
@@ -148,31 +151,29 @@ const LIVE_TRY_CAPABILITY_ID = 'financial-profile-live';
 
 type TryFinancialProfileStatus = 'idle' | 'loading' | 'produced' | 'no-data' | 'error';
 
-const COPY: Record<FinancialSovereigntyIntroStageKey, { eyebrow: string; headline: string; paragraphs: string[] }> = {
-  discover: {
-    eyebrow: 'Progressive Financial Sovereignty',
-    headline: 'Your agents can act with your authority — bounded, evidenced, reversible.',
-    paragraphs: [
-      'Financial agency in the Polity is not "connect a wallet and hope." It is a professional runtime with a registered agent, a bounded mandate, and a receipt for every consequential act.',
-      'This is a short introduction, not a commitment — you can stop at any stage and nothing here changes your constitutional state.',
-    ],
-  },
-  learn: {
-    eyebrow: 'Learn',
-    headline: 'What a Financial Services agent actually does — and what it never does without you.',
-    paragraphs: [
-      'An advisor explains. An architect proposes. Only a runtime action — one you authorize — actually changes anything, and only after a governed consequence check.',
-      'Every consequential act is recorded as a receipt. Nothing is inferred from conversation alone.',
-    ],
-  },
-  explore: {
-    eyebrow: 'Explore',
-    headline: 'The Financial Services you can reach once your agent is registered.',
-    paragraphs: [
-      'These are the real, currently offered Financial Services capabilities — not a preview or a promise.',
-    ],
-  },
-};
+/**
+ * CFS content pack integration (2026-09-03) — eyebrow/headline/lead now come
+ * from FS_STAGE_CONTENT (services/journey/financialSovereigntyContent.ts),
+ * which also carries this stage's corrected copy (Discover's "bounded,
+ * evidenced, reversible" and Learn's "only a runtime action changes
+ * anything" both replaced per the brief's "Preserve functions, correct
+ * misleading copy" section) plus the pack's topics/checks/exercise summary,
+ * rendered via FinancialSovereigntyStageExtras below. An admin-published
+ * headline/shortCopy (knyts_bridge_editorial_config, via
+ * fsBridgeSectionKey) overrides the static default when set — same
+ * division of labour as every other admin-overridable Bridge section.
+ */
+function resolveCopy(
+  stageKey: FinancialSovereigntyIntroStageKey,
+  config: { headline: string | null; shortCopy: string | null } | null,
+): { eyebrow: string; headline: string; paragraphs: string[] } {
+  const fallback = FS_STAGE_CONTENT[stageKey];
+  return {
+    eyebrow: fallback.eyebrow,
+    headline: config?.headline || fallback.headline,
+    paragraphs: [config?.shortCopy || fallback.lead],
+  };
+}
 
 export function FinancialSovereigntyIntroStage({
   stageKey,
@@ -195,7 +196,15 @@ export function FinancialSovereigntyIntroStage({
   journeyId?: string;
   personaId?: string | null;
 }) {
-  const copy = COPY[stageKey];
+  // CFS content pack (2026-09-03) — accent already encodes which bridge is
+  // rendering (KNYTS='amber', CI='indigo'; see this file's own header),
+  // reused here rather than adding a redundant bridge prop.
+  const bridge: FsBridge = accent === 'indigo' ? 'ci' : 'knyts';
+  const fsConfig = useFsBridgeSection(bridge, stageKey);
+  // Unconditional per rules-of-hooks; only consumed when stageKey === 'learn'.
+  const learnPlate2Config = useFsLearnPlateSection(bridge, 1);
+  const learnPlate3Config = useFsLearnPlateSection(bridge, 2);
+  const copy = resolveCopy(stageKey, fsConfig);
   const services = stageKey === 'explore' ? listFinancialServiceDefinitions() : [];
   const stageId = `fs-${stageKey}`;
 
@@ -339,7 +348,7 @@ export function FinancialSovereigntyIntroStage({
     (stageKey === 'learn' && !learnSatisfied) || (stageKey === 'explore' && !exploreSatisfied);
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col overflow-y-auto">
       <BridgeMediaStage
         eyebrow={copy.eyebrow}
         headline={copy.headline}
@@ -349,6 +358,7 @@ export function FinancialSovereigntyIntroStage({
         primaryCtaDisabled={primaryCtaDisabled}
         accent={accent}
         layout="standard"
+        infographicUrl={fsConfig?.infographicUrl ?? undefined}
       >
         {stageKey === 'learn' && (
           <div className="space-y-2">
@@ -416,6 +426,20 @@ export function FinancialSovereigntyIntroStage({
             </button>
           </div>
         )}
+        <FinancialSovereigntyStageExtras
+          content={FS_STAGE_CONTENT[stageKey]}
+          bridge={bridge}
+          showCostExample={stageKey === 'explore'}
+          assets={
+            stageKey === 'learn'
+              ? [
+                  { asset: FS_LEARN_PLATES[0], infographicUrl: fsConfig?.infographicUrl, label: 'Lesson 1 — What money helps you do' },
+                  { asset: FS_LEARN_PLATES[1], infographicUrl: learnPlate2Config?.infographicUrl, label: 'Lesson 2 — Fiat, crypto and value' },
+                  { asset: FS_LEARN_PLATES[2], infographicUrl: learnPlate3Config?.infographicUrl, label: 'Lesson 3 — You, AgentMe and MoneyPenny' },
+                ]
+              : [{ asset: FS_STAGE_CONTENT[stageKey].asset, infographicUrl: fsConfig?.infographicUrl }]
+          }
+        />
       </BridgeMediaStage>
     </div>
   );

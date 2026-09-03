@@ -19,6 +19,39 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { CI_BRIDGE_VIEW_CONTENT } from '@/services/journey/constitutionalInternetBridgeViewContent';
 
 /**
+ * CFS content pack integration (2026-09-03) — the six Financial Sovereignty
+ * stage ids shared verbatim by both journey definitions
+ * (constitutionalInternetBridgeJourney.ts / knytsBridgeCrossingJourney.ts's
+ * `fs-*` stage ids). Defined here (not re-derived from the journey files) to
+ * avoid a circular import — journey definitions are data, this module is
+ * lower-level editorial config; both are allowed to reference this same
+ * small id list.
+ */
+export const FS_STAGE_IDS = ['discover', 'learn', 'explore', 'prepare', 'operate', 'cross'] as const;
+export type FsStageId = (typeof FS_STAGE_IDS)[number];
+
+/** The one authoritative (bridge, stage) -> editorial-config section-key
+ *  mapping for the CFS placements — never hand-construct these strings at a
+ *  call site. KNYTS reuses its existing bare-key convention ('home' not
+ *  'knyts-home'); CI reuses its existing 'ci-' prefix — exactly the same
+ *  disambiguation scheme every other shared section already uses. */
+export function fsBridgeSectionKey(bridge: 'ci' | 'knyts', stage: FsStageId): string {
+  return bridge === 'ci' ? `ci-fs-${stage}` : `fs-${stage}`;
+}
+
+/** Learn is the one CFS stage with three plates (content/step-composition.json's
+ *  learn-purposes/value/agents sub-sections) rather than one. Plate 0 uses the
+ *  plain fsBridgeSectionKey('*', 'learn') section (consistent with every other
+ *  stage); plates 1/2 get their own small extra section so all three can be
+ *  admin-published independently — the same generic PlacementAssetsPanel/
+ *  KnytsBridgeAdminPanel pair, never a bespoke multi-asset editor. */
+export function fsLearnPlateSectionKey(bridge: 'ci' | 'knyts', plateIndex: 0 | 1 | 2): string {
+  if (plateIndex === 0) return fsBridgeSectionKey(bridge, 'learn');
+  const base = bridge === 'ci' ? 'ci-fs-learn' : 'fs-learn';
+  return `${base}-${plateIndex + 1}`;
+}
+
+/**
  * The one authoritative section allow-list (moved here from
  * editorial-config/route.ts, 2026-09-01, so the new placements route can
  * reuse it without importing a Next.js route file — inv.engineering.036/037,
@@ -40,6 +73,22 @@ export const KNYTS_BRIDGE_ALLOWED_SECTIONS = new Set<string>([
   // every other bridge section uses (services/journey/moneyPennyEducationalMedia.ts
   // is the only reader; no second editorial store).
   'moneypenny-financial-basics',
+  // CFS content pack integration (2026-09-03) — the twelve Financial
+  // Sovereignty bridge-stage placements (six stages × two bridges), same
+  // bare/`ci-` prefix convention as every section above. Each carries only
+  // headline/shortCopy/infographicUrl — the per-stage PRIMARY plate and its
+  // caption — never the full card/topic copy, which ships as static content
+  // in financialSovereigntyContent.ts (same division of labour as the View
+  // stage: text static, one asset admin-overridable). See
+  // FS_BRIDGE_SECTION_KEYS below for the canonical (bridge, stage) -> section
+  // key mapping so callers never hand-construct these strings.
+  ...FS_STAGE_IDS.map((stage) => `fs-${stage}`),
+  ...FS_STAGE_IDS.map((stage) => `ci-fs-${stage}`),
+  // Learn's second/third plate — see fsLearnPlateSectionKey's own comment.
+  'fs-learn-2',
+  'fs-learn-3',
+  'ci-fs-learn-2',
+  'ci-fs-learn-3',
 ]);
 
 export interface KnytsBridgeEditorialSection {
@@ -212,6 +261,104 @@ export const KNYTS_BRIDGE_SECTION_DEFAULTS: Record<string, KnytsBridgeEditorialS
     rewardCopy: null,
     updatedAt: null,
   },
+  // ── CFS content pack (2026-09-03) — twelve stage-level placements (six
+  // stages × two bridges). headline/shortCopy mirror the pack's per-stage
+  // `headline`/`lead` (content/bridge-pages.json) as the starting default —
+  // never invented copy — and infographicUrl stays null until an admin
+  // publishes the corresponding plate through this same panel. The full
+  // card/topic/exercise content lives in financialSovereigntyContent.ts
+  // (static, like every other FS stage's body copy today); only the
+  // headline/summary/primary-plate are admin-overridable here, matching the
+  // View stage's own "text static, one asset admin-overridable" precedent.
+  ...(() => {
+    const stageCopy: Record<FsStageId, { headline: string; shortCopy: string; campaignCta: string }> = {
+      discover: {
+        headline: 'Your money. Your choices. A clearer way to begin.',
+        shortCopy:
+          'Financial services help you manage money today and prepare for tomorrow. Explore familiar financial ' +
+          'tools alongside crypto, and see how constitutional financial services put your goals, permissions and ' +
+          'oversight at the centre. You do not need a trading account or a deposit to learn.',
+        campaignCta: 'Explore the financial map',
+      },
+      learn: {
+        headline: 'Know what a service does—and what you remain responsible for.',
+        shortCopy:
+          'Start with the purpose of each financial service, then look at its costs, risks and controls. Learn how ' +
+          'fiat and crypto fit into the picture, and how an agent can help without receiving unlimited authority.',
+        campaignCta: 'Start the short lessons',
+      },
+      explore: {
+        headline: 'Try the thinking before you commit the money.',
+        shortCopy:
+          'Pick a sample goal, compare a few approaches and see how a rehearsal changes when assumptions change. ' +
+          'Meet MoneyPenny in action without handing over control.',
+        campaignCta: 'Try a guided example',
+      },
+      prepare: {
+        headline: 'Build a financial picture you understand and control.',
+        shortCopy:
+          'Review what comes in, what goes out, what you hold and what you owe. Add a goal, choose a first task and ' +
+          'decide what help you want from AgentMe and MoneyPenny. Connecting a wallet or delegating an action is a ' +
+          'separate choice.',
+        campaignCta: 'Build or review my profile',
+      },
+      operate: {
+        headline: 'Put understanding into practice—with you in charge.',
+        shortCopy:
+          'Ask a question, shape a plan, rehearse an action or review an authorized task. MoneyPenny works within ' +
+          'the role and permissions you choose. Moving into advanced automation is optional.',
+        campaignCta: 'Work with MoneyPenny',
+      },
+      cross: {
+        headline: 'More automation. More explicit responsibility.',
+        shortCopy:
+          'Advanced operations are for people ready to define sustained agent mandates, coordinate multiple agents, ' +
+          'or build financial services for others. Automation changes how work is carried out; it does not remove ' +
+          'financial uncertainty or the need for oversight.',
+        campaignCta: 'Review advanced readiness',
+      },
+    };
+    const entries: Record<string, KnytsBridgeEditorialSection> = {};
+    for (const stage of FS_STAGE_IDS) {
+      const copy = stageCopy[stage];
+      for (const bridge of ['ci', 'knyts'] as const) {
+        entries[fsBridgeSectionKey(bridge, stage)] = {
+          section: fsBridgeSectionKey(bridge, stage),
+          headline: copy.headline,
+          shortCopy: copy.shortCopy,
+          videoUrl: null,
+          posterUrl: null,
+          infographicUrl: null,
+          campaignCta: copy.campaignCta,
+          rewardCopy: null,
+          updatedAt: null,
+        };
+      }
+    }
+    // Learn's second/third plate — a starting default for the admin edit
+    // form only (mirrors the moneypenny-financial-basics precedent above);
+    // the public reader never falls back to this generic text, only to its
+    // own "not yet published" honest state.
+    const learnPlateTitles = ['Fiat, crypto and value', 'You, AgentMe and MoneyPenny'];
+    for (const [i, title] of learnPlateTitles.entries()) {
+      const plateIndex = (i + 1) as 1 | 2;
+      for (const bridge of ['ci', 'knyts'] as const) {
+        const key = fsLearnPlateSectionKey(bridge, plateIndex);
+        entries[key] = {
+          section: key,
+          headline: title,
+          shortCopy: null,
+          videoUrl: null,
+          posterUrl: null,
+          infographicUrl: null,
+          campaignCta: null,
+          rewardCopy: null,
+          updatedAt: null,
+        };
+      }
+    }
+    return entries;
+  })(),
 };
 
 /** @deprecated kept for callers that haven't migrated to KNYTS_BRIDGE_SECTION_DEFAULTS.home yet. */

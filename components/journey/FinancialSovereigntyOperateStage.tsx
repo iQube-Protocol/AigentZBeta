@@ -44,6 +44,9 @@
 import { useCallback, useState } from 'react';
 import { BridgeMediaStage, type BridgeAccent } from '@/components/journey/BridgeMediaStage';
 import { MoneyPennyBridgeEmbed } from '@/components/journey/MoneyPennyBridgeEmbed';
+import { FS_STAGE_CONTENT, type FsBridge } from '@/services/journey/financialSovereigntyContent';
+import { useFsBridgeSection } from '@/services/journey/useFsBridgeSection';
+import { FinancialSovereigntyStageExtras } from '@/components/journey/FinancialSovereigntyStageExtras';
 
 function selectStage(stageId: string) {
   try {
@@ -63,6 +66,8 @@ export function FinancialSovereigntyOperateStage({
   nextStageId: string;
   personaId?: string | null;
 }) {
+  const bridge: FsBridge = accent === 'indigo' ? 'ci' : 'knyts';
+  const fsConfig = useFsBridgeSection(bridge, 'operate');
   const [embedOpen, setEmbedOpen] = useState(false);
 
   const handleOpenMoneyPenny = useCallback(() => {
@@ -87,7 +92,7 @@ export function FinancialSovereigntyOperateStage({
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col overflow-y-auto">
       <BridgeMediaStage
         eyebrow="Operate"
         headline="Work with MoneyPenny — for as long as you find it useful."
@@ -101,7 +106,14 @@ export function FinancialSovereigntyOperateStage({
         onSecondaryCta={handleOpenMoneyPenny}
         accent={accent}
         layout="standard"
-      />
+        infographicUrl={fsConfig?.infographicUrl ?? undefined}
+      >
+        <FinancialSovereigntyStageExtras
+          content={FS_STAGE_CONTENT.operate}
+          bridge={bridge}
+          assets={[{ asset: FS_STAGE_CONTENT.operate.asset, infographicUrl: fsConfig?.infographicUrl }]}
+        />
+      </BridgeMediaStage>
     </div>
   );
 }
