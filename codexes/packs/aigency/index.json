@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-03T06:12:45.978Z",
+  "last_updated": "2026-09-03T06:22:51.528Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "c401293d2c7588351995c1a6dd9f698dd7dc97d2",
-  "latest_commit_short": "c401293",
-  "latest_commit_title": "Add scoped, admin-gated indexing repair (explicit doc-id scope, no global embedding fallback)",
+  "latest_commit": "7877e3740ff049a3c30414435fa81d9c350271be",
+  "latest_commit_short": "7877e37",
+  "latest_commit_title": "Distinguish source-declared vs ledger-confirmed ratification status for Polity Core",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "7877e37",
+      "full_sha": "7877e3740ff049a3c30414435fa81d9c350271be",
+      "title": "Distinguish source-declared vs ledger-confirmed ratification status for Polity Core",
+      "author": "Claude",
+      "timestamp": "2026-09-03T06:21:03Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-7877e37.md"
+    },
     {
       "sha": "c401293",
       "full_sha": "c401293d2c7588351995c1a6dd9f698dd7dc97d2",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-31T16:12:52-04:00",
       "type": "docs",
       "brief": "items/build_/COMMITS/COMMIT-6fbccf8.md"
-    },
-    {
-      "sha": "1176148",
-      "full_sha": "11761485e5c81dfbca5f85ecb3dcd9abb5f56639",
-      "title": "Run Review & Admit preparation automatically; stop offering fake admit/reject for duplicates [merge review/irl-scoped-restoration-2026-08-27]",
-      "author": "Claude",
-      "timestamp": "2026-08-31T18:08:16Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-1176148.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
