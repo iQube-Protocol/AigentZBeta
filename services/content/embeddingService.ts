@@ -471,6 +471,80 @@ class EmbeddingService {
   }
 
   /**
+   * Generate and store embeddings for unembedded chunks belonging ONLY to the
+   * given document ids (2026-09-03 scoped-indexing repair). `processUnembeddedChunks`
+   * above has no domain/document filter at all — it drains the WHOLE
+   * codex_kb_chunks table across every domain, including the private
+   * `homecoming` KB, and is already reachable unscoped from
+   * app/api/admin/kb/ingest-polity-commentary/route.ts. This is the safe
+   * alternative: `documentIds` is REQUIRED and must be non-empty — there is
+   * no "omit to process everything" fallback, by construction (an empty or
+   * missing array is a caller error, not "process all"). Bounded (batchSize),
+   * resumable (call again — already-embedded chunks are skipped via the same
+   * `embedding IS NULL` filter), and idempotent (re-running never re-embeds
+   * a chunk that already has a vector). Callers MUST additionally verify
+   * (server-side, before calling this) that every id in `documentIds`
+   * belongs to a domain/cartridge the caller is actually authorized to
+   * index — this function itself does not resolve or check domain, by
+   * design symmetry with processUnembeddedChunks (which also does no
+   * authorization); the caller (e.g. a new admin route) is the enforcement
+   * point, and must reject any id resolving to `homecoming` or any domain
+   * outside its own explicit allowlist BEFORE calling this.
+   */
+  async processUnembeddedChunksForDocuments(documentIds: string[], batchSize: number = 20): Promise<BatchEmbeddingResult> {
+    if (!Array.isArray(documentIds) || documentIds.length === 0) {
+      return { success: false, processed: 0, failed: 0, errors: ['documentIds must be a non-empty array — there is no unscoped mode.'] };
+    }
+    if (!this.isAvailable()) {
+      return { success: false, processed: 0, failed: 0, errors: ['No embedding provider configured'] };
+    }
+
+    const { data: chunks, error } = await this.supabase
+      .from('codex_kb_chunks')
+      .select('id, content')
+      .in('document_id', documentIds)
+      .is('embedding', null)
+      .limit(batchSize);
+
+    if (error || !chunks) {
+      return { success: false, processed: 0, failed: 0, errors: [error?.message || 'Failed to fetch chunks'] };
+    }
+
+    if (chunks.length === 0) {
+      return { success: true, processed: 0, failed: 0, errors: [] };
+    }
+
+    console.log(`[Embedding] Processing ${chunks.length} chunks for ${documentIds.length} scoped document(s)...`);
+
+    const texts = chunks.map((c) => c.content);
+    const results = await this.generateEmbeddings(texts);
+
+    let processed = 0;
+    let failed = 0;
+    const errors: string[] = [];
+
+    for (let i = 0; i < chunks.length; i++) {
+      const chunk = chunks[i];
+      const result = results[i];
+
+      if (result.success && result.embedding) {
+        const stored = await this.storeChunkEmbedding(chunk.id, result.embedding);
+        if (stored) {
+          processed++;
+        } else {
+          failed++;
+          errors.push(`Failed to store embedding for chunk ${chunk.id}`);
+        }
+      } else {
+        failed++;
+        errors.push(result.error || `Failed to generate embedding for chunk ${chunk.id}`);
+      }
+    }
+
+    return { success: true, processed, failed, errors };
+  }
+
+  /**
    * Semantic search using vector similarity
    */
   async semanticSearch(

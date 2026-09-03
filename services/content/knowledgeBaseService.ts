@@ -412,6 +412,62 @@ class KnowledgeBaseService {
   }
 
   /**
+   * Chunk an EXISTING, already-registered document IN PLACE (2026-09-03
+   * scoped-indexing repair) — never delete-and-reinsert. `ingestTextDocument`
+   * above is idempotent by deleting and recreating the row when a
+   * `source_id` collision is found, which mints a NEW document id — correct
+   * for re-ingesting a document whose text may have changed, but NOT safe to
+   * call on an already-bound, hash-verified manuscript row (it would lose
+   * that row's existing id and any external references to it, violating
+   * "preserve existing document IDs, provenance, and verified text").
+   *
+   * This method instead: (1) loads the document by id, (2) refuses if it
+   * already has chunks (chunk_count > 0) — never re-chunks a row that has
+   * already been processed; call this only for a document confirmed to be
+   * at chunk_count 0, (3) chunks the SUPPLIED text with the same splitter
+   * `ingestTextDocument` uses, (4) stores the chunks, (5) updates status/
+   * counts on the SAME row. The document's id, source_id, source_cid,
+   * created_at, and every other column are untouched.
+   *
+   * The caller is responsible for sourcing `text` correctly for this exact
+   * document (e.g. re-reading the same manuscript/PDF the original binding
+   * used) — this function has no opinion on where text comes from, only on
+   * chunking it safely once supplied.
+   */
+  async chunkExistingDocument(
+    documentId: string,
+    text: string,
+  ): Promise<{ success: boolean; chunkCount?: number; error?: string }> {
+    if (!text.trim()) return { success: false, error: 'empty text' };
+
+    const document = await this.getDocument(documentId);
+    if (!document) return { success: false, error: `document ${documentId} not found` };
+    if (document.chunk_count > 0) {
+      return { success: false, error: `document ${documentId} already has ${document.chunk_count} chunks — refusing to re-chunk in place (this method never overwrites an existing chunk set)` };
+    }
+
+    await this.updateDocumentStatus(documentId, 'processing');
+    try {
+      const chunks = this.pdfService.chunkPlainText(text);
+      const stored = await this.storeChunks(documentId, chunks);
+      if (!stored) {
+        await this.updateDocumentStatus(documentId, 'failed', 'Failed to store chunks');
+        return { success: false, error: 'Failed to store chunks' };
+      }
+      const wordCount = text.split(/\s+/).filter(Boolean).length;
+      await this.updateDocumentStatus(documentId, 'completed', undefined, {
+        wordCount,
+        chunkCount: chunks.length,
+      });
+      return { success: true, chunkCount: chunks.length };
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      await this.updateDocumentStatus(documentId, 'failed', msg);
+      return { success: false, error: msg };
+    }
+  }
+
+  /**
    * Process a PDF from a buffer
    */
   async processPdfFromBuffer(
