@@ -111,6 +111,13 @@ export interface ReconciledPromotedCohort {
   orphanRecords: CohortMemberRef[];
   /** Every distinct resolved cohort member, named — so the Relationship Queue can offer "relate to which other member" without a second, wider invariant search. */
   members: CohortMemberRef[];
+  /** OPTIONAL, set by the caller AFTER this function returns (2026-09-03,
+   *  provenance cohort ratification) — see `PromotedCohort.
+   *  unclassifiedExceptionOnly` in track2Programme.ts for the full contract.
+   *  This function never sets it itself; it stays `undefined` unless a
+   *  caller (`researchProgrammeOrchestrator.ts`) explicitly computes it via
+   *  `services/research/provenanceCohortPreparation.ts`. */
+  unclassifiedExceptionOnly?: boolean;
 }
 
 function labelFor(statement: string): string {

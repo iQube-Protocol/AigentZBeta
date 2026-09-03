@@ -152,6 +152,8 @@ import {
 } from '@/services/research/exceptionIsolation';
 import { writeLifecycleReceipt } from '@/services/research/lifecycle';
 import { reconcilePromotedCohort, type ReconciledPromotedCohort } from '@/services/research/populationReconciliation';
+import { getInvariantsByIds } from '@/services/invariants/store';
+import { triageUnclassifiedProvenance, isExceptionOnlyRemainder } from '@/services/research/provenanceCohortPreparation';
 import {
   buildTrack2Programme,
   buildTrack2DeepLink,
@@ -558,6 +560,28 @@ export async function loadTrack2ProgrammeState(input: {
       ).catch(() => null)
     : null;
   if (promotedForConstruction && !cohort) unreadableSignals.push('promoted cohort (reconcilePromotedCohort)');
+
+  // EXCEPTION-ONLY REMAINDER (2026-09-03, provenance cohort ratification) —
+  // the DETERMINISTIC half only (services/research/
+  // provenanceCohortPreparation.ts::triageUnclassifiedProvenance), never the
+  // model-calling `prepareProvenanceCohort` — cheap enough to run on every
+  // programme-state read. Lets Stage 5 report `partially-complete` once its
+  // remainder is genuinely all isolated exceptions, so it stops permanently
+  // withholding Stage 6/7 from the members already classified. Best-effort:
+  // a read failure leaves `unclassifiedExceptionOnly` unset, which is the
+  // ORIGINAL `in-progress`-forever behaviour — never asserted from a guess.
+  if (cohort && cohort.unclassifiedRecords.length > 0 && admin) {
+    try {
+      const records = await getInvariantsByIds(cohort.unclassifiedRecords.map((r) => r.id));
+      const triaged = await triageUnclassifiedProvenance(
+        admin,
+        records.map((r) => ({ id: r.id, statement: r.statement, provenance: r.provenance })),
+      );
+      cohort.unclassifiedExceptionOnly = isExceptionOnlyRemainder(triaged);
+    } catch {
+      // unreadable — leave unset, never guessed
+    }
+  }
 
   const lifecycle = crystalLifecycleStage({
     domainRatified: declaration.ratification === 'ratified',

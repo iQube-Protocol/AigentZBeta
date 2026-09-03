@@ -374,9 +374,42 @@ const INTERNAL_CITATION_PATTERN =
   /^(codexes|services|app|components|docs|scripts|tests|types|supabase|packages)\//i;
 const INTERNAL_DOCUMENT_PATTERN = /^(CFS|CRP|IRL|PRD|SPEC|CCR|EXP|CLAUDE)[-.\s]/i;
 
+/**
+ * A URL whose HOST is this platform's own deployed domain family, or a
+ * private document-authoring surface (Google Docs/Drive) — closes a real gap
+ * found 2026-09-03 while triaging EXP-P1 Crystal v2's 55 unclassified
+ * invariants: `looksInternal` above matches repo PATHS ('services/…') and
+ * document CODES ('CFS-…') but had no pattern at all for a URL-shaped
+ * self-citation, so a reclassification citing ONLY
+ * `https://dev-beta.aigentz.me/codex/viewer` (this platform's own live
+ * viewer, observed citing itself as "evidence" of QriptoCENT doctrine) or a
+ * `docs.google.com` working draft would have SAILED THROUGH the anti-
+ * laundering gate below uncaught.
+ *
+ * Neither can ever be "a well-established external authority": the platform
+ * host is this platform citing itself, and a Google Docs/Drive link is a
+ * private editable document, not a publisher — true regardless of who
+ * authored it, so this needs no claim about authorship to be correct.
+ * `aigentz.me` is this repo's own documented deployed host family (CLAUDE.md,
+ * "Canonical Repo" — `dev-beta.aigentz.me`), never guessed.
+ */
+const SELF_AUTHORED_EXACT_HOSTS = ['aigentz.me', 'docs.google.com', 'drive.google.com'] as const;
+const SELF_AUTHORED_HOST_SUFFIXES = ['.aigentz.me'] as const;
+
+export function looksSelfAuthored(ref: string): boolean {
+  let host: string;
+  try {
+    host = new URL(ref.trim()).hostname.toLowerCase();
+  } catch {
+    return false; // not a well-formed URL — looksInternal's own patterns cover the non-URL cases
+  }
+  if ((SELF_AUTHORED_EXACT_HOSTS as readonly string[]).includes(host)) return true;
+  return SELF_AUTHORED_HOST_SUFFIXES.some((suffix) => host.endsWith(suffix));
+}
+
 function looksInternal(ref: string): boolean {
   const r = ref.trim();
-  return INTERNAL_CITATION_PATTERN.test(r) || INTERNAL_DOCUMENT_PATTERN.test(r);
+  return INTERNAL_CITATION_PATTERN.test(r) || INTERNAL_DOCUMENT_PATTERN.test(r) || looksSelfAuthored(r);
 }
 
 export type ReclassificationResult =

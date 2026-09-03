@@ -250,6 +250,19 @@ export interface PromotedCohort {
   unvalidatedRecords: CohortMemberRef[];
   orphanRecords: CohortMemberRef[];
   members: CohortMemberRef[];
+  /**
+   * OPTIONAL (2026-09-03, provenance cohort ratification) — `true` only when
+   * every currently-`unclassifiedRecords` member has been mechanically
+   * triaged as a genuine, isolated exception (`services/research/
+   * provenanceCohortPreparation.ts::isExceptionOnlyRemainder`) — no
+   * ready-to-classify candidate remains. Lets Stage 5 read
+   * `partially-complete` (unblocking Stage 6/7 for the members already
+   * classified) instead of `in-progress` forever once its remainder is
+   * exceptions-only. `undefined` (not computed by this caller, or the
+   * classification-signal read failed) preserves the PRE-EXISTING behaviour
+   * — `in-progress` whenever `unclassified > 0` — so no caller that predates
+   * this field is affected. */
+  unclassifiedExceptionOnly?: boolean;
 }
 
 /**
@@ -540,15 +553,35 @@ export function buildTrack2Programme(input: {
 
   const classifyOutcome: StageOutcome = cohortGate() ?? {
     status:
-      cohort!.unclassified === 0 ? (cohort!.excluded.length > 0 ? 'partially-complete' : 'complete') : 'in-progress',
+      cohort!.unclassified === 0
+        ? (cohort!.excluded.length > 0 ? 'partially-complete' : 'complete')
+        // EXCEPTION-ONLY REMAINDER (2026-09-03, provenance cohort
+        // ratification): a remainder that is genuinely all isolated
+        // exceptions is `partially-complete`, not `in-progress` forever —
+        // the same exception-isolation doctrine every other partial-progress
+        // stage in this file already applies. `undefined` (unread) keeps the
+        // ORIGINAL behaviour.
+        : cohort!.unclassifiedExceptionOnly === true
+          ? 'partially-complete'
+          : 'in-progress',
     detail:
       `${cohort!.unclassified} of ${cohortSize} promoted invariant(s) in the current crystal carry no ` +
-      `recorded evidence provenance${excludedNote}`,
+      `recorded evidence provenance${excludedNote}` +
+      (cohort!.unclassified > 0 && cohort!.unclassifiedExceptionOnly === true
+        ? ' — every one is an isolated exception requiring individual steward review; none block Stage 6/7 for the classified remainder'
+        : ''),
     remedies:
       cohort!.unclassified > 0
         ? [
-            `Classify the ${cohort!.unclassified} unclassified member(s) of the current crystal. Promotion ` +
-              'deliberately leaves evidence provenance unset, so this is expected work, not a fault.',
+            cohort!.unclassifiedExceptionOnly === true
+              ? `${cohort!.unclassified} member(s) require individual steward review — their evidence lineage is ` +
+                'incomplete, unrecorded, or cites only repo-internal/self-authored material and can never be ' +
+                "proposed 'external-established'. See GET /api/research/track2/[experimentId]/provenance-cohort " +
+                'for the reason recorded against each.'
+              : `Classify the ${cohort!.unclassified} unclassified member(s) of the current crystal. Promotion ` +
+                'deliberately leaves evidence provenance unset, so this is expected work, not a fault. A ' +
+                'machine-prepared cohort is available at GET /api/research/track2/[experimentId]/provenance-cohort ' +
+                "— ratify it in one act (POST, dryRun:false) rather than classifying each member by hand.",
           ]
         : [],
   };
