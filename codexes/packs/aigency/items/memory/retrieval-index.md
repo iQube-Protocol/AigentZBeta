@@ -5259,3 +5259,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-0b6a010.md](../build_/COMMITS/COMMIT-0b6a010.md)
 - Message: Add Threshold MCP Bridge public knowledge & discovery layer (Qriptopian, IRL OS, AgentiQ OS, Polity Core)
+
+## Commit `3258ad2` — 2026-09-03T06:04:32Z
+- Type: `fix`
+- Brief: [COMMIT-3258ad2.md](../build_/COMMITS/COMMIT-3258ad2.md)
+- Message: Fix Qriptopian read_public_document defaulting to the wrong edition's text
