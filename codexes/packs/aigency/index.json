@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-03T17:09:56.985Z",
+  "last_updated": "2026-09-03T21:18:45.832Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "f9ed2e7b923f052ccc9de6865c5d6c242731c3cd",
-  "latest_commit_short": "f9ed2e7",
-  "latest_commit_title": "Lock CFS split viewport, add real infographics + activity/capsule composition",
+  "latest_commit": "3e9e02cca897acb115e368a31c6b41f181651645",
+  "latest_commit_short": "3e9e02c",
+  "latest_commit_title": "Fix Continue-navigation click interception; finish real-media + activity-rail migration for Prepare/Operate/Cross",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "3e9e02c",
+      "full_sha": "3e9e02cca897acb115e368a31c6b41f181651645",
+      "title": "Fix Continue-navigation click interception; finish real-media + activity-rail migration for Prepare/Operate/Cross",
+      "author": "Claude",
+      "timestamp": "2026-09-03T21:16:13Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-3e9e02c.md"
+    },
     {
       "sha": "f9ed2e7",
       "full_sha": "f9ed2e7b923f052ccc9de6865c5d6c242731c3cd",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-09-01T07:08:19Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-8f0f4d6.md"
-    },
-    {
-      "sha": "5c0ac8a",
-      "full_sha": "5c0ac8a9bff20a225e7955270ef64e4c3462cd7c",
-      "title": "CTP Slice C: atomic wallet conversion (Part B) + ctp.wallet.asset.convert (Part C)",
-      "author": "Claude",
-      "timestamp": "2026-09-01T06:32:31Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-5c0ac8a.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

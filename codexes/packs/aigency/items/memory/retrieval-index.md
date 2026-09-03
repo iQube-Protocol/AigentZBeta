@@ -5314,3 +5314,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-f9ed2e7.md](../build_/COMMITS/COMMIT-f9ed2e7.md)
 - Message: Lock CFS split viewport, add real infographics + activity/capsule composition
+
+## Commit `3e9e02c` — 2026-09-03T21:16:13Z
+- Type: `fix`
+- Brief: [COMMIT-3e9e02c.md](../build_/COMMITS/COMMIT-3e9e02c.md)
+- Message: Fix Continue-navigation click interception; finish real-media + activity-rail migration for Prepare/Operate/Cross
