@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-03T10:54:28.900Z",
+  "last_updated": "2026-09-03T11:36:38.309Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "7b8e980781981032224792480bba8fc39ae45677",
-  "latest_commit_short": "7b8e980",
-  "latest_commit_title": "ACCESS-STEWARD-001: S0 read-only reconciliation + bounded S1 explanation facade",
+  "latest_commit": "3f68e337f3ffe5cde4a20f73e55d0569a3e3cfd7",
+  "latest_commit_short": "3f68e33",
+  "latest_commit_title": "Give CI/Knightsbridge's MoneyPenny embed the same expand-to-metaMe-shell toggle as Horizen",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "3f68e33",
+      "full_sha": "3f68e337f3ffe5cde4a20f73e55d0569a3e3cfd7",
+      "title": "Give CI/Knightsbridge's MoneyPenny embed the same expand-to-metaMe-shell toggle as Horizen",
+      "author": "Claude",
+      "timestamp": "2026-09-03T11:34:32Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-3f68e33.md"
+    },
     {
       "sha": "7b8e980",
       "full_sha": "7b8e980781981032224792480bba8fc39ae45677",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-09-01T01:43:08Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-754866c.md"
-    },
-    {
-      "sha": "c05f9c0",
-      "full_sha": "c05f9c041ea5e8696faa4a2115b5fb2f817fe83c",
-      "title": "Deliver CTP foundation: constitutional runtime + first migrated OCSGA primitive [merge review/irl-scoped-restoration-2026-08-27]",
-      "author": "Claude",
-      "timestamp": "2026-08-31T21:53:14Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-c05f9c0.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
