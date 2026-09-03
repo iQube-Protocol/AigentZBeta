@@ -327,11 +327,28 @@ export function makePublicKnowledgeAdapter(opts: { origin: string; irl?: IrlAdap
         seriesNumber?: string | number;
         canonicalText?: { text?: string };
         readingEditions?: Array<{ id: string; label: string; text?: string }>;
+        defaultReadingEdition?: string | null;
       } | null;
       if (body && typeof body === 'object') {
         const editions = Array.isArray(body.readingEditions) ? body.readingEditions : [];
-        const selected = edition ? editions.find((e) => e.id === edition) : undefined;
-        const fullText = selected?.text ?? body.canonicalText?.text ?? '';
+        // Live-discovered bug (2026-09-03): `canonicalText.text` is the RAW
+        // `modalities.read.text` field (readingEditions.ts's own header calls
+        // this "canonical" for a DIFFERENT reason — its source is a
+        // canonical/authoritative text, not necessarily the DEFAULT edition's
+        // text). For Threshold 006 specifically, `canonicalText.text` holds
+        // the RESEARCH edition's 67,050-char text even though
+        // `defaultReadingEdition` correctly says "reading" (22,404 chars) —
+        // confirmed live against the hosted machine route. So when no
+        // `edition` is requested, resolve `defaultReadingEdition` against the
+        // editions array FIRST (matching what resolveReadingEdition() would
+        // pick), and only fall back to `canonicalText.text` when there is no
+        // editions array at all (a plain essay with a single text, no
+        // edition split).
+        const defaultEdition = body.defaultReadingEdition
+          ? editions.find((e) => e.id === body.defaultReadingEdition)
+          : undefined;
+        const selected = edition ? editions.find((e) => e.id === edition) : defaultEdition;
+        const fullText = selected?.text ?? (editions.length ? '' : body.canonicalText?.text ?? '');
         if (fullText) {
           const sliced = slicePage(fullText, offset, limit);
           return {

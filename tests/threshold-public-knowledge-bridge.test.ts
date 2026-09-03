@@ -228,6 +228,64 @@ describe('publicKnowledge.ts — Qriptopian: field mapping matches the REAL rout
   });
 });
 
+describe('publicKnowledge.ts — Qriptopian multi-edition default resolution (live-discovered bug, 2026-09-03)', () => {
+  // Confirmed live against the hosted machine route for Threshold 006: its
+  // `canonicalText.text` (the raw modalities.read.text field) holds the
+  // RESEARCH edition's text even though `defaultReadingEdition` correctly
+  // says "reading" — so falling back to canonicalText.text when no edition
+  // is requested silently returned the WRONG edition's text and hash. This
+  // mock reproduces that exact divergence: canonicalText.text === the
+  // research text, defaultReadingEdition === "reading".
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        if (url.includes('/machine')) {
+          return new Response(
+            JSON.stringify({
+              title: 'From Constitutional AI to Trusted Intelligence',
+              series: 'Thresholds',
+              defaultReadingEdition: 'reading',
+              canonicalText: { text: 'RESEARCH edition text (67050 chars in production)' },
+              readingEditions: [
+                { id: 'reading', label: 'Reading Edition', text: 'READING edition text (22404 chars in production)' },
+                { id: 'research', label: 'Research Edition', text: 'RESEARCH edition text (67050 chars in production)' },
+              ],
+            }),
+            { status: 200, headers: { 'content-type': 'application/json' } },
+          );
+        }
+        return new Response('not found', { status: 404 });
+      }),
+    );
+  });
+
+  it('with no edition requested, resolves defaultReadingEdition ("reading") and returns ITS text — never canonicalText.text when editions exist', async () => {
+    const adapter = makePublicKnowledgeAdapter({ origin: 'http://localhost:3000' });
+    const result = await adapter.readDocument('qriptopian', 'from-constitutional-ai-to-trusted-intelligence');
+    expect(result.ok).toBe(true);
+    expect(result.page!.edition).toBe('reading');
+    expect(result.page!.text).toBe('READING edition text (22404 chars in production)');
+    expect(result.page!.text).not.toContain('RESEARCH edition text');
+  });
+
+  it('with edition:"research" explicitly requested, returns the research text', async () => {
+    const adapter = makePublicKnowledgeAdapter({ origin: 'http://localhost:3000' });
+    const result = await adapter.readDocument('qriptopian', 'from-constitutional-ai-to-trusted-intelligence', { edition: 'research' });
+    expect(result.ok).toBe(true);
+    expect(result.page!.edition).toBe('research');
+    expect(result.page!.text).toBe('RESEARCH edition text (67050 chars in production)');
+  });
+
+  it('the two editions report DIFFERENT sha256OfFullText — never merged or conflated', async () => {
+    const adapter = makePublicKnowledgeAdapter({ origin: 'http://localhost:3000' });
+    const reading = await adapter.readDocument('qriptopian', 'from-constitutional-ai-to-trusted-intelligence', { edition: 'reading' });
+    const research = await adapter.readDocument('qriptopian', 'from-constitutional-ai-to-trusted-intelligence', { edition: 'research' });
+    expect(reading.page!.sha256OfFullText).not.toBe(research.page!.sha256OfFullText);
+  });
+});
+
 describe('publicKnowledge.ts — search_public_knowledge is honestly keyword-only', () => {
   it('search() always reports searchMode: "keyword"', async () => {
     mocks.corpusReadPackFile.mockResolvedValue('constitution text');
