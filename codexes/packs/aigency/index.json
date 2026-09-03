@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-03T02:40:01.866Z",
+  "last_updated": "2026-09-03T05:02:08.274Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "2fc6c69150cdf8059d2dbfdb417758bf6b32e856",
-  "latest_commit_short": "2fc6c69",
-  "latest_commit_title": "Add MoneyPenny MPY2-3 Risk Envelope: risk factors + limits from Financial Profile",
+  "latest_commit": "757561af4a20548447d8eebb2bfab8d87a2166ba",
+  "latest_commit_short": "757561a",
+  "latest_commit_title": "Restore native MoneyPenny tab hierarchy, move role selector to copilot header, compact capability carousel, fix viewport height",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "757561a",
+      "full_sha": "757561af4a20548447d8eebb2bfab8d87a2166ba",
+      "title": "Restore native MoneyPenny tab hierarchy, move role selector to copilot header, compact capability carousel, fix viewport height",
+      "author": "Claude",
+      "timestamp": "2026-09-03T04:59:50Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-757561a.md"
+    },
     {
       "sha": "2fc6c69",
       "full_sha": "2fc6c69150cdf8059d2dbfdb417758bf6b32e856",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-31T12:51:48-04:00",
       "type": "docs",
       "brief": "items/build_/COMMITS/COMMIT-b506027.md"
-    },
-    {
-      "sha": "0adafc1",
-      "full_sha": "0adafc1fc2934bb0f85a5c4b7952b613cc6662b3",
-      "title": "docs(agentiq): index canonical AEE architecture direction",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-31T12:43:52-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-0adafc1.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
