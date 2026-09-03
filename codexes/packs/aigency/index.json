@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-03T10:39:08.993Z",
+  "last_updated": "2026-09-03T10:54:28.900Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "b86b8a424b234775eb3c922d815bdb6264eeec35",
-  "latest_commit_short": "b86b8a4",
-  "latest_commit_title": "Give metaMe's MoneyPenny mount a real submenu, fix expand target, fix embed viewport collapse",
+  "latest_commit": "7b8e980781981032224792480bba8fc39ae45677",
+  "latest_commit_short": "7b8e980",
+  "latest_commit_title": "ACCESS-STEWARD-001: S0 read-only reconciliation + bounded S1 explanation facade",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "7b8e980",
+      "full_sha": "7b8e980781981032224792480bba8fc39ae45677",
+      "title": "ACCESS-STEWARD-001: S0 read-only reconciliation + bounded S1 explanation facade",
+      "author": "Claude",
+      "timestamp": "2026-09-03T10:35:24Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-7b8e980.md"
+    },
     {
       "sha": "b86b8a4",
       "full_sha": "b86b8a424b234775eb3c922d815bdb6264eeec35",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-31T21:53:14Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-c05f9c0.md"
-    },
-    {
-      "sha": "f2e2c63",
-      "full_sha": "f2e2c63b1174e94e7f1b7df4edc25291a87628ed",
-      "title": "agentiq index: register required CTP delivery amendment",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-31T17:07:13-04:00",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-f2e2c63.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

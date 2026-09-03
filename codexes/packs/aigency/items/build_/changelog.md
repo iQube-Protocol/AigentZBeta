@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`7b8e980`](https://github.com/iQube-Protocol/AigentZBeta/commit/7b8e980781981032224792480bba8fc39ae45677) [push] ACCESS-STEWARD-001: S0 read-only reconciliation + bounded S1 explanation facade (Claude, 2026-09-03T10:35:24Z)
 - [`b86b8a4`](https://github.com/iQube-Protocol/AigentZBeta/commit/b86b8a424b234775eb3c922d815bdb6264eeec35) [fix] Give metaMe's MoneyPenny mount a real submenu, fix expand target, fix embed viewport collapse (Claude, 2026-09-03T10:37:02Z)
 - [`7877e37`](https://github.com/iQube-Protocol/AigentZBeta/commit/7877e3740ff049a3c30414435fa81d9c350271be) [push] Distinguish source-declared vs ledger-confirmed ratification status for Polity Core (Claude, 2026-09-03T06:21:03Z)
 - [`c401293`](https://github.com/iQube-Protocol/AigentZBeta/commit/c401293d2c7588351995c1a6dd9f698dd7dc97d2) [feat] Add scoped, admin-gated indexing repair (explicit doc-id scope, no global embedding fallback) (Claude, 2026-09-03T06:10:35Z)
