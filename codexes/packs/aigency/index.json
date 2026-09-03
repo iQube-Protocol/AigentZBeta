@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-03T05:02:08.274Z",
+  "last_updated": "2026-09-03T05:29:17.935Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "757561af4a20548447d8eebb2bfab8d87a2166ba",
-  "latest_commit_short": "757561a",
-  "latest_commit_title": "Restore native MoneyPenny tab hierarchy, move role selector to copilot header, compact capability carousel, fix viewport height",
+  "latest_commit": "0b6a010e89137877b31eb39b11140f4aaaec4876",
+  "latest_commit_short": "0b6a010",
+  "latest_commit_title": "Add Threshold MCP Bridge public knowledge & discovery layer (Qriptopian, IRL OS, AgentiQ OS, Polity Core)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "0b6a010",
+      "full_sha": "0b6a010e89137877b31eb39b11140f4aaaec4876",
+      "title": "Add Threshold MCP Bridge public knowledge & discovery layer (Qriptopian, IRL OS, AgentiQ OS, Polity Core)",
+      "author": "Claude",
+      "timestamp": "2026-09-03T05:27:13Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-0b6a010.md"
+    },
     {
       "sha": "757561a",
       "full_sha": "757561af4a20548447d8eebb2bfab8d87a2166ba",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-31T13:15:49-04:00",
       "type": "docs",
       "brief": "items/build_/COMMITS/COMMIT-646e61c.md"
-    },
-    {
-      "sha": "b506027",
-      "full_sha": "b5060274d8132b71e11f3dab1b554d360ff81d43",
-      "title": "docs(agentiq): index AEE Financial Services reference architecture",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-31T12:51:48-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-b506027.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
