@@ -54,12 +54,22 @@ describe('Prepare shows the review evidence and its limitations, honestly', () =
   });
 });
 
-describe('Prepare opens the REAL canonical financial-profile panel, not a bridge-local reimplementation', () => {
+describe('Prepare opens the REAL canonical financial-profile panel IN PLACE, not a bridge-local reimplementation and not a navigate-away (2026-09-03 experience-coherence correction)', () => {
   const src = stripComments(readSource(STAGE_SRC));
 
-  it('deep-links to MoneyPenny\'s financial-profile tab via buildCodexUrl — the platform\'s canonical cross-surface mechanism', () => {
-    expect(src).toMatch(/import \{ buildCodexUrl \} from '@\/utils\/codex-nav'/);
-    expect(src).toMatch(/buildCodexUrl\('moneypenny', \{ personaId: personaId \?\? undefined, tab: 'financial-profile' \}\)/);
+  it('embeds MoneyPennyBridgeEmbed rather than navigating away with window.location.assign', () => {
+    expect(src).toMatch(/import \{ MoneyPennyBridgeEmbed \} from '@\/components\/journey\/MoneyPennyBridgeEmbed'/);
+    expect(src).not.toMatch(/window\.location\.assign/);
+  });
+
+  it('the embed targets the financial-profile tab, threading personaId through', () => {
+    expect(src).toMatch(/<MoneyPennyBridgeEmbed tab="financial-profile" personaId=\{personaId\}/);
+  });
+
+  it('opening the embed is a local state toggle, not a page navigation — "Continue to Operate" and a back affordance both stay reachable while it is open', () => {
+    expect(src).toMatch(/const \[embedOpen, setEmbedOpen\] = useState\(false\);/);
+    expect(src).toMatch(/const openFinancialProfile = \(\) => \{\s*setEmbedOpen\(true\);\s*\};/);
+    expect(src).toMatch(/← Back to Prepare summary/);
   });
 });
 

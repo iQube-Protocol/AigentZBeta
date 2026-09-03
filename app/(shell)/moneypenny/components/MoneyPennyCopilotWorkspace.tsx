@@ -96,7 +96,8 @@ import { useSearchParams } from 'next/navigation';
 import { ArrowLeft, ArrowRight, Minimize2 } from 'lucide-react';
 import { SmartTriadCopilotLayer, type SuggestedLayoutHint } from '@/components/smarttriad/copilot/SmartTriadCopilotLayer';
 import { MoneyPennyShell } from './MoneyPennyShell';
-import { tryOpenInMountedCartridge, getCartridge } from '@/services/cartridge/CartridgePresenceRegistry';
+import { useMoneyPennyNavigation } from './moneyPennyNavigation';
+import { getCartridge, tryOpenInMountedCartridge } from '@/services/cartridge/CartridgePresenceRegistry';
 import { buildCodexUrl } from '@/utils/codex-nav';
 import { MONEYPENNY_CAPABILITY_GROUPS } from './moneypennyCapabilities';
 import { MoneyPennyFullScreenProvider, type MoneyPennyFullScreenValue } from './MoneyPennyFullScreenContext';
@@ -109,8 +110,8 @@ import {
   type MoneyPennyEnvironment,
 } from '@/services/moneypenny/contextVersioning';
 import type { MoneyPennyPanelKey } from '@/app/triad/components/codex/tabs/MoneyPennyPanelTab';
+import type { MoneyPennyProviderMode } from '@/types/financialServices';
 
-const MONEYPENNY_CODEX_ID = 'moneypenny-codex';
 // Entry continuity (2026-09-02) — the metaMe codex's real MoneyPenny mirror
 // tab (data/codex-configs.ts's `metame-moneypenny-orchestration` config,
 // slug 'moneypenny-orchestration') and its 'aigentMe' sibling tab (slug
@@ -127,12 +128,13 @@ const AIGENTME_TAB_SLUG = 'aigent-me';
  * ids (see route.ts's ChipTargetId + LAYOUT_TAG_IDS/LAYOUT_KEYWORDS, and
  * SmartTriadCopilotLayer's SuggestedLayoutHint.layoutId). Derived from the
  * SAME capability-group source of truth the rail uses (moneypennyCapabilities.ts)
- * rather than hand-duplicating labels — 'chat' and null-panel items are
- * excluded since they are not registered layout ids.
+ * rather than hand-duplicating labels — null-panel items are excluded since
+ * they are not registered layout ids. (The retired 'chat' panel no longer
+ * needs excluding — see MoneyPennyPanelTab.tsx's own header comment.)
  */
 const SUGGESTABLE_PANEL_LABELS: Partial<Record<MoneyPennyPanelKey, string>> = Object.fromEntries(
   MONEYPENNY_CAPABILITY_GROUPS.flatMap((g) => g.items)
-    .filter((item): item is typeof item & { panel: MoneyPennyPanelKey } => item.panel !== null && item.panel !== 'chat')
+    .filter((item): item is typeof item & { panel: MoneyPennyPanelKey } => item.panel !== null)
     .map((item) => [item.panel, item.label]),
 );
 
@@ -176,10 +178,12 @@ export function MoneyPennyCopilotWorkspace({ activePanel, children }: MoneyPenny
   // auto-navigated — per this codebase's own Companion Menu invariant MS-5
   // ("a deliberate act outranks an ambient observation"), a suggestion only
   // lights an affordance the operator clicks; navigation itself goes
-  // through the SAME tryOpenInMountedCartridge seam the capability rail
-  // already uses, so the codex tab framework stays the single owner of
+  // through `MoneyPennyNavigationContext` (experience-coherence correction,
+  // 2026-09-03 — see moneyPennyNavigation.tsx's header), so
+  // MoneyPennyPanelTab's own internal state stays the single owner of
   // "which panel is active" (MS-2 — no second, parallel state authority).
   const [suggestedPanel, setSuggestedPanel] = useState<MoneyPennyPanelKey | null>(null);
+  const { navigate: navigateToPanel } = useMoneyPennyNavigation();
   // C-01 narrow-width Conversation/Workspace toggle. Both panes stay
   // mounted at every width — this only controls which is VISIBLE below
   // the `lg` breakpoint (see the render below) — so switching views never
@@ -199,6 +203,13 @@ export function MoneyPennyCopilotWorkspace({ activePanel, children }: MoneyPenny
   // acceptance crosswalk), and building one here would be speculative,
   // out-of-scope UI for a versioning slice. Defaults to the safe value.
   const [environment] = useState<MoneyPennyEnvironment>('simulation');
+  // MoneyPenny experience-coherence correction (2026-09-03, §6) — the
+  // contextual role selector. Defaults to Advisor. Purely local state: no
+  // identity/delegation/authority call exists anywhere in this file for
+  // it, by construction (see MoneyPennyRoleSelector.tsx's own header for
+  // the full "must NOT" list this satisfies structurally, not by
+  // discipline alone).
+  const [role, setRole] = useState<MoneyPennyProviderMode>('ADVISOR');
   // Bumped each time the financial-profile ground snapshot is successfully
   // refetched with new data — a profile revision invalidates an in-flight
   // request's response even when panel/persona/environment are unchanged.
@@ -229,6 +240,9 @@ export function MoneyPennyCopilotWorkspace({ activePanel, children }: MoneyPenny
   useEffect(() => { generationRef.current += 1; }, [activePanel]);
   useEffect(() => { generationRef.current += 1; }, [personaId]);
   useEffect(() => { generationRef.current += 1; }, [environment]);
+  // Role changes are context-relevant too (operator directive: "Include
+  // role changes in stale-response invalidation").
+  useEffect(() => { generationRef.current += 1; }, [role]);
 
   // The operator already navigated (via the rail, a deep link, or this
   // suggestion itself) — clear any stale suggestion for the panel just left.
@@ -277,9 +291,10 @@ export function MoneyPennyCopilotWorkspace({ activePanel, children }: MoneyPenny
       panel: activePanel,
       personaId,
       environment,
+      role,
       profileRevision: profileRevisionRef.current,
     });
-  }, [activePanel, personaId, environment]);
+  }, [activePanel, personaId, environment, role]);
 
   /** The version key for "right now" — read fresh at call time, never memoized/stale. */
   const computeCurrentVersionKey = useCallback((): string => {
@@ -288,10 +303,11 @@ export function MoneyPennyCopilotWorkspace({ activePanel, children }: MoneyPenny
       panel: activePanel,
       personaId,
       environment,
+      role,
       profileRevision: profileRevisionRef.current,
     };
     return computeContextVersionKey(currentVersion);
-  }, [activePanel, personaId, environment]);
+  }, [activePanel, personaId, environment, role]);
 
   // SC-04 — protects conversation output, not just the suggestion banner.
   // Passed to SmartTriadCopilotLayer as shouldSuppressResponse: called
@@ -324,9 +340,9 @@ export function MoneyPennyCopilotWorkspace({ activePanel, children }: MoneyPenny
 
   const navigateToSuggestedPanel = useCallback(() => {
     if (!suggestedPanel) return;
-    tryOpenInMountedCartridge({ cartridgeId: MONEYPENNY_CODEX_ID, tab: suggestedPanel });
+    navigateToPanel(suggestedPanel);
     setSuggestedPanel(null);
-  }, [suggestedPanel]);
+  }, [suggestedPanel, navigateToPanel]);
 
   // Return navigation — three paths, tried in order of precision:
   // 1. Reached through the metame-codex MoneyPenny mirror (Agent Me's
@@ -377,6 +393,13 @@ export function MoneyPennyCopilotWorkspace({ activePanel, children }: MoneyPenny
   const groundContext: Record<string, unknown> = {
     cartridge: 'moneypenny',
     activePanel,
+    // MoneyPenny experience-coherence correction (2026-09-03, §6) — the
+    // selected role scopes the conversation (Advisor explains, Architect
+    // proposes, Runtime acts under existing authority). Never itself an
+    // authority grant — see MoneyPennyRoleSelector.tsx's own header for
+    // the full "must NOT" list this field's mere presence does not
+    // violate (it is read, never used to authorize anything, downstream).
+    providerMode: role,
     // SC-04 — the version this specific request's context represents.
     // Echoed back via onRequestContext at send-time, then compared
     // against the CURRENT version when the response arrives. Read
@@ -500,7 +523,7 @@ export function MoneyPennyCopilotWorkspace({ activePanel, children }: MoneyPenny
               </button>
             </div>
           )}
-          <MoneyPennyShell activePanel={activePanel}>{children}</MoneyPennyShell>
+          <MoneyPennyShell activePanel={activePanel} role={role} onRoleChange={setRole}>{children}</MoneyPennyShell>
         </div>
       </div>
     </div>

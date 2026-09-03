@@ -202,14 +202,15 @@ describe('MoneyPennyLearnPanel.tsx — the structured right-pane content, reusin
   });
 });
 
-describe('learn is deliberately excluded from the area-nav rail — a chip-triggered capsule, not a persistent destination (mirrors the existing crm exception)', () => {
+describe('learn is deliberately excluded from the area-nav rail — a chip-triggered capsule, not a persistent destination', () => {
   const src = stripComments(readSource('app/(shell)/moneypenny/components/moneypennyCapabilities.ts'));
 
-  it('MONEYPENNY_AREA_FOR_PANEL excludes both "crm" and "learn"', () => {
-    expect(src).toMatch(/Record<Exclude<MoneyPennyPanelKey, "crm" \| "learn">, MoneyPennyAreaId>/);
+  it('MONEYPENNY_AREA_FOR_PANEL excludes "learn" ("crm" now maps to Activity per the experience-coherence correction)', () => {
+    expect(src).toMatch(/Record<Exclude<MoneyPennyPanelKey, "learn">, MoneyPennyAreaId>/);
   });
 
-  it('areaForPanel returns null for "learn", same as "crm"', () => {
-    expect(src).toMatch(/if \(panel === "crm" \|\| panel === "learn"\) return null;/);
+  it('areaForPanel returns null for "learn" only — "crm" now resolves to a real area (Activity)', () => {
+    expect(src).toMatch(/if \(panel === "learn"\) return null;/);
+    expect(src).toMatch(/crm: "activity"/);
   });
 });

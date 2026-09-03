@@ -22,16 +22,17 @@
  * Deliberately empty `completionEvidence` on this stage (see the journey
  * definition's own comment) — this is a persistent destination, not a
  * gate to clear. The real MoneyPenny cartridge (statements, plans,
- * capabilities) is reached via `buildCodexUrl`, the SAME inter-cartridge
- * navigation contract every other cross-cartridge link in this codebase
- * uses (CLAUDE.md "Inter-Cartridge Navigation") — this stage does not
- * embed a second copy of MoneyPenny's split-pane workspace; full B2/B3
- * embedding is a later, larger slice, not invented here.
+ * capabilities) mounts IN PLACE via `MoneyPennyBridgeEmbed` (MoneyPenny
+ * experience-coherence correction, 2026-09-03 — a real iframe embed via
+ * the same mechanism Horizen's own MoneyPenny embed already used, never
+ * `window.location.assign`; see that component's own header) when
+ * "Open MoneyPenny" is clicked, toggling closed again with "Continue"
+ * still available throughout.
  */
 
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { BridgeMediaStage, type BridgeAccent } from '@/components/journey/BridgeMediaStage';
-import { buildCodexUrl } from '@/utils/codex-nav';
+import { MoneyPennyBridgeEmbed } from '@/components/journey/MoneyPennyBridgeEmbed';
 
 function selectStage(stageId: string) {
   try {
@@ -51,22 +52,43 @@ export function FinancialSovereigntyOperateStage({
   nextStageId: string;
   personaId?: string | null;
 }) {
+  const [embedOpen, setEmbedOpen] = useState(false);
+
   const handleOpenMoneyPenny = useCallback(() => {
-    try {
-      // Navigate in place — this stage already renders inside the Journey
-      // Spine's own iframe, so MoneyPenny opens within that same frame
-      // rather than a separate browser tab (operator correction, 2026-09-02;
-      // window.open(..., '_blank') previously popped a new tab).
-      const url = buildCodexUrl('moneypenny', { personaId: personaId ?? undefined, tab: 'overview' });
-      window.location.assign(url);
-    } catch {
-      /* non-fatal — the primary Continue action still works */
-    }
-  }, [personaId]);
+    setEmbedOpen(true);
+  }, []);
+
+  const handleCloseMoneyPenny = useCallback(() => {
+    setEmbedOpen(false);
+  }, []);
 
   const handleContinue = useCallback(() => {
     selectStage(nextStageId);
   }, [nextStageId]);
+
+  if (embedOpen) {
+    return (
+      <div className="flex h-full flex-col gap-3 p-4">
+        <div className="flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={handleCloseMoneyPenny}
+            className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-slate-200"
+          >
+            ← Close MoneyPenny workspace
+          </button>
+          <button
+            type="button"
+            onClick={handleContinue}
+            className="rounded-lg border border-slate-700 bg-slate-900/40 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:opacity-80"
+          >
+            Continue
+          </button>
+        </div>
+        <MoneyPennyBridgeEmbed tab="overview" personaId={personaId} className="min-h-0 w-full flex-1 rounded-md border border-slate-800 bg-slate-950" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full flex-col">

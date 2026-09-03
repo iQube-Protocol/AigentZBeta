@@ -25,6 +25,7 @@ function version(overrides: Partial<MoneyPennyContextVersion> = {}): MoneyPennyC
     panel: 'financial-profile',
     personaId: 'persona-1',
     environment: 'simulation',
+    role: 'ADVISOR',
     profileRevision: 0,
     ...overrides,
   };
@@ -60,6 +61,11 @@ describe('computeContextVersionKey — deterministic, sensitive to every axis', 
       .not.toBe(computeContextVersionKey(version({ profileRevision: 0 })));
   });
 
+  it('a different role produces a different key (experience-coherence correction, 2026-09-03: role changes are context-relevant, per the operator directive "include role changes in stale-response invalidation")', () => {
+    expect(computeContextVersionKey(version({ role: 'ARCHITECT' })))
+      .not.toBe(computeContextVersionKey(version({ role: 'ADVISOR' })));
+  });
+
   it('a different generation produces a different key, even when every other axis is identical', () => {
     expect(computeContextVersionKey(version({ generation: 1 })))
       .not.toBe(computeContextVersionKey(version({ generation: 0 })));
@@ -91,6 +97,12 @@ describe('isResponseContextStale — the three required SC-04 scenarios', () => 
   it('scenario 3: a delayed response after a simulation/live environment switch is stale, even on the same panel and profile revision', () => {
     const sentVersion = computeContextVersionKey(version({ environment: 'simulation' }));
     const currentVersion = computeContextVersionKey(version({ environment: 'live' }));
+    expect(isResponseContextStale(sentVersion, currentVersion)).toBe(true);
+  });
+
+  it('scenario 4 (experience-coherence correction, 2026-09-03): a delayed response after an Advisor -> Architect role switch is stale, even on the same panel/persona/environment/profileRevision', () => {
+    const sentVersion = computeContextVersionKey(version({ role: 'ADVISOR' }));
+    const currentVersion = computeContextVersionKey(version({ role: 'ARCHITECT' }));
     expect(isResponseContextStale(sentVersion, currentVersion)).toBe(true);
   });
 
@@ -162,7 +174,7 @@ describe('SC-04 wiring — MoneyPennyCopilotWorkspace discards stale responses w
   });
 
   it('handleRequestContext bumps generationRef BEFORE capturing — so this request gets its own fresh, never-reused identity', () => {
-    const handlerBody = src.match(/const handleRequestContext = useCallback\(\(\) => \{([\s\S]*?)\}, \[activePanel, personaId, environment\]\);/)?.[1] ?? '';
+    const handlerBody = src.match(/const handleRequestContext = useCallback\(\(\) => \{([\s\S]*?)\}, \[activePanel, personaId, environment, role\]\);/)?.[1] ?? '';
     const bumpIndex = handlerBody.indexOf('generationRef.current += 1;');
     const captureIndex = handlerBody.indexOf('pendingRequestVersionRef.current = computeContextVersionKey(');
     expect(bumpIndex).toBeGreaterThan(-1);

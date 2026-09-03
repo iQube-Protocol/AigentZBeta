@@ -47,8 +47,15 @@ export const MONEYPENNY_CAPABILITY_GROUPS: MoneyPennyCapabilityGroup[] = [
     label: "Understand",
     items: [
       { id: "financial-profile", label: "Financial Profile", description: "Bank-statement-derived financial aggregates and a candidate risk/trading envelope (SPEC-MPY-002 §5, MPY2-2).", panel: "financial-profile", mode: "ADVISOR" },
-      { id: "market-research", label: "Market Research", description: "Grounded, cited market research and explainers, via MoneyPenny Advisor.", panel: "chat", mode: "ADVISOR" },
-      { id: "learn", label: "Learn / Explain", description: "Concept explainers — volatility, spread, slippage, liquidity, position sizing.", panel: "chat", mode: "ADVISOR" },
+      // panel: "overview" (2026-09-03 experience-coherence correction) —
+      // these two items are "just ask MoneyPenny," never a dedicated
+      // right-pane destination; the canonical left-pane copilot
+      // (SmartTriadCopilotLayer) is already visible on every panel,
+      // including Home, so there is nothing to navigate the right pane TO.
+      // The retired duplicate `chat` panel (MoneyPennyChat.tsx) previously
+      // sat here — see MoneyPennyPanelTab.tsx's own header comment.
+      { id: "market-research", label: "Market Research", description: "Grounded, cited market research and explainers, via MoneyPenny Advisor.", panel: "overview", mode: "ADVISOR" },
+      { id: "learn", label: "Learn / Explain", description: "Concept explainers — volatility, spread, slippage, liquidity, position sizing.", panel: "overview", mode: "ADVISOR" },
     ],
   },
   {
@@ -127,17 +134,18 @@ export const MONEYPENNY_AREAS: MoneyPennyArea[] = [
 /**
  * Cartridge spec C-03's existing-surface relocation table, applied to this
  * repo's actual MoneyPennyPanelKey set (§5, "Existing-surface relocation").
- * `crm` is deliberately absent — C-03's own closing paragraph carves
- * "privileged administration" out of the five areas as contextual utility
- * access, not a sixth beginner journey; it is reachable as a utility link
- * instead (see MoneyPennyAreaNav.tsx), same deep link, same functionality.
+ * `crm` maps to `activity` (experience-coherence correction, 2026-09-03,
+ * operator directive: "The existing 'CRM' tasks/contributions belong under
+ * Activity" — supersedes the earlier "utility item outside the five areas"
+ * placement; CRM is a real Activity-area item now, not a separately-pinned
+ * button).
  *
- * `learn` is likewise deliberately absent — the C-15/A3 structured
- * right-pane content a video block's related chip opens is a chip-triggered
- * capsule, not a persistent area-nav destination (see
- * MoneyPennyPanelTab.tsx's own comment on the `learn` panel key).
+ * `learn` is deliberately absent — the C-15/A3 structured right-pane
+ * content a video block's related chip opens is a chip-triggered capsule,
+ * not a persistent area-nav destination (see MoneyPennyPanelTab.tsx's own
+ * comment on the `learn` panel key).
  */
-export const MONEYPENNY_AREA_FOR_PANEL: Record<Exclude<MoneyPennyPanelKey, "crm" | "learn">, MoneyPennyAreaId> = {
+export const MONEYPENNY_AREA_FOR_PANEL: Record<Exclude<MoneyPennyPanelKey, "learn">, MoneyPennyAreaId> = {
   overview: "home",
   "financial-profile": "my-money",
   identity: "my-money",
@@ -146,15 +154,15 @@ export const MONEYPENNY_AREA_FOR_PANEL: Record<Exclude<MoneyPennyPanelKey, "crm"
   "hft-console": "markets",
   strategies: "markets",
   architect: "markets",
-  chat: "markets",
   portfolio: "activity",
   smarttriad: "activity",
   runtime: "activity",
   "service-orchestration": "activity",
+  crm: "activity",
 };
 
 export function areaForPanel(panel: MoneyPennyPanelKey): MoneyPennyAreaId | null {
-  if (panel === "crm" || panel === "learn") return null;
+  if (panel === "learn") return null;
   return MONEYPENNY_AREA_FOR_PANEL[panel] ?? "home";
 }
 
@@ -186,14 +194,20 @@ export function capabilityItemsForArea(areaId: MoneyPennyAreaId): MoneyPennyCapa
 
 /**
  * Panels with real capsules but no MONEYPENNY_CAPABILITY_GROUPS entry
- * (`identity`, `x402`, plus `overview` covered by MONEYPENNY_HOME_ITEM
+ * (`identity`, `x402`, `crm`, plus `overview` covered by MONEYPENNY_HOME_ITEM
  * above) — added here so their deep links/functionality remain reachable
  * from the new area nav, not just as a raw URL. Honest minimal labels,
  * matching this file's own "never link to a fake destination" rule.
+ *
+ * `crm` moved here from the retired `MONEYPENNY_UTILITY_ITEM` (2026-09-03
+ * experience-coherence correction) — it is now a real Activity-area item,
+ * reached the same way `identity`/`x402` reach My Money, rather than a
+ * separately-pinned button outside the five-area strip.
  */
 export const MONEYPENNY_UNGROUPED_ITEMS: MoneyPennyCapabilityItem[] = [
   { id: "identity", label: "Identity & Wallets", description: "FIO handle and wallet addressing (SPEC-MPY-CARTRIDGE C-03: My Money connections and account settings).", panel: "identity", mode: null },
   { id: "x402", label: "Settlement (X402)", description: "Task entry over the native X402 settlement service (SPEC-MPY-CARTRIDGE C-03: My Money task entry).", panel: "x402", mode: "RUNTIME" },
+  { id: "crm", label: "Relationships (CRM)", description: "Contextual relationships, tasks and contributions (SPEC-MPY-CARTRIDGE C-03: Activity).", panel: "crm", mode: null },
 ];
 
 /** Same derivation as capabilityItemsForArea, folding in MONEYPENNY_UNGROUPED_ITEMS. */
@@ -203,12 +217,3 @@ export function areaItems(areaId: MoneyPennyAreaId): MoneyPennyCapabilityItem[] 
   );
   return [...capabilityItemsForArea(areaId), ...ungrouped];
 }
-
-/** The single utility item outside the five areas (see MONEYPENNY_AREA_FOR_PANEL's own note on `crm`). */
-export const MONEYPENNY_UTILITY_ITEM: MoneyPennyCapabilityItem = {
-  id: "crm",
-  label: "Relationships (CRM)",
-  description: "Contextual relationships and privileged business/service management — utility access, not a sixth area (SPEC-MPY-CARTRIDGE C-03).",
-  panel: "crm",
-  mode: null,
-};

@@ -124,7 +124,7 @@ describe('Return context — verified against the real registered destinations, 
   });
 
   it('detects the mirror context via getCartridge(metame-codex) — reads real registry state, never assumes context', () => {
-    expect(workspaceSrc).toMatch(/import \{ tryOpenInMountedCartridge, getCartridge \} from '@\/services\/cartridge\/CartridgePresenceRegistry'/);
+    expect(workspaceSrc).toMatch(/import \{ getCartridge, tryOpenInMountedCartridge \} from '@\/services\/cartridge\/CartridgePresenceRegistry'/);
     expect(workspaceSrc).toMatch(/getCartridge\(METAME_CODEX_ID\) !== null/);
   });
 

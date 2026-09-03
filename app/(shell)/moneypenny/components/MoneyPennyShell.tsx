@@ -14,13 +14,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 
 import { useMoneyPennyClient } from "../hooks/useMoneyPennyClient";
 import { MoneyPennyAreaNav } from "./MoneyPennyAreaNav";
+import { MoneyPennyRoleSelector } from "./MoneyPennyRoleSelector";
 import type { MoneyPennyPanelKey } from "@/app/triad/components/codex/tabs/MoneyPennyPanelTab";
+import type { MoneyPennyProviderMode } from "@/types/financialServices";
 
 function getStatusColor(status: string) {
   switch (status) {
@@ -40,9 +41,15 @@ export interface MoneyPennyShellProps {
   /** The panel currently dispatched by MoneyPennyPanelTab — threaded down so
    *  the capability rail can highlight the active destination. */
   activePanel?: MoneyPennyPanelKey;
+  /** MoneyPenny experience-coherence correction (2026-09-03, §6) — the
+   *  contextual role selector's current value and setter, owned by
+   *  MoneyPennyCopilotWorkspace.tsx (so it can wire the same value into
+   *  groundContext/contextVersioning). */
+  role: MoneyPennyProviderMode;
+  onRoleChange: (role: MoneyPennyProviderMode) => void;
 }
 
-export function MoneyPennyShell({ children, activePanel }: MoneyPennyShellProps) {
+export function MoneyPennyShell({ children, activePanel, role, onRoleChange }: MoneyPennyShellProps) {
   const [isConnected, setIsConnected] = useState(false);
   const [systemStatus, setSystemStatus] = useState({
     quotes: "offline",
@@ -90,49 +97,56 @@ export function MoneyPennyShell({ children, activePanel }: MoneyPennyShellProps)
   }, [moneyPennyClient]);
 
   return (
-    <div className="h-full w-full p-6 space-y-6 bg-slate-950">
-      <Card className="border-slate-800 bg-slate-900/40 backdrop-blur-xl">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-6 w-6 text-emerald-400" />
-                <span className="text-emerald-400">MoneyPenny</span>
-                <span className="text-slate-400">— Financial Services Runtime Agents</span>
-              </CardTitle>
-              <CardDescription className="text-slate-400">
-                Real-time high-frequency trading agent powered by Qripto
-              </CardDescription>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1">
-                  <div className={`w-2 h-2 rounded-full ${getStatusColor(systemStatus.quotes)}`} />
-                  <span className="text-xs text-slate-400">Quotes</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className={`w-2 h-2 rounded-full ${getStatusColor(systemStatus.execution)}`} />
-                  <span className="text-xs text-slate-400">Execution</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className={`w-2 h-2 rounded-full ${getStatusColor(systemStatus.settlements)}`} />
-                  <span className="text-xs text-slate-400">X402</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className={`w-2 h-2 rounded-full ${getStatusColor(systemStatus.fio)}`} />
-                  <span className="text-xs text-slate-400">FIO</span>
-                </div>
-              </div>
-              <Badge
-                variant={isConnected ? "default" : "destructive"}
-                className={isConnected ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : ""}
-              >
-                {isConnected ? "Connected" : "Disconnected"}
-              </Badge>
-            </div>
+    <div className="h-full w-full p-6 space-y-4 bg-slate-950">
+      {/* MoneyPenny experience-coherence correction (2026-09-03, §6) — the
+       * contextual role selector, at the top of the right workspace as
+       * specified. Kept OUTSIDE the diagnostics <details> below (it is a
+       * real, always-visible control, not a diagnostic). */}
+      <div className="flex items-center justify-between gap-2">
+        <MoneyPennyRoleSelector role={role} onChange={onRoleChange} />
+      </div>
+
+      {/* MoneyPenny experience-coherence correction (2026-09-03, operator
+       * directive: "Remove the large 'MoneyPenny — Financial Services
+       * Runtime Agents' banner and its technical connection-light strip
+       * from the default workspace. Preserve useful diagnostics behind an
+       * appropriate details surface."). A collapsed <details> disclosure,
+       * closed by default — the diagnostic capability is preserved
+       * (service-by-service status, honestly derived — see the comment on
+       * setSystemStatus above), it just no longer occupies default
+       * screen space with implementation-status chrome. */}
+      <details className="group rounded-lg border border-slate-800 bg-slate-900/20">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-xs text-slate-500 hover:text-slate-300">
+          <span className="flex items-center gap-2">
+            <ChevronDown className="h-3.5 w-3.5 transition-transform group-open:rotate-180" />
+            Connection diagnostics
+          </span>
+          <Badge
+            variant={isConnected ? "default" : "destructive"}
+            className={`text-[10px] ${isConnected ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : ""}`}
+          >
+            {isConnected ? "Connected" : "Disconnected"}
+          </Badge>
+        </summary>
+        <div className="flex flex-wrap items-center gap-3 border-t border-slate-800 px-3 py-2">
+          <div className="flex items-center gap-1">
+            <div className={`h-2 w-2 rounded-full ${getStatusColor(systemStatus.quotes)}`} />
+            <span className="text-xs text-slate-400">Quotes</span>
           </div>
-        </CardHeader>
-      </Card>
+          <div className="flex items-center gap-1">
+            <div className={`h-2 w-2 rounded-full ${getStatusColor(systemStatus.execution)}`} />
+            <span className="text-xs text-slate-400">Execution</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className={`h-2 w-2 rounded-full ${getStatusColor(systemStatus.settlements)}`} />
+            <span className="text-xs text-slate-400">X402</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className={`h-2 w-2 rounded-full ${getStatusColor(systemStatus.fio)}`} />
+            <span className="text-xs text-slate-400">FIO</span>
+          </div>
+        </div>
+      </details>
 
       <div className="min-w-0 flex-1 space-y-4">
         <MoneyPennyAreaNav activePanel={activePanel} />

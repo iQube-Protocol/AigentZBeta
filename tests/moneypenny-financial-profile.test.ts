@@ -241,13 +241,14 @@ describe('MoneyPenny capability-rail / cartridge wiring — MPY2-2', () => {
     expect(item!.panel).toBe('financial-profile');
   });
 
-  it('MONEYPENNY_CARTRIDGE gets a real financial-profile tab in the EXISTING operate group — tabGroups itself is untouched (pinned by fs-operate-embed-viewport-parity.test.ts)', async () => {
+  it('financial-profile is a real MoneyPennyPanelKey, reachable through the one registered MONEYPENNY_CARTRIDGE tab (2026-09-03: the 14-tab/4-group structure this test used to pin was collapsed to one tab — see that constant\'s own header comment)', async () => {
     const { MONEYPENNY_CARTRIDGE } = await import('@/data/codex-configs');
-    const groupIds = (MONEYPENNY_CARTRIDGE.tabGroups ?? []).map((g) => g.id);
-    expect(groupIds).toEqual(['operate', 'connect', 'service', 'administer']);
-    const tab = MONEYPENNY_CARTRIDGE.tabs.find((t) => t.slug === 'financial-profile');
-    expect(tab).toBeDefined();
-    expect(tab!.group).toBe('operate');
+    expect(MONEYPENNY_CARTRIDGE.tabGroups ?? []).toEqual([]);
+    expect(MONEYPENNY_CARTRIDGE.tabs).toHaveLength(1);
+    expect(MONEYPENNY_CARTRIDGE.tabs[0].config.component).toBe('MoneyPennyPanelTab');
+    const { readSource, stripComments } = await import('./_lib/sourceAuthority');
+    const panelTabSrc = stripComments(readSource('app/triad/components/codex/tabs/MoneyPennyPanelTab.tsx'));
+    expect(panelTabSrc).toContain('"financial-profile": FinancialProfilePanel,');
   });
 
   it('financial_document is a recognized upload useKind end to end — the type union AND the /api/uploads route allowlist both carry it (the exact drift class that route\'s own comment warns about)', async () => {
