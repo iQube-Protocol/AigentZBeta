@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-03T13:26:10.919Z",
+  "last_updated": "2026-09-03T14:08:25.517Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "510e7b30fc7321fcf089201300a75a8017b0be05",
-  "latest_commit_short": "510e7b3",
-  "latest_commit_title": "Wire CFS content pack into CI/KNYTS Discover-Cross stages",
+  "latest_commit": "093701e3b670edfa8776aa8ce00dd05a8738fa7e",
+  "latest_commit_short": "093701e",
+  "latest_commit_title": "Complete CFS editorial coverage: structured content, native admin editing, section composition",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "093701e",
+      "full_sha": "093701e3b670edfa8776aa8ce00dd05a8738fa7e",
+      "title": "Complete CFS editorial coverage: structured content, native admin editing, section composition",
+      "author": "Claude",
+      "timestamp": "2026-09-03T14:06:23Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-093701e.md"
+    },
     {
       "sha": "510e7b3",
       "full_sha": "510e7b30fc7321fcf089201300a75a8017b0be05",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-09-01T06:18:22Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-64cb67a.md"
-    },
-    {
-      "sha": "36be380",
-      "full_sha": "36be3807b262c582e8ce624eacfbea01c40e835a",
-      "title": "Close XP-5: wire the canonical aigentMe companion into the live Journey copilot mount [merge review/irl-scoped-restoration-2026-08-27]",
-      "author": "Claude",
-      "timestamp": "2026-09-01T06:01:46Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-36be380.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
