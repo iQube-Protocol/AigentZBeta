@@ -5289,3 +5289,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-3f68e33.md](../build_/COMMITS/COMMIT-3f68e33.md)
 - Message: Give CI/Knightsbridge's MoneyPenny embed the same expand-to-metaMe-shell toggle as Horizen
+
+## Commit `e99c9bb` — 2026-09-03T11:58:16Z
+- Type: `push`
+- Brief: [COMMIT-e99c9bb.md](../build_/COMMITS/COMMIT-e99c9bb.md)
+- Message: Collapse MoneyPenny's left-pane role selector to a one-row Advisor/Architect/Runtime toggle

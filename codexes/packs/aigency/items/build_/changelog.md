@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`e99c9bb`](https://github.com/iQube-Protocol/AigentZBeta/commit/e99c9bba1b2669feb5e3bcf5e6b1df85af9ff1e1) [push] Collapse MoneyPenny's left-pane role selector to a one-row Advisor/Architect/Runtime toggle (Claude, 2026-09-03T11:58:16Z)
 - [`3f68e33`](https://github.com/iQube-Protocol/AigentZBeta/commit/3f68e337f3ffe5cde4a20f73e55d0569a3e3cfd7) [push] Give CI/Knightsbridge's MoneyPenny embed the same expand-to-metaMe-shell toggle as Horizen (Claude, 2026-09-03T11:34:32Z)
 - [`7b8e980`](https://github.com/iQube-Protocol/AigentZBeta/commit/7b8e980781981032224792480bba8fc39ae45677) [push] ACCESS-STEWARD-001: S0 read-only reconciliation + bounded S1 explanation facade (Claude, 2026-09-03T10:35:24Z)
 - [`b86b8a4`](https://github.com/iQube-Protocol/AigentZBeta/commit/b86b8a424b234775eb3c922d815bdb6264eeec35) [fix] Give metaMe's MoneyPenny mount a real submenu, fix expand target, fix embed viewport collapse (Claude, 2026-09-03T10:37:02Z)

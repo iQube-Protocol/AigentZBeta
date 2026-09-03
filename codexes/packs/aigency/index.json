@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-03T11:36:38.309Z",
+  "last_updated": "2026-09-03T12:00:18.215Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "3f68e337f3ffe5cde4a20f73e55d0569a3e3cfd7",
-  "latest_commit_short": "3f68e33",
-  "latest_commit_title": "Give CI/Knightsbridge's MoneyPenny embed the same expand-to-metaMe-shell toggle as Horizen",
+  "latest_commit": "e99c9bba1b2669feb5e3bcf5e6b1df85af9ff1e1",
+  "latest_commit_short": "e99c9bb",
+  "latest_commit_title": "Collapse MoneyPenny's left-pane role selector to a one-row Advisor/Architect/Runtime toggle",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "e99c9bb",
+      "full_sha": "e99c9bba1b2669feb5e3bcf5e6b1df85af9ff1e1",
+      "title": "Collapse MoneyPenny's left-pane role selector to a one-row Advisor/Architect/Runtime toggle",
+      "author": "Claude",
+      "timestamp": "2026-09-03T11:58:16Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-e99c9bb.md"
+    },
     {
       "sha": "3f68e33",
       "full_sha": "3f68e337f3ffe5cde4a20f73e55d0569a3e3cfd7",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-09-01T02:49:20Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-7a2cfda.md"
-    },
-    {
-      "sha": "754866c",
-      "full_sha": "754866c0d36952ca59a06de712288d8020f130bf",
-      "title": "Add CTP-001A Phase 1 live acceptance script for Aletheon/Mansa Meta",
-      "author": "Claude",
-      "timestamp": "2026-09-01T01:43:08Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-754866c.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
