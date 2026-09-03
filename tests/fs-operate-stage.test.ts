@@ -54,8 +54,9 @@ describe('FinancialSovereigntyOperateStage.tsx — embeds the real MoneyPenny ca
     expect(src).not.toMatch(/SmartWalletDrawer|SmartTriadCopilotLayer|MoneyPennyPanelTab|MoneyPennyCopilotWorkspace/);
   });
 
-  it('reuses BridgeMediaStage — the same generic shell every other fs-* stage uses, never a bespoke layout', () => {
-    expect(src).toMatch(/import \{ BridgeMediaStage/);
+  it('reuses BridgeMediaInteractionSection — the same locked-viewport shell every other fs-* stage uses, never a bespoke layout (production learning pattern completion, 2026-09-03)', () => {
+    expect(src).toMatch(/import \{ BridgeMediaInteractionSection \} from '@\/components\/journey\/BridgeMediaInteractionSection'/);
+    expect(src).toMatch(/<BridgeMediaInteractionSection/);
   });
 
   it('never navigates away — no window.location.assign, no window.open/_blank (corrected 2026-09-03: same-tab window.location.assign is not an embedding fix)', () => {
@@ -77,13 +78,21 @@ describe('FinancialSovereigntyOperateStage.tsx — embeds the real MoneyPenny ca
   it('the embed-open state passes expandable to MoneyPennyBridgeEmbed and renders no local Close/Continue header', () => {
     expect(src).toMatch(/<MoneyPennyBridgeEmbed[\s\S]{0,160}expandable/);
     expect(src).not.toMatch(/← Close MoneyPenny workspace/);
-    expect(src).not.toMatch(/>\s*Continue\s*<\/button>/);
     expect(src).not.toMatch(/handleCloseMoneyPenny/);
+    // Scope the "no Continue header" check to the embedOpen branch itself —
+    // the intro (pre-open) view legitimately keeps its own Continue button
+    // (asserted separately below), so a whole-file check would false-fail.
+    const embedBranchStart = src.indexOf('if (embedOpen)');
+    const embedBranchEnd = src.indexOf('const resolved = resolveFsSectionContent');
+    expect(embedBranchStart).toBeGreaterThan(-1);
+    expect(embedBranchEnd).toBeGreaterThan(embedBranchStart);
+    const embedBranch = src.slice(embedBranchStart, embedBranchEnd);
+    expect(embedBranch).not.toMatch(/>\s*Continue\s*<\/button>/);
   });
 
-  it('the intro (pre-open) BridgeMediaStage keeps its own Continue as the primary stage-advance CTA — only the embed-open header lost its redundant one', () => {
-    expect(src).toMatch(/primaryCtaLabel="Continue"/);
-    expect(src).toMatch(/onPrimaryCta=\{handleContinue\}/);
+  it('the intro (pre-open) view keeps its own Continue as the primary stage-advance CTA — only the embed-open header lost its redundant one', () => {
+    expect(src).toMatch(/onClick=\{handleContinue\}/);
+    expect(src).toMatch(/>\s*Continue\s*</);
   });
 });
 

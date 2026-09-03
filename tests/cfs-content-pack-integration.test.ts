@@ -210,15 +210,18 @@ describe('FinancialSovereigntyIntroStage.tsx (Discover/Learn/Explore) — CFS co
   });
 
   it('DISCOVER, LEARN and EXPLORE reuse the verified C-15 Studio placeholder video (never a fabricated URL) with the exact required label, only while no admin video is configured — real production infographics resolved via the canonical asset catalog otherwise', () => {
-    expect(src).toMatch(/import \{\s*FS_PLACEHOLDER_VIDEO_URL,\s*FS_PLACEHOLDER_VIDEO_POSTER_URL,\s*FS_PLACEHOLDER_VIDEO_LABEL,\s*\} from '@\/services\/journey\/fsPlaceholderVideo';/);
-    expect(src).toMatch(/videoUrl: fsConfig\?\.videoUrl \|\| FS_PLACEHOLDER_VIDEO_URL/);
-    expect(src).toMatch(/import \{ resolveFsCanonicalInfographicUrl \} from '@\/services\/journey\/fsCanonicalMedia';/);
+    expect(src).toMatch(/import \{ FS_PLACEHOLDER_VIDEO_LABEL \} from '@\/services\/journey\/fsPlaceholderVideo';/);
+    expect(src).toMatch(/import \{ buildFsMediaItems \} from '@\/services\/journey\/fsCanonicalMedia';/);
+    // videoUrl/posterUrl fallback logic itself now lives in the ONE shared
+    // buildFsMediaItems helper every FS stage calls — checked there, not
+    // re-implemented per stage.
+    const helperSrc = stripComments(readSource('services/journey/fsCanonicalMedia.ts'));
+    expect(helperSrc).toMatch(/videoUrl: fsConfig\?\.videoUrl \|\| FS_PLACEHOLDER_VIDEO_URL/);
     const placeholderSrc = readSource('services/journey/fsPlaceholderVideo.ts');
     expect(placeholderSrc).toMatch(/Placeholder video — financial-services lesson in production\./);
     expect(placeholderSrc).toMatch(/https:\/\/bsjhfvctmduxhohtllly\.supabase\.co\/storage\/v1\/object\/public\/content-assets\/generated\/openai\/videos\//);
-    const canonicalSrc = readSource('services/journey/fsCanonicalMedia.ts');
     for (const ref of ['D-I01', 'L-I01', 'L-I02', 'L-I03', 'E-I01', 'P-I01', 'O-I01', 'C-I01']) {
-      expect(canonicalSrc).toMatch(new RegExp(`'${ref}':`));
+      expect(helperSrc).toMatch(new RegExp(`'${ref}':`));
     }
   });
 
@@ -278,9 +281,14 @@ describe('FinancialSovereigntyOperateStage.tsx — workspace-first default view 
     expect(embedBranch).not.toMatch(/FinancialSovereigntyStageExtras/);
   });
 
-  it('the help/extras content renders only in the non-embed (introduction) branch — optional, never a mandatory gate before the workspace', () => {
-    expect(src).toMatch(/<FinancialSovereigntyStageExtras/);
-    expect(src).not.toMatch(/primaryCtaDisabled/); // Continue stays always-enabled
+  it('the help/activity content renders only in the non-embed (introduction) branch, via the same locked-viewport shell as Discover/Learn/Explore — optional, never a mandatory gate before the workspace', () => {
+    expect(src).toMatch(/import \{ BridgeMediaInteractionSection \} from '@\/components\/journey\/BridgeMediaInteractionSection';/);
+    expect(src).toMatch(/<BridgeActivityGroupRail groups=\{groups\} \/>/);
+    expect(src).not.toMatch(/disabled=\{primaryCtaDisabled\}|primaryCtaDisabled=\{/); // Continue stays always-enabled
+  });
+
+  it("Operate's intro view carries the real O-I01 canonical infographic alongside the placeholder video", () => {
+    expect(src).toMatch(/assetRef: 'O-I01'/);
   });
 });
 
@@ -432,13 +440,20 @@ describe('FsStructuredContentPanel — the native admin editor for topics/checks
 });
 
 describe('Prepare/Cross section ordering matches content/step-composition.json v1.2 (cross-automation before cross-readiness)', () => {
-  it("FinancialSovereigntyStageExtras (cross-automation) appears in source BEFORE the 'Cross to Financial Services' button (cross-readiness)", () => {
+  it("the cross-automation activity group (BridgeActivityGroupRail) appears in source BEFORE the 'Cross to Financial Services' button (cross-readiness)", () => {
     const src = readSource('components/journey/FinancialSovereigntyPrepareCrossStage.tsx');
-    const extrasIdx = src.indexOf('sectionLabel={mapAutomation.label}');
+    const railIdx = src.indexOf('<BridgeActivityGroupRail groups={crossGroups} />');
     const buttonIdx = src.indexOf('Cross to Financial Services');
-    expect(extrasIdx).toBeGreaterThan(0);
+    expect(railIdx).toBeGreaterThan(0);
     expect(buttonIdx).toBeGreaterThan(0);
-    expect(extrasIdx).toBeLessThan(buttonIdx);
+    expect(railIdx).toBeLessThan(buttonIdx);
+  });
+
+  it('Prepare and Cross both carry their real canonical infographics (P-I01/C-I01) via the same buildFsMediaItems helper Discover/Learn/Explore use', () => {
+    const src = stripComments(readSource('components/journey/FinancialSovereigntyPrepareCrossStage.tsx'));
+    expect(src).toMatch(/import \{ buildFsMediaItems \} from '@\/services\/journey\/fsCanonicalMedia';/);
+    expect(src).toMatch(/assetRef: 'P-I01'/);
+    expect(src).toMatch(/assetRef: 'C-I01'/);
   });
 });
 
@@ -457,5 +472,43 @@ describe("Learn's activity-group ordering (production learning pattern, 2026-09-
     const src = stripComments(readSource('components/journey/FinancialSovereigntyIntroStage.tsx'));
     expect(src).toMatch(/LEARN_CONCEPTS\.every\(\(c\) => acknowledgedConcepts\.has\(c\.id\)\)/);
     expect(src).toMatch(/LEARN_CONCEPTS\.map\(\(concept\) => \{/);
+  });
+});
+
+describe('Continue navigation — regression guard for the copilot hot-zone click-interception bug (2026-09-03)', () => {
+  // Root cause (confirmed live via Playwright, dev server): the locked-
+  // viewport layout pins Discover/Learn/Explore's Continue footer at the
+  // visible bottom-right of the stage. CodexCopilotLayer's floating-copilot
+  // hover hot-zone (`fixed bottom-0 right-0 h-52 w-52 z-[110]`, no
+  // pointer-events-none fallback) occupies that exact same screen region
+  // once mounted, silently swallowing every click on Continue. The fix
+  // reserves clearance (lg:pr-56, 224px — safely beyond the zone's 208px)
+  // so Continue never renders underneath it. These are source-level guards
+  // (this repo's established pattern for layout regressions that would
+  // otherwise need a live browser session); the live click-through fix
+  // itself was verified via Playwright against the running dev server.
+  const introSrc = stripComments(readSource('components/journey/FinancialSovereigntyIntroStage.tsx'));
+
+  it('the copilot hot-zone is real, pre-existing, shared UI — this suite documents around it rather than editing the shared layer', () => {
+    const copilotSrc = stripComments(readSource('app/components/codex/CodexCopilotLayer.tsx'));
+    expect(copilotSrc).toMatch(/fixed bottom-0 z-\[110\]/);
+    expect(copilotSrc).toMatch(/right-0 h-52 w-52/);
+  });
+
+  it("Discover/Learn/Explore's Continue footer reserves lg:pr-56 clearance from the viewport's right edge", () => {
+    expect(introSrc).toMatch(/flex shrink-0 justify-end pt-3 lg:pr-56/);
+  });
+
+  it('Operate/Prepare/Cross keep their Continue-equivalent actions inside the scrolling Learning Rail (never a separate fixed-position footer) — the same collision class simply cannot arise there', () => {
+    for (const file of ['FinancialSovereigntyPrepareCrossStage.tsx', 'FinancialSovereigntyOperateStage.tsx']) {
+      const src = stripComments(readSource(`components/journey/${file}`));
+      expect(src).not.toMatch(/fixed bottom-0/);
+    }
+  });
+
+  it('selectStage/handlePrimaryCta still dispatch the same journey:select-stage CustomEvent JourneyRunSurface listens for — the navigation mechanism itself was never the bug', () => {
+    expect(introSrc).toMatch(/window\.dispatchEvent\(new CustomEvent\('journey:select-stage', \{ detail: \{ stageId, trigger \} \}\)\);/);
+    const runSurfaceSrc = stripComments(readSource('components/journey/JourneyRunSurface.tsx'));
+    expect(runSurfaceSrc).toMatch(/window\.addEventListener\('journey:select-stage', onSelect\)/);
   });
 });

@@ -68,12 +68,8 @@ import { BridgeActivityGroupRail } from '@/components/journey/BridgeActivityGrou
 import type { BridgeActivityGroup } from '@/services/journey/bridgeActivity';
 import { FinancialSovereigntyCheckGroup } from '@/components/journey/FinancialSovereigntyCheckGroup';
 import { FinancialSovereigntyCostExample } from '@/components/journey/FinancialSovereigntyCostExample';
-import {
-  FS_PLACEHOLDER_VIDEO_URL,
-  FS_PLACEHOLDER_VIDEO_POSTER_URL,
-  FS_PLACEHOLDER_VIDEO_LABEL,
-} from '@/services/journey/fsPlaceholderVideo';
-import { resolveFsCanonicalInfographicUrl } from '@/services/journey/fsCanonicalMedia';
+import { FS_PLACEHOLDER_VIDEO_LABEL } from '@/services/journey/fsPlaceholderVideo';
+import { buildFsMediaItems } from '@/services/journey/fsCanonicalMedia';
 import { listFinancialServiceDefinitions } from '@/services/financialServices/serviceCatalog';
 import { useDcirSeam } from '@/services/dcir/useDcirSeam';
 import { aigentMeCapsuleEngagedEvent } from '@/services/dcir/eventStream';
@@ -174,38 +170,6 @@ function resolveCopy(
     headline: config?.headline || fallback.headline,
     paragraphs: [config?.shortCopy || fallback.lead],
   };
-}
-
-/** Video-first item, then the stage's real canonical infographic(s) — the
- *  order the operator's own acceptance criteria specify ("see the
- *  placeholder video... horizontally advance to the real infographic(s)").
- *  An admin-published `infographicUrl` (per fsConfig) still overrides the
- *  canonical fallback; the placeholder video is unconditionally real and
- *  labeled — never swapped for a fabricated "final" video. */
-function buildMediaItems(
-  fsConfig: { videoUrl?: string | null; posterUrl?: string | null; infographicUrl?: string | null } | null | undefined,
-  placeholderVideoOverlay: ReactNode,
-  infographics: { assetRef: string; title: string }[],
-): BridgeMediaCarouselItem[] {
-  const usingPlaceholderVideo = !fsConfig?.videoUrl;
-  const items: BridgeMediaCarouselItem[] = [
-    {
-      kind: 'video',
-      videoUrl: fsConfig?.videoUrl || FS_PLACEHOLDER_VIDEO_URL,
-      posterUrl: (fsConfig?.videoUrl ? fsConfig?.posterUrl : FS_PLACEHOLDER_VIDEO_POSTER_URL) ?? undefined,
-      overlay: usingPlaceholderVideo ? placeholderVideoOverlay : undefined,
-    },
-  ];
-  infographics.forEach(({ assetRef, title }, i) => {
-    // Admin override (fsConfig.infographicUrl) only applies to the FIRST
-    // infographic slot — every stage's own admin-editable section has
-    // exactly one infographicUrl field; Learn's extra plates (2/3) are
-    // resolved by the caller via their own per-plate fsConfig instead (see
-    // the 'learn' branch below), never guessed here.
-    const url = (i === 0 ? fsConfig?.infographicUrl : null) || resolveFsCanonicalInfographicUrl(assetRef);
-    if (url) items.push({ kind: 'plate', url, title });
-  });
-  return items;
 }
 
 export function FinancialSovereigntyIntroStage({
@@ -353,7 +317,19 @@ export function FinancialSovereigntyIntroStage({
     accent === 'indigo' ? 'bg-indigo-500 hover:bg-indigo-400 text-slate-950' : 'bg-amber-500 hover:bg-amber-400 text-slate-950';
 
   const continueFooter = (
-    <div className="flex shrink-0 justify-end pt-3">
+    // lg:pr-56 (Continue-navigation collision fix, 2026-09-03) — the
+    // locked-viewport layout pins this footer at the visible bottom-right
+    // of the stage on desktop, which is exactly where CodexCopilotLayer's
+    // floating-copilot hover hot-zone lives (`fixed bottom-0 right-0 h-52
+    // w-52 z-[110]`, app/components/codex/CodexCopilotLayer.tsx — a
+    // pre-existing, shared, cross-cartridge element, never edited here).
+    // That div has no pointer-events-none fallback, so it silently
+    // swallowed every click on Continue once the button landed under it —
+    // confirmed live via Playwright ("<div ... h-52 w-52> intercepts
+    // pointer events"). The fix reserves clearance (224px, safely beyond
+    // the zone's 208px) so Continue never renders underneath it, rather
+    // than touching the shared copilot layer.
+    <div className="flex shrink-0 justify-end pt-3 lg:pr-56">
       <button
         type="button"
         onClick={handlePrimaryCta}
@@ -376,7 +352,7 @@ export function FinancialSovereigntyIntroStage({
 
   if (stageKey === 'discover') {
     const resolved = resolveFsSectionContent('discover', bridge, fsConfig?.structuredContent as FsStructuredContent | null | undefined);
-    const items = buildMediaItems(fsConfig, placeholderVideoOverlay, [
+    const items = buildFsMediaItems(fsConfig, placeholderVideoOverlay, [
       { assetRef: 'D-I01', title: FS_STAGE_CONTENT.discover.asset.title },
     ]);
 
@@ -459,7 +435,7 @@ export function FinancialSovereigntyIntroStage({
 
   if (stageKey === 'explore') {
     const resolved = resolveFsSectionContent('explore', bridge, fsConfig?.structuredContent as FsStructuredContent | null | undefined);
-    const items = buildMediaItems(fsConfig, placeholderVideoOverlay, [
+    const items = buildFsMediaItems(fsConfig, placeholderVideoOverlay, [
       { assetRef: 'E-I01', title: FS_STAGE_CONTENT.explore.asset.title },
     ]);
     const [goalTopic, comparisonTopic, rehearsalTopic] = resolved.topics;
@@ -556,13 +532,13 @@ export function FinancialSovereigntyIntroStage({
   const plate0 = resolveFsLearnPlateContent(0, fsConfig?.structuredContent as FsStructuredContent | null | undefined);
   const plate1 = resolveFsLearnPlateContent(1, learnPlate2Config?.structuredContent as FsStructuredContent | null | undefined);
   const plate2 = resolveFsLearnPlateContent(2, learnPlate3Config?.structuredContent as FsStructuredContent | null | undefined);
-  const learnItems = buildMediaItems(fsConfig, placeholderVideoOverlay, [
+  const learnItems = buildFsMediaItems(fsConfig, placeholderVideoOverlay, [
     { assetRef: FS_LEARN_PLATES[0].assetRef, title: plate0.lessonLabel },
     { assetRef: FS_LEARN_PLATES[1].assetRef, title: plate1.lessonLabel },
     { assetRef: FS_LEARN_PLATES[2].assetRef, title: plate2.lessonLabel },
   ]);
   // Learn's later plates each have their own admin-editable section
-  // (fs-learn-2/fs-learn-3) — buildMediaItems only applies fsConfig's own
+  // (fs-learn-2/fs-learn-3) — buildFsMediaItems only applies fsConfig's own
   // override to slot 0, so splice in plates 2/3's own admin overrides here.
   if (learnPlate2Config?.infographicUrl && learnItems[2]) learnItems[2] = { ...learnItems[2], url: learnPlate2Config.infographicUrl } as BridgeMediaCarouselItem;
   if (learnPlate3Config?.infographicUrl && learnItems[3]) learnItems[3] = { ...learnItems[3], url: learnPlate3Config.infographicUrl } as BridgeMediaCarouselItem;
