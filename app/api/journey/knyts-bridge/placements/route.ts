@@ -24,7 +24,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminPersona } from '@/app/api/_lib/requireAdmin';
 import { getActivePersona } from '@/services/identity/getActivePersona';
-import { getCommunityContentSupabase } from '@/app/api/community-content/_lib/personaContext';
+import {
+  getServiceRoleSupabaseOrThrow,
+  SupabaseConfigurationError,
+  SupabaseServiceRoleMissingError,
+} from '@/services/supabase/requireServiceRoleClient';
 import { KNYTS_BRIDGE_ALLOWED_SECTIONS } from '@/services/journey/knytsBridgeEditorialConfig';
 import {
   getPlacementsForSection,
@@ -51,10 +55,16 @@ export async function GET(req: NextRequest) {
     if (!KNYTS_BRIDGE_ALLOWED_SECTIONS.has(section)) {
       return NextResponse.json({ ok: false, error: `Unknown section: ${section}` }, { status: 400 });
     }
-    const supabase = getCommunityContentSupabase();
+    const supabase = getServiceRoleSupabaseOrThrow('bridge_content_placements read');
     const placements = await getPlacementsForSection(supabase, section);
     return NextResponse.json({ ok: true, placements });
   } catch (err) {
+    if (err instanceof SupabaseServiceRoleMissingError) {
+      return NextResponse.json({ ok: false, error: 'service-role-not-configured', detail: err.message }, { status: 503 });
+    }
+    if (err instanceof SupabaseConfigurationError) {
+      return NextResponse.json({ ok: false, error: 'supabase-not-configured', detail: err.message }, { status: 503 });
+    }
     return NextResponse.json(
       {
         ok: false,
@@ -88,7 +98,7 @@ export async function POST(req: NextRequest) {
 
     const persona = await getActivePersona(req).catch(() => null);
     const actor = persona?.personaId ?? 'admin';
-    const supabase = getCommunityContentSupabase();
+    const supabase = getServiceRoleSupabaseOrThrow('bridge_content_placements write');
 
     if (action === 'assign') {
       const assetUrl = typeof body?.assetUrl === 'string' ? body.assetUrl.trim() : '';
@@ -127,6 +137,12 @@ export async function POST(req: NextRequest) {
       throw err;
     }
   } catch (err) {
+    if (err instanceof SupabaseServiceRoleMissingError) {
+      return NextResponse.json({ ok: false, error: 'service-role-not-configured', detail: err.message }, { status: 503 });
+    }
+    if (err instanceof SupabaseConfigurationError) {
+      return NextResponse.json({ ok: false, error: 'supabase-not-configured', detail: err.message }, { status: 503 });
+    }
     return NextResponse.json(
       {
         ok: false,

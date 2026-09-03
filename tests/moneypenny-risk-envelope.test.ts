@@ -152,12 +152,12 @@ describe('MoneyPenny capability-rail / cartridge wiring — MPY2-3', () => {
     expect(item!.panel).toBe('risk-envelope');
   });
 
-  it('MONEYPENNY_CARTRIDGE gets a real risk-envelope tab in the EXISTING operate group — tabGroups itself stays pinned', async () => {
+  it('risk-envelope is a real MoneyPennyPanelKey, reachable through the one registered MONEYPENNY_CARTRIDGE tab (2026-09-03: the 14-tab/4-group structure this test used to pin was collapsed to one tab — see that constant\'s own header comment)', async () => {
     const { MONEYPENNY_CARTRIDGE } = await import('@/data/codex-configs');
-    const groupIds = (MONEYPENNY_CARTRIDGE.tabGroups ?? []).map((g) => g.id);
-    expect(groupIds).toEqual(['operate', 'connect', 'service', 'administer']);
-    const tab = MONEYPENNY_CARTRIDGE.tabs.find((t) => t.slug === 'risk-envelope');
-    expect(tab).toBeDefined();
-    expect(tab!.group).toBe('operate');
+    expect(MONEYPENNY_CARTRIDGE.tabGroups ?? []).toEqual([]);
+    expect(MONEYPENNY_CARTRIDGE.tabs).toHaveLength(1);
+    const { readSource, stripComments } = await import('./_lib/sourceAuthority');
+    const panelTabSrc = stripComments(readSource('app/triad/components/codex/tabs/MoneyPennyPanelTab.tsx'));
+    expect(panelTabSrc).toContain('"risk-envelope": RiskEnvelopePanel,');
   });
 });

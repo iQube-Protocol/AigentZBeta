@@ -28,9 +28,16 @@ vi.mock('@/services/journey/bridgeContentPlacements', async (importOriginal) => 
   const actual = await importOriginal<typeof import('@/services/journey/bridgeContentPlacements')>();
   return { ...actual, assignDraftAsset: (...args: unknown[]) => mockAssignDraftAsset(...args) };
 });
-vi.mock('@/app/api/community-content/_lib/personaContext', () => ({
-  getCommunityContentSupabase: () => ({}),
-}));
+// Turn F (2026-09-02): the placements route now requires a real
+// service-role-configured client (services/supabase/requireServiceRoleClient.ts)
+// rather than silently falling back to anon — mock it here the same way the
+// route's other dependencies are mocked, so this test exercises the route's
+// own logic without needing real Supabase env vars. Replaces the old
+// getCommunityContentSupabase mock — the route no longer imports it.
+vi.mock('@/services/supabase/requireServiceRoleClient', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/services/supabase/requireServiceRoleClient')>();
+  return { ...actual, getServiceRoleSupabaseOrThrow: () => ({}) };
+});
 vi.mock('@/services/identity/getActivePersona', () => ({
   getActivePersona: async () => null,
 }));

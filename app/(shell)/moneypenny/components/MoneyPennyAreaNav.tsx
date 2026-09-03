@@ -4,12 +4,19 @@
  * 14-item `MoneyPennyCapabilityRail.tsx` (deleted) as MoneyPenny's ONE
  * shared top-level menu (C-01: "do not retain a competing full capability
  * sidebar"). A horizontal area strip plus a contextual chip row for the
- * active area's capsules — not a second vertical sidebar.
+ * active area's capsules — not a second vertical sidebar. No separate
+ * utility button outside the strip (retired 2026-09-03 — CRM moved into
+ * the Activity area's own chip row; see moneypennyCapabilities.ts).
  *
- * Navigation only: reuses the EXACT SAME `tryOpenInMountedCartridge` seam
- * the old rail used, so every existing deep link
+ * Navigation (experience-coherence correction, 2026-09-03): calls
+ * `navigate()` from `MoneyPennyNavigationContext` directly — MoneyPenny's
+ * OWN internal panel state, owned by `MoneyPennyPanelTab.tsx` — rather than
+ * the cross-cartridge `tryOpenInMountedCartridge` seam the old rail used.
+ * That seam had nothing left to switch TO once `MONEYPENNY_CARTRIDGE`
+ * collapsed to one registered codex tab; see `moneyPennyNavigation.tsx`'s
+ * own header for the full rationale. Every existing deep link
  * (`buildCodexUrl('moneypenny', {tab})`) and panel component is unchanged —
- * only how the operator reaches them changed. Provider mode
+ * only how in-app navigation reaches them. Provider mode
  * (Advisor/Architect/Runtime) badges are carried through unchanged from
  * `moneypennyCapabilities.ts`; area selection never implies or changes
  * mode, execution environment, or authority (C-10).
@@ -18,17 +25,14 @@
 "use client";
 
 import { useState } from "react";
-import { tryOpenInMountedCartridge } from "@/services/cartridge/CartridgePresenceRegistry";
+import { useMoneyPennyNavigation } from "./moneyPennyNavigation";
 import {
   MONEYPENNY_AREAS,
-  MONEYPENNY_UTILITY_ITEM,
   areaForPanel,
   areaItems,
   type MoneyPennyAreaId,
 } from "./moneypennyCapabilities";
 import type { MoneyPennyPanelKey } from "@/app/triad/components/codex/tabs/MoneyPennyPanelTab";
-
-const MONEYPENNY_CODEX_ID = "moneypenny-codex";
 
 const MODE_BADGE_STYLE: Record<string, string> = {
   ADVISOR: "bg-sky-500/10 text-sky-300 border border-sky-800/60",
@@ -42,6 +46,7 @@ export interface MoneyPennyAreaNavProps {
 }
 
 export function MoneyPennyAreaNav({ activePanel }: MoneyPennyAreaNavProps) {
+  const { navigate: navigateToPanel } = useMoneyPennyNavigation();
   const activeArea = activePanel ? areaForPanel(activePanel) : "home";
   // Manual area selection (before any panel click) so the operator can
   // browse an area's capsules without first landing on one of them.
@@ -50,7 +55,7 @@ export function MoneyPennyAreaNav({ activePanel }: MoneyPennyAreaNavProps) {
 
   const navigate = (panel: MoneyPennyPanelKey | null) => {
     if (!panel) return;
-    tryOpenInMountedCartridge({ cartridgeId: MONEYPENNY_CODEX_ID, tab: panel });
+    navigateToPanel(panel);
   };
 
   const items = areaItems(displayedArea);
@@ -81,20 +86,6 @@ export function MoneyPennyAreaNav({ activePanel }: MoneyPennyAreaNavProps) {
             </button>
           );
         })}
-        <div className="ml-auto">
-          <button
-            type="button"
-            title={MONEYPENNY_UTILITY_ITEM.description}
-            onClick={() => navigate(MONEYPENNY_UTILITY_ITEM.panel)}
-            className={`rounded-md px-2 py-1 text-xs transition-colors ${
-              activePanel === MONEYPENNY_UTILITY_ITEM.panel
-                ? "bg-emerald-500/10 text-emerald-300"
-                : "text-slate-500 hover:bg-slate-800/60 hover:text-slate-300"
-            }`}
-          >
-            {MONEYPENNY_UTILITY_ITEM.label}
-          </button>
-        </div>
       </div>
 
       {items.length > 0 && (

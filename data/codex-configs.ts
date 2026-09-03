@@ -4895,219 +4895,49 @@ export const MONEYPENNY_CARTRIDGE: CodexConfig = {
       'What can Runtime actually do for me?',
     ],
   },
-  tabGroups: [
-    // Label-only rebrand (2026-08-25, operator direction): this group is
-    // principally the HFT capability cluster (HFT Console / Portfolio /
-    // Strategies / SmartTriad) — the LABEL changes to "HFT"; the id stays
-    // 'operate' so deep links, stored tab state, bridge descriptors, tests,
-    // activation references, and Differ baselines that key on the id are
-    // unaffected.
-    { id: 'operate',    label: 'HFT',        icon: 'Rocket',   order: 0 },
-    { id: 'connect',    label: 'Connect',    icon: 'Users',    order: 1 },
-    { id: 'service',    label: 'Service',    icon: 'Landmark', order: 2 },
-    { id: 'administer', label: 'Administer', icon: 'Settings', order: 3 },
-  ],
+  // MoneyPenny experience-coherence correction (2026-09-03, operator
+  // directive: "Remove the competing user-facing navigation layers: HFT /
+  // Connect / Service / Administer... the long Overview / HFT Console /
+  // Financial Profile / Risk / Learn / Portfolio / Strategies / Smart
+  // Trade panel-tab row... Consolidate at the owning configuration/
+  // rendering layer."). Fourteen real CodexTab entries across four
+  // tabGroups previously made `CodexPanelDynamic.tsx` render its OWN
+  // top-level group bar and sibling-tab sub-header ABOVE the five-area nav
+  // (`MoneyPennyAreaNav.tsx`) MoneyPenny's own workspace already renders
+  // below it — navigation stacked inside navigation. Collapsing to ONE
+  // registered tab (no group) makes `enabledTabs.length <= 1`, which
+  // `CodexPanelDynamic`'s own documented `singleTabMode` already uses to
+  // suppress BOTH outer chrome tiers — an existing platform mechanism
+  // ("When only one tab is available, the tab shell manages its own
+  // navigation chrome" — MoneyPennyPanelTab.tsx's own header), not a new,
+  // route-specific CSS override.
+  //
+  // Every one of the retired 14 panel-key values (`overview`,
+  // `hft-console`, `financial-profile`, `risk-envelope`, `learn`,
+  // `portfolio`, `strategies`, `smarttriad`, `chat`, `crm`, `x402`,
+  // `architect`, `runtime`, `service-orchestration`, `identity`) is still a
+  // real `MoneyPennyPanelKey` (MoneyPennyPanelTab.tsx) and still opens the
+  // exact same panel component — every existing
+  // `buildCodexUrl('moneypenny', {tab})` deep link keeps working
+  // byte-for-byte, now resolved from the raw `?tab=` query param inside
+  // the one registered tab rather than via a dedicated CodexTab per value.
+  // See MoneyPennyPanelTab.tsx's header for the full mechanism.
+  tabGroups: [],
   tabs: [
-    // SPEC-MPY-002 (2026-09-01) MPY2-1 — the capability-led landing hub
-    // ("OVERVIEW" in the spec's §2.1 capability axis). Added as a TAB, not a
-    // new tabGroup: `tabGroups` below is deliberately left untouched
-    // (pinned exactly by tests/fs-operate-embed-viewport-parity.test.ts's
-    // groupIds canary) — the Understand/Design/Markets/Operate/Monitor
-    // capability grouping lives one level down, inside this tab and the
-    // MoneyPennyCapabilityRail every panel renders alongside its content
-    // (app/(shell)/moneypenny/components/moneypennyCapabilities.ts).
-    // order: -1 so it renders first without renumbering the existing HFT
-    // Console/Portfolio/Strategies/SmartTriad siblings.
     {
-      id: 'moneypenny-overview',
-      label: 'Overview',
-      slug: 'overview',
+      id: 'moneypenny-workspace',
+      label: 'MoneyPenny',
+      slug: 'workspace',
       enabled: true,
       adminOnly: false,
-      group: 'operate',
-      order: -1,
-      type: 'static',
-      config: { component: 'MoneyPennyPanelTab', props: { panel: 'overview' } },
-      metadata: { icon: 'LayoutGrid', description: 'Capability overview — Understand, Design, Markets, Operate, Monitor', color: 'emerald' },
-    },
-    {
-      id: 'moneypenny-hft-console',
-      label: 'HFT Console',
-      slug: 'hft-console',
-      enabled: true,
-      adminOnly: false,
-      group: 'operate',
       order: 0,
       type: 'static',
-      config: { component: 'MoneyPennyPanelTab', props: { panel: 'hft-console' } },
-      metadata: { icon: 'TrendingUp', description: 'Real-time quotes and execution', color: 'emerald' },
-    },
-    // SPEC-MPY-002 (2026-09-01) MPY2-2 — Understand / Financial Profile.
-    // group: 'operate' — tabGroups itself is pinned exactly by
-    // tests/fs-operate-embed-viewport-parity.test.ts (groupIds canary);
-    // this reuses the existing group, same as every sibling tab below.
-    {
-      id: 'moneypenny-financial-profile',
-      label: 'Financial Profile',
-      slug: 'financial-profile',
-      enabled: true,
-      adminOnly: false,
-      group: 'operate',
-      order: 0.5,
-      type: 'static',
-      config: { component: 'MoneyPennyPanelTab', props: { panel: 'financial-profile' } },
-      metadata: { icon: 'FileText', description: 'Bank-statement-derived aggregates and a candidate risk envelope', color: 'emerald' },
-    },
-    // SPEC-MPY-002 (2026-09-01) MPY2-3 — Design / Risk & Limits.
-    {
-      id: 'moneypenny-risk-envelope',
-      label: 'Risk & Limits',
-      slug: 'risk-envelope',
-      enabled: true,
-      adminOnly: false,
-      group: 'operate',
-      order: 0.6,
-      type: 'static',
-      config: { component: 'MoneyPennyPanelTab', props: { panel: 'risk-envelope' } },
-      metadata: { icon: 'ShieldAlert', description: 'Risk factors and recommended limits derived from the Financial Profile', color: 'emerald' },
-    },
-    // Cartridge C-15/A3 (2026-09-02) — the structured right-pane content a
-    // video block's related chip opens (tryOpenInMountedCartridge requires
-    // a registered codex tab slug to resolve — a chip-only mechanism with
-    // no config entry silently falls back to the default tab, exactly the
-    // gap this entry closes). Reuses the SAME 'operate' group as every
-    // sibling MoneyPenny tab — tabGroups itself stays untouched.
-    {
-      id: 'moneypenny-learn',
-      label: 'Learn',
-      slug: 'learn',
-      enabled: true,
-      adminOnly: false,
-      group: 'operate',
-      order: 0.65,
-      type: 'static',
-      config: { component: 'MoneyPennyPanelTab', props: { panel: 'learn' } },
-      metadata: { icon: 'BookOpen', description: 'Financial Sovereignty basics — the published educational video and its structured content', color: 'emerald' },
-    },
-    {
-      id: 'moneypenny-portfolio',
-      label: 'Portfolio',
-      slug: 'portfolio',
-      enabled: true,
-      adminOnly: false,
-      group: 'operate',
-      order: 1,
-      type: 'static',
-      config: { component: 'MoneyPennyPanelTab', props: { panel: 'portfolio' } },
-      metadata: { icon: 'BarChart3', description: 'Analytics and performance', color: 'emerald' },
-    },
-    {
-      id: 'moneypenny-strategies',
-      label: 'Strategies',
-      slug: 'strategies',
-      enabled: true,
-      adminOnly: false,
-      group: 'operate',
-      order: 2,
-      type: 'static',
-      config: { component: 'MoneyPennyPanelTab', props: { panel: 'strategies' } },
-      metadata: { icon: 'Target', description: 'Build and manage strategies', color: 'emerald' },
-    },
-    {
-      id: 'moneypenny-smarttriad',
-      label: 'SmartTriad',
-      slug: 'smarttriad',
-      enabled: true,
-      adminOnly: false,
-      group: 'operate',
-      order: 3,
-      type: 'static',
-      config: { component: 'MoneyPennyPanelTab', props: { panel: 'smarttriad' } },
-      metadata: { icon: 'Settings', description: 'Trading operations hub', color: 'emerald' },
-    },
-    {
-      id: 'moneypenny-chat',
-      label: 'AI Assistant',
-      slug: 'chat',
-      enabled: true,
-      adminOnly: false,
-      group: 'connect',
-      order: 0,
-      type: 'static',
-      config: { component: 'MoneyPennyPanelTab', props: { panel: 'chat' } },
-      metadata: { icon: 'MessageCircle', description: 'MoneyPenny trading assistant', color: 'emerald' },
-    },
-    {
-      id: 'moneypenny-crm',
-      label: 'CRM',
-      slug: 'crm',
-      enabled: true,
-      adminOnly: false,
-      group: 'connect',
-      order: 1,
-      type: 'static',
-      config: { component: 'MoneyPennyPanelTab', props: { panel: 'crm' } },
-      metadata: { icon: 'Users', description: 'Contributions and tasks', color: 'emerald' },
-    },
-    {
-      id: 'moneypenny-x402',
-      label: 'X402',
-      slug: 'x402',
-      enabled: true,
-      adminOnly: false,
-      group: 'service',
-      order: 0,
-      type: 'static',
-      config: { component: 'MoneyPennyPanelTab', props: { panel: 'x402' } },
-      metadata: { icon: 'Zap', description: 'Payment settlements', color: 'emerald' },
-    },
-    {
-      id: 'moneypenny-architect',
-      label: 'Architect',
-      slug: 'architect',
-      enabled: true,
-      adminOnly: false,
-      group: 'service',
-      order: 1,
-      type: 'static',
-      config: { component: 'MoneyPennyPanelTab', props: { panel: 'architect' } },
-      metadata: { icon: 'Compass', description: 'Design constitutional financial structures (PRD-MPY-001)', color: 'emerald' },
-    },
-    {
-      id: 'moneypenny-runtime',
-      label: 'Runtime',
-      slug: 'runtime',
-      enabled: true,
-      adminOnly: false,
-      group: 'service',
-      order: 2,
-      type: 'static',
-      config: { component: 'MoneyPennyPanelTab', props: { panel: 'runtime' } },
-      metadata: { icon: 'Cpu', description: 'Constitutional service pattern — shadow/authoritative runtime (PRD-MPY-001)', color: 'emerald' },
-    },
-    {
-      id: 'moneypenny-service-orchestration',
-      label: 'Orchestration',
-      slug: 'service-orchestration',
-      enabled: true,
-      adminOnly: false,
-      group: 'service',
-      order: 3,
-      type: 'static',
-      config: { component: 'MoneyPennyPanelTab', props: { panel: 'service-orchestration' } },
-      metadata: { icon: 'Network', description: 'Oversight console — admitted agents consuming MoneyPenny Financial Services (Phase 3)', color: 'emerald' },
-    },
-    {
-      id: 'moneypenny-identity',
-      label: 'Identity',
-      slug: 'identity',
-      enabled: true,
-      adminOnly: false,
-      group: 'administer',
-      order: 0,
-      type: 'static',
-      config: { component: 'MoneyPennyPanelTab', props: { panel: 'identity' } },
-      metadata: { icon: 'Wallet', description: 'FIO and persona management', color: 'emerald' },
+      // No `panel` prop — MoneyPennyPanelTab resolves the initial panel
+      // from `?tab=` itself (defaulting to `overview`/Home); every legacy
+      // panel-key value above still opens correctly. See that component's
+      // header for why.
+      config: { component: 'MoneyPennyPanelTab', props: {} },
+      metadata: { icon: 'TrendingUp', description: 'Home, My Money, Plan, Markets and Activity — one MoneyPenny workspace', color: 'emerald' },
     },
   ],
   permissions: {

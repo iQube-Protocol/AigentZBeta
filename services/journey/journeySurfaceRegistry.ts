@@ -61,6 +61,35 @@ export type JourneySurfaceDescriptor =
        */
       suppressFloatingCopilot?: true;
       /**
+       * Suppress the JOURNEY's OWN outer copilot host (`JourneyCopilotHost`,
+       * mounted once by `JourneyRunSurface` independent of active stage)
+       * while THIS surface is the active stage's embed (MoneyPenny
+       * experience-coherence correction, 2026-09-03).
+       *
+       * The opposite direction from `suppressFloatingCopilot` above:
+       * `suppressFloatingCopilot` kills a SECOND copilot the embedded
+       * cartridge mounts for itself (e.g. metame-codex's floating
+       * `CodexCopilotLayer`) so the journey's host copilot remains the one
+       * conversation. This flag is for the reverse case — an embedded
+       * surface (MoneyPenny's `MoneyPennyCopilotWorkspace`) already IS a
+       * complete, persistent, task-scoped copilot experience in its own
+       * right (not a bolt-on floating widget); keeping the journey's own
+       * host copilot mounted alongside it puts two different agents, two
+       * different conversations, on screen for the same action (SC-09:
+       * "the host and embedded cartridge coordinate copilot ownership so
+       * one active conversation is presented"). `moneypenny-orchestration-
+       * focused` below is the confirmed live instance of this — before this
+       * flag, Horizen's Operate stage showed the outer `JourneyCopilotHost`
+       * AND MoneyPenny's own inline `SmartTriadCopilotLayer` at once.
+       *
+       * Declared per surface, same reasoning as `suppressFloatingCopilot`:
+       * only a surface that supplies its own adequate persistent copilot
+       * should suppress the host's — suppressing it globally would silence
+       * the journey's companion for every other stage, where it is correct
+       * and necessary.
+       */
+      suppressHostCopilot?: true;
+      /**
        * Opt-in only (al, 2026-08-04) — this embed surface's URL should carry
        * the Journey's currently-selected agent as `?agentSlug=`. Explicit per
        * descriptor, never a blanket default: `founder-office` and
@@ -359,6 +388,18 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
     // one persistent MoneyPenny copilot on screen — the embedded tab must not
     // mount a second one (MS-1), same rule as aigentme-welcome above.
     suppressFloatingCopilot: true,
+    // MoneyPenny experience-coherence correction (2026-09-03) — corrects the
+    // OTHER half of the dual-copilot defect this descriptor's own
+    // `suppressFloatingCopilot` above only partly addressed: that flag kills
+    // metame-codex's floating `CodexCopilotLayer`, but `MoneyPennyPanelTab`
+    // wraps every panel (including this one) in `MoneyPennyCopilotWorkspace`,
+    // which mounts its OWN persistent `SmartTriadCopilotLayer` pane
+    // unconditionally — a second, different, live conversation alongside the
+    // Journey's own `JourneyCopilotHost`. MoneyPenny's inline copilot is a
+    // complete replacement for the host's, not an addition to it, so the
+    // host suppresses itself instead (see `suppressHostCopilot`'s own doc
+    // comment on the type above).
+    suppressHostCopilot: true,
     // FS Operate viewport parity (2026-08-25) — MoneyPenny Orchestration is
     // self-contained (Advisor/Architect/Runtime modes are the tab's OWN
     // internal navigation, mounted unconditionally by TabRenderer regardless

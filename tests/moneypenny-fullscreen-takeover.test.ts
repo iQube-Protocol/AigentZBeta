@@ -60,7 +60,7 @@ describe('MoneyPennyCopilotWorkspace — provides the full-screen context and ow
     expect(workspaceWrapper).not.toBeNull();
     // MoneyPennyShell is rendered exactly once — not duplicated for a
     // separate full-screen tree, so its internal state is never reset.
-    const shellMounts = src.match(/<MoneyPennyShell activePanel=\{activePanel\}>/g) ?? [];
+    const shellMounts = src.match(/<MoneyPennyShell activePanel=\{activePanel\}[^>]*>/g) ?? [];
     expect(shellMounts.length).toBe(1);
   });
 

@@ -41,7 +41,14 @@
  *
  * Pure, dependency-free logic — directly unit-testable without mounting
  * React or mocking fetch. See tests/moneypenny-context-versioning.test.ts.
+ * The only import is the shared `MoneyPennyProviderMode` TYPE (erased at
+ * runtime) — reused rather than duplicated, so the role selector's
+ * Advisor/Architect/Runtime vocabulary can never drift from every other
+ * MoneyPenny surface that already uses it (per-item mode badges in
+ * moneypennyCapabilities.ts, the Architect/Runtime API routes).
  */
+
+import type { MoneyPennyProviderMode } from '@/types/financialServices';
 
 export type MoneyPennyEnvironment = 'simulation' | 'live';
 
@@ -49,8 +56,8 @@ export interface MoneyPennyContextVersion {
   /**
    * Monotonic counter — the actual source of uniqueness/staleness. Bumped
    * by the host on every request dispatch (task identity) and every
-   * panel/persona/environment/profile-revision change (context identity).
-   * Never decreases, never repeats a prior value.
+   * panel/persona/environment/role/profile-revision change (context
+   * identity). Never decreases, never repeats a prior value.
    */
   generation: number;
   /** The active MoneyPennyPanelKey — proxy for "task" (Cartridge spec SC-04). Provenance only. */
@@ -59,6 +66,15 @@ export interface MoneyPennyContextVersion {
   personaId: string | undefined;
   /** Execution environment — proxy for "environment." Provenance only. */
   environment: MoneyPennyEnvironment;
+  /**
+   * The selected Advisor/Architect/Runtime role (experience-coherence
+   * correction, 2026-09-03) — provenance only, same as every other field
+   * here; `generation` alone guarantees uniqueness. A role change is a
+   * context-relevant event (the operator directive: "Include role changes
+   * in stale-response invalidation"), so the host bumps `generation` when
+   * it changes, same discipline as panel/persona/environment.
+   */
+  role: MoneyPennyProviderMode;
   /** The financial-profile revision counter at the moment this version was computed. Provenance only. */
   profileRevision: number;
 }
@@ -67,11 +83,11 @@ export interface MoneyPennyContextVersion {
  * Deterministic version key. `generation` leads the key — since it is
  * monotonic and host-managed, two DIFFERENT MoneyPennyContextVersion
  * instances are guaranteed to produce different keys whenever anything
- * meaningfully changed, even if panel/personaId/environment/profileRevision
- * happen to repeat (the A -> B -> A case).
+ * meaningfully changed, even if panel/personaId/environment/role/
+ * profileRevision happen to repeat (the A -> B -> A case).
  */
 export function computeContextVersionKey(version: MoneyPennyContextVersion): string {
-  return `${version.generation}::${version.panel}::${version.personaId ?? ''}::${version.environment}::${version.profileRevision}`;
+  return `${version.generation}::${version.panel}::${version.personaId ?? ''}::${version.environment}::${version.role}::${version.profileRevision}`;
 }
 
 /**

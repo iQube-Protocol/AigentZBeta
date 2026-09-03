@@ -14,11 +14,14 @@
  * implements (C-04–C-06) — reusing `fetchFinancialProfileSummary()`, the
  * SAME read `MoneyPennyCopilotWorkspace.tsx`'s groundContext uses (one
  * canonical profile, never a copied bridge snapshot — SC-03). Its
- * "Review my financial profile" action opens that exact panel
- * (`buildCodexUrl('moneypenny', {tab:'financial-profile'})`); "Continue
- * to Operate" advances via the SAME `journey:select-stage` mechanism this
- * file already used, to `nextStageId` — already wired to `fs-operate` in
- * both journey definitions (services/journey/constitutionalInternetBridgeJourney.ts,
+ * "Review my financial profile" action opens that exact panel IN PLACE
+ * (`MoneyPennyBridgeEmbed`, experience-coherence correction, 2026-09-03 —
+ * a real iframe embed, never `window.location.assign`; see that
+ * component's own header for the mechanism), with a "← Back to Prepare
+ * summary" affordance to collapse it again; "Continue to Operate" advances
+ * via the SAME `journey:select-stage` mechanism this file already used, to
+ * `nextStageId` — already wired to `fs-operate` in both journey
+ * definitions (services/journey/constitutionalInternetBridgeJourney.ts,
  * knytsBridgeCrossingJourney.ts), so no journey-graph change was needed
  * here, only this stage's own content.
  *
@@ -43,8 +46,8 @@ import { createExperienceHandoff, encodeExperienceHandoff } from '@/services/jou
 import { getJourneyBranchIntent } from '@/services/journey/journeyBranchActivation';
 import { WALLET_CONVERSION_CAPABILITY_ID } from '@/services/financialServices/walletConversionCapability';
 import { fetchFinancialProfileSummary, markFinancialProfileReviewed, type FinancialProfileSummary } from '@/services/moneypenny/financialProfileSummary';
-import { buildCodexUrl } from '@/utils/codex-nav';
 import type { BridgeAccent } from '@/components/journey/BridgeMediaStage';
+import { MoneyPennyBridgeEmbed } from '@/components/journey/MoneyPennyBridgeEmbed';
 
 const FINANCIAL_SERVICES_BRANCH = 'financial-services';
 /** Fallback ONLY for a direct deep link into the branch that skipped the
@@ -184,6 +187,11 @@ function PrepareFinancialProfileReview({
 }) {
   const [summary, setSummary] = useState<FinancialProfileSummary | null | undefined>(undefined);
   const [marking, setMarking] = useState(false);
+  // MoneyPenny experience-coherence correction (2026-09-03) — replaces the
+  // navigate-away `window.location.assign` with an in-place embed toggle.
+  // Refetch on close so a profile reviewed/edited inside the embed is
+  // reflected in this stage's own summary immediately.
+  const [embedOpen, setEmbedOpen] = useState(false);
 
   const refetch = useCallback(() => {
     void fetchFinancialProfileSummary().then((s) => setSummary(s));
@@ -200,8 +208,12 @@ function PrepareFinancialProfileReview({
   }, []);
 
   const openFinancialProfile = () => {
-    const url = buildCodexUrl('moneypenny', { personaId: personaId ?? undefined, tab: 'financial-profile' });
-    window.location.assign(url);
+    setEmbedOpen(true);
+  };
+
+  const closeFinancialProfile = () => {
+    setEmbedOpen(false);
+    refetch();
   };
 
   // Continue to Operate is NEVER gated on review — "users may continue to
@@ -227,6 +239,35 @@ function PrepareFinancialProfileReview({
   const loading = summary === undefined;
   const hasProfile = summary?.hasProfile === true;
   const isReviewed = hasProfile && summary?.reviewedAt != null;
+
+  // MoneyPenny experience-coherence correction (2026-09-03) — "Review my
+  // financial profile" opens the canonical MoneyPenny workspace IN PLACE
+  // (MoneyPennyBridgeEmbed) rather than navigating the bridge away. The
+  // stepper, this stage's own copy, and "Continue to Operate" all stay
+  // reachable while the embed is open.
+  if (embedOpen) {
+    return (
+      <div className="flex h-full flex-col gap-3 p-4">
+        <div className="flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={closeFinancialProfile}
+            className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-slate-200"
+          >
+            ← Back to Prepare summary
+          </button>
+          <button
+            type="button"
+            onClick={handleContinueToOperate}
+            className="rounded-lg border border-slate-700 bg-slate-900/40 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:opacity-80"
+          >
+            Continue to Operate
+          </button>
+        </div>
+        <MoneyPennyBridgeEmbed tab="financial-profile" personaId={personaId} className="min-h-0 w-full flex-1 rounded-md border border-slate-800 bg-slate-950" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full flex-col items-center justify-center gap-6 p-8 text-center">

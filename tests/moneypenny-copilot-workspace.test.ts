@@ -33,7 +33,7 @@ describe('MoneyPennyCopilotWorkspace — reuses the REAL DevOn/Agent Me copilot,
 
   it('reuses the EXISTING MoneyPennyShell as the right pane — never a new capsule/layout-registry system', () => {
     expect(src).toMatch(/import \{ MoneyPennyShell \} from '\.\/MoneyPennyShell'/);
-    expect(src).toMatch(/<MoneyPennyShell activePanel=\{activePanel\}>\{children\}<\/MoneyPennyShell>/);
+    expect(src).toMatch(/<MoneyPennyShell activePanel=\{activePanel\}[^>]*>\{children\}<\/MoneyPennyShell>/);
   });
 
   it('uses the C-01 specified pane ratio (35-40% copilot / 60-65% workspace), not an even 50/50 split', () => {
@@ -59,22 +59,26 @@ describe('MoneyPennyPanelTab — the one dispatcher every entry point already us
     expect(src).not.toMatch(/<MoneyPennyShell/);
   });
 
-  it('both the known-panel and unknown-panel branches render through MoneyPennyCopilotWorkspace — no bypass path', () => {
-    const mounts = src.match(/<MoneyPennyCopilotWorkspace activePanel=\{panel\}>/g) ?? [];
-    expect(mounts.length).toBe(2);
+  it('both the known-panel and unknown-panel branches render through MoneyPennyCopilotWorkspace — no bypass path (2026-09-03: unified into ONE mount with the known/unknown choice as its children, an even stronger guarantee than two parallel mounts)', () => {
+    const mounts = src.match(/<MoneyPennyCopilotWorkspace activePanel=\{activePanel\}>/g) ?? [];
+    expect(mounts.length).toBe(1);
+    expect(src).toMatch(/\{Panel \? <Panel \/> : <div[^>]*>Unknown MoneyPenny panel: \{activePanel\}<\/div>\}/);
   });
 
-  it('every existing panel key still maps in PANELS — compatibility for current entry points, none dropped', () => {
-    for (const key of ['overview', 'hft-console', 'chat', 'portfolio', 'strategies', 'x402', 'identity', 'smarttriad', 'crm', 'architect', 'runtime', 'service-orchestration', 'financial-profile', 'risk-envelope']) {
+  it('every existing panel key still maps in PANELS — compatibility for current entry points, none dropped ("chat" deliberately excluded: retired 2026-09-03, the duplicate right-pane chat UI it dispatched to is gone, and a legacy ?tab=chat deep link now falls through to overview/Home, where the canonical copilot already is)', () => {
+    for (const key of ['overview', 'hft-console', 'portfolio', 'strategies', 'x402', 'identity', 'smarttriad', 'crm', 'architect', 'runtime', 'service-orchestration', 'financial-profile', 'risk-envelope']) {
       expect(src, `panel key '${key}' missing from PANELS`).toMatch(new RegExp(`"?${key}"?:`));
     }
+    expect(src, "'chat' must no longer be a PANELS key — the duplicate right-pane chat UI is retired").not.toMatch(/\bchat:\s*MoneyPennyChat/);
   });
 });
 
-describe('fs-operate\'s "Open MoneyPenny" link routes through the SAME dispatcher — no separate wiring needed', () => {
-  it('FinancialSovereigntyOperateStage.tsx still uses buildCodexUrl(\'moneypenny\', ...) — unchanged, resolves through MoneyPennyPanelTab.tsx like every other entry point', () => {
+describe('fs-operate\'s "Open MoneyPenny" embeds through the SAME dispatcher — no separate wiring needed', () => {
+  it('FinancialSovereigntyOperateStage.tsx embeds via MoneyPennyBridgeEmbed, which itself resolves through MoneyPennyPanelTab.tsx like every other entry point (2026-09-03: replaces the retired buildCodexUrl navigate-away)', () => {
     const src = stripComments(readSource('components/journey/FinancialSovereigntyOperateStage.tsx'));
-    expect(src).toMatch(/buildCodexUrl\('moneypenny',/);
+    expect(src).toMatch(/import \{ MoneyPennyBridgeEmbed \} from '@\/components\/journey\/MoneyPennyBridgeEmbed'/);
+    const embedSrc = stripComments(readSource('components/journey/MoneyPennyBridgeEmbed.tsx'));
+    expect(embedSrc).toMatch(/buildCodexUrl\('moneypenny',/);
   });
 });
 
@@ -100,9 +104,9 @@ describe('C-02 copilot-to-capsule loop (Cartridge spec reconciliation, 2026-09-0
     expect(handlerBody).not.toMatch(/tryOpenInMountedCartridge/);
   });
 
-  it('navigates through the SAME tryOpenInMountedCartridge seam the capability rail already uses — one owner of "which panel is active" (MS-2)', () => {
-    expect(src).toMatch(/import \{ tryOpenInMountedCartridge, getCartridge \} from '@\/services\/cartridge\/CartridgePresenceRegistry'/);
-    expect(src).toMatch(/tryOpenInMountedCartridge\(\{ cartridgeId: MONEYPENNY_CODEX_ID, tab: suggestedPanel \}\)/);
+  it('navigates through MoneyPennyNavigationContext — MoneyPennyPanelTab\'s own internal state, the one owner of "which panel is active" (MS-2) since the 2026-09-03 single-tab collapse retired the cross-cartridge tryOpenInMountedCartridge seam for this purpose', () => {
+    expect(src).toMatch(/import \{ useMoneyPennyNavigation \} from '\.\/moneyPennyNavigation'/);
+    expect(src).toMatch(/navigateToPanel\(suggestedPanel\)/);
   });
 
   it('derives suggestable panel labels from the SAME capability-group source of truth the rail uses — no hand-duplicated label list', () => {
@@ -156,10 +160,10 @@ describe('C-03 five-area navigation retires the 14-item capability rail (2026-09
     expect(src).toMatch(/\{children\}/);
   });
 
-  it('MoneyPennyAreaNav navigates through the SAME tryOpenInMountedCartridge seam the retired rail used — deep links unchanged', () => {
+  it('MoneyPennyAreaNav navigates through MoneyPennyNavigationContext — deep links (buildCodexUrl ?tab=) unchanged; only in-app navigation moved off tryOpenInMountedCartridge (2026-09-03, since the single-tab collapse left that cross-cartridge seam nothing to switch to)', () => {
     const src = stripComments(readSource('app/(shell)/moneypenny/components/MoneyPennyAreaNav.tsx'));
-    expect(src).toMatch(/import \{ tryOpenInMountedCartridge \} from "@\/services\/cartridge\/CartridgePresenceRegistry"/);
-    expect(src).toMatch(/tryOpenInMountedCartridge\(\{ cartridgeId: MONEYPENNY_CODEX_ID, tab: /);
+    expect(src).toMatch(/import \{ useMoneyPennyNavigation \} from "\.\/moneyPennyNavigation"/);
+    expect(src).toMatch(/navigateToPanel\(panel\)/);
   });
 
   it('all five areas from the Cartridge spec are present, Home included', () => {
@@ -169,14 +173,18 @@ describe('C-03 five-area navigation retires the 14-item capability rail (2026-09
     }
   });
 
-  it('every real MoneyPennyPanelKey is reachable from exactly one area or the utility item — none dropped', () => {
+  it('every real MoneyPennyPanelKey is reachable from exactly one area or the utility item — none dropped ("chat" excluded: retired 2026-09-03, no longer a MoneyPennyPanelKey at all)', () => {
     const src = stripComments(readSource('app/(shell)/moneypenny/components/moneypennyCapabilities.ts'));
-    const panels = ['overview', 'hft-console', 'chat', 'portfolio', 'strategies', 'x402', 'identity', 'smarttriad', 'architect', 'runtime', 'service-orchestration', 'financial-profile', 'risk-envelope'];
+    const panels = ['overview', 'hft-console', 'portfolio', 'strategies', 'x402', 'identity', 'smarttriad', 'architect', 'runtime', 'service-orchestration', 'financial-profile', 'risk-envelope'];
     for (const panel of panels) {
-      expect(src, `panel '${panel}' missing from MONEYPENNY_AREA_FOR_PANEL`).toMatch(new RegExp(`(^|\\s)${panel === 'chat' || panel === 'x402' ? panel : `"?${panel}"?`}:\\s*"`, 'm'));
+      expect(src, `panel '${panel}' missing from MONEYPENNY_AREA_FOR_PANEL`).toMatch(new RegExp(`(^|\\s)${panel === 'x402' ? panel : `"?${panel}"?`}:\\s*"`, 'm'));
     }
-    // crm is the deliberate utility-tier exception, not dropped — it has its own item.
-    expect(src).toMatch(/MONEYPENNY_UTILITY_ITEM/);
+    expect(src, "'chat' must not appear in MONEYPENNY_AREA_FOR_PANEL — it is no longer a MoneyPennyPanelKey").not.toMatch(/(^|\s)chat:\s*"/m);
+    // crm moved into Activity (2026-09-03 experience-coherence correction,
+    // superseding the earlier "utility item outside the five areas"
+    // placement) — it now has a real area mapping, not a separately-pinned
+    // button.
+    expect(src).toMatch(/crm: "activity"/);
     expect(src).toMatch(/panel: "crm"/);
   });
 

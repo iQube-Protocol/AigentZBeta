@@ -1354,3 +1354,266 @@ this pass.
 | AC-B05 | PARTIAL (stronger still, §15g) | PARTIAL (stronger still) | Prepare no longer conflates data availability with review (§16f) — the criterion's "a reviewed financial profile" language is now enforced by a real, separate, explicit-action signal, not inferred from a successful compute pass |
 
 All other AC-C/AC-B/AC-A rows in §10/§12/§14f/§15g are unchanged by Turn E — restated, not re-derived.
+
+## 17. Turn F (2026-09-02) — reader honesty, established-projection reuse, and three distinctly-named remaining gaps
+
+Five numbered instructions, worked in order, plus a sixth ask (confirm review invalidates on edit).
+Nothing from Turn E was reverted or weakened — the published placeholder rows, the admin-picker fix,
+the natural-language discovery, and the review/availability split all stand untouched; this pass is
+additive.
+
+### 17a. Reader honesty — config/auth/db failures are now distinct, named 503s, never a false "not published"
+
+**Root cause (confirmed, not guessed):** `getCommunityContentSupabase()`
+(`app/api/community-content/_lib/personaContext.ts`) falls back to `NEXT_PUBLIC_SUPABASE_ANON_KEY` when
+`SUPABASE_SERVICE_ROLE_KEY` is absent. `bridge_content_placements`'s RLS grants `service_role` only
+(`bridge_content_placements_service_role_all`, re-verified live via `pg_policies` against
+`bsjhfvctmduxhohtllly`: exactly one policy, zero anon/authenticated policies). An anon-key client's
+SELECT there returns zero rows — RLS row-filtering, never a query error — indistinguishable from
+inside the route from "the table is genuinely empty." §16e reported this gap; this pass closes it.
+
+**Fix — a new, explicit, affirmative pre-check, never a silent degrade:**
+`services/supabase/requireServiceRoleClient.ts` (new) exports `getServiceRoleSupabaseOrThrow(context)`,
+which throws `SupabaseConfigurationError` (no URL configured) or `SupabaseServiceRoleMissingError` (URL
+present, service-role key absent) — two distinct, named error classes — rather than ever constructing a
+degraded anon-key client. Both `/api/moneypenny/learn-content` and
+`/api/journey/knyts-bridge/placements` (GET and POST) now use it instead of
+`getCommunityContentSupabase()`, and catch both error classes as distinct `503`s
+(`service-role-not-configured` / `supabase-not-configured`) ahead of the generic `500` — a genuine query
+failure still surfaces as `database-error`, never silently swallowed.
+
+**Live-verified against a real local `next dev` server (this sandbox, which still has no
+`SUPABASE_SERVICE_ROLE_KEY`):**
+
+```
+$ curl -s http://localhost:3311/api/moneypenny/learn-content
+{"ok":false,"error":"service-role-not-configured","detail":"MoneyPenny learn-content read: SUPABASE_SERVICE_ROLE_KEY is not configured in this environment. This read/write requires elevated access — falling back to the anon key would silently return zero rows for a table whose Row Level Security restricts access to service_role, which is indistinguishable from \"nothing published yet.\" Refusing rather than guessing."}
+```
+
+This is the exact defect fixed: before this pass, the identical sandbox condition produced
+`200 {"ok":true,"content":{"videoUrl":null,...}}` (§16e) — a false "not published." Now it is an honest,
+named `503`. The admin placements route was confirmed the same way: `curl -X POST
+.../api/journey/knyts-bridge/placements` returns `{"ok":false,"error":"admin required"}` (the
+`requireAdminPersona` gate, which runs *before* the service-role check — correctly, since an
+unauthenticated caller should never learn whether the server is misconfigured).
+
+### 17b. Established published-content projection — reused, not duplicated; drafts stay protected
+
+**Correction to my own Turn E framing, stated plainly:** Turn E's root-cause note (§16e) did not
+distinguish "`bridge_content_placements` is protected" from "so the fix is to read a different,
+anon-readable table." Checking `knyts_bridge_editorial_config`'s own RLS this pass
+(`pg_class.relrowsecurity = true`, `pg_policies` returns **zero rows** for it) shows RLS is enabled
+there too, with no policies at all — meaning it is *also* deny-all to anon/authenticated by default.
+The reason every CI/KNYTS public bridge reader works against it in the real deployed environment is
+that the server there is **always** configured with `SUPABASE_SERVICE_ROLE_KEY` (which bypasses RLS
+entirely) — "public" is an application-level property (no end-user auth gate on the read), never a
+database-role grant. This does not change the correctness of the fix the operator asked for — it
+changes *why* it's correct.
+
+**The fix itself, per the operator's exact framing ("reuse the established published-content
+projection... keep drafts protected; do not broaden placement-table access"):**
+`services/journey/moneyPennyEducationalMedia.ts` no longer imports or reads
+`bridgeContentPlacements`/`getPlacementsForSection` at all. `getMoneyPennyIntroVideoBlock` and
+`getMoneyPennyLearnContent` now read `getKnytsBridgeEditorialSection` directly — the exact function
+every other CI/KNYTS public bridge reader already uses, and the exact table `publishPlacement` writes
+resolved URLs into as its first step (§16a). This is safe specifically because Turn E's own
+`KNYTS_BRIDGE_SECTION_DEFAULTS['moneypenny-financial-basics']` entry (added closing §16b) carries
+MoneyPenny's own honest fallback copy — the risk that originally justified checking placements first
+(showing HOME's "Cross the Threshold" mythos copy) no longer applies.
+`bridge_content_placements`'s migration was **not** touched — still `TO service_role` only, confirmed
+by a source-shape test reading the actual migration file, so a regression there fails the build rather
+than relying on memory.
+
+**Tests**: `tests/moneypenny-reader-honesty.test.ts` (new, 11 tests) — three real behavioral tests of
+`getServiceRoleSupabaseOrThrow` (env-var manipulation, not just source matching: missing URL, missing
+key, both present), plus source-shape tests confirming the migration grants only `service_role`, the
+media module no longer imports the placements module, and both routes use the new guard with distinct
+503s. `tests/moneypenny-c15-educational-video.test.ts` (3 tests updated to the new architecture) and
+`tests/knyts-bridge-infographic-render.test.ts` (1 test's mock target updated) both required fixing
+because they encoded the old placements-first read — both now pass (27/27 and 9/9 respectively).
+
+### 17c. Complete replacement flow through native Qriptopian Admin → Bridges — NOT closed this pass; named precisely, not glossed
+
+The operator is correct that Turn E's DB-mirrored assign/publish cycle (§16a) is useful evidence of the
+*mechanism* but does not close *UI* acceptance. This pass did not close it either — stated plainly
+rather than re-asserting the DB-layer evidence as if it were new UI proof. The blocker is unchanged
+from §16d/§16e and was re-confirmed live this pass: `POST /api/journey/knyts-bridge/placements` (the
+route the admin UI itself calls) returns `{"ok":false,"error":"admin required"}` with no session —
+`requireAdminPersona` has no bypass available in this sandbox (no `ADMIN_OPS_TOKEN` configured; see
+17e). Reaching the real UI flow (select bridge/stage/slot → upload/choose → preview → publish → observe
+the changed revision in the bridge and the MoneyPenny conversation) requires either a real authenticated
+admin browser session or the `ADMIN_OPS_TOKEN` bearer bypass — neither exists in this sandbox. The
+mechanism this flow depends on (typed draft/publish, revision counters, the exact write ordering) is
+unchanged from §16a and remains verified at the data layer only.
+
+### 17d. A3 through the authorized agent-facing boundary — DB-mirroring explicitly disclaimed as evidence; the real boundary named
+
+Per the operator's explicit instruction ("Calling internal functions with database access does not by
+itself demonstrate that integration"): **§16a/§123's DB-mirrored publish cycle is evidence of the
+publish mechanism's correctness, and is not being offered, here or previously, as evidence that the
+authorized agent-facing upload boundary was exercised.** These are two different claims and this report
+keeps them separate.
+
+The real boundary is the Threshold MCP `upload_content_asset` tool (`mcp__threshold__upload_content_asset`
+/ `mcp__metaMe_Threshold__upload_content_asset`) — the actual "authorized agent-facing upload/placement/
+publication boundary" named in the instruction. This pass's own tool environment confirms it directly:
+the Threshold MCP server reports it **requires re-authorization (token expired)**, and — stated by the
+harness itself, not inferred — *"this session is non-interactive, so Claude cannot run the OAuth flow
+here."* This is not a retry-and-see situation; a non-interactive session structurally cannot complete
+the interactive OAuth crossing Threshold's authorization requires. **A3 through this specific boundary
+remains unverified, and is named as blocked on interactive human authorization of the Threshold
+connector — not on missing code, and not on anything a database call can substitute for.**
+
+### 17e. Sign-in with an authorized test identity — three distinct, separately-named gaps, none conflated
+
+Restating §16d's finding with the operator's requested separation ("Identify the specific account-access
+action needed, separately from missing server configuration") made explicit, plus one addition found
+this pass:
+
+| Gap | Kind | What it blocks | Status this pass |
+|---|---|---|---|
+| `SUPABASE_SERVICE_ROLE_KEY` | Server/environment **configuration** (not an account-access action) | The reader route's own elevated read (17a); the admin placements route's read/write | Confirmed absent (`grep` of `.env.local`, 0 matches). Now fails loudly (17a) instead of silently |
+| A real end-user test-account credential (email/password) | **Account-access action**: someone with access to Supabase Auth for this project either hands over an existing test account's credentials, or authorizes provisioning one through the app's own signup flow | A genuine authenticated browser session through the real sign-in flow (`supabase.auth.signInWithPassword`, confirmed working in §16d) | Unchanged — no credential exists in this repo (searched again this pass: `.env.local`, `.env.example`, no match); none fabricated, per CLAUDE.md's No-Guessing rule |
+| `ADMIN_OPS_TOKEN` | **Account-access action**, distinct from both of the above: a real, documented bearer-token bypass for `requireAdminPersona` (`app/api/_lib/requireAdmin.ts`), used elsewhere in this repo for cron/admin-script access without a full persona session | The admin placements route (17c) and any other `requireAdminPersona`-gated route, via `Authorization: Bearer <ADMIN_OPS_TOKEN>` — no browser session required | Confirmed absent from this sandbox's `.env.local` (`grep`, 0 matches). This is the single, specific, nameable action that would unblock 17c fastest without needing a real human sign-in session — if this token exists in the deployed environment's secrets (as other repo docs describe it being used for cron jobs), providing it here would let this pass complete the admin-route half of 17c directly |
+
+None of these three are the same gap, and none is a stand-in for another: closing `SUPABASE_SERVICE_ROLE_KEY`
+alone would fix 17a's reader honesty at the data-visibility level but would still leave the admin UI flow
+(17c) blocked on either a real test account or `ADMIN_OPS_TOKEN`.
+
+### 17f. Editing/replacing financial-profile data invalidates its prior review — now proven behaviorally, not just by source shape
+
+§16f's fix (`reviewed_at` cleared to `null` by every `upsertFinancialProfileQube` call, set only by the
+explicit `markFinancialProfileReviewed` action) was previously verified only by regex against the
+source. This pass adds a real behavioral proof: two new tests in
+`tests/moneypenny-financial-profile-reviewed.test.ts` construct an in-memory fake Supabase client and
+call the actual exported functions in sequence — `upsertFinancialProfileQube` (compute) →
+`markFinancialProfileReviewed` (review) → `upsertFinancialProfileQube` again (edit/replace) — asserting
+on the real returned records: `reviewedAt` is `null` after the first compute, becomes a real timestamp
+after review, and is `null` again (never the old timestamp) after the second write. A third test
+confirms `markFinancialProfileReviewed` genuinely throws `NoFinancialProfileToReviewError` when called
+against a persona with no profile row at all. Also confirmed directly this pass: both financial-profile
+write paths — `/api/moneypenny/financial-profile/compute` (upload-derived) and
+`/api/moneypenny/financial-profile/manual` (manual entry) — call the SAME `upsertFinancialProfileQube`
+writer; there is no second write path that could bypass the invalidation. 19/19 tests pass in the file
+(17 pre-existing source-shape tests + 2 new behavioral tests).
+
+### 17g. Regression
+
+`tsc --noEmit` holds at **677** throughout every edit this pass — unchanged baseline. Full `vitest run`:
+**48 failed / 15 failed files**, name-matched against the same pre-existing, already-tracked flaky set
+reported since §13d/§14e/§15f/§16g (`canon-document-resolution`, `dev-merge-message-discipline`,
+`journey-admission-spine`, `journey-monotonic-admission`, `journey-orient-legacy-regression`,
+`journey-orient-stage`, `journey-response-honesty`, `knyts-bridge-ci-parity`,
+`mycanvas-article-zero-fix`, `phase-a-baseline-canaries`, `pulse-close-now-structured-projection`,
+`pulse-plnl-split-and-correlation-trace`, `register-ceremony`, `repo-weight`, `resolution-records`) —
+zero new failures introduced by this pass.
+
+15 new/updated tests this pass: `tests/moneypenny-reader-honesty.test.ts` [11, new],
+`tests/moneypenny-financial-profile-reviewed.test.ts` [+2 in a new describe block, 19 total],
+`tests/moneypenny-c15-educational-video.test.ts` [3 updated, 27 total],
+`tests/knyts-bridge-infographic-render.test.ts` [1 mock updated, 9 total].
+
+### 17h. What this pass proves, and what it still cannot show — stated without collapsing the distinction
+
+**Proven this pass, live and behaviorally:**
+- A real, distinguishable `503` (`service-role-not-configured`) replaces the false `200 {videoUrl:
+  null}` the reader route previously returned under this exact sandbox condition (17a) — confirmed by
+  curling a real local `next dev` server, not by reading the code and asserting it.
+- The public MoneyPenny reader now depends only on the same published-content projection every other
+  CI/KNYTS bridge reader uses, with zero broadening of `bridge_content_placements` access (17b).
+- `reviewed_at` invalidation-on-edit is proven by actually calling the real functions in sequence, not
+  only by matching source text (17f).
+
+**Not shown this pass, named precisely rather than implied as done:**
+- **Actual published media rendering in a real browser.** This sandbox still has no
+  `SUPABASE_SERVICE_ROLE_KEY` — the fix in 17a means that gap now fails loudly instead of masquerading
+  as "nothing published," but it does not manufacture the key. Once that key (or an equivalent
+  authenticated session) is available — in this sandbox or the deployed environment — the SAME published
+  rows from §16a are already sitting in the database ready to render; nothing else blocks it.
+- **The admin replacement flow reflected by its consumers through the native UI.** Blocked on the same
+  gap plus one of: a real end-user test-account credential, or `ADMIN_OPS_TOKEN` (17c/17e) — both named
+  specifically, neither substituted with DB-layer evidence.
+- **A3 through the real Threshold upload boundary.** Blocked on interactive OAuth re-authorization this
+  non-interactive session cannot perform (17d) — not offered as demonstrated via any internal-function
+  call.
+
+No unreadable content is described as unpublished anywhere in this report: every claim above is scoped
+to what was actually observed (a curl response, a passing test, a `grep` result, or an explicit
+harness-reported authorization requirement) — never inferred from an absence.
+
+## 18. Turn G (2026-09-03) — three remaining checks marked BLOCKED-ON-ACCESS; API acceptance kept distinct from browser-UI acceptance; next unblocked crosswalk gap closed
+
+Per the operator's explicit instruction, the three checks named in §17c/§17d/§17e are recorded here as
+**BLOCKED-ON-ACCESS**, not retried, not polled, and not worked around. Each is a real, external
+dependency — none is a code defect in this repo:
+
+| # | Check | Blocked on | User-side remedy |
+|---|---|---|---|
+| 1 | Native Admin → Bridges replacement flow, observed live in the bridge and the MoneyPenny conversation | An authorized admin session (browser sign-in, or the `ADMIN_OPS_TOKEN` bearer bypass) | Provide a real admin/test-account credential through the environment's secure configuration, or confirm `ADMIN_OPS_TOKEN` for this sandbox |
+| 2 | A3 upload/placement/publication through the authorized agent-facing boundary (Threshold `upload_content_asset`) | Threshold connector reauthorization — this session is non-interactive and cannot run the OAuth flow itself | The operator reauthorizes the metaMe Threshold connector in its connection settings (credentials go through the environment's secure configuration, never pasted into chat) |
+| 3 | Local server-backed reads showing the actual published video/infographic (`/api/moneypenny/learn-content` returning real content rather than the honest `503` added in §17a) | The missing `SUPABASE_SERVICE_ROLE_KEY` server configuration in this sandbox | Configure `SUPABASE_SERVICE_ROLE_KEY` for this sandbox, or run the check against an environment that already has it (e.g. the deployed dev/prod Amplify environment) |
+
+**A named distinction, kept explicit rather than blurred:** a successful call against
+`/api/journey/knyts-bridge/placements` using `ADMIN_OPS_TOKEN` (were it supplied) would establish
+**API acceptance** for check #1 — proof the route's own logic, gating, and write path work correctly
+under a real elevated credential. It would **not** establish **browser-UI acceptance** — proof that a
+human operator, in a real browser, can select a bridge/stage/slot, upload or choose a replacement,
+preview it, publish it, and see the changed revision reflected in the live bridge page and the
+MoneyPenny conversation. These are two different claims with two different failure modes (a route can
+work correctly while a picker component is broken, hidden, or unreachable in the actual admin UI) —
+this report will state which one it has actually observed, whichever becomes available first, and will
+never present one as satisfying the other.
+
+**No further polling or code changes are made against these three checks.** They will be exercised once
+access is restored, against the existing implementation described in §17 (already committed) — not by
+building new access-shaped workarounds now.
+
+### 18a. Next unblocked crosswalk gap — AC-C06's untested half closed
+
+Per the instruction to resume the unblocked remainder of the 60-criterion crosswalk without reopening
+completed items: AC-C06 (`docs/specs/moneypenny/MoneyPenny_Cartridge_Spec_v1.md:293`, "Declining
+raw-document access permits appropriate learning/manual-profile work; unauthorized principal cannot
+read another profile or media") has stood at **PARTIAL** since §10 with a named, concrete, and —
+critically — genuinely unblocked gap: *"no dedicated cross-persona-read-denial test located this
+pass."* Nothing about closing it requires an admin session, Threshold reauthorization, or
+`SUPABASE_SERVICE_ROLE_KEY` — it is a property of this repo's own route/service code, provable with a
+fake in-memory Supabase client exactly as §17f's `reviewed_at` proof was.
+
+**What was verified (not merely asserted) this pass:** all four financial-profile routes —
+`GET /api/moneypenny/financial-profile`, `POST /api/moneypenny/financial-profile/compute`,
+`POST /api/moneypenny/financial-profile/manual`, `POST /api/moneypenny/financial-profile/review` —
+derive the `personaId` used for every read/write **exclusively** from `getActivePersona(req)` (the
+identity spine, resolved from the caller's own auth token); none of the four ever reads a `personaId`
+from a query parameter or request body. There is structurally no parameter through which a caller could
+request another persona's profile — this is not a runtime check that could be bypassed by a malformed
+request, it is the absence of any code path that accepts one. `getFinancialProfileQube`/
+`upsertFinancialProfileQube`/`markFinancialProfileReviewed` all filter by `.eq('persona_id', personaId)`
+(or the upsert's `onConflict: 'persona_id'`), so even a compromised route could not cross-read without
+also being rewritten to pass a different value in.
+
+**New tests** (`tests/moneypenny-financial-profile.test.ts`, extending the existing suite — no new
+file): a source-shape check confirming none of the four route files reference
+`searchParams.get('personaId')` / `body?.personaId` / `body.personaId` anywhere, and a real behavioral
+test constructing an in-memory fake table pre-seeded with two DIFFERENT personas' rows, then calling
+`getFinancialProfileQube('persona-A')` and asserting the returned record's aggregates match ONLY
+persona A's seeded values and never persona B's — proving the filter is real, not merely present in
+source text.
+
+**Crosswalk status change**: AC-C06 moves from PARTIAL ("no dedicated cross-persona-read-denial test
+located") to **PARTIAL (stronger)** — the read-isolation half is now proven by a real test; the
+"declining raw-document access permits appropriate learning/manual-profile work" half was already
+PARTIAL evidence from MPY2-2c (manual entry) and is unchanged by this pass. Not moved to PASS: no
+dedicated test was located or written this pass proving the "media" half of the criterion (an
+unauthorized principal cannot read gated media) — MoneyPenny's educational video/infographic is
+deliberately public/free-preview content with no entitlement gate at all (stated in
+`app/api/moneypenny/learn-content/route.ts`'s own header, consistent with CLAUDE.md's Gated Content
+rules, which apply only to purchased/entitled content), so there is no gate to test here — this is
+recorded as the criterion's media clause being satisfied by the content's own un-gated nature, not
+independently verified against a genuinely gated MoneyPenny asset (none exists yet).
+
+### 18b. Regression
+
+`tsc --noEmit` holds at **677**. Full `vitest run`: **48 failed / 15 failed files**, the same
+already-tracked pre-existing flaky set named in §16g/§17g — zero new failures. 6 new tests in
+`tests/moneypenny-financial-profile.test.ts` (4 source-shape, one per route, via `it.each`, plus 2
+behavioral — now 18 total in that file), all passing.

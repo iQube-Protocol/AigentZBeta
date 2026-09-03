@@ -102,21 +102,31 @@ describe("registry entry 'moneypenny-orchestration-focused' — expandedCodexSlu
     expect(descriptor.expandedTab).toBe('service-orchestration');
   });
 
-  it('parity: expandedCodexSlug matches MONEYPENNY_CARTRIDGE.id, expandedTab is a real tab slug on it', () => {
+  it('parity: expandedCodexSlug matches MONEYPENNY_CARTRIDGE.id; expandedTab is a real MoneyPennyPanelKey resolved via ?tab= inside the one registered tab (2026-09-03 experience-coherence correction)', () => {
     if (descriptor.kind !== 'embed') return;
     expect(descriptor.expandedCodexSlug).toBe(MONEYPENNY_CARTRIDGE.id);
-    const tab = MONEYPENNY_CARTRIDGE.tabs.find((t) => t.slug === descriptor.expandedTab);
-    expect(tab, `expandedTab '${descriptor.expandedTab}' must be a real MONEYPENNY_CARTRIDGE tab`).toBeTruthy();
-    // Landing tab stays Orchestration, not the cartridge's natural first tab
-    // (HFT Console) — expansion must not change WHERE the operator lands,
-    // only what nav becomes reachable from there.
-    expect(tab?.config.component).toBe('MoneyPennyPanelTab');
-    expect((tab?.config.props as { panel?: string } | undefined)?.panel).toBe('service-orchestration');
+    // MONEYPENNY_CARTRIDGE now registers exactly ONE codex tab (see that
+    // constant's own header comment) — `expandedTab` is no longer a
+    // dedicated CodexTab.slug per value; it is a MoneyPennyPanelKey the
+    // single tab's MoneyPennyPanelTab resolves from the raw `?tab=` query
+    // param. Confirm both halves: the one real tab exists and dispatches
+    // through MoneyPennyPanelTab, and `expandedTab`'s value is a real,
+    // recognized panel key (never a value that would fall through to the
+    // default Home/overview panel, silently changing where expansion lands).
+    expect(MONEYPENNY_CARTRIDGE.tabs).toHaveLength(1);
+    const tab = MONEYPENNY_CARTRIDGE.tabs[0];
+    expect(tab.config.component).toBe('MoneyPennyPanelTab');
+    const panelTabSrc = stripComments(readSource('app/triad/components/codex/tabs/MoneyPennyPanelTab.tsx'));
+    expect(panelTabSrc).toContain(`"${descriptor.expandedTab}":`);
   });
 
-  it('MONEYPENNY_CARTRIDGE exposes the real Operate(HFT)/Connect/Service/Administer tabGroups the expand affordance reveals', () => {
-    const groupIds = (MONEYPENNY_CARTRIDGE.tabGroups ?? []).map((g) => g.id);
-    expect(groupIds).toEqual(['operate', 'connect', 'service', 'administer']);
+  it('MONEYPENNY_CARTRIDGE no longer exposes a competing outer tabGroups bar — the five-area nav inside the one workspace tab is the only navigation (2026-09-03 experience-coherence correction, supersedes the old Operate(HFT)/Connect/Service/Administer pinning)', () => {
+    expect(MONEYPENNY_CARTRIDGE.tabGroups ?? []).toEqual([]);
+    // singleTabMode (enabledTabs.length <= 1) is what makes CodexPanelDynamic
+    // suppress its own chrome for this cartridge — confirm the one real tab
+    // is actually the only one, not merely an empty tabGroups array with
+    // multiple ungrouped tabs still competing for the same bar.
+    expect(MONEYPENNY_CARTRIDGE.tabs).toHaveLength(1);
   });
 
   it('does NOT alter metame-codex\'s own "metame-moneypenny-orchestration" tab entry — that pinning stays intact for every other path into it', () => {
@@ -217,11 +227,19 @@ describe('JourneyRunSurface — foreground override renders through the SAME emb
   });
 
   it('computes a synthetic one-element surfaces array from the override ref, fed into the existing surfaces.map switch', () => {
+    // MoneyPenny experience-coherence correction (2026-09-03) — this
+    // computation was hoisted into an `activeStageSurfaceRefs` memo so the
+    // host-copilot suppression check (registryRequestsHostCopilotSuppression)
+    // reads the SAME list the render switch below maps over, rather than
+    // each recomputing it independently and risking drift. The override
+    // logic itself — and the fact the render switch consumes exactly one
+    // list, never a parallel path — is unchanged, just named and hoisted.
     const code = stripComments(readSource(JOURNEY_RUN_SURFACE));
+    expect(code).toContain('const activeStageSurfaceRefs = useMemo(() => {');
     expect(code).toContain('const overrideRef = foregroundSurfaceRefByStage?.[activeStage.id];');
-    expect(code).toMatch(/const surfacesToRender: JourneySurfaceRef\[\] = overrideRef/);
-    expect(code).toContain("? [{ ref: overrideRef, mode: 'iframe' }]");
+    expect(code).toContain("? [{ ref: overrideRef, mode: 'iframe' as const }]");
     expect(code).toContain(': activeStage.surfaces;');
+    expect(code).toContain('const surfacesToRender: JourneySurfaceRef[] = activeStageSurfaceRefs;');
     expect(code).toContain('return surfacesToRender.map((surfaceRef, i) => {');
   });
 

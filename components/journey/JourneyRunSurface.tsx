@@ -20,7 +20,7 @@
  * clicking a stage node only selects which stage's surface is shown (§5.1).
  */
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, Lock, Loader2, RefreshCw, ExternalLink, Construction, Maximize2, Minimize2, ChevronLeft, ChevronRight, ChevronDown, ArrowLeft } from 'lucide-react';
 import { personaFetch, usePersonaSpine } from '@/utils/personaSpine';
@@ -784,6 +784,52 @@ export function JourneyRunSurface({
   const activeStage = journey.stages.find((s) => s.id === activeStageId) ?? journey.stages[0];
   const activeStageRuntime = runtimeState?.stages.find((s) => s.stageId === activeStageId);
 
+  // Foreground override (FS Operate viewport parity, 2026-08-25) — the SAME
+  // substitution the surface-rendering switch below applies, hoisted so the
+  // host-copilot suppression check (immediately below) and the render loop
+  // never compute two different lists for the same stage.
+  const activeStageSurfaceRefs = useMemo(() => {
+    const overrideRef = foregroundSurfaceRefByStage?.[activeStage.id];
+    return overrideRef ? [{ ref: overrideRef, mode: 'iframe' as const }] : activeStage.surfaces;
+  }, [foregroundSurfaceRefByStage, activeStage]);
+
+  // MoneyPenny experience-coherence correction (2026-09-03) — one half of
+  // the `suppressHostCopilot` mechanism (see its doc comment on
+  // JourneySurfaceDescriptor in journeySurfaceRegistry.ts): a registry-
+  // declared embed whose descriptor sets the flag suppresses the host
+  // unconditionally while that stage is active — no runtime signal needed,
+  // since the embed is present the moment the stage is.
+  const registryRequestsHostCopilotSuppression = activeStageSurfaceRefs.some((ref) => {
+    const descriptor = JOURNEY_SURFACES[ref.ref];
+    return descriptor?.kind === 'embed' && descriptor.suppressHostCopilot === true;
+  });
+
+  // The second half — for a bridge-owned `mode: 'component'` stage (CI/
+  // KNYTS's Prepare/Operate, which render MoneyPenny inline themselves
+  // rather than through the descriptor-driven switch above) the embed is
+  // opened by LOCAL component state (a user's click), invisible to this
+  // registry lookup. Those components dispatch the same
+  // `journey:host-copilot-suppress` event `journey:select-stage` already
+  // establishes the convention for, naming whether their own inline
+  // MoneyPenny embed is currently open.
+  const [componentRequestsHostCopilotSuppression, setComponentRequestsHostCopilotSuppression] = useState(false);
+  useEffect(() => {
+    // A suppression request from the PREVIOUS stage must never leak into
+    // the next one — reset on every stage change, same discipline as the
+    // evidence popover above.
+    setComponentRequestsHostCopilotSuppression(false);
+  }, [activeStageId]);
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ suppressed?: boolean }>).detail || {};
+      setComponentRequestsHostCopilotSuppression(detail.suppressed === true);
+    };
+    window.addEventListener('journey:host-copilot-suppress', handler);
+    return () => window.removeEventListener('journey:host-copilot-suppress', handler);
+  }, []);
+
+  const suppressHostCopilot = registryRequestsHostCopilotSuppression || componentRequestsHostCopilotSuppression;
+
   /**
    * The evidence checklist is a POPOVER anchored to its own trigger, not a
    * `<details>` disclosure in normal flow — a `<details>` open state pushes
@@ -1393,11 +1439,11 @@ export function JourneyRunSurface({
             // Foreground override (FS Operate viewport parity, 2026-08-25):
             // a stage-scoped ref substitution rendered through this SAME
             // switch, never a parallel presentation path — see
-            // foregroundSurfaceRefByStage's own doc comment above.
-            const overrideRef = foregroundSurfaceRefByStage?.[activeStage.id];
-            const surfacesToRender: JourneySurfaceRef[] = overrideRef
-              ? [{ ref: overrideRef, mode: 'iframe' }]
-              : activeStage.surfaces;
+            // foregroundSurfaceRefByStage's own doc comment above. Hoisted
+            // to activeStageSurfaceRefs above so the host-copilot
+            // suppression check computes the identical list, never a second
+            // one that could drift from what's actually rendered.
+            const surfacesToRender: JourneySurfaceRef[] = activeStageSurfaceRefs;
             return surfacesToRender.map((surfaceRef, i) => {
             const descriptor = JOURNEY_SURFACES[surfaceRef.ref];
             if (!descriptor) {
@@ -1580,15 +1626,22 @@ export function JourneyRunSurface({
           shared floating copilot for the whole journey spine, independent
           of active stage. Sits inside `content` (not appended after it) so
           it is included in BOTH the normal-flow return and the fullscreen
-          portal below — the copilot must survive the fullscreen toggle. */}
-      <JourneyCopilotHost
-        journey={journey}
-        personaId={personaId}
-        activeStage={activeStage}
-        activeStageRuntime={activeStageRuntime}
-        selectedAgentSlug={selectedAgentSlug}
-        resolvedCompanionAgent={runtimeState?.resolvedCompanionAgent}
-      />
+          portal below — the copilot must survive the fullscreen toggle.
+          MoneyPenny experience-coherence correction (2026-09-03):
+          `suppressHostCopilot` is the ONE exception to "independent of
+          active stage" — when the active stage's own embed already IS a
+          complete persistent copilot experience (MoneyPenny's), mounting
+          this too puts two conversations on screen for the same action. */}
+      {!suppressHostCopilot && (
+        <JourneyCopilotHost
+          journey={journey}
+          personaId={personaId}
+          activeStage={activeStage}
+          activeStageRuntime={activeStageRuntime}
+          selectedAgentSlug={selectedAgentSlug}
+          resolvedCompanionAgent={runtimeState?.resolvedCompanionAgent}
+        />
+      )}
     </div>
   );
 

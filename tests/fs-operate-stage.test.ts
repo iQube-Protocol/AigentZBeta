@@ -42,25 +42,29 @@ describe.each([
   });
 });
 
-describe('FinancialSovereigntyOperateStage.tsx — links to the real MoneyPenny cartridge, never a second workspace', () => {
+describe('FinancialSovereigntyOperateStage.tsx — embeds the real MoneyPenny cartridge IN PLACE, never a second/forked workspace (2026-09-03 experience-coherence correction)', () => {
   const src = stripComments(readSource('components/journey/FinancialSovereigntyOperateStage.tsx'));
 
-  it('uses the canonical buildCodexUrl inter-cartridge navigation helper, never a hand-built URL', () => {
-    expect(src).toMatch(/import \{ buildCodexUrl \} from '@\/utils\/codex-nav'/);
-    expect(src).toMatch(/buildCodexUrl\('moneypenny',/);
-  });
-
-  it('never embeds a second MoneyPenny split-pane workspace inline (no SmartWalletDrawer/SmartTriadCopilotLayer import)', () => {
-    expect(src).not.toMatch(/SmartWalletDrawer|SmartTriadCopilotLayer|MoneyPennyPanelTab/);
+  it('uses MoneyPennyBridgeEmbed — the shared in-frame mount, not a hand-built iframe or a fork of MoneyPenny\'s own workspace component', () => {
+    expect(src).toMatch(/import \{ MoneyPennyBridgeEmbed \} from '@\/components\/journey\/MoneyPennyBridgeEmbed'/);
+    expect(src).toMatch(/<MoneyPennyBridgeEmbed tab="overview" personaId=\{personaId\}/);
+    // Never a second, forked implementation of MoneyPenny's own workspace
+    // internals — MoneyPennyBridgeEmbed is the ONE composition seam.
+    expect(src).not.toMatch(/SmartWalletDrawer|SmartTriadCopilotLayer|MoneyPennyPanelTab|MoneyPennyCopilotWorkspace/);
   });
 
   it('reuses BridgeMediaStage — the same generic shell every other fs-* stage uses, never a bespoke layout', () => {
     expect(src).toMatch(/import \{ BridgeMediaStage/);
   });
 
-  it('navigates to MoneyPenny in the SAME frame — never window.open/_blank (corrected 2026-09-02: this stage already renders inside the Journey Spine\'s own iframe, so opening in a new tab was wrong)', () => {
+  it('never navigates away — no window.location.assign, no window.open/_blank (corrected 2026-09-03: same-tab window.location.assign is not an embedding fix)', () => {
     expect(src).not.toMatch(/window\.open/);
-    expect(src).toMatch(/window\.location\.assign/);
+    expect(src).not.toMatch(/window\.location\.assign/);
+  });
+
+  it('opening MoneyPenny is a local state toggle with a close affordance and Continue still reachable — never a page navigation', () => {
+    expect(src).toMatch(/const \[embedOpen, setEmbedOpen\] = useState\(false\);/);
+    expect(src).toMatch(/← Close MoneyPenny workspace/);
   });
 });
 

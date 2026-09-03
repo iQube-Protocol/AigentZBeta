@@ -32,27 +32,35 @@ describe('MoneyPenny owns exactly one section in the shared bridge editorial reg
 describe('services/journey/moneyPennyEducationalMedia.ts — the ONE reader, never a parallel content store', () => {
   const src = stripComments(readSource('services/journey/moneyPennyEducationalMedia.ts'));
 
-  it('reuses getPlacementsForSection and getKnytsBridgeEditorialSection — no second read path', () => {
-    expect(src).toMatch(/import \{ getPlacementsForSection \} from '@\/services\/journey\/bridgeContentPlacements'/);
+  it('reads ONLY getKnytsBridgeEditorialSection — the SAME public projection every CI/KNYTS bridge reader uses (Turn F, 2026-09-02: bridge_content_placements is admin-only draft bookkeeping, never a public read path)', () => {
     expect(src).toMatch(/import \{ getKnytsBridgeEditorialSection \} from '@\/services\/journey\/knytsBridgeEditorialConfig'/);
+    expect(src).not.toMatch(/getPlacementsForSection|bridgeContentPlacements/);
   });
 
-  it('never returns a video block or editorial copy before a real publish exists — checks placements.video?.publishedAssetUrl FIRST', () => {
+  it('never returns a video block before a real published videoUrl exists — gates on section.videoUrl, never a fabricated one', () => {
     const fnStart = src.indexOf('export async function getMoneyPennyIntroVideoBlock');
     const fnEnd = src.indexOf('\n}', fnStart);
     const fnBody = src.slice(fnStart, fnEnd);
-    const placementsCallIdx = fnBody.indexOf('getPlacementsForSection');
-    const editorialCallIdx = fnBody.indexOf('getKnytsBridgeEditorialSection');
-    expect(placementsCallIdx).toBeGreaterThan(-1);
-    expect(editorialCallIdx).toBeGreaterThan(placementsCallIdx);
-    expect(fnBody).toMatch(/if \(!publishedUrl\) return null;/);
+    expect(fnBody).toMatch(/const section = await getKnytsBridgeEditorialSection\(supabase, MONEYPENNY_LEARN_SECTION\);/);
+    expect(fnBody).toMatch(/if \(!section\.videoUrl\) return null;/);
   });
 
-  it('getMoneyPennyLearnContent likewise gates on publishedUrl before trusting headline/shortCopy — never HOME\'s fallback mythos copy for MoneyPenny', () => {
+  it('getMoneyPennyLearnContent reads the SAME section — safe now that moneypenny-financial-basics has its OWN default entry (Turn E) instead of falling through to HOME\'s mythos copy', () => {
     const fnStart = src.indexOf('export async function getMoneyPennyLearnContent');
-    const fnBody = src.slice(fnStart, src.indexOf('\n}', src.indexOf('\n}', fnStart) + 1));
-    expect(fnBody).toMatch(/if \(!publishedUrl\) \{/);
-    expect(fnBody).toMatch(/title: 'Financial Sovereignty basics', description: null, videoUrl: null, posterUrl: null/);
+    const fnBody = src.slice(fnStart, src.indexOf('\n}', fnStart));
+    expect(fnBody).toMatch(/const section = await getKnytsBridgeEditorialSection\(supabase, MONEYPENNY_LEARN_SECTION\);/);
+    expect(fnBody).toMatch(/videoUrl: section\.videoUrl \?\? null,/);
+    // The section-specific default (services/journey/knytsBridgeEditorialConfig.ts)
+    // is what makes an unpublished read honest — checked in the describe block
+    // below, not re-derived here.
+  });
+
+  it('the section-specific default (added Turn E) is what makes reading editorial_config directly safe — no HOME fallback risk', () => {
+    const configSrc = stripComments(readSource('services/journey/knytsBridgeEditorialConfig.ts'));
+    const entry = configSrc.match(/'moneypenny-financial-basics': \{([\s\S]*?)\},\n\};/)?.[1] ?? '';
+    expect(entry).toMatch(/videoUrl: null,/);
+    expect(entry).toMatch(/infographicUrl: null,/);
+    expect(entry).not.toMatch(/Cross the Threshold/);
   });
 
   it('the video block schema_version is smarttriad.media.video.v0 and carries a relatedChip with cartridgeId/tab', () => {
@@ -194,14 +202,15 @@ describe('MoneyPennyLearnPanel.tsx — the structured right-pane content, reusin
   });
 });
 
-describe('learn is deliberately excluded from the area-nav rail — a chip-triggered capsule, not a persistent destination (mirrors the existing crm exception)', () => {
+describe('learn is deliberately excluded from the area-nav rail — a chip-triggered capsule, not a persistent destination', () => {
   const src = stripComments(readSource('app/(shell)/moneypenny/components/moneypennyCapabilities.ts'));
 
-  it('MONEYPENNY_AREA_FOR_PANEL excludes both "crm" and "learn"', () => {
-    expect(src).toMatch(/Record<Exclude<MoneyPennyPanelKey, "crm" \| "learn">, MoneyPennyAreaId>/);
+  it('MONEYPENNY_AREA_FOR_PANEL excludes "learn" ("crm" now maps to Activity per the experience-coherence correction)', () => {
+    expect(src).toMatch(/Record<Exclude<MoneyPennyPanelKey, "learn">, MoneyPennyAreaId>/);
   });
 
-  it('areaForPanel returns null for "learn", same as "crm"', () => {
-    expect(src).toMatch(/if \(panel === "crm" \|\| panel === "learn"\) return null;/);
+  it('areaForPanel returns null for "learn" only — "crm" now resolves to a real area (Activity)', () => {
+    expect(src).toMatch(/if \(panel === "learn"\) return null;/);
+    expect(src).toMatch(/crm: "activity"/);
   });
 });

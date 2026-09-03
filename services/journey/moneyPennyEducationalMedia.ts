@@ -13,16 +13,43 @@
  * knyts_bridge_editorial_config row's headline/shortCopy fields the CI/KNYTS
  * bridge readers already read — no parallel "MoneyPenny learn copy" table.
  *
- * Honesty discipline: `getKnytsBridgeEditorialSection` falls back to HOME's
- * own mythos copy ("Cross the Threshold. Come home.") when no row exists yet
- * for a section — correct for the bridge HOME reader, but WRONG for
- * MoneyPenny if used blindly (it would show unrelated copy before anything
- * is published). This module therefore checks the PLACEMENT's
- * `publishedAssetUrl` first (bridge_content_placements — null until a real
- * publish happens, never fabricated) and only reads the editorial-config
- * headline/shortCopy once a real publish is confirmed — by which point
- * `publishPlacement` has already written real values into that row, not the
- * generic default.
+ * Turn F (2026-09-02) architecture correction — READS ONLY
+ * knyts_bridge_editorial_config, never bridge_content_placements:
+ *
+ * Earlier (Turn D) this module checked `bridge_content_placements` FIRST
+ * before trusting `knyts_bridge_editorial_config`'s headline/copy, because
+ * `getKnytsBridgeEditorialSection` falls back to a generic default when no
+ * row exists for a section — and at the time, MoneyPenny had no default
+ * entry of its own, so a missing row would have fallen through to HOME's
+ * own mythos copy ("Cross the Threshold. Come home."), which would be
+ * actively wrong to surface here.
+ *
+ * That precondition no longer holds: `KNYTS_BRIDGE_SECTION_DEFAULTS` now
+ * carries a `moneypenny-financial-basics` entry (added Turn E) whose
+ * `videoUrl`/`infographicUrl`/`posterUrl` are all `null` — an honest
+ * "nothing published yet" default, not HOME's copy. Reading
+ * `getKnytsBridgeEditorialSection` directly is therefore now correct AND
+ * is the SAME pattern every CI/KNYTS public bridge reader already uses
+ * (they never consult `bridge_content_placements` either — that table is
+ * ADMIN-ONLY bookkeeping: draft state, revision counters, actor,
+ * timestamps. It exists so an admin can preview a draft before publishing;
+ * it was never meant to be a second source of truth for public readers,
+ * and RLS enforces this — `pg_policies` on `bridge_content_placements`
+ * grants `service_role` only, zero anon/authenticated policies).
+ *
+ * The prior design additionally had a subtler, unintended failure mode in
+ * an environment missing `SUPABASE_SERVICE_ROLE_KEY`: an anon-key client's
+ * read of the service-role-only `bridge_content_placements` table doesn't
+ * error, it just returns zero rows (RLS row-filtering, not an access
+ * error) — so this module was reading "I have no visibility into whether
+ * this is published" as "nothing is published," silently, for every
+ * caller. Reading the SAME public projection every other bridge section
+ * uses removes this module's dependency on the protected table entirely —
+ * it now needs only whatever access level `knyts_bridge_editorial_config`
+ * itself grants, exactly matching CI/KNYTS. (Whether THAT table's own
+ * access is correctly configured in a given environment is a separate,
+ * environment-level concern — see services/supabase/requireServiceRoleClient.ts
+ * and this module's callers in app/api/moneypenny/learn-content/route.ts.)
  *
  * Scope note: the Cartridge spec's C-15 also describes chapter-level seek
  * chips (§11). `bridge_content_placements` has no per-chapter timing field
@@ -33,7 +60,6 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { getPlacementsForSection } from '@/services/journey/bridgeContentPlacements';
 import { getKnytsBridgeEditorialSection } from '@/services/journey/knytsBridgeEditorialConfig';
 
 /** The one section MoneyPenny owns in the shared bridge editorial registry. */
@@ -113,22 +139,21 @@ export interface MoneyPennyLearnContent {
 }
 
 /**
- * Reads the published MoneyPenny video placement and, ONLY when one is
- * genuinely published, formats it as a fenced JSON block for the copilot's
- * shared media-rendering path. Returns `null` when nothing has been
- * published yet — never a fabricated URL, never HOME's fallback copy
- * mistaken for a real asset.
+ * Reads MoneyPenny's published video/poster/copy through the SAME public
+ * projection (`knyts_bridge_editorial_config`) every CI/KNYTS bridge reader
+ * uses — never `bridge_content_placements` (admin-only draft bookkeeping;
+ * see this file's header). Formats a fenced JSON block for the copilot's
+ * shared media-rendering path ONLY when a real video URL exists. Returns
+ * `null` when nothing has been published yet — never a fabricated URL.
  */
 export async function getMoneyPennyIntroVideoBlock(supabase: SupabaseClient): Promise<string | null> {
-  const placements = await getPlacementsForSection(supabase, MONEYPENNY_LEARN_SECTION);
-  const publishedUrl = placements.video?.publishedAssetUrl;
-  if (!publishedUrl) return null;
-
   const section = await getKnytsBridgeEditorialSection(supabase, MONEYPENNY_LEARN_SECTION);
+  if (!section.videoUrl) return null;
+
   const payload: MoneyPennyVideoBlockPayload = {
     schema_version: MONEYPENNY_VIDEO_SCHEMA_VERSION,
-    url: publishedUrl,
-    posterUrl: placements.poster?.publishedAssetUrl ?? null,
+    url: section.videoUrl,
+    posterUrl: section.posterUrl ?? null,
     title: section.headline ?? 'Financial Sovereignty basics',
     relatedChip: {
       label: 'Open Financial Sovereignty basics',
@@ -159,20 +184,15 @@ export async function getMoneyPennyIntroVideoReply(supabase: SupabaseClient): Pr
  * panel key `'learn'`). Reuses the SAME editorial-config row the video block
  * reads — one source, two presentations (inline player vs. structured
  * reading view), never two content stores. Returns an honest "not yet
- * published" shape (all content fields null) rather than HOME's fallback
- * copy when nothing has been published.
+ * published" shape (all content fields null) when the section's own
+ * default applies (no admin has published anything for this section yet).
  */
 export async function getMoneyPennyLearnContent(supabase: SupabaseClient): Promise<MoneyPennyLearnContent> {
-  const placements = await getPlacementsForSection(supabase, MONEYPENNY_LEARN_SECTION);
-  const publishedUrl = placements.video?.publishedAssetUrl;
-  if (!publishedUrl) {
-    return { title: 'Financial Sovereignty basics', description: null, videoUrl: null, posterUrl: null };
-  }
   const section = await getKnytsBridgeEditorialSection(supabase, MONEYPENNY_LEARN_SECTION);
   return {
     title: section.headline ?? 'Financial Sovereignty basics',
     description: section.shortCopy ?? null,
-    videoUrl: publishedUrl,
-    posterUrl: placements.poster?.publishedAssetUrl ?? null,
+    videoUrl: section.videoUrl ?? null,
+    posterUrl: section.posterUrl ?? null,
   };
 }

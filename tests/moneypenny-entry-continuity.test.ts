@@ -44,9 +44,9 @@ describe('Direct entry and Operate both resolve through the ONE dispatcher — v
     expect(src).toMatch(/import \{ MoneyPennyCopilotWorkspace \} from "@\/app\/\(shell\)\/moneypenny\/components\/MoneyPennyCopilotWorkspace"/);
   });
 
-  it('FinancialSovereigntyOperateStage.tsx (intermediary Operate) still opens MoneyPenny through buildCodexUrl(\'moneypenny\', ...) — the SAME codex, SAME dispatcher', () => {
+  it('FinancialSovereigntyOperateStage.tsx (intermediary Operate) opens MoneyPenny through MoneyPennyBridgeEmbed, which itself resolves the SAME codex through the SAME dispatcher (2026-09-03: embedded in place, no longer a navigate-away)', () => {
     const src = stripComments(readSource('components/journey/FinancialSovereigntyOperateStage.tsx'));
-    expect(src).toMatch(/buildCodexUrl\('moneypenny', \{ personaId: personaId \?\? undefined, tab: 'overview' \}\)/);
+    expect(src).toMatch(/<MoneyPennyBridgeEmbed tab="overview" personaId=\{personaId\}/);
   });
 
   it('the financial-profile ground fetch is persona-scoped, not entry-point-scoped — any entry reaching the same persona reaches the same profile', () => {
@@ -82,9 +82,9 @@ describe('B2 Prepare (2026-09-02) now DOES link to MoneyPenny — the prior "no 
   // real MoneyPenny financial-profile tab — see tests/moneypenny-b2-prepare.test.ts
   // for the full coverage of that rebuild. This block only re-asserts the one
   // fact this file's own continuity narrative depends on: the link is now real.
-  it('FinancialSovereigntyPrepareCrossStage.tsx deep-links to the real MoneyPenny financial-profile tab', () => {
+  it('FinancialSovereigntyPrepareCrossStage.tsx embeds the real MoneyPenny financial-profile tab in place (2026-09-03: MoneyPennyBridgeEmbed, no longer a navigate-away)', () => {
     const src = stripComments(readSource('components/journey/FinancialSovereigntyPrepareCrossStage.tsx'));
-    expect(src).toMatch(/buildCodexUrl\('moneypenny', \{ personaId: personaId \?\? undefined, tab: 'financial-profile' \}\)/);
+    expect(src).toMatch(/<MoneyPennyBridgeEmbed tab="financial-profile" personaId=\{personaId\}/);
   });
 });
 
