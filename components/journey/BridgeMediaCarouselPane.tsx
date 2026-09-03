@@ -76,12 +76,23 @@ export function BridgeMediaCarouselPane({
 
   const item = items[activeIndex];
 
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (itemCount <= 1) return;
+    if (e.key === 'ArrowRight') { e.preventDefault(); showNext(); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); showPrev(); }
+  };
+
   return (
     <div className="flex flex-col gap-2">
       <div
-        className={`w-full ${heightClassName}`}
         onTouchStart={itemCount > 1 ? onTouchStart : undefined}
         onTouchEnd={itemCount > 1 ? onTouchEnd : undefined}
+        onKeyDown={itemCount > 1 ? onKeyDown : undefined}
+        tabIndex={itemCount > 1 ? 0 : undefined}
+        role={itemCount > 1 ? 'group' : undefined}
+        aria-roledescription={itemCount > 1 ? 'carousel' : undefined}
+        aria-label={itemCount > 1 ? 'Lesson media' : undefined}
+        className={`w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20 ${heightClassName}`}
       >
         {item?.kind === 'video' ? (
           <div className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-slate-900/40">
