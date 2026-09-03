@@ -5284,3 +5284,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-7b8e980.md](../build_/COMMITS/COMMIT-7b8e980.md)
 - Message: ACCESS-STEWARD-001: S0 read-only reconciliation + bounded S1 explanation facade
+
+## Commit `3f68e33` — 2026-09-03T11:34:32Z
+- Type: `push`
+- Brief: [COMMIT-3f68e33.md](../build_/COMMITS/COMMIT-3f68e33.md)
+- Message: Give CI/Knightsbridge's MoneyPenny embed the same expand-to-metaMe-shell toggle as Horizen
