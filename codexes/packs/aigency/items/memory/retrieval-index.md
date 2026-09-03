@@ -5294,3 +5294,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-e99c9bb.md](../build_/COMMITS/COMMIT-e99c9bb.md)
 - Message: Collapse MoneyPenny's left-pane role selector to a one-row Advisor/Architect/Runtime toggle
+
+## Commit `510e7b3` — 2026-09-03T13:23:35Z
+- Type: `feat`
+- Brief: [COMMIT-510e7b3.md](../build_/COMMITS/COMMIT-510e7b3.md)
+- Message: Wire CFS content pack into CI/KNYTS Discover-Cross stages

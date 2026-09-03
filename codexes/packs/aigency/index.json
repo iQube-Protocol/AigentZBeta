@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-03T12:00:18.215Z",
+  "last_updated": "2026-09-03T13:26:10.919Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "e99c9bba1b2669feb5e3bcf5e6b1df85af9ff1e1",
-  "latest_commit_short": "e99c9bb",
-  "latest_commit_title": "Collapse MoneyPenny's left-pane role selector to a one-row Advisor/Architect/Runtime toggle",
+  "latest_commit": "510e7b30fc7321fcf089201300a75a8017b0be05",
+  "latest_commit_short": "510e7b3",
+  "latest_commit_title": "Wire CFS content pack into CI/KNYTS Discover-Cross stages",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "510e7b3",
+      "full_sha": "510e7b30fc7321fcf089201300a75a8017b0be05",
+      "title": "Wire CFS content pack into CI/KNYTS Discover-Cross stages",
+      "author": "Claude",
+      "timestamp": "2026-09-03T13:23:35Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-510e7b3.md"
+    },
     {
       "sha": "e99c9bb",
       "full_sha": "e99c9bba1b2669feb5e3bcf5e6b1df85af9ff1e1",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-09-01T06:01:46Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-36be380.md"
-    },
-    {
-      "sha": "7a2cfda",
-      "full_sha": "7a2cfda4c3e5ba3ad4e3276636b4ae4590e58533",
-      "title": "Connect KNYTS/CI to Financial Services via a Progressive Financial Sovereignty on-ramp (AEE-XP-001 Phase 1) [merge review/irl-scoped-restoration-2026-08-27]",
-      "author": "Claude",
-      "timestamp": "2026-09-01T02:49:20Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-7a2cfda.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
