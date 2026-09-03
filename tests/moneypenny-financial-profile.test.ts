@@ -7,7 +7,7 @@
  * without disturbing the pinned tabGroups/tab-list canaries other tests
  * already own.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { computeFinancialProfile, type StatementSourceRows } from '@/services/financialServices/financialProfileAggregation';
 
 function csvRows(rows: Array<Record<string, string>>): Array<Record<string, string>> {
@@ -150,6 +150,86 @@ describe('computeFinancialProfile — determinism', () => {
     const a = computeFinancialProfile(sources);
     const b = computeFinancialProfile(sources);
     expect(a).toEqual(b);
+  });
+});
+
+/**
+ * Turn G (2026-09-03) — AC-C06 ("unauthorized principal cannot read another
+ * profile or media", `docs/specs/moneypenny/MoneyPenny_Cartridge_Spec_v1.md:293`).
+ * Previously PARTIAL with the named gap "no dedicated cross-persona-read-denial
+ * test located this pass." This closes exactly that gap: source-shape proof
+ * that no financial-profile route accepts a caller-supplied personaId, plus a
+ * real behavioral proof that the service layer's persona filter actually
+ * isolates two personas' rows rather than merely appearing to in source text.
+ */
+describe('AC-C06 — cross-persona read denial: no route accepts a caller-supplied personaId', () => {
+  const routeFiles = [
+    'app/api/moneypenny/financial-profile/route.ts',
+    'app/api/moneypenny/financial-profile/compute/route.ts',
+    'app/api/moneypenny/financial-profile/manual/route.ts',
+    'app/api/moneypenny/financial-profile/review/route.ts',
+  ];
+
+  it.each(routeFiles)('%s derives personaId only from getActivePersona(req), never from a query param or request body', async (path) => {
+    const { readSource, stripComments } = await import('./_lib/sourceAuthority');
+    const src = stripComments(readSource(path));
+    expect(src).toMatch(/getActivePersona\(req\)/);
+    expect(src).not.toMatch(/searchParams\.get\(['"]personaId['"]\)/);
+    expect(src).not.toMatch(/body\??\.personaId/);
+    expect(src).not.toMatch(/body\[['"]personaId['"]\]/);
+  });
+});
+
+describe('AC-C06 — cross-persona read denial: the service layer actually isolates rows, not just in source text', () => {
+  it('getFinancialProfileQube(personaId) returns ONLY the requested persona\'s row when two personas have rows in the same table', async () => {
+    vi.resetModules();
+    const rows = new Map<string, Record<string, unknown>>([
+      ['persona-A', { persona_id: 'persona-A', has_profile: true, last_computed_at: 't', source_upload_count: 1, unreadable_upload_count: 0, blak_qube: { aggregates: { incomeMonthly: 4000 } }, reviewed_at: null, created_at: 't', updated_at: 't' }],
+      ['persona-B', { persona_id: 'persona-B', has_profile: true, last_computed_at: 't', source_upload_count: 1, unreadable_upload_count: 0, blak_qube: { aggregates: { incomeMonthly: 9999 } }, reviewed_at: null, created_at: 't', updated_at: 't' }],
+    ]);
+    const fake = {
+      from: (table: string) => {
+        if (table !== 'financial_profile_qubes') throw new Error(`unexpected table: ${table}`);
+        return {
+          select: () => ({
+            eq: (col: string, personaId: string) => {
+              if (col !== 'persona_id') throw new Error(`unexpected filter column: ${col}`);
+              return { maybeSingle: async () => ({ data: rows.get(personaId) ?? null, error: null }) };
+            },
+          }),
+        };
+      },
+    };
+    vi.doMock('@/app/api/_lib/supabaseServer', () => ({ getSupabaseServer: () => fake }));
+    const { getFinancialProfileQube } = await import('@/services/iqube/financialProfileQube');
+
+    const recordA = await getFinancialProfileQube('persona-A');
+    expect(recordA?.blak.aggregates?.incomeMonthly).toBe(4000);
+
+    const recordB = await getFinancialProfileQube('persona-B');
+    expect(recordB?.blak.aggregates?.incomeMonthly).toBe(9999);
+
+    // The defining assertion: requesting A's profile never returns B's data
+    // (or vice versa) even though both rows exist in the same fake table.
+    expect(recordA?.blak.aggregates?.incomeMonthly).not.toBe(recordB?.blak.aggregates?.incomeMonthly);
+  });
+
+  it('a persona with no row of their own gets null, never another persona\'s row by fallback', async () => {
+    vi.resetModules();
+    const rows = new Map<string, Record<string, unknown>>([
+      ['persona-A', { persona_id: 'persona-A', has_profile: true, last_computed_at: 't', source_upload_count: 1, unreadable_upload_count: 0, blak_qube: { aggregates: { incomeMonthly: 4000 } }, reviewed_at: null, created_at: 't', updated_at: 't' }],
+    ]);
+    const fake = {
+      from: () => ({
+        select: () => ({
+          eq: (_col: string, personaId: string) => ({ maybeSingle: async () => ({ data: rows.get(personaId) ?? null, error: null }) }),
+        }),
+      }),
+    };
+    vi.doMock('@/app/api/_lib/supabaseServer', () => ({ getSupabaseServer: () => fake }));
+    const { getFinancialProfileQube } = await import('@/services/iqube/financialProfileQube');
+    const record = await getFinancialProfileQube('persona-with-no-profile');
+    expect(record).toBeNull();
   });
 });
 
