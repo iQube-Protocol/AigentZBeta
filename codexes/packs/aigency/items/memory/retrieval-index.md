@@ -5264,3 +5264,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-3258ad2.md](../build_/COMMITS/COMMIT-3258ad2.md)
 - Message: Fix Qriptopian read_public_document defaulting to the wrong edition's text
+
+## Commit `c401293` — 2026-09-03T06:10:35Z
+- Type: `feat`
+- Brief: [COMMIT-c401293.md](../build_/COMMITS/COMMIT-c401293.md)
+- Message: Add scoped, admin-gated indexing repair (explicit doc-id scope, no global embedding fallback)

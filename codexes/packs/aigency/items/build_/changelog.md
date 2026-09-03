@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`c401293`](https://github.com/iQube-Protocol/AigentZBeta/commit/c401293d2c7588351995c1a6dd9f698dd7dc97d2) [feat] Add scoped, admin-gated indexing repair (explicit doc-id scope, no global embedding fallback) (Claude, 2026-09-03T06:10:35Z)
 - [`3258ad2`](https://github.com/iQube-Protocol/AigentZBeta/commit/3258ad2a7d5723875ed12b273a80ac4165c64a00) [fix] Fix Qriptopian read_public_document defaulting to the wrong edition's text (Claude, 2026-09-03T06:04:32Z)
 - [`0b6a010`](https://github.com/iQube-Protocol/AigentZBeta/commit/0b6a010e89137877b31eb39b11140f4aaaec4876) [feat] Add Threshold MCP Bridge public knowledge & discovery layer (Qriptopian, IRL OS, AgentiQ OS, Polity Core) (Claude, 2026-09-03T05:27:13Z)
 - [`757561a`](https://github.com/iQube-Protocol/AigentZBeta/commit/757561af4a20548447d8eebb2bfab8d87a2166ba) [fix] Restore native MoneyPenny tab hierarchy, move role selector to copilot header, compact capability carousel, fix viewport height (Claude, 2026-09-03T04:59:50Z)
