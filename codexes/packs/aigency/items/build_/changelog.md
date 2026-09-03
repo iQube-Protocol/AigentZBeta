@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`3e9e02c`](https://github.com/iQube-Protocol/AigentZBeta/commit/3e9e02cca897acb115e368a31c6b41f181651645) [fix] Fix Continue-navigation click interception; finish real-media + activity-rail migration for Prepare/Operate/Cross (Claude, 2026-09-03T21:16:13Z)
 - [`f9ed2e7`](https://github.com/iQube-Protocol/AigentZBeta/commit/f9ed2e7b923f052ccc9de6865c5d6c242731c3cd) [feat] Lock CFS split viewport, add real infographics + activity/capsule composition (Claude, 2026-09-03T17:07:46Z)
 - [`cc3c76d`](https://github.com/iQube-Protocol/AigentZBeta/commit/cc3c76d03cef17b9ce22dbf5039c24e011fa56c1) [push] Rebuild CFS Discover/Explore on the first-threshold media/interaction template (Claude, 2026-09-03T16:13:02Z)
 - [`093701e`](https://github.com/iQube-Protocol/AigentZBeta/commit/093701e3b670edfa8776aa8ce00dd05a8738fa7e) [push] Complete CFS editorial coverage: structured content, native admin editing, section composition (Claude, 2026-09-03T14:06:23Z)
