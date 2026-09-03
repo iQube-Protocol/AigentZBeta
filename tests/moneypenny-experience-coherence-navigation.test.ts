@@ -148,14 +148,21 @@ describe('3 — MoneyPenny role selector (Advisor/Architect/Runtime) is real con
     }
   });
 
-  it('renders the compact "Role: X ▾" control, closed by default, using the established dropdown idiom', () => {
-    expect(selectorSrc).toMatch(/Role: \{ROLE_LABEL\[role\]\}/);
-    expect(selectorSrc).toMatch(/const \[open, setOpen\] = useState\(false\)/);
-    expect(selectorSrc).toMatch(/border-slate-800 bg-slate-900\/95 py-1 shadow-lg backdrop-blur-sm/);
+  // Collapsed to a one-row inline segmented control (2026-09-03, operator
+  // directive: "remove Role and just have Advisor, Architect, Runtime so
+  // it's just one row tall") — supersedes the "Role: X ▾" dropdown idiom
+  // this test used to pin, which took up to four rows once opened.
+  it('renders all three options inline, always visible — no open/close dropdown state, no "Role:" label', () => {
+    expect(selectorSrc).not.toMatch(/useState/);
+    expect(selectorSrc).not.toMatch(/Role: /);
+    expect(selectorSrc).not.toMatch(/ChevronDown/);
+    // One button per ROLE_OPTIONS entry, rendered via .map — not a fixed
+    // literal count in source, since the JSX is written once and reused.
+    expect(selectorSrc).toMatch(/ROLE_OPTIONS\.map\(\(option\) => \{/);
   });
 
   it('selecting a role only ever calls the passed-in onChange — no fetch, no API call, no identity/delegation write anywhere in the file', () => {
-    expect(selectorSrc).toMatch(/onClick=\{\(\) => \{\s*onChange\(option\.id\);\s*setOpen\(false\);\s*\}\}/);
+    expect(selectorSrc).toMatch(/onClick=\{\(\) => onChange\(option\.id\)\}/);
     expect(selectorSrc).not.toMatch(/fetch\(/);
     expect(selectorSrc).not.toMatch(/persona-assignment/);
     expect(selectorSrc).not.toMatch(/establishDelegation|proposeDelegation|delegation\(/);
