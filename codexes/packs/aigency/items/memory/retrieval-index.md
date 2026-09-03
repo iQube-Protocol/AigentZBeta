@@ -5269,3 +5269,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-c401293.md](../build_/COMMITS/COMMIT-c401293.md)
 - Message: Add scoped, admin-gated indexing repair (explicit doc-id scope, no global embedding fallback)
+
+## Commit `7877e37` — 2026-09-03T06:21:03Z
+- Type: `push`
+- Brief: [COMMIT-7877e37.md](../build_/COMMITS/COMMIT-7877e37.md)
+- Message: Distinguish source-declared vs ledger-confirmed ratification status for Polity Core
