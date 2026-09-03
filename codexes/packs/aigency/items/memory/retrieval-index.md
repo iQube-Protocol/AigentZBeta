@@ -5304,3 +5304,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-093701e.md](../build_/COMMITS/COMMIT-093701e.md)
 - Message: Complete CFS editorial coverage: structured content, native admin editing, section composition
+
+## Commit `cc3c76d` — 2026-09-03T16:13:02Z
+- Type: `push`
+- Brief: [COMMIT-cc3c76d.md](../build_/COMMITS/COMMIT-cc3c76d.md)
+- Message: Rebuild CFS Discover/Explore on the first-threshold media/interaction template
