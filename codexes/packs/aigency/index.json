@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-03T16:16:46.337Z",
+  "last_updated": "2026-09-03T17:09:56.985Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "cc3c76d03cef17b9ce22dbf5039c24e011fa56c1",
-  "latest_commit_short": "cc3c76d",
-  "latest_commit_title": "Rebuild CFS Discover/Explore on the first-threshold media/interaction template",
+  "latest_commit": "f9ed2e7b923f052ccc9de6865c5d6c242731c3cd",
+  "latest_commit_short": "f9ed2e7",
+  "latest_commit_title": "Lock CFS split viewport, add real infographics + activity/capsule composition",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "f9ed2e7",
+      "full_sha": "f9ed2e7b923f052ccc9de6865c5d6c242731c3cd",
+      "title": "Lock CFS split viewport, add real infographics + activity/capsule composition",
+      "author": "Claude",
+      "timestamp": "2026-09-03T17:07:46Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-f9ed2e7.md"
+    },
     {
       "sha": "cc3c76d",
       "full_sha": "cc3c76d03cef17b9ce22dbf5039c24e011fa56c1",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-09-01T06:32:31Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-5c0ac8a.md"
-    },
-    {
-      "sha": "fb6bee8",
-      "full_sha": "fb6bee88d5ac30aae070b2e65f7860969cf5f769",
-      "title": "Persist the approved wallet ledger ownership-scoped RLS repair [merge review/irl-scoped-restoration-2026-08-27]",
-      "author": "Claude",
-      "timestamp": "2026-09-01T07:04:17Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-fb6bee8.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

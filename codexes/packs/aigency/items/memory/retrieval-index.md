@@ -5309,3 +5309,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-cc3c76d.md](../build_/COMMITS/COMMIT-cc3c76d.md)
 - Message: Rebuild CFS Discover/Explore on the first-threshold media/interaction template
+
+## Commit `f9ed2e7` — 2026-09-03T17:07:46Z
+- Type: `feat`
+- Brief: [COMMIT-f9ed2e7.md](../build_/COMMITS/COMMIT-f9ed2e7.md)
+- Message: Lock CFS split viewport, add real infographics + activity/capsule composition
