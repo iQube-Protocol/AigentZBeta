@@ -11,6 +11,11 @@ import type { CandidateRow } from '@/services/invariants/discoveryEngine';
 const mockListCandidates = vi.fn();
 vi.mock('@/services/invariants/discoveryEngine', () => ({
   listCandidates: (...args: any[]) => mockListCandidates(...args),
+  // resolveSuccessorConstructionCohort reads via the across-sub-domains
+  // variant (2026-09-03, "EXP-P1 Crystal v2 sub-domain invisibility"
+  // repair) — same mock fn, so every existing test's expectations on what
+  // was returned still apply unchanged.
+  listCandidatesAcrossSubDomains: (...args: any[]) => mockListCandidates(...args),
 }));
 
 const mockLatestFrozenCrystalArtifact = vi.fn();

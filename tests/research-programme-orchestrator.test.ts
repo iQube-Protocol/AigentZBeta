@@ -70,6 +70,11 @@ const mockBuildDomainLineageIndex = vi.fn().mockResolvedValue({});
 const mockDeriveSourceLineage = vi.fn().mockReturnValue([]);
 vi.mock('@/services/invariants/discoveryEngine', () => ({
   listCandidates: (...args: unknown[]) => mockListCandidates(...args),
+  // loadTrack2ProgrammeState reads via the across-sub-domains variant
+  // (2026-09-03, "EXP-P1 Crystal v2 sub-domain invisibility" repair) — same
+  // mock fn, so every existing test's `mockListCandidates` expectations
+  // still apply unchanged.
+  listCandidatesAcrossSubDomains: (...args: unknown[]) => mockListCandidates(...args),
   runConstitutionalDiscovery: (...args: unknown[]) => mockRunConstitutionalDiscovery(...args),
   listEvidence: (...args: unknown[]) => mockListEvidence(...args),
   buildDomainLineageIndex: (...args: unknown[]) => mockBuildDomainLineageIndex(...args),

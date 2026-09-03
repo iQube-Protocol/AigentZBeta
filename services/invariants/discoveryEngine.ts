@@ -787,6 +787,63 @@ export async function listCandidates(admin: SupabaseClient, domain: string, subD
   return enrichSignals(rows, evidence);
 }
 
+/**
+ * EVERY candidate in the domain, across EVERY sub-domain — the "programme
+ * cohort" view, distinct from `listCandidates`' own "domain baseline view"
+ * (2026-09-03, "EXP-P1 Crystal v2 sub-domain invisibility" repair).
+ *
+ * ── THE DEFECT THIS CLOSES ───────────────────────────────────────────────
+ *
+ * `listCandidates(admin, domain)` — called with no `subDomain` — deliberately
+ * returns ONLY `sub_domain IS NULL` rows (see that function's own comment:
+ * "Domain baseline view = sub_domain IS NULL"). That is the right contract
+ * for a UI rendering ONE scoped view at a time. But institution-driven
+ * acquisition (`runDiscoveryForInstitution` → `createCandidateSource` with
+ * `campaignSubDomain: pillarKey`) tags EVERY candidate it produces with a
+ * non-null `sub_domain` (the institution's pillar/topic — 'banking',
+ * 'custody', 'qriptocent', etc.). Every "programme cohort" caller —
+ * `loadTrack2ProgrammeState` (the orchestrator's own signal composition,
+ * shared by the Copilot's population disclosure AND the advance-until-gate
+ * loop) and `resolveSuccessorConstructionCohort` (Stage 6 validate, Stage 7
+ * relationships, the relationship-adjudication route) — called
+ * `listCandidates(admin, acquisitionDomain)` with NO subDomain, silently
+ * inheriting the "baseline view" contract meant for a single-scope UI. For
+ * EXP-P1/financial-services this made 55 of 75 promoted candidates (73%) —
+ * every one extracted from a ratified institution's pillar-scoped discovery
+ * run — permanently invisible to validation, relationship-building and
+ * crystal assignment: their invariants sat at `status: 'proposed'`
+ * indefinitely, and the orchestrator's own population disclosure ("extracted
+ * N, validated N") reported a number nowhere near the real backlog, for
+ * exactly as many runs as anyone cared to attempt.
+ *
+ * ── What this function is, and is not ───────────────────────────────────
+ *
+ * A DOMAIN-WIDE UNION over every `sub_domain` value (including NULL) for one
+ * `domain` — never a second query shape, never a different filter algebra
+ * than `listCandidates` uses elsewhere (inv.engineering.036/037): same table,
+ * same enrichment pass (`enrichSignals`), same evidence read
+ * (`listDomainEvidence(admin, domain)` already returns evidence across every
+ * sub-domain when called with no `subDomain` — see `listEvidenceForDomains`'s
+ * own `if (subDomain) query = query.or(...)` guard). It changes WHICH rows
+ * are read, never HOW a candidate is classified, enriched, promoted or
+ * validated.
+ *
+ * `listCandidates` itself is UNCHANGED and keeps its existing "one scoped
+ * view" contract — callers that explicitly pick a sub-domain (or explicitly
+ * want the baseline view) are unaffected.
+ */
+export async function listCandidatesAcrossSubDomains(admin: SupabaseClient, domain: string): Promise<CandidateRow[]> {
+  const { data, error } = await admin
+    .from('discovery_candidates')
+    .select('*')
+    .eq('domain', domain)
+    .order('created_at', { ascending: false });
+  if (error) throw new Error(`discovery_candidates query failed: ${error.message}`);
+  const rows = (data ?? []).map(toCandidateRow);
+  const evidence = await listDomainEvidence(admin, domain);
+  return enrichSignals(rows, evidence);
+}
+
 // ── Cross-framework convergence (derived; a priority signal, not validity) ───
 
 /** The identity key used to dedupe ONE SOURCE DOCUMENT across evidence rows —

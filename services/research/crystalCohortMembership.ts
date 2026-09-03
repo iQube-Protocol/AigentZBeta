@@ -46,7 +46,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { listCandidates, type CandidateRow } from '@/services/invariants/discoveryEngine';
+import { listCandidatesAcrossSubDomains, type CandidateRow } from '@/services/invariants/discoveryEngine';
 import { latestFrozenCrystalArtifact } from '@/services/research/artifacts';
 import { buildFrozenCrystalManifest } from '@/services/research/crystalFrozenManifest';
 import type { FrozenArtifact } from '@/types/research';
@@ -130,6 +130,12 @@ export interface SuccessorConstructionCohortResolution {
  * route's own unscoped `listCandidates(...).filter(status === 'promoted')`,
  * which silently admitted every historic promoted candidate in the domain,
  * including the frozen predecessor's own.
+ *
+ * Reads via `listCandidatesAcrossSubDomains` (2026-09-03, "EXP-P1 Crystal v2
+ * sub-domain invisibility" repair) — never `listCandidates(admin, domain)`,
+ * whose no-subDomain call narrows to `sub_domain IS NULL` and would silently
+ * exclude every candidate an institution-driven discovery run tagged with a
+ * pillar/topic sub-domain. See that function's own doc comment.
  */
 export async function resolveSuccessorConstructionCohort(
   admin: SupabaseClient,
@@ -138,7 +144,7 @@ export async function resolveSuccessorConstructionCohort(
 ): Promise<SuccessorConstructionCohortResolution> {
   const [context, candidates] = await Promise.all([
     resolveFrozenPredecessorContext(experimentId),
-    listCandidates(admin, acquisitionDomain).catch(() => null),
+    listCandidatesAcrossSubDomains(admin, acquisitionDomain).catch(() => null),
   ]);
   if (!candidates) {
     return { context, successorScopedCandidates: null, promotedForConstruction: null };

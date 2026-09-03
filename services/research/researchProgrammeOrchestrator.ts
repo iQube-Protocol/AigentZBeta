@@ -101,7 +101,7 @@ import { computeCohortHash } from '@/services/research/cohortAuthorization';
 import type { AdmissionRecommendation } from '@/services/corpusScout/admissionRecommendation';
 import type { DuplicateResolutionPlan } from '@/services/corpusScout/duplicateResolution';
 import {
-  listCandidates,
+  listCandidatesAcrossSubDomains,
   listEvidence,
   runConstitutionalDiscovery,
   type CandidateRow,
@@ -450,7 +450,20 @@ export async function loadTrack2ProgrammeState(input: {
   // Best-effort, fail-soft. `null` becomes `unknown`, never `complete`.
   const [sources, candidates, artifact, frozenContext, acquisitionSourceUniverse] = await Promise.all([
     admin ? listCandidateSources(admin, { campaignDomain: acquisitionDomain }).catch(() => null) : null,
-    admin ? listCandidates(admin, acquisitionDomain).catch(() => null) : null,
+    // ACROSS every sub-domain (2026-09-03, "EXP-P1 Crystal v2 sub-domain
+    // invisibility" repair) — never the narrowed `listCandidates` baseline
+    // call here. This is the PROGRAMME's own view of "every candidate in this
+    // acquisition domain," feeding successor-scoping, Stage 3/4's counts, the
+    // review-and-promote queue, and (via `promotedForConstruction`) Stage
+    // 6/7/8. `listCandidates`'s no-subDomain call silently narrows to
+    // `sub_domain IS NULL` — the right contract for a single scoped UI view,
+    // the wrong one for "the programme's candidate population" — and every
+    // institution-driven discovery run (`runDiscoveryForInstitution`) tags
+    // its candidates with a non-null sub_domain, so that narrowing hid the
+    // majority of already-promoted v2 work from validation, relationships and
+    // crystal assignment. See `listCandidatesAcrossSubDomains`'s own doc
+    // comment for the full defect history.
+    admin ? listCandidatesAcrossSubDomains(admin, acquisitionDomain).catch(() => null) : null,
     // Lineage-safe (operator ruling 2026-08-27, "Crystal v1/v2 lineage
     // collision"): NEVER the plain first-match `getArtifact` lookup, which
     // cannot tell a frozen predecessor from the active successor candidate —

@@ -18,7 +18,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { crystalDomainForExperiment } from '@/services/research/crystalDomains';
 import { listInvariants } from '@/services/invariants/store';
-import { listCandidates } from '@/services/invariants/discoveryEngine';
+import { listCandidatesAcrossSubDomains } from '@/services/invariants/discoveryEngine';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { suggestSemanticType } from '@/services/invariants/semanticTypeSuggestion';
 import type { InvariantSemanticType } from '@/types/invariants';
@@ -74,7 +74,13 @@ export async function GET(
     req.nextUrl.searchParams.get('acquisitionDomain')?.trim() || DEFAULT_ACQUISITION_DOMAIN;
   const [crystalMembers, allCandidates] = await Promise.all([
     listInvariants({ domain: declaration.domain, status: ['validated', 'canonical'] }).catch(() => null),
-    listCandidates(admin, acquisitionDomain).catch(() => null),
+    // ACROSS every sub-domain (2026-09-03, "EXP-P1 Crystal v2 sub-domain
+    // invisibility" repair) — `listCandidates(admin, acquisitionDomain)`
+    // with no subDomain silently narrows to `sub_domain IS NULL`, which
+    // would hide every candidate an institution-driven discovery run tagged
+    // with a pillar/topic sub-domain from this diversity scan. See
+    // `listCandidatesAcrossSubDomains`'s own doc comment.
+    listCandidatesAcrossSubDomains(admin, acquisitionDomain).catch(() => null),
   ]);
   if (!crystalMembers) {
     return NextResponse.json({ ok: false, error: 'the crystal could not be read' }, { status: 502 });
