@@ -5274,3 +5274,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-7877e37.md](../build_/COMMITS/COMMIT-7877e37.md)
 - Message: Distinguish source-declared vs ledger-confirmed ratification status for Polity Core
+
+## Commit `b86b8a4` — 2026-09-03T10:37:02Z
+- Type: `fix`
+- Brief: [COMMIT-b86b8a4.md](../build_/COMMITS/COMMIT-b86b8a4.md)
+- Message: Give metaMe's MoneyPenny mount a real submenu, fix expand target, fix embed viewport collapse

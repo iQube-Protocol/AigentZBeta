@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`b86b8a4`](https://github.com/iQube-Protocol/AigentZBeta/commit/b86b8a424b234775eb3c922d815bdb6264eeec35) [fix] Give metaMe's MoneyPenny mount a real submenu, fix expand target, fix embed viewport collapse (Claude, 2026-09-03T10:37:02Z)
 - [`7877e37`](https://github.com/iQube-Protocol/AigentZBeta/commit/7877e3740ff049a3c30414435fa81d9c350271be) [push] Distinguish source-declared vs ledger-confirmed ratification status for Polity Core (Claude, 2026-09-03T06:21:03Z)
 - [`c401293`](https://github.com/iQube-Protocol/AigentZBeta/commit/c401293d2c7588351995c1a6dd9f698dd7dc97d2) [feat] Add scoped, admin-gated indexing repair (explicit doc-id scope, no global embedding fallback) (Claude, 2026-09-03T06:10:35Z)
 - [`3258ad2`](https://github.com/iQube-Protocol/AigentZBeta/commit/3258ad2a7d5723875ed12b273a80ac4165c64a00) [fix] Fix Qriptopian read_public_document defaulting to the wrong edition's text (Claude, 2026-09-03T06:04:32Z)

@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-03T06:22:51.528Z",
+  "last_updated": "2026-09-03T10:39:08.993Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "7877e3740ff049a3c30414435fa81d9c350271be",
-  "latest_commit_short": "7877e37",
-  "latest_commit_title": "Distinguish source-declared vs ledger-confirmed ratification status for Polity Core",
+  "latest_commit": "b86b8a424b234775eb3c922d815bdb6264eeec35",
+  "latest_commit_short": "b86b8a4",
+  "latest_commit_title": "Give metaMe's MoneyPenny mount a real submenu, fix expand target, fix embed viewport collapse",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "b86b8a4",
+      "full_sha": "b86b8a424b234775eb3c922d815bdb6264eeec35",
+      "title": "Give metaMe's MoneyPenny mount a real submenu, fix expand target, fix embed viewport collapse",
+      "author": "Claude",
+      "timestamp": "2026-09-03T10:37:02Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-b86b8a4.md"
+    },
     {
       "sha": "7877e37",
       "full_sha": "7877e3740ff049a3c30414435fa81d9c350271be",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-31T17:07:13-04:00",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-f2e2c63.md"
-    },
-    {
-      "sha": "6fbccf8",
-      "full_sha": "6fbccf8e77ed2c913603c116d59b7ef2de0fe9ba",
-      "title": "docs(agentiq): register AEE-XP-001 execution build spec",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-31T16:12:52-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-6fbccf8.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
