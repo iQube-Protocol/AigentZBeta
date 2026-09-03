@@ -60,8 +60,8 @@ import {
 import { ArtifactMattedFrame } from '@/components/journey/ArtifactMattedFrame';
 import { FullscreenableFrame } from '@/components/journey/FullscreenableFrame';
 import { BridgeReserveInterestCard } from '@/components/journey/BridgeReserveInterestCard';
+import { DestinationCard } from '@/components/journey/DestinationCard';
 
-const CONTACT_EMAIL = 'info@metame.com';
 const BOOK_CONCEPT_PLATE = canonicalPlateImage('CIP-006');
 
 type LeftView = 'book' | 'reading' | 'aigentme' | 'irl' | 'partner' | 'mythos';
@@ -80,49 +80,6 @@ interface ConstitutionalInternetBridgeChooseSurfaceProps {
    *  thread it, rather than throwing. */
   financialServicesEntryPresentation?: FinancialServicesEntryPresentation;
 }
-
-function DestinationCard({
-  icon,
-  label,
-  active,
-  onClick,
-  mailtoSubject,
-  mailtoLabel,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  active?: boolean;
-  onClick: () => void;
-  mailtoSubject?: string;
-  mailtoLabel?: string;
-}) {
-  // The main card is always the contextual-left-view trigger, mailto CTA or
-  // not — the mailto affordance is an inline extra, never a replacement for
-  // the card's own onClick (a card that is entirely a mailto anchor can never
-  // set the contextual left view again once clicked).
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3.5 transition hover:opacity-80 ${
-        active ? 'border-indigo-400/40 bg-indigo-500/10' : 'border-white/10 bg-slate-900/40'
-      }`}
-    >
-      <span className="flex items-center gap-2 text-sm font-semibold text-white">{icon} {label}</span>
-      {mailtoSubject && mailtoLabel && (
-        <a
-          href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(mailtoSubject)}`}
-          onClick={(e) => e.stopPropagation()}
-          className="flex items-center gap-1.5 text-[11px] font-medium text-indigo-300 hover:text-indigo-200"
-        >
-          <Mail className="h-3 w-3" /> {mailtoLabel}
-        </a>
-      )}
-      <ArrowRight className="h-4 w-4 shrink-0 text-slate-400" />
-    </button>
-  );
-}
-
 
 /** Honest placeholder for a canonical plate that does not exist yet —
  *  typography only, never a fabricated/repurposed image standing in for a
