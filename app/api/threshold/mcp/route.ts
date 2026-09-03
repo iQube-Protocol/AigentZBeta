@@ -24,6 +24,7 @@ import {
 import { resolveInvitation } from '@/services/threshold/resolveInvitation';
 import { resolveBearer, createUpgradeHandshake, hasScope } from '@/services/threshold/gatewaySession';
 import { makeIrlAdapter } from '@/services/threshold/irlAdapter';
+import { makePublicKnowledgeAdapter } from '@/services/threshold/publicKnowledge';
 import { buildCompanionInstallBrief } from '@/services/companion/extensionArtifact';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { resolveConstitutionalNavigatorState } from '@/services/threshold/constitutionalNavigator';
@@ -221,12 +222,16 @@ export async function POST(request: NextRequest) {
   const authz = request.headers.get('authorization');
   const bearer = authz?.toLowerCase().startsWith('bearer ') ? authz.slice(7).trim() : null;
   const session = await resolveBearer(bearer);
+  const irl = makeIrlAdapter(origin);
   const ctx: GatewayContext = {
     origin,
     gatewayUrl: `${origin}/api/threshold/mcp`,
     resolveInvitation,
     session,
-    irl: makeIrlAdapter(origin),
+    irl,
+    // Unauthenticated by design — wired regardless of session, reusing the
+    // SAME irl adapter instance above for its IRL OS branch.
+    publicKnowledge: makePublicKnowledgeAdapter({ origin, irl }),
     companionInstall: () => buildCompanionInstallBrief(origin),
     beginServiceUpgrade: session
       ? async (service, missing) => {

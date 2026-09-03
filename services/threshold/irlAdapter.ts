@@ -13,6 +13,8 @@
  * unit-testable.
  */
 
+import { resilientFetch } from './resilientFetch';
+
 export interface IrlAdapter {
   listDocuments(): Promise<unknown>;
   readDocument(path: string): Promise<unknown>;
@@ -199,58 +201,12 @@ function definitionKey(term: string): string | null {
 
 /** Build the adapter bound to the app's public origin. */
 export function makeIrlAdapter(origin: string): IrlAdapter {
-  // Resilient JSON fetch — the canon reads are same-origin server-to-server calls
-  // that intermittently blip on Lambda cold starts / Supabase latency. A single
-  // transient failure must NOT surface to the agent as "could not reach the canon"
-  // (the flaky-connector symptom, 2026-07-21), so: bounded timeout + a couple of
-  // retries with small backoff on a network error, timeout, or 5xx.
-  const resilientFetch = async (
-    url: string,
-    init?: RequestInit,
-    opts: { retries?: number; timeoutMs?: number } = {},
-  ) => {
-    const retries = opts.retries ?? 2;
-    const timeoutMs = opts.timeoutMs ?? 9000;
-    let lastStatus = 0;
-    for (let attempt = 0; attempt <= retries; attempt++) {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), timeoutMs);
-      try {
-        const res = await fetch(url, { cache: 'no-store', ...init, signal: controller.signal });
-        clearTimeout(timer);
-        lastStatus = res.status;
-        // Retry only on transient server errors; 4xx is a real answer, don't retry.
-        if (res.status >= 500 && attempt < retries) continue;
-        // Read the body EXACTLY ONCE. The previous code called res.json() first and
-        // fell back to res.text() in the catch — but res.json() consumes the stream,
-        // so the subsequent res.text() throws "body already read" and the body is
-        // lost. That silently NULLED every raw-markdown response: /api/public/irl/doc
-        // returns text/markdown, so read_shared_document returned {ok:true,
-        // content:null} on documents that resolved 200 (Austin QA ①a, 2026-07-22).
-        // Read text once, then parse JSON only when the endpoint declares JSON.
-        const rawText = await res.text().catch(() => null);
-        const ct = res.headers.get('content-type') || '';
-        let body: unknown = rawText;
-        if (rawText != null && (ct.includes('application/json') || ct.includes('+json'))) {
-          try {
-            body = JSON.parse(rawText);
-          } catch {
-            body = rawText;
-          }
-        }
-        return { ok: res.ok, status: res.status, body };
-      } catch {
-        clearTimeout(timer);
-        // Network error / abort (timeout) — back off briefly and retry.
-        if (attempt < retries) {
-          await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
-          continue;
-        }
-      }
-    }
-    return { ok: false, status: lastStatus || 0, body: null };
-  };
-
+  // Resilient JSON/text fetch — the canon reads are same-origin server-to-server
+  // calls that intermittently blip on Lambda cold starts / Supabase latency. A
+  // single transient failure must NOT surface to the agent as "could not reach
+  // the canon" (the flaky-connector symptom, 2026-07-21). Shared with
+  // publicKnowledge.ts via resilientFetch.ts (extracted 2026-09-03) — one
+  // implementation, not a per-adapter fork.
   const get = (path: string) => resilientFetch(`${origin}${path}`);
 
   return {

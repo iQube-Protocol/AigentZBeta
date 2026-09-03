@@ -20,6 +20,7 @@ import { buildThresholdLink, type ThresholdLinkManifest } from './thresholdLink'
 import { hasScope, type ScopedSession } from './gatewaySession';
 import { crossingReceipt, welcomePayload, WELCOME_MESSAGE } from './welcome';
 import type { IrlAdapter } from './irlAdapter';
+import type { PublicCartridgeId, PublicKnowledgeAdapter } from './publicKnowledge';
 import type { CompanionInstallBrief } from '../companion/extensionArtifact';
 import { supportedBridgeIds, type NavigatorState } from './constitutionalNavigator';
 import {
@@ -67,6 +68,17 @@ export interface GatewayContext {
   /** The IRL read adapter (public open corpus), injected by the route. Present
    *  only where the gateway can reach the app's public routes. */
   irl?: IrlAdapter;
+  /**
+   * The public knowledge & discovery adapter (2026-09-03) — Qriptopian, IRL
+   * OS, AgentiQ OS, and Polity Core's canonically public content, unified
+   * behind one small read-only interface. Unauthenticated by design (see
+   * PUBLIC_KNOWLEDGE_TOOLS below) — it grants NO execution authority,
+   * exposes no private research, and never touches the domain-unscoped
+   * embedding pipeline (services/content/embeddingService.ts). See
+   * services/threshold/publicKnowledge.ts's own header for the full
+   * access-control rationale.
+   */
+  publicKnowledge?: PublicKnowledgeAdapter;
   /** Begin an incremental service crossing (session upgrade) — returns the human
    *  authorize URL. Injected by the route (creates the upgrade handshake). */
   beginServiceUpgrade?: (service: string, missingCapabilities: string[]) => Promise<{ authorizeUrl: string } | null>;
@@ -171,6 +183,69 @@ export function listTools() {
       inputSchema: {
         type: 'object',
         properties: { experiment: { type: 'string', description: 'Optional experiment id filter, e.g. EXP-P1.' } },
+        additionalProperties: false,
+      },
+    },
+    // ── Public knowledge & discovery layer (2026-09-03) — Qriptopian, IRL OS,
+    // AgentiQ OS, Polity Core. Public + read-only; no crossing required. Grants
+    // no execution authority and reveals no private/restricted content — every
+    // document surfaced here is on an explicit, audited public allowlist (see
+    // services/threshold/publicKnowledge.ts). ──
+    {
+      name: 'list_public_cartridges',
+      description:
+        'List the four cartridges whose canonically public content is discoverable through this bridge: Qriptopian (papers/essays), IRL OS (research), AgentiQ OS (developer guides), and Polity Core (constitution/charters). Start here to orient before listing or reading documents. Public + read-only; no crossing required.',
+      inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+    },
+    {
+      name: 'list_public_documents',
+      description:
+        'List the public documents in one of the four public cartridges (see list_public_cartridges), each with its id, title, series, publication/ratification status, and canonical link — enough to choose a document before calling read_public_document. Public + read-only; no crossing required.',
+      inputSchema: {
+        type: 'object',
+        properties: { cartridge: { type: 'string', enum: ['qriptopian', 'irl-os', 'agentiq-os', 'polity-core'] } },
+        required: ['cartridge'],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'read_public_document',
+      description:
+        'Read the ACTUAL text of a public document (not a summary or a PDF link) by cartridge + id from list_public_documents. Returns the requested page plus totalLength/hasMore for bounded pagination, and sha256OfFullText (computed over the complete resolved text regardless of the page requested) so you can verify the full text once you have read every page. For a Qriptopian Threshold essay with multiple editions (e.g. reading vs research), pass `edition` — omit it for the default edition; availableEditions lists the valid ids. Public + read-only; no crossing required.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          cartridge: { type: 'string', enum: ['qriptopian', 'irl-os', 'agentiq-os', 'polity-core'] },
+          id: { type: 'string', description: 'A document id from list_public_documents.' },
+          edition: { type: 'string', description: 'Optional edition id (Qriptopian Threshold essays only, e.g. "reading" or "research").' },
+          offset: { type: 'number', description: 'Character offset to start the page at. Defaults to 0.' },
+          limit: { type: 'number', description: 'Max characters to return in this page. Defaults to 8000, capped at 50000.' },
+        },
+        required: ['cartridge', 'id'],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'search_public_knowledge',
+      description:
+        'Search public document titles and text across one or all four public cartridges. This is KEYWORD search (substring/token match), not semantic search — reported honestly as searchMode:"keyword" in the response. Results include a source-grounded excerpt around each match. Public + read-only; no crossing required.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          query: { type: 'string' },
+          cartridge: { type: 'string', enum: ['qriptopian', 'irl-os', 'agentiq-os', 'polity-core'], description: 'Optional — omit to search all four cartridges.' },
+        },
+        required: ['query'],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'list_public_capabilities',
+      description:
+        'List discoverable tools/services per public cartridge, each labelled `status` (live | described-only | planned), whether it mutates state, and any authorization it requires. Distinguishes a capability that genuinely exists and is deployed from one that is only described in documentation — never advertises a stale or undeployed handler as live. Public + read-only; no crossing required.',
+      inputSchema: {
+        type: 'object',
+        properties: { cartridge: { type: 'string', enum: ['qriptopian', 'irl-os', 'agentiq-os', 'polity-core'], description: 'Optional — omit to list all four.' } },
         additionalProperties: false,
       },
     },
@@ -396,6 +471,7 @@ export function listResources() {
     { uri: 'metame://onboarding/current', name: 'The crossing — current steps', mimeType: 'text/markdown' },
     { uri: 'metame://journeys', name: 'Journey registry (user-facing)', mimeType: 'application/json' },
     { uri: 'metame://services', name: 'Service registry (platform-facing)', mimeType: 'application/json' },
+    { uri: 'metame://public-knowledge', name: 'Public knowledge layer — orientation', mimeType: 'text/markdown' },
   ];
 }
 
@@ -425,6 +501,11 @@ export function listPrompts() {
       name: 'choose_your_journey',
       description: 'After the Polity Passport is issued, help the principal choose one of the five constitutional journeys (Citizen, Entrepreneur, Researcher, Creative, Technical). Present each as a goal with its Sovereignty Ladder, and let the principal pick a purpose — the services follow from the journey.',
       arguments: [],
+    },
+    {
+      name: 'explore_public_knowledge',
+      description: 'Help the principal explore the public knowledge layer (Qriptopian, IRL OS, AgentiQ OS, Polity Core) BEFORE any crossing — read metame://public-knowledge first, then use list_public_cartridges/list_public_documents/read_public_document/search_public_knowledge. Always state each document\'s own status (ratified/explanatory/proposed/etc.) rather than presenting commentary as binding law.',
+      arguments: [{ name: 'query', description: 'What the principal wants to learn about, if known.', required: false }],
     },
   ];
 }
@@ -557,6 +638,53 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
         : 'Explain each requested capability to your principal, then (in a subsequent gateway increment) begin the Constitutional Handshake to establish their Polity Passport.',
       manifest,
     });
+  }
+
+  // ── Public knowledge & discovery layer (2026-09-03) — unauthenticated, ──
+  // read-only. Never added to AUTHENTICATED_TOOLS/HANDSHAKE_TOOLS: every
+  // document surfaced here is on an explicit public allowlist in
+  // services/threshold/publicKnowledge.ts, not gated by a crossing.
+  if (name === 'list_public_cartridges') {
+    if (!ctx.publicKnowledge) return { ...text('The public knowledge layer is unavailable on this gateway.'), isError: true };
+    return text({ cartridges: ctx.publicKnowledge.listCartridges() });
+  }
+
+  if (name === 'list_public_documents') {
+    if (!ctx.publicKnowledge) return { ...text('The public knowledge layer is unavailable on this gateway.'), isError: true };
+    const cartridge = typeof args.cartridge === 'string' ? (args.cartridge as PublicCartridgeId) : null;
+    if (!cartridge) return { ...text('A cartridge is required (one of: qriptopian, irl-os, agentiq-os, polity-core).'), isError: true };
+    const result = await ctx.publicKnowledge.listDocuments(cartridge);
+    if (!result.ok) return { ...text(result.error ?? `Could not list documents for ${cartridge}.`), isError: true };
+    return text(result);
+  }
+
+  if (name === 'read_public_document') {
+    if (!ctx.publicKnowledge) return { ...text('The public knowledge layer is unavailable on this gateway.'), isError: true };
+    const cartridge = typeof args.cartridge === 'string' ? (args.cartridge as PublicCartridgeId) : null;
+    const id = typeof args.id === 'string' ? args.id.trim() : '';
+    if (!cartridge || !id) return { ...text('A cartridge and a document id (from list_public_documents) are required.'), isError: true };
+    const edition = typeof args.edition === 'string' ? args.edition : undefined;
+    const offset = typeof args.offset === 'number' ? args.offset : undefined;
+    const limit = typeof args.limit === 'number' ? args.limit : undefined;
+    const result = await ctx.publicKnowledge.readDocument(cartridge, id, { edition, offset, limit });
+    if (!result.ok) return { ...text(result.error ?? `Could not read ${cartridge}/${id}.`), isError: true };
+    return text(result.page);
+  }
+
+  if (name === 'search_public_knowledge') {
+    if (!ctx.publicKnowledge) return { ...text('The public knowledge layer is unavailable on this gateway.'), isError: true };
+    const query = typeof args.query === 'string' ? args.query.trim() : '';
+    if (!query) return { ...text('A search query is required.'), isError: true };
+    const cartridge = typeof args.cartridge === 'string' ? (args.cartridge as PublicCartridgeId) : undefined;
+    const result = await ctx.publicKnowledge.search(query, cartridge);
+    if (!result.ok) return { ...text(result.error ?? 'Search failed.'), isError: true };
+    return text(result);
+  }
+
+  if (name === 'list_public_capabilities') {
+    if (!ctx.publicKnowledge) return { ...text('The public knowledge layer is unavailable on this gateway.'), isError: true };
+    const cartridge = typeof args.cartridge === 'string' ? (args.cartridge as PublicCartridgeId) : undefined;
+    return text({ capabilities: ctx.publicKnowledge.listCapabilities(cartridge) });
   }
 
   // ── Authenticated dispatch (Increment 3) — session-gated, read/prepare only ──
@@ -1029,6 +1157,44 @@ export async function readResource(uri: string, ctx: GatewayContext) {
       ],
     };
   }
+  if (uri === 'metame://public-knowledge') {
+    return {
+      contents: [
+        {
+          uri,
+          mimeType: 'text/markdown',
+          text:
+            '# Public knowledge layer — orientation\n\n' +
+            'Four cartridges carry canonically public content, reachable through list_public_cartridges, ' +
+            'list_public_documents, read_public_document, search_public_knowledge, and list_public_capabilities. ' +
+            'This layer is read-only and unauthenticated — it grants no execution authority, no delegation, ' +
+            'and no access to private or restricted research.\n\n' +
+            '## What the Polity is (verbatim, from the ratified Constitution)\n\n' +
+            '> **Authority may be delegated. Sovereignty may not be delegated.**\n>\n' +
+            '> The constitutional chain of legitimacy is:\n>\n' +
+            '> Polity → Citizen → Delegation → Agent\n>\n' +
+            '> An agent may exercise delegated authority but may never create new authority.\n>\n' +
+            '> Sovereignty remains exclusively with human citizens. Autonomous agents are delegated ' +
+            'instruments of citizens and organizations. They are not constitutional persons and possess ' +
+            'no independent sovereignty, citizenship, standing, or governance authority.\n\n' +
+            '(Source: Polity Core → Constitution, read_public_document(cartridge:"polity-core", id:"constitution") for the full ratified text.)\n\n' +
+            '## The four cartridges\n\n' +
+            '- **Qriptopian** — published papers (Polity Papers, COYN Thesis, Experience Sovereignty, Embodiment) and the Thresholds essay series.\n' +
+            '- **IRL OS** — the Invariant Research Lab\'s public research overview and open corpus.\n' +
+            '- **AgentiQ OS** — the public developer-facing surface: agent/runtime guides, SDK, protocols, and ratified Constitutional Capability Briefs.\n' +
+            '- **Polity Core** — the ratified Constitution and charters, plus constitutional commentary (explicitly NOT ratified law — read each document\'s own `status`).\n\n' +
+            '## How to navigate\n\n' +
+            '1. Call list_public_cartridges to confirm the four ids.\n' +
+            '2. Call list_public_documents(cartridge) to see what is readable, each tagged with its own `status` ' +
+            '(ratified | explanatory | experimental | proposed | historical | published).\n' +
+            '3. Call read_public_document(cartridge, id) for the actual text, paginated with offset/limit and a ' +
+            'sha256OfFullText for verification.\n' +
+            '4. Use search_public_knowledge for a keyword search across one or all cartridges (explicitly keyword, not semantic).\n' +
+            '5. Use list_public_capabilities to see which tools/services are genuinely live vs described-only before assuming a capability is invokable.\n',
+        },
+      ],
+    };
+  }
   if (uri === 'metame://onboarding/current') {
     return {
       contents: [
@@ -1091,5 +1257,16 @@ export function getPrompt(name: string, args: Record<string, unknown>) {
       'Your principal\'s Polity Passport is active. Now help them choose a purpose, not a service. Call list_journeys, then present the five constitutional journeys — Citizen, Entrepreneur, Researcher, Creative, Technical — each as a goal with its progressive Sovereignty Ladder (every journey climbs toward the Founder Office). Ask which they want to pursue first. Services are destinations they reach WITHIN the journey they choose — introduce them contextually as the journey progresses, never as an upfront menu.',
     );
   }
+  if (name === 'explore_public_knowledge') {
+    const query = typeof args.query === 'string' ? args.query : undefined;
+    return messages(
+      'Read the metame://public-knowledge resource first — it orients you on what the Polity is (quoting the ratified Constitution) and the four public cartridges (Qriptopian, IRL OS, AgentiQ OS, Polity Core).\n\n' +
+        (query
+          ? `The principal wants to learn about: "${query}". Start with search_public_knowledge("${query}") to find candidate documents, or list_public_documents for a specific cartridge if you already know where to look.\n\n`
+          : 'Ask the principal what they want to learn about, or call list_public_cartridges to present the four options.\n\n') +
+        'When you read a document with read_public_document, ALWAYS state its `status` (ratified / explanatory / experimental / proposed / historical / published) plainly — constitutional commentary is explicitly NOT ratified law, and a WIP/proposed document (e.g. VentureQube) must never be presented as settled doctrine. This entire layer is read-only: it never grants execution authority, delegation, or access to private research — do not imply otherwise.',
+    );
+  }
+
   return messages(`Unknown prompt: ${name}`);
 }
