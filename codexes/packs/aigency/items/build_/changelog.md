@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`757561a`](https://github.com/iQube-Protocol/AigentZBeta/commit/757561af4a20548447d8eebb2bfab8d87a2166ba) [fix] Restore native MoneyPenny tab hierarchy, move role selector to copilot header, compact capability carousel, fix viewport height (Claude, 2026-09-03T04:59:50Z)
 - [`2fc6c69`](https://github.com/iQube-Protocol/AigentZBeta/commit/2fc6c69150cdf8059d2dbfdb417758bf6b32e856) [feat] Add MoneyPenny MPY2-3 Risk Envelope: risk factors + limits from Financial Profile (Claude, 2026-09-01T16:44:11Z)
 - [`c0a35ae`](https://github.com/iQube-Protocol/AigentZBeta/commit/c0a35ae3ef16db1131ba491e04b30070199b33ef) [feat] Wire EXPLORE to a real MoneyPenny action: observed consequence, not just engagement (Claude, 2026-09-01T17:05:56Z)
 - [`0ba7cce`](https://github.com/iQube-Protocol/AigentZBeta/commit/0ba7cce437748b6f89f9c504cb869f668883c370) [push] Project wallet-conversion capability READINESS at fs-cross, never exercise (Claude, 2026-09-01T20:05:30Z)

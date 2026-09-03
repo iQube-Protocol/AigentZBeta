@@ -5249,3 +5249,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-2fc6c69.md](../build_/COMMITS/COMMIT-2fc6c69.md)
 - Message: Add MoneyPenny MPY2-3 Risk Envelope: risk factors + limits from Financial Profile
+
+## Commit `757561a` — 2026-09-03T04:59:50Z
+- Type: `fix`
+- Brief: [COMMIT-757561a.md](../build_/COMMITS/COMMIT-757561a.md)
+- Message: Restore native MoneyPenny tab hierarchy, move role selector to copilot header, compact capability carousel, fix viewport height
