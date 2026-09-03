@@ -23,6 +23,9 @@ const mockListCandidates = vi.fn();
 const mockPromoteCandidate = vi.fn();
 vi.mock('@/services/invariants/discoveryEngine', () => ({
   listCandidates: (...args: any[]) => mockListCandidates(...args),
+  // The route reads via the across-sub-domains variant (2026-09-03,
+  // "EXP-P1 Crystal v2 sub-domain invisibility" repair) — same mock fn.
+  listCandidatesAcrossSubDomains: (...args: any[]) => mockListCandidates(...args),
   promoteCandidate: (...args: any[]) => mockPromoteCandidate(...args),
 }));
 
