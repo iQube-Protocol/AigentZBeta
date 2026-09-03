@@ -68,6 +68,19 @@ export interface PublicCartridgeDescriptor {
   canonicalCartridgeId: string; // the real data/codex-configs.ts CodexConfig.id, for citation
 }
 
+/**
+ * Whether `status` was independently confirmed against the canonical
+ * ratification/provenance mechanism for this cartridge (Polity Core:
+ * codexes/packs/polity-core/items/AMENDMENT_RECORDS.md, the append-only
+ * ratification ledger), or is only the document's own self-declared header
+ * — a self-declared header is NOT sufficient proof of ratification
+ * (closeout, 2026-09-03). Omitted for cartridges with no such external
+ * ledger to check against (Qriptopian, IRL OS, AgentiQ OS) — there,
+ * `status` is the DB's own `status`/publication field, which for those
+ * cartridges IS the canonical mechanism (see each branch's own comments).
+ */
+export type StatusVerification = 'ledger-confirmed' | 'source-declared-only';
+
 export interface PublicDocumentSummary {
   id: string;
   cartridge: PublicCartridgeId;
@@ -75,6 +88,7 @@ export interface PublicDocumentSummary {
   series?: string;
   edition?: string;
   status: RatificationStatus | 'published';
+  statusVerification?: StatusVerification;
   canonicalLink: string;
   sourceKind: 'pack-markdown' | 'db-content' | 'db-media-asset';
 }
@@ -86,6 +100,7 @@ export interface PublicDocumentPage {
   series?: string;
   edition?: string;
   status: RatificationStatus | 'published';
+  statusVerification?: StatusVerification;
   canonicalLink: string;
   text: string;
   offset: number;
@@ -201,32 +216,52 @@ const AGENTIQ_OS_CAPABILITY_BRIEF_PATHS: Array<{ id: string; title: string; path
 //    status vocabulary is fine where the domain genuinely differs; the
 //    engineering ladder does not fit "commentary is not ratified law"). ──
 
-const POLITY_CORE_PATHS: Array<{ id: string; title: string; path: string; status: RatificationStatus; series?: string }> = [
-  { id: 'constitution', title: 'The Polity Constitution', path: 'items/CONSTITUTION.md', status: 'ratified' },
-  { id: 'constitution-agentic-polity', title: 'The Constitution of the Agentic Polity', path: 'items/CONSTITUTION_OF_AGENTIC_POLITY.md', status: 'ratified', series: 'Polity Papers' },
-  { id: 'invariant-intelligence', title: 'Invariant Intelligence (Foundational Constitutional Record)', path: 'constitutional-records/invariant-intelligence.md', status: 'ratified' },
-  { id: 'agent-charter', title: 'Agent Charter', path: 'items/AGENT_CHARTER.md', status: 'ratified' },
-  { id: 'delegation-framework', title: 'Delegation Framework', path: 'items/DELEGATION_FRAMEWORK.md', status: 'ratified' },
-  { id: 'standing-charter', title: 'Standing Charter', path: 'items/STANDING_CHARTER.md', status: 'ratified' },
-  { id: 'metacommons-charter', title: 'metaCommons Charter', path: 'items/METACOMMONS_CHARTER.md', status: 'ratified' },
-  { id: 'founder-office-charter', title: 'Founder Office Charter', path: 'items/FOUNDER_OFFICE_CHARTER.md', status: 'ratified' },
-  { id: 'standing-framework', title: 'Standing Framework', path: 'items/STANDING_FRAMEWORK.md', status: 'ratified' },
-  { id: 'governance-framework', title: 'Governance Framework', path: 'items/GOVERNANCE_FRAMEWORK.md', status: 'ratified' },
-  { id: 'ventureqube-spec', title: 'VentureQube Spec (WIP)', path: 'items/VENTUREQUBE_SPEC.md', status: 'proposed' },
-  { id: 'amendment-records', title: 'Amendment Records', path: 'items/AMENDMENT_RECORDS.md', status: 'historical' },
-  { id: 'machine-readable', title: 'Machine-Readable Source of Legitimacy', path: 'items/MACHINE_READABLE.md', status: 'explanatory' },
+// `statusVerification` (2026-09-03, closeout item 4 — "a document's
+// self-declared header is not sufficient proof of ratification"): checked
+// each entry's `status` against the actual canonical ratification/
+// provenance mechanism — codexes/packs/polity-core/items/AMENDMENT_RECORDS.md
+// (the append-only ratification ledger) — rather than trusting the
+// document's own prose header. 'ledger-confirmed' means the ledger's dated
+// "Ratified"/"Proposed" table (or, for the seven charters, the separate
+// Autodrive-CID publication table, an even stronger on-chain form of
+// confirmation) independently states the same status. 'source-declared-only'
+// means ONLY the document's own header/comments assert it — verified live,
+// 2026-09-03, that `CONSTITUTION_OF_AGENTIC_POLITY.md` has ZERO entries
+// anywhere in AMENDMENT_RECORDS.md (searched the full file) despite its own
+// header reading "status: ratified" and a repeating (but equally
+// self-referential) comment in services/polity/constitution.ts calling it
+// "elevated to ratified status" — and that document is confirmed NOT part
+// of the Agent Passport binding triple either (CURRENT_CONSTITUTIONAL_VERSIONS
+// in that same file lists only Constitution + Agent Charter + Delegation
+// Framework). This is flagged, not silently "fixed" by downgrading its
+// status — the operator's own ratification record may simply be missing
+// from the ledger; that is itself the finding to surface.
+const POLITY_CORE_PATHS: Array<{ id: string; title: string; path: string; status: RatificationStatus; series?: string; statusVerification: 'ledger-confirmed' | 'source-declared-only' }> = [
+  { id: 'constitution', title: 'The Polity Constitution', path: 'items/CONSTITUTION.md', status: 'ratified', statusVerification: 'ledger-confirmed' },
+  { id: 'constitution-agentic-polity', title: 'The Constitution of the Agentic Polity', path: 'items/CONSTITUTION_OF_AGENTIC_POLITY.md', status: 'ratified', series: 'Polity Papers', statusVerification: 'source-declared-only' },
+  { id: 'invariant-intelligence', title: 'Invariant Intelligence (Foundational Constitutional Record)', path: 'constitutional-records/invariant-intelligence.md', status: 'ratified', statusVerification: 'ledger-confirmed' },
+  { id: 'agent-charter', title: 'Agent Charter', path: 'items/AGENT_CHARTER.md', status: 'ratified', statusVerification: 'ledger-confirmed' },
+  { id: 'delegation-framework', title: 'Delegation Framework', path: 'items/DELEGATION_FRAMEWORK.md', status: 'ratified', statusVerification: 'ledger-confirmed' },
+  { id: 'standing-charter', title: 'Standing Charter', path: 'items/STANDING_CHARTER.md', status: 'ratified', statusVerification: 'ledger-confirmed' },
+  { id: 'metacommons-charter', title: 'metaCommons Charter', path: 'items/METACOMMONS_CHARTER.md', status: 'ratified', statusVerification: 'ledger-confirmed' },
+  { id: 'founder-office-charter', title: 'Founder Office Charter', path: 'items/FOUNDER_OFFICE_CHARTER.md', status: 'ratified', statusVerification: 'ledger-confirmed' },
+  { id: 'standing-framework', title: 'Standing Framework', path: 'items/STANDING_FRAMEWORK.md', status: 'ratified', statusVerification: 'ledger-confirmed' },
+  { id: 'governance-framework', title: 'Governance Framework', path: 'items/GOVERNANCE_FRAMEWORK.md', status: 'ratified', statusVerification: 'ledger-confirmed' },
+  { id: 'ventureqube-spec', title: 'VentureQube Spec (WIP)', path: 'items/VENTUREQUBE_SPEC.md', status: 'proposed', statusVerification: 'ledger-confirmed' },
+  { id: 'amendment-records', title: 'Amendment Records', path: 'items/AMENDMENT_RECORDS.md', status: 'historical', statusVerification: 'source-declared-only' },
+  { id: 'machine-readable', title: 'Machine-Readable Source of Legitimacy', path: 'items/MACHINE_READABLE.md', status: 'explanatory', statusVerification: 'source-declared-only' },
   // Constitutional commentary — explicitly "not ratified law" per the
   // series' own README (codexes/packs/polity-core/items/commentary/README.md).
-  { id: 'commentary-experience-sovereignty-07', title: 'Commentary: Agent Runbook', path: 'items/commentary/experience-sovereignty/07-agent-runbook.md', status: 'explanatory', series: 'Experience Sovereignty' },
-  { id: 'commentary-coyn-thesis-01', title: 'Commentary: The Fallacy of Free Information', path: 'items/commentary/coyn-thesis/01-the-fallacy-of-free-information.md', status: 'explanatory', series: 'COYN Thesis' },
-  { id: 'commentary-coyn-thesis-02', title: 'Commentary: Time Sovereignty', path: 'items/commentary/coyn-thesis/02-time-sovereignty.md', status: 'explanatory', series: 'COYN Thesis' },
-  { id: 'commentary-coyn-thesis-03', title: 'Commentary: Proof of Time Saved', path: 'items/commentary/coyn-thesis/03-proof-of-time-saved.md', status: 'explanatory', series: 'COYN Thesis' },
-  { id: 'commentary-coyn-thesis-04', title: 'Commentary: Money, Time and COYN', path: 'items/commentary/coyn-thesis/04-money-time-and-coyn.md', status: 'explanatory', series: 'COYN Thesis' },
-  { id: 'commentary-coyn-thesis-05', title: 'Commentary: The Sovereign Cybernetic Economy', path: 'items/commentary/coyn-thesis/05-the-sovereign-cybernetic-economy.md', status: 'explanatory', series: 'COYN Thesis' },
-  { id: 'commentary-polity-01', title: 'Commentary: Beyond the Binary', path: 'items/commentary/polity/01-beyond-the-binary.md', status: 'explanatory', series: 'The Polity' },
-  { id: 'commentary-polity-02', title: 'Commentary: From Perimeter to Polity', path: 'items/commentary/polity/02-from-perimeter-to-polity.md', status: 'explanatory', series: 'The Polity' },
-  { id: 'commentary-polity-03', title: 'Commentary: Citizenship in the Agentic Internet', path: 'items/commentary/polity/03-citizenship-in-the-agentic-internet.md', status: 'explanatory', series: 'The Polity' },
-  { id: 'commentary-polity-04', title: 'Commentary: The Constitution of the Agentic Polity', path: 'items/commentary/polity/04-the-constitution-of-the-agentic-polity.md', status: 'explanatory', series: 'The Polity' },
+  { id: 'commentary-experience-sovereignty-07', title: 'Commentary: Agent Runbook', path: 'items/commentary/experience-sovereignty/07-agent-runbook.md', status: 'explanatory', series: 'Experience Sovereignty', statusVerification: 'source-declared-only' },
+  { id: 'commentary-coyn-thesis-01', title: 'Commentary: The Fallacy of Free Information', path: 'items/commentary/coyn-thesis/01-the-fallacy-of-free-information.md', status: 'explanatory', series: 'COYN Thesis', statusVerification: 'source-declared-only' },
+  { id: 'commentary-coyn-thesis-02', title: 'Commentary: Time Sovereignty', path: 'items/commentary/coyn-thesis/02-time-sovereignty.md', status: 'explanatory', series: 'COYN Thesis', statusVerification: 'source-declared-only' },
+  { id: 'commentary-coyn-thesis-03', title: 'Commentary: Proof of Time Saved', path: 'items/commentary/coyn-thesis/03-proof-of-time-saved.md', status: 'explanatory', series: 'COYN Thesis', statusVerification: 'source-declared-only' },
+  { id: 'commentary-coyn-thesis-04', title: 'Commentary: Money, Time and COYN', path: 'items/commentary/coyn-thesis/04-money-time-and-coyn.md', status: 'explanatory', series: 'COYN Thesis', statusVerification: 'source-declared-only' },
+  { id: 'commentary-coyn-thesis-05', title: 'Commentary: The Sovereign Cybernetic Economy', path: 'items/commentary/coyn-thesis/05-the-sovereign-cybernetic-economy.md', status: 'explanatory', series: 'COYN Thesis', statusVerification: 'source-declared-only' },
+  { id: 'commentary-polity-01', title: 'Commentary: Beyond the Binary', path: 'items/commentary/polity/01-beyond-the-binary.md', status: 'explanatory', series: 'The Polity', statusVerification: 'source-declared-only' },
+  { id: 'commentary-polity-02', title: 'Commentary: From Perimeter to Polity', path: 'items/commentary/polity/02-from-perimeter-to-polity.md', status: 'explanatory', series: 'The Polity', statusVerification: 'source-declared-only' },
+  { id: 'commentary-polity-03', title: 'Commentary: Citizenship in the Agentic Internet', path: 'items/commentary/polity/03-citizenship-in-the-agentic-internet.md', status: 'explanatory', series: 'The Polity', statusVerification: 'source-declared-only' },
+  { id: 'commentary-polity-04', title: 'Commentary: The Constitution of the Agentic Polity', path: 'items/commentary/polity/04-the-constitution-of-the-agentic-polity.md', status: 'explanatory', series: 'The Polity', statusVerification: 'source-declared-only' },
 ];
 
 // ── Qriptopian: reuse the live public REST routes, never a parallel query ──
@@ -457,7 +492,7 @@ export function makePublicKnowledgeAdapter(opts: { origin: string; irl?: IrlAdap
   // ── AgentiQ OS / Polity Core branches — shared pack-corpus reader ──
   function listPackAllowlist(
     cartridge: 'agentiq-os' | 'polity-core',
-    entries: Array<{ id: string; title: string; path: string; status?: RatificationStatus; series?: string }>,
+    entries: Array<{ id: string; title: string; path: string; status?: RatificationStatus; series?: string; statusVerification?: StatusVerification }>,
     linkPrefix: string,
   ): PublicDocumentSummary[] {
     return entries.map((e) => ({
@@ -466,6 +501,7 @@ export function makePublicKnowledgeAdapter(opts: { origin: string; irl?: IrlAdap
       title: e.title,
       series: e.series,
       status: e.status ?? 'explanatory',
+      statusVerification: e.statusVerification,
       canonicalLink: `${linkPrefix}?path=${encodeURIComponent(e.path)}`,
       sourceKind: 'pack-markdown',
     }));
@@ -473,7 +509,7 @@ export function makePublicKnowledgeAdapter(opts: { origin: string; irl?: IrlAdap
 
   async function readPackDoc(
     packId: string,
-    entry: { id: string; title: string; path: string; status?: RatificationStatus; series?: string } | undefined,
+    entry: { id: string; title: string; path: string; status?: RatificationStatus; series?: string; statusVerification?: StatusVerification } | undefined,
     cartridge: PublicCartridgeId,
     linkPrefix: string,
     offset: number,
@@ -491,6 +527,7 @@ export function makePublicKnowledgeAdapter(opts: { origin: string; irl?: IrlAdap
         title: entry.title,
         series: entry.series,
         status: entry.status ?? 'explanatory',
+        statusVerification: entry.statusVerification,
         canonicalLink: `${linkPrefix}?path=${encodeURIComponent(entry.path)}`,
         text: sliced.text,
         offset: sliced.offset,

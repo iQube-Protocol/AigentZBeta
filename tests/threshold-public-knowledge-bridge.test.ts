@@ -151,6 +151,26 @@ describe('publicKnowledge.ts — AgentiQ OS / Polity Core: default-deny allowlis
     expect(commentary?.status).toBe('explanatory');
   });
 
+  it('a document\'s self-declared header is not sufficient proof of ratification (closeout, 2026-09-03) — statusVerification distinguishes ledger-confirmed from source-declared-only', async () => {
+    const result = await adapter.listDocuments('polity-core');
+    const constitution = result.documents!.find((d) => d.id === 'constitution');
+    // The Polity Constitution's ratified status IS independently confirmed
+    // in codexes/packs/polity-core/items/AMENDMENT_RECORDS.md's dated
+    // ratification ledger.
+    expect(constitution?.statusVerification).toBe('ledger-confirmed');
+    // Verified live 2026-09-03: CONSTITUTION_OF_AGENTIC_POLITY.md's own
+    // header reads "status: ratified", and it is not part of the Agent
+    // Passport binding triple (services/polity/constitution.ts's
+    // CURRENT_CONSTITUTIONAL_VERSIONS lists only Constitution + Agent
+    // Charter + Delegation Framework) — but AMENDMENT_RECORDS.md has ZERO
+    // entries for it anywhere. Its ratified claim is real but unverified
+    // against the canonical mechanism, and must be reported as such rather
+    // than silently trusted.
+    const agenticPolity = result.documents!.find((d) => d.id === 'constitution-agentic-polity');
+    expect(agenticPolity?.status).toBe('ratified');
+    expect(agenticPolity?.statusVerification).toBe('source-declared-only');
+  });
+
   it('read_public_document pagination reconstructs the full text and its hash across pages', async () => {
     const fullText = 'x'.repeat(50) + 'y'.repeat(50);
     mocks.corpusReadPackFile.mockResolvedValue(fullText);
