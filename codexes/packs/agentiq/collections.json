@@ -40,6 +40,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-09-03_operate-means-operating-within-metame.md",
         "updates/2026-09-03_threshold-public-knowledge-bridge.md",
         "updates/2026-09-02_moneypenny-authoritative-three-spec-import-and-reconciliation.md",
         "updates/2026-09-02_moneypenny-handoff-specs-import-and-crosswalk.md",

@@ -72,10 +72,10 @@ describe('FinancialServicesBridgeFrontDoor — Operate projection integration', 
     expect(result.thresholdState).toBe('POST_PASSPORT');
     expect(result.activationMode).toBe('CATALOGUE_ACTIVATION');
     expect(result.operatorDestination.catalogueItemId).toBe('moneypenny');
-    expect(result.operatorDestination.tabSlug).toBe('moneypenny-orchestration');
+    expect(result.operatorDestination.tabSlug).toBe('home');
   });
 
-  it('destination route includes tab parameter for moneypenny-orchestration', () => {
+  it('destination route includes tab parameter for home (navigation/viewport correction, 2026-09-03 — supersedes the retired single-tab moneypenny-orchestration mirror)', () => {
     const result = resolveJourneyOperatorDestination({
       journeyId: HORIZEN_MONEYPENNY_JOURNEY.id,
       participantState: { citizenPassportUsable: true },
@@ -86,7 +86,7 @@ describe('FinancialServicesBridgeFrontDoor — Operate projection integration', 
     if (!result.valid) return;
 
     const route = result.operatorDestination.route;
-    expect(route).toContain('tab=moneypenny-orchestration');
+    expect(route).toContain('tab=home');
     expect(route).toContain('metame'); // The cartridge slug
   });
 

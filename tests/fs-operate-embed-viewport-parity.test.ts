@@ -22,13 +22,18 @@
  *
  * Covers:
  *   1. The registry entry 'moneypenny-orchestration-focused' exists, is
- *      `kind: 'embed'`, targets the real metame-codex/moneypenny-orchestration
- *      tab, is focused, suppresses its own floating copilot, and carries the
- *      "Explore metaMe ↗" openLabel + breadcrumb.
+ *      `kind: 'embed'`, targets the real metame-codex/home tab (navigation/
+ *      viewport correction, 2026-09-03 — superseded the retired single-tab
+ *      'moneypenny-orchestration' mirror), is focused, suppresses its own
+ *      floating copilot, and carries the "Explore metaMe ↗" openLabel +
+ *      breadcrumb.
  *   2. Parity canary: its codexSlug/tab match what
  *      resolveOperatorDestination (the catalogue mapping — untouched by this
  *      fix) resolves for the 'moneypenny' catalogue item, so the two can
  *      never silently drift apart.
+ *   2b. Expand stays inside metame-codex (2026-09-03 correction of the
+ *      2026-08-26 decision below to swap to the standalone moneypenny-codex
+ *      cartridge) — no expandedCodexSlug/expandedTab.
  *   3. FinancialServicesBridgeFrontDoor now points 'aigentme' at that ref via
  *      `foregroundSurfaceRefByStage`, and contains no raw hand-built iframe.
  *   4. JourneyRunSurface renders ANY foreground override through the SAME
@@ -44,7 +49,7 @@ import { readSource, stripComments } from './_lib/sourceAuthority';
 import { JOURNEY_SURFACES, buildEmbedSurfaceSrc } from '@/services/journey/journeySurfaceRegistry';
 import { resolveOperatorDestination } from '@/services/journey/catalogueDestinationHelper';
 import { buildCodexUrl } from '@/utils/codex-nav';
-import { MONEYPENNY_CARTRIDGE } from '@/data/codex-configs';
+import { MONEYPENNY_CARTRIDGE, METAME_CODEX } from '@/data/codex-configs';
 
 const FS_BRIDGE_FRONT_DOOR = 'components/journey/FinancialServicesBridgeFrontDoor.tsx';
 const JOURNEY_RUN_SURFACE = 'components/journey/JourneyRunSurface.tsx';
@@ -58,10 +63,10 @@ describe("registry entry 'moneypenny-orchestration-focused'", () => {
     expect(descriptor.kind).toBe('embed');
   });
 
-  it('targets the real metame-codex / moneypenny-orchestration tab', () => {
+  it('targets the real metame-codex / home tab (navigation/viewport correction, 2026-09-03 — supersedes the retired single-tab moneypenny-orchestration mirror)', () => {
     if (descriptor.kind !== 'embed') return;
     expect(descriptor.codexSlug).toBe('metame-codex');
-    expect(descriptor.tab).toBe('moneypenny-orchestration');
+    expect(descriptor.tab).toBe('home');
   });
 
   it('is focused by default, suppresses its own floating copilot, and carries "Explore metaMe ↗"', () => {
@@ -73,12 +78,12 @@ describe("registry entry 'moneypenny-orchestration-focused'", () => {
 
   it('carries the preserved left-hand context breadcrumb', () => {
     if (descriptor.kind !== 'embed') return;
-    expect(descriptor.breadcrumb).toBe('Financial Services — Operate → MoneyPenny Orchestration');
+    expect(descriptor.breadcrumb).toBe('Financial Services — Operate → MoneyPenny');
   });
 
   it('parity: codexSlug/tab match the catalogue mapping for the moneypenny activation — never derived twice without a canary', () => {
     if (descriptor.kind !== 'embed') return;
-    const catalogue = resolveOperatorDestination({ catalogueItemRef: 'moneypenny', tabRef: 'moneypenny-orchestration' });
+    const catalogue = resolveOperatorDestination({ catalogueItemRef: 'moneypenny', tabRef: 'home' });
     expect(catalogue.valid).toBe(true);
     if (!catalogue.valid) return;
     expect(catalogue.destination.cartridgeRef).toBe(descriptor.codexSlug);
@@ -87,61 +92,47 @@ describe("registry entry 'moneypenny-orchestration-focused'", () => {
 });
 
 /**
- * Explore-metaMe expand parity (operator decision, 2026-08-26) — supersedes
- * the 2026-08-24 "Orchestration is the ONLY mirrored panel" pinning for the
- * FS Bridge's own Explore-metaMe expand affordance specifically. Covers both
- * required contexts: the focused/default state (unchanged) and the expanded
- * state (now the real MONEYPENNY_CARTRIDGE, not the metame-codex mirror).
+ * Expanded Operate correction (navigation/viewport correction, 2026-09-03) —
+ * REVERSES the 2026-08-26 "Explore-metaMe expand parity" decision this
+ * describe block used to cover: expanding no longer swaps the destination to
+ * the standalone MONEYPENNY_CARTRIDGE ('moneypenny-codex'). Operator
+ * directive: "Reveal the metaMe runtime shell inside the existing bridge
+ * frame... Do not expand into the standalone Aigent MoneyPenny shell." Now
+ * that metame-codex's own MoneyPenny group carries the real submenu
+ * (MONEYPENNY_AREA_TABS), lifting metame-codex's own chrome on expand is
+ * sufficient — no cartridge swap needed.
  */
-describe("registry entry 'moneypenny-orchestration-focused' — expandedCodexSlug/expandedTab", () => {
+describe("registry entry 'moneypenny-orchestration-focused' — expand stays inside metame-codex", () => {
   const descriptor = JOURNEY_SURFACES['moneypenny-orchestration-focused'];
 
-  it('declares an expandedCodexSlug/expandedTab pointing at the real MoneyPenny cartridge, not the metame-codex mirror', () => {
+  it('declares NO expandedCodexSlug/expandedTab — expand lifts metame-codex\'s own chrome instead of swapping cartridges', () => {
     if (descriptor.kind !== 'embed') return;
-    expect(descriptor.expandedCodexSlug).toBe('moneypenny-codex');
-    expect(descriptor.expandedTab).toBe('service-orchestration');
+    expect(descriptor.expandedCodexSlug).toBeUndefined();
+    expect(descriptor.expandedTab).toBeUndefined();
   });
 
-  it('parity: expandedCodexSlug matches MONEYPENNY_CARTRIDGE.id; expandedTab is a real legacy MoneyPennyPanelKey that self-heals into the correct native area tab (navigation-hierarchy correction, 2026-09-03, second pass)', () => {
+  it('focusedNavDepth is 1 — hides metaMe\'s own top-level nav while keeping the MoneyPenny submenu navigable in focused view, matching MoneyPennyBridgeEmbed\'s own depth for the standalone cartridge', () => {
     if (descriptor.kind !== 'embed') return;
-    expect(descriptor.expandedCodexSlug).toBe(MONEYPENNY_CARTRIDGE.id);
-    // MONEYPENNY_CARTRIDGE now registers five real native area tabs (group
-    // 'moneypenny') plus a standalone Admin tab — 'service-orchestration'
-    // is NOT one of their slugs (those are home/my-money/plan/markets/
-    // activity/admin). `expandedTab`'s legacy panel-key value still opens
-    // the correct panel: CodexPanelDynamic lands on the cartridge's first
-    // native tab (Home) since the value matches no real slug, and Home's
-    // own mount effect self-heals into the Activity tab showing Service
-    // Orchestration (see MoneyPennyPanelTab.tsx's own header for the
-    // mechanism). Confirmed here at both ends: the value is still a real,
-    // recognized MoneyPennyPanelKey, and its area is a real native tab.
-    const panelTabSrc = stripComments(readSource('app/triad/components/codex/tabs/MoneyPennyPanelTab.tsx'));
-    expect(panelTabSrc).toContain(`"${descriptor.expandedTab}":`);
-    const nativeSlugs = new Set(MONEYPENNY_CARTRIDGE.tabs.map((t) => t.slug));
-    expect(nativeSlugs.has(descriptor.expandedTab as string)).toBe(false);
-    const capsSrc = stripComments(readSource('app/(shell)/moneypenny/components/moneypennyCapabilities.ts'));
-    const areaMatch = capsSrc.match(new RegExp(`"?${descriptor.expandedTab}"?:\\s*"([a-z-]+)"`));
-    expect(areaMatch).not.toBeNull();
-    expect(nativeSlugs.has(areaMatch![1])).toBe(true);
+    expect(descriptor.focusedNavDepth).toBe(1);
   });
 
-  it('MONEYPENNY_CARTRIDGE exposes exactly one real native tabGroup ("moneypenny") — the five-area sub-header IS the navigation, not a second, competing bar (navigation-hierarchy correction, 2026-09-03, second pass, supersedes the retired single-tab/empty-tabGroups pinning)', () => {
+  it('METAME_CODEX\'s MoneyPenny group shares MONEYPENNY_AREA_TABS verbatim with the standalone cartridge — one canonical submenu, not a hand-copied duplicate', () => {
+    const groupTabs = METAME_CODEX.tabs.filter((t) => t.group === 'moneypenny');
+    const standaloneTabs = MONEYPENNY_CARTRIDGE.tabs.filter((t) => t.group === 'moneypenny');
+    expect(groupTabs.map((t) => t.slug)).toEqual(standaloneTabs.map((t) => t.slug));
+    expect(groupTabs.map((t) => t.config.component)).toEqual(standaloneTabs.map((t) => t.config.component));
+  });
+
+  it('MONEYPENNY_CARTRIDGE exposes exactly one real native tabGroup ("moneypenny") holding all six tabs — the six-item sub-header IS the navigation, not a second, competing bar', () => {
     expect(MONEYPENNY_CARTRIDGE.tabGroups ?? []).toHaveLength(1);
     expect((MONEYPENNY_CARTRIDGE.tabGroups ?? [])[0].id).toBe('moneypenny');
     expect(MONEYPENNY_CARTRIDGE.tabs).toHaveLength(6);
-    // No SECOND group and no ungrouped area tab masquerading as a
-    // standalone top-level item — only the one admin tab is ungrouped.
-    const ungrouped = MONEYPENNY_CARTRIDGE.tabs.filter((t) => !t.group);
-    expect(ungrouped.map((t) => t.slug)).toEqual(['admin']);
+    expect(MONEYPENNY_CARTRIDGE.tabs.every((t) => t.group === 'moneypenny')).toBe(true);
   });
 
-  it('does NOT alter metame-codex\'s own "metame-moneypenny-orchestration" tab entry — that pinning stays intact for every other path into it', () => {
+  it('metame-codex no longer carries the retired single-tab "metame-moneypenny-orchestration" mirror', () => {
     const code = stripComments(readSource('data/codex-configs.ts'));
-    const entryAt = code.indexOf("id: 'metame-moneypenny-orchestration'");
-    expect(entryAt).toBeGreaterThan(-1);
-    const entryEnd = code.indexOf('\n    },', entryAt);
-    const entryBody = code.slice(entryAt, entryEnd);
-    expect(entryBody).toContain("props: { panel: 'service-orchestration' }");
+    expect(code).not.toContain("id: 'metame-moneypenny-orchestration'");
   });
 });
 
@@ -149,30 +140,30 @@ describe('buildEmbedSurfaceSrc — Focus view (default) vs Explore-metaMe expand
   const descriptor = JOURNEY_SURFACES['moneypenny-orchestration-focused'];
   if (descriptor.kind !== 'embed') throw new Error('expected an embed descriptor');
 
-  it('Focus view (focused: true, the un-toggled default) still targets metame-codex/moneypenny-orchestration with chrome suppressed', () => {
+  it('Focus view (focused: true, the un-toggled default) targets metame-codex/home with chrome suppressed down to depth 1 (submenu visible, metaMe top-level nav hidden)', () => {
     const src = buildEmbedSurfaceSrc(
       { ...descriptor, focused: true },
       { personaId: 'persona-1' },
       buildCodexUrl,
     );
     expect(src).toContain('/triad/embed/codex/metame-codex');
-    expect(src).toContain('tab=moneypenny-orchestration');
+    expect(src).toContain('tab=home');
     expect(src).toContain('chrome=focused');
-    expect(src).toContain('depth=0');
+    expect(src).toContain('depth=1');
     expect(src).not.toContain('moneypenny-codex');
   });
 
-  it('Explore-metaMe expand (focused cleared — the exact override JourneyRunSurface applies on openLabel click) targets the real moneypenny-codex cartridge, landing on service-orchestration, with no chrome suppression', () => {
+  it('Expand (focused cleared — the exact override JourneyRunSurface applies on openLabel click) STAYS on metame-codex/home, revealing full metaMe chrome — never the standalone moneypenny-codex shell', () => {
     const src = buildEmbedSurfaceSrc(
       { ...descriptor, focused: undefined },
       { personaId: 'persona-1' },
       buildCodexUrl,
     );
-    expect(src).toContain('/triad/embed/codex/moneypenny-codex');
-    expect(src).toContain('tab=service-orchestration');
+    expect(src).toContain('/triad/embed/codex/metame-codex');
+    expect(src).toContain('tab=home');
     expect(src).not.toContain('chrome=focused');
     expect(src).not.toContain('depth=');
-    expect(src).not.toContain('metame-codex');
+    expect(src).not.toContain('moneypenny-codex');
   });
 
   it('a focused descriptor with NO expandedCodexSlug (e.g. KNYT Pulse) is unaffected — expand just lifts its own chrome, codexSlug/tab never change', () => {

@@ -33,7 +33,7 @@
  *   'Macro' / outer layer = cartridge framework
  */
 
-import type { CodexConfig } from '@/types/codex';
+import type { CodexConfig, CodexTab } from '@/types/codex';
 import type { RuntimeTakeoverConfig } from '@/types/runtimeTakeover';
 // THE EIGHT RESEARCH WORKSPACE VIEWS + THEIR ROLE MATRIX, from the one place
 // they are defined (SPEC-IRL-WORKSPACE-001 §7/§8). A VALUE import, deliberately:
@@ -3562,6 +3562,115 @@ const ventureLabAdminTabsForMetameVl = () =>
       order: i,
     }));
 
+// The ONE canonical MoneyPenny domain submenu (navigation/viewport
+// correction, 2026-09-03, operator directive: "Reuse one canonical submenu
+// definition, selection state and capsule mapping across hosts. Do not
+// copy a second menu into metaMe or substitute an orchestration-only
+// panel."). Home/My Money/Plan/Markets/Activity/Admin, each dispatching
+// through MoneyPennyPanelTab (or MoneyPennyAdminTab) with the SAME
+// component/props/slug/order MONEYPENNY_CARTRIDGE has always used — spread
+// verbatim into BOTH MONEYPENNY_CARTRIDGE.tabs (below) and METAME_CODEX.tabs
+// (this file's other cartridge with a MoneyPenny surface), never
+// hand-retyped per host (inv.engineering.036/037, source-of-truth parity).
+//
+// Defined here, before METAME_CODEX, rather than derived from
+// MONEYPENNY_CARTRIDGE at METAME_CODEX-construction time (the
+// aiqOsTabsByGroup/knytOrderTabs/ventureLabTabsForMetameVl pattern just
+// above) — MONEYPENNY_CARTRIDGE is declared LATER in this file, and every
+// one of those existing mirror helpers requires its source cartridge to be
+// declared earlier, so referencing it from METAME_CODEX would hit the
+// `const` temporal dead zone. A shared base both cartridges spread from is
+// the same "one definition" property without reordering ~170 lines of an
+// unrelated cartridge.
+//
+// Neither host sets a per-tab `activationId` — `getEnabledTabs`
+// (app/hooks/useCodexConfig.ts) already inherits a tab's group's own
+// `activationId` when the tab doesn't set one, so each host's own
+// `tabGroups` entry for `id: 'moneypenny'` is the ONLY place gating
+// differs: METAME_CODEX's group carries `activationId: 'moneypenny'`
+// (metaMe requires an activation grant), MONEYPENNY_CARTRIDGE's group
+// carries none (visiting the standalone cartridge IS the entry). That is a
+// legitimate per-host difference in WHEN the group is reachable, never a
+// difference in what the submenu itself contains once reached.
+const MONEYPENNY_AREA_TABS: CodexTab[] = [
+  {
+    id: 'moneypenny-home',
+    label: 'Home',
+    slug: 'home',
+    enabled: true,
+    group: 'moneypenny',
+    order: 0,
+    type: 'static',
+    config: { component: 'MoneyPennyPanelTab', props: { area: 'home' } },
+    metadata: { icon: 'LayoutGrid', description: 'Where am I? What needs attention?', color: 'emerald' },
+  },
+  {
+    id: 'moneypenny-my-money',
+    label: 'My Money',
+    slug: 'my-money',
+    enabled: true,
+    group: 'moneypenny',
+    order: 1,
+    type: 'static',
+    config: { component: 'MoneyPennyPanelTab', props: { area: 'my-money' } },
+    metadata: { icon: 'Wallet', description: 'What do I have? What is committed? What can I use?', color: 'emerald' },
+  },
+  {
+    id: 'moneypenny-plan',
+    label: 'Plan',
+    slug: 'plan',
+    enabled: true,
+    group: 'moneypenny',
+    order: 2,
+    type: 'static',
+    config: { component: 'MoneyPennyPanelTab', props: { area: 'plan' } },
+    metadata: { icon: 'ShieldAlert', description: 'What am I trying to achieve? How do the assumptions change it?', color: 'emerald' },
+  },
+  {
+    id: 'moneypenny-markets',
+    label: 'Markets',
+    slug: 'markets',
+    enabled: true,
+    group: 'moneypenny',
+    order: 3,
+    type: 'static',
+    config: { component: 'MoneyPennyPanelTab', props: { area: 'markets' } },
+    metadata: { icon: 'TrendingUp', description: 'What am I considering? What are the costs and possible outcomes?', color: 'emerald' },
+  },
+  {
+    id: 'moneypenny-activity',
+    label: 'Activity',
+    slug: 'activity',
+    enabled: true,
+    group: 'moneypenny',
+    order: 4,
+    type: 'static',
+    config: { component: 'MoneyPennyPanelTab', props: { area: 'activity' } },
+    metadata: { icon: 'Activity', description: 'Who did what? What happened? What should change?', color: 'emerald' },
+  },
+  // Admin-gated, inside the 'moneypenny' group immediately after Activity
+  // (navigation/viewport correction, 2026-09-03) — NOT a standalone
+  // top-level tab, so it renders in the group's own tier-2 sub-header
+  // rather than beside the 'MoneyPenny' group chip. Still gated by the
+  // SAME `tabPassesAccessGates` predicate every tab goes through
+  // regardless of grouping, so `adminOnly: true` hides it from
+  // non-admins with no separate gate to maintain. See MoneyPennyAdminTab
+  // .tsx's own header for the audit confirming no pre-existing genuinely
+  // admin-only MoneyPenny capability exists to migrate here yet.
+  {
+    id: 'moneypenny-admin',
+    label: 'Admin',
+    slug: 'admin',
+    enabled: true,
+    adminOnly: true,
+    group: 'moneypenny',
+    order: 5,
+    type: 'static',
+    config: { component: 'MoneyPennyAdminTab', props: {} },
+    metadata: { icon: 'Settings', description: 'Administrator-only MoneyPenny configuration (placeholder — no functions exist yet)', color: 'slate' },
+  },
+];
+
 export const METAME_CODEX: CodexConfig = {
   id: 'metame-codex',
   name: 'metaMe',
@@ -3915,30 +4024,22 @@ export const METAME_CODEX: CodexConfig = {
       subTabs: ventureLabAdminTabsForMetameVl(),
     },
 
-    // ── MoneyPenny group (activation-gated) — mirrors the real MoneyPenny
-    // Orchestration console into metaMe via the SAME MoneyPennyPanelTab
-    // component + panel prop the standalone MONEYPENNY_CARTRIDGE's own
-    // 'moneypenny-service-orchestration' tab uses (see that cartridge's
-    // definition below) — never a bespoke FS-only card. Orchestration is
-    // deliberately the ONLY mirrored panel: it's the mode chooser, and
-    // Advisor/Architect/Runtime stay reachable only from there, never
-    // defaulted into directly from the catalogue.
-    {
-      id: 'metame-moneypenny-orchestration',
-      label: 'MoneyPenny',
-      slug: 'moneypenny-orchestration',
-      enabled: true,
-      activationId: 'moneypenny',
-      group: 'moneypenny',
-      order: 0,
-      type: 'static',
-      config: { component: 'MoneyPennyPanelTab', props: { panel: 'service-orchestration' } },
-      metadata: {
-        icon: 'TrendingUp',
-        description: 'Aigent MoneyPenny — Orchestration console (choose Advisor / Architect / Runtime)',
-        color: 'emerald',
-      },
-    },
+    // ── MoneyPenny group (activation-gated) — the SAME canonical
+    // Home/My Money/Plan/Markets/Activity/Admin submenu MONEYPENNY_AREA_TABS
+    // defines, spread verbatim (navigation/viewport correction, 2026-09-03,
+    // superseding the earlier single-tab Orchestration-only mirror below).
+    // The prior mirror pinned ONE fixed 'service-orchestration' panel with
+    // no group siblings, so this group's own tier-2 sub-header never had
+    // more than one tab to show — CodexPanelDynamic never rendered a real
+    // submenu here at all, exactly the "MoneyPenny tab currently shows the
+    // copilot/orchestration workspace without its domain submenu" defect
+    // the operator's correction names. Every one of these tabs already
+    // carries its own `group: 'moneypenny'`; this file's `tabGroups` entry
+    // for that id (below) is what additionally requires the `moneypenny`
+    // activation before the group is reachable at all here — see
+    // MONEYPENNY_AREA_TABS's own header for why that per-host gating
+    // difference is legitimate while the submenu contents are not.
+    ...MONEYPENNY_AREA_TABS,
 
     // ── Human Mobility group (payment-gated via activationId) ────────────────
     // Flat tabs, each a real registered component (the proven pattern — no
@@ -4928,80 +5029,10 @@ export const MONEYPENNY_CARTRIDGE: CodexConfig = {
   tabGroups: [
     { id: 'moneypenny', label: 'MoneyPenny', icon: 'TrendingUp', order: 0 },
   ],
-  tabs: [
-    {
-      id: 'moneypenny-home',
-      label: 'Home',
-      slug: 'home',
-      enabled: true,
-      group: 'moneypenny',
-      order: 0,
-      type: 'static',
-      config: { component: 'MoneyPennyPanelTab', props: { area: 'home' } },
-      metadata: { icon: 'LayoutGrid', description: 'Where am I? What needs attention?', color: 'emerald' },
-    },
-    {
-      id: 'moneypenny-my-money',
-      label: 'My Money',
-      slug: 'my-money',
-      enabled: true,
-      group: 'moneypenny',
-      order: 1,
-      type: 'static',
-      config: { component: 'MoneyPennyPanelTab', props: { area: 'my-money' } },
-      metadata: { icon: 'Wallet', description: 'What do I have? What is committed? What can I use?', color: 'emerald' },
-    },
-    {
-      id: 'moneypenny-plan',
-      label: 'Plan',
-      slug: 'plan',
-      enabled: true,
-      group: 'moneypenny',
-      order: 2,
-      type: 'static',
-      config: { component: 'MoneyPennyPanelTab', props: { area: 'plan' } },
-      metadata: { icon: 'ShieldAlert', description: 'What am I trying to achieve? How do the assumptions change it?', color: 'emerald' },
-    },
-    {
-      id: 'moneypenny-markets',
-      label: 'Markets',
-      slug: 'markets',
-      enabled: true,
-      group: 'moneypenny',
-      order: 3,
-      type: 'static',
-      config: { component: 'MoneyPennyPanelTab', props: { area: 'markets' } },
-      metadata: { icon: 'TrendingUp', description: 'What am I considering? What are the costs and possible outcomes?', color: 'emerald' },
-    },
-    {
-      id: 'moneypenny-activity',
-      label: 'Activity',
-      slug: 'activity',
-      enabled: true,
-      group: 'moneypenny',
-      order: 4,
-      type: 'static',
-      config: { component: 'MoneyPennyPanelTab', props: { area: 'activity' } },
-      metadata: { icon: 'Activity', description: 'Who did what? What happened? What should change?', color: 'emerald' },
-    },
-    // The one standalone, admin-gated tab — NOT part of the 'moneypenny'
-    // group (a sixth beginner area), a genuinely separate, permission-
-    // gated utility per the operator's own framing. See
-    // MoneyPennyAdminTab.tsx's own header for the audit confirming no
-    // pre-existing genuinely admin-only MoneyPenny capability exists to
-    // migrate here yet.
-    {
-      id: 'moneypenny-admin',
-      label: 'Admin',
-      slug: 'admin',
-      enabled: true,
-      adminOnly: true,
-      order: 5,
-      type: 'static',
-      config: { component: 'MoneyPennyAdminTab', props: {} },
-      metadata: { icon: 'Settings', description: 'Administrator-only MoneyPenny configuration (placeholder — no functions exist yet)', color: 'slate' },
-    },
-  ],
+  // The canonical submenu, unchanged from before this file's extraction —
+  // see MONEYPENNY_AREA_TABS's own header, above METAME_CODEX, for why it
+  // now also backs METAME_CODEX's own MoneyPenny group.
+  tabs: MONEYPENNY_AREA_TABS,
   permissions: {
     view: ['*'],
     edit: ['aigent-moneypenny', 'admin'],
@@ -6927,6 +6958,19 @@ export const LEGACY_TAB_SLUGS: Record<string, string> = {
   'ccrl-protocols': 'irl-protocols',
   'ccrl-invariant-field': 'irl-invariant-field',
   'ccrl-invariant-registry': 'irl-invariant-registry',
+  // metaMe's MoneyPenny mount lost its single fixed 'moneypenny-orchestration'
+  // tab (navigation/viewport correction, 2026-09-03) when METAME_CODEX's
+  // MoneyPenny group grew the real Home/My Money/Plan/Markets/Activity/Admin
+  // submenu (MONEYPENNY_AREA_TABS) in its place — see that const's own
+  // header. Every existing deep link that named the old orchestration-mirror
+  // slug (catalogueDestinationHelper.ts's 'horizen-moneypenny-admission'
+  // entry, stored bookmarks, etc.) resolves through THIS table before tab
+  // lookup, so aliasing it to 'home' — the new group's default landing
+  // tab — keeps every one of those links working without hand-patching each
+  // call site individually. A caller that needs a SPECIFIC area/panel keeps
+  // using that area's own real slug directly; this alias only covers the
+  // generic "land somewhere in MoneyPenny" case the retired tab represented.
+  'moneypenny-orchestration': 'home',
 };
 
 export function resolveLegacyTabSlug(tab: string): string {

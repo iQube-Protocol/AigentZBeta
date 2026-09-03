@@ -120,7 +120,11 @@ const JOURNEY_OPERATOR_DESTINATIONS: Record<string, RequestedOperatorDestination
   // (services/journey/horizenMoneyPennyJourney.ts).
   'horizen-moneypenny-admission': {
     catalogueItemRef: 'moneypenny',
-    tabRef: 'moneypenny-orchestration',
+    // 'home' (navigation/viewport correction, 2026-09-03) — see
+    // ACTIVATION_CATALOG's 'moneypenny' entry's own comment on why the old
+    // 'moneypenny-orchestration' tabSlug no longer exists; 'home' is the
+    // real, current default landing tab in METAME_CODEX's MoneyPenny group.
+    tabRef: 'home',
     serviceModes: ['advisor', 'architect', 'runtime'],
   },
 };

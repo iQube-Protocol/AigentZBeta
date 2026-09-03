@@ -142,21 +142,23 @@ function isMoneyPennyPanelKey(value: string | null): value is MoneyPennyPanelKey
 
 export interface MoneyPennyPanelTabProps {
   /**
-   * Explicit, fixed panel — set only by callers outside MoneyPenny's own
-   * five native area tabs, e.g. the `metame-codex` Orchestration mirror
-   * (`data/codex-configs.ts`'s `metame-moneypenny-orchestration` tab).
-   * Mutually exclusive with `area` in practice: a caller that pins an
-   * explicit panel has no area-switching concept at all, so none of this
-   * file's area-resolution/self-heal logic runs for it.
+   * Explicit, fixed panel — for a caller that wants ONE specific panel with
+   * no area-switching concept at all (none of this file's area-resolution/
+   * self-heal logic runs for it). Not used by either registered host today
+   * (navigation/viewport correction, 2026-09-03): `metame-codex`'s MoneyPenny
+   * group now shares MONEYPENNY_AREA_TABS with the standalone cartridge, so
+   * every registered mount passes `area` instead — kept as a still-valid
+   * escape hatch for a future non-area caller, mutually exclusive with
+   * `area` in practice.
    */
   panel?: MoneyPennyPanelKey;
   /**
    * Which of the five native MoneyPenny area tabs this mount represents
-   * (`data/codex-configs.ts`'s `MONEYPENNY_CARTRIDGE.tabs`, group
-   * 'moneypenny') — omitted only by the `metame-codex` mirror above.
-   * Determines this mount's default landing panel
-   * (`defaultPanelForArea`) and scopes `navigate()`'s same-area/cross-area
-   * decision (see moneyPennyNavigation.tsx's own header).
+   * (`data/codex-configs.ts`'s `MONEYPENNY_AREA_TABS`, shared verbatim by
+   * `MONEYPENNY_CARTRIDGE` and `METAME_CODEX`'s own MoneyPenny group).
+   * Determines this mount's default landing panel (`defaultPanelForArea`)
+   * and scopes `navigate()`'s same-area/cross-area decision (see
+   * moneyPennyNavigation.tsx's own header).
    */
   area?: MoneyPennyAreaId;
 }

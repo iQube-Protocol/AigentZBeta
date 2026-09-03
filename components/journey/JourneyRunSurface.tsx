@@ -1434,7 +1434,25 @@ export function JourneyRunSurface({
       </div>
 
       <div className="flex flex-1 flex-col gap-3 overflow-y-auto rounded-lg border border-slate-800 bg-slate-900/40 p-4">
-        <div className="flex flex-col gap-2">
+        {/*
+          min-h-0 + flex-1 here (2026-09-03, MoneyPenny embedded-viewport
+          collapse fix) — this div previously had no height of its own
+          (`flex flex-col`, height:auto), so a `kind: 'component'` surface
+          that renders `h-full` internally (e.g. FinancialSovereigntyOperateStage's
+          embedOpen branch, which sizes its MoneyPennyBridgeEmbed iframe via
+          `h-full` → `flex-1`) had no definite containing-block height to
+          resolve 100% against and collapsed to intrinsic/replaced-element
+          size — exactly the "short horizontal band" symptom. The parent
+          above already establishes a definite, scrollable height
+          (`flex-1 overflow-y-auto` inside the root's `h-full`); this div
+          must now actually take that height rather than shrink to content,
+          so a descendant's `h-full` has something real to resolve against.
+          `min-h-0` is required alongside `flex-1` so this box can still
+          shrink below its content's intrinsic size instead of forcing the
+          scrollable parent to grow — the standard flex-column scroll-child
+          pattern.
+        */}
+        <div className="flex min-h-0 flex-1 flex-col gap-2">
           {(() => {
             // Foreground override (FS Operate viewport parity, 2026-08-25):
             // a stage-scoped ref substitution rendered through this SAME
@@ -1585,7 +1603,22 @@ export function JourneyRunSurface({
                  * and renders the first's content. Identity must come from
                  * what is being rendered, never from where it sits in a list.
                  */
-                <div key={`${activeStage.id}:${surfaceRef.ref}`}>
+                <div
+                  key={`${activeStage.id}:${surfaceRef.ref}`}
+                  /*
+                   * flex-1 min-h-0 flex flex-col ONLY when this is the
+                   * stage's sole surface (same 2026-09-03 viewport-collapse
+                   * fix as the outer wrapper above) — a `Component` that
+                   * fills with `h-full` (e.g. FinancialSovereigntyOperateStage's
+                   * embedOpen branch) needs this box to actually claim the
+                   * available height rather than shrink to content. Gated
+                   * on surfacesToRender.length so a stage stacking several
+                   * component surfaces keeps its existing natural,
+                   * content-sized stacking — this must never force an even
+                   * split across unrelated stacked surfaces.
+                   */
+                  className={surfacesToRender.length === 1 ? 'flex min-h-0 flex-1 flex-col' : undefined}
+                >
                   <Component personaId={personaId} {...extraProps} {...(surfaceRef.props ?? {})} />
                 </div>
               );

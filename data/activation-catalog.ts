@@ -444,7 +444,14 @@ export const ACTIVATION_CATALOG: ActivationCatalogEntry[] = [
     longDescription:
       'Activate Aigent MoneyPenny\'s Orchestration console inside metaMe — the oversight surface for choosing between Advisor (informational guidance), Architect (proposal-class financial structuring, PRD-MPY-001), and Runtime (the constitutional, consequential Financial Services execution pipeline). Orchestration is always the entry point; the three modes are selected from there.',
     gate: 'open',
-    tabSlug: 'moneypenny-orchestration',
+    // 'home' (navigation/viewport correction, 2026-09-03) — METAME_CODEX's
+    // MoneyPenny group no longer has a single fixed 'moneypenny-orchestration'
+    // tab; it now carries the real Home/My Money/Plan/Markets/Activity/Admin
+    // submenu (MONEYPENNY_AREA_TABS, data/codex-configs.ts), and 'home' is
+    // that group's own default landing tab. The retired slug still resolves
+    // via LEGACY_TAB_SLUGS for any link stored before this change, but new
+    // navigation should target the real tab directly.
+    tabSlug: 'home',
     sourceCartridge: 'metame',
     icon: 'TrendingUp',
     color: 'emerald',

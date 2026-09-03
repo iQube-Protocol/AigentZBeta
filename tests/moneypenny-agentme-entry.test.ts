@@ -52,11 +52,12 @@ describe('MoneyPenny is already the established specialist — verified, not inv
     expect(src).toMatch(/moneypenny: null,/); // no activation gate — always-available
   });
 
-  it('the real metame-codex mirror tab is already registered, reusing MoneyPennyPanelTab — not a bespoke card', () => {
+  it('metame-codex\'s MoneyPenny Home tab is already registered, reusing MoneyPennyPanelTab — not a bespoke card (navigation/viewport correction, 2026-09-03, supersedes the retired single-tab moneypenny-orchestration mirror)', () => {
     const src = stripComments(readSource('data/codex-configs.ts'));
-    expect(src).toMatch(/id: 'metame-moneypenny-orchestration',/);
-    expect(src).toMatch(/slug: 'moneypenny-orchestration',/);
-    expect(src).toMatch(/config: \{ component: 'MoneyPennyPanelTab', props: \{ panel: 'service-orchestration' \} \},/);
+    expect(src).toMatch(/id: 'moneypenny-home',/);
+    expect(src).toMatch(/slug: 'home',/);
+    expect(src).toMatch(/config: \{ component: 'MoneyPennyPanelTab', props: \{ area: 'home' \} \},/);
+    expect(src).toContain('...MONEYPENNY_AREA_TABS,');
   });
 });
 
@@ -67,9 +68,9 @@ describe('SpecialistsLayout — Open MoneyPenny workspace button, added this pas
     expect(src).toMatch(/entry\.id === "moneypenny" && availability\.status !== "needs-activation"/);
   });
 
-  it('navigates via tryOpenInMountedCartridge to the REAL registered destination — metame-codex / moneypenny-orchestration', () => {
+  it('navigates via tryOpenInMountedCartridge to the REAL registered destination — metame-codex / home (navigation/viewport correction, 2026-09-03)', () => {
     expect(src).toMatch(/const METAME_CODEX_ID = "metame-codex";/);
-    expect(src).toMatch(/const MONEYPENNY_ORCHESTRATION_TAB_SLUG = "moneypenny-orchestration";/);
+    expect(src).toMatch(/const MONEYPENNY_ORCHESTRATION_TAB_SLUG = "home";/);
     expect(src).toMatch(/tryOpenInMountedCartridge\(\{ cartridgeId: METAME_CODEX_ID, tab: MONEYPENNY_ORCHESTRATION_TAB_SLUG \}\)/);
   });
 

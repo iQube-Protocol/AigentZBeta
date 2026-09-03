@@ -547,7 +547,14 @@ function RosterChip({
  * capsule, never repurposed for navigation.
  */
 const METAME_CODEX_ID = "metame-codex";
-const MONEYPENNY_ORCHESTRATION_TAB_SLUG = "moneypenny-orchestration";
+// 'home' (navigation/viewport correction, 2026-09-03) — metame-codex's
+// MoneyPenny group no longer has a single fixed 'moneypenny-orchestration'
+// tab; 'home' is its real default landing tab (MONEYPENNY_AREA_TABS,
+// data/codex-configs.ts). `tryOpenInMountedCartridge` calls the mounted
+// CodexPanelDynamic's setTab directly — it does NOT run the retired slug
+// through LEGACY_TAB_SLUGS the way a URL-driven `?tab=` navigation does, so
+// this constant must name a real, current tab slug.
+const MONEYPENNY_ORCHESTRATION_TAB_SLUG = "home";
 
 function openMoneyPennyFromAgentMe(): void {
   tryOpenInMountedCartridge({ cartridgeId: METAME_CODEX_ID, tab: MONEYPENNY_ORCHESTRATION_TAB_SLUG });

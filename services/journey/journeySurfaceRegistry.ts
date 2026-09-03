@@ -383,7 +383,14 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
   'moneypenny-orchestration-focused': {
     kind: 'embed',
     codexSlug: 'metame-codex',
-    tab: 'moneypenny-orchestration',
+    // 'home' (navigation/viewport correction, 2026-09-03) — metame-codex's
+    // MoneyPenny group no longer has a single fixed 'moneypenny-orchestration'
+    // tab; it now carries the real Home/My Money/Plan/Markets/Activity/Admin
+    // submenu (MONEYPENNY_AREA_TABS, data/codex-configs.ts), and 'home' is
+    // its own default landing tab. The retired slug still resolves via
+    // LEGACY_TAB_SLUGS for any stored link, but this registry entry (the
+    // primary source) targets the real tab directly.
+    tab: 'home',
     // The Journey Runtime copilot (mounted once by JourneyCopilotHost) is the
     // one persistent MoneyPenny copilot on screen — the embedded tab must not
     // mount a second one (MS-1), same rule as aigentme-welcome above.
@@ -400,51 +407,58 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
     // host suppresses itself instead (see `suppressHostCopilot`'s own doc
     // comment on the type above).
     suppressHostCopilot: true,
-    // FS Operate viewport parity (2026-08-25) — MoneyPenny Orchestration is
-    // self-contained (Advisor/Architect/Runtime modes are the tab's OWN
-    // internal navigation, mounted unconditionally by TabRenderer regardless
-    // of primary-chrome suppression), so depth 0 matches the KNYT Pulse/
-    // Quests precedent: content only, no cartridge/domain nav needed for the
-    // destination to remain functional.
+    // focusedNavDepth: 1 (navigation/viewport correction, 2026-09-03,
+    // supersedes the 2026-08-25 depth-0 pinning below). Depth 0 hides BOTH
+    // metaMe's top-level nav AND the MoneyPenny group's own tier-2
+    // sub-header — harmless when the group had exactly one tab (there was
+    // no sub-header to show either way), but now that the group carries the
+    // real Home/My Money/Plan/Markets/Activity/Admin submenu
+    // (MONEYPENNY_AREA_TABS), depth 0 would hide that submenu along with
+    // metaMe's own chrome. Depth 1 hides only the outer metaMe nav while
+    // keeping the submenu navigable — the SAME depth
+    // `MoneyPennyBridgeEmbed.tsx` already uses for the standalone
+    // moneypenny-codex cartridge, so CI/Knightsbridge/Horizen now share one
+    // focused/expanded contract (Operate principle §1) rather than each
+    // picking its own depth.
     focused: true,
-    focusedNavDepth: 0,
+    focusedNavDepth: 1,
     openLabel: 'Explore metaMe ↗',
-    breadcrumb: 'Financial Services — Operate → MoneyPenny Orchestration',
-    // Explore-metaMe expand parity (operator decision, 2026-08-26 —
-    // supersedes the 2026-08-24 "Orchestration is deliberately the ONLY
-    // mirrored panel" pinning for THIS path specifically). Clicking
-    // `openLabel` above no longer just lifts metame-codex's own chrome off
-    // the mirror tab; it swaps the destination to MoneyPenny's real
-    // cartridge (`data/codex-configs.ts`'s `MONEYPENNY_CARTRIDGE`, id
-    // 'moneypenny-codex') so the operator reaches the full Operate(HFT)/
-    // Connect/Service/Administer nav — landing on the same Orchestration
-    // panel (`service-orchestration`) rather than the cartridge's natural
-    // first tab. metame-codex's OWN 'metame-moneypenny-orchestration' tab
-    // entry stays pinned exactly as it was for every other path into it —
-    // this only changes what THIS descriptor's expand affordance targets.
-    // Parity with MONEYPENNY_CARTRIDGE kept by a canary in
-    // tests/fs-operate-embed-viewport-parity.test.ts.
-    expandedCodexSlug: 'moneypenny-codex',
-    expandedTab: 'service-orchestration',
+    breadcrumb: 'Financial Services — Operate → MoneyPenny',
+    // Expanded Operate correction (2026-09-03, operator directive: "Reveal
+    // the metaMe runtime shell inside the existing bridge frame. Select
+    // MoneyPenny in metaMe's primary navigation... Do not expand into the
+    // standalone Aigent MoneyPenny shell") — REVERSES the 2026-08-26
+    // decision below to swap the expand destination to the standalone
+    // `moneypenny-codex` cartridge. That swap was itself a correction for a
+    // real defect (expanding used to just lift metame-codex's own chrome
+    // off a lone, submenu-less mirror tab, revealing nothing useful) — but
+    // its fix over-corrected past metaMe entirely. Now that metame-codex's
+    // MoneyPenny group carries the real submenu (MONEYPENNY_AREA_TABS), the
+    // ORIGINAL problem (expand reveals nothing) no longer exists: lifting
+    // metame-codex's own chrome via `focused: undefined` (JourneyRunSurface's
+    // toggle, buildEmbedSurfaceSrc's `isExpandedProjection` check) now shows
+    // metaMe's real top-level nav with MoneyPenny selected AND its submenu
+    // beneath — exactly the "reveal the metaMe runtime shell" contract. No
+    // `expandedCodexSlug`/`expandedTab` needed: omitting both is what makes
+    // `isExpandedProjection` false, falling back to this descriptor's own
+    // `codexSlug`/`tab` (metame-codex/home) in both focused and expanded
+    // states, differing only in which chrome tiers are suppressed.
     note:
-      'FS Operate viewport + Focus/Full parity correction (2026-08-25) — the SAME MoneyPenny ' +
-      'Orchestration tab (metame-codex/moneypenny-orchestration) `resolveJourneyOperatorDestination` ' +
-      'already resolves for Horizen\'s Operate stage, now composed through the canonical `kind: ' +
-      "'embed'` + `focused: true` presentation primitive (the same one KNYT Pulse/Quests/Store and " +
-      'CI/KNYTS myCanvas already use) instead of a raw, unsized iframe built by hand in ' +
-      'FinancialServicesBridgeFrontDoor. Fixes the Amplify-visible defect where the hand-built iframe ' +
-      "collapsed to its intrinsic browser height (no resolved h-full/flex-1 ancestor) and carried no " +
-      "Focus/Full toggle. Supersedes the earlier FS-specific decision to always embed MoneyPenny with " +
-      'full navigation chrome — the default is now focused (cartridge primary chrome suppressed), with ' +
-      "`openLabel`'s \"Explore metaMe ↗\" the explicit, reversible transition into full canonical " +
-      "metaMe navigation, exactly like every other focused Bridge embed. `resolveJourneyOperatorDestination` " +
-      'still owns WHETHER this is the correct Operate destination for the current threshold state — ' +
-      'this entry only owns HOW that destination is presented once chosen. codexSlug/tab intentionally ' +
-      "mirror ACTIVATION_CATALOG's 'moneypenny' entry (cartridgeRef/tabSlug) — kept in parity by a " +
-      'canary in tests/fs-operate-embed-viewport-parity.test.ts rather than derived at runtime, matching ' +
-      "every other static registry entry's convention. 2026-08-26: expandedCodexSlug/expandedTab now " +
-      'point the Explore-metaMe EXPANDED state at the real moneypenny-codex cartridge instead — see ' +
-      "those fields' own doc comments above.",
+      'FS Operate viewport + Focus/Full parity correction (2026-08-25, revised 2026-09-03) — the ' +
+      'SAME MoneyPenny tab (metame-codex/home, formerly metame-codex/moneypenny-orchestration) ' +
+      '`resolveJourneyOperatorDestination` already resolves for Horizen\'s Operate stage, composed ' +
+      "through the canonical `kind: 'embed'` + `focused: true` presentation primitive (the same one " +
+      'KNYT Pulse/Quests/Store and CI/KNYTS myCanvas already use) instead of a raw, unsized iframe ' +
+      'built by hand in FinancialServicesBridgeFrontDoor. Fixes the Amplify-visible defect where the ' +
+      "hand-built iframe collapsed to its intrinsic browser height (no resolved h-full/flex-1 " +
+      "ancestor) and carried no Focus/Full toggle. `resolveJourneyOperatorDestination` still owns " +
+      'WHETHER this is the correct Operate destination for the current threshold state — this entry ' +
+      'only owns HOW that destination is presented once chosen. codexSlug/tab intentionally mirror ' +
+      "ACTIVATION_CATALOG's 'moneypenny' entry (cartridgeRef/tabSlug) — kept in parity by a canary in " +
+      'tests/fs-operate-embed-viewport-parity.test.ts rather than derived at runtime, matching every ' +
+      "other static registry entry's convention. Expand now stays inside metame-codex — see this " +
+      "entry's own comments above for why the earlier expandedCodexSlug/expandedTab swap to the " +
+      'standalone moneypenny-codex cartridge was reversed.',
   },
   'founder-office': {
     kind: 'embed',

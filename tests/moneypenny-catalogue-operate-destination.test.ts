@@ -50,7 +50,10 @@ describe('ACTIVATION_CATALOG — moneypenny entry', () => {
     const matches = ACTIVATION_CATALOG.filter((e) => e.id === 'moneypenny');
     expect(matches).toHaveLength(1);
     expect(matches[0].gate).toBe('open');
-    expect(matches[0].tabSlug).toBe('moneypenny-orchestration');
+    // 'home' (navigation/viewport correction, 2026-09-03) — supersedes the
+    // retired single-tab 'moneypenny-orchestration' mirror; see
+    // MONEYPENNY_AREA_TABS's own header in data/codex-configs.ts.
+    expect(matches[0].tabSlug).toBe('home');
   });
 
   it('no other entry already covers MoneyPenny under a different id', () => {
@@ -61,7 +64,7 @@ describe('ACTIVATION_CATALOG — moneypenny entry', () => {
   });
 
   it('getActivationEntry resolves it', () => {
-    expect(getActivationEntry('moneypenny')?.tabSlug).toBe('moneypenny-orchestration');
+    expect(getActivationEntry('moneypenny')?.tabSlug).toBe('home');
   });
 });
 
@@ -71,17 +74,40 @@ describe('metame-codex — MoneyPenny tab wiring', () => {
     expect(group).toBeTruthy();
   });
 
-  it('mirrors the real MoneyPennyPanelTab / service-orchestration panel — never a bespoke component', () => {
-    const tab = METAME_CODEX.tabs.find((t) => t.slug === 'moneypenny-orchestration');
-    expect(tab).toBeTruthy();
-    expect(tab?.activationId).toBe('moneypenny');
-    expect(tab?.config.component).toBe('MoneyPennyPanelTab');
-    expect((tab?.config.props as { panel?: string } | undefined)?.panel).toBe('service-orchestration');
+  // Navigation/viewport correction (2026-09-03) — supersedes the retired
+  // single fixed 'moneypenny-orchestration' mirror ('mirrors the real
+  // MoneyPennyPanelTab / service-orchestration panel' above): metame-codex's
+  // MoneyPenny group now carries the SAME real Home/My Money/Plan/Markets/
+  // Activity/Admin submenu the standalone cartridge does (MONEYPENNY_AREA_TABS,
+  // data/codex-configs.ts) — this is the fix for "the MoneyPenny tab shows the
+  // copilot/orchestration workspace without its domain submenu."
+  it('mirrors the real MoneyPennyPanelTab component for all six grouped tabs — never a bespoke component', () => {
+    const groupTabs = METAME_CODEX.tabs.filter((t) => t.group === 'moneypenny');
+    expect(groupTabs).toHaveLength(6);
+    for (const tab of groupTabs) {
+      expect(['MoneyPennyPanelTab', 'MoneyPennyAdminTab']).toContain(tab.config.component);
+    }
+  });
+
+  it('has a real Home tab as the default landing destination, with a distinct props.area per tab', () => {
+    const home = METAME_CODEX.tabs.find((t) => t.slug === 'home' && t.group === 'moneypenny');
+    expect(home).toBeTruthy();
+    expect(home?.config.component).toBe('MoneyPennyPanelTab');
+    expect((home?.config.props as { area?: string } | undefined)?.area).toBe('home');
+  });
+
+  it('the Admin tab is grouped immediately after Activity and adminOnly — never a bespoke component either', () => {
+    const admin = METAME_CODEX.tabs.find((t) => t.slug === 'admin' && t.group === 'moneypenny');
+    const activity = METAME_CODEX.tabs.find((t) => t.slug === 'activity' && t.group === 'moneypenny');
+    expect(admin).toBeTruthy();
+    expect(admin?.adminOnly).toBe(true);
+    expect(admin!.order).toBeGreaterThan(activity!.order);
+    expect(admin?.config.component).toBe('MoneyPennyAdminTab');
   });
 
   it('does not default straight into Advisor, Architect, or Runtime', () => {
-    const tab = METAME_CODEX.tabs.find((t) => t.slug === 'moneypenny-orchestration');
-    const panel = (tab?.config.props as { panel?: string } | undefined)?.panel;
+    const home = METAME_CODEX.tabs.find((t) => t.slug === 'home' && t.group === 'moneypenny');
+    const panel = (home?.config.props as { panel?: string } | undefined)?.panel;
     expect(panel).not.toBe('advisor');
     expect(panel).not.toBe('architect');
     expect(panel).not.toBe('runtime');
@@ -89,15 +115,15 @@ describe('metame-codex — MoneyPenny tab wiring', () => {
 });
 
 describe('catalogueDestinationHelper — generic resolveOperatorDestination', () => {
-  it('resolves MoneyPenny Orchestration to a real, routable destination', () => {
-    const result = resolveOperatorDestination({ catalogueItemRef: 'moneypenny', tabRef: 'moneypenny-orchestration' });
+  it('resolves MoneyPenny Home to a real, routable destination', () => {
+    const result = resolveOperatorDestination({ catalogueItemRef: 'moneypenny', tabRef: 'home' });
     expect(result.valid).toBe(true);
     if (!result.valid) return;
     expect(result.destination.catalogueItemId).toBe('moneypenny');
     expect(result.destination.cartridgeRef).toBe(METAME_CODEX.id);
-    expect(result.destination.tabSlug).toBe('moneypenny-orchestration');
+    expect(result.destination.tabSlug).toBe('home');
     expect(result.destination.activationIntent).toBe('self-activate');
-    expect(result.destination.route).toContain('tab=moneypenny-orchestration');
+    expect(result.destination.route).toContain('tab=home');
   });
 
   it('resolves a pre-existing, unrelated catalogue item (mycanvas — the KNYTS/CI precedent) proving this generalizes', () => {
@@ -156,7 +182,7 @@ describe('catalogueDestinationHelper — resolveJourneyOperatorDestination (thre
     expect(result.thresholdState).toBe('POST_PASSPORT');
     expect(result.activationMode).toBe('CATALOGUE_ACTIVATION');
     expect(result.operatorDestination.catalogueItemId).toBe('moneypenny');
-    expect(result.operatorDestination.tabSlug).toBe('moneypenny-orchestration');
+    expect(result.operatorDestination.tabSlug).toBe('home');
     expect(result.operatorDestination.serviceModes).toEqual(['advisor', 'architect', 'runtime']);
   });
 
@@ -186,7 +212,7 @@ describe('resolveOperateDestination — AEE back-compat shape', () => {
   it('returns the plain declared destination for Horizen', () => {
     expect(resolveOperateDestination(HORIZEN_MONEYPENNY_JOURNEY.id)).toEqual({
       catalogueItemId: 'moneypenny',
-      defaultTab: 'moneypenny-orchestration',
+      defaultTab: 'home',
       availableModes: ['advisor', 'architect', 'runtime'],
     });
   });
@@ -216,7 +242,7 @@ describe('Horizen aigentme stage — completion path NOT regressed', () => {
 
 describe('metaMe activation vs aigentMe activation — kept separate (operator direction, 2026-08-24)', () => {
   it('the resolved MoneyPenny route does not suppress metaMe navigation chrome (0/1/2/Full stays available)', () => {
-    const result = resolveOperatorDestination({ catalogueItemRef: 'moneypenny', tabRef: 'moneypenny-orchestration' });
+    const result = resolveOperatorDestination({ catalogueItemRef: 'moneypenny', tabRef: 'home' });
     expect(result.valid).toBe(true);
     if (!result.valid) return;
     // No ?chrome=focused / ?depth= — an operator inside this embed sees
