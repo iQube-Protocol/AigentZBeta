@@ -15,6 +15,8 @@ import type {
 import { getCoverImageUrl } from "./mediaVariants";
 import { SmartContentListenButton } from "@/components/shared/SmartContentListenButton";
 import { buildSpeechScript } from "@/services/smartcontent/readableTextForSpeech";
+import { getReadingEditions, resolveReadingEdition, readingAudioId } from "@/services/smartcontent/readingEditions";
+import { useOptionalSmartContentAudio } from "@/services/smartcontent/smartContentAudioController";
 
 interface ContentViewerProps {
   content: SmartContentQube;
@@ -78,10 +80,14 @@ function TextReader({
   onFontSizeChange,
 }: TextReaderProps) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const [failedCover, setFailedCover] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const isPreview = !hasAccess && accessScope !== "full";
   const preview = useMemo(() => getPreviewText(text, previewParagraphs), [text, previewParagraphs]);
-  const markdownSource = isPreview ? preview.text : text;
+  const body = isPreview ? preview.text : text;
+  // The reader header already displays the title; leave stored manuscripts intact.
+  const firstLine = body.split('\n')[0];
+  const markdownSource = firstLine === `# ${title}` ? body.slice(firstLine.length).trimStart() : body;
   const truncated = isPreview && preview.total > previewParagraphs;
 
   const styleGuide = theme === "qriptopian" ? theQriptopianStyleGuide : null;
@@ -160,19 +166,20 @@ function TextReader({
           setProgress(next);
         }}
       >
-        <div className="mx-auto" style={{ maxWidth: "42rem", padding: "3rem 2rem" }}>
-        {coverImageUri && (
+        <div className="mx-auto" style={{ maxWidth: "42rem", padding: "clamp(1rem, 4vw, 3rem) clamp(1rem, 3vw, 2rem)" }}>
+          {coverImageUri && failedCover !== coverImageUri && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={coverImageUri}
-            alt={title}
+              alt={title}
+              onError={() => setFailedCover(coverImageUri)}
             className={`mb-6 w-full rounded-xl border ${themeClasses.border} object-cover`}
           />
         )}
         <h1
           className="font-semibold tracking-tight"
           style={{
-            fontSize: typography?.fontSize?.h1 || "2.5rem",
+            fontSize: "clamp(1.75rem, 5vw, 2.5rem)",
             lineHeight: typography?.lineHeight?.heading || 1.2,
             color: themeClasses.primary,
             fontFamily: typography?.fontFamily?.heading || themeClasses.fontFamily,
@@ -624,6 +631,9 @@ export default function ContentViewer({
   const [startTime] = useState(Date.now());
   const [textAssetBody, setTextAssetBody] = useState<string | null>(null);
   const [fontSize, setFontSize] = useState(18);
+  const [editionSelection, setEditionSelection] = useState<{ contentId: string; id: string } | null>(null);
+  const audio = useOptionalSmartContentAudio();
+  useEffect(() => setEditionSelection(null), [content.id]);
 
   useEffect(() => {
     setActiveModality(resolveModality(initialModality));
@@ -646,11 +656,22 @@ export default function ContentViewer({
   const previewPanels = content.pricingModel?.freePreview?.panels || 2;
   const previewParagraphs = content.pricingModel?.freePreview?.paragraphs || 3;
   const readModality: any = content.modalities?.read || {};
-  const readTextInline = typeof readModality?.text === "string" ? readModality.text : "";
+  const editions = getReadingEditions(readModality);
+  const selectedEdition = resolveReadingEdition(readModality, editionSelection?.contentId === content.id ? editionSelection.id : undefined);
+  const readTextInline = selectedEdition?.text || (typeof readModality?.text === "string" ? readModality.text : "");
   const readTextAsset = readModality?.textAssets?.[0];
   const resolvedReadText = readTextInline || textAssetBody || "";
   const isTextLoading = !readTextInline && !!readTextAsset?.storageUri && textAssetBody === null;
   const isQriptopian = String(content.app || "").toLowerCase().includes("qripto");
+  const listenId = readingAudioId(content.id, selectedEdition);
+  // Match TextReader's existing full/preview entitlement semantics.
+  const fullTextAccess = hasAccess || accessScope === "full";
+  const listenText = fullTextAccess ? resolvedReadText : getPreviewText(resolvedReadText, previewParagraphs).text;
+
+  const selectEdition = (id: string) => {
+    if (audio?.isActive(listenId)) audio.stop();
+    setEditionSelection({ contentId: content.id, id });
+  };
 
   const handleFontSizeChange = useCallback((delta: number) => {
     setFontSize(prev => Math.min(24, Math.max(14, prev + delta)));
@@ -704,9 +725,9 @@ export default function ContentViewer({
             <SmartContentListenButton
               compact
               item={{
-                id: content.id,
-                title: content.title,
-                getText: () => buildSpeechScript(content.title, resolvedReadText),
+                id: listenId,
+                title: selectedEdition ? `${content.title} — ${selectedEdition.label}` : content.title,
+                getText: () => buildSpeechScript(content.title, listenText),
               }}
             />
           )}
@@ -720,6 +741,27 @@ export default function ContentViewer({
           )}
         </div>
       </header>
+
+      {editions.length > 1 && (
+        <div className="shrink-0 border-b border-white/10 px-4 py-3">
+          <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Reading edition">
+            {editions.map(edition => (
+              <button type="button" key={edition.id} aria-pressed={selectedEdition?.id === edition.id}
+                onClick={() => selectEdition(edition.id)}
+                className={`rounded-lg border px-3 py-2 text-xs ${selectedEdition?.id === edition.id ? 'border-fuchsia-400/50 bg-fuchsia-500/15 text-fuchsia-200' : 'border-white/10 text-slate-300 hover:bg-white/10'}`}>
+                {edition.label}
+              </button>
+            ))}
+            {fullTextAccess && selectedEdition?.pdf_url && (
+              <a href={selectedEdition.pdf_url} target="_blank" rel="noopener noreferrer"
+                className="px-2 py-2 text-xs text-fuchsia-300 underline">
+                Open {selectedEdition.label} PDF
+              </a>
+            )}
+          </div>
+          <p className="mt-2 text-xs text-slate-400" aria-live="polite">{selectedEdition?.description}</p>
+        </div>
+      )}
 
       {/* Modality Tabs */}
       {availableModalities.length > 1 && (
@@ -749,6 +791,7 @@ export default function ContentViewer({
             </div>
           ) : resolvedReadText ? (
             <TextReader
+              key={`${content.id}:${selectedEdition?.id || 'canonical'}`}
               title={content.title}
               description={content.description}
               coverImageUri={getCoverImageUrl(content)}

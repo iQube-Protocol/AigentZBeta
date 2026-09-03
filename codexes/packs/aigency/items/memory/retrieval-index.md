@@ -4994,3 +4994,258 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-9b0e073.md](../build_/COMMITS/COMMIT-9b0e073.md)
 - Message: Add MoneyPenny002 real-source donor audit (MPY2-0b)
+
+## Commit `98c0e12` — 2026-09-02T06:07:58Z
+- Type: `push`
+- Brief: [COMMIT-98c0e12.md](../build_/COMMITS/COMMIT-98c0e12.md)
+- Message: Financial-profile write paths never crash on a missing table [merge spec/moneypenny-mpy2-3]
+
+## Commit `c5ea8b5` — 2026-09-02T06:07:41Z
+- Type: `push`
+- Brief: [COMMIT-c5ea8b5.md](../build_/COMMITS/COMMIT-c5ea8b5.md)
+- Message: A2 completion: infographic slot + integrated asset selection/upload
+
+## Commit `7be87d2` — 2026-09-02T06:02:24Z
+- Type: `push`
+- Brief: [COMMIT-7be87d2.md](../build_/COMMITS/COMMIT-7be87d2.md)
+- Message: Close storage/sign + assets-by-category authorization gaps
+
+## Commit `b791188` — 2026-09-02T06:01:57Z
+- Type: `fix`
+- Brief: [COMMIT-b791188.md](../build_/COMMITS/COMMIT-b791188.md)
+- Message: Correct fs-operate label to bare Operate; open MoneyPenny in the same frame
+
+## Commit `8cc4fce` — 2026-09-02T12:38:27Z
+- Type: `push`
+- Brief: [COMMIT-8cc4fce.md](../build_/COMMITS/COMMIT-8cc4fce.md)
+- Message: C1: MoneyPenny copilot-left/chips-right shell [merge spec/moneypenny-mpy2-3]
+
+## Commit `9b7f469` — 2026-09-02T12:38:11Z
+- Type: `push`
+- Brief: [COMMIT-9b7f469.md](../build_/COMMITS/COMMIT-9b7f469.md)
+- Message: A2 completion: infographic publishes AND renders through the real bridge reader
+
+## Commit `5d4ce61` — 2026-09-02T12:37:58Z
+- Type: `push`
+- Brief: [COMMIT-5d4ce61.md](../build_/COMMITS/COMMIT-5d4ce61.md)
+- Message: Decouple public-exposure from series='bridge' — require an explicit signal
+
+## Commit `1629ea2` — 2026-09-02T12:37:43Z
+- Type: `push`
+- Brief: [COMMIT-1629ea2.md](../build_/COMMITS/COMMIT-1629ea2.md)
+- Message: Import three MoneyPenny donor repos' real docs into docs/specs/moneypenny/
+
+## Commit `d158cda` — 2026-09-02T12:59:23Z
+- Type: `feat`
+- Brief: [COMMIT-d158cda.md](../build_/COMMITS/COMMIT-d158cda.md)
+- Message: Add acceptance tests for IRL OS experiment membership resolver [merge feature/irl-experiment-membership-workspace]
+
+## Commit `0e171da` — 2026-09-02T12:59:22Z
+- Type: `push`
+- Brief: [COMMIT-0e171da.md](../build_/COMMITS/COMMIT-0e171da.md)
+- Message: Honor public workspace visibility and label My Experiments in IRL OS Workspace
+
+## Commit `3c1551d` — 2026-09-02T12:59:22Z
+- Type: `feat`
+- Brief: [COMMIT-3c1551d.md](../build_/COMMITS/COMMIT-3c1551d.md)
+- Message: Add canonical participant research-workspace access resolver
+
+## Commit `fea3a52` — 2026-09-02T13:14:48Z
+- Type: `feat`
+- Brief: [COMMIT-fea3a52.md](../build_/COMMITS/COMMIT-fea3a52.md)
+- Message: Wire MoneyPenny copilot-to-capsule loop + corrected AC crosswalk [merge spec/moneypenny-mpy2-3]
+
+## Commit `0790e69` — 2026-09-02T13:14:31Z
+- Type: `feat`
+- Brief: [COMMIT-0790e69.md](../build_/COMMITS/COMMIT-0790e69.md)
+- Message: Wire MoneyPenny copilot-to-capsule loop (C-02) + corrected AC-C/B/A crosswalk
+
+## Commit `51e9e21` — 2026-09-02T13:03:02Z
+- Type: `push`
+- Brief: [COMMIT-51e9e21.md](../build_/COMMITS/COMMIT-51e9e21.md)
+- Message: Import authoritative MoneyPenny three-spec handoff + reconciliation crosswalk
+
+## Commit `e2ac273` — 2026-09-02T09:17:35-04:00
+- Type: `feat`
+- Brief: [COMMIT-e2ac273.md](../build_/COMMITS/COMMIT-e2ac273.md)
+- Message: feat(qriptopian): one-card Reading and Research editions for Thresholds 006
+
+## Commit `fb80497` — 2026-09-02T13:36:47Z
+- Type: `push`
+- Brief: [COMMIT-fb80497.md](../build_/COMMITS/COMMIT-fb80497.md)
+- Message: Close SC-04 versioning + complete C-01/C-03 MoneyPenny shell [merge spec/moneypenny-mpy2-3]
+
+## Commit `3ce33d2` — 2026-09-02T13:36:33Z
+- Type: `push`
+- Brief: [COMMIT-3ce33d2.md](../build_/COMMITS/COMMIT-3ce33d2.md)
+- Message: Close SC-04 task/context versioning + complete C-01/C-03 MoneyPenny shell
+
+## Commit `12b8048` — 2026-09-02T14:05:52Z
+- Type: `push`
+- Brief: [COMMIT-12b8048.md](../build_/COMMITS/COMMIT-12b8048.md)
+- Message: Harden SC-04, deliver full-screen HFT takeover, verify entry continuity [merge spec/moneypenny-mpy2-3]
+
+## Commit `d48ae5c` — 2026-09-02T14:05:39Z
+- Type: `push`
+- Brief: [COMMIT-d48ae5c.md](../build_/COMMITS/COMMIT-d48ae5c.md)
+- Message: Harden SC-04, deliver full-screen HFT takeover, verify entry continuity
+
+## Commit `7e7944f` — 2026-09-02T18:03:59Z
+- Type: `push`
+- Brief: [COMMIT-7e7944f.md](../build_/COMMITS/COMMIT-7e7944f.md)
+- Message: Build Agent Me entry safely, rebuild B2 Prepare, close /moneypenny compat gap [merge spec/moneypenny-mpy2-3]
+
+## Commit `8678fc5` — 2026-09-02T19:18:35Z
+- Type: `feat`
+- Brief: [COMMIT-8678fc5.md](../build_/COMMITS/COMMIT-8678fc5.md)
+- Message: Close infra handoff, add MoneyPenny educational video (C-15/A3), fix Prepare empty-state gap [merge spec/moneypenny-mpy2-3]
+
+## Commit `2b4733d` — 2026-09-02T23:27:25Z
+- Type: `feat`
+- Brief: [COMMIT-2b4733d.md](../build_/COMMITS/COMMIT-2b4733d.md)
+- Message: Publish real placeholder media, close admin-picker gap, add review/availability split [merge spec/moneypenny-mpy2-3]
+
+## Commit `418a4f0` — 2026-09-03T02:28:58Z
+- Type: `fix`
+- Brief: [COMMIT-418a4f0.md](../build_/COMMITS/COMMIT-418a4f0.md)
+- Message: Correct MoneyPenny experience coherence: one nav row, restrained Home, role selector
+
+## Commit `95277c7` — 2026-09-03T00:20:09Z
+- Type: `push`
+- Brief: [COMMIT-95277c7.md](../build_/COMMITS/COMMIT-95277c7.md)
+- Message: Close AC-C06 cross-persona-read-denial gap; mark 3 checks blocked-on-access
+
+## Commit `bfb5733` — 2026-09-02T23:56:20Z
+- Type: `fix`
+- Brief: [COMMIT-bfb5733.md](../build_/COMMITS/COMMIT-bfb5733.md)
+- Message: Fix MoneyPenny reader honesty: distinct 503s replace false not-published
+
+## Commit `c377577` — 2026-09-02T23:27:25Z
+- Type: `feat`
+- Brief: [COMMIT-c377577.md](../build_/COMMITS/COMMIT-c377577.md)
+- Message: Publish real placeholder media, close admin-picker gap, add review/availability split
+
+## Commit `506610b` — 2026-09-02T19:18:35Z
+- Type: `feat`
+- Brief: [COMMIT-506610b.md](../build_/COMMITS/COMMIT-506610b.md)
+- Message: Close infra handoff, add MoneyPenny educational video (C-15/A3), fix Prepare empty-state gap
+
+## Commit `c36e5ed` — 2026-09-02T18:03:59Z
+- Type: `push`
+- Brief: [COMMIT-c36e5ed.md](../build_/COMMITS/COMMIT-c36e5ed.md)
+- Message: Build Agent Me entry safely, rebuild B2 Prepare, close /moneypenny compat gap
+
+## Commit `05a18b6` — 2026-09-02T14:05:39Z
+- Type: `push`
+- Brief: [COMMIT-05a18b6.md](../build_/COMMITS/COMMIT-05a18b6.md)
+- Message: Harden SC-04, deliver full-screen HFT takeover, verify entry continuity
+
+## Commit `d752499` — 2026-09-02T13:36:33Z
+- Type: `push`
+- Brief: [COMMIT-d752499.md](../build_/COMMITS/COMMIT-d752499.md)
+- Message: Close SC-04 task/context versioning + complete C-01/C-03 MoneyPenny shell
+
+## Commit `9308a08` — 2026-09-02T13:14:31Z
+- Type: `feat`
+- Brief: [COMMIT-9308a08.md](../build_/COMMITS/COMMIT-9308a08.md)
+- Message: Wire MoneyPenny copilot-to-capsule loop (C-02) + corrected AC-C/B/A crosswalk
+
+## Commit `eda35a4` — 2026-09-02T13:03:02Z
+- Type: `push`
+- Brief: [COMMIT-eda35a4.md](../build_/COMMITS/COMMIT-eda35a4.md)
+- Message: Import authoritative MoneyPenny three-spec handoff + reconciliation crosswalk
+
+## Commit `170c0e0` — 2026-09-02T12:38:27Z
+- Type: `push`
+- Brief: [COMMIT-170c0e0.md](../build_/COMMITS/COMMIT-170c0e0.md)
+- Message: C1: MoneyPenny copilot-left/chips-right shell, reusing SmartTriadCopilotLayer
+
+## Commit `5418f38` — 2026-09-02T12:38:11Z
+- Type: `push`
+- Brief: [COMMIT-5418f38.md](../build_/COMMITS/COMMIT-5418f38.md)
+- Message: A2 completion: infographic publishes AND renders through the real bridge reader
+
+## Commit `277f44e` — 2026-09-02T12:37:58Z
+- Type: `push`
+- Brief: [COMMIT-277f44e.md](../build_/COMMITS/COMMIT-277f44e.md)
+- Message: Decouple public-exposure from series='bridge' — require an explicit signal
+
+## Commit `5eca8bc` — 2026-09-02T12:37:43Z
+- Type: `push`
+- Brief: [COMMIT-5eca8bc.md](../build_/COMMITS/COMMIT-5eca8bc.md)
+- Message: Import three MoneyPenny donor repos' real docs into docs/specs/moneypenny/
+
+## Commit `b6caadd` — 2026-09-02T06:10:40Z
+- Type: `feat`
+- Brief: [COMMIT-b6caadd.md](../build_/COMMITS/COMMIT-b6caadd.md)
+- Message: Add A2 completion / acceptance ledger / MoneyPenny shell audit doc
+
+## Commit `40a36b4` — 2026-09-02T06:07:58Z
+- Type: `push`
+- Brief: [COMMIT-40a36b4.md](../build_/COMMITS/COMMIT-40a36b4.md)
+- Message: Financial-profile compute/manual routes never crash on a missing table
+
+## Commit `ea936da` — 2026-09-02T06:07:41Z
+- Type: `push`
+- Brief: [COMMIT-ea936da.md](../build_/COMMITS/COMMIT-ea936da.md)
+- Message: A2 completion: infographic slot + integrated asset selection/upload
+
+## Commit `de80415` — 2026-09-02T06:02:24Z
+- Type: `push`
+- Brief: [COMMIT-de80415.md](../build_/COMMITS/COMMIT-de80415.md)
+- Message: Close storage/sign + assets-by-category authorization gaps
+
+## Commit `28aa157` — 2026-09-02T06:01:57Z
+- Type: `fix`
+- Brief: [COMMIT-28aa157.md](../build_/COMMITS/COMMIT-28aa157.md)
+- Message: Correct fs-operate label to bare Operate; open MoneyPenny in the same frame
+
+## Commit `a1a3c6b` — 2026-09-02T03:22:54Z
+- Type: `feat`
+- Brief: [COMMIT-a1a3c6b.md](../build_/COMMITS/COMMIT-a1a3c6b.md)
+- Message: Add manual financial-profile entry (MPY2-2c); close MPY2-0b reconciliation
+
+## Commit `37c6527` — 2026-09-02T01:15:27Z
+- Type: `feat`
+- Brief: [COMMIT-37c6527.md](../build_/COMMITS/COMMIT-37c6527.md)
+- Message: Add MoneyPenny002 real-source donor audit (MPY2-0b)
+
+## Commit `db79f3c` — 2026-09-02T00:45:21Z
+- Type: `push`
+- Brief: [COMMIT-db79f3c.md](../build_/COMMITS/COMMIT-db79f3c.md)
+- Message: Harden A2 publish: config-write-first ordering + optimistic concurrency
+
+## Commit `3fdf50d` — 2026-09-02T00:45:11Z
+- Type: `feat`
+- Brief: [COMMIT-3fdf50d.md](../build_/COMMITS/COMMIT-3fdf50d.md)
+- Message: Add fs-operate stage; wire fs-prepare to a real reviewed-profile evidence
+
+## Commit `b63c97e` — 2026-09-02T00:44:55Z
+- Type: `push`
+- Brief: [COMMIT-b63c97e.md](../build_/COMMITS/COMMIT-b63c97e.md)
+- Message: Authenticate the codex upload/register admin endpoints
+
+## Commit `803a207` — 2026-09-01T23:48:14Z
+- Type: `feat`
+- Brief: [COMMIT-803a207.md](../build_/COMMITS/COMMIT-803a207.md)
+- Message: Add typed asset placements with draft/publish for bridge media (A2)
+
+## Commit `daffbf1` — 2026-09-01T23:08:43Z
+- Type: `feat`
+- Brief: [COMMIT-daffbf1.md](../build_/COMMITS/COMMIT-daffbf1.md)
+- Message: Add native Bridges tab to Qriptopian Admin — CI/KNYTS editorial parity
+
+## Commit `0ba7cce` — 2026-09-01T20:05:30Z
+- Type: `push`
+- Brief: [COMMIT-0ba7cce.md](../build_/COMMITS/COMMIT-0ba7cce.md)
+- Message: Project wallet-conversion capability READINESS at fs-cross, never exercise
+
+## Commit `c0a35ae` — 2026-09-01T17:05:56Z
+- Type: `feat`
+- Brief: [COMMIT-c0a35ae.md](../build_/COMMITS/COMMIT-c0a35ae.md)
+- Message: Wire EXPLORE to a real MoneyPenny action: observed consequence, not just engagement
+
+## Commit `2fc6c69` — 2026-09-01T16:44:11Z
+- Type: `feat`
+- Brief: [COMMIT-2fc6c69.md](../build_/COMMITS/COMMIT-2fc6c69.md)
+- Message: Add MoneyPenny MPY2-3 Risk Envelope: risk factors + limits from Financial Profile

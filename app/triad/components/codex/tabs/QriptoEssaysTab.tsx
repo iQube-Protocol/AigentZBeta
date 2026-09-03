@@ -5,6 +5,7 @@ import { BookOpenText, Loader2, ImageOff, ArrowUpRight, Share2, Bot } from 'luci
 import { useSmartTriad } from '@/app/components/content/SmartTriadProvider';
 import { SmartContentListenButton } from '@/components/shared/SmartContentListenButton';
 import { buildSpeechScript } from '@/services/smartcontent/readableTextForSpeech';
+import { defaultReadingText, resolveReadingEdition, readingAudioId, type EditionReadSource } from '@/services/smartcontent/readingEditions';
 
 interface EssayCard {
   id: string;
@@ -20,7 +21,7 @@ interface EssayCard {
   /** Canonical prose — same field the full reader (ContentViewer) speaks
    *  from. Already present in this list endpoint's response (the route
    *  selects `modalities` in full), so Listen never needs a second fetch. */
-  modalities?: { read?: { text?: string } };
+  modalities?: { read?: EditionReadSource };
 }
 
 interface QriptoEssaysTabProps {
@@ -169,9 +170,9 @@ export function QriptoEssaysTab({ theme = 'dark' }: QriptoEssaysTabProps) {
                     <SmartContentListenButton
                       compact
                       item={{
-                        id: essay.id,
+                        id: readingAudioId(essay.id, resolveReadingEdition(essay.modalities?.read)),
                         title: essay.title,
-                        getText: () => buildSpeechScript(essay.title, essay.modalities?.read?.text ?? ''),
+                        getText: () => buildSpeechScript(essay.title, defaultReadingText(essay.modalities?.read)),
                       }}
                       disabledReason={essay.modalities?.read?.text ? undefined : 'No readable text available for this essay yet'}
                     />

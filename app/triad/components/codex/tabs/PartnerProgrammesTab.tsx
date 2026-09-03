@@ -486,6 +486,18 @@ interface WorkspaceView {
   contacts: { name: string; role?: string }[];
   /** From the registry's optional `differentiatorStatement`; null when none declared. */
   differentiatorStatement: string | null;
+  /**
+   * The research registry's own `visibility` posture (SPEC-IRL-WORKSPACE-001
+   * §11 — 'private' | 'invited' | 'public'), null for the venture kind (which
+   * has no such concept). IRL OS — Experiment Membership & Artifact Workspace
+   * Restoration (2026-09-02): this is what lets a workspace an admin has
+   * explicitly declared `'public'` appear to a caller with NO grant at all,
+   * without widening anything for the (today, universal) `'invited'`/
+   * `'private'` default — see the `workspaces` memo below, the resolver this
+   * mirrors (`getParticipantResearchWorkspaceAccess`,
+   * services/passport/participationAccess.ts), and the spec's item 5/13.
+   */
+  researchVisibility: string | null;
 }
 
 function ventureView(ws: PartnerWorkspace): WorkspaceView {
@@ -516,6 +528,7 @@ function ventureView(ws: PartnerWorkspace): WorkspaceView {
     navSection: null,
     navDepth: 0,
     titleEditable: false,
+    researchVisibility: null,
   };
 }
 
@@ -575,6 +588,7 @@ function researchView(ws: ReturnType<typeof listResearchWorkspaces>[number]): Wo
     navSection: researchWorkspaceNavSection(ws),
     navDepth: researchWorkspaceNavDepth(ws),
     titleEditable: researchWorkspaceTitleEditable(ws),
+    researchVisibility: ws.visibility ?? null,
   };
 }
 
@@ -930,7 +944,7 @@ function ResearchProgrammeNav({
 
   return (
     <div
-      className={`flex-shrink-0 self-stretch overflow-y-auto rounded-xl border border-slate-800 bg-slate-900/40 backdrop-blur-sm transition-all duration-200 ${
+      className={`h-full flex-shrink-0 self-stretch overflow-y-auto rounded-xl border border-slate-800 bg-slate-900/40 backdrop-blur-sm transition-all duration-200 ${
         collapsed ? "w-8" : "w-56"
       }`}
     >
@@ -1531,10 +1545,21 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
   );
   const grantedScopes = scopesGrantedIn(access, accessDomain, Boolean(isAdmin));
   const workspaces = useMemo(() => {
+    // PUBLIC VISIBILITY (IRL OS — Experiment Membership & Artifact Workspace
+    // Restoration, 2026-09-02, spec items 1/5/13): a workspace an admin has
+    // explicitly declared `researchVisibility === 'public'` is visible to
+    // EVERY caller, grant or none — mirrors the server-side resolver
+    // (`getParticipantResearchWorkspaceAccess`,
+    // services/passport/participationAccess.ts). No workspace in the
+    // registry declares `'public'` today, so this is currently a no-op for
+    // every existing entrance — it only ever WIDENS what an admin-authored
+    // `public` declaration reaches, never a grant-independent default.
     const scoped =
       grantedScopes === "all"
         ? allWorkspaces
-        : allWorkspaces.filter((w) => grantedScopes.includes(w.id));
+        : allWorkspaces.filter(
+            (w) => grantedScopes.includes(w.id) || w.researchVisibility === "public",
+          );
     // Locking NARROWS further — a caller whose grant does not reach
     // `lockedWorkspaceId` still lands on the honest empty state below, never
     // on an unscoped workspace this prop tried to force open.
@@ -1636,7 +1661,25 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
           selector inline below (rendered inside the flex-1 column so its
           existing `space-y-4` sibling spacing is unchanged). */}
       {kind === "research" && !lockedWorkspaceId && (
-        <ResearchProgrammeNav workspaces={workspaces} activeId={ws.id} onSelect={setActiveId} />
+        <div className="flex h-full flex-shrink-0 flex-col gap-2">
+          {/* "My Experiments" (IRL OS — Experiment Membership & Artifact
+              Workspace Restoration, spec item 3): a plain label over the
+              existing programme nav, not a new list — `workspaces` is
+              already exactly "public experiments + this caller's own
+              entitled experiments, nothing else" (see the `workspaces` memo
+              above), so labelling it is the whole change. No duplicated
+              state between this and Participation: both read the same
+              underlying grant/visibility resolver
+              (`getParticipantResearchWorkspaceAccess`,
+              services/passport/participationAccess.ts; the server-side
+              projection at GET /api/participation/my-experiments). */}
+          <span className="flex-shrink-0 px-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+            My Experiments
+          </span>
+          <div className="min-h-0 flex-1">
+            <ResearchProgrammeNav workspaces={workspaces} activeId={ws.id} onSelect={setActiveId} />
+          </div>
+        </div>
       )}
       <div className={kind === "research" ? "min-w-0 flex-1 space-y-4 overflow-y-auto p-4" : "min-w-0 flex-1 space-y-4"}>
       {/* Workspace selector + Command Center — omitted for the Journey surface
