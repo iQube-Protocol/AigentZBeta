@@ -76,7 +76,18 @@
  */
 
 import { useCallback, useMemo, useState } from 'react';
+import { ArrowRight } from 'lucide-react';
 import { BridgeMediaStage, type BridgeAccent } from '@/components/journey/BridgeMediaStage';
+import { BridgeMediaInteractionSection } from '@/components/journey/BridgeMediaInteractionSection';
+import type { BridgeMediaCarouselItem } from '@/components/journey/BridgeMediaCarouselPane';
+import { FinancialSovereigntyTopicChips } from '@/components/journey/FinancialSovereigntyTopicChips';
+import { FinancialSovereigntyCheckGroup } from '@/components/journey/FinancialSovereigntyCheckGroup';
+import { FinancialSovereigntyCostExample } from '@/components/journey/FinancialSovereigntyCostExample';
+import {
+  FS_PLACEHOLDER_VIDEO_URL,
+  FS_PLACEHOLDER_VIDEO_POSTER_URL,
+  FS_PLACEHOLDER_VIDEO_LABEL,
+} from '@/services/journey/fsPlaceholderVideo';
 import { listFinancialServiceDefinitions } from '@/services/financialServices/serviceCatalog';
 import { useDcirSeam } from '@/services/dcir/useDcirSeam';
 import { aigentMeCapsuleEngagedEvent } from '@/services/dcir/eventStream';
@@ -92,6 +103,16 @@ import {
 } from '@/services/journey/financialSovereigntyContent';
 import { useFsBridgeSection, useFsLearnPlateSection } from '@/services/journey/useFsBridgeSection';
 import { FinancialSovereigntyStageExtras } from '@/components/journey/FinancialSovereigntyStageExtras';
+
+/** Discover's starting-point interaction — purely local UI state (N7: never
+ *  computes a profile, submits a transaction, or changes journey evidence
+ *  on its own). Distinct ids from every other FS interaction set. */
+const DISCOVER_STARTING_POINTS: { id: string; label: string }[] = [
+  { id: 'spending', label: 'Get a clearer view of my spending' },
+  { id: 'fiat-crypto', label: 'Understand fiat vs crypto' },
+  { id: 'big-decision', label: 'Prepare for a bigger financial decision' },
+  { id: 'exploring', label: 'Just exploring' },
+];
 
 /**
  * LEARN's qualifying concept set — mirrors the Advisor/Architect/Runtime
@@ -229,6 +250,8 @@ export function FinancialSovereigntyIntroStage({
   const [interactedCapabilities, setInteractedCapabilities] = useState<Set<string>>(new Set());
   const [tryStatus, setTryStatus] = useState<TryFinancialProfileStatus>('idle');
   const [tryDetail, setTryDetail] = useState<string | null>(null);
+  // Discover's starting-point interaction — presentation state only (N7).
+  const [discoverStartingPoint, setDiscoverStartingPoint] = useState<string | null>(null);
 
   const handleConceptAcknowledge = useCallback(
     (conceptId: string) => {
@@ -354,6 +377,200 @@ export function FinancialSovereigntyIntroStage({
   const primaryCtaDisabled =
     (stageKey === 'learn' && !learnSatisfied) || (stageKey === 'explore' && !exploreSatisfied);
 
+  // Media/interaction composition (CFS critical layout correction,
+  // 2026-09-03) — DISCOVER and EXPLORE's rehearsal section now reuse the
+  // SAME left-media-carousel/right-interaction shape BridgeOrientSurface
+  // established (via BridgeMediaCarouselPane/BridgeMediaInteractionSection),
+  // instead of BridgeMediaStage's plain headline/paragraph/CTA hero
+  // (BridgeMediaStage is no longer used as the outer shell for these two
+  // stages — its own text-first hero is exactly the "headline, paragraphs,
+  // bordered text cards" pattern the correction forbids as primary content).
+  // LEARN is intentionally UNCHANGED in this pass — the operator asked to
+  // verify Discover + Explore's rendered layout before extending the same
+  // recomposition to Learn/Prepare/Operate/Cross.
+  const accentButtonClass =
+    accent === 'indigo' ? 'bg-indigo-500 hover:bg-indigo-400 text-slate-950' : 'bg-amber-500 hover:bg-amber-400 text-slate-950';
+
+  const continueFooter = (
+    <div className="mt-4 flex justify-end">
+      <button
+        type="button"
+        onClick={handlePrimaryCta}
+        disabled={primaryCtaDisabled}
+        className={`inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition ${accentButtonClass} ${
+          primaryCtaDisabled ? 'cursor-not-allowed opacity-40' : ''
+        }`}
+      >
+        Continue
+        <ArrowRight className="h-4 w-4" />
+      </button>
+    </div>
+  );
+
+  const placeholderVideoOverlay = (
+    <span className="pointer-events-none absolute left-2 top-2 max-w-[85%] rounded-md border border-amber-400/40 bg-slate-950/85 px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-amber-200">
+      {FS_PLACEHOLDER_VIDEO_LABEL}
+    </span>
+  );
+
+  if (stageKey === 'discover') {
+    const resolved = resolveFsSectionContent('discover', bridge, fsConfig?.structuredContent as FsStructuredContent | null | undefined);
+    const usingPlaceholderVideo = !fsConfig?.videoUrl;
+    const items: BridgeMediaCarouselItem[] = [];
+    if (fsConfig?.infographicUrl) {
+      items.push({ kind: 'plate', url: fsConfig.infographicUrl, title: FS_STAGE_CONTENT.discover.asset.title });
+    }
+    items.push({
+      kind: 'video',
+      videoUrl: fsConfig?.videoUrl || FS_PLACEHOLDER_VIDEO_URL,
+      posterUrl: (fsConfig?.videoUrl ? fsConfig?.posterUrl : FS_PLACEHOLDER_VIDEO_POSTER_URL) ?? undefined,
+      overlay: usingPlaceholderVideo ? placeholderVideoOverlay : undefined,
+    });
+
+    return (
+      <div className="flex h-full flex-col overflow-y-auto p-4 sm:p-6">
+        <BridgeMediaInteractionSection
+          items={items}
+          emptyLabel="Infographic not yet published."
+          eyebrow={copy.eyebrow}
+          headline={copy.headline}
+          lead={copy.paragraphs[0]}
+        >
+          <div className="space-y-3">
+            {!fsConfig?.infographicUrl && (
+              <p className="text-xs italic text-slate-500">
+                Artwork not yet published. Text alternative: {resolved.assetAlt}
+              </p>
+            )}
+            {resolved.contextualLine && <p className="text-xs text-slate-400">{resolved.contextualLine}</p>}
+
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">What brings you here today?</p>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {DISCOVER_STARTING_POINTS.map((opt) => {
+                  const active = discoverStartingPoint === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setDiscoverStartingPoint(opt.id)}
+                      aria-pressed={active}
+                      className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                        active
+                          ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200'
+                          : 'border-white/10 bg-white/[0.03] text-slate-300 hover:border-white/20'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+              {discoverStartingPoint && (
+                <p className="mt-1.5 text-xs text-slate-400">Good starting point — Learn covers the foundations next.</p>
+              )}
+            </div>
+
+            <FinancialSovereigntyTopicChips topics={resolved.topics} />
+            <FinancialSovereigntyCheckGroup checks={resolved.checks} />
+          </div>
+        </BridgeMediaInteractionSection>
+        {continueFooter}
+      </div>
+    );
+  }
+
+  if (stageKey === 'explore') {
+    const resolved = resolveFsSectionContent('explore', bridge, fsConfig?.structuredContent as FsStructuredContent | null | undefined);
+    const usingPlaceholderVideo = !fsConfig?.videoUrl;
+    const items: BridgeMediaCarouselItem[] = [];
+    if (fsConfig?.infographicUrl) {
+      items.push({ kind: 'plate', url: fsConfig.infographicUrl, title: FS_STAGE_CONTENT.explore.asset.title });
+    }
+    items.push({
+      kind: 'video',
+      videoUrl: fsConfig?.videoUrl || FS_PLACEHOLDER_VIDEO_URL,
+      posterUrl: (fsConfig?.videoUrl ? fsConfig?.posterUrl : FS_PLACEHOLDER_VIDEO_POSTER_URL) ?? undefined,
+      overlay: usingPlaceholderVideo ? placeholderVideoOverlay : undefined,
+    });
+
+    return (
+      <div className="flex h-full flex-col overflow-y-auto p-4 sm:p-6">
+        <BridgeMediaInteractionSection
+          items={items}
+          emptyLabel="Infographic not yet published."
+          eyebrow={copy.eyebrow}
+          headline={copy.headline}
+          lead={copy.paragraphs[0]}
+        >
+          <div className="space-y-3">
+            {!fsConfig?.infographicUrl && (
+              <p className="text-xs italic text-slate-500">
+                Artwork not yet published. Text alternative: {resolved.assetAlt}
+              </p>
+            )}
+            {resolved.contextualLine && <p className="text-xs text-slate-400">{resolved.contextualLine}</p>}
+            <FinancialSovereigntyCostExample />
+            <FinancialSovereigntyTopicChips topics={resolved.topics} />
+            <FinancialSovereigntyCheckGroup checks={resolved.checks} />
+          </div>
+        </BridgeMediaInteractionSection>
+
+        {services.length > 0 && (
+          <div className="mt-6">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Available capabilities</p>
+            <div className="mt-2 space-y-2">
+              {services.map((service) => {
+                const interacted = interactedCapabilities.has(service.serviceId);
+                return (
+                  <button
+                    key={service.serviceId}
+                    type="button"
+                    onClick={() => handleCapabilityInteract(service.serviceId)}
+                    aria-pressed={interacted}
+                    className={`w-full rounded-lg border px-4 py-3 text-left text-sm transition ${
+                      interacted
+                        ? 'border-emerald-500/40 bg-emerald-500/10 text-slate-100'
+                        : 'border-white/10 bg-white/[0.03] text-slate-300 hover:border-white/20'
+                    }`}
+                  >
+                    <span className="font-semibold">{interacted ? '✓ ' : ''}{service.displayName}</span>
+                    <span className="mt-1 block text-slate-400">{service.providerMode} capability — tap to view.</span>
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                onClick={handleTryFinancialProfile}
+                disabled={tryStatus === 'loading'}
+                aria-pressed={interactedCapabilities.has(LIVE_TRY_CAPABILITY_ID)}
+                className={`w-full rounded-lg border px-4 py-3 text-left text-sm transition disabled:opacity-60 ${
+                  interactedCapabilities.has(LIVE_TRY_CAPABILITY_ID)
+                    ? 'border-emerald-500/40 bg-emerald-500/10 text-slate-100'
+                    : 'border-white/10 bg-white/[0.03] text-slate-300 hover:border-white/20'
+                }`}
+              >
+                <span className="font-semibold">
+                  {interactedCapabilities.has(LIVE_TRY_CAPABILITY_ID) ? '✓ ' : ''}Try it — Compute your Financial Profile
+                </span>
+                <span className="mt-1 block text-slate-400">
+                  {tryStatus === 'loading'
+                    ? 'Computing…'
+                    : tryDetail ?? 'A real, live call — not a preview. Uses your uploaded bank statements, if any.'}
+                </span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {continueFooter}
+      </div>
+    );
+  }
+
+  // LEARN — unchanged for this iteration (BridgeMediaStage shell + stacked
+  // FinancialSovereigntyStageExtras plates), pending the same recomposition
+  // once Discover/Explore's layout is verified.
   return (
     <div className="flex h-full flex-col overflow-y-auto">
       <BridgeMediaStage
@@ -365,26 +582,8 @@ export function FinancialSovereigntyIntroStage({
         primaryCtaDisabled={primaryCtaDisabled}
         accent={accent}
         layout="standard"
-        // FinancialSovereigntyStageExtras renders its own <img> per plate
-        // below (Learn needs three; Discover/Explore need one) — never also
-        // set here, which would double-render the same image.
       >
-        {stageKey === 'discover' && (() => {
-          const resolved = resolveFsSectionContent('discover', bridge, fsConfig?.structuredContent as FsStructuredContent | null | undefined);
-          const map = FS_LOGICAL_SECTION_MAP.discover[0];
-          return (
-            <FinancialSovereigntyStageExtras
-              sectionLabel={map.label}
-              topics={resolved.topics}
-              checks={resolved.checks}
-              exerciseSummary={resolved.exerciseSummary}
-              contextualLine={resolved.contextualLine}
-              assets={[{ caption: resolved.assetCaption, alt: resolved.assetAlt, infographicUrl: fsConfig?.infographicUrl }]}
-            />
-          );
-        })()}
-
-        {stageKey === 'learn' && (() => {
+        {(() => {
           const plate0 = resolveFsLearnPlateContent(0, fsConfig?.structuredContent as FsStructuredContent | null | undefined);
           const plate1 = resolveFsLearnPlateContent(1, learnPlate2Config?.structuredContent as FsStructuredContent | null | undefined);
           const plate2 = resolveFsLearnPlateContent(2, learnPlate3Config?.structuredContent as FsStructuredContent | null | undefined);
@@ -436,67 +635,6 @@ export function FinancialSovereigntyIntroStage({
                   );
                 })}
               </div>
-            </div>
-          );
-        })()}
-
-        {stageKey === 'explore' && (() => {
-          const resolved = resolveFsSectionContent('explore', bridge, fsConfig?.structuredContent as FsStructuredContent | null | undefined);
-          const [mapRehearsal] = FS_LOGICAL_SECTION_MAP.explore;
-          return (
-            <div className="space-y-3">
-              <FinancialSovereigntyStageExtras
-                sectionLabel={mapRehearsal.label}
-                topics={resolved.topics}
-                checks={resolved.checks}
-                exerciseSummary={resolved.exerciseSummary}
-                contextualLine={resolved.contextualLine}
-                showCostExample
-                assets={[{ caption: resolved.assetCaption, alt: resolved.assetAlt, infographicUrl: fsConfig?.infographicUrl }]}
-              />
-              {services.length > 0 && (
-                <div className="space-y-2">
-                  {services.map((service) => {
-                    const interacted = interactedCapabilities.has(service.serviceId);
-                    return (
-                      <button
-                        key={service.serviceId}
-                        type="button"
-                        onClick={() => handleCapabilityInteract(service.serviceId)}
-                        aria-pressed={interacted}
-                        className={`w-full rounded-lg border px-4 py-3 text-left text-sm transition ${
-                          interacted
-                            ? 'border-emerald-500/40 bg-emerald-500/10 text-slate-100'
-                            : 'border-white/10 bg-white/[0.03] text-slate-300 hover:border-white/20'
-                        }`}
-                      >
-                        <span className="font-semibold">{interacted ? '✓ ' : ''}{service.displayName}</span>
-                        <span className="mt-1 block text-slate-400">{service.providerMode} capability — tap to view.</span>
-                      </button>
-                    );
-                  })}
-                  <button
-                    type="button"
-                    onClick={handleTryFinancialProfile}
-                    disabled={tryStatus === 'loading'}
-                    aria-pressed={interactedCapabilities.has(LIVE_TRY_CAPABILITY_ID)}
-                    className={`w-full rounded-lg border px-4 py-3 text-left text-sm transition disabled:opacity-60 ${
-                      interactedCapabilities.has(LIVE_TRY_CAPABILITY_ID)
-                        ? 'border-emerald-500/40 bg-emerald-500/10 text-slate-100'
-                        : 'border-white/10 bg-white/[0.03] text-slate-300 hover:border-white/20'
-                    }`}
-                  >
-                    <span className="font-semibold">
-                      {interactedCapabilities.has(LIVE_TRY_CAPABILITY_ID) ? '✓ ' : ''}Try it — Compute your Financial Profile
-                    </span>
-                    <span className="mt-1 block text-slate-400">
-                      {tryStatus === 'loading'
-                        ? 'Computing…'
-                        : tryDetail ?? 'A real, live call — not a preview. Uses your uploaded bank statements, if any.'}
-                    </span>
-                  </button>
-                </div>
-              )}
             </div>
           );
         })()}

@@ -187,15 +187,48 @@ describe('FinancialSovereigntyIntroStage.tsx (Discover/Learn/Explore) — CFS co
     expect(src).toMatch(/\/api\/moneypenny\/financial-profile\/compute/);
   });
 
-  it('renders FinancialSovereigntyStageExtras inside BridgeMediaStage, deriving bridge from accent (never a bridge prop the registry would have to be widened for)', () => {
+  it('derives bridge from accent (never a bridge prop the registry would have to be widened for)', () => {
     expect(src).toMatch(/const bridge: FsBridge = accent === 'indigo' \? 'ci' : 'knyts';/);
+  });
+
+  it("LEARN still renders FinancialSovereigntyStageExtras inside BridgeMediaStage — unchanged pending the same rich-media recomposition already applied to Discover/Explore (critical layout correction, 2026-09-03)", () => {
     expect(src).toMatch(/<FinancialSovereigntyStageExtras/);
-    // Image rendering moved into FinancialSovereigntyStageExtras' own <img>
-    // (2026-09-03 composition-verification pass) — BridgeMediaStage's own
-    // infographicUrl prop is deliberately left unset here to avoid a
-    // double-rendered image.
-    const rawSrc = readSource('components/journey/FinancialSovereigntyIntroStage.tsx');
-    expect(rawSrc).toMatch(/StageExtras renders its own <img> per plate/);
+  });
+
+  it('DISCOVER and EXPLORE no longer use BridgeMediaStage/FinancialSovereigntyStageExtras — they reuse the first-threshold media/interaction composition (BridgeMediaInteractionSection + BridgeMediaCarouselPane, the same shell BridgeOrientSurface uses) instead of a stacked text-card page', () => {
+    expect(src).toMatch(/import \{ BridgeMediaInteractionSection \} from '@\/components\/journey\/BridgeMediaInteractionSection';/);
+    expect(src).toMatch(/import type \{ BridgeMediaCarouselItem \} from '@\/components\/journey\/BridgeMediaCarouselPane';/);
+    expect(src).toMatch(/if \(stageKey === 'discover'\) \{/);
+    expect(src).toMatch(/if \(stageKey === 'explore'\) \{/);
+    // Both early-return blocks render BridgeMediaInteractionSection, not
+    // BridgeMediaStage — the split is structural (two early returns before
+    // the LEARN-only BridgeMediaStage branch), so this can't be a false
+    // positive from LEARN's own unrelated FinancialSovereigntyStageExtras
+    // usage further down the file.
+    // Bounded by 'primaryCtaLabel="Continue"' (LEARN's own BridgeMediaStage
+    // prop) rather than the surrounding comment — `src` here is
+    // comment-stripped, so a comment-text marker would never be found and
+    // `.slice(start, -1)` would silently swallow the rest of the file.
+    const discoverBlock = src.slice(src.indexOf("if (stageKey === 'discover') {"), src.indexOf("if (stageKey === 'explore') {"));
+    const exploreBlock = src.slice(src.indexOf("if (stageKey === 'explore') {"), src.lastIndexOf('<BridgeMediaStage'));
+    for (const block of [discoverBlock, exploreBlock]) {
+      expect(block).toMatch(/<BridgeMediaInteractionSection/);
+      expect(block).not.toMatch(/<BridgeMediaStage/);
+      expect(block).not.toMatch(/<FinancialSovereigntyStageExtras/);
+    }
+  });
+
+  it('DISCOVER and EXPLORE reuse the verified C-15 Studio placeholder video (never a fabricated URL) with the exact required label, only while no admin video is configured', () => {
+    expect(src).toMatch(/import \{\s*FS_PLACEHOLDER_VIDEO_URL,\s*FS_PLACEHOLDER_VIDEO_POSTER_URL,\s*FS_PLACEHOLDER_VIDEO_LABEL,\s*\} from '@\/services\/journey\/fsPlaceholderVideo';/);
+    expect(src).toMatch(/videoUrl: fsConfig\?\.videoUrl \|\| FS_PLACEHOLDER_VIDEO_URL/g);
+    const placeholderSrc = readSource('services/journey/fsPlaceholderVideo.ts');
+    expect(placeholderSrc).toMatch(/Placeholder video — financial-services lesson in production\./);
+    expect(placeholderSrc).toMatch(/https:\/\/bsjhfvctmduxhohtllly\.supabase\.co\/storage\/v1\/object\/public\/content-assets\/generated\/openai\/videos\//);
+  });
+
+  it('DISCOVER and EXPLORE move topics/checks behind chips (never an always-visible stacked list) — reuses FinancialSovereigntyTopicChips/FinancialSovereigntyCheckGroup, capped understanding checks', () => {
+    expect(src).toMatch(/<FinancialSovereigntyTopicChips topics=\{resolved\.topics\} \/>/g);
+    expect(src).toMatch(/<FinancialSovereigntyCheckGroup checks=\{resolved\.checks\} \/>/g);
   });
 
   it('resolves admin-published structuredContent through resolveFsSectionContent/resolveFsLearnPlateContent — never reads FS_STAGE_CONTENT directly for topics/checks at render time', () => {
