@@ -81,16 +81,36 @@ describe('CI/KNYTS Prepare/Operate now embed MoneyPenny in place — never a nav
     // 2026-09-03, second pass), not the retired legacy 'overview' panel
     // key directly (home's own default panel already resolves to
     // 'overview' — see moneypennyCapabilities.ts's defaultPanelForArea).
-    expect(src).toMatch(/<MoneyPennyBridgeEmbed tab="home" personaId=\{personaId\}/);
+    expect(src).toMatch(/<MoneyPennyBridgeEmbed[\s\S]{0,80}tab="home"/);
+    expect(src).toMatch(/<MoneyPennyBridgeEmbed[\s\S]{0,120}personaId=\{personaId\}/);
     expect(src).not.toMatch(/window\.location\.assign/);
+    // FinancialSovereigntyOperateStage itself still never builds a URL —
+    // that's MoneyPennyBridgeEmbed's own concern (expandable mode uses
+    // buildEmbedSurfaceSrc internally, asserted in fs-operate-stage.test.ts).
     expect(src).not.toMatch(/buildCodexUrl/);
   });
 
-  it('both stages preserve "Continue"/"Continue to Operate" reachable while the embed is open — never trapping the visitor inside it', () => {
+  it('Prepare preserves "Continue to Operate" reachable while its embed is open — never trapping the visitor inside it', () => {
     const prepareSrc = stripComments(readSource(PREPARE));
-    const operateSrc = stripComments(readSource(OPERATE));
     expect(prepareSrc).toMatch(/if \(embedOpen\) \{[\s\S]*?Continue to Operate[\s\S]*?<MoneyPennyBridgeEmbed/);
-    expect(operateSrc).toMatch(/if \(embedOpen\) \{[\s\S]*?Continue[\s\S]*?<MoneyPennyBridgeEmbed/);
+  });
+
+  // Navigation/viewport correction follow-up (2026-09-03, operator
+  // directive: "They should both have the exact same expand-to-metaMe-shell
+  // affordance as Horizen bridge. They do not need the continue button...
+  // as the user can use the stepper to progress.") — Operate's embed-open
+  // state deliberately DROPS its own Continue/Close header now; progression
+  // is the stepper's job, and the expand-to-metaMe-shell toggle (passed via
+  // `expandable`) is the one affordance this panel still owns.
+  it('Operate\'s embed is expandable (the shared Focus/Full toggle, matching Horizen) and no longer renders its own Continue/Close header', () => {
+    const operateSrc = stripComments(readSource(OPERATE));
+    const at = operateSrc.indexOf('if (embedOpen)');
+    expect(at).toBeGreaterThan(-1);
+    const embedOpenEnd = operateSrc.indexOf('\n  }\n', at);
+    const embedOpenBlock = operateSrc.slice(at, embedOpenEnd > -1 ? embedOpenEnd : at + 400);
+    expect(embedOpenBlock).toMatch(/<MoneyPennyBridgeEmbed[\s\S]{0,160}expandable/);
+    expect(embedOpenBlock).not.toMatch(/Continue/);
+    expect(embedOpenBlock).not.toMatch(/← Close MoneyPenny workspace/);
   });
 });
 

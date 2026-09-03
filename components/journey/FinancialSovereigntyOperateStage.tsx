@@ -26,8 +26,19 @@
  * experience-coherence correction, 2026-09-03 — a real iframe embed via
  * the same mechanism Horizen's own MoneyPenny embed already used, never
  * `window.location.assign`; see that component's own header) when
- * "Open MoneyPenny" is clicked, toggling closed again with "Continue"
- * still available throughout.
+ * "Open MoneyPenny" is clicked.
+ *
+ * `expandable` (navigation/viewport correction follow-up, 2026-09-03,
+ * operator directive: "They should both have the exact same
+ * expand-to-metaMe-shell affordance as Horizen bridge. They do not need
+ * the continue button... as the user can use the stepper to progress.") —
+ * the embed-open state no longer renders its own "← Close MoneyPenny
+ * workspace" / "Continue" header; `MoneyPennyBridgeEmbed`'s own toolbar
+ * (breadcrumb + Focus/Full toggle) replaces both, reusing the identical
+ * `moneypenny-orchestration-focused` descriptor Horizen's Operate stage
+ * uses — expanding reveals the SAME metaMe shell, never a jump to the
+ * standalone cartridge. Stage-to-stage navigation (what "Continue" used
+ * to do) is the stepper's job, not this panel's.
  */
 
 import { useCallback, useState } from 'react';
@@ -58,34 +69,19 @@ export function FinancialSovereigntyOperateStage({
     setEmbedOpen(true);
   }, []);
 
-  const handleCloseMoneyPenny = useCallback(() => {
-    setEmbedOpen(false);
-  }, []);
-
   const handleContinue = useCallback(() => {
     selectStage(nextStageId);
   }, [nextStageId]);
 
   if (embedOpen) {
     return (
-      <div className="flex h-full flex-col gap-3 p-4">
-        <div className="flex items-center justify-between gap-2">
-          <button
-            type="button"
-            onClick={handleCloseMoneyPenny}
-            className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-slate-200"
-          >
-            ← Close MoneyPenny workspace
-          </button>
-          <button
-            type="button"
-            onClick={handleContinue}
-            className="rounded-lg border border-slate-700 bg-slate-900/40 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:opacity-80"
-          >
-            Continue
-          </button>
-        </div>
-        <MoneyPennyBridgeEmbed tab="home" personaId={personaId} className="min-h-0 w-full flex-1 rounded-md border border-slate-800 bg-slate-950" />
+      <div className="flex h-full flex-col p-4">
+        <MoneyPennyBridgeEmbed
+          tab="home"
+          personaId={personaId}
+          expandable
+          className="min-h-0 w-full flex-1 rounded-md border border-slate-800 bg-slate-950"
+        />
       </div>
     );
   }

@@ -46,7 +46,8 @@ describe('Direct entry and Operate both resolve through the ONE dispatcher — v
 
   it('FinancialSovereigntyOperateStage.tsx (intermediary Operate) opens MoneyPenny through MoneyPennyBridgeEmbed, which itself resolves the SAME codex through the SAME dispatcher (2026-09-03: embedded in place, no longer a navigate-away)', () => {
     const src = stripComments(readSource('components/journey/FinancialSovereigntyOperateStage.tsx'));
-    expect(src).toMatch(/<MoneyPennyBridgeEmbed tab="home" personaId=\{personaId\}/);
+    expect(src).toMatch(/<MoneyPennyBridgeEmbed[\s\S]{0,80}tab="home"/);
+    expect(src).toMatch(/<MoneyPennyBridgeEmbed[\s\S]{0,120}personaId=\{personaId\}/);
   });
 
   it('the financial-profile ground fetch is persona-scoped, not entry-point-scoped — any entry reaching the same persona reaches the same profile', () => {

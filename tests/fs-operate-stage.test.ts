@@ -47,7 +47,8 @@ describe('FinancialSovereigntyOperateStage.tsx — embeds the real MoneyPenny ca
 
   it('uses MoneyPennyBridgeEmbed — the shared in-frame mount, not a hand-built iframe or a fork of MoneyPenny\'s own workspace component', () => {
     expect(src).toMatch(/import \{ MoneyPennyBridgeEmbed \} from '@\/components\/journey\/MoneyPennyBridgeEmbed'/);
-    expect(src).toMatch(/<MoneyPennyBridgeEmbed tab="home" personaId=\{personaId\}/);
+    expect(src).toMatch(/<MoneyPennyBridgeEmbed[\s\S]{0,80}tab="home"/);
+    expect(src).toMatch(/<MoneyPennyBridgeEmbed[\s\S]{0,120}personaId=\{personaId\}/);
     // Never a second, forked implementation of MoneyPenny's own workspace
     // internals — MoneyPennyBridgeEmbed is the ONE composition seam.
     expect(src).not.toMatch(/SmartWalletDrawer|SmartTriadCopilotLayer|MoneyPennyPanelTab|MoneyPennyCopilotWorkspace/);
@@ -62,9 +63,55 @@ describe('FinancialSovereigntyOperateStage.tsx — embeds the real MoneyPenny ca
     expect(src).not.toMatch(/window\.location\.assign/);
   });
 
-  it('opening MoneyPenny is a local state toggle with a close affordance and Continue still reachable — never a page navigation', () => {
+  it('opening MoneyPenny is a local state toggle — never a page navigation', () => {
     expect(src).toMatch(/const \[embedOpen, setEmbedOpen\] = useState\(false\);/);
-    expect(src).toMatch(/← Close MoneyPenny workspace/);
+  });
+
+  // Navigation/viewport correction follow-up (2026-09-03, operator directive:
+  // "They should both have the exact same expand-to-metaMe-shell affordance
+  // as Horizen bridge. They do not need the continue button... as the user
+  // can use the stepper to progress.") — supersedes the prior hand-built
+  // "← Close MoneyPenny workspace" / "Continue" header this describe block
+  // used to pin. MoneyPennyBridgeEmbed's own `expandable` toolbar (shared
+  // with Horizen's Operate stage) replaces both.
+  it('the embed-open state passes expandable to MoneyPennyBridgeEmbed and renders no local Close/Continue header', () => {
+    expect(src).toMatch(/<MoneyPennyBridgeEmbed[\s\S]{0,160}expandable/);
+    expect(src).not.toMatch(/← Close MoneyPenny workspace/);
+    expect(src).not.toMatch(/>\s*Continue\s*<\/button>/);
+    expect(src).not.toMatch(/handleCloseMoneyPenny/);
+  });
+
+  it('the intro (pre-open) BridgeMediaStage keeps its own Continue as the primary stage-advance CTA — only the embed-open header lost its redundant one', () => {
+    expect(src).toMatch(/primaryCtaLabel="Continue"/);
+    expect(src).toMatch(/onPrimaryCta=\{handleContinue\}/);
+  });
+});
+
+describe('MoneyPennyBridgeEmbed.tsx — expandable mode reuses Horizen\'s exact descriptor, never a second focus/expand mechanism (2026-09-03)', () => {
+  const src = stripComments(readSource('components/journey/MoneyPennyBridgeEmbed.tsx'));
+
+  it('imports the shared registry descriptor + src-builder Horizen\'s own Operate override uses', () => {
+    expect(src).toMatch(/import \{ JOURNEY_SURFACES, buildEmbedSurfaceSrc \} from '@\/services\/journey\/journeySurfaceRegistry'/);
+    expect(src).toMatch(/JOURNEY_SURFACES\['moneypenny-orchestration-focused'\]/);
+  });
+
+  it('the expandable branch targets metame-codex (via the shared descriptor), never the standalone moneypenny-codex cartridge', () => {
+    const at = src.indexOf('if (expandable)');
+    expect(at).toBeGreaterThan(-1);
+    const branch = src.slice(at, at + 1200);
+    expect(branch).toMatch(/buildEmbedSurfaceSrc\(/);
+    expect(branch).not.toMatch(/buildCodexUrl\('moneypenny'/);
+  });
+
+  it('renders a Focus/Full toggle button using the descriptor\'s own openLabel/breadcrumb — the same affordance JourneyRunSurface renders for kind: \'embed\' descriptors', () => {
+    const at = src.indexOf('if (expandable)');
+    const branch = src.slice(at, at + 1200);
+    expect(branch).toMatch(/descriptor\.breadcrumb/);
+    expect(branch).toMatch(/isExpanded \? 'Focus view' : \(descriptor\.openLabel/);
+  });
+
+  it('expandable defaults to false — Prepare\'s existing fixed-focused embed of the standalone cartridge is unaffected', () => {
+    expect(src).toMatch(/expandable = false/);
   });
 });
 

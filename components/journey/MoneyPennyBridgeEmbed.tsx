@@ -40,15 +40,38 @@
  * embedded cartridge coordinate copilot ownership so one active
  * conversation is presented"). Un-dispatches (false) on unmount so closing
  * this embed restores the bridge's own copilot.
+ *
+ * `expandable` (navigation/viewport correction follow-up, 2026-09-03,
+ * operator directive: "They should both [CI/Knightsbridge] have the exact
+ * same expand-to-metaMe-shell affordance as Horizen bridge") — when true,
+ * this embed stops targeting the standalone `moneypenny-codex` cartridge
+ * fixed-focused and instead renders through the SAME registry descriptor
+ * (`JOURNEY_SURFACES['moneypenny-orchestration-focused']`) and
+ * `buildEmbedSurfaceSrc` Horizen's own aigentme-stage override already
+ * uses, with the identical Focus/Full toggle toolbar
+ * (`JourneyRunSurface.tsx`'s `kind: 'embed'` render switch is the
+ * canonical copy of this toolbar; this is a deliberate, small duplicate of
+ * that JSX rather than a shared export, since JourneyRunSurface's version
+ * is keyed to its own `expandedEmbedIndices` map, not applicable to a
+ * standalone component with a single embed and no sibling surfaces) —
+ * expanding reveals metaMe's own real navigation with MoneyPenny selected,
+ * never a jump to the standalone cartridge shell. `tab` is ignored in this
+ * mode: the shared descriptor's own `tab` (`home`) always wins, exactly as
+ * every other consumer of that descriptor gets the same destination.
+ * Default `false` preserves the original fixed-focused-only behavior for
+ * Prepare's financial-profile embed, which has no expand affordance and
+ * targets a specific area tab the descriptor doesn't carry.
  */
 
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { buildCodexUrl } from '@/utils/codex-nav';
+import { JOURNEY_SURFACES, buildEmbedSurfaceSrc } from '@/services/journey/journeySurfaceRegistry';
 
 export function MoneyPennyBridgeEmbed({
   tab,
   personaId,
   className,
+  expandable = false,
 }: {
   /**
    * A MoneyPenny native area tab slug ('home' | 'my-money' | 'plan' |
@@ -58,11 +81,13 @@ export function MoneyPennyBridgeEmbed({
    * correct native area tab showing that exact panel (see
    * MoneyPennyPanelTab.tsx's own header) — callers in THIS repo should
    * still prefer the native slug directly, to land there in one render
-   * with no self-heal redirect.
+   * with no self-heal redirect. Ignored when `expandable` is true (see
+   * that prop's own doc comment above).
    */
   tab: string;
   personaId?: string | null;
   className?: string;
+  expandable?: boolean;
 }) {
   useEffect(() => {
     try {
@@ -78,6 +103,39 @@ export function MoneyPennyBridgeEmbed({
       }
     };
   }, []);
+
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  if (expandable) {
+    const descriptor = JOURNEY_SURFACES['moneypenny-orchestration-focused'];
+    if (descriptor.kind === 'embed') {
+      const shouldFocus = !isExpanded && descriptor.focused;
+      const src = buildEmbedSurfaceSrc(
+        { ...descriptor, focused: shouldFocus ? true : undefined },
+        { personaId: personaId ?? undefined },
+        buildCodexUrl,
+      );
+      return (
+        <div className="flex min-h-0 w-full flex-1 flex-col gap-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <span className="truncate text-[11px] text-slate-400">{descriptor.breadcrumb}</span>
+            <button
+              type="button"
+              onClick={() => setIsExpanded((e) => !e)}
+              className="ml-auto inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-slate-200 bg-none border-none cursor-pointer p-0"
+            >
+              {isExpanded ? 'Focus view' : (descriptor.openLabel ?? 'Open full view ↗')}
+            </button>
+          </div>
+          <iframe
+            src={src}
+            title="MoneyPenny"
+            className={className ?? 'h-[36rem] w-full rounded-md border border-slate-800 bg-slate-950'}
+          />
+        </div>
+      );
+    }
+  }
 
   const src = buildCodexUrl('moneypenny', {
     personaId: personaId ?? undefined,
