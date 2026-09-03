@@ -5299,3 +5299,18 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-510e7b3.md](../build_/COMMITS/COMMIT-510e7b3.md)
 - Message: Wire CFS content pack into CI/KNYTS Discover-Cross stages
+
+## Commit `093701e` — 2026-09-03T14:06:23Z
+- Type: `push`
+- Brief: [COMMIT-093701e.md](../build_/COMMITS/COMMIT-093701e.md)
+- Message: Complete CFS editorial coverage: structured content, native admin editing, section composition
+
+## Commit `cc3c76d` — 2026-09-03T16:13:02Z
+- Type: `push`
+- Brief: [COMMIT-cc3c76d.md](../build_/COMMITS/COMMIT-cc3c76d.md)
+- Message: Rebuild CFS Discover/Explore on the first-threshold media/interaction template
+
+## Commit `f9ed2e7` — 2026-09-03T17:07:46Z
+- Type: `feat`
+- Brief: [COMMIT-f9ed2e7.md](../build_/COMMITS/COMMIT-f9ed2e7.md)
+- Message: Lock CFS split viewport, add real infographics + activity/capsule composition
