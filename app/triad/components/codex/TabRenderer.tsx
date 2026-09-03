@@ -36,6 +36,7 @@ import { MarketaTab } from "./tabs/MarketaTab";
 import { KnytTab } from "./tabs/KnytTab";
 import { MoneyPennyTab } from "./tabs/MoneyPennyTab";
 import { MoneyPennyPanelTab } from "./tabs/MoneyPennyPanelTab";
+import { MoneyPennyAdminTab } from "@/app/(shell)/moneypenny/components/MoneyPennyAdminTab";
 import { NakamotoTab } from "./tabs/NakamotoTab";
 import { ExperienceDashboardTab } from "./tabs/ExperienceDashboardTab";
 import { AdminAccessRequestsTab } from "./tabs/AdminAccessRequestsTab";
@@ -253,6 +254,7 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   IframeTab,
   MoneyPennyTab,
   MoneyPennyPanelTab,
+  MoneyPennyAdminTab,
   ExperienceDashboardTab,
   AdminAccessRequestsTab,
   Persona360InspectorTab,

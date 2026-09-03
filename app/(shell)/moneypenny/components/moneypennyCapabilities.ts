@@ -217,3 +217,29 @@ export function areaItems(areaId: MoneyPennyAreaId): MoneyPennyCapabilityItem[] 
   );
   return [...capabilityItemsForArea(areaId), ...ungrouped];
 }
+
+/**
+ * MoneyPenny navigation-hierarchy correction (2026-09-03) — each
+ * `MoneyPennyAreaId` IS its native CodexTab `slug` now (Home/My Money/Plan/
+ * Markets/Activity are registered as real tier-2 subtabs of the
+ * `moneypenny` tabGroup in `MONEYPENNY_CARTRIDGE` — see data/codex-configs.ts).
+ * No separate area->slug lookup table is needed; this type alias exists
+ * only to make call sites that specifically mean "a native tab slug" read
+ * clearly, without implying a second, parallel slug vocabulary.
+ */
+export type MoneyPennyAreaTabSlug = MoneyPennyAreaId;
+
+/**
+ * The panel an area's native tab shows when landed on directly (no more
+ * specific deep link) — DERIVED as the first real (non-null) item in that
+ * area's own `areaItems()` list, never hand-picked, so it can never drift
+ * from what the carousel itself actually offers first. Every current area
+ * happens to resolve to its own natural "headline" capability this way
+ * (home->overview, my-money->financial-profile, plan->risk-envelope,
+ * markets->strategies, activity->runtime) — verified by
+ * tests/moneypenny-native-navigation.test.ts, not assumed.
+ */
+export function defaultPanelForArea(areaId: MoneyPennyAreaId): MoneyPennyPanelKey {
+  const first = areaItems(areaId).find((item) => item.panel !== null);
+  return first?.panel ?? "overview";
+}

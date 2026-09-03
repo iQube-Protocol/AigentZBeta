@@ -1,12 +1,18 @@
 /**
  * MoneyPennyRoleSelector — "MoneyPenny · Role: Advisor ▾" (MoneyPenny
- * experience-coherence correction, 2026-09-03, §6).
+ * experience-coherence correction, 2026-09-03, §6; relocated same day,
+ * navigation-hierarchy correction, into `SmartTriadCopilotLayer`'s own
+ * header — the left copilot pane, replacing the redundant "Financial
+ * Services Runtime" descriptor that used to render there via
+ * `agentSubtitle`. Co-located with `AigentMeRoleSelector.tsx`, the sibling
+ * this component's own dropdown shell is modelled on, since both are now
+ * rendered FROM `SmartTriadCopilotLayer.tsx` the same way.)
  *
  * Reuses the SAME compact dropdown shell `AigentMeRoleSelector.tsx`
- * established (components/smarttriad/copilot/AigentMeRoleSelector.tsx) —
- * button + ChevronDown trigger, absolute `border-slate-800 bg-slate-900/95
- * backdrop-blur-sm shadow-lg` list, a Check mark on the selected row — the
- * platform's one established dropdown idiom, not a new one.
+ * established — button + ChevronDown trigger, absolute `border-slate-800
+ * bg-slate-900/95 backdrop-blur-sm shadow-lg` list, a Check mark on the
+ * selected row — the platform's one established dropdown idiom, not a new
+ * one.
  *
  * DISTINCT from that selector on purpose (operator directive: "distinguish
  * role selection from agent identity selection"):
@@ -38,7 +44,8 @@
  * it) and into SC-04's context-versioning `role` field (a role change is a
  * context-relevant event — a late response captured under the old role is
  * correctly treated as stale). See MoneyPennyCopilotWorkspace.tsx's own
- * wiring of both.
+ * wiring of both, and SmartTriadCopilotLayer.tsx's `moneyPennyRole`/
+ * `onMoneyPennyRoleChange` props that carry it into this header.
  */
 
 'use client';
@@ -72,13 +79,11 @@ export function MoneyPennyRoleSelector({ role, onChange }: MoneyPennyRoleSelecto
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-1 rounded-md border border-slate-800 bg-slate-900/40 px-2.5 py-1 text-xs text-slate-300 transition-colors hover:border-slate-700 hover:text-slate-100"
+        className="flex items-center gap-1 rounded-md border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] uppercase tracking-wider text-white/60 transition-colors hover:border-white/20 hover:text-white/90"
         title="Choose how MoneyPenny may act right now — Advisor, Architect or Runtime. Selection only: no identity change, no delegation, no live execution."
       >
-        <span className="font-semibold text-slate-100">MoneyPenny</span>
-        <span className="text-slate-500">·</span>
         <span>Role: {ROLE_LABEL[role]}</span>
-        <ChevronDown className="h-3.5 w-3.5" />
+        <ChevronDown className="h-3 w-3" />
       </button>
       {open && (
         <>

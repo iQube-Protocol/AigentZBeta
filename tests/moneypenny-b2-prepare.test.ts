@@ -62,8 +62,8 @@ describe('Prepare opens the REAL canonical financial-profile panel IN PLACE, not
     expect(src).not.toMatch(/window\.location\.assign/);
   });
 
-  it('the embed targets the financial-profile tab, threading personaId through', () => {
-    expect(src).toMatch(/<MoneyPennyBridgeEmbed tab="financial-profile" personaId=\{personaId\}/);
+  it('the embed targets the My Money native tab (whose own default panel is financial-profile), threading personaId through', () => {
+    expect(src).toMatch(/<MoneyPennyBridgeEmbed tab="my-money" personaId=\{personaId\}/);
   });
 
   it('opening the embed is a local state toggle, not a page navigation — "Continue to Operate" and a back affordance both stay reachable while it is open', () => {

@@ -169,7 +169,7 @@ export function MoneyPennyWalletRuntime({ personaIdHint }: { personaIdHint?: str
       )}
 
       <Link
-        href={buildCodexUrl('moneypenny', { tab: 'runtime', personaId: personaIdHint || undefined })}
+        href={buildCodexUrl('moneypenny', { tab: 'activity', personaId: personaIdHint || undefined })}
         className="mt-auto flex items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] text-white/60 hover:bg-white/10 hover:text-white/90 transition-colors"
       >
         Open full Runtime + Agreement lifecycle in MoneyPenny

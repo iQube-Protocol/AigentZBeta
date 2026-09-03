@@ -60,7 +60,7 @@ describe('MoneyPennyPanelTab — the one dispatcher every entry point already us
   });
 
   it('both the known-panel and unknown-panel branches render through MoneyPennyCopilotWorkspace — no bypass path (2026-09-03: unified into ONE mount with the known/unknown choice as its children, an even stronger guarantee than two parallel mounts)', () => {
-    const mounts = src.match(/<MoneyPennyCopilotWorkspace activePanel=\{activePanel\}>/g) ?? [];
+    const mounts = src.match(/<MoneyPennyCopilotWorkspace activePanel=\{activePanel\}[^>]*>/g) ?? [];
     expect(mounts.length).toBe(1);
     expect(src).toMatch(/\{Panel \? <Panel \/> : <div[^>]*>Unknown MoneyPenny panel: \{activePanel\}<\/div>\}/);
   });
@@ -110,7 +110,7 @@ describe('C-02 copilot-to-capsule loop (Cartridge spec reconciliation, 2026-09-0
   });
 
   it('derives suggestable panel labels from the SAME capability-group source of truth the rail uses — no hand-duplicated label list', () => {
-    expect(src).toMatch(/import \{ MONEYPENNY_CAPABILITY_GROUPS \} from '\.\/moneypennyCapabilities'/);
+    expect(src).toMatch(/import \{ MONEYPENNY_CAPABILITY_GROUPS[^}]*\} from '\.\/moneypennyCapabilities'/);
     expect(src).toMatch(/MONEYPENNY_CAPABILITY_GROUPS\.flatMap/);
   });
 
@@ -146,34 +146,38 @@ describe('C-01 narrow-width Conversation/Workspace toggle — preserves conversa
   });
 });
 
-describe('C-03 five-area navigation retires the 14-item capability rail (2026-09-02)', () => {
+describe('C-03 five-area navigation retires the 14-item capability rail (2026-09-02; areas promoted to real native tabs 2026-09-03, second pass)', () => {
   it('MoneyPennyCapabilityRail.tsx no longer exists', () => {
     expect(() => readSource('app/(shell)/moneypenny/components/MoneyPennyCapabilityRail.tsx')).toThrow();
   });
 
-  it('MoneyPennyShell.tsx renders MoneyPennyAreaNav instead — same activePanel prop, same underlying panel components', () => {
+  it('MoneyPennyAreaNav.tsx no longer exists — the five areas are real native CodexTabs now (data/codex-configs.ts), not an internally-rendered menu', () => {
+    expect(() => readSource('app/(shell)/moneypenny/components/MoneyPennyAreaNav.tsx')).toThrow();
+  });
+
+  it('MoneyPennyShell.tsx renders MoneyPennyCapabilityCarousel instead — same activePanel prop, plus the area this native tab represents', () => {
     const src = stripComments(readSource('app/(shell)/moneypenny/components/MoneyPennyShell.tsx'));
-    expect(src).toMatch(/import \{ MoneyPennyAreaNav \} from "\.\/MoneyPennyAreaNav"/);
-    expect(src).toMatch(/<MoneyPennyAreaNav activePanel=\{activePanel\} \/>/);
-    expect(src).not.toMatch(/MoneyPennyCapabilityRail/);
+    expect(src).toMatch(/import \{ MoneyPennyCapabilityCarousel \} from "\.\/MoneyPennyCapabilityCarousel"/);
+    expect(src).toMatch(/<MoneyPennyCapabilityCarousel[\s\S]*?activePanel=\{activePanel\}[\s\S]*?area=\{area\}/);
+    expect(src).not.toMatch(/MoneyPennyCapabilityRail|MoneyPennyAreaNav/);
     // The panel content itself (children) is untouched — same components, same dispatcher.
     expect(src).toMatch(/\{children\}/);
   });
 
-  it('MoneyPennyAreaNav navigates through MoneyPennyNavigationContext — deep links (buildCodexUrl ?tab=) unchanged; only in-app navigation moved off tryOpenInMountedCartridge (2026-09-03, since the single-tab collapse left that cross-cartridge seam nothing to switch to)', () => {
-    const src = stripComments(readSource('app/(shell)/moneypenny/components/MoneyPennyAreaNav.tsx'));
-    expect(src).toMatch(/import \{ useMoneyPennyNavigation \} from "\.\/moneyPennyNavigation"/);
-    expect(src).toMatch(/navigateToPanel\(panel\)/);
+  it('MoneyPennyCapabilityCarousel navigates through MoneyPennyNavigationContext — same-area clicks set internal state, cross-area clicks hand off to the real native tab (moneyPennyNavigation.tsx)', () => {
+    const src = stripComments(readSource('app/(shell)/moneypenny/components/MoneyPennyCapabilityCarousel.tsx'));
+    expect(src).toMatch(/import \{ useMoneyPennyNavigation \} from '\.\/moneyPennyNavigation'/);
+    expect(src).toMatch(/navigate\(item\.panel\)/);
   });
 
-  it('all five areas from the Cartridge spec are present, Home included', () => {
-    const src = stripComments(readSource('app/(shell)/moneypenny/components/moneypennyCapabilities.ts'));
+  it('all five areas from the Cartridge spec are present as real native tab slugs, Home included', () => {
+    const src = stripComments(readSource('data/codex-configs.ts'));
     for (const area of ['home', 'my-money', 'plan', 'markets', 'activity']) {
-      expect(src, `area '${area}' missing from MONEYPENNY_AREAS`).toMatch(new RegExp(`id: "${area}"`));
+      expect(src, `area '${area}' missing as a native MONEYPENNY_CARTRIDGE tab slug`).toMatch(new RegExp(`slug: '${area}'`));
     }
   });
 
-  it('every real MoneyPennyPanelKey is reachable from exactly one area or the utility item — none dropped ("chat" excluded: retired 2026-09-03, no longer a MoneyPennyPanelKey at all)', () => {
+  it('every real MoneyPennyPanelKey is reachable from exactly one area — none dropped ("chat" excluded: retired 2026-09-03, no longer a MoneyPennyPanelKey at all)', () => {
     const src = stripComments(readSource('app/(shell)/moneypenny/components/moneypennyCapabilities.ts'));
     const panels = ['overview', 'hft-console', 'portfolio', 'strategies', 'x402', 'identity', 'smarttriad', 'architect', 'runtime', 'service-orchestration', 'financial-profile', 'risk-envelope'];
     for (const panel of panels) {
@@ -189,7 +193,7 @@ describe('C-03 five-area navigation retires the 14-item capability rail (2026-09
   });
 
   it('mode badges (Advisor/Architect/Runtime) are carried through unchanged, never redefined by area — C-10 keeps mode independent of navigation', () => {
-    const src = stripComments(readSource('app/(shell)/moneypenny/components/MoneyPennyAreaNav.tsx'));
+    const src = stripComments(readSource('app/(shell)/moneypenny/components/MoneyPennyCapabilityCarousel.tsx'));
     expect(src).toMatch(/MODE_BADGE_STYLE/);
     expect(src).toMatch(/item\.mode/);
     // No area-specific mode override logic — mode always comes from the item itself.
@@ -232,5 +236,97 @@ describe('C-02 server-side registered layout identifiers (app/api/codex/chat/rou
   it('the moneypenny control block never authorizes an action by itself — SC-02 (navigation/suggestion never grants authority)', () => {
     const block = src.match(/surfaceId === 'aigent-moneypenny'\s*\n\s*\? `([\s\S]*?)`\s*\n\s*: '';/)?.[1] ?? '';
     expect(block).toMatch(/never authorizes any action by itself/);
+  });
+});
+
+describe('MoneyPennyPanelTab — activePanel resets on a native area switch even though React never remounts it (live-discovered regression, 2026-09-03)', () => {
+  // All five native area tabs (data/codex-configs.ts's MONEYPENNY_CARTRIDGE)
+  // share `config.component: 'MoneyPennyPanelTab'`, so TabRenderer.tsx looks
+  // up the SAME component reference at the SAME tree position for every one
+  // of them. React therefore treats a Home->Activity click as a props-only
+  // update on the existing instance, never an unmount/remount. A `useState`
+  // lazy initializer only runs on true first mount, so without an explicit
+  // effect keyed on `area`, activePanel silently keeps showing whichever
+  // area happened to mount first — confirmed live via Playwright against
+  // the running dev server (Activity's own carousel rendered correctly, but
+  // the panel content below it kept showing Home's overview until this fix).
+  const src = stripComments(readSource(DISPATCHER_SRC));
+
+  it('imports useRef alongside the other hooks this file already used', () => {
+    expect(src).toMatch(/import \{[^}]*\buseRef\b[^}]*\} from "react";/);
+  });
+
+  it('tracks the last-seen area in a ref, seeded from the initial area (no redundant re-resolution on first mount)', () => {
+    expect(src).toMatch(/const lastAreaRef = useRef\(area\);/);
+  });
+
+  it('has an effect keyed on [area, explicitPanel] that re-resolves activePanel only when area has genuinely changed since last render', () => {
+    const effect = src.match(/const lastAreaRef = useRef\(area\);\s*useEffect\(\(\) => \{([\s\S]*?)\}, \[area, explicitPanel\]\);/)?.[1] ?? '';
+    expect(effect, 'area-change effect body not found').not.toBe('');
+    // Bails for the explicit-panel mirror (metame-codex), which has no area-switching concept at all.
+    expect(effect).toMatch(/if \(explicitPanel\) return;/);
+    // Bails when area hasn't actually changed — this is what stops the effect
+    // from re-firing redundantly on every unrelated re-render, and from ever
+    // clobbering an in-app navigate() the operator just did on the SAME area.
+    expect(effect).toMatch(/if \(area === lastAreaRef\.current\) return;/);
+    expect(effect).toMatch(/lastAreaRef\.current = area;/);
+    // A cross-area pending-panel signal (set by navigate() or the legacy-link
+    // self-heal effect) still wins over the area's own bare default — the
+    // exact-panel-targeting guarantee (e.g. Home's "Explore investing" card
+    // landing on Markets' hft-console, not Markets' own default strategies).
+    expect(effect).toMatch(/readAndClearPendingPanel\(\)/);
+    expect(effect).toMatch(/setActivePanel\(pending\);/);
+    // Falls back to the area's own derived default when there is no pending signal.
+    expect(effect).toMatch(/setActivePanel\(area \? defaultPanelForArea\(area\) : DEFAULT_PANEL\);/);
+  });
+
+  it('the area-change effect and the lazy initializer resolve identically — same three-step precedence (pending signal, else area default, else DEFAULT_PANEL) so a first-mount vs. later-area-change resolution can never diverge', () => {
+    const initializer = src.match(/const \[activePanel, setActivePanel\] = useState<MoneyPennyPanelKey>\(\(\) => \{([\s\S]*?)\}\);/)?.[1] ?? '';
+    const effect = src.match(/const lastAreaRef = useRef\(area\);\s*useEffect\(\(\) => \{([\s\S]*?)\}, \[area, explicitPanel\]\);/)?.[1] ?? '';
+    expect(initializer).toMatch(/area \? defaultPanelForArea\(area\) : DEFAULT_PANEL/);
+    expect(effect).toMatch(/area \? defaultPanelForArea\(area\) : DEFAULT_PANEL/);
+  });
+});
+
+describe('MoneyPennyPanelTab — legacy-deep-link self-heal defers past the first-mount registration race (live-discovered regression, 2026-09-03)', () => {
+  // Live Playwright test against a fresh page load at
+  // /triad/embed/codex/moneypenny?tab=service-orchestration (the exact URL
+  // Horizen's own `moneypenny-orchestration-focused.expandedTab` produces)
+  // stayed on Home instead of self-healing to Activity. Root cause: this
+  // effect and CodexPanelDynamic's ANCESTOR `useCartridgePresence`
+  // registration effect commit in the same React flush, child-before-
+  // parent — so on true first mount, this effect ran BEFORE
+  // 'moneypenny-codex' was registered in the CartridgePresenceRegistry,
+  // and tryOpenInMountedCartridge silently returned false (cartridge "not
+  // mounted yet"). Deferring the call past the synchronous effect-commit
+  // flush (setTimeout 0) fixed it — confirmed live, re-tested after the fix.
+  const src = stripComments(readSource(DISPATCHER_SRC));
+
+  // stripComments() removes the doc comment above this effect, so anchor on
+  // its actual code — the `if (explicitPanel || !area) return;` guard is
+  // unique to the self-heal effect (the area-change effect above guards on
+  // `if (explicitPanel) return;` alone), and both are `useEffect(..., [])`.
+  const selfHealEffect =
+    src.match(/if \(explicitPanel \|\| !area\) return;([\s\S]*?)\}, \[\]\);/)?.[1] ?? '';
+
+  it('the self-heal effect body is found (guards against the anchor pattern silently drifting)', () => {
+    expect(selfHealEffect).not.toBe('');
+  });
+
+  it('defers its tryOpenInMountedCartridge call past the current commit via setTimeout, not a direct synchronous call', () => {
+    expect(selfHealEffect).toMatch(/setTimeout\(\(\) => \{\s*tryOpenInMountedCartridge\(\{ cartridgeId: MONEYPENNY_CODEX_ID, tab: targetArea \}\);\s*\}, 0\);/);
+  });
+
+  it('clears the deferred timer on unmount — a fast unmount must never fire a stale redirect on a since-torn-down mount', () => {
+    expect(selfHealEffect).toMatch(/const timer = setTimeout/);
+    expect(selfHealEffect).toMatch(/return \(\) => clearTimeout\(timer\);/);
+  });
+
+  it('still writes the pending-panel signal synchronously (before the deferred redirect attempt), so the target mount can consume it the instant it registers', () => {
+    const writeIdx = selfHealEffect.indexOf('writePendingPanel(raw);');
+    const timerIdx = selfHealEffect.indexOf('const timer = setTimeout');
+    expect(writeIdx).toBeGreaterThan(-1);
+    expect(timerIdx).toBeGreaterThan(-1);
+    expect(writeIdx).toBeLessThan(timerIdx);
   });
 });

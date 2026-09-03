@@ -99,7 +99,7 @@ import { MoneyPennyShell } from './MoneyPennyShell';
 import { useMoneyPennyNavigation } from './moneyPennyNavigation';
 import { getCartridge, tryOpenInMountedCartridge } from '@/services/cartridge/CartridgePresenceRegistry';
 import { buildCodexUrl } from '@/utils/codex-nav';
-import { MONEYPENNY_CAPABILITY_GROUPS } from './moneypennyCapabilities';
+import { MONEYPENNY_CAPABILITY_GROUPS, type MoneyPennyAreaId } from './moneypennyCapabilities';
 import { MoneyPennyFullScreenProvider, type MoneyPennyFullScreenValue } from './MoneyPennyFullScreenContext';
 import { fetchFinancialProfileSummary, type FinancialProfileSummary } from '@/services/moneypenny/financialProfileSummary';
 import { MONEYPENNY_LEARN_VIDEO_PROMPT } from '@/services/journey/moneyPennyEducationalMedia';
@@ -160,10 +160,13 @@ function readStoredPersonaId(): string | undefined {
 
 export interface MoneyPennyCopilotWorkspaceProps {
   activePanel: MoneyPennyPanelKey;
+  /** The native area tab this mount represents — null for the metame-codex
+   *  orchestration mirror (see MoneyPennyPanelTab.tsx's own header). */
+  area: MoneyPennyAreaId | null;
   children: React.ReactNode;
 }
 
-export function MoneyPennyCopilotWorkspace({ activePanel, children }: MoneyPennyCopilotWorkspaceProps) {
+export function MoneyPennyCopilotWorkspace({ activePanel, area, children }: MoneyPennyCopilotWorkspaceProps) {
   const [personaId, setPersonaId] = useState<string | undefined>(undefined);
   // Return navigation (entry-continuity, 2026-09-02) — see this file's own
   // header comment for the two supported paths (slug breadcrumb vs.
@@ -417,7 +420,21 @@ export function MoneyPennyCopilotWorkspace({ activePanel, children }: MoneyPenny
 
   return (
     <MoneyPennyFullScreenProvider value={fullScreenContextValue}>
-    <div className="flex h-[calc(100vh-96px)] flex-col overflow-hidden bg-slate-950">
+    {/* Viewport correction (2026-09-03): `h-[calc(100vh-96px)]` assumed
+        this workspace is ALWAYS the sole content of a full top-level page
+        iframe with a fixed 96px outer header — true only for the
+        standalone `/triad/embed/codex/moneypenny` mount. Nested inside a
+        bridge/journey iframe (itself constrained to a smaller allocated
+        height by ITS OWN ancestor chain), `100vh` resolves against the
+        iframe's OWN rendered height, so subtracting a flat 96px silently
+        ate most or all of a already-small embedded iframe — the "thin
+        composer strip" defect. `h-full` is correct everywhere:
+        CodexPanelDynamic's own tab-content ancestor is already a proper
+        `flex-1 min-h-0` chain (verified by reading it, not assumed), so
+        this workspace simply fills whatever height that real chain
+        allocates — the full iframe in the standalone case, whatever
+        smaller height the bridge/journey host allocates when embedded. */}
+    <div className="flex h-full flex-col overflow-hidden bg-slate-950">
       {/* Return navigation (entry-continuity, 2026-09-02) — see this file's
           header comment. Hidden during full-screen (same as the narrow
           toggle) since the takeover bar owns that space instead. */}
@@ -494,7 +511,6 @@ export function MoneyPennyCopilotWorkspace({ activePanel, children }: MoneyPenny
             variant="panel"
             promptPlaceholder="Ask MoneyPenny — spending, a goal, your risk envelope…"
             agent={{ id: 'aigent-moneypenny', name: 'MoneyPenny' }}
-            agentSubtitle="Financial Services Runtime"
             personaId={personaId}
             groundContext={groundContext}
             quickPrompts={MONEYPENNY_QUICK_PROMPTS}
@@ -502,6 +518,21 @@ export function MoneyPennyCopilotWorkspace({ activePanel, children }: MoneyPenny
             shouldSuppressResponse={shouldSuppressResponse}
             onSuggestedLayouts={handleSuggestedLayouts}
             onClose={() => undefined}
+            // MoneyPenny navigation-hierarchy correction (2026-09-03) — the
+            // Advisor/Architect/Runtime role selector moves from the right
+            // pane into THIS header (replacing the redundant "Financial
+            // Services Runtime" descriptor the agentSubtitle prop used to
+            // render here — omitted above for exactly that reason).
+            // SmartTriadCopilotLayer renders it only when agent.id ===
+            // 'aigent-moneypenny', the same agentId-gated pattern
+            // AigentMeRoleSelector already uses one prop over. The role
+            // STATE itself is unchanged — the same `role`/`setRole` this
+            // file already threads into groundContext.providerMode and
+            // SC-04's context-versioning below; only where it renders
+            // moved, per the operator's explicit "reuse the already
+            // implemented role state — do not create another role store."
+            moneyPennyRole={role}
+            onMoneyPennyRoleChange={setRole}
           />
         </div>
         <div
@@ -523,7 +554,7 @@ export function MoneyPennyCopilotWorkspace({ activePanel, children }: MoneyPenny
               </button>
             </div>
           )}
-          <MoneyPennyShell activePanel={activePanel} role={role} onRoleChange={setRole}>{children}</MoneyPennyShell>
+          <MoneyPennyShell activePanel={activePanel} area={area}>{children}</MoneyPennyShell>
         </div>
       </div>
     </div>

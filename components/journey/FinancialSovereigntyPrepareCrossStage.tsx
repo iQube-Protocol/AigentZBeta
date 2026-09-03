@@ -264,7 +264,7 @@ function PrepareFinancialProfileReview({
             Continue to Operate
           </button>
         </div>
-        <MoneyPennyBridgeEmbed tab="financial-profile" personaId={personaId} className="min-h-0 w-full flex-1 rounded-md border border-slate-800 bg-slate-950" />
+        <MoneyPennyBridgeEmbed tab="my-money" personaId={personaId} className="min-h-0 w-full flex-1 rounded-md border border-slate-800 bg-slate-950" />
       </div>
     );
   }

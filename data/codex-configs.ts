@@ -4895,49 +4895,111 @@ export const MONEYPENNY_CARTRIDGE: CodexConfig = {
       'What can Runtime actually do for me?',
     ],
   },
-  // MoneyPenny experience-coherence correction (2026-09-03, operator
-  // directive: "Remove the competing user-facing navigation layers: HFT /
-  // Connect / Service / Administer... the long Overview / HFT Console /
-  // Financial Profile / Risk / Learn / Portfolio / Strategies / Smart
-  // Trade panel-tab row... Consolidate at the owning configuration/
-  // rendering layer."). Fourteen real CodexTab entries across four
-  // tabGroups previously made `CodexPanelDynamic.tsx` render its OWN
-  // top-level group bar and sibling-tab sub-header ABOVE the five-area nav
-  // (`MoneyPennyAreaNav.tsx`) MoneyPenny's own workspace already renders
-  // below it — navigation stacked inside navigation. Collapsing to ONE
-  // registered tab (no group) makes `enabledTabs.length <= 1`, which
-  // `CodexPanelDynamic`'s own documented `singleTabMode` already uses to
-  // suppress BOTH outer chrome tiers — an existing platform mechanism
-  // ("When only one tab is available, the tab shell manages its own
-  // navigation chrome" — MoneyPennyPanelTab.tsx's own header), not a new,
-  // route-specific CSS override.
+  // MoneyPenny navigation-hierarchy correction (2026-09-03, second pass —
+  // supersedes the single-tab collapse below this comment used to
+  // describe). The PRIOR experience-coherence correction collapsed this
+  // cartridge to ONE registered tab so CodexPanelDynamic's `singleTabMode`
+  // would suppress its outer chrome, and rendered Home/My Money/Plan/
+  // Markets/Activity as an internally-styled pill row inside the right
+  // pane instead (`MoneyPennyAreaNav.tsx`, retired). That fixed
+  // "navigation inside navigation" but left the five areas as, in the
+  // operator's own words, "an independently rendered menu inside the
+  // right pane" rather than real cartridge navigation.
   //
-  // Every one of the retired 14 panel-key values (`overview`,
-  // `hft-console`, `financial-profile`, `risk-envelope`, `learn`,
-  // `portfolio`, `strategies`, `smarttriad`, `chat`, `crm`, `x402`,
-  // `architect`, `runtime`, `service-orchestration`, `identity`) is still a
-  // real `MoneyPennyPanelKey` (MoneyPennyPanelTab.tsx) and still opens the
-  // exact same panel component — every existing
-  // `buildCodexUrl('moneypenny', {tab})` deep link keeps working
-  // byte-for-byte, now resolved from the raw `?tab=` query param inside
-  // the one registered tab rather than via a dedicated CodexTab per value.
-  // See MoneyPennyPanelTab.tsx's header for the full mechanism.
-  tabGroups: [],
+  // The `moneypenny` tabGroup below restores CodexPanelDynamic's native
+  // two-tier chrome instead: a real top-level "MoneyPenny · Admin" bar
+  // (the group chip + the standalone Admin tab), and a real Home | My
+  // Money | Plan | Markets | Activity sub-header for the group's five
+  // sibling tabs — mirroring exactly how Agent Me's OWN `aigentme`
+  // tabGroup carries multiple real sibling tabs (`aigent-me`, `strategy`,
+  // `experience-matrix`, ... a few thousand lines above this cartridge)
+  // rather than a second, parallel chrome system.
+  //
+  // Each area tab's `props.area` (a MoneyPennyAreaId, defined in
+  // moneypennyCapabilities.ts) tells `MoneyPennyPanelTab` which of the
+  // five areas this mount represents; see that file's own header for how
+  // it resolves a default landing panel per area, and for the
+  // cross-area-navigation + legacy-deep-link self-heal mechanism that
+  // makes switching between these real native tabs preserve the operator's
+  // copilot conversation instead of resetting it on every remount. Every
+  // one of the 14 retired flat panel-key deep links (`buildCodexUrl(
+  // 'moneypenny', {tab: 'risk-envelope'})` etc.) still opens the exact
+  // same panel, via that self-heal path.
+  tabGroups: [
+    { id: 'moneypenny', label: 'MoneyPenny', icon: 'TrendingUp', order: 0 },
+  ],
   tabs: [
     {
-      id: 'moneypenny-workspace',
-      label: 'MoneyPenny',
-      slug: 'workspace',
+      id: 'moneypenny-home',
+      label: 'Home',
+      slug: 'home',
       enabled: true,
-      adminOnly: false,
+      group: 'moneypenny',
       order: 0,
       type: 'static',
-      // No `panel` prop — MoneyPennyPanelTab resolves the initial panel
-      // from `?tab=` itself (defaulting to `overview`/Home); every legacy
-      // panel-key value above still opens correctly. See that component's
-      // header for why.
-      config: { component: 'MoneyPennyPanelTab', props: {} },
-      metadata: { icon: 'TrendingUp', description: 'Home, My Money, Plan, Markets and Activity — one MoneyPenny workspace', color: 'emerald' },
+      config: { component: 'MoneyPennyPanelTab', props: { area: 'home' } },
+      metadata: { icon: 'LayoutGrid', description: 'Where am I? What needs attention?', color: 'emerald' },
+    },
+    {
+      id: 'moneypenny-my-money',
+      label: 'My Money',
+      slug: 'my-money',
+      enabled: true,
+      group: 'moneypenny',
+      order: 1,
+      type: 'static',
+      config: { component: 'MoneyPennyPanelTab', props: { area: 'my-money' } },
+      metadata: { icon: 'Wallet', description: 'What do I have? What is committed? What can I use?', color: 'emerald' },
+    },
+    {
+      id: 'moneypenny-plan',
+      label: 'Plan',
+      slug: 'plan',
+      enabled: true,
+      group: 'moneypenny',
+      order: 2,
+      type: 'static',
+      config: { component: 'MoneyPennyPanelTab', props: { area: 'plan' } },
+      metadata: { icon: 'ShieldAlert', description: 'What am I trying to achieve? How do the assumptions change it?', color: 'emerald' },
+    },
+    {
+      id: 'moneypenny-markets',
+      label: 'Markets',
+      slug: 'markets',
+      enabled: true,
+      group: 'moneypenny',
+      order: 3,
+      type: 'static',
+      config: { component: 'MoneyPennyPanelTab', props: { area: 'markets' } },
+      metadata: { icon: 'TrendingUp', description: 'What am I considering? What are the costs and possible outcomes?', color: 'emerald' },
+    },
+    {
+      id: 'moneypenny-activity',
+      label: 'Activity',
+      slug: 'activity',
+      enabled: true,
+      group: 'moneypenny',
+      order: 4,
+      type: 'static',
+      config: { component: 'MoneyPennyPanelTab', props: { area: 'activity' } },
+      metadata: { icon: 'Activity', description: 'Who did what? What happened? What should change?', color: 'emerald' },
+    },
+    // The one standalone, admin-gated tab — NOT part of the 'moneypenny'
+    // group (a sixth beginner area), a genuinely separate, permission-
+    // gated utility per the operator's own framing. See
+    // MoneyPennyAdminTab.tsx's own header for the audit confirming no
+    // pre-existing genuinely admin-only MoneyPenny capability exists to
+    // migrate here yet.
+    {
+      id: 'moneypenny-admin',
+      label: 'Admin',
+      slug: 'admin',
+      enabled: true,
+      adminOnly: true,
+      order: 5,
+      type: 'static',
+      config: { component: 'MoneyPennyAdminTab', props: {} },
+      metadata: { icon: 'Settings', description: 'Administrator-only MoneyPenny configuration (placeholder — no functions exist yet)', color: 'slate' },
     },
   ],
   permissions: {

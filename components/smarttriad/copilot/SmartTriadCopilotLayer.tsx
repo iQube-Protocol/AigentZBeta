@@ -16,6 +16,8 @@ import { TTSListenButton } from "./TTSListenButton";
 import { SmartTriadInferenceRenderer, type SmartTriadMessage } from "./SmartTriadInferenceRenderer";
 import { UploadAttachmentPicker } from "@/components/metame/uploads/UploadAttachmentPicker";
 import { AigentMeRoleSelector } from "./AigentMeRoleSelector";
+import { MoneyPennyRoleSelector } from "./MoneyPennyRoleSelector";
+import type { MoneyPennyProviderMode } from "@/types/financialServices";
 import {
   Bot,
   User,
@@ -101,6 +103,18 @@ interface SmartTriadCopilotLayerProps {
     walletAddress?: string;
   };
   agentSubtitle?: string;
+  /**
+   * MoneyPenny navigation-hierarchy correction (2026-09-03) — the current
+   * Advisor/Architect/Runtime role and its setter, rendered in this
+   * header (replacing `agentSubtitle`) ONLY when `agent.id ===
+   * 'aigent-moneypenny'`, the same agentId-gated pattern
+   * `AigentMeRoleSelector` already uses one prop over. Owned entirely by
+   * the caller (MoneyPennyCopilotWorkspace.tsx) — this component never
+   * creates or reads role state of its own, per the operator's "reuse the
+   * already implemented role state — do not create another role store."
+   */
+  moneyPennyRole?: MoneyPennyProviderMode;
+  onMoneyPennyRoleChange?: (role: MoneyPennyProviderMode) => void;
   personaId?: string;
   // SmartTriad specific props
   tenantConfig?: {
@@ -331,6 +345,8 @@ export function SmartTriadCopilotLayer({
   panelBorder = true,
   agent,
   agentSubtitle,
+  moneyPennyRole,
+  onMoneyPennyRoleChange,
   personaId,
   tenantConfig,
   enableAdvancedRendering = true,
@@ -895,6 +911,8 @@ export function SmartTriadCopilotLayer({
           agentName={agent?.name}
           agentId={agent?.id}
           agentSubtitle={agentSubtitle}
+          moneyPennyRole={moneyPennyRole}
+          onMoneyPennyRoleChange={onMoneyPennyRoleChange}
           selectedProvider={selectedProvider}
           setSelectedProvider={setSelectedProvider}
           onClearMessages={handleClearMessages}
@@ -936,6 +954,8 @@ export function SmartTriadCopilotLayer({
           agentName={agent?.name}
           agentId={agent?.id}
           agentSubtitle={agentSubtitle}
+          moneyPennyRole={moneyPennyRole}
+          onMoneyPennyRoleChange={onMoneyPennyRoleChange}
         />
       )}
     </div>
@@ -984,6 +1004,8 @@ function FloatingCopilot({
   agentName,
   agentId,
   agentSubtitle,
+  moneyPennyRole,
+  onMoneyPennyRoleChange,
   selectedProvider,
   setSelectedProvider,
   inlineMode = false,
@@ -1023,6 +1045,8 @@ function FloatingCopilot({
   agentName?: string;
   agentId?: string;
   agentSubtitle?: string;
+  moneyPennyRole?: MoneyPennyProviderMode;
+  onMoneyPennyRoleChange?: (role: MoneyPennyProviderMode) => void;
   inlineMode?: boolean;
   selectedProvider: string;
   setSelectedProvider: (p: string) => void;
@@ -1152,10 +1176,20 @@ function FloatingCopilot({
               <span className="text-sm font-semibold text-white/90 leading-none truncate">
                 {agentName ?? "Aigent Copilot"}
               </span>
-              {agentSubtitle && (
-                <span className="text-[10px] uppercase tracking-wider text-white/50 leading-none truncate">
-                  {agentSubtitle}
-                </span>
+              {/* MoneyPenny navigation-hierarchy correction (2026-09-03):
+                  the Advisor/Architect/Runtime role selector REPLACES the
+                  redundant agentSubtitle descriptor on the MoneyPenny
+                  surface specifically (agentId === 'aigent-moneypenny') —
+                  every other agent keeps rendering agentSubtitle exactly
+                  as before. */}
+              {agentId === 'aigent-moneypenny' && moneyPennyRole && onMoneyPennyRoleChange ? (
+                <MoneyPennyRoleSelector role={moneyPennyRole} onChange={onMoneyPennyRoleChange} />
+              ) : (
+                agentSubtitle && (
+                  <span className="text-[10px] uppercase tracking-wider text-white/50 leading-none truncate">
+                    {agentSubtitle}
+                  </span>
+                )
               )}
               {/* aigentMe-role selector — only on the aigentMe surface
                   (agentId === 'aigent-me'). Selection changes routing only;
@@ -1539,6 +1573,8 @@ function EmbeddedCopilot({
   agentName,
   agentId,
   agentSubtitle,
+  moneyPennyRole,
+  onMoneyPennyRoleChange,
 }: {
   messages: SmartTriadMessage[];
   input: string;
@@ -1570,6 +1606,8 @@ function EmbeddedCopilot({
   agentName?: string;
   agentId?: string;
   agentSubtitle?: string;
+  moneyPennyRole?: MoneyPennyProviderMode;
+  onMoneyPennyRoleChange?: (role: MoneyPennyProviderMode) => void;
 }) {
   // Same chronological merge as FloatingCopilot — see its comment.
   const timelineEntries = useMemo(() => {
@@ -1600,10 +1638,14 @@ function EmbeddedCopilot({
           <span className="font-medium text-sm text-slate-100 truncate">
             {agentName ?? "SmartTriad Copilot"}
           </span>
-          {agentSubtitle && (
-            <span className="text-[10px] uppercase tracking-wider text-slate-500 truncate">
-              {agentSubtitle}
-            </span>
+          {agentId === 'aigent-moneypenny' && moneyPennyRole && onMoneyPennyRoleChange ? (
+            <MoneyPennyRoleSelector role={moneyPennyRole} onChange={onMoneyPennyRoleChange} />
+          ) : (
+            agentSubtitle && (
+              <span className="text-[10px] uppercase tracking-wider text-slate-500 truncate">
+                {agentSubtitle}
+              </span>
+            )
           )}
           {agentId === 'aigent-me' && <AigentMeRoleSelector personaId={personaId} />}
         </div>

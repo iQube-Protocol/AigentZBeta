@@ -19,6 +19,18 @@
  * (`MoneyPennyPanelTab` → `MoneyPennyCopilotWorkspace`), never an
  * orchestration-only substitute.
  *
+ * `focusedNavDepth: 1` (navigation-hierarchy correction, 2026-09-03 —
+ * raised from 0 the same day MoneyPenny's five areas became real native
+ * CodexTabs): depth 0 would hide BOTH of CodexPanelDynamic's chrome tiers,
+ * including the Home | My Money | Plan | Markets | Activity sub-header —
+ * leaving the embedded operator with no way to switch areas at all. Depth
+ * 1 hides only the outer "MoneyPenny · Admin" bar (redundant inside a
+ * bridge/journey stage that already supplies its own header/stepper) while
+ * keeping the area sub-header navigable — the SAME precedent
+ * `knyts-bridge-buy-store`'s own depth: 1 already established for KNYT's
+ * Store tab ("retains the Store's own navigation strip ... required for
+ * the destination to remain functionally navigable").
+ *
  * Dispatches `journey:host-copilot-suppress` (the same
  * window-CustomEvent convention `journey:select-stage` already
  * establishes) so `JourneyRunSurface` stops mounting its own
@@ -38,7 +50,16 @@ export function MoneyPennyBridgeEmbed({
   personaId,
   className,
 }: {
-  /** MoneyPennyPanelKey — which capsule to open (e.g. 'financial-profile', 'overview'). */
+  /**
+   * A MoneyPenny native area tab slug ('home' | 'my-money' | 'plan' |
+   * 'markets' | 'activity') — passed straight through as `?tab=` to the
+   * real MONEYPENNY_CARTRIDGE tabs. A legacy MoneyPennyPanelKey value
+   * (e.g. 'financial-profile') also still works: it self-heals into the
+   * correct native area tab showing that exact panel (see
+   * MoneyPennyPanelTab.tsx's own header) — callers in THIS repo should
+   * still prefer the native slug directly, to land there in one render
+   * with no self-heal redirect.
+   */
   tab: string;
   personaId?: string | null;
   className?: string;
@@ -62,7 +83,7 @@ export function MoneyPennyBridgeEmbed({
     personaId: personaId ?? undefined,
     tab,
     focused: true,
-    focusedNavDepth: 0,
+    focusedNavDepth: 1,
   });
 
   return (

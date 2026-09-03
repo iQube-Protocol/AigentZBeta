@@ -75,7 +75,7 @@ describe('2d — the duplicate right-pane MoneyPennyChat panel is retired from t
 
 describe('2e — CRM moved to Activity, no longer a separately-pinned utility button', () => {
   const capabilitiesSrc = stripComments(readSource('app/(shell)/moneypenny/components/moneypennyCapabilities.ts'));
-  const areaNavSrc = stripComments(readSource('app/(shell)/moneypenny/components/MoneyPennyAreaNav.tsx'));
+  const carouselSrc = stripComments(readSource('app/(shell)/moneypenny/components/MoneyPennyCapabilityCarousel.tsx'));
 
   it('MONEYPENNY_AREA_FOR_PANEL maps crm to activity — no longer excluded from area mapping', () => {
     expect(capabilitiesSrc).toMatch(/crm: "activity"/);
@@ -93,48 +93,51 @@ describe('2e — CRM moved to Activity, no longer a separately-pinned utility bu
     expect(ungroupedBlock).toMatch(/id: "crm"/);
   });
 
-  it('MoneyPennyAreaNav no longer renders a separately-pinned utility button outside the five-area strip', () => {
-    expect(areaNavSrc).not.toMatch(/MONEYPENNY_UTILITY_ITEM/);
-    expect(areaNavSrc).not.toMatch(/ml-auto/);
+  it('MoneyPennyCapabilityCarousel no longer renders a separately-pinned utility button — CRM is just another carousel item like any other (the carousel\'s own ml-auto is Connection diagnostics, a different, sanctioned right-alignment, not a utility-item revival)', () => {
+    expect(carouselSrc).not.toMatch(/MONEYPENNY_UTILITY_ITEM/);
+    expect(carouselSrc).toMatch(/Connection diagnostics/);
   });
 });
 
-describe('2c — the oversized runtime-agents banner + connection-light strip no longer occupy default screen space', () => {
-  const src = stripComments(readSource('app/(shell)/moneypenny/components/MoneyPennyShell.tsx'));
+describe('2c — the oversized runtime-agents banner no longer occupies default screen space; connection diagnostics moved into the capability carousel (navigation-hierarchy correction, 2026-09-03, second pass)', () => {
+  const shellSrc = stripComments(readSource('app/(shell)/moneypenny/components/MoneyPennyShell.tsx'));
+  const carouselSrc = stripComments(readSource('app/(shell)/moneypenny/components/MoneyPennyCapabilityCarousel.tsx'));
 
   it('the "Financial Services Runtime Agents" banner text is gone', () => {
-    expect(src).not.toMatch(/Financial Services Runtime Agents/);
-    expect(src).not.toMatch(/Real-time high-frequency trading agent powered by Qripto/);
+    expect(shellSrc).not.toMatch(/Financial Services Runtime Agents/);
+    expect(shellSrc).not.toMatch(/Real-time high-frequency trading agent powered by Qripto/);
   });
 
-  it('connection diagnostics (Quotes/Execution/X402/FIO) are preserved, but behind a closed-by-default <details> disclosure — not deleted, not exposed by default', () => {
-    expect(src).toMatch(/<details className="group[^"]*">/);
-    expect(src).toMatch(/Connection diagnostics/);
+  it('connection diagnostics (Quotes/Execution/X402/FIO) are preserved, but as the FINAL carousel button + an expandable detail region below it — no longer a standalone full-width accordion above the menu (item 3 correction, 2026-09-03)', () => {
+    expect(shellSrc).not.toMatch(/<details/);
+    expect(carouselSrc).toMatch(/Connection diagnostics/);
+    expect(carouselSrc).toMatch(/diagnosticsOpen/);
     // The four status rows still exist, honestly derived (unchanged logic) —
-    // only their default visibility moved.
+    // only their location (and default visibility) moved.
     for (const label of ['Quotes', 'Execution', 'X402', 'FIO']) {
-      expect(src, `diagnostic row '${label}' missing`).toContain(`>${label}<`);
+      expect(carouselSrc, `diagnostic row '${label}' missing`).toContain(`>${label}<`);
     }
-    // <details> with no `open` attribute is closed by default — confirm
-    // the element itself carries no open flag.
-    expect(src).not.toMatch(/<details[^>]*\bopen\b/);
+    // Closed by default — the detail region is conditionally rendered on
+    // diagnosticsOpen, not an <details> with an `open` attribute.
+    expect(carouselSrc).toMatch(/\{diagnosticsOpen && \(/);
   });
 
-  it('the Connected/Disconnected badge is still visible at a glance (on the closed summary row), not buried', () => {
-    const summaryBlock = src.match(/<summary[\s\S]*?<\/summary>/)?.[0] ?? '';
-    expect(summaryBlock).toMatch(/isConnected \? "Connected" : "Disconnected"/);
+  it('the Connected/Disconnected badge is still visible at a glance, on the diagnostics button itself, not buried', () => {
+    const buttonBlock = carouselSrc.match(/onClick=\{\(\) => setDiagnosticsOpen[\s\S]*?<\/button>/)?.[0] ?? '';
+    expect(buttonBlock).toMatch(/isConnected \? 'Connected' : 'Disconnected'/);
   });
 
-  it('MoneyPennyAreaNav — the one sanctioned navigation — is unaffected by this change, still mounted exactly once', () => {
-    const mounts = src.match(/<MoneyPennyAreaNav activePanel=\{activePanel\} \/>/g) ?? [];
+  it('MoneyPennyCapabilityCarousel — the one sanctioned per-area carousel — is mounted exactly once in MoneyPennyShell', () => {
+    const mounts = shellSrc.match(/<MoneyPennyCapabilityCarousel/g) ?? [];
     expect(mounts.length).toBe(1);
   });
 });
 
-describe('3 — MoneyPenny role selector (Advisor/Architect/Runtime) is real context wiring, not a cosmetic dropdown', () => {
-  const selectorSrc = stripComments(readSource('app/(shell)/moneypenny/components/MoneyPennyRoleSelector.tsx'));
+describe('3 — MoneyPenny role selector (Advisor/Architect/Runtime) is real context wiring in the LEFT copilot header, not a cosmetic right-pane dropdown (navigation-hierarchy correction, 2026-09-03, second pass: relocated from MoneyPennyShell into SmartTriadCopilotLayer)', () => {
+  const selectorSrc = stripComments(readSource('components/smarttriad/copilot/MoneyPennyRoleSelector.tsx'));
   const shellSrc = stripComments(readSource('app/(shell)/moneypenny/components/MoneyPennyShell.tsx'));
   const workspaceSrc = stripComments(readSource('app/(shell)/moneypenny/components/MoneyPennyCopilotWorkspace.tsx'));
+  const layerSrc = stripComments(readSource('components/smarttriad/copilot/SmartTriadCopilotLayer.tsx'));
   const versioningSrc = stripComments(readSource('services/moneypenny/contextVersioning.ts'));
 
   it('reuses the shared MoneyPennyProviderMode vocabulary — never a second, parallel role type', () => {
@@ -145,7 +148,7 @@ describe('3 — MoneyPenny role selector (Advisor/Architect/Runtime) is real con
     }
   });
 
-  it('renders the compact "MoneyPenny · Role: X ▾" control, closed by default, using the established dropdown idiom', () => {
+  it('renders the compact "Role: X ▾" control, closed by default, using the established dropdown idiom', () => {
     expect(selectorSrc).toMatch(/Role: \{ROLE_LABEL\[role\]\}/);
     expect(selectorSrc).toMatch(/const \[open, setOpen\] = useState\(false\)/);
     expect(selectorSrc).toMatch(/border-slate-800 bg-slate-900\/95 py-1 shadow-lg backdrop-blur-sm/);
@@ -159,17 +162,22 @@ describe('3 — MoneyPenny role selector (Advisor/Architect/Runtime) is real con
     expect(selectorSrc).not.toMatch(/environment\s*[:=]\s*['"]live['"]/);
   });
 
-  it('is mounted at the top of the right workspace, outside the diagnostics <details> and distinct from AigentMeRoleSelector', () => {
-    const roleBlockIndex = shellSrc.indexOf('<MoneyPennyRoleSelector');
-    const detailsIndex = shellSrc.indexOf('<details');
-    expect(roleBlockIndex).toBeGreaterThan(-1);
-    expect(detailsIndex).toBeGreaterThan(-1);
-    expect(roleBlockIndex).toBeLessThan(detailsIndex);
-    expect(shellSrc).not.toMatch(/AigentMeRoleSelector/);
+  it('MoneyPennyShell no longer renders the role selector at all — it moved into the left copilot header, not the right pane', () => {
+    expect(shellSrc).not.toMatch(/MoneyPennyRoleSelector/);
+    expect(shellSrc).not.toMatch(/role: MoneyPennyProviderMode/);
   });
 
-  it('MoneyPennyShell requires role + onRoleChange as real props — not optional cosmetic ones', () => {
-    expect(shellSrc).toMatch(/role: MoneyPennyProviderMode;\s*onRoleChange: \(role: MoneyPennyProviderMode\) => void;/);
+  it('SmartTriadCopilotLayer renders MoneyPennyRoleSelector in its header ONLY for agentId === \'aigent-moneypenny\', replacing the redundant agentSubtitle descriptor there — AigentMeRoleSelector stays a distinct, separate control', () => {
+    expect(layerSrc).toMatch(/import \{ MoneyPennyRoleSelector \} from "\.\/MoneyPennyRoleSelector"/);
+    expect(layerSrc).toMatch(/agentId === 'aigent-moneypenny' && moneyPennyRole && onMoneyPennyRoleChange/);
+    expect(layerSrc).toMatch(/<MoneyPennyRoleSelector role=\{moneyPennyRole\} onChange=\{onMoneyPennyRoleChange\} \/>/);
+    expect(layerSrc).toMatch(/agentId === 'aigent-me' && <AigentMeRoleSelector/);
+  });
+
+  it('MoneyPennyCopilotWorkspace passes the SAME role state into SmartTriadCopilotLayer as moneyPennyRole/onMoneyPennyRoleChange — no second role store, no agentSubtitle text for MoneyPenny any more', () => {
+    expect(workspaceSrc).toMatch(/moneyPennyRole=\{role\}/);
+    expect(workspaceSrc).toMatch(/onMoneyPennyRoleChange=\{setRole\}/);
+    expect(workspaceSrc).not.toMatch(/agentSubtitle=/);
   });
 
   it('the selected role flows into the copilot groundContext as providerMode — read, never used to authorize', () => {
@@ -188,7 +196,7 @@ describe('3 — MoneyPenny role selector (Advisor/Architect/Runtime) is real con
     // The role setter (setRole) is only ever called from the selector's
     // onChange plumbing — never from within an activePanel/personaId/
     // environment setter, and no other setter is called alongside it.
-    expect(workspaceSrc).toMatch(/onRoleChange=\{setRole\}/);
+    expect(workspaceSrc).toMatch(/onMoneyPennyRoleChange=\{setRole\}/);
     expect(workspaceSrc).not.toMatch(/setRole\([^)]*\)[\s\S]{0,40}(setActivePanel|setPersonaId|setEnvironment)\(/);
     expect(workspaceSrc).not.toMatch(/(setActivePanel|setPersonaId|setEnvironment)\([^)]*\)[\s\S]{0,40}setRole\(/);
   });

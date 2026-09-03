@@ -47,7 +47,7 @@ describe('FinancialSovereigntyOperateStage.tsx — embeds the real MoneyPenny ca
 
   it('uses MoneyPennyBridgeEmbed — the shared in-frame mount, not a hand-built iframe or a fork of MoneyPenny\'s own workspace component', () => {
     expect(src).toMatch(/import \{ MoneyPennyBridgeEmbed \} from '@\/components\/journey\/MoneyPennyBridgeEmbed'/);
-    expect(src).toMatch(/<MoneyPennyBridgeEmbed tab="overview" personaId=\{personaId\}/);
+    expect(src).toMatch(/<MoneyPennyBridgeEmbed tab="home" personaId=\{personaId\}/);
     // Never a second, forked implementation of MoneyPenny's own workspace
     // internals — MoneyPennyBridgeEmbed is the ONE composition seam.
     expect(src).not.toMatch(/SmartWalletDrawer|SmartTriadCopilotLayer|MoneyPennyPanelTab|MoneyPennyCopilotWorkspace/);

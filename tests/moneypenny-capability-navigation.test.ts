@@ -91,21 +91,43 @@ describe('MONEYPENNY_CAPABILITY_GROUPS (SPEC-MPY-002 §2.1)', () => {
   });
 });
 
-describe("MONEYPENNY_CARTRIDGE registers exactly ONE codex tab (2026-09-03 experience-coherence correction — replaces the retired 'moneypenny-overview tab exists in the operate group' canary)", () => {
-  it('the one tab dispatches through MoneyPennyPanelTab, ungrouped, with no fixed panel prop (it resolves the initial panel from ?tab= itself)', () => {
-    expect(MONEYPENNY_CARTRIDGE.tabs).toHaveLength(1);
-    const tab = MONEYPENNY_CARTRIDGE.tabs[0];
-    expect(tab.enabled).toBe(true);
-    expect(tab.slug).toBe('workspace');
-    expect(tab.group).toBeUndefined();
-    expect(tab.config.component).toBe('MoneyPennyPanelTab');
-    expect((tab.config.props as { panel?: string } | undefined)?.panel).toBeUndefined();
+describe("MONEYPENNY_CARTRIDGE registers real native tabs — navigation-hierarchy correction (2026-09-03, second pass, supersedes the single-tab collapse this describe block used to pin)", () => {
+  it('exactly one tabGroup ("moneypenny") plus five area tabs inside it and one standalone admin-gated tab — six tabs total', () => {
+    expect(MONEYPENNY_CARTRIDGE.tabGroups ?? []).toHaveLength(1);
+    const group = (MONEYPENNY_CARTRIDGE.tabGroups ?? [])[0];
+    expect(group.id).toBe('moneypenny');
+    expect(group.label).toBe('MoneyPenny');
+    expect(MONEYPENNY_CARTRIDGE.tabs).toHaveLength(6);
   });
-});
 
-describe('regression guard: MONEYPENNY_CARTRIDGE.tabGroups is empty — no competing outer nav bar (2026-09-03, supersedes the retired "tabGroups is STILL exactly operate/connect/service/administer" pinning)', () => {
-  it('tabGroups is an empty array, so CodexPanelDynamic\'s singleTabMode (enabledTabs.length <= 1) suppresses its own chrome entirely', () => {
-    expect(MONEYPENNY_CARTRIDGE.tabGroups ?? []).toEqual([]);
-    expect(MONEYPENNY_CARTRIDGE.tabs).toHaveLength(1);
+  it('the five area tabs each dispatch through MoneyPennyPanelTab with a distinct props.area, grouped under "moneypenny", in Home/My Money/Plan/Markets/Activity order', () => {
+    const areaTabs = MONEYPENNY_CARTRIDGE.tabs.filter((t) => t.group === 'moneypenny');
+    expect(areaTabs).toHaveLength(5);
+    const expected: Array<{ slug: string; area: string; label: string }> = [
+      { slug: 'home', area: 'home', label: 'Home' },
+      { slug: 'my-money', area: 'my-money', label: 'My Money' },
+      { slug: 'plan', area: 'plan', label: 'Plan' },
+      { slug: 'markets', area: 'markets', label: 'Markets' },
+      { slug: 'activity', area: 'activity', label: 'Activity' },
+    ];
+    const sorted = [...areaTabs].sort((a, b) => a.order - b.order);
+    sorted.forEach((tab, i) => {
+      expect(tab.slug).toBe(expected[i].slug);
+      expect(tab.label).toBe(expected[i].label);
+      expect(tab.enabled).toBe(true);
+      expect(tab.config.component).toBe('MoneyPennyPanelTab');
+      expect((tab.config.props as { area?: string }).area).toBe(expected[i].area);
+      expect((tab.config.props as { panel?: string }).panel).toBeUndefined();
+      expect(tab.adminOnly).not.toBe(true);
+    });
+  });
+
+  it('the Admin tab is standalone (no group), adminOnly, and dispatches to MoneyPennyAdminTab — not part of the five-area group, never Qriptopian\'s bridge editorial admin', () => {
+    const admin = MONEYPENNY_CARTRIDGE.tabs.find((t) => t.slug === 'admin');
+    expect(admin).toBeDefined();
+    expect(admin!.group).toBeUndefined();
+    expect(admin!.adminOnly).toBe(true);
+    expect(admin!.config.component).toBe('MoneyPennyAdminTab');
+    expect(admin!.config.component).not.toBe('QriptopianAdminTab');
   });
 });

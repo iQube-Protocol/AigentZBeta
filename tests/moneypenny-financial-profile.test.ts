@@ -241,14 +241,17 @@ describe('MoneyPenny capability-rail / cartridge wiring — MPY2-2', () => {
     expect(item!.panel).toBe('financial-profile');
   });
 
-  it('financial-profile is a real MoneyPennyPanelKey, reachable through the one registered MONEYPENNY_CARTRIDGE tab (2026-09-03: the 14-tab/4-group structure this test used to pin was collapsed to one tab — see that constant\'s own header comment)', async () => {
+  it('financial-profile is a real MoneyPennyPanelKey, reachable as the My Money native tab\'s own default panel (navigation-hierarchy correction, 2026-09-03, second pass — five real native area tabs, not one collapsed tab)', async () => {
     const { MONEYPENNY_CARTRIDGE } = await import('@/data/codex-configs');
-    expect(MONEYPENNY_CARTRIDGE.tabGroups ?? []).toEqual([]);
-    expect(MONEYPENNY_CARTRIDGE.tabs).toHaveLength(1);
-    expect(MONEYPENNY_CARTRIDGE.tabs[0].config.component).toBe('MoneyPennyPanelTab');
+    const myMoneyTab = MONEYPENNY_CARTRIDGE.tabs.find((t) => t.slug === 'my-money');
+    expect(myMoneyTab).toBeDefined();
+    expect(myMoneyTab!.config.component).toBe('MoneyPennyPanelTab');
+    expect((myMoneyTab!.config.props as { area?: string }).area).toBe('my-money');
     const { readSource, stripComments } = await import('./_lib/sourceAuthority');
     const panelTabSrc = stripComments(readSource('app/triad/components/codex/tabs/MoneyPennyPanelTab.tsx'));
     expect(panelTabSrc).toContain('"financial-profile": FinancialProfilePanel,');
+    const capsSrc = stripComments(readSource('app/(shell)/moneypenny/components/moneypennyCapabilities.ts'));
+    expect(capsSrc).toMatch(/"financial-profile":\s*"my-money"/);
   });
 
   it('financial_document is a recognized upload useKind end to end — the type union AND the /api/uploads route allowlist both carry it (the exact drift class that route\'s own comment warns about)', async () => {

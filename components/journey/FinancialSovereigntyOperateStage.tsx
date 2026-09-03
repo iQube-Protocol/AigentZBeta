@@ -85,7 +85,7 @@ export function FinancialSovereigntyOperateStage({
             Continue
           </button>
         </div>
-        <MoneyPennyBridgeEmbed tab="overview" personaId={personaId} className="min-h-0 w-full flex-1 rounded-md border border-slate-800 bg-slate-950" />
+        <MoneyPennyBridgeEmbed tab="home" personaId={personaId} className="min-h-0 w-full flex-1 rounded-md border border-slate-800 bg-slate-950" />
       </div>
     );
   }

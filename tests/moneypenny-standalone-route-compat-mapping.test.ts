@@ -35,9 +35,9 @@ describe('MoneyPennyWalletRuntime no longer links to the standalone /moneypenny 
     expect(src).not.toMatch(/href=["']\/moneypenny["']/);
   });
 
-  it('links via buildCodexUrl to the moneypenny-codex Runtime tab instead', () => {
+  it('links via buildCodexUrl to the moneypenny-codex Activity tab instead (navigation-hierarchy correction, 2026-09-03: the native area slug, whose own default panel IS runtime)', () => {
     expect(src).toMatch(/import \{ buildCodexUrl \} from "@\/utils\/codex-nav";/);
-    expect(src).toMatch(/buildCodexUrl\('moneypenny', \{ tab: 'runtime', personaId: personaIdHint \|\| undefined \}\)/);
+    expect(src).toMatch(/buildCodexUrl\('moneypenny', \{ tab: 'activity', personaId: personaIdHint \|\| undefined \}\)/);
   });
 
   it('threads the wallet\'s already-resolved personaIdHint through, matching the drawer\'s convention', () => {

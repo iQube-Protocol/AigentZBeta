@@ -34,7 +34,12 @@ describe('MoneyPennyBridgeEmbed — the one shared in-frame mount, reusing the e
   it('builds its src via buildCodexUrl with focused chrome suppression — the SAME mechanism Horizen already uses, never a hand-built URL', () => {
     expect(src).toMatch(/import \{ buildCodexUrl \} from '@\/utils\/codex-nav'/);
     expect(src).toMatch(/focused: true,/);
-    expect(src).toMatch(/focusedNavDepth: 0,/);
+    // Depth 1, not 0 (navigation-hierarchy correction, 2026-09-03, second
+    // pass): MoneyPenny's five areas are now real native CodexTabs, so
+    // depth 0 would hide their own sub-header along with the outer
+    // "MoneyPenny · Admin" bar, leaving no way to switch areas while
+    // embedded. Depth 1 hides only the outer bar.
+    expect(src).toMatch(/focusedNavDepth: 1,/);
   });
 
   it('renders a real <iframe>, never window.location.assign/window.open', () => {
@@ -57,7 +62,11 @@ describe('CI/KNYTS Prepare/Operate now embed MoneyPenny in place — never a nav
   it('FinancialSovereigntyPrepareCrossStage.tsx uses MoneyPennyBridgeEmbed, never window.location.assign', () => {
     const src = stripComments(readSource(PREPARE));
     expect(src).toMatch(/import \{ MoneyPennyBridgeEmbed \} from '@\/components\/journey\/MoneyPennyBridgeEmbed'/);
-    expect(src).toMatch(/<MoneyPennyBridgeEmbed tab="financial-profile" personaId=\{personaId\}/);
+    // 'my-money' — the native area tab slug (navigation-hierarchy
+    // correction, 2026-09-03, second pass) whose own default panel IS
+    // financial-profile (moneypennyCapabilities.ts's defaultPanelForArea),
+    // not the retired legacy panel-key slug directly.
+    expect(src).toMatch(/<MoneyPennyBridgeEmbed tab="my-money" personaId=\{personaId\}/);
     // CROSS mode's own handoff navigation (a genuinely different concern —
     // leaving the bridge journey entirely, not embedding MoneyPenny) still
     // legitimately navigates; only the Prepare-mode financial-profile
@@ -68,7 +77,11 @@ describe('CI/KNYTS Prepare/Operate now embed MoneyPenny in place — never a nav
   it('FinancialSovereigntyOperateStage.tsx uses MoneyPennyBridgeEmbed, never window.location.assign', () => {
     const src = stripComments(readSource(OPERATE));
     expect(src).toMatch(/import \{ MoneyPennyBridgeEmbed \} from '@\/components\/journey\/MoneyPennyBridgeEmbed'/);
-    expect(src).toMatch(/<MoneyPennyBridgeEmbed tab="overview" personaId=\{personaId\}/);
+    // 'home' — the native area tab slug (navigation-hierarchy correction,
+    // 2026-09-03, second pass), not the retired legacy 'overview' panel
+    // key directly (home's own default panel already resolves to
+    // 'overview' — see moneypennyCapabilities.ts's defaultPanelForArea).
+    expect(src).toMatch(/<MoneyPennyBridgeEmbed tab="home" personaId=\{personaId\}/);
     expect(src).not.toMatch(/window\.location\.assign/);
     expect(src).not.toMatch(/buildCodexUrl/);
   });
