@@ -40,6 +40,8 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-09-03_access-steward-001-s0-reconciliation.md",
+        "updates/2026-09-03_access-steward-001-acceptance-ledger.md",
         "updates/2026-09-03_threshold-public-knowledge-bridge.md",
         "updates/2026-09-02_moneypenny-authoritative-three-spec-import-and-reconciliation.md",
         "updates/2026-09-02_moneypenny-handoff-specs-import-and-crosswalk.md",
