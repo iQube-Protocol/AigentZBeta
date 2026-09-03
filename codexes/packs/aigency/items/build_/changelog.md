@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`0b6a010`](https://github.com/iQube-Protocol/AigentZBeta/commit/0b6a010e89137877b31eb39b11140f4aaaec4876) [feat] Add Threshold MCP Bridge public knowledge & discovery layer (Qriptopian, IRL OS, AgentiQ OS, Polity Core) (Claude, 2026-09-03T05:27:13Z)
 - [`757561a`](https://github.com/iQube-Protocol/AigentZBeta/commit/757561af4a20548447d8eebb2bfab8d87a2166ba) [fix] Restore native MoneyPenny tab hierarchy, move role selector to copilot header, compact capability carousel, fix viewport height (Claude, 2026-09-03T04:59:50Z)
 - [`2fc6c69`](https://github.com/iQube-Protocol/AigentZBeta/commit/2fc6c69150cdf8059d2dbfdb417758bf6b32e856) [feat] Add MoneyPenny MPY2-3 Risk Envelope: risk factors + limits from Financial Profile (Claude, 2026-09-01T16:44:11Z)
 - [`c0a35ae`](https://github.com/iQube-Protocol/AigentZBeta/commit/c0a35ae3ef16db1131ba491e04b30070199b33ef) [feat] Wire EXPLORE to a real MoneyPenny action: observed consequence, not just engagement (Claude, 2026-09-01T17:05:56Z)

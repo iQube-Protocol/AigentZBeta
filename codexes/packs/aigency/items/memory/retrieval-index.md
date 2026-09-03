@@ -5254,3 +5254,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-757561a.md](../build_/COMMITS/COMMIT-757561a.md)
 - Message: Restore native MoneyPenny tab hierarchy, move role selector to copilot header, compact capability carousel, fix viewport height
+
+## Commit `0b6a010` — 2026-09-03T05:27:13Z
+- Type: `feat`
+- Brief: [COMMIT-0b6a010.md](../build_/COMMITS/COMMIT-0b6a010.md)
+- Message: Add Threshold MCP Bridge public knowledge & discovery layer (Qriptopian, IRL OS, AgentiQ OS, Polity Core)
