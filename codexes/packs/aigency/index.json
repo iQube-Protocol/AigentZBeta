@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-03T05:29:17.935Z",
+  "last_updated": "2026-09-03T06:06:45.920Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "0b6a010e89137877b31eb39b11140f4aaaec4876",
-  "latest_commit_short": "0b6a010",
-  "latest_commit_title": "Add Threshold MCP Bridge public knowledge & discovery layer (Qriptopian, IRL OS, AgentiQ OS, Polity Core)",
+  "latest_commit": "3258ad2a7d5723875ed12b273a80ac4165c64a00",
+  "latest_commit_short": "3258ad2",
+  "latest_commit_title": "Fix Qriptopian read_public_document defaulting to the wrong edition's text",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "3258ad2",
+      "full_sha": "3258ad2a7d5723875ed12b273a80ac4165c64a00",
+      "title": "Fix Qriptopian read_public_document defaulting to the wrong edition's text",
+      "author": "Claude",
+      "timestamp": "2026-09-03T06:04:32Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-3258ad2.md"
+    },
     {
       "sha": "0b6a010",
       "full_sha": "0b6a010e89137877b31eb39b11140f4aaaec4876",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-08-31T13:58:41-04:00",
       "type": "docs",
       "brief": "items/build_/COMMITS/COMMIT-d614547.md"
-    },
-    {
-      "sha": "646e61c",
-      "full_sha": "646e61cf58306f51fbed119438e14889b44e25c7",
-      "title": "docs: index Progressive Financial Sovereignty scope correction",
-      "author": "Kn0w1",
-      "timestamp": "2026-08-31T13:15:49-04:00",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-646e61c.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
