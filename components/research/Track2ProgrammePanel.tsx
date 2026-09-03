@@ -895,15 +895,29 @@ export function Track2ProgrammePanel({
                           onDone={() => void reloadAndAdvance()}
                         />
                       )}
-                      {/* STAGE 5 ACTION (al, 2026-08-04): "13 members require
-                          provenance. [Open Classification Queue]." A real
-                          "Classify All" has no shared inputs across arbitrary
-                          records — each classification cites its OWN evidence
-                          and rationale — so batch here means a fast per-record
-                          queue over the EXISTING classify action, never a
-                          fictitious one-click batch with no well-defined
-                          semantics. Only offered once reconciliation is not
-                          the blocking act. */}
+                      {/* STAGE 5's PRIMARY ACTION (2026-09-03, cohort
+                          ratification) — the ONE decision surface: derived
+                          recommendations, a single "Ratify provenance
+                          cohort" act. The manual per-record queue below
+                          remains for the exceptions this board declines to
+                          propose a class for, and as an override. Only
+                          offered once reconciliation is not the blocking
+                          act. */}
+                      {s.id === "classify-provenance" &&
+                        !pendingReconciliation &&
+                        (programme.actionQueues?.unclassified.length ?? 0) > 0 && (
+                          <ProvenanceCohortRatificationBoard
+                            experimentId={experimentId}
+                            onDone={() => void reloadAndAdvance()}
+                          />
+                        )}
+                      {/* STAGE 5 MANUAL FALLBACK (al, 2026-08-04): "13 members
+                          require provenance. [Open Classification Queue]."
+                          Per-record queue over the EXISTING classify action —
+                          the exception review path the cohort board above
+                          hands off to, and a manual override for any `ready`
+                          member a steward wants to review individually
+                          instead of trusting the cohort recommendation. */}
                       {s.id === "classify-provenance" &&
                         !pendingReconciliation &&
                         (programme.actionQueues?.unclassified.length ?? 0) > 0 && (
@@ -4412,6 +4426,236 @@ interface ProvenanceClassSuggestionView {
   primarySource: string | null;
   supportingSources: string[];
   reason: string;
+}
+
+/**
+ * STAGE 5's PRIMARY ACTION (2026-09-03, cohort ratification) — replaces the
+ * "55 invariants, one at a time" burden with the ONE decision surface the
+ * operator asked for: "Prepared — Classify Provenance · N invariants" /
+ * "N recommended external-established" / "M exceptions require individual
+ * review" / a single "Ratify provenance cohort" button. Calls the new
+ * GET/POST `/api/research/track2/[experimentId]/provenance-cohort`
+ * (services/research/provenanceCohortPreparation.ts) — never a parallel
+ * classifier; the POST still writes through the SAME
+ * `applyProvenanceReclassification` every other classify path uses, and
+ * still refuses on a stale `cohortHash` exactly like Stage 8's assignment
+ * board and Stage 2's `bulk-review` do. `ClassificationQueue` below remains
+ * available underneath for the exceptions this board explicitly declines to
+ * propose a class for, and as a manual override for any `ready` member a
+ * steward wants to review individually instead.
+ */
+function ProvenanceCohortRatificationBoard({ experimentId, onDone }: { experimentId: string; onDone: () => void }) {
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [view, setView] = useState<{
+    total: number;
+    readyCount: number;
+    exceptionCount: number;
+    distinctSourceSignatures: number;
+    cohortHash: string;
+    summary: string;
+    recommendations: (ProvenanceCandidateRecommendationView)[];
+    exceptionsByCause: Record<string, number>;
+    exceptionCauseLabels: Record<string, string>;
+  } | null>(null);
+  const [rationale, setRationale] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<{
+    written: number;
+    alreadyClassified: number;
+    failed: number;
+    receiptWritten: boolean;
+    receiptWarning?: string | null;
+    downstream: { validate: { ran: number; passed: number; failures: { invariantId: string; detail: string }[] } };
+    outcomes: { invariantId: string; disposition: string; to: string | null; detail: string }[];
+  } | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setErr(null);
+    try {
+      const res = await personaFetch(`/api/research/track2/${encodeURIComponent(experimentId)}/provenance-cohort`, {
+        cache: "no-store",
+      });
+      const d = await res.json().catch(() => null);
+      if (!d?.ok) throw new Error(d?.error || `the provenance cohort could not be read (HTTP ${res.status})`);
+      setView(d);
+      setResult(null);
+    } catch (e) {
+      setView(null);
+      setErr(e instanceof Error ? e.message : "the provenance cohort could not be read");
+    } finally {
+      setLoading(false);
+    }
+  }, [experimentId]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const ratify = useCallback(async () => {
+    if (!view) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const res = await personaFetch(`/api/research/track2/${encodeURIComponent(experimentId)}/provenance-cohort`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dryRun: false, rationale, expectedCohortHash: view.cohortHash }),
+      });
+      const d = await res.json().catch(() => null);
+      if (!d) throw new Error(`ratification failed (HTTP ${res.status})`);
+      if (d.error === "recommendation-set-changed") {
+        setErr(`${d.detail} Refreshing…`);
+        await load();
+        return;
+      }
+      if (!res.ok && d.failed > 0 && d.written === 0) throw new Error(d.error || "ratification refused");
+      setResult(d);
+      onDone();
+      void load();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "the ratification could not be written");
+    } finally {
+      setBusy(false);
+    }
+  }, [view, experimentId, rationale, onDone, load]);
+
+  if (loading && !view) {
+    return (
+      <div className="mt-2 flex items-center gap-1.5 rounded border border-slate-800 bg-slate-900/40 p-2 text-[11px] text-slate-500">
+        <Loader2 className="h-3 w-3 animate-spin" /> deriving the provenance cohort…
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-2 space-y-2 rounded border border-slate-800 bg-slate-900/40 p-2 text-[11px]">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="font-medium text-slate-200">Prepared — Classify Provenance{view ? ` · ${view.total} invariant(s)` : ""}</span>
+        <button
+          type="button"
+          onClick={() => void load()}
+          disabled={loading}
+          className="flex items-center gap-1.5 rounded border border-slate-800 bg-slate-900/60 px-2 py-0.5 text-[10px] text-slate-300 hover:bg-slate-800/60 disabled:opacity-50"
+        >
+          {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+          Refresh
+        </button>
+      </div>
+
+      {err && <div className="rounded border border-rose-500/30 bg-rose-500/10 p-1.5 text-rose-200">{err}</div>}
+
+      {view && (
+        <>
+          <div className="text-slate-300">{view.summary}</div>
+          {view.readyCount > 0 && (
+            <div className="text-slate-400">
+              <span className="text-emerald-300">{view.readyCount} recommended</span> from{" "}
+              <span className="text-slate-300">{view.distinctSourceSignatures}</span> distinct source-document signature(s) ·
+              cohort <span className="font-mono text-slate-500">{view.cohortHash}</span>
+            </div>
+          )}
+          {view.exceptionCount > 0 && (
+            <div className="text-amber-200">
+              {view.exceptionCount} exception(s) require individual review —{" "}
+              {Object.entries(view.exceptionsByCause)
+                .map(([cause, n]) => `${n} ${view.exceptionCauseLabels[cause] ?? cause}`)
+                .join(" · ")}
+            </div>
+          )}
+
+          {view.readyCount > 0 && (
+            <ul className="max-h-64 space-y-1 overflow-y-auto pr-1">
+              {view.recommendations
+                .filter((r) => r.disposition === "ready")
+                .map((r) => (
+                  <li key={r.invariantId} className="rounded border border-emerald-800/50 bg-emerald-950/10 p-1.5">
+                    <div className="text-slate-200">{r.label}</div>
+                    <div className="mt-0.5 text-[10px] text-slate-500">
+                      <span className="font-mono text-violet-300">{r.proposedClass}</span> · {r.confidence}% confidence · evidence{" "}
+                      {r.evidenceRefs.join(", ")}
+                    </div>
+                    {r.reason && <div className="text-[10px] text-slate-500">{r.reason}</div>}
+                  </li>
+                ))}
+            </ul>
+          )}
+
+          {view.exceptionCount > 0 && (
+            <details className="text-slate-400">
+              <summary className="cursor-pointer text-slate-300">{view.exceptionCount} exception(s) — never proposed a class</summary>
+              <ul className="mt-1 max-h-48 space-y-1 overflow-y-auto pr-1">
+                {view.recommendations
+                  .filter((r) => r.disposition === "exception")
+                  .map((r) => (
+                    <li key={r.invariantId} className="rounded border border-slate-800 bg-slate-950 p-1.5">
+                      <div className="text-slate-300">{r.label}</div>
+                      <div className="mt-0.5 text-[10px] text-amber-200">
+                        {view.exceptionCauseLabels[r.exceptionCause ?? ""] ?? r.exceptionCause}
+                      </div>
+                      {r.exceptionDetail && <div className="text-[10px] text-slate-500">{r.exceptionDetail}</div>}
+                    </li>
+                  ))}
+              </ul>
+            </details>
+          )}
+
+          {view.readyCount > 0 && (
+            <>
+              <textarea
+                value={rationale}
+                onChange={(e) => setRationale(e.target.value)}
+                rows={2}
+                placeholder="rationale for this cohort ratification (required — recorded on every classified invariant and on the lifecycle receipt)"
+                className="w-full rounded border border-slate-800 bg-slate-950 px-2 py-1 text-slate-200 placeholder:text-slate-600"
+              />
+              <button
+                type="button"
+                onClick={() => void ratify()}
+                disabled={busy || !rationale.trim()}
+                className="flex items-center gap-1 rounded border border-emerald-800 bg-emerald-900/30 px-2.5 py-1 font-medium text-emerald-200 disabled:opacity-50"
+              >
+                {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+                Ratify provenance cohort — classify {view.readyCount} invariant(s)
+              </button>
+            </>
+          )}
+        </>
+      )}
+
+      {result && (
+        <div className="space-y-1 border-t border-slate-800 pt-1.5">
+          <div className={result.failed > 0 ? "text-amber-200" : "text-emerald-300"}>
+            {result.written} classified · {result.alreadyClassified} already classified (skipped) · {result.failed} failed
+            {result.receiptWritten ? " · receipted" : " · RECEIPT FAILED"}
+          </div>
+          {result.receiptWarning && (
+            <div className="rounded border border-amber-500/30 bg-amber-500/10 p-1.5 text-amber-100">{result.receiptWarning}</div>
+          )}
+          {result.downstream.validate.ran > 0 && (
+            <div className="text-slate-400">
+              downstream Validate: {result.downstream.validate.passed} of {result.downstream.validate.ran} passed
+              {result.downstream.validate.failures.length > 0 &&
+                ` — ${result.downstream.validate.failures.map((f) => `${f.invariantId}: ${f.detail}`).join("; ")}`}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface ProvenanceCandidateRecommendationView {
+  invariantId: string;
+  label: string;
+  disposition: "ready" | "exception";
+  evidenceRefs: string[];
+  proposedClass: string | null;
+  confidence: number | null;
+  reason: string | null;
+  exceptionCause: string | null;
+  exceptionDetail: string | null;
 }
 
 /**
