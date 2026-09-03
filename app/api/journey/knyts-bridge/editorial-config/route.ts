@@ -83,6 +83,15 @@ export async function PUT(req: NextRequest) {
         posterUrl: typeof body.posterUrl === 'string' ? body.posterUrl : undefined,
         campaignCta: typeof body.campaignCta === 'string' ? body.campaignCta : undefined,
         rewardCopy: typeof body.rewardCopy === 'string' ? body.rewardCopy : undefined,
+        // CFS editorial coverage (2026-09-03) — topics/checks/exercise
+        // summary/contextual line/asset caption+alt/(Learn) lesson label,
+        // published together as one coherent blob. `body.structuredContent`
+        // must be a plain object (or null to clear) — never a string that
+        // would need a second parse step here.
+        structuredContent:
+          body.structuredContent === null || (typeof body.structuredContent === 'object' && !Array.isArray(body.structuredContent))
+            ? body.structuredContent
+            : undefined,
       },
       persona?.personaId ?? 'admin',
     );

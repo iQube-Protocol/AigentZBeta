@@ -2441,6 +2441,254 @@ function PlacementAssetsPanel({ section, personaId }: { section: string; persona
   );
 }
 
+// ── CFS structured-content editorial coverage (2026-09-03) ──────────────────
+
+/** True for any of the 16 CFS placement sections — gates whether this panel renders at all. */
+function isFsSection(section: string): boolean {
+  return section.startsWith('fs-') || section.startsWith('ci-fs-');
+}
+
+interface FsTopicDraft { id: string; title: string; body: string; }
+interface FsCheckOptionDraft { id: string; text: string; }
+interface FsCheckDraft { id: string; title: string; prompt: string; options: FsCheckOptionDraft[]; correctOption: string; feedback: string; }
+interface FsStructuredContentDraft {
+  topics: FsTopicDraft[];
+  checks: FsCheckDraft[];
+  exerciseSummary: string;
+  contextualLine: string;
+  assetCaption: string;
+  assetAlt: string;
+  lessonLabel?: string;
+}
+
+const EMPTY_STRUCTURED_CONTENT: FsStructuredContentDraft = {
+  topics: [],
+  checks: [],
+  exerciseSummary: '',
+  contextualLine: '',
+  assetCaption: '',
+  assetAlt: '',
+};
+
+/**
+ * FsStructuredContentPanel — the ONE admin surface for a CFS section's
+ * topics/understanding-checks/exercise summary/contextual line/asset
+ * caption+alt/(Learn) lesson label. Reads/writes through the SAME
+ * knyts_bridge_editorial_config row and PUT route every other field on this
+ * section already uses (structuredContent on KnytsBridgeEditorialUpdate) —
+ * never a second table or route. Saves the whole blob in one PUT, so
+ * related copy always publishes together, never as mismatched partial
+ * revisions (operator directive, 2026-09-03).
+ */
+function FsStructuredContentPanel({ section, personaId }: { section: string; personaId?: string }) {
+  const [draft, setDraft] = useState<FsStructuredContentDraft>(EMPTY_STRUCTURED_CONTENT);
+  const [loaded, setLoaded] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/journey/knyts-bridge/editorial-config?section=${encodeURIComponent(section)}`, { cache: 'no-store' });
+      const json = await res.json();
+      if (json.ok) {
+        const sc = json.config?.structuredContent;
+        setDraft(sc && typeof sc === 'object' ? { ...EMPTY_STRUCTURED_CONTENT, ...sc } : EMPTY_STRUCTURED_CONTENT);
+      }
+    } finally {
+      setLoaded(true);
+    }
+  }, [section]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  const handleSave = async () => {
+    setBusy(true);
+    setNotice(null);
+    try {
+      const res = await personaFetch('/api/journey/knyts-bridge/editorial-config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        personaIdHint: personaId,
+        body: JSON.stringify({ section, structuredContent: draft }),
+      });
+      const json = await res.json();
+      setNotice(json.ok ? 'Saved — topics, checks, exercise summary, contextual line and captions published together.' : json.error || 'Save failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!loaded) return <div className="border-t border-white/10 p-4 text-xs text-slate-500">Loading structured content…</div>;
+
+  const addTopic = () => setDraft((d) => ({ ...d, topics: [...d.topics, { id: `topic-${d.topics.length + 1}`, title: '', body: '' }] }));
+  const moveTopic = (i: number, dir: -1 | 1) => setDraft((d) => {
+    const topics = [...d.topics];
+    const j = i + dir;
+    if (j < 0 || j >= topics.length) return d;
+    [topics[i], topics[j]] = [topics[j], topics[i]];
+    return { ...d, topics };
+  });
+  const removeTopic = (i: number) => setDraft((d) => ({ ...d, topics: d.topics.filter((_, idx) => idx !== i) }));
+
+  const addCheck = () => setDraft((d) => ({
+    ...d,
+    checks: [...d.checks, { id: `check-${d.checks.length + 1}`, title: '', prompt: '', options: [{ id: 'A', text: '' }, { id: 'B', text: '' }, { id: 'C', text: '' }], correctOption: 'A', feedback: '' }],
+  }));
+  const removeCheck = (i: number) => setDraft((d) => ({ ...d, checks: d.checks.filter((_, idx) => idx !== i) }));
+
+  return (
+    <div className="border-t border-white/10 p-4">
+      <h3 className="mb-2 text-sm font-semibold text-slate-200">Editorial coverage — topics, checks, exercise, captions</h3>
+      <p className="mb-3 text-xs text-slate-500">
+        Published together in one save. Media (the plate image) publishes separately via the Assets panel below.
+      </p>
+
+      <div className="mb-4">
+        <div className="mb-1 flex items-center justify-between">
+          <label className="text-xs font-medium text-slate-400">Topics</label>
+          <button type="button" onClick={addTopic} className="rounded border border-slate-700 px-2 py-0.5 text-[10px] text-slate-300 hover:border-slate-500">+ Add topic</button>
+        </div>
+        {draft.topics.map((topic, i) => (
+          <div key={i} className="mb-2 rounded-md border border-slate-800 bg-slate-900/40 p-2">
+            <div className="mb-1 flex items-center gap-1">
+              <input
+                type="text"
+                placeholder="Topic title"
+                value={topic.title}
+                onChange={(e) => setDraft((d) => ({ ...d, topics: d.topics.map((t, idx) => (idx === i ? { ...t, title: e.target.value } : t)) }))}
+                className="flex-1 rounded border border-slate-800 bg-slate-950/60 px-2 py-1 text-xs text-slate-100"
+              />
+              <button type="button" onClick={() => moveTopic(i, -1)} disabled={i === 0} className="rounded border border-slate-700 px-1.5 py-1 text-[10px] text-slate-300 disabled:opacity-30">↑</button>
+              <button type="button" onClick={() => moveTopic(i, 1)} disabled={i === draft.topics.length - 1} className="rounded border border-slate-700 px-1.5 py-1 text-[10px] text-slate-300 disabled:opacity-30">↓</button>
+              <button type="button" onClick={() => removeTopic(i)} className="rounded border border-rose-800 px-1.5 py-1 text-[10px] text-rose-300">✕</button>
+            </div>
+            <textarea
+              placeholder="Topic body"
+              value={topic.body}
+              onChange={(e) => setDraft((d) => ({ ...d, topics: d.topics.map((t, idx) => (idx === i ? { ...t, body: e.target.value } : t)) }))}
+              rows={2}
+              className="w-full rounded border border-slate-800 bg-slate-950/60 px-2 py-1 text-xs text-slate-100"
+            />
+          </div>
+        ))}
+      </div>
+
+      <div className="mb-4">
+        <div className="mb-1 flex items-center justify-between">
+          <label className="text-xs font-medium text-slate-400">Understanding checks</label>
+          <button type="button" onClick={addCheck} className="rounded border border-slate-700 px-2 py-0.5 text-[10px] text-slate-300 hover:border-slate-500">+ Add check</button>
+        </div>
+        {draft.checks.map((check, i) => (
+          <div key={i} className="mb-2 rounded-md border border-slate-800 bg-slate-900/40 p-2 space-y-1">
+            <div className="flex items-center gap-1">
+              <input
+                type="text"
+                placeholder="Prompt"
+                value={check.prompt}
+                onChange={(e) => setDraft((d) => ({ ...d, checks: d.checks.map((c, idx) => (idx === i ? { ...c, prompt: e.target.value } : c)) }))}
+                className="flex-1 rounded border border-slate-800 bg-slate-950/60 px-2 py-1 text-xs text-slate-100"
+              />
+              <button type="button" onClick={() => removeCheck(i)} className="rounded border border-rose-800 px-1.5 py-1 text-[10px] text-rose-300">✕</button>
+            </div>
+            {check.options.map((opt, oi) => (
+              <div key={opt.id} className="flex items-center gap-1">
+                <span className="w-4 text-[10px] text-slate-500">{opt.id}</span>
+                <input
+                  type="text"
+                  placeholder={`Option ${opt.id}`}
+                  value={opt.text}
+                  onChange={(e) => setDraft((d) => ({
+                    ...d,
+                    checks: d.checks.map((c, idx) => idx === i ? { ...c, options: c.options.map((o, ooi) => ooi === oi ? { ...o, text: e.target.value } : o) } : c),
+                  }))}
+                  className="flex-1 rounded border border-slate-800 bg-slate-950/60 px-2 py-1 text-xs text-slate-100"
+                />
+              </div>
+            ))}
+            <div className="flex items-center gap-2">
+              <label className="text-[10px] text-slate-500">Correct:</label>
+              <select
+                value={check.correctOption}
+                onChange={(e) => setDraft((d) => ({ ...d, checks: d.checks.map((c, idx) => (idx === i ? { ...c, correctOption: e.target.value } : c)) }))}
+                className="rounded border border-slate-800 bg-slate-950/60 px-1 py-0.5 text-xs text-slate-100"
+              >
+                {check.options.map((o) => <option key={o.id} value={o.id}>{o.id}</option>)}
+              </select>
+            </div>
+            <textarea
+              placeholder="Feedback"
+              value={check.feedback}
+              onChange={(e) => setDraft((d) => ({ ...d, checks: d.checks.map((c, idx) => (idx === i ? { ...c, feedback: e.target.value } : c)) }))}
+              rows={2}
+              className="w-full rounded border border-slate-800 bg-slate-950/60 px-2 py-1 text-xs text-slate-100"
+            />
+          </div>
+        ))}
+      </div>
+
+      <div className="mb-2">
+        <label className="mb-1 block text-xs font-medium text-slate-400">Exercise summary</label>
+        <textarea
+          value={draft.exerciseSummary}
+          onChange={(e) => setDraft((d) => ({ ...d, exerciseSummary: e.target.value }))}
+          rows={2}
+          className="w-full rounded border border-slate-800 bg-slate-950/60 px-2 py-1 text-xs text-slate-100"
+        />
+      </div>
+      <div className="mb-2">
+        <label className="mb-1 block text-xs font-medium text-slate-400">Contextual line (this bridge)</label>
+        <input
+          type="text"
+          value={draft.contextualLine}
+          onChange={(e) => setDraft((d) => ({ ...d, contextualLine: e.target.value }))}
+          className="w-full rounded border border-slate-800 bg-slate-950/60 px-2 py-1 text-xs text-slate-100"
+        />
+      </div>
+      <div className="mb-2 grid grid-cols-2 gap-2">
+        <div>
+          <label className="mb-1 block text-xs font-medium text-slate-400">Asset caption</label>
+          <input
+            type="text"
+            value={draft.assetCaption}
+            onChange={(e) => setDraft((d) => ({ ...d, assetCaption: e.target.value }))}
+            className="w-full rounded border border-slate-800 bg-slate-950/60 px-2 py-1 text-xs text-slate-100"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-slate-400">Asset alt text</label>
+          <input
+            type="text"
+            value={draft.assetAlt}
+            onChange={(e) => setDraft((d) => ({ ...d, assetAlt: e.target.value }))}
+            className="w-full rounded border border-slate-800 bg-slate-950/60 px-2 py-1 text-xs text-slate-100"
+          />
+        </div>
+      </div>
+      {section.includes('fs-learn') && (
+        <div className="mb-2">
+          <label className="mb-1 block text-xs font-medium text-slate-400">Lesson label (Learn plate only)</label>
+          <input
+            type="text"
+            value={draft.lessonLabel ?? ''}
+            onChange={(e) => setDraft((d) => ({ ...d, lessonLabel: e.target.value }))}
+            className="w-full rounded border border-slate-800 bg-slate-950/60 px-2 py-1 text-xs text-slate-100"
+          />
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={() => void handleSave()}
+        disabled={busy}
+        className="mt-2 rounded-md bg-teal-600 px-3 py-1 text-xs font-semibold text-white hover:bg-teal-500 disabled:opacity-50"
+      >
+        {busy ? 'Saving…' : 'Save editorial coverage'}
+      </button>
+      {notice && <p className="mt-2 text-xs text-slate-400">{notice}</p>}
+    </div>
+  );
+}
+
 function BridgesManager({ personaId }: { personaId?: string }) {
   const [bridge, setBridge] = useState<BridgeKey>('ci');
 
@@ -2473,6 +2721,7 @@ function BridgesManager({ personaId }: { personaId?: string }) {
         {bridgeSections(bridge).map((section) => (
           <div key={`${bridge}:${section}`}>
             <KnytsBridgeAdminPanel section={section} personaId={personaId} bridgeLabel={BRIDGE_LABELS[bridge]} />
+            {isFsSection(section) && <FsStructuredContentPanel section={section} personaId={personaId} />}
             <PlacementAssetsPanel section={section} personaId={personaId} />
           </div>
         ))}

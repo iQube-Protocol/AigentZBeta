@@ -190,7 +190,18 @@ describe('FinancialSovereigntyIntroStage.tsx (Discover/Learn/Explore) — CFS co
   it('renders FinancialSovereigntyStageExtras inside BridgeMediaStage, deriving bridge from accent (never a bridge prop the registry would have to be widened for)', () => {
     expect(src).toMatch(/const bridge: FsBridge = accent === 'indigo' \? 'ci' : 'knyts';/);
     expect(src).toMatch(/<FinancialSovereigntyStageExtras/);
-    expect(src).toMatch(/infographicUrl=\{fsConfig\?\.infographicUrl \?\? undefined\}/);
+    // Image rendering moved into FinancialSovereigntyStageExtras' own <img>
+    // (2026-09-03 composition-verification pass) — BridgeMediaStage's own
+    // infographicUrl prop is deliberately left unset here to avoid a
+    // double-rendered image.
+    const rawSrc = readSource('components/journey/FinancialSovereigntyIntroStage.tsx');
+    expect(rawSrc).toMatch(/StageExtras renders its own <img> per plate/);
+  });
+
+  it('resolves admin-published structuredContent through resolveFsSectionContent/resolveFsLearnPlateContent — never reads FS_STAGE_CONTENT directly for topics/checks at render time', () => {
+    expect(src).toMatch(/resolveFsSectionContent\(/);
+    expect(src).toMatch(/resolveFsLearnPlateContent\(/);
+    expect(src).toMatch(/FS_LOGICAL_SECTION_MAP\./);
   });
 
   it("Learn's three plates each resolve their OWN admin section (fs-learn / fs-learn-2 / fs-learn-3) — not all three pinned to one config", () => {
@@ -255,5 +266,164 @@ describe('FinancialSovereigntyUnderstandingCheck / FinancialSovereigntyCostExamp
     const src = stripComments(readSource('components/journey/FinancialSovereigntyCostExample.tsx'));
     expect(src).not.toMatch(/fetch\(|personaFetch\(/);
     expect(src).toMatch(/GROSS_BENEFIT - cost/);
+  });
+});
+
+describe('resolveFsSectionContent / resolveFsLearnPlateContent — admin structuredContent overrides the static default field-by-field, never a blank section', () => {
+  it('an empty/absent structuredContent falls back to the full static default for every stage', async () => {
+    const { resolveFsSectionContent, FS_STAGE_CONTENT } = await import('@/services/journey/financialSovereigntyContent');
+    for (const stage of STAGES) {
+      const resolved = resolveFsSectionContent(stage, 'ci', null);
+      expect(resolved.topics.length).toBeGreaterThan(0);
+      expect(resolved.contextualLine).toBe(FS_STAGE_CONTENT[stage].contextualLine.ci);
+    }
+  });
+
+  it('a real admin structuredContent row overrides topics/checks/exerciseSummary/contextualLine/captions, all at once', async () => {
+    const { resolveFsSectionContent } = await import('@/services/journey/financialSovereigntyContent');
+    const custom = {
+      topics: [{ id: 'X', title: 'Custom topic', body: 'Custom body' }],
+      checks: [],
+      exerciseSummary: 'Custom exercise',
+      contextualLine: 'Custom contextual line',
+      assetCaption: 'Custom caption',
+      assetAlt: 'Custom alt',
+    };
+    const resolved = resolveFsSectionContent('discover', 'ci', custom);
+    expect(resolved.topics).toEqual(custom.topics);
+    expect(resolved.exerciseSummary).toBe('Custom exercise');
+    expect(resolved.contextualLine).toBe('Custom contextual line');
+    expect(resolved.assetCaption).toBe('Custom caption');
+  });
+
+  it("Learn's three plates resolve independently — each carries only its own topic/check slice per content/step-composition.json v1.2, never all three duplicated", async () => {
+    const { resolveFsLearnPlateContent } = await import('@/services/journey/financialSovereigntyContent');
+    const plate0 = resolveFsLearnPlateContent(0, null);
+    const plate1 = resolveFsLearnPlateContent(1, null);
+    const plate2 = resolveFsLearnPlateContent(2, null);
+    expect(plate0.topics.map((t) => t.id)).toEqual(['L-TOPIC-01']);
+    expect(plate1.topics.map((t) => t.id)).toEqual(['L-TOPIC-02']);
+    expect(plate1.checks.map((c) => c.id).sort()).toEqual(['L-Q01', 'L-Q03']);
+    expect(plate2.topics.map((t) => t.id)).toEqual(['L-TOPIC-03']);
+    expect(plate2.checks.map((c) => c.id)).toEqual(['L-Q02']);
+    // No topic/check appears on more than one plate.
+    const allTopicIds = [...plate0.topics, ...plate1.topics, ...plate2.topics].map((t) => t.id);
+    expect(new Set(allTopicIds).size).toBe(allTopicIds.length);
+  });
+});
+
+describe('FS_LOGICAL_SECTION_MAP — the explicit logical-section -> component -> editorial-source mapping', () => {
+  it('covers all 15 logical sections from content/step-composition.json v1.2, one entry per stage array matching its known count', async () => {
+    const { FS_LOGICAL_SECTION_MAP } = await import('@/services/journey/financialSovereigntyContent');
+    const expectedCounts: Record<string, number> = { discover: 2, learn: 3, explore: 3, prepare: 3, operate: 2, cross: 2 };
+    for (const [stage, count] of Object.entries(expectedCounts)) {
+      expect(FS_LOGICAL_SECTION_MAP[stage as keyof typeof FS_LOGICAL_SECTION_MAP].length).toBe(count);
+    }
+  });
+
+  it('every entry names a real editorialSource and a non-empty component description — no placeholder mapping', async () => {
+    const { FS_LOGICAL_SECTION_MAP } = await import('@/services/journey/financialSovereigntyContent');
+    for (const entries of Object.values(FS_LOGICAL_SECTION_MAP)) {
+      for (const entry of entries) {
+        expect(['structuredContent', 'existing-functional-component', 'admin-headline-shortcopy']).toContain(entry.editorialSource);
+        expect(entry.component.length).toBeGreaterThan(10);
+      }
+    }
+  });
+
+  it('functional-component-owned sections (LEARN_CONCEPTS, serviceCatalog, MoneyPennyBridgeEmbed, the Cross handoff) are marked existing-functional-component, never structuredContent', async () => {
+    const { FS_LOGICAL_SECTION_MAP } = await import('@/services/journey/financialSovereigntyContent');
+    const learnAgents = FS_LOGICAL_SECTION_MAP.learn.find((e) => e.logicalSectionId === 'learn-agents');
+    const exploreCapabilities = FS_LOGICAL_SECTION_MAP.explore.find((e) => e.logicalSectionId === 'explore-capabilities');
+    const prepareProfile = FS_LOGICAL_SECTION_MAP.prepare.find((e) => e.logicalSectionId === 'prepare-profile');
+    const operateWorkspace = FS_LOGICAL_SECTION_MAP.operate.find((e) => e.logicalSectionId === 'operate-workspace');
+    const crossReadiness = FS_LOGICAL_SECTION_MAP.cross.find((e) => e.logicalSectionId === 'cross-readiness');
+    for (const entry of [learnAgents, exploreCapabilities, prepareProfile, operateWorkspace, crossReadiness]) {
+      expect(entry?.editorialSource).toBe('existing-functional-component');
+    }
+  });
+});
+
+describe('knytsBridgeEditorialConfig.ts — structured_content column, additive and gracefully degrading', () => {
+  const src = stripComments(readSource('services/journey/knytsBridgeEditorialConfig.ts'));
+
+  it('FULL_COLUMNS includes structured_content; a three-tier fallback (FULL -> MID -> LEGACY) exists for both read and write', () => {
+    expect(src).toMatch(/FULL_COLUMNS = `section, headline, short_copy, video_url, poster_url, infographic_url, campaign_cta, reward_copy, structured_content, updated_at`/);
+    expect(src).toMatch(/MID_COLUMNS/);
+    expect(src.match(/isMissingColumn\(error\)/g)?.length ?? 0).toBeGreaterThanOrEqual(4);
+  });
+
+  it('the migration file exists and is additive-only (ADD COLUMN IF NOT EXISTS)', () => {
+    const migrationSrc = readSource('supabase/migrations/20260903140000_knyts_bridge_editorial_config_structured_content.sql');
+    expect(migrationSrc).toMatch(/ADD COLUMN IF NOT EXISTS structured_content JSONB/);
+  });
+
+  it('every CFS default entry carries real structuredContent (never null) sourced from FS_STAGE_CONTENT — an admin who never edits still sees corrected pack copy', async () => {
+    const { KNYTS_BRIDGE_SECTION_DEFAULTS, FS_STAGE_IDS, fsBridgeSectionKey, fsLearnPlateSectionKey } = await import('@/services/journey/knytsBridgeEditorialConfig');
+    for (const bridge of ['ci', 'knyts'] as const) {
+      for (const stage of FS_STAGE_IDS) {
+        const def = KNYTS_BRIDGE_SECTION_DEFAULTS[fsBridgeSectionKey(bridge, stage)];
+        expect(def.structuredContent).toBeTruthy();
+        expect((def.structuredContent as any).assetCaption).toBeTruthy();
+      }
+      expect((KNYTS_BRIDGE_SECTION_DEFAULTS[fsLearnPlateSectionKey(bridge, 1)].structuredContent as any).topics.length).toBe(1);
+      expect((KNYTS_BRIDGE_SECTION_DEFAULTS[fsLearnPlateSectionKey(bridge, 2)].structuredContent as any).topics.length).toBe(1);
+    }
+  });
+});
+
+describe('editorial-config PUT route accepts structuredContent as a coherent, single-write field', () => {
+  const src = stripComments(readSource('app/api/journey/knyts-bridge/editorial-config/route.ts'));
+
+  it('passes structuredContent through to upsertKnytsBridgeEditorialSection, validated as a plain object or null', () => {
+    expect(src).toMatch(/structuredContent:/);
+    expect(src).toMatch(/body\.structuredContent === null \|\| \(typeof body\.structuredContent === 'object'/);
+  });
+});
+
+describe('FsStructuredContentPanel — the native admin editor for topics/checks/exercise/contextual line/captions', () => {
+  const src = stripComments(readSource('app/triad/components/codex/tabs/QriptopianAdminTab.tsx'));
+
+  it('is gated to CFS sections only (isFsSection) — never rendered for home/orient/choose/etc.', () => {
+    expect(src).toMatch(/function isFsSection\(section: string\): boolean \{/);
+    expect(src).toMatch(/isFsSection\(section\) && <FsStructuredContentPanel/);
+  });
+
+  it('saves the whole structured-content blob in ONE PUT call — topics/checks/exercise/contextual line/captions publish together, never as separate mismatched writes', () => {
+    const panelBody = src.match(/function FsStructuredContentPanel[\s\S]*?\n\}\n\nfunction BridgesManager/)?.[0] ?? '';
+    const putCalls = panelBody.match(/personaFetch\('\/api\/journey\/knyts-bridge\/editorial-config', \{[\s\S]*?method: 'PUT'/g) ?? [];
+    expect(putCalls.length).toBe(1);
+    expect(panelBody).toMatch(/body: JSON\.stringify\(\{ section, structuredContent: draft \}\)/);
+  });
+
+  it('reuses the existing GET route for reads and the existing PUT route for writes — no new API route', () => {
+    const panelBody = src.match(/function FsStructuredContentPanel[\s\S]*?\n\}\n\nfunction BridgesManager/)?.[0] ?? '';
+    expect(panelBody).toMatch(/\/api\/journey\/knyts-bridge\/editorial-config/);
+    expect(panelBody).not.toMatch(/\/api\/journey\/knyts-bridge\/(?!editorial-config|placements)/);
+  });
+});
+
+describe('Prepare/Cross section ordering matches content/step-composition.json v1.2 (cross-automation before cross-readiness)', () => {
+  it("FinancialSovereigntyStageExtras (cross-automation) appears in source BEFORE the 'Cross to Financial Services' button (cross-readiness)", () => {
+    const src = readSource('components/journey/FinancialSovereigntyPrepareCrossStage.tsx');
+    const extrasIdx = src.indexOf('sectionLabel={mapAutomation.label}');
+    const buttonIdx = src.indexOf('Cross to Financial Services');
+    expect(extrasIdx).toBeGreaterThan(0);
+    expect(buttonIdx).toBeGreaterThan(0);
+    expect(extrasIdx).toBeLessThan(buttonIdx);
+  });
+});
+
+describe("Learn's section ordering matches content/step-composition.json v1.2 (purposes -> value -> agents+picker)", () => {
+  it('the three plate StageExtras blocks appear in source in order, all BEFORE the LEARN_CONCEPTS picker', () => {
+    const src = readSource('components/journey/FinancialSovereigntyIntroStage.tsx');
+    const purposesIdx = src.indexOf('sectionLabel={mapPurposes.label}');
+    const valueIdx = src.indexOf('sectionLabel={mapValue.label}');
+    const agentsIdx = src.indexOf('sectionLabel={mapAgents.label}');
+    const pickerIdx = src.indexOf('LEARN_CONCEPTS.map((concept)');
+    expect(purposesIdx).toBeGreaterThan(0);
+    expect(purposesIdx).toBeLessThan(valueIdx);
+    expect(valueIdx).toBeLessThan(agentsIdx);
+    expect(agentsIdx).toBeLessThan(pickerIdx);
   });
 });

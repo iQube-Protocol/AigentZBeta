@@ -528,3 +528,127 @@ export const FS_STAGE_CONTENT: Record<FsStageId, FsStageContent> = {
     },
   },
 };
+
+/**
+ * FsStructuredContent — the admin-editable shape written by
+ * FsStructuredContentPanel (app/triad/components/codex/tabs/QriptopianAdminTab.tsx)
+ * into knyts_bridge_editorial_config.structured_content (migration
+ * 20260903140000). Same field set as the static defaults above
+ * (topics/checks/exerciseSummary/contextualLine/assetCaption/assetAlt/
+ * lessonLabel) so an admin edit and the shipped default are always
+ * comparable and interchangeable — never two different shapes.
+ */
+export interface FsStructuredContent {
+  topics: FsTopic[];
+  checks: FsUnderstandingCheck[];
+  exerciseSummary: string;
+  contextualLine: string;
+  assetCaption: string;
+  assetAlt: string;
+  lessonLabel?: string;
+}
+
+/**
+ * resolveFsSectionContent — the ONE merge point between an admin-published
+ * structuredContent row and the static FS_STAGE_CONTENT default. An admin
+ * row is authoritative field-by-field the moment it carries a non-empty
+ * value; an empty/absent field falls back to the shipped pack default —
+ * never a blank section. Mirrors headline/shortCopy's own
+ * `config?.headline || fallback.headline` pattern already used in
+ * FinancialSovereigntyIntroStage's resolveCopy().
+ */
+export function resolveFsSectionContent(
+  stage: FsStageId,
+  bridge: FsBridge,
+  structuredContent: Partial<FsStructuredContent> | null | undefined,
+): { topics: FsTopic[]; checks: FsUnderstandingCheck[]; exerciseSummary: string; contextualLine: string; assetCaption: string; assetAlt: string } {
+  const fallback = FS_STAGE_CONTENT[stage];
+  return {
+    topics: structuredContent?.topics?.length ? structuredContent.topics : fallback.topics,
+    checks: structuredContent?.checks?.length ? structuredContent.checks : fallback.checks,
+    exerciseSummary: structuredContent?.exerciseSummary || fallback.exerciseSummary,
+    contextualLine: structuredContent?.contextualLine || fallback.contextualLine[bridge],
+    assetCaption: structuredContent?.assetCaption || fallback.asset.caption,
+    assetAlt: structuredContent?.assetAlt || fallback.asset.alt,
+  };
+}
+
+const FS_LEARN_PLATE_LABELS = ['Lesson 1 — What money helps you do', 'Lesson 2 — Fiat, crypto and value', 'Lesson 3 — You, AgentMe and MoneyPenny'];
+/** Per-plate fallback slice, matching content/step-composition.json v1.2's
+ *  learn-purposes/learn-value/learn-agents contentRefs exactly — see
+ *  FS_LOGICAL_SECTION_MAP.learn below. Plate 0 (learn-purposes) intentionally
+ *  carries only its topic; the checks live on plates 1/2. */
+const FS_LEARN_PLATE_FALLBACK = [
+  { topics: FS_STAGE_CONTENT.learn.topics.filter((t) => t.id === 'L-TOPIC-01'), checks: [] as FsUnderstandingCheck[], exerciseSummary: '' },
+  { topics: FS_STAGE_CONTENT.learn.topics.filter((t) => t.id === 'L-TOPIC-02'), checks: FS_STAGE_CONTENT.learn.checks.filter((c) => ['L-Q01', 'L-Q03'].includes(c.id)), exerciseSummary: '' },
+  { topics: FS_STAGE_CONTENT.learn.topics.filter((t) => t.id === 'L-TOPIC-03'), checks: FS_STAGE_CONTENT.learn.checks.filter((c) => c.id === 'L-Q02'), exerciseSummary: FS_STAGE_CONTENT.learn.exerciseSummary },
+];
+
+/** Merge for one of Learn's three plates (fs-learn / fs-learn-2 / fs-learn-3)
+ *  — each carries its OWN topic/check slice (never the whole stage's set
+ *  duplicated three times) plus its own caption/alt/lesson label. */
+export function resolveFsLearnPlateContent(
+  plateIndex: 0 | 1 | 2,
+  structuredContent: Partial<FsStructuredContent> | null | undefined,
+): { topics: FsTopic[]; checks: FsUnderstandingCheck[]; exerciseSummary: string; assetCaption: string; assetAlt: string; lessonLabel: string } {
+  const fallbackPlate = FS_LEARN_PLATES[plateIndex];
+  const fallbackSlice = FS_LEARN_PLATE_FALLBACK[plateIndex];
+  return {
+    topics: structuredContent?.topics?.length ? structuredContent.topics : fallbackSlice.topics,
+    checks: structuredContent?.checks?.length ? structuredContent.checks : fallbackSlice.checks,
+    exerciseSummary: structuredContent?.exerciseSummary || fallbackSlice.exerciseSummary,
+    assetCaption: structuredContent?.assetCaption || fallbackPlate.caption,
+    assetAlt: structuredContent?.assetAlt || fallbackPlate.alt,
+    lessonLabel: structuredContent?.lessonLabel || FS_LEARN_PLATE_LABELS[plateIndex],
+  };
+}
+
+/**
+ * FS_LOGICAL_SECTION_MAP — the explicit logical-section -> component ->
+ * editorial-record mapping requested for CFS composition verification
+ * (operator directive, 2026-09-03). One entry per content/step-
+ * composition.json v1.2 logicalSectionId. `editorialSource` names where the
+ * section's content actually comes from at render time:
+ *   - 'structuredContent'          -> admin-editable via FsStructuredContentPanel,
+ *                                      merged through resolveFsSectionContent()
+ *   - 'existing-functional-component' -> untouched pre-existing code (never
+ *                                      admin-editable — evidence/handlers live here)
+ *   - 'admin-headline-shortcopy'   -> the plain headline/shortCopy fields
+ *                                      every Bridge section already has
+ */
+export interface FsLogicalSectionMapping {
+  logicalSectionId: string;
+  label: string;
+  component: string;
+  editorialSource: 'structuredContent' | 'existing-functional-component' | 'admin-headline-shortcopy';
+}
+
+export const FS_LOGICAL_SECTION_MAP: Record<FsStageId, FsLogicalSectionMapping[]> = {
+  discover: [
+    { logicalSectionId: 'discover-landscape', label: 'The financial landscape', component: 'FinancialSovereigntyStageExtras (plate + topics + D-Q01 check)', editorialSource: 'structuredContent' },
+    { logicalSectionId: 'discover-agency', label: 'Your agency and starting point', component: 'BridgeMediaStage headline/paragraphs/Continue — existing DCIR-observed CTA, evidence: discoverExperienceObserved', editorialSource: 'admin-headline-shortcopy' },
+  ],
+  learn: [
+    { logicalSectionId: 'learn-purposes', label: 'What money helps you do', component: 'FinancialSovereigntyStageExtras — plate 1 (fs-learn) + L-TOPIC-01', editorialSource: 'structuredContent' },
+    { logicalSectionId: 'learn-value', label: 'Fiat, crypto and value', component: 'FinancialSovereigntyStageExtras — plate 2 (fs-learn-2) + L-TOPIC-02 + L-Q01/L-Q03', editorialSource: 'structuredContent' },
+    { logicalSectionId: 'learn-agents', label: 'You, AgentMe and MoneyPenny', component: 'FinancialSovereigntyStageExtras plate 3 (fs-learn-3) + L-TOPIC-03, PLUS the existing LEARN_CONCEPTS Advisor/Architect/Runtime picker (code-owned, gates learnExperienceQualified)', editorialSource: 'existing-functional-component' },
+  ],
+  explore: [
+    { logicalSectionId: 'explore-rehearsal', label: 'Choose and rehearse', component: 'FinancialSovereigntyStageExtras (plate + topics + deterministic FinancialSovereigntyCostExample, E-Q01/E-Q02)', editorialSource: 'structuredContent' },
+    { logicalSectionId: 'explore-capabilities', label: 'Available capabilities', component: 'existing serviceCatalog capability cards (Advisor/Architect/Runtime Confidential/Runtime Constitutional) — code-owned', editorialSource: 'existing-functional-component' },
+    { logicalSectionId: 'explore-profile-task', label: 'Try a real preparation task', component: 'existing "Try it — Compute your Financial Profile" live action, gates exploreCapabilityInteracted', editorialSource: 'existing-functional-component' },
+  ],
+  prepare: [
+    { logicalSectionId: 'prepare-summary', label: 'Your starting picture', component: 'existing profile summary read (fetchFinancialProfileSummary) — code-owned', editorialSource: 'existing-functional-component' },
+    { logicalSectionId: 'prepare-profile', label: 'Review your profile', component: 'existing MoneyPennyBridgeEmbed (tab="my-money") capsule — code-owned, requiresPrivateContext', editorialSource: 'existing-functional-component' },
+    { logicalSectionId: 'prepare-setup', label: 'Priorities and optional setup', component: 'FinancialSovereigntyStageExtras (P-TOPIC-02/03 + P-Q01/P-Q02)', editorialSource: 'structuredContent' },
+  ],
+  operate: [
+    { logicalSectionId: 'operate-workspace', label: 'Workspace', component: 'existing MoneyPennyBridgeEmbed (tab="home", expandable) — persistent default, code-owned', editorialSource: 'existing-functional-component' },
+    { logicalSectionId: 'operate-help', label: 'How it works', component: 'FinancialSovereigntyStageExtras (plate + topics + O-Q01/O-Q02), optional/on-demand — never gates the workspace', editorialSource: 'structuredContent' },
+  ],
+  cross: [
+    { logicalSectionId: 'cross-automation', label: 'What changes with automation', component: 'FinancialSovereigntyStageExtras (plate + topics + C-Q01/02/03)', editorialSource: 'structuredContent' },
+    { logicalSectionId: 'cross-readiness', label: 'Review the advanced path', component: 'existing "Cross to Financial Services" ExperienceHandoff button — code-owned, never replaced with an assessment', editorialSource: 'existing-functional-component' },
+  ],
+};

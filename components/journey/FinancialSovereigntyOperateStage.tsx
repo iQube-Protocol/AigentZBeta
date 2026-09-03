@@ -44,7 +44,7 @@
 import { useCallback, useState } from 'react';
 import { BridgeMediaStage, type BridgeAccent } from '@/components/journey/BridgeMediaStage';
 import { MoneyPennyBridgeEmbed } from '@/components/journey/MoneyPennyBridgeEmbed';
-import { FS_STAGE_CONTENT, type FsBridge } from '@/services/journey/financialSovereigntyContent';
+import { FS_LOGICAL_SECTION_MAP, resolveFsSectionContent, type FsBridge, type FsStructuredContent } from '@/services/journey/financialSovereigntyContent';
 import { useFsBridgeSection } from '@/services/journey/useFsBridgeSection';
 import { FinancialSovereigntyStageExtras } from '@/components/journey/FinancialSovereigntyStageExtras';
 
@@ -106,13 +106,21 @@ export function FinancialSovereigntyOperateStage({
         onSecondaryCta={handleOpenMoneyPenny}
         accent={accent}
         layout="standard"
-        infographicUrl={fsConfig?.infographicUrl ?? undefined}
       >
-        <FinancialSovereigntyStageExtras
-          content={FS_STAGE_CONTENT.operate}
-          bridge={bridge}
-          assets={[{ asset: FS_STAGE_CONTENT.operate.asset, infographicUrl: fsConfig?.infographicUrl }]}
-        />
+        {(() => {
+          const resolved = resolveFsSectionContent('operate', bridge, fsConfig?.structuredContent as FsStructuredContent | null | undefined);
+          const [, mapHelp] = FS_LOGICAL_SECTION_MAP.operate;
+          return (
+            <FinancialSovereigntyStageExtras
+              sectionLabel={mapHelp.label}
+              topics={resolved.topics}
+              checks={resolved.checks}
+              exerciseSummary={resolved.exerciseSummary}
+              contextualLine={resolved.contextualLine}
+              assets={[{ caption: resolved.assetCaption, alt: resolved.assetAlt, infographicUrl: fsConfig?.infographicUrl }]}
+            />
+          );
+        })()}
       </BridgeMediaStage>
     </div>
   );

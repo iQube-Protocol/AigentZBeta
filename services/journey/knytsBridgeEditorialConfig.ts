@@ -17,6 +17,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { CI_BRIDGE_VIEW_CONTENT } from '@/services/journey/constitutionalInternetBridgeViewContent';
+import { FS_STAGE_CONTENT, FS_LEARN_PLATES } from '@/services/journey/financialSovereigntyContent';
 
 /**
  * CFS content pack integration (2026-09-03) — the six Financial Sovereignty
@@ -108,6 +109,16 @@ export interface KnytsBridgeEditorialSection {
   infographicUrl: string | null;
   campaignCta: string | null;
   rewardCopy: string | null;
+  /**
+   * structured_content (2026-09-03, CFS editorial coverage completion —
+   * migration 20260903140000). One coherent jsonb blob per section:
+   * topics/understanding-checks/exercise summary/contextual line/asset
+   * caption+alt/(Learn only) lesson label — published together in one
+   * write, never as separate mismatched fields. Optional field: existing
+   * non-CFS sections (home/orient/...) never set it and read back `null`.
+   * Shape: FsStructuredContent (services/journey/financialSovereigntyContent.ts).
+   */
+  structuredContent?: Record<string, unknown> | null;
   updatedAt: string | null;
 }
 
@@ -321,6 +332,7 @@ export const KNYTS_BRIDGE_SECTION_DEFAULTS: Record<string, KnytsBridgeEditorialS
     const entries: Record<string, KnytsBridgeEditorialSection> = {};
     for (const stage of FS_STAGE_IDS) {
       const copy = stageCopy[stage];
+      const content = FS_STAGE_CONTENT[stage];
       for (const bridge of ['ci', 'knyts'] as const) {
         entries[fsBridgeSectionKey(bridge, stage)] = {
           section: fsBridgeSectionKey(bridge, stage),
@@ -331,28 +343,77 @@ export const KNYTS_BRIDGE_SECTION_DEFAULTS: Record<string, KnytsBridgeEditorialS
           infographicUrl: null,
           campaignCta: copy.campaignCta,
           rewardCopy: null,
+          // Real CFS pack content as the starting default (2026-09-03,
+          // editorial coverage completion) — an admin who never opens this
+          // section still gets the corrected pack copy; an admin who DOES
+          // edit+save replaces this default with their own row, published
+          // together in one write (topics/checks/exercise/contextual line/
+          // asset caption+alt never split into separate mismatched fields).
+          //
+          // Learn is special-cased: content/step-composition.json v1.2 maps
+          // learn-purposes -> [L-TOPIC-01], learn-value -> [L-TOPIC-02,
+          // L-Q01, L-Q03], learn-agents -> [L-TOPIC-03, L-X01, L-Q02] — the
+          // primary fs-learn section (plate 1) carries ONLY learn-purposes'
+          // slice, never all three topics dumped together; plates 2/3 carry
+          // their own slice via the override block below this loop.
+          structuredContent:
+            stage === 'learn'
+              ? {
+                  topics: content.topics.filter((t) => t.id === 'L-TOPIC-01'),
+                  checks: [],
+                  exerciseSummary: '',
+                  contextualLine: content.contextualLine[bridge],
+                  assetCaption: content.asset.caption,
+                  assetAlt: content.asset.alt,
+                  lessonLabel: 'Lesson 1 — What money helps you do',
+                }
+              : {
+                  topics: content.topics,
+                  checks: content.checks,
+                  exerciseSummary: content.exerciseSummary,
+                  contextualLine: content.contextualLine[bridge],
+                  assetCaption: content.asset.caption,
+                  assetAlt: content.asset.alt,
+                },
           updatedAt: null,
         };
       }
     }
     // Learn's second/third plate — a starting default for the admin edit
-    // form only (mirrors the moneypenny-financial-basics precedent above);
-    // the public reader never falls back to this generic text, only to its
-    // own "not yet published" honest state.
-    const learnPlateTitles = ['Fiat, crypto and value', 'You, AgentMe and MoneyPenny'];
-    for (const [i, title] of learnPlateTitles.entries()) {
+    // form. Per content/step-composition.json v1.2: learn-value carries
+    // [L-TOPIC-02, L-Q01, L-Q03]; learn-agents carries [L-TOPIC-03, L-X01,
+    // L-Q02] (L-X01's own summary, since it's referenced there, not on
+    // plate 1). Each plate's slice is its own — never a duplicate of what
+    // the primary fs-learn section (plate 1, learn-purposes) already shows.
+    const learnContent = FS_STAGE_CONTENT.learn;
+    const byTopicId = (id: string) => learnContent.topics.filter((t) => t.id === id);
+    const byCheckIds = (ids: string[]) => learnContent.checks.filter((c) => ids.includes(c.id));
+    const learnPlateMeta: { title: string; label: string; plate: (typeof FS_LEARN_PLATES)[number]; topicId: string; checkIds: string[]; exerciseSummary?: string }[] = [
+      { title: 'Fiat, crypto and value', label: 'Lesson 2 — Fiat, crypto and value', plate: FS_LEARN_PLATES[1], topicId: 'L-TOPIC-02', checkIds: ['L-Q01', 'L-Q03'] },
+      { title: 'You, AgentMe and MoneyPenny', label: 'Lesson 3 — You, AgentMe and MoneyPenny', plate: FS_LEARN_PLATES[2], topicId: 'L-TOPIC-03', checkIds: ['L-Q02'], exerciseSummary: learnContent.exerciseSummary },
+    ];
+    for (const [i, meta] of learnPlateMeta.entries()) {
       const plateIndex = (i + 1) as 1 | 2;
       for (const bridge of ['ci', 'knyts'] as const) {
         const key = fsLearnPlateSectionKey(bridge, plateIndex);
         entries[key] = {
           section: key,
-          headline: title,
+          headline: meta.title,
           shortCopy: null,
           videoUrl: null,
           posterUrl: null,
           infographicUrl: null,
           campaignCta: null,
           rewardCopy: null,
+          structuredContent: {
+            topics: byTopicId(meta.topicId),
+            checks: byCheckIds(meta.checkIds),
+            exerciseSummary: meta.exerciseSummary ?? '',
+            contextualLine: '',
+            assetCaption: meta.plate.caption,
+            assetAlt: meta.plate.alt,
+            lessonLabel: meta.label,
+          },
           updatedAt: null,
         };
       }
@@ -382,12 +443,17 @@ function rowToSection(row: Record<string, unknown> | null, section: string): Kny
     infographicUrl: (row.infographic_url as string) ?? null,
     campaignCta: (row.campaign_cta as string) ?? null,
     rewardCopy: (row.reward_copy as string) ?? null,
+    // Absent on a row read via MID_COLUMNS/LEGACY_COLUMNS (structured_content
+    // migration not yet applied in this environment) — `?? null` reports
+    // "not available" the same way infographicUrl already does above.
+    structuredContent: (row.structured_content as Record<string, unknown>) ?? null,
     updatedAt: (row.updated_at as string) ?? null,
   };
 }
 
 const LEGACY_COLUMNS = 'section, headline, short_copy, video_url, poster_url, campaign_cta, reward_copy, updated_at';
-const FULL_COLUMNS = `section, headline, short_copy, video_url, poster_url, infographic_url, campaign_cta, reward_copy, updated_at`;
+const MID_COLUMNS = `section, headline, short_copy, video_url, poster_url, infographic_url, campaign_cta, reward_copy, updated_at`;
+const FULL_COLUMNS = `section, headline, short_copy, video_url, poster_url, infographic_url, campaign_cta, reward_copy, structured_content, updated_at`;
 
 /** Postgres 42703 (undefined_column) — the infographic_url migration
  *  hasn't landed in this environment yet. Distinct from isMissingTable
@@ -427,9 +493,16 @@ export async function getKnytsBridgeEditorialSection(
   if (error && isMissingColumn(error)) {
     ({ data, error } = await supabase
       .from('knyts_bridge_editorial_config')
-      .select(LEGACY_COLUMNS)
+      .select(MID_COLUMNS)
       .eq('section', section)
       .maybeSingle());
+    if (error && isMissingColumn(error)) {
+      ({ data, error } = await supabase
+        .from('knyts_bridge_editorial_config')
+        .select(LEGACY_COLUMNS)
+        .eq('section', section)
+        .maybeSingle());
+    }
   }
   if (error) throw new Error(`knyts_bridge_editorial_config read failed: ${error.message}`);
   return rowToSection(data as Record<string, unknown> | null, section);
@@ -443,6 +516,7 @@ export interface KnytsBridgeEditorialUpdate {
   infographicUrl?: string | null;
   campaignCta?: string | null;
   rewardCopy?: string | null;
+  structuredContent?: Record<string, unknown> | null;
 }
 
 /** Thrown by upsertKnytsBridgeEditorialSection when an update sets
@@ -460,6 +534,17 @@ export class KnytsBridgeInfographicColumnMissingError extends Error {
   }
 }
 
+/** Same discipline as KnytsBridgeInfographicColumnMissingError, for the
+ *  2026-09-03 structured_content column (CFS editorial coverage). */
+export class KnytsBridgeStructuredContentColumnMissingError extends Error {
+  constructor() {
+    super(
+      'knyts_bridge_editorial_config.structured_content does not exist in this environment yet — apply ' +
+        'supabase/migrations/20260903140000_knyts_bridge_editorial_config_structured_content.sql.',
+    );
+  }
+}
+
 export async function upsertKnytsBridgeEditorialSection(
   supabase: SupabaseClient,
   section: string,
@@ -467,6 +552,7 @@ export async function upsertKnytsBridgeEditorialSection(
   updatedBy: string,
 ): Promise<KnytsBridgeEditorialSection> {
   const setsInfographic = update.infographicUrl !== undefined;
+  const setsStructuredContent = update.structuredContent !== undefined;
   const writePayload = {
     section,
     ...(update.headline !== undefined ? { headline: update.headline } : {}),
@@ -476,6 +562,7 @@ export async function upsertKnytsBridgeEditorialSection(
     ...(setsInfographic ? { infographic_url: update.infographicUrl } : {}),
     ...(update.campaignCta !== undefined ? { campaign_cta: update.campaignCta } : {}),
     ...(update.rewardCopy !== undefined ? { reward_copy: update.rewardCopy } : {}),
+    ...(setsStructuredContent ? { structured_content: update.structuredContent } : {}),
     updated_by: updatedBy,
     updated_at: new Date().toISOString(),
   };
@@ -487,18 +574,25 @@ export async function upsertKnytsBridgeEditorialSection(
     .single();
 
   if (error && isMissingColumn(error)) {
-    // The write itself never touched infographic_url unless setsInfographic
-    // — a caller updating only headline/video/poster must keep working even
-    // before this migration lands, so retry with the legacy select (and, if
-    // the write payload somehow still referenced the column, the legacy
-    // upsert below strips it too).
-    if (setsInfographic) throw new KnytsBridgeInfographicColumnMissingError();
-    const { infographic_url: _drop, ...legacyPayload } = writePayload as typeof writePayload & { infographic_url?: string | null };
+    // Retry against MID (drops structured_content only) — a caller that
+    // never touched structuredContent must keep working even before the
+    // 09-03 migration lands, same discipline infographicUrl already has.
+    if (setsStructuredContent) throw new KnytsBridgeStructuredContentColumnMissingError();
+    const { structured_content: _dropSc, ...midPayload } = writePayload as typeof writePayload & { structured_content?: Record<string, unknown> | null };
     ({ data, error } = await supabase
       .from('knyts_bridge_editorial_config')
-      .upsert(legacyPayload, { onConflict: 'section' })
-      .select(LEGACY_COLUMNS)
+      .upsert(midPayload, { onConflict: 'section' })
+      .select(MID_COLUMNS)
       .single());
+    if (error && isMissingColumn(error)) {
+      if (setsInfographic) throw new KnytsBridgeInfographicColumnMissingError();
+      const { infographic_url: _drop, ...legacyPayload } = midPayload as typeof midPayload & { infographic_url?: string | null };
+      ({ data, error } = await supabase
+        .from('knyts_bridge_editorial_config')
+        .upsert(legacyPayload, { onConflict: 'section' })
+        .select(LEGACY_COLUMNS)
+        .single());
+    }
   }
   if (error) throw new Error(error.message);
   return rowToSection(data as Record<string, unknown>, section);

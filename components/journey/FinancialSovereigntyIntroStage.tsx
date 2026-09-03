@@ -82,7 +82,14 @@ import { useDcirSeam } from '@/services/dcir/useDcirSeam';
 import { aigentMeCapsuleEngagedEvent } from '@/services/dcir/eventStream';
 import { personaFetch } from '@/utils/personaSpine';
 import { personaFetchDeadline } from '@/utils/personaSpine';
-import { FS_STAGE_CONTENT, FS_LEARN_PLATES, type FsBridge } from '@/services/journey/financialSovereigntyContent';
+import {
+  FS_STAGE_CONTENT,
+  FS_LOGICAL_SECTION_MAP,
+  resolveFsSectionContent,
+  resolveFsLearnPlateContent,
+  type FsBridge,
+  type FsStructuredContent,
+} from '@/services/journey/financialSovereigntyContent';
 import { useFsBridgeSection, useFsLearnPlateSection } from '@/services/journey/useFsBridgeSection';
 import { FinancialSovereigntyStageExtras } from '@/components/journey/FinancialSovereigntyStageExtras';
 
@@ -358,88 +365,141 @@ export function FinancialSovereigntyIntroStage({
         primaryCtaDisabled={primaryCtaDisabled}
         accent={accent}
         layout="standard"
-        infographicUrl={fsConfig?.infographicUrl ?? undefined}
+        // FinancialSovereigntyStageExtras renders its own <img> per plate
+        // below (Learn needs three; Discover/Explore need one) — never also
+        // set here, which would double-render the same image.
       >
-        {stageKey === 'learn' && (
-          <div className="space-y-2">
-            {LEARN_CONCEPTS.map((concept) => {
-              const acknowledged = acknowledgedConcepts.has(concept.id);
-              return (
-                <button
-                  key={concept.id}
-                  type="button"
-                  onClick={() => handleConceptAcknowledge(concept.id)}
-                  aria-pressed={acknowledged}
-                  className={`w-full rounded-lg border px-4 py-3 text-left text-sm transition ${
-                    acknowledged
-                      ? 'border-emerald-500/40 bg-emerald-500/10 text-slate-100'
-                      : 'border-white/10 bg-white/[0.03] text-slate-300 hover:border-white/20'
-                  }`}
-                >
-                  <span className="font-semibold">{acknowledged ? '✓ ' : ''}{concept.label}</span>
-                  <span className="mt-1 block text-slate-400">{concept.body}</span>
-                </button>
-              );
-            })}
-          </div>
-        )}
-        {stageKey === 'explore' && services.length > 0 && (
-          <div className="space-y-2">
-            {services.map((service) => {
-              const interacted = interactedCapabilities.has(service.serviceId);
-              return (
-                <button
-                  key={service.serviceId}
-                  type="button"
-                  onClick={() => handleCapabilityInteract(service.serviceId)}
-                  aria-pressed={interacted}
-                  className={`w-full rounded-lg border px-4 py-3 text-left text-sm transition ${
-                    interacted
-                      ? 'border-emerald-500/40 bg-emerald-500/10 text-slate-100'
-                      : 'border-white/10 bg-white/[0.03] text-slate-300 hover:border-white/20'
-                  }`}
-                >
-                  <span className="font-semibold">{interacted ? '✓ ' : ''}{service.displayName}</span>
-                  <span className="mt-1 block text-slate-400">{service.providerMode} capability — tap to view.</span>
-                </button>
-              );
-            })}
-            <button
-              type="button"
-              onClick={handleTryFinancialProfile}
-              disabled={tryStatus === 'loading'}
-              aria-pressed={interactedCapabilities.has(LIVE_TRY_CAPABILITY_ID)}
-              className={`w-full rounded-lg border px-4 py-3 text-left text-sm transition disabled:opacity-60 ${
-                interactedCapabilities.has(LIVE_TRY_CAPABILITY_ID)
-                  ? 'border-emerald-500/40 bg-emerald-500/10 text-slate-100'
-                  : 'border-white/10 bg-white/[0.03] text-slate-300 hover:border-white/20'
-              }`}
-            >
-              <span className="font-semibold">
-                {interactedCapabilities.has(LIVE_TRY_CAPABILITY_ID) ? '✓ ' : ''}Try it — Compute your Financial Profile
-              </span>
-              <span className="mt-1 block text-slate-400">
-                {tryStatus === 'loading'
-                  ? 'Computing…'
-                  : tryDetail ?? 'A real, live call — not a preview. Uses your uploaded bank statements, if any.'}
-              </span>
-            </button>
-          </div>
-        )}
-        <FinancialSovereigntyStageExtras
-          content={FS_STAGE_CONTENT[stageKey]}
-          bridge={bridge}
-          showCostExample={stageKey === 'explore'}
-          assets={
-            stageKey === 'learn'
-              ? [
-                  { asset: FS_LEARN_PLATES[0], infographicUrl: fsConfig?.infographicUrl, label: 'Lesson 1 — What money helps you do' },
-                  { asset: FS_LEARN_PLATES[1], infographicUrl: learnPlate2Config?.infographicUrl, label: 'Lesson 2 — Fiat, crypto and value' },
-                  { asset: FS_LEARN_PLATES[2], infographicUrl: learnPlate3Config?.infographicUrl, label: 'Lesson 3 — You, AgentMe and MoneyPenny' },
-                ]
-              : [{ asset: FS_STAGE_CONTENT[stageKey].asset, infographicUrl: fsConfig?.infographicUrl }]
-          }
-        />
+        {stageKey === 'discover' && (() => {
+          const resolved = resolveFsSectionContent('discover', bridge, fsConfig?.structuredContent as FsStructuredContent | null | undefined);
+          const map = FS_LOGICAL_SECTION_MAP.discover[0];
+          return (
+            <FinancialSovereigntyStageExtras
+              sectionLabel={map.label}
+              topics={resolved.topics}
+              checks={resolved.checks}
+              exerciseSummary={resolved.exerciseSummary}
+              contextualLine={resolved.contextualLine}
+              assets={[{ caption: resolved.assetCaption, alt: resolved.assetAlt, infographicUrl: fsConfig?.infographicUrl }]}
+            />
+          );
+        })()}
+
+        {stageKey === 'learn' && (() => {
+          const plate0 = resolveFsLearnPlateContent(0, fsConfig?.structuredContent as FsStructuredContent | null | undefined);
+          const plate1 = resolveFsLearnPlateContent(1, learnPlate2Config?.structuredContent as FsStructuredContent | null | undefined);
+          const plate2 = resolveFsLearnPlateContent(2, learnPlate3Config?.structuredContent as FsStructuredContent | null | undefined);
+          const [mapPurposes, mapValue, mapAgents] = FS_LOGICAL_SECTION_MAP.learn;
+          return (
+            <div className="space-y-3">
+              <FinancialSovereigntyStageExtras
+                sectionLabel={mapPurposes.label}
+                topics={plate0.topics}
+                checks={plate0.checks}
+                exerciseSummary={plate0.exerciseSummary}
+                contextualLine=""
+                assets={[{ caption: plate0.assetCaption, alt: plate0.assetAlt, infographicUrl: fsConfig?.infographicUrl, label: plate0.lessonLabel }]}
+              />
+              <FinancialSovereigntyStageExtras
+                sectionLabel={mapValue.label}
+                topics={plate1.topics}
+                checks={plate1.checks}
+                exerciseSummary={plate1.exerciseSummary}
+                contextualLine=""
+                assets={[{ caption: plate1.assetCaption, alt: plate1.assetAlt, infographicUrl: learnPlate2Config?.infographicUrl, label: plate1.lessonLabel }]}
+              />
+              <FinancialSovereigntyStageExtras
+                sectionLabel={mapAgents.label}
+                topics={plate2.topics}
+                checks={plate2.checks}
+                exerciseSummary={plate2.exerciseSummary}
+                contextualLine=""
+                assets={[{ caption: plate2.assetCaption, alt: plate2.assetAlt, infographicUrl: learnPlate3Config?.infographicUrl, label: plate2.lessonLabel }]}
+              />
+              <div className="space-y-2">
+                {LEARN_CONCEPTS.map((concept) => {
+                  const acknowledged = acknowledgedConcepts.has(concept.id);
+                  return (
+                    <button
+                      key={concept.id}
+                      type="button"
+                      onClick={() => handleConceptAcknowledge(concept.id)}
+                      aria-pressed={acknowledged}
+                      className={`w-full rounded-lg border px-4 py-3 text-left text-sm transition ${
+                        acknowledged
+                          ? 'border-emerald-500/40 bg-emerald-500/10 text-slate-100'
+                          : 'border-white/10 bg-white/[0.03] text-slate-300 hover:border-white/20'
+                      }`}
+                    >
+                      <span className="font-semibold">{acknowledged ? '✓ ' : ''}{concept.label}</span>
+                      <span className="mt-1 block text-slate-400">{concept.body}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
+
+        {stageKey === 'explore' && (() => {
+          const resolved = resolveFsSectionContent('explore', bridge, fsConfig?.structuredContent as FsStructuredContent | null | undefined);
+          const [mapRehearsal] = FS_LOGICAL_SECTION_MAP.explore;
+          return (
+            <div className="space-y-3">
+              <FinancialSovereigntyStageExtras
+                sectionLabel={mapRehearsal.label}
+                topics={resolved.topics}
+                checks={resolved.checks}
+                exerciseSummary={resolved.exerciseSummary}
+                contextualLine={resolved.contextualLine}
+                showCostExample
+                assets={[{ caption: resolved.assetCaption, alt: resolved.assetAlt, infographicUrl: fsConfig?.infographicUrl }]}
+              />
+              {services.length > 0 && (
+                <div className="space-y-2">
+                  {services.map((service) => {
+                    const interacted = interactedCapabilities.has(service.serviceId);
+                    return (
+                      <button
+                        key={service.serviceId}
+                        type="button"
+                        onClick={() => handleCapabilityInteract(service.serviceId)}
+                        aria-pressed={interacted}
+                        className={`w-full rounded-lg border px-4 py-3 text-left text-sm transition ${
+                          interacted
+                            ? 'border-emerald-500/40 bg-emerald-500/10 text-slate-100'
+                            : 'border-white/10 bg-white/[0.03] text-slate-300 hover:border-white/20'
+                        }`}
+                      >
+                        <span className="font-semibold">{interacted ? '✓ ' : ''}{service.displayName}</span>
+                        <span className="mt-1 block text-slate-400">{service.providerMode} capability — tap to view.</span>
+                      </button>
+                    );
+                  })}
+                  <button
+                    type="button"
+                    onClick={handleTryFinancialProfile}
+                    disabled={tryStatus === 'loading'}
+                    aria-pressed={interactedCapabilities.has(LIVE_TRY_CAPABILITY_ID)}
+                    className={`w-full rounded-lg border px-4 py-3 text-left text-sm transition disabled:opacity-60 ${
+                      interactedCapabilities.has(LIVE_TRY_CAPABILITY_ID)
+                        ? 'border-emerald-500/40 bg-emerald-500/10 text-slate-100'
+                        : 'border-white/10 bg-white/[0.03] text-slate-300 hover:border-white/20'
+                    }`}
+                  >
+                    <span className="font-semibold">
+                      {interactedCapabilities.has(LIVE_TRY_CAPABILITY_ID) ? '✓ ' : ''}Try it — Compute your Financial Profile
+                    </span>
+                    <span className="mt-1 block text-slate-400">
+                      {tryStatus === 'loading'
+                        ? 'Computing…'
+                        : tryDetail ?? 'A real, live call — not a preview. Uses your uploaded bank statements, if any.'}
+                    </span>
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })()}
       </BridgeMediaStage>
     </div>
   );

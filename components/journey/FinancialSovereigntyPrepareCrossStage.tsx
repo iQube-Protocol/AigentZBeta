@@ -48,7 +48,7 @@ import { WALLET_CONVERSION_CAPABILITY_ID } from '@/services/financialServices/wa
 import { fetchFinancialProfileSummary, markFinancialProfileReviewed, type FinancialProfileSummary } from '@/services/moneypenny/financialProfileSummary';
 import type { BridgeAccent } from '@/components/journey/BridgeMediaStage';
 import { MoneyPennyBridgeEmbed } from '@/components/journey/MoneyPennyBridgeEmbed';
-import { FS_STAGE_CONTENT, type FsBridge } from '@/services/journey/financialSovereigntyContent';
+import { FS_LOGICAL_SECTION_MAP, resolveFsSectionContent, type FsBridge, type FsStructuredContent } from '@/services/journey/financialSovereigntyContent';
 import { useFsBridgeSection } from '@/services/journey/useFsBridgeSection';
 import { FinancialSovereigntyStageExtras } from '@/components/journey/FinancialSovereigntyStageExtras';
 
@@ -154,6 +154,9 @@ export function FinancialSovereigntyPrepareCrossStage({
     window.location.href = `/bridge/fs?handoff=${encodeURIComponent(token)}`;
   };
 
+  const crossResolved = resolveFsSectionContent('cross', bridge, crossFsConfig?.structuredContent as FsStructuredContent | null | undefined);
+  const [mapAutomation] = FS_LOGICAL_SECTION_MAP.cross;
+
   return (
     <div className="flex h-full flex-col items-center justify-start overflow-y-auto gap-6 p-8 text-center">
       <div className="max-w-xl space-y-2">
@@ -165,6 +168,19 @@ export function FinancialSovereigntyPrepareCrossStage({
             : 'You can still cross without a chosen candidate — the Financial Services Bridge will let you pick one there.'}
         </p>
       </div>
+      {/* cross-automation renders BEFORE the cross-readiness button, per
+          content/step-composition.json v1.2's logical order — "what changes
+          with automation" precedes "review the advanced path". */}
+      <div className="w-full max-w-xl">
+        <FinancialSovereigntyStageExtras
+          sectionLabel={mapAutomation.label}
+          topics={crossResolved.topics}
+          checks={crossResolved.checks}
+          exerciseSummary={crossResolved.exerciseSummary}
+          contextualLine={crossResolved.contextualLine}
+          assets={[{ caption: crossResolved.assetCaption, alt: crossResolved.assetAlt, infographicUrl: crossFsConfig?.infographicUrl }]}
+        />
+      </div>
       <button
         type="button"
         onClick={handleCross}
@@ -172,13 +188,6 @@ export function FinancialSovereigntyPrepareCrossStage({
       >
         Cross to Financial Services →
       </button>
-      <div className="w-full max-w-xl">
-        <FinancialSovereigntyStageExtras
-          content={FS_STAGE_CONTENT.cross}
-          bridge={bridge}
-          assets={[{ asset: FS_STAGE_CONTENT.cross.asset, infographicUrl: crossFsConfig?.infographicUrl }]}
-        />
-      </div>
     </div>
   );
 }
@@ -378,11 +387,20 @@ function PrepareFinancialProfileReview({
       </div>
 
       <div className="w-full max-w-md">
-        <FinancialSovereigntyStageExtras
-          content={FS_STAGE_CONTENT.prepare}
-          bridge={bridge}
-          assets={[{ asset: FS_STAGE_CONTENT.prepare.asset, infographicUrl: fsConfig?.infographicUrl }]}
-        />
+        {(() => {
+          const resolved = resolveFsSectionContent('prepare', bridge, fsConfig?.structuredContent as FsStructuredContent | null | undefined);
+          const [, , mapSetup] = FS_LOGICAL_SECTION_MAP.prepare;
+          return (
+            <FinancialSovereigntyStageExtras
+              sectionLabel={mapSetup.label}
+              topics={resolved.topics}
+              checks={resolved.checks}
+              exerciseSummary={resolved.exerciseSummary}
+              contextualLine={resolved.contextualLine}
+              assets={[{ caption: resolved.assetCaption, alt: resolved.assetAlt, infographicUrl: fsConfig?.infographicUrl }]}
+            />
+          );
+        })()}
       </div>
     </div>
   );
