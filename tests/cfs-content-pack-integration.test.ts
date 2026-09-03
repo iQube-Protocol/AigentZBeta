@@ -191,50 +191,44 @@ describe('FinancialSovereigntyIntroStage.tsx (Discover/Learn/Explore) — CFS co
     expect(src).toMatch(/const bridge: FsBridge = accent === 'indigo' \? 'ci' : 'knyts';/);
   });
 
-  it("LEARN still renders FinancialSovereigntyStageExtras inside BridgeMediaStage — unchanged pending the same rich-media recomposition already applied to Discover/Explore (critical layout correction, 2026-09-03)", () => {
-    expect(src).toMatch(/<FinancialSovereigntyStageExtras/);
+  it("LEARN now uses the same locked-viewport BridgeMediaInteractionSection + activity-carousel pattern as Discover/Explore (production learning pattern, 2026-09-03) — no stage still renders the old FinancialSovereigntyStageExtras stack", () => {
+    expect(src).not.toMatch(/FinancialSovereigntyStageExtras/);
+    expect(src).toMatch(/BridgeActivityGroupRail groups=\{learnGroups\}/);
   });
 
-  it('DISCOVER and EXPLORE no longer use BridgeMediaStage/FinancialSovereigntyStageExtras — they reuse the first-threshold media/interaction composition (BridgeMediaInteractionSection + BridgeMediaCarouselPane, the same shell BridgeOrientSurface uses) instead of a stacked text-card page', () => {
+  it('DISCOVER, LEARN and EXPLORE all reuse the locked-viewport media/interaction composition (BridgeMediaInteractionSection + BridgeMediaCarouselPane, the same shell BridgeOrientSurface uses) — never BridgeMediaStage\'s plain hero', () => {
     expect(src).toMatch(/import \{ BridgeMediaInteractionSection \} from '@\/components\/journey\/BridgeMediaInteractionSection';/);
     expect(src).toMatch(/import type \{ BridgeMediaCarouselItem \} from '@\/components\/journey\/BridgeMediaCarouselPane';/);
-    expect(src).toMatch(/if \(stageKey === 'discover'\) \{/);
-    expect(src).toMatch(/if \(stageKey === 'explore'\) \{/);
-    // Both early-return blocks render BridgeMediaInteractionSection, not
-    // BridgeMediaStage — the split is structural (two early returns before
-    // the LEARN-only BridgeMediaStage branch), so this can't be a false
-    // positive from LEARN's own unrelated FinancialSovereigntyStageExtras
-    // usage further down the file.
-    // Bounded by 'primaryCtaLabel="Continue"' (LEARN's own BridgeMediaStage
-    // prop) rather than the surrounding comment — `src` here is
-    // comment-stripped, so a comment-text marker would never be found and
-    // `.slice(start, -1)` would silently swallow the rest of the file.
-    const discoverBlock = src.slice(src.indexOf("if (stageKey === 'discover') {"), src.indexOf("if (stageKey === 'explore') {"));
-    const exploreBlock = src.slice(src.indexOf("if (stageKey === 'explore') {"), src.lastIndexOf('<BridgeMediaStage'));
-    for (const block of [discoverBlock, exploreBlock]) {
-      expect(block).toMatch(/<BridgeMediaInteractionSection/);
-      expect(block).not.toMatch(/<BridgeMediaStage/);
-      expect(block).not.toMatch(/<FinancialSovereigntyStageExtras/);
-    }
+    expect(src).not.toMatch(/<BridgeMediaStage/);
+    expect(src.match(/<BridgeMediaInteractionSection/g)?.length).toBe(3);
   });
 
-  it('DISCOVER and EXPLORE reuse the verified C-15 Studio placeholder video (never a fabricated URL) with the exact required label, only while no admin video is configured', () => {
+  it('every stage composes its Learning Rail from BridgeActivityGroupRail/BridgeActivityGroup — data-driven activity groups, not page-specific JSX stacks', () => {
+    expect(src).toMatch(/import \{ BridgeActivityGroupRail \} from '@\/components\/journey\/BridgeActivityGroupRail';/);
+    expect(src).toMatch(/import type \{ BridgeActivityGroup \} from '@\/services\/journey\/bridgeActivity';/);
+    expect(src.match(/<BridgeActivityGroupRail groups=\{/g)?.length).toBe(3);
+  });
+
+  it('DISCOVER, LEARN and EXPLORE reuse the verified C-15 Studio placeholder video (never a fabricated URL) with the exact required label, only while no admin video is configured — real production infographics resolved via the canonical asset catalog otherwise', () => {
     expect(src).toMatch(/import \{\s*FS_PLACEHOLDER_VIDEO_URL,\s*FS_PLACEHOLDER_VIDEO_POSTER_URL,\s*FS_PLACEHOLDER_VIDEO_LABEL,\s*\} from '@\/services\/journey\/fsPlaceholderVideo';/);
-    expect(src).toMatch(/videoUrl: fsConfig\?\.videoUrl \|\| FS_PLACEHOLDER_VIDEO_URL/g);
+    expect(src).toMatch(/videoUrl: fsConfig\?\.videoUrl \|\| FS_PLACEHOLDER_VIDEO_URL/);
+    expect(src).toMatch(/import \{ resolveFsCanonicalInfographicUrl \} from '@\/services\/journey\/fsCanonicalMedia';/);
     const placeholderSrc = readSource('services/journey/fsPlaceholderVideo.ts');
     expect(placeholderSrc).toMatch(/Placeholder video — financial-services lesson in production\./);
     expect(placeholderSrc).toMatch(/https:\/\/bsjhfvctmduxhohtllly\.supabase\.co\/storage\/v1\/object\/public\/content-assets\/generated\/openai\/videos\//);
+    const canonicalSrc = readSource('services/journey/fsCanonicalMedia.ts');
+    for (const ref of ['D-I01', 'L-I01', 'L-I02', 'L-I03', 'E-I01', 'P-I01', 'O-I01', 'C-I01']) {
+      expect(canonicalSrc).toMatch(new RegExp(`'${ref}':`));
+    }
   });
 
-  it('DISCOVER and EXPLORE move topics/checks behind chips (never an always-visible stacked list) — reuses FinancialSovereigntyTopicChips/FinancialSovereigntyCheckGroup, capped understanding checks', () => {
-    expect(src).toMatch(/<FinancialSovereigntyTopicChips topics=\{resolved\.topics\} \/>/g);
-    expect(src).toMatch(/<FinancialSovereigntyCheckGroup checks=\{resolved\.checks\} \/>/g);
+  it('DISCOVER, LEARN and EXPLORE understanding checks stay behind a capped, one-at-a-time FinancialSovereigntyCheckGroup capsule — never an always-visible stacked list', () => {
+    expect(src.match(/<FinancialSovereigntyCheckGroup checks=\{[\w.]+\} label="Start" \/>/g)?.length).toBe(3);
   });
 
   it('resolves admin-published structuredContent through resolveFsSectionContent/resolveFsLearnPlateContent — never reads FS_STAGE_CONTENT directly for topics/checks at render time', () => {
     expect(src).toMatch(/resolveFsSectionContent\(/);
     expect(src).toMatch(/resolveFsLearnPlateContent\(/);
-    expect(src).toMatch(/FS_LOGICAL_SECTION_MAP\./);
   });
 
   it("Learn's three plates each resolve their OWN admin section (fs-learn / fs-learn-2 / fs-learn-3) — not all three pinned to one config", () => {
@@ -242,8 +236,9 @@ describe('FinancialSovereigntyIntroStage.tsx (Discover/Learn/Explore) — CFS co
     expect(src).toMatch(/useFsLearnPlateSection\(bridge, 2\)/);
   });
 
-  it('the outer wrapper is scrollable and no longer relies on vertical centering that would clip a tall panel', () => {
-    expect(src).toMatch(/<div className="flex h-full flex-col overflow-y-auto">/);
+  it('the outer wrapper locks to the given viewport height rather than making the whole page the scroll surface — only the Learning Rail column scrolls internally at desktop (production learning pattern, 2026-09-03)', () => {
+    expect(src.match(/<div className="flex h-full min-h-0 flex-col p-4 sm:p-6">/g)?.length).toBe(3);
+    expect(src).toMatch(/<div className="min-h-0 flex-1">/);
   });
 });
 
@@ -447,16 +442,20 @@ describe('Prepare/Cross section ordering matches content/step-composition.json v
   });
 });
 
-describe("Learn's section ordering matches content/step-composition.json v1.2 (purposes -> value -> agents+picker)", () => {
-  it('the three plate StageExtras blocks appear in source in order, all BEFORE the LEARN_CONCEPTS picker', () => {
+describe("Learn's activity-group ordering (production learning pattern, 2026-09-03) — lesson topics, then the Advisor/Architect/Runtime picker, then checks", () => {
+  it('learnGroups declares lesson-topics before agents before checks, in source order', () => {
     const src = readSource('components/journey/FinancialSovereigntyIntroStage.tsx');
-    const purposesIdx = src.indexOf('sectionLabel={mapPurposes.label}');
-    const valueIdx = src.indexOf('sectionLabel={mapValue.label}');
-    const agentsIdx = src.indexOf('sectionLabel={mapAgents.label}');
-    const pickerIdx = src.indexOf('LEARN_CONCEPTS.map((concept)');
-    expect(purposesIdx).toBeGreaterThan(0);
-    expect(purposesIdx).toBeLessThan(valueIdx);
-    expect(valueIdx).toBeLessThan(agentsIdx);
-    expect(agentsIdx).toBeLessThan(pickerIdx);
+    const topicsIdx = src.indexOf("id: 'lesson-topics'");
+    const agentsIdx = src.indexOf("id: 'agents'");
+    const checksIdx = src.lastIndexOf("id: 'checks'");
+    expect(topicsIdx).toBeGreaterThan(0);
+    expect(topicsIdx).toBeLessThan(agentsIdx);
+    expect(agentsIdx).toBeLessThan(checksIdx);
+  });
+
+  it("Learn's picker still gates learnSatisfied on all three LEARN_CONCEPTS being individually acknowledged — evidence contract unchanged by the recomposition", () => {
+    const src = stripComments(readSource('components/journey/FinancialSovereigntyIntroStage.tsx'));
+    expect(src).toMatch(/LEARN_CONCEPTS\.every\(\(c\) => acknowledgedConcepts\.has\(c\.id\)\)/);
+    expect(src).toMatch(/LEARN_CONCEPTS\.map\(\(concept\) => \{/);
   });
 });
