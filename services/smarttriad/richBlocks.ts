@@ -30,10 +30,16 @@ import {
   SMARTTRIAD_BLOCK_SCHEMA_VERSION,
   type SmartTriadCapsulePayload,
   type SmartTriadEdgeGaugePayload,
+  type SmartTriadFill,
+  type SmartTriadFillsPayload,
+  type SmartTriadHistoryPayload,
   type SmartTriadInventoryGaugePayload,
   type SmartTriadMarketGaugeBasePayload,
   type SmartTriadMediaAction,
   type SmartTriadMediaActionKind,
+  type SmartTriadPerformancePayload,
+  type SmartTriadQuote,
+  type SmartTriadQuotesPayload,
   type SmartTriadRichBlockEnvelope,
   type SmartTriadSourceDescriptor,
   type SmartTriadVideoBlock,
@@ -215,6 +221,90 @@ export function validateSmartTriadInventoryGaugePayload(value: unknown): SmartTr
   };
 }
 
+function isValidQuote(value: unknown): value is SmartTriadQuote {
+  if (!value || typeof value !== 'object') return false;
+  const q = value as Partial<SmartTriadQuote>;
+  return (
+    typeof q.chain === 'string' &&
+    typeof q.edgeBps === 'number' &&
+    typeof q.priceUsdc === 'number' &&
+    typeof q.qtyQc === 'number' &&
+    typeof q.timestamp === 'string'
+  );
+}
+
+/** Strict structural validation for a `market.quotes` payload — harvested
+ *  from MoneyPenny002's `QuotesTable.tsx`. */
+export function validateSmartTriadQuotesPayload(value: unknown): SmartTriadQuotesPayload | null {
+  if (!value || typeof value !== 'object') return null;
+  const p = value as Partial<SmartTriadQuotesPayload>;
+  const base = validateMarketGaugeBase(p);
+  if (!base) return null;
+  if (!Array.isArray(p.quotes) || !p.quotes.every(isValidQuote)) return null;
+  return { ...base, quotes: p.quotes };
+}
+
+function isValidFill(value: unknown): value is SmartTriadFill {
+  if (!value || typeof value !== 'object') return false;
+  const f = value as Partial<SmartTriadFill>;
+  return (
+    (f.side === 'BUY' || f.side === 'SELL') &&
+    typeof f.chain === 'string' &&
+    typeof f.qtyQc === 'number' &&
+    typeof f.priceUsdc === 'number' &&
+    typeof f.captureBps === 'number' &&
+    typeof f.timestamp === 'string'
+  );
+}
+
+/** Strict structural validation for a `market.fills` payload — harvested
+ *  from MoneyPenny002's `FillsTicker.tsx`. */
+export function validateSmartTriadFillsPayload(value: unknown): SmartTriadFillsPayload | null {
+  if (!value || typeof value !== 'object') return null;
+  const p = value as Partial<SmartTriadFillsPayload>;
+  const base = validateMarketGaugeBase(p);
+  if (!base) return null;
+  if (!Array.isArray(p.fills) || !p.fills.every(isValidFill)) return null;
+  return { ...base, fills: p.fills };
+}
+
+/** Strict structural validation for a `market.performance` payload —
+ *  harvested from `LiveMarketFeed.tsx`'s "Capture Performance" panel. */
+export function validateSmartTriadPerformancePayload(value: unknown): SmartTriadPerformancePayload | null {
+  if (!value || typeof value !== 'object') return null;
+  const p = value as Partial<SmartTriadPerformancePayload>;
+  const base = validateMarketGaugeBase(p);
+  if (!base) return null;
+  if (typeof p.accumulatedQc !== 'number' || typeof p.lastCaptureBps !== 'number' || typeof p.avgCaptureBps !== 'number') {
+    return null;
+  }
+  if (!Array.isArray(p.recentCaptureBps) || !p.recentCaptureBps.every((n) => typeof n === 'number')) return null;
+  return {
+    ...base,
+    accumulatedQc: p.accumulatedQc,
+    lastCaptureBps: p.lastCaptureBps,
+    avgCaptureBps: p.avgCaptureBps,
+    recentCaptureBps: p.recentCaptureBps,
+  };
+}
+
+/** Strict structural validation for a `market.history` payload — harvested
+ *  UI shape from MoneyPenny002's `CaptureSparkline.tsx` (never its
+ *  fabricated sine+Math.random fallback or hardcoded total). */
+export function validateSmartTriadHistoryPayload(value: unknown): SmartTriadHistoryPayload | null {
+  if (!value || typeof value !== 'object') return null;
+  const p = value as Partial<SmartTriadHistoryPayload>;
+  const base = validateMarketGaugeBase(p);
+  if (!base) return null;
+  if (
+    !Array.isArray(p.points) ||
+    !p.points.every((pt) => pt && typeof pt.timestamp === 'string' && typeof pt.captureBps === 'number')
+  ) {
+    return null;
+  }
+  return { ...base, points: p.points };
+}
+
 /** Bounds capsule nesting so a malicious/malformed payload can't force
  *  unbounded recursion — capsules compose atomic surfaces, they are not
  *  meant to nest deeply. */
@@ -266,6 +356,22 @@ export function validateSmartTriadRichBlockEnvelope(value: unknown, depth = 0): 
     case 'market.inventory': {
       const payload = validateSmartTriadInventoryGaugePayload(e.payload);
       return payload ? { schemaVersion: SMARTTRIAD_BLOCK_SCHEMA_VERSION, id: e.id, kind: 'market.inventory', payload } : null;
+    }
+    case 'market.quotes': {
+      const payload = validateSmartTriadQuotesPayload(e.payload);
+      return payload ? { schemaVersion: SMARTTRIAD_BLOCK_SCHEMA_VERSION, id: e.id, kind: 'market.quotes', payload } : null;
+    }
+    case 'market.fills': {
+      const payload = validateSmartTriadFillsPayload(e.payload);
+      return payload ? { schemaVersion: SMARTTRIAD_BLOCK_SCHEMA_VERSION, id: e.id, kind: 'market.fills', payload } : null;
+    }
+    case 'market.performance': {
+      const payload = validateSmartTriadPerformancePayload(e.payload);
+      return payload ? { schemaVersion: SMARTTRIAD_BLOCK_SCHEMA_VERSION, id: e.id, kind: 'market.performance', payload } : null;
+    }
+    case 'market.history': {
+      const payload = validateSmartTriadHistoryPayload(e.payload);
+      return payload ? { schemaVersion: SMARTTRIAD_BLOCK_SCHEMA_VERSION, id: e.id, kind: 'market.history', payload } : null;
     }
     case 'capsule': {
       const payload = validateSmartTriadCapsulePayload(e.payload, depth);
@@ -360,6 +466,14 @@ export function describeSmartTriadBlockEnvelope(envelope: SmartTriadRichBlockEnv
       return `Current edge: ${envelope.payload.liveEdgeBps.toFixed(2)} bps`;
     case 'market.inventory':
       return `Current inventory: ${envelope.payload.currentInventory.toFixed(0)} Q¢`;
+    case 'market.quotes':
+      return `${envelope.payload.quotes.length} recent quote(s)`;
+    case 'market.fills':
+      return `${envelope.payload.fills.length} recent fill(s)`;
+    case 'market.performance':
+      return `Performance: ${envelope.payload.accumulatedQc.toFixed(2)} Q¢ accumulated`;
+    case 'market.history':
+      return `${envelope.payload.points.length}-point capture history`;
     case 'capsule':
       return envelope.payload.title;
   }

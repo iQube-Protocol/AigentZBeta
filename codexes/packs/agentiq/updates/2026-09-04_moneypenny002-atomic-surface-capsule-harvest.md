@@ -129,6 +129,81 @@ until that reading happens.
 
 ---
 
+## Tranche 2 (same day) — quotes, fills, performance, history + shared session controller
+
+**Commit base:** `ab616eb17` (tranche 1, verified clean — `git diff --stat ab616eb17..HEAD` was empty
+before this tranche began; no restated or duplicated work).
+
+Closes the four surfaces this doc's §0/§3 explicitly left open, plus the shared controller §2 had not
+yet built:
+
+- **`market.quotes`** (`components/smarttriad/surfaces/QuotesSurface.tsx`) — harvested from
+  `QuotesTable.tsx` + `ChainChip.tsx` (row layout, chain badge, edge/price/qty/time columns).
+- **`market.fills`** (`FillsSurface.tsx`) — harvested from `FillsTicker.tsx` + `ChainChip.tsx`
+  (BUY/SELL icon, chain badge, qty/price/capture layout).
+- **`market.performance`** (`PerformanceSurface.tsx`) — harvested from `LiveMarketFeed.tsx`'s
+  "Capture Performance" panel (accumulated Q¢, last/avg capture, bar chart).
+- **`market.history`** (`HistorySurface.tsx`) — harvested UI shape from `CaptureSparkline.tsx`
+  (bucketed bar chart) — explicitly NOT its fabricated sine+`Math.random()` fallback or hardcoded
+  `1247.83` total (confirmed present at `CaptureSparkline.tsx:107-125` by direct read this tranche).
+- **`ChainChipSurface.tsx`** — shared internal primitive both list surfaces use, harvested from
+  `ChainChip.tsx`.
+- **`services/moneypenny/marketSessionController.ts`** — the shared, client-side, module-singleton
+  market session (`useMoneyPennyMarketSession()`), consumed by:
+  - `components/smarttriad/surfaces/MarketConsoleCapsule.tsx` (compact/expanded/panel presentation
+    variants, in-place Expand/Collapse — no navigation, no remount);
+  - `app/(shell)/moneypenny/components/HFTConsole.tsx`, now mounting `<MarketConsoleCapsule
+    initialPresentation="panel" hideToggle />` instead of owning its own quote/execution state.
+  - `components/smarttriad/richblocks/SmartTriadRichBlockRenderer.tsx`'s new
+    `LIVE_CAPSULE_COMPONENTS` registry mounts the SAME live `MarketConsoleCapsule` for a copilot
+    message's `capsuleId === 'moneypenny.market-status'` capsule, instead of the static child
+    recursion every other capsule still uses.
+
+**Controller ownership and lifecycle** (proved behaviorally, not just documented — see
+`tests/smarttriad-market-console-tranche2.test.ts`'s controller suite, fake-timer-based): a single
+module-level `state` object; `subscribeMarketSession` starts the one `setInterval` on the first
+subscriber and stops it on the last unsubscribe; `getMarketSessionSnapshot()` returns the identical
+object reference to every simultaneous subscriber; `restartMarketSession()` is the ONLY thing that
+resets ring buffers/accumulated result (bumping a `generation` counter); a subscribe → unsubscribe →
+re-subscribe cycle (modeling a compact capsule unmounting while an expanded modal mounts in its
+place) resumes the SAME state rather than losing it.
+
+**Honest scope boundary, stated explicitly (per this pass's own instruction not to overclaim)**: the
+copilot's server-resolved snapshot blocks (`edgeGaugeEnvelope`, `quotesEnvelope`, etc., in
+`services/smarttriad/mediaProviders.ts`) are point-in-time chat replies — they do NOT literally share
+the browser's `marketSessionController` singleton (a server API route runs in a different process and
+cannot subscribe to client-side state). The market-status CAPSULE is the one place this pass makes
+the connection real: `SmartTriadRichBlockRenderer.tsx` substitutes the live, controller-backed
+`MarketConsoleCapsule` for that specific `capsuleId` rather than rendering the server's static
+snapshot, so "open the market console" inside a copilot message becomes a genuinely ticking surface
+sharing the SAME session `HFTConsole.tsx` reads. Individual point-answer requests ("what is our
+current edge") remain honest one-shot reports, as a chat reply inherently is.
+
+**Conversational triggers added**: "show recent fills" → `market.fills`; "how is the strategy
+performing?" → `market.performance` (moved OFF the market-console trigger, per the operator's own
+example mapping); "show me the live quotes" → `market.quotes`. "Show me quotes, spread and liquidity"
+and "open the market console" still resolve the full capsule, per the operator's own example list.
+
+**Browser verification**: `/moneypenny` standalone route (no auth gate), HFT Console tab, Start →
+all six surfaces (Edge, Inventory, Performance, History, Quotes, Fills) render live with distinct
+SIMULATION badges and no raw JSON anywhere; Stop → Start again (unmount/remount the live capsule)
+preserves accumulated state rather than resetting it. Screenshots delivered to the operator.
+
+**Tests**: 27 new (`tests/smarttriad-market-console-tranche2.test.ts`) + 1 updated stale assertion
+in tranche 1's own test (`market-console-surfaces.test.ts`, capsule now composes 5 surfaces not 2)
++ 1 updated stale literal in `tests/moneypenny-fullscreen-takeover.test.ts` (SimulationNotice wording
+changed with the HFTConsole rewrite). Full regression: 735 passing across 29 files (up from 708).
+`tsc --noEmit`: 680 errors, same baseline as tranche 1 — zero new type errors.
+
+**Still open after this tranche** (explicitly, not silently): the LIVE controller only backs the
+`moneypenny.market-status` capsule inside a copilot message and `HFTConsole.tsx` — a bare
+`market.quotes`/`market.fills`/`market.performance` block resolved as a standalone chat reply is
+still a one-shot snapshot, not wired to the live session (architecturally correct for a chat reply,
+per the boundary above, but worth stating plainly). The five other MoneyPenny002 overlays (Portfolio,
+Intent Capture, Live Insights, Research, MetaVatar) remain unbuilt, per this doc's original §3.
+Host-responsive breakpoint variants (narrow/wide capsule sizing beyond the three named presentation
+values) and full accessibility labeling pass were not separately audited this tranche.
+
 ## 4. Files changed this pass
 
 - `types/smarttriad/richBlocks.ts` — `SmartTriadDataSourceClass`, `SmartTriadSourceDescriptor`,

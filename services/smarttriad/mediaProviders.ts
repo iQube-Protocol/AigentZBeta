@@ -23,7 +23,14 @@ import {
 } from '@/services/journey/moneyPennyEducationalMedia';
 import { normalizeLegacyVideoV0, parseSmartTriadBlockCandidate } from '@/services/smarttriad/richBlocks';
 import { FS_PLACEHOLDER_VIDEO_URL, FS_PLACEHOLDER_VIDEO_POSTER_URL } from '@/services/journey/fsPlaceholderVideo';
-import { simulateEdge, simulateInventory, simulationSource } from '@/services/moneypenny/marketSimulation';
+import {
+  simulateEdge,
+  simulateInventory,
+  simulatePerformanceSnapshot,
+  simulateRecentFills,
+  simulateRecentQuotes,
+  simulationSource,
+} from '@/services/moneypenny/marketSimulation';
 import type { SmartTriadRichBlockEnvelope } from '@/types/smarttriad/richBlocks';
 
 export interface SmartTriadMediaProvider {
@@ -80,8 +87,11 @@ const MONEYPENNY_MARKET_CONSOLE_TAB = { cartridgeId: 'moneypenny-codex', tab: 'h
 
 const EDGE_TRIGGER = /(current edge|edge gauge|what is our edge|show.*\bedge\b)/i;
 const INVENTORY_TRIGGER = /(inventory exposure|inventory gauge|show.*inventory)/i;
+const FILLS_TRIGGER = /(recent fills|show.*fills)/i;
+const PERFORMANCE_TRIGGER = /(how (is|are) (the|our) strategy performing|capture performance|show.*performance)/i;
+const QUOTES_TRIGGER = /(show me the (live )?quotes\b)/i;
 const MARKET_CONSOLE_TRIGGER =
-  /(market console|show me the market\b|quotes,?\s*spread,?\s*(and|&)\s*liquidity|open the market console|how (is|are) (the|our) strategy performing)/i;
+  /(market console|show me the market\b|quotes,?\s*spread,?\s*(and|&)\s*liquidity|open the market console)/i;
 
 function edgeGaugeEnvelope(): SmartTriadRichBlockEnvelope {
   const sim = simulateEdge();
@@ -124,12 +134,73 @@ function inventoryGaugeEnvelope(): SmartTriadRichBlockEnvelope {
   };
 }
 
+function fillsEnvelope(): SmartTriadRichBlockEnvelope {
+  const fills = simulateRecentFills();
+  const observedAt = new Date().toISOString();
+  return {
+    schemaVersion: 'smarttriad.block.v1',
+    id: `moneypenny-fills-${Date.now()}`,
+    kind: 'market.fills',
+    payload: {
+      capabilityId: MONEYPENNY_MARKET_CONSOLE_CAPABILITY_ID,
+      mode: 'simulation',
+      source: simulationSource(observedAt),
+      fills: fills.map((f) => ({ ...f, timestamp: observedAt })),
+      actions: [
+        { id: 'expand-console', kind: 'open-cartridge-tab', label: 'Expand console', ...MONEYPENNY_MARKET_CONSOLE_TAB },
+      ],
+    },
+  };
+}
+
+function performanceEnvelope(): SmartTriadRichBlockEnvelope {
+  const perf = simulatePerformanceSnapshot();
+  return {
+    schemaVersion: 'smarttriad.block.v1',
+    id: `moneypenny-performance-${Date.now()}`,
+    kind: 'market.performance',
+    payload: {
+      capabilityId: MONEYPENNY_MARKET_CONSOLE_CAPABILITY_ID,
+      mode: 'simulation',
+      source: simulationSource(new Date().toISOString()),
+      accumulatedQc: perf.accumulatedQc,
+      lastCaptureBps: perf.lastCaptureBps,
+      avgCaptureBps: perf.avgCaptureBps,
+      recentCaptureBps: perf.recentCaptureBps,
+      actions: [
+        { id: 'expand-console', kind: 'open-cartridge-tab', label: 'Expand console', ...MONEYPENNY_MARKET_CONSOLE_TAB },
+      ],
+    },
+  };
+}
+
+function quotesEnvelope(): SmartTriadRichBlockEnvelope {
+  const quotes = simulateRecentQuotes();
+  const observedAt = new Date().toISOString();
+  return {
+    schemaVersion: 'smarttriad.block.v1',
+    id: `moneypenny-quotes-${Date.now()}`,
+    kind: 'market.quotes',
+    payload: {
+      capabilityId: MONEYPENNY_MARKET_CONSOLE_CAPABILITY_ID,
+      mode: 'simulation',
+      source: simulationSource(observedAt),
+      quotes: quotes.map((q) => ({ chain: q.chain, edgeBps: q.edgeBps, priceUsdc: q.priceUsdc, qtyQc: q.qtyQc, timestamp: observedAt })),
+      actions: [
+        { id: 'expand-console', kind: 'open-cartridge-tab', label: 'Expand console', ...MONEYPENNY_MARKET_CONSOLE_TAB },
+      ],
+    },
+  };
+}
+
 /**
- * Compact "Market Status" capsule — composes the Edge and Inventory atomic
- * surfaces (2026-09-04 "atomic, capsule-composable surfaces" ruling). Does
- * NOT include quotes/fills/performance sub-surfaces yet — those are not
- * built this pass (see this capability's harvest-matrix doc for the
- * sequenced remainder); this capsule is the honest subset that exists.
+ * The "Market Status" capsule. Its `capsuleId` is registered in
+ * components/smarttriad/richblocks/SmartTriadRichBlockRenderer.tsx's
+ * `LIVE_CAPSULE_COMPONENTS`, so the renderer mounts the LIVE, shared-session
+ * `MarketConsoleCapsule` component instead of these static children — the
+ * `surfaces` array below is a point-in-time fallback shape only (kept
+ * consistent/valid for any consumer that doesn't recognize the live
+ * mapping, e.g. a future non-browser renderer of this envelope).
  */
 function marketStatusCapsuleEnvelope(): SmartTriadRichBlockEnvelope {
   return {
@@ -141,7 +212,7 @@ function marketStatusCapsuleEnvelope(): SmartTriadRichBlockEnvelope {
       title: 'Market Status',
       capabilityId: MONEYPENNY_MARKET_CONSOLE_CAPABILITY_ID,
       layout: { type: 'stack', density: 'compact' },
-      surfaces: [edgeGaugeEnvelope(), inventoryGaugeEnvelope()],
+      surfaces: [edgeGaugeEnvelope(), inventoryGaugeEnvelope(), performanceEnvelope(), quotesEnvelope(), fillsEnvelope()],
       actions: [
         { id: 'expand-console', kind: 'open-cartridge-tab', label: 'Expand console', ...MONEYPENNY_MARKET_CONSOLE_TAB },
       ],
@@ -153,27 +224,38 @@ function marketStatusCapsuleEnvelope(): SmartTriadRichBlockEnvelope {
  * MoneyPenny's live-runtime market surfaces — the reference exemplar for the
  * 2026-09-04 "atomic, capsule-composable surfaces" ruling harvesting
  * MoneyPenny002's LiveMarketFeed. Renders the smallest adequate block for a
- * specific-metric request (edge, inventory) and the composed capsule for a
- * general "show me the market" request — never always the full console for
- * a narrow question. Quotes/fills/performance/history atomic surfaces are
- * NOT implemented this pass (see the harvest-matrix doc); a request for one
- * of those still matches this provider's broader console trigger and falls
- * back to the Market Status capsule rather than silently doing nothing.
+ * specific-metric request (edge, inventory, fills, performance, quotes) and
+ * the composed, LIVE-controller-backed capsule for a general "show me the
+ * market" request — never always the full console for a narrow question.
  *
- * Every value is `mode: 'simulation'` — there is no real Q¢ market-data feed
- * in this codebase today (confirmed by the 2026-09-02 mpy2-0b real-source
- * audit); values are deterministic (services/moneypenny/marketSimulation.ts)
- * rather than Math.random(), and honestly labelled, never presented as live.
+ * Every SNAPSHOT value here (a single chat reply) is `mode: 'simulation'` —
+ * there is no real Q¢ market-data feed in this codebase today (confirmed by
+ * the 2026-09-02 mpy2-0b real-source audit); values are deterministic
+ * (services/moneypenny/marketSimulation.ts) rather than Math.random(), and
+ * honestly labelled, never presented as live. The market-console capsule
+ * this provider resolves is a point-in-time fallback shape; the renderer
+ * that actually mounts it (SmartTriadRichBlockRenderer.tsx) substitutes the
+ * LIVE, shared-session `MarketConsoleCapsule` for `capsuleId ===
+ * 'moneypenny.market-status'`, so what the operator sees ticks via
+ * services/moneypenny/marketSessionController.ts, not this snapshot.
  */
 export const moneyPennyMarketConsoleProvider: SmartTriadMediaProvider = {
   id: 'moneypenny.market-console',
-  label: 'MoneyPenny — market console atomic surfaces (edge, inventory, market status capsule)',
+  label: 'MoneyPenny — market console atomic surfaces (edge, inventory, quotes, fills, performance, market status capsule)',
   matches: (message, groundContext) =>
     groundContext?.cartridge === 'moneypenny' &&
-    (EDGE_TRIGGER.test(message) || INVENTORY_TRIGGER.test(message) || MARKET_CONSOLE_TRIGGER.test(message)),
+    (EDGE_TRIGGER.test(message) ||
+      INVENTORY_TRIGGER.test(message) ||
+      FILLS_TRIGGER.test(message) ||
+      PERFORMANCE_TRIGGER.test(message) ||
+      QUOTES_TRIGGER.test(message) ||
+      MARKET_CONSOLE_TRIGGER.test(message)),
   resolve: async (_supabase, message) => {
     if (EDGE_TRIGGER.test(message)) return [edgeGaugeEnvelope()];
     if (INVENTORY_TRIGGER.test(message)) return [inventoryGaugeEnvelope()];
+    if (FILLS_TRIGGER.test(message)) return [fillsEnvelope()];
+    if (PERFORMANCE_TRIGGER.test(message)) return [performanceEnvelope()];
+    if (QUOTES_TRIGGER.test(message)) return [quotesEnvelope()];
     return [marketStatusCapsuleEnvelope()];
   },
 };

@@ -394,6 +394,19 @@ from a database row; "live" requires an actually-identified live provider or rec
 source. `services/moneypenny/marketSimulation.ts` is the ONE deterministic, seeded source for every
 simulated market value in this codebase — no `Math.random()` in a React component or API route.
 
+### Tranche 2 — quotes, fills, performance, history + the shared session controller
+
+Four more kinds: `market.quotes`, `market.fills`, `market.performance`, `market.history` (harvested
+from MoneyPenny002's `QuotesTable.tsx`/`FillsTicker.tsx`/`LiveMarketFeed.tsx`/`CaptureSparkline.tsx`).
+`services/moneypenny/marketSessionController.ts` is the one shared, module-singleton, client-side
+market session (`useMoneyPennyMarketSession()`) — `HFTConsole.tsx` and the copilot's live
+`moneypenny.market-status` capsule (mounted by `SmartTriadRichBlockRenderer.tsx`'s
+`LIVE_CAPSULE_COMPONENTS` registry) both read the SAME session: one interval regardless of how many
+consumers are mounted, state survives a subscribe/unsubscribe transition, and only an explicit
+`restartMarketSession()` resets it. Full detail:
+`codexes/packs/agentiq/updates/2026-09-04_moneypenny002-atomic-surface-capsule-harvest.md`'s
+"Tranche 2" section.
+
 ### Extending with a future rich-block kind
 
 Add the new payload type to `SmartTriadRichBlockPayload`

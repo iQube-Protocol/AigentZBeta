@@ -151,6 +151,54 @@ export interface SmartTriadInventoryGaugePayload extends SmartTriadMarketGaugeBa
   workingQc: number;
 }
 
+/** One quote row — harvested from MoneyPenny002's `QuotesTable.tsx`/`ChainChip.tsx`. */
+export interface SmartTriadQuote {
+  chain: string;
+  edgeBps: number;
+  priceUsdc: number;
+  qtyQc: number;
+  timestamp: string;
+}
+
+/** One fill row — harvested from MoneyPenny002's `FillsTicker.tsx`/`ChainChip.tsx`. */
+export interface SmartTriadFill {
+  side: 'BUY' | 'SELL';
+  chain: string;
+  qtyQc: number;
+  priceUsdc: number;
+  captureBps: number;
+  timestamp: string;
+}
+
+/** Harvested from MoneyPenny002's `QuotesTable.tsx` (kind: 'market.quotes'). */
+export interface SmartTriadQuotesPayload extends SmartTriadMarketGaugeBasePayload {
+  quotes: SmartTriadQuote[];
+}
+
+/** Harvested from MoneyPenny002's `FillsTicker.tsx` (kind: 'market.fills'). */
+export interface SmartTriadFillsPayload extends SmartTriadMarketGaugeBasePayload {
+  fills: SmartTriadFill[];
+}
+
+/** Harvested from `LiveMarketFeed.tsx`'s "Capture Performance" panel
+ *  (kind: 'market.performance') — accumulated result + last/avg capture +
+ *  a short recent-capture series for the bar chart. Never the donor's
+ *  hardcoded `1247.83` Q¢ fallback — see marketSimulation.ts. */
+export interface SmartTriadPerformancePayload extends SmartTriadMarketGaugeBasePayload {
+  accumulatedQc: number;
+  lastCaptureBps: number;
+  avgCaptureBps: number;
+  recentCaptureBps: number[];
+}
+
+/** Harvested from MoneyPenny002's `CaptureSparkline.tsx` UI shape (kind:
+ *  'market.history') — the fabricated sine+Math.random fallback and its
+ *  hardcoded total are explicitly NOT transplanted; see
+ *  marketSimulation.ts's `simulateCaptureHistory`. */
+export interface SmartTriadHistoryPayload extends SmartTriadMarketGaugeBasePayload {
+  points: { timestamp: string; captureBps: number }[];
+}
+
 /**
  * A capsule composes already-resolved child envelopes (atomic surfaces or
  * further capsules) into one declarative unit — deliberately NOT a lazy
@@ -179,6 +227,10 @@ export type SmartTriadBlockVariant =
   | { kind: 'media.video'; payload: SmartTriadVideoBlock }
   | { kind: 'market.edge'; payload: SmartTriadEdgeGaugePayload }
   | { kind: 'market.inventory'; payload: SmartTriadInventoryGaugePayload }
+  | { kind: 'market.quotes'; payload: SmartTriadQuotesPayload }
+  | { kind: 'market.fills'; payload: SmartTriadFillsPayload }
+  | { kind: 'market.performance'; payload: SmartTriadPerformancePayload }
+  | { kind: 'market.history'; payload: SmartTriadHistoryPayload }
   | { kind: 'capsule'; payload: SmartTriadCapsulePayload };
 
 export type SmartTriadBlockKind = SmartTriadBlockVariant['kind'];

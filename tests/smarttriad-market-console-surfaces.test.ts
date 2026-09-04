@@ -199,12 +199,14 @@ describe('MoneyPenny market-console provider — conversational invocation, smal
     expect(blocks[0].kind).toBe('market.inventory');
   });
 
-  it('a general console request resolves to a capsule composing both gauges', async () => {
+  it('a general console request resolves to a capsule composing the gauges (tranche 2 extends this to quotes/fills/performance too — see smarttriad-market-console-tranche2.test.ts)', async () => {
     const blocks = await moneyPennyMarketConsoleProvider.resolve({} as never, 'Open the market console', { cartridge: 'moneypenny' });
     expect(blocks).toHaveLength(1);
     expect(blocks[0].kind).toBe('capsule');
     if (blocks[0].kind === 'capsule') {
-      expect(blocks[0].payload.surfaces.map((s) => s.kind).sort()).toEqual(['market.edge', 'market.inventory']);
+      const kinds = blocks[0].payload.surfaces.map((s) => s.kind);
+      expect(kinds).toContain('market.edge');
+      expect(kinds).toContain('market.inventory');
     }
   });
 

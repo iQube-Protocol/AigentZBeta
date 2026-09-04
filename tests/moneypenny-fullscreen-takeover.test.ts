@@ -89,8 +89,8 @@ describe('HFTConsole — the reused disclosed-simulation surface for the takeove
     expect(buttonBlock).toMatch(/isFullScreen \? exitFullScreen\(\) : enterFullScreen\(\)/);
   });
 
-  it('the existing SimulationNotice disclosure is untouched — this is a UI expansion, not a new capability or a claim of live data', () => {
-    expect(src).toMatch(/<SimulationNotice label="Quotes, executions and P&L below are randomly generated — not a live market feed" \/>/);
+  it('the SimulationNotice disclosure is still present — updated wording (2026-09-04: deterministic simulation, not "randomly generated"; fills/performance replace executions/P&L terminology) but the same honest-disclosure obligation, never dropped', () => {
+    expect(src).toMatch(/<SimulationNotice label="Quotes, fills and performance below are simulated — not a live market feed" \/>/);
   });
 });
 

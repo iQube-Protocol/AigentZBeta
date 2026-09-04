@@ -102,6 +102,98 @@ export function simulateQuotesForChains(chains: string[] = [...AVAILABLE_CHAINS]
   return chains.map((chain) => simulateQuote(chain, bucket));
 }
 
+/** The chain rotation `market.quotes`/`market.fills` snapshots and the live
+ *  session controller both draw from — one list, not two. */
+export function marketSimulationChains(): string[] {
+  return [...AVAILABLE_CHAINS];
+}
+
+export interface SimulatedFill {
+  side: 'BUY' | 'SELL';
+  chain: string;
+  qtyQc: number;
+  priceUsdc: number;
+  captureBps: number;
+}
+
+/** A fill is derived from its OWN bucket's quote — never a second,
+ *  independent random draw — so "did this quote fill" and "what filled" stay
+ *  reproducible together. Matches the donor's qualitative behaviour (a
+ *  wide-enough edge triggers a fill) without a second RNG call. */
+export function simulateFillFromQuote(quote: SimulatedQuote): SimulatedFill {
+  return {
+    side: quote.edgeBps >= 0 ? 'BUY' : 'SELL',
+    chain: quote.chain,
+    qtyQc: quote.qtyQc * 0.5,
+    priceUsdc: quote.priceUsdc,
+    captureBps: quote.edgeBps * 0.4,
+  };
+}
+
+/** Whether a given quote is wide enough to have "filled" — the one
+ *  deterministic threshold both the live controller and any one-shot
+ *  snapshot builder must share, so their fill-rate looks the same. */
+export function quoteFills(quote: SimulatedQuote): boolean {
+  return Math.abs(quote.edgeBps) > 15;
+}
+
+/**
+ * A recent-quotes snapshot for a point-in-time chat reply (e.g. "show me
+ * the market"). Walks backward from the current bucket across the chain
+ * rotation — reproducible for a given `nowMs`, distinct from
+ * `simulateQuotesForChains` (one quote per chain, same bucket) which the
+ * live gauges use.
+ */
+export function simulateRecentQuotes(count = 8, nowMs: number = Date.now()): SimulatedQuote[] {
+  const bucket = timeBucket(nowMs);
+  const chains = marketSimulationChains();
+  const out: SimulatedQuote[] = [];
+  for (let i = 0; i < count; i++) {
+    const b = bucket - i;
+    out.push(simulateQuote(chains[b % chains.length] ?? chains[0], b));
+  }
+  return out;
+}
+
+/** A recent-fills snapshot — every returned entry is a genuine fill (per
+ *  `quoteFills`) drawn from consecutive buckets, walking back until `count`
+ *  fills are found or a bucket budget is exhausted (avoids an unbounded
+ *  loop when the deterministic sequence happens to produce a long dry
+ *  spell). */
+export function simulateRecentFills(count = 6, nowMs: number = Date.now()): SimulatedFill[] {
+  const bucket = timeBucket(nowMs);
+  const chains = marketSimulationChains();
+  const out: SimulatedFill[] = [];
+  const maxLookback = count * 20;
+  for (let i = 0; i < maxLookback && out.length < count; i++) {
+    const b = bucket - i;
+    const q = simulateQuote(chains[b % chains.length] ?? chains[0], b);
+    if (quoteFills(q)) out.push(simulateFillFromQuote(q));
+  }
+  return out;
+}
+
+export interface SimulatedPerformance {
+  accumulatedQc: number;
+  lastCaptureBps: number;
+  avgCaptureBps: number;
+  recentCaptureBps: number[];
+}
+
+/** A performance snapshot derived from the SAME deterministic capture
+ *  history every history surface reads — one number set, not two competing
+ *  "accumulated Q¢" figures. */
+export function simulatePerformanceSnapshot(nowMs: number = Date.now()): SimulatedPerformance {
+  const points = simulateCaptureHistory(30, 20 * 60 * 1000, nowMs);
+  const captures = points.map((p) => p.captureBps);
+  const avgCaptureBps = captures.reduce((sum, c) => sum + c, 0) / captures.length;
+  const lastCaptureBps = captures[captures.length - 1] ?? 0;
+  // A deterministic Q¢ accrual figure derived from the same series — never
+  // a hardcoded fallback constant (the donor's `1247.83`).
+  const accumulatedQc = captures.reduce((sum, c) => sum + Math.max(0, c) * 4.17, 0);
+  return { accumulatedQc, lastCaptureBps, avgCaptureBps, recentCaptureBps: captures };
+}
+
 export interface SimulatedEdge {
   floorBps: number;
   minEdgeBps: number;
