@@ -5419,3 +5419,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-2198fc5.md](../build_/COMMITS/COMMIT-2198fc5.md)
 - Message: Stop rendering duplicate raw JSON below media previews; hover-only video chrome
+
+## Commit `35ac289` — 2026-09-04T21:38:08Z
+- Type: `push`
+- Brief: [COMMIT-35ac289.md](../build_/COMMITS/COMMIT-35ac289.md)
+- Message: Promote SmartTriad inline video into a universal Rich Block primitive
