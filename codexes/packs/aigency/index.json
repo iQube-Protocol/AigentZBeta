@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-04T17:18:39.316Z",
+  "last_updated": "2026-09-04T17:36:49.039Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "407ed0dadf02b5f7426834efb8bde4f1295ac664",
-  "latest_commit_short": "407ed0d",
-  "latest_commit_title": "Batch reconcilePromotedCohort's exact-match repair lookup to close a latent N+1",
+  "latest_commit": "e7ab69bedab7d4b9c1831b4808eaa6c9de2b76f3",
+  "latest_commit_short": "e7ab69b",
+  "latest_commit_title": "add factor+aegis 0.1 phase 1 constitutional schema, reconciled onto current base",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,78 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "e7ab69b",
+      "full_sha": "e7ab69bedab7d4b9c1831b4808eaa6c9de2b76f3",
+      "title": "add factor+aegis 0.1 phase 1 constitutional schema, reconciled onto current base",
+      "author": "Claude",
+      "timestamp": "2026-09-04T17:08:26Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-e7ab69b.md"
+    },
+    {
+      "sha": "a8c375c",
+      "full_sha": "a8c375cdd98a5d494bce49084629cd8f91eaf2ce",
+      "title": "extend activity_receipts action types for factor+aegis constitutional decisions",
+      "author": "Claude",
+      "timestamp": "2026-09-04T17:08:31Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-a8c375c.md"
+    },
+    {
+      "sha": "ceb823f",
+      "full_sha": "ceb823f96a137b23dd182fdee16815340504fb5a",
+      "title": "add factor case pipeline service (journey a) and canonical hashing util",
+      "author": "Claude",
+      "timestamp": "2026-09-04T17:08:40Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-ceb823f.md"
+    },
+    {
+      "sha": "37cdee6",
+      "full_sha": "37cdee6dd3007366f97235c9be5e97bbb3a7b24d",
+      "title": "add aegis independent assessment engine (journey b)",
+      "author": "Claude",
+      "timestamp": "2026-09-04T17:08:40Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-37cdee6.md"
+    },
+    {
+      "sha": "a26acdc",
+      "full_sha": "a26acdc735e0b6f9988a53dd275bfdf823e7b6ea",
+      "title": "add factor authority chains and moneypenny sole admission authority",
+      "author": "Claude",
+      "timestamp": "2026-09-04T17:08:49Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-a26acdc.md"
+    },
+    {
+      "sha": "30cc93e",
+      "full_sha": "30cc93e7ad40ad8c15eb05005723be3f4632fd79",
+      "title": "add factor standing-proposal queue (journey f) — propose only",
+      "author": "Claude",
+      "timestamp": "2026-09-04T17:08:50Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-30cc93e.md"
+    },
+    {
+      "sha": "c99ad88",
+      "full_sha": "c99ad88483603c5da9d30608ede200bbe51b9618",
+      "title": "add factor+aegis 0.1 phase 1 test suite (29 tests, fixture-verified)",
+      "author": "Claude",
+      "timestamp": "2026-09-04T17:08:56Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-c99ad88.md"
+    },
+    {
+      "sha": "5ea4e08",
+      "full_sha": "5ea4e081aa0dc0f1c4bb707b9af4b91707f1258c",
+      "title": "document factor+aegis 0.1 phase 1 reconciliation onto spec/moneypenny-mpy2-3",
+      "author": "Claude",
+      "timestamp": "2026-09-04T17:09:16Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-5ea4e08.md"
+    },
     {
       "sha": "407ed0d",
       "full_sha": "407ed0dadf02b5f7426834efb8bde4f1295ac664",
@@ -1180,78 +1252,6 @@
       "timestamp": "2026-09-01T11:04:59Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-5d62e58.md"
-    },
-    {
-      "sha": "3ecf5e8",
-      "full_sha": "3ecf5e858dc44a6cad2b2e31408596e474cebe9e",
-      "title": "Lower carousel cap to 7 — last pre-FS stage visible by default is Choose",
-      "author": "Claude",
-      "timestamp": "2026-09-01T12:04:53Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-3ecf5e8.md"
-    },
-    {
-      "sha": "c330c32",
-      "full_sha": "c330c32ab204572490d14f49f7a7632242ae8a69",
-      "title": "Activate ExperienceIntentProjection end-to-end + FS LEARN/EXPLORE evidence [merge review/irl-scoped-restoration-2026-08-27]",
-      "author": "Claude",
-      "timestamp": "2026-09-01T12:05:08Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-c330c32.md"
-    },
-    {
-      "sha": "efdc7cc",
-      "full_sha": "efdc7cc2b58ddc4ee761315c65f2f06e5a497f1a",
-      "title": "fix(qriptopian): deploy separate Embodiment series and canonical media delivery",
-      "author": "Kn0w1",
-      "timestamp": "2026-09-01T08:02:49-04:00",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-efdc7cc.md"
-    },
-    {
-      "sha": "3a4b251",
-      "full_sha": "3a4b2516a5422e561b78fe41d861ae65540fbbd2",
-      "title": "Fix Track 2 EXP-P1 state oscillation: stop swallowing substrate errors as empty [merge fix/track2-crystal-state-projection]",
-      "author": "Claude",
-      "timestamp": "2026-09-01T11:21:53Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-3a4b251.md"
-    },
-    {
-      "sha": "1bac437",
-      "full_sha": "1bac437a69f14ce3681bf76d84bc9902d65e3136",
-      "title": "Adaptive Financial Services entry CTA on KNYTS/CI, retire pilot framing [merge review/irl-scoped-restoration-2026-08-27]",
-      "author": "Claude",
-      "timestamp": "2026-09-01T11:31:23Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-1bac437.md"
-    },
-    {
-      "sha": "6cb8ef7",
-      "full_sha": "6cb8ef7e5c77dc73abf0913704952b41455a3046",
-      "title": "Cap the Journey stage carousel at 8 visible stages, not viewport width",
-      "author": "Claude",
-      "timestamp": "2026-09-01T11:18:13Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-6cb8ef7.md"
-    },
-    {
-      "sha": "44a1b3f",
-      "full_sha": "44a1b3fdcd386934fa5543ff92c675b8e9c9d539",
-      "title": "Fix Buffer client-bundle defect breaking live FS crossing + cap stage carousel at 8 [merge review/irl-scoped-restoration-2026-08-27]",
-      "author": "Claude",
-      "timestamp": "2026-09-01T11:18:24Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-44a1b3f.md"
-    },
-    {
-      "sha": "19553af",
-      "full_sha": "19553af9778657152e2bb5c5a49fa4da2d3d8302",
-      "title": "Activate generic experience-evidence loop; FS DISCOVER first proof [merge review/irl-scoped-restoration-2026-08-27]",
-      "author": "Claude",
-      "timestamp": "2026-09-01T10:30:13Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-19553af.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

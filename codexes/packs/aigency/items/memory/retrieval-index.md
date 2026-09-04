@@ -5354,3 +5354,43 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-407ed0d.md](../build_/COMMITS/COMMIT-407ed0d.md)
 - Message: Batch reconcilePromotedCohort's exact-match repair lookup to close a latent N+1
+
+## Commit `5ea4e08` — 2026-09-04T17:09:16Z
+- Type: `push`
+- Brief: [COMMIT-5ea4e08.md](../build_/COMMITS/COMMIT-5ea4e08.md)
+- Message: document factor+aegis 0.1 phase 1 reconciliation onto spec/moneypenny-mpy2-3
+
+## Commit `c99ad88` — 2026-09-04T17:08:56Z
+- Type: `feat`
+- Brief: [COMMIT-c99ad88.md](../build_/COMMITS/COMMIT-c99ad88.md)
+- Message: add factor+aegis 0.1 phase 1 test suite (29 tests, fixture-verified)
+
+## Commit `30cc93e` — 2026-09-04T17:08:50Z
+- Type: `feat`
+- Brief: [COMMIT-30cc93e.md](../build_/COMMITS/COMMIT-30cc93e.md)
+- Message: add factor standing-proposal queue (journey f) — propose only
+
+## Commit `a26acdc` — 2026-09-04T17:08:49Z
+- Type: `feat`
+- Brief: [COMMIT-a26acdc.md](../build_/COMMITS/COMMIT-a26acdc.md)
+- Message: add factor authority chains and moneypenny sole admission authority
+
+## Commit `37cdee6` — 2026-09-04T17:08:40Z
+- Type: `feat`
+- Brief: [COMMIT-37cdee6.md](../build_/COMMITS/COMMIT-37cdee6.md)
+- Message: add aegis independent assessment engine (journey b)
+
+## Commit `ceb823f` — 2026-09-04T17:08:40Z
+- Type: `feat`
+- Brief: [COMMIT-ceb823f.md](../build_/COMMITS/COMMIT-ceb823f.md)
+- Message: add factor case pipeline service (journey a) and canonical hashing util
+
+## Commit `a8c375c` — 2026-09-04T17:08:31Z
+- Type: `push`
+- Brief: [COMMIT-a8c375c.md](../build_/COMMITS/COMMIT-a8c375c.md)
+- Message: extend activity_receipts action types for factor+aegis constitutional decisions
+
+## Commit `e7ab69b` — 2026-09-04T17:08:26Z
+- Type: `feat`
+- Brief: [COMMIT-e7ab69b.md](../build_/COMMITS/COMMIT-e7ab69b.md)
+- Message: add factor+aegis 0.1 phase 1 constitutional schema, reconciled onto current base

@@ -1,4 +1,12 @@
 # Build — Changelog
+- [`e7ab69b`](https://github.com/iQube-Protocol/AigentZBeta/commit/e7ab69bedab7d4b9c1831b4808eaa6c9de2b76f3) [feat] add factor+aegis 0.1 phase 1 constitutional schema, reconciled onto current base (Claude, 2026-09-04T17:08:26Z)
+- [`a8c375c`](https://github.com/iQube-Protocol/AigentZBeta/commit/a8c375cdd98a5d494bce49084629cd8f91eaf2ce) [push] extend activity_receipts action types for factor+aegis constitutional decisions (Claude, 2026-09-04T17:08:31Z)
+- [`ceb823f`](https://github.com/iQube-Protocol/AigentZBeta/commit/ceb823f96a137b23dd182fdee16815340504fb5a) [feat] add factor case pipeline service (journey a) and canonical hashing util (Claude, 2026-09-04T17:08:40Z)
+- [`37cdee6`](https://github.com/iQube-Protocol/AigentZBeta/commit/37cdee6dd3007366f97235c9be5e97bbb3a7b24d) [feat] add aegis independent assessment engine (journey b) (Claude, 2026-09-04T17:08:40Z)
+- [`a26acdc`](https://github.com/iQube-Protocol/AigentZBeta/commit/a26acdc735e0b6f9988a53dd275bfdf823e7b6ea) [feat] add factor authority chains and moneypenny sole admission authority (Claude, 2026-09-04T17:08:49Z)
+- [`30cc93e`](https://github.com/iQube-Protocol/AigentZBeta/commit/30cc93e7ad40ad8c15eb05005723be3f4632fd79) [feat] add factor standing-proposal queue (journey f) — propose only (Claude, 2026-09-04T17:08:50Z)
+- [`c99ad88`](https://github.com/iQube-Protocol/AigentZBeta/commit/c99ad88483603c5da9d30608ede200bbe51b9618) [feat] add factor+aegis 0.1 phase 1 test suite (29 tests, fixture-verified) (Claude, 2026-09-04T17:08:56Z)
+- [`5ea4e08`](https://github.com/iQube-Protocol/AigentZBeta/commit/5ea4e081aa0dc0f1c4bb707b9af4b91707f1258c) [push] document factor+aegis 0.1 phase 1 reconciliation onto spec/moneypenny-mpy2-3 (Claude, 2026-09-04T17:09:16Z)
 - [`407ed0d`](https://github.com/iQube-Protocol/AigentZBeta/commit/407ed0dadf02b5f7426834efb8bde4f1295ac664) [fix] Batch reconcilePromotedCohort's exact-match repair lookup to close a latent N+1 (Claude, 2026-09-04T17:16:08Z)
 - [`12055d5`](https://github.com/iQube-Protocol/AigentZBeta/commit/12055d52944eaa083c5176c145426bfb70470a2b) [feat] Stop computing readiness 3x per Track 2 state read; add finer phase timing (Claude, 2026-09-04T17:16:22Z)
 - [`9ebf203`](https://github.com/iQube-Protocol/AigentZBeta/commit/9ebf203735768e767bf0aaf453f369eab1a7ad70) [push] Record the Track 2 composition-cost resolution + bounded-projection invariant (Claude, 2026-09-04T17:16:28Z)
