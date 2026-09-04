@@ -114,9 +114,11 @@ import {
   initializeDeliberation,
   updateBriefSpec,
   updateBriefCompleteness,
+  transitionToDrafted,
 } from "@/services/deliberativeArtifact/deliberationSeam";
 import type {
   DeliberationBrief,
+  VentureReportBriefSpec,
 } from "@/types/deliberativeArtifact";
 
 interface Specialist {
@@ -615,6 +617,8 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin, ag
   // Deliberative artifact seam — stores the DeliberationBrief as the operator
   // works through scoping questions and brief assembly before generation.
   const [deliberationBrief, setDeliberationBrief] = useState<DeliberationBrief | null>(null);
+  const [deliberationGenerating, setDeliberationGenerating] = useState(false);
+  const [deliberationGenerateError, setDeliberationGenerateError] = useState<string | null>(null);
 
   // Capsule activator — engages the Capsule AND mounts its canonical
   // dedicated layout in one atomic call. Every Capsule chip (left-pane
@@ -1770,7 +1774,38 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin, ag
         }
       }
     }
+    return data;
   }, [personaId, fetchReceipts, composerSourceIntentId, chainsByIntent]);
+
+  // Gate D — venture-report deliberation artifact generation. Drafts the
+  // report from the approved brief (server composes it from the SAME
+  // live venture data the cockpit shows), then creates it through the
+  // existing google-doc create-artifact path — no parallel persistence.
+  const handleGenerateVentureReport = useCallback(async () => {
+    if (!deliberationBrief || !deliberationBrief.isComplete || deliberationGenerating) return;
+    setDeliberationGenerating(true);
+    setDeliberationGenerateError(null);
+    try {
+      const res = await personaFetch('/api/assistant/draft-venture-report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ briefSpec: deliberationBrief.briefSpec as VentureReportBriefSpec }),
+        personaIdHint: personaId,
+      });
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody?.detail || errBody?.error || `draft-venture-report failed (${res.status})`);
+      }
+      const draft = (await res.json()) as { title: string; bodyText: string; shareSuggestions: Array<{ email: string; role: 'reader' | 'commenter' | 'writer' }> };
+      const created = await handleComposeGoogleDoc(draft);
+      const artifactId = (created as (ArtifactCardData & { id?: string }) | undefined)?.id;
+      setDeliberationBrief((prev) => (prev ? transitionToDrafted(prev, artifactId ?? '') : prev));
+    } catch (err) {
+      setDeliberationGenerateError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setDeliberationGenerating(false);
+    }
+  }, [deliberationBrief, deliberationGenerating, personaId, handleComposeGoogleDoc]);
 
   const handleDraftSlides = useCallback(async (prompt: string) => {
     const res = await personaFetch('/api/assistant/draft-slides', {
@@ -3409,8 +3444,8 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin, ag
                 onBriefVariantChange: (briefType) => { void fetchBrief(briefType); },
                 // Deliberative artifact seam props — passed to VentureReportBriefLayout, etc.
                 deliberationBrief,
-                deliberationLoading: false,
-                deliberationError: null,
+                deliberationLoading: deliberationGenerating,
+                deliberationError: deliberationGenerateError,
                 onUpdateBriefSpec: (updates: Record<string, unknown>) => {
                   if (deliberationBrief) {
                     // Reuses the canonical deliberationSeam functions
@@ -3426,11 +3461,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin, ag
                     setDeliberationBrief(updated);
                   }
                 },
-                onGenerateReport: () => {
-                  // Placeholder: generate the actual report from the deliberation brief
-                  // This will be implemented in Gate D (artifact generation)
-                  console.log('Generate report from brief:', deliberationBrief);
-                },
+                onGenerateReport: () => { void handleGenerateVentureReport(); },
                 onDismissVenture: () => {
                   setVentureProgress(null);
                   setVentureProgressError(null);
