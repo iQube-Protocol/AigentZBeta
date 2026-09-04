@@ -204,6 +204,43 @@ Intent Capture, Live Insights, Research, MetaVatar) remain unbuilt, per this doc
 Host-responsive breakpoint variants (narrow/wide capsule sizing beyond the three named presentation
 values) and full accessibility labeling pass were not separately audited this tranche.
 
+## Backlog — remaining work (MPY2-7, not started)
+
+Operator directive (2026-09-04, after tranche 2 landed at commit `2409b0e8c`): "add whatever remains
+to the backlog." Numbered MPY2-7 — MPY2-4, MPY2-5 and MPY2-6 are already assigned (real market-data
+provider; Operate/Monitor convergence; AEE/Journey activation hooks respectively, per
+`2026-09-01_spec-moneypenny-cartridge-capability-harvest-upgrade.md`). None of the items below are
+started; this is a registry entry, not a claim of progress.
+
+1. **The five remaining MoneyPenny002 overlays** — Portfolio, Intent Capture, Live Insights,
+   Research, MetaVatar. §3's sequenced table already ranks these; `ChainChip.tsx`/`QuotesTable.tsx`/
+   `FillsTicker.tsx` are done (tranche 2) — next up per that table is Portfolio (canonical
+   `PortfolioAnalytics.tsx` already exists and is `SimulationNotice`-labelled; blocked on MPY2-5's
+   receipt-backed evidence read path, not a UI harvest gap). Intent Capture, Live Insights, Research
+   and MetaVatar overlays have not been read from the donor at file level yet — read them before
+   scoping, per the No-Guessing rule.
+2. **Wire standalone `market.quotes`/`market.fills`/`market.performance` chat-reply snapshots to
+   the live session controller** — today a bare "show recent fills" chat reply is a fresh
+   deterministic snapshot (`services/smarttriad/mediaProviders.ts`), not literally the same object as
+   whatever `HFTConsole.tsx`/an open capsule is currently ticking through. This is architecturally
+   correct for a server-rendered chat reply (a different process cannot subscribe to the browser's
+   singleton), but if a future requirement wants "recent fills" to echo the EXACT session state
+   visible elsewhere in the same browser tab, that needs a client-side resolution path instead of the
+   current server-round-trip — not designed yet.
+3. **Host-responsive breakpoint variants** beyond the three named presentation values
+   (`compact | expanded | panel`) — narrow-viewport-specific layout rules (per the original ruling's
+   §11) were not separately built or verified; `MarketConsoleCapsule.tsx` today relies on the same
+   Tailwind grid classes at every viewport width.
+4. **Full accessibility audit** of the six atomic surfaces — `role`/`aria-label` attributes exist on
+   every surface (verified present at review time) but were not tested with a screen reader or
+   keyboard-only navigation pass; chart `role="img"` labels are static text, not live-region updates
+   on tick.
+5. **`ChainChipSurface.tsx`'s chain set** — carries the five EVM-family chains
+   `services/moneypenny/marketSimulation.ts` actually simulates; the donor `ChainChip.tsx` also
+   defines `btc`/`sol` icons that have no corresponding simulated chain today. Fine as-is (never
+   render a chip for a chain that can't appear), flagged only so a future BTC/SOL simulation lane
+   doesn't silently fall back to the generic uppercase label.
+
 ## 4. Files changed this pass
 
 - `types/smarttriad/richBlocks.ts` — `SmartTriadDataSourceClass`, `SmartTriadSourceDescriptor`,
