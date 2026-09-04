@@ -292,3 +292,99 @@ describe('buildFrozenCrystalManifest — hash-verified against the persisted fre
     expect(manifest.domainBoundary.length).toBeGreaterThan(0);
   });
 });
+
+/**
+ * `scope: 'membership-only'` (2026-09-04, Track 2 programme-state
+ * composition-cost repair) — `resolveFrozenPredecessorContext`
+ * (crystalCohortMembership.ts) only ever reads `recoveredInvariants`; it
+ * never read `knownLimitations` or `derivedTopology`, yet the 'full' default
+ * computed the crystal's readiness report (its own O(n²) duplicate-detection
+ * + inferential-capacity passes) via THREE separate paths inside this one
+ * function (a direct call, plus `runCrystalStatisticsReport`'s OWN internal
+ * readiness call) and an extra intra-crystal edge fetch for `derivedTopology`
+ * — all discarded by that caller. These canaries pin: (1) the bounded scope
+ * produces IDENTICAL verification/membership results to 'full', (2) it does
+ * measurably fewer substrate reads, and (3) every EXISTING caller (which
+ * never sets `scope`) is completely unaffected.
+ */
+describe('buildFrozenCrystalManifest — scope: "membership-only" (2026-09-04 composition-cost repair)', () => {
+  it('defaults to "full" when scope is omitted — every existing caller unaffected', async () => {
+    const { runCrystalStatisticsReport } = await import('@/services/research/crystalStatistics');
+    const { buildFrozenCrystalManifest } = await import('@/services/research/crystalFrozenManifest');
+    const stats = await runCrystalStatisticsReport({ experimentId: 'EXP-P1' });
+    const manifest = await buildFrozenCrystalManifest({
+      experimentId: 'EXP-P1',
+      observedAt: OBSERVED_AT,
+      artifact: { id: 'EXP-P1/crystal-vP1', contentHash: stats.frozenHash, commitmentHash: stats.frozenHash, frozenAt: '2026-01-03T00:00:00.000Z', signedBy: ['operator-ref'], receiptId: null },
+    });
+    expect(manifest.scope).toBe('full');
+    expect(manifest.derivedTopology).not.toBeNull();
+  });
+
+  it('"membership-only" verifies the SAME hash and serves the SAME recoveredInvariants as "full"', async () => {
+    const { runCrystalStatisticsReport } = await import('@/services/research/crystalStatistics');
+    const { buildFrozenCrystalManifest } = await import('@/services/research/crystalFrozenManifest');
+    const stats = await runCrystalStatisticsReport({ experimentId: 'EXP-P1' });
+    const artifact = { id: 'EXP-P1/crystal-vP1', contentHash: stats.frozenHash, commitmentHash: stats.frozenHash, frozenAt: '2026-01-03T00:00:00.000Z', signedBy: ['operator-ref'], receiptId: null };
+
+    const full = await buildFrozenCrystalManifest({ experimentId: 'EXP-P1', observedAt: OBSERVED_AT, artifact });
+    const bounded = await buildFrozenCrystalManifest({ experimentId: 'EXP-P1', observedAt: OBSERVED_AT, artifact, scope: 'membership-only' });
+
+    expect(bounded.scope).toBe('membership-only');
+    expect(bounded.verifiedAgainstFreeze).toBe(full.verifiedAgainstFreeze);
+    expect(bounded.recomputedLiveHash).toBe(full.recomputedLiveHash);
+    expect(bounded.recoveredInvariants.map((r) => r.id).sort()).toEqual(full.recoveredInvariants.map((r) => r.id).sort());
+    expect(bounded.memberCount).toBe(full.memberCount);
+    expect(bounded.legacyContentVerification.state).toBe(full.legacyContentVerification.state);
+  });
+
+  it('"membership-only" reports honest empty placeholders, never a guessed value, for the two skipped analyses', async () => {
+    const { runCrystalStatisticsReport } = await import('@/services/research/crystalStatistics');
+    const { buildFrozenCrystalManifest } = await import('@/services/research/crystalFrozenManifest');
+    const stats = await runCrystalStatisticsReport({ experimentId: 'EXP-P1' });
+    const manifest = await buildFrozenCrystalManifest({
+      experimentId: 'EXP-P1',
+      observedAt: OBSERVED_AT,
+      artifact: { id: 'EXP-P1/crystal-vP1', contentHash: stats.frozenHash, commitmentHash: stats.frozenHash, frozenAt: '2026-01-03T00:00:00.000Z', signedBy: ['operator-ref'], receiptId: null },
+      scope: 'membership-only',
+    });
+    expect(manifest.knownLimitations).toEqual([]);
+    expect(manifest.derivedTopology).toBeNull();
+    // The hash-verification machinery itself is UNCHANGED — never bounded away.
+    expect(manifest.verifiedAgainstFreeze).toBe(true);
+    expect(manifest.members).not.toBeNull();
+  });
+
+  it('makes measurably fewer substrate reads than "full" — the actual cost this scope exists to remove', async () => {
+    const { listInvariants, listEdgesForInvariants } = await import('@/services/invariants/store');
+    const { runCrystalStatisticsReport } = await import('@/services/research/crystalStatistics');
+    const { buildFrozenCrystalManifest } = await import('@/services/research/crystalFrozenManifest');
+    const stats = await runCrystalStatisticsReport({ experimentId: 'EXP-P1' });
+    const artifact = { id: 'EXP-P1/crystal-vP1', contentHash: stats.frozenHash, commitmentHash: stats.frozenHash, frozenAt: '2026-01-03T00:00:00.000Z', signedBy: ['operator-ref'], receiptId: null };
+
+    vi.mocked(listInvariants).mockClear();
+    vi.mocked(listEdgesForInvariants).mockClear();
+    await buildFrozenCrystalManifest({ experimentId: 'EXP-P1', observedAt: OBSERVED_AT, artifact });
+    const fullInvariantCalls = vi.mocked(listInvariants).mock.calls.length;
+    const fullEdgeCalls = vi.mocked(listEdgesForInvariants).mock.calls.length;
+
+    vi.mocked(listInvariants).mockClear();
+    vi.mocked(listEdgesForInvariants).mockClear();
+    await buildFrozenCrystalManifest({ experimentId: 'EXP-P1', observedAt: OBSERVED_AT, artifact, scope: 'membership-only' });
+    const boundedInvariantCalls = vi.mocked(listInvariants).mock.calls.length;
+    const boundedEdgeCalls = vi.mocked(listEdgesForInvariants).mock.calls.length;
+
+    // 'full' computes readiness (its own listInvariants) directly, PLUS
+    // runCrystalStatisticsReport's internal readiness call, PLUS
+    // statistics' own re-fetch — several listInvariants round trips for one
+    // manifest build. 'membership-only' makes exactly the ONE call this
+    // function's own hash-verification genuinely needs.
+    expect(boundedInvariantCalls).toBe(1);
+    expect(boundedInvariantCalls).toBeLessThan(fullInvariantCalls);
+    // 'full' fetches intra-crystal edges at least once (readiness's own
+    // scope-'full' edge fetch, plus derivedTopology's own fetch);
+    // 'membership-only' fetches none.
+    expect(boundedEdgeCalls).toBe(0);
+    expect(boundedEdgeCalls).toBeLessThan(fullEdgeCalls);
+  });
+});

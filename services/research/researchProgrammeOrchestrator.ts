@@ -435,14 +435,19 @@ export async function loadTrack2ProgrammeState(input: {
   const acquisitionDomain = input.acquisitionDomain?.trim() || DEFAULT_ACQUISITION_DOMAIN;
 
   const admin = getSupabaseServer();
-  const readiness = input.timer
-    ? await input.timer.time('readiness', () =>
-        runCrystalReadinessReport({ experimentId: input.experimentId, crystalDomain: declaration.domain }),
-      )
-    : await runCrystalReadinessReport({
-        experimentId: input.experimentId,
-        crystalDomain: declaration.domain,
-      });
+  // FINER-GRAINED PHASE BREAKDOWN (2026-09-04, live "empty 504"/15s-budget
+  // diagnosis) — 'readiness' vs one lumped 'programme-state-derivation'
+  // bucket was not granular enough to tell WHICH of this function's several
+  // substrate reads was actually slow; the next timeout's forensic log
+  // (see `advanceResearchProgramme`'s orphaned-read `.then`) now names each
+  // one. Additive only: `input.timer` stays optional, and every phase falls
+  // straight through to the plain call when it is absent (the GET route's
+  // own untimed path, and every existing caller/test).
+  const phase = <T,>(label: string, fn: () => Promise<T>): Promise<T> =>
+    input.timer ? input.timer.time(label, fn) : fn();
+  const readiness = await phase('readiness', () =>
+    runCrystalReadinessReport({ experimentId: input.experimentId, crystalDomain: declaration.domain }),
+  );
   // Marks the start of "programme-state derivation" (everything in this
   // function OTHER than readiness, timed separately above) — recorded at the
   // function's return points below, since the branching between here and
@@ -450,7 +455,7 @@ export async function loadTrack2ProgrammeState(input: {
   const restStart = input.timer?.now() ?? 0;
 
   // Best-effort, fail-soft. `null` becomes `unknown`, never `complete`.
-  const [sources, candidates, artifact, frozenContext, acquisitionSourceUniverse] = await Promise.all([
+  const [sources, candidates, artifact, frozenContext, acquisitionSourceUniverse] = await phase('parallel-signals', () => Promise.all([
     admin ? listCandidateSources(admin, { campaignDomain: acquisitionDomain }).catch(() => null) : null,
     // ACROSS every sub-domain (2026-09-03, "EXP-P1 Crystal v2 sub-domain
     // invisibility" repair) — never the narrowed `listCandidates` baseline
@@ -488,7 +493,7 @@ export async function loadTrack2ProgrammeState(input: {
     // every other acquisition surface (Stage 2, the Copilot, run-step)
     // already resolves — one canonical domain, never a second guess.
     admin ? summarizeAcquisitionSourceUniverse(admin, acquisitionDomain).catch(() => null) : null,
-  ]);
+  ]));
 
   const unreadableSignals: string[] = [];
   if (!admin) unreadableSignals.push('supabase (no server client) — candidate sources and discovery candidates');
@@ -542,22 +547,24 @@ export async function loadTrack2ProgrammeState(input: {
   // can ever include a candidate already resolved into the frozen
   // predecessor's own manifest.
   const cohort = promotedForConstruction
-    ? await reconcilePromotedCohort(
-        promotedForConstruction,
-        admin
-          ? {
-              admin,
-              experimentId: input.experimentId,
-              // The target-Crystal membership universe's inherited half
-              // (operator ruling, 2026-08-31): a successor member's edge to
-              // one of these counts toward Stage 7 exactly like an edge to
-              // another successor member. `undefined` when there is no
-              // frozen predecessor or its manifest is unreadable — falls
-              // back to intra-successor-cohort-only, never silently widens.
-              inheritedMemberIds: frozenContext.frozenGenerationMemberIds ?? undefined,
-            }
-          : undefined,
-      ).catch(() => null)
+    ? await phase('cohort-reconciliation', () =>
+        reconcilePromotedCohort(
+          promotedForConstruction,
+          admin
+            ? {
+                admin,
+                experimentId: input.experimentId,
+                // The target-Crystal membership universe's inherited half
+                // (operator ruling, 2026-08-31): a successor member's edge to
+                // one of these counts toward Stage 7 exactly like an edge to
+                // another successor member. `undefined` when there is no
+                // frozen predecessor or its manifest is unreadable — falls
+                // back to intra-successor-cohort-only, never silently widens.
+                inheritedMemberIds: frozenContext.frozenGenerationMemberIds ?? undefined,
+              }
+            : undefined,
+        ).catch(() => null),
+      )
     : null;
   if (promotedForConstruction && !cohort) unreadableSignals.push('promoted cohort (reconcilePromotedCohort)');
 
@@ -572,12 +579,14 @@ export async function loadTrack2ProgrammeState(input: {
   // ORIGINAL `in-progress`-forever behaviour — never asserted from a guess.
   if (cohort && cohort.unclassifiedRecords.length > 0 && admin) {
     try {
-      const records = await getInvariantsByIds(cohort.unclassifiedRecords.map((r) => r.id));
-      const triaged = await triageUnclassifiedProvenance(
-        admin,
-        records.map((r) => ({ id: r.id, statement: r.statement, provenance: r.provenance })),
-      );
-      cohort.unclassifiedExceptionOnly = isExceptionOnlyRemainder(triaged);
+      await phase('provenance-triage', async () => {
+        const records = await getInvariantsByIds(cohort.unclassifiedRecords.map((r) => r.id));
+        const triaged = await triageUnclassifiedProvenance(
+          admin,
+          records.map((r) => ({ id: r.id, statement: r.statement, provenance: r.provenance })),
+        );
+        cohort.unclassifiedExceptionOnly = isExceptionOnlyRemainder(triaged);
+      });
     } catch {
       // unreadable — leave unset, never guessed
     }
@@ -614,15 +623,17 @@ export async function loadTrack2ProgrammeState(input: {
 
   let pendingDecision =
     firstPendingDecision(programme) ??
-    (await buildAcquisitionPendingDecision({
-      programme,
-      declaration,
-      readiness,
-      artifact,
-      admin: admin ?? null,
-      acquisitionDomain,
-      acquisitionSourceUniverse,
-    }));
+    (await phase('acquisition-pending-decision', () =>
+      buildAcquisitionPendingDecision({
+        programme,
+        declaration,
+        readiness,
+        artifact,
+        admin: admin ?? null,
+        acquisitionDomain,
+        acquisitionSourceUniverse,
+      }),
+    ));
 
   // THE REVIEW & PROMOTE QUEUE (2026-08-30) — enriches the SAME decision
   // object `firstPendingDecision` already returns for this stage (Stage 4 is
@@ -635,7 +646,7 @@ export async function loadTrack2ProgrammeState(input: {
   if (pendingDecision?.stageId === 'review-and-promote' && successorScopedCandidates) {
     const awaitingCandidates = successorScopedCandidates.filter((c) => c.status === 'candidate');
     if (awaitingCandidates.length > 0) {
-      const reviewQueue = await buildReviewAndPromoteQueue(admin, awaitingCandidates);
+      const reviewQueue = await phase('review-promote-queue', () => buildReviewAndPromoteQueue(admin, awaitingCandidates));
       pendingDecision = { ...pendingDecision, reviewQueue };
     }
   }
@@ -653,7 +664,7 @@ export async function loadTrack2ProgrammeState(input: {
   // caught and left `undefined`, exactly like `unreadableSignals` elsewhere
   // in this function; the operator still sees the raw counts.
   if (pendingDecision?.stageId === 'review-and-admit' && admin && candidateSources && candidateSources.pendingReview > 0) {
-    const prepared = await prepareAdmissionRecommendations(admin, acquisitionDomain).catch(() => null);
+    const prepared = await phase('admission-queue', () => prepareAdmissionRecommendations(admin, acquisitionDomain).catch(() => null));
     if (prepared) {
       pendingDecision = {
         ...pendingDecision,

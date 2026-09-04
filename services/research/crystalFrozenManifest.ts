@@ -109,6 +109,15 @@ export interface FrozenCrystalManifestMember {
 }
 
 export interface FrozenCrystalManifest {
+  /**
+   * Which projection produced this manifest (2026-09-04, Track 2
+   * programme-state composition-cost repair) — `'full'` unless the caller
+   * requested `input.scope === 'membership-only'`. Mirrors
+   * `CrystalReadinessReport.scope`'s own contract exactly (same doctrine,
+   * same reason): a bounded projection must never be mistaken for the
+   * complete picture by anything downstream.
+   */
+  scope: 'full' | 'membership-only';
   experimentId: string;
   artifactId: string;
   crystalDomain: string;
@@ -217,6 +226,35 @@ export interface BuildFrozenCrystalManifestInput {
    *  `currentSupplementary` entry and onto `derivedTopology.computedAt`. */
   observedAt: string;
   fetchLimit?: number;
+  /**
+   * BOUNDED MEMBERSHIP-RECOVERY PROJECTION (2026-09-04, Track 2 programme-
+   * state composition-cost repair — same discipline as
+   * `crystalReadiness.ts`'s own `scope: 'full' | 'acquisition-gate'`).
+   * Defaults to `'full'` — every EXISTING caller (the retrospective
+   * falsification harness, the Validation Programme agent-package route) is
+   * completely unaffected.
+   *
+   * `'membership-only'` skips exactly the two computations
+   * `resolveFrozenPredecessorContext` (crystalCohortMembership.ts) never
+   * reads: the `knownLimitations` pass (`runCrystalReadinessReport` +
+   * `runCrystalStatisticsReport`, the LATTER OF WHICH CALLS
+   * `runCrystalReadinessReport` AGAIN internally — so the full-scope path
+   * computes the crystal's readiness report, with its O(n²) duplicate-
+   * detection and inferential-capacity passes, THREE TIMES for a caller
+   * that discards the result) and `derivedTopology`'s intra-crystal edge
+   * fetch. Both are needed for EXTERNAL REVIEW (a human reading the
+   * manifest wants to know the frozen crystal's limitations and topology);
+   * `resolveFrozenPredecessorContext` only ever reads `recoveredInvariants`
+   * to recover WHICH invariants the frozen predecessor contains — the hash
+   * verification itself, `members`, and `legacyContentVerification` are
+   * computed IDENTICALLY in both scopes, by the SAME code, never a second
+   * derivation. `knownLimitations`/`derivedTopology` are honest, explicitly
+   * empty placeholders in `'membership-only'` scope — never a guessed or
+   * partially-computed value — and `manifest.scope` names which mode
+   * produced the manifest, so nothing downstream can mistake a bounded
+   * projection for the full picture.
+   */
+  scope?: 'full' | 'membership-only';
 }
 
 /**
@@ -232,8 +270,10 @@ export async function buildFrozenCrystalManifest(
   const declaration: CrystalDomainDeclaration | null = crystalDomainForExperiment(input.experimentId);
   const crystalDomain = declaration?.domain ?? 'constitutional-reasoning';
   const domainBoundary = declaration?.boundary ?? 'No declared domain boundary is registered for this experiment.';
+  const scope = input.scope ?? 'full';
 
   const base = {
+    scope,
     experimentId: input.experimentId,
     artifactId: input.artifact.id,
     crystalDomain,
@@ -342,18 +382,29 @@ export async function buildFrozenCrystalManifest(
   // Known limitations — real, sourced from the readiness/recommendation
   // engine, computed regardless of verification (it is diagnostic prose, not
   // a member-detail claim, so it is not gated by the hash check).
+  //
+  // SKIPPED ENTIRELY in 'membership-only' scope (2026-09-04) — this is
+  // `runCrystalReadinessReport` (its own O(n²) duplicate-detection +
+  // inferential-capacity passes) followed by `runCrystalStatisticsReport`,
+  // which calls `runCrystalReadinessReport` AGAIN internally: two full
+  // readiness computations over the SAME domain `loadTrack2ProgrammeState`
+  // already computed readiness for directly, once, at the top of its own
+  // composition — three total, every single programme-state read, for a
+  // caller (`resolveFrozenPredecessorContext`) that never reads this field.
   let knownLimitations: string[] = [];
-  try {
-    const readiness = await runCrystalReadinessReport({ experimentId: input.experimentId, crystalDomain, fetchLimit: input.fetchLimit });
-    const recommendation = composeCrystalFreezeRecommendation(
-      input.experimentId,
-      crystalDomain,
-      readiness,
-      await runCrystalStatisticsReport({ experimentId: input.experimentId, crystalDomain, fetchLimit: input.fetchLimit }),
-    );
-    knownLimitations = [...recommendation.remainingRisks];
-  } catch {
-    knownLimitations = [];
+  if (scope === 'full') {
+    try {
+      const readiness = await runCrystalReadinessReport({ experimentId: input.experimentId, crystalDomain, fetchLimit: input.fetchLimit });
+      const recommendation = composeCrystalFreezeRecommendation(
+        input.experimentId,
+        crystalDomain,
+        readiness,
+        await runCrystalStatisticsReport({ experimentId: input.experimentId, crystalDomain, fetchLimit: input.fetchLimit }),
+      );
+      knownLimitations = [...recommendation.remainingRisks];
+    } catch {
+      knownLimitations = [];
+    }
   }
 
   if (!verifiedAgainstFreeze) {
@@ -403,17 +454,21 @@ export async function buildFrozenCrystalManifest(
     };
   }
 
+  // SKIPPED in 'membership-only' scope (2026-09-04) — a second Supabase
+  // round trip for a topology `resolveFrozenPredecessorContext` never reads.
   let derivedTopology: FrozenCrystalManifest['derivedTopology'] = null;
-  try {
-    const { pairs } = await fetchIntraCrystalEdges(invariants);
-    derivedTopology = {
-      derivedFromFrozenMemberSet: true,
-      computedAt: input.observedAt,
-      algorithmVersion: INTRA_CRYSTAL_TOPOLOGY_ALGORITHM_VERSION,
-      edges: pairs.map(([from, to]) => ({ from, to })),
-    };
-  } catch {
-    derivedTopology = null;
+  if (scope === 'full') {
+    try {
+      const { pairs } = await fetchIntraCrystalEdges(invariants);
+      derivedTopology = {
+        derivedFromFrozenMemberSet: true,
+        computedAt: input.observedAt,
+        algorithmVersion: INTRA_CRYSTAL_TOPOLOGY_ALGORITHM_VERSION,
+        edges: pairs.map(([from, to]) => ({ from, to })),
+      };
+    } catch {
+      derivedTopology = null;
+    }
   }
 
   return {

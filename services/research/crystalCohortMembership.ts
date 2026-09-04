@@ -82,6 +82,18 @@ export async function resolveFrozenPredecessorContext(experimentId: string): Pro
     experimentId,
     artifact: frozenPredecessor,
     observedAt: new Date().toISOString(),
+    // MEMBERSHIP-ONLY (2026-09-04, Track 2 programme-state composition-cost
+    // repair) — this resolver only ever reads `manifest.recoveredInvariants`
+    // below; it never reads `knownLimitations` or `derivedTopology`. The
+    // 'full' default recomputes the crystal's readiness report (O(n²)
+    // duplicate-detection + inferential-capacity passes) TWICE more inside
+    // `buildFrozenCrystalManifest` alone (once directly, once again inside
+    // `runCrystalStatisticsReport`) on top of the readiness
+    // `loadTrack2ProgrammeState` already computed once at the top of its own
+    // composition — three total, every single programme-state read, for
+    // work this function discards. See `BuildFrozenCrystalManifestInput.
+    // scope`'s own doc comment for the full contract.
+    scope: 'membership-only',
   }).catch(() => null);
   if (!manifest) {
     return { frozenPredecessor, frozenGenerationMemberIds: null, frozenGenerationMembers: null };
