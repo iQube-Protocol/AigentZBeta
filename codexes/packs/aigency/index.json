@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-04T20:56:15.020Z",
+  "last_updated": "2026-09-04T21:40:47.247Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "2198fc5a37c420a33b1e8b3329d66a75d56185c1",
-  "latest_commit_short": "2198fc5",
-  "latest_commit_title": "Stop rendering duplicate raw JSON below media previews; hover-only video chrome",
+  "latest_commit": "35ac289dfd05627ccb82f489d4cd99fd691d44af",
+  "latest_commit_short": "35ac289",
+  "latest_commit_title": "Promote SmartTriad inline video into a universal Rich Block primitive",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "35ac289",
+      "full_sha": "35ac289dfd05627ccb82f489d4cd99fd691d44af",
+      "title": "Promote SmartTriad inline video into a universal Rich Block primitive",
+      "author": "Claude",
+      "timestamp": "2026-09-04T21:38:08Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-35ac289.md"
+    },
     {
       "sha": "2198fc5",
       "full_sha": "2198fc5a37c420a33b1e8b3329d66a75d56185c1",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-09-01T11:01:57Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-ae78135.md"
-    },
-    {
-      "sha": "8e19382",
-      "full_sha": "8e193820dc585dc3536f4aff901a223ecefe41a3",
-      "title": "Add MPY2-2 Financial Profile: bank-statement aggregates + candidate envelope",
-      "author": "Claude",
-      "timestamp": "2026-09-01T15:52:16Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-8e19382.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
