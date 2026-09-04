@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`6905e3f`](https://github.com/iQube-Protocol/AigentZBeta/commit/6905e3f3b5ffb8b5711a0e8b369d3f54d985f3d8) [push] Record MPY2-7 backlog for remaining MoneyPenny002 harvest work (Claude, 2026-09-04T22:44:18Z)
+- [`57f31ce`](https://github.com/iQube-Protocol/AigentZBeta/commit/57f31ce43281384ced97d77d9d4228489258ce4d) [push] Record MPY2-7 priority backlog: scope-keyed controller, snapshot/session binding, Expand-defect diagnosis (Claude, 2026-09-04T22:46:21Z)
 - [`e529328`](https://github.com/iQube-Protocol/AigentZBeta/commit/e529328f0f41b03fa5d95cf59e43e80a2ecfa45d) [feat] Add quotes/fills/performance/history atomic surfaces + shared market-session controller (Claude, 2026-09-04T22:39:52Z)
 - [`f9a54b1`](https://github.com/iQube-Protocol/AigentZBeta/commit/f9a54b1aa20a899c656778c626cfcbc5d42e75f3) [push] Harvest MoneyPenny002 live-console UI as atomic, capsule-composable SmartTriad surfaces (Claude, 2026-09-04T21:53:55Z)
 - [`35ac289`](https://github.com/iQube-Protocol/AigentZBeta/commit/35ac289dfd05627ccb82f489d4cd99fd691d44af) [push] Promote SmartTriad inline video into a universal Rich Block primitive (Claude, 2026-09-04T21:38:08Z)
