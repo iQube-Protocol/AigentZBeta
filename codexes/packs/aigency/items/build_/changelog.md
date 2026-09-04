@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`97c2569`](https://github.com/iQube-Protocol/AigentZBeta/commit/97c25691a9bd7f525b8a1d15b48689b764414e18) [fix] Fix Generate Report button permanently disabled in AigentMe brief flow (Claude, 2026-09-04T17:52:12Z)
 - [`e7ab69b`](https://github.com/iQube-Protocol/AigentZBeta/commit/e7ab69bedab7d4b9c1831b4808eaa6c9de2b76f3) [feat] add factor+aegis 0.1 phase 1 constitutional schema, reconciled onto current base (Claude, 2026-09-04T17:08:26Z)
 - [`a8c375c`](https://github.com/iQube-Protocol/AigentZBeta/commit/a8c375cdd98a5d494bce49084629cd8f91eaf2ce) [push] extend activity_receipts action types for factor+aegis constitutional decisions (Claude, 2026-09-04T17:08:31Z)
 - [`ceb823f`](https://github.com/iQube-Protocol/AigentZBeta/commit/ceb823f96a137b23dd182fdee16815340504fb5a) [feat] add factor case pipeline service (journey a) and canonical hashing util (Claude, 2026-09-04T17:08:40Z)

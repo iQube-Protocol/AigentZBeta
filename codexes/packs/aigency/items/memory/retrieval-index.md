@@ -5394,3 +5394,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-e7ab69b.md](../build_/COMMITS/COMMIT-e7ab69b.md)
 - Message: add factor+aegis 0.1 phase 1 constitutional schema, reconciled onto current base
+
+## Commit `97c2569` — 2026-09-04T17:52:12Z
+- Type: `fix`
+- Brief: [COMMIT-97c2569.md](../build_/COMMITS/COMMIT-97c2569.md)
+- Message: Fix Generate Report button permanently disabled in AigentMe brief flow

@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-04T17:36:49.039Z",
+  "last_updated": "2026-09-04T17:54:04.098Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "e7ab69bedab7d4b9c1831b4808eaa6c9de2b76f3",
-  "latest_commit_short": "e7ab69b",
-  "latest_commit_title": "add factor+aegis 0.1 phase 1 constitutional schema, reconciled onto current base",
+  "latest_commit": "97c25691a9bd7f525b8a1d15b48689b764414e18",
+  "latest_commit_short": "97c2569",
+  "latest_commit_title": "Fix Generate Report button permanently disabled in AigentMe brief flow",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "97c2569",
+      "full_sha": "97c25691a9bd7f525b8a1d15b48689b764414e18",
+      "title": "Fix Generate Report button permanently disabled in AigentMe brief flow",
+      "author": "Claude",
+      "timestamp": "2026-09-04T17:52:12Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-97c2569.md"
+    },
     {
       "sha": "e7ab69b",
       "full_sha": "e7ab69bedab7d4b9c1831b4808eaa6c9de2b76f3",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-09-01T13:02:14Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-0dd00db.md"
-    },
-    {
-      "sha": "5d62e58",
-      "full_sha": "5d62e582dbdff44bdcf7a4e81349363fa214386b",
-      "title": "LEARN/EXPLORE: kind-discriminated FS evidence, not a bare Continue click",
-      "author": "Claude",
-      "timestamp": "2026-09-01T11:04:59Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-5d62e58.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
