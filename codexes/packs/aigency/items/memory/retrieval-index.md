@@ -5329,3 +5329,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-3ea2f4a.md](../build_/COMMITS/COMMIT-3ea2f4a.md)
 - Message: Add Track 2 Stage 5 provenance-cohort mechanical preparation and one-act ratification
+
+## Commit `2135362` — 2026-09-04T16:38:24Z
+- Type: `fix`
+- Brief: [COMMIT-2135362.md](../build_/COMMITS/COMMIT-2135362.md)
+- Message: Fix the classify-provenance 15s timeout N+1, and put the cohort action directly in Research Copilot
