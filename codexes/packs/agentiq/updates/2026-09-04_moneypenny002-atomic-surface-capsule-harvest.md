@@ -212,30 +212,89 @@ provider; Operate/Monitor convergence; AEE/Journey activation hooks respectively
 `2026-09-01_spec-moneypenny-cartridge-capability-harvest-upgrade.md`). None of the items below are
 started; this is a registry entry, not a claim of progress.
 
-1. **The five remaining MoneyPenny002 overlays** — Portfolio, Intent Capture, Live Insights,
+### MPY2-7 Priority — close before calling the live atomic-surface exemplar complete
+
+Operator review of tranche 2 (2026-09-04, same day): "the core visual set is present, the shared
+schema is preserved... [but] three issues still need closing before calling the live atomic-surface
+architecture complete." These three take priority over the five-overlay backlog below — the operator
+explicitly said the remaining donor overlays "should not hold up completion of this market-runtime
+exemplar," i.e. these three close FIRST, on their own.
+
+1. **Scope-key the session singleton.** `services/moneypenny/marketSessionController.ts`'s current
+   module-level `state`/`subscribers`/`intervalHandle` is a single global — unsafe across persona
+   changes, multiple concurrent MoneyPenny sessions, different environments (simulation/paper/live),
+   simultaneous cartridge mounts, and test/server-module-reuse (a second test file importing this
+   module today shares state with every other test unless each explicitly calls
+   `__resetMarketSessionForTests()` — a foot-gun, not a safety property). Required shape: a keyed
+   registry — `MarketSessionKey = { personaScope, capabilityId, environment, sessionId }` — where each
+   distinct key owns its own controller/state/interval; components sharing a key share state,
+   unrelated principals/sessions never do. The last subscriber leaving a key should stop that key's
+   interval (already true for the single global today); retained state needs an explicit expiry or
+   disposal policy instead of living forever once a key has ever been touched (today: forever, by
+   construction — the registry has no eviction at all).
+2. **Distinguish snapshot vs. session binding on every atomic block.** Today's `market.quotes`/
+   `market.fills`/`market.performance`/`market.history` payloads (and `market.edge`/
+   `market.inventory`) carry no binding-mode field — a chat-resolved envelope is always an immutable,
+   frozen-at-resolution-time snapshot; there is no way for the payload itself to declare "subscribe me
+   to the live session while mounted" the way the `moneypenny.market-status` CAPSULE now can (via the
+   renderer's `LIVE_CAPSULE_COMPONENTS` id-match, a mechanism that only exists for capsules, not
+   individual atomic blocks). Required: add `binding: { mode: 'snapshot' | 'session'; snapshotAt?:
+   string; sessionRef?: string }` to `SmartTriadMarketGaugeBasePayload`
+   (`types/smarttriad/richBlocks.ts`), validate it in `services/smarttriad/richBlocks.ts`, and give
+   `SmartTriadRichBlockRenderer.tsx` a live-atomic-surface path (paralleling
+   `LIVE_CAPSULE_COMPONENTS` but per-kind, keyed by `sessionRef` into the new scoped registry from
+   item 1) so an individual edge/inventory/quotes/fills/performance/history block — not only the
+   whole capsule — can be independently live. Also needs a "freeze" action that turns a currently-live
+   surface into a timestamped snapshot copy (the reverse direction — an explicit, one-way capture, not
+   a toggle back to live). This is a real constitutional distinction, not cosmetic: "what was true when
+   MoneyPenny answered" (snapshot) and "what is happening now" (session) are different truth claims and
+   must be visibly different, not conflated by a payload shape that can't say which one it is.
+3. **Diagnose and close the Expand-button defect, not just note it.** The tranche-2 Playwright script
+   timed out clicking "Expand console" inside `HFTConsole.tsx` — the actual, and so far unstated, cause
+   is that `HFTConsole.tsx` mounts `<MarketConsoleCapsule initialPresentation="panel" hideToggle />`,
+   and `hideToggle` deliberately removes the Expand/Collapse button in that embedding (panel is already
+   the fully expanded view, so hiding a redundant toggle was the original intent) — the test script was
+   wrong to look for a button that was correctly absent, not a bug in the component. That explanation
+   was never written down in the tranche-2 report, which is the actual defect the operator is flagging:
+   an unresolved-sounding loose end left implicit rather than closed. Required to actually close this
+   item: (a) state the diagnosis above explicitly in the record (done, here); (b) verify, with a real
+   test, that the copilot-message embedding of `MarketConsoleCapsule` (`initialPresentation="compact"`,
+   `hideToggle` NOT set — the actual path `LIVE_CAPSULE_COMPONENTS` mounts) DOES show a working Expand
+   control that (i) opens in place as a capsule, never navigating away, (ii) retains the same
+   controller key (item 1) across the toggle, (iii) preserves filters/accumulated state (already true
+   today for the single global controller — re-verify once item 1 lands, since a keyed registry changes
+   the mechanism), (iv) never opens a second interval/stream (already covered by the existing
+   fake-timer subscribe/unsubscribe tests — re-verify against the keyed registry), (v) supports
+   collapsing back to compact (already implemented — `setPresentation(isFull ? 'compact' : 'expanded')`
+   in `MarketConsoleCapsule.tsx`), and (vi) optionally opens the same session in a right-pane host — not
+   built at all today; `open-cartridge-tab` navigates to the STATIC `HFTConsole.tsx` panel, which after
+   item 1 lands will share the controller key and therefore the live state, but this has not been
+   verified end-to-end.
+
+### MPY2-7 remaining (deferred — does not block the exemplar per the operator's own instruction)
+
+4. **The five remaining MoneyPenny002 overlays** — Portfolio, Intent Capture, Live Insights,
    Research, MetaVatar. §3's sequenced table already ranks these; `ChainChip.tsx`/`QuotesTable.tsx`/
    `FillsTicker.tsx` are done (tranche 2) — next up per that table is Portfolio (canonical
    `PortfolioAnalytics.tsx` already exists and is `SimulationNotice`-labelled; blocked on MPY2-5's
    receipt-backed evidence read path, not a UI harvest gap). Intent Capture, Live Insights, Research
    and MetaVatar overlays have not been read from the donor at file level yet — read them before
    scoping, per the No-Guessing rule.
-2. **Wire standalone `market.quotes`/`market.fills`/`market.performance` chat-reply snapshots to
-   the live session controller** — today a bare "show recent fills" chat reply is a fresh
-   deterministic snapshot (`services/smarttriad/mediaProviders.ts`), not literally the same object as
-   whatever `HFTConsole.tsx`/an open capsule is currently ticking through. This is architecturally
-   correct for a server-rendered chat reply (a different process cannot subscribe to the browser's
-   singleton), but if a future requirement wants "recent fills" to echo the EXACT session state
-   visible elsewhere in the same browser tab, that needs a client-side resolution path instead of the
-   current server-round-trip — not designed yet.
-3. **Host-responsive breakpoint variants** beyond the three named presentation values
+5. **Wire standalone `market.quotes`/`market.fills`/`market.performance` chat-reply snapshots to
+   the live session controller** — largely SUPERSEDED by MPY2-7 Priority item 2's `binding.mode`
+   design above (a `session`-bound atomic block IS this, generalized to every kind, not just these
+   three); kept as a distinct backlog line only for the narrower point that a `snapshot`-bound reply
+   should optionally be able to declare `sessionRef` pointing at the session it was drawn from, so a
+   later "make this live" action has something to bind to without re-resolving from scratch.
+6. **Host-responsive breakpoint variants** beyond the three named presentation values
    (`compact | expanded | panel`) — narrow-viewport-specific layout rules (per the original ruling's
    §11) were not separately built or verified; `MarketConsoleCapsule.tsx` today relies on the same
    Tailwind grid classes at every viewport width.
-4. **Full accessibility audit** of the six atomic surfaces — `role`/`aria-label` attributes exist on
+7. **Full accessibility audit** of the six atomic surfaces — `role`/`aria-label` attributes exist on
    every surface (verified present at review time) but were not tested with a screen reader or
    keyboard-only navigation pass; chart `role="img"` labels are static text, not live-region updates
    on tick.
-5. **`ChainChipSurface.tsx`'s chain set** — carries the five EVM-family chains
+8. **`ChainChipSurface.tsx`'s chain set** — carries the five EVM-family chains
    `services/moneypenny/marketSimulation.ts` actually simulates; the donor `ChainChip.tsx` also
    defines `btc`/`sol` icons that have no corresponding simulated chain today. Fine as-is (never
    render a chip for a chain that can't appear), flagged only so a future BTC/SOL simulation lane
