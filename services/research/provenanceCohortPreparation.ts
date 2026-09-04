@@ -296,19 +296,67 @@ export async function prepareProvenanceCohort(
     bySignature.set(t.signature, group);
   }
 
-  const signatureSuggestion = new Map<string, ProvenanceClassSuggestion | { error: string } | null>();
-  for (const [signature, group] of bySignature) {
-    const representative = group[0];
-    const resolved = await suggestClassification(admin, representative.invariantId, invariants.find((i) => i.id === representative.invariantId)?.provenance ?? null);
-    const result = await suggestProvenanceClass({ id: representative.invariantId, statement: representative.statement }, resolved);
-    if (!result.ok) {
-      signatureSuggestion.set(signature, { error: result.error });
-    } else if (!result.suggestion) {
-      signatureSuggestion.set(signature, { error: 'no resolved sources to reason from' });
-    } else {
-      signatureSuggestion.set(signature, result.suggestion);
-    }
-  }
+  /*
+   * THE DISTINCT SIGNATURES ARE RESOLVED CONCURRENTLY, NOT ONE AFTER ANOTHER
+   * (2026-09-04 repair — the second, previously-unaddressed cost driver on
+   * this path).
+   *
+   * The 2026-09-03 batching fix removed the per-invariant `discovery_evidence`
+   * N+1 from `triageUnclassifiedProvenance` above, which is why the
+   * DETERMINISTIC half of this preparation is now cheap. It did not touch
+   * THIS loop, which was still strictly sequential — and this loop is where
+   * the real inference happens: `suggestProvenanceClass` calls
+   * `callSovereign('classification', ...)`
+   * (services/constitutional/modelRouter.ts), a live model call that walks a
+   * provider target+fallback ladder before it throws. Paying that latency
+   * once per distinct signature IN SERIES is an unbounded tail: the live
+   * EXP-P1 corpus collapses its unclassified members onto SEVEN distinct
+   * signatures (verified 2026-09-03, see this module's header), so the route
+   * was serialising seven real inference round-trips inside a single
+   * `maxDuration = 60` request — the HTTP 504 the operator observed on
+   * "Classify Provenance" (`the provenance cohort could not be read`).
+   *
+   * Each signature's suggestion is INDEPENDENT of every other — nothing here
+   * reads another signature's result — so there is no ordering requirement to
+   * preserve, and the wall-clock cost becomes one signature's latency rather
+   * than the sum. `Promise.all` over the handful of distinct signatures is the
+   * whole fix; deliberately no concurrency limiter, per the realistic scale
+   * this module's own header documents (a limiter for seven independent calls
+   * would be machinery in place of a fix).
+   *
+   * EVERY EXCEPTION-CAUSE SEMANTIC IS PRESERVED EXACTLY, deliberately and to
+   * the letter. A `{ ok: false }` result still becomes `{ error }` for that
+   * signature alone and surfaces downstream as the same
+   * `suggestion-unavailable` cause with the same detail text; a `{ ok: true,
+   * suggestion: null }` still becomes the same 'no resolved sources to reason
+   * from'. Nothing here catches: `suggestProvenanceClass` reports its
+   * failures as values rather than throwing, and a genuine THROW (from
+   * `suggestClassification`'s substrate read) still aborts the whole
+   * preparation exactly as it does today, because `Promise.all` propagates
+   * it. Isolating such a throw per-signature would be a real improvement, but
+   * it is a DIFFERENT change — it would alter what the operator is shown for
+   * a failure mode nobody has decided to reclassify — so it is reported, not
+   * smuggled in behind a performance fix.
+   */
+  const settled = await Promise.all(
+    [...bySignature.entries()].map(async ([signature, group]) => {
+      const representative = group[0];
+      const resolved = await suggestClassification(
+        admin,
+        representative.invariantId,
+        invariants.find((i) => i.id === representative.invariantId)?.provenance ?? null,
+      );
+      const result = await suggestProvenanceClass(
+        { id: representative.invariantId, statement: representative.statement },
+        resolved,
+      );
+      if (!result.ok) return [signature, { error: result.error }] as const;
+      if (!result.suggestion) return [signature, { error: 'no resolved sources to reason from' }] as const;
+      return [signature, result.suggestion] as const;
+    }),
+  );
+
+  const signatureSuggestion = new Map<string, ProvenanceClassSuggestion | { error: string } | null>(settled);
 
   const recommendations: ProvenanceCandidateRecommendation[] = triaged.map((t) => {
     const base = {

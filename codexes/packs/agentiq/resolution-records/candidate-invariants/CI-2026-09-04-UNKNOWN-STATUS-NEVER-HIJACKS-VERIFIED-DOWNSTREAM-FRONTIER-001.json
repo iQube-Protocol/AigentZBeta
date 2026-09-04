@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "classification": null,
+  "ratifiedSource": null,
+  "notes": [
+    "'Unknown' (a substrate/observability read failure) and the ordinary open lifecycle statuses (not-started, blocked, in-progress, partially-complete — genuine outstanding work) are categorically different and must never be collapsed into one 'not complete' bucket for the purpose of picking a canonical frontier/current-stage value. One means 'we cannot currently verify this'; the other means 'there is real, well-defined work here'. A projection that treats them identically lets an unrelated read failure masquerade as a block on independently-verified downstream work.",
+    "The correct scope for 'does an earlier stage's unknown status withhold a later stage's unblocked-ness' is NOT determined by the status value alone — it depends on whether the later stage's own status is derived independently of the earlier stage's live read, or whether it is inherited/trusted from the earlier stage's reported completion. This must be VERIFIED per-pipeline by tracing each stage's actual status derivation before generalizing a pass-through rule — a plausible-sounding blanket rule is not sufficient evidence.",
+    "When a genuinely independent architecture is confirmed (every stage in the pipeline derives its status from its own direct substrate read, never by trusting an earlier stage's completion), an earlier stage's 'unknown' safely passes through to every gating computation ('unblockedStageIds'-shaped filters) without weakening any real dependency — because no real dependency was ever expressed through that pass-through set in the first place; it was acting as an ordinal proxy, not an actual data-dependency check.",
+    "The frontier/current-stage selection itself must still prefer any genuinely open (non-complete, non-unknown) stage over an unknown one, in ordinal or priority order, and fall back to reporting the unknown stage ONLY when nothing else in the entire structure is open — an honest 'we don't know' must never be silently swallowed when it is genuinely the only remaining open question.",
+    "This generalizes the same discipline `RES-2026-09-01-TRACK2-FAIL-SOFT-SWALLOWED-001` established for a sibling symptom (a 'not-started' Stage 1 hijacking the frontier from real pending work at Stage 2) — the fix there was to prefer a computed pending-decision signal over the raw frontier scalar at the DISPLAY layer; this invariant is the same principle applied one layer deeper, at the canonical projection's OWN selection algorithm, so every consumer (display AND act-gating) is protected, not just the one that remembered to apply the display-layer workaround."
+  ],
+  "canaries": [
+    {
+      "path": "tests/track2-classify-provenance-monotonic-projection.test.ts",
+      "assertion": "An unreadable Stage 1 (candidateSources: null, status 'unknown') never becomes currentStageId nor excludes classify-provenance from unblockedStageIds while a real 58-member cohort holds genuine Stage 5 in-progress work; a DIFFERENT stage's own unrelated 'unknown' (Stage 2/3/4, or the shared cohort read itself) still correctly reports 'unknown' for ITSELF and correctly still blocks ITS OWN direct dependents when the dependency is real (verified via the promotedCohort:null case); and when every other stage is genuinely complete or passed-through, currentStageId correctly falls back to naming a real still-open later stage in preference to the unknown one — proving 'unknown' is the LAST resort, never a tiebreaker.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "candidateId": "CI-2026-09-04-UNKNOWN-STATUS-NEVER-HIJACKS-VERIFIED-DOWNSTREAM-FRONTIER-001",
+  "statement": "In a canonical multi-stage projection, a stage's 'unknown' (unreadable substrate) status must never be treated identically to its ordinary open lifecycle statuses when selecting a frontier/current value or gating downstream act-offering — UNLESS it has been verified, per-pipeline, that the downstream stages in question derive their own status independently of the unreadable stage's live read (never by inheriting a completion judgement from it). The frontier selection must still prefer any genuinely open stage over an unknown one, and must fall back to naming the unknown stage only when nothing else in the structure is open.",
+  "scope": "local",
+  "status": "candidate",
+  "derivedFrom": [
+    "RES-2026-09-04-TRACK2-CLASSIFY-PROVENANCE-FRONTIER-REGRESSION-001"
+  ],
+  "occurrences": [
+    {
+      "site": "services/research/track2Programme.ts — buildTrack2Programme's `current` selection and `unblockedStageIds`/`PASSES_THROUGH` computation",
+      "defect": "Stage 1 (discover-sources) reporting 'unknown' on a candidateSources read failure hijacked `currentStageId` away from Stage 5's real 53/58-unclassified work, and excluded EVERY later stage from `unblockedStageIds` (not just Stage 1's own label), which is what services/research/researchProgrammeOrchestrator.ts's act-offering gates read — so an infrastructure read failure presented as a constitutional block on independently-verified, already-established downstream work.",
+      "resolutionId": "RES-2026-09-04-TRACK2-CLASSIFY-PROVENANCE-FRONTIER-REGRESSION-001",
+      "evidence": [
+        "tests/track2-classify-provenance-monotonic-projection.test.ts"
+      ]
+    }
+  ],
+  "family": "engineering",
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "devon",
+      "irl",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "governingPrinciple": false,
+  "supersededBy": null
+}

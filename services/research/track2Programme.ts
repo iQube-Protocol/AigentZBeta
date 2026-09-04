@@ -1039,14 +1039,61 @@ export function buildTrack2Programme(input: {
     },
   ];
 
-  const current = stages.find((st) => st.status !== 'complete') ?? stages[stages.length - 1];
+  /*
+   * "YOU ARE HERE" NEVER LANDS ON A MERELY UNREADABLE STAGE WHILE REAL,
+   * WELL-DEFINED WORK IS OUTSTANDING DOWNSTREAM (2026-09-04 repair).
+   *
+   * `unknown` means "this signal could not be READ" — it is emphatically not
+   * "this stage is the outstanding work". Picking the lowest-ordinal
+   * not-`complete` stage treated the two identically, so an unreadable Stage 1
+   * (`candidateSources === null`, a transient substrate read failure)
+   * hijacked `currentStageId` away from a Stage 5 holding 53 genuinely
+   * unclassified members of an already-admitted 58-member cohort. Observed
+   * live on EXP-P1: the Research Copilot's headline reverted to "Discover
+   * Sources" between two refreshes a minute apart, with the 58-member cohort
+   * and its Stage 5/6/7 outstanding work untouched throughout.
+   *
+   * The `unknown` stage is NOT hidden by this — it keeps its own honest entry
+   * in `stages` (status `unknown`, its own detail), and when nothing later is
+   * outstanding it is still reported as `current` by the second branch below.
+   * That is the case where "we cannot read this" genuinely IS the open
+   * question, and it must never be silently swallowed.
+   *
+   * Deliberately narrow: this skips ONLY `unknown`. It does not reorder
+   * `partially-complete` (a Stage 2 holding sources that still await a human
+   * decision is real outstanding work and must keep its precedence) — that
+   * would trade this defect for another of the same family.
+   */
+  const current =
+    stages.find((st) => st.status !== 'complete' && st.status !== 'unknown') ??
+    stages.find((st) => st.status !== 'complete') ??
+    stages[stages.length - 1];
 
   // A stage may proceed when every EARLIER stage has produced something for it
   // to work on — `complete` or `partially-complete`. `partially-complete`
   // counting as "may proceed" is the entire point: it is what stops three
   // unresolved sources from withholding extraction of the twenty-nine already
   // admitted (exception-isolation ruling §6).
-  const PASSES_THROUGH: ReadonlySet<Track2StageStatus> = new Set(['complete', 'partially-complete']);
+  //
+  // `unknown` PASSES THROUGH TOO (2026-09-04 repair), for exactly the same
+  // reason and by the same principle: an EARLIER stage whose signal is merely
+  // UNREADABLE must not withhold a later stage whose own population
+  // demonstrably exists. Stage 4 handed Stages 5-7 a 58-member cohort; a
+  // failed `corpus_candidate_sources` read at Stage 1 cannot un-hand it.
+  // Before this, one unreadable upstream signal emptied `unblockedStageIds`
+  // of stages 2-11 — so `offerableStage`/`firstPendingDecision`
+  // (services/research/researchProgrammeOrchestrator.ts, both of which gate
+  // on this list) lost the ability to OFFER Classify Provenance at all,
+  // not merely to label it. That is an infrastructure read failure
+  // presenting as a constitutional block, the same defect class the Stage 10
+  // note above records.
+  //
+  // This does NOT let anything act on an unreadable stage itself: both
+  // consumers independently refuse a stage whose OWN status is `unknown`
+  // ("acting on a stage whose state is unreadable would be acting on a
+  // guess"). Passing through governs what an earlier stage withholds from
+  // LATER stages — never what may be done to the unreadable stage.
+  const PASSES_THROUGH: ReadonlySet<Track2StageStatus> = new Set(['complete', 'partially-complete', 'unknown']);
   const unblockedStageIds = stages
     .filter((st) => stages.every((earlier) => earlier.ordinal >= st.ordinal || PASSES_THROUGH.has(earlier.status)))
     .map((st) => st.id);
