@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "classification": null,
+  "ratifiedSource": null,
+  "notes": [
+    "A general-purpose analytical function built for one caller (a human reviewer wanting the full picture -- known limitations, derived topology, everything) is frequently reused verbatim by a second, lighter-weight caller that needs only its cheapest field. When that field is cheap to compute but the function ALSO does expensive work en route to fields the second caller discards, the second caller pays the full cost for nothing every time it runs -- and because nothing throws and nothing looks wrong (the discarded fields are simply never read), this is invisible without either reading the callee's body against the caller's actual field usage, or instrumenting phase-level timing granular enough to isolate it.",
+    "The fix is a bounded PROJECTION, not a rewrite: an optional `scope` (or equivalent) parameter, defaulting to the existing full behaviour so every current caller is unaffected, that lets a caller declare it only needs the cheap subset. This is the SAME shape crystalReadiness.ts's `scope: 'full' | 'acquisition-gate'` already established (2026-08-31) for an almost identical composition-cost problem in a sibling function -- this invariant generalises that precedent explicitly, so the next occurrence is recognised as the same pattern rather than rediscovered from scratch.",
+    "A necessary companion discipline: the returned object should carry its own `scope`/mode marker, so nothing downstream can mistake a bounded projection for the complete picture. Both crystalReadiness.ts and crystalFrozenManifest.ts (this occurrence) follow this.",
+    "This is distinct from, and should not be conflated with, general caching/checkpointing (durable cohorts, hash-bound preparation) -- that strategy is for expensive work a caller DOES need but should not recompute every read. This invariant is for expensive work a caller does NOT need at all; the correct fix is to stop computing it, never to compute-once-and-cache it."
+  ],
+  "canaries": [
+    {
+      "path": "tests/crystal-frozen-manifest.test.ts",
+      "assertion": "'makes measurably fewer substrate reads than \"full\" — the actual cost this scope exists to remove': buildFrozenCrystalManifest's 'membership-only' scope makes exactly 1 listInvariants + 0 listEdgesForInvariants calls, versus 'full' scope's several; and 'membership-only' produces IDENTICAL verifiedAgainstFreeze/recomputedLiveHash/recoveredInvariants/legacyContentVerification to 'full' — the bounded projection changes WHAT is computed, never the correctness of what remains.",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "candidateId": "CI-2026-09-04-BOUNDED-PROJECTION-FOR-DISCARDED-FIELDS-001",
+  "statement": "When a shared analytical function computes several expensive, independently-labelled result fields, and a caller reads only a cheap subset of them, that caller must be given a bounded, explicitly-scoped projection (defaulting to the existing full behaviour for every other caller) that skips computing the fields it discards — never left to pay the full cost silently. The returned result must name which scope produced it.",
+  "scope": "local",
+  "status": "candidate",
+  "derivedFrom": [
+    "RES-2026-09-04-TRACK2-COMPOSITION-COST-001"
+  ],
+  "occurrences": [
+    {
+      "site": "services/research/crystalFrozenManifest.ts — buildFrozenCrystalManifest, consumed by services/research/crystalCohortMembership.ts — resolveFrozenPredecessorContext",
+      "defect": "resolveFrozenPredecessorContext called buildFrozenCrystalManifest at full fidelity on EVERY loadTrack2ProgrammeState read (unconditionally, in the top-level parallel-signals fan-out) to recover only `recoveredInvariants`. Full-mode buildFrozenCrystalManifest additionally computed a full CrystalReadinessReport (its own O(n^2) duplicate-detection + inferential-capacity passes) via TWO separate internal paths (a direct call, plus runCrystalStatisticsReport's own internal readiness call) and a further intra-crystal edge fetch for derivedTopology — three total readiness computations counting loadTrack2ProgrammeState's own top-level one, and one further edge fetch, all discarded by this specific caller, on every single programme-state read.",
+      "resolutionId": "RES-2026-09-04-TRACK2-COMPOSITION-COST-001",
+      "evidence": [
+        "tests/crystal-frozen-manifest.test.ts",
+        "tests/crystal-cohort-membership.test.ts"
+      ]
+    }
+  ],
+  "family": "engineering",
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "devon",
+      "irl",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "governingPrinciple": false,
+  "supersededBy": null
+}
