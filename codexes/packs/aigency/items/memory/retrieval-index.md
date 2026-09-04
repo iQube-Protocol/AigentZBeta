@@ -5319,3 +5319,13 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-3e9e02c.md](../build_/COMMITS/COMMIT-3e9e02c.md)
 - Message: Fix Continue-navigation click interception; finish real-media + activity-rail migration for Prepare/Operate/Cross
+
+## Commit `ae1c472` — 2026-09-03T21:26:32Z
+- Type: `feat`
+- Brief: [COMMIT-ae1c472.md](../build_/COMMITS/COMMIT-ae1c472.md)
+- Message: Wire the Classify Provenance cohort board as Stage 5's primary decision surface
+
+## Commit `3ea2f4a` — 2026-09-03T21:18:54Z
+- Type: `feat`
+- Brief: [COMMIT-3ea2f4a.md](../build_/COMMITS/COMMIT-3ea2f4a.md)
+- Message: Add Track 2 Stage 5 provenance-cohort mechanical preparation and one-act ratification

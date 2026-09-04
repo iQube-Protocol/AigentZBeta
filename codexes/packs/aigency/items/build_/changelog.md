@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`3ea2f4a`](https://github.com/iQube-Protocol/AigentZBeta/commit/3ea2f4a6f1a9b6fc796903bbc89ed3771618f81c) [feat] Add Track 2 Stage 5 provenance-cohort mechanical preparation and one-act ratification (Claude, 2026-09-03T21:18:54Z)
+- [`ae1c472`](https://github.com/iQube-Protocol/AigentZBeta/commit/ae1c472bb84c837e41a3b10afdf512800c2214da) [feat] Wire the Classify Provenance cohort board as Stage 5's primary decision surface (Claude, 2026-09-03T21:26:32Z)
 - [`3e9e02c`](https://github.com/iQube-Protocol/AigentZBeta/commit/3e9e02cca897acb115e368a31c6b41f181651645) [fix] Fix Continue-navigation click interception; finish real-media + activity-rail migration for Prepare/Operate/Cross (Claude, 2026-09-03T21:16:13Z)
 - [`f9ed2e7`](https://github.com/iQube-Protocol/AigentZBeta/commit/f9ed2e7b923f052ccc9de6865c5d6c242731c3cd) [feat] Lock CFS split viewport, add real infographics + activity/capsule composition (Claude, 2026-09-03T17:07:46Z)
 - [`cc3c76d`](https://github.com/iQube-Protocol/AigentZBeta/commit/cc3c76d03cef17b9ce22dbf5039c24e011fa56c1) [push] Rebuild CFS Discover/Explore on the first-threshold media/interaction template (Claude, 2026-09-03T16:13:02Z)

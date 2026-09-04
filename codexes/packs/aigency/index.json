@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-03T21:18:45.832Z",
+  "last_updated": "2026-09-03T21:28:19.140Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "3e9e02cca897acb115e368a31c6b41f181651645",
-  "latest_commit_short": "3e9e02c",
-  "latest_commit_title": "Fix Continue-navigation click interception; finish real-media + activity-rail migration for Prepare/Operate/Cross",
+  "latest_commit": "3ea2f4a6f1a9b6fc796903bbc89ed3771618f81c",
+  "latest_commit_short": "3ea2f4a",
+  "latest_commit_title": "Add Track 2 Stage 5 provenance-cohort mechanical preparation and one-act ratification",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "3ea2f4a",
+      "full_sha": "3ea2f4a6f1a9b6fc796903bbc89ed3771618f81c",
+      "title": "Add Track 2 Stage 5 provenance-cohort mechanical preparation and one-act ratification",
+      "author": "Claude",
+      "timestamp": "2026-09-03T21:18:54Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-3ea2f4a.md"
+    },
+    {
+      "sha": "ae1c472",
+      "full_sha": "ae1c472bb84c837e41a3b10afdf512800c2214da",
+      "title": "Wire the Classify Provenance cohort board as Stage 5's primary decision surface",
+      "author": "Claude",
+      "timestamp": "2026-09-03T21:26:32Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-ae1c472.md"
+    },
     {
       "sha": "3e9e02c",
       "full_sha": "3e9e02cca897acb115e368a31c6b41f181651645",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-09-01T07:36:55Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-15a3ba5.md"
-    },
-    {
-      "sha": "64db930",
-      "full_sha": "64db9301042dd2e9b0d49806dee9670b0e0d6121",
-      "title": "Fill AEE-XP-001 §5 handoff field gaps: recommendedExperienceAltitude [merge review/irl-scoped-restoration-2026-08-27]",
-      "author": "Claude",
-      "timestamp": "2026-09-01T07:20:29Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-64db930.md"
-    },
-    {
-      "sha": "8f0f4d6",
-      "full_sha": "8f0f4d67f9e393b28e8f6832049af62482eeed46",
-      "title": "Add live acceptance verification script for ctp.wallet.asset.convert (steps 2-8)",
-      "author": "Claude",
-      "timestamp": "2026-09-01T07:08:19Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-8f0f4d6.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
