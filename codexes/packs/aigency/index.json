@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-04T21:56:13.491Z",
+  "last_updated": "2026-09-04T22:42:04.657Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "f9a54b1aa20a899c656778c626cfcbc5d42e75f3",
-  "latest_commit_short": "f9a54b1",
-  "latest_commit_title": "Harvest MoneyPenny002 live-console UI as atomic, capsule-composable SmartTriad surfaces",
+  "latest_commit": "e529328f0f41b03fa5d95cf59e43e80a2ecfa45d",
+  "latest_commit_short": "e529328",
+  "latest_commit_title": "Add quotes/fills/performance/history atomic surfaces + shared market-session controller",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "e529328",
+      "full_sha": "e529328f0f41b03fa5d95cf59e43e80a2ecfa45d",
+      "title": "Add quotes/fills/performance/history atomic surfaces + shared market-session controller",
+      "author": "Claude",
+      "timestamp": "2026-09-04T22:39:52Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-e529328.md"
+    },
     {
       "sha": "f9a54b1",
       "full_sha": "f9a54b1aa20a899c656778c626cfcbc5d42e75f3",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-09-01T11:01:40Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-6c7f3ee.md"
-    },
-    {
-      "sha": "e3ba888",
-      "full_sha": "e3ba888f7a5bafb71776f18d1652daf4524f44e8",
-      "title": "Add MoneyPenny capability-led navigation rail and overview panel",
-      "author": "Claude",
-      "timestamp": "2026-09-01T11:01:51Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-e3ba888.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

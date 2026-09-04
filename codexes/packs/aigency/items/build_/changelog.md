@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`e529328`](https://github.com/iQube-Protocol/AigentZBeta/commit/e529328f0f41b03fa5d95cf59e43e80a2ecfa45d) [feat] Add quotes/fills/performance/history atomic surfaces + shared market-session controller (Claude, 2026-09-04T22:39:52Z)
 - [`f9a54b1`](https://github.com/iQube-Protocol/AigentZBeta/commit/f9a54b1aa20a899c656778c626cfcbc5d42e75f3) [push] Harvest MoneyPenny002 live-console UI as atomic, capsule-composable SmartTriad surfaces (Claude, 2026-09-04T21:53:55Z)
 - [`35ac289`](https://github.com/iQube-Protocol/AigentZBeta/commit/35ac289dfd05627ccb82f489d4cd99fd691d44af) [push] Promote SmartTriad inline video into a universal Rich Block primitive (Claude, 2026-09-04T21:38:08Z)
 - [`2198fc5`](https://github.com/iQube-Protocol/AigentZBeta/commit/2198fc5a37c420a33b1e8b3329d66a75d56185c1) [push] Stop rendering duplicate raw JSON below media previews; hover-only video chrome (Claude, 2026-09-04T20:54:26Z)
