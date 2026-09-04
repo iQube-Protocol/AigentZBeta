@@ -112,6 +112,8 @@ import {
 } from "@/services/deliberativeArtifact/compositionPolicy";
 import {
   initializeDeliberation,
+  updateBriefSpec,
+  updateBriefCompleteness,
 } from "@/services/deliberativeArtifact/deliberationSeam";
 import type {
   DeliberationBrief,
@@ -3411,11 +3413,16 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin, ag
                 deliberationError: null,
                 onUpdateBriefSpec: (updates: Record<string, unknown>) => {
                   if (deliberationBrief) {
-                    const updated = {
-                      ...deliberationBrief,
-                      briefSpec: { ...deliberationBrief.briefSpec, ...updates },
-                      updatedAt: new Date().toISOString(),
-                    };
+                    // Reuses the canonical deliberationSeam functions
+                    // (never a second merge implementation) — the previous
+                    // hand-rolled spread here updated briefSpec but never
+                    // recomputed `isComplete`, so the Generate Report button
+                    // stayed permanently disabled (stuck at its initial
+                    // false) no matter how many fields the operator filled
+                    // in (2026-09-04 fix).
+                    const updated = updateBriefCompleteness(
+                      updateBriefSpec(deliberationBrief, updates)
+                    );
                     setDeliberationBrief(updated);
                   }
                 },
