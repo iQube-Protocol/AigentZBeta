@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-04T20:38:46.572Z",
+  "last_updated": "2026-09-04T20:51:30.412Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "59bbdf34585fbed0c69887281de8069a3a8fa02d",
-  "latest_commit_short": "59bbdf3",
-  "latest_commit_title": "Fix venture-report deliberation: inferred purpose was discarded, not saved",
+  "latest_commit": "7896cbbe99785a63e1042b698eedff0d1fa2f2c3",
+  "latest_commit_short": "7896cbb",
+  "latest_commit_title": "Fix Track 2 frontier regression + parallelize provenance-cohort inference calls",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "7896cbb",
+      "full_sha": "7896cbbe99785a63e1042b698eedff0d1fa2f2c3",
+      "title": "Fix Track 2 frontier regression + parallelize provenance-cohort inference calls",
+      "author": "Claude",
+      "timestamp": "2026-09-04T20:49:21Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-7896cbb.md"
+    },
     {
       "sha": "59bbdf3",
       "full_sha": "59bbdf34585fbed0c69887281de8069a3a8fa02d",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-09-01T16:04:29Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-01b493d.md"
-    },
-    {
-      "sha": "0e293fe",
-      "full_sha": "0e293fe3fb334dc9209fa02f3e1a2ec5019148eb",
-      "title": "Add stale-cohort protection, scoped population labels, Copilot cohort admission",
-      "author": "Claude",
-      "timestamp": "2026-09-01T15:24:27Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-0e293fe.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

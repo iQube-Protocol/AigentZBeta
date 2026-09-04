@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`7896cbb`](https://github.com/iQube-Protocol/AigentZBeta/commit/7896cbbe99785a63e1042b698eedff0d1fa2f2c3) [fix] Fix Track 2 frontier regression + parallelize provenance-cohort inference calls (Claude, 2026-09-04T20:49:21Z)
 - [`59bbdf3`](https://github.com/iQube-Protocol/AigentZBeta/commit/59bbdf34585fbed0c69887281de8069a3a8fa02d) [fix] Fix venture-report deliberation: inferred purpose was discarded, not saved (Claude, 2026-09-04T20:36:27Z)
 - [`04df105`](https://github.com/iQube-Protocol/AigentZBeta/commit/04df10585ee3a2502eb56f705c857a75e97e5e31) [push] Generate real venture reports for AigentMe's Generate Report button (Gate D) (Claude, 2026-09-04T18:03:10Z)
 - [`97c2569`](https://github.com/iQube-Protocol/AigentZBeta/commit/97c25691a9bd7f525b8a1d15b48689b764414e18) [fix] Fix Generate Report button permanently disabled in AigentMe brief flow (Claude, 2026-09-04T17:52:12Z)

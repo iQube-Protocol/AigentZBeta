@@ -5409,3 +5409,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-59bbdf3.md](../build_/COMMITS/COMMIT-59bbdf3.md)
 - Message: Fix venture-report deliberation: inferred purpose was discarded, not saved
+
+## Commit `7896cbb` — 2026-09-04T20:49:21Z
+- Type: `fix`
+- Brief: [COMMIT-7896cbb.md](../build_/COMMITS/COMMIT-7896cbb.md)
+- Message: Fix Track 2 frontier regression + parallelize provenance-cohort inference calls
