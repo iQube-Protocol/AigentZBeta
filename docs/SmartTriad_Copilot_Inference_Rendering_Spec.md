@@ -377,6 +377,23 @@ compatibility adapter is permanent, not a deprecation window. New server-side me
 responses should use the `blocks` transport field directly rather than embedding fenced
 JSON in `response`; fenced-JSON emission remains supported only as a legacy path.
 
+### Beyond video — atomic runtime surfaces and capsules (2026-09-04)
+
+The same envelope family now also carries `kind: 'market.edge'`, `kind: 'market.inventory'`, and
+`kind: 'capsule'` (a capsule composes already-resolved child envelopes — atomic surfaces or further
+capsules — through the SAME validator and the SAME `SmartTriadRichBlockListRenderer`, recursively; no
+forked capsule-specific schema or renderer). These were harvested from MoneyPenny002's live-console UI
+(`EdgeGauge.tsx`, `InventoryGauge.tsx`) per the "atomic, capsule-composable surfaces" ruling — full
+detail, provenance classification, and the sequenced remainder of the harvest in
+`codexes/packs/agentiq/updates/2026-09-04_moneypenny002-atomic-surface-capsule-harvest.md`.
+
+Every runtime/market surface carries a `SmartTriadSourceDescriptor` (`class` ∈ `live-market-data |
+cached-market-data | delayed-market-data | paper-execution | simulation | historical | unavailable`)
+and a `mode` (`simulation | paper | live`) — a value is never presented as live merely because it came
+from a database row; "live" requires an actually-identified live provider or receipt-backed execution
+source. `services/moneypenny/marketSimulation.ts` is the ONE deterministic, seeded source for every
+simulated market value in this codebase — no `Math.random()` in a React component or API route.
+
 ### Extending with a future rich-block kind
 
 Add the new payload type to `SmartTriadRichBlockPayload`

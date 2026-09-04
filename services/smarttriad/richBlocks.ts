@@ -28,9 +28,14 @@
 
 import {
   SMARTTRIAD_BLOCK_SCHEMA_VERSION,
+  type SmartTriadCapsulePayload,
+  type SmartTriadEdgeGaugePayload,
+  type SmartTriadInventoryGaugePayload,
+  type SmartTriadMarketGaugeBasePayload,
   type SmartTriadMediaAction,
   type SmartTriadMediaActionKind,
   type SmartTriadRichBlockEnvelope,
+  type SmartTriadSourceDescriptor,
   type SmartTriadVideoBlock,
   type SmartTriadVideoCaption,
   type SmartTriadVideoChapter,
@@ -148,16 +153,127 @@ export function validateSmartTriadVideoBlock(value: unknown): SmartTriadVideoBlo
   };
 }
 
-/** Validates a full v1 envelope (schemaVersion + id + kind + payload). */
-export function validateSmartTriadRichBlockEnvelope(value: unknown): SmartTriadRichBlockEnvelope | null {
+function isValidSourceDescriptor(value: unknown): value is SmartTriadSourceDescriptor {
+  if (!value || typeof value !== 'object') return false;
+  const s = value as Partial<SmartTriadSourceDescriptor>;
+  const validClass: SmartTriadSourceDescriptor['class'][] = [
+    'live-market-data',
+    'cached-market-data',
+    'delayed-market-data',
+    'paper-execution',
+    'simulation',
+    'historical',
+    'unavailable',
+  ];
+  return typeof s.label === 'string' && !!s.label && validClass.includes(s.class as SmartTriadSourceDescriptor['class']);
+}
+
+function validateMarketGaugeBase(p: Partial<SmartTriadMarketGaugeBasePayload>): SmartTriadMarketGaugeBasePayload | null {
+  if (typeof p.capabilityId !== 'string' || !p.capabilityId) return null;
+  if (!p.mode || !['simulation', 'paper', 'live'].includes(p.mode)) return null;
+  if (!isValidSourceDescriptor(p.source)) return null;
+  if (p.actions != null && (!Array.isArray(p.actions) || !p.actions.every(isValidAction))) return null;
+  return {
+    capabilityId: p.capabilityId,
+    mode: p.mode,
+    source: p.source as SmartTriadSourceDescriptor,
+    actions: p.actions as SmartTriadMediaAction[] | undefined,
+  };
+}
+
+/** Strict structural validation for a `market.edge` payload — harvested UI,
+ *  governed data (see services/moneypenny/marketSimulation.ts). */
+export function validateSmartTriadEdgeGaugePayload(value: unknown): SmartTriadEdgeGaugePayload | null {
+  if (!value || typeof value !== 'object') return null;
+  const p = value as Partial<SmartTriadEdgeGaugePayload>;
+  const base = validateMarketGaugeBase(p);
+  if (!base) return null;
+  if (typeof p.floorBps !== 'number' || typeof p.minEdgeBps !== 'number' || typeof p.liveEdgeBps !== 'number') return null;
+  return { ...base, floorBps: p.floorBps, minEdgeBps: p.minEdgeBps, liveEdgeBps: p.liveEdgeBps };
+}
+
+/** Strict structural validation for a `market.inventory` payload. */
+export function validateSmartTriadInventoryGaugePayload(value: unknown): SmartTriadInventoryGaugePayload | null {
+  if (!value || typeof value !== 'object') return null;
+  const p = value as Partial<SmartTriadInventoryGaugePayload>;
+  const base = validateMarketGaugeBase(p);
+  if (!base) return null;
+  if (
+    typeof p.inventoryMin !== 'number' ||
+    typeof p.inventoryMax !== 'number' ||
+    typeof p.currentInventory !== 'number' ||
+    typeof p.workingQc !== 'number'
+  ) {
+    return null;
+  }
+  return {
+    ...base,
+    inventoryMin: p.inventoryMin,
+    inventoryMax: p.inventoryMax,
+    currentInventory: p.currentInventory,
+    workingQc: p.workingQc,
+  };
+}
+
+/** Bounds capsule nesting so a malicious/malformed payload can't force
+ *  unbounded recursion — capsules compose atomic surfaces, they are not
+ *  meant to nest deeply. */
+const MAX_CAPSULE_DEPTH = 3;
+
+/** Strict structural validation for a `capsule` payload — every child
+ *  envelope is validated by the SAME `validateSmartTriadRichBlockEnvelope`
+ *  a top-level block uses; a capsule is not a second validation path. */
+export function validateSmartTriadCapsulePayload(value: unknown, depth = 0): SmartTriadCapsulePayload | null {
+  if (depth >= MAX_CAPSULE_DEPTH) return null;
+  if (!value || typeof value !== 'object') return null;
+  const p = value as Partial<SmartTriadCapsulePayload>;
+  if (typeof p.capsuleId !== 'string' || !p.capsuleId) return null;
+  if (typeof p.title !== 'string' || !p.title) return null;
+  if (typeof p.capabilityId !== 'string' || !p.capabilityId) return null;
+  if (!p.layout || !['stack', 'grid'].includes(p.layout.type) || !['compact', 'panel'].includes(p.layout.density)) return null;
+  if (!Array.isArray(p.surfaces) || p.surfaces.length === 0) return null;
+  const surfaces = p.surfaces.map((s) => validateSmartTriadRichBlockEnvelope(s, depth + 1));
+  if (surfaces.some((s) => s === null)) return null;
+  if (p.actions != null && (!Array.isArray(p.actions) || !p.actions.every(isValidAction))) return null;
+  return {
+    capsuleId: p.capsuleId,
+    title: p.title,
+    capabilityId: p.capabilityId,
+    layout: p.layout,
+    surfaces: surfaces as SmartTriadRichBlockEnvelope[],
+    actions: p.actions as SmartTriadMediaAction[] | undefined,
+  };
+}
+
+/** Validates a full v1 envelope (schemaVersion + id + kind + payload),
+ *  dispatching to the per-kind validator. `depth` guards capsule nesting —
+ *  callers never pass it explicitly. */
+export function validateSmartTriadRichBlockEnvelope(value: unknown, depth = 0): SmartTriadRichBlockEnvelope | null {
   if (!value || typeof value !== 'object') return null;
   const e = value as Partial<SmartTriadRichBlockEnvelope>;
   if (e.schemaVersion !== SMARTTRIAD_BLOCK_SCHEMA_VERSION) return null;
   if (typeof e.id !== 'string' || !e.id) return null;
-  if (e.kind !== 'media.video') return null;
-  const payload = validateSmartTriadVideoBlock(e.payload);
-  if (!payload) return null;
-  return { schemaVersion: SMARTTRIAD_BLOCK_SCHEMA_VERSION, id: e.id, kind: 'media.video', payload };
+
+  switch (e.kind) {
+    case 'media.video': {
+      const payload = validateSmartTriadVideoBlock(e.payload);
+      return payload ? { schemaVersion: SMARTTRIAD_BLOCK_SCHEMA_VERSION, id: e.id, kind: 'media.video', payload } : null;
+    }
+    case 'market.edge': {
+      const payload = validateSmartTriadEdgeGaugePayload(e.payload);
+      return payload ? { schemaVersion: SMARTTRIAD_BLOCK_SCHEMA_VERSION, id: e.id, kind: 'market.edge', payload } : null;
+    }
+    case 'market.inventory': {
+      const payload = validateSmartTriadInventoryGaugePayload(e.payload);
+      return payload ? { schemaVersion: SMARTTRIAD_BLOCK_SCHEMA_VERSION, id: e.id, kind: 'market.inventory', payload } : null;
+    }
+    case 'capsule': {
+      const payload = validateSmartTriadCapsulePayload(e.payload, depth);
+      return payload ? { schemaVersion: SMARTTRIAD_BLOCK_SCHEMA_VERSION, id: e.id, kind: 'capsule', payload } : null;
+    }
+    default:
+      return null;
+  }
 }
 
 function isLegacyVideoV0(value: unknown): value is LegacyMediaVideoV0Payload {
@@ -227,6 +343,26 @@ export function parseSmartTriadBlockCandidate(value: unknown): SmartTriadBlockPa
   }
 
   return null;
+}
+
+/**
+ * A short, human-readable prose line for a resolved envelope — used when a
+ * server route needs SOME text alongside a `blocks` transport (e.g. the
+ * chat route's fallback `response` string). Every kind has a different
+ * shape; this is the one place that knows how to describe each of them,
+ * rather than every caller guessing at `.payload.title`.
+ */
+export function describeSmartTriadBlockEnvelope(envelope: SmartTriadRichBlockEnvelope): string {
+  switch (envelope.kind) {
+    case 'media.video':
+      return envelope.payload.title;
+    case 'market.edge':
+      return `Current edge: ${envelope.payload.liveEdgeBps.toFixed(2)} bps`;
+    case 'market.inventory':
+      return `Current inventory: ${envelope.payload.currentInventory.toFixed(0)} Q¢`;
+    case 'capsule':
+      return envelope.payload.title;
+  }
 }
 
 export interface ExtractedSmartTriadBlock {

@@ -37,6 +37,7 @@ import {
 } from '@/services/agents/aigentMeRoleResolution';
 import { getCartridgeChatContext } from '@/services/cartridge/getChatContext';
 import { resolveSmartTriadMedia } from '@/services/smarttriad/mediaProviders';
+import { describeSmartTriadBlockEnvelope } from '@/services/smarttriad/richBlocks';
 import { getPersonaUploadService } from '@/services/uploads/supabaseUploadAdapter';
 import { buildAigentZPlatformKnowledge } from '@/services/knowledge/aigentZPlatformKnowledge';
 import {
@@ -2937,7 +2938,7 @@ export async function POST(request: NextRequest) {
       const mediaResolution = await resolveSmartTriadMedia(supabase, message, groundContext as Record<string, unknown>);
       if (mediaResolution.matched) {
         if (mediaResolution.blocks.length > 0) {
-          const response = mediaResolution.blocks.map((b) => b.payload.title).join('\n');
+          const response = mediaResolution.blocks.map(describeSmartTriadBlockEnvelope).join('\n');
           return NextResponse.json({ response, persona, event_meta: eventMeta, blocks: mediaResolution.blocks });
         }
         const response =

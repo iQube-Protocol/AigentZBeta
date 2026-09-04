@@ -15,6 +15,11 @@ import { Progress } from "@/components/ui/progress";
 import { TrendingUp, TrendingDown, Activity, DollarSign, Zap, Play, Pause, Maximize2, Minimize2 } from "lucide-react";
 import { SimulationNotice } from "./SimulationNotice";
 import { useMoneyPennyFullScreen } from "./MoneyPennyFullScreenContext";
+import { EdgeGaugeSurface } from "@/components/smarttriad/surfaces/EdgeGaugeSurface";
+import { InventoryGaugeSurface } from "@/components/smarttriad/surfaces/InventoryGaugeSurface";
+import { simulateEdge, simulateInventory, simulateQuote, simulationSource, timeBucket } from "@/services/moneypenny/marketSimulation";
+
+const HFT_CHAINS = ["ETH", "ARB", "OP", "BASE", "POLYGON"] as const;
 
 interface QuoteData {
   chain: string;
@@ -53,40 +58,48 @@ export function HFTConsole() {
   const [pnl, setPnl] = useState<PnLData | null>(null);
   const [totalPnL, setTotalPnL] = useState(0);
 
-  // Mock data generation — quotes/executions/P&L below are a client-side
-  // random-number generator, not a real market-data or execution feed.
-  // SPEC-MPY-002 §7/§9 truthfulness rule: labelled via <SimulationNotice>
-  // in the render below rather than presented as live. Replacing this with
-  // a real market-data provider is tracked as an open MPY2-4 work package
-  // in the MPY2-0 donor harvest audit — not done in this tranche.
+  // Simulated quotes/executions/P&L below — labelled via <SimulationNotice>
+  // in the render, never presented as live. 2026-09-04 "atomic,
+  // capsule-composable surfaces" ruling: values now come from the ONE
+  // deterministic, seeded simulation service
+  // (services/moneypenny/marketSimulation.ts) rather than `Math.random()`
+  // scattered inline — same visual liveliness (values still move every
+  // tick), but reproducible from a seed and honestly source-classified.
+  // Replacing simulation with a real market-data provider remains a
+  // separate, unstarted work package (MPY2-4, MPY2-0 donor harvest audit) —
+  // not done here.
   useEffect(() => {
     if (!isStreaming) return;
 
     const interval = setInterval(() => {
-      // Generate mock quote
+      const bucket = timeBucket();
+      const chain = HFT_CHAINS[bucket % HFT_CHAINS.length];
+      const q = simulateQuote(chain, bucket);
       const newQuote: QuoteData = {
-        chain: ['ETH', 'ARB', 'OP', 'BASE', 'POLYGON'][Math.floor(Math.random() * 5)],
-        edge_bps: Math.random() * 50 - 25,
-        price_usdc: 0.01 + Math.random() * 0.002,
-        qty_qc: Math.random() * 10000,
+        chain,
+        edge_bps: q.edgeBps,
+        price_usdc: q.priceUsdc,
+        qty_qc: q.qtyQc,
         timestamp: new Date().toISOString(),
       };
 
       setQuotes(prev => [newQuote, ...prev.slice(0, 9)]);
 
-      // Generate mock execution occasionally
-      if (Math.random() > 0.7) {
+      // Deterministic "did this quote fill" condition — a wide-enough edge
+      // triggers a simulated execution, derived from the SAME seeded quote
+      // rather than a second independent random draw.
+      if (Math.abs(q.edgeBps) > 15) {
         const newExecution: ExecutionData = {
           chain: newQuote.chain,
-          side: Math.random() > 0.5 ? 'BUY' : 'SELL',
-          qty_filled: Math.random() * 5000,
+          side: q.edgeBps >= 0 ? 'BUY' : 'SELL',
+          qty_filled: q.qtyQc * 0.5,
           avg_price: newQuote.price_usdc,
-          capture_bps: Math.random() * 20 - 5,
+          capture_bps: q.edgeBps * 0.4,
           timestamp: new Date().toISOString(),
         };
 
         setExecutions(prev => [newExecution, ...prev.slice(0, 9)]);
-        
+
         // Update P&L
         setTotalPnL(prev => prev + newExecution.capture_bps);
       }
@@ -101,6 +114,9 @@ export function HFTConsole() {
 
     return () => clearInterval(interval);
   }, [isStreaming, totalPnL, executions]);
+
+  const edgeSim = simulateEdge();
+  const inventorySim = simulateInventory();
 
   const getEdgeColor = (edge: number) => {
     if (edge > 10) return "text-green-500";
@@ -235,6 +251,35 @@ export function HFTConsole() {
             </p>
           </CardContent>
         </Card>
+      </div>
+
+      {/* Market gauges — the SAME harvested atomic surfaces
+          (EdgeGaugeSurface/InventoryGaugeSurface) the SmartTriad copilot
+          rich-block path renders inline in conversation; reconstituted here
+          rather than forked, per the 2026-09-04 "atomic, capsule-composable
+          surfaces" ruling ("do not create a second market console"). */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <EdgeGaugeSurface
+          payload={{
+            capabilityId: "moneypenny.market-console",
+            mode: "simulation",
+            source: simulationSource(new Date().toISOString()),
+            floorBps: edgeSim.floorBps,
+            minEdgeBps: edgeSim.minEdgeBps,
+            liveEdgeBps: edgeSim.liveEdgeBps,
+          }}
+        />
+        <InventoryGaugeSurface
+          payload={{
+            capabilityId: "moneypenny.market-console",
+            mode: "simulation",
+            source: simulationSource(new Date().toISOString()),
+            inventoryMin: inventorySim.inventoryMin,
+            inventoryMax: inventorySim.inventoryMax,
+            currentInventory: inventorySim.currentInventory,
+            workingQc: inventorySim.workingQc,
+          }}
+        />
       </div>
 
       {/* Quotes and Executions */}

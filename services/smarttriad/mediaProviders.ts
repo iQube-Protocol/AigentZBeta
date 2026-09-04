@@ -23,6 +23,7 @@ import {
 } from '@/services/journey/moneyPennyEducationalMedia';
 import { normalizeLegacyVideoV0, parseSmartTriadBlockCandidate } from '@/services/smarttriad/richBlocks';
 import { FS_PLACEHOLDER_VIDEO_URL, FS_PLACEHOLDER_VIDEO_POSTER_URL } from '@/services/journey/fsPlaceholderVideo';
+import { simulateEdge, simulateInventory, simulationSource } from '@/services/moneypenny/marketSimulation';
 import type { SmartTriadRichBlockEnvelope } from '@/types/smarttriad/richBlocks';
 
 export interface SmartTriadMediaProvider {
@@ -71,6 +72,112 @@ export const moneyPennyLearnVideoProvider: SmartTriadMediaProvider = {
   },
 };
 
+/** MoneyPenny's HFT console tab — the SAME target MoneyPennyPanelTab.tsx
+ *  already registers ('hft-console' → HFTConsole.tsx). Reused, never a new
+ *  destination invented for this capability. */
+const MONEYPENNY_MARKET_CONSOLE_CAPABILITY_ID = 'moneypenny.market-console';
+const MONEYPENNY_MARKET_CONSOLE_TAB = { cartridgeId: 'moneypenny-codex', tab: 'hft-console' };
+
+const EDGE_TRIGGER = /(current edge|edge gauge|what is our edge|show.*\bedge\b)/i;
+const INVENTORY_TRIGGER = /(inventory exposure|inventory gauge|show.*inventory)/i;
+const MARKET_CONSOLE_TRIGGER =
+  /(market console|show me the market\b|quotes,?\s*spread,?\s*(and|&)\s*liquidity|open the market console|how (is|are) (the|our) strategy performing)/i;
+
+function edgeGaugeEnvelope(): SmartTriadRichBlockEnvelope {
+  const sim = simulateEdge();
+  return {
+    schemaVersion: 'smarttriad.block.v1',
+    id: `moneypenny-edge-${Date.now()}`,
+    kind: 'market.edge',
+    payload: {
+      capabilityId: MONEYPENNY_MARKET_CONSOLE_CAPABILITY_ID,
+      mode: 'simulation',
+      source: simulationSource(new Date().toISOString()),
+      floorBps: sim.floorBps,
+      minEdgeBps: sim.minEdgeBps,
+      liveEdgeBps: sim.liveEdgeBps,
+      actions: [
+        { id: 'expand-console', kind: 'open-cartridge-tab', label: 'Expand console', ...MONEYPENNY_MARKET_CONSOLE_TAB },
+      ],
+    },
+  };
+}
+
+function inventoryGaugeEnvelope(): SmartTriadRichBlockEnvelope {
+  const sim = simulateInventory();
+  return {
+    schemaVersion: 'smarttriad.block.v1',
+    id: `moneypenny-inventory-${Date.now()}`,
+    kind: 'market.inventory',
+    payload: {
+      capabilityId: MONEYPENNY_MARKET_CONSOLE_CAPABILITY_ID,
+      mode: 'simulation',
+      source: simulationSource(new Date().toISOString()),
+      inventoryMin: sim.inventoryMin,
+      inventoryMax: sim.inventoryMax,
+      currentInventory: sim.currentInventory,
+      workingQc: sim.workingQc,
+      actions: [
+        { id: 'expand-console', kind: 'open-cartridge-tab', label: 'Expand console', ...MONEYPENNY_MARKET_CONSOLE_TAB },
+      ],
+    },
+  };
+}
+
+/**
+ * Compact "Market Status" capsule — composes the Edge and Inventory atomic
+ * surfaces (2026-09-04 "atomic, capsule-composable surfaces" ruling). Does
+ * NOT include quotes/fills/performance sub-surfaces yet — those are not
+ * built this pass (see this capability's harvest-matrix doc for the
+ * sequenced remainder); this capsule is the honest subset that exists.
+ */
+function marketStatusCapsuleEnvelope(): SmartTriadRichBlockEnvelope {
+  return {
+    schemaVersion: 'smarttriad.block.v1',
+    id: `moneypenny-market-console-${Date.now()}`,
+    kind: 'capsule',
+    payload: {
+      capsuleId: 'moneypenny.market-status',
+      title: 'Market Status',
+      capabilityId: MONEYPENNY_MARKET_CONSOLE_CAPABILITY_ID,
+      layout: { type: 'stack', density: 'compact' },
+      surfaces: [edgeGaugeEnvelope(), inventoryGaugeEnvelope()],
+      actions: [
+        { id: 'expand-console', kind: 'open-cartridge-tab', label: 'Expand console', ...MONEYPENNY_MARKET_CONSOLE_TAB },
+      ],
+    },
+  };
+}
+
+/**
+ * MoneyPenny's live-runtime market surfaces — the reference exemplar for the
+ * 2026-09-04 "atomic, capsule-composable surfaces" ruling harvesting
+ * MoneyPenny002's LiveMarketFeed. Renders the smallest adequate block for a
+ * specific-metric request (edge, inventory) and the composed capsule for a
+ * general "show me the market" request — never always the full console for
+ * a narrow question. Quotes/fills/performance/history atomic surfaces are
+ * NOT implemented this pass (see the harvest-matrix doc); a request for one
+ * of those still matches this provider's broader console trigger and falls
+ * back to the Market Status capsule rather than silently doing nothing.
+ *
+ * Every value is `mode: 'simulation'` — there is no real Q¢ market-data feed
+ * in this codebase today (confirmed by the 2026-09-02 mpy2-0b real-source
+ * audit); values are deterministic (services/moneypenny/marketSimulation.ts)
+ * rather than Math.random(), and honestly labelled, never presented as live.
+ */
+export const moneyPennyMarketConsoleProvider: SmartTriadMediaProvider = {
+  id: 'moneypenny.market-console',
+  label: 'MoneyPenny — market console atomic surfaces (edge, inventory, market status capsule)',
+  matches: (message, groundContext) =>
+    groundContext?.cartridge === 'moneypenny' &&
+    (EDGE_TRIGGER.test(message) || INVENTORY_TRIGGER.test(message) || MARKET_CONSOLE_TRIGGER.test(message)),
+  resolve: async (_supabase, message) => {
+    if (EDGE_TRIGGER.test(message)) return [edgeGaugeEnvelope()];
+    if (INVENTORY_TRIGGER.test(message)) return [inventoryGaugeEnvelope()];
+    return [marketStatusCapsuleEnvelope()];
+  },
+};
+
 const FS_LESSON_VIDEO_TRIGGER = /(financial sovereignty|discover) (lesson |intro )?video/i;
 const FS_LESSON_REQUEST = /(show|watch|play|see|view|open)/i;
 
@@ -112,6 +219,7 @@ export const financialSovereigntyLessonVideoProvider: SmartTriadMediaProvider = 
  *  not built speculatively here) rather than editing the central route. */
 export const SMARTTRIAD_MEDIA_PROVIDERS: SmartTriadMediaProvider[] = [
   moneyPennyLearnVideoProvider,
+  moneyPennyMarketConsoleProvider,
   financialSovereigntyLessonVideoProvider,
 ];
 
