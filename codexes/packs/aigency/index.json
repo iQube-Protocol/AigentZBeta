@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-04T16:40:41.406Z",
+  "last_updated": "2026-09-04T17:18:39.316Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "2135362985afabc11a38114fa5076b65c9e4b1ce",
-  "latest_commit_short": "2135362",
-  "latest_commit_title": "Fix the classify-provenance 15s timeout N+1, and put the cohort action directly in Research Copilot",
+  "latest_commit": "407ed0dadf02b5f7426834efb8bde4f1295ac664",
+  "latest_commit_short": "407ed0d",
+  "latest_commit_title": "Batch reconcilePromotedCohort's exact-match repair lookup to close a latent N+1",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,42 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "407ed0d",
+      "full_sha": "407ed0dadf02b5f7426834efb8bde4f1295ac664",
+      "title": "Batch reconcilePromotedCohort's exact-match repair lookup to close a latent N+1",
+      "author": "Claude",
+      "timestamp": "2026-09-04T17:16:08Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-407ed0d.md"
+    },
+    {
+      "sha": "12055d5",
+      "full_sha": "12055d52944eaa083c5176c145426bfb70470a2b",
+      "title": "Stop computing readiness 3x per Track 2 state read; add finer phase timing",
+      "author": "Claude",
+      "timestamp": "2026-09-04T17:16:22Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-12055d5.md"
+    },
+    {
+      "sha": "9ebf203",
+      "full_sha": "9ebf203735768e767bf0aaf453f369eab1a7ad70",
+      "title": "Record the Track 2 composition-cost resolution + bounded-projection invariant",
+      "author": "Claude",
+      "timestamp": "2026-09-04T17:16:28Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-9ebf203.md"
+    },
+    {
+      "sha": "5ffe0e0",
+      "full_sha": "5ffe0e09c6a803d7942d6de9ca8caf90f843260b",
+      "title": "trigger deploy: Track 2 composition-cost fix + reconcile N+1 batch",
+      "author": "Claude",
+      "timestamp": "2026-09-04T17:16:33Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-5ffe0e0.md"
+    },
     {
       "sha": "2135362",
       "full_sha": "2135362985afabc11a38114fa5076b65c9e4b1ce",
@@ -1216,42 +1252,6 @@
       "timestamp": "2026-09-01T10:30:13Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-19553af.md"
-    },
-    {
-      "sha": "cfd0ac9",
-      "full_sha": "cfd0ac9c48f666a7f75f8d4b9fd7c7a65340b80e",
-      "title": "Fix build-breaking node:crypto leak into client bundles (15 failed deploys) [merge review/irl-scoped-restoration-2026-08-27]",
-      "author": "Claude",
-      "timestamp": "2026-09-01T09:22:20Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-cfd0ac9.md"
-    },
-    {
-      "sha": "70fdc87",
-      "full_sha": "70fdc87d7fe3f64f2ada313ece1c9e49dc34ddb6",
-      "title": "CI AEE parity: identical wiring to KNYTS, no CI-specific logic [merge review/irl-scoped-restoration-2026-08-27]",
-      "author": "Claude",
-      "timestamp": "2026-09-01T08:31:00Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-70fdc87.md"
-    },
-    {
-      "sha": "e21460f",
-      "full_sha": "e21460f8396559d38cc88c58092a90b27873f215",
-      "title": "XP-1 follow-up: branch activation triggers immediate re-evaluation [merge review/irl-scoped-restoration-2026-08-27]",
-      "author": "Claude",
-      "timestamp": "2026-09-01T08:21:52Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-e21460f.md"
-    },
-    {
-      "sha": "25797da",
-      "full_sha": "25797da80a88bde16f7930e9d0e5799580bd63d5",
-      "title": "XP-1: first live AEE convergence loop, wired against the FS branch [merge review/irl-scoped-restoration-2026-08-27]",
-      "author": "Claude",
-      "timestamp": "2026-09-01T07:58:51Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-25797da.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

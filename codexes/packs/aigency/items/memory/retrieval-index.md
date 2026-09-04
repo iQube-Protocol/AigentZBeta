@@ -5334,3 +5334,23 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-2135362.md](../build_/COMMITS/COMMIT-2135362.md)
 - Message: Fix the classify-provenance 15s timeout N+1, and put the cohort action directly in Research Copilot
+
+## Commit `5ffe0e0` — 2026-09-04T17:16:33Z
+- Type: `fix`
+- Brief: [COMMIT-5ffe0e0.md](../build_/COMMITS/COMMIT-5ffe0e0.md)
+- Message: trigger deploy: Track 2 composition-cost fix + reconcile N+1 batch
+
+## Commit `9ebf203` — 2026-09-04T17:16:28Z
+- Type: `push`
+- Brief: [COMMIT-9ebf203.md](../build_/COMMITS/COMMIT-9ebf203.md)
+- Message: Record the Track 2 composition-cost resolution + bounded-projection invariant
+
+## Commit `12055d5` — 2026-09-04T17:16:22Z
+- Type: `feat`
+- Brief: [COMMIT-12055d5.md](../build_/COMMITS/COMMIT-12055d5.md)
+- Message: Stop computing readiness 3x per Track 2 state read; add finer phase timing
+
+## Commit `407ed0d` — 2026-09-04T17:16:08Z
+- Type: `fix`
+- Brief: [COMMIT-407ed0d.md](../build_/COMMITS/COMMIT-407ed0d.md)
+- Message: Batch reconcilePromotedCohort's exact-match repair lookup to close a latent N+1
