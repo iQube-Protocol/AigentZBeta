@@ -79,14 +79,28 @@ export function SmartTriadInferenceRenderer({
   onAgentChange,
   onModelSelectorChange,
 }: SmartTriadInferenceRendererProps) {
-  const a2uiPayload = useMemo(() => extractA2UIPayload(message.content), [message.content]);
-  const mediaVideoPayload = useMemo(() => extractMediaVideoPayload(message.content), [message.content]);
+  const a2uiExtraction = useMemo(() => extractA2UIPayload(message.content), [message.content]);
+  const mediaVideoExtraction = useMemo(() => extractMediaVideoPayload(message.content), [message.content]);
+  const a2uiPayload = a2uiExtraction?.payload ?? null;
+  const mediaVideoPayload = mediaVideoExtraction?.payload ?? null;
 
-  
+  // A structured payload (A2UI surface, media-video) renders its OWN rich
+  // preview component below — the fenced JSON block it was parsed FROM must
+  // never ALSO reach the generic line-level renderer, or the operator sees
+  // the raw JSON a second time directly underneath the rendered preview
+  // (2026-09-04 fix: extraction previously only READ the fenced block,
+  // never removed it from what still got rendered).
+  const contentForDisplay = useMemo(() => {
+    let next = message.content;
+    if (a2uiExtraction) next = next.replace(a2uiExtraction.rawMatch, '');
+    if (mediaVideoExtraction) next = next.replace(mediaVideoExtraction.rawMatch, '');
+    return next;
+  }, [message.content, a2uiExtraction, mediaVideoExtraction]);
+
   // Process content through sanitization and markdown transformation
   const processedContent = useMemo(() => {
-    return processMessageContent(message.content);
-  }, [message.content]);
+    return processMessageContent(contentForDisplay);
+  }, [contentForDisplay]);
 
   // Render line-level content
   const renderContent = useCallback(() => {
@@ -156,7 +170,15 @@ export function SmartTriadInferenceRenderer({
   );
 }
 
-function extractA2UIPayload(content: string): A2UISurfacePayload | null {
+interface A2UIExtraction {
+  payload: A2UISurfacePayload;
+  /** The exact substring matched — whole fenced block, or the whole trimmed
+   *  content for a bare-JSON message — so the caller can strip precisely
+   *  what was parsed, never a guessed/re-derived span. */
+  rawMatch: string;
+}
+
+function extractA2UIPayload(content: string): A2UIExtraction | null {
   const parseCandidate = (raw: string): A2UISurfacePayload | null => {
     try {
       const parsed = JSON.parse(raw);
@@ -169,7 +191,7 @@ function extractA2UIPayload(content: string): A2UISurfacePayload | null {
   const trimmed = content.trim();
   if (trimmed.startsWith("{") && trimmed.includes("a2ui.surface.v0")) {
     const direct = parseCandidate(trimmed);
-    if (direct) return direct;
+    if (direct) return { payload: direct, rawMatch: trimmed };
   }
 
   const fenceRegex = /```(?:json)?\s*([\s\S]*?)```/gi;
@@ -177,7 +199,7 @@ function extractA2UIPayload(content: string): A2UISurfacePayload | null {
 
   while ((match = fenceRegex.exec(content)) !== null) {
     const parsed = parseCandidate(match[1]);
-    if (parsed) return parsed;
+    if (parsed) return { payload: parsed, rawMatch: match[0] };
   }
 
   return null;
@@ -228,7 +250,13 @@ function isSmartTriadMediaVideoPayload(value: unknown): value is SmartTriadMedia
   );
 }
 
-function extractMediaVideoPayload(content: string): SmartTriadMediaVideoPayload | null {
+interface MediaVideoExtraction {
+  payload: SmartTriadMediaVideoPayload;
+  /** The exact substring matched — see A2UIExtraction.rawMatch. */
+  rawMatch: string;
+}
+
+function extractMediaVideoPayload(content: string): MediaVideoExtraction | null {
   const parseCandidate = (raw: string): SmartTriadMediaVideoPayload | null => {
     try {
       const parsed = JSON.parse(raw);
@@ -241,14 +269,14 @@ function extractMediaVideoPayload(content: string): SmartTriadMediaVideoPayload 
   const trimmed = content.trim();
   if (trimmed.startsWith('{') && trimmed.includes('smarttriad.media.video.v0')) {
     const direct = parseCandidate(trimmed);
-    if (direct) return direct;
+    if (direct) return { payload: direct, rawMatch: trimmed };
   }
 
   const fenceRegex = /```(?:json)?\s*([\s\S]*?)```/gi;
   let match: RegExpExecArray | null;
   while ((match = fenceRegex.exec(content)) !== null) {
     const parsed = parseCandidate(match[1]);
-    if (parsed) return parsed;
+    if (parsed) return { payload: parsed, rawMatch: match[0] };
   }
   return null;
 }
@@ -267,15 +295,29 @@ function extractMediaVideoPayload(content: string): SmartTriadMediaVideoPayload 
  * cannot contain arbitrary executable instructions"), this is the ONLY
  * action a related chip can take — a deterministic navigation, never a
  * free-form instruction.
+ *
+ * The native control bar is floating chrome (2026-09-04, operator request):
+ * present only while the pointer is over the video, hidden otherwise, so the
+ * chat transcript isn't permanently occupied by a control strip. The
+ * `controls` attribute itself is toggled (not just its opacity) because
+ * native media-control styling isn't reliably targetable with CSS across
+ * browsers — this is the same approach every "YouTube-style" hover-chrome
+ * player uses. Focus (keyboard navigation) also reveals it, so the video
+ * stays operable without a pointer.
  */
 function MediaVideoPreview({ payload }: { payload: SmartTriadMediaVideoPayload }) {
+  const [showControls, setShowControls] = React.useState(false);
   return (
     <div className="smarttriad-media-video-preview">
       <video
-        controls
+        controls={showControls}
         poster={payload.posterUrl ?? undefined}
         src={payload.url}
         className="smarttriad-media-video-preview-player"
+        onMouseEnter={() => setShowControls(true)}
+        onMouseLeave={() => setShowControls(false)}
+        onFocus={() => setShowControls(true)}
+        onBlur={() => setShowControls(false)}
       />
       <div className="smarttriad-media-video-preview-title">{payload.title}</div>
       <button

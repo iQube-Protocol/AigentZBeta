@@ -162,6 +162,23 @@ describe('SmartTriadInferenceRenderer.tsx — shared, generic media-video render
     expect(componentBody).not.toMatch(/VideoPlayer/);
   });
 
+  // Operator request (2026-09-04): the video's native control bar is
+  // floating chrome — present only while the pointer is over the video (or
+  // it has keyboard focus), hidden otherwise, rather than a permanently
+  // visible strip inside the chat transcript.
+  it('the control bar is hover/focus-only — the controls attribute is toggled by pointer and keyboard-focus state, never a bare boolean', () => {
+    const componentStart = src.indexOf('function MediaVideoPreview');
+    const componentEnd = src.indexOf('\n}', componentStart);
+    const componentBody = src.slice(componentStart, componentEnd);
+    expect(componentBody).toMatch(/const \[showControls, setShowControls\] = React\.useState\(false\);/);
+    expect(componentBody).toMatch(/controls=\{showControls\}/);
+    expect(componentBody).not.toMatch(/<video\s+controls\s/);
+    expect(componentBody).toMatch(/onMouseEnter=\{\(\) => setShowControls\(true\)\}/);
+    expect(componentBody).toMatch(/onMouseLeave=\{\(\) => setShowControls\(false\)\}/);
+    expect(componentBody).toMatch(/onFocus=\{\(\) => setShowControls\(true\)\}/);
+    expect(componentBody).toMatch(/onBlur=\{\(\) => setShowControls\(false\)\}/);
+  });
+
   it('the related chip calls tryOpenInMountedCartridge with the payload\'s OWN cartridgeId/tab — generic, not hardcoded to moneypenny-codex, so any cartridge emitting this schema is supported', () => {
     expect(src).toMatch(/import \{ tryOpenInMountedCartridge \} from '@\/services\/cartridge\/CartridgePresenceRegistry'/);
     const componentStart = src.indexOf('function MediaVideoPreview');
@@ -171,9 +188,35 @@ describe('SmartTriadInferenceRenderer.tsx — shared, generic media-video render
   });
 
   it('mediaVideoPayload is wired into the main render alongside a2uiPayload — additive, does not replace it', () => {
-    expect(src).toMatch(/const mediaVideoPayload = useMemo\(\(\) => extractMediaVideoPayload\(message\.content\), \[message\.content\]\);/);
+    expect(src).toMatch(/const mediaVideoExtraction = useMemo\(\(\) => extractMediaVideoPayload\(message\.content\), \[message\.content\]\);/);
     expect(src).toMatch(/\{a2uiPayload && <A2UIPayloadPreview payload=\{a2uiPayload\} \/>\}/);
     expect(src).toMatch(/\{mediaVideoPayload && <MediaVideoPreview payload=\{mediaVideoPayload\} \/>\}/);
+  });
+
+  // Reported defect (2026-09-04): the raw fenced JSON block a structured
+  // payload was parsed FROM was never removed from what the generic
+  // line-level renderer displays, so the operator saw the correctly-
+  // rendered video/A2UI preview AND the raw JSON code block rendered a
+  // second time directly beneath it.
+  it('extraction returns the matched raw fence text (rawMatch), not just the parsed payload — the caller needs it to strip what was already rendered as a preview', () => {
+    expect(src).toMatch(/interface A2UIExtraction \{/);
+    expect(src).toMatch(/interface MediaVideoExtraction \{/);
+    expect(src).toMatch(/return \{ payload: direct, rawMatch: trimmed \};/);
+    expect(src).toMatch(/return \{ payload: parsed, rawMatch: match\[0\] \};/g);
+  });
+
+  it('contentForDisplay strips BOTH extractions\' rawMatch from message.content before it reaches the line-level renderer — never both a preview AND the raw fence', () => {
+    const fnStart = src.indexOf('const contentForDisplay = useMemo');
+    expect(fnStart).toBeGreaterThan(-1);
+    const fnEnd = src.indexOf('}, [message.content, a2uiExtraction, mediaVideoExtraction]);', fnStart);
+    expect(fnEnd).toBeGreaterThan(fnStart);
+    const body = src.slice(fnStart, fnEnd);
+    expect(body).toMatch(/a2uiExtraction\.rawMatch/);
+    expect(body).toMatch(/mediaVideoExtraction\.rawMatch/);
+  });
+
+  it('processedContent (what renderContent() actually renders) is derived from contentForDisplay, never the raw message.content', () => {
+    expect(src).toMatch(/const processedContent = useMemo\(\(\) => \{\s*return processMessageContent\(contentForDisplay\);/);
   });
 });
 
