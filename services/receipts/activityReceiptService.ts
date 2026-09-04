@@ -549,7 +549,25 @@ export type ActivityActionType =
   // (services/dvn/activityReceiptDvnPipeline.ts) — an observed interaction
   // is evidence of engagement, not a constitutional/consequential act, and
   // stays local per that file's own "low-value events stay local" rule.
-  | 'experience_interaction_observed';
+  | 'experience_interaction_observed'
+  // Factor + Aegis 0.1 (GJR-FAC-001, reconciled onto spec/moneypenny-mpy2-3,
+  // 2026-09-04) — Factor's candidate-intake pipeline, Aegis's independent
+  // assessment engine, and MoneyPenny's sole-admission-authority decision.
+  // Reuses this ONE ledger + the existing DVN pipeline (activity_receipts,
+  // never a parallel `constitutional_activity_receipts` table) per
+  // inv.engineering.036/037. See codexes/packs/agentiq/updates/
+  // 2026-09-04_factor-aegis-0.1-phase1-reconciliation.md.
+  | 'factor_case_opened'
+  | 'factor_case_state_changed'
+  | 'factor_evidence_recorded'
+  | 'aegis_assessment_requested'
+  | 'aegis_assessment_ratified'
+  | 'aegis_assessment_failed'
+  | 'aegis_assessment_superseded'
+  | 'moneypenny_admission_decided'
+  | 'factor_standing_proposed'
+  | 'factor_authority_chain_established'
+  | 'factor_authority_chain_revoked';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 
