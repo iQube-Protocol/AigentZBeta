@@ -395,6 +395,23 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   'qubetalk_endpoint_linked',
   'qubetalk_group_federated',
   'qubetalk_conversation_context_disclosure',
+  // Factor + Aegis 0.1 (GJR-FAC-001, 2026-09-04) — same permitted
+  // addition-only change. Each is a constitutional decision or its
+  // immutable outcome: an Aegis ratification/failure is the independent
+  // assessment decision itself; MoneyPenny's admission decision is the
+  // one act this whole PRD exists to make attributable and tamper-evident;
+  // an authority-chain establish/revoke is the delegation-boundary act.
+  // 'aegis_assessment_requested', 'factor_case_opened',
+  // 'factor_case_state_changed', 'factor_evidence_recorded' and
+  // 'factor_standing_proposed' are deliberately excluded — pre-decision or
+  // high-volume pipeline/proposal events, same discipline as
+  // 'invariant_discovered' above (proposals are not yet ratified facts).
+  'aegis_assessment_ratified',
+  'aegis_assessment_failed',
+  'aegis_assessment_superseded',
+  'moneypenny_admission_decided',
+  'factor_authority_chain_established',
+  'factor_authority_chain_revoked',
 ]);
 
 export function shouldAnchorActionType(actionType: string): boolean {

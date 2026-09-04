@@ -40,6 +40,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-09-04_factor-aegis-0.1-phase1-reconciliation.md",
         "updates/2026-09-03_access-steward-001-s0-reconciliation.md",
         "updates/2026-09-03_access-steward-001-acceptance-ledger.md",
         "updates/2026-09-03_operate-means-operating-within-metame.md",
