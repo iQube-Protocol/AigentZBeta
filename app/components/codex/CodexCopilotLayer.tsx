@@ -14,6 +14,9 @@ import { resolveVoicePersona } from "@/services/metame/voicePersona";
 import type { SmartTriadDeepLink, SmartTriadOperation } from "@/types/smartTriadContext";
 const SmartWalletDrawer = dynamic(() => import("../content/SmartWalletDrawer"), { ssr: false });
 import { CopilotInferenceBodyRenderer, type PromptSuggestionMeta } from "./CopilotInferenceBodyRenderer";
+import { extractRichBlocksFromText } from "@/services/smarttriad/richBlocks";
+import { SmartTriadRichBlockListRenderer } from "@/components/smarttriad/richblocks/SmartTriadRichBlockRenderer";
+import type { SmartTriadRichBlockEnvelope } from "@/types/smarttriad/richBlocks";
 import { AigentMeRoleSelector } from "@/components/smarttriad/copilot/AigentMeRoleSelector";
 import { useTTSListen } from "@/components/smarttriad/copilot/useTTSListen";
 import { TTSListenButton } from "@/components/smarttriad/copilot/TTSListenButton";
@@ -296,6 +299,9 @@ export type CopilotMessage = {
    *  against the deepLinks catalog (SmartTriad PRD §6 — inference-driven
    *  navigation). Rendered under the message; unknown labels are dropped. */
   navChips?: SmartTriadDeepLink[];
+  /** First-class structured content (SmartTriad Rich Blocks, 2026-09-04) —
+   *  see CopilotInferenceBodyRenderer's own `blocks` prop doc. */
+  blocks?: SmartTriadRichBlockEnvelope[];
 };
 
 type CodexChatResponse = {
@@ -304,6 +310,9 @@ type CodexChatResponse = {
   /** Invariants that grounded this turn (SmartTriad Phase 3 constitutional
    *  memory v0) — accumulated client-side, sent back as sessionInvariants. */
   resolved_invariants?: Array<{ seedId?: string; statement?: string }>;
+  /** SmartTriad Rich Blocks (2026-09-04) — additive first-class structured
+   *  content transport; absent on every response that doesn't emit one. */
+  blocks?: SmartTriadRichBlockEnvelope[];
 };
 
 export function CodexCopilotLayer({
@@ -1477,6 +1486,7 @@ export function CodexCopilotLayer({
           timestamp: new Date(),
           walletActions: structuredWalletActions.length > 0 ? structuredWalletActions : undefined,
           navChips: navParsed && navParsed.chips.length > 0 ? navParsed.chips : undefined,
+          blocks: Array.isArray(data?.blocks) && data.blocks.length > 0 ? data.blocks : undefined,
         },
       ]);
     } catch (err) {
@@ -1916,13 +1926,42 @@ export function CodexCopilotLayer({
                                     : "bg-white/5 text-white/90 rounded-bl-sm ring-white/10"
                                 }`}
                               >
-                                {enableInferenceRendering &&
-                                msg.role === "assistant" &&
-                                typeof msg.content === "string" ? (
-                                  <CopilotInferenceBodyRenderer
-                                    content={msg.content}
-                                    onPromptSuggestion={handlePromptSuggestion}
-                                  />
+                                {msg.role === "assistant" && typeof msg.content === "string" ? (
+                                  enableInferenceRendering ? (
+                                    <CopilotInferenceBodyRenderer
+                                      content={msg.content}
+                                      onPromptSuggestion={handlePromptSuggestion}
+                                      blocks={msg.blocks}
+                                      onRichBlockContinuePrompt={(prompt) => void sendMessage(prompt)}
+                                    />
+                                  ) : (
+                                    // Structured-block rendering never depends on
+                                    // enableInferenceRendering (that flag governs
+                                    // enhanced Markdown/Mermaid presentation only) —
+                                    // a valid rich block still renders here, above
+                                    // the message's plain-text content with its own
+                                    // fenced JSON stripped out.
+                                    (() => {
+                                      const extraction = extractRichBlocksFromText(msg.content as string);
+                                      const transportBlocks = (msg.blocks ?? []).map((envelope) => ({
+                                        envelope,
+                                        invalid: false,
+                                        rawMatch: "",
+                                      }));
+                                      const allBlocks = [...transportBlocks, ...extraction.blocks];
+                                      return (
+                                        <>
+                                          {allBlocks.length > 0 && (
+                                            <SmartTriadRichBlockListRenderer
+                                              blocks={allBlocks}
+                                              onContinuePrompt={(prompt) => void sendMessage(prompt)}
+                                            />
+                                          )}
+                                          {extraction.contentWithoutBlocks}
+                                        </>
+                                      );
+                                    })()
+                                  )
                                 ) : (
                                   msg.content
                                 )}

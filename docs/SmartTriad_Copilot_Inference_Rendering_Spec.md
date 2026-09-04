@@ -287,6 +287,106 @@ const smartTriadMessages = convertToSmartTriadMessages(legacyMessages);
 
 ---
 
+## 🎬 SmartTriad Rich Blocks — first-class structured content (2026-09-04)
+
+Promoted from a MoneyPenny-only inline-video experience into a platform-wide primitive
+available to every SmartTriad/Codex copilot surface. Full architecture and the exact
+non-fabrication ruling live as code comments in the modules below — this section is the
+map, not a duplicate of that reasoning.
+
+### Schema and versioning
+
+- **Canonical schema**: `smarttriad.block.v1` (`types/smarttriad/richBlocks.ts`) —
+  `SmartTriadRichBlockEnvelope { schemaVersion, id, kind, payload }`. Today only
+  `kind: 'media.video'` is implemented (`SmartTriadVideoBlock`); a future kind extends
+  this discriminated union rather than forking a second envelope family.
+- **Legacy compatibility**: `smarttriad.media.video.v0` (MoneyPenny Cartridge C-15's
+  original payload) is normalized into a v1 envelope by
+  `normalizeLegacyVideoV0` (`services/smarttriad/richBlocks.ts`) — never a second parser.
+  Existing MoneyPenny messages that still embed the v0 fenced JSON keep rendering
+  unchanged.
+- **Malformed-payload ruling**: a fenced block with NO recognized schema marker is left
+  completely alone (ordinary text/code). One that DOES carry a marker but fails
+  validation renders an honest "Unsupported or invalid media content" notice — never raw
+  JSON, never silently dropped. See `services/smarttriad/richBlocks.ts`'s header comment
+  for the full reasoning.
+
+### How a cartridge registers media
+
+A cartridge/journey adds an entry to `SMARTTRIAD_MEDIA_PROVIDERS`
+(`services/smarttriad/mediaProviders.ts`) — a `{ id, matches(message, groundContext),
+resolve(supabase, message, groundContext) }` triple. `app/api/codex/chat/route.ts`
+carries NO cartridge-specific branch; it calls `resolveSmartTriadMedia` once, generically,
+against whatever `groundContext` the request already sent. Two providers ship today:
+
+| Provider | Scoping dimension | Source |
+|---|---|---|
+| `moneypenny.learn-video` | `groundContext.cartridge === 'moneypenny'` | Qriptopian Bridges editorial config (`moneypenny-financial-basics` section) |
+| `financial-sovereignty.lesson-video` | `groundContext.surface === 'journey-runtime'` | `FS_PLACEHOLDER_VIDEO_URL` — a real, already-published Studio asset reused across FS bridge lesson stages |
+
+A provider whose trigger matches but has nothing published still short-circuits with an
+honest "nothing published yet" message — the LLM is never asked to guess a URL in its
+place. The model may never emit a media URL directly; it can, at most, be told about a
+registered capability by stable id.
+
+### Transport
+
+Additive to the existing string response: `{ response, blocks?: SmartTriadRichBlockEnvelope[] }`
+on both copilot response contracts (`CodexChatResponse` in `CodexCopilotLayer.tsx`,
+the equivalent shape `SmartTriadCopilotLayer.tsx` reads). A message with no `blocks`
+behaves exactly as before. Legacy fenced-JSON embedding inside `response` remains a
+supported compatibility path, extracted by the same shared parser.
+
+### Renderer
+
+One shared player (`components/smarttriad/richblocks/SmartTriadVideoBlockRenderer.tsx`)
+and one shared dispatcher (`SmartTriadRichBlockRenderer.tsx`), consumed by BOTH renderer
+families:
+
+- `components/smarttriad/copilot/SmartTriadInferenceRenderer.tsx` (mounted by
+  `SmartTriadCopilotLayer` — MoneyPenny, DevOn, aigentMe persistent split-panes)
+- `app/components/codex/CopilotInferenceBodyRenderer.tsx` (mounted by `CodexCopilotLayer`
+  — the floating/embedded shell used across cartridge tabs)
+
+Structured-block rendering does NOT depend on `CodexCopilotLayer`'s
+`enableInferenceRendering` flag — that flag continues to govern enhanced Markdown/Mermaid
+presentation only. A valid block always renders, on every copilot surface that supports
+the shared message contract.
+
+### Security and entitlement boundaries
+
+- `isForbiddenMediaUrl` rejects `javascript:`, `data:`, `vbscript:` schemes on every URL
+  field (primary url, poster, captions, `open-document` actions) — never just the
+  headline field.
+- `access.class` (`public | authenticated | entitled | admin`) gates playback:
+  `SmartTriadVideoBlockRenderer` only plays `public` content through the shared native
+  `<video>` element; anything else refuses to play inline and names the boundary rather
+  than silently attempting playback (CLAUDE.md's Gated Content rules — purchased/entitled
+  content still requires the platform's existing `VideoPlayer`/entitlement path).
+- Actions are a closed, typed set (`open-cartridge-tab | open-capsule | seek-chapter |
+  open-transcript | open-document | continue-prompt`) validated against this enum and,
+  for navigation actions, resolved only through the existing
+  `tryOpenInMountedCartridge` registry — never a raw URL or free-form instruction.
+- Autoplay is never permitted with sound: `muted` is coerced `true` whenever `autoplay`
+  is `true`, regardless of what the payload requested.
+
+### Migrating a future v0-only caller
+
+Any future emitter of `smarttriad.media.video.v0` keeps working unmodified — the
+compatibility adapter is permanent, not a deprecation window. New server-side media
+responses should use the `blocks` transport field directly rather than embedding fenced
+JSON in `response`; fenced-JSON emission remains supported only as a legacy path.
+
+### Extending with a future rich-block kind
+
+Add the new payload type to `SmartTriadRichBlockPayload`
+(`types/smarttriad/richBlocks.ts`), a validator alongside `validateSmartTriadVideoBlock`
+in `services/smarttriad/richBlocks.ts`, and a `case` in
+`SmartTriadRichBlockRenderer.tsx`'s dispatcher switch — never a second, parallel
+extraction/rendering pipeline for the new kind.
+
+---
+
 ## 🔮 Future Enhancements
 
 ### Planned Features

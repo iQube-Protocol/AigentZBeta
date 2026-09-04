@@ -12,7 +12,9 @@ import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { Bot, User, AlertTriangle, Clock, Zap } from 'lucide-react';
 import { AgentModelSelector, type AgentOption, type ModelOption } from './AgentModelSelector';
 import type { A2UISurfacePayload } from '@/services/a2ui/types';
-import { tryOpenInMountedCartridge } from '@/services/cartridge/CartridgePresenceRegistry';
+import { extractRichBlocksFromText } from '@/services/smarttriad/richBlocks';
+import { SmartTriadRichBlockListRenderer } from '@/components/smarttriad/richblocks/SmartTriadRichBlockRenderer';
+import type { SmartTriadRichBlockEnvelope } from '@/types/smarttriad/richBlocks';
 
 // Types
 export interface SmartTriadMessage {
@@ -21,6 +23,12 @@ export interface SmartTriadMessage {
   content: string;
   timestamp: Date;
   variant?: 'bubble' | 'panel';
+  /** First-class structured content (Workstream 2, 2026-09-04) — rich blocks
+   *  transported alongside `response` text rather than embedded as fenced
+   *  JSON inside it. Additive: a message with no `blocks` behaves exactly as
+   *  before (legacy fenced-JSON extraction, below, remains the compatibility
+   *  path for any reply that still embeds one). */
+  blocks?: SmartTriadRichBlockEnvelope[];
   metadata?: {
     model?: string;
     provider?: string;
@@ -54,6 +62,10 @@ export interface SmartTriadInferenceRendererProps {
   modelOptions?: ModelOption[];
   onAgentChange?: (agent: AgentOption) => void;
   onModelSelectorChange?: (model: ModelOption) => void;
+  /** 'continue-prompt' rich-block action — the host sends it as a new
+   *  message. Omitted entirely on a host that hasn't wired it (the action
+   *  simply renders inert rather than throwing). */
+  onRichBlockContinuePrompt?: (prompt: string) => void;
 }
 
 // Key terms for highlighting
@@ -78,24 +90,38 @@ export function SmartTriadInferenceRenderer({
   modelOptions = [],
   onAgentChange,
   onModelSelectorChange,
+  onRichBlockContinuePrompt,
 }: SmartTriadInferenceRendererProps) {
   const a2uiExtraction = useMemo(() => extractA2UIPayload(message.content), [message.content]);
-  const mediaVideoExtraction = useMemo(() => extractMediaVideoPayload(message.content), [message.content]);
   const a2uiPayload = a2uiExtraction?.payload ?? null;
-  const mediaVideoPayload = mediaVideoExtraction?.payload ?? null;
 
-  // A structured payload (A2UI surface, media-video) renders its OWN rich
+  // SmartTriad Rich Blocks (2026-09-04) — the shared, platform-wide
+  // media-video primitive promoted out of this file's former
+  // MoneyPenny-only extractMediaVideoPayload/MediaVideoPreview. Recognizes
+  // BOTH the current `smarttriad.block.v1` envelope AND the legacy
+  // `smarttriad.media.video.v0` MoneyPenny payload (compatibility adapter),
+  // via services/smarttriad/richBlocks.ts — the ONE parser every copilot
+  // renderer family shares (see app/components/codex/CopilotInferenceBodyRenderer.tsx).
+  const richBlockExtraction = useMemo(() => extractRichBlocksFromText(message.content), [message.content]);
+  // First-class `blocks` transport (Workstream 2) renders alongside any
+  // legacy fenced-JSON blocks still embedded in `content` — deterministic
+  // order: transport blocks first, then extracted-from-text blocks.
+  const renderedBlocks = useMemo(() => {
+    const transportBlocks = (message.blocks ?? []).map((envelope) => ({ envelope, invalid: false, rawMatch: '' }));
+    return [...transportBlocks, ...richBlockExtraction.blocks];
+  }, [message.blocks, richBlockExtraction.blocks]);
+
+  // A structured payload (A2UI surface, rich block) renders its OWN rich
   // preview component below — the fenced JSON block it was parsed FROM must
   // never ALSO reach the generic line-level renderer, or the operator sees
   // the raw JSON a second time directly underneath the rendered preview
   // (2026-09-04 fix: extraction previously only READ the fenced block,
   // never removed it from what still got rendered).
   const contentForDisplay = useMemo(() => {
-    let next = message.content;
+    let next = richBlockExtraction.contentWithoutBlocks;
     if (a2uiExtraction) next = next.replace(a2uiExtraction.rawMatch, '');
-    if (mediaVideoExtraction) next = next.replace(mediaVideoExtraction.rawMatch, '');
     return next;
-  }, [message.content, a2uiExtraction, mediaVideoExtraction]);
+  }, [richBlockExtraction.contentWithoutBlocks, a2uiExtraction]);
 
   // Process content through sanitization and markdown transformation
   const processedContent = useMemo(() => {
@@ -146,7 +172,7 @@ export function SmartTriadInferenceRenderer({
       {/* Processed Content */}
       <div className="smarttriad-conversational-content">
         {a2uiPayload && <A2UIPayloadPreview payload={a2uiPayload} />}
-        {mediaVideoPayload && <MediaVideoPreview payload={mediaVideoPayload} />}
+        <SmartTriadRichBlockListRenderer blocks={renderedBlocks} onContinuePrompt={onRichBlockContinuePrompt} />
         {renderContent()}
       </div>
 
@@ -215,121 +241,6 @@ function isA2UISurfacePayload(value: unknown): value is A2UISurfacePayload {
     typeof payload.session_id === "string" &&
     Array.isArray(payload.modules) &&
     !!payload.tree
-  );
-}
-
-/**
- * Media-video fenced-block detection — MoneyPenny Cartridge C-15 (2026-09-02).
- * Mirrors extractA2UIPayload's exact pattern (schema_version-keyed JSON,
- * not a special info-string) so the SAME generic fence-scanning approach
- * recognizes either payload shape. This is deliberately part of the SHARED
- * SmartTriad renderer, not a MoneyPenny-only fork — the Cartridge spec's own
- * instruction (C-15 §11: "the capability belongs to the common framework,
- * not a MoneyPenny-only iframe workaround"). Any cartridge whose server
- * route emits this schema gets the same inline-video + related-chip
- * rendering for free.
- */
-export interface SmartTriadMediaVideoPayload {
-  schema_version: 'smarttriad.media.video.v0';
-  url: string;
-  posterUrl: string | null;
-  title: string;
-  relatedChip: { label: string; cartridgeId: string; tab: string };
-}
-
-function isSmartTriadMediaVideoPayload(value: unknown): value is SmartTriadMediaVideoPayload {
-  if (!value || typeof value !== 'object') return false;
-  const payload = value as Partial<SmartTriadMediaVideoPayload>;
-  return (
-    payload.schema_version === 'smarttriad.media.video.v0' &&
-    typeof payload.url === 'string' &&
-    typeof payload.title === 'string' &&
-    !!payload.relatedChip &&
-    typeof payload.relatedChip.cartridgeId === 'string' &&
-    typeof payload.relatedChip.tab === 'string'
-  );
-}
-
-interface MediaVideoExtraction {
-  payload: SmartTriadMediaVideoPayload;
-  /** The exact substring matched — see A2UIExtraction.rawMatch. */
-  rawMatch: string;
-}
-
-function extractMediaVideoPayload(content: string): MediaVideoExtraction | null {
-  const parseCandidate = (raw: string): SmartTriadMediaVideoPayload | null => {
-    try {
-      const parsed = JSON.parse(raw);
-      return isSmartTriadMediaVideoPayload(parsed) ? parsed : null;
-    } catch {
-      return null;
-    }
-  };
-
-  const trimmed = content.trim();
-  if (trimmed.startsWith('{') && trimmed.includes('smarttriad.media.video.v0')) {
-    const direct = parseCandidate(trimmed);
-    if (direct) return { payload: direct, rawMatch: trimmed };
-  }
-
-  const fenceRegex = /```(?:json)?\s*([\s\S]*?)```/gi;
-  let match: RegExpExecArray | null;
-  while ((match = fenceRegex.exec(content)) !== null) {
-    const parsed = parseCandidate(match[1]);
-    if (parsed) return { payload: parsed, rawMatch: match[0] };
-  }
-  return null;
-}
-
-/**
- * Public/non-gated content — a plain native <video> element with browser
- * controls, matching components/journey/BridgeMediaStage.tsx's established
- * pattern for public bridge media (CLAUDE.md's canonical VideoPlayer
- * component is scoped to purchased/entitled content only — see that rule's
- * own "What is NOT gated" carve-out for free/preview content).
- *
- * The related chip calls tryOpenInMountedCartridge directly with the
- * cartridgeId/tab embedded in the payload — generic, not hardcoded to
- * MoneyPenny, so this stays reusable by any future cartridge that emits
- * this schema. Per the Admin spec's A-08 constraint ("related chips...
- * cannot contain arbitrary executable instructions"), this is the ONLY
- * action a related chip can take — a deterministic navigation, never a
- * free-form instruction.
- *
- * The native control bar is floating chrome (2026-09-04, operator request):
- * present only while the pointer is over the video, hidden otherwise, so the
- * chat transcript isn't permanently occupied by a control strip. The
- * `controls` attribute itself is toggled (not just its opacity) because
- * native media-control styling isn't reliably targetable with CSS across
- * browsers — this is the same approach every "YouTube-style" hover-chrome
- * player uses. Focus (keyboard navigation) also reveals it, so the video
- * stays operable without a pointer.
- */
-function MediaVideoPreview({ payload }: { payload: SmartTriadMediaVideoPayload }) {
-  const [showControls, setShowControls] = React.useState(false);
-  return (
-    <div className="smarttriad-media-video-preview">
-      <video
-        controls={showControls}
-        poster={payload.posterUrl ?? undefined}
-        src={payload.url}
-        className="smarttriad-media-video-preview-player"
-        onMouseEnter={() => setShowControls(true)}
-        onMouseLeave={() => setShowControls(false)}
-        onFocus={() => setShowControls(true)}
-        onBlur={() => setShowControls(false)}
-      />
-      <div className="smarttriad-media-video-preview-title">{payload.title}</div>
-      <button
-        type="button"
-        className="smarttriad-media-video-preview-chip"
-        onClick={() =>
-          tryOpenInMountedCartridge({ cartridgeId: payload.relatedChip.cartridgeId, tab: payload.relatedChip.tab })
-        }
-      >
-        {payload.relatedChip.label}
-      </button>
-    </div>
   );
 }
 

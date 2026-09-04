@@ -111,19 +111,23 @@ describe('GET /api/moneypenny/learn-content — public, unauthenticated, reuses 
   });
 });
 
-describe('app/api/codex/chat/route.ts — deterministic learn-video short-circuit, never an LLM-interpreted match', () => {
+describe('app/api/codex/chat/route.ts — universal SmartTriad media resolution, no cartridge-specific branch (2026-09-04)', () => {
   const src = stripComments(readSource('app/api/codex/chat/route.ts'));
 
-  it('checks groundContext.cartridge === "moneypenny" AND isMoneyPennyLearnVideoRequest(message) — a deterministic classifier, never LLM-interpreted (widened Turn E, 2026-09-02, from an exact-string match to ordinary phrasing)', () => {
-    const idx = src.lastIndexOf('getMoneyPennyIntroVideoReply');
+  it('no direct MoneyPenny branch remains in the central chat route — resolution is delegated to the provider registry', () => {
+    expect(src).not.toMatch(/isMoneyPennyLearnVideoRequest/);
+    expect(src).not.toMatch(/getMoneyPennyIntroVideoReply/);
+    expect(src).not.toMatch(/cartridge === 'moneypenny'/);
+    expect(src).toMatch(/import \{ resolveSmartTriadMedia \} from '@\/services\/smarttriad\/mediaProviders'/);
+  });
+
+  it('calls resolveSmartTriadMedia with groundContext + the raw message BEFORE the LLM ever runs, a deterministic classifier, never LLM-interpreted', () => {
+    const idx = src.indexOf('resolveSmartTriadMedia(supabase, message, groundContext');
     expect(idx).toBeGreaterThan(-1);
-    const around = src.slice(Math.max(0, idx - 700), idx + 100);
-    expect(around).toMatch(/\(groundContext as Record<string, unknown>\)\.cartridge === 'moneypenny'/);
-    expect(around).toMatch(/isMoneyPennyLearnVideoRequest\(message\)/);
   });
 
   it('short-circuit sits BEFORE the "Message is required" guard and the entire prompt-construction pipeline — no persona/auth resolution needed first', () => {
-    const shortCircuitIdx = src.lastIndexOf('getMoneyPennyIntroVideoReply');
+    const shortCircuitIdx = src.indexOf('resolveSmartTriadMedia(supabase, message, groundContext');
     const messageRequiredIdx = src.indexOf("'Message is required'");
     const getActivePersonaIdx = src.indexOf('await getActivePersona(request)');
     expect(shortCircuitIdx).toBeGreaterThan(-1);
@@ -131,10 +135,39 @@ describe('app/api/codex/chat/route.ts — deterministic learn-video short-circui
     expect(getActivePersonaIdx).toBeGreaterThan(shortCircuitIdx);
   });
 
-  it('returns the same response contract shape the normal path uses (response/persona/event_meta) — no bespoke envelope', () => {
-    const idx = src.lastIndexOf('getMoneyPennyIntroVideoReply');
+  it('a matched provider with nothing published still short-circuits with an honest message — the LLM is never asked to guess in its place', () => {
+    const idx = src.indexOf('mediaResolution.matched');
+    expect(idx).toBeGreaterThan(-1);
+    const body = src.slice(idx, idx + 900);
+    expect(body).toMatch(/No media has been published for this yet\./);
+  });
+
+  it('a resolved block returns the SAME response contract shape the normal path uses, additively carrying blocks — no bespoke envelope', () => {
+    const idx = src.indexOf('mediaResolution.blocks.length > 0');
     const returnStmt = src.slice(idx, src.indexOf(';', src.indexOf('NextResponse.json', idx)) + 1);
-    expect(returnStmt).toMatch(/NextResponse\.json\(\{ response, persona, event_meta: eventMeta \}\)/);
+    expect(returnStmt).toMatch(/NextResponse\.json\(\{ response, persona, event_meta: eventMeta, blocks: mediaResolution\.blocks \}\)/);
+  });
+});
+
+describe('services/smarttriad/mediaProviders.ts — cartridge-aware media provider registry', () => {
+  const src = stripComments(readSource('services/smarttriad/mediaProviders.ts'));
+
+  it('registers MoneyPenny as a provider preserving its exact deterministic trigger scoping', () => {
+    expect(src).toMatch(/groundContext\?\.cartridge === 'moneypenny' && isMoneyPennyLearnVideoRequest\(message\)/);
+  });
+
+  it('registers at least one genuinely non-MoneyPenny provider, scoped to a different groundContext dimension (journey surface, not cartridge)', () => {
+    expect(src).toMatch(/id: 'financial-sovereignty\.lesson-video'/);
+    expect(src).toMatch(/groundContext\?\.surface === 'journey-runtime'/);
+  });
+
+  it('the non-MoneyPenny provider reuses a real, already-published asset URL — never a fabricated one', () => {
+    expect(src).toMatch(/import \{ FS_PLACEHOLDER_VIDEO_URL, FS_PLACEHOLDER_VIDEO_POSTER_URL \} from '@\/services\/journey\/fsPlaceholderVideo'/);
+  });
+
+  it('resolveSmartTriadMedia never trusts the model — it looks up a provider by matches() and calls resolve(), no free-text URL construction anywhere in this file', () => {
+    expect(src).not.toMatch(/\burl:\s*message\b/);
+    expect(src).toMatch(/const provider = SMARTTRIAD_MEDIA_PROVIDERS\.find/);
   });
 });
 
@@ -147,76 +180,87 @@ describe('MONEYPENNY_QUICK_PROMPTS — the chip that sends the deterministic pro
   });
 });
 
-describe('SmartTriadInferenceRenderer.tsx — shared, generic media-video rendering (extends the common framework, not a MoneyPenny-only fork)', () => {
+describe('SmartTriadInferenceRenderer.tsx — delegates media-video rendering to the shared SmartTriad Rich Block module (2026-09-04), no MoneyPenny-only fork', () => {
   const src = stripComments(readSource('components/smarttriad/copilot/SmartTriadInferenceRenderer.tsx'));
 
-  it('extractMediaVideoPayload mirrors extractA2UIPayload\'s exact fenced-JSON detection pattern (schema_version-keyed, not an info-string)', () => {
-    expect(src).toMatch(/schema_version === 'smarttriad\.media\.video\.v0'/);
-    expect(src).toMatch(/const fenceRegex = \/```\(\?:json\)\?\\s\*\(\[\\s\\S\]\*\?\)```\/gi;/g);
+  it('imports the shared extraction/renderer rather than defining its own media-video parser or player', () => {
+    expect(src).toMatch(/import \{ extractRichBlocksFromText \} from '@\/services\/smarttriad\/richBlocks'/);
+    expect(src).toMatch(/import \{ SmartTriadRichBlockListRenderer \} from '@\/components\/smarttriad\/richblocks\/SmartTriadRichBlockRenderer'/);
+    expect(src).not.toMatch(/function MediaVideoPreview/);
+    expect(src).not.toMatch(/function extractMediaVideoPayload/);
   });
 
-  it('MediaVideoPreview renders a plain native <video> element (BridgeMediaStage\'s public-content pattern), never the gated VideoPlayer component', () => {
-    const componentStart = src.indexOf('function MediaVideoPreview');
-    const componentBody = src.slice(componentStart, src.indexOf('\n}', componentStart));
-    expect(componentBody).toMatch(/<video\s/);
-    expect(componentBody).not.toMatch(/VideoPlayer/);
+  it('SmartTriadMessage carries an optional first-class `blocks` field (Workstream 2 transport), additive to `content`', () => {
+    expect(src).toMatch(/blocks\?:\s*SmartTriadRichBlockEnvelope\[\];/);
   });
 
-  // Operator request (2026-09-04): the video's native control bar is
-  // floating chrome — present only while the pointer is over the video (or
-  // it has keyboard focus), hidden otherwise, rather than a permanently
-  // visible strip inside the chat transcript.
-  it('the control bar is hover/focus-only — the controls attribute is toggled by pointer and keyboard-focus state, never a bare boolean', () => {
-    const componentStart = src.indexOf('function MediaVideoPreview');
-    const componentEnd = src.indexOf('\n}', componentStart);
-    const componentBody = src.slice(componentStart, componentEnd);
-    expect(componentBody).toMatch(/const \[showControls, setShowControls\] = React\.useState\(false\);/);
-    expect(componentBody).toMatch(/controls=\{showControls\}/);
-    expect(componentBody).not.toMatch(/<video\s+controls\s/);
-    expect(componentBody).toMatch(/onMouseEnter=\{\(\) => setShowControls\(true\)\}/);
-    expect(componentBody).toMatch(/onMouseLeave=\{\(\) => setShowControls\(false\)\}/);
-    expect(componentBody).toMatch(/onFocus=\{\(\) => setShowControls\(true\)\}/);
-    expect(componentBody).toMatch(/onBlur=\{\(\) => setShowControls\(false\)\}/);
-  });
-
-  it('the related chip calls tryOpenInMountedCartridge with the payload\'s OWN cartridgeId/tab — generic, not hardcoded to moneypenny-codex, so any cartridge emitting this schema is supported', () => {
-    expect(src).toMatch(/import \{ tryOpenInMountedCartridge \} from '@\/services\/cartridge\/CartridgePresenceRegistry'/);
-    const componentStart = src.indexOf('function MediaVideoPreview');
-    const componentBody = src.slice(componentStart, src.indexOf('\n}', componentStart));
-    expect(componentBody).toMatch(/tryOpenInMountedCartridge\(\{ cartridgeId: payload\.relatedChip\.cartridgeId, tab: payload\.relatedChip\.tab \}\)/);
-    expect(componentBody).not.toMatch(/cartridgeId:\s*['"]moneypenny-codex['"]/);
-  });
-
-  it('mediaVideoPayload is wired into the main render alongside a2uiPayload — additive, does not replace it', () => {
-    expect(src).toMatch(/const mediaVideoExtraction = useMemo\(\(\) => extractMediaVideoPayload\(message\.content\), \[message\.content\]\);/);
+  it('richBlockExtraction runs on message.content and its blocks render alongside a2uiPayload — additive, does not replace it', () => {
+    expect(src).toMatch(/const richBlockExtraction = useMemo\(\(\) => extractRichBlocksFromText\(message\.content\), \[message\.content\]\);/);
     expect(src).toMatch(/\{a2uiPayload && <A2UIPayloadPreview payload=\{a2uiPayload\} \/>\}/);
-    expect(src).toMatch(/\{mediaVideoPayload && <MediaVideoPreview payload=\{mediaVideoPayload\} \/>\}/);
+    expect(src).toMatch(/<SmartTriadRichBlockListRenderer blocks=\{renderedBlocks\}/);
+  });
+
+  it('renderedBlocks merges first-class transport blocks (message.blocks) with legacy fenced-JSON extraction, transport first — deterministic order', () => {
+    const idx = src.indexOf('const renderedBlocks = useMemo');
+    expect(idx).toBeGreaterThan(-1);
+    const body = src.slice(idx, src.indexOf('}, [message.blocks, richBlockExtraction.blocks]);', idx));
+    expect(body).toMatch(/message\.blocks/);
+    expect(body).toMatch(/richBlockExtraction\.blocks/);
   });
 
   // Reported defect (2026-09-04): the raw fenced JSON block a structured
   // payload was parsed FROM was never removed from what the generic
   // line-level renderer displays, so the operator saw the correctly-
   // rendered video/A2UI preview AND the raw JSON code block rendered a
-  // second time directly beneath it.
-  it('extraction returns the matched raw fence text (rawMatch), not just the parsed payload — the caller needs it to strip what was already rendered as a preview', () => {
-    expect(src).toMatch(/interface A2UIExtraction \{/);
-    expect(src).toMatch(/interface MediaVideoExtraction \{/);
-    expect(src).toMatch(/return \{ payload: direct, rawMatch: trimmed \};/);
-    expect(src).toMatch(/return \{ payload: parsed, rawMatch: match\[0\] \};/g);
-  });
-
-  it('contentForDisplay strips BOTH extractions\' rawMatch from message.content before it reaches the line-level renderer — never both a preview AND the raw fence', () => {
+  // second time directly beneath it. The shared extractor's
+  // contentWithoutBlocks is what closes this — never both a preview AND the
+  // raw fence.
+  it('contentForDisplay strips BOTH the shared extractor\'s contentWithoutBlocks and the A2UI rawMatch before content reaches the line-level renderer', () => {
     const fnStart = src.indexOf('const contentForDisplay = useMemo');
     expect(fnStart).toBeGreaterThan(-1);
-    const fnEnd = src.indexOf('}, [message.content, a2uiExtraction, mediaVideoExtraction]);', fnStart);
+    const fnEnd = src.indexOf('}, [richBlockExtraction.contentWithoutBlocks, a2uiExtraction]);', fnStart);
     expect(fnEnd).toBeGreaterThan(fnStart);
     const body = src.slice(fnStart, fnEnd);
+    expect(body).toMatch(/richBlockExtraction\.contentWithoutBlocks/);
     expect(body).toMatch(/a2uiExtraction\.rawMatch/);
-    expect(body).toMatch(/mediaVideoExtraction\.rawMatch/);
   });
 
   it('processedContent (what renderContent() actually renders) is derived from contentForDisplay, never the raw message.content', () => {
     expect(src).toMatch(/const processedContent = useMemo\(\(\) => \{\s*return processMessageContent\(contentForDisplay\);/);
+  });
+});
+
+describe('services/smarttriad/richBlocks.ts — the ONE shared SmartTriad rich-block parser/validator/normalizer', () => {
+  const src = stripComments(readSource('services/smarttriad/richBlocks.ts'));
+
+  it('recognizes both the v1 envelope schema and the legacy v0 MoneyPenny schema via the same schema_version-keyed fence scan', () => {
+    expect(src).toMatch(/SMARTTRIAD_BLOCK_SCHEMA_VERSION/);
+    expect(src).toMatch(/LEGACY_MEDIA_VIDEO_V0_SCHEMA = 'smarttriad\.media\.video\.v0'/);
+  });
+
+  it('normalizeLegacyVideoV0 synthesizes a v1 envelope with a deterministic assetId and a public access class', () => {
+    const fnStart = src.indexOf('export function normalizeLegacyVideoV0');
+    const body = src.slice(fnStart, src.indexOf('\n}', fnStart + 400));
+    expect(body).toMatch(/access: \{ class: 'public' \}/);
+  });
+
+  it('rejects javascript:/data: URLs outright (isForbiddenMediaUrl)', () => {
+    expect(src).toMatch(/trimmed\.startsWith\('javascript:'\) \|\| trimmed\.startsWith\('data:'\)/);
+  });
+
+  it('a v1 payload missing required fields fails validateSmartTriadVideoBlock', () => {
+    expect(src).toMatch(/if \(typeof p\.assetId !== 'string' \|\| !p\.assetId\) return null;/);
+    expect(src).toMatch(/if \(typeof p\.url !== 'string' \|\| isForbiddenMediaUrl\(p\.url\)\) return null;/);
+  });
+
+  it('never forces autoplay with sound — muted is coerced true whenever autoplay is true', () => {
+    expect(src).toMatch(/muted: p\.playback\.autoplay === true \? true : p\.playback\.muted === true,/);
+  });
+
+  it('extractRichBlocksFromText collects ALL matches in document order, not just the first', () => {
+    const fnStart = src.indexOf('export function extractRichBlocksFromText');
+    const body = src.slice(fnStart, src.indexOf('\n}', fnStart + 900));
+    expect(body).toMatch(/while \(\(match = FENCE_REGEX\.exec\(content\)\) !== null\)/);
   });
 });
 

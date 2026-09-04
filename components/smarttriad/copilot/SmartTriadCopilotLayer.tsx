@@ -709,6 +709,11 @@ export function SmartTriadCopilotLayer({
           ? 'This response was generated for an earlier context and is no longer current — please re-ask.'
           : data.response || 'No response received.',
         timestamp: new Date(),
+        // SmartTriad Rich Blocks (2026-09-04) — first-class structured
+        // content transport; withheld along with the prose when the
+        // response is stale, so a suppressed turn never surfaces a video
+        // from an earlier context either.
+        blocks: !suppressed && Array.isArray(data?.blocks) && data.blocks.length > 0 ? data.blocks : undefined,
         metadata: {
           model: data.model_used ?? selectedProvider,
           provider: data.provider_used ?? selectedProvider,

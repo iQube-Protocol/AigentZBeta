@@ -36,7 +36,7 @@ import {
   DEFAULT_AIGENT_ME_IDENTITY,
 } from '@/services/agents/aigentMeRoleResolution';
 import { getCartridgeChatContext } from '@/services/cartridge/getChatContext';
-import { getMoneyPennyIntroVideoReply, isMoneyPennyLearnVideoRequest } from '@/services/journey/moneyPennyEducationalMedia';
+import { resolveSmartTriadMedia } from '@/services/smarttriad/mediaProviders';
 import { getPersonaUploadService } from '@/services/uploads/supabaseUploadAdapter';
 import { buildAigentZPlatformKnowledge } from '@/services/knowledge/aigentZPlatformKnowledge';
 import {
@@ -2920,31 +2920,30 @@ export async function POST(request: NextRequest) {
       contextId,
     } = body;
 
-    // MoneyPenny Cartridge C-15 (2026-09-02) — deterministic learn-video
-    // short-circuit. Scoped to groundContext.cartridge === 'moneypenny' AND
-    // isMoneyPennyLearnVideoRequest(message) — a plain regex classifier
-    // evaluated on the raw message BEFORE the LLM ever runs (widened Turn E,
-    // 2026-09-02, from an exact-string match to ordinary conversational
-    // phrasing — "the specification does not require users to recite a
-    // magic phrase"). The LLM is never asked or trusted to decide whether/
-    // what video block to emit, so it can never fabricate a URL or be
-    // prompt-injected into emitting one — per the Admin spec's own A-08
-    // constraint that a related chip "cannot contain arbitrary executable
-    // instructions." Bypasses the entire prompt-construction/LLM pipeline
-    // below: this is a deterministic lookup (getMoneyPennyIntroVideoReply
-    // reads the published bridge placement, never fabricates a URL), so
-    // nothing upstream of this point needs to run — no persona/auth
-    // resolution, no rate limiting or audit write happens anywhere in this
-    // route before this line.
-    if (
-      groundContext &&
-      typeof groundContext === 'object' &&
-      (groundContext as Record<string, unknown>).cartridge === 'moneypenny' &&
-      typeof message === 'string' &&
-      isMoneyPennyLearnVideoRequest(message)
-    ) {
-      const response = await getMoneyPennyIntroVideoReply(supabase);
-      return NextResponse.json({ response, persona, event_meta: eventMeta });
+    // SmartTriad Rich Blocks — universal media resolution (2026-09-04
+    // "first-class, universal SmartTriad Copilot video capability" mandate,
+    // Workstream 4). No cartridge-specific branch lives in this route
+    // anymore — every cartridge/journey (MoneyPenny, Financial Sovereignty,
+    // any future one) registers its own provider in
+    // services/smarttriad/mediaProviders.ts, matched here generically
+    // against groundContext + the raw message BEFORE the LLM ever runs. The
+    // LLM is never asked or trusted to decide whether/what media to emit —
+    // each provider's `resolve` reads a real, published, server-verified
+    // asset and never fabricates a URL (A-08's "no arbitrary executable
+    // instructions" constraint, generalized). A provider that MATCHES but
+    // has nothing published yet still short-circuits with an honest
+    // "nothing published" message — the LLM never guesses in its place.
+    if (groundContext && typeof groundContext === 'object' && typeof message === 'string') {
+      const mediaResolution = await resolveSmartTriadMedia(supabase, message, groundContext as Record<string, unknown>);
+      if (mediaResolution.matched) {
+        if (mediaResolution.blocks.length > 0) {
+          const response = mediaResolution.blocks.map((b) => b.payload.title).join('\n');
+          return NextResponse.json({ response, persona, event_meta: eventMeta, blocks: mediaResolution.blocks });
+        }
+        const response =
+          'No media has been published for this yet. An admin can publish one through native Qriptopian Bridges.';
+        return NextResponse.json({ response, persona, event_meta: eventMeta });
+      }
     }
 
     if (!message) {
