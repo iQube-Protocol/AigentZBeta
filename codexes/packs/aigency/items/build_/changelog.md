@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`04df105`](https://github.com/iQube-Protocol/AigentZBeta/commit/04df10585ee3a2502eb56f705c857a75e97e5e31) [push] Generate real venture reports for AigentMe's Generate Report button (Gate D) (Claude, 2026-09-04T18:03:10Z)
 - [`97c2569`](https://github.com/iQube-Protocol/AigentZBeta/commit/97c25691a9bd7f525b8a1d15b48689b764414e18) [fix] Fix Generate Report button permanently disabled in AigentMe brief flow (Claude, 2026-09-04T17:52:12Z)
 - [`e7ab69b`](https://github.com/iQube-Protocol/AigentZBeta/commit/e7ab69bedab7d4b9c1831b4808eaa6c9de2b76f3) [feat] add factor+aegis 0.1 phase 1 constitutional schema, reconciled onto current base (Claude, 2026-09-04T17:08:26Z)
 - [`a8c375c`](https://github.com/iQube-Protocol/AigentZBeta/commit/a8c375cdd98a5d494bce49084629cd8f91eaf2ce) [push] extend activity_receipts action types for factor+aegis constitutional decisions (Claude, 2026-09-04T17:08:31Z)
