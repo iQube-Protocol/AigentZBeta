@@ -34,6 +34,11 @@ export type AdmissionDecision = 'admitted' | 'conditionally_admitted' | 'rejecte
 
 export interface DecideAdmissionInput {
   caseId: string;
+  /** The caller's own tenant scope — see factorCaseService.ts's
+   *  assertSameTenant note. A caseId resolving to a different tenant is
+   *  refused before any admission evaluation, closing the same class of
+   *  cross-tenant gap flagged in the Phase 1 reconciliation pass §8. */
+  tenantId: string;
   decision: AdmissionDecision;
   /** The accountable operator/MoneyPenny-attributed persona making this
    *  call — never Factor's own agent ref (PRD §2 invariant 3). */
@@ -85,6 +90,13 @@ export async function decideAdmission(admin: SupabaseClient, input: DecideAdmiss
   if (caseErr) throw new Error(`decideAdmission case read failed: ${caseErr.message}`);
   if (!caseRow) throw new AdmissionAuthorityError('case-not-found', `No factor_cases row for case_id ${input.caseId}`);
   const c = caseRow as FactorCaseRow;
+
+  if (c.tenant_id !== input.tenantId) {
+    throw new AdmissionAuthorityError(
+      'cross-tenant-denied',
+      `Case ${input.caseId} belongs to tenant '${c.tenant_id}', not the caller's tenant '${input.tenantId}' — refusing cross-tenant admission decision.`,
+    );
+  }
 
   if (c.state !== 'admission_pending') {
     throw new AdmissionAuthorityError('not-admission-pending', `Case ${input.caseId} is '${c.state}', not 'admission_pending' — an admission decision may only be recorded from that state.`);

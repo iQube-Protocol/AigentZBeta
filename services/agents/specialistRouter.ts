@@ -48,7 +48,16 @@ export type SpecialistId =
   | 'moneypenny'
   | 'metaye'
   | 'researcher'
-  | 'aletheon';
+  | 'aletheon'
+  // Factor + Aegis 0.1 (GJR-FAC-001, Phase 2 reconciliation) — MoneyPenny's
+  // candidate-intake pipeline (Factor) and independent assessor (Aegis).
+  // Registered here so AigentMe/MoneyPenny can consult them the same way
+  // as every other specialist; their REAL authority (case state, admission
+  // decisions) stays exactly where PRD §2 places it — services/factor/*
+  // and services/aegis/* — this router only produces an advisory framing,
+  // never a case mutation.
+  | 'factor'
+  | 'aegis';
 
 export type SpecialistRequestType =
   | 'proposal'
@@ -144,6 +153,12 @@ const SPECIALIST_PERSONA_KEY: Record<SpecialistId, keyof typeof personas | null>
   metaye: 'aigent-metaye',
   researcher: 'aigent-researcher',
   aletheon: 'aigent-aletheon',
+  // No dedicated persona system prompt yet (persona/system-prompt authoring
+  // is UI-adjacent content, out of scope for this API-first registration
+  // pass) — systemPromptFor's generic fallback covers this until one is
+  // built.
+  factor: null,
+  aegis: null,
 };
 
 const SPECIALIST_LABELS: Record<SpecialistId, string> = {
@@ -157,6 +172,8 @@ const SPECIALIST_LABELS: Record<SpecialistId, string> = {
   metaye: 'Metayé',
   researcher: 'Research Copilot',
   aletheon: 'Aletheon',
+  factor: 'Factor',
+  aegis: 'Aegis',
 };
 
 /**
@@ -195,6 +212,8 @@ function inferRequestType(specialistId: SpecialistId, cartridge: string): Specia
   if (specialistId === 'metaye') return 'sovereignty_brief';
   if (specialistId === 'researcher') return 'research_brief';
   if (specialistId === 'aletheon') return 'sovereignty_brief';
+  if (specialistId === 'factor') return 'system_guidance';
+  if (specialistId === 'aegis') return 'system_guidance';
   // Cartridge hint:
   if (cartridge === 'qriptopian') return 'editorial_angle';
   if (cartridge === 'knyt') return 'mission_recommendation';
@@ -645,6 +664,40 @@ function templateResponse(
       // Aletheon's artifacts are briefs and working drafts — reasoning
       // support, not campaign/creative output.
       suggestedArtifacts: ['google-doc', 'brief', 'myworkbench-draft'],
+      requiresApproval: false,
+      confidence: 'high',
+    };
+  }
+  if (specialistId === 'factor') {
+    return {
+      requestType,
+      title: `Candidate-intake framing for "${intent}"`,
+      summary:
+        `Factor frames ${intent} as a candidate-intake question: what evidence exists, what is missing, and whether the case is ready to move toward an Aegis assessment. Factor never recommends admission — that is MoneyPenny's decision alone once Aegis has ratified an assessment.`,
+      recommendations: [
+        `Confirm the candidate's identity key and check for an existing case before opening a new one.`,
+        `Walk the evidence checklist (capability declarations, endpoints, code provenance) and flag what is missing or stale.`,
+        `Once evidence is complete, request an Aegis assessment — Factor cannot assess its own candidate.`,
+        `Track the authority chain (direct or MoneyPenny-mediated) under which this case is being worked.`,
+      ],
+      suggestedArtifacts: ['brief', 'myworkbench-draft'],
+      requiresApproval: false,
+      confidence: 'medium',
+    };
+  }
+  if (specialistId === 'aegis') {
+    return {
+      requestType,
+      title: `Independent assessment framing for "${intent}"`,
+      summary:
+        `Aegis frames ${intent} as an assessment question: what dimensions need evidence-bound findings, and whether any critical finding would block admissibility regardless of aggregate score. Aegis recommends; MoneyPenny alone decides.`,
+      recommendations: [
+        `Lock the evidence snapshot before assessment begins — findings must cite only what was locked, never evidence supplied afterward.`,
+        `Score each dimension independently; a single critical failed finding overrides an otherwise-passing aggregate.`,
+        `State the falsification condition for every finding, not just the claim.`,
+        `Refuse outright if the requester and the subject are the same agent — Aegis never assesses itself.`,
+      ],
+      suggestedArtifacts: ['brief', 'myworkbench-draft'],
       requiresApproval: false,
       confidence: 'high',
     };

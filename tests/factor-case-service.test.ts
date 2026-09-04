@@ -76,7 +76,7 @@ describe('factorCaseService', () => {
       candidateIdentityKey: 'candidate-d',
       candidateDisplayName: 'Candidate D',
     });
-    const updated = await transitionCaseState(admin, { caseId: c.case_id, toState: 'preparing', actorPersonaId: 'persona-1' });
+    const updated = await transitionCaseState(admin, { caseId: c.case_id, tenantId: 'default', toState: 'preparing', actorPersonaId: 'persona-1' });
     expect(updated.state).toBe('preparing');
   });
 
@@ -87,7 +87,7 @@ describe('factorCaseService', () => {
       candidateIdentityKey: 'candidate-e',
       candidateDisplayName: 'Candidate E',
     });
-    await expect(transitionCaseState(admin, { caseId: c.case_id, toState: 'active', actorPersonaId: 'persona-1' })).rejects.toThrow(FactorCaseTransitionError);
+    await expect(transitionCaseState(admin, { caseId: c.case_id, tenantId: 'default', toState: 'active', actorPersonaId: 'persona-1' })).rejects.toThrow(FactorCaseTransitionError);
   });
 
   it('structurally refuses to set an admission-decision state directly — Factor cannot admit itself', async () => {
@@ -97,7 +97,7 @@ describe('factorCaseService', () => {
       candidateIdentityKey: 'candidate-f',
       candidateDisplayName: 'Candidate F',
     });
-    await expect(transitionCaseState(admin, { caseId: c.case_id, toState: 'admitted', actorPersonaId: 'persona-1' })).rejects.toMatchObject({
+    await expect(transitionCaseState(admin, { caseId: c.case_id, tenantId: 'default', toState: 'admitted', actorPersonaId: 'persona-1' })).rejects.toMatchObject({
       code: 'admission-requires-moneypenny-authority',
     });
   });
@@ -109,11 +109,11 @@ describe('factorCaseService', () => {
       candidateIdentityKey: 'candidate-g',
       candidateDisplayName: 'Candidate G',
     });
-    await transitionCaseState(admin, { caseId: c.case_id, toState: 'preparing', actorPersonaId: 'persona-1' });
-    const paused = await pauseCase(admin, c.case_id, 'persona-1', 'operator stepped away');
+    await transitionCaseState(admin, { caseId: c.case_id, tenantId: 'default', toState: 'preparing', actorPersonaId: 'persona-1' });
+    const paused = await pauseCase(admin, c.case_id, 'default', 'persona-1', 'operator stepped away');
     expect(paused.state).toBe('paused');
     expect(paused.paused_from_state).toBe('preparing');
-    const resumed = await resumeCase(admin, c.case_id, 'persona-1');
+    const resumed = await resumeCase(admin, c.case_id, 'default', 'persona-1');
     expect(resumed.state).toBe('preparing');
   });
 
@@ -127,6 +127,80 @@ describe('factorCaseService', () => {
       created_by_persona_id: 'persona-1',
       state: 'rejected',
     });
-    await expect(transitionCaseState(admin, { caseId: 'case-terminal', toState: 'preparing', actorPersonaId: 'persona-1' })).rejects.toMatchObject({ code: 'terminal-state' });
+    await expect(transitionCaseState(admin, { caseId: 'case-terminal', tenantId: 'default', toState: 'preparing', actorPersonaId: 'persona-1' })).rejects.toMatchObject({
+      code: 'terminal-state',
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────────────
+  // Cross-tenant isolation — Phase 2 closure of the gap flagged (not
+  // hidden) in the Phase 1 reconciliation pass §8: "factor_cases ... not
+  // yet exercised by a dedicated cross-tenant test." These prove a caller
+  // scoped to tenant B cannot read or mutate a case that belongs to
+  // tenant A, across every case-scoped write path.
+  // ─────────────────────────────────────────────────────────────────────
+  describe('cross-tenant isolation', () => {
+    it('refuses transitionCaseState when the caller tenant differs from the case tenant', async () => {
+      const { case: c } = await createOrResumeCase(admin, {
+        tenantId: 'tenant-a',
+        ownerPersonaId: 'persona-1',
+        createdByPersonaId: 'persona-1',
+        candidateIdentityKey: 'candidate-cross-1',
+        candidateDisplayName: 'Candidate Cross 1',
+      });
+      await expect(transitionCaseState(admin, { caseId: c.case_id, tenantId: 'tenant-b', toState: 'preparing', actorPersonaId: 'persona-evil' })).rejects.toMatchObject({
+        code: 'cross-tenant-denied',
+      });
+      // The case itself must be untouched by the refused attempt.
+      const untouched = admin.table('factor_cases').find((r: any) => r.case_id === c.case_id);
+      expect(untouched.state).toBe('discovered');
+    });
+
+    it('refuses pauseCase and resumeCase across tenants', async () => {
+      const { case: c } = await createOrResumeCase(admin, {
+        tenantId: 'tenant-a',
+        ownerPersonaId: 'persona-1',
+        createdByPersonaId: 'persona-1',
+        candidateIdentityKey: 'candidate-cross-2',
+        candidateDisplayName: 'Candidate Cross 2',
+      });
+      await expect(pauseCase(admin, c.case_id, 'tenant-b', 'persona-evil')).rejects.toMatchObject({ code: 'cross-tenant-denied' });
+      await transitionCaseState(admin, { caseId: c.case_id, tenantId: 'tenant-a', toState: 'preparing', actorPersonaId: 'persona-1' });
+      await pauseCase(admin, c.case_id, 'tenant-a', 'persona-1');
+      await expect(resumeCase(admin, c.case_id, 'tenant-b', 'persona-evil')).rejects.toMatchObject({ code: 'cross-tenant-denied' });
+    });
+
+    it('legitimate same-tenant operations are unaffected by the new guard', async () => {
+      const { case: c } = await createOrResumeCase(admin, {
+        tenantId: 'tenant-a',
+        ownerPersonaId: 'persona-1',
+        createdByPersonaId: 'persona-1',
+        candidateIdentityKey: 'candidate-cross-3',
+        candidateDisplayName: 'Candidate Cross 3',
+      });
+      const updated = await transitionCaseState(admin, { caseId: c.case_id, tenantId: 'tenant-a', toState: 'preparing', actorPersonaId: 'persona-1' });
+      expect(updated.state).toBe('preparing');
+    });
+
+    it('refuses upsertEvidenceItem and listEvidenceForCase across tenants', async () => {
+      const { upsertEvidenceItem, listEvidenceForCase } = await import('@/services/factor/factorCaseService');
+      const { case: c } = await createOrResumeCase(admin, {
+        tenantId: 'tenant-a',
+        ownerPersonaId: 'persona-1',
+        createdByPersonaId: 'persona-1',
+        candidateIdentityKey: 'candidate-cross-4',
+        candidateDisplayName: 'Candidate Cross 4',
+      });
+      await expect(
+        upsertEvidenceItem(admin, { caseId: c.case_id, tenantId: 'tenant-b', kind: 'kyc', suppliedByPersonaId: 'persona-evil' }, false),
+      ).rejects.toMatchObject({ code: 'cross-tenant-denied' });
+      await expect(listEvidenceForCase(admin, c.case_id, 'tenant-b')).rejects.toMatchObject({ code: 'cross-tenant-denied' });
+
+      // Same-tenant evidence write still succeeds.
+      const item = await upsertEvidenceItem(admin, { caseId: c.case_id, tenantId: 'tenant-a', kind: 'kyc', suppliedByPersonaId: 'persona-1' }, false);
+      expect(item.status).toBe('supplied');
+      const list = await listEvidenceForCase(admin, c.case_id, 'tenant-a');
+      expect(list).toHaveLength(1);
+    });
   });
 });

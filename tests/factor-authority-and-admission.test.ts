@@ -92,7 +92,7 @@ describe('authorityChain', () => {
       targetAgentRootDid: 'did:factor:root',
       allowedActions: ['candidate.intake'],
     });
-    await revokeChain(admin, chain.chain_id, 'persona-1', 'operator revoked');
+    await revokeChain(admin, chain.chain_id, 'persona-1', 'persona-1', 'operator revoked');
     const result = await validateChainForAction(admin, { chainId: chain.chain_id, action: 'candidate.intake' });
     expect(result.allowed).toBe(false);
   });
@@ -107,6 +107,51 @@ describe('authorityChain', () => {
     const result = await validateChainForAction(admin, { chainId: chain.chain_id, action: 'candidate.intake' });
     expect(result.allowed).toBe(true);
   });
+
+  // ─────────────────────────────────────────────────────────────────────
+  // Cross-principal isolation — Phase 2 closure of the "factor_authority_
+  // chains ... not yet exercised by a dedicated cross-tenant test" gap
+  // flagged in the Phase 1 reconciliation pass §8 (principal scope, the
+  // authority-chain analogue of factor_cases' tenant scope).
+  // ─────────────────────────────────────────────────────────────────────
+  describe('cross-principal isolation', () => {
+    it('refuses revokeChain when the caller names a different principal than the chain owner', async () => {
+      const chain = await establishDirectChain(admin, {
+        principalPersonaId: 'persona-1',
+        targetAgentRef: 'aigent-factor',
+        targetAgentRootDid: 'did:factor:root',
+        allowedActions: ['candidate.intake'],
+      });
+      await expect(revokeChain(admin, chain.chain_id, 'persona-attacker', 'persona-attacker', 'attempted takeover')).rejects.toMatchObject({
+        code: 'cross-principal-denied',
+      });
+      // The chain must remain active — the refused call had no effect.
+      const result = await validateChainForAction(admin, { chainId: chain.chain_id, action: 'candidate.intake' });
+      expect(result.allowed).toBe(true);
+    });
+
+    it('validateChainForAction denies when expectedPrincipalPersonaId does not match the chain owner', async () => {
+      const chain = await establishDirectChain(admin, {
+        principalPersonaId: 'persona-1',
+        targetAgentRef: 'aigent-factor',
+        targetAgentRootDid: 'did:factor:root',
+        allowedActions: ['candidate.intake'],
+      });
+      const result = await validateChainForAction(admin, { chainId: chain.chain_id, action: 'candidate.intake', expectedPrincipalPersonaId: 'persona-attacker' });
+      expect(result).toMatchObject({ allowed: false, code: 'cross-principal-denied' });
+    });
+
+    it('validateChainForAction allows when expectedPrincipalPersonaId matches the real owner', async () => {
+      const chain = await establishDirectChain(admin, {
+        principalPersonaId: 'persona-1',
+        targetAgentRef: 'aigent-factor',
+        targetAgentRootDid: 'did:factor:root',
+        allowedActions: ['candidate.intake'],
+      });
+      const result = await validateChainForAction(admin, { chainId: chain.chain_id, action: 'candidate.intake', expectedPrincipalPersonaId: 'persona-1' });
+      expect(result.allowed).toBe(true);
+    });
+  });
 });
 
 async function admitablePreconditions(admin: any) {
@@ -116,12 +161,12 @@ async function admitablePreconditions(admin: any) {
     candidateIdentityKey: 'candidate-admit',
     candidateDisplayName: 'Candidate Admit',
   });
-  await transitionCaseState(admin, { caseId: c.case_id, toState: 'preparing', actorPersonaId: 'persona-1' });
-  await transitionCaseState(admin, { caseId: c.case_id, toState: 'assessment_pending', actorPersonaId: 'persona-1' });
-  await transitionCaseState(admin, { caseId: c.case_id, toState: 'assessment_in_progress', actorPersonaId: 'persona-1' });
-  await transitionCaseState(admin, { caseId: c.case_id, toState: 'assessment_complete', actorPersonaId: 'persona-1' });
-  await transitionCaseState(admin, { caseId: c.case_id, toState: 'registry_ready', actorPersonaId: 'persona-1' });
-  await transitionCaseState(admin, { caseId: c.case_id, toState: 'admission_pending', actorPersonaId: 'persona-1' });
+  await transitionCaseState(admin, { caseId: c.case_id, tenantId: 'default', toState: 'preparing', actorPersonaId: 'persona-1' });
+  await transitionCaseState(admin, { caseId: c.case_id, tenantId: 'default', toState: 'assessment_pending', actorPersonaId: 'persona-1' });
+  await transitionCaseState(admin, { caseId: c.case_id, tenantId: 'default', toState: 'assessment_in_progress', actorPersonaId: 'persona-1' });
+  await transitionCaseState(admin, { caseId: c.case_id, tenantId: 'default', toState: 'assessment_complete', actorPersonaId: 'persona-1' });
+  await transitionCaseState(admin, { caseId: c.case_id, tenantId: 'default', toState: 'registry_ready', actorPersonaId: 'persona-1' });
+  await transitionCaseState(admin, { caseId: c.case_id, tenantId: 'default', toState: 'admission_pending', actorPersonaId: 'persona-1' });
 
   const assessment = await createAssessment(admin, {
     subjectType: 'factor_case',
@@ -161,7 +206,7 @@ describe('admissionAuthority', () => {
       candidateIdentityKey: 'candidate-early',
       candidateDisplayName: 'Candidate Early',
     });
-    await expect(decideAdmission(admin, { caseId: c.case_id, decision: 'admitted', decidingPersonaId: 'persona-moneypenny' })).rejects.toMatchObject({
+    await expect(decideAdmission(admin, { caseId: c.case_id, tenantId: 'default', decision: 'admitted', decidingPersonaId: 'persona-moneypenny' })).rejects.toMatchObject({
       code: 'not-admission-pending',
     });
   });
@@ -173,39 +218,53 @@ describe('admissionAuthority', () => {
       candidateIdentityKey: 'candidate-noassess',
       candidateDisplayName: 'Candidate No Assess',
     });
-    await transitionCaseState(admin, { caseId: c.case_id, toState: 'preparing', actorPersonaId: 'persona-1' });
-    await transitionCaseState(admin, { caseId: c.case_id, toState: 'assessment_pending', actorPersonaId: 'persona-1' });
-    await transitionCaseState(admin, { caseId: c.case_id, toState: 'assessment_in_progress', actorPersonaId: 'persona-1' });
-    await transitionCaseState(admin, { caseId: c.case_id, toState: 'assessment_complete', actorPersonaId: 'persona-1' });
-    await transitionCaseState(admin, { caseId: c.case_id, toState: 'registry_ready', actorPersonaId: 'persona-1' });
-    await transitionCaseState(admin, { caseId: c.case_id, toState: 'admission_pending', actorPersonaId: 'persona-1' });
+    await transitionCaseState(admin, { caseId: c.case_id, tenantId: 'default', toState: 'preparing', actorPersonaId: 'persona-1' });
+    await transitionCaseState(admin, { caseId: c.case_id, tenantId: 'default', toState: 'assessment_pending', actorPersonaId: 'persona-1' });
+    await transitionCaseState(admin, { caseId: c.case_id, tenantId: 'default', toState: 'assessment_in_progress', actorPersonaId: 'persona-1' });
+    await transitionCaseState(admin, { caseId: c.case_id, tenantId: 'default', toState: 'assessment_complete', actorPersonaId: 'persona-1' });
+    await transitionCaseState(admin, { caseId: c.case_id, tenantId: 'default', toState: 'registry_ready', actorPersonaId: 'persona-1' });
+    await transitionCaseState(admin, { caseId: c.case_id, tenantId: 'default', toState: 'admission_pending', actorPersonaId: 'persona-1' });
 
-    await expect(decideAdmission(admin, { caseId: c.case_id, decision: 'admitted', decidingPersonaId: 'persona-moneypenny' })).rejects.toMatchObject({
+    await expect(decideAdmission(admin, { caseId: c.case_id, tenantId: 'default', decision: 'admitted', decidingPersonaId: 'persona-moneypenny' })).rejects.toMatchObject({
       code: 'no-ratified-assessment',
     });
   });
 
   it('admits a candidate whose ratified assessment supports it', async () => {
     const caseId = await admitablePreconditions(admin);
-    const result = await decideAdmission(admin, { caseId, decision: 'admitted', decidingPersonaId: 'persona-moneypenny' });
+    const result = await decideAdmission(admin, { caseId, tenantId: 'default', decision: 'admitted', decidingPersonaId: 'persona-moneypenny' });
     expect(result.case.state).toBe('admitted');
     expect(result.replay).toBe(false);
   });
 
   it("MoneyPenny may still reject an admissible candidate — its own judgment call", async () => {
     const caseId = await admitablePreconditions(admin);
-    const result = await decideAdmission(admin, { caseId, decision: 'rejected', decidingPersonaId: 'persona-moneypenny', reason: 'policy exception' });
+    const result = await decideAdmission(admin, { caseId, tenantId: 'default', decision: 'rejected', decidingPersonaId: 'persona-moneypenny', reason: 'policy exception' });
     expect(result.case.state).toBe('rejected');
   });
 
   it('an admission command replayed with the same idempotency key returns the same outcome without re-deciding', async () => {
     const caseId = await admitablePreconditions(admin);
-    const first = await decideAdmission(admin, { caseId, decision: 'admitted', decidingPersonaId: 'persona-moneypenny', idempotencyKey: 'idem-admit-1' });
-    const second = await decideAdmission(admin, { caseId, decision: 'admitted', decidingPersonaId: 'persona-moneypenny', idempotencyKey: 'idem-admit-1' });
+    const first = await decideAdmission(admin, { caseId, tenantId: 'default', decision: 'admitted', decidingPersonaId: 'persona-moneypenny', idempotencyKey: 'idem-admit-1' });
+    const second = await decideAdmission(admin, { caseId, tenantId: 'default', decision: 'admitted', decidingPersonaId: 'persona-moneypenny', idempotencyKey: 'idem-admit-1' });
     expect(second.replay).toBe(true);
     expect(second.case.state).toBe(first.case.state);
     // Only ONE admission_decided event was ever recorded.
     const events = admin.table('factor_case_events').filter((e: any) => e.event_type === 'admission_decided');
     expect(events.length).toBe(1);
+  });
+
+  it('refuses decideAdmission across tenants', async () => {
+    const { case: c } = await createOrResumeCase(admin, {
+      tenantId: 'tenant-a',
+      ownerPersonaId: 'persona-1',
+      createdByPersonaId: 'persona-1',
+      candidateIdentityKey: 'candidate-cross-admit',
+      candidateDisplayName: 'Candidate Cross Admit',
+    });
+    await transitionCaseState(admin, { caseId: c.case_id, tenantId: 'tenant-a', toState: 'preparing', actorPersonaId: 'persona-1' });
+    await expect(decideAdmission(admin, { caseId: c.case_id, tenantId: 'tenant-b', decision: 'rejected', decidingPersonaId: 'persona-evil' })).rejects.toMatchObject({
+      code: 'cross-tenant-denied',
+    });
   });
 });

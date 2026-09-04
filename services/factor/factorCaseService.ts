@@ -261,11 +261,31 @@ export async function appendCaseEvent(admin: SupabaseClient, input: AppendCaseEv
 
 export interface TransitionCaseInput {
   caseId: string;
+  /**
+   * The caller's own tenant scope. REQUIRED — cross-tenant isolation
+   * (PRD Journey A; flagged as an open gap in the Phase 1 reconciliation
+   * pass, §8) is enforced here, not left to callers to remember: a caseId
+   * that resolves to a DIFFERENT tenant is refused before any mutation,
+   * exactly like the self-assessment refusal in aegisAssessmentService.ts
+   * is enforced unconditionally rather than left optional.
+   */
+  tenantId: string;
   toState: FactorCaseState;
   actorPersonaId: string;
   authorityChainId?: string | null;
   reason?: string;
   idempotencyKey?: string;
+}
+
+/** Shared cross-tenant guard for every case-scoped read/mutation below —
+ *  one check, one error shape, never re-derived per call site. */
+function assertSameTenant(row: FactorCaseRow, tenantId: string, caseId: string): void {
+  if (row.tenant_id !== tenantId) {
+    throw new FactorCaseTransitionError(
+      'cross-tenant-denied',
+      `Case ${caseId} belongs to tenant '${row.tenant_id}', not the caller's tenant '${tenantId}' — refusing cross-tenant access.`,
+    );
+  }
 }
 
 /**
@@ -294,6 +314,7 @@ export async function transitionCaseState(admin: SupabaseClient, input: Transiti
   if (!current) throw new FactorCaseTransitionError('case-not-found', `No factor_cases row for case_id ${input.caseId}`);
 
   const row = current as FactorCaseRow;
+  assertSameTenant(row, input.tenantId, input.caseId);
 
   if (row.state === input.toState) return row; // idempotent replay
 
@@ -345,11 +366,12 @@ export async function transitionCaseState(admin: SupabaseClient, input: Transiti
 }
 
 /** Pause a nonterminal case, recording the state it should resume into. */
-export async function pauseCase(admin: SupabaseClient, caseId: string, actorPersonaId: string, reason?: string): Promise<FactorCaseRow> {
+export async function pauseCase(admin: SupabaseClient, caseId: string, tenantId: string, actorPersonaId: string, reason?: string): Promise<FactorCaseRow> {
   const { data: current, error: readErr } = await admin.from('factor_cases').select('*').eq('case_id', caseId).maybeSingle();
   if (readErr) throw new Error(`pauseCase read failed: ${readErr.message}`);
   if (!current) throw new FactorCaseTransitionError('case-not-found', `No factor_cases row for case_id ${caseId}`);
   const row = current as FactorCaseRow;
+  assertSameTenant(row, tenantId, caseId);
 
   if (row.state === 'paused') return row; // idempotent
   if (TERMINAL_STATES.has(row.state)) {
@@ -372,11 +394,12 @@ export async function pauseCase(admin: SupabaseClient, caseId: string, actorPers
 
 /** Resume a paused case back into its recorded paused_from_state — never
  *  loses state (PRD Journey A step 7). */
-export async function resumeCase(admin: SupabaseClient, caseId: string, actorPersonaId: string): Promise<FactorCaseRow> {
+export async function resumeCase(admin: SupabaseClient, caseId: string, tenantId: string, actorPersonaId: string): Promise<FactorCaseRow> {
   const { data: current, error: readErr } = await admin.from('factor_cases').select('*').eq('case_id', caseId).maybeSingle();
   if (readErr) throw new Error(`resumeCase read failed: ${readErr.message}`);
   if (!current) throw new FactorCaseTransitionError('case-not-found', `No factor_cases row for case_id ${caseId}`);
   const row = current as FactorCaseRow;
+  assertSameTenant(row, tenantId, caseId);
 
   if (row.state !== 'paused') return row; // idempotent — not paused, nothing to resume
   const resumeState = (row.paused_from_state as FactorCaseState) ?? 'discovered';
@@ -401,11 +424,22 @@ export async function resumeCase(admin: SupabaseClient, caseId: string, actorPer
 
 export interface UpsertEvidenceInput {
   caseId: string;
+  /** The caller's own tenant scope — see assertSameTenant / the note on
+   *  TransitionCaseInput.tenantId. Verified against the parent case before
+   *  any evidence read or write. */
+  tenantId: string;
   kind: string;
   status?: FactorEvidenceStatus;
   payload?: Record<string, unknown>;
   sourceRef?: string;
   suppliedByPersonaId?: string;
+}
+
+async function assertCaseTenant(admin: SupabaseClient, caseId: string, tenantId: string): Promise<void> {
+  const { data: caseRow, error } = await admin.from('factor_cases').select('tenant_id').eq('case_id', caseId).maybeSingle();
+  if (error) throw new Error(`assertCaseTenant read failed: ${error.message}`);
+  if (!caseRow) throw new FactorCaseTransitionError('case-not-found', `No factor_cases row for case_id ${caseId}`);
+  assertSameTenant(caseRow as FactorCaseRow, tenantId, caseId);
 }
 
 /**
@@ -420,6 +454,8 @@ export async function upsertEvidenceItem(
   input: UpsertEvidenceInput,
   evidenceIsLockedForAssessment: boolean,
 ): Promise<{ evidence_item_id: string; status: FactorEvidenceStatus }> {
+  await assertCaseTenant(admin, input.caseId, input.tenantId);
+
   const { data: existing, error: readErr } = await admin
     .from('factor_evidence_items')
     .select('evidence_item_id, status, superseded_by')
@@ -490,7 +526,19 @@ async function recordEvidenceReceipt(input: UpsertEvidenceInput, status: FactorE
   });
 }
 
-export async function listEvidenceForCase(admin: SupabaseClient, caseId: string) {
+/** Tenant-scoped case read — the API layer's one path to fetch a case by
+ *  id; never a raw `.from('factor_cases')` query in a route file. */
+export async function getCase(admin: SupabaseClient, caseId: string, tenantId: string): Promise<FactorCaseRow> {
+  const { data, error } = await admin.from('factor_cases').select('*').eq('case_id', caseId).maybeSingle();
+  if (error) throw new Error(`getCase failed: ${error.message}`);
+  if (!data) throw new FactorCaseTransitionError('case-not-found', `No factor_cases row for case_id ${caseId}`);
+  const row = data as FactorCaseRow;
+  assertSameTenant(row, tenantId, caseId);
+  return row;
+}
+
+export async function listEvidenceForCase(admin: SupabaseClient, caseId: string, tenantId: string) {
+  await assertCaseTenant(admin, caseId, tenantId);
   const { data, error } = await admin.from('factor_evidence_items').select('*').eq('case_id', caseId).is('superseded_by', null).order('created_at', { ascending: true });
   if (error) throw new Error(`listEvidenceForCase failed: ${error.message}`);
   return data ?? [];

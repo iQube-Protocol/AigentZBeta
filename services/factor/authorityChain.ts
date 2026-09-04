@@ -190,8 +190,26 @@ async function insertChain(admin: SupabaseClient, input: InsertChainInput): Prom
  * Revocation is immediate (PRD §9.7/§9.17): once a chain's status flips to
  * 'revoked', `validateChainForAction` refuses on the very next check —
  * there is no grace window.
+ *
+ * `expectedPrincipalPersonaId` closes the principal-scope isolation gap
+ * flagged (not hidden) in the Phase 1 reconciliation pass §8: a caller
+ * must name the principal it believes owns this chain, and a chain
+ * belonging to a DIFFERENT principal is refused before any write —
+ * mirroring `factorCaseService.ts`'s tenant guard for the same class of
+ * cross-scope defect.
  */
-export async function revokeChain(admin: SupabaseClient, chainId: string, revokedByPersonaId: string, reason: string): Promise<void> {
+export async function revokeChain(admin: SupabaseClient, chainId: string, expectedPrincipalPersonaId: string, revokedByPersonaId: string, reason: string): Promise<void> {
+  const { data: current, error: readErr } = await admin.from('factor_authority_chains').select('*').eq('chain_id', chainId).maybeSingle();
+  if (readErr) throw new Error(`revokeChain read failed: ${readErr.message}`);
+  if (!current) throw new AuthorityChainError('chain-not-found', `No authority chain ${chainId}`);
+  const chain = current as AuthorityChainRow;
+  if (chain.principal_persona_id !== expectedPrincipalPersonaId) {
+    throw new AuthorityChainError(
+      'cross-principal-denied',
+      `Authority chain ${chainId} belongs to principal '${chain.principal_persona_id}', not the caller's principal '${expectedPrincipalPersonaId}' — refusing cross-principal revocation.`,
+    );
+  }
+
   const { error } = await admin
     .from('factor_authority_chains')
     .update({ status: 'revoked', revoked_at: new Date().toISOString(), revoke_reason: reason })
@@ -211,6 +229,16 @@ export async function revokeChain(admin: SupabaseClient, chainId: string, revoke
 export interface ValidateChainInput {
   chainId: string;
   action: string;
+  /**
+   * Optional: when the caller knows which principal it is acting on
+   * behalf of, pass it here and a chain owned by a DIFFERENT principal is
+   * refused before any allowed-actions check — the same principal-scope
+   * guard `revokeChain` enforces unconditionally. Optional because some
+   * callers (e.g. a chain-agnostic audit read) validate a chainId they
+   * already resolved from a principal-scoped lookup and have no separate
+   * principal to compare against.
+   */
+  expectedPrincipalPersonaId?: string;
 }
 
 export type ChainValidation = { allowed: true; chain: AuthorityChainRow } | { allowed: false; code: string; reason: string };
@@ -228,6 +256,14 @@ export async function validateChainForAction(admin: SupabaseClient, input: Valid
   if (!data) return { allowed: false, code: 'chain-not-found', reason: `No authority chain ${input.chainId}` };
 
   const chain = data as AuthorityChainRow;
+
+  if (input.expectedPrincipalPersonaId && chain.principal_persona_id !== input.expectedPrincipalPersonaId) {
+    return {
+      allowed: false,
+      code: 'cross-principal-denied',
+      reason: `Authority chain ${input.chainId} belongs to principal '${chain.principal_persona_id}', not the caller's principal '${input.expectedPrincipalPersonaId}'.`,
+    };
+  }
 
   if (chain.status !== 'active') {
     return { allowed: false, code: `chain-${chain.status}`, reason: `Authority chain ${input.chainId} is '${chain.status}', not active.` };

@@ -68,6 +68,8 @@ const SPECIALIST_LABELS: Record<SpecialistId, string> = {
   metaye: 'Metayé',
   researcher: 'Research Copilot',
   aletheon: 'Aletheon',
+  factor: 'Factor',
+  aegis: 'Aegis',
 };
 
 const SPECIALIST_DESCRIPTIONS: Record<SpecialistId, string> = {
@@ -81,6 +83,8 @@ const SPECIALIST_DESCRIPTIONS: Record<SpecialistId, string> = {
   metaye: 'Sovereign Cybernetic Polity, governance, civic primitives',
   researcher: 'Invariant substrate, experiments, protocols, structured discovery',
   aletheon: 'Constitutional reasoning, knowledge synthesis, institutional memory, revealed context',
+  factor: 'Candidate-intake pipeline — evidence checklist, case state, readiness for Aegis assessment',
+  aegis: 'Independent assessment — evidence-bound findings, admissibility recommendation (never admits)',
 };
 
 /**
@@ -100,6 +104,12 @@ const SPECIALIST_ACTIVATION_GATE: Record<SpecialistId, { id: string; label: stri
   'aigent-nakamoto': null,
   moneypenny: null,
   aletheon: null,
+  // Same availability as MoneyPenny itself (no dedicated activation id
+  // exists for MoneyPenny sub-specialists) — Factor/Aegis are MoneyPenny's
+  // own candidate-intake/assessment machinery, not a separately-activated
+  // cartridge.
+  factor: null,
+  aegis: null,
 };
 
 /**
