@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`f9a54b1`](https://github.com/iQube-Protocol/AigentZBeta/commit/f9a54b1aa20a899c656778c626cfcbc5d42e75f3) [push] Harvest MoneyPenny002 live-console UI as atomic, capsule-composable SmartTriad surfaces (Claude, 2026-09-04T21:53:55Z)
 - [`35ac289`](https://github.com/iQube-Protocol/AigentZBeta/commit/35ac289dfd05627ccb82f489d4cd99fd691d44af) [push] Promote SmartTriad inline video into a universal Rich Block primitive (Claude, 2026-09-04T21:38:08Z)
 - [`2198fc5`](https://github.com/iQube-Protocol/AigentZBeta/commit/2198fc5a37c420a33b1e8b3329d66a75d56185c1) [push] Stop rendering duplicate raw JSON below media previews; hover-only video chrome (Claude, 2026-09-04T20:54:26Z)
 - [`7896cbb`](https://github.com/iQube-Protocol/AigentZBeta/commit/7896cbbe99785a63e1042b698eedff0d1fa2f2c3) [fix] Fix Track 2 frontier regression + parallelize provenance-cohort inference calls (Claude, 2026-09-04T20:49:21Z)
