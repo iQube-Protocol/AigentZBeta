@@ -142,24 +142,68 @@ export interface TriagedProvenanceRecord {
 }
 
 /**
+ * ONE batched `discovery_evidence` read across every input invariant's
+ * `provenance.evidence_ids`, keyed by evidence row id — was N sequential
+ * `suggestClassification()` calls (one Supabase round-trip per invariant),
+ * which made this deterministic, no-model-call triage the dominant cost of
+ * the full Track 2 programme-state composition once Stage 5 held 50+
+ * unclassified members (2026-09-04 profiling — see that day's resolution
+ * record). `suggestClassification` itself is untouched and still used by
+ * every per-invariant caller (the manual ClassificationQueue UI, and
+ * `prepareProvenanceCohort` below's per-signature-representative calls,
+ * which need its full source/candidate-title enrichment for the model
+ * prompt this function never builds).
+ */
+async function batchResolveEvidenceSourceRefs(
+  admin: SupabaseClient,
+  invariants: readonly { provenance: Record<string, unknown> | null }[],
+): Promise<Map<string, string | null>> {
+  const allIds = new Set<string>();
+  for (const inv of invariants) {
+    const raw = Array.isArray(inv.provenance?.evidence_ids) ? (inv.provenance!.evidence_ids as unknown[]) : [];
+    for (const v of raw) {
+      if (typeof v === 'string' && v.trim()) allIds.add(v.trim());
+    }
+  }
+  if (allIds.size === 0) return new Map();
+  const { data, error } = await admin.from('discovery_evidence').select('id, source_ref').in('id', [...allIds]);
+  // Best-effort, fail-closed: a read error leaves the map empty, so every
+  // invariant's evidence ids resolve to "unresolved" below — the SAME
+  // conservative outcome `suggestClassification`'s own error branch used to
+  // produce (never silently treated as resolved).
+  if (error) return new Map();
+  const map = new Map<string, string | null>();
+  for (const row of data ?? []) {
+    map.set(String(row.id), typeof row.source_ref === 'string' ? row.source_ref.trim() || null : null);
+  }
+  return map;
+}
+
+/**
  * The DETERMINISTIC half of cohort preparation — no model call, so it is
  * cheap enough to run on every programme-state read (e.g. to decide whether
  * Stage 5 still holds classifiable work or only isolated exceptions, for
- * `unblockedStageIds`). Resolves each invariant's evidence lineage
- * (`suggestClassification`, the existing resolver) and classifies it into
- * 'candidate' or one of the three deterministic exception causes
- * ('no-evidence', 'incomplete-lineage', 'repo-internal-citation') —
- * 'suggestion-unavailable' can only be produced once the model is actually
- * asked, in `prepareProvenanceCohort` below.
+ * `unblockedStageIds`). Resolves each invariant's evidence lineage (via the
+ * ONE batched read above, never a second, per-invariant resolver call here)
+ * and classifies it into 'candidate' or one of the three deterministic
+ * exception causes ('no-evidence', 'incomplete-lineage',
+ * 'repo-internal-citation') — 'suggestion-unavailable' can only be produced
+ * once the model is actually asked, in `prepareProvenanceCohort` below.
  */
 export async function triageUnclassifiedProvenance(
   admin: SupabaseClient,
   invariants: readonly { id: string; statement: string; provenance: Record<string, unknown> | null }[],
 ): Promise<TriagedProvenanceRecord[]> {
+  const sourceRefById = await batchResolveEvidenceSourceRefs(admin, invariants);
+
   const triaged: TriagedProvenanceRecord[] = [];
   for (const inv of invariants) {
-    const suggestion = await suggestClassification(admin, inv.id, inv.provenance);
-    if (suggestion.evidenceIdCount === 0) {
+    const evidenceIds = Array.isArray(inv.provenance?.evidence_ids)
+      ? (inv.provenance!.evidence_ids as unknown[])
+          .filter((v): v is string => typeof v === 'string' && v.trim().length > 0)
+          .map((v) => v.trim())
+      : [];
+    if (evidenceIds.length === 0) {
       triaged.push({
         invariantId: inv.id, statement: inv.statement, disposition: 'exception',
         evidenceRefs: [], signature: '',
@@ -168,8 +212,26 @@ export async function triageUnclassifiedProvenance(
       });
       continue;
     }
-    if (!suggestion.complete) {
-      const gaps = suggestion.notes.join(' ') || 'the evidence lineage could not be fully resolved';
+
+    const unresolvedIds: string[] = [];
+    const idsWithoutSourceRef: string[] = [];
+    const refSet = new Set<string>();
+    for (const id of evidenceIds) {
+      if (!sourceRefById.has(id)) { unresolvedIds.push(id); continue; }
+      const ref = sourceRefById.get(id);
+      if (!ref) { idsWithoutSourceRef.push(id); continue; }
+      refSet.add(ref);
+    }
+    const complete = unresolvedIds.length === 0 && idsWithoutSourceRef.length === 0 && refSet.size > 0;
+    if (!complete) {
+      const notes: string[] = [];
+      if (unresolvedIds.length > 0) {
+        notes.push(`${unresolvedIds.length} recorded evidence id(s) could not be resolved to a discovery_evidence row: ${unresolvedIds.join(', ')}.`);
+      }
+      if (idsWithoutSourceRef.length > 0) {
+        notes.push(`${idsWithoutSourceRef.length} evidence row(s) carry no source reference and contribute nothing to this suggestion: ${idsWithoutSourceRef.join(', ')}.`);
+      }
+      const gaps = notes.join(' ') || 'the evidence lineage could not be fully resolved';
       triaged.push({
         invariantId: inv.id, statement: inv.statement, disposition: 'exception',
         evidenceRefs: [], signature: '',
@@ -177,7 +239,7 @@ export async function triageUnclassifiedProvenance(
       });
       continue;
     }
-    const refs = [...suggestion.suggestedEvidenceRefs].sort();
+    const refs = [...refSet].sort();
     const internalRefs = refs.filter((r) => looksSelfAuthored(r));
     if (internalRefs.length > 0) {
       triaged.push({

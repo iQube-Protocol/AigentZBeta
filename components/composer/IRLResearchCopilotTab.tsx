@@ -79,6 +79,23 @@ import type { ProgrammeRunResult, PendingGovernanceDecision } from "@/services/r
 // operator has run anything, rather than only after a POST /advance.
 import type { Track2Programme, Track2DeepLink } from "@/services/research/track2Programme";
 import { setPendingTrack2Stage } from "@/services/research/track2DeepLinkIntent";
+/**
+ * The trimmed shape this card needs from
+ * `GET /api/research/track2/[experimentId]/provenance-cohort` — deliberately
+ * NOT the full recommendations array Track2ProgrammePanel's own
+ * ProvenanceCohortRatificationBoard renders; this card only needs the
+ * counts/hash to offer ONE ratification act, and fetches this route
+ * directly rather than depending on `pendingDecision`'s heavy composition
+ * (2026-09-04 — the 15s-timeout decoupling fix).
+ */
+interface ProvenanceCohortView {
+  experimentId: string;
+  total: number;
+  readyCount: number;
+  exceptionCount: number;
+  cohortHash: string;
+  summary: string;
+}
 import { proceedToTrack2Stage } from "@/services/research/track2ProceedNavigation";
 import type {
   ExperimentLifecycleState,
@@ -615,6 +632,13 @@ function ObjectiveCard({
   onAdmitProvenanceClassChange,
   admitRationale,
   onAdmitRationaleChange,
+  provenanceCohortPreview,
+  onRatifyProvenanceCohort,
+  provenanceRatifying,
+  provenanceRatifyError,
+  provenanceRatifyStatus,
+  provenanceRationale,
+  onProvenanceRationaleChange,
 }: {
   objective: ResearchObjective;
   run: ProgrammeRunResult | null;
@@ -713,6 +737,20 @@ function ObjectiveCard({
   onAdmitProvenanceClassChange: (v: ProvenanceClass | "") => void;
   admitRationale: string;
   onAdmitRationaleChange: (v: string) => void;
+  /**
+   * CLASSIFY PROVENANCE COHORT (2026-09-04) — fetched and ratified
+   * independently of `decision`/`programme` above; see the state/callback
+   * declarations' own doc comments for why. `null` until the mount-time
+   * `refresh()` (or a post-ratification reload) determines this experiment's
+   * classify-provenance stage is the pending one.
+   */
+  provenanceCohortPreview: ProvenanceCohortView | null;
+  onRatifyProvenanceCohort: (experimentId: string) => void;
+  provenanceRatifying: boolean;
+  provenanceRatifyError: string | null;
+  provenanceRatifyStatus: string | null;
+  provenanceRationale: string;
+  onProvenanceRationaleChange: (v: string) => void;
 }) {
   const gate = run?.measurementLayerGate ?? null;
   const programme = run?.programme ?? programmePreview;
@@ -878,6 +916,85 @@ function ObjectiveCard({
           gate was still genuinely open — the operator saw only the compact
           dot-strip above, not the actionable judgment. It now survives
           navigate-away-and-back exactly like the dot-strip already did. */}
+
+      {/* CLASSIFY PROVENANCE COHORT (2026-09-04) — the ONE decision surface
+          the operator asked for, replacing "Record 1 of 55" one-at-a-time
+          classification. Rendered whenever `provenanceCohortPreview` names
+          THIS objective's experiment — independent of `decision` (see that
+          state's own doc comment for why it is fetched separately, and the
+          15s-timeout decoupling this exists to fix). Deliberately placed
+          OUTSIDE the `decision`-block span below (a sibling, not nested) —
+          it can be shown alongside, or independently of, whatever `decision`
+          currently names, since the two are no longer the same read. */}
+      {provenanceCohortPreview && provenanceCohortPreview.experimentId === objective.experimentId && (
+        <div className="rounded border border-violet-500/40 bg-violet-500/10 px-2 py-2 space-y-1.5">
+          <div className="text-[10px] uppercase tracking-wide text-violet-300 font-semibold">
+            Prepared — Classify Provenance · {provenanceCohortPreview.total} unclassified
+          </div>
+          <div className="space-y-0.5">
+            {provenanceCohortPreview.readyCount > 0 && (
+              <div className="text-[10px] text-slate-300 flex gap-1.5">
+                <span className="text-slate-500 shrink-0">·</span>
+                <span>
+                  <span className="text-emerald-300">{provenanceCohortPreview.readyCount}</span> ready for cohort ratification
+                </span>
+              </div>
+            )}
+            {provenanceCohortPreview.exceptionCount > 0 && (
+              <div className="text-[10px] text-slate-300 flex gap-1.5">
+                <span className="text-slate-500 shrink-0">·</span>
+                <span>
+                  <span className="text-amber-300">{provenanceCohortPreview.exceptionCount}</span> isolated exception(s) — require individual review
+                </span>
+              </div>
+            )}
+          </div>
+
+          {provenanceCohortPreview.readyCount > 0 && (
+            <div className="rounded border border-emerald-700/40 bg-emerald-500/5 p-1.5 space-y-1">
+              <input
+                type="text"
+                value={provenanceRationale}
+                onChange={(e) => onProvenanceRationaleChange(e.target.value)}
+                disabled={provenanceRatifying}
+                placeholder="Rationale — recorded on every invariant classified"
+                className="w-full rounded border border-slate-700 bg-slate-900 px-1.5 py-1 text-[10px] text-slate-200 placeholder:text-slate-600 disabled:opacity-50"
+              />
+              <button
+                type="button"
+                onClick={() => onRatifyProvenanceCohort(provenanceCohortPreview.experimentId)}
+                disabled={provenanceRatifying || !provenanceRationale.trim()}
+                className="inline-flex items-center gap-1 rounded border border-emerald-500/40 bg-emerald-500/20 px-2 py-1 text-[10px] font-semibold text-emerald-50 hover:bg-emerald-500/30 transition disabled:opacity-50"
+              >
+                {provenanceRatifying ? <Loader2 className="h-3 w-3 animate-spin" /> : <ShieldCheck className="h-3 w-3" />}
+                {provenanceRatifying ? (provenanceRatifyStatus ?? "Ratifying…") : "Ratify provenance cohort"}
+              </button>
+              {provenanceRatifyError && (
+                <div className="rounded border border-rose-500/40 bg-rose-500/10 px-2 py-1.5 text-[10px] text-rose-300">
+                  {provenanceRatifyError}
+                  <button
+                    type="button"
+                    onClick={() => onRatifyProvenanceCohort(provenanceCohortPreview.experimentId)}
+                    className="ml-1.5 underline decoration-rose-700 hover:text-rose-100"
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={onOpenDetail}
+            className="mt-0.5 inline-flex items-center gap-1 text-[10px] text-violet-300/70 hover:text-violet-200 transition"
+          >
+            <ArrowRight className="h-3 w-3" />
+            Inspect individually
+          </button>
+        </div>
+      )}
+
       {decision && decision.acquisitionBrief && (
         /* TARGETED ACQUISITION — the `discover-sources` stop rendered as a
            precise Copilot authorization (2026-08-30), not a navigation
@@ -1531,6 +1648,25 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
   const [admitProvenanceClass, setAdmitProvenanceClass] = useState<ProvenanceClass | "">("");
   const [admitRationale, setAdmitRationale] = useState("");
 
+  // ── CLASSIFY PROVENANCE COHORT (2026-09-04) — the SAME "ONE decision
+  // surface" pattern as ADMIT ELIGIBLE SOURCES above, but deliberately fetched
+  // and ratified through its OWN lightweight
+  // `/api/research/track2/[experimentId]/provenance-cohort` endpoint, never
+  // through the heavy full `pendingDecision` composition — this is the fix
+  // for the 15s programme-composition timeout that was blocking Stage 5's
+  // action from even opening: the cohort's own identity (cohortHash) and
+  // eligibility are cheap to derive on their own, so this card must not wait
+  // on the full 11-stage Track 2 read model to finish. `provenanceCohortPreview`
+  // is per-experiment (`Record<experimentId, ...>`) exactly like `programmePreview`
+  // conceptually, but scoped to ONE objective's card at a time in practice
+  // (RESEARCH_OBJECTIVES today has one Track 2 experiment).
+  const [provenanceCohortPreview, setProvenanceCohortPreview] = useState<ProvenanceCohortView | null>(null);
+  const [provenanceCohortLoading, setProvenanceCohortLoading] = useState(false);
+  const [provenanceRationale, setProvenanceRationale] = useState("");
+  const [provenanceRatifying, setProvenanceRatifying] = useState(false);
+  const [provenanceRatifyError, setProvenanceRatifyError] = useState<string | null>(null);
+  const [provenanceRatifyStatus, setProvenanceRatifyStatus] = useState<string | null>(null);
+
   // ── C3 Feedback Coordinator (mirrors DevCommandCenterTab.autoPrompt): on a
   // stage-ADVANCING approval, mint ONE `[observed]` auto-turn so the copilot
   // proactively guides the next step. Never minted on dismissals; never from an
@@ -1713,6 +1849,36 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
           // ghost). Recomputed from the SAME authoritative read as the
           // programme itself — never from a locally-cached decision.
           setPendingDecisionPreview(data.pendingDecision ?? null);
+          // CLASSIFY PROVENANCE COHORT (2026-09-04) — fetched here, DIRECTLY
+          // against its own lightweight route, ONLY when this stage is
+          // actually the pending one — never as a standing dependency of the
+          // heavy Track 2 read above (that read is what previously carried
+          // the 15s timeout risk into this card's very presence). Inlined
+          // rather than calling the separately-declared `loadProvenanceCohortPreview`
+          // to avoid a forward-reference across this large component body.
+          if (data.pendingDecision?.stageId === "classify-provenance") {
+            try {
+              const cohortRes = await personaFetch(
+                `/api/research/track2/${encodeURIComponent(objective.experimentId)}/provenance-cohort`,
+                { cache: "no-store", ...(personaId ? { personaIdHint: personaId } : {}) },
+              );
+              const cohortData = await cohortRes.json().catch(() => null) as {
+                ok?: boolean; total?: number; readyCount?: number; exceptionCount?: number; cohortHash?: string; summary?: string;
+              } | null;
+              if (cohortRes.ok && cohortData?.ok) {
+                setProvenanceCohortPreview({
+                  experimentId: objective.experimentId,
+                  total: cohortData.total ?? 0,
+                  readyCount: cohortData.readyCount ?? 0,
+                  exceptionCount: cohortData.exceptionCount ?? 0,
+                  cohortHash: cohortData.cohortHash ?? "",
+                  summary: cohortData.summary ?? "",
+                });
+              }
+            } catch {
+              /* best-effort — never blocks the rest of refresh */
+            }
+          }
         }
         // A failed preview never blocks the rest of refresh, and never clears
         // an already-loaded preview — an honest "could not confirm just now"
@@ -2237,6 +2403,102 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
   }, [observe, personaId, runProgramme, admitProvenanceClass, admitRationale]);
 
   /**
+   * CLASSIFY PROVENANCE COHORT — read step (2026-09-04). Fetches
+   * `GET /api/research/track2/[experimentId]/provenance-cohort` DIRECTLY —
+   * never through `loadTrack2ProgrammeState`/`pendingDecision`. This is the
+   * point of the fix: the operator reported clicking through from the
+   * Copilot into "Record 1 of 55" one-at-a-time classification, with the
+   * heavy full-composition read sometimes exceeding its safety budget along
+   * the way. The provenance cohort's own identity (cohortHash) and
+   * eligibility are cheap on their own — this card must not wait on the
+   * full 11-stage Track 2 read model merely to show up.
+   */
+  const loadProvenanceCohortPreview = useCallback(async (experimentId: string) => {
+    setProvenanceCohortLoading(true);
+    try {
+      const res = await personaFetch(`/api/research/track2/${encodeURIComponent(experimentId)}/provenance-cohort`, {
+        cache: "no-store",
+        ...(personaId ? { personaIdHint: personaId } : {}),
+      });
+      const data = await res.json().catch(() => null) as {
+        ok?: boolean; total?: number; readyCount?: number; exceptionCount?: number; cohortHash?: string; summary?: string;
+      } | null;
+      if (res.ok && data?.ok) {
+        setProvenanceCohortPreview({
+          experimentId,
+          total: data.total ?? 0,
+          readyCount: data.readyCount ?? 0,
+          exceptionCount: data.exceptionCount ?? 0,
+          cohortHash: data.cohortHash ?? "",
+          summary: data.summary ?? "",
+        });
+      }
+      // A failed read is best-effort here too — never clears an already-shown
+      // preview, mirroring every other preview fetch on this card.
+    } catch {
+      /* best-effort */
+    }
+    setProvenanceCohortLoading(false);
+  }, [personaId]);
+
+  /**
+   * CLASSIFY PROVENANCE COHORT — the ONE ratification act ("Ratify provenance
+   * cohort" button below), driving the SAME `POST .../provenance-cohort`
+   * route Track2ProgrammePanel's `ProvenanceCohortRatificationBoard` uses —
+   * never a second write path. `expectedCohortHash` is the exact hash the
+   * last read showed, so the route fails closed (`recommendation-set-changed`)
+   * if the cohort moved since — this component just re-reads and surfaces
+   * that, exactly like `admitEligibleCohort`'s own stale-cohort handling
+   * above. On success, continues the programme automatically via the SAME
+   * `runProgramme` "Run until you need me" every other cohort act here uses,
+   * so Validate/Relationships/Assignment proceed without a second click.
+   */
+  const ratifyProvenanceCohort = useCallback(async (experimentId: string) => {
+    if (!provenanceCohortPreview || provenanceCohortPreview.experimentId !== experimentId) return;
+    if (!provenanceRationale.trim()) {
+      setProvenanceRatifyError("a rationale is required — it is recorded on every invariant classified");
+      return;
+    }
+    setProvenanceRatifying(true);
+    setProvenanceRatifyError(null);
+    setProvenanceRatifyStatus("Ratifying provenance cohort…");
+    observe(surfacePromptSelectedEvent(SURFACE, `ratify provenance cohort requested (${provenanceCohortPreview.readyCount} invariant(s))`));
+    try {
+      const res = await personaFetch(`/api/research/track2/${encodeURIComponent(experimentId)}/provenance-cohort`, {
+        method: "POST",
+        cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          dryRun: false,
+          rationale: provenanceRationale.trim(),
+          expectedCohortHash: provenanceCohortPreview.cohortHash,
+        }),
+        ...(personaId ? { personaIdHint: personaId } : {}),
+      });
+      const data = await res.json().catch(() => null) as {
+        ok?: boolean; error?: string; detail?: string; written?: number; failed?: number;
+      } | null;
+      if (data?.error === "recommendation-set-changed") {
+        setProvenanceRatifyError(
+          (data.detail as string | undefined) ?? "The prepared cohort has changed since it was shown. Refresh and reconfirm.",
+        );
+        await loadProvenanceCohortPreview(experimentId);
+      } else if (!res.ok && !data?.ok) {
+        setProvenanceRatifyError((data && typeof data.error === "string" && data.error) || `HTTP ${res.status}`);
+      } else {
+        setProvenanceRatifyStatus(`Classified ${data?.written ?? 0} invariant(s) — continuing the programme…`);
+        setProvenanceRationale("");
+        await loadProvenanceCohortPreview(experimentId);
+        await runProgramme(experimentId);
+        setProvenanceRatifyStatus(null);
+      }
+    } catch (err) {
+      setProvenanceRatifyError(err instanceof Error ? err.message : "provenance cohort ratification failed");
+    }
+    setProvenanceRatifying(false);
+  }, [observe, personaId, runProgramme, provenanceCohortPreview, provenanceRationale, loadProvenanceCohortPreview]);
+
+  /**
    * REVIEW & PROMOTE — one steward disposition per click (2026-08-30,
    * "Review & Promote is a description, not a decision surface" fix).
    *
@@ -2549,6 +2811,13 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
               onAdmitProvenanceClassChange={setAdmitProvenanceClass}
               admitRationale={admitRationale}
               onAdmitRationaleChange={setAdmitRationale}
+              provenanceCohortPreview={provenanceCohortPreview}
+              onRatifyProvenanceCohort={(experimentId) => void ratifyProvenanceCohort(experimentId)}
+              provenanceRatifying={provenanceRatifying}
+              provenanceRatifyError={provenanceRatifyError}
+              provenanceRatifyStatus={provenanceRatifyStatus}
+              provenanceRationale={provenanceRationale}
+              onProvenanceRationaleChange={setProvenanceRationale}
             />
           ))}
 
