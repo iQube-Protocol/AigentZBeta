@@ -24,15 +24,18 @@ import type { CandidateRow } from '@/services/invariants/discoveryEngine';
 
 const mockGetInvariantsByIds = vi.fn();
 const mockListEdgesForInvariants = vi.fn();
+const mockListInvariants = vi.fn();
 vi.mock('@/services/invariants/store', () => ({
   getInvariantsByIds: (...args: any[]) => mockGetInvariantsByIds(...args),
   listEdgesForInvariants: (...args: any[]) => mockListEdgesForInvariants(...args),
+  listInvariants: (...args: any[]) => mockListInvariants(...args),
 }));
 
-const mockFindDuplicates = vi.fn();
-vi.mock('@/services/invariants/comparison', () => ({
-  findDuplicates: (...args: any[]) => mockFindDuplicates(...args),
-}));
+// `similarity` is the REAL comparator (2026-09-04, batched-exact-match
+// rewrite) — the mock surface moved from `findDuplicates` (one Supabase
+// round trip per candidate) to `listInvariants` (one batched read per
+// distinct namespace); exact-match behaviour is exercised through real
+// statement-equality comparison, not a stubbed verdict.
 
 vi.mock('@/services/research/experimentalPopulations', () => ({
   readEvidenceProvenance: () => null,
@@ -75,8 +78,8 @@ function invariant(id: string, overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   mockGetInvariantsByIds.mockReset();
-  mockFindDuplicates.mockReset();
-  mockFindDuplicates.mockResolvedValue([]); // default: no deterministic match
+  mockListInvariants.mockReset();
+  mockListInvariants.mockResolvedValue([]); // default: no deterministic match
   mockListEdgesForInvariants.mockReset();
   mockListEdgesForInvariants.mockResolvedValue([]); // default: no edges — every member an orphan
   mockGetValidNoDefensibleEdgeInvariantIds.mockReset();
@@ -102,7 +105,7 @@ describe('reconcilePromotedCohort — the clean cases', () => {
 describe('reconcilePromotedCohort — missing invariant_id', () => {
   it('with a deterministic exact-statement match: named, repairable, the exact recommendation stated', async () => {
     const promoted = [candidate({ id: 'c-missing', promotedInvariantId: null, statement: 'Every settlement is receipted.' })];
-    mockFindDuplicates.mockResolvedValue([{ invariant: invariant('inv-existing'), similarity: 1, exact: true }]);
+    mockListInvariants.mockResolvedValue([invariant('inv-existing', { statement: 'Every settlement is receipted.' })]);
     const cohort = await reconcilePromotedCohort(promoted);
     expect(cohort.unaccountedRecords).toHaveLength(1);
     const r = cohort.unaccountedRecords[0];
@@ -118,7 +121,7 @@ describe('reconcilePromotedCohort — missing invariant_id', () => {
 
   it('with no deterministic match: named, steward judgment required, never a guessed repair', async () => {
     const promoted = [candidate({ id: 'c-missing', promotedInvariantId: null })];
-    mockFindDuplicates.mockResolvedValue([]);
+    mockListInvariants.mockResolvedValue([]);
     const cohort = await reconcilePromotedCohort(promoted);
     expect(cohort.unaccountedRecords[0]).toMatchObject({
       defect: 'missing-invariant-id',
@@ -126,6 +129,28 @@ describe('reconcilePromotedCohort — missing invariant_id', () => {
       recommendedTreatment: 'exclude',
     });
     expect(cohort.unaccountedRecords[0].recommendedReason).toMatch(/steward judgment required/i);
+  });
+});
+
+describe('reconcilePromotedCohort — batched exact-match lookup (2026-09-04, N+1 repair)', () => {
+  it('N candidates missing an invariant_id in the SAME domain resolve via exactly ONE listInvariants call, not N', async () => {
+    const broken = Array.from({ length: 5 }, (_, i) =>
+      candidate({ id: `c-missing-${i}`, promotedInvariantId: null, statement: `Statement ${i}.` }),
+    );
+    mockListInvariants.mockResolvedValue([]); // no deterministic match for any of them
+    const cohort = await reconcilePromotedCohort(broken);
+    expect(cohort.unaccountedRecords).toHaveLength(5);
+    expect(cohort.unaccountedRecords.every((r) => r.defect === 'missing-invariant-id')).toBe(true);
+    // The whole point of the fix: one namespace, one read — was 5 sequential
+    // findDuplicates round trips (one full domain scan each) before this fix.
+    expect(mockListInvariants).toHaveBeenCalledTimes(1);
+  });
+
+  it('an empty withoutId set never calls listInvariants at all', async () => {
+    const promoted = [candidate({ id: 'c1', promotedInvariantId: 'inv-1' })];
+    mockGetInvariantsByIds.mockResolvedValue([invariant('inv-1')]);
+    await reconcilePromotedCohort(promoted);
+    expect(mockListInvariants).not.toHaveBeenCalled();
   });
 });
 
@@ -186,9 +211,9 @@ describe('reconcilePromotedCohort — operator-confirmed exclusions', () => {
     const cohort = await reconcilePromotedCohort(promoted);
     expect(cohort.excluded).toEqual([{ recordId: 'c-excluded', reason: 'duplicate of another candidate, confirmed by steward' }]);
     expect(cohort.unaccountedRecords).toEqual([]);
-    // findDuplicates must never be called for an already-excluded record — no
-    // wasted work computing a recommendation nobody will see.
-    expect(mockFindDuplicates).not.toHaveBeenCalled();
+    // The exact-match lookup must never run for an already-excluded record —
+    // no wasted work computing a recommendation nobody will see.
+    expect(mockListInvariants).not.toHaveBeenCalled();
   });
 });
 
@@ -200,11 +225,13 @@ describe('THE ACCEPTANCE TEST (al, 2026-08-04, verbatim seed)', () => {
       candidate({ id: 'broken-2', promotedInvariantId: null, statement: 'Statement B.' }),
     ];
     mockGetInvariantsByIds.mockResolvedValue(clean.map((c) => invariant(c.promotedInvariantId!)));
-    mockFindDuplicates.mockImplementation(async (statement: string) =>
-      statement === 'Statement A.'
-        ? [{ invariant: invariant('inv-repaired-a'), similarity: 1, exact: true }]
-        : [{ invariant: invariant('inv-repaired-b'), similarity: 1, exact: true }],
-    );
+    // Both `broken` candidates share a domain, so they share ONE namespace
+    // pool — this is exactly the batched-read shape being tested: a single
+    // `listInvariants` result serving both candidates' exact-match lookups.
+    mockListInvariants.mockResolvedValue([
+      invariant('inv-repaired-a', { statement: 'Statement A.' }),
+      invariant('inv-repaired-b', { statement: 'Statement B.' }),
+    ]);
 
     const cohort = await reconcilePromotedCohort([...clean, ...broken]);
     expect(cohort.invariantIds).toHaveLength(15);

@@ -33,10 +33,11 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { getInvariantsByIds } from '@/services/invariants/store';
+import { getInvariantsByIds, listInvariants } from '@/services/invariants/store';
 import { discoveryNamespace } from '@/services/invariants/discoveryDomains';
-import { findDuplicates } from '@/services/invariants/comparison';
+import { similarity } from '@/services/invariants/comparison';
 import type { CandidateRow } from '@/services/invariants/discoveryEngine';
+import type { InvariantRecord } from '@/types/invariants';
 
 /** WHY a promoted candidate is not (yet) a distinct crystal member. */
 export type UnaccountedDefect =
@@ -120,6 +121,47 @@ export interface ReconciledPromotedCohort {
   unclassifiedExceptionOnly?: boolean;
 }
 
+/**
+ * ONE batched `listInvariants` read per DISTINCT namespace across every
+ * `withoutId` candidate, replacing N sequential `findDuplicates` calls (a
+ * fresh, up-to-500-row domain scan EACH) — the identical N+1 shape fixed in
+ * `provenanceCohortPreparation.ts`'s `batchResolveEvidenceSourceRefs`
+ * (2026-09-04, classify-provenance's 15s-timeout repair). This loop only
+ * ever consults an EXACT match (`duplicates.find(d => d.exact)` — a
+ * `similarity` score of exactly 1), so it reuses `listInvariants` + the SAME
+ * `similarity` comparator `findDuplicates` calls internally, never a second
+ * duplicate-detection algorithm; behaviour is unchanged, only the number of
+ * Supabase round trips (N → distinct-namespace-count).
+ *
+ * Currently zero-impact on EXP-P1 (every live promoted candidate already
+ * carries `promoted_invariant_id`, so `withoutId` is empty) — fixed
+ * preventatively because this is the exact cohort `reconcilePromotedCohort`
+ * composes on every Track 2 Stage 5/6/7 render, the same hot path that
+ * produced the classify-provenance timeout.
+ */
+async function batchFindExactStatementMatches(
+  candidates: readonly CandidateRow[],
+): Promise<Map<string, InvariantRecord | null>> {
+  const namespaces = new Set(candidates.map((c) => discoveryNamespace(c.domain)));
+  const pools = new Map<string, InvariantRecord[]>();
+  await Promise.all(
+    [...namespaces].map(async (ns) => {
+      pools.set(
+        ns,
+        await listInvariants({ namespace: ns, status: ['draft', 'proposed', 'validated', 'canonical'], limit: 500 }).catch(
+          () => [],
+        ),
+      );
+    }),
+  );
+  const result = new Map<string, InvariantRecord | null>();
+  for (const c of candidates) {
+    const pool = pools.get(discoveryNamespace(c.domain)) ?? [];
+    result.set(c.id, pool.find((inv) => similarity(c.statement, inv.statement) === 1) ?? null);
+  }
+  return result;
+}
+
 function labelFor(statement: string): string {
   return statement.length > 140 ? `${statement.slice(0, 140)}…` : statement;
 }
@@ -186,19 +228,20 @@ export async function reconcilePromotedCohort(
   const withoutId = stillLive.filter((c) => !c.promotedInvariantId);
 
   // 2. Missing invariant_id — check for a deterministic repair (an EXACT
-  //    existing-statement match), never guessed, never attached here.
+  //    existing-statement match), never guessed, never attached here. Batched
+  //    across ALL of `withoutId` in one pass per distinct namespace — see
+  //    `batchFindExactStatementMatches`'s own header.
+  const exactMatches = await batchFindExactStatementMatches(withoutId);
   for (const c of withoutId) {
-    const namespace = discoveryNamespace(c.domain);
-    const duplicates = await findDuplicates(c.statement, { namespace });
-    const exact = duplicates.find((d) => d.exact);
+    const exact = exactMatches.get(c.id) ?? null;
     unaccountedRecords.push({
       ...baseRecord(c),
       defect: 'missing-invariant-id',
       duplicateOfCandidateId: null,
-      deterministicRepairInvariantId: exact ? exact.invariant.id : null,
+      deterministicRepairInvariantId: exact ? exact.id : null,
       recommendedTreatment: exact ? 'repair' : 'exclude',
       recommendedReason: exact
-        ? `Missing invariant_id. Recommended: attach the candidate's canonical invariant record (${exact.invariant.id}, exact statement match) and include.`
+        ? `Missing invariant_id. Recommended: attach the candidate's canonical invariant record (${exact.id}, exact statement match) and include.`
         : `Missing invariant_id, and no existing invariant states this candidate exactly — steward judgment required.`,
     });
   }

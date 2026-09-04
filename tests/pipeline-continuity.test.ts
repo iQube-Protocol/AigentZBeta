@@ -221,7 +221,24 @@ describe('every stage declares the population it is reasoning about', () => {
       'utf8',
     );
     expect(service).toMatch(/promotedInvariantId/);
-    expect(service).not.toMatch(/listInvariants\(/);
+    // THE CANARY'S SUBJECT, NAMED PRECISELY (2026-09-04) — the defect this
+    // guards against is COHORT MEMBERSHIP resolved by a DOMAIN query
+    // (`listInvariants({ domain: acquisitionDomain, ... })`) instead of
+    // through Stage 4's own `promotedInvariantId` handoff. It is not "the
+    // literal substring `listInvariants(` may never appear in this file for
+    // any reason" — that reading would also have silently passed before this
+    // date, because the missing-invariant-id repair recommendation already
+    // called `findDuplicates` (services/invariants/comparison.ts), which
+    // itself calls `listInvariants` internally; the canary simply could not
+    // see it one layer down. `batchFindExactStatementMatches` (2026-09-04,
+    // N+1 repair — replacing N sequential `findDuplicates` round trips with
+    // one batched read per distinct NAMESPACE) makes that same, pre-existing,
+    // narrowly-scoped exact-match lookup textually visible in this file for
+    // the first time. It resolves NO cohort membership — membership is still
+    // exclusively `promotedInvariantId` — so the assertion now names the
+    // actual shape of the historical defect (a `domain:`-keyed call) rather
+    // than the call's mere presence.
+    expect(service).not.toMatch(/listInvariants\(\{\s*domain:/);
   });
 });
 
