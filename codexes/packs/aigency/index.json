@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-03T21:28:19.140Z",
+  "last_updated": "2026-09-04T16:40:41.406Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "3ea2f4a6f1a9b6fc796903bbc89ed3771618f81c",
-  "latest_commit_short": "3ea2f4a",
-  "latest_commit_title": "Add Track 2 Stage 5 provenance-cohort mechanical preparation and one-act ratification",
+  "latest_commit": "2135362985afabc11a38114fa5076b65c9e4b1ce",
+  "latest_commit_short": "2135362",
+  "latest_commit_title": "Fix the classify-provenance 15s timeout N+1, and put the cohort action directly in Research Copilot",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "2135362",
+      "full_sha": "2135362985afabc11a38114fa5076b65c9e4b1ce",
+      "title": "Fix the classify-provenance 15s timeout N+1, and put the cohort action directly in Research Copilot",
+      "author": "Claude",
+      "timestamp": "2026-09-04T16:38:24Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-2135362.md"
+    },
     {
       "sha": "3ea2f4a",
       "full_sha": "3ea2f4a6f1a9b6fc796903bbc89ed3771618f81c",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-09-01T07:58:51Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-25797da.md"
-    },
-    {
-      "sha": "15a3ba5",
-      "full_sha": "15a3ba5cc18032c15e2c5e4dcc56057ba7791787",
-      "title": "Rework Financial Sovereignty as a dormant branch off CHOOSE (AEE-XP-001 §4) [merge review/irl-scoped-restoration-2026-08-27]",
-      "author": "Claude",
-      "timestamp": "2026-09-01T07:36:55Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-15a3ba5.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
