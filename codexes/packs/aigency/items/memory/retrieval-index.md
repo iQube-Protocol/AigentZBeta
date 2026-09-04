@@ -5414,3 +5414,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-7896cbb.md](../build_/COMMITS/COMMIT-7896cbb.md)
 - Message: Fix Track 2 frontier regression + parallelize provenance-cohort inference calls
+
+## Commit `2198fc5` — 2026-09-04T20:54:26Z
+- Type: `push`
+- Brief: [COMMIT-2198fc5.md](../build_/COMMITS/COMMIT-2198fc5.md)
+- Message: Stop rendering duplicate raw JSON below media previews; hover-only video chrome
