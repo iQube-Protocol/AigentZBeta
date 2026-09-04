@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-04T18:04:44.157Z",
+  "last_updated": "2026-09-04T20:38:46.572Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "04df10585ee3a2502eb56f705c857a75e97e5e31",
-  "latest_commit_short": "04df105",
-  "latest_commit_title": "Generate real venture reports for AigentMe's Generate Report button (Gate D)",
+  "latest_commit": "59bbdf34585fbed0c69887281de8069a3a8fa02d",
+  "latest_commit_short": "59bbdf3",
+  "latest_commit_title": "Fix venture-report deliberation: inferred purpose was discarded, not saved",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "59bbdf3",
+      "full_sha": "59bbdf34585fbed0c69887281de8069a3a8fa02d",
+      "title": "Fix venture-report deliberation: inferred purpose was discarded, not saved",
+      "author": "Claude",
+      "timestamp": "2026-09-04T20:36:27Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-59bbdf3.md"
+    },
     {
       "sha": "04df105",
       "full_sha": "04df10585ee3a2502eb56f705c857a75e97e5e31",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-09-01T15:24:27Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-0e293fe.md"
-    },
-    {
-      "sha": "c45d510",
-      "full_sha": "c45d510ac07e88c182c98b6be07600700f20ddef",
-      "title": "Distinguish unreadable matrix reads from genuine defaults in experienceMatrixDeriver",
-      "author": "Claude",
-      "timestamp": "2026-09-01T13:02:03Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-c45d510.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

@@ -5404,3 +5404,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-04df105.md](../build_/COMMITS/COMMIT-04df105.md)
 - Message: Generate real venture reports for AigentMe's Generate Report button (Gate D)
+
+## Commit `59bbdf3` — 2026-09-04T20:36:27Z
+- Type: `fix`
+- Brief: [COMMIT-59bbdf3.md](../build_/COMMITS/COMMIT-59bbdf3.md)
+- Message: Fix venture-report deliberation: inferred purpose was discarded, not saved
