@@ -60,6 +60,12 @@ function VentureReportBriefLayoutComponent(
   const spec = deliberationBrief?.briefSpec as VentureReportBriefSpec | undefined;
   const isComplete = deliberationBrief?.isComplete ?? false;
   const unresolvedQuestions = deliberationBrief?.unresolvedQuestions ?? [];
+  // 'custom' is a category, not the operator's actual words — show/edit the
+  // real sentence (customPurpose) for that category, the canonical keyword
+  // otherwise. Editing always writes back through handleSaveField's own
+  // canonical-vs-custom normalization, so re-saving the displayed sentence
+  // unchanged round-trips correctly.
+  const purposeDisplayValue = spec?.purpose === "custom" ? (spec?.customPurpose ?? "") : (spec?.purpose ?? "");
 
   // Local UI state for editing specific fields
   const [editingField, setEditingField] = useState<string | null>(null);
@@ -78,15 +84,33 @@ function VentureReportBriefLayoutComponent(
     []
   );
 
+  const CANONICAL_PURPOSES = ["internal", "partner", "investor", "product", "full"] as const;
+
   const handleSaveField = useCallback(
     (field: string) => {
-      onUpdateBriefSpec?.({
-        [field]: tempValue || undefined,
-      });
+      // Purpose is a closed category (VentureReportBriefSpec.purpose), never
+      // free text — writing the raw sentence into it directly was a schema
+      // mismatch (2026-09-04 fix). A canonical keyword is saved as-is; any
+      // other free-text purpose statement is normalized to the 'custom'
+      // category with the operator's own sentence preserved in
+      // customPurpose, never discarded and never crammed into the enum.
+      if (field === "purpose") {
+        const trimmed = tempValue.trim();
+        const canonical = CANONICAL_PURPOSES.find((p) => p === trimmed.toLowerCase());
+        onUpdateBriefSpec?.(
+          canonical
+            ? { purpose: canonical, customPurpose: undefined }
+            : { purpose: trimmed ? "custom" : undefined, customPurpose: trimmed || undefined }
+        );
+      } else {
+        onUpdateBriefSpec?.({
+          [field]: tempValue || undefined,
+        });
+      }
       setEditingField(null);
       setTempValue("");
     },
-    [onUpdateBriefSpec]
+    [onUpdateBriefSpec, tempValue]
   );
 
   const handleGenerateClick = useCallback(() => {
@@ -118,6 +142,25 @@ function VentureReportBriefLayoutComponent(
           <BriefErrorState message={deliberationError} isDark={isDark} />
         ) : deliberationBrief ? (
           <div className="space-y-5 lg:space-y-6">
+            {/* Generation error — deliberationError was previously only
+                rendered by the `!deliberationBrief` branch above, so once a
+                brief existed (always true here) a report-generation failure
+                was recorded in state but never shown to the operator
+                (2026-09-04 fix). */}
+            {deliberationError && (
+              <div
+                className={`rounded-lg border p-4 ${
+                  isDark ? "border-rose-500/40 bg-rose-500/5" : "border-rose-200 bg-rose-50"
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="h-5 w-5 text-rose-500 flex-shrink-0 mt-0.5" />
+                  <p className={`text-sm leading-relaxed ${isDark ? "text-rose-300/90" : "text-rose-700"}`}>
+                    {deliberationError}
+                  </p>
+                </div>
+              </div>
+            )}
             {/* Completeness indicator */}
             <div
               className={`rounded-lg border p-4 ${
@@ -222,7 +265,7 @@ function VentureReportBriefLayoutComponent(
                   </div>
                 ) : (
                   <button
-                    onClick={() => handleEditField("purpose", spec?.purpose || "")}
+                    onClick={() => handleEditField("purpose", purposeDisplayValue)}
                     className={`w-full text-left px-3 py-2 rounded border flex items-center justify-between ${
                       spec?.purpose
                         ? isDark
@@ -231,7 +274,7 @@ function VentureReportBriefLayoutComponent(
                         : labelClass
                     } text-sm hover:bg-slate-700/50 transition-colors`}
                   >
-                    <span>{spec?.purpose || "Not set"}</span>
+                    <span>{purposeDisplayValue || "Not set"}</span>
                     <Edit2 className="h-3.5 w-3.5 opacity-60" />
                   </button>
                 )}

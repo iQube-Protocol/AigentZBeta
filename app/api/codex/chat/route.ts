@@ -3015,16 +3015,24 @@ export async function POST(request: NextRequest) {
       deliberationIntent.artifactType &&
       deliberationIntent.confidence >= 0.7
     ) {
-      // Note: Full SuggestedDeliberationAction (with initialized brief) requires
-      // ventureId and nbeId from the calling context. The client should provide
-      // these if they're available, or the aigentMe layout can request them.
-      // For now, we return just the intent detection so the UI can decide to engage.
+      // Note: a full SuggestedDeliberationAction with an initialized
+      // DeliberationBrief requires ventureId and nbeId from the calling
+      // context, which this route doesn't have — the client initializes
+      // the brief itself. What this route CAN and must provide is the
+      // structured brief-spec context already extractable from the
+      // operator's own message (purpose/customPurpose/emphasis/disclosure/
+      // period) — `extractedBriefSpec` below. Reported defect (2026-09-04):
+      // this was previously omitted entirely, so a message like "create an
+      // investor report focused on the pivot" detected the intent but threw
+      // away everything it said about what the report should be, leaving
+      // the client to initialize a genuinely blank brief.
       suggestedDeliberationAction = {
         detected: true,
         artifactType: deliberationIntent.artifactType,
         pattern: deliberationIntent.pattern,
         confidence: deliberationIntent.confidence,
         context: deliberationIntent.context,
+        extractedBriefSpec: extractBriefContextFromPrompt(message, deliberationIntent.artifactType),
       };
 
       console.log('[CodexChat] Deliberation intent detected:', {

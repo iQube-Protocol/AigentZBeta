@@ -233,5 +233,46 @@ export function extractBriefContextFromPrompt(
     }
   }
 
+  // Purpose + emphasis — the operator's own free-text framing of what the
+  // report should cover ("the report should focus on X, with Y emphasis").
+  // VentureReportBriefSpec.purpose is a closed category (internal | partner |
+  // investor | product | full | custom); a free-text sentence can never be
+  // written into it directly. Reported defect (2026-09-04): this function
+  // previously extracted only disclosure/period/audience, so a purpose
+  // sentence the operator typed had nowhere to land and was silently
+  // dropped, leaving the brief permanently incomplete.
+  //
+  // "emphasis" is pulled from a trailing "with A, B and C emphasis" /
+  // "emphasis on A, B and C" clause when present — a narrow, deterministic
+  // pattern match, never a guess at intent beyond what the sentence states.
+  // The full sentence is ALWAYS preserved as customPurpose (never discarded)
+  // even when no emphasis clause matches, so the operator's own words are
+  // never lost to a failed heuristic.
+  if (artifactType === 'venture-report' || artifactType === 'venture-reintroduction') {
+    const trimmedPrompt = prompt.trim();
+    if (trimmedPrompt.length > 0) {
+      const emphasisMatch = trimmedPrompt.match(
+        /(?:with|emphasis(?:ing)?\s+on)\s+(.+?)\s+emphasis\.?$/i,
+      ) ?? trimmedPrompt.match(/emphasis(?:ing)?\s+on\s+(.+?)[.!?]?$/i);
+      let customPurpose = trimmedPrompt;
+      if (emphasisMatch) {
+        const emphasisClause = emphasisMatch[1];
+        const emphasisTerms = emphasisClause
+          .split(/,|\band\b/i)
+          .map((t) => t.trim().replace(/^(?:the|a|an)\s+/i, ''))
+          .filter((t) => t.length > 0);
+        if (emphasisTerms.length > 0) {
+          spec.emphasis = emphasisTerms;
+        }
+        // The purpose statement is whatever preceded the emphasis clause —
+        // strip the matched clause (and its leading connector) so
+        // customPurpose isn't a duplicate of the emphasis list.
+        customPurpose = trimmedPrompt.slice(0, emphasisMatch.index).trim().replace(/[-–—]\s*$/, '').trim() || trimmedPrompt;
+      }
+      spec.purpose = 'custom';
+      spec.customPurpose = customPurpose;
+    }
+  }
+
   return spec;
 }

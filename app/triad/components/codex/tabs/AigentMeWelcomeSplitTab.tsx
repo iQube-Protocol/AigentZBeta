@@ -110,6 +110,7 @@ import {
   requiresDeliberation,
   resolveCompositionPolicy,
 } from "@/services/deliberativeArtifact/compositionPolicy";
+import { extractBriefContextFromPrompt } from "@/services/deliberativeArtifact/deliberationIntentDetector";
 import {
   initializeDeliberation,
   updateBriefSpec,
@@ -753,9 +754,20 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin, ag
         return;
       }
 
-      // Initialize the deliberation brief with the artifact type and context
+      // Initialize the deliberation brief, then adopt whatever context the
+      // chat route already inferred (purpose/customPurpose/emphasis/
+      // disclosure/period — see /api/codex/chat's `extractedBriefSpec`)
+      // instead of leaving a genuinely blank brief. Reported defect
+      // (2026-09-04): this previously discarded the inferred context
+      // entirely, so a message that already stated the report's purpose
+      // left the operator to re-enter everything by hand and the brief
+      // never became complete.
       const brief = initializeDeliberation(action.artifactType, action.brief?.nbeId || '');
-      setDeliberationBrief(brief);
+      const inferredSpec = (action.extractedBriefSpec ?? action.brief?.briefSpec ?? {}) as Record<string, unknown>;
+      const withInference = Object.keys(inferredSpec).length > 0
+        ? updateBriefCompleteness(updateBriefSpec(brief, inferredSpec))
+        : brief;
+      setDeliberationBrief(withInference);
 
       // Determine the layout ID based on artifact type
       const layoutId = getDeliberationLayoutId(action.artifactType);
@@ -1496,8 +1508,17 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin, ag
       // initialize the deliberation brief and mount the appropriate deliberation
       // layout instead of proceeding through standard dispatch.
       if (requiresDeliberation(artifactType)) {
+        // Same adoption fix as the chat-intent path (handleSuggestedDeliberation):
+        // an approved NBE carries its own free-text context (rationale/label);
+        // extract whatever brief-spec fields it implies rather than
+        // initializing a genuinely blank brief the operator has to fill in
+        // from scratch.
         const newBrief = initializeDeliberation(artifactType, action.id);
-        setDeliberationBrief(newBrief);
+        const inferredSpec = extractBriefContextFromPrompt(action.rationale || action.label || '', artifactType);
+        const withInference = Object.keys(inferredSpec).length > 0
+          ? updateBriefCompleteness(updateBriefSpec(newBrief, inferredSpec))
+          : newBrief;
+        setDeliberationBrief(withInference);
         // Route to the deliberation layout (venture-report-brief, venture-reintroduction-brief, etc.)
         // based on the artifact type.
         const layoutId = artifactType === 'venture-reintroduction'
@@ -1798,7 +1819,12 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin, ag
       }
       const draft = (await res.json()) as { title: string; bodyText: string; shareSuggestions: Array<{ email: string; role: 'reader' | 'commenter' | 'writer' }> };
       const created = await handleComposeGoogleDoc(draft);
-      const artifactId = (created as (ArtifactCardData & { id?: string }) | undefined)?.id;
+      // ArtifactCardData's identifier field is `artifactId`, never `id` (no
+      // such field exists on the type) — reading `.id` here always resolved
+      // to undefined, so the brief transitioned to 'drafted' with an empty
+      // artifact reference even when the Google Doc was created successfully
+      // (2026-09-04 fix).
+      const artifactId = (created as ArtifactCardData | undefined)?.artifactId;
       setDeliberationBrief((prev) => (prev ? transitionToDrafted(prev, artifactId ?? '') : prev));
     } catch (err) {
       setDeliberationGenerateError(err instanceof Error ? err.message : String(err));
