@@ -1,4 +1,8 @@
 # Build — Changelog
+- [`407ed0d`](https://github.com/iQube-Protocol/AigentZBeta/commit/407ed0dadf02b5f7426834efb8bde4f1295ac664) [fix] Batch reconcilePromotedCohort's exact-match repair lookup to close a latent N+1 (Claude, 2026-09-04T17:16:08Z)
+- [`12055d5`](https://github.com/iQube-Protocol/AigentZBeta/commit/12055d52944eaa083c5176c145426bfb70470a2b) [feat] Stop computing readiness 3x per Track 2 state read; add finer phase timing (Claude, 2026-09-04T17:16:22Z)
+- [`9ebf203`](https://github.com/iQube-Protocol/AigentZBeta/commit/9ebf203735768e767bf0aaf453f369eab1a7ad70) [push] Record the Track 2 composition-cost resolution + bounded-projection invariant (Claude, 2026-09-04T17:16:28Z)
+- [`5ffe0e0`](https://github.com/iQube-Protocol/AigentZBeta/commit/5ffe0e09c6a803d7942d6de9ca8caf90f843260b) [fix] trigger deploy: Track 2 composition-cost fix + reconcile N+1 batch (Claude, 2026-09-04T17:16:33Z)
 - [`2135362`](https://github.com/iQube-Protocol/AigentZBeta/commit/2135362985afabc11a38114fa5076b65c9e4b1ce) [fix] Fix the classify-provenance 15s timeout N+1, and put the cohort action directly in Research Copilot (Claude, 2026-09-04T16:38:24Z)
 - [`3ea2f4a`](https://github.com/iQube-Protocol/AigentZBeta/commit/3ea2f4a6f1a9b6fc796903bbc89ed3771618f81c) [feat] Add Track 2 Stage 5 provenance-cohort mechanical preparation and one-act ratification (Claude, 2026-09-03T21:18:54Z)
 - [`ae1c472`](https://github.com/iQube-Protocol/AigentZBeta/commit/ae1c472bb84c837e41a3b10afdf512800c2214da) [feat] Wire the Classify Provenance cohort board as Stage 5's primary decision surface (Claude, 2026-09-03T21:26:32Z)
