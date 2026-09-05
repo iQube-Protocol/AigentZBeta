@@ -5,6 +5,12 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { makeFakeAdmin } from './fixtures/fakeSupabase';
+
+const mockCreateActivityReceipt = vi.fn(async () => ({ id: 'receipt-stub' }));
+vi.mock('@/services/receipts/activityReceiptService', () => ({
+  createActivityReceipt: (...args: unknown[]) => mockCreateActivityReceipt(...args),
+}));
+
 import {
   provisionProviderWalletBinding,
   getProviderWalletBinding,
@@ -97,6 +103,47 @@ describe('idempotent provisioning', () => {
     const second = await provisionProviderWalletBinding(admin, { tenantId: 'default', agentRuntimeId: 'aigent-factor', provider: 'bankr' }, resolver);
     expect(second.provider_org_id).toBe('org-123');
     expect(second.allowed_capabilities).toEqual(['token_launch_quote']);
+  });
+});
+
+describe('bankr_provider_bound receipt — only on a genuinely new/reactivated binding, never on a routine refresh', () => {
+  it('emits a receipt on first provisioning when an actorPersonaId is supplied', async () => {
+    mockCreateActivityReceipt.mockClear();
+    const admin = makeFakeAdmin();
+    await provisionProviderWalletBinding(
+      admin,
+      { tenantId: 'default', agentRuntimeId: 'aigent-factor', provider: 'bankr', actorPersonaId: 'persona-1' },
+      resolverFor(FACTOR_OWNER_ADDRESS, FACTOR_SETTLEMENT_ADDRESS),
+    );
+    expect(mockCreateActivityReceipt).toHaveBeenCalledTimes(1);
+    expect(mockCreateActivityReceipt.mock.calls[0][0]).toMatchObject({ actionType: 'bankr_provider_bound', personaId: 'persona-1' });
+  });
+
+  it('emits no receipt when no actorPersonaId is supplied', async () => {
+    mockCreateActivityReceipt.mockClear();
+    const admin = makeFakeAdmin();
+    await provisionProviderWalletBinding(admin, { tenantId: 'default', agentRuntimeId: 'aigent-factor', provider: 'bankr' }, resolverFor(FACTOR_OWNER_ADDRESS, FACTOR_SETTLEMENT_ADDRESS));
+    expect(mockCreateActivityReceipt).not.toHaveBeenCalled();
+  });
+
+  it('emits no SECOND receipt on an idempotent re-provision of an already-active binding', async () => {
+    mockCreateActivityReceipt.mockClear();
+    const admin = makeFakeAdmin();
+    const resolver = resolverFor(FACTOR_OWNER_ADDRESS, FACTOR_SETTLEMENT_ADDRESS);
+    await provisionProviderWalletBinding(admin, { tenantId: 'default', agentRuntimeId: 'aigent-factor', provider: 'bankr', actorPersonaId: 'persona-1' }, resolver);
+    await provisionProviderWalletBinding(admin, { tenantId: 'default', agentRuntimeId: 'aigent-factor', provider: 'bankr', actorPersonaId: 'persona-1' }, resolver);
+    expect(mockCreateActivityReceipt).toHaveBeenCalledTimes(1);
+  });
+
+  it('emits a receipt again when a revoked binding is reactivated', async () => {
+    mockCreateActivityReceipt.mockClear();
+    const admin = makeFakeAdmin();
+    const resolver = resolverFor(FACTOR_OWNER_ADDRESS, FACTOR_SETTLEMENT_ADDRESS);
+    await provisionProviderWalletBinding(admin, { tenantId: 'default', agentRuntimeId: 'aigent-factor', provider: 'bankr', actorPersonaId: 'persona-1' }, resolver);
+    await revokeProviderWalletBinding(admin, 'default', 'aigent-factor', 'bankr');
+    mockCreateActivityReceipt.mockClear();
+    await provisionProviderWalletBinding(admin, { tenantId: 'default', agentRuntimeId: 'aigent-factor', provider: 'bankr', actorPersonaId: 'persona-1' }, resolver);
+    expect(mockCreateActivityReceipt).toHaveBeenCalledTimes(1);
   });
 });
 

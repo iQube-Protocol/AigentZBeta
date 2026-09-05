@@ -20,6 +20,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
 import { AgentPurposeWalletService } from '@/services/wallet/agentPurposeWalletService';
+import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 
 export type ProviderName = 'bankr';
 
@@ -79,6 +80,11 @@ export interface ProvisionProviderWalletBindingInput {
   allowedCapabilities?: string[];
   nonSecretCredentialRef?: string | null;
   verificationEvidence?: Record<string, unknown> | null;
+  /** When supplied, a genuinely new or reactivated binding emits the
+   *  `bankr_provider_bound` receipt attributed to this persona. Optional —
+   *  a caller with no accountable actor (or a routine idempotent refresh
+   *  of an already-active binding) emits no receipt, never a fabricated one. */
+  actorPersonaId?: string;
 }
 
 /**
@@ -132,6 +138,13 @@ export async function provisionProviderWalletBinding(
     updated_at: new Date().toISOString(),
   };
 
+  // A binding is newly ESTABLISHED (worth a `bankr_provider_bound` receipt)
+  // exactly when it did not exist before, or existed but was not 'active' —
+  // never on a routine idempotent refresh of an already-active binding
+  // (the existing insert/update above already re-resolves the canonical
+  // addresses every call; that alone is not a new binding event).
+  const isNewOrReactivated = !existing || existing.status !== 'active';
+
   if (existing) {
     const { data, error } = await admin
       .from('provider_wallet_bindings')
@@ -140,6 +153,16 @@ export async function provisionProviderWalletBinding(
       .select('*')
       .single();
     if (error) throw new Error(`provisionProviderWalletBinding update failed: ${error.message}`);
+    if (input.actorPersonaId && isNewOrReactivated) {
+      await createActivityReceipt({
+        personaId: input.actorPersonaId,
+        activeCartridge: 'moneypenny',
+        actionType: 'bankr_provider_bound',
+        summary: `Bankr provider-wallet binding (re)established for ${input.agentRuntimeId} in tenant ${input.tenantId}`,
+        agentsInvoked: [input.agentRuntimeId],
+        actionInput: { tenantId: input.tenantId, agentRuntimeId: input.agentRuntimeId, provider: input.provider, bindingId: (data as ProviderWalletBindingRow).id },
+      });
+    }
     return data as ProviderWalletBindingRow;
   }
 
@@ -164,6 +187,16 @@ export async function provisionProviderWalletBinding(
       return raceWinner as ProviderWalletBindingRow;
     }
     throw new Error(`provisionProviderWalletBinding insert failed: ${error.message}`);
+  }
+  if (input.actorPersonaId) {
+    await createActivityReceipt({
+      personaId: input.actorPersonaId,
+      activeCartridge: 'moneypenny',
+      actionType: 'bankr_provider_bound',
+      summary: `Bankr provider-wallet binding established for ${input.agentRuntimeId} in tenant ${input.tenantId}`,
+      agentsInvoked: [input.agentRuntimeId],
+      actionInput: { tenantId: input.tenantId, agentRuntimeId: input.agentRuntimeId, provider: input.provider, bindingId: (data as ProviderWalletBindingRow).id },
+    });
   }
   return data as ProviderWalletBindingRow;
 }

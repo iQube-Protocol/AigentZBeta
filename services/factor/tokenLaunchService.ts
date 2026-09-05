@@ -234,6 +234,17 @@ async function readLaunch(admin: SupabaseClient, id: string, tenantId: string): 
   return row;
 }
 
+/**
+ * The one tenant-checked read for this table — exported so every OTHER
+ * caller (bankrCapabilityHandlers.ts, API routes) reads a launch through
+ * the SAME tenant guard every write path here already uses, rather than
+ * each reinventing its own `.eq('id', id)` select with no tenant_id check
+ * (the exact cross-tenant read gap this export closes).
+ */
+export async function getTokenLaunch(admin: SupabaseClient, id: string, tenantId: string): Promise<TokenLaunchRow> {
+  return readLaunch(admin, id, tenantId);
+}
+
 export interface TransitionInput {
   id: string;
   tenantId: string;

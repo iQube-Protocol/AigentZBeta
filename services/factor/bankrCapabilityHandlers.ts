@@ -34,10 +34,14 @@ import {
   submitTokenLaunch,
   confirmTokenLaunch,
   checkBankrTermsDrift,
+  getTokenLaunch,
+  TokenLaunchError,
   type TokenLaunchRow,
   type CreateDraftInput,
 } from '@/services/factor/tokenLaunchService';
 import { createAssessment } from '@/services/aegis/aegisAssessmentService';
+import { validateChainForAction } from '@/services/factor/authorityChain';
+import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 
 export interface BankrIssuerReadiness {
   beneficiaryAgentRuntimeId: string;
@@ -80,13 +84,17 @@ export async function assessIssuerReadiness(
   };
 }
 
-/** "Inspect provider-binding readiness" — reads or provisions the binding (idempotent). */
+/** "Inspect provider-binding readiness" — reads or provisions the binding
+ *  (idempotent). `actorPersonaId` is optional — when supplied, a genuinely
+ *  new or reactivated binding emits the `bankr_provider_bound` receipt
+ *  (see provisionProviderWalletBinding's own doc). */
 export async function inspectOrProvisionProviderBinding(
   admin: SupabaseClient,
   tenantId: string,
   agentRuntimeId: string,
+  actorPersonaId?: string,
 ): Promise<ProviderWalletBindingRow> {
-  return provisionProviderWalletBinding(admin, { tenantId, agentRuntimeId, provider: 'bankr' });
+  return provisionProviderWalletBinding(admin, { tenantId, agentRuntimeId, provider: 'bankr', actorPersonaId });
 }
 
 /** "Prepare launch proposal" — creates the draft token_launches row. Never
@@ -114,13 +122,21 @@ export interface PreflightResult {
  */
 export async function preflightLaunch(admin: SupabaseClient, id: string, tenantId: string, actorPersonaId: string): Promise<PreflightResult> {
   const adapter = createBankrProviderAdapter();
-  const { data: launchRow, error } = await admin.from('token_launches').select('*').eq('id', id).maybeSingle();
-  if (error) throw new Error(`preflightLaunch read failed: ${error.message}`);
-  const launch = launchRow as TokenLaunchRow;
+  const launch = await getTokenLaunch(admin, id, tenantId);
 
   const terms = await adapter.getTokenLaunchQuote({ chain: launch.chain, tokenName: launch.token_name, tokenSymbol: launch.token_symbol, pairedAsset: launch.paired_asset ?? undefined });
   await recordBankrTerms(admin, id, tenantId, { raw: terms.raw, sourceUrl: terms.sourceUrl, retrievedAt: terms.retrievedAt });
   const preflighted = await transitionState(admin, { id, tenantId, toState: 'preflighted', actorPersonaId });
+
+  await createActivityReceipt({
+    personaId: actorPersonaId,
+    activeCartridge: 'moneypenny',
+    actionType: 'bankr_launch_preflighted',
+    summary: `Token launch ${id} preflighted against Bankr (${terms.raw.simulated ? 'simulated' : 'live'} terms, fee ${terms.feeBps ?? 'unknown'}bps)`,
+    agentsInvoked: [launch.preparing_agent_runtime_id],
+    actionInput: { launchId: id, sourceUrl: terms.sourceUrl, retrievedAt: terms.retrievedAt },
+  });
+
   return { launch: preflighted, bankrTerms: terms };
 }
 
@@ -160,21 +176,64 @@ export async function requestApproval(admin: SupabaseClient, id: string, tenantI
 /**
  * "Submit an approved launch" — the ONE function that calls Bankr's real
  * write API. Refuses outright unless the launch is 'approved' (enforced by
- * submitTokenLaunch's own state check) and requires a fresh Bankr-terms
- * drift check to have already been performed by the caller — this function
- * does not itself re-quote or silently proceed past drift; see
- * checkBankrTermsDrift, which the caller (Factor's capability route, not
- * this service layer) must call and act on BEFORE reaching here.
+ * submitTokenLaunch's own state check).
+ *
+ * Enforces Phase 8's "changed Bankr economics force reapproval" acceptance
+ * criterion ITSELF, mechanically, rather than delegating it to "the caller"
+ * (no caller of this function existed until Factor's API route was built,
+ * so leaving drift enforcement to an unwritten caller was equivalent to not
+ * enforcing it at all): re-quotes Bankr's terms, compares the hash against
+ * the row's frozen `bankr_terms_hash` via `checkBankrTermsDrift`, and on
+ * drift transitions the launch to 'revision_required' and refuses to
+ * submit — the approved spec is never sent to Bankr once its own
+ * underlying economics have moved.
+ *
+ * Also enforces the manifest's `requiredAuthority: ["bankr-token-launch-
+ * submit"]` — but ONLY when an authority chain is actually bound to this
+ * launch (`input.authorityChainId`), mirroring factorCaseService.ts's own
+ * optional-chain gate: a launch with no chain bound is unaffected (today's
+ * behavior), a BOUND chain must actually be valid for this exact action.
  */
 export async function submitApprovedLaunch(
   admin: SupabaseClient,
-  input: { id: string; tenantId: string; actorPersonaId: string; idempotencyKey: string },
+  input: { id: string; tenantId: string; actorPersonaId: string; idempotencyKey: string; authorityChainId?: string },
 ): Promise<TokenLaunchRow> {
-  const { data: launchRow, error } = await admin.from('token_launches').select('*').eq('id', input.id).maybeSingle();
-  if (error) throw new Error(`submitApprovedLaunch read failed: ${error.message}`);
-  const launch = launchRow as TokenLaunchRow;
+  const launch = await getTokenLaunch(admin, input.id, input.tenantId);
+
+  if (input.authorityChainId) {
+    const validation = await validateChainForAction(admin, {
+      chainId: input.authorityChainId,
+      action: 'bankr_tokenization:submit',
+      expectedPrincipalPersonaId: launch.requesting_principal_persona_id,
+    });
+    if (!validation.allowed) {
+      throw new TokenLaunchError(
+        'authority-chain-invalid',
+        `Launch ${input.id} cannot submit: its authority chain ${input.authorityChainId} is not valid for this action (${validation.code}): ${validation.reason}`,
+      );
+    }
+  }
 
   const adapter = createBankrProviderAdapter();
+
+  // Drift is only a meaningful question for an 'approved' row — anything
+  // else (not yet approved, or already past submission and replaying) is
+  // left entirely to submitTokenLaunch's own state check below, exactly as
+  // before this change, so an unapproved launch still fails with the
+  // domain 'not-approved' error rather than a spurious drift refusal
+  // (an unapproved row has no bankr_terms_hash to compare against at all).
+  if (launch.state === 'approved') {
+    const freshQuote = await adapter.getTokenLaunchQuote({ chain: launch.chain, tokenName: launch.token_name, tokenSymbol: launch.token_symbol, pairedAsset: launch.paired_asset ?? undefined });
+    const drift = checkBankrTermsDrift(launch, freshQuote.raw);
+    if (drift.driftDetected) {
+      await transitionState(admin, { id: input.id, tenantId: input.tenantId, toState: 'revision_required', actorPersonaId: input.actorPersonaId, reason: 'Bankr terms changed since approval — reapproval required before submission.' });
+      throw new TokenLaunchError(
+        'bankr-terms-drift',
+        `Launch ${input.id}'s approved Bankr terms (${drift.storedHash}) no longer match a fresh quote (${drift.freshHash}) — moved to 'revision_required'; submission refused.`,
+      );
+    }
+  }
+
   const submission = await adapter.submitTokenLaunch(
     {
       chain: launch.chain,
@@ -196,9 +255,7 @@ export async function inspectDeploymentStatus(
   admin: SupabaseClient,
   input: { id: string; tenantId: string; actorPersonaId: string },
 ): Promise<TokenLaunchRow> {
-  const { data: launchRow, error } = await admin.from('token_launches').select('*').eq('id', input.id).maybeSingle();
-  if (error) throw new Error(`inspectDeploymentStatus read failed: ${error.message}`);
-  const launch = launchRow as TokenLaunchRow;
+  const launch = await getTokenLaunch(admin, input.id, input.tenantId);
   if (!launch.bankr_job_id) return launch; // nothing submitted yet — nothing to inspect
 
   const adapter = createBankrProviderAdapter();
@@ -235,10 +292,8 @@ export interface FeeClaimInspection {
 
 /** "Inspect or prepare fee claims" — see FeeClaimInspection's own doc for
  *  why this is honestly limited today. */
-export async function inspectFeeClaims(admin: SupabaseClient, id: string): Promise<FeeClaimInspection> {
-  const { data: launchRow, error } = await admin.from('token_launches').select('*').eq('id', id).maybeSingle();
-  if (error) throw new Error(`inspectFeeClaims read failed: ${error.message}`);
-  const launch = launchRow as TokenLaunchRow;
+export async function inspectFeeClaims(admin: SupabaseClient, id: string, tenantId: string): Promise<FeeClaimInspection> {
+  const launch = await getTokenLaunch(admin, id, tenantId);
   return {
     launchId: id,
     tokenAddress: launch.token_address,

@@ -15,8 +15,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { makeFakeAdmin } from './fixtures/fakeSupabase';
 
+const mockCreateActivityReceipt = vi.fn(async () => ({ id: 'receipt-stub' }));
 vi.mock('@/services/receipts/activityReceiptService', () => ({
-  createActivityReceipt: vi.fn(async () => ({ id: 'receipt-stub' })),
+  createActivityReceipt: (...args: unknown[]) => mockCreateActivityReceipt(...args),
 }));
 
 const FACTOR_OWNER_ADDRESS = '0xF67299Ad3CB85f3A788CE38012C99Df7213E2734';
@@ -53,7 +54,8 @@ const DRAFT_INPUT = {
   tokenSymbol: 'FCTR',
 };
 
-async function ratifyAdmissibleFor(admin: any, launchId: string) {
+async function ratifyAdmissibleFor(admin: any, launchId: string, opts: { clearReceiptMockFirst?: boolean } = {}) {
+  if (opts.clearReceiptMockFirst) mockCreateActivityReceipt.mockClear();
   const assessment = await requestAegisAssessment(admin, {
     launchId,
     tenantId: 'default',
@@ -144,6 +146,20 @@ describe('preflightLaunch — quotes REAL (deterministic fake) Bankr terms, neve
     expect(result.bankrTerms.raw.simulated).toBe(true);
     expect(result.launch.bankr_terms).toBeTruthy();
   });
+
+  it('refuses to preflight a launch belonging to a different tenant', async () => {
+    const admin = makeFakeAdmin();
+    const draft = await prepareLaunchProposal(admin, DRAFT_INPUT);
+    await expect(preflightLaunch(admin, draft.id, 'other-tenant', 'persona-1')).rejects.toMatchObject({ code: 'cross-tenant-denied' });
+  });
+
+  it('emits a bankr_launch_preflighted receipt', async () => {
+    mockCreateActivityReceipt.mockClear();
+    const admin = makeFakeAdmin();
+    const draft = await prepareLaunchProposal(admin, DRAFT_INPUT);
+    await preflightLaunch(admin, draft.id, 'default', 'persona-1');
+    expect(mockCreateActivityReceipt).toHaveBeenCalledWith(expect.objectContaining({ actionType: 'bankr_launch_preflighted', personaId: 'persona-1' }));
+  });
 });
 
 describe('requestAegisAssessment — opens independent assessment, never self-assessed', () => {
@@ -164,6 +180,16 @@ describe('requestAegisAssessment — opens independent assessment, never self-as
     const assessment = await getCurrentAssessment(admin, 'token_launch', draft.id);
     expect(assessment!.subject_type).toBe('token_launch');
     expect(assessment!.requested_by_agent_ref).toBe('aigent-factor');
+  });
+
+  it('emits aegis_token_assessment_ratified (additive to the generic aegis_assessment_ratified) once ratified', async () => {
+    const admin = makeFakeAdmin();
+    const draft = await prepareLaunchProposal(admin, DRAFT_INPUT);
+    await preflightLaunch(admin, draft.id, 'default', 'persona-1');
+    await ratifyAdmissibleFor(admin, draft.id, { clearReceiptMockFirst: true });
+    const actionTypes = mockCreateActivityReceipt.mock.calls.map((c) => (c[0] as { actionType: string }).actionType);
+    expect(actionTypes).toContain('aegis_token_assessment_ratified');
+    expect(actionTypes).toContain('aegis_assessment_ratified');
   });
 });
 
@@ -203,6 +229,74 @@ describe('submitApprovedLaunch — the ONE function that calls Bankr\'s write AP
     const second = await submitApprovedLaunch(admin, { id: approved.id, tenantId: 'default', actorPersonaId: 'persona-1', idempotencyKey: 'idem-dup' });
     expect(second.bankr_job_id).toBe(first.bankr_job_id);
   });
+
+  it('changed Bankr economics force reapproval — refuses submission and moves the launch to revision_required', async () => {
+    const admin = makeFakeAdmin();
+    const approved = await walkToApproved(admin);
+    // Simulate the approved terms having gone stale relative to a fresh
+    // quote (e.g. Bankr changed its fee schedule after approval) without
+    // needing the deterministic fake transport to vary its own output.
+    await admin.from('token_launches').update({ bankr_terms_hash: 'stale-hash-from-before-a-fee-change' }).eq('id', approved.id);
+
+    await expect(
+      submitApprovedLaunch(admin, { id: approved.id, tenantId: 'default', actorPersonaId: 'persona-1', idempotencyKey: 'idem-drift-1' }),
+    ).rejects.toMatchObject({ code: 'bankr-terms-drift' });
+
+    const { data: row } = await admin.from('token_launches').select('*').eq('id', approved.id).maybeSingle();
+    expect(row.state).toBe('revision_required');
+    expect(row.bankr_job_id).toBeNull();
+  });
+
+  it('refuses cross-tenant submission — a launch belonging to a different tenant cannot be submitted', async () => {
+    const admin = makeFakeAdmin();
+    const approved = await walkToApproved(admin);
+    await expect(
+      submitApprovedLaunch(admin, { id: approved.id, tenantId: 'other-tenant', actorPersonaId: 'persona-1', idempotencyKey: 'idem-cross-tenant' }),
+    ).rejects.toMatchObject({ code: 'cross-tenant-denied' });
+  });
+
+  it('when an authority chain is bound, refuses submission if that chain does not grant the submit action', async () => {
+    const admin = makeFakeAdmin();
+    const approved = await walkToApproved(admin);
+    await admin.from('factor_authority_chains').insert({
+      chain_id: 'chain-no-submit',
+      principal_persona_id: 'persona-1',
+      chain_mode: 'direct',
+      mediator_agent_ref: null,
+      target_agent_ref: 'aigent-factor',
+      delegation_grant_id: null,
+      subdelegation_permitted: false,
+      allowed_actions: ['bankr_tokenization:preflight'], // submit NOT granted
+      status: 'active',
+      revoked_at: null,
+      revoke_reason: null,
+      expires_at: null,
+    });
+    await expect(
+      submitApprovedLaunch(admin, { id: approved.id, tenantId: 'default', actorPersonaId: 'persona-1', idempotencyKey: 'idem-chain-1', authorityChainId: 'chain-no-submit' }),
+    ).rejects.toMatchObject({ code: 'authority-chain-invalid' });
+  });
+
+  it('when an authority chain is bound and grants the submit action, submission proceeds', async () => {
+    const admin = makeFakeAdmin();
+    const approved = await walkToApproved(admin);
+    await admin.from('factor_authority_chains').insert({
+      chain_id: 'chain-with-submit',
+      principal_persona_id: 'persona-1',
+      chain_mode: 'direct',
+      mediator_agent_ref: null,
+      target_agent_ref: 'aigent-factor',
+      delegation_grant_id: null,
+      subdelegation_permitted: false,
+      allowed_actions: ['bankr_tokenization:submit'],
+      status: 'active',
+      revoked_at: null,
+      revoke_reason: null,
+      expires_at: null,
+    });
+    const submitted = await submitApprovedLaunch(admin, { id: approved.id, tenantId: 'default', actorPersonaId: 'persona-1', idempotencyKey: 'idem-chain-2', authorityChainId: 'chain-with-submit' });
+    expect(submitted.state).toBe('submitting');
+  });
 });
 
 describe('inspectDeploymentStatus — read-only against Bankr; never fabricates a confirmation', () => {
@@ -222,13 +316,21 @@ describe('inspectDeploymentStatus — read-only against Bankr; never fabricates 
     expect(result.state).toBe('submitting');
     expect(result.token_address).toBeNull();
   });
+
+  it('refuses to inspect deployment status for a launch belonging to a different tenant', async () => {
+    const admin = makeFakeAdmin();
+    const draft = await prepareLaunchProposal(admin, DRAFT_INPUT);
+    await expect(
+      inspectDeploymentStatus(admin, { id: draft.id, tenantId: 'other-tenant', actorPersonaId: 'persona-1' }),
+    ).rejects.toMatchObject({ code: 'cross-tenant-denied' });
+  });
 });
 
 describe('inspectFeeClaims — honestly limited (no documented Bankr fee-claim endpoint)', () => {
   it('reports no claimable amount and explains the gap when no token address exists yet', async () => {
     const admin = makeFakeAdmin();
     const draft = await prepareLaunchProposal(admin, DRAFT_INPUT);
-    const result = await inspectFeeClaims(admin, draft.id);
+    const result = await inspectFeeClaims(admin, draft.id, 'default');
     expect(result.claimableAmountKnown).toBe(false);
     expect(result.tokenAddress).toBeNull();
     expect(result.note).toMatch(/has not confirmed a token address/i);
@@ -238,9 +340,15 @@ describe('inspectFeeClaims — honestly limited (no documented Bankr fee-claim e
     const admin = makeFakeAdmin();
     const draft = await prepareLaunchProposal(admin, DRAFT_INPUT);
     await admin.from('token_launches').update({ token_address: '0xtoken-confirmed' }).eq('id', draft.id);
-    const result = await inspectFeeClaims(admin, draft.id);
+    const result = await inspectFeeClaims(admin, draft.id, 'default');
     expect(result.claimableAmountKnown).toBe(false);
     expect(result.tokenAddress).toBe('0xtoken-confirmed');
     expect(result.note).toMatch(/no publicly documented fee-claim endpoint/i);
+  });
+
+  it('refuses to inspect fee claims for a launch belonging to a different tenant', async () => {
+    const admin = makeFakeAdmin();
+    const draft = await prepareLaunchProposal(admin, DRAFT_INPUT);
+    await expect(inspectFeeClaims(admin, draft.id, 'other-tenant')).rejects.toMatchObject({ code: 'cross-tenant-denied' });
   });
 });
