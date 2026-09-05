@@ -100,3 +100,10 @@ see below — rather than an actual deploy in this reply).
    "Expand to full panel" lands on the right destination with the same conversation visible.
 7. Confirm MoneyPenny's admission-decision buttons (Admit/Conditionally admit/Reject) appear only in
    Aigent Factor's panel, only when the case is in "Admission pending".
+
+## Deploy
+
+Pushed to `dev` via this session's session branch (`.amplify-deploy` trigger folded into the
+deploying commit, per this repo's own deploy discipline) — Amplify picks up the `dev` branch build
+automatically. The checklist above is what to run against `dev-beta.aigentz.me` once that build
+completes.
