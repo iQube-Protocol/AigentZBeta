@@ -53,6 +53,34 @@ export type FactorCapabilityStatus = "operational" | "partial" | "advisory" | "p
 
 export type FactorInteractionMode = "explain" | "assess-readiness" | "prepare" | "act";
 
+/**
+ * How a capability is actually invoked, independent of its declared
+ * `status` (capability-runtime contract closure, 2026-09-05 — a status of
+ * "operational" was previously enough, on its own, to render as
+ * ACTION_AVAILABLE; that let a capability with no real handler be
+ * advertised as actionable). Never derive actionability from `status`
+ * alone — always cross-check `handlerKind`:
+ *   - "api": a real, externally-reachable REST route performs the action.
+ *   - "service": a real internal service function performs it, but it is
+ *     reachable only from server-side code today (no REST route, no UI
+ *     control) — a real capability with no external invocation path yet.
+ *   - "navigation": the "handler" is a host-local UI action (e.g. a panel
+ *     navigating to another panel) — real and working inside MoneyPenny,
+ *     but never externally invocable and never advertised as such.
+ *   - "none": no backing implementation exists at all.
+ */
+export type FactorHandlerKind = "api" | "service" | "navigation" | "none";
+
+/** Bounded workflow scope that may ground (never select) a capability
+ *  consultation — see resolveFactorCapability's own contract. */
+export interface FactorScope {
+  caseId?: string;
+  agentRef?: string;
+  serviceRef?: string;
+}
+
+export type FactorAffordance = "ADVISORY" | "PREPARABLE" | "ACTION_AVAILABLE" | "BLOCKED" | "PLANNED";
+
 export type FactorCapabilityId =
   | "general_orientation"
   | "agent_service_discovery"
@@ -76,6 +104,18 @@ export interface FactorCapability {
   interactionModes: FactorInteractionMode[];
   /** File path of the real handler backing this capability, when one exists. */
   handler?: string;
+  /** What KIND of handler `handler` is — see FactorHandlerKind. Drives
+   *  affordance derivation and Agent Card actionability, never `status` alone. */
+  handlerKind: FactorHandlerKind;
+  /** Whether invoking this capability's real action is consequential enough
+   *  to require human/MoneyPenny approval — a static policy fact, never
+   *  something a live LLM response may override (see
+   *  deriveFactorResponseEnvelope). */
+  requiresApproval: boolean;
+  /** Scope fields that MUST be bound before this capability's real action
+   *  can run (e.g. an existing case). Server-checked in
+   *  deriveFactorResponseEnvelope; absent/empty means no scope is required. */
+  requiredScope?: Array<keyof FactorScope>;
   requiredAuthority?: string[];
   /** Example questions/prompts this capability answers — used to seed the classifier and workstream copy. */
   examples: string[];
@@ -91,6 +131,8 @@ export const FACTOR_CAPABILITIES: FactorCapability[] = [
       "Explains what Aigent Factor is, what it can and cannot do today, and routes the operator to the right capability.",
     status: "operational",
     interactionModes: ["explain"],
+    handlerKind: "service",
+    requiresApproval: false,
     examples: ["What are your capabilities?", "Explain Aigent Factor's role in MoneyPenny", "What can you help me with?"],
     boundaries: [
       "Factor is MoneyPenny's constitutional economic activation and ecosystem-catalysis specialist — candidate intake is one capability among many, not its governing identity.",
@@ -104,6 +146,8 @@ export const FACTOR_CAPABILITIES: FactorCapability[] = [
       "Helps the operator understand what agents and MoneyPenny Financial Services exist and how they relate — advisory orientation only; the actual registry/service lookups live in the iQube Registry and MoneyPenny's own service catalog, not in a Factor-owned handler.",
     status: "advisory",
     interactionModes: ["explain"],
+    handlerKind: "none",
+    requiresApproval: false,
     examples: ["What agents are already admitted?", "What financial services does MoneyPenny offer?"],
     boundaries: ["Factor does not itself query the registry or service catalog — it can only orient the operator toward those surfaces."],
   },
@@ -115,6 +159,8 @@ export const FACTOR_CAPABILITIES: FactorCapability[] = [
     status: "operational",
     interactionModes: ["explain", "assess-readiness", "prepare", "act"],
     handler: "services/factor/factorCaseService.ts",
+    handlerKind: "api",
+    requiresApproval: true,
     requiredAuthority: ["factor-case-authority"],
     examples: [
       "Help Atlas prepare for iQube Registry admission",
@@ -134,6 +180,8 @@ export const FACTOR_CAPABILITIES: FactorCapability[] = [
     status: "partial",
     interactionModes: ["explain", "assess-readiness"],
     handler: "services/horizen/agentRegistrationBinding.ts",
+    handlerKind: "service",
+    requiresApproval: false,
     examples: ["Help this agent traverse the Horizen Journey Spine", "What is this agent's Horizen registration status?"],
     boundaries: ["Factor cannot broadcast or confirm an on-chain registration itself — it can only report and explain the current binding state."],
   },
@@ -144,6 +192,8 @@ export const FACTOR_CAPABILITIES: FactorCapability[] = [
       "Explains what identity and wallet readiness (FIO handle, owner wallet, X402 settlement wallet) an agent needs before it can transact — advisory only; Factor has no handler to provision a candidate's wallet or settlement identity.",
     status: "advisory",
     interactionModes: ["explain", "assess-readiness"],
+    handlerKind: "none",
+    requiresApproval: false,
     examples: ["Prepare an X402 settlement wallet for this agent", "What identity does this candidate need before admission?"],
     boundaries: ["Factor cannot provision or move funds in any wallet — identity/wallet provisioning is a separate, human/operator-driven step."],
   },
@@ -155,6 +205,8 @@ export const FACTOR_CAPABILITIES: FactorCapability[] = [
     status: "partial",
     interactionModes: ["explain", "assess-readiness", "prepare"],
     handler: "services/factor/authorityChain.ts",
+    handlerKind: "api",
+    requiresApproval: true,
     requiredAuthority: ["authority-chain-establish"],
     examples: ["Establish an authority chain for this case", "Is this candidate's authority chain still valid?"],
     boundaries: ["Factor never manufactures authority a real delegation_grants row does not already grant."],
@@ -166,6 +218,8 @@ export const FACTOR_CAPABILITIES: FactorCapability[] = [
       "Composing multiple MoneyPenny Financial Services into a single request for an agent — no implementation exists yet.",
     status: "planned",
     interactionModes: ["explain"],
+    handlerKind: "none",
+    requiresApproval: false,
     examples: ["Compose a financial-service bundle for this agent", "Can you set up recurring settlement for this agent?"],
     boundaries: ["No service-composition handler exists yet — Factor can only describe what this would look like when built."],
   },
@@ -176,6 +230,8 @@ export const FACTOR_CAPABILITIES: FactorCapability[] = [
       "Standing proposals can cite Pulse/P&L evidence references, but there is no registration flow or live Pulse/P&L data source Factor itself reaches — advisory only.",
     status: "advisory",
     interactionModes: ["explain", "assess-readiness"],
+    handlerKind: "none",
+    requiresApproval: false,
     examples: ["Facilitate Pulse and P&L registration for this agent", "How does Pulse/P&L evidence factor into standing?"],
     boundaries: ["Factor cannot register an agent for Pulse/P&L reporting today — it can only explain how such evidence would be used in a standing proposal."],
   },
@@ -187,6 +243,8 @@ export const FACTOR_CAPABILITIES: FactorCapability[] = [
     status: "partial",
     interactionModes: ["explain", "assess-readiness", "prepare"],
     handler: "services/factor/standingProposal.ts",
+    handlerKind: "service",
+    requiresApproval: true,
     requiredAuthority: ["standing-proposal-evidence"],
     examples: ["How can this agent gain standing?", "Propose a standing event for this agent"],
     boundaries: [
@@ -202,6 +260,13 @@ export const FACTOR_CAPABILITIES: FactorCapability[] = [
     status: "operational",
     interactionModes: ["explain", "act"],
     handler: "app/(shell)/moneypenny/components/FactorPanel.tsx#handoffToAegis",
+    // A real, working action — but it is host-local UI navigation inside
+    // MoneyPenny, never an externally-invocable API/service. The Agent Card
+    // must never advertise this as remotely actionable (capability-runtime
+    // contract closure, 2026-09-05, design point 3).
+    handlerKind: "navigation",
+    requiresApproval: false,
+    requiredScope: ["caseId"],
     examples: ["Request an independent Aegis assessment", "Refer this candidate to Aegis"],
     boundaries: ["Factor cannot assess its own candidate — this referral is the only path to an assessment."],
   },
@@ -211,6 +276,8 @@ export const FACTOR_CAPABILITIES: FactorCapability[] = [
     description: "Preparing a workload for Vela confidential compute on an agent's behalf — no Factor-bound implementation exists.",
     status: "planned",
     interactionModes: ["explain"],
+    handlerKind: "none",
+    requiresApproval: false,
     examples: ["Can Vela protect this workload?", "Prepare this agent for confidential compute"],
     boundaries: ["No Vela integration exists for Factor — this is a described capability, not a live one."],
   },
@@ -220,6 +287,8 @@ export const FACTOR_CAPABILITIES: FactorCapability[] = [
     description: "Issuing a fair-launch token through Bankr on an agent's behalf — no implementation exists.",
     status: "planned",
     interactionModes: ["explain"],
+    handlerKind: "none",
+    requiresApproval: false,
     examples: ["Could this agent issue a fair-launch token through Bankr?", "Help this agent tokenize its service"],
     boundaries: ["No Bankr integration exists for Factor — Factor cannot initiate or govern a token issuance today."],
   },
@@ -230,6 +299,8 @@ export const FACTOR_CAPABILITIES: FactorCapability[] = [
       "A case can be moved through 'activation_pending' -> 'active' as a state-machine bookkeeping transition, but no real runtime deployment or activity-catalysis handler is bound to that transition.",
     status: "planned",
     interactionModes: ["explain"],
+    handlerKind: "none",
+    requiresApproval: false,
     examples: ["Activate this agent's runtime", "Catalyze this agent's first activity"],
     boundaries: ["Marking a case 'active' is a state label only — Factor does not itself deploy or operate any runtime."],
   },
@@ -302,4 +373,69 @@ export function factorStatusSentence(status: FactorCapabilityStatus): string {
     case "planned":
       return "This capability is planned but not yet implemented — Aigent Factor cannot act on it today.";
   }
+}
+
+/**
+ * The single, server-derived response envelope for a resolved Factor
+ * capability (capability-runtime contract closure, 2026-09-05). A pure
+ * function of (capabilityId, scope) — the SAME result for the deterministic
+ * template path and a successful live-LLM response. The model may author
+ * title/summary/recommendations; it may NEVER decide `affordance` or
+ * `requiresApproval` — those are policy, not prose, and are always
+ * recomputed here rather than trusted from an LLM's JSON.
+ *
+ * Deliberately NOT mechanical on `status` alone (the exact defect this
+ * closes: a capability could be declared "operational" with no real
+ * handler and still render ACTION_AVAILABLE). `handlerKind === "none"`
+ * always caps the affordance at ADVISORY, regardless of what `status`
+ * claims — the two are cross-checked, never just multiplied together.
+ */
+export interface FactorResponseEnvelope {
+  resolvedCapabilityId: FactorCapabilityId;
+  capabilityStatus: FactorCapabilityStatus;
+  affordance: FactorAffordance;
+  requiresApproval: boolean;
+  /** Concrete next actions the operator could take now — empty unless the
+   *  affordance is ACTION_AVAILABLE or PREPARABLE (an ADVISORY/PLANNED/
+   *  BLOCKED response has nothing to click, only explanation). */
+  availableActions: string[];
+  /** Unmet prerequisites, when `affordance` is BLOCKED — empty otherwise. */
+  blockers: string[];
+}
+
+function affordanceForStatusAndHandler(status: FactorCapabilityStatus, handlerKind: FactorHandlerKind): FactorAffordance {
+  if (status === "planned") return "PLANNED";
+  // No real handler caps the affordance at ADVISORY even if `status` says
+  // otherwise — a data-entry error in `status` must never leak through as
+  // a false "you can act on this now".
+  if (handlerKind === "none") return "ADVISORY";
+  if (status === "advisory") return "ADVISORY";
+  if (status === "operational") return "ACTION_AVAILABLE";
+  return "PREPARABLE"; // status === "partial"
+}
+
+export function deriveFactorResponseEnvelope(capabilityId: FactorCapabilityId, scope?: FactorScope): FactorResponseEnvelope {
+  const cap = getFactorCapability(capabilityId);
+  const missingScope = (cap.requiredScope ?? []).filter((key) => !scope?.[key]);
+
+  if (missingScope.length > 0) {
+    return {
+      resolvedCapabilityId: capabilityId,
+      capabilityStatus: cap.status,
+      affordance: "BLOCKED",
+      requiresApproval: cap.requiresApproval,
+      availableActions: [],
+      blockers: missingScope.map((key) => `Requires ${key} — this consultation has none bound yet.`),
+    };
+  }
+
+  const affordance = affordanceForStatusAndHandler(cap.status, cap.handlerKind);
+  return {
+    resolvedCapabilityId: capabilityId,
+    capabilityStatus: cap.status,
+    affordance,
+    requiresApproval: cap.requiresApproval,
+    availableActions: affordance === "ACTION_AVAILABLE" || affordance === "PREPARABLE" ? cap.examples.slice(0, 2) : [],
+    blockers: [],
+  };
 }

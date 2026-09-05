@@ -73,7 +73,7 @@ class FakeBackend {
   events: Array<Record<string, unknown>> = [];
   assessment: Record<string, unknown> | null = null;
   findings: Array<Record<string, unknown>> = [];
-  askAgentCalls: Array<{ specialistId: string; prompt: string }> = [];
+  askAgentCalls: Array<{ specialistId: string; prompt: string; factorCapabilityId?: string; factorScope?: Record<string, unknown> }> = [];
   ratifyShouldRefuseCriticalFailure = false;
   nextAssessmentSelfAssessmentRefused = false;
 
@@ -162,7 +162,7 @@ class FakeBackend {
       return jsonRes(200, { ok: true });
     }
     if (path === '/api/assistant/ask-agent' && method === 'POST') {
-      this.askAgentCalls.push({ specialistId: body.specialistId, prompt: body.prompt });
+      this.askAgentCalls.push({ specialistId: body.specialistId, prompt: body.prompt, factorCapabilityId: body.factorCapabilityId, factorScope: body.factorScope });
       const label = body.specialistId === 'factor' ? 'Factor' : 'Aegis';
       const actualQuestion = String(body.prompt).split('\n\n').pop();
       return jsonRes(200, {
@@ -230,6 +230,22 @@ describe('FactorPanel — behavioral', () => {
     expect(screen.queryByPlaceholderText(/candidate identifier|internal key/i)).toBeNull();
   });
 
+  it('clicking the empty-state prompt sends the explicit factorCapabilityId, never a free-text guess', async () => {
+    render(<Harness><FactorPanel /></Harness>);
+    fireEvent.click(screen.getByText(/What are your capabilities\?/i));
+    await screen.findByText(/Advisory summary for:/);
+    expect(backend.askAgentCalls).toHaveLength(1);
+    expect(backend.askAgentCalls[0].factorCapabilityId).toBe('general_orientation');
+  });
+
+  it('a workstream chip sends its OWN explicit capabilityId, never the classifier\'s guess', async () => {
+    render(<Harness><FactorPanel /></Harness>);
+    fireEvent.click(screen.getByText(/How can this agent gain standing\?/i));
+    await screen.findByText(/Advisory summary for:/);
+    expect(backend.askAgentCalls).toHaveLength(1);
+    expect(backend.askAgentCalls[0].factorCapabilityId).toBe('standing_proposal');
+  });
+
   it('"Start candidate intake" opens the candidate-intake workflow inside this panel', async () => {
     render(<Harness><FactorPanel /></Harness>);
     fireEvent.click(screen.getByRole('button', { name: /start candidate intake/i }));
@@ -272,6 +288,21 @@ describe('FactorPanel — behavioral', () => {
     fillOpenCaseForm(backend);
     await screen.findByText('Test Candidate');
     expect(personaFetchMock).toHaveBeenCalledWith('/api/moneypenny/factor/cases', expect.objectContaining({ method: 'POST' }));
+  });
+
+  it('the scoped case conversation carries factorScope.caseId as GROUNDING, and a workstream chip STILL sends its own explicit capabilityId', async () => {
+    render(<Harness><FactorPanel /></Harness>);
+    fillOpenCaseForm(backend);
+    await screen.findByText('Test Candidate');
+
+    fireEvent.click(screen.getByText(/How can this agent gain standing\?/i));
+    await screen.findByText(/Advisory summary for:/);
+
+    expect(backend.askAgentCalls).toHaveLength(1);
+    // Explicit selection wins — never rediscovered by classifying the case
+    // context block's text, and the bounded case is grounding only.
+    expect(backend.askAgentCalls[0].factorCapabilityId).toBe('standing_proposal');
+    expect(backend.askAgentCalls[0].factorScope).toEqual({ caseId: backend.case.case_id });
   });
 
   it('7. Factor refuses direct admission and offers referral to MoneyPenny', async () => {

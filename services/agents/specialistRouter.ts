@@ -36,10 +36,14 @@ import { GROUNDING_MANDATE, INVARIANT_GROUNDING_CLAUSE } from '@/services/orches
 import {
   FACTOR_CAPABILITIES,
   classifyFactorCapability,
+  deriveFactorResponseEnvelope,
   factorStatusSentence,
   getFactorCapability,
   isFactorCapabilityId,
+  type FactorAffordance,
   type FactorCapabilityId,
+  type FactorCapabilityStatus,
+  type FactorScope,
 } from '@/services/factor/factorCapabilityManifest';
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -122,7 +126,7 @@ export interface SpecialistContext {
    * classification — only explicit intake language or an explicit
    * factorCapabilityId does that.
    */
-  factorScope?: { caseId?: string; agentRef?: string; serviceRef?: string };
+  factorScope?: FactorScope;
 }
 
 export interface SpecialistResponse {
@@ -167,12 +171,27 @@ export interface SpecialistResponse {
    * (ADVISORY), can produce a governed plan/checklist (PREPARABLE), has a
    * real wired handler subject to authority (ACTION_AVAILABLE), names a
    * missing prerequisite (BLOCKED), or describes a capability with no
-   * runtime handler at all (PLANNED). Additive/optional — only Factor's
-   * template path sets this today; absent for every other specialist and
-   * for an LLM response that didn't include it. Never render a PLANNED
-   * capability as if it were live.
+   * runtime handler at all (PLANNED). Additive/optional — only Factor sets
+   * this today; absent for every other specialist. SERVER-DERIVED on both
+   * the template AND live-LLM paths (deriveFactorResponseEnvelope) — never
+   * authored by the model, so an LLM cannot claim a planned/advisory
+   * capability is live. Never render a PLANNED capability as if it were live.
    */
-  affordance?: 'ADVISORY' | 'PREPARABLE' | 'ACTION_AVAILABLE' | 'BLOCKED' | 'PLANNED';
+  affordance?: FactorAffordance;
+  /**
+   * The capability a Factor consultation actually resolved to (Factor
+   * cognitive-runtime fix, 2026-09-05) — lets a caller/UI show what was
+   * understood, distinct from the free-text question asked. Factor-only.
+   */
+  resolvedCapabilityId?: FactorCapabilityId;
+  /** The resolved capability's real, manifest-declared status — Factor-only. */
+  capabilityStatus?: FactorCapabilityStatus;
+  /** Concrete next actions available now for this capability/scope —
+   *  server-derived, Factor-only, empty unless affordance is
+   *  ACTION_AVAILABLE or PREPARABLE. */
+  availableActions?: string[];
+  /** Unmet prerequisites when affordance is BLOCKED — Factor-only. */
+  blockers?: string[];
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -576,6 +595,10 @@ function factorTemplateResponse(
   requestType: SpecialistRequestType,
 ): Omit<SpecialistResponse, 'specialistId' | 'specialistLabel' | 'generatedAt' | 'source'> {
   const capabilityId = resolveFactorCapability(ctx);
+  // The SAME policy function the live-LLM path uses (askSpecialist below) —
+  // affordance/requiresApproval/availableActions/blockers can never diverge
+  // between the two response sources.
+  const envelope = deriveFactorResponseEnvelope(capabilityId, ctx.factorScope);
 
   if (capabilityId === 'general_orientation') {
     const inventory = FACTOR_CAPABILITIES.filter((c) => c.id !== 'general_orientation').map(
@@ -588,9 +611,13 @@ function factorTemplateResponse(
         `Aigent Factor is MoneyPenny's constitutional economic activation and ecosystem-catalysis specialist. It discovers, prepares and activates agents and financial services across the iQube Registry, the Horizen Journey Spine and the MoneyPenny runtime. Candidate intake is one capability, not its governing identity.`,
       recommendations: inventory,
       suggestedArtifacts: ['brief'],
-      requiresApproval: false,
       confidence: 'high',
-      affordance: 'ADVISORY',
+      requiresApproval: envelope.requiresApproval,
+      affordance: envelope.affordance,
+      resolvedCapabilityId: envelope.resolvedCapabilityId,
+      capabilityStatus: envelope.capabilityStatus,
+      availableActions: envelope.availableActions,
+      blockers: envelope.blockers,
     };
   }
 
@@ -601,10 +628,13 @@ function factorTemplateResponse(
     summary: `${cap.description} ${factorStatusSentence(cap.status)}`.trim(),
     recommendations: cap.examples.length > 0 ? cap.boundaries.concat(cap.examples).slice(0, 4) : cap.boundaries.slice(0, 4),
     suggestedArtifacts: capabilityId === 'candidate_intake' || capabilityId === 'standing_proposal' ? ['brief', 'myworkbench-draft'] : ['brief'],
-    requiresApproval: capabilityId === 'candidate_intake' || capabilityId === 'authority_chain' || capabilityId === 'standing_proposal',
-    confidence: cap.status === 'operational' ? 'high' : cap.status === 'planned' ? 'medium' : 'medium',
-    affordance:
-      cap.status === 'operational' ? 'ACTION_AVAILABLE' : cap.status === 'partial' ? 'PREPARABLE' : cap.status === 'planned' ? 'PLANNED' : 'ADVISORY',
+    confidence: cap.status === 'operational' ? 'high' : 'medium',
+    requiresApproval: envelope.requiresApproval,
+    affordance: envelope.affordance,
+    resolvedCapabilityId: envelope.resolvedCapabilityId,
+    capabilityStatus: envelope.capabilityStatus,
+    availableActions: envelope.availableActions,
+    blockers: envelope.blockers,
   };
 }
 
@@ -869,6 +899,11 @@ export async function askSpecialist(
   // deterministic template both ground on this same resolved capability,
   // so they can never silently disagree about what was asked.
   const factorCapabilityId = specialistId === 'factor' ? resolveFactorCapability(context) : undefined;
+  // Server-derived envelope — computed ONCE, applied identically whether
+  // the live LLM answers or the template does (capability-runtime contract
+  // closure, 2026-09-05). The LLM may author explanatory prose; it may
+  // NEVER decide affordance/requiresApproval — see deriveFactorResponseEnvelope.
+  const factorEnvelope = factorCapabilityId ? deriveFactorResponseEnvelope(factorCapabilityId, context.factorScope) : undefined;
 
   // Try live LLM first.
   const system = systemPromptFor(specialistId, (context.invariantSlice?.length ?? 0) > 0, factorCapabilityId);
@@ -895,15 +930,29 @@ export async function askSpecialist(
           suggestedArtifacts: Array.isArray(parsed.suggestedArtifacts)
             ? (parsed.suggestedArtifacts.filter((a) => typeof a === 'string') as string[])
             : [],
-          requiresApproval: typeof parsed.requiresApproval === 'boolean'
-            ? parsed.requiresApproval
-            : true,
+          // Factor: NEVER trust the model's own requiresApproval — always
+          // the server-derived policy value, identical to the template
+          // path. Every other specialist keeps the model's own judgment.
+          requiresApproval: factorEnvelope
+            ? factorEnvelope.requiresApproval
+            : typeof parsed.requiresApproval === 'boolean'
+              ? parsed.requiresApproval
+              : true,
           confidence:
             parsed.confidence === 'low' || parsed.confidence === 'high'
               ? parsed.confidence
               : 'medium',
           source: 'llm',
           generatedAt,
+          ...(factorEnvelope
+            ? {
+                affordance: factorEnvelope.affordance,
+                resolvedCapabilityId: factorEnvelope.resolvedCapabilityId,
+                capabilityStatus: factorEnvelope.capabilityStatus,
+                availableActions: factorEnvelope.availableActions,
+                blockers: factorEnvelope.blockers,
+              }
+            : {}),
         };
       }
     } catch (err) {

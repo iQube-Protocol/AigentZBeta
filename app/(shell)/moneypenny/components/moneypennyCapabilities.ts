@@ -290,7 +290,7 @@ export const MONEYPENNY_SPECIALIST_CARDS: MoneyPennySpecialistCard[] = [
   {
     id: "factor",
     label: REGISTRABLE_AGENTS.factor.displayName,
-    description: "Candidate-intake case facilitation — evidence, authority chains, standing proposals. Never decides admission.",
+    description: "Constitutional economic activation and ecosystem-catalysis specialist — agent/service discovery, registry facilitation, authority chains, standing proposals, and candidate-intake case facilitation as one workstream among these. Never decides admission.",
     panel: "factor",
   },
   {

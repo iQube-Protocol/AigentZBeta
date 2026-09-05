@@ -33,6 +33,7 @@ import {
   type SpecialistContext,
   type SpecialistResponse,
 } from '@/services/agents/specialistRouter';
+import { isFactorCapabilityId, type FactorCapabilityId, type FactorScope } from '@/services/factor/factorCapabilityManifest';
 import { resolveConstitutionalField } from '@/services/invariants/resolution';
 import type { InvariantNamespace } from '@/types/invariants';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
@@ -354,6 +355,23 @@ interface PostBody {
   prompt?: string;
   cartridge?: string;
   /**
+   * Explicit Factor capability selection (capability-runtime contract
+   * closure, 2026-09-05) — set when the operator clicked a capability
+   * card/chip rather than typing free text. Validated server-side against
+   * isFactorCapabilityId; an unrecognised string is REJECTED with 400
+   * before askSpecialist is ever called — never accepted as an arbitrary
+   * string and never silently ignored. Meaningless for any specialist
+   * other than 'factor', but validated regardless of specialistId so a
+   * caller can never smuggle an unvalidated value through.
+   */
+  factorCapabilityId?: string;
+  /**
+   * Bounded workflow scope (an open candidate case, or an agent/service
+   * reference) — GROUNDING ONLY, never itself a classification signal. See
+   * SpecialistContext.factorScope's own contract in specialistRouter.ts.
+   */
+  factorScope?: { caseId?: unknown; agentRef?: unknown; serviceRef?: unknown };
+  /**
    * Optional hand-off context — set when the operator pivots from one
    * specialist's response to ask another. The route prefixes the
    * intent rationale with a short hand-off note and tags the receipt
@@ -365,6 +383,17 @@ interface PostBody {
     priorTitle?: string;
     priorReceiptId?: string;
   };
+}
+
+/** Keeps only known string-valued keys — never forwards an arbitrary shape
+ *  into SpecialistContext.factorScope. */
+function sanitizeFactorScope(raw: PostBody['factorScope']): FactorScope | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const out: FactorScope = {};
+  if (typeof raw.caseId === 'string' && raw.caseId.trim()) out.caseId = raw.caseId.trim();
+  if (typeof raw.agentRef === 'string' && raw.agentRef.trim()) out.agentRef = raw.agentRef.trim();
+  if (typeof raw.serviceRef === 'string' && raw.serviceRef.trim()) out.serviceRef = raw.serviceRef.trim();
+  return Object.keys(out).length > 0 ? out : undefined;
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -399,6 +428,26 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       { status: 400, headers: { 'Cache-Control': 'no-store' } },
     );
   }
+
+  // Explicit Factor capability selection — validated BEFORE askSpecialist is
+  // ever reached (capability-runtime contract closure, 2026-09-05). An
+  // unrecognised string is rejected outright, never silently dropped or
+  // passed through as free text — a UI bug that sends a stale/renamed
+  // capability id must surface as a 400, not a silently-reclassified answer.
+  let validatedFactorCapabilityId: FactorCapabilityId | undefined;
+  if (body.factorCapabilityId !== undefined) {
+    if (typeof body.factorCapabilityId !== 'string' || !isFactorCapabilityId(body.factorCapabilityId)) {
+      return NextResponse.json(
+        {
+          error: 'invalid-factor-capability-id',
+          detail: `factorCapabilityId, when provided, must be a valid FactorCapabilityId; received ${JSON.stringify(body.factorCapabilityId)}.`,
+        },
+        { status: 400, headers: { 'Cache-Control': 'no-store' } },
+      );
+    }
+    validatedFactorCapabilityId = body.factorCapabilityId;
+  }
+  const sanitizedFactorScope = sanitizeFactorScope(body.factorScope);
 
   try {
     // Build the bounded context packet. The router never sees raw BlakQube
@@ -481,6 +530,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       intentRationale: enrichedRationale,
       ...(body.prompt ? { userPrompt: body.prompt } : {}),
       ...(invariantSlice && invariantSlice.length > 0 ? { invariantSlice } : {}),
+      ...(validatedFactorCapabilityId ? { factorCapabilityId: validatedFactorCapabilityId } : {}),
+      ...(sanitizedFactorScope ? { factorScope: sanitizedFactorScope } : {}),
     };
 
     if (resolvedSpecialistId === 'aigent-nakamoto') {

@@ -33,10 +33,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Loader2, ShieldAlert, ArrowRight } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
-import { SpecialistWorkspace } from "./specialistWorkspace/SpecialistWorkspace";
+import { SpecialistWorkspace, type SpecialistPromptSuggestion } from "./specialistWorkspace/SpecialistWorkspace";
 import { useMoneyPennyNavigation, readAndClearPendingCaseId } from "./moneyPennyNavigation";
 import { buildCaseContextPrompt, type CaseConsultationContext } from "@/services/moneypenny/caseContextConsultation";
-import { FACTOR_CAPABILITIES, type FactorCapabilityId } from "@/services/factor/factorCapabilityManifest";
+import { FACTOR_CAPABILITIES, getFactorCapability, type FactorCapabilityId } from "@/services/factor/factorCapabilityManifest";
 
 type FactorCaseState =
   | "discovered"
@@ -247,14 +247,23 @@ const FACTOR_ADMIT_PATTERN = /\b(admit|approve|accept)\b.{0,30}\bcandidate\b|\ba
 // model, not candidate intake, is the panel's governing identity (Factor
 // cognitive-runtime fix, 2026-09-05). "Start candidate intake" / "Find/open
 // candidate case" above remain the dedicated path into the case workflow.
-const FACTOR_EMPTY_STATE_PROMPT = "What are your capabilities?";
+//
+// Carries the explicit capabilityId (capability-runtime contract closure,
+// 2026-09-05) so clicking this button sends 'general_orientation' verbatim
+// — never rediscovered by re-classifying the label text.
+const FACTOR_EMPTY_STATE_PROMPT: SpecialistPromptSuggestion = {
+  label: getFactorCapability("general_orientation").examples[0],
+  capabilityId: "general_orientation",
+};
 
 // Workstream chips — DERIVED from the capability manifest (one authoritative
 // list, never a hand-duplicated set of chip labels), excluding the three
 // capabilities that already have a dedicated affordance elsewhere in this
 // panel (general_orientation is the empty-state default; candidate_intake
 // has its own "Start candidate intake" button; aegis_referral is reached
-// via "Request an independent Aegis assessment" once a case is open).
+// via "Request an independent Aegis assessment" once a case is open). Each
+// chip carries its capabilityId explicitly — selecting it is a capability
+// SELECTION, not a free-text question for the classifier to rediscover.
 const FACTOR_WORKSTREAM_IDS: FactorCapabilityId[] = [
   "agent_service_discovery",
   "horizen_journey_spine",
@@ -264,7 +273,10 @@ const FACTOR_WORKSTREAM_IDS: FactorCapabilityId[] = [
   "pulse_pnl",
   "standing_proposal",
 ];
-const FACTOR_FOLLOWUPS = FACTOR_CAPABILITIES.filter((c) => FACTOR_WORKSTREAM_IDS.includes(c.id)).map((c) => c.examples[0]);
+const FACTOR_FOLLOWUPS: SpecialistPromptSuggestion[] = FACTOR_CAPABILITIES.filter((c) => FACTOR_WORKSTREAM_IDS.includes(c.id)).map((c) => ({
+  label: c.examples[0],
+  capabilityId: c.id,
+}));
 
 export function FactorPanel() {
   const { setActiveCase: setSharedActiveCase, navigate } = useMoneyPennyNavigation();
@@ -792,6 +804,7 @@ export function FactorPanel() {
                 suggestedFollowups={FACTOR_FOLLOWUPS}
                 scopeId={activeCase.case_id}
                 groundContextBlock={groundContextBlock}
+                factorScope={{ caseId: activeCase.case_id }}
                 classifyRefusal={classifyRefusal}
                 refusalActionLabel="Refer to MoneyPenny"
                 onRefusalAction={scrollToAdmission}

@@ -28,13 +28,23 @@ import { ArrowRight, ChevronDown } from "lucide-react";
 import { useMoneyPennyNavigation } from "./moneyPennyNavigation";
 import { MONEYPENNY_CAPABILITY_GROUPS, MONEYPENNY_SPECIALIST_CARDS, type MoneyPennyCapabilityItem, type MoneyPennySpecialistCard } from "./moneypennyCapabilities";
 import { SpecialistConsultModal } from "./specialistWorkspace/SpecialistConsultModal";
+import type { SpecialistPromptSuggestion } from "./specialistWorkspace/SpecialistWorkspace";
+import { getFactorCapability } from "@/services/factor/factorCapabilityManifest";
 import type { MoneyPennyPanelKey } from "@/app/triad/components/codex/tabs/MoneyPennyPanelTab";
 
-const SPECIALIST_EMPTY_PROMPTS: Record<MoneyPennySpecialistCard["id"], string> = {
-  factor: "Ask Aigent Factor about agent readiness, registration, evidence, standing, or participation in constitutional financial services.",
-  aegis: "Ask Aegis about trusted intelligence, constitutional risk, agents, models, providers, harnesses, or independent assessment.",
-  nakamoto: "Ask Aigent Nakamoto about Bitcoin, decentralisation, or this agent's own consumption of a MoneyPenny Financial Service.",
-  kn0w1: "Ask Aigent Know1 about its own consumption of a MoneyPenny Financial Service.",
+// Factor's entry is DERIVED from the capability manifest (never a
+// hand-duplicated copy — capability-runtime contract closure, 2026-09-05:
+// this Home-modal prompt previously still read the pre-redesign
+// candidate-intake-first copy, so the SAME question classified differently
+// here than in FactorPanel's own default, breaking cross-entry-point
+// consistency). Carries the explicit capabilityId so the Home modal's
+// default click sends 'general_orientation' verbatim, exactly like
+// FactorPanel's own empty state.
+const SPECIALIST_EMPTY_PROMPTS: Record<MoneyPennySpecialistCard["id"], SpecialistPromptSuggestion> = {
+  factor: { label: getFactorCapability("general_orientation").examples[0], capabilityId: "general_orientation" },
+  aegis: { label: "Ask Aegis about trusted intelligence, constitutional risk, agents, models, providers, harnesses, or independent assessment." },
+  nakamoto: { label: "Ask Aigent Nakamoto about Bitcoin, decentralisation, or this agent's own consumption of a MoneyPenny Financial Service." },
+  kn0w1: { label: "Ask Aigent Know1 about its own consumption of a MoneyPenny Financial Service." },
 };
 
 const MODE_BADGE_STYLE: Record<string, string> = {

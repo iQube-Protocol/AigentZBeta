@@ -12,15 +12,24 @@
  * operational capabilities), so this never reports an 'llm' runtime the
  * way the chat-specialist agents do.
  *
- * Factor cognitive-runtime fix (2026-09-05): an unconditional 'ok' was
- * dishonest once Factor grew a real capability manifest with genuinely
- * partial/advisory/planned capabilities — a caller polling this endpoint
- * to decide whether a capability is safe to invoke deserves the SAME
- * truthful status the manifest itself carries (services/factor/
- * factorCapabilityManifest.ts), never a second, hand-typed readiness list.
- * `status` is 'ok' only when every capability is operational; 'degraded'
- * when any is partial/advisory/planned (Factor is still reachable — some
- * capabilities just aren't fully wired yet).
+ * Capability-runtime contract closure (2026-09-05) — corrects a defect in
+ * the 2026-09-05 Factor cognitive-runtime fix: blending per-capability
+ * status into the top-level `status` field made this route report
+ * 'degraded' PERMANENTLY, since financial_service_composition/
+ * vela_confidential_compute/bankr_tokenization/runtime_activation are
+ * genuinely 'planned' by design (no fake handlers are ever wired for them —
+ * see the manifest's own doc comment) and will stay that way for the
+ * foreseeable future. A caller checking whether Factor's RUNTIME is
+ * reachable at all got a permanently-red signal for something that was
+ * never actually wrong.
+ *
+ * `status` now answers ONLY "is Factor's pipeline reachable" (this route
+ * responding at all proves that — there is no external provider dependency
+ * to check, so it is unconditionally 'ok'). `capabilityReadiness` is a
+ * SEPARATE, clearly-labeled summary of the manifest's declared per-
+ * capability status (services/factor/factorCapabilityManifest.ts) — a
+ * planned/advisory capability degrades its own entry in that summary, never
+ * the runtime `status` a caller would gate a request on.
  */
 import { NextResponse } from 'next/server';
 import { FACTOR_CAPABILITIES } from '@/services/factor/factorCapabilityManifest';
@@ -39,18 +48,22 @@ export async function OPTIONS() {
 }
 
 export async function GET() {
-  const capabilities: Record<string, string> = {};
-  let allOperational = true;
+  const byCapability: Record<string, string> = {};
+  let operationalCount = 0;
   for (const cap of FACTOR_CAPABILITIES) {
-    capabilities[cap.id] = cap.status;
-    if (cap.status !== 'operational') allOperational = false;
+    byCapability[cap.id] = cap.status;
+    if (cap.status === 'operational') operationalCount += 1;
   }
   return withCors(
     NextResponse.json({
-      status: allOperational ? 'ok' : 'degraded',
+      // Runtime reachability only — never blended with capability status.
+      status: 'ok',
       agent: 'aigent-factor',
       runtime: 'pipeline',
-      capabilities,
+      capabilityReadiness: {
+        summary: `${operationalCount}/${FACTOR_CAPABILITIES.length} capabilities operational`,
+        byCapability,
+      },
       timestamp: new Date().toISOString(),
     }),
   );

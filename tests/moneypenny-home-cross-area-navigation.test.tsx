@@ -68,6 +68,12 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  // SpecialistWorkspace persists its thread to sessionStorage keyed by
+  // personaId+specialistId+scopeId (services/moneypenny/specialistThreadStore.ts)
+  // — without clearing it, a Factor/Aegis consult submitted by an earlier
+  // test in this file leaks into a later test's "empty state" render,
+  // silently turning the empty-state button into an inert prior-turn bubble.
+  window.sessionStorage.clear();
 });
 
 /** Stands in for CodexPanelDynamic — provides the SAME CodexHostNavigation
@@ -184,7 +190,7 @@ for (const hostCodexId of ['moneypenny-codex', 'metame-codex'] as const) {
       expect(await screen.findByText(HOME_TEXT)).toBeTruthy();
       fireEvent.click(screen.getByTestId('specialist-card-factor'));
       const modal = await screen.findByRole('dialog', { name: /Aigent Factor/ });
-      expect(within(modal).getByText(/Ask Aigent Factor about agent readiness/i)).toBeTruthy();
+      expect(within(modal).getByText(/What are your capabilities\?/i)).toBeTruthy();
       // Home itself is still mounted underneath — a modal, not a navigation.
       expect(screen.getByText(HOME_TEXT)).toBeTruthy();
     });
@@ -203,13 +209,13 @@ for (const hostCodexId of ['moneypenny-codex', 'metame-codex'] as const) {
       expect(await screen.findByText(HOME_TEXT)).toBeTruthy();
       fireEvent.click(screen.getByTestId('specialist-card-factor'));
       const modal = await screen.findByRole('dialog', { name: /Aigent Factor/ });
-      fireEvent.click(within(modal).getByText(/Ask Aigent Factor about agent readiness/i));
+      fireEvent.click(within(modal).getByText(/What are your capabilities\?/i));
       fireEvent.click(within(modal).getByText(/Expand to full panel/i));
       await expectLeftHome();
       // The same empty-state prompt turn is now visible in the full panel —
       // the thread was resumed, not restarted (same personaId+specialistId+
       // scope key on both sides).
-      expect(await screen.findByText(/Ask Aigent Factor about agent readiness/i)).toBeTruthy();
+      expect(await screen.findByText(/What are your capabilities\?/i)).toBeTruthy();
     });
 
     it('"Aigent Nakamoto" opens a direct-consultation modal', async () => {
@@ -231,6 +237,24 @@ for (const hostCodexId of ['moneypenny-codex', 'metame-codex'] as const) {
     });
   });
 }
+
+describe('cross-entry-point consistency — Home modal sends the SAME explicit capability selection FactorPanel\'s own empty state does', () => {
+  it('the Home modal\'s default click sends factorCapabilityId="general_orientation"', async () => {
+    render(<Host codexId="moneypenny-codex" />);
+    expect(await screen.findByText(HOME_TEXT)).toBeTruthy();
+    fireEvent.click(screen.getByTestId('specialist-card-factor'));
+    const modal = await screen.findByRole('dialog', { name: /Aigent Factor/ });
+    fireEvent.click(within(modal).getByText(/What are your capabilities\?/i));
+    let askAgentCall: unknown[] | undefined;
+    await waitFor(() => {
+      askAgentCall = personaFetchMock.mock.calls.find(([url]) => url === '/api/assistant/ask-agent');
+      expect(askAgentCall).toBeTruthy();
+    });
+    const body = JSON.parse((askAgentCall![1] as RequestInit).body as string);
+    expect(body.specialistId).toBe('factor');
+    expect(body.factorCapabilityId).toBe('general_orientation');
+  });
+});
 
 describe('Legacy ?tab= deep links still self-heal in both host contexts', () => {
   for (const hostCodexId of ['moneypenny-codex', 'metame-codex'] as const) {
