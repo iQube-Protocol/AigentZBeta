@@ -5519,3 +5519,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-07334b2.md](../build_/COMMITS/COMMIT-07334b2.md)
 - Message: Fix inert MoneyPenny Market Research/Learn cards; log EXP-P1 stage 8 gap
+
+## Commit `9a11c7c` — 2026-09-05T20:15:58Z
+- Type: `push`
+- Brief: [COMMIT-9a11c7c.md](../build_/COMMITS/COMMIT-9a11c7c.md)
+- Message: Give Factor real Bankr capability actions (Phase 5 of Factor+Aegis Bankr PRD)
