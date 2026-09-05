@@ -117,6 +117,8 @@ export interface SponsorAgentOutcome {
   capacity?: { base: number; earned: number; used: number; remaining: number };
   /** Present only when a canonical admin proceeded past an exhausted cap. */
   capacityOverride?: SponsorshipCapacityOverride | null;
+  /** True when this call returned an ALREADY-provisioned migrated/platform agent's row (existingIdentity re-run), never a fresh insert. */
+  alreadyExisted?: boolean;
 }
 
 /**
@@ -296,13 +298,40 @@ export async function sponsorPolityAgent(input: SponsorAgentInput): Promise<Spon
   // 2. Slug uniqueness — pre-flight so the unique index error doesn't leak.
   const { data: existing, error: existingErr } = await admin
     .from('agent_root_identity')
-    .select('agent_id')
+    .select('id, agent_id, did_uri, agent_class, display_name, description, agent_card_url, agent_card_slug, is_aigent_me, created_at')
     .eq('agent_card_slug', slug)
     .maybeSingle();
   if (existingErr && !existingErr.message.includes('agent_card_slug')) {
     return { ok: false, status: 500, error: existingErr.message };
   }
   if (existing) {
+    // A migrated/platform agent (existingIdentity set) re-running this call
+    // for the SAME already-provisioned agent is idempotent, not a slug
+    // collision — return the existing row rather than a 409. Never widens to
+    // ordinary genesis: only fires when the caller supplied existingIdentity
+    // AND the stored row's agent_id matches it exactly (never a different
+    // agent that merely picked the same slug).
+    if (existingIdentity?.agentId && existing.agent_id === existingIdentity.agentId) {
+      return {
+        ok: true,
+        status: 200,
+        agent: {
+          agentRootId: String(existing.id),
+          agentId: String(existing.agent_id),
+          didUri: String(existing.did_uri),
+          agentClass: String(existing.agent_class),
+          displayName: String(existing.display_name),
+          description: String(existing.description),
+          agentCardUrl: String(existing.agent_card_url),
+          agentCardSlug: String(existing.agent_card_slug),
+          isAigentMe: Boolean(existing.is_aigent_me),
+          sponsorPassportId,
+          createdAt: existing.created_at,
+        },
+        capacityOverride: null,
+        alreadyExisted: true,
+      };
+    }
     return { ok: false, status: 409, error: `Slug '${slug}' already taken — choose another` };
   }
 

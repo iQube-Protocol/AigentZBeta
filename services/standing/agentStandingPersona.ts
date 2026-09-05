@@ -52,12 +52,61 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { RegistrableAgentConfig } from '@/services/horizen/registrableAgents';
 
 /**
+ * The narrow subset of `RegistrableAgentConfig` this module actually needs —
+ * a real `RegistrableAgentConfig` satisfies it structurally, but so does a
+ * platform agent that is deliberately NOT a registrable agent (e.g. Aegis,
+ * services/aegis/aegisAssessmentService.ts — MoneyPenny's independent
+ * assessor, never a Horizen Register/Verify/Claim candidate). Loosening this
+ * away from `RegistrableAgentConfig` lets this file's own contract (a
+ * canonical wallet-visible Standing identity for ANY platform agent's
+ * RootDID) serve agents outside the registrable-agent roster without forcing
+ * them to grow Horizen-specific fields they don't have.
+ */
+export interface StandingAgentIdentity {
+  slug: string;
+  displayName: string;
+  runtimeAgentId: string;
+}
+
+/**
  * Distinct from every `app_origin` `provisionAgentWalletPersona.ts` writes
  * (`aigent-me`, `aigent-delegate`) — this identifies the ONE canonical,
  * sponsor-independent Standing identity for an agent's own RootDID, never a
  * per-citizen wallet persona.
  */
 export const CANONICAL_AGENT_STANDING_APP_ORIGIN = 'aigent-canonical-standing';
+
+/**
+ * The agent's REAL custodied EVM address from `agent_keys` (2026-09-05 fix —
+ * mirrors the identical fix already applied to
+ * services/agents/provisionAgentWalletPersona.ts's resolveWalletAddress().
+ * This function previously fabricated a random 20-byte hex address here,
+ * unconditionally, so every canonical Standing identity's wallet-visible
+ * `personas` row showed an address that did not match the real one signing
+ * that agent's Register/Verify/Claim transactions — verified live:
+ * moneypenny/nakamoto/kn0w1's existing `personas` rows (app_origin
+ * 'aigent-canonical-standing') all currently carry the fabricated value, not
+ * their real `agent_keys.evm_address`. NOT retroactively corrected here —
+ * that is a separate, deliberate decision needing explicit operator sign-off,
+ * same as the parallel fix already flagged this way.
+ *
+ * Falls back to a clearly-random placeholder ONLY when no `agent_keys` row
+ * exists yet for this agent — logged, never silent.
+ */
+async function resolveCanonicalAgentWalletAddress(runtimeAgentId: string): Promise<string> {
+  try {
+    const { AgentKeyService } = await import('@/services/identity/agentKeyService');
+    const addresses = await new AgentKeyService().getAgentAddresses(runtimeAgentId);
+    if (addresses?.evmAddress) return addresses.evmAddress;
+  } catch (e) {
+    console.error('[resolveCanonicalAgentPersonaId] getAgentAddresses threw', e instanceof Error ? e.message : e);
+  }
+  console.warn(`[resolveCanonicalAgentPersonaId] no agent_keys row for '${runtimeAgentId}' — falling back to a placeholder address.`);
+  const hex = Array.from(crypto.getRandomValues(new Uint8Array(20)))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+  return '0x' + hex;
+}
 
 /**
  * The agent's canonical Standing IDENTITY persona id (`personas.id`) —
@@ -69,7 +118,7 @@ export const CANONICAL_AGENT_STANDING_APP_ORIGIN = 'aigent-canonical-standing';
  */
 export async function resolveCanonicalAgentPersonaId(
   admin: SupabaseClient,
-  agent: RegistrableAgentConfig,
+  agent: StandingAgentIdentity,
   agentRootDid: string,
 ): Promise<string | null> {
   const { data: existing, error: existingErr } = await admin
@@ -87,9 +136,7 @@ export async function resolveCanonicalAgentPersonaId(
   // auth_profile_id: null so it is structurally distinct from any per-sponsor
   // wallet persona sharing the same root_did.
   const fioHandle = `${agent.slug}@aigent-standing`;
-  const hex = Array.from(crypto.getRandomValues(new Uint8Array(20)))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
+  const address = await resolveCanonicalAgentWalletAddress(agent.runtimeAgentId);
 
   const { data: created, error: createErr } = await admin
     .from('personas')
@@ -99,7 +146,7 @@ export async function resolveCanonicalAgentPersonaId(
       fio_domain: 'aigent.standing',
       root_did: agentRootDid,
       display_name: agent.displayName,
-      evm_key: { address: `0x${hex}` },
+      evm_key: { address },
       chain_addresses: {},
       tenant_id: 'default',
       auth_profile_id: null,

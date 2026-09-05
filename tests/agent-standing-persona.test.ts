@@ -13,6 +13,18 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { resolveAgentStandingPersonaId, CANONICAL_AGENT_STANDING_APP_ORIGIN } from '@/services/standing/agentStandingPersona';
 import type { RegistrableAgentConfig } from '@/services/horizen/registrableAgents';
 
+// Keeps this an offline unit test (2026-09-05, real-address resolution fix)
+// — without this mock, resolveCanonicalAgentPersonaId's dynamic
+// `getAgentAddresses` call would hit the REAL Supabase project over the
+// network via the anon key already present in this environment's
+// .env.local (the get_agent_addresses RPC is granted to `anon`).
+const mockGetAgentAddresses = vi.fn().mockResolvedValue(null);
+vi.mock('@/services/identity/agentKeyService', () => ({
+  AgentKeyService: vi.fn().mockImplementation(() => ({
+    getAgentAddresses: (...args: unknown[]) => mockGetAgentAddresses(...args),
+  })),
+}));
+
 const NAKAMOTO_AGENT: RegistrableAgentConfig = {
   slug: 'nakamoto',
   displayName: 'Aigent Nakamoto',
@@ -159,6 +171,36 @@ describe('resolveAgentStandingPersonaId — the corrected chain', () => {
     expect(insertCall?.filters.root_did).toBe(AGENT_ROOT_DID);
     expect(insertCall?.filters.app_origin).toBe(CANONICAL_AGENT_STANDING_APP_ORIGIN);
     expect(insertCall?.filters.auth_profile_id).toBeNull();
+  });
+
+  it('projects the REAL custodied agent_keys address into the new canonical persona (2026-09-05 fix — never a fabricated one when a real wallet exists)', async () => {
+    mockGetAgentAddresses.mockResolvedValueOnce({ agentId: 'aigent-nakamoto', evmAddress: '0xREALCUSTODIEDADDRESS0000000000000000002' });
+    const personas = new FakeTable([]);
+    const crm = new FakeTable([{ id: 'crm-nakamoto-new', identity_persona_id: 'generated-1' }]);
+    const admin = makeFakeAdmin(personas, crm);
+
+    await resolveAgentStandingPersonaId(admin, NAKAMOTO_AGENT, AGENT_ROOT_DID);
+
+    expect(mockGetAgentAddresses).toHaveBeenCalledWith('aigent-nakamoto');
+    const insertCall = personas.calls.find((c) => c.op === 'insert');
+    expect((insertCall?.filters.evm_key as { address: string }).address).toBe('0xREALCUSTODIEDADDRESS0000000000000000002');
+  });
+
+  it('falls back to a placeholder ONLY when no agent_keys row exists — logged, never silent', async () => {
+    mockGetAgentAddresses.mockResolvedValueOnce(null);
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const personas = new FakeTable([]);
+    const crm = new FakeTable([{ id: 'crm-nakamoto-new', identity_persona_id: 'generated-1' }]);
+    const admin = makeFakeAdmin(personas, crm);
+
+    await resolveAgentStandingPersonaId(admin, NAKAMOTO_AGENT, AGENT_ROOT_DID);
+
+    const insertCall = personas.calls.find((c) => c.op === 'insert');
+    const address = (insertCall?.filters.evm_key as { address: string }).address;
+    expect(address).toMatch(/^0x[0-9a-f]{40}$/);
+    expect(address).not.toBe('0xREALCUSTODIEDADDRESS0000000000000000002');
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('falling back to a placeholder address'));
+    warnSpy.mockRestore();
   });
 
   it('a concurrent-provision race (insert fails) re-reads rather than fails the resolution', async () => {
