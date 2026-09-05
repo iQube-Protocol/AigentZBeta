@@ -148,6 +148,17 @@ const MONEYPENNY_QUICK_PROMPTS = [
   // route short-circuits on (see app/api/codex/chat/route.ts) rather than
   // an LLM-interpreted request, so this chip's outcome is never ambiguous.
   { id: 'mpy-learn-video', label: 'Watch: Financial Sovereignty basics', prompt: MONEYPENNY_LEARN_VIDEO_PROMPT },
+  // Working entry points for the Home/overview panel's "Market Research" /
+  // "Learn / Explain" cards (moneypennyCapabilities.ts's `market-research`/
+  // `learn` items — both `panel: "overview"` because there is no dedicated
+  // right-pane destination, "just ask MoneyPenny"). Those cards used to
+  // render as clickable navigation buttons that called `navigate("overview")`
+  // while already on `overview` — a silent no-op ("not doing anything" bug,
+  // 2026-09-05). MoneyPennyOverviewPanel.tsx now renders them as a hint
+  // pointing here instead of a fake button; these two chips are the actual
+  // working action.
+  { id: 'mpy-market-research', label: 'Market research', prompt: 'Can you share some grounded, cited market research and explainers relevant to my financial situation?' },
+  { id: 'mpy-learn-explain', label: 'Learn / Explain', prompt: 'Can you explain volatility, spread, slippage, liquidity, and position sizing to me?' },
 ];
 
 function readStoredPersonaId(): string | undefined {

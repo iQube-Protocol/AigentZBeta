@@ -119,6 +119,35 @@ export function MoneyPennyOverviewPanel() {
               <div className="grid grid-cols-1 gap-3 border-t border-slate-800 p-3 sm:grid-cols-2 lg:grid-cols-3">
                 {remaining.map((item) => {
                   const available = item.panel !== null;
+                  // "Ask MoneyPenny" items (moneypennyCapabilities.ts: panel
+                  // === "overview" for market-research/learn) have no
+                  // dedicated right-pane destination by design — Home IS the
+                  // overview panel, so `navigate("overview")` while already
+                  // on it was a silent no-op that looked like a broken
+                  // button (arrow + hover affordance, click did nothing).
+                  // Render these as an honest hint instead of a fake
+                  // navigation control (Companion Menu invariant MS-9: "a
+                  // control that cannot act must not render" as one) — the
+                  // real, working entry point is the matching quick-prompt
+                  // chip in the conversation pane (MoneyPennyCopilotWorkspace.tsx's
+                  // MONEYPENNY_QUICK_PROMPTS).
+                  const isAskOnly = available && item.panel === "overview";
+                  if (isAskOnly) {
+                    return (
+                      <div key={item.id} className="flex flex-col rounded-lg border border-slate-800/60 bg-slate-900/20 p-3 text-left">
+                        <span className="text-sm font-medium text-slate-100">{item.label}</span>
+                        <p className="mt-1 text-xs text-slate-500">{item.description}</p>
+                        <span className="mt-2 text-[11px] text-emerald-400/80">
+                          Ask MoneyPenny in the conversation, or use the matching quick prompt below it.
+                        </span>
+                        {item.mode && (
+                          <span className={`mt-2 inline-block w-fit rounded px-1.5 py-0.5 text-[9px] uppercase tracking-wide ${MODE_BADGE_STYLE[item.mode] ?? ""}`}>
+                            {item.mode}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  }
                   return (
                     <button
                       key={item.id}
