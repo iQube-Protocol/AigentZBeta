@@ -1978,6 +1978,62 @@ export async function buildAcquisitionPendingDecision(input: {
     };
   }
 
+  // ── AN APPROVED PROPOSAL WHOSE BOUNDED ROUND ALREADY RAN TO EXHAUSTION
+  // (2026-09-05 repair, "approve does not progress the programme" defect).
+  //
+  // `run-step` (services/research/crystalAcquisitionJob.ts /
+  // app/api/research/programme/[experimentId]/acquisition/run-step/route.ts)
+  // correctly flips the durable approval row from 'approved' to 'completed'
+  // the moment either readiness is satisfied OR every ratified+verified
+  // institution has been attempted — that is the CORRECT execution-lifecycle
+  // outcome for a bounded, already-authorised act (mirrors the 'declined' /
+  // 'revision_requested' dedup immediately above, and the same discipline the
+  // 2026-08-31 fix above this one already applies while an approval is still
+  // 'approved'). But `getActiveAcquisitionApproval` above filters on
+  // `status = 'approved'` ONLY, so once a round completes, `activeApproval`
+  // is `null` and the `if (activeApproval)` block above never runs — this
+  // function fell straight through to computing a BRAND NEW brief and, since
+  // 'completed' was not in the disposition check immediately above (only
+  // 'declined'/'revision_requested' were), re-manufactured the EXACT SAME
+  // "Approve / Revise / Decline" ask for a proposal the operator had already
+  // approved and whose bounded discovery already ran — indistinguishable, to
+  // the operator, from clicking Approve having done nothing at all.
+  //
+  // The underlying deficit can legitimately remain open after a completed
+  // round (discovery surfaced nothing admissible, or not enough) — that is
+  // real and must be reported — but it is a DIFFERENT fact from "this exact
+  // plan has never been decided," and re-asking the identical human decision
+  // is never the honest way to report it. Never sets `acquisitionBrief`
+  // (mirrors every other diagnostic-only branch above): the Copilot's
+  // Approve/Revise/Decline card renders only when `acquisitionBrief` is
+  // present, so a closed-and-executed proposal shows no re-ask control.
+  if (
+    latestDisposition &&
+    latestDisposition.status === 'completed' &&
+    latestDisposition.crystalGeneration === crystalGeneration &&
+    latestDisposition.briefHash === briefHash
+  ) {
+    return {
+      stageId: stage.id,
+      stageLabel: stage.label,
+      authority: 'governance',
+      actor: 'Steward — already authorized and executed; this is a status report, not a repeated ask.',
+      capability: stage.capability,
+      surface: stage.surface,
+      deepLink: buildTrack2DeepLink(input.programme.experimentId, stage.id, stage.label),
+      remedies,
+      actionable: false,
+      detail:
+        'This exact targeted acquisition plan was already approved by the operator, and its bounded discovery ' +
+        'round already ran to exhaustion — every ratified+verified institution available at that time was ' +
+        `attempted. The underlying deficit (${outstanding.map((c) => c.checkName).join(', ') || 'targeted acquisition need'}) ` +
+        'remains open because that round did not surface enough admissible new material — not because the ' +
+        'approval failed to execute. Re-approving the identical plan would repeat the same exhausted round for ' +
+        'no gain. Ratify additional institutions for this domain, or let newly discovered sources move through ' +
+        'Review & Admit, before a materially different plan (a new hash) presents a fresh decision.',
+    };
+  }
+
   return {
     stageId: stage.id,
     stageLabel: stage.label,

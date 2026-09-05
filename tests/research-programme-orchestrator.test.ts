@@ -172,6 +172,7 @@ import { BOUND_CRYSTAL_REMEDIATION_PROFILES } from '@/types/crystalRemediation';
 import {
   getActiveAcquisitionApproval,
   approveAcquisitionJob,
+  completeAcquisitionJob,
   getLatestAcquisitionDisposition,
   recordAcquisitionDisposition,
 } from '@/services/research/crystalAcquisitionJob';
@@ -1210,6 +1211,135 @@ describe('the targeted-acquisition state machine — a human judgement is consum
       // guarantee at its most direct: nothing about report itself changed.
       const { acquisitionBriefApplies } = await import('@/services/research/crystalAcquisitionBrief');
       expect(acquisitionBriefApplies(report)).toBe(true);
+    });
+  });
+
+  // ── AN APPROVED PROPOSAL THAT ALREADY RAN TO EXHAUSTION (2026-09-05,
+  // "approve does not progress the programme" repair). Live incident shape:
+  // the operator clicked "Approve research plan"; `run-step` correctly ran
+  // discovery over every ratified+verified institution and, per its OWN
+  // documented completion rule, flipped the durable approval row from
+  // 'approved' to 'completed' once every institution was attempted — but the
+  // round surfaced nothing that moved readiness. `getActiveAcquisitionApproval`
+  // filters on `status = 'approved'` only, so `activeApproval` above was
+  // `null`, and — before this fix — 'completed' was absent from the
+  // disposition-dedup check immediately above (which only recognised
+  // 'declined'/'revision_requested'), so this function fell through and
+  // re-manufactured the IDENTICAL "Approve / Revise / Decline" ask for the
+  // exact plan the operator had already approved and executed. These tests
+  // pin the fix.
+  describe('an approved proposal whose bounded round already ran to exhaustion is never re-asked as if never approved', () => {
+    it('a completed disposition matching the exact current hash suppresses the re-ask, without pretending the deficit is resolved', async () => {
+      const report = acquisitionNeededReadiness();
+      const brief = buildCrystalAcquisitionBrief({
+        experimentId: EXPERIMENT, crystalGeneration: 'EXP-P1/crystal-v2', domain: declaration(), report, admittedInvariantIds: [],
+      });
+      const briefHash = hashAcquisitionBrief(brief);
+
+      // The exact real-world write sequence: approve, then complete (the
+      // route's own `completeAcquisitionJob` call once every ratified+
+      // verified institution has been attempted this round).
+      const approval = await approveAcquisitionJob(fakeAdmin as never, {
+        experimentId: EXPERIMENT, acquisitionDomain: ACQ_DOMAIN, crystalDomain: declaration().domain,
+        approvedByPersonaId: PERSONA, brief, briefHash,
+      });
+      expect(approval.ok).toBe(true);
+      if (approval.ok) {
+        await completeAcquisitionJob(fakeAdmin as never, approval.approval.id);
+      }
+
+      // Never re-authorizes: getActiveAcquisitionApproval only ever matches
+      // status='approved' — a completed round is not mistaken for an active one.
+      expect(await getActiveAcquisitionApproval(fakeAdmin as never, EXPERIMENT, ACQ_DOMAIN)).toBeNull();
+
+      const decision = await buildAcquisitionPendingDecision({
+        programme: acquisitionProgramme(),
+        declaration: declaration(),
+        readiness: report,
+        artifact: { id: 'EXP-P1/crystal-v2', lifecycle: 'provisional' },
+        admin: fakeAdmin as never,
+        acquisitionDomain: ACQ_DOMAIN,
+        // Institutions exist and were attempted (this is the exhausted-round
+        // case) — deliberately NOT the eligibleInstitutionCount===0 branch,
+        // which is already covered above and short-circuits earlier.
+        acquisitionSourceUniverse: { ratifiedInstitutionCount: 3, eligibleInstitutionCount: 3 },
+      });
+
+      expect(decision).not.toBeNull();
+      // NEVER the re-ask: no acquisitionBrief means the Copilot's
+      // Approve/Revise/Decline card does not render.
+      expect(decision?.acquisitionBrief).toBeUndefined();
+      expect(decision?.actionable).toBe(false);
+      expect(decision?.authority).toBe('governance');
+      expect(decision?.detail).toMatch(/already approved/i);
+      expect(decision?.detail).toMatch(/already ran to exhaustion/i);
+      // NEVER silently resolved: the remedy text still names the same
+      // outstanding scientific deficit as before.
+      expect(decision?.remedies.join(' ')).toMatch(/grow the collection/i);
+      expect(decision?.detail).toMatch(/remains open/i);
+    });
+
+    it('a materially DIFFERENT brief (a new crystal generation) after a completed round is NOT suppressed — a fresh decision is presented', async () => {
+      const report = acquisitionNeededReadiness();
+      const staleBrief = buildCrystalAcquisitionBrief({
+        experimentId: EXPERIMENT, crystalGeneration: 'EXP-P1/crystal-v1', domain: declaration(), report, admittedInvariantIds: [],
+      });
+      const staleHash = hashAcquisitionBrief(staleBrief);
+      const approval = await approveAcquisitionJob(fakeAdmin as never, {
+        experimentId: EXPERIMENT, acquisitionDomain: ACQ_DOMAIN, crystalDomain: declaration().domain,
+        approvedByPersonaId: PERSONA, brief: staleBrief, briefHash: staleHash,
+      });
+      if (approval.ok) await completeAcquisitionJob(fakeAdmin as never, approval.approval.id);
+
+      // A different crystal generation (via `artifact.id`) makes the freshly
+      // built brief hash differ from the completed one above.
+      const decision = await buildAcquisitionPendingDecision({
+        programme: acquisitionProgramme(),
+        declaration: declaration(),
+        readiness: report,
+        artifact: { id: 'EXP-P1/crystal-v2', lifecycle: 'provisional' },
+        admin: fakeAdmin as never,
+        acquisitionDomain: ACQ_DOMAIN,
+        acquisitionSourceUniverse: { ratifiedInstitutionCount: 3, eligibleInstitutionCount: 3 },
+      });
+
+      expect(decision?.acquisitionBrief).toBeDefined();
+      expect(decision?.actionable).toBe(true);
+    });
+
+    it('advanceResearchProgramme reports the exhausted-round status, never a repeated "never automatic" approval ask, once a completed disposition matches the current hash', async () => {
+      mockDomainAcceptsAssignment.mockReturnValue(true);
+      mockRunCrystalReadinessReport.mockResolvedValue(acquisitionNeededReadiness());
+      mockListCandidateSources.mockResolvedValue([]);
+      mockListCandidates.mockResolvedValue([]);
+      mockGetCurrentCrystalArtifact.mockResolvedValue({ id: 'EXP-P1/crystal-v2', lifecycle: 'provisional' });
+      mockCurrentCrystalArtifactId.mockResolvedValue('EXP-P1/crystal-v2');
+      mockSummarizeAcquisitionSourceUniverse.mockResolvedValue({ ratifiedInstitutionCount: 3, eligibleInstitutionCount: 3 });
+
+      const report = acquisitionNeededReadiness();
+      const brief = buildCrystalAcquisitionBrief({
+        experimentId: EXPERIMENT, crystalGeneration: 'EXP-P1/crystal-v2', domain: declaration(), report, admittedInvariantIds: [],
+      });
+      const briefHash = hashAcquisitionBrief(brief);
+      const approval = await approveAcquisitionJob(fakeAdmin as never, {
+        experimentId: EXPERIMENT, acquisitionDomain: 'financial-services', crystalDomain: declaration().domain,
+        approvedByPersonaId: PERSONA, brief, briefHash,
+      });
+      if (approval.ok) await completeAcquisitionJob(fakeAdmin as never, approval.approval.id);
+
+      const result = await advanceResearchProgramme({
+        experimentId: EXPERIMENT,
+        personaId: PERSONA,
+        resolveMeasurementLayer: async () => openGate(),
+      });
+      if ('error' in result) throw new Error(result.error);
+
+      expect(result.stopReason.kind).toBe('awaiting-governance');
+      if (result.stopReason.kind === 'awaiting-governance' || result.stopReason.kind === 'awaiting-human-judgment') {
+        expect(result.stopReason.decision.acquisitionBrief).toBeUndefined();
+        expect(result.stopReason.decision.detail).toMatch(/already approved/i);
+        expect(result.stopReason.decision.detail).not.toMatch(/never automatic \(unbounded external HTTP\)/i);
+      }
     });
   });
 });
