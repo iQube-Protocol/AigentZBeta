@@ -5544,3 +5544,8 @@ Top-level retrieval anchors for this pack.
 - Type: `chore`
 - Brief: [COMMIT-f5b13db.md](../build_/COMMITS/COMMIT-f5b13db.md)
 - Message: Update Bankr Phase 6-9 delivery report with the frontend integration
+
+## Commit `72c692d` — 2026-09-05T21:37:39Z
+- Type: `feat`
+- Brief: [COMMIT-72c692d.md](../build_/COMMITS/COMMIT-72c692d.md)
+- Message: Add Crystal-wide internal-pilot execution designation (frozen generations are immutable; lineages are evolutionary)
