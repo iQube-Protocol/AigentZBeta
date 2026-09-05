@@ -81,15 +81,22 @@ vi.mock('@/services/invariants/discoveryEngine', () => ({
   deriveSourceLineage: (...args: unknown[]) => mockDeriveSourceLineage(...args),
 }));
 
-// findDuplicates backs the review-queue's pre-flight duplicate warning
-// (2026-08-30) — every failure mode is already absorbed by the orchestrator's
-// own `.catch(() => [])`, so an empty default is sufficient for every
-// PRE-EXISTING test in this file; the new "review & promote queue" describe
+// The review-queue's pre-flight duplicate warning (2026-08-30, batched
+// 2026-09-05 — see researchProgrammeOrchestrator.ts's buildReviewAndPromoteQueue
+// header) is powered by the REAL findDuplicatesInPool/similarity (pure,
+// no I/O) scoring against a pool this file controls via mockListInvariants
+// below — mocking the scoring itself would let the loop agree with a fake
+// of the comparison logic it's supposed to obey, the same discipline this
+// file's header comment states for the constitutional projections. Every
+// failure mode is already absorbed by the orchestrator's own
+// `.catch(() => [])`, so an empty default is sufficient for every
+// PRE-EXISTING test in this file; the "review & promote queue" describe
 // block below overrides it per case.
-const mockFindDuplicates = vi.fn().mockResolvedValue([]);
-vi.mock('@/services/invariants/comparison', () => ({
-  findDuplicates: (...args: unknown[]) => mockFindDuplicates(...args),
-}));
+const mockListInvariants = vi.fn().mockResolvedValue([]);
+vi.mock('@/services/invariants/store', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/services/invariants/store')>();
+  return { ...actual, listInvariants: (...args: unknown[]) => mockListInvariants(...args) };
+});
 
 const mockValidateInvariant = vi.fn();
 vi.mock('@/services/invariants', () => ({
@@ -354,7 +361,7 @@ beforeEach(() => {
   mockValidateInvariant.mockResolvedValue({ invariant: {}, verdict: { ok: true, checks: [] } });
   mockRunConstitutionalDiscovery.mockResolvedValue({ ok: true, candidates: [], excludedEvidence: [] });
   mockListEvidence.mockResolvedValue([]);
-  mockFindDuplicates.mockResolvedValue([]);
+  mockListInvariants.mockResolvedValue([]);
   mockSummarizeAcquisitionSourceUniverse.mockResolvedValue({ ratifiedInstitutionCount: 0, eligibleInstitutionCount: 0 });
 });
 
@@ -1612,7 +1619,7 @@ describe('the review & promote queue — successor candidates rendered as a real
     mockListEvidence.mockResolvedValue([
       { id: 'ev-1', domain: 'financial-services', subDomain: null, title: 'BIS Working Paper', sourceKind: 'academic-literature', content: 'A'.repeat(500), sourceRef: 'https://bis.org/wp1', createdAt: '2026-06-01T00:00:00.000Z' },
     ]);
-    mockFindDuplicates.mockResolvedValue([]);
+    mockListInvariants.mockResolvedValue([]);
 
     const state = await loadTrack2ProgrammeState({ experimentId: EXPERIMENT });
     if ('error' in state) throw new Error('unexpected error result');
@@ -1641,8 +1648,11 @@ describe('the review & promote queue — successor candidates rendered as a real
 
   it('an exact duplicate surfaces as a duplicate warning, and the recommendation is "reject"', async () => {
     seedSubstrate({ candidates: [AWAITING_CANDIDATE] });
-    mockFindDuplicates.mockResolvedValue([
-      { invariant: { id: 'inv-existing-1', statement: 'Statement under review A' }, similarity: 1, exact: true },
+    // Real findDuplicatesInPool/similarity scoring against this pool — see
+    // this file's header note on mockListInvariants above. 'finance' is
+    // discoveryNamespace('financial-services'), AWAITING_CANDIDATE's domain.
+    mockListInvariants.mockResolvedValue([
+      { id: 'inv-existing-1', namespace: 'finance', status: 'validated', statement: 'Statement under review A' },
     ]);
     const state = await loadTrack2ProgrammeState({ experimentId: EXPERIMENT });
     if ('error' in state) throw new Error('unexpected error result');
@@ -1654,7 +1664,7 @@ describe('the review & promote queue — successor candidates rendered as a real
 
   it('high confidence with converging sources and no duplicate recommends "promote"', async () => {
     seedSubstrate({ candidates: [{ ...AWAITING_CANDIDATE, confidence: 0.9 }] });
-    mockFindDuplicates.mockResolvedValue([]);
+    mockListInvariants.mockResolvedValue([]);
     const state = await loadTrack2ProgrammeState({ experimentId: EXPERIMENT });
     if ('error' in state) throw new Error('unexpected error result');
     expect(state.pendingDecision!.reviewQueue![0].recommendation.action).toBe('promote');
@@ -1662,7 +1672,7 @@ describe('the review & promote queue — successor candidates rendered as a real
 
   it('low confidence recommends "inspect", never a blocking verdict — both buttons remain the operator’s own call', async () => {
     seedSubstrate({ candidates: [{ ...AWAITING_CANDIDATE, confidence: 0.1, convergence: { supportCount: 0, frameworks: [], tier: 'single' } }] });
-    mockFindDuplicates.mockResolvedValue([]);
+    mockListInvariants.mockResolvedValue([]);
     const state = await loadTrack2ProgrammeState({ experimentId: EXPERIMENT });
     if ('error' in state) throw new Error('unexpected error result');
     expect(state.pendingDecision!.reviewQueue![0].recommendation.action).toBe('inspect');
@@ -1716,6 +1726,43 @@ describe('the review & promote queue — successor candidates rendered as a real
     if ('error' in state) throw new Error('unexpected error result');
     expect(state.pendingDecision!.reviewQueue).toHaveLength(1);
     expect(state.pendingDecision!.reviewQueue![0].evidence).toEqual([]);
+  });
+
+  /*
+   * EXP-P1 15s-timeout regression guard (2026-09-05). Before the fix, the
+   * duplicate-check called `findDuplicates` (a fresh `listInvariants` round
+   * trip) once PER awaiting candidate — invisible while Stage 2 (review-
+   * and-admit) still had a source pending review, because
+   * `firstPendingDecision` never let this stage's own composition run past
+   * Stage 2 for that experiment. The moment the FINAL source was admitted,
+   * Stage 2 completed, and Stage 4's queue ran ONCE over the entire
+   * accumulated backlog — every candidate paying its own round trip in a
+   * single composition pass, blowing the safety budget. A realistic EXP-P1
+   * population is ~58 members; this seeds 58 awaiting candidates, all in
+   * ONE namespace (the common case — a single acquisition domain), and
+   * asserts `listInvariants` is called AT MOST ONCE for that namespace,
+   * never once per candidate — the batching fix in
+   * `buildReviewAndPromoteQueue` (services/research/
+   * researchProgrammeOrchestrator.ts), mirroring `batchFindExactStatement
+   * Matches`'s own regression guard in tests/population-reconciliation
+   * .test.ts.
+   */
+  it('58 awaiting candidates in one namespace cost exactly ONE listInvariants call, never 58 — the EXP-P1 timeout regression guard', async () => {
+    const manyCandidates = Array.from({ length: 58 }, (_, i) => ({
+      ...AWAITING_CANDIDATE,
+      id: `cand-awaiting-${i}`,
+      statement: `Statement under review ${i}`,
+    }));
+    seedSubstrate({ candidates: manyCandidates });
+    mockListInvariants.mockResolvedValue([]);
+
+    const state = await loadTrack2ProgrammeState({ experimentId: EXPERIMENT });
+    if ('error' in state) throw new Error('unexpected error result');
+    expect(state.pendingDecision!.reviewQueue).toHaveLength(58);
+    // The load-bearing assertion: ONE round trip for the shared namespace,
+    // not 58. A regression to the per-candidate shape would fail this at
+    // exactly 58 calls.
+    expect(mockListInvariants).toHaveBeenCalledTimes(1);
   });
 });
 

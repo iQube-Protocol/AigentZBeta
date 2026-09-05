@@ -1,0 +1,57 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "classification": null,
+  "ratifiedSource": null,
+  "notes": [
+    "This is the general shape behind three independent occurrences in the same file family within two days: a loop over N items (candidates, statements, evidence refs) calls an expensive per-item substrate-search function (findDuplicates, resolveEvidenceSourceRef) that itself performs a fresh table scan on every call. Because each item's read is scoped by some GROUPING KEY the item carries (namespace, domain, source ref) rather than the item's own identity, the N reads are almost always redundant — most items in a real batch share a small number of distinct keys, so N reads collapse to (distinct key count) reads with zero change in behaviour.",
+    "The fix pattern, proven three times now (provenanceCohortPreparation.ts's batchResolveEvidenceSourceRefs, commit 213536298; populationReconciliation.ts's batchFindExactStatementMatches, RES-2026-09-04-TRACK2-COMPOSITION-COST-001; researchProgrammeOrchestrator.ts's buildReviewAndPromoteQueue, RES-2026-09-05-TRACK2-REVIEW-QUEUE-DUPLICATE-N+1-001): (1) compute the DISTINCT set of grouping keys across the batch, (2) fetch each key's pool ONCE, concurrently (Promise.all keyed by the distinct set, not the item array), (3) run the SAME per-item scoring/matching logic in-process against the pre-fetched pool for that item's key. The scoring function itself should be split into a pure pool-scoring half (no I/O) and a single-item convenience wrapper that fetches-then-scores, so existing single-item callers are completely unaffected (see findDuplicates/findDuplicatesInPool).",
+    "This defect is INVISIBLE at small N — every one of the three occurrences had existing tests that exercised the code path at N=1, where a call-count assertion cannot distinguish 'batched: 1 call' from 'unbatched: 1 call per item'. A regression canary for this invariant MUST seed a batch with N > (distinct key count), ideally at a realistic production population size, and assert the read is called AT MOST ONCE PER DISTINCT KEY — never once per item.",
+    "Distinct from CI-2026-09-04-BOUNDED-PROJECTION-FOR-DISCARDED-FIELDS-001: that invariant is about a caller paying for fields of a shared function's result it never reads (the fix is to stop computing the field). This invariant is about a caller paying for the SAME field N times over when one read per distinct key would suffice (the fix is to batch, never to drop the read entirely — the duplicate-check itself is needed for every item, just not via N separate reads).",
+    "Also distinct from CI-2026-09-04-PARALLELIZE-INDEPENDENT-PER-KEY-INFERENCE-CALLS-001: that invariant is about K already-deduplicated, necessarily-separate per-key CALLS that must run concurrently rather than sequentially (the calls cannot be merged — each key genuinely needs its own model invocation). This invariant is about N per-ITEM calls that share only (distinct key count) DISTINCT underlying reads and should be deduplicated to that count in the first place, before any question of concurrency arises."
+  ],
+  "canaries": [
+    {
+      "path": "tests/research-programme-orchestrator.test.ts",
+      "assertion": "'58 awaiting candidates in one namespace cost exactly ONE listInvariants call, never 58 — the EXP-P1 timeout regression guard': seeds 58 awaiting candidates sharing one namespace and asserts mockListInvariants is called exactly once, not once per candidate.",
+      "verifiedFailingBeforeFix": true
+    },
+    {
+      "path": "tests/population-reconciliation.test.ts",
+      "assertion": "batchFindExactStatementMatches is asserted to make one listInvariants read per distinct namespace across a multi-candidate batch, not once per candidate.",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "candidateId": "CI-2026-09-05-BATCH-PER-ITEM-SUBSTRATE-READS-BY-GROUPING-KEY-001",
+  "statement": "When a loop over N items calls an expensive per-item substrate-search function whose read is scoped by a grouping key the item carries (namespace, domain, source reference — not the item's own identity), the read must be batched to ONE fetch per DISTINCT grouping key across the whole batch (fetched concurrently across keys), with the same per-item scoring/matching logic then run in-process against the pre-fetched pool for that item's key — never left as N separate reads. The underlying single-item function should be split into a pure pool-scoring half and a fetch-then-score convenience wrapper, so existing single-item callers are unaffected by the split. A regression canary for this must seed a batch larger than the distinct-key count and assert the read's call count scales with DISTINCT KEYS, never with ITEM COUNT — a canary at item count 1 cannot detect this defect.",
+  "scope": "cross-capability",
+  "status": "candidate",
+  "derivedFrom": [
+    "RES-2026-09-05-TRACK2-REVIEW-QUEUE-DUPLICATE-N+1-001"
+  ],
+  "occurrences": [
+    {
+      "site": "services/research/provenanceCohortPreparation.ts — batchResolveEvidenceSourceRefs",
+      "defect": "One resolveEvidenceSourceRef read per unclassified record, sequentially, where records share a small number of distinct source refs — the original classify-provenance 15s-timeout fix.",
+      "resolutionId": null,
+      "evidence": [
+        "commit 213536298"
+      ]
+    },
+    {
+      "site": "services/research/populationReconciliation.ts — reconcilePromotedCohort's exact-match check, replaced by batchFindExactStatementMatches",
+      "defect": "One findDuplicates call (a fresh up-to-500-row listInvariants scan) per candidate missing promoted_invariant_id, sequentially, where candidates share a small number of distinct namespaces.",
+      "resolutionId": "RES-2026-09-04-TRACK2-COMPOSITION-COST-001",
+      "evidence": [
+        "tests/population-reconciliation.test.ts"
+      ]
+    },
+    {
+      "site": "services/research/researchProgrammeOrchestrator.ts — buildReviewAndPromoteQueue",
+      "defect": "One findDuplicates call per awaiting candidate inside a Promise.all, where candidates share a small number of distinct namespaces — the identical shape as the second occurrence, in a sibling function within the same file, not caught by that occurrence's own review pass because it did not scope this specific call site.",
+      "resolutionId": "RES-2026-09-05-TRACK2-REVIEW-QUEUE-DUPLICATE-N+1-001",
+      "evidence": [
+        "tests/research-programme-orchestrator.test.ts"
+      ]
+    }
+  ]
+}

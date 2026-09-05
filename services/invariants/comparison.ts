@@ -55,6 +55,31 @@ export interface DuplicateCandidate {
 }
 
 /**
+ * The pure scoring half of duplicate detection — filter + sort only, no
+ * read. Split out (2026-09-05, EXP-P1 review-and-promote-queue timeout
+ * repair) so a caller comparing MANY statements against the SAME candidate
+ * namespace can fetch the pool ONCE (see `services/research/
+ * populationReconciliation.ts`'s `batchFindExactStatementMatches` for the
+ * identical pattern already used one call site over) instead of paying a
+ * fresh `listInvariants` round trip per statement. `findDuplicates` below
+ * is unchanged in behaviour — it now just delegates its scoring to this
+ * function after doing its own single-statement fetch.
+ */
+export function findDuplicatesInPool(
+  statement: string,
+  pool: readonly InvariantRecord[],
+  threshold = 0.75,
+): DuplicateCandidate[] {
+  return pool
+    .map((invariant) => {
+      const score = similarity(statement, invariant.statement);
+      return { invariant, similarity: score, exact: score === 1 };
+    })
+    .filter((c) => c.similarity >= threshold)
+    .sort((a, b) => b.similarity - a.similarity);
+}
+
+/**
  * Find existing invariants that likely state the same thing. Scans the
  * candidate namespace (or all) among non-retired statuses.
  */
@@ -62,17 +87,10 @@ export async function findDuplicates(
   statement: string,
   options: { namespace?: InvariantNamespace; threshold?: number } = {},
 ): Promise<DuplicateCandidate[]> {
-  const threshold = options.threshold ?? 0.75;
   const candidates = await listInvariants({
     namespace: options.namespace,
     status: ['draft', 'proposed', 'validated', 'canonical'],
     limit: 500,
   });
-  return candidates
-    .map((invariant) => {
-      const score = similarity(statement, invariant.statement);
-      return { invariant, similarity: score, exact: score === 1 };
-    })
-    .filter((c) => c.similarity >= threshold)
-    .sort((a, b) => b.similarity - a.similarity);
+  return findDuplicatesInPool(statement, candidates, options.threshold ?? 0.75);
 }

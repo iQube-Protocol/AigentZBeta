@@ -113,7 +113,7 @@ import {
   type ConvergenceInfo,
   type RecurrenceInfo,
 } from '@/services/invariants/discoveryEngine';
-import { findDuplicates } from '@/services/invariants/comparison';
+import { findDuplicatesInPool } from '@/services/invariants/comparison';
 import { discoveryNamespace } from '@/services/invariants/discoveryDomains';
 import { validateInvariant } from '@/services/invariants';
 import {
@@ -152,7 +152,7 @@ import {
 } from '@/services/research/exceptionIsolation';
 import { writeLifecycleReceipt } from '@/services/research/lifecycle';
 import { reconcilePromotedCohort, type ReconciledPromotedCohort } from '@/services/research/populationReconciliation';
-import { getInvariantsByIds } from '@/services/invariants/store';
+import { getInvariantsByIds, listInvariants } from '@/services/invariants/store';
 import { triageUnclassifiedProvenance, isExceptionOnlyRemainder } from '@/services/research/provenanceCohortPreparation';
 import {
   buildTrack2Programme,
@@ -1209,6 +1209,25 @@ function deriveReviewRecommendation(
  * — no new promotion, rejection, or duplicate-detection logic. `admin: null`
  * (no server client) yields an empty queue rather than throwing — the
  * calling stage's own `unreadableSignals` entry already names that failure.
+ *
+ * Duplicate-check pool is batched ONE `listInvariants` PER DISTINCT
+ * NAMESPACE (2026-09-05, EXP-P1 15s-timeout repair) — mirroring
+ * `evidenceByDomain` immediately below AND `populationReconciliation.ts`'s
+ * `batchFindExactStatementMatches`, the identical N+1 shape fixed at that
+ * other call site the same week. Previously this called `findDuplicates`
+ * (a fresh up-to-500-row scan) once PER awaiting candidate; the very first
+ * time Stage 2 (review-and-admit) reached `complete` for an experiment —
+ * i.e. the moment the review-and-promote-queue phase became reachable at
+ * all — every candidate accumulated in `status: 'candidate'` since Stage 3
+ * began paid its own round trip in one composition pass, which is exactly
+ * the failure this repair closes. Scoring behaviour (threshold, sort order,
+ * top-match selection) is byte-identical — only the number of Supabase
+ * round trips changed (N → distinct-namespace-count), via
+ * `findDuplicatesInPool` (`services/invariants/comparison.ts`), the SAME
+ * comparator `findDuplicates` itself calls internally. A namespace whose
+ * pool fetch fails degrades to an empty pool for that namespace only
+ * (`.catch(() => [])`) — those candidates simply show no duplicate warning
+ * rather than blocking the rest of the queue (exception isolation).
  */
 async function buildReviewAndPromoteQueue(
   admin: SupabaseClient | null,
@@ -1221,6 +1240,19 @@ async function buildReviewAndPromoteQueue(
   await Promise.all(
     domains.map(async (d) => {
       evidenceByDomain.set(d, await listEvidence(admin, d).catch(() => []));
+    }),
+  );
+
+  const namespaces = Array.from(new Set(awaitingCandidates.map((c) => discoveryNamespace(c.domain))));
+  const invariantPoolByNamespace = new Map<string, Awaited<ReturnType<typeof listInvariants>>>();
+  await Promise.all(
+    namespaces.map(async (ns) => {
+      invariantPoolByNamespace.set(
+        ns,
+        await listInvariants({ namespace: ns, status: ['draft', 'proposed', 'validated', 'canonical'], limit: 500 }).catch(
+          () => [],
+        ),
+      );
     }),
   );
 
@@ -1239,7 +1271,8 @@ async function buildReviewAndPromoteQueue(
         }));
 
       const namespace = discoveryNamespace(c.domain);
-      const dupes = await findDuplicates(c.statement, { namespace, threshold: 0.75 }).catch(() => []);
+      const pool = invariantPoolByNamespace.get(namespace) ?? [];
+      const dupes = findDuplicatesInPool(c.statement, pool, 0.75);
       const top = dupes[0] ?? null;
       const duplicateWarning: ReviewPromoteDuplicateWarning | null = top
         ? {

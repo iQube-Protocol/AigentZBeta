@@ -1,0 +1,63 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-09-05",
+  "resolutionId": "RES-2026-09-05-TRACK2-REVIEW-QUEUE-DUPLICATE-N+1-001",
+  "capability": "exp-p1-track2-programme-state-composition",
+  "milestone": "EXP-P1 / Track 2 — 'Run until you need me' live-blocking, THIRD occurrence of the classify-provenance N+1 shape (after commit 213536298 and RES-2026-09-04-TRACK2-COMPOSITION-COST-001)",
+  "problem": "Immediately after the operator resolved a Review & Admit human gate and admitted the final eligible source for EXP-P1, 'Run until you need me' failed with 'programme state composition exceeded its 15000ms safety budget for experiment EXP-P1. Nothing was written and no act was attempted.' The operator explicitly ruled out the two already-fixed defects in this exact area (the readiness-recomputed-three-times fix and populationReconciliation's reconcilePromotedCohort batching, both landed the prior day in RES-2026-09-04-TRACK2-COMPOSITION-COST-001) and required the actual measured culprit be found, not assumed.",
+  "observedFailure": [
+    "buildReviewAndPromoteQueue (services/research/researchProgrammeOrchestrator.ts) — the function that composes Stage 4 (review-and-promote)'s review queue — called findDuplicates(c.statement, { namespace, threshold: 0.75 }) once PER awaiting candidate inside its Promise.all. findDuplicates (services/invariants/comparison.ts) itself performs a fresh listInvariants read (namespace-filtered, up to 500 rows) on every call — the identical unbatched-per-item shape already fixed twice in the same file family the prior day (provenanceCohortPreparation.ts's batchResolveEvidenceSourceRefs, commit 213536298; populationReconciliation.ts's batchFindExactStatementMatches, RES-2026-09-04-TRACK2-COMPOSITION-COST-001) — but this specific call site was not touched by either prior pass, because neither review scoped the review-and-promote queue's own duplicate-check.",
+    "This call site had NEVER executed for EXP-P1 before the final admission. firstPendingDecision (researchProgrammeOrchestrator.ts) returns the lowest-ordinal unblocked, human-gated stage; Stage 2 (review-and-admit, ordinal 2) derives 'partially-complete' with a non-empty remedies list for as long as ANY source awaits review (track2Programme.ts), and a stage in that shape is never excluded by firstPendingDecision's filter. So Stage 2 was returned as the pending decision on every run for the entire life of the experiment, and the ordinal-4 review-promote-queue phase (gated on pendingDecision.stageId === 'review-and-promote') never ran — even though Stage 3 (machine-run extraction, not human-gated, invisible to firstPendingDecision) kept silently accumulating discovery_candidates rows in status: 'candidate' in the background the whole time.",
+    "The moment the operator admitted the final source, pendingReview dropped to 0, Stage 2 flipped to 'complete' and was excluded from firstPendingDecision's candidate list for the first time in this experiment's history, and Stage 4 became the returned pending decision — running buildReviewAndPromoteQueue over the ENTIRE accumulated backlog of awaiting candidates (a realistic EXP-P1 population is ~58 members) in one composition pass, each one now paying its own unbatched listInvariants round trip. Diagnosed by direct code reading and cross-referenced against the two prior same-shape fixes' own call-count canaries; a live timed reproduction was not attempted (no SUPABASE_SERVICE_ROLE_KEY reachable locally — RLS returns empty rows for discovery_candidates/invariants under the anon key, which would time the null-population fast path rather than the real ~58-candidate case and misreport 'fast' — the same credential wall RES-2026-09-04-TRACK2-COMPOSITION-COST-001's own rejectedApproaches already recorded for this exact class of verification)."
+  ],
+  "rootCauses": [
+    "The SAME per-item unbatched-substrate-read shape was fixed twice in one file family the prior day (provenanceCohortPreparation.ts, populationReconciliation.ts) without a systematic sweep for every OTHER call site sharing the identical pattern (findDuplicates called inside a Promise.all/map over a candidate array) — buildReviewAndPromoteQueue calls findDuplicates the exact same way and was not in scope for either prior review.",
+    "A stage's `firstPendingDecision` ordinal gate can leave a LOWER-ordinal stage's own composition exercising a code path for the first time only once an unrelated, higher-priority human gate clears — meaning a cold, never-before-executed branch (buildReviewAndPromoteQueue's full Promise.all over the accumulated backlog) can be reached abruptly, with no prior partial exercise to have surfaced its cost sooner. The same 'newly-exposed once-population-complete code path' shape RES-2026-09-04-TRACK2-COMPOSITION-COST-001's own rootCauses named for buildFrozenCrystalManifest's full-mode block, recurring here in a different stage-gating mechanism.",
+    "No regression test in tests/research-programme-orchestrator.test.ts's 'review & promote queue' suite ever seeded MORE THAN ONE awaiting candidate — every existing test exercised the N+1 code path at N=1, where the defect is invisible (a call-count assertion at N=1 cannot distinguish 'batched: 1 call' from 'unbatched: 1 call per candidate')."
+  ],
+  "resolution": [
+    "services/invariants/comparison.ts gained findDuplicatesInPool(statement, pool, threshold) — the pure scoring half of findDuplicates (filter + sort, no read), extracted so a caller comparing MANY statements against the SAME namespace can fetch the pool ONCE. findDuplicates itself is unchanged in behaviour: it now does its existing single-statement fetch, then delegates scoring to findDuplicatesInPool — every other existing caller of findDuplicates (discoveryEngine.ts, invariants/index.ts, relationshipSuggestion.ts, invariants/lifecycle.ts) is unaffected.",
+    "buildReviewAndPromoteQueue now batches ONE listInvariants read per DISTINCT namespace across the whole awaitingCandidates array (mirroring the evidenceByDomain batching already present two lines above it in the same function, and populationReconciliation.ts's batchFindExactStatementMatches from the prior day), then calls findDuplicatesInPool per candidate against the pre-fetched pool for that candidate's namespace — scoring behaviour (threshold, sort order, top-match selection) is byte-identical, only the number of Supabase round trips changed (N candidates -> distinct-namespace-count). A namespace whose pool fetch fails degrades to an empty pool for that namespace only (.catch(() => [])), preserving exception isolation — those candidates simply show no duplicate warning rather than blocking the rest of the queue.",
+    "Regression test added (tests/research-programme-orchestrator.test.ts): seeds 58 awaiting candidates (a realistic EXP-P1 population size) in ONE shared namespace and asserts listInvariants is called exactly once, never 58 times — the load-bearing assertion a regression to the per-candidate shape would fail immediately.",
+    "tests/pipeline-continuity.test.ts's composer canary (which asserted researchProgrammeOrchestrator.ts must never contain the literal substring listInvariants() at all) was narrowed to the domain-keyed shape (listInvariants({ domain: ... — the actual historical defect: cohort membership resolved by a domain query instead of Stage 4's promotedInvariantId handoff) rather than the bare substring, mirroring the IDENTICAL narrowing this same test file already applied to populationReconciliation.ts's canary on 2026-09-04 for the identical reason: a legitimate, narrowly-scoped, namespace-keyed listInvariants call became textually visible in this file for the first time (previously one layer down inside findDuplicates), and it resolves no cohort membership."
+  ],
+  "rejectedApproaches": [
+    "Raising the 15000ms safety budget — explicitly forbidden by the operator (repeating the same instruction recorded in RES-2026-09-04-TRACK2-COMPOSITION-COST-001's rejectedApproaches); would hide the cost rather than remove it.",
+    "A live, credentialed timed reproduction against the deployed EXP-P1 state before implementing the fix — not attempted, for the same reason RES-2026-09-04-TRACK2-COMPOSITION-COST-001's rejectedApproaches already recorded: no SUPABASE_SERVICE_ROLE_KEY is reachable from this session, and an anon-key/RLS-limited local call would time the empty-population fast path, not the real ~58-candidate case, misreporting 'fast'. The root cause was instead established by direct code reading and cross-referencing the two prior identical-shape fixes' own diagnoses, per the operator's own fallback instruction for this task.",
+    "Treating this as a NEW kind of defect and writing a bespoke fix rather than reusing the exact batching shape already proven twice the prior day (batchResolveEvidenceSourceRefs, batchFindExactStatementMatches) — rejected; the fix mirrors that established pattern exactly (one read per distinct grouping key, real scoring unchanged), because the underlying operator instruction is precisely that this class of defect should be recognised as the same pattern, not rediscovered from scratch each time it's found at a new call site."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-05-BATCH-PER-ITEM-SUBSTRATE-READS-BY-GROUPING-KEY-001"
+  ],
+  "canaries": [
+    "tests/research-programme-orchestrator.test.ts",
+    "tests/pipeline-continuity.test.ts",
+    "tests/population-reconciliation.test.ts"
+  ],
+  "scope": "cross-capability",
+  "status": "candidate",
+  "trigger": "defect-recurred",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/research-programme-orchestrator.test.ts",
+      "tests/pipeline-continuity.test.ts",
+      "tests/population-reconciliation.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "Operator report, 2026-09-05: 'programme state composition exceeded its 15000ms safety budget for experiment EXP-P1. Nothing was written and no act was attempted', immediately following admission of the final eligible source via Review & Admit and invocation of 'Run until you need me'."
+    ]
+  },
+  "sourceDocs": [],
+  "projections": {
+    "targets": [
+      "devon",
+      "irl",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "structural"
+  }
+}

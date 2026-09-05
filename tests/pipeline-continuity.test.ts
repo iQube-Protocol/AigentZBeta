@@ -204,11 +204,27 @@ describe('every stage declares the population it is reasoning about', () => {
     );
     // Comments are stripped: both files DOCUMENT the query they replaced, and
     // the record of a removed defect must not read as the defect.
-    for (const [label, src] of [['route', route], ['composer', composer]] as const) {
-      expect(strip(src), `the Track 2 ${label} must not resolve a stage population by domain query`).not.toMatch(
-        /listInvariants\(/,
-      );
-    }
+    //
+    // THE COMPOSER'S ASSERTION IS SCOPED TO THE DOMAIN-KEYED SHAPE, NOT THE
+    // BARE SUBSTRING (2026-09-05) — the identical narrowing this test already
+    // applied to populationReconciliation.ts below (2026-09-04, see the
+    // comment at this test's end) for the identical reason: the
+    // review-and-promote queue's duplicate-check batching fix
+    // (buildReviewAndPromoteQueue, 2026-09-05 EXP-P1 15s-timeout repair) made
+    // a pre-existing, narrowly-scoped, NAMESPACE-keyed `listInvariants` call
+    // (`{ namespace, status, limit: 500 }`) textually visible in THIS file
+    // for the first time — it was previously one layer down inside
+    // `findDuplicates` (services/invariants/comparison.ts), same as the
+    // populationReconciliation.ts case. It resolves NO cohort membership
+    // (membership is still exclusively `promotedInvariantId`) and is not a
+    // `domain:`-keyed query, so the route's assertion stays the strict bare
+    // check (the route itself must never touch `listInvariants` at all,
+    // domain-keyed or not) while the composer's narrows to the actual shape
+    // of the historical defect, mirroring line 241 below exactly.
+    expect(strip(route), 'the Track 2 route must not resolve a stage population by domain query').not.toMatch(/listInvariants\(/);
+    expect(strip(composer), 'the Track 2 composer must not resolve a stage population by DOMAIN query').not.toMatch(
+      /listInvariants\(\{\s*domain:/,
+    );
     // The resolution itself lives in a dedicated service module
     // (services/research/populationReconciliation.ts, 2026-08-04) so the
     // Population Reconciliation Board can share it — the composer delegates.
