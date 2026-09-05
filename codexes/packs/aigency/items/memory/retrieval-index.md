@@ -5489,3 +5489,28 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-fe43577.md](../build_/COMMITS/COMMIT-fe43577.md)
 - Message: Fix ask-agent's specialist allowlist to actually accept Factor/Aegis
+
+## Commit `726135f` — 2026-09-05T07:38:17Z
+- Type: `chore`
+- Brief: [COMMIT-726135f.md](../build_/COMMITS/COMMIT-726135f.md)
+- Message: Upgrade Candidate Intake into a case-aware Factor/Aegis workspace
+
+## Commit `a896005` — 2026-09-05T06:16:34Z
+- Type: `push`
+- Brief: [COMMIT-a896005.md](../build_/COMMITS/COMMIT-a896005.md)
+- Message: Record Factor runtime-endpoint, Journey Spine rehearsal, specialist UI results
+
+## Commit `2cb85a2` — 2026-09-05T09:21:33Z
+- Type: `fix`
+- Brief: [COMMIT-2cb85a2.md](../build_/COMMITS/COMMIT-2cb85a2.md)
+- Message: trigger deploy: MoneyPenny Home nav fix + Track2 confidence cohort ratification
+
+## Commit `e717187` — 2026-09-05T09:09:02Z
+- Type: `feat`
+- Brief: [COMMIT-e717187.md](../build_/COMMITS/COMMIT-e717187.md)
+- Message: Fix MoneyPenny Home cross-area nav; add specialist cards; rename Aigent Factor
+
+## Commit `5103893` — 2026-09-05T08:30:02Z
+- Type: `feat`
+- Brief: [COMMIT-5103893.md](../build_/COMMITS/COMMIT-5103893.md)
+- Message: Retire dead Track2 >95% confidence gate; add relationship cohort ratification
