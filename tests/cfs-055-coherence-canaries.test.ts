@@ -63,7 +63,13 @@ describe('2. Canonical evidence cannot produce an empty primary evidence drawer'
     expect(secondaryAt, 'secondary section label missing').toBeGreaterThan(-1);
     // Its own "nothing found" copy never claims the predicate is unresolved —
     // phrased as a search result, not a completion verdict.
-    const section = stageReceiptsDrawer.slice(secondaryAt, secondaryAt + 400);
+    //
+    // Window widened 400 -> 700 (GJR audit, 2026-09-05): the drawer gained a
+    // `loadError` branch between the loading state and the empty-result copy
+    // (a failed search must render distinctly from a genuinely empty one —
+    // see tests/stage-receipts-drawer-stale-response.test.tsx), pushing the
+    // "No additional receipts" string further from this label than before.
+    const section = stageReceiptsDrawer.slice(secondaryAt, secondaryAt + 700);
     expect(section).toMatch(/No additional receipts found in this search\./);
   });
 

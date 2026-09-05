@@ -98,29 +98,71 @@ export function StageReceiptsDrawer({
   const canonicalIds = canonicalReceiptRefs ?? [];
   const hasCanonicalEvidence = evidencePresent.length > 0;
 
+  /*
+   * A STALE SCOPE MUST NEVER RENDER AS CURRENT (operator directive,
+   * 2026-08-08 — extended 2026-09-05 to cover IN-FLIGHT requests, not just
+   * cached state).
+   *
+   * The scope-change effect below already reset `receipts`/`canonicalReceipts`
+   * and re-fired fresh requests on a scope change — but it never cancelled
+   * the OLD in-flight request, and neither `load` nor `loadCanonical` checked
+   * anything at resolve time before calling `setState`. So switching from
+   * MoneyPenny to Factor mid-fetch, then having MoneyPenny's older request
+   * resolve AFTER Factor's, would silently overwrite Factor's just-rendered
+   * evidence with MoneyPenny's stale receipts — exactly the race the GJR
+   * audit named. `requestGenRef`/`canonicalGenRef` are monotonic generation
+   * counters: each call captures the CURRENT generation, bumps it, and only
+   * applies its result if the ref still holds the generation it captured —
+   * any response for a superseded scope is discarded, no matter when it
+   * resolves. An `AbortController` is layered on top of that as a genuine
+   * network-level cancellation (aborting the actual in-flight fetch,
+   * belt-and-braces alongside the generation check).
+   */
+  const requestGenRef = useRef(0);
+  const canonicalGenRef = useRef(0);
+  const abortRef = useRef<AbortController | null>(null);
+  const canonicalAbortRef = useRef<AbortController | null>(null);
+
   // ── PRIMARY — hydrate the canonical receiptRefs by exact id ──────────────
   const [canonicalLoading, setCanonicalLoading] = useState(false);
   const [canonicalLoaded, setCanonicalLoaded] = useState(false);
+  const [canonicalLoadError, setCanonicalLoadError] = useState<string | null>(null);
   const [canonicalReceipts, setCanonicalReceipts] = useState<ActivityReceiptData[]>([]);
   const [canonicalPersonaLabel, setCanonicalPersonaLabel] = useState<string | null>(null);
 
   const loadCanonical = useCallback(async () => {
     if (canonicalIds.length === 0) return;
+    const myGen = ++canonicalGenRef.current;
+    canonicalAbortRef.current?.abort();
+    const controller = new AbortController();
+    canonicalAbortRef.current = controller;
     setCanonicalLoading(true);
+    setCanonicalLoadError(null);
     try {
       const res = await personaFetch(`/api/assistant/receipts?ids=${canonicalIds.join(',')}&limit=${canonicalIds.length}`, {
         cache: 'no-store',
+        signal: controller.signal,
       });
+      if (myGen !== canonicalGenRef.current) return; // superseded — discard
       if (res.ok) {
         const json = await readJsonOrExplain(res, 'journey/receipts-canonical');
+        if (myGen !== canonicalGenRef.current) return; // superseded mid-parse
         setCanonicalReceipts(Array.isArray(json.receipts) ? json.receipts : []);
         setCanonicalPersonaLabel(json.personaDisplayLabel ?? null);
+      } else {
+        // DISTINCT FROM EMPTY (GJR audit, 2026-09-05): a failed read must
+        // never render identically to a genuinely empty evidence set.
+        setCanonicalLoadError(`Evidence request failed (HTTP ${res.status}).`);
       }
-    } catch {
-      // Soft-fail — the primary evidence keys still render honestly below.
+    } catch (err) {
+      if ((err as { name?: string })?.name === 'AbortError') return; // superseded — not a real failure
+      if (myGen !== canonicalGenRef.current) return;
+      setCanonicalLoadError('Evidence request failed — could not reach the receipts service.');
     } finally {
-      setCanonicalLoading(false);
-      setCanonicalLoaded(true);
+      if (myGen === canonicalGenRef.current) {
+        setCanonicalLoading(false);
+        setCanonicalLoaded(true);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canonicalIds.join(',')]);
@@ -129,26 +171,44 @@ export function StageReceiptsDrawer({
   // non-authoritative historical/supplementary evidence only. ─────────────
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [receipts, setReceipts] = useState<ActivityReceiptData[]>([]);
   const [personaLabel, setPersonaLabel] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (receiptTypes.length === 0) return;
+    const myGen = ++requestGenRef.current;
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
     setLoading(true);
+    setLoadError(null);
     try {
       const params = new URLSearchParams({ actionType: receiptTypes.join(','), limit: '20' });
       if (agentsInvoked && agentsInvoked.length > 0) params.set('agentsInvoked', agentsInvoked.join(','));
-      const res = await personaFetch(`/api/assistant/receipts?${params.toString()}`, { cache: 'no-store' });
+      const res = await personaFetch(`/api/assistant/receipts?${params.toString()}`, {
+        cache: 'no-store',
+        signal: controller.signal,
+      });
+      if (myGen !== requestGenRef.current) return; // superseded — discard
       if (res.ok) {
         const json = await readJsonOrExplain(res, 'journey/receipts');
+        if (myGen !== requestGenRef.current) return; // superseded mid-parse
         setReceipts(Array.isArray(json.receipts) ? json.receipts : []);
         setPersonaLabel(json.personaDisplayLabel ?? null);
+      } else {
+        // DISTINCT FROM EMPTY — see loadCanonical's own comment above.
+        setLoadError(`Evidence search failed (HTTP ${res.status}).`);
       }
-    } catch {
-      // Soft-fail — the drawer still opens, showing the historical section honestly.
+    } catch (err) {
+      if ((err as { name?: string })?.name === 'AbortError') return; // superseded — not a real failure
+      if (myGen !== requestGenRef.current) return;
+      setLoadError('Evidence search failed — could not reach the receipts service.');
     } finally {
-      setLoading(false);
-      setLoaded(true);
+      if (myGen === requestGenRef.current) {
+        setLoading(false);
+        setLoaded(true);
+      }
     }
   }, [receiptTypes, agentsInvoked]);
 
@@ -164,23 +224,41 @@ export function StageReceiptsDrawer({
    * selected agent changes (JourneyRunSurface keys it by neither stage nor
    * agent) — only `receiptTypes`/`agentsInvoked`/the canonical props change.
    * Any change to scope invalidates both caches and, if the drawer is open,
-   * refetches immediately — never waits for a manual re-toggle.
+   * refetches immediately — never waits for a manual re-toggle. Bumping the
+   * generation refs here (before firing the new requests) is what makes any
+   * still-in-flight request for the OLD scope inert the instant it resolves,
+   * even before its own `abort()` lands.
    */
   const scopeKey = `${receiptTypes.join(',')}|${(agentsInvoked ?? []).join(',')}|${canonicalIds.join(',')}|${evidencePresent.join(',')}`;
   const priorScopeKey = useRef(scopeKey);
   useEffect(() => {
     if (priorScopeKey.current === scopeKey) return;
     priorScopeKey.current = scopeKey;
+    requestGenRef.current += 1;
+    canonicalGenRef.current += 1;
+    abortRef.current?.abort();
+    canonicalAbortRef.current?.abort();
     setLoaded(false);
     setReceipts([]);
+    setLoadError(null);
     setCanonicalLoaded(false);
     setCanonicalReceipts([]);
+    setCanonicalLoadError(null);
     if (open) {
       void load();
       void loadCanonical();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scopeKey]);
+
+  // Cancel any in-flight request on unmount — never let an unmounted
+  // drawer's resolve handler run at all.
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+      canonicalAbortRef.current?.abort();
+    };
+  }, []);
 
   if (receiptTypes.length === 0 && !hasCanonicalEvidence) return null;
 
@@ -206,6 +284,10 @@ export function StageReceiptsDrawer({
                 <div className="flex items-center gap-2 text-xs text-slate-500">
                   <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading evidence…
                 </div>
+              ) : canonicalLoadError ? (
+                // A FAILED READ IS NOT AN EMPTY ONE (GJR audit, 2026-09-05) —
+                // this must never render as if the fact were simply absent.
+                <p className="text-xs text-rose-400">{canonicalLoadError}</p>
               ) : canonicalReceipts.length > 0 ? (
                 canonicalReceipts.map((r) => (
                   <ActivityReceiptCard key={r.id} data={r} personaDisplayLabel={canonicalPersonaLabel} theme="dark" />
@@ -242,6 +324,10 @@ export function StageReceiptsDrawer({
                 <div className="flex items-center gap-2 text-xs text-slate-500">
                   <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading…
                 </div>
+              ) : loadError ? (
+                // Same distinction as the primary section above — a failed
+                // search reads as a failure, never as "nothing found".
+                <p className="text-xs text-rose-400">{loadError}</p>
               ) : receipts.length === 0 ? (
                 <p className="text-xs text-slate-600">No additional receipts found in this search.</p>
               ) : (
