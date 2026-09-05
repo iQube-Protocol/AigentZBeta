@@ -169,7 +169,12 @@ import { BOUND_CRYSTAL_REMEDIATION_PROFILES } from '@/types/crystalRemediation';
 // functions run REAL against the shared fakeAdmin/fakeTables, so the
 // acceptance test below exercises the actual approval substrate, not a
 // stand-in for it.
-import { getActiveAcquisitionApproval, approveAcquisitionJob } from '@/services/research/crystalAcquisitionJob';
+import {
+  getActiveAcquisitionApproval,
+  approveAcquisitionJob,
+  getLatestAcquisitionDisposition,
+  recordAcquisitionDisposition,
+} from '@/services/research/crystalAcquisitionJob';
 import { buildCrystalAcquisitionBrief, hashAcquisitionBrief } from '@/services/research/crystalAcquisitionBrief';
 
 // ── Fixtures ───────────────────────────────────────────────────────────────
@@ -1045,6 +1050,167 @@ describe('the targeted-acquisition state machine — a human judgement is consum
     });
     expect(decision?.detail).toContain(distinctiveDomain);
     expect(decision?.detail).not.toContain('financial-risk-value-systems');
+  });
+
+  // ── THE OTHER TWO HUMAN DISPOSITIONS — DECLINE AND REVISE (2026-09-05,
+  // "complete human proposal-decision contract" fix). Before this fix the
+  // ONLY disposition of this proposal was Approve — navigating away
+  // recorded nothing and the SAME card reappeared unchanged. These tests
+  // pin: a decline/revision-request against the EXACT brief suppresses the
+  // re-ask without ever marking the underlying deficit resolved; a
+  // MATERIALLY DIFFERENT brief (new hash) still gets a fresh actionable ask.
+  describe('decline and revise — the proposal can be closed WITHOUT being approved', () => {
+    it('declining the exact prepared proposal suppresses the actionable re-ask, but never resolves the underlying deficit', async () => {
+      const report = acquisitionNeededReadiness();
+      const brief = buildCrystalAcquisitionBrief({
+        experimentId: EXPERIMENT, crystalGeneration: 'EXP-P1/crystal-v2', domain: declaration(), report, admittedInvariantIds: [],
+      });
+      const briefHash = hashAcquisitionBrief(brief);
+
+      const recorded = await recordAcquisitionDisposition(fakeAdmin as never, {
+        experimentId: EXPERIMENT, acquisitionDomain: ACQ_DOMAIN, crystalDomain: declaration().domain,
+        disposition: 'declined', decidedByPersonaId: PERSONA, brief, briefHash, rationale: 'not needed right now',
+      });
+      expect(recorded.ok).toBe(true);
+
+      // Never authorizes: getActiveAcquisitionApproval only ever matches
+      // status='approved' — a decline can never be mistaken for one.
+      expect(await getActiveAcquisitionApproval(fakeAdmin as never, EXPERIMENT, ACQ_DOMAIN)).toBeNull();
+
+      // An explicit `artifact` pins crystalGeneration to the SAME value the
+      // brief above was built against — `input.artifact?.id` is exactly
+      // what buildAcquisitionPendingDecision reads before falling back to a
+      // real currentCrystalArtifactId lookup (which this experiment's real
+      // substrate resolves to a DIFFERENT generation than 'EXP-P1/crystal-v2',
+      // and would legitimately make this a materially different proposal).
+      const decision = await buildAcquisitionPendingDecision({
+        programme: acquisitionProgramme(),
+        declaration: declaration(),
+        readiness: report,
+        artifact: { id: 'EXP-P1/crystal-v2', lifecycle: 'provisional' },
+        admin: fakeAdmin as never,
+        acquisitionDomain: ACQ_DOMAIN,
+        acquisitionSourceUniverse: { ratifiedInstitutionCount: 0, eligibleInstitutionCount: 0 },
+      });
+
+      expect(decision).not.toBeNull();
+      // No actionable "Approve/Revise/Decline" card is re-manufactured for
+      // the exact same proposal — acquisitionBrief is absent and
+      // actionable is false.
+      expect(decision?.acquisitionBrief).toBeUndefined();
+      expect(decision?.actionable).toBe(false);
+      expect(decision?.detail).toMatch(/declined by the operator/i);
+      expect(decision?.detail).toMatch(/not needed right now/);
+      // NEVER silently resolved: the remedy text still names the same
+      // outstanding scientific deficit as before the decline.
+      expect(decision?.remedies.join(' ')).toMatch(/grow the collection/i);
+      expect(decision?.detail).toMatch(/remains open/i);
+    });
+
+    it('a revision request behaves identically to a decline for re-ask suppression, and carries the operator\'s direction', async () => {
+      const report = acquisitionNeededReadiness();
+      const brief = buildCrystalAcquisitionBrief({
+        experimentId: EXPERIMENT, crystalGeneration: 'EXP-P1/crystal-v2', domain: declaration(), report, admittedInvariantIds: [],
+      });
+      const briefHash = hashAcquisitionBrief(brief);
+
+      await recordAcquisitionDisposition(fakeAdmin as never, {
+        experimentId: EXPERIMENT, acquisitionDomain: ACQ_DOMAIN, crystalDomain: declaration().domain,
+        disposition: 'revision_requested', decidedByPersonaId: PERSONA, brief, briefHash,
+        rationale: 'narrow the search to ns-c only first',
+      });
+
+      const decision = await buildAcquisitionPendingDecision({
+        programme: acquisitionProgramme(),
+        declaration: declaration(),
+        readiness: report,
+        artifact: { id: 'EXP-P1/crystal-v2', lifecycle: 'provisional' },
+        admin: fakeAdmin as never,
+        acquisitionDomain: ACQ_DOMAIN,
+        acquisitionSourceUniverse: { ratifiedInstitutionCount: 0, eligibleInstitutionCount: 0 },
+      });
+
+      expect(decision?.acquisitionBrief).toBeUndefined();
+      expect(decision?.actionable).toBe(false);
+      expect(decision?.detail).toMatch(/sent back for revision/i);
+      expect(decision?.detail).toMatch(/narrow the search to ns-c only first/);
+    });
+
+    it('a materially DIFFERENT brief (different crystal generation) after a decline is NOT suppressed — a fresh decision is presented', async () => {
+      const report = acquisitionNeededReadiness();
+      const staleBrief = buildCrystalAcquisitionBrief({
+        experimentId: EXPERIMENT, crystalGeneration: 'EXP-P1/crystal-v1', domain: declaration(), report, admittedInvariantIds: [],
+      });
+      await recordAcquisitionDisposition(fakeAdmin as never, {
+        experimentId: EXPERIMENT, acquisitionDomain: ACQ_DOMAIN, crystalDomain: declaration().domain,
+        disposition: 'declined', decidedByPersonaId: PERSONA, brief: staleBrief, briefHash: hashAcquisitionBrief(staleBrief),
+        rationale: 'declined the old plan',
+      });
+
+      // buildAcquisitionPendingDecision resolves crystalGeneration from
+      // `input.artifact?.id` when present — passing a DIFFERENT artifact id
+      // here is what makes the freshly-built brief hash differ from the
+      // declined one above, exactly like a real new crystal generation would.
+      const decision = await buildAcquisitionPendingDecision({
+        programme: acquisitionProgramme(),
+        declaration: declaration(),
+        readiness: report,
+        artifact: { id: 'EXP-P1/crystal-v2', lifecycle: 'provisional' },
+        admin: fakeAdmin as never,
+        acquisitionDomain: ACQ_DOMAIN,
+        acquisitionSourceUniverse: { ratifiedInstitutionCount: 0, eligibleInstitutionCount: 0 },
+      });
+
+      // A materially changed proposal (different crystal generation) always
+      // gets a fresh human decision — the old decline never silently
+      // applies to it.
+      expect(decision?.acquisitionBrief).toBeDefined();
+      expect(decision?.actionable).toBe(true);
+    });
+
+    it('an idempotent repeat decline of the SAME brief is a no-op at the substrate level — never a second row', async () => {
+      const report = acquisitionNeededReadiness();
+      const brief = buildCrystalAcquisitionBrief({
+        experimentId: EXPERIMENT, crystalGeneration: 'EXP-P1/crystal-v2', domain: declaration(), report, admittedInvariantIds: [],
+      });
+      const briefHash = hashAcquisitionBrief(brief);
+      const input = {
+        experimentId: EXPERIMENT, acquisitionDomain: ACQ_DOMAIN, crystalDomain: declaration().domain,
+        disposition: 'declined' as const, decidedByPersonaId: PERSONA, brief, briefHash, rationale: 'no thanks',
+      };
+
+      // The ROUTE is what enforces idempotency (checking getLatestAcquisitionDisposition
+      // before calling recordAcquisitionDisposition) — this test pins that
+      // the underlying substrate read used for that check reliably surfaces
+      // the row a first call wrote, so the route's short-circuit has
+      // something real to compare against.
+      const first = await recordAcquisitionDisposition(fakeAdmin as never, input);
+      expect(first.ok).toBe(true);
+
+      const latest = await getLatestAcquisitionDisposition(fakeAdmin as never, EXPERIMENT, ACQ_DOMAIN);
+      expect(latest?.status).toBe('declined');
+      expect(latest?.crystalGeneration).toBe('EXP-P1/crystal-v2');
+      expect(latest?.briefHash).toBe(briefHash);
+      expect(latest?.rationale).toBe('no thanks');
+    });
+
+    it('declining never marks any readiness/scientific check satisfied — the SAME readiness object drives both the pre- and post-decline reads', async () => {
+      const report = acquisitionNeededReadiness();
+      const brief = buildCrystalAcquisitionBrief({
+        experimentId: EXPERIMENT, crystalGeneration: 'EXP-P1/crystal-v2', domain: declaration(), report, admittedInvariantIds: [],
+      });
+      await recordAcquisitionDisposition(fakeAdmin as never, {
+        experimentId: EXPERIMENT, acquisitionDomain: ACQ_DOMAIN, crystalDomain: declaration().domain,
+        disposition: 'declined', decidedByPersonaId: PERSONA, brief, briefHash: hashAcquisitionBrief(brief), rationale: null,
+      });
+
+      // acquisitionBriefApplies is a pure function of readiness alone — the
+      // decline recorded above writes to a wholly separate table and can
+      // never flip it. This is the "never resolves a scientific deficit"
+      // guarantee at its most direct: nothing about report itself changed.
+      const { acquisitionBriefApplies } = await import('@/services/research/crystalAcquisitionBrief');
+      expect(acquisitionBriefApplies(report)).toBe(true);
+    });
   });
 });
 

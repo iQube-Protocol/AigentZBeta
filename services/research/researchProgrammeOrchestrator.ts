@@ -127,9 +127,10 @@ import {
 import {
   acquisitionBriefApplies,
   buildCrystalAcquisitionBrief,
+  hashAcquisitionBrief,
   type CrystalAcquisitionBrief,
 } from '@/services/research/crystalAcquisitionBrief';
-import { getActiveAcquisitionApproval } from '@/services/research/crystalAcquisitionJob';
+import { getActiveAcquisitionApproval, getLatestAcquisitionDisposition } from '@/services/research/crystalAcquisitionJob';
 import {
   crystalDeclarationHash,
   crystalDomainForExperiment,
@@ -1929,6 +1930,53 @@ export async function buildAcquisitionPendingDecision(input: {
   // case as "0 needed" while still blocking.
   const outstanding = brief.completionCriteria.filter((c) => !c.satisfied);
   const remedies = outstanding.map((c) => c.remedy ?? `${c.checkName}: ${c.currentMeasure} of ${c.requiredMeasure}`);
+
+  // ── THE OTHER TWO HUMAN DISPOSITIONS — DECLINE AND REVISE (2026-09-05,
+  // "complete human proposal-decision contract" fix). Before this, the only
+  // way to dispose of this exact proposal other than approving it was to
+  // navigate away, which recorded nothing and left the card to reappear
+  // unchanged on the next read. A LATEST disposition of 'declined' or
+  // 'revision_requested' matching THIS EXACT proposal (same crystal
+  // generation, same brief hash) means the operator already closed it —
+  // this function must never manufacture the SAME actionable "Approve /
+  // Revise / Decline" ask a second time for it (mirroring the approved-once
+  // rule immediately above for the 'approved' disposition). It falls
+  // through to the actionable card below the instant readiness produces a
+  // MATERIALLY DIFFERENT brief (a new hash) — a changed proposal always gets
+  // a fresh human decision (requirement 5). Declining/revising NEVER marks
+  // `outstanding`/`remedies` satisfied — they are recomputed above from live
+  // readiness, untouched by this table. ──────────────────────────────────
+  const briefHash = hashAcquisitionBrief(brief);
+  const latestDisposition = input.admin
+    ? await getLatestAcquisitionDisposition(input.admin, input.programme.experimentId, input.acquisitionDomain).catch(() => null)
+    : null;
+  if (
+    latestDisposition &&
+    (latestDisposition.status === 'declined' || latestDisposition.status === 'revision_requested') &&
+    latestDisposition.crystalGeneration === crystalGeneration &&
+    latestDisposition.briefHash === briefHash
+  ) {
+    const verb = latestDisposition.status === 'declined' ? 'declined' : 'sent back for revision';
+    return {
+      stageId: stage.id,
+      stageLabel: stage.label,
+      authority: 'human-judgment',
+      actor: 'Steward',
+      capability: stage.capability,
+      surface: stage.surface,
+      deepLink: buildTrack2DeepLink(input.programme.experimentId, stage.id, stage.label),
+      remedies,
+      // No actionable control for THIS proposal — it is closed. A materially
+      // different brief (new hash) returns to the actionable branch below.
+      actionable: false,
+      detail:
+        `This exact targeted acquisition proposal was ${verb} by the operator` +
+        (latestDisposition.rationale ? ` — "${latestDisposition.rationale}"` : '') +
+        `. The underlying deficit (${outstanding.map((c) => c.checkName).join(', ') || 'targeted acquisition need'}) ` +
+        'remains open — a decline or revision request never marks it satisfied. A materially changed plan ' +
+        '(a new crystal generation, or a readiness re-read with different deficits) will present a fresh decision.',
+    };
+  }
 
   return {
     stageId: stage.id,

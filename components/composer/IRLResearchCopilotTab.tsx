@@ -612,6 +612,14 @@ function ObjectiveCard({
   acquisitionRunning,
   acquisitionError,
   acquisitionStatus,
+  onDeclineAcquisition,
+  declineRunning,
+  declineError,
+  onReviseAcquisition,
+  reviseRunning,
+  reviseError,
+  reviseRationale,
+  onReviseRationaleChange,
   onReviewDecision,
   reviewBusyId,
   reviewError,
@@ -682,6 +690,28 @@ function ObjectiveCard({
   acquisitionRunning: boolean;
   acquisitionError: string | null;
   acquisitionStatus: string | null;
+  /**
+   * "DECLINE" (2026-09-05, complete human proposal-decision contract) —
+   * closes the currently prepared targeted-acquisition proposal WITHOUT
+   * authorizing it. Never marks derivation-headroom, namespace coverage,
+   * structural diversity, or any other readiness check as resolved — that
+   * re-derives independently, server-side, from live readiness.
+   */
+  onDeclineAcquisition: (decision: PendingGovernanceDecision) => void;
+  declineRunning: boolean;
+  declineError: string | null;
+  /**
+   * "REVISE PLAN" (2026-09-05) — closes the current proposal version and
+   * records the operator's direction for a regenerated one. Requires
+   * `reviseRationale` to be non-empty (the route itself refuses an empty
+   * rationale — a revision request with no direction is indistinguishable
+   * from a decline).
+   */
+  onReviseAcquisition: (decision: PendingGovernanceDecision) => void;
+  reviseRunning: boolean;
+  reviseError: string | null;
+  reviseRationale: string;
+  onReviseRationaleChange: (v: string) => void;
   /**
    * REVIEW & PROMOTE (2026-08-30) — a per-candidate steward disposition,
    * calling the EXISTING canonical `promoteCandidate`/`rejectCandidate` path
@@ -998,10 +1028,19 @@ function ObjectiveCard({
       {decision && decision.acquisitionBrief && (
         /* TARGETED ACQUISITION — the `discover-sources` stop rendered as a
            precise Copilot authorization (2026-08-30), not a navigation
-           exercise. "Approve targeted acquisition" is the PRIMARY control;
-           "Open Discover Sources" survives as a demoted secondary
-           inspection/deep-link only. The plan shown is EXACTLY the brief
-           the orchestrator already computed — never a second wording. */
+           exercise. THE COMPLETE HUMAN PROPOSAL-DECISION CONTRACT
+           (2026-09-05): "Approve research plan" / "Revise plan" / "Decline"
+           are the three terminal dispositions of THIS prepared proposal;
+           "Open Discover Sources" survives as a demoted, non-decision
+           inspection/deep-link only — it never counts as a disposition, and
+           navigating away without clicking one of the three above records
+           nothing (the proposal simply remains pending on the next read).
+           The plan shown is EXACTLY the brief the orchestrator already
+           computed — never a second wording. Every one of the three writes
+           against the SAME durable identity (crystal generation + brief
+           hash) `approveAcquisitionJob`/`recordAcquisitionDisposition`
+           already share — a materially changed plan always presents a
+           fresh decision; an unchanged one is never re-asked once disposed. */
         <div className="rounded border border-violet-500/40 bg-violet-500/10 px-2 py-2 space-y-1.5">
           <div className="text-[10px] uppercase tracking-wide text-violet-300 font-semibold">
             Your judgment — {decision.stageLabel}
@@ -1033,11 +1072,11 @@ function ObjectiveCard({
           <button
             type="button"
             onClick={() => onApproveAcquisition(decision)}
-            disabled={acquisitionRunning}
+            disabled={acquisitionRunning || declineRunning || reviseRunning}
             className="mt-1 inline-flex items-center gap-1 rounded border border-violet-500/40 bg-violet-500/25 px-2 py-1 text-[10px] font-semibold text-violet-50 hover:bg-violet-500/35 transition disabled:opacity-50"
           >
             {acquisitionRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : <ShieldCheck className="h-3 w-3" />}
-            {acquisitionRunning ? (acquisitionStatus ?? "Working…") : "Approve targeted acquisition"}
+            {acquisitionRunning ? (acquisitionStatus ?? "Working…") : "Approve research plan"}
           </button>
           {acquisitionError && (
             <div className="mt-1 rounded border border-rose-500/40 bg-rose-500/10 px-2 py-1.5 text-[10px] text-rose-300">
@@ -1051,10 +1090,71 @@ function ObjectiveCard({
               </button>
             </div>
           )}
+
+          {/* REVISE — closes THIS proposal version and records the operator's
+              direction for a regenerated one. Requires a non-empty rationale
+              (the route itself refuses an empty one). */}
+          <div className="mt-1.5 rounded border border-slate-700 bg-slate-900/40 p-1.5 space-y-1">
+            <input
+              type="text"
+              value={reviseRationale}
+              onChange={(e) => onReviseRationaleChange(e.target.value)}
+              disabled={reviseRunning || acquisitionRunning || declineRunning}
+              placeholder="Revision direction — required to send this plan back for revision"
+              className="w-full rounded border border-slate-700 bg-slate-900 px-1.5 py-1 text-[10px] text-slate-200 placeholder:text-slate-600 disabled:opacity-50"
+            />
+            <button
+              type="button"
+              onClick={() => onReviseAcquisition(decision)}
+              disabled={reviseRunning || acquisitionRunning || declineRunning || !reviseRationale.trim()}
+              className="inline-flex items-center gap-1 rounded border border-amber-500/40 bg-amber-500/15 px-2 py-1 text-[10px] font-semibold text-amber-100 hover:bg-amber-500/25 transition disabled:opacity-50"
+            >
+              {reviseRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+              {reviseRunning ? "Sending back for revision…" : "Revise plan"}
+            </button>
+            {reviseError && (
+              <div className="rounded border border-rose-500/40 bg-rose-500/10 px-2 py-1.5 text-[10px] text-rose-300">
+                {reviseError}
+                <button
+                  type="button"
+                  onClick={() => onReviseAcquisition(decision)}
+                  className="ml-1.5 underline decoration-rose-700 hover:text-rose-100"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* DECLINE — closes the proposal without authorizing it. Never
+              marks the underlying deficit resolved; the orchestrator
+              re-derives readiness independently of this disposition. */}
+          <button
+            type="button"
+            onClick={() => onDeclineAcquisition(decision)}
+            disabled={declineRunning || acquisitionRunning || reviseRunning}
+            className="mt-1 inline-flex items-center gap-1 rounded border border-rose-500/40 bg-rose-500/10 px-2 py-1 text-[10px] font-semibold text-rose-200 hover:bg-rose-500/20 transition disabled:opacity-50"
+          >
+            {declineRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+            {declineRunning ? "Declining…" : "Decline"}
+          </button>
+          {declineError && (
+            <div className="mt-1 rounded border border-rose-500/40 bg-rose-500/10 px-2 py-1.5 text-[10px] text-rose-300">
+              {declineError}
+              <button
+                type="button"
+                onClick={() => onDeclineAcquisition(decision)}
+                className="ml-1.5 underline decoration-rose-700 hover:text-rose-100"
+              >
+                Retry
+              </button>
+            </div>
+          )}
+
           <button
             type="button"
             onClick={() => onProceed(decision)}
-            disabled={proceeding || acquisitionRunning}
+            disabled={proceeding || acquisitionRunning || declineRunning || reviseRunning}
             className="mt-0.5 inline-flex items-center gap-1 text-[10px] text-violet-300/70 hover:text-violet-200 transition disabled:opacity-50"
           >
             {proceeding ? <Loader2 className="h-3 w-3 animate-spin" /> : <ArrowRight className="h-3 w-3" />}
@@ -1616,6 +1716,17 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
   const [acquisitionRunning, setAcquisitionRunning] = useState(false);
   const [acquisitionError, setAcquisitionError] = useState<string | null>(null);
   const [acquisitionStatus, setAcquisitionStatus] = useState<string | null>(null);
+  // ── DECLINE / REVISE (2026-09-05, complete human proposal-decision
+  // contract) — the other two terminal dispositions of the SAME targeted-
+  // acquisition proposal. `reviseRationale` is the operator's revision
+  // direction, required non-empty before the button enables (the route
+  // itself refuses an empty one too — belt and braces, never trust only the
+  // client-side disable).
+  const [declineRunning, setDeclineRunning] = useState(false);
+  const [declineError, setDeclineError] = useState<string | null>(null);
+  const [reviseRunning, setReviseRunning] = useState(false);
+  const [reviseError, setReviseError] = useState<string | null>(null);
+  const [reviseRationale, setReviseRationale] = useState("");
   // ── RUN INSTITUTION VERIFICATION (2026-08-31) — the SAME shape as the
   // acquisition trio above, for the bounded verify-step loop.
   const [verificationRunning, setVerificationRunning] = useState(false);
@@ -2126,6 +2237,80 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
     }
     setAcquisitionRunning(false);
   }, [observe, personaId, runProgramme, runDiscoverySteps]);
+
+  /**
+   * "DECLINE" (2026-09-05, complete human proposal-decision contract) —
+   * closes the currently prepared proposal WITHOUT authorizing anything.
+   * ONE write (`POST .../acquisition/decline`), then `runProgramme` — the
+   * SAME "recompute canonical programme state" step `approveTargetedAcquisition`
+   * ends with — so the card reflects the closed disposition on the very next
+   * render rather than only after a manual refresh. No discovery step runs;
+   * nothing was authorized.
+   */
+  const declineTargetedAcquisition = useCallback(async (decision: PendingGovernanceDecision) => {
+    const experimentIdForDecision = decision.deepLink.experimentId;
+    setDeclineRunning(true);
+    setDeclineError(null);
+    observe(surfacePromptSelectedEvent(SURFACE, `targeted acquisition proposal decline requested (${experimentIdForDecision})`));
+    try {
+      const res = await personaFetch(
+        `/api/research/programme/${encodeURIComponent(experimentIdForDecision)}/acquisition/decline`,
+        {
+          method: "POST",
+          cache: "no-store",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+          ...(personaId ? { personaIdHint: personaId } : {}),
+        },
+      );
+      const data = await res.json().catch(() => null) as { ok?: boolean; error?: string } | null;
+      if (!res.ok || !data || data.ok !== true) {
+        throw new Error((data && typeof data.error === "string" && data.error) || `HTTP ${res.status}`);
+      }
+      observe(surfacePromptSelectedEvent(SURFACE, `targeted acquisition proposal declined (${experimentIdForDecision})`));
+      await runProgramme(experimentIdForDecision);
+    } catch (err) {
+      setDeclineError(err instanceof Error ? err.message : "decline could not be recorded");
+    }
+    setDeclineRunning(false);
+  }, [observe, personaId, runProgramme]);
+
+  /**
+   * "REVISE PLAN" (2026-09-05) — closes the CURRENT proposal version and
+   * records the operator's direction (`reviseRationale`) for a regenerated
+   * one, via `POST .../acquisition/revise`. Same "recompute canonical
+   * programme state" ending as decline/approve. Clears `reviseRationale` on
+   * success only — a failed submission keeps the operator's text so they are
+   * not asked to retype it before retrying.
+   */
+  const reviseTargetedAcquisition = useCallback(async (decision: PendingGovernanceDecision) => {
+    const experimentIdForDecision = decision.deepLink.experimentId;
+    setReviseRunning(true);
+    setReviseError(null);
+    observe(surfacePromptSelectedEvent(SURFACE, `targeted acquisition proposal revision requested (${experimentIdForDecision})`));
+    try {
+      const res = await personaFetch(
+        `/api/research/programme/${encodeURIComponent(experimentIdForDecision)}/acquisition/revise`,
+        {
+          method: "POST",
+          cache: "no-store",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ rationale: reviseRationale }),
+          ...(personaId ? { personaIdHint: personaId } : {}),
+        },
+      );
+      const data = await res.json().catch(() => null) as { ok?: boolean; error?: string } | null;
+      if (!res.ok || !data || data.ok !== true) {
+        throw new Error((data && typeof data.error === "string" && data.error) || `HTTP ${res.status}`);
+      }
+      observe(surfacePromptSelectedEvent(SURFACE, `targeted acquisition proposal sent back for revision (${experimentIdForDecision})`));
+      setReviseRationale("");
+      await runProgramme(experimentIdForDecision);
+    } catch (err) {
+      setReviseError(err instanceof Error ? err.message : "revision request could not be recorded");
+    }
+    setReviseRunning(false);
+  }, [observe, personaId, runProgramme, reviseRationale]);
 
   /**
    * "RUN INSTITUTION VERIFICATION" (2026-08-31, "targeted-acquisition
@@ -2791,6 +2976,14 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
               acquisitionRunning={acquisitionRunning}
               acquisitionError={acquisitionError}
               acquisitionStatus={acquisitionStatus}
+              onDeclineAcquisition={(decision) => void declineTargetedAcquisition(decision)}
+              declineRunning={declineRunning}
+              declineError={declineError}
+              onReviseAcquisition={(decision) => void reviseTargetedAcquisition(decision)}
+              reviseRunning={reviseRunning}
+              reviseError={reviseError}
+              reviseRationale={reviseRationale}
+              onReviseRationaleChange={setReviseRationale}
               onReviewDecision={(decision, candidateId, action) => void submitReviewDecision(decision, candidateId, action)}
               reviewBusyId={reviewBusyId}
               reviewError={reviewError}

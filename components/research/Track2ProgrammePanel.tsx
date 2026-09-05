@@ -5770,6 +5770,14 @@ function CrystalAcquisitionPlan({ experimentId, onDone }: { experimentId: string
   const [err, setErr] = useState<string | null>(null);
   const [approving, setApproving] = useState(false);
   const [approvalResult, setApprovalResult] = useState<string | null>(null);
+  // ── DECLINE / REVISE (2026-09-05, complete human proposal-decision
+  // contract — this surface calls the SAME two new routes the Research
+  // Copilot's card does, never a second implementation).
+  const [declining, setDeclining] = useState(false);
+  const [revising, setRevising] = useState(false);
+  const [dispositionResult, setDispositionResult] = useState<string | null>(null);
+  const [dispositionErr, setDispositionErr] = useState<string | null>(null);
+  const [reviseRationale, setReviseRationale] = useState("");
 
   const loadBrief = useCallback(
     async (withDiversity: boolean) => {
@@ -5874,6 +5882,64 @@ function CrystalAcquisitionPlan({ experimentId, onDone }: { experimentId: string
       setApproving(false);
     }
   }, [brief, experimentId, onDone]);
+
+  // DECLINE — closes the current proposal without authorizing anything. THE
+  // SAME route the Research Copilot's "Decline" button calls
+  // (POST .../acquisition/decline) — never a second decline implementation.
+  const decline = useCallback(async () => {
+    if (!brief) return;
+    setDeclining(true);
+    setDispositionErr(null);
+    setDispositionResult(null);
+    try {
+      const res = await personaFetch(
+        `/api/research/programme/${encodeURIComponent(experimentId)}/acquisition/decline`,
+        { method: "POST", cache: "no-store", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) },
+      );
+      const data = await res.json().catch(() => null) as { ok?: boolean; error?: string } | null;
+      if (!res.ok || !data || data.ok !== true) {
+        throw new Error((data && typeof data.error === "string" && data.error) || `decline refused (HTTP ${res.status})`);
+      }
+      setDispositionResult("Proposal declined — nothing was authorized. The underlying deficit remains open.");
+      onDone();
+    } catch (e) {
+      setDispositionErr(e instanceof Error ? e.message : "decline could not be recorded");
+    } finally {
+      setDeclining(false);
+    }
+  }, [brief, experimentId, onDone]);
+
+  // REVISE — closes the current proposal version and records the operator's
+  // direction. THE SAME route the Research Copilot's "Revise plan" button
+  // calls (POST .../acquisition/revise) — never a second implementation.
+  const revise = useCallback(async () => {
+    if (!brief || !reviseRationale.trim()) return;
+    setRevising(true);
+    setDispositionErr(null);
+    setDispositionResult(null);
+    try {
+      const res = await personaFetch(
+        `/api/research/programme/${encodeURIComponent(experimentId)}/acquisition/revise`,
+        {
+          method: "POST",
+          cache: "no-store",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ rationale: reviseRationale }),
+        },
+      );
+      const data = await res.json().catch(() => null) as { ok?: boolean; error?: string } | null;
+      if (!res.ok || !data || data.ok !== true) {
+        throw new Error((data && typeof data.error === "string" && data.error) || `revision request refused (HTTP ${res.status})`);
+      }
+      setDispositionResult("Sent back for revision — a regenerated proposal will present a fresh decision.");
+      setReviseRationale("");
+      onDone();
+    } catch (e) {
+      setDispositionErr(e instanceof Error ? e.message : "revision request could not be recorded");
+    } finally {
+      setRevising(false);
+    }
+  }, [brief, experimentId, onDone, reviseRationale]);
 
   if (!open) {
     return (
@@ -5982,20 +6048,62 @@ function CrystalAcquisitionPlan({ experimentId, onDone }: { experimentId: string
             <div className="text-slate-500">{brief.structuralDiversityOpportunity.detail}</div>
           )}
 
-          {!approvalResult && (
-            <button
-              type="button"
-              onClick={() => void approve()}
-              disabled={approving}
-              className="flex items-center gap-1.5 rounded border border-emerald-700 bg-emerald-900/30 px-2.5 py-1 font-medium text-emerald-200 disabled:opacity-50"
-            >
-              {approving ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
-              Approve & start acquisition
-            </button>
+          {!approvalResult && !dispositionResult && (
+            <div className="space-y-1.5">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => void approve()}
+                  disabled={approving || declining || revising}
+                  className="flex items-center gap-1.5 rounded border border-emerald-700 bg-emerald-900/30 px-2.5 py-1 font-medium text-emerald-200 disabled:opacity-50"
+                >
+                  {approving ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+                  Approve & start acquisition
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void decline()}
+                  disabled={approving || declining || revising}
+                  className="flex items-center gap-1.5 rounded border border-rose-700/60 bg-rose-950/20 px-2.5 py-1 font-medium text-rose-200 disabled:opacity-50"
+                >
+                  {declining ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+                  Decline
+                </button>
+              </div>
+              {/* REVISE (2026-09-05) — closes this proposal version and
+                  records operator direction for a regenerated one. */}
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="text"
+                  value={reviseRationale}
+                  onChange={(e) => setReviseRationale(e.target.value)}
+                  disabled={approving || declining || revising}
+                  placeholder="Revision direction — required to send this plan back for revision"
+                  className="flex-1 rounded border border-slate-700 bg-slate-950 px-1.5 py-1 text-slate-200 placeholder:text-slate-600 disabled:opacity-50"
+                />
+                <button
+                  type="button"
+                  onClick={() => void revise()}
+                  disabled={approving || declining || revising || !reviseRationale.trim()}
+                  className="shrink-0 flex items-center gap-1.5 rounded border border-amber-700/60 bg-amber-950/20 px-2.5 py-1 font-medium text-amber-200 disabled:opacity-50"
+                >
+                  {revising ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+                  Revise plan
+                </button>
+              </div>
+              {dispositionErr && (
+                <div className="rounded border border-rose-500/30 bg-rose-500/10 p-1.5 text-rose-200">{dispositionErr}</div>
+              )}
+            </div>
           )}
           {approvalResult && (
             <div className="rounded border border-emerald-700/50 bg-emerald-950/30 p-1.5 text-emerald-200">
               {approvalResult}
+            </div>
+          )}
+          {dispositionResult && (
+            <div className="rounded border border-slate-700 bg-slate-950/40 p-1.5 text-slate-300">
+              {dispositionResult}
             </div>
           )}
         </div>

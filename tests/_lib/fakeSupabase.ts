@@ -127,6 +127,13 @@ function makeBuilder(tables: FakeTables, table: string) {
         id: fakeUuid(),
         created_at: fakeNowIso(),
         updated_at: fakeNowIso(),
+        // A generic monotonic default for tables with a DB-defaulted
+        // `now()` timestamp column named `approved_at` (e.g.
+        // crystal_acquisition_approvals) — real Postgres supplies this via
+        // DEFAULT now(); this fake has no schema to consult, so it defaults
+        // the one column name observed to need it. Explicit `...p` below
+        // still overrides when a caller provides it.
+        approved_at: fakeNowIso(),
         ...p,
       };
       rows().push(row);

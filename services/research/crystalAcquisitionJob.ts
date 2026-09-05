@@ -48,12 +48,25 @@ import type { CrystalAcquisitionBrief } from '@/services/research/crystalAcquisi
 
 const TABLE = 'crystal_acquisition_approvals';
 
+/** The full disposition vocabulary for a targeted-acquisition proposal
+ *  (2026-09-05, complete human proposal-decision contract): 'approved'
+ *  authorizes; 'declined' and 'revision_requested' close the proposal
+ *  WITHOUT authorizing it — neither ever satisfies `getActiveAcquisitionApproval`,
+ *  which still matches only 'approved'. 'completed'/'superseded' are the
+ *  existing post-approval lifecycle states, unchanged. */
+export type AcquisitionDispositionStatus =
+  | 'approved'
+  | 'completed'
+  | 'superseded'
+  | 'declined'
+  | 'revision_requested';
+
 export interface AcquisitionApprovalRow {
   id: string;
   experimentId: string;
   acquisitionDomain: string;
   crystalDomain: string;
-  status: 'approved' | 'completed' | 'superseded';
+  status: AcquisitionDispositionStatus;
   targetSnapshot: {
     requiredNetNewDistinctMembers: number;
     missingNamespaces: readonly string[];
@@ -67,10 +80,16 @@ export interface AcquisitionApprovalRow {
    *  hash (see the migration's own backfill note). */
   crystalGeneration: string;
   briefHash: string;
+  /** The persona who recorded THIS disposition — the approver for
+   *  'approved' rows, the decliner/reviser for 'declined'/'revision_requested'
+   *  rows (same column, reused: it is always "who made this disposition"). */
   approvedByPersonaId: string;
   approvedAt: string;
   completedAt: string | null;
   receiptId: string | null;
+  /** Operator rationale (decline) or direction (revision request), recorded
+   *  2026-09-05. `null` for 'approved'/'completed'/'superseded' rows. */
+  rationale: string | null;
 }
 
 function rowToApproval(r: Record<string, unknown>): AcquisitionApprovalRow {
@@ -87,6 +106,7 @@ function rowToApproval(r: Record<string, unknown>): AcquisitionApprovalRow {
     approvedAt: String(r.approved_at),
     completedAt: (r.completed_at as string | null) ?? null,
     receiptId: (r.receipt_id as string | null) ?? null,
+    rationale: (r.rationale as string | null) ?? null,
   };
 }
 
@@ -111,6 +131,113 @@ export async function getActiveAcquisitionApproval(
     .maybeSingle();
   if (error || !data) return null;
   return rowToApproval(data as Record<string, unknown>);
+}
+
+/** The MOST RECENT disposition of ANY kind (approved, completed, superseded,
+ *  declined, revision_requested) for this experiment+domain — used to
+ *  recognise a decline/revision-request against the EXACT brief it targeted
+ *  (2026-09-05, complete human proposal-decision contract). A row here whose
+ *  `crystalGeneration`+`briefHash` no longer matches a freshly computed brief
+ *  is a disposition of a DIFFERENT (now-stale) proposal — the caller's own
+ *  comparison, never assumed here, is what makes a materially changed
+ *  proposal require a fresh human decision (requirement: never silently
+ *  reapplying an old disposition to a new hash). */
+export async function getLatestAcquisitionDisposition(
+  admin: SupabaseClient,
+  experimentId: string,
+  acquisitionDomain: string,
+): Promise<AcquisitionApprovalRow | null> {
+  const { data, error } = await admin
+    .from(TABLE)
+    .select('*')
+    .eq('experiment_id', experimentId)
+    .eq('acquisition_domain', acquisitionDomain)
+    .order('approved_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error || !data) return null;
+  return rowToApproval(data as Record<string, unknown>);
+}
+
+/**
+ * THE OTHER TWO HUMAN DISPOSITIONS of a proposed targeted-acquisition plan —
+ * Decline and Revise (2026-09-05, "complete human proposal-decision contract"
+ * fix: the card previously exposed ONLY Approve, leaving navigating away as
+ * the operator's only other option, which recorded nothing). Mirrors
+ * `approveAcquisitionJob` in shape — one inserted row, receipted through the
+ * SAME `writeLifecycleReceipt` path — but writes a status
+ * `getActiveAcquisitionApproval` never matches, so neither disposition can
+ * ever be mistaken for an authorization to run acquisition. Declining or
+ * requesting revision NEVER marks any readiness/scientific check satisfied:
+ * `crystalReadiness` re-derives independently of this table, exactly like
+ * `approveAcquisitionJob`'s own header already establishes for approval.
+ *
+ * Does not supersede prior 'approved' rows (unlike `approveAcquisitionJob`) —
+ * a decline/revision-request is not itself an authorization change; if an
+ * approval is genuinely active for this SAME brief, the caller (the route)
+ * refuses before ever reaching this function.
+ */
+export async function recordAcquisitionDisposition(
+  admin: SupabaseClient,
+  input: {
+    experimentId: string;
+    acquisitionDomain: string;
+    crystalDomain: string;
+    disposition: 'declined' | 'revision_requested';
+    decidedByPersonaId: string;
+    brief: CrystalAcquisitionBrief;
+    briefHash: string;
+    rationale: string | null;
+  },
+): Promise<{ ok: true; approval: AcquisitionApprovalRow } | { ok: false; error: string }> {
+  const targetSnapshot = {
+    requiredNetNewDistinctMembers: input.brief.requiredNetNewDistinctMembers,
+    missingNamespaces: input.brief.missingNamespaces,
+    deficientRelationalStructures: input.brief.deficientRelationalStructures,
+    sourceAdmissibilityConstraints: input.brief.sourceAdmissibilityConstraints,
+  };
+
+  const { data, error } = await admin
+    .from(TABLE)
+    .insert({
+      experiment_id: input.experimentId,
+      acquisition_domain: input.acquisitionDomain,
+      crystal_domain: input.crystalDomain,
+      status: input.disposition,
+      target_snapshot: targetSnapshot,
+      crystal_generation: input.brief.crystalGeneration,
+      brief_hash: input.briefHash,
+      approved_by_persona_id: input.decidedByPersonaId,
+      rationale: input.rationale,
+    })
+    .select('*')
+    .single();
+  if (error || !data) {
+    return { ok: false, error: error?.message ?? `${input.disposition} could not be written` };
+  }
+
+  const verb = input.disposition === 'declined' ? 'declined' : 'sent back for revision on';
+  const receipt = await writeLifecycleReceipt({
+    personaId: input.decidedByPersonaId,
+    summary:
+      `Targeted acquisition proposal ${verb} experiment ${input.experimentId} (${input.crystalDomain}): ` +
+      `${targetSnapshot.requiredNetNewDistinctMembers} additional distinct member(s), ` +
+      `${targetSnapshot.missingNamespaces.length} namespace(s) unrepresented ` +
+      `(${targetSnapshot.missingNamespaces.join(', ') || 'none named'}). Domain '${input.acquisitionDomain}'. ` +
+      (input.rationale ? `Operator direction: ${input.rationale}. ` : '') +
+      'No source added, no statement authored, no boundary changed, no readiness/scientific check marked ' +
+      'satisfied by this act — it closes the proposal, it does not authorize anything.',
+    invariantSeedIds: [],
+  }).catch(() => ({ ok: false, receiptId: null }));
+
+  if (receipt.receiptId) {
+    await admin.from(TABLE).update({ receipt_id: receipt.receiptId }).eq('id', data.id);
+  }
+
+  return {
+    ok: true,
+    approval: rowToApproval({ ...(data as Record<string, unknown>), receipt_id: receipt.receiptId }),
+  };
 }
 
 /**
