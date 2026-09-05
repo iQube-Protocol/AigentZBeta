@@ -579,7 +579,13 @@ export type ActivityActionType =
   | 'token_launch_approved'
   | 'token_launch_submitted'
   | 'token_launch_confirmed'
-  | 'token_fees_claimed';
+  | 'token_fees_claimed'
+  // Factor + Aegis PRD tranche (2026-09-05) — Vela confidential-projection
+  // workloads Factor drives through services/factor/factorConfidentialWorkload.ts.
+  // Never carries confidential inputs/results — only commitments + the
+  // provider's own coarse verdict (ConfidentialProjectionEvidence's own
+  // T0/receipt-safe discipline, types/confidentialProjection.ts).
+  | 'confidential_projection_evaluated';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 

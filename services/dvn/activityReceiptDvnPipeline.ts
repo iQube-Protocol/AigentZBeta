@@ -423,6 +423,10 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   'token_launch_submitted',
   'token_launch_confirmed',
   'token_fees_claimed',
+  // Factor + Aegis PRD tranche (2026-09-05) — a completed, independently-
+  // verified confidential-projection evaluation (commitments + coarse
+  // verdict only, never confidential inputs/results).
+  'confidential_projection_evaluated',
 ]);
 
 export function shouldAnchorActionType(actionType: string): boolean {
