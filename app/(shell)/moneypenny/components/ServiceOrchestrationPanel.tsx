@@ -41,6 +41,8 @@ import { Button } from "@/components/ui/button";
 import { Loader2, Network, ExternalLink } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
 import { peekPendingSpecialist, clearPendingSpecialist } from "./moneyPennyNavigation";
+import { MONEYPENNY_BANKR_TOKENIZATION } from "@/services/financialServices/serviceCatalog";
+import { BankrTokenLaunchModal } from "@/components/moneypenny/bankr/BankrTokenLaunchModal";
 import {
   panelReducer,
   initialPanelState,
@@ -249,6 +251,11 @@ export function ServiceOrchestrationPanel() {
   const [loadingCatalog, setLoadingCatalog] = useState(true);
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [showDiagnostic, setShowDiagnostic] = useState(false);
+  // Bankr tokenization has its own dedicated detail console (Phase 6
+  // frontend half) rather than the generic Trigger/outcome flow below —
+  // that flow calls a different, generic Financial-Services request route
+  // that has no notion of Bankr's launch-spec workflow.
+  const [bankrModalOpen, setBankrModalOpen] = useState(false);
 
   // Cross-agent-isolated state — see serviceOrchestrationPanelState.ts.
   const [state, dispatch] = useReducer(panelReducer, initialPanelState);
@@ -496,6 +503,17 @@ export function ServiceOrchestrationPanel() {
                           {definition.providerMode.slice(1).toLowerCase()} <ExternalLink className="h-3 w-3" />
                         </a>
                       )}
+                      {definition.serviceId === MONEYPENNY_BANKR_TOKENIZATION.serviceId && (
+                        <button
+                          type="button"
+                          onClick={() => setBankrModalOpen(true)}
+                          disabled={!selectedAgentId}
+                          title={selectedAgentId ? undefined : "Select an agent above first"}
+                          className="flex items-center gap-1 text-[10px] text-white/50 hover:text-white/80 disabled:opacity-40"
+                        >
+                          Open Bankr tokenization console <ExternalLink className="h-3 w-3" />
+                        </button>
+                      )}
                     </div>
 
                     {/* Layer 1 — Runtime system. Always independent of the
@@ -674,6 +692,13 @@ export function ServiceOrchestrationPanel() {
           </div>
         )}
       </CardContent>
+      {selectedAgentId && (
+        <BankrTokenLaunchModal
+          open={bankrModalOpen}
+          onOpenChange={setBankrModalOpen}
+          beneficiaryAgentRuntimeId={selectedAgentId}
+        />
+      )}
     </Card>
   );
 }

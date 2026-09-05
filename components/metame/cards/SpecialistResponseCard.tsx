@@ -88,6 +88,15 @@ interface Props {
    * suggested-artifact chips when no artifact has been drafted yet).
    */
   onRequestApproval?: () => void;
+  /**
+   * Click-through for a typed `availableActions` entry (Phase 6 — replaces
+   * the prior inert, non-clickable pills). When omitted, actions render as
+   * they always have: informational, non-interactive labels. The consuming
+   * surface decides what happens (e.g. invoking the matching Bankr route
+   * via useBankrTokenLaunch and rendering the result inline) — this card
+   * never calls a route itself.
+   */
+  onAction?: (action: FactorActionDescriptor) => void;
   theme?: "light" | "dark";
 }
 
@@ -130,6 +139,7 @@ export function SpecialistResponseCard({
   onDismiss,
   onCreateArtifact,
   onRequestApproval,
+  onAction,
   theme = "dark",
 }: Props) {
   const isDark = theme === "dark";
@@ -237,19 +247,33 @@ export function SpecialistResponseCard({
       )}
 
       {/* Typed next actions — server-derived, allowlisted-handler-backed.
-          Non-interactive today; Phase 6 wires real per-action handlers. */}
+          Clickable when the host supplies onAction (Phase 6); otherwise
+          renders as an informational label, unchanged from before. */}
       {data.availableActions && data.availableActions.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
-          {data.availableActions.map((a) => (
-            <span
-              key={a.id}
-              title={a.requiresApproval ? "Requires approval before this action executes" : "Does not require approval"}
-              className={`px-2.5 py-1 text-xs rounded-full border ${chipClass}`}
-            >
-              {a.label}
-              {a.requiresApproval && <span className="ml-1 text-amber-400">•</span>}
-            </span>
-          ))}
+          {data.availableActions.map((a) =>
+            onAction ? (
+              <button
+                key={a.id}
+                type="button"
+                onClick={() => onAction(a)}
+                title={a.requiresApproval ? "Requires approval before this action executes" : "Does not require approval"}
+                className={`px-2.5 py-1 text-xs rounded-full border transition ${chipClass}`}
+              >
+                {a.label}
+                {a.requiresApproval && <span className="ml-1 text-amber-400">•</span>}
+              </button>
+            ) : (
+              <span
+                key={a.id}
+                title={a.requiresApproval ? "Requires approval before this action executes" : "Does not require approval"}
+                className={`px-2.5 py-1 text-xs rounded-full border ${chipClass}`}
+              >
+                {a.label}
+                {a.requiresApproval && <span className="ml-1 text-amber-400">•</span>}
+              </span>
+            ),
+          )}
         </div>
       )}
 
