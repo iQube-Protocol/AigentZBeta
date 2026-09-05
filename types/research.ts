@@ -742,6 +742,57 @@ export type FrozenArtifactKind =
   | 'execution-run'
   | 'research-package';
 
+/**
+ * ── FROZEN GENERATIONS ARE IMMUTABLE; CRYSTAL LINEAGES ARE EVOLUTIONARY ─────
+ * (operator ruling, EXP-P1/crystal-vP2 internal-pilot authorization) ────────
+ *
+ * A freeze act ratifies exactly two things: WHAT was frozen (the corpus, via
+ * `contentHash`/`commitmentHash`) and WHETHER that generation is fit for a
+ * CONFIRMATORY result. It does not, by itself, decide whether a frozen
+ * generation may be used for a smaller, explicitly-designated, NON-
+ * confirmatory purpose while it still carries known scientific-readiness
+ * limitations. Those are two different questions, and prior to this the
+ * codebase only had machinery for the first: `checkFreezeGate` required
+ * `readiness.ok` (every `scientific-readiness` check passing) unconditionally,
+ * with no way to freeze a generation "for pilot use only" while its honestly-
+ * measured deficiencies stayed on the record.
+ *
+ * `executionDesignation` + `scientificDeviations` close that gap WITHOUT
+ * touching what a check measures, its tier, or its threshold — see
+ * `services/research/artifacts.ts::checkFreezeGate`. The remediation path for
+ * an insufficient substrate is unchanged and remains the ONLY one: observe
+ * limitation → record finding → expand evidence corpus → constitute a
+ * successor generation → readiness → freeze successor → rerun. This is an
+ * EXPLICIT, RECORDED, OPERATOR-AUTHORIZED exception to the ordinary
+ * "readiness.ok required" rule for a NAMED subset of checks, never a way to
+ * make a failing check read as passing, and never a way to mutate what a
+ * ALREADY-frozen generation measured.
+ */
+export type ArtifactExecutionDesignation = 'confirmatory' | 'internal-pilot';
+
+/**
+ * One scientific-readiness check the operator is explicitly authorizing this
+ * freeze to proceed past, despite it failing. `measuredDetail` is always the
+ * check's own live `detail` string at the moment of freeze — computed
+ * server-side from the real readiness report, never accepted as caller input
+ * — so what is "recorded exactly as observed" can never drift from what the
+ * instrument actually measured. A check NOT named here still blocks the
+ * freeze even under `executionDesignation: 'internal-pilot'` — see
+ * `checkFreezeGate`.
+ */
+export interface ScientificDeviation {
+  /** Must match a `CrystalReadinessCheck.name` (services/research/
+   *  crystalReadiness.ts) that is currently failing. */
+  checkName: string;
+  /** Verbatim snapshot of that check's own `detail` at freeze time —
+   *  server-computed, never caller-supplied. */
+  measuredDetail: string;
+  /** The operator's stated reason for proceeding past this specific,
+   *  still-failing check. Required non-empty, same discipline as
+   *  `freezeRationale`. */
+  rationale: string;
+}
+
 export interface FrozenArtifact {
   id: string; // T2-safe slug, e.g. 'EXP-P1:crystal-version:v1'
   kind: FrozenArtifactKind;
@@ -766,6 +817,28 @@ export interface FrozenArtifact {
    *  without re-deriving anything). Null before freeze; null is also honest
    *  if the write somehow failed while lifecycle still reached 'frozen'. */
   receiptId: string | null;
+  /** Defaults to `'confirmatory'` when absent — the historical, unconditional
+   *  behavior (every `scientific-readiness` check must pass) is completely
+   *  unaffected for every artifact that never supplies this. See the
+   *  "frozen generations are immutable; Crystal lineages are evolutionary"
+   *  note above `ArtifactExecutionDesignation`. */
+  executionDesignation?: ArtifactExecutionDesignation;
+  /** Non-empty only when `executionDesignation === 'internal-pilot'` AND at
+   *  least one `scientific-readiness` check was failing at freeze time. Empty
+   *  when the crystal actually passed every check (a pilot designation on an
+   *  otherwise-fully-ready crystal has nothing to deviate over). */
+  scientificDeviations?: ScientificDeviation[];
+  /** The operator's exact stated reason for THIS freeze act, verbatim —
+   *  required and validated by the freeze route, but previously discarded
+   *  after validation rather than persisted. */
+  freezeRationale?: string | null;
+  /** The FULL `CrystalReadinessReport`, exactly as measured at the moment of
+   *  freeze — every check, passing or failing, never redacted or summarized.
+   *  Populated only for `kind: 'crystal-version'`. Persisted so a frozen
+   *  generation's recorded limitations can never be reconstructed
+   *  differently later — the freeze act commits to what was actually
+   *  measured, not to a redone or re-argued version of it. */
+  readinessReportAtFreeze?: unknown;
 }
 
 /** task-set and answer-key are mutually referential by design (PRD-EPI-001
