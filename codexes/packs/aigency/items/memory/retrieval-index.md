@@ -5529,3 +5529,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-3b9ae5a.md](../build_/COMMITS/COMMIT-3b9ae5a.md)
 - Message: Give Factor's Bankr actions real HTTP routes; close Phase 8 drift/tenant gaps (Phase 6 backend)
+
+## Commit `39e5792` — 2026-09-05T21:02:10Z
+- Type: `feat`
+- Brief: [COMMIT-39e5792.md](../build_/COMMITS/COMMIT-39e5792.md)
+- Message: Add Bankr Phase 9 live-rehearsal script (stops at the approval boundary)

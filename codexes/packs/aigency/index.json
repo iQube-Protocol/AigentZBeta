@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-05T20:56:52.377Z",
+  "last_updated": "2026-09-05T21:04:17.944Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "3b9ae5a0703c956e066c9d83aeb8f828769ebd30",
-  "latest_commit_short": "3b9ae5a",
-  "latest_commit_title": "Give Factor's Bankr actions real HTTP routes; close Phase 8 drift/tenant gaps (Phase 6 backend)",
+  "latest_commit": "39e5792aec67df029203286c9c738ad77076a41f",
+  "latest_commit_short": "39e5792",
+  "latest_commit_title": "Add Bankr Phase 9 live-rehearsal script (stops at the approval boundary)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "39e5792",
+      "full_sha": "39e5792aec67df029203286c9c738ad77076a41f",
+      "title": "Add Bankr Phase 9 live-rehearsal script (stops at the approval boundary)",
+      "author": "Claude",
+      "timestamp": "2026-09-05T21:02:10Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-39e5792.md"
+    },
     {
       "sha": "3b9ae5a",
       "full_sha": "3b9ae5a0703c956e066c9d83aeb8f828769ebd30",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-09-02T12:59:23Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-d158cda.md"
-    },
-    {
-      "sha": "1629ea2",
-      "full_sha": "1629ea24486ea4fe1641515ab58115ab0594fec0",
-      "title": "Import three MoneyPenny donor repos' real docs into docs/specs/moneypenny/",
-      "author": "Claude",
-      "timestamp": "2026-09-02T12:37:43Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-1629ea2.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
