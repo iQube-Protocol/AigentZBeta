@@ -1,4 +1,9 @@
 # Build — Changelog
+- [`1722b0a`](https://github.com/iQube-Protocol/AigentZBeta/commit/1722b0a3bcb6245c7bce3d784b45574f71d0f1ad) [feat] factor/aegis phase 2: close tenant/principal isolation gap, register specialists, add API routes (Claude, 2026-09-04T23:27:07Z)
+- [`8a0503a`](https://github.com/iQube-Protocol/AigentZBeta/commit/8a0503a13e5cb7d13f215fc6f7aa65d714487dc4) [fix] fix EXP-P1 Track2 15s timeout: batch review-queue duplicate-check by namespace (Claude, 2026-09-05T01:46:59Z)
+- [`3c94102`](https://github.com/iQube-Protocol/AigentZBeta/commit/3c94102e196afced428b8341031a6cb608c061c0) [push] Provision Factor/Aegis canonical identity: secure owner-wallet path, Agent Cards, registry seed (Claude, 2026-09-05T02:35:05Z)
+- [`8a6152b`](https://github.com/iQube-Protocol/AigentZBeta/commit/8a6152b425462c96c7454c6da3e4a24d50e1aa2d) [fix] Fix flat sponsorship-capacity cap: admins/platform agents are unbounded, tiers honored (Claude, 2026-09-05T05:16:18Z)
+- [`476d941`](https://github.com/iQube-Protocol/AigentZBeta/commit/476d941e9d0f8858c0a88b22d1a244b91d0732d5) [feat] Add platform-authority provisioning route + workflows for Factor/Aegis (Claude, 2026-09-05T05:39:11Z)
 - [`6905e3f`](https://github.com/iQube-Protocol/AigentZBeta/commit/6905e3f3b5ffb8b5711a0e8b369d3f54d985f3d8) [push] Record MPY2-7 backlog for remaining MoneyPenny002 harvest work (Claude, 2026-09-04T22:44:18Z)
 - [`57f31ce`](https://github.com/iQube-Protocol/AigentZBeta/commit/57f31ce43281384ced97d77d9d4228489258ce4d) [push] Record MPY2-7 priority backlog: scope-keyed controller, snapshot/session binding, Expand-defect diagnosis (Claude, 2026-09-04T22:46:21Z)
 - [`e529328`](https://github.com/iQube-Protocol/AigentZBeta/commit/e529328f0f41b03fa5d95cf59e43e80a2ecfa45d) [feat] Add quotes/fills/performance/history atomic surfaces + shared market-session controller (Claude, 2026-09-04T22:39:52Z)

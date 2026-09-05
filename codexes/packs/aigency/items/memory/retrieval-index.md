@@ -5444,3 +5444,28 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-6905e3f.md](../build_/COMMITS/COMMIT-6905e3f.md)
 - Message: Record MPY2-7 backlog for remaining MoneyPenny002 harvest work
+
+## Commit `476d941` — 2026-09-05T05:39:11Z
+- Type: `feat`
+- Brief: [COMMIT-476d941.md](../build_/COMMITS/COMMIT-476d941.md)
+- Message: Add platform-authority provisioning route + workflows for Factor/Aegis
+
+## Commit `8a6152b` — 2026-09-05T05:16:18Z
+- Type: `fix`
+- Brief: [COMMIT-8a6152b.md](../build_/COMMITS/COMMIT-8a6152b.md)
+- Message: Fix flat sponsorship-capacity cap: admins/platform agents are unbounded, tiers honored
+
+## Commit `3c94102` — 2026-09-05T02:35:05Z
+- Type: `push`
+- Brief: [COMMIT-3c94102.md](../build_/COMMITS/COMMIT-3c94102.md)
+- Message: Provision Factor/Aegis canonical identity: secure owner-wallet path, Agent Cards, registry seed
+
+## Commit `8a0503a` — 2026-09-05T01:46:59Z
+- Type: `fix`
+- Brief: [COMMIT-8a0503a.md](../build_/COMMITS/COMMIT-8a0503a.md)
+- Message: fix EXP-P1 Track2 15s timeout: batch review-queue duplicate-check by namespace
+
+## Commit `1722b0a` — 2026-09-04T23:27:07Z
+- Type: `feat`
+- Brief: [COMMIT-1722b0a.md](../build_/COMMITS/COMMIT-1722b0a.md)
+- Message: factor/aegis phase 2: close tenant/principal isolation gap, register specialists, add API routes
