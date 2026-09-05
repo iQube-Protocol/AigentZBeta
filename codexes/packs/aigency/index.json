@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-05T05:41:59.914Z",
+  "last_updated": "2026-09-05T06:06:56.838Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "1722b0a3bcb6245c7bce3d784b45574f71d0f1ad",
-  "latest_commit_short": "1722b0a",
-  "latest_commit_title": "factor/aegis phase 2: close tenant/principal isolation gap, register specialists, add API routes",
+  "latest_commit": "6545169231e15a1971aff9722c91677202fb8ecd",
+  "latest_commit_short": "6545169",
+  "latest_commit_title": "Record Factor/Aegis live provisioning execution results",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "6545169",
+      "full_sha": "6545169231e15a1971aff9722c91677202fb8ecd",
+      "title": "Record Factor/Aegis live provisioning execution results",
+      "author": "Claude",
+      "timestamp": "2026-09-05T05:55:39Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-6545169.md"
+    },
+    {
+      "sha": "bb9ec06",
+      "full_sha": "bb9ec069e7db602d6d00e74d80f0110bd082a3d5",
+      "title": "Seed Factor's runtime endpoint; add invoke routes for Factor + Aegis",
+      "author": "Claude",
+      "timestamp": "2026-09-05T06:04:54Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-bb9ec06.md"
+    },
     {
       "sha": "1722b0a",
       "full_sha": "1722b0a3bcb6245c7bce3d784b45574f71d0f1ad",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-09-01T23:48:14Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-0a3db3c.md"
-    },
-    {
-      "sha": "10e5e52",
-      "full_sha": "10e5e52295b794fc7dc68889612f3fd2f67eea08",
-      "title": "Authenticate the codex upload/register admin endpoints",
-      "author": "Claude",
-      "timestamp": "2026-09-02T00:44:55Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-10e5e52.md"
-    },
-    {
-      "sha": "a302da9",
-      "full_sha": "a302da9b93b9f1c8a21d1c0714b9572c19ab1352",
-      "title": "Add fs-operate stage; wire fs-prepare to a real reviewed-profile evidence",
-      "author": "Claude",
-      "timestamp": "2026-09-02T00:45:11Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-a302da9.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

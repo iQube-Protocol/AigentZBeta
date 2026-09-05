@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`6545169`](https://github.com/iQube-Protocol/AigentZBeta/commit/6545169231e15a1971aff9722c91677202fb8ecd) [push] Record Factor/Aegis live provisioning execution results (Claude, 2026-09-05T05:55:39Z)
+- [`bb9ec06`](https://github.com/iQube-Protocol/AigentZBeta/commit/bb9ec069e7db602d6d00e74d80f0110bd082a3d5) [feat] Seed Factor's runtime endpoint; add invoke routes for Factor + Aegis (Claude, 2026-09-05T06:04:54Z)
 - [`1722b0a`](https://github.com/iQube-Protocol/AigentZBeta/commit/1722b0a3bcb6245c7bce3d784b45574f71d0f1ad) [feat] factor/aegis phase 2: close tenant/principal isolation gap, register specialists, add API routes (Claude, 2026-09-04T23:27:07Z)
 - [`8a0503a`](https://github.com/iQube-Protocol/AigentZBeta/commit/8a0503a13e5cb7d13f215fc6f7aa65d714487dc4) [fix] fix EXP-P1 Track2 15s timeout: batch review-queue duplicate-check by namespace (Claude, 2026-09-05T01:46:59Z)
 - [`3c94102`](https://github.com/iQube-Protocol/AigentZBeta/commit/3c94102e196afced428b8341031a6cb608c061c0) [push] Provision Factor/Aegis canonical identity: secure owner-wallet path, Agent Cards, registry seed (Claude, 2026-09-05T02:35:05Z)
