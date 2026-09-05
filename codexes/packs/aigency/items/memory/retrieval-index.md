@@ -5469,3 +5469,13 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-1722b0a.md](../build_/COMMITS/COMMIT-1722b0a.md)
 - Message: factor/aegis phase 2: close tenant/principal isolation gap, register specialists, add API routes
+
+## Commit `bb9ec06` — 2026-09-05T06:04:54Z
+- Type: `feat`
+- Brief: [COMMIT-bb9ec06.md](../build_/COMMITS/COMMIT-bb9ec06.md)
+- Message: Seed Factor's runtime endpoint; add invoke routes for Factor + Aegis
+
+## Commit `6545169` — 2026-09-05T05:55:39Z
+- Type: `push`
+- Brief: [COMMIT-6545169.md](../build_/COMMITS/COMMIT-6545169.md)
+- Message: Record Factor/Aegis live provisioning execution results
