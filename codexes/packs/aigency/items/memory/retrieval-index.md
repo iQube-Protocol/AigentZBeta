@@ -5434,3 +5434,13 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-e529328.md](../build_/COMMITS/COMMIT-e529328.md)
 - Message: Add quotes/fills/performance/history atomic surfaces + shared market-session controller
+
+## Commit `57f31ce` — 2026-09-04T22:46:21Z
+- Type: `push`
+- Brief: [COMMIT-57f31ce.md](../build_/COMMITS/COMMIT-57f31ce.md)
+- Message: Record MPY2-7 priority backlog: scope-keyed controller, snapshot/session binding, Expand-defect diagnosis
+
+## Commit `6905e3f` — 2026-09-04T22:44:18Z
+- Type: `push`
+- Brief: [COMMIT-6905e3f.md](../build_/COMMITS/COMMIT-6905e3f.md)
+- Message: Record MPY2-7 backlog for remaining MoneyPenny002 harvest work

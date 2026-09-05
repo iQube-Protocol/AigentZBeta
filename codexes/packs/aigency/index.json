@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-04T22:42:04.657Z",
+  "last_updated": "2026-09-04T22:48:22.066Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "e529328f0f41b03fa5d95cf59e43e80a2ecfa45d",
-  "latest_commit_short": "e529328",
-  "latest_commit_title": "Add quotes/fills/performance/history atomic surfaces + shared market-session controller",
+  "latest_commit": "6905e3f3b5ffb8b5711a0e8b369d3f54d985f3d8",
+  "latest_commit_short": "6905e3f",
+  "latest_commit_title": "Record MPY2-7 backlog for remaining MoneyPenny002 harvest work",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "6905e3f",
+      "full_sha": "6905e3f3b5ffb8b5711a0e8b369d3f54d985f3d8",
+      "title": "Record MPY2-7 backlog for remaining MoneyPenny002 harvest work",
+      "author": "Claude",
+      "timestamp": "2026-09-04T22:44:18Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-6905e3f.md"
+    },
+    {
+      "sha": "57f31ce",
+      "full_sha": "57f31ce43281384ced97d77d9d4228489258ce4d",
+      "title": "Record MPY2-7 priority backlog: scope-keyed controller, snapshot/session binding, Expand-defect diagnosis",
+      "author": "Claude",
+      "timestamp": "2026-09-04T22:46:21Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-57f31ce.md"
+    },
     {
       "sha": "e529328",
       "full_sha": "e529328f0f41b03fa5d95cf59e43e80a2ecfa45d",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-09-01T16:44:11Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-9dda398.md"
-    },
-    {
-      "sha": "d7d7761",
-      "full_sha": "d7d7761a20f50a8ee42051317cfe61f1d7746c92",
-      "title": "spec: define MoneyPenny cartridge capability harvest upgrade",
-      "author": "Kn0w1",
-      "timestamp": "2026-09-01T05:51:31-04:00",
-      "type": "chore",
-      "brief": "items/build_/COMMITS/COMMIT-d7d7761.md"
-    },
-    {
-      "sha": "6c7f3ee",
-      "full_sha": "6c7f3ee4d050a8843ab042a5b9e21af94085551d",
-      "title": "Add MPY2-0 MoneyPenny donor harvest audit and register updates docs",
-      "author": "Claude",
-      "timestamp": "2026-09-01T11:01:40Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-6c7f3ee.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
