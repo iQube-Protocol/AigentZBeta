@@ -37,7 +37,11 @@ export interface CandidateCaseGroundContext {
   currentAegisDecision: string | null;
 }
 
-const FACTOR_TRIGGER = /\bfactor\b/i;
+// Requires "Aigent Factor" or "ask/Ask Factor" — a proper-noun mention,
+// capital "F" required on "Factor" — rather than the bare word "factor",
+// which previously false-positived on ordinary phrases like "risk factor"
+// (Factor cognitive-runtime fix, 2026-09-05).
+const FACTOR_TRIGGER = /\b(?:Aigent Factor|[Aa]sk Factor)\b/;
 const AEGIS_TRIGGER = /\baegis\b/i;
 const REQUEST_VERB = /(ask|check|consult|what does|what would|tell me|status|say about)/i;
 
@@ -88,56 +92,79 @@ export interface SpecialistDelegationResolution {
   response?: string;
 }
 
+/** Reads an explicit specialist target passed by a UI chip/card via ground
+ *  context (`groundContext.targetSpecialistId`) — the strongest signal, on
+ *  par with an explicit `targetSpecialistId` argument (kept separate so
+ *  callers that already resolve the target themselves — e.g. a future
+ *  Home/Plan/Markets "Ask Factor" chip — need not thread a new argument
+ *  through every call site). */
+function readExplicitTargetSpecialist(groundContext: Record<string, unknown> | undefined): SpecialistId | null {
+  const v = groundContext?.targetSpecialistId;
+  return v === 'factor' || v === 'aegis' ? v : null;
+}
+
 /**
  * The one call app/api/codex/chat/route.ts makes for this capability,
- * mirroring resolveSmartTriadMedia's own call-site shape. Returns
- * `matched: false` when no candidate case is active, the active panel is
- * neither Factor's nor Aegis's own panel, or the message doesn't name
- * exactly one of Factor/Aegis with a request verb — the route then falls
- * through to the ordinary LLM pipeline untouched.
+ * mirroring resolveSmartTriadMedia's own call-site shape.
+ *
+ * Generalized (Factor cognitive-runtime fix, 2026-09-05, requirement 6) so
+ * MoneyPenny can consult Factor/Aegis from ANY MoneyPenny surface — Home,
+ * Plan, Markets, Service Orchestration — not only from inside their own
+ * panel with a candidate case already open:
+ *   - An explicit `targetSpecialistId` (from a chip/card the operator
+ *     clicked, or `groundContext.targetSpecialistId`) is honored from any
+ *     MoneyPenny panel — the strongest signal.
+ *   - Otherwise, the natural-language trigger ("Aigent Factor" / "ask
+ *     Factor" / "aegis" + a request verb) is only recognized while already
+ *     on Factor's or Aegis's own panel — the same scoping as before, so an
+ *     ambient mention elsewhere in MoneyPenny does not hijack the reply.
+ * A candidate case is now OPTIONAL grounding, never required — Factor/Aegis
+ * can be consulted with no case open at all.
  */
 export async function resolveSmartTriadSpecialistDelegation(
   message: string,
   groundContext: Record<string, unknown> | undefined,
+  targetSpecialistId?: SpecialistId,
 ): Promise<SpecialistDelegationResolution> {
-  if (
-    groundContext?.cartridge !== 'moneypenny' ||
-    (groundContext?.activePanel !== 'factor' && groundContext?.activePanel !== 'aegis')
-  ) {
-    return { matched: false };
-  }
-  const candidateCase = readCandidateCase(groundContext);
-  if (!candidateCase) return { matched: false };
-  const specialistId = resolveSpecialistFromMessage(message);
+  if (groundContext?.cartridge !== 'moneypenny') return { matched: false };
+
+  const explicitTarget = targetSpecialistId ?? readExplicitTargetSpecialist(groundContext);
+  const onSpecialistPanel = groundContext?.activePanel === 'factor' || groundContext?.activePanel === 'aegis';
+
+  const specialistId: SpecialistId | null =
+    explicitTarget ?? (onSpecialistPanel ? resolveSpecialistFromMessage(message) : null);
   if (!specialistId) return { matched: false };
 
+  const candidateCase = readCandidateCase(groundContext);
   const label = specialistId === 'factor' ? 'Aigent Factor' : 'Aegis';
-  const boundedContext =
-    `Case context (advisory only — you may not mutate it): caseId=${candidateCase.caseId}, ` +
-    `candidate="${candidateCase.candidateDisplayName}", state=${candidateCase.state}, ` +
-    `currentAegisDecision=${candidateCase.currentAegisDecision ?? 'none'}.\n\n` +
-    `Operator's question, asked through MoneyPenny: ${message.trim()}`;
+  const caseLine = candidateCase
+    ? `Case context (advisory only — you may not mutate it): caseId=${candidateCase.caseId}, ` +
+      `candidate="${candidateCase.candidateDisplayName}", state=${candidateCase.state}, ` +
+      `currentAegisDecision=${candidateCase.currentAegisDecision ?? 'none'}.\n\n`
+    : '';
+  const boundedContext = `${caseLine}Operator's question, asked through MoneyPenny: ${message.trim()}`;
 
   const result = await askSpecialist({
     specialistId,
     context: {
       activeCartridge: 'moneypenny',
       experienceName: null,
-      experienceType: 'candidate_case',
+      experienceType: candidateCase ? 'candidate_case' : 'venture_building',
       primaryGoal: null,
-      currentStage: candidateCase.state,
+      currentStage: candidateCase?.state ?? 'general',
       activeCartridges: ['moneypenny'],
-      intentName: 'candidate_case_consult',
+      intentName: candidateCase ? 'candidate_case_consult' : 'general_consult',
       intentRationale: null,
       userPrompt: boundedContext,
     },
   });
 
   const recs = result.recommendations.length > 0 ? `\n\n${result.recommendations.map((r) => `- ${r}`).join('\n')}` : '';
-  const response =
-    `**${label}** (advisory, case "${candidateCase.candidateDisplayName}"): ${result.summary}${recs}\n\n` +
-    `_Advisory guidance only — never a case mutation. Open the case to take a real action._ ` +
-    `[layout:${specialistId}|Review the ${candidateCase.candidateDisplayName} case]`;
+  const scopedLabel = candidateCase ? `${label}** (advisory, case "${candidateCase.candidateDisplayName}")` : `${label}** (advisory)`;
+  const closing = candidateCase
+    ? `_Advisory guidance only — never a case mutation. Open the case to take a real action._ [layout:${specialistId}|Review the ${candidateCase.candidateDisplayName} case]`
+    : `_Advisory guidance only — never a case mutation._ [layout:${specialistId}|Open ${label}]`;
+  const response = `**${scopedLabel}: ${result.summary}${recs}\n\n${closing}`;
 
   return { matched: true, specialistId, response };
 }
