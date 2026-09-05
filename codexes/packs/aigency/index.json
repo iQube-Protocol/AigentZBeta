@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-05T21:15:28.803Z",
+  "last_updated": "2026-09-05T21:39:23.969Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "f5b13db950b8fc17da641fa6af1d320cbd669669",
-  "latest_commit_short": "f5b13db",
-  "latest_commit_title": "Update Bankr Phase 6-9 delivery report with the frontend integration",
+  "latest_commit": "72c692dc7b0da25ad53cfd0c9d72ed7052fbfb72",
+  "latest_commit_short": "72c692d",
+  "latest_commit_title": "Add Crystal-wide internal-pilot execution designation (frozen generations are immutable; lineages are evolutionary)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "72c692d",
+      "full_sha": "72c692dc7b0da25ad53cfd0c9d72ed7052fbfb72",
+      "title": "Add Crystal-wide internal-pilot execution designation (frozen generations are immutable; lineages are evolutionary)",
+      "author": "Claude",
+      "timestamp": "2026-09-05T21:37:39Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-72c692d.md"
+    },
     {
       "sha": "f5b13db",
       "full_sha": "f5b13db950b8fc17da641fa6af1d320cbd669669",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-09-02T13:14:48Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-fea3a52.md"
-    },
-    {
-      "sha": "3c1551d",
-      "full_sha": "3c1551d7501b0bb96581cef25bc3155a200ee260",
-      "title": "Add canonical participant research-workspace access resolver",
-      "author": "Claude",
-      "timestamp": "2026-09-02T12:59:22Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-3c1551d.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
