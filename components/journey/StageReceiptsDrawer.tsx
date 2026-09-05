@@ -189,6 +189,7 @@ export function StageReceiptsDrawer({
       <button
         type="button"
         onClick={toggle}
+        aria-expanded={open}
         className="flex w-full items-center gap-2 px-3 py-2 text-xs text-slate-400 transition-colors hover:text-slate-200"
       >
         {open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
