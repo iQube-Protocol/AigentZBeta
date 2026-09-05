@@ -21,6 +21,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { currentIdentityRegistry } from '@/services/horizen/agentBinding';
 import { resolveRequestOrigin } from '@/app/api/agents/_lib/requestOrigin';
 import type { ExternalAgentRegistryBinding } from '@/types/registry-canonical';
+import { FACTOR_CAPABILITIES } from '@/services/factor/factorCapabilityManifest';
 
 export const dynamic = 'force-dynamic';
 
@@ -112,23 +113,30 @@ export async function GET(req: NextRequest) {
 
   return withCors(
     NextResponse.json({
-      // Identity & Discovery
+      // Identity & Discovery — description and skills are a PROJECTION of
+      // the canonical capability manifest (services/factor/
+      // factorCapabilityManifest.ts), never a second hand-typed list, so
+      // this card cannot drift from what Factor actually implements
+      // (Factor cognitive-runtime fix, 2026-09-05 — this card previously
+      // described Factor as only a "Candidate-Intake Pipeline Agent").
       name: 'Aigent Factor',
       description:
-        "MoneyPenny's candidate-intake pipeline agent (GJR-FAC-001). Factor resolves whether a candidate agent " +
-        'already has a case, walks its evidence checklist (capability declarations, endpoints, code provenance), ' +
-        'requests an independent Aegis assessment once evidence is complete, and may PROPOSE (never award) a ' +
-        'standing event for an admitted agent. Factor structurally CANNOT decide admission — that authority ' +
-        'belongs solely to MoneyPenny, and only once a ratified Aegis assessment supports it. Factor also cannot ' +
-        'assess a candidate it is itself the subject of. Factor is a bounded Agent Participant, never a principal: ' +
-        'every consequential act requires human or MoneyPenny approval.',
+        "MoneyPenny's constitutional economic activation and ecosystem-catalysis specialist. Factor discovers, " +
+        'prepares and activates agents and financial services across the iQube Registry, the Horizen Journey ' +
+        'Spine, and the MoneyPenny runtime — candidate intake (resolving whether a candidate agent already has a ' +
+        'case, walking its evidence checklist, requesting an independent Aegis assessment) is ONE of these ' +
+        'capabilities, not its governing identity. Factor structurally CANNOT decide admission — that authority ' +
+        'belongs solely to MoneyPenny, and only once a ratified Aegis assessment supports it — cannot assess a ' +
+        'candidate it is itself the subject of, and may only PROPOSE (never award) a standing event. Factor is a ' +
+        'bounded Agent Participant, never a principal: every consequential act requires human or MoneyPenny ' +
+        'approval, and a planned/advisory capability is never represented as live.',
       url: `${origin}/api/agents/factor/agent-card.json`,
-      version: '0.1.0',
+      version: '0.2.0',
 
       provider: {
         organization: 'metaProof',
         url: 'https://thepolity.org',
-        role: 'Candidate-Intake Pipeline Agent',
+        role: 'Economic Activation & Ecosystem-Catalysis Agent',
       },
 
       capabilities: {
@@ -139,30 +147,12 @@ export async function GET(req: NextRequest) {
       defaultInputModes: ['application/json'],
       defaultOutputModes: ['application/json'],
 
-      skills: [
-        {
-          id: 'candidate-intake',
-          name: 'Candidate-Intake Case Management',
-          description:
-            'Creates or resumes ONE case per candidate (never a duplicate) and walks its evidence checklist. ' +
-            'Never decides admission.',
-          tags: ['candidate-intake', 'evidence', 'journey-a'],
-        },
-        {
-          id: 'authority-chain-facilitation',
-          name: 'Authority-Chain Facilitation',
-          description:
-            'Establishes and validates direct or MoneyPenny-mediated authority chains for a candidate — never ' +
-            'manufactures authority a real delegation_grants row does not already grant.',
-          tags: ['authority', 'delegation'],
-        },
-        {
-          id: 'standing-proposal',
-          name: 'Standing-Event Proposal',
-          description: 'May PROPOSE a standing event for an admitted agent, evidence-gated. Never writes standing directly.',
-          tags: ['standing', 'proposal'],
-        },
-      ],
+      skills: FACTOR_CAPABILITIES.filter((c) => c.id !== 'general_orientation').map((c) => ({
+        id: c.id.replace(/_/g, '-'),
+        name: c.title,
+        description: `${c.description} (status: ${c.status}).`,
+        tags: [c.status, ...c.interactionModes],
+      })),
 
       metadata: {
         operator_type: 'agent_participant',
@@ -215,8 +205,8 @@ export async function GET(req: NextRequest) {
         holder: 'Aigent Factor',
         bound_to: 'operator (via bounded delegation, per the Constitutional Authority Supremacy doctrine)',
         home_realm: 'metaTerra',
-        canonical_function: 'Candidate-Intake Pipeline Agent',
-        primary_role: 'Candidate-Intake Case Management · Authority-Chain Facilitation · Standing-Event Proposal',
+        canonical_function: 'Economic Activation & Ecosystem-Catalysis Agent',
+        primary_role: 'Agent/Service Discovery · Candidate-Intake Case Management · Authority-Chain Facilitation · Standing-Event Proposal',
         status: 'Newly provisioned — Horizen registration pending',
         status_note:
           'aigent-factor is a newly-provisioned agent (2026-09-05). Its owner/control wallet, registry asset, and this ' +
