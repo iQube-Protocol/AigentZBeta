@@ -1,4 +1,7 @@
 # Build — Changelog
+- [`5103893`](https://github.com/iQube-Protocol/AigentZBeta/commit/5103893731e3eacaa8aca2f3a1302c9b6e92443c) [feat] Retire dead Track2 >95% confidence gate; add relationship cohort ratification (Claude, 2026-09-05T08:30:02Z)
+- [`e717187`](https://github.com/iQube-Protocol/AigentZBeta/commit/e71718781e8dcca1c043951ca2ba098652d9ad31) [feat] Fix MoneyPenny Home cross-area nav; add specialist cards; rename Aigent Factor (Claude, 2026-09-05T09:09:02Z)
+- [`2cb85a2`](https://github.com/iQube-Protocol/AigentZBeta/commit/2cb85a2c2d4bf942cce4b1069867d317a40f4325) [fix] trigger deploy: MoneyPenny Home nav fix + Track2 confidence cohort ratification (Claude, 2026-09-05T09:21:33Z)
 - [`a896005`](https://github.com/iQube-Protocol/AigentZBeta/commit/a896005254bb4412ec7de772ef26ce9e9ab879e5) [push] Record Factor runtime-endpoint, Journey Spine rehearsal, specialist UI results (Claude, 2026-09-05T06:16:34Z)
 - [`726135f`](https://github.com/iQube-Protocol/AigentZBeta/commit/726135f44806772b5287332877f54b2a0d11c02c) [chore] Upgrade Candidate Intake into a case-aware Factor/Aegis workspace (Claude, 2026-09-05T07:38:17Z)
 - [`fe43577`](https://github.com/iQube-Protocol/AigentZBeta/commit/fe435774b10da34b0a428667a1bd0526610248c1) [fix] Fix ask-agent's specialist allowlist to actually accept Factor/Aegis (Claude, 2026-09-05T06:09:46Z)
