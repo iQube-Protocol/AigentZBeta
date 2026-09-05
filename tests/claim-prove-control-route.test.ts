@@ -77,6 +77,10 @@ function makeRequest(): NextRequest {
   return { nextUrl: { searchParams: new URLSearchParams() } } as unknown as NextRequest;
 }
 
+function makeGetRequestWithParams(params: Record<string, string>): NextRequest {
+  return { nextUrl: { searchParams: new URLSearchParams(params) } } as unknown as NextRequest;
+}
+
 function makeRequestWithBody(body: Record<string, unknown>): NextRequest {
   return {
     nextUrl: { searchParams: new URLSearchParams() },
@@ -351,6 +355,47 @@ describe('POST — the agent is honored, and a stuck registry_assets write does 
     expect(res.status).toBe(200);
     expect(json.ok).toBe(true);
     expect(mockGetAgentAddresses).toHaveBeenCalledWith('aigent-nakamoto');
+  });
+
+  /*
+   * FACTOR PRE-SIGNING BEHAVIORAL PROOF (GJR audit, 2026-09-05). Mirrors the
+   * Nakamoto case immediately above with `aigent-factor` — proves Claim's
+   * control-proof step is genuinely agent-generic, not merely configured to
+   * resemble it: the wallet lookup, the signing call, and the written
+   * receipt all key off Factor's OWN resolved runtimeAgentId, and a
+   * MoneyPenny-shaped default is never silently substituted.
+   */
+  it('reads the SELECTED agent (factor), never silently falling back to MoneyPenny', async () => {
+    registryAssetsRow = {
+      metadata: { external_registry_bindings: [{ token_id: '9001', network: 'base-sepolia', transparency: { pulse_enabled: true, pnl_disclosure_authorized: true } }] },
+    };
+    mockGetAgentAddresses.mockResolvedValue({ evmAddress: '0xFactorWallet' });
+    mockSignPartnerAuthorization.mockResolvedValue({
+      ok: true,
+      result: { signature: '0xsig', signerAddress: '0xFactorWallet', payloadHash: 'hash', signedAt: '2026-09-05T00:00:00.000Z' },
+    });
+
+    const res = await POST(makeRequestWithBody({ agentSlug: 'factor' }));
+    const json = await res.json();
+    expect(res.status).toBe(200);
+    expect(json.ok).toBe(true);
+    expect(mockGetAgentAddresses).toHaveBeenCalledWith('aigent-factor');
+    expect(mockGetAgentAddresses).not.toHaveBeenCalledWith('aigent-moneypenny');
+
+    const receiptCall = mockCreateActivityReceipt.mock.calls[0][0];
+    expect(receiptCall.actionInput.signerWallet).toBe('0xFactorWallet');
+  });
+
+  it('GET reports Factor-scoped control state read against Factor\'s own receipts, never MoneyPenny\'s default', async () => {
+    mockListActivityReceiptsForPersona.mockResolvedValue([]);
+    const res = await GET(makeGetRequestWithParams({ agentSlug: 'factor' }));
+    const json = await res.json();
+    expect(res.status).toBe(200);
+    expect(json).toMatchObject({ ok: true, controlProven: false });
+    expect(mockListActivityReceiptsForPersona).toHaveBeenCalledWith(
+      'persona-operator-1',
+      expect.objectContaining({ agentsInvoked: ['aigent-factor'] }),
+    );
   });
 
   it('falls back to the confirmation receipt when the registry_assets binding write never landed', async () => {
