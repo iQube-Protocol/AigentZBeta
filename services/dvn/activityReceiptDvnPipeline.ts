@@ -412,6 +412,17 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   'moneypenny_admission_decided',
   'factor_authority_chain_established',
   'factor_authority_chain_revoked',
+  // Factor + Aegis Bankr PRD, Phase 4/7 (2026-09-05) — the constitutional
+  // DECISIONS in the token-launch lifecycle. 'bankr_launch_preflighted' and
+  // 'token_launch_proposed' are deliberately excluded — pre-decision
+  // pipeline events, same discipline as 'factor_case_state_changed' above
+  // (a proposal or a preflight result is not yet a ratified fact).
+  'bankr_provider_bound',
+  'aegis_token_assessment_ratified',
+  'token_launch_approved',
+  'token_launch_submitted',
+  'token_launch_confirmed',
+  'token_fees_claimed',
 ]);
 
 export function shouldAnchorActionType(actionType: string): boolean {
