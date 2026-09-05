@@ -543,3 +543,29 @@ export async function listEvidenceForCase(admin: SupabaseClient, caseId: string,
   if (error) throw new Error(`listEvidenceForCase failed: ${error.message}`);
   return data ?? [];
 }
+
+export interface FactorCaseEventRow {
+  event_id: string;
+  case_id: string;
+  event_type: string;
+  from_state: string | null;
+  to_state: string | null;
+  actor_persona_id: string;
+  authority_chain_id: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+/**
+ * Tenant-scoped case-activity read — completes appendCaseEvent's write path
+ * with the reader it never had (factor_case_events had no GET route at all
+ * until this pass). Not a parallel case service: it reads the SAME table
+ * every state transition/pause/resume/admission decision already writes to,
+ * through the SAME tenant guard every other case-scoped read uses.
+ */
+export async function listCaseEvents(admin: SupabaseClient, caseId: string, tenantId: string): Promise<FactorCaseEventRow[]> {
+  await assertCaseTenant(admin, caseId, tenantId);
+  const { data, error } = await admin.from('factor_case_events').select('*').eq('case_id', caseId).order('created_at', { ascending: true });
+  if (error) throw new Error(`listCaseEvents failed: ${error.message}`);
+  return (data ?? []) as FactorCaseEventRow[];
+}

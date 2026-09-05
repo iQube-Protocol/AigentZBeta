@@ -1,0 +1,139 @@
+/**
+ * MoneyPenny left-pane -> Factor/Aegis specialist delegation (Candidate
+ * Intake workspace upgrade, 2026-09-05, requirement 3: "allow MoneyPenny to
+ * delegate a question to Factor or Aegis; render the attributed specialist
+ * reply in the left-pane conversation").
+ *
+ * A sibling to services/smarttriad/mediaProviders.ts's provider abstraction,
+ * NOT a fork of it: that system resolves MEDIA (validated rich blocks,
+ * never model-authored); this one resolves a SPECIALIST CONSULT (plain,
+ * attributed text), so it deliberately does not force itself through
+ * SmartTriadMediaProvider's `blocks`-shaped contract or its media-specific
+ * "nothing published yet" fallback (which would be a category error for a
+ * consult that isn't about published content at all).
+ *
+ * Reuses `askSpecialist()` from services/agents/specialistRouter.ts —
+ * the SAME specialist-consult engine app/api/assistant/ask-agent/route.ts
+ * calls — never a second LLM-calling path. This module only decides WHEN
+ * to call it (deterministic trigger, evaluated BEFORE the LLM ever runs,
+ * mirroring the media-provider precedent) and how to attribute the reply
+ * in MoneyPenny's own conversation.
+ *
+ * Never a domain mutation: the resulting SpecialistContext.userPrompt is
+ * built from the SAME advisory framing services/agents/specialistRouter.ts
+ * already encodes for factor/aegis (Factor cannot assess/admit; Aegis
+ * cannot self-assess/decide admission), and the reply is always rendered
+ * attributed and clearly advisory — never as a stand-in for the real
+ * domain actions this Candidate Case workspace exposes via the actual
+ * Factor/Aegis/MoneyPenny REST endpoints.
+ */
+
+import { askSpecialist, type SpecialistId } from '@/services/agents/specialistRouter';
+
+export interface CandidateCaseGroundContext {
+  caseId: string;
+  candidateDisplayName: string;
+  state: string;
+  currentAegisDecision: string | null;
+}
+
+const FACTOR_TRIGGER = /\bfactor\b/i;
+const AEGIS_TRIGGER = /\baegis\b/i;
+const REQUEST_VERB = /(ask|check|consult|what does|what would|tell me|status|say about)/i;
+
+/** The exact deterministic prompts the Candidate Intake workspace's
+ *  "Ask Factor about this case" / "Ask Aegis about this case" quick prompts
+ *  send — kept as exact strings for repeatable testing, mirroring
+ *  MONEYPENNY_LEARN_VIDEO_PROMPT's own precedent. Natural phrasing that
+ *  names the specialist plus a request verb also matches (see
+ *  resolveSpecialistFromMessage) — an exact-match magic phrase is not
+ *  required to use this. */
+export const ASK_FACTOR_ABOUT_CASE_PROMPT = 'Ask Factor about this case.';
+export const ASK_AEGIS_ABOUT_CASE_PROMPT = 'Ask Aegis about this case.';
+
+function resolveSpecialistFromMessage(message: string): SpecialistId | null {
+  const trimmed = message.trim();
+  if (trimmed === ASK_FACTOR_ABOUT_CASE_PROMPT) return 'factor';
+  if (trimmed === ASK_AEGIS_ABOUT_CASE_PROMPT) return 'aegis';
+  const mentionsFactor = FACTOR_TRIGGER.test(trimmed);
+  const mentionsAegis = AEGIS_TRIGGER.test(trimmed);
+  // Both or neither named -> refuse to guess which specialist is meant;
+  // the operator can use a quick-prompt chip or name exactly one.
+  if (mentionsFactor === mentionsAegis) return null;
+  if (!REQUEST_VERB.test(trimmed)) return null;
+  return mentionsFactor ? 'factor' : 'aegis';
+}
+
+function readCandidateCase(groundContext: Record<string, unknown> | undefined): CandidateCaseGroundContext | null {
+  const raw = groundContext?.candidateCase;
+  if (!raw || typeof raw !== 'object') return null;
+  const c = raw as Record<string, unknown>;
+  if (typeof c.caseId !== 'string' || typeof c.candidateDisplayName !== 'string' || typeof c.state !== 'string') return null;
+  return {
+    caseId: c.caseId,
+    candidateDisplayName: c.candidateDisplayName,
+    state: c.state,
+    currentAegisDecision: typeof c.currentAegisDecision === 'string' ? c.currentAegisDecision : null,
+  };
+}
+
+export interface SpecialistDelegationResolution {
+  matched: boolean;
+  specialistId?: SpecialistId;
+  /** Attributed, advisory-framed reply text — includes a trailing
+   *  [layout:candidate-intake|...] tag the caller's existing
+   *  inferSuggestedLayouts/stripLayoutTags pass handles exactly like every
+   *  other layout tag in this codebase (no special-casing needed there). */
+  response?: string;
+}
+
+/**
+ * The one call app/api/codex/chat/route.ts makes for this capability,
+ * mirroring resolveSmartTriadMedia's own call-site shape. Returns
+ * `matched: false` when no candidate case is active, the panel isn't
+ * candidate-intake, or the message doesn't name exactly one of
+ * Factor/Aegis with a request verb — the route then falls through to the
+ * ordinary LLM pipeline untouched.
+ */
+export async function resolveSmartTriadSpecialistDelegation(
+  message: string,
+  groundContext: Record<string, unknown> | undefined,
+): Promise<SpecialistDelegationResolution> {
+  if (groundContext?.cartridge !== 'moneypenny' || groundContext?.activePanel !== 'candidate-intake') {
+    return { matched: false };
+  }
+  const candidateCase = readCandidateCase(groundContext);
+  if (!candidateCase) return { matched: false };
+  const specialistId = resolveSpecialistFromMessage(message);
+  if (!specialistId) return { matched: false };
+
+  const label = specialistId === 'factor' ? 'Factor' : 'Aegis';
+  const boundedContext =
+    `Case context (advisory only — you may not mutate it): caseId=${candidateCase.caseId}, ` +
+    `candidate="${candidateCase.candidateDisplayName}", state=${candidateCase.state}, ` +
+    `currentAegisDecision=${candidateCase.currentAegisDecision ?? 'none'}.\n\n` +
+    `Operator's question, asked through MoneyPenny: ${message.trim()}`;
+
+  const result = await askSpecialist({
+    specialistId,
+    context: {
+      activeCartridge: 'moneypenny',
+      experienceName: null,
+      experienceType: 'candidate_case',
+      primaryGoal: null,
+      currentStage: candidateCase.state,
+      activeCartridges: ['moneypenny'],
+      intentName: 'candidate_case_consult',
+      intentRationale: null,
+      userPrompt: boundedContext,
+    },
+  });
+
+  const recs = result.recommendations.length > 0 ? `\n\n${result.recommendations.map((r) => `- ${r}`).join('\n')}` : '';
+  const response =
+    `**${label}** (advisory, case "${candidateCase.candidateDisplayName}"): ${result.summary}${recs}\n\n` +
+    `_Advisory guidance only — never a case mutation. Open the case to take a real action._ ` +
+    `[layout:candidate-intake|Review the ${candidateCase.candidateDisplayName} case]`;
+
+  return { matched: true, specialistId, response };
+}

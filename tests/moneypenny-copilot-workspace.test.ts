@@ -94,7 +94,13 @@ describe('C-02 copilot-to-capsule loop (Cartridge spec reconciliation, 2026-09-0
 
   it('wires onSuggestedLayouts and quickPrompts onto the SAME registered suggestion system DevOn/Agent Me use — no parallel proposal channel', () => {
     expect(src).toMatch(/onSuggestedLayouts=\{handleSuggestedLayouts\}/);
-    expect(src).toMatch(/quickPrompts=\{MONEYPENNY_QUICK_PROMPTS\}/);
+    // Candidate Intake workspace upgrade (2026-09-05) — quickPrompts is now a
+    // computed variable (adds panel-conditional Factor/Aegis chips) rather
+    // than the module constant inlined directly, but it still DERIVES from
+    // MONEYPENNY_QUICK_PROMPTS (spread, never re-declared) — still no
+    // parallel proposal channel.
+    expect(src).toMatch(/quickPrompts=\{quickPrompts\}/);
+    expect(src).toMatch(/\.\.\.MONEYPENNY_QUICK_PROMPTS/);
   });
 
   it('does NOT auto-navigate on a suggested layout — Companion Menu invariant MS-5, a deliberate act outranks an ambient observation', () => {

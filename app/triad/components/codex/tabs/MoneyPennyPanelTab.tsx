@@ -79,6 +79,7 @@ import {
   MoneyPennyNavigationProvider,
   readAndClearPendingPanel,
   writePendingPanel,
+  type MoneyPennyActiveCase,
 } from "@/app/(shell)/moneypenny/components/moneyPennyNavigation";
 import { tryOpenInMountedCartridge } from "@/services/cartridge/CartridgePresenceRegistry";
 import { areaForPanel, defaultPanelForArea, type MoneyPennyAreaId } from "@/app/(shell)/moneypenny/components/moneypennyCapabilities";
@@ -273,9 +274,18 @@ export function MoneyPennyPanelTab({ panel: explicitPanel, area }: MoneyPennyPan
     [area],
   );
 
+  // Shared active-case snapshot (see moneyPennyNavigation.tsx's own header) —
+  // written only by CandidateIntakePanel, read by MoneyPennyCopilotWorkspace.
+  // Plain component state, not sessionStorage: unlike activePanel this never
+  // needs to survive a cross-area native-tab remount (a candidate case is
+  // scoped to the Activity area's own candidate-intake panel), so the same
+  // "one owner, one source of truth" discipline the rest of this file
+  // follows applies without needing a persistence signal.
+  const [activeCase, setActiveCase] = useState<MoneyPennyActiveCase | null>(null);
+
   const navigationValue = useMemo(
-    () => ({ activePanel, area: area ?? null, navigate }),
-    [activePanel, area, navigate],
+    () => ({ activePanel, area: area ?? null, navigate, activeCase, setActiveCase }),
+    [activePanel, area, navigate, activeCase],
   );
 
   const Panel = PANELS[activePanel];

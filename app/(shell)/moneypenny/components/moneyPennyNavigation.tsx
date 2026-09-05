@@ -62,6 +62,26 @@ import type { MoneyPennyAreaId } from './moneypennyCapabilities';
 /** The one cartridge id every MoneyPenny cross-tab navigation targets. */
 export const MONEYPENNY_CODEX_ID = 'moneypenny-codex';
 
+/**
+ * Bounded, T1-safe active-case snapshot (Candidate Intake workspace upgrade,
+ * 2026-09-05, requirement 3: "left- and right-pane interactions resolve to
+ * the same caseId"). CandidateIntakePanel (the right-pane child under this
+ * same provider) is the one writer, via setActiveCase — set whenever it
+ * creates/opens/refreshes a Factor case. MoneyPennyCopilotWorkspace (the
+ * left-pane sibling under the SAME provider — see MoneyPennyPanelTab.tsx,
+ * both mounted inside one MoneyPennyNavigationProvider) reads it read-only
+ * to fold a bounded case summary into the copilot's groundContext. Never a
+ * second case store: this is a snapshot mirror of whatever
+ * CandidateIntakePanel already fetched from the real Factor/Aegis REST
+ * routes, not an independent source of truth.
+ */
+export interface MoneyPennyActiveCase {
+  caseId: string;
+  candidateDisplayName: string;
+  state: string;
+  currentAegisDecision: string | null;
+}
+
 const PENDING_PANEL_STORAGE_KEY = 'moneypenny.pending-panel';
 
 /** Written immediately before a cross-area native tab switch — see this
@@ -98,6 +118,9 @@ export interface MoneyPennyNavigationContextValue {
    *  which pins one explicit panel via a fixed `panel` prop). */
   area: MoneyPennyAreaId | null;
   navigate: (panel: MoneyPennyPanelKey) => void;
+  /** See MoneyPennyActiveCase's own comment above. */
+  activeCase: MoneyPennyActiveCase | null;
+  setActiveCase: (activeCase: MoneyPennyActiveCase | null) => void;
 }
 
 const MoneyPennyNavigationContext = createContext<MoneyPennyNavigationContextValue | null>(null);
