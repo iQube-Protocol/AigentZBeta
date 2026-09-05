@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-05T06:06:56.838Z",
+  "last_updated": "2026-09-05T06:17:44.799Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "6545169231e15a1971aff9722c91677202fb8ecd",
-  "latest_commit_short": "6545169",
-  "latest_commit_title": "Record Factor/Aegis live provisioning execution results",
+  "latest_commit": "fe435774b10da34b0a428667a1bd0526610248c1",
+  "latest_commit_short": "fe43577",
+  "latest_commit_title": "Fix ask-agent's specialist allowlist to actually accept Factor/Aegis",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "fe43577",
+      "full_sha": "fe435774b10da34b0a428667a1bd0526610248c1",
+      "title": "Fix ask-agent's specialist allowlist to actually accept Factor/Aegis",
+      "author": "Claude",
+      "timestamp": "2026-09-05T06:09:46Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-fe43577.md"
+    },
+    {
+      "sha": "4cde62c",
+      "full_sha": "4cde62c99c5377a8927974793a39f226c8c87570",
+      "title": "Begin MoneyPenny specialist UI for Factor/Aegis: Candidate Intake panel",
+      "author": "Claude",
+      "timestamp": "2026-09-05T06:15:35Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-4cde62c.md"
+    },
     {
       "sha": "6545169",
       "full_sha": "6545169231e15a1971aff9722c91677202fb8ecd",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-09-02T01:15:27Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-9b0e073.md"
-    },
-    {
-      "sha": "45e4b13",
-      "full_sha": "45e4b132b34dc7c8c2fd5be7eda4cd66a9a42b9d",
-      "title": "Add manual financial-profile entry; close MPY2-0b donor audit [merge spec/moneypenny-mpy2-3]",
-      "author": "Claude",
-      "timestamp": "2026-09-02T03:22:54Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-45e4b13.md"
-    },
-    {
-      "sha": "0a3db3c",
-      "full_sha": "0a3db3c3516a016f7f40eb453fd96a2153eb685a",
-      "title": "Add typed asset placements with draft/publish for bridge media (A2)",
-      "author": "Claude",
-      "timestamp": "2026-09-01T23:48:14Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-0a3db3c.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

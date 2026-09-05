@@ -5479,3 +5479,13 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-6545169.md](../build_/COMMITS/COMMIT-6545169.md)
 - Message: Record Factor/Aegis live provisioning execution results
+
+## Commit `4cde62c` — 2026-09-05T06:15:35Z
+- Type: `push`
+- Brief: [COMMIT-4cde62c.md](../build_/COMMITS/COMMIT-4cde62c.md)
+- Message: Begin MoneyPenny specialist UI for Factor/Aegis: Candidate Intake panel
+
+## Commit `fe43577` — 2026-09-05T06:09:46Z
+- Type: `fix`
+- Brief: [COMMIT-fe43577.md](../build_/COMMITS/COMMIT-fe43577.md)
+- Message: Fix ask-agent's specialist allowlist to actually accept Factor/Aegis

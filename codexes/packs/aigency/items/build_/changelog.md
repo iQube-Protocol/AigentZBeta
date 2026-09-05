@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`fe43577`](https://github.com/iQube-Protocol/AigentZBeta/commit/fe435774b10da34b0a428667a1bd0526610248c1) [fix] Fix ask-agent's specialist allowlist to actually accept Factor/Aegis (Claude, 2026-09-05T06:09:46Z)
+- [`4cde62c`](https://github.com/iQube-Protocol/AigentZBeta/commit/4cde62c99c5377a8927974793a39f226c8c87570) [push] Begin MoneyPenny specialist UI for Factor/Aegis: Candidate Intake panel (Claude, 2026-09-05T06:15:35Z)
 - [`6545169`](https://github.com/iQube-Protocol/AigentZBeta/commit/6545169231e15a1971aff9722c91677202fb8ecd) [push] Record Factor/Aegis live provisioning execution results (Claude, 2026-09-05T05:55:39Z)
 - [`bb9ec06`](https://github.com/iQube-Protocol/AigentZBeta/commit/bb9ec069e7db602d6d00e74d80f0110bd082a3d5) [feat] Seed Factor's runtime endpoint; add invoke routes for Factor + Aegis (Claude, 2026-09-05T06:04:54Z)
 - [`1722b0a`](https://github.com/iQube-Protocol/AigentZBeta/commit/1722b0a3bcb6245c7bce3d784b45574f71d0f1ad) [feat] factor/aegis phase 2: close tenant/principal isolation gap, register specialists, add API routes (Claude, 2026-09-04T23:27:07Z)
