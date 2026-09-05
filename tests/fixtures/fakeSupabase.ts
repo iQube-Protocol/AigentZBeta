@@ -30,6 +30,7 @@ const UNIQUE_CONSTRAINTS: Record<string, UniqueConstraint[]> = {
   ],
   factor_case_events: [{ columns: ['case_id', 'idempotency_key'], when: (r) => r.idempotency_key != null }],
   aegis_assessments: [{ columns: ['subject_type', 'subject_ref'], when: (r) => r.superseded_by == null }],
+  provider_wallet_bindings: [{ columns: ['tenant_id', 'agent_runtime_id', 'provider'] }],
 };
 
 function matchesEq(row: Row, col: string, val: unknown): boolean {
