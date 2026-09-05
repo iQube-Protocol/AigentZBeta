@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-05T20:18:10.255Z",
+  "last_updated": "2026-09-05T20:56:52.377Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "9a11c7c2c4d5552804fd671373f3097c43913f12",
-  "latest_commit_short": "9a11c7c",
-  "latest_commit_title": "Give Factor real Bankr capability actions (Phase 5 of Factor+Aegis Bankr PRD)",
+  "latest_commit": "3b9ae5a0703c956e066c9d83aeb8f828769ebd30",
+  "latest_commit_short": "3b9ae5a",
+  "latest_commit_title": "Give Factor's Bankr actions real HTTP routes; close Phase 8 drift/tenant gaps (Phase 6 backend)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "3b9ae5a",
+      "full_sha": "3b9ae5a0703c956e066c9d83aeb8f828769ebd30",
+      "title": "Give Factor's Bankr actions real HTTP routes; close Phase 8 drift/tenant gaps (Phase 6 backend)",
+      "author": "Claude",
+      "timestamp": "2026-09-05T20:54:52Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-3b9ae5a.md"
+    },
     {
       "sha": "9a11c7c",
       "full_sha": "9a11c7c2c4d5552804fd671373f3097c43913f12",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-09-02T12:37:43Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-1629ea2.md"
-    },
-    {
-      "sha": "5d4ce61",
-      "full_sha": "5d4ce615b5cda0a7bb18d72b6b3d0f2997a70562",
-      "title": "Decouple public-exposure from series='bridge' — require an explicit signal",
-      "author": "Claude",
-      "timestamp": "2026-09-02T12:37:58Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-5d4ce61.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

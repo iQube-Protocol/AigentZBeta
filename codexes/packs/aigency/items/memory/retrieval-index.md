@@ -5524,3 +5524,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-9a11c7c.md](../build_/COMMITS/COMMIT-9a11c7c.md)
 - Message: Give Factor real Bankr capability actions (Phase 5 of Factor+Aegis Bankr PRD)
+
+## Commit `3b9ae5a` — 2026-09-05T20:54:52Z
+- Type: `push`
+- Brief: [COMMIT-3b9ae5a.md](../build_/COMMITS/COMMIT-3b9ae5a.md)
+- Message: Give Factor's Bankr actions real HTTP routes; close Phase 8 drift/tenant gaps (Phase 6 backend)
