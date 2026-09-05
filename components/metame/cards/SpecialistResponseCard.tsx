@@ -27,9 +27,15 @@ import {
 import { IqubeContextDisclosure, type IqubeKind } from "./IqubeContextDisclosure";
 import { PreflightByline, PreflightChip } from "./PreflightByline";
 import type { PreflightContext } from "@/services/capabilities/preflight";
+import type { SpecialistId } from "@/services/agents/specialistRouter";
 
 export interface SpecialistResponseData {
-  specialistId: "marketa" | "quill" | "kn0w1" | "aigent-z" | "aigent-c" | "aigent-nakamoto";
+  // Derived from the canonical SpecialistId union (services/agents/
+  // specialistRouter.ts) rather than a second, hand-copied list — this card
+  // was previously missing moneypenny/metaye/researcher/aletheon/factor/aegis
+  // despite services/agents/specialistRouter.ts already supporting all of
+  // them (Extend-Don't-Duplicate).
+  specialistId: SpecialistId;
   specialistLabel: string;
   requestType: string;
   title: string;

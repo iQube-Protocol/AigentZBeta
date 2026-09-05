@@ -315,7 +315,7 @@ function attributeNakamotoContribution(moneyPenny: SpecialistResponse, nakamoto:
   };
 }
 
-const VALID_SPECIALISTS: SpecialistId[] = ['marketa', 'quill', 'kn0w1', 'aigent-z', 'aigent-c', 'aigent-nakamoto', 'moneypenny', 'metaye', 'researcher', 'aletheon'];
+const VALID_SPECIALISTS: SpecialistId[] = ['marketa', 'quill', 'kn0w1', 'aigent-z', 'aigent-c', 'aigent-nakamoto', 'moneypenny', 'metaye', 'researcher', 'aletheon', 'factor', 'aegis'];
 
 /**
  * Aliases that map short / alternate names back onto the canonical
