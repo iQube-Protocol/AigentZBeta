@@ -40,6 +40,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-09-05_factor-runtime-endpoint-and-specialist-ui.md",
         "updates/2026-09-05_factor-aegis-live-provisioning-execution.md",
         "updates/2026-09-05_factor-aegis-capacity-remediation.md",
         "updates/2026-09-05_factor-aegis-canonical-identity-and-wallet-provisioning.md",
