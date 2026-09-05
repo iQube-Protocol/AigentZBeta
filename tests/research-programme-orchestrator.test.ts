@@ -112,11 +112,6 @@ vi.mock('@/services/research/artifacts', () => ({
   currentCrystalArtifactId: (...args: unknown[]) => mockCurrentCrystalArtifactId(...args),
 }));
 
-const mockBuildFrozenCrystalManifest = vi.fn();
-vi.mock('@/services/research/crystalFrozenManifest', () => ({
-  buildFrozenCrystalManifest: (...args: unknown[]) => mockBuildFrozenCrystalManifest(...args),
-}));
-
 const mockRunCrystalReadinessReport = vi.fn();
 vi.mock('@/services/research/crystalReadiness', () => ({
   runCrystalReadinessReport: (...args: unknown[]) => mockRunCrystalReadinessReport(...args),
@@ -1372,9 +1367,15 @@ describe('the frozen-generation boundary — a frozen predecessor’s own promot
       signedBy: ['operator-ref'],
       receiptId: null,
     });
-    mockBuildFrozenCrystalManifest.mockResolvedValue({
-      recoveredInvariants: [{ id: 'inv-1' }, { id: 'inv-2' }],
-    });
+    // Generation-bounded membership recovery (2026-09-05 repair) —
+    // resolveFrozenPredecessorContext now reads DIRECTLY via
+    // listInvariants({domain, crystalGenerationId}), never via
+    // buildFrozenCrystalManifest. Discriminated by crystalGenerationId so
+    // this fixture never leaks into the review-queue's own unrelated
+    // listInvariants usage (duplicate-scoring pool) elsewhere in this file.
+    mockListInvariants.mockImplementation(async (filter: { crystalGenerationId?: string }) =>
+      filter?.crystalGenerationId ? [{ id: 'inv-1', statement: 'vP1 residue 1' }, { id: 'inv-2', statement: 'vP1 residue 2' }] : [],
+    );
 
     const state = await loadTrack2ProgrammeState({ experimentId: EXPERIMENT });
     if ('error' in state) throw new Error(state.error);
@@ -1439,7 +1440,11 @@ describe('the Stage 3 → Stage 4 handoff gap — extracted candidates may never
       signedBy: ['operator-ref'],
       receiptId: null,
     });
-    mockBuildFrozenCrystalManifest.mockResolvedValue({ recoveredInvariants: [{ id: 'inv-1' }] });
+    // See the "frozen-generation boundary" describe block above for why this
+    // is mockListInvariants (generation-bounded), never buildFrozenCrystalManifest.
+    mockListInvariants.mockImplementation(async (filter: { crystalGenerationId?: string }) =>
+      filter?.crystalGenerationId ? [{ id: 'inv-1', statement: 'vP1 residue' }] : [],
+    );
   }
 
   it('a pre-freeze orphan candidate (never promoted, never rejected) is excluded from Stage 3’s total AND Stage 4’s awaitingReview — the exact 17-vs-0/0 gap', async () => {
@@ -1541,7 +1546,8 @@ describe('the Stage 3 → Stage 4 handoff gap — extracted candidates may never
       signedBy: ['operator-ref'],
       receiptId: null,
     });
-    mockBuildFrozenCrystalManifest.mockResolvedValue({ recoveredInvariants: [] });
+    // Default mockListInvariants ([]) already stands in for an empty
+    // generation-scoped read — no fixture override needed.
 
     const state = await loadTrack2ProgrammeState({ experimentId: EXPERIMENT });
     if ('error' in state) throw new Error(state.error);

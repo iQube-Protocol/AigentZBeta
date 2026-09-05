@@ -75,6 +75,7 @@ export function mapContextRow(row: Record<string, unknown>): InvariantContextRec
       ? asRecordObj(row.applicability_conditions)
       : null,
     retrievalTags: Array.isArray(row.retrieval_tags) ? (row.retrieval_tags as string[]) : [],
+    crystalGenerationId: (row.crystal_generation_id as string) ?? null,
     createdAt: String(row.created_at),
   };
 }
@@ -195,6 +196,19 @@ export interface ListInvariantsFilter {
   ontologyClassId?: string;
   /** Filter to invariants having a context in this domain. */
   domain?: string;
+  /**
+   * Further narrows the domain filter to ONE crystal generation — the
+   * `research_objects.object_id` of the crystal-version artifact a
+   * membership was assigned under (e.g. 'EXP-P1/crystal-vP1'), never a
+   * freeform 'v1'/'v2' label. Requires `domain`; ignored otherwise (a
+   * generation id without the domain it was assigned in is not a query).
+   * This is the ONLY way to recover a historical generation's membership
+   * without it silently absorbing every row later assigned into the same
+   * shared domain — see services/research/crystalCohortMembership.ts,
+   * whose `resolveFrozenPredecessorContext` is the one place this matters
+   * (2026-09-05, RES-2026-09-05-TRACK2-MEMBERSHIP-RECOVERY-GENERATION-BLIND-001).
+   */
+  crystalGenerationId?: string;
   /** Case-insensitive substring match on statement. */
   q?: string;
   limit?: number;
@@ -205,10 +219,14 @@ export async function listInvariants(filter: ListInvariantsFilter = {}): Promise
   let invariantIds: string[] | null = null;
 
   if (filter.domain) {
-    const { data: ctxRows, error: ctxError } = await client
+    let ctxQuery = client
       .from('invariant_contexts')
       .select('invariant_id')
       .eq('domain', filter.domain);
+    if (filter.crystalGenerationId) {
+      ctxQuery = ctxQuery.eq('crystal_generation_id', filter.crystalGenerationId);
+    }
+    const { data: ctxRows, error: ctxError } = await ctxQuery;
     if (ctxError) throw new Error(`context filter failed: ${ctxError.message}`);
     invariantIds = [...new Set((ctxRows ?? []).map((r) => String(r.invariant_id)))];
     if (invariantIds.length === 0) return [];
@@ -259,6 +277,15 @@ export interface AddContextInput {
   interpretation?: string | null;
   applicabilityConditions?: Record<string, unknown> | null;
   retrievalTags?: string[];
+  /**
+   * The crystal-version artifact id (e.g. 'EXP-P1/crystal-vP2') this
+   * membership is assigned under, when `domain` is a crystal domain.
+   * Omit (or pass null) for a non-crystal context. See
+   * services/research/artifacts.ts::ensureCurrentCrystalGenerationId for
+   * the one place this value should be resolved from — never a
+   * hand-typed 'v1'/'v2' string (2026-09-05 generation-identity repair).
+   */
+  crystalGenerationId?: string | null;
 }
 
 export async function upsertContext(input: AddContextInput): Promise<InvariantContextRecord> {
@@ -272,6 +299,7 @@ export async function upsertContext(input: AddContextInput): Promise<InvariantCo
         interpretation: input.interpretation ?? null,
         applicability_conditions: input.applicabilityConditions ?? null,
         retrieval_tags: input.retrievalTags ?? [],
+        crystal_generation_id: input.crystalGenerationId ?? null,
       },
       { onConflict: 'invariant_id,domain' },
     )

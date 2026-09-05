@@ -281,6 +281,17 @@ export interface InvariantContextRecord {
   interpretation: string | null;
   applicabilityConditions: Record<string, unknown> | null;
   retrievalTags: string[];
+  /**
+   * The `research_objects.object_id` of the crystal-version artifact this
+   * membership was assigned under (e.g. 'EXP-P1/crystal-vP1') — NEVER a
+   * freeform 'v1'/'v2' label (2026-09-05, generation-identity repair,
+   * RES-2026-09-05-TRACK2-MEMBERSHIP-RECOVERY-GENERATION-BLIND-001). Null
+   * for contexts outside a crystal domain, and for rows assigned before
+   * this column existed until backfilled. See
+   * services/research/crystalCohortMembership.ts for the one place a
+   * generation-bounded membership read must use this field.
+   */
+  crystalGenerationId: string | null;
   createdAt: string;
 }
 
