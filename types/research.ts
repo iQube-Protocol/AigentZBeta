@@ -742,6 +742,63 @@ export type FrozenArtifactKind =
   | 'execution-run'
   | 'research-package';
 
+// ─── Iterative Crystal versioning — frozen generations are immutable,
+//     Crystal LINEAGES are evolutionary (operator ruling, 2026-09-05) ───────
+//
+// A Crystal freeze fixes ONE generation's content forever; it does not
+// terminate the lineage. An experiment may run internally against a frozen
+// generation whose measured scientific-readiness is honestly incomplete —
+// findings from that run are what justify (or don't) constitutionally
+// expanding the corpus into a successor generation. The remediation path for
+// an observed substrate limitation is ALWAYS
+//   observe → record finding → expand evidence corpus → constitute successor
+//   → readiness → freeze successor → rerun
+// and NEVER "mutate the frozen generation". `executionDesignation` below is
+// the mechanism that lets an operator authorize entering that internal-run
+// state EXPLICITLY, without ever marking a failing measurement passed, and
+// without ever weakening a threshold — see
+// services/research/artifacts.ts::checkFreezeGate for the enforcement.
+
+/**
+ * `'confirmatory'` (the default, and the ONLY designation that existed before
+ * this scheme) — the unconditional gate applies exactly as it always has:
+ * every `scientific-readiness`-tier check must pass, no deviation is ever
+ * accepted, full stop.
+ *
+ * `'internal-pilot'` — an explicitly operator-authorized internal/pilot run
+ * against a generation whose readiness carries named, currently-measured
+ * scientific-readiness failures. Never implies those checks passed; never
+ * substitutes for a successor generation's own eventual confirmatory freeze.
+ */
+export const CRYSTAL_EXECUTION_DESIGNATIONS = ['confirmatory', 'internal-pilot'] as const;
+export type CrystalExecutionDesignation = (typeof CRYSTAL_EXECUTION_DESIGNATIONS)[number];
+
+/** One scientific-readiness check the operator explicitly acknowledged as
+ *  failing at the moment of an internal-pilot freeze — the measurement is
+ *  carried verbatim, never summarised or softened. */
+export interface FreezeScientificDeviation {
+  checkName: string;
+  measuredDetail: string;
+  remedy: string | null;
+}
+
+/**
+ * The operator's own authorization for an internal-pilot freeze — required
+ * whenever `FrozenArtifact.executionDesignation === 'internal-pilot'`.
+ * `deviations` is the EXACT set of scientific-readiness checks failing at
+ * freeze time that this authorization covers; empty only when nothing was
+ * failing (a pilot designation chosen for another reason entirely). Never
+ * present, and never meaningful, on a `'confirmatory'` freeze.
+ */
+export interface FreezeAuthorizationRecord {
+  authorizedBy: string; // T2-safe operator ref — never a raw personaId
+  authorizedAt: string; // ISO
+  /** The operator's own rationale, verbatim — never paraphrased. */
+  statement: string;
+  executionDesignation: CrystalExecutionDesignation;
+  deviations: FreezeScientificDeviation[];
+}
+
 export interface FrozenArtifact {
   id: string; // T2-safe slug, e.g. 'EXP-P1:crystal-version:v1'
   kind: FrozenArtifactKind;
@@ -766,6 +823,42 @@ export interface FrozenArtifact {
    *  without re-deriving anything). Null before freeze; null is also honest
    *  if the write somehow failed while lifecycle still reached 'frozen'. */
   receiptId: string | null;
+  /**
+   * `null` for every artifact frozen before this scheme existed (e.g.
+   * 'EXP-P1/crystal-vP1') and for every non-crystal-version kind. Persisted
+   * so a reader never has to re-derive "was this a pilot or a confirmatory
+   * freeze" from prose (2026-09-05, iterative Crystal versioning).
+   */
+  executionDesignation: CrystalExecutionDesignation | null;
+  /** `null` unless `executionDesignation === 'internal-pilot'`. */
+  freezeAuthorization: FreezeAuthorizationRecord | null;
+  /**
+   * The FULL readiness report AT THE MOMENT OF FREEZE — every check, passed
+   * and failed alike, exactly as measured. Persisted so "the measured
+   * deficiencies... remain recorded exactly as observed" survives the freeze
+   * act itself rather than living only in a preview package or an update doc.
+   * Opaque here (`Record<string, unknown>`) rather than importing
+   * `CrystalReadinessReport` — this file stays a pure leaf type module; the
+   * shape is `services/research/crystalReadiness.ts`'s own contract. `null`
+   * for artifacts frozen before this scheme existed, and for non-crystal-version kinds.
+   */
+  readinessSnapshot: Record<string, unknown> | null;
+  /**
+   * The EXACT hash pre-image `commitmentHash` commits to — the same
+   * `HashCoveredMember[]` `services/research/crystalContentProjection.ts`
+   * hashes, persisted verbatim so future verification never depends on
+   * re-querying a live domain that may have moved on. `null` for artifacts
+   * frozen before this scheme existed, and for non-crystal-version kinds.
+   */
+  memberSnapshot: Array<{
+    id: string;
+    statement: string;
+    namespace: string;
+    semanticType: string | null;
+    status: string;
+    evidenceProvenance: string | null;
+    provenance: Record<string, unknown> | null;
+  }> | null;
 }
 
 /** task-set and answer-key are mutually referential by design (PRD-EPI-001

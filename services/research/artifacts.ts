@@ -16,13 +16,17 @@ import {
   writeLifecycleReceipt,
   type ResearchObjectRecord,
 } from '@/services/research/lifecycle';
-import { runCrystalReadinessReport } from '@/services/research/crystalReadiness';
+import { runCrystalReadinessReport, type CrystalReadinessReport } from '@/services/research/crystalReadiness';
 import { runTaskCoverageReport, type TaskDefinition } from '@/services/research/taskCoverage';
+import type { HashCoveredMember } from '@/services/research/crystalContentProjection';
 import {
   ARTIFACT_LIFECYCLE,
   PROTOCOL_FREEZE_ARTIFACT_KINDS,
   type ArtifactLifecycleState,
   type ArtifactPhase,
+  type CrystalExecutionDesignation,
+  type FreezeAuthorizationRecord,
+  type FreezeScientificDeviation,
   type FrozenArtifact,
   type FrozenArtifactKind,
 } from '@/types/research';
@@ -43,6 +47,13 @@ function fromRow(row: ResearchObjectRecord): FrozenArtifact {
     // (services/research/lifecycle.ts's ResearchObjectRecord), never
     // duplicated into the JSON blob.
     receiptId: row.receiptId ?? null,
+    // Iterative Crystal versioning (2026-09-05) — absent on every artifact
+    // frozen before this scheme existed (e.g. 'EXP-P1/crystal-vP1'); `null`
+    // is the honest read for those, never a guessed designation.
+    executionDesignation: (p.executionDesignation as FrozenArtifact['executionDesignation']) ?? null,
+    freezeAuthorization: (p.freezeAuthorization as FrozenArtifact['freezeAuthorization']) ?? null,
+    readinessSnapshot: (p.readinessSnapshot as FrozenArtifact['readinessSnapshot']) ?? null,
+    memberSnapshot: (p.memberSnapshot as FrozenArtifact['memberSnapshot']) ?? null,
   };
 }
 
@@ -55,6 +66,10 @@ function toPayload(artifact: FrozenArtifact): Record<string, unknown> {
     commitmentHash: artifact.commitmentHash,
     frozenAt: artifact.frozenAt,
     signedBy: artifact.signedBy,
+    executionDesignation: artifact.executionDesignation,
+    freezeAuthorization: artifact.freezeAuthorization,
+    readinessSnapshot: artifact.readinessSnapshot,
+    memberSnapshot: artifact.memberSnapshot,
     ...('taskSetId' in artifact ? { taskSetId: (artifact as { taskSetId?: string }).taskSetId } : {}),
     ...('taskSetContentHash' in artifact
       ? { taskSetContentHash: (artifact as { taskSetContentHash?: string }).taskSetContentHash }
@@ -241,6 +256,10 @@ export async function upsertArtifact(input: {
     frozenAt: null,
     signedBy: [],
     receiptId: null,
+    executionDesignation: null,
+    freezeAuthorization: null,
+    readinessSnapshot: null,
+    memberSnapshot: null,
     ...(input.taskSetId ? { taskSetId: input.taskSetId } : {}),
     ...(input.taskSetContentHash ? { taskSetContentHash: input.taskSetContentHash } : {}),
   } as FrozenArtifact;
@@ -255,6 +274,31 @@ export async function upsertArtifact(input: {
 export interface FreezeGateResult {
   ok: boolean;
   error?: string;
+  /**
+   * The readiness report computed during THIS gate check, for crystal-version
+   * artifacts — attached whether or not the gate ultimately passes, so a
+   * caller (freezeArtifact) can persist the EXACT measurements without a
+   * second, possibly-divergent computation (inv.engineering.036). `undefined`
+   * for every other artifact kind.
+   */
+  readiness?: CrystalReadinessReport;
+}
+
+/**
+ * Operator authorization for an internal-pilot freeze — see
+ * types/research.ts's FreezeAuthorizationRecord for the persisted shape this
+ * maps onto. Required only when `executionDesignation === 'internal-pilot'`;
+ * refused outright on a `'confirmatory'` freeze (2026-09-05, iterative
+ * Crystal versioning — operator ruling: "Frozen generations are immutable;
+ * Crystal lineages are evolutionary").
+ */
+export interface FreezeDeviationAuthorization {
+  authorizedBy: string; // T2-safe operator ref
+  statement: string; // verbatim rationale
+  /** MUST exactly equal the set of scientific-readiness check names failing
+   *  right now — no more (can't pre-authorize an unmeasured future failure),
+   *  no fewer (can't leave a real failure unacknowledged). */
+  acknowledgedCheckNames: string[];
 }
 
 /** Per-kind freeze gate — PRD-EPI-001 §3 (crystal), §5 (task-set/answer-key),
@@ -266,28 +310,104 @@ export interface FreezeGateResult {
  * check it. */
 export async function checkFreezeGate(
   artifact: FrozenArtifact,
-  opts: { tasks?: TaskDefinition[] } = {},
+  opts: {
+    tasks?: TaskDefinition[];
+    /** Defaults to `'confirmatory'` — the unconditional gate below applies
+     *  exactly as it always has unless this is explicitly `'internal-pilot'`. */
+    executionDesignation?: CrystalExecutionDesignation;
+    deviationAuthorization?: FreezeDeviationAuthorization;
+  } = {},
 ): Promise<FreezeGateResult> {
-  if (artifact.kind === 'crystal-version') {
+  const executionDesignation = opts.executionDesignation ?? 'confirmatory';
+  let readiness: CrystalReadinessReport | undefined;
+  if (artifact.kind !== 'crystal-version') {
+    if (opts.deviationAuthorization || executionDesignation !== 'confirmatory') {
+      return {
+        ok: false,
+        error: 'executionDesignation / deviationAuthorization apply only to crystal-version artifacts',
+      };
+    }
+  } else {
+    // A confirmatory freeze must NEVER carry a deviation record — that is the
+    // entire point of the two-designation split. Refused before readiness is
+    // even computed, so this can never be reached by accident.
+    if (executionDesignation === 'confirmatory' && opts.deviationAuthorization) {
+      return {
+        ok: false,
+        error:
+          'a confirmatory freeze must never carry a deviationAuthorization — deviations are permitted only for ' +
+          'an explicit internal-pilot execution designation',
+      };
+    }
     // PRD-EPI-001 §3.1 — Crystal Intrinsic Readiness Report. Honest today: no
     // Track 2 content exists yet, so this will correctly report `ok: false`
     // with zero counts until the crystal is actually enlarged — that is the
     // gate working as designed, not a bug to route around.
-    const readiness = await runCrystalReadinessReport({ experimentId: artifact.experimentId });
-    if (!readiness.ok) {
-      // `ok` already excludes `scientific-maturity` checks (operator ruling,
-      // 2026-08-05 — those are informational, never a freeze blocker); this
-      // filter keeps the error message honest about the SAME set, so it never
-      // cites structural-diversity/graph-connectivity as "why this failed"
-      // when neither is actually gating anything.
-      const failed = readiness.checks
-        .filter((c) => c.tier === 'scientific-readiness' && !c.passed)
-        .map((c) => `${c.name}: ${c.detail}`);
+    readiness = await runCrystalReadinessReport({ experimentId: artifact.experimentId });
+    // `ok` already excludes `scientific-maturity` checks (operator ruling,
+    // 2026-08-05 — those are informational, never a freeze blocker); this
+    // filter keeps the error message honest about the SAME set, so it never
+    // cites structural-diversity/graph-connectivity as "why this failed"
+    // when neither is actually gating anything. Computed regardless of
+    // `readiness.ok` — an internal-pilot deviation needs the exact failing
+    // set even when there is nothing to report for a confirmatory freeze.
+    const failedChecks = readiness.checks.filter((c) => c.tier === 'scientific-readiness' && !c.passed);
+
+    if (executionDesignation === 'internal-pilot') {
+      // An internal-pilot designation is ALWAYS a deliberate, attributed,
+      // stated act — required even when nothing is currently failing (a
+      // pilot run chosen for another reason still needs an operator on record
+      // for why this is not the confirmatory freeze).
+      const deviation = opts.deviationAuthorization;
+      if (!deviation?.authorizedBy?.trim() || !deviation?.statement?.trim()) {
+        return {
+          ok: false,
+          error:
+            'an internal-pilot freeze requires deviationAuthorization.authorizedBy and .statement — a pilot ' +
+            'designation is never a default, only a deliberate, attributed, stated operator act',
+          readiness,
+        };
+      }
+      const failedNames = new Set(failedChecks.map((c) => c.name));
+      const acknowledgedNames = new Set(deviation.acknowledgedCheckNames ?? []);
+      const unacknowledged = [...failedNames].filter((n) => !acknowledgedNames.has(n));
+      const overclaimed = [...acknowledgedNames].filter((n) => !failedNames.has(n));
+      if (unacknowledged.length > 0) {
+        return {
+          ok: false,
+          error:
+            `deviationAuthorization does not acknowledge every currently-failing scientific-readiness check — ` +
+            `missing: ${unacknowledged.join(', ')}. Every real failure must be explicitly named; none may pass ` +
+            `unacknowledged.`,
+          readiness,
+        };
+      }
+      if (overclaimed.length > 0) {
+        return {
+          ok: false,
+          error:
+            `deviationAuthorization names check(s) that are not currently failing: ${overclaimed.join(', ')} — a ` +
+            `deviation may only acknowledge real, currently-measured failures, never a pre-authorized blanket.`,
+          readiness,
+        };
+      }
+      // Accepted: the freeze proceeds despite `!readiness.ok`. Nothing above
+      // marks a failing check `passed`, weakens a threshold, or adjusts the
+      // measurement — `readiness` (attached below, unmodified) still reports
+      // exactly what it always would. Falls through to the shared checks.
+    } else if (!readiness.ok) {
+      // Confirmatory — the unconditional gate, byte-identical to its
+      // pre-2026-09-05 behaviour.
+      const failed = failedChecks.map((c) => `${c.name}: ${c.detail}`);
       return {
         ok: false,
         error: `Crystal Intrinsic Readiness Report failed (PRD-EPI-001 §3.1) — ${failed.join('; ')}`,
+        readiness,
       };
     }
+    // Falls through, `readiness` set above — the shared per-kind checks below
+    // (answer-key / task-set / contentHash / signatory) are unaffected by
+    // either designation and apply exactly as before.
   }
   if (artifact.kind === 'answer-key') {
     const a = artifact as unknown as { taskSetId?: string; taskSetContentHash?: string };
@@ -335,12 +455,12 @@ export async function checkFreezeGate(
     }
   }
   if (!artifact.contentHash) {
-    return { ok: false, error: 'contentHash required before freeze (PRD-EPI-001 §2.1)' };
+    return { ok: false, error: 'contentHash required before freeze (PRD-EPI-001 §2.1)', readiness };
   }
   if (artifact.signedBy.length === 0) {
-    return { ok: false, error: 'at least one signatory required before freeze (IRL-016 §2)' };
+    return { ok: false, error: 'at least one signatory required before freeze (IRL-016 §2)', readiness };
   }
-  return { ok: true };
+  return { ok: true, readiness };
 }
 
 /** Transition an artifact validated → frozen. Runs checkFreezeGate first;
@@ -357,6 +477,25 @@ export async function freezeArtifact(input: {
    * task list the Task–Crystal Coverage Report runs against. Ignored for
    * every other artifact kind. */
   tasks?: TaskDefinition[];
+  /**
+   * Iterative Crystal versioning (2026-09-05, operator ruling: "Frozen
+   * generations are immutable; Crystal lineages are evolutionary").
+   * Defaults to `'confirmatory'` — omitting these three fields entirely
+   * reproduces the pre-2026-09-05 behaviour byte for byte: the unconditional
+   * scientific-readiness gate, no persisted deviation, no snapshot beyond
+   * what always persisted. `'internal-pilot'` requires `deviationAuthorization`
+   * whenever any scientific-readiness check is currently failing.
+   */
+  executionDesignation?: CrystalExecutionDesignation;
+  deviationAuthorization?: FreezeDeviationAuthorization;
+  /**
+   * REQUIRED to freeze a crystal-version artifact — the exact hash pre-image
+   * `services/research/crystalContentProjection.ts::sortedHashCoveredProjection`
+   * produced for `input.contentHash`, persisted verbatim so future
+   * verification never depends on re-querying a live domain that may have
+   * moved on. Ignored for every other artifact kind.
+   */
+  memberSnapshot?: HashCoveredMember[];
 }): Promise<{ ok: boolean; error?: string; receiptId?: string | null }> {
   const artifact = await getArtifactById(input.id);
   if (!artifact) return { ok: false, error: `unknown artifact '${input.id}'` };
@@ -367,26 +506,63 @@ export async function freezeArtifact(input: {
   if (input.signedBy.length === 0) {
     return { ok: false, error: 'at least one signatory required (IRL-016 §2)' };
   }
+  if (artifact.kind === 'crystal-version' && !input.memberSnapshot) {
+    return {
+      ok: false,
+      error:
+        'memberSnapshot is required to freeze a crystal-version artifact — the exact hash pre-image must be ' +
+        'persisted so future verification never depends on re-querying a live domain that may have moved on',
+    };
+  }
 
+  const executionDesignation = input.executionDesignation ?? 'confirmatory';
   const candidate: FrozenArtifact = {
     ...artifact,
     contentHash: input.contentHash,
     signedBy: input.signedBy,
   };
-  const gate = await checkFreezeGate(candidate, { tasks: input.tasks });
+  const gate = await checkFreezeGate(candidate, {
+    tasks: input.tasks,
+    executionDesignation,
+    deviationAuthorization: input.deviationAuthorization,
+  });
   if (!gate.ok) return { ok: false, error: gate.error };
 
   const frozenAt = new Date().toISOString();
+  // The scientific-readiness checks failing AT THIS EXACT FREEZE — computed
+  // from `gate.readiness`, the SAME report `checkFreezeGate` just verified
+  // the deviation against, never re-derived (inv.engineering.036).
+  const deviations: FreezeScientificDeviation[] = (gate.readiness?.checks ?? [])
+    .filter((c) => c.tier === 'scientific-readiness' && !c.passed)
+    .map((c) => ({ checkName: c.name, measuredDetail: c.detail, remedy: c.remedy }));
+  const freezeAuthorization: FreezeAuthorizationRecord | null =
+    executionDesignation === 'internal-pilot' && input.deviationAuthorization
+      ? {
+          authorizedBy: input.deviationAuthorization.authorizedBy,
+          authorizedAt: frozenAt,
+          statement: input.deviationAuthorization.statement,
+          executionDesignation,
+          deviations,
+        }
+      : null;
+
   const frozen: FrozenArtifact = {
     ...candidate,
     lifecycle: 'frozen',
     commitmentHash: input.contentHash,
     frozenAt,
+    executionDesignation: artifact.kind === 'crystal-version' ? executionDesignation : null,
+    freezeAuthorization,
+    readinessSnapshot: (gate.readiness as unknown as Record<string, unknown>) ?? null,
+    memberSnapshot: input.memberSnapshot ?? null,
   };
 
   const { ok, receiptId } = await writeLifecycleReceipt({
     personaId: input.personaId,
-    summary: `${artifact.experimentId} artifact '${artifact.id}' (${artifact.kind}) frozen — commitment ${input.contentHash.slice(0, 16)}…`,
+    summary:
+      `${artifact.experimentId} artifact '${artifact.id}' (${artifact.kind}) frozen — commitment ` +
+      `${input.contentHash.slice(0, 16)}…` +
+      (executionDesignation === 'internal-pilot' ? ' [executionDesignation: internal-pilot]' : ''),
     invariantSeedIds: input.governingInvariants ?? [],
   });
   if (!ok) return { ok: false, error: 'receipt write failed' };

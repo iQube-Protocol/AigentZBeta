@@ -80,9 +80,13 @@ import {
   freezeArtifact,
   getArtifactById,
   upsertArtifact,
+  type FreezeDeviationAuthorization,
 } from '@/services/research/artifacts';
 import { crystalDomainForExperiment } from '@/services/research/crystalDomains';
 import { runCrystalStatisticsReport } from '@/services/research/crystalStatistics';
+import { listInvariants } from '@/services/invariants/store';
+import { sortedHashCoveredProjection } from '@/services/research/crystalContentProjection';
+import { CRYSTAL_EXECUTION_DESIGNATIONS, type CrystalExecutionDesignation } from '@/types/research';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -111,6 +115,21 @@ interface FreezeBody {
   domainBoundary?: unknown;
   namespace?: unknown;
   scope?: unknown;
+  /**
+   * Iterative Crystal versioning (2026-09-05, operator ruling: "Frozen
+   * generations are immutable; Crystal lineages are evolutionary"). Defaults
+   * to `'confirmatory'` — omitting all four of these fields reproduces the
+   * pre-2026-09-05 freeze act exactly: the unconditional scientific-readiness
+   * gate, no deviation ever accepted.
+   */
+  executionDesignation?: unknown;
+  /** Required, T2-safe, only when executionDesignation is 'internal-pilot'. */
+  deviationAuthorizedBy?: unknown;
+  /** The operator's own rationale, verbatim. Required with the above. */
+  deviationStatement?: unknown;
+  /** MUST exactly equal the scientific-readiness checks failing right now —
+   *  services/research/artifacts.ts::checkFreezeGate refuses a mismatch. */
+  acknowledgedCheckNames?: unknown;
 }
 
 function asString(v: unknown): string {
@@ -333,6 +352,63 @@ export async function POST(
     );
   }
 
+  // ── Iterative Crystal versioning (2026-09-05) — execution designation ────
+  const executionDesignationRaw = asString(body.executionDesignation) || 'confirmatory';
+  if (!(CRYSTAL_EXECUTION_DESIGNATIONS as readonly string[]).includes(executionDesignationRaw)) {
+    return NextResponse.json(
+      {
+        requestSucceeded: false,
+        error: `executionDesignation must be one of ${CRYSTAL_EXECUTION_DESIGNATIONS.join(' | ')}`,
+      },
+      { status: 400 },
+    );
+  }
+  const executionDesignation = executionDesignationRaw as CrystalExecutionDesignation;
+
+  let deviationAuthorization: FreezeDeviationAuthorization | undefined;
+  if (executionDesignation === 'internal-pilot') {
+    const authorizedBy = asString(body.deviationAuthorizedBy);
+    const statement = asString(body.deviationStatement);
+    if (!authorizedBy || !statement) {
+      return NextResponse.json(
+        {
+          requestSucceeded: false,
+          error:
+            'an internal-pilot freeze requires deviationAuthorizedBy and deviationStatement — a pilot ' +
+            'designation is never a default, only a deliberate, attributed, stated operator act',
+        },
+        { status: 400 },
+      );
+    }
+    if (UUID_SHAPE.test(authorizedBy)) {
+      return NextResponse.json(
+        {
+          requestSucceeded: false,
+          error:
+            `deviationAuthorizedBy '${authorizedBy}' is UUID-shaped — a raw persona identifier is T0 and must ` +
+            'never enter a durable, receipted record. Supply the T2-safe reference (personaPublicRef) instead.',
+        },
+        { status: 400 },
+      );
+    }
+    const acknowledgedCheckNames = Array.isArray(body.acknowledgedCheckNames)
+      ? body.acknowledgedCheckNames.filter((v): v is string => typeof v === 'string' && v.trim().length > 0).map((v) => v.trim())
+      : [];
+    deviationAuthorization = { authorizedBy, statement, acknowledgedCheckNames };
+  } else if (
+    body.deviationAuthorizedBy !== undefined ||
+    body.deviationStatement !== undefined ||
+    body.acknowledgedCheckNames !== undefined
+  ) {
+    return NextResponse.json(
+      {
+        requestSucceeded: false,
+        error: 'deviation fields are not accepted on a confirmatory freeze — they apply only to executionDesignation: "internal-pilot"',
+      },
+      { status: 400 },
+    );
+  }
+
   // The staleness guard. Recomputed here, at the moment of the act.
   const statistics = await runCrystalStatisticsReport({ experimentId, crystalDomain });
   if (statistics.substrateError) {
@@ -362,6 +438,29 @@ export async function POST(
     );
   }
 
+  // The EXACT hash pre-image `suppliedHash` commits to — the same query
+  // shape readiness/statistics already use, fetched once here so it can be
+  // persisted verbatim (2026-09-05, iterative Crystal versioning). Read
+  // AFTER the staleness guard above confirms the corpus still matches the
+  // hash the operator reviewed.
+  let memberSnapshot;
+  try {
+    const invariantsForSnapshot = await listInvariants({
+      domain: crystalDomain,
+      status: ['validated', 'canonical'],
+      limit: 500,
+    });
+    memberSnapshot = sortedHashCoveredProjection(invariantsForSnapshot);
+  } catch (error) {
+    return NextResponse.json(
+      {
+        requestSucceeded: false,
+        error: `could not read the invariant substrate to build the hash pre-image: ${error instanceof Error ? error.message : String(error)}`,
+      },
+      { status: 503 },
+    );
+  }
+
   // Everything below belongs to the service. `freezeArtifact` re-runs
   // `checkFreezeGate` → `runCrystalReadinessReport` itself, refuses a re-freeze,
   // refuses a non-`validated` source state, and writes the receipt through the
@@ -371,6 +470,9 @@ export async function POST(
     id: crystalId,
     contentHash: suppliedHash,
     signedBy,
+    executionDesignation,
+    deviationAuthorization,
+    memberSnapshot,
   });
   if (!frozen.ok) {
     return NextResponse.json({ requestSucceeded: false, error: frozen.error }, { status: 409 });
@@ -385,11 +487,18 @@ export async function POST(
       contentHash: suppliedHash,
       signedBy,
       freezeRationale,
+      executionDesignation,
       invariantCount: statistics.invariantCount,
       receiptId: frozen.receiptId ?? null,
       note:
         'Frozen. The crystal’s content is fixed and receipted; the receipt rides the existing ' +
-        'research_lifecycle_transition DVN path. Publication as canonical is a separate act.',
+        'research_lifecycle_transition DVN path. Publication as canonical is a separate act.' +
+        (executionDesignation === 'internal-pilot'
+          ? ' This is an INTERNAL/PILOT freeze — its measured scientific-readiness deficiencies are recorded, ' +
+            'not resolved. A confirmatory run requires its own successor generation, per the remediation path: ' +
+            'observe limitation → record finding → expand evidence corpus → constitute successor generation → ' +
+            'readiness → freeze successor → rerun. This generation is never mutated.'
+          : ''),
     },
     { headers: { 'Cache-Control': 'no-store' } },
   );

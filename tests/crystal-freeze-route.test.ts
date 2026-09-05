@@ -38,6 +38,15 @@ vi.mock('@/services/research/crystalStatistics', () => ({
   runCrystalStatisticsReport: (...args: any[]) => mockRunCrystalStatisticsReport(...args),
 }));
 
+// The route builds the persisted hash pre-image (2026-09-05, iterative
+// Crystal versioning) via a direct listInvariants read AFTER the staleness
+// guard passes — mocked here so these tests never touch a real Supabase
+// client. Empty by default; the one test that reaches this point overrides it.
+const mockListInvariants = vi.fn().mockResolvedValue([]);
+vi.mock('@/services/invariants/store', () => ({
+  listInvariants: (...args: any[]) => mockListInvariants(...args),
+}));
+
 // crystalDomainForExperiment is left REAL and unmocked — the point of these
 // tests is that the route reads the real ratified declaration, never a
 // stand-in. 'EXP-P1' resolves it; anything else resolves null.
