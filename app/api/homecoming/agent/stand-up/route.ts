@@ -35,7 +35,7 @@ import { provisionAgentPersona } from '@/services/agents/provisionAgentPersona';
 import { assessDelegate } from '@/services/homecoming/constitutionalPresence';
 import { HOMECOMING_DELEGATES, type HomecomingDelegateId } from '@/types/homecoming';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
-import { getPersonaPlan } from '@/services/billing/personaPlan';
+import { resolveAgentSponsorshipCapacity } from '@/services/access/personaCapacity';
 
 export const dynamic = 'force-dynamic';
 
@@ -275,23 +275,22 @@ async function GET_preflight(req: NextRequest, delegate: HomecomingDelegateId) {
     sponsorRootResolvable = Boolean(rootRow);
   }
 
-  // Mirrors sponsorPolityAgent's read-only capacity computation — preview
-  // only, never writes or gates. The real function re-runs this in full.
-  const sponsorPlan = await getPersonaPlan(admin, sponsorPersonaId);
-  const { data: capacityRow } = await admin
-    .from('personas')
-    .select('sponsorship_capacity_base, sponsorship_capacity_earned')
-    .eq('id', sponsorPersonaId)
-    .maybeSingle();
-  const storedBase = Number(capacityRow?.sponsorship_capacity_base ?? 0);
-  const earned = Number(capacityRow?.sponsorship_capacity_earned ?? 0);
-  const base = Math.max(sponsorPlan.boundedDelegateLimit, storedBase);
-  const { count: usedCount } = await admin
-    .from('agent_root_identity')
-    .select('id', { count: 'exact', head: true })
-    .eq('sponsor_persona_id', sponsorPersonaId);
-  const used = usedCount ?? 0;
-  const remaining = base + earned - used;
+  // The canonical capacity resolver — preview only, never writes or gates.
+  // The real function (sponsorPolityAgent, via standUpDelegate) re-runs this
+  // in full and is the sole authority (capacity remediation, 2026-09-05:
+  // this used to be a second, hand-copied arithmetic block computing the
+  // same number from the same table — Extend-Don't-Duplicate). The caller
+  // is already confirmed admin above, so this preview reports the same
+  // unbounded state a real stand-up call would get.
+  const capacityState = await resolveAgentSponsorshipCapacity({
+    admin,
+    sponsorPersonaId,
+    callerIsAdmin: Boolean(persona.cartridgeFlags?.isAdmin),
+  });
+  const base = capacityState.bounded ? capacityState.limit : null;
+  const earned = 0;
+  const used = capacityState.used;
+  const remaining = capacityState.bounded ? capacityState.remaining : null;
 
   const spec = HOMECOMING_DELEGATE_SPECS[delegate];
   let alreadySeeded = false;
@@ -319,8 +318,10 @@ async function GET_preflight(req: NextRequest, delegate: HomecomingDelegateId) {
     passportValid,
     sponsorRootResolvable,
     wouldWriteDelegationUserRoot: sponsorRootResolvable,
-    capacity: { base, earned, used, remaining },
-    requiresAdminOverride: remaining <= 0,
+    capacity: capacityState.bounded
+      ? { bounded: true, base, earned, used, remaining, overCapacity: capacityState.overCapacity }
+      : { bounded: false, base: null, earned: null, used, remaining: null, source: capacityState.source },
+    requiresAdminOverride: capacityState.bounded && capacityState.remaining <= 0,
     alreadySeeded,
     note: alreadySeeded
       ? 'agent_root_identity already exists for this delegate — a stand-up call would be idempotent (alreadySeeded: true).'

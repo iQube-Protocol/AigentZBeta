@@ -147,8 +147,15 @@ export interface PersonaPlan {
   boundedDelegateLimit: number;
 }
 
-/** Sentinel for "no practical cap". */
-const UNLIMITED = 9999;
+/**
+ * Sentinel for "no practical cap" used internally by this module's numeric
+ * ladders (experience-model soft-caps, personaLimit, boundedDelegateLimit).
+ * Exported so callers that must represent "unbounded" as an EXPLICIT state
+ * (never as an arbitrarily large number — operator ruling, 2026-09-05) can
+ * detect the sentinel and translate it, rather than re-deriving their own
+ * magic number. See services/access/personaCapacity.ts.
+ */
+export const UNLIMITED = 9999;
 
 // Experiment-run monthly caps (IRL OS payment model, 2026-07-19). Steward is a
 // HIGH cap, deliberately not unlimited (operator direction). Adjust here.

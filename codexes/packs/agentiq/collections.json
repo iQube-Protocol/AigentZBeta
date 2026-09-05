@@ -40,6 +40,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-09-05_factor-aegis-capacity-remediation.md",
         "updates/2026-09-05_factor-aegis-canonical-identity-and-wallet-provisioning.md",
         "updates/2026-09-04_factor-aegis-0.1-phase2-registration-and-api.md",
         "updates/2026-09-04_moneypenny002-atomic-surface-capsule-harvest.md",

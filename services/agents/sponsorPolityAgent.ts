@@ -17,7 +17,7 @@ import {
   getAgentPassportBinding,
   checkAgentClassConstraints,
 } from '@/services/polity/constitution';
-import { getPersonaPlan } from '@/services/billing/personaPlan';
+import { resolveAgentSponsorshipCapacity } from '@/services/access/personaCapacity';
 
 export const SLUG_RE = /^[a-z][a-z0-9-]{2,40}$/;
 
@@ -26,7 +26,7 @@ export const SLUG_RE = /^[a-z][a-z0-9-]{2,40}$/;
  * auditable AS an override rather than appearing as ordinary capacity.
  */
 export interface SponsorshipCapacityOverride {
-  authority: 'administrator' | 'migrated_agent_passport_issuance';
+  authority: 'administrator' | 'migrated_agent_passport_issuance' | 'platform';
   /** The constitutional basis relied upon — stated, never inferred. */
   basis: string;
   /** What ordinary capacity actually was at the moment of override. */
@@ -81,6 +81,17 @@ export interface SponsorAgentInput {
    * indistinguishable from an admin's own capacity override.
    */
   migratedAgentApprovedPassportId?: string;
+  /**
+   * Set ONLY by a route that has already authenticated a platform-level
+   * credential (e.g. CRON_TRIGGER_TOKEN) with no human persona/session
+   * involved at all — the platform-agent provisioning path (Factor/Aegis-
+   * style stand-ups). Grants the SAME unbounded capacity treatment as
+   * `callerIsAdmin`, recorded distinctly as `authority: 'platform'` so it is
+   * auditable as its own narrow reason. NEVER set from a persona-derived
+   * flag, a request body, or client input — see
+   * services/access/personaCapacity.ts's `isPlatformAuthority`.
+   */
+  isPlatformAuthority?: boolean;
 }
 
 export interface SponsoredAgentResult {
@@ -128,6 +139,7 @@ export async function sponsorPolityAgent(input: SponsorAgentInput): Promise<Spon
     callerIsAdmin = false,
     existingIdentity,
     migratedAgentApprovedPassportId,
+    isPlatformAuthority = false,
   } = input;
 
   if (!slug || !SLUG_RE.test(slug)) {
@@ -194,95 +206,90 @@ export async function sponsorPolityAgent(input: SponsorAgentInput): Promise<Spon
     return { ok: false, status: 400, error: 'Only citizen passports may sponsor agent genesis' };
   }
 
-  // 1b. Bounded-delegate capacity = plan tier (authoritative base) + Phase-3
-  // Standing-earned capacity. The plan's boundedDelegateLimit is the tier
-  // allowance (Free 3 → Sovereign 10 → Steward 28 → Operator 35 → Operator+ 50
-  // → Portfolio unlimited); an admin-granted sponsorship_capacity_base still
-  // wins if higher. Capacity COLUMNS soft-fail if their migration is absent,
-  // but the plan cap is always enforced. past_due keeps the tier (grace);
-  // cancelled falls to the free cap of 3 via getPersonaPlan.
-  const sponsorPlan = await getPersonaPlan(admin, sponsorPersonaId);
-  const { data: capacityRow, error: capacityErr } = await admin
-    .from('personas')
-    .select('sponsorship_capacity_base, sponsorship_capacity_earned')
-    .eq('id', sponsorPersonaId)
-    .maybeSingle();
-  if (
-    capacityErr &&
-    !capacityErr.message.includes('sponsorship_capacity_base') &&
-    !capacityErr.message.includes('sponsorship_capacity_earned')
-  ) {
-    return { ok: false, status: 500, error: capacityErr.message };
-  }
+  // 1b. Bounded-delegate capacity — resolved ONCE via the canonical
+  // resolveAgentSponsorshipCapacity (services/access/personaCapacity.ts),
+  // never re-derived inline here (Extend-Don't-Duplicate — this exact
+  // arithmetic used to be hand-copied into this file AND the Homecoming
+  // stand-up route's GET preflight; capacity remediation, 2026-09-05).
+  // Computed as though the caller were NOT an admin/platform authority
+  // first, purely to know whether an override is actually being exercised
+  // (see below) — never to gate a real admin/platform caller, who is
+  // unconditionally unbounded per the resolver's own rules.
+  const ordinary = await resolveAgentSponsorshipCapacity({ admin, sponsorPersonaId, callerIsAdmin: false });
   /**
-   * Set ONLY when a canonical administrator proceeded past an exhausted
-   * ordinary capacity. Null on every ordinary sponsorship, so a consumer can
-   * tell an exercised exception from ordinary headroom without inspecting
-   * numbers.
+   * Set ONLY when a canonical administrator, a platform-authenticated
+   * caller, or an already-approved migrated-agent passport proceeded past
+   * an exhausted ORDINARY capacity. Null on every ordinary sponsorship, so a
+   * consumer can tell an exercised exception from ordinary headroom without
+   * inspecting numbers.
    */
   let capacityOverride: SponsorshipCapacityOverride | null = null;
 
-  const storedBase = Number(capacityRow?.sponsorship_capacity_base ?? 0);
-  const earned = Number(capacityRow?.sponsorship_capacity_earned ?? 0);
-  const base = Math.max(sponsorPlan.boundedDelegateLimit, storedBase);
-  {
-    const { count: usedCount } = await admin
-      .from('agent_root_identity')
-      .select('id', { count: 'exact', head: true })
-      .eq('sponsor_persona_id', sponsorPersonaId);
-    const used = usedCount ?? 0;
-    const remaining = base + earned - used;
-    if (remaining <= 0) {
-      /*
-       * ── ADMINISTRATOR CAPACITY OVERRIDE (operator-authorised, 2026-08-03) ──
-       *
-       *   > "Administrative authority may override ordinary sponsorship
-       *   >  capacity, but it does not bypass Passport ownership,
-       *   >  authentication, agent-control, or personhood requirements."
-       *
-       * DELIBERATELY NARROW, and placed HERE rather than earlier: every gate
-       * above this point has already run and must still pass. A canonical
-       * admin arriving here has a valid sponsoring Passport, an authenticated
-       * persona, and a proven agent binding — the override relieves ONE
-       * constraint, the numeric cap, and nothing else.
-       *
-       * `callerIsAdmin` is resolved server-side by the spine
-       * (getActivePersona: `isAdmin || adminGrants.isGlobalAdmin`), never from
-       * a client hint or an account label.
-       *
-       * THE ORDINARY CAPACITY IS NOT REWRITTEN. `capacity` still reports
-       * `remaining: 0` — honestly, because it IS zero — and the override is
-       * carried as its own field. Inflating the number would make an exercised
-       * exception indistinguishable from ordinary headroom, which is exactly
-       * what the operator ruled against: "do not rewrite the displayed
-       * ordinary capacity as positive."
-       */
-      if (migratedAgentApprovedPassportId) {
-        capacityOverride = {
-          authority: 'migrated_agent_passport_issuance',
-          basis:
-            `completing RootDID projection for an already-approved Delegate Passport ` +
-            `(${migratedAgentApprovedPassportId}) — the sponsoring act happened at steward ` +
-            'approval, not here; this is not a new capacity decision',
-          ordinaryCapacityAtOverride: { base, earned, used, remaining: 0 },
-        };
-      } else if (!callerIsAdmin) {
-        return {
-          ok: false,
-          status: 409,
-          code: 'sponsorship_capacity_exhausted',
-          error:
-            `Bounded delegate capacity reached for your plan (${base}). Upgrade your tier, ` +
-            'or earn additional capacity when a sponsored participant reaches Standing.',
-          capacity: { base, earned, used, remaining: 0 },
-        };
-      } else {
-        capacityOverride = {
-          authority: 'administrator',
-          basis: 'canonical admin authority (persona.cartridgeFlags.isAdmin) — capacity limit only',
-          ordinaryCapacityAtOverride: { base, earned, used, remaining: 0 },
-        };
-      }
+  if (ordinary.bounded && ordinary.remaining <= 0) {
+    /*
+     * ── ADMINISTRATOR / PLATFORM CAPACITY OVERRIDE (operator-authorised,
+     *    2026-08-03; extended to platform-agent provisioning 2026-09-05) ──
+     *
+     *   > "Administrative authority may override ordinary sponsorship
+     *   >  capacity, but it does not bypass Passport ownership,
+     *   >  authentication, agent-control, or personhood requirements."
+     *   > "Factor and Aegis are platform agents provisioned under
+     *   >  authenticated administrative/platform authority. Their creation
+     *   >  must not consume or be blocked by an ordinary retail-user quota."
+     *
+     * DELIBERATELY NARROW, and placed HERE rather than earlier: every gate
+     * above this point has already run and must still pass. A canonical
+     * admin/platform caller arriving here has a valid sponsoring Passport,
+     * an authenticated persona (or an already-authenticated platform
+     * credential), and a proven agent binding — the override relieves ONE
+     * constraint, the numeric cap, and nothing else.
+     *
+     * `callerIsAdmin` is resolved server-side by the spine
+     * (getActivePersona: `isAdmin || adminGrants.isGlobalAdmin`), never from
+     * a client hint or an account label. `isPlatformAuthority` is set ONLY
+     * by a route that has already validated a platform-level credential
+     * (e.g. CRON_TRIGGER_TOKEN) — never inferred, never client-supplied.
+     *
+     * THE ORDINARY CAPACITY IS NOT REWRITTEN. `ordinaryCapacityAtOverride`
+     * still reports `remaining: 0` — honestly, because it IS zero — and the
+     * override is carried as its own field. Inflating the number would make
+     * an exercised exception indistinguishable from ordinary headroom, which
+     * is exactly what the operator ruled against: "do not rewrite the
+     * displayed ordinary capacity as positive."
+     */
+    if (migratedAgentApprovedPassportId) {
+      capacityOverride = {
+        authority: 'migrated_agent_passport_issuance',
+        basis:
+          `completing RootDID projection for an already-approved Delegate Passport ` +
+          `(${migratedAgentApprovedPassportId}) — the sponsoring act happened at steward ` +
+          'approval, not here; this is not a new capacity decision',
+        ordinaryCapacityAtOverride: { base: ordinary.limit, earned: 0, used: ordinary.used, remaining: 0 },
+      };
+    } else if (isPlatformAuthority) {
+      capacityOverride = {
+        authority: 'platform',
+        basis:
+          'platform-agent provisioning under an authenticated platform-level credential ' +
+          '(e.g. CRON_TRIGGER_TOKEN) — capacity limit only, never a retail-user quota',
+        ordinaryCapacityAtOverride: { base: ordinary.limit, earned: 0, used: ordinary.used, remaining: 0 },
+      };
+    } else if (!callerIsAdmin) {
+      return {
+        ok: false,
+        status: 409,
+        code: 'sponsorship_capacity_exhausted',
+        error:
+          `Bounded delegate capacity reached for your plan (${ordinary.limit}). Upgrade your tier, ` +
+          'or earn additional capacity when a sponsored participant reaches Standing.',
+        capacity: { base: ordinary.limit, earned: 0, used: ordinary.used, remaining: 0 },
+      };
+    } else {
+      capacityOverride = {
+        authority: 'administrator',
+        basis: 'canonical admin authority (persona.cartridgeFlags.isAdmin) — capacity limit only',
+        ordinaryCapacityAtOverride: { base: ordinary.limit, earned: 0, used: ordinary.used, remaining: 0 },
+      };
     }
   }
 

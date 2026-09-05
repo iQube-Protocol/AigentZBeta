@@ -72,12 +72,9 @@ interface SponsoredAgent {
   } | null;
 }
 
-interface SponsorshipCapacity {
-  base: number;
-  earned: number;
-  used: number;
-  remaining: number;
-}
+type SponsorshipCapacity =
+  | { bounded: true; base: number; earned: number; used: number; remaining: number; overCapacity: boolean }
+  | { bounded: false; base: null; earned: null; used: number; remaining: null; source: string };
 
 const CLASS_FILTERS = [
   { value: '', label: 'All' },
@@ -339,11 +336,17 @@ export function PassportRegistryTab({ personaId }: { personaId?: string }) {
                     The credential that sponsors your delegates below.
                     {capacity && (
                       <>
-                        {' '}Sponsorship capacity: <span className="text-slate-200">{capacity.used}</span> of{' '}
-                        <span className="text-slate-200">{capacity.base + capacity.earned}</span> used
-                        {capacity.remaining <= 0
-                          ? ' — exhausted.'
-                          : ` — ${capacity.remaining} remaining.`}
+                        {capacity.bounded === false ? (
+                          <> {' '}Sponsorship capacity: <span className="text-slate-200">{capacity.used}</span> used — unbounded.</>
+                        ) : (
+                          <>
+                            {' '}Sponsorship capacity: <span className="text-slate-200">{capacity.used}</span> of{' '}
+                            <span className="text-slate-200">{(capacity.base ?? 0) + (capacity.earned ?? 0)}</span> used
+                            {(capacity.remaining ?? 0) <= 0
+                              ? ' — exhausted.'
+                              : ` — ${capacity.remaining} remaining.`}
+                          </>
+                        )}
                       </>
                     )}
                   </p>

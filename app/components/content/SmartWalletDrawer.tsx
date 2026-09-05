@@ -1495,7 +1495,9 @@ export default function SmartWalletDrawer({
   const [sponsoredAgents, setSponsoredAgents] = useState<SponsoredAgentItem[]>([]);
   const [sponsoredAgentsLoading, setSponsoredAgentsLoading] = useState(false);
   // Phase 3 — Sponsorship Capacity Protocol.
-  interface SponsorshipCapacity { base: number; earned: number; used: number; remaining: number }
+  type SponsorshipCapacity =
+    | { bounded: true; base: number; earned: number; used: number; remaining: number; overCapacity: boolean }
+    | { bounded: false; base: null; earned: null; used: number; remaining: null; source: string };
   const [sponsorshipCapacity, setSponsorshipCapacity] = useState<SponsorshipCapacity | null>(null);
 
   // aigentMe bounded-delegation awareness. The delegation is keyed by the
@@ -6043,18 +6045,20 @@ export default function SmartWalletDrawer({
                   <Bot className="w-3.5 h-3.5 text-violet-400" />
                   AgentQubes — Bound Delegates
                 </div>
-                {/* Phase 3 — Sponsorship Capacity Protocol. Capacity = base + earned. */}
+                {/* Sponsorship Capacity Protocol — bounded (tier-derived) or explicitly unbounded (admin/platform). */}
                 {sponsorshipCapacity && (
                   <div className="mb-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 flex items-center justify-between">
                     <div className="flex flex-col">
                       <span className="text-[10px] uppercase tracking-wider text-emerald-300/80">Sponsorship Capacity</span>
                       <span className="text-[10px] text-white/50">
-                        Base {sponsorshipCapacity.base} + Earned {sponsorshipCapacity.earned} · Used {sponsorshipCapacity.used}
+                        {sponsorshipCapacity.bounded === false
+                          ? `Used ${sponsorshipCapacity.used}`
+                          : `Base ${sponsorshipCapacity.base} + Earned ${sponsorshipCapacity.earned} · Used ${sponsorshipCapacity.used}`}
                       </span>
                     </div>
                     <div className="text-right">
-                      <div className={`text-base font-semibold ${sponsorshipCapacity.remaining > 0 ? 'text-emerald-300' : 'text-amber-300'}`}>
-                        {sponsorshipCapacity.remaining}
+                      <div className={`text-base font-semibold ${sponsorshipCapacity.bounded === false || sponsorshipCapacity.remaining > 0 ? 'text-emerald-300' : 'text-amber-300'}`}>
+                        {sponsorshipCapacity.bounded === false ? '∞' : sponsorshipCapacity.remaining}
                       </div>
                       <div className="text-[9px] text-white/40 uppercase tracking-wider">remaining</div>
                     </div>

@@ -22,6 +22,7 @@ import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { getCrmClient } from '@/services/crm/crmDataAccess';
 import { provisionAigentMePersona } from '@/services/agents/provisionAigentMePersona';
 import { resolveConstitutionalContext } from '@/services/identity/constitutionalContext';
+import { resolveAgentSponsorshipCapacity } from '@/services/access/personaCapacity';
 
 export const dynamic = 'force-dynamic';
 
@@ -184,22 +185,19 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    // Sponsorship Capacity Protocol (Phase 3). base + earned = total slots;
-    // used = active sponsorships (already-fetched agentRows). Soft-fail if the
-    // capacity migration hasn't been applied yet — clients render the section
-    // without capacity rather than breaking.
-    let capacity: { base: number; earned: number; used: number; remaining: number } | null = null;
-    const { data: capacityRow, error: capacityErr } = await admin
-      .from('personas')
-      .select('sponsorship_capacity_base, sponsorship_capacity_earned')
-      .eq('id', persona.personaId)
-      .maybeSingle();
-    if (!capacityErr && capacityRow?.sponsorship_capacity_base != null) {
-      const base = Number(capacityRow.sponsorship_capacity_base);
-      const earned = Number(capacityRow.sponsorship_capacity_earned ?? 0);
-      const used = agentRows.length;
-      capacity = { base, earned, used, remaining: Math.max(0, base + earned - used) };
-    }
+    // Sponsorship Capacity Protocol — resolved via the canonical resolver
+    // (services/access/personaCapacity.ts), never re-derived here (capacity
+    // remediation, 2026-09-05: this was a third hand-copied arithmetic block
+    // computing the same number). An authenticated administrator is
+    // unbounded, honestly (never a fabricated large number).
+    const capacityState = await resolveAgentSponsorshipCapacity({
+      admin,
+      sponsorPersonaId: persona.personaId,
+      callerIsAdmin: Boolean(persona.cartridgeFlags?.isAdmin),
+    });
+    const capacity = capacityState.bounded
+      ? { bounded: true as const, base: capacityState.limit, earned: 0, used: capacityState.used, remaining: capacityState.remaining, overCapacity: capacityState.overCapacity }
+      : { bounded: false as const, base: null, earned: null, used: capacityState.used, remaining: null, source: capacityState.source };
 
     // Self-heal: ensure the aigentMe (if any) has its wallet persona so it
     // surfaces in the persona switcher. Idempotent + best-effort — covers

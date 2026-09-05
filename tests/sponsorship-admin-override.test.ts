@@ -17,11 +17,22 @@ import path from 'path';
 const src = fs.readFileSync(path.join(__dirname, '..', 'services/agents/sponsorPolityAgent.ts'), 'utf8');
 const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
 
-/** The capacity block, isolated — from the `remaining` computation to its close. */
+/**
+ * The capacity-override decision block, isolated — from the resolver call
+ * (capacity remediation, 2026-09-05: the flat arithmetic moved to the
+ * canonical services/access/personaCapacity.ts resolver so it is no longer
+ * duplicated across sponsorPolityAgent.ts and the Homecoming stand-up
+ * route's GET preflight — Extend-Don't-Duplicate) to its close. Everything
+ * this block used to compute inline (base/earned/used/remaining) is now
+ * resolved once via `resolveAgentSponsorshipCapacity`; what's pinned HERE is
+ * the POLICY built on top of that number — refusal, and who may override it.
+ */
 function capacityBlock(): string {
-  const start = code.indexOf('const remaining = base + earned - used;');
+  const start = code.indexOf(
+    'const ordinary = await resolveAgentSponsorshipCapacity({ admin, sponsorPersonaId, callerIsAdmin: false });',
+  );
   expect(start, 'capacity computation not found — the module moved').toBeGreaterThan(-1);
-  return code.slice(start, start + 1400);
+  return code.slice(start, start + 2200);
 }
 
 describe('the admin override relieves the capacity cap, and nothing else', () => {
