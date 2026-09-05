@@ -79,9 +79,12 @@ import {
   MoneyPennyNavigationProvider,
   readAndClearPendingPanel,
   writePendingPanel,
+  writePendingSpecialist,
   type MoneyPennyActiveCase,
+  type MoneyPennyNavigationTarget,
 } from "@/app/(shell)/moneypenny/components/moneyPennyNavigation";
 import { tryOpenInMountedCartridge } from "@/services/cartridge/CartridgePresenceRegistry";
+import { useCodexHostNavigation } from "@/app/components/codex/CodexHostNavigationContext";
 import { areaForPanel, defaultPanelForArea, type MoneyPennyAreaId } from "@/app/(shell)/moneypenny/components/moneypennyCapabilities";
 
 export type MoneyPennyPanelKey =
@@ -222,6 +225,15 @@ export function MoneyPennyPanelTab({ panel: explicitPanel, area }: MoneyPennyPan
     setActivePanel(area ? defaultPanelForArea(area) : DEFAULT_PANEL);
   }, [area, explicitPanel]);
 
+  // The mounted host's OWN tab-switch function (2026-09-05 Home cross-area
+  // nav regression fix) — see CodexHostNavigationContext.tsx's own header
+  // for the defect this closes. Always present in real usage (MoneyPenny
+  // PanelTab is only ever instantiated by TabRenderer, always inside a
+  // CodexPanelDynamic tree); null only for a hypothetical mount outside
+  // that tree, in which case the tryOpenInMountedCartridge fallback below
+  // still applies.
+  const hostNav = useCodexHostNavigation();
+
   // Self-heal a legacy deep link whose area doesn't match this mount — a
   // pre-native-tabs `buildCodexUrl('moneypenny', {tab:'risk-envelope'})`
   // link lands CodexPanelDynamic on the cartridge's first native tab
@@ -231,20 +243,18 @@ export function MoneyPennyPanelTab({ panel: explicitPanel, area }: MoneyPennyPan
   // later, operator-driven navigation on this same mount must never
   // re-trigger it.
   //
-  // Live-discovered race (2026-09-03): on a genuinely FRESH page load (not
-  // an in-app click), this effect and CodexPanelDynamic's OWN
-  // `useCartridgePresence` registration effect fire in the SAME commit —
-  // and React flushes effects child-before-parent, so this effect (on the
-  // child, MoneyPennyPanelTab) runs BEFORE the ancestor CodexPanelDynamic
-  // has registered 'moneypenny-codex' into the CartridgePresenceRegistry.
-  // `tryOpenInMountedCartridge` then silently returns false (cartridge "not
-  // mounted yet") and the redirect never happens — confirmed live via a
-  // direct `?tab=service-orchestration` load (Horizen's own
-  // `expandedTab: 'service-orchestration'`), which stayed on Home instead
-  // of self-healing to Activity. Deferring the attempt to a macrotask
-  // (setTimeout 0) pushes it outside that synchronous effect-commit flush,
-  // by which point the parent's registration effect has already run —
-  // never a magic-number retry, just ordering the two effects correctly.
+  // Live-discovered race (2026-09-03), CLOSED by hostNav (2026-09-05): on a
+  // genuinely FRESH page load (not an in-app click), this effect used to
+  // run BEFORE the ancestor CodexPanelDynamic's OWN `useCartridgePresence`
+  // registration effect (React flushes effects child-before-parent), so
+  // `tryOpenInMountedCartridge` silently returned false ("cartridge not
+  // mounted yet") and a `setTimeout(0)` was needed to defer past that
+  // commit. `hostNav` is provided directly during the ANCESTOR's render
+  // (not inside an effect), so it is already correct on this component's
+  // OWN first render — no ordering race, no deferral needed on that path.
+  // The `tryOpenInMountedCartridge` fallback (mount outside any
+  // CodexPanelDynamic tree) keeps the deferred-timer behavior, since only
+  // THAT path still depends on registry-registration timing.
   useEffect(() => {
     if (explicitPanel || !area) return;
     const raw = searchParams?.get("tab") ?? null;
@@ -252,6 +262,10 @@ export function MoneyPennyPanelTab({ panel: explicitPanel, area }: MoneyPennyPan
     const targetArea = areaForPanel(raw);
     if (!targetArea || targetArea === area) return;
     writePendingPanel(raw);
+    if (hostNav) {
+      hostNav.setActiveTab(targetArea);
+      return;
+    }
     const timer = setTimeout(() => {
       tryOpenInMountedCartridge({ cartridgeId: MONEYPENNY_CODEX_ID, tab: targetArea });
     }, 0);
@@ -259,19 +273,40 @@ export function MoneyPennyPanelTab({ panel: explicitPanel, area }: MoneyPennyPan
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Cross-area navigation failed (neither hostNav nor the registry fallback
+  // could switch the host's tab) — never a silent no-op. Cleared on the
+  // next successful navigate() or explicitly by the consuming UI.
+  const [navigationError, setNavigationError] = useState<string | null>(null);
+  const clearNavigationError = useCallback(() => setNavigationError(null), []);
+
   const navigate = useCallback(
-    (next: MoneyPennyPanelKey) => {
+    (target: MoneyPennyNavigationTarget) => {
+      const next = typeof target === "string" ? target : target.panel;
+      const specialistId = typeof target === "string" ? undefined : target.specialistId;
       const targetArea = areaForPanel(next);
+      if (specialistId) writePendingSpecialist(specialistId);
       if (!area || !targetArea || targetArea === area) {
         setActivePanel(next);
+        setNavigationError(null);
         return;
       }
       // Cross-area jump (e.g. Home's "Explore investing" card targets
       // 'hft-console', area 'markets') — hand off to the real native tab.
       writePendingPanel(next);
-      tryOpenInMountedCartridge({ cartridgeId: MONEYPENNY_CODEX_ID, tab: targetArea });
+      let switched: boolean;
+      if (hostNav) {
+        hostNav.setActiveTab(targetArea);
+        switched = true;
+      } else {
+        switched = tryOpenInMountedCartridge({ cartridgeId: MONEYPENNY_CODEX_ID, tab: targetArea });
+      }
+      if (switched) {
+        setNavigationError(null);
+      } else {
+        setNavigationError(`Could not open ${targetArea} from here — the destination area isn't reachable right now.`);
+      }
     },
-    [area],
+    [area, hostNav],
   );
 
   // Shared active-case snapshot (see moneyPennyNavigation.tsx's own header) —
@@ -284,8 +319,8 @@ export function MoneyPennyPanelTab({ panel: explicitPanel, area }: MoneyPennyPan
   const [activeCase, setActiveCase] = useState<MoneyPennyActiveCase | null>(null);
 
   const navigationValue = useMemo(
-    () => ({ activePanel, area: area ?? null, navigate, activeCase, setActiveCase }),
-    [activePanel, area, navigate, activeCase],
+    () => ({ activePanel, area: area ?? null, navigate, navigationError, clearNavigationError, activeCase, setActiveCase }),
+    [activePanel, area, navigate, navigationError, clearNavigationError, activeCase],
   );
 
   const Panel = PANELS[activePanel];

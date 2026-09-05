@@ -57,9 +57,23 @@
 
 import { createContext, useContext, type ReactNode } from 'react';
 import type { MoneyPennyPanelKey } from '@/app/triad/components/codex/tabs/MoneyPennyPanelTab';
-import type { MoneyPennyAreaId } from './moneypennyCapabilities';
+import type { MoneyPennyAreaId, MoneyPennySpecialistId } from './moneypennyCapabilities';
 
-/** The one cartridge id every MoneyPenny cross-tab navigation targets. */
+/**
+ * FALLBACK ONLY (2026-09-05 Home cross-area nav regression fix). Cross-area
+ * navigation now goes through `CodexHostNavigationContext` — the mounted
+ * host's OWN `setActiveTab`, exposed directly by `CodexPanelDynamic` — which
+ * works correctly regardless of what cartridge id that host actually
+ * registered itself as. This constant, and the `tryOpenInMountedCartridge`
+ * lookup keyed on it, remain ONLY as a defensive fallback for the
+ * (currently hypothetical) case of a `MoneyPennyPanelTab` mount outside any
+ * `CodexPanelDynamic` tree. See `CodexHostNavigationContext.tsx`'s own
+ * header for the full defect this replaced as the PRIMARY path: this exact
+ * id lookup silently failed whenever MoneyPenny was hosted as a nested tab
+ * group inside a DIFFERENT top-level codex (metaMe's `metame-codex`, the FS
+ * Bridge) rather than standalone, because the registered cartridge id is
+ * always the OUTER mounted codex's own id, never this hardcoded string.
+ */
 export const MONEYPENNY_CODEX_ID = 'moneypenny-codex';
 
 /**
@@ -111,13 +125,96 @@ export function readAndClearPendingPanel(): string | null {
   }
 }
 
+const PENDING_SPECIALIST_STORAGE_KEY = 'moneypenny.pending-specialist';
+
+/** Same one-shot sessionStorage idiom as writePendingPanel/readAndClear
+ *  PendingPanel above, for the specialist a Home specialist card selected
+ *  (requirement 2, 2026-09-05) — a cross-area jump to candidate-intake or
+ *  service-orchestration remounts/re-renders that area's own
+ *  MoneyPennyPanelTab instance, so the destination panel (CandidateIntake
+ *  Panel, ServiceOrchestrationPanel) reads this once on its own mount to
+ *  learn which specialist to pre-select, then clears it — never a prop,
+ *  since PANELS renders every panel component with none. */
+export function writePendingSpecialist(specialistId: MoneyPennySpecialistId): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.setItem(PENDING_SPECIALIST_STORAGE_KEY, specialistId);
+  } catch {
+    /* non-fatal — the destination panel simply opens on its own default specialist */
+  }
+}
+
+/** Read WITHOUT clearing — for a reader that only cares about a SUBSET of
+ *  possible values (ServiceOrchestrationPanel only ever wants
+ *  'nakamoto'/'kn0w1') and must never consume/discard a value meant for a
+ *  different reader (CandidateIntakePanel's 'factor'/'aegis') just because
+ *  it happened to check first. */
+export function peekPendingSpecialist(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    return window.sessionStorage.getItem(PENDING_SPECIALIST_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function clearPendingSpecialist(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.removeItem(PENDING_SPECIALIST_STORAGE_KEY);
+  } catch {
+    /* non-fatal */
+  }
+}
+
+export function readAndClearPendingSpecialist(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const value = window.sessionStorage.getItem(PENDING_SPECIALIST_STORAGE_KEY);
+    if (value !== null) window.sessionStorage.removeItem(PENDING_SPECIALIST_STORAGE_KEY);
+    return value;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Typed navigation intent (requirement 2, 2026-09-05): a Home specialist
+ * card navigates to a panel AND names which specialist that destination
+ * should pre-select. `navigate()` still accepts a bare `MoneyPennyPanelKey`
+ * (every existing call site — MoneyPennyOverviewPanel's other cards,
+ * MoneyPennyCapabilityCarousel, the copilot's suggested-layout banner) —
+ * this is an ADDITIVE union member, not a breaking signature change.
+ *
+ * `activeCaseId` is carried for a future caller that already knows the
+ * target case (e.g. a deep-link back into a specific case from elsewhere)
+ * — never populated by today's Home specialist cards, which have no active
+ * case yet by construction. Never put into the URL: this is a one-shot,
+ * same-tab handoff, not shareable state — same rule writePendingPanel's own
+ * header already states for panel targets.
+ */
+export interface MoneyPennyNavigationIntent {
+  panel: MoneyPennyPanelKey;
+  specialistId?: MoneyPennySpecialistId;
+  activeCaseId?: string;
+}
+
+export type MoneyPennyNavigationTarget = MoneyPennyPanelKey | MoneyPennyNavigationIntent;
+
 export interface MoneyPennyNavigationContextValue {
   activePanel: MoneyPennyPanelKey;
   /** The area THIS native tab mount represents — null for a mount outside
    *  the five-area system (e.g. the metame-codex orchestration mirror,
    *  which pins one explicit panel via a fixed `panel` prop). */
   area: MoneyPennyAreaId | null;
-  navigate: (panel: MoneyPennyPanelKey) => void;
+  navigate: (target: MoneyPennyNavigationTarget) => void;
+  /** Set when a cross-area navigate() attempt could not switch the host's
+   *  tab (neither CodexHostNavigationContext nor the tryOpenInMountedCartridge
+   *  fallback succeeded) — a failed navigation must never be a silent
+   *  no-op. Cleared by clearNavigationError, or by the next successful
+   *  navigate() call. */
+  navigationError: string | null;
+  clearNavigationError: () => void;
   /** See MoneyPennyActiveCase's own comment above. */
   activeCase: MoneyPennyActiveCase | null;
   setActiveCase: (activeCase: MoneyPennyActiveCase | null) => void;

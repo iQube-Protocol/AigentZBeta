@@ -961,14 +961,38 @@ export function Track2ProgrammePanel({
                             onDone={() => void reloadAndAdvance()}
                           />
                         )}
-                      {/* STAGE 7 ACTION (operator direction, 2026-08-04:
-                          "The graph engine should perform the reasoning; the
-                          human should perform constitutional oversight.").
-                          Ranked relationship suggestions from
+                      {/* STAGE 7's PRIMARY ACTION (2026-09-05, cohort
+                          ratification — see RelationshipCohortRatificationBoard's
+                          own header for the operator audit this replaces:
+                          "Accept All High-Confidence (>95%)" gated a batch
+                          write on an uncalibrated LLM self-report with no
+                          ratified threshold anywhere in this repo). The ONE
+                          decision surface: derived recommendations, a single
+                          "Ratify relationship cohort" act — mirrors Stage 5's
+                          ProvenanceCohortRatificationBoard exactly.
+                          RelationshipQueue below remains for the exceptions
+                          this board declines to propose a relationship for,
+                          and as a manual override. */}
+                      {s.id === "add-relationships" &&
+                        !isDownstreamOfReconciliation &&
+                        (programme.actionQueues?.orphans.length ?? 0) > 0 && (
+                          <RelationshipCohortRatificationBoard
+                            experimentId={experimentId}
+                            onDone={() => void reloadAndAdvance()}
+                          />
+                        )}
+                      {/* STAGE 7 MANUAL FALLBACK (operator direction,
+                          2026-08-04: "The graph engine should perform the
+                          reasoning; the human should perform constitutional
+                          oversight."). Ranked relationship suggestions from
                           services/invariants/relationshipSuggestion.ts,
                           reviewed as Accept/Edit/Reject cards — every write
                           still goes through the EXISTING single-edge route,
-                          never a new writer. */}
+                          never a new writer. Remains available for the
+                          exceptions the cohort board above declines to
+                          propose a relationship for, and as a manual override
+                          for any `ready` member a steward wants to review
+                          individually instead. */}
                       {s.id === "add-relationships" &&
                         !isDownstreamOfReconciliation &&
                         (programme.actionQueues?.orphans.length ?? 0) > 0 && (
@@ -4646,6 +4670,214 @@ function ProvenanceCohortRatificationBoard({ experimentId, onDone }: { experimen
   );
 }
 
+interface RelationshipCandidateRecommendationView {
+  invariantId: string;
+  label: string;
+  disposition: "ready" | "exception";
+  relatedInvariantId: string | null;
+  relatedLabel: string | null;
+  relationType: string | null;
+  rationale: string | null;
+  confidence: number | null;
+  exceptionCause: string | null;
+  exceptionDetail: string | null;
+}
+
+/**
+ * STAGE 7's PRIMARY ACTION (2026-09-05, cohort ratification — operator
+ * audit of the "Accept All High-Confidence (>95%)" batch shortcut: no
+ * calibration or governance ratification of 95 exists anywhere in this
+ * repo, and it gated a batch WRITE on an uncalibrated LLM self-report).
+ * Mirrors `ProvenanceCohortRatificationBoard` exactly: "N orphan(s), M
+ * recommended, K exceptions require individual review" / a single "Ratify
+ * relationship cohort" button — never a bare percentage in the primary CTA,
+ * never confidence as the eligibility gate. Calls the new GET/POST
+ * `/api/research/track2/[experimentId]/relationship-cohort`
+ * (services/research/relationshipCohortPreparation.ts) — never a parallel
+ * writer; the POST still writes through the SAME `addEdge` every other
+ * relationship in this codebase uses, and still refuses on a stale
+ * `cohortHash` exactly like Stage 5's board does. `RelationshipQueue` below
+ * remains available for the exceptions this board declines to propose a
+ * relationship for, and as a manual override for any `ready` member a
+ * steward wants to review individually instead.
+ */
+function RelationshipCohortRatificationBoard({ experimentId, onDone }: { experimentId: string; onDone: () => void }) {
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [view, setView] = useState<{
+    total: number;
+    readyCount: number;
+    exceptionCount: number;
+    cohortHash: string;
+    summary: string;
+    recommendations: RelationshipCandidateRecommendationView[];
+    exceptionsByCause: Record<string, number>;
+    exceptionCauseLabels: Record<string, string>;
+  } | null>(null);
+  const [rationale, setRationale] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<{
+    written: number;
+    alreadyRelated: number;
+    failed: number;
+    receiptWritten: boolean;
+    receiptWarning?: string | null;
+    outcomes: { invariantId: string; disposition: string; to: string | null; detail: string }[];
+  } | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setErr(null);
+    try {
+      const res = await personaFetch(`/api/research/track2/${encodeURIComponent(experimentId)}/relationship-cohort`, {
+        cache: "no-store",
+      });
+      const d = await res.json().catch(() => null);
+      if (!d?.ok) throw new Error(d?.error || `the relationship cohort could not be read (HTTP ${res.status})`);
+      setView(d);
+      setResult(null);
+    } catch (e) {
+      setView(null);
+      setErr(e instanceof Error ? e.message : "the relationship cohort could not be read");
+    } finally {
+      setLoading(false);
+    }
+  }, [experimentId]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const ratify = useCallback(async () => {
+    if (!view) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const res = await personaFetch(`/api/research/track2/${encodeURIComponent(experimentId)}/relationship-cohort`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dryRun: false, rationale, expectedCohortHash: view.cohortHash }),
+      });
+      const d = await res.json().catch(() => null);
+      if (!d) throw new Error(`ratification failed (HTTP ${res.status})`);
+      if (d.error === "recommendation-set-changed") {
+        setErr(`${d.detail} Refreshing…`);
+        await load();
+        return;
+      }
+      if (!res.ok && d.failed > 0 && d.written === 0) throw new Error(d.error || "ratification refused");
+      setResult(d);
+      onDone();
+      void load();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "the ratification could not be written");
+    } finally {
+      setBusy(false);
+    }
+  }, [view, experimentId, rationale, onDone, load]);
+
+  if (loading && !view) {
+    return (
+      <div className="mt-2 flex items-center gap-1.5 rounded border border-slate-800 bg-slate-900/40 p-2 text-[11px] text-slate-500">
+        <Loader2 className="h-3 w-3 animate-spin" /> deriving the relationship cohort…
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-2 space-y-2 rounded border border-slate-800 bg-slate-900/40 p-2 text-[11px]">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="font-medium text-slate-200">Prepared — Add Relationships{view ? ` · ${view.total} invariant(s)` : ""}</span>
+        <button
+          type="button"
+          onClick={() => void load()}
+          disabled={loading}
+          className="flex items-center gap-1.5 rounded border border-slate-800 bg-slate-900/60 px-2 py-0.5 text-[10px] text-slate-300 hover:bg-slate-800/60 disabled:opacity-50"
+        >
+          {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+          Refresh
+        </button>
+      </div>
+
+      {err && <div className="rounded border border-rose-500/30 bg-rose-500/10 p-1.5 text-rose-200">{err}</div>}
+
+      {view && (
+        <>
+          <div className="text-slate-300">{view.summary}</div>
+          {view.readyCount > 0 && (
+            <ul className="max-h-64 space-y-1 overflow-y-auto pr-1">
+              {view.recommendations
+                .filter((r) => r.disposition === "ready")
+                .map((r) => (
+                  <li key={r.invariantId} className="rounded border border-emerald-800/50 bg-emerald-950/10 p-1.5">
+                    <div className="text-slate-200">{r.label}</div>
+                    <div className="mt-0.5 text-[10px] text-slate-500">
+                      <span className="font-mono text-violet-300">{r.relationType}</span> → {r.relatedLabel} ·{" "}
+                      {r.confidence}% confidence
+                    </div>
+                    {r.rationale && <div className="text-[10px] text-slate-500">{r.rationale}</div>}
+                  </li>
+                ))}
+            </ul>
+          )}
+
+          {view.exceptionCount > 0 && (
+            <details className="text-slate-400">
+              <summary className="cursor-pointer text-slate-300">{view.exceptionCount} exception(s) — never proposed a relationship</summary>
+              <ul className="mt-1 max-h-48 space-y-1 overflow-y-auto pr-1">
+                {view.recommendations
+                  .filter((r) => r.disposition === "exception")
+                  .map((r) => (
+                    <li key={r.invariantId} className="rounded border border-slate-800 bg-slate-950 p-1.5">
+                      <div className="text-slate-300">{r.label}</div>
+                      <div className="mt-0.5 text-[10px] text-amber-200">
+                        {view.exceptionCauseLabels[r.exceptionCause ?? ""] ?? r.exceptionCause}
+                      </div>
+                      {r.exceptionDetail && <div className="text-[10px] text-slate-500">{r.exceptionDetail}</div>}
+                    </li>
+                  ))}
+              </ul>
+            </details>
+          )}
+
+          {view.readyCount > 0 && (
+            <>
+              <textarea
+                value={rationale}
+                onChange={(e) => setRationale(e.target.value)}
+                rows={2}
+                placeholder="rationale for this cohort ratification (required — recorded on every edge written)"
+                className="w-full rounded border border-slate-800 bg-slate-950 px-2 py-1 text-slate-200 placeholder:text-slate-600"
+              />
+              <button
+                type="button"
+                onClick={() => void ratify()}
+                disabled={busy || !rationale.trim()}
+                className="flex items-center gap-1 rounded border border-emerald-800 bg-emerald-900/30 px-2.5 py-1 font-medium text-emerald-200 disabled:opacity-50"
+              >
+                {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+                Ratify relationship cohort — add {view.readyCount} relationship(s)
+              </button>
+            </>
+          )}
+        </>
+      )}
+
+      {result && (
+        <div className="space-y-1 border-t border-slate-800 pt-1.5">
+          <div className={result.failed > 0 ? "text-amber-200" : "text-emerald-300"}>
+            {result.written} related · {result.alreadyRelated} already related (skipped) · {result.failed} failed
+            {result.receiptWritten ? " · receipted" : " · RECEIPT FAILED"}
+          </div>
+          {result.receiptWarning && (
+            <div className="rounded border border-amber-500/30 bg-amber-500/10 p-1.5 text-amber-100">{result.receiptWarning}</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface ProvenanceCandidateRecommendationView {
   invariantId: string;
   label: string;
@@ -4680,11 +4912,13 @@ interface ProvenanceCandidateRecommendationView {
  * requires its own dedicated Accept is the reviewed act that rule exists to
  * require, not the unreviewed one it forbids.
  *
- * "Accept All High-Confidence" batch-submits only suggestions the steward
- * never had to look at individually (confidence > 95) through this SAME
- * classify action — a per-record refusal (e.g. the anti-laundering check)
- * is caught and counted as "needs manual review," never treated as a batch
- * failure.
+ * This queue is now Stage 5's MANUAL FALLBACK — the primary batch act is
+ * `ProvenanceCohortRatificationBoard`, which never gates disposition on
+ * confidence. This queue's own former "Accept All High-Confidence (>95%)"
+ * batch shortcut was retired here for the same reason (2026-09-05 operator
+ * audit: no calibration or governance ratification of 95 exists anywhere in
+ * this repo) — it remains available for the exceptions the cohort board
+ * declines to propose a class for, and as a manual override, per-record.
  */
 function ClassificationQueue({ queue, onDone }: { queue: { id: string; label: string }[]; onDone: () => void }) {
   const [open, setOpen] = useState(false);
@@ -4698,12 +4932,6 @@ function ClassificationQueue({ queue, onDone }: { queue: { id: string; label: st
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [done, setDone] = useState(0);
-  const [batch, setBatch] = useState<{ running: boolean; progress: number; total: number; summary: string | null }>({
-    running: false,
-    progress: 0,
-    total: 0,
-    summary: null,
-  });
 
   const current = queue[index];
 
@@ -4742,7 +4970,6 @@ function ClassificationQueue({ queue, onDone }: { queue: { id: string; label: st
     setIndex(0);
     setTo("");
     setDone(0);
-    setBatch({ running: false, progress: 0, total: 0, summary: null });
     if (queue[0]) void loadCurrent(queue[0].id);
   }, [queue, loadCurrent]);
 
@@ -4825,85 +5052,19 @@ function ClassificationQueue({ queue, onDone }: { queue: { id: string; label: st
     [submit, to, evidenceRefs, rationale],
   );
 
-  const acceptAllHighConfidence = useCallback(async () => {
-    setBatch({ running: true, progress: 0, total: queue.length, summary: null });
-    let accepted = 0;
-    let needsReview = 0;
-    for (let i = 0; i < queue.length; i++) {
-      const record = queue[i];
-      setBatch((b) => ({ ...b, progress: i }));
-      const d = await fetchSuggestion(record.id);
-      const s = d?.classSuggestion;
-      if (!s || s.confidence <= HIGH_CONFIDENCE_THRESHOLD) {
-        needsReview += 1;
-        continue;
-      }
-      try {
-        const res = await personaFetch("/api/invariants/discovery", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "classify",
-            invariantId: record.id,
-            to: s.suggestedClass,
-            evidenceRefs: [s.primarySource, ...s.supportingSources].filter(Boolean),
-            rationale: s.reason,
-            // ONE deliberate steward click authorizes this batch — but
-            // confidence alone is never sufficient on its own (2026-08-30
-            // incident): each record still declares, and the server still
-            // independently verifies, the EXACT recommendation it clears
-            // against, per-record.
-            classDisposition: "recommendation-accepted",
-            acceptedRecommendation: s,
-          }),
-        });
-        const body = await res.json().catch(() => null);
-        if (body?.ok) accepted += 1;
-        else needsReview += 1;
-      } catch {
-        needsReview += 1;
-      }
-    }
-    setBatch({
-      running: false,
-      progress: queue.length,
-      total: queue.length,
-      summary: `${accepted} classified automatically; ${needsReview} left for manual review (no high-confidence suggestion, or the classification was refused)`,
-    });
-    setOpen(false);
-    onDone();
-  }, [queue, fetchSuggestion, onDone]);
-
   if (!open) {
     return (
       <div className="mt-2 space-y-1.5 rounded border border-slate-800 bg-slate-900/40 p-2 text-[11px]">
         <div className="flex items-center justify-between">
           <span className="text-slate-300">{queue.length} member(s) require provenance</span>
-          <div className="flex gap-1.5">
-            <button
-              type="button"
-              onClick={() => void acceptAllHighConfidence()}
-              disabled={batch.running}
-              className="flex items-center gap-1 rounded border border-emerald-800 bg-emerald-900/30 px-2.5 py-1 font-medium text-emerald-200 disabled:opacity-50"
-            >
-              {batch.running ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
-              Accept All High-Confidence (&gt;{HIGH_CONFIDENCE_THRESHOLD}%)
-            </button>
-            <button
-              type="button"
-              onClick={openQueue}
-              className="rounded border border-slate-700 bg-slate-800/60 px-2.5 py-1 font-medium text-slate-100 hover:bg-slate-700/60"
-            >
-              Open Classification Queue
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={openQueue}
+            className="rounded border border-slate-700 bg-slate-800/60 px-2.5 py-1 font-medium text-slate-100 hover:bg-slate-700/60"
+          >
+            Open Classification Queue
+          </button>
         </div>
-        {batch.running && (
-          <div className="text-slate-500">
-            reviewing record {batch.progress + 1} of {batch.total}…
-          </div>
-        )}
-        {batch.summary && <div className="text-slate-400">{batch.summary}</div>}
       </div>
     );
   }
@@ -5163,8 +5324,12 @@ interface BridgeCandidateView {
   componentsJoined: [number, number];
 }
 
-/** A suggestion this auto-batch action must never write on its own — a genuine logical conflict is always a steward's call, not a heuristic's (al, 2026-08-04). */
-const NEVER_AUTO_ACCEPT_TYPE = "contradicts";
+/** Per-item display tier only (color-codes an individual suggestion card in
+ *  the manual queue below) — never a batch-write gate. See
+ *  RelationshipCohortRatificationBoard's own header for why the batch
+ *  "Accept All High-Confidence" shortcut that used to read this same
+ *  constant was retired (2026-09-05 operator audit: no calibration or
+ *  governance ratification of 95 exists anywhere in this repo). */
 const HIGH_CONFIDENCE_THRESHOLD = 95;
 
 /**
@@ -5185,12 +5350,14 @@ const HIGH_CONFIDENCE_THRESHOLD = 95;
  * queue always called; this component never writes an edge on its own
  * authority, it only pre-fills the form a human still submits.
  *
- * "Accept All High-Confidence" batch-writes only suggestions the steward
- * never had to look at individually: confidence > 95, AND the existing
- * `preview:true` cycle/quarantine check reports no conflict, AND the
- * relation type is never `contradicts` — a genuine logical conflict is
- * always a steward's call, never a heuristic's, however confident the
- * model is. Everything else in the batch is left for the per-record queue.
+ * This queue is now Stage 7's MANUAL FALLBACK — the primary batch act is
+ * `RelationshipCohortRatificationBoard`, which never gates disposition on
+ * confidence (see that component's own header). This queue's own former
+ * "Accept All High-Confidence (>95%)" batch shortcut was retired here for
+ * the same reason (2026-09-05 operator audit: no calibration or governance
+ * ratification of 95 exists anywhere in this repo) — it remains available
+ * for the exceptions the cohort board declines to propose a relationship
+ * for, and as a manual override, per-record.
  */
 function RelationshipQueue({
   experimentId,
@@ -5216,12 +5383,6 @@ function RelationshipQueue({
   const [err, setErr] = useState<string | null>(null);
   const [done, setDone] = useState(0);
   const [adjudicating, setAdjudicating] = useState(false);
-  const [batch, setBatch] = useState<{ running: boolean; progress: number; total: number; summary: string | null }>({
-    running: false,
-    progress: 0,
-    total: 0,
-    summary: null,
-  });
 
   const current = queue[index];
   const candidates = useMemo(() => members.filter((m) => m.id !== current?.id), [members, current]);
@@ -5262,7 +5423,6 @@ function RelationshipQueue({
     setRelation("");
     setRationale("");
     setDone(0);
-    setBatch({ running: false, progress: 0, total: 0, summary: null });
     if (queue[0]) void loadCurrent(queue[0].id);
   }, [queue, loadCurrent]);
 
@@ -5358,82 +5518,19 @@ function RelationshipQueue({
     }
   }, [current, suggestions, experimentId, advance]);
 
-  const acceptAllHighConfidence = useCallback(async () => {
-    setBatch({ running: true, progress: 0, total: queue.length, summary: null });
-    let accepted = 0;
-    let needsReview = 0;
-    for (let i = 0; i < queue.length; i++) {
-      const record = queue[i];
-      setBatch((b) => ({ ...b, progress: i }));
-      const recordSuggestions = await fetchSuggestions(record.id);
-      let wroteOne = false;
-      for (const s of recordSuggestions) {
-        if (s.confidence <= HIGH_CONFIDENCE_THRESHOLD || s.relationType === NEVER_AUTO_ACCEPT_TYPE) continue;
-        try {
-          const previewRes = await personaFetch(`/api/invariants/${encodeURIComponent(record.id)}/edges`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ toInvariantId: s.relatedInvariantId, relation: s.relationType, rationale: s.rationale, preview: true }),
-          });
-          const previewBody = await previewRes.json().catch(() => null);
-          if (!previewBody?.ok || previewBody.wouldSucceed !== true || previewBody.quarantineWarning) continue;
-          const writeRes = await personaFetch(`/api/invariants/${encodeURIComponent(record.id)}/edges`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ toInvariantId: s.relatedInvariantId, relation: s.relationType, rationale: s.rationale }),
-          });
-          const writeBody = await writeRes.json().catch(() => null);
-          if (writeBody?.ok) {
-            wroteOne = true;
-            break; // one accepted relationship is enough to clear this record's orphan status
-          }
-        } catch {
-          // one candidate failing never stops the batch — move to the next suggestion or record
-        }
-      }
-      if (wroteOne) accepted += 1;
-      else needsReview += 1;
-    }
-    setBatch({
-      running: false,
-      progress: queue.length,
-      total: queue.length,
-      summary: `${accepted} accepted automatically; ${needsReview} left for manual review (no high-confidence conflict-free suggestion)`,
-    });
-    setOpen(false);
-    onDone();
-  }, [queue, fetchSuggestions, onDone]);
-
   if (!open) {
     return (
       <div className="mt-2 space-y-1.5 rounded border border-slate-800 bg-slate-900/40 p-2 text-[11px]">
         <div className="flex items-center justify-between">
           <span className="text-slate-300">{queue.length} member(s) require relationship derivation</span>
-          <div className="flex gap-1.5">
-            <button
-              type="button"
-              onClick={() => void acceptAllHighConfidence()}
-              disabled={batch.running}
-              className="flex items-center gap-1 rounded border border-emerald-800 bg-emerald-900/30 px-2.5 py-1 font-medium text-emerald-200 disabled:opacity-50"
-            >
-              {batch.running ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
-              Accept All High-Confidence (&gt;{HIGH_CONFIDENCE_THRESHOLD}%)
-            </button>
-            <button
-              type="button"
-              onClick={openQueue}
-              className="rounded border border-slate-700 bg-slate-800/60 px-2.5 py-1 font-medium text-slate-100 hover:bg-slate-700/60"
-            >
-              Open Relationship Queue
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={openQueue}
+            className="rounded border border-slate-700 bg-slate-800/60 px-2.5 py-1 font-medium text-slate-100 hover:bg-slate-700/60"
+          >
+            Open Relationship Queue
+          </button>
         </div>
-        {batch.running && (
-          <div className="text-slate-500">
-            reviewing record {batch.progress + 1} of {batch.total}…
-          </div>
-        )}
-        {batch.summary && <div className="text-slate-400">{batch.summary}</div>}
       </div>
     );
   }

@@ -56,7 +56,7 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, RotateCcw, ShieldAlert, ArrowRight } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
 import { SpecialistResponseCard, type SpecialistResponseData } from "@/components/metame/cards/SpecialistResponseCard";
-import { useMoneyPennyNavigation } from "./moneyPennyNavigation";
+import { useMoneyPennyNavigation, readAndClearPendingSpecialist } from "./moneyPennyNavigation";
 import { askCaseContextSpecialist, type CaseConsultationContext } from "@/services/moneypenny/caseContextConsultation";
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -355,8 +355,14 @@ export function CandidateIntakePanel() {
   const [ratifyDecision, setRatifyDecision] = useState<AegisDecision>("admissible");
   const [ratifyRationale, setRatifyRationale] = useState("");
 
-  // Conversation.
-  const [specialist, setSpecialist] = useState<"factor" | "aegis">("factor");
+  // Conversation. Defaults to "factor" unless a Home specialist card just
+  // navigated here with a specific selection (requirement 2, 2026-09-05) —
+  // read once, on this panel's own mount, then cleared, never re-read on a
+  // later re-render of this same mount (that read-once-then-clear is what
+  // readAndClearPendingSpecialist itself already guarantees).
+  const [specialist, setSpecialist] = useState<"factor" | "aegis">(() =>
+    readAndClearPendingSpecialist() === "aegis" ? "aegis" : "factor",
+  );
   const [turns, setTurns] = useState<ConsultTurn[]>([]);
   const [composerText, setComposerText] = useState("");
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
@@ -729,7 +735,7 @@ export function CandidateIntakePanel() {
       <div className="flex flex-col gap-4 p-4">
         <Card className="bg-slate-900/40 border-slate-800">
           <CardHeader>
-            <CardTitle className="text-slate-100">Candidate Intake — Factor &amp; Aegis</CardTitle>
+            <CardTitle className="text-slate-100">Candidate Intake — Aigent Factor &amp; Aegis</CardTitle>
             <CardDescription className="text-slate-400">
               No candidate case is open. Find an existing case by its candidate identifier, or open a new one — the same
               action resumes an existing case for that identifier instead of duplicating it.
@@ -1035,7 +1041,7 @@ export function CandidateIntakePanel() {
           <div>
             <CardTitle className="text-slate-100">Conversation</CardTitle>
             <CardDescription className="text-slate-400">
-              Exploratory questions to Factor or Aegis — grounded in this case. Advisory only: this consult can never decide
+              Exploratory questions to Aigent Factor or Aegis — grounded in this case. Advisory only: this consult can never decide
               admission or ever mutate case/assessment state.
             </CardDescription>
           </div>
@@ -1058,7 +1064,7 @@ export function CandidateIntakePanel() {
                   specialist === id ? "border-violet-500/70 bg-violet-500/10 text-violet-100" : "border-slate-800 text-slate-300 hover:border-violet-500/40"
                 }`}
               >
-                {id === "factor" ? "Factor" : "Aegis"}
+                {id === "factor" ? "Aigent Factor" : "Aegis"}
               </button>
             ))}
           </div>
@@ -1071,7 +1077,7 @@ export function CandidateIntakePanel() {
                   <div className="flex flex-col gap-2 rounded-lg border border-rose-800/60 bg-rose-500/10 p-3">
                     <StatusBadge kind="refused" />
                     <p className="text-sm text-rose-100">
-                      Factor cannot decide admission — that authority belongs to MoneyPenny alone. Factor facilitates intake and evidence; it never assesses or admits.
+                      Aigent Factor cannot decide admission — that authority belongs to MoneyPenny alone. Aigent Factor facilitates intake and evidence; it never assesses or admits.
                     </p>
                     <button type="button" onClick={scrollToAdmission} className="inline-flex w-fit items-center gap-1 rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-200 hover:border-violet-500/50">
                       Refer to MoneyPenny <ArrowRight className="h-3 w-3" />
@@ -1104,7 +1110,7 @@ export function CandidateIntakePanel() {
             value={composerText}
             onChange={(e) => setComposerText(e.target.value)}
             onKeyDown={onComposerKeyDown}
-            placeholder={`Ask ${specialist === "factor" ? "Factor" : "Aegis"} about this case…`}
+            placeholder={`Ask ${specialist === "factor" ? "Aigent Factor" : "Aegis"} about this case…`}
             rows={2}
             className="w-full rounded-lg border border-slate-800 bg-slate-900/60 p-3 text-sm text-slate-100 placeholder:text-slate-500 focus:border-violet-500/60 focus:outline-none"
           />

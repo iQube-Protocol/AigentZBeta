@@ -916,18 +916,20 @@ describe('Classify Provenance — every submission declares WHICH explicit stewa
     expect(fnBody).toMatch(/acceptedRecommendation:\s*classSuggestion/);
   });
 
-  it('"Accept All High-Confidence" ALSO declares recommendation-accepted per-record — a batch click is not exempt from the rule', () => {
-    // This is the control the operator specifically flagged: a click on it is
-    // a real steward act, but confidence alone must never be what completes
-    // the classification. Each record it clears still states, and the server
-    // still independently verifies, the exact recommendation it accepted.
-    const src = stripComments(readSource(PANEL));
-    const fnStart = src.indexOf('const acceptAllHighConfidence = useCallback');
-    const fnEnd = src.indexOf('[queue, fetchSuggestion, onDone]', fnStart);
-    expect(fnStart).toBeGreaterThan(-1);
-    const fnBody = src.slice(fnStart, fnEnd);
-    expect(fnBody).toMatch(/classDisposition:\s*"recommendation-accepted"/);
-    expect(fnBody).toMatch(/acceptedRecommendation:\s*s\b/);
+  it('the cohort-ratification batch act ALSO declares recommendation-accepted per-record — a batch click is not exempt from the rule', () => {
+    // This is the control the operator specifically flagged (2026-09-05
+    // audit): a click on it is a real steward act, but confidence alone must
+    // never be what completes the classification. The client-side
+    // "Accept All High-Confidence (>95%)" shortcut this test used to pin was
+    // retired (no calibration/ratification of 95 exists anywhere in this
+    // repo) — the batch act now lives ENTIRELY server-side in
+    // provenance-cohort/route.ts's POST handler, which still declares, for
+    // every real write, exactly the recommendation it accepted — an even
+    // stronger guarantee, since no client path to a batch write without this
+    // declaration exists at all anymore.
+    const routeSrc = stripComments(readSource('app/api/research/track2/[experimentId]/provenance-cohort/route.ts'));
+    expect(routeSrc).toMatch(/classDisposition:\s*'recommendation-accepted'/);
+    expect(routeSrc).toMatch(/acceptedRecommendation:\s*\{/);
   });
 
   it('every submit() call site in this queue declares a classDisposition — none can silently omit it', () => {

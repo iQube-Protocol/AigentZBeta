@@ -40,6 +40,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Loader2, Network, ExternalLink } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
+import { peekPendingSpecialist, clearPendingSpecialist } from "./moneyPennyNavigation";
 import {
   panelReducer,
   initialPanelState,
@@ -311,6 +312,27 @@ export function ServiceOrchestrationPanel() {
     },
     [loadDiscovery],
   );
+
+  // Home specialist card pre-selection (requirement 2, 2026-09-05) — "Aigent
+  // Nakamoto"/"Aigent Know1" navigate here with a pending specialist
+  // selection (moneyPennyNavigation.tsx's writePendingSpecialist), consumed
+  // exactly once, as soon as the catalog's agent list has loaded (matching
+  // by `slug`, the same field REGISTRABLE_AGENTS keys on — never a second
+  // hand-maintained agentId map). A pending "factor"/"aegis" selection is
+  // NOT this panel's concern (that pair lands on candidate-intake, read by
+  // CandidateIntakePanel instead) — left untouched here so it still applies
+  // wherever it WAS meant for, never silently consumed by the wrong panel.
+  const pendingSpecialistConsumedRef = useRef(false);
+  useEffect(() => {
+    if (pendingSpecialistConsumedRef.current) return;
+    if (agents.length === 0) return;
+    const pending = peekPendingSpecialist();
+    if (pending !== "nakamoto" && pending !== "kn0w1") return;
+    pendingSpecialistConsumedRef.current = true;
+    clearPendingSpecialist();
+    const match = agents.find((a) => a.slug === pending);
+    if (match) selectAgent(match.runtimeAgentId);
+  }, [agents, selectAgent]);
 
   const requestService = useCallback(
     async (definition: FinancialServiceDefinitionSummary) => {

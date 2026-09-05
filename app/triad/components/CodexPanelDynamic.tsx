@@ -34,6 +34,7 @@ const SmartWalletDrawer = dynamic(
 import { SmartTriadProvider } from "@/app/components/content/SmartTriadProvider";
 import { SmartTriadSurfaces } from "@/app/components/content/SmartTriadSurfaces";
 import { CopilotHostProvider } from "@/app/components/codex/CopilotHostContext";
+import { CodexHostNavigationProvider } from "@/app/components/codex/CodexHostNavigationContext";
 import { useSmartTriadContext } from "@/app/hooks/useSmartTriadContext";
 import { personaFetch } from "@/utils/personaSpine";
 import { useActivations } from "@/services/activations/ActivationsContext";
@@ -906,9 +907,21 @@ export default function CodexPanelDynamic({
   });
   const primaryChromeHidden = hideTopLevelNav && hideGroupSubHeader;
 
+  // CodexHostNavigationContext (2026-09-05 — MoneyPenny Home cross-area nav
+  // regression fix): exposes THIS instance's own setActiveTabSlug directly
+  // to descendants, so a nested dispatcher (MoneyPennyPanelTab.tsx) can
+  // switch its host's active tab without needing to know or guess what
+  // cartridge id this instance registered itself as. See that context
+  // file's own header for the full defect this replaces.
+  const hostNavigationValue = useMemo(
+    () => ({ codexId, setActiveTab: setActiveTabSlug }),
+    [codexId, setActiveTabSlug],
+  );
+
   return (
     <SmartTriadProvider personaId={resolvedPersonaId}>
      <WalletSurfaceHostProvider>
+     <CodexHostNavigationProvider value={hostNavigationValue}>
      <CopilotHostProvider>
       <div className={`flex flex-col h-full w-full ${resolvedTheme === 'dark' ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'}`}>
         {!primaryChromeHidden && (() => {
@@ -1442,6 +1455,7 @@ export default function CodexPanelDynamic({
         />
       )}
      </CopilotHostProvider>
+     </CodexHostNavigationProvider>
      </WalletSurfaceHostProvider>
     </SmartTriadProvider>
   );

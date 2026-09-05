@@ -187,7 +187,7 @@ export function MoneyPennyCopilotWorkspace({ activePanel, area, children }: Mone
   // MoneyPennyPanelTab's own internal state stays the single owner of
   // "which panel is active" (MS-2 — no second, parallel state authority).
   const [suggestedPanel, setSuggestedPanel] = useState<MoneyPennyPanelKey | null>(null);
-  const { navigate: navigateToPanel, activeCase } = useMoneyPennyNavigation();
+  const { navigate: navigateToPanel, activeCase, navigationError, clearNavigationError } = useMoneyPennyNavigation();
   // C-01 narrow-width Conversation/Workspace toggle. Both panes stay
   // mounted at every width — this only controls which is VISIBLE below
   // the `lg` breakpoint (see the render below) — so switching views never
@@ -569,6 +569,22 @@ export function MoneyPennyCopilotWorkspace({ activePanel, area, children }: Mone
               : `h-full min-h-0 w-full overflow-y-auto lg:block lg:w-[62%] ${narrowView === 'workspace' ? 'block' : 'hidden'}`
           }
         >
+          {/* Cross-area navigation failure — never a silent no-op (2026-09-05
+              Home cross-area nav regression fix). Rendered before the
+              suggestion banner since a failed navigation is the more
+              pressing fact for the operator to see. */}
+          {navigationError && (
+            <div className="mx-6 mt-4 flex items-center justify-between gap-3 rounded-lg border border-rose-800/60 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">
+              <span>{navigationError}</span>
+              <button
+                type="button"
+                onClick={clearNavigationError}
+                className="flex shrink-0 items-center gap-1 rounded-md bg-rose-500/20 px-2 py-1 text-xs font-medium text-rose-100 hover:bg-rose-500/30"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
           {suggestedPanel && (
             <div className="mx-6 mt-4 flex items-center justify-between gap-3 rounded-lg border border-emerald-800/60 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200">
               <span>MoneyPenny suggests: open {SUGGESTABLE_PANEL_LABELS[suggestedPanel]}</span>

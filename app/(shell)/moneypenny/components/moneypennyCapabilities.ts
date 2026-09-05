@@ -24,6 +24,7 @@
 
 import type { MoneyPennyProviderMode } from "@/types/financialServices";
 import type { MoneyPennyPanelKey } from "@/app/triad/components/codex/tabs/MoneyPennyPanelTab";
+import { REGISTRABLE_AGENTS } from "@/services/horizen/registrableAgents";
 
 export interface MoneyPennyCapabilityItem {
   id: string;
@@ -245,3 +246,59 @@ export function defaultPanelForArea(areaId: MoneyPennyAreaId): MoneyPennyPanelKe
   const first = areaItems(areaId).find((item) => item.panel !== null);
   return first?.panel ?? "overview";
 }
+
+/**
+ * Home specialist access (Cartridge spec C-03: "Home | ... specialist
+ * access", operator audit 2026-09-05). Four cards — MoneyPenny's own
+ * candidate-intake specialists (Factor/Aegis) and the two admitted agents
+ * the Service Orchestration console already lets an operator observe/
+ * trigger (Nakamoto/Kn0w1) — each a typed destination + specialist
+ * selection, never a fifth hand-rolled agent picker.
+ *
+ * Labels are sourced from `REGISTRABLE_AGENTS` (the same canonical
+ * descriptor the Service Orchestration console itself reads `displayName`
+ * from) rather than a new hand-maintained display-name map — source-of-
+ * truth parity (CLAUDE.md inv.engineering.036/037). Aegis has no
+ * `REGISTRABLE_AGENTS` entry by design (services/horizen/registrableAgents.ts's
+ * own comment: "Aegis is deliberately NOT a registrable agent... it is
+ * MoneyPenny's independent assessor, never itself a Horizen Register/
+ * Verify/Claim candidate") — its label is the one literal here.
+ */
+export type MoneyPennySpecialistId = "factor" | "aegis" | "nakamoto" | "kn0w1";
+
+export interface MoneyPennySpecialistCard {
+  id: MoneyPennySpecialistId;
+  label: string;
+  description: string;
+  /** Where selecting this specialist navigates — candidate-intake for
+   *  MoneyPenny's own specialists, service-orchestration (the existing
+   *  agent-selector oversight console) for admitted agents. */
+  panel: Extract<MoneyPennyPanelKey, "candidate-intake" | "service-orchestration">;
+}
+
+export const MONEYPENNY_SPECIALIST_CARDS: MoneyPennySpecialistCard[] = [
+  {
+    id: "factor",
+    label: REGISTRABLE_AGENTS.factor.displayName,
+    description: "Candidate-intake case facilitation — evidence, authority chains, standing proposals. Never decides admission.",
+    panel: "candidate-intake",
+  },
+  {
+    id: "aegis",
+    label: "Aegis",
+    description: "Independent assessment of a candidate's evidence. Never self-assesses, never decides admission.",
+    panel: "candidate-intake",
+  },
+  {
+    id: "nakamoto",
+    label: REGISTRABLE_AGENTS.nakamoto.displayName,
+    description: "Observe and trigger this admitted agent's own consumption of a MoneyPenny Financial Service.",
+    panel: "service-orchestration",
+  },
+  {
+    id: "kn0w1",
+    label: REGISTRABLE_AGENTS.kn0w1.displayName,
+    description: "Observe and trigger this admitted agent's own consumption of a MoneyPenny Financial Service.",
+    panel: "service-orchestration",
+  },
+];

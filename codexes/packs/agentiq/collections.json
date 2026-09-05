@@ -40,6 +40,8 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-09-05_moneypenny-home-cross-area-nav-fix-and-specialist-access.md",
+        "updates/2026-09-05_track2-confidence-cohort-audit-and-relationship-ratification.md",
         "updates/2026-09-05_candidate-intake-case-workspace-upgrade.md",
         "updates/2026-09-05_factor-runtime-endpoint-and-specialist-ui.md",
         "updates/2026-09-05_factor-aegis-live-provisioning-execution.md",
