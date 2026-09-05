@@ -35,11 +35,20 @@ describe('every manifest action references a registered, probeable handler', () 
     }
   });
 
-  it("bankr_tokenization stays explain-only until its real handler lands (Phase 5)", () => {
+  it('bankr_tokenization gained real actions in Phase 5 — every handlerId registered, explain still unapproved, submit still gated', () => {
     const bankr = FACTOR_CAPABILITIES.find((c) => c.id === 'bankr_tokenization')!;
-    expect(bankr.actions).toHaveLength(1);
-    expect(bankr.actions[0].mode).toBe('explain');
-    expect(bankr.actions[0].requiresApproval).toBe(false);
+    expect(bankr.status).toBe('partial');
+    expect(bankr.handlerKind).toBe('service');
+    expect(bankr.actions.length).toBeGreaterThan(1);
+    const explain = bankr.actions.find((a) => a.mode === 'explain')!;
+    expect(explain.requiresApproval).toBe(false);
+    const submit = bankr.actions.find((a) => a.id === 'bankr_tokenization:submit')!;
+    expect(submit.mode).toBe('execute');
+    expect(submit.requiresApproval).toBe(true);
+    expect(submit.exposure).toBe('external');
+    for (const action of bankr.actions) {
+      expect(isRegisteredFactorActionHandlerId(action.handlerId)).toBe(true);
+    }
   });
 });
 
@@ -58,10 +67,28 @@ describe('deriveFactorResponseEnvelope — typed availableActions', () => {
   });
 
   it('never offers a non-explain action for a PLANNED capability regardless of scope', () => {
-    const envelope = deriveFactorResponseEnvelope('bankr_tokenization', { caseId: 'case-1', agentRef: 'agent-1' });
+    const envelope = deriveFactorResponseEnvelope('runtime_activation', { caseId: 'case-1', agentRef: 'agent-1' });
     expect(envelope.affordance).toBe('PLANNED');
     expect(envelope.availableActions).toHaveLength(1);
     expect(envelope.availableActions[0].mode).toBe('explain');
+  });
+
+  it('bankr_tokenization (PREPARABLE, Phase 5) offers its scope-bound prepare actions once agentRef is bound', () => {
+    const envelope = deriveFactorResponseEnvelope('bankr_tokenization', { agentRef: 'agent-1' });
+    expect(envelope.affordance).toBe('PREPARABLE');
+    expect(envelope.availableActions.some((a) => a.id === 'bankr_tokenization:assess_readiness')).toBe(true);
+    // submit has no requiredScope declared, so it IS offered once the
+    // capability's own affordance permits acting at all — its
+    // requiresApproval:true is what actually gates real execution, not
+    // its presence in this list.
+    expect(envelope.availableActions.some((a) => a.id === 'bankr_tokenization:submit')).toBe(true);
+  });
+
+  it('bankr_tokenization offers only the explain action when no scope is bound at all', () => {
+    const envelope = deriveFactorResponseEnvelope('bankr_tokenization');
+    expect(envelope.affordance).toBe('PREPARABLE');
+    expect(envelope.availableActions.some((a) => a.id === 'bankr_tokenization:assess_readiness')).toBe(false);
+    expect(envelope.availableActions.every((a) => a.mode === 'explain' || isRegisteredFactorActionHandlerId(a.handlerId))).toBe(true);
   });
 
   it('each action carries its OWN requiresApproval — explain is never gated even on a capability whose real action requires approval', () => {

@@ -100,10 +100,15 @@ describe('askSpecialist(factor) — template fallback keyed by capability, never
     expect(res.title.toLowerCase()).toContain('wallet');
   });
 
-  it('"Could this agent issue a fair-launch token through Bankr?" -> tokenization capability, PLANNED stated honestly', async () => {
+  it('"Could this agent issue a fair-launch token through Bankr?" -> tokenization capability, PREPARABLE (Phase 5 real handlers, submission still gated)', async () => {
+    // bankr_tokenization gained real handlers in Phase 5
+    // (services/factor/bankrCapabilityHandlers.ts) — status 'partial', no
+    // longer 'planned'. It is deliberately NOT ACTION_AVAILABLE:
+    // submission still requires an explicit human/MoneyPenny approval and,
+    // in this deployment, no live Bankr credentials exist.
     const res = await askSpecialist({ specialistId: 'factor', context: ctx('Could this agent issue a fair-launch token through Bankr?') });
-    expect(res.affordance).toBe('PLANNED');
-    expect(res.summary).toMatch(/not yet implemented|cannot act on it today/i);
+    expect(res.affordance).toBe('PREPARABLE');
+    expect(res.summary).toMatch(/partially built|not yet wired end-to-end/i);
   });
 
   it('"Can Vela protect this workload?" -> confidential-compute capability, PLANNED stated honestly', async () => {
@@ -113,7 +118,10 @@ describe('askSpecialist(factor) — template fallback keyed by capability, never
   });
 
   it('never renders a PLANNED capability response as if it were live (no operational claim leaks through)', async () => {
-    for (const capId of ['vela_confidential_compute', 'bankr_tokenization', 'runtime_activation'] as const) {
+    // bankr_tokenization is 'partial' (PREPARABLE), not 'planned', since
+    // Phase 5 — asserted separately above; the genuinely still-PLANNED
+    // capabilities are covered here.
+    for (const capId of ['vela_confidential_compute', 'runtime_activation'] as const) {
       const res = await askSpecialist({ specialistId: 'factor', context: ctx('irrelevant', { factorCapabilityId: capId }) });
       expect(res.affordance).toBe('PLANNED');
       expect(res.summary.toLowerCase()).not.toContain('is live today');

@@ -107,3 +107,28 @@ registerFactorActionHandler({
   describes: "app/(shell)/moneypenny/components/FactorPanel.tsx#handoffToAegis — host-local UI navigation, never externally invocable.",
   probe: () => ({ reachable: true }),
 });
+
+// ── Bankr capability handlers (Factor + Aegis Bankr PRD, Phase 5) ──────────
+// services/factor/bankrCapabilityHandlers.ts — thin, real wrappers over the
+// Phase 2-4 services (Bankr provider adapter, provider-wallet binding,
+// token-launch domain, Aegis assessment). Registered individually, one per
+// distinct action, so Factor's manifest can gate readiness per-action
+// rather than declaring the whole bankr_tokenization capability live at
+// once (Phase 5's own explicit instruction).
+for (const handlerId of [
+  'factor:bankr-readiness',
+  'factor:bankr-binding',
+  'factor:bankr-prepare-launch',
+  'factor:bankr-preflight',
+  'factor:bankr-request-aegis',
+  'factor:bankr-request-approval',
+  'factor:bankr-submit',
+  'factor:bankr-inspect-status',
+  'factor:bankr-fee-claims',
+] as const) {
+  registerFactorActionHandler({
+    handlerId,
+    describes: `services/factor/bankrCapabilityHandlers.ts — ${handlerId.replace('factor:bankr-', '')}.`,
+    probe: () => ({ reachable: true }),
+  });
+}

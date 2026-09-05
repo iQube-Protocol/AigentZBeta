@@ -201,6 +201,19 @@ export class BankrProviderAdapter {
 }
 
 /**
+ * Memoized across calls with no explicit configOverride — a real Bankr
+ * deployment's job state lives server-side regardless of how many adapter
+ * instances a caller constructs, so the deterministic fake transport must
+ * behave the same way: a job created by one createBankrProviderAdapter()
+ * call (e.g. submitApprovedLaunch) must still be visible to a LATER call
+ * (e.g. inspectDeploymentStatus) within the same process. A fresh
+ * BankrFakeTransport per call would silently "forget" jobs it just created —
+ * discovered via tests/bankr-capability-handlers.test.ts's submit-then-
+ * inspect flow (Phase 5).
+ */
+let cachedFakeTransport: BankrFakeTransport | null = null;
+
+/**
  * The ONE construction point — picks live vs. fake transport based on
  * whether real credentials are configured, never based on NODE_ENV or a
  * feature flag (a deployment with real keys always gets the live
@@ -209,6 +222,7 @@ export class BankrProviderAdapter {
  */
 export function createBankrProviderAdapter(configOverride?: BankrProviderConfig): BankrProviderAdapter {
   const config = configOverride ?? resolveBankrProviderConfig();
-  const transport = isBankrConfigured(config) ? new BankrLiveTransport(config) : new BankrFakeTransport();
-  return new BankrProviderAdapter(config, transport);
+  if (isBankrConfigured(config)) return new BankrProviderAdapter(config, new BankrLiveTransport(config));
+  if (!cachedFakeTransport) cachedFakeTransport = new BankrFakeTransport();
+  return new BankrProviderAdapter(config, cachedFakeTransport);
 }
