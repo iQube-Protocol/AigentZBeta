@@ -861,6 +861,40 @@ export function JourneyRunSurface({
     };
   }, [evidenceOpen]);
 
+  /*
+   * REGISTER LAYOUT DIAGNOSIS (GJR audit, 2026-09-05): the Evidence checklist
+   * popover below is anchored to its trigger with `position: absolute` and
+   * lives in the STAGE HEADER, which sits ABOVE (and outside) the separate
+   * `overflow-y-auto` scroll container that renders the active stage's own
+   * surfaces (e.g. RegisterAgentPanel's wallet-quarantine warning,
+   * StageReceiptsDrawer's own inline "Evidence (N)" block). The header does
+   * not move when that body scrolls, so the popover's on-screen position is
+   * FIXED relative to the header — while the body content sliding underneath
+   * it is not. With no clipping ancestor between the popover and the page,
+   * `z-20` puts it visually on top of whatever the body happens to render at
+   * that spot once scrolled, which is exactly the reported symptom: a
+   * "This wallet is quarantined…" warning (or StageReceiptsDrawer's own
+   * "Evidence (N)" / "Historical / supplementary receipts" text) rendering
+   * underneath the still-open header popover.
+   *
+   * Root cause is therefore "the popover and the scrollable body can
+   * co-exist open+scrolled at the same time", not a z-index or offset
+   * value — so the fix removes that co-existence rather than tuning either
+   * layer's numbers: closing the popover the instant ANY scrollable
+   * ancestor scrolls (capture-phase, since `scroll` does not bubble) means
+   * it can never still be open while the body content moves underneath it.
+   * This never touches layout (no absolute→relative conversion, no pushed-
+   * down body, no fixed heights), so opening/closing Evidence still never
+   * resizes or collapses the stage body, and the header popover and
+   * StageReceiptsDrawer remain the two separate mechanisms they always were.
+   */
+  useEffect(() => {
+    if (!evidenceOpen) return;
+    const onScroll = () => setEvidenceOpen(false);
+    document.addEventListener('scroll', onScroll, true);
+    return () => document.removeEventListener('scroll', onScroll, true);
+  }, [evidenceOpen]);
+
   // Keep the active stage visible in the carousel — including when it was
   // selected from OUTSIDE this strip (the companion's `journey:select-stage`),
   // which is exactly the case a manual-scroll-only strip leaves stranded.
