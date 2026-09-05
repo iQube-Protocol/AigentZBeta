@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-05T21:04:17.944Z",
+  "last_updated": "2026-09-05T21:06:42.391Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "39e5792aec67df029203286c9c738ad77076a41f",
-  "latest_commit_short": "39e5792",
-  "latest_commit_title": "Add Bankr Phase 9 live-rehearsal script (stops at the approval boundary)",
+  "latest_commit": "c53302f536c32e0122fbc921a5f870db43e652e4",
+  "latest_commit_short": "c53302f",
+  "latest_commit_title": "Record Bankr Phases 6-9 delivery report (frontend integration pending)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "c53302f",
+      "full_sha": "c53302f536c32e0122fbc921a5f870db43e652e4",
+      "title": "Record Bankr Phases 6-9 delivery report (frontend integration pending)",
+      "author": "Claude",
+      "timestamp": "2026-09-05T21:04:50Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-c53302f.md"
+    },
     {
       "sha": "39e5792",
       "full_sha": "39e5792aec67df029203286c9c738ad77076a41f",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-09-02T12:59:22Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-0e171da.md"
-    },
-    {
-      "sha": "d158cda",
-      "full_sha": "d158cdac69cbf63b116de03bf1a56ddc09ef1743",
-      "title": "Add acceptance tests for IRL OS experiment membership resolver [merge feature/irl-experiment-membership-workspace]",
-      "author": "Claude",
-      "timestamp": "2026-09-02T12:59:23Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-d158cda.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
