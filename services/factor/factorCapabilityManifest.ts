@@ -49,6 +49,8 @@
  *     itself -> operational.
  */
 
+import { isRegisteredFactorActionHandlerId } from "@/services/factor/factorActionHandlerRegistry";
+
 export type FactorCapabilityStatus = "operational" | "partial" | "advisory" | "planned";
 
 export type FactorInteractionMode = "explain" | "assess-readiness" | "prepare" | "act";
@@ -80,6 +82,35 @@ export interface FactorScope {
 }
 
 export type FactorAffordance = "ADVISORY" | "PREPARABLE" | "ACTION_AVAILABLE" | "BLOCKED" | "PLANNED";
+
+/**
+ * Typed action shape (Factor runtime-contract closure, Phase 1 continuation,
+ * 2026-09-05) — replaces `availableActions: string[]` (a label with nothing
+ * a client could act on beyond re-submitting it as text). A capability may
+ * offer several actions at different consequence levels; approval is a
+ * property of the ACTION, not the capability — explaining Bankr needs no
+ * approval, but preparing a launch proposal or submitting one does.
+ */
+export type FactorActionMode = "explain" | "prepare" | "execute" | "navigate";
+
+/** Where this action's handler actually runs — never asserted from the label alone. */
+export type FactorActionExposure = "internal" | "moneypenny" | "external";
+
+export interface FactorActionDescriptor {
+  /** Stable id, `${capabilityId}:${verb}` — unique across the whole manifest. */
+  id: string;
+  label: string;
+  mode: FactorActionMode;
+  /** MUST resolve in services/factor/factorActionHandlerRegistry.ts — a
+   *  manifest entry may never reference an unregistered handler
+   *  (tests/factor-action-handler-registry.test.ts enforces this). */
+  handlerId: string;
+  exposure: FactorActionExposure;
+  /** Action-level approval policy — never inherited from the capability. */
+  requiresApproval: boolean;
+  requiredScope?: Array<keyof FactorScope>;
+  requiredAuthority?: string[];
+}
 
 export type FactorCapabilityId =
   | "general_orientation"
@@ -121,6 +152,30 @@ export interface FactorCapability {
   examples: string[];
   /** Immutable constraints Factor must state truthfully when this capability comes up. */
   boundaries: string[];
+  /**
+   * Typed, allowlisted actions this capability actually offers — every
+   * capability carries at least an `explain` action (never gated, never
+   * needs approval). Capabilities with a real handler add `prepare`/
+   * `execute`/`navigate` actions; PLANNED/ADVISORY capabilities carry only
+   * `explain` — adding a non-explain action here is itself a status change
+   * and must be accompanied by real `status`/`handlerKind` truthfulness
+   * (never a way to sneak a capability live without updating both).
+   */
+  actions: FactorActionDescriptor[];
+}
+
+/** Every capability's baseline — explaining never needs a handler, approval,
+ *  or bound scope. Composed into each capability's `actions` array rather
+ *  than hand-repeated per entry. */
+function explainAction(capabilityId: FactorCapabilityId, label: string): FactorActionDescriptor {
+  return {
+    id: `${capabilityId}:explain`,
+    label,
+    mode: "explain",
+    handlerId: "factor:explain",
+    exposure: "internal",
+    requiresApproval: false,
+  };
 }
 
 export const FACTOR_CAPABILITIES: FactorCapability[] = [
@@ -138,6 +193,7 @@ export const FACTOR_CAPABILITIES: FactorCapability[] = [
       "Factor is MoneyPenny's constitutional economic activation and ecosystem-catalysis specialist — candidate intake is one capability among many, not its governing identity.",
       "Never claims a planned capability is live.",
     ],
+    actions: [explainAction("general_orientation", "Explain Factor's capabilities")],
   },
   {
     id: "agent_service_discovery",
@@ -150,6 +206,7 @@ export const FACTOR_CAPABILITIES: FactorCapability[] = [
     requiresApproval: false,
     examples: ["What agents are already admitted?", "What financial services does MoneyPenny offer?"],
     boundaries: ["Factor does not itself query the registry or service catalog — it can only orient the operator toward those surfaces."],
+    actions: [explainAction("agent_service_discovery", "Explain agent/service discovery")],
   },
   {
     id: "candidate_intake",
@@ -171,6 +228,27 @@ export const FACTOR_CAPABILITIES: FactorCapability[] = [
       "Factor never assesses its own candidate — an independent Aegis assessment is required.",
       "Factor never decides admission — that authority belongs to MoneyPenny alone.",
     ],
+    actions: [
+      explainAction("candidate_intake", "Explain candidate intake"),
+      {
+        id: "candidate_intake:prepare",
+        label: "Open or resume a candidate case",
+        mode: "prepare",
+        handlerId: "factor:case-service",
+        exposure: "moneypenny",
+        requiresApproval: false,
+      },
+      {
+        id: "candidate_intake:execute",
+        label: "Transition a candidate case",
+        mode: "execute",
+        handlerId: "factor:case-service",
+        exposure: "moneypenny",
+        requiresApproval: true,
+        requiredScope: ["caseId"],
+        requiredAuthority: ["factor-case-authority"],
+      },
+    ],
   },
   {
     id: "horizen_journey_spine",
@@ -184,6 +262,17 @@ export const FACTOR_CAPABILITIES: FactorCapability[] = [
     requiresApproval: false,
     examples: ["Help this agent traverse the Horizen Journey Spine", "What is this agent's Horizen registration status?"],
     boundaries: ["Factor cannot broadcast or confirm an on-chain registration itself — it can only report and explain the current binding state."],
+    actions: [
+      explainAction("horizen_journey_spine", "Explain the Horizen Journey Spine"),
+      {
+        id: "horizen_journey_spine:prepare",
+        label: "Check Horizen registration binding status",
+        mode: "prepare",
+        handlerId: "factor:horizen-registration-binding",
+        exposure: "internal",
+        requiresApproval: false,
+      },
+    ],
   },
   {
     id: "identity_wallet_settlement",
@@ -196,6 +285,7 @@ export const FACTOR_CAPABILITIES: FactorCapability[] = [
     requiresApproval: false,
     examples: ["Prepare an X402 settlement wallet for this agent", "What identity does this candidate need before admission?"],
     boundaries: ["Factor cannot provision or move funds in any wallet — identity/wallet provisioning is a separate, human/operator-driven step."],
+    actions: [explainAction("identity_wallet_settlement", "Explain identity/wallet/settlement readiness")],
   },
   {
     id: "authority_chain",
@@ -210,6 +300,19 @@ export const FACTOR_CAPABILITIES: FactorCapability[] = [
     requiredAuthority: ["authority-chain-establish"],
     examples: ["Establish an authority chain for this case", "Is this candidate's authority chain still valid?"],
     boundaries: ["Factor never manufactures authority a real delegation_grants row does not already grant."],
+    actions: [
+      explainAction("authority_chain", "Explain authority chains"),
+      {
+        id: "authority_chain:prepare",
+        label: "Establish an authority chain",
+        mode: "prepare",
+        handlerId: "factor:authority-chain",
+        exposure: "moneypenny",
+        requiresApproval: true,
+        requiredScope: ["caseId"],
+        requiredAuthority: ["authority-chain-establish"],
+      },
+    ],
   },
   {
     id: "financial_service_composition",
@@ -222,6 +325,7 @@ export const FACTOR_CAPABILITIES: FactorCapability[] = [
     requiresApproval: false,
     examples: ["Compose a financial-service bundle for this agent", "Can you set up recurring settlement for this agent?"],
     boundaries: ["No service-composition handler exists yet — Factor can only describe what this would look like when built."],
+    actions: [explainAction("financial_service_composition", "Explain financial-service composition")],
   },
   {
     id: "pulse_pnl",
@@ -234,6 +338,7 @@ export const FACTOR_CAPABILITIES: FactorCapability[] = [
     requiresApproval: false,
     examples: ["Facilitate Pulse and P&L registration for this agent", "How does Pulse/P&L evidence factor into standing?"],
     boundaries: ["Factor cannot register an agent for Pulse/P&L reporting today — it can only explain how such evidence would be used in a standing proposal."],
+    actions: [explainAction("pulse_pnl", "Explain Pulse/P&L evidence")],
   },
   {
     id: "standing_proposal",
@@ -250,6 +355,19 @@ export const FACTOR_CAPABILITIES: FactorCapability[] = [
     boundaries: [
       "Factor only ever PROPOSES a standing event — it never writes standing directly.",
       "A proposal with no veracity, contribution, or risk-of-repair evidence is refused outright.",
+    ],
+    actions: [
+      explainAction("standing_proposal", "Explain standing proposals"),
+      {
+        id: "standing_proposal:prepare",
+        label: "Propose a standing event",
+        mode: "prepare",
+        handlerId: "factor:standing-proposal",
+        exposure: "internal",
+        requiresApproval: true,
+        requiredScope: ["agentRef"],
+        requiredAuthority: ["standing-proposal-evidence"],
+      },
     ],
   },
   {
@@ -269,6 +387,18 @@ export const FACTOR_CAPABILITIES: FactorCapability[] = [
     requiredScope: ["caseId"],
     examples: ["Request an independent Aegis assessment", "Refer this candidate to Aegis"],
     boundaries: ["Factor cannot assess its own candidate — this referral is the only path to an assessment."],
+    actions: [
+      explainAction("aegis_referral", "Explain Aegis referral"),
+      {
+        id: "aegis_referral:navigate",
+        label: "Refer this case to Aegis",
+        mode: "navigate",
+        handlerId: "factor:aegis-referral-navigation",
+        exposure: "internal",
+        requiresApproval: false,
+        requiredScope: ["caseId"],
+      },
+    ],
   },
   {
     id: "vela_confidential_compute",
@@ -280,6 +410,7 @@ export const FACTOR_CAPABILITIES: FactorCapability[] = [
     requiresApproval: false,
     examples: ["Can Vela protect this workload?", "Prepare this agent for confidential compute"],
     boundaries: ["No Vela integration exists for Factor — this is a described capability, not a live one."],
+    actions: [explainAction("vela_confidential_compute", "Explain Vela confidential compute")],
   },
   {
     id: "bankr_tokenization",
@@ -291,6 +422,10 @@ export const FACTOR_CAPABILITIES: FactorCapability[] = [
     requiresApproval: false,
     examples: ["Could this agent issue a fair-launch token through Bankr?", "Help this agent tokenize its service"],
     boundaries: ["No Bankr integration exists for Factor — Factor cannot initiate or govern a token issuance today."],
+    // Explain-only, deliberately (Phase 5 populates the rest as each action's
+    // real handler + authority gate + tests land — never all at once by
+    // flipping this capability's status).
+    actions: [explainAction("bankr_tokenization", "Explain Bankr tokenization")],
   },
   {
     id: "runtime_activation",
@@ -303,6 +438,7 @@ export const FACTOR_CAPABILITIES: FactorCapability[] = [
     requiresApproval: false,
     examples: ["Activate this agent's runtime", "Catalyze this agent's first activity"],
     boundaries: ["Marking a case 'active' is a state label only — Factor does not itself deploy or operate any runtime."],
+    actions: [explainAction("runtime_activation", "Explain runtime activation")],
   },
 ];
 
@@ -395,10 +531,15 @@ export interface FactorResponseEnvelope {
   capabilityStatus: FactorCapabilityStatus;
   affordance: FactorAffordance;
   requiresApproval: boolean;
-  /** Concrete next actions the operator could take now — empty unless the
-   *  affordance is ACTION_AVAILABLE or PREPARABLE (an ADVISORY/PLANNED/
-   *  BLOCKED response has nothing to click, only explanation). */
-  availableActions: string[];
+  /** Concrete next actions the operator could take now, TYPED (Factor
+   *  runtime-contract closure, Phase 1 continuation) — never a bare label
+   *  string. The `explain` action is always included regardless of
+   *  affordance (explaining never needs approval or a bound scope); every
+   *  other action is included only when the affordance is ACTION_AVAILABLE
+   *  or PREPARABLE AND the action's own `requiredScope`/handler-registration
+   *  are satisfied — an ADVISORY/PLANNED/BLOCKED response never offers a
+   *  consequential action to click. */
+  availableActions: FactorActionDescriptor[];
   /** Unmet prerequisites, when `affordance` is BLOCKED — empty otherwise. */
   blockers: string[];
 }
@@ -414,6 +555,29 @@ function affordanceForStatusAndHandler(status: FactorCapabilityStatus, handlerKi
   return "PREPARABLE"; // status === "partial"
 }
 
+/** True when this action's own prerequisites are satisfied against the
+ *  supplied scope — never asserted true when a required key is unbound. */
+function actionScopeSatisfied(action: FactorActionDescriptor, scope?: FactorScope): boolean {
+  return (action.requiredScope ?? []).every((key) => Boolean(scope?.[key]));
+}
+
+/**
+ * Every capability's `explain` action(s), always offered regardless of
+ * affordance — explaining is never gated (Phase 1 requirement: "Explaining
+ * Bankr does not need approval"). Non-explain actions are added only when
+ * the capability's own affordance permits acting at all AND the action's
+ * own handler is registered (an unregistered handlerId is a manifest defect,
+ * never silently offered) AND its own requiredScope is bound.
+ */
+function resolveAvailableActions(cap: FactorCapability, affordance: FactorAffordance, scope?: FactorScope): FactorActionDescriptor[] {
+  const explainActions = cap.actions.filter((a) => a.mode === "explain");
+  if (affordance !== "ACTION_AVAILABLE" && affordance !== "PREPARABLE") return explainActions;
+  const gated = cap.actions.filter(
+    (a) => a.mode !== "explain" && isRegisteredFactorActionHandlerId(a.handlerId) && actionScopeSatisfied(a, scope),
+  );
+  return [...explainActions, ...gated];
+}
+
 export function deriveFactorResponseEnvelope(capabilityId: FactorCapabilityId, scope?: FactorScope): FactorResponseEnvelope {
   const cap = getFactorCapability(capabilityId);
   const missingScope = (cap.requiredScope ?? []).filter((key) => !scope?.[key]);
@@ -424,7 +588,7 @@ export function deriveFactorResponseEnvelope(capabilityId: FactorCapabilityId, s
       capabilityStatus: cap.status,
       affordance: "BLOCKED",
       requiresApproval: cap.requiresApproval,
-      availableActions: [],
+      availableActions: cap.actions.filter((a) => a.mode === "explain"),
       blockers: missingScope.map((key) => `Requires ${key} — this consultation has none bound yet.`),
     };
   }
@@ -435,7 +599,7 @@ export function deriveFactorResponseEnvelope(capabilityId: FactorCapabilityId, s
     capabilityStatus: cap.status,
     affordance,
     requiresApproval: cap.requiresApproval,
-    availableActions: affordance === "ACTION_AVAILABLE" || affordance === "PREPARABLE" ? cap.examples.slice(0, 2) : [],
+    availableActions: resolveAvailableActions(cap, affordance, scope),
     blockers: [],
   };
 }

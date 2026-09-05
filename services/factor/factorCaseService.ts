@@ -28,6 +28,7 @@
 import { randomUUID } from 'crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
+import { validateChainForAction } from '@/services/factor/authorityChain';
 
 export type FactorCaseState =
   | 'discovered'
@@ -328,6 +329,32 @@ export async function transitionCaseState(admin: SupabaseClient, input: Transiti
       'invalid-transition',
       `Case ${input.caseId} cannot move from '${row.state}' to '${input.toState}' (allowed: ${allowed.join(', ') || 'none'}).`,
     );
+  }
+
+  // AUTHORITY-CHAIN GATE (Factor runtime-contract closure, Phase 1
+  // continuation, 2026-09-05) — validateChainForAction (services/factor/
+  // authorityChain.ts) existed but was never called from any transition or
+  // admission route (flagged honestly in factorCapabilityManifest.ts's own
+  // doc comment as the "authority_chain" capability's real gap). Wired here
+  // ONLY when a chain is actually bound to this case (`authority_chain_id`)
+  // — a case with no chain bound is unaffected (today's behavior, unchanged;
+  // not every case is required to carry one). A BOUND chain, once relied
+  // upon, must actually be valid: active, unexpired, and owned by this
+  // case's own principal — never merely trusted because it was recorded.
+  const chainId = input.authorityChainId ?? row.authority_chain_id;
+  if (chainId) {
+    const validation = await validateChainForAction(admin, {
+      chainId,
+      action: input.toState,
+      expectedPrincipalPersonaId: row.owner_persona_id,
+    });
+    if (!validation.allowed) {
+      throw new FactorCaseTransitionError(
+        'authority-chain-invalid',
+        `Case ${input.caseId} cannot transition to '${input.toState}': its bound authority chain ${chainId} ` +
+          `is not valid for this action (${validation.code}): ${validation.reason}`,
+      );
+    }
   }
 
   const { data: updated, error: updateErr } = await admin

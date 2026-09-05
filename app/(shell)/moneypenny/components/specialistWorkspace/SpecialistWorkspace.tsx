@@ -308,11 +308,12 @@ export function SpecialistWorkspace({
               </div>
             ) : (
               <div className="flex flex-col gap-1.5">
-                {!turn.loading && !turn.error && (
-                  <span className="inline-flex w-fit items-center rounded-full border border-sky-700/60 bg-sky-500/10 px-2 py-0.5 text-[11px] font-medium text-sky-200">
-                    Advisory guidance
-                  </span>
-                )}
+                {/* One consistent affordance signal — SpecialistResponseCard's own
+                    server-derived badge (data.affordance). A second, hardcoded
+                    "Advisory guidance" pill used to render here unconditionally,
+                    even for an ACTION_AVAILABLE/PLANNED response, contradicting
+                    the card's own badge (Factor runtime-contract closure, Phase 1
+                    continuation, 2026-09-05). */}
                 <SpecialistResponseCard data={turn.response} loading={turn.loading} error={turn.error} theme="dark" />
                 {turn.error && (
                   <button type="button" onClick={() => retryTurn(turn.id)} className="inline-flex w-fit items-center gap-1 text-xs text-slate-400 hover:text-slate-200">

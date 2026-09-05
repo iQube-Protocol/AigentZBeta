@@ -28,6 +28,11 @@ import { IqubeContextDisclosure, type IqubeKind } from "./IqubeContextDisclosure
 import { PreflightByline, PreflightChip } from "./PreflightByline";
 import type { PreflightContext } from "@/services/capabilities/preflight";
 import type { SpecialistId } from "@/services/agents/specialistRouter";
+import type {
+  FactorActionDescriptor,
+  FactorCapabilityId,
+  FactorCapabilityStatus,
+} from "@/services/factor/factorCapabilityManifest";
 
 export interface SpecialistResponseData {
   // Derived from the canonical SpecialistId union (services/agents/
@@ -51,6 +56,21 @@ export interface SpecialistResponseData {
   /** Additive, optional (services/agents/specialistRouter.ts's SpecialistResponse.affordance) — states
    *  plainly whether this response can be acted on. Only Factor's template path sets this today. */
   affordance?: "ADVISORY" | "PREPARABLE" | "ACTION_AVAILABLE" | "BLOCKED" | "PLANNED";
+  /**
+   * The remaining Factor runtime-contract fields — already sent by the
+   * server (services/agents/specialistRouter.ts's SpecialistResponse) but
+   * previously dropped by this client type and never rendered. Factor-only;
+   * absent for every other specialist.
+   */
+  resolvedCapabilityId?: FactorCapabilityId;
+  capabilityStatus?: FactorCapabilityStatus;
+  /** Typed next actions — the `explain` action is always present; others
+   *  only when `affordance` is ACTION_AVAILABLE/PREPARABLE and their own
+   *  scope is bound. Rendered as non-interactive labels today (Phase 6 wires
+   *  real click-through handlers per action). */
+  availableActions?: FactorActionDescriptor[];
+  /** Unmet prerequisites when `affordance` is BLOCKED. */
+  blockers?: string[];
 }
 
 interface Props {
@@ -206,6 +226,32 @@ export function SpecialistResponseCard({
       </div>
 
       <p className={`text-sm ${mutedClass}`}>{data.summary}</p>
+
+      {/* Blockers — why this is BLOCKED, named rather than left to the badge alone. */}
+      {data.blockers && data.blockers.length > 0 && (
+        <ul className="space-y-1 rounded-lg border border-orange-800/50 bg-orange-500/5 p-2.5 text-xs text-orange-200">
+          {data.blockers.map((b, i) => (
+            <li key={i}>{b}</li>
+          ))}
+        </ul>
+      )}
+
+      {/* Typed next actions — server-derived, allowlisted-handler-backed.
+          Non-interactive today; Phase 6 wires real per-action handlers. */}
+      {data.availableActions && data.availableActions.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {data.availableActions.map((a) => (
+            <span
+              key={a.id}
+              title={a.requiresApproval ? "Requires approval before this action executes" : "Does not require approval"}
+              className={`px-2.5 py-1 text-xs rounded-full border ${chipClass}`}
+            >
+              {a.label}
+              {a.requiresApproval && <span className="ml-1 text-amber-400">•</span>}
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* iQube disclosure */}
       <IqubeContextDisclosure using={using} theme={theme} />

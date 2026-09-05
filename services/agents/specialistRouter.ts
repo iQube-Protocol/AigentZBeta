@@ -40,6 +40,7 @@ import {
   factorStatusSentence,
   getFactorCapability,
   isFactorCapabilityId,
+  type FactorActionDescriptor,
   type FactorAffordance,
   type FactorCapabilityId,
   type FactorCapabilityStatus,
@@ -186,10 +187,11 @@ export interface SpecialistResponse {
   resolvedCapabilityId?: FactorCapabilityId;
   /** The resolved capability's real, manifest-declared status — Factor-only. */
   capabilityStatus?: FactorCapabilityStatus;
-  /** Concrete next actions available now for this capability/scope —
-   *  server-derived, Factor-only, empty unless affordance is
-   *  ACTION_AVAILABLE or PREPARABLE. */
-  availableActions?: string[];
+  /** Concrete next actions available now for this capability/scope, TYPED —
+   *  server-derived, Factor-only. The `explain` action(s) are always
+   *  present; other actions only when affordance is ACTION_AVAILABLE or
+   *  PREPARABLE and their own scope/handler-registration are satisfied. */
+  availableActions?: FactorActionDescriptor[];
   /** Unmet prerequisites when affordance is BLOCKED — Factor-only. */
   blockers?: string[];
 }
