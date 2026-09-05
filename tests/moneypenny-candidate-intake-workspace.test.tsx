@@ -226,7 +226,7 @@ describe('FactorPanel — behavioral', () => {
 
   it('renders a direct-consult empty state with no candidate case required', () => {
     render(<Harness><FactorPanel /></Harness>);
-    expect(screen.getByText(/Ask Aigent Factor about agent readiness/i)).toBeTruthy();
+    expect(screen.getByText(/What are your capabilities\?/i)).toBeTruthy();
     expect(screen.queryByPlaceholderText(/candidate identifier|internal key/i)).toBeNull();
   });
 
@@ -478,7 +478,7 @@ describe('direct Factor and Aegis threads are separate', () => {
     personaFetchMock.mockImplementation((url: string, init?: RequestInit) => backend.fetch(url, init));
 
     const { unmount } = render(<Harness><FactorPanel /></Harness>);
-    fireEvent.click(screen.getByText(/Ask Aigent Factor about agent readiness/i));
+    fireEvent.click(screen.getByText(/What are your capabilities\?/i));
     await screen.findByText(/Advisory summary for:/);
     unmount();
 
