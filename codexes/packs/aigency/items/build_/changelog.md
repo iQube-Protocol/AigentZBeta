@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`07334b2`](https://github.com/iQube-Protocol/AigentZBeta/commit/07334b2fad388ab2f02a3c05a5076c1db44c5573) [fix] Fix inert MoneyPenny Market Research/Learn cards; log EXP-P1 stage 8 gap (Claude, 2026-09-05T10:11:13Z)
 - [`5103893`](https://github.com/iQube-Protocol/AigentZBeta/commit/5103893731e3eacaa8aca2f3a1302c9b6e92443c) [feat] Retire dead Track2 >95% confidence gate; add relationship cohort ratification (Claude, 2026-09-05T08:30:02Z)
 - [`e717187`](https://github.com/iQube-Protocol/AigentZBeta/commit/e71718781e8dcca1c043951ca2ba098652d9ad31) [feat] Fix MoneyPenny Home cross-area nav; add specialist cards; rename Aigent Factor (Claude, 2026-09-05T09:09:02Z)
 - [`2cb85a2`](https://github.com/iQube-Protocol/AigentZBeta/commit/2cb85a2c2d4bf942cce4b1069867d317a40f4325) [fix] trigger deploy: MoneyPenny Home nav fix + Track2 confidence cohort ratification (Claude, 2026-09-05T09:21:33Z)

@@ -5514,3 +5514,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-5103893.md](../build_/COMMITS/COMMIT-5103893.md)
 - Message: Retire dead Track2 >95% confidence gate; add relationship cohort ratification
+
+## Commit `07334b2` — 2026-09-05T10:11:13Z
+- Type: `fix`
+- Brief: [COMMIT-07334b2.md](../build_/COMMITS/COMMIT-07334b2.md)
+- Message: Fix inert MoneyPenny Market Research/Learn cards; log EXP-P1 stage 8 gap

@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-05T09:23:47.676Z",
+  "last_updated": "2026-09-05T10:15:54.456Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "5103893731e3eacaa8aca2f3a1302c9b6e92443c",
-  "latest_commit_short": "5103893",
-  "latest_commit_title": "Retire dead Track2 >95% confidence gate; add relationship cohort ratification",
+  "latest_commit": "07334b2fad388ab2f02a3c05a5076c1db44c5573",
+  "latest_commit_short": "07334b2",
+  "latest_commit_title": "Fix inert MoneyPenny Market Research/Learn cards; log EXP-P1 stage 8 gap",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "07334b2",
+      "full_sha": "07334b2fad388ab2f02a3c05a5076c1db44c5573",
+      "title": "Fix inert MoneyPenny Market Research/Learn cards; log EXP-P1 stage 8 gap",
+      "author": "Claude",
+      "timestamp": "2026-09-05T10:11:13Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-07334b2.md"
+    },
     {
       "sha": "5103893",
       "full_sha": "5103893731e3eacaa8aca2f3a1302c9b6e92443c",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-09-02T12:38:11Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-9b7f469.md"
-    },
-    {
-      "sha": "8cc4fce",
-      "full_sha": "8cc4fce7be8c14034d21fc07927c7b103a9b3ffc",
-      "title": "C1: MoneyPenny copilot-left/chips-right shell [merge spec/moneypenny-mpy2-3]",
-      "author": "Claude",
-      "timestamp": "2026-09-02T12:38:27Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-8cc4fce.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
