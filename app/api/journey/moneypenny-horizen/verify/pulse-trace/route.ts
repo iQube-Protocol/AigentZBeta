@@ -65,7 +65,10 @@ async function startTrace(request: NextRequest) {
   }
   const agentSlug = body.agentSlug ?? DEFAULT_TRACE_AGENT_SLUG;
   if (!resolveRegistrableAgent(agentSlug)) {
-    return NextResponse.json({ ok: false, error: `"${agentSlug}" is not a registrable agent` }, { status: 400 });
+    return NextResponse.json(
+      { ok: false, refusalCode: 'UNKNOWN_AGENT', error: `"${agentSlug}" is not a registrable agent` },
+      { status: 400 },
+    );
   }
 
   const result = await startPulseEnrollmentTrace({
@@ -100,7 +103,10 @@ async function getHistory(request: NextRequest) {
 
   const agentSlug = request.nextUrl.searchParams.get('agentSlug') ?? DEFAULT_TRACE_AGENT_SLUG;
   if (!resolveRegistrableAgent(agentSlug)) {
-    return NextResponse.json({ ok: false, error: `"${agentSlug}" is not a registrable agent` }, { status: 400 });
+    return NextResponse.json(
+      { ok: false, refusalCode: 'UNKNOWN_AGENT', error: `"${agentSlug}" is not a registrable agent` },
+      { status: 400 },
+    );
   }
 
   const records = await getLatestPulseCorrelationTraces(agentSlug);

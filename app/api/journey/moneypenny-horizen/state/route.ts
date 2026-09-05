@@ -195,8 +195,24 @@ export async function GET(req: NextRequest) {
 
 async function resolveState(req: NextRequest) {
   const origin = resolveRequestOrigin(req);
-  const agentSlug = req.nextUrl.searchParams.get('agentSlug') ?? DEFAULT_REGISTRABLE_AGENT_SLUG;
-  const agent = resolveRegistrableAgent(agentSlug) ?? resolveRegistrableAgent(DEFAULT_REGISTRABLE_AGENT_SLUG)!;
+  /*
+   * FAIL CLOSED ON AN INVALID SLUG (operator audit, 2026-09-05). Omitting
+   * `agentSlug` defaults to MoneyPenny for backward compatibility — but an
+   * EXPLICIT, unrecognised slug (a typo, a stale link, a probing request)
+   * must never silently resolve to MoneyPenny's own state/settlements. The
+   * old `resolveRegistrableAgent(agentSlug) ?? resolveRegistrableAgent(DEFAULT)!`
+   * fallback could not distinguish "omitted" from "invalid" and answered both
+   * as MoneyPenny — before any of this route's reads or writes below.
+   */
+  const rawAgentSlug = req.nextUrl.searchParams.get('agentSlug');
+  const agentSlug = rawAgentSlug ?? DEFAULT_REGISTRABLE_AGENT_SLUG;
+  const agent = resolveRegistrableAgent(agentSlug);
+  if (!agent) {
+    return NextResponse.json(
+      { ok: false, refusalCode: 'UNKNOWN_AGENT', error: `"${agentSlug}" is not a registrable agent` },
+      { status: 400 },
+    );
+  }
 
   let agentCard: Record<string, unknown> | null = null;
   try {

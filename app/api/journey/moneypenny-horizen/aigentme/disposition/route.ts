@@ -82,6 +82,18 @@ async function getImpl(request: NextRequest) {
   if (!persona) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
 
   const agentSlug = request.nextUrl.searchParams.get('agentSlug');
+  /*
+   * FAIL CLOSED ON AN INVALID SLUG (operator audit, 2026-09-05). Omitted
+   * `agentSlug` still defaults to MoneyPenny; an EXPLICIT unrecognised slug
+   * must be refused before any read below — never silently answered as
+   * MoneyPenny's own disposition.
+   */
+  if (agentSlug && !resolveRegistrableAgent(agentSlug)) {
+    return NextResponse.json(
+      { ok: false, refusalCode: 'UNKNOWN_AGENT', error: `"${agentSlug}" is not a registrable agent` },
+      { status: 400 },
+    );
+  }
   const agent = resolveRegistrableAgent(agentSlug) ?? resolveRegistrableAgent(DEFAULT_REGISTRABLE_AGENT_SLUG)!;
 
   const { aigentMeActive, dispositionReceipt } = await readExperienceQubeDisposition(
@@ -132,6 +144,14 @@ async function postImpl(request: NextRequest) {
     );
   }
   const disposition = body.disposition as Disposition;
+  // Same fail-closed rule as GET above: an explicit, unrecognised slug is
+  // refused before any write, never silently defaulted to MoneyPenny.
+  if (body.agentSlug && !resolveRegistrableAgent(body.agentSlug)) {
+    return NextResponse.json(
+      { ok: false, refusalCode: 'UNKNOWN_AGENT', error: `"${body.agentSlug}" is not a registrable agent` },
+      { status: 400 },
+    );
+  }
   const agent = resolveRegistrableAgent(body.agentSlug) ?? resolveRegistrableAgent(DEFAULT_REGISTRABLE_AGENT_SLUG)!;
 
   /*
