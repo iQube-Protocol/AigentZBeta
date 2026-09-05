@@ -36,6 +36,7 @@ import { personaFetch } from "@/utils/personaSpine";
 import { SpecialistWorkspace } from "./specialistWorkspace/SpecialistWorkspace";
 import { useMoneyPennyNavigation, readAndClearPendingCaseId } from "./moneyPennyNavigation";
 import { buildCaseContextPrompt, type CaseConsultationContext } from "@/services/moneypenny/caseContextConsultation";
+import { FACTOR_CAPABILITIES, type FactorCapabilityId } from "@/services/factor/factorCapabilityManifest";
 
 type FactorCaseState =
   | "discovered"
@@ -242,14 +243,28 @@ function ActionButton({
 
 const FACTOR_ADMIT_PATTERN = /\b(admit|approve|accept)\b.{0,30}\bcandidate\b|\badmit\s+(this|the)\s+candidate\b/i;
 
-const FACTOR_EMPTY_STATE_PROMPT =
-  "Ask Aigent Factor about agent readiness, registration, evidence, standing, or participation in constitutional financial services.";
+// Capability discovery is the empty-state default — Factor's capability
+// model, not candidate intake, is the panel's governing identity (Factor
+// cognitive-runtime fix, 2026-09-05). "Start candidate intake" / "Find/open
+// candidate case" above remain the dedicated path into the case workflow.
+const FACTOR_EMPTY_STATE_PROMPT = "What are your capabilities?";
 
-const FACTOR_FOLLOWUPS = [
-  "Review evidence readiness",
-  "Explain the Horizon Journey Spine",
-  "Facilitate Pulse/P&L registration",
+// Workstream chips — DERIVED from the capability manifest (one authoritative
+// list, never a hand-duplicated set of chip labels), excluding the three
+// capabilities that already have a dedicated affordance elsewhere in this
+// panel (general_orientation is the empty-state default; candidate_intake
+// has its own "Start candidate intake" button; aegis_referral is reached
+// via "Request an independent Aegis assessment" once a case is open).
+const FACTOR_WORKSTREAM_IDS: FactorCapabilityId[] = [
+  "agent_service_discovery",
+  "horizen_journey_spine",
+  "identity_wallet_settlement",
+  "authority_chain",
+  "financial_service_composition",
+  "pulse_pnl",
+  "standing_proposal",
 ];
+const FACTOR_FOLLOWUPS = FACTOR_CAPABILITIES.filter((c) => FACTOR_WORKSTREAM_IDS.includes(c.id)).map((c) => c.examples[0]);
 
 export function FactorPanel() {
   const { setActiveCase: setSharedActiveCase, navigate } = useMoneyPennyNavigation();
@@ -503,8 +518,9 @@ export function FactorPanel() {
           <div>
             <CardTitle className="text-slate-100">Aigent Factor</CardTitle>
             <CardDescription className="text-slate-400">
-              Candidate-intake facilitation — evidence, authority chains, standing proposals, Pulse/P&amp;L registration.
-              Never assesses or admits.
+              MoneyPenny&rsquo;s constitutional economic activation and ecosystem-catalysis specialist — agent and
+              service discovery, registry/Horizen facilitation, authority chains, standing proposals, and
+              candidate-intake case facilitation as one workstream among these. Never assesses or admits.
             </CardDescription>
           </div>
           {mode === "case" && activeCase && (

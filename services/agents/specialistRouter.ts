@@ -33,6 +33,14 @@
 import { personas } from '@/app/data/personas';
 import type { PreflightContext } from '@/services/capabilities/preflight';
 import { GROUNDING_MANDATE, INVARIANT_GROUNDING_CLAUSE } from '@/services/orchestration/groundingContract';
+import {
+  FACTOR_CAPABILITIES,
+  classifyFactorCapability,
+  factorStatusSentence,
+  getFactorCapability,
+  isFactorCapabilityId,
+  type FactorCapabilityId,
+} from '@/services/factor/factorCapabilityManifest';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Types — public surface.
@@ -98,6 +106,23 @@ export interface SpecialistContext {
    * these (INVARIANT_GROUNDING_CLAUSE).
    */
   invariantSlice?: { seedId: string | null; statement: string; namespace: string }[];
+  /**
+   * Factor cognitive-runtime fix (2026-09-05) — the strongest classification
+   * signal: an explicit capability selected by a UI card/chip. Ignored by
+   * every specialist other than 'factor'. When absent, Factor's capability
+   * is classified deterministically from userPrompt/intentName (see
+   * resolveFactorCapability below) — never silently defaulted to
+   * candidate_intake.
+   */
+  factorCapabilityId?: FactorCapabilityId;
+  /**
+   * Factor cognitive-runtime fix — bounded workflow scope (an open
+   * candidate case, or an agent/service reference) that adds GROUNDING only.
+   * A present caseId must never, by itself, force candidate_intake
+   * classification — only explicit intake language or an explicit
+   * factorCapabilityId does that.
+   */
+  factorScope?: { caseId?: string; agentRef?: string; serviceRef?: string };
 }
 
 export interface SpecialistResponse {
@@ -136,6 +161,18 @@ export interface SpecialistResponse {
    * rather than a fresh ask.
    */
   handoffFrom?: { specialistId: SpecialistId; priorTitle: string };
+  /**
+   * Response affordance (Factor cognitive-runtime fix, 2026-09-05) —
+   * states plainly whether this response only explains/recommends
+   * (ADVISORY), can produce a governed plan/checklist (PREPARABLE), has a
+   * real wired handler subject to authority (ACTION_AVAILABLE), names a
+   * missing prerequisite (BLOCKED), or describes a capability with no
+   * runtime handler at all (PLANNED). Additive/optional — only Factor's
+   * template path sets this today; absent for every other specialist and
+   * for an LLM response that didn't include it. Never render a PLANNED
+   * capability as if it were live.
+   */
+  affordance?: 'ADVISORY' | 'PREPARABLE' | 'ACTION_AVAILABLE' | 'BLOCKED' | 'PLANNED';
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -199,6 +236,28 @@ export function personaKeyForSpecialist(id: SpecialistId): keyof typeof personas
   return SPECIALIST_PERSONA_KEY[id];
 }
 
+/**
+ * The ONE capability-classification step for Factor — called exactly once
+ * per consultation, upstream of whichever response path (live LLM or
+ * deterministic template) actually runs, so the two paths can never
+ * silently disagree about what the operator asked (Factor cognitive-runtime
+ * fix, 2026-09-05). Resolution order:
+ *   1. context.factorCapabilityId — an explicit UI card/chip selection.
+ *   2. Deterministic semantic classification of the free text (userPrompt,
+ *      falling back to intentName).
+ *   3. 'general_orientation' when nothing classifies (classifyFactorCapability's
+ *      own fallback) — never a silent default to candidate_intake.
+ * A bounded case (context.factorScope / an active candidate case) is
+ * GROUNDING ONLY here — it is never consulted to select a capability, so a
+ * question asked from inside an open case is classified exactly the same
+ * as the identical question asked with no case open at all.
+ */
+export function resolveFactorCapability(context: SpecialistContext): FactorCapabilityId {
+  if (isFactorCapabilityId(context.factorCapabilityId)) return context.factorCapabilityId;
+  const text = context.userPrompt?.trim() || context.intentName;
+  return classifyFactorCapability(text);
+}
+
 // Map specialist + cartridge → default request type so the prompt knows
 // what the user expects shape-wise.
 function inferRequestType(specialistId: SpecialistId, cartridge: string): SpecialistRequestType {
@@ -238,10 +297,46 @@ function redact(text: string): string {
 // Prompt assembly.
 // ─────────────────────────────────────────────────────────────────────────
 
-function systemPromptFor(specialistId: SpecialistId, hasInvariantSlice = false): string {
+/**
+ * Factor's authored cognitive profile (Factor cognitive-runtime fix,
+ * 2026-09-05) — replaces the generic "You are an Aigent Me specialist."
+ * fallback that gave a live LLM almost no basis to answer AS Factor.
+ * Boundaries are stated in the prompt itself, not left to the model to
+ * infer, and the resolved capability's real status is appended so the
+ * model cannot claim a planned/advisory capability is live.
+ */
+function factorSystemPrompt(capabilityId: FactorCapabilityId): string {
+  const cap = getFactorCapability(capabilityId);
+  const inventory = FACTOR_CAPABILITIES.map((c) => `- ${c.title} (${c.status})`).join('\n');
+  return [
+    "You are Aigent Factor, MoneyPenny's constitutional economic activation and ecosystem-catalysis specialist.",
+    'You discover, prepare and activate agents and financial services across the iQube Registry, the Horizen',
+    'Journey Spine, and the MoneyPenny runtime. Candidate intake is ONE capability among many — never treat it as',
+    'your governing identity, and never reframe an unrelated question as a candidate-intake question.',
+    '',
+    'Immutable boundaries — state these truthfully whenever they are relevant, never soften them:',
+    '- You cannot assess a candidate independently — that is Aegis\'s role alone; you refer, you do not assess.',
+    '- You cannot decide admission — that authority belongs to MoneyPenny alone.',
+    '- You cannot award standing — you may only submit an evidence-backed standing PROPOSAL.',
+    '- You cannot move funds, register an agent on-chain, tokenize a service, or broadcast anything without',
+    '  proper authority and governed human/MoneyPenny confirmation.',
+    '- You must always distinguish an OPERATIONAL capability (live today) from a PARTIAL one (built but not',
+    '  fully wired), an ADVISORY one (you can explain it, you cannot act on it), and a PLANNED one (not built',
+    '  at all) — never imply a planned or advisory capability is live.',
+    '',
+    `This question has been classified as: "${cap.title}" — status: ${cap.status}. ${factorStatusSentence(cap.status)}`,
+    '',
+    'Your full capability inventory, for reference (never invent a capability not on this list):',
+    inventory,
+  ].join('\n');
+}
+
+function systemPromptFor(specialistId: SpecialistId, hasInvariantSlice = false, factorCapabilityId?: FactorCapabilityId): string {
   const key = SPECIALIST_PERSONA_KEY[specialistId];
   const base =
-    key && personas[key]?.systemPrompt
+    specialistId === 'factor'
+      ? factorSystemPrompt(factorCapabilityId ?? 'general_orientation')
+      : key && personas[key]?.systemPrompt
       ? personas[key].systemPrompt
       : specialistId === 'quill'
         ? [
@@ -469,6 +564,50 @@ async function callLlmChain(systemPrompt: string, userPrompt: string): Promise<s
 // Keeps the demo flow alive when no LLM key is present.
 // ─────────────────────────────────────────────────────────────────────────
 
+/**
+ * Factor's deterministic template fallback — keyed by the SAME capability
+ * classification the live LLM path grounds on (resolveFactorCapability),
+ * never a single hardcoded "candidate-intake framing" (the exact bug this
+ * fix addresses). "What are your capabilities?" -> a real inventory,
+ * regardless of whether an LLM key is present.
+ */
+function factorTemplateResponse(
+  ctx: SpecialistContext,
+  requestType: SpecialistRequestType,
+): Omit<SpecialistResponse, 'specialistId' | 'specialistLabel' | 'generatedAt' | 'source'> {
+  const capabilityId = resolveFactorCapability(ctx);
+
+  if (capabilityId === 'general_orientation') {
+    const inventory = FACTOR_CAPABILITIES.filter((c) => c.id !== 'general_orientation').map(
+      (c) => `${c.title} — ${c.status}: ${factorStatusSentence(c.status)}`,
+    );
+    return {
+      requestType,
+      title: `Aigent Factor — capability overview`,
+      summary:
+        `Aigent Factor is MoneyPenny's constitutional economic activation and ecosystem-catalysis specialist. It discovers, prepares and activates agents and financial services across the iQube Registry, the Horizen Journey Spine and the MoneyPenny runtime. Candidate intake is one capability, not its governing identity.`,
+      recommendations: inventory,
+      suggestedArtifacts: ['brief'],
+      requiresApproval: false,
+      confidence: 'high',
+      affordance: 'ADVISORY',
+    };
+  }
+
+  const cap = getFactorCapability(capabilityId);
+  return {
+    requestType,
+    title: cap.title,
+    summary: `${cap.description} ${factorStatusSentence(cap.status)}`.trim(),
+    recommendations: cap.examples.length > 0 ? cap.boundaries.concat(cap.examples).slice(0, 4) : cap.boundaries.slice(0, 4),
+    suggestedArtifacts: capabilityId === 'candidate_intake' || capabilityId === 'standing_proposal' ? ['brief', 'myworkbench-draft'] : ['brief'],
+    requiresApproval: capabilityId === 'candidate_intake' || capabilityId === 'authority_chain' || capabilityId === 'standing_proposal',
+    confidence: cap.status === 'operational' ? 'high' : cap.status === 'planned' ? 'medium' : 'medium',
+    affordance:
+      cap.status === 'operational' ? 'ACTION_AVAILABLE' : cap.status === 'partial' ? 'PREPARABLE' : cap.status === 'planned' ? 'PLANNED' : 'ADVISORY',
+  };
+}
+
 function templateResponse(
   specialistId: SpecialistId,
   ctx: SpecialistContext,
@@ -669,21 +808,7 @@ function templateResponse(
     };
   }
   if (specialistId === 'factor') {
-    return {
-      requestType,
-      title: `Candidate-intake framing for "${intent}"`,
-      summary:
-        `Factor frames ${intent} as a candidate-intake question: what evidence exists, what is missing, and whether the case is ready to move toward an Aegis assessment. Factor never recommends admission — that is MoneyPenny's decision alone once Aegis has ratified an assessment.`,
-      recommendations: [
-        `Confirm the candidate's identity key and check for an existing case before opening a new one.`,
-        `Walk the evidence checklist (capability declarations, endpoints, code provenance) and flag what is missing or stale.`,
-        `Once evidence is complete, request an Aegis assessment — Factor cannot assess its own candidate.`,
-        `Track the authority chain (direct or MoneyPenny-mediated) under which this case is being worked.`,
-      ],
-      suggestedArtifacts: ['brief', 'myworkbench-draft'],
-      requiresApproval: false,
-      confidence: 'medium',
-    };
+    return factorTemplateResponse(ctx, requestType);
   }
   if (specialistId === 'aegis') {
     return {
@@ -739,8 +864,14 @@ export async function askSpecialist(
   const specialistLabel = SPECIALIST_LABELS[specialistId];
   const generatedAt = new Date().toISOString();
 
+  // Factor's capability classification happens ONCE here, upstream of
+  // whichever response path runs — the live LLM prompt and the
+  // deterministic template both ground on this same resolved capability,
+  // so they can never silently disagree about what was asked.
+  const factorCapabilityId = specialistId === 'factor' ? resolveFactorCapability(context) : undefined;
+
   // Try live LLM first.
-  const system = systemPromptFor(specialistId, (context.invariantSlice?.length ?? 0) > 0);
+  const system = systemPromptFor(specialistId, (context.invariantSlice?.length ?? 0) > 0, factorCapabilityId);
   const user = userPromptFor(context, requestType);
   const raw = await callLlmChain(system, user);
 

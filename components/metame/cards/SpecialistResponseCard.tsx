@@ -48,6 +48,9 @@ export interface SpecialistResponseData {
   generatedAt: string;
   preflightContext?: PreflightContext;
   handoffFrom?: { specialistId: SpecialistResponseData["specialistId"]; priorTitle: string };
+  /** Additive, optional (services/agents/specialistRouter.ts's SpecialistResponse.affordance) — states
+   *  plainly whether this response can be acted on. Only Factor's template path sets this today. */
+  affordance?: "ADVISORY" | "PREPARABLE" | "ACTION_AVAILABLE" | "BLOCKED" | "PLANNED";
 }
 
 interface Props {
@@ -86,6 +89,17 @@ const CONFIDENCE_META: Record<
   low:    { label: "Low confidence",    ring: "border-amber-500/40 text-amber-300 bg-amber-500/10" },
   medium: { label: "Medium confidence", ring: "border-slate-700 text-slate-300" },
   high:   { label: "High confidence",   ring: "border-violet-500/70 text-violet-100 bg-violet-500/10" },
+};
+
+const AFFORDANCE_META: Record<
+  NonNullable<SpecialistResponseData["affordance"]>,
+  { label: string; className: string }
+> = {
+  ADVISORY:        { label: "Advisory",         className: "border-sky-700/60 text-sky-200 bg-sky-500/10" },
+  PREPARABLE:      { label: "Preparable",       className: "border-slate-600 text-slate-300 bg-slate-800/50" },
+  ACTION_AVAILABLE:{ label: "Action available", className: "border-emerald-700/60 text-emerald-200 bg-emerald-500/10" },
+  BLOCKED:         { label: "Blocked",          className: "border-orange-700/60 text-orange-200 bg-orange-500/10" },
+  PLANNED:         { label: "Planned — not yet live", className: "border-amber-600/60 text-amber-200 bg-amber-500/10" },
 };
 
 export function SpecialistResponseCard({
@@ -163,6 +177,14 @@ export function SpecialistResponseCard({
           <PreflightByline preflight={data.preflightContext} theme={theme} />
         </div>
         <div className="flex items-start gap-2 shrink-0">
+          {data.affordance && (
+            <span
+              className={`px-2 py-0.5 text-[10px] uppercase tracking-wider rounded border ${AFFORDANCE_META[data.affordance].className}`}
+              title="Whether this response can be acted on — never treat a Planned capability as live"
+            >
+              {AFFORDANCE_META[data.affordance].label}
+            </span>
+          )}
           {data.source === "template" && (
             <span
               className={`px-2 py-0.5 text-[10px] uppercase tracking-wider rounded border ${chipClass}`}
