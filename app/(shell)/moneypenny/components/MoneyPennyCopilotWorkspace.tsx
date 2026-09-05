@@ -103,6 +103,7 @@ import { MONEYPENNY_CAPABILITY_GROUPS, type MoneyPennyAreaId } from './moneypenn
 import { MoneyPennyFullScreenProvider, type MoneyPennyFullScreenValue } from './MoneyPennyFullScreenContext';
 import { fetchFinancialProfileSummary, type FinancialProfileSummary } from '@/services/moneypenny/financialProfileSummary';
 import { MONEYPENNY_LEARN_VIDEO_PROMPT } from '@/services/journey/moneyPennyEducationalMedia';
+import { ASK_FACTOR_ABOUT_CASE_PROMPT, ASK_AEGIS_ABOUT_CASE_PROMPT } from '@/services/smarttriad/specialistDelegation';
 import {
   computeContextVersionKey,
   isResponseContextStale,
@@ -186,7 +187,7 @@ export function MoneyPennyCopilotWorkspace({ activePanel, area, children }: Mone
   // MoneyPennyPanelTab's own internal state stays the single owner of
   // "which panel is active" (MS-2 — no second, parallel state authority).
   const [suggestedPanel, setSuggestedPanel] = useState<MoneyPennyPanelKey | null>(null);
-  const { navigate: navigateToPanel } = useMoneyPennyNavigation();
+  const { navigate: navigateToPanel, activeCase } = useMoneyPennyNavigation();
   // C-01 narrow-width Conversation/Workspace toggle. Both panes stay
   // mounted at every width — this only controls which is VISIBLE below
   // the `lg` breakpoint (see the render below) — so switching views never
@@ -246,6 +247,12 @@ export function MoneyPennyCopilotWorkspace({ activePanel, area, children }: Mone
   // Role changes are context-relevant too (operator directive: "Include
   // role changes in stale-response invalidation").
   useEffect(() => { generationRef.current += 1; }, [role]);
+  // Candidate Intake workspace upgrade (2026-09-05) — a case identity or
+  // state change is context-relevant too: a reply captured against the
+  // PRIOR case/state must never be shown as though it answered the current
+  // one. Keyed on the two fields that actually change meaning, not the
+  // whole object reference (which would bump on every unrelated re-render).
+  useEffect(() => { generationRef.current += 1; }, [activeCase?.caseId, activeCase?.state]);
 
   // The operator already navigated (via the rail, a deep link, or this
   // suggestion itself) — clear any stale suggestion for the panel just left.
@@ -412,8 +419,28 @@ export function MoneyPennyCopilotWorkspace({ activePanel, area, children }: Mone
     // fresh on every render including the one following this bump.
     contextVersion: computeCurrentVersionKey(),
     ...(activePanel === 'financial-profile' && financialProfileGround ? { financialProfile: financialProfileGround } : {}),
+    // Candidate Intake workspace upgrade (2026-09-05, requirement 3) — the
+    // bounded, T1-safe active-case snapshot CandidateIntakePanel wrote into
+    // the shared MoneyPennyNavigationContext (see moneyPennyNavigation.tsx).
+    // Read-only here; this workspace never writes case state itself.
+    ...(activePanel === 'candidate-intake' && activeCase ? { candidateCase: activeCase } : {}),
   };
   groundContextRef.current = groundContext;
+
+  // Candidate Intake workspace upgrade (2026-09-05, requirement 3) — only
+  // offered when a case is actually active, so the chip never fires the
+  // specialist-delegation short-circuit's "no candidate case" no-op path.
+  const quickPrompts = useMemo(
+    () =>
+      activePanel === 'candidate-intake' && activeCase
+        ? [
+            ...MONEYPENNY_QUICK_PROMPTS,
+            { id: 'mpy-ask-factor-case', label: 'Ask Factor about this case', prompt: ASK_FACTOR_ABOUT_CASE_PROMPT },
+            { id: 'mpy-ask-aegis-case', label: 'Ask Aegis about this case', prompt: ASK_AEGIS_ABOUT_CASE_PROMPT },
+          ]
+        : MONEYPENNY_QUICK_PROMPTS,
+    [activePanel, activeCase],
+  );
 
   const canNavigateBack =
     isMetameMirrorContext || Boolean(fromSlug) || (typeof window !== 'undefined' && window.history.length > 1);
@@ -513,7 +540,7 @@ export function MoneyPennyCopilotWorkspace({ activePanel, area, children }: Mone
             agent={{ id: 'aigent-moneypenny', name: 'MoneyPenny' }}
             personaId={personaId}
             groundContext={groundContext}
-            quickPrompts={MONEYPENNY_QUICK_PROMPTS}
+            quickPrompts={quickPrompts}
             onRequestContext={handleRequestContext}
             shouldSuppressResponse={shouldSuppressResponse}
             onSuggestedLayouts={handleSuggestedLayouts}

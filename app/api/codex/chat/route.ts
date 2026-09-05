@@ -37,6 +37,7 @@ import {
 } from '@/services/agents/aigentMeRoleResolution';
 import { getCartridgeChatContext } from '@/services/cartridge/getChatContext';
 import { resolveSmartTriadMedia } from '@/services/smarttriad/mediaProviders';
+import { resolveSmartTriadSpecialistDelegation } from '@/services/smarttriad/specialistDelegation';
 import { describeSmartTriadBlockEnvelope } from '@/services/smarttriad/richBlocks';
 import { getPersonaUploadService } from '@/services/uploads/supabaseUploadAdapter';
 import { buildAigentZPlatformKnowledge } from '@/services/knowledge/aigentZPlatformKnowledge';
@@ -399,7 +400,13 @@ export type ChipTargetId =
   | 'runtime'
   | 'smarttriad'
   | 'service-orchestration'
-  | 'portfolio';
+  | 'portfolio'
+  // Candidate Intake workspace upgrade (2026-09-05, requirement 3) — the
+  // same MoneyPennyPanelKey the capability rail already navigates to
+  // (moneypennyCapabilities.ts), reused verbatim so a Factor/Aegis case
+  // capsule can be opened from the left pane through the SAME suggested-
+  // layout mechanism every other MoneyPenny panel already uses.
+  | 'candidate-intake';
 
 export interface SuggestedLayoutHint {
   layoutId: ChipTargetId;
@@ -422,6 +429,7 @@ const LAYOUT_TAG_IDS: ReadonlyArray<ChipTargetId> = [
   'intent', 'context', 'gap-analysis', 'consequence-canvas', 'validation', 'project-overview',
   'financial-profile', 'risk-envelope', 'hft-console', 'strategies',
   'architect', 'runtime', 'smarttriad', 'service-orchestration', 'portfolio',
+  'candidate-intake',
 ];
 
 const LAYOUT_KEYWORDS: Array<{ id: ChipTargetId; pattern: RegExp; reason: string }> = [
@@ -2944,6 +2952,28 @@ export async function POST(request: NextRequest) {
         const response =
           'No media has been published for this yet. An admin can publish one through native Qriptopian Bridges.';
         return NextResponse.json({ response, persona, event_meta: eventMeta });
+      }
+    }
+
+    // MoneyPenny left-pane -> Factor/Aegis specialist delegation (Candidate
+    // Intake workspace upgrade, 2026-09-05, requirement 3). Same
+    // deterministic-before-LLM discipline as the media resolution above,
+    // but a text consult (services/smarttriad/specialistDelegation.ts),
+    // never a rich block. suggested_layouts/response text run through the
+    // SAME inferSuggestedLayouts/stripLayoutTags pass every ordinary LLM
+    // reply already uses — no special-casing needed there for the
+    // [layout:candidate-intake|...] tag this module emits.
+    if (groundContext && typeof groundContext === 'object' && typeof message === 'string') {
+      const delegation = await resolveSmartTriadSpecialistDelegation(message, groundContext as Record<string, unknown>);
+      if (delegation.matched && delegation.response) {
+        const suggestedLayouts = inferSuggestedLayouts(message, delegation.response, chatHistory);
+        const responseForClient = stripLayoutTags(delegation.response);
+        return NextResponse.json({
+          response: responseForClient,
+          persona,
+          suggested_layouts: suggestedLayouts,
+          event_meta: eventMeta,
+        });
       }
     }
 
