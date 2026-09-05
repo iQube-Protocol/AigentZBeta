@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`a896005`](https://github.com/iQube-Protocol/AigentZBeta/commit/a896005254bb4412ec7de772ef26ce9e9ab879e5) [push] Record Factor runtime-endpoint, Journey Spine rehearsal, specialist UI results (Claude, 2026-09-05T06:16:34Z)
+- [`726135f`](https://github.com/iQube-Protocol/AigentZBeta/commit/726135f44806772b5287332877f54b2a0d11c02c) [chore] Upgrade Candidate Intake into a case-aware Factor/Aegis workspace (Claude, 2026-09-05T07:38:17Z)
 - [`fe43577`](https://github.com/iQube-Protocol/AigentZBeta/commit/fe435774b10da34b0a428667a1bd0526610248c1) [fix] Fix ask-agent's specialist allowlist to actually accept Factor/Aegis (Claude, 2026-09-05T06:09:46Z)
 - [`4cde62c`](https://github.com/iQube-Protocol/AigentZBeta/commit/4cde62c99c5377a8927974793a39f226c8c87570) [push] Begin MoneyPenny specialist UI for Factor/Aegis: Candidate Intake panel (Claude, 2026-09-05T06:15:35Z)
 - [`6545169`](https://github.com/iQube-Protocol/AigentZBeta/commit/6545169231e15a1971aff9722c91677202fb8ecd) [push] Record Factor/Aegis live provisioning execution results (Claude, 2026-09-05T05:55:39Z)

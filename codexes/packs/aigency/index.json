@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-05T06:17:44.799Z",
+  "last_updated": "2026-09-05T07:54:15.126Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "fe435774b10da34b0a428667a1bd0526610248c1",
-  "latest_commit_short": "fe43577",
-  "latest_commit_title": "Fix ask-agent's specialist allowlist to actually accept Factor/Aegis",
+  "latest_commit": "a896005254bb4412ec7de772ef26ce9e9ab879e5",
+  "latest_commit_short": "a896005",
+  "latest_commit_title": "Record Factor runtime-endpoint, Journey Spine rehearsal, specialist UI results",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "a896005",
+      "full_sha": "a896005254bb4412ec7de772ef26ce9e9ab879e5",
+      "title": "Record Factor runtime-endpoint, Journey Spine rehearsal, specialist UI results",
+      "author": "Claude",
+      "timestamp": "2026-09-05T06:16:34Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-a896005.md"
+    },
+    {
+      "sha": "726135f",
+      "full_sha": "726135f44806772b5287332877f54b2a0d11c02c",
+      "title": "Upgrade Candidate Intake into a case-aware Factor/Aegis workspace",
+      "author": "Claude",
+      "timestamp": "2026-09-05T07:38:17Z",
+      "type": "chore",
+      "brief": "items/build_/COMMITS/COMMIT-726135f.md"
+    },
     {
       "sha": "fe43577",
       "full_sha": "fe435774b10da34b0a428667a1bd0526610248c1",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-09-02T06:07:41Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-c5ea8b5.md"
-    },
-    {
-      "sha": "98c0e12",
-      "full_sha": "98c0e1274f95e3def631d76a42632f54c4081a15",
-      "title": "Financial-profile write paths never crash on a missing table [merge spec/moneypenny-mpy2-3]",
-      "author": "Claude",
-      "timestamp": "2026-09-02T06:07:58Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-98c0e12.md"
-    },
-    {
-      "sha": "9b0e073",
-      "full_sha": "9b0e073190d458adafb85206ac0675c61cdd1256",
-      "title": "Add MoneyPenny002 real-source donor audit (MPY2-0b)",
-      "author": "Claude",
-      "timestamp": "2026-09-02T01:15:27Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-9b0e073.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

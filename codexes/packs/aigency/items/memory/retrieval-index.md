@@ -5489,3 +5489,13 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-fe43577.md](../build_/COMMITS/COMMIT-fe43577.md)
 - Message: Fix ask-agent's specialist allowlist to actually accept Factor/Aegis
+
+## Commit `726135f` — 2026-09-05T07:38:17Z
+- Type: `chore`
+- Brief: [COMMIT-726135f.md](../build_/COMMITS/COMMIT-726135f.md)
+- Message: Upgrade Candidate Intake into a case-aware Factor/Aegis workspace
+
+## Commit `a896005` — 2026-09-05T06:16:34Z
+- Type: `push`
+- Brief: [COMMIT-a896005.md](../build_/COMMITS/COMMIT-a896005.md)
+- Message: Record Factor runtime-endpoint, Journey Spine rehearsal, specialist UI results
