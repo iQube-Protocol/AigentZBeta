@@ -72,6 +72,7 @@ import { MoneyPennyOverviewPanel } from "@/app/(shell)/moneypenny/components/Mon
 import { FinancialProfilePanel } from "@/app/(shell)/moneypenny/components/FinancialProfilePanel";
 import { RiskEnvelopePanel } from "@/app/(shell)/moneypenny/components/RiskEnvelopePanel";
 import { MoneyPennyLearnPanel } from "@/app/(shell)/moneypenny/components/MoneyPennyLearnPanel";
+import { CandidateIntakePanel } from "@/app/(shell)/moneypenny/components/CandidateIntakePanel";
 import { MoneyPennyCopilotWorkspace } from "@/app/(shell)/moneypenny/components/MoneyPennyCopilotWorkspace";
 import {
   MONEYPENNY_CODEX_ID,
@@ -94,6 +95,12 @@ export type MoneyPennyPanelKey =
   | "architect"
   | "runtime"
   | "service-orchestration"
+  // Factor/Aegis candidate-intake consultation (operator directive
+  // 2026-09-05) — advisory-only specialist consultation, mirrors every
+  // other specialist's ask-agent path; sits alongside "service-orchestration"
+  // in the Operate group (candidate agents, not yet admitted, vs. admitted
+  // agents already consuming Financial Services).
+  | "candidate-intake"
   // SPEC-MPY-002 MPY2-2 (2026-09-01) — Understand / Financial Profile.
   | "financial-profile"
   // SPEC-MPY-002 MPY2-3 (2026-09-01) — Design / Risk & Limits.
@@ -129,6 +136,7 @@ const PANELS: Record<MoneyPennyPanelKey, React.ComponentType> = {
   architect: ArchitectPanel,
   runtime: RuntimePanel,
   "service-orchestration": ServiceOrchestrationPanel,
+  "candidate-intake": CandidateIntakePanel,
   "financial-profile": FinancialProfilePanel,
   "risk-envelope": RiskEnvelopePanel,
   learn: MoneyPennyLearnPanel,

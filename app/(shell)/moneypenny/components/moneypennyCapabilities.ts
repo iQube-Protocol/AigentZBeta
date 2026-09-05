@@ -83,6 +83,7 @@ export const MONEYPENNY_CAPABILITY_GROUPS: MoneyPennyCapabilityGroup[] = [
       { id: "runtime", label: "Runtime", description: "Constitutional Service Pipeline — shadow/authoritative execution.", panel: "runtime", mode: "RUNTIME" },
       { id: "smarttriad", label: "Automation", description: "Trading operations hub.", panel: "smarttriad", mode: "RUNTIME" },
       { id: "orchestration", label: "Service Orchestration", description: "Oversight console — admitted agents consuming MoneyPenny Financial Services.", panel: "service-orchestration", mode: null },
+      { id: "candidate-intake", label: "Candidate Intake", description: "Consult Factor on a candidate's intake status and Aegis on an independent assessment — advisory only, never an admission decision.", panel: "candidate-intake", mode: null },
     ],
   },
   {
@@ -158,6 +159,7 @@ export const MONEYPENNY_AREA_FOR_PANEL: Record<Exclude<MoneyPennyPanelKey, "lear
   smarttriad: "activity",
   runtime: "activity",
   "service-orchestration": "activity",
+  "candidate-intake": "activity",
   crm: "activity",
 };
 
