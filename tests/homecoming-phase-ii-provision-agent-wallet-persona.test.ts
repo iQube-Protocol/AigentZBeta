@@ -19,6 +19,18 @@
 import { describe, it, expect, vi } from 'vitest';
 import { readSource } from './_lib/sourceAuthority';
 
+// Keeps this an offline unit test (2026-09-05, real-address resolution
+// fix) — without this mock, provisionAgentWalletPersona's dynamic
+// `getAgentAddresses` call would hit the REAL Supabase project over the
+// network via the anon key already present in this environment's
+// .env.local (the get_agent_addresses RPC is granted to `anon`).
+const mockGetAgentAddresses = vi.fn().mockResolvedValue(null);
+vi.mock('@/services/identity/agentKeyService', () => ({
+  AgentKeyService: vi.fn().mockImplementation(() => ({
+    getAgentAddresses: (...args: unknown[]) => mockGetAgentAddresses(...args),
+  })),
+}));
+
 function fakeAdmin(rows: Record<string, unknown>[]) {
   const inserted: Record<string, unknown>[] = [];
   const chain = {
@@ -71,6 +83,38 @@ describe('provisionAgentWalletPersona — role-tagged, generic wallet-persona pr
     expect(result).not.toBeNull();
     expect(admin._inserted[0].app_origin).toBe('aigent-me');
     expect(admin._inserted[0].type).toBe('AigentMe');
+  });
+});
+
+describe('provisionAgentWalletPersona projects the REAL custodied agent_keys address (2026-09-05 fix — never a fabricated one when a real wallet exists)', () => {
+  it('resolves the address via AgentKeyService.getAgentAddresses, keyed by the runtimeAgentId parsed from did_uri', async () => {
+    mockGetAgentAddresses.mockResolvedValueOnce({ agentId: 'test-agent', evmAddress: '0xREALCUSTODIEDADDRESS0000000000000000001' });
+    const admin = fakeAdmin([]);
+    await provisionAgentWalletPersona({
+      admin: admin as any,
+      callerAuthProfileId: 'auth-1',
+      agentRoot: AGENT_ROOT,
+      role: 'delegate',
+    });
+    expect(mockGetAgentAddresses).toHaveBeenCalledWith('test-agent');
+    expect((admin._inserted[0].evm_key as { address: string }).address).toBe('0xREALCUSTODIEDADDRESS0000000000000000001');
+  });
+
+  it('falls back to a placeholder ONLY when no agent_keys row exists — logged, never silent', async () => {
+    mockGetAgentAddresses.mockResolvedValueOnce(null);
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const admin = fakeAdmin([]);
+    await provisionAgentWalletPersona({
+      admin: admin as any,
+      callerAuthProfileId: 'auth-1',
+      agentRoot: AGENT_ROOT,
+      role: 'delegate',
+    });
+    const address = (admin._inserted[0].evm_key as { address: string }).address;
+    expect(address).toMatch(/^0x[0-9a-f]{40}$/);
+    expect(address).not.toBe('0xREALCUSTODIEDADDRESS0000000000000000001');
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('falling back to a placeholder address'));
+    warnSpy.mockRestore();
   });
 });
 

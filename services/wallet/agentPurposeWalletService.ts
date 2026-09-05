@@ -83,16 +83,64 @@ function rowToBinding(row: Record<string, any>): AgentWalletBinding {
   };
 }
 
+/** The exact insecure fallback AgentKeyService's own constructor still
+ *  carries (services/identity/agentKeyService.ts) — checked here so this
+ *  service can refuse BEFORE ever calling into AgentKeyService, rather
+ *  than relying on that class's own (still-silent) default. Never used as
+ *  a value; only compared against. */
+const AGENT_KEY_ENCRYPTION_INSECURE_DEFAULT = 'default-insecure-key-change-in-production-32bytes';
+
+export type WalletProvisionRefusalCode =
+  | 'ROLE_NOT_PROVISIONABLE'
+  | 'SUPABASE_SERVICE_ROLE_KEY_MISSING'
+  | 'AGENT_KEY_ENCRYPTION_SECRET_MISSING'
+  | 'AGENT_KEY_ENCRYPTION_SECRET_INSECURE_DEFAULT';
+
 export class AgentPurposeWalletService {
   private supabase;
 
+  /**
+   * FAIL CLOSED (operator security correction, 2026-09-05): requires
+   * SUPABASE_SERVICE_ROLE_KEY specifically — never falls back to an anon
+   * key the way this constructor (and AgentKeyService's own) previously
+   * did. A wallet-custody service running under an anon key would either
+   * error opaquely against service-role-only RLS or, worse, silently
+   * degrade — neither is acceptable for a class that generates and stores
+   * private keys.
+   */
   constructor() {
     const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     if (!supabaseUrl || !supabaseKey) {
-      throw new Error('Missing Supabase credentials. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables.');
+      throw new Error(
+        'AgentPurposeWalletService requires SUPABASE_URL (or NEXT_PUBLIC_SUPABASE_URL) and SUPABASE_SERVICE_ROLE_KEY. ' +
+          'This service never falls back to an anon key.',
+      );
     }
     this.supabase = initAgentiqClient({ supabaseUrl, supabaseAnonKey: supabaseKey }).supabase;
+  }
+
+  /** Fail-closed check every wallet-generating method runs before touching
+   *  AgentKeyService — refuses if the real secret is absent OR equals the
+   *  known insecure default, so a misconfigured environment never silently
+   *  encrypts a fresh private key with a hardcoded, source-visible value. */
+  private static assertEncryptionSecretConfigured(): { ok: true } | { ok: false; refusalCode: WalletProvisionRefusalCode; detail: string } {
+    const secret = process.env.AGENT_KEY_ENCRYPTION_SECRET;
+    if (!secret) {
+      return {
+        ok: false,
+        refusalCode: 'AGENT_KEY_ENCRYPTION_SECRET_MISSING',
+        detail: 'AGENT_KEY_ENCRYPTION_SECRET is not set. Refusing to generate a wallet rather than fall back to AgentKeyService\'s insecure default.',
+      };
+    }
+    if (secret === AGENT_KEY_ENCRYPTION_INSECURE_DEFAULT) {
+      return {
+        ok: false,
+        refusalCode: 'AGENT_KEY_ENCRYPTION_SECRET_INSECURE_DEFAULT',
+        detail: 'AGENT_KEY_ENCRYPTION_SECRET is set to the known insecure default value. Refusing to generate a wallet.',
+      };
+    }
+    return { ok: true };
   }
 
   /** Never fabricates — returns null when no binding has been provisioned for this (agent, role). */
@@ -135,7 +183,7 @@ export class AgentPurposeWalletService {
     walletRole: AgentWalletRole;
     network: string;
     chainId?: number;
-  }): Promise<{ ok: true; binding: AgentWalletBinding; created: boolean } | { ok: false; refusalCode: 'ROLE_NOT_PROVISIONABLE'; detail: string }> {
+  }): Promise<{ ok: true; binding: AgentWalletBinding; created: boolean } | { ok: false; refusalCode: WalletProvisionRefusalCode; detail: string }> {
     if (!PROVISIONABLE_ROLES.has(input.walletRole)) {
       return {
         ok: false,
@@ -151,6 +199,9 @@ export class AgentPurposeWalletService {
     if (existing) {
       return { ok: true, binding: existing, created: false };
     }
+
+    const secretCheck = AgentPurposeWalletService.assertEncryptionSecretConfigured();
+    if (!secretCheck.ok) return secretCheck;
 
     const custodyRef = deriveWalletCustodyRef(input.agentRuntimeId, input.walletRole);
     const wallet = ethers.Wallet.createRandom();
@@ -213,5 +264,63 @@ export class AgentPurposeWalletService {
     const { AgentKeyService } = await import('@/services/identity/agentKeyService');
     const keys = await new AgentKeyService().getAgentKeys(binding.custodyRef);
     return keys?.evmPrivateKey ?? null;
+  }
+
+  /**
+   * The canonical OWNER/CONTROL wallet — the ONE `agent_keys` row addressed
+   * directly by `runtimeAgentId` (never a `custody_ref`), used for Horizen
+   * Register/Verify/Claim signing (operator directive, 2026-09-05 security
+   * correction). This is the ONLY method in this codebase that may create
+   * that row for a NEW agent — it never routes through
+   * `agent_wallet_bindings` (see `PROVISIONABLE_ROLES`'s own exclusion of
+   * `'owner'` above).
+   *
+   * Never fabricates addresses to fill BTC/Solana fields — no real,
+   * reusable multi-chain provisioner exists in this codebase (verified
+   * 2026-09-05: the only code that ever wrote btc_address/solana_address,
+   * app/api/admin/register-multichain-keys/route.ts, derives them from a
+   * sha256 hash, not a real keypair — those columns are left null here,
+   * honestly, rather than repeating that pattern).
+   */
+  async getOwnerWalletAddress(runtimeAgentId: string): Promise<string | null> {
+    const { data, error } = await this.supabase.from('agent_keys').select('evm_address').eq('agent_id', runtimeAgentId).maybeSingle();
+    if (error || !data) return null;
+    return (data as { evm_address: string | null }).evm_address ?? null;
+  }
+
+  /**
+   * Provision the owner/control wallet, or return the existing one —
+   * idempotent, NEVER rotates a key that already exists (checked BEFORE
+   * any generation, mirroring `provisionPurposeWallet`'s own check-first
+   * order). Returns ONLY the public address; the private key never leaves
+   * `storeAgentKeys`' encrypted write.
+   */
+  async provisionOwnerWallet(input: {
+    runtimeAgentId: string;
+    agentName: string;
+    fioHandle?: string;
+  }): Promise<{ ok: true; address: string; created: boolean } | { ok: false; refusalCode: WalletProvisionRefusalCode; detail: string }> {
+    const existing = await this.getOwnerWalletAddress(input.runtimeAgentId);
+    if (existing) {
+      return { ok: true, address: existing, created: false };
+    }
+
+    const secretCheck = AgentPurposeWalletService.assertEncryptionSecretConfigured();
+    if (!secretCheck.ok) return secretCheck;
+
+    const wallet = ethers.Wallet.createRandom();
+    const { AgentKeyService } = await import('@/services/identity/agentKeyService');
+    await new AgentKeyService().storeAgentKeys({
+      agentId: input.runtimeAgentId,
+      agentName: input.agentName,
+      fioHandle: input.fioHandle,
+      entityType: 'agent',
+      evmPrivateKey: wallet.privateKey,
+      evmAddress: wallet.address,
+      // btcAddress/solanaAddress intentionally omitted — left null. See
+      // this method's own header note.
+    });
+
+    return { ok: true, address: wallet.address, created: true };
   }
 }

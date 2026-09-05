@@ -135,6 +135,34 @@ export const REGISTRABLE_AGENTS: Record<string, RegistrableAgentConfig> = {
     fioHandle: 'kn0w1@aigent',
     runtimeHealthPath: '/api/agents/kn0w1/health',
   },
+  /*
+   * Fourth registrable agent (GJR-FAC-001, Factor/Aegis identity
+   * provisioning, operator directive 2026-09-05). Every value below is the
+   * operator's own approved identifier for Factor, matching the exact
+   * identity substrate provisioned alongside it — never invented:
+   *   - runtimeAgentId 'aigent-factor': the agent_keys.agent_id this same
+   *     pass provisions the owner/control wallet under
+   *     (services/wallet/agentPurposeWalletService.ts's provisionOwnerWallet).
+   *   - aigentQubeId 'aigentqube-factor': the registry_assets row seeded by
+   *     supabase/migrations/20260905030000_aigentqube_factor_aegis_registry_assets.sql.
+   *   - fioHandle 'factor@aigent': the operator's approved requested handle
+   *     — REQUESTED/configured only until FIO registration is separately
+   *     verified (services/identity/fioService.ts); never claimed as
+   *     on-chain-registered merely because this string exists here.
+   *
+   * Aegis is deliberately NOT a registrable agent here — it is MoneyPenny's
+   * independent assessor, never itself a Horizen Register/Verify/Claim
+   * candidate (operator, 2026-09-05).
+   */
+  factor: {
+    slug: 'factor',
+    displayName: 'Factor',
+    runtimeAgentId: 'aigent-factor',
+    aigentQubeId: 'aigentqube-factor',
+    agentCardPath: '/api/agents/factor/agent-card.json',
+    fioHandle: 'factor@aigent',
+    runtimeHealthPath: '/api/agents/factor/health',
+  },
 };
 
 export const DEFAULT_REGISTRABLE_AGENT_SLUG = 'moneypenny';

@@ -114,6 +114,17 @@ const PROFILES: Record<(typeof RUNTIME_AGENT_IDS)[number], AigentProfile> = {
       runtime_url: 'https://dev-beta.aigentz.me/triad/embed/codex/knyt',
     },
   },
+  'aigent-factor': {
+    id: 'aigent-factor',
+    display_name: 'Factor',
+    description:
+      "MoneyPenny's candidate-intake pipeline specialist — walks a candidate agent's evidence "
+      + 'checklist and facilitates its authority chain. Cannot decide admission.',
+    role: 'specialist',
+    supported_interfaces: {
+      runtime_url: 'https://dev-beta.aigentz.me/api/agents/factor/agent-card.json',
+    },
+  },
 };
 
 function profileToSource(profile: AigentProfile): LegibilitySource {

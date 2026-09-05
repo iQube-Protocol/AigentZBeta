@@ -63,6 +63,45 @@ export interface AgentWalletPersonaResult {
 }
 
 /**
+ * Resolves the agent's REAL custodied EVM address from `agent_keys`
+ * (2026-09-05 fix — this function previously fabricated a random 20-byte
+ * hex address here, unconditionally, so every agent's wallet-visible
+ * persona showed an address that did not match the real one signing its
+ * Register/Verify/Claim transactions; verified live: moneypenny/nakamoto/
+ * kn0w1's existing `personas` rows all currently carry the fabricated
+ * value, not their real `agent_keys.evm_address`).
+ *
+ * `did_uri` is `did:agent:root:<runtimeAgentId>` for every agent this
+ * function has ever been called for (the same convention
+ * `services/journey/agentAdmissionState.ts`'s migrated-agent mint uses) —
+ * the runtimeAgentId is the last colon-separated segment, exactly like
+ * this file's own `slug` fallback already derives it two lines below.
+ *
+ * Falls back to a clearly-random placeholder ONLY when no `agent_keys` row
+ * exists yet for this agent (an agent that has no wallet at all still
+ * needs SOME address to satisfy `personas.evm_key`'s existing shape) —
+ * logged, never silent, so this fallback is never mistaken for a real
+ * resolution failure.
+ */
+async function resolveWalletAddress(didUri: string): Promise<string> {
+  const runtimeAgentId = didUri.split(':').pop();
+  if (runtimeAgentId) {
+    try {
+      const { AgentKeyService } = await import('@/services/identity/agentKeyService');
+      const addresses = await new AgentKeyService().getAgentAddresses(runtimeAgentId);
+      if (addresses?.evmAddress) return addresses.evmAddress;
+    } catch (e) {
+      console.error('[provisionAgentWalletPersona] getAgentAddresses threw', e instanceof Error ? e.message : e);
+    }
+  }
+  console.warn(`[provisionAgentWalletPersona] no agent_keys row for '${runtimeAgentId ?? didUri}' — falling back to a placeholder address.`);
+  const hex = Array.from(crypto.getRandomValues(new Uint8Array(20)))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+  return '0x' + hex;
+}
+
+/**
  * Idempotently provisions (or returns) the wallet persona for a bound/
  * sponsored agent, tagged by `role`. Best-effort: returns null on any
  * failure so the calling route never breaks over persona surfacing.
@@ -100,13 +139,7 @@ export async function provisionAgentWalletPersona(input: {
 
     const slug = agentRoot.agent_card_slug || agentRoot.did_uri.split(':').pop() || 'agent';
     const fioHandle = `${slug}@${fioDomain}`;
-    // Placeholder EVM key envelope (mirrors /api/persona/create). Agent
-    // personas never attach a kybe identity (Option A constraint) — they
-    // are agents, never presented as verified humans.
-    const hex = Array.from(crypto.getRandomValues(new Uint8Array(20)))
-      .map((b) => b.toString(16).padStart(2, '0'))
-      .join('');
-    const address = '0x' + hex;
+    const address = await resolveWalletAddress(agentRoot.did_uri);
 
     const { data: created, error } = await admin
       .from('personas')

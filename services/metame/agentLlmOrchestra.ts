@@ -53,6 +53,7 @@ export const RUNTIME_AGENT_IDS = [
   "aigent-nakamoto",
   "aigent-marketa",
   "aigent-community-concierge",
+  "aigent-factor",
 ] as const;
 
 const AGENT_ALIASES: Record<string, (typeof RUNTIME_AGENT_IDS)[number]> = {
@@ -79,6 +80,8 @@ const AGENT_ALIASES: Record<string, (typeof RUNTIME_AGENT_IDS)[number]> = {
   "aigent-community-concierge": "aigent-community-concierge",
   "community concierge": "aigent-community-concierge",
   "community-concierge": "aigent-community-concierge",
+  "aigent-factor": "aigent-factor",
+  factor: "aigent-factor",
 };
 
 function normalizeProviderId(raw?: string): LlmProviderId | null {
@@ -195,6 +198,10 @@ const ACTIVE_IQUBES: ActiveIQubeRecord[] = [
   { id: "iq_marketa_thirdweb_llm", agentId: "aigent-marketa", iQubeType: "ModelQube", enabled: true, providerId: "thirdweb", providerKind: "llm", modelId: "thirdweb-web3-llm", modelLabel: "ThirdWeb Web3 LLM" },
   { id: "iq_marketa_anthropic_haiku", agentId: "aigent-marketa", iQubeType: "ModelQube", enabled: true, providerId: "anthropic", providerKind: "llm", modelId: "claude-3-5-haiku", modelLabel: "Claude 3.5 Haiku" },
   { id: "iq_marketa_gdrive", agentId: "aigent-marketa", iQubeType: "ToolQube", enabled: true, providerId: "google", providerKind: "mcp" },
+
+  // Factor (candidate-intake pipeline agent, provisioned 2026-09-05)
+  { id: "iq_factor_openai_gpt4o_mini", agentId: "aigent-factor", iQubeType: "ModelQube", enabled: true, providerId: "openai", providerKind: "llm", modelId: "gpt-4o-mini", modelLabel: "GPT-4o Mini" },
+  { id: "iq_factor_anthropic_sonnet", agentId: "aigent-factor", iQubeType: "ModelQube", enabled: true, providerId: "anthropic", providerKind: "llm", modelId: "claude-3-5-sonnet", modelLabel: "Claude 3.5 Sonnet" },
 ];
 
 function isLlmModelIQube(record: ActiveIQubeRecord): record is ActiveIQubeRecord & { providerId: LlmProviderId } {
