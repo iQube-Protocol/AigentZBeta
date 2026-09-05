@@ -401,12 +401,14 @@ export type ChipTargetId =
   | 'smarttriad'
   | 'service-orchestration'
   | 'portfolio'
-  // Candidate Intake workspace upgrade (2026-09-05, requirement 3) — the
-  // same MoneyPennyPanelKey the capability rail already navigates to
-  // (moneypennyCapabilities.ts), reused verbatim so a Factor/Aegis case
-  // capsule can be opened from the left pane through the SAME suggested-
-  // layout mechanism every other MoneyPenny panel already uses.
-  | 'candidate-intake';
+  // Aigent Factor / Aegis specialist surfaces (2026-09-05) — the same
+  // MoneyPennyPanelKey values the capability rail already navigates to
+  // (moneypennyCapabilities.ts), reused verbatim so a Factor/Aegis
+  // consult or case capsule can be opened from the left pane through the
+  // SAME suggested-layout mechanism every other MoneyPenny panel already
+  // uses. Replaces the retired combined 'candidate-intake' layout id.
+  | 'factor'
+  | 'aegis';
 
 export interface SuggestedLayoutHint {
   layoutId: ChipTargetId;
@@ -429,7 +431,7 @@ const LAYOUT_TAG_IDS: ReadonlyArray<ChipTargetId> = [
   'intent', 'context', 'gap-analysis', 'consequence-canvas', 'validation', 'project-overview',
   'financial-profile', 'risk-envelope', 'hft-console', 'strategies',
   'architect', 'runtime', 'smarttriad', 'service-orchestration', 'portfolio',
-  'candidate-intake',
+  'factor', 'aegis',
 ];
 
 const LAYOUT_KEYWORDS: Array<{ id: ChipTargetId; pattern: RegExp; reason: string }> = [

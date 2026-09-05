@@ -319,9 +319,10 @@ export function ServiceOrchestrationPanel() {
   // exactly once, as soon as the catalog's agent list has loaded (matching
   // by `slug`, the same field REGISTRABLE_AGENTS keys on — never a second
   // hand-maintained agentId map). A pending "factor"/"aegis" selection is
-  // NOT this panel's concern (that pair lands on candidate-intake, read by
-  // CandidateIntakePanel instead) — left untouched here so it still applies
-  // wherever it WAS meant for, never silently consumed by the wrong panel.
+  // NOT this panel's concern (that pair lands on the Aigent Factor/Aegis
+  // panels — FactorPanel.tsx/AegisPanel.tsx — instead) — left untouched
+  // here so it still applies wherever it WAS meant for, never silently
+  // consumed by the wrong panel.
   const pendingSpecialistConsumedRef = useRef(false);
   useEffect(() => {
     if (pendingSpecialistConsumedRef.current) return;

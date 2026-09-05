@@ -72,7 +72,8 @@ import { MoneyPennyOverviewPanel } from "@/app/(shell)/moneypenny/components/Mon
 import { FinancialProfilePanel } from "@/app/(shell)/moneypenny/components/FinancialProfilePanel";
 import { RiskEnvelopePanel } from "@/app/(shell)/moneypenny/components/RiskEnvelopePanel";
 import { MoneyPennyLearnPanel } from "@/app/(shell)/moneypenny/components/MoneyPennyLearnPanel";
-import { CandidateIntakePanel } from "@/app/(shell)/moneypenny/components/CandidateIntakePanel";
+import { FactorPanel } from "@/app/(shell)/moneypenny/components/FactorPanel";
+import { AegisPanel } from "@/app/(shell)/moneypenny/components/AegisPanel";
 import { MoneyPennyCopilotWorkspace } from "@/app/(shell)/moneypenny/components/MoneyPennyCopilotWorkspace";
 import {
   MONEYPENNY_CODEX_ID,
@@ -80,6 +81,7 @@ import {
   readAndClearPendingPanel,
   writePendingPanel,
   writePendingSpecialist,
+  writePendingCaseId,
   type MoneyPennyActiveCase,
   type MoneyPennyNavigationTarget,
 } from "@/app/(shell)/moneypenny/components/moneyPennyNavigation";
@@ -99,12 +101,18 @@ export type MoneyPennyPanelKey =
   | "architect"
   | "runtime"
   | "service-orchestration"
-  // Factor/Aegis candidate-intake consultation (operator directive
-  // 2026-09-05) — advisory-only specialist consultation, mirrors every
-  // other specialist's ask-agent path; sits alongside "service-orchestration"
-  // in the Operate group (candidate agents, not yet admitted, vs. admitted
-  // agents already consuming Financial Services).
-  | "candidate-intake"
+  // Aigent Factor / Aegis specialist surfaces (operator directive
+  // 2026-09-05, "separate Aigent Factor and Aegis into first-class
+  // specialist surfaces"). Two distinct destinations — Factor facilitates
+  // candidate intake (never assesses or admits); Aegis independently
+  // assesses (never self-assesses, never admits) — replacing the prior
+  // combined "candidate-intake" destination which conflated them and made
+  // Aegis appear subordinate to intake. Each supports direct consultation
+  // with no case/assessment open; Factor's existing case workflow now
+  // opens as a mode within "factor" ("Start candidate intake"), and
+  // Aegis's assessment workflow opens as a mode within "aegis".
+  | "factor"
+  | "aegis"
   // SPEC-MPY-002 MPY2-2 (2026-09-01) — Understand / Financial Profile.
   | "financial-profile"
   // SPEC-MPY-002 MPY2-3 (2026-09-01) — Design / Risk & Limits.
@@ -140,7 +148,8 @@ const PANELS: Record<MoneyPennyPanelKey, React.ComponentType> = {
   architect: ArchitectPanel,
   runtime: RuntimePanel,
   "service-orchestration": ServiceOrchestrationPanel,
-  "candidate-intake": CandidateIntakePanel,
+  factor: FactorPanel,
+  aegis: AegisPanel,
   "financial-profile": FinancialProfilePanel,
   "risk-envelope": RiskEnvelopePanel,
   learn: MoneyPennyLearnPanel,
@@ -283,8 +292,10 @@ export function MoneyPennyPanelTab({ panel: explicitPanel, area }: MoneyPennyPan
     (target: MoneyPennyNavigationTarget) => {
       const next = typeof target === "string" ? target : target.panel;
       const specialistId = typeof target === "string" ? undefined : target.specialistId;
+      const activeCaseId = typeof target === "string" ? undefined : target.activeCaseId;
       const targetArea = areaForPanel(next);
       if (specialistId) writePendingSpecialist(specialistId);
+      if (activeCaseId) writePendingCaseId(activeCaseId);
       if (!area || !targetArea || targetArea === area) {
         setActivePanel(next);
         setNavigationError(null);

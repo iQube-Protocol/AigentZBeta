@@ -434,7 +434,7 @@ export function MoneyPennyCopilotWorkspace({ activePanel, area, children }: Mone
     // bounded, T1-safe active-case snapshot CandidateIntakePanel wrote into
     // the shared MoneyPennyNavigationContext (see moneyPennyNavigation.tsx).
     // Read-only here; this workspace never writes case state itself.
-    ...(activePanel === 'candidate-intake' && activeCase ? { candidateCase: activeCase } : {}),
+    ...((activePanel === 'factor' || activePanel === 'aegis') && activeCase ? { candidateCase: activeCase } : {}),
   };
   groundContextRef.current = groundContext;
 
@@ -443,7 +443,7 @@ export function MoneyPennyCopilotWorkspace({ activePanel, area, children }: Mone
   // specialist-delegation short-circuit's "no candidate case" no-op path.
   const quickPrompts = useMemo(
     () =>
-      activePanel === 'candidate-intake' && activeCase
+      (activePanel === 'factor' || activePanel === 'aegis') && activeCase
         ? [
             ...MONEYPENNY_QUICK_PROMPTS,
             { id: 'mpy-ask-factor-case', label: 'Ask Factor about this case', prompt: ASK_FACTOR_ABOUT_CASE_PROMPT },

@@ -178,6 +178,34 @@ export function readAndClearPendingSpecialist(): string | null {
   }
 }
 
+const PENDING_CASE_ID_STORAGE_KEY = 'moneypenny.pending-case-id';
+
+/** Same one-shot sessionStorage idiom as writePendingSpecialist above, for a
+ *  cross-panel handoff that carries a bounded caseId (Factor/Aegis
+ *  specialist-surfaces separation, 2026-09-05, requirement 5:
+ *  "Aigent Factor -> Aegis assessment" handoff). Never carries a whole
+ *  private thread — only the bounded reference; the destination panel
+ *  fetches the case's own current state fresh from the real REST route. */
+export function writePendingCaseId(caseId: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.setItem(PENDING_CASE_ID_STORAGE_KEY, caseId);
+  } catch {
+    /* non-fatal — the destination panel simply opens with no case handed off */
+  }
+}
+
+export function readAndClearPendingCaseId(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const value = window.sessionStorage.getItem(PENDING_CASE_ID_STORAGE_KEY);
+    if (value !== null) window.sessionStorage.removeItem(PENDING_CASE_ID_STORAGE_KEY);
+    return value;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Typed navigation intent (requirement 2, 2026-09-05): a Home specialist
  * card navigates to a panel AND names which specialist that destination

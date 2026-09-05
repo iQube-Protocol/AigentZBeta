@@ -81,25 +81,29 @@ export interface SpecialistDelegationResolution {
   matched: boolean;
   specialistId?: SpecialistId;
   /** Attributed, advisory-framed reply text — includes a trailing
-   *  [layout:candidate-intake|...] tag the caller's existing
-   *  inferSuggestedLayouts/stripLayoutTags pass handles exactly like every
-   *  other layout tag in this codebase (no special-casing needed there). */
+   *  [layout:factor|...] or [layout:aegis|...] tag (whichever specialist
+   *  answered) the caller's existing inferSuggestedLayouts/stripLayoutTags
+   *  pass handles exactly like every other layout tag in this codebase (no
+   *  special-casing needed there). */
   response?: string;
 }
 
 /**
  * The one call app/api/codex/chat/route.ts makes for this capability,
  * mirroring resolveSmartTriadMedia's own call-site shape. Returns
- * `matched: false` when no candidate case is active, the panel isn't
- * candidate-intake, or the message doesn't name exactly one of
- * Factor/Aegis with a request verb — the route then falls through to the
- * ordinary LLM pipeline untouched.
+ * `matched: false` when no candidate case is active, the active panel is
+ * neither Factor's nor Aegis's own panel, or the message doesn't name
+ * exactly one of Factor/Aegis with a request verb — the route then falls
+ * through to the ordinary LLM pipeline untouched.
  */
 export async function resolveSmartTriadSpecialistDelegation(
   message: string,
   groundContext: Record<string, unknown> | undefined,
 ): Promise<SpecialistDelegationResolution> {
-  if (groundContext?.cartridge !== 'moneypenny' || groundContext?.activePanel !== 'candidate-intake') {
+  if (
+    groundContext?.cartridge !== 'moneypenny' ||
+    (groundContext?.activePanel !== 'factor' && groundContext?.activePanel !== 'aegis')
+  ) {
     return { matched: false };
   }
   const candidateCase = readCandidateCase(groundContext);
@@ -133,7 +137,7 @@ export async function resolveSmartTriadSpecialistDelegation(
   const response =
     `**${label}** (advisory, case "${candidateCase.candidateDisplayName}"): ${result.summary}${recs}\n\n` +
     `_Advisory guidance only — never a case mutation. Open the case to take a real action._ ` +
-    `[layout:candidate-intake|Review the ${candidateCase.candidateDisplayName} case]`;
+    `[layout:${specialistId}|Review the ${candidateCase.candidateDisplayName} case]`;
 
   return { matched: true, specialistId, response };
 }

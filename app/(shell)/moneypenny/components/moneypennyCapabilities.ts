@@ -84,7 +84,16 @@ export const MONEYPENNY_CAPABILITY_GROUPS: MoneyPennyCapabilityGroup[] = [
       { id: "runtime", label: "Runtime", description: "Constitutional Service Pipeline — shadow/authoritative execution.", panel: "runtime", mode: "RUNTIME" },
       { id: "smarttriad", label: "Automation", description: "Trading operations hub.", panel: "smarttriad", mode: "RUNTIME" },
       { id: "orchestration", label: "Service Orchestration", description: "Oversight console — admitted agents consuming MoneyPenny Financial Services.", panel: "service-orchestration", mode: null },
-      { id: "candidate-intake", label: "Candidate Intake", description: "Consult Factor on a candidate's intake status and Aegis on an independent assessment — advisory only, never an admission decision.", panel: "candidate-intake", mode: null },
+      // Aigent Factor and Aegis are separate, first-class specialist
+      // surfaces (operator directive 2026-09-05) — replacing the prior
+      // combined "Candidate Intake" destination, which conflated two
+      // constitutionally distinct agents and made Aegis appear subordinate
+      // to intake. Each supports direct consultation with no case/
+      // assessment open; Factor's candidate-intake case workflow and
+      // Aegis's independent-assessment workflow are reached as modes
+      // WITHIN their own panel, not as the panel's only entry point.
+      { id: "factor", label: "Aigent Factor", description: "Candidate-intake facilitation — evidence, authority chains, standing proposals, Pulse/P&L registration. Never assesses or admits.", panel: "factor", mode: null },
+      { id: "aegis", label: "Aegis", description: "Independent assessment of a candidate or any external agent/system/provider/model. Never self-assesses, never decides admission.", panel: "aegis", mode: null },
     ],
   },
   {
@@ -160,7 +169,8 @@ export const MONEYPENNY_AREA_FOR_PANEL: Record<Exclude<MoneyPennyPanelKey, "lear
   smarttriad: "activity",
   runtime: "activity",
   "service-orchestration": "activity",
-  "candidate-intake": "activity",
+  factor: "activity",
+  aegis: "activity",
   crm: "activity",
 };
 
@@ -270,10 +280,10 @@ export interface MoneyPennySpecialistCard {
   id: MoneyPennySpecialistId;
   label: string;
   description: string;
-  /** Where selecting this specialist navigates — candidate-intake for
-   *  MoneyPenny's own specialists, service-orchestration (the existing
+  /** Where selecting this specialist navigates — Factor/Aegis each have
+   *  their own first-class panel; service-orchestration (the existing
    *  agent-selector oversight console) for admitted agents. */
-  panel: Extract<MoneyPennyPanelKey, "candidate-intake" | "service-orchestration">;
+  panel: Extract<MoneyPennyPanelKey, "factor" | "aegis" | "service-orchestration">;
 }
 
 export const MONEYPENNY_SPECIALIST_CARDS: MoneyPennySpecialistCard[] = [
@@ -281,13 +291,13 @@ export const MONEYPENNY_SPECIALIST_CARDS: MoneyPennySpecialistCard[] = [
     id: "factor",
     label: REGISTRABLE_AGENTS.factor.displayName,
     description: "Candidate-intake case facilitation — evidence, authority chains, standing proposals. Never decides admission.",
-    panel: "candidate-intake",
+    panel: "factor",
   },
   {
     id: "aegis",
     label: "Aegis",
-    description: "Independent assessment of a candidate's evidence. Never self-assesses, never decides admission.",
-    panel: "candidate-intake",
+    description: "Independent assessment of a candidate's evidence, or any external agent/system/provider/model. Never self-assesses, never decides admission.",
+    panel: "aegis",
   },
   {
     id: "nakamoto",

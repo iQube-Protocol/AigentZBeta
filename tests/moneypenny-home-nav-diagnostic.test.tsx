@@ -65,8 +65,12 @@ describe('MoneyPennyOverviewPanel — the 3 primary cards reach the navigation c
 
 describe('MoneyPennyOverviewPanel — every nested capability card (Understand/Design/Markets/Operate/Monitor) reaches the navigation context', () => {
   const PRIMARY_IDS = new Set(['financial-profile', 'risk-envelope', 'market-console']);
+  // 'factor'/'aegis' are excluded from this generic by-label loop — Home
+  // renders "Aigent Factor"/"Aegis" TWICE (once as this plain Operate-group
+  // nested card, once as the Specialists section's own card), so a bare
+  // label match is ambiguous. Covered by their own scoped test below.
   const nestedItems = MONEYPENNY_CAPABILITY_GROUPS.flatMap((g) => g.items.map((item) => ({ group: g.label, item })))
-    .filter(({ item }) => !PRIMARY_IDS.has(item.id));
+    .filter(({ item }) => !PRIMARY_IDS.has(item.id) && item.id !== 'factor' && item.id !== 'aegis');
 
   for (const { group, item } of nestedItems) {
     const testFn = item.panel === null ? it.skip : it;
@@ -93,5 +97,19 @@ describe('MoneyPennyOverviewPanel — every nested capability card (Understand/D
     renderWithNav(navigate);
     const unavailable = nestedItems.filter(({ item }) => item.panel === null);
     expect(unavailable.length).toBeGreaterThan(0);
+  });
+
+  it('the Operate group\'s "Aigent Factor" and "Aegis" nested cards each reach the navigation context with their own panel', () => {
+    const navigate = vi.fn();
+    renderWithNav(navigate);
+    const operateDetails = screen.getByText('Operate').closest('details');
+    if (!operateDetails) throw new Error('no <details> ancestor found for the Operate group');
+    const factorButton = screen.getAllByRole('button', { name: /^Aigent Factor/, hidden: true }).find((b) => operateDetails.contains(b));
+    const aegisButton = screen.getAllByRole('button', { name: /^Aegis/, hidden: true }).find((b) => operateDetails.contains(b));
+    if (!factorButton || !aegisButton) throw new Error('Operate group\'s Aigent Factor/Aegis cards not found');
+    fireEvent.click(factorButton);
+    expect(navigate).toHaveBeenLastCalledWith('factor');
+    fireEvent.click(aegisButton);
+    expect(navigate).toHaveBeenLastCalledWith('aegis');
   });
 });

@@ -101,58 +101,10 @@ function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-/** CandidateIntakePanel renders its "no case open" empty state until a case
- *  is opened (the specialist tabs only exist once `activeCase` is truthy —
- *  see CandidateIntakePanel.tsx line ~733) — so verifying which specialist
- *  tab a Home card pre-selected requires actually opening a case first, not
- *  just reaching the panel. Mocks the exact 3 REST calls that flow does
- *  (create-or-resume, then the two refreshCase reads), mirroring
- *  tests/moneypenny-candidate-intake-workspace.test.tsx's own fake-backend
- *  pattern rather than inventing a new one. */
-function installCandidateIntakeBackend() {
-  const fakeCase = {
-    case_id: 'case-1',
-    tenant_id: 'default',
-    candidate_identity_key: 'cand-1',
-    candidate_display_name: 'Test Candidate',
-    candidate_agent_root_did: null,
-    source: 'operator',
-    pathway: 'registry_only',
-    state: 'discovered',
-    paused_from_state: null,
-    authority_chain_id: null,
-    created_at: '2026-01-01T00:00:00Z',
-    updated_at: '2026-01-01T00:00:00Z',
-  };
-  personaFetchMock.mockImplementation(async (url: unknown, init?: RequestInit) => {
-    const u = String(url);
-    const method = (init?.method ?? 'GET').toUpperCase();
-    if (u === '/api/moneypenny/factor/cases' && method === 'POST') {
-      return { ok: true, status: 200, json: async () => ({ ok: true, case: fakeCase, created: true }) } as unknown as Response;
-    }
-    if (u.startsWith(`/api/moneypenny/factor/cases/${fakeCase.case_id}/events`)) {
-      return { ok: true, status: 200, json: async () => ({ ok: true, events: [] }) } as unknown as Response;
-    }
-    if (u.startsWith(`/api/moneypenny/factor/cases/${fakeCase.case_id}`)) {
-      return { ok: true, status: 200, json: async () => ({ ok: true, case: fakeCase, evidence: [], assessment: null, findings: [] }) } as unknown as Response;
-    }
-    return { ok: false, status: 404, json: async () => ({ ok: false, error: 'not mocked' }) } as unknown as Response;
-  });
-}
-
-/** Drives CandidateIntakePanel's empty-state form to open a case, mirroring
- *  what an operator would actually type — the panel has no other way to
- *  reach the specialist-tab UI. */
-async function openCandidateCase() {
-  const keyInput = await screen.findByPlaceholderText(/did:example:candidate-42/);
-  const nameInput = screen.getByPlaceholderText(/Nakamoto Relay Agent/);
-  fireEvent.change(keyInput, { target: { value: 'cand-1' } });
-  fireEvent.change(nameInput, { target: { value: 'Test Candidate' } });
-  fireEvent.click(screen.getByRole('button', { name: /Find or open case/ }));
-  await waitFor(() => {
-    expect(screen.queryByPlaceholderText(/did:example:candidate-42/)).toBeNull();
-  });
-}
+/** Home specialist cards now open a direct-consultation MODAL (specialist-
+ *  surfaces separation, 2026-09-05, requirement 4) rather than navigating
+ *  straight to a case/assessment workspace — an operator can ask a
+ *  question immediately, with no case/assessment required. */
 
 // Every capability item reachable from Home with a real (non-null) panel —
 // the same set moneypenny-home-nav-diagnostic.test.tsx already proved
@@ -161,8 +113,13 @@ async function openCandidateCase() {
 // deduped by id below); market-research/learn intentionally target
 // 'overview' (Home's own panel — see moneypennyCapabilities.ts) and are
 // EXCLUDED here since "navigates away from Home" does not apply to them.
+// 'factor'/'aegis' are ALSO excluded from this generic by-label loop — Home
+// renders "Aigent Factor"/"Aegis" TWICE (once as this plain Operate-group
+// nested card, once as the Specialists section's modal-opening card), so a
+// bare label match is ambiguous; both destinations get their own dedicated,
+// unambiguously-scoped coverage below.
 const NESTED_ITEMS = MONEYPENNY_CAPABILITY_GROUPS.flatMap((g) => g.items)
-  .filter((item) => item.panel !== null && item.panel !== 'overview');
+  .filter((item) => item.panel !== null && item.panel !== 'overview' && item.id !== 'factor' && item.id !== 'aegis');
 
 // Dedupe by id (financial-profile/risk-envelope/market-console appear both
 // as a primary label and inside their own group's item list).
@@ -172,6 +129,17 @@ const PRIMARY_LABELS: Record<string, string> = {
   'market-console': 'Explore investing',
 };
 const UNIQUE_ITEMS = Array.from(new Map(NESTED_ITEMS.map((i) => [i.id, i])).values());
+
+/** Scopes a query to the Home Operate group's own <details> section (never
+ *  the Specialists section, which renders the SAME "Aigent Factor"/"Aegis"
+ *  label for its modal-opening cards) — finds the <details> ancestor of the
+ *  <summary> whose text is the group label. */
+function withinGroupSection(groupLabel: string) {
+  const summary = screen.getByText(groupLabel);
+  const details = summary.closest('details');
+  if (!details) throw new Error(`no <details> ancestor found for group "${groupLabel}"`);
+  return within(details);
+}
 
 for (const hostCodexId of ['moneypenny-codex', 'metame-codex'] as const) {
   describe(`Host codexId="${hostCodexId}" — every Home item with a real destination actually renders it`, () => {
@@ -190,104 +158,79 @@ for (const hostCodexId of ['moneypenny-codex', 'metame-codex'] as const) {
 }
 
 for (const hostCodexId of ['moneypenny-codex', 'metame-codex'] as const) {
-  describe(`Host codexId="${hostCodexId}" — specialist cards navigate to the right panel with the right specialist selected`, () => {
-    it('"Aigent Factor" opens candidate-intake with the Factor tab selected', async () => {
-      installCandidateIntakeBackend();
+  describe(`Host codexId="${hostCodexId}" — the Operate group's own Aigent Factor / Aegis nested cards still navigate directly (plain navigation, not a modal)`, () => {
+    it('the Operate group\'s "Aigent Factor" card navigates straight to the Factor panel', async () => {
       render(<Host codexId={hostCodexId} />);
       expect(await screen.findByText(HOME_TEXT)).toBeTruthy();
-      fireEvent.click(screen.getByRole('button', { name: /^Aigent Factor/, hidden: true }));
+      const button = withinGroupSection('Operate').getByRole('button', { name: /^Aigent Factor/, hidden: true });
+      fireEvent.click(button);
       await expectLeftHome();
-      await openCandidateCase();
-      const factorTab = await screen.findByRole('tab', { name: /Aigent Factor/ });
-      expect(factorTab.getAttribute('aria-selected')).toBe('true');
     });
 
-    it('"Aegis" opens candidate-intake with the Aegis tab selected', async () => {
-      installCandidateIntakeBackend();
+    it('the Operate group\'s "Aegis" card navigates straight to the Aegis panel', async () => {
       render(<Host codexId={hostCodexId} />);
       expect(await screen.findByText(HOME_TEXT)).toBeTruthy();
-      fireEvent.click(screen.getByRole('button', { name: /^Aegis/, hidden: true }));
+      const button = withinGroupSection('Operate').getByRole('button', { name: /^Aegis/, hidden: true });
+      fireEvent.click(button);
       await expectLeftHome();
-      await openCandidateCase();
-      const aegisTab = await screen.findByRole('tab', { name: /^Aegis$/ });
-      expect(aegisTab.getAttribute('aria-selected')).toBe('true');
-    });
-
-    it('"Aigent Nakamoto" opens service-orchestration with Nakamoto selected', async () => {
-      personaFetchMock.mockImplementation(async (url: unknown) => {
-        if (String(url).startsWith('/api/moneypenny/service-orchestration') && !String(url).includes('agentId')) {
-          return {
-            ok: true,
-            status: 200,
-            json: async () => ({
-              ok: true,
-              agents: [
-                { slug: 'nakamoto', displayName: 'Aigent Nakamoto', runtimeAgentId: 'aigent-nakamoto' },
-                { slug: 'kn0w1', displayName: 'Aigent Know1', runtimeAgentId: 'aigent-kn0w1' },
-              ],
-              catalog: [],
-            }),
-          } as unknown as Response;
-        }
-        return { ok: true, status: 200, json: async () => ({ ok: true, discovery: [] }) } as unknown as Response;
-      });
-      render(<Host codexId={hostCodexId} />);
-      expect(await screen.findByText(HOME_TEXT)).toBeTruthy();
-      fireEvent.click(screen.getByRole('button', { name: /^Aigent Nakamoto/, hidden: true }));
-      await expectLeftHome();
-      await waitFor(() => {
-        const selected = screen.getByText('Aigent Nakamoto', { selector: 'button' });
-        expect(selected.className).toMatch(/emerald/);
-      });
-    });
-
-    it('"Aigent Know1" opens service-orchestration with Know1 selected', async () => {
-      personaFetchMock.mockImplementation(async (url: unknown) => {
-        if (String(url).startsWith('/api/moneypenny/service-orchestration') && !String(url).includes('agentId')) {
-          return {
-            ok: true,
-            status: 200,
-            json: async () => ({
-              ok: true,
-              agents: [
-                { slug: 'nakamoto', displayName: 'Aigent Nakamoto', runtimeAgentId: 'aigent-nakamoto' },
-                { slug: 'kn0w1', displayName: 'Aigent Know1', runtimeAgentId: 'aigent-kn0w1' },
-              ],
-              catalog: [],
-            }),
-          } as unknown as Response;
-        }
-        return { ok: true, status: 200, json: async () => ({ ok: true, discovery: [] }) } as unknown as Response;
-      });
-      render(<Host codexId={hostCodexId} />);
-      expect(await screen.findByText(HOME_TEXT)).toBeTruthy();
-      fireEvent.click(screen.getByRole('button', { name: /^Aigent Know1/, hidden: true }));
-      await expectLeftHome();
-      await waitFor(() => {
-        const selected = screen.getByText('Aigent Know1', { selector: 'button' });
-        expect(selected.className).toMatch(/emerald/);
-      });
     });
   });
 }
 
-describe('Specialist selection is consumed exactly once — it does not contaminate a later, unrelated navigation', () => {
-  it('selecting Aegis pre-selects the Aegis tab, and leaves no pending-specialist value for a later, unrelated candidate-intake visit', async () => {
-    installCandidateIntakeBackend();
-    render(<Host codexId="moneypenny-codex" />);
-    expect(await screen.findByText(HOME_TEXT)).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: /^Aegis/, hidden: true }));
-    await expectLeftHome();
-    await openCandidateCase();
-    const aegisTab = await screen.findByRole('tab', { name: /^Aegis$/ });
-    expect(aegisTab.getAttribute('aria-selected')).toBe('true');
-    // No pending-specialist value is left over for the NEXT unrelated
-    // candidate-intake visit — proven by checking the raw storage key
-    // directly (the one-shot contract writePendingSpecialist/
-    // readAndClearPendingSpecialist itself guarantees).
-    expect(window.sessionStorage.getItem('moneypenny.pending-specialist')).toBeNull();
+for (const hostCodexId of ['moneypenny-codex', 'metame-codex'] as const) {
+  describe(`Host codexId="${hostCodexId}" — specialist cards open a direct-consultation modal for the right specialist`, () => {
+    it('"Aigent Factor" opens a modal that can consult Aigent Factor immediately, no case required', async () => {
+      render(<Host codexId={hostCodexId} />);
+      expect(await screen.findByText(HOME_TEXT)).toBeTruthy();
+      fireEvent.click(screen.getByTestId('specialist-card-factor'));
+      const modal = await screen.findByRole('dialog', { name: /Aigent Factor/ });
+      expect(within(modal).getByText(/Ask Aigent Factor about agent readiness/i)).toBeTruthy();
+      // Home itself is still mounted underneath — a modal, not a navigation.
+      expect(screen.getByText(HOME_TEXT)).toBeTruthy();
+    });
+
+    it('"Aegis" opens a modal that can consult Aegis immediately, no assessment required', async () => {
+      render(<Host codexId={hostCodexId} />);
+      expect(await screen.findByText(HOME_TEXT)).toBeTruthy();
+      fireEvent.click(screen.getByTestId('specialist-card-aegis'));
+      const modal = await screen.findByRole('dialog', { name: /^Aegis$/ });
+      expect(within(modal).getByText(/Ask Aegis about trusted intelligence/i)).toBeTruthy();
+      expect(screen.getByText(HOME_TEXT)).toBeTruthy();
+    });
+
+    it('"Aigent Factor" modal expands into the full Factor panel and preserves the conversation', async () => {
+      render(<Host codexId={hostCodexId} />);
+      expect(await screen.findByText(HOME_TEXT)).toBeTruthy();
+      fireEvent.click(screen.getByTestId('specialist-card-factor'));
+      const modal = await screen.findByRole('dialog', { name: /Aigent Factor/ });
+      fireEvent.click(within(modal).getByText(/Ask Aigent Factor about agent readiness/i));
+      fireEvent.click(within(modal).getByText(/Expand to full panel/i));
+      await expectLeftHome();
+      // The same empty-state prompt turn is now visible in the full panel —
+      // the thread was resumed, not restarted (same personaId+specialistId+
+      // scope key on both sides).
+      expect(await screen.findByText(/Ask Aigent Factor about agent readiness/i)).toBeTruthy();
+    });
+
+    it('"Aigent Nakamoto" opens a direct-consultation modal', async () => {
+      render(<Host codexId={hostCodexId} />);
+      expect(await screen.findByText(HOME_TEXT)).toBeTruthy();
+      fireEvent.click(screen.getByTestId('specialist-card-nakamoto'));
+      const modal = await screen.findByRole('dialog', { name: /Aigent Nakamoto/ });
+      expect(modal).toBeTruthy();
+      expect(screen.getByText(HOME_TEXT)).toBeTruthy();
+    });
+
+    it('"Aigent Know1" opens a direct-consultation modal', async () => {
+      render(<Host codexId={hostCodexId} />);
+      expect(await screen.findByText(HOME_TEXT)).toBeTruthy();
+      fireEvent.click(screen.getByTestId('specialist-card-kn0w1'));
+      const modal = await screen.findByRole('dialog', { name: /Aigent Know1/ });
+      expect(modal).toBeTruthy();
+      expect(screen.getByText(HOME_TEXT)).toBeTruthy();
+    });
   });
-});
+}
 
 describe('Legacy ?tab= deep links still self-heal in both host contexts', () => {
   for (const hostCodexId of ['moneypenny-codex', 'metame-codex'] as const) {

@@ -26,8 +26,16 @@
 import { useState } from "react";
 import { ArrowRight, ChevronDown } from "lucide-react";
 import { useMoneyPennyNavigation } from "./moneyPennyNavigation";
-import { MONEYPENNY_CAPABILITY_GROUPS, MONEYPENNY_SPECIALIST_CARDS, type MoneyPennyCapabilityItem } from "./moneypennyCapabilities";
+import { MONEYPENNY_CAPABILITY_GROUPS, MONEYPENNY_SPECIALIST_CARDS, type MoneyPennyCapabilityItem, type MoneyPennySpecialistCard } from "./moneypennyCapabilities";
+import { SpecialistConsultModal } from "./specialistWorkspace/SpecialistConsultModal";
 import type { MoneyPennyPanelKey } from "@/app/triad/components/codex/tabs/MoneyPennyPanelTab";
+
+const SPECIALIST_EMPTY_PROMPTS: Record<MoneyPennySpecialistCard["id"], string> = {
+  factor: "Ask Aigent Factor about agent readiness, registration, evidence, standing, or participation in constitutional financial services.",
+  aegis: "Ask Aegis about trusted intelligence, constitutional risk, agents, models, providers, harnesses, or independent assessment.",
+  nakamoto: "Ask Aigent Nakamoto about Bitcoin, decentralisation, or this agent's own consumption of a MoneyPenny Financial Service.",
+  kn0w1: "Ask Aigent Know1 about its own consumption of a MoneyPenny Financial Service.",
+};
 
 const MODE_BADGE_STYLE: Record<string, string> = {
   ADVISOR: "bg-sky-500/10 text-sky-300 border border-sky-800/60",
@@ -57,8 +65,12 @@ export function MoneyPennyOverviewPanel() {
     if (!panel) return;
     navigateToPanel(panel);
   };
-  const navigateToSpecialist = (card: (typeof MONEYPENNY_SPECIALIST_CARDS)[number]) => {
-    navigateToPanel({ panel: card.panel, specialistId: card.id });
+  const [modalCard, setModalCard] = useState<MoneyPennySpecialistCard | null>(null);
+
+  const expandModalToPanel = () => {
+    if (!modalCard) return;
+    navigateToPanel({ panel: modalCard.panel, specialistId: modalCard.id });
+    setModalCard(null);
   };
 
   const primaryItems = PRIMARY_ACTION_ITEM_IDS.map(findItem);
@@ -200,7 +212,8 @@ export function MoneyPennyOverviewPanel() {
             <button
               key={card.id}
               type="button"
-              onClick={() => navigateToSpecialist(card)}
+              data-testid={`specialist-card-${card.id}`}
+              onClick={() => setModalCard(card)}
               className="group flex flex-col rounded-lg border border-slate-800 bg-slate-900/40 p-3 text-left transition-colors hover:border-emerald-700/60 hover:bg-slate-900/60"
             >
               <div className="flex items-center justify-between">
@@ -212,6 +225,31 @@ export function MoneyPennyOverviewPanel() {
           ))}
         </div>
       </details>
+
+      {/* Each specialist card opens a working direct-conversation modal —
+          the operator can ask a question immediately, with no prior
+          navigation to Activity or case/assessment creation (requirement
+          4). "Expand to full panel" hands off to the SAME navigate() the
+          full Factor/Aegis/Service-Orchestration panels use, and the
+          conversation itself survives the expansion (SpecialistWorkspace
+          persists it by personaId+specialistId+scope — identical on both
+          sides, never a second, disconnected conversation). */}
+      {modalCard && (
+        <SpecialistConsultModal
+          open
+          onClose={() => setModalCard(null)}
+          onExpand={expandModalToPanel}
+          title={modalCard.label}
+          description={modalCard.description}
+          workspaceProps={{
+            specialistId: modalCard.id,
+            specialistLabel: modalCard.label,
+            emptyStatePrompt: SPECIALIST_EMPTY_PROMPTS[modalCard.id],
+            placeholder: `Ask ${modalCard.label}…`,
+            scopeId: null,
+          }}
+        />
+      )}
     </div>
   );
 }
