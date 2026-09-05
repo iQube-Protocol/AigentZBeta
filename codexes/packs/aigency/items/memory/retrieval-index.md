@@ -5539,3 +5539,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-c53302f.md](../build_/COMMITS/COMMIT-c53302f.md)
 - Message: Record Bankr Phases 6-9 delivery report (frontend integration pending)
+
+## Commit `f5b13db` — 2026-09-05T21:13:23Z
+- Type: `chore`
+- Brief: [COMMIT-f5b13db.md](../build_/COMMITS/COMMIT-f5b13db.md)
+- Message: Update Bankr Phase 6-9 delivery report with the frontend integration

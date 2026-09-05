@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-05T21:06:42.391Z",
+  "last_updated": "2026-09-05T21:15:28.803Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "c53302f536c32e0122fbc921a5f870db43e652e4",
-  "latest_commit_short": "c53302f",
-  "latest_commit_title": "Record Bankr Phases 6-9 delivery report (frontend integration pending)",
+  "latest_commit": "f5b13db950b8fc17da641fa6af1d320cbd669669",
+  "latest_commit_short": "f5b13db",
+  "latest_commit_title": "Update Bankr Phase 6-9 delivery report with the frontend integration",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "f5b13db",
+      "full_sha": "f5b13db950b8fc17da641fa6af1d320cbd669669",
+      "title": "Update Bankr Phase 6-9 delivery report with the frontend integration",
+      "author": "Claude",
+      "timestamp": "2026-09-05T21:13:23Z",
+      "type": "chore",
+      "brief": "items/build_/COMMITS/COMMIT-f5b13db.md"
+    },
     {
       "sha": "c53302f",
       "full_sha": "c53302f536c32e0122fbc921a5f870db43e652e4",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-09-02T12:59:22Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-3c1551d.md"
-    },
-    {
-      "sha": "0e171da",
-      "full_sha": "0e171da6f059d482a676883da940d577955bacb9",
-      "title": "Honor public workspace visibility and label My Experiments in IRL OS Workspace",
-      "author": "Claude",
-      "timestamp": "2026-09-02T12:59:22Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-0e171da.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

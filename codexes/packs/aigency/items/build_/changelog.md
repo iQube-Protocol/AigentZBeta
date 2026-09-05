@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`f5b13db`](https://github.com/iQube-Protocol/AigentZBeta/commit/f5b13db950b8fc17da641fa6af1d320cbd669669) [chore] Update Bankr Phase 6-9 delivery report with the frontend integration (Claude, 2026-09-05T21:13:23Z)
 - [`c53302f`](https://github.com/iQube-Protocol/AigentZBeta/commit/c53302f536c32e0122fbc921a5f870db43e652e4) [push] Record Bankr Phases 6-9 delivery report (frontend integration pending) (Claude, 2026-09-05T21:04:50Z)
 - [`39e5792`](https://github.com/iQube-Protocol/AigentZBeta/commit/39e5792aec67df029203286c9c738ad77076a41f) [feat] Add Bankr Phase 9 live-rehearsal script (stops at the approval boundary) (Claude, 2026-09-05T21:02:10Z)
 - [`3b9ae5a`](https://github.com/iQube-Protocol/AigentZBeta/commit/3b9ae5a0703c956e066c9d83aeb8f828769ebd30) [push] Give Factor's Bankr actions real HTTP routes; close Phase 8 drift/tenant gaps (Phase 6 backend) (Claude, 2026-09-05T20:54:52Z)
