@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-09-05-MEMBERSHIP-RECOVERY-MUST-BOUND-GENERATION-001",
+  "statement": "A membership-recovery read that reconstructs 'the set of members belonging to an already-frozen or historical generation' from a live, generation-blind table (no version/generation column, and no time boundary the code actually applies) must never be trusted as that generation's membership once new members can be written into the same table after the freeze. The read must be bounded by an explicit, verified generation/cohort marker — never merely 'whatever the shared table currently contains, filtered only by domain' — or it will silently re-absorb every subsequently-assigned member as if it were part of the original frozen snapshot.",
+  "family": "engineering",
+  "classification": null,
+  "parentCandidateId": null,
+  "governingPrinciple": false,
+  "scope": "local",
+  "status": "candidate",
+  "derivedFrom": [
+    "RES-2026-09-05-TRACK2-MEMBERSHIP-RECOVERY-GENERATION-BLIND-001"
+  ],
+  "occurrences": [
+    {
+      "site": "services/research/crystalCohortMembership.ts — resolveFrozenPredecessorContext / isSuccessorScopedCandidate (the ONE shared resolver researchProgrammeOrchestrator.ts's loadTrack2ProgrammeState Stage 3/4/6/7 counts, the review-and-promote queue, and every other route resolveSuccessorConstructionCohort serves all read through)",
+      "defect": "`recoveredInvariants` (crystalFrozenManifest.ts's domain-scoped, status-unfiltered, time-unbounded `listInvariants({domain: crystalDomain})` read) was treated as 'the frozen predecessor generation's membership' with no generation boundary applied. The moment 53 new successor members were assigned into the same `financial-risk-value-systems` domain (Stage 8, 2026-09-05T10:06:41.303889Z, receipt b28284b6-7b26-4362-b89b-c866fa690967), they became indistinguishable, to this read, from the 15-member vP1 predecessor batch assigned 2026-08-04T21:27:49. `isSuccessorScopedCandidate` then excluded all 53 from the successor-scoped cohort, collapsing Track 2's live successor-cohort view from 58 members to 5.",
+      "resolutionId": "RES-2026-09-05-TRACK2-MEMBERSHIP-RECOVERY-GENERATION-BLIND-001",
+      "evidence": [
+        "services/research/crystalFrozenManifest.ts:340-346 (listInvariants({domain, limit}) — no status filter by design, no time/generation filter of any kind)",
+        "services/research/crystalCohortMembership.ts:76-128 (resolveFrozenPredecessorContext / isSuccessorScopedCandidate)",
+        "Supabase project bsjhfvctmduxhohtllly, invariant_contexts joined to invariants, ordered by invariant_contexts.created_at — 15 rows @ 2026-08-04T21:27:49.xxx, 53 rows @ 2026-09-05T10:06:41.303889, 68 total, read-only diagnostic query"
+      ]
+    }
+  ],
+  "canaries": [],
+  "notes": [
+    "This is the SAME architectural gap already named (not fixed) in codexes/packs/agentiq/updates/2026-09-05_exp-p1-stage8-successor-assignment-and-generation-gap.md's 'Crystal generations are not represented in invariant_contexts' section, one layer downstream: that doc named the gap's effect on Stage 8's own completion signal (`populated = readiness.invariantCount > 0` in services/research/track2Programme.ts). This occurrence is the SAME schema gap producing a second, independently-confirmed symptom in the successor-scope predicate every other Track 2 stage (3, 4, 6, 7) and every relationship-adjudication route shares through crystalCohortMembership.ts. One root cause, two now-confirmed symptoms.",
+    "A candidate fix design is proposed for operator review rather than implemented (per explicit instruction not to build unilaterally): (1) SCHEMA-LEVEL — add a generation/cohort marker column (e.g. `assigned_generation` or `cohort_ref`) to `invariant_contexts`, stamped at assignment time, so a membership-recovery read can filter to a named generation explicitly; requires a migration. (2) DERIVED-SET — no migration: persist the successor cohort's own distinct invariant-id set (already computed and hashed once per assignment act, e.g. the 2026-09-05 assignment's declaration hash `61b041c1f5cfcc39…`) as a durable record, and have `resolveFrozenPredecessorContext` subtract that recorded successor-cohort id set from `recoveredInvariants` before treating the remainder as 'frozen predecessor membership'. Both are workable; the operator should choose, since the source update doc's own 'Recommended follow-on' section explicitly left this design decision open and this record does not resolve it.",
+    "Not yet protected by a canary (see the resolution record's rejectedApproaches: a permanently-red pre-fix test was deliberately not added). Whichever design the operator selects, its implementation should add a regression test asserting that a membership-recovery read bounded to a historical generation excludes invariant_contexts rows created after that generation's freeze/assignment boundary, even when they share the same domain."
+  ],
+  "supersededBy": null,
+  "ratifiedSource": null,
+  "projections": {
+    "targets": [
+      "devon",
+      "irl",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  }
+}
