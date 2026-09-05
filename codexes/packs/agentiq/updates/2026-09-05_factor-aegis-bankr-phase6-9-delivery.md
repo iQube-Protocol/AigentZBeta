@@ -1,7 +1,7 @@
 # Factor + Aegis Bankr PRD — Phases 6-9 Delivery Report
 
 **Status:** Phases 0-5 shipped and tested in a prior session (`9a11c7c`). This
-report covers Phase 6 (backend half; frontend half tracked separately),
+report covers Phase 6 (backend + frontend, 3 of 5 host contexts wired),
 Phase 7 verification, Phase 8 additional tests, and Phase 9 (rehearsal
 script). Phase 10 (DevOn skill) and the final cross-phase summary are
 addressed at the end.
@@ -27,15 +27,47 @@ Real HTTP routes under `app/api/moneypenny/factor/bankr/`:
 
 These give `SpecialistResponseCard`'s typed `availableActions` (added in an
 earlier Factor runtime-contract phase but rendered as inert pills) a real
-backend to call. The client wiring itself (making those pills clickable,
-plus the SmartTriad atomic surfaces for connection/binding/readiness/
-launch-spec/terms/Aegis-review/approval/deployment-status/receipt/fee-
-accrual, across the 5 host contexts the PRD names) is the **frontend half**,
-running as a separate background task at the time of this commit — not yet
-reviewed, merged, or reflected in this report. This document will be
-updated (or a follow-up update doc added) once that work is integrated;
-until then, Phase 6 is backend-complete and frontend-pending, not fully
-complete.
+backend to call.
+
+### Frontend (this session, shipped to `dev`)
+
+`services/factor/useBankrTokenLaunch.ts` — the one client controller for
+every Bankr surface, calling only the real routes above via `personaFetch`
+(never `bankrCapabilityHandlers.ts` directly, never Bankr's own API).
+`approve()` is a separate function against the separate `/approve` route,
+never folded into the action dispatcher.
+
+Eight atomic surfaces under `components/moneypenny/bankr/` — readiness +
+provider-wallet binding, an operator launch-spec form (every field starts
+empty, nothing pre-filled), Bankr terms (with provenance + simulated
+badge), Aegis review, human/MoneyPenny approval (visually and structurally
+separate from Factor's own actions), deployment status (submitted vs.
+confirmed visibly distinguished), and fee claims (honest "not known" note,
+no invented amount) — composed into `BankrTokenLaunchCapsule` at
+`compact | expanded | panel` depths (one controller instance, no remount
+on depth toggle, mirroring `MarketConsoleCapsule`'s pattern) plus a modal
+wrapper.
+
+**3 of the PRD's 5 host contexts are wired**, each traced to its real mount
+point:
+1. MoneyPenny chat inline — `SpecialistResponseCard`'s action pills now
+   call a real `onAction` handler; `SpecialistWorkspace` mounts an inline
+   capsule per turn.
+2. `FactorPanel`'s right-pane — a new "Bankr tokenization" mode at `panel`
+   depth.
+3. Modal, reached from MoneyPenny's Financial Services admin —
+   `ServiceOrchestrationPanel`'s Bankr catalog row opens
+   `BankrTokenLaunchModal` scoped to the selected agent.
+
+**Not wired, honestly:** the SmartTriad rich-block "capsule" hosting
+registry (`SmartTriadRichBlockRenderer.tsx`'s `LIVE_CAPSULE_COMPONENTS`).
+That requires the backend to emit a `capsuleId`-bearing rich-block envelope
+for Factor's Bankr responses, which doesn't exist yet — wiring it
+client-side alone would misrepresent what's actually live.
+
+10 new RTL tests; the full targeted suite (Bankr + FactorPanel/candidate-
+intake, 83 tests) passes with no regressions; `tsc --noEmit` baseline holds
+at 679, zero new errors.
 
 ### Two real gaps closed while wiring the caller
 
@@ -170,9 +202,9 @@ attempted.
 
 ## What remains blocked / deferred
 
-- Phase 6 frontend (SmartTriad atomic surfaces) — delegated to a
-  background agent this session; integrate its result before calling
-  Phase 6 complete.
+- Phase 6's SmartTriad rich-block capsule-hosting registry (2 of 5 host
+  contexts) — needs a backend-emitted `capsuleId` envelope that doesn't
+  exist yet; the other 3 host contexts are wired (see above).
 - Agent Card / iQube Registry linkage on confirmation (Phase 7 gap, above).
 - Phase 9's script has not been run against a live deployed host.
 - Phase 10 — blocked on the DevOn ambiguity above.
