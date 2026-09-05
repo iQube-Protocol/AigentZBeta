@@ -95,6 +95,23 @@ export const SERVICE_CLASS_EXECUTION_REACHABLE: Record<FinancialServiceConsequen
  *                                    `deriveActionAuthorisation` /
  *                                    `bindExecution`). MoneyPenny's
  *                                    Confidential Runtime (`moneypenny.runtime`).
+ *   BANKR_TOKEN_LAUNCH_PIPELINE   — governed by the token-launch domain's OWN
+ *                                    state machine (Factor + Aegis Bankr PRD,
+ *                                    Phase 4: draft -> ... -> approved ->
+ *                                    submitted -> confirmed, gated by a
+ *                                    ratified Aegis assessment AND an
+ *                                    explicit MoneyPenny/human approval over
+ *                                    an exact, hashed launch specification).
+ *                                    A THIRD, genuinely distinct mechanism —
+ *                                    never forced into
+ *                                    CONSTITUTIONAL_SERVICE_PIPELINE (which
+ *                                    names ONE specific existing pipeline,
+ *                                    runConstitutionalServicePattern(), that
+ *                                    this is not) or CONSTITUTIONAL_COMMERCE
+ *                                    (VELA-001's ontology, which this never
+ *                                    touches either). MoneyPenny's Bankr
+ *                                    tokenization service
+ *                                    (`moneypenny.bankr.tokenization`).
  *
  * CRITICAL: this field must NEVER be used to widen Gate 2. Gate 2
  * (`services/registry/capabilityInvocationGates.ts`) remains completely
@@ -111,7 +128,11 @@ export const SERVICE_CLASS_EXECUTION_REACHABLE: Record<FinancialServiceConsequen
  * service pipeline, never inside Gate 2 and never inside VELA's
  * ActionAuthorisation/execution primitives.
  */
-export type FinancialServiceGovernancePath = 'NONE' | 'CONSTITUTIONAL_SERVICE_PIPELINE' | 'CONSTITUTIONAL_COMMERCE';
+export type FinancialServiceGovernancePath =
+  | 'NONE'
+  | 'CONSTITUTIONAL_SERVICE_PIPELINE'
+  | 'CONSTITUTIONAL_COMMERCE'
+  | 'BANKR_TOKEN_LAUNCH_PIPELINE';
 
 /**
  * The Gate-2-request `executionMode` a real governed mechanism requires —
@@ -124,6 +145,13 @@ export type FinancialServiceGovernancePath = 'NONE' | 'CONSTITUTIONAL_SERVICE_PI
 export const GOVERNANCE_PATH_EXECUTION_MODE_OVERRIDE: Partial<Record<FinancialServiceGovernancePath, CapabilityExecutionMode>> = {
   CONSTITUTIONAL_SERVICE_PIPELINE: 'shadow',
   CONSTITUTIONAL_COMMERCE: 'authoritative',
+  // Never 'authoritative' — Gate 2's frozen exception stays exclusively
+  // CONFIDENTIAL_CONSEQUENCE_PROJECTION's. The token-launch domain's real
+  // approval gate (Aegis assessment + human/MoneyPenny sign-off over an
+  // exact spec hash) lives entirely downstream of Gate 2, inside the
+  // Bankr token-launch domain service (Phase 4) — never inside Gate 2 or
+  // VELA's ActionAuthorisation/execution primitives.
+  BANKR_TOKEN_LAUNCH_PIPELINE: 'shadow',
 };
 
 // ── Provider modes (provider-specific) ───────────────────────────────────

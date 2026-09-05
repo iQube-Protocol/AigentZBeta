@@ -186,11 +186,74 @@ export const MONEYPENNY_RUNTIME_CONSTITUTIONAL: FinancialServiceDefinition = {
   receiptPolicy: { anchorable: true },
 };
 
+/**
+ * MoneyPenny's Bankr tokenization service (Factor + Aegis Bankr PRD, Phase
+ * 2). `capabilityId: 'bankr_tokenization'` is a REAL registry-seeded
+ * descriptor — `supabase/migrations/20260930200000_moneypenny_bankr_tokenization_capability.sql`
+ * appends it to MoneyPenny's EXISTING `registry_assets` capability list
+ * (the same row `financial_advisory`/`bounded_financial_execution` already
+ * resolve through), never a fabricated id Gate 2 or
+ * `resolveCapabilityProviders` doesn't actually know about. The SAME id
+ * Factor's own manifest uses (`services/factor/factorCapabilityManifest.ts`'s
+ * `bankr_tokenization` FactorCapabilityId) — deliberately one string across
+ * both layers, not two names for the same concept.
+ *
+ * `governancePath: 'BANKR_TOKEN_LAUNCH_PIPELINE'` (never
+ * CONSTITUTIONAL_SERVICE_PIPELINE or CONSTITUTIONAL_COMMERCE — see that
+ * type's own doc in types/financialServices.ts for why forcing this into
+ * either would be a category error) requests Gate 2's `shadow` mode,
+ * exactly like Advisor/Architect/the Constitutional Runtime — this service
+ * NEVER touches Gate 2's frozen `authoritative` exception. The real
+ * governance (Aegis assessment + explicit MoneyPenny/human approval over an
+ * exact, hashed launch specification) lives entirely inside the Bankr
+ * token-launch domain service (Phase 4), downstream of and invisible to
+ * Gate 2 — matching `MONEYPENNY_RUNTIME_CONSTITUTIONAL`'s own precedent of
+ * a genuinely CONSEQUENTIAL service whose real authorization mechanism is
+ * NOT VELA's `composeUnifiedConsequenceProjection`/`deriveActionAuthorisation`/
+ * `bindExecution` (hence `executionPolicy.executionReachable: false`).
+ *
+ * THIS ENTRY IS CATALOG/DISCOVERY REGISTRATION ONLY — it does not, by
+ * itself, make Bankr tokenization actionable. Factor's own capability
+ * manifest independently keeps `bankr_tokenization` at
+ * `status: 'planned'`, `handlerKind: 'none'` until Phase 5 wires a real
+ * handler, authority gate, and tests; a capability being resolvable here
+ * and a capability being ACTIONABLE at the Factor-manifest layer are two
+ * separate questions.
+ *
+ * No Bankr economics (fees, chain support, vesting) are hardcoded here —
+ * `pricingPolicy.priceQc: 0` is MoneyPenny's OWN facilitation fee (none set
+ * yet), never Bankr's. Bankr's actual terms are captured live, per launch,
+ * by `services/financialServices/providers/bankr/bankrProviderAdapter.ts`'s
+ * `getTokenLaunchQuote()` and bound into the launch spec (Phase 4) — a
+ * completely separate, non-static concern from this catalog entry's price.
+ */
+export const MONEYPENNY_BANKR_TOKENIZATION: FinancialServiceDefinition = {
+  serviceId: 'moneypenny.bankr.tokenization',
+  providerMode: 'BANKR_TOKENIZATION',
+  serviceClass: 'CONSEQUENTIAL',
+  governancePath: 'BANKR_TOKEN_LAUNCH_PIPELINE',
+  displayName: 'MoneyPenny Bankr Tokenization',
+  providerAgentId: 'aigent-moneypenny',
+  capabilityId: 'bankr_tokenization',
+  // Same Standing bar as MoneyPenny's other CONSEQUENTIAL services — real
+  // token-launch consequence is not easier to reach than confidential
+  // execution.
+  eligibilityPolicy: { requiresAdmission: true, consumerVerificationRequirement: 'NOT_REQUIRED', minimumStandingScore: 25 },
+  authorityRequirement: { requiredAuthoritySource: [], requiresActiveAuthority: true },
+  projectionRequirement: 'NOT_REQUIRED',
+  confidentialityRequirement: 'NOT_REQUIRED',
+  attestationRequirement: 'NOT_REQUIRED',
+  executionPolicy: { boundedOnly: true, executionReachable: false },
+  pricingPolicy: { priceQc: 0 },
+  receiptPolicy: { anchorable: true },
+};
+
 const CATALOG: Record<string, FinancialServiceDefinition> = {
   [MONEYPENNY_ADVISOR.serviceId]: MONEYPENNY_ADVISOR,
   [MONEYPENNY_ARCHITECT.serviceId]: MONEYPENNY_ARCHITECT,
   [MONEYPENNY_RUNTIME.serviceId]: MONEYPENNY_RUNTIME,
   [MONEYPENNY_RUNTIME_CONSTITUTIONAL.serviceId]: MONEYPENNY_RUNTIME_CONSTITUTIONAL,
+  [MONEYPENNY_BANKR_TOKENIZATION.serviceId]: MONEYPENNY_BANKR_TOKENIZATION,
 };
 
 /** Service discovery. Pure lookup — see file header for what "discovery" honestly means today. */
