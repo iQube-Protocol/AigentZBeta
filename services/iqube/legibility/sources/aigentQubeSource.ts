@@ -116,7 +116,7 @@ const PROFILES: Record<(typeof RUNTIME_AGENT_IDS)[number], AigentProfile> = {
   },
   'aigent-factor': {
     id: 'aigent-factor',
-    display_name: 'Factor',
+    display_name: 'Aigent Factor',
     description:
       "MoneyPenny's candidate-intake pipeline specialist — walks a candidate agent's evidence "
       + 'checklist and facilitates its authority chain. Cannot decide admission.',

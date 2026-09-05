@@ -107,7 +107,7 @@ export async function resolveSmartTriadSpecialistDelegation(
   const specialistId = resolveSpecialistFromMessage(message);
   if (!specialistId) return { matched: false };
 
-  const label = specialistId === 'factor' ? 'Factor' : 'Aegis';
+  const label = specialistId === 'factor' ? 'Aigent Factor' : 'Aegis';
   const boundedContext =
     `Case context (advisory only — you may not mutate it): caseId=${candidateCase.caseId}, ` +
     `candidate="${candidateCase.candidateDisplayName}", state=${candidateCase.state}, ` +

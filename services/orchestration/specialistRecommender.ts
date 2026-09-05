@@ -68,7 +68,7 @@ const SPECIALIST_LABELS: Record<SpecialistId, string> = {
   metaye: 'Metayé',
   researcher: 'Research Copilot',
   aletheon: 'Aletheon',
-  factor: 'Factor',
+  factor: 'Aigent Factor',
   aegis: 'Aegis',
 };
 

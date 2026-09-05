@@ -113,7 +113,7 @@ export async function GET(req: NextRequest) {
   return withCors(
     NextResponse.json({
       // Identity & Discovery
-      name: 'Factor',
+      name: 'Aigent Factor',
       description:
         "MoneyPenny's candidate-intake pipeline agent (GJR-FAC-001). Factor resolves whether a candidate agent " +
         'already has a case, walks its evidence checklist (capability declarations, endpoints, code provenance), ' +
@@ -212,7 +212,7 @@ export async function GET(req: NextRequest) {
 
       registry_entry: {
         class: 'Agent Participant Passport',
-        holder: 'Factor',
+        holder: 'Aigent Factor',
         bound_to: 'operator (via bounded delegation, per the Constitutional Authority Supremacy doctrine)',
         home_realm: 'metaTerra',
         canonical_function: 'Candidate-Intake Pipeline Agent',

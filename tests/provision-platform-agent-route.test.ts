@@ -112,7 +112,7 @@ describe('POST /api/ops/agents/provision-platform-agent', () => {
     const call = mockSponsorPolityAgent.mock.calls[0][0];
     expect(call.isPlatformAuthority).toBe(true); // never the body's false
     expect(call.existingIdentity.agentId).toBe('aigent-factor'); // never the body's 'aigent-someone-else'
-    expect(call.displayName).toBe('Factor'); // never the body's 'Not Factor'
+    expect(call.displayName).toBe('Aigent Factor'); // never the body's 'Not Factor'
 
     const json = await res.json();
     expect(JSON.stringify(json)).not.toMatch(/ppc-should-never-be-echoed/); // sponsor passport id never leaks

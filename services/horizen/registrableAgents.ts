@@ -153,10 +153,21 @@ export const REGISTRABLE_AGENTS: Record<string, RegistrableAgentConfig> = {
    * Aegis is deliberately NOT a registrable agent here — it is MoneyPenny's
    * independent assessor, never itself a Horizen Register/Verify/Claim
    * candidate (operator, 2026-09-05).
+   *
+   * `displayName` is 'Aigent Factor', not bare 'Factor' (operator audit,
+   * 2026-09-05): unlike Nakamoto/Kn0w1/MoneyPenny, "Factor" alone is a
+   * common English word and reads as generic UI copy rather than an agent's
+   * proper name wherever it is the sole label (e.g. the Service
+   * Orchestration console's agent-selector button, which projects THIS
+   * field verbatim — never patched locally there). Every other place this
+   * repo names Factor as an agent (the Agent Card, the aigentQube
+   * legibility source, both `SPECIALIST_LABELS` copies, the case-context
+   * consult label) was updated to match this same canonical form in the
+   * same pass — this field is the one source of truth for all of them.
    */
   factor: {
     slug: 'factor',
-    displayName: 'Factor',
+    displayName: 'Aigent Factor',
     runtimeAgentId: 'aigent-factor',
     aigentQubeId: 'aigentqube-factor',
     agentCardPath: '/api/agents/factor/agent-card.json',

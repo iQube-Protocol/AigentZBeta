@@ -26,7 +26,7 @@
 import { useState } from "react";
 import { ArrowRight, ChevronDown } from "lucide-react";
 import { useMoneyPennyNavigation } from "./moneyPennyNavigation";
-import { MONEYPENNY_CAPABILITY_GROUPS, type MoneyPennyCapabilityItem } from "./moneypennyCapabilities";
+import { MONEYPENNY_CAPABILITY_GROUPS, MONEYPENNY_SPECIALIST_CARDS, type MoneyPennyCapabilityItem } from "./moneypennyCapabilities";
 import type { MoneyPennyPanelKey } from "@/app/triad/components/codex/tabs/MoneyPennyPanelTab";
 
 const MODE_BADGE_STYLE: Record<string, string> = {
@@ -56,6 +56,9 @@ export function MoneyPennyOverviewPanel() {
   const navigate = (panel: MoneyPennyPanelKey | null) => {
     if (!panel) return;
     navigateToPanel(panel);
+  };
+  const navigateToSpecialist = (card: (typeof MONEYPENNY_SPECIALIST_CARDS)[number]) => {
+    navigateToPanel({ panel: card.panel, specialistId: card.id });
   };
 
   const primaryItems = PRIMARY_ACTION_ITEM_IDS.map(findItem);
@@ -152,6 +155,34 @@ export function MoneyPennyOverviewPanel() {
           );
         })}
       </div>
+
+      {/* Specialist access (Cartridge spec C-03: "Home | ... specialist
+          access") — one collapsed section, closed by default like the
+          capability groups above, so specialist consultation is one click
+          away without adding a fourth always-visible row to the newcomer
+          hierarchy. */}
+      <details className="group/section rounded-lg border border-slate-800 bg-slate-900/20">
+        <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 hover:text-slate-300">
+          <ChevronDown className="h-3.5 w-3.5 transition-transform group-open/section:rotate-180" />
+          Specialists
+        </summary>
+        <div className="grid grid-cols-1 gap-3 border-t border-slate-800 p-3 sm:grid-cols-2 lg:grid-cols-4">
+          {MONEYPENNY_SPECIALIST_CARDS.map((card) => (
+            <button
+              key={card.id}
+              type="button"
+              onClick={() => navigateToSpecialist(card)}
+              className="group flex flex-col rounded-lg border border-slate-800 bg-slate-900/40 p-3 text-left transition-colors hover:border-emerald-700/60 hover:bg-slate-900/60"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-slate-100">{card.label}</span>
+                <ArrowRight className="h-3.5 w-3.5 text-slate-600 transition-colors group-hover:text-emerald-400" />
+              </div>
+              <p className="mt-1 text-xs text-slate-500">{card.description}</p>
+            </button>
+          ))}
+        </div>
+      </details>
     </div>
   );
 }

@@ -208,7 +208,7 @@ describe('Candidate Intake workspace — behavioral', () => {
     fillOpenCaseForm(backend);
     await screen.findByText('Test Candidate');
 
-    const composer = screen.getByPlaceholderText(/ask factor about this case/i);
+    const composer = screen.getByPlaceholderText(/ask aigent factor about this case/i);
     fireEvent.change(composer, { target: { value: 'First question?' } });
     fireEvent.click(screen.getByRole('button', { name: /^send$/i }));
     await screen.findByText(/Advisory summary for: First question/);
@@ -229,7 +229,7 @@ describe('Candidate Intake workspace — behavioral', () => {
     fillOpenCaseForm(backend);
     await screen.findByText('Test Candidate');
 
-    const composer = screen.getByPlaceholderText(/ask factor about this case/i) as HTMLTextAreaElement;
+    const composer = screen.getByPlaceholderText(/ask aigent factor about this case/i) as HTMLTextAreaElement;
     fireEvent.change(composer, { target: { value: 'Will this clear?' } });
     fireEvent.click(screen.getByRole('button', { name: /^send$/i }));
     await waitFor(() => expect(composer.value).toBe(''));
@@ -241,7 +241,7 @@ describe('Candidate Intake workspace — behavioral', () => {
     fillOpenCaseForm(backend);
     await screen.findByText('Test Candidate');
 
-    const composer = screen.getByPlaceholderText(/ask factor about this case/i);
+    const composer = screen.getByPlaceholderText(/ask aigent factor about this case/i);
     fireEvent.change(composer, { target: { value: 'Factor question' } });
     fireEvent.click(screen.getByRole('button', { name: /^send$/i }));
     await screen.findByText(/Advisory summary for: Factor question/);
@@ -293,7 +293,7 @@ describe('Candidate Intake workspace — behavioral', () => {
     fillOpenCaseForm(backend);
     await screen.findByText('Test Candidate');
 
-    const composer = screen.getByPlaceholderText(/ask factor about this case/i);
+    const composer = screen.getByPlaceholderText(/ask aigent factor about this case/i);
     fireEvent.change(composer, { target: { value: 'Please admit this candidate now.' } });
     fireEvent.click(screen.getByRole('button', { name: /^send$/i }));
 
@@ -309,7 +309,7 @@ describe('Candidate Intake workspace — behavioral', () => {
     await screen.findByText('Test Candidate');
     const stateBefore = backend.case.state;
 
-    const composer = screen.getByPlaceholderText(/ask factor about this case/i);
+    const composer = screen.getByPlaceholderText(/ask aigent factor about this case/i);
     fireEvent.change(composer, { target: { value: 'Is the evidence checklist complete?' } });
     fireEvent.click(screen.getByRole('button', { name: /^send$/i }));
     await screen.findByText(/Advisory summary for: Is the evidence/);
@@ -384,7 +384,7 @@ describe('Candidate Intake workspace — behavioral', () => {
     render(<Harness><CandidateIntakePanel /></Harness>);
     fillOpenCaseForm(backend);
     await screen.findByText('Test Candidate');
-    const composer = screen.getByPlaceholderText(/ask factor about this case/i);
+    const composer = screen.getByPlaceholderText(/ask aigent factor about this case/i);
     fireEvent.change(composer, { target: { value: 'A question' } });
     fireEvent.click(screen.getByRole('button', { name: /^send$/i }));
     await screen.findByText(/Advisory summary for: A question/);
@@ -395,7 +395,7 @@ describe('Candidate Intake workspace — behavioral', () => {
     render(<Harness><CandidateIntakePanel /></Harness>);
     fillOpenCaseForm(backend);
     await screen.findByText('Test Candidate');
-    const composer = screen.getByPlaceholderText(/ask factor about this case/i) as HTMLTextAreaElement;
+    const composer = screen.getByPlaceholderText(/ask aigent factor about this case/i) as HTMLTextAreaElement;
 
     fireEvent.change(composer, { target: { value: 'line one' } });
     fireEvent.keyDown(composer, { key: 'Enter', shiftKey: true });
