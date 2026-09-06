@@ -88,6 +88,21 @@ function readinessWith(failingNames: string[]) {
   };
 }
 
+// A minimal, valid hash pre-image — required to freeze any crystal-version
+// artifact (2026-09-06, iterative Crystal versioning); shared by every test
+// below that isn't itself exercising the memberSnapshot requirement.
+const MEMBER_SNAPSHOT = [
+  {
+    id: 'inv-1',
+    statement: 'stmt-1',
+    namespace: 'finance',
+    semanticType: null,
+    status: 'validated' as const,
+    evidenceProvenance: null,
+    provenance: null,
+  },
+];
+
 beforeEach(() => {
   mockRunCrystalReadinessReport.mockReset();
   mockListResearchObjects.mockReset();
@@ -192,6 +207,7 @@ describe('freezeArtifact — persists the exact measured limitations, never a ca
       contentHash: 'hash-abc',
       signedBy: ['operator-ref-1'],
       executionDesignation: 'internal-pilot',
+      memberSnapshot: MEMBER_SNAPSHOT,
     });
     expect(result.ok).toBe(false);
     expect(result.error).toContain('scientificDeviations');
@@ -206,6 +222,7 @@ describe('freezeArtifact — persists the exact measured limitations, never a ca
       contentHash: 'hash-abc',
       signedBy: ['operator-ref-1'],
       scientificDeviations: [{ checkName: 'derivation-headroom', rationale: 'x' }],
+      memberSnapshot: MEMBER_SNAPSHOT,
     });
     expect(result.ok).toBe(false);
     expect(result.error).toContain('internal-pilot');
@@ -227,6 +244,7 @@ describe('freezeArtifact — persists the exact measured limitations, never a ca
         { checkName: 'derivation-headroom', rationale: 'authorized for pilot only' },
         { checkName: 'boundary-coverage', rationale: 'authorized for pilot only' },
       ],
+      memberSnapshot: MEMBER_SNAPSHOT,
     });
 
     expect(result.ok).toBe(true);
@@ -256,6 +274,7 @@ describe('freezeArtifact — persists the exact measured limitations, never a ca
       signedBy: ['operator-ref-1'],
       executionDesignation: 'internal-pilot',
       scientificDeviations: [{ checkName: 'derivation-headroom', rationale: 'authorized' }],
+      memberSnapshot: MEMBER_SNAPSHOT,
     });
     expect(result.ok).toBe(false);
     expect(result.error).toContain('boundary-coverage');

@@ -179,6 +179,41 @@ export async function getCurrentCrystalArtifact(experimentId: string): Promise<F
 }
 
 /**
+ * Resolve the crystal-version artifact id CURRENTLY being constituted for
+ * this experiment (`currentCrystalArtifactId`'s own contract — the
+ * highest-numbered non-frozen generation, or the next unused one), and
+ * ensure a durable `research_objects` row exists for it — provisioning one
+ * at `draft` lifecycle, idempotently, the first time anything needs to
+ * stamp membership under this generation.
+ *
+ * This is what makes a crystal generation a real, first-class object from
+ * the moment Track 2 first assigns a member to it, rather than a string
+ * computed on the fly and never persisted anywhere (2026-09-05,
+ * generation-identity repair,
+ * RES-2026-09-05-TRACK2-MEMBERSHIP-RECOVERY-GENERATION-BLIND-001). The
+ * Stage 8 assign route is the one caller that needs this; every other
+ * reader of "what generation is this" should read the already-persisted
+ * `invariant_contexts.crystal_generation_id` value, never re-derive it.
+ */
+export async function ensureCurrentCrystalGenerationId(experimentId: string): Promise<string> {
+  const id = await currentCrystalArtifactId(experimentId);
+  const existing = await getArtifactById(id);
+  if (!existing) {
+    const provisioned = await upsertArtifact({
+      id,
+      kind: 'crystal-version',
+      phase: 'protocol',
+      experimentId,
+      lifecycle: 'draft',
+    });
+    if (!provisioned.ok) {
+      throw new Error(`could not provision crystal generation object '${id}': ${provisioned.error ?? 'unknown error'}`);
+    }
+  }
+  return id;
+}
+
+/**
  * The MOST RECENTLY FROZEN `crystal-version` generation — `null` when none
  * has ever been frozen. The complement of `getCurrentCrystalArtifact`: some
  * callers (observer-round assignment, independent review) deliberately want
