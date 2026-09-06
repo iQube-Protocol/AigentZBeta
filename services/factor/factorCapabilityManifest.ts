@@ -569,7 +569,7 @@ export const FACTOR_CAPABILITIES: FactorCapability[] = [
     id: "constitutional_financial_agent_establishment",
     title: "Constitutional financial-agent establishment (Use Case Zero)",
     description:
-      "Guides an operator, end to end, through establishing a constitutional financial-services agent — either bringing an existing agent through the remaining readiness steps, or creating and establishing a new one from scratch. Both entry paths converge on ONE canonical readiness projection (services/factor/useCaseZeroReadinessProjection.ts) composed from EXISTING services — identity, wallet, Passport, delegation/authority chain, Horizen/ERC-8004 registration, Aegis assessment, MoneyPenny admission, Bankr/provider binding, Vela confidential-compute readiness, and runtime activation. Never a second Journey state machine, service catalog, wallet model, approval system or receipt system.",
+      "Guides an operator through establishing a constitutional financial-services agent. Both entry paths converge on ONE canonical readiness projection (services/factor/useCaseZeroReadinessProjection.ts) composed from EXISTING services — identity, wallet, Passport, delegation/authority chain, Horizen/ERC-8004 registration, Aegis assessment, MoneyPenny admission, Bankr/provider binding, Vela confidential-compute readiness, and runtime activation. Never a second Journey state machine, service catalog, wallet model, approval system or receipt system. CORRECTION (2026-09-06): 'creating and establishing a new one from scratch' is NOT implemented — no primitive anywhere in this codebase mints a new RootDID/agent-root identity, and REGISTRABLE_AGENTS is a fixed, code-level allowlist (moneypenny/nakamoto/kn0w1/factor). Both entry paths today only advance an agent slug ALREADY in that allowlist through the remaining readiness steps; a slug outside it reports the agentShell leg as 'blocked' with the exact reason, never a silent failure.",
     status: "partial",
     interactionModes: ["explain", "assess-readiness", "prepare", "act"],
     handler: "app/api/moneypenny/factor/use-case-zero/{readiness,advance}/route.ts",
@@ -589,6 +589,7 @@ export const FACTOR_CAPABILITIES: FactorCapability[] = [
       "Every action reports honestly whether it ran in simulated/test-transport mode or live — never blends the two, never presents a simulated result as live.",
       "No token is issued, no transaction is broadcast, no funds move, and no production credentials are used by this capability.",
       "CORRECTION (2026-09-06, operator review): the two entry actions below are READ-ONLY readiness assessments (services/factor/useCaseZeroCapabilityHandlers.ts) — they choose a path and report canonical readiness; they do not themselves create, provision, or establish anything. The 'Advance one step' action (services/factor/useCaseZeroOrchestrator.ts) is the SEPARATE, real orchestrator that actually acts — one permitted step per call, never auto-chaining across a human/Aegis/MoneyPenny approval boundary. Reachable today via real HTTP routes (app/api/moneypenny/factor/use-case-zero/*) and the shared UseCaseZeroReadinessCapsule component, mounted in FactorPanel's 'use-case-zero' mode.",
+      "CORRECTION (2026-09-06): 'create_and_establish' does NOT create a wholly new agent identity — no RootDID/agent-root minting primitive exists anywhere in this codebase. For a slug not already in REGISTRABLE_AGENTS, this action reports the agentShell leg as 'blocked' rather than fabricating creation. Both entry paths are functionally identical today for any slug already in the allowlist.",
     ],
     actions: [
       explainAction("constitutional_financial_agent_establishment", "Explain constitutional financial-agent establishment"),
@@ -603,7 +604,7 @@ export const FACTOR_CAPABILITIES: FactorCapability[] = [
       },
       {
         id: "constitutional_financial_agent_establishment:create_and_establish",
-        label: "Create and establish an agent — assess readiness",
+        label: "Create and establish an agent — assess readiness (existing registrable agents only; new-identity creation not yet implemented)",
         mode: "prepare",
         handlerId: "factor:ucz-create-and-establish",
         exposure: "moneypenny",

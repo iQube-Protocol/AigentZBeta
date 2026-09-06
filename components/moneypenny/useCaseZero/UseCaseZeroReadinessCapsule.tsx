@@ -51,6 +51,15 @@ export interface UseCaseZeroReadinessCapsuleProps {
 export function UseCaseZeroReadinessCapsule({ agentSlug, tenantId, presentation = "compact" }: UseCaseZeroReadinessCapsuleProps) {
   const { path, readiness, lastAdvance, loading, error, choosePath, advance, reset } = useUseCaseZeroReadiness({ agentSlug, tenantId });
   const [expanded, setExpanded] = useState(presentation !== "compact");
+  // Launch-spec editor state — Factor never invents these values (manifest
+  // boundary); the operator supplies them here before the rehearsal step
+  // (governedOperationRehearsal) can run. Only rendered when that IS the
+  // next permitted action, so it never appears as a dead control earlier
+  // in the sequence (Companion Menu invariant MS-9).
+  const [launchChain, setLaunchChain] = useState("base-sepolia");
+  const [launchTokenName, setLaunchTokenName] = useState("");
+  const [launchTokenSymbol, setLaunchTokenSymbol] = useState("");
+  const [launchDescription, setLaunchDescription] = useState("");
 
   if (!path) {
     return (
@@ -60,17 +69,27 @@ export function UseCaseZeroReadinessCapsule({ agentSlug, tenantId, presentation 
           <BankrActionButton label="Bring my own agent" onClick={() => choosePath("bring_own_agent")} busy={loading} tone="primary" />
           <BankrActionButton label="Create and establish an agent" onClick={() => choosePath("create_and_establish")} busy={loading} tone="primary" />
         </div>
+        <p className="text-[11px] text-amber-200/80">
+          Note: neither path creates a wholly new agent identity today — no RootDID-minting primitive exists yet. Both paths advance
+          an agent slug already known to the platform (e.g. moneypenny, nakamoto, kn0w1, factor) through the remaining readiness steps.
+        </p>
         <BankrErrorNote message={error} />
       </BankrSection>
     );
   }
 
   const showFull = presentation !== "compact" || expanded;
+  const requiredLegs = readiness?.legs.filter((l) => l.required) ?? [];
+  const requiredEstablished = requiredLegs.filter((l) => l.state === "established").length;
+  const optionalLegs = readiness?.legs.filter((l) => !l.required) ?? [];
 
   return (
     <BankrSection title={path === "bring_own_agent" ? "Bring my own agent" : "Create and establish an agent"}>
       <div className="flex flex-wrap items-center gap-2">
-        <BankrBadge label={`${readiness?.completedSteps.length ?? 0}/${readiness?.legs.length ?? 0} established`} tone="info" />
+        <BankrBadge label={`${requiredEstablished}/${requiredLegs.length} required established`} tone="info" />
+        {optionalLegs.length > 0 && (
+          <BankrBadge label={`${optionalLegs.filter((l) => l.state === "established").length}/${optionalLegs.length} optional`} tone="neutral" />
+        )}
         {presentation === "compact" && (
           <button
             type="button"
@@ -107,7 +126,65 @@ export function UseCaseZeroReadinessCapsule({ agentSlug, tenantId, presentation 
         </ul>
       )}
 
-      {readiness?.nextAction && (
+      {readiness?.nextAction && readiness.presentlyActionableStep === "governedOperationRehearsal" && (
+        <div className="flex flex-col gap-1.5 rounded-md border border-violet-800/50 bg-violet-500/5 p-2">
+          <p className="text-xs text-violet-200">Next: {readiness.nextAction.label} — supply the launch spec (Factor invents none of this).</p>
+          <label className="flex flex-col gap-1 text-xs text-slate-300">
+            Chain
+            <input
+              value={launchChain}
+              onChange={(e) => setLaunchChain(e.target.value)}
+              className="rounded-md border border-slate-800 bg-slate-950/60 p-1.5 text-xs text-slate-100 focus:border-violet-500/60 focus:outline-none"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-slate-300">
+            Token name
+            <input
+              value={launchTokenName}
+              onChange={(e) => setLaunchTokenName(e.target.value)}
+              placeholder="e.g. Test Token"
+              className="rounded-md border border-slate-800 bg-slate-950/60 p-1.5 text-xs text-slate-100 placeholder:text-slate-500 focus:border-violet-500/60 focus:outline-none"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-slate-300">
+            Token symbol
+            <input
+              value={launchTokenSymbol}
+              onChange={(e) => setLaunchTokenSymbol(e.target.value.toUpperCase())}
+              placeholder="e.g. TEST"
+              className="rounded-md border border-slate-800 bg-slate-950/60 p-1.5 text-xs text-slate-100 placeholder:text-slate-500 focus:border-violet-500/60 focus:outline-none"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-slate-300">
+            Description (optional)
+            <textarea
+              value={launchDescription}
+              onChange={(e) => setLaunchDescription(e.target.value)}
+              rows={2}
+              className="rounded-md border border-slate-800 bg-slate-950/60 p-1.5 text-xs text-slate-100 focus:border-violet-500/60 focus:outline-none"
+            />
+          </label>
+          <BankrActionButton
+            label="Prepare + preflight (simulated — stops before approval)"
+            onClick={() =>
+              void advance({
+                chain: launchChain.trim(),
+                tokenName: launchTokenName.trim(),
+                tokenSymbol: launchTokenSymbol.trim(),
+                description: launchDescription.trim() || undefined,
+              })
+            }
+            busy={loading}
+            disabled={!launchChain.trim() || !launchTokenName.trim() || !launchTokenSymbol.trim()}
+            tone="primary"
+          />
+          <p className="text-[10px] text-slate-500">
+            This prepares a draft and runs Bankr's deterministic preflight only — it never approves, signs, submits, or broadcasts, and no
+            funds move.
+          </p>
+        </div>
+      )}
+      {readiness?.nextAction && readiness.presentlyActionableStep !== "governedOperationRehearsal" && (
         <div className="flex flex-col gap-1.5 rounded-md border border-violet-800/50 bg-violet-500/5 p-2">
           <p className="text-xs text-violet-200">Next: {readiness.nextAction.label}</p>
           <BankrActionButton label="Advance one step" onClick={() => void advance()} busy={loading} tone="primary" />
