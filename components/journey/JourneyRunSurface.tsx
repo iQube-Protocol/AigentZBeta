@@ -1012,7 +1012,29 @@ export function JourneyRunSurface({
           <ChevronDown className={`h-3 w-3 shrink-0 transition-transform ${evidenceOpen ? 'rotate-180' : ''}`} />
         </button>
         {evidenceOpen && (
-          <div className="absolute right-0 top-[calc(100%+4px)] z-20 max-w-[min(90vw,32rem)] rounded-lg border border-slate-800 bg-slate-900/95 p-2.5 shadow-lg backdrop-blur-sm">
+          <>
+            {/*
+             * COLLISION-SAFE BACKDROP (GJR audit follow-up, 2026-09-06) — the
+             * scroll-close listener above only ever reacted AFTER a scroll
+             * had already moved the body underneath a still-open, merely
+             * 95%-opaque popover — insufficient for the initial-open case
+             * (nothing has scrolled yet) and for any scroll event the
+             * listener's own state-update lags behind by a frame. A
+             * fixed, full-viewport, fully opaque-backed scrim rendered
+             * BEHIND the panel (z-10, below the panel's z-20) and ABOVE the
+             * stage body removes the possibility of overlap entirely: there
+             * is nothing readable between the panel and the scrim for the
+             * body to bleed through, at ANY scroll position, from the very
+             * first paint the popover opens in. Clicking it is an extra,
+             * belt-and-braces close path alongside the existing outside-
+             * mousedown/Escape handlers above (never a replacement for them).
+             */}
+            <div
+              className="fixed inset-0 z-10 bg-slate-950/70"
+              aria-hidden="true"
+              onClick={() => setEvidenceOpen(false)}
+            />
+            <div className="absolute right-0 top-[calc(100%+4px)] z-20 max-w-[min(90vw,32rem)] rounded-lg border border-slate-800 bg-slate-900 p-2.5 shadow-lg">
             <div className="flex flex-nowrap items-center gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
               {activeStageRuntime.evidencePresent.map((sig) => (
                 <span
@@ -1033,7 +1055,8 @@ export function JourneyRunSurface({
                 </span>
               ))}
             </div>
-          </div>
+            </div>
+          </>
         )}
       </div>
     );

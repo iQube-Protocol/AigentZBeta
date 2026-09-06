@@ -742,6 +742,17 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
       permittedActions: ['view-standing'],
       completionEvidence: ['standingGatewayEnabled'],
       receiptTypes: ['standing_accrued'],
+      // standing_accrued is written with agentsInvoked: [subjectAgentRef]
+      // whenever a subject agent is supplied (registrationStandingSeedAward.ts,
+      // services/crm/standingAccrualService.ts) — verified subject-tagged.
+      // Without this, StageReceiptsDrawer's historical/supplementary search
+      // (components/journey/StageReceiptsDrawer.tsx) filters by actionType
+      // only, across every agent the acting principal ever accrued Standing
+      // for — the exact cross-agent contamination named for Register in the
+      // 2026-08-08 defect (RES-2026-08-08-REGISTER-EVIDENCE-CROSS-AGENT-001),
+      // recurring here for Standing (2026-09-06): Factor's Stand drawer
+      // showed Aigent Z's and MoneyPenny's own standing_accrued receipts.
+      receiptsScopedToSubjectAgent: true,
       companion: {
         before: 'Standing accrues from observed, receipted conduct — it is never granted by deploying.',
         complete: 'Standing is active and independently observable.',

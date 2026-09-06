@@ -37,18 +37,55 @@ function decodePayload(message: any): { txHash: string; txDetails: any } {
   }
 }
 
-export interface DvnAttestationBatchResult {
-  ok: true;
-  message: string;
-  processed: number;
-  rejected: number;
-  failed: number;
-  canisterErrors: string[];
-  total: number;
-  batchSize: number;
-  hasMore: boolean;
-  results: Array<Record<string, unknown>>;
-  at: string;
+export type DvnAttestationBatchResult =
+  | {
+      ok: true;
+      message: string;
+      processed: number;
+      rejected: number;
+      failed: number;
+      canisterErrors: string[];
+      total: number;
+      batchSize: number;
+      hasMore: boolean;
+      results: Array<Record<string, unknown>>;
+      at: string;
+    }
+  | {
+      ok: false;
+      error: string;
+      at: string;
+    };
+
+/**
+ * ── UNREADABLE IS NOT EMPTY (operator ruling, 2026-09-06) ───────────────────
+ *
+ * `dvn.get_pending_messages()` failing (IC reject, timeout, response-size
+ * cap, malformed payload) is a DIFFERENT fact from the queue genuinely
+ * holding zero messages, and the two must never collapse into the same
+ * `[]`. Collapsing them here previously made a genuine read failure report
+ * as `idle: true` at the cron route — the exact defect class the 2026-08-08
+ * `get_ready_messages()` IC0504 incident named (see
+ * services/dvn/activityReceiptDvnPipeline.ts's own header comment and
+ * scripts/diagnose-dvn-backlog.ts's `SetRead` type, which this mirrors).
+ * Never `.catch(() => [])` this call again — a failure must propagate as
+ * `{ readable: false, error }` so the caller can fail visibly.
+ */
+type DvnPendingRead = { readable: true; messages: any[] } | { readable: false; error: string };
+
+async function readPendingDvnMessages(dvn: any): Promise<DvnPendingRead> {
+  try {
+    const messages = await dvn.get_pending_messages();
+    if (!Array.isArray(messages)) {
+      return {
+        readable: false,
+        error: `get_pending_messages() returned a non-array shape: ${JSON.stringify(messages)}`,
+      };
+    }
+    return { readable: true, messages };
+  } catch (err) {
+    return { readable: false, error: err instanceof Error ? err.message : String(err) };
+  }
 }
 
 /**
@@ -68,9 +105,17 @@ export interface DvnAttestationBatchResult {
  * production independent-validator cryptography.
  */
 export async function processPendingDvnAttestations(dvn: any): Promise<DvnAttestationBatchResult> {
-  const pendingMessages = await dvn.get_pending_messages().catch(() => []);
+  const read = await readPendingDvnMessages(dvn);
+  if (!read.readable) {
+    return {
+      ok: false,
+      error: `get_pending_messages() UNREADABLE: ${read.error}`,
+      at: new Date().toISOString(),
+    };
+  }
+  const pendingMessages = read.messages;
 
-  if (!Array.isArray(pendingMessages) || pendingMessages.length === 0) {
+  if (pendingMessages.length === 0) {
     return {
       ok: true,
       message: 'No pending messages to process',
@@ -189,11 +234,19 @@ export async function getDvnCanisterActor(): Promise<any> {
 }
 
 /**
- * DVN pending-message count for a given actor — the signal the new
- * scheduler route decides liveness from (Part B2: "the scheduler must
- * operate from DVN pending state, NOT PoS pending count").
+ * DVN pending-message count for a given actor — the signal the scheduler
+ * route decides liveness from (Part B2: "the scheduler must operate from
+ * DVN pending state, NOT PoS pending count").
+ *
+ * Returns a `{ readable, ... }` discriminated result, never a bare number —
+ * a read failure must be distinguishable from a genuine zero-length queue
+ * so the caller can fail visibly instead of reporting `idle: true` (see
+ * `readPendingDvnMessages`'s header comment above).
  */
-export async function countDvnPendingMessages(dvn: any): Promise<number> {
-  const pending = await dvn.get_pending_messages().catch(() => []);
-  return Array.isArray(pending) ? pending.length : 0;
+export type DvnPendingCountResult = { readable: true; count: number } | { readable: false; error: string };
+
+export async function countDvnPendingMessages(dvn: any): Promise<DvnPendingCountResult> {
+  const read = await readPendingDvnMessages(dvn);
+  if (!read.readable) return read;
+  return { readable: true, count: read.messages.length };
 }

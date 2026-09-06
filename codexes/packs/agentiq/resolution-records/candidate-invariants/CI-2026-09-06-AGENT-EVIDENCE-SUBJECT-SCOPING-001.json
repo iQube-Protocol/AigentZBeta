@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-09-06-AGENT-EVIDENCE-SUBJECT-SCOPING-001",
+  "statement": "Every agent-specific evidence surface (a stage's Evidence drawer, a receipts search, a standing/reputation summary) must scope BOTH its canonical evidence and its historical/supplementary evidence to the subject agent whose stage or record is being viewed. A receipt-type-only or actionType-only search is insufficient whenever the same acting principal may have produced receipts of that type for MORE than one subject agent — the search must also filter on the receipt's subject-agent tag (`agentsInvoked`), not merely the type and the acting persona.",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": null,
+  "projections": {
+    "targets": ["devon"],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "structural"
+  },
+  "classification": null,
+  "ratifiedSource": null,
+  "scope": "cross-capability",
+  "status": "candidate",
+  "notes": [
+    "First observed and fixed for Register/Claim (2026-08-08, RES-2026-08-08-REGISTER-EVIDENCE-CROSS-AGENT-001) via the `receiptsScopedToSubjectAgent` opt-in flag on JourneyStageDefinition, threaded into StageReceiptsDrawer's agentsInvoked query param. Re-observed independently for Stand (2026-09-06): the flag was never added to the `standing` stage even though its own receipt type (`standing_accrued`) had satisfied the flag's precondition (subject-tagged agentsInvoked) since the day the seed-award service shipped — the fix pattern existed but nothing re-checked every stage against it as new subject-tagged receipt types were introduced.",
+    "The recurrence is itself evidence FOR this invariant needing a checked form, not just prose: a per-stage opt-in flag with no canary asserting 'every stage whose receipt type IS subject-tagged also carries the flag' will keep missing newly-qualifying stages.",
+    "Generalizes beyond the Guided Journey Runtime: any UI surface keyed to one agent/entity that runs a broader query (by type, by acting persona) and renders the result as if it were already scoped to that entity is the same shape — the fix is always 'add the entity to the query filter', never 'trust the caller meant only this entity'."
+  ],
+  "derivedFrom": ["RES-2026-09-06-FACTOR-JOURNEY-EVIDENCE-DEFECTS-001"],
+  "occurrences": [
+    {
+      "site": "components/journey/StageReceiptsDrawer.tsx via horizenMoneyPennyJourney.ts's register/claim stages (2026-08-08)",
+      "defect": "MoneyPenny's Register stage displayed Aigent Nakamoto's HORIZEN_AGENT_REGISTERED receipt — same operator persona had registered both agents.",
+      "resolutionId": "RES-2026-08-08-REGISTER-EVIDENCE-CROSS-AGENT-001",
+      "evidence": ["tests/register-stage-receipt-agent-isolation.test.ts"]
+    },
+    {
+      "site": "components/journey/StageReceiptsDrawer.tsx via horizenMoneyPennyJourney.ts's standing stage (2026-09-06)",
+      "defect": "Factor's Stand stage displayed Aigent Z's and MoneyPenny's own standing_accrued receipts — the standing stage never opted into receiptsScopedToSubjectAgent despite its receipt type already being subject-tagged.",
+      "resolutionId": "RES-2026-09-06-FACTOR-JOURNEY-EVIDENCE-DEFECTS-001",
+      "evidence": ["tests/standing-stage-receipt-agent-isolation.test.ts"]
+    }
+  ],
+  "canaries": [
+    {
+      "path": "tests/standing-stage-receipt-agent-isolation.test.ts",
+      "assertion": "the standing stage declares receiptsScopedToSubjectAgent: true, and a behavioral test (one principal, three agents: aigent-z, moneypenny, aigent-factor) proves a standing_accrued query scoped to aigent-factor never returns the other two agents' receipts.",
+      "verifiedFailingBeforeFix": true
+    }
+  ]
+}
