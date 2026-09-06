@@ -598,4 +598,47 @@ export async function deriveProtocolRatified(experimentId: string): Promise<{
   return { ready: missing.length === 0, missing, present };
 }
 
+export interface NextGovernedAction {
+  actionId: string;
+  label: string;
+  detail: string;
+}
+
+/**
+ * THE NEXT GOVERNED ACTION after a crystal-version freeze (2026-09-05,
+ * iterative Crystal versioning). Named and surfaced here, never silently
+ * inferred by a UI: an `'internal-pilot'` freeze exists FOR the internal run
+ * it authorizes, so that run is the one act worth naming once freeze
+ * completes — as distinct from a `'confirmatory'` freeze, whose next act is
+ * the existing protocol-ratification ladder (task-set, answer-key, etc.),
+ * unchanged by this scheme.
+ *
+ * Naming the action is NOT the same as building its execution engine: the
+ * internal run itself rides the EXISTING
+ * `services/research/lifecycle.ts::recordExperimentRunLifecycle(event:
+ * 'run-started')` transition — this function does not re-implement, gate,
+ * or re-verify that mechanism's own legality rules (`isLegalExperimentTransition`),
+ * which are unchanged by this scheme and outside this function's scope.
+ *
+ * Returns `null` whenever there is nothing to name: not frozen, not a
+ * crystal-version artifact, or a confirmatory freeze (whose next act is the
+ * unchanged protocol-ratification ladder, not a special pilot run).
+ */
+export function deriveNextGovernedAction(artifact: FrozenArtifact | null): NextGovernedAction | null {
+  if (!artifact) return null;
+  if (artifact.kind !== 'crystal-version' || artifact.lifecycle !== 'frozen') return null;
+  if (artifact.executionDesignation !== 'internal-pilot') return null;
+  return {
+    actionId: 'run-exp-p1-internally',
+    label: 'Run EXP-P1 internally',
+    detail:
+      `${artifact.id} is frozen as an internal/pilot substrate — its recorded scientific-readiness ` +
+      'deficiencies are properties of this generation, not resolved by freezing. The next governed act is an ' +
+      'internal/pilot execution of EXP-P1 against it (recordExperimentRunLifecycle, event: "run-started"), never ' +
+      'a confirmatory run. If that run demonstrates the substrate is insufficient, the remediation path is: ' +
+      'observe limitation → record finding → expand evidence corpus → constitute successor generation → ' +
+      'readiness → freeze successor → rerun. This frozen generation is never mutated.',
+  };
+}
+
 export { ARTIFACT_LIFECYCLE };

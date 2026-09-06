@@ -77,6 +77,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import {
   currentCrystalArtifactId,
+  deriveNextGovernedAction,
   freezeArtifact,
   getArtifactById,
   upsertArtifact,
@@ -161,7 +162,7 @@ export async function GET(
   const crystalId = req.nextUrl.searchParams.get('crystalId') || (await currentCrystalArtifactId(experimentId));
   const artifact = await getArtifactById(crystalId).catch(() => null);
   return NextResponse.json(
-    { requestSucceeded: true, artifact },
+    { requestSucceeded: true, artifact, nextGovernedAction: deriveNextGovernedAction(artifact) },
     { headers: { 'Cache-Control': 'no-store' } },
   );
 }
@@ -477,6 +478,7 @@ export async function POST(
   if (!frozen.ok) {
     return NextResponse.json({ requestSucceeded: false, error: frozen.error }, { status: 409 });
   }
+  const frozenArtifact = await getArtifactById(crystalId).catch(() => null);
 
   return NextResponse.json(
     {
@@ -490,6 +492,7 @@ export async function POST(
       executionDesignation,
       invariantCount: statistics.invariantCount,
       receiptId: frozen.receiptId ?? null,
+      nextGovernedAction: deriveNextGovernedAction(frozenArtifact),
       note:
         'Frozen. The crystal’s content is fixed and receipted; the receipt rides the existing ' +
         'research_lifecycle_transition DVN path. Publication as canonical is a separate act.' +

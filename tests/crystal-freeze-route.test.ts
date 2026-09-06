@@ -26,12 +26,18 @@ const mockUpsertArtifact = vi.fn();
 // existing test below (none of which cares about lineage) is unaffected.
 // Tests that DO care about generation resolution override this per-case.
 const mockCurrentCrystalArtifactId = vi.fn().mockResolvedValue('EXP-P1/crystal-vP1');
-vi.mock('@/services/research/artifacts', () => ({
-  freezeArtifact: (...args: any[]) => mockFreezeArtifact(...args),
-  getArtifactById: (...args: any[]) => mockGetArtifactById(...args),
-  upsertArtifact: (...args: any[]) => mockUpsertArtifact(...args),
-  currentCrystalArtifactId: (...args: any[]) => mockCurrentCrystalArtifactId(...args),
-}));
+vi.mock('@/services/research/artifacts', async (importOriginal) => {
+  // deriveNextGovernedAction is pure and real here — these tests don't need
+  // to mock it away, only the I/O-bearing functions above.
+  const actual = await importOriginal<typeof import('@/services/research/artifacts')>();
+  return {
+    deriveNextGovernedAction: actual.deriveNextGovernedAction,
+    freezeArtifact: (...args: any[]) => mockFreezeArtifact(...args),
+    getArtifactById: (...args: any[]) => mockGetArtifactById(...args),
+    upsertArtifact: (...args: any[]) => mockUpsertArtifact(...args),
+    currentCrystalArtifactId: (...args: any[]) => mockCurrentCrystalArtifactId(...args),
+  };
+});
 
 const mockRunCrystalStatisticsReport = vi.fn();
 vi.mock('@/services/research/crystalStatistics', () => ({
@@ -79,6 +85,10 @@ beforeEach(() => {
   mockFreezeArtifact.mockReset();
   mockFreezeArtifact.mockResolvedValue({ ok: true, receiptId: 'receipt-1' });
   mockGetArtifactById.mockReset();
+  // A safe default for the POST freeze path's post-freeze re-fetch (used to
+  // derive nextGovernedAction) — tests that care about GET's own artifact
+  // lookup override this per-case.
+  mockGetArtifactById.mockResolvedValue(null);
   mockUpsertArtifact.mockReset();
   mockCurrentCrystalArtifactId.mockReset();
   mockCurrentCrystalArtifactId.mockResolvedValue('EXP-P1/crystal-vP1');

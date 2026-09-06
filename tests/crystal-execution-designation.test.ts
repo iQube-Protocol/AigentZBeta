@@ -43,7 +43,7 @@ vi.mock('@/services/research/taskCoverage', () => ({
   runTaskCoverageReport: (...args: unknown[]) => mockRunTaskCoverageReport(...args),
 }));
 
-import { checkFreezeGate, freezeArtifact } from '@/services/research/artifacts';
+import { checkFreezeGate, freezeArtifact, deriveNextGovernedAction } from '@/services/research/artifacts';
 
 function crystalRow(overrides: Record<string, unknown> = {}) {
   return {
@@ -290,5 +290,38 @@ describe('freezeArtifact — persists the full snapshot on an accepted internal-
     expect(result.ok).toBe(false);
     expect(mockUpsertResearchObject).not.toHaveBeenCalled();
     expect(mockWriteLifecycleReceipt).not.toHaveBeenCalled();
+  });
+});
+
+describe('deriveNextGovernedAction — "Run EXP-P1 internally" is named only for a frozen internal-pilot generation', () => {
+  it('null when there is no artifact at all', () => {
+    expect(deriveNextGovernedAction(null)).toBeNull();
+  });
+
+  it('null for a non-crystal-version kind, even if frozen and internal-pilot', () => {
+    const artifact = { kind: 'task-set', lifecycle: 'frozen', executionDesignation: 'internal-pilot' } as any;
+    expect(deriveNextGovernedAction(artifact)).toBeNull();
+  });
+
+  it('null while the artifact is not yet frozen', () => {
+    const artifact = { kind: 'crystal-version', lifecycle: 'validated', executionDesignation: null } as any;
+    expect(deriveNextGovernedAction(artifact)).toBeNull();
+  });
+
+  it('null for a frozen CONFIRMATORY crystal — its next act is the unchanged protocol-ratification ladder, not a pilot run', () => {
+    const artifact = { kind: 'crystal-version', lifecycle: 'frozen', executionDesignation: 'confirmatory' } as any;
+    expect(deriveNextGovernedAction(artifact)).toBeNull();
+  });
+
+  it('names "Run EXP-P1 internally" for a frozen internal-pilot crystal, and states the never-mutate remediation path', () => {
+    const artifact = { id: 'EXP-P1/crystal-vP2', kind: 'crystal-version', lifecycle: 'frozen', executionDesignation: 'internal-pilot' } as any;
+    const action = deriveNextGovernedAction(artifact);
+    expect(action).not.toBeNull();
+    expect(action?.actionId).toBe('run-exp-p1-internally');
+    expect(action?.label).toBe('Run EXP-P1 internally');
+    expect(action?.detail).toMatch(/EXP-P1\/crystal-vP2/);
+    expect(action?.detail).toMatch(/never a confirmatory run/);
+    expect(action?.detail).toMatch(/constitute successor generation/);
+    expect(action?.detail).toMatch(/never mutated/);
   });
 });
