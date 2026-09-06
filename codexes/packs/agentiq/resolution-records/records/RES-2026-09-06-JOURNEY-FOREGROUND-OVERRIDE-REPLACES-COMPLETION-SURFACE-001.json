@@ -1,0 +1,68 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-09-06",
+  "resolutionId": "RES-2026-09-06-JOURNEY-FOREGROUND-OVERRIDE-REPLACES-COMPLETION-SURFACE-001",
+  "capability": "horizen-moneypenny-guided-journey-runtime",
+  "milestone": "Journey 0 closure, item B follow-on — Factor's live Horizen Journey stalled permanently at Operate despite completing Register through Ratify",
+  "problem": "Factor completed Register, Claim, Verify, Orient, Passport and Delegate (all live-verified, including a real on-chain Horizen registration, tokenId 9176), but Operate (internal stage id 'aigentme') could never turn green. The operator diagnosed the exact mechanism: FinancialServicesBridgeFrontDoor.tsx overrode the aigentme stage's foreground surface to 'moneypenny-orchestration-focused' for any Passport-holding operator, replacing the ONLY surface (aigentme-welcome, AigentMeWelcomeSplitTab's Welcome Capsule) capable of recording the operator's focus disposition — the sovereign act that produces the stage's own completionEvidence. Deployed screenshots additionally showed the override itself misrouting to metaMe's public landing tab whenever the persona had not separately granted MoneyPenny's own group activation.",
+  "observedFailure": [
+    "FinancialServicesBridgeFrontDoor.tsx computed `foregroundSurfaceRefByStage = destination.valid && destination.activationMode === 'CATALOGUE_ACTIVATION' ? { aigentme: 'moneypenny-orchestration-focused' } : undefined` — gated ONLY on Passport validity, never on the aigentme stage's own completionEvidence (['aigentMeActive', 'focusDispositionRecorded'], horizenMoneyPennyJourney.ts). A Passport-holding operator who had not yet completed the ceremony was routed straight past the one surface that could ever complete it.",
+    "This is the SAME regression class the aigentme stage definition's own 2026-08-24 code comment explicitly named and rejected in advance ('NOT swapped to the MoneyPenny Orchestration destination... this stage's completionEvidence requires focusDispositionRecorded, which is only recordable inside THIS shell's Welcome Capsule... Replacing the surface would make the stage permanently uncompletable') — the warning existed in the codebase, in the exact file whose sibling (FinancialServicesBridgeFrontDoor.tsx) implemented the override it warned against, and was not cross-checked against it when the override was added.",
+    "Independently, the override's destination (metame-codex's `tab: 'home'`, inside the MoneyPenny group) required an `activationId: 'moneypenny'` grant (MONEYPENNY_AREA_TABS, data/codex-configs.ts) this navigation never supplied. CodexPanelDynamic's own tab-resolution fallback (`enabledTabs.find(...) || enabledTabs[0]`) then silently landed on metame-codex's own first-enabled tab instead — a second, independent failure mode layered on top of the first."
+  ],
+  "rootCauses": [
+    "A Journey foreground-surface override was gated on a THRESHOLD FACT (Passport validity) that is a PREREQUISITE of the overridden stage, not on that stage's OWN completion — two different facts conflated as one gating condition.",
+    "The override crossed a file boundary (FinancialServicesBridgeFrontDoor.tsx overriding a surface declared and reasoned about in horizenMoneyPennyJourney.ts / journeySurfaceRegistry.ts) with no canary tying the two together — the stage definition's own doc comment named the exact failure mode this override reintroduced, but nothing enforced that a foreground override obey it.",
+    "A deep-linked tab navigation (`tab: 'home'` alone) assumed a persona-specific activation grant (`activationId: 'moneypenny'`) that the navigation itself never requested — `tab` and `autoActivate` are logically two different concerns (WHICH content vs. WHETHER this persona may see it) that were carried by one field."
+  ],
+  "resolution": [
+    "FinancialServicesBridgeFrontDoor.tsx now tracks the aigentme stage's own completionEvidence from onRuntimeStateChange (`aigentmeStageComplete`, monotonic within a session — never regresses on a stale/slow re-read) and gates the foreground override on it, in addition to Passport validity: the override fires ONLY once BOTH 'aigentMeActive' and 'focusDispositionRecorded' are present.",
+    "A new cross-frame bridge (services/journey/journeyStateRefreshRequest.ts, mirroring services/wallet/walletSurfaceRequest.ts's exact climb-and-broadcast shape) lets AigentMeFocusDispositionPrompt — which runs inside an embed iframe, a different realm from JourneyRunSurface — ask the Journey observer to re-read canonical state the instant the server confirms the disposition write, so Operate turns green without leaving and re-entering the journey. JourneyRunSurface subscribes once and re-invokes its existing refresh(), never a second observer.",
+    "journeySurfaceRegistry.ts's 'moneypenny-orchestration-focused' descriptor gained `autoActivate: 'moneypenny'`, threaded through buildEmbedSurfaceSrc -> a new CodexNavOptions.autoActivate -> `?autoActivate=` -> the ALREADY-EXISTING embed-route/CodexPanelDynamic auto-activation mechanism (unmodified) — explicit group selection instead of an ambiguous bare `tab=home`.",
+    "Factor's Agent Card (app/api/agents/factor/agent-card.json/route.ts) had a second, independent stale-truth defect discovered during this same review: its `registry_entry.status`/`status_note` were a hand-typed literal written 2026-09-05 ('Horizen registration pending', 'No on-chain registration broadcast has occurred') that never updated once the SAME document's `metadata.horizen.tokenId` became a real, confirmed value (9176) — the card contradicted itself. Both fields are now derived from the same `binding` metadata.horizen already projects."
+  ],
+  "rejectedApproaches": [
+    "Adding a Welcome-Capsule CTA that auto-hops into MoneyPenny once the ceremony completes, as a fallback the 2026-08-24 comment left open — not needed: gating the EXISTING override on stage completion already produces exactly this behaviour (Operate's own foreground becomes MoneyPenny the instant it is genuinely done), with no second navigation affordance to maintain.",
+    "Fixing only the ambiguous-tab misroute (autoActivate) without also fixing the premature-override gate — rejected because the operator's diagnosis was explicit that the gate itself, not just its destination's reachability, is the actual blocker: even a perfectly-resolving MoneyPenny destination would still make Operate permanently uncompletable if reached before the ceremony ran.",
+    "Reinterpreting Ratify's DVN-pending indicator or Pulse's stale display as part of the Operate blocker — explicitly rejected per the operator's own framing: those are separate, already-tracked evidence-projection issues (Journey 0 closure items 3/5), not this stage-gating defect."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-06-FOREGROUND-OVERRIDE-NEVER-REPLACES-COMPLETION-SURFACE-001"
+  ],
+  "canaries": [
+    "tests/factor-operate-ceremony-gate.test.tsx",
+    "tests/journey-embed-state-refresh-bridge.test.tsx",
+    "tests/moneypenny-orchestration-explicit-selection.test.ts",
+    "tests/factor-agent-card-registration-status-truthfulness.test.ts",
+    "tests/experience-qube-disposition-idempotent-isolation.test.ts"
+  ],
+  "scope": "cross-capability",
+  "status": "candidate",
+  "trigger": "subsystems-disagreed",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/factor-operate-ceremony-gate.test.tsx",
+      "tests/journey-embed-state-refresh-bridge.test.tsx",
+      "tests/moneypenny-orchestration-explicit-selection.test.ts",
+      "tests/factor-agent-card-registration-status-truthfulness.test.ts",
+      "tests/experience-qube-disposition-idempotent-isolation.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "Operator diagnosis, 2026-09-06: 'Operate is the genuine blocker, and it's a routing bug—not missing authority, registration, Bankr, or Vela readiness', citing FinancialServicesBridgeFrontDoor.tsx's override of the aigentme stage and the live screenshots showing a misroute to metaMe's public homepage.",
+      "Live-verified prior state (2026-09-06 closeout doc, RES/session preceding this one): Factor registered on-chain (tokenId 9176, base-sepolia, tx confirmed), Register through Delegate/Ratify milestones present in registry_assets.metadata.journey_resolutions, Operate not among them."
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-09-06_factor-horizen-registration-and-journey-closeout.md"
+  ],
+  "projections": {
+    "targets": [
+      "devon"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "structural"
+  }
+}

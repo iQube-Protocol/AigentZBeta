@@ -27,6 +27,7 @@ import { personaFetch, usePersonaSpine } from '@/utils/personaSpine';
 import { buildCodexUrl } from '@/utils/codex-nav';
 import { JOURNEY_SURFACES, buildEmbedSurfaceSrc, type JourneySurfaceDescriptor } from '@/services/journey/journeySurfaceRegistry';
 import { requestBridgeEmbedReturn } from '@/services/journey/bridgeEmbedNav';
+import { subscribeJourneyStateRefreshRequest } from '@/services/journey/journeyStateRefreshRequest';
 import { isJourneyBranchActivated, serializeActivatedBranchesForJourney } from '@/services/journey/journeyBranchActivation';
 import { shouldReEvaluateAeeProjection, type JourneyReEvaluationTrigger } from '@/services/adaptive/journeyReEvaluationTrigger';
 import { StageReceiptsDrawer } from '@/components/journey/StageReceiptsDrawer';
@@ -761,6 +762,26 @@ export function JourneyRunSurface({
     window.addEventListener('journey:select-stage', onSelect);
     return () => window.removeEventListener('journey:select-stage', onSelect);
   }, [journey, refresh]);
+
+  /*
+   * EMBEDDED SURFACES CAN'T HAND `requestStateRefresh` A PROP (Factor
+   * Operate blocker, 2026-09-06). A `kind: 'embed'` surface (e.g.
+   * `aigentme-welcome`) runs in its own iframe — a genuinely different
+   * realm from this component, so an in-process callback (what
+   * `resolveSurfaceProps`'s `requestStateRefresh` already gives every
+   * `kind: 'component'` surface, e.g. RegisterAgentPanel/AgreementRatifyPanel)
+   * cannot reach it. `journeyStateRefreshRequest.ts` is the cross-frame
+   * equivalent — the SAME `refresh()` this component already runs for
+   * every other trigger, invoked from a postMessage instead of a prop.
+   * Read-only by construction: this can only trigger a re-read of
+   * server-confirmed state, never assert or complete anything itself.
+   */
+  useEffect(() => {
+    return subscribeJourneyStateRefreshRequest((request) => {
+      logRuntimeEvent('JourneyRunSurface:embed-refresh-request', { reason: request.reason, agentSlug: request.agentSlug });
+      void refresh(request.reason);
+    });
+  }, [refresh]);
 
   const selectStage = useCallback((stageId: string) => {
     setSelectedStageId(stageId);

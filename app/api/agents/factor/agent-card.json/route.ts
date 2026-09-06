@@ -235,11 +235,26 @@ export async function GET(req: NextRequest) {
         home_realm: 'metaTerra',
         canonical_function: 'Economic Activation & Ecosystem-Catalysis Agent',
         primary_role: 'Agent/Service Discovery · Candidate-Intake Case Management · Authority-Chain Facilitation · Standing-Event Proposal',
-        status: 'Newly provisioned — Horizen registration pending',
-        status_note:
-          'aigent-factor is a newly-provisioned agent (2026-09-05). Its owner/control wallet, registry asset, and this ' +
-          'Agent Card exist; its Base Sepolia ERC-8004 registration is pending and its FIO handle registration is ' +
-          'requested but not yet confirmed. No on-chain registration broadcast has occurred.',
+        /*
+         * DERIVED FROM THE SAME `binding` metadata.horizen already projects,
+         * never a second hand-typed claim (stale-truth defect fixed
+         * 2026-09-06 — this block was written 2026-09-05, before Factor's
+         * live registration, and was never updated: it kept asserting "no
+         * on-chain registration broadcast has occurred" alongside a
+         * metadata.horizen.tokenId that had since become a real, confirmed
+         * value, a literal contradiction on the same document). No other
+         * field on this card may ever again disagree with the one
+         * canonical registration reader.
+         */
+        status: binding?.status === 'registered' && binding?.token_id
+          ? `Registered — Horizen tokenId ${binding.token_id}`
+          : 'Newly provisioned — Horizen registration pending',
+        status_note: binding?.status === 'registered' && binding?.token_id
+          ? `aigent-factor is registered in Horizen's ERC-8004 registry on ${binding.network ?? 'base-sepolia'}, ` +
+            `tokenId ${binding.token_id}. Its FIO handle registration is requested but not yet confirmed.`
+          : 'aigent-factor is a newly-provisioned agent. Its owner/control wallet, registry asset, and this ' +
+            'Agent Card exist; its Base Sepolia ERC-8004 registration is pending and its FIO handle registration is ' +
+            'requested but not yet confirmed. No on-chain registration broadcast has occurred.',
       },
     }),
   );
