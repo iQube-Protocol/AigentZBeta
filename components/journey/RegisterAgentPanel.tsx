@@ -285,6 +285,19 @@ interface RegisterAgentPanelProps {
    * (Passport, Delegate, ...) — this component still owns the selection
    * itself; the parent only observes it. */
   onAgentSlugChange?: (agentSlug: string) => void;
+  /**
+   * Live Journey state projection (Journey 0 closure item 2, 2026-09-06) —
+   * called ONCE registration is CONFIRMED by Horizen (never optimistically,
+   * never on every poll tick), so the journey's own stage stepper re-reads
+   * canonical state immediately instead of staying stale until the operator
+   * leaves and re-enters the journey (a full remount, which was previously
+   * the only trigger for the stepper to notice this panel's own confirmed
+   * registration). Wired by JourneyRunSurface's `requestStateRefresh` via
+   * PilotJourneyTab's `resolveSurfaceProps` — the SAME refresh mechanism
+   * every other trigger (mount, manual refresh button) already uses; this
+   * component never invents a second one.
+   */
+  requestStateRefresh?: () => void;
 }
 
 export function RegisterAgentPanel({
@@ -322,6 +335,7 @@ export function RegisterAgentPanel({
   personaId,
   agentSlug: initialAgentSlug,
   onAgentSlugChange,
+  requestStateRefresh,
 }: RegisterAgentPanelProps) {
   const [agentSlug, setAgentSlugState] = useState<string>(initialAgentSlug ?? PILOT_AGENTS[0].slug);
   const setAgentSlug = useCallback(
@@ -363,6 +377,7 @@ export function RegisterAgentPanel({
     network: null,
     tokenId: null,
   });
+  const previousTokenIdRef = useRef<string | null>(null);
 
   const readProgress = useCallback(async () => {
     try {
@@ -472,6 +487,17 @@ export function RegisterAgentPanel({
         network: typeof horizen?.network === 'string' && horizen.network ? horizen.network : null,
         tokenId,
       });
+      /*
+       * A DELAYED RECEIPT is exactly what this periodic re-read (30s/focus)
+       * exists to catch (see this callback's own "THE LADDER REFRESHES
+       * ITSELF" comment above) — confirmation can land here first if the
+       * live pollStatus loop already gave up (MAX_POLL_ATTEMPTS) or was never
+       * running (a fresh mount that finds an already-registered agent). Fire
+       * the SAME journey refresh, gated on an actual not-registered→
+       * registered transition, never on every 30s tick regardless of change.
+       */
+      if (tokenId && !previousTokenIdRef.current) requestStateRefresh?.();
+      previousTokenIdRef.current = tokenId;
       // The most recent broadcast with no confirmation receipt behind it.
       const unconfirmed = forThisAgent.find(
         (r) =>
@@ -516,7 +542,7 @@ export function RegisterAgentPanel({
       // "nothing has happened" — the same rule the wallet count follows.
       setProgress(null);
     }
-  }, [agentSlug, walletGate?.ready, personaId]);
+  }, [agentSlug, walletGate?.ready, personaId, requestStateRefresh]);
 
   // The flow step, readable inside readProgress without re-creating the
   // callback (and its polling interval) on every step change.
@@ -910,6 +936,9 @@ export function RegisterAgentPanel({
           const tokenId = typeof json.tokenId === 'string' ? json.tokenId : '';
           setFlow({ step: 'confirmed', tokenId });
           setCardVersion((v) => v + 1);
+          // Confirmed by Horizen, not assumed — the stage stepper re-reads
+          // canonical state NOW instead of on the next remount.
+          requestStateRefresh?.();
           return;
         }
       } catch (err) {
@@ -933,7 +962,7 @@ export function RegisterAgentPanel({
         POLL_INTERVAL_MS,
       );
     },
-    [agentSlug, personaId],
+    [agentSlug, personaId, requestStateRefresh],
   );
 
   useEffect(

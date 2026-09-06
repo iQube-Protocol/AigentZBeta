@@ -94,6 +94,18 @@ interface AgreementRatifyPanelProps {
   agreementAuthorized?: boolean;
   pulseAuthorized?: boolean;
   pnlDisclosureAuthorized?: boolean;
+  /**
+   * Live Journey state projection (Journey 0 closure item 2, 2026-09-06) —
+   * called once `verifyAndSign` receives a real, server-confirmed
+   * `authorized.ok` response (never before, never optimistically), so the
+   * journey's own stage stepper re-reads canonical state immediately rather
+   * than staying stale until the operator leaves and re-enters. This never
+   * asserts Ratify complete itself — that's still the server's exclusive
+   * call via the SAME `/state` read every other refresh trigger already
+   * uses, which is exactly why it still shows Ratify incomplete when a
+   * `receiptWarning` is present.
+   */
+  requestStateRefresh?: () => void;
 }
 
 export function AgreementRatifyPanel({
@@ -102,6 +114,7 @@ export function AgreementRatifyPanel({
   agreementAuthorized: canonicalAgreementAuthorized,
   pulseAuthorized: canonicalPulseAuthorized,
   pnlDisclosureAuthorized: canonicalPnlDisclosureAuthorized,
+  requestStateRefresh,
 }: AgreementRatifyPanelProps) {
   const refs = resolveRatificationRefs(agentSlug);
   const displayName = agentDisplayName ?? agentSlug;
@@ -204,12 +217,15 @@ export function AgreementRatifyPanel({
           : `Authorized — status now '${authorized.data?.agreement?.status ?? 'authorized'}'.`,
       );
       await loadAgreement();
+      // Confirmed by the server (authorized.ok), not assumed — ask the
+      // journey to re-read canonical state now instead of on next remount.
+      requestStateRefresh?.();
     } catch (e) {
       setNote(e instanceof Error ? e.message : 'Verify & Sign Agreement failed');
     } finally {
       setBusy(false);
     }
-  }, [refs, loadAgreement]);
+  }, [refs, loadAgreement, requestStateRefresh]);
 
   const PANEL = 'rounded-md border border-slate-800 bg-slate-900/40 p-3';
 

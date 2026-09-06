@@ -118,6 +118,7 @@ import { PilotJourneyTab } from '@/app/triad/components/codex/tabs/PilotJourneyT
 import { PassportConnectPanel } from '@/components/companion/PassportConnectPanel';
 import { usePassportSignInHost } from '@/app/hooks/usePassportSignInHost';
 import { usePersonaSpine } from '@/utils/personaSpine';
+import { PersonaProvider, usePersona } from '@/app/contexts/PersonaContext';
 import { MetaAvatarProvider } from '@/app/contexts/MetaAvatarContext';
 import { MetaAvatarHost } from '@/app/components/metaVatar/MetaAvatarHost';
 import type { JourneyRuntimeState } from '@/types/journey';
@@ -156,8 +157,49 @@ function selectStage(stageId: string) {
   }
 }
 
+/**
+ * Persisted operator context inheritance (Journey 0 closure item 1,
+ * 2026-09-06) — this bare page sits outside both `app/(shell)/layout.tsx`
+ * and `app/(embed)/layout.tsx`, so it previously had no `PersonaProvider`
+ * ancestor and hand-rolled its own one-shot `localStorage.getItem
+ * ('currentPersonaId')` read on mount instead. That read never re-fired on
+ * a `storage` event, a cross-frame `metame:persona-changed`/
+ * `aa-persona-change-v1` broadcast, or a persona switch made through
+ * `ActivePersonaControl`'s own `SmartWalletDrawer` inside the journey
+ * header — so an operator who already held an established aigentMe/metaMe
+ * persona (session restored asynchronously, persona switched in another
+ * tab, or established moments after this component mounted) still landed
+ * on the pre-Passport/Register path instead of directly at Operate, even
+ * though their Passport was already valid. `resolveJourneyOperatorDestination`
+ * below only resolves `CATALOGUE_ACTIVATION` (direct MoneyPenny Operate)
+ * once the observer's state read — keyed on this component's own
+ * `personaId` — actually reflects the operator's real persona; a stale
+ * `personaId` produced a stale, or entirely undetermined, Passport read.
+ *
+ * Fixed by mounting the SAME `PersonaProvider` / `usePersona()` seam every
+ * other surface in the platform already shares (`app/contexts/
+ * PersonaContext.tsx`) — never a second persona store, wallet abstraction,
+ * or onboarding state. `PersonaProvider` already hydrates from
+ * localStorage/sessionStorage (plus legacy key fallbacks) on mount, stays
+ * in sync via the native `storage` event, and is the same instance
+ * `ActivePersonaControl`'s wallet-driven persona switch (via
+ * `onPersonaChange`) and `PassportConnectPanel`'s sign-in completion now
+ * both write through — so an advanced user is never asked to repeat
+ * onboarding, and quarantine/eligibility remain exactly where they always
+ * were: resolved server-side by `getActivePersona`/`evaluateAccess`, never
+ * touched by this component.
+ */
 export function FinancialServicesBridgeFrontDoor() {
-  const [personaId, setPersonaId] = useState<string | undefined>(undefined);
+  return (
+    <PersonaProvider>
+      <FinancialServicesBridgeFrontDoorInner />
+    </PersonaProvider>
+  );
+}
+
+function FinancialServicesBridgeFrontDoorInner() {
+  const { activePersonaId, setActivePersonaId } = usePersona();
+  const personaId = activePersonaId ?? undefined;
   usePersonaSpine();
 
   // Derived exclusively from onRuntimeStateChange — never re-read from a
@@ -167,15 +209,6 @@ export function FinancialServicesBridgeFrontDoor() {
   const handleRuntimeStateChange = useCallback((state: JourneyRuntimeState) => {
     const passportStage = state.stages.find((s) => s.stageId === 'passport');
     setCitizenPassportUsable(Boolean(passportStage?.evidencePresent.includes('operatorPolityCitizenPassportValid')));
-  }, []);
-
-  useEffect(() => {
-    try {
-      const stored = window.localStorage.getItem('currentPersonaId');
-      if (stored) setPersonaId(stored);
-    } catch {
-      /* storage unavailable — stays signed-out */
-    }
   }, []);
 
   // AEE-XP-001 §4.3/§15 Phase 1 item 6 — consume an incoming ExperienceHandoff
@@ -248,7 +281,7 @@ export function FinancialServicesBridgeFrontDoor() {
         personaId={personaId}
         onRuntimeStateChange={handleRuntimeStateChange}
         foregroundSurfaceRefByStage={foregroundSurfaceRefByStage}
-        onPersonaChange={setPersonaId}
+        onPersonaChange={setActivePersonaId}
       />
 
       {showPassportSignIn && (
@@ -260,7 +293,7 @@ export function FinancialServicesBridgeFrontDoor() {
               onConnected={() => {
                 try {
                   const stored = window.localStorage.getItem('currentPersonaId');
-                  if (stored) setPersonaId(stored);
+                  if (stored) setActivePersonaId(stored);
                 } catch {
                   /* ignore */
                 }
