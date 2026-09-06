@@ -99,7 +99,7 @@ Mid-rehearsal-prep, live Supabase was found to be **missing the entire Bankr Pha
 (`token_launches`, `provider_wallet_bindings` tables did not exist) and this tranche's own
 `confidential_projection_evaluated` receipt-type migration — meaning the Bankr backend and Factor's
 new Vela workload, though fully unit-tested against the in-memory fake, would have failed against
-real Supabase. All five migrations
+real Supabase. All six migrations
 (`20260930200000_moneypenny_bankr_tokenization_capability`,
 `20260930210000_provider_wallet_bindings`, `20260930220000_token_launches`,
 `20260930230000_aegis_assessments_token_launch_subject`,
@@ -142,3 +142,14 @@ rehearsal script.
 - `tests/register-ceremony.test.ts` — fixed 2 stale tests, added 8 Factor-specific behavioral tests
 - `tests/bankr-receipt-agent-isolation.test.ts` (new, 2 tests)
 - `scripts/factor-horizen-mandate-rehearsal.mjs` (new)
+
+## Addendum (2026-09-06) — superseded by a real live registration; see the post-rehearsal closeout
+
+Everything in this report was accurate **at its own cutoff**. Shortly afterward, in the same
+environment, Factor was actually taken through the ceremony this report only rehearsed up to the
+signing boundary — the operator's wallet signed the PRINCIPAL mandate, Factor's own custodied wallet
+signed and broadcast the AGENT registry transaction, and Horizen confirmed the registration on-chain.
+This report is otherwise kept as the historical record of what was true before that happened (the
+chat summary of this report separately miscounted the six live-applied migrations as "five" — the
+migrations themselves, and the count in this file, were always correct). The follow-on record is
+`2026-09-06_factor-horizen-registration-and-journey-closeout.md`.
