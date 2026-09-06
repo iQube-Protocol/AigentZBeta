@@ -187,11 +187,11 @@ describe('FinancialServicesBridgeFrontDoor — persisted operator context inheri
     );
   });
 
-  it('quarantined-persona rejection is preserved: the resolved persona flows through to the real ceremony surface completely unmodified — no client-side substitution, override, or eligibility logic here', async () => {
+  it('quarantined-persona passthrough is preserved: the resolved persona flows through to the real ceremony surface completely unmodified — no client-side substitution, override, or eligibility logic here (2026-09-06 review note: this proves PASSTHROUGH only — the actual server-side REFUSAL of a quarantined/non-SIGNER_CONFIGURED wallet is proven behaviorally by tests/pilot-wallet-exception.test.ts\'s "the ceremony refuses every capability but SIGNER_CONFIGURED" suite, which exercises services/horizen/registerCeremony.ts directly and asserts the typed PRINCIPAL_WALLET_NOT_SIGNER_CONFIGURED refusal — this front door has no code path that could bypass that gate, so it is never re-proven here)', async () => {
     // A persona id that would resolve server-side to a quarantined wallet
-    // (RegisterAgentPanel / getActivePersona / evaluateAccess own that
-    // check — never this component). The front door's only job is to pass
-    // whatever the canonical store resolves straight through.
+    // (RegisterAgentPanel / getActivePersona / evaluateAccess / registerCeremony.ts
+    // own that check — never this component). The front door's only job is
+    // to pass whatever the canonical store resolves straight through.
     window.localStorage.setItem(LS_KEY, 'persona-quarantined-1');
 
     render(<FinancialServicesBridgeFrontDoor />);

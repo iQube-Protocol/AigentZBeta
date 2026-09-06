@@ -377,7 +377,35 @@ export function RegisterAgentPanel({
     network: null,
     tokenId: null,
   });
-  const previousTokenIdRef = useRef<string | null>(null);
+
+  /*
+   * ONE REFRESH PER (agent, registration), NEVER TWO, NEVER MISSED ON AN
+   * AGENT SWITCH (operator review, 2026-09-06).
+   *
+   * Two independent paths can each notice the SAME confirmed registration —
+   * `pollStatus`'s live signing-flow confirmation and `readProgress`'s
+   * periodic/focus re-read (built for exactly the delayed-receipt case) —
+   * and without a shared key they could double-fire `requestStateRefresh`.
+   * A bare `previousTokenIdRef` (this file's first pass) also broke across
+   * an agent switch: it held only the LAST tokenId seen, so an operator who
+   * switches to a second registrable agent already confirmed under the
+   * first tokenId's value would have its own later confirmation silently
+   * suppressed as "no change". Keying the dedup set on `agentSlug:tokenId`
+   * — never `tokenId` alone — fixes both: each (agent, registration) pair
+   * fires exactly once, from whichever path notices it first, regardless of
+   * how many times the operator switches agents or how many times either
+   * path re-polls the same already-confirmed state.
+   */
+  const refreshedRegistrationsRef = useRef(new Set<string>());
+  const requestRegistrationRefresh = useCallback(
+    (tokenId: string) => {
+      const key = `${agentSlug}:${tokenId}`;
+      if (refreshedRegistrationsRef.current.has(key)) return;
+      refreshedRegistrationsRef.current.add(key);
+      requestStateRefresh?.();
+    },
+    [agentSlug, requestStateRefresh],
+  );
 
   const readProgress = useCallback(async () => {
     try {
@@ -493,11 +521,12 @@ export function RegisterAgentPanel({
        * ITSELF" comment above) — confirmation can land here first if the
        * live pollStatus loop already gave up (MAX_POLL_ATTEMPTS) or was never
        * running (a fresh mount that finds an already-registered agent). Fire
-       * the SAME journey refresh, gated on an actual not-registered→
-       * registered transition, never on every 30s tick regardless of change.
+       * the SAME journey refresh, deduped per (agent, registration) by
+       * `requestRegistrationRefresh` — never on every 30s tick regardless of
+       * change, and never suppressed by a DIFFERENT agent's earlier
+       * confirmation (see that helper's own comment).
        */
-      if (tokenId && !previousTokenIdRef.current) requestStateRefresh?.();
-      previousTokenIdRef.current = tokenId;
+      if (tokenId) requestRegistrationRefresh(tokenId);
       // The most recent broadcast with no confirmation receipt behind it.
       const unconfirmed = forThisAgent.find(
         (r) =>
@@ -542,7 +571,7 @@ export function RegisterAgentPanel({
       // "nothing has happened" — the same rule the wallet count follows.
       setProgress(null);
     }
-  }, [agentSlug, walletGate?.ready, personaId, requestStateRefresh]);
+  }, [agentSlug, walletGate?.ready, personaId, requestRegistrationRefresh]);
 
   // The flow step, readable inside readProgress without re-creating the
   // callback (and its polling interval) on every step change.
@@ -937,8 +966,14 @@ export function RegisterAgentPanel({
           setFlow({ step: 'confirmed', tokenId });
           setCardVersion((v) => v + 1);
           // Confirmed by Horizen, not assumed — the stage stepper re-reads
-          // canonical state NOW instead of on the next remount.
-          requestStateRefresh?.();
+          // canonical state NOW instead of on the next remount. Deduped by
+          // the SAME (agent, registration) key readProgress uses, so a
+          // registration confirmed here and then re-observed by the next
+          // periodic re-read fires exactly once, not twice. `tokenId` can
+          // arrive empty on a confirmed-but-unenriched response; falling
+          // back to a stable per-agent key still dedupes correctly rather
+          // than skipping the refresh.
+          requestRegistrationRefresh(tokenId || 'confirmed');
           return;
         }
       } catch (err) {
@@ -962,7 +997,7 @@ export function RegisterAgentPanel({
         POLL_INTERVAL_MS,
       );
     },
-    [agentSlug, personaId, requestStateRefresh],
+    [agentSlug, personaId, requestRegistrationRefresh],
   );
 
   useEffect(

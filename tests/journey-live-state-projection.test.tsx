@@ -61,9 +61,14 @@ vi.mock('@/components/journey/AgentCardSurface', () => ({
   AgentCardSurface: () => <div data-testid="agent-card-surface" />,
 }));
 
-// Mutable receipts fixture — flipped mid-test to simulate a delayed receipt
-// landing between polls, without remounting the component.
-let registeredForAigentMoneypenny = false;
+// Mutable receipts fixture, keyed by runtimeAgentId — flipped mid-test to
+// simulate a delayed receipt landing between polls, or a different agent
+// becoming registered after an agent switch, without remounting the
+// component. Value is the confirmed tokenId, or null while unregistered.
+const registeredTokenIdByAgent = new Map<string, string | null>([
+  ['aigent-moneypenny', null],
+  ['aigent-nakamoto', null],
+]);
 
 const personaFetchMock = vi.fn(async (url: string) => {
   const u = String(url);
@@ -71,18 +76,14 @@ const personaFetchMock = vi.fn(async (url: string) => {
     return fakeJsonResponse({ ok: true, requests: [] });
   }
   if (u.includes('/api/assistant/receipts')) {
-    return fakeJsonResponse({
-      ok: true,
-      receipts: registeredForAigentMoneypenny
-        ? [
-            {
-              actionType: 'horizen_agent_registered',
-              agentsInvoked: ['aigent-moneypenny'],
-              actionInput: { txHash: '0xabc123', network: 'base-sepolia', registration: { tokenId: '9999' } },
-            },
-          ]
-        : [],
-    });
+    const receipts = [...registeredTokenIdByAgent.entries()]
+      .filter(([, tokenId]) => tokenId)
+      .map(([runtimeAgentId, tokenId]) => ({
+        actionType: 'horizen_agent_registered',
+        agentsInvoked: [runtimeAgentId],
+        actionInput: { txHash: `0xtx-${runtimeAgentId}`, network: 'base-sepolia', registration: { tokenId } },
+      }));
+    return fakeJsonResponse({ ok: true, receipts });
   }
   if (u.includes('/api/wallet/principal/status')) {
     return fakeJsonResponse({ ok: true, ready: false, capability: 'LEGACY_EVIDENCE_ONLY', controlProven: false });
@@ -98,18 +99,18 @@ vi.mock('@/utils/personaSpine', () => ({
 }));
 
 // RegisterAgentPanel's own agent-card confirmation read uses plain fetch(),
-// never personaFetch (it's a public GET) — mirrors the same fixture.
+// never personaFetch (it's a public GET) — mirrors the same fixture, keyed
+// by the agentSlug embedded in the requested card path.
 vi.stubGlobal(
   'fetch',
   vi.fn(async (url: RequestInfo | URL) => {
     const u = String(url);
-    if (u.includes('/agent-card.json')) {
+    const match = u.match(/\/api\/agents\/([^/]+)\/agent-card\.json/);
+    if (match) {
+      const runtimeAgentId = `aigent-${match[1]}`;
+      const tokenId = registeredTokenIdByAgent.get(runtimeAgentId) ?? null;
       return fakeJsonResponse({
-        metadata: {
-          horizen: registeredForAigentMoneypenny
-            ? { tokenId: '9999', network: 'base-sepolia' }
-            : { tokenId: null, network: null },
-        },
+        metadata: { horizen: tokenId ? { tokenId, network: 'base-sepolia' } : { tokenId: null, network: null } },
       });
     }
     return fakeJsonResponse({});
@@ -119,7 +120,8 @@ vi.stubGlobal(
 import { RegisterAgentPanel } from '@/components/journey/RegisterAgentPanel';
 
 beforeEach(() => {
-  registeredForAigentMoneypenny = false;
+  registeredTokenIdByAgent.set('aigent-moneypenny', null);
+  registeredTokenIdByAgent.set('aigent-nakamoto', null);
   personaFetchMock.mockClear();
 });
 
@@ -148,7 +150,7 @@ describe('RegisterAgentPanel — live invalidation of the journey observer (no l
     // fixture and firing the SAME 'focus' re-read this panel already
     // performs "on window focus... exactly when the state has most likely
     // changed" (its own comment).
-    registeredForAigentMoneypenny = true;
+    registeredTokenIdByAgent.set('aigent-moneypenny', '9999');
     act(() => {
       window.dispatchEvent(new Event('focus'));
     });
@@ -161,7 +163,7 @@ describe('RegisterAgentPanel — live invalidation of the journey observer (no l
     render(<RegisterAgentPanel personaId="persona-1" agentSlug="moneypenny" requestStateRefresh={requestStateRefresh} />);
     await waitFor(() => expect(personaFetchMock).toHaveBeenCalled());
 
-    registeredForAigentMoneypenny = true;
+    registeredTokenIdByAgent.set('aigent-moneypenny', '9999');
     act(() => {
       window.dispatchEvent(new Event('focus'));
     });
@@ -183,11 +185,56 @@ describe('RegisterAgentPanel — live invalidation of the journey observer (no l
   });
 
   it('refresh/re-entry parity: a fresh mount (the pre-existing leave-and-re-enter path) that finds the agent ALREADY registered still asks the journey to project it — the new live path is additive, not a replacement that could regress the old one', async () => {
-    registeredForAigentMoneypenny = true;
+    registeredTokenIdByAgent.set('aigent-moneypenny', '9999');
     const requestStateRefresh = vi.fn();
     render(<RegisterAgentPanel personaId="persona-1" agentSlug="moneypenny" requestStateRefresh={requestStateRefresh} />);
 
     await waitFor(() => expect(requestStateRefresh).toHaveBeenCalledTimes(1));
+  });
+
+  it('an agent switch does not suppress the newly-selected agent\'s own later confirmation (operator review, 2026-09-06 — the dedup key must be scoped per agent, never a bare tokenId/seen-flag)', async () => {
+    // moneypenny starts already registered, so mount fires refresh #1 for it.
+    registeredTokenIdByAgent.set('aigent-moneypenny', '9999');
+    const requestStateRefresh = vi.fn();
+    render(<RegisterAgentPanel personaId="persona-1" agentSlug="moneypenny" requestStateRefresh={requestStateRefresh} />);
+    await waitFor(() => expect(requestStateRefresh).toHaveBeenCalledTimes(1));
+
+    // Switch to nakamoto via the real agent-select control — still
+    // unregistered, so no additional refresh fires yet.
+    const select = screen.getByLabelText(/Agent to register/i) as HTMLSelectElement;
+    act(() => {
+      select.value = 'nakamoto';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await waitFor(() => expect(select.value).toBe('nakamoto'));
+    expect(requestStateRefresh).toHaveBeenCalledTimes(1);
+
+    // nakamoto's OWN confirmation lands. A dedup keyed on tokenId alone (or
+    // on "have we ever refreshed once this session") would wrongly treat
+    // this as already-seen and swallow it — it must fire its own refresh.
+    registeredTokenIdByAgent.set('aigent-nakamoto', '8888');
+    act(() => {
+      window.dispatchEvent(new Event('focus'));
+    });
+    await waitFor(() => expect(requestStateRefresh).toHaveBeenCalledTimes(2));
+  });
+});
+
+describe('RegisterAgentPanel — one refresh per (agent, registration), from whichever path notices it first', () => {
+  const src = readSrc('components/journey/RegisterAgentPanel.tsx');
+
+  it('both requestStateRefresh call sites (pollStatus live confirmation, readProgress periodic re-read) route through the SAME requestRegistrationRefresh helper — never a bare requestStateRefresh?.() call that a second path could double-fire', () => {
+    // The ONLY bare `requestStateRefresh?.();` call left in the file is
+    // inside requestRegistrationRefresh's own body — every OTHER call site
+    // (pollStatus, readProgress) must go through the helper, never around it.
+    const bareCalls = [...src.matchAll(/requestStateRefresh\?\.\(\);/g)];
+    expect(bareCalls.length, 'expected exactly one bare call, inside the helper').toBe(1);
+    const callSites = [...src.matchAll(/requestRegistrationRefresh\([^)]*\);/g)];
+    expect(callSites.length, 'expected exactly the pollStatus and readProgress call sites').toBe(2);
+  });
+
+  it('the dedup key is agentSlug:tokenId — never tokenId alone, which would suppress a later agent\'s own confirmation after a switch', () => {
+    expect(src).toMatch(/const key = `\$\{agentSlug\}:\$\{tokenId\}`;/);
   });
 });
 
