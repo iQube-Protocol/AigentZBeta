@@ -25,7 +25,7 @@ vi.mock('@/services/research/lifecycle', () => ({
   writeLifecycleReceipt: (...args: unknown[]) => mockWriteLifecycleReceipt(...args),
 }));
 
-import { recordExecutionRun, listExecutionRuns } from '@/services/research/artifacts';
+import { recordExecutionRun, listExecutionRuns, getExecutionRun } from '@/services/research/artifacts';
 import type { RehearsalTaskResult } from '@/types/research';
 
 const TASK_RESULTS: RehearsalTaskResult[] = [
@@ -161,5 +161,59 @@ describe('listExecutionRuns', () => {
     });
     const runs = await listExecutionRuns('EXP-P1');
     expect(runs).toHaveLength(0);
+  });
+});
+
+describe('getExecutionRun — the "View results" affordance\'s single-run reader (2026-09-07)', () => {
+  it('returns null when the id does not resolve to any row', async () => {
+    mockListResearchObjects.mockResolvedValue({ ok: true, objects: [] });
+    const run = await getExecutionRun('EXP-P1/execution-run/internal-rehearsal/does-not-exist');
+    expect(run).toBeNull();
+  });
+
+  it('returns null when the id resolves to a row of a different kind (e.g. the frozen crystal itself)', async () => {
+    mockListResearchObjects.mockResolvedValue({
+      ok: true,
+      objects: [{ objectKind: 'artifact', objectId: 'EXP-P1/crystal-vP2', payload: { kind: 'crystal-version', experimentId: 'EXP-P1' }, lifecycleState: 'frozen', receiptId: null }],
+    });
+    const run = await getExecutionRun('EXP-P1/crystal-vP2');
+    expect(run).toBeNull();
+  });
+
+  it('returns the FULL ExecutionRunArtifact shape, including taskResults, when found', async () => {
+    mockListResearchObjects.mockResolvedValue({
+      ok: true,
+      objects: [
+        {
+          objectKind: 'artifact',
+          objectId: 'EXP-P1/execution-run/internal-rehearsal/2026-09-07T00:00:00.000Z',
+          payload: {
+            kind: 'execution-run',
+            phase: 'execution',
+            experimentId: 'EXP-P1',
+            contentHash: null,
+            commitmentHash: null,
+            frozenAt: '2026-09-07T00:00:00.000Z',
+            signedBy: [],
+            runExecutionDesignation: 'internal-rehearsal',
+            frozenCrystalArtifactId: 'EXP-P1/crystal-vP2',
+            frozenCrystalContentHash: 'hash-abc',
+            taskSetId: 'EXP-P1/rehearsal-task-set-provisional-v1',
+            taskSetProvenance: 'provisional',
+            armIds: ['A', 'B', 'C', 'D'],
+            providerModel: 'deterministic-retrieval-v1',
+            confirmatoryEligible: false,
+            taskResults: TASK_RESULTS,
+          },
+          lifecycleState: 'executed',
+          receiptId: 'receipt-1',
+        },
+      ],
+    });
+    const run = await getExecutionRun('EXP-P1/execution-run/internal-rehearsal/2026-09-07T00:00:00.000Z');
+    expect(run).not.toBeNull();
+    expect(run?.taskResults).toEqual(TASK_RESULTS);
+    expect(run?.confirmatoryEligible).toBe(false);
+    expect(run?.receiptId).toBe('receipt-1');
   });
 });

@@ -748,4 +748,22 @@ export async function listExecutionRuns(experimentId: string): Promise<Execution
     .sort((a, b) => (b.frozenAt ?? '').localeCompare(a.frozenAt ?? ''));
 }
 
+/** One `execution-run` artifact by its full id — the execution-run-specific
+ *  counterpart to `getArtifactById` (which does not reconstruct these fields;
+ *  see `listExecutionRuns`'s own doc comment). `null` if the id does not
+ *  resolve to an execution-run row at all. Used to fetch the FULL per-task,
+ *  per-arm detail (taskResults) for one run — `listExecutionRuns` already
+ *  returns this per row, but a caller reviewing ONE past run (e.g. the
+ *  operator expanding a run's results in the UI) reads through this instead
+ *  of re-fetching and re-filtering the whole list for a single row. */
+export async function getExecutionRun(id: string): Promise<ExecutionRunArtifact | null> {
+  const listed = await listResearchObjects();
+  if (!listed.ok) return null;
+  const row = listed.objects.find(
+    (o) => o.objectKind === 'artifact' && o.objectId === id && o.payload.kind === 'execution-run',
+  );
+  if (!row) return null;
+  return { ...(row.payload as unknown as ExecutionRunArtifact), receiptId: row.receiptId ?? null };
+}
+
 export { ARTIFACT_LIFECYCLE };

@@ -43,6 +43,20 @@ interface PastRehearsalRunView {
   receiptId: string | null;
 }
 
+interface RehearsalArmResultView {
+  armId: string;
+  armLabel: string;
+  groundingInvariantIds: string[];
+  score: number;
+}
+
+interface RehearsalTaskResultView {
+  taskId: string;
+  taskKind: string;
+  groundTruthInvariantIds: string[];
+  armResults: RehearsalArmResultView[];
+}
+
 interface StatusView {
   eligibility: RehearsalEligibilityView;
   frozenSubstrateLabel: string | null;
@@ -55,6 +69,35 @@ type Phase =
   | { kind: "error"; message: string }
   | { kind: "none" }
   | { kind: "ready"; data: StatusView };
+
+/** Shared task-by-task, arm-by-arm rendering — used for BOTH the just-
+ *  completed run (shown unconditionally) and an expanded past run (shown on
+ *  demand), so the two surfaces can never drift into two different layouts
+ *  for the same data. */
+function TaskResultsList({ results }: { results: RehearsalTaskResultView[] }) {
+  return (
+    <>
+      {results.map((task) => (
+        <div key={task.taskId} className="mb-1.5 last:mb-0">
+          <div className="text-slate-300">
+            {task.taskId} <span className="text-slate-600">({task.taskKind})</span>
+          </div>
+          <div className="ml-2 grid grid-cols-2 gap-x-3 gap-y-0.5 sm:grid-cols-4">
+            {task.armResults.map((a) => (
+              <div key={a.armId}>
+                <span className="text-slate-400">{a.armId} {a.armLabel}:</span>{" "}
+                <span className="text-slate-200">{Math.round(a.score * 100)}%</span>
+                {a.groundingInvariantIds.length > 0 && (
+                  <span className="text-slate-600"> · {a.groundingInvariantIds.length} grounded</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </>
+  );
+}
 
 export function ExpP1ExecutionStatus({
   experimentId,
@@ -72,6 +115,22 @@ export function ExpP1ExecutionStatus({
   const [busy, setBusy] = useState(false);
   const [runErr, setRunErr] = useState<string | null>(null);
   const [lastRunNote, setLastRunNote] = useState<string | null>(null);
+
+  // "View results" — per-run detail (task-by-task, arm-by-arm scores),
+  // fetched on demand and cached by run id so re-expanding an already-viewed
+  // past run never re-fetches. `lastCompletedRunId` is deliberately SEPARATE
+  // from the past-runs list's own `expandedRunId` toggle: the just-completed
+  // run is shown unconditionally right below `lastRunNote` (see runRehearsal
+  // below, whose POST response already carries taskResults — no second
+  // round-trip needed), and once `load()` re-fetches and that same run
+  // appears in `pastRehearsalRuns`, its list row starts from COLLAPSED
+  // (never auto-expanded) — sharing one state between the two would render
+  // the same detail twice the moment the list catches up.
+  const [lastCompletedRunId, setLastCompletedRunId] = useState<string | null>(null);
+  const [expandedRunId, setExpandedRunId] = useState<string | null>(null);
+  const [runDetails, setRunDetails] = useState<Record<string, RehearsalTaskResultView[]>>({});
+  const [detailLoadingRunId, setDetailLoadingRunId] = useState<string | null>(null);
+  const [detailErr, setDetailErr] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setPhase((prev) => (prev.kind === "ready" ? prev : { kind: "loading" }));
@@ -127,6 +186,10 @@ export function ExpP1ExecutionStatus({
       }
       const taskCount = Array.isArray(body.taskResults) ? body.taskResults.length : 0;
       setLastRunNote(`Rehearsal complete — ${taskCount} task(s) across arms A/B/C/D. ${body.note ?? ""}`.trim());
+      if (typeof body.runId === "string" && Array.isArray(body.taskResults)) {
+        setRunDetails((prev) => ({ ...prev, [body.runId]: body.taskResults }));
+        setLastCompletedRunId(body.runId);
+      }
       await load();
     } catch (e) {
       setRunErr(e instanceof Error ? e.message : "the rehearsal run was refused");
@@ -134,6 +197,35 @@ export function ExpP1ExecutionStatus({
       setBusy(false);
     }
   }, [experimentId, load, personaHintOpt]);
+
+  const toggleRunDetails = useCallback(
+    async (runId: string) => {
+      if (expandedRunId === runId) {
+        setExpandedRunId(null);
+        return;
+      }
+      setExpandedRunId(runId);
+      if (runDetails[runId]) return;
+      setDetailLoadingRunId(runId);
+      setDetailErr(null);
+      try {
+        const res = await personaFetch(
+          `/api/research/crystal/${encodeURIComponent(experimentId)}/rehearsal?runId=${encodeURIComponent(runId)}`,
+          { cache: "no-store", ...personaHintOpt },
+        );
+        const body = await res.json().catch(() => null);
+        if (!body?.requestSucceeded) {
+          throw new Error(body?.error || `could not read this run's results (HTTP ${res.status})`);
+        }
+        setRunDetails((prev) => ({ ...prev, [runId]: body.run?.taskResults ?? [] }));
+      } catch (e) {
+        setDetailErr(e instanceof Error ? e.message : "could not read this run's results");
+      } finally {
+        setDetailLoadingRunId(null);
+      }
+    },
+    [experimentId, expandedRunId, runDetails, personaHintOpt],
+  );
 
   if (phase.kind === "loading") {
     return (
@@ -199,6 +291,11 @@ export function ExpP1ExecutionStatus({
                 {lastRunNote}
               </div>
             )}
+            {lastCompletedRunId && runDetails[lastCompletedRunId] && (
+              <div className="mt-1.5 rounded border border-slate-800 bg-slate-950/60 p-1.5">
+                <TaskResultsList results={runDetails[lastCompletedRunId]} />
+              </div>
+            )}
             <button
               onClick={() => void runRehearsal()}
               disabled={busy}
@@ -208,10 +305,34 @@ export function ExpP1ExecutionStatus({
               internal rehearsal
             </button>
             {data.pastRehearsalRuns.length > 0 && (
-              <div className="mt-2 space-y-1 border-t border-slate-800 pt-1.5 text-slate-500">
+              <div className="mt-2 space-y-1.5 border-t border-slate-800 pt-1.5 text-slate-500">
                 {data.pastRehearsalRuns.slice(0, 3).map((r) => (
                   <div key={r.id}>
-                    {r.frozenAt ?? "—"} · {r.taskCount} task(s) · taskSet {r.taskSetProvenance} · arms {r.armIds.join(",")}
+                    <div className="flex items-center justify-between gap-2">
+                      <span>
+                        {r.frozenAt ?? "—"} · {r.taskCount} task(s) · taskSet {r.taskSetProvenance} · arms {r.armIds.join(",")}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => void toggleRunDetails(r.id)}
+                        className="shrink-0 rounded border border-slate-700 px-1.5 py-0.5 text-slate-300 hover:bg-slate-800"
+                      >
+                        {expandedRunId === r.id ? "Hide results" : "View results"}
+                      </button>
+                    </div>
+                    {expandedRunId === r.id && (
+                      <div className="mt-1 rounded border border-slate-800 bg-slate-950/60 p-1.5">
+                        {detailLoadingRunId === r.id && (
+                          <div className="flex items-center gap-1.5 text-slate-500">
+                            <Loader2 className="h-3 w-3 animate-spin" /> Reading this run's results…
+                          </div>
+                        )}
+                        {detailErr && detailLoadingRunId !== r.id && !runDetails[r.id] && (
+                          <div className="text-rose-300">{detailErr}</div>
+                        )}
+                        {runDetails[r.id] && <TaskResultsList results={runDetails[r.id]} />}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

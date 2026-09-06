@@ -20,9 +20,11 @@ vi.mock('@/services/identity/getActivePersona', () => ({
 
 const mockDeriveProtocolRatified = vi.fn();
 const mockListExecutionRuns = vi.fn();
+const mockGetExecutionRun = vi.fn();
 vi.mock('@/services/research/artifacts', () => ({
   deriveProtocolRatified: (...args: any[]) => mockDeriveProtocolRatified(...args),
   listExecutionRuns: (...args: any[]) => mockListExecutionRuns(...args),
+  getExecutionRun: (...args: any[]) => mockGetExecutionRun(...args),
 }));
 
 const mockRehearsalEligibility = vi.fn();
@@ -34,8 +36,10 @@ vi.mock('@/services/research/expP1Rehearsal', () => ({
 
 import { GET, POST } from '@/app/api/research/crystal/[experimentId]/rehearsal/route';
 
-function makeGetRequest(): NextRequest {
-  return { nextUrl: new URL('http://localhost/api/research/crystal/EXP-P1/rehearsal') } as unknown as NextRequest;
+function makeGetRequest(query: Record<string, string> = {}): NextRequest {
+  const url = new URL('http://localhost/api/research/crystal/EXP-P1/rehearsal');
+  for (const [k, v] of Object.entries(query)) url.searchParams.set(k, v);
+  return { nextUrl: url } as unknown as NextRequest;
 }
 function makePostRequest(body: unknown = {}): NextRequest {
   return { json: async () => body } as unknown as NextRequest;
@@ -46,6 +50,7 @@ beforeEach(() => {
   mockGetActivePersona.mockReset();
   mockDeriveProtocolRatified.mockReset();
   mockListExecutionRuns.mockReset();
+  mockGetExecutionRun.mockReset();
   mockRehearsalEligibility.mockReset();
   mockRunExpP1Rehearsal.mockReset();
 });
@@ -153,5 +158,57 @@ describe('POST /rehearsal — launches a run', () => {
     const body = await res.json();
     expect(body.requestSucceeded).toBe(false);
     expect(body.error).toMatch(/no frozen crystal-version/);
+  });
+});
+
+describe('GET /rehearsal?runId=... — the "View results" affordance (2026-09-07)', () => {
+  beforeEach(() => {
+    mockGetActivePersona.mockResolvedValue({ personaId: 'persona-1', cartridgeFlags: { isAdmin: true } });
+  });
+
+  it('returns the full run detail (including taskResults) for a matching internal-rehearsal run', async () => {
+    const run = {
+      id: 'EXP-P1/execution-run/internal-rehearsal/x',
+      experimentId: 'EXP-P1',
+      runExecutionDesignation: 'internal-rehearsal',
+      taskResults: [{ taskId: 'rehearsal-001', taskKind: 'recall', groundTruthInvariantIds: [], armResults: [] }],
+    };
+    mockGetExecutionRun.mockResolvedValue(run);
+    const res = await GET(makeGetRequest({ runId: 'EXP-P1/execution-run/internal-rehearsal/x' }), { params: params() });
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.requestSucceeded).toBe(true);
+    expect(body.run).toEqual(run);
+    expect(mockGetExecutionRun).toHaveBeenCalledWith('EXP-P1/execution-run/internal-rehearsal/x');
+    // The status-summary fields are never computed on this path.
+    expect(mockRehearsalEligibility).not.toHaveBeenCalled();
+  });
+
+  it('404s when the run does not exist', async () => {
+    mockGetExecutionRun.mockResolvedValue(null);
+    const res = await GET(makeGetRequest({ runId: 'does-not-exist' }), { params: params() });
+    expect(res.status).toBe(404);
+  });
+
+  it("404s when the run belongs to a DIFFERENT experiment — never leaks another experiment's run by id guess", async () => {
+    mockGetExecutionRun.mockResolvedValue({
+      id: 'EXP-OTHER/execution-run/internal-rehearsal/x',
+      experimentId: 'EXP-OTHER',
+      runExecutionDesignation: 'internal-rehearsal',
+      taskResults: [],
+    });
+    const res = await GET(makeGetRequest({ runId: 'EXP-OTHER/execution-run/internal-rehearsal/x' }), { params: params('EXP-P1') });
+    expect(res.status).toBe(404);
+  });
+
+  it('404s when the run is not internal-rehearsal-designated (never surfaces a confirmatory run through this surface)', async () => {
+    mockGetExecutionRun.mockResolvedValue({
+      id: 'EXP-P1/execution-run/confirmatory/x',
+      experimentId: 'EXP-P1',
+      runExecutionDesignation: 'confirmatory',
+      taskResults: [],
+    });
+    const res = await GET(makeGetRequest({ runId: 'EXP-P1/execution-run/confirmatory/x' }), { params: params() });
+    expect(res.status).toBe(404);
   });
 });

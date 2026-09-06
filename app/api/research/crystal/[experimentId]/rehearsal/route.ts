@@ -8,8 +8,14 @@
  *        generation — `latestFrozenCrystalArtifact`), rehearsal eligibility,
  *        the confirmatory execution's outstanding blockers (derived from the
  *        REGISTERED protocol's own `PROTOCOL_FREEZE_ARTIFACT_KINDS` ladder,
- *        never invented), and a summary of past rehearsal runs. Admin-gated,
+ *        never invented), and a SUMMARY of past rehearsal runs (no
+ *        taskResults — those can be large across many runs). Admin-gated,
  *        same posture as the freeze route's own GET.
+ *
+ *        `?runId=<the run's full id>` — returns the FULL detail (including
+ *        every task's per-arm scores/groundingInvariantIds) for ONE past
+ *        run instead of the status summary, so the operator can review what
+ *        a completed rehearsal actually did.
  *
  * POST — launches ONE internal rehearsal run. Refuses outright unless the
  *        current substrate is frozen with `executionDesignation:
@@ -22,7 +28,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
-import { deriveProtocolRatified } from '@/services/research/artifacts';
+import { deriveProtocolRatified, getExecutionRun } from '@/services/research/artifacts';
 import { listExecutionRuns } from '@/services/research/artifacts';
 import { rehearsalEligibility, runExpP1Rehearsal } from '@/services/research/expP1Rehearsal';
 import type { FrozenArtifactKind } from '@/types/research';
@@ -59,6 +65,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ expe
     return NextResponse.json({ requestSucceeded: false, error: 'Steward access required' }, { status: 403 });
   }
   const { experimentId } = await params;
+
+  const runId = req.nextUrl.searchParams.get('runId');
+  if (runId) {
+    const run = await getExecutionRun(runId);
+    if (!run || run.experimentId !== experimentId || run.runExecutionDesignation !== 'internal-rehearsal') {
+      return NextResponse.json({ requestSucceeded: false, error: `no internal-rehearsal run '${runId}' found for '${experimentId}'` }, { status: 404 });
+    }
+    return NextResponse.json({ requestSucceeded: true, run }, { headers: { 'Cache-Control': 'no-store' } });
+  }
 
   const eligibility = await rehearsalEligibility(experimentId);
   const generationMatch = eligibility.frozenCrystalArtifactId?.match(CRYSTAL_VERSION_ID_PATTERN);

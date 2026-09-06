@@ -71,7 +71,20 @@ describe('ExpP1ExecutionStatus — eligible internal rehearsal, frozen substrate
             requestSucceeded: true,
             runId: 'EXP-P1/execution-run/internal-rehearsal/x',
             receiptId: 'receipt-run-1',
-            taskResults: [{ taskId: 'rehearsal-001' }, { taskId: 'rehearsal-002' }],
+            taskResults: [
+              {
+                taskId: 'rehearsal-001',
+                taskKind: 'recall',
+                groundTruthInvariantIds: ['inv-1'],
+                armResults: [
+                  { armId: 'A', armLabel: 'Cold', groundingInvariantIds: [], score: 0 },
+                  { armId: 'B', armLabel: 'Full Runtime', groundingInvariantIds: ['inv-1'], score: 1 },
+                  { armId: 'C', armLabel: 'Flattened Invariants', groundingInvariantIds: ['inv-1'], score: 1 },
+                  { armId: 'D', armLabel: 'Expert Prose', groundingInvariantIds: [], score: 0.5 },
+                ],
+              },
+              { taskId: 'rehearsal-002', taskKind: 'recall', groundTruthInvariantIds: [], armResults: [] },
+            ],
             note: 'INTERNAL / NON-CONFIRMATORY / NOT VALID SCIENTIFIC EVIDENCE — this run may never be promoted.',
           }),
         );
@@ -116,6 +129,98 @@ describe('ExpP1ExecutionStatus — eligible internal rehearsal, frozen substrate
     const postCall = mockPersonaFetch.mock.calls.find(([, opts]) => opts?.method === 'POST');
     expect(postCall).toBeTruthy();
     expect(postCall![0]).toMatch(/\/rehearsal$/);
+  });
+
+  it('shows the just-completed run\'s results immediately — task-by-task, arm-by-arm — with no extra fetch', async () => {
+    mockEligible();
+    const user = userEvent.setup();
+    render(<ExpP1ExecutionStatus experimentId="EXP-P1" />);
+    const button = await screen.findByRole('button', { name: /Run EXP-P1 internal rehearsal/ });
+    await user.click(button);
+    expect(await screen.findByText('rehearsal-001')).toBeInTheDocument();
+    expect(screen.getByText(/B Full Runtime:/)).toBeInTheDocument();
+    expect(screen.getByText('50%')).toBeInTheDocument(); // Arm D's unique score
+    // The POST response already carried taskResults — no ?runId= fetch was needed.
+    expect(mockPersonaFetch.mock.calls.some(([url]) => /\?runId=/.test(url))).toBe(false);
+  });
+});
+
+describe('ExpP1ExecutionStatus — "View results" on a PAST run', () => {
+  const PAST_RUN = {
+    id: 'EXP-P1/execution-run/internal-rehearsal/past-1',
+    frozenAt: '2026-09-06T17:00:00.000Z',
+    taskSetId: 'EXP-P1/rehearsal-task-set-provisional-v1',
+    taskSetProvenance: 'provisional',
+    armIds: ['A', 'B', 'C', 'D'],
+    taskCount: 1,
+    receiptId: 'receipt-past-1',
+  };
+
+  function mockWithPastRun() {
+    mockPersonaFetch.mockImplementation((url: string) => {
+      if (/\?runId=/.test(url)) {
+        return Promise.resolve(
+          jsonResponse(200, {
+            requestSucceeded: true,
+            run: {
+              id: PAST_RUN.id,
+              taskResults: [
+                {
+                  taskId: 'rehearsal-past',
+                  taskKind: 'recall',
+                  groundTruthInvariantIds: ['inv-9'],
+                  armResults: [
+                    { armId: 'A', armLabel: 'Cold', groundingInvariantIds: [], score: 0 },
+                    { armId: 'C', armLabel: 'Flattened Invariants', groundingInvariantIds: ['inv-9'], score: 1 },
+                  ],
+                },
+              ],
+            },
+          }),
+        );
+      }
+      return Promise.resolve(
+        jsonResponse(200, {
+          requestSucceeded: true,
+          eligibility: { eligible: true, frozenCrystalArtifactId: 'EXP-P1/crystal-vP2', frozenCrystalContentHash: 'hash-abc' },
+          frozenSubstrateLabel: 'Crystal vP2 · internal/pilot',
+          confirmatoryBlockers: CONFIRMATORY_BLOCKERS,
+          pastRehearsalRuns: [PAST_RUN],
+        }),
+      );
+    });
+  }
+
+  it('clicking "View results" fetches ?runId= and shows the detail; clicking again hides it', async () => {
+    mockWithPastRun();
+    const user = userEvent.setup();
+    render(<ExpP1ExecutionStatus experimentId="EXP-P1" />);
+    const viewButton = await screen.findByRole('button', { name: 'View results' });
+    await user.click(viewButton);
+    expect(await screen.findByText('rehearsal-past')).toBeInTheDocument();
+    expect(screen.getByText(/C Flattened Invariants:/)).toBeInTheDocument();
+    const runIdCall = mockPersonaFetch.mock.calls.find(([url]) => /\?runId=/.test(url));
+    expect(runIdCall![0]).toContain(encodeURIComponent(PAST_RUN.id));
+
+    const hideButton = screen.getByRole('button', { name: 'Hide results' });
+    await user.click(hideButton);
+    expect(screen.queryByText('rehearsal-past')).not.toBeInTheDocument();
+  });
+
+  it('re-expanding an already-viewed run never re-fetches (cached by run id)', async () => {
+    mockWithPastRun();
+    const user = userEvent.setup();
+    render(<ExpP1ExecutionStatus experimentId="EXP-P1" />);
+    const viewButton = await screen.findByRole('button', { name: 'View results' });
+    await user.click(viewButton);
+    await screen.findByText('rehearsal-past');
+    await user.click(screen.getByRole('button', { name: 'Hide results' }));
+    const fetchCountAfterFirstView = mockPersonaFetch.mock.calls.filter(([url]) => /\?runId=/.test(url)).length;
+
+    await user.click(screen.getByRole('button', { name: 'View results' }));
+    await screen.findByText('rehearsal-past');
+    const fetchCountAfterSecondView = mockPersonaFetch.mock.calls.filter(([url]) => /\?runId=/.test(url)).length;
+    expect(fetchCountAfterSecondView).toBe(fetchCountAfterFirstView);
   });
 });
 
