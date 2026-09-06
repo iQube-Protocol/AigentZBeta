@@ -56,7 +56,13 @@ import { buildInvariantSlice } from '@/services/invariants/grounding';
 import { crystalDomainForExperiment } from '@/services/research/crystalDomains';
 import { latestFrozenCrystalArtifact, recordExecutionRun } from '@/services/research/artifacts';
 import type { HashCoveredMember } from '@/services/research/crystalContentProjection';
-import type { RehearsalArmId, RehearsalArmTaskResult, RehearsalTaskResult, TaskSetProvenance } from '@/types/research';
+import type {
+  ExecutionRunArtifact,
+  RehearsalArmId,
+  RehearsalArmTaskResult,
+  RehearsalTaskResult,
+  TaskSetProvenance,
+} from '@/types/research';
 
 export const REHEARSAL_ARM_LABELS: Record<RehearsalArmId, string> = {
   A: 'Cold',
@@ -203,6 +209,12 @@ export interface RunRehearsalResult {
   receiptId?: string | null;
   runId?: string;
   taskResults?: RehearsalTaskResult[];
+  /** The FULL persisted execution-run artifact — the same shape
+   *  `getExecutionRun`/`GET .../rehearsal?runId=` returns for a past run, so
+   *  a caller (the UI's "copy as JSON" affordance) has ONE shape to work
+   *  with regardless of whether the run just completed or is being looked
+   *  up later. */
+  run?: ExecutionRunArtifact;
 }
 
 /**
@@ -307,5 +319,5 @@ export async function runExpP1Rehearsal(input: {
   });
   if (!recorded.ok) return { ok: false, error: recorded.error };
 
-  return { ok: true, receiptId: recorded.receiptId, runId: recorded.artifact?.id, taskResults };
+  return { ok: true, receiptId: recorded.receiptId, runId: recorded.artifact?.id, taskResults, run: recorded.artifact };
 }

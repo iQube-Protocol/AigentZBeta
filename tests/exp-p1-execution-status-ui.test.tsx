@@ -37,11 +37,25 @@ const CONFIRMATORY_BLOCKERS = [
   'awaiting external Arm D prose',
 ];
 
+// jsdom's `navigator.clipboard` getter returns a REAL, singleton Clipboard
+// object (its own async `writeText` implementation) that is not reliably
+// present until AFTER a component has rendered (replacing the whole
+// `navigator`/`navigator.clipboard` reference beforehand, via
+// `Object.defineProperty` or `vi.stubGlobal`, does not reach the component —
+// it reads the SAME lazily-installed getter and gets a DIFFERENT object
+// back). `spyOnClipboardWriteText()` spies on the singleton's own method —
+// call it AFTER `render(...)`, once the real object exists — which is what
+// both the test and the component actually resolve to.
+function spyOnClipboardWriteText() {
+  return vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined);
+}
+
 beforeEach(() => {
   mockPersonaFetch.mockReset();
 });
 
 afterEach(() => {
+  vi.restoreAllMocks();
   cleanup();
 });
 
@@ -62,6 +76,21 @@ describe('ExpP1ExecutionStatus — no crystal generation has ever been frozen', 
   });
 });
 
+const JUST_COMPLETED_TASK_RESULTS = [
+  {
+    taskId: 'rehearsal-001',
+    taskKind: 'recall',
+    groundTruthInvariantIds: ['inv-1'],
+    armResults: [
+      { armId: 'A', armLabel: 'Cold', groundingInvariantIds: [], score: 0 },
+      { armId: 'B', armLabel: 'Full Runtime', groundingInvariantIds: ['inv-1'], score: 1 },
+      { armId: 'C', armLabel: 'Flattened Invariants', groundingInvariantIds: ['inv-1'], score: 1 },
+      { armId: 'D', armLabel: 'Expert Prose', groundingInvariantIds: [], score: 0.5 },
+    ],
+  },
+  { taskId: 'rehearsal-002', taskKind: 'recall', groundTruthInvariantIds: [], armResults: [] },
+];
+
 describe('ExpP1ExecutionStatus — eligible internal rehearsal, frozen substrate resolved server-side', () => {
   function mockEligible() {
     mockPersonaFetch.mockImplementation((url: string, opts?: any) => {
@@ -71,20 +100,13 @@ describe('ExpP1ExecutionStatus — eligible internal rehearsal, frozen substrate
             requestSucceeded: true,
             runId: 'EXP-P1/execution-run/internal-rehearsal/x',
             receiptId: 'receipt-run-1',
-            taskResults: [
-              {
-                taskId: 'rehearsal-001',
-                taskKind: 'recall',
-                groundTruthInvariantIds: ['inv-1'],
-                armResults: [
-                  { armId: 'A', armLabel: 'Cold', groundingInvariantIds: [], score: 0 },
-                  { armId: 'B', armLabel: 'Full Runtime', groundingInvariantIds: ['inv-1'], score: 1 },
-                  { armId: 'C', armLabel: 'Flattened Invariants', groundingInvariantIds: ['inv-1'], score: 1 },
-                  { armId: 'D', armLabel: 'Expert Prose', groundingInvariantIds: [], score: 0.5 },
-                ],
-              },
-              { taskId: 'rehearsal-002', taskKind: 'recall', groundTruthInvariantIds: [], armResults: [] },
-            ],
+            taskResults: JUST_COMPLETED_TASK_RESULTS,
+            run: {
+              id: 'EXP-P1/execution-run/internal-rehearsal/x',
+              runExecutionDesignation: 'internal-rehearsal',
+              confirmatoryEligible: false,
+              taskResults: JUST_COMPLETED_TASK_RESULTS,
+            },
             note: 'INTERNAL / NON-CONFIRMATORY / NOT VALID SCIENTIFIC EVIDENCE — this run may never be promoted.',
           }),
         );
@@ -142,6 +164,26 @@ describe('ExpP1ExecutionStatus — eligible internal rehearsal, frozen substrate
     expect(screen.getByText('50%')).toBeInTheDocument(); // Arm D's unique score
     // The POST response already carried taskResults — no ?runId= fetch was needed.
     expect(mockPersonaFetch.mock.calls.some(([url]) => /\?runId=/.test(url))).toBe(false);
+  });
+
+  it('"Copy JSON" on the just-completed run copies the FULL run record to the clipboard, and shows a transient "Copied" confirmation', async () => {
+    mockEligible();
+    const user = userEvent.setup();
+    render(<ExpP1ExecutionStatus experimentId="EXP-P1" />);
+    const runButton = await screen.findByRole('button', { name: /Run EXP-P1 internal rehearsal/ });
+    await user.click(runButton);
+    await screen.findByText('rehearsal-001');
+
+    const clipboardSpy = spyOnClipboardWriteText();
+    const copyButton = screen.getByRole('button', { name: 'Copy JSON' });
+    await user.click(copyButton);
+
+    expect(clipboardSpy).toHaveBeenCalledTimes(1);
+    const copied = JSON.parse(clipboardSpy.mock.calls[0][0]);
+    expect(copied.id).toBe('EXP-P1/execution-run/internal-rehearsal/x');
+    expect(copied.confirmatoryEligible).toBe(false);
+    expect(copied.taskResults).toEqual(JUST_COMPLETED_TASK_RESULTS);
+    expect(await screen.findByRole('button', { name: 'Copied' })).toBeInTheDocument();
   });
 });
 
@@ -221,6 +263,31 @@ describe('ExpP1ExecutionStatus — "View results" on a PAST run', () => {
     await screen.findByText('rehearsal-past');
     const fetchCountAfterSecondView = mockPersonaFetch.mock.calls.filter(([url]) => /\?runId=/.test(url)).length;
     expect(fetchCountAfterSecondView).toBe(fetchCountAfterFirstView);
+  });
+
+  it('"Copy JSON" on an expanded past run copies the full fetched run record verbatim', async () => {
+    mockWithPastRun();
+    const user = userEvent.setup();
+    render(<ExpP1ExecutionStatus experimentId="EXP-P1" />);
+    const viewButton = await screen.findByRole('button', { name: 'View results' });
+    await user.click(viewButton);
+    await screen.findByText('rehearsal-past');
+
+    const clipboardSpy = spyOnClipboardWriteText();
+    const copyButton = screen.getByRole('button', { name: 'Copy JSON' });
+    await user.click(copyButton);
+
+    expect(clipboardSpy).toHaveBeenCalledTimes(1);
+    const copied = JSON.parse(clipboardSpy.mock.calls[0][0]);
+    expect(copied.id).toBe(PAST_RUN.id);
+    expect(copied.taskResults[0].taskId).toBe('rehearsal-past');
+  });
+
+  it('"Copy JSON" is not offered before results have ever been viewed', async () => {
+    mockWithPastRun();
+    render(<ExpP1ExecutionStatus experimentId="EXP-P1" />);
+    await screen.findByRole('button', { name: 'View results' });
+    expect(screen.queryByRole('button', { name: 'Copy JSON' })).not.toBeInTheDocument();
   });
 });
 

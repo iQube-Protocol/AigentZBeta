@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { FlaskConical, Loader2, ShieldAlert } from "lucide-react";
+import { ClipboardCheck, ClipboardCopy, FlaskConical, Loader2, ShieldAlert } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
 
 /**
@@ -57,6 +57,18 @@ interface RehearsalTaskResultView {
   armResults: RehearsalArmResultView[];
 }
 
+/** The FULL persisted execution-run record — the same shape the POST
+ *  response's `run` field and `GET .../rehearsal?runId=`'s `run` field both
+ *  return, so "copy as JSON" always exports the identical shape whether the
+ *  run just completed or is a past one being looked up. Loosely typed
+ *  (beyond the one field this component actually renders): the export is a
+ *  verbatim `JSON.stringify` of whatever the server persisted, never a
+ *  client-reconstructed subset. */
+interface RehearsalRunFullView {
+  taskResults: RehearsalTaskResultView[];
+  [key: string]: unknown;
+}
+
 interface StatusView {
   eligibility: RehearsalEligibilityView;
   frozenSubstrateLabel: string | null;
@@ -99,6 +111,32 @@ function TaskResultsList({ results }: { results: RehearsalTaskResultView[] }) {
   );
 }
 
+/** Copies the full run record to the clipboard as pretty-printed JSON —
+ *  never a client-reconstructed subset. Shared between the just-completed
+ *  run and an expanded past run so the affordance behaves identically in
+ *  both places. */
+function CopyJsonButton({
+  runId,
+  copiedRunId,
+  onCopy,
+}: {
+  runId: string;
+  copiedRunId: string | null;
+  onCopy: (runId: string) => void;
+}) {
+  const copied = copiedRunId === runId;
+  return (
+    <button
+      type="button"
+      onClick={() => onCopy(runId)}
+      className="flex items-center gap-1 rounded border border-slate-700 px-1.5 py-0.5 text-slate-300 hover:bg-slate-800"
+    >
+      {copied ? <ClipboardCheck className="h-3 w-3 text-emerald-300" /> : <ClipboardCopy className="h-3 w-3" />}
+      {copied ? "Copied" : "Copy JSON"}
+    </button>
+  );
+}
+
 export function ExpP1ExecutionStatus({
   experimentId,
   personaId,
@@ -128,9 +166,13 @@ export function ExpP1ExecutionStatus({
   // the same detail twice the moment the list catches up.
   const [lastCompletedRunId, setLastCompletedRunId] = useState<string | null>(null);
   const [expandedRunId, setExpandedRunId] = useState<string | null>(null);
-  const [runDetails, setRunDetails] = useState<Record<string, RehearsalTaskResultView[]>>({});
+  const [runDetails, setRunDetails] = useState<Record<string, RehearsalRunFullView>>({});
   const [detailLoadingRunId, setDetailLoadingRunId] = useState<string | null>(null);
   const [detailErr, setDetailErr] = useState<string | null>(null);
+  // "Copy JSON" — transient per-run confirmation, cleared after ~1.5s or on
+  // the next copy attempt (whichever comes first).
+  const [copiedRunId, setCopiedRunId] = useState<string | null>(null);
+  const [copyErr, setCopyErr] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setPhase((prev) => (prev.kind === "ready" ? prev : { kind: "loading" }));
@@ -186,8 +228,8 @@ export function ExpP1ExecutionStatus({
       }
       const taskCount = Array.isArray(body.taskResults) ? body.taskResults.length : 0;
       setLastRunNote(`Rehearsal complete — ${taskCount} task(s) across arms A/B/C/D. ${body.note ?? ""}`.trim());
-      if (typeof body.runId === "string" && Array.isArray(body.taskResults)) {
-        setRunDetails((prev) => ({ ...prev, [body.runId]: body.taskResults }));
+      if (typeof body.runId === "string" && body.run) {
+        setRunDetails((prev) => ({ ...prev, [body.runId]: body.run }));
         setLastCompletedRunId(body.runId);
       }
       await load();
@@ -217,7 +259,7 @@ export function ExpP1ExecutionStatus({
         if (!body?.requestSucceeded) {
           throw new Error(body?.error || `could not read this run's results (HTTP ${res.status})`);
         }
-        setRunDetails((prev) => ({ ...prev, [runId]: body.run?.taskResults ?? [] }));
+        setRunDetails((prev) => ({ ...prev, [runId]: body.run ?? { taskResults: [] } }));
       } catch (e) {
         setDetailErr(e instanceof Error ? e.message : "could not read this run's results");
       } finally {
@@ -226,6 +268,19 @@ export function ExpP1ExecutionStatus({
     },
     [experimentId, expandedRunId, runDetails, personaHintOpt],
   );
+
+  const copyRunJson = useCallback(async (runId: string) => {
+    const detail = runDetails[runId];
+    if (!detail) return;
+    setCopyErr(null);
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(detail, null, 2));
+      setCopiedRunId(runId);
+      setTimeout(() => setCopiedRunId((prev) => (prev === runId ? null : prev)), 1500);
+    } catch (e) {
+      setCopyErr(e instanceof Error ? e.message : "could not copy to the clipboard");
+    }
+  }, [runDetails]);
 
   if (phase.kind === "loading") {
     return (
@@ -293,9 +348,13 @@ export function ExpP1ExecutionStatus({
             )}
             {lastCompletedRunId && runDetails[lastCompletedRunId] && (
               <div className="mt-1.5 rounded border border-slate-800 bg-slate-950/60 p-1.5">
-                <TaskResultsList results={runDetails[lastCompletedRunId]} />
+                <div className="mb-1 flex justify-end">
+                  <CopyJsonButton runId={lastCompletedRunId} copiedRunId={copiedRunId} onCopy={copyRunJson} />
+                </div>
+                <TaskResultsList results={runDetails[lastCompletedRunId].taskResults} />
               </div>
             )}
+            {copyErr && <div className="mt-1 text-rose-300">{copyErr}</div>}
             <button
               onClick={() => void runRehearsal()}
               disabled={busy}
@@ -330,7 +389,14 @@ export function ExpP1ExecutionStatus({
                         {detailErr && detailLoadingRunId !== r.id && !runDetails[r.id] && (
                           <div className="text-rose-300">{detailErr}</div>
                         )}
-                        {runDetails[r.id] && <TaskResultsList results={runDetails[r.id]} />}
+                        {runDetails[r.id] && (
+                          <>
+                            <div className="mb-1 flex justify-end">
+                              <CopyJsonButton runId={r.id} copiedRunId={copiedRunId} onCopy={copyRunJson} />
+                            </div>
+                            <TaskResultsList results={runDetails[r.id].taskResults} />
+                          </>
+                        )}
                       </div>
                     )}
                   </div>

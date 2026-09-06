@@ -133,6 +133,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ exp
       runId: result.runId,
       receiptId: result.receiptId ?? null,
       taskResults: result.taskResults,
+      // The FULL persisted artifact — the SAME shape `?runId=` returns for a
+      // past run, so the UI's "copy as JSON" affordance has one shape to
+      // work with whether the run just completed or is looked up later.
+      run: result.run,
       note:
         'INTERNAL / NON-CONFIRMATORY / NOT VALID SCIENTIFIC EVIDENCE — this run may never be promoted into the ' +
         'confirmatory EXP-P1 result set. It exercised the pipeline against the frozen internal-pilot substrate ' +
