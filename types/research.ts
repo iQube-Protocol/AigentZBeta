@@ -885,3 +885,108 @@ export const PROTOCOL_FREEZE_ARTIFACT_KINDS = [
   'analysis-config',
   'interpretation-table',
 ] as const satisfies readonly FrozenArtifactKind[];
+
+// ─── Two-mode execution model — internal rehearsal vs. confirmatory ─────────
+//
+// (Operator ruling, 2026-09-07: "Do not weaken confirmatory prerequisites.
+// Implement an explicit two-mode execution model." Composes with
+// `ArtifactExecutionDesignation` above WITHOUT reusing it — a Crystal freeze's
+// `executionDesignation` ('confirmatory' | 'internal-pilot') answers "is this
+// FROZEN GENERATION authorized for a confirmatory result", a materially
+// different governed question from "is THIS RUN a confirmatory result" —
+// collapsing the two would be the exact category error
+// CI-2026-08-03-GOVERNED-ACTS-DISTINCT-001 exists to forbid, one governed act
+// higher up: declaring a boundary, constituting, assessing, freezing, and now
+// EXECUTING are five distinct governed acts, never collapsed into one.)
+
+/** No task-set content schema exists yet anywhere in the codebase for the
+ *  REGISTERED protocol (see `services/research/taskCoverage.ts`'s own
+ *  `TaskDefinition`, explicitly a placeholder). This provenance tag is what
+ *  lets a reader tell "the sealed, externally-authored held-out set Austin
+ *  produces for the confirmatory run" apart from "an IRL-authored provisional
+ *  fixture" or "a synthetic rehearsal fixture" — an internal-rehearsal run
+ *  must NEVER be constructed from `external-held-out` materials (those do not
+ *  exist yet), and a `provisional`/`synthetic` task set must NEVER be read as
+ *  satisfying the confirmatory protocol's sealed-task-set requirement. */
+export const TASK_SET_PROVENANCE = ['external-held-out', 'provisional', 'synthetic'] as const;
+export type TaskSetProvenance = (typeof TASK_SET_PROVENANCE)[number];
+
+/** The four arms of the registered EXP-P1/EXP-010 design (README.md,
+ *  `codexes/packs/irl/foundation/experiments/exp-p1-representation-runtime-gauntlet/`):
+ *  A — Cold (task prompt only); B — Full Runtime (IRL's live, per-task
+ *  selection + orchestration); C — Flattened Invariants (a fixed, pre-
+ *  registered slice, no live selection); D — Expert Prose (externally
+ *  authored, on Austin's side for the confirmatory run — token-budget-matched
+ *  to C, fixed once, identical across all tasks). Naming and arm semantics are
+ *  read from the registered protocol, never invented. */
+export const REHEARSAL_ARM_IDS = ['A', 'B', 'C', 'D'] as const;
+export type RehearsalArmId = (typeof REHEARSAL_ARM_IDS)[number];
+
+/** A run's own designation — orthogonal to the frozen Crystal's
+ *  `executionDesignation`. `internal-rehearsal` is engineering/experimental
+ *  rehearsal only; it never satisfies, substitutes for, or is counted toward
+ *  any confirmatory-result requirement. `confirmatory` is reserved for the
+ *  real EXP-P1 execution once the external countersignature, sealed held-out
+ *  task set, and externally-authored Arm D prose all exist — nothing in this
+ *  codebase constructs a `confirmatory` execution-run today; see
+ *  `services/research/expP1Rehearsal.ts`'s own header. */
+export const RUN_EXECUTION_DESIGNATIONS = ['internal-rehearsal', 'confirmatory'] as const;
+export type RunExecutionDesignation = (typeof RUN_EXECUTION_DESIGNATIONS)[number];
+
+/** One arm's result for one task — mechanically scored (no live judge/rubric
+ *  exists in this codebase; see EXP-012/`services/experiments/expP3.ts` for
+ *  the established precision/recall/F1 mechanical-scoring convention this
+ *  mirrors). `groundingInvariantIds` is what that arm actually retrieved/was
+ *  given for this task — empty for Arm A by protocol definition. */
+export interface RehearsalArmTaskResult {
+  armId: RehearsalArmId;
+  armLabel: string;
+  groundingInvariantIds: string[];
+  /** 0..1 — mechanical coverage of the task's (provisional/synthetic) ground
+   *  truth by this arm's grounding set. Never a live judge score. */
+  score: number;
+}
+
+export interface RehearsalTaskResult {
+  taskId: string;
+  taskKind: string;
+  /** The (provisional/synthetic) ground-truth grounding ids this task's score
+   *  was measured against — persisted so a later reader can audit exactly
+   *  what "score" meant for this run, never re-derived silently differently. */
+  groundTruthInvariantIds: string[];
+  armResults: RehearsalArmTaskResult[];
+}
+
+/** An `execution-run` artifact — PRD-EPI-001 §7. Deliberately NOT frozen via
+ *  `checkFreezeGate`/`freezeArtifact` (see that function's own §7 comment);
+ *  written directly at `lifecycle: 'executed'` by
+ *  `services/research/artifacts.ts::recordExecutionRun` the moment a run
+ *  completes, since (unlike a protocol artifact) its content only exists once
+ *  the run has happened. `confirmatoryEligible` is the field every
+ *  confirmatory-result reader MUST filter on — see
+ *  `services/research/readinessDashboard.ts`'s Execution section. */
+export interface ExecutionRunArtifact extends FrozenArtifact {
+  kind: 'execution-run';
+  runExecutionDesignation: RunExecutionDesignation;
+  /** The frozen `crystal-version` artifact id this run executed against —
+   *  never the in-progress candidate (see `latestFrozenCrystalArtifact`). */
+  frozenCrystalArtifactId: string;
+  /** That artifact's own `contentHash` at the moment this run read it —
+   *  pinned here so a later audit never has to re-trust that the frozen
+   *  generation was not somehow a different one by the time this ran. */
+  frozenCrystalContentHash: string | null;
+  taskSetId: string;
+  taskSetProvenance: TaskSetProvenance;
+  armIds: RehearsalArmId[];
+  /** Honest label for what produced each arm's answer — this codebase's
+   *  rehearsal harness never calls a live model (see
+   *  `services/research/expP1Rehearsal.ts`'s header); a real confirmatory
+   *  execution's provider/model MUST be recorded here once one exists. */
+  providerModel: string;
+  /** `false` for every `internal-rehearsal` run, always. A `true` value is
+   *  reserved for a `confirmatory`-designated run — nothing in this codebase
+   *  constructs one yet. The field every confirmatory query must filter on;
+   *  see `readinessDashboard.ts`. */
+  confirmatoryEligible: boolean;
+  taskResults: RehearsalTaskResult[];
+}

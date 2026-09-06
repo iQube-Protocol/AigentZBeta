@@ -81,3 +81,42 @@ describe('IRLResearchCopilotTab (Research Copilot) — the freeze action renders
     expect(src).toMatch(/import \{ FreezeVP2InternalPilotAction \} from "@\/components\/research\/FreezeVP2InternalPilotAction";/);
   });
 });
+
+/**
+ * THE TWO-MODE EXECUTION MODEL (operator ruling, 2026-09-07) — the SAME
+ * "governed act eligibility is independent of slow composition" discipline,
+ * one governed act higher up: internal-rehearsal eligibility is a fact about
+ * the frozen crystal's own lifecycle, never about Track 2's programme
+ * composition succeeding.
+ */
+describe('Track2ProgrammePanel — the execution-status action renders unconditionally, never gated on `programme`', () => {
+  it('the <ExpP1ExecutionStatus> render call sits BEFORE the `{programme && (` gate, never inside it', () => {
+    const src = stripComments(readSource(PANEL));
+    const callIdx = src.indexOf('<ExpP1ExecutionStatus experimentId={experimentId} />');
+    const gateIdx = src.indexOf('{programme && (');
+    expect(callIdx).toBeGreaterThan(-1);
+    expect(gateIdx).toBeGreaterThan(-1);
+    expect(callIdx).toBeLessThan(gateIdx);
+  });
+
+  it('imports ExpP1ExecutionStatus from its own standalone file — never re-implemented inline (inv.engineering.036/037)', () => {
+    const src = stripComments(readSource(PANEL));
+    expect(src).toMatch(/import \{ ExpP1ExecutionStatus \} from "@\/components\/research\/ExpP1ExecutionStatus";/);
+  });
+});
+
+describe('IRLResearchCopilotTab (Research Copilot) — the execution-status action renders unconditionally, never gated on `programme`', () => {
+  it('the <ExpP1ExecutionStatus> render call sits BEFORE the `{programme && (` gate, never inside it', () => {
+    const src = stripComments(readSource(COPILOT));
+    const callIdx = src.indexOf('<ExpP1ExecutionStatus experimentId={objective.experimentId} personaId={personaId} />');
+    const gateIdx = src.indexOf('{programme && (');
+    expect(callIdx).toBeGreaterThan(-1);
+    expect(gateIdx).toBeGreaterThan(-1);
+    expect(callIdx).toBeLessThan(gateIdx);
+  });
+
+  it('imports ExpP1ExecutionStatus from the SAME standalone file Track2ProgrammePanel uses — one implementation, never a second', () => {
+    const src = stripComments(readSource(COPILOT));
+    expect(src).toMatch(/import \{ ExpP1ExecutionStatus \} from "@\/components\/research\/ExpP1ExecutionStatus";/);
+  });
+});

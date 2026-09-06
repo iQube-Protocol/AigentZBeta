@@ -80,6 +80,7 @@ import type { ProgrammeRunResult, PendingGovernanceDecision } from "@/services/r
 import { buildTrack2DeepLink, type Track2Programme, type Track2DeepLink } from "@/services/research/track2Programme";
 import { setPendingTrack2Stage } from "@/services/research/track2DeepLinkIntent";
 import { FreezeVP2InternalPilotAction } from "@/components/research/FreezeVP2InternalPilotAction";
+import { ExpP1ExecutionStatus } from "@/components/research/ExpP1ExecutionStatus";
 /**
  * The trimmed shape this card needs from
  * `GET /api/research/track2/[experimentId]/provenance-cohort` — deliberately
@@ -868,6 +869,15 @@ function ObjectiveCard({
        */}
       {objective.experimentId === "EXP-P1" && (
         <FreezeVP2InternalPilotAction experimentId={objective.experimentId} personaId={personaId} />
+      )}
+
+      {/*
+       * THE TWO-MODE EXECUTION MODEL — internal rehearsal vs. confirmatory
+       * execution (operator ruling, 2026-09-07). Rendered unconditionally,
+       * for the SAME reason as the freeze action immediately above.
+       */}
+      {objective.experimentId === "EXP-P1" && (
+        <ExpP1ExecutionStatus experimentId={objective.experimentId} personaId={personaId} />
       )}
 
       {/* TRACK 2 — you are here. Real, live data (the SAME read-only projection

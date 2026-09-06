@@ -17,6 +17,7 @@ import {
   listArtifacts,
   getArtifact,
   deriveProtocolRatified,
+  listExecutionRuns,
 } from '@/services/research/artifacts';
 import { runCrystalReadinessReport } from '@/services/research/crystalReadiness';
 import { deriveOverview } from '@/services/research/lifecycle';
@@ -63,7 +64,19 @@ export async function buildReadinessDashboard(experimentId: string): Promise<Rea
   const crystalArtifactStatus = artifactStatus(artifacts, 'crystal-version');
   let crystalDetail: string;
   if (crystalArtifactStatus === 'green') {
-    crystalDetail = 'Crystal vP1 snapshot is frozen + hash-committed.';
+    // Names the ACTUAL frozen generation, never a hardcoded 'vP1' (operator
+    // report, 2026-09-07: this line kept reading 'Crystal vP1' after vP2 had
+    // already frozen — "the deployed UI... references frozen Crystal vP1").
+    // `currentCrystalArtifactId`/`latestFrozenCrystalArtifact`
+    // (services/research/artifacts.ts) are the only correct resolvers; the
+    // frozen artifact is already IN `artifacts` from the `listArtifacts` call
+    // above, so no second read is needed here.
+    const frozen = artifacts.find((a) => a.kind === 'crystal-version' && a.lifecycle === 'frozen');
+    const generationMatch = frozen?.id.match(/\/crystal-vP(\d+)$/);
+    const generationLabel = generationMatch ? `vP${generationMatch[1]}` : 'the current generation';
+    crystalDetail =
+      `Crystal ${generationLabel} snapshot is frozen + hash-committed` +
+      (frozen?.executionDesignation === 'internal-pilot' ? ' (executionDesignation: internal-pilot).' : '.');
   } else {
     // Run the intrinsic readiness report so the dashboard shows WHY the crystal
     // isn't ready, not just that it isn't. Honest today: with Track 2 paused and
@@ -104,12 +117,28 @@ export async function buildReadinessDashboard(experimentId: string): Promise<Rea
       : 'No research package yet — generated at/after freeze (PRD-EPI-001 §4).';
 
   // ── Execution (§2.2) — running / evaluated. EXPECTED red pre-run. ──
-  const executionRuns = artifacts.filter((a) => a.kind === 'execution-run');
-  const executionStatus: ReadinessStatus = executionRuns.length > 0 ? 'green' : 'red';
+  //
+  // CONFIRMATORY-RESULT EXCLUSION BY CONSTRUCTION (operator ruling,
+  // 2026-09-07, two-mode execution model): `listArtifacts`' generic
+  // `kind === 'execution-run'` filter used to flip this section green the
+  // moment ANY execution-run existed — including an internal-rehearsal run,
+  // which must NEVER read as "the confirmatory execution has occurred."
+  // `listExecutionRuns` returns the full `ExecutionRunArtifact` shape
+  // (including `confirmatoryEligible`), so this section can filter on the
+  // ONE field every confirmatory-result reader must filter on, rather than
+  // on `kind` alone.
+  const executionRuns = await listExecutionRuns(experimentId);
+  const confirmatoryRuns = executionRuns.filter((r) => r.confirmatoryEligible);
+  const rehearsalRuns = executionRuns.filter((r) => !r.confirmatoryEligible);
+  const executionStatus: ReadinessStatus = confirmatoryRuns.length > 0 ? 'green' : 'red';
   const executionDetail =
-    executionRuns.length > 0
-      ? `${executionRuns.length} execution run(s) recorded.`
-      : 'No execution runs yet — EXPECTED before the confirmatory run. Not a blocker for protocol-ratified.';
+    confirmatoryRuns.length > 0
+      ? `${confirmatoryRuns.length} confirmatory execution run(s) recorded.`
+      : rehearsalRuns.length > 0
+        ? `No confirmatory execution run yet — ${rehearsalRuns.length} internal-rehearsal run(s) recorded ` +
+          '(INTERNAL / NON-CONFIRMATORY / NOT VALID SCIENTIFIC EVIDENCE — never counted toward this section). ' +
+          'Not a blocker for protocol-ratified.'
+        : 'No execution runs yet — EXPECTED before the confirmatory run. Not a blocker for protocol-ratified.';
 
   // ── Publication (§2.2) — published. EXPECTED red pre-run. ──
   const overview = await deriveOverview();

@@ -24,9 +24,14 @@ import {
   type ArtifactExecutionDesignation,
   type ArtifactLifecycleState,
   type ArtifactPhase,
+  type ExecutionRunArtifact,
   type FrozenArtifact,
   type FrozenArtifactKind,
+  type RehearsalArmId,
+  type RehearsalTaskResult,
+  type RunExecutionDesignation,
   type ScientificDeviation,
+  type TaskSetProvenance,
 } from '@/types/research';
 import type { CrystalReadinessReport } from '@/services/research/crystalReadiness';
 import type { HashCoveredMember } from '@/services/research/crystalContentProjection';
@@ -637,6 +642,110 @@ export async function deriveProtocolRatified(experimentId: string): Promise<{
   const missing = required.filter((k) => !frozenKinds.has(k));
   const present = required.filter((k) => frozenKinds.has(k));
   return { ready: missing.length === 0, missing, present };
+}
+
+/**
+ * `execution-run` artifacts — PRD-EPI-001 §7. Deliberately NEVER frozen via
+ * `checkFreezeGate`/`freezeArtifact` (see that function's own §7 comment) and
+ * NEVER provisioned via `upsertArtifact` (whose lifecycle union is
+ * `'draft' | 'validated'` only, freely-editable pre-freeze states that do not
+ * describe a run — a run's content only exists once it has happened). Written
+ * directly, once, at `lifecycle: 'executed'`, the moment a run completes.
+ *
+ * Deliberately isolated from `toPayload`/`fromRow` (the shared FrozenArtifact
+ * serialization every OTHER kind uses): those two carry the generic
+ * protocol-artifact shape (executionDesignation, scientificDeviations,
+ * memberSnapshot, …) that has no bearing on an execution-run row, and every
+ * execution-run-specific field below is written and read back verbatim by
+ * THIS pair alone — no shared surface to accidentally widen for every other
+ * kind (`inv.engineering.036`/`037`: an isolated concern gets its own seam,
+ * not a bolt-on to a shared one).
+ */
+export async function recordExecutionRun(input: {
+  personaId: string;
+  experimentId: string;
+  runExecutionDesignation: RunExecutionDesignation;
+  frozenCrystalArtifactId: string;
+  frozenCrystalContentHash: string | null;
+  taskSetId: string;
+  taskSetProvenance: TaskSetProvenance;
+  armIds: RehearsalArmId[];
+  providerModel: string;
+  /** MUST be `false` whenever `runExecutionDesignation === 'internal-rehearsal'`
+   *  — refused outright otherwise, since this is the ONE field every
+   *  confirmatory-result reader filters on (readinessDashboard.ts). */
+  confirmatoryEligible: boolean;
+  taskResults: RehearsalTaskResult[];
+}): Promise<{ ok: boolean; error?: string; receiptId?: string | null; artifact?: ExecutionRunArtifact }> {
+  if (input.runExecutionDesignation === 'internal-rehearsal' && input.confirmatoryEligible) {
+    return {
+      ok: false,
+      error: `an 'internal-rehearsal' execution-run may never be confirmatoryEligible — two distinct governed acts (rehearsal vs. confirmatory execution) may not be collapsed into one`,
+    };
+  }
+  if (input.armIds.length === 0) {
+    return { ok: false, error: 'armIds must name at least one arm this run actually exercised' };
+  }
+
+  const frozenAt = new Date().toISOString();
+  const id = `${input.experimentId}/execution-run/${input.runExecutionDesignation}/${frozenAt}`;
+  const artifact: ExecutionRunArtifact = {
+    id,
+    kind: 'execution-run',
+    phase: 'execution',
+    experimentId: input.experimentId,
+    lifecycle: 'executed',
+    contentHash: null,
+    commitmentHash: null,
+    frozenAt,
+    signedBy: [],
+    receiptId: null,
+    runExecutionDesignation: input.runExecutionDesignation,
+    frozenCrystalArtifactId: input.frozenCrystalArtifactId,
+    frozenCrystalContentHash: input.frozenCrystalContentHash,
+    taskSetId: input.taskSetId,
+    taskSetProvenance: input.taskSetProvenance,
+    armIds: input.armIds,
+    providerModel: input.providerModel,
+    confirmatoryEligible: input.confirmatoryEligible,
+    taskResults: input.taskResults,
+  };
+
+  const { ok, receiptId } = await writeLifecycleReceipt({
+    personaId: input.personaId,
+    summary:
+      `${input.experimentId} execution-run '${id}' recorded — ${input.runExecutionDesignation}` +
+      (input.runExecutionDesignation === 'internal-rehearsal'
+        ? ' [INTERNAL / NON-CONFIRMATORY / NOT VALID SCIENTIFIC EVIDENCE]'
+        : '') +
+      ` against frozen substrate '${input.frozenCrystalArtifactId}' — ${input.taskResults.length} task(s), ` +
+      `arms ${input.armIds.join(',')}, taskSetProvenance '${input.taskSetProvenance}'.`,
+    invariantSeedIds: [],
+  });
+  if (!ok) return { ok: false, error: 'receipt write failed' };
+
+  const persisted = await upsertResearchObject({
+    objectKind: 'artifact',
+    objectId: id,
+    payload: artifact as unknown as Record<string, unknown>,
+    lifecycleState: 'executed',
+    receiptId,
+  });
+  if (!persisted.ok) return { ok: false, error: persisted.error };
+  return { ok: true, receiptId, artifact: { ...artifact, receiptId: receiptId ?? null } };
+}
+
+/** All `execution-run` artifacts for an experiment, newest first — the ONE
+ *  reader every UI/dashboard consumer should use (never `listArtifacts`
+ *  filtered by kind alone, which returns the generic `FrozenArtifact` shape
+ *  and loses every execution-run-specific field `recordExecutionRun` wrote). */
+export async function listExecutionRuns(experimentId: string): Promise<ExecutionRunArtifact[]> {
+  const listed = await listResearchObjects();
+  if (!listed.ok) return [];
+  return listed.objects
+    .filter((o) => o.objectKind === 'artifact' && o.payload.kind === 'execution-run' && o.payload.experimentId === experimentId)
+    .map((o) => ({ ...(o.payload as unknown as ExecutionRunArtifact), receiptId: o.receiptId ?? null }))
+    .sort((a, b) => (b.frozenAt ?? '').localeCompare(a.frozenAt ?? ''));
 }
 
 export { ARTIFACT_LIFECYCLE };
