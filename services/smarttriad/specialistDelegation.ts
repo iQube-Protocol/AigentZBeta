@@ -161,9 +161,23 @@ export async function resolveSmartTriadSpecialistDelegation(
 
   const recs = result.recommendations.length > 0 ? `\n\n${result.recommendations.map((r) => `- ${r}`).join('\n')}` : '';
   const scopedLabel = candidateCase ? `${label}** (advisory, case "${candidateCase.candidateDisplayName}")` : `${label}** (advisory)`;
+  // The affordance line — server-derived (Factor only; Aegis carries none) so
+  // this THIRD delegation consumer never independently asserts "advisory
+  // only" for a response the server itself marked ACTION_AVAILABLE/BLOCKED
+  // (the same hardcoded-badge-vs-real-affordance contradiction Phase 1
+  // closed in SpecialistWorkspace.tsx, 2026-09-05). Aegis, and any Factor
+  // response with no affordance, keep the original generic wording.
+  const affordanceNote =
+    result.affordance === 'ACTION_AVAILABLE'
+      ? '_This is actionable — approval may still be required before it executes._'
+      : result.affordance === 'PREPARABLE'
+        ? '_Some of this is real and reachable; the rest is not yet wired end-to-end._'
+        : result.affordance === 'BLOCKED'
+          ? `_Blocked: ${(result.blockers ?? []).join(' ') || 'a prerequisite is unmet.'}_`
+          : '_Advisory guidance only — never a case mutation._';
   const closing = candidateCase
-    ? `_Advisory guidance only — never a case mutation. Open the case to take a real action._ [layout:${specialistId}|Review the ${candidateCase.candidateDisplayName} case]`
-    : `_Advisory guidance only — never a case mutation._ [layout:${specialistId}|Open ${label}]`;
+    ? `${affordanceNote} Open the case to take a real action. [layout:${specialistId}|Review the ${candidateCase.candidateDisplayName} case]`
+    : `${affordanceNote} [layout:${specialistId}|Open ${label}]`;
   const response = `**${scopedLabel}: ${result.summary}${recs}\n\n${closing}`;
 
   return { matched: true, specialistId, response };

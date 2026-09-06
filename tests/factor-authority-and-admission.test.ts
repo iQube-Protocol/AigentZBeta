@@ -254,6 +254,91 @@ describe('admissionAuthority', () => {
     expect(events.length).toBe(1);
   });
 
+  // ─────────────────────────────────────────────────────────────────────
+  // transitionCaseState's authority-chain gate (Factor runtime-contract
+  // closure, Phase 1 continuation, 2026-09-05) — validateChainForAction
+  // existed but was never called from any transition/admission route.
+  // Wired ONLY when a chain is actually bound to the case; an unbound case
+  // (every test above) is completely unaffected.
+  // ─────────────────────────────────────────────────────────────────────
+  describe('transitionCaseState authority-chain gate', () => {
+    it('a case with no bound authority chain transitions exactly as before (gate inert)', async () => {
+      const { case: c } = await createOrResumeCase(admin, {
+        ownerPersonaId: 'persona-1',
+        createdByPersonaId: 'persona-1',
+        candidateIdentityKey: 'candidate-no-chain',
+        candidateDisplayName: 'Candidate No Chain',
+      });
+      expect(c.authority_chain_id).toBeNull();
+      const updated = await transitionCaseState(admin, { caseId: c.case_id, tenantId: 'default', toState: 'preparing', actorPersonaId: 'persona-1' });
+      expect(updated.state).toBe('preparing');
+    });
+
+    it('a valid, active bound chain permits the transition', async () => {
+      const chain = await establishDirectChain(admin, {
+        principalPersonaId: 'persona-1',
+        targetAgentRef: 'aigent-factor',
+        targetAgentRootDid: 'did:factor:root',
+        allowedActions: ['preparing'],
+      });
+      const { case: c } = await createOrResumeCase(admin, {
+        ownerPersonaId: 'persona-1',
+        createdByPersonaId: 'persona-1',
+        candidateIdentityKey: 'candidate-valid-chain',
+        candidateDisplayName: 'Candidate Valid Chain',
+        authorityChainId: chain.chain_id,
+      } as any);
+      const updated = await transitionCaseState(admin, { caseId: c.case_id, tenantId: 'default', toState: 'preparing', actorPersonaId: 'persona-1' });
+      expect(updated.state).toBe('preparing');
+    });
+
+    it('a revoked bound chain refuses the transition, even though the state machine itself would allow it', async () => {
+      const chain = await establishDirectChain(admin, {
+        principalPersonaId: 'persona-1',
+        targetAgentRef: 'aigent-factor',
+        targetAgentRootDid: 'did:factor:root',
+        allowedActions: ['preparing'],
+      });
+      const { case: c } = await createOrResumeCase(admin, {
+        ownerPersonaId: 'persona-1',
+        createdByPersonaId: 'persona-1',
+        candidateIdentityKey: 'candidate-revoked-chain',
+        candidateDisplayName: 'Candidate Revoked Chain',
+        authorityChainId: chain.chain_id,
+      } as any);
+      await revokeChain(admin, chain.chain_id, 'persona-1', 'persona-1', 'operator revoked before use');
+      await expect(
+        transitionCaseState(admin, { caseId: c.case_id, tenantId: 'default', toState: 'preparing', actorPersonaId: 'persona-1' }),
+      ).rejects.toMatchObject({ code: 'authority-chain-invalid' });
+    });
+
+    it("a bound chain belonging to a DIFFERENT principal than the case's owner refuses the transition", async () => {
+      // A chain genuinely established for a different principal must never
+      // be treated as authorizing THIS case's owner's transition, even if
+      // some other code path had (incorrectly) recorded its id on this case.
+      const otherPersonaGrant = { ...activeGrant, persona_id: 'persona-2' };
+      readActiveGrantForAgentMock.mockImplementationOnce(async (personaId: string, agentRootDid: string) =>
+        personaId === otherPersonaGrant.persona_id && agentRootDid === otherPersonaGrant.agent_root_did ? otherPersonaGrant : null,
+      );
+      const chain = await establishDirectChain(admin, {
+        principalPersonaId: 'persona-2',
+        targetAgentRef: 'aigent-factor',
+        targetAgentRootDid: 'did:factor:root',
+        allowedActions: ['preparing'],
+      });
+      const { case: c } = await createOrResumeCase(admin, {
+        ownerPersonaId: 'persona-1',
+        createdByPersonaId: 'persona-1',
+        candidateIdentityKey: 'candidate-cross-principal-chain',
+        candidateDisplayName: 'Candidate Cross Principal Chain',
+        authorityChainId: chain.chain_id,
+      } as any);
+      await expect(
+        transitionCaseState(admin, { caseId: c.case_id, tenantId: 'default', toState: 'preparing', actorPersonaId: 'persona-1' }),
+      ).rejects.toMatchObject({ code: 'authority-chain-invalid' });
+    });
+  });
+
   it('refuses decideAdmission across tenants', async () => {
     const { case: c } = await createOrResumeCase(admin, {
       tenantId: 'tenant-a',

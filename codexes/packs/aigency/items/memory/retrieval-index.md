@@ -5519,3 +5519,33 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-07334b2.md](../build_/COMMITS/COMMIT-07334b2.md)
 - Message: Fix inert MoneyPenny Market Research/Learn cards; log EXP-P1 stage 8 gap
+
+## Commit `9a11c7c` — 2026-09-05T20:15:58Z
+- Type: `push`
+- Brief: [COMMIT-9a11c7c.md](../build_/COMMITS/COMMIT-9a11c7c.md)
+- Message: Give Factor real Bankr capability actions (Phase 5 of Factor+Aegis Bankr PRD)
+
+## Commit `3b9ae5a` — 2026-09-05T20:54:52Z
+- Type: `push`
+- Brief: [COMMIT-3b9ae5a.md](../build_/COMMITS/COMMIT-3b9ae5a.md)
+- Message: Give Factor's Bankr actions real HTTP routes; close Phase 8 drift/tenant gaps (Phase 6 backend)
+
+## Commit `39e5792` — 2026-09-05T21:02:10Z
+- Type: `feat`
+- Brief: [COMMIT-39e5792.md](../build_/COMMITS/COMMIT-39e5792.md)
+- Message: Add Bankr Phase 9 live-rehearsal script (stops at the approval boundary)
+
+## Commit `c53302f` — 2026-09-05T21:04:50Z
+- Type: `push`
+- Brief: [COMMIT-c53302f.md](../build_/COMMITS/COMMIT-c53302f.md)
+- Message: Record Bankr Phases 6-9 delivery report (frontend integration pending)
+
+## Commit `f5b13db` — 2026-09-05T21:13:23Z
+- Type: `chore`
+- Brief: [COMMIT-f5b13db.md](../build_/COMMITS/COMMIT-f5b13db.md)
+- Message: Update Bankr Phase 6-9 delivery report with the frontend integration
+
+## Commit `72c692d` — 2026-09-05T21:37:39Z
+- Type: `feat`
+- Brief: [COMMIT-72c692d.md](../build_/COMMITS/COMMIT-72c692d.md)
+- Message: Add Crystal-wide internal-pilot execution designation (frozen generations are immutable; lineages are evolutionary)

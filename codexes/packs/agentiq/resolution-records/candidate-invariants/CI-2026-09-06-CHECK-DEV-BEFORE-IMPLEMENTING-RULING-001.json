@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-09-06-CHECK-DEV-BEFORE-IMPLEMENTING-RULING-001",
+  "statement": "Before implementing a capability named by an operator ruling (especially one phrased as a generalizable, cross-cutting principle rather than a narrow bugfix), check `origin/dev`'s recent history on the files the ruling is expected to touch — via `git log origin/dev --oneline -- <path>` / `git show origin/dev --stat` — before writing any code. A ruling phrased in general, memorable terms (e.g. \"frozen generations are immutable; lineages are evolutionary\") is exactly the shape of instruction likely to have been relayed to more than one concurrent agent session; skipping this check does not prevent the collision, it only delays discovering it until the automated merge itself surfaces real content conflicts, possibly many hours and a full implementation cycle later.",
+  "family": "engineering",
+  "classification": null,
+  "parentCandidateId": null,
+  "governingPrinciple": false,
+  "scope": "cross-capability",
+  "status": "candidate",
+  "derivedFrom": [
+    "RES-2026-09-06-RECONCILE-PARALLEL-CRYSTAL-FREEZE-IMPLEMENTATIONS-001"
+  ],
+  "occurrences": [
+    {
+      "site": "Crystal freeze gate — types/research.ts, services/research/artifacts.ts, app/api/research/crystal/[experimentId]/freeze/route.ts, tests/crystal-freeze-route.test.ts",
+      "defect": "Two independent Claude Code sessions implemented the identical internal-pilot execution-designation mechanism for the Crystal freeze gate within roughly 39 minutes of each other, from the same operator ruling, with no coordination signal between them (no QubeTalk packet, no origin/dev check per CLAUDE.md's own \"Multi-Agent Coordination\" section). The collision was invisible to both sessions until the later one's push to a session branch was rejected by the merge-claude-to-dev.yml auto-merge workflow with real content conflicts across all four touched files (GitHub Actions run 34016671116, issue #106) — discovered only when a THIRD, unrelated task (\"confirm this branch is deployed\") triggered the merge attempt, ~13 hours after both implementations had already been committed.",
+      "resolutionId": "RES-2026-09-06-RECONCILE-PARALLEL-CRYSTAL-FREEZE-IMPLEMENTATIONS-001",
+      "evidence": [
+        "dev commit 72c692d (2026-09-05T21:37:39Z) vs. this session's commit 37b2c52 (2026-09-05T22:16:12Z) — ~39 minutes apart, same operator ruling quoted verbatim in both commit messages",
+        "GitHub Actions run https://github.com/iQube-Protocol/AigentZBeta/actions/runs/34016671116 — CONFLICT (content) in types/research.ts, services/research/artifacts.ts, the freeze route, and tests/crystal-freeze-route.test.ts",
+        "CLAUDE.md's own \"Multi-Agent Coordination\" section, step 2: \"Check what other agents changed before merging to dev\" — the exact check whose omission produced this occurrence"
+      ]
+    }
+  ],
+  "canaries": [],
+  "notes": [
+    "No executable canary exists for this rule and none is proposed — the defect it prevents is a PROCESS omission (an agent not running a git command before writing code), not a code-shape a test can detect from the repository's own state. CLAUDE.md's existing \"Multi-Agent Coordination\" section already states this rule in prose; this candidate exists to give that prose rule a concrete, evidenced occurrence in the resolution-record registry per the Resolution -> Invariant Loop's own requirement (a repeated-shape defect must be captured, not merely re-noticed), not to duplicate or supersede the CLAUDE.md text.",
+    "Left at 'candidate' with a single occurrence, per the resolution-loop ladder — an agent may not self-promote above 'candidate' on one occurrence, and 'validated'/'ratified'/'canonical' are not available to this agent's own judgement regardless."
+  ],
+  "supersededBy": null,
+  "ratifiedSource": null,
+  "projections": {
+    "targets": [
+      "devon"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "structural"
+  }
+}

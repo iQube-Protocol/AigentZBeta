@@ -33,7 +33,7 @@
     "CI-2026-09-06-FROZEN-GENERATIONS-IMMUTABLE-LINEAGES-EVOLUTIONARY-001"
   ],
   "canaries": [
-    "tests/crystal-execution-designation.test.ts",
+    "tests/crystal-internal-pilot-execution-designation.test.ts",
     "tests/crystal-freeze-route.test.ts"
   ],
   "scope": "local",
@@ -42,7 +42,7 @@
   "evidence": {
     "commits": [],
     "tests": [
-      "tests/crystal-execution-designation.test.ts",
+      "tests/crystal-internal-pilot-execution-designation.test.ts",
       "tests/crystal-freeze-route.test.ts"
     ],
     "receipts": [],

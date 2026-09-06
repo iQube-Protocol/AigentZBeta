@@ -74,11 +74,12 @@ describe('PilotJourneyTab reads P&L facts from pnlEvidence, never from evidenceP
   const src = read('app/triad/components/codex/tabs/PilotJourneyTab.tsx');
 
   it('destructures pnlEvidence from resolveSurfaceProps args', () => {
-    // ratifySubPredicates (CFS-055 coherence pass, 2026-08-10) and
-    // registerCeremony (Pre-recording Horizen polish part C, 2026-08-10)
-    // legitimately ride alongside pnlEvidence now — not required to be the
-    // last field.
-    expect(src).toMatch(/\{\s*surfaceRef,\s*descriptor,\s*runtimeState,\s*pnlEvidence,\s*ratifySubPredicates,\s*registerCeremony\s*\}/);
+    // ratifySubPredicates (CFS-055 coherence pass, 2026-08-10),
+    // registerCeremony (Pre-recording Horizen polish part C, 2026-08-10),
+    // and requestStateRefresh (Journey 0 closure item 2, 2026-09-06 — live
+    // journey state projection) legitimately ride alongside pnlEvidence now
+    // — not required to be the last field.
+    expect(src).toMatch(/\{\s*surfaceRef,\s*descriptor,\s*runtimeState,\s*pnlEvidence,\s*ratifySubPredicates,\s*registerCeremony,\s*requestStateRefresh\s*\}/);
   });
 
   it('PulseTransparencyToggle props are sourced from pnlEvidence, not evidencePresent.includes', () => {

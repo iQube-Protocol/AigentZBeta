@@ -1,0 +1,67 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-09-05",
+  "resolutionId": "RES-2026-09-05-CRYSTAL-FREEZE-EXECUTION-DESIGNATION-001",
+  "capability": "exp-p1-crystal-freeze-and-lineage",
+  "milestone": "Operator ruling on Crystal vP2 — adopt iterative Crystal versioning and authorize an internal/pilot EXP-P1 run against a frozen generation carrying honestly-recorded scientific-readiness limitations",
+  "problem": "Crystal vP2 held 63 scientifically eligible, externally grounded, distinct invariants — satisfying the registered selection-space requirement (>= 60) — but measured deficiencies in two scientific-readiness-tier checks: derivation-headroom (inferential capacity) and boundary-coverage (namespace coverage against the declared boundary). `checkFreezeGate` (services/research/artifacts.ts) required ALL scientific-readiness checks to pass unconditionally before ANY freeze of a crystal-version artifact could proceed — there was no way to freeze a generation for an explicitly-designated, non-confirmatory (internal/pilot) EXP-P1 execution while its known limitations remained on the record, without either (a) refusing to freeze at all, blocking all experimental progress, or (b) weakening/skipping a check, which the operator explicitly forbade. The operator ruled that a freeze act answers two SEPARATE questions - what was frozen, and whether it is fit for a CONFIRMATORY result - and the codebase only had machinery for conflating them into one boolean gate.",
+  "observedFailure": [
+    "services/research/artifacts.ts::checkFreezeGate, for kind 'crystal-version', called runCrystalReadinessReport and refused the freeze outright whenever readiness.ok was false, citing every failing scientific-readiness check with no path to proceed past a named, operator-acknowledged subset of them.",
+    "services/research/artifacts.ts::freezeArtifact validated freezeRationale as required (non-empty) at the API route layer (app/api/research/crystal/[experimentId]/freeze/route.ts) but never persisted it anywhere — not in the artifact payload, not in the lifecycle receipt summary — so the operator's stated reason for a freeze act was validated and then discarded.",
+    "No field on FrozenArtifact (types/research.ts) distinguished a freeze intended for a confirmatory result from one intended for a smaller, explicitly-scoped internal/pilot execution — so there was no way to record 'this generation is frozen and its content is immutable, but it was authorized only for a non-confirmatory purpose, and here are exactly which checks it did not pass at the time'.",
+    "'Run EXP-P1 internally' had no reachable representation anywhere in the codebase once a crystal-version generation was frozen — no next-governed-action surface named it as available."
+  ],
+  "rootCauses": [
+    "The freeze gate treated 'may this generation be frozen at all' and 'is this generation fit for a confirmatory result' as the SAME boolean (readiness.ok), when the operator's ruling establishes they are two different governance questions: a frozen generation's immutability is unconditional, but the PURPOSE a frozen generation is authorized for (confirmatory vs. internal/pilot) is a separate, explicitly-recorded decision the operator makes at freeze time.",
+    "The remediation path for an insufficient substrate (observe limitation -> record finding -> expand evidence corpus -> constitute a successor generation -> readiness -> freeze successor -> rerun) was always the ONLY path in the codebase's design intent, but nothing distinguished 'this specific freeze act is deliberately proceeding past a NAMED limitation for a narrower purpose' from 'this freeze act is claiming the limitation does not exist' - so the only way to unblock an internal/pilot run under the prior code would have been to weaken a threshold or mark a failing check as passed, which is precisely what the operator forbade.",
+    "freezeRationale was validated for presence but never wired to a persistence path (payload field or receipt text) - a straightforward completeness gap in the existing PRD-EPI-001 Section 2 freeze act, surfaced only because this ruling required the rationale text to actually be recorded verbatim."
+  ],
+  "resolution": [
+    "types/research.ts: added ArtifactExecutionDesignation ('confirmatory' | 'internal-pilot', defaulting to 'confirmatory'), ScientificDeviation ({checkName, measuredDetail, rationale}), and four new optional fields on FrozenArtifact (executionDesignation, scientificDeviations, freezeRationale, readinessReportAtFreeze) - generalized Crystal-wide, not EXP-P1-specific machinery, with an explicit doc comment stating the governing principle: 'Frozen generations are immutable; Crystal lineages are evolutionary.'",
+    "services/research/artifacts.ts::checkFreezeGate: when a crystal-version's readiness fails and executionDesignation === 'internal-pilot', the gate checks that EVERY currently-failing scientific-readiness check is individually named in scientificDeviations; any uncovered failing check still blocks the freeze unconditionally (an internal-pilot designation is never a blanket waiver). When every failing check is named, checkFreezeGate returns ok:true while the readiness report's own `ok` field and every check's `passed`/`detail` remain EXACTLY as measured - nothing is marked passed, no threshold is weakened, no check text changes.",
+    "services/research/artifacts.ts::freezeArtifact: accepts freezeRationale, executionDesignation, and scientificDeviations (caller supplies only checkName + rationale per deviation - never measuredDetail, which is ALWAYS computed server-side from the live readiness report the gate just ran, so a recorded limitation can never drift from what the instrument actually measured or be supplied as a caller-invented value). Persists all four new fields on the frozen artifact, including the FULL CrystalReadinessReport (readinessReportAtFreeze) exactly as measured. The lifecycle receipt summary now names the execution designation and the acknowledged deviations plus the freeze rationale text, so the constitutional record (not just the DB payload) carries them.",
+    "services/research/artifacts.ts::nextGovernedActionForFrozenCrystal (new, pure, generic over any experiment): given a frozen crystal-version artifact, returns a 'Run EXP-P1 internally (pilot)' or 'Run EXP-P1 (confirmatory)' next-act description naming the acknowledged deviations, explicitly marked executed:false, and explicitly stating that no execution-run runner exists in this codebase (execution-run artifacts are only ever read/counted by services/research/readinessDashboard.ts, never created) - so 'exposing the action' is never mistaken for 'having executed it'. The function also names the unchanged remediation path in full for an insufficient substrate discovered during the pilot run.",
+    "app/api/research/crystal/[experimentId]/freeze/route.ts: POST now accepts executionDesignation and scientificDeviations (defaulting to 'confirmatory' and [] - every existing caller that omits both sees byte-identical behavior to before this change), validates them (unknown designation value refused; scientificDeviations only accepted under 'internal-pilot'; every entry requires non-empty checkName + rationale; 'internal-pilot' with zero deviations refused), passes them through to freezeArtifact, and surfaces nextGovernedAction (reading the freshly-frozen artifact back) in the response. GET now also surfaces nextGovernedAction for the currently-resolved artifact, whether frozen or not (null when not frozen)."
+  ],
+  "rejectedApproaches": [
+    "Weakening or skipping the derivation-headroom or boundary-coverage thresholds for vP2 - explicitly forbidden by the operator ('Do not mark those checks passed and do not weaken their thresholds'); would make the recorded limitation disappear rather than being preserved as a property of this generation.",
+    "A blanket 'internal-pilot' flag that suppresses ALL scientific-readiness gating once set - rejected because it would let a freeze proceed past a failing check the operator never actually reviewed or acknowledged, which is a materially weaker guarantee than the operator's ruling requires ('every measured limitation... remain recorded exactly as observed'). The implemented mechanism requires each failing check to be individually named.",
+    "Building a full EXP-P1 execution-run runner as part of this change so 'Run EXP-P1 internally' could be literally executed, not merely exposed - rejected as scope creep: no execution-run runner exists anywhere in this codebase today (execution-run artifacts are only read/counted, never created), and building one is a separately-chartered, materially larger change than a freeze/execution-designation mechanism. The next governed action is exposed truthfully, including a truthful statement that no runner exists yet, rather than silently building one.",
+    "Treating the freeze act's contentHash staleness guard, boundary-acknowledgement requirement, or T0-identifier signatory guard in app/api/research/crystal/[experimentId]/freeze/route.ts as in scope to alter - none were touched; the new fields are strictly additive to the existing, already-correct freeze act contract."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-05-FROZEN-GENERATIONS-IMMUTABLE-LINEAGES-EVOLUTIONARY-001"
+  ],
+  "canaries": [
+    "tests/crystal-internal-pilot-execution-designation.test.ts",
+    "tests/crystal-freeze-route.test.ts",
+    "tests/prd-epi-001-artifact-model.test.ts"
+  ],
+  "scope": "cross-capability",
+  "status": "candidate",
+  "trigger": "governance-boundary-confused",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/crystal-internal-pilot-execution-designation.test.ts",
+      "tests/crystal-freeze-route.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "Operator ruling, relayed 2026-09-05: 'A Crystal freeze makes that Crystal generation immutable; it does not terminate the Crystal lineage... Its measured limitations in derivation-headroom and boundary coverage must remain recorded exactly as observed, but they should not prevent an explicitly designated internal/pilot EXP-P1 execution if the existing constitutional architecture permits an operator-authorized scientific limitation/deviation. Do not mark those checks passed and do not weaken their thresholds.'"
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-09-05_crystal-vp2-internal-pilot-execution-designation.md"
+  ],
+  "projections": {
+    "targets": [
+      "devon",
+      "irl",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "structural"
+  }
+}

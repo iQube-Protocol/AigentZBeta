@@ -26,29 +26,25 @@ const mockUpsertArtifact = vi.fn();
 // existing test below (none of which cares about lineage) is unaffected.
 // Tests that DO care about generation resolution override this per-case.
 const mockCurrentCrystalArtifactId = vi.fn().mockResolvedValue('EXP-P1/crystal-vP1');
-vi.mock('@/services/research/artifacts', async (importOriginal) => {
-  // deriveNextGovernedAction is pure and real here — these tests don't need
-  // to mock it away, only the I/O-bearing functions above.
-  const actual = await importOriginal<typeof import('@/services/research/artifacts')>();
-  return {
-    deriveNextGovernedAction: actual.deriveNextGovernedAction,
-    freezeArtifact: (...args: any[]) => mockFreezeArtifact(...args),
-    getArtifactById: (...args: any[]) => mockGetArtifactById(...args),
-    upsertArtifact: (...args: any[]) => mockUpsertArtifact(...args),
-    currentCrystalArtifactId: (...args: any[]) => mockCurrentCrystalArtifactId(...args),
-  };
-});
+const mockNextGovernedActionForFrozenCrystal = vi.fn().mockReturnValue(null);
+vi.mock('@/services/research/artifacts', () => ({
+  freezeArtifact: (...args: any[]) => mockFreezeArtifact(...args),
+  getArtifactById: (...args: any[]) => mockGetArtifactById(...args),
+  upsertArtifact: (...args: any[]) => mockUpsertArtifact(...args),
+  currentCrystalArtifactId: (...args: any[]) => mockCurrentCrystalArtifactId(...args),
+  nextGovernedActionForFrozenCrystal: (...args: any[]) => mockNextGovernedActionForFrozenCrystal(...args),
+}));
 
 const mockRunCrystalStatisticsReport = vi.fn();
 vi.mock('@/services/research/crystalStatistics', () => ({
   runCrystalStatisticsReport: (...args: any[]) => mockRunCrystalStatisticsReport(...args),
 }));
 
-// The route builds the persisted hash pre-image (2026-09-05, iterative
+// The route builds the persisted hash pre-image (2026-09-06, iterative
 // Crystal versioning) via a direct listInvariants read AFTER the staleness
 // guard passes — mocked here so these tests never touch a real Supabase
-// client. Empty by default; the one test that reaches this point overrides it.
-const mockListInvariants = vi.fn().mockResolvedValue([]);
+// client. sortedHashCoveredProjection is left REAL (pure, no I/O).
+const mockListInvariants = vi.fn();
 vi.mock('@/services/invariants/store', () => ({
   listInvariants: (...args: any[]) => mockListInvariants(...args),
 }));
@@ -85,13 +81,13 @@ beforeEach(() => {
   mockFreezeArtifact.mockReset();
   mockFreezeArtifact.mockResolvedValue({ ok: true, receiptId: 'receipt-1' });
   mockGetArtifactById.mockReset();
-  // A safe default for the POST freeze path's post-freeze re-fetch (used to
-  // derive nextGovernedAction) — tests that care about GET's own artifact
-  // lookup override this per-case.
-  mockGetArtifactById.mockResolvedValue(null);
   mockUpsertArtifact.mockReset();
   mockCurrentCrystalArtifactId.mockReset();
   mockCurrentCrystalArtifactId.mockResolvedValue('EXP-P1/crystal-vP1');
+  mockNextGovernedActionForFrozenCrystal.mockReset();
+  mockNextGovernedActionForFrozenCrystal.mockReturnValue(null);
+  mockListInvariants.mockReset();
+  mockListInvariants.mockResolvedValue([]);
   mockRunCrystalStatisticsReport.mockReset();
   mockRunCrystalStatisticsReport.mockResolvedValue({ frozenHash: 'hash-abc', invariantCount: 12, substrateError: null });
 });
@@ -215,6 +211,88 @@ describe('GET freeze — read-only artifact lookup (2026-08-05, "freeze is a one
   });
 });
 
+describe('POST freeze — executionDesignation / scientificDeviations ("frozen generations are immutable; Crystal lineages are evolutionary")', () => {
+  it('defaults to confirmatory and passes no scientificDeviations through when the body omits both', async () => {
+    const res = await POST(makeRequest(VALID_FREEZE_BODY), { params: params('EXP-P1') });
+    expect(res.status).toBe(200);
+    const callArgs = mockFreezeArtifact.mock.calls[0][0];
+    expect(callArgs.executionDesignation).toBe('confirmatory');
+    expect(callArgs.scientificDeviations).toEqual([]);
+  });
+
+  it('rejects an unknown executionDesignation value with 400', async () => {
+    const res = await POST(makeRequest({ ...VALID_FREEZE_BODY, executionDesignation: 'bogus' }), { params: params('EXP-P1') });
+    const body = await res.json();
+    expect(res.status).toBe(400);
+    expect(body.error).toContain('executionDesignation');
+    expect(mockFreezeArtifact).not.toHaveBeenCalled();
+  });
+
+  it('rejects scientificDeviations supplied without executionDesignation: internal-pilot', async () => {
+    const res = await POST(
+      makeRequest({ ...VALID_FREEZE_BODY, scientificDeviations: [{ checkName: 'derivation-headroom', rationale: 'x' }] }),
+      { params: params('EXP-P1') },
+    );
+    const body = await res.json();
+    expect(res.status).toBe(400);
+    expect(body.error).toContain('internal-pilot');
+    expect(mockFreezeArtifact).not.toHaveBeenCalled();
+  });
+
+  it('rejects internal-pilot with an empty scientificDeviations array', async () => {
+    const res = await POST(makeRequest({ ...VALID_FREEZE_BODY, executionDesignation: 'internal-pilot' }), { params: params('EXP-P1') });
+    const body = await res.json();
+    expect(res.status).toBe(400);
+    expect(body.error).toContain('scientificDeviations');
+    expect(mockFreezeArtifact).not.toHaveBeenCalled();
+  });
+
+  it('rejects a scientificDeviations entry missing checkName or rationale', async () => {
+    const res = await POST(
+      makeRequest({
+        ...VALID_FREEZE_BODY,
+        executionDesignation: 'internal-pilot',
+        scientificDeviations: [{ checkName: 'derivation-headroom' }],
+      }),
+      { params: params('EXP-P1') },
+    );
+    const body = await res.json();
+    expect(res.status).toBe(400);
+    expect(body.error).toContain('checkName');
+    expect(mockFreezeArtifact).not.toHaveBeenCalled();
+  });
+
+  it('passes executionDesignation + scientificDeviations through to freezeArtifact, and surfaces nextGovernedAction on success', async () => {
+    mockGetArtifactById.mockResolvedValue({
+      id: 'EXP-P1/crystal-vP1',
+      kind: 'crystal-version',
+      lifecycle: 'frozen',
+      executionDesignation: 'internal-pilot',
+      scientificDeviations: [{ checkName: 'derivation-headroom', measuredDetail: 'x', rationale: 'y' }],
+    });
+    mockNextGovernedActionForFrozenCrystal.mockReturnValue({
+      label: 'Run EXP-P1 internally (pilot)',
+      detail: 'pilot detail',
+      executed: false,
+    });
+    const res = await POST(
+      makeRequest({
+        ...VALID_FREEZE_BODY,
+        executionDesignation: 'internal-pilot',
+        scientificDeviations: [{ checkName: 'derivation-headroom', rationale: 'authorized for pilot only' }],
+      }),
+      { params: params('EXP-P1') },
+    );
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    const callArgs = mockFreezeArtifact.mock.calls[0][0];
+    expect(callArgs.executionDesignation).toBe('internal-pilot');
+    expect(callArgs.scientificDeviations).toEqual([{ checkName: 'derivation-headroom', rationale: 'authorized for pilot only' }]);
+    expect(body.nextGovernedAction).toEqual({ label: 'Run EXP-P1 internally (pilot)', detail: 'pilot detail', executed: false });
+    expect(body.note).toContain('INTERNAL/PILOT');
+  });
+});
+
 describe('POST provision — targets the current (successor) generation, never a frozen predecessor', () => {
   it('provisions the successor generation id once currentCrystalArtifactId reports it as current', async () => {
     mockCurrentCrystalArtifactId.mockResolvedValue('EXP-P1/crystal-vP2');
@@ -242,5 +320,40 @@ describe('POST provision — targets the current (successor) generation, never a
     expect(res.status).toBe(409);
     expect(body.requestSucceeded).toBe(false);
     expect(mockCurrentCrystalArtifactId).not.toHaveBeenCalled();
+  });
+});
+
+describe('POST freeze — memberSnapshot hash pre-image (2026-09-06, iterative Crystal versioning)', () => {
+  it('builds memberSnapshot from a real listInvariants read (validated/canonical only) and passes it to freezeArtifact', async () => {
+    mockListInvariants.mockResolvedValue([
+      {
+        id: 'inv-1',
+        statement: 'stmt-1',
+        namespace: 'finance',
+        semanticType: null,
+        status: 'validated',
+        evidenceProvenance: null,
+        provenance: null,
+      },
+    ]);
+    const res = await POST(makeRequest(VALID_FREEZE_BODY), { params: params('EXP-P1') });
+    expect(res.status).toBe(200);
+    expect(mockListInvariants).toHaveBeenCalledWith(
+      expect.objectContaining({ domain: expect.any(String), status: ['validated', 'canonical'], limit: 500 }),
+    );
+    const callArgs = mockFreezeArtifact.mock.calls[0][0];
+    expect(callArgs.memberSnapshot).toEqual([
+      expect.objectContaining({ id: 'inv-1', statement: 'stmt-1', namespace: 'finance', status: 'validated' }),
+    ]);
+  });
+
+  it('refuses with 503 when the invariant substrate cannot be read to build the hash pre-image', async () => {
+    mockListInvariants.mockRejectedValue(new Error('substrate unreachable'));
+    const res = await POST(makeRequest(VALID_FREEZE_BODY), { params: params('EXP-P1') });
+    const body = await res.json();
+    expect(res.status).toBe(503);
+    expect(body.requestSucceeded).toBe(false);
+    expect(body.error).toContain('substrate unreachable');
+    expect(mockFreezeArtifact).not.toHaveBeenCalled();
   });
 });

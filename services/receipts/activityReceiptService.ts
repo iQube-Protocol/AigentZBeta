@@ -567,7 +567,25 @@ export type ActivityActionType =
   | 'moneypenny_admission_decided'
   | 'factor_standing_proposed'
   | 'factor_authority_chain_established'
-  | 'factor_authority_chain_revoked';
+  | 'factor_authority_chain_revoked'
+  // Factor + Aegis Bankr PRD, Phase 4/7 (2026-09-05) — the governed
+  // token-launch domain's own receipted events. See
+  // services/financialServices/providers/bankr/, services/factor/
+  // tokenLaunchService.ts, supabase/migrations/20260930220000_token_launches.sql.
+  | 'bankr_provider_bound'
+  | 'bankr_launch_preflighted'
+  | 'token_launch_proposed'
+  | 'aegis_token_assessment_ratified'
+  | 'token_launch_approved'
+  | 'token_launch_submitted'
+  | 'token_launch_confirmed'
+  | 'token_fees_claimed'
+  // Factor + Aegis PRD tranche (2026-09-05) — Vela confidential-projection
+  // workloads Factor drives through services/factor/factorConfidentialWorkload.ts.
+  // Never carries confidential inputs/results — only commitments + the
+  // provider's own coarse verdict (ConfidentialProjectionEvidence's own
+  // T0/receipt-safe discipline, types/confidentialProjection.ts).
+  | 'confidential_projection_evaluated';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 

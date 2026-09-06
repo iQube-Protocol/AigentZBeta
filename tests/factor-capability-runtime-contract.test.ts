@@ -197,14 +197,18 @@ describe('askSpecialist(factor) — live-LLM affordance/approval are server-deri
   it('a PLANNED capability stays PLANNED even when the LLM response reads confident and actionable', async () => {
     mockLlmJson({
       title: 'Sure, we can do that',
-      summary: 'Bankr tokenization is fully live and ready to use right now.',
-      recommendations: ['Issue the token immediately'],
+      summary: 'Runtime activation is fully live and ready to use right now.',
+      recommendations: ['Activate the runtime immediately'],
       requiresApproval: false,
     });
-    const res = await askSpecialist({ specialistId: 'factor', context: ctx('Could this agent issue a fair-launch token through Bankr?') });
+    // bankr_tokenization gained real handlers in Phase 5 (services/factor/
+    // bankrCapabilityHandlers.ts) and is no longer PLANNED (now 'partial') —
+    // runtime_activation remains genuinely unimplemented and is the current
+    // illustrative PLANNED example.
+    const res = await askSpecialist({ specialistId: 'factor', context: ctx('Activate this agent\'s runtime') });
     expect(res.source).toBe('llm');
     expect(res.affordance).toBe('PLANNED');
-    expect(res.resolvedCapabilityId).toBe('bankr_tokenization');
+    expect(res.resolvedCapabilityId).toBe('runtime_activation');
   });
 
   it('a partial capability (standing_proposal) is PREPARABLE on the live-LLM path too, matching the template path', async () => {
@@ -289,12 +293,24 @@ describe('GET /api/agents/factor/agent-card.json — handler-kind honesty', () =
     expect(intake.hostLocalOnly).toBe(false);
   });
 
-  it('a planned capability (bankr-tokenization) is neither externally actionable nor host-local', async () => {
+  it('a planned capability (runtime-activation) is neither externally actionable nor host-local', async () => {
+    const { GET } = await import('@/app/api/agents/factor/agent-card.json/route');
+    const res = await GET(new NextRequest('https://dev-beta.aigentz.me/api/agents/factor/agent-card.json'));
+    const body = await res.json();
+    // bankr_tokenization gained a real 'service' handlerKind in Phase 5 and
+    // is now externally actionable — runtime_activation remains the
+    // illustrative still-unimplemented example.
+    const runtimeActivation = body.skills.find((s: { id: string }) => s.id === 'runtime-activation');
+    expect(runtimeActivation.externallyActionable).toBe(false);
+    expect(runtimeActivation.hostLocalOnly).toBe(false);
+  });
+
+  it('bankr-tokenization is externally actionable now that a real service handler exists (Phase 5)', async () => {
     const { GET } = await import('@/app/api/agents/factor/agent-card.json/route');
     const res = await GET(new NextRequest('https://dev-beta.aigentz.me/api/agents/factor/agent-card.json'));
     const body = await res.json();
     const bankr = body.skills.find((s: { id: string }) => s.id === 'bankr-tokenization');
-    expect(bankr.externallyActionable).toBe(false);
+    expect(bankr.externallyActionable).toBe(true);
     expect(bankr.hostLocalOnly).toBe(false);
   });
 });

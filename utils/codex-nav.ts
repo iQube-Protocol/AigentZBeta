@@ -138,6 +138,21 @@ export interface CodexNavOptions {
    * preserves every existing caller's URL byte-for-byte.
    */
   focus?: string;
+  /**
+   * Explicitly select this catalogue item's group at the destination
+   * (`?autoActivate=`) — the ACTIVATION_CATALOG id (data/activation-catalog.ts)
+   * whose group the destination `tab` belongs to, e.g. "moneypenny" (Factor
+   * Operate blocker, 2026-09-06). CodexPanelDynamic already auto-activates
+   * an unaddressed, self-activatable (`gate: 'open'`) catalogue id read from
+   * this exact param on arrival — this option only supplies it. A NAMED,
+   * TYPED field, same discipline as `agentSlug`/`focus` above: `tab` alone
+   * is ambiguous whenever the destination tab's own group carries an
+   * `activationId` gate this persona has not separately granted —
+   * `getEnabledTabs` then excludes the tab and the destination silently
+   * falls back to its own first-enabled tab instead. Omitted preserves
+   * every existing caller's URL byte-for-byte.
+   */
+  autoActivate?: string;
 }
 
 /**
@@ -164,6 +179,7 @@ export function buildCodexUrl(slug: string, opts: CodexNavOptions = {}): string 
     focused,
     focusedNavDepth,
     focus,
+    autoActivate,
   } = opts;
 
   const params = new URLSearchParams();
@@ -188,6 +204,7 @@ export function buildCodexUrl(slug: string, opts: CodexNavOptions = {}): string 
   // the receiving route is what actually validates it, via resolveRegistrableAgent.
   if (agentSlug && agentSlug.trim().length > 0) params.set("agentSlug", agentSlug.trim());
   if (focus && focus.trim().length > 0) params.set("focus", focus.trim());
+  if (autoActivate && autoActivate.trim().length > 0) params.set("autoActivate", autoActivate.trim());
 
   if (shell === "viewer") {
     // Normalise to full codexId — viewer expects ?id=knyt-codex, not the bare slug

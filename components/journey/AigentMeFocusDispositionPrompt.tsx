@@ -20,6 +20,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { CheckCircle2, Loader2 } from 'lucide-react';
 import { personaFetch } from '@/utils/personaSpine';
 import { readJsonOrExplain } from '@/utils/readJsonOrExplain';
+import { requestJourneyStateRefresh } from '@/services/journey/journeyStateRefreshRequest';
 
 const DISPOSITIONS = [
   { value: 'central', label: 'Central to my ExperienceQube', description: 'This focus should shape what I build.' },
@@ -116,6 +117,16 @@ export function AigentMeFocusDispositionPrompt({
         // The SERVER's value, not the button's — if the two ever differ, the
         // durable record is what the companion must speak about.
         onResolved?.(recorded);
+        // Confirmed by the server (res.ok && json.ok above), never assumed —
+        // this is the ONE act that writes both of the aigentme stage's
+        // completionEvidence receipts (aigentme_activated,
+        // experienceqube_focus_disposition_recorded). This component runs
+        // inside an iframe the Journey observer cannot reach with an
+        // in-process callback, so the request crosses the boundary via
+        // postMessage (services/journey/journeyStateRefreshRequest.ts) —
+        // best-effort, and a no-op when nobody is listening (e.g. this
+        // prompt reached outside any Guided Journey Runtime viewport).
+        requestJourneyStateRefresh('aigentme-disposition-recorded', agentSlug);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Could not record your choice');
       } finally {

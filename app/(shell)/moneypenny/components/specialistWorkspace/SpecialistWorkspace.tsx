@@ -27,6 +27,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Loader2, RotateCcw, ArrowRight } from "lucide-react";
 import { SpecialistResponseCard, type SpecialistResponseData } from "@/components/metame/cards/SpecialistResponseCard";
+import type { FactorActionDescriptor } from "@/services/factor/factorCapabilityManifest";
+import { BankrTokenLaunchCapsule } from "@/components/moneypenny/bankr/BankrTokenLaunchCapsule";
 import { personaFetch } from "@/utils/personaSpine";
 import { askGroundedSpecialist } from "@/services/moneypenny/caseContextConsultation";
 import {
@@ -153,6 +155,10 @@ export function SpecialistWorkspace({
   const prevKeyRef = useRef(storageKey);
   const [composerText, setComposerText] = useState("");
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
+  // Which turns have their inline Bankr tokenization console open — Factor-
+  // only (bankr_tokenization actions), keyed per-turn so opening one turn's
+  // console never affects another's (Phase 6 click-through wiring).
+  const [bankrOpenTurns, setBankrOpenTurns] = useState<Record<string, boolean>>({});
 
   // A scope change (e.g. Factor's direct consult -> a just-opened case) is a
   // different thread by definition — reload rather than carry the previous
@@ -227,6 +233,28 @@ export function SpecialistWorkspace({
   const askFollowUp = useCallback(() => {
     composerRef.current?.focus();
   }, []);
+
+  /**
+   * Factor's `availableActions` click-through (Phase 6). A
+   * `bankr_tokenization:*` action beyond `explain` opens/toggles that turn's
+   * inline BankrTokenLaunchCapsule — the ONE real console, never a second
+   * chat turn — using the SAME beneficiary agent bound to this thread's
+   * `factorScope.agentRef`, when one is bound (the capsule renders its own
+   * honest "no agent bound" state otherwise, never a guessed id). Every
+   * other action (explain, or any non-Bankr capability) resubmits as a
+   * normal prompt turn, unchanged from the suggestion-chip behavior above.
+   */
+  const handleFactorAction = useCallback(
+    (turnId: string, action: FactorActionDescriptor) => {
+      const [capabilityId] = action.id.split(":");
+      if (capabilityId === "bankr_tokenization" && action.mode !== "explain") {
+        setBankrOpenTurns((prev) => ({ ...prev, [turnId]: !prev[turnId] }));
+        return;
+      }
+      submitPrompt(action.label, capabilityId);
+    },
+    [submitPrompt],
+  );
 
   const onComposerKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -308,12 +336,25 @@ export function SpecialistWorkspace({
               </div>
             ) : (
               <div className="flex flex-col gap-1.5">
-                {!turn.loading && !turn.error && (
-                  <span className="inline-flex w-fit items-center rounded-full border border-sky-700/60 bg-sky-500/10 px-2 py-0.5 text-[11px] font-medium text-sky-200">
-                    Advisory guidance
-                  </span>
+                {/* One consistent affordance signal — SpecialistResponseCard's own
+                    server-derived badge (data.affordance). A second, hardcoded
+                    "Advisory guidance" pill used to render here unconditionally,
+                    even for an ACTION_AVAILABLE/PLANNED response, contradicting
+                    the card's own badge (Factor runtime-contract closure, Phase 1
+                    continuation, 2026-09-05). */}
+                <SpecialistResponseCard
+                  data={turn.response}
+                  loading={turn.loading}
+                  error={turn.error}
+                  theme="dark"
+                  onAction={specialistId === "factor" ? (action) => handleFactorAction(turn.id, action) : undefined}
+                />
+                {specialistId === "factor" && bankrOpenTurns[turn.id] && (
+                  <BankrTokenLaunchCapsule
+                    initialPresentation="expanded"
+                    beneficiaryAgentRuntimeId={factorScope?.agentRef}
+                  />
                 )}
-                <SpecialistResponseCard data={turn.response} loading={turn.loading} error={turn.error} theme="dark" />
                 {turn.error && (
                   <button type="button" onClick={() => retryTurn(turn.id)} className="inline-flex w-fit items-center gap-1 text-xs text-slate-400 hover:text-slate-200">
                     <RotateCcw className="h-3 w-3" /> Retry

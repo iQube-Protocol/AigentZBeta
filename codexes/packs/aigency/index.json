@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-09-05T10:15:54.456Z",
+  "last_updated": "2026-09-05T21:39:23.969Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "07334b2fad388ab2f02a3c05a5076c1db44c5573",
-  "latest_commit_short": "07334b2",
-  "latest_commit_title": "Fix inert MoneyPenny Market Research/Learn cards; log EXP-P1 stage 8 gap",
+  "latest_commit": "72c692dc7b0da25ad53cfd0c9d72ed7052fbfb72",
+  "latest_commit_short": "72c692d",
+  "latest_commit_title": "Add Crystal-wide internal-pilot execution designation (frozen generations are immutable; lineages are evolutionary)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,60 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "72c692d",
+      "full_sha": "72c692dc7b0da25ad53cfd0c9d72ed7052fbfb72",
+      "title": "Add Crystal-wide internal-pilot execution designation (frozen generations are immutable; lineages are evolutionary)",
+      "author": "Claude",
+      "timestamp": "2026-09-05T21:37:39Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-72c692d.md"
+    },
+    {
+      "sha": "f5b13db",
+      "full_sha": "f5b13db950b8fc17da641fa6af1d320cbd669669",
+      "title": "Update Bankr Phase 6-9 delivery report with the frontend integration",
+      "author": "Claude",
+      "timestamp": "2026-09-05T21:13:23Z",
+      "type": "chore",
+      "brief": "items/build_/COMMITS/COMMIT-f5b13db.md"
+    },
+    {
+      "sha": "c53302f",
+      "full_sha": "c53302f536c32e0122fbc921a5f870db43e652e4",
+      "title": "Record Bankr Phases 6-9 delivery report (frontend integration pending)",
+      "author": "Claude",
+      "timestamp": "2026-09-05T21:04:50Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-c53302f.md"
+    },
+    {
+      "sha": "39e5792",
+      "full_sha": "39e5792aec67df029203286c9c738ad77076a41f",
+      "title": "Add Bankr Phase 9 live-rehearsal script (stops at the approval boundary)",
+      "author": "Claude",
+      "timestamp": "2026-09-05T21:02:10Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-39e5792.md"
+    },
+    {
+      "sha": "3b9ae5a",
+      "full_sha": "3b9ae5a0703c956e066c9d83aeb8f828769ebd30",
+      "title": "Give Factor's Bankr actions real HTTP routes; close Phase 8 drift/tenant gaps (Phase 6 backend)",
+      "author": "Claude",
+      "timestamp": "2026-09-05T20:54:52Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-3b9ae5a.md"
+    },
+    {
+      "sha": "9a11c7c",
+      "full_sha": "9a11c7c2c4d5552804fd671373f3097c43913f12",
+      "title": "Give Factor real Bankr capability actions (Phase 5 of Factor+Aegis Bankr PRD)",
+      "author": "Claude",
+      "timestamp": "2026-09-05T20:15:58Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-9a11c7c.md"
+    },
     {
       "sha": "07334b2",
       "full_sha": "07334b2fad388ab2f02a3c05a5076c1db44c5573",
@@ -1198,60 +1252,6 @@
       "timestamp": "2026-09-02T13:14:48Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-fea3a52.md"
-    },
-    {
-      "sha": "3c1551d",
-      "full_sha": "3c1551d7501b0bb96581cef25bc3155a200ee260",
-      "title": "Add canonical participant research-workspace access resolver",
-      "author": "Claude",
-      "timestamp": "2026-09-02T12:59:22Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-3c1551d.md"
-    },
-    {
-      "sha": "0e171da",
-      "full_sha": "0e171da6f059d482a676883da940d577955bacb9",
-      "title": "Honor public workspace visibility and label My Experiments in IRL OS Workspace",
-      "author": "Claude",
-      "timestamp": "2026-09-02T12:59:22Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-0e171da.md"
-    },
-    {
-      "sha": "d158cda",
-      "full_sha": "d158cdac69cbf63b116de03bf1a56ddc09ef1743",
-      "title": "Add acceptance tests for IRL OS experiment membership resolver [merge feature/irl-experiment-membership-workspace]",
-      "author": "Claude",
-      "timestamp": "2026-09-02T12:59:23Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-d158cda.md"
-    },
-    {
-      "sha": "1629ea2",
-      "full_sha": "1629ea24486ea4fe1641515ab58115ab0594fec0",
-      "title": "Import three MoneyPenny donor repos' real docs into docs/specs/moneypenny/",
-      "author": "Claude",
-      "timestamp": "2026-09-02T12:37:43Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-1629ea2.md"
-    },
-    {
-      "sha": "5d4ce61",
-      "full_sha": "5d4ce615b5cda0a7bb18d72b6b3d0f2997a70562",
-      "title": "Decouple public-exposure from series='bridge' — require an explicit signal",
-      "author": "Claude",
-      "timestamp": "2026-09-02T12:37:58Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-5d4ce61.md"
-    },
-    {
-      "sha": "9b7f469",
-      "full_sha": "9b7f469a4f9d1caafc0e2ba0153a884f49a2a736",
-      "title": "A2 completion: infographic publishes AND renders through the real bridge reader",
-      "author": "Claude",
-      "timestamp": "2026-09-02T12:38:11Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-9b7f469.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

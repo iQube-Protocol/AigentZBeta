@@ -124,6 +124,7 @@ import {
   MONEYPENNY_ARCHITECT,
   MONEYPENNY_RUNTIME,
   MONEYPENNY_RUNTIME_CONSTITUTIONAL,
+  MONEYPENNY_BANKR_TOKENIZATION,
 } from '@/services/financialServices/serviceCatalog';
 import { assembleFinancialServiceOrchestration } from '@/services/financialServices/orchestration';
 import {
@@ -302,7 +303,10 @@ describe('service discovery — serviceCatalog', () => {
       expect(def.pricingPolicy).toBeDefined();
       expect(def.receiptPolicy).toBeDefined();
     }
-    expect(listFinancialServiceDefinitions()).toHaveLength(4);
+    // MONEYPENNY_BANKR_TOKENIZATION is asserted separately below (its own
+    // providerMode/governancePath vocabulary is intentionally NOT
+    // ADVISOR|ARCHITECT|RUNTIME, so it is not folded into this loop's regex).
+    expect(listFinancialServiceDefinitions()).toHaveLength(5);
   });
 
   it('returns null for an unknown serviceId', () => {
@@ -364,6 +368,53 @@ describe('service discovery — serviceCatalog', () => {
     expect(GOVERNANCE_PATH_EXECUTION_MODE_OVERRIDE.CONSTITUTIONAL_COMMERCE).toBe('authoritative');
     expect(GOVERNANCE_PATH_EXECUTION_MODE_OVERRIDE.CONSTITUTIONAL_SERVICE_PIPELINE).toBe('shadow');
     expect(GOVERNANCE_PATH_EXECUTION_MODE_OVERRIDE.NONE).toBeUndefined();
+  });
+
+  describe('MONEYPENNY_BANKR_TOKENIZATION (Factor + Aegis Bankr PRD, Phase 2)', () => {
+    it('resolves via the real registry-seeded capabilityId, shared with Factor\'s own manifest', () => {
+      expect(resolveFinancialServiceDefinition(MONEYPENNY_BANKR_TOKENIZATION.serviceId)).toEqual(MONEYPENNY_BANKR_TOKENIZATION);
+      expect(MONEYPENNY_BANKR_TOKENIZATION.capabilityId).toBe('bankr_tokenization');
+      // Never the Gate-2-frozen exception, never any other service's id.
+      expect(MONEYPENNY_BANKR_TOKENIZATION.capabilityId).not.toBe('CONFIDENTIAL_CONSEQUENCE_PROJECTION');
+      expect(MONEYPENNY_BANKR_TOKENIZATION.capabilityId).not.toBe(MONEYPENNY_ADVISOR.capabilityId);
+      expect(MONEYPENNY_BANKR_TOKENIZATION.capabilityId).not.toBe(MONEYPENNY_ARCHITECT.capabilityId);
+      expect(MONEYPENNY_BANKR_TOKENIZATION.capabilityId).not.toBe(MONEYPENNY_RUNTIME_CONSTITUTIONAL.capabilityId);
+    });
+
+    it('is genuinely CONSEQUENTIAL but NEVER requests Gate 2\'s frozen authoritative exception', () => {
+      expect(MONEYPENNY_BANKR_TOKENIZATION.serviceClass).toBe('CONSEQUENTIAL');
+      expect(MONEYPENNY_BANKR_TOKENIZATION.governancePath).toBe('BANKR_TOKEN_LAUNCH_PIPELINE');
+      expect(GOVERNANCE_PATH_EXECUTION_MODE_OVERRIDE.BANKR_TOKEN_LAUNCH_PIPELINE).toBe('shadow');
+      expect(GOVERNANCE_PATH_EXECUTION_MODE_OVERRIDE.BANKR_TOKEN_LAUNCH_PIPELINE).not.toBe('authoritative');
+      // The real governance mechanism is entirely downstream, never VELA's primitives.
+      expect(MONEYPENNY_BANKR_TOKENIZATION.executionPolicy.executionReachable).toBe(false);
+    });
+
+    it('never hardcodes Bankr economics — pricingPolicy is MoneyPenny\'s own facilitation fee, unset, not Bankr\'s terms', () => {
+      expect(MONEYPENNY_BANKR_TOKENIZATION.pricingPolicy.priceQc).toBe(0);
+    });
+
+    it('has no real dispatch wired yet (Phase 5) — requestFinancialService fails closed, honestly, rather than doing something wrong', async () => {
+      mockResolveCapabilityProviders.mockResolvedValue([MONEYPENNY_ADVISOR_PROVIDER]);
+      const { outcome } = await requestFinancialService({
+        request: request(MONEYPENNY_BANKR_TOKENIZATION.serviceId),
+        publicForecast: forecast(),
+        confidentialEvidence: null,
+        actorPersonaId: ACTOR_PERSONA_ID,
+        callerAuthProfileId: ACTOR_AUTH_PROFILE_ID,
+        now: '2026-08-22T00:00:00.000Z',
+        admin: fakeSupabase as any,
+      });
+      // Eligibility/authority may still pass (this is a real, admitted
+      // consumer) — what matters is that dispatch itself, once reached,
+      // never fabricates a DELIVERED/AUTHORISED outcome for a providerMode
+      // no dispatch branch exists for yet.
+      expect(outcome.status).not.toBe('DELIVERED');
+      expect(outcome.status).not.toBe('AUTHORISED');
+      if (outcome.status === 'UNRESOLVED') {
+        expect(outcome.reason).toContain('no provider dispatch implemented');
+      }
+    });
   });
 
   it('providerMode and serviceClass are derived from the single explicit mapping, never independently authored', () => {
@@ -1411,7 +1462,7 @@ describe('discoverFinancialServicesForConsumer() / discoverEligibleFinancialServ
     });
     expect(discovered.ok).toBe(true);
     if (!discovered.ok) throw new Error('unreachable');
-    expect(discovered.services).toHaveLength(4);
+    expect(discovered.services).toHaveLength(5);
     // Resolved ONCE per request (Repair F) — not once per catalog item.
     expect(mockResolveAgentAdmissionState).toHaveBeenCalledTimes(1);
 
@@ -1422,6 +1473,9 @@ describe('discoverFinancialServicesForConsumer() / discoverEligibleFinancialServ
     expect(byId.get(MONEYPENNY_RUNTIME.serviceId)?.eligibility.code).toBe('STANDING_BELOW_THRESHOLD');
     expect(byId.get(MONEYPENNY_RUNTIME_CONSTITUTIONAL.serviceId)?.eligibility.eligible).toBe(false);
     expect(byId.get(MONEYPENNY_RUNTIME_CONSTITUTIONAL.serviceId)?.eligibility.code).toBe('STANDING_BELOW_THRESHOLD');
+    // Bankr shares the same Standing floor as the Runtime services.
+    expect(byId.get(MONEYPENNY_BANKR_TOKENIZATION.serviceId)?.eligibility.eligible).toBe(false);
+    expect(byId.get(MONEYPENNY_BANKR_TOKENIZATION.serviceId)?.eligibility.code).toBe('STANDING_BELOW_THRESHOLD');
     // Advisor/Architect never compute an authority prerequisite — they never
     // reach real authorisation. Runtime (Constitutional) is also
     // executionReachable:false (its real authorization is the EXISTING
@@ -1440,7 +1494,7 @@ describe('discoverFinancialServicesForConsumer() / discoverEligibleFinancialServ
     );
   });
 
-  it('an admitted consumer at/above the Runtime Standing floor sees all four services eligible', async () => {
+  it('an admitted consumer at/above the Runtime Standing floor sees all five services eligible', async () => {
     const eligible = await discoverEligibleFinancialServices(CONSUMER, fakeSupabase as any, {
       actorPersonaId: ACTOR_PERSONA_ID,
       callerAuthProfileId: ACTOR_AUTH_PROFILE_ID,
@@ -1451,6 +1505,7 @@ describe('discoverFinancialServicesForConsumer() / discoverEligibleFinancialServ
         MONEYPENNY_ARCHITECT.serviceId,
         MONEYPENNY_RUNTIME.serviceId,
         MONEYPENNY_RUNTIME_CONSTITUTIONAL.serviceId,
+        MONEYPENNY_BANKR_TOKENIZATION.serviceId,
       ].sort(),
     );
   });
@@ -1527,6 +1582,7 @@ describe('discoverFinancialServicesForConsumer() / discoverEligibleFinancialServ
         MONEYPENNY_ARCHITECT.serviceId,
         MONEYPENNY_RUNTIME.serviceId,
         MONEYPENNY_RUNTIME_CONSTITUTIONAL.serviceId,
+        MONEYPENNY_BANKR_TOKENIZATION.serviceId,
       ].sort(),
     );
   });
