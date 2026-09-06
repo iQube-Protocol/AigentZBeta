@@ -86,6 +86,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { resolveRegistrableAgent, type RegistrableAgentConfig } from '@/services/horizen/registrableAgents';
+import { findAgentRootIdentityBySlug } from '@/services/agents/sponsorPolityAgent';
 import { resolveAgentRegistrationState } from '@/services/horizen/agentRegistrationBinding';
 import { AgentPurposeWalletService } from '@/services/wallet/agentPurposeWalletService';
 import { getPassportApplicationStatus, getPassportRecordStatus } from '@/services/passport/passportStatusRead';
@@ -222,7 +223,38 @@ async function resolveOperatorContextLeg(input: UseCaseZeroReadinessInput): Prom
   });
 }
 
-function resolveAgentShellLeg(agent: RegistrableAgentConfig | null, agentSlug: string): ReadinessLeg {
+/**
+ * Item (2026-09-06, RootDID minting primitive): agentShell now recognises
+ * TWO distinct facts, never conflated —
+ *   1. Is this slug a Horizen-registrable runtime agent (REGISTRABLE_AGENTS)?
+ *      That allowlist is a real, deliberate code-level boundary (agent_keys
+ *      custody wallet, health route, Agent Card route) — still not
+ *      dynamically provisionable, and downstream legs that need a
+ *      `runtimeAgentId` (wallets, Horizen registration, Pulse/P&L, Bankr)
+ *      still report accordingly when it is absent.
+ *   2. Does this slug have a minted RootDID at all
+ *      (`agent_root_identity`, via the EXISTING `sponsorPolityAgent`
+ *      primitive — `did:agent:root:<slug>`, no cost, no blockchain
+ *      broadcast)? A citizen sponsoring a NEW agent's genesis (the
+ *      'create_and_establish' path) satisfies THIS fact without needing to
+ *      be Horizen-registrable — that is a separate, later readiness
+ *      concern, not a precondition of having a constitutional identity at
+ *      all. Re-use law: this reuses `sponsorPolityAgent` unchanged; it does
+ *      not mint a second, disagreeing RootDID scheme.
+ *
+ * `sponsorPassportEstablished` reflects the OPERATOR's OWN passport leg,
+ * resolved by the caller before this one so genesis is never attempted (or
+ * offered as the presently-actionable step) before the sponsoring citizen
+ * Passport actually exists — matching the operator's own stated sequence:
+ * "creates a passport and then sponsors an agent."
+ */
+async function resolveAgentShellLeg(
+  admin: SupabaseClient,
+  agent: RegistrableAgentConfig | null,
+  agentSlug: string,
+  path: UseCaseZeroPath,
+  sponsorPassportEstablished: boolean,
+): Promise<ReadinessLeg> {
   if (agent) {
     return leg({
       key: 'agentShell',
@@ -234,19 +266,64 @@ function resolveAgentShellLeg(agent: RegistrableAgentConfig | null, agentSlug: s
       evidenceRefs: [agent.runtimeAgentId],
     });
   }
-  // Structural boundary, not a step-away-from-established fact: adding a new
-  // slug to REGISTRABLE_AGENTS is a code-level allowlist change, not
-  // something the next operator action can provision — 'blocked', not
-  // 'missing'.
+
+  const rootIdentity = await findAgentRootIdentityBySlug(admin, agentSlug);
+  if (rootIdentity) {
+    return leg({
+      key: 'agentShell',
+      label: 'Agent shell (registrable identity)',
+      state: 'established',
+      mode: 'live',
+      reason:
+        `'${agentSlug}' has a minted RootDID (${rootIdentity.didUri}, via the existing sponsorPolityAgent ` +
+        `primitive) — not yet a Horizen-registrable runtime agent (REGISTRABLE_AGENTS allowlist); later ` +
+        `legs that need a runtime agent id (wallets, Horizen registration, Bankr binding) report that ` +
+        `separately and honestly, rather than this leg papering over it.`,
+      source: 'services/agents/sponsorPolityAgent.ts (agent_root_identity)',
+      evidenceRefs: [rootIdentity.didUri],
+    });
+  }
+
+  if (path === 'create_and_establish') {
+    if (!sponsorPassportEstablished) {
+      return leg({
+        key: 'agentShell',
+        label: 'Agent shell (registrable identity)',
+        state: 'awaiting_external_action',
+        mode: 'n/a',
+        reason:
+          `'${agentSlug}' has no RootDID yet, and sponsoring a NEW agent's genesis requires the operator's ` +
+          `own citizen Passport to already be issued (sponsorPolityAgent's own ownership check). File or ` +
+          `resume the Passport application first.`,
+        source: 'services/agents/sponsorPolityAgent.ts',
+      });
+    }
+    return leg({
+      key: 'agentShell',
+      label: 'Agent shell (registrable identity)',
+      state: 'missing',
+      mode: 'n/a',
+      reason:
+        `'${agentSlug}' has no RootDID yet. Sponsor its genesis (mints did:agent:root:${agentSlug} via the ` +
+        `existing sponsorPolityAgent primitive — no cost, no blockchain broadcast) to establish the ` +
+        `constitutional agent shell.`,
+      source: 'services/agents/sponsorPolityAgent.ts',
+    });
+  }
+
+  // 'bring_own_agent': neither a REGISTRABLE_AGENTS entry nor an
+  // agent_root_identity row exists under this slug — there is genuinely no
+  // existing agent to bring. Structural boundary, not a step-away-from-
+  // established fact: 'blocked', not 'missing'.
   return leg({
     key: 'agentShell',
     label: 'Agent shell (registrable identity)',
     state: 'blocked',
     mode: 'n/a',
     reason:
-      `'${agentSlug}' is not in the REGISTRABLE_AGENTS allowlist. Creating a wholly new ` +
-      `Horizen-registrable agent shell is a code-level allowlist change, not a runtime ` +
-      `provisioning action — this capability boundary is reported honestly rather than papered over.`,
+      `'${agentSlug}' is neither a REGISTRABLE_AGENTS runtime agent nor a sponsored RootDID ` +
+      `(agent_root_identity) — there is no existing agent under this slug to bring. Choose ` +
+      `"Create and establish an agent" to sponsor its genesis instead.`,
     source: 'services/horizen/registrableAgents.ts',
   });
 }
@@ -1047,16 +1124,23 @@ export async function projectUseCaseZeroReadiness(input: UseCaseZeroReadinessInp
       ? await resolveAdmissionConditions(input.admin, factorCase.case_id, input.tenantId)
       : [];
 
+  // Hoisted ahead of agentShell (rather than left in its display position)
+  // because agentShell's own 'create_and_establish' resolution needs to know
+  // whether the OPERATOR's sponsoring Passport already exists — matching the
+  // operator's stated sequence: "creates a passport and then sponsors an
+  // agent." The leg is still rendered in its usual array position below.
+  const passportLeg = await resolvePassportLeg(input.admin, input.actorPersonaId);
+
   const legs: ReadinessLeg[] = [
     await resolveOperatorContextLeg(input),
-    resolveAgentShellLeg(agent, input.agentSlug),
+    await resolveAgentShellLeg(input.admin, agent, input.agentSlug, input.path, passportLeg.state === 'established'),
     ...(runtimeAgentId
       ? await resolveWalletLegs(runtimeAgentId)
       : ([
           leg({ key: 'ownerWallet', label: 'Owner/control wallet', state: 'missing', mode: 'n/a', reason: 'No runtime agent id resolved yet.', source: 'services/wallet/agentPurposeWalletService.ts' }),
           leg({ key: 'settlementWallet', label: 'Settlement/x402 wallet', state: 'missing', mode: 'n/a', reason: 'No runtime agent id resolved yet.', source: 'services/wallet/agentPurposeWalletService.ts' }),
         ] as [ReadinessLeg, ReadinessLeg])),
-    await resolvePassportLeg(input.admin, input.actorPersonaId),
+    passportLeg,
     await resolveDelegationLeg(input.actorPersonaId, factorCase?.candidate_agent_root_did ?? null),
     await resolveRegistryAssetLeg(agent?.aigentQubeId ?? null),
     agent

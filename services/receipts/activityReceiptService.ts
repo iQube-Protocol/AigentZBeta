@@ -117,6 +117,12 @@ export type ActivityActionType =
   // production. Both DVN-anchorable.
   | 'capability_registered'
   | 'capability_operationally_validated'
+  // Agent RootDID genesis (Use Case Zero 'create_and_establish' path,
+  // 2026-09-06) — a citizen sponsoring a new agent's constitutional identity
+  // via the EXISTING sponsorPolityAgent primitive (did:agent:root:<slug>).
+  // DVN-anchorable: RootDID genesis is a constitutional identity event, same
+  // rationale as agent_delegated/agent_revocation_state_changed below.
+  | 'agent_root_identity_sponsored'
   // Capability lifecycle — Archive (SPEC-MMC-002 §6.3 Phase 3, 2026-07-24): a
   // capability's own registrant transitioned its lifecycle_state to
   // 'deprecated' (a pure status-flag update — no execution, no deployment,

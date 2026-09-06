@@ -39,6 +39,9 @@ const mocks = vi.hoisted(() => ({
   establishDirectChain: vi.fn(),
   validateChainForAction: vi.fn(),
   createActivityReceipt: vi.fn(),
+  sponsorPolityAgent: vi.fn(),
+  findAgentRootIdentityBySlug: vi.fn(),
+  bindCandidateAgentRootDid: vi.fn(),
 }));
 
 vi.mock('@/services/horizen/registrableAgents', () => ({
@@ -78,6 +81,11 @@ vi.mock('@/services/factor/factorCaseService', () => ({
   transitionCaseState: mocks.transitionCaseState,
   listEvidenceForCase: mocks.listEvidenceForCase,
   listCaseEvents: mocks.listCaseEvents,
+  bindCandidateAgentRootDid: mocks.bindCandidateAgentRootDid,
+}));
+vi.mock('@/services/agents/sponsorPolityAgent', () => ({
+  sponsorPolityAgent: mocks.sponsorPolityAgent,
+  findAgentRootIdentityBySlug: mocks.findAgentRootIdentityBySlug,
 }));
 vi.mock('@/services/factor/factorConfidentialWorkload', () => ({
   FACTOR_CONFIDENTIAL_ADMISSION_EVIDENCE_KIND: 'confidential_admission_projection',
@@ -170,6 +178,7 @@ beforeEach(() => {
     ready: false,
     blockers: [],
   });
+  mocks.findAgentRootIdentityBySlug.mockResolvedValue(null);
 });
 
 describe('advanceUseCaseZero — one step per call, always rereads before and after', () => {
@@ -516,6 +525,150 @@ describe('correction 7 — authority evaluated at each consequential handler', (
     expect(result.stepTaken).toBe('delegationAuthority');
     expect(result.outcome).toBe('awaiting_input');
     expect(mocks.establishDirectChain).not.toHaveBeenCalled();
+  });
+});
+
+describe('RootDID minting primitive (2026-09-06) — agentShell sponsors a NEW agent via the EXISTING sponsorPolityAgent primitive', () => {
+  const NEW_AGENT_INPUT = { ...BASE_INPUT, agentSlug: 'aletheon', path: 'create_and_establish' as const };
+
+  it('reports awaiting_external_action (no mutation) when the slug is unregistered, has no RootDID, and the operator has no Passport yet', async () => {
+    mocks.resolveRegistrableAgent.mockReturnValue(null);
+    mocks.getPassportRecordStatus.mockResolvedValue([]);
+    mocks.getPassportApplicationStatus.mockResolvedValue([]);
+    const result = await advanceUseCaseZero(NEW_AGENT_INPUT);
+    expect(result.stepTaken).toBe('agentShell');
+    expect(result.outcome).toBe('awaiting_external_action');
+    expect(result.detail.toLowerCase()).toMatch(/passport/);
+    expect(mocks.sponsorPolityAgent).not.toHaveBeenCalled();
+  });
+
+  it('reports blocked (no mutation) on the bring_own_agent path when no REGISTRABLE_AGENTS entry or RootDID exists', async () => {
+    mocks.resolveRegistrableAgent.mockReturnValue(null);
+    const result = await advanceUseCaseZero({ ...BASE_INPUT, agentSlug: 'aletheon', path: 'bring_own_agent' });
+    expect(result.stepTaken).toBe('agentShell');
+    expect(result.outcome).toBe('blocked');
+    expect(mocks.sponsorPolityAgent).not.toHaveBeenCalled();
+  });
+
+  it('reports awaiting_input when create_and_establish is ready to sponsor but no agentGenesis fields were supplied', async () => {
+    mocks.resolveRegistrableAgent.mockReturnValue(null);
+    mocks.getPassportRecordStatus.mockResolvedValue([
+      { passportId: 'pass-1', passportClass: 'citizen', citizenStatus: 'active', participantStatus: null, issuedAt: '2026-09-01T00:00:00Z' },
+    ]);
+    const result = await advanceUseCaseZero(NEW_AGENT_INPUT);
+    expect(result.stepTaken).toBe('agentShell');
+    expect(result.outcome).toBe('awaiting_input');
+    expect(mocks.sponsorPolityAgent).not.toHaveBeenCalled();
+  });
+
+  it('sponsors the agent genesis via sponsorPolityAgent (unchanged, did:agent:root: scheme), writes a receipt, and binds candidate_agent_root_did onto the case', async () => {
+    mocks.resolveRegistrableAgent.mockReturnValue(null);
+    mocks.getPassportRecordStatus.mockResolvedValue([
+      { passportId: 'pass-1', passportClass: 'citizen', citizenStatus: 'active', participantStatus: null, issuedAt: '2026-09-01T00:00:00Z' },
+    ]);
+    mocks.sponsorPolityAgent.mockResolvedValue({
+      ok: true,
+      status: 200,
+      agent: {
+        agentRootId: 'root-1',
+        agentId: 'polity-bound:aletheon',
+        didUri: 'did:agent:root:aletheon',
+        agentClass: 'polity_bound',
+        displayName: 'Aletheon',
+        description: 'A test agent',
+        agentCardUrl: 'https://dev-beta.aigentz.me/api/agents/aletheon/agent-card.json',
+        agentCardSlug: 'aletheon',
+        isAigentMe: false,
+        sponsorPassportId: 'pass-1',
+        createdAt: '2026-09-06T00:00:00Z',
+      },
+    });
+    const result = await advanceUseCaseZero({
+      ...NEW_AGENT_INPUT,
+      caseId: 'case-1',
+      agentGenesis: { sponsorPassportId: 'pass-1', displayName: 'Aletheon', description: 'A test agent', origin: 'https://dev-beta.aigentz.me' },
+    });
+    expect(mocks.sponsorPolityAgent).toHaveBeenCalledWith(
+      expect.objectContaining({ sponsorPassportId: 'pass-1', slug: 'aletheon', displayName: 'Aletheon', description: 'A test agent' }),
+    );
+    expect(mocks.createActivityReceipt).toHaveBeenCalledWith(
+      expect.objectContaining({ actionType: 'agent_root_identity_sponsored' }),
+    );
+    expect(mocks.bindCandidateAgentRootDid).toHaveBeenCalledWith(expect.anything(), 'case-1', 'tenant-1', 'did:agent:root:aletheon');
+    expect(result.stepTaken).toBe('agentShell');
+    expect(result.outcome).toBe('advanced');
+    // Never chains into the NEXT step (case creation/wallets) in the same call.
+    expect(mocks.createOrResumeCase).not.toHaveBeenCalled();
+  });
+
+  it('never binds candidate_agent_root_did when no case exists yet for this advance', async () => {
+    mocks.resolveRegistrableAgent.mockReturnValue(null);
+    mocks.getPassportRecordStatus.mockResolvedValue([
+      { passportId: 'pass-1', passportClass: 'citizen', citizenStatus: 'active', participantStatus: null, issuedAt: '2026-09-01T00:00:00Z' },
+    ]);
+    mocks.sponsorPolityAgent.mockResolvedValue({
+      ok: true,
+      status: 200,
+      agent: {
+        agentRootId: 'root-1',
+        agentId: 'polity-bound:aletheon',
+        didUri: 'did:agent:root:aletheon',
+        agentClass: 'polity_bound',
+        displayName: 'Aletheon',
+        description: 'A test agent',
+        agentCardUrl: 'https://dev-beta.aigentz.me/api/agents/aletheon/agent-card.json',
+        agentCardSlug: 'aletheon',
+        isAigentMe: false,
+        sponsorPassportId: 'pass-1',
+        createdAt: '2026-09-06T00:00:00Z',
+      },
+    });
+    await advanceUseCaseZero({
+      ...NEW_AGENT_INPUT,
+      agentGenesis: { sponsorPassportId: 'pass-1', displayName: 'Aletheon', description: 'A test agent', origin: 'https://dev-beta.aigentz.me' },
+    });
+    expect(mocks.bindCandidateAgentRootDid).not.toHaveBeenCalled();
+  });
+
+  it('reports blocked (no receipt, no bind) when sponsorPolityAgent itself refuses', async () => {
+    mocks.resolveRegistrableAgent.mockReturnValue(null);
+    mocks.getPassportRecordStatus.mockResolvedValue([
+      { passportId: 'pass-1', passportClass: 'citizen', citizenStatus: 'active', participantStatus: null, issuedAt: '2026-09-01T00:00:00Z' },
+    ]);
+    mocks.sponsorPolityAgent.mockResolvedValue({ ok: false, status: 409, error: "Slug 'aletheon' already taken — choose another" });
+    const result = await advanceUseCaseZero({
+      ...NEW_AGENT_INPUT,
+      caseId: 'case-1',
+      agentGenesis: { sponsorPassportId: 'pass-1', displayName: 'Aletheon', description: 'A test agent', origin: 'https://dev-beta.aigentz.me' },
+    });
+    expect(result.outcome).toBe('blocked');
+    expect(result.detail).toMatch(/already taken/);
+    expect(mocks.createActivityReceipt).not.toHaveBeenCalled();
+    expect(mocks.bindCandidateAgentRootDid).not.toHaveBeenCalled();
+  });
+
+  it('reports agentShell as established (no sponsorPolityAgent call) once a RootDID already exists for the slug', async () => {
+    mocks.resolveRegistrableAgent.mockReturnValue(null);
+    mocks.findAgentRootIdentityBySlug.mockResolvedValue({
+      agentRootId: 'root-1',
+      agentId: 'polity-bound:aletheon',
+      didUri: 'did:agent:root:aletheon',
+      agentClass: 'polity_bound',
+      displayName: 'Aletheon',
+      description: 'A test agent',
+      agentCardUrl: 'https://dev-beta.aigentz.me/api/agents/aletheon/agent-card.json',
+      agentCardSlug: 'aletheon',
+      isAigentMe: false,
+      createdAt: '2026-09-06T00:00:00Z',
+    });
+    mocks.createOrResumeCase.mockResolvedValue({ case: { case_id: 'case-1', state: 'discovered', tenant_id: 'tenant-1', authority_chain_id: null, candidate_agent_root_did: null }, created: true });
+    const result = await advanceUseCaseZero(NEW_AGENT_INPUT);
+    expect(mocks.sponsorPolityAgent).not.toHaveBeenCalled();
+    // agentShell is already established (RootDID found), so this call falls
+    // through past the special-cased genesis handling into ordinary Step 1
+    // (create/resume the Factor case) — never re-sponsoring.
+    expect(mocks.createOrResumeCase).toHaveBeenCalledTimes(1);
+    expect(result.outcome).toBe('advanced');
   });
 });
 

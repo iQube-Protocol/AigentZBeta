@@ -162,15 +162,16 @@ describe('item 5 — completion badge uses requiredStepsComplete, never an equal
   });
 });
 
-describe('item 7 — "Create and establish an agent" is not offered as a second, functioning path', () => {
-  it('is rendered disabled and labeled "Coming next" rather than choosing a real path', () => {
+describe('RootDID minting primitive (2026-09-06) — "Create and establish an agent" is now a real, functioning second path', () => {
+  it('is rendered enabled and invokes choosePath("create_and_establish") — sponsors a new agent\'s RootDID genesis', () => {
+    const choosePath = vi.fn();
     mocks.useUseCaseZeroReadiness.mockReturnValue({
       path: null,
       readiness: null,
       lastAdvance: null,
       loading: false,
       error: null,
-      choosePath: vi.fn(),
+      choosePath,
       advance: vi.fn(),
       reset: vi.fn(),
       journeyProfile: 'standard',
@@ -178,8 +179,9 @@ describe('item 7 — "Create and establish an agent" is not offered as a second,
     });
     render(<UseCaseZeroReadinessCapsule agentSlug="factor" presentation="panel" />);
     const createButton = screen.getByRole('button', { name: /create and establish an agent/i });
-    expect(createButton).toBeDisabled();
-    expect(createButton.textContent).toMatch(/coming next/i);
+    expect(createButton).not.toBeDisabled();
+    createButton.click();
+    expect(choosePath).toHaveBeenCalledWith('create_and_establish');
   });
 
   it('clicking "Bring my own agent" still invokes choosePath("bring_own_agent") — the one real functioning path', () => {

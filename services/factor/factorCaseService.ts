@@ -553,6 +553,31 @@ async function recordEvidenceReceipt(input: UpsertEvidenceInput, status: FactorE
   });
 }
 
+/**
+ * Binds a real, minted agent RootDID onto the case's `candidate_agent_root_did`
+ * — an ordinary field update, never a state-machine transition. Added for
+ * Use Case Zero's agentShell step (2026-09-06): once `sponsorPolityAgent`
+ * mints `did:agent:root:<slug>`, later legs (delegationAuthority) must read
+ * THAT real identity, not the raw, operator-typed candidate text the case
+ * was created with. Idempotent: re-binding the same didUri is a no-op read.
+ */
+export async function bindCandidateAgentRootDid(
+  admin: SupabaseClient,
+  caseId: string,
+  tenantId: string,
+  didUri: string,
+): Promise<FactorCaseRow> {
+  await assertCaseTenant(admin, caseId, tenantId);
+  const { data, error } = await admin
+    .from('factor_cases')
+    .update({ candidate_agent_root_did: didUri })
+    .eq('case_id', caseId)
+    .select('*')
+    .single();
+  if (error) throw new Error(`bindCandidateAgentRootDid failed: ${error.message}`);
+  return data as FactorCaseRow;
+}
+
 /** Tenant-scoped case read — the API layer's one path to fetch a case by
  *  id; never a raw `.from('factor_cases')` query in a route file. */
 export async function getCase(admin: SupabaseClient, caseId: string, tenantId: string): Promise<FactorCaseRow> {
