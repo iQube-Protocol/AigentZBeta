@@ -15,7 +15,8 @@ staleness the prior pass's own handoff flagged; corrected by cutting a new branc
 pass, not merged or rebased). Its own handoff:
 `codexes/packs/agentiq/updates/2026-09-04_factor-aegis-0.1-phase0-phase1.md` on that branch.
 
-**PRD:** `FACTOR_AEGIS_MONEYPENNY_PRD_0.1.md` (uploaded, 952 lines) — read in full (roles/invariants
+**PRD:** `codexes/packs/agentiq/items/FACTOR_AEGIS_MONEYPENNY_PRD_0.1.md` (committed 2026-09-06 — was
+uploaded-only until then, see the RootDID-minting-primitive session's own note) — read in full (roles/invariants
 §2, journeys §4, state machines §6, data requirements §7, service contracts §8, security controls
 §9, acceptance criteria §14).
 

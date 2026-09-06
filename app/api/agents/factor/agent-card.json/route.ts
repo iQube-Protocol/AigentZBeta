@@ -165,14 +165,25 @@ export async function GET(req: NextRequest) {
       // (capability-runtime contract closure, 2026-09-05, design point 3) —
       // a UI-local action (e.g. the Aegis-referral handoff) is real and
       // works inside MoneyPenny, but is never remotely invocable.
-      skills: FACTOR_CAPABILITIES.filter((c) => c.id !== 'general_orientation').map((c) => ({
-        id: c.id.replace(/_/g, '-'),
-        name: c.title,
-        description: `${c.description} (status: ${c.status}).`,
-        tags: [c.status, c.handlerKind, ...c.interactionModes],
-        externallyActionable: isExternallyActionable(c.handlerKind),
-        hostLocalOnly: c.handlerKind === 'navigation',
-      })),
+      skills: FACTOR_CAPABILITIES.filter((c) => c.id !== 'general_orientation').map((c) => {
+        // Project any action-level `invocation` contracts this capability
+        // declares (capability-runtime contract closure, 2026-09-06) — a
+        // caller deciding whether to invoke a skill remotely gets a real
+        // method/path/auth contract, never just `externallyActionable: true`
+        // with nothing to act on.
+        const invocations = (c.actions ?? [])
+          .filter((a) => a.invocation)
+          .map((a) => ({ actionId: a.id, label: a.label, ...a.invocation }));
+        return {
+          id: c.id.replace(/_/g, '-'),
+          name: c.title,
+          description: `${c.description} (status: ${c.status}).`,
+          tags: [c.status, c.handlerKind, ...c.interactionModes],
+          externallyActionable: isExternallyActionable(c.handlerKind),
+          hostLocalOnly: c.handlerKind === 'navigation',
+          ...(invocations.length > 0 ? { invocations } : {}),
+        };
+      }),
 
       metadata: {
         operator_type: 'agent_participant',
