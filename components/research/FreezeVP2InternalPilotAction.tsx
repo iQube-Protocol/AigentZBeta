@@ -39,8 +39,9 @@ import { personaFetch } from "@/utils/personaSpine";
  *     prop threaded down from Track2ProgrammePanel's own (slow) state.
  *
  * Nothing is typed in by the operator: `signedBy`/`operatorRef` is resolved
- * from the admin's own session (`/api/wallet/active-persona` +
- * `/api/wallet/identity/references`); `contentHash` and the ratified boundary
+ * from the admin's own session (`/api/wallet/identity/references`, matched
+ * against the host surface's own resolved `personaId` prop when supplied);
+ * `contentHash` and the ratified boundary
  * come from the freeze-preview package; `scientificDeviations` is derived
  * live from that SAME package's embedded readiness report. ONE explicit
  * operator confirmation performs the only write this component ever makes.
@@ -169,20 +170,38 @@ export function FreezeVP2InternalPilotAction({
         return;
       }
 
-      // Who is signing — resolved, never typed. Same pattern as the wallet
-      // Identity panel (`PersonaReferencesInventory.tsx`): active persona ->
-      // that persona's own T2-safe `publicRef` in the identity inventory.
-      const activeRes = await personaFetch("/api/wallet/active-persona", { cache: "no-store", ...personaHintOpt });
-      const activeBody = await activeRes.json().catch(() => null);
-      const activePersonaId = activeBody?.personaId as string | undefined;
-      if (!activePersonaId) throw new Error("could not resolve the signed-in admin's active persona");
-
+      // Who is signing — resolved, never typed.
+      //
+      // CORRECTED 2026-09-07: this previously called `GET /api/wallet/
+      // active-persona` expecting a `personaId` field on the response —
+      // that field does not exist and never has. `ActivePersonaSurface`
+      // (types/access.ts) is explicitly T1-only: `personaSessionToken`,
+      // `identifiability`, `cartridgeFlags`, `cohortMemberships` — the T0
+      // `personaId` is documented on that route's own header as NEVER
+      // appearing in the response ("Surface code must consume
+      // ActivePersonaSurface only"). That call could therefore never
+      // succeed; every attempt threw "could not resolve the signed-in
+      // admin's active persona" (operator report, 2026-09-07).
+      //
+      // The actual resolution: `/api/wallet/identity/references` is the
+      // owner-authenticated SELF-VIEW that legitimately carries the
+      // caller's own persona ids alongside each one's T2-safe `publicRef`
+      // (an intentional T0 exception — see that route's own header). When
+      // this component was given the host surface's own resolved
+      // `personaId` (the SAME id already used as `personaIdHint` above),
+      // match it directly — one transport, one resolved persona, per
+      // CLAUDE.md's Identity & Access Spine. Only when no `personaId` was
+      // supplied at all (e.g. Track2ProgrammePanel today) does this fall
+      // back to the first persona in the inventory — a steward is expected
+      // to hold exactly one in the common case this act is used from.
       const refsRes = await personaFetch("/api/wallet/identity/references", { cache: "no-store", ...personaHintOpt });
       const refsBody = await refsRes.json().catch(() => null);
-      const personas = Array.isArray(refsBody?.personas) ? refsBody.personas : [];
-      const operatorRef = personas.find((p: { personaId?: string }) => p?.personaId === activePersonaId)?.publicRef as
-        | string
-        | undefined;
+      if (!Array.isArray(refsBody?.personas)) {
+        throw new Error(refsBody?.error || `could not read the signed-in admin's identity inventory (HTTP ${refsRes.status})`);
+      }
+      const personas = refsBody.personas as Array<{ personaId?: string; publicRef?: string }>;
+      const match = personaId ? personas.find((p) => p?.personaId === personaId) : personas[0];
+      const operatorRef = match?.publicRef;
       if (!operatorRef) throw new Error("could not resolve the signed-in admin's own T2-safe reference");
 
       // contentHash + the ratified boundary + the LIVE failing scientific-
@@ -227,7 +246,7 @@ export function FreezeVP2InternalPilotAction({
       setPhase((prev) => (prev.kind === "ready" || prev.kind === "frozen" ? prev : { kind: "error", message }));
       setRefreshErr(message);
     }
-  }, [experimentId, crystalId, personaHintOpt]);
+  }, [experimentId, crystalId, personaId, personaHintOpt]);
 
   useEffect(() => {
     void load();

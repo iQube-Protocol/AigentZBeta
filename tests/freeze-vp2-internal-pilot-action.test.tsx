@@ -75,10 +75,6 @@ describe('FreezeVP2InternalPilotAction — validated artifact, ready to freeze',
         response: jsonResponse(200, { requestSucceeded: true, artifact: { lifecycle: 'validated' }, nextGovernedAction: null }),
       },
       {
-        match: /\/active-persona/,
-        response: jsonResponse(200, { personaId: 'persona-1' }),
-      },
-      {
         match: /\/identity\/references/,
         response: jsonResponse(200, { personas: [{ personaId: 'persona-1', publicRef: 'operator-ref-abc' }], agents: [] }),
       },
@@ -118,7 +114,6 @@ describe('FreezeVP2InternalPilotAction — validated artifact, ready to freeze',
           jsonResponse(200, { requestSucceeded: true, artifact: { lifecycle: 'validated' }, nextGovernedAction: null }),
         );
       }
-      if (/\/active-persona/.test(url)) return Promise.resolve(jsonResponse(200, { personaId: 'persona-1' }));
       if (/\/identity\/references/.test(url))
         return Promise.resolve(jsonResponse(200, { personas: [{ personaId: 'persona-1', publicRef: 'operator-ref-abc' }], agents: [] }));
       if (/\/freeze-preview/.test(url))
@@ -205,7 +200,6 @@ describe('FreezeVP2InternalPilotAction — a failed FIRST read shows an explicit
           jsonResponse(200, { requestSucceeded: true, artifact: { lifecycle: 'validated' }, nextGovernedAction: null }),
         );
       }
-      if (/\/active-persona/.test(url)) return Promise.resolve(jsonResponse(200, { personaId: 'persona-1' }));
       if (/\/identity\/references/.test(url))
         return Promise.resolve(jsonResponse(200, { personas: [{ personaId: 'persona-1', publicRef: 'operator-ref-abc' }], agents: [] }));
       if (/\/freeze-preview/.test(url))
@@ -234,7 +228,6 @@ describe('FreezeVP2InternalPilotAction — a failed REFRESH never destroys alrea
           jsonResponse(200, { requestSucceeded: true, artifact: { lifecycle: 'validated' }, nextGovernedAction: null }),
         );
       }
-      if (/\/active-persona/.test(url)) return Promise.resolve(jsonResponse(200, { personaId: 'persona-1' }));
       if (/\/identity\/references/.test(url))
         return Promise.resolve(jsonResponse(200, { personas: [{ personaId: 'persona-1', publicRef: 'operator-ref-abc' }], agents: [] }));
       if (/\/freeze-preview/.test(url))
@@ -272,5 +265,70 @@ describe('FreezeVP2InternalPilotAction — personaId threading (2026-09-07 fix)'
     await screen.findByText(/frozen \(internal\/pilot\)/);
     const [, opts] = mockPersonaFetch.mock.calls[0];
     expect(opts).toMatchObject({ personaIdHint: 'persona-42' });
+  });
+});
+
+describe('FreezeVP2InternalPilotAction — operator ref resolution never calls the non-existent /active-persona personaId field (2026-09-07 fix)', () => {
+  /*
+   * THE BUG THIS REPLACES: the previous version called `GET /api/wallet/
+   * active-persona` expecting a `personaId` field on the response.
+   * `ActivePersonaSurface` (types/access.ts) never carries one — it is T1-
+   * only by design (personaSessionToken, identifiability, cartridgeFlags,
+   * cohortMemberships). Every attempt therefore threw "could not resolve
+   * the signed-in admin's active persona" (operator report, 2026-09-07),
+   * regardless of the personaId-threading fix that shipped alongside it.
+   */
+  it('never calls /api/wallet/active-persona at all — resolves operatorRef directly from /api/wallet/identity/references', async () => {
+    mockSequence([
+      {
+        match: /\/freeze\?crystalId=/,
+        response: jsonResponse(200, { requestSucceeded: true, artifact: { lifecycle: 'validated' }, nextGovernedAction: null }),
+      },
+      {
+        match: /\/identity\/references/,
+        response: jsonResponse(200, { personas: [{ personaId: 'persona-1', publicRef: 'operator-ref-abc' }], agents: [] }),
+      },
+      {
+        match: /\/freeze-preview/,
+        response: jsonResponse(200, {
+          ok: true,
+          package: { contentHash: 'hash-abc-123', recommendation: { readiness: { checks: READINESS_CHECKS } } },
+          ratifiedBoundary: null,
+        }),
+      },
+    ]);
+    render(<FreezeVP2InternalPilotAction experimentId="EXP-P1" />);
+    await screen.findByText('operator-ref-abc');
+    expect(mockPersonaFetch.mock.calls.some(([url]) => /active-persona/.test(url))).toBe(false);
+  });
+
+  it('when personaId is supplied, matches THAT persona in the inventory — never just the first entry when multiple personas exist', async () => {
+    mockSequence([
+      {
+        match: /\/freeze\?crystalId=/,
+        response: jsonResponse(200, { requestSucceeded: true, artifact: { lifecycle: 'validated' }, nextGovernedAction: null }),
+      },
+      {
+        match: /\/identity\/references/,
+        response: jsonResponse(200, {
+          personas: [
+            { personaId: 'persona-other', publicRef: 'ref-wrong-persona' },
+            { personaId: 'persona-42', publicRef: 'ref-correct-persona' },
+          ],
+          agents: [],
+        }),
+      },
+      {
+        match: /\/freeze-preview/,
+        response: jsonResponse(200, {
+          ok: true,
+          package: { contentHash: 'hash-abc-123', recommendation: { readiness: { checks: READINESS_CHECKS } } },
+          ratifiedBoundary: null,
+        }),
+      },
+    ]);
+    render(<FreezeVP2InternalPilotAction experimentId="EXP-P1" personaId="persona-42" />);
+    await screen.findByText('ref-correct-persona');
+    expect(screen.queryByText('ref-wrong-persona')).not.toBeInTheDocument();
   });
 });
