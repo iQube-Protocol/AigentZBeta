@@ -21,7 +21,7 @@ const mocks = vi.hoisted(() => ({
   listCaseEvents: vi.fn(),
   assessIssuerReadiness: vi.fn(),
   discoverFinancialServicesForConsumer: vi.fn(),
-  findLatestTokenLaunchForBeneficiary: vi.fn(),
+  findLatestTokenLaunchForCase: vi.fn(),
 }));
 
 vi.mock('@/services/horizen/registrableAgents', () => ({
@@ -67,7 +67,7 @@ vi.mock('@/services/financialServices/discovery', () => ({
   discoverFinancialServicesForConsumer: mocks.discoverFinancialServicesForConsumer,
 }));
 vi.mock('@/services/factor/tokenLaunchService', () => ({
-  findLatestTokenLaunchForBeneficiary: mocks.findLatestTokenLaunchForBeneficiary,
+  findLatestTokenLaunchForCase: mocks.findLatestTokenLaunchForCase,
 }));
 
 import { projectUseCaseZeroReadiness } from '@/services/factor/useCaseZeroReadinessProjection';
@@ -138,7 +138,7 @@ beforeEach(() => {
   mocks.listEvidenceForCase.mockResolvedValue([]);
   mocks.listCaseEvents.mockResolvedValue([]);
   mocks.discoverFinancialServicesForConsumer.mockResolvedValue(runtimeDiscovery({ none: true }));
-  mocks.findLatestTokenLaunchForBeneficiary.mockResolvedValue(null);
+  mocks.findLatestTokenLaunchForCase.mockResolvedValue(null);
   mocks.assessIssuerReadiness.mockResolvedValue({
     beneficiaryAgentRuntimeId: 'aigent-factor',
     bankrConfigured: false,
@@ -339,16 +339,26 @@ describe('item 1 correction — Vela leg requires an ACCEPTABLE disposition AND 
     expect(vela.mode).toBe('simulated');
   });
 
-  it('ACCEPTABLE + teeAttestationVerified true under NITRO_ATTESTED is established, mode "live"', async () => {
+  it('ACCEPTABLE + BOTH protocolExecutionVerified AND teeAttestationVerified true under NITRO_ATTESTED is established, mode "live"', async () => {
+    mocks.getCase.mockResolvedValue({ case_id: 'case-1', state: 'admission_pending', candidate_agent_root_did: null });
+    mocks.listEvidenceForCase.mockResolvedValue([{
+      kind: 'confidential_admission_projection', status: 'supplied',
+      payload: { attestationMode: 'NITRO_ATTESTED', disposition: 'ACCEPTABLE', protocolExecutionVerified: true, teeAttestationVerified: true },
+    }]);
+    const result = await projectUseCaseZeroReadiness({ ...BASE_INPUT, caseId: 'case-1' });
+    const vela = findLeg(result.legs, 'velaReadiness');
+    expect(vela.state).toBe('established');
+    expect(vela.mode).toBe('live');
+  });
+
+  it('item 3 correction — NITRO_ATTESTED with teeAttestationVerified true but protocolExecutionVerified FALSE stays BLOCKED — teeAttestationVerified alone is never sufficient', async () => {
     mocks.getCase.mockResolvedValue({ case_id: 'case-1', state: 'admission_pending', candidate_agent_root_did: null });
     mocks.listEvidenceForCase.mockResolvedValue([{
       kind: 'confidential_admission_projection', status: 'supplied',
       payload: { attestationMode: 'NITRO_ATTESTED', disposition: 'ACCEPTABLE', protocolExecutionVerified: false, teeAttestationVerified: true },
     }]);
     const result = await projectUseCaseZeroReadiness({ ...BASE_INPUT, caseId: 'case-1' });
-    const vela = findLeg(result.legs, 'velaReadiness');
-    expect(vela.state).toBe('established');
-    expect(vela.mode).toBe('live');
+    expect(findLeg(result.legs, 'velaReadiness').state).toBe('blocked');
   });
 
   it('ACCEPTABLE under NITRO_ATTESTED but teeAttestationVerified FALSE stays BLOCKED — never inferred from protocolExecutionVerified', async () => {
@@ -479,15 +489,23 @@ describe('item 3/4 correction — governed-operation rehearsal leg reflects the 
   it('no existing launch for this tenant+beneficiary is "missing" once runtime is active', async () => {
     mocks.getCase.mockResolvedValue({ case_id: 'case-1', state: 'active', tenant_id: 'tenant-1', authority_chain_id: null, candidate_agent_root_did: null });
     mocks.discoverFinancialServicesForConsumer.mockResolvedValue(runtimeDiscovery());
-    mocks.findLatestTokenLaunchForBeneficiary.mockResolvedValue(null);
+    mocks.findLatestTokenLaunchForCase.mockResolvedValue(null);
     const result = await projectUseCaseZeroReadiness({ ...BASE_INPUT, caseId: 'case-1' });
     expect(findLeg(result.legs, 'governedOperationRehearsal').state).toBe('missing');
+  });
+
+  it('item 4 correction — the lookup is keyed by the Factor CASE id, never by beneficiary/runtimeAgentId alone', async () => {
+    mocks.getCase.mockResolvedValue({ case_id: 'case-42', state: 'active', tenant_id: 'tenant-1', authority_chain_id: null, candidate_agent_root_did: null });
+    mocks.discoverFinancialServicesForConsumer.mockResolvedValue(runtimeDiscovery());
+    mocks.findLatestTokenLaunchForCase.mockResolvedValue(null);
+    await projectUseCaseZeroReadiness({ ...BASE_INPUT, caseId: 'case-42' });
+    expect(mocks.findLatestTokenLaunchForCase).toHaveBeenCalledWith(expect.anything(), 'tenant-1', 'case-42');
   });
 
   it('an existing PREFLIGHTED launch makes the leg established, mode derived from bankr_terms.simulated (true -> "simulated")', async () => {
     mocks.getCase.mockResolvedValue({ case_id: 'case-1', state: 'active', tenant_id: 'tenant-1', authority_chain_id: null, candidate_agent_root_did: null });
     mocks.discoverFinancialServicesForConsumer.mockResolvedValue(runtimeDiscovery());
-    mocks.findLatestTokenLaunchForBeneficiary.mockResolvedValue({ id: 'launch-1', state: 'preflighted', bankr_terms: { simulated: true } });
+    mocks.findLatestTokenLaunchForCase.mockResolvedValue({ id: 'launch-1', state: 'preflighted', bankr_terms: { simulated: true } });
     const result = await projectUseCaseZeroReadiness({ ...BASE_INPUT, caseId: 'case-1' });
     const rehearsal = findLeg(result.legs, 'governedOperationRehearsal');
     expect(rehearsal.state).toBe('established');
@@ -497,7 +515,7 @@ describe('item 3/4 correction — governed-operation rehearsal leg reflects the 
   it('an existing PREFLIGHTED launch with bankr_terms.simulated===false reports mode "live" — never hardcoded', async () => {
     mocks.getCase.mockResolvedValue({ case_id: 'case-1', state: 'active', tenant_id: 'tenant-1', authority_chain_id: null, candidate_agent_root_did: null });
     mocks.discoverFinancialServicesForConsumer.mockResolvedValue(runtimeDiscovery());
-    mocks.findLatestTokenLaunchForBeneficiary.mockResolvedValue({ id: 'launch-1', state: 'approved', bankr_terms: { simulated: false } });
+    mocks.findLatestTokenLaunchForCase.mockResolvedValue({ id: 'launch-1', state: 'approved', bankr_terms: { simulated: false } });
     const result = await projectUseCaseZeroReadiness({ ...BASE_INPUT, caseId: 'case-1' });
     const rehearsal = findLeg(result.legs, 'governedOperationRehearsal');
     expect(rehearsal.state).toBe('established');
@@ -507,7 +525,7 @@ describe('item 3/4 correction — governed-operation rehearsal leg reflects the 
   it('a launch still in "draft"/"preparing" is NOT yet established for this leg', async () => {
     mocks.getCase.mockResolvedValue({ case_id: 'case-1', state: 'active', tenant_id: 'tenant-1', authority_chain_id: null, candidate_agent_root_did: null });
     mocks.discoverFinancialServicesForConsumer.mockResolvedValue(runtimeDiscovery());
-    mocks.findLatestTokenLaunchForBeneficiary.mockResolvedValue({ id: 'launch-1', state: 'preparing', bankr_terms: null });
+    mocks.findLatestTokenLaunchForCase.mockResolvedValue({ id: 'launch-1', state: 'preparing', bankr_terms: null });
     const result = await projectUseCaseZeroReadiness({ ...BASE_INPUT, caseId: 'case-1' });
     expect(findLeg(result.legs, 'governedOperationRehearsal').state).toBe('missing');
   });

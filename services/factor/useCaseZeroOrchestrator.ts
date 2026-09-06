@@ -48,12 +48,12 @@ import { establishDirectChain } from '@/services/factor/authorityChain';
 import { validateChainForAction } from '@/services/factor/authorityChain';
 import { readActiveGrantForAgent } from '@/services/delegation/delegationGrantStore';
 import { createAssessment } from '@/services/aegis/aegisAssessmentService';
-import { inspectOrProvisionProviderBinding, prepareLaunchProposal, preflightLaunch } from '@/services/factor/bankrCapabilityHandlers';
+import { inspectOrProvisionProviderBinding, preflightLaunch } from '@/services/factor/bankrCapabilityHandlers';
 import { runAdmissionPacketPolicyEvaluation } from '@/services/factor/factorConfidentialWorkload';
-import { findLatestTokenLaunchForBeneficiary, type CreateDraftInput } from '@/services/factor/tokenLaunchService';
+import { createOrResumeDraft, transitionState, type CreateDraftInput } from '@/services/factor/tokenLaunchService';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 
-export type OrchestratorOutcome = 'advanced' | 'no_action_needed' | 'blocked' | 'awaiting_input';
+export type OrchestratorOutcome = 'advanced' | 'no_action_needed' | 'blocked' | 'awaiting_input' | 'awaiting_external_action';
 
 export interface AdvanceUseCaseZeroInput {
   admin: SupabaseClient;
@@ -62,6 +62,11 @@ export interface AdvanceUseCaseZeroInput {
   agentSlug: string;
   path: UseCaseZeroPath;
   caseId?: string;
+  /** Item 2 (2026-09-07): the operator's explicit journey-profile choice,
+   *  threaded through unmodified to the projection — this orchestrator
+   *  never infers or defaults it beyond what the projection itself
+   *  defaults (absent/'standard' => Pulse/P&L optional). */
+  journeyProfile?: 'standard' | 'financial_intelligence';
   /** Required only when the presently-actionable step is
    *  `governedOperationRehearsal` — Factor never invents these values
    *  (manifest boundary). Absent means the step reports `awaiting_input`. */
@@ -89,6 +94,7 @@ type ActionableStep =
   | 'settlementWallet'
   | 'passport'
   | 'delegationAuthority'
+  | 'pulsePnl'
   | 'aegisAssessment'
   | 'moneypennyAdmission'
   | 'bankrBinding'
@@ -104,6 +110,7 @@ async function reread(input: AdvanceUseCaseZeroInput): Promise<UseCaseZeroReadin
     agentSlug: input.agentSlug,
     path: input.path,
     caseId: input.caseId,
+    journeyProfile: input.journeyProfile,
   });
 }
 
@@ -337,9 +344,9 @@ async function stepRuntimeActivation(
  *  submits) a token-launch draft — the only governed financial-request
  *  domain object this codebase has (Bankr has no ordinary-transaction
  *  capability). Every field is operator-supplied; Factor never invents one. */
-/** Launch states that mean "this beneficiary's rehearsal has already
- *  progressed past preflight" — a repeat `advance()` call must resume this
- *  SAME row, never prepare a second one. */
+/** Launch states that mean "this draft's rehearsal has already progressed
+ *  past preflight" — resuming it means reporting completion, never
+ *  re-preflighting. */
 const REHEARSAL_COMPLETE_STATES = new Set([
   'preflighted',
   'aegis_review_pending',
@@ -350,46 +357,12 @@ const REHEARSAL_COMPLETE_STATES = new Set([
   'submitted',
   'confirmed',
 ]);
-/** Terminal/abandoned states where a FRESH draft is the correct next action
- *  (the prior attempt cannot be resumed). */
-const REHEARSAL_ABANDONED_STATES = new Set(['cancelled', 'failed', 'superseded']);
 
 async function stepRehearsal(
   input: AdvanceUseCaseZeroInput,
   factorCase: Awaited<ReturnType<typeof getCase>>,
   runtimeAgentId: string,
 ): Promise<Omit<AdvanceUseCaseZeroResult, 'caseId'>> {
-  // Item 3 fix (behavioral, not extension): query the canonical token-launch
-  // aggregate for this tenant+beneficiary FIRST — never unconditionally
-  // create a new draft. A preflighted-or-later launch closes this leg
-  // immediately (`no_action_needed`); a draft/preparing launch is RESUMED
-  // (the same row is preflighted, never re-created); only when none exists
-  // (or the only one is terminally abandoned) does a new draft get created.
-  const existing = await findLatestTokenLaunchForBeneficiary(input.admin, input.tenantId, runtimeAgentId);
-
-  if (existing && REHEARSAL_COMPLETE_STATES.has(existing.state)) {
-    return {
-      stepTaken: 'governedOperationRehearsal',
-      outcome: 'no_action_needed',
-      detail: `Token launch ${existing.id} already reached '${existing.state}' — rehearsal already complete for this beneficiary; resuming the same launch, never preparing a duplicate.`,
-      readiness: await reread(input),
-    };
-  }
-
-  if (existing && !REHEARSAL_ABANDONED_STATES.has(existing.state)) {
-    // 'draft' or 'preparing' — resume this SAME row's preflight rather than
-    // creating a second one for the same tenant+beneficiary.
-    const preflight = await preflightLaunch(input.admin, existing.id, input.tenantId, input.actorPersonaId);
-    return {
-      stepTaken: 'governedOperationRehearsal',
-      outcome: 'advanced',
-      detail:
-        `Resumed existing token-launch draft ${existing.id} and preflighted it (state: ${preflight.launch.state}, ` +
-        `terms: ${JSON.stringify(preflight.bankrTerms.raw)}) — rehearsal stops here; approval/submission/broadcast are separate, later, human-gated acts this orchestrator never performs.`,
-      readiness: await reread(input),
-    };
-  }
-
   if (!input.launchSpec) {
     return {
       stepTaken: 'governedOperationRehearsal',
@@ -398,31 +371,48 @@ async function stepRehearsal(
       readiness: await reread(input),
     };
   }
-  // Steps 3-6 of the Bankr acceptance path (exact launch spec collected ->
-  // deterministic fake transport invoked -> provider-derived terms captured
-  // -> simulated preflight receipt produced) — reuses
-  // services/factor/bankrCapabilityHandlers.ts's own prepareLaunchProposal
-  // (createDraft + transitionState('preparing')) and preflightLaunch
-  // (quotes Bankr's REAL terms, live or fake, records them, transitions to
-  // 'preflighted', writes the bankr_launch_preflighted receipt) — never a
-  // parallel draft/preflight path. Stops there: requestApproval/
-  // submitApprovedLaunch (the approval boundary, step 7, and everything
-  // past it — signing, submission, broadcast, step 8) are SEPARATE,
-  // human/MoneyPenny-gated acts this function never calls.
-  const draft = await prepareLaunchProposal(input.admin, {
+  // Item 4 fix (2026-09-07): the ONLY entry point for creating/resuming a
+  // rehearsal draft is the atomic createOrResumeDraft — never an
+  // unconditional createDraft/prepareLaunchProposal call. Its
+  // draft_idempotency_key is a deterministic commitment over
+  // {tenant, caseRef=this Factor case, beneficiary, chain, tokenName,
+  // tokenSymbol, description}, enforced unique in Postgres
+  // (uq_token_launches_draft_idempotency): an IDENTICAL repeat call always
+  // resolves to the SAME row (`created: false`); a DIFFERENT specification
+  // computes a DIFFERENT key and always creates a genuinely NEW, separate
+  // row — it can never reuse or preflight an older draft.
+  const { launch, created } = await createOrResumeDraft(input.admin, {
     tenantId: input.tenantId,
+    caseRef: factorCase.case_id,
     beneficiaryAgentRuntimeId: runtimeAgentId,
     requestingPrincipalPersonaId: input.actorPersonaId,
     preparingAgentRuntimeId: resolveRegistrableAgent('factor')?.runtimeAgentId ?? 'aigent-factor',
     ...input.launchSpec,
   });
-  const preflight = await preflightLaunch(input.admin, draft.id, input.tenantId, input.actorPersonaId);
+
+  if (REHEARSAL_COMPLETE_STATES.has(launch.state)) {
+    return {
+      stepTaken: 'governedOperationRehearsal',
+      outcome: 'no_action_needed',
+      detail: `Token launch ${launch.id} for this exact specification already reached '${launch.state}' — rehearsal already complete; resuming the same launch, never preparing a duplicate.`,
+      readiness: await reread(input),
+    };
+  }
+
+  // Freshly created (or resumed while still 'draft') — mirrors
+  // prepareLaunchProposal's own createDraft+transitionState('preparing')
+  // sequence, then runs the SAME preflightLaunch every rehearsal path uses.
+  if (launch.state === 'draft') {
+    await transitionState(input.admin, { id: launch.id, tenantId: input.tenantId, toState: 'preparing', actorPersonaId: input.actorPersonaId });
+  }
+  const preflight = await preflightLaunch(input.admin, launch.id, input.tenantId, input.actorPersonaId);
   return {
     stepTaken: 'governedOperationRehearsal',
     outcome: 'advanced',
     detail:
-      `Token-launch draft ${draft.id} prepared and preflighted (state: ${preflight.launch.state}, ` +
-      `terms: ${JSON.stringify(preflight.bankrTerms.raw)}) — rehearsal stops here; approval/submission/broadcast are separate, later, human-gated acts this orchestrator never performs.`,
+      `Token-launch draft ${launch.id} (case ${factorCase.case_id}) ${created ? 'prepared' : 'resumed'} and preflighted ` +
+      `(state: ${preflight.launch.state}, terms: ${JSON.stringify(preflight.bankrTerms.raw)}) — rehearsal stops here; ` +
+      `approval/submission/broadcast are separate, later, human-gated acts this orchestrator never performs.`,
     readiness: await reread(input),
   };
 }
@@ -449,6 +439,7 @@ const ACTIONABLE_STEPS = new Set<ActionableStep>([
   'settlementWallet',
   'passport',
   'delegationAuthority',
+  'pulsePnl',
   'aegisAssessment',
   'moneypennyAdmission',
   'bankrBinding',
@@ -461,37 +452,40 @@ async function advanceUseCaseZeroCore(input: AdvanceUseCaseZeroInput): Promise<O
   // 1. Reread canonical state first — never trust a caller-supplied snapshot.
   const readiness = await reread(input);
 
-  // Optional legs (leg.required === false — registryAsset/
-  // horizenRegistration/pulsePnl, per useCaseZeroReadinessProjection.ts's
-  // own required-vs-optional semantics) are real facts this codebase has
-  // no Factor-owned mutation for — they resolve as side effects of other
-  // processes. `readiness.presentlyActionableStep` already skips these (it
-  // only ever names a REQUIRED outstanding leg), but the orchestrator's own
-  // selection criterion is stated independently here — "first outstanding
-  // leg this orchestrator has a real action for" — so the two can never
-  // silently diverge into skipping a genuine required blocker. Every
-  // optional leg still outstanding is named in `detail`, never silently
-  // dropped.
-  const outstandingOptional = readiness.legs.filter((l) => l.state !== 'established' && !l.required);
-  // Item 5 fallout: registryAsset/horizenRegistration are REQUIRED again but
-  // (deliberately) not in ACTIONABLE_STEPS — no Factor-owned mutation exists
-  // for them. Naming them separately from `outstandingOptional` here means
-  // the terminal message never claims "every required leg is established"
-  // while one of these is still genuinely outstanding.
-  const outstandingExternal = readiness.legs.filter(
-    (l) => l.state !== 'established' && l.required && !ACTIONABLE_STEPS.has(l.key as ActionableStep),
-  );
-  const nextActionableLeg = readiness.legs.find((l) => l.required && l.state !== 'established' && ACTIONABLE_STEPS.has(l.key as ActionableStep));
+  // Item 1 fix (2026-09-07): STRICT SEQUENCE. `firstOutstandingRequired` is
+  // computed identically to the projection's own `firstOutstanding`
+  // (useCaseZeroReadinessProjection.ts's `legs.find((l) => l.required &&
+  // l.state !== 'established')`, which is also exactly what
+  // `readiness.presentlyActionableStep` names) — the SAME leg, by
+  // construction, every time. This orchestrator must never search PAST that
+  // leg for a LATER one it happens to have a Factor-owned action for: doing
+  // so let a later handler run (e.g. requesting an Aegis assessment) while
+  // an earlier required stage (Registry, Horizen — 'awaiting_external_action')
+  // was still outstanding, and reported a next action that did not match
+  // what was actually executed. Whatever this leg is, it is the ONLY thing
+  // this call may act on or report.
+  const firstOutstandingRequired = readiness.legs.find((l) => l.required && l.state !== 'established') ?? null;
 
-  if (!nextActionableLeg) {
-    if (outstandingExternal.length > 0) {
-      return {
-        stepTaken: null,
-        outcome: 'no_action_needed',
-        detail: `Every Factor-actionable required leg is established. Still outstanding, required but externally-completed: ${outstandingExternal.map((l) => l.key).join(', ')} — these resolve as side effects of other processes, not this orchestrator.`,
-        readiness,
-      };
-    }
+  if (firstOutstandingRequired && !ACTIONABLE_STEPS.has(firstOutstandingRequired.key as ActionableStep)) {
+    // No Factor-owned handler exists for this leg (registryAsset/
+    // horizenRegistration today) — return ITS OWN outcome immediately,
+    // never falling through to search for a later actionable step.
+    const outcome: OrchestratorOutcome =
+      firstOutstandingRequired.state === 'awaiting_external_action' ? 'awaiting_external_action' : 'blocked';
+    return {
+      stepTaken: firstOutstandingRequired.key,
+      outcome,
+      detail: firstOutstandingRequired.reason,
+      readiness,
+    };
+  }
+
+  if (!firstOutstandingRequired) {
+    // Optional legs (registryAsset/horizenRegistration/pulsePnl when not
+    // required by the selected journeyProfile) are real facts this
+    // codebase has no Factor-owned mutation for — they resolve as side
+    // effects of other processes, and never block completion.
+    const outstandingOptional = readiness.legs.filter((l) => l.state !== 'established' && !l.required);
     return outstandingOptional.length > 0
       ? {
           stepTaken: null,
@@ -502,6 +496,11 @@ async function advanceUseCaseZeroCore(input: AdvanceUseCaseZeroInput): Promise<O
       : { stepTaken: null, outcome: 'no_action_needed', detail: 'Every leg is established — nothing left to advance.', readiness };
   }
 
+  // firstOutstandingRequired is guaranteed actionable at this point (the
+  // non-actionable branch above already returned) — the step this call
+  // executes and the step readiness.presentlyActionableStep DISPLAYS are
+  // now, by construction, always the same canonical leg key.
+  const nextActionableLeg = firstOutstandingRequired;
   const step = nextActionableLeg.key as ActionableStep;
   const runtimeAgentId = resolveRegistrableAgent(input.agentSlug)?.runtimeAgentId ?? null;
 
@@ -615,6 +614,17 @@ async function advanceUseCaseZeroCore(input: AdvanceUseCaseZeroInput): Promise<O
         stepTaken: step,
         outcome: 'awaiting_input',
         detail: 'Navigate the operator to the Polity Passport Bureau apply flow to file or resume a Passport application — this orchestrator never writes that application itself.',
+        readiness,
+      };
+    case 'pulsePnl':
+      // Item 2 (2026-09-07): only reachable when journeyProfile ===
+      // 'financial_intelligence' made this leg required. Same navigate-only
+      // shape as 'passport' — Pulse/P&L onboarding is a separate journey
+      // this orchestrator never writes to directly.
+      return {
+        stepTaken: step,
+        outcome: 'awaiting_input',
+        detail: 'Navigate the operator to Pulse/P&L onboarding to register reporting — this orchestrator never writes that registration itself.',
         readiness,
       };
     case 'delegationAuthority':

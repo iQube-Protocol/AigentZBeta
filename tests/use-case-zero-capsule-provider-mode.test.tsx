@@ -71,6 +71,8 @@ describe('item 4 — provider mode truthfulness: the launch-spec button never ha
       choosePath: vi.fn(),
       advance: vi.fn(),
       reset: vi.fn(),
+      journeyProfile: 'standard',
+      setJourneyProfile: vi.fn(),
     });
     render(<UseCaseZeroReadinessCapsule agentSlug="factor" presentation="panel" />);
     expect(screen.getByRole('button', { name: /prepare \+ preflight \(live/i })).toBeInTheDocument();
@@ -87,9 +89,76 @@ describe('item 4 — provider mode truthfulness: the launch-spec button never ha
       choosePath: vi.fn(),
       advance: vi.fn(),
       reset: vi.fn(),
+      journeyProfile: 'standard',
+      setJourneyProfile: vi.fn(),
     });
     render(<UseCaseZeroReadinessCapsule agentSlug="factor" presentation="panel" />);
     expect(screen.getByRole('button', { name: /prepare \+ preflight \(simulated/i })).toBeInTheDocument();
+  });
+});
+
+describe('item 5 — completion badge uses requiredStepsComplete, never an equality between required+optional leg counts', () => {
+  it('shows "Every required step established" when requiredStepsComplete is true, even though an OPTIONAL leg (pulsePnl) stays unestablished', () => {
+    mocks.useUseCaseZeroReadiness.mockReturnValue({
+      path: 'bring_own_agent',
+      readiness: {
+        path: 'bring_own_agent',
+        agentSlug: 'factor',
+        legs: [
+          baseLeg({ key: 'bankrBinding', label: 'Bankr/provider binding', state: 'established', mode: 'live' }),
+          baseLeg({ key: 'governedOperationRehearsal', label: 'Governed financial-operation rehearsal', state: 'established', mode: 'simulated' }),
+          // Optional, unestablished — must NEVER suppress the completion badge.
+          baseLeg({ key: 'pulsePnl', label: 'Pulse/P&L status', state: 'missing', mode: 'n/a', required: false }),
+        ],
+        completedSteps: ['bankrBinding', 'governedOperationRehearsal'],
+        requiredStepsComplete: true,
+        presentlyActionableStep: null,
+        blockers: [],
+        nextAction: null,
+        requiresApproval: false,
+        requiredAuthority: [],
+      },
+      lastAdvance: null,
+      loading: false,
+      error: null,
+      choosePath: vi.fn(),
+      advance: vi.fn(),
+      reset: vi.fn(),
+      journeyProfile: 'standard',
+      setJourneyProfile: vi.fn(),
+    });
+    render(<UseCaseZeroReadinessCapsule agentSlug="factor" presentation="panel" />);
+    expect(screen.getByText(/every required step established/i)).toBeInTheDocument();
+  });
+
+  it('does NOT show the completion badge when a REQUIRED leg remains outstanding', () => {
+    mocks.useUseCaseZeroReadiness.mockReturnValue({
+      path: 'bring_own_agent',
+      readiness: {
+        path: 'bring_own_agent',
+        agentSlug: 'factor',
+        legs: [
+          baseLeg({ key: 'bankrBinding', label: 'Bankr/provider binding', state: 'missing', mode: 'n/a' }),
+        ],
+        completedSteps: [],
+        requiredStepsComplete: false,
+        presentlyActionableStep: 'bankrBinding',
+        blockers: ['not established'],
+        nextAction: { handlerId: 'factor:ucz-bankr-binding', label: 'Inspect or provision the Bankr provider-wallet binding' },
+        requiresApproval: false,
+        requiredAuthority: [],
+      },
+      lastAdvance: null,
+      loading: false,
+      error: null,
+      choosePath: vi.fn(),
+      advance: vi.fn(),
+      reset: vi.fn(),
+      journeyProfile: 'standard',
+      setJourneyProfile: vi.fn(),
+    });
+    render(<UseCaseZeroReadinessCapsule agentSlug="factor" presentation="panel" />);
+    expect(screen.queryByText(/every required step established/i)).not.toBeInTheDocument();
   });
 });
 
@@ -104,6 +173,8 @@ describe('item 7 — "Create and establish an agent" is not offered as a second,
       choosePath: vi.fn(),
       advance: vi.fn(),
       reset: vi.fn(),
+      journeyProfile: 'standard',
+      setJourneyProfile: vi.fn(),
     });
     render(<UseCaseZeroReadinessCapsule agentSlug="factor" presentation="panel" />);
     const createButton = screen.getByRole('button', { name: /create and establish an agent/i });

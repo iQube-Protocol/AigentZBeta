@@ -95,7 +95,7 @@ import { resolvePnlEvidenceForAgent } from '@/services/horizen/pnlEvidenceRead';
 import { getCurrentAssessment } from '@/services/aegis/aegisAssessmentService';
 import { getCase, listEvidenceForCase, listCaseEvents, type FactorCaseRow } from '@/services/factor/factorCaseService';
 import { assessIssuerReadiness } from '@/services/factor/bankrCapabilityHandlers';
-import { findLatestTokenLaunchForBeneficiary } from '@/services/factor/tokenLaunchService';
+import { findLatestTokenLaunchForCase } from '@/services/factor/tokenLaunchService';
 import { discoverFinancialServicesForConsumer } from '@/services/financialServices/discovery';
 import { FACTOR_CONFIDENTIAL_ADMISSION_EVIDENCE_KIND } from '@/services/factor/factorConfidentialWorkload';
 
@@ -784,26 +784,37 @@ async function resolveVelaLeg(admin: SupabaseClient, caseId: string | undefined,
         source: 'services/factor/factorConfidentialWorkload.ts (factor_evidence_items)',
       });
     }
-    // Item 1 fix (behavioral, not extension): a Vela leg is established ONLY
-    // when the recorded evidence's own disposition is ACCEPTABLE AND the
-    // verification state appropriate to its OWN declared attestationMode
+    // Item 1/3 fix (behavioral, not extension): a Vela leg is established
+    // ONLY when the recorded evidence's own disposition is ACCEPTABLE AND
+    // the verification state appropriate to its OWN declared attestationMode
     // passed — never inferred from the other mode's boolean (see
     // types/confidentialProjection.ts's own doc: the two verification
     // booleans "are structurally separate and one may never be inferred
     // from the other"). NO_ATTESTATION_LOCAL requires protocolExecution
-    // Verified; NITRO_ATTESTED requires teeAttestationVerified (a live TEE
-    // attestation implies the protocol executed, so this alone is
-    // sufficient for that mode). An UNACCEPTABLE/UNRESOLVED disposition, or
-    // a disposition whose mode-appropriate verification did not pass,
-    // remains 'blocked' — a real ratified refusal, not "not yet done".
+    // Verified. NITRO_ATTESTED requires BOTH protocolExecutionVerified AND
+    // teeAttestationVerified (2026-09-07 correction: a live TEE attestation
+    // does NOT by itself prove the protocol executed correctly inside it —
+    // that would be inferring one boolean from the other, exactly what the
+    // type's own doc comment forbids; both are checked independently, and
+    // local (non-Nitro) execution is always reported as 'simulated', never
+    // conflated with a live attestation). An UNACCEPTABLE/UNRESOLVED
+    // disposition, or a disposition whose mode-appropriate verification did
+    // not pass, remains 'blocked' — a real ratified refusal, not "not yet
+    // done".
     const { disposition, attestationMode, protocolExecutionVerified, teeAttestationVerified } = projectionEvidence.payload ?? {};
     const verificationPassed =
       attestationMode === 'NITRO_ATTESTED'
-        ? teeAttestationVerified === true
+        ? protocolExecutionVerified === true && teeAttestationVerified === true
         : attestationMode === 'NO_ATTESTATION_LOCAL'
           ? protocolExecutionVerified === true
           : false;
     const established = disposition === 'ACCEPTABLE' && verificationPassed;
+    // `mode` is an orthogonal fact about HOW this was attempted (never
+    // folded into `state`/established-ness) — NO_ATTESTATION_LOCAL is
+    // ALWAYS visibly 'simulated' (never conflated with a live attestation);
+    // NITRO_ATTESTED is 'live' regardless of whether verification passed —
+    // a failed-verification NITRO attempt was still a live-mode attempt,
+    // just a blocked one.
     const mode: ReadinessLegMode = attestationMode === 'NITRO_ATTESTED' ? 'live' : 'simulated';
     return leg({
       key: 'velaReadiness',
@@ -973,14 +984,14 @@ async function resolveRehearsalLeg(
       source: 'services/factor/tokenLaunchService.ts (capability boundary)',
     });
   }
-  // Item 3 fix: this leg's OWN state now reflects the canonical token-launch
-  // aggregate directly — a preflighted-or-later launch for this tenant+
-  // beneficiary IS the established fact, never re-derived from Factor
-  // case-state alone. Item 4 fix: `mode` is DERIVED from the recorded Bankr
-  // terms' own `simulated` flag (bankrProviderAdapter.ts's real quote
+  // Item 4 fix (2026-09-07): this leg's OWN state reflects the canonical
+  // token-launch aggregate looked up by CASE (findLatestTokenLaunchForCase),
+  // never by beneficiary alone — a preflighted-or-later launch bound to
+  // THIS case IS the established fact. `mode` is DERIVED from the recorded
+  // Bankr terms' own `simulated` flag (bankrProviderAdapter.ts's real quote
   // response), never hardcoded.
   try {
-    const launch = await findLatestTokenLaunchForBeneficiary(admin, tenantId, runtimeAgentId);
+    const launch = await findLatestTokenLaunchForCase(admin, tenantId, factorCase!.case_id);
     if (launch && REHEARSAL_LEG_COMPLETE_STATES.has(launch.state)) {
       const simulated = (launch.bankr_terms as { simulated?: boolean } | null)?.simulated !== false;
       return leg({
@@ -988,8 +999,8 @@ async function resolveRehearsalLeg(
         label: 'Governed financial-operation rehearsal',
         state: 'established',
         mode: simulated ? 'simulated' : 'live',
-        reason: `Token launch ${launch.id} reached '${launch.state}' — a Bankr token-launch preflight/rehearsal has been completed for this beneficiary (${simulated ? 'simulated' : 'live'} Bankr terms).`,
-        source: 'services/factor/tokenLaunchService.ts::findLatestTokenLaunchForBeneficiary',
+        reason: `Token launch ${launch.id} reached '${launch.state}' — a Bankr token-launch preflight/rehearsal has been completed for this case (${simulated ? 'simulated' : 'live'} Bankr terms).`,
+        source: 'services/factor/tokenLaunchService.ts::findLatestTokenLaunchForCase',
         evidenceRefs: [launch.id],
       });
     }
@@ -1011,7 +1022,7 @@ async function resolveRehearsalLeg(
       state: 'unreadable',
       mode: 'n/a',
       reason: `Token-launch read failed: ${e instanceof Error ? e.message : String(e)}`,
-      source: 'services/factor/tokenLaunchService.ts::findLatestTokenLaunchForBeneficiary',
+      source: 'services/factor/tokenLaunchService.ts::findLatestTokenLaunchForCase',
     });
   }
 }

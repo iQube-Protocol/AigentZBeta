@@ -13,6 +13,8 @@ import { personaFetch, usePersonaSpine } from "@/utils/personaSpine";
 import type { UseCaseZeroPath, UseCaseZeroReadiness } from "@/services/factor/useCaseZeroReadinessProjection";
 import type { AdvanceUseCaseZeroResult } from "@/services/factor/useCaseZeroOrchestrator";
 
+export type UseCaseZeroJourneyProfile = "standard" | "financial_intelligence";
+
 export interface UseUseCaseZeroReadinessOptions {
   agentSlug: string;
   tenantId?: string;
@@ -40,17 +42,30 @@ export interface UseUseCaseZeroReadinessOptions {
 function storageKey(tenantId: string | undefined, personaSessionToken: string | null | undefined, agentSlug: string) {
   return `use-case-zero:${tenantId ?? "no-tenant"}:${personaSessionToken ?? "no-persona"}:${agentSlug}`;
 }
+interface StoredResume {
+  path: UseCaseZeroPath;
+  caseId?: string;
+  /** Item 2 (2026-09-07): the operator's explicit journey-profile choice
+   *  persists alongside path/caseId — a reload must not silently reset it
+   *  back to 'standard'. Absent (older stored entries) is treated as
+   *  'standard', never as 'financial_intelligence'. */
+  journeyProfile?: UseCaseZeroJourneyProfile;
+}
 function readStoredResume(
   tenantId: string | undefined,
   personaSessionToken: string | null | undefined,
   agentSlug: string,
-): { path: UseCaseZeroPath; caseId?: string } | null {
+): StoredResume | null {
   try {
     const raw = window.localStorage.getItem(storageKey(tenantId, personaSessionToken, agentSlug));
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (parsed?.path === "bring_own_agent" || parsed?.path === "create_and_establish") {
-      return { path: parsed.path, caseId: typeof parsed.caseId === "string" ? parsed.caseId : undefined };
+      return {
+        path: parsed.path,
+        caseId: typeof parsed.caseId === "string" ? parsed.caseId : undefined,
+        journeyProfile: parsed.journeyProfile === "financial_intelligence" ? "financial_intelligence" : "standard",
+      };
     }
     return null;
   } catch {
@@ -61,7 +76,7 @@ function writeStoredResume(
   tenantId: string | undefined,
   personaSessionToken: string | null | undefined,
   agentSlug: string,
-  value: { path: UseCaseZeroPath; caseId?: string } | null,
+  value: StoredResume | null,
 ) {
   try {
     const key = storageKey(tenantId, personaSessionToken, agentSlug);
@@ -77,6 +92,7 @@ export function useUseCaseZeroReadiness({ agentSlug, tenantId }: UseUseCaseZeroR
   const { personaSessionToken, status: personaStatus } = usePersonaSpine();
   const [path, setPath] = useState<UseCaseZeroPath | null>(null);
   const [caseId, setCaseId] = useState<string | undefined>(undefined);
+  const [journeyProfile, setJourneyProfileState] = useState<UseCaseZeroJourneyProfile>("standard");
   const [readiness, setReadiness] = useState<UseCaseZeroReadiness | null>(null);
   const [lastAdvance, setLastAdvance] = useState<AdvanceUseCaseZeroResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -104,6 +120,7 @@ export function useUseCaseZeroReadiness({ agentSlug, tenantId }: UseUseCaseZeroR
     // for the instant before the new read resolves.
     setPath(null);
     setCaseId(undefined);
+    setJourneyProfileState("standard");
     setReadiness(null);
     setLastAdvance(null);
     setError(null);
@@ -114,18 +131,48 @@ export function useUseCaseZeroReadiness({ agentSlug, tenantId }: UseUseCaseZeroR
     personaFetch("/api/moneypenny/factor/use-case-zero/readiness", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ agentSlug, path: stored.path, tenantId, caseId: stored.caseId }),
+      body: JSON.stringify({ agentSlug, path: stored.path, tenantId, caseId: stored.caseId, journeyProfile: stored.journeyProfile }),
     })
       .then((res) => res.json())
       .then((json) => {
         if (!json.ok) throw new Error(json.error ?? "resume readiness read failed");
         setPath(stored.path);
         setCaseId(stored.caseId);
+        setJourneyProfileState(stored.journeyProfile ?? "standard");
         setReadiness(json.readiness as UseCaseZeroReadiness);
       })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)))
       .finally(() => setLoading(false));
   }, [agentSlug, tenantId, personaSessionToken, personaStatus]);
+
+  // Item 2 (2026-09-07): the operator's explicit journey-profile choice —
+  // changing it persists immediately (even before a path/case exists) so a
+  // reload never silently reverts it, and re-runs the readiness read when a
+  // path is already chosen so the projection reflects the new profile right
+  // away rather than waiting for the next unrelated action.
+  const setJourneyProfile = useCallback(
+    (next: UseCaseZeroJourneyProfile) => {
+      setJourneyProfileState(next);
+      if (path) {
+        writeStoredResume(tenantId, personaSessionToken, agentSlug, { path, caseId, journeyProfile: next });
+        setLoading(true);
+        setError(null);
+        personaFetch("/api/moneypenny/factor/use-case-zero/readiness", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ agentSlug, path, tenantId, caseId, journeyProfile: next }),
+        })
+          .then((res) => res.json())
+          .then((json) => {
+            if (!json.ok) throw new Error(json.error ?? "readiness assessment failed");
+            setReadiness(json.readiness as UseCaseZeroReadiness);
+          })
+          .catch((e) => setError(e instanceof Error ? e.message : String(e)))
+          .finally(() => setLoading(false));
+      }
+    },
+    [agentSlug, tenantId, caseId, path, personaSessionToken],
+  );
 
   const choosePath = useCallback(
     async (chosen: UseCaseZeroPath) => {
@@ -135,20 +182,20 @@ export function useUseCaseZeroReadiness({ agentSlug, tenantId }: UseUseCaseZeroR
         const res = await personaFetch("/api/moneypenny/factor/use-case-zero/readiness", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ agentSlug, path: chosen, tenantId, caseId }),
+          body: JSON.stringify({ agentSlug, path: chosen, tenantId, caseId, journeyProfile }),
         });
         const json = await res.json();
         if (!json.ok) throw new Error(json.error ?? "readiness assessment failed");
         setPath(chosen);
         setReadiness(json.readiness as UseCaseZeroReadiness);
-        writeStoredResume(tenantId, personaSessionToken, agentSlug, { path: chosen, caseId });
+        writeStoredResume(tenantId, personaSessionToken, agentSlug, { path: chosen, caseId, journeyProfile });
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
       } finally {
         setLoading(false);
       }
     },
-    [agentSlug, tenantId, caseId, personaSessionToken],
+    [agentSlug, tenantId, caseId, personaSessionToken, journeyProfile],
   );
 
   const advance = useCallback(
@@ -160,7 +207,7 @@ export function useUseCaseZeroReadiness({ agentSlug, tenantId }: UseUseCaseZeroR
         const res = await personaFetch("/api/moneypenny/factor/use-case-zero/advance", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ agentSlug, path, tenantId, caseId, launchSpec }),
+          body: JSON.stringify({ agentSlug, path, tenantId, caseId, journeyProfile, launchSpec }),
         });
         const json = await res.json();
         if (!json.ok) throw new Error(json.error ?? "advance failed");
@@ -169,7 +216,7 @@ export function useUseCaseZeroReadiness({ agentSlug, tenantId }: UseUseCaseZeroR
         setReadiness(result.readiness);
         if (result.caseId) {
           setCaseId(result.caseId);
-          writeStoredResume(tenantId, personaSessionToken, agentSlug, { path, caseId: result.caseId });
+          writeStoredResume(tenantId, personaSessionToken, agentSlug, { path, caseId: result.caseId, journeyProfile });
         }
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
@@ -177,7 +224,7 @@ export function useUseCaseZeroReadiness({ agentSlug, tenantId }: UseUseCaseZeroR
         setLoading(false);
       }
     },
-    [agentSlug, path, tenantId, caseId, personaSessionToken],
+    [agentSlug, path, tenantId, caseId, personaSessionToken, journeyProfile],
   );
 
   const reset = useCallback(() => {
@@ -190,8 +237,9 @@ export function useUseCaseZeroReadiness({ agentSlug, tenantId }: UseUseCaseZeroR
     // case instead of genuinely starting over, silently contradicting the
     // button's own label.
     setCaseId(undefined);
+    setJourneyProfileState("standard");
     writeStoredResume(tenantId, personaSessionToken, agentSlug, null);
   }, [agentSlug, tenantId, personaSessionToken]);
 
-  return { path, readiness, lastAdvance, loading, error, choosePath, advance, reset, caseId, setCaseId };
+  return { path, readiness, lastAdvance, loading, error, choosePath, advance, reset, caseId, setCaseId, journeyProfile, setJourneyProfile };
 }

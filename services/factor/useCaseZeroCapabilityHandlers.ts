@@ -27,6 +27,11 @@ export interface UseCaseZeroActionInput {
   actorPersonaId: string;
   agentSlug: string;
   caseId?: string;
+  /** Item 2 (2026-09-07): the operator's explicit journey-profile choice —
+   *  threaded through unmodified to the projection, which is the only place
+   *  it has any effect (making Pulse/P&L required under
+   *  'financial_intelligence'). Never inferred or defaulted here. */
+  journeyProfile?: 'standard' | 'financial_intelligence';
 }
 
 /** Read-only readiness assessment for the "bring my own agent" path — never

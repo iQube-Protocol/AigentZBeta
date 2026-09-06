@@ -51,7 +51,7 @@ export interface UseCaseZeroReadinessCapsuleProps {
 }
 
 export function UseCaseZeroReadinessCapsule({ agentSlug, tenantId, presentation = "compact" }: UseCaseZeroReadinessCapsuleProps) {
-  const { path, readiness, lastAdvance, loading, error, choosePath, advance, reset } = useUseCaseZeroReadiness({ agentSlug, tenantId });
+  const { path, readiness, lastAdvance, loading, error, choosePath, advance, reset, journeyProfile, setJourneyProfile } = useUseCaseZeroReadiness({ agentSlug, tenantId });
   const [expanded, setExpanded] = useState(presentation !== "compact");
   // Launch-spec editor state — Factor never invents these values (manifest
   // boundary); the operator supplies them here before the rehearsal step
@@ -111,6 +111,36 @@ export function UseCaseZeroReadinessCapsule({ agentSlug, tenantId, presentation 
           Start over
         </button>
       </div>
+
+      {/* Item 2 (2026-09-07): an explicit operator choice — never inferred,
+          never defaulted silently. Selecting 'financial_intelligence' is
+          what makes the Pulse/P&L leg required (see
+          useCaseZeroReadinessProjection.ts::resolvePulsePnlLeg); 'standard'
+          leaves it optional. The choice persists with the resume state
+          (survives a reload) and re-runs the readiness read immediately. */}
+      <fieldset className="flex flex-col gap-1 rounded-md border border-slate-800 bg-slate-950/40 p-2">
+        <legend className="px-1 text-[11px] text-slate-400">Journey profile</legend>
+        <label className="flex items-center gap-1.5 text-xs text-slate-300">
+          <input
+            type="radio"
+            name="journeyProfile"
+            value="standard"
+            checked={journeyProfile === "standard"}
+            onChange={() => setJourneyProfile("standard")}
+          />
+          Standard — Pulse/P&amp;L reporting optional
+        </label>
+        <label className="flex items-center gap-1.5 text-xs text-slate-300">
+          <input
+            type="radio"
+            name="journeyProfile"
+            value="financial_intelligence"
+            checked={journeyProfile === "financial_intelligence"}
+            onChange={() => setJourneyProfile("financial_intelligence")}
+          />
+          Financial intelligence — Pulse/P&amp;L reporting required
+        </label>
+      </fieldset>
 
       {showFull && readiness && (
         <ul className="flex flex-col gap-1.5">
@@ -206,8 +236,15 @@ export function UseCaseZeroReadinessCapsule({ agentSlug, tenantId, presentation 
           <BankrActionButton label="Advance one step" onClick={() => void advance()} busy={loading} tone="primary" />
         </div>
       )}
-      {!readiness?.nextAction && readiness?.completedSteps.length === readiness?.legs.length && (
-        <BankrBadge label="Every step established" tone="good" />
+      {/* Item 5 fix (2026-09-07): completion is `requiredStepsComplete` —
+          NEVER `completedSteps.length === legs.length`. That equality
+          compared established count against EVERY leg including optional
+          ones (e.g. pulsePnl under the 'standard' journey profile), so the
+          badge could never show while a genuinely non-blocking optional leg
+          stayed unestablished — exactly the state `requiredStepsComplete`
+          exists to represent correctly. */}
+      {readiness?.requiredStepsComplete && (
+        <BankrBadge label="Every required step established" tone="good" />
       )}
 
       {lastAdvance && <p className="text-[11px] text-slate-400">{lastAdvance.detail}</p>}

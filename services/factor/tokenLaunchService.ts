@@ -82,6 +82,16 @@ export interface TokenLaunchRow {
   beneficiary_agent_runtime_id: string;
   requesting_principal_persona_id: string;
   preparing_agent_runtime_id: string;
+  /** The Factor case (or other journey) this launch rehearsal is bound to
+   *  (item 4, 2026-09-07 correction). Null only for rows created before this
+   *  column existed. */
+  case_ref: string | null;
+  /** Deterministic draft-time commitment over {tenantId, caseRef,
+   *  beneficiaryAgentRuntimeId, chain, tokenName, tokenSymbol, description}
+   *  — see computeDraftIdempotencyKey(). Distinct from `idempotency_key`
+   *  (the submission-time key, set only once approved). Unique per tenant
+   *  in Postgres (uq_token_launches_draft_idempotency). */
+  draft_idempotency_key: string | null;
   provider: 'bankr';
   provider_wallet_binding_id: string | null;
   state: TokenLaunchState;
@@ -159,54 +169,65 @@ export interface CreateDraftInput {
   vestingConfig?: Record<string, unknown> | null;
   conflictDisclosures?: unknown[];
   riskDisclosures?: unknown[];
+  /** The Factor case (or other journey) this draft is bound to — item 4,
+   *  2026-09-07. Optional here (the general, non-Use-Case-Zero
+   *  `prepareLaunchProposal` acceptance path never supplied one and must
+   *  keep working); required by `createOrResumeDraft` below. */
+  caseRef?: string | null;
+}
+
+function draftInsertRow(id: string, input: CreateDraftInput, draftIdempotencyKey: string | null) {
+  return {
+    id,
+    tenant_id: input.tenantId,
+    beneficiary_agent_runtime_id: input.beneficiaryAgentRuntimeId,
+    requesting_principal_persona_id: input.requestingPrincipalPersonaId,
+    preparing_agent_runtime_id: input.preparingAgentRuntimeId,
+    case_ref: input.caseRef ?? null,
+    draft_idempotency_key: draftIdempotencyKey,
+    provider: 'bankr',
+    provider_wallet_binding_id: input.providerWalletBindingId ?? null,
+    state: 'draft',
+    execution_mode: 'dry_run',
+    chain: input.chain,
+    token_name: input.tokenName,
+    token_symbol: input.tokenSymbol,
+    description: input.description ?? null,
+    utility_claims: input.utilityClaims ?? [],
+    image_url: input.imageUrl ?? null,
+    metadata_url: input.metadataUrl ?? null,
+    website_url: input.websiteUrl ?? null,
+    social_refs: input.socialRefs ?? [],
+    fee_recipient: input.feeRecipient ?? null,
+    paired_asset: input.pairedAsset ?? null,
+    vesting_config: input.vestingConfig ?? null,
+    conflict_disclosures: input.conflictDisclosures ?? [],
+    risk_disclosures: input.riskDisclosures ?? [],
+    bankr_terms: null,
+    bankr_terms_source_url: null,
+    bankr_terms_retrieved_at: null,
+    bankr_terms_hash: null,
+    aegis_assessment_id: null,
+    spec_hash: null,
+    approval_hash: null,
+    approved_by_persona_id: null,
+    approved_at: null,
+    idempotency_key: null,
+    bankr_job_id: null,
+    transaction_hash: null,
+    token_address: null,
+    pool_address: null,
+    explorer_url: null,
+    version: 1,
+    supersedes_id: null,
+    superseded_by: null,
+  };
 }
 
 export async function createDraft(admin: SupabaseClient, input: CreateDraftInput): Promise<TokenLaunchRow> {
   const { data, error } = await admin
     .from('token_launches')
-    .insert({
-      id: randomUUID(),
-      tenant_id: input.tenantId,
-      beneficiary_agent_runtime_id: input.beneficiaryAgentRuntimeId,
-      requesting_principal_persona_id: input.requestingPrincipalPersonaId,
-      preparing_agent_runtime_id: input.preparingAgentRuntimeId,
-      provider: 'bankr',
-      provider_wallet_binding_id: input.providerWalletBindingId ?? null,
-      state: 'draft',
-      execution_mode: 'dry_run',
-      chain: input.chain,
-      token_name: input.tokenName,
-      token_symbol: input.tokenSymbol,
-      description: input.description ?? null,
-      utility_claims: input.utilityClaims ?? [],
-      image_url: input.imageUrl ?? null,
-      metadata_url: input.metadataUrl ?? null,
-      website_url: input.websiteUrl ?? null,
-      social_refs: input.socialRefs ?? [],
-      fee_recipient: input.feeRecipient ?? null,
-      paired_asset: input.pairedAsset ?? null,
-      vesting_config: input.vestingConfig ?? null,
-      conflict_disclosures: input.conflictDisclosures ?? [],
-      risk_disclosures: input.riskDisclosures ?? [],
-      bankr_terms: null,
-      bankr_terms_source_url: null,
-      bankr_terms_retrieved_at: null,
-      bankr_terms_hash: null,
-      aegis_assessment_id: null,
-      spec_hash: null,
-      approval_hash: null,
-      approved_by_persona_id: null,
-      approved_at: null,
-      idempotency_key: null,
-      bankr_job_id: null,
-      transaction_hash: null,
-      token_address: null,
-      pool_address: null,
-      explorer_url: null,
-      version: 1,
-      supersedes_id: null,
-      superseded_by: null,
-    })
+    .insert(draftInsertRow(randomUUID(), input, null))
     .select('*')
     .single();
   if (error) throw new Error(`createDraft failed: ${error.message}`);
@@ -247,34 +268,124 @@ export async function getTokenLaunch(admin: SupabaseClient, id: string, tenantId
 
 /**
  * The canonical idempotent lookup for "does a token launch already exist for
- * this tenant + beneficiary?" (item 3, 2026-09-06 correction) — the ONE read
- * every caller preparing a launch (governed-operation rehearsal, or any
- * future preparer) MUST consult before ever calling `createDraft`, so a
- * repeated preparation call resumes the SAME row instead of inserting a
- * duplicate. Orders by `version` descending so a superseded chain always
- * resolves to its current head. `token_launches` carries no `case_id`
- * column (a launch is scoped by tenant + beneficiary + preparer, not by a
- * Factor case) — tenant + beneficiary is this table's own natural
- * composite key for "the launch for this establishment", mirroring how
- * `agentPurposeWalletService.ts` keys a wallet lookup by runtime agent id
- * rather than inventing a new key.
+ * THIS CASE?" (item 4, 2026-09-07 correction — replaces the earlier
+ * beneficiary-only `findLatestTokenLaunchForBeneficiary`, which conflated
+ * every case/journey a beneficiary might ever run and could not tell "the
+ * same case, asked twice" apart from "a genuinely different case"). Orders
+ * by `version` descending so a superseded chain always resolves to its
+ * current head. Case-bound, not spec-bound — this is the read the
+ * governedOperationRehearsal READINESS LEG uses to answer "has a rehearsal
+ * been completed for this case", regardless of the exact spec; the
+ * exact-spec, idempotent CREATE-time guarantee is a separate concern,
+ * provided by `createOrResumeDraft` below via the `draft_idempotency_key`
+ * unique index.
  */
-export async function findLatestTokenLaunchForBeneficiary(
+export async function findLatestTokenLaunchForCase(
   admin: SupabaseClient,
   tenantId: string,
-  beneficiaryAgentRuntimeId: string,
+  caseRef: string,
 ): Promise<TokenLaunchRow | null> {
   const { data, error } = await admin
     .from('token_launches')
     .select('*')
     .eq('tenant_id', tenantId)
-    .eq('beneficiary_agent_runtime_id', beneficiaryAgentRuntimeId)
+    .eq('case_ref', caseRef)
     .order('version', { ascending: false })
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (error) throw new Error(`findLatestTokenLaunchForBeneficiary failed: ${error.message}`);
+  if (error) throw new Error(`findLatestTokenLaunchForCase failed: ${error.message}`);
   return (data as TokenLaunchRow | null) ?? null;
+}
+
+/**
+ * Deterministic draft-time commitment (item 4) over exactly the fields that
+ * define "the same rehearsal request" — tenant, case, beneficiary, and the
+ * operator-supplied spec fields. Computed BEFORE Bankr terms exist (terms
+ * are quoted only once a draft is preflighted), so this is intentionally a
+ * narrower hash than `computeSpecHash` (which also covers bankr_terms and is
+ * only ever computed at APPROVAL time). Any field changing — including the
+ * spec — produces a DIFFERENT key, so a changed specification can never
+ * collide with, resume, or trigger a preflight against an older draft.
+ */
+export function computeDraftIdempotencyKey(input: {
+  tenantId: string;
+  caseRef: string;
+  beneficiaryAgentRuntimeId: string;
+  chain: string;
+  tokenName: string;
+  tokenSymbol: string;
+  description?: string | null;
+}): string {
+  return commit({
+    tenantId: input.tenantId,
+    caseRef: input.caseRef,
+    beneficiaryAgentRuntimeId: input.beneficiaryAgentRuntimeId,
+    chain: input.chain,
+    tokenName: input.tokenName,
+    tokenSymbol: input.tokenSymbol,
+    description: input.description ?? null,
+  });
+}
+
+export interface CreateOrResumeDraftInput extends CreateDraftInput {
+  /** Required here (optional on the general CreateDraftInput/
+   *  prepareLaunchProposal path) — case-bound idempotency has nothing to
+   *  scope by without it. */
+  caseRef: string;
+}
+
+export interface CreateOrResumeDraftResult {
+  launch: TokenLaunchRow;
+  /** True only when THIS call's own insert won the race (or no prior row
+   *  existed) — false when an existing row (this call's own earlier
+   *  attempt, or a concurrent identical request) was resumed instead. */
+  created: boolean;
+}
+
+/**
+ * The ONE atomic create-or-resume operation for a rehearsal draft (item 4).
+ * Computes the deterministic draft_idempotency_key, then performs an
+ * `INSERT ... ON CONFLICT (tenant_id, draft_idempotency_key) DO NOTHING`
+ * (via Supabase's `upsert(..., { ignoreDuplicates: true })`) followed by a
+ * read-back on that same key. The uniqueness guarantee lives in Postgres
+ * (uq_token_launches_draft_idempotency), not in application logic — so two
+ * truly concurrent calls with an IDENTICAL spec are guaranteed by the
+ * database to collapse onto exactly one row, no matter how they interleave.
+ * A DIFFERENT spec computes a DIFFERENT key and therefore always inserts a
+ * genuinely new, independent row.
+ */
+export async function createOrResumeDraft(admin: SupabaseClient, input: CreateOrResumeDraftInput): Promise<CreateOrResumeDraftResult> {
+  const draftIdempotencyKey = computeDraftIdempotencyKey(input);
+  const candidateId = randomUUID();
+  const row = draftInsertRow(candidateId, input, draftIdempotencyKey);
+
+  const { error: upsertErr } = await admin
+    .from('token_launches')
+    .upsert(row, { onConflict: 'tenant_id,draft_idempotency_key', ignoreDuplicates: true });
+  if (upsertErr) throw new Error(`createOrResumeDraft upsert failed: ${upsertErr.message}`);
+
+  const { data, error } = await admin
+    .from('token_launches')
+    .select('*')
+    .eq('tenant_id', input.tenantId)
+    .eq('draft_idempotency_key', draftIdempotencyKey)
+    .single();
+  if (error || !data) throw new Error(`createOrResumeDraft read-back failed: ${error?.message ?? 'no row found for the computed idempotency key'}`);
+
+  const launch = data as TokenLaunchRow;
+  const created = launch.id === candidateId;
+  if (created) {
+    await createActivityReceipt({
+      personaId: input.requestingPrincipalPersonaId,
+      activeCartridge: 'moneypenny',
+      actionType: 'token_launch_proposed',
+      summary: `Token launch draft opened for ${input.beneficiaryAgentRuntimeId} (case ${input.caseRef}): ${input.tokenName} (${input.tokenSymbol}) on ${input.chain}`,
+      agentsInvoked: [input.preparingAgentRuntimeId],
+      actionInput: { launchId: launch.id, caseRef: input.caseRef, chain: input.chain, tokenSymbol: input.tokenSymbol },
+    });
+  }
+  return { launch, created };
 }
 
 export interface TransitionInput {

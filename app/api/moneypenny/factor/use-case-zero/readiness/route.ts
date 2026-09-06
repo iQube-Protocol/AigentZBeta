@@ -41,9 +41,13 @@ export async function POST(req: NextRequest) {
   const path = body.path === 'create_and_establish' ? 'create_and_establish' : 'bring_own_agent';
   const caseId = typeof body.caseId === 'string' ? body.caseId : undefined;
   const tenantId = resolveTenantId(body.tenantId);
+  // Item 2 (2026-09-07): an explicit operator choice, never inferred —
+  // anything other than the literal 'financial_intelligence' leaves the
+  // projection's own default (optional Pulse/P&L) untouched.
+  const journeyProfile = body.journeyProfile === 'financial_intelligence' ? 'financial_intelligence' as const : undefined;
 
   try {
-    const input = { admin, tenantId, actorPersonaId: persona.personaId, agentSlug, caseId };
+    const input = { admin, tenantId, actorPersonaId: persona.personaId, agentSlug, caseId, journeyProfile };
     const readiness = path === 'create_and_establish' ? await assessCreateAndEstablishReadiness(input) : await assessBringOwnAgentReadiness(input);
     return NextResponse.json({ ok: true, readiness });
   } catch (err) {

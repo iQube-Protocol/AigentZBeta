@@ -40,6 +40,8 @@ export async function POST(req: NextRequest) {
   const path = body.path === 'create_and_establish' ? 'create_and_establish' : 'bring_own_agent';
   const caseId = typeof body.caseId === 'string' ? body.caseId : undefined;
   const tenantId = resolveTenantId(body.tenantId);
+  // Item 2 (2026-09-07): threaded through unmodified, never inferred here.
+  const journeyProfile = body.journeyProfile === 'financial_intelligence' ? 'financial_intelligence' as const : undefined;
   const launchSpec =
     body.launchSpec && typeof body.launchSpec === 'object'
       ? (body.launchSpec as { chain: string; tokenName: string; tokenSymbol: string; description?: string })
@@ -53,6 +55,7 @@ export async function POST(req: NextRequest) {
       agentSlug,
       path,
       caseId,
+      journeyProfile,
       launchSpec,
     });
     return NextResponse.json({ ok: true, result });
