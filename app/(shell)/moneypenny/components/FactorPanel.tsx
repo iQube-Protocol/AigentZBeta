@@ -38,6 +38,7 @@ import { useMoneyPennyNavigation, readAndClearPendingCaseId } from "./moneyPenny
 import { buildCaseContextPrompt, type CaseConsultationContext } from "@/services/moneypenny/caseContextConsultation";
 import { FACTOR_CAPABILITIES, getFactorCapability, type FactorCapabilityId } from "@/services/factor/factorCapabilityManifest";
 import { BankrTokenLaunchCapsule } from "@/components/moneypenny/bankr/BankrTokenLaunchCapsule";
+import { UseCaseZeroReadinessCapsule } from "@/components/moneypenny/useCaseZero/UseCaseZeroReadinessCapsule";
 
 type FactorCaseState =
   | "discovered"
@@ -282,9 +283,11 @@ const FACTOR_FOLLOWUPS: SpecialistPromptSuggestion[] = FACTOR_CAPABILITIES.filte
 export function FactorPanel() {
   const { setActiveCase: setSharedActiveCase, navigate } = useMoneyPennyNavigation();
 
-  const [mode, setMode] = useState<"consult" | "case" | "bankr">("consult");
+  const [mode, setMode] = useState<"consult" | "case" | "bankr" | "use-case-zero">("consult");
   const [bankrAgentRuntimeId, setBankrAgentRuntimeId] = useState("");
   const [bankrBoundAgentRuntimeId, setBankrBoundAgentRuntimeId] = useState<string | null>(null);
+  const [useCaseZeroAgentSlug, setUseCaseZeroAgentSlug] = useState("");
+  const [useCaseZeroBoundAgentSlug, setUseCaseZeroBoundAgentSlug] = useState<string | null>(null);
 
   // No-case empty state / find-or-open / create.
   const [candidateKey, setCandidateKey] = useState("");
@@ -570,6 +573,13 @@ export function FactorPanel() {
             >
               Bankr tokenization
             </button>
+            <button
+              type="button"
+              onClick={() => setMode("use-case-zero")}
+              className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-200 hover:border-violet-500/50"
+            >
+              Establish a constitutional financial agent
+            </button>
           </CardContent>
         )}
         {mode === "bankr" && (
@@ -580,7 +590,61 @@ export function FactorPanel() {
             </button>
           </CardContent>
         )}
+        {mode === "use-case-zero" && (
+          <CardContent className="flex items-center gap-2">
+            <Badge className="border-violet-700/60 bg-violet-500/10 text-violet-200">Constitutional financial-agent establishment</Badge>
+            <button type="button" onClick={() => setMode("consult")} className="text-xs text-slate-400 hover:text-slate-200">
+              Back to consultation
+            </button>
+          </CardContent>
+        )}
       </Card>
+
+      {mode === "use-case-zero" && (
+        <Card className="bg-slate-900/40 border-slate-800">
+          <CardHeader>
+            <CardTitle className="text-slate-100">Use Case Zero — constitutional financial-agent establishment</CardTitle>
+            <CardDescription className="text-slate-400">
+              Bring an existing agent through the remaining readiness steps, or create and establish a new one — both converge on the
+              same canonical readiness sequence. Every action here calls the actual HTTP routes under
+              app/api/moneypenny/factor/use-case-zero/*, never a parallel mechanism.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            {!useCaseZeroBoundAgentSlug ? (
+              <div className="flex flex-col gap-2 rounded-lg border border-slate-800 bg-slate-900/30 p-3">
+                <label className="flex flex-col gap-1 text-sm text-slate-300">
+                  Agent slug
+                  <input
+                    value={useCaseZeroAgentSlug}
+                    onChange={(e) => setUseCaseZeroAgentSlug(e.target.value)}
+                    placeholder="e.g. factor, nakamoto, moneypenny"
+                    className="rounded-lg border border-slate-800 bg-slate-900/60 p-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-violet-500/60 focus:outline-none"
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setUseCaseZeroBoundAgentSlug(useCaseZeroAgentSlug.trim())}
+                  disabled={!useCaseZeroAgentSlug.trim()}
+                  className="inline-flex w-fit items-center gap-2 rounded-full border border-violet-500/70 bg-violet-500/10 px-4 py-1.5 text-sm text-violet-100 hover:bg-violet-500/20 disabled:opacity-50"
+                >
+                  Assess readiness for this agent
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between text-xs text-slate-400">
+                  <span>Agent: {useCaseZeroBoundAgentSlug}</span>
+                  <button type="button" onClick={() => setUseCaseZeroBoundAgentSlug(null)} className="text-slate-400 hover:text-slate-200">
+                    Change agent
+                  </button>
+                </div>
+                <UseCaseZeroReadinessCapsule presentation="panel" agentSlug={useCaseZeroBoundAgentSlug} />
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {mode === "bankr" && (
         <Card className="bg-slate-900/40 border-slate-800">

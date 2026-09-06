@@ -585,7 +585,13 @@ export type ActivityActionType =
   // Never carries confidential inputs/results — only commitments + the
   // provider's own coarse verdict (ConfidentialProjectionEvidence's own
   // T0/receipt-safe discipline, types/confidentialProjection.ts).
-  | 'confidential_projection_evaluated';
+  | 'confidential_projection_evaluated'
+  // Use Case Zero orchestrator (2026-09-06) — services/wallet/
+  // agentPurposeWalletService.ts's provisionOwnerWallet/provisionPurposeWallet
+  // already exist and are idempotent; neither wrote its own receipt before
+  // this pass. Never carries the private key — only the resulting public
+  // address and wallet role.
+  | 'agent_purpose_wallet_provisioned';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 

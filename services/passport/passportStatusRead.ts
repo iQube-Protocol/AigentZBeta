@@ -53,3 +53,46 @@ export async function getPassportApplicationStatus(
     createdAt: row.created_at,
   }));
 }
+
+/**
+ * Whether an actual PASSPORT (not merely an approved application) has been
+ * issued for this persona — reads `polity_passport_records`, a DIFFERENT
+ * table from `polity_passport_applications` (schema comment,
+ * supabase/migrations/20260610000000_polity_passport_bureau.sql:
+ * "Application-phase status (distinct from passport-phase status on
+ * records)"). `services/passport/issuanceService.ts::applyReviewDecision`
+ * only inserts a row here on actual issuance (`issued_at` set) — an
+ * `application_status = 'approved'` row on `polity_passport_applications`
+ * with NO corresponding record here means the intake decision was made but
+ * the passport itself has not been issued. Never conflate the two (Use Case
+ * Zero correction, 2026-09-06: "Never treat approved as issued").
+ */
+export interface PassportRecordStatusRow {
+  passportId: string;
+  passportClass: string;
+  citizenStatus: string | null;
+  participantStatus: string | null;
+  issuedAt: string | null;
+}
+
+export async function getPassportRecordStatus(
+  admin: SupabaseClient,
+  personaId: string,
+  limit = 5,
+): Promise<PassportRecordStatusRow[]> {
+  const { data, error } = await admin
+    .from('polity_passport_records')
+    .select('passport_id, passport_class, citizen_status, participant_status, issued_at')
+    .eq('persona_id', personaId)
+    .order('issued_at', { ascending: false })
+    .limit(limit);
+  if (error) throw new Error(error.message);
+
+  return (data ?? []).map((row) => ({
+    passportId: String(row.passport_id),
+    passportClass: row.passport_class,
+    citizenStatus: row.citizen_status,
+    participantStatus: row.participant_status,
+    issuedAt: row.issued_at,
+  }));
+}

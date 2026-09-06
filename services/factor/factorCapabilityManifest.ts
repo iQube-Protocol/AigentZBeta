@@ -571,9 +571,9 @@ export const FACTOR_CAPABILITIES: FactorCapability[] = [
     description:
       "Guides an operator, end to end, through establishing a constitutional financial-services agent — either bringing an existing agent through the remaining readiness steps, or creating and establishing a new one from scratch. Both entry paths converge on ONE canonical readiness projection (services/factor/useCaseZeroReadinessProjection.ts) composed from EXISTING services — identity, wallet, Passport, delegation/authority chain, Horizen/ERC-8004 registration, Aegis assessment, MoneyPenny admission, Bankr/provider binding, Vela confidential-compute readiness, and runtime activation. Never a second Journey state machine, service catalog, wallet model, approval system or receipt system.",
     status: "partial",
-    interactionModes: ["explain", "assess-readiness", "prepare"],
-    handler: "services/factor/useCaseZeroReadinessProjection.ts",
-    handlerKind: "service",
+    interactionModes: ["explain", "assess-readiness", "prepare", "act"],
+    handler: "app/api/moneypenny/factor/use-case-zero/{readiness,advance}/route.ts",
+    handlerKind: "api",
     requiresApproval: false,
     requiredAuthority: ["constitutional-agent-establishment-readiness"],
     examples: [
@@ -588,12 +588,13 @@ export const FACTOR_CAPABILITIES: FactorCapability[] = [
       "Completion is read from canonical state (case, wallet, registration, assessment, admission, binding, evidence records) — never inferred from conversational prose or from Factor's own case status alone.",
       "Every action reports honestly whether it ran in simulated/test-transport mode or live — never blends the two, never presents a simulated result as live.",
       "No token is issued, no transaction is broadcast, no funds move, and no production credentials are used by this capability.",
+      "CORRECTION (2026-09-06, operator review): the two entry actions below are READ-ONLY readiness assessments (services/factor/useCaseZeroCapabilityHandlers.ts) — they choose a path and report canonical readiness; they do not themselves create, provision, or establish anything. The 'Advance one step' action (services/factor/useCaseZeroOrchestrator.ts) is the SEPARATE, real orchestrator that actually acts — one permitted step per call, never auto-chaining across a human/Aegis/MoneyPenny approval boundary. Reachable today via real HTTP routes (app/api/moneypenny/factor/use-case-zero/*) and the shared UseCaseZeroReadinessCapsule component, mounted in FactorPanel's 'use-case-zero' mode.",
     ],
     actions: [
       explainAction("constitutional_financial_agent_establishment", "Explain constitutional financial-agent establishment"),
       {
         id: "constitutional_financial_agent_establishment:bring_own_agent",
-        label: "Bring my own agent",
+        label: "Bring my own agent — assess readiness",
         mode: "prepare",
         handlerId: "factor:ucz-bring-own-agent",
         exposure: "moneypenny",
@@ -602,9 +603,18 @@ export const FACTOR_CAPABILITIES: FactorCapability[] = [
       },
       {
         id: "constitutional_financial_agent_establishment:create_and_establish",
-        label: "Create and establish an agent",
+        label: "Create and establish an agent — assess readiness",
         mode: "prepare",
         handlerId: "factor:ucz-create-and-establish",
+        exposure: "moneypenny",
+        requiresApproval: false,
+        requiredAuthority: ["constitutional-agent-establishment-readiness"],
+      },
+      {
+        id: "constitutional_financial_agent_establishment:advance",
+        label: "Advance one step (resumable orchestrator)",
+        mode: "execute",
+        handlerId: "factor:ucz-advance",
         exposure: "moneypenny",
         requiresApproval: false,
         requiredAuthority: ["constitutional-agent-establishment-readiness"],
