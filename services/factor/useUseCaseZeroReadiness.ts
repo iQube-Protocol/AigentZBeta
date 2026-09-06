@@ -199,7 +199,10 @@ export function useUseCaseZeroReadiness({ agentSlug, tenantId }: UseUseCaseZeroR
   );
 
   const advance = useCallback(
-    async (launchSpec?: { chain: string; tokenName: string; tokenSymbol: string; description?: string }) => {
+    async (
+      launchSpec?: { chain: string; tokenName: string; tokenSymbol: string; description?: string },
+      agentGenesis?: { sponsorPassportId: string; displayName: string; description: string; origin?: string },
+    ) => {
       if (!path) return;
       setLoading(true);
       setError(null);
@@ -207,7 +210,7 @@ export function useUseCaseZeroReadiness({ agentSlug, tenantId }: UseUseCaseZeroR
         const res = await personaFetch("/api/moneypenny/factor/use-case-zero/advance", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ agentSlug, path, tenantId, caseId, journeyProfile, launchSpec }),
+          body: JSON.stringify({ agentSlug, path, tenantId, caseId, journeyProfile, launchSpec, agentGenesis }),
         });
         const json = await res.json();
         if (!json.ok) throw new Error(json.error ?? "advance failed");

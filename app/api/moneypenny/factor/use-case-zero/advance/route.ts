@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { advanceUseCaseZero } from '@/services/factor/useCaseZeroOrchestrator';
+import { resolveRequestOrigin } from '@/app/api/agents/_lib/requestOrigin';
 import { respondError, resolveTenantId } from '../../_lib/respondError';
 
 export const dynamic = 'force-dynamic';
@@ -46,6 +47,20 @@ export async function POST(req: NextRequest) {
     body.launchSpec && typeof body.launchSpec === 'object'
       ? (body.launchSpec as { chain: string; tokenName: string; tokenSymbol: string; description?: string })
       : undefined;
+  // Agent-genesis fields (agentShell step, 'create_and_establish' path) —
+  // Factor never invents a sponsoring passport/display name/description
+  // (same manifest boundary as launchSpec). `origin` defaults to this
+  // request's own origin when the caller omits it, mirroring
+  // /api/agents/genesis's existing resolveRequestOrigin usage.
+  const agentGenesisBody = body.agentGenesis && typeof body.agentGenesis === 'object' ? (body.agentGenesis as Record<string, unknown>) : null;
+  const agentGenesis = agentGenesisBody
+    ? {
+        sponsorPassportId: typeof agentGenesisBody.sponsorPassportId === 'string' ? agentGenesisBody.sponsorPassportId : '',
+        displayName: typeof agentGenesisBody.displayName === 'string' ? agentGenesisBody.displayName : '',
+        description: typeof agentGenesisBody.description === 'string' ? agentGenesisBody.description : '',
+        origin: typeof agentGenesisBody.origin === 'string' && agentGenesisBody.origin ? agentGenesisBody.origin : resolveRequestOrigin(req),
+      }
+    : undefined;
 
   try {
     const result = await advanceUseCaseZero({
@@ -57,6 +72,7 @@ export async function POST(req: NextRequest) {
       caseId,
       journeyProfile,
       launchSpec,
+      agentGenesis,
     });
     return NextResponse.json({ ok: true, result });
   } catch (err) {

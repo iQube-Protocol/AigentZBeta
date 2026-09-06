@@ -42,7 +42,8 @@ import {
   type UseCaseZeroReadiness,
 } from '@/services/factor/useCaseZeroReadinessProjection';
 import { resolveRegistrableAgent } from '@/services/horizen/registrableAgents';
-import { getCase, createOrResumeCase, transitionCaseState, listEvidenceForCase } from '@/services/factor/factorCaseService';
+import { sponsorPolityAgent } from '@/services/agents/sponsorPolityAgent';
+import { getCase, createOrResumeCase, transitionCaseState, listEvidenceForCase, bindCandidateAgentRootDid } from '@/services/factor/factorCaseService';
 import { AgentPurposeWalletService } from '@/services/wallet/agentPurposeWalletService';
 import { establishDirectChain } from '@/services/factor/authorityChain';
 import { validateChainForAction } from '@/services/factor/authorityChain';
@@ -71,6 +72,16 @@ export interface AdvanceUseCaseZeroInput {
    *  `governedOperationRehearsal` — Factor never invents these values
    *  (manifest boundary). Absent means the step reports `awaiting_input`. */
   launchSpec?: Pick<CreateDraftInput, 'chain' | 'tokenName' | 'tokenSymbol' | 'description'>;
+  /**
+   * Required only when the presently-actionable step is `agentShell` on the
+   * 'create_and_establish' path AND no RootDID exists yet for `agentSlug` —
+   * Factor never invents a sponsoring passport, display name, or
+   * description (manifest boundary, same as `launchSpec`). Absent means the
+   * step reports `awaiting_input`. `origin` is the public origin used to
+   * build the served Agent Card URL (e.g. https://dev-beta.aigentz.me) —
+   * required by `sponsorPolityAgent` itself.
+   */
+  agentGenesis?: { sponsorPassportId: string; displayName: string; description: string; origin: string };
 }
 
 export interface AdvanceUseCaseZeroResult {
@@ -516,14 +527,73 @@ async function advanceUseCaseZeroCore(input: AdvanceUseCaseZeroInput): Promise<O
   const step = nextActionableLeg.key as ActionableStep;
   const runtimeAgentId = resolveRegistrableAgent(input.agentSlug)?.runtimeAgentId ?? null;
 
-  // agentShell has no mutation path either — creating a new registrable
-  // agent is a code-level allowlist change (see the leg's own reason).
   if (step === 'agentShell') {
+    const agentShellLeg = readiness.legs.find((l) => l.key === 'agentShell');
+    // 'blocked' (bring_own_agent, nothing exists under this slug) and
+    // 'awaiting_external_action' (create_and_establish, but the operator's
+    // own sponsoring Passport isn't issued yet) both have no mutation path
+    // here — the leg's own reason already states why.
+    if (agentShellLeg?.state === 'blocked' || agentShellLeg?.state === 'awaiting_external_action') {
+      return {
+        stepTaken: step,
+        outcome: agentShellLeg.state === 'awaiting_external_action' ? 'awaiting_external_action' : 'blocked',
+        detail: agentShellLeg.reason,
+        readiness,
+      };
+    }
+    // state === 'missing' on 'create_and_establish' — the ONE real mutation
+    // this leg performs: sponsor the agent's genesis through the EXISTING,
+    // UNCHANGED sponsorPolityAgent primitive (did:agent:root:<slug>, no
+    // cost, no blockchain broadcast — Use Case Zero's own never-move-funds/
+    // never-broadcast rule). Never a second, disagreeing RootDID-minting
+    // scheme (re-use law).
+    if (!input.agentGenesis?.sponsorPassportId || !input.agentGenesis?.displayName || !input.agentGenesis?.description || !input.agentGenesis?.origin) {
+      return {
+        stepTaken: step,
+        outcome: 'awaiting_input',
+        detail:
+          "Sponsoring this agent's genesis needs sponsorPassportId, displayName, description, and origin — " +
+          'Factor never invents these values.',
+        readiness,
+      };
+    }
+    const outcome = await sponsorPolityAgent({
+      admin: input.admin,
+      sponsorPersonaId: input.actorPersonaId,
+      sponsorPassportId: input.agentGenesis.sponsorPassportId,
+      slug: input.agentSlug,
+      displayName: input.agentGenesis.displayName,
+      description: input.agentGenesis.description,
+      origin: input.agentGenesis.origin,
+    });
+    if (!outcome.ok || !outcome.agent) {
+      return {
+        stepTaken: step,
+        outcome: 'blocked',
+        detail: outcome.error ?? 'Agent genesis failed.',
+        readiness,
+      };
+    }
+    await createActivityReceipt({
+      personaId: input.actorPersonaId,
+      activeCartridge: 'moneypenny',
+      actionType: 'agent_root_identity_sponsored',
+      summary: `RootDID ${outcome.agent.didUri} ${outcome.alreadyExisted ? 'already existed for' : 'minted for'} '${input.agentSlug}' via sponsorPolityAgent.`,
+      agentsInvoked: [outcome.agent.agentId],
+      actionInput: { agentSlug: input.agentSlug, didUri: outcome.agent.didUri, alreadyExisted: Boolean(outcome.alreadyExisted) },
+    });
+    // If a Factor case already exists for this advance, bind the REAL
+    // minted RootDID onto it so delegationAuthority (and anything else
+    // reading candidate_agent_root_did) reads the actual identity rather
+    // than whatever candidate text the case was created with.
+    if (input.caseId) {
+      await bindCandidateAgentRootDid(input.admin, input.caseId, input.tenantId, outcome.agent.didUri);
+    }
     return {
       stepTaken: step,
-      outcome: 'blocked',
-      detail: readiness.legs.find((l) => l.key === 'agentShell')?.reason ?? 'Agent shell is blocked.',
-      readiness,
+      outcome: 'advanced',
+      detail: `Agent genesis ${outcome.alreadyExisted ? 'already complete' : 'complete'} — RootDID ${outcome.agent.didUri} (${outcome.agent.agentCardUrl}).`,
+      readiness: await reread(input),
     };
   }
 
