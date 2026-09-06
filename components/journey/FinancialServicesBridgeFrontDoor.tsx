@@ -206,9 +206,42 @@ function FinancialServicesBridgeFrontDoorInner() {
   // second observer (CFS-055 coherence discipline, same as the CI bridge).
   const [citizenPassportUsable, setCitizenPassportUsable] = useState<boolean | undefined>(undefined);
 
+  /*
+   * THE aigentme STAGE'S OWN COMPLETION, NOT JUST A VALID PASSPORT
+   * (Factor Operate blocker, diagnosed 2026-09-06).
+   *
+   * The 2026-08-24/2026-08-25 foreground override below used to fire the
+   * instant `citizenPassportUsable` was true — but `aigentme`'s OWN
+   * completionEvidence (`aigentMeActive`, `focusDispositionRecorded`,
+   * horizenMoneyPennyJourney.ts) is a SEPARATE fact from Passport validity,
+   * and is recordable ONLY inside the canonical `aigentme-welcome` surface
+   * this override replaces. A Passport-holding operator who had not yet
+   * completed that ceremony was routed straight past the one surface that
+   * could ever complete it — Operate could never turn green, and the
+   * deployed override additionally misrouted to metaMe's own first-enabled
+   * tab whenever MoneyPenny's own group activation had not separately been
+   * granted (CodexPanelDynamic's `enabledTabs.find(...) || enabledTabs[0]`
+   * fallback — see the moneypenny-orchestration-focused registry entry's
+   * `autoActivate` fix for the other half of that).
+   *
+   * Never regresses once true within a session (`||`) — the SAME
+   * monotonic-within-session precedent RegisterAgentPanel/AgreementRatifyPanel
+   * already establish for their own canonical-projection reads, so a
+   * transient/slow re-read can never flip a completed ceremony back to
+   * incomplete and re-show it.
+   */
+  const [aigentmeStageComplete, setAigentmeStageComplete] = useState(false);
+
   const handleRuntimeStateChange = useCallback((state: JourneyRuntimeState) => {
     const passportStage = state.stages.find((s) => s.stageId === 'passport');
     setCitizenPassportUsable(Boolean(passportStage?.evidencePresent.includes('operatorPolityCitizenPassportValid')));
+
+    const aigentmeStage = state.stages.find((s) => s.stageId === 'aigentme');
+    const aigentmeComplete = Boolean(
+      aigentmeStage?.evidencePresent.includes('aigentMeActive') &&
+        aigentmeStage?.evidencePresent.includes('focusDispositionRecorded'),
+    );
+    if (aigentmeComplete) setAigentmeStageComplete(true);
   }, []);
 
   // AEE-XP-001 §4.3/§15 Phase 1 item 6 — consume an incoming ExperienceHandoff
@@ -260,19 +293,30 @@ function FinancialServicesBridgeFrontDoorInner() {
     participantState: { citizenPassportUsable: citizenPassportUsable === true },
   });
 
-  // Projection layer: MoneyPenny Orchestration is the foreground for aigentme
-  // (product-facing "Operate" label) when post-Passport, but the Journey Spine
-  // and all navigation remain unchanged (operator direction, 2026-08-24,
-  // "separate metaMe activation from aigentMe activation"). The stage stepper
-  // stays visible; only the aigentme stage's surface ref is overridden, and
-  // renders through the SAME embed presentation primitive every ordinary
-  // journey surface uses (FS Operate viewport parity, 2026-08-25 — see the
-  // 'moneypenny-orchestration-focused' registry entry). If resolution fails,
-  // this stays undefined and PilotJourneyTab renders the normal aigentme
-  // surfaces.
-  const foregroundSurfaceRefByStage = destination.valid && destination.activationMode === 'CATALOGUE_ACTIVATION'
-    ? { aigentme: 'moneypenny-orchestration-focused' }
-    : undefined;
+  /*
+   * Projection layer: MoneyPenny Orchestration becomes the foreground for
+   * aigentme (product-facing "Operate" label) ONLY AFTER the aigentme
+   * stage's own canonical completion evidence exists — never before
+   * (Factor Operate blocker fix, 2026-09-06; supersedes the 2026-08-24
+   * "post-Passport" gating, which fired this override BEFORE the
+   * ceremony could ever run and made Operate permanently uncompletable
+   * for exactly the operators it targeted). The Journey Spine and all
+   * navigation remain unchanged (operator direction, 2026-08-24: "separate
+   * metaMe activation from aigentMe activation") — the stage stepper stays
+   * visible throughout; only the aigentme stage's surface ref is
+   * overridden, and only once there is nothing left for that surface to
+   * produce. `destination.valid`/`activationMode` still gate WHETHER
+   * MoneyPenny is even a registered, resolvable destination at all; WHICH
+   * ref presents it is the registry's job either way (FS Operate viewport
+   * parity, 2026-08-25 — see the 'moneypenny-orchestration-focused'
+   * registry entry). If resolution fails, or the ceremony is not yet
+   * complete, this stays undefined and PilotJourneyTab renders the normal,
+   * canonical aigentme-welcome surface.
+   */
+  const foregroundSurfaceRefByStage =
+    destination.valid && destination.activationMode === 'CATALOGUE_ACTIVATION' && aigentmeStageComplete
+      ? { aigentme: 'moneypenny-orchestration-focused' }
+      : undefined;
 
   return (
     <MetaAvatarProvider defaultAgent="aigent-moneypenny">

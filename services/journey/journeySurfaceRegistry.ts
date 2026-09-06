@@ -198,6 +198,25 @@ export type JourneySurfaceDescriptor =
        * `expandedCodexSlug`; falls back to `tab` when unset.
        */
       expandedTab?: string;
+      /**
+       * Explicitly select this catalogue item's group inside the
+       * destination cartridge (`?autoActivate=` — CodexPanelDynamic already
+       * auto-activates an unaddressed, self-activatable catalogue id on
+       * arrival; app/(embed)/triad/embed/codex/[codexSlug]/page.tsx already
+       * reads it from the URL). Without this, `tab` alone is AMBIGUOUS the
+       * instant the destination tab's own group carries an `activationId`
+       * gate this persona has not separately granted (data/codex-configs.ts's
+       * MONEYPENNY_AREA_TABS' `moneypenny` group inside METAME_CODEX does):
+       * `getEnabledTabs` then excludes the requested tab entirely, and
+       * CodexPanelDynamic's `enabledTabs.find(...) || enabledTabs[0]`
+       * fallback silently lands on whatever tab happens to be first in that
+       * cartridge instead — for metame-codex, its own public landing tab,
+       * not MoneyPenny (Factor Operate blocker, diagnosed 2026-09-06: this
+       * is the exact misroute the operator's screenshots showed). Set this
+       * to the catalogue id (data/activation-catalog.ts) whose group this
+       * descriptor's `tab` belongs to.
+       */
+      autoActivate?: string;
       note: string;
     }
   | {
@@ -391,6 +410,10 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
     // LEGACY_TAB_SLUGS for any stored link, but this registry entry (the
     // primary source) targets the real tab directly.
     tab: 'home',
+    // Explicit MoneyPenny selection (Factor Operate blocker, 2026-09-06) —
+    // `tab: 'home'` alone is ambiguous without this persona's group
+    // activation; see `autoActivate`'s own doc comment on the type above.
+    autoActivate: 'moneypenny',
     // The Journey Runtime copilot (mounted once by JourneyCopilotHost) is the
     // one persistent MoneyPenny copilot on screen — the embedded tab must not
     // mount a second one (MS-1), same rule as aigentme-welcome above.
@@ -934,5 +957,8 @@ export function buildEmbedSurfaceSrc(
     // field, since the SAME registry entry is shared across multiple
     // stages that each need a different focus value.
     focus: input.focus,
+    // Explicit group selection (Factor Operate blocker, 2026-09-06) — see
+    // `autoActivate`'s own doc comment on the descriptor type above.
+    autoActivate: descriptor.autoActivate,
   });
 }
