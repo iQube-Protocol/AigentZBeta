@@ -191,22 +191,23 @@ describe('FinancialSovereigntyIntroStage.tsx (Discover/Learn/Explore) — CFS co
     expect(src).toMatch(/const bridge: FsBridge = accent === 'indigo' \? 'ci' : 'knyts';/);
   });
 
-  it("LEARN now uses the same locked-viewport BridgeMediaInteractionSection + activity-carousel pattern as Discover/Explore (production learning pattern, 2026-09-03) — no stage still renders the old FinancialSovereigntyStageExtras stack", () => {
+  it("LEARN now uses the same BridgeContentCapsule shell + activity-companion pattern as Discover/Explore (Bridge-capsule-shell convergence, 2026-09-06) — no stage still renders the old FinancialSovereigntyStageExtras stack", () => {
     expect(src).not.toMatch(/FinancialSovereigntyStageExtras/);
-    expect(src).toMatch(/BridgeActivityGroupRail groups=\{learnGroups\}/);
+    expect(src).toMatch(/groups=\{learnGroups\}/);
   });
 
-  it('DISCOVER, LEARN and EXPLORE all reuse the locked-viewport media/interaction composition (BridgeMediaInteractionSection + BridgeMediaCarouselPane, the same shell BridgeOrientSurface uses) — never BridgeMediaStage\'s plain hero', () => {
-    expect(src).toMatch(/import \{ BridgeMediaInteractionSection \} from '@\/components\/journey\/BridgeMediaInteractionSection';/);
-    expect(src).toMatch(/import type \{ BridgeMediaCarouselItem \} from '@\/components\/journey\/BridgeMediaCarouselPane';/);
+  it("DISCOVER, LEARN and EXPLORE all reuse the SAME shared FsBridgeCapsuleSection wiring around BridgeContentCapsule (the shell View/Orient/Personify already use) + BridgeMediaCarouselPane for the unchanged left media pane — never BridgeMediaStage's plain hero, never three hand-rolled shell wirings", () => {
+    expect(src).toMatch(/import \{ BridgeContentCapsule \} from '@\/components\/journey\/BridgeContentCapsule';/);
+    expect(src).toMatch(/import \{ BridgeMediaCarouselPane, type BridgeMediaCarouselItem \} from '@\/components\/journey\/BridgeMediaCarouselPane';/);
     expect(src).not.toMatch(/<BridgeMediaStage/);
-    expect(src.match(/<BridgeMediaInteractionSection/g)?.length).toBe(3);
+    expect(src.match(/<FsBridgeCapsuleSection/g)?.length).toBe(3);
+    expect(src.match(/<BridgeContentCapsule/g)?.length).toBe(1);
   });
 
-  it('every stage composes its Learning Rail from BridgeActivityGroupRail/BridgeActivityGroup — data-driven activity groups, not page-specific JSX stacks', () => {
-    expect(src).toMatch(/import \{ BridgeActivityGroupRail \} from '@\/components\/journey\/BridgeActivityGroupRail';/);
+  it('every stage composes its learning content from BridgeActivityCompanionColumn/BridgeActivityGroup — data-driven activity groups embedded in the capsule shell\'s companion column, not page-specific JSX stacks', () => {
+    expect(src).toMatch(/import \{ BridgeActivityCompanionColumn \} from '@\/components\/journey\/BridgeActivityGroupRail';/);
     expect(src).toMatch(/import type \{ BridgeActivityGroup \} from '@\/services\/journey\/bridgeActivity';/);
-    expect(src.match(/<BridgeActivityGroupRail groups=\{/g)?.length).toBe(3);
+    expect(src.match(/<BridgeActivityCompanionColumn groups=\{groups\} \/>/g)?.length).toBe(1);
   });
 
   it('DISCOVER, LEARN and EXPLORE reuse the verified C-15 Studio placeholder video (never a fabricated URL) with the exact required label, only while no admin video is configured — real production infographics resolved via the canonical asset catalog otherwise', () => {
