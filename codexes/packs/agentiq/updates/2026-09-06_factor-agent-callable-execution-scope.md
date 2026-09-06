@@ -112,12 +112,13 @@ wrapper in item 4) but are not the same task.
 Tracked as backlog items in the CFS-051 research registry (`research_backlog_items`, live Supabase):
 `factor-agent-callable-execution-packaging` (high) and `devon-agent-card-and-system-prompt` (medium).
 
-## Open item — Bankr PRD
+## Resolved — Bankr/Factor/Aegis/MoneyPenny PRD committed
 
-The operator asked to commit the Bankr/Factor/Aegis/MoneyPenny PRD (`FACTOR_AEGIS_MONEYPENNY_PRD_0.1.md`,
-reportedly 952 lines) into this repo. It was uploaded into a PRIOR session's context and was never
-saved to disk or committed — a filesystem search of this environment found no copy anywhere. It
-cannot be reconstructed from the citations in `codexes/packs/agentiq/updates/*.md` (those are
-narrative summaries, not the source text) without fabricating content the operator never actually
-wrote here. **The operator needs to re-supply the file (paste or re-upload) before it can be
-committed.**
+The operator re-supplied the PRD (it had been uploaded into a prior session's context only, never
+saved to disk or committed — confirmed by a filesystem and full git-history search finding no
+copy anywhere in this environment). Committed verbatim at
+`codexes/packs/agentiq/items/FACTOR_AEGIS_MONEYPENNY_PRD_0.1.md` and registered under a new
+`col_factor_aegis_prd` collection in `codexes/packs/agentiq/collections.json`. The prior citations
+in `codexes/packs/agentiq/updates/2026-09-04_factor-aegis-0.1-phase1-reconciliation.md` (and this
+file's own earlier note) that described it as "uploaded, never committed" are now stale — the PRD
+has a real repo path.

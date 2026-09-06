@@ -37,6 +37,14 @@
       ]
     },
     {
+      "id": "col_factor_aegis_prd",
+      "title": "Factor + Aegis PRD",
+      "description": "The execution-ready PRD for the MoneyPenny Constitutional Financial Services Runtime's Factor (economic activation) and Aegis (independent trust assessment) specialists — the governing spec behind Use Case Zero.",
+      "items": [
+        "items/FACTOR_AEGIS_MONEYPENNY_PRD_0.1.md"
+      ]
+    },
+    {
       "id": "col_updates",
       "title": "Updates",
       "items": [
