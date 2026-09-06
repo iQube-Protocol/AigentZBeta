@@ -859,61 +859,48 @@ export function JourneyRunSurface({
    * a stale checklist for the PREVIOUS stage never appears to describe the
    * new one, and on outside click / Escape like any other transient popover.
    */
+  /*
+   * ── EVIDENCE SURFACE CONSOLIDATION (2026-09-06) ─────────────────────────
+   *
+   * Commit 3ba5ef913 gave the header's "Evidence N/M" control its OWN
+   * floating popover (a checklist of present/missing evidence keys),
+   * separate from StageReceiptsDrawer further down the stage body. Fixing
+   * that popover's overlap by adding a full-viewport translucent backdrop
+   * behind it (`fixed inset-0 z-10 bg-slate-950/70`) made the regression
+   * WORSE, not better — combined with StageReceiptsDrawer's own visible
+   * "Evidence (N)" section underneath, the whole Journey read as one broken,
+   * translucent modal (operator report, 2026-09-06 screenshots).
+   *
+   * The actual defect was never a z-index or opacity value to tune — it was
+   * having TWO independent, simultaneously-openable "Evidence" surfaces on
+   * one screen at all (rule 4 of the surgical repair spec: "Never render
+   * two competing open Evidence surfaces over one another"). The fix
+   * removes the second surface entirely: `evidenceOpen`/`setEvidenceOpen`
+   * now control StageReceiptsDrawer DIRECTLY (its `open`/`onOpenChange`
+   * props), and the header button's job is only to open/scroll to that ONE
+   * canonical drawer — never to render its own competing panel. The
+   * evidenceMissing pills the old popover uniquely showed now render INSIDE
+   * StageReceiptsDrawer itself (its own `evidenceMissing` prop), so nothing
+   * that information conveyed is lost, only its second, colliding home.
+   */
   const [evidenceOpen, setEvidenceOpen] = useState(false);
-  const evidenceRef = useRef<HTMLDivElement | null>(null);
+  const receiptsDrawerRef = useRef<HTMLDivElement | null>(null);
 
+  // Collapse the drawer on stage change — a stale expanded state for the
+  // PREVIOUS stage must never appear to describe the newly-active one.
   useEffect(() => {
     setEvidenceOpen(false);
   }, [activeStageId]);
 
+  // Keyboard parity with the popover this replaces: Escape collapses the
+  // drawer while it is open, wherever focus currently is on the page.
   useEffect(() => {
     if (!evidenceOpen) return;
-    const onPointerDown = (e: MouseEvent) => {
-      if (evidenceRef.current && !evidenceRef.current.contains(e.target as Node)) setEvidenceOpen(false);
-    };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setEvidenceOpen(false);
     };
-    document.addEventListener('mousedown', onPointerDown);
     window.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onPointerDown);
-      window.removeEventListener('keydown', onKey);
-    };
-  }, [evidenceOpen]);
-
-  /*
-   * REGISTER LAYOUT DIAGNOSIS (GJR audit, 2026-09-05): the Evidence checklist
-   * popover below is anchored to its trigger with `position: absolute` and
-   * lives in the STAGE HEADER, which sits ABOVE (and outside) the separate
-   * `overflow-y-auto` scroll container that renders the active stage's own
-   * surfaces (e.g. RegisterAgentPanel's wallet-quarantine warning,
-   * StageReceiptsDrawer's own inline "Evidence (N)" block). The header does
-   * not move when that body scrolls, so the popover's on-screen position is
-   * FIXED relative to the header — while the body content sliding underneath
-   * it is not. With no clipping ancestor between the popover and the page,
-   * `z-20` puts it visually on top of whatever the body happens to render at
-   * that spot once scrolled, which is exactly the reported symptom: a
-   * "This wallet is quarantined…" warning (or StageReceiptsDrawer's own
-   * "Evidence (N)" / "Historical / supplementary receipts" text) rendering
-   * underneath the still-open header popover.
-   *
-   * Root cause is therefore "the popover and the scrollable body can
-   * co-exist open+scrolled at the same time", not a z-index or offset
-   * value — so the fix removes that co-existence rather than tuning either
-   * layer's numbers: closing the popover the instant ANY scrollable
-   * ancestor scrolls (capture-phase, since `scroll` does not bubble) means
-   * it can never still be open while the body content moves underneath it.
-   * This never touches layout (no absolute→relative conversion, no pushed-
-   * down body, no fixed heights), so opening/closing Evidence still never
-   * resizes or collapses the stage body, and the header popover and
-   * StageReceiptsDrawer remain the two separate mechanisms they always were.
-   */
-  useEffect(() => {
-    if (!evidenceOpen) return;
-    const onScroll = () => setEvidenceOpen(false);
-    document.addEventListener('scroll', onScroll, true);
-    return () => document.removeEventListener('scroll', onScroll, true);
+    return () => window.removeEventListener('keydown', onKey);
   }, [evidenceOpen]);
 
   // Keep the active stage visible in the carousel — including when it was
@@ -999,10 +986,14 @@ export function JourneyRunSurface({
 
   const evidenceTrigger = activeStageRuntime &&
     (activeStageRuntime.evidencePresent.length > 0 || activeStageRuntime.evidenceMissing.length > 0) && (
-      <div className="relative shrink-0" ref={evidenceRef}>
+      <div className="shrink-0">
         <button
           type="button"
-          onClick={() => setEvidenceOpen((v) => !v)}
+          onClick={() => {
+            setEvidenceOpen((v) => !v);
+            // Opens/focuses the canonical drawer further down the body.
+            receiptsDrawerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }}
           aria-expanded={evidenceOpen}
           className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-slate-800 bg-slate-900/40 px-2 py-1 text-[11px] text-slate-400 hover:bg-slate-800/60 hover:text-slate-300"
         >
@@ -1011,53 +1002,6 @@ export function JourneyRunSurface({
           {activeStageRuntime.receiptRefs.length > 0 ? ` · ${activeStageRuntime.receiptRefs.length} receipts` : ''}
           <ChevronDown className={`h-3 w-3 shrink-0 transition-transform ${evidenceOpen ? 'rotate-180' : ''}`} />
         </button>
-        {evidenceOpen && (
-          <>
-            {/*
-             * COLLISION-SAFE BACKDROP (GJR audit follow-up, 2026-09-06) — the
-             * scroll-close listener above only ever reacted AFTER a scroll
-             * had already moved the body underneath a still-open, merely
-             * 95%-opaque popover — insufficient for the initial-open case
-             * (nothing has scrolled yet) and for any scroll event the
-             * listener's own state-update lags behind by a frame. A
-             * fixed, full-viewport, fully opaque-backed scrim rendered
-             * BEHIND the panel (z-10, below the panel's z-20) and ABOVE the
-             * stage body removes the possibility of overlap entirely: there
-             * is nothing readable between the panel and the scrim for the
-             * body to bleed through, at ANY scroll position, from the very
-             * first paint the popover opens in. Clicking it is an extra,
-             * belt-and-braces close path alongside the existing outside-
-             * mousedown/Escape handlers above (never a replacement for them).
-             */}
-            <div
-              className="fixed inset-0 z-10 bg-slate-950/70"
-              aria-hidden="true"
-              onClick={() => setEvidenceOpen(false)}
-            />
-            <div className="absolute right-0 top-[calc(100%+4px)] z-20 max-w-[min(90vw,32rem)] rounded-lg border border-slate-800 bg-slate-900 p-2.5 shadow-lg">
-            <div className="flex flex-nowrap items-center gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
-              {activeStageRuntime.evidencePresent.map((sig) => (
-                <span
-                  key={sig}
-                  className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-emerald-900/60 bg-emerald-950/20 px-2 py-0.5 text-[11px] text-emerald-300/80"
-                >
-                  <Check className="h-3 w-3 shrink-0" />
-                  {humaniseSignal(sig)}
-                </span>
-              ))}
-              {activeStageRuntime.evidenceMissing.map((sig) => (
-                <span
-                  key={sig}
-                  className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-slate-700 px-2 py-0.5 text-[11px] text-slate-400"
-                >
-                  <span className="h-2.5 w-2.5 shrink-0 rounded-full border border-slate-600" />
-                  {humaniseSignal(sig)}
-                </span>
-              ))}
-            </div>
-            </div>
-          </>
-        )}
       </div>
     );
 
@@ -1065,10 +1009,10 @@ export function JourneyRunSurface({
    * Evidence trigger lives HERE — between Refresh and Full screen (layout
    * correction, 2026-08-10, from the dev branch's own coherence pass): its
    * trigger was previously anchored at the far right of the stage-
-   * description row, congesting that corner. From here its popover opens
-   * directly onto the description row below (or, in `compact` mode, the
-   * same row it's already part of) — exactly where the information belongs.
-   * Shared between the two-row and one-row (`compact`) layouts via
+   * description row, congesting that corner. From here it opens/focuses the
+   * canonical StageReceiptsDrawer further down the stage body (Evidence
+   * surface consolidation, 2026-09-06) — exactly where the information
+   * belongs. Shared between the two-row and one-row (`compact`) layouts via
    * `headerActions` so neither can drift out of sync with the other's
    * placement (KNYTS Bridge reconstitution, 2026-08-09/10).
    */
@@ -1719,6 +1663,7 @@ export function JourneyRunSurface({
             two renderings of the same evidence is not more evidence. */}
         {!activeStage.receiptsSurfacedNatively && (
           <StageReceiptsDrawer
+            ref={receiptsDrawerRef}
             receiptTypes={activeStage.receiptTypes}
             agentsInvoked={
               activeStage.receiptsScopedToSubjectAgent && receiptsSubjectAgentRef
@@ -1726,10 +1671,17 @@ export function JourneyRunSurface({
                 : undefined
             }
             // CFS-055 coherence pass (2026-08-10) — the SAME canonical
-            // evidence the checklist popover above already renders, never a
-            // second computation. Primary source for the drawer now.
+            // evidence the header trigger's summary count already reflects,
+            // never a second computation. Primary source for the drawer.
             canonicalEvidencePresent={activeStageRuntime?.evidencePresent}
             canonicalReceiptRefs={activeStageRuntime?.receiptRefs}
+            // Evidence surface consolidation (2026-09-06) — this is now the
+            // ONLY Evidence surface; the header's "Evidence N/M" button
+            // controls it directly rather than rendering a second, competing
+            // panel of its own.
+            evidenceMissing={activeStageRuntime?.evidenceMissing}
+            open={evidenceOpen}
+            onOpenChange={setEvidenceOpen}
           />
         )}
       </div>

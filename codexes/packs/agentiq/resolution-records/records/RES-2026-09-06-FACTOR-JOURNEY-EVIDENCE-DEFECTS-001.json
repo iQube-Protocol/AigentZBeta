@@ -18,7 +18,7 @@
   "resolution": [
     "dvnAttestationProcessor.ts's `get_pending_messages()` calls now route through a new `readPendingDvnMessages()` helper that never `.catch(() => [])`s — a canister failure or non-array response returns `{ readable: false, error }`, distinct from `{ readable: true, messages: [] }`. `countDvnPendingMessages` and `processPendingDvnAttestations` both surface this as a discriminated result (`DvnPendingCountResult`, `DvnAttestationBatchResult`'s new `{ ok: false, error }` branch) rather than a bare number/always-ok shape. The cron route now returns HTTP 500 with the underlying error on an unreadable canister response, never `idle: true`; the operator-UI route (app/api/ops/layerzero/process/route.ts) does the same. No canister capability was invented — the fix only stops discarding an existing error.",
     "horizenMoneyPennyJourney.ts's `standing` stage now declares `receiptsScopedToSubjectAgent: true`, verified against the actual seed-award and accrual services' `agentsInvoked` tagging before opting in (the same verification discipline Register/Claim/Orient's own comments already document).",
-    "JourneyRunSurface.tsx's Evidence popover gained a `fixed inset-0` opaque backdrop (`bg-slate-950/70`) rendered at a LOWER z-index than the panel but above the stage body, present in the DOM the instant the popover opens (not gated on any scroll event), plus the panel's own background became fully opaque (`bg-slate-900`, no alpha suffix) rather than the prior `/95`. The existing outside-mousedown, Escape, and close-on-scroll handlers are all preserved unchanged — the backdrop is additive containment, not a replacement for any of them; clicking the backdrop is one more close path."
+    "JourneyRunSurface.tsx's Evidence popover gained a `fixed inset-0` opaque backdrop (`bg-slate-950/70`) rendered at a LOWER z-index than the panel but above the stage body, present in the DOM the instant the popover opens (not gated on any scroll event), plus the panel's own background became fully opaque (`bg-slate-900`, no alpha suffix) rather than the prior `/95`. The existing outside-mousedown, Escape, and close-on-scroll handlers are all preserved unchanged — the backdrop is additive containment, not a replacement for any of them; clicking the backdrop is one more close path. SUPERSEDED 2026-09-06: deployed, this backdrop combined with StageReceiptsDrawer's own visible content to read as one broken, translucent modal — see RES-2026-09-06-JOURNEY-EVIDENCE-SURFACE-CONSOLIDATION-001, which removes the backdrop and the header's own popover entirely in favor of one consolidated Evidence surface."
   ],
   "rejectedApproaches": [
     "Redirecting the header Evidence button to open StageReceiptsDrawer directly instead of fixing its own popover — rejected because the header popover uniquely displays MISSING evidence signals (evidenceMissing pills) that StageReceiptsDrawer's canonical section does not render at all; redirecting would have been a silent capability regression, not a layout fix.",
@@ -32,7 +32,7 @@
   "canaries": [
     "tests/dvn-liveness-e2e-canary.test.ts",
     "tests/standing-stage-receipt-agent-isolation.test.ts",
-    "tests/journey-evidence-popover-backdrop-containment.test.tsx",
+    "tests/journey-evidence-layout-browser-regression.test.tsx",
     "tests/dvn-attestation-processor-liveness.test.ts",
     "tests/journey-run-surface-evidence-popover-overlap.test.tsx"
   ],
@@ -44,7 +44,7 @@
     "tests": [
       "tests/dvn-liveness-e2e-canary.test.ts",
       "tests/standing-stage-receipt-agent-isolation.test.ts",
-      "tests/journey-evidence-popover-backdrop-containment.test.tsx"
+      "tests/journey-evidence-layout-browser-regression.test.tsx"
     ],
     "receipts": [],
     "incidentRefs": [

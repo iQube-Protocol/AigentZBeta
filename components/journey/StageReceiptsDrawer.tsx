@@ -78,6 +78,28 @@ interface StageReceiptsDrawerProps {
    * fresh type/agent search.
    */
   canonicalReceiptRefs?: readonly string[];
+  /**
+   * Evidence keys this predicate's POSIT resolution has NOT yet established
+   * (`resolution.stages[stageId].evidenceMissing`) — surfaced alongside
+   * `canonicalEvidencePresent` in the primary section (Journey UI
+   * consolidation, 2026-09-06). Previously this information existed ONLY in
+   * JourneyRunSurface's own separate header popover, which is why that
+   * popover could not simply be redirected here without a capability
+   * regression the first time this was attempted — see
+   * RES-2026-09-06-JOURNEY-EVIDENCE-SURFACE-CONSOLIDATION-001.
+   */
+  evidenceMissing?: readonly string[];
+  /**
+   * Controlled open state (Journey UI consolidation, 2026-09-06) — when
+   * provided, this component no longer owns whether it is expanded;
+   * JourneyRunSurface's header "Evidence N/M" control drives it directly so
+   * there is exactly ONE Evidence surface per stage, never a second floating
+   * popover duplicating (and visually colliding with) this drawer. Omitting
+   * both `open` and `onOpenChange` preserves the original uncontrolled,
+   * click-to-expand behavior for every other mount of this component.
+   */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 function humanizeEvidenceKey(key: string): string {
@@ -86,13 +108,27 @@ function humanizeEvidenceKey(key: string): string {
     .replace(/^./, (c) => c.toUpperCase());
 }
 
-export function StageReceiptsDrawer({
+export const StageReceiptsDrawer = React.forwardRef<HTMLDivElement, StageReceiptsDrawerProps>(function StageReceiptsDrawer({
   receiptTypes,
   agentsInvoked,
   canonicalEvidencePresent,
   canonicalReceiptRefs,
-}: StageReceiptsDrawerProps) {
-  const [open, setOpen] = useState(false);
+  evidenceMissing,
+  open: controlledOpen,
+  onOpenChange,
+}, forwardedRef) {
+  const isControlled = controlledOpen !== undefined;
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const open = isControlled ? controlledOpen : uncontrolledOpen;
+  const setOpen = useCallback(
+    (next: boolean | ((prev: boolean) => boolean)) => {
+      const resolved = typeof next === 'function' ? (next as (prev: boolean) => boolean)(open) : next;
+      if (!isControlled) setUncontrolledOpen(resolved);
+      onOpenChange?.(resolved);
+    },
+    [isControlled, onOpenChange, open],
+  );
+  const evidenceMissingList = evidenceMissing ?? [];
 
   const evidencePresent = canonicalEvidencePresent ?? [];
   const canonicalIds = canonicalReceiptRefs ?? [];
@@ -214,9 +250,7 @@ export function StageReceiptsDrawer({
 
   const toggle = useCallback(() => {
     setOpen((o) => !o);
-    if (!loaded) void load();
-    if (!canonicalLoaded) void loadCanonical();
-  }, [loaded, load, canonicalLoaded, loadCanonical]);
+  }, [setOpen]);
 
   /*
    * A STALE SCOPE MUST NEVER RENDER AS CURRENT (operator directive,
@@ -244,12 +278,45 @@ export function StageReceiptsDrawer({
     setCanonicalLoaded(false);
     setCanonicalReceipts([]);
     setCanonicalLoadError(null);
-    if (open) {
-      void load();
-      void loadCanonical();
-    }
+    // No direct load()/loadCanonical() call here — resetting `loaded`/
+    // `canonicalLoaded` to false above is sufficient: the "fetch on
+    // becoming open" effect below (keyed on open/loaded/canonicalLoaded/
+    // load/loadCanonical) already re-fires from that reset alone. Calling
+    // them again here duplicated the fetch (2026-09-06 consolidation
+    // defect — both effects fired for the same scope change, tripling a
+    // request that should only ever fire once per scope).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scopeKey]);
+
+  /*
+   * FETCH ON BECOMING OPEN, WHATEVER OPENED IT (2026-09-06 consolidation
+   * defect) — `toggle()` used to be the ONLY place that called `load()`/
+   * `loadCanonical()`, fired directly from this component's OWN button
+   * click. Once `open` became controllable from OUTSIDE (JourneyRunSurface's
+   * header "Evidence N/M" control now drives it via `onOpenChange`), a
+   * caller could flip `open` to true WITHOUT ever going through `toggle()`
+   * — the drawer would render expanded but never fetch anything, forever
+   * showing "This fact's own receipt id is recorded but could not be
+   * loaded here." An effect keyed on `open` itself is the single mechanism
+   * that fires the fetch regardless of what caused the expansion.
+   *
+   * MUST be declared AFTER the scope-key effect above (2026-09-06,
+   * second-pass fix) — React runs same-commit effects in declaration
+   * order. On a scope change, this effect's `load`/`loadCanonical`
+   * references change too, so it re-fires in the SAME commit as the
+   * scope-key effect above; if it ran FIRST, it could start the new
+   * scope's fetch (capturing a generation number) a moment before the
+   * scope-key effect's own unconditional generation bump ran — instantly
+   * invalidating the very request meant to survive it. Declaring this
+   * effect second means the scope-key effect's reset (and gen bump)
+   * always lands first, so the fetch this effect starts is the one the
+   * NEW generation number actually protects.
+   */
+  useEffect(() => {
+    if (!open) return;
+    if (!loaded) void load();
+    if (!canonicalLoaded) void loadCanonical();
+  }, [open, loaded, load, canonicalLoaded, loadCanonical]);
 
   // Cancel any in-flight request on unmount — never let an unmounted
   // drawer's resolve handler run at all.
@@ -260,10 +327,10 @@ export function StageReceiptsDrawer({
     };
   }, []);
 
-  if (receiptTypes.length === 0 && !hasCanonicalEvidence) return null;
+  if (receiptTypes.length === 0 && !hasCanonicalEvidence && evidenceMissingList.length === 0) return null;
 
   return (
-    <div className="rounded-md border border-slate-800 bg-slate-950/40">
+    <div ref={forwardedRef} className="rounded-md border border-slate-800 bg-slate-950/40">
       <button
         type="button"
         onClick={toggle}
@@ -273,7 +340,13 @@ export function StageReceiptsDrawer({
         {open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
         <ReceiptIcon className="h-3.5 w-3.5" />
         Evidence
-        {hasCanonicalEvidence ? ` (${evidencePresent.length})` : loaded && receipts.length > 0 ? ` (${receipts.length})` : ''}
+        {hasCanonicalEvidence
+          ? evidenceMissingList.length > 0
+            ? ` (${evidencePresent.length}/${evidencePresent.length + evidenceMissingList.length})`
+            : ` (${evidencePresent.length})`
+          : loaded && receipts.length > 0
+            ? ` (${receipts.length})`
+            : ''}
       </button>
       {open && (
         <div className="space-y-3 border-t border-slate-800 p-3">
@@ -314,6 +387,23 @@ export function StageReceiptsDrawer({
             <p className="text-xs text-slate-500">Not yet established.</p>
           )}
 
+          {/* AWAITING — evidence keys this stage's own resolution has NOT
+              established yet (formerly shown ONLY in JourneyRunSurface's
+              now-removed second Evidence popover, 2026-09-06 consolidation). */}
+          {evidenceMissingList.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              {evidenceMissingList.map((sig) => (
+                <span
+                  key={sig}
+                  className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-slate-700 px-2 py-0.5 text-[11px] text-slate-400"
+                >
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full border border-slate-600" />
+                  {humanizeEvidenceKey(sig)}
+                </span>
+              ))}
+            </div>
+          )}
+
           {/* SECONDARY — historical/supplementary search. Never phrased as a
               completion claim, so it can never contradict the primary block
               above (CFS-055 §7). */}
@@ -339,6 +429,8 @@ export function StageReceiptsDrawer({
       )}
     </div>
   );
-}
+});
+
+StageReceiptsDrawer.displayName = 'StageReceiptsDrawer';
 
 export default StageReceiptsDrawer;

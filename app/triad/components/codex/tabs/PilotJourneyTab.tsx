@@ -19,6 +19,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
+import { Loader2 } from 'lucide-react';
 import { JourneyRunSurface, type JourneyRunSurfaceProps } from '@/components/journey/JourneyRunSurface';
 import { HORIZEN_MONEYPENNY_JOURNEY } from '@/services/journey/horizenMoneyPennyJourney';
 import { AgentCardSurface } from '@/components/journey/AgentCardSurface';
@@ -107,6 +108,20 @@ function PilotJourneyTabInner({ personaId, isAdmin, onRuntimeStateChange, foregr
   // The dry-run agent is the one being exercised, so it is the one selected on
   // arrival. Kept in step with PILOT_AGENTS[0] — see the note there.
   const [selectedAgentSlug, setSelectedAgentSlugState] = useState<string>('nakamoto');
+  /*
+   * STALE-SUBJECT-AGENT RACE (operator surgical repair, 2026-09-06) — the
+   * persisted selection below is only resolved in a `useEffect`, which runs
+   * AFTER the first paint. Before this flag existed, `JourneyRunSurface`
+   * mounted immediately with `selectedAgentSlug` still at its hardcoded
+   * 'nakamoto' default — firing a real `stateUrl` request
+   * (`?agentSlug=nakamoto`) and rendering Nakamoto-scoped stage evidence,
+   * Agent Card and receipts for however long it took the mount effect to
+   * resolve and correct it. `hydrated` gates that entire mount instead:
+   * nothing agent-scoped renders (and no agent-scoped request fires) until
+   * the real, persisted selection is known. Once true it never flips back —
+   * this is a one-time startup resolution, not an ongoing loading state.
+   */
+  const [hydrated, setHydrated] = useState(false);
   const [previousStageId, setPreviousStageId] = useState<string | undefined>(undefined);
   const [currentStageId, setCurrentStageId] = useState<string | undefined>(undefined);
   // Component-scoped so both resolveSurfaceProps AND the receipts-drawer prop
@@ -124,6 +139,7 @@ function PilotJourneyTabInner({ personaId, isAdmin, onRuntimeStateChange, foregr
   useEffect(() => {
     const stored = getSelectedPilotAgentSlug();
     if (stored !== selectedAgentSlug) setSelectedAgentSlugState(stored);
+    setHydrated(true);
     // Only on mount — this reads the PRIOR selection once; it must not fight
     // the operator's own in-session changes below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -319,6 +335,25 @@ function PilotJourneyTabInner({ personaId, isAdmin, onRuntimeStateChange, foregr
     },
     [selectedAgentSlug, origin, isAdmin],
   );
+
+  /*
+   * NEVER MOUNT AN AGENT-SCOPED SURFACE ON THE HARDCODED DEFAULT (item 5,
+   * 2026-09-06 surgical repair) — until the persisted selection above has
+   * resolved, `selectedAgentSlug` is not yet a real answer, only a
+   * placeholder. Rendering JourneyRunSurface anyway would fire its
+   * `stateUrl` request and mount every agent-scoped surface (Agent Card,
+   * registration progress, receipts) against 'nakamoto' regardless of what
+   * is actually stored — exactly the defect this repair closes. This is a
+   * ONE-TIME startup gate (`hydrated` never flips back to false), not a
+   * general loading state for every future re-render.
+   */
+  if (!hydrated) {
+    return (
+      <div className="flex items-center gap-2 rounded-md border border-slate-800 bg-slate-950/40 p-4 text-xs text-slate-500">
+        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Resolving agent selection…
+      </div>
+    );
+  }
 
   return (
     <JourneyRunSurface

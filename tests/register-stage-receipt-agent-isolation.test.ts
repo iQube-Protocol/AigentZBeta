@@ -33,9 +33,28 @@ describe('StageReceiptsDrawer — agent-scoped queries (operator directive, 2026
     expect(drawerSource).toContain('const scopeKey = `${receiptTypes.join');
     expect(drawerSource).toMatch(/if \(priorScopeKey\.current === scopeKey\) return;/);
     expect(drawerSource).toContain('setLoaded(false)');
-    // CFS-055 coherence pass (2026-08-10) added a second, canonical-evidence
-    // loader alongside the original — both must refetch on scope change.
-    expect(drawerSource).toMatch(/if \(open\) \{\s*\n\s*void load\(\);\s*\n\s*void loadCanonical\(\);/);
+    expect(drawerSource).toContain('setCanonicalLoaded(false)');
+    /*
+     * Evidence surface consolidation (2026-09-06) — the scope-change effect
+     * no longer calls `load()`/`loadCanonical()` directly (that duplicated
+     * the fetch once `open` became a controllable prop — see
+     * RES-2026-09-06-JOURNEY-EVIDENCE-SURFACE-CONSOLIDATION-001). It now
+     * ONLY resets `loaded`/`canonicalLoaded` to false; a SEPARATE effect,
+     * declared immediately after this one and keyed on
+     * open/loaded/canonicalLoaded/load/loadCanonical, is what actually
+     * re-fires both loaders — for ANY reason `open` is true, including a
+     * scope change that just reset those flags. Declaration ORDER matters
+     * here (React runs same-commit effects top-to-bottom): the reset must
+     * land before the re-fire, so the fetch effect is asserted to be
+     * declared textually AFTER the scope-change effect.
+     */
+    const scopeEffectAt = drawerSource.indexOf("}, [scopeKey]);");
+    const fetchEffectAt = drawerSource.indexOf('if (!open) return;', scopeEffectAt);
+    expect(scopeEffectAt).toBeGreaterThan(-1);
+    expect(fetchEffectAt, 'the open-fetch effect must be declared AFTER the scope-key effect').toBeGreaterThan(scopeEffectAt);
+    const fetchEffect = drawerSource.slice(fetchEffectAt, fetchEffectAt + 200);
+    expect(fetchEffect).toMatch(/if \(!loaded\) void load\(\);/);
+    expect(fetchEffect).toMatch(/if \(!canonicalLoaded\) void loadCanonical\(\);/);
   });
 });
 

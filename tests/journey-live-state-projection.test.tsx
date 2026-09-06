@@ -196,16 +196,22 @@ describe('RegisterAgentPanel — live invalidation of the journey observer (no l
     // moneypenny starts already registered, so mount fires refresh #1 for it.
     registeredTokenIdByAgent.set('aigent-moneypenny', '9999');
     const requestStateRefresh = vi.fn();
-    render(<RegisterAgentPanel personaId="persona-1" agentSlug="moneypenny" requestStateRefresh={requestStateRefresh} />);
+    const { rerender } = render(
+      <RegisterAgentPanel personaId="persona-1" agentSlug="moneypenny" requestStateRefresh={requestStateRefresh} />,
+    );
     await waitFor(() => expect(requestStateRefresh).toHaveBeenCalledTimes(1));
 
-    // Switch to nakamoto via the real agent-select control — still
-    // unregistered, so no additional refresh fires yet.
+    /*
+     * Switch to nakamoto — RegisterAgentPanel's agentSlug is now a
+     * CONTROLLED prop (fixed 2026-09-06: stale-subject-agent race), so the
+     * canonical way a parent changes the selection is by re-rendering with
+     * a new prop value, exactly as PilotJourneyTab does. Still unregistered,
+     * so no additional refresh fires yet.
+     */
+    rerender(
+      <RegisterAgentPanel personaId="persona-1" agentSlug="nakamoto" requestStateRefresh={requestStateRefresh} />,
+    );
     const select = screen.getByLabelText(/Agent to register/i) as HTMLSelectElement;
-    act(() => {
-      select.value = 'nakamoto';
-      select.dispatchEvent(new Event('change', { bubbles: true }));
-    });
     await waitFor(() => expect(select.value).toBe('nakamoto'));
     expect(requestStateRefresh).toHaveBeenCalledTimes(1);
 
