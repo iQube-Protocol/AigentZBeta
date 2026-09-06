@@ -4968,13 +4968,13 @@ export const MARKETA_CARTRIDGE: CodexConfig = {
 // duplicate.
 export const MONEYPENNY_CARTRIDGE: CodexConfig = {
   id: 'moneypenny-codex',
-  name: 'Aigent MoneyPenny',
+  name: 'MoneyPenny',
   slug: 'moneypenny',
   enabled: true,
   version: '1.0.0',
   owner: 'aigent-moneypenny',
   metadata: {
-    description: 'Aigent MoneyPenny — the Constitutional Financial Services Agent. Real-time HFT console, portfolio analytics, strategy building, and the constitutional Financial Services Runtime (PRD-MPY-001)',
+    description: 'MoneyPenny — the Constitutional Financial Services Agent. Real-time HFT console, portfolio analytics, strategy building, and the constitutional Financial Services Runtime (PRD-MPY-001)',
     icon: 'TrendingUp',
     color: 'emerald',
     category: 'finance',

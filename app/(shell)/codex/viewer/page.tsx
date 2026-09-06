@@ -205,7 +205,7 @@ export default function CodexViewerPage() {
     { id: "qripto-codex", label: "Qriptopian", color: "indigo" },
     { id: "agentiq-codex", label: "AgentiQ", color: "blue" },
     { id: "marketa-codex", label: "Aigent Marketa", color: "rose" },
-    { id: "moneypenny-codex", label: "Aigent MoneyPenny", color: "green" },
+    { id: "moneypenny-codex", label: "MoneyPenny", color: "green" },
     { id: "nakamoto-codex", label: "Aigent Nakamoto", color: "orange" },
   ]), []);
 
