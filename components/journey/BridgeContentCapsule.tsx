@@ -185,12 +185,20 @@ export function BridgeContentCapsule({
         gridTemplateRows: '1fr',
       }}
     >
-      {/* LEFT COLUMN — viewport + strip stacked, sized to content. The
-          strip's width is this column's width; it can never bleed under
-          the rail, and this component never imposes its own height. */}
-      <div className="flex flex-col gap-3">
+      {/* LEFT COLUMN — viewport + strip stacked. The strip's width is this
+          column's width; it can never bleed under the rail. `h-full
+          min-h-0` here is a no-op unless the CALLER also gives the grid
+          itself a definite height via `className` (e.g. `h-full` inside an
+          already-bounded ancestor, the "locked viewport" callers use) — in
+          that case the viewport stays `shrink-0` at its own aspect-ratio
+          height and the strip becomes the one flexible, independently
+          scrolling region, so a short viewport + long copy never gets
+          clipped with no way to reach it. Callers relying on page-level
+          scroll (the default, content-driven contract) are unaffected: `h-full`
+          against an auto-height ancestor is a no-op. */}
+      <div className="flex h-full min-h-0 flex-col gap-3">
         <div
-          className="relative w-full overflow-hidden rounded-2xl border border-white/[0.07] bg-slate-900/40"
+          className="relative w-full shrink-0 overflow-hidden rounded-2xl border border-white/[0.07] bg-slate-900/40"
           style={
             ratio
               ? {
@@ -225,7 +233,9 @@ export function BridgeContentCapsule({
           )}
         </div>
         {renderStrip && (
-          <div className="rounded-xl border border-white/[0.07] bg-slate-900/40 p-3.5">{renderStrip(activeCard.id)}</div>
+          <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-white/[0.07] bg-slate-900/40 p-3.5">
+            {renderStrip(activeCard.id)}
+          </div>
         )}
       </div>
 
