@@ -79,8 +79,10 @@ import {
   currentCrystalArtifactId,
   freezeArtifact,
   getArtifactById,
+  nextGovernedActionForFrozenCrystal,
   upsertArtifact,
 } from '@/services/research/artifacts';
+import type { ArtifactExecutionDesignation } from '@/types/research';
 import { crystalDomainForExperiment } from '@/services/research/crystalDomains';
 import { runCrystalStatisticsReport } from '@/services/research/crystalStatistics';
 
@@ -111,6 +113,21 @@ interface FreezeBody {
   domainBoundary?: unknown;
   namespace?: unknown;
   scope?: unknown;
+  /**
+   * "FROZEN GENERATIONS ARE IMMUTABLE; CRYSTAL LINEAGES ARE EVOLUTIONARY" —
+   * generalized Crystal-wide (operator ruling, EXP-P1/crystal-vP2 internal-
+   * pilot authorization; see types/research.ts's ArtifactExecutionDesignation
+   * doc comment). Optional; defaults to `'confirmatory'` — completely
+   * unaffected unless a caller explicitly asks for `'internal-pilot'`.
+   */
+  executionDesignation?: unknown;
+  /** Required, non-empty, when `executionDesignation === 'internal-pilot'`
+   *  and any scientific-readiness check is currently failing — one entry per
+   *  failing check the operator is explicitly authorizing this freeze to
+   *  proceed past. Each entry: `{ checkName: string; rationale: string }`.
+   *  `measuredDetail` is NEVER accepted here — it is always computed server-
+   *  side from the live readiness report (see freezeArtifact). */
+  scientificDeviations?: unknown;
 }
 
 function asString(v: unknown): string {
@@ -141,8 +158,11 @@ export async function GET(
   const { experimentId } = await params;
   const crystalId = req.nextUrl.searchParams.get('crystalId') || (await currentCrystalArtifactId(experimentId));
   const artifact = await getArtifactById(crystalId).catch(() => null);
+  // Reachable from the frozen generation itself, never a separate governance
+  // step the operator has to go find — `null` for anything not frozen yet.
+  const nextGovernedAction = artifact ? nextGovernedActionForFrozenCrystal(artifact) : null;
   return NextResponse.json(
-    { requestSucceeded: true, artifact },
+    { requestSucceeded: true, artifact, nextGovernedAction },
     { headers: { 'Cache-Control': 'no-store' } },
   );
 }
@@ -314,6 +334,56 @@ export async function POST(
     );
   }
 
+  // ── executionDesignation + scientificDeviations ──────────────────────────
+  // "Frozen generations are immutable; Crystal lineages are evolutionary"
+  // (operator ruling, EXP-P1/crystal-vP2 internal-pilot authorization).
+  // Defaults to 'confirmatory' — every existing caller that never supplies
+  // this is completely unaffected.
+  const executionDesignationRaw = body.executionDesignation;
+  const executionDesignation: ArtifactExecutionDesignation =
+    executionDesignationRaw === 'internal-pilot' ? 'internal-pilot' : 'confirmatory';
+  if (executionDesignationRaw !== undefined && executionDesignationRaw !== 'confirmatory' && executionDesignationRaw !== 'internal-pilot') {
+    return NextResponse.json(
+      { requestSucceeded: false, error: `executionDesignation must be "confirmatory" or "internal-pilot" — received ${JSON.stringify(executionDesignationRaw)}` },
+      { status: 400 },
+    );
+  }
+  const scientificDeviationsRaw = Array.isArray(body.scientificDeviations) ? body.scientificDeviations : [];
+  if (executionDesignation !== 'internal-pilot' && scientificDeviationsRaw.length > 0) {
+    return NextResponse.json(
+      { requestSucceeded: false, error: 'scientificDeviations is only accepted with executionDesignation "internal-pilot"' },
+      { status: 400 },
+    );
+  }
+  const scientificDeviations: Array<{ checkName: string; rationale: string }> = [];
+  for (const entry of scientificDeviationsRaw) {
+    const checkName = asString((entry as { checkName?: unknown } | null)?.checkName);
+    const rationale = asString((entry as { rationale?: unknown } | null)?.rationale);
+    if (!checkName || !rationale) {
+      return NextResponse.json(
+        {
+          requestSucceeded: false,
+          error: 'every scientificDeviations entry requires a non-empty checkName and rationale',
+        },
+        { status: 400 },
+      );
+    }
+    // measuredDetail is NEVER accepted from the caller — always computed
+    // server-side by freezeArtifact from the live readiness report.
+    scientificDeviations.push({ checkName, rationale });
+  }
+  if (executionDesignation === 'internal-pilot' && scientificDeviations.length === 0) {
+    return NextResponse.json(
+      {
+        requestSucceeded: false,
+        error:
+          'executionDesignation "internal-pilot" requires at least one scientificDeviations entry naming the ' +
+          'failing scientific-readiness check(s) this freeze is explicitly authorized to proceed past',
+      },
+      { status: 400 },
+    );
+  }
+
   const suppliedHash = asString(body.contentHash);
   if (!suppliedHash) {
     return NextResponse.json(
@@ -371,9 +441,25 @@ export async function POST(
     id: crystalId,
     contentHash: suppliedHash,
     signedBy,
+    freezeRationale,
+    executionDesignation,
+    scientificDeviations,
   });
   if (!frozen.ok) {
     return NextResponse.json({ requestSucceeded: false, error: frozen.error }, { status: 409 });
+  }
+
+  // Reads back the artifact this route just froze so the response can carry
+  // its persisted deviations (with server-computed measuredDetail) and the
+  // next governed action — never re-derived independently here. Tolerant of
+  // a read failure (or a test double that returns undefined rather than a
+  // rejected promise): this is a best-effort enrichment of an ALREADY-
+  // successful freeze, never a reason to report the freeze itself as failed.
+  let frozenArtifact: Awaited<ReturnType<typeof getArtifactById>> | null = null;
+  try {
+    frozenArtifact = (await getArtifactById(crystalId)) ?? null;
+  } catch {
+    frozenArtifact = null;
   }
 
   return NextResponse.json(
@@ -385,11 +471,18 @@ export async function POST(
       contentHash: suppliedHash,
       signedBy,
       freezeRationale,
+      executionDesignation,
+      scientificDeviations: frozenArtifact?.scientificDeviations ?? scientificDeviations,
       invariantCount: statistics.invariantCount,
       receiptId: frozen.receiptId ?? null,
+      nextGovernedAction: frozenArtifact ? nextGovernedActionForFrozenCrystal(frozenArtifact) : null,
       note:
-        'Frozen. The crystal’s content is fixed and receipted; the receipt rides the existing ' +
-        'research_lifecycle_transition DVN path. Publication as canonical is a separate act.',
+        executionDesignation === 'internal-pilot'
+          ? 'Frozen for an INTERNAL/PILOT execution only — this is NOT a confirmatory result. The crystal’s ' +
+            'content is fixed and receipted; its recorded scientific-readiness limitations remain exactly as ' +
+            'measured. See nextGovernedAction for what is available next.'
+          : 'Frozen. The crystal’s content is fixed and receipted; the receipt rides the existing ' +
+            'research_lifecycle_transition DVN path. Publication as canonical is a separate act.',
     },
     { headers: { 'Cache-Control': 'no-store' } },
   );

@@ -21,11 +21,14 @@ import { runTaskCoverageReport, type TaskDefinition } from '@/services/research/
 import {
   ARTIFACT_LIFECYCLE,
   PROTOCOL_FREEZE_ARTIFACT_KINDS,
+  type ArtifactExecutionDesignation,
   type ArtifactLifecycleState,
   type ArtifactPhase,
   type FrozenArtifact,
   type FrozenArtifactKind,
+  type ScientificDeviation,
 } from '@/types/research';
+import type { CrystalReadinessReport } from '@/services/research/crystalReadiness';
 
 function fromRow(row: ResearchObjectRecord): FrozenArtifact {
   const p = row.payload as Partial<FrozenArtifact>;
@@ -43,6 +46,13 @@ function fromRow(row: ResearchObjectRecord): FrozenArtifact {
     // (services/research/lifecycle.ts's ResearchObjectRecord), never
     // duplicated into the JSON blob.
     receiptId: row.receiptId ?? null,
+    // "Frozen generations are immutable; Crystal lineages are evolutionary"
+    // (EXP-P1/crystal-vP2 internal-pilot authorization) — see
+    // types/research.ts's ArtifactExecutionDesignation doc comment.
+    executionDesignation: (p.executionDesignation as ArtifactExecutionDesignation | undefined) ?? 'confirmatory',
+    scientificDeviations: Array.isArray(p.scientificDeviations) ? p.scientificDeviations : [],
+    freezeRationale: (p.freezeRationale as string | null | undefined) ?? null,
+    readinessReportAtFreeze: p.readinessReportAtFreeze ?? null,
   };
 }
 
@@ -55,6 +65,13 @@ function toPayload(artifact: FrozenArtifact): Record<string, unknown> {
     commitmentHash: artifact.commitmentHash,
     frozenAt: artifact.frozenAt,
     signedBy: artifact.signedBy,
+    // Written unconditionally (defaulted 'confirmatory'/[]/null) so a reader
+    // of the raw row never has to distinguish "never set" from "explicitly
+    // confirmatory" — the same discipline `fromRow`'s defaults apply on read.
+    executionDesignation: artifact.executionDesignation ?? 'confirmatory',
+    scientificDeviations: artifact.scientificDeviations ?? [],
+    freezeRationale: artifact.freezeRationale ?? null,
+    readinessReportAtFreeze: artifact.readinessReportAtFreeze ?? null,
     ...('taskSetId' in artifact ? { taskSetId: (artifact as { taskSetId?: string }).taskSetId } : {}),
     ...('taskSetContentHash' in artifact
       ? { taskSetContentHash: (artifact as { taskSetContentHash?: string }).taskSetContentHash }
@@ -220,6 +237,10 @@ export async function upsertArtifact(input: {
 export interface FreezeGateResult {
   ok: boolean;
   error?: string;
+  /** Populated only for `kind: 'crystal-version'` — the FULL readiness report
+   *  computed during this gate check, so `freezeArtifact` can persist exactly
+   *  what was measured without a second, possibly-different recomputation. */
+  readiness?: CrystalReadinessReport;
 }
 
 /** Per-kind freeze gate — PRD-EPI-001 §3 (crystal), §5 (task-set/answer-key),
@@ -233,6 +254,11 @@ export async function checkFreezeGate(
   artifact: FrozenArtifact,
   opts: { tasks?: TaskDefinition[] } = {},
 ): Promise<FreezeGateResult> {
+  // Carried through to the function's single final `return` so the
+  // crystal-version branch below never has to duplicate the generic
+  // contentHash/signedBy checks every kind still needs — it only ever
+  // returns EARLY on an actual refusal.
+  let crystalReadiness: CrystalReadinessReport | undefined;
   if (artifact.kind === 'crystal-version') {
     // PRD-EPI-001 §3.1 — Crystal Intrinsic Readiness Report. Honest today: no
     // Track 2 content exists yet, so this will correctly report `ok: false`
@@ -245,13 +271,53 @@ export async function checkFreezeGate(
       // filter keeps the error message honest about the SAME set, so it never
       // cites structural-diversity/graph-connectivity as "why this failed"
       // when neither is actually gating anything.
-      const failed = readiness.checks
-        .filter((c) => c.tier === 'scientific-readiness' && !c.passed)
-        .map((c) => `${c.name}: ${c.detail}`);
-      return {
-        ok: false,
-        error: `Crystal Intrinsic Readiness Report failed (PRD-EPI-001 §3.1) — ${failed.join('; ')}`,
-      };
+      const failing = readiness.checks.filter((c) => c.tier === 'scientific-readiness' && !c.passed);
+
+      /*
+       * ── "FROZEN GENERATIONS ARE IMMUTABLE; CRYSTAL LINEAGES ARE
+       *    EVOLUTIONARY" — the operator-authorized internal/pilot deviation
+       *    (EXP-P1/crystal-vP2, generalized Crystal-wide) ─────────────────
+       *
+       * `executionDesignation: 'internal-pilot'` does NOT weaken, skip, or
+       * mark-passed a single check above — `readiness.ok` stays exactly what
+       * it was measured to be, and every failing check's `detail` is still
+       * computed by the real instrument. What changes is only whether an
+       * OTHERWISE-BLOCKING failure is allowed to proceed to freeze, and ONLY
+       * when the operator has individually named that specific check via
+       * `scientificDeviations` with its own rationale. A failing check that
+       * is NOT named there still blocks the freeze unconditionally — an
+       * 'internal-pilot' designation is never a blanket waiver.
+       */
+      if (artifact.executionDesignation === 'internal-pilot') {
+        const deviations = artifact.scientificDeviations ?? [];
+        const namedChecks = new Set(deviations.map((d) => d.checkName));
+        const uncovered = failing.filter((c) => !namedChecks.has(c.name));
+        if (uncovered.length > 0) {
+          return {
+            ok: false,
+            readiness,
+            error:
+              `internal-pilot execution designation still requires an explicit scientificDeviations entry for ` +
+              `every failing scientific-readiness check — uncovered: ` +
+              uncovered.map((c) => `${c.name}: ${c.detail}`).join('; '),
+          };
+        }
+        // Every failing check is individually named and acknowledged. The
+        // freeze proceeds for a NON-confirmatory (internal/pilot) execution
+        // only — `readiness`/`readiness.ok` are UNCHANGED (still `false`), so
+        // `freezeArtifact` persists the honest measurement, never a
+        // laundered "passed" state. Falls through to the generic
+        // contentHash/signedBy checks below, same as any other kind.
+        crystalReadiness = readiness;
+      } else {
+        return {
+          ok: false,
+          readiness,
+          error: `Crystal Intrinsic Readiness Report failed (PRD-EPI-001 §3.1) — ${failing.map((c) => `${c.name}: ${c.detail}`).join('; ')}`,
+        };
+      }
+    } else {
+      crystalReadiness = readiness;
     }
   }
   if (artifact.kind === 'answer-key') {
@@ -305,7 +371,7 @@ export async function checkFreezeGate(
   if (artifact.signedBy.length === 0) {
     return { ok: false, error: 'at least one signatory required before freeze (IRL-016 §2)' };
   }
-  return { ok: true };
+  return { ok: true, readiness: crystalReadiness };
 }
 
 /** Transition an artifact validated → frozen. Runs checkFreezeGate first;
@@ -322,6 +388,22 @@ export async function freezeArtifact(input: {
    * task list the Task–Crystal Coverage Report runs against. Ignored for
    * every other artifact kind. */
   tasks?: TaskDefinition[];
+  /** The operator's exact stated reason for THIS freeze act. Persisted
+   *  verbatim on the frozen artifact (see FrozenArtifact.freezeRationale). */
+  freezeRationale?: string;
+  /** Defaults to `'confirmatory'` — completely unaffected unless a caller
+   *  explicitly asks for `'internal-pilot'`. See the "frozen generations are
+   *  immutable; Crystal lineages are evolutionary" note in types/research.ts. */
+  executionDesignation?: ArtifactExecutionDesignation;
+  /**
+   * Required, non-empty, when `executionDesignation === 'internal-pilot'`
+   * AND the crystal has any failing `scientific-readiness` check — one entry
+   * per failing check being authorized past. Caller supplies `checkName` +
+   * `rationale` only; `measuredDetail` is ALWAYS computed here from the real
+   * readiness report the gate just ran, never accepted as caller input — see
+   * `ScientificDeviation`'s own doc comment.
+   */
+  scientificDeviations?: Array<{ checkName: string; rationale: string }>;
 }): Promise<{ ok: boolean; error?: string; receiptId?: string | null }> {
   const artifact = await getArtifactById(input.id);
   if (!artifact) return { ok: false, error: `unknown artifact '${input.id}'` };
@@ -333,13 +415,53 @@ export async function freezeArtifact(input: {
     return { ok: false, error: 'at least one signatory required (IRL-016 §2)' };
   }
 
+  const executionDesignation: ArtifactExecutionDesignation = input.executionDesignation ?? 'confirmatory';
+  if (executionDesignation !== 'confirmatory' && executionDesignation !== 'internal-pilot') {
+    return { ok: false, error: `unknown executionDesignation '${String(executionDesignation)}' — must be 'confirmatory' or 'internal-pilot'` };
+  }
+  const suppliedDeviations = input.scientificDeviations ?? [];
+  if (executionDesignation === 'internal-pilot') {
+    if (suppliedDeviations.length === 0) {
+      return {
+        ok: false,
+        error:
+          'executionDesignation "internal-pilot" requires at least one scientificDeviations entry naming the ' +
+          'failing scientific-readiness check(s) this freeze is explicitly authorized to proceed past',
+      };
+    }
+    for (const d of suppliedDeviations) {
+      if (!d.checkName?.trim() || !d.rationale?.trim()) {
+        return { ok: false, error: 'every scientificDeviations entry requires a non-empty checkName and rationale' };
+      }
+    }
+  } else if (suppliedDeviations.length > 0) {
+    return { ok: false, error: 'scientificDeviations is only accepted with executionDesignation "internal-pilot"' };
+  }
+
+  // The candidate carries checkName-only deviations so checkFreezeGate can
+  // verify every currently-failing check is named — `measuredDetail` is
+  // filled in AFTER the gate below, from the SAME readiness report it just
+  // computed, never invented ahead of it or accepted from the caller.
   const candidate: FrozenArtifact = {
     ...artifact,
     contentHash: input.contentHash,
     signedBy: input.signedBy,
+    executionDesignation,
+    scientificDeviations: suppliedDeviations.map((d) => ({
+      checkName: d.checkName.trim(),
+      rationale: d.rationale.trim(),
+      measuredDetail: '',
+    })),
   };
   const gate = await checkFreezeGate(candidate, { tasks: input.tasks });
   if (!gate.ok) return { ok: false, error: gate.error };
+
+  const readinessChecksByName = new Map((gate.readiness?.checks ?? []).map((c) => [c.name, c] as const));
+  const scientificDeviations: ScientificDeviation[] = suppliedDeviations.map((d) => ({
+    checkName: d.checkName.trim(),
+    rationale: d.rationale.trim(),
+    measuredDetail: readinessChecksByName.get(d.checkName.trim())?.detail ?? '',
+  }));
 
   const frozenAt = new Date().toISOString();
   const frozen: FrozenArtifact = {
@@ -347,11 +469,23 @@ export async function freezeArtifact(input: {
     lifecycle: 'frozen',
     commitmentHash: input.contentHash,
     frozenAt,
+    freezeRationale: input.freezeRationale?.trim() || null,
+    executionDesignation,
+    scientificDeviations,
+    // Full report, exactly as measured — crystal-version only (the field is
+    // meaningless for other kinds, which never compute a CrystalReadinessReport).
+    readinessReportAtFreeze: artifact.kind === 'crystal-version' ? (gate.readiness ?? null) : null,
   };
 
   const { ok, receiptId } = await writeLifecycleReceipt({
     personaId: input.personaId,
-    summary: `${artifact.experimentId} artifact '${artifact.id}' (${artifact.kind}) frozen — commitment ${input.contentHash.slice(0, 16)}…`,
+    summary:
+      `${artifact.experimentId} artifact '${artifact.id}' (${artifact.kind}) frozen — commitment ${input.contentHash.slice(0, 16)}…` +
+      (executionDesignation === 'internal-pilot'
+        ? ` [internal-pilot execution designation — ${scientificDeviations.length} acknowledged scientific-readiness ` +
+          `deviation(s): ${scientificDeviations.map((d) => d.checkName).join(', ')}]`
+        : '') +
+      (frozen.freezeRationale ? ` — ${frozen.freezeRationale}` : ''),
     invariantSeedIds: input.governingInvariants ?? [],
   });
   if (!ok) return { ok: false, error: 'receipt write failed' };
@@ -365,6 +499,65 @@ export async function freezeArtifact(input: {
   });
   if (!persisted.ok) return { ok: false, error: persisted.error };
   return { ok: true, receiptId };
+}
+
+/**
+ * "Run EXP-P1 internally" as a NEXT GOVERNED ACTION, reachable once a
+ * crystal-version generation is frozen — generalized (any experiment, any
+ * crystal-version artifact), never EXP-P1-specific machinery.
+ *
+ * This is deliberately an EXPOSED next act, not an execution engine: no
+ * execution-run runner exists anywhere in this codebase today (`execution-run`
+ * artifacts are only ever read/counted — see services/research/
+ * readinessDashboard.ts — never created), and building one is a materially
+ * larger, separately-chartered change this function does not attempt. What it
+ * DOES do is tell the operator, truthfully, what act is available next and
+ * how it composes with the ALREADY-EXISTING generic artifact machinery
+ * (`upsertArtifact`) — never inventing a new mechanism, and never silently
+ * treating "exposed" as "executed".
+ */
+export interface NextGovernedCrystalAction {
+  label: string;
+  detail: string;
+  /** Nothing has been executed by calling this function — it only describes
+   *  what is available. `false` always, named explicitly so a consumer can
+   *  never mistake exposure for execution. */
+  executed: false;
+}
+
+export function nextGovernedActionForFrozenCrystal(
+  artifact: Pick<FrozenArtifact, 'id' | 'kind' | 'lifecycle' | 'executionDesignation' | 'scientificDeviations'>,
+): NextGovernedCrystalAction | null {
+  if (artifact.kind !== 'crystal-version' || artifact.lifecycle !== 'frozen') return null;
+
+  if (artifact.executionDesignation === 'internal-pilot') {
+    const deviations = artifact.scientificDeviations ?? [];
+    return {
+      label: 'Run EXP-P1 internally (pilot)',
+      detail:
+        `'${artifact.id}' is frozen under executionDesignation 'internal-pilot' — an explicit, operator-` +
+        `authorized, NON-confirmatory freeze. It carries ${deviations.length} acknowledged scientific-` +
+        `readiness deviation(s) (${deviations.map((d) => d.checkName).join(', ') || 'none'}), preserved exactly ` +
+        `as measured. The next governed action is an INTERNAL/PILOT EXP-P1 execution against this frozen ` +
+        `substrate — never a confirmatory result. This function only exposes that act as available; no runner ` +
+        `for it exists in this codebase yet (execution-run artifacts are provisioned via the same generic ` +
+        `upsertArtifact this module already provides, kind: 'execution-run', phase: 'execution', but no code ` +
+        `path drives an actual run). Building that runner is a separate, larger change. If the run demonstrates ` +
+        `the substrate is insufficient, the ONLY remediation path is: observe limitation → record finding → ` +
+        `expand evidence corpus → constitute a successor generation → readiness → freeze successor → rerun. ` +
+        `This frozen generation is never mutated.`,
+      executed: false,
+    };
+  }
+
+  return {
+    label: 'Run EXP-P1 (confirmatory)',
+    detail:
+      `'${artifact.id}' is frozen under executionDesignation 'confirmatory' — every scientific-readiness check ` +
+      `passed at freeze time. The next governed action is the confirmatory EXP-P1 execution against this ` +
+      `frozen substrate.`,
+    executed: false,
+  };
 }
 
 /**

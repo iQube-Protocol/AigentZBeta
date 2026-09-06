@@ -27,6 +27,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Loader2, RotateCcw, ArrowRight } from "lucide-react";
 import { SpecialistResponseCard, type SpecialistResponseData } from "@/components/metame/cards/SpecialistResponseCard";
+import type { FactorActionDescriptor } from "@/services/factor/factorCapabilityManifest";
+import { BankrTokenLaunchCapsule } from "@/components/moneypenny/bankr/BankrTokenLaunchCapsule";
 import { personaFetch } from "@/utils/personaSpine";
 import { askGroundedSpecialist } from "@/services/moneypenny/caseContextConsultation";
 import {
@@ -44,21 +46,50 @@ export interface SpecialistWorkspaceAction {
   disabled?: boolean;
 }
 
+/**
+ * A prompt suggestion (empty-state headline, or a followup chip) that
+ * carries an explicit Factor capability id (capability-runtime contract
+ * closure, 2026-09-05). When `capabilityId` is set, submitting this
+ * suggestion sends it verbatim to /api/assistant/ask-agent — the operator's
+ * explicit selection, never rediscovered by regex classification. A plain
+ * `string` (no capabilityId) remains valid everywhere this type is accepted
+ * — Aegis/Nakamoto/Kn0w1 have no capability concept and keep using strings.
+ */
+export interface SpecialistPromptSuggestion {
+  /** Rendered button text. */
+  label: string;
+  /** Text actually submitted, if different from `label` (defaults to `label`). */
+  prompt?: string;
+  /** Explicit Factor capability id — Factor-only, ignored by every other specialist. */
+  capabilityId?: string;
+}
+
+type PromptSuggestionLike = string | SpecialistPromptSuggestion;
+
+function normalizeSuggestion(s: PromptSuggestionLike): { label: string; prompt: string; capabilityId?: string } {
+  if (typeof s === "string") return { label: s, prompt: s };
+  return { label: s.label, prompt: s.prompt ?? s.label, capabilityId: s.capabilityId };
+}
+
 export interface SpecialistWorkspaceProps {
   /** The MoneyPenny specialist id (used verbatim as /api/assistant/ask-agent's specialistId). */
   specialistId: "factor" | "aegis" | "nakamoto" | "kn0w1";
   specialistLabel: string;
   /** Shown as the empty-state headline prompt; clicking it seeds + submits the composer. */
-  emptyStatePrompt: string;
+  emptyStatePrompt: PromptSuggestionLike;
   placeholder: string;
   /** Chips rendered above the composer once a conversation is under way. */
-  suggestedFollowups?: string[];
+  suggestedFollowups?: PromptSuggestionLike[];
   /** Typed domain actions (navigation/mode changes) — rendered as a row above the conversation. */
   actions?: SpecialistWorkspaceAction[];
   /** Bounds this thread to a case/assessment (never mixed with a direct-consult thread for the same specialist). */
   scopeId?: string | null;
   /** A prebuilt, bounded context block prefixed to every prompt in this thread (see caseContextConsultation.ts). Omit for a plain, ungrounded consult. */
   groundContextBlock?: string | null;
+  /** Bounded workflow scope (e.g. this thread's open case) forwarded as
+   *  `factorScope` — GROUNDING ONLY, never a classification signal.
+   *  Factor-only; ignored by every other specialist. */
+  factorScope?: { caseId?: string; agentRef?: string; serviceRef?: string };
   /** Client-classified structural refusal (e.g. "admit this candidate", self-assessment) — checked BEFORE any network call. Returning non-null renders a Refused card with no request made. */
   classifyRefusal?: (prompt: string) => string | null;
   /** Rendered as a button under a refused turn, if provided. */
@@ -74,12 +105,23 @@ function newTurnId(): string {
   return `turn-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-async function askPlain(specialistId: string, prompt: string): Promise<{ data: SpecialistResponseData | null; error: string | null }> {
+async function askPlain(
+  specialistId: string,
+  prompt: string,
+  factorCapabilityId?: string,
+  factorScope?: { caseId?: string; agentRef?: string; serviceRef?: string },
+): Promise<{ data: SpecialistResponseData | null; error: string | null }> {
   try {
     const res = await personaFetch("/api/assistant/ask-agent", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ specialistId, prompt, cartridge: "moneypenny" }),
+      body: JSON.stringify({
+        specialistId,
+        prompt,
+        cartridge: "moneypenny",
+        ...(specialistId === "factor" && factorCapabilityId ? { factorCapabilityId } : {}),
+        ...(specialistId === "factor" && factorScope ? { factorScope } : {}),
+      }),
     });
     const json = await res.json().catch(() => null);
     if (!res.ok) {
@@ -101,6 +143,7 @@ export function SpecialistWorkspace({
   actions = [],
   scopeId = null,
   groundContextBlock = null,
+  factorScope,
   classifyRefusal,
   refusalActionLabel,
   onRefusalAction,
@@ -112,6 +155,10 @@ export function SpecialistWorkspace({
   const prevKeyRef = useRef(storageKey);
   const [composerText, setComposerText] = useState("");
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
+  // Which turns have their inline Bankr tokenization console open — Factor-
+  // only (bankr_tokenization actions), keyed per-turn so opening one turn's
+  // console never affects another's (Phase 6 click-through wiring).
+  const [bankrOpenTurns, setBankrOpenTurns] = useState<Record<string, boolean>>({});
 
   // A scope change (e.g. Factor's direct consult -> a just-opened case) is a
   // different thread by definition — reload rather than carry the previous
@@ -127,18 +174,18 @@ export function SpecialistWorkspace({
   }, [storageKey, turns]);
 
   const runConsult = useCallback(
-    async (turnId: string, prompt: string) => {
+    async (turnId: string, prompt: string, capabilityId?: string) => {
       setTurns((prev) => prev.map((t) => (t.id === turnId ? { ...t, loading: true, error: null } : t)));
       const result = groundContextBlock
-        ? await askGroundedSpecialist(specialistId, prompt, groundContextBlock)
-        : await askPlain(specialistId, prompt);
+        ? await askGroundedSpecialist(specialistId, prompt, groundContextBlock, { factorCapabilityId: capabilityId, factorScope })
+        : await askPlain(specialistId, prompt, capabilityId, factorScope);
       setTurns((prev) => prev.map((t) => (t.id === turnId ? { ...t, loading: false, response: result.data, error: result.error } : t)));
     },
-    [specialistId, groundContextBlock],
+    [specialistId, groundContextBlock, factorScope],
   );
 
   const submitPrompt = useCallback(
-    (prompt: string) => {
+    (prompt: string, capabilityId?: string) => {
       const text = prompt.trim();
       if (!text) return;
       const refusalMessage = classifyRefusal ? classifyRefusal(text) : null;
@@ -151,9 +198,10 @@ export function SpecialistWorkspace({
         loading: !refusalMessage,
         timestamp: new Date().toISOString(),
         refusalMessage,
+        capabilityId,
       };
       setTurns((prev) => [...prev, turn]);
-      if (!refusalMessage) void runConsult(turnId, text);
+      if (!refusalMessage) void runConsult(turnId, text, capabilityId);
     },
     [classifyRefusal, runConsult],
   );
@@ -169,7 +217,10 @@ export function SpecialistWorkspace({
     (turnId: string) => {
       const turn = turns.find((t) => t.id === turnId);
       if (!turn) return;
-      void runConsult(turnId, turn.prompt);
+      // Resubmit with the SAME explicit capability selection, if the
+      // original turn had one — a retry must never fall back to
+      // re-classifying the text from scratch.
+      void runConsult(turnId, turn.prompt, turn.capabilityId);
     },
     [turns, runConsult],
   );
@@ -182,6 +233,28 @@ export function SpecialistWorkspace({
   const askFollowUp = useCallback(() => {
     composerRef.current?.focus();
   }, []);
+
+  /**
+   * Factor's `availableActions` click-through (Phase 6). A
+   * `bankr_tokenization:*` action beyond `explain` opens/toggles that turn's
+   * inline BankrTokenLaunchCapsule — the ONE real console, never a second
+   * chat turn — using the SAME beneficiary agent bound to this thread's
+   * `factorScope.agentRef`, when one is bound (the capsule renders its own
+   * honest "no agent bound" state otherwise, never a guessed id). Every
+   * other action (explain, or any non-Bankr capability) resubmits as a
+   * normal prompt turn, unchanged from the suggestion-chip behavior above.
+   */
+  const handleFactorAction = useCallback(
+    (turnId: string, action: FactorActionDescriptor) => {
+      const [capabilityId] = action.id.split(":");
+      if (capabilityId === "bankr_tokenization" && action.mode !== "explain") {
+        setBankrOpenTurns((prev) => ({ ...prev, [turnId]: !prev[turnId] }));
+        return;
+      }
+      submitPrompt(action.label, capabilityId);
+    },
+    [submitPrompt],
+  );
 
   const onComposerKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -229,10 +302,13 @@ export function SpecialistWorkspace({
       {turns.length === 0 ? (
         <button
           type="button"
-          onClick={() => submitPrompt(emptyStatePrompt)}
+          onClick={() => {
+            const s = normalizeSuggestion(emptyStatePrompt);
+            submitPrompt(s.prompt, s.capabilityId);
+          }}
           className="rounded-lg border border-slate-800 bg-slate-900/30 p-3 text-left text-sm text-slate-300 hover:border-violet-500/40"
         >
-          {emptyStatePrompt}
+          {normalizeSuggestion(emptyStatePrompt).label}
         </button>
       ) : (
         <div className="flex items-center justify-end">
@@ -260,12 +336,25 @@ export function SpecialistWorkspace({
               </div>
             ) : (
               <div className="flex flex-col gap-1.5">
-                {!turn.loading && !turn.error && (
-                  <span className="inline-flex w-fit items-center rounded-full border border-sky-700/60 bg-sky-500/10 px-2 py-0.5 text-[11px] font-medium text-sky-200">
-                    Advisory guidance
-                  </span>
+                {/* One consistent affordance signal — SpecialistResponseCard's own
+                    server-derived badge (data.affordance). A second, hardcoded
+                    "Advisory guidance" pill used to render here unconditionally,
+                    even for an ACTION_AVAILABLE/PLANNED response, contradicting
+                    the card's own badge (Factor runtime-contract closure, Phase 1
+                    continuation, 2026-09-05). */}
+                <SpecialistResponseCard
+                  data={turn.response}
+                  loading={turn.loading}
+                  error={turn.error}
+                  theme="dark"
+                  onAction={specialistId === "factor" ? (action) => handleFactorAction(turn.id, action) : undefined}
+                />
+                {specialistId === "factor" && bankrOpenTurns[turn.id] && (
+                  <BankrTokenLaunchCapsule
+                    initialPresentation="expanded"
+                    beneficiaryAgentRuntimeId={factorScope?.agentRef}
+                  />
                 )}
-                <SpecialistResponseCard data={turn.response} loading={turn.loading} error={turn.error} theme="dark" />
                 {turn.error && (
                   <button type="button" onClick={() => retryTurn(turn.id)} className="inline-flex w-fit items-center gap-1 text-xs text-slate-400 hover:text-slate-200">
                     <RotateCcw className="h-3 w-3" /> Retry
@@ -284,16 +373,19 @@ export function SpecialistWorkspace({
 
       {suggestedFollowups.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
-          {suggestedFollowups.map((prompt) => (
-            <button
-              key={prompt}
-              type="button"
-              onClick={() => submitPrompt(prompt)}
-              className="rounded-full border border-slate-800 px-2.5 py-1 text-xs text-slate-300 hover:border-violet-500/40"
-            >
-              {prompt}
-            </button>
-          ))}
+          {suggestedFollowups.map((suggestion) => {
+            const s = normalizeSuggestion(suggestion);
+            return (
+              <button
+                key={s.label}
+                type="button"
+                onClick={() => submitPrompt(s.prompt, s.capabilityId)}
+                className="rounded-full border border-slate-800 px-2.5 py-1 text-xs text-slate-300 hover:border-violet-500/40"
+              >
+                {s.label}
+              </button>
+            );
+          })}
         </div>
       )}
 

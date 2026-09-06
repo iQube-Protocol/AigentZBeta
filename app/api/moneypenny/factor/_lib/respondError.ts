@@ -5,7 +5,7 @@
  * this ONE function rather than hand-rolling a status per route — the
  * service-layer error `.code` values (FactorCaseTransitionError,
  * AegisAssessmentError, AuthorityChainError, AdmissionAuthorityError,
- * StandingProposalError) are the single source of truth for what each
+ * StandingProposalError, TokenLaunchError) are the single source of truth for what each
  * refusal means; this file only decides which HTTP status best carries
  * that meaning, it never re-derives the refusal reason itself.
  */
@@ -21,7 +21,7 @@ function isCodedError(err: unknown): err is CodedError {
   return typeof err === 'object' && err !== null && 'code' in err && typeof (err as { code: unknown }).code === 'string';
 }
 
-const NOT_FOUND_CODES = new Set(['case-not-found', 'chain-not-found', 'assessment-not-found']);
+const NOT_FOUND_CODES = new Set(['case-not-found', 'chain-not-found', 'assessment-not-found', 'launch-not-found']);
 const FORBIDDEN_CODES = new Set([
   'cross-tenant-denied',
   'cross-principal-denied',

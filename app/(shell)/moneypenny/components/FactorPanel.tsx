@@ -33,10 +33,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Loader2, ShieldAlert, ArrowRight } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
-import { SpecialistWorkspace } from "./specialistWorkspace/SpecialistWorkspace";
+import { SpecialistWorkspace, type SpecialistPromptSuggestion } from "./specialistWorkspace/SpecialistWorkspace";
 import { useMoneyPennyNavigation, readAndClearPendingCaseId } from "./moneyPennyNavigation";
 import { buildCaseContextPrompt, type CaseConsultationContext } from "@/services/moneypenny/caseContextConsultation";
-import { FACTOR_CAPABILITIES, type FactorCapabilityId } from "@/services/factor/factorCapabilityManifest";
+import { FACTOR_CAPABILITIES, getFactorCapability, type FactorCapabilityId } from "@/services/factor/factorCapabilityManifest";
+import { BankrTokenLaunchCapsule } from "@/components/moneypenny/bankr/BankrTokenLaunchCapsule";
 
 type FactorCaseState =
   | "discovered"
@@ -243,24 +244,27 @@ function ActionButton({
 
 const FACTOR_ADMIT_PATTERN = /\b(admit|approve|accept)\b.{0,30}\bcandidate\b|\badmit\s+(this|the)\s+candidate\b/i;
 
-// Kept verbatim (tests/moneypenny-candidate-intake-workspace.test.tsx pins
-// this exact copy, and this panel's live conversation is mocked in those
-// tests, so the copy itself — not its classification — is what's pinned).
-// Under the deterministic classifier this text resolves to
-// 'standing_proposal' (it names "standing" alongside several other
-// capability areas), which is still an honest, non-intake framing — never
-// the old hardcoded candidate-intake response this fix replaces. A
-// dedicated "What are your capabilities?" chip is offered in
-// FACTOR_FOLLOWUPS below for an unambiguous capability-overview ask.
-const FACTOR_EMPTY_STATE_PROMPT =
-  "Ask Aigent Factor about agent readiness, registration, evidence, standing, or participation in constitutional financial services.";
+// Capability discovery is the empty-state default — Factor's capability
+// model, not candidate intake, is the panel's governing identity (Factor
+// cognitive-runtime fix, 2026-09-05). "Start candidate intake" / "Find/open
+// candidate case" above remain the dedicated path into the case workflow.
+//
+// Carries the explicit capabilityId (capability-runtime contract closure,
+// 2026-09-05) so clicking this button sends 'general_orientation' verbatim
+// — never rediscovered by re-classifying the label text.
+const FACTOR_EMPTY_STATE_PROMPT: SpecialistPromptSuggestion = {
+  label: getFactorCapability("general_orientation").examples[0],
+  capabilityId: "general_orientation",
+};
 
 // Workstream chips — DERIVED from the capability manifest (one authoritative
 // list, never a hand-duplicated set of chip labels), excluding the three
 // capabilities that already have a dedicated affordance elsewhere in this
 // panel (general_orientation is the empty-state default; candidate_intake
 // has its own "Start candidate intake" button; aegis_referral is reached
-// via "Request an independent Aegis assessment" once a case is open).
+// via "Request an independent Aegis assessment" once a case is open). Each
+// chip carries its capabilityId explicitly — selecting it is a capability
+// SELECTION, not a free-text question for the classifier to rediscover.
 const FACTOR_WORKSTREAM_IDS: FactorCapabilityId[] = [
   "agent_service_discovery",
   "horizen_journey_spine",
@@ -270,15 +274,17 @@ const FACTOR_WORKSTREAM_IDS: FactorCapabilityId[] = [
   "pulse_pnl",
   "standing_proposal",
 ];
-const FACTOR_FOLLOWUPS = [
-  "What are your capabilities?",
-  ...FACTOR_CAPABILITIES.filter((c) => FACTOR_WORKSTREAM_IDS.includes(c.id)).map((c) => c.examples[0]),
-];
+const FACTOR_FOLLOWUPS: SpecialistPromptSuggestion[] = FACTOR_CAPABILITIES.filter((c) => FACTOR_WORKSTREAM_IDS.includes(c.id)).map((c) => ({
+  label: c.examples[0],
+  capabilityId: c.id,
+}));
 
 export function FactorPanel() {
   const { setActiveCase: setSharedActiveCase, navigate } = useMoneyPennyNavigation();
 
-  const [mode, setMode] = useState<"consult" | "case">("consult");
+  const [mode, setMode] = useState<"consult" | "case" | "bankr">("consult");
+  const [bankrAgentRuntimeId, setBankrAgentRuntimeId] = useState("");
+  const [bankrBoundAgentRuntimeId, setBankrBoundAgentRuntimeId] = useState<string | null>(null);
 
   // No-case empty state / find-or-open / create.
   const [candidateKey, setCandidateKey] = useState("");
@@ -557,9 +563,70 @@ export function FactorPanel() {
             >
               Find/open candidate case
             </button>
+            <button
+              type="button"
+              onClick={() => setMode("bankr")}
+              className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-200 hover:border-violet-500/50"
+            >
+              Bankr tokenization
+            </button>
+          </CardContent>
+        )}
+        {mode === "bankr" && (
+          <CardContent className="flex items-center gap-2">
+            <Badge className="border-violet-700/60 bg-violet-500/10 text-violet-200">Bankr tokenization</Badge>
+            <button type="button" onClick={() => setMode("consult")} className="text-xs text-slate-400 hover:text-slate-200">
+              Back to consultation
+            </button>
           </CardContent>
         )}
       </Card>
+
+      {mode === "bankr" && (
+        <Card className="bg-slate-900/40 border-slate-800">
+          <CardHeader>
+            <CardTitle className="text-slate-100">Bankr tokenization console</CardTitle>
+            <CardDescription className="text-slate-400">
+              Real, tested handlers for issuer readiness, provider-wallet binding, launch preparation, preflight, Aegis referral, approval routing and
+              deployment-status inspection — every action here calls the actual HTTP routes under
+              app/api/moneypenny/factor/bankr/*, never a parallel mechanism.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            {!bankrBoundAgentRuntimeId ? (
+              <div className="flex flex-col gap-2 rounded-lg border border-slate-800 bg-slate-900/30 p-3">
+                <label className="flex flex-col gap-1 text-sm text-slate-300">
+                  Beneficiary agent runtime id
+                  <input
+                    value={bankrAgentRuntimeId}
+                    onChange={(e) => setBankrAgentRuntimeId(e.target.value)}
+                    placeholder="e.g. aigent-factor, or the runtime id of the agent being tokenized"
+                    className="rounded-lg border border-slate-800 bg-slate-900/60 p-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-violet-500/60 focus:outline-none"
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setBankrBoundAgentRuntimeId(bankrAgentRuntimeId.trim())}
+                  disabled={!bankrAgentRuntimeId.trim()}
+                  className="inline-flex w-fit items-center gap-2 rounded-full border border-violet-500/70 bg-violet-500/10 px-4 py-1.5 text-sm text-violet-100 hover:bg-violet-500/20 disabled:opacity-50"
+                >
+                  Assess readiness for this agent
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between text-xs text-slate-400">
+                  <span>Agent: {bankrBoundAgentRuntimeId}</span>
+                  <button type="button" onClick={() => setBankrBoundAgentRuntimeId(null)} className="text-slate-400 hover:text-slate-200">
+                    Change agent
+                  </button>
+                </div>
+                <BankrTokenLaunchCapsule initialPresentation="panel" hideToggle beneficiaryAgentRuntimeId={bankrBoundAgentRuntimeId} />
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {mode === "consult" && (
         <Card className="bg-slate-900/40 border-slate-800">
@@ -801,6 +868,7 @@ export function FactorPanel() {
                 suggestedFollowups={FACTOR_FOLLOWUPS}
                 scopeId={activeCase.case_id}
                 groundContextBlock={groundContextBlock}
+                factorScope={{ caseId: activeCase.case_id }}
                 classifyRefusal={classifyRefusal}
                 refusalActionLabel="Refer to MoneyPenny"
                 onRefusalAction={scrollToAdmission}

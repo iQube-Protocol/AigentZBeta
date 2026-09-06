@@ -35,6 +35,13 @@ export interface ConsultTurn {
    *  asking Aegis to assess itself) — see classifyRefusal in
    *  SpecialistWorkspace.tsx. */
   refusalMessage: string | null;
+  /** Explicit Factor capability id this turn was submitted with (a
+   *  capability card/chip selection), when any — capability-runtime
+   *  contract closure, 2026-09-05. Persisted so a retry resubmits with the
+   *  SAME explicit selection rather than falling back to text
+   *  classification. Undefined for a plain typed question and for every
+   *  non-Factor specialist. */
+  capabilityId?: string;
 }
 
 function readStoredPersonaId(): string {

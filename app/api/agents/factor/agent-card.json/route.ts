@@ -21,7 +21,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import { currentIdentityRegistry } from '@/services/horizen/agentBinding';
 import { resolveRequestOrigin } from '@/app/api/agents/_lib/requestOrigin';
 import type { ExternalAgentRegistryBinding } from '@/types/registry-canonical';
-import { FACTOR_CAPABILITIES } from '@/services/factor/factorCapabilityManifest';
+import { FACTOR_CAPABILITIES, type FactorHandlerKind } from '@/services/factor/factorCapabilityManifest';
+
+/**
+ * Whether OTHER agents/systems can invoke this capability remotely
+ * (capability-runtime contract closure, 2026-09-05) — 'api'/'service' have a
+ * real, server-reachable handler; 'navigation' is real but host-local
+ * (works inside MoneyPenny's own UI only, e.g. a panel handoff); 'none' has
+ * no backing implementation. Never advertise 'navigation' or 'none' as
+ * externally actionable — that would claim remote executability that does
+ * not exist.
+ */
+function isExternallyActionable(handlerKind: FactorHandlerKind): boolean {
+  return handlerKind === 'api' || handlerKind === 'service';
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -147,11 +160,18 @@ export async function GET(req: NextRequest) {
       defaultInputModes: ['application/json'],
       defaultOutputModes: ['application/json'],
 
+      // externallyActionable/hostLocalOnly project handlerKind so a caller
+      // deciding whether to invoke this skill remotely never has to guess
+      // (capability-runtime contract closure, 2026-09-05, design point 3) —
+      // a UI-local action (e.g. the Aegis-referral handoff) is real and
+      // works inside MoneyPenny, but is never remotely invocable.
       skills: FACTOR_CAPABILITIES.filter((c) => c.id !== 'general_orientation').map((c) => ({
         id: c.id.replace(/_/g, '-'),
         name: c.title,
         description: `${c.description} (status: ${c.status}).`,
-        tags: [c.status, ...c.interactionModes],
+        tags: [c.status, c.handlerKind, ...c.interactionModes],
+        externallyActionable: isExternallyActionable(c.handlerKind),
+        hostLocalOnly: c.handlerKind === 'navigation',
       })),
 
       metadata: {
@@ -170,7 +190,15 @@ export async function GET(req: NextRequest) {
         constitutional_alignment:
           'Factor is a delegate, never a principal. It cannot decide admission (PRD §2 hard invariant 3) and ' +
           'cannot assess a candidate it is itself the subject of.',
-        primary_duty: "Facilitate a candidate agent's journey to admission — never decide the outcome.",
+        // Capability-runtime contract closure, 2026-09-05: previously stated
+        // as candidate-admission facilitation, which reintroduced the exact
+        // intake-first identity the rest of this card's description already
+        // moved away from. Candidate intake is listed as one skill below,
+        // never the primary duty.
+        primary_duty:
+          'Discover, prepare, connect and activate agents and constitutional financial services across the ' +
+          'iQube Registry, Horizen Journey Spine and MoneyPenny runtime, within bounded delegated authority — ' +
+          'never deciding the outcome of any admission, assessment, or fund movement itself.',
 
         rights: ['Persistence', 'Attribution', 'Due Process', 'Receipt-backed Participation'],
         obligations: ['Truthfulness', 'Transparency of Uncertainty', 'Auditability', 'Constitutional Compliance', 'Service to Human Sovereignty', 'No Autonomous Fund Movement'],

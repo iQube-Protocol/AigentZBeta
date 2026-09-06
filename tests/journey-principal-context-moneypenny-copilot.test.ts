@@ -175,9 +175,9 @@ describe('Financial Services Bridge — one MoneyPenny copilot, always suppresse
     expect(entryBody).toContain('suppressFloatingCopilot: true');
   });
 
-  it('wires onPersonaChange={setPersonaId} on PilotJourneyTab', () => {
+  it('wires onPersonaChange={setActivePersonaId} on PilotJourneyTab — the canonical PersonaContext setter (Journey 0 closure item 1, 2026-09-06: persisted operator context inheritance), not a component-local setter a remount would lose', () => {
     const code = stripComments(readSource(FS_BRIDGE_FRONT_DOOR));
-    expect(code).toContain('onPersonaChange={setPersonaId}');
+    expect(code).toContain('onPersonaChange={setActivePersonaId}');
   });
 });
 

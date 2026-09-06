@@ -35,6 +35,17 @@ import { commit } from '../factor/canonical';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 
 export type AegisAssessmentState = 'draft' | 'evidence_locked' | 'running' | 'review_required' | 'ratified' | 'failed';
+
+/**
+ * What Aegis can assess. Widened (Factor + Aegis Bankr PRD, Phase 4,
+ * migration 20260930230000) to admit 'token_launch' (subject_ref =
+ * token_launches.id) alongside the original 'factor_case'/'agent' —
+ * Aegis's assessment mechanics (self-assessment refusal, critical-finding-
+ * blocks-admissible, append-only/superseding, post-ratification
+ * immutability) are already subject-generic; only the DB CHECK constraint
+ * and this type needed to grow, additively, never a second engine.
+ */
+export type AegisSubjectType = 'factor_case' | 'agent' | 'token_launch';
 export type AegisDecision = 'admissible' | 'admissible_with_conditions' | 'insufficient_evidence' | 'not_admissible';
 export type AegisFindingResult = 'pass' | 'fail' | 'inconclusive';
 
@@ -50,7 +61,7 @@ export class AegisAssessmentError extends Error {
 
 export interface AegisAssessmentRow {
   assessment_id: string;
-  subject_type: 'factor_case' | 'agent';
+  subject_type: AegisSubjectType;
   subject_ref: string;
   case_id: string | null;
   state: AegisAssessmentState;
@@ -73,7 +84,7 @@ export interface AegisAssessmentRow {
 }
 
 export interface CreateAssessmentInput {
-  subjectType: 'factor_case' | 'agent';
+  subjectType: AegisSubjectType;
   subjectRef: string;
   caseId?: string | null;
   policyVersion: string;
@@ -344,6 +355,23 @@ export async function ratifyAssessment(admin: SupabaseClient, input: RatifyAsses
     agentsInvoked: [row.assessed_by_agent_ref],
     actionInput: { assessmentId: input.assessmentId, decision: input.decision, assessmentHash },
   });
+  // Subject-specific receipt, additive to the generic one above — the
+  // Factor + Aegis Bankr PRD's own action-type vocabulary
+  // (aegis_token_assessment_ratified) names token-launch ratification as a
+  // distinct, DVN-anchored event from a generic assessment ratification.
+  // Fires here (not from a Bankr-specific caller) so it is emitted
+  // regardless of which route/service triggered ratification — the same
+  // reason the generic receipt above lives in this one function.
+  if (row.subject_type === 'token_launch') {
+    await createActivityReceipt({
+      personaId: input.ratifiedByPersonaId,
+      activeCartridge: 'moneypenny',
+      actionType: 'aegis_token_assessment_ratified',
+      summary: `Aegis ratified token-launch assessment ${input.assessmentId} for launch ${row.subject_ref}: ${input.decision}`,
+      agentsInvoked: [row.assessed_by_agent_ref],
+      actionInput: { assessmentId: input.assessmentId, launchId: row.subject_ref, decision: input.decision, assessmentHash },
+    });
+  }
   if (row.supersedes_assessment_id) {
     await createActivityReceipt({
       personaId: input.ratifiedByPersonaId,
@@ -358,7 +386,7 @@ export async function ratifyAssessment(admin: SupabaseClient, input: RatifyAsses
   return updated as AegisAssessmentRow;
 }
 
-export async function getCurrentAssessment(admin: SupabaseClient, subjectType: 'factor_case' | 'agent', subjectRef: string): Promise<AegisAssessmentRow | null> {
+export async function getCurrentAssessment(admin: SupabaseClient, subjectType: AegisSubjectType, subjectRef: string): Promise<AegisAssessmentRow | null> {
   const { data, error } = await admin.from('aegis_assessments').select('*').eq('subject_type', subjectType).eq('subject_ref', subjectRef).is('superseded_by', null).maybeSingle();
   if (error) throw new Error(`getCurrentAssessment failed: ${error.message}`);
   return data as AegisAssessmentRow | null;

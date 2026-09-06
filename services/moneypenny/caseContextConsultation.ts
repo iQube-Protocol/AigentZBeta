@@ -35,6 +35,15 @@ export interface GroundedConsultResult {
   error: string | null;
 }
 
+export interface GroundedConsultOptions {
+  /** Explicit Factor capability selection (a card/chip click) — forwarded
+   *  verbatim to /api/assistant/ask-agent's own server-side validation.
+   *  Meaningless for any specialist other than 'factor'. */
+  factorCapabilityId?: string;
+  /** Bounded workflow scope (e.g. the open case's id) — grounding only. */
+  factorScope?: { caseId?: string; agentRef?: string; serviceRef?: string };
+}
+
 /**
  * Calls the canonical /api/assistant/ask-agent route via personaFetch
  * (CLAUDE.md PARAMOUNT — never a raw fetch against a spine endpoint), with
@@ -46,6 +55,7 @@ export async function askGroundedSpecialist(
   specialistId: string,
   basePrompt: string,
   contextBlock: string,
+  options?: GroundedConsultOptions,
 ): Promise<GroundedConsultResult> {
   try {
     const res = await personaFetch('/api/assistant/ask-agent', {
@@ -55,6 +65,8 @@ export async function askGroundedSpecialist(
         specialistId,
         prompt: `${contextBlock}\n\n${basePrompt.trim()}`,
         cartridge: 'moneypenny',
+        ...(options?.factorCapabilityId ? { factorCapabilityId: options.factorCapabilityId } : {}),
+        ...(options?.factorScope ? { factorScope: options.factorScope } : {}),
       }),
     });
     const json = await res.json().catch(() => null);

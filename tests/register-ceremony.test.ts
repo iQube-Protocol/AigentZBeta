@@ -403,6 +403,173 @@ describe('approveAgentRegistryInvocation', () => {
   });
 });
 
+/*
+ * ── FACTOR-SPECIFIC REGISTER CEREMONY (Factor + Aegis PRD tranche, Vela/
+ * Journey Spine rehearsal prep) ──────────────────────────────────────────
+ *
+ * Every describe block above exercises `services/horizen/registerCeremony.ts`
+ * generically (agentSlug 'nakamoto', one 'moneypenny' cross-agent check) —
+ * `'factor'` (a real, live-registrable agent per
+ * services/horizen/registrableAgents.ts) had never been exercised through
+ * this ceremony at all before this block. This is a BEHAVIORAL suite against
+ * the real ceremony functions with injected fixtures (never `readSource`/
+ * `stripComments`) — the operator's own instruction: "a Factor-specific
+ * behavioral Register ceremony test — not a source-scan canary."
+ *
+ * Distinct wallets from PRINCIPAL_WALLET/AGENT_WALLET above so a bug that
+ * silently reused Nakamoto's key material for Factor would fail loudly here.
+ */
+describe('Factor-specific Register ceremony (behavioral)', () => {
+  const FACTOR_PRINCIPAL_WALLET = ethers.Wallet.createRandom();
+  const FACTOR_AGENT_WALLET = ethers.Wallet.createRandom();
+
+  /**
+   * `approvePrincipalRegistrationMandate` builds the REAL unsigned tx via
+   * `prepareAgentRegistration` (services/horizen/registrationClient.ts) once
+   * the principal has signed — and that function cross-checks the fetched
+   * Agent Card's `name`/`metadata.runtime_agent_id` against the resolved
+   * registrable agent BEFORE building anything (AGENT_CARD_INVALID
+   * otherwise). The suite-wide `fakeFetchAgentCard()` always returns
+   * Nakamoto's card, so Factor's ceremony needs its own — this is a REAL
+   * dependency, not incidental test wiring.
+   */
+  function fakeFactorAgentCard() {
+    const full = {
+      name: 'Aigent Factor',
+      description: 'Facilitates admission, tokenization readiness, and governed agent-to-agent capability access.',
+      url: 'https://dev-beta.aigentz.me/api/agents/factor/agent-card.json',
+      metadata: { runtime_agent_id: 'aigent-factor', horizen: {} },
+      skills: [{ id: 'candidate-admission', name: 'Candidate Admission', description: 'Prepares candidate cases for MoneyPenny admission decisions.' }],
+    };
+    const raw = JSON.stringify(full);
+    return vi.fn(async () => ({ card: full, url: full.url, raw }));
+  }
+
+  function factorDeps(store: ReturnType<typeof fakeRequestStore>, overrides: Partial<RegisterCeremonyDeps> = {}): RegisterCeremonyDeps {
+    return baseDeps(store, {
+      resolveOwnerWalletAddress: () => FACTOR_AGENT_WALLET.address,
+      resolveAgentPrivateKey: async () => FACTOR_AGENT_WALLET.privateKey,
+      resolvePrincipalWalletAddress: async () => FACTOR_PRINCIPAL_WALLET.address,
+      fetchAgentCard: fakeFactorAgentCard(),
+      ...overrides,
+    });
+  }
+
+  async function factorMandate(store: ReturnType<typeof fakeRequestStore>, deps: RegisterCeremonyDeps) {
+    const r = await prepareRegistrationMandate({ agentSlug: 'factor', principalPersonaId: 'persona-operator-1' }, deps);
+    if (!r.ok) throw new Error(`setup failed: ${r.refusalCode}`);
+    return r.value;
+  }
+
+  async function factorApprovedInvocation(store: ReturnType<typeof fakeRequestStore>, deps: RegisterCeremonyDeps) {
+    const mandate = await factorMandate(store, deps);
+    const signature = await FACTOR_PRINCIPAL_WALLET.signMessage(mandate.payload);
+    const approved = await approvePrincipalRegistrationMandate({ requestId: mandate.id, principalPersonaId: 'persona-operator-1', signature }, deps);
+    if (!approved.ok) throw new Error(`setup failed: ${approved.refusalCode}`);
+    return approved.value.agentInvocationRequest;
+  }
+
+  it('mandate preparation: a pending, principal-role, authorize_registration request bound to aigent-factor', async () => {
+    const store = fakeRequestStore();
+    const mandate = await factorMandate(store, factorDeps(store));
+    expect(mandate).toMatchObject({
+      actionKind: 'authorize_registration',
+      signerRole: 'principal',
+      walletRef: 'principal',
+      subjectAgentRef: 'aigent-factor',
+      status: 'pending',
+    });
+    expect(mandate.payload).toContain('Aigent Factor');
+  });
+
+  it('principal approval boundary: refuses SIGNER_MISMATCH for an unrelated key AND for a persona that does not own the request, before accepting Factor\'s own operator signature', async () => {
+    const store = fakeRequestStore();
+    const deps = factorDeps(store);
+    const mandate = await factorMandate(store, deps);
+
+    const impostor = ethers.Wallet.createRandom();
+    const badSignature = await impostor.signMessage(mandate.payload);
+    const wrongKey = await approvePrincipalRegistrationMandate({ requestId: mandate.id, principalPersonaId: 'persona-operator-1', signature: badSignature }, deps);
+    expect(wrongKey).toMatchObject({ ok: false, refusalCode: 'SIGNER_MISMATCH' });
+
+    const goodSignature = await FACTOR_PRINCIPAL_WALLET.signMessage(mandate.payload);
+    const wrongPersona = await approvePrincipalRegistrationMandate({ requestId: mandate.id, principalPersonaId: 'persona-someone-else', signature: goodSignature }, deps);
+    expect(wrongPersona).toMatchObject({ ok: false, refusalCode: 'SIGNER_MISMATCH' });
+    expect((await store.get(mandate.id))?.status).toBe('pending');
+
+    const approved = await approvePrincipalRegistrationMandate({ requestId: mandate.id, principalPersonaId: 'persona-operator-1', signature: goodSignature }, deps);
+    expect(approved.ok).toBe(true);
+  });
+
+  it('agent invocation preparation: approving Factor\'s mandate prepares a pending sign_registry_transaction request walletRef\'d to aigent-factor', async () => {
+    const store = fakeRequestStore();
+    const deps = factorDeps(store);
+    const invocation = await factorApprovedInvocation(store, deps);
+    expect(invocation).toMatchObject({ actionKind: 'sign_registry_transaction', signerRole: 'agent', walletRef: 'aigent-factor', status: 'pending' });
+  });
+
+  it('Factor owner-wallet resolution: a confirmed broadcast reports Factor\'s OWN resolved owner wallet, never Nakamoto\'s (a different injected wallet in this same file)', async () => {
+    const store = fakeRequestStore();
+    const deps = factorDeps(store);
+    const invocation = await factorApprovedInvocation(store, deps);
+    const result = await approveAgentRegistryInvocation({ requestId: invocation.id }, deps);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.ownerWalletAddress).toBe(FACTOR_AGENT_WALLET.address);
+    expect(result.value.ownerWalletAddress).not.toBe(AGENT_WALLET.address);
+  });
+
+  it('receipt subject scoping: every receipt this ceremony records for Factor names aigent-factor, never aigent-nakamoto or aigent-moneypenny', async () => {
+    const store = fakeRequestStore();
+    const recordReceipt = vi.fn(async () => 'receipt-factor-1');
+    const deps = factorDeps(store, { recordReceipt });
+    const invocation = await factorApprovedInvocation(store, deps);
+    await approveAgentRegistryInvocation({ requestId: invocation.id }, deps);
+
+    const calls = recordReceipt.mock.calls.map((c) => c[0]);
+    expect(calls.length).toBeGreaterThan(0);
+    for (const call of calls) {
+      const serialized = JSON.stringify(call);
+      expect(serialized).not.toContain('aigent-nakamoto');
+      expect(serialized).not.toContain('aigent-moneypenny');
+    }
+    const types = calls.map((c: { actionType: string }) => c.actionType);
+    expect(types).toContain('principal_registration_mandate_signed');
+    expect(types).toContain('agent_registry_transaction_signed');
+    expect(types).toContain('horizen_registration_submitted');
+  });
+
+  it('replay/idempotency protection: a second approval on Factor\'s already-executed invocation refuses NOT_PENDING — never a second broadcast', async () => {
+    const store = fakeRequestStore();
+    const deps = factorDeps(store);
+    const invocation = await factorApprovedInvocation(store, deps);
+    const first = await approveAgentRegistryInvocation({ requestId: invocation.id }, deps);
+    expect(first.ok).toBe(true);
+    const second = await approveAgentRegistryInvocation({ requestId: invocation.id }, deps);
+    expect(second).toMatchObject({ ok: false, refusalCode: 'NOT_PENDING' });
+  });
+
+  it('confirmation handling: a confirmed invocation reports a well-formed tx hash and the stored request flips to executed', async () => {
+    const store = fakeRequestStore();
+    const deps = factorDeps(store);
+    const invocation = await factorApprovedInvocation(store, deps);
+    const result = await approveAgentRegistryInvocation({ requestId: invocation.id }, deps);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.txHash).toMatch(/^0x[a-f0-9]{64}$/);
+    expect((await store.get(invocation.id))?.status).toBe('executed');
+  });
+
+  it('refuses BROADCAST_FAILED honestly for Factor when no custodied wallet is on record — never falls back to another agent\'s key', async () => {
+    const store = fakeRequestStore();
+    const deps = factorDeps(store);
+    const invocation = await factorApprovedInvocation(store, deps);
+    const result = await approveAgentRegistryInvocation({ requestId: invocation.id }, { ...deps, resolveAgentPrivateKey: async () => undefined });
+    expect(result).toMatchObject({ ok: false, refusalCode: 'BROADCAST_FAILED' });
+    expect((await store.get(invocation.id))?.status).toBe('pending');
+  });
+});
+
 // ── The ceremony ladder ─────────────────────────────────────────────────────
 
 describe('the Register stage says where it actually is', () => {
@@ -855,15 +1022,19 @@ describe('the dry-run agent is the one selected on arrival', () => {
   const panel = stripComments(readSource('components/journey/RegisterAgentPanel.tsx'));
   const tab = stripComments(readSource('app/triad/components/codex/tabs/PilotJourneyTab.tsx'));
 
-  it('Nakamoto is first in PILOT_AGENTS', () => {
-    // Horizen Pilot Closure item 5 (2026-08-09): PILOT_AGENTS is no longer a
-    // hand-copied array literal — it is projected from the canonical
-    // services/horizen/registrableAgents.ts registry via an explicit
-    // ['nakamoto', 'moneypenny'] order, so this now asserts on THAT order
-    // declaration rather than on `slug: '...'` object-literal text.
-    const at = panel.indexOf('export const PILOT_AGENTS');
-    const declaration = panel.slice(at, at + 400);
-    expect(declaration).toMatch(/\[\s*'nakamoto'\s*,\s*'moneypenny'\s*\]/);
+  it('Nakamoto is first in PILOT_AGENTS', async () => {
+    // Horizen Pilot Closure item 5 (2026-08-09) moved PILOT_AGENTS from a
+    // hand-copied array literal to a `.sort()` projection over the canonical
+    // services/horizen/registrableAgents.ts registry (component source,
+    // 2026-08-09 doc comment: "PROJECTED FROM THE CANONICAL SOURCE, NOT
+    // HAND-COPIED"). A regex asserting on literal `['nakamoto', 'moneypenny']`
+    // text stopped matching the moment that projection shipped — this went
+    // stale asserting an implementation detail rather than the actual
+    // behavior. Import the real, live-computed list instead: the ordering
+    // fact this test cares about (Nakamoto first) holds regardless of HOW
+    // PILOT_AGENTS is built.
+    const { PILOT_AGENTS } = await import('@/components/journey/RegisterAgentPanel');
+    expect(PILOT_AGENTS[0]?.runtimeAgentId).toBe('aigent-nakamoto');
   });
 
   it('and is the initial selection', () => {
@@ -871,13 +1042,14 @@ describe('the dry-run agent is the one selected on arrival', () => {
     expect(tab).not.toMatch(/useState<string>\('moneypenny'\)/);
   });
 
-  it('the list order and the initial selection agree', () => {
+  it('the list order and the initial selection agree', async () => {
     // PILOT_AGENTS[0] is also the fallback resolveSurfaceProps uses when a
     // slug does not resolve. If the two disagreed, the fallback would silently
-    // reintroduce the default this change removes.
-    const at = panel.indexOf('export const PILOT_AGENTS');
-    const declaration = panel.slice(at, at + 400);
-    const first = declaration.match(/\[\s*'([a-z]+)'/)?.[1];
+    // reintroduce the default this change removes. Same behavioral-import fix
+    // as the test above — the prior source-scan regex could not see past the
+    // literal-to-`.sort()` shape change.
+    const { PILOT_AGENTS } = await import('@/components/journey/RegisterAgentPanel');
+    const first = PILOT_AGENTS[0]?.slug;
     expect(tab).toMatch(new RegExp(`useState<string>\\('${first}'\\)`));
   });
 });

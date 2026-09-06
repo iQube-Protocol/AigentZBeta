@@ -1,4 +1,10 @@
 # Build — Changelog
+- [`72c692d`](https://github.com/iQube-Protocol/AigentZBeta/commit/72c692dc7b0da25ad53cfd0c9d72ed7052fbfb72) [feat] Add Crystal-wide internal-pilot execution designation (frozen generations are immutable; lineages are evolutionary) (Claude, 2026-09-05T21:37:39Z)
+- [`f5b13db`](https://github.com/iQube-Protocol/AigentZBeta/commit/f5b13db950b8fc17da641fa6af1d320cbd669669) [chore] Update Bankr Phase 6-9 delivery report with the frontend integration (Claude, 2026-09-05T21:13:23Z)
+- [`c53302f`](https://github.com/iQube-Protocol/AigentZBeta/commit/c53302f536c32e0122fbc921a5f870db43e652e4) [push] Record Bankr Phases 6-9 delivery report (frontend integration pending) (Claude, 2026-09-05T21:04:50Z)
+- [`39e5792`](https://github.com/iQube-Protocol/AigentZBeta/commit/39e5792aec67df029203286c9c738ad77076a41f) [feat] Add Bankr Phase 9 live-rehearsal script (stops at the approval boundary) (Claude, 2026-09-05T21:02:10Z)
+- [`3b9ae5a`](https://github.com/iQube-Protocol/AigentZBeta/commit/3b9ae5a0703c956e066c9d83aeb8f828769ebd30) [push] Give Factor's Bankr actions real HTTP routes; close Phase 8 drift/tenant gaps (Phase 6 backend) (Claude, 2026-09-05T20:54:52Z)
+- [`9a11c7c`](https://github.com/iQube-Protocol/AigentZBeta/commit/9a11c7c2c4d5552804fd671373f3097c43913f12) [push] Give Factor real Bankr capability actions (Phase 5 of Factor+Aegis Bankr PRD) (Claude, 2026-09-05T20:15:58Z)
 - [`07334b2`](https://github.com/iQube-Protocol/AigentZBeta/commit/07334b2fad388ab2f02a3c05a5076c1db44c5573) [fix] Fix inert MoneyPenny Market Research/Learn cards; log EXP-P1 stage 8 gap (Claude, 2026-09-05T10:11:13Z)
 - [`5103893`](https://github.com/iQube-Protocol/AigentZBeta/commit/5103893731e3eacaa8aca2f3a1302c9b6e92443c) [feat] Retire dead Track2 >95% confidence gate; add relationship cohort ratification (Claude, 2026-09-05T08:30:02Z)
 - [`e717187`](https://github.com/iQube-Protocol/AigentZBeta/commit/e71718781e8dcca1c043951ca2ba098652d9ad31) [feat] Fix MoneyPenny Home cross-area nav; add specialist cards; rename Aigent Factor (Claude, 2026-09-05T09:09:02Z)

@@ -176,7 +176,7 @@ function PilotJourneyTabInner({ personaId, isAdmin, onRuntimeStateChange, foregr
   }, []);
 
   const resolveSurfaceProps = useCallback(
-    ({ surfaceRef, descriptor, runtimeState, pnlEvidence, ratifySubPredicates, registerCeremony }: Parameters<NonNullable<JourneyRunSurfaceProps['resolveSurfaceProps']>>[0]) => {
+    ({ surfaceRef, descriptor, runtimeState, pnlEvidence, ratifySubPredicates, registerCeremony, requestStateRefresh }: Parameters<NonNullable<JourneyRunSurfaceProps['resolveSurfaceProps']>>[0]) => {
       /*
        * IS THE OPERATOR'S PASSPORT PRESENT? — ASKED OF THE OBSERVER, ANSWERED
        * ONCE (operator, 2026-08-03: "in the passport step the decision should
@@ -199,7 +199,20 @@ function PilotJourneyTabInner({ personaId, isAdmin, onRuntimeStateChange, foregr
           ? ('delegate' as const)
           : ('citizen' as const)
         : undefined;
-      return descriptor.component === 'RegisterAgentPanel'
+      /*
+       * LIVE JOURNEY STATE PROJECTION (Journey 0 closure item 2, 2026-09-06)
+       * — `requestStateRefresh` is threaded into EVERY branch below
+       * uniformly (merged in once, at the return, rather than repeated
+       * per-branch) so a surface that mutates canonical state can ask the
+       * stage stepper to re-read it immediately on a real, server-confirmed
+       * success — never optimistically — instead of the operator only
+       * seeing the update after leaving and re-entering the journey (the
+       * previous only trigger being a full JourneyRunSurface remount). Mirrors
+       * IanJourneyTab.tsx's own resolveSurfaceProps, which already threads
+       * this through to PassportBureauApplyTab; this was the one journey
+       * entry point that had not.
+       */
+      const props = descriptor.component === 'RegisterAgentPanel'
         ? { agentSlug: selectedAgentSlug, onAgentSlugChange: setSelectedAgentSlug }
         /* The Verify stage must speak about the agent the operator SELECTED,
            not a hardcoded MoneyPenny (operator, 2026-08-02). The tab already
@@ -302,6 +315,7 @@ function PilotJourneyTabInner({ personaId, isAdmin, onRuntimeStateChange, foregr
             : descriptor.component === 'ParticipationStandingTab'
               ? { agentRuntimeId: selectedAgent.runtimeAgentId }
               : {};
+      return { ...props, requestStateRefresh };
     },
     [selectedAgentSlug, origin, isAdmin],
   );
