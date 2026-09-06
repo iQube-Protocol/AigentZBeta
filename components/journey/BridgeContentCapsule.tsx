@@ -245,11 +245,7 @@ export function BridgeContentCapsule({
       {showRightColumn && (
         <div
           className={`flex min-h-0 flex-col gap-2 ${
-            fullscreen
-              ? 'self-start max-h-[calc(100vh-2rem)] overflow-y-auto'
-              : renderCompanion
-                ? 'h-full overflow-y-auto'
-                : 'h-full'
+            fullscreen ? 'self-start max-h-[calc(100vh-2rem)] overflow-y-auto' : 'h-full'
           }`}
         >
           {renderCompanion

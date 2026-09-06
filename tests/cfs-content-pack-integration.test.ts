@@ -476,18 +476,20 @@ describe("Learn's activity-group ordering (production learning pattern, 2026-09-
   });
 });
 
-describe('Continue navigation — regression guard for the copilot hot-zone click-interception bug (2026-09-03)', () => {
-  // Root cause (confirmed live via Playwright, dev server): the locked-
-  // viewport layout pins Discover/Learn/Explore's Continue footer at the
-  // visible bottom-right of the stage. CodexCopilotLayer's floating-copilot
-  // hover hot-zone (`fixed bottom-0 right-0 h-52 w-52 z-[110]`, no
-  // pointer-events-none fallback) occupies that exact same screen region
-  // once mounted, silently swallowing every click on Continue. The fix
-  // reserves clearance (lg:pr-56, 224px — safely beyond the zone's 208px)
-  // so Continue never renders underneath it. These are source-level guards
-  // (this repo's established pattern for layout regressions that would
-  // otherwise need a live browser session); the live click-through fix
-  // itself was verified via Playwright against the running dev server.
+describe('Continue navigation — regression guard for the copilot hot-zone click-interception bug (2026-09-03, superseded 2026-09-06)', () => {
+  // Original root cause (confirmed live via Playwright, dev server): the
+  // locked-viewport layout pinned Discover/Learn/Explore's Continue footer
+  // at the visible bottom-right of the stage — the same screen region
+  // CodexCopilotLayer's floating-copilot hover hot-zone (`fixed bottom-0
+  // right-0 h-52 w-52 z-[110]`, no pointer-events-none fallback) occupies
+  // once mounted, silently swallowing every click on Continue. The original
+  // fix reserved clearance (lg:pr-56). The Bridge-capsule-shell convergence
+  // pass (2026-09-06) removed the page-level pinned footer entirely —
+  // Continue is now a full-width banner button rendered IN NORMAL DOCUMENT
+  // FLOW at the bottom of FsBridgeCapsuleSection's companion capsule, never
+  // pinned to the viewport corner, so the collision class this guard was
+  // written against cannot arise for Discover/Learn/Explore either; the
+  // lg:pr-56 clearance hack is gone, not relocated.
   const introSrc = stripComments(readSource('components/journey/FinancialSovereigntyIntroStage.tsx'));
 
   it('the copilot hot-zone is real, pre-existing, shared UI — this suite documents around it rather than editing the shared layer', () => {
@@ -496,8 +498,10 @@ describe('Continue navigation — regression guard for the copilot hot-zone clic
     expect(copilotSrc).toMatch(/right-0 h-52 w-52/);
   });
 
-  it("Discover/Learn/Explore's Continue footer reserves lg:pr-56 clearance from the viewport's right edge", () => {
-    expect(introSrc).toMatch(/flex shrink-0 justify-end pt-3 lg:pr-56/);
+  it("Discover/Learn/Explore's Continue button renders in normal flow inside the companion capsule as a full-width banner — never a page-level fixed/pinned footer, so no lg:pr-56 clearance hack is needed", () => {
+    expect(introSrc).not.toMatch(/lg:pr-56/);
+    expect(introSrc).not.toMatch(/fixed bottom-0/);
+    expect(introSrc).toMatch(/flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold transition \$\{accentButtonClass\}/);
   });
 
   it('Operate/Prepare/Cross keep their Continue-equivalent actions inside the scrolling Learning Rail (never a separate fixed-position footer) — the same collision class simply cannot arise there', () => {

@@ -122,6 +122,22 @@ export type FinancialSovereigntyIntroStageKey = 'discover' | 'learn' | 'explore'
  * Discover/Learn/Explore stages (see file header, "Bridge-capsule-shell
  * convergence"). One place composes `BridgeContentCapsule` so the three
  * stages below never hand-roll three slightly different shell wirings.
+ *
+ * Layout pass (2026-09-06, operator screenshot feedback):
+ *   - The strip now mirrors the CI View stage's own compact excerpt
+ *     typography (`BookInsertStrip` in
+ *     ConstitutionalInternetBridgeViewSequence.tsx: 10px tracked-uppercase
+ *     eyebrow, small headline, small lead) instead of a large h2 — this is
+ *     what actually saves the vertical room the copy needs to stay visible
+ *     under the media pane, and keeps the Bridge's typographic voice
+ *     consistent stage-to-stage rather than inventing a second scale here.
+ *   - The media pane gets a smaller, definite height (was effectively
+ *     unbounded on desktop, which is what pushed the strip below the fold
+ *     with no way to scroll to it).
+ *   - The companion column is now ONE atomic capsule (bordered container)
+ *     with its OWN internal scroll region for all activity groups, and the
+ *     stage's Continue action renders INSIDE it, pinned under a divider at
+ *     the bottom — never a second, page-level floating footer.
  */
 function FsBridgeCapsuleSection({
   items,
@@ -131,6 +147,9 @@ function FsBridgeCapsuleSection({
   lead,
   contextualLine,
   groups,
+  onContinue,
+  continueDisabled,
+  accentButtonClass,
 }: {
   items: BridgeMediaCarouselItem[];
   emptyLabel: string;
@@ -139,6 +158,9 @@ function FsBridgeCapsuleSection({
   lead: string;
   contextualLine?: string;
   groups: BridgeActivityGroup[];
+  onContinue: () => void;
+  continueDisabled: boolean;
+  accentButtonClass: string;
 }) {
   return (
     <BridgeContentCapsule
@@ -147,18 +169,37 @@ function FsBridgeCapsuleSection({
         <BridgeMediaCarouselPane
           items={items}
           emptyLabel={emptyLabel}
-          heightClassName="h-[60vh] max-h-[70vh] min-h-[18rem] lg:h-full lg:max-h-none"
+          heightClassName="h-[32vh] max-h-[20rem] min-h-[12rem] lg:h-[34vh] lg:max-h-[22rem]"
         />
       )}
       renderStrip={() => (
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{eyebrow}</p>
-          <h2 className="mt-1 text-xl font-bold text-white sm:text-2xl">{headline}</h2>
+          <p className="text-[10px] uppercase tracking-[0.25em] text-amber-400/80">{eyebrow}</p>
+          <p className="mt-1 text-xs text-slate-500">{headline}</p>
           <p className="mt-2 text-[13px] leading-[1.5] text-slate-300">{lead}</p>
           {contextualLine && <p className="mt-2 text-xs text-slate-400">{contextualLine}</p>}
         </div>
       )}
-      renderCompanion={() => <BridgeActivityCompanionColumn groups={groups} />}
+      renderCompanion={() => (
+        <div className="flex h-full min-h-0 flex-col rounded-2xl border border-white/[0.07] bg-slate-900/40 p-3.5">
+          <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+            <BridgeActivityCompanionColumn groups={groups} />
+          </div>
+          <div className="mt-3 shrink-0 border-t border-white/[0.07] pt-3">
+            <button
+              type="button"
+              onClick={onContinue}
+              disabled={continueDisabled}
+              className={`flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold transition ${accentButtonClass} ${
+                continueDisabled ? 'cursor-not-allowed opacity-40' : ''
+              }`}
+            >
+              Continue
+              <ArrowRight className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
     />
   );
 }
@@ -367,33 +408,13 @@ export function FinancialSovereigntyIntroStage({
   const accentButtonClass =
     accent === 'indigo' ? 'bg-indigo-500 hover:bg-indigo-400 text-slate-950' : 'bg-amber-500 hover:bg-amber-400 text-slate-950';
 
-  const continueFooter = (
-    // lg:pr-56 (Continue-navigation collision fix, 2026-09-03) — the
-    // locked-viewport layout pins this footer at the visible bottom-right
-    // of the stage on desktop, which is exactly where CodexCopilotLayer's
-    // floating-copilot hover hot-zone lives (`fixed bottom-0 right-0 h-52
-    // w-52 z-[110]`, app/components/codex/CodexCopilotLayer.tsx — a
-    // pre-existing, shared, cross-cartridge element, never edited here).
-    // That div has no pointer-events-none fallback, so it silently
-    // swallowed every click on Continue once the button landed under it —
-    // confirmed live via Playwright ("<div ... h-52 w-52> intercepts
-    // pointer events"). The fix reserves clearance (224px, safely beyond
-    // the zone's 208px) so Continue never renders underneath it, rather
-    // than touching the shared copilot layer.
-    <div className="flex shrink-0 justify-end pt-3 lg:pr-56">
-      <button
-        type="button"
-        onClick={handlePrimaryCta}
-        disabled={primaryCtaDisabled}
-        className={`inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition ${accentButtonClass} ${
-          primaryCtaDisabled ? 'cursor-not-allowed opacity-40' : ''
-        }`}
-      >
-        Continue
-        <ArrowRight className="h-4 w-4" />
-      </button>
-    </div>
-  );
+  // Continue used to render as a page-level footer pinned bottom-right
+  // (with a lg:pr-56 clearance hack against CodexCopilotLayer's floating
+  // hover zone — see FS_BRIDGE_CAPSULE history). It now renders INSIDE
+  // FsBridgeCapsuleSection's companion capsule, in normal document flow
+  // rather than pinned to the viewport corner, so that collision no
+  // longer applies; see handlePrimaryCta/primaryCtaDisabled/accentButtonClass
+  // passed to FsBridgeCapsuleSection below.
 
   const placeholderVideoOverlay = (
     <span className="pointer-events-none absolute left-2 top-2 max-w-[85%] rounded-md border border-amber-400/40 bg-slate-950/85 px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-amber-200">
@@ -476,9 +497,11 @@ export function FinancialSovereigntyIntroStage({
             lead={copy.paragraphs[0]}
             contextualLine={resolved.contextualLine}
             groups={groups}
+            onContinue={handlePrimaryCta}
+            continueDisabled={primaryCtaDisabled}
+            accentButtonClass={accentButtonClass}
           />
         </div>
-        {continueFooter}
       </div>
     );
   }
@@ -565,9 +588,11 @@ export function FinancialSovereigntyIntroStage({
             lead={copy.paragraphs[0]}
             contextualLine={resolved.contextualLine}
             groups={groups}
+            onContinue={handlePrimaryCta}
+            continueDisabled={primaryCtaDisabled}
+            accentButtonClass={accentButtonClass}
           />
         </div>
-        {continueFooter}
       </div>
     );
   }
@@ -660,9 +685,11 @@ export function FinancialSovereigntyIntroStage({
           headline={copy.headline}
           lead={copy.paragraphs[0]}
           groups={learnGroups}
+          onContinue={handlePrimaryCta}
+          continueDisabled={primaryCtaDisabled}
+          accentButtonClass={accentButtonClass}
         />
       </div>
-      {continueFooter}
     </div>
   );
 }
