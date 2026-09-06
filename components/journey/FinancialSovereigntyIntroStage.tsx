@@ -180,6 +180,7 @@ function FsBridgeCapsuleSection({
   return (
     <BridgeContentCapsule
       className="h-full"
+      rightColumnWeight="2fr"
       railCards={[{ id: 'primary', label: 'Media' }]}
       viewportAspectRatio={() => 16 / 9}
       renderViewport={() => (
