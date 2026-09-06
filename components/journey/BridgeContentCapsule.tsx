@@ -130,6 +130,16 @@ export interface BridgeContentCapsuleProps {
    * and Personify's tool picker, which are not media at all).
    */
   viewportAspectRatio?: (activeRailId: string) => number | undefined;
+  /**
+   * Right-column grid track weight (2026-09-06). Default `'1fr'` keeps the
+   * original 3fr/1fr (~75/25) split View/Personify's thumbnail rail uses.
+   * A companion holding real interactive content (Bridge learning
+   * capsules) reads better at the wider ~60/40 split `BridgeOrientSurface`
+   * already established for its own media/interaction composition
+   * (`grid-cols-[3fr_2fr]`) — pass `'2fr'` to match that proportion instead
+   * of inventing a third ratio.
+   */
+  rightColumnWeight?: string;
 }
 
 /** Vertical-share weight per aspect — a portrait card (e.g. a paper cover)
@@ -150,6 +160,7 @@ export function BridgeContentCapsule({
   allowFullscreen = true,
   className,
   viewportAspectRatio,
+  rightColumnWeight = '1fr',
 }: BridgeContentCapsuleProps) {
   const [internalActive, setInternalActive] = useState<string>(railCards[0]?.id ?? '');
   const [fullscreen, setFullscreen] = useState(false);
@@ -181,7 +192,7 @@ export function BridgeContentCapsule({
       // nothing left to scroll.
       className={`grid gap-3 ${fullscreen ? 'min-h-full' : ''} ${className ?? ''}`}
       style={{
-        gridTemplateColumns: showRightColumn ? 'minmax(0, 3fr) minmax(200px, 1fr)' : 'minmax(0, 1fr)',
+        gridTemplateColumns: showRightColumn ? `minmax(0, 3fr) minmax(200px, ${rightColumnWeight})` : 'minmax(0, 1fr)',
         gridTemplateRows: '1fr',
       }}
     >
