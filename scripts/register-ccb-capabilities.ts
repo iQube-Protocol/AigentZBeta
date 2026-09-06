@@ -87,6 +87,24 @@ const CAPABILITIES: RegisterCapabilityInput[] = [
     reuseDisposition: "compose",
   },
   {
+    // Added 2026-09-06 — Constitutional Acceptance for Aigent Factor's Use
+    // Case Zero (services/factor/factorCapabilityManifest.ts's
+    // constitutional_financial_agent_establishment). Manually registered
+    // live (this environment has no .env.local to run this script against)
+    // via the same registerCapability() call this script makes — re-running
+    // this script is safe and idempotent (returns alreadyRegistered: true).
+    capabilityId: "constitutional_financial_agent_establishment",
+    displayLabel: "Constitutional financial-agent establishment (Use Case Zero)",
+    description:
+      "Guides an operator through establishing a constitutional financial-services agent (Aigent " +
+      "Factor). Both entry paths converge on one canonical readiness projection composed from " +
+      "existing identity/wallet/Passport/delegation/Horizen/Aegis/MoneyPenny/Bankr/Vela/runtime-" +
+      "activation services. Never issues tokens, broadcasts transactions, moves funds, or uses " +
+      "production credentials.",
+    governingInvariants: ["PRD-MPY-001"],
+    reuseDisposition: "compose",
+  },
+  {
     // Added 2026-07-27 — the CCR-001 reference artifact. It had a Brief from
     // the day it was written and no registry row, so the newest capability
     // artefact was the only one with nothing to hang off in mySoftware.

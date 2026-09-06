@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-09-06-ACTION-TYPE-MIGRATION-MUST-ACCOMPANY-UNION-EDIT-001",
+  "statement": "Any change adding a member to `ActivityActionType` (services/receipts/activityReceiptService.ts) MUST ship, in the SAME change, a wholesale-rebuild migration of `activity_receipts_action_type_check` carrying the complete current list plus the new entry — and `tests/activity-receipts-action-type-parity.test.ts` MUST actually be run (not merely exist) before the change is considered complete. A scoped/mocked unit-test pass that mocks `createActivityReceipt` entirely cannot catch this drift, because it never exercises the real CHECK constraint.",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": null,
+  "projections": {
+    "targets": ["devon"],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "structural"
+  },
+  "classification": null,
+  "scope": "local",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/activity-receipts-action-type-parity.test.ts",
+      "assertion": "'every TypeScript ActivityActionType is present in the LATEST CHECK-constraint rebuild' — diffs the TS union against the newest activity_receipts_action_type_check migration's literal list and fails on any name present in one but not the other.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "services/receipts/activityReceiptService.ts's ActivityActionType union — 'agent_purpose_wallet_provisioned' (added during the 'remaining Use Case Zero defects' pass, this session)",
+      "defect": "Added to the TS union (and used in services/factor/useCaseZeroOrchestrator.ts's ownerWallet/settlementWallet steps) with no matching activity_receipts_action_type_check migration — verified only via a mocked unit test, which never exercises the real constraint.",
+      "resolutionId": "RES-2026-09-06-MISSING-ACTION-TYPE-MIGRATION-001",
+      "evidence": ["tests/activity-receipts-action-type-parity.test.ts", "supabase/migrations/20260930260500_agent_wallet_and_rootdid_receipt_action_types.sql"]
+    },
+    {
+      "site": "services/receipts/activityReceiptService.ts's ActivityActionType union — 'agent_root_identity_sponsored' (added during the RootDID-minting-primitive pass, this session)",
+      "defect": "Same shape as the sibling occurrence above — added to the TS union AND to services/dvn/activityReceiptDvnPipeline.ts's ANCHORABLE_ACTION_TYPES, with no matching CHECK-constraint migration, again verified only via a mocked unit test.",
+      "resolutionId": "RES-2026-09-06-MISSING-ACTION-TYPE-MIGRATION-001",
+      "evidence": ["tests/activity-receipts-action-type-parity.test.ts", "supabase/migrations/20260930260500_agent_wallet_and_rootdid_receipt_action_types.sql"]
+    }
+  ],
+  "derivedFrom": ["RES-2026-09-06-MISSING-ACTION-TYPE-MIGRATION-001"],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "Both occurrences happened within the SAME session, one pass apart — the parity test existed the whole time but was not run after either edit. The generalizable fix is procedural, not code: whenever a change touches ActivityActionType, run tests/activity-receipts-action-type-parity.test.ts (or the full relevant suite) before considering the change complete, not just the narrower unit-test file that mocks the receipt writer away.",
+    "Distinguish from the ON CONFLICT/partial-index defect (CI-2026-09-07-ONCONFLICT-TARGET-MUST-BE-NON-PARTIAL-INDEX-001) — different mechanism, same root shape: a mocked/TS-level test cannot prove a live-database-level contract (a CHECK constraint here, an inferred ON CONFLICT arbiter there) actually holds."
+  ]
+}
