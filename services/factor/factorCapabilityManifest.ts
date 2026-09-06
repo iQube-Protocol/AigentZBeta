@@ -132,6 +132,19 @@ export interface FactorActionDescriptor {
   requiresApproval: boolean;
   requiredScope?: Array<keyof FactorScope>;
   requiredAuthority?: string[];
+  /**
+   * A real, documented HTTP invocation contract for this action — present
+   * ONLY when a caller genuinely outside this codebase's process (a
+   * delegating agent, not a browser session) can invoke it. Absent means
+   * "reachable at `handler`, but no invocation contract is documented for
+   * an external caller" — never invented for an action that doesn't have
+   * one (capability-runtime contract closure, 2026-09-06).
+   */
+  invocation?: {
+    httpMethod: 'GET' | 'POST';
+    path: string;
+    authRequirement: string[];
+  };
 }
 
 export type FactorCapabilityId =
@@ -619,6 +632,30 @@ export const FACTOR_CAPABILITIES: FactorCapability[] = [
         exposure: "moneypenny",
         requiresApproval: false,
         requiredAuthority: ["constitutional-agent-establishment-readiness"],
+      },
+      {
+        // Scoped + implemented 2026-09-06: codexes/packs/agentiq/updates/
+        // 2026-09-06_factor-agent-callable-execution-scope.md. The
+        // delegatable run-to-completion contract — MoneyPenny (in-process,
+        // via services/moneypenny/factorExecutionBridge.ts) or a genuinely
+        // external caller (platform credential) can have Factor run Use
+        // Case Zero end-to-end, rather than driving `advance` step-by-step
+        // themselves. Factor remains the executing agent.
+        id: "constitutional_financial_agent_establishment:execute",
+        label: "Run to completion (delegatable — MoneyPenny or an external caller runs the whole task via Factor)",
+        mode: "execute",
+        handlerId: "factor:ucz-execute",
+        exposure: "external",
+        requiresApproval: false,
+        requiredAuthority: ["constitutional-agent-establishment-readiness"],
+        invocation: {
+          httpMethod: "POST",
+          path: "/api/moneypenny/factor/use-case-zero/execute",
+          authRequirement: [
+            "persona-session (getActivePersona)",
+            "platform-credential (CRON_TRIGGER_TOKEN, with actorPersonaId in the body)",
+          ],
+        },
       },
     ],
   },

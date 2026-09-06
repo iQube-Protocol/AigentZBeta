@@ -729,3 +729,83 @@ async function advanceUseCaseZeroCore(input: AdvanceUseCaseZeroInput): Promise<O
       return { stepTaken: step, outcome: 'blocked', detail: `No orchestrated action for step '${step}'.`, readiness };
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// Run-to-completion contract (2026-09-06) — the stable, delegatable
+// interface another agent (MoneyPenny in-process, or an external caller
+// under platform authority) uses to have Factor RUN Use Case Zero for them,
+// rather than driving `advanceUseCaseZero` one step at a time themselves.
+// Factor remains the executing agent throughout: this loops the SAME
+// single-step primitive above and stops at the first outcome that isn't
+// 'advanced' — it adds no new capability and crosses no approval boundary
+// `advanceUseCaseZero` doesn't already refuse to cross on its own.
+// ─────────────────────────────────────────────────────────────────────────
+
+export type RunToCompletionOutcome = 'completed' | 'awaiting_input' | 'awaiting_external_action' | 'blocked' | 'step_limit_exceeded';
+
+export interface RunUseCaseZeroToCompletionInput extends AdvanceUseCaseZeroInput {
+  /** Defensive bound — this loop must never spin forever even if a future
+   *  change to the step sequence introduces a cycle. 50 is comfortably above
+   *  the current ~12-leg sequence's real step count. */
+  maxSteps?: number;
+}
+
+export interface RunUseCaseZeroToCompletionResult {
+  outcome: RunToCompletionOutcome;
+  /** The full trace of every advanceUseCaseZero call this run made, in
+   *  order — a delegating caller gets the SAME detail a step-by-step caller
+   *  would have seen, never a summary that hides what actually happened. */
+  steps: AdvanceUseCaseZeroResult[];
+  /** The readiness snapshot from the LAST step taken. */
+  readiness: UseCaseZeroReadiness;
+  caseId: string | null;
+  detail: string;
+}
+
+/**
+ * Runs `advanceUseCaseZero` repeatedly until either every required leg is
+ * established, or a real boundary is reached — a human/Aegis/MoneyPenny
+ * approval gate ('awaiting_external_action'/'blocked'), or missing
+ * caller-supplied data ('awaiting_input', e.g. `launchSpec`/`agentGenesis`).
+ * NEVER auto-chains across any boundary `advanceUseCaseZero` itself refuses
+ * to cross — this wrapper only removes the "call again yourself" step for a
+ * delegating caller.
+ */
+export async function runUseCaseZeroToCompletion(
+  input: RunUseCaseZeroToCompletionInput,
+): Promise<RunUseCaseZeroToCompletionResult> {
+  const maxSteps = input.maxSteps ?? 50;
+  const steps: AdvanceUseCaseZeroResult[] = [];
+  let caseId = input.caseId;
+
+  for (let i = 0; i < maxSteps; i++) {
+    const result = await advanceUseCaseZero({ ...input, caseId });
+    steps.push(result);
+    caseId = result.caseId ?? caseId;
+
+    if (result.outcome === 'advanced') continue;
+
+    if (result.outcome === 'no_action_needed') {
+      return {
+        outcome: result.readiness.requiredStepsComplete ? 'completed' : 'awaiting_external_action',
+        steps,
+        readiness: result.readiness,
+        caseId: result.caseId,
+        detail: result.detail,
+      };
+    }
+    // 'awaiting_input' | 'awaiting_external_action' | 'blocked' — a real
+    // boundary this wrapper stops at honestly, exactly like a step-by-step
+    // caller would have.
+    return { outcome: result.outcome, steps, readiness: result.readiness, caseId: result.caseId, detail: result.detail };
+  }
+
+  const last = steps[steps.length - 1];
+  return {
+    outcome: 'step_limit_exceeded',
+    steps,
+    readiness: last.readiness,
+    caseId: last.caseId,
+    detail: `Exceeded maxSteps (${maxSteps}) without completing or reaching a boundary — stopped defensively.`,
+  };
+}

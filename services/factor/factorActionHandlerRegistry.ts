@@ -162,3 +162,16 @@ registerFactorActionHandler({
   describes: 'services/factor/useCaseZeroOrchestrator.ts::advanceUseCaseZero — one resumable step per call.',
   probe: () => ({ reachable: true }),
 });
+
+// Run-to-completion contract (2026-09-06) — the delegatable interface a
+// calling agent (MoneyPenny in-process, or an external caller under
+// platform authority) uses to have Factor run Use Case Zero end-to-end.
+// Same never-auto-chains-past-an-approval-boundary guarantee as ucz-advance.
+registerFactorActionHandler({
+  handlerId: 'factor:ucz-execute',
+  describes:
+    'services/factor/useCaseZeroOrchestrator.ts::runUseCaseZeroToCompletion via ' +
+    'app/api/moneypenny/factor/use-case-zero/execute/route.ts — loops advanceUseCaseZero to completion or the ' +
+    'first real boundary, on behalf of a delegating caller.',
+  probe: () => ({ reachable: true }),
+});
