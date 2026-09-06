@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-09-07-ONCONFLICT-TARGET-MUST-BE-NON-PARTIAL-INDEX-001",
+  "statement": "A unique index targeted by a PostgREST/supabase-js `.upsert(row, { onConflict: '<columns>' })` call must be a FULL, non-partial index on exactly those columns — Postgres cannot resolve a column-list `ON CONFLICT` clause against an index carrying a `WHERE` predicate, and this fails only at live execution (`no unique or exclusion constraint matching the ON CONFLICT specification`), never inside an in-memory/fake Supabase client. When a column may legitimately be absent, rely on Postgres's own NULL-uniqueness semantics (an ordinary unique index already allows unlimited NULLs) rather than reaching for a partial predicate to achieve the same effect.",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "devon"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "structural"
+  },
+  "classification": null,
+  "scope": "local",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/use-case-zero-token-launch-postgres.integration.test.ts",
+      "assertion": "'the exact PostgREST-generated INSERT ... ON CONFLICT (tenant_id, draft_idempotency_key) DO NOTHING succeeds' against the corrected non-partial index, AND 'REGRESSION GUARD: the SAME statement against the OLD PARTIAL index fails with the exact reported Postgres error' — reproduces `no unique or exclusion constraint matching the ON CONFLICT specification` verbatim against a real local Postgres 16 instance, run via `npm run test:integration`.",
+      "verifiedFailingBeforeFix": true
+    },
+    {
+      "path": "tests/use-case-zero-token-launch-idempotency.test.ts",
+      "assertion": "Application-level resume/supersede logic (createOrResumeDraft, claimDraftForPreflight) against a fake Supabase client — documents in its own header that it covers ONLY this layer and explicitly defers the Postgres ON CONFLICT/partial-index guarantee to the real-Postgres integration test above, rather than implying fake-client coverage is sufficient.",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "services/factor/tokenLaunchService.ts — createOrResumeDraft / migration 20260930260000_token_launches_case_bound_idempotency.sql",
+      "defect": "uq_token_launches_draft_idempotency was created as a PARTIAL unique index (`WHERE draft_idempotency_key IS NOT NULL`); createOrResumeDraft's `.upsert(row, { onConflict: 'tenant_id,draft_idempotency_key', ignoreDuplicates: true })` would have failed at live execution with 'no unique or exclusion constraint matching the ON CONFLICT specification'. Caught on operator review before the migration reached live Supabase; never actually failed in production.",
+      "resolutionId": "RES-2026-09-07-BANKR-REHEARSAL-ONCONFLICT-PARTIAL-INDEX-001",
+      "evidence": [
+        "tests/use-case-zero-token-launch-postgres.integration.test.ts",
+        "supabase/migrations/20260930260000_token_launches_case_bound_idempotency.sql"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-09-07-BANKR-REHEARSAL-ONCONFLICT-PARTIAL-INDEX-001"
+  ],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "Single occurrence so far — held at `candidate`, not `validated`, per this registry's own rule (validated requires >= 2 occurrences or the milestone-close check refuses it). The next agent who reaches for a partial unique index as an `onConflict` target anywhere in this codebase (or anyone adding a new upsert-based idempotency key to any other table) should record a second occurrence here rather than rediscovering this from scratch.",
+    "The general shape generalizes beyond Bankr/token_launches: ANY table in this codebase that adds an idempotency-key-style unique column intended for `.upsert(..., { onConflict, ignoreDuplicates: true })` use should default to a non-partial unique index and rely on NULL-uniqueness semantics for 'this column doesn't apply to every row', never a `WHERE <col> IS NOT NULL` predicate on the index the upsert targets.",
+    "Distinguish carefully from `uq_token_launches_current` in this same migration, which IS a partial index (`WHERE superseded_by IS NULL`) and is correctly left that way — it is never targeted by an `onConflict` upsert (application logic reads it via an explicit SELECT and decides resume/create/supersede itself), so its partial predicate is not a PostgREST inference problem. The rule this candidate states is about INDEXES TARGETED BY onConflict specifically, not about partial indexes in general — a partial index used only as a plain DB-level constraint backstop (checked via ordinary INSERT, whose unique-violation error is caught and handled) remains a perfectly good pattern."
+  ]
+}

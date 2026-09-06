@@ -48,6 +48,12 @@ export interface BankrIssuerReadiness {
   bankrMode: 'live' | 'fake';
   hasProviderWalletBinding: boolean;
   providerWalletBinding: ProviderWalletBindingRow | null;
+  /** Whether Bankr's own capabilities report token-launch support — a
+   *  separate fact from `bankrConfigured`/`hasProviderWalletBinding` (Use
+   *  Case Zero correction 4, 2026-09-06: "provider configured", "binding
+   *  active" and "operation supported" must never be collapsed into one).
+   *  `null` only if the capabilities call itself failed. */
+  tokenLaunchEnabled: boolean | null;
   ready: boolean;
   blockers: string[];
 }
@@ -58,6 +64,13 @@ export interface BankrIssuerReadiness {
  * exists. Never asserts admission/registry state on its own authority; a
  * caller that also needs that fact reads it from the existing journey/
  * registry services directly (this function does not duplicate them).
+ *
+ * THE sole call site (besides the adapter's own definition) permitted to
+ * construct a Bankr provider adapter (tests/bankr-governance-invariants.test.ts
+ * enforces this structurally) — any other caller needing Bankr's
+ * configured/mode/capabilities facts (e.g. services/factor/
+ * useCaseZeroReadinessProjection.ts) calls THIS function, never
+ * `createBankrProviderAdapter()` directly.
  */
 export async function assessIssuerReadiness(
   admin: SupabaseClient,
@@ -67,6 +80,12 @@ export async function assessIssuerReadiness(
   const adapter = createBankrProviderAdapter();
   const status = adapter.getStatus();
   const binding = await getProviderWalletBinding(admin, tenantId, beneficiaryAgentRuntimeId, 'bankr');
+  let tokenLaunchEnabled: boolean | null = null;
+  try {
+    tokenLaunchEnabled = (await adapter.getCapabilities()).tokenLaunchEnabled;
+  } catch {
+    tokenLaunchEnabled = null;
+  }
 
   const blockers: string[] = [];
   if (!status.configured) blockers.push('Bankr is not configured for this deployment — no BANKR_*_API_KEY is set (simulated mode only).');
@@ -78,6 +97,7 @@ export async function assessIssuerReadiness(
     bankrMode: status.mode,
     hasProviderWalletBinding: Boolean(binding && binding.status === 'active'),
     providerWalletBinding: binding,
+    tokenLaunchEnabled,
     ready: blockers.length === 0,
     blockers,
   };

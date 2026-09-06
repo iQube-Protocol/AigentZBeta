@@ -132,3 +132,33 @@ for (const handlerId of [
     probe: () => ({ reachable: true }),
   });
 }
+
+// ── Vela confidential-compute (Factor's admission-packet policy workload) ──
+registerFactorActionHandler({
+  handlerId: 'factor:vela-admission-projection',
+  describes:
+    'services/factor/factorConfidentialWorkload.ts — runAdmissionPacketPolicyEvaluation/resumeAdmissionPacketPolicyEvaluation; real, tested, runs against Vela\'s deterministic test transport (no live Vela deployment configured).',
+  probe: () => ({ reachable: true }),
+});
+
+// ── Use Case Zero — constitutional financial-agent establishment ──────────
+// Both entry actions compose the SAME read-only readiness projection
+// (services/factor/useCaseZeroReadinessProjection.ts), which itself composes
+// only EXISTING canonical services — never a second source of truth.
+for (const handlerId of ['factor:ucz-bring-own-agent', 'factor:ucz-create-and-establish'] as const) {
+  registerFactorActionHandler({
+    handlerId,
+    describes: 'services/factor/useCaseZeroCapabilityHandlers.ts — read-only readiness assessment over services/factor/useCaseZeroReadinessProjection.ts.',
+    probe: () => ({ reachable: true }),
+  });
+}
+
+// The resumable orchestrator (Phase 2) — rereads state, selects ONE
+// permitted next action, invokes the owning service, records via the
+// existing receipt system, rereads readiness. Never chains across a human
+// approval boundary; never submits/signs/broadcasts/moves funds.
+registerFactorActionHandler({
+  handlerId: 'factor:ucz-advance',
+  describes: 'services/factor/useCaseZeroOrchestrator.ts::advanceUseCaseZero — one resumable step per call.',
+  probe: () => ({ reachable: true }),
+});
