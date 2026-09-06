@@ -132,3 +132,23 @@ for (const handlerId of [
     probe: () => ({ reachable: true }),
   });
 }
+
+// ── Vela confidential-compute (Factor's admission-packet policy workload) ──
+registerFactorActionHandler({
+  handlerId: 'factor:vela-admission-projection',
+  describes:
+    'services/factor/factorConfidentialWorkload.ts — runAdmissionPacketPolicyEvaluation/resumeAdmissionPacketPolicyEvaluation; real, tested, runs against Vela\'s deterministic test transport (no live Vela deployment configured).',
+  probe: () => ({ reachable: true }),
+});
+
+// ── Use Case Zero — constitutional financial-agent establishment ──────────
+// Both entry actions compose the SAME read-only readiness projection
+// (services/factor/useCaseZeroReadinessProjection.ts), which itself composes
+// only EXISTING canonical services — never a second source of truth.
+for (const handlerId of ['factor:ucz-bring-own-agent', 'factor:ucz-create-and-establish'] as const) {
+  registerFactorActionHandler({
+    handlerId,
+    describes: 'services/factor/useCaseZeroReadinessProjection.ts — composed readiness projection over existing canonical services.',
+    probe: () => ({ reachable: true }),
+  });
+}

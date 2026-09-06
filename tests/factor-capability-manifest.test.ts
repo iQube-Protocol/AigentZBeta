@@ -111,17 +111,23 @@ describe('askSpecialist(factor) — template fallback keyed by capability, never
     expect(res.summary).toMatch(/partially built|not yet wired end-to-end/i);
   });
 
-  it('"Can Vela protect this workload?" -> confidential-compute capability, PLANNED stated honestly', async () => {
+  it('"Can Vela protect this workload?" -> confidential-compute capability, PREPARABLE (Use Case Zero reconciliation: a real, tested workload exists, simulated/test-transport only)', async () => {
+    // CORRECTED 2026-09-06 (Use Case Zero reconciliation): a real, tested
+    // Factor-bound workload exists (services/factor/factorConfidentialWorkload.ts)
+    // — 'partial'/PREPARABLE, never 'planned'. It is deliberately not
+    // ACTION_AVAILABLE: no live Vela SDK/TEE deployment is configured
+    // anywhere in this codebase, so every run is honestly simulated/test-
+    // transport only.
     const res = await askSpecialist({ specialistId: 'factor', context: ctx('Can Vela protect this workload?') });
-    expect(res.affordance).toBe('PLANNED');
-    expect(res.summary).toMatch(/not yet implemented|cannot act on it today/i);
+    expect(res.affordance).toBe('PREPARABLE');
+    expect(res.summary).toMatch(/partially built|not yet wired end-to-end/i);
   });
 
   it('never renders a PLANNED capability response as if it were live (no operational claim leaks through)', async () => {
-    // bankr_tokenization is 'partial' (PREPARABLE), not 'planned', since
-    // Phase 5 — asserted separately above; the genuinely still-PLANNED
-    // capabilities are covered here.
-    for (const capId of ['vela_confidential_compute', 'runtime_activation'] as const) {
+    // bankr_tokenization and vela_confidential_compute are both 'partial'
+    // (PREPARABLE), not 'planned' — asserted separately above; the
+    // genuinely still-PLANNED capability is covered here.
+    for (const capId of ['runtime_activation'] as const) {
       const res = await askSpecialist({ specialistId: 'factor', context: ctx('irrelevant', { factorCapabilityId: capId }) });
       expect(res.affordance).toBe('PLANNED');
       expect(res.summary.toLowerCase()).not.toContain('is live today');
