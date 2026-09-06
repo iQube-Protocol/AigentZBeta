@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-09-06-VERIFY-ROOT-CAUSE-AGAINST-CURRENT-DATA-BEFORE-GO-001",
+  "statement": "A root-cause claim that a code MECHANISM (a conditional, a heuristic, a gate) produces an observed symptom for a NAMED set of sites must be checked against each site's actual current data/config before implementation is authorized — not inferred solely from reading the mechanism's own diff or general shape. A mechanism can be real, correctly diagnosed in the abstract, and still not apply to a specific named site if that site's concrete data no longer (or never did) satisfy the mechanism's condition. Confirming the mechanism exists is not the same claim as confirming it fires at the specific site under discussion.",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": null,
+  "projections": {
+    "targets": ["devon"],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "structural"
+  },
+  "classification": null,
+  "ratifiedSource": null,
+  "scope": "cross-capability",
+  "status": "candidate",
+  "notes": [
+    "The operator's root-cause analysis named commit b86b8a424's `surfacesToRender.length === 1` heuristic and asserted it applied to Register, Ratify AND Stand (each described as 'a single-surface ceremony/summary panel'). The mechanism itself — count-gated fill-height sizing — was correctly diagnosed from the diff. Its application to Register and Ratify specifically was not checked against services/journey/horizenMoneyPennyJourney.ts's actual `surfaces` arrays, which show Register stacking 2 surfaces and Ratify stacking 3 — neither ever reaches `length === 1` under the journey definition as it stands.",
+    "My own confirmation reply (given before the operator's 'go') repeated the same unverified premise rather than independently checking each stage's surface count — the same gap the operator's own diagnosis had. 'I independently confirmed the mechanism is real' is a weaker claim than 'I confirmed the mechanism fires at each named site', and the two were conflated.",
+    "The gap was only caught because a follow-up diagnostic (temporarily removing Register's opt-out flag while holding everything else constant) produced an IDENTICAL render — a null result that, taken seriously rather than dismissed as test-harness imprecision, led to checking the stage definition directly.",
+    "Generalizable discipline: when a root-cause claim names specific sites a mechanism applies to, verify each named site's OWN current data against the mechanism's actual condition before authorizing implementation — a single grep/read per named site, not a general trust that 'the mechanism is real, so it must apply everywhere the claim says it does'."
+  ],
+  "derivedFrom": ["RES-2026-09-06-JOURNEY-STAGE-FILL-HEIGHT-BY-SURFACE-COUNT-001"],
+  "occurrences": [
+    {
+      "site": "This session's Journey Evidence flex-layout repair — Register and Ratify named as affected sites, corrected to Standing-only",
+      "defect": "Implementation proceeded (with 'go' authorization) on the premise that Register and Ratify were exposed to the surface-count heuristic; a later diagnostic revealed neither stage's surface count ever reaches the triggering value, so the fix (though safe and correctly built) does not address an actual defect at those two sites.",
+      "resolutionId": "RES-2026-09-06-JOURNEY-STAGE-FILL-HEIGHT-BY-SURFACE-COUNT-001",
+      "evidence": ["tests/journey-evidence-layout-browser-regression.test.tsx"]
+    }
+  ],
+  "canaries": []
+}

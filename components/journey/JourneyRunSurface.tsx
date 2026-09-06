@@ -825,6 +825,34 @@ export function JourneyRunSurface({
     return descriptor?.kind === 'embed' && descriptor.suppressHostCopilot === true;
   });
 
+  /*
+   * FILL-HEIGHT SIZING IS PER-SURFACE, NEVER PER SURFACE-COUNT (surgical
+   * repair, 2026-09-06, root-caused separately from the Evidence-surface
+   * consolidation above). Commit b86b8a424 (2026-09-03) needed to give
+   * FinancialSovereigntyOperateStage's embed a real, resolvable parent
+   * height, but gated the fix on mere `surfacesToRender.length === 1` rather
+   * than on which surface it was. Confirmed against the actual journey
+   * definition (services/journey/horizenMoneyPennyJourney.ts, 2026-09-06):
+   * Register's stage stacks 2 surfaces and Ratify's stacks 3, so neither
+   * ever reaches this branch regardless of this fix — Standing is the one
+   * stage that genuinely does, and is the one this fix is load-bearing for.
+   * A stage that DOES land here and renders ordinary, natural-height content
+   * (no `h-full`, no `overflow` boundary of its own) gets its box forced
+   * SHORTER than its actual content by `min-h-0`, and since nothing clips
+   * it, the content paints past that shrunk box — StageReceiptsDrawer,
+   * positioned right after in normal flow at the box's short computed
+   * height, then visually overlaps it. `naturalHeight` (JourneySurfaceDescriptor,
+   * kind: 'component') is the fix: read the SPECIFIC surface being rendered,
+   * not how many surfaces the stage happens to have — so a stage that later
+   * collapses to one surface inherits the correct treatment automatically.
+   */
+  const soleSurfaceNeedsFillHeight =
+    activeStageSurfaceRefs.length === 1 &&
+    (() => {
+      const descriptor = JOURNEY_SURFACES[activeStageSurfaceRefs[0].ref];
+      return !(descriptor?.kind === 'component' && descriptor.naturalHeight === true);
+    })();
+
   // The second half — for a bridge-owned `mode: 'component'` stage (CI/
   // KNYTS's Prepare/Operate, which render MoneyPenny inline themselves
   // rather than through the descriptor-driven switch above) the embed is
@@ -1458,23 +1486,33 @@ export function JourneyRunSurface({
       <div className="flex flex-1 flex-col gap-3 overflow-y-auto rounded-lg border border-slate-800 bg-slate-900/40 p-4">
         {/*
           min-h-0 + flex-1 here (2026-09-03, MoneyPenny embedded-viewport
-          collapse fix) — this div previously had no height of its own
-          (`flex flex-col`, height:auto), so a `kind: 'component'` surface
-          that renders `h-full` internally (e.g. FinancialSovereigntyOperateStage's
-          embedOpen branch, which sizes its MoneyPennyBridgeEmbed iframe via
-          `h-full` → `flex-1`) had no definite containing-block height to
-          resolve 100% against and collapsed to intrinsic/replaced-element
-          size — exactly the "short horizontal band" symptom. The parent
-          above already establishes a definite, scrollable height
-          (`flex-1 overflow-y-auto` inside the root's `h-full`); this div
-          must now actually take that height rather than shrink to content,
-          so a descendant's `h-full` has something real to resolve against.
-          `min-h-0` is required alongside `flex-1` so this box can still
-          shrink below its content's intrinsic size instead of forcing the
-          scrollable parent to grow — the standard flex-column scroll-child
-          pattern.
+          collapse fix; scoped to soleSurfaceNeedsFillHeight, 2026-09-06 —
+          see that variable's own doc comment above) — this div previously
+          had no height of its own (`flex flex-col`, height:auto), so a
+          `kind: 'component'` surface that renders `h-full` internally
+          (e.g. FinancialSovereigntyOperateStage's embedOpen branch, which
+          sizes its MoneyPennyBridgeEmbed iframe via `h-full` → `flex-1`)
+          had no definite containing-block height to resolve 100% against
+          and collapsed to intrinsic/replaced-element size — exactly the
+          "short horizontal band" symptom. The parent above already
+          establishes a definite, scrollable height (`flex-1 overflow-y-auto`
+          inside the root's `h-full`); this div must now actually take that
+          height rather than shrink to content, so a descendant's `h-full`
+          has something real to resolve against. `min-h-0` is required
+          alongside `flex-1` so this box can still shrink below its content's
+          intrinsic size instead of forcing the scrollable parent to grow —
+          the standard flex-column scroll-child pattern. An ordinary,
+          natural-height surface (Register/Ratify/Stand) must NEVER get this
+          treatment — its content has no `h-full` to resolve and no
+          `overflow` boundary of its own, so shrinking this box below its
+          content's height only makes the content paint past it.
         */}
-        <div className="flex min-h-0 flex-1 flex-col gap-2">
+        <div
+          data-testid="journey-stage-surfaces"
+          className={
+            soleSurfaceNeedsFillHeight ? 'flex min-h-0 flex-1 flex-col gap-2 overflow-hidden' : 'flex flex-col gap-2'
+          }
+        >
           {(() => {
             // Foreground override (FS Operate viewport parity, 2026-08-25):
             // a stage-scoped ref substitution rendered through this SAME
@@ -1629,17 +1667,18 @@ export function JourneyRunSurface({
                   key={`${activeStage.id}:${surfaceRef.ref}`}
                   /*
                    * flex-1 min-h-0 flex flex-col ONLY when this is the
-                   * stage's sole surface (same 2026-09-03 viewport-collapse
-                   * fix as the outer wrapper above) — a `Component` that
-                   * fills with `h-full` (e.g. FinancialSovereigntyOperateStage's
-                   * embedOpen branch) needs this box to actually claim the
-                   * available height rather than shrink to content. Gated
-                   * on surfacesToRender.length so a stage stacking several
-                   * component surfaces keeps its existing natural,
+                   * stage's sole surface AND that surface's own descriptor
+                   * does not opt out via `naturalHeight` (fixed 2026-09-06 —
+                   * see `soleSurfaceNeedsFillHeight`'s own doc comment above;
+                   * this used to be gated on surface COUNT alone, which is
+                   * what let Register/Ratify/Stand's ordinary content inherit
+                   * sizing meant for FinancialSovereigntyOperateStage's embed).
+                   * Still gated on surfacesToRender.length so a stage stacking
+                   * several component surfaces keeps its existing natural,
                    * content-sized stacking — this must never force an even
                    * split across unrelated stacked surfaces.
                    */
-                  className={surfacesToRender.length === 1 ? 'flex min-h-0 flex-1 flex-col' : undefined}
+                  className={soleSurfaceNeedsFillHeight ? 'flex min-h-0 flex-1 flex-col' : undefined}
                 >
                   <Component personaId={personaId} {...extraProps} {...(surfaceRef.props ?? {})} />
                 </div>
