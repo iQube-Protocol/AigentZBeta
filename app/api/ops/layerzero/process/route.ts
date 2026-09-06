@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
 
     if (action === 'process_pending') {
       const result = await processPendingDvnAttestations(dvn);
-      return NextResponse.json(result);
+      return NextResponse.json(result, { status: result.ok ? 200 : 500 });
     }
 
     if (action === 'verify_message' && messageIds.length > 0) {

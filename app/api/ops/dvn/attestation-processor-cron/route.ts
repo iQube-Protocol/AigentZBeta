@@ -61,9 +61,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   try {
     const dvn = await getDvnCanisterActor();
-    const pendingCount = await countDvnPendingMessages(dvn);
+    const pendingRead = await countDvnPendingMessages(dvn);
 
-    if (pendingCount === 0) {
+    // UNREADABLE is not the same fact as a genuinely empty queue — a canister
+    // read failure must fail this route visibly (500), never report
+    // `idle: true`. See dvnAttestationProcessor.ts's `readPendingDvnMessages`.
+    if (!pendingRead.readable) {
+      return NextResponse.json(
+        { ok: false, error: `get_pending_messages() UNREADABLE: ${pendingRead.error}` },
+        { status: 500, headers: { 'Cache-Control': 'no-store' } },
+      );
+    }
+
+    if (pendingRead.count === 0) {
       return NextResponse.json(
         { ok: true, idle: true, pendingBeforeRun: 0, at: new Date().toISOString() },
         { headers: { 'Cache-Control': 'no-store' } },
@@ -71,8 +81,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     const result = await processPendingDvnAttestations(dvn);
+    if (!result.ok) {
+      return NextResponse.json(
+        { ...result, idle: false, pendingBeforeRun: pendingRead.count },
+        { status: 500, headers: { 'Cache-Control': 'no-store' } },
+      );
+    }
     return NextResponse.json(
-      { ...result, idle: false, pendingBeforeRun: pendingCount },
+      { ...result, idle: false, pendingBeforeRun: pendingRead.count },
       { headers: { 'Cache-Control': 'no-store' } },
     );
   } catch (err) {

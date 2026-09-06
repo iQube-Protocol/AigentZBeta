@@ -285,7 +285,19 @@ export function ParticipationStandingTab({ only, registrySection, agentRuntimeId
               })}
             </div>
           ) : (
-            <p className="text-xs text-slate-500 italic">No standing record yet — standing accrues from receipted contributions.</p>
+            <p className="text-xs text-slate-500 italic">
+              {agentRuntimeId ? (
+                <>
+                  {personaDisplayLabel ?? agentRuntimeId} has not yet earned Standing — completing Register through
+                  Operate makes an agent eligible to earn Standing, it does not itself award any. The next qualifying
+                  action is either completing Factory ingestion (Ingest) — which establishes eligibility for the
+                  one-time admission seed — or a real, validated service contribution, receipted through the
+                  ordinary accrual path.
+                </>
+              ) : (
+                'No standing record yet — standing accrues from receipted contributions.'
+              )}
+            </p>
           )}
           {standing && (
             <p className="border-t border-slate-800 pt-2 text-[11px] leading-relaxed text-slate-500">

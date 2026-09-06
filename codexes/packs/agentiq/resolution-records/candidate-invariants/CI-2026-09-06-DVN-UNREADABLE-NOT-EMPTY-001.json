@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-09-06-DVN-UNREADABLE-NOT-EMPTY-001",
+  "statement": "A failed read of a constitutional or on-chain queue (a canister call, an external service list) must surface as UNREADABLE — a distinct, explicit error state — and must never collapse to the same representation as a genuinely empty queue. Any `.catch(() => [])` (or equivalent silent-empty fallback) around such a read is a defect: the caller downstream (a cron's idle decision, a UI's 'nothing pending' state) cannot tell 'nothing to do' from 'could not find out', and will silently behave as if the former were true.",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": null,
+  "projections": {
+    "targets": ["devon"],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "structural"
+  },
+  "classification": null,
+  "ratifiedSource": null,
+  "scope": "cross-capability",
+  "status": "candidate",
+  "notes": [
+    "First observed against services/dvn/activityReceiptDvnPipeline.ts's `get_ready_messages()` (2026-08-08 IC0504 incident, response exceeding the IC's 3 MiB query-response cap) and independently re-observed in the SIBLING file services/ops/dvnAttestationProcessor.ts's `get_pending_messages()` (2026-09-06) — the same defect shape recurring in a different file because the fix was applied locally rather than as a checked invariant.",
+    "The fix pattern (`readPendingDvnMessages` in dvnAttestationProcessor.ts, mirroring scripts/diagnose-dvn-backlog.ts's pre-existing `SetRead` type) is a discriminated result — `{ readable: true, data } | { readable: false, error }` — never a bare array/number/boolean that conflates the two facts.",
+    "Generalizes beyond DVN: any external read whose failure a caller could otherwise mistake for absence (a partner API returning an empty list on timeout, a Supabase query whose error is swallowed) is the same shape."
+  ],
+  "derivedFrom": ["RES-2026-09-06-FACTOR-JOURNEY-EVIDENCE-DEFECTS-001"],
+  "occurrences": [
+    {
+      "site": "services/dvn/activityReceiptDvnPipeline.ts — get_ready_messages() (2026-08-08, IC0504)",
+      "defect": "A global canister enumeration exceeding the IC's response cap failed outright; the caller's `.catch` treated it as zero ready messages.",
+      "resolutionId": null,
+      "evidence": []
+    },
+    {
+      "site": "services/ops/dvnAttestationProcessor.ts — get_pending_messages() (2026-09-06)",
+      "defect": "`.catch(() => [])` on both `processPendingDvnAttestations` and `countDvnPendingMessages` let a genuine canister read failure report as `idle: true` at the cron route, identically to a real empty queue.",
+      "resolutionId": "RES-2026-09-06-FACTOR-JOURNEY-EVIDENCE-DEFECTS-001",
+      "evidence": ["tests/dvn-liveness-e2e-canary.test.ts"]
+    }
+  ],
+  "canaries": [
+    {
+      "path": "tests/dvn-liveness-e2e-canary.test.ts",
+      "assertion": "countDvnPendingMessages/processPendingDvnAttestations return a readable:false/ok:false result (never an empty-queue-shaped result) when get_pending_messages() rejects or resolves to a non-array shape, and return a genuinely distinct readable:true,count:0 result for an actually empty queue.",
+      "verifiedFailingBeforeFix": true
+    }
+  ]
+}
