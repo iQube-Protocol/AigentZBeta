@@ -71,6 +71,7 @@ import { BridgeContentCapsule } from '@/components/journey/BridgeContentCapsule'
 import { BridgeMediaCarouselPane, type BridgeMediaCarouselItem } from '@/components/journey/BridgeMediaCarouselPane';
 import { BridgeActivityCompanionColumn } from '@/components/journey/BridgeActivityGroupRail';
 import type { BridgeActivityGroup } from '@/services/journey/bridgeActivity';
+import { ListenButton } from '@/components/shared/ListenButton';
 import { FinancialSovereigntyCheckGroup } from '@/components/journey/FinancialSovereigntyCheckGroup';
 import { FinancialSovereigntyCostExample } from '@/components/journey/FinancialSovereigntyCostExample';
 import { FS_PLACEHOLDER_VIDEO_LABEL } from '@/services/journey/fsPlaceholderVideo';
@@ -123,21 +124,35 @@ export type FinancialSovereigntyIntroStageKey = 'discover' | 'learn' | 'explore'
  * convergence"). One place composes `BridgeContentCapsule` so the three
  * stages below never hand-roll three slightly different shell wirings.
  *
- * Layout pass (2026-09-06, operator screenshot feedback):
- *   - The strip now mirrors the CI View stage's own compact excerpt
- *     typography (`BookInsertStrip` in
- *     ConstitutionalInternetBridgeViewSequence.tsx: 10px tracked-uppercase
- *     eyebrow, small headline, small lead) instead of a large h2 — this is
- *     what actually saves the vertical room the copy needs to stay visible
- *     under the media pane, and keeps the Bridge's typographic voice
- *     consistent stage-to-stage rather than inventing a second scale here.
- *   - The media pane gets a smaller, definite height (was effectively
- *     unbounded on desktop, which is what pushed the strip below the fold
- *     with no way to scroll to it).
- *   - The companion column is now ONE atomic capsule (bordered container)
- *     with its OWN internal scroll region for all activity groups, and the
- *     stage's Continue action renders INSIDE it, pinned under a divider at
- *     the bottom — never a second, page-level floating footer.
+ * Layout pass (2026-09-06, operator screenshot feedback, two rounds):
+ *   - The strip mirrors the CI View stage's own compact excerpt typography
+ *     (`BookInsertStrip` in ConstitutionalInternetBridgeViewSequence.tsx:
+ *     10px tracked-uppercase eyebrow, small headline, small lead, a
+ *     `ListenButton` beside the eyebrow) instead of a large h2 — this keeps
+ *     the Bridge's typographic voice consistent stage-to-stage rather than
+ *     inventing a second scale here.
+ *   - The media pane is the HERO: `viewportAspectRatio={() => 16 / 9}` locks
+ *     it to a true 16:9 box at the column's full width (no side dead
+ *     space), rather than a small fixed-height box. Getting the strip
+ *     underneath it visible needs the shell's OWN height, not a shrunk
+ *     video — see the next point.
+ *   - `className="h-full"` gives `BridgeContentCapsule`'s grid a real,
+ *     bounded height from the "locked viewport" ancestor chain
+ *     JourneyRunSurface already establishes (this stage's own outer
+ *     `flex h-full min-h-0 flex-col` wrapper below). With a bounded grid,
+ *     the strip becomes its own independently scrolling region (rather
+ *     than pushing the whole page taller with no way to reach it below the
+ *     fold), and the companion column is genuinely bounded too, so its
+ *     internal scroll actually engages instead of just growing to fit all
+ *     content. This is a no-op for BridgeContentCapsule's other callers
+ *     (View/Orient/Personify), which don't pass `className="h-full"` and so
+ *     keep their existing content-driven, page-scrolling contract.
+ *   - The companion column is ONE atomic capsule (bordered container) with
+ *     its own small header ("Learning capsule") styled like the strip,
+ *     an internally scrolling region for all activity groups, and the
+ *     stage's Continue action rendered INSIDE it as a full-width banner
+ *     pinned under a divider at the bottom — never a second, page-level
+ *     floating footer.
  */
 function FsBridgeCapsuleSection({
   items,
@@ -164,17 +179,18 @@ function FsBridgeCapsuleSection({
 }) {
   return (
     <BridgeContentCapsule
+      className="h-full"
       railCards={[{ id: 'primary', label: 'Media' }]}
+      viewportAspectRatio={() => 16 / 9}
       renderViewport={() => (
-        <BridgeMediaCarouselPane
-          items={items}
-          emptyLabel={emptyLabel}
-          heightClassName="h-[32vh] max-h-[20rem] min-h-[12rem] lg:h-[34vh] lg:max-h-[22rem]"
-        />
+        <BridgeMediaCarouselPane items={items} emptyLabel={emptyLabel} heightClassName="h-full" />
       )}
       renderStrip={() => (
         <div>
-          <p className="text-[10px] uppercase tracking-[0.25em] text-amber-400/80">{eyebrow}</p>
+          <div className="flex items-baseline justify-between gap-3">
+            <p className="text-[10px] uppercase tracking-[0.25em] text-amber-400/80">{eyebrow}</p>
+            <ListenButton compact getText={() => [headline, lead, contextualLine].filter(Boolean).join(' ')} />
+          </div>
           <p className="mt-1 text-xs text-slate-500">{headline}</p>
           <p className="mt-2 text-[13px] leading-[1.5] text-slate-300">{lead}</p>
           {contextualLine && <p className="mt-2 text-xs text-slate-400">{contextualLine}</p>}
@@ -182,7 +198,11 @@ function FsBridgeCapsuleSection({
       )}
       renderCompanion={() => (
         <div className="flex h-full min-h-0 flex-col rounded-2xl border border-white/[0.07] bg-slate-900/40 p-3.5">
-          <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+          <div className="shrink-0 border-b border-white/[0.07] pb-2">
+            <p className="text-[10px] uppercase tracking-[0.25em] text-amber-400/80">Learning capsule</p>
+            <p className="mt-1 text-xs text-slate-500">Everything for this stage, gathered in one place.</p>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto pt-3 pr-1">
             <BridgeActivityCompanionColumn groups={groups} />
           </div>
           <div className="mt-3 shrink-0 border-t border-white/[0.07] pt-3">
