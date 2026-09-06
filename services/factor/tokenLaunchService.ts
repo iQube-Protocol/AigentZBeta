@@ -245,6 +245,38 @@ export async function getTokenLaunch(admin: SupabaseClient, id: string, tenantId
   return readLaunch(admin, id, tenantId);
 }
 
+/**
+ * The canonical idempotent lookup for "does a token launch already exist for
+ * this tenant + beneficiary?" (item 3, 2026-09-06 correction) — the ONE read
+ * every caller preparing a launch (governed-operation rehearsal, or any
+ * future preparer) MUST consult before ever calling `createDraft`, so a
+ * repeated preparation call resumes the SAME row instead of inserting a
+ * duplicate. Orders by `version` descending so a superseded chain always
+ * resolves to its current head. `token_launches` carries no `case_id`
+ * column (a launch is scoped by tenant + beneficiary + preparer, not by a
+ * Factor case) — tenant + beneficiary is this table's own natural
+ * composite key for "the launch for this establishment", mirroring how
+ * `agentPurposeWalletService.ts` keys a wallet lookup by runtime agent id
+ * rather than inventing a new key.
+ */
+export async function findLatestTokenLaunchForBeneficiary(
+  admin: SupabaseClient,
+  tenantId: string,
+  beneficiaryAgentRuntimeId: string,
+): Promise<TokenLaunchRow | null> {
+  const { data, error } = await admin
+    .from('token_launches')
+    .select('*')
+    .eq('tenant_id', tenantId)
+    .eq('beneficiary_agent_runtime_id', beneficiaryAgentRuntimeId)
+    .order('version', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(`findLatestTokenLaunchForBeneficiary failed: ${error.message}`);
+  return (data as TokenLaunchRow | null) ?? null;
+}
+
 export interface TransitionInput {
   id: string;
   tenantId: string;

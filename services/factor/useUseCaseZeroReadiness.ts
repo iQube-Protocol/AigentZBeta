@@ -8,8 +8,8 @@
  * never a second client-side readiness computation.
  */
 
-import { useCallback, useEffect, useState } from "react";
-import { personaFetch } from "@/utils/personaSpine";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { personaFetch, usePersonaSpine } from "@/utils/personaSpine";
 import type { UseCaseZeroPath, UseCaseZeroReadiness } from "@/services/factor/useCaseZeroReadinessProjection";
 import type { AdvanceUseCaseZeroResult } from "@/services/factor/useCaseZeroOrchestrator";
 
@@ -24,17 +24,29 @@ export interface UseUseCaseZeroReadinessOptions {
  * page reload previously lost the in-memory caseId/path entirely, forcing
  * the operator to start over even though the REAL, canonical progress
  * (the Factor case + every established leg) was never lost server-side.
- * This never becomes a second source of truth: on mount, a stored
- * (path, caseId) pair is used only to re-run the SAME readiness read this
- * hook always performs — the server's own response is what actually
- * populates `readiness`.
+ * This never becomes a second source of truth: a stored (path, caseId) pair
+ * is used only to re-run the SAME readiness read this hook always
+ * performs — the server's own response is what actually populates
+ * `readiness`.
+ *
+ * Item 6 fix (2026-09-06): previously keyed by `agentSlug` alone — a
+ * persona switch (or tenant switch) with the SAME agentSlug would silently
+ * resume a DIFFERENT identity's in-progress case. Scoped here by
+ * tenantId + the active persona's OWN `personaSessionToken` (the T1 handle
+ * — never the raw T0 personaId, which must never touch browser state per
+ * the identity spine tiers) + agentSlug, so two different identities never
+ * share a resume slot.
  */
-function storageKey(agentSlug: string) {
-  return `use-case-zero:${agentSlug}`;
+function storageKey(tenantId: string | undefined, personaSessionToken: string | null | undefined, agentSlug: string) {
+  return `use-case-zero:${tenantId ?? "no-tenant"}:${personaSessionToken ?? "no-persona"}:${agentSlug}`;
 }
-function readStoredResume(agentSlug: string): { path: UseCaseZeroPath; caseId?: string } | null {
+function readStoredResume(
+  tenantId: string | undefined,
+  personaSessionToken: string | null | undefined,
+  agentSlug: string,
+): { path: UseCaseZeroPath; caseId?: string } | null {
   try {
-    const raw = window.localStorage.getItem(storageKey(agentSlug));
+    const raw = window.localStorage.getItem(storageKey(tenantId, personaSessionToken, agentSlug));
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (parsed?.path === "bring_own_agent" || parsed?.path === "create_and_establish") {
@@ -45,10 +57,16 @@ function readStoredResume(agentSlug: string): { path: UseCaseZeroPath; caseId?: 
     return null;
   }
 }
-function writeStoredResume(agentSlug: string, value: { path: UseCaseZeroPath; caseId?: string } | null) {
+function writeStoredResume(
+  tenantId: string | undefined,
+  personaSessionToken: string | null | undefined,
+  agentSlug: string,
+  value: { path: UseCaseZeroPath; caseId?: string } | null,
+) {
   try {
-    if (!value) window.localStorage.removeItem(storageKey(agentSlug));
-    else window.localStorage.setItem(storageKey(agentSlug), JSON.stringify(value));
+    const key = storageKey(tenantId, personaSessionToken, agentSlug);
+    if (!value) window.localStorage.removeItem(key);
+    else window.localStorage.setItem(key, JSON.stringify(value));
   } catch {
     // Private browsing / storage disabled — resume convenience only, never
     // block on it.
@@ -56,6 +74,7 @@ function writeStoredResume(agentSlug: string, value: { path: UseCaseZeroPath; ca
 }
 
 export function useUseCaseZeroReadiness({ agentSlug, tenantId }: UseUseCaseZeroReadinessOptions) {
+  const { personaSessionToken, status: personaStatus } = usePersonaSpine();
   const [path, setPath] = useState<UseCaseZeroPath | null>(null);
   const [caseId, setCaseId] = useState<string | undefined>(undefined);
   const [readiness, setReadiness] = useState<UseCaseZeroReadiness | null>(null);
@@ -63,11 +82,33 @@ export function useUseCaseZeroReadiness({ agentSlug, tenantId }: UseUseCaseZeroR
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Resume-on-mount: re-fetch canonical readiness for a previously-chosen
-  // (path, caseId) pair rather than leaving the capsule looking reset when
-  // real, server-side progress still exists.
+  // Resume-on-identity-change: re-fetch canonical readiness for a
+  // previously-chosen (path, caseId) pair scoped to the CURRENT
+  // tenant+persona+agent triple, rather than leaving the capsule looking
+  // reset when real, server-side progress still exists for THIS identity —
+  // and, critically, rather than resuming a DIFFERENT identity's case
+  // (item 6). Keyed on [agentSlug, tenantId, personaSessionToken] so a
+  // persona or agent switch on the SAME mounted component re-runs this
+  // without requiring a remount; still waits for the persona spine to
+  // settle out of 'loading' before resolving a key, so a resume never
+  // fires against a not-yet-resolved persona.
+  const lastIdentityKeyRef = useRef<string | null>(null);
   useEffect(() => {
-    const stored = readStoredResume(agentSlug);
+    if (personaStatus === "loading" || personaStatus === "idle") return;
+    const identityKey = storageKey(tenantId, personaSessionToken, agentSlug);
+    if (lastIdentityKeyRef.current === identityKey) return;
+    lastIdentityKeyRef.current = identityKey;
+
+    // Identity changed (or this is the first resolved identity) — never
+    // carry the PRIOR identity's path/case/readiness/error forward, even
+    // for the instant before the new read resolves.
+    setPath(null);
+    setCaseId(undefined);
+    setReadiness(null);
+    setLastAdvance(null);
+    setError(null);
+
+    const stored = readStoredResume(tenantId, personaSessionToken, agentSlug);
     if (!stored) return;
     setLoading(true);
     personaFetch("/api/moneypenny/factor/use-case-zero/readiness", {
@@ -84,10 +125,7 @@ export function useUseCaseZeroReadiness({ agentSlug, tenantId }: UseUseCaseZeroR
       })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)))
       .finally(() => setLoading(false));
-    // Mount-only: a stale closure over agentSlug/tenantId here is fine —
-    // this effect exists purely to hydrate from a PRIOR mount's storage.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [agentSlug, tenantId, personaSessionToken, personaStatus]);
 
   const choosePath = useCallback(
     async (chosen: UseCaseZeroPath) => {
@@ -103,14 +141,14 @@ export function useUseCaseZeroReadiness({ agentSlug, tenantId }: UseUseCaseZeroR
         if (!json.ok) throw new Error(json.error ?? "readiness assessment failed");
         setPath(chosen);
         setReadiness(json.readiness as UseCaseZeroReadiness);
-        writeStoredResume(agentSlug, { path: chosen, caseId });
+        writeStoredResume(tenantId, personaSessionToken, agentSlug, { path: chosen, caseId });
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
       } finally {
         setLoading(false);
       }
     },
-    [agentSlug, tenantId, caseId],
+    [agentSlug, tenantId, caseId, personaSessionToken],
   );
 
   const advance = useCallback(
@@ -131,7 +169,7 @@ export function useUseCaseZeroReadiness({ agentSlug, tenantId }: UseUseCaseZeroR
         setReadiness(result.readiness);
         if (result.caseId) {
           setCaseId(result.caseId);
-          writeStoredResume(agentSlug, { path, caseId: result.caseId });
+          writeStoredResume(tenantId, personaSessionToken, agentSlug, { path, caseId: result.caseId });
         }
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
@@ -139,7 +177,7 @@ export function useUseCaseZeroReadiness({ agentSlug, tenantId }: UseUseCaseZeroR
         setLoading(false);
       }
     },
-    [agentSlug, path, tenantId, caseId],
+    [agentSlug, path, tenantId, caseId, personaSessionToken],
   );
 
   const reset = useCallback(() => {
@@ -152,8 +190,8 @@ export function useUseCaseZeroReadiness({ agentSlug, tenantId }: UseUseCaseZeroR
     // case instead of genuinely starting over, silently contradicting the
     // button's own label.
     setCaseId(undefined);
-    writeStoredResume(agentSlug, null);
-  }, [agentSlug]);
+    writeStoredResume(tenantId, personaSessionToken, agentSlug, null);
+  }, [agentSlug, tenantId, personaSessionToken]);
 
   return { path, readiness, lastAdvance, loading, error, choosePath, advance, reset, caseId, setCaseId };
 }

@@ -20,7 +20,8 @@ const mocks = vi.hoisted(() => ({
   listEvidenceForCase: vi.fn(),
   listCaseEvents: vi.fn(),
   assessIssuerReadiness: vi.fn(),
-  discoverEligibleFinancialServices: vi.fn(),
+  discoverFinancialServicesForConsumer: vi.fn(),
+  findLatestTokenLaunchForBeneficiary: vi.fn(),
 }));
 
 vi.mock('@/services/horizen/registrableAgents', () => ({
@@ -63,7 +64,10 @@ vi.mock('@/services/factor/factorConfidentialWorkload', () => ({
   FACTOR_CONFIDENTIAL_ADMISSION_EVIDENCE_KIND: 'confidential_admission_projection',
 }));
 vi.mock('@/services/financialServices/discovery', () => ({
-  discoverEligibleFinancialServices: mocks.discoverEligibleFinancialServices,
+  discoverFinancialServicesForConsumer: mocks.discoverFinancialServicesForConsumer,
+}));
+vi.mock('@/services/factor/tokenLaunchService', () => ({
+  findLatestTokenLaunchForBeneficiary: mocks.findLatestTokenLaunchForBeneficiary,
 }));
 
 import { projectUseCaseZeroReadiness } from '@/services/factor/useCaseZeroReadinessProjection';
@@ -83,6 +87,41 @@ function findLeg(legs: Awaited<ReturnType<typeof projectUseCaseZeroReadiness>>['
   return l;
 }
 
+/** Builds a `discoverFinancialServicesForConsumer`-shaped result with ONE
+ *  execution-reachable (Runtime-class) service, fully qualified by default
+ *  (authority met + readiness all 'ready') — override any field to exercise
+ *  the "eligible but not qualified" gap item 2 closes. */
+function runtimeDiscovery(overrides?: {
+  serviceId?: string;
+  authorityMet?: boolean;
+  systemReady?: string;
+  eligibility?: string;
+  standing?: string;
+  none?: boolean;
+}) {
+  if (overrides?.none) return { ok: true, context: {}, services: [] };
+  const serviceId = overrides?.serviceId ?? 'moneypenny-runtime';
+  const authorityMet = overrides?.authorityMet ?? true;
+  return {
+    ok: true,
+    context: {},
+    services: [
+      {
+        definition: { serviceId, executionPolicy: { executionReachable: true } },
+        eligibility: { eligible: true },
+        authority: { state: authorityMet ? 'ACTIVE' : 'PENDING', met: authorityMet, code: authorityMet ? 'AUTHORITY_ACTIVE' : 'AUTHORITY_DELEGATION_REQUIRED', reason: 'test' },
+        readiness: {
+          systemReady: overrides?.systemReady ?? 'ready',
+          eligibility: overrides?.eligibility ?? 'ready',
+          standing: overrides?.standing ?? 'not-required',
+          authority: authorityMet ? 'ready' : 'pending',
+          confidentialExecution: 'pending',
+        },
+      },
+    ],
+  };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.resolveRegistrableAgent.mockReturnValue(AGENT);
@@ -98,7 +137,8 @@ beforeEach(() => {
   mocks.getCase.mockResolvedValue(null);
   mocks.listEvidenceForCase.mockResolvedValue([]);
   mocks.listCaseEvents.mockResolvedValue([]);
-  mocks.discoverEligibleFinancialServices.mockResolvedValue([]);
+  mocks.discoverFinancialServicesForConsumer.mockResolvedValue(runtimeDiscovery({ none: true }));
+  mocks.findLatestTokenLaunchForBeneficiary.mockResolvedValue(null);
   mocks.assessIssuerReadiness.mockResolvedValue({
     beneficiaryAgentRuntimeId: 'aigent-factor',
     bankrConfigured: false,
@@ -259,6 +299,69 @@ describe('correction 4 — Bankr: mode derived from adapter, not hardcoded from 
   });
 });
 
+describe('item 1 correction — Vela leg requires an ACCEPTABLE disposition AND mode-appropriate verification, never inferred from the other mode\'s boolean', () => {
+  it('a case with NO confidential-compute evidence yet is "missing" (case exists, needs a case id though — this one has none)', async () => {
+    const result = await projectUseCaseZeroReadiness(BASE_INPUT);
+    expect(findLeg(result.legs, 'velaReadiness').state).toBe('missing');
+  });
+
+  it('supplied evidence with disposition UNACCEPTABLE stays BLOCKED, never established, even with protocolExecutionVerified true', async () => {
+    mocks.getCase.mockResolvedValue({ case_id: 'case-1', state: 'admission_pending', candidate_agent_root_did: null });
+    mocks.listEvidenceForCase.mockResolvedValue([{
+      kind: 'confidential_admission_projection', status: 'supplied',
+      payload: { attestationMode: 'NO_ATTESTATION_LOCAL', disposition: 'UNACCEPTABLE', protocolExecutionVerified: true, teeAttestationVerified: false },
+    }]);
+    const result = await projectUseCaseZeroReadiness({ ...BASE_INPUT, caseId: 'case-1' });
+    const vela = findLeg(result.legs, 'velaReadiness');
+    expect(vela.state).toBe('blocked');
+    expect(vela.state).not.toBe('established');
+  });
+
+  it('ACCEPTABLE disposition but protocolExecutionVerified FALSE under NO_ATTESTATION_LOCAL stays BLOCKED — never inferred from teeAttestationVerified', async () => {
+    mocks.getCase.mockResolvedValue({ case_id: 'case-1', state: 'admission_pending', candidate_agent_root_did: null });
+    mocks.listEvidenceForCase.mockResolvedValue([{
+      kind: 'confidential_admission_projection', status: 'supplied',
+      payload: { attestationMode: 'NO_ATTESTATION_LOCAL', disposition: 'ACCEPTABLE', protocolExecutionVerified: false, teeAttestationVerified: true },
+    }]);
+    const result = await projectUseCaseZeroReadiness({ ...BASE_INPUT, caseId: 'case-1' });
+    expect(findLeg(result.legs, 'velaReadiness').state).toBe('blocked');
+  });
+
+  it('ACCEPTABLE + protocolExecutionVerified true under NO_ATTESTATION_LOCAL is established, mode "simulated"', async () => {
+    mocks.getCase.mockResolvedValue({ case_id: 'case-1', state: 'admission_pending', candidate_agent_root_did: null });
+    mocks.listEvidenceForCase.mockResolvedValue([{
+      kind: 'confidential_admission_projection', status: 'supplied',
+      payload: { attestationMode: 'NO_ATTESTATION_LOCAL', disposition: 'ACCEPTABLE', protocolExecutionVerified: true, teeAttestationVerified: false },
+    }]);
+    const result = await projectUseCaseZeroReadiness({ ...BASE_INPUT, caseId: 'case-1' });
+    const vela = findLeg(result.legs, 'velaReadiness');
+    expect(vela.state).toBe('established');
+    expect(vela.mode).toBe('simulated');
+  });
+
+  it('ACCEPTABLE + teeAttestationVerified true under NITRO_ATTESTED is established, mode "live"', async () => {
+    mocks.getCase.mockResolvedValue({ case_id: 'case-1', state: 'admission_pending', candidate_agent_root_did: null });
+    mocks.listEvidenceForCase.mockResolvedValue([{
+      kind: 'confidential_admission_projection', status: 'supplied',
+      payload: { attestationMode: 'NITRO_ATTESTED', disposition: 'ACCEPTABLE', protocolExecutionVerified: false, teeAttestationVerified: true },
+    }]);
+    const result = await projectUseCaseZeroReadiness({ ...BASE_INPUT, caseId: 'case-1' });
+    const vela = findLeg(result.legs, 'velaReadiness');
+    expect(vela.state).toBe('established');
+    expect(vela.mode).toBe('live');
+  });
+
+  it('ACCEPTABLE under NITRO_ATTESTED but teeAttestationVerified FALSE stays BLOCKED — never inferred from protocolExecutionVerified', async () => {
+    mocks.getCase.mockResolvedValue({ case_id: 'case-1', state: 'admission_pending', candidate_agent_root_did: null });
+    mocks.listEvidenceForCase.mockResolvedValue([{
+      kind: 'confidential_admission_projection', status: 'supplied',
+      payload: { attestationMode: 'NITRO_ATTESTED', disposition: 'ACCEPTABLE', protocolExecutionVerified: true, teeAttestationVerified: false },
+    }]);
+    const result = await projectUseCaseZeroReadiness({ ...BASE_INPUT, caseId: 'case-1' });
+    expect(findLeg(result.legs, 'velaReadiness').state).toBe('blocked');
+  });
+});
+
 describe('correction 5 — admission: conditionally_admitted preserved, activation blocked on unmet condition', () => {
   it('conditionally_admitted is "established" (admitted-with-conditions), not "missing"', async () => {
     mocks.getCase.mockResolvedValue({ case_id: 'case-1', state: 'conditionally_admitted', candidate_agent_root_did: null });
@@ -306,27 +409,47 @@ describe('correction 6 — action truthfulness: entry actions are assess-readine
   });
 });
 
-describe('follow-up correction — required vs optional dependency semantics', () => {
-  it('registryAsset/horizenRegistration/pulsePnl are marked required:false; every other leg defaults required:true', async () => {
+describe('item 5 correction — Registry/Horizen restored as required externally-completed stages; Pulse/P&L required only under an explicit journey profile', () => {
+  it('registryAsset/horizenRegistration are required:true, reporting awaiting_external_action rather than missing', async () => {
     const result = await projectUseCaseZeroReadiness(BASE_INPUT);
-    for (const key of ['registryAsset', 'horizenRegistration', 'pulsePnl']) {
-      expect(findLeg(result.legs, key).required).toBe(false);
+    for (const key of ['registryAsset', 'horizenRegistration']) {
+      const leg = findLeg(result.legs, key);
+      expect(leg.required).toBe(true);
+      expect(leg.state).toBe('awaiting_external_action');
     }
+  });
+
+  it('pulsePnl stays optional (required:false) by default — no journeyProfile selected', async () => {
+    const result = await projectUseCaseZeroReadiness(BASE_INPUT);
+    expect(findLeg(result.legs, 'pulsePnl').required).toBe(false);
+  });
+
+  it('pulsePnl becomes required ONLY when the operator explicitly selects the financial_intelligence journey profile', async () => {
+    const result = await projectUseCaseZeroReadiness({ ...BASE_INPUT, journeyProfile: 'financial_intelligence' });
+    expect(findLeg(result.legs, 'pulsePnl').required).toBe(true);
+  });
+
+  it('every other leg defaults required:true', async () => {
+    const result = await projectUseCaseZeroReadiness(BASE_INPUT);
     for (const key of ['agentShell', 'ownerWallet', 'settlementWallet', 'passport', 'delegationAuthority', 'aegisAssessment', 'moneypennyAdmission', 'bankrBinding', 'velaReadiness', 'runtimeActivation', 'governedOperationRehearsal']) {
       expect(findLeg(result.legs, key).required).toBe(true);
     }
   });
 
-  it('requiredStepsComplete and presentlyActionableStep never block on an outstanding OPTIONAL leg alone', async () => {
+  it('requiredStepsComplete and presentlyActionableStep never block on an outstanding OPTIONAL leg (pulsePnl) alone, but DO block on the required externally-completed legs (registryAsset/horizenRegistration)', async () => {
     // Every required leg established (agentShell via allowlist, wallets,
     // passport issued, delegation granted, aegis admissible, admission
-    // admitted, bankr ready, vela evidence present, runtime active with an
-    // eligible service, rehearsal has no operator-supplied launchSpec so it
-    // stays 'missing' — the one genuinely outstanding REQUIRED leg here).
+    // admitted, bankr ready, vela evidence ACCEPTABLE+verified, runtime
+    // active with a qualified Runtime service, registry asset present,
+    // Horizen registered) EXCEPT rehearsal (no operator-supplied launchSpec,
+    // so it stays 'missing') and pulsePnl (optional, left unestablished) —
+    // pulsePnl must never surface as the blocker; rehearsal must.
     mocks.getOwnerWalletAddress.mockResolvedValue('0xOWNER');
     mocks.getBinding.mockResolvedValue({ address: '0xSETTLE', status: 'active' });
     mocks.getPassportRecordStatus.mockResolvedValue([{ passportId: 'pass-1', passportClass: 'agent_participant', citizenStatus: null, participantStatus: 'approved', issuedAt: '2026-09-01T00:00:00Z' }]);
     mocks.readActiveGrantForAgent.mockResolvedValue({ grant_id: 'grant-1' });
+    mocks.getAsset.mockResolvedValue({ id: 'aigentqube-factor' });
+    mocks.resolveAgentRegistrationState.mockResolvedValue({ registered: true, tokenId: 'token-1', network: 'base-sepolia', evidenceRefs: [], source: 'onchain', settled: true, auditGaps: [] });
     mocks.getCase.mockResolvedValue({ case_id: 'case-1', state: 'active', tenant_id: 'tenant-1', authority_chain_id: null, candidate_agent_root_did: 'did:example:agent-1' });
     mocks.getCurrentAssessment.mockResolvedValue({ assessment_id: 'assess-1', state: 'ratified', decision: 'admissible', conditions: [] });
     mocks.assessIssuerReadiness.mockResolvedValue({
@@ -334,20 +457,59 @@ describe('follow-up correction — required vs optional dependency semantics', (
       hasProviderWalletBinding: true, providerWalletBinding: { id: 'b1', status: 'active' },
       tokenLaunchEnabled: true, ready: true, blockers: [],
     });
-    mocks.listEvidenceForCase.mockResolvedValue([{ kind: 'confidential_admission_projection', status: 'supplied', payload: { attestationMode: 'NO_ATTESTATION_LOCAL' } }]);
-    mocks.discoverEligibleFinancialServices.mockResolvedValue([{ serviceId: 'moneypenny-runtime' }]);
-    // registryAsset/horizenRegistration/pulsePnl left at their default
-    // (unestablished, optional) — must never block the result.
+    mocks.listEvidenceForCase.mockResolvedValue([{
+      kind: 'confidential_admission_projection', status: 'supplied',
+      payload: { attestationMode: 'NO_ATTESTATION_LOCAL', disposition: 'ACCEPTABLE', protocolExecutionVerified: true, teeAttestationVerified: false },
+    }]);
+    mocks.discoverFinancialServicesForConsumer.mockResolvedValue(runtimeDiscovery());
 
     const result = await projectUseCaseZeroReadiness({ ...BASE_INPUT, caseId: 'case-1' });
-    expect(findLeg(result.legs, 'registryAsset').state).not.toBe('established');
-    expect(findLeg(result.legs, 'horizenRegistration').state).not.toBe('established');
+    expect(findLeg(result.legs, 'registryAsset').state).toBe('established');
+    expect(findLeg(result.legs, 'horizenRegistration').state).toBe('established');
     expect(findLeg(result.legs, 'pulsePnl').state).not.toBe('established');
     // The only outstanding REQUIRED leg is the rehearsal (no launchSpec
-    // supplied to this read-only projection) — optional legs never surface
-    // as the blocker.
+    // supplied to this read-only projection) — the optional pulsePnl leg
+    // never surfaces as the blocker.
     expect(result.presentlyActionableStep).toBe('governedOperationRehearsal');
     expect(result.requiredStepsComplete).toBe(false);
+  });
+});
+
+describe('item 3/4 correction — governed-operation rehearsal leg reflects the canonical token-launch aggregate; mode derived, never hardcoded', () => {
+  it('no existing launch for this tenant+beneficiary is "missing" once runtime is active', async () => {
+    mocks.getCase.mockResolvedValue({ case_id: 'case-1', state: 'active', tenant_id: 'tenant-1', authority_chain_id: null, candidate_agent_root_did: null });
+    mocks.discoverFinancialServicesForConsumer.mockResolvedValue(runtimeDiscovery());
+    mocks.findLatestTokenLaunchForBeneficiary.mockResolvedValue(null);
+    const result = await projectUseCaseZeroReadiness({ ...BASE_INPUT, caseId: 'case-1' });
+    expect(findLeg(result.legs, 'governedOperationRehearsal').state).toBe('missing');
+  });
+
+  it('an existing PREFLIGHTED launch makes the leg established, mode derived from bankr_terms.simulated (true -> "simulated")', async () => {
+    mocks.getCase.mockResolvedValue({ case_id: 'case-1', state: 'active', tenant_id: 'tenant-1', authority_chain_id: null, candidate_agent_root_did: null });
+    mocks.discoverFinancialServicesForConsumer.mockResolvedValue(runtimeDiscovery());
+    mocks.findLatestTokenLaunchForBeneficiary.mockResolvedValue({ id: 'launch-1', state: 'preflighted', bankr_terms: { simulated: true } });
+    const result = await projectUseCaseZeroReadiness({ ...BASE_INPUT, caseId: 'case-1' });
+    const rehearsal = findLeg(result.legs, 'governedOperationRehearsal');
+    expect(rehearsal.state).toBe('established');
+    expect(rehearsal.mode).toBe('simulated');
+  });
+
+  it('an existing PREFLIGHTED launch with bankr_terms.simulated===false reports mode "live" — never hardcoded', async () => {
+    mocks.getCase.mockResolvedValue({ case_id: 'case-1', state: 'active', tenant_id: 'tenant-1', authority_chain_id: null, candidate_agent_root_did: null });
+    mocks.discoverFinancialServicesForConsumer.mockResolvedValue(runtimeDiscovery());
+    mocks.findLatestTokenLaunchForBeneficiary.mockResolvedValue({ id: 'launch-1', state: 'approved', bankr_terms: { simulated: false } });
+    const result = await projectUseCaseZeroReadiness({ ...BASE_INPUT, caseId: 'case-1' });
+    const rehearsal = findLeg(result.legs, 'governedOperationRehearsal');
+    expect(rehearsal.state).toBe('established');
+    expect(rehearsal.mode).toBe('live');
+  });
+
+  it('a launch still in "draft"/"preparing" is NOT yet established for this leg', async () => {
+    mocks.getCase.mockResolvedValue({ case_id: 'case-1', state: 'active', tenant_id: 'tenant-1', authority_chain_id: null, candidate_agent_root_did: null });
+    mocks.discoverFinancialServicesForConsumer.mockResolvedValue(runtimeDiscovery());
+    mocks.findLatestTokenLaunchForBeneficiary.mockResolvedValue({ id: 'launch-1', state: 'preparing', bankr_terms: null });
+    const result = await projectUseCaseZeroReadiness({ ...BASE_INPUT, caseId: 'case-1' });
+    expect(findLeg(result.legs, 'governedOperationRehearsal').state).toBe('missing');
   });
 });
 
@@ -366,19 +528,34 @@ describe('follow-up correction — Vela confidential inputs are case-derived, no
   });
 });
 
-describe('follow-up correction — MoneyPenny runtime activation requires real eligibility, not just case.state', () => {
-  it('case.state === "active" alone (zero eligible MoneyPenny services) is "missing", never "established"', async () => {
+describe('item 2 correction — MoneyPenny runtime activation requires an execution-reachable Runtime service with SATISFIED AUTHORITY and RUNTIME READINESS, never mere catalog eligibility', () => {
+  it('case.state === "active" with zero execution-reachable Runtime services is "missing", never "established"', async () => {
     mocks.getCase.mockResolvedValue({ case_id: 'case-1', state: 'active', tenant_id: 'tenant-1', authority_chain_id: null, candidate_agent_root_did: null });
-    mocks.discoverEligibleFinancialServices.mockResolvedValue([]);
+    mocks.discoverFinancialServicesForConsumer.mockResolvedValue(runtimeDiscovery({ none: true }));
     const result = await projectUseCaseZeroReadiness({ ...BASE_INPUT, caseId: 'case-1' });
     const activation = findLeg(result.legs, 'runtimeActivation');
     expect(activation.state).toBe('missing');
-    expect(activation.reason.toLowerCase()).toMatch(/zero eligible/);
   });
 
-  it('case.state === "active" WITH at least one eligible MoneyPenny service is "established"', async () => {
+  it('a Runtime service that is merely eligible but whose AUTHORITY prerequisite is NOT met stays "missing" — eligibility alone is insufficient', async () => {
     mocks.getCase.mockResolvedValue({ case_id: 'case-1', state: 'active', tenant_id: 'tenant-1', authority_chain_id: null, candidate_agent_root_did: null });
-    mocks.discoverEligibleFinancialServices.mockResolvedValue([{ serviceId: 'moneypenny-runtime' }]);
+    mocks.discoverFinancialServicesForConsumer.mockResolvedValue(runtimeDiscovery({ authorityMet: false }));
+    const result = await projectUseCaseZeroReadiness({ ...BASE_INPUT, caseId: 'case-1' });
+    const activation = findLeg(result.legs, 'runtimeActivation');
+    expect(activation.state).toBe('missing');
+    expect(activation.reason).toMatch(/authority/i);
+  });
+
+  it('authority met but the derived runtime-readiness projection is NOT ready (e.g. eligibility not-ready) stays "missing"', async () => {
+    mocks.getCase.mockResolvedValue({ case_id: 'case-1', state: 'active', tenant_id: 'tenant-1', authority_chain_id: null, candidate_agent_root_did: null });
+    mocks.discoverFinancialServicesForConsumer.mockResolvedValue(runtimeDiscovery({ authorityMet: true, eligibility: 'not-ready' }));
+    const result = await projectUseCaseZeroReadiness({ ...BASE_INPUT, caseId: 'case-1' });
+    expect(findLeg(result.legs, 'runtimeActivation').state).toBe('missing');
+  });
+
+  it('case.state === "active" WITH an execution-reachable Runtime service whose authority AND runtime readiness are both satisfied is "established"', async () => {
+    mocks.getCase.mockResolvedValue({ case_id: 'case-1', state: 'active', tenant_id: 'tenant-1', authority_chain_id: null, candidate_agent_root_did: null });
+    mocks.discoverFinancialServicesForConsumer.mockResolvedValue(runtimeDiscovery());
     const result = await projectUseCaseZeroReadiness({ ...BASE_INPUT, caseId: 'case-1' });
     expect(findLeg(result.legs, 'runtimeActivation').state).toBe('established');
   });
