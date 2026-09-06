@@ -1,0 +1,54 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-09-06",
+  "resolutionId": "RES-2026-09-06-JOURNEY-STAGE-FILL-HEIGHT-BY-SURFACE-COUNT-001",
+  "capability": "horizen-moneypenny-guided-journey-runtime",
+  "milestone": "Follow-on to RES-2026-09-06-JOURNEY-EVIDENCE-SURFACE-CONSOLIDATION-001: operator root-caused a SECOND, independent mechanism behind the Evidence-drawer-overlapping-stage-content symptom — a flexbox fill-height heuristic gated on surface COUNT rather than on which surface it is.",
+  "problem": "Commit b86b8a424 (2026-09-03, 'Give metaMe's MoneyPenny mount a real submenu, fix expand target, fix embed viewport collapse') needed to give FinancialSovereigntyOperateStage's embedded iframe a real, resolvable parent height under the embedded Bridge host, and did so by applying `flex min-h-0 flex-1 flex-col` to a stage's wrapper whenever `surfacesToRender.length === 1` — a heuristic on how many surfaces a stage happens to render, not on whether THAT surface actually needs fill-height sizing. Any other single-surface, ordinary-content stage inherits the same forced sizing, and since ordinary content has no `h-full` to resolve and declares no `overflow` boundary of its own, forcing `min-h-0` onto its wrapper lets the box compute SHORTER than its actual content under a constrained-height host — the content keeps painting past the shrunk box while StageReceiptsDrawer, positioned right after in normal document flow at the box's short computed height, visually overlaps it.",
+  "observedFailure": [
+    "components/journey/JourneyRunSurface.tsx's per-surface and outer-wrapper className both branched on `surfacesToRender.length === 1` alone, applying `flex min-h-0 flex-1 flex-col[ gap-2 overflow-hidden]` to any stage with exactly one rendered surface regardless of that surface's own layout needs.",
+    "Correction, discovered mid-repair (2026-09-06): checking the actual current stage definitions (services/journey/horizenMoneyPennyJourney.ts) showed Register's stage stacks 2 surfaces (`horizen-registry-agent-page` + `register-agent-panel`) and Ratify's stacks 3 (`constitutional-agreement-ratify` + `pulse-transparency-toggle` + `horizen-agent-page-verify`) — neither ever satisfies `length === 1`, so this specific mechanism cannot be what produced an overlap for those two stages under the CURRENT journey definition, whatever their state was when this was first root-caused. Only the Standing stage (`venture-participate-standing-only`, genuinely its stage's sole surface) actually reaches the forced-sizing branch."
+  ],
+  "rootCauses": [
+    "A layout fix scoped a CSS treatment (forced fill-height sizing) to a structural coincidence (surface count === 1) rather than to the specific surface it was written for (FinancialSovereigntyOperateStage's embed) — any other stage that happened to share the same count inherited a treatment it never needed.",
+    "The follow-on root-cause diagnosis (this session, pre-'go') generalized the mechanism to three named stages (Register, Ratify, Stand) from reading the b86b8a424 diff alone, without checking each stage's actual, current `surfaces` array length in horizenMoneyPennyJourney.ts — an unverified premise accepted and acted on ('go') before this direct check was performed, corrected only once a diagnostic (temporarily removing Register's opt-out flag and observing an IDENTICAL render) forced the discrepancy into view."
+  ],
+  "resolution": [
+    "Added `naturalHeight?: boolean` to the `kind: 'component'` variant of `JourneySurfaceDescriptor` (services/journey/journeySurfaceRegistry.ts) — an opt-OUT flag, default false/unset preserving all existing fill-height behavior everywhere (the majority of registered surfaces genuinely are media/embed/iframe-style and need a real, resolvable parent height). Set `true` on exactly three registry entries whose components are ordinary, natural-height content with no `h-full` dependency: `register-agent-panel`, `constitutional-agreement-ratify`, `venture-participate-standing-only`.",
+    "Replaced `surfacesToRender.length === 1` with `soleSurfaceNeedsFillHeight` (components/journey/JourneyRunSurface.tsx) — still gated on the stage having exactly one rendered surface (a stage stacking several surfaces keeps its existing natural stacking unconditionally), but ALSO reading that specific surface's own descriptor and skipping the forced sizing when `naturalHeight === true`. Applied consistently to both the outer stage-surfaces wrapper and the per-surface wrapper; added `overflow-hidden` at the fill-height boundary so the genuinely-fill-height case (still Operate's embed) has an actual clipping boundary rather than relying on absence-of-content-overflow.",
+    "CORRECTED the scope of the claimed defect after direct verification: Register and Ratify's stage definitions stack 2 and 3 surfaces respectively and therefore NEVER reach the `length === 1` branch regardless of this fix, pre- or post-repair (confirmed by temporarily removing Register's `naturalHeight` flag while leaving everything else intact and observing an identical rendered className/geometry). Their `naturalHeight: true` marks are kept as forward-looking insurance only (protecting against a future edit collapsing either stage to one surface), not as evidence they were ever exposed to this specific bug. Standing is the one stage this fix repairs an active defect for.",
+    "Replaced the constrained-height reproduction with a real, height-limited Bridge-host container (`width:900px;height:420px;overflow:hidden`, shorter than any of the three stages' natural content) — `flex-1`/`min-h-0` are inert without an ancestor providing a genuinely limited height to distribute, which is why the earlier browser-regression test (unconstrained height) never reproduced this class of bug. Added a parameterized 3-case (`it.each`) test asserting the COMPLETE stage-surface rectangle (`data-testid=\"journey-stage-surfaces\"`) and the receipt-drawer rectangle never geometrically intersect (`getBoundingClientRect()`, real Chromium via playwright-core, project's own compiled Tailwind) for Register, Ratify and Stand — Register's and Ratify's cases pass by construction (their multi-surface stages never enter the forced branch either way) and remain as legitimate regression coverage; Stand's case is the one that actually exercises `naturalHeight` and would fail without it."
+  ],
+  "rejectedApproaches": [
+    "Rolling back b86b8a424's fill-height sizing entirely — would re-break FinancialSovereigntyOperateStage's embed, which genuinely needs a resolvable parent height for its iframe.",
+    "Gating the fix on stage id (an allowlist/denylist of stage ids) rather than on a per-surface-descriptor flag — rejected because it duplicates the same count-based blast-radius problem one level up (a stage's identity, not its actual layout needs) and does not travel if a surface is reused across stages (as several registry entries already are, e.g. ParticipationStandingTab across Deploy and Standing).",
+    "Leaving the root-cause claim as originally stated for Register and Ratify without re-verification once the diagnostic contradicted it — rejected: the operator's authorization ('go') was granted on the premise that all three named stages were exposed to this mechanism; silently keeping the fix without correcting that premise would misrepresent what was actually repaired and what still needs its own root-causing if Register/Ratify's reported overlap persists in the deployed app."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-06-FILL-HEIGHT-SIZING-IS-PER-SURFACE-NEVER-PER-COUNT-001",
+    "CI-2026-09-06-VERIFY-ROOT-CAUSE-AGAINST-CURRENT-DATA-BEFORE-GO-001"
+  ],
+  "canaries": [
+    "tests/journey-evidence-layout-browser-regression.test.tsx"
+  ],
+  "scope": "cross-capability",
+  "status": "candidate",
+  "trigger": "invariant-incomplete-or-misscoped",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/journey-evidence-layout-browser-regression.test.tsx"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "Operator's flexbox root-cause analysis, 2026-09-06, naming commit b86b8a424's `surfacesToRender.length === 1` heuristic and listing Register, Ratify and Stand as exposed; confirmed via direct source read against services/journey/horizenMoneyPennyJourney.ts that only Standing's stage genuinely satisfies that count under the current journey definition, corrected in this record."
+    ]
+  },
+  "sourceDocs": [],
+  "projections": {
+    "targets": ["devon"],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "structural"
+  }
+}

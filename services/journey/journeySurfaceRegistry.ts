@@ -228,6 +228,50 @@ export type JourneySurfaceDescriptor =
       kind: 'component';
       component: string;
       note: string;
+      /**
+       * Opts a surface OUT of the forced `flex min-h-0 flex-1 flex-col`
+       * fill-height sizing JourneyRunSurface applies to a stage's sole
+       * surface (previously gated on `surfacesToRender.length === 1` alone,
+       * which is what this field replaces).
+       *
+       * DEFAULT (unset/false) preserves that fill-height sizing — the
+       * majority of registered surfaces are media/embed/iframe-style
+       * (BridgeMediaStage-family stages, PassportRoom photo viewers,
+       * embedded cartridge iframes) and genuinely render `h-full`
+       * internally, needing a real, resolvable parent height. Set this to
+       * `true` ONLY for an ordinary content surface (a form, a ceremony
+       * panel, a receipts/standing summary) that grows to its OWN natural
+       * content height and has no `h-full`/percentage-height dependency —
+       * forcing such a surface into `min-h-0` lets its box compute SHORTER
+       * than its actual content, and since it declares no `overflow`
+       * boundary of its own, the content keeps painting past that shrunk
+       * box while StageReceiptsDrawer (positioned right after, in normal
+       * flow, at the box's short computed height) visually overlaps it.
+       *
+       * Root-caused 2026-09-06 (surgical repair follow-on): commit
+       * b86b8a424 (2026-09-03) added this fill-height sizing to fix
+       * FinancialSovereigntyOperateStage's embed specifically, but gated it
+       * on mere surface COUNT (`surfacesToRender.length === 1`) rather than
+       * on which surface it was. Under the journey definition AS IT STANDS
+       * TODAY, only the Standing stage (`venture-participate-standing-only`,
+       * genuinely its stage's sole surface) actually satisfies that count —
+       * Register's stage stacks TWO surfaces (`horizen-registry-agent-page`
+       * + `register-agent-panel`) and Ratify's stacks THREE
+       * (`constitutional-agreement-ratify` + `pulse-transparency-toggle` +
+       * `horizen-agent-page-verify`), so neither ever reaches the
+       * length-1 branch regardless of this flag — verified directly against
+       * services/journey/horizenMoneyPennyJourney.ts's `surfaces` arrays,
+       * 2026-09-06. Their `naturalHeight: true` marks are kept as
+       * forward-looking insurance (either stage stacking down to one surface
+       * in a future edit would otherwise silently inherit the forced sizing
+       * again) — not evidence that this specific mechanism ever overlapped
+       * THEIR content. Standing is the one stage this flag is load-bearing
+       * for today; its own overlap is what the constrained-height regression
+       * test actually exercises. See
+       * RES-2026-09-06-JOURNEY-EVIDENCE-SURFACE-CONSOLIDATION-001's
+       * follow-on record for the full trace, including this correction.
+       */
+      naturalHeight?: boolean;
     }
   | {
       kind: 'component-new';
@@ -265,6 +309,9 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
       'then drives the real prepare->review->confirm->broadcast->status pipeline ' +
       '(services/horizen/registrationClient.ts) end to end. Composes AgentCardSurface internally for ' +
       'the selected agent\'s card display — never a second, parallel display.',
+    // Ordinary ceremony content, natural height — no h-full dependency, no
+    // own overflow boundary. See naturalHeight's own doc comment above.
+    naturalHeight: true,
   },
   'horizen-registry-agent-page': {
     kind: 'component',
@@ -299,6 +346,9 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
       '(services/journey/ratificationRefs.ts). No parallel agreement store, no new signing subsystem — ' +
       'authorizing here is authorizing the SAME agreement MoneyPenny\'s live Financial Services runtime ' +
       'gate checks (app/api/moneypenny/runtime/route.ts).',
+    // Ordinary ceremony content, natural height — no h-full dependency, no
+    // own overflow boundary. See naturalHeight's own doc comment above.
+    naturalHeight: true,
   },
   'pulse-transparency-toggle': {
     kind: 'component',
@@ -381,6 +431,9 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
       'The Standing stage surface: the SAME ParticipationStandingTab pinned to `only: \'standing\'` — ' +
       'never a second, forked Standing component (inv.engineering.036/037). Standing is standalone ' +
       'again, as it was before it was paired with the Ingestion Factory.',
+    // Ordinary summary content, natural height — no h-full dependency, no
+    // own overflow boundary. See naturalHeight's own doc comment above.
+    naturalHeight: true,
   },
   'aigentme-welcome': {
     kind: 'embed',

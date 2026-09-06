@@ -69,6 +69,12 @@ const FAKE_RECEIPT = {
   createdAt: new Date('2026-09-06T12:00:00Z').toISOString(),
 };
 
+// Which stage the currently-active mock response describes — the three
+// constrained-height tests below each point this at their own stage before
+// rendering, so the SAME mock function serves all of them without a second
+// implementation per stage.
+let activeStageForMock: 'register' | 'verify' | 'standing' = 'register';
+
 const personaFetchMock = vi.fn(async (url: string) => {
   const u = String(url);
   if (u.includes('/api/journey/') && u.includes('/state')) {
@@ -77,11 +83,11 @@ const personaFetchMock = vi.fn(async (url: string) => {
         journeyId: 'horizen-moneypenny',
         journeyVersion: '1',
         subjectRef: 'moneypenny',
-        currentStageId: 'register',
+        currentStageId: activeStageForMock,
         complete: false,
         stages: [
           {
-            stageId: 'register',
+            stageId: activeStageForMock,
             state: 'READY',
             evidencePresent: ['aigentQubeResolved'],
             evidenceMissing: ['tokenId', 'registryRereadOk'],
@@ -107,6 +113,10 @@ const personaFetchMock = vi.fn(async (url: string) => {
   if (u.includes('/api/wallet/signing-requests')) return fakeJsonResponse({ ok: true, requests: [] });
   if (u.includes('/api/assistant/receipts')) return fakeJsonResponse({ ok: true, receipts: [], personaDisplayLabel: 'Test Operator' });
   if (u.includes('/api/persona/sponsored-agents')) return fakeJsonResponse({ ok: true, agents: [] });
+  if (u.includes('/api/wallet/tasks')) return fakeJsonResponse({ ok: true, standing: null, reputation: null });
+  // AgreementRatifyPanel's /api/constitutional/agreement and
+  // /api/journey/moneypenny-horizen/verify/status, ParticipationStandingTab's
+  // /api/journey/agents/*/standing — all safely degrade on a bare {ok:true}.
   return fakeJsonResponse({ ok: true });
 });
 vi.mock('@/utils/personaSpine', () => ({
@@ -137,11 +147,14 @@ vi.mock('@/components/persona/ActivePersonaControl', () => ({
 
 import { JourneyRunSurface } from '@/components/journey/JourneyRunSurface';
 import { RegisterAgentPanel } from '@/components/journey/RegisterAgentPanel';
+import { AgreementRatifyPanel } from '@/components/journey/AgreementRatifyPanel';
+import { ParticipationStandingTab } from '@/app/triad/components/codex/tabs/ParticipationStandingTab';
 import { HORIZEN_MONEYPENNY_JOURNEY } from '@/services/journey/horizenMoneyPennyJourney';
 
 afterEach(() => {
   cleanup();
   personaFetchMock.mockClear();
+  activeStageForMock = 'register';
 });
 
 const registerStage = HORIZEN_MONEYPENNY_JOURNEY.stages.find((s) => s.id === 'register')!;
@@ -369,4 +382,177 @@ describe('Journey Evidence control — real-browser layout regression', () => {
     // must never move or resize what came before it.
     expect(openRect).toEqual(closedRect);
   }, 30_000);
+});
+
+/*
+ * ═══════════════════════════════════════════════════════════════════════
+ * CONSTRAINED-HEIGHT BRIDGE-HOST REGRESSION (surgical repair follow-on,
+ * 2026-09-06) — the geometry the tests above never reproduced (no definite
+ * height, so `flex-1`/`min-h-0` never actually constrain anything), driven
+ * against a fixed, deliberately SHORT host height instead.
+ *
+ * CORRECTION (2026-09-06, same day): the mechanism these tests exercise —
+ * `surfacesToRender.length === 1` (commit b86b8a424, 2026-09-03) forcing
+ * `flex min-h-0 flex-1 flex-col` regardless of which surface it is — was
+ * confirmed against the real journey definition
+ * (services/journey/horizenMoneyPennyJourney.ts) to apply ONLY to Stand:
+ * Register's stage stacks 2 surfaces (`horizen-registry-agent-page` +
+ * `register-agent-panel`) and Ratify's stacks 3
+ * (`constitutional-agreement-ratify` + `pulse-transparency-toggle` +
+ * `horizen-agent-page-verify`), so neither ever reaches the length-1
+ * branch — this was checked directly (temporarily removing Register's
+ * `naturalHeight` flag while keeping everything else produced an IDENTICAL
+ * render, proving the branch never engages for that stage either way).
+ * Their two cases below stay in this suite as legitimate regression
+ * coverage (multi-surface stages must stay overlap-free too, and their
+ * `naturalHeight: true` marks are forward-looking insurance against either
+ * stage ever collapsing to one surface), but only the Stand case is
+ * evidence that this specific fix repairs an active defect. If Register or
+ * Ratify still visually overlap the drawer in the deployed app, that is a
+ * DIFFERENT mechanism this fix does not address and needs its own
+ * root-causing — see the follow-on resolution record for the full
+ * correction.
+ */
+describe('Journey Evidence — constrained-height Bridge-host regression (Register, Ratify, Stand)', () => {
+  let chromium: typeof import('playwright-core').chromium;
+  let browser: import('playwright-core').Browser;
+  let workDir: string;
+
+  beforeAll(async () => {
+    ({ chromium } = await import('playwright-core'));
+    const executablePath = path.join('/opt/pw-browsers/chromium-1194/chrome-linux/chrome');
+    browser = await chromium.launch({
+      executablePath: fs.existsSync(executablePath) ? executablePath : undefined,
+    });
+    workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'journey-evidence-layout-constrained-'));
+    fs.mkdirSync(ARTIFACT_DIR, { recursive: true });
+  }, 60_000);
+
+  afterAll(async () => {
+    await browser?.close();
+    if (workDir) fs.rmSync(workDir, { recursive: true, force: true });
+  });
+
+  /** Deliberately SHORT — shorter than any of the three stages' own natural
+   *  content height — so a flex box permitted to shrink below its content
+   *  (`min-h-0`) actually has to, reproducing the embedded Bridge host's own
+   *  constrained viewport rather than an unconstrained page. */
+  const HOST_HEIGHT_PX = 420;
+
+  const STAGE_CASES: Array<{
+    name: string;
+    stageId: string;
+    component: string;
+    Component: React.ComponentType<any>;
+    resolveSurfaceProps: () => Record<string, unknown>;
+    waitForText: RegExp;
+  }> = [
+    {
+      name: 'Register',
+      stageId: 'register',
+      component: 'RegisterAgentPanel',
+      Component: RegisterAgentPanel,
+      resolveSurfaceProps: () => ({ agentSlug: 'nakamoto' }),
+      waitForText: /This wallet is quarantined and cannot become your principal/i,
+    },
+    {
+      name: 'Ratify',
+      stageId: 'verify',
+      component: 'AgreementRatifyPanel',
+      Component: AgreementRatifyPanel,
+      resolveSurfaceProps: () => ({ agentSlug: 'nakamoto', agentDisplayName: 'Aigent Nakamoto' }),
+      waitForText: /Verify & Sign Agreement/i,
+    },
+    {
+      name: 'Stand',
+      stageId: 'standing',
+      component: 'ParticipationStandingTab',
+      Component: ParticipationStandingTab,
+      resolveSurfaceProps: () => ({ only: 'standing', agentRuntimeId: 'aigent-nakamoto' }),
+      // Not /Contribution history/i — that text also appears (lowercased,
+      // inside a sentence) in this component's own intro paragraph, making
+      // getByText ambiguous. This empty-state string is unique.
+      waitForText: /No receipts yet — contributions appear here as they are receipted\./i,
+    },
+  ];
+
+  it.each(STAGE_CASES)(
+    '$name: the complete stage-surface rectangle never intersects the receipt-drawer rectangle under a constrained-height host',
+    async ({ stageId, component, Component: StageComponent, resolveSurfaceProps, waitForText }) => {
+      activeStageForMock = stageId as 'register' | 'verify' | 'standing';
+      const stage = HORIZEN_MONEYPENNY_JOURNEY.stages.find((s) => s.id === stageId)!;
+      const singleStage = { ...HORIZEN_MONEYPENNY_JOURNEY, stages: [stage] };
+
+      const { container } = render(
+        <div style={{ width: '900px', height: `${HOST_HEIGHT_PX}px`, overflow: 'hidden' }}>
+          <JourneyRunSurface
+            journey={singleStage}
+            stateUrl="/api/journey/moneypenny-horizen/state"
+            personaId="persona-operator-1"
+            headerLabel="Horizen"
+            components={{ [component]: StageComponent }}
+            resolveSurfaceProps={resolveSurfaceProps}
+          />
+        </div>,
+      );
+      await waitFor(() => expect(screen.getByText(waitForText)).toBeInTheDocument());
+
+      // Open Evidence — the exact reported condition (drawer visible
+      // alongside the stage's own content).
+      const evidenceButton = screen.getByRole('button', { name: /^Evidence \d+\/\d+/ });
+      fireEvent.click(evidenceButton);
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      const html = wrapAsPage(container.innerHTML, compileTailwindFor(container.innerHTML, workDir));
+      const page = await browser.newPage({ viewport: { width: 900, height: 900 } });
+      await page.setContent(html, { waitUntil: 'load' });
+      // Constrain the actual rendered wrapper to the SAME short height the
+      // React harness declared — wrapAsPage's own <body> has no height
+      // rule, so this reproduces the constrained ancestor precisely.
+      await page.evaluate((h) => {
+        const outer = document.body.firstElementChild as HTMLElement | null;
+        if (outer) {
+          outer.style.height = `${h}px`;
+          outer.style.overflow = 'hidden';
+        }
+      }, HOST_HEIGHT_PX);
+      await page.screenshot({
+        path: path.join(ARTIFACT_DIR, `constrained-${stageId}.png`),
+      });
+
+      const result = await page.evaluate(() => {
+        const surfaces = document.querySelector('[data-testid="journey-stage-surfaces"]');
+        // Leaf element only — an ancestor wrapper's textContent also
+        // "includes" this string (see the earlier describe block's own
+        // comment on this exact pitfall).
+        const drawerHeading = Array.from(document.querySelectorAll('*')).find(
+          (n) => n.children.length === 0 && (n.textContent || '').trim().startsWith('Historical / supplementary receipts'),
+        );
+        if (!surfaces || !drawerHeading) {
+          return { found: false, intersects: false, surfacesRect: null, drawerRect: null };
+        }
+        const s = surfaces.getBoundingClientRect();
+        const d = drawerHeading.getBoundingClientRect();
+        const intersects = s.left < d.right && s.right > d.left && s.top < d.bottom && s.bottom > d.top;
+        return {
+          found: true,
+          intersects,
+          surfacesRect: { top: s.top, bottom: s.bottom },
+          drawerRect: { top: d.top, bottom: d.bottom },
+        };
+      });
+
+      expect(result.found, 'both the stage-surfaces wrapper and the drawer heading must be present').toBe(true);
+      expect(
+        result.intersects,
+        `stage-surfaces rect ${JSON.stringify(result.surfacesRect)} intersects drawer rect ${JSON.stringify(result.drawerRect)}`,
+      ).toBe(false);
+
+      await page.close();
+    },
+    30_000,
+  );
 });
