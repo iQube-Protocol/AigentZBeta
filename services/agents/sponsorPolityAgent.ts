@@ -108,6 +108,51 @@ export interface SponsoredAgentResult {
   createdAt: string;
 }
 
+export interface AgentRootIdentityRow {
+  agentRootId: string;
+  agentId: string;
+  didUri: string;
+  agentClass: string;
+  displayName: string;
+  description: string;
+  agentCardUrl: string;
+  agentCardSlug: string;
+  isAigentMe: boolean;
+  createdAt: string;
+}
+
+/**
+ * Reads an already-minted RootDID by its `agent_card_slug` — the SAME
+ * lookup `sponsorPolityAgent` itself performs for slug-uniqueness/idempotency
+ * below, extracted so callers that only need to KNOW whether a slug has a
+ * RootDID (e.g. Use Case Zero's agentShell readiness leg) never hand-copy
+ * this query (Extend-Don't-Duplicate). Returns null when no row exists —
+ * never throws on "not found".
+ */
+export async function findAgentRootIdentityBySlug(
+  admin: SupabaseClient,
+  slug: string,
+): Promise<AgentRootIdentityRow | null> {
+  const { data, error } = await admin
+    .from('agent_root_identity')
+    .select('id, agent_id, did_uri, agent_class, display_name, description, agent_card_url, agent_card_slug, is_aigent_me, created_at')
+    .eq('agent_card_slug', slug)
+    .maybeSingle();
+  if (error || !data) return null;
+  return {
+    agentRootId: String(data.id),
+    agentId: String(data.agent_id),
+    didUri: String(data.did_uri),
+    agentClass: String(data.agent_class),
+    displayName: String(data.display_name),
+    description: String(data.description),
+    agentCardUrl: String(data.agent_card_url),
+    agentCardSlug: String(data.agent_card_slug),
+    isAigentMe: Boolean(data.is_aigent_me),
+    createdAt: String(data.created_at),
+  };
+}
+
 export interface SponsorAgentOutcome {
   ok: boolean;
   status: number;

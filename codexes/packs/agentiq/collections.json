@@ -40,6 +40,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-09-06_agent-rootdid-minting-primitive.md",
         "updates/2026-09-06_factor-horizen-registration-and-journey-closeout.md",
         "updates/2026-09-05_factor-vela-horizen-rehearsal-tranche.md",
         "updates/2026-09-05_crystal-vp2-internal-pilot-execution-designation.md",

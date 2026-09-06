@@ -62,6 +62,14 @@ export function UseCaseZeroReadinessCapsule({ agentSlug, tenantId, presentation 
   const [launchTokenName, setLaunchTokenName] = useState("");
   const [launchTokenSymbol, setLaunchTokenSymbol] = useState("");
   const [launchDescription, setLaunchDescription] = useState("");
+  // Agent-genesis editor state — Factor never invents a sponsoring
+  // Passport, display name, or description (same manifest boundary as the
+  // launch-spec editor above). Only rendered when agentShell IS the next
+  // permitted action on the 'create_and_establish' path (Companion Menu
+  // invariant MS-9 — never a dead control earlier in the sequence).
+  const [genesisSponsorPassportId, setGenesisSponsorPassportId] = useState("");
+  const [genesisDisplayName, setGenesisDisplayName] = useState("");
+  const [genesisDescription, setGenesisDescription] = useState("");
 
   if (!path) {
     return (
@@ -69,18 +77,13 @@ export function UseCaseZeroReadinessCapsule({ agentSlug, tenantId, presentation 
         <p className="text-xs text-slate-400">Choose how to start — both paths converge on the same readiness sequence.</p>
         <div className="flex flex-wrap gap-2">
           <BankrActionButton label="Bring my own agent" onClick={() => choosePath("bring_own_agent")} busy={loading} tone="primary" />
-          {/* Item 7 fix: "Create and establish an agent" executes IDENTICALLY
-              to "Bring my own agent" today (no RootDID-minting primitive
-              exists to actually create a new agent identity) — presenting it
-              as a second, distinct operational path was misleading. Disabled
-              and relabeled "Coming next" until a real create-path exists. */}
-          <BankrActionButton label="Create and establish an agent (Coming next)" onClick={() => {}} disabled tone="primary" />
+          {/* RootDID minting primitive (2026-09-06): "Create and establish an
+              agent" now sponsors a genuinely NEW agent's genesis — mints
+              did:agent:root:<slug> via the existing, unchanged
+              sponsorPolityAgent primitive (no cost, no blockchain broadcast)
+              — rather than executing identically to "Bring my own agent". */}
+          <BankrActionButton label="Create and establish an agent" onClick={() => choosePath("create_and_establish")} busy={loading} tone="primary" />
         </div>
-        <p className="text-[11px] text-amber-200/80">
-          "Create and establish an agent" is not available yet — no RootDID-minting primitive exists to create a wholly new agent
-          identity. Use "Bring my own agent" to advance an agent slug already known to the platform (e.g. moneypenny, nakamoto, kn0w1,
-          factor) through the remaining readiness steps.
-        </p>
         <BankrErrorNote message={error} />
       </BankrSection>
     );
@@ -230,7 +233,56 @@ export function UseCaseZeroReadinessCapsule({ agentSlug, tenantId, presentation 
         </div>
         );
       })()}
-      {readiness?.nextAction && readiness.presentlyActionableStep !== "governedOperationRehearsal" && (
+      {readiness?.nextAction && readiness.presentlyActionableStep === "agentShell" && path === "create_and_establish" && (
+        <div className="flex flex-col gap-1.5 rounded-md border border-violet-800/50 bg-violet-500/5 p-2">
+          <p className="text-xs text-violet-200">Next: {readiness.nextAction.label} — supply the genesis details (Factor invents none of this).</p>
+          <label className="flex flex-col gap-1 text-xs text-slate-300">
+            Sponsor citizen passport id
+            <input
+              value={genesisSponsorPassportId}
+              onChange={(e) => setGenesisSponsorPassportId(e.target.value)}
+              placeholder="e.g. the operator's own citizen passport id"
+              className="rounded-md border border-slate-800 bg-slate-950/60 p-1.5 text-xs text-slate-100 placeholder:text-slate-500 focus:border-violet-500/60 focus:outline-none"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-slate-300">
+            Display name
+            <input
+              value={genesisDisplayName}
+              onChange={(e) => setGenesisDisplayName(e.target.value)}
+              placeholder="e.g. Aletheon"
+              className="rounded-md border border-slate-800 bg-slate-950/60 p-1.5 text-xs text-slate-100 placeholder:text-slate-500 focus:border-violet-500/60 focus:outline-none"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-slate-300">
+            Description
+            <textarea
+              value={genesisDescription}
+              onChange={(e) => setGenesisDescription(e.target.value)}
+              rows={2}
+              className="rounded-md border border-slate-800 bg-slate-950/60 p-1.5 text-xs text-slate-100 focus:border-violet-500/60 focus:outline-none"
+            />
+          </label>
+          <BankrActionButton
+            label="Sponsor agent genesis (mints RootDID — no cost, no broadcast)"
+            onClick={() =>
+              void advance(undefined, {
+                sponsorPassportId: genesisSponsorPassportId.trim(),
+                displayName: genesisDisplayName.trim(),
+                description: genesisDescription.trim(),
+              })
+            }
+            busy={loading}
+            disabled={!genesisSponsorPassportId.trim() || !genesisDisplayName.trim() || !genesisDescription.trim()}
+            tone="primary"
+          />
+          <p className="text-[10px] text-slate-500">
+            This mints did:agent:root:{agentSlug} via the existing sponsorPolityAgent primitive — no fee, no blockchain broadcast, and no
+            production credentials are used.
+          </p>
+        </div>
+      )}
+      {readiness?.nextAction && readiness.presentlyActionableStep !== "governedOperationRehearsal" && readiness.presentlyActionableStep !== "agentShell" && (
         <div className="flex flex-col gap-1.5 rounded-md border border-violet-800/50 bg-violet-500/5 p-2">
           <p className="text-xs text-violet-200">Next: {readiness.nextAction.label}</p>
           <BankrActionButton label="Advance one step" onClick={() => void advance()} busy={loading} tone="primary" />

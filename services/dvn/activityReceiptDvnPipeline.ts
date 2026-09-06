@@ -67,6 +67,11 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   'experience_task_completed',
   // Autonomous agent lifecycle (Option A) — revocation provenance
   'agent_revocation_state_changed',
+  // Agent RootDID genesis (Use Case Zero 'create_and_establish' path,
+  // 2026-09-06) — a constitutional identity event, same rationale as the
+  // agent lifecycle types above. (Action-type addition only — the one
+  // change this file permits unilaterally.)
+  'agent_root_identity_sponsored',
   // Founder Office — Venture Blueprint handed to execution agents
   'venture_blueprint_handoff',
   // VELA-001 Constitutional Commerce — Authorisation/Execution/Consequence
