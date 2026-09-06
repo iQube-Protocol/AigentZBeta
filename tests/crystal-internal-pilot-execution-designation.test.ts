@@ -263,6 +263,86 @@ describe('freezeArtifact — persists the exact measured limitations, never a ca
   });
 });
 
+describe('freezeArtifact — memberSnapshot hash pre-image (2026-09-06, iterative Crystal versioning)', () => {
+  function mockArtifactRow(overrides: Record<string, unknown> = {}) {
+    mockListResearchObjects.mockResolvedValue({
+      ok: true,
+      objects: [
+        {
+          objectKind: 'artifact',
+          objectId: 'EXP-P1/crystal-vP2',
+          payload: {
+            kind: 'crystal-version',
+            phase: 'protocol',
+            experimentId: 'EXP-P1',
+            contentHash: null,
+            commitmentHash: null,
+            frozenAt: null,
+            signedBy: [],
+            ...overrides,
+          },
+          lifecycleState: 'validated',
+          receiptId: null,
+        },
+      ],
+    });
+  }
+
+  const SNAPSHOT = [
+    {
+      id: 'inv-1',
+      statement: 'stmt-1',
+      namespace: 'finance',
+      semanticType: null,
+      status: 'validated' as const,
+      evidenceProvenance: null,
+      provenance: null,
+    },
+  ];
+
+  it('refuses to freeze a crystal-version artifact when memberSnapshot is not supplied', async () => {
+    mockArtifactRow();
+    const result = await freezeArtifact({
+      personaId: 'persona-1',
+      id: 'EXP-P1/crystal-vP2',
+      contentHash: 'hash-abc',
+      signedBy: ['operator-ref-1'],
+    });
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain('memberSnapshot');
+    expect(mockUpsertResearchObject).not.toHaveBeenCalled();
+  });
+
+  it('persists the supplied memberSnapshot verbatim on a successful confirmatory freeze', async () => {
+    mockArtifactRow();
+    mockRunCrystalReadinessReport.mockResolvedValue(readinessWith([]));
+    const result = await freezeArtifact({
+      personaId: 'persona-1',
+      id: 'EXP-P1/crystal-vP2',
+      contentHash: 'hash-abc',
+      signedBy: ['operator-ref-1'],
+      memberSnapshot: SNAPSHOT,
+    });
+    expect(result.ok).toBe(true);
+    const persistedPayload = mockUpsertResearchObject.mock.calls[0][0].payload;
+    expect(persistedPayload.memberSnapshot).toEqual(SNAPSHOT);
+  });
+
+  it('is null for a non-crystal-version artifact even when memberSnapshot is supplied', async () => {
+    mockArtifactRow({ kind: 'arm-config' });
+    const result = await freezeArtifact({
+      personaId: 'persona-1',
+      id: 'EXP-P1/crystal-vP2',
+      contentHash: 'hash-abc',
+      signedBy: ['operator-ref-1'],
+      memberSnapshot: SNAPSHOT,
+    });
+    expect(result.ok).toBe(true);
+    const persistedPayload = mockUpsertResearchObject.mock.calls[0][0].payload;
+    expect(persistedPayload.memberSnapshot).toBeNull();
+  });
+});
+
 describe('nextGovernedActionForFrozenCrystal — exposes, never executes', () => {
   it('returns null for a non-frozen or non-crystal-version artifact', () => {
     expect(nextGovernedActionForFrozenCrystal(baseArtifact({ lifecycle: 'validated' }))).toBeNull();

@@ -40,6 +40,15 @@ vi.mock('@/services/research/crystalStatistics', () => ({
   runCrystalStatisticsReport: (...args: any[]) => mockRunCrystalStatisticsReport(...args),
 }));
 
+// The route builds the persisted hash pre-image (2026-09-06, iterative
+// Crystal versioning) via a direct listInvariants read AFTER the staleness
+// guard passes — mocked here so these tests never touch a real Supabase
+// client. sortedHashCoveredProjection is left REAL (pure, no I/O).
+const mockListInvariants = vi.fn();
+vi.mock('@/services/invariants/store', () => ({
+  listInvariants: (...args: any[]) => mockListInvariants(...args),
+}));
+
 // crystalDomainForExperiment is left REAL and unmocked — the point of these
 // tests is that the route reads the real ratified declaration, never a
 // stand-in. 'EXP-P1' resolves it; anything else resolves null.
@@ -77,6 +86,8 @@ beforeEach(() => {
   mockCurrentCrystalArtifactId.mockResolvedValue('EXP-P1/crystal-vP1');
   mockNextGovernedActionForFrozenCrystal.mockReset();
   mockNextGovernedActionForFrozenCrystal.mockReturnValue(null);
+  mockListInvariants.mockReset();
+  mockListInvariants.mockResolvedValue([]);
   mockRunCrystalStatisticsReport.mockReset();
   mockRunCrystalStatisticsReport.mockResolvedValue({ frozenHash: 'hash-abc', invariantCount: 12, substrateError: null });
 });
@@ -309,5 +320,40 @@ describe('POST provision — targets the current (successor) generation, never a
     expect(res.status).toBe(409);
     expect(body.requestSucceeded).toBe(false);
     expect(mockCurrentCrystalArtifactId).not.toHaveBeenCalled();
+  });
+});
+
+describe('POST freeze — memberSnapshot hash pre-image (2026-09-06, iterative Crystal versioning)', () => {
+  it('builds memberSnapshot from a real listInvariants read (validated/canonical only) and passes it to freezeArtifact', async () => {
+    mockListInvariants.mockResolvedValue([
+      {
+        id: 'inv-1',
+        statement: 'stmt-1',
+        namespace: 'finance',
+        semanticType: null,
+        status: 'validated',
+        evidenceProvenance: null,
+        provenance: null,
+      },
+    ]);
+    const res = await POST(makeRequest(VALID_FREEZE_BODY), { params: params('EXP-P1') });
+    expect(res.status).toBe(200);
+    expect(mockListInvariants).toHaveBeenCalledWith(
+      expect.objectContaining({ domain: expect.any(String), status: ['validated', 'canonical'], limit: 500 }),
+    );
+    const callArgs = mockFreezeArtifact.mock.calls[0][0];
+    expect(callArgs.memberSnapshot).toEqual([
+      expect.objectContaining({ id: 'inv-1', statement: 'stmt-1', namespace: 'finance', status: 'validated' }),
+    ]);
+  });
+
+  it('refuses with 503 when the invariant substrate cannot be read to build the hash pre-image', async () => {
+    mockListInvariants.mockRejectedValue(new Error('substrate unreachable'));
+    const res = await POST(makeRequest(VALID_FREEZE_BODY), { params: params('EXP-P1') });
+    const body = await res.json();
+    expect(res.status).toBe(503);
+    expect(body.requestSucceeded).toBe(false);
+    expect(body.error).toContain('substrate unreachable');
+    expect(mockFreezeArtifact).not.toHaveBeenCalled();
   });
 });

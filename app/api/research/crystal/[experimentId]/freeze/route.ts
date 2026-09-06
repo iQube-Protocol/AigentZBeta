@@ -85,6 +85,8 @@ import {
 import type { ArtifactExecutionDesignation } from '@/types/research';
 import { crystalDomainForExperiment } from '@/services/research/crystalDomains';
 import { runCrystalStatisticsReport } from '@/services/research/crystalStatistics';
+import { listInvariants } from '@/services/invariants/store';
+import { sortedHashCoveredProjection } from '@/services/research/crystalContentProjection';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -432,6 +434,30 @@ export async function POST(
     );
   }
 
+  // The EXACT hash pre-image `suppliedHash` commits to — the same query
+  // shape readiness/statistics already use, fetched once here so it can be
+  // persisted verbatim (2026-09-06, iterative Crystal versioning). Read
+  // AFTER the staleness guard above confirms the corpus still matches the
+  // hash the operator reviewed. Required only for a crystal-version freeze
+  // (every freeze this route performs is one — see `upsertArtifact` above).
+  let memberSnapshot;
+  try {
+    const invariantsForSnapshot = await listInvariants({
+      domain: crystalDomain,
+      status: ['validated', 'canonical'],
+      limit: 500,
+    });
+    memberSnapshot = sortedHashCoveredProjection(invariantsForSnapshot);
+  } catch (error) {
+    return NextResponse.json(
+      {
+        requestSucceeded: false,
+        error: `could not read the invariant substrate to build the hash pre-image: ${error instanceof Error ? error.message : String(error)}`,
+      },
+      { status: 503 },
+    );
+  }
+
   // Everything below belongs to the service. `freezeArtifact` re-runs
   // `checkFreezeGate` → `runCrystalReadinessReport` itself, refuses a re-freeze,
   // refuses a non-`validated` source state, and writes the receipt through the
@@ -443,6 +469,7 @@ export async function POST(
     signedBy,
     freezeRationale,
     executionDesignation,
+    memberSnapshot,
     scientificDeviations,
   });
   if (!frozen.ok) {

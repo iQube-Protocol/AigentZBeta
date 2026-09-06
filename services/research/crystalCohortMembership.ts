@@ -31,7 +31,8 @@
  * substrate and the successor cohort, must not.
  *
  *   target Crystal membership universe
- *     = inherited predecessor members (frozen manifest's domain recovery)
+ *     = inherited predecessor members (the frozen predecessor GENERATION's
+ *       own explicitly-tagged membership — see the 2026-09-05 fix below)
  *     + current successor construction cohort
  *
  *   Stage 7 resolved per successor member ⟺
@@ -43,12 +44,41 @@
  * Crystal universe (relationship suggestion candidate pools, Stage 7
  * reconciliation's edge-counting) — MUST resolve it through this module.
  * Never re-derive frozen-generation membership independently.
+ *
+ * ── GENERATION-BLIND MEMBERSHIP RECOVERY, FIXED 2026-09-05 ──────────────────
+ *
+ * `resolveFrozenPredecessorContext` USED to recover "the frozen predecessor
+ * generation's membership" via `buildFrozenCrystalManifest`'s domain-scoped
+ * `listInvariants({domain: crystalDomain})` — a read with NO status filter
+ * (deliberate, for an unrelated reason — recovering members later merged as
+ * duplicates) and NO time/generation boundary at all. The moment new
+ * successor material was Stage-8-assigned into the SAME domain
+ * (`financial-risk-value-systems`, 2026-09-05T10:06:41Z, receipt
+ * b28284b6-7b26-4362-b89b-c866fa690967), this read silently absorbed all 53
+ * new members as if they were part of the original 15-member frozen vP1
+ * snapshot, and `isSuccessorScopedCandidate` then misclassified every one of
+ * them as already-frozen predecessor history — collapsing Track 2's own
+ * live successor-cohort view from 58 down to 5. Full mechanical account:
+ * `codexes/packs/agentiq/resolution-records/records/RES-2026-09-05-TRACK2-MEMBERSHIP-RECOVERY-GENERATION-BLIND-001.json`.
+ *
+ * The fix: `invariant_contexts` now carries an explicit
+ * `crystal_generation_id` (the assigning crystal-version artifact's own id,
+ * e.g. 'EXP-P1/crystal-vP1' — never a freeform 'v1'/'v2' string; see
+ * services/research/artifacts.ts's `crystal-version` artifact model).
+ * `resolveFrozenPredecessorContext` below reads membership DIRECTLY via
+ * `listInvariants({domain, crystalGenerationId: frozenPredecessor.id})` —
+ * bounded to the frozen predecessor's OWN generation, never "whatever the
+ * domain currently contains." `buildFrozenCrystalManifest`'s own domain-wide
+ * read is UNCHANGED (it answers a different, legitimate question — whether
+ * the live corpus byte-reproduces the frozen hash — and is deliberately not
+ * touched by this repair; see that module's own header).
  */
 
+import { listInvariants } from '@/services/invariants/store';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { listCandidatesAcrossSubDomains, type CandidateRow } from '@/services/invariants/discoveryEngine';
 import { latestFrozenCrystalArtifact } from '@/services/research/artifacts';
-import { buildFrozenCrystalManifest } from '@/services/research/crystalFrozenManifest';
+import { crystalDomainForExperiment } from '@/services/research/crystalDomains';
 import type { FrozenArtifact } from '@/types/research';
 
 export interface LabeledMember {
@@ -58,14 +88,19 @@ export interface LabeledMember {
 
 /**
  * The frozen predecessor generation, if one exists — resolved through the
- * SAME lineage-safe lookup (`latestFrozenCrystalArtifact`) and domain-
- * recovery manifest (`buildFrozenCrystalManifest`) `researchProgrammeOrchestrator.ts`
- * always used, now the ONE place that logic lives. `frozenGenerationMemberIds`/
- * `frozenGenerationMembers` are `null` when there is no frozen predecessor
- * OR its manifest could not be read — callers must treat `null` as
- * "inherited membership is UNKNOWN," never as "empty" (which would silently
- * exclude legitimately-inherited candidates) and never as "everything"
- * (which would silently admit anything).
+ * SAME lineage-safe lookup (`latestFrozenCrystalArtifact`)
+ * `researchProgrammeOrchestrator.ts` always used, now the ONE place that
+ * logic lives. `frozenGenerationMemberIds`/`frozenGenerationMembers` are
+ * `null` when there is no frozen predecessor OR its membership could not be
+ * read — callers must treat `null` as "inherited membership is UNKNOWN,"
+ * never as "empty" (which would silently exclude legitimately-inherited
+ * candidates) and never as "everything" (which would silently admit
+ * anything).
+ *
+ * GENERATION-BOUNDED, not domain-wholesale (2026-09-05 fix — see this
+ * module's header). Membership is read directly via
+ * `listInvariants({domain, crystalGenerationId: frozenPredecessor.id})`,
+ * never via a re-derivation of "whatever the domain currently contains."
  */
 export interface FrozenPredecessorContext {
   frozenPredecessor: FrozenArtifact | null;
@@ -78,30 +113,28 @@ export async function resolveFrozenPredecessorContext(experimentId: string): Pro
   if (!frozenPredecessor) {
     return { frozenPredecessor: null, frozenGenerationMemberIds: null, frozenGenerationMembers: null };
   }
-  const manifest = await buildFrozenCrystalManifest({
-    experimentId,
-    artifact: frozenPredecessor,
-    observedAt: new Date().toISOString(),
-    // MEMBERSHIP-ONLY (2026-09-04, Track 2 programme-state composition-cost
-    // repair) — this resolver only ever reads `manifest.recoveredInvariants`
-    // below; it never reads `knownLimitations` or `derivedTopology`. The
-    // 'full' default recomputes the crystal's readiness report (O(n²)
-    // duplicate-detection + inferential-capacity passes) TWICE more inside
-    // `buildFrozenCrystalManifest` alone (once directly, once again inside
-    // `runCrystalStatisticsReport`) on top of the readiness
-    // `loadTrack2ProgrammeState` already computed once at the top of its own
-    // composition — three total, every single programme-state read, for
-    // work this function discards. See `BuildFrozenCrystalManifestInput.
-    // scope`'s own doc comment for the full contract.
-    scope: 'membership-only',
-  }).catch(() => null);
-  if (!manifest) {
+  // The domain this generation was assigned in — needed to scope the
+  // membership read at all. No declared domain means there is nothing to
+  // read membership FROM, so this fails to null exactly like an unreadable
+  // manifest used to (never "empty", never "everything").
+  const declaration = crystalDomainForExperiment(experimentId);
+  if (!declaration) {
+    return { frozenPredecessor, frozenGenerationMemberIds: null, frozenGenerationMembers: null };
+  }
+  let members: Awaited<ReturnType<typeof listInvariants>>;
+  try {
+    members = await listInvariants({
+      domain: declaration.domain,
+      crystalGenerationId: frozenPredecessor.id,
+      limit: 500,
+    });
+  } catch {
     return { frozenPredecessor, frozenGenerationMemberIds: null, frozenGenerationMembers: null };
   }
   return {
     frozenPredecessor,
-    frozenGenerationMemberIds: new Set(manifest.recoveredInvariants.map((r) => r.id)),
-    frozenGenerationMembers: manifest.recoveredInvariants.map((r) => ({ id: r.id, statement: r.statement })),
+    frozenGenerationMemberIds: new Set(members.map((r) => r.id)),
+    frozenGenerationMembers: members.map((r) => ({ id: r.id, statement: r.statement })),
   };
 }
 

@@ -29,6 +29,7 @@ import {
   type ScientificDeviation,
 } from '@/types/research';
 import type { CrystalReadinessReport } from '@/services/research/crystalReadiness';
+import type { HashCoveredMember } from '@/services/research/crystalContentProjection';
 
 function fromRow(row: ResearchObjectRecord): FrozenArtifact {
   const p = row.payload as Partial<FrozenArtifact>;
@@ -53,6 +54,9 @@ function fromRow(row: ResearchObjectRecord): FrozenArtifact {
     scientificDeviations: Array.isArray(p.scientificDeviations) ? p.scientificDeviations : [],
     freezeRationale: (p.freezeRationale as string | null | undefined) ?? null,
     readinessReportAtFreeze: p.readinessReportAtFreeze ?? null,
+    // The exact hash pre-image `commitmentHash` commits to for a
+    // crystal-version artifact (2026-09-06) — see FrozenArtifact.memberSnapshot.
+    memberSnapshot: (p.memberSnapshot as FrozenArtifact['memberSnapshot']) ?? null,
   };
 }
 
@@ -72,6 +76,7 @@ function toPayload(artifact: FrozenArtifact): Record<string, unknown> {
     scientificDeviations: artifact.scientificDeviations ?? [],
     freezeRationale: artifact.freezeRationale ?? null,
     readinessReportAtFreeze: artifact.readinessReportAtFreeze ?? null,
+    memberSnapshot: artifact.memberSnapshot ?? null,
     ...('taskSetId' in artifact ? { taskSetId: (artifact as { taskSetId?: string }).taskSetId } : {}),
     ...('taskSetContentHash' in artifact
       ? { taskSetContentHash: (artifact as { taskSetContentHash?: string }).taskSetContentHash }
@@ -404,6 +409,14 @@ export async function freezeArtifact(input: {
    * `ScientificDeviation`'s own doc comment.
    */
   scientificDeviations?: Array<{ checkName: string; rationale: string }>;
+  /**
+   * REQUIRED to freeze a crystal-version artifact (2026-09-06) — the exact
+   * hash pre-image `services/research/crystalContentProjection.ts::
+   * sortedHashCoveredProjection` produced for `input.contentHash`, persisted
+   * verbatim so future verification never depends on re-querying a live
+   * domain that may have moved on. Ignored for every other artifact kind.
+   */
+  memberSnapshot?: HashCoveredMember[];
 }): Promise<{ ok: boolean; error?: string; receiptId?: string | null }> {
   const artifact = await getArtifactById(input.id);
   if (!artifact) return { ok: false, error: `unknown artifact '${input.id}'` };
@@ -413,6 +426,14 @@ export async function freezeArtifact(input: {
   }
   if (input.signedBy.length === 0) {
     return { ok: false, error: 'at least one signatory required (IRL-016 §2)' };
+  }
+  if (artifact.kind === 'crystal-version' && !input.memberSnapshot) {
+    return {
+      ok: false,
+      error:
+        'memberSnapshot is required to freeze a crystal-version artifact — the exact hash pre-image must be ' +
+        'persisted so future verification never depends on re-querying a live domain that may have moved on',
+    };
   }
 
   const executionDesignation: ArtifactExecutionDesignation = input.executionDesignation ?? 'confirmatory';
@@ -475,6 +496,9 @@ export async function freezeArtifact(input: {
     // Full report, exactly as measured — crystal-version only (the field is
     // meaningless for other kinds, which never compute a CrystalReadinessReport).
     readinessReportAtFreeze: artifact.kind === 'crystal-version' ? (gate.readiness ?? null) : null,
+    // The exact hash pre-image, persisted verbatim — crystal-version only
+    // (required above); null for every other kind.
+    memberSnapshot: artifact.kind === 'crystal-version' ? (input.memberSnapshot ?? null) : null,
   };
 
   const { ok, receiptId } = await writeLifecycleReceipt({

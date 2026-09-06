@@ -57,6 +57,7 @@ import {
   type CrystalAssignmentRefusal,
 } from '@/services/research/crystalDomains';
 import { readEvidenceProvenance } from '@/services/research/experimentalPopulations';
+import { ensureCurrentCrystalGenerationId } from '@/services/research/artifacts';
 import { writeLifecycleReceipt } from '@/services/research/lifecycle';
 import { buildCohortAuthorization, computeCohortHash } from '@/services/research/cohortAuthorization';
 import {
@@ -447,6 +448,30 @@ export async function POST(
     );
   }
 
+  // THE GENERATION IDENTITY (2026-09-05, generation-identity repair,
+  // RES-2026-09-05-TRACK2-MEMBERSHIP-RECOVERY-GENERATION-BLIND-001). Every
+  // real write stamps `crystal_generation_id` explicitly — resolved ONCE per
+  // request, never re-derived per invariant, and never a hand-typed 'v1'/'v2'
+  // string. A dry run writes nothing, so it never needs (and never
+  // provisions) a generation object. A resolution failure on a REAL write
+  // refuses the whole request rather than silently writing untagged rows —
+  // that would reintroduce exactly the generation-blind membership this
+  // repair closes.
+  let crystalGenerationId: string | null = null;
+  if (!dryRun) {
+    try {
+      crystalGenerationId = await ensureCurrentCrystalGenerationId(experimentId);
+    } catch (error) {
+      return NextResponse.json(
+        {
+          requestSucceeded: false,
+          error: `could not resolve/provision the current crystal generation: ${error instanceof Error ? error.message : String(error)}`,
+        },
+        { status: 503 },
+      );
+    }
+  }
+
   const byId = new Map(records.map((r) => [r.id, r]));
   const outcomes: AssignmentOutcome[] = [];
   const notFound: string[] = [];
@@ -478,6 +503,7 @@ export async function POST(
           domain: declaration.domain,
           interpretation,
           retrievalTags: [],
+          crystalGenerationId,
         });
         written = true;
       } catch (error) {
@@ -534,7 +560,7 @@ export async function POST(
   if (!dryRun && writtenOutcomes.length > 0) {
     const summary =
       `${experimentId} crystal assignment — ${writtenOutcomes.length} invariant(s) admitted to ` +
-      `'${declaration.domain}' under declaration ${declarationHash.slice(0, 16)}… ` +
+      `'${declaration.domain}' under declaration ${declarationHash.slice(0, 16)}…, generation '${crystalGenerationId}', ` +
       `by ${personaPublicRef(persona.personaId)} at ${new Date().toISOString()}. ` +
       `Eligibility: status ∈ {${declaration.eligibleStatuses.join('|')}} and evidence provenance ∈ ` +
       `{${declaration.eligibleProvenance.join('|')}}, evaluated per record. Members: ` +
@@ -561,6 +587,7 @@ export async function POST(
       requestSucceeded: true,
       experimentId,
       crystalDomain: declaration.domain,
+      crystalGenerationId,
       dryRun,
       requested: invariantIds.length,
       admitted,

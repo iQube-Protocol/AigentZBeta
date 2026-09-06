@@ -3,6 +3,15 @@
  * "successor construction cohort" and "target Crystal membership universe"
  * (operator ruling, 2026-08-31: "successor cohort" and "successor Crystal"
  * are not the same thing).
+ *
+ * REWRITTEN 2026-09-05 for the generation-identity repair
+ * (RES-2026-09-05-TRACK2-MEMBERSHIP-RECOVERY-GENERATION-BLIND-001 /
+ * CI-2026-09-05-MEMBERSHIP-RECOVERY-MUST-BOUND-GENERATION-001).
+ * `resolveFrozenPredecessorContext` no longer reads via
+ * `buildFrozenCrystalManifest`'s domain-scoped, generation-blind
+ * `recoveredInvariants` — it reads DIRECTLY via
+ * `listInvariants({domain, crystalGenerationId})`, bounded to the frozen
+ * predecessor's own generation. These tests mock `listInvariants` instead.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -23,9 +32,9 @@ vi.mock('@/services/research/artifacts', () => ({
   latestFrozenCrystalArtifact: (...args: any[]) => mockLatestFrozenCrystalArtifact(...args),
 }));
 
-const mockBuildFrozenCrystalManifest = vi.fn();
-vi.mock('@/services/research/crystalFrozenManifest', () => ({
-  buildFrozenCrystalManifest: (...args: any[]) => mockBuildFrozenCrystalManifest(...args),
+const mockListInvariants = vi.fn();
+vi.mock('@/services/invariants/store', () => ({
+  listInvariants: (...args: any[]) => mockListInvariants(...args),
 }));
 
 import {
@@ -62,7 +71,7 @@ function candidate(overrides: Partial<CandidateRow> = {}): CandidateRow {
 beforeEach(() => {
   mockListCandidates.mockReset();
   mockLatestFrozenCrystalArtifact.mockReset();
-  mockBuildFrozenCrystalManifest.mockReset();
+  mockListInvariants.mockReset();
 });
 
 describe('resolveFrozenPredecessorContext', () => {
@@ -70,32 +79,66 @@ describe('resolveFrozenPredecessorContext', () => {
     mockLatestFrozenCrystalArtifact.mockResolvedValue(null);
     const ctx = await resolveFrozenPredecessorContext('EXP-P1');
     expect(ctx).toEqual({ frozenPredecessor: null, frozenGenerationMemberIds: null, frozenGenerationMembers: null });
-    expect(mockBuildFrozenCrystalManifest).not.toHaveBeenCalled();
+    expect(mockListInvariants).not.toHaveBeenCalled();
   });
 
-  it('frozen predecessor exists but its manifest is unreadable — fails to null, never empty (never a false "no inherited members")', async () => {
-    mockLatestFrozenCrystalArtifact.mockResolvedValue({ id: 'art-1', frozenAt: '2026-08-04T00:00:00Z' });
-    mockBuildFrozenCrystalManifest.mockResolvedValue(null);
+  it('no declared crystal domain for this experiment — fails to null, never guesses a domain', async () => {
+    mockLatestFrozenCrystalArtifact.mockResolvedValue({ id: 'EXP-999/crystal-vP1', frozenAt: '2026-08-04T00:00:00Z' });
+    const ctx = await resolveFrozenPredecessorContext('EXP-999');
+    expect(ctx.frozenPredecessor).not.toBeNull();
+    expect(ctx.frozenGenerationMemberIds).toBeNull();
+    expect(ctx.frozenGenerationMembers).toBeNull();
+    expect(mockListInvariants).not.toHaveBeenCalled();
+  });
+
+  it('frozen predecessor exists but the generation-scoped read fails — fails to null, never empty (never a false "no inherited members")', async () => {
+    mockLatestFrozenCrystalArtifact.mockResolvedValue({ id: 'EXP-P1/crystal-vP1', frozenAt: '2026-08-04T00:00:00Z' });
+    mockListInvariants.mockRejectedValue(new Error('db down'));
     const ctx = await resolveFrozenPredecessorContext('EXP-P1');
     expect(ctx.frozenPredecessor).not.toBeNull();
     expect(ctx.frozenGenerationMemberIds).toBeNull();
     expect(ctx.frozenGenerationMembers).toBeNull();
   });
 
-  it('frozen predecessor with a readable manifest — recovers ids AND labeled statements', async () => {
-    mockLatestFrozenCrystalArtifact.mockResolvedValue({ id: 'art-1', frozenAt: '2026-08-04T00:00:00Z' });
-    mockBuildFrozenCrystalManifest.mockResolvedValue({
-      recoveredInvariants: [
-        { id: 'inv-inherited-1', statement: 'Risk management is a fundamental component of financial services.' },
-        { id: 'inv-inherited-2', statement: 'Another inherited statement.' },
-      ],
-    });
+  it('reads membership via listInvariants bounded to BOTH the domain and the frozen predecessor\'s own generation id — never domain alone', async () => {
+    mockLatestFrozenCrystalArtifact.mockResolvedValue({ id: 'EXP-P1/crystal-vP1', frozenAt: '2026-08-04T00:00:00Z' });
+    mockListInvariants.mockResolvedValue([
+      { id: 'inv-inherited-1', statement: 'Risk management is a fundamental component of financial services.' },
+      { id: 'inv-inherited-2', statement: 'Another inherited statement.' },
+    ]);
     const ctx = await resolveFrozenPredecessorContext('EXP-P1');
+    expect(mockListInvariants).toHaveBeenCalledWith(
+      expect.objectContaining({ domain: 'financial-risk-value-systems', crystalGenerationId: 'EXP-P1/crystal-vP1' }),
+    );
     expect(ctx.frozenGenerationMemberIds).toEqual(new Set(['inv-inherited-1', 'inv-inherited-2']));
     expect(ctx.frozenGenerationMembers).toEqual([
       { id: 'inv-inherited-1', statement: 'Risk management is a fundamental component of financial services.' },
       { id: 'inv-inherited-2', statement: 'Another inherited statement.' },
     ]);
+  });
+
+  it('THE REGRESSION: predecessor resolver remains 15 after a 53-member successor generation is assigned into the same domain', async () => {
+    mockLatestFrozenCrystalArtifact.mockResolvedValue({ id: 'EXP-P1/crystal-vP1', frozenAt: '2026-08-04T00:00:00Z' });
+    // The fake substrate holds BOTH generations in the same domain — 15
+    // predecessor (vP1) + 53 successor (vP2), 68 total, exactly mirroring
+    // the live incident. The generation-scoped mock only ever returns rows
+    // matching the SPECIFIC crystalGenerationId it was called with — the
+    // defect this fix closes was consuming a read that ignored this
+    // parameter entirely and returned all 68.
+    const predecessor = Array.from({ length: 15 }, (_, i) => ({ id: `vp1-${i}`, statement: `predecessor ${i}` }));
+    const successor = Array.from({ length: 53 }, (_, i) => ({ id: `vp2-${i}`, statement: `successor ${i}` }));
+    mockListInvariants.mockImplementation(async (filter: { crystalGenerationId?: string }) => {
+      if (filter.crystalGenerationId === 'EXP-P1/crystal-vP1') return predecessor;
+      if (filter.crystalGenerationId === 'EXP-P1/crystal-vP2') return successor;
+      // A caller that forgot to pass crystalGenerationId would see this —
+      // deliberately wrong (all 68), so a regression here is loud, not silent.
+      return [...predecessor, ...successor];
+    });
+
+    const ctx = await resolveFrozenPredecessorContext('EXP-P1');
+    expect(ctx.frozenGenerationMemberIds?.size).toBe(15);
+    expect(ctx.frozenGenerationMembers).toHaveLength(15);
+    expect([...(ctx.frozenGenerationMemberIds ?? [])].every((id) => id.startsWith('vp1-'))).toBe(true);
   });
 });
 
@@ -107,7 +150,7 @@ describe('isSuccessorScopedCandidate', () => {
 
   it('a resolved candidate whose invariant IS a frozen-predecessor member is excluded (vP1 own promotion, not v2 construction)', () => {
     const ctx = {
-      frozenPredecessor: { id: 'art-1', frozenAt: '2026-08-04T00:00:00Z' } as any,
+      frozenPredecessor: { id: 'EXP-P1/crystal-vP1', frozenAt: '2026-08-04T00:00:00Z' } as any,
       frozenGenerationMemberIds: new Set(['inv-inherited-1']),
     };
     expect(isSuccessorScopedCandidate({ status: 'promoted', promotedInvariantId: 'inv-inherited-1', createdAt: '2026-08-31' }, ctx)).toBe(false);
@@ -115,15 +158,31 @@ describe('isSuccessorScopedCandidate', () => {
 
   it('a resolved candidate whose invariant is NOT a frozen-predecessor member is successor-scoped', () => {
     const ctx = {
-      frozenPredecessor: { id: 'art-1', frozenAt: '2026-08-04T00:00:00Z' } as any,
+      frozenPredecessor: { id: 'EXP-P1/crystal-vP1', frozenAt: '2026-08-04T00:00:00Z' } as any,
       frozenGenerationMemberIds: new Set(['inv-inherited-1']),
     };
     expect(isSuccessorScopedCandidate({ status: 'promoted', promotedInvariantId: 'inv-new-1', createdAt: '2026-08-31' }, ctx)).toBe(true);
   });
 
+  it('THE REGRESSION: the successor cohort does not collapse after Stage 8 — 53 newly-assigned successor members all remain successor-scoped', () => {
+    const ctx = {
+      frozenPredecessor: { id: 'EXP-P1/crystal-vP1', frozenAt: '2026-08-04T00:00:00Z' } as any,
+      // Correctly bounded to the 15 predecessor ids (the fix) — NOT the 68
+      // that a domain-wholesale read would have produced post-assignment.
+      frozenGenerationMemberIds: new Set(Array.from({ length: 15 }, (_, i) => `vp1-${i}`)),
+    };
+    const successorMembers = Array.from({ length: 53 }, (_, i) => ({
+      status: 'promoted' as const,
+      promotedInvariantId: `vp2-${i}`,
+      createdAt: '2026-09-05T10:06:41.303889Z',
+    }));
+    const scoped = successorMembers.filter((c) => isSuccessorScopedCandidate(c, ctx));
+    expect(scoped).toHaveLength(53);
+  });
+
   it('an unresolved candidate is scoped by creation time relative to the freeze', () => {
     const ctx = {
-      frozenPredecessor: { id: 'art-1', frozenAt: '2026-08-04T00:00:00Z' } as any,
+      frozenPredecessor: { id: 'EXP-P1/crystal-vP1', frozenAt: '2026-08-04T00:00:00Z' } as any,
       frozenGenerationMemberIds: new Set<string>(),
     };
     expect(isSuccessorScopedCandidate({ status: 'candidate', promotedInvariantId: null, createdAt: '2026-08-01' }, ctx)).toBe(false);
@@ -131,7 +190,7 @@ describe('isSuccessorScopedCandidate', () => {
   });
 
   it('never excludes on an unreadable freeze boundary', () => {
-    const ctx = { frozenPredecessor: { id: 'art-1', frozenAt: null } as any, frozenGenerationMemberIds: null };
+    const ctx = { frozenPredecessor: { id: 'EXP-P1/crystal-vP1', frozenAt: null } as any, frozenGenerationMemberIds: null };
     expect(isSuccessorScopedCandidate({ status: 'candidate', promotedInvariantId: null, createdAt: '2020-01-01' }, ctx)).toBe(true);
   });
 });
@@ -140,10 +199,8 @@ describe('resolveSuccessorConstructionCohort', () => {
   const fakeAdmin = {} as unknown as SupabaseClient;
 
   it('narrows candidates to the successor generation and the promoted subset', async () => {
-    mockLatestFrozenCrystalArtifact.mockResolvedValue({ id: 'art-1', frozenAt: '2026-08-04T00:00:00Z' });
-    mockBuildFrozenCrystalManifest.mockResolvedValue({
-      recoveredInvariants: [{ id: 'inv-inherited-1', statement: 'inherited' }],
-    });
+    mockLatestFrozenCrystalArtifact.mockResolvedValue({ id: 'EXP-P1/crystal-vP1', frozenAt: '2026-08-04T00:00:00Z' });
+    mockListInvariants.mockResolvedValue([{ id: 'inv-inherited-1', statement: 'inherited' }]);
     mockListCandidates.mockResolvedValue([
       candidate({ id: 'c-inherited', promotedInvariantId: 'inv-inherited-1', status: 'promoted' }), // vP1's own — excluded
       candidate({ id: 'c-new-1', promotedInvariantId: 'inv-new-1', status: 'promoted' }), // v2 construction
@@ -153,6 +210,24 @@ describe('resolveSuccessorConstructionCohort', () => {
     const result = await resolveSuccessorConstructionCohort(fakeAdmin, 'EXP-P1', 'financial-services');
     expect(result.successorScopedCandidates?.map((c) => c.id).sort()).toEqual(['c-new-1', 'c-new-2']);
     expect(result.promotedForConstruction?.map((c) => c.id)).toEqual(['c-new-1']);
+  });
+
+  it('THE REGRESSION: does not collapse after a 53-member Stage 8 assignment — all 58 successor candidates remain visible', async () => {
+    mockLatestFrozenCrystalArtifact.mockResolvedValue({ id: 'EXP-P1/crystal-vP1', frozenAt: '2026-08-04T00:00:00Z' });
+    // Generation-scoped read correctly returns only the 15 vP1 members —
+    // never the 53 vP2 members also present in the domain.
+    mockListInvariants.mockResolvedValue(Array.from({ length: 15 }, (_, i) => ({ id: `vp1-${i}`, statement: `predecessor ${i}` })));
+    const eligible = Array.from({ length: 53 }, (_, i) =>
+      candidate({ id: `c-eligible-${i}`, promotedInvariantId: `vp2-${i}`, status: 'promoted', createdAt: '2026-09-05T10:06:41.303889Z' }),
+    );
+    const ineligible = Array.from({ length: 5 }, (_, i) =>
+      candidate({ id: `c-ineligible-${i}`, promotedInvariantId: null, status: 'rejected', createdAt: '2026-09-05T10:06:41.303889Z' }),
+    );
+    mockListCandidates.mockResolvedValue([...eligible, ...ineligible]);
+
+    const result = await resolveSuccessorConstructionCohort(fakeAdmin, 'EXP-P1', 'financial-services');
+    expect(result.successorScopedCandidates).toHaveLength(58);
+    expect(result.promotedForConstruction).toHaveLength(53);
   });
 
   it('a domain read failure reports null, never an empty (silently "nothing pending") cohort', async () => {
@@ -167,7 +242,7 @@ describe('resolveSuccessorConstructionCohort', () => {
 describe('resolveTargetCrystalMembershipUniverse', () => {
   it('unions inherited members with the successor cohort', () => {
     const context = {
-      frozenPredecessor: { id: 'art-1' } as any,
+      frozenPredecessor: { id: 'EXP-P1/crystal-vP1' } as any,
       frozenGenerationMemberIds: new Set(['inv-inherited-1']),
       frozenGenerationMembers: [{ id: 'inv-inherited-1', statement: 'inherited' }],
     };

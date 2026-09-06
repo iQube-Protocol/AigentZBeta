@@ -839,6 +839,25 @@ export interface FrozenArtifact {
    *  differently later — the freeze act commits to what was actually
    *  measured, not to a redone or re-argued version of it. */
   readinessReportAtFreeze?: unknown;
+  /**
+   * The EXACT hash pre-image `commitmentHash` commits to for a
+   * `crystal-version` artifact — the same `HashCoveredMember[]`
+   * `services/research/crystalContentProjection.ts::sortedHashCoveredProjection`
+   * produces, persisted verbatim so future verification of "does the frozen
+   * commitment still match what was actually reviewed" never depends on
+   * re-querying a live domain that may have moved on (2026-09-06). `null`/
+   * absent for every artifact frozen before this field existed, and for every
+   * non-crystal-version kind.
+   */
+  memberSnapshot?: Array<{
+    id: string;
+    statement: string;
+    namespace: string;
+    semanticType: string | null;
+    status: string;
+    evidenceProvenance: string | null;
+    provenance: Record<string, unknown> | null;
+  }> | null;
 }
 
 /** task-set and answer-key are mutually referential by design (PRD-EPI-001
