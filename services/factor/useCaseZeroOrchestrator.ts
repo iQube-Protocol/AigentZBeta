@@ -50,7 +50,7 @@ import { readActiveGrantForAgent } from '@/services/delegation/delegationGrantSt
 import { createAssessment } from '@/services/aegis/aegisAssessmentService';
 import { inspectOrProvisionProviderBinding, prepareLaunchProposal, preflightLaunch } from '@/services/factor/bankrCapabilityHandlers';
 import { runAdmissionPacketPolicyEvaluation } from '@/services/factor/factorConfidentialWorkload';
-import type { CreateDraftInput } from '@/services/factor/tokenLaunchService';
+import { findLatestTokenLaunchForBeneficiary, type CreateDraftInput } from '@/services/factor/tokenLaunchService';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 
 export type OrchestratorOutcome = 'advanced' | 'no_action_needed' | 'blocked' | 'awaiting_input';
@@ -235,7 +235,15 @@ async function stepVela(
   // readiness legs are established versus how many are required in total.
   // This genuinely varies per case (unlike the constant 1/1) and is
   // derived entirely from the same canonical reads every other leg uses.
-  const requiredLegs = readiness.legs.filter((l) => l.required);
+  //
+  // Item 1 correction (2026-09-06): the threshold MUST be computed over
+  // legs that are meant to ALREADY be satisfied BEFORE Vela runs — Vela
+  // itself, runtime activation, and the governed-operation rehearsal are
+  // explicitly EXCLUDED, never counted in their own gating threshold (that
+  // would be circular/self-referential and could never fail on a fresh
+  // case, since neither has run yet).
+  const PRE_VELA_EXCLUDED = new Set(['velaReadiness', 'runtimeActivation', 'governedOperationRehearsal']);
+  const requiredLegs = readiness.legs.filter((l) => l.required && !PRE_VELA_EXCLUDED.has(l.key));
   const readinessScore = requiredLegs.filter((l) => l.state === 'established').length;
   const policyThreshold = requiredLegs.length;
 
@@ -306,7 +314,7 @@ async function stepRuntimeActivation(
   if (factorCase.state === 'active') {
     // Case state is already 'active', but the leg is still not
     // established — meaning MoneyPenny's own eligibility resolver
-    // (discoverEligibleFinancialServices) reports zero eligible services.
+    // (discoverFinancialServicesForConsumer) reports no qualified Runtime service.
     // There is no further Factor-owned mutation to try here: case-state
     // activation is the only write this orchestrator can perform toward
     // this leg, and it has already happened.
@@ -329,11 +337,59 @@ async function stepRuntimeActivation(
  *  submits) a token-launch draft — the only governed financial-request
  *  domain object this codebase has (Bankr has no ordinary-transaction
  *  capability). Every field is operator-supplied; Factor never invents one. */
+/** Launch states that mean "this beneficiary's rehearsal has already
+ *  progressed past preflight" — a repeat `advance()` call must resume this
+ *  SAME row, never prepare a second one. */
+const REHEARSAL_COMPLETE_STATES = new Set([
+  'preflighted',
+  'aegis_review_pending',
+  'revision_required',
+  'approval_pending',
+  'approved',
+  'submitting',
+  'submitted',
+  'confirmed',
+]);
+/** Terminal/abandoned states where a FRESH draft is the correct next action
+ *  (the prior attempt cannot be resumed). */
+const REHEARSAL_ABANDONED_STATES = new Set(['cancelled', 'failed', 'superseded']);
+
 async function stepRehearsal(
   input: AdvanceUseCaseZeroInput,
   factorCase: Awaited<ReturnType<typeof getCase>>,
   runtimeAgentId: string,
 ): Promise<Omit<AdvanceUseCaseZeroResult, 'caseId'>> {
+  // Item 3 fix (behavioral, not extension): query the canonical token-launch
+  // aggregate for this tenant+beneficiary FIRST — never unconditionally
+  // create a new draft. A preflighted-or-later launch closes this leg
+  // immediately (`no_action_needed`); a draft/preparing launch is RESUMED
+  // (the same row is preflighted, never re-created); only when none exists
+  // (or the only one is terminally abandoned) does a new draft get created.
+  const existing = await findLatestTokenLaunchForBeneficiary(input.admin, input.tenantId, runtimeAgentId);
+
+  if (existing && REHEARSAL_COMPLETE_STATES.has(existing.state)) {
+    return {
+      stepTaken: 'governedOperationRehearsal',
+      outcome: 'no_action_needed',
+      detail: `Token launch ${existing.id} already reached '${existing.state}' — rehearsal already complete for this beneficiary; resuming the same launch, never preparing a duplicate.`,
+      readiness: await reread(input),
+    };
+  }
+
+  if (existing && !REHEARSAL_ABANDONED_STATES.has(existing.state)) {
+    // 'draft' or 'preparing' — resume this SAME row's preflight rather than
+    // creating a second one for the same tenant+beneficiary.
+    const preflight = await preflightLaunch(input.admin, existing.id, input.tenantId, input.actorPersonaId);
+    return {
+      stepTaken: 'governedOperationRehearsal',
+      outcome: 'advanced',
+      detail:
+        `Resumed existing token-launch draft ${existing.id} and preflighted it (state: ${preflight.launch.state}, ` +
+        `terms: ${JSON.stringify(preflight.bankrTerms.raw)}) — rehearsal stops here; approval/submission/broadcast are separate, later, human-gated acts this orchestrator never performs.`,
+      readiness: await reread(input),
+    };
+  }
+
   if (!input.launchSpec) {
     return {
       stepTaken: 'governedOperationRehearsal',
@@ -417,9 +473,25 @@ async function advanceUseCaseZeroCore(input: AdvanceUseCaseZeroInput): Promise<O
   // optional leg still outstanding is named in `detail`, never silently
   // dropped.
   const outstandingOptional = readiness.legs.filter((l) => l.state !== 'established' && !l.required);
+  // Item 5 fallout: registryAsset/horizenRegistration are REQUIRED again but
+  // (deliberately) not in ACTIONABLE_STEPS — no Factor-owned mutation exists
+  // for them. Naming them separately from `outstandingOptional` here means
+  // the terminal message never claims "every required leg is established"
+  // while one of these is still genuinely outstanding.
+  const outstandingExternal = readiness.legs.filter(
+    (l) => l.state !== 'established' && l.required && !ACTIONABLE_STEPS.has(l.key as ActionableStep),
+  );
   const nextActionableLeg = readiness.legs.find((l) => l.required && l.state !== 'established' && ACTIONABLE_STEPS.has(l.key as ActionableStep));
 
   if (!nextActionableLeg) {
+    if (outstandingExternal.length > 0) {
+      return {
+        stepTaken: null,
+        outcome: 'no_action_needed',
+        detail: `Every Factor-actionable required leg is established. Still outstanding, required but externally-completed: ${outstandingExternal.map((l) => l.key).join(', ')} — these resolve as side effects of other processes, not this orchestrator.`,
+        readiness,
+      };
+    }
     return outstandingOptional.length > 0
       ? {
           stepTaken: null,

@@ -95,15 +95,23 @@ import { resolvePnlEvidenceForAgent } from '@/services/horizen/pnlEvidenceRead';
 import { getCurrentAssessment } from '@/services/aegis/aegisAssessmentService';
 import { getCase, listEvidenceForCase, listCaseEvents, type FactorCaseRow } from '@/services/factor/factorCaseService';
 import { assessIssuerReadiness } from '@/services/factor/bankrCapabilityHandlers';
-import { discoverEligibleFinancialServices } from '@/services/financialServices/discovery';
+import { findLatestTokenLaunchForBeneficiary } from '@/services/factor/tokenLaunchService';
+import { discoverFinancialServicesForConsumer } from '@/services/financialServices/discovery';
 import { FACTOR_CONFIDENTIAL_ADMISSION_EVIDENCE_KIND } from '@/services/factor/factorConfidentialWorkload';
 
 export type UseCaseZeroPath = 'bring_own_agent' | 'create_and_establish';
 
 export type ReadinessLegMode = 'simulated' | 'live' | 'n/a';
 
-/** See the file-level doc comment's "Leg state model" section. */
-export type ReadinessLegState = 'established' | 'missing' | 'blocked' | 'unreadable';
+/** See the file-level doc comment's "Leg state model" section.
+ *  'awaiting_external_action' (item 5, 2026-09-06 correction): a REQUIRED
+ *  fact this codebase has no Factor-owned handler to advance — it resolves
+ *  only as a side effect of a process outside Factor's control (registry
+ *  ingestion, the Horizen registration ceremony). Distinct from 'missing'
+ *  (which implies the next operator/orchestrator action CAN establish it)
+ *  and from 'blocked' (which implies a ratified refusal) — this state is
+ *  honest about there being no actor-to-act-on within this system at all. */
+export type ReadinessLegState = 'established' | 'missing' | 'blocked' | 'unreadable' | 'awaiting_external_action';
 
 export interface ReadinessLeg {
   /** Stable key, also the handler/action this leg's own next step maps to. */
@@ -150,6 +158,11 @@ export interface UseCaseZeroReadinessInput {
    *  "no case yet" — case-dependent legs report accordingly; this function
    *  NEVER creates one itself (read-only). */
   caseId?: string;
+  /** Item 5: an explicit operator-selected journey profile. Only
+   *  'financial_intelligence' makes the Pulse/P&L leg required; any other
+   *  value (including absent/undefined, the default) leaves it optional —
+   *  never inferred, never defaulted to "on". */
+  journeyProfile?: 'standard' | 'financial_intelligence';
 }
 
 export interface UseCaseZeroReadiness {
@@ -423,14 +436,18 @@ async function resolveDelegationLeg(personaId: string, agentRootDid: string | nu
 }
 
 async function resolveRegistryAssetLeg(aigentQubeId: string | null): Promise<ReadinessLeg> {
+  // Item 5 correction: restored as a REQUIRED, externally-completed stage.
+  // No Factor-owned handler ingests a registry_assets row — this leg can
+  // never be advanced by this orchestrator, only observed. That is exactly
+  // what 'awaiting_external_action' means (see the state's own doc comment)
+  // — never 'missing', which would wrongly imply a Factor action exists.
   if (!aigentQubeId) {
     return leg({
       key: 'registryAsset',
-      required: false,
       label: 'iQube Registry asset',
-      state: 'missing',
+      state: 'awaiting_external_action',
       mode: 'n/a',
-      reason: 'This agent has no aigentQubeId — no registry_assets row can exist for it yet.',
+      reason: 'This agent has no aigentQubeId — no registry_assets row can exist for it yet. Registry ingestion is an external process this orchestrator cannot perform.',
       source: 'services/registry/persistence.ts::getAsset',
     });
   }
@@ -438,18 +455,18 @@ async function resolveRegistryAssetLeg(aigentQubeId: string | null): Promise<Rea
     const asset = await getAsset(aigentQubeId);
     return leg({
       key: 'registryAsset',
-      required: false,
       label: 'iQube Registry asset',
-      state: asset ? 'established' : 'missing',
+      state: asset ? 'established' : 'awaiting_external_action',
       mode: asset ? 'live' : 'n/a',
-      reason: asset ? `Registry asset '${aigentQubeId}' exists.` : `No registry_assets row found for '${aigentQubeId}'.`,
+      reason: asset
+        ? `Registry asset '${aigentQubeId}' exists.`
+        : `No registry_assets row found for '${aigentQubeId}' — registry ingestion is an external process this orchestrator cannot perform.`,
       source: 'services/registry/persistence.ts::getAsset',
       evidenceRefs: asset ? [aigentQubeId] : [],
     });
   } catch (e) {
     return leg({
       key: 'registryAsset',
-      required: false,
       label: 'iQube Registry asset',
       state: 'unreadable',
       mode: 'n/a',
@@ -460,24 +477,26 @@ async function resolveRegistryAssetLeg(aigentQubeId: string | null): Promise<Rea
 }
 
 async function resolveHorizenLeg(admin: SupabaseClient, agent: RegistrableAgentConfig): Promise<ReadinessLeg> {
+  // Item 5 correction: restored as a REQUIRED, externally-completed stage —
+  // the Horizen/ERC-8004 registration ceremony is not a Factor-owned
+  // mutation; an outstanding registration is 'awaiting_external_action',
+  // never 'missing'.
   try {
     const state = await resolveAgentRegistrationState(admin, agent);
     return leg({
       key: 'horizenRegistration',
-      required: false,
       label: 'Horizen/ERC-8004 registration',
-      state: state.registered ? 'established' : 'missing',
+      state: state.registered ? 'established' : 'awaiting_external_action',
       mode: state.registered ? 'live' : 'n/a',
       reason: state.registered
         ? `Registered on ${state.network ?? 'an unspecified network'} (tokenId ${state.tokenId}).`
-        : `Not yet registered (source: ${state.source}; audit gaps: ${state.auditGaps.join('; ') || 'none stated'}).`,
+        : `Not yet registered (source: ${state.source}; audit gaps: ${state.auditGaps.join('; ') || 'none stated'}) — the Horizen registration ceremony is an external process this orchestrator cannot perform.`,
       source: 'services/horizen/agentRegistrationBinding.ts::resolveAgentRegistrationState',
       evidenceRefs: state.tokenId ? [state.tokenId] : state.evidenceRefs,
     });
   } catch (e) {
     return leg({
       key: 'horizenRegistration',
-      required: false,
       label: 'Horizen/ERC-8004 registration',
       state: 'unreadable',
       mode: 'n/a',
@@ -487,13 +506,18 @@ async function resolveHorizenLeg(admin: SupabaseClient, agent: RegistrableAgentC
   }
 }
 
-async function resolvePulsePnlLeg(runtimeAgentId: string): Promise<ReadinessLeg> {
+/** Item 5 correction: Pulse/P&L is required ONLY under an operator-selected
+ *  journey profile that declares financial-intelligence reporting in scope
+ *  — by default (no profile, or 'standard') it stays optional/observed-only,
+ *  exactly as before. This is never inferred or defaulted to "on" — the
+ *  operator must explicitly select the profile. */
+async function resolvePulsePnlLeg(runtimeAgentId: string, required: boolean): Promise<ReadinessLeg> {
   try {
     const evidence = await resolvePnlEvidenceForAgent(runtimeAgentId);
     const established = evidence.serviceRegistered && evidence.serviceVerified;
     return leg({
       key: 'pulsePnl',
-      required: false,
+      required,
       label: 'Pulse/P&L status',
       state: established ? 'established' : 'missing',
       mode: evidence.serviceRegistered ? 'live' : 'n/a',
@@ -503,7 +527,7 @@ async function resolvePulsePnlLeg(runtimeAgentId: string): Promise<ReadinessLeg>
   } catch (e) {
     return leg({
       key: 'pulsePnl',
-      required: false,
+      required,
       label: 'Pulse/P&L status',
       state: 'unreadable',
       mode: 'n/a',
@@ -739,17 +763,56 @@ async function resolveVelaLeg(admin: SupabaseClient, caseId: string | undefined,
   }
   try {
     const evidenceItems = await listEvidenceForCase(admin, caseId, tenantId);
-    const items = (evidenceItems ?? []) as Array<{ kind: string; status: string; payload?: { attestationMode?: string } }>;
+    const items = (evidenceItems ?? []) as Array<{
+      kind: string;
+      status: string;
+      payload?: {
+        disposition?: string;
+        attestationMode?: 'NO_ATTESTATION_LOCAL' | 'NITRO_ATTESTED' | string;
+        protocolExecutionVerified?: boolean;
+        teeAttestationVerified?: boolean;
+      };
+    }>;
     const projectionEvidence = items.find((i) => i.kind === FACTOR_CONFIDENTIAL_ADMISSION_EVIDENCE_KIND);
-    const established = projectionEvidence?.status === 'supplied';
+    if (!projectionEvidence || projectionEvidence.status !== 'supplied') {
+      return leg({
+        key: 'velaReadiness',
+        label: 'Vela confidential-compute readiness',
+        state: 'missing',
+        mode: 'n/a',
+        reason: 'No confidential-compute evidence recorded yet for this case.',
+        source: 'services/factor/factorConfidentialWorkload.ts (factor_evidence_items)',
+      });
+    }
+    // Item 1 fix (behavioral, not extension): a Vela leg is established ONLY
+    // when the recorded evidence's own disposition is ACCEPTABLE AND the
+    // verification state appropriate to its OWN declared attestationMode
+    // passed — never inferred from the other mode's boolean (see
+    // types/confidentialProjection.ts's own doc: the two verification
+    // booleans "are structurally separate and one may never be inferred
+    // from the other"). NO_ATTESTATION_LOCAL requires protocolExecution
+    // Verified; NITRO_ATTESTED requires teeAttestationVerified (a live TEE
+    // attestation implies the protocol executed, so this alone is
+    // sufficient for that mode). An UNACCEPTABLE/UNRESOLVED disposition, or
+    // a disposition whose mode-appropriate verification did not pass,
+    // remains 'blocked' — a real ratified refusal, not "not yet done".
+    const { disposition, attestationMode, protocolExecutionVerified, teeAttestationVerified } = projectionEvidence.payload ?? {};
+    const verificationPassed =
+      attestationMode === 'NITRO_ATTESTED'
+        ? teeAttestationVerified === true
+        : attestationMode === 'NO_ATTESTATION_LOCAL'
+          ? protocolExecutionVerified === true
+          : false;
+    const established = disposition === 'ACCEPTABLE' && verificationPassed;
+    const mode: ReadinessLegMode = attestationMode === 'NITRO_ATTESTED' ? 'live' : 'simulated';
     return leg({
       key: 'velaReadiness',
       label: 'Vela confidential-compute readiness',
-      state: established ? 'established' : 'missing',
-      mode: projectionEvidence ? 'simulated' : 'n/a',
-      reason: projectionEvidence
-        ? `Confidential admission-packet evaluation recorded (attestationMode: ${projectionEvidence.payload?.attestationMode ?? 'unknown'} — no live Vela deployment configured; this is Vela's deterministic test transport, never asserted as live).`
-        : 'No confidential-compute evidence recorded yet for this case.',
+      state: established ? 'established' : 'blocked',
+      mode,
+      reason: established
+        ? `Confidential admission-packet evaluation ACCEPTABLE and verified for attestationMode ${attestationMode} (protocolExecutionVerified=${protocolExecutionVerified}, teeAttestationVerified=${teeAttestationVerified}).`
+        : `Confidential admission-packet evaluation recorded but NOT established: disposition=${disposition ?? 'unknown'}, attestationMode=${attestationMode ?? 'unknown'}, protocolExecutionVerified=${protocolExecutionVerified}, teeAttestationVerified=${teeAttestationVerified} — a new evaluation, not automatic retry, is required to change this verdict.`,
       source: 'services/factor/factorConfidentialWorkload.ts (factor_evidence_items)',
     });
   } catch (e) {
@@ -821,18 +884,49 @@ async function resolveRuntimeActivationLeg(
     });
   }
   try {
-    const eligibleServices = await discoverEligibleFinancialServices(runtimeAgentId, admin, { actorPersonaId });
-    const established = eligibleServices.length > 0;
+    const discovered = await discoverFinancialServicesForConsumer(runtimeAgentId, admin, { actorPersonaId });
+    if (!discovered.ok) {
+      return leg({
+        key: 'runtimeActivation',
+        label: 'MoneyPenny runtime activation',
+        state: 'unreadable',
+        mode: 'n/a',
+        reason: `MoneyPenny discovery refused: ${discovered.error}`,
+        source: 'services/financialServices/discovery.ts::discoverFinancialServicesForConsumer',
+        evidenceRefs: [factorCase.case_id],
+      });
+    }
+    // Item 2 fix (behavioral, not extension): `discoverEligibleFinancialServices`
+    // discards `authority`/`readiness` and reports mere catalog `eligible`ness —
+    // per that module's own header, "a service can be eligible while still
+    // lacking current CONSEQUENTIAL authority". Runtime activation requires an
+    // execution-reachable (Runtime-class) service whose authority prerequisite
+    // is actually met AND whose derived runtime-readiness projection reports
+    // the system/eligibility/standing facts as ready — eligibility alone is
+    // insufficient. `confidentialExecution` is deliberately excluded here: it
+    // is the Vela leg's own concern (resolveVelaLeg, tracked as a separate
+    // readiness leg above) — folding it in here would make this leg circular
+    // with Vela's and permanently unsatisfiable pre-Vela-live for reasons this
+    // leg does not itself own.
+    const runtimeServices = discovered.services.filter((s) => s.definition.executionPolicy.executionReachable);
+    const qualified = runtimeServices.find((s) => {
+      if (!s.authority?.met || !s.readiness) return false;
+      const standingOk = s.readiness.standing === 'ready' || s.readiness.standing === 'not-required';
+      return s.readiness.systemReady === 'ready' && s.readiness.eligibility === 'ready' && standingOk;
+    });
+    const established = Boolean(qualified);
     return leg({
       key: 'runtimeActivation',
       label: 'MoneyPenny runtime activation',
       state: established ? 'established' : 'missing',
       mode: 'live',
       reason: established
-        ? `Case active AND MoneyPenny reports ${eligibleServices.length} eligible service(s): ${eligibleServices.map((s) => s.serviceId).join(', ')}.`
-        : 'Case state is active, but MoneyPenny reports zero eligible financial services for this agent — case-state activation alone is not proof of runtime admission.',
-      source: 'services/factor/factorCaseService.ts (case.state) + services/financialServices/discovery.ts::discoverEligibleFinancialServices',
-      evidenceRefs: [factorCase.case_id, ...eligibleServices.map((s) => s.serviceId)],
+        ? `Case active AND an execution-reachable Runtime service ('${qualified!.definition.serviceId}') reports satisfied authority and runtime readiness (systemReady=${qualified!.readiness!.systemReady}, eligibility=${qualified!.readiness!.eligibility}, standing=${qualified!.readiness!.standing}, authority=${qualified!.readiness!.authority}).`
+        : runtimeServices.length === 0
+          ? 'Case state is active, but MoneyPenny reports no execution-reachable Runtime service for this agent at all — case-state activation alone is not proof of runtime admission.'
+          : `Case state is active, but no execution-reachable Runtime service has both satisfied authority and satisfied runtime readiness yet: ${runtimeServices.map((s) => `${s.definition.serviceId} (authority=${s.authority?.state ?? 'n/a'}, readiness.eligibility=${s.readiness?.eligibility ?? 'n/a'}, readiness.standing=${s.readiness?.standing ?? 'n/a'})`).join('; ')}.`,
+      source: 'services/factor/factorCaseService.ts (case.state) + services/financialServices/discovery.ts::discoverFinancialServicesForConsumer',
+      evidenceRefs: [factorCase.case_id, ...(qualified ? [qualified.definition.serviceId] : [])],
     });
   } catch (e) {
     return leg({
@@ -841,29 +935,85 @@ async function resolveRuntimeActivationLeg(
       state: 'unreadable',
       mode: 'n/a',
       reason: `MoneyPenny service-eligibility read failed: ${e instanceof Error ? e.message : String(e)}`,
-      source: 'services/financialServices/discovery.ts::discoverEligibleFinancialServices',
+      source: 'services/financialServices/discovery.ts::discoverFinancialServicesForConsumer',
       evidenceRefs: [factorCase.case_id],
     });
   }
 }
 
-function resolveRehearsalLeg(factorCase: FactorCaseRow | null): ReadinessLeg {
+/** Mirrors useCaseZeroOrchestrator.ts's own REHEARSAL_COMPLETE_STATES — kept
+ *  as a second literal set (not imported) to avoid a projection->orchestrator
+ *  dependency; both lists are short and change only if the token-launch
+ *  state machine itself changes (tokenLaunchService.ts's own FORWARD_
+ *  TRANSITIONS), which would need reviewing here regardless. */
+const REHEARSAL_LEG_COMPLETE_STATES = new Set([
+  'preflighted', 'aegis_review_pending', 'revision_required', 'approval_pending',
+  'approved', 'submitting', 'submitted', 'confirmed',
+]);
+
+async function resolveRehearsalLeg(
+  admin: SupabaseClient,
+  tenantId: string,
+  runtimeAgentId: string | null,
+  factorCase: FactorCaseRow | null,
+): Promise<ReadinessLeg> {
   // No ordinary-transaction domain object exists anywhere in this codebase
   // (types/financialServices.ts's own boundary statement) — the only real
   // governed-financial-request object today is a token-launch draft
   // (services/factor/tokenLaunchService.ts). This leg reports that
   // boundary honestly rather than claiming a general rehearsal capability.
   const activated = factorCase?.state === 'active';
-  return leg({
-    key: 'governedOperationRehearsal',
-    label: 'Governed financial-operation rehearsal',
-    state: 'missing',
-    mode: 'n/a',
-    reason: activated
-      ? 'Runtime is activated. The only governed financial-request rehearsal available today is a Bankr token-launch preparation (no ordinary transfer/payment capability exists in this codebase) — run the Bankr readiness/preflight actions to rehearse.'
-      : 'Runtime activation must complete before a governed-operation rehearsal can be prepared.',
-    source: 'services/factor/tokenLaunchService.ts (capability boundary)',
-  });
+  if (!activated || !runtimeAgentId) {
+    return leg({
+      key: 'governedOperationRehearsal',
+      label: 'Governed financial-operation rehearsal',
+      state: 'missing',
+      mode: 'n/a',
+      reason: 'Runtime activation must complete before a governed-operation rehearsal can be prepared.',
+      source: 'services/factor/tokenLaunchService.ts (capability boundary)',
+    });
+  }
+  // Item 3 fix: this leg's OWN state now reflects the canonical token-launch
+  // aggregate directly — a preflighted-or-later launch for this tenant+
+  // beneficiary IS the established fact, never re-derived from Factor
+  // case-state alone. Item 4 fix: `mode` is DERIVED from the recorded Bankr
+  // terms' own `simulated` flag (bankrProviderAdapter.ts's real quote
+  // response), never hardcoded.
+  try {
+    const launch = await findLatestTokenLaunchForBeneficiary(admin, tenantId, runtimeAgentId);
+    if (launch && REHEARSAL_LEG_COMPLETE_STATES.has(launch.state)) {
+      const simulated = (launch.bankr_terms as { simulated?: boolean } | null)?.simulated !== false;
+      return leg({
+        key: 'governedOperationRehearsal',
+        label: 'Governed financial-operation rehearsal',
+        state: 'established',
+        mode: simulated ? 'simulated' : 'live',
+        reason: `Token launch ${launch.id} reached '${launch.state}' — a Bankr token-launch preflight/rehearsal has been completed for this beneficiary (${simulated ? 'simulated' : 'live'} Bankr terms).`,
+        source: 'services/factor/tokenLaunchService.ts::findLatestTokenLaunchForBeneficiary',
+        evidenceRefs: [launch.id],
+      });
+    }
+    return leg({
+      key: 'governedOperationRehearsal',
+      label: 'Governed financial-operation rehearsal',
+      state: 'missing',
+      mode: 'n/a',
+      reason: launch
+        ? `Existing token launch ${launch.id} is '${launch.state}' — not yet preflighted. The only governed financial-request rehearsal available today is a Bankr token-launch preparation (no ordinary transfer/payment capability exists in this codebase) — resume it via the Bankr readiness/preflight actions.`
+        : 'Runtime is activated. The only governed financial-request rehearsal available today is a Bankr token-launch preparation (no ordinary transfer/payment capability exists in this codebase) — run the Bankr readiness/preflight actions to rehearse.',
+      source: 'services/factor/tokenLaunchService.ts (capability boundary)',
+      evidenceRefs: launch ? [launch.id] : [],
+    });
+  } catch (e) {
+    return leg({
+      key: 'governedOperationRehearsal',
+      label: 'Governed financial-operation rehearsal',
+      state: 'unreadable',
+      mode: 'n/a',
+      reason: `Token-launch read failed: ${e instanceof Error ? e.message : String(e)}`,
+      source: 'services/factor/tokenLaunchService.ts::findLatestTokenLaunchForBeneficiary',
+    });
+  }
 }
 
 export async function projectUseCaseZeroReadiness(input: UseCaseZeroReadinessInput): Promise<UseCaseZeroReadiness> {
@@ -900,10 +1050,10 @@ export async function projectUseCaseZeroReadiness(input: UseCaseZeroReadinessInp
     await resolveRegistryAssetLeg(agent?.aigentQubeId ?? null),
     agent
       ? await resolveHorizenLeg(input.admin, agent)
-      : leg({ key: 'horizenRegistration', label: 'Horizen/ERC-8004 registration', state: 'missing', mode: 'n/a', reason: 'No registrable agent resolved yet.', source: 'services/horizen/agentRegistrationBinding.ts', required: false }),
+      : leg({ key: 'horizenRegistration', label: 'Horizen/ERC-8004 registration', state: 'awaiting_external_action', mode: 'n/a', reason: 'No registrable agent resolved yet.', source: 'services/horizen/agentRegistrationBinding.ts' }),
     runtimeAgentId
-      ? await resolvePulsePnlLeg(runtimeAgentId)
-      : leg({ key: 'pulsePnl', label: 'Pulse/P&L status', state: 'missing', mode: 'n/a', reason: 'No runtime agent id resolved yet.', source: 'services/horizen/pnlEvidenceRead.ts', required: false }),
+      ? await resolvePulsePnlLeg(runtimeAgentId, input.journeyProfile === 'financial_intelligence')
+      : leg({ key: 'pulsePnl', label: 'Pulse/P&L status', state: 'missing', mode: 'n/a', reason: 'No runtime agent id resolved yet.', source: 'services/horizen/pnlEvidenceRead.ts', required: input.journeyProfile === 'financial_intelligence' }),
     await resolveAegisLeg(input.admin, input.caseId),
     factorCaseUnreadable
       ? leg({ key: 'moneypennyAdmission', label: 'MoneyPenny admission', state: 'unreadable', mode: 'n/a', reason: 'Factor case read failed.', source: 'services/factor/factorCaseService.ts' })
@@ -913,7 +1063,7 @@ export async function projectUseCaseZeroReadiness(input: UseCaseZeroReadinessInp
       : leg({ key: 'bankrBinding', label: 'Bankr/provider binding', state: 'missing', mode: 'n/a', reason: 'No runtime agent id resolved yet.', source: 'services/financialServices/providers/providerWalletBinding.ts' }),
     await resolveVelaLeg(input.admin, input.caseId, input.tenantId),
     await resolveRuntimeActivationLeg(input.admin, input.actorPersonaId, runtimeAgentId, factorCase, admissionConditions),
-    resolveRehearsalLeg(factorCase),
+    await resolveRehearsalLeg(input.admin, input.tenantId, runtimeAgentId, factorCase),
   ];
 
   const completedSteps = legs.filter((l) => l.state === 'established').map((l) => l.key);

@@ -28,6 +28,7 @@ const STATE_TONE: Record<ReadinessLegState, "neutral" | "good" | "warn" | "bad" 
   missing: "neutral",
   blocked: "bad",
   unreadable: "warn",
+  awaiting_external_action: "info",
 };
 
 const STATE_LABEL: Record<ReadinessLegState, string> = {
@@ -35,6 +36,7 @@ const STATE_LABEL: Record<ReadinessLegState, string> = {
   missing: "Not yet",
   blocked: "Blocked",
   unreadable: "Unreadable",
+  awaiting_external_action: "Awaiting external action",
 };
 
 function ModeBadge({ mode }: { mode: ReadinessLegMode }) {
@@ -67,11 +69,17 @@ export function UseCaseZeroReadinessCapsule({ agentSlug, tenantId, presentation 
         <p className="text-xs text-slate-400">Choose how to start — both paths converge on the same readiness sequence.</p>
         <div className="flex flex-wrap gap-2">
           <BankrActionButton label="Bring my own agent" onClick={() => choosePath("bring_own_agent")} busy={loading} tone="primary" />
-          <BankrActionButton label="Create and establish an agent" onClick={() => choosePath("create_and_establish")} busy={loading} tone="primary" />
+          {/* Item 7 fix: "Create and establish an agent" executes IDENTICALLY
+              to "Bring my own agent" today (no RootDID-minting primitive
+              exists to actually create a new agent identity) — presenting it
+              as a second, distinct operational path was misleading. Disabled
+              and relabeled "Coming next" until a real create-path exists. */}
+          <BankrActionButton label="Create and establish an agent (Coming next)" onClick={() => {}} disabled tone="primary" />
         </div>
         <p className="text-[11px] text-amber-200/80">
-          Note: neither path creates a wholly new agent identity today — no RootDID-minting primitive exists yet. Both paths advance
-          an agent slug already known to the platform (e.g. moneypenny, nakamoto, kn0w1, factor) through the remaining readiness steps.
+          "Create and establish an agent" is not available yet — no RootDID-minting primitive exists to create a wholly new agent
+          identity. Use "Bring my own agent" to advance an agent slug already known to the platform (e.g. moneypenny, nakamoto, kn0w1,
+          factor) through the remaining readiness steps.
         </p>
         <BankrErrorNote message={error} />
       </BankrSection>
@@ -126,7 +134,14 @@ export function UseCaseZeroReadinessCapsule({ agentSlug, tenantId, presentation 
         </ul>
       )}
 
-      {readiness?.nextAction && readiness.presentlyActionableStep === "governedOperationRehearsal" && (
+      {readiness?.nextAction && readiness.presentlyActionableStep === "governedOperationRehearsal" && (() => {
+        // Item 4 fix: derive "simulated"/"live" from the Bankr adapter's own
+        // reported mode (the bankrBinding leg's `mode`, itself derived from
+        // assessIssuerReadiness's real adapter response — never a hardcoded
+        // literal here).
+        const bankrMode = readiness.legs.find((l) => l.key === "bankrBinding")?.mode ?? "n/a";
+        const modeWord = bankrMode === "live" ? "live" : "simulated";
+        return (
         <div className="flex flex-col gap-1.5 rounded-md border border-violet-800/50 bg-violet-500/5 p-2">
           <p className="text-xs text-violet-200">Next: {readiness.nextAction.label} — supply the launch spec (Factor invents none of this).</p>
           <label className="flex flex-col gap-1 text-xs text-slate-300">
@@ -165,7 +180,7 @@ export function UseCaseZeroReadinessCapsule({ agentSlug, tenantId, presentation 
             />
           </label>
           <BankrActionButton
-            label="Prepare + preflight (simulated — stops before approval)"
+            label={`Prepare + preflight (${modeWord} — stops before approval)`}
             onClick={() =>
               void advance({
                 chain: launchChain.trim(),
@@ -183,7 +198,8 @@ export function UseCaseZeroReadinessCapsule({ agentSlug, tenantId, presentation 
             funds move.
           </p>
         </div>
-      )}
+        );
+      })()}
       {readiness?.nextAction && readiness.presentlyActionableStep !== "governedOperationRehearsal" && (
         <div className="flex flex-col gap-1.5 rounded-md border border-violet-800/50 bg-violet-500/5 p-2">
           <p className="text-xs text-violet-200">Next: {readiness.nextAction.label}</p>
