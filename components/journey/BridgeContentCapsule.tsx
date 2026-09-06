@@ -79,6 +79,20 @@
  * positioned INSIDE the viewport's own top-right corner (conventional media
  * chrome, same position/treatment whether entering or exiting), which is
  * why the viewport container below gained `relative`.
+ *
+ * `renderCompanion` (2026-09-06, Bridge learning-stage convergence pass) —
+ * the right column was originally only ever a rail of card THUMBNAILS that
+ * switch the active viewport (View/Orient/Personify's own use). The Bridge
+ * learning stages (Discover/Learn/Explore) need the opposite: a right
+ * column that always shows its own content — the stage's
+ * `BridgeActivityGroup[]` rendered as stacked capsules
+ * (`BridgeActivityCompanionColumn`) — never exclusive, never switching the
+ * left viewport. `renderCompanion`, when supplied, takes over the right
+ * column in place of the rail-card buttons; it still occupies the exact
+ * same grid cell/stretch/fullscreen-scroll behavior, so a caller gets a
+ * scrollable "expandable modal area" for free without this shell knowing
+ * anything about activities, quizzes or lesson content — it stays a plain
+ * ReactNode slot, same discipline as `renderViewport`/`renderStrip`.
  */
 
 import React, { useEffect, useState } from 'react';
@@ -102,6 +116,10 @@ export interface BridgeContentCapsuleProps {
   onRailChange?: (id: string) => void;
   renderViewport: (activeRailId: string, opts: { fullscreen: boolean }) => React.ReactNode;
   renderStrip?: (activeRailId: string) => React.ReactNode;
+  /** See header comment — takes over the right column in place of rail-card
+   *  thumbnail buttons. Mutually exclusive in practice with a clickable
+   *  `railCards.length > 1`; when both are supplied, `renderCompanion` wins. */
+  renderCompanion?: () => React.ReactNode;
   allowFullscreen?: boolean;
   className?: string;
   /**
@@ -128,6 +146,7 @@ export function BridgeContentCapsule({
   onRailChange,
   renderViewport,
   renderStrip,
+  renderCompanion,
   allowFullscreen = true,
   className,
   viewportAspectRatio,
@@ -148,6 +167,7 @@ export function BridgeContentCapsule({
   if (!activeCard) return null;
 
   const ratio = viewportAspectRatio?.(activeCard.id);
+  const showRightColumn = railCards.length > 1 || Boolean(renderCompanion);
 
   const body = (
     <div
@@ -161,7 +181,7 @@ export function BridgeContentCapsule({
       // nothing left to scroll.
       className={`grid gap-3 ${fullscreen ? 'min-h-full' : ''} ${className ?? ''}`}
       style={{
-        gridTemplateColumns: railCards.length > 1 ? 'minmax(0, 3fr) minmax(200px, 1fr)' : 'minmax(0, 1fr)',
+        gridTemplateColumns: showRightColumn ? 'minmax(0, 3fr) minmax(200px, 1fr)' : 'minmax(0, 1fr)',
         gridTemplateRows: '1fr',
       }}
     >
@@ -222,42 +242,48 @@ export function BridgeContentCapsule({
           much taller, e.g. a portrait cover at full height, and relies on
           the outer portal's own overflow-y-auto below) dragging the rail's
           scroll position with it, or vice versa. */}
-      {railCards.length > 1 && (
+      {showRightColumn && (
         <div
           className={`flex min-h-0 flex-col gap-2 ${
-            fullscreen ? 'self-start max-h-[calc(100vh-2rem)] overflow-y-auto' : 'h-full'
+            fullscreen
+              ? 'self-start max-h-[calc(100vh-2rem)] overflow-y-auto'
+              : renderCompanion
+                ? 'h-full overflow-y-auto'
+                : 'h-full'
           }`}
         >
-          {railCards.map((card) => (
-            <button
-              key={card.id}
-              type="button"
-              onClick={() => setActive(card.id)}
-              aria-pressed={card.id === activeCard.id}
-              style={{
-                flexGrow: RAIL_ASPECT_WEIGHT[card.aspect ?? 'landscape'],
-                flexBasis: 0,
-                // Floor so cards keep a legible thumbnail size instead of
-                // flex-shrinking toward 0 before the rail's own scroll ever
-                // engages. Non-fullscreen is unaffected (undefined — the
-                // existing content-driven, no-scroll behavior).
-                minHeight: fullscreen ? '5.5rem' : undefined,
-              }}
-              className={`min-h-0 shrink-0 overflow-hidden rounded-lg border text-left transition ${
-                card.id === activeCard.id
-                  ? 'border-amber-400/50 ring-1 ring-amber-400/25'
-                  : 'border-white/[0.07] hover:border-white/20'
-              }`}
-            >
-              {card.renderThumb ? (
-                card.renderThumb()
-              ) : (
-                <div className="flex h-full items-center justify-center bg-slate-950/60 px-2 text-center text-[11px] text-slate-300">
-                  {card.label}
-                </div>
-              )}
-            </button>
-          ))}
+          {renderCompanion
+            ? renderCompanion()
+            : railCards.map((card) => (
+                <button
+                  key={card.id}
+                  type="button"
+                  onClick={() => setActive(card.id)}
+                  aria-pressed={card.id === activeCard.id}
+                  style={{
+                    flexGrow: RAIL_ASPECT_WEIGHT[card.aspect ?? 'landscape'],
+                    flexBasis: 0,
+                    // Floor so cards keep a legible thumbnail size instead of
+                    // flex-shrinking toward 0 before the rail's own scroll ever
+                    // engages. Non-fullscreen is unaffected (undefined — the
+                    // existing content-driven, no-scroll behavior).
+                    minHeight: fullscreen ? '5.5rem' : undefined,
+                  }}
+                  className={`min-h-0 shrink-0 overflow-hidden rounded-lg border text-left transition ${
+                    card.id === activeCard.id
+                      ? 'border-amber-400/50 ring-1 ring-amber-400/25'
+                      : 'border-white/[0.07] hover:border-white/20'
+                  }`}
+                >
+                  {card.renderThumb ? (
+                    card.renderThumb()
+                  ) : (
+                    <div className="flex h-full items-center justify-center bg-slate-950/60 px-2 text-center text-[11px] text-slate-300">
+                      {card.label}
+                    </div>
+                  )}
+                </button>
+              ))}
         </div>
       )}
     </div>

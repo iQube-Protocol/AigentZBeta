@@ -14,16 +14,34 @@
  * min/max widths and snap points") so the same capsule reads correctly
  * whether hosted in this Bridge's narrow rail, a wider MoneyPenny panel, or
  * a modal.
+ *
+ * `variant` (2026-09-06, Bridge-capsule-shell convergence pass): 'rail'
+ * (default) keeps the original fixed-width/shrink/snap sizing for a
+ * horizontal `BridgeActivityCarousel`. 'stacked' drops that sizing for a
+ * full-width vertical list — used when the SAME activity/capsule is
+ * embedded inside `BridgeContentCapsule`'s companion column (see
+ * `BridgeActivityCompanionColumn`) rather than a horizontal rail. Only the
+ * outer sizing/scroll-snap classes differ; the title/description/completion/
+ * content framing stays identical either way, so an activity never has two
+ * visual identities depending on where it's hosted.
  */
 
 import type { ReactNode } from 'react';
 import type { BridgeActivityDescriptor } from '@/services/journey/bridgeActivity';
 
-export function BridgeActivityCapsule({ activity }: { activity: BridgeActivityDescriptor }) {
+export function BridgeActivityCapsule({
+  activity,
+  variant = 'rail',
+}: {
+  activity: BridgeActivityDescriptor;
+  variant?: 'rail' | 'stacked';
+}) {
   return (
     <div
       data-activity-id={activity.id}
-      className="w-[min(88vw,22rem)] shrink-0 snap-start rounded-xl border border-white/10 bg-white/[0.02] p-3.5"
+      className={`rounded-xl border border-white/10 bg-white/[0.02] p-3.5 ${
+        variant === 'stacked' ? 'w-full' : 'w-[min(88vw,22rem)] shrink-0 snap-start'
+      }`}
     >
       <div className="mb-2 flex items-start justify-between gap-2">
         <div>

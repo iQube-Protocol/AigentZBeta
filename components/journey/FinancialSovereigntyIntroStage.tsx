@@ -6,22 +6,27 @@
  * (KNYTS passes accent="amber", CI passes accent="indigo") — ONE
  * implementation composed by both, never forked.
  *
- * Production learning pattern (2026-09-03, "lesson composition system" pass)
- * — each stage is now a locked split viewport:
- *   - LEFT: `BridgeMediaCarouselPane` (via `BridgeMediaInteractionSection`) —
- *     the placeholder video first, then the stage's REAL canonical
- *     infographic(s) (`services/journey/fsCanonicalMedia.ts`, resolved
- *     from `codex_media_assets` — the same production asset catalog
- *     KNYT/Qriptopian canonical plates already use). Spatially fixed; never
- *     scrolls, never disappears while the lesson is read.
- *   - RIGHT: the "Learning Rail" — intro copy plus `BridgeActivityGroupRail`,
- *     a stack of horizontally-scrollable `BridgeActivityCarousel` groups
- *     (`services/journey/bridgeActivity.ts`). Vertical position = progress
- *     through the lesson; horizontal position within a group = alternative
- *     activities at that lesson moment. Every activity capsule stays
- *     mounted for the group's lifetime (see BridgeActivityCarousel's own
- *     header), so scrolling never resets a slider, a selected answer, or an
- *     acknowledged concept.
+ * Bridge-capsule-shell convergence (2026-09-06) — Discover/Learn/Explore now
+ * render through the SAME `BridgeContentCapsule` shell used by CI View/
+ * Orient/Personify (converged per operator decision), rather than the
+ * standalone `BridgeMediaInteractionSection` two-column composer. The left
+ * media pane is UNCHANGED (`BridgeMediaCarouselPane`, still the placeholder
+ * video then the stage's real canonical infographic(s) from
+ * `services/journey/fsCanonicalMedia.ts`) — only where it's hosted changed,
+ * moving into the shell's `renderViewport` slot. The strip beneath it
+ * (`renderStrip`) now carries the stage's concise eyebrow/headline/lead/
+ * contextual-line copy — the same "concise message under the media" pattern
+ * the CI Bridge View stage already uses, reused here rather than re-invented.
+ * The right column is the shell's new `renderCompanion` slot (see
+ * `BridgeContentCapsule`'s own header comment): a scrollable "expandable
+ * modal area" holding the stage's `BridgeActivityGroup[]` rendered via
+ * `BridgeActivityCompanionColumn` — the SAME activity/capsule content model
+ * (`services/journey/bridgeActivity.ts`) the horizontal
+ * `BridgeActivityGroupRail`/`BridgeActivityCarousel` already used, just
+ * stacked vertically instead of scrolled horizontally. This is deliberately
+ * a hybrid, not a rebuild: the shell owns spatial/presentation state only
+ * (per its own HARD BOUNDARY), the activity model owns the actual learning
+ * content and its own component-local state, exactly as before.
  * EXPLORE additionally projects the REAL canonical Financial Services
  * catalogue (`services/financialServices/serviceCatalog.ts`) as its own
  * capability activity group — never a second, hand-authored service list.
@@ -62,9 +67,9 @@
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { ArrowRight } from 'lucide-react';
 import { type BridgeAccent } from '@/components/journey/BridgeMediaStage';
-import { BridgeMediaInteractionSection } from '@/components/journey/BridgeMediaInteractionSection';
-import type { BridgeMediaCarouselItem } from '@/components/journey/BridgeMediaCarouselPane';
-import { BridgeActivityGroupRail } from '@/components/journey/BridgeActivityGroupRail';
+import { BridgeContentCapsule } from '@/components/journey/BridgeContentCapsule';
+import { BridgeMediaCarouselPane, type BridgeMediaCarouselItem } from '@/components/journey/BridgeMediaCarouselPane';
+import { BridgeActivityCompanionColumn } from '@/components/journey/BridgeActivityGroupRail';
 import type { BridgeActivityGroup } from '@/services/journey/bridgeActivity';
 import { FinancialSovereigntyCheckGroup } from '@/components/journey/FinancialSovereigntyCheckGroup';
 import { FinancialSovereigntyCostExample } from '@/components/journey/FinancialSovereigntyCostExample';
@@ -111,6 +116,52 @@ const LEARN_INTERACTION_KIND = 'learn-concept-acknowledged';
 const EXPLORE_INTERACTION_KIND = 'moneypenny-capability-interacted';
 
 export type FinancialSovereigntyIntroStageKey = 'discover' | 'learn' | 'explore';
+
+/**
+ * FsBridgeCapsuleSection — the shared shell wiring for all three
+ * Discover/Learn/Explore stages (see file header, "Bridge-capsule-shell
+ * convergence"). One place composes `BridgeContentCapsule` so the three
+ * stages below never hand-roll three slightly different shell wirings.
+ */
+function FsBridgeCapsuleSection({
+  items,
+  emptyLabel,
+  eyebrow,
+  headline,
+  lead,
+  contextualLine,
+  groups,
+}: {
+  items: BridgeMediaCarouselItem[];
+  emptyLabel: string;
+  eyebrow: string;
+  headline: string;
+  lead: string;
+  contextualLine?: string;
+  groups: BridgeActivityGroup[];
+}) {
+  return (
+    <BridgeContentCapsule
+      railCards={[{ id: 'primary', label: 'Media' }]}
+      renderViewport={() => (
+        <BridgeMediaCarouselPane
+          items={items}
+          emptyLabel={emptyLabel}
+          heightClassName="h-[60vh] max-h-[70vh] min-h-[18rem] lg:h-full lg:max-h-none"
+        />
+      )}
+      renderStrip={() => (
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{eyebrow}</p>
+          <h2 className="mt-1 text-xl font-bold text-white sm:text-2xl">{headline}</h2>
+          <p className="mt-2 text-[13px] leading-[1.5] text-slate-300">{lead}</p>
+          {contextualLine && <p className="mt-2 text-xs text-slate-400">{contextualLine}</p>}
+        </div>
+      )}
+      renderCompanion={() => <BridgeActivityCompanionColumn groups={groups} />}
+    />
+  );
+}
 
 function selectStage(stageId: string, trigger?: 'stage-satisfaction-evidence-change') {
   try {
@@ -417,16 +468,15 @@ export function FinancialSovereigntyIntroStage({
     return (
       <div className="flex h-full min-h-0 flex-col p-4 sm:p-6">
         <div className="min-h-0 flex-1">
-          <BridgeMediaInteractionSection
+          <FsBridgeCapsuleSection
             items={items}
             emptyLabel="Infographic not yet published."
             eyebrow={copy.eyebrow}
             headline={copy.headline}
             lead={copy.paragraphs[0]}
-          >
-            {resolved.contextualLine && <p className="text-xs text-slate-400">{resolved.contextualLine}</p>}
-            <BridgeActivityGroupRail groups={groups} />
-          </BridgeMediaInteractionSection>
+            contextualLine={resolved.contextualLine}
+            groups={groups}
+          />
         </div>
         {continueFooter}
       </div>
@@ -507,16 +557,15 @@ export function FinancialSovereigntyIntroStage({
     return (
       <div className="flex h-full min-h-0 flex-col p-4 sm:p-6">
         <div className="min-h-0 flex-1">
-          <BridgeMediaInteractionSection
+          <FsBridgeCapsuleSection
             items={items}
             emptyLabel="Infographic not yet published."
             eyebrow={copy.eyebrow}
             headline={copy.headline}
             lead={copy.paragraphs[0]}
-          >
-            {resolved.contextualLine && <p className="text-xs text-slate-400">{resolved.contextualLine}</p>}
-            <BridgeActivityGroupRail groups={groups} />
-          </BridgeMediaInteractionSection>
+            contextualLine={resolved.contextualLine}
+            groups={groups}
+          />
         </div>
         {continueFooter}
       </div>
@@ -604,15 +653,14 @@ export function FinancialSovereigntyIntroStage({
   return (
     <div className="flex h-full min-h-0 flex-col p-4 sm:p-6">
       <div className="min-h-0 flex-1">
-        <BridgeMediaInteractionSection
+        <FsBridgeCapsuleSection
           items={learnItems}
           emptyLabel="Infographic not yet published."
           eyebrow={copy.eyebrow}
           headline={copy.headline}
           lead={copy.paragraphs[0]}
-        >
-          <BridgeActivityGroupRail groups={learnGroups} />
-        </BridgeMediaInteractionSection>
+          groups={learnGroups}
+        />
       </div>
       {continueFooter}
     </div>
