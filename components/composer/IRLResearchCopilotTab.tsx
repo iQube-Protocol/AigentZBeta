@@ -77,8 +77,9 @@ import type { ProgrammeRunResult, PendingGovernanceDecision } from "@/services/r
 // (GET /api/research/track2/[experimentId] -> loadTrack2ProgrammeState) —
 // reused here so the objective's state is visible on OPEN, before the
 // operator has run anything, rather than only after a POST /advance.
-import type { Track2Programme, Track2DeepLink } from "@/services/research/track2Programme";
+import { buildTrack2DeepLink, type Track2Programme, type Track2DeepLink } from "@/services/research/track2Programme";
 import { setPendingTrack2Stage } from "@/services/research/track2DeepLinkIntent";
+import { FreezeVP2InternalPilotAction } from "@/components/research/FreezeVP2InternalPilotAction";
 /**
  * The trimmed shape this card needs from
  * `GET /api/research/track2/[experimentId]/provenance-cohort` — deliberately
@@ -847,6 +848,17 @@ function ObjectiveCard({
           The run could not be started — {error}. Nothing was executed.
         </div>
       )}
+
+      {/*
+       * THE GOVERNED FREEZE ACT — rendered UNCONDITIONALLY here (never inside
+       * `{programme && (...)}` below), so a slow or failed Track 2 programme
+       * composition can never hide an independently-authorized freeze
+       * (operator ruling, 2026-09-06/07: "Track 2 is allowed to say science
+       * still has limitations. It is not allowed to hide a separately
+       * authorized lifecycle act."). The SAME component Track2ProgrammePanel
+       * renders — one implementation, never a second (inv.engineering.036/037).
+       */}
+      {objective.experimentId === "EXP-P1" && <FreezeVP2InternalPilotAction experimentId={objective.experimentId} />}
 
       {/* TRACK 2 — you are here. Real, live data (the SAME read-only projection
           Track2ProgrammePanel itself reads) that was previously visible only
@@ -2085,6 +2097,46 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
   }, [observe]);
 
   /**
+   * "Inspect Track 2" (2026-09-07 fix) — MUST open the Track 2 Programme
+   * surface, never the generic Experiment Lab default tab.
+   *
+   * BUG THIS REPLACES: this control used to call `goToExperimentLab`
+   * directly, which dispatches `codex:navigate-tab` WITHOUT first calling
+   * `setPendingTrack2Stage`. `InvariantExperimentLab` reads its initial tab
+   * as `initialTrack2Intent ? "track2" : "bundle"` — with no intent recorded,
+   * every "Inspect Track 2" click landed on `"bundle"` (EXP-001 Bundle
+   * Evaluation), a wholly unrelated experiment. `goToTrack2Stage` is the
+   * ONLY function that writes that intent (`setPendingTrack2Stage`,
+   * synchronously, before the tab-navigate dispatch) — so this control MUST
+   * always route through it, never through `goToExperimentLab`.
+   *
+   * Prefers the real pending decision's own deep-link (already resolved
+   * server-side); falls back to `buildTrack2DeepLink` against the durable
+   * `programmePreview` (survives navigate-away-and-back, unlike the
+   * ephemeral `run` state) at its current stage; falls back to Stage 1 only
+   * when NOTHING has ever loaded (a state that never reaches "Inspect Track
+   * 2" being clickable in practice, since the card that hosts it only
+   * renders once `programme` is non-null — see the `{programme && (...)}`
+   * guard around this button below).
+   */
+  const goToTrack2Overview = useCallback(
+    (experimentId: string) => {
+      if (pendingDecisionPreview?.deepLink) {
+        goToTrack2Stage(pendingDecisionPreview.deepLink);
+        return;
+      }
+      if (programmePreview) {
+        const stageId = programmePreview.currentStageId;
+        const stageLabel = programmePreview.stages.find((s) => s.id === stageId)?.label ?? stageId;
+        goToTrack2Stage(buildTrack2DeepLink(programmePreview.experimentId, stageId, stageLabel));
+        return;
+      }
+      goToTrack2Stage(buildTrack2DeepLink(experimentId, "discover-sources", "Discover Sources"));
+    },
+    [pendingDecisionPreview, programmePreview, goToTrack2Stage],
+  );
+
+  /**
    * "RUN UNTIL YOU NEED ME" — the objective's single control.
    *
    * MUST ride `personaFetch`: the advance route resolves the caller through the
@@ -2968,7 +3020,7 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
               running={programmeRunning}
               error={programmeError}
               onRun={() => void runProgramme(objective.experimentId)}
-              onOpenDetail={goToExperimentLab}
+              onOpenDetail={() => goToTrack2Overview(objective.experimentId)}
               onProceed={(decision) => void proceedToDecision(decision)}
               proceeding={proceeding}
               proceedError={proceedError}

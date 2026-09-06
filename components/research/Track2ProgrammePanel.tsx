@@ -35,6 +35,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, CheckCircle2, Circle, Loader2, Lock, RefreshCw, ShieldAlert } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
+import { FreezeVP2InternalPilotAction } from "@/components/research/FreezeVP2InternalPilotAction";
 import { settleTrack2DuplicateQueue } from "@/services/research/track2DuplicateQueueSettle";
 import { PROVENANCE_CLASSES } from "@/services/corpusScout/types";
 import { INVARIANT_EDGE_TYPES } from "@/types/invariants";
@@ -543,6 +544,19 @@ export function Track2ProgrammePanel({
             {error}
           </div>
         )}
+
+        {/*
+         * THE FREEZE ACT IS INDEPENDENT OF THE STAGE LIST ABOVE (operator
+         * ruling, 2026-09-06/07: "Track 2 is allowed to say science still has
+         * limitations. It is not allowed to hide a separately authorized
+         * lifecycle act."). Rendered UNCONDITIONALLY here — never inside
+         * `{programme && (...)}` below — so a slow or failed
+         * `loadTrack2ProgrammeState` composition (this panel's own `load()`,
+         * which CAN fail or time out independently of the artifact's own
+         * lifecycle) can never hide an already-authorized freeze. See
+         * FreezeVP2InternalPilotAction's own header for the full mechanism.
+         */}
+        {experimentId === "EXP-P1" && <FreezeVP2InternalPilotAction experimentId={experimentId} onFrozen={() => void load()} />}
 
         {programme && (
           <>
@@ -1233,45 +1247,42 @@ export function Track2ProgrammePanel({
                            * status derivation) — never re-derived here.
                            */
                           if (s.status === "complete") {
+                            // EXP-P1's frozen summary + next governed action is now
+                            // owned entirely by the unconditional
+                            // FreezeVP2InternalPilotAction rendered near the top of
+                            // this panel (independent of this stage-list load) —
+                            // rendering FrozenSummary's OWN "Publish as Canonical"
+                            // text here too would contradict it (2026-09-07).
+                            if (experimentId === "EXP-P1") return null;
                             return <FrozenSummary experimentId={experimentId} />;
                           }
                           const readinessStage = programme.stages.find((st) => st.id === "run-readiness");
                           if (readinessStage && readinessStage.status !== "complete") {
+                            // The internal-pilot freeze act (when EXP-P1/crystal-vP2 is
+                            // eligible) is NOT rendered here — it is a governed act
+                            // independent of this stage's own readiness gate, and is
+                            // rendered ONCE, unconditionally, near the top of this panel
+                            // (see FreezeVP2InternalPilotAction below) so a slow or
+                            // failed `programme` load can never hide it (operator
+                            // ruling, 2026-09-06/07: "Track 2 is allowed to say science
+                            // still has limitations. It is not allowed to hide a
+                            // separately authorized lifecycle act.").
                             return (
-                              <>
-                                <div className="mt-2 flex items-center justify-between rounded border border-slate-800 bg-slate-900/40 p-2 text-[11px] text-slate-400">
-                                  <span>
-                                    Waiting for readiness:{" "}
-                                    {readiness ? `${readiness.checks.filter((c) => c.passed).length}/${readiness.checks.length}` : "…"}
-                                  </span>
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      document.getElementById("track2-stage-run-readiness")?.scrollIntoView({ behavior: "smooth", block: "center" })
-                                    }
-                                    className="text-emerald-300 underline decoration-emerald-700 hover:text-emerald-200"
-                                  >
-                                    Return to unresolved checks
-                                  </button>
-                                </div>
-                                {/*
-                                 * Exception Isolation: the confirmatory freeze above
-                                 * stays correctly blocked while readiness is incomplete
-                                 * — this is a DIFFERENT, explicitly-authorized, non-
-                                 * confirmatory act and must not share that gate
-                                 * (operator ruling, 2026-09-06, "Frozen generations are
-                                 * immutable; Crystal lineages are evolutionary").
-                                 * EXP-P1/crystal-vP2 only — a narrow, named governed
-                                 * act, never a generic mechanism.
-                                 */}
-                                {experimentId === "EXP-P1" && (
-                                  <FreezeVP2InternalPilotAction
-                                    experimentId={experimentId}
-                                    readiness={readiness}
-                                    onDone={() => void reloadAndAdvance()}
-                                  />
-                                )}
-                              </>
+                              <div className="mt-2 flex items-center justify-between rounded border border-slate-800 bg-slate-900/40 p-2 text-[11px] text-slate-400">
+                                <span>
+                                  Waiting for readiness:{" "}
+                                  {readiness ? `${readiness.checks.filter((c) => c.passed).length}/${readiness.checks.length}` : "…"}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    document.getElementById("track2-stage-run-readiness")?.scrollIntoView({ behavior: "smooth", block: "center" })
+                                  }
+                                  className="text-emerald-300 underline decoration-emerald-700 hover:text-emerald-200"
+                                >
+                                  Return to unresolved checks
+                                </button>
+                              </div>
                             );
                           }
                           return (
@@ -4458,246 +4469,6 @@ function FreezeControl({
           <span className="font-mono">{frozen.receiptId ?? "—"}</span>. Publication as canonical is a separate
           act and is out of scope for EXP-P1.
         </div>
-      )}
-    </div>
-  );
-}
-
-/**
- * "Freeze Crystal vP2 for internal EXP-P1 run" — the internal-pilot governed
- * act, exposed as its own one-click action (operator ruling, 2026-09-06:
- * "Frozen generations are immutable; Crystal lineages are evolutionary").
- *
- * Rendered ALONGSIDE the "Waiting for readiness" notice on the freeze stage,
- * never instead of it — the CONFIRMATORY freeze stays correctly blocked
- * while `derivation-headroom`/`boundary-coverage` fail; this is a different,
- * explicitly-authorized, non-confirmatory act that must not share that gate
- * (Exception Isolation — an unsafe/incomplete act is blocked, a different,
- * explicitly-authorized one is not withheld because the first one is).
- *
- * Nothing is typed in by the operator:
- * - `signedBy`: the signed-in admin's own T2-safe reference, resolved from
- *   `/api/wallet/active-persona` (which persona) + `/api/wallet/identity/
- *   references` (that persona's own `publicRef`) — never a free-text field.
- * - `contentHash` + the ratified boundary: read from the same freeze-preview
- *   package the generic ceremony (`FreezeControl`) uses — never pasted in.
- * - `scientificDeviations`: derived from the LIVE failing scientific-
- *   readiness checks in `readiness` (the SAME report already rendered
- *   elsewhere on this stage) — never hand-typed check names. If the corpus
- *   changes and a check starts passing, it stops being offered as a
- *   deviation; the server refuses an under- or over-claim by name regardless.
- * - `freezeRationale` / each deviation's rationale: the operator's own
- *   already-ratified verbatim text, never re-typed.
- *
- * ONE explicit operator confirmation: everything above is fetched and
- * DISPLAYED for review before any write; the single "Confirm" button below
- * is the only request this component ever POSTs. After success, the next
- * governed action the server names (`nextGovernedAction`) is displayed —
- * never auto-invoked. No execution-run runner exists in this codebase yet;
- * building one is a separate, larger change.
- */
-function FreezeVP2InternalPilotAction({
-  experimentId,
-  readiness,
-  onDone,
-}: {
-  experimentId: string;
-  readiness: ReadinessReport | null;
-  onDone: () => void;
-}) {
-  const crystalId = `${experimentId}/crystal-vP2`;
-  const FREEZE_RATIONALE =
-    "Crystal vP2 is frozen as the immutable substrate for an internal EXP-P1 experimental run. It contains 63 externally grounded, validated and distinct invariants and satisfies the registered selection-space requirement. Its measured limitations in derivational structure and declared-boundary coverage are preserved as properties of this generation. Findings from the internal run may motivate corpus expansion in a successor Crystal generation; vP2 itself will remain immutable.";
-
-  const failingChecks = useMemo(
-    () => (readiness?.checks ?? []).filter((c) => c.tier === "scientific-readiness" && !c.passed),
-    [readiness],
-  );
-
-  const [loading, setLoading] = useState(true);
-  const [prepErr, setPrepErr] = useState<string | null>(null);
-  const [operatorRef, setOperatorRef] = useState<string | null>(null);
-  const [contentHash, setContentHash] = useState<string | null>(null);
-  const [boundary, setBoundary] = useState<RatifiedBoundary | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-  const [frozen, setFrozen] = useState<{
-    receiptId: string | null;
-    nextGovernedAction: { label: string; detail: string } | null;
-  } | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      setPrepErr(null);
-      try {
-        // Who is signing — resolved, never typed. `/api/wallet/active-persona`
-        // names WHICH persona is active; `/api/wallet/identity/references`
-        // carries that persona's own T2-safe `publicRef` in its inventory.
-        const activeRes = await personaFetch("/api/wallet/active-persona", { cache: "no-store" });
-        const activeBody = await activeRes.json().catch(() => null);
-        const activePersonaId = activeBody?.personaId as string | undefined;
-        if (!activePersonaId) throw new Error("could not resolve the signed-in admin's active persona");
-
-        const refsRes = await personaFetch("/api/wallet/identity/references", { cache: "no-store" });
-        const refsBody = await refsRes.json().catch(() => null);
-        const personas = Array.isArray(refsBody?.personas) ? refsBody.personas : [];
-        const ownRef = personas.find((p: { personaId?: string }) => p?.personaId === activePersonaId)?.publicRef as
-          | string
-          | undefined;
-        if (!ownRef) throw new Error("could not resolve the signed-in admin's own T2-safe reference");
-        if (cancelled) return;
-        setOperatorRef(ownRef);
-
-        // contentHash + the ratified boundary — the same package the generic
-        // ceremony (FreezeControl) builds via freeze-preview. Its own
-        // execution/preconditions verdict is deliberately ignored here: that
-        // verdict is confirmatory-only and always blocks while readiness
-        // fails, which is exactly the case this internal-pilot act exists for.
-        const previewRes = await personaFetch(
-          `/api/research/crystal/${encodeURIComponent(experimentId)}/freeze-preview`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              operatorRef: ownRef,
-              freezeRationale: FREEZE_RATIONALE,
-              ratifiedAt: new Date().toISOString(),
-            }),
-          },
-        );
-        const previewBody = await previewRes.json().catch(() => null);
-        if (!previewBody?.ok) {
-          throw new Error(previewBody?.error || `could not build the freeze package (HTTP ${previewRes.status})`);
-        }
-        if (cancelled) return;
-        setContentHash((previewBody.package as { contentHash: string }).contentHash);
-        setBoundary(previewBody.ratifiedBoundary as RatifiedBoundary);
-      } catch (e) {
-        if (!cancelled) setPrepErr(e instanceof Error ? e.message : "could not prepare the freeze act");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [experimentId]);
-
-  const confirm = useCallback(async () => {
-    if (!operatorRef || !contentHash || failingChecks.length === 0) return;
-    setBusy(true);
-    setErr(null);
-    try {
-      const res = await personaFetch(`/api/research/crystal/${encodeURIComponent(experimentId)}/freeze`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "freeze",
-          crystalId,
-          confirm: true,
-          contentHash,
-          signedBy: [operatorRef],
-          freezeRationale: FREEZE_RATIONALE,
-          boundaryAcknowledged: true,
-          executionDesignation: "internal-pilot",
-          scientificDeviations: failingChecks.map((c) => ({ checkName: c.name, rationale: FREEZE_RATIONALE })),
-        }),
-      });
-      const d = await res.json().catch(() => null);
-      if (!d?.requestSucceeded) {
-        throw new Error(
-          [d?.error, d?.currentContentHash ? `current: ${d.currentContentHash}` : null].filter(Boolean).join(" — ") ||
-            `the freeze was refused (HTTP ${res.status})`,
-        );
-      }
-      setFrozen({
-        receiptId: (d.receiptId as string | null) ?? null,
-        nextGovernedAction: (d.nextGovernedAction as { label: string; detail: string } | null) ?? null,
-      });
-      onDone();
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "the freeze was refused");
-    } finally {
-      setBusy(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [operatorRef, contentHash, failingChecks, experimentId, crystalId]);
-
-  if (frozen) {
-    return (
-      <div className="mt-2 space-y-1.5 rounded border border-emerald-900/60 bg-emerald-950/20 p-2 text-[11px] text-emerald-100">
-        <div className="flex items-center gap-1.5 font-medium text-emerald-200">
-          <Lock className="h-3.5 w-3.5" /> Frozen — internal/pilot. Receipt{" "}
-          <span className="font-mono">{frozen.receiptId ?? "—"}</span>
-        </div>
-        {frozen.nextGovernedAction && (
-          <div className="rounded border border-slate-800 bg-slate-950/60 p-2 text-slate-300">
-            <span className="font-medium text-slate-200">Next governed action:</span> {frozen.nextGovernedAction.label}
-            <div className="mt-1 text-slate-500">{frozen.nextGovernedAction.detail}</div>
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  return (
-    <div className="mt-2 space-y-2 rounded border border-violet-900/50 bg-violet-950/10 p-2 text-[11px]">
-      <div className="font-medium text-violet-200">Freeze Crystal vP2 for internal EXP-P1 run</div>
-      <div className="text-slate-400">
-        An explicit, operator-authorized internal/pilot freeze — never a confirmatory result. The measured
-        scientific-readiness limitations below are preserved exactly as observed, never marked passed.
-      </div>
-
-      {loading && (
-        <div className="flex items-center gap-2 text-slate-500">
-          <Loader2 className="h-3 w-3 animate-spin" /> Preparing the freeze package…
-        </div>
-      )}
-      {prepErr && <div className="rounded border border-rose-500/30 bg-rose-500/10 p-1.5 text-rose-200">{prepErr}</div>}
-
-      {!loading && !prepErr && (
-        <>
-          <ul className="space-y-0.5">
-            {failingChecks.length === 0 && (
-              <li className="text-amber-200">
-                No currently-failing scientific-readiness check remains — an internal-pilot designation has
-                nothing to deviate over; use the confirmatory freeze once readiness completes.
-              </li>
-            )}
-            {failingChecks.map((c) => (
-              <li key={c.name} className="text-amber-200">
-                ○ {c.name} — {c.detail}
-              </li>
-            ))}
-          </ul>
-
-          <div className="rounded border border-slate-800 bg-slate-950 p-2 text-slate-300">{FREEZE_RATIONALE}</div>
-
-          {boundary && (
-            <div className="rounded border border-slate-700 bg-slate-950 p-2 text-slate-500">
-              Ratified domain boundary — <span className="text-slate-300">{boundary.boundary}</span>
-            </div>
-          )}
-
-          <div className="text-slate-500">
-            Signed by <span className="font-mono text-slate-300">{operatorRef}</span> · content commitment{" "}
-            <span className="font-mono text-slate-300">{contentHash ? `${contentHash.slice(0, 24)}…` : "—"}</span>
-          </div>
-
-          {err && <div className="rounded border border-rose-500/30 bg-rose-500/10 p-1.5 text-rose-200">{err}</div>}
-
-          <button
-            onClick={() => void confirm()}
-            disabled={busy || !operatorRef || !contentHash || failingChecks.length === 0}
-            className="flex items-center gap-1 rounded border border-violet-800 bg-violet-900/30 px-2.5 py-1 text-violet-200 disabled:opacity-50"
-          >
-            {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Lock className="h-3 w-3" />} Confirm: Freeze
-            Crystal vP2 for internal EXP-P1 run
-          </button>
-        </>
       )}
     </div>
   );

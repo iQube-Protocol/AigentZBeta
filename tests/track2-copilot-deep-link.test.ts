@@ -187,11 +187,49 @@ describe('Research Copilot — the pending decision survives navigate-away-and-b
     expect(fnBody).toMatch(/tab: deepLink\.surfaceRef\.cartridgeTab/);
   });
 
-  it('"Inspect Track 2" and the exceptions overflow link remain generic — only the pending-decision CTA deep-links', () => {
+  it('"Inspect Track 2" resolves to Track 2 Programme / EXP-P1 — never the generic Experiment Lab default (EXP-001 Bundle Evaluation) (2026-09-07 fix)', () => {
+    /*
+     * THE DEFECT THIS REPLACES: "Inspect Track 2" used to call
+     * `goToExperimentLab` directly, which dispatches `codex:navigate-tab`
+     * WITHOUT first calling `setPendingTrack2Stage`. `InvariantExperimentLab`
+     * reads its initial tab as `initialTrack2Intent ? "track2" : "bundle"` —
+     * with no intent recorded, every click landed on `"bundle"` (EXP-001
+     * Bundle Evaluation), a wholly unrelated experiment. The PRIOR version of
+     * this very test asserted `onOpenDetail={goToExperimentLab}` as the
+     * correct, intended wiring — a canary that encoded the defect instead of
+     * detecting it (Resolution -> Invariant Loop trigger 3). It is corrected
+     * here to assert the fix instead.
+     */
     const src = stripComments(readSource(COPILOT));
-    // Both still ride the pre-existing, unmodified generic handler.
+    // The button itself is unchanged — it still rides the generic prop name.
     expect(src).toMatch(/onClick=\{onOpenDetail\}/);
-    expect(src).toMatch(/onOpenDetail=\{goToExperimentLab\}/);
+    // But the prop is now wired to a dedicated callback that ALWAYS routes
+    // through goToTrack2Stage (which writes the deep-link intent) — never
+    // directly to goToExperimentLab, which writes no intent at all.
+    expect(src).toMatch(/onOpenDetail=\{\(\) => goToTrack2Overview\(objective\.experimentId\)\}/);
+    expect(src).not.toMatch(/onOpenDetail=\{goToExperimentLab\}/);
+  });
+
+  it('goToTrack2Overview always resolves through goToTrack2Stage — the ONE function that writes the deep-link intent before navigating — and never falls back to goToExperimentLab', () => {
+    const src = stripComments(readSource(COPILOT));
+    const fnStart = src.indexOf('const goToTrack2Overview = useCallback');
+    const fnEnd = src.indexOf('[pendingDecisionPreview, programmePreview, goToTrack2Stage],', fnStart);
+    expect(fnStart).toBeGreaterThan(-1);
+    expect(fnEnd).toBeGreaterThan(fnStart);
+    const fnBody = src.slice(fnStart, fnEnd);
+    // Every branch calls goToTrack2Stage; none calls goToExperimentLab.
+    expect((fnBody.match(/goToTrack2Stage\(/g) ?? []).length).toBeGreaterThanOrEqual(3);
+    expect(fnBody).not.toMatch(/goToExperimentLab/);
+    // Prefers the real, server-resolved pending decision's own deep-link —
+    // never reconstructs one when a genuine gate is already open.
+    expect(fnBody).toMatch(/pendingDecisionPreview\?\.deepLink/);
+    // Falls back to the durable programmePreview's OWN experimentId and
+    // current stage — never a hardcoded 'EXP-P1' or the first lab experiment.
+    expect(fnBody).toMatch(/buildTrack2DeepLink\(programmePreview\.experimentId, stageId, stageLabel\)/);
+    // The last-resort fallback (nothing has ever loaded) still names Track 2
+    // explicitly via the caller-supplied experimentId — never the lab's
+    // generic/first-experiment default.
+    expect(fnBody).toMatch(/buildTrack2DeepLink\(experimentId, "discover-sources", "Discover Sources"\)/);
   });
 
   it('the ObjectiveCard render call site threads both the preview and the proceed sequence', () => {
