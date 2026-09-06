@@ -20,6 +20,7 @@ const mocks = vi.hoisted(() => ({
   listEvidenceForCase: vi.fn(),
   listCaseEvents: vi.fn(),
   assessIssuerReadiness: vi.fn(),
+  discoverEligibleFinancialServices: vi.fn(),
 }));
 
 vi.mock('@/services/horizen/registrableAgents', () => ({
@@ -61,6 +62,9 @@ vi.mock('@/services/factor/bankrCapabilityHandlers', () => ({
 vi.mock('@/services/factor/factorConfidentialWorkload', () => ({
   FACTOR_CONFIDENTIAL_ADMISSION_EVIDENCE_KIND: 'confidential_admission_projection',
 }));
+vi.mock('@/services/financialServices/discovery', () => ({
+  discoverEligibleFinancialServices: mocks.discoverEligibleFinancialServices,
+}));
 
 import { projectUseCaseZeroReadiness } from '@/services/factor/useCaseZeroReadinessProjection';
 
@@ -94,6 +98,7 @@ beforeEach(() => {
   mocks.getCase.mockResolvedValue(null);
   mocks.listEvidenceForCase.mockResolvedValue([]);
   mocks.listCaseEvents.mockResolvedValue([]);
+  mocks.discoverEligibleFinancialServices.mockResolvedValue([]);
   mocks.assessIssuerReadiness.mockResolvedValue({
     beneficiaryAgentRuntimeId: 'aigent-factor',
     bankrConfigured: false,
@@ -298,5 +303,83 @@ describe('correction 6 — action truthfulness: entry actions are assess-readine
     const handlers = await import('@/services/factor/useCaseZeroCapabilityHandlers');
     expect(typeof handlers.assessBringOwnAgentReadiness).toBe('function');
     expect(typeof handlers.assessCreateAndEstablishReadiness).toBe('function');
+  });
+});
+
+describe('follow-up correction — required vs optional dependency semantics', () => {
+  it('registryAsset/horizenRegistration/pulsePnl are marked required:false; every other leg defaults required:true', async () => {
+    const result = await projectUseCaseZeroReadiness(BASE_INPUT);
+    for (const key of ['registryAsset', 'horizenRegistration', 'pulsePnl']) {
+      expect(findLeg(result.legs, key).required).toBe(false);
+    }
+    for (const key of ['agentShell', 'ownerWallet', 'settlementWallet', 'passport', 'delegationAuthority', 'aegisAssessment', 'moneypennyAdmission', 'bankrBinding', 'velaReadiness', 'runtimeActivation', 'governedOperationRehearsal']) {
+      expect(findLeg(result.legs, key).required).toBe(true);
+    }
+  });
+
+  it('requiredStepsComplete and presentlyActionableStep never block on an outstanding OPTIONAL leg alone', async () => {
+    // Every required leg established (agentShell via allowlist, wallets,
+    // passport issued, delegation granted, aegis admissible, admission
+    // admitted, bankr ready, vela evidence present, runtime active with an
+    // eligible service, rehearsal has no operator-supplied launchSpec so it
+    // stays 'missing' — the one genuinely outstanding REQUIRED leg here).
+    mocks.getOwnerWalletAddress.mockResolvedValue('0xOWNER');
+    mocks.getBinding.mockResolvedValue({ address: '0xSETTLE', status: 'active' });
+    mocks.getPassportRecordStatus.mockResolvedValue([{ passportId: 'pass-1', passportClass: 'agent_participant', citizenStatus: null, participantStatus: 'approved', issuedAt: '2026-09-01T00:00:00Z' }]);
+    mocks.readActiveGrantForAgent.mockResolvedValue({ grant_id: 'grant-1' });
+    mocks.getCase.mockResolvedValue({ case_id: 'case-1', state: 'active', tenant_id: 'tenant-1', authority_chain_id: null, candidate_agent_root_did: 'did:example:agent-1' });
+    mocks.getCurrentAssessment.mockResolvedValue({ assessment_id: 'assess-1', state: 'ratified', decision: 'admissible', conditions: [] });
+    mocks.assessIssuerReadiness.mockResolvedValue({
+      beneficiaryAgentRuntimeId: 'aigent-factor', bankrConfigured: true, bankrMode: 'live',
+      hasProviderWalletBinding: true, providerWalletBinding: { id: 'b1', status: 'active' },
+      tokenLaunchEnabled: true, ready: true, blockers: [],
+    });
+    mocks.listEvidenceForCase.mockResolvedValue([{ kind: 'confidential_admission_projection', status: 'supplied', payload: { attestationMode: 'NO_ATTESTATION_LOCAL' } }]);
+    mocks.discoverEligibleFinancialServices.mockResolvedValue([{ serviceId: 'moneypenny-runtime' }]);
+    // registryAsset/horizenRegistration/pulsePnl left at their default
+    // (unestablished, optional) — must never block the result.
+
+    const result = await projectUseCaseZeroReadiness({ ...BASE_INPUT, caseId: 'case-1' });
+    expect(findLeg(result.legs, 'registryAsset').state).not.toBe('established');
+    expect(findLeg(result.legs, 'horizenRegistration').state).not.toBe('established');
+    expect(findLeg(result.legs, 'pulsePnl').state).not.toBe('established');
+    // The only outstanding REQUIRED leg is the rehearsal (no launchSpec
+    // supplied to this read-only projection) — optional legs never surface
+    // as the blocker.
+    expect(result.presentlyActionableStep).toBe('governedOperationRehearsal');
+    expect(result.requiredStepsComplete).toBe(false);
+  });
+});
+
+describe('follow-up correction — Vela confidential inputs are case-derived, not hardcoded', () => {
+  it('the orchestrator never passes the literal hardcoded pair readinessScore:1/policyThreshold:1', async () => {
+    // Structural proof: useCaseZeroOrchestrator.ts computes readinessScore/
+    // policyThreshold from the readiness projection's own required-leg
+    // counts (varies per case) rather than a fixed literal — asserted by
+    // reading the source rather than re-deriving the exact runtime values
+    // here (already exercised behaviorally in
+    // tests/use-case-zero-orchestrator.test.ts's Vela step).
+    const fs = await import('node:fs');
+    const src = fs.readFileSync(new URL('../services/factor/useCaseZeroOrchestrator.ts', import.meta.url), 'utf8');
+    expect(src).not.toMatch(/readinessScore:\s*1,\s*\n\s*policyThreshold:\s*1,/);
+    expect(src).toMatch(/readinessScore,\s*\n\s*policyThreshold,/);
+  });
+});
+
+describe('follow-up correction — MoneyPenny runtime activation requires real eligibility, not just case.state', () => {
+  it('case.state === "active" alone (zero eligible MoneyPenny services) is "missing", never "established"', async () => {
+    mocks.getCase.mockResolvedValue({ case_id: 'case-1', state: 'active', tenant_id: 'tenant-1', authority_chain_id: null, candidate_agent_root_did: null });
+    mocks.discoverEligibleFinancialServices.mockResolvedValue([]);
+    const result = await projectUseCaseZeroReadiness({ ...BASE_INPUT, caseId: 'case-1' });
+    const activation = findLeg(result.legs, 'runtimeActivation');
+    expect(activation.state).toBe('missing');
+    expect(activation.reason.toLowerCase()).toMatch(/zero eligible/);
+  });
+
+  it('case.state === "active" WITH at least one eligible MoneyPenny service is "established"', async () => {
+    mocks.getCase.mockResolvedValue({ case_id: 'case-1', state: 'active', tenant_id: 'tenant-1', authority_chain_id: null, candidate_agent_root_did: null });
+    mocks.discoverEligibleFinancialServices.mockResolvedValue([{ serviceId: 'moneypenny-runtime' }]);
+    const result = await projectUseCaseZeroReadiness({ ...BASE_INPUT, caseId: 'case-1' });
+    expect(findLeg(result.legs, 'runtimeActivation').state).toBe('established');
   });
 });

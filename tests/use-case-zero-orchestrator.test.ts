@@ -28,10 +28,12 @@ const mocks = vi.hoisted(() => ({
   transitionCaseState: vi.fn(),
   listEvidenceForCase: vi.fn(),
   listCaseEvents: vi.fn(),
+  discoverEligibleFinancialServices: vi.fn(),
   assessIssuerReadiness: vi.fn(),
   inspectOrProvisionProviderBinding: vi.fn(),
+  prepareLaunchProposal: vi.fn(),
+  preflightLaunch: vi.fn(),
   runAdmissionPacketPolicyEvaluation: vi.fn(),
-  createDraft: vi.fn(),
   establishDirectChain: vi.fn(),
   validateChainForAction: vi.fn(),
   createActivityReceipt: vi.fn(),
@@ -79,12 +81,14 @@ vi.mock('@/services/factor/factorConfidentialWorkload', () => ({
   FACTOR_CONFIDENTIAL_ADMISSION_EVIDENCE_KIND: 'confidential_admission_projection',
   runAdmissionPacketPolicyEvaluation: mocks.runAdmissionPacketPolicyEvaluation,
 }));
+vi.mock('@/services/financialServices/discovery', () => ({
+  discoverEligibleFinancialServices: mocks.discoverEligibleFinancialServices,
+}));
 vi.mock('@/services/factor/bankrCapabilityHandlers', () => ({
   inspectOrProvisionProviderBinding: mocks.inspectOrProvisionProviderBinding,
   assessIssuerReadiness: mocks.assessIssuerReadiness,
-}));
-vi.mock('@/services/factor/tokenLaunchService', () => ({
-  createDraft: mocks.createDraft,
+  prepareLaunchProposal: mocks.prepareLaunchProposal,
+  preflightLaunch: mocks.preflightLaunch,
 }));
 vi.mock('@/services/factor/authorityChain', () => ({
   establishDirectChain: mocks.establishDirectChain,
@@ -124,6 +128,7 @@ beforeEach(() => {
   mocks.getCase.mockResolvedValue(null);
   mocks.listEvidenceForCase.mockResolvedValue([]);
   mocks.listCaseEvents.mockResolvedValue([]);
+  mocks.discoverEligibleFinancialServices.mockResolvedValue([]);
   mocks.assessIssuerReadiness.mockResolvedValue({
     beneficiaryAgentRuntimeId: 'aigent-factor',
     bankrConfigured: false,
@@ -179,8 +184,9 @@ describe('advanceUseCaseZero — one step per call, always rereads before and af
     expect(result.detail.toLowerCase()).toMatch(/never decides/);
   });
 
-  it('the rehearsal step NEVER submits/signs/broadcasts — createDraft is the only call, and it stops there', async () => {
+  it('the rehearsal step NEVER submits/signs/broadcasts — prepare+preflight are the only calls, and it stops there', async () => {
     mocks.getCase.mockResolvedValue({ case_id: 'case-1', state: 'active', tenant_id: 'tenant-1', authority_chain_id: null, candidate_agent_root_did: 'did:example:agent-1' });
+    mocks.discoverEligibleFinancialServices.mockResolvedValue([{ serviceId: 'moneypenny-runtime' }]);
     mocks.getOwnerWalletAddress.mockResolvedValue('0xOWNER');
     mocks.getBinding.mockResolvedValue({ address: '0xSETTLE', status: 'active' });
     mocks.getPassportRecordStatus.mockResolvedValue([{ passportId: 'pass-1', passportClass: 'agent_participant', citizenStatus: null, participantStatus: 'approved', issuedAt: '2026-09-01T00:00:00Z' }]);
@@ -197,7 +203,8 @@ describe('advanceUseCaseZero — one step per call, always rereads before and af
       blockers: [],
     });
     mocks.listEvidenceForCase.mockResolvedValue([{ kind: 'confidential_admission_projection', status: 'supplied', payload: { attestationMode: 'NO_ATTESTATION_LOCAL' } }]);
-    mocks.createDraft.mockResolvedValue({ id: 'launch-1', state: 'draft' });
+    mocks.prepareLaunchProposal.mockResolvedValue({ id: 'launch-1', state: 'preparing' });
+    mocks.preflightLaunch.mockResolvedValue({ launch: { id: 'launch-1', state: 'preflighted' }, bankrTerms: { raw: { simulated: true, feeBps: 100 }, sourceUrl: null, retrievedAt: '2026-09-06T00:00:00Z' } });
 
     const result = await advanceUseCaseZero({
       ...BASE_INPUT,
@@ -205,12 +212,16 @@ describe('advanceUseCaseZero — one step per call, always rereads before and af
       launchSpec: { chain: 'base-sepolia', tokenName: 'Test', tokenSymbol: 'TST' },
     });
     expect(result.stepTaken).toBe('governedOperationRehearsal');
-    expect(mocks.createDraft).toHaveBeenCalledTimes(1);
+    expect(mocks.prepareLaunchProposal).toHaveBeenCalledTimes(1);
+    expect(mocks.preflightLaunch).toHaveBeenCalledTimes(1);
+    expect(mocks.preflightLaunch).toHaveBeenCalledWith(expect.anything(), 'launch-1', 'tenant-1', expect.anything());
     expect(result.detail.toLowerCase()).toMatch(/rehearsal stops here/);
+    expect(result.detail.toLowerCase()).toMatch(/preflighted/);
   });
 
   it('without a launchSpec, the rehearsal step reports awaiting_input rather than inventing token fields', async () => {
     mocks.getCase.mockResolvedValue({ case_id: 'case-1', state: 'active', tenant_id: 'tenant-1', authority_chain_id: null, candidate_agent_root_did: 'did:example:agent-1' });
+    mocks.discoverEligibleFinancialServices.mockResolvedValue([{ serviceId: 'moneypenny-runtime' }]);
     mocks.getOwnerWalletAddress.mockResolvedValue('0xOWNER');
     mocks.getBinding.mockResolvedValue({ address: '0xSETTLE', status: 'active' });
     mocks.getPassportRecordStatus.mockResolvedValue([{ passportId: 'pass-1', passportClass: 'agent_participant', citizenStatus: null, participantStatus: 'approved', issuedAt: '2026-09-01T00:00:00Z' }]);
@@ -231,7 +242,8 @@ describe('advanceUseCaseZero — one step per call, always rereads before and af
     const result = await advanceUseCaseZero({ ...BASE_INPUT, caseId: 'case-1' });
     expect(result.stepTaken).toBe('governedOperationRehearsal');
     expect(result.outcome).toBe('awaiting_input');
-    expect(mocks.createDraft).not.toHaveBeenCalled();
+    expect(mocks.prepareLaunchProposal).not.toHaveBeenCalled();
+    expect(mocks.preflightLaunch).not.toHaveBeenCalled();
   });
 });
 

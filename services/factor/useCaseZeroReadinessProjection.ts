@@ -95,6 +95,7 @@ import { resolvePnlEvidenceForAgent } from '@/services/horizen/pnlEvidenceRead';
 import { getCurrentAssessment } from '@/services/aegis/aegisAssessmentService';
 import { getCase, listEvidenceForCase, listCaseEvents, type FactorCaseRow } from '@/services/factor/factorCaseService';
 import { assessIssuerReadiness } from '@/services/factor/bankrCapabilityHandlers';
+import { discoverEligibleFinancialServices } from '@/services/financialServices/discovery';
 import { FACTOR_CONFIDENTIAL_ADMISSION_EVIDENCE_KIND } from '@/services/factor/factorConfidentialWorkload';
 
 export type UseCaseZeroPath = 'bring_own_agent' | 'create_and_establish';
@@ -114,6 +115,20 @@ export interface ReadinessLeg {
   evidenceRefs: string[];
   /** Which real service produced this leg — for provenance, never fabricated. */
   source: string;
+  /**
+   * Whether this leg gates overall Use Case Zero completion (correction
+   * 2026-09-06, operator review: "Registry/Horizen/Pulse need explicit
+   * required-versus-optional semantics"). `true` (the default) for every
+   * leg that is a genuine prerequisite in the sequence. `false` only for
+   * registryAsset/horizenRegistration/pulsePnl — real facts this codebase
+   * observes but has no Factor-owned mutation for (they resolve as side
+   * effects of OTHER processes: registry ingestion, the Horizen
+   * registration ceremony, Pulse/P&L onboarding). An optional leg still
+   * reports its true state honestly; it is simply never counted toward
+   * `completedSteps`'s denominator for "is Use Case Zero done", and never
+   * blocks the orchestrator or `nextAction` from progressing past it.
+   */
+  required: boolean;
   /** Conditions attached to an 'established'/'blocked' outcome that is
    *  conditional (Aegis `admissible_with_conditions`, MoneyPenny
    *  `conditionally_admitted`) — never silently dropped. Empty when the
@@ -142,6 +157,12 @@ export interface UseCaseZeroReadiness {
   agentSlug: string;
   legs: ReadinessLeg[];
   completedSteps: string[];
+  /** True once every REQUIRED leg is established — optional legs
+   *  (registryAsset/horizenRegistration/pulsePnl) never block this. Use
+   *  this, never `presentlyActionableStep === null` alone, to answer "is
+   *  Use Case Zero done" — the latter can also be null while optional legs
+   *  remain outstanding, which is a DIFFERENT, non-blocking state. */
+  requiredStepsComplete: boolean;
   presentlyActionableStep: string | null;
   blockers: string[];
   /** The exact next action the operator can take — a handlerId from
@@ -154,10 +175,17 @@ export interface UseCaseZeroReadiness {
   requiredAuthority: string[];
 }
 
-function leg(partial: Omit<ReadinessLeg, 'evidenceRefs' | 'conditions' | 'verified'> & { evidenceRefs?: string[]; conditions?: string[] }): ReadinessLeg {
+function leg(
+  partial: Omit<ReadinessLeg, 'evidenceRefs' | 'conditions' | 'verified' | 'required'> & {
+    evidenceRefs?: string[];
+    conditions?: string[];
+    required?: boolean;
+  },
+): ReadinessLeg {
   return {
     evidenceRefs: [],
     conditions: [],
+    required: true,
     ...partial,
     verified: partial.state === 'established',
   };
@@ -398,6 +426,7 @@ async function resolveRegistryAssetLeg(aigentQubeId: string | null): Promise<Rea
   if (!aigentQubeId) {
     return leg({
       key: 'registryAsset',
+      required: false,
       label: 'iQube Registry asset',
       state: 'missing',
       mode: 'n/a',
@@ -409,6 +438,7 @@ async function resolveRegistryAssetLeg(aigentQubeId: string | null): Promise<Rea
     const asset = await getAsset(aigentQubeId);
     return leg({
       key: 'registryAsset',
+      required: false,
       label: 'iQube Registry asset',
       state: asset ? 'established' : 'missing',
       mode: asset ? 'live' : 'n/a',
@@ -419,6 +449,7 @@ async function resolveRegistryAssetLeg(aigentQubeId: string | null): Promise<Rea
   } catch (e) {
     return leg({
       key: 'registryAsset',
+      required: false,
       label: 'iQube Registry asset',
       state: 'unreadable',
       mode: 'n/a',
@@ -433,6 +464,7 @@ async function resolveHorizenLeg(admin: SupabaseClient, agent: RegistrableAgentC
     const state = await resolveAgentRegistrationState(admin, agent);
     return leg({
       key: 'horizenRegistration',
+      required: false,
       label: 'Horizen/ERC-8004 registration',
       state: state.registered ? 'established' : 'missing',
       mode: state.registered ? 'live' : 'n/a',
@@ -445,6 +477,7 @@ async function resolveHorizenLeg(admin: SupabaseClient, agent: RegistrableAgentC
   } catch (e) {
     return leg({
       key: 'horizenRegistration',
+      required: false,
       label: 'Horizen/ERC-8004 registration',
       state: 'unreadable',
       mode: 'n/a',
@@ -460,6 +493,7 @@ async function resolvePulsePnlLeg(runtimeAgentId: string): Promise<ReadinessLeg>
     const established = evidence.serviceRegistered && evidence.serviceVerified;
     return leg({
       key: 'pulsePnl',
+      required: false,
       label: 'Pulse/P&L status',
       state: established ? 'established' : 'missing',
       mode: evidence.serviceRegistered ? 'live' : 'n/a',
@@ -469,6 +503,7 @@ async function resolvePulsePnlLeg(runtimeAgentId: string): Promise<ReadinessLeg>
   } catch (e) {
     return leg({
       key: 'pulsePnl',
+      required: false,
       label: 'Pulse/P&L status',
       state: 'unreadable',
       mode: 'n/a',
@@ -729,24 +764,19 @@ async function resolveVelaLeg(admin: SupabaseClient, caseId: string | undefined,
   }
 }
 
-function resolveRuntimeActivationLeg(factorCase: FactorCaseRow | null, admissionConditions: string[]): ReadinessLeg {
+async function resolveRuntimeActivationLeg(
+  admin: SupabaseClient,
+  actorPersonaId: string,
+  runtimeAgentId: string | null,
+  factorCase: FactorCaseRow | null,
+  admissionConditions: string[],
+): Promise<ReadinessLeg> {
   // Correction 5: activation is BLOCKED while an admission condition
   // remains unmet — this projection has no mechanism to know a condition
   // was individually resolved (no per-condition tracking exists anywhere in
   // this codebase today), so ANY outstanding condition on a
   // conditionally_admitted case blocks activation rather than silently
   // treating conditional admission as equivalent to unconditional.
-  if (factorCase?.state === 'active') {
-    return leg({
-      key: 'runtimeActivation',
-      label: 'MoneyPenny runtime activation',
-      state: 'established',
-      mode: 'live',
-      reason: 'Case state: active.',
-      source: 'services/factor/factorCaseService.ts (case.state)',
-      evidenceRefs: [factorCase.case_id],
-    });
-  }
   if (factorCase?.state === 'conditionally_admitted' && admissionConditions.length > 0) {
     return leg({
       key: 'runtimeActivation',
@@ -759,15 +789,62 @@ function resolveRuntimeActivationLeg(factorCase: FactorCaseRow | null, admission
       conditions: admissionConditions,
     });
   }
-  return leg({
-    key: 'runtimeActivation',
-    label: 'MoneyPenny runtime activation',
-    state: 'missing',
-    mode: factorCase ? 'live' : 'n/a',
-    reason: factorCase ? `Case state: ${factorCase.state}.` : 'No Factor case yet — nothing to activate.',
-    source: 'services/factor/factorCaseService.ts (case.state)',
-    evidenceRefs: factorCase ? [factorCase.case_id] : [],
-  });
+  if (factorCase?.state !== 'active') {
+    return leg({
+      key: 'runtimeActivation',
+      label: 'MoneyPenny runtime activation',
+      state: 'missing',
+      mode: factorCase ? 'live' : 'n/a',
+      reason: factorCase ? `Case state: ${factorCase.state}.` : 'No Factor case yet — nothing to activate.',
+      source: 'services/factor/factorCaseService.ts (case.state)',
+      evidenceRefs: factorCase ? [factorCase.case_id] : [],
+    });
+  }
+  // Correction (operator review, 2026-09-06): Factor's own case.state
+  // label is NECESSARY but was being treated as SUFFICIENT proof the agent
+  // is operationally admitted into MoneyPenny's financial runtime — it is
+  // Factor's internal bookkeeping, not MoneyPenny's own authority. Cross-
+  // checked here against discoverEligibleFinancialServices (services/
+  // financialServices/discovery.ts) — MoneyPenny's own real eligibility
+  // resolver (constitutional-authority-state-backed), never a second
+  // eligibility mechanism. 'active' + at least one MoneyPenny-eligible
+  // service is genuine proof; 'active' alone is not.
+  if (!runtimeAgentId) {
+    return leg({
+      key: 'runtimeActivation',
+      label: 'MoneyPenny runtime activation',
+      state: 'unreadable',
+      mode: 'n/a',
+      reason: 'Case state is active, but no runtime agent id could be resolved to check MoneyPenny service eligibility against.',
+      source: 'services/factor/factorCaseService.ts (case.state) + services/financialServices/discovery.ts',
+      evidenceRefs: [factorCase.case_id],
+    });
+  }
+  try {
+    const eligibleServices = await discoverEligibleFinancialServices(runtimeAgentId, admin, { actorPersonaId });
+    const established = eligibleServices.length > 0;
+    return leg({
+      key: 'runtimeActivation',
+      label: 'MoneyPenny runtime activation',
+      state: established ? 'established' : 'missing',
+      mode: 'live',
+      reason: established
+        ? `Case active AND MoneyPenny reports ${eligibleServices.length} eligible service(s): ${eligibleServices.map((s) => s.serviceId).join(', ')}.`
+        : 'Case state is active, but MoneyPenny reports zero eligible financial services for this agent — case-state activation alone is not proof of runtime admission.',
+      source: 'services/factor/factorCaseService.ts (case.state) + services/financialServices/discovery.ts::discoverEligibleFinancialServices',
+      evidenceRefs: [factorCase.case_id, ...eligibleServices.map((s) => s.serviceId)],
+    });
+  } catch (e) {
+    return leg({
+      key: 'runtimeActivation',
+      label: 'MoneyPenny runtime activation',
+      state: 'unreadable',
+      mode: 'n/a',
+      reason: `MoneyPenny service-eligibility read failed: ${e instanceof Error ? e.message : String(e)}`,
+      source: 'services/financialServices/discovery.ts::discoverEligibleFinancialServices',
+      evidenceRefs: [factorCase.case_id],
+    });
+  }
 }
 
 function resolveRehearsalLeg(factorCase: FactorCaseRow | null): ReadinessLeg {
@@ -823,10 +900,10 @@ export async function projectUseCaseZeroReadiness(input: UseCaseZeroReadinessInp
     await resolveRegistryAssetLeg(agent?.aigentQubeId ?? null),
     agent
       ? await resolveHorizenLeg(input.admin, agent)
-      : leg({ key: 'horizenRegistration', label: 'Horizen/ERC-8004 registration', state: 'missing', mode: 'n/a', reason: 'No registrable agent resolved yet.', source: 'services/horizen/agentRegistrationBinding.ts' }),
+      : leg({ key: 'horizenRegistration', label: 'Horizen/ERC-8004 registration', state: 'missing', mode: 'n/a', reason: 'No registrable agent resolved yet.', source: 'services/horizen/agentRegistrationBinding.ts', required: false }),
     runtimeAgentId
       ? await resolvePulsePnlLeg(runtimeAgentId)
-      : leg({ key: 'pulsePnl', label: 'Pulse/P&L status', state: 'missing', mode: 'n/a', reason: 'No runtime agent id resolved yet.', source: 'services/horizen/pnlEvidenceRead.ts' }),
+      : leg({ key: 'pulsePnl', label: 'Pulse/P&L status', state: 'missing', mode: 'n/a', reason: 'No runtime agent id resolved yet.', source: 'services/horizen/pnlEvidenceRead.ts', required: false }),
     await resolveAegisLeg(input.admin, input.caseId),
     factorCaseUnreadable
       ? leg({ key: 'moneypennyAdmission', label: 'MoneyPenny admission', state: 'unreadable', mode: 'n/a', reason: 'Factor case read failed.', source: 'services/factor/factorCaseService.ts' })
@@ -835,15 +912,20 @@ export async function projectUseCaseZeroReadiness(input: UseCaseZeroReadinessInp
       ? await resolveBankrLeg(input.admin, input.tenantId, runtimeAgentId)
       : leg({ key: 'bankrBinding', label: 'Bankr/provider binding', state: 'missing', mode: 'n/a', reason: 'No runtime agent id resolved yet.', source: 'services/financialServices/providers/providerWalletBinding.ts' }),
     await resolveVelaLeg(input.admin, input.caseId, input.tenantId),
-    resolveRuntimeActivationLeg(factorCase, admissionConditions),
+    await resolveRuntimeActivationLeg(input.admin, input.actorPersonaId, runtimeAgentId, factorCase, admissionConditions),
     resolveRehearsalLeg(factorCase),
   ];
 
   const completedSteps = legs.filter((l) => l.state === 'established').map((l) => l.key);
-  // The presently-actionable step is the first leg that is NOT established —
-  // 'unreadable' legs are surfaced as blockers but never recommended a
-  // provisioning next action (a failed read is not evidence of absence).
-  const firstOutstanding = legs.find((l) => l.state !== 'established') ?? null;
+  // The presently-actionable step is the first REQUIRED leg that is NOT
+  // established — required/optional (correction: "Registry/Horizen/Pulse
+  // need explicit required-versus-optional semantics"). An optional leg
+  // (registryAsset/horizenRegistration/pulsePnl) never blocks progress or
+  // completion; its true state is still reported in `legs`, just never
+  // consulted here. 'unreadable' legs are surfaced as blockers but never
+  // recommended a provisioning next action (a failed read is not evidence
+  // of absence).
+  const firstOutstanding = legs.find((l) => l.required && l.state !== 'established') ?? null;
 
   const nextActionByKey: Record<string, { handlerId: string; label: string }> = {
     operatorContext: { handlerId: 'factor:explain', label: 'Sign in as the accountable operator persona' },
@@ -872,6 +954,7 @@ export async function projectUseCaseZeroReadiness(input: UseCaseZeroReadinessInp
     agentSlug: input.agentSlug,
     legs,
     completedSteps,
+    requiredStepsComplete: !firstOutstanding,
     presentlyActionableStep,
     blockers,
     nextAction,

@@ -48,9 +48,9 @@ import { establishDirectChain } from '@/services/factor/authorityChain';
 import { validateChainForAction } from '@/services/factor/authorityChain';
 import { readActiveGrantForAgent } from '@/services/delegation/delegationGrantStore';
 import { createAssessment } from '@/services/aegis/aegisAssessmentService';
-import { inspectOrProvisionProviderBinding } from '@/services/factor/bankrCapabilityHandlers';
+import { inspectOrProvisionProviderBinding, prepareLaunchProposal, preflightLaunch } from '@/services/factor/bankrCapabilityHandlers';
 import { runAdmissionPacketPolicyEvaluation } from '@/services/factor/factorConfidentialWorkload';
-import { createDraft, type CreateDraftInput } from '@/services/factor/tokenLaunchService';
+import type { CreateDraftInput } from '@/services/factor/tokenLaunchService';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 
 export type OrchestratorOutcome = 'advanced' | 'no_action_needed' | 'blocked' | 'awaiting_input';
@@ -220,7 +220,25 @@ async function stepBankrBinding(input: AdvanceUseCaseZeroInput, runtimeAgentId: 
 async function stepVela(
   input: AdvanceUseCaseZeroInput,
   factorCase: Awaited<ReturnType<typeof getCase>>,
+  readiness: UseCaseZeroReadiness,
 ): Promise<Omit<AdvanceUseCaseZeroResult, 'caseId'>> {
+  // Case-derived confidential inputs (correction 2026-09-06: the prior
+  // hardcoded readinessScore:1/policyThreshold:1 produced a predetermined
+  // pass regardless of the actual candidate — never a real evaluation).
+  // No canonical service in this codebase produces a numeric admission
+  // "score" for a case (Aegis's own decision is categorical:
+  // admissible/admissible_with_conditions/insufficient_evidence/
+  // not_admissible, never a 0-1 number) — inventing one would be exactly
+  // the kind of fabrication CLAUDE.md's "No Guessing" rule forbids. The
+  // honest, real, per-case-varying pair this projection CAN compute
+  // without inventing a score: how many of this case's own REQUIRED
+  // readiness legs are established versus how many are required in total.
+  // This genuinely varies per case (unlike the constant 1/1) and is
+  // derived entirely from the same canonical reads every other leg uses.
+  const requiredLegs = readiness.legs.filter((l) => l.required);
+  const readinessScore = requiredLegs.filter((l) => l.state === 'established').length;
+  const policyThreshold = requiredLegs.length;
+
   const result = await runAdmissionPacketPolicyEvaluation(input.admin, {
     caseId: factorCase.case_id,
     tenantId: input.tenantId,
@@ -228,10 +246,10 @@ async function stepVela(
     requestedByAgentRef: resolveRegistrableAgent(input.agentSlug)?.runtimeAgentId ?? input.agentSlug,
     policyVersion: 'use-case-zero-v1',
     journeyStageId: 'use-case-zero',
-    // Confidential — never persisted; a real (if provisional) readiness
-    // comparison rather than a synthetic demo pair.
-    readinessScore: 1,
-    policyThreshold: 1,
+    // Confidential — never persisted in the clear (see the module doc on
+    // factorConfidentialWorkload.ts).
+    readinessScore,
+    policyThreshold,
   });
   return {
     stepTaken: 'velaReadiness',
@@ -285,6 +303,20 @@ async function stepRuntimeActivation(
       readiness: await reread(input),
     };
   }
+  if (factorCase.state === 'active') {
+    // Case state is already 'active', but the leg is still not
+    // established — meaning MoneyPenny's own eligibility resolver
+    // (discoverEligibleFinancialServices) reports zero eligible services.
+    // There is no further Factor-owned mutation to try here: case-state
+    // activation is the only write this orchestrator can perform toward
+    // this leg, and it has already happened.
+    return {
+      stepTaken: 'runtimeActivation',
+      outcome: 'blocked',
+      detail: activationLeg?.reason ?? 'Case is active, but MoneyPenny reports no eligible financial services for this agent — no further Factor-owned action exists for this leg.',
+      readiness,
+    };
+  }
   return {
     stepTaken: 'runtimeActivation',
     outcome: 'blocked',
@@ -310,17 +342,31 @@ async function stepRehearsal(
       readiness: await reread(input),
     };
   }
-  const draft = await createDraft(input.admin, {
+  // Steps 3-6 of the Bankr acceptance path (exact launch spec collected ->
+  // deterministic fake transport invoked -> provider-derived terms captured
+  // -> simulated preflight receipt produced) — reuses
+  // services/factor/bankrCapabilityHandlers.ts's own prepareLaunchProposal
+  // (createDraft + transitionState('preparing')) and preflightLaunch
+  // (quotes Bankr's REAL terms, live or fake, records them, transitions to
+  // 'preflighted', writes the bankr_launch_preflighted receipt) — never a
+  // parallel draft/preflight path. Stops there: requestApproval/
+  // submitApprovedLaunch (the approval boundary, step 7, and everything
+  // past it — signing, submission, broadcast, step 8) are SEPARATE,
+  // human/MoneyPenny-gated acts this function never calls.
+  const draft = await prepareLaunchProposal(input.admin, {
     tenantId: input.tenantId,
     beneficiaryAgentRuntimeId: runtimeAgentId,
     requestingPrincipalPersonaId: input.actorPersonaId,
     preparingAgentRuntimeId: resolveRegistrableAgent('factor')?.runtimeAgentId ?? 'aigent-factor',
     ...input.launchSpec,
   });
+  const preflight = await preflightLaunch(input.admin, draft.id, input.tenantId, input.actorPersonaId);
   return {
     stepTaken: 'governedOperationRehearsal',
     outcome: 'advanced',
-    detail: `Token-launch draft ${draft.id} prepared (state: ${draft.state}) — rehearsal stops here; approval/submission/broadcast are separate, later, human-gated acts this orchestrator never performs.`,
+    detail:
+      `Token-launch draft ${draft.id} prepared and preflighted (state: ${preflight.launch.state}, ` +
+      `terms: ${JSON.stringify(preflight.bankrTerms.raw)}) — rehearsal stops here; approval/submission/broadcast are separate, later, human-gated acts this orchestrator never performs.`,
     readiness: await reread(input),
   };
 }
@@ -341,7 +387,6 @@ export async function advanceUseCaseZero(input: AdvanceUseCaseZeroInput): Promis
   return withCaseId(result, input.caseId);
 }
 
-const OBSERVED_ONLY_STEPS = new Set(['operatorContext', 'registryAsset', 'horizenRegistration', 'pulsePnl']);
 const ACTIONABLE_STEPS = new Set<ActionableStep>([
   'agentShell',
   'ownerWallet',
@@ -360,25 +405,26 @@ async function advanceUseCaseZeroCore(input: AdvanceUseCaseZeroInput): Promise<O
   // 1. Reread canonical state first — never trust a caller-supplied snapshot.
   const readiness = await reread(input);
 
-  // Observed-only legs (registryAsset/horizenRegistration/pulsePnl) are
-  // real facts this codebase has no Factor-owned mutation for — they
-  // resolve as side effects of other processes. `readiness.
-  // presentlyActionableStep` (the DISPLAY truth: "first thing not yet
-  // true") would otherwise perpetually name one of these and never let the
-  // orchestrator progress to a step it CAN actually act on. The
-  // orchestrator's own selection criterion is therefore "first outstanding
-  // leg this orchestrator has a real action for" — never the same as
-  // silently skipping a genuine blocker, since every observed-only leg
-  // still outstanding is named in `detail`.
-  const outstandingObserved = readiness.legs.filter((l) => l.state !== 'established' && OBSERVED_ONLY_STEPS.has(l.key));
-  const nextActionableLeg = readiness.legs.find((l) => l.state !== 'established' && ACTIONABLE_STEPS.has(l.key as ActionableStep));
+  // Optional legs (leg.required === false — registryAsset/
+  // horizenRegistration/pulsePnl, per useCaseZeroReadinessProjection.ts's
+  // own required-vs-optional semantics) are real facts this codebase has
+  // no Factor-owned mutation for — they resolve as side effects of other
+  // processes. `readiness.presentlyActionableStep` already skips these (it
+  // only ever names a REQUIRED outstanding leg), but the orchestrator's own
+  // selection criterion is stated independently here — "first outstanding
+  // leg this orchestrator has a real action for" — so the two can never
+  // silently diverge into skipping a genuine required blocker. Every
+  // optional leg still outstanding is named in `detail`, never silently
+  // dropped.
+  const outstandingOptional = readiness.legs.filter((l) => l.state !== 'established' && !l.required);
+  const nextActionableLeg = readiness.legs.find((l) => l.required && l.state !== 'established' && ACTIONABLE_STEPS.has(l.key as ActionableStep));
 
   if (!nextActionableLeg) {
-    return outstandingObserved.length > 0
+    return outstandingOptional.length > 0
       ? {
           stepTaken: null,
           outcome: 'no_action_needed',
-          detail: `Every orchestratable leg is established. Still outstanding, observed-only: ${outstandingObserved.map((l) => l.key).join(', ')} — these resolve as side effects of other processes, not this orchestrator.`,
+          detail: `Every required leg is established. Still outstanding, optional: ${outstandingOptional.map((l) => l.key).join(', ')} — these resolve as side effects of other processes, not this orchestrator.`,
           readiness,
         }
       : { stepTaken: null, outcome: 'no_action_needed', detail: 'Every leg is established — nothing left to advance.', readiness };
@@ -509,7 +555,7 @@ async function advanceUseCaseZeroCore(input: AdvanceUseCaseZeroInput): Promise<O
       if (!runtimeAgentId) return { stepTaken: step, outcome: 'blocked', detail: 'No runtime agent id resolved.', readiness };
       return stepBankrBinding(input, runtimeAgentId);
     case 'velaReadiness':
-      return stepVela(input, factorCase);
+      return stepVela(input, factorCase, readiness);
     case 'runtimeActivation':
       return stepRuntimeActivation(input, factorCase, readiness);
     case 'governedOperationRehearsal':
