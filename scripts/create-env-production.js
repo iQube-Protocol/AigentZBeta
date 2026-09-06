@@ -277,6 +277,23 @@ const envVars = [
   // or 'token:<chain>:<contract>:<tokenId>' (ERC-1155). UNSET = the token path
   // is inert (fails closed); it never opens access on its own.
   'RESEARCH_REGISTRY_TOKEN_CREDENTIAL',
+  // Bankr Partner API (Factor + Aegis PRD §8.1 / Phase 9 live activation).
+  // services/financialServices/providers/bankr/bankrConfig.ts auto-selects
+  // the LIVE transport the instant ANY of these three is set — no other
+  // code change is needed to go live. Least-privilege key classes:
+  // read-only (quotes/capabilities/status reads), write (token-launch
+  // submission), wallet (linked-wallet balance reads). Unset = the
+  // deterministic fake transport, honestly reported (simulated: true).
+  'BANKR_READ_ONLY_API_KEY',
+  'BANKR_WRITE_API_KEY',
+  'BANKR_WALLET_API_KEY',
+  // Optional overrides — defaults live in bankrConfig.ts (apiBaseUrl
+  // 'https://api.bankr.bot', 15s timeout, 2 retries, 500ms backoff).
+  'BANKR_API_BASE_URL',
+  'BANKR_TIMEOUT_MS',
+  'BANKR_MAX_RETRIES',
+  'BANKR_RETRY_BACKOFF_MS',
+  'BANKR_IP_ALLOWLIST',
 ];
 
 let content = '';

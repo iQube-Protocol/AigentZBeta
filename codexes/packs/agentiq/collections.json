@@ -48,6 +48,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-09-06_bankr-live-activation-runbook.md",
         "updates/2026-09-06_factor-agent-callable-execution-scope.md",
         "updates/2026-09-06_agent-rootdid-minting-primitive.md",
         "updates/2026-09-06_factor-horizen-registration-and-journey-closeout.md",
