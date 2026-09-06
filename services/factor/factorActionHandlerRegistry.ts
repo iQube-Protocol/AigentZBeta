@@ -148,7 +148,17 @@ registerFactorActionHandler({
 for (const handlerId of ['factor:ucz-bring-own-agent', 'factor:ucz-create-and-establish'] as const) {
   registerFactorActionHandler({
     handlerId,
-    describes: 'services/factor/useCaseZeroReadinessProjection.ts — composed readiness projection over existing canonical services.',
+    describes: 'services/factor/useCaseZeroCapabilityHandlers.ts — read-only readiness assessment over services/factor/useCaseZeroReadinessProjection.ts.',
     probe: () => ({ reachable: true }),
   });
 }
+
+// The resumable orchestrator (Phase 2) — rereads state, selects ONE
+// permitted next action, invokes the owning service, records via the
+// existing receipt system, rereads readiness. Never chains across a human
+// approval boundary; never submits/signs/broadcasts/moves funds.
+registerFactorActionHandler({
+  handlerId: 'factor:ucz-advance',
+  describes: 'services/factor/useCaseZeroOrchestrator.ts::advanceUseCaseZero — one resumable step per call.',
+  probe: () => ({ reachable: true }),
+});

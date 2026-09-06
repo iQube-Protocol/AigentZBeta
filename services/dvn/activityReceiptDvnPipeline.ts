@@ -427,6 +427,10 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   // verified confidential-projection evaluation (commitments + coarse
   // verdict only, never confidential inputs/results).
   'confidential_projection_evaluated',
+  // Use Case Zero orchestrator (2026-09-06) — a real capability grant (an
+  // agent gaining control of a wallet), same anchorability class as
+  // 'bankr_provider_bound' above. Never carries the private key.
+  'agent_purpose_wallet_provisioned',
 ]);
 
 export function shouldAnchorActionType(actionType: string): boolean {
