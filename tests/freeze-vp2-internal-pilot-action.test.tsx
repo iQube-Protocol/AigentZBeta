@@ -180,14 +180,97 @@ describe('FreezeVP2InternalPilotAction — not eligible', () => {
   });
 });
 
-describe('FreezeVP2InternalPilotAction — a failed read never destroys already-good state', () => {
-  it('a network failure on the very first read shows a loading state, never a crash, never fabricated data', async () => {
+describe('FreezeVP2InternalPilotAction — a failed FIRST read shows an explicit, retryable error, never a perpetual spinner (2026-09-07 fix)', () => {
+  it('never hangs on "Reading the Crystal vP2 lifecycle state..." forever — a failed first read surfaces an honest, retryable error', async () => {
     mockPersonaFetch.mockImplementation(() => Promise.reject(new Error('network unreachable')));
     render(<FreezeVP2InternalPilotAction experimentId="EXP-P1" />);
-    // Never throws, never renders fabricated "ready" or "frozen" content.
-    await waitFor(() => {
-      expect(screen.queryByText(/Freeze Crystal vP2 for internal EXP-P1 run/)).not.toBeInTheDocument();
-      expect(screen.queryByText(/frozen \(internal\/pilot\)/)).not.toBeInTheDocument();
+    // Never throws, never renders fabricated "ready" or "frozen" content, and —
+    // THE BUG THIS REPLACES — never stays on the loading spinner forever with
+    // no visible signal at all.
+    expect(await screen.findByRole('button', { name: 'Retry' })).toBeInTheDocument();
+    expect(screen.getByText(/Could not read the Crystal vP2 lifecycle state — network unreachable/)).toBeInTheDocument();
+    expect(screen.queryByText(/Reading the Crystal vP2 lifecycle state/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Freeze Crystal vP2 for internal EXP-P1 run/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/frozen \(internal\/pilot\)/)).not.toBeInTheDocument();
+  });
+
+  it('Retry re-attempts the read and recovers into the ready state once the underlying failure clears', async () => {
+    const user = userEvent.setup();
+    let attempt = 0;
+    mockPersonaFetch.mockImplementation((url: string) => {
+      if (/\/freeze\?crystalId=/.test(url)) {
+        attempt += 1;
+        if (attempt === 1) return Promise.reject(new Error('network unreachable'));
+        return Promise.resolve(
+          jsonResponse(200, { requestSucceeded: true, artifact: { lifecycle: 'validated' }, nextGovernedAction: null }),
+        );
+      }
+      if (/\/active-persona/.test(url)) return Promise.resolve(jsonResponse(200, { personaId: 'persona-1' }));
+      if (/\/identity\/references/.test(url))
+        return Promise.resolve(jsonResponse(200, { personas: [{ personaId: 'persona-1', publicRef: 'operator-ref-abc' }], agents: [] }));
+      if (/\/freeze-preview/.test(url))
+        return Promise.resolve(
+          jsonResponse(200, {
+            ok: true,
+            package: { contentHash: 'hash-abc-123', recommendation: { readiness: { checks: READINESS_CHECKS } } },
+            ratifiedBoundary: { boundary: 'financial-risk-value-systems, externally sourced only' },
+          }),
+        );
+      return Promise.reject(new Error(`unexpected fetch: ${url}`));
     });
+    render(<FreezeVP2InternalPilotAction experimentId="EXP-P1" />);
+    await user.click(await screen.findByRole('button', { name: 'Retry' }));
+    expect(await screen.findByRole('button', { name: /Confirm: Freeze Crystal vP2/ })).toBeInTheDocument();
+  });
+});
+
+describe('FreezeVP2InternalPilotAction — a failed REFRESH never destroys already-good state', () => {
+  it('once ready data has loaded, a later failed reload keeps it on screen with an honest "could not refresh" note', async () => {
+    const user = userEvent.setup();
+    let confirmAttempted = false;
+    mockPersonaFetch.mockImplementation((url: string, opts?: any) => {
+      if (/\/freeze\?crystalId=/.test(url)) {
+        return Promise.resolve(
+          jsonResponse(200, { requestSucceeded: true, artifact: { lifecycle: 'validated' }, nextGovernedAction: null }),
+        );
+      }
+      if (/\/active-persona/.test(url)) return Promise.resolve(jsonResponse(200, { personaId: 'persona-1' }));
+      if (/\/identity\/references/.test(url))
+        return Promise.resolve(jsonResponse(200, { personas: [{ personaId: 'persona-1', publicRef: 'operator-ref-abc' }], agents: [] }));
+      if (/\/freeze-preview/.test(url))
+        return Promise.resolve(
+          jsonResponse(200, {
+            ok: true,
+            package: { contentHash: 'hash-abc-123', recommendation: { readiness: { checks: READINESS_CHECKS } } },
+            ratifiedBoundary: { boundary: 'financial-risk-value-systems, externally sourced only' },
+          }),
+        );
+      if (/\/freeze$/.test(url) && opts?.method === 'POST') {
+        confirmAttempted = true;
+        return Promise.reject(new Error('confirm network failure'));
+      }
+      return Promise.reject(new Error(`unexpected fetch: ${url}`));
+    });
+    render(<FreezeVP2InternalPilotAction experimentId="EXP-P1" />);
+    const confirmButton = await screen.findByRole('button', { name: /Confirm: Freeze Crystal vP2/ });
+    await user.click(confirmButton);
+    await waitFor(() => expect(confirmAttempted).toBe(true));
+    // The confirm attempt failed (network), but the already-loaded "ready"
+    // view stays fully on screen — never reverted to loading/error.
+    expect(screen.getByRole('button', { name: /Confirm: Freeze Crystal vP2/ })).toBeInTheDocument();
+    expect(screen.getByText(/confirm network failure/)).toBeInTheDocument();
+  });
+});
+
+describe('FreezeVP2InternalPilotAction — personaId threading (2026-09-07 fix)', () => {
+  it('passes personaIdHint on every fetch when a personaId prop is supplied — never falls back to the bare localStorage lookup a host surface already resolved differently', async () => {
+    mockRoute(
+      /\/freeze\?crystalId=/,
+      jsonResponse(200, { requestSucceeded: true, artifact: { lifecycle: 'frozen', frozenAt: null, contentHash: null, signedBy: [], receiptId: null }, nextGovernedAction: null }),
+    );
+    render(<FreezeVP2InternalPilotAction experimentId="EXP-P1" personaId="persona-42" />);
+    await screen.findByText(/frozen \(internal\/pilot\)/);
+    const [, opts] = mockPersonaFetch.mock.calls[0];
+    expect(opts).toMatchObject({ personaIdHint: 'persona-42' });
   });
 });

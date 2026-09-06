@@ -78,6 +78,7 @@ interface ReadyToFreezeView {
 
 type Phase =
   | { kind: "loading" }
+  | { kind: "error"; message: string }
   | { kind: "not-eligible" }
   | { kind: "ready"; data: ReadyToFreezeView }
   | { kind: "frozen"; data: FrozenView };
@@ -91,15 +92,33 @@ const FREEZE_RATIONALE =
 
 export function FreezeVP2InternalPilotAction({
   experimentId,
+  personaId,
   onFrozen,
 }: {
   experimentId: string;
+  /**
+   * The signed-in admin's OWN active persona id, when the host surface has
+   * it to hand (e.g. `IRLResearchCopilotTab`'s `personaId` prop) — passed as
+   * `personaIdHint` on every fetch this component makes, exactly like every
+   * sibling call in that file. Omitting this is what left this component
+   * resolving through `personaFetch`'s bare localStorage fallback instead of
+   * the SAME persona the rest of the embed already resolved — under an
+   * embed/iframe origin whose localStorage may not carry it, every read here
+   * then 401s, and the component (before the loading→error fix below) hung
+   * on "Reading the Crystal vP2 lifecycle state…" forever with no visible
+   * error (operator report, 2026-09-07: perpetual spinner in the Research
+   * Copilot). See CLAUDE.md's Identity & Access Spine: "If a surface has the
+   * active personaId... pass it as personaIdHint. All reads on the surface
+   * use the same hint."
+   */
+  personaId?: string;
   /** Optional, fire-and-forget — lets a host panel (e.g. Track2ProgrammePanel)
    *  soft-refresh its own cosmetic state after a freeze. Never awaited, and
    *  this component's own correctness never depends on it running. */
   onFrozen?: () => void;
 }) {
   const crystalId = `${experimentId}/crystal-vP2`;
+  const personaHintOpt = useMemo(() => (personaId ? { personaIdHint: personaId } : {}), [personaId]);
 
   const [phase, setPhase] = useState<Phase>({ kind: "loading" });
   const [refreshErr, setRefreshErr] = useState<string | null>(null);
@@ -107,10 +126,15 @@ export function FreezeVP2InternalPilotAction({
   const [confirmErr, setConfirmErr] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    // A manual retry (from the error phase) shows a fresh spinner rather
+    // than leaving the stale error message sitting on screen while the new
+    // attempt is in flight. Already-good data (ready/frozen) is left alone —
+    // this is a REFRESH from there, not a first load.
+    setPhase((prev) => (prev.kind === "ready" || prev.kind === "frozen" ? prev : { kind: "loading" }));
     try {
       const artRes = await personaFetch(
         `/api/research/crystal/${encodeURIComponent(experimentId)}/freeze?crystalId=${encodeURIComponent(crystalId)}`,
-        { cache: "no-store" },
+        { cache: "no-store", ...personaHintOpt },
       );
       const artBody = await artRes.json().catch(() => null);
       if (!artBody?.requestSucceeded) {
@@ -148,12 +172,12 @@ export function FreezeVP2InternalPilotAction({
       // Who is signing — resolved, never typed. Same pattern as the wallet
       // Identity panel (`PersonaReferencesInventory.tsx`): active persona ->
       // that persona's own T2-safe `publicRef` in the identity inventory.
-      const activeRes = await personaFetch("/api/wallet/active-persona", { cache: "no-store" });
+      const activeRes = await personaFetch("/api/wallet/active-persona", { cache: "no-store", ...personaHintOpt });
       const activeBody = await activeRes.json().catch(() => null);
       const activePersonaId = activeBody?.personaId as string | undefined;
       if (!activePersonaId) throw new Error("could not resolve the signed-in admin's active persona");
 
-      const refsRes = await personaFetch("/api/wallet/identity/references", { cache: "no-store" });
+      const refsRes = await personaFetch("/api/wallet/identity/references", { cache: "no-store", ...personaHintOpt });
       const refsBody = await refsRes.json().catch(() => null);
       const personas = Array.isArray(refsBody?.personas) ? refsBody.personas : [];
       const operatorRef = personas.find((p: { personaId?: string }) => p?.personaId === activePersonaId)?.publicRef as
@@ -173,6 +197,7 @@ export function FreezeVP2InternalPilotAction({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ operatorRef, freezeRationale: FREEZE_RATIONALE, ratifiedAt: new Date().toISOString() }),
+          ...personaHintOpt,
         },
       );
       const previewBody = await previewRes.json().catch(() => null);
@@ -191,12 +216,18 @@ export function FreezeVP2InternalPilotAction({
       setPhase({ kind: "ready", data: { operatorRef, contentHash: pkg.contentHash, boundary, failingChecks } });
       setRefreshErr(null);
     } catch (e) {
-      // Never clear already-good data on a failed refresh — an honest "could
-      // not refresh" note stands alongside the last observation, exactly
-      // like IRLResearchCopilotTab's own preview discipline.
-      setRefreshErr(e instanceof Error ? e.message : "could not refresh the freeze state");
+      const message = e instanceof Error ? e.message : "could not read the freeze state";
+      // A REFRESH failure (we already have good data on screen) never clears
+      // it — an honest "could not refresh" note stands alongside the last
+      // observation, exactly like IRLResearchCopilotTab's own preview
+      // discipline. The FIRST load failing is different: there is no good
+      // data yet, so silently staying on "loading" forever would hang with
+      // no visible signal at all (the exact "perpetual spinner" bug this
+      // fixes) — that case gets an explicit, retryable error phase instead.
+      setPhase((prev) => (prev.kind === "ready" || prev.kind === "frozen" ? prev : { kind: "error", message }));
+      setRefreshErr(message);
     }
-  }, [experimentId, crystalId]);
+  }, [experimentId, crystalId, personaHintOpt]);
 
   useEffect(() => {
     void load();
@@ -223,6 +254,7 @@ export function FreezeVP2InternalPilotAction({
           executionDesignation: "internal-pilot",
           scientificDeviations: failingChecks.map((c) => ({ checkName: c.name, rationale: FREEZE_RATIONALE })),
         }),
+        ...personaHintOpt,
       });
       const d = await res.json().catch(() => null);
       if (!d?.requestSucceeded) {
@@ -242,7 +274,7 @@ export function FreezeVP2InternalPilotAction({
     } finally {
       setBusy(false);
     }
-  }, [phase, experimentId, crystalId, load, onFrozen]);
+  }, [phase, experimentId, crystalId, load, onFrozen, personaHintOpt]);
 
   const memberCountLabel = useMemo(() => "63-member generation", []);
 
@@ -250,6 +282,21 @@ export function FreezeVP2InternalPilotAction({
     return (
       <div className="mt-2 flex items-center gap-2 rounded border border-slate-800 bg-slate-900/40 p-2 text-[11px] text-slate-500">
         <Loader2 className="h-3 w-3 animate-spin" /> Reading the Crystal vP2 lifecycle state…
+      </div>
+    );
+  }
+
+  if (phase.kind === "error") {
+    return (
+      <div className="mt-2 space-y-1.5 rounded border border-rose-500/30 bg-rose-500/10 p-2 text-[11px] text-rose-200">
+        <div>Could not read the Crystal vP2 lifecycle state — {phase.message}.</div>
+        <button
+          type="button"
+          onClick={() => void load()}
+          className="rounded border border-rose-500/40 bg-rose-500/10 px-2 py-1 text-rose-100 hover:bg-rose-500/20"
+        >
+          Retry
+        </button>
       </div>
     );
   }

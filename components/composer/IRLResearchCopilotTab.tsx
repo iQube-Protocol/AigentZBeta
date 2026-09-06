@@ -599,6 +599,7 @@ function PopCell({ label, value }: { label: string; value: number }) {
  */
 function ObjectiveCard({
   objective,
+  personaId,
   run,
   programmePreview,
   pendingDecisionPreview,
@@ -650,6 +651,13 @@ function ObjectiveCard({
   onProvenanceRationaleChange,
 }: {
   objective: ResearchObjective;
+  /** The signed-in admin's own active persona id (2026-09-07 fix) — threaded
+   *  through to `FreezeVP2InternalPilotAction` as `personaIdHint` so it
+   *  resolves the SAME persona every other read on this surface does,
+   *  rather than falling back to `personaFetch`'s bare localStorage lookup
+   *  (unreliable under this embed's own origin — see that component's own
+   *  doc comment for the "perpetual spinner" incident this fixes). */
+  personaId?: string;
   run: ProgrammeRunResult | null;
   /** The SAME read-only Track2Programme projection, loaded on mount (before
    *  any run) so "where are we" is visible on open, not only after "Run
@@ -858,7 +866,9 @@ function ObjectiveCard({
        * authorized lifecycle act."). The SAME component Track2ProgrammePanel
        * renders — one implementation, never a second (inv.engineering.036/037).
        */}
-      {objective.experimentId === "EXP-P1" && <FreezeVP2InternalPilotAction experimentId={objective.experimentId} />}
+      {objective.experimentId === "EXP-P1" && (
+        <FreezeVP2InternalPilotAction experimentId={objective.experimentId} personaId={personaId} />
+      )}
 
       {/* TRACK 2 — you are here. Real, live data (the SAME read-only projection
           Track2ProgrammePanel itself reads) that was previously visible only
@@ -3014,6 +3024,7 @@ export default function IRLResearchCopilotTab({ personaId }: IRLResearchCopilotT
             <ObjectiveCard
               key={objective.id}
               objective={objective}
+              personaId={personaId}
               run={programmeRun}
               programmePreview={programmePreview}
               pendingDecisionPreview={pendingDecisionPreview}

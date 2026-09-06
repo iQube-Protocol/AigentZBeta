@@ -60,7 +60,7 @@ describe('Track2ProgrammePanel — the freeze action renders unconditionally, ne
 describe('IRLResearchCopilotTab (Research Copilot) — the freeze action renders unconditionally, never gated on `programme`', () => {
   it('the <FreezeVP2InternalPilotAction> render call sits BEFORE the `{programme && (` gate, never inside it', () => {
     const src = stripComments(readSource(COPILOT));
-    const freezeCallIdx = src.indexOf('<FreezeVP2InternalPilotAction experimentId={objective.experimentId} />');
+    const freezeCallIdx = src.indexOf('objective.experimentId === "EXP-P1" && (');
     const gateIdx = src.indexOf('{programme && (');
     expect(freezeCallIdx).toBeGreaterThan(-1);
     expect(gateIdx).toBeGreaterThan(-1);
@@ -69,8 +69,11 @@ describe('IRLResearchCopilotTab (Research Copilot) — the freeze action renders
 
   it('is gated only on objective.experimentId — never on `programme`, `run`, or `pendingDecisionPreview`', () => {
     const src = stripComments(readSource(COPILOT));
-    const idx = src.indexOf('objective.experimentId === "EXP-P1" && <FreezeVP2InternalPilotAction');
-    expect(idx).toBeGreaterThan(-1);
+    const blockStart = src.indexOf('objective.experimentId === "EXP-P1" && (');
+    const blockEnd = src.indexOf(')}', blockStart);
+    expect(blockStart).toBeGreaterThan(-1);
+    const block = src.slice(blockStart, blockEnd);
+    expect(block).toMatch(/<FreezeVP2InternalPilotAction experimentId=\{objective\.experimentId\} personaId=\{personaId\} \/>/);
   });
 
   it('imports FreezeVP2InternalPilotAction from the SAME standalone file Track2ProgrammePanel uses — one implementation, never a second', () => {
