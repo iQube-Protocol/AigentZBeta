@@ -31,7 +31,7 @@ const mocks = vi.hoisted(() => ({
   discoverFinancialServicesForConsumer: vi.fn(),
   findLatestTokenLaunchForCase: vi.fn(),
   createOrResumeDraft: vi.fn(),
-  transitionState: vi.fn(),
+  claimDraftForPreflight: vi.fn(),
   assessIssuerReadiness: vi.fn(),
   inspectOrProvisionProviderBinding: vi.fn(),
   preflightLaunch: vi.fn(),
@@ -89,7 +89,7 @@ vi.mock('@/services/financialServices/discovery', () => ({
 vi.mock('@/services/factor/tokenLaunchService', () => ({
   findLatestTokenLaunchForCase: mocks.findLatestTokenLaunchForCase,
   createOrResumeDraft: mocks.createOrResumeDraft,
-  transitionState: mocks.transitionState,
+  claimDraftForPreflight: mocks.claimDraftForPreflight,
 }));
 vi.mock('@/services/factor/bankrCapabilityHandlers', () => ({
   inspectOrProvisionProviderBinding: mocks.inspectOrProvisionProviderBinding,
@@ -234,8 +234,8 @@ describe('advanceUseCaseZero — one step per call, always rereads before and af
       blockers: [],
     });
     mocks.listEvidenceForCase.mockResolvedValue([{ kind: 'confidential_admission_projection', status: 'supplied', payload: { attestationMode: 'NO_ATTESTATION_LOCAL', disposition: 'ACCEPTABLE', protocolExecutionVerified: true, teeAttestationVerified: false } }]);
-    mocks.createOrResumeDraft.mockResolvedValue({ launch: { id: 'launch-1', state: 'draft' }, created: true });
-    mocks.transitionState.mockResolvedValue({ id: 'launch-1', state: 'preparing' });
+    mocks.createOrResumeDraft.mockResolvedValue({ launch: { id: 'launch-1', state: 'draft' }, created: true, superseded: false });
+    mocks.claimDraftForPreflight.mockResolvedValue({ claimed: true, launch: { id: 'launch-1', state: 'preparing' } });
     mocks.preflightLaunch.mockResolvedValue({ launch: { id: 'launch-1', state: 'preflighted' }, bankrTerms: { raw: { simulated: true, feeBps: 100 }, sourceUrl: null, retrievedAt: '2026-09-06T00:00:00Z' } });
 
     const result = await advanceUseCaseZero({
@@ -246,7 +246,7 @@ describe('advanceUseCaseZero — one step per call, always rereads before and af
     expect(result.stepTaken).toBe('governedOperationRehearsal');
     expect(mocks.createOrResumeDraft).toHaveBeenCalledTimes(1);
     expect(mocks.createOrResumeDraft).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ caseRef: 'case-1', tenantId: 'tenant-1', beneficiaryAgentRuntimeId: 'aigent-factor' }));
-    expect(mocks.transitionState).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ id: 'launch-1', toState: 'preparing' }));
+    expect(mocks.claimDraftForPreflight).toHaveBeenCalledWith(expect.anything(), 'launch-1', 'tenant-1');
     expect(mocks.preflightLaunch).toHaveBeenCalledTimes(1);
     expect(mocks.preflightLaunch).toHaveBeenCalledWith(expect.anything(), 'launch-1', 'tenant-1', expect.anything());
     expect(result.detail.toLowerCase()).toMatch(/rehearsal stops here/);
@@ -302,20 +302,20 @@ describe('item 4 correction — Bankr rehearsal exact-spec, case-bound idempoten
     }]);
   }
 
-  it('createOrResumeDraft resolving an ALREADY-PREFLIGHTED row closes the leg (no_action_needed) — never transitions or re-preflights it', async () => {
+  it('createOrResumeDraft resolving an ALREADY-PREFLIGHTED row closes the leg (no_action_needed) — never claims or re-preflights it', async () => {
     primeEverythingUpToRehearsal();
-    mocks.createOrResumeDraft.mockResolvedValue({ launch: { id: 'launch-1', state: 'preflighted', bankr_terms: { simulated: true } }, created: false });
+    mocks.createOrResumeDraft.mockResolvedValue({ launch: { id: 'launch-1', state: 'preflighted', bankr_terms: { simulated: true } }, created: false, superseded: false });
 
     const result = await advanceUseCaseZero({ ...BASE_INPUT, caseId: 'case-1', launchSpec: { chain: 'base-sepolia', tokenName: 'Test', tokenSymbol: 'TST' } });
     expect(result.outcome).toBe('no_action_needed');
-    expect(mocks.transitionState).not.toHaveBeenCalled();
+    expect(mocks.claimDraftForPreflight).not.toHaveBeenCalled();
     expect(mocks.preflightLaunch).not.toHaveBeenCalled();
   });
 
-  it('createOrResumeDraft resolving an EXISTING "draft" row (resumed, not created) still transitions + preflights it — never a second createOrResumeDraft call', async () => {
+  it('createOrResumeDraft resolving an EXISTING "draft" row (resumed, not created) still claims + preflights it — never a second createOrResumeDraft call', async () => {
     primeEverythingUpToRehearsal();
-    mocks.createOrResumeDraft.mockResolvedValue({ launch: { id: 'launch-1', state: 'draft' }, created: false });
-    mocks.transitionState.mockResolvedValue({ id: 'launch-1', state: 'preparing' });
+    mocks.createOrResumeDraft.mockResolvedValue({ launch: { id: 'launch-1', state: 'draft' }, created: false, superseded: false });
+    mocks.claimDraftForPreflight.mockResolvedValue({ claimed: true, launch: { id: 'launch-1', state: 'preparing' } });
     mocks.preflightLaunch.mockResolvedValue({ launch: { id: 'launch-1', state: 'preflighted' }, bankrTerms: { raw: { simulated: true, feeBps: 100 }, sourceUrl: null, retrievedAt: '2026-09-06T00:00:00Z' } });
 
     const result = await advanceUseCaseZero({ ...BASE_INPUT, caseId: 'case-1', launchSpec: { chain: 'base-sepolia', tokenName: 'Test', tokenSymbol: 'TST' } });
@@ -326,10 +326,20 @@ describe('item 4 correction — Bankr rehearsal exact-spec, case-bound idempoten
     expect(mocks.preflightLaunch).toHaveBeenCalledWith(expect.anything(), 'launch-1', 'tenant-1', expect.anything());
   });
 
+  it('losing the preflight claim (another concurrent call already claimed it) reports no_action_needed and NEVER calls preflightLaunch itself', async () => {
+    primeEverythingUpToRehearsal();
+    mocks.createOrResumeDraft.mockResolvedValue({ launch: { id: 'launch-1', state: 'draft' }, created: false, superseded: false });
+    mocks.claimDraftForPreflight.mockResolvedValue({ claimed: false, launch: { id: 'launch-1', state: 'preparing' } });
+
+    const result = await advanceUseCaseZero({ ...BASE_INPUT, caseId: 'case-1', launchSpec: { chain: 'base-sepolia', tokenName: 'Test', tokenSymbol: 'TST' } });
+    expect(result.outcome).toBe('no_action_needed');
+    expect(mocks.preflightLaunch).not.toHaveBeenCalled();
+  });
+
   it('the case reference passed to createOrResumeDraft is THIS Factor case — never the beneficiary alone', async () => {
     primeEverythingUpToRehearsal();
-    mocks.createOrResumeDraft.mockResolvedValue({ launch: { id: 'launch-1', state: 'draft' }, created: true });
-    mocks.transitionState.mockResolvedValue({ id: 'launch-1', state: 'preparing' });
+    mocks.createOrResumeDraft.mockResolvedValue({ launch: { id: 'launch-1', state: 'draft' }, created: true, superseded: false });
+    mocks.claimDraftForPreflight.mockResolvedValue({ claimed: true, launch: { id: 'launch-1', state: 'preparing' } });
     mocks.preflightLaunch.mockResolvedValue({ launch: { id: 'launch-1', state: 'preflighted' }, bankrTerms: { raw: { simulated: true, feeBps: 100 }, sourceUrl: null, retrievedAt: '2026-09-06T00:00:00Z' } });
 
     await advanceUseCaseZero({ ...BASE_INPUT, caseId: 'case-1', launchSpec: { chain: 'base-sepolia', tokenName: 'Test', tokenSymbol: 'TST' } });

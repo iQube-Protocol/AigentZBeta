@@ -50,7 +50,7 @@ import { readActiveGrantForAgent } from '@/services/delegation/delegationGrantSt
 import { createAssessment } from '@/services/aegis/aegisAssessmentService';
 import { inspectOrProvisionProviderBinding, preflightLaunch } from '@/services/factor/bankrCapabilityHandlers';
 import { runAdmissionPacketPolicyEvaluation } from '@/services/factor/factorConfidentialWorkload';
-import { createOrResumeDraft, transitionState, type CreateDraftInput } from '@/services/factor/tokenLaunchService';
+import { createOrResumeDraft, claimDraftForPreflight, type CreateDraftInput } from '@/services/factor/tokenLaunchService';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 
 export type OrchestratorOutcome = 'advanced' | 'no_action_needed' | 'blocked' | 'awaiting_input' | 'awaiting_external_action';
@@ -371,17 +371,16 @@ async function stepRehearsal(
       readiness: await reread(input),
     };
   }
-  // Item 4 fix (2026-09-07): the ONLY entry point for creating/resuming a
-  // rehearsal draft is the atomic createOrResumeDraft — never an
-  // unconditional createDraft/prepareLaunchProposal call. Its
-  // draft_idempotency_key is a deterministic commitment over
-  // {tenant, caseRef=this Factor case, beneficiary, chain, tokenName,
-  // tokenSymbol, description}, enforced unique in Postgres
-  // (uq_token_launches_draft_idempotency): an IDENTICAL repeat call always
-  // resolves to the SAME row (`created: false`); a DIFFERENT specification
-  // computes a DIFFERENT key and always creates a genuinely NEW, separate
-  // row — it can never reuse or preflight an older draft.
-  const { launch, created } = await createOrResumeDraft(input.admin, {
+  // Item 4 fix (2026-09-07, corrected after review): the ONLY entry point
+  // for creating/resuming/revising a rehearsal draft is the atomic
+  // createOrResumeDraft — never an unconditional createDraft/
+  // prepareLaunchProposal call. An IDENTICAL repeat call always resolves to
+  // the SAME current row (`created: false, superseded: false`); a
+  // DIFFERENT specification SUPERSEDES the current row with a new
+  // immutable version (`superseded: true`) via reviseWithNewVersion — never
+  // an independent duplicate — preserving the one-current-launch-per-
+  // beneficiary invariant throughout.
+  const { launch, created, superseded } = await createOrResumeDraft(input.admin, {
     tenantId: input.tenantId,
     caseRef: factorCase.case_id,
     beneficiaryAgentRuntimeId: runtimeAgentId,
@@ -399,18 +398,31 @@ async function stepRehearsal(
     };
   }
 
-  // Freshly created (or resumed while still 'draft') — mirrors
-  // prepareLaunchProposal's own createDraft+transitionState('preparing')
-  // sequence, then runs the SAME preflightLaunch every rehearsal path uses.
+  // Item 4 fix: the 'draft' -> 'preparing' transition is an ATOMIC CLAIM
+  // (claimDraftForPreflight's conditional UPDATE ... WHERE state='draft')
+  // — only the caller whose update actually affects the row may proceed to
+  // quote Bankr terms and write the preflight receipt. A caller that loses
+  // the claim (another advance() call already claimed this exact row)
+  // NEVER calls preflightLaunch itself — it reports the current state
+  // instead, so the preflight quote and its receipt are each written at
+  // most once per row, never duplicated by a race.
   if (launch.state === 'draft') {
-    await transitionState(input.admin, { id: launch.id, tenantId: input.tenantId, toState: 'preparing', actorPersonaId: input.actorPersonaId });
+    const { claimed, launch: afterClaim } = await claimDraftForPreflight(input.admin, launch.id, input.tenantId);
+    if (!claimed) {
+      return {
+        stepTaken: 'governedOperationRehearsal',
+        outcome: 'no_action_needed',
+        detail: `Token launch ${afterClaim.id} is already being preflighted by another concurrent call (state: ${afterClaim.state}) — never a duplicate quote or receipt.`,
+        readiness: await reread(input),
+      };
+    }
   }
   const preflight = await preflightLaunch(input.admin, launch.id, input.tenantId, input.actorPersonaId);
   return {
     stepTaken: 'governedOperationRehearsal',
     outcome: 'advanced',
     detail:
-      `Token-launch draft ${launch.id} (case ${factorCase.case_id}) ${created ? 'prepared' : 'resumed'} and preflighted ` +
+      `Token-launch draft ${launch.id} (case ${factorCase.case_id}) ${superseded ? 'superseded the prior version and was' : created ? 'prepared' : 'resumed'} and preflighted ` +
       `(state: ${preflight.launch.state}, terms: ${JSON.stringify(preflight.bankrTerms.raw)}) — rehearsal stops here; ` +
       `approval/submission/broadcast are separate, later, human-gated acts this orchestrator never performs.`,
     readiness: await reread(input),
