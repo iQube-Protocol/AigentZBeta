@@ -28,10 +28,14 @@
  *     enforcement gate) is defined and never called from any transition or
  *     admission route -> partial.
  *   - horizen_journey_spine: a real Horizen registration binding is
- *     resolved (services/horizen/agentRegistrationBinding.ts) and reported
- *     by Factor's own Agent Card, but its own status there is literally
- *     "pending_registration" — no on-chain registration has completed ->
- *     partial.
+ *     resolved (services/horizen/agentRegistrationBinding.ts). CORRECTED
+ *     2026-09-06 (Use Case Zero reconciliation, operator-confirmed live
+ *     fact): Factor's OWN agent is itself Horizen-registered (ERC-8004
+ *     token 9176, Base Sepolia). The capability itself stays "partial"
+ *     because it facilitates OTHER agents' journeys, whose registration may
+ *     still be provisioned-and-pending, not because Factor's own
+ *     registration is incomplete -> partial (general-case status; not a
+ *     claim about Factor's own agent).
  *   - standing_proposal: services/factor/standingProposal.ts is a real,
  *     evidence-gated service (refuses with no evidence, PRD §10), but there
  *     is no REST route and no FactorPanel control that reaches it -> partial
@@ -41,10 +45,28 @@
  *     discovery, wallet provisioning, Pulse/P&L data) lives in other
  *     services Factor does not itself call -> advisory (Factor can explain
  *     and orient, not act).
- *   - financial_service_composition, vela_confidential_compute,
- *     bankr_tokenization, runtime_activation: no implementation exists
- *     anywhere in this codebase as a Factor-bound capability -> planned.
- *     Do not wire fake handlers for these.
+ *   - vela_confidential_compute: CORRECTED 2026-09-06 (Use Case Zero
+ *     reconciliation) — a real, tested Factor-bound workload exists
+ *     (services/factor/factorConfidentialWorkload.ts, driving the actual
+ *     ConfidentialProjectionProvider seam end to end) -> partial, not
+ *     planned. It runs only against Vela's deterministic test transport —
+ *     no live/production Vela deployment is configured anywhere in this
+ *     codebase (services/vela/velaConfig.ts defines only a 'local',
+ *     no_attestation deployment) — every run is honestly reported as
+ *     simulated/test-transport.
+ *   - bankr_tokenization: real, tested handlers exist end to end (see its
+ *     own entry below) -> partial, simulated (Bankr's deterministic fake
+ *     transport — no live BANKR_*_API_KEY configured), never "planned".
+ *   - financial_service_composition, runtime_activation: no implementation
+ *     exists anywhere in this codebase as a Factor-bound capability ->
+ *     planned. Do not wire fake handlers for these.
+ *   - constitutional_financial_agent_establishment ("Use Case Zero", added
+ *     2026-09-06): a first-class capability composing EXISTING canonical
+ *     services (case, authority-chain, wallet, Horizen, Aegis, MoneyPenny
+ *     admission, Bankr, Vela) into one read-only readiness projection and a
+ *     set of orchestration handlers -> partial. Never a second Journey
+ *     state machine, service catalog, wallet model, approval system or
+ *     receipt system — see services/factor/useCaseZeroReadinessProjection.ts.
  *   - general_orientation: this manifest + the classification/response path
  *     itself -> operational.
  */
@@ -125,7 +147,8 @@ export type FactorCapabilityId =
   | "aegis_referral"
   | "vela_confidential_compute"
   | "bankr_tokenization"
-  | "runtime_activation";
+  | "runtime_activation"
+  | "constitutional_financial_agent_establishment";
 
 export interface FactorCapability {
   id: FactorCapabilityId;
@@ -254,14 +277,14 @@ export const FACTOR_CAPABILITIES: FactorCapability[] = [
     id: "horizen_journey_spine",
     title: "Registry and Horizen Journey Spine facilitation",
     description:
-      "Explains how a candidate or admitted agent traverses the Horizen Journey Spine toward registration. Horizen registration binding resolution is real, but the registration itself is provisioned and pending — not yet broadcast on-chain.",
+      "Explains how a candidate or admitted agent traverses the Horizen Journey Spine toward registration. Horizen registration binding resolution is real. Aigent Factor's OWN agent is itself Horizen-registered (ERC-8004 token 9176, Base Sepolia, operator-confirmed) — but this capability facilitates OTHER agents' journeys, and for a given candidate, registration may still be provisioned-and-pending rather than broadcast; status here always reflects the CANDIDATE being asked about, never Factor's own registration by default.",
     status: "partial",
     interactionModes: ["explain", "assess-readiness"],
     handler: "services/horizen/agentRegistrationBinding.ts",
     handlerKind: "service",
     requiresApproval: false,
     examples: ["Help this agent traverse the Horizen Journey Spine", "What is this agent's Horizen registration status?"],
-    boundaries: ["Factor cannot broadcast or confirm an on-chain registration itself — it can only report and explain the current binding state."],
+    boundaries: ["Factor cannot broadcast or confirm an on-chain registration itself — it can only report and explain the current binding state for the candidate actually being discussed."],
     actions: [
       explainAction("horizen_journey_spine", "Explain the Horizen Journey Spine"),
       {
@@ -403,14 +426,33 @@ export const FACTOR_CAPABILITIES: FactorCapability[] = [
   {
     id: "vela_confidential_compute",
     title: "Vela confidential-compute preparation",
-    description: "Preparing a workload for Vela confidential compute on an agent's behalf — no Factor-bound implementation exists.",
-    status: "planned",
-    interactionModes: ["explain"],
-    handlerKind: "none",
+    description:
+      "A real, tested Factor-bound workload exists (services/factor/factorConfidentialWorkload.ts: admission-packet policy evaluation, driving the actual ConfidentialProjectionProvider seam end to end — prepare -> submit -> observe -> evidence -> verify) and can be invoked today. It runs against Vela's deterministic test transport (services/vela/velaTestTransport.ts); this codebase configures no live/production Vela deployment (services/vela/velaConfig.ts only defines a 'local', no_attestation deployment), so every run is honestly reported as simulated/test-transport (attestationMode: NO_ATTESTATION_LOCAL) until an actual Vela SDK/TEE deployment exists to connect to.",
+    status: "partial",
+    interactionModes: ["explain", "assess-readiness", "prepare"],
+    handler: "services/factor/factorConfidentialWorkload.ts",
+    handlerKind: "service",
     requiresApproval: false,
-    examples: ["Can Vela protect this workload?", "Prepare this agent for confidential compute"],
-    boundaries: ["No Vela integration exists for Factor — this is a described capability, not a live one."],
-    actions: [explainAction("vela_confidential_compute", "Explain Vela confidential compute")],
+    requiredAuthority: ["confidential-projection-request"],
+    examples: ["Can Vela protect this workload?", "Prepare this agent for confidential compute", "Run the admission-packet confidential evaluation"],
+    boundaries: [
+      "Only the admission-packet policy evaluation workload is wired — this is not a general-purpose confidential-compute facility.",
+      "Every run today is simulated/test-transport (Vela's deterministic test TEE) — no live Vela SDK/production TEE deployment is configured in this codebase; a run's attestationMode is always reported honestly, never asserted as live.",
+      "Confidential inputs (readinessScore, policyThreshold) never leave the confidential environment in the clear — only commitments and the coarse verdict are persisted.",
+    ],
+    actions: [
+      explainAction("vela_confidential_compute", "Explain Vela confidential compute"),
+      {
+        id: "vela_confidential_compute:prepare",
+        label: "Run the admission-packet confidential policy evaluation",
+        mode: "prepare",
+        handlerId: "factor:vela-admission-projection",
+        exposure: "internal",
+        requiresApproval: false,
+        requiredScope: ["caseId"],
+        requiredAuthority: ["confidential-projection-request"],
+      },
+    ],
   },
   {
     id: "bankr_tokenization",
@@ -523,6 +565,52 @@ export const FACTOR_CAPABILITIES: FactorCapability[] = [
     boundaries: ["Marking a case 'active' is a state label only — Factor does not itself deploy or operate any runtime."],
     actions: [explainAction("runtime_activation", "Explain runtime activation")],
   },
+  {
+    id: "constitutional_financial_agent_establishment",
+    title: "Constitutional financial-agent establishment (Use Case Zero)",
+    description:
+      "Guides an operator, end to end, through establishing a constitutional financial-services agent — either bringing an existing agent through the remaining readiness steps, or creating and establishing a new one from scratch. Both entry paths converge on ONE canonical readiness projection (services/factor/useCaseZeroReadinessProjection.ts) composed from EXISTING services — identity, wallet, Passport, delegation/authority chain, Horizen/ERC-8004 registration, Aegis assessment, MoneyPenny admission, Bankr/provider binding, Vela confidential-compute readiness, and runtime activation. Never a second Journey state machine, service catalog, wallet model, approval system or receipt system.",
+    status: "partial",
+    interactionModes: ["explain", "assess-readiness", "prepare"],
+    handler: "services/factor/useCaseZeroReadinessProjection.ts",
+    handlerKind: "service",
+    requiresApproval: false,
+    requiredAuthority: ["constitutional-agent-establishment-readiness"],
+    examples: [
+      "I want to set up a financial agent",
+      "Help me create an agent with a wallet",
+      "Bring my agent to MoneyPenny",
+      "Establish a constitutional financial agent",
+      "I need confidential financial transactions for my agent",
+    ],
+    boundaries: [
+      "Factor never approves its own agent, assessment, admission or financial transaction — Aegis assesses, MoneyPenny admits, and only an accountable human/operator persona approves a consequential step.",
+      "Completion is read from canonical state (case, wallet, registration, assessment, admission, binding, evidence records) — never inferred from conversational prose or from Factor's own case status alone.",
+      "Every action reports honestly whether it ran in simulated/test-transport mode or live — never blends the two, never presents a simulated result as live.",
+      "No token is issued, no transaction is broadcast, no funds move, and no production credentials are used by this capability.",
+    ],
+    actions: [
+      explainAction("constitutional_financial_agent_establishment", "Explain constitutional financial-agent establishment"),
+      {
+        id: "constitutional_financial_agent_establishment:bring_own_agent",
+        label: "Bring my own agent",
+        mode: "prepare",
+        handlerId: "factor:ucz-bring-own-agent",
+        exposure: "moneypenny",
+        requiresApproval: false,
+        requiredAuthority: ["constitutional-agent-establishment-readiness"],
+      },
+      {
+        id: "constitutional_financial_agent_establishment:create_and_establish",
+        label: "Create and establish an agent",
+        mode: "prepare",
+        handlerId: "factor:ucz-create-and-establish",
+        exposure: "moneypenny",
+        requiresApproval: false,
+        requiredAuthority: ["constitutional-agent-establishment-readiness"],
+      },
+    ],
+  },
 ];
 
 export function getFactorCapability(id: FactorCapabilityId): FactorCapability {
@@ -549,6 +637,17 @@ export function isFactorCapabilityId(value: unknown): value is FactorCapabilityI
  */
 const CAPABILITY_PATTERNS: Array<{ id: FactorCapabilityId; pattern: RegExp }> = [
   { id: "general_orientation", pattern: /\b(your |factor'?s? )?capabilit(y|ies)\b|what (can|do) you (do|help)|explain (aigent )?factor'?s? role|who are you\b/i },
+  // Use Case Zero — MUST be checked before standing/pulse_pnl/horizen/
+  // authority_chain/vela/bankr/identity_wallet_settlement's own looser
+  // patterns below, since phrases like "confidential financial
+  // transactions" or "set up a financial agent" would otherwise mismatch
+  // into vela_confidential_compute/bankr_tokenization/
+  // identity_wallet_settlement instead of the establishment flow itself.
+  {
+    id: "constitutional_financial_agent_establishment",
+    pattern:
+      /confidential financial transactions?|private financial operations?|set up a financial agent|create an agent with a wallet|bring my (own )?agent (to|into) moneypenny|establish a constitutional financial agent|constitutional financial[- ]services? agent|constitutional agent establishment/i,
+  },
   { id: "standing_proposal", pattern: /\bstanding\b/i },
   { id: "pulse_pnl", pattern: /\bpulse\b.*\bp&?\s?l\b|\bp&?\s?l\b.*\bpulse\b|pulse\/p&l|pulse and p&l/i },
   { id: "horizen_journey_spine", pattern: /\bhorizen\b|\bjourney spine\b/i },
