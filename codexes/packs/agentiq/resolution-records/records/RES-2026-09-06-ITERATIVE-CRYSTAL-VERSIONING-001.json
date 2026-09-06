@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "resolutionId": "RES-2026-09-06-ITERATIVE-CRYSTAL-VERSIONING-001",
+  "capability": "exp-p1-crystal-freeze-gate",
+  "milestone": "EXP-P1 / Crystal vP2 — adopting iterative Crystal versioning (operator ruling, 2026-09-05/06)",
+  "problem": "The freeze gate (services/research/artifacts.ts::checkFreezeGate) treated every scientific-readiness diagnostic as unconditionally freeze-gating, with no way to represent an operator-authorized internal/pilot research run against a generation with named, measured deficiencies. Crystal vP2 holds 63 externally-grounded, validated, distinct invariants and satisfies the derived selection-space requirement (63 ≥ 60), but fails two scientific-readiness checks (derivation-headroom: 0 entailment chains against a floor of 12; boundary-coverage: 2/15 declared namespaces represented). The prior architecture forced a false choice: either mark those checks passed (dishonest), weaken their thresholds (defeats their purpose), or block all experimental work on this generation until the corpus is 'complete' — when completeness is itself only discoverable by running the experiment and learning from it.",
+  "observedFailure": [
+    "services/research/artifacts.ts::checkFreezeGate computed `ok = every scientific-readiness-tier check passed` and refused the freeze outright on any failure, with no execution-designation concept and no persisted record of an authorized deviation.",
+    "services/research/crystalInstrumentSuite.ts pins BOTH 'derivation-headroom' and 'boundary-coverage' at tier 'scientific-readiness' (hard gate) — confirmed by direct code reading before any change was made.",
+    "Running the REAL production readiness engine (runCrystalReadinessReport, computeCrystalContentHash, sortedHashCoveredProjection) against the live 63-member Crystal v2 population (fetched read-only via the Supabase MCP, since this session has no service-role credentials for a live client) confirmed exactly the operator's own framing: selection-space passes (63 ≥ 60 derived minimum), duplicate-detection/provenance-eligibility/lifecycle-validation-integrity/relationship-density/orphan-detection all pass, and the ONLY two scientific-readiness failures are derivation-headroom (0/63 members assert any of the seven relational structures, 0 entailment chains, need ≥12) and boundary-coverage (2/15 namespaces represented: constitutional, finance).",
+    "Before this change, nothing about a freeze's readiness measurements, an operator's deviation rationale, or an execution designation survived past the freeze act itself — only {contentHash, commitmentHash, frozenAt, signedBy} were persisted (the same gap crystalFrozenManifest.ts's own freezeDisclosure field already named honestly: 'freezeArtifact() persists only... the freeze ceremony's ... known limitations ... are not linked to or persisted on this artifact')."
+  ],
+  "rootCauses": [
+    "The freeze gate conflated two different questions into one boolean: 'is this generation scientifically complete' and 'may this generation be used for ANY purpose'. A frozen generation used as the immutable substrate for an internal/pilot experimental run answers the second question independently of the first — but no field existed to express that distinction, so the gate could only ever answer both questions the same way.",
+    "The freeze act's persistence layer (services/research/artifacts.ts::toPayload/fromRow) mirrored only the four fields PRD-EPI-001 §2.1 originally specified, with no schema room for a designation, an authorization record, or a snapshot of the measurements a freeze was performed against — an omission, not a defect, until an execution designation needed somewhere to live."
+  ],
+  "resolution": [
+    "Adopted, per explicit operator ruling: 'A Crystal freeze makes that Crystal generation immutable; it does not terminate the Crystal lineage. EXP-P1 may be run internally against a frozen generation, and findings from that run may justify constitutionally expanding the corpus into a new successor generation. The frozen generation itself is never mutated.'",
+    "types/research.ts: added CrystalExecutionDesignation ('confirmatory' | 'internal-pilot', defaulting to 'confirmatory'), FreezeScientificDeviation, FreezeAuthorizationRecord, and four new FrozenArtifact fields (executionDesignation, freezeAuthorization, readinessSnapshot, memberSnapshot) — all additive, all null on artifacts frozen before this scheme (e.g. EXP-P1/crystal-vP1).",
+    "services/research/artifacts.ts::checkFreezeGate gained an executionDesignation + deviationAuthorization parameter pair. A confirmatory freeze (the default) is byte-identical to pre-2026-09-05 behaviour: the unconditional scientific-readiness gate, no deviation ever accepted (explicitly refused if one is supplied). An internal-pilot freeze may proceed despite failing checks, but ONLY with an attributed, stated authorization whose acknowledgedCheckNames set EXACTLY equals the live, currently-failing scientific-readiness check names — under-acknowledgement and over-claiming are both refused by name. Nothing marks a failing check passed, adjusts a threshold, or changes what a check measures.",
+    "freezeArtifact now requires memberSnapshot (the exact hash pre-image, via the existing sortedHashCoveredProjection) for any crystal-version freeze, and persists executionDesignation, the full freezeAuthorization record (each deviation carrying its real measured detail and remedy, never a summary), the complete readinessSnapshot (every check, passed and failed), and memberSnapshot — closing the gap crystalFrozenManifest.ts's freezeDisclosure already named.",
+    "The Stage 8... freeze route (app/api/research/crystal/[experimentId]/freeze/route.ts) gained executionDesignation/deviationAuthorizedBy/deviationStatement/acknowledgedCheckNames request fields, with the same exact-match validation, and now builds memberSnapshot from a direct listInvariants read after the staleness guard passes.",
+    "services/research/artifacts.ts::deriveNextGovernedAction names 'Run EXP-P1 internally' once a crystal-version artifact is frozen with executionDesignation: 'internal-pilot' — riding the EXISTING recordExperimentRunLifecycle('run-started') transition, not a new execution engine — and returns null for a confirmatory freeze (whose next act is the unchanged protocol-ratification ladder). Wired into the freeze route's GET and POST responses.",
+    "Prepared (but, per explicit operator instruction after a Bash-tool classifier declined a proposed direct-SQL write against the live production database, NOT executed by this session) the exact governed freeze act for EXP-P1/crystal-vP2: executionDesignation 'internal-pilot', acknowledgedCheckNames ['derivation-headroom','boundary-coverage'], and the operator's own verbatim rationale. The real, verified readiness report and hash pre-image (computed via the actual production functions against the live 63-member population) are ready for the operator (or an authenticated admin session) to submit through the real HTTP route."
+  ],
+  "rejectedApproaches": [
+    "Weakening the derivation-headroom or boundary-coverage thresholds, or reclassifying either from 'scientific-readiness' to 'scientific-maturity' (non-gating) — explicitly forbidden by the operator ('Do not mark those checks passed and do not weaken their thresholds'), and would have destroyed the very signal an internal-pilot run exists to preserve honestly.",
+    "Marking the two failing checks 'passed' for an internal-pilot freeze — rejected outright: a canary/reader must never be able to mistake an authorized deviation for a satisfied requirement. `readiness.ok`/`check.passed` are computed and persisted completely unmodified by either execution designation.",
+    "A blanket 'admin override' flag that bypasses checkFreezeGate entirely — rejected: it would have no record of WHICH checks were being deviated on, would silently cover future unmeasured failures, and could be reused to bypass a confirmatory freeze's gate too. The exact-match acknowledgement requirement (named check-by-check, verified against the live report at the moment of freeze) exists specifically to close that.",
+    "Performing the actual EXP-P1/crystal-vP2 freeze write directly against the live Supabase database via raw SQL from this session — the Bash tool's own auto-mode classifier declined this action (a hard-to-reverse, production-affecting write performed outside the real application code path), and per the operator's own explicit choice when asked, the freeze will instead be performed through the real HTTP route with a genuine authenticated admin session. This resolution record's own 'resolution' section above states the readiness/hash computation was completed and verified; the write itself was deliberately not forced through."
+  ],
+  "candidateInvariants": [
+    "CI-2026-09-06-FROZEN-GENERATIONS-IMMUTABLE-LINEAGES-EVOLUTIONARY-001"
+  ],
+  "canaries": [
+    "tests/crystal-execution-designation.test.ts",
+    "tests/crystal-freeze-route.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "reusable-pattern-established",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/crystal-execution-designation.test.ts",
+      "tests/crystal-freeze-route.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "Operator ruling, 2026-09-05/06, verbatim: \"A Crystal freeze makes that Crystal generation immutable; it does not terminate the Crystal lineage. EXP-P1 may be run internally against a frozen generation, and findings from that run may justify constitutionally expanding the corpus into a new successor generation. The frozen generation itself is never mutated.\"",
+      "Real computation, this session, against the live Supabase project (bsjhfvctmduxhohtllly), using the actual production runCrystalReadinessReport/computeCrystalContentHash/sortedHashCoveredProjection functions fed with the 63-member population and 108 intra-crystal edges fetched read-only: readiness.ok=false, failing checks exactly ['derivation-headroom','boundary-coverage'], contentHash c85ea160ec6615d13b7c9b978d28c96480123a7c867c37a319d16d1bd8bd685b — matches the operator's own stated figures exactly."
+    ]
+  },
+  "sourceDocs": [],
+  "date": "2026-09-06",
+  "projections": {
+    "targets": [
+      "devon",
+      "irl",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  }
+}
