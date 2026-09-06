@@ -153,6 +153,16 @@ export type FinancialSovereigntyIntroStageKey = 'discover' | 'learn' | 'explore'
  *     stage's Continue action rendered INSIDE it as a full-width banner
  *     pinned under a divider at the bottom — never a second, page-level
  *     floating footer.
+ *   - Column proportions are the shell's DEFAULT 3fr/1fr split (operator
+ *     confirmed this reads correctly as-is, 2026-09-06 — a same-day
+ *     rightColumnWeight="2fr" experiment matching Orient's own 3fr/2fr grid
+ *     was tried and reverted); `BridgeContentCapsule`'s `rightColumnWeight`
+ *     prop stays available for a future caller that needs it, unused here.
+ *   - The media carousel's prev/dots/next nav renders as a floating overlay
+ *     on the media's own bottom edge (`dotsPosition="overlay"`) rather than
+ *     a second row underneath it, since the hero viewport reserves no room
+ *     below itself for one; touch-swipe between items was already built
+ *     into `BridgeMediaCarouselPane` and needed no change.
  */
 function FsBridgeCapsuleSection({
   items,
@@ -165,6 +175,8 @@ function FsBridgeCapsuleSection({
   onContinue,
   continueDisabled,
   accentButtonClass,
+  accentEyebrowClass,
+  accentDotClass,
 }: {
   items: BridgeMediaCarouselItem[];
   emptyLabel: string;
@@ -176,20 +188,26 @@ function FsBridgeCapsuleSection({
   onContinue: () => void;
   continueDisabled: boolean;
   accentButtonClass: string;
+  accentEyebrowClass: string;
+  accentDotClass: string;
 }) {
   return (
     <BridgeContentCapsule
       className="h-full"
-      rightColumnWeight="2fr"
       railCards={[{ id: 'primary', label: 'Media' }]}
       viewportAspectRatio={() => 16 / 9}
       renderViewport={() => (
-        <BridgeMediaCarouselPane items={items} emptyLabel={emptyLabel} heightClassName="h-full" />
+        <BridgeMediaCarouselPane
+          items={items}
+          emptyLabel={emptyLabel}
+          dotsPosition="overlay"
+          activeDotClassName={accentDotClass}
+        />
       )}
       renderStrip={() => (
         <div>
           <div className="flex items-baseline justify-between gap-3">
-            <p className="text-[10px] uppercase tracking-[0.25em] text-amber-400/80">{eyebrow}</p>
+            <p className={`text-[10px] uppercase tracking-[0.25em] ${accentEyebrowClass}`}>{eyebrow}</p>
             <ListenButton compact getText={() => [headline, lead, contextualLine].filter(Boolean).join(' ')} />
           </div>
           <p className="mt-1 text-xs text-slate-500">{headline}</p>
@@ -200,7 +218,7 @@ function FsBridgeCapsuleSection({
       renderCompanion={() => (
         <div className="flex h-full min-h-0 flex-col rounded-2xl border border-white/[0.07] bg-slate-900/40 p-3.5">
           <div className="shrink-0 border-b border-white/[0.07] pb-2">
-            <p className="text-[10px] uppercase tracking-[0.25em] text-amber-400/80">Learning capsule</p>
+            <p className={`text-[10px] uppercase tracking-[0.25em] ${accentEyebrowClass}`}>Learning capsule</p>
             <p className="mt-1 text-xs text-slate-500">Everything for this stage, gathered in one place.</p>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto pt-3 pr-1">
@@ -428,6 +446,11 @@ export function FinancialSovereigntyIntroStage({
 
   const accentButtonClass =
     accent === 'indigo' ? 'bg-indigo-500 hover:bg-indigo-400 text-slate-950' : 'bg-amber-500 hover:bg-amber-400 text-slate-950';
+  // Bridge-consistent accents (2026-09-06) — CI stays indigo/lilac, KNYTS
+  // stays amber, matching BridgeMediaStage's own ACCENT_CLASSES pairing;
+  // never a hardcoded amber value bleeding into the CI bridge's content.
+  const accentEyebrowClass = accent === 'indigo' ? 'text-indigo-400/80' : 'text-amber-400/80';
+  const accentDotClass = accent === 'indigo' ? 'bg-indigo-400' : 'bg-amber-400';
 
   // Continue used to render as a page-level footer pinned bottom-right
   // (with a lg:pr-56 clearance hack against CodexCopilotLayer's floating
@@ -521,6 +544,8 @@ export function FinancialSovereigntyIntroStage({
             onContinue={handlePrimaryCta}
             continueDisabled={primaryCtaDisabled}
             accentButtonClass={accentButtonClass}
+            accentEyebrowClass={accentEyebrowClass}
+            accentDotClass={accentDotClass}
           />
         </div>
       </div>
@@ -612,6 +637,8 @@ export function FinancialSovereigntyIntroStage({
             onContinue={handlePrimaryCta}
             continueDisabled={primaryCtaDisabled}
             accentButtonClass={accentButtonClass}
+            accentEyebrowClass={accentEyebrowClass}
+            accentDotClass={accentDotClass}
           />
         </div>
       </div>
@@ -709,6 +736,8 @@ export function FinancialSovereigntyIntroStage({
           onContinue={handlePrimaryCta}
           continueDisabled={primaryCtaDisabled}
           accentButtonClass={accentButtonClass}
+          accentEyebrowClass={accentEyebrowClass}
+          accentDotClass={accentDotClass}
         />
       </div>
     </div>
