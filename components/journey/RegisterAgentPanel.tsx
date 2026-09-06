@@ -278,12 +278,23 @@ const POLL_INTERVAL_MS = 8000;
 
 interface RegisterAgentPanelProps {
   personaId?: string;
-  /** Initial selected agent slug — uncontrolled default only, read once on mount. */
+  /**
+   * The currently selected agent slug — CONTROLLED by the parent (e.g.
+   * PilotJourneyTab), never copied into this component's own state (fixed
+   * 2026-09-06: stale-subject-agent race — see the note on `agentSlug`
+   * below for the full defect this closes). Optional only for structural
+   * compatibility with the generic `JOURNEY_COMPONENTS` surface map's loose
+   * prop typing — this component treats `undefined` as "the parent has not
+   * yet resolved which agent is selected" and renders a neutral loading
+   * state rather than silently defaulting to any particular agent (item 5,
+   * 2026-09-06 surgical repair: "never render Nakamoto as a temporary
+   * default while Factor is being restored").
+   */
   agentSlug?: string;
-  /** Notified on every selection change so a parent (e.g. PilotJourneyTab) can
-   * carry "which agent is being sponsored" forward to later journey stages
-   * (Passport, Delegate, ...) — this component still owns the selection
-   * itself; the parent only observes it. */
+  /** Notified when the operator changes the selection FROM THIS PANEL's own
+   * dropdown, so the parent (the canonical owner of the selection) can
+   * update it. This component never applies the change to its own state —
+   * it only ever reflects whatever `agentSlug` prop the parent hands back. */
   onAgentSlugChange?: (agentSlug: string) => void;
   /**
    * Live Journey state projection (Journey 0 closure item 2, 2026-09-06) —
@@ -333,24 +344,65 @@ export function RegisterAgentPanel({
    * that mixes hinted and unhinted reads contradicts itself between renders.
    */
   personaId,
-  agentSlug: initialAgentSlug,
+  agentSlug,
   onAgentSlugChange,
   requestStateRefresh,
 }: RegisterAgentPanelProps) {
-  const [agentSlug, setAgentSlugState] = useState<string>(initialAgentSlug ?? PILOT_AGENTS[0].slug);
-  const setAgentSlug = useCallback(
-    (slug: string) => {
-      setAgentSlugState(slug);
-      onAgentSlugChange?.(slug);
-    },
-    [onAgentSlugChange],
-  );
-  // Announce the initial (default) selection too — a parent observing only
-  // future changes would otherwise never learn the starting agent.
+  /*
+   * STALE-SUBJECT-AGENT RACE (operator surgical repair, 2026-09-06) —
+   * `agentSlug` used to be copied into `useState(initialAgentSlug ?? …)` on
+   * first mount only. PilotJourneyTab restores a PERSISTED selection (e.g.
+   * Factor) in a `useEffect` that runs AFTER the component tree's first
+   * paint — this panel's own internal copy had already locked in whatever
+   * the parent's initial render passed (the hardcoded 'nakamoto' default),
+   * and nothing ever resynced it once the parent's own state moved on. A
+   * Factor-scoped Journey observer went on rendering Nakamoto's Agent Card,
+   * status checks and receipts indefinitely.
+   *
+   * `agentSlug` is now read DIRECTLY from props every render — there is no
+   * local copy to go stale. `agentSlugRef` mirrors it into a ref, updated
+   * synchronously on every render (never inside an effect, so it is already
+   * current by the time any in-flight async read resolves) — every
+   * agent-scoped async function below (`readProgress`, `pollStatus`,
+   * `prepare`) captures the agentSlug it was CALLED with and compares it
+   * against this ref before applying any result, so a late response for an
+   * agent the operator has since switched away from is discarded rather
+   * than rendered as if it described the newly-selected agent.
+   */
+  const agentSlugRef = useRef(agentSlug);
+  agentSlugRef.current = agentSlug;
+
+  /*
+   * STALE-AGENT STATE MUST NEVER SURVIVE A SWITCH — mirrors
+   * StageReceiptsDrawer's own "a stale scope must never render as current"
+   * discipline (components/journey/StageReceiptsDrawer.tsx). Cleared the
+   * INSTANT `agentSlug` changes — whether the operator picked a different
+   * agent from THIS panel's own dropdown, or the parent restored a
+   * persisted selection — rather than waiting for the next `readProgress`
+   * tick to overwrite it, so the operator never sees a flash of the
+   * PREVIOUS agent's own tokenId/progress/flow while the fresh read for the
+   * new one is still in flight. Also cancels any pending poll timer: a
+   * confirmation poll started for the previous agent must not keep running
+   * (and must not apply its result) once the operator has moved on.
+   */
   useEffect(() => {
-    onAgentSlugChange?.(agentSlug);
+    setFlow({ step: 'idle' });
+    setProgress(null);
+    setHorizenFacts({ network: null, tokenId: null });
+    setPendingBroadcast(null);
+    setLastHorizenAnswer(null);
+    setOnChainDetail(null);
+    setConfirmationSource(null);
+    setDivergence(null);
+    setLiveMandateExpiresAt(null);
+    flowTokenIdRef.current = null;
+    if (pollTimerRef.current) {
+      clearTimeout(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [agentSlug]);
+
   const [sponsoredAgents, setSponsoredAgents] = useState<SponsoredAgent[]>([]);
   const [cardVersion, setCardVersion] = useState(0);
   const [flow, setFlow] = useState<FlowState>({ step: 'idle' });
@@ -408,6 +460,8 @@ export function RegisterAgentPanel({
   );
 
   const readProgress = useCallback(async () => {
+    if (!agentSlug) return; // nothing selected yet — the parent hasn't resolved a selection
+    const requestedAgentSlug = agentSlug;
     try {
       /*
        * TWO SOURCES, EACH THE RIGHT ONE (fix, 2026-08-02 late).
@@ -511,6 +565,17 @@ export function RegisterAgentPanel({
           .find((t): t is string => typeof t === 'string' && t.length > 0) ?? null;
       const tokenId = cardTokenId ?? receiptTokenId ?? flowTokenIdRef.current;
 
+      /*
+       * STALE-AGENT GUARD (2026-09-06) — everything above was fetched FOR
+       * `requestedAgentSlug`. If the operator has since switched to a
+       * different agent (agentSlugRef.current no longer matches), none of
+       * it may be applied: a late Nakamoto response must never overwrite a
+       * later Factor response. Discarded silently — the newly-selected
+       * agent's OWN `readProgress` call (fired by this same effect re-
+       * running off the new `agentSlug`) is what will actually populate it.
+       */
+      if (requestedAgentSlug !== agentSlugRef.current) return;
+
       setHorizenFacts({
         network: typeof horizen?.network === 'string' && horizen.network ? horizen.network : null,
         tokenId,
@@ -567,6 +632,7 @@ export function RegisterAgentPanel({
         }),
       );
     } catch {
+      if (requestedAgentSlug !== agentSlugRef.current) return; // stale — do not blank the CURRENT agent's progress
       // An unreadable ladder is left absent rather than rendered as
       // "nothing has happened" — the same rule the wallet count follows.
       setProgress(null);
@@ -890,6 +956,8 @@ export function RegisterAgentPanel({
         : null;
 
   const prepare = useCallback(async () => {
+    if (!agentSlug) return; // nothing selected yet — the parent hasn't resolved a selection
+    const requestedAgentSlug = agentSlug;
     setFlow({ step: 'preparing' });
     try {
       /*
@@ -901,7 +969,7 @@ export function RegisterAgentPanel({
       const res = await personaFetch('/api/journey/moneypenny-horizen/register/mandate/prepare', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ agentSlug }),
+        body: JSON.stringify({ agentSlug: requestedAgentSlug }),
         personaIdHint: personaId,
       });
       const json = await readJsonOrExplain(res, 'register/mandate/prepare');
@@ -910,8 +978,13 @@ export function RegisterAgentPanel({
       }
       const request = json.request as { id?: string; summary?: string } | undefined;
       if (!request?.id) throw new Error('The server prepared no signing request to authorize.');
+      // STALE-AGENT GUARD (2026-09-06) — the operator switched agents while
+      // this prepare call was in flight; a signing request for the OLD
+      // agent must not be presented as if it were for the new selection.
+      if (requestedAgentSlug !== agentSlugRef.current) return;
       setFlow({ step: 'awaiting-signature', requestId: request.id, summary: request.summary ?? null });
     } catch (err) {
+      if (requestedAgentSlug !== agentSlugRef.current) return;
       setFlow({ step: 'error', message: err instanceof Error ? err.message : 'Could not prepare registration' });
     }
   }, [agentSlug, personaId]);
@@ -924,17 +997,24 @@ export function RegisterAgentPanel({
       attempts: number,
       horizenAgentId?: string | null,
     ) => {
+      if (!agentSlug) return; // nothing selected yet — the parent hasn't resolved a selection
+      const requestedAgentSlug = agentSlug;
       try {
         const res = await personaFetch('/api/journey/moneypenny-horizen/register/status', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ agentSlug, txHash, ownerWalletAddress, network, horizenAgentId }),
+          body: JSON.stringify({ agentSlug: requestedAgentSlug, txHash, ownerWalletAddress, network, horizenAgentId }),
           personaIdHint: personaId,
         });
         const json = await readJsonOrExplain(res, 'register/status');
         if (!res.ok || !json.ok) {
           throw new Error((json?.error as string) ?? `Register status check failed (${res.status})`);
         }
+        // STALE-AGENT GUARD (2026-09-06) — the operator switched agents
+        // while this poll's request was in flight. A late Nakamoto response
+        // must never overwrite a later Factor response, and the poll for
+        // an abandoned agent selection must stop rather than keep running.
+        if (requestedAgentSlug !== agentSlugRef.current) return;
         /*
          * WHAT HORIZEN ACTUALLY SAID (operator, 2026-08-02: "It's stuck here
          * and not confirming the broadcast").
@@ -977,9 +1057,14 @@ export function RegisterAgentPanel({
           return;
         }
       } catch (err) {
+        if (requestedAgentSlug !== agentSlugRef.current) return; // stale — do not overwrite the CURRENT agent's flow
         setFlow({ step: 'error', message: err instanceof Error ? err.message : 'Could not check registration status' });
         return;
       }
+      // STALE-AGENT GUARD (2026-09-06) — an abandoned poll must stop
+      // silently rather than keep scheduling itself (or reporting a
+      // timeout) for an agent the operator is no longer looking at.
+      if (requestedAgentSlug !== agentSlugRef.current) return;
       if (attempts + 1 >= MAX_POLL_ATTEMPTS) {
         setFlow({
           step: 'error',
@@ -1045,6 +1130,23 @@ export function RegisterAgentPanel({
   // their own wallet. Re-adding a client-side broadcast here would restore
   // exactly the custody violation that ruling closed.
 
+  /*
+   * NEVER RENDER A DEFAULT AGENT WHILE THE REAL SELECTION IS STILL
+   * RESOLVING (item 5, 2026-09-06 surgical repair) — the parent
+   * (PilotJourneyTab) restores a persisted selection (e.g. Factor) in an
+   * effect that runs after first paint; until that resolves, `agentSlug` is
+   * genuinely unknown here, not "Nakamoto by default". A brief neutral
+   * loading state is honest; silently falling back to PILOT_AGENTS[0] is
+   * exactly the stale-subject-agent defect this whole repair closes.
+   */
+  if (!agentSlug) {
+    return (
+      <div className="flex items-center gap-2 rounded-md border border-slate-800 bg-slate-950/40 p-3 text-xs text-slate-500">
+        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Resolving agent selection…
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-3">
       <div className="rounded-md border border-slate-800 bg-slate-950/40 p-3">
@@ -1055,7 +1157,11 @@ export function RegisterAgentPanel({
           id="register-agent-select"
           value={agentSlug}
           onChange={(e) => {
-            setAgentSlug(e.target.value);
+            // The parent (e.g. PilotJourneyTab) is the canonical owner of
+            // the selection — this panel only reflects whatever `agentSlug`
+            // prop it hands back; it never applies the change to its own
+            // state (fixed 2026-09-06: stale-subject-agent race).
+            onAgentSlugChange?.(e.target.value);
             setFlow({ step: 'idle' });
           }}
           className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900/60 px-2 py-1.5 text-xs text-slate-200"

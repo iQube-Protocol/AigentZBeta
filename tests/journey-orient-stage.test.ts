@@ -320,7 +320,12 @@ describe('JourneyRunSurface renders the fork as one trident after the spine, nev
     expect(evidenceDefAt).toBeLessThan(refreshAt);
     const evidenceDef = source.slice(evidenceDefAt, evidenceDefAt + 1000);
     expect(evidenceDef).toMatch(/Evidence \{activeStageRuntime\.evidencePresent\.length\}/);
-    expect(evidenceDef).toMatch(/className="relative shrink-0"/);
+    // Evidence surface consolidation (2026-09-06) — no longer `relative`:
+    // there is nothing absolutely-positioned anchored to this wrapper any
+    // more (the header's own floating popover was removed entirely; the
+    // control now opens/focuses the canonical StageReceiptsDrawer further
+    // down the stage body instead).
+    expect(evidenceDef).toMatch(/className="shrink-0"/);
   });
 
   /*
@@ -369,27 +374,49 @@ describe('JourneyRunSurface renders the fork as one trident after the spine, nev
     expect(buttonBlock).not.toMatch(/>\s*Refresh state\s*</);
   });
 
-  it('the evidence checklist opens as an ANCHORED popover, never a <details> disclosure that pushes content down', () => {
-    const triggerAt = source.indexOf('Evidence {activeStageRuntime.evidencePresent.length}');
-    expect(triggerAt).toBeGreaterThan(-1);
-    const section = source.slice(Math.max(0, triggerAt - 600), triggerAt + 2200);
-    // Popover: absolutely positioned, anchored to its own `relative` trigger
-    // container — never the old `<details>` element for this checklist.
-    expect(section).toMatch(/absolute right-0 top-\[calc\(100%\+4px\)\]/);
-    expect(section).not.toMatch(/<details/);
-    // Closes on stage change, outside click, and Escape — never lingers
-    // showing the PREVIOUS stage's evidence after the active stage changes.
+  /*
+   * ── EVIDENCE SURFACE CONSOLIDATION (2026-09-06) ──────────────────────────
+   *
+   * The anchored popover this canary used to protect became the regression
+   * it was meant to prevent: commit 3ba5ef913 added a full-viewport
+   * translucent backdrop behind it to fix an overlap with StageReceiptsDrawer
+   * underneath, which combined with that drawer's own visible content to
+   * read as one broken, translucent modal (operator report, live
+   * screenshots). The actual defect was having TWO independent,
+   * simultaneously-openable Evidence surfaces — never a z-index/opacity
+   * value. The header's own floating popover is REMOVED entirely; "Evidence
+   * N/M" now controls StageReceiptsDrawer DIRECTLY via `open`/`onOpenChange`
+   * and scrolls it into view. These canaries now protect the ABSENCE of the
+   * old anchored-popover markup and the presence of the new controlled-drawer
+   * wiring — never a details element either.
+   */
+  it('the evidence control opens/focuses the canonical StageReceiptsDrawer — never its own anchored popover', () => {
+    const evidenceDefAt = source.indexOf('const evidenceTrigger =');
+    expect(evidenceDefAt).toBeGreaterThan(-1);
+    // Wide enough to cover the whole evidenceTrigger definition (through its
+    // closing `);`), never so wide it reaches the file's UNRELATED <details>
+    // disclosure elsewhere (a different, older collapsible section).
+    const evidenceDef = source.slice(evidenceDefAt, evidenceDefAt + 1600);
+    // The removed popover's own literal anchoring class must never reappear.
+    expect(evidenceDef).not.toMatch(/absolute right-0 top-\[calc\(100%\+4px\)\]/);
+    expect(evidenceDef).not.toMatch(/<details/);
+    // Scrolls the shared drawer ref into view and flips the SAME state that
+    // controls StageReceiptsDrawer's own `open` prop — one state, one drawer.
+    expect(evidenceDef).toMatch(/receiptsDrawerRef\.current\?\.scrollIntoView/);
+    expect(source).toMatch(/<StageReceiptsDrawer[\s\S]{0,1200}?open=\{evidenceOpen\}/);
+    expect(source).toMatch(/<StageReceiptsDrawer[\s\S]{0,1200}?onOpenChange=\{setEvidenceOpen\}/);
+    // Closes on stage change and Escape — never lingers showing the
+    // PREVIOUS stage's evidence after the active stage changes.
     expect(source).toMatch(/setEvidenceOpen\(false\);\s*\}, \[activeStageId\]\)/);
     expect(source).toMatch(/e\.key === 'Escape'\) setEvidenceOpen\(false\)/);
   });
 
-  it('open evidence renders as a HORIZONTAL, scrollable chip row — never a tall vertical list', () => {
-    const triggerAt = source.indexOf('Evidence {activeStageRuntime.evidencePresent.length}');
-    const section = source.slice(triggerAt, triggerAt + 2200);
-    expect(section).toMatch(/flex flex-nowrap items-center gap-1\.5 overflow-x-auto/);
-    // The old vertical list classes must not reappear for this checklist.
-    expect(section).not.toMatch(/<ul className="mt-1\.5 space-y-1/);
-    expect(section).not.toMatch(/<li key=\{sig\}/);
+  it('no full-viewport backdrop scrim exists anywhere in JourneyRunSurface', () => {
+    // The exact regression this file's own history warns about — a
+    // `fixed inset-0` scrim rendered behind the (now-removed) popover. Only
+    // matches the literal JSX attribute form (quoted), never this file's own
+    // prose recounting the removed code in a doc comment.
+    expect(source).not.toMatch(/className="fixed inset-0[^"]*bg-slate-950\/70"/);
   });
 
   it('the popover consumes the SAME server-derived evidencePresent/evidenceMissing/receiptRefs — no second evidence resolver', () => {

@@ -163,11 +163,27 @@ describe('RegisterAgentPanel — one screen, one answer about whether registrati
     expect(source).toContain('r.actionInput?.registration?.tokenId');
   });
 
-  it('a confirmed tokenId is never cleared by a later poll that fails to see it', () => {
-    // The ref is only ever ASSIGNED on a confirmation — no reset-to-null path,
-    // or a confirmed registration would flip back to "awaiting" on one bad read.
+  it('a confirmed tokenId is never cleared by a later poll for the SAME agent that fails to see it', () => {
+    // The ref is only ever ASSIGNED on a confirmation for the current poll
+    // cycle — no reset-to-null path driven by a bad READ, or a confirmed
+    // registration would flip back to "awaiting" on one failed poll.
     expect(source).toMatch(/if \(flow\.step === 'confirmed' && flow\.tokenId\) flowTokenIdRef\.current = flow\.tokenId/);
-    expect(source).not.toMatch(/flowTokenIdRef\.current = null/);
+    /*
+     * Stale-subject-agent race fix (2026-09-06) DOES reset this ref to null
+     * — but ONLY inside the dedicated agent-switch effect (keyed on
+     * `[agentSlug]`), never from a poll/read outcome. A confirmed
+     * registration for Nakamoto must not survive as Factor's own "already
+     * confirmed" state once the operator switches agents — that is a
+     * different fact than "a poll failed to see it for the SAME agent",
+     * which this test still forbids.
+     */
+    const agentSwitchEffectAt = source.indexOf('flowTokenIdRef.current = null;');
+    expect(agentSwitchEffectAt, 'the agent-switch reset must exist').toBeGreaterThan(-1);
+    const surroundingEffect = source.slice(Math.max(0, agentSwitchEffectAt - 400), agentSwitchEffectAt + 250);
+    expect(surroundingEffect).toMatch(/\}, \[agentSlug\]\);/);
+    // No OTHER occurrence of this reset outside that one effect.
+    const allResets = source.match(/flowTokenIdRef\.current = null;/g) ?? [];
+    expect(allResets).toHaveLength(1);
   });
 });
 
@@ -192,9 +208,20 @@ describe('JourneyRunSurface — the pilot can see WHICH evidence is missing, wit
    */
   const source = read('components/journey/JourneyRunSurface.tsx');
 
-  it('renders both the satisfied and the missing evidence, not only what is missing', () => {
-    expect(source).toContain('activeStageRuntime.evidencePresent.map');
-    expect(source).toContain('activeStageRuntime.evidenceMissing.map');
+  it('surfaces both the satisfied and the missing evidence to the ONE evidence surface, not only what is missing', () => {
+    /*
+     * Evidence surface consolidation (2026-09-06) — JourneyRunSurface no
+     * longer renders these two arrays itself (that was the header's own
+     * now-removed popover); it PASSES them through, unfiltered, to the one
+     * remaining Evidence surface, StageReceiptsDrawer, which renders both
+     * lists (evidencePresent as established evidence, evidenceMissing as
+     * its own `evidenceMissing` prop's pills).
+     */
+    expect(source).toMatch(/canonicalEvidencePresent=\{activeStageRuntime\?\.evidencePresent\}/);
+    expect(source).toMatch(/evidenceMissing=\{activeStageRuntime\?\.evidenceMissing\}/);
+    const drawerSource = read('components/journey/StageReceiptsDrawer.tsx');
+    expect(drawerSource).toContain('evidencePresent.map');
+    expect(drawerSource).toContain('evidenceMissingList.map');
   });
 
   it('surfaces the receipt count so a stage backed by receipts says so', () => {

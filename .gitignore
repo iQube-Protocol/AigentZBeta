@@ -164,3 +164,6 @@ apps/metame/*DesignQube/**/*.jpg
 # Bulk investor data dump — belongs in Supabase Storage, not git.
 # Pointer: data/investors/consolidated_investors_manifest.json
 data/investors/consolidated_investors.json
+
+# Test-generated screenshots (browser regression tests) — never committed, see CLAUDE.md Dense Materials rule.
+test-artifacts/

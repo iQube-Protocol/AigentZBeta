@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-09-06-CONTROLLED-PROP-NEVER-COPIED-TO-STATE-001",
+  "statement": "A component that must always reflect its parent's current notion of a selection (which agent, which persona, which record) must read that value from props every render, never copy it into `useState(prop ?? default)` as an initial value. The copy is correct at mount and silently stale forever after — a parent that corrects its own value in a post-paint effect (a persisted-selection restore, an async resolution) has no way to reach a child that already locked in the value from the FIRST render.",
+  "family": "engineering",
+  "governingPrinciple": false,
+  "parentCandidateId": null,
+  "projections": {
+    "targets": ["devon"],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "structural"
+  },
+  "classification": null,
+  "ratifiedSource": null,
+  "scope": "cross-capability",
+  "status": "candidate",
+  "notes": [
+    "First observed in components/journey/RegisterAgentPanel.tsx: `const [agentSlug, setAgentSlugState] = useState(initialAgentSlug ?? PILOT_AGENTS[0].slug)` copied the parent's (PilotJourneyTab's) agentSlug prop into local state on mount. PilotJourneyTab initializes its OWN `selectedAgentSlug` to a hardcoded 'nakamoto' default and only corrects it to the operator's persisted selection in a `useEffect` that runs AFTER first paint — a correction this panel's already-initialized copy never saw. Combined with the surface never being remounted on an agent switch, a Factor-scoped Journey observer could permanently render Nakamoto's Agent Card, status checks and receipts.",
+    "The fix made the prop genuinely controlled (read directly every render, no local copy) and, since the prop can legitimately be 'not yet known' during the parent's own resolution window, added an honest neutral loading state for that case rather than silently defaulting to any particular value. The parent was ALSO fixed to gate its own agent-scoped mount behind a `hydrated` flag, so the child is never even asked to render against the placeholder value in the first place — belt-and-braces, not a substitute for making the child correct on its own.",
+    "The general shape (`useState(propValue)` as an escape hatch for 'uncontrolled with a default') is a defect whenever the prop can change to a value the parent considers authoritative AFTER the component's first mount — which is any prop backed by an async resolution, a persisted/restored selection, or a value that arrives via a network response."
+  ],
+  "derivedFrom": ["RES-2026-09-06-JOURNEY-EVIDENCE-SURFACE-CONSOLIDATION-001"],
+  "occurrences": [
+    {
+      "site": "components/journey/RegisterAgentPanel.tsx — agentSlug copied from props into useState",
+      "defect": "PilotJourneyTab's persisted-selection restoration (post-paint effect) never reached RegisterAgentPanel's own already-initialized copy of agentSlug, permanently stranding a Factor-scoped observer on Nakamoto's Agent Card/status/receipts.",
+      "resolutionId": "RES-2026-09-06-JOURNEY-EVIDENCE-SURFACE-CONSOLIDATION-001",
+      "evidence": []
+    }
+  ],
+  "canaries": [
+    {
+      "path": "components/journey/RegisterAgentPanel.tsx",
+      "assertion": "agentSlug is destructured directly from props with no local useState copy; every async function that reads it (readProgress, pollStatus, prepare) compares the value it was called with against an always-current agentSlugRef before applying any result.",
+      "verifiedFailingBeforeFix": false
+    }
+  ]
+}

@@ -1,32 +1,38 @@
 // @vitest-environment jsdom
 /**
- * Register layout diagnosis — the header's Evidence popover vs. the
- * scrollable stage body (GJR audit, 2026-09-05).
+ * Register layout diagnosis — the header's Evidence control vs. the
+ * scrollable stage body (GJR audit, 2026-09-05; surgical repair, 2026-09-06).
  *
- * Ground truth (reported by the operator via screenshot, reasoned about
- * here since live re-viewing isn't available): with the header's "Evidence
- * N/M" popover open on the Register stage, and the body scrolled,
- * RegisterAgentPanel's "This wallet is quarantined and cannot become your
- * principal" warning visually overlapped StageReceiptsDrawer's own inline
- * "Evidence (N)" / "Historical / supplementary receipts" text.
+ * ── HISTORY ─────────────────────────────────────────────────────────────
  *
- * Root cause (confirmed by direct read of JourneyRunSurface.tsx): the
- * header — including the Evidence popover's positioned ancestor — sits
- * OUTSIDE and ABOVE the stage body's own `overflow-y-auto` scroll
- * container. The popover is `position: absolute` with no clipping
- * ancestor and `z-20`, so once open it renders at a fixed screen position
- * regardless of how far the body underneath has scrolled — exactly what
- * produces the reported overlap.
+ * The header's "Evidence N/M" trigger used to open its OWN floating
+ * popover, `position: absolute` with no clipping ancestor between it and
+ * the page, `z-20`. It visually overlapped StageReceiptsDrawer's own
+ * inline "Evidence (N)" / "Historical / supplementary receipts" text
+ * underneath. A first fix (commit 3ba5ef913) added a `fixed inset-0`
+ * translucent backdrop behind the popover — this made the regression
+ * WORSE, combining with StageReceiptsDrawer's own visible section to make
+ * the whole Journey read as one broken, translucent modal (operator
+ * report, 2026-09-06 screenshots).
  *
- * jsdom does not perform real layout — `getBoundingClientRect()` returns
- * all-zero rects for every element here, so a bounding-rect "do these two
- * rects intersect" assertion would always trivially pass/fail without
- * proving anything about actual visual overlap. That is stated explicitly
- * rather than fabricated: this test instead proves the BEHAVIORAL fix
- * directly — the exact mechanism that prevents the two from ever being
- * simultaneously visible — using the REAL components (JourneyRunSurface,
- * RegisterAgentPanel, AgentCardSurface, StageReceiptsDrawer, the real
- * Register JourneyStageDefinition and JOURNEY_SURFACES registry entry).
+ * ── THE ACTUAL FIX ──────────────────────────────────────────────────────
+ *
+ * The defect was never a z-index or opacity value — it was having TWO
+ * independent, simultaneously-openable Evidence surfaces on one screen.
+ * The header's own floating popover is REMOVED entirely; "Evidence N/M"
+ * now controls StageReceiptsDrawer DIRECTLY via its `open`/`onOpenChange`
+ * props, and clicking it scrolls that ONE canonical drawer into view. There
+ * is exactly one Evidence surface, in normal document flow, never an
+ * absolutely/fixed-positioned overlay — so there is nothing left that COULD
+ * overlap the stage body, at any scroll position, with no reactive
+ * scroll-close mechanism needed at all.
+ *
+ * jsdom does not perform real layout — a genuine geometric/visual
+ * regression test lives separately in
+ * tests/journey-evidence-layout-browser-regression.test.tsx, which drives
+ * real Chromium (via playwright-core) against the REAL rendered DOM from
+ * this same component tree. This file proves the BEHAVIORAL contract:
+ * there is one control, one drawer, no second popover, no backdrop.
  */
 import React from 'react';
 import { render, screen, fireEvent, cleanup, waitFor, act } from '@testing-library/react';
@@ -170,81 +176,96 @@ function renderRegisterStage() {
       personaId="persona-operator-1"
       headerLabel="Horizen"
       components={{ RegisterAgentPanel }}
+      // RegisterAgentPanel now requires a real, controlled agentSlug (fixed
+      // 2026-09-06: stale-subject-agent race) — without this it renders its
+      // own neutral "Resolving agent selection…" loading state rather than
+      // the quarantine warning this test exercises.
+      resolveSurfaceProps={() => ({ agentSlug: 'nakamoto' })}
     />,
   );
 }
 
-describe('JourneyRunSurface — Register stage: header Evidence popover vs. RegisterAgentPanel quarantine warning', () => {
-  it('renders the REAL quarantine warning and the REAL StageReceiptsDrawer together (reproduces the co-existing content the bug overlapped)', async () => {
+describe('JourneyRunSurface — Register stage: header Evidence control drives StageReceiptsDrawer directly', () => {
+  it('renders the REAL quarantine warning and the REAL StageReceiptsDrawer together, with no second floating popover', async () => {
     renderRegisterStage();
 
-    // RegisterAgentPanel's real quarantine copy — proves this is the actual
-    // component, not a stand-in, and that the exact reported text is present
-    // in the same render tree as the header's Evidence trigger.
     await waitFor(() =>
       expect(screen.getByText(/This wallet is quarantined and cannot become your principal/i)).toBeInTheDocument(),
     );
     // StageReceiptsDrawer's own header — collapsed by default, matching
     // production (never auto-opened).
-    expect(screen.getByText(/^Evidence(\s\(\d+\))?$/)).toBeInTheDocument();
+    expect(screen.getByText(/^Evidence(\s\([\d/]+(\s·\s\d+\s\w+)?\))?$/)).toBeInTheDocument();
+    // There is exactly ONE evidence toggle button — the drawer's own. The
+    // header's former separate popover trigger rendered a SECOND button
+    // with the same "Evidence N/M" text; that mechanism no longer exists.
+    expect(screen.queryAllByRole('button', { name: /^Evidence \d+\/\d+/ })).toHaveLength(1);
   });
 
-  it('closes the header Evidence popover the instant the page scrolls — it can never remain open while the body scrolls underneath it', async () => {
-    renderRegisterStage();
+  it('there is no fixed/full-viewport backdrop anywhere in the tree, open or closed', async () => {
+    const { container } = renderRegisterStage();
     await waitFor(() =>
       expect(screen.getByText(/This wallet is quarantined and cannot become your principal/i)).toBeInTheDocument(),
     );
 
-    // Open the HEADER popover (the "Evidence N/M" trigger — distinct from
-    // StageReceiptsDrawer's own "Evidence (N)" toggle rendered further down).
-    const headerTrigger = screen.getByRole('button', { name: /^Evidence \d+\/\d+/ });
-    fireEvent.click(headerTrigger);
-    expect(headerTrigger).toHaveAttribute('aria-expanded', 'true');
+    expect(container.querySelector('.fixed.inset-0')).toBeNull();
 
-    // Any scroll, anywhere in the document — this is what the fix listens
-    // for (capture-phase, since `scroll` does not bubble) — closes it.
-    act(() => {
-      document.dispatchEvent(new Event('scroll', { bubbles: false }));
-    });
-
-    await waitFor(() => expect(headerTrigger).toHaveAttribute('aria-expanded', 'false'));
-  });
-
-  it("does not close StageReceiptsDrawer's OWN inline Evidence block on scroll — the two Evidence concepts stay independent", async () => {
-    renderRegisterStage();
-    await waitFor(() =>
-      expect(screen.getByText(/This wallet is quarantined and cannot become your principal/i)).toBeInTheDocument(),
-    );
-
-    const drawerToggle = screen.getByText(/^Evidence(\s\(\d+\))?$/).closest('button')!;
-    fireEvent.click(drawerToggle);
-    // The drawer's own fetch-on-first-expand is in flight; let it settle
-    // before asserting, so React's state update lands inside `act`.
+    const evidenceButton = screen.getByRole('button', { name: /^Evidence \d+\/\d+/ });
+    fireEvent.click(evidenceButton);
     await act(async () => {
       await Promise.resolve();
     });
-    expect(drawerToggle).toHaveAttribute('aria-expanded', 'true');
 
-    act(() => {
-      document.dispatchEvent(new Event('scroll', { bubbles: false }));
-    });
-
-    // StageReceiptsDrawer has no scroll-close behavior (nor should it — it's
-    // in normal flow, not an absolutely-positioned overlay) — it stays open.
-    expect(drawerToggle).toHaveAttribute('aria-expanded', 'true');
+    expect(container.querySelector('.fixed.inset-0')).toBeNull();
   });
 
-  it('opening/closing the header Evidence popover never unmounts or remounts RegisterAgentPanel (stage body is not collapsed)', async () => {
+  it('the header "Evidence N/M" button opens/focuses StageReceiptsDrawer directly — one shared open state, not two', async () => {
     renderRegisterStage();
     await waitFor(() =>
       expect(screen.getByText(/This wallet is quarantined and cannot become your principal/i)).toBeInTheDocument(),
     );
 
-    const headerTrigger = screen.getByRole('button', { name: /^Evidence \d+\/\d+/ });
-    fireEvent.click(headerTrigger); // open
-    fireEvent.click(headerTrigger); // close
+    const evidenceButton = screen.getByRole('button', { name: /^Evidence \d+\/\d+/ });
+    expect(evidenceButton).toHaveAttribute('aria-expanded', 'false');
 
-    // Still present, unaffected — the popover is a pure overlay toggle.
+    fireEvent.click(evidenceButton);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(evidenceButton).toHaveAttribute('aria-expanded', 'true');
+
+    fireEvent.click(evidenceButton);
+    expect(evidenceButton).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('Escape collapses the drawer while it is open — keyboard parity with the removed popover', async () => {
+    renderRegisterStage();
+    await waitFor(() =>
+      expect(screen.getByText(/This wallet is quarantined and cannot become your principal/i)).toBeInTheDocument(),
+    );
+
+    const evidenceButton = screen.getByRole('button', { name: /^Evidence \d+\/\d+/ });
+    fireEvent.click(evidenceButton);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(evidenceButton).toHaveAttribute('aria-expanded', 'true');
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    await waitFor(() => expect(evidenceButton).toHaveAttribute('aria-expanded', 'false'));
+  });
+
+  it('opening/closing Evidence never unmounts or remounts RegisterAgentPanel (stage body is not collapsed)', async () => {
+    renderRegisterStage();
+    await waitFor(() =>
+      expect(screen.getByText(/This wallet is quarantined and cannot become your principal/i)).toBeInTheDocument(),
+    );
+
+    const evidenceButton = screen.getByRole('button', { name: /^Evidence \d+\/\d+/ });
+    fireEvent.click(evidenceButton); // open
+    fireEvent.click(evidenceButton); // close
+
+    // Still present, unaffected — the drawer expanding/collapsing is a pure
+    // in-flow toggle, never a remount of the stage's own surfaces.
     expect(screen.getByText(/This wallet is quarantined and cannot become your principal/i)).toBeInTheDocument();
   });
 });
