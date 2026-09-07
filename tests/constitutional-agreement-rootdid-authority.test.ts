@@ -52,6 +52,8 @@ const rows = new Map<string, Record<string, unknown>>();
 let idCounter = 0;
 /** kybeIdentityId -> did_uri[] — every root_identity row ever issued under that kybe. */
 const rootsByKybe = new Map<string, string[]>();
+/** Instrumentation: proves the legacy compatibility verifier NEVER queries root_identity for a non-kybe-anchored (e.g. agent) primitive. */
+let rootIdentityQueryCount = 0;
 
 function findByColumn(col: string, val: unknown) {
   return [...rows.values()].find((r) => r[col] === val) ?? null;
@@ -61,6 +63,7 @@ function fakeAdmin() {
   return {
     from: (table: string) => {
       if (table === 'root_identity') {
+        rootIdentityQueryCount += 1;
         return {
           select: () => ({
             eq: (col: string, val: unknown) => {
@@ -184,6 +187,7 @@ beforeEach(() => {
   rows.clear();
   idCounter = 0;
   rootsByKybe.clear();
+  rootIdentityQueryCount = 0;
   createActivityReceipt.mockClear();
   mockResolveDiDQube.mockReset();
   mockHasVerifiedWorldIdPassport.mockReset();
@@ -472,6 +476,38 @@ describe('CFS Agreement Authority — DiDQube stable-container binding (2026-09-
       // own signed content.
       const rowAfter = findByColumn('agreement_id', agreementId) as any;
       expect(rowAfter.object.payload).toEqual(payloadBefore);
+    });
+
+    it('an AGENT-anchored acting primitive can never satisfy a legacy natural-person agreement — refused without ever querying root_identity (a citizen-only table)', async () => {
+      const agreementId = 'agr-legacy-agent-anchor-refused';
+      // A historical commitment that WOULD match if root_identity were
+      // queried against the wrong anchor kind — proving the refusal is
+      // structural (constitutionalAnchor.kind gate), not a lucky non-match.
+      legacyRow(agreementId, 'commit:did:root:ark-historical');
+      rootsByKybe.set(KYBE_A, ['did:root:ark-historical']);
+
+      // An agent resolves via agent_root_identity/agent_didqubes — never
+      // kybe_identity. Simulates a delegated agent attempting to authorize
+      // as if it were the human principal.
+      mockResolveDiDQube.mockResolvedValueOnce({
+        state: 'resolved',
+        primitive: {
+          didqubeId: 'didqube-agent-x',
+          subjectClass: 'agent',
+          lifecycleState: 'active',
+          constitutionalAnchor: { kind: 'agent_root_identity', id: 'agent-root-x' },
+          currentIdentityPrimitive: { kind: 'agent_root_identity', id: 'agent-root-x', didUri: 'did:agent:x', coincidesWithAnchor: true },
+          passportCredential: null,
+          publicCommitment: { commitmentVersion: 'v1', value: 'agent-commit-x' },
+          provenance: { inputKind: 'auth_user_id', resolvedVia: 'test' },
+          trustClass: 'server_derived',
+        },
+      });
+
+      const result = await authorizeAgreement('persona-some-agent', { agreementId }, 'auth-user-some-agent');
+
+      expect(result.ok).toBe(false);
+      expect(rootIdentityQueryCount).toBe(0);
     });
   });
 });
