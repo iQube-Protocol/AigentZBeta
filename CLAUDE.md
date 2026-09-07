@@ -228,6 +228,69 @@ someone notices a live page is missing, days later.
 
 ---
 
+## Amplify Build-Size Budget — Enforceable Invariant (PARAMOUNT)
+
+**Amplify's 230,686,720-byte (220 MiB) SSR Compute cap is a hard constitutional deployment
+constraint — not a target to graze, not app-configurable, and not something to rediscover from
+scratch each time it bites.** The full forensic history (why raw `.next` size is NOT the governing
+measurement, the two symlinked-`node_modules` incidents, the `@napi-rs/canvas` runtime-download
+fix) lives in `codexes/packs/agentiq/updates/2026-09-07_amplify-build-size-forensic-handoff.md` —
+read it before touching build-size tooling again.
+
+### The rule
+
+- **The cleaned `.next/standalone` artifact — after every `amplify.yml` postBuild prune step —
+  must stay below 190,000,000 bytes.** That leaves real headroom under Amplify's own hard cap for
+  its additional packaging overhead, not a razor-thin near-pass. (The successful, currently-shipped
+  artifact measures ~176.4 MB; 190 MB permits ordinary growth while stopping a drift back onto the
+  cap.)
+- **Raw `.next` size (`du -sb .next`) is NOT the governing measurement.** It includes the top-level
+  `.next/server` and `.next/static` in addition to `.next/standalone`'s own nested copies, and
+  conflating the two produced a false "135 MB over" reading that misdirected an entire
+  investigation. `.next/standalone` alone is what Amplify's `CustomerError` tracks.
+- **A new native dependency or traced asset larger than 5 MB requires explicit route attribution
+  and a documented runtime-placement decision** before it ships — which route(s) pull it in (via
+  `.next/server/**/*.nft.json`), and a stated choice: bundle it, exclude+lazy-load it, or move the
+  capability elsewhere. Do not let it silently ride into the artifact.
+- **Native or otherwise heavy workloads should use a dedicated worker, or a pinned,
+  integrity-verified lazy-runtime artifact, where appropriate** — see
+  `services/content/napiCanvasBinary.ts` (native binary, downloaded + SHA-256-verified into `/tmp`
+  on first use, mirroring the existing `app/api/skills/video/_thumbnail.ts` ffmpeg-static
+  precedent) as the reference pattern. This is the difference between "recovering headroom" and
+  "breaking a feature to hit a number" — the capability must keep working identically.
+- **Never recover headroom by deleting required runtime files, licences/notices, or unverified
+  traced dependencies.** The prior incident doc's own lesson stands in full: deleting
+  `.next/server/app`+`chunks` on the theory that `.next/standalone` is self-contained broke
+  production outright. A local build proves what the tracer *produced*, never what the Amplify
+  runtime *reads* — verify before deleting anything outside the already-proven-safe
+  `.next/standalone/node_modules` scope (native-platform variants, source maps, `.d.ts`, docs,
+  `@types`, `.bin`, dead test dirs — see `amplify.yml`'s own extensively-commented history).
+  LICENSE/COPYING/NOTICE files are never fair game for size recovery, full stop.
+
+### Enforcement — executable, not documentation-only
+
+`scripts/check-artifact-budget.mjs` is the enforcement point, run in `amplify.yml`'s `build.commands`
+as the LAST step, after every cleanup/pruning step:
+
+```bash
+node scripts/check-artifact-budget.mjs --dir . --budget 190000000
+```
+
+It measures `.next/standalone` (ignoring any symlink — never dereferencing into something outside
+the artifact, the same hazard `scripts/guard-standalone-prune.sh` exists to prevent on the deletion
+side), prints the measured bytes, the budget, and the remaining headroom against both the budget and
+Amplify's own hard cap, and **exits non-zero — failing the build — the instant the artifact exceeds
+budget.** A **missing** `.next/standalone` fails closed too: that means `output: "standalone"` never
+activated (an `AWS_BRANCH`/`AMPLIFY_APP_ID` env-var problem), and every other measurement would be
+meaningless — this exact silent failure mode bit the 2026-09-07 investigation's own first local
+reproduction attempt.
+
+`tests/artifact-budget.test.ts` is the canary: under-budget, exactly-at-budget (inclusive pass),
+over-budget, and missing-artifact fixtures, plus a symlink-is-never-dereferenced case. Extend this
+test, never weaken the gate, if the budget or its logic ever needs to change.
+
+---
+
 ## Dense Materials — Supabase and Auto Drive, NEVER the Repo (PARAMOUNT)
 
 **Manuscripts, corpora, media and build output do not belong in git. The repo carries the

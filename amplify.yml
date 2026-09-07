@@ -355,6 +355,19 @@ frontend:
         - test -d .next/static && echo "static dir ok"
         - echo "=== ARTIFACT LEDGER - .next total vs the 230686720 cap ==="
         - du -sb .next 2>/dev/null | awk '{printf "cap 230686720 | measured %s | delta %+d bytes\n", $1, 230686720 - $1}' || true
+        # CONSTITUTIONAL GATE — Amplify Build-Size Budget (CLAUDE.md). The
+        # 2026-09-07 forensic investigation established that Amplify's real
+        # CustomerError cap tracks .next/standalone, not raw .next size, and
+        # that this repo's own historical near-cap failures were a razor-thin
+        # ~135 KB margin. This gate keeps real headroom under the hard
+        # 230,686,720-byte platform cap so the app never drifts back onto
+        # that cliff, and fails the BUILD — with the measured byte count, the
+        # budget, and the exact overage — the moment a new native dependency
+        # or traced asset pushes the artifact over, rather than as an opaque
+        # platform error days later. Runs LAST, after every cleanup step
+        # above, so it measures the artifact as it will actually ship.
+        - echo "=== ARTIFACT BUDGET GATE (190,000,000-byte cleaned .next/standalone budget) ==="
+        - node scripts/check-artifact-budget.mjs --dir . --budget 190000000
   artifacts:
     baseDirectory: .next
     files:
