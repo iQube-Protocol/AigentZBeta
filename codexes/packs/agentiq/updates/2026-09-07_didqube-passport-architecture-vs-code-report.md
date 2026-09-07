@@ -5,6 +5,15 @@
 architecture/intent, versus what actually exists in the codebase today. Read-only investigation —
 no code changed as part of this report.
 
+**Correction (2026-09-07, post-review):** §2.2's characterization of `services/agentiq-wallet`'s
+`didqube` Postgres schema as "orphaned... read by nothing" is **wrong on the "read by nothing" part**.
+It is read by real, live code (`src/db/identity.ts`, `src/db/anonymous.ts`, `src/db/config.ts`,
+wired into `src/server.ts`'s auth path and `src/routes/wallet.ts`) — see
+`2026-09-07_didqube-phase0-inventory.md` §1 for the corrected, live-database-verified inventory
+(the schema is deployed, every table is empty, and it lacks the `service_role` grant PostgREST needs
+to serve it — a different and more precise finding than "orphaned"). Operator ruling: converge this
+service onto the canonical DiDQube resolver; do not delete, ignore, or treat it as independent.
+
 **Sources read:**
 - `codexes/packs/agentiq/items/AIGENT_DIDQUBE_IDENTITY_UPGRADE_NOTE.md` (policy/architecture note)
 - `codexes/packs/agentiq/items/IQUBE_IDENTITY_SOVEREIGNTY_ARCHITECTURE.md` (engineering reference)
@@ -21,11 +30,12 @@ no code changed as part of this report.
   umbrella over three ordinary Postgres tables (`kybe_identity`, `root_identity`, `did_persona`) plus
   one UI label component. It does **not** follow the pattern the other qube types use (e.g.
   `services/iqube/financialProfileQube.ts`) — there is no `didQube.ts`.
-- **A second, entirely separate "DIDQube" schema exists and is dead code.** A migration
+- **A second, entirely separate "DIDQube" schema exists as its own service's real identity model — ***corrected***, not dead code (see the correction note above).** A migration
   (`services/agentiq-wallet/db/migrations/001_didqube_core.sql`) creates a literal `didqube` Postgres
-  schema with its own `person`/`root_did_bindings`/`persona` tables. Nothing under `app/api` or the
-  main `services/passport`/`services/identity` trees reads it — it is used only by an isolated
-  sub-package (`services/agentiq-wallet`), with RLS policies still at `USING (true) WITH CHECK (true)`
+  schema with its own `person`/`root_did_bindings`/`persona` tables. It is genuinely read (see
+  `services/agentiq-wallet/src/db/identity.ts`, wired into that service's own auth path) — nothing
+  under the *main* app's `app/api`/`services/passport`/`services/identity` trees reads it, and the
+  live database shows every table empty with RLS policies still at `USING (true) WITH CHECK (true)`
   (explicitly flagged in its own trailing comment as not yet real).
 - **The architecture doc's own "Key files" table is partly stale.** It names
   `services/identity/didRegistrationService.ts` and `services/identity/blakQubeService.ts` as the
@@ -122,7 +132,7 @@ produce genuinely DIDQube-linked identities** — only the Bureau (Passport-issu
 is exclusively human." This matches the Upgrade Note §15.7's four-layer Aigent stack (no kybe layer)
 exactly.
 
-**The orphaned second implementation**: `services/agentiq-wallet/db/migrations/001_didqube_core.sql`
+**The second, real-but-unconverged implementation** (corrected — not orphaned): `services/agentiq-wallet/db/migrations/001_didqube_core.sql`
 creates `CREATE SCHEMA didqube` with its own `didqube.person`, `didqube.root_did_bindings`,
 `didqube.persona`, `didqube.persona_did_bindings`, `didqube.anon_aliases`,
 `didqube.sessions_remote`. The only consumer is `services/agentiq-wallet/src/db/identity.ts`
@@ -309,8 +319,10 @@ These are gaps the code itself names, not inferred from absence:
 3. Get an explicit operator ruling on the `polity_passport_records.passport_id` T0/T1 tension in §4 —
    either update `passportPrincipal.ts`'s comment to reflect an intentional owner-self-view exception,
    or tighten `/api/polity-passport/wallet`'s response shape to match the comment's stated intent.
-4. Decide the fate of the orphaned `didqube` Postgres schema in `services/agentiq-wallet` — either
-   converge it with the live `kybe_identity`/`root_identity` model, finish its RLS policies if it's
-   meant to stay independent, or remove it if superseded.
+4. **Resolved by operator ruling, 2026-09-07**: converge the `didqube` Postgres schema in
+   `services/agentiq-wallet` onto the canonical DiDQube resolver once it exists; retire its independent
+   schema only after zero live usage is proven — never delete or ignore it. See
+   `2026-09-07_didqube-canonical-resolver-execution-plan.md` and
+   `2026-09-07_didqube-phase0-inventory.md`.
 5. When agent delegation traffic becomes routine (per `getActivePersona.ts`'s own stated
    precondition), revisit the identifiability-clamping extension point named in §5.

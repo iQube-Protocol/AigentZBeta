@@ -48,6 +48,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-09-07_didqube-phase0-inventory.md",
         "updates/2026-09-07_didqube-canonical-resolver-execution-plan.md",
         "updates/2026-09-07_didqube-passport-architecture-vs-code-report.md",
         "updates/2026-09-07_amplify-build-size-cap-incident-and-handoff.md",
