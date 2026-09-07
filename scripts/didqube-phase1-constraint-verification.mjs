@@ -23,6 +23,19 @@
  *      (subject_class / single-subtype trigger).
  *   4. A valid agent bind (real agent_root_identity anchor) succeeds.
  *   5. A duplicate agent_root_identity_id bind is rejected (UNIQUE violation).
+ *   6. One unique anchor (an ALREADY-bound, real, Phase-1-backfilled
+ *      kybe_identity row) can never be bound to a second DiDQube — the exact
+ *      state a resolver-level mocked test once simulated (removed 2026-09-07,
+ *      operator correction: "Remove the impossible test that binds one unique
+ *      anchor to two DiDQubes... Add a real-PostgreSQL test proving that state
+ *      is rejected by the Phase 1 unique constraint"). Assertion 2 above
+ *      already proves the same UNIQUE constraint from a freshly-created
+ *      anchor; assertion 6 proves it again directly against a row that
+ *      ALREADY carries its one real binding from the Phase 1 backfill, so the
+ *      proof does not depend on this script's own setup step succeeding
+ *      first — confirmed live 2026-09-07 against project
+ *      bsjhfvctmduxhohtllly (see the Phase 2 completion record's disclosed
+ *      correction section).
  *
  * Exits nonzero if ANY assertion fails — never silently passes.
  */
@@ -54,11 +67,14 @@ declare
   v_dupe_didqube uuid;
   v_dupe_agent_didqube uuid;
 begin
-  select id into v_kybe_id from public.kybe_identity limit 1;
-  select id into v_agent_root_id from public.agent_root_identity limit 1;
-  if v_kybe_id is null or v_agent_root_id is null then
-    raise exception 'no kybe_identity/agent_root_identity row exists to test against';
-  end if;
+  -- Fresh, synthetic anchors (never committed -- this whole batch ends in
+  -- ROLLBACK) rather than a real live row: Phase 1's own backfill already gave
+  -- every real kybe_identity/agent_root_identity row its one binding, so there
+  -- is no unbound real anchor left to test "a valid FIRST bind" (assertions
+  -- 1-5) against. Assertion 6 below deliberately uses a REAL already-bound row
+  -- instead, for a different reason (see its comment).
+  insert into public.kybe_identity (kybe_did) values ('did:kybe:test:constraint-verification') returning id into v_kybe_id;
+  insert into public.agent_root_identity (agent_id, did_uri, agent_class) values ('test-agent-constraint-verification', 'did:iq:agent:test:constraint-verification', 'specialist') returning id into v_agent_root_id;
 
   insert into public.didqubes (subject_class) values ('natural_person') returning didqube_id into v_human_didqube;
   insert into public.human_didqubes (didqube_id, kybe_identity_id) values (v_human_didqube, v_kybe_id);
@@ -90,6 +106,29 @@ begin
   exception when unique_violation then
     insert into didqube_constraint_test_results values ('5_duplicate_agent_anchor_rejected', 'PASSED');
   end;
+
+  -- Assertion 6: an anchor that ALREADY carries its one real binding (any
+  -- Phase-1-backfilled kybe_identity row — every one of them has exactly one
+  -- human_didqubes row by construction) can never acquire a second. Proves
+  -- the "one unique anchor bound to two DiDQubes" state directly against
+  -- already-live data, not just a binding this script itself just created.
+  declare
+    v_already_bound_kybe_id uuid;
+    v_second_didqube uuid;
+  begin
+    select kybe_identity_id into v_already_bound_kybe_id from public.human_didqubes limit 1;
+    if v_already_bound_kybe_id is null then
+      insert into didqube_constraint_test_results values ('6_one_anchor_never_binds_two_didqubes', 'SKIPPED (no existing human_didqubes row)');
+    else
+      begin
+        insert into public.didqubes (subject_class) values ('natural_person') returning didqube_id into v_second_didqube;
+        insert into public.human_didqubes (didqube_id, kybe_identity_id) values (v_second_didqube, v_already_bound_kybe_id);
+        insert into didqube_constraint_test_results values ('6_one_anchor_never_binds_two_didqubes', 'FAILED');
+      exception when unique_violation then
+        insert into didqube_constraint_test_results values ('6_one_anchor_never_binds_two_didqubes', 'PASSED');
+      end;
+    end if;
+  end;
 end $$;
 select test_name, outcome from didqube_constraint_test_results order by test_name;
 rollback;
@@ -108,12 +147,16 @@ function main() {
   // shortcut existed here before writing this).
   console.log(VERIFICATION_SQL);
   console.log(
-    '\nRun the SQL above directly against the real database to get PASSED/FAILED rows for all 5 ' +
+    '\nRun the SQL above directly against the real database to get PASSED/FAILED rows for all 6 ' +
       'assertions — e.g. `psql "$DATABASE_URL" -f -` piping it in, the Supabase SQL editor, or an MCP ' +
-      'execute_sql call. Already run once by hand on 2026-09-07 against project bsjhfvctmduxhohtllly ' +
-      'with all 5 assertions PASSED (see 2026-09-07_didqube-canonical-resolver-execution-plan.md, ' +
-      'Phase 1 verification notes) — this script is what makes that reproducible rather than only a ' +
-      'one-off tool-call transcript.',
+      'execute_sql call. Run by hand on 2026-09-07 against project bsjhfvctmduxhohtllly with all 6 ' +
+      'assertions PASSED — assertions 1-5 originally (Phase 1 verification notes), assertion 6 added ' +
+      'and all 6 re-confirmed together during the Phase 2 supersession correction (see ' +
+      '2026-09-07_didqube-canonical-resolver-execution-plan.md, Phase 2 completion record) — this ' +
+      'script is what makes that reproducible rather than only a one-off tool-call transcript. Note: ' +
+      'assertions 1-5 use FRESH synthetic anchors created and rolled back within the same transaction, ' +
+      'not a real live row — the Phase 1 backfill already gave every real anchor its one binding, so ' +
+      'no unbound real anchor remains to test a first-time bind against.',
   );
 }
 

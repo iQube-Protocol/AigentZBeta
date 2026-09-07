@@ -80,36 +80,6 @@ function fakeSupabase(responders: Record<string, (calls: { method: string; args:
   };
 }
 
-/**
- * A subtype-table (`human_didqubes`/`agent_didqubes`) responder that serves BOTH
- * shapes didQubeResolver.ts queries against these tables: the initial
- * `.eq(anchorColumn, anchorId).limit(2)` binding lookup (array), and the
- * per-hop `.eq('didqube_id', X).maybeSingle()` anchor-continuity check
- * (single row keyed by didqube_id) `verifyBoundToAnchor` runs on every
- * successor reached via supersession.
- */
-function subtypeResponder(opts: {
-  anchorColumn: 'kybe_identity_id' | 'agent_root_identity_id';
-  bindingAnchorId: string;
-  bindingDidqubeId: string;
-  /** didqube_id -> the anchor id it is ACTUALLY bound to (for the per-hop check). */
-  anchorByDidqube: Record<string, string>;
-}) {
-  return (calls: { method: string; args: any[] }[]) => {
-    const eqCall = calls.find((c) => c.method === 'eq');
-    if (!eqCall) return { data: null, error: null };
-    const [col, val] = eqCall.args;
-    if (col === opts.anchorColumn && val === opts.bindingAnchorId) {
-      return { data: [{ didqube_id: opts.bindingDidqubeId }], error: null };
-    }
-    if (col === 'didqube_id') {
-      const anchorId = opts.anchorByDidqube[val];
-      if (anchorId === undefined) return { data: null, error: null };
-      return { data: { [opts.anchorColumn]: anchorId }, error: null };
-    }
-    return { data: null, error: null };
-  };
-}
 
 describe('resolveDiDQube — entry gating', () => {
   it('returns unsupported_subject_class immediately for a robot hint, no DB call', async () => {
@@ -180,15 +150,16 @@ describe('resolveDiDQube — missing anchor (the "absent" scenario)', () => {
 });
 
 describe('resolveDiDQube — duplicate / ambiguous bindings', () => {
-  it('two human_didqubes rows for the same kybe_identity_id is ambiguous (defensive — the DB UNIQUE constraint should prevent this)', async () => {
-    mockGetSupabaseServer.mockReturnValue(
-      fakeSupabase({
-        human_didqubes: () => ({ data: [{ didqube_id: 'd1' }, { didqube_id: 'd2' }], error: null }),
-      }),
-    );
-    const result = await resolveDiDQube({ kind: 'kybe_identity_id', kybeIdentityId: KYBE_ID });
-    expect(result).toEqual({ state: 'ambiguous', candidateCount: 2 });
-  });
+  // NOTE: a test binding one unique anchor (kybe_identity_id / agent_root_identity_id)
+  // to TWO human_didqubes/agent_didqubes rows was removed here (2026-09-07, operator
+  // correction) — that state is impossible in the real database (Phase 1's own UNIQUE
+  // constraint on the anchor column forbids it) and mocking it exercised defensive
+  // code against a state Postgres itself already rejects, not a real resolver
+  // scenario. The real proof that this state is rejected now lives at the DB layer,
+  // in `scripts/didqube-phase1-constraint-verification.mjs` (assertion 2/5, already
+  // run live against project bsjhfvctmduxhohtllly) — see that script and the Phase 1
+  // implementation record. `agent_card_url` duplicate-match below is a GENUINELY
+  // possible scenario (no UNIQUE constraint on that column) and is retained.
 
   it('an agent_card_url matching two agent_root_identity rows (a duplicate discovery match) is ambiguous', async () => {
     mockGetSupabaseServer.mockReturnValue(
@@ -242,25 +213,12 @@ describe('resolveDiDQube — dual-subtype binding (conflicted)', () => {
   });
 });
 
-describe('resolveDiDQube — supersession (stable-container model: anchor-verified continuity only)', () => {
-  it('follows a single supersession hop ONLY because the successor is verified bound to the SAME anchor, and resolves', async () => {
-    const didqubesData: Record<string, any> = {
-      [DIDQUBE_HUMAN]: { subject_class: 'natural_person', lifecycle_state: 'superseded', superseded_by: 'didqube-successor' },
-      'didqube-successor': { subject_class: 'natural_person', lifecycle_state: 'active', superseded_by: null },
-    };
+describe('resolveDiDQube — supersession (stable-container model, LITERAL: no traversal at all)', () => {
+  it('an active didqube resolves normally, with no lookup of any successor', async () => {
     mockGetSupabaseServer.mockReturnValue(
       fakeSupabase({
-        human_didqubes: subtypeResponder({
-          anchorColumn: 'kybe_identity_id',
-          bindingAnchorId: KYBE_ID,
-          bindingDidqubeId: DIDQUBE_HUMAN,
-          anchorByDidqube: { [DIDQUBE_HUMAN]: KYBE_ID, 'didqube-successor': KYBE_ID },
-        }),
-        didqubes: (calls) => {
-          const eqCall = calls.find((c) => c.method === 'eq');
-          const id = eqCall?.args[1];
-          return { data: didqubesData[id] ?? null, error: null };
-        },
+        human_didqubes: () => ({ data: [{ didqube_id: DIDQUBE_HUMAN }], error: null }),
+        didqubes: () => ({ data: { subject_class: 'natural_person', lifecycle_state: 'active', superseded_by: null }, error: null }),
         agent_didqubes: () => ({ data: null, error: null }),
         kybe_identity: () => ({ data: { kybe_did: 'did:kybe:ppb:abc123' }, error: null }),
         root_identity: () => ({ data: [], error: null }),
@@ -269,124 +227,76 @@ describe('resolveDiDQube — supersession (stable-container model: anchor-verifi
     );
     const result = await resolveDiDQube({ kind: 'kybe_identity_id', kybeIdentityId: KYBE_ID });
     expect(result.state).toBe('resolved');
-    expect((result as any).primitive.didqubeId).toBe('didqube-successor');
+    expect((result as any).primitive.didqubeId).toBe(DIDQUBE_HUMAN);
   });
 
-  it('a successor with NO anchor binding at all is conflicted — never silently resolved (stable-container model)', async () => {
-    const didqubesData: Record<string, any> = {
-      [DIDQUBE_HUMAN]: { subject_class: 'natural_person', lifecycle_state: 'superseded', superseded_by: 'didqube-orphan-successor' },
-      'didqube-orphan-successor': { subject_class: 'natural_person', lifecycle_state: 'active', superseded_by: null },
-    };
+  it('a well-formed superseded didqube is unresolved/superseded_unreconciled — the successor is NEVER looked up', async () => {
+    let didqubesQueryCount = 0;
     mockGetSupabaseServer.mockReturnValue(
       fakeSupabase({
-        human_didqubes: subtypeResponder({
-          anchorColumn: 'kybe_identity_id',
-          bindingAnchorId: KYBE_ID,
-          bindingDidqubeId: DIDQUBE_HUMAN,
-          // 'didqube-orphan-successor' deliberately absent — no binding at all.
-          anchorByDidqube: { [DIDQUBE_HUMAN]: KYBE_ID },
-        }),
-        didqubes: (calls) => {
-          const eqCall = calls.find((c) => c.method === 'eq');
-          const id = eqCall?.args[1];
-          return { data: didqubesData[id] ?? null, error: null };
+        human_didqubes: () => ({ data: [{ didqube_id: DIDQUBE_HUMAN }], error: null }),
+        didqubes: () => {
+          didqubesQueryCount += 1;
+          return { data: { subject_class: 'natural_person', lifecycle_state: 'superseded', superseded_by: 'didqube-successor' }, error: null };
         },
       }),
     );
     const result = await resolveDiDQube({ kind: 'kybe_identity_id', kybeIdentityId: KYBE_ID });
-    expect(result.state).toBe('conflicted');
-    expect((result as any).detail).toContain('has no human_didqubes binding');
-    expect((result as any).detail).toContain('cannot verify constitutional-anchor continuity');
+    expect(result).toEqual({ state: 'unresolved', reason: 'superseded_unreconciled' });
+    // Exactly one didqubes row inspected — the recorded successor is never queried at all.
+    expect(didqubesQueryCount).toBe(1);
   });
 
-  it('a successor bound to a DIFFERENT anchor is conflicted, even though subject_class matches (subject-class continuity alone is insufficient)', async () => {
-    const OTHER_KYBE_ID = 'kybe-9999-9999-9999-999999999999';
-    const didqubesData: Record<string, any> = {
-      [DIDQUBE_HUMAN]: { subject_class: 'natural_person', lifecycle_state: 'superseded', superseded_by: 'didqube-other-subject' },
-      // Same subject_class as the predecessor — proves matching subject_class alone is not enough.
-      'didqube-other-subject': { subject_class: 'natural_person', lifecycle_state: 'active', superseded_by: null },
-    };
+  it('the same well-formed superseded outcome holds for an agent DiDQube', async () => {
     mockGetSupabaseServer.mockReturnValue(
       fakeSupabase({
-        human_didqubes: subtypeResponder({
-          anchorColumn: 'kybe_identity_id',
-          bindingAnchorId: KYBE_ID,
-          bindingDidqubeId: DIDQUBE_HUMAN,
-          // The successor is bound to a DIFFERENT kybe — a different constitutional subject.
-          anchorByDidqube: { [DIDQUBE_HUMAN]: KYBE_ID, 'didqube-other-subject': OTHER_KYBE_ID },
-        }),
-        didqubes: (calls) => {
-          const eqCall = calls.find((c) => c.method === 'eq');
-          const id = eqCall?.args[1];
-          return { data: didqubesData[id] ?? null, error: null };
-        },
+        agent_didqubes: () => ({ data: [{ didqube_id: DIDQUBE_AGENT }], error: null }),
+        didqubes: () => ({ data: { subject_class: 'agent', lifecycle_state: 'superseded', superseded_by: 'didqube-successor' }, error: null }),
       }),
     );
-    const result = await resolveDiDQube({ kind: 'kybe_identity_id', kybeIdentityId: KYBE_ID });
-    expect(result.state).toBe('conflicted');
-    expect((result as any).detail).toContain('bound to a DIFFERENT kybe_identity_id');
-    // No returned primitive ever combines a successor DiDQube with an unproven predecessor anchor.
-    expect((result as any).primitive).toBeUndefined();
+    const result = await resolveDiDQube({ kind: 'agent_root_identity_id', agentRootIdentityId: AGENT_ROOT_ID });
+    expect(result).toEqual({ state: 'unresolved', reason: 'superseded_unreconciled' });
   });
 
-  it('a supersession cycle is conflicted, not an infinite loop (anchor checks pass throughout, isolating the cycle guard)', async () => {
-    const didqubesData: Record<string, any> = {
-      a: { subject_class: 'natural_person', lifecycle_state: 'superseded', superseded_by: 'b' },
-      b: { subject_class: 'natural_person', lifecycle_state: 'superseded', superseded_by: 'a' },
-    };
+  it('RootDID rotation never supersedes the DiDQube container — the same kybe resolves identically across two different current root_identity rows', async () => {
+    // Two calls, two different "current" root_identity rows for the SAME kybe (a
+    // rotation) — the resolved didqubeId must be identical both times, because the
+    // container itself never moves for a RootDID rotation.
+    const runWithRoot = (rootId: string, rootDidUri: string) =>
+      resolveDiDQube({ kind: 'auth_user_id', authUserId: 'auth-1' });
+    mockResolveRootPrincipalForAuthUser.mockResolvedValueOnce({ ok: true, rootIdentityId: 'root-old', kybeId: KYBE_ID });
     mockGetSupabaseServer.mockReturnValue(
       fakeSupabase({
-        human_didqubes: subtypeResponder({
-          anchorColumn: 'kybe_identity_id',
-          bindingAnchorId: KYBE_ID,
-          bindingDidqubeId: 'a',
-          anchorByDidqube: { a: KYBE_ID, b: KYBE_ID },
-        }),
-        didqubes: (calls) => {
-          const eqCall = calls.find((c) => c.method === 'eq');
-          const id = eqCall?.args[1];
-          return { data: didqubesData[id] ?? null, error: null };
-        },
+        human_didqubes: () => ({ data: [{ didqube_id: DIDQUBE_HUMAN }], error: null }),
+        didqubes: () => ({ data: { subject_class: 'natural_person', lifecycle_state: 'active', superseded_by: null }, error: null }),
+        agent_didqubes: () => ({ data: null, error: null }),
+        kybe_identity: () => ({ data: { kybe_did: 'did:kybe:ppb:abc123' }, error: null }),
+        root_identity: () => ({ data: { id: 'root-old', did_uri: 'did:iq:root:old' }, error: null }),
+        polity_passport_records: () => ({ data: [], error: null }),
       }),
     );
-    const result = await resolveDiDQube({ kind: 'kybe_identity_id', kybeIdentityId: KYBE_ID });
-    expect(result).toEqual({ state: 'conflicted', detail: 'supersession cycle detected at didqube_id a' });
-  });
+    const before = await runWithRoot('root-old', 'did:iq:root:old');
+    expect(before.state).toBe('resolved');
+    const didqubeBefore = (before as any).primitive.didqubeId;
 
-  it('a chain exceeding the maximum hop count is conflicted, not an infinite loop (anchor checks pass throughout, isolating the depth guard)', async () => {
-    const CHAIN_LENGTH = 15; // > MAX_SUPERSESSION_HOPS (10), never cycling
-    const ids = Array.from({ length: CHAIN_LENGTH }, (_, i) => `didqube-depth-${i}`);
-    const didqubesData: Record<string, any> = {};
-    ids.forEach((id, i) => {
-      didqubesData[id] = {
-        subject_class: 'natural_person',
-        lifecycle_state: 'superseded',
-        superseded_by: ids[i + 1] ?? 'didqube-depth-unreachable',
-      };
-    });
-    const anchorByDidqube: Record<string, string> = Object.fromEntries(ids.map((id) => [id, KYBE_ID]));
+    mockResolveRootPrincipalForAuthUser.mockResolvedValueOnce({ ok: true, rootIdentityId: 'root-new', kybeId: KYBE_ID });
     mockGetSupabaseServer.mockReturnValue(
       fakeSupabase({
-        human_didqubes: subtypeResponder({
-          anchorColumn: 'kybe_identity_id',
-          bindingAnchorId: KYBE_ID,
-          bindingDidqubeId: ids[0],
-          anchorByDidqube,
-        }),
-        didqubes: (calls) => {
-          const eqCall = calls.find((c) => c.method === 'eq');
-          const id = eqCall?.args[1];
-          return { data: didqubesData[id] ?? null, error: null };
-        },
+        human_didqubes: () => ({ data: [{ didqube_id: DIDQUBE_HUMAN }], error: null }),
+        didqubes: () => ({ data: { subject_class: 'natural_person', lifecycle_state: 'active', superseded_by: null }, error: null }),
+        agent_didqubes: () => ({ data: null, error: null }),
+        kybe_identity: () => ({ data: { kybe_did: 'did:kybe:ppb:abc123' }, error: null }),
+        root_identity: () => ({ data: { id: 'root-new', did_uri: 'did:iq:root:new' }, error: null }),
+        polity_passport_records: () => ({ data: [], error: null }),
       }),
     );
-    const result = await resolveDiDQube({ kind: 'kybe_identity_id', kybeIdentityId: KYBE_ID });
-    expect(result.state).toBe('conflicted');
-    expect((result as any).detail).toContain('exceeds');
-    expect((result as any).detail).toContain('hops');
+    const after = await runWithRoot('root-new', 'did:iq:root:new');
+    expect(after.state).toBe('resolved');
+    expect((after as any).primitive.didqubeId).toBe(didqubeBefore); // same container, rotated root
+    expect((after as any).primitive.currentIdentityPrimitive.id).toBe('root-new'); // the rotation IS visible here, just not as a new container
   });
 
-  it('a didqube marked superseded with no successor recorded is conflicted (malformed)', async () => {
+  it('a didqube marked superseded with no successor recorded at all is conflicted (malformed historical data — diagnostic, never traversed)', async () => {
     mockGetSupabaseServer.mockReturnValue(
       fakeSupabase({
         human_didqubes: () => ({ data: [{ didqube_id: DIDQUBE_HUMAN }], error: null }),
