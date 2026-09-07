@@ -316,31 +316,20 @@ frontend:
         # serves. required-server-files.json is NOT touched — Amplify reads it.
         - echo "=== REMOVE BUILD-ONLY trace + types ==="
         - rm -rf .next/trace .next/types 2>/dev/null || true
-        # ROOT CAUSE FOUND (2026-09-07) — a FULL DUPLICATE server build sat
-        # unaddressed through every prior round of pruning. `artifacts.
-        # baseDirectory: .next` + `files: '**/*'` below ships the ENTIRE
-        # .next tree, not just .next/standalone — but .next/standalone is a
-        # SELF-CONTAINED copy (it embeds its own .next/server + node_modules;
-        # server.js sets __NEXT_PRIVATE_STANDALONE_CONFIG and never reads the
-        # top-level required-server-files.json at runtime — confirmed by
-        # reading .next/standalone/server.js). So the top-level
-        # .next/server/app + .next/server/chunks (measured 105.3 MB combined
-        # on a local build — the single largest component of the whole
-        # artifact, dwarfing every KB/MB-level cut made in every prior round
-        # below) are a byte-for-byte duplicate of
-        # .next/standalone/.next/server/{app,chunks}, which is what the
-        # running process actually serves. required-server-files.json's own
-        # "files" list (verified: `.files` array, 18 entries) references only
-        # small top-level manifests (pages-manifest.json,
-        # middleware-manifest.json, etc., a few KB each) — never app/ or
-        # chunks/ — so removing just those two subdirectories leaves every
-        # file Amplify's own required-server-files.json declares required
-        # fully intact; `test -d .next/server` below still passes since the
-        # directory and its small manifests remain, only its two bulky
-        # subdirectories are gone.
-        - echo "=== REMOVE DUPLICATE top-level .next/server route bundles (standalone already has its own copy) ==="
-        - du -sb .next/server/app .next/server/chunks 2>/dev/null || true
-        - rm -rf .next/server/app .next/server/chunks 2>/dev/null || true
+        # REVERTED (2026-09-07) — a prior pass here deleted the top-level
+        # .next/server/app + .next/server/chunks on the theory that
+        # .next/standalone is self-contained and Amplify only runs
+        # .next/standalone/server.js. That theory was WRONG: the very next
+        # deploy 500'd the entire application. Amplify's Next.js SSR Compute
+        # hosting evidently invokes the app from the TOP-LEVEL .next/server
+        # directly (or otherwise depends on it beyond what
+        # required-server-files.json's own "files" list declares) — verifying
+        # from a local build's file layout was not sufficient proof of what
+        # the actual Amplify runtime reads. Do NOT re-attempt this cut without
+        # first confirming, from Amplify's own hosting docs or a support
+        # channel, exactly which files its Next.js compute runtime loads at
+        # request time — a local build.next/standalone/server.js. inspection
+        # already gave one confident-but-wrong answer here.
         - echo "=== WHOLE .next TREE AFTER CACHE REMOVAL (bytes) ==="
         - du -sb .next 2>/dev/null || true
         - du -sb .next/* 2>/dev/null | sort -rn || true
