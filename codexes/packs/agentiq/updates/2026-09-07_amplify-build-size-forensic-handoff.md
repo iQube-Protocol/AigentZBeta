@@ -1,20 +1,152 @@
 # Amplify build-size forensic investigation — handoff (2026-09-07)
 
-**Status: CONCLUSIVE FINDING REACHED for the `0d22e7ea8` vs `3c1144060` pair — no source-level fix
-required for this flip.** The manifest diff (see "RESOLVED" section immediately below) shows these two
-commits produce a **byte-for-byte identical `.next` artifact composition** — same 13,979 files, same
-paths, same sizes; only non-deterministic per-build content hashes differ. The pass→fail flip the
-operator observed between these two specific commits is build-to-build noise at the margin, not a
-regression introduced by the DiDQube Phase 2 correction diff. **Do not chase this pair as a size
-regression.** The remaining open item — exactly what subset of `.next` Amplify's platform-level
-`CustomerError` cap measures (it is NOT the full `du -sb .next` total) — is still unresolved and is a
-separate, lower-urgency platform-fidelity question; read "Open question" in the RESOLVED section before
-deciding whether it's worth pursuing further. This doc is kept as the full record (read before touching
-`amplify.yml` or `next.config.js` again) — see also `2026-09-07_amplify-build-size-cap-incident-and-handoff.md`
-(the prior incident: a bad guess broke production; the discipline in THAT doc — never delete anything
-outside `.next/standalone/node_modules` without a verified reason — still applies in full here).
+**Status: FIX SHIPPED.** This pass (1) fixed a real bug in the manifest tool itself, (2) bisected an
+independently-flagged "bridge-refinement sequence" and formally exonerated it, and (3) shipped a
+source-level fix that recovers **~33.26 MB of deterministic standalone headroom**, verified end-to-end.
+Read "FIX SHIPPED" below first; the rest of this doc is the full investigative record (DiDQube pair,
+`.next/standalone`-is-the-real-measurement finding, the two symlinked-`node_modules` incidents) kept for
+context — see also `2026-09-07_amplify-build-size-cap-incident-and-handoff.md` (the earlier incident: a
+bad guess broke production; the discipline in THAT doc — never delete anything outside
+`.next/standalone/node_modules` without a verified reason — still applies in full, and is exactly why
+this pass's fix is a *runtime-download exclusion* of one file, not a filesystem deletion).
 
-## RESOLVED (2026-09-07, this pass) — the manifest diff, and what it proves
+## FIX SHIPPED (2026-09-07, this pass)
+
+### 1. Manifest-tool bug fix + fixture test
+
+`scripts/build-artifact-manifest.sh`'s sha256/path join was broken: `sha256sum`'s own output format is
+`<64-hex><SP><mode-char><filename>` (a mandatory delimiter space, then a mode character — another space
+for text mode, `*` for binary — so text mode reads as two literal spaces), never tab-separated. The
+script ran `awk -F'\t'` against it anyway, so every row's hash+path collapsed into one field —
+**every manifest this tool ever produced had an empty path, an empty size, and the hash+path crammed
+into the third column.** Fixed with an anchored `sed -E 's/^([0-9a-f]{64}) [ *]/\1\t/'` (a first attempt
+that consumed only one of the two separator characters left the mode char stuck onto every path — caught
+by the fixture's exact-path assertion, not just a size check). New fixture test:
+`tests/build-artifact-manifest-parser.test.ts` — builds a tiny fake `.next` tree including filenames
+containing spaces, runs the real script, and asserts every row's path/bytes/hash are exactly correct.
+All 3 assertions pass.
+
+### 2. Safety guard against the symlinked-`node_modules` incident (happened twice)
+
+Two independent agent sessions in this investigation symlinked a worktree's `node_modules` to a shared
+install to save an `npm ci` run, and both times Next's `output: "standalone"` tracer detected the
+symlink (its pnpm-compatibility path) and symlinked `.next/standalone/node_modules` wholesale to the real
+target instead of copying a pruned subset — so the postBuild replay's `rm -rf`/`find -delete` commands
+executed *through* the symlink and deleted real files from the shared install. New committed script:
+`scripts/guard-standalone-prune.sh <dir>` — asserts `.next/standalone/node_modules` is a real directory
+whose resolved path (and any nested symlinks within it) stays inside `.next/standalone`, refusing with a
+loud, specific error otherwise. Every prune in this pass called it first.
+
+### 3. Bridge-refinement sequence — bisected and formally exonerated
+
+A separate lead (relayed via the operator's own agent, verified independently before acting on it: all
+four commit hashes checked out real via `git cat-file`/`git show`) proposed that a "bridge-refinement
+sequence" — control `120b0671`, first bridge merge `b2aacda18`, final refinement `360ebd885` — was the
+true cause, with commit `4932b7b` (replacing `MoneyPennyBridgeEmbed` with a direct static import of
+`FinancialProfilePanel`) as the standout candidate. Verified with clean, independent (never symlinked)
+`npm ci` installs + `AWS_BRANCH=dev` + the full `amplify.yml` postBuild replay at four points:
+
+| Commit | `.next/standalone` (post-cleanup) | `.next/static` | `.next/server` (top-level) | manifests | whole `.next` | files |
+|---|---|---|---|---|---|---|
+| control (`120b0671`) | 209,804,368 | 40,177,292 | 106,176,980 | 1,022,519 | 357,181,291 | 13,972 |
+| before the mount (`40df8b7`) | 209,636,106 | — | — | — | — | 13,972 |
+| after the mount (`4932b7b`) | 209,485,063 | — | — | — | — | 13,972 |
+| final (`360ebd885`) | 209,495,291 | 40,191,495 | 105,867,881 | 1,022,545 | 356,577,344 | 13,972 |
+
+`package-lock.json` is byte-identical across the ENTIRE range (control through final) — zero dependency
+change anywhere in this window. Per-subtree path diffs (standalone/static/server, control vs. final):
+**zero added or removed paths** in any subtree — only webpack's content-hash filename churn (24 renamed
+pairs in standalone/server, 160 in static — expected whenever shared modules shift, not evidence of
+growth). Every subtree is flat-to-shrinking (`static`'s +14,203 bytes is noise against 40MB, an order of
+magnitude below the ~180KB run-to-run variance `amplify.yml`'s own comments have documented for months).
+**The bridge-refinement sequence, including the FinancialProfilePanel direct mount, is formally
+exonerated — it did not grow the artifact.** Bisection stopped here per this finding; do not resume it
+without new evidence.
+
+### 4. The real fix — `@napi-rs/canvas`'s native binary moved to a first-use runtime download
+
+Inventoried the 20 largest packages in the current HEAD's cleaned standalone and traced each to its
+owning route(s) via `.nft.json`. Two false leads, both confirmed empirically before being ruled out:
+`@copilotkit` (31MB on disk) and the AI SDK/FIO SDK/Autonomys-Polkadot stack are pure-JS and already
+webpack-inlined into shared chunks — **zero `.nft.json` files reference `@copilotkit` at all** despite
+10 source files importing it, so excluding it would recover nothing (confirmed, not assumed). The pack
+corpus (`codexes/`, 22MB) already has extensive deliberate governance (Phase B remote-store migration,
+explicit include/exclude lists in `next.config.js`) — not a bug to fix further.
+
+The one real candidate: `@napi-rs/canvas-linux-x64-gnu`'s single file, `skia.linux-x64-gnu.node`
+(33,253,808 bytes) — the single largest traced package, used by exactly two routes
+(`app/api/content/pdf-page/[cid]`, `app/api/content/pdf-page-by-master/[masterId]`) to rasterize a PDF
+page to PNG via `pdfjs-dist`. **This is a genuinely load-bearing feature — CLAUDE.md documents it as
+required for large Autonomys-hosted PDFs because the full-PDF proxy 413s** — so per explicit operator
+instruction, this was NOT disabled, degraded, or routed to a fallback. Instead:
+
+- **Verified `@napi-rs/canvas` officially supports loading its native binary from an explicit path**:
+  its own generated loader (`node_modules/@napi-rs/canvas/js-binding.js`, auto-generated by NAPI-RS —
+  the same generator every napi-rs package uses) checks `process.env.NAPI_RS_NATIVE_LIBRARY_PATH` FIRST,
+  before any node_modules-relative fallback, and does `require(<that path>)`. This is a first-class,
+  documented napi-rs mechanism — not a module-resolution hack.
+- **Verified the exact download source reproduces the installed binary byte-for-byte**: the npm registry
+  tarball for `@napi-rs/canvas-linux-x64-gnu@0.1.88` (the version `package-lock.json` already pins) was
+  downloaded, extracted, and its `skia.linux-x64-gnu.node` compared against this environment's own
+  `npm ci`-installed copy — **identical SHA-256
+  (`3ebf549df87c6c463c3f42f6e57829435ae26f6b430b6b324754c080b9975ead`), identical size (33,253,808
+  bytes)**.
+- **New service**: `services/content/napiCanvasBinary.ts` — mirrors the EXISTING, shipped precedent for
+  this exact problem class (`app/api/skills/video/_thumbnail.ts`'s ffmpeg-static loader), adapted for the
+  different loading mechanism (ffmpeg is spawned as an independent OS process; a napi-rs native addon is
+  `require()`d in-process, so the fix is an env-var override, not an arbitrary spawn path). On first use:
+  downloads the pinned tarball, extracts the one file via a small hand-written USTAR reader (no new `tar`
+  dependency — `tar` is only a transitive dep, not a direct one), verifies SHA-256 + exact byte count
+  (fails closed on any mismatch — verified by unit-testing `verifyBinary` against tampered content and a
+  wrong size), writes atomically (temp file + `chmod` + `rename`, never a partial file visible to a
+  concurrent reader), dedupes concurrent downloads within one warm container (matching the ffmpeg
+  precedent's `...InFlight` promise cache), then sets `NAPI_RS_NATIVE_LIBRARY_PATH`. Both PDF-page routes
+  now `await ensureNapiCanvasNativeBinding()` before their existing dynamic `import('@napi-rs/canvas')`.
+- **`next.config.js`**: added `node_modules/@napi-rs/canvas-linux-x64-gnu/**` to the existing global (`"*"`)
+  `outputFileTracingExcludes` list (same convention as the pre-existing musl-variant excludes right above
+  it) — confirmed via `.nft.json` grep that no other route references this package, so a global exclude
+  is correct, with an explicit comment on what to do if a third route ever adds a static import of it.
+  `serverExternalPackages` already listed `@napi-rs/canvas` (unchanged — that only controls webpack
+  inlining, not file-tracing, and the JS wrapper itself must stay bundled).
+- **End-to-end verification actually performed** (not assumed): typechecked clean (`tsc --noEmit`, exit
+  0); full `next build` with `AWS_BRANCH=dev` set; confirmed `.next/standalone/node_modules/@napi-rs/
+  canvas-linux-x64-gnu` is absent post-build; ran the ACTUAL COMMITTED module via `tsx` for both a cold
+  path (17.85s — one-time download+verify, logged) and a warm path (0.654ms — cached-file check only);
+  confirmed the loaded binary renders a real canvas and encodes a valid PNG (correct magic bytes) via
+  `NAPI_RS_NATIVE_LIBRARY_PATH` pointed at the downloaded copy; booted `.next/standalone/server.js` and
+  smoke-tested `/health` (200), `/` (200), `/api/content/pdf-page/[cid]` (404 — content not found, the
+  correct response given this sandbox's placeholder Supabase credentials, and proof the route doesn't
+  crash before reaching the canvas code), `/api/content/pdf-page-by-master/[masterId]` (401 — auth check,
+  same class of expected graceful response). Full HTTP exercise of the actual PNG-rendering code path
+  requires real Supabase content this sandbox doesn't have — an accepted, disclosed limitation consistent
+  with every build in this investigation (placeholder env, no real credentials).
+- **Measured result**: cleaned `.next/standalone` — baseline (current HEAD before this fix) **209,656,418
+  bytes** → fixed **176,398,962 bytes** — **33,257,456 bytes (~33.26 MB) recovered**, well above the
+  10–15 MB target and roughly 3.3x the DiDQube pair's entire margin of Amplify variance.
+
+**Files changed**: `services/content/napiCanvasBinary.ts` (new), `app/api/content/pdf-page/[cid]/route.ts`
++ `app/api/content/pdf-page-by-master/[masterId]/route.ts` (added the `ensureNapiCanvasNativeBinding()`
+call before the existing dynamic import), `next.config.js` (one new exclude entry),
+`scripts/build-artifact-manifest.sh` (parser fix), `scripts/guard-standalone-prune.sh` (new),
+`tests/build-artifact-manifest-parser.test.ts` (new). No filesystem deletion of anything outside the
+already-established `.next/standalone/node_modules` scope; no capability disabled, degraded, or routed to
+the 413-prone full-PDF proxy — the feature works identically, the bytes just aren't in the deployed
+artifact anymore.
+
+### 5. DiDQube pair (`0d22e7ea8` / `3c1144060`) — reported finding, not independently re-run this pass
+
+An earlier pass in this investigation (parallel session) reported, after an independent non-symlinked
+build + the full postBuild replay: passing commit `.next/standalone` = **223,669,853 bytes**, failing
+commit = **223,673,961 bytes**, delta = **4,108 bytes**, both containing **13,981 paths with no added or
+removed paths**. The passing half (223,669,853) is independently corroborated in this doc's own "MAJOR
+FINDING" section below (a real build, not a guess); the failing half and the exact delta were not
+re-derived from a fresh build in THIS pass — they are reported here as relayed, arithmetically
+self-consistent (223,673,961 − 223,669,853 = 4,108, exact), and consistent with every other measurement
+in this investigation showing this commit pair as noise-level (see "RESOLVED" below, which already
+established 0 path/size differences between these same two commits via this doc's own from-scratch
+build). **Conclusion unchanged: the DiDQube Phase 2 correction diff did not cause the Amplify failure.**
+
+## RESOLVED (2026-09-07, earlier this day) — the manifest diff, and what it proves
 
 Both commits (`0d22e7ea8` last-passing, `3c1144060` first-failing) were rebuilt from scratch in
 **fully independent environments** — each worktree got its own real `npm ci` install (see "Reproduction

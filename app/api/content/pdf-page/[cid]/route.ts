@@ -25,6 +25,7 @@ import { getContentDescriptorByCid } from '@/services/content/getContentDescript
 import { evaluateAccess } from '@/services/access/evaluateAccess';
 
 import { getCachedImage, setCachedImage } from './cache';
+import { ensureNapiCanvasNativeBinding } from '@/services/content/napiCanvasBinary';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -67,7 +68,13 @@ function releaseRenderSlot() {
 // ---- pdfjs canvas factory (Node) ----
 class NodeCanvasFactory {
   async create(width: number, height: number) {
-    // Dynamic import to avoid webpack bundling native binary
+    // The native binary (@napi-rs/canvas-linux-x64-gnu, ~32 MB) is excluded
+    // from the SSR bundle (next.config.js outputFileTracingExcludes) and
+    // fetched into /tmp on first use instead -- see
+    // services/content/napiCanvasBinary.ts for why and the verified mechanism.
+    // MUST resolve before the dynamic import: @napi-rs/canvas reads
+    // NAPI_RS_NATIVE_LIBRARY_PATH at module-load time, not per-call.
+    await ensureNapiCanvasNativeBinding();
     const { createCanvas } = await import('@napi-rs/canvas');
     const canvas = createCanvas(width, height);
     const context = canvas.getContext('2d');

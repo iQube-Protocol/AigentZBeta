@@ -53,6 +53,24 @@ const nextConfig = {
       "node_modules/@napi-rs/canvas-linux-x64-musl/**",
       "node_modules/@img/sharp-libvips-linuxmusl-x64/**",
       "node_modules/@img/sharp-linuxmusl-x64/**",
+      // The GNU (glibc) canvas native binary — 33,253,808 bytes, the single
+      // largest package traced into the standalone artifact (2026-09-07
+      // build-size forensic investigation), used by exactly two routes
+      // (app/api/content/pdf-page/[cid], app/api/content/pdf-page-by-master/
+      // [masterId]) to rasterize one PDF page to PNG. Both routes now fetch
+      // this binary into /tmp on first use instead of bundling it — see
+      // services/content/napiCanvasBinary.ts for the verified mechanism
+      // (@napi-rs/canvas's own generated loader supports
+      // NAPI_RS_NATIVE_LIBRARY_PATH as a first-class override, checked before
+      // any node_modules path) and its own comment for why this differs from
+      // the ffmpeg-static precedent (spawned binary vs. in-process native
+      // addon). Never referenced from any OTHER route's own trace as of this
+      // investigation, so a global exclude — not a per-route one — is
+      // correct: nothing else needs it bundled. If a THIRD route ever adds a
+      // static (non-dynamic) `import('@napi-rs/canvas')`, this exclude must
+      // move to be scoped to just the two PDF routes, or that new route will
+      // 500 at the native-addon require.
+      "node_modules/@napi-rs/canvas-linux-x64-gnu/**",
       // Next's own SWC native compiler — standalone traces BOTH the glibc and
       // musl prebuilt binaries; Amazon Linux (glibc) loads the gnu copy and
       // never the musl one (~40 MB). Dropping it is the same safe move as the

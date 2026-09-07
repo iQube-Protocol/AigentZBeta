@@ -55,9 +55,29 @@ find .next -type f -printf '%s\t%p\n' 2>/dev/null | sort -rn | head -40 >> "$OUT
 
 echo "Writing full sha256 manifest (batched sha256sum, this takes a while for a large tree)..."
 find .next -type f -printf '%p\t%s\n' 2>/dev/null | sort > "$OUT.sizes.tsv"
-cut -f1 "$OUT.sizes.tsv" | xargs -d '\n' -P 4 -n 200 sha256sum > "$OUT.hashes.tmp"
-# join on path: sizes.tsv is "path\tsize", hashes.tmp is "hash  path"
-awk -F'\t' 'NR==FNR{size[$1]=$2; next} {hash=$1; $1=""; path=$0; sub(/^  */,"",path); print path"\t"size[path]"\t"hash}' \
-  "$OUT.sizes.tsv" "$OUT.hashes.tmp" | sort -k1 > "$OUT.manifest.tsv"
-rm -f "$OUT.sizes.tsv" "$OUT.hashes.tmp"
+# sha256sum's own output format is "<64-hex><SP><mode-char><filename>" -- a
+# mandatory delimiter space, then a mode character (' ' for text mode, '*'
+# for binary -- so text mode reads as two literal spaces), then the
+# filename verbatim (which may itself contain spaces -- those are NOT a
+# further delimiter, just part of the filename). It is NEVER tab-separated.
+# (An earlier fix attempt in this same pass consumed only ONE of the two
+# separator characters, leaving the mode char/second space stuck onto the
+# front of every path -- caught by the fixture test's exact-path assertion,
+# not just a fuzzy size check.) The previous version of this script ran the
+# join with
+# `awk -F'\t'` against this output, which has no tabs at all: the whole
+# "hash  path" line collapsed into a single field, silently corrupting every
+# row (empty path, empty size, the hash+path crammed into one column).
+# Fix: convert to a real tab-separated form first (anchored on the fixed
+# 64-hex-char + mode-char prefix, which cannot appear inside a valid sha256
+# hex digest), THEN join on tab. This is anchored so it is correct
+# regardless of how many spaces or other characters appear in the filename
+# itself. See tests/build-artifact-manifest-parser.test.ts for the fixture
+# proving this against filenames containing spaces.
+cut -f1 "$OUT.sizes.tsv" | xargs -d '\n' -P 4 -n 200 sha256sum \
+  | sed -E 's/^([0-9a-f]{64}) [ *]/\1\t/' > "$OUT.hashes.tsv"
+# join on path: sizes.tsv is "path\tsize", hashes.tsv is now "hash\tpath"
+awk -F'\t' 'NR==FNR{size[$1]=$2; next} {print $2"\t"size[$2]"\t"$1}' \
+  "$OUT.sizes.tsv" "$OUT.hashes.tsv" | sort -k1,1 > "$OUT.manifest.tsv"
+rm -f "$OUT.sizes.tsv" "$OUT.hashes.tsv"
 echo "Manifest written: $OUT.manifest.tsv ($(wc -l < "$OUT.manifest.tsv") files)"
