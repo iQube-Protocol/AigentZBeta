@@ -35,7 +35,7 @@ import { useEffect, useState } from 'react';
 import { ConstitutionalFrontierOrientSurface } from '@/components/journey/ConstitutionalFrontierOrientSurface';
 import type { CanonicalPlateImage } from '@/services/artifact/canonicalPlateImages';
 import { BridgeMediaCarouselPane, type BridgeMediaCarouselItem } from '@/components/journey/BridgeMediaCarouselPane';
-import { BridgeStageCapsuleShell, BridgeStepTeachingNote } from '@/components/journey/BridgeStageCapsuleShell';
+import { BridgeStageCapsuleShell } from '@/components/journey/BridgeStageCapsuleShell';
 import {
   KNYTS_BRIDGE_SECTION_DEFAULTS,
   type KnytsBridgeEditorialSection,
@@ -105,53 +105,39 @@ export function BridgeOrientSurface({ section, fallbackPlate, carouselPlates = [
     // none, so the right column just grew to whatever its own content
     // needed — never actually matching the media, and never bounded enough
     // for its own internal scroll to engage.
-    <div>
-      <div className="grid gap-4 lg:h-[45vh] lg:max-h-[55vh] lg:min-h-[16rem] lg:grid-cols-[3fr_2fr] lg:items-stretch">
-        {/* LEFT — dominant media (~60% width on desktop). A restrained
-            carousel when extra plates are configured; a single pane
-            otherwise. Controls belong to this pane only — the questionnaire
-            column is never touched by carousel state. */}
-        <BridgeMediaCarouselPane
-          items={carouselItems}
-          emptyLabel="No orientation media configured."
-          heightClassName="h-full"
-        />
-
-        {/* RIGHT — encapsulated in the same capsule shell/header treatment the
-            FS bridge stages' companion column uses (2026-09-06). Content and
-            affordances below are UNCHANGED — only the surrounding chrome,
-            and now a real bounded height + internal scroll matching the
-            media pane's own height. */}
-        <BridgeStageCapsuleShell
-          eyebrow="Orientation capsule"
-          description="Answer three quick questions to see your constitutional frontier."
-          accentEyebrowClass={accentEyebrowClass}
-        >
-          <div className="space-y-3">
-            <div>
-              <h2 className="text-lg font-bold text-white sm:text-xl">
-                {config.headline ?? defaults.headline}
-              </h2>
-              {introCopy && (
-                <p className="mt-2 text-[13px] leading-[1.5] text-slate-300">{introCopy}</p>
-              )}
-            </div>
-            <ConstitutionalFrontierOrientSurface />
-          </div>
-        </BridgeStageCapsuleShell>
-      </div>
-
-      {/* Full-width teaching note (2026-09-06, operator instruction: "turning
-          the bridge into a comprehensive and complete teaching/learning
-          resource") — what Orient enables, spanning both columns below the
-          grid rather than living under the media (Orient's media pane is
-          already the step's own interactive surface). */}
-      <BridgeStepTeachingNote
-        accent={accent}
-        eyebrow="What this step enables"
-        title="Orient — find your bearing before you decide anything"
-        body="Orient asks three quick questions — how much help you want, what you want preserved, and how much authority you're comfortable delegating — and reflects them back as your constitutional frontier: the boundary between what you decide yourself and what an agent may decide for you. Nothing here is binding; it only calibrates what Choose and later stages offer you."
+    <div className="grid gap-4 lg:h-[45vh] lg:max-h-[55vh] lg:min-h-[16rem] lg:grid-cols-[3fr_2fr] lg:items-stretch">
+      {/* LEFT — dominant media (~60% width on desktop). A restrained
+          carousel when extra plates are configured; a single pane
+          otherwise. Controls belong to this pane only — the questionnaire
+          column is never touched by carousel state. */}
+      <BridgeMediaCarouselPane
+        items={carouselItems}
+        emptyLabel="No orientation media configured."
+        heightClassName="h-full"
       />
+
+      {/* RIGHT — encapsulated in the same capsule shell/header treatment the
+          FS bridge stages' companion column uses (2026-09-06). Content and
+          affordances below are UNCHANGED — only the surrounding chrome,
+          and now a real bounded height + internal scroll matching the
+          media pane's own height. */}
+      <BridgeStageCapsuleShell
+        eyebrow="Orientation capsule"
+        description="Answer three quick questions to see your constitutional frontier."
+        accentEyebrowClass={accentEyebrowClass}
+      >
+        <div className="space-y-3">
+          <div>
+            <h2 className="text-lg font-bold text-white sm:text-xl">
+              {config.headline ?? defaults.headline}
+            </h2>
+            {introCopy && (
+              <p className="mt-2 text-[13px] leading-[1.5] text-slate-300">{introCopy}</p>
+            )}
+          </div>
+          <ConstitutionalFrontierOrientSurface />
+        </div>
+      </BridgeStageCapsuleShell>
     </div>
   );
 }

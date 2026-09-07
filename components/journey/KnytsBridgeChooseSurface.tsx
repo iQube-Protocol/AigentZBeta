@@ -126,7 +126,7 @@ import {
 } from '@/services/journey/financialServicesEntryPresentation';
 import { FullscreenableFrame } from '@/components/journey/FullscreenableFrame';
 import { BridgeReserveInterestCard } from '@/components/journey/BridgeReserveInterestCard';
-import { BridgeStageCapsuleShell, BridgeStepTeachingNote } from '@/components/journey/BridgeStageCapsuleShell';
+import { BridgeStageCapsuleShell } from '@/components/journey/BridgeStageCapsuleShell';
 import {
   KNYTS_BRIDGE_SECTION_DEFAULTS,
   type KnytsBridgeEditorialSection,
@@ -460,23 +460,6 @@ export function KnytsBridgeChooseSurface({
         personaId={personaId}
         campaignId={KNYTS_BRIDGE_CAMPAIGN_ID}
       />
-
-      <div className="lg:col-span-2">
-        <BridgeStepTeachingNote
-          accent="amber"
-          eyebrow="What this step enables"
-          title="Choose — pick where to go next in the Polity"
-          body="None of these are binding, and none is the required next act — they're independent doors, and picking one never closes another. You can always come back and pick again."
-          bullets={[
-            'Get first access to the metaKnyt Kickstarter — register interest, then follow the live Kickstarter preview; a demand signal, not a payment.',
-            'Explore the KNYT Store — browse Episodes, KNYT Cards and Bundles right here.',
-            'Learn about the Constitutional Internet — the sibling CI Bridge, embedded here for as long as you like.',
-            financialServicesEntryPresentation.label + ' — cross into Financial Sovereignty: discover, learn, and prepare a financial profile with an agent.',
-            'Ask Kn0w1 — talk with the KNYT copilot about anything above.',
-            'Share the Bridge & Earn $KNYT — a real reward, granted only on a confirmed click/signup/conversion, never for opening the share dialog alone.',
-          ]}
-        />
-      </div>
     </div>
   );
 }

@@ -61,7 +61,7 @@ import { ArtifactMattedFrame } from '@/components/journey/ArtifactMattedFrame';
 import { FullscreenableFrame } from '@/components/journey/FullscreenableFrame';
 import { BridgeReserveInterestCard } from '@/components/journey/BridgeReserveInterestCard';
 import { DestinationCard } from '@/components/journey/DestinationCard';
-import { BridgeStageCapsuleShell, BridgeStepTeachingNote } from '@/components/journey/BridgeStageCapsuleShell';
+import { BridgeStageCapsuleShell } from '@/components/journey/BridgeStageCapsuleShell';
 
 const BOOK_CONCEPT_PLATE = canonicalPlateImage('CIP-006');
 
@@ -402,24 +402,6 @@ export function ConstitutionalInternetBridgeChooseSurface({
         personaId={personaId}
         campaignId={CI_BRIDGE_CAMPAIGN_ID}
       />
-
-      <div className="lg:col-span-2">
-        <BridgeStepTeachingNote
-          accent="indigo"
-          eyebrow="What this step enables"
-          title="Choose — pick where to go next in the Polity"
-          body="None of these are binding, and none is the required next act — they're independent doors, and picking one never closes another. You can always come back and pick again."
-          bullets={[
-            'Reserve The Constitutional Internet — register interest in a copy; a demand signal, not a purchase.',
-            'Continue reading — the book itself, embedded here for as long as you like.',
-            'Meet aigentMe — open the aigentMe copilot and see how it can act with you, bounded by authority you grant.',
-            'Join the IRL research programme — join the Invariant Research Lab’s ongoing experiment/validation work.',
-            financialServicesEntryPresentation.label + ' — cross into Financial Sovereignty: discover, learn, and prepare a financial profile with an agent.',
-            'Apply to partner with metaMe — build or partner on the constitutional venture substrate.',
-            'Explore the Mythos of the Polity — the KNYTS Bridge’s own narrative telling of the same Polity.',
-          ]}
-        />
-      </div>
     </div>
   );
 }
