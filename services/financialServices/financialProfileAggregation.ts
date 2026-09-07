@@ -31,13 +31,28 @@
  * (uploadIndexer's `contentMd`, no `contentJson`) is NOT parsed into
  * transactions here — reliably extracting transaction rows from arbitrary
  * PDF layouts without guessing is a genuinely separate, larger problem.
- * Such uploads are reported `unreadable` (counted honestly, never silently
- * dropped) rather than approximated.
+ *
+ * ── PDF fallback: a rough, honestly-labeled balance estimate (MPY2-2d, 2026-09-06) ──
+ *
+ * When NO upload in the batch yields usable transaction rows, but at least
+ * one PDF-narrative statement's raw text contains a matchable closing-
+ * balance figure, `computeFinancialProfile` falls back to
+ * `estimateBalanceFromStatementText` — harvested verbatim (formula and all)
+ * from the MoneyPenny002 donor repo at the operator's explicit direction,
+ * 2026-09-06: "port it, honestly labeled as an estimate." This is NOT
+ * transaction-level derivation and must never be presented as one — see
+ * that function's own header for exactly what it can and cannot claim.
+ * Reported via the separate `balanceEstimate` field (never merged into
+ * `aggregates`, whose fields document a stronger guarantee this estimate
+ * cannot honestly make) and `inputSource: 'estimated_from_statement_balance'`.
+ * A statement that yields neither usable rows nor a matchable balance is
+ * still reported `unreadable` (counted honestly, never silently dropped).
  */
 
 import type {
   FinancialProfileAggregates,
   FinancialProfileEnvelope,
+  FinancialProfileBalanceEstimate,
   RecurringCommitment,
   ConcentrationCategory,
 } from '@/services/iqube/financialProfileQube';
@@ -47,13 +62,25 @@ export interface StatementSourceRows {
   /** null when the upload's parsed index carried no `contentJson.rows` —
    *  a non-CSV statement (see module header). */
   rows: Array<Record<string, string>> | null;
+  /**
+   * The upload's raw indexed text (uploadIndexer's `contentMd`), when it
+   * has any — a PDF-narrative statement carries this even though `rows` is
+   * null. Used ONLY as the balance-estimate fallback's input when no
+   * source in the batch has usable rows; ignored entirely otherwise. `null`
+   * for an upload with no indexed text (e.g. a CSV, which already has
+   * `rows`, or a failed parse).
+   */
+  text: string | null;
 }
 
 export interface FinancialProfileComputeResult {
   /** True when at least one upload contributed at least one valid,
-   *  dated, amount-bearing row. */
+   *  dated, amount-bearing row, OR a balance estimate was derived. */
   ok: boolean;
   aggregates?: FinancialProfileAggregates;
+  /** MPY2-2d fallback result — see module header. Mutually exclusive with
+   *  `aggregates` in practice. */
+  balanceEstimate?: FinancialProfileBalanceEstimate;
   envelope?: FinancialProfileEnvelope;
   computedFromMonths?: string[];
   readableUploadIds: string[];
@@ -61,6 +88,111 @@ export interface FinancialProfileComputeResult {
   /** Present when `ok` is false, or to note a partial degradation (e.g. no
    *  balance column found anywhere, so liquidityBufferDays is null). */
   notes: string[];
+  /** Set only on the balance-estimate fallback path — the normal
+   *  transaction-row path leaves this undefined and the caller defaults to
+   *  'uploaded_statements' (unchanged behavior). */
+  inputSource?: 'estimated_from_statement_balance';
+}
+
+// ── Balance-only estimate (MPY2-2d) — harvested from MoneyPenny002 ──────────
+
+const BALANCE_PATTERNS = [
+  /(?:closing|ending|final)\s+balance[:\s]+\$?\s*([\d,]+\.?\d*)/i,
+  /balance[:\s]+\$?\s*([\d,]+\.?\d*)/i,
+  /\$\s*([\d,]+\.?\d*)\s+(?:closing|ending)/i,
+];
+
+const STATEMENT_PERIOD_PATTERNS = [
+  /(?:statement\s+period|period)[:\s]+(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\s*(?:to|through|-)\s*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})/i,
+  /(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\s*(?:to|through|-)\s*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})/i,
+];
+
+/**
+ * Harvested verbatim from MoneyPenny002's `banking-document-parser` edge
+ * function (`parseAggregatesFromText`/`computeAggregates`), operator-
+ * directed 2026-09-06. This is a REGEX GUESS over a PDF statement's raw
+ * text, not real transaction extraction:
+ *   - `estimatedAvgDailySurplus` is literally `closingBalance / 30` — it has
+ *     no relationship to actual income or spending, only the one balance
+ *     figure the regex happened to match.
+ *   - `estimatedSurplusVolatility` is a fixed `0.35` multiplier of that
+ *     figure — not a computed variance of anything.
+ * Never merged into `FinancialProfileAggregates` (see module header) and
+ * never presented in the UI without the "estimated from statement balance,
+ * not itemized transactions" qualification. Returns `null` — never a
+ * fabricated zero — when no balance pattern matches at all.
+ */
+export function estimateBalanceFromStatementText(text: string): FinancialProfileBalanceEstimate | null {
+  let closingBalance: number | null = null;
+  for (const pattern of BALANCE_PATTERNS) {
+    const match = text.match(pattern);
+    if (match) {
+      const parsed = Number(match[1].replace(/,/g, ''));
+      if (Number.isFinite(parsed)) {
+        closingBalance = parsed;
+        break;
+      }
+    }
+  }
+  if (closingBalance === null || closingBalance <= 0) return null;
+
+  let periodStart: string | null = null;
+  let periodEnd: string | null = null;
+  for (const pattern of STATEMENT_PERIOD_PATTERNS) {
+    const match = text.match(pattern);
+    if (match) {
+      periodStart = match[1];
+      periodEnd = match[2];
+      break;
+    }
+  }
+
+  const estimatedAvgDailySurplus = Math.round((closingBalance / 30) * 100) / 100;
+  const estimatedSurplusVolatility = Math.round(estimatedAvgDailySurplus * 0.35 * 100) / 100;
+  const estimatedCashBufferDays =
+    estimatedAvgDailySurplus !== 0
+      ? Math.round((closingBalance / Math.abs(estimatedAvgDailySurplus)) * 10) / 10
+      : null;
+
+  return {
+    estimatedClosingBalance: Math.round(closingBalance * 100) / 100,
+    estimatedAvgDailySurplus,
+    estimatedSurplusVolatility,
+    estimatedCashBufferDays,
+    periodStart,
+    periodEnd,
+  };
+}
+
+/**
+ * The candidate envelope for a balance-only estimate — the SAME multiplier
+ * formula MoneyPenny002's `generateRecommendations` uses (harvested
+ * verbatim, 2026-09-06), mapped onto this repo's own `FinancialProfileEnvelope`
+ * shape (candidateMaxNotional/candidateLossRiskBudget/liquidityReserve) so
+ * the panel renders it through the SAME "Suggested Trading Policy" card the
+ * transaction-derived path uses — never a second envelope shape. Still
+ * labelled CANDIDATE throughout (constraint 6); `concentrationLimits` is
+ * always empty here (no per-category data exists from a single balance
+ * figure) and `strategyConstraints` states the estimate's own limits
+ * explicitly rather than silently omitting them.
+ */
+function buildCandidateEnvelopeFromBalanceEstimate(estimate: FinancialProfileBalanceEstimate): FinancialProfileEnvelope {
+  const clamp = (x: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, x));
+  const candidateMaxNotional =
+    Math.round(clamp(0.35 * estimate.estimatedAvgDailySurplus, 25, 0.2 * estimate.estimatedClosingBalance) * 100) / 100;
+  const candidateLossRiskBudget = Math.round(3 * estimate.estimatedSurplusVolatility * 100) / 100;
+  const liquidityReserve = Math.round(estimate.estimatedClosingBalance * 0.2 * 100) / 100;
+
+  return {
+    candidateMaxNotional,
+    candidateLossRiskBudget,
+    liquidityReserve,
+    concentrationLimits: [],
+    strategyConstraints: [
+      'Recommendation only — review before acting; MoneyPenny holds no authority to trade on this envelope.',
+      `Derived from a rough balance-only estimate (avg daily surplus = closing balance ÷ 30), not itemized transactions — upload a CSV export for a fully-derived envelope.`,
+    ],
+  };
 }
 
 // ── Column recognition — case-insensitive header matching, never guessed
@@ -315,15 +447,71 @@ export function computeFinancialProfile(sources: readonly StatementSourceRows[])
     allRows.push(...parsed);
   }
 
+  if (allRows.length === 0) {
+    // MPY2-2d fallback (2026-09-06): no upload yielded usable transaction
+    // rows. Before giving up, see whether any unreadable source at least
+    // carries raw text with a matchable closing-balance figure — the
+    // balance-only estimate ported from MoneyPenny002 (see module header).
+    // This can "rescue" some of the uploads just counted unreadable above,
+    // so the readable/unreadable split and note are computed here, not
+    // duplicated with the transaction-row path's own bookkeeping.
+    const estimateReadableIds: string[] = [];
+    const estimateUnreadableIds: string[] = [];
+    let balanceEstimate: FinancialProfileBalanceEstimate | null = null;
+    for (const source of sources) {
+      if (source.rows) continue; // already counted unreadable above (had rows but none parsed) — leave as-is
+      if (!balanceEstimate && source.text) {
+        const estimate = estimateBalanceFromStatementText(source.text);
+        if (estimate) {
+          balanceEstimate = estimate;
+          estimateReadableIds.push(source.uploadId);
+          continue;
+        }
+      }
+      estimateUnreadableIds.push(source.uploadId);
+    }
+
+    if (balanceEstimate) {
+      const fallbackNotes = [
+        `${estimateReadableIds.length} source document(s) yielded a rough balance-only estimate — no itemized ` +
+          'transaction data was recognized, so this is derived from a single closing-balance figure, not actual ' +
+          'income/spending. Upload a CSV export for a fully-derived envelope.',
+      ];
+      if (estimateUnreadableIds.length > 0) {
+        fallbackNotes.push(
+          `${estimateUnreadableIds.length} source document(s) could not be read at all — no recognized ` +
+            'date+amount column shape, not a CSV export, and no matchable balance figure. Excluded, never guessed.',
+        );
+      }
+      return {
+        ok: true,
+        balanceEstimate,
+        envelope: buildCandidateEnvelopeFromBalanceEstimate(balanceEstimate),
+        inputSource: 'estimated_from_statement_balance',
+        readableUploadIds: estimateReadableIds,
+        unreadableUploadIds: estimateUnreadableIds,
+        notes: fallbackNotes,
+      };
+    }
+
+    return {
+      ok: false,
+      readableUploadIds,
+      unreadableUploadIds: [...unreadableUploadIds],
+      notes: [
+        ...notes,
+        `${unreadableUploadIds.length} source document(s) could not be read as transaction data — no recognized ` +
+          'date+amount column shape, or not a CSV export. Excluded from the aggregates below, never guessed.',
+        'No usable transaction rows across any uploaded document, and no matchable balance figure either.',
+      ],
+    };
+  }
+
   if (unreadableUploadIds.length > 0) {
     notes.push(
       `${unreadableUploadIds.length} source document(s) could not be read as transaction data — no recognized ` +
         'date+amount column shape, or not a CSV export. Excluded from the aggregates below, never guessed.',
     );
-  }
-
-  if (allRows.length === 0) {
-    return { ok: false, readableUploadIds, unreadableUploadIds, notes: [...notes, 'No usable transaction rows across any uploaded document.'] };
   }
 
   const byMonth = new Map<string, ParsedRow[]>();

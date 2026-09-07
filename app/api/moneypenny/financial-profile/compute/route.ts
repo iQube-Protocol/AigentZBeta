@@ -62,7 +62,11 @@ export async function POST(req: NextRequest) {
   const sources: StatementSourceRows[] = [];
   for (const upload of uploads) {
     const full = await service.get(upload.id, persona.personaId);
-    sources.push({ uploadId: upload.id, rows: extractCsvRows(full?.index?.contentJson) });
+    sources.push({
+      uploadId: upload.id,
+      rows: extractCsvRows(full?.index?.contentJson),
+      text: full?.index?.contentMd ?? null,
+    });
   }
 
   const result = computeFinancialProfile(sources);
@@ -78,12 +82,13 @@ export async function POST(req: NextRequest) {
     unreadableUploadCount: result.unreadableUploadIds.length,
     blak: {
       ...(result.aggregates ? { aggregates: result.aggregates } : {}),
+      ...(result.balanceEstimate ? { balanceEstimate: result.balanceEstimate } : {}),
       ...(result.envelope ? { envelope: result.envelope } : {}),
       ...(riskAssessment ? { riskAssessment } : {}),
       ...(riskLimits ? { riskLimits } : {}),
       sourceUploadIds: result.readableUploadIds,
       ...(result.computedFromMonths ? { computedFromMonths: result.computedFromMonths } : {}),
-      inputSource: 'uploaded_statements',
+      inputSource: result.inputSource ?? 'uploaded_statements',
     },
   });
 
@@ -94,6 +99,7 @@ export async function POST(req: NextRequest) {
     ok: result.ok,
     meta: record.meta,
     aggregates: record.blak.aggregates ?? null,
+    balanceEstimate: record.blak.balanceEstimate ?? null,
     envelope: record.blak.envelope ?? null,
     riskAssessment: record.blak.riskAssessment ?? null,
     riskLimits: record.blak.riskLimits ?? null,

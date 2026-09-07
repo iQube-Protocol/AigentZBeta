@@ -90,6 +90,32 @@ export interface FinancialProfileAggregates {
   topCategories: ConcentrationCategory[];
 }
 
+/**
+ * MPY2-2d (2026-09-06) — the rough, balance-only estimate path harvested
+ * from the MoneyPenny002 donor at the operator's explicit direction
+ * ("port it, honestly labeled as an estimate"). Deliberately a SEPARATE
+ * type from `FinancialProfileAggregates`, never forced into that shape:
+ * `FinancialProfileAggregates`'s fields (incomeMonthly, expenditureMonthly,
+ * cashFlowVolatility as a variance RATIO, etc.) document a transaction-
+ * derived guarantee this estimate cannot honestly make — it is produced
+ * from ONE regex-matched closing-balance figure in a PDF statement's raw
+ * text, nothing more. `estimatedAvgDailySurplus` is literally
+ * `closingBalance / 30`; `estimatedSurplusVolatility` is a fixed 0.35
+ * multiplier of that — the donor's own field names ("estimated") are kept
+ * verbatim rather than dressed up as something more rigorous. See
+ * services/financialServices/financialProfileAggregation.ts's
+ * `estimateBalanceFromStatementText` for the derivation and its own
+ * documented limits.
+ */
+export interface FinancialProfileBalanceEstimate {
+  estimatedClosingBalance: number;
+  estimatedAvgDailySurplus: number;
+  estimatedSurplusVolatility: number;
+  estimatedCashBufferDays: number | null;
+  periodStart: string | null;
+  periodEnd: string | null;
+}
+
 export interface FinancialProfileEnvelope {
   /** A recommendation, never authority to trade (constraint 6). Any later
    *  Runtime enforcement requires the canonical authority/delegation/CTP
@@ -165,6 +191,11 @@ export interface RiskLimits {
 /** Private payload — server-side only. T0. */
 export interface FinancialProfileQubeBlak {
   aggregates?: FinancialProfileAggregates;
+  /** MPY2-2d — see FinancialProfileBalanceEstimate's own header. Mutually
+   *  exclusive with `aggregates` in practice (one compute pass produces
+   *  one or the other, never both) but both stay optional independently
+   *  rather than a tagged union, matching this interface's existing style. */
+  balanceEstimate?: FinancialProfileBalanceEstimate;
   envelope?: FinancialProfileEnvelope;
   riskAssessment?: RiskAssessment;
   riskLimits?: RiskLimits;
@@ -179,8 +210,10 @@ export interface FinancialProfileQubeBlak {
    * absent the same as `'uploaded_statements'` (the only path that existed
    * then), never as unknown. Surfaced to the owner so a self-reported
    * estimate is never mistaken for statement-derived precision.
+   * `'estimated_from_statement_balance'` (MPY2-2d, 2026-09-06) is the same
+   * discipline applied to the new balance-only PDF estimate path.
    */
-  inputSource?: 'uploaded_statements' | 'manual_entry';
+  inputSource?: 'uploaded_statements' | 'manual_entry' | 'estimated_from_statement_balance';
 }
 
 export interface FinancialProfileQubeRecord {
@@ -356,7 +389,7 @@ export async function upsertFinancialProfileQube(
     // flag). Manual entry always produces aggregates (even income=0/
     // expenditure=0 is a real self-reported figure), so this only ever
     // withholds the flag on a genuinely empty upload pass.
-    has_profile: Boolean(input.blak.aggregates),
+    has_profile: Boolean(input.blak.aggregates || input.blak.balanceEstimate),
     last_computed_at: new Date().toISOString(),
     source_upload_count: input.sourceUploadCount,
     unreadable_upload_count: input.unreadableUploadCount,

@@ -19,7 +19,7 @@ import { personaFetch } from '@/utils/personaSpine';
 
 export interface FinancialProfileSummary {
   hasProfile: boolean;
-  inputSource: 'uploaded_statements' | 'manual_entry' | null;
+  inputSource: 'uploaded_statements' | 'manual_entry' | 'estimated_from_statement_balance' | null;
   incomeMonthly: number | null;
   expenditureMonthly: number | null;
   availableSurplusMonthly: number | null;

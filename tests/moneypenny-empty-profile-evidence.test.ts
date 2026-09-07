@@ -21,9 +21,13 @@ import { computeFinancialProfile, computeManualFinancialProfile } from '@/servic
 describe('upsertFinancialProfileQube derives has_profile from real aggregates, never a hardcoded true', () => {
   const src = stripComments(readSource('services/iqube/financialProfileQube.ts'));
 
-  it('has_profile is Boolean(input.blak.aggregates), not a literal true', () => {
+  it('has_profile is Boolean(input.blak.aggregates || input.blak.balanceEstimate), not a literal true', () => {
+    // MPY2-2d (2026-09-06): a balance-only estimate is also real, honestly-
+    // labeled evidence of a prepared profile — extended alongside aggregates,
+    // never replacing the aggregates-derived check this test originally
+    // guarded.
     expect(src).not.toMatch(/has_profile:\s*true,/);
-    expect(src).toMatch(/has_profile:\s*Boolean\(input\.blak\.aggregates\),/);
+    expect(src).toMatch(/has_profile:\s*Boolean\(input\.blak\.aggregates \|\| input\.blak\.balanceEstimate\),/);
   });
 });
 
@@ -38,7 +42,7 @@ describe('hasPreparedFinancialProfile reads the real per-persona record, never a
 
 describe('The upstream compute path genuinely produces no aggregates on a fully-failed upload pass', () => {
   it('every uploaded statement unreadable -> no aggregates key at all (not an empty object)', () => {
-    const result = computeFinancialProfile([{ uploadId: 'pdf-1', rows: null }]);
+    const result = computeFinancialProfile([{ uploadId: 'pdf-1', rows: null, text: null }]);
     expect(result.ok).toBe(false);
     expect(result.aggregates).toBeUndefined();
   });

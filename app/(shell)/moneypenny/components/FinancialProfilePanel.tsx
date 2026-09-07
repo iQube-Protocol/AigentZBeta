@@ -43,6 +43,14 @@ interface FinancialProfileAggregates {
   recurringCommitments: RecurringCommitment[];
   topCategories: ConcentrationCategory[];
 }
+interface FinancialProfileBalanceEstimate {
+  estimatedClosingBalance: number;
+  estimatedAvgDailySurplus: number;
+  estimatedSurplusVolatility: number;
+  estimatedCashBufferDays: number | null;
+  periodStart: string | null;
+  periodEnd: string | null;
+}
 interface FinancialProfileEnvelope {
   candidateMaxNotional: number;
   candidateLossRiskBudget: number;
@@ -65,11 +73,16 @@ interface FinancialProfileResponse {
   ok: boolean;
   meta: FinancialProfileMeta;
   aggregates: FinancialProfileAggregates | null;
+  /** MPY2-2d (2026-09-06) — set only when no upload yielded usable
+   *  transaction rows but a PDF statement's raw text matched a closing-
+   *  balance figure. A rough, honestly-labeled estimate, never merged into
+   *  `aggregates`. Mutually exclusive with it in practice. */
+  balanceEstimate?: FinancialProfileBalanceEstimate | null;
   envelope: FinancialProfileEnvelope | null;
   computedFromMonths: string[];
   /** MPY2-2c — which input path produced the current aggregates. `null`
    *  when no profile has been computed yet. */
-  inputSource?: 'uploaded_statements' | 'manual_entry' | null;
+  inputSource?: 'uploaded_statements' | 'manual_entry' | 'estimated_from_statement_balance' | null;
   notes?: string[];
   error?: string;
   detail?: string;
@@ -203,6 +216,7 @@ export function FinancialProfilePanel() {
   }, [manualIncome, manualExpenditure, manualLiquidityDays]);
 
   const aggregates = profile?.aggregates ?? null;
+  const balanceEstimate = profile?.balanceEstimate ?? null;
   const envelope = profile?.envelope ?? null;
   const inputSource = profile?.inputSource ?? null;
 
@@ -328,10 +342,51 @@ export function FinancialProfilePanel() {
         </CardContent>
       </Card>
 
-      {!loading && !profile?.meta.hasProfile && !aggregates && (
+      {!loading && !profile?.meta.hasProfile && !aggregates && !balanceEstimate && (
         <div className="rounded border border-slate-800 bg-slate-900/40 px-3 py-4 text-center text-xs text-slate-500">
           No profile computed yet — upload one or more statements above, then compute.
         </div>
+      )}
+
+      {!aggregates && balanceEstimate && (
+        <Card className="border-slate-800 bg-slate-900/40">
+          <CardHeader>
+            <CardTitle className="text-sm text-slate-100">
+              Financial overview
+              <Badge variant="outline" className="ml-2 border-amber-700 text-amber-300 text-[10px] align-middle">
+                Estimated from statement balance
+              </Badge>
+            </CardTitle>
+            <CardDescription className="text-slate-400 text-[11px]">
+              No itemized transactions were recognized in your upload(s) — this is a rough estimate derived from a
+              single closing-balance figure, not actual income or spending. Upload a CSV export for a fully-derived
+              profile.
+              {balanceEstimate.periodStart && balanceEstimate.periodEnd
+                ? ` Period: ${balanceEstimate.periodStart} – ${balanceEstimate.periodEnd}.`
+                : ""}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div>
+              <div className="text-[11px] text-slate-500">Avg daily surplus</div>
+              <div className="text-sm font-semibold text-slate-100">{money(balanceEstimate.estimatedAvgDailySurplus)}</div>
+            </div>
+            <div>
+              <div className="text-[11px] text-slate-500">Volatility</div>
+              <div className="text-sm font-semibold text-slate-100">{money(balanceEstimate.estimatedSurplusVolatility)}</div>
+            </div>
+            <div>
+              <div className="text-[11px] text-slate-500">Closing balance</div>
+              <div className="text-sm font-semibold text-slate-100">{money(balanceEstimate.estimatedClosingBalance)}</div>
+            </div>
+            <div>
+              <div className="text-[11px] text-slate-500">Cash buffer</div>
+              <div className="text-sm font-semibold text-slate-100">
+                {balanceEstimate.estimatedCashBufferDays !== null ? `${balanceEstimate.estimatedCashBufferDays.toFixed(1)} days` : "—"}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {aggregates && (
