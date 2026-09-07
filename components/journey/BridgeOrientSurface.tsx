@@ -92,17 +92,29 @@ export function BridgeOrientSurface({ section, fallbackPlate, carouselPlates = [
     .join(' ');
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[3fr_2fr]">
-      {/* LEFT — dominant media (~60% width on desktop), fills most of the
-          viewport height. A restrained carousel when extra plates are
-          configured; a single pane otherwise. Controls belong to this pane
-          only — the questionnaire column is never touched by carousel
-          state. */}
-      <BridgeMediaCarouselPane items={carouselItems} emptyLabel="No orientation media configured." />
+    // Explicit shared row height (2026-09-06 fix) — matching the media's own
+    // height range HERE, on the grid, rather than on the media pane itself,
+    // is what lets both columns stretch to the SAME real height. Previously
+    // the media pane carried its own fixed height while the grid row had
+    // none, so the right column just grew to whatever its own content
+    // needed — never actually matching the media, and never bounded enough
+    // for its own internal scroll to engage.
+    <div className="grid gap-4 lg:h-[60vh] lg:max-h-[70vh] lg:min-h-[18rem] lg:grid-cols-[3fr_2fr] lg:items-stretch">
+      {/* LEFT — dominant media (~60% width on desktop). A restrained
+          carousel when extra plates are configured; a single pane
+          otherwise. Controls belong to this pane only — the questionnaire
+          column is never touched by carousel state. */}
+      <BridgeMediaCarouselPane
+        items={carouselItems}
+        emptyLabel="No orientation media configured."
+        heightClassName="h-full"
+      />
 
       {/* RIGHT — encapsulated in the same capsule shell/header treatment the
           FS bridge stages' companion column uses (2026-09-06). Content and
-          affordances below are UNCHANGED — only the surrounding chrome. */}
+          affordances below are UNCHANGED — only the surrounding chrome,
+          and now a real bounded height + internal scroll matching the
+          media pane's own height. */}
       <BridgeStageCapsuleShell
         eyebrow="Orientation capsule"
         description="Answer three quick questions to see your constitutional frontier."
@@ -110,7 +122,7 @@ export function BridgeOrientSurface({ section, fallbackPlate, carouselPlates = [
       >
         <div className="space-y-3">
           <div>
-            <h2 className="text-xl font-bold text-white sm:text-2xl">
+            <h2 className="text-lg font-bold text-white sm:text-xl">
               {config.headline ?? defaults.headline}
             </h2>
             {introCopy && (

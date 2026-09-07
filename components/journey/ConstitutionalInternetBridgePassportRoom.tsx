@@ -35,9 +35,10 @@
  * persisted).
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowRight, CheckCircle2, Maximize2, X } from 'lucide-react';
 import { PassportBureauApplyTab } from '@/app/triad/components/codex/tabs/PassportBureauApplyTab';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { canonicalPlateImage } from '@/services/artifact/canonicalPlateImages';
 import { ArtifactMattedFrame } from '@/components/journey/ArtifactMattedFrame';
 import { BridgeActionModeQuestion } from '@/components/journey/BridgeActionModeQuestion';
@@ -86,6 +87,27 @@ export function ConstitutionalInternetBridgePassportRoom({ personaId, citizenPas
   const [noticeDismissed, setNoticeDismissed] = useState(false);
   const [config, setConfig] = useState<KnytsBridgeEditorialSection>(KNYTS_BRIDGE_SECTION_DEFAULTS[SECTION]);
   const [fullscreenImage, setFullscreenImage] = useState(false);
+  // Delegate affordance (KNYTS↔CI parity pass, 2026-09-06 — CI was missing
+  // the optional post-activation delegate creation KnytsBridgePassportRoom
+  // already has). `delegateModalOpen` is only the confirmation step;
+  // `delegateFlowOpen` is set ONLY from the modal's own "Create delegate"
+  // action, never from the row button directly — "Maybe later" is a true
+  // no-op, exactly matching KNYTS's own implementation.
+  const [delegateModalOpen, setDelegateModalOpen] = useState(false);
+  const [delegateFlowOpen, setDelegateFlowOpen] = useState(false);
+  const delegateFlowRef = useRef<HTMLDivElement>(null);
+
+  // Scroll fix (2026-09-06) — the delegate flow panel renders BELOW the
+  // grid + action row, so on a shorter viewport it opened entirely beneath
+  // the fold with no way to reach it. `scrollIntoView` bubbles up through
+  // whatever ancestor actually scrolls (the outer page/iframe), so this
+  // works regardless of the surrounding chrome — the panel it targets stays
+  // untouched.
+  useEffect(() => {
+    if (delegateFlowOpen) {
+      delegateFlowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [delegateFlowOpen]);
 
   useEffect(() => {
     if (!citizenPassportUsable) return;
@@ -164,7 +186,12 @@ export function ConstitutionalInternetBridgePassportRoom({ personaId, citizenPas
         </div>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-[3fr_2fr]">
+      {/* Explicit shared row height (2026-09-06 fix) — same reasoning as
+          BridgeOrientSurface's own grid: put the media's height range on
+          the GRID, not the media pane, so both columns stretch to the SAME
+          real height and the right capsule's internal scroll actually
+          engages instead of just growing to fit its own content. */}
+      <div className="grid gap-4 lg:h-[45vh] lg:max-h-[55vh] lg:min-h-[16rem] lg:grid-cols-[3fr_2fr] lg:items-stretch">
         {/* LEFT — personhood/Passport media, admin-editable video with a
             CIP-007B fallback (same pattern as Orient). The still-image
             fallback gets the same warm parchment museum-matte View mounts
@@ -173,7 +200,7 @@ export function ConstitutionalInternetBridgePassportRoom({ personaId, citizenPas
             not a white image floating in a dark panel. Video (rare, admin-
             configured) stays plain black-bg object-contain, matching
             View's own video-vs-plate treatment split exactly. */}
-        <div className="relative flex h-[45vh] max-h-[55vh] min-h-[16rem] w-full items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-slate-900/40">
+        <div className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-slate-900/40">
           <button
             type="button"
             onClick={() => setFullscreenImage(true)}
@@ -214,7 +241,7 @@ export function ConstitutionalInternetBridgePassportRoom({ personaId, citizenPas
         >
           <div className="space-y-3">
             <div>
-              <h2 className="text-xl font-bold text-white sm:text-2xl">
+              <h2 className="text-lg font-bold text-white sm:text-xl">
                 {config.headline ?? KNYTS_BRIDGE_SECTION_DEFAULTS[SECTION].headline}
               </h2>
               {introCopy && <p className="mt-2 text-[13px] leading-[1.5] text-slate-300">{introCopy}</p>}
@@ -224,14 +251,64 @@ export function ConstitutionalInternetBridgePassportRoom({ personaId, citizenPas
         </BridgeStageCapsuleShell>
       </div>
 
-      <button
-        type="button"
-        onClick={() => selectStage('personify')}
-        className="flex w-full items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-900/40 px-4 py-3.5 hover:border-indigo-400/30 transition"
-      >
-        <span className="text-sm font-semibold text-white">Tell your Constitutional story</span>
-        <ArrowRight className="h-4 w-4 text-slate-400" />
-      </button>
+      {/* Two peer post-activation actions (KNYTS↔CI parity pass, 2026-09-06
+          — mirrors KnytsBridgePassportRoom exactly). "Create a delegate" is
+          the lighter-weight action — it only opens a confirm step, never
+          the delegate flow directly. "Tell your Constitutional story" keeps
+          the room's original stronger styling since it remains this room's
+          primary continuation. */}
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <button
+          type="button"
+          onClick={() => setDelegateModalOpen(true)}
+          className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-slate-800 bg-slate-900/40 px-4 py-3.5 transition hover:bg-slate-900/60"
+        >
+          <span className="text-sm font-medium text-slate-300">Create a delegate</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => selectStage('personify')}
+          className="flex flex-1 items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-900/40 px-4 py-3.5 hover:border-indigo-400/30 transition"
+        >
+          <span className="text-sm font-semibold text-white">Tell your Constitutional story</span>
+          <ArrowRight className="h-4 w-4 text-slate-400" />
+        </button>
+      </div>
+
+      <ConfirmDialog
+        open={delegateModalOpen}
+        title="Create your delegate"
+        description="Give an agent bounded authority to act with you in the Polity. You can do this now or come back later."
+        confirmText="Create delegate"
+        cancelText="Maybe later"
+        onConfirm={() => {
+          setDelegateModalOpen(false);
+          setDelegateFlowOpen(true);
+        }}
+        onCancel={() => setDelegateModalOpen(false)}
+      />
+
+      {delegateFlowOpen && (
+        <div ref={delegateFlowRef} className="space-y-3 rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold text-slate-200">Create your delegate</p>
+            <button
+              type="button"
+              onClick={() => setDelegateFlowOpen(false)}
+              aria-label="Close"
+              title="Close"
+              className="shrink-0 rounded-md p-0.5 text-slate-400 transition hover:bg-slate-800 hover:text-slate-200"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          {/* THE CANONICAL Agent/Participant Passport flow — the SAME
+              component this room already mounts for the Citizen path
+              above, routed to its existing agent-delegation entry
+              (`routeTo="delegate"`). Never a KNYTS-specific wizard. */}
+          <PassportBureauApplyTab personaId={personaId} routeTo="delegate" />
+        </div>
+      )}
 
       {fullscreenImage && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/95 p-4">
