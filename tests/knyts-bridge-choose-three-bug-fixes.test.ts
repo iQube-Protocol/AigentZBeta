@@ -62,16 +62,19 @@ describe('Bug 2 — BridgeReserveInterestCard: theming follows an accent prop, C
     expect(SRC).toContain('amber:');
   });
 
-  it('no color is hardcoded outside the accent map — the rendered icon/input/button all key off accentClasses', () => {
+  it('no color is hardcoded outside the accent map — the rendered icon/input key off accentClasses, the button keys off the shared liquid-glass accent resolver', () => {
     // The old hardcoded 'text-indigo-300' / 'bg-indigo-500' literals must be
     // gone from the render paths (they still legitimately appear inside the
     // ACCENT_CLASSES map itself, so assert absence outside that map instead
-    // of a blanket absence).
+    // of a blanket absence). The button's color no longer lives in
+    // ACCENT_CLASSES at all (2026-09-06, liquid-glass button pass) — it now
+    // comes from the shared `liquidGlassButtonClass(accent)` resolver every
+    // bridge button uses, still keyed off the same `accent` prop.
     const afterMap = SRC.slice(SRC.indexOf('} as const;'));
     expect(afterMap).not.toContain('text-indigo-300');
     expect(afterMap).not.toContain('bg-indigo-500');
     expect(afterMap).toContain('accentClasses.icon');
-    expect(afterMap).toContain('accentClasses.button');
+    expect(afterMap).toContain('liquidGlassButtonClass(accent)');
     expect(afterMap).toContain('accentClasses.inputFocus');
   });
 

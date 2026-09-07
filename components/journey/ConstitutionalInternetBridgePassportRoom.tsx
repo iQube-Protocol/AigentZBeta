@@ -41,6 +41,7 @@ import { PassportBureauApplyTab } from '@/app/triad/components/codex/tabs/Passpo
 import { canonicalPlateImage } from '@/services/artifact/canonicalPlateImages';
 import { ArtifactMattedFrame } from '@/components/journey/ArtifactMattedFrame';
 import { BridgeActionModeQuestion } from '@/components/journey/BridgeActionModeQuestion';
+import { BridgeStageCapsuleShell } from '@/components/journey/BridgeStageCapsuleShell';
 import {
   KNYTS_BRIDGE_SECTION_DEFAULTS,
   type KnytsBridgeEditorialSection,
@@ -203,16 +204,24 @@ export function ConstitutionalInternetBridgePassportRoom({ personaId, citizenPas
           )}
         </div>
 
-        {/* RIGHT — orientation copy + the primary signal question. */}
-        <div className="flex flex-col gap-3">
-          <div>
-            <h2 className="text-xl font-bold text-white sm:text-2xl">
-              {config.headline ?? KNYTS_BRIDGE_SECTION_DEFAULTS[SECTION].headline}
-            </h2>
-            {introCopy && <p className="mt-2 text-[13px] leading-[1.5] text-slate-300">{introCopy}</p>}
+        {/* RIGHT — encapsulated in the same capsule shell/header treatment
+            the FS bridge stages' companion column uses (2026-09-06).
+            Content and affordances below are UNCHANGED. */}
+        <BridgeStageCapsuleShell
+          eyebrow="Passport capsule"
+          description="Your constitutional presence, and what you'd like to do next."
+          accentEyebrowClass="text-indigo-400/80"
+        >
+          <div className="space-y-3">
+            <div>
+              <h2 className="text-xl font-bold text-white sm:text-2xl">
+                {config.headline ?? KNYTS_BRIDGE_SECTION_DEFAULTS[SECTION].headline}
+              </h2>
+              {introCopy && <p className="mt-2 text-[13px] leading-[1.5] text-slate-300">{introCopy}</p>}
+            </div>
+            <BridgeActionModeQuestion postUrl={INTENT_POST_URL} />
           </div>
-          <BridgeActionModeQuestion postUrl={INTENT_POST_URL} />
-        </div>
+        </BridgeStageCapsuleShell>
       </div>
 
       <button

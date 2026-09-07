@@ -61,6 +61,7 @@ import { ArtifactMattedFrame } from '@/components/journey/ArtifactMattedFrame';
 import { FullscreenableFrame } from '@/components/journey/FullscreenableFrame';
 import { BridgeReserveInterestCard } from '@/components/journey/BridgeReserveInterestCard';
 import { DestinationCard } from '@/components/journey/DestinationCard';
+import { BridgeStageCapsuleShell } from '@/components/journey/BridgeStageCapsuleShell';
 
 const BOOK_CONCEPT_PLATE = canonicalPlateImage('CIP-006');
 
@@ -293,7 +294,14 @@ export function ConstitutionalInternetBridgeChooseSurface({
         )}
       </FullscreenableFrame>
 
-      {/* RIGHT — destination cards. */}
+      {/* RIGHT — encapsulated in the same capsule shell/header treatment the
+          FS bridge stages' companion column uses (2026-09-06). Destination
+          cards below are UNCHANGED. */}
+      <BridgeStageCapsuleShell
+        eyebrow="Choose capsule"
+        description="Pick where to go next in the Polity."
+        accentEyebrowClass="text-indigo-400/80"
+      >
       <div className="space-y-3">
         <BridgeReserveInterestCard
           title="Reserve The Constitutional Internet"
@@ -376,6 +384,7 @@ export function ConstitutionalInternetBridgeChooseSurface({
           <ArrowRight className="h-4 w-4 text-slate-400" />
         </button>
       </div>
+      </BridgeStageCapsuleShell>
 
       <SocialSharingModal
         isOpen={shareOpen}
