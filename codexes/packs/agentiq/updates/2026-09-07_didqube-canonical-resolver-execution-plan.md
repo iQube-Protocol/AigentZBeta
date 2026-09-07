@@ -53,6 +53,31 @@ rather than as a separate addendum:
 operator's closing instruction — the ontology ruling is authoritative; implementation status remains
 candidate until behaviorally validated.
 
+### 0.2 Second review — two Phase 0 corrections, Phase 1 approved (2026-09-07)
+
+The operator marked Phase 0 **conditionally complete** (not fully closed) pending two factual
+corrections, both now closed in the inventory doc:
+
+1. The Agent Passport reconciliation had left 1 of 10 resolvable, approved applications
+   unclassified (9 categorized, 1 dropped). Corrected: the 10th row is a **duplicate application for
+   `aletheon`** (an agent that already has an issued Passport via a sibling application) — its own
+   `passport_id` is NULL, and the resolved root's `bound_passport_id` correctly points at the *other*
+   application's Passport. This is a distinct defect class from the 3 genuinely-missing back-references
+   — a data-hygiene flag, not a missing binding, and not a case needing successor-credential issuance.
+   Full row-by-row table in the inventory doc §3.3.
+2. The `didqube` RLS finding understated severity. All five policies use `polroles = {0}` (Postgres's
+   PUBLIC marker) — they apply to **every role**, not `service_role` specifically, despite the
+   `service_full_*` naming. Missing grants are what currently prevent exposure; simply adding a
+   `service_role` grant would not add row-level scoping on top of it, and if `anon`/`authenticated`
+   ever got schema USAGE too (a plausible "quick fix" attempt), the existing policies would grant them
+   full unrestricted access immediately. **The policies must be dropped and replaced with explicitly
+   role-scoped ones (`CREATE POLICY ... TO service_role USING (true) WITH CHECK (true)`) before any
+   grant is added — never after.** Full detail in the inventory doc §1.2.
+
+Neither correction blocks Phase 1 (additive supertype design), per explicit operator ruling. **Phase 1
+is approved for implementation**, subject to the non-negotiable invariants in §"Phase 1" below (all
+incorporated from the operator's approval message, superseding the earlier, looser Phase 1 sketch).
+
 **Classification (Prospective Evolution Capture, CLAUDE.md):** this is a **candidate architectural
 refinement** — a real, substantial design change, not yet implemented, validated, or ratified. Per
 CLAUDE.md's Resolution → Invariant Loop, an agent may propose and classify but must not unilaterally
@@ -133,9 +158,11 @@ Delivered (full detail in the inventory doc, summarized here):
 5. `personas.root_did` authoritative-read (and write) inventory across the whole tree — found beyond
    the two sites the operator named, including one active write site
    (`services/standing/agentStandingPersona.ts`) that must move in lockstep with the read-site fixes.
-6. Existing Agent Passport reconciliation, read-only: 0/13 records carry any RootDID anchor; via
-   `agent_card_url` matching, 10/13 resolve unambiguously, 0 ambiguous, 3 unresolvable; of the 10
-   resolvable+approved, 6 have a correct `bound_passport_id` back-reference, 3 do not (0 mismatches).
+6. Existing Agent Passport reconciliation, read-only, all 10 resolvable rows individually classified
+   (§0.2 correction #1): 0/13 records carry any RootDID anchor; via `agent_card_url` matching, 10/13
+   resolve unambiguously, 0 ambiguous, 3 unresolvable; of the 10 resolvable+approved, 6 have a correct
+   `bound_passport_id` back-reference, 3 genuinely lack one, and 1 is a duplicate application for an
+   agent whose Passport was already issued via a sibling application (0 mismatches).
 7. Confirmed no canonical `robot`/`organization` root table exists — `robot_didqubes`/
    `organization_didqubes` (Phase 1) are blocked on that prerequisite.
 8. Resolution-record preflight against `CI-2026-08-23-CANONICAL-IDENTITY-CHAIN-OVER-FUZZY-MATCH-001`,
@@ -146,28 +173,116 @@ Delivered (full detail in the inventory doc, summarized here):
 recorded as "converge, don't delete" per operator ruling rather than left open. No schema change was
 made.
 
-### Phase 1 — Additive supertype + subtype bindings (brief §2-§3)
-*Pure addition. Nothing existing changes shape or meaning.*
+### Phase 1 — Additive supertype + subtype bindings — IMPLEMENTED (brief §2-§3)
+*Pure addition. Nothing existing changed shape or meaning. Approved by the operator 2026-09-07 subject
+to the non-negotiable invariants below; implemented and verified the same day against the live project
+`bsjhfvctmduxhohtllly`. See §"Phase 1 — implementation record" after this section for what actually
+ran and what was verified.*
 
-1. Create `didqubes` (supertype: `didqube_id`, `subject_class`, `lifecycle_state`, `created_at`,
-   `superseded_by`) exactly as specified.
-2. Create `human_didqubes` (`didqube_id` FK, `kybe_identity_id` FK UNIQUE) and `agent_didqubes`
-   (`didqube_id` FK, `agent_root_identity_id` FK UNIQUE). `robot_didqubes`/`organization_didqubes` are
-   **blocked**: Phase 0 confirmed no canonical robot/organization root table exists anywhere in the
-   schema today. Do not invent one implicitly here — surface to the operator as a prerequisite for
-   whenever robot/organization subjects are actually needed; out of scope for this delivery.
-3. Backfill `human_didqubes` from **every `kybe_identity` row unconditionally** (ruling #2): a human
-   DiDQube is established by the kybe row alone, never conditioned on an existing/active RootDID —
-   Phase 0 found every kybe today happens to have ≥1 root, but the backfill logic must not encode that
-   as a requirement, since a kybe whose only RootDID is later revoked/superseded pending reissuance
-   must still resolve as an established human DiDQube. Backfill `agent_didqubes` from every
-   `agent_root_identity` row (agents remain anchored there — no kybe, by design).
-4. **Report ambiguous/unanchored records — do not guess** (brief's own explicit rule, §"Delivery
-   sequence" step 4). Any `kybe_identity`/`agent_root_identity` row that can't be bound unambiguously
-   goes into a named exceptions list for operator review, never silently skipped or silently forced.
+**Scope, exactly:**
+1. Add only three tables: `didqubes`, `human_didqubes`, `agent_didqubes`. No `robot_didqubes`/
+   `organization_didqubes` (blocked — no canonical robot/organization root table exists, per Phase 0).
+2. Backfill **every** `kybe_identity` row and **every** `agent_root_identity` row — an active RootDID
+   is never required for the human backfill (ruling #2, restated as non-negotiable).
+3. Backfill is **idempotent** — re-running it must not create duplicate `didqubes` rows for an already-
+   backfilled anchor. Use stable, deterministic IDs or conflict-safe unique-anchor constraints
+   (`ON CONFLICT DO NOTHING`/`DO UPDATE` against the anchor FK's own unique constraint), not a
+   check-then-insert race.
+4. **Constraints enforced in the schema itself, not just application code:**
+   - Exactly one anchor per DiDQube and one DiDQube per anchor — `human_didqubes.kybe_identity_id` and
+     `agent_didqubes.agent_root_identity_id` both carry `UNIQUE` (already specified) — this is the
+     one-to-one enforcement; verify with a real constraint-violation test (§ below), not just by
+     inspection of the DDL.
+   - `human_didqubes.didqube_id` must reference a `didqubes` row with `subject_class = 'natural_person'`;
+     `agent_didqubes.didqube_id` must reference one with `subject_class = 'agent'`. Enforce via a
+     `CHECK` against a denormalized `subject_class` column on the subtype table (kept in sync with the
+     supertype at insert time, since a pure cross-table FK cannot express "the referenced row's own
+     column equals X" as a `CHECK` constraint in Postgres) or an equivalent trigger — whichever is
+     simpler to prove correct in a real migration test; state which was chosen and why in the actual
+     migration file's own comment.
+   - **One DiDQube must never hold both a `human_didqubes` and an `agent_didqubes` row.** Enforce this
+     structurally — e.g. a shared unique index across both subtype tables on `didqube_id`, or a single
+     subtype table with a `subject_class`-discriminated anchor column instead of two separate tables
+     (state and justify whichever shape is chosen; either satisfies the requirement, but it must be
+     verified with a real attempted-dual-binding test, not assumed from the DDL reading correctly).
+5. **Server-side only, deny browser roles by default.** No `GRANT` to `anon`/`authenticated` on any of
+   the three new tables; RLS enabled with no permissive policy (or a `service_role`-only, explicitly
+   role-scoped policy — never the PUBLIC-scoped mistake found in `didqube.*`, per the corrected §0.2
+   finding above). Verify with a real query attempted as `anon`/`authenticated`, not by reading the
+   migration file and assuming it's correct.
+6. **Report ambiguous/unanchored records — do not guess** (brief's own explicit rule). Any
+   `kybe_identity`/`agent_root_identity` row that can't be bound unambiguously goes into a named
+   exceptions list for operator review, never silently skipped or silently forced.
+7. **Out of scope for this phase, explicitly** (non-negotiable): no consumer migration, no Passport
+   behavior change, no DVN payload touch, no use of `personas.root_did` as authority anywhere in this
+   phase's own code (the backfill must resolve anchors via the real FK chains — `kybe_identity`/
+   `agent_root_identity` themselves — never via the deprecated column, even incidentally).
+
+**Testing requirements (non-negotiable):**
+- Tests must exercise the **actual PostgreSQL constraints** — run the real migration against a real
+  (local or ephemeral) Postgres instance and assert that a constraint violation actually throws (dual
+  binding attempt, duplicate anchor attempt, wrong-subject_class attempt, anon-role read attempt) —
+  not a mocked Supabase client that can't reject anything the mock doesn't know to reject.
+- Migration-count assertions must be **computed dynamically against the live pre-migration
+  population** at test time (`SELECT count(*) FROM kybe_identity` etc., compared against
+  `SELECT count(*) FROM human_didqubes` after backfill) — never a hardcoded expected count (e.g. "19"),
+  since the real population changes over time and a hardcoded number silently stops testing anything
+  the moment the population changes.
 
 **Exit check:** every existing human and agent identity has (or is explicitly reported as lacking) a
-`didqubes` row. Zero behavior change anywhere else in the app — nothing reads these tables yet.
+`didqubes` row, verified against the live count at test time. All constraints above verified against a
+real Postgres instance, not inferred from the DDL. Zero behavior change anywhere else in the app —
+nothing outside this migration/backfill reads these tables yet.
+
+#### Phase 1 — implementation record (2026-09-07)
+
+**Migration:** `supabase/migrations/20260930270000_didqube_canonical_supertype.sql`. Applied to project
+`bsjhfvctmduxhohtllly` via the Supabase migration tool. Creates exactly `didqubes`, `human_didqubes`,
+`agent_didqubes` — nothing else. Subject-class matching and single-subtype exclusivity are enforced via
+two trigger functions (`didqube_enforce_subject_class`, `didqube_enforce_single_subtype`), since
+Postgres `CHECK` constraints cannot reference another table's column. One-anchor-per-DiDQube and
+one-DiDQube-per-anchor are enforced via `UNIQUE` on `kybe_identity_id`/`agent_root_identity_id` and on
+`didqube_id` in each subtype table. RLS is enabled on all three tables with zero policies (the same
+pattern `kybe_identity` already uses in this project — verified before choosing it, not assumed), and
+`REVOKE ALL ... FROM anon, authenticated` was added as defense-in-depth, since Phase 0 found
+`kybe_identity` itself carries full anon/authenticated table grants by Supabase's public-schema
+default, with RLS as the only actual protection — this migration does not rely on RLS alone.
+
+**Backfill:** `scripts/didqube-phase1-backfill.mjs` (idempotent — checks existing bindings before
+insert, deletes an orphaned `didqubes` row if its subtype insert fails, reports exceptions rather than
+retrying with a relaxed check, computes pre/post counts dynamically at run time). Run once against the
+live project: **19/19 `kybe_identity` rows → `human_didqubes`, 19/19 `agent_root_identity` rows →
+`agent_didqubes`, 38 total `didqubes` rows (19 `natural_person` + 19 `agent`), zero exceptions.**
+Re-running the same backfill logic a second time created zero new rows (idempotency verified against
+the real database, not assumed from the code).
+
+**Constraint verification (against the real Postgres instance, ruling's own requirement):**
+`scripts/didqube-phase1-constraint-verification.mjs` documents the exact SQL run — five assertions,
+each inside a transaction that is unconditionally rolled back, no residue left behind:
+
+| # | Assertion | Result |
+|---|---|---|
+| 1 | A valid human bind (real `kybe_identity` anchor) succeeds | PASSED |
+| 2 | A duplicate `kybe_identity_id` bind is rejected (`UNIQUE` violation) | PASSED |
+| 3 | Binding a `natural_person` didqube into `agent_didqubes` is rejected | PASSED (rejected by the single-subtype trigger, which fired ahead of the subject-class trigger in practice — both are real, layered checks, not one redundant one, contrary to an initial assumption before running the test) |
+| 4 | A valid agent bind (real `agent_root_identity` anchor) succeeds | PASSED |
+| 5 | A duplicate `agent_root_identity_id` bind is rejected (`UNIQUE` violation) | PASSED |
+
+**Access-control verification:** `SET LOCAL ROLE anon; SELECT count(*) FROM public.didqubes;` inside a
+rolled-back transaction returned `permission denied for table didqubes` — confirmed empirically that
+the `REVOKE` blocks `anon` at the grant layer (before RLS is even evaluated), not merely assumed from
+the migration's own text.
+
+**Testing-infrastructure gap, disclosed rather than papered over:** this repo has no existing
+local-Postgres test harness (no docker-compose, no pg-mem/pglite, no `TEST_DATABASE_URL` convention —
+checked, not assumed) and no `pg`/raw-connection dependency at the repo root (only within the isolated
+`services/agentiq-wallet` sub-package). Building CI-integrated real-Postgres testing infrastructure from
+scratch is a separate, larger undertaking outside this phase's scope. `didqube-phase1-constraint-
+verification.mjs` prints the exact, reviewable SQL and how to run it against a real connection (`psql`,
+the Supabase SQL editor, or an MCP `execute_sql` call) rather than pretending a mocked `supabase-js`
+call could exercise a real trigger/constraint — the honest state is "verified once, by hand, against
+the real database, with a re-runnable script capturing the exact statements," not "automated in CI."
+Flagged for the operator as a real gap rather than silently built around.
 
 ### Phase 2 — The canonical resolver, additive and read-only (brief §5)
 *The resolver exists and is testable, but nothing is migrated to depend on it yet.*
@@ -394,14 +509,20 @@ first becomes meaningful (not all at the end):
 
 ## 4. Immediate next step
 
-Phase 0 is complete (§ above, full detail in `2026-09-07_didqube-phase0-inventory.md`) and CFS-051
-registration is done. Remaining open decision before Phase 1 begins:
+Phase 0 is complete (conditionally-complete corrections closed per §0.2) and Phase 1 is implemented
+and verified against the live database (§"Phase 1 — implementation record"). CFS-051 registration is
+done.
 
 1. **The DVN-payload go/no-go (Phase 4 step 6) remains explicitly unresolved and ungranted.** Per the
    operator's own scope for this round ("inventory and exact payload design only... return later with
    the precise versioned payload diff, compatibility plan and failing-before-fix canary for separate
    approval"), that separate return-and-approve step has not happened yet and is not part of this
    plan's current authorization.
-2. Everything else in Phases 1-2.5 is additive/read-only-composing and does not touch a
-   CLAUDE.md-protected file directly — awaiting operator confirmation to begin Phase 1 (the `didqubes`
-   supertype + subtype bindings) on `dev`.
+2. Awaiting operator confirmation to begin **Phase 2** (the canonical `resolveDiDQube()` resolver) and
+   **Phase 2.5** (eliminating authoritative `personas.root_did` reads) — both application-code changes,
+   not yet started.
+3. The two disclosed gaps from this round — (a) the `didqube.*` (agentiq-wallet) RLS policies still
+   need replacing with explicitly role-scoped ones before any grant is added (§0.2 correction #2;
+   not yet done — this is a fix to the OTHER schema, not the new one), and (b) no CI-integrated
+   real-Postgres test harness exists yet (Phase 1 implementation record) — remain open, flagged, not
+   silently resolved.

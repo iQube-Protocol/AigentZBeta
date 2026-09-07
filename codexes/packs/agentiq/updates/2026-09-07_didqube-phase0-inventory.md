@@ -1,6 +1,10 @@
 # DiDQube Canonical Resolver — Phase 0 Inventory
 
-**Status:** Phase 0 complete. Read-only. No DDL, no data writes to any identity/Passport table, no
+**Status:** CONDITIONALLY COMPLETE, per operator review (2026-09-07) — two factual corrections below
+(§3.3 revised, §1.2 revised) close the gaps the operator identified: the 10th Agent Passport
+reconciliation row was left unclassified, and the `didqube` RLS finding understated its actual
+severity. Both are corrected in place; neither blocks Phase 1 (additive supertype only), per the
+operator's own ruling. Read-only throughout — no DDL, no data writes to any identity/Passport table, no
 Passport changes, no resolver implementation, no DVN payload changes. The only write performed this
 phase is the CFS-051 backlog registration itself (§7), which is the explicitly requested registration
 action, not domain data.
@@ -75,13 +79,32 @@ select has_schema_privilege('anon','didqube','USAGE');           -- false
 select has_schema_privilege('authenticated','didqube','USAGE'); -- false
 ```
 
-Every one of the five RLS-enabled tables' single policy is literally named `service_full_*`, and its
-`USING(true)/WITH CHECK(true)` shape is exactly what a developer writes to say "the service role gets
-full access, everything else is denied by RLS." **The policies were written with the intent that
-`service_role` be granted access — but the schema-level `GRANT USAGE ON SCHEMA didqube TO service_role`
-(and the corresponding table grants) were never issued.** Table-level grant inspection
+**Corrected severity assessment (2026-09-07, operator review).** The original framing above — "the
+policies were written with the intent that `service_role` be granted access" — described intent, not
+what the policy actually scopes to, and understated the real risk. Checking `pg_policy.polroles`
+directly:
+
+```sql
+select c.relname, p.polname, p.polroles from pg_policy p
+join pg_class c on c.oid = p.polrelid
+join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'didqube';
+-- every row: polroles = {0}  (Postgres's internal marker for PUBLIC — i.e. every role, not a named one)
+```
+
+**Every one of the five policies is written as `CREATE POLICY ... USING (true) WITH CHECK (true)` with
+no `TO <role>` clause, which Postgres applies to `PUBLIC` — literally every role, not `service_role`
+specifically, despite the `service_full_*` naming.** Table-level grant inspection
 (`information_schema.role_table_grants`) confirms only the `postgres` superuser/owner role holds any
-privilege on any `didqube.*` table.
+privilege on any `didqube.*` table today, which is what currently prevents any of this from being
+reachable. **But the fix is not "add a `GRANT ... TO service_role`."** Because the policies themselves
+are PUBLIC-scoped, granting table/schema access to `service_role` alone would not add a second layer of
+row-level restriction on top of that grant — and if anyone later also (even accidentally) granted
+`anon`/`authenticated` USAGE on this schema (a plausible move by someone trying to get the "broken"
+service working, per §1.2's diagnosis), the existing policies would immediately permit those roles
+full, unrestricted read/write too, with zero additional defense. **The policies must be dropped and
+replaced with explicitly role-scoped ones (`CREATE POLICY ... TO service_role USING (true) WITH CHECK
+(true)`) before any grant is added** — not after, and not as a follow-up; adding the grant first (or
+without this fix) would be the actual moment of exposure, not the current safe-by-accident state.
 
 **What this means, precisely, without overclaiming:** Supabase's PostgREST layer (what `supabase-js` —
 what `getSupabase()` in this service actually talks to) authenticates as `service_role` for a
@@ -237,30 +260,52 @@ gap from the class-sensitive-subject fix in the corrected plan's Phase 3.
 currently unresolvable** (the referenced card URL matches no live `agent_root_identity` row — likely a
 stale/superseded agent record, not investigated further under Phase 0's read-only scope).
 
-### 3.3 Issuance-completeness for the 10 resolvable applications
+### 3.3 Issuance-completeness for the 10 resolvable applications — corrected, all 10 classified
 
 All 10 resolvable applications have `application_status = 'approved'`. Cross-checking
-`agent_root_identity.bound_passport_id` against the application's own `passport_id`:
+`agent_root_identity.bound_passport_id` against the application's own `passport_id`, at the individual
+row level (all 10 IDs listed, none dropped):
+
+| `application_id` | `agent_card_url` (agent) | own `passport_id` | resolved `root_id` | `bound_passport_id` |
+|---|---|---|---|---|
+| `2d4f1f1c-...` | polity-helper-blp7 | `ppp-ca22c869...` | `37b5f909-...` | matches own |
+| `44659c11-...` | nakamoto | `ppp-41545149...` | `0360420d-...` | matches own |
+| `473ae57d-...` | moneypenny | `ppp-d140d291...` | `9158364c-...` | matches own |
+| `4ff94dc7-...` | aletheon | `ppp-a4c4ce3c...` | `4e4a4de3-...` | matches own |
+| `5670b671-...` | polity-helper-vz2f | `ppp-3d90822f...` | `bdeefc66-...` | **NULL** |
+| `6fdf0aa4-...` | factor | `ppp-3147453f...` | `9dc52162-...` | **NULL** |
+| `a6b510e0-...` | polity-helper-2ils | `ppp-bc01cdd1...` | `06b2fdf9-...` | matches own |
+| `cab1920b-...` | **aletheon (again)** | **NULL** | `4e4a4de3-...` (same root as `4ff94dc7-...`) | `ppp-a4c4ce3c...` (the *other* application's passport_id) |
+| `d3e9fa19-...` | polity-helper-7z89 | `ppp-7d39d3f7...` | `f6d88f64-...` | **NULL** |
+| `d9af51bc-...` | kn0w1 | `ppp-ac47c6d7...` | `9b45c93f-...` | matches own |
+
+**Corrected category counts (all 10 rows, none left unclassified):**
 
 | Outcome | Count |
 |---|---|
-| `bound_passport_id` correctly matches the issued Passport | 6 |
+| `bound_passport_id` correctly matches this application's own issued Passport | 6 |
 | `bound_passport_id` is NULL despite an approved, resolvable application | 3 |
+| **`cab1920b-...` — a duplicate application for an agent (`aletheon`) that already has an issued Passport via a sibling application; this row's own `passport_id` is NULL (no Passport was ever issued against this specific application), and the resolved root's `bound_passport_id` correctly points at the *other*, original application's Passport, not this one** | 1 |
 | `bound_passport_id` mismatches the issued Passport (data corruption) | 0 |
 
-**3 of 10 resolvable, approved Agent Passport applications never got their `agent_root_identity.bound_
-passport_id` back-reference written** — confirming, with real data, the operator's characterization of
-this write as "a best-effort afterthought" rather than a guaranteed consequence of issuance. Zero
-mismatches is the reassuring half of this finding: where the back-reference exists, it is correct: no
-existing row points at the wrong Passport.
-
-*(Note: 6 + 3 = 9 of the 10 categorized above; the tenth row needs one further closer-look query this
-report did not run, to avoid scope creep beyond what Phase 0 needs — flagged, not silently dropped.)*
+**Two agent-root identities, not three, actually need attention in Phase 3's successor-credential path:**
+`polity-helper-vz2f`, `factor`, and `polity-helper-7z89`'s roots (3 distinct roots) are missing a
+back-reference and need one written (filling in an always-true fact, not a rewrite). The `aletheon`
+duplicate application is a **different defect class**: it is not missing a binding — its root is
+already correctly bound to the Passport issued via the sibling application. The duplicate application
+row itself is stale/superseded intake data with no Passport of its own, which Phase 1's backfill and
+Phase 3's reconciliation must treat as "already resolved, nothing to issue" rather than either
+manufacturing a second Passport for the same agent or silently dropping the row uncategorized. Zero
+mismatches remains the reassuring half of this finding across all 10 rows: every existing
+`bound_passport_id` that IS populated points at a real, correctly-corresponding Passport.
 
 **Design implication carried into the corrected plan:** because reconciliation must never rewrite
-issued history (ruling #3), the 3 unbound-but-resolvable rows are candidates for a **successor
-credential** issuance path (see plan §"Agent Passport corrections"), not a mutation of the existing
-issued Passport row.
+issued history (ruling #3), the 3 unbound-but-resolvable roots are candidates for filling in the
+missing back-reference (not new issuance); the `aletheon` duplicate application needs no credential
+action at all — only a data-hygiene note (flag the duplicate application row, do not issue against
+it) — and neither case triggers a **successor credential** by itself; successor issuance (per ruling #3)
+is reserved for the case where the class-sensitive-subject fix would change what an *already-issued*
+credential's subject is, which none of these 10 rows currently exhibit.
 
 ---
 
