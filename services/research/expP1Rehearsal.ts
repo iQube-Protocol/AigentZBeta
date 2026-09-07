@@ -335,6 +335,113 @@ export const LARGER_REHEARSAL_TASK_SET: ProvisionalTaskSet = {
   ],
 };
 
+/**
+ * A THIRD provisional set (2026-09-07) — authored for evaluating the
+ * CORRECTED Arm B selector (`selectTaskScopedInvariants`), never the 16-task
+ * `LARGER_REHEARSAL_TASK_SET`. Per the operator instruction that produced the
+ * selector fix: "run a new unseen internal rehearsal task set after the
+ * corrected selector is frozen/versioned. Do not reuse the 16-task set as the
+ * primary evaluation set for the corrected B treatment." Reusing v2 would not
+ * be "unseen" with respect to this fix — its tasks and results were already
+ * read under the OLD (task-blind) selector.
+ *
+ * Every keyword/phrase below is DELIBERATELY DISTINCT from every keyword used
+ * in `PROVISIONAL_REHEARSAL_TASK_SET` (v1) and `LARGER_REHEARSAL_TASK_SET`
+ * (v2) — fresh thematic ground (business continuity, AI governance,
+ * distributed ledger, agentic commerce, market participants, fairness,
+ * innovation, economic model), never risk/custody/governance/compliance/
+ * transparency/accountability/cybersecurity/data-protection/AML/cross-border/
+ * crypto-asset/market-integrity/custodian/client-asset/personal-data/trust/
+ * security-measures/threat/trading/market-abuse/investment/financial-crime/
+ * regulatory-framework, which v1/v2 already used. This set was NOT authored
+ * by tuning against, or in response to, any observed 16-task outcome — it was
+ * constructed independently from the frozen corpus's own untouched content,
+ * the same way v2 was built from v1's.
+ *
+ * Every phrase was verified, by a live SQL count against
+ * `EXP-P1/crystal-vP2`'s actual persisted `memberSnapshot` (never eyeballed),
+ * to have at least one real substring hit BEFORE authoring the task prompts.
+ * 8 recall (single keyword) + 8 derivation (two keywords, both independently
+ * verified) — mirrors v2's own discipline. Real hit counts at authoring time,
+ * queried directly against the live frozen row (kept here for audit, never
+ * re-guessed without re-verifying against the actual frozen row): business
+ * continuity 1, market participants 1, innovative technologies 1, artificial
+ * intelligence 1, non-discrimination 1, distributed ledger technology 1,
+ * agentic commerce 1, economic model 1, stressful conditions 1, informed
+ * trading decisions 1, consumer protection 3, governance structures 1,
+ * fairness 1, innovation 1, real-time 1, low-cost 1.
+ *
+ * A recall keyword is reused as one half of its own derivation task's pair
+ * (e.g. 'agentic commerce' in both v3-007 and v3-015) — this mirrors
+ * `LARGER_REHEARSAL_TASK_SET`'s own precedent (its 'cybersecurity' appears in
+ * both a recall task and a derivation pair); the "distinct from v1/v2"
+ * requirement is about not reusing v1/v2's OWN wording, not about internal
+ * non-repetition within one set.
+ */
+export const UNSEEN_REHEARSAL_TASK_SET: ProvisionalTaskSet = {
+  id: 'EXP-P1/rehearsal-task-set-provisional-v3',
+  provenance: 'provisional',
+  tasks: [
+    { id: 'rehearsal-v3-001', kind: 'recall', prompt: 'What does the governed record say about business continuity?', keywords: ['business continuity'] },
+    { id: 'rehearsal-v3-002', kind: 'recall', prompt: 'What does the governed record say about market participants?', keywords: ['market participants'] },
+    { id: 'rehearsal-v3-003', kind: 'recall', prompt: 'What does the governed record say about innovative technologies?', keywords: ['innovative technologies'] },
+    { id: 'rehearsal-v3-004', kind: 'recall', prompt: 'What does the governed record say about artificial intelligence?', keywords: ['artificial intelligence'] },
+    { id: 'rehearsal-v3-005', kind: 'recall', prompt: 'What does the governed record say about non-discrimination?', keywords: ['non-discrimination'] },
+    { id: 'rehearsal-v3-006', kind: 'recall', prompt: 'What does the governed record say about distributed ledger technology?', keywords: ['distributed ledger technology'] },
+    { id: 'rehearsal-v3-007', kind: 'recall', prompt: 'What does the governed record say about agentic commerce?', keywords: ['agentic commerce'] },
+    { id: 'rehearsal-v3-008', kind: 'recall', prompt: 'What does the governed record say about the economic model of digital currencies?', keywords: ['economic model'] },
+    {
+      id: 'rehearsal-v3-009',
+      kind: 'derivation',
+      prompt: 'How does the governed record relate business continuity planning to operating under stressful conditions?',
+      keywords: ['business continuity', 'stressful conditions'],
+    },
+    {
+      id: 'rehearsal-v3-010',
+      kind: 'derivation',
+      prompt: 'How does the governed record relate market participants to informed trading decisions?',
+      keywords: ['market participants', 'informed trading decisions'],
+    },
+    {
+      id: 'rehearsal-v3-011',
+      kind: 'derivation',
+      prompt: 'How does the governed record relate innovative technologies to consumer protection?',
+      keywords: ['innovative technologies', 'consumer protection'],
+    },
+    {
+      id: 'rehearsal-v3-012',
+      kind: 'derivation',
+      prompt: 'How does the governed record relate the use of artificial intelligence to the governance structures required to manage it?',
+      keywords: ['artificial intelligence', 'governance structures'],
+    },
+    {
+      id: 'rehearsal-v3-013',
+      kind: 'derivation',
+      prompt: 'How does the governed record relate non-discrimination to fairness in financial services?',
+      keywords: ['non-discrimination', 'fairness'],
+    },
+    {
+      id: 'rehearsal-v3-014',
+      kind: 'derivation',
+      prompt: 'How does the governed record relate distributed ledger technology to innovation in financial services?',
+      keywords: ['distributed ledger technology', 'innovation'],
+    },
+    {
+      id: 'rehearsal-v3-015',
+      kind: 'derivation',
+      prompt: 'How does the governed record relate agentic commerce to real-time transaction capability?',
+      keywords: ['agentic commerce', 'real-time'],
+    },
+    {
+      id: 'rehearsal-v3-016',
+      kind: 'derivation',
+      prompt: 'How does the governed record relate the economic model of digital currencies to low-cost transactions?',
+      keywords: ['economic model', 'low-cost'],
+    },
+  ],
+};
+
+
 /** Arm C is a genuine SUBSET, never the whole frozen population — mirrors the
  *  registered protocol's own ⊆40% collection-size guard (README §"Collection-
  *  size guard"). Sorted by id (the same deterministic order `memberSnapshot`

@@ -64,6 +64,7 @@ import {
   runExpP1Rehearsal,
   PROVISIONAL_REHEARSAL_TASK_SET,
   LARGER_REHEARSAL_TASK_SET,
+  UNSEEN_REHEARSAL_TASK_SET,
 } from '@/services/research/expP1Rehearsal';
 
 function taskScopedSelectionFixture(overrides: Record<string, unknown> = {}) {
@@ -500,3 +501,50 @@ describe('LARGER_REHEARSAL_TASK_SET (2026-09-07, prepared after the actuallyGrou
   });
 });
 
+describe('UNSEEN_REHEARSAL_TASK_SET (2026-09-07, the unseen v3 set for evaluating the corrected task-scoped Arm B selector)', () => {
+  it('is roughly 12-18 tasks, balanced between recall and derivation', () => {
+    expect(UNSEEN_REHEARSAL_TASK_SET.tasks.length).toBeGreaterThanOrEqual(12);
+    expect(UNSEEN_REHEARSAL_TASK_SET.tasks.length).toBeLessThanOrEqual(18);
+    const recall = UNSEEN_REHEARSAL_TASK_SET.tasks.filter((t) => t.kind === 'recall');
+    const derivation = UNSEEN_REHEARSAL_TASK_SET.tasks.filter((t) => t.kind === 'derivation');
+    expect(recall.length).toBeGreaterThan(0);
+    expect(derivation.length).toBeGreaterThan(0);
+    expect(recall.length).toBeLessThanOrEqual(derivation.length * 2);
+    expect(derivation.length).toBeLessThanOrEqual(recall.length * 2);
+  });
+
+  it('is provisional, never external-held-out or synthetic', () => {
+    expect(UNSEEN_REHEARSAL_TASK_SET.provenance).toBe('provisional');
+  });
+
+  it('EVERY keyword on EVERY task has at least one real hit against the frozen crystal-vP2 corpus', () => {
+    for (const task of UNSEEN_REHEARSAL_TASK_SET.tasks) {
+      for (const keyword of task.keywords) {
+        const hits = FROZEN_CRYSTAL_VP2_STATEMENTS.filter((s) => s.toLowerCase().includes(keyword.toLowerCase()));
+        expect(hits.length, `task '${task.id}' keyword '${keyword}' must hit the frozen corpus at least once`).toBeGreaterThan(0);
+      }
+      const union = FROZEN_CRYSTAL_VP2_STATEMENTS.filter((s) => task.keywords.some((k) => s.toLowerCase().includes(k.toLowerCase())));
+      expect(union.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('has no duplicate task ids, and no keyword string reused from v1 or v2 — genuinely unseen thematic ground', () => {
+    const ids = UNSEEN_REHEARSAL_TASK_SET.tasks.map((t) => t.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    const v1Ids = new Set(PROVISIONAL_REHEARSAL_TASK_SET.tasks.map((t) => t.id));
+    const v2Ids = new Set(LARGER_REHEARSAL_TASK_SET.tasks.map((t) => t.id));
+    for (const id of ids) {
+      expect(v1Ids.has(id)).toBe(false);
+      expect(v2Ids.has(id)).toBe(false);
+    }
+
+    const priorKeywords = new Set(
+      [...PROVISIONAL_REHEARSAL_TASK_SET.tasks, ...LARGER_REHEARSAL_TASK_SET.tasks].flatMap((t) => t.keywords.map((k) => k.toLowerCase())),
+    );
+    for (const task of UNSEEN_REHEARSAL_TASK_SET.tasks) {
+      for (const keyword of task.keywords) {
+        expect(priorKeywords.has(keyword.toLowerCase()), `'${keyword}' must not reuse a v1/v2 keyword string`).toBe(false);
+      }
+    }
+  });
+});

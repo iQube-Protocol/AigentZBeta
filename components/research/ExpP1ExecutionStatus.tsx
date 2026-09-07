@@ -308,7 +308,7 @@ export function ExpP1ExecutionStatus({
     void load();
   }, [load]);
 
-  const runRehearsal = useCallback(async (taskSetVersion: "v1" | "v2") => {
+  const runRehearsal = useCallback(async (taskSetVersion: "v1" | "v2" | "v3") => {
     setBusy(true);
     setRunErr(null);
     setLastRunNote(null);
@@ -472,6 +472,15 @@ export function ExpP1ExecutionStatus({
               >
                 {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <FlaskConical className="h-3 w-3" />} Run larger
                 rehearsal (16 tasks)
+              </button>
+              <button
+                onClick={() => void runRehearsal("v3")}
+                disabled={busy}
+                title="Unseen set for the corrected task-scoped Arm B selector — never the 16-task set the old selector was evaluated on (2026-09-07 Arm B selection-fidelity fix)"
+                className="flex items-center gap-1 rounded border border-emerald-800 bg-emerald-900/30 px-2.5 py-1 text-emerald-200 disabled:opacity-50"
+              >
+                {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <FlaskConical className="h-3 w-3" />} Run unseen
+                rehearsal — corrected Arm B (16 tasks)
               </button>
             </div>
             {data.pastRehearsalRuns.length > 0 && (
