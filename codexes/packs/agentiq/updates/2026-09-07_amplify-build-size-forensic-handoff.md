@@ -215,6 +215,37 @@ background.** Check `/tmp/build-passing-v2.log` for progress; when it finishes A
 Then repeat the whole build+manifest cycle for `/tmp/build-repro/failing` (build log to e.g.
 `/tmp/build-failing.log`, manifest prefix `/tmp/build-repro/failing-manifest`).
 
+**MAJOR FINDING (2026-09-07, this pass) — Amplify's measurement almost certainly IS `.next/standalone`
+alone.** With an independent (non-symlinked, real) `npm install` + `AWS_BRANCH=dev` set, the
+`passing` (0d22e7ea8) commit's build, AFTER the full `amplify.yml` postBuild prune replay, produced:
+
+| Subtree | Bytes (post-cleanup) |
+|---|---|
+| `.next/standalone` | **223,669,853** |
+| `.next/server` (top-level) | 119,900,539 |
+| `.next/static` | 40,189,092 |
+| small manifests | ~1,020,000 |
+| **whole `.next` total** | 384,782,491 |
+
+Amplify's own `CustomerError` for a build at essentially this same source (the very next commit,
+3c1144060) reported build output of **230,822,049 / 230,825,248 bytes** against the 230,686,720 cap.
+**`.next/standalone` alone (223,669,853) is within ~7.15 MB of that** — a MUCH closer match than
+`.next/standalone + .next/static` (263,858,945, ~33 MB too high) or the whole `.next` tree
+(384,782,491, ~154 MB too high). This is strong evidence for the "Amplify measures `.next/standalone`
+only" hypothesis raised in "Corrected framing" above, though not yet certain — the ~7 MB residual gap
+could be genuine (something this local build is missing that a real Amplify build includes) or could be
+the disclosed Node-version mismatch (this sandbox: v22.22.2; `amplify.yml` pins 20.18.0 — a major
+version difference plausibly changes the exact size of platform-specific native binaries like
+`@next/swc`, `sharp`, `@napi-rs/canvas`, which is exactly the class of thing the postBuild prune targets
+and where a few MB of drift across Node majors would not be surprising). **Next step to close this
+gap**: get the FAILING commit's manifest built the same way and compare; if the two are nearly
+identical (expected, given identical dependencies and a source diff that touches zero files reachable
+from any traced route), that would confirm the ~135 KB Amplify overage is genuinely razor-thin,
+pre-existing, environment-variance-driven noise at the edge of the cap — not something either commit
+newly introduced — and the ~7 MB local-vs-Amplify gap is a separate, second-order question (Node
+version or similar) worth flagging to the operator rather than something this investigation can close
+without an actual Node-20.18.0 environment or a real Amplify build log's full composition breakdown.
+
 **Standing safety rule for any future postBuild-replay in this investigation**: before running
 `/tmp/postbuild-commands.txt` (or any `find .../node_modules ... -delete` / `rm -rf .../node_modules/...`
 command) against a worktree's `.next`, verify `.next/standalone/node_modules` is a REAL directory, not a
