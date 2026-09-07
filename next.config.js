@@ -34,6 +34,20 @@ const nextConfig = {
     // /api/admin/registry/docs still traces updates/**/*.md (not excluded here).
     "/api/codex/chat": ["codexes/packs/agentiq/updates/**"],
     "/api/codex/chat/aigentiq": ["codexes/packs/agentiq/updates/**"],
+    // 2026-09-07: verified app/api/admin/registry/docs/route.ts's own GET
+    // handler branches on entry.path.startsWith('codexes/packs/') and reads
+    // those entries via corpusReadFile/ensureCorpusHydrated (the remote
+    // pack-corpus store), never the bundled filesystem copy — the
+    // DOC_ALLOWLIST's ~18 codexes/packs/agentiq/updates/*.md entries are the
+    // only things this exclude drops, and the route already ignores its
+    // bundled copies of them. This is a pure reclaim, not a behavior change:
+    // the two docs/*.md legibility files (outside codexes/packs/, read via
+    // plain readFile) are unaffected and stay bundled via the existing
+    // outputFileTracingIncludes entry below. The 6.9 MB (493-file, growing
+    // every session) updates/ corpus this directory now holds is exactly the
+    // repeat-offender class already named above ("grows every deploy") —
+    // this was the one remaining route still paying for it.
+    "/api/admin/registry/docs": ["codexes/packs/agentiq/updates/**"],
     "*": [
       // musl native binaries — Lambda is glibc, never loads these (~48 MB)
       "node_modules/@napi-rs/canvas-linux-x64-musl/**",
