@@ -54,9 +54,9 @@ describe('FinancialSovereigntyOperateStage.tsx — embeds the real MoneyPenny ca
     expect(src).not.toMatch(/SmartWalletDrawer|SmartTriadCopilotLayer|MoneyPennyPanelTab|MoneyPennyCopilotWorkspace/);
   });
 
-  it('reuses BridgeMediaInteractionSection — the same locked-viewport shell every other fs-* stage uses, never a bespoke layout (production learning pattern completion, 2026-09-03)', () => {
-    expect(src).toMatch(/import \{ BridgeMediaInteractionSection \} from '@\/components\/journey\/BridgeMediaInteractionSection'/);
-    expect(src).toMatch(/<BridgeMediaInteractionSection/);
+  it('reuses FsBridgeCapsuleSection — the same shared capsule shell every other fs-* stage uses, never a bespoke layout (Bridge-capsule-shell convergence, 2026-09-06)', () => {
+    expect(src).toMatch(/import \{ FsBridgeCapsuleSection, resolveFsAccentClasses \} from '@\/components\/journey\/FsBridgeCapsuleSection'/);
+    expect(src).toMatch(/<FsBridgeCapsuleSection/);
   });
 
   it('never navigates away — no window.location.assign, no window.open/_blank (corrected 2026-09-03: same-tab window.location.assign is not an embedding fix)', () => {

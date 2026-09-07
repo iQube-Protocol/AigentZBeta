@@ -196,18 +196,21 @@ describe('FinancialSovereigntyIntroStage.tsx (Discover/Learn/Explore) — CFS co
     expect(src).toMatch(/groups=\{learnGroups\}/);
   });
 
-  it("DISCOVER, LEARN and EXPLORE all reuse the SAME shared FsBridgeCapsuleSection wiring around BridgeContentCapsule (the shell View/Orient/Personify already use) + BridgeMediaCarouselPane for the unchanged left media pane — never BridgeMediaStage's plain hero, never three hand-rolled shell wirings", () => {
-    expect(src).toMatch(/import \{ BridgeContentCapsule \} from '@\/components\/journey\/BridgeContentCapsule';/);
-    expect(src).toMatch(/import \{ BridgeMediaCarouselPane, type BridgeMediaCarouselItem \} from '@\/components\/journey\/BridgeMediaCarouselPane';/);
+  it("DISCOVER, LEARN and EXPLORE all reuse the SAME shared FsBridgeCapsuleSection wiring (components/journey/FsBridgeCapsuleSection.tsx, shared with Operate/Prepare/Cross) around BridgeContentCapsule (the shell View/Orient/Personify already use) + BridgeMediaCarouselPane for the unchanged left media pane — never BridgeMediaStage's plain hero, never three hand-rolled shell wirings", () => {
+    const shellSrc = stripComments(readSource('components/journey/FsBridgeCapsuleSection.tsx'));
+    expect(shellSrc).toMatch(/import \{ BridgeContentCapsule \} from '@\/components\/journey\/BridgeContentCapsule';/);
+    expect(shellSrc).toMatch(/import \{ BridgeMediaCarouselPane, type BridgeMediaCarouselItem \} from '@\/components\/journey\/BridgeMediaCarouselPane';/);
+    expect(shellSrc.match(/<BridgeContentCapsule/g)?.length).toBe(1);
+    expect(src).toMatch(/import \{ FsBridgeCapsuleSection, resolveFsAccentClasses \} from '@\/components\/journey\/FsBridgeCapsuleSection';/);
     expect(src).not.toMatch(/<BridgeMediaStage/);
     expect(src.match(/<FsBridgeCapsuleSection/g)?.length).toBe(3);
-    expect(src.match(/<BridgeContentCapsule/g)?.length).toBe(1);
   });
 
   it('every stage composes its learning content from BridgeActivityCompanionColumn/BridgeActivityGroup — data-driven activity groups embedded in the capsule shell\'s companion column, not page-specific JSX stacks', () => {
-    expect(src).toMatch(/import \{ BridgeActivityCompanionColumn \} from '@\/components\/journey\/BridgeActivityGroupRail';/);
+    const shellSrc = stripComments(readSource('components/journey/FsBridgeCapsuleSection.tsx'));
+    expect(shellSrc).toMatch(/import \{ BridgeActivityCompanionColumn \} from '@\/components\/journey\/BridgeActivityGroupRail';/);
+    expect(shellSrc.match(/<BridgeActivityCompanionColumn groups=\{groups\} \/>/g)?.length).toBe(1);
     expect(src).toMatch(/import type \{ BridgeActivityGroup \} from '@\/services\/journey\/bridgeActivity';/);
-    expect(src.match(/<BridgeActivityCompanionColumn groups=\{groups\} \/>/g)?.length).toBe(1);
   });
 
   it('DISCOVER, LEARN and EXPLORE reuse the verified C-15 Studio placeholder video (never a fabricated URL) with the exact required label, only while no admin video is configured — real production infographics resolved via the canonical asset catalog otherwise', () => {
@@ -269,7 +272,7 @@ describe('FinancialSovereigntyPrepareCrossStage.tsx (Prepare/Cross) — profile 
     const rawSrc = readSource('components/journey/FinancialSovereigntyPrepareCrossStage.tsx');
     expect(rawSrc).toMatch(/Continue to Operate is NEVER gated on review/);
     // The button itself carries no disabled prop tied to review/hasProfile state.
-    expect(src).toMatch(/onClick=\{handleContinueToOperate\}\s*\n\s*className="rounded-xl border border-slate-700/);
+    expect(src).toMatch(/onClick=\{handleContinueToOperate\}\s*\n\s*className=\{`flex-1 rounded-xl px-5 py-3/);
   });
 });
 
@@ -282,9 +285,10 @@ describe('FinancialSovereigntyOperateStage.tsx — workspace-first default view 
     expect(embedBranch).not.toMatch(/FinancialSovereigntyStageExtras/);
   });
 
-  it('the help/activity content renders only in the non-embed (introduction) branch, via the same locked-viewport shell as Discover/Learn/Explore — optional, never a mandatory gate before the workspace', () => {
-    expect(src).toMatch(/import \{ BridgeMediaInteractionSection \} from '@\/components\/journey\/BridgeMediaInteractionSection';/);
-    expect(src).toMatch(/<BridgeActivityGroupRail groups=\{groups\} \/>/);
+  it('the help/activity content renders only in the non-embed (introduction) branch, via the same shared FsBridgeCapsuleSection shell as Discover/Learn/Explore — optional, never a mandatory gate before the workspace', () => {
+    expect(src).toMatch(/import \{ FsBridgeCapsuleSection, resolveFsAccentClasses \} from '@\/components\/journey\/FsBridgeCapsuleSection';/);
+    expect(src).toMatch(/<FsBridgeCapsuleSection/);
+    expect(src).toMatch(/groups=\{groups\}/);
     expect(src).not.toMatch(/disabled=\{primaryCtaDisabled\}|primaryCtaDisabled=\{/); // Continue stays always-enabled
   });
 
@@ -441,9 +445,9 @@ describe('FsStructuredContentPanel — the native admin editor for topics/checks
 });
 
 describe('Prepare/Cross section ordering matches content/step-composition.json v1.2 (cross-automation before cross-readiness)', () => {
-  it("the cross-automation activity group (BridgeActivityGroupRail) appears in source BEFORE the 'Cross to Financial Services' button (cross-readiness)", () => {
+  it("the cross-automation activity group (groups={crossGroups}, rendered inside FsBridgeCapsuleSection's companion capsule) appears in source BEFORE the 'Cross to Financial Services' button (cross-readiness, rendered via renderFooter)", () => {
     const src = readSource('components/journey/FinancialSovereigntyPrepareCrossStage.tsx');
-    const railIdx = src.indexOf('<BridgeActivityGroupRail groups={crossGroups} />');
+    const railIdx = src.indexOf('groups={crossGroups}');
     const buttonIdx = src.indexOf('Cross to Financial Services');
     expect(railIdx).toBeGreaterThan(0);
     expect(buttonIdx).toBeGreaterThan(0);
@@ -498,10 +502,12 @@ describe('Continue navigation — regression guard for the copilot hot-zone clic
     expect(copilotSrc).toMatch(/right-0 h-52 w-52/);
   });
 
-  it("Discover/Learn/Explore's Continue button renders in normal flow inside the companion capsule as a full-width banner — never a page-level fixed/pinned footer, so no lg:pr-56 clearance hack is needed", () => {
+  it("Discover/Learn/Explore's Continue button renders in normal flow inside the shared FsBridgeCapsuleSection's companion capsule as a full-width banner — never a page-level fixed/pinned footer, so no lg:pr-56 clearance hack is needed", () => {
     expect(introSrc).not.toMatch(/lg:pr-56/);
     expect(introSrc).not.toMatch(/fixed bottom-0/);
-    expect(introSrc).toMatch(/flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold transition \$\{accentButtonClass\}/);
+    const shellSrc = stripComments(readSource('components/journey/FsBridgeCapsuleSection.tsx'));
+    expect(shellSrc).not.toMatch(/fixed bottom-0/);
+    expect(shellSrc).toMatch(/flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold transition \$\{accentButtonClass\}/);
   });
 
   it('Operate/Prepare/Cross keep their Continue-equivalent actions inside the scrolling Learning Rail (never a separate fixed-position footer) — the same collision class simply cannot arise there', () => {

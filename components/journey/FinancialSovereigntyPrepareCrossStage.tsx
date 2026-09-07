@@ -25,19 +25,19 @@
  * knytsBridgeCrossingJourney.ts), so no journey-graph change was needed
  * here, only this stage's own content.
  *
- * Production learning pattern completion (2026-09-03) — Prepare's SUMMARY
- * view (embedOpen === false) now uses the same locked-viewport
- * BridgeMediaInteractionSection shell as Discover/Learn/Explore (real
- * P-I01 infographic + placeholder video, BridgeActivityGroupRail for
- * P-TOPIC-01/02/03 + P-Q01/02). This is the LIGHTER, production-safe
- * migration the operator asked for where a full activity decomposition
- * would risk the real functional workspace: the profile-status card and
- * its Review/Continue buttons stay exactly as they were — plain content in
- * the Learning Rail, not decomposed into capsules — and the moment the
- * embed opens (below), this component falls straight back to its own
- * pre-existing full-height, non-carousel layout. The embed is NEVER
- * mounted inside the media-rail composition, so switching media carousel
- * position or scrolling the Learning Rail can never remount or reset it.
+ * Bridge-capsule-shell convergence (2026-09-06) — Prepare's SUMMARY view
+ * (embedOpen === false) and CROSS both now use the SAME shared
+ * `FsBridgeCapsuleSection` shell Discover/Learn/Explore/Operate use (real
+ * P-I01/C-I01 infographic + placeholder video hero, activity groups in the
+ * companion capsule). The profile-status card and its Review/Continue
+ * buttons stay exactly as they were, real functional content — never
+ * decomposed into a capsule — via the shell's `companionExtra` (rendered
+ * above the activity groups) and `renderFooter` (the two-button row) slots.
+ * The embed branch is untouched: the moment it opens (below), this
+ * component falls straight back to its own pre-existing full-height,
+ * non-carousel layout. The embed is NEVER mounted inside the capsule
+ * shell's composition, so switching the media hero or scrolling the
+ * companion capsule can never remount or reset it.
  *
  * The legacy agent-candidate picker is retired from Prepare's primary
  * flow, per the Bridge spec's own B-13 migration guidance: "A previously
@@ -62,8 +62,7 @@ import { getJourneyBranchIntent } from '@/services/journey/journeyBranchActivati
 import { WALLET_CONVERSION_CAPABILITY_ID } from '@/services/financialServices/walletConversionCapability';
 import { fetchFinancialProfileSummary, markFinancialProfileReviewed, type FinancialProfileSummary } from '@/services/moneypenny/financialProfileSummary';
 import type { BridgeAccent } from '@/components/journey/BridgeMediaStage';
-import { BridgeMediaInteractionSection } from '@/components/journey/BridgeMediaInteractionSection';
-import { BridgeActivityGroupRail } from '@/components/journey/BridgeActivityGroupRail';
+import { FsBridgeCapsuleSection, resolveFsAccentClasses } from '@/components/journey/FsBridgeCapsuleSection';
 import type { BridgeActivityGroup } from '@/services/journey/bridgeActivity';
 import { MoneyPennyBridgeEmbed } from '@/components/journey/MoneyPennyBridgeEmbed';
 import { FinancialSovereigntyCheckGroup } from '@/components/journey/FinancialSovereigntyCheckGroup';
@@ -211,10 +210,12 @@ export function FinancialSovereigntyPrepareCrossStage({
     },
   ];
 
+  const { eyebrowClass: crossEyebrowClass, dotClass: crossDotClass } = resolveFsAccentClasses(accent);
+
   return (
     <div className="flex h-full min-h-0 flex-col p-4 sm:p-6">
       <div className="min-h-0 flex-1">
-        <BridgeMediaInteractionSection
+        <FsBridgeCapsuleSection
           items={crossItems}
           emptyLabel="Infographic not yet published."
           eyebrow="Cross"
@@ -224,19 +225,20 @@ export function FinancialSovereigntyPrepareCrossStage({
               ? `You're bringing an agent candidate (${selected}). The Financial Services Bridge will register it under its own authority checks — nothing is registered yet.`
               : 'You can still cross without a chosen candidate — the Financial Services Bridge will let you pick one there.'
           }
-        >
-          {crossResolved.contextualLine && <p className="text-xs text-slate-400">{crossResolved.contextualLine}</p>}
-          <BridgeActivityGroupRail groups={crossGroups} />
-          <div className="pt-1">
+          contextualLine={crossResolved.contextualLine}
+          groups={crossGroups}
+          accentEyebrowClass={crossEyebrowClass}
+          accentDotClass={crossDotClass}
+          renderFooter={() => (
             <button
               type="button"
               onClick={handleCross}
-              className={`rounded-xl border px-6 py-3 text-sm font-semibold transition ${ACCENT_BUTTON[accent]}`}
+              className={`flex w-full items-center justify-center rounded-xl border px-5 py-3 text-sm font-semibold transition ${ACCENT_BUTTON[accent]}`}
             >
               Cross to Financial Services →
             </button>
-          </div>
-        </BridgeMediaInteractionSection>
+          )}
+        />
       </div>
     </div>
   );
@@ -323,7 +325,7 @@ function PrepareFinancialProfileReview({
   // (MoneyPennyBridgeEmbed) rather than navigating the bridge away. The
   // stepper, this stage's own copy, and "Continue to Operate" all stay
   // reachable while the embed is open. This branch is deliberately OUTSIDE
-  // the media-rail/BridgeMediaInteractionSection composition below — the
+  // the FsBridgeCapsuleSection composition below — the
   // real workspace gets the full viewport, never squeezed beside a video,
   // and toggling embedOpen never touches the summary view's own state.
   if (embedOpen) {
@@ -379,94 +381,101 @@ function PrepareFinancialProfileReview({
     },
   ];
 
+  const { buttonClass: prepareButtonClass, eyebrowClass: prepareEyebrowClass, dotClass: prepareDotClass } =
+    resolveFsAccentClasses(accent);
+
   return (
     <div className="flex h-full min-h-0 flex-col p-4 sm:p-6">
       <div className="min-h-0 flex-1">
-        <BridgeMediaInteractionSection
+        <FsBridgeCapsuleSection
           items={prepareItems}
           emptyLabel="Infographic not yet published."
           eyebrow="Prepare"
           headline="What is my financial position, and what do I want help with?"
           lead="Bring statements, or enter a limited profile manually — either way, MoneyPenny explains what is understood and what is still missing. This is preparation evidence, not permission to trade."
-        >
-          {/* The real, functional profile-status card — untouched content,
-              never decomposed into a capsule (it is live data, not a
-              lesson alternative). */}
-          <div className="space-y-3 rounded-xl border border-slate-800 bg-slate-900/40 p-4 text-left">
-            {loading && <p className="text-sm text-slate-400">Checking your financial profile…</p>}
-            {!loading && !hasProfile && (
-              <p className="text-sm text-slate-300">
-                No financial profile reviewed yet. Understanding coverage, corrections and limitations happens in
-                MoneyPenny's Financial Profile capsule.
-              </p>
-            )}
-            {!loading && hasProfile && (
-              <div className="space-y-2">
-                <p className={`text-sm font-medium ${isReviewed ? 'text-emerald-300' : 'text-amber-300'}`}>
-                  {isReviewed ? 'Profile reviewed' : 'Profile computed — not yet reviewed'}
+          contextualLine={resolved.contextualLine}
+          groups={prepareGroups}
+          accentEyebrowClass={prepareEyebrowClass}
+          accentDotClass={prepareDotClass}
+          companionExtra={
+            /* The real, functional profile-status card — untouched content,
+               never decomposed into a capsule (it is live data, not a
+               lesson alternative). Rendered ABOVE the activity groups,
+               inside the same scrolling companion capsule. */
+            <div className="mb-3 space-y-3 rounded-xl border border-slate-800 bg-slate-900/40 p-4 text-left">
+              {loading && <p className="text-sm text-slate-400">Checking your financial profile…</p>}
+              {!loading && !hasProfile && (
+                <p className="text-sm text-slate-300">
+                  No financial profile reviewed yet. Understanding coverage, corrections and limitations happens in
+                  MoneyPenny's Financial Profile capsule.
                 </p>
-                <p className="text-xs text-slate-400">
-                  Source: {summary?.inputSource === 'manual_entry' ? 'manual entry' : 'uploaded statements'}
-                  {summary?.computedFromMonths && summary.computedFromMonths.length > 0
-                    ? ` · ${summary.computedFromMonths.length} month${summary.computedFromMonths.length === 1 ? '' : 's'} of coverage`
-                    : ''}
-                </p>
-                {summary?.inputSource === 'manual_entry' && (
-                  <p className="text-xs text-amber-300">
-                    Limitation: a manually-entered profile may not reflect your full financial picture. Upload
-                    statements for fuller coverage when you can.
+              )}
+              {!loading && hasProfile && (
+                <div className="space-y-2">
+                  <p className={`text-sm font-medium ${isReviewed ? 'text-emerald-300' : 'text-amber-300'}`}>
+                    {isReviewed ? 'Profile reviewed' : 'Profile computed — not yet reviewed'}
                   </p>
-                )}
-                {(summary?.incomeMonthly != null || summary?.expenditureMonthly != null || summary?.availableSurplusMonthly != null) && (
-                  <dl className="grid grid-cols-3 gap-2 pt-1 text-xs text-slate-300">
-                    <div>
-                      <dt className="text-slate-500">Income/mo</dt>
-                      <dd>{summary?.incomeMonthly != null ? summary.incomeMonthly.toFixed(0) : '—'}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-slate-500">Spend/mo</dt>
-                      <dd>{summary?.expenditureMonthly != null ? summary.expenditureMonthly.toFixed(0) : '—'}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-slate-500">Surplus/mo</dt>
-                      <dd>{summary?.availableSurplusMonthly != null ? summary.availableSurplusMonthly.toFixed(0) : '—'}</dd>
-                    </div>
-                  </dl>
-                )}
-                {!isReviewed && (
-                  <button
-                    type="button"
-                    onClick={() => void handleMarkReviewed()}
-                    disabled={marking}
-                    className="mt-2 w-full rounded-lg border border-emerald-700/50 bg-emerald-900/20 px-3 py-2 text-xs font-semibold text-emerald-300 transition hover:bg-emerald-900/40 disabled:opacity-50"
-                  >
-                    {marking ? 'Marking reviewed…' : "I've reviewed this — mark as reviewed"}
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <button
-              type="button"
-              onClick={openFinancialProfile}
-              className={`rounded-xl border px-6 py-3 text-sm font-semibold transition ${ACCENT_BUTTON[accent]}`}
-            >
-              {hasProfile ? 'Review / update my financial profile →' : 'Review my financial profile →'}
-            </button>
-            <button
-              type="button"
-              onClick={handleContinueToOperate}
-              className="rounded-xl border border-slate-700 bg-slate-900/40 px-6 py-3 text-sm font-semibold text-slate-200 transition hover:opacity-80"
-            >
-              Continue to Operate
-            </button>
-          </div>
-
-          {resolved.contextualLine && <p className="text-xs text-slate-400">{resolved.contextualLine}</p>}
-          <BridgeActivityGroupRail groups={prepareGroups} />
-        </BridgeMediaInteractionSection>
+                  <p className="text-xs text-slate-400">
+                    Source: {summary?.inputSource === 'manual_entry' ? 'manual entry' : 'uploaded statements'}
+                    {summary?.computedFromMonths && summary.computedFromMonths.length > 0
+                      ? ` · ${summary.computedFromMonths.length} month${summary.computedFromMonths.length === 1 ? '' : 's'} of coverage`
+                      : ''}
+                  </p>
+                  {summary?.inputSource === 'manual_entry' && (
+                    <p className="text-xs text-amber-300">
+                      Limitation: a manually-entered profile may not reflect your full financial picture. Upload
+                      statements for fuller coverage when you can.
+                    </p>
+                  )}
+                  {(summary?.incomeMonthly != null || summary?.expenditureMonthly != null || summary?.availableSurplusMonthly != null) && (
+                    <dl className="grid grid-cols-3 gap-2 pt-1 text-xs text-slate-300">
+                      <div>
+                        <dt className="text-slate-500">Income/mo</dt>
+                        <dd>{summary?.incomeMonthly != null ? summary.incomeMonthly.toFixed(0) : '—'}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-slate-500">Spend/mo</dt>
+                        <dd>{summary?.expenditureMonthly != null ? summary.expenditureMonthly.toFixed(0) : '—'}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-slate-500">Surplus/mo</dt>
+                        <dd>{summary?.availableSurplusMonthly != null ? summary.availableSurplusMonthly.toFixed(0) : '—'}</dd>
+                      </div>
+                    </dl>
+                  )}
+                  {!isReviewed && (
+                    <button
+                      type="button"
+                      onClick={() => void handleMarkReviewed()}
+                      disabled={marking}
+                      className="mt-2 w-full rounded-lg border border-emerald-700/50 bg-emerald-900/20 px-3 py-2 text-xs font-semibold text-emerald-300 transition hover:bg-emerald-900/40 disabled:opacity-50"
+                    >
+                      {marking ? 'Marking reviewed…' : "I've reviewed this — mark as reviewed"}
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          }
+          renderFooter={() => (
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <button
+                type="button"
+                onClick={openFinancialProfile}
+                className={`flex-1 rounded-xl border px-5 py-3 text-sm font-semibold transition ${ACCENT_BUTTON[accent]}`}
+              >
+                {hasProfile ? 'Review / update my financial profile →' : 'Review my financial profile →'}
+              </button>
+              <button
+                type="button"
+                onClick={handleContinueToOperate}
+                className={`flex-1 rounded-xl px-5 py-3 text-sm font-semibold transition ${prepareButtonClass}`}
+              >
+                Continue to Operate
+              </button>
+            </div>
+          )}
+        />
       </div>
     </div>
   );
