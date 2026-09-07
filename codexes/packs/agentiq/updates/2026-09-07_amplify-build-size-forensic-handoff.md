@@ -119,9 +119,38 @@ commands below if they're gone):
 ```bash
 git worktree add /tmp/build-repro/passing 0d22e7ea8
 git worktree add /tmp/build-repro/failing 3c1144060
-ln -s "$(pwd)/node_modules" /tmp/build-repro/passing/node_modules   # package.json is IDENTICAL — safe to share
-ln -s "$(pwd)/node_modules" /tmp/build-repro/failing/node_modules
 ```
+
+**DO NOT symlink `node_modules` from the main repo into these worktrees — DANGEROUS, already caused
+real damage once in this investigation.** The first attempt did exactly that
+(`ln -s "$(pwd)/node_modules" .../passing/node_modules`), reasoning that since `package.json`/
+`package-lock.json` are byte-identical (confirmed, §2 above) it would be safe and fast. It was NOT
+safe: replaying `amplify.yml`'s postBuild prune (`find .next/standalone/node_modules ... -delete`,
+`rm -rf .next/standalone/node_modules/playwright-core`, etc.) against the worktree followed the
+symlink chain (`.next/standalone/node_modules` was ALSO a symlink straight back to the real repo's
+`node_modules` — see below) and **deleted real files from the actual shared
+`/home/user/AigentZBeta/node_modules`** (`playwright-core` and `@types` were gone; `.d.ts` count
+dropped by ~430 files). Caught via a post-hoc sanity check, not prevented — **restored via
+`npm install --legacy-peer-deps --include=optional` in the main repo** (confirmed restored: files back,
+`git status` clean since `node_modules` is gitignored, `tests/didqube-resolver.test.ts` still 28/28
+after restore). **If you ever see this exact symlink shortcut suggested again — including by an
+earlier version of this very doc — do not do it.** Give each worktree its OWN independent
+`npm install --legacy-peer-deps --include=optional` instead (slower, ~30s–2 min observed with a warm
+cache in this sandbox, but isolates any deletion to that worktree's own copy).
+
+**Second, related problem the symlink caused (not just the safety issue): it also made the size
+measurement meaningless.** With `node_modules` symlinked, Next's file tracer produced
+`.next/standalone/node_modules` as ANOTHER symlink pointing straight back at the real, full,
+un-traced `node_modules` (`file .next/standalone/node_modules` → "symbolic link to
+.../node_modules"; `du -sb` on it — not following the symlink — reported 35 bytes, i.e. just the
+symlink's own dirent size, while `du -sbL` — following it — reported 2,027,668,072 bytes, the ENTIRE
+real node_modules). A real Amplify build's `.next/standalone/node_modules` is a REAL directory
+containing only the traced subset of files Next's build determined the app actually needs — nothing
+like this symlink situation. **Any manifest/size captured against a symlinked `.next/standalone/
+node_modules` is not comparable to a real build and must be discarded** — this affects the FIRST
+corrected build's postBuild-replay numbers recorded in an earlier revision of this doc (the ones
+showing `.next/standalone` at only 129,318,127 bytes post-cleanup); those are now known-invalid for
+this same reason and are being redone with independent installs.
 
 A placeholder `.env.production.local` was generated (every var `scripts/create-env-production.js`
 reads, with syntactically-valid dummy values — real URLs use `https://example.invalid`, everything else
@@ -185,6 +214,12 @@ background.** Check `/tmp/build-passing-v2.log` for progress; when it finishes A
 
 Then repeat the whole build+manifest cycle for `/tmp/build-repro/failing` (build log to e.g.
 `/tmp/build-failing.log`, manifest prefix `/tmp/build-repro/failing-manifest`).
+
+**Standing safety rule for any future postBuild-replay in this investigation**: before running
+`/tmp/postbuild-commands.txt` (or any `find .../node_modules ... -delete` / `rm -rf .../node_modules/...`
+command) against a worktree's `.next`, verify `.next/standalone/node_modules` is a REAL directory, not a
+symlink: `[ -L .next/standalone/node_modules ] && echo "DANGER: symlink, STOP" || echo "real dir, ok"`.
+Never run the destructive prune commands if that check reports a symlink.
 
 ## `scripts/build-artifact-manifest.sh` (new, committed)
 
