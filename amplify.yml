@@ -157,7 +157,19 @@ frontend:
         # reclaims MBs (many packages ship src/*.ts alongside dist/*.js) — the
         # reliable headroom under the 230686720-byte cap now that the app has grown
         # to the ceiling (2026-07-21: ~206 KB over even after the pack-corpus move).
-        - find .next/standalone/node_modules -type f \( -name "*.ts" -o -name "*.mts" -o -name "*.cts" -o -name "*.md" -o -name "*.markdown" -o -iname "readme*" -o -iname "license*" -o -iname "licence*" -o -iname "changelog*" -o -iname "notice*" -o -iname "authors*" -o -iname "contributors*" -o -iname "history*" -o -iname "changes*" -o -name "*.map" \) -delete 2>/dev/null || true
+        #
+        # CORRECTED 2026-09-07 (operator-flagged contradiction): this line used to
+        # also match -iname "license*"/"licence*"/"notice*", silently deleting them
+        # from every package under .next/standalone/node_modules — directly
+        # contradicting the later "DEPENDENCY DOCUMENTATION" step's own comment,
+        # which says "LICENSE, COPYING and NOTICE are deliberately NOT matched...
+        # may carry attribution obligations." That promise was only ever true of
+        # the LATER step's own find pattern; THIS line was still deleting them the
+        # whole time. Removed the three license/notice patterns here so the later
+        # comment is actually true of the full postBuild pipeline, not just one
+        # step of it. Zero byte-cap impact either way (license files are tiny);
+        # this is a compliance fix, not a size fix.
+        - find .next/standalone/node_modules -type f \( -name "*.ts" -o -name "*.mts" -o -name "*.cts" -o -name "*.md" -o -name "*.markdown" -o -iname "readme*" -o -iname "changelog*" -o -iname "authors*" -o -iname "contributors*" -o -iname "history*" -o -iname "changes*" -o -name "*.map" \) -delete 2>/dev/null || true
         # @types packages are TYPE-ONLY (never require()d at runtime) and .bin holds
         # CLI shim symlinks the SSR runtime never invokes — both are pure dead weight
         # in the packaged standalone. Removing them is zero-runtime-risk headroom
@@ -343,6 +355,19 @@ frontend:
         - test -d .next/static && echo "static dir ok"
         - echo "=== ARTIFACT LEDGER - .next total vs the 230686720 cap ==="
         - du -sb .next 2>/dev/null | awk '{printf "cap 230686720 | measured %s | delta %+d bytes\n", $1, 230686720 - $1}' || true
+        # CONSTITUTIONAL GATE — Amplify Build-Size Budget (CLAUDE.md). The
+        # 2026-09-07 forensic investigation established that Amplify's real
+        # CustomerError cap tracks .next/standalone, not raw .next size, and
+        # that this repo's own historical near-cap failures were a razor-thin
+        # ~135 KB margin. This gate keeps real headroom under the hard
+        # 230,686,720-byte platform cap so the app never drifts back onto
+        # that cliff, and fails the BUILD — with the measured byte count, the
+        # budget, and the exact overage — the moment a new native dependency
+        # or traced asset pushes the artifact over, rather than as an opaque
+        # platform error days later. Runs LAST, after every cleanup step
+        # above, so it measures the artifact as it will actually ship.
+        - echo "=== ARTIFACT BUDGET GATE (190,000,000-byte cleaned .next/standalone budget) ==="
+        - node scripts/check-artifact-budget.mjs --dir . --budget 190000000
   artifacts:
     baseDirectory: .next
     files:
