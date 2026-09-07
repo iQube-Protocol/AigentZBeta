@@ -5,11 +5,18 @@
  * `BridgeOrientSurface.tsx` (CFS media/interaction reuse pass, 2026-09-03).
  * `BridgeOrientSurface` composed this inline (item 0 = admin video/fallback
  * plate, items 1..N = extra canonical plates, chevrons + dots when there is
- * more than one item, touch-swipe). Pulled out unchanged so it can be reused
+ * more than one item, swipe). Pulled out unchanged so it can be reused
  * by any "media beside a focused interaction" composition (e.g. the
  * Financial Sovereignty bridge sections) without a second, hand-copied
  * carousel implementation — `BridgeOrientSurface` now imports this file
  * instead of owning the markup itself, with byte-identical visible output.
+ *
+ * Swipe (2026-09-06 fix): originally touch-events-only (`onTouchStart`/
+ * `onTouchEnd`), which never fires from a mouse or trackpad drag on a
+ * desktop browser — the reported "swiping not working" was tested on a
+ * MacBook trackpad, not a touchscreen. Pointer Events unify mouse, touch
+ * and pen under one API, so the same drag-distance logic now runs off
+ * `onPointerDown`/`onPointerUp` and works on every input type.
  */
 
 import { useRef, useState } from 'react';
@@ -17,8 +24,8 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { ArtifactMattedFrame } from '@/components/journey/ArtifactMattedFrame';
 import { FullscreenableFrame } from '@/components/journey/FullscreenableFrame';
 
-// Minimum horizontal drag distance (px) before a touch/pointer gesture
-// counts as a swipe rather than a tap/scroll — restrained, not twitchy.
+// Minimum horizontal drag distance (px) before a pointer gesture counts as
+// a swipe rather than a tap/click — restrained, not twitchy.
 const SWIPE_THRESHOLD_PX = 40;
 
 export type BridgeMediaCarouselItem =
@@ -52,10 +59,11 @@ export interface BridgeMediaCarouselPaneProps {
    * Nav placement (2026-09-06). Default `'below'` is the ORIGINAL, unchanged
    * behavior (prev/dots/next in their own row under the media, ignored by
    * nothing — byte-identical for BridgeOrientSurface and every other
-   * existing caller). `'overlay'` floats the SAME prev/dots/next row inside
-   * the media box's own bottom edge instead, on a translucent pill, so a
-   * hero-sized media box (no room reserved below it) still surfaces the
-   * carousel position without stealing height from the media itself.
+   * existing caller). `'overlay'` floats the SAME prev/dots/next row
+   * directly on the media box's own bottom edge instead (no background
+   * pill), hidden until rollover/keyboard-focus, so a hero-sized media box
+   * (no room reserved below it) still surfaces the carousel position
+   * without stealing height or visually competing with the media itself.
    */
   dotsPosition?: 'below' | 'overlay';
   /** Active-dot fill (2026-09-06) — default `'bg-amber-400'` preserves the
@@ -76,21 +84,24 @@ export function BridgeMediaCarouselPane({
 }: BridgeMediaCarouselPaneProps) {
   const itemCount = items.length;
   const [activeIndex, setActiveIndex] = useState(0);
-  const touchStartX = useRef<number | null>(null);
+  const pointerStartX = useRef<number | null>(null);
 
   const showPrev = () => setActiveIndex((i) => (i === 0 ? itemCount - 1 : i - 1));
   const showNext = () => setActiveIndex((i) => (i === itemCount - 1 ? 0 : i + 1));
 
-  const onTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0]?.clientX ?? null;
+  const onPointerDown = (e: React.PointerEvent) => {
+    pointerStartX.current = e.clientX;
   };
-  const onTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartX.current === null) return;
-    const delta = (e.changedTouches[0]?.clientX ?? touchStartX.current) - touchStartX.current;
-    touchStartX.current = null;
+  const onPointerUp = (e: React.PointerEvent) => {
+    if (pointerStartX.current === null) return;
+    const delta = e.clientX - pointerStartX.current;
+    pointerStartX.current = null;
     if (Math.abs(delta) < SWIPE_THRESHOLD_PX) return;
     if (delta < 0) showNext();
     else showPrev();
+  };
+  const onPointerCancel = () => {
+    pointerStartX.current = null;
   };
 
   const item = items[activeIndex];
@@ -135,10 +146,11 @@ export function BridgeMediaCarouselPane({
   );
 
   return (
-    <div className={dotsPosition === 'overlay' ? 'relative h-full w-full' : 'flex flex-col gap-2'}>
+    <div className={dotsPosition === 'overlay' ? 'group relative h-full w-full' : 'flex flex-col gap-2'}>
       <div
-        onTouchStart={itemCount > 1 ? onTouchStart : undefined}
-        onTouchEnd={itemCount > 1 ? onTouchEnd : undefined}
+        onPointerDown={itemCount > 1 ? onPointerDown : undefined}
+        onPointerUp={itemCount > 1 ? onPointerUp : undefined}
+        onPointerCancel={itemCount > 1 ? onPointerCancel : undefined}
         onKeyDown={itemCount > 1 ? onKeyDown : undefined}
         tabIndex={itemCount > 1 ? 0 : undefined}
         role={itemCount > 1 ? 'group' : undefined}
@@ -172,14 +184,14 @@ export function BridgeMediaCarouselPane({
 
       {/* Restrained carousel navigation — previous chevron, position dots,
           next chevron. Only rendered when there is more than one item.
-          'overlay' floats the SAME row on the media's own bottom edge
-          (translucent pill) instead of reserving a row beneath it. */}
+          'overlay' floats the SAME row directly on the media's own bottom
+          edge (no background pill — just the dots/chevrons themselves),
+          hidden until the media is rolled over or keyboard-focused, so it
+          never competes with the media itself when idle. */}
       {itemCount > 1 &&
         (dotsPosition === 'overlay' ? (
-          <div className="pointer-events-none absolute inset-x-0 bottom-3 z-10 flex justify-center">
-            <div className="pointer-events-auto flex items-center gap-3 rounded-full bg-black/55 px-3 py-1.5 backdrop-blur-sm">
-              {navButtons}
-            </div>
+          <div className="pointer-events-none absolute inset-x-0 bottom-3 z-10 flex justify-center opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100">
+            <div className="pointer-events-auto flex items-center gap-3">{navButtons}</div>
           </div>
         ) : (
           <div className="flex items-center justify-center gap-3">{navButtons}</div>

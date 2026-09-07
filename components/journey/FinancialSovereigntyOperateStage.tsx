@@ -40,22 +40,22 @@
  * standalone cartridge. Stage-to-stage navigation (what "Continue" used
  * to do) is the stepper's job, not this panel's.
  *
- * Production learning pattern completion (2026-09-03) — the pre-embed
- * INTRO view now uses the same locked-viewport BridgeMediaInteractionSection
- * shell (real O-I01 infographic + placeholder video, BridgeActivityGroupRail
- * for the "How it works" topics/checks), matching the operator's own
- * standing invariant for this stage: "Operate's primary surface is the
- * existing MoneyPenny workspace... Educational media belongs in optional
- * contextual help." The embedOpen branch below is completely untouched —
- * no media rail, no carousel — so opening/closing MoneyPenny, or scrolling/
- * navigating the intro view's media before opening it, can never remount or
- * reset the embed's own state.
+ * Bridge-capsule-shell convergence (2026-09-06) — the pre-embed INTRO view
+ * now uses the SAME `FsBridgeCapsuleSection` shell Discover/Learn/Explore
+ * use (media hero + strip + one scrolling companion capsule), matching the
+ * operator's own standing invariant for this stage: "Operate's primary
+ * surface is the existing MoneyPenny workspace... Educational media
+ * belongs in optional contextual help." The two action buttons ("Open
+ * MoneyPenny" / "Continue") render via `renderFooter`, replacing the
+ * shell's default single Continue banner. The embedOpen branch below is
+ * completely untouched — no media rail, no capsule shell — so opening/
+ * closing MoneyPenny, or scrolling/navigating the intro view's media
+ * before opening it, can never remount or reset the embed's own state.
  */
 
 import { useCallback, useState } from 'react';
 import { type BridgeAccent } from '@/components/journey/BridgeMediaStage';
-import { BridgeMediaInteractionSection } from '@/components/journey/BridgeMediaInteractionSection';
-import { BridgeActivityGroupRail } from '@/components/journey/BridgeActivityGroupRail';
+import { FsBridgeCapsuleSection, resolveFsAccentClasses } from '@/components/journey/FsBridgeCapsuleSection';
 import type { BridgeActivityGroup } from '@/services/journey/bridgeActivity';
 import { MoneyPennyBridgeEmbed } from '@/components/journey/MoneyPennyBridgeEmbed';
 import { FinancialSovereigntyCheckGroup } from '@/components/journey/FinancialSovereigntyCheckGroup';
@@ -147,36 +147,40 @@ export function FinancialSovereigntyOperateStage({
     },
   ];
 
+  const { buttonClass, eyebrowClass, dotClass } = resolveFsAccentClasses(accent);
+
   return (
     <div className="flex h-full min-h-0 flex-col p-4 sm:p-6">
       <div className="min-h-0 flex-1">
-        <BridgeMediaInteractionSection
+        <FsBridgeCapsuleSection
           items={items}
           emptyLabel="Infographic not yet published."
           eyebrow="Operate"
           headline="Work with MoneyPenny — for as long as you find it useful."
           lead="Understand a spending pattern, revise a goal, rehearse an exchange, or review a bounded live task once a route is verified — all in MoneyPenny's own workspace, with the same financial profile you just prepared. This is not a step to clear — come back to it any time."
-        >
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <button
-              type="button"
-              onClick={handleOpenMoneyPenny}
-              className={`rounded-xl border px-6 py-3 text-sm font-semibold transition ${ACCENT_BUTTON[accent]}`}
-            >
-              Open MoneyPenny →
-            </button>
-            <button
-              type="button"
-              onClick={handleContinue}
-              className="rounded-xl border border-slate-700 bg-slate-900/40 px-6 py-3 text-sm font-semibold text-slate-200 transition hover:opacity-80"
-            >
-              Continue
-            </button>
-          </div>
-
-          {resolved.contextualLine && <p className="text-xs text-slate-400">{resolved.contextualLine}</p>}
-          <BridgeActivityGroupRail groups={groups} />
-        </BridgeMediaInteractionSection>
+          contextualLine={resolved.contextualLine}
+          groups={groups}
+          accentEyebrowClass={eyebrowClass}
+          accentDotClass={dotClass}
+          renderFooter={() => (
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <button
+                type="button"
+                onClick={handleOpenMoneyPenny}
+                className={`flex-1 rounded-xl border px-5 py-3 text-sm font-semibold transition ${ACCENT_BUTTON[accent]}`}
+              >
+                Open MoneyPenny →
+              </button>
+              <button
+                type="button"
+                onClick={handleContinue}
+                className={`flex-1 rounded-xl px-5 py-3 text-sm font-semibold transition ${buttonClass}`}
+              >
+                Continue
+              </button>
+            </div>
+          )}
+        />
       </div>
     </div>
   );

@@ -65,13 +65,10 @@
  */
 
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
-import { ArrowRight } from 'lucide-react';
 import { type BridgeAccent } from '@/components/journey/BridgeMediaStage';
-import { BridgeContentCapsule } from '@/components/journey/BridgeContentCapsule';
-import { BridgeMediaCarouselPane, type BridgeMediaCarouselItem } from '@/components/journey/BridgeMediaCarouselPane';
-import { BridgeActivityCompanionColumn } from '@/components/journey/BridgeActivityGroupRail';
+import { FsBridgeCapsuleSection, resolveFsAccentClasses } from '@/components/journey/FsBridgeCapsuleSection';
+import type { BridgeMediaCarouselItem } from '@/components/journey/BridgeMediaCarouselPane';
 import type { BridgeActivityGroup } from '@/services/journey/bridgeActivity';
-import { ListenButton } from '@/components/shared/ListenButton';
 import { FinancialSovereigntyCheckGroup } from '@/components/journey/FinancialSovereigntyCheckGroup';
 import { FinancialSovereigntyCostExample } from '@/components/journey/FinancialSovereigntyCostExample';
 import { FS_PLACEHOLDER_VIDEO_LABEL } from '@/services/journey/fsPlaceholderVideo';
@@ -117,131 +114,6 @@ const LEARN_INTERACTION_KIND = 'learn-concept-acknowledged';
 const EXPLORE_INTERACTION_KIND = 'moneypenny-capability-interacted';
 
 export type FinancialSovereigntyIntroStageKey = 'discover' | 'learn' | 'explore';
-
-/**
- * FsBridgeCapsuleSection — the shared shell wiring for all three
- * Discover/Learn/Explore stages (see file header, "Bridge-capsule-shell
- * convergence"). One place composes `BridgeContentCapsule` so the three
- * stages below never hand-roll three slightly different shell wirings.
- *
- * Layout pass (2026-09-06, operator screenshot feedback, two rounds):
- *   - The strip mirrors the CI View stage's own compact excerpt typography
- *     (`BookInsertStrip` in ConstitutionalInternetBridgeViewSequence.tsx:
- *     10px tracked-uppercase eyebrow, small headline, small lead, a
- *     `ListenButton` beside the eyebrow) instead of a large h2 — this keeps
- *     the Bridge's typographic voice consistent stage-to-stage rather than
- *     inventing a second scale here.
- *   - The media pane is the HERO: `viewportAspectRatio={() => 16 / 9}` locks
- *     it to a true 16:9 box at the column's full width (no side dead
- *     space), rather than a small fixed-height box. Getting the strip
- *     underneath it visible needs the shell's OWN height, not a shrunk
- *     video — see the next point.
- *   - `className="h-full"` gives `BridgeContentCapsule`'s grid a real,
- *     bounded height from the "locked viewport" ancestor chain
- *     JourneyRunSurface already establishes (this stage's own outer
- *     `flex h-full min-h-0 flex-col` wrapper below). With a bounded grid,
- *     the strip becomes its own independently scrolling region (rather
- *     than pushing the whole page taller with no way to reach it below the
- *     fold), and the companion column is genuinely bounded too, so its
- *     internal scroll actually engages instead of just growing to fit all
- *     content. This is a no-op for BridgeContentCapsule's other callers
- *     (View/Orient/Personify), which don't pass `className="h-full"` and so
- *     keep their existing content-driven, page-scrolling contract.
- *   - The companion column is ONE atomic capsule (bordered container) with
- *     its own small header ("Learning capsule") styled like the strip,
- *     an internally scrolling region for all activity groups, and the
- *     stage's Continue action rendered INSIDE it as a full-width banner
- *     pinned under a divider at the bottom — never a second, page-level
- *     floating footer.
- *   - Column proportions are the shell's DEFAULT 3fr/1fr split (operator
- *     confirmed this reads correctly as-is, 2026-09-06 — a same-day
- *     rightColumnWeight="2fr" experiment matching Orient's own 3fr/2fr grid
- *     was tried and reverted); `BridgeContentCapsule`'s `rightColumnWeight`
- *     prop stays available for a future caller that needs it, unused here.
- *   - The media carousel's prev/dots/next nav renders as a floating overlay
- *     on the media's own bottom edge (`dotsPosition="overlay"`) rather than
- *     a second row underneath it, since the hero viewport reserves no room
- *     below itself for one; touch-swipe between items was already built
- *     into `BridgeMediaCarouselPane` and needed no change.
- */
-function FsBridgeCapsuleSection({
-  items,
-  emptyLabel,
-  eyebrow,
-  headline,
-  lead,
-  contextualLine,
-  groups,
-  onContinue,
-  continueDisabled,
-  accentButtonClass,
-  accentEyebrowClass,
-  accentDotClass,
-}: {
-  items: BridgeMediaCarouselItem[];
-  emptyLabel: string;
-  eyebrow: string;
-  headline: string;
-  lead: string;
-  contextualLine?: string;
-  groups: BridgeActivityGroup[];
-  onContinue: () => void;
-  continueDisabled: boolean;
-  accentButtonClass: string;
-  accentEyebrowClass: string;
-  accentDotClass: string;
-}) {
-  return (
-    <BridgeContentCapsule
-      className="h-full"
-      railCards={[{ id: 'primary', label: 'Media' }]}
-      viewportAspectRatio={() => 16 / 9}
-      renderViewport={() => (
-        <BridgeMediaCarouselPane
-          items={items}
-          emptyLabel={emptyLabel}
-          dotsPosition="overlay"
-          activeDotClassName={accentDotClass}
-        />
-      )}
-      renderStrip={() => (
-        <div>
-          <div className="flex items-baseline justify-between gap-3">
-            <p className={`text-[10px] uppercase tracking-[0.25em] ${accentEyebrowClass}`}>{eyebrow}</p>
-            <ListenButton compact getText={() => [headline, lead, contextualLine].filter(Boolean).join(' ')} />
-          </div>
-          <p className="mt-1 text-xs text-slate-500">{headline}</p>
-          <p className="mt-2 text-[13px] leading-[1.5] text-slate-300">{lead}</p>
-          {contextualLine && <p className="mt-2 text-xs text-slate-400">{contextualLine}</p>}
-        </div>
-      )}
-      renderCompanion={() => (
-        <div className="flex h-full min-h-0 flex-col rounded-2xl border border-white/[0.07] bg-slate-900/40 p-3.5">
-          <div className="shrink-0 border-b border-white/[0.07] pb-2">
-            <p className={`text-[10px] uppercase tracking-[0.25em] ${accentEyebrowClass}`}>Learning capsule</p>
-            <p className="mt-1 text-xs text-slate-500">Everything for this stage, gathered in one place.</p>
-          </div>
-          <div className="min-h-0 flex-1 overflow-y-auto pt-3 pr-1">
-            <BridgeActivityCompanionColumn groups={groups} />
-          </div>
-          <div className="mt-3 shrink-0 border-t border-white/[0.07] pt-3">
-            <button
-              type="button"
-              onClick={onContinue}
-              disabled={continueDisabled}
-              className={`flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold transition ${accentButtonClass} ${
-                continueDisabled ? 'cursor-not-allowed opacity-40' : ''
-              }`}
-            >
-              Continue
-              <ArrowRight className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-      )}
-    />
-  );
-}
 
 function selectStage(stageId: string, trigger?: 'stage-satisfaction-evidence-change') {
   try {
@@ -444,13 +316,8 @@ export function FinancialSovereigntyIntroStage({
   const primaryCtaDisabled =
     (stageKey === 'learn' && !learnSatisfied) || (stageKey === 'explore' && !exploreSatisfied);
 
-  const accentButtonClass =
-    accent === 'indigo' ? 'bg-indigo-500 hover:bg-indigo-400 text-slate-950' : 'bg-amber-500 hover:bg-amber-400 text-slate-950';
-  // Bridge-consistent accents (2026-09-06) — CI stays indigo/lilac, KNYTS
-  // stays amber, matching BridgeMediaStage's own ACCENT_CLASSES pairing;
-  // never a hardcoded amber value bleeding into the CI bridge's content.
-  const accentEyebrowClass = accent === 'indigo' ? 'text-indigo-400/80' : 'text-amber-400/80';
-  const accentDotClass = accent === 'indigo' ? 'bg-indigo-400' : 'bg-amber-400';
+  const { buttonClass: accentButtonClass, eyebrowClass: accentEyebrowClass, dotClass: accentDotClass } =
+    resolveFsAccentClasses(accent);
 
   // Continue used to render as a page-level footer pinned bottom-right
   // (with a lg:pr-56 clearance hack against CodexCopilotLayer's floating
