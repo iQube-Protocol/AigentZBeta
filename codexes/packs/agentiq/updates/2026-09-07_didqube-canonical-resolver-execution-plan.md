@@ -729,6 +729,29 @@ against the live 'Aigent Z' Supabase project.**
   T0/T1 wallet-route tension — an unresolved constitutional choice requiring its own operator ruling,
   deliberately not touched).
 
+#### Phase 3 item 4 — implementation record (2026-09-07)
+
+**Class-sensitive VC subject construction — IMPLEMENTED.**
+
+`services/passport/passportCredential.ts`'s `buildPassportCredential` anchored `credentialSubject.id`
+on `kybe_did_public_ref` UNCONDITIONALLY, for every passport class. Citizens are kybe-anchored
+(personhood, permanent) and this was correct for them — but agent/robot/organization participants
+have NO `kybe_identity` at all, so every non-citizen credential's subject was silently `undefined`.
+
+- New `resolveCredentialSubjectId(record)`: citizen → `kybe_did_public_ref`; every other class →
+  `root_did_public_ref` (brief §8, exactly as specified). A small, surgical change — one function, one
+  call site.
+- `PassportRecordRow` gained `root_did_public_ref`; the two callers that select this shape
+  (`app/api/polity-passport/credential/[passportId]/route.ts`, `app/api/polity-passport/wallet/route.ts`)
+  now select the column too (both the current and legacy-fallback `SELECT_COLS` variants).
+- Applied to NEW issuance / newly-built envelopes only — an already-issued credential is never rebuilt
+  from updated columns; a subject change goes through successor issuance (Phase 3 item 3), untouched
+  here.
+- `tests/passport-credential.test.ts` extended (10 tests, was 6): proves citizen anchors on KybeDID and
+  agent-participant anchors on RootDID even when BOTH refs are present on the row (no accidental
+  cross-class fallback), and that a class with no anchor at all produces `undefined` rather than
+  silently reading the wrong field.
+
 ### Phase 4 — Consumer migration, one subsystem at a time (brief §9-§11, §"Registry and Horizen")
 *Each subsystem migrates independently; none blocks the others. This is where "CTP, DCIR, Factor,
 Aegis, Standing and DVN consume the same resolver" actually happens — but sequenced, not simultaneous.*

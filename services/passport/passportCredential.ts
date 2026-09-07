@@ -26,6 +26,14 @@ export interface PassportRecordRow {
   participant_status: string | null;
   passport_grade: string | null;
   kybe_did_public_ref: string | null;
+  /**
+   * DiDQube Phase 3 item 4 (2026-09-07): the non-citizen subject anchor.
+   * Citizens are kybe-anchored (personhood, permanent); every other passport
+   * class (agent/robot/organization participant) has no kybe_identity at
+   * all — its subject is its RootDID commitment instead. See
+   * `resolveCredentialSubjectId` below.
+   */
+  root_did_public_ref: string | null;
   persona_public_ref: string | null;
   registry_record_id: string | null;
   issuer_id: string;
@@ -59,6 +67,20 @@ function credentialType(passportClass: string): string {
   return 'PolityAgentParticipantPassport';
 }
 
+/**
+ * Class-sensitive VC subject anchor (DiDQube Phase 3 item 4, brief §8):
+ * citizen → `kybe_did_public_ref` (personhood, permanent); every other
+ * passport class → `root_did_public_ref` (a citizen has no RootDID recorded
+ * on their own Passport row and an agent/robot/organization has no
+ * kybe_identity at all — the two refs are never interchangeable). Applied
+ * to NEW issuance only; an already-issued credential's subject is never
+ * mutated — a subject change goes through successor issuance (Phase 3
+ * item 3), never a rebuild of this same envelope from updated columns.
+ */
+function resolveCredentialSubjectId(record: PassportRecordRow): string | undefined {
+  return (record.passport_class === 'citizen' ? record.kybe_did_public_ref : record.root_did_public_ref) ?? undefined;
+}
+
 export function buildPassportCredential(record: PassportRecordRow, host: string) {
   const credential = {
     '@context': ['https://www.w3.org/ns/credentials/v2'],
@@ -70,8 +92,8 @@ export function buildPassportCredential(record: PassportRecordRow, host: string)
     validFrom: record.issued_at ?? undefined,
     validUntil: record.expires_at ?? undefined,
     credentialSubject: {
-      // The KybeDID commitment ref is the subject anchor — public-safe by design.
-      id: record.kybe_did_public_ref ?? undefined,
+      // Class-sensitive subject anchor — see resolveCredentialSubjectId.
+      id: resolveCredentialSubjectId(record),
       passportId: record.passport_id,
       passportClass: record.passport_class,
       passportGrade: record.passport_grade ?? undefined,

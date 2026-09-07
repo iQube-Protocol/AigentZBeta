@@ -32,9 +32,9 @@ export const dynamic = 'force-dynamic';
 // operator runs it, fall back to the legacy column set so the public
 // credential GET (live since Phase A) keeps working.
 const SELECT_COLS =
-  'passport_id, passport_class, citizen_status, participant_status, passport_grade, kybe_did_public_ref, persona_public_ref, registry_record_id, issuer_id, issued_at, expires_at, revoked, credential_claimed_at, persona_id';
+  'passport_id, passport_class, citizen_status, participant_status, passport_grade, kybe_did_public_ref, root_did_public_ref, persona_public_ref, registry_record_id, issuer_id, issued_at, expires_at, revoked, credential_claimed_at, persona_id';
 const SELECT_COLS_LEGACY =
-  'passport_id, passport_class, citizen_status, participant_status, passport_grade, kybe_did_public_ref, persona_public_ref, registry_record_id, issuer_id, issued_at, expires_at, revoked, persona_id';
+  'passport_id, passport_class, citizen_status, participant_status, passport_grade, kybe_did_public_ref, root_did_public_ref, persona_public_ref, registry_record_id, issuer_id, issued_at, expires_at, revoked, persona_id';
 
 function isMissingClaimColumn(message: string | undefined) {
   return !!message && message.includes('credential_claimed_at');
