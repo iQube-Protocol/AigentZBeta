@@ -194,6 +194,94 @@ export const PROVISIONAL_REHEARSAL_TASK_SET: ProvisionalTaskSet = {
   ],
 };
 
+/**
+ * A larger (16-task) provisional set — 2026-09-07, prepared after the
+ * `actuallyGroundedInvariantIds` audit repair, per operator instruction: "If
+ * the metric is valid, prepare a second internal-rehearsal task set of
+ * roughly 12-18 provisional tasks, balanced between recall and derivation,
+ * using only concepts genuinely groundable in frozen Crystal vP2." Unlike
+ * `PROVISIONAL_REHEARSAL_TASK_SET` (which deliberately KEEPS two
+ * zero-hit tasks as a live instrument diagnostic — see that set's own
+ * history), every keyword below was verified, BEFORE authoring, to have at
+ * least one real substring hit against `EXP-P1/crystal-vP2`'s actual 63
+ * memberSnapshot statements (checked directly via the frozen row, not
+ * guessed) — the exact discipline the `rehearsal-003`/`rehearsal-005` defect
+ * was missing. 8 recall (single keyword) + 8 derivation (two keywords, BOTH
+ * independently verified to hit — stronger than the mechanical minimum of
+ * "at least one", so a derivation task's two-concept framing is genuinely
+ * meaningful, not an artifact of one dead keyword riding on a live one).
+ * Per-keyword hit counts against the live corpus at authoring time (kept
+ * here for audit — never re-guessed later without re-verifying against the
+ * actual frozen row): risk 13, custody 3, governance 2, compliance 15,
+ * transparency 9, accountability 12, cybersecurity 9, data protection 4,
+ * anti-money laundering 4, financial crime 5, cross-border 4, regulatory
+ * framework 6, crypto-asset 6, market integrity 9, custodian 3, client asset
+ * 2, personal data 5, trust 5, security measures 8, threat 7, trading 5,
+ * market abuse 1, investment 4.
+ */
+export const LARGER_REHEARSAL_TASK_SET: ProvisionalTaskSet = {
+  id: 'EXP-P1/rehearsal-task-set-provisional-v2',
+  provenance: 'provisional',
+  tasks: [
+    { id: 'rehearsal-v2-001', kind: 'recall', prompt: 'What does the governed record say about risk?', keywords: ['risk'] },
+    { id: 'rehearsal-v2-002', kind: 'recall', prompt: 'What does the governed record say about custody?', keywords: ['custody'] },
+    { id: 'rehearsal-v2-003', kind: 'recall', prompt: 'What does the governed record say about governance?', keywords: ['governance'] },
+    { id: 'rehearsal-v2-004', kind: 'recall', prompt: 'What does the governed record say about compliance?', keywords: ['compliance'] },
+    { id: 'rehearsal-v2-005', kind: 'recall', prompt: 'What does the governed record say about transparency?', keywords: ['transparency'] },
+    { id: 'rehearsal-v2-006', kind: 'recall', prompt: 'What does the governed record say about accountability?', keywords: ['accountability'] },
+    { id: 'rehearsal-v2-007', kind: 'recall', prompt: 'What does the governed record say about cybersecurity?', keywords: ['cybersecurity'] },
+    { id: 'rehearsal-v2-008', kind: 'recall', prompt: 'What does the governed record say about data protection?', keywords: ['data protection'] },
+    {
+      id: 'rehearsal-v2-009',
+      kind: 'derivation',
+      prompt: 'How does the governed record relate anti-money laundering obligations to financial crime?',
+      keywords: ['anti-money laundering', 'financial crime'],
+    },
+    {
+      id: 'rehearsal-v2-010',
+      kind: 'derivation',
+      prompt: 'How does the governed record relate cross-border activity to the need for a harmonized regulatory framework?',
+      keywords: ['cross-border', 'regulatory framework'],
+    },
+    {
+      id: 'rehearsal-v2-011',
+      kind: 'derivation',
+      prompt: 'How does the governed record relate crypto-asset activity to market integrity?',
+      keywords: ['crypto-asset', 'market integrity'],
+    },
+    {
+      id: 'rehearsal-v2-012',
+      kind: 'derivation',
+      prompt: 'How does the governed record relate custodian obligations to the protection of client assets?',
+      keywords: ['custodian', 'client asset'],
+    },
+    {
+      id: 'rehearsal-v2-013',
+      kind: 'derivation',
+      prompt: 'How does the governed record relate personal data protection to trust in financial services?',
+      keywords: ['personal data', 'trust'],
+    },
+    {
+      id: 'rehearsal-v2-014',
+      kind: 'derivation',
+      prompt: 'How does the governed record relate security measures to the threats they are meant to address?',
+      keywords: ['security measures', 'threat'],
+    },
+    {
+      id: 'rehearsal-v2-015',
+      kind: 'derivation',
+      prompt: 'How does the governed record relate trading activity to the prevention of market abuse?',
+      keywords: ['trading', 'market abuse'],
+    },
+    {
+      id: 'rehearsal-v2-016',
+      kind: 'derivation',
+      prompt: 'How does the governed record relate investment operations to cybersecurity risk management?',
+      keywords: ['investment', 'cybersecurity'],
+    },
+  ],
+};
+
 /** Arm C is a genuine SUBSET, never the whole frozen population — mirrors the
  *  registered protocol's own ⊆40% collection-size guard (README §"Collection-
  *  size guard"). Sorted by id (the same deterministic order `memberSnapshot`
