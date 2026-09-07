@@ -403,7 +403,7 @@ behavior change; zero DVN payload change.
 Entry point `resolveDiDQube(input: DiDQubeResolverInput): Promise<DiDQubeResolution>`. Never imports or
 references `personas`.
 
-**Disclosed issue and correction, same day (2026-09-07):** the original implementation of
+**Disclosed issue and correction — ROUND 1 (2026-09-07):** the original implementation of
 `resolveActiveDiDQubeChain` traversed `lifecycle_state = 'superseded'` → `superseded_by` unconditionally
 — any successor with a matching `subject_class` was trusted and resolved, with no check that it was
 bound to the SAME constitutional anchor as the predecessor. The operator caught this on review: *"A
@@ -416,32 +416,63 @@ different person — exactly the "subject re-identification via correlated commi
 CLAUDE.md's HMS Identifier Isolation section exists to prevent, here via a code defect rather than a
 data leak.
 
-**Resolution — the stable-container model (operator's option 1, preferred over option 2):** a DiDQube
-is now treated as a permanent constitutional container that is never superseded merely because a
-RootDID, VC, or public commitment rotates beneath it. `resolveActiveDiDQubeChain` no longer trusts
-`superseded_by` on the strength of the DB row alone: every hop beyond the starting didqube is
-independently re-verified (`verifyBoundToAnchor`) to be bound, in the SAME subtype table, to the
-IDENTICAL anchor id the caller is resolving — matching `subject_class` alone is explicitly insufficient
-(a different subject can share a subject_class). A successor with no anchor binding, or one bound to a
-different anchor, is `conflicted` — the traversal is refused, not silently accepted. The rejected
-alternative (option 2, container-successor: an atomic DB operation that re-establishes the anchor
-binding on the successor) was not built — it would require new migration/DDL and an explicit
-"transfer the anchor" write path, out of scope for a resolver-only correction and not preferred by the
-operator absent an explicit constitutional reason to replace a container. No schema or migration change
-was needed for this fix; it is resolver-code-only. See the module header of
-`services/identity/didQubeResolver.ts` for the full rationale, preserved as living documentation.
+**Round 1's fix ("anchor-verified container replacement") — SUPERSEDED by round 2, kept here only as a
+corrected historical record, not the shipped design:** the round 1 fix still walked from a `superseded`
+didqube to its recorded successor whenever the successor could be shown, by an added query, to bind the
+same constitutional anchor. The operator correctly identified, on the very next review, that this was
+still container REPLACEMENT dressed up with a check — not the stable container the model is named for:
+*"Complete the stable-container model literally... Remove successful DiDQube supersession traversal
+from the resolver... A DiDQube encountered as `superseded` must return `conflicted` or a dedicated
+unresolved reason until a separately designed constitutional reconciliation mechanism exists."* A
+DiDQube's identity must never move to a *different* `didqube_id` at all — anchor-verified or not — so
+"stable container" must not describe anchor-verified container replacement, even as an improvement over
+the original defect.
 
-Five new/corrected tests in `tests/didqube-resolver.test.ts` prove the corrected behavior: a successor
-with no anchor binding is `conflicted`; a successor bound to a different anchor is `conflicted` even
-when `subject_class` matches (proving subject-class continuity alone is insufficient); the single-hop
-"resolves" test now asserts the successor is *verified* bound to the same anchor, not merely present;
-the cycle test and a new depth-exceeded test (15 non-cycling hops, over the 10-hop cap) both hold
-anchor-verification constant across every hop to isolate the cycle/depth guards specifically, proving
-neither guard was accidentally weakened by the anchor check; and the different-anchor test additionally
-asserts the returned object carries no `primitive` field at all — no returned primitive ever combines a
-successor DiDQube with an unproven predecessor anchor.
+**Round 2 — the shipped design, literal stable-container, no traversal at all:** `resolveActiveDiDQubeChain`
+was removed entirely and replaced by `resolveDirectDiDQube`, which inspects EXACTLY the one `didqubes`
+row the anchor's own subtype binding names — no successor lookup, no `superseded_by` dereference, no
+loop, no cycle or depth concern (a single row can never cycle). An `active` row resolves in place. A
+well-formed `superseded` row (one that does record a `superseded_by` successor) is
+`unresolved`/`superseded_unreconciled` — a new, dedicated `UnresolvedReason` — never `conflicted`,
+because a superseded container is a normal, expected constitutional state, not a data defect. A
+`superseded` row that records NO successor at all remains `conflicted` (malformed historical data,
+retained as a diagnostic signal per the operator's instruction, but never a path to a resolved
+primitive). RootDID/VC/Passport/public-commitment rotation cannot supersede the container because the
+resolver never looks past the one `didqubes` row the anchor is bound to in the first place — rotation is
+visible only in `currentIdentityPrimitive` (e.g. `root_identity`), which the resolver already tracked
+separately from `constitutionalAnchor`/`didqubeId`. No schema or migration change was needed for either
+round; both were resolver-code-only. See the module header of `services/identity/didQubeResolver.ts` for
+the full, corrected rationale — the round 1 "anchor-verified continuity" framing has been removed from
+the header and replaced with the literal no-traversal description.
 
-**Tests:** `tests/didqube-resolver.test.ts` — 30 tests (27 original + 3 added for this correction), all
+**The impossible test was removed, and its proof moved to the real database:** the "duplicate/ambiguous
+bindings" test suite previously included a MOCKED scenario binding one unique `kybe_identity_id` to two
+`human_didqubes` rows — a state the real database's own Phase 1 `UNIQUE` constraint makes impossible,
+per operator instruction *"Remove the impossible test... Add a real-PostgreSQL test proving that state
+is rejected by the Phase 1 unique constraint."* That mocked test is gone.
+`scripts/didqube-phase1-constraint-verification.mjs` gained a 6th real-Postgres assertion
+(`6_one_anchor_never_binds_two_didqubes`), run live (in a rolled-back transaction, zero residue) against
+project `bsjhfvctmduxhohtllly` on 2026-09-07 against an ALREADY-bound, real, Phase-1-backfilled
+`kybe_identity` row (not a freshly-created one) — **PASSED**, alongside a full re-run of all 6 assertions
+together (also all **PASSED**). That live re-run also surfaced a genuine staleness in the script's
+original setup: assertions 1/4 ("a valid bind succeeds") had assumed an unbound real anchor was
+available to test against, which Phase 1's own full backfill had since made untrue for every real row —
+the script now creates and rolls back fresh synthetic `kybe_identity`/`agent_root_identity` rows for
+assertions 1-5, while assertion 6 deliberately still targets a real, already-bound row (see the script's
+own comments).
+
+New/removed tests in `tests/didqube-resolver.test.ts`: the impossible mocked duplicate-anchor test is
+removed (comment left in its place explaining why, and pointing at the real-Postgres proof). The entire
+supersession test suite was rewritten for the no-traversal design: an active didqube resolves normally;
+a well-formed superseded didqube (human and agent) is `unresolved`/`superseded_unreconciled` with an
+assertion that the `didqubes` table is queried EXACTLY ONCE (the successor is never looked up at all); a
+dedicated test proves RootDID rotation never changes the resolved `didqubeId` for the same kybe across
+two calls with two different current `root_identity` rows, while `currentIdentityPrimitive` correctly
+reflects the rotation; and the malformed-superseded-with-no-successor case remains `conflicted` as a
+diagnostic. The cycle/depth-guard tests from round 1 were removed along with the traversal code they
+exercised — there is nothing left to cycle through.
+
+**Tests:** `tests/didqube-resolver.test.ts` — 28 tests, all
 passing. Every real dependency is mocked
 (`getSupabaseServer`, `resolveRootPrincipalForAuthUser`, `resolvePassportPrincipal` — the latter two via
 `vi.mock(..., { importOriginal })` so `isPassportUsable` stays the REAL implementation, not stubbed).
@@ -450,12 +481,12 @@ Coverage against the operator's 7 named scenarios:
 | Scenario (operator's list) | Test(s) | Outcome asserted |
 |---|---|---|
 | **missing** | `kybe_identity_id`/`agent_root_identity_id`/`agent_card_url` with zero matching rows | `unresolved` / `anchor_absent` — the literal `{ state: 'unresolved', reason: 'anchor_absent' }` shape the operator specified for "absent" |
-| **duplicate** | two `human_didqubes` rows for one `kybe_identity_id`; an `agent_card_url` matching two `agent_root_identity` rows | `ambiguous` — defensive against the DB's own `UNIQUE` constraint, not trusting it blindly |
-| **ambiguous** | same two tests above | `ambiguous` with `candidateCount` |
+| **duplicate** | an `agent_card_url` matching two `agent_root_identity` rows (genuinely possible — no `UNIQUE` constraint on that column). The mocked "two `human_didqubes` rows for one `kybe_identity_id`" test was REMOVED — that state is impossible in the real database (Phase 1's own `UNIQUE` constraint), proven instead at the DB layer (`scripts/didqube-phase1-constraint-verification.mjs` assertion 6, live-run PASSED — see above) | `ambiguous` (resolver test) / real `unique_violation` (DB proof) |
+| **ambiguous** | same `agent_card_url` test above | `ambiguous` with `candidateCount` |
 | **cross-class** | a `human_didqubes`→`didqubes` row whose `subject_class` is `'agent'` (and the agent-side mirror) | `conflicted` — the `didqube_enforce_subject_class` trigger fires only on subtype-table writes, never on a later out-of-band `didqubes.subject_class` update, so this is a real gap the resolver closes at read time, not a contrived case |
 | **conflicted** | a `didqube_id` bound in both `human_didqubes` and `agent_didqubes` | `conflicted` |
-| **superseded** | a single supersession hop resolves ONLY once the successor is anchor-verified; a successor with no anchor binding, or bound to a different anchor (even with matching subject_class), is refused; a supersession cycle and a >10-hop chain are both `conflicted` (anchor checks held constant to isolate the guards); a `superseded` row with no `superseded_by` is `conflicted` | `resolved` (anchor-verified successor's id) / `conflicted` (no binding, different anchor, cycle, excess depth, malformed) — see the disclosed correction above |
-| **malformed** | a subtype row referencing a nonexistent `didqubes` row; a constitutional anchor with null `kybe_did`/`did_uri` | `conflicted` in every case |
+| **superseded** | LITERAL stable-container model (round 2): an active didqube resolves normally, no successor lookup ever performed; a well-formed superseded didqube (human and agent) never dereferences `superseded_by` at all; a dedicated RootDID-rotation test proves the resolved `didqubeId` is identical across two calls with two different current `root_identity` rows for the same kybe; a superseded row with no successor recorded is `conflicted` (malformed, diagnostic only) | `resolved` (active) / `unresolved`/`superseded_unreconciled` (well-formed superseded — NOT `conflicted`, NOT a successor lookup) / `conflicted` (malformed) — see the disclosed two-round correction above |
+| **malformed** | a subtype row referencing a nonexistent `didqubes` row; a constitutional anchor with null `kybe_did`/`did_uri`; a superseded row with no successor recorded | `conflicted` in every case |
 
 Additional coverage beyond the 7 named scenarios: `subject_class_hint` for `robot`/`organization` →
 `unsupported_subject_class` with zero DB calls; `erc8004` (with and without `verifiedBindingRef`) →
@@ -467,13 +498,13 @@ never contains the raw `kybe_did`/`did_uri` string), and `trustClass` is tagged 
 `passport_gate_unmet`/`anchor_absent` failure-mapping for `proven_wallet` and a dedicated assertion that
 a `.from('personas')` call would throw and is never reached on the `auth_user_id` path.
 
-**Regression check:** full suite run (`npx vitest run`) immediately after the initial implementation —
-19 failed files / 67 failed tests. After the supersession correction above, re-run — **17 failed files /
-65 failed tests, 640 passed files / 10580 passed tests**, exactly matching the baseline recorded at the
-close of Phase 1 (the earlier 19/67 reading was transient, not a regression from either round — none of
-the failing files in either run reference `didQubeResolver`/`didqube-resolver`, and the new test file is
-never among them). `tests/didqube-resolver.test.ts` passes 30/30. `npx tsc --noEmit` on the whole project
-reports pre-existing errors unrelated to either new file (confirmed by grep — zero matches for
+**Regression check:** full suite run (`npx vitest run`) immediately after the round-1 implementation —
+19 failed files / 67 failed tests; re-run after round 1's fix — 17 failed files / 65 failed tests,
+exactly matching the Phase 1 baseline (the 19/67 reading was transient, not a regression). After round
+2 (the literal no-traversal correction), `tests/didqube-resolver.test.ts` passes 28/28 on its own; none
+of the pre-existing baseline's failing files reference `didQubeResolver`/`didqube-resolver` in any round,
+and the new test file is never among them. `npx tsc --noEmit` on the whole project reports pre-existing
+errors unrelated to either new file (confirmed by grep — zero matches for
 `didQubeResolver`/`didqube-resolver` in the tsc output).
 
 **What Phase 2 deliberately did not do (per requirements #6/#7/#8):** no Passport/Factor/Aegis/CTP/
