@@ -289,9 +289,13 @@ export function KnytsBridgeChooseSurface({
   const kickstarterUrl = getKnytsBridgeKickstarterUrl();
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[3fr_2fr]">
+    // Explicit shared row height (2026-09-06 fix) — same reasoning as
+    // BridgeOrientSurface/PassportRoom's own grid: put the media's height
+    // range on the GRID, not the media pane, so both columns stretch to the
+    // SAME real height and the right capsule's internal scroll engages.
+    <div className="grid gap-4 lg:h-[55vh] lg:max-h-[65vh] lg:min-h-[18rem] lg:grid-cols-[3fr_2fr] lg:items-stretch">
       {/* LEFT — contextual visual, same interaction model as CI Choose. */}
-      <FullscreenableFrame className="h-[55vh] max-h-[65vh] min-h-[18rem] w-full bg-slate-900/40" title="Choose">
+      <FullscreenableFrame className="h-full w-full bg-slate-900/40" title="Choose">
         {leftView === 'store' ? (
           <iframe src={storeUrl} title="Explore the KNYT Store" className="h-full w-full border-0" />
         ) : leftView === 'ci' ? (

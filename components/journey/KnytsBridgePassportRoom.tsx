@@ -35,7 +35,7 @@
  * `resolveSurfaceProps`, never re-derived here (one observer, one record).
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowRight, CheckCircle2, Maximize2, X } from 'lucide-react';
 import { PassportBureauApplyTab } from '@/app/triad/components/codex/tabs/PassportBureauApplyTab';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -91,6 +91,19 @@ export function KnytsBridgePassportRoom({ personaId, citizenPassportUsable, requ
   // the row button directly — "Maybe later" must be a true no-op.
   const [delegateModalOpen, setDelegateModalOpen] = useState(false);
   const [delegateFlowOpen, setDelegateFlowOpen] = useState(false);
+  const delegateFlowRef = useRef<HTMLDivElement>(null);
+
+  // Scroll fix (2026-09-06) — the delegate flow panel renders BELOW the
+  // grid + action row, so on a shorter viewport it opened entirely beneath
+  // the fold with no way to reach it. `scrollIntoView` bubbles up through
+  // whatever ancestor actually scrolls (the outer page/iframe), so this
+  // works regardless of the surrounding chrome — the panel it targets stays
+  // untouched.
+  useEffect(() => {
+    if (delegateFlowOpen) {
+      delegateFlowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [delegateFlowOpen]);
 
   useEffect(() => {
     if (!citizenPassportUsable) return;
@@ -169,11 +182,18 @@ export function KnytsBridgePassportRoom({ personaId, citizenPassportUsable, requ
         </div>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-[3fr_2fr]">
+      {/* Explicit shared row height (2026-09-06 fix) — same reasoning as
+          BridgeOrientSurface's own grid: put the media's height range on
+          the GRID, not the media pane, so both columns stretch to the SAME
+          real height and the right capsule's internal scroll actually
+          engages instead of just growing to fit its own content (this was
+          the root cause of the delegate flow rendering beneath the fold
+          with no way to scroll to it). */}
+      <div className="grid gap-4 lg:h-[45vh] lg:max-h-[55vh] lg:min-h-[16rem] lg:grid-cols-[3fr_2fr] lg:items-stretch">
         {/* LEFT — personhood/Passport media, admin-editable video with a
             CIP-007B fallback (same pattern as CI's own room), mounted in the
             same warm parchment museum-matte View/Orient use elsewhere. */}
-        <div className="relative flex h-[45vh] max-h-[55vh] min-h-[16rem] w-full items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-slate-900/40">
+        <div className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-slate-900/40">
           <button
             type="button"
             onClick={() => setFullscreenImage(true)}
@@ -214,7 +234,7 @@ export function KnytsBridgePassportRoom({ personaId, citizenPassportUsable, requ
         >
           <div className="space-y-3">
             <div>
-              <h2 className="text-xl font-bold text-white sm:text-2xl">
+              <h2 className="text-lg font-bold text-white sm:text-xl">
                 {config.headline ?? KNYTS_BRIDGE_SECTION_DEFAULTS[SECTION].headline}
               </h2>
               {introCopy && <p className="mt-2 text-[13px] leading-[1.5] text-slate-300">{introCopy}</p>}
@@ -261,7 +281,7 @@ export function KnytsBridgePassportRoom({ personaId, citizenPassportUsable, requ
       />
 
       {delegateFlowOpen && (
-        <div className="space-y-3 rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+        <div ref={delegateFlowRef} className="space-y-3 rounded-xl border border-slate-800 bg-slate-900/40 p-4">
           <div className="flex items-center justify-between">
             <p className="text-sm font-semibold text-slate-200">Create your delegate</p>
             <button

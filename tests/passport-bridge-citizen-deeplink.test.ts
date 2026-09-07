@@ -60,22 +60,21 @@ describe('KNYTS + CI Passport rooms deep-link straight to the Citizen route', ()
     }
   });
 
-  it('the KNYTS delegate affordance (2026-08-21) is the ONLY additional mount — CI room is unchanged', () => {
-    const ciCode = stripComments(readSource(CI_ROOM));
-    expect(
-      (ciCode.match(/<PassportBureauApplyTab/g) ?? []).length,
-      'ConstitutionalInternetBridgePassportRoom mount count changed — this task never touched CI',
-    ).toBe(1);
-
-    const knytsCode = stripComments(readSource(KNYTS_ROOM));
-    expect((knytsCode.match(/<PassportBureauApplyTab/g) ?? []).length).toBe(2);
-    expect(knytsCode).toContain('routeTo="delegate"');
-    // The delegate mount is a confirm-gated, optional, post-activation
-    // capability — never unconditional, never a second automatic Passport
-    // claim.
-    const delegateMountIdx = knytsCode.indexOf('routeTo="delegate"');
-    const gateIdx = knytsCode.lastIndexOf('delegateFlowOpen &&', delegateMountIdx);
-    expect(gateIdx, 'the delegate mount is not gated behind delegateFlowOpen').toBeGreaterThan(-1);
+  it('the delegate affordance (KNYTS 2026-08-21, CI parity pass 2026-09-06) mounts identically in both rooms — CI is no longer the odd one out', () => {
+    for (const [label, file] of [['CI', CI_ROOM], ['KNYTS', KNYTS_ROOM]] as const) {
+      const code = stripComments(readSource(file));
+      expect(
+        (code.match(/<PassportBureauApplyTab/g) ?? []).length,
+        `${label} PassportRoom should mount PassportBureauApplyTab exactly twice (citizen claim + delegate)`,
+      ).toBe(2);
+      expect(code).toContain('routeTo="delegate"');
+      // The delegate mount is a confirm-gated, optional, post-activation
+      // capability — never unconditional, never a second automatic Passport
+      // claim.
+      const delegateMountIdx = code.indexOf('routeTo="delegate"');
+      const gateIdx = code.lastIndexOf('delegateFlowOpen &&', delegateMountIdx);
+      expect(gateIdx, `${label}: the delegate mount is not gated behind delegateFlowOpen`).toBeGreaterThan(-1);
+    }
   });
 });
 
