@@ -59,14 +59,11 @@ describe('MoneyPennyBridgeEmbed — the one shared in-frame mount, reusing the e
 });
 
 describe('CI/KNYTS Prepare/Operate now embed MoneyPenny in place — never a navigate-away', () => {
-  it('FinancialSovereigntyPrepareCrossStage.tsx uses MoneyPennyBridgeEmbed, never window.location.assign', () => {
+  it('FinancialSovereigntyPrepareCrossStage.tsx mounts FinancialProfilePanel directly, never window.location.assign (2026-09-06: superseded the MoneyPennyBridgeEmbed iframe for this one launch — Operate below still uses it)', () => {
     const src = stripComments(readSource(PREPARE));
-    expect(src).toMatch(/import \{ MoneyPennyBridgeEmbed \} from '@\/components\/journey\/MoneyPennyBridgeEmbed'/);
-    // 'my-money' — the native area tab slug (navigation-hierarchy
-    // correction, 2026-09-03, second pass) whose own default panel IS
-    // financial-profile (moneypennyCapabilities.ts's defaultPanelForArea),
-    // not the retired legacy panel-key slug directly.
-    expect(src).toMatch(/<MoneyPennyBridgeEmbed tab="my-money" personaId=\{personaId\}/);
+    expect(src).toMatch(/import \{ FinancialProfilePanel \} from '@\/app\/\(shell\)\/moneypenny\/components\/FinancialProfilePanel'/);
+    expect(src).toMatch(/<FinancialProfilePanel \/>/);
+    expect(src).not.toMatch(/window\.location\.assign/);
     // CROSS mode's own handoff navigation (a genuinely different concern —
     // leaving the bridge journey entirely, not embedding MoneyPenny) still
     // legitimately navigates; only the Prepare-mode financial-profile
@@ -90,9 +87,9 @@ describe('CI/KNYTS Prepare/Operate now embed MoneyPenny in place — never a nav
     expect(src).not.toMatch(/buildCodexUrl/);
   });
 
-  it('Prepare preserves "Continue to Operate" reachable while its embed is open — never trapping the visitor inside it', () => {
+  it('Prepare preserves "Continue to Operate" reachable while its financial-profile capsule is open — never trapping the visitor inside it', () => {
     const prepareSrc = stripComments(readSource(PREPARE));
-    expect(prepareSrc).toMatch(/if \(embedOpen\) \{[\s\S]*?Continue to Operate[\s\S]*?<MoneyPennyBridgeEmbed/);
+    expect(prepareSrc).toMatch(/if \(embedOpen\) \{[\s\S]*?Continue to Operate[\s\S]*?<FinancialProfilePanel \/>/);
   });
 
   // Navigation/viewport correction follow-up (2026-09-03, operator

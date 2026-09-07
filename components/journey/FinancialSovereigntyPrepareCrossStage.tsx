@@ -14,12 +14,13 @@
  * implements (C-04–C-06) — reusing `fetchFinancialProfileSummary()`, the
  * SAME read `MoneyPennyCopilotWorkspace.tsx`'s groundContext uses (one
  * canonical profile, never a copied bridge snapshot — SC-03). Its
- * "Review my financial profile" action opens that exact panel IN PLACE
- * (`MoneyPennyBridgeEmbed`, experience-coherence correction, 2026-09-03 —
- * a real iframe embed, never `window.location.assign`; see that
- * component's own header for the mechanism), with a "← Back to Prepare
- * summary" affordance to collapse it again; "Continue to Operate" advances
- * via the SAME `journey:select-stage` mechanism this file already used, to
+ * "Review my financial profile" action opens that exact panel — literally
+ * `FinancialProfilePanel` (MPY2-2/2c), mounted DIRECTLY as a capsule
+ * (2026-09-06 — supersedes the 2026-09-03 `MoneyPennyBridgeEmbed` iframe
+ * correction: a real React mount now, not a cross-frame embed of the whole
+ * "My Money" tab) — with a "← Back to Prepare summary" affordance to
+ * collapse it again; "Continue to Operate" advances via the SAME
+ * `journey:select-stage` mechanism this file already used, to
  * `nextStageId` — already wired to `fs-operate` in both journey
  * definitions (services/journey/constitutionalInternetBridgeJourney.ts,
  * knytsBridgeCrossingJourney.ts), so no journey-graph change was needed
@@ -33,11 +34,12 @@
  * buttons stay exactly as they were, real functional content — never
  * decomposed into a capsule — via the shell's `companionExtra` (rendered
  * above the activity groups) and `renderFooter` (the two-button row) slots.
- * The embed branch is untouched: the moment it opens (below), this
- * component falls straight back to its own pre-existing full-height,
- * non-carousel layout. The embed is NEVER mounted inside the capsule
- * shell's composition, so switching the media hero or scrolling the
- * companion capsule can never remount or reset it.
+ * The `FinancialProfilePanel` branch is untouched by the shell: the moment
+ * it opens (below), this component falls straight back to its own
+ * pre-existing full-height, non-carousel layout, filling the same viewport
+ * area the media hero occupies elsewhere in this shell. It is NEVER
+ * mounted inside the capsule shell's composition, so switching the media
+ * hero or scrolling the companion capsule can never remount or reset it.
  *
  * The legacy agent-candidate picker is retired from Prepare's primary
  * flow, per the Bridge spec's own B-13 migration guidance: "A previously
@@ -64,7 +66,7 @@ import { fetchFinancialProfileSummary, markFinancialProfileReviewed, type Financ
 import type { BridgeAccent } from '@/components/journey/BridgeMediaStage';
 import { FsBridgeCapsuleSection, resolveFsAccentClasses } from '@/components/journey/FsBridgeCapsuleSection';
 import type { BridgeActivityGroup } from '@/services/journey/bridgeActivity';
-import { MoneyPennyBridgeEmbed } from '@/components/journey/MoneyPennyBridgeEmbed';
+import { FinancialProfilePanel } from '@/app/(shell)/moneypenny/components/FinancialProfilePanel';
 import { FinancialSovereigntyCheckGroup } from '@/components/journey/FinancialSovereigntyCheckGroup';
 import { FS_STAGE_CONTENT, resolveFsSectionContent, type FsBridge, type FsStructuredContent } from '@/services/journey/financialSovereigntyContent';
 import { useFsBridgeSection } from '@/services/journey/useFsBridgeSection';
@@ -235,7 +237,7 @@ export function FinancialSovereigntyPrepareCrossStage({
               onClick={handleCross}
               className={`flex w-full items-center justify-center rounded-xl border px-5 py-3 text-sm font-semibold transition ${ACCENT_BUTTON[accent]}`}
             >
-              Cross to Financial Services →
+              Cross to Advanced Financial Services →
             </button>
           )}
         />
@@ -320,14 +322,23 @@ function PrepareFinancialProfileReview({
   const hasProfile = summary?.hasProfile === true;
   const isReviewed = hasProfile && summary?.reviewedAt != null;
 
-  // MoneyPenny experience-coherence correction (2026-09-03) — "Review my
-  // financial profile" opens the canonical MoneyPenny workspace IN PLACE
-  // (MoneyPennyBridgeEmbed) rather than navigating the bridge away. The
-  // stepper, this stage's own copy, and "Continue to Operate" all stay
-  // reachable while the embed is open. This branch is deliberately OUTSIDE
-  // the FsBridgeCapsuleSection composition below — the
-  // real workspace gets the full viewport, never squeezed beside a video,
-  // and toggling embedOpen never touches the summary view's own state.
+  // Financial Profile capsule (2026-09-06 — replaces the 2026-09-03
+  // MoneyPennyBridgeEmbed iframe correction with a direct, in-capsule
+  // mount). "Review my financial profile" no longer opens the MoneyPenny
+  // CARTRIDGE (an iframe of the whole "My Money" tab) — it opens the
+  // canonical `FinancialProfilePanel` (MPY2-2/2c) DIRECTLY, the same
+  // component the standalone /moneypenny shell's own Financial Profile
+  // capability mounts. This is strictly more capable than the embed's own
+  // "My Money" tab for this purpose: manual entry AND file upload (its file
+  // picker already accepts .pdf as well as .csv) both come along unchanged
+  // — nothing is lost — while dropping the cross-frame iframe entirely
+  // means one native React tree, one scroll surface, one styling system.
+  // The stepper, this stage's own copy, and "Continue to Operate" all stay
+  // reachable while it's open. This branch is deliberately OUTSIDE the
+  // FsBridgeCapsuleSection composition below — the capsule gets the full
+  // viewport height (matching the media hero's own height elsewhere in
+  // this shell), never squeezed beside a video, and toggling embedOpen
+  // never touches the summary view's own state.
   if (embedOpen) {
     return (
       <div className="flex h-full flex-col gap-3 p-4">
@@ -347,7 +358,9 @@ function PrepareFinancialProfileReview({
             Continue to Operate
           </button>
         </div>
-        <MoneyPennyBridgeEmbed tab="my-money" personaId={personaId} className="min-h-0 w-full flex-1 rounded-md border border-slate-800 bg-slate-950" />
+        <div className="min-h-0 w-full flex-1 overflow-y-auto rounded-md border border-slate-800 bg-slate-950">
+          <FinancialProfilePanel />
+        </div>
       </div>
     );
   }
